@@ -1,11 +1,12 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useAgentData } from "../hooks/useAgentData";
 import AgentOverview from "./AgentOverview";
 import RunsPanel from "./RunsPanel";
 import ChatPanel from "./ChatPanel";
 import type {
   AgentInfo, AgentStatus, LogEntry, LlmConfigSafe,
-  ToolEntry, SkillEntry, TaskEntry, ScheduleEntry, MemoryEntry, ToolLogEntry,
+  ToolEntry, SkillEntry, SkillToolEntry, SchemaField,
+  TaskEntry, ScheduleEntry, MemoryEntry, ToolLogEntry,
 } from "../types";
 
 // ---------------------------------------------------------------------------
@@ -193,6 +194,307 @@ function LogPanel({ logs }: { logs: ReturnType<typeof useAgentData>["logs"] }) {
 }
 
 // ---------------------------------------------------------------------------
+// Schema display helpers
+// ---------------------------------------------------------------------------
+
+function SchemaTypeTag({ field }: { field: SchemaField }) {
+  const color: Record<string, string> = {
+    string: "text-success", number: "text-info", boolean: "text-attention",
+    array: "text-accent", object: "text-fg", enum: "text-attention",
+  };
+  const label = field.optional ? `${field.type}?` : field.type;
+  return (
+    <span className={`font-mono text-[10px] ${color[field.type] ?? "text-fg-muted"}`}>{label}</span>
+  );
+}
+
+function SchemaTable({ schema }: { schema: Record<string, SchemaField> }) {
+  return (
+    <table className="w-full text-xs mt-1.5">
+      <thead>
+        <tr className="text-fg-dim text-[10px] border-b border-border-muted">
+          <th className="text-left pb-1 pr-2 font-normal">param</th>
+          <th className="text-left pb-1 pr-2 font-normal">type</th>
+          <th className="text-left pb-1 font-normal">description</th>
+        </tr>
+      </thead>
+      <tbody>
+        {Object.entries(schema).map(([key, field]) => (
+          <tr key={key} className="border-b border-border-muted last:border-0">
+            <td className="py-1 pr-2 font-mono text-accent">{key}</td>
+            <td className="py-1 pr-2"><SchemaTypeTag field={field} /></td>
+            <td className="py-1 text-fg-muted">{field.description ?? "—"}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Tool Invoke Modal
+// ---------------------------------------------------------------------------
+
+interface InvokeModalProps {
+  tool: ToolEntry | SkillToolEntry;
+  onClose: () => void;
+}
+
+function InvokeModal({ tool, onClose }: InvokeModalProps) {
+  const schema = tool.inputSchema ?? {};
+  const [args, setArgs] = useState<Record<string, string>>(
+    Object.fromEntries(Object.keys(schema).map((k) => [k, ""]))
+  );
+  const [result, setResult] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const invoke = async () => {
+    setLoading(true); setResult(null); setError(null);
+    const parsed: Record<string, unknown> = {};
+    for (const [key, raw] of Object.entries(args)) {
+      const fieldType = schema[key]?.type;
+      if (fieldType === "number") {
+        parsed[key] = parseFloat(raw);
+      } else if (fieldType === "boolean") {
+        parsed[key] = raw === "true" || raw === "1";
+      } else {
+        // Try JSON parse for complex types, fall back to string
+        try { parsed[key] = JSON.parse(raw); } catch { parsed[key] = raw; }
+      }
+    }
+    try {
+      const res = await fetch("/api/tools/invoke", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ toolName: tool.name, args: parsed }),
+      });
+      const data = await res.json() as { ok?: boolean; result?: unknown; error?: string };
+      if (!res.ok || data.error) { setError(data.error ?? "Unknown error"); }
+      else { setResult(JSON.stringify(data.result, null, 2)); }
+    } catch (e) {
+      setError(String(e));
+    } finally { setLoading(false); }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onClick={onClose}>
+      <div
+        className="bg-canvas border border-border rounded-lg shadow-xl w-full max-w-lg mx-4 overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between px-4 py-2.5 bg-canvas-subtle border-b border-border-muted">
+          <div>
+            <span className="text-[10px] text-fg-muted uppercase tracking-widest">Invoke Tool</span>
+            <code className="block text-accent font-mono text-sm mt-0.5">{tool.name}</code>
+          </div>
+          <button onClick={onClose} className="text-fg-muted hover:text-fg text-lg leading-none">&#x2715;</button>
+        </div>
+        <div className="p-4 space-y-3 max-h-[60vh] overflow-y-auto">
+          {tool.description && (
+            <p className="text-xs text-fg-muted">{tool.description}</p>
+          )}
+          {Object.keys(schema).length === 0 ? (
+            <p className="text-xs text-fg-dim">This tool takes no parameters.</p>
+          ) : (
+            Object.entries(schema).map(([key, field]) => (
+              <div key={key}>
+                <label className="flex items-center gap-1.5 text-[10px] text-fg-muted uppercase tracking-wide mb-0.5">
+                  <span className="font-mono text-accent">{key}</span>
+                  <SchemaTypeTag field={field} />
+                  {field.optional && <span className="text-fg-dim">(optional)</span>}
+                </label>
+                {field.enum ? (
+                  <select
+                    value={args[key] ?? ""}
+                    onChange={(e) => setArgs((p) => ({ ...p, [key]: e.target.value }))}
+                    className="w-full bg-canvas border border-border-muted rounded px-2 py-1 text-xs text-fg outline-none focus:border-accent"
+                  >
+                    <option value="">— select —</option>
+                    {field.enum.map((v) => <option key={String(v)} value={String(v)}>{String(v)}</option>)}
+                  </select>
+                ) : field.type === "boolean" ? (
+                  <select
+                    value={args[key] ?? ""}
+                    onChange={(e) => setArgs((p) => ({ ...p, [key]: e.target.value }))}
+                    className="w-full bg-canvas border border-border-muted rounded px-2 py-1 text-xs text-fg outline-none focus:border-accent"
+                  >
+                    <option value="">—</option>
+                    <option value="true">true</option>
+                    <option value="false">false</option>
+                  </select>
+                ) : (
+                  <input
+                    type={field.type === "number" ? "number" : "text"}
+                    value={args[key] ?? ""}
+                    onChange={(e) => setArgs((p) => ({ ...p, [key]: e.target.value }))}
+                    placeholder={field.description ?? field.type}
+                    className="w-full bg-canvas border border-border-muted rounded px-2 py-1 text-xs text-fg placeholder:text-fg-dim outline-none focus:border-accent font-mono"
+                  />
+                )}
+              </div>
+            ))
+          )}
+
+          {error && (
+            <div className="rounded bg-[#2d1b1b] border border-danger px-3 py-2 text-danger text-xs">
+              {error}
+            </div>
+          )}
+          {result !== null && (
+            <div>
+              <p className="text-[10px] text-fg-muted uppercase tracking-wide mb-1">Result</p>
+              <pre className="bg-canvas-subtle border border-border-muted rounded px-3 py-2 text-xs text-success font-mono whitespace-pre-wrap max-h-48 overflow-y-auto">
+                {result}
+              </pre>
+            </div>
+          )}
+        </div>
+        <div className="flex justify-end gap-2 px-4 py-2.5 bg-canvas-subtle border-t border-border-muted">
+          <button onClick={onClose} className="px-3 py-1 text-xs text-fg-muted border border-border rounded hover:text-fg transition-colors">
+            Cancel
+          </button>
+          <button
+            onClick={invoke}
+            disabled={loading}
+            className="px-3 py-1 text-xs bg-accent-emphasis text-white rounded hover:bg-accent transition-colors disabled:opacity-50"
+          >
+            {loading ? "Running…" : "Run Tool"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Tool card
+// ---------------------------------------------------------------------------
+
+function ToolCard({ tool, onInvoke }: { tool: ToolEntry; onInvoke: (t: ToolEntry) => void }) {
+  const [expanded, setExpanded] = useState(false);
+  const hasSchema = tool.inputSchema && Object.keys(tool.inputSchema).length > 0;
+
+  return (
+    <div className="bg-canvas-subtle border border-border-muted rounded-md overflow-hidden">
+      <div
+        className={`flex items-start gap-3 px-3 py-2 ${hasSchema ? "cursor-pointer hover:bg-canvas" : ""}`}
+        onClick={() => hasSchema && setExpanded((p) => !p)}
+      >
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <code className="text-accent font-mono text-xs">{tool.name}</code>
+            {tool.requiresApproval ? (
+              <span className="text-[10px] bg-[#2d2a00] text-attention border border-attention rounded px-1.5 py-0.5">
+                &#x26A0; requires approval
+              </span>
+            ) : (
+              <span className="text-[10px] text-success">auto-execute</span>
+            )}
+            {hasSchema && (
+              <span className="text-[10px] text-fg-dim">{Object.keys(tool.inputSchema!).length} params</span>
+            )}
+          </div>
+          {tool.description && (
+            <p className="text-fg-muted text-[11px] mt-0.5 leading-relaxed">{tool.description}</p>
+          )}
+        </div>
+        <div className="flex items-center gap-1.5 flex-shrink-0">
+          <button
+            onClick={(e) => { e.stopPropagation(); onInvoke(tool); }}
+            className="px-2 py-0.5 text-[10px] border border-border-muted text-fg-muted rounded hover:text-accent hover:border-accent transition-colors"
+          >
+            Invoke
+          </button>
+          {hasSchema && (
+            <span className="text-fg-dim text-[10px]">{expanded ? "▲" : "▼"}</span>
+          )}
+        </div>
+      </div>
+      {expanded && hasSchema && (
+        <div className="border-t border-border-muted px-3 pb-2">
+          <SchemaTable schema={tool.inputSchema!} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Skill card
+// ---------------------------------------------------------------------------
+
+function SkillCard({ skill, onInvoke }: { skill: SkillEntry; onInvoke: (t: SkillToolEntry) => void }) {
+  const [expanded, setExpanded] = useState(false);
+  const [expandedTool, setExpandedTool] = useState<string | null>(null);
+
+  return (
+    <div className="bg-canvas-subtle border border-border-muted rounded-md overflow-hidden">
+      <div
+        className="flex items-start gap-3 px-3 py-2.5 cursor-pointer hover:bg-canvas"
+        onClick={() => setExpanded((p) => !p)}
+      >
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="text-accent font-mono text-xs font-medium">{skill.name}</span>
+            <span className="text-fg-dim text-[10px]">v{skill.version}</span>
+            <span className="ml-auto text-fg-muted text-[10px]">{skill.toolCount} tools</span>
+          </div>
+          <p className="text-fg-muted text-[11px] mt-0.5">{skill.description}</p>
+        </div>
+        <span className="text-fg-dim text-[10px] flex-shrink-0">{expanded ? "▲" : "▼"}</span>
+      </div>
+
+      {expanded && (
+        <div className="border-t border-border-muted px-3 pb-2 space-y-1.5 pt-1.5">
+          {skill.systemPromptExtension && (
+            <div className="bg-canvas border border-border-muted rounded px-2.5 py-1.5 mb-2">
+              <p className="text-[10px] text-fg-muted uppercase tracking-wide mb-0.5">System prompt extension</p>
+              <p className="text-[11px] text-fg-muted italic">{skill.systemPromptExtension}</p>
+            </div>
+          )}
+          {skill.tools.length === 0 ? (
+            <p className="text-fg-dim text-xs py-2">No tools</p>
+          ) : (
+            skill.tools.map((t) => {
+              const hasSchema = t.inputSchema && Object.keys(t.inputSchema).length > 0;
+              const isOpen = expandedTool === t.name;
+              return (
+                <div key={t.name} className="bg-canvas border border-border-muted rounded overflow-hidden">
+                  <div
+                    className={`flex items-start gap-2 px-2.5 py-1.5 ${hasSchema ? "cursor-pointer hover:bg-canvas-subtle" : ""}`}
+                    onClick={() => hasSchema && setExpandedTool(isOpen ? null : t.name)}
+                  >
+                    <div className="flex-1 min-w-0">
+                      <code className="text-accent font-mono text-[11px]">{t.name}</code>
+                      {t.description && <p className="text-fg-dim text-[10px] mt-0.5">{t.description}</p>}
+                    </div>
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); onInvoke(t); }}
+                        className="px-1.5 py-0.5 text-[10px] border border-border-muted text-fg-muted rounded hover:text-accent hover:border-accent transition-colors"
+                      >
+                        Invoke
+                      </button>
+                      {hasSchema && <span className="text-fg-dim text-[10px]">{isOpen ? "▲" : "▼"}</span>}
+                    </div>
+                  </div>
+                  {isOpen && hasSchema && (
+                    <div className="border-t border-border-muted px-2.5 pb-1.5">
+                      <SchemaTable schema={t.inputSchema!} />
+                    </div>
+                  )}
+                </div>
+              );
+            })
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Tools Panel
 // ---------------------------------------------------------------------------
 
@@ -201,6 +503,7 @@ function ToolsPanel() {
   const [skills, setSkills] = useState<SkillEntry[]>([]);
   const [toolLog, setToolLog] = useState<ToolLogEntry[]>([]);
   const [view, setView] = useState<"tools" | "skills" | "log">("tools");
+  const [invokeTarget, setInvokeTarget] = useState<ToolEntry | SkillToolEntry | null>(null);
 
   const refresh = useCallback(async () => {
     const [tRes, sRes, lRes] = await Promise.all([
@@ -222,6 +525,9 @@ function ToolsPanel() {
 
   return (
     <div className="flex flex-col flex-1 overflow-hidden">
+      {invokeTarget && (
+        <InvokeModal tool={invokeTarget} onClose={() => setInvokeTarget(null)} />
+      )}
       <div className="flex items-center gap-2 px-3 py-2 border-b border-border-muted bg-canvas-subtle flex-shrink-0">
         {(["tools", "skills", "log"] as const).map((v) => (
           <button
@@ -251,19 +557,7 @@ function ToolsPanel() {
                   </p>
                   <div className="space-y-1.5">
                     {capTools.map((t) => (
-                      <div
-                        key={t.name}
-                        className="flex items-center gap-3 text-xs bg-canvas-subtle border border-border-muted rounded-md px-3 py-2"
-                      >
-                        <code className="text-accent font-mono">{t.name}</code>
-                        {t.requiresApproval ? (
-                          <span className="ml-auto text-[10px] bg-[#2d2a00] text-attention border border-attention rounded px-1.5 py-0.5">
-                            &#x26A0; Approval required
-                          </span>
-                        ) : (
-                          <span className="ml-auto text-[10px] text-success">Auto-execute</span>
-                        )}
-                      </div>
+                      <ToolCard key={t.name} tool={t} onInvoke={setInvokeTarget} />
                     ))}
                   </div>
                 </div>
@@ -279,14 +573,7 @@ function ToolsPanel() {
           ) : (
             <div className="space-y-2">
               {skills.map((s) => (
-                <div key={s.name} className="bg-canvas-subtle border border-border-muted rounded-md px-3 py-2.5">
-                  <div className="flex items-center gap-2">
-                    <span className="text-accent font-mono text-xs">{s.name}</span>
-                    <span className="text-fg-dim text-[10px]">v{s.version}</span>
-                    <span className="ml-auto text-fg-muted text-[10px]">{s.toolCount} tools</span>
-                  </div>
-                  {s.description && <p className="text-fg-muted text-[11px] mt-1">{s.description}</p>}
-                </div>
+                <SkillCard key={s.name} skill={s} onInvoke={setInvokeTarget} />
               ))}
             </div>
           )

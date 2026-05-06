@@ -145,11 +145,18 @@ export async function runIntent(
  * Stream a conversational chat response using the configured LLM via Mastra Agent.stream().
  * Returns an object with a textStream AsyncIterable<string>.
  */
+export interface StepFinishEvent {
+  toolCalls?: Array<{ toolCallId: string; toolName: string; args: Record<string, unknown> }>;
+  toolResults?: Array<{ toolCallId: string; result: unknown }>;
+  text?: string;
+  finishReason?: string;
+}
+
 export function streamChat(
   config: LlmConfig,
   messages: Array<{ role: "user" | "assistant"; content: string }>,
   tools?: Record<string, MastraTool>,
-  _onStepFinish?: (event: any) => void | Promise<void>,
+  onStepFinish?: (event: StepFinishEvent) => void | Promise<void>,
   memoryContext?: string,
 ): { textStream: AsyncIterable<string> } {
   const model = buildModel(config);
@@ -172,6 +179,24 @@ export function streamChat(
   const streamPromise = agent.stream(messages as any, {
     maxSteps: 10,
     modelSettings: config.maxTokens ? { maxOutputTokens: config.maxTokens } : undefined,
+    ...(onStepFinish ? {
+      onStepFinish: async (step: any) => {
+        const event: StepFinishEvent = {
+          text: step.text,
+          finishReason: step.finishReason,
+          toolCalls: step.toolCalls?.map((tc: any) => ({
+            toolCallId: tc.toolCallId,
+            toolName: tc.toolName,
+            args: tc.args ?? {},
+          })),
+          toolResults: step.toolResults?.map((tr: any) => ({
+            toolCallId: tr.toolCallId,
+            result: tr.result,
+          })),
+        };
+        await onStepFinish(event);
+      },
+    } : {}),
   });
 
   // Lazy AsyncIterable that resolves the stream on first iteration
@@ -185,7 +210,7 @@ export function streamChat(
               const streamResult = await streamPromise;
               innerIter = streamResult.textStream[Symbol.asyncIterator]();
             }
-            return innerIter.next();
+            return innerIter!.next();
           },
           async return() {
             return { done: true as const, value: undefined };

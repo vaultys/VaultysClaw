@@ -1,16 +1,17 @@
 import { useState, useRef, useEffect } from "react";
 import { useChat } from "../hooks/useChat";
-import type { ChatMessage } from "../types";
+import type { ChatItem, ChatMessage, ToolCallEvent } from "../types";
 
 function MessageBubble({ msg }: { msg: ChatMessage }) {
   const isUser = msg.role === "user";
   return (
     <div className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
       <div
-        className={`max-w-[80%] rounded-lg px-3 py-2 text-sm whitespace-pre-wrap break-words ${isUser
+        className={`max-w-[80%] rounded-lg px-3 py-2 text-sm whitespace-pre-wrap break-words ${
+          isUser
             ? "bg-accent-emphasis text-white"
             : "bg-canvas-subtle border border-border-muted text-fg"
-          }`}
+        }`}
       >
         {msg.content || (
           <span className="inline-flex gap-1 items-center text-fg-muted">
@@ -24,17 +25,81 @@ function MessageBubble({ msg }: { msg: ChatMessage }) {
   );
 }
 
+function ToolCallBubble({ event }: { event: ToolCallEvent }) {
+  const [expanded, setExpanded] = useState(false);
+  const hasResult = event.result !== undefined;
+
+  return (
+    <div className="flex justify-start">
+      <div className="max-w-[90%] w-full">
+        <div
+          className={`rounded-lg border text-xs font-mono overflow-hidden ${
+            hasResult
+              ? "border-border-muted bg-canvas"
+              : "border-info/40 bg-[#0d1b2a] animate-pulse"
+          }`}
+        >
+          {/* Header */}
+          <div
+            className="flex items-center gap-2 px-3 py-1.5 cursor-pointer hover:bg-canvas-subtle"
+            onClick={() => setExpanded((p) => !p)}
+          >
+            <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${hasResult ? "bg-success" : "bg-info animate-pulse"}`} />
+            <span className="text-fg-muted text-[10px] uppercase tracking-wide">Tool</span>
+            <code className="text-accent">{event.toolName}</code>
+            <span className="ml-auto text-fg-dim text-[10px]">{expanded ? "▲" : "▼"}</span>
+          </div>
+
+          {expanded && (
+            <div className="border-t border-border-muted divide-y divide-border-muted">
+              {/* Args */}
+              {Object.keys(event.args).length > 0 && (
+                <div className="px-3 py-2">
+                  <p className="text-[10px] text-fg-muted uppercase tracking-wide mb-1">Args</p>
+                  <pre className="text-[11px] text-fg-muted whitespace-pre-wrap">
+                    {JSON.stringify(event.args, null, 2)}
+                  </pre>
+                </div>
+              )}
+              {/* Result */}
+              {hasResult && (
+                <div className="px-3 py-2">
+                  <p className="text-[10px] text-fg-muted uppercase tracking-wide mb-1">Result</p>
+                  <pre className="text-[11px] text-success whitespace-pre-wrap max-h-40 overflow-y-auto">
+                    {typeof event.result === "string"
+                      ? event.result
+                      : JSON.stringify(event.result, null, 2)}
+                  </pre>
+                </div>
+              )}
+              {!hasResult && (
+                <div className="px-3 py-1.5">
+                  <p className="text-[10px] text-info">Running…</p>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ChatItemRow({ item }: { item: ChatItem }) {
+  if (item.kind === "message") return <MessageBubble msg={item.msg} />;
+  return <ToolCallBubble event={item.event} />;
+}
+
 export default function ChatPanel() {
-  const { messages, isStreaming, error, sendMessage, clearHistory } = useChat();
+  const { items, isStreaming, error, sendMessage, clearHistory } = useChat();
   const [input, setInput] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Auto-scroll to bottom on new messages
   useEffect(() => {
     const el = scrollRef.current;
     if (el) el.scrollTop = el.scrollHeight;
-  }, [messages]);
+  }, [items]);
 
   const handleSend = () => {
     if (!input.trim() || isStreaming) return;
@@ -55,9 +120,9 @@ export default function ChatPanel() {
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-1.5 bg-canvas-subtle border-b border-border-muted flex-shrink-0">
         <span className="text-[11px] font-bold text-fg-muted uppercase tracking-widest">
-          Chat
+          Chat — Agent.stream()
         </span>
-        {messages.length > 0 && (
+        {items.length > 0 && (
           <button
             onClick={clearHistory}
             className="text-[10px] text-fg-dim hover:text-danger transition-colors"
@@ -67,15 +132,15 @@ export default function ChatPanel() {
         )}
       </div>
 
-      {/* Messages */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto p-3 space-y-3">
-        {messages.length === 0 && (
+      {/* Items */}
+      <div ref={scrollRef} className="flex-1 overflow-y-auto p-3 space-y-2">
+        {items.length === 0 && (
           <p className="text-fg-dim text-xs text-center mt-8">
-            Send a message to chat with this agent.
+            Send a message to chat with this agent. Tool calls will appear inline.
           </p>
         )}
-        {messages.map((msg, i) => (
-          <MessageBubble key={i} msg={msg} />
+        {items.map((item, i) => (
+          <ChatItemRow key={i} item={item} />
         ))}
       </div>
 

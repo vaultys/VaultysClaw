@@ -328,7 +328,6 @@ export function startWebServer({ port, agent }: WebServerOptions): http.Server {
         if (!Array.isArray(messages) || messages.length === 0) {
           return jsonResponse(res, 400, { error: "messages array is required" });
         }
-        // Validate message format
         for (const m of messages) {
           if ((m.role !== "user" && m.role !== "assistant") || typeof m.content !== "string") {
             return jsonResponse(res, 400, { error: "Each message must have role (user|assistant) and content (string)" });
@@ -342,7 +341,26 @@ export function startWebServer({ port, agent }: WebServerOptions): http.Server {
         });
 
         try {
-          const result = streamChat(llmConfig, messages as Array<{ role: "user" | "assistant"; content: string }>);
+          const tools = agent.getWebChatToolSet();
+          const result = streamChat(
+            llmConfig,
+            messages as Array<{ role: "user" | "assistant"; content: string }>,
+            tools,
+            (step) => {
+              if (!res.destroyed) {
+                if (step.toolCalls?.length) {
+                  for (const tc of step.toolCalls) {
+                    res.write(`event: tool_call\ndata: ${JSON.stringify({ toolCallId: tc.toolCallId, toolName: tc.toolName, args: tc.args })}\n\n`);
+                  }
+                }
+                if (step.toolResults?.length) {
+                  for (const tr of step.toolResults) {
+                    res.write(`event: tool_result\ndata: ${JSON.stringify({ toolCallId: tr.toolCallId, result: tr.result })}\n\n`);
+                  }
+                }
+              }
+            },
+          );
           for await (const chunk of result.textStream) {
             if (res.destroyed) break;
             res.write(`data: ${JSON.stringify({ text: chunk })}\n\n`);
@@ -364,6 +382,24 @@ export function startWebServer({ port, agent }: WebServerOptions): http.Server {
 
       if (pathname === "/api/skills" && method === "GET") {
         return jsonResponse(res, 200, { skills: agent.getSkills() });
+      }
+
+      if (pathname === "/api/tools/invoke" && method === "POST") {
+        let body: unknown;
+        try { body = JSON.parse(await readBody(req)); } catch {
+          return jsonResponse(res, 400, { error: "Invalid JSON body" });
+        }
+        const b = body as Record<string, unknown>;
+        if (typeof b.toolName !== "string" || !b.toolName.trim()) {
+          return jsonResponse(res, 400, { error: "toolName is required" });
+        }
+        const args = (typeof b.args === "object" && b.args !== null ? b.args : {}) as Record<string, unknown>;
+        try {
+          const result = await agent.invokeTool(b.toolName, args);
+          return jsonResponse(res, 200, { ok: true, result });
+        } catch (err) {
+          return jsonResponse(res, 400, { error: err instanceof Error ? err.message : String(err) });
+        }
       }
 
       if (pathname === "/api/tool-log" && method === "GET") {

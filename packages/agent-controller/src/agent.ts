@@ -56,6 +56,52 @@ import type { MastraTool } from "@mastra/core/tools";
 
 const Buffer = crypto.Buffer;
 
+// ---- Zod schema serialization (for web dashboard display) ----
+
+function serializeZodField(field: any): Record<string, unknown> {
+  if (!field?._def) return { type: "any", optional: false };
+  const def = field._def;
+  const typeName: string = def.typeName ?? "";
+
+  if (typeName === "ZodOptional") {
+    return { ...serializeZodField(def.innerType), optional: true };
+  }
+  if (typeName === "ZodNullable") {
+    return { ...serializeZodField(def.innerType), nullable: true };
+  }
+
+  const base: Record<string, unknown> = { optional: false };
+  if (def.description) base.description = def.description;
+
+  switch (typeName) {
+    case "ZodString": return { ...base, type: "string" };
+    case "ZodNumber": return { ...base, type: "number" };
+    case "ZodBoolean": return { ...base, type: "boolean" };
+    case "ZodArray": return { ...base, type: "array", items: serializeZodField(def.type) };
+    case "ZodObject": return { ...base, type: "object", properties: serializeZodSchema(field) };
+    case "ZodEnum": return { ...base, type: "enum", enum: def.values };
+    case "ZodLiteral": return { ...base, type: "literal", value: def.value };
+    case "ZodUnion": return { ...base, type: "union", options: (def.options as any[]).map(serializeZodField) };
+    default: return { ...base, type: typeName.replace("Zod", "").toLowerCase() };
+  }
+}
+
+function serializeZodSchema(schema: any): Record<string, unknown> | undefined {
+  if (!schema?._def) return undefined;
+  try {
+    if (schema._def.typeName === "ZodObject") {
+      const shape = typeof schema._def.shape === "function" ? schema._def.shape() : schema._def.shape;
+      if (!shape) return undefined;
+      const result: Record<string, unknown> = {};
+      for (const [key, value] of Object.entries(shape)) {
+        result[key] = serializeZodField(value);
+      }
+      return result;
+    }
+  } catch { /* ignore */ }
+  return undefined;
+}
+
 // ---- Types ----
 
 export type AgentStatus =
@@ -277,8 +323,8 @@ export class Agent extends EventEmitter {
     } catch { return []; }
   }
 
-  /** Loaded skill definitions. */
-  getSkills(): Array<{ name: string; description: string; version: string; toolCount: number }> {
+  /** Loaded skill definitions with tool schemas for the web dashboard. */
+  getSkills(): Array<{ name: string; description: string; version: string; toolCount: number; systemPromptExtension?: string; tools: Array<{ name: string; description?: string; inputSchema?: Record<string, unknown> }> }> {
     if (!this.skillLoader) return [];
     try {
       return this.skillLoader.lastRegistry.skills.map((s) => ({
@@ -286,16 +332,24 @@ export class Agent extends EventEmitter {
         description: s.description,
         version: s.version,
         toolCount: s.tools?.length ?? 0,
+        systemPromptExtension: s.systemPromptExtension,
+        tools: (s.tools ?? []).map((t) => ({
+          name: t.name,
+          description: (t.tool as any).description as string | undefined,
+          inputSchema: serializeZodSchema((t.tool as any).inputSchema),
+        })),
       }));
     } catch { return []; }
   }
 
-  /** All registered tools (built-in + skill). */
-  getToolList(): Array<{ name: string; capability: string; requiresApproval: boolean }> {
+  /** All registered tools (built-in + skill) with descriptions and input schemas. */
+  getToolList(): Array<{ name: string; capability: string; requiresApproval: boolean; description?: string; inputSchema?: Record<string, unknown> }> {
     return this.toolRegistry.tools.map((t) => ({
       name: t.name,
       capability: t.capability,
       requiresApproval: t.requiresApproval,
+      description: (t.tool as any).description as string | undefined,
+      inputSchema: serializeZodSchema((t.tool as any).inputSchema),
     }));
   }
 
@@ -347,6 +401,38 @@ export class Agent extends EventEmitter {
   /** Get the capability-filtered Mastra tool map for use in the web dashboard chat. */
   getAgentToolSet(): Record<string, MastraTool> {
     return this.buildAgentToolSet();
+  }
+
+  /**
+   * Tool set for the web dashboard chat — auto-approves all tools since the
+   * web user is already authenticated as admin.
+   */
+  getWebChatToolSet(): Record<string, MastraTool> {
+    const caps = this.capabilities.length > 0
+      ? this.capabilities
+      : this.toolRegistry.tools.map((t) => t.capability);
+    return buildToolSet(this.toolRegistry, caps, async (request) => {
+      this.log("info", `Web dashboard tool auto-approved: ${request.toolName}`);
+      return true;
+    });
+  }
+
+  /**
+   * Invoke a single tool by name with the given args.
+   * Used by the web dashboard for direct tool testing.
+   */
+  async invokeTool(toolName: string, args: Record<string, unknown>): Promise<unknown> {
+    const def = this.toolRegistry.get(toolName);
+    if (!def) throw new Error(`Unknown tool: ${toolName}`);
+    if (!def.tool.execute) throw new Error(`Tool ${toolName} has no execute function`);
+    const start = Date.now();
+    try {
+      const result = await def.tool.execute(args as any, {} as any);
+      this.log("info", `Tool invoked from dashboard: ${toolName} (${Date.now() - start}ms)`);
+      return result;
+    } catch (err) {
+      throw new Error(`Tool ${toolName} failed: ${err instanceof Error ? err.message : String(err)}`);
+    }
   }
 
   /**

@@ -47,10 +47,36 @@ export interface LlmConfigSafe {
   maxTokens?: number;
 }
 
+// A field descriptor serialized from a Zod schema
+export interface SchemaField {
+  type: string;
+  description?: string;
+  optional?: boolean;
+  nullable?: boolean;
+  enum?: unknown[];
+  value?: unknown;
+  items?: SchemaField;
+  properties?: Record<string, SchemaField>;
+  options?: SchemaField[];
+}
+
 export interface ChatMessage {
   role: "user" | "assistant";
   content: string;
 }
+
+// Tool call event emitted by the agent during chat streaming
+export interface ToolCallEvent {
+  toolCallId: string;
+  toolName: string;
+  args: Record<string, unknown>;
+  result?: unknown;
+}
+
+// A chat "item" is either a message or an inline tool call
+export type ChatItem =
+  | { kind: "message"; msg: ChatMessage }
+  | { kind: "tool_call"; event: ToolCallEvent };
 
 // ---- Phase 2-4 types ----
 
@@ -58,6 +84,14 @@ export interface ToolEntry {
   name: string;
   capability: string;
   requiresApproval: boolean;
+  description?: string;
+  inputSchema?: Record<string, SchemaField>;
+}
+
+export interface SkillToolEntry {
+  name: string;
+  description?: string;
+  inputSchema?: Record<string, SchemaField>;
 }
 
 export interface SkillEntry {
@@ -65,6 +99,8 @@ export interface SkillEntry {
   description: string;
   version: string;
   toolCount: number;
+  systemPromptExtension?: string;
+  tools: SkillToolEntry[];
 }
 
 export interface TaskEntry {

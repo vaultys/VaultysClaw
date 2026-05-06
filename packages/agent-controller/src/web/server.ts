@@ -29,7 +29,10 @@ import type { Agent } from "../agent";
 import type { LlmConfig } from "@vaultysclaw/shared";
 import { streamChat } from "../llm";
 import { startP2PAuthSession, getSessionStatus, invalidateAuthSession } from "./auth";
-import { upsertWebSession, getWebSessionByToken, deleteWebSession, deleteExpiredWebSessions } from "../db";
+import {
+  upsertWebSession, getWebSessionByToken, deleteWebSession, deleteExpiredWebSessions,
+  upsertChatSession, appendChatMessages, listChatSessions, getChatMessages, deleteChatSession,
+} from "../db";
 
 export interface WebServerOptions {
   port: number;
@@ -324,7 +327,10 @@ export function startWebServer({ port, agent }: WebServerOptions): http.Server {
         try { body = JSON.parse(await readBody(req)); } catch {
           return jsonResponse(res, 400, { error: "Invalid JSON body" });
         }
-        const { messages } = body as { messages?: Array<{ role: string; content: string }> };
+        const { messages, conversationId: reqConvId } = body as {
+          messages?: Array<{ role: string; content: string }>;
+          conversationId?: string;
+        };
         if (!Array.isArray(messages) || messages.length === 0) {
           return jsonResponse(res, 400, { error: "messages array is required" });
         }
@@ -334,12 +340,23 @@ export function startWebServer({ port, agent }: WebServerOptions): http.Server {
           }
         }
 
+        const conversationId = (typeof reqConvId === "string" && reqConvId) ? reqConvId : crypto.randomUUID();
+        const title = messages.find((m) => m.role === "user")?.content.slice(0, 80) ?? null;
+        try {
+          upsertChatSession(conversationId, title, "web");
+          appendChatMessages(conversationId, messages.map((m) => ({ role: m.role, content: m.content })));
+        } catch { /* non-fatal */ }
+
         res.writeHead(200, {
           "Content-Type": "text/event-stream",
           "Cache-Control": "no-cache",
           "Connection": "keep-alive",
         });
 
+        // Send conversationId so the client can continue the session
+        res.write(`event: session\ndata: ${JSON.stringify({ conversationId })}\n\n`);
+
+        const chunks: string[] = [];
         try {
           const tools = agent.getWebChatToolSet();
           const result = streamChat(
@@ -363,8 +380,11 @@ export function startWebServer({ port, agent }: WebServerOptions): http.Server {
           );
           for await (const chunk of result.textStream) {
             if (res.destroyed) break;
+            chunks.push(chunk);
             res.write(`data: ${JSON.stringify({ text: chunk })}\n\n`);
           }
+          // Persist assistant response
+          try { appendChatMessages(conversationId, [{ role: "assistant", content: chunks.join("") }]); } catch { /* non-fatal */ }
           res.write("data: [DONE]\n\n");
         } catch (err) {
           const errMsg = err instanceof Error ? err.message : String(err);
@@ -372,6 +392,43 @@ export function startWebServer({ port, agent }: WebServerOptions): http.Server {
         }
         res.end();
         return;
+      }
+
+      // ---- Chat sessions ----
+
+      if (pathname === "/api/chat/sessions" && method === "GET") {
+        const sessions = listChatSessions(50);
+        return jsonResponse(res, 200, {
+          sessions: sessions.map((s) => ({
+            id: s.id,
+            title: s.title,
+            source: s.source,
+            createdAt: s.created_at,
+            updatedAt: s.updated_at,
+            messageCount: (s.message_count as number | undefined) ?? 0,
+          })),
+        });
+      }
+
+      const sessionMatch = pathname.match(/^\/api\/chat\/sessions\/([^/]+)$/);
+      if (sessionMatch) {
+        const sessionId = decodeURIComponent(sessionMatch[1]);
+        if (method === "GET") {
+          const msgs = getChatMessages(sessionId);
+          return jsonResponse(res, 200, {
+            messages: msgs.map((m) => ({
+              id: m.id,
+              role: m.role,
+              content: m.content,
+              toolCalls: m.tool_calls ? JSON.parse(m.tool_calls) : undefined,
+              createdAt: m.created_at,
+            })),
+          });
+        }
+        if (method === "DELETE") {
+          deleteChatSession(sessionId);
+          return jsonResponse(res, 200, { ok: true });
+        }
       }
 
       // ---- Tools & Skills ----

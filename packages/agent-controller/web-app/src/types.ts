@@ -78,6 +78,15 @@ export type ChatItem =
   | { kind: "message"; msg: ChatMessage }
   | { kind: "tool_call"; event: ToolCallEvent };
 
+export interface ChatSession {
+  id: string;
+  title: string | null;
+  source: string;
+  createdAt: string;
+  updatedAt: string;
+  messageCount: number;
+}
+
 // ---- Phase 2-4 types ----
 
 export interface ToolEntry {

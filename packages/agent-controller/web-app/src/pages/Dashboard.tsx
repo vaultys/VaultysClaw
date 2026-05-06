@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useAgentData } from "../hooks/useAgentData";
+import { useTheme, type Theme } from "../hooks/useTheme";
 import AgentOverview from "./AgentOverview";
 import RunsPanel from "./RunsPanel";
 import ChatPanel from "./ChatPanel";
@@ -62,9 +63,66 @@ const STATUS_STYLE: Record<AgentStatus, { dot: string; text: string }> = {
   initializing: { dot: "bg-fg-dim", text: "text-fg-muted" },
 };
 
-interface TopBarProps { info: AgentInfo; sseConnected: boolean; onLogout: () => void; }
+// ---------------------------------------------------------------------------
+// Theme toggle
+// ---------------------------------------------------------------------------
 
-function TopBar({ info, sseConnected, onLogout }: TopBarProps) {
+function ThemeToggle({ theme, setTheme }: { theme: Theme; setTheme: (t: Theme) => void }) {
+  const options: Array<{ value: Theme; title: string; icon: React.ReactNode }> = [
+    {
+      value: "light",
+      title: "Light",
+      icon: (
+        <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
+          <circle cx="12" cy="12" r="5" />
+          <path d="M12 2v2M12 20v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M2 12h2M20 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
+        </svg>
+      ),
+    },
+    {
+      value: "dark",
+      title: "Dark",
+      icon: (
+        <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
+          <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" />
+        </svg>
+      ),
+    },
+    {
+      value: "system",
+      title: "System",
+      icon: (
+        <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
+          <rect x="2" y="3" width="20" height="14" rx="2" />
+          <path d="M8 21h8M12 17v4" />
+        </svg>
+      ),
+    },
+  ];
+
+  return (
+    <div className="flex items-center gap-0.5 bg-canvas border border-border rounded-md p-0.5">
+      {options.map(({ value, title, icon }) => (
+        <button
+          key={value}
+          onClick={() => setTheme(value)}
+          title={title}
+          className={`flex items-center justify-center w-6 h-6 rounded transition-colors ${
+            theme === value
+              ? "bg-canvas-overlay text-fg"
+              : "text-fg-dim hover:text-fg-muted"
+          }`}
+        >
+          {icon}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+interface TopBarProps { info: AgentInfo; sseConnected: boolean; onLogout: () => void; theme: Theme; setTheme: (t: Theme) => void; }
+
+function TopBar({ info, sseConnected, onLogout, theme, setTheme }: TopBarProps) {
   const { dot, text } = STATUS_STYLE[info.status] ?? STATUS_STYLE.initializing;
   const model = info.activeLlmProvider && info.activeLlmModel
     ? `${info.activeLlmProvider}/${info.activeLlmModel}` : null;
@@ -74,7 +132,7 @@ function TopBar({ info, sseConnected, onLogout }: TopBarProps) {
         className={`w-2 h-2 rounded-full flex-shrink-0 ${sseConnected ? "bg-success" : "bg-fg-dim animate-pulse"}`}
         title={sseConnected ? "Live" : "Reconnecting…"}
       />
-      <span className="text-[#f0f6fc] font-bold text-sm">VaultysClaw</span>
+      <span className="text-fg font-bold text-sm">VaultysClaw</span>
       <span className="text-fg-dim">/</span>
       <span className="text-fg text-sm">{info.name}</span>
       <span className={`flex items-center gap-1.5 text-xs ${text}`}>
@@ -86,12 +144,15 @@ function TopBar({ info, sseConnected, onLogout }: TopBarProps) {
           {model}
         </code>
       )}
-      <button
-        onClick={onLogout}
-        className="ml-auto px-2.5 py-0.5 text-fg-muted text-[11px] border border-border rounded hover:text-danger hover:border-danger transition-colors"
-      >
-        Log out
-      </button>
+      <div className="ml-auto flex items-center gap-2">
+        <ThemeToggle theme={theme} setTheme={setTheme} />
+        <button
+          onClick={onLogout}
+          className="px-2.5 py-0.5 text-fg-muted text-[11px] border border-border rounded hover:text-danger hover:border-danger transition-colors"
+        >
+          Log out
+        </button>
+      </div>
     </div>
   );
 }
@@ -337,7 +398,7 @@ function InvokeModal({ tool, onClose }: InvokeModalProps) {
           )}
 
           {error && (
-            <div className="rounded bg-[#2d1b1b] border border-danger px-3 py-2 text-danger text-xs">
+            <div className="rounded bg-danger-emphasis border border-danger px-3 py-2 text-danger text-xs">
               {error}
             </div>
           )}
@@ -385,7 +446,7 @@ function ToolCard({ tool, onInvoke }: { tool: ToolEntry; onInvoke: (t: ToolEntry
           <div className="flex items-center gap-2 flex-wrap">
             <code className="text-accent font-mono text-xs">{tool.name}</code>
             {tool.requiresApproval ? (
-              <span className="text-[10px] bg-[#2d2a00] text-attention border border-attention rounded px-1.5 py-0.5">
+              <span className="text-[10px] bg-attention-emphasis text-attention border border-attention rounded px-1.5 py-0.5">
                 &#x26A0; requires approval
               </span>
             ) : (
@@ -1104,6 +1165,7 @@ interface Props { did: string; onLogout: () => void; }
 
 export default function Dashboard({ did: _did, onLogout }: Props) {
   const { info, logs, intents, sseConnected } = useAgentData();
+  const { theme, setTheme } = useTheme();
   const [activeNav, setActiveNav] = useState<NavId>("agent");
 
   const pendingRuns = intents.filter((i) => i.status === "pending").length;
@@ -1123,7 +1185,7 @@ export default function Dashboard({ did: _did, onLogout }: Props) {
 
   return (
     <div className="flex flex-col h-full bg-canvas overflow-hidden">
-      <TopBar info={info} sseConnected={sseConnected} onLogout={logout} />
+      <TopBar info={info} sseConnected={sseConnected} onLogout={logout} theme={theme} setTheme={setTheme} />
       <div className="flex flex-1 overflow-hidden">
         <Sidebar
           activeNav={activeNav}

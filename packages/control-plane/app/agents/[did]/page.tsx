@@ -426,17 +426,54 @@ function OverviewTab({ agent }: { agent: AgentDetail }) {
 // Tab: Chat (embedded, agent pre-selected)
 // ---------------------------------------------------------------------------
 
+interface ChatSessionMeta {
+  id: string;
+  title: string | null;
+  source: string;
+  createdAt: string;
+  updatedAt: string;
+  messageCount: number;
+}
+
 function ChatTab({ agentId, agentName, online }: { agentId: string; agentName: string; online: boolean }) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
+  const [sessions, setSessions] = useState<ChatSessionMeta[]>([]);
   const abortRef = useRef<AbortController | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  const fetchSessions = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/agents/${encodeURIComponent(agentId)}/chat-sessions`);
+      if (!res.ok) return;
+      const data = await res.json() as { sessions: ChatSessionMeta[] };
+      setSessions(data.sessions ?? []);
+    } catch { /* non-fatal */ }
+  }, [agentId]);
+
+  useEffect(() => { fetchSessions(); }, [fetchSessions]);
+
+  const loadSession = useCallback(async (sessionId: string) => {
+    try {
+      const res = await fetch(`/api/agents/${encodeURIComponent(agentId)}/chat-sessions?session=${encodeURIComponent(sessionId)}`);
+      if (!res.ok) return;
+      const data = await res.json() as { messages: Array<{ role: string; content: string }> };
+      setMessages(
+        (data.messages ?? [])
+          .filter((m) => m.role === "user" || m.role === "assistant")
+          .map((m) => ({ role: m.role as "user" | "assistant", content: m.content }))
+      );
+      setActiveSessionId(sessionId);
+      setError(null);
+    } catch { /* non-fatal */ }
+  }, [agentId]);
 
   const sendMessage = useCallback(
     async (text: string) => {
@@ -473,6 +510,7 @@ function ChatTab({ agentId, agentName, online }: { agentId: string; agentName: s
         setMessages((prev) => [...prev, { role: "assistant", content: "" }]);
 
         let buffer = "";
+        let eventType = "message";
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
@@ -481,12 +519,16 @@ function ChatTab({ agentId, agentName, online }: { agentId: string; agentName: s
           buffer = lines.pop() || "";
 
           for (const line of lines) {
-            const trimmed = line.trim();
-            if (!trimmed.startsWith("data: ")) continue;
-            const data = trimmed.slice(6);
+            if (line.startsWith("event: ")) { eventType = line.slice(7).trim(); continue; }
+            if (!line.startsWith("data: ")) { if (line === "") eventType = "message"; continue; }
+            const data = line.slice(6);
             if (data === "[DONE]") break;
             try {
               const parsed = JSON.parse(data);
+              if (eventType === "session") {
+                if (typeof parsed.conversationId === "string") setActiveSessionId(parsed.conversationId);
+                eventType = "message"; continue;
+              }
               if (parsed.error) throw new Error(parsed.error);
               if (parsed.text) {
                 assistantContent += parsed.text;
@@ -496,6 +538,7 @@ function ChatTab({ agentId, agentName, online }: { agentId: string; agentName: s
                   return updated;
                 });
               }
+              eventType = "message";
             } catch (e) {
               if (e instanceof SyntaxError) continue;
               throw e;
@@ -513,16 +556,18 @@ function ChatTab({ agentId, agentName, online }: { agentId: string; agentName: s
       } finally {
         setIsStreaming(false);
         abortRef.current = null;
+        fetchSessions().catch(() => {});
       }
     },
-    [messages, agentId, isStreaming, online]
+    [messages, agentId, isStreaming, online, fetchSessions]
   );
 
-  const clearChat = () => {
+  const startNew = () => {
     abortRef.current?.abort();
     setMessages([]);
     setError(null);
     setIsStreaming(false);
+    setActiveSessionId(null);
   };
 
   if (!online) {
@@ -535,84 +580,121 @@ function ChatTab({ agentId, agentName, online }: { agentId: string; agentName: s
   }
 
   return (
-    <div className="flex flex-col" style={{ height: "calc(100vh - 22rem)" }}>
-      {/* Toolbar */}
-      <div className="flex items-center justify-between mb-3">
-        <p className="text-xs text-vc-muted">
-          Chatting with <span className="text-vc-text font-medium">{agentName}</span>
-        </p>
-        {messages.length > 0 && (
-          <button
-            onClick={clearChat}
-            className="flex items-center gap-1.5 text-xs text-vc-muted hover:text-red-400 transition-colors"
-          >
-            <Trash2 size={13} />
-            Clear
+    <div className="flex" style={{ height: "calc(100vh - 22rem)" }}>
+      {/* Sessions sidebar */}
+      <div className="w-44 flex-shrink-0 flex flex-col border-r border-vc-border bg-vc-raised rounded-l-lg overflow-hidden">
+        <div className="flex items-center justify-between px-2 py-2 border-b border-vc-border">
+          <span className="text-[10px] font-semibold text-vc-muted uppercase tracking-widest">History</span>
+          <button onClick={startNew} className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors font-medium">
+            + New
           </button>
-        )}
-      </div>
-
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto space-y-3 pr-1">
-        {messages.length === 0 && !isStreaming && (
-          <div className="flex flex-col items-center justify-center h-full gap-2 text-vc-muted">
-            <Bot size={36} strokeWidth={1} />
-            <p className="text-sm">Send a message to start the conversation</p>
-          </div>
-        )}
-
-        {messages.map((msg, i) => (
-          <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-            <div
-              className={`max-w-[75%] rounded-xl px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap ${
-                msg.role === "user"
-                  ? "bg-indigo-600/25 text-vc-text rounded-br-sm"
-                  : "bg-vc-raised border border-vc-border text-vc-text rounded-bl-sm"
+        </div>
+        <div className="flex-1 overflow-y-auto">
+          {sessions.length === 0 && (
+            <p className="text-[10px] text-vc-subtle text-center mt-4 px-2">No past sessions</p>
+          )}
+          {sessions.map((s) => (
+            <button
+              key={s.id}
+              onClick={() => loadSession(s.id)}
+              className={`w-full text-left px-2 py-2 border-b border-vc-border/50 hover:bg-vc-surface transition-colors ${
+                activeSessionId === s.id ? "bg-indigo-900/20 border-l-2 border-l-indigo-500" : ""
               }`}
             >
-              {msg.content || (
-                msg.role === "assistant" && isStreaming && (
-                  <span className="inline-flex gap-1 text-vc-muted">
-                    <span className="animate-bounce" style={{ animationDelay: "0ms" }}>·</span>
-                    <span className="animate-bounce" style={{ animationDelay: "150ms" }}>·</span>
-                    <span className="animate-bounce" style={{ animationDelay: "300ms" }}>·</span>
-                  </span>
-                )
-              )}
-            </div>
-          </div>
-        ))}
-
-        {error && (
-          <div className="text-center text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-4 py-2">
-            {error}
-          </div>
-        )}
-
-        <div ref={messagesEndRef} />
+              <p className="text-[11px] text-vc-text truncate leading-tight">
+                {s.title ?? "Untitled"}
+              </p>
+              <p className="text-[9px] text-vc-subtle mt-0.5">
+                {s.messageCount} msg · {s.source}
+              </p>
+            </button>
+          ))}
+        </div>
       </div>
 
-      {/* Input */}
-      <div className="mt-3 pt-3 border-t border-vc-border">
-        <div className="flex items-end gap-2">
-          <textarea
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(input); }
-            }}
-            placeholder="Type a message… (Enter to send, Shift+Enter for newline)"
-            rows={1}
-            disabled={isStreaming}
-            className="flex-1 resize-none bg-vc-raised border border-vc-border rounded-lg px-4 py-2.5 text-sm text-vc-text placeholder:text-vc-muted focus:outline-none focus:ring-1 focus:ring-indigo-500/50"
-          />
-          <button
-            onClick={() => sendMessage(input)}
-            disabled={!input.trim() || isStreaming}
-            className="flex items-center justify-center w-10 h-10 rounded-lg bg-indigo-600 text-white disabled:opacity-40 disabled:cursor-not-allowed hover:bg-indigo-500 transition-colors"
-          >
-            {isStreaming ? <Loader2 size={17} className="animate-spin" /> : <Send size={17} />}
-          </button>
+      {/* Chat area */}
+      <div className="flex flex-col flex-1 overflow-hidden">
+        {/* Toolbar */}
+        <div className="flex items-center justify-between px-3 py-2 border-b border-vc-border flex-shrink-0">
+          <p className="text-xs text-vc-muted">
+            {activeSessionId
+              ? <span>Session <span className="font-mono text-vc-subtle">{activeSessionId.slice(0, 8)}…</span></span>
+              : <span>New conversation with <span className="text-vc-text font-medium">{agentName}</span></span>
+            }
+          </p>
+          {messages.length > 0 && (
+            <button
+              onClick={startNew}
+              className="flex items-center gap-1.5 text-xs text-vc-muted hover:text-red-400 transition-colors"
+            >
+              <Trash2 size={13} />
+              Clear
+            </button>
+          )}
+        </div>
+
+        {/* Messages */}
+        <div className="flex-1 overflow-y-auto space-y-3 p-3">
+          {messages.length === 0 && !isStreaming && (
+            <div className="flex flex-col items-center justify-center h-full gap-2 text-vc-muted">
+              <Bot size={36} strokeWidth={1} />
+              <p className="text-sm">Send a message to start the conversation</p>
+            </div>
+          )}
+
+          {messages.map((msg, i) => (
+            <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+              <div
+                className={`max-w-[75%] rounded-xl px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap ${
+                  msg.role === "user"
+                    ? "bg-indigo-600/25 text-vc-text rounded-br-sm"
+                    : "bg-vc-raised border border-vc-border text-vc-text rounded-bl-sm"
+                }`}
+              >
+                {msg.content || (
+                  msg.role === "assistant" && isStreaming && (
+                    <span className="inline-flex gap-1 text-vc-muted">
+                      <span className="animate-bounce" style={{ animationDelay: "0ms" }}>·</span>
+                      <span className="animate-bounce" style={{ animationDelay: "150ms" }}>·</span>
+                      <span className="animate-bounce" style={{ animationDelay: "300ms" }}>·</span>
+                    </span>
+                  )
+                )}
+              </div>
+            </div>
+          ))}
+
+          {error && (
+            <div className="text-center text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-4 py-2">
+              {error}
+            </div>
+          )}
+
+          <div ref={messagesEndRef} />
+        </div>
+
+        {/* Input */}
+        <div className="px-3 pb-3 pt-2 border-t border-vc-border flex-shrink-0">
+          <div className="flex items-end gap-2">
+            <textarea
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(input); }
+              }}
+              placeholder="Type a message… (Enter to send, Shift+Enter for newline)"
+              rows={1}
+              disabled={isStreaming}
+              className="flex-1 resize-none bg-vc-raised border border-vc-border rounded-lg px-4 py-2.5 text-sm text-vc-text placeholder:text-vc-muted focus:outline-none focus:ring-1 focus:ring-indigo-500/50"
+            />
+            <button
+              onClick={() => sendMessage(input)}
+              disabled={!input.trim() || isStreaming}
+              className="flex items-center justify-center w-10 h-10 rounded-lg bg-indigo-600 text-white disabled:opacity-40 disabled:cursor-not-allowed hover:bg-indigo-500 transition-colors"
+            >
+              {isStreaming ? <Loader2 size={17} className="animate-spin" /> : <Send size={17} />}
+            </button>
+          </div>
         </div>
       </div>
     </div>

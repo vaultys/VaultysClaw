@@ -84,7 +84,7 @@ export function createFileTools(workspaceRoot: string): AgentToolDefinition[] {
       id: "file_list",
       description: "List files and directories at a given path.",
       inputSchema: z.object({
-        path: z.string().optional().default(".").describe("Directory path relative to workspace root"),
+        path: z.string().default(".").describe("Directory path relative to workspace root"),
       }),
       execute: async ({ path: dirPath }) => {
         const resolved = safePath(root, dirPath ?? ".");

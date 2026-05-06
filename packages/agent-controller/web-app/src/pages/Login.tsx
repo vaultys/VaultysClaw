@@ -82,7 +82,7 @@ export default function Login({ onLogin }: Props) {
     <div className="flex items-center justify-center min-h-full bg-canvas">
       <div className="bg-canvas-subtle border border-border rounded-xl p-8 w-[360px] max-w-[95vw] flex flex-col items-center gap-5">
         {/* Header */}
-        <h1 className="text-[#f0f6fc] text-lg font-bold">VaultysClaw Agent</h1>
+        <h1 className="text-fg text-lg font-bold">VaultysClaw Agent</h1>
         <p className="text-fg-muted text-xs text-center leading-relaxed">
           Scan with your{" "}
           <strong className="text-fg">Vaultys Wallet</strong> to authenticate.
@@ -93,7 +93,7 @@ export default function Login({ onLogin }: Props) {
         {/* QR frame */}
         <div className="w-52 h-52 bg-white rounded-lg flex items-center justify-center p-1.5 flex-shrink-0">
           {phase === "starting" && (
-            <div className="w-7 h-7 border-2 border-gray-200 border-t-[#79c0ff] rounded-full animate-spin" />
+            <div className="w-7 h-7 border-2 border-gray-200 border-t-info rounded-full animate-spin" />
           )}
           {phase === "scanning" && qrUrl && (
             <QRCodeSVG value={qrUrl} size={196} level="M" />

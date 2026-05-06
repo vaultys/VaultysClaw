@@ -1,0 +1,111 @@
+name: Release Agent Controller
+
+on:
+  push:
+    tags:
+      - 'agent/v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build & Release
+    runs-on: macos-latest   # macOS can cross-compile all targets via Bun
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Extract version from tag
+        id: version
+        run: |
+          TAG="${GITHUB_REF_NAME}"          # e.g. agent/v1.2.3
+          VERSION="${TAG#agent/v}"          # e.g. 1.2.3
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Build all binaries
+        working-directory: packages/agent-controller
+        run: bash scripts/build-binaries.sh
+
+      - name: Package macOS (.dmg)
+        working-directory: packages/agent-controller
+        run: bash scripts/package-macos.sh
+        continue-on-error: false  # lipo + hdiutil always available on macos-latest
+
+      - name: Package Linux (.tar.gz)
+        working-directory: packages/agent-controller
+        run: bash scripts/package-linux.sh
+
+      - name: Package Windows (.zip)
+        working-directory: packages/agent-controller
+        run: bash scripts/package-windows.sh
+
+      - name: Rename artifacts with version
+        working-directory: packages/agent-controller/dist-bin
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          # Raw binaries — already versioned by package scripts; expose them too
+          for f in agent-macos-arm64 agent-macos-x64 agent-linux-x64 agent-linux-arm64 agent-windows-x64.exe; do
+            [ -f "$f" ] && cp "$f" "${f}-v${VERSION}" || true
+          done
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: Agent Controller v${{ steps.version.outputs.version }}
+          draft: false
+          prerelease: ${{ contains(steps.version.outputs.version, '-') }}
+          body: |
+            ## VaultysClaw Agent Controller v${{ steps.version.outputs.version }}
+
+            ### Installation
+
+            **One-line install (macOS / Linux):**
+            ```sh
+            curl -fsSL https://raw.githubusercontent.com/${{ github.repository }}/main/install.sh | sh
+            ```
+
+            **Manual download:** grab the binary for your platform below.
+
+            ### Quick start
+            ```sh
+            # Headless (JSON logs to stdout)
+            agent-controller
+
+            # Terminal dashboard
+            agent-controller --mode tui
+
+            # Web dashboard
+            agent-controller --mode web --port 3002
+
+            # Install as system service
+            agent-controller --install-service
+            ```
+
+            Set `CONTROL_PLANE_WS_URL` and `AGENT_NAME` environment variables before running.
+          files: |
+            packages/agent-controller/dist-bin/*.dmg
+            packages/agent-controller/dist-bin/*.tar.gz
+            packages/agent-controller/dist-bin/*.zip
+            packages/agent-controller/dist-bin/agent-macos-arm64-v${{ steps.version.outputs.version }}
+            packages/agent-controller/dist-bin/agent-macos-x64-v${{ steps.version.outputs.version }}
+            packages/agent-controller/dist-bin/agent-linux-x64-v${{ steps.version.outputs.version }}
+            packages/agent-controller/dist-bin/agent-linux-arm64-v${{ steps.version.outputs.version }}
+            packages/agent-controller/dist-bin/agent-windows-x64.exe-v${{ steps.version.outputs.version }}
+            install.sh

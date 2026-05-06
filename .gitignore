@@ -1,0 +1,52 @@
+# Dependencies
+node_modules
+pnpm-lock.yaml
+yarn.lock
+package-lock.json
+
+# temp
+temp/
+data/
+
+# Production
+dist
+build
+.next
+out
+
+# Testing
+coverage
+.nyc_output
+
+# Misc
+.DS_Store
+*.pem
+*.env
+*.env.local
+*.env.*.local
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+*~
+.sublime-*
+
+# Agent
+.vaultys/
+
+# SQLite
+*.db
+*.db-journal
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Turbo
+.turbo

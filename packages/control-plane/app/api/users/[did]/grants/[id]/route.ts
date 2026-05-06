@@ -1,0 +1,47 @@
+/**
+ * DELETE /api/users/[did]/grants/[id]
+ * Revoke a delegation grant. Deletes the delegation cert and notifies affected agent.
+ * Owner-only.
+ */
+
+import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth-config";
+import { GrantDao } from "@/lib/grant-dao";
+import { DelegationDao } from "@/lib/delegation-dao";
+import { getWSServer } from "@/lib/ws-server";
+
+export async function DELETE(
+  _req: NextRequest,
+  { params }: { params: Promise<{ did: string; id: string }> },
+) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.isAdmin) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  const { did, id } = await params;
+
+  const grant = GrantDao.getById(id);
+  if (!grant || grant.user_did !== did) {
+    return NextResponse.json({ error: "Grant not found" }, { status: 404 });
+  }
+
+  const agentDid = grant.agent_did; // null = wildcard
+
+  // Delete delegation certs for this grant (cascade handles it, but be explicit)
+  DelegationDao.deleteByGrantId(id);
+  GrantDao.delete(id);
+
+  // Push updated (empty or reduced) delegation set to affected agent(s)
+  const wsServer = getWSServer();
+  if (wsServer) {
+    if (agentDid) {
+      wsServer.pushDelegationUpdate(agentDid);
+    } else {
+      wsServer.pushDelegationUpdateAll();
+    }
+  }
+
+  return NextResponse.json({ ok: true });
+}

@@ -1,0 +1,20 @@
+{
+  "name": "@vaultysclaw/shared",
+  "version": "0.0.1",
+  "description": "Shared types and utilities for VaultysClaw",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "type-check": "tsc --noEmit",
+    "lint": "eslint src --ext .ts"
+  },
+  "dependencies": {
+    "@vaultys/id": "3.0.0-beta6"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/ws": "^8.18.1",
+    "typescript": "^5.7.2"
+  }
+}

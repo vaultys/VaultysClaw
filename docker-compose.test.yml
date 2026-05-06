@@ -1,0 +1,81 @@
+services:
+  # ------------------------------------------------------------------
+  # Mock OpenAI-compatible LLM — no model downloads, instant startup
+  # ------------------------------------------------------------------
+  mock-llm:
+    build:
+      context: docker/mock-llm
+    ports:
+      - "11435:11435"
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >
+          node -e "
+            const http = require('http');
+            http.get('http://localhost:11435/health', r =>
+              process.exit(r.statusCode === 200 ? 0 : 1)
+            ).on('error', () => process.exit(1));
+          "
+      interval: 2s
+      timeout: 3s
+      retries: 15
+
+  # ------------------------------------------------------------------
+  # VaultysClaw control plane
+  # ------------------------------------------------------------------
+  control-plane:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.control-plane
+    ports:
+      - "13000:3000" # Next.js HTTP
+      - "18080:8080" # Agent WebSocket
+    environment:
+      NODE_ENV: development
+      # Test-only API enabled so tests can approve registrations and send intents
+      ENABLE_TEST_API: "true"
+      # Next-auth — dummy secret/URL is fine for integration tests
+      NEXTAUTH_SECRET: "vaultysclaw-docker-test-secret"
+      NEXTAUTH_URL: "http://localhost:13000"
+      # Ports
+      PORT: "3000"
+      WS_PORT: "8080"
+    healthcheck:
+      test: [ "CMD-SHELL", "curl -sf http://localhost:3000/api/server || exit 1" ]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 15s
+
+  # ------------------------------------------------------------------
+  # VaultysClaw agent controller — uses mock LLM
+  # ------------------------------------------------------------------
+  agent:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.agent-controller
+    depends_on:
+      control-plane:
+        condition: service_healthy
+      mock-llm:
+        condition: service_healthy
+    environment:
+      # Connect to the control-plane container on the internal Docker network
+      CONTROL_PLANE_WS_URL: "ws://control-plane:8080"
+      CONTROL_PLANE_URL: "http://control-plane:3000"
+      # Agent identity
+      AGENT_NAME: "docker-test-agent"
+      VAULTYS_ID_PATH: "/data/agent.id"
+      AGENT_CAPABILITIES: "test_capability,llm_query"
+      # LLM config — points at the mock server inside the Docker network
+      LLM_PROVIDER: "openai-compatible"
+      LLM_MODEL: "mock-model"
+      LLM_BASE_URL: "http://mock-llm:11435/v1"
+      LLM_API_KEY: "not-needed"
+    volumes:
+      - agent_data:/data
+    restart: on-failure
+
+volumes:
+  agent_data:

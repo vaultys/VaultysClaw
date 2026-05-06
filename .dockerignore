@@ -1,0 +1,29 @@
+# Never send node_modules to the Docker build context
+node_modules
+**/node_modules
+
+# Build outputs
+dist
+build
+.next
+out
+
+# Test artifacts
+coverage
+.nyc_output
+
+# Dev files
+.git
+.gitignore
+*.md
+.env
+*.env
+*.env.local
+
+# OS
+.DS_Store
+
+# IDE
+.vscode
+.idea
+*.swp

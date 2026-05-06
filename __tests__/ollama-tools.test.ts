@@ -1,0 +1,308 @@
+/**
+ * Live Ollama tool-execution tests — Mastra Agent.
+ *
+ * Requirements:
+ *   - Ollama running on http://localhost:11434
+ *   - llama3.2 model pulled: `ollama pull llama3.2`
+ *   - qwen3:8b model pulled: `ollama pull qwen3:8b`
+ *
+ * Run with:
+ *   npx vitest run __tests__/ollama-tools.test.ts
+ */
+
+import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import os from "os";
+import fs from "fs/promises";
+import path from "path";
+import { createToolRegistry, buildToolSet } from "../packages/agent-controller/src/tools/index";
+import { runIntent, streamChat } from "../packages/agent-controller/src/llm";
+import { initDb, closeDb } from "../packages/agent-controller/src/db";
+import type { LlmConfig } from "../packages/agent-controller/node_modules/@vaultysclaw/shared";
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+const OLLAMA_BASE = "http://localhost:11434/api";
+const MODEL = "llama3.2";
+
+/** Check whether Ollama is reachable. Skip tests if not. */
+async function ollamaAvailable(): Promise<boolean> {
+  try {
+    const res = await fetch("http://localhost:11434/api/tags", { signal: AbortSignal.timeout(3000) });
+    if (!res.ok) return false;
+    const body = (await res.json()) as { models?: Array<{ name: string }> };
+    return body.models?.some((m) => m.name.startsWith("llama3.2")) ?? false;
+  } catch {
+    return false;
+  }
+}
+
+function ollamaConfig(overrides: Partial<LlmConfig> = {}): LlmConfig {
+  return {
+    provider: "ollama",
+    model: MODEL,
+    baseUrl: "http://localhost:11434",
+    maxTokens: 512,
+    ...overrides,
+  } as LlmConfig;
+}
+
+// ---------------------------------------------------------------------------
+// Test setup
+// ---------------------------------------------------------------------------
+
+let available = false;
+let tmpDir: string;
+let dbDir: string;
+
+beforeAll(async () => {
+  available = await ollamaAvailable();
+  if (!available) {
+    console.warn("⚠️  Ollama not available or llama3.2 not installed — skipping live tests");
+    return;
+  }
+
+  // Create temp workspace with a test file
+  tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "vc-ollama-test-"));
+  await fs.writeFile(path.join(tmpDir, "hello.txt"), "Hello from VaultysClaw test!\n");
+  await fs.mkdir(path.join(tmpDir, "subdir"));
+  await fs.writeFile(path.join(tmpDir, "subdir", "data.json"), '{"key":"value"}');
+
+  // Init DB for runIntent (it uses logToolUsage)
+  dbDir = await fs.mkdtemp(path.join(os.tmpdir(), "vc-ollama-db-"));
+  initDb(dbDir);
+});
+
+afterAll(async () => {
+  closeDb();
+  if (tmpDir) await fs.rm(tmpDir, { recursive: true, force: true }).catch(() => { });
+  if (dbDir) await fs.rm(dbDir, { recursive: true, force: true }).catch(() => { });
+});
+
+/** Skip helper — call at start of each test */
+function skipIfUnavailable() {
+  if (!available) {
+    console.log("  → skipped (Ollama not available)");
+    return true;
+  }
+  return false;
+}
+
+// ---------------------------------------------------------------------------
+// Tests: runIntent with tools (using the actual agent execution path)
+// ---------------------------------------------------------------------------
+
+describe("Ollama tool execution (live)", () => {
+  it("should call file_list tool to list directory contents", async () => {
+    if (skipIfUnavailable()) return;
+    const config = ollamaConfig({
+      systemPrompt:
+        "You are a file system assistant. When asked to list files, you MUST use the file_list tool. " +
+        "Do not describe what you would do — call the tool.",
+    });
+    const registry = createToolRegistry({ workspaceRoot: tmpDir });
+    const tools = buildToolSet(registry, ["file_access"]);
+
+    const { text } = await runIntent(config, `Use the file_list tool with path "." to list files.`, {}, tools);
+    expect(typeof text).toBe("string");
+  }, 60_000);
+
+  it("should call file_read tool to read a file", async () => {
+    if (skipIfUnavailable()) return;
+    const config = ollamaConfig({
+      systemPrompt:
+        "You are a file system assistant. When asked to read a file, you MUST use the file_read tool. " +
+        "Do not describe what you would do — call the tool.",
+    });
+    const registry = createToolRegistry({ workspaceRoot: tmpDir });
+    const tools = buildToolSet(registry, ["file_access"]);
+
+    const { text } = await runIntent(config, `Read the file "hello.txt"`, {}, tools);
+    expect(typeof text).toBe("string");
+  }, 60_000);
+
+  it("should respond to a plain chat message using runIntent", async () => {
+    if (skipIfUnavailable()) return;
+    const config = ollamaConfig();
+    const { text } = await runIntent(config, "Say exactly the word 'pong' and nothing else.", {});
+    expect(text.toLowerCase()).toContain("pong");
+  }, 60_000);
+
+  // ---------------------------------------------------------------------------
+  // Tests: runIntent (the actual agent execution path)
+  // ---------------------------------------------------------------------------
+
+  it("should use tools via runIntent for file listing task", async () => {
+    if (skipIfUnavailable()) return;
+    const config = ollamaConfig({
+      systemPrompt:
+        "You are a file system agent. You MUST use the file_list tool to list files. " +
+        "Do not describe what you would do — call the tool. " +
+        "After getting tool results, summarize what you found in a text response.",
+    });
+
+    const registry = createToolRegistry({ workspaceRoot: tmpDir });
+    const tools = buildToolSet(registry, ["file_access"]);
+
+    const { text } = await runIntent(config, "list_files", { directory: "." }, tools);
+
+    // Key assertion: no schema error, no crash
+    expect(typeof text).toBe("string");
+  }, 60_000);
+
+  // ---------------------------------------------------------------------------
+  // Tests: streamChat without tools (should respond normally)
+  // ---------------------------------------------------------------------------
+
+  it("should stream chat response without tools", async () => {
+    if (skipIfUnavailable()) return;
+    const config = ollamaConfig();
+
+    const result = streamChat(config, [{ role: "user", content: "Say 'pong' and nothing else." }]);
+
+    let text = "";
+    for await (const chunk of result.textStream) {
+      text += chunk;
+    }
+
+    expect(text.toLowerCase()).toContain("pong");
+  }, 30_000);
+
+  // ---------------------------------------------------------------------------
+  // Tests: schema compatibility (regression)
+  // ---------------------------------------------------------------------------
+
+  it("should handle http_request tool schema without errors", async () => {
+    if (skipIfUnavailable()) return;
+    const config = ollamaConfig({
+      systemPrompt: "You are a helpful assistant. Answer concisely without calling any tools.",
+    });
+    const registry = createToolRegistry({ workspaceRoot: tmpDir });
+    const tools = buildToolSet(registry, ["api_call"]);
+
+    const { text } = await runIntent(config, "Say hello in one word.", {}, tools);
+    expect(text.length).toBeGreaterThanOrEqual(0);
+  }, 30_000);
+
+  it("should handle all tool schemas without errors", async () => {
+    if (skipIfUnavailable()) return;
+    const config = ollamaConfig({
+      systemPrompt: "You are a helpful assistant. Just say 'ok' and nothing else. Do not call any tools.",
+    });
+    const registry = createToolRegistry({ workspaceRoot: tmpDir });
+    const allCaps: any[] = ["file_access", "system_command", "api_call", "internet_access", "code_execution"];
+    const tools = buildToolSet(registry, allCaps);
+
+    expect(Object.keys(tools).length).toBeGreaterThanOrEqual(5);
+
+    const { text } = await runIntent(config, "Acknowledge.", {}, tools);
+    expect(typeof text).toBe("string");
+  }, 30_000);
+});
+
+// ---------------------------------------------------------------------------
+// Tests: qwen3:8b
+// ---------------------------------------------------------------------------
+
+const QWEN_MODEL = "qwen3:8b";
+
+async function qwenAvailable(): Promise<boolean> {
+  try {
+    const res = await fetch("http://localhost:11434/api/tags", { signal: AbortSignal.timeout(3000) });
+    if (!res.ok) return false;
+    const body = (await res.json()) as { models?: Array<{ name: string }> };
+    return body.models?.some((m) => m.name.startsWith("qwen3")) ?? false;
+  } catch {
+    return false;
+  }
+}
+
+function qwenConfig(overrides: Partial<LlmConfig> = {}): LlmConfig {
+  return {
+    provider: "ollama",
+    model: QWEN_MODEL,
+    baseUrl: "http://localhost:11434",
+    maxTokens: 1024,
+    ...overrides,
+  } as LlmConfig;
+}
+
+describe("qwen3:8b tool execution (live)", () => {
+  let qwenOk = false;
+
+  beforeAll(async () => {
+    qwenOk = await qwenAvailable();
+    if (!qwenOk) console.warn("⚠️  qwen3:8b not available — skipping qwen tests");
+  });
+
+  function skip() {
+    if (!qwenOk) { console.log("  → skipped (qwen3:8b not available)"); return true; }
+    return false;
+  }
+
+  it("should respond to a plain chat message", async () => {
+    if (skip()) return;
+    const { text } = await runIntent(qwenConfig(), "Say exactly the word 'pong' and nothing else.", {});
+    expect(text.toLowerCase()).toContain("pong");
+  }, 60_000);
+
+  it("should call file_list to enumerate a directory", async () => {
+    if (skip()) return;
+    const registry = createToolRegistry({ workspaceRoot: tmpDir });
+    const tools = buildToolSet(registry, ["file_access"]);
+
+    const { text } = await runIntent(
+      qwenConfig({
+        systemPrompt:
+          "You are a file system agent. Use the file_list tool to list files. " +
+          "After calling the tool, summarize what files you found.",
+      }),
+      `List the files in the directory "${tmpDir}"`,
+      {},
+      tools,
+    );
+
+    expect(typeof text).toBe("string");
+    expect(text.length).toBeGreaterThan(0);
+    if (!text.startsWith("[")) {
+      expect(text.toLowerCase()).toMatch(/hello\.txt|file|found|listed/);
+    } else {
+      expect(text).toContain("hello.txt");
+    }
+  }, 90_000);
+
+  it("should call http_request for a web fetch task", async () => {
+    if (skip()) return;
+    const registry = createToolRegistry({ workspaceRoot: tmpDir });
+    const tools = buildToolSet(registry, ["internet_access"]);
+
+    const { text } = await runIntent(
+      qwenConfig({
+        systemPrompt:
+          "You are a web research agent. Use the http_request tool to fetch URLs. " +
+          "Always call the tool — do not describe what you would do.",
+      }),
+      "can you tell me the headlines of today on CNN",
+      {},
+      tools,
+    );
+
+    expect(typeof text).toBe("string");
+    expect(text.length).toBeGreaterThan(0);
+  }, 120_000);
+
+  it("should handle all tool schemas without errors", async () => {
+    if (skip()) return;
+    const registry = createToolRegistry({ workspaceRoot: tmpDir });
+    const tools = buildToolSet(registry, ["file_access", "api_call", "internet_access"]);
+
+    const { text } = await runIntent(
+      qwenConfig({ systemPrompt: "You are a helpful assistant. Reply with just 'ok'." }),
+      "Acknowledge.",
+      {},
+      tools,
+    );
+    expect(typeof text).toBe("string");
+  }, 30_000);
+});

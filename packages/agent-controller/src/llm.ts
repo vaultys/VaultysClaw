@@ -40,7 +40,7 @@ export function buildModel(config: LlmConfig): any {
   switch (config.provider) {
     case "openai":
       return config.apiKey
-        ? createOpenAI({ apiKey: config.apiKey })(config.model)
+        ? createOpenAI({ apiKey: config.apiKey }).chat(config.model)
         : `openai/${config.model}`;
 
     case "anthropic":
@@ -63,7 +63,7 @@ export function buildModel(config: LlmConfig): any {
         baseURL: config.baseUrl,
         compatibility: "compatible",
       });
-      return client(config.model);
+      return client.chat(config.model);
     }
 
     default: {

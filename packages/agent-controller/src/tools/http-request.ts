@@ -30,12 +30,10 @@ export const httpRequestTool: AgentToolDefinition = {
       url: z.string().url().describe("The URL to request"),
       method: z
         .enum(["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"])
-        .optional()
         .default("GET")
         .describe("HTTP method (default GET)"),
       headers: z
         .record(z.string(), z.string())
-        .optional()
         .default({})
         .describe("Request headers as key-value pairs"),
       body: z
@@ -44,7 +42,6 @@ export const httpRequestTool: AgentToolDefinition = {
         .describe("Request body (for POST/PUT/PATCH). Send JSON as a string."),
       timeoutMs: z
         .number()
-        .optional()
         .default(DEFAULT_TIMEOUT_MS)
         .describe("Request timeout in milliseconds (default 30000)"),
     }),

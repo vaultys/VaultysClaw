@@ -57,6 +57,9 @@ function migrateSchema(db: Database.Database): void {
   if (!existingCols.includes("reports_to")) {
     db.exec("ALTER TABLE users ADD COLUMN reports_to TEXT REFERENCES users(did) ON DELETE SET NULL");
   }
+  if (!existingCols.includes("description")) {
+    db.exec("ALTER TABLE users ADD COLUMN description TEXT");
+  }
 
   // Migrate pending_registrations table
   const regCols = (db.pragma("table_info(pending_registrations)") as { name: string }[]).map((c) => c.name);
@@ -138,6 +141,7 @@ function createTables(db: Database.Database): void {
       is_admin INTEGER NOT NULL DEFAULT 0,
       role TEXT NOT NULL DEFAULT 'member',
       reports_to TEXT REFERENCES users(did) ON DELETE SET NULL,
+      description TEXT,
       registered_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
 

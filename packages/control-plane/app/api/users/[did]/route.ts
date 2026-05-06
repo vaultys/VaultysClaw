@@ -1,7 +1,7 @@
 /**
- * GET    /api/users/[did]  — Get a single user (owner-only).
+ * GET    /api/users/[did]  — Get a single user (admin-only).
  * DELETE /api/users/[did]  — Remove a user and all their grants (owner-only).
- * PATCH  /api/users/[did]  — Update a user's name/email (owner-only).
+ * PATCH  /api/users/[did]  — Update a user's profile fields (owner-only).
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -9,6 +9,9 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-config";
 import { UserDao } from "@/lib/user-dao";
 import { GrantDao } from "@/lib/grant-dao";
+
+const VALID_ROLES = ["owner", "admin", "manager", "operator", "member"] as const;
+type ValidRole = typeof VALID_ROLES[number];
 
 export async function GET(
   _req: NextRequest,
@@ -31,6 +34,9 @@ export async function GET(
     email: user.email ?? null,
     isOwner: user.is_owner === 1,
     isAdmin: user.is_admin === 1 || user.is_owner === 1,
+    role: user.role ?? "member",
+    reportsTo: user.reports_to ?? null,
+    description: user.description ?? null,
     registeredAt: user.registered_at,
     grants: GrantDao.listByUser(user.did).map((g) => ({
       id: g.id,
@@ -82,10 +88,40 @@ export async function PATCH(
     return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
 
-  const body = await req.json() as { name?: string; email?: string };
-  const fields: { name?: string; email?: string } = {};
+  const body = await req.json() as {
+    name?: string;
+    email?: string;
+    role?: string;
+    reportsTo?: string | null;
+    description?: string | null;
+  };
+
+  const fields: Parameters<typeof UserDao.update>[1] = {};
   if (typeof body.name === "string") fields.name = body.name.trim();
   if (typeof body.email === "string") fields.email = body.email.trim();
+  if (typeof body.description === "string" || body.description === null) {
+    fields.description = typeof body.description === "string" ? body.description.trim() : null;
+  }
+  if (typeof body.role === "string") {
+    if (!VALID_ROLES.includes(body.role as ValidRole)) {
+      return NextResponse.json({ error: "Invalid role" }, { status: 400 });
+    }
+    if (!user.is_owner) fields.role = body.role;
+  }
+  if ("reportsTo" in body) {
+    if (body.reportsTo === null || body.reportsTo === "") {
+      fields.reports_to = null;
+    } else if (typeof body.reportsTo === "string") {
+      if (body.reportsTo === did) {
+        return NextResponse.json({ error: "User cannot report to themselves" }, { status: 400 });
+      }
+      const supervisor = UserDao.getByDid(body.reportsTo);
+      if (!supervisor) {
+        return NextResponse.json({ error: "Supervisor user not found" }, { status: 400 });
+      }
+      fields.reports_to = body.reportsTo;
+    }
+  }
 
   UserDao.update(did, fields);
   return NextResponse.json({ ok: true });

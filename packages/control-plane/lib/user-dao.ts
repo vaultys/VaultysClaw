@@ -8,7 +8,8 @@ export interface User {
   is_owner: number; // 1 = owner, 0 = regular
   is_admin: number; // 1 = admin (can access control plane), 0 = regular
   role: string;     // owner | admin | manager | operator | member
-  reports_to: string | null; // DID of the responsible user
+  reports_to: string | null; // DID of the supervisor user
+  description: string | null;
   registered_at: string;
 }
 
@@ -28,7 +29,7 @@ export const UserDao = {
     return db.prepare("SELECT * FROM users WHERE did = ?").get(did) as User;
   },
 
-  update(did: string, fields: { name?: string; email?: string; role?: string; reports_to?: string | null }): void {
+  update(did: string, fields: { name?: string; email?: string; role?: string; reports_to?: string | null; description?: string | null }): void {
     const db = getDb();
     const sets: string[] = [];
     const values: unknown[] = [];
@@ -36,6 +37,7 @@ export const UserDao = {
     if (fields.email !== undefined) { sets.push("email = ?"); values.push(fields.email || null); }
     if (fields.role !== undefined) { sets.push("role = ?"); values.push(fields.role); }
     if (fields.reports_to !== undefined) { sets.push("reports_to = ?"); values.push(fields.reports_to); }
+    if (fields.description !== undefined) { sets.push("description = ?"); values.push(fields.description || null); }
     if (sets.length === 0) return;
     values.push(did);
     db.prepare(`UPDATE users SET ${sets.join(", ")} WHERE did = ?`).run(...values);

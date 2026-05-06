@@ -493,7 +493,7 @@ function ChatTab({ agentId, agentName, online }: { agentId: string; agentName: s
         const res = await fetch("/api/chat", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ agentDid: agentId, messages: updatedMessages }),
+          body: JSON.stringify({ agentDid: agentId, messages: updatedMessages, sessionId: activeSessionId ?? undefined }),
           signal: controller.signal,
         });
 

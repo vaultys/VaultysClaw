@@ -10,12 +10,13 @@ import type { WSChatResponsePayload, ChatMessageEntry } from "@vaultysclaw/share
  * POST /api/chat
  * Stream a chat response from a connected agent.
  *
- * Body: { agentDid: string, messages: Array<{ role: "user"|"assistant", content: string }> }
+ * Body: { agentDid: string, messages: Array<{ role: "user"|"assistant", content: string }>, sessionId?: string }
  *
  * Admins can chat with any agent. Non-admins must have at least one active grant
  * covering the target agent (any capability qualifies for chat access).
  *
  * Response: text/event-stream
+ *   event: session\ndata: {"conversationId":"..."}\n\n  — session ID for this exchange
  *   data: {"text":"chunk"}\n\n   — streaming text delta
  *   data: {"error":"msg"}\n\n    — error
  *   data: [DONE]\n\n              — stream finished
@@ -31,9 +32,10 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { agentDid, messages } = body as {
+    const { agentDid, messages, sessionId } = body as {
       agentDid?: string;
       messages?: ChatMessageEntry[];
+      sessionId?: string;
     };
 
     if (!agentDid || !Array.isArray(messages) || messages.length === 0) {
@@ -77,12 +79,20 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    const conversationId = crypto.randomBytes(16).toString("hex");
+    // Reuse caller's session ID to continue an existing conversation, or start a new one
+    const conversationId = (typeof sessionId === "string" && sessionId.length > 0)
+      ? sessionId
+      : crypto.randomBytes(16).toString("hex");
 
     // Create a TransformStream to bridge WS callbacks → SSE response
     const { readable, writable } = new TransformStream();
     const writer = writable.getWriter();
     const encoder = new TextEncoder();
+
+    // Always tell the client which session ID to use for this exchange
+    writer.write(encoder.encode(
+      `event: session\ndata: ${JSON.stringify({ conversationId })}\n\n`
+    ));
 
     const sent = wsServer.sendChatToAgent(agentDid, conversationId, messages, (payload: WSChatResponsePayload) => {
       if (payload.error) {

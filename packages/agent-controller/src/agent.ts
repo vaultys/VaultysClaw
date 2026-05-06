@@ -1076,11 +1076,15 @@ export class Agent extends EventEmitter {
 
     this.log("info", `Chat request ${conversationId} (${messages.length} messages)`);
 
-    // Persist session + incoming messages
+    // Persist session + only new incoming messages (avoid duplicating history on each turn)
     const title = messages.find((m) => m.role === "user")?.content.slice(0, 80) ?? null;
     try {
       upsertChatSession(conversationId, title, "control_plane");
-      appendChatMessages(conversationId, messages.map((m) => ({ role: m.role, content: m.content })));
+      const existingCount = getChatMessages(conversationId).length;
+      const newMessages = messages.slice(existingCount);
+      if (newMessages.length > 0) {
+        appendChatMessages(conversationId, newMessages.map((m) => ({ role: m.role, content: m.content })));
+      }
     } catch { /* non-fatal */ }
 
     if (!this.activeLlmConfig) {

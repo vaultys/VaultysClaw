@@ -1,80 +1,51 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useChat } from "../hooks/useChat";
 import type { ChatItem, ChatMessage, ToolCallEvent, ChatSession } from "../types";
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function timeLabel(iso: string): string {
+  const d = new Date(iso);
+  const now = new Date();
+  const diffS = Math.floor((now.getTime() - d.getTime()) / 1000);
+  if (diffS < 60) return "just now";
+  if (diffS < 3600) return `${Math.floor(diffS / 60)}m ago`;
+  if (diffS < 86400) return `${Math.floor(diffS / 3600)}h ago`;
+  return d.toLocaleDateString();
+}
+
+// ---------------------------------------------------------------------------
+// Message bubble
+// ---------------------------------------------------------------------------
 
 function MessageBubble({ msg }: { msg: ChatMessage }) {
   const isUser = msg.role === "user";
   return (
-    <div className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
-      <div
-        className={`max-w-[80%] rounded-lg px-3 py-2 text-sm whitespace-pre-wrap break-words ${
-          isUser
-            ? "bg-accent-emphasis text-white"
-            : "bg-canvas-subtle border border-border-muted text-fg"
-        }`}
-      >
-        {msg.content || (
-          <span className="inline-flex gap-1 items-center text-fg-muted">
-            <span className="w-1.5 h-1.5 bg-fg-muted rounded-full animate-pulse" />
-            <span className="w-1.5 h-1.5 bg-fg-muted rounded-full animate-pulse [animation-delay:0.2s]" />
-            <span className="w-1.5 h-1.5 bg-fg-muted rounded-full animate-pulse [animation-delay:0.4s]" />
-          </span>
-        )}
+    <div className={`flex gap-3 animate-slide-up ${isUser ? "flex-row-reverse" : "flex-row"}`}>
+      {/* Avatar */}
+      <div className={`flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold select-none ${
+        isUser
+          ? "bg-indigo-600/30 text-indigo-300 border border-indigo-500/30"
+          : "bg-vc-raised text-vc-muted border border-vc-border"
+      }`}>
+        {isUser ? "U" : "A"}
       </div>
-    </div>
-  );
-}
 
-function ToolCallBubble({ event }: { event: ToolCallEvent }) {
-  const [expanded, setExpanded] = useState(false);
-  const hasResult = event.result !== undefined;
-
-  return (
-    <div className="flex justify-start">
-      <div className="max-w-[90%] w-full">
-        <div
-          className={`rounded-lg border text-xs font-mono overflow-hidden ${
-            hasResult
-              ? "border-border-muted bg-canvas"
-              : "border-info/40 bg-[#0d1b2a] animate-pulse"
-          }`}
-        >
-          <div
-            className="flex items-center gap-2 px-3 py-1.5 cursor-pointer hover:bg-canvas-subtle"
-            onClick={() => setExpanded((p) => !p)}
-          >
-            <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${hasResult ? "bg-success" : "bg-info animate-pulse"}`} />
-            <span className="text-fg-muted text-[10px] uppercase tracking-wide">Tool</span>
-            <code className="text-accent">{event.toolName}</code>
-            <span className="ml-auto text-fg-dim text-[10px]">{expanded ? "▲" : "▼"}</span>
-          </div>
-
-          {expanded && (
-            <div className="border-t border-border-muted divide-y divide-border-muted">
-              {Object.keys(event.args).length > 0 && (
-                <div className="px-3 py-2">
-                  <p className="text-[10px] text-fg-muted uppercase tracking-wide mb-1">Args</p>
-                  <pre className="text-[11px] text-fg-muted whitespace-pre-wrap">
-                    {JSON.stringify(event.args, null, 2)}
-                  </pre>
-                </div>
-              )}
-              {hasResult && (
-                <div className="px-3 py-2">
-                  <p className="text-[10px] text-fg-muted uppercase tracking-wide mb-1">Result</p>
-                  <pre className="text-[11px] text-success whitespace-pre-wrap max-h-40 overflow-y-auto">
-                    {typeof event.result === "string"
-                      ? event.result
-                      : JSON.stringify(event.result, null, 2)}
-                  </pre>
-                </div>
-              )}
-              {!hasResult && (
-                <div className="px-3 py-1.5">
-                  <p className="text-[10px] text-info">Running…</p>
-                </div>
-              )}
-            </div>
+      {/* Bubble */}
+      <div className={`group relative max-w-[80%] ${isUser ? "items-end" : "items-start"} flex flex-col`}>
+        <div className={`px-4 py-2.5 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap break-words ${
+          isUser
+            ? "bg-indigo-600/25 text-vc-text border border-indigo-500/20 rounded-tr-sm"
+            : "bg-vc-raised text-vc-text border border-vc-border rounded-tl-sm"
+        }`}>
+          {msg.content || (
+            <span className="inline-flex gap-1 items-center">
+              <span className="w-1.5 h-1.5 bg-vc-muted rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+              <span className="w-1.5 h-1.5 bg-vc-muted rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+              <span className="w-1.5 h-1.5 bg-vc-muted rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+            </span>
           )}
         </div>
       </div>
@@ -82,12 +53,74 @@ function ToolCallBubble({ event }: { event: ToolCallEvent }) {
   );
 }
 
-function ChatItemRow({ item }: { item: ChatItem }) {
-  if (item.kind === "message") return <MessageBubble msg={item.msg} />;
-  return <ToolCallBubble event={item.event} />;
+// ---------------------------------------------------------------------------
+// Tool call card
+// ---------------------------------------------------------------------------
+
+function ToolCallCard({ event }: { event: ToolCallEvent }) {
+  const [expanded, setExpanded] = useState(false);
+  const done = event.result !== undefined;
+
+  return (
+    <div className="flex gap-3 animate-slide-up">
+      {/* Spacer aligned with avatar */}
+      <div className="flex-shrink-0 w-7" />
+
+      <div className={`flex-1 max-w-[80%] rounded-xl border text-xs font-mono overflow-hidden transition-colors ${
+        done
+          ? "border-vc-border bg-vc-surface"
+          : "border-emerald-500/30 bg-emerald-950/20"
+      }`}>
+        {/* Header */}
+        <button
+          className="w-full flex items-center gap-2 px-3 py-2 hover:bg-white/5 transition-colors text-left"
+          onClick={() => setExpanded((p) => !p)}
+        >
+          <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${done ? "bg-emerald-400" : "bg-emerald-400 animate-pulse"}`} />
+          <span className="text-[10px] text-vc-subtle uppercase tracking-widest">Tool</span>
+          <code className="text-emerald-400 font-semibold">{event.toolName}</code>
+          {!done && <span className="text-[10px] text-vc-subtle ml-1">Running…</span>}
+          <span className="ml-auto text-vc-subtle">{expanded ? "▲" : "▼"}</span>
+        </button>
+
+        {/* Expanded content */}
+        {expanded && (
+          <div className="border-t border-vc-border divide-y divide-vc-border">
+            {Object.keys(event.args).length > 0 && (
+              <div className="px-3 py-2.5">
+                <p className="text-[9px] text-vc-subtle uppercase tracking-widest mb-1.5">Input</p>
+                <pre className="text-[11px] text-vc-text-2 whitespace-pre-wrap overflow-x-auto">
+                  {JSON.stringify(event.args, null, 2)}
+                </pre>
+              </div>
+            )}
+            {done && (
+              <div className="px-3 py-2.5">
+                <p className="text-[9px] text-vc-subtle uppercase tracking-widest mb-1.5">Output</p>
+                <pre className="text-[11px] text-emerald-300 whitespace-pre-wrap max-h-48 overflow-y-auto">
+                  {typeof event.result === "string"
+                    ? event.result
+                    : JSON.stringify(event.result, null, 2)}
+                </pre>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }
 
-function SessionList({
+function ChatItemRow({ item }: { item: ChatItem }) {
+  if (item.kind === "message") return <MessageBubble msg={item.msg} />;
+  return <ToolCallCard event={item.event} />;
+}
+
+// ---------------------------------------------------------------------------
+// Session sidebar
+// ---------------------------------------------------------------------------
+
+function SessionSidebar({
   sessions,
   activeSessionId,
   onSelect,
@@ -101,76 +134,133 @@ function SessionList({
   onDelete: (id: string) => void;
 }) {
   return (
-    <div className="flex flex-col h-full border-r border-border-muted bg-canvas-subtle w-44 flex-shrink-0">
-      <div className="flex items-center justify-between px-2 py-1.5 border-b border-border-muted">
-        <span className="text-[10px] font-bold text-fg-muted uppercase tracking-widest">History</span>
+    <div className="w-52 flex-shrink-0 flex flex-col bg-vc-surface border-r border-vc-border overflow-hidden">
+      {/* Header */}
+      <div className="flex items-center justify-between px-3 py-2.5 border-b border-vc-border">
+        <span className="text-[10px] font-semibold text-vc-muted uppercase tracking-widest">Conversations</span>
         <button
           onClick={onNew}
+          className="flex items-center gap-1 text-[11px] text-indigo-400 hover:text-indigo-300 transition-colors font-medium"
           title="New chat"
-          className="text-[11px] text-accent hover:text-accent-emphasis transition-colors font-medium"
         >
-          + New
+          <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round">
+            <path d="M12 5v14M5 12h14" />
+          </svg>
+          New
         </button>
       </div>
-      <div className="flex-1 overflow-y-auto">
+
+      {/* Session list */}
+      <div className="flex-1 overflow-y-auto py-1">
         {sessions.length === 0 && (
-          <p className="text-fg-dim text-[10px] text-center mt-4 px-2">No history yet</p>
-        )}
-        {sessions.map((s) => (
-          <div
-            key={s.id}
-            className={`group flex items-center gap-1 px-2 py-1.5 cursor-pointer border-b border-border-muted/50 ${
-              activeSessionId === s.id
-                ? "bg-accent-emphasis/10 border-l-2 border-l-accent"
-                : "hover:bg-canvas"
-            }`}
-            onClick={() => onSelect(s.id)}
-          >
-            <div className="flex-1 min-w-0">
-              <p className="text-[11px] text-fg truncate leading-tight">
-                {s.title ?? "Untitled"}
-              </p>
-              <p className="text-[9px] text-fg-dim">
-                {s.messageCount} msg · {s.source}
-              </p>
-            </div>
-            <button
-              onClick={(e) => { e.stopPropagation(); onDelete(s.id); }}
-              className="opacity-0 group-hover:opacity-100 text-fg-dim hover:text-danger text-[10px] transition-opacity"
-              title="Delete session"
-            >
-              ✕
-            </button>
+          <div className="flex flex-col items-center justify-center h-24 gap-1.5 text-vc-subtle">
+            <svg className="w-5 h-5 opacity-40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}>
+              <path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            <span className="text-[10px]">No history yet</span>
           </div>
-        ))}
+        )}
+
+        {sessions.map((s) => {
+          const isActive = activeSessionId === s.id;
+          return (
+            <div
+              key={s.id}
+              className={`group relative mx-1 rounded-lg mb-0.5 cursor-pointer transition-colors ${
+                isActive
+                  ? "bg-indigo-600/15 border border-indigo-500/25"
+                  : "hover:bg-vc-raised border border-transparent"
+              }`}
+              onClick={() => onSelect(s.id)}
+            >
+              <div className="px-3 py-2">
+                <p className={`text-xs leading-snug truncate font-medium ${isActive ? "text-vc-text" : "text-vc-text-2"}`}>
+                  {s.title ?? "Untitled conversation"}
+                </p>
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <span className="text-[9px] text-vc-subtle">{s.messageCount} msg</span>
+                  <span className="text-[9px] text-vc-ring">·</span>
+                  <span className="text-[9px] text-vc-subtle">{timeLabel(s.updatedAt)}</span>
+                  {s.source !== "web" && (
+                    <>
+                      <span className="text-[9px] text-vc-ring">·</span>
+                      <span className="text-[9px] text-indigo-400/70">{s.source}</span>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {/* Delete button */}
+              <button
+                className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity w-5 h-5 flex items-center justify-center rounded text-vc-subtle hover:text-red-400 hover:bg-red-500/10"
+                onClick={(e) => { e.stopPropagation(); onDelete(s.id); }}
+                title="Delete"
+              >
+                <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
+                  <path d="M18 6L6 18M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
 }
+
+// ---------------------------------------------------------------------------
+// Empty state
+// ---------------------------------------------------------------------------
+
+function EmptyState({ agentName }: { agentName?: string }) {
+  return (
+    <div className="flex flex-col items-center justify-center h-full gap-4 text-vc-subtle px-6">
+      <div className="w-14 h-14 rounded-2xl bg-vc-raised border border-vc-border flex items-center justify-center">
+        <svg className="w-7 h-7 text-vc-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}>
+          <path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </div>
+      <div className="text-center">
+        <p className="text-sm font-medium text-vc-text-2 mb-1">
+          {agentName ? `Chat with ${agentName}` : "Start a conversation"}
+        </p>
+        <p className="text-xs text-vc-subtle">Send a message below. Tool calls will appear inline.</p>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Main ChatPanel
+// ---------------------------------------------------------------------------
 
 export default function ChatPanel() {
   const {
     items, isStreaming, error, sendMessage,
     sessions, activeSessionId, loadSession, startNewSession, refreshSessions,
   } = useChat();
+
   const [input, setInput] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const isComposingRef = useRef(false);
 
+  // Auto-scroll to bottom on new messages
   useEffect(() => {
     const el = scrollRef.current;
     if (el) el.scrollTop = el.scrollHeight;
   }, [items]);
 
-  const handleSend = () => {
-    if (!input.trim() || isStreaming) return;
-    sendMessage(input);
+  const handleSend = useCallback(() => {
+    const text = input.trim();
+    if (!text || isStreaming) return;
+    sendMessage(text);
     setInput("");
     inputRef.current?.focus();
-  };
+  }, [input, isStreaming, sendMessage]);
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !e.shiftKey) {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "Enter" && !e.shiftKey && !isComposingRef.current) {
       e.preventDefault();
       handleSend();
     }
@@ -182,10 +272,17 @@ export default function ChatPanel() {
     await refreshSessions();
   };
 
+  // Auto-resize textarea
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setInput(e.target.value);
+    e.target.style.height = "auto";
+    e.target.style.height = `${Math.min(e.target.scrollHeight, 120)}px`;
+  };
+
   return (
-    <div className="flex h-full overflow-hidden">
-      {/* Sidebar */}
-      <SessionList
+    <div className="flex h-full overflow-hidden bg-vc-bg">
+      {/* Sessions sidebar */}
+      <SessionSidebar
         sessions={sessions}
         activeSessionId={activeSessionId}
         onSelect={loadSession}
@@ -196,58 +293,89 @@ export default function ChatPanel() {
       {/* Chat area */}
       <div className="flex flex-col flex-1 overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between px-3 py-1.5 bg-canvas-subtle border-b border-border-muted flex-shrink-0">
-          <span className="text-[11px] font-bold text-fg-muted uppercase tracking-widest">
-            {activeSessionId ? "Continuing session" : "New chat"}
-          </span>
+        <div className="flex items-center justify-between px-4 py-2.5 bg-vc-surface border-b border-vc-border flex-shrink-0">
+          <div className="flex items-center gap-2.5">
+            <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 flex-shrink-0" />
+            <span className="text-sm font-medium text-vc-text">
+              {activeSessionId
+                ? <span className="text-vc-text-2">Session <code className="text-[11px] text-vc-subtle font-mono">{activeSessionId.slice(0, 8)}…</code></span>
+                : "New conversation"
+              }
+            </span>
+          </div>
           {items.length > 0 && (
             <button
               onClick={startNewSession}
-              className="text-[10px] text-fg-dim hover:text-danger transition-colors"
+              className="text-xs text-vc-subtle hover:text-red-400 transition-colors flex items-center gap-1"
             >
+              <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
+                <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2" />
+              </svg>
               Clear
             </button>
           )}
         </div>
 
-        {/* Items */}
-        <div ref={scrollRef} className="flex-1 overflow-y-auto p-3 space-y-2">
-          {items.length === 0 && (
-            <p className="text-fg-dim text-xs text-center mt-8">
-              Send a message to chat with this agent. Tool calls will appear inline.
-            </p>
-          )}
-          {items.map((item, i) => (
-            <ChatItemRow key={i} item={item} />
-          ))}
+        {/* Messages */}
+        <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4">
+          {items.length === 0
+            ? <EmptyState />
+            : (
+              <div className="space-y-4 max-w-3xl mx-auto">
+                {items.map((item, i) => (
+                  <ChatItemRow key={i} item={item} />
+                ))}
+              </div>
+            )
+          }
         </div>
 
-        {/* Error */}
+        {/* Error banner */}
         {error && (
-          <div className="px-3 py-1.5 bg-danger-emphasis text-danger text-xs border-t border-border-muted">
+          <div className="mx-4 mb-2 px-3 py-2 bg-red-500/10 border border-red-500/25 rounded-lg text-xs text-red-400 flex items-center gap-2">
+            <svg className="w-3.5 h-3.5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+              <circle cx="12" cy="12" r="10" /><path d="M12 8v4m0 4h.01" strokeLinecap="round" />
+            </svg>
             {error}
           </div>
         )}
 
-        {/* Input */}
-        <div className="flex gap-2 p-2 border-t border-border-muted bg-canvas-subtle flex-shrink-0">
-          <input
-            ref={inputRef}
-            type="text"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder={isStreaming ? "Waiting for response…" : "Type a message…"}
-            disabled={isStreaming}
-            className="flex-1 bg-canvas border border-border rounded-md px-3 py-1.5 text-sm text-fg placeholder:text-fg-dim outline-none focus:border-accent disabled:opacity-50"
-          />
-          <button
-            onClick={handleSend}
-            disabled={isStreaming || !input.trim()}
-            className="px-3 py-1.5 bg-accent-emphasis text-white text-xs font-medium rounded-md hover:bg-accent transition-colors disabled:opacity-40"
-          >
-            Send
-          </button>
+        {/* Input area */}
+        <div className="px-4 pb-4 pt-2 flex-shrink-0">
+          <div className="flex items-end gap-2 bg-vc-raised border border-vc-border rounded-xl px-3 py-2.5 focus-within:border-indigo-500/50 transition-colors">
+            <textarea
+              ref={inputRef}
+              rows={1}
+              value={input}
+              onChange={handleInputChange}
+              onKeyDown={handleKeyDown}
+              onCompositionStart={() => { isComposingRef.current = true; }}
+              onCompositionEnd={() => { isComposingRef.current = false; }}
+              placeholder={isStreaming ? "Agent is responding…" : "Message the agent… (Enter to send, Shift+Enter for new line)"}
+              disabled={isStreaming}
+              className="flex-1 bg-transparent resize-none text-sm text-vc-text placeholder:text-vc-subtle outline-none disabled:opacity-60 leading-relaxed min-h-[1.5rem]"
+              style={{ maxHeight: "120px" }}
+            />
+            <button
+              onClick={handleSend}
+              disabled={isStreaming || !input.trim()}
+              className="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-lg bg-indigo-600 text-white disabled:opacity-35 disabled:cursor-not-allowed hover:bg-indigo-500 transition-colors"
+              title="Send (Enter)"
+            >
+              {isStreaming ? (
+                <svg className="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+                  <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" strokeLinecap="round" />
+                </svg>
+              ) : (
+                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" />
+                </svg>
+              )}
+            </button>
+          </div>
+          <p className="text-[10px] text-vc-subtle mt-1.5 text-center">
+            Shift+Enter for new line · tool calls appear inline
+          </p>
         </div>
       </div>
     </div>

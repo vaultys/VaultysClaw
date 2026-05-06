@@ -7,3 +7,25 @@ body,
 #root {
   height: 100%;
 }
+
+/* ── Control-plane vc-* design tokens (always dark for this dashboard) ────── */
+:root {
+  --vc-bg:     3 7 18;       /* gray-950 */
+  --vc-surface:17 24 39;     /* gray-900 */
+  --vc-raised: 31 41 55;     /* gray-800 */
+  --vc-border: 31 41 55;     /* gray-800 */
+  --vc-ring:   55 65 81;     /* gray-700 */
+  --vc-text:   243 244 246;  /* gray-100 */
+  --vc-text-2: 209 213 219;  /* gray-300 */
+  --vc-muted:  156 163 175;  /* gray-400 */
+  --vc-subtle: 107 114 128;  /* gray-500 */
+  color-scheme: dark;
+  scrollbar-width: thin;
+  scrollbar-color: #374151 transparent;
+}
+
+/* ── Custom scrollbar ──────────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #374151; border-radius: 9999px; }
+::-webkit-scrollbar-thumb:hover { background: #4b5563; }

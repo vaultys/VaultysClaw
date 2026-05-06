@@ -5,6 +5,7 @@ export default {
   theme: {
     extend: {
       colors: {
+        // Existing dark-palette tokens (used throughout the rest of the app)
         canvas: {
           DEFAULT: "#0d1117",
           subtle: "#161b22",
@@ -40,9 +41,29 @@ export default {
           DEFAULT: "#79c0ff",
           emphasis: "#003366",
         },
+        // Control-plane design system — CSS-variable-backed tokens
+        vc: {
+          bg:      "rgb(var(--vc-bg) / <alpha-value>)",
+          surface: "rgb(var(--vc-surface) / <alpha-value>)",
+          raised:  "rgb(var(--vc-raised) / <alpha-value>)",
+          border:  "rgb(var(--vc-border) / <alpha-value>)",
+          ring:    "rgb(var(--vc-ring) / <alpha-value>)",
+          text:    "rgb(var(--vc-text) / <alpha-value>)",
+          "text-2":"rgb(var(--vc-text-2) / <alpha-value>)",
+          muted:   "rgb(var(--vc-muted) / <alpha-value>)",
+          subtle:  "rgb(var(--vc-subtle) / <alpha-value>)",
+        },
       },
       fontFamily: {
         mono: ["'SF Mono'", "Consolas", "monospace"],
+      },
+      animation: {
+        "fade-in":  "fade-in 0.15s ease forwards",
+        "slide-up": "slide-up 0.2s ease forwards",
+      },
+      keyframes: {
+        "fade-in":  { from: { opacity: "0" }, to: { opacity: "1" } },
+        "slide-up": { from: { opacity: "0", transform: "translateY(6px)" }, to: { opacity: "1", transform: "translateY(0)" } },
       },
     },
   },

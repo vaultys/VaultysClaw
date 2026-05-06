@@ -2,56 +2,56 @@ import type { Config } from "tailwindcss";
 
 export default {
   content: ["./src/**/*.{ts,tsx}", "./index.html"],
+  darkMode: "class",
   theme: {
     extend: {
       colors: {
-        // Existing dark-palette tokens (used throughout the rest of the app)
         canvas: {
-          DEFAULT: "#0d1117",
-          subtle: "#161b22",
-          overlay: "#21262d",
+          DEFAULT: "rgb(var(--canvas) / <alpha-value>)",
+          subtle:  "rgb(var(--canvas-subtle) / <alpha-value>)",
+          overlay: "rgb(var(--canvas-overlay) / <alpha-value>)",
         },
         border: {
-          DEFAULT: "#30363d",
-          muted: "#21262d",
+          DEFAULT: "rgb(var(--border) / <alpha-value>)",
+          muted:   "rgb(var(--border-muted) / <alpha-value>)",
         },
         fg: {
-          DEFAULT: "#c9d1d9",
-          muted: "#8b949e",
-          subtle: "#6e7681",
-          dim: "#484f58",
+          DEFAULT: "rgb(var(--fg) / <alpha-value>)",
+          muted:   "rgb(var(--fg-muted) / <alpha-value>)",
+          subtle:  "rgb(var(--fg-subtle) / <alpha-value>)",
+          dim:     "rgb(var(--fg-dim) / <alpha-value>)",
         },
         accent: {
-          DEFAULT: "#58a6ff",
-          emphasis: "#1f6feb",
+          DEFAULT:  "rgb(var(--accent) / <alpha-value>)",
+          emphasis: "rgb(var(--accent-emphasis) / <alpha-value>)",
         },
         success: {
-          DEFAULT: "#3fb950",
-          emphasis: "#1a4731",
+          DEFAULT:  "rgb(var(--success) / <alpha-value>)",
+          emphasis: "rgb(var(--success-emphasis) / <alpha-value>)",
         },
         attention: {
-          DEFAULT: "#e3b341",
-          emphasis: "#9e6a03",
+          DEFAULT:  "rgb(var(--attention) / <alpha-value>)",
+          emphasis: "rgb(var(--attention-emphasis) / <alpha-value>)",
         },
         danger: {
-          DEFAULT: "#f85149",
-          emphasis: "#3d1414",
+          DEFAULT:  "rgb(var(--danger) / <alpha-value>)",
+          emphasis: "rgb(var(--danger-emphasis) / <alpha-value>)",
         },
         info: {
-          DEFAULT: "#79c0ff",
-          emphasis: "#003366",
+          DEFAULT:  "rgb(var(--info) / <alpha-value>)",
+          emphasis: "rgb(var(--info-emphasis) / <alpha-value>)",
         },
-        // Control-plane design system — CSS-variable-backed tokens
+        // vc-* design tokens (CSS-variable-backed)
         vc: {
-          bg:      "rgb(var(--vc-bg) / <alpha-value>)",
-          surface: "rgb(var(--vc-surface) / <alpha-value>)",
-          raised:  "rgb(var(--vc-raised) / <alpha-value>)",
-          border:  "rgb(var(--vc-border) / <alpha-value>)",
-          ring:    "rgb(var(--vc-ring) / <alpha-value>)",
-          text:    "rgb(var(--vc-text) / <alpha-value>)",
-          "text-2":"rgb(var(--vc-text-2) / <alpha-value>)",
-          muted:   "rgb(var(--vc-muted) / <alpha-value>)",
-          subtle:  "rgb(var(--vc-subtle) / <alpha-value>)",
+          bg:       "rgb(var(--vc-bg) / <alpha-value>)",
+          surface:  "rgb(var(--vc-surface) / <alpha-value>)",
+          raised:   "rgb(var(--vc-raised) / <alpha-value>)",
+          border:   "rgb(var(--vc-border) / <alpha-value>)",
+          ring:     "rgb(var(--vc-ring) / <alpha-value>)",
+          text:     "rgb(var(--vc-text) / <alpha-value>)",
+          "text-2": "rgb(var(--vc-text-2) / <alpha-value>)",
+          muted:    "rgb(var(--vc-muted) / <alpha-value>)",
+          subtle:   "rgb(var(--vc-subtle) / <alpha-value>)",
         },
       },
       fontFamily: {

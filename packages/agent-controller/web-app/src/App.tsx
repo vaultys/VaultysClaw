@@ -23,8 +23,8 @@ export default function App() {
 
   if (authState === "loading") {
     return (
-      <div className="flex items-center justify-center h-full bg-[#0d1117]">
-        <div className="w-7 h-7 border-2 border-[#30363d] border-t-[#79c0ff] rounded-full animate-spin" />
+      <div className="flex items-center justify-center h-full bg-canvas">
+        <div className="w-7 h-7 border-2 border-border border-t-info rounded-full animate-spin" />
       </div>
     );
   }

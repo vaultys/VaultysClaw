@@ -69,7 +69,7 @@ function ToolCallCard({ event }: { event: ToolCallEvent }) {
       <div className={`flex-1 max-w-[80%] rounded-xl border text-xs font-mono overflow-hidden transition-colors ${
         done
           ? "border-vc-border bg-vc-surface"
-          : "border-emerald-500/30 bg-emerald-950/20"
+          : "border-emerald-500/30 bg-emerald-500/5"
       }`}>
         {/* Header */}
         <button
@@ -97,7 +97,7 @@ function ToolCallCard({ event }: { event: ToolCallEvent }) {
             {done && (
               <div className="px-3 py-2.5">
                 <p className="text-[9px] text-vc-subtle uppercase tracking-widest mb-1.5">Output</p>
-                <pre className="text-[11px] text-emerald-300 whitespace-pre-wrap max-h-48 overflow-y-auto">
+                <pre className="text-[11px] text-emerald-600 dark:text-emerald-300 whitespace-pre-wrap max-h-48 overflow-y-auto">
                   {typeof event.result === "string"
                     ? event.result
                     : JSON.stringify(event.result, null, 2)}
@@ -280,7 +280,7 @@ export default function ChatPanel() {
   };
 
   return (
-    <div className="flex h-full overflow-hidden bg-vc-bg">
+    <div className="flex flex-1 h-full overflow-hidden bg-vc-bg">
       {/* Sessions sidebar */}
       <SessionSidebar
         sessions={sessions}

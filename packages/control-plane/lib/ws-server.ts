@@ -107,6 +107,10 @@ export class AgentWSServer {
   private pendingToolApprovals: Map<string, { agentId: string; payload: WSToolApprovalRequestPayload; createdAt: number }> = new Map();
   /** Callbacks for tool execution events from agents */
   private toolExecutionCallbacks: Map<string, (payload: WSToolExecutionPayload & { agentId: string }) => void> = new Map();
+  /** Pending one-shot callbacks for chat session list responses. Key = agentId */
+  private chatSessionsCallbacks: Map<string, (payload: import("@vaultysclaw/shared").WSChatSessionsResponsePayload) => void> = new Map();
+  /** Pending one-shot callbacks for chat history responses. Key = `agentId:sessionId` */
+  private chatHistoryCallbacks: Map<string, (payload: import("@vaultysclaw/shared").WSChatHistoryResponsePayload) => void> = new Map();
 
   constructor(port: number) {
     this.port = port;
@@ -253,6 +257,14 @@ export class AgentWSServer {
 
         case "tool_execution":
           this.handleToolExecution(message);
+          break;
+
+        case "chat_sessions_response":
+          this.handleChatSessionsResponse(message);
+          break;
+
+        case "chat_history_response":
+          this.handleChatHistoryResponse(message);
           break;
 
         default:
@@ -545,6 +557,76 @@ export class AgentWSServer {
     } else {
       logger.warn({ conversationId: payload.conversationId }, "No callback for chat response");
     }
+  }
+
+  private handleChatSessionsResponse(message: WSMessage): void {
+    const agentId = message.agentId ?? "";
+    const cb = this.chatSessionsCallbacks.get(agentId);
+    if (cb) {
+      this.chatSessionsCallbacks.delete(agentId);
+      cb(message.payload as import("@vaultysclaw/shared").WSChatSessionsResponsePayload);
+    }
+  }
+
+  private handleChatHistoryResponse(message: WSMessage): void {
+    const payload = message.payload as import("@vaultysclaw/shared").WSChatHistoryResponsePayload;
+    const key = `${message.agentId ?? ""}:${payload.sessionId}`;
+    const cb = this.chatHistoryCallbacks.get(key);
+    if (cb) {
+      this.chatHistoryCallbacks.delete(key);
+      cb(payload);
+    }
+  }
+
+  /** Request the list of chat sessions from an agent. Resolves when the agent responds (10 s timeout). */
+  getChatSessions(agentDid: string, limit = 50): Promise<import("@vaultysclaw/shared").ChatSession[]> {
+    return new Promise((resolve, reject) => {
+      const agent = this.agents.get(agentDid);
+      if (!agent || agent.ws.readyState !== WebSocket.OPEN) {
+        return reject(new Error("Agent not connected"));
+      }
+      const timer = setTimeout(() => {
+        this.chatSessionsCallbacks.delete(agentDid);
+        reject(new Error("Timeout waiting for chat sessions"));
+      }, 10_000);
+      this.chatSessionsCallbacks.set(agentDid, (payload) => {
+        clearTimeout(timer);
+        resolve(payload.sessions);
+      });
+      this.sendMessage(agent.ws, {
+        messageId: `get-sessions-${Date.now()}`,
+        type: "get_chat_sessions",
+        agentId: agentDid,
+        payload: { limit } satisfies import("@vaultysclaw/shared").WSGetChatSessionsPayload,
+        timestamp: new Date().toISOString(),
+      });
+    });
+  }
+
+  /** Request the full message history of one session from an agent. */
+  getChatHistory(agentDid: string, sessionId: string): Promise<import("@vaultysclaw/shared").ChatHistoryMessage[]> {
+    return new Promise((resolve, reject) => {
+      const agent = this.agents.get(agentDid);
+      if (!agent || agent.ws.readyState !== WebSocket.OPEN) {
+        return reject(new Error("Agent not connected"));
+      }
+      const key = `${agentDid}:${sessionId}`;
+      const timer = setTimeout(() => {
+        this.chatHistoryCallbacks.delete(key);
+        reject(new Error("Timeout waiting for chat history"));
+      }, 10_000);
+      this.chatHistoryCallbacks.set(key, (payload) => {
+        clearTimeout(timer);
+        resolve(payload.messages);
+      });
+      this.sendMessage(agent.ws, {
+        messageId: `get-history-${Date.now()}`,
+        type: "get_chat_history",
+        agentId: agentDid,
+        payload: { sessionId } satisfies import("@vaultysclaw/shared").WSGetChatHistoryPayload,
+        timestamp: new Date().toISOString(),
+      });
+    });
   }
 
   // ---- Tool approval system ----

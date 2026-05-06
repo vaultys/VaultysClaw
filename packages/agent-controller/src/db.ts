@@ -113,6 +113,25 @@ export function initDb(dbDir: string): Database {
       did TEXT NOT NULL,
       created_at INTEGER NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS chat_sessions (
+      id TEXT PRIMARY KEY,
+      title TEXT,
+      source TEXT NOT NULL DEFAULT 'web',
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS chat_messages (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      session_id TEXT NOT NULL REFERENCES chat_sessions(id) ON DELETE CASCADE,
+      role TEXT NOT NULL,
+      content TEXT NOT NULL,
+      tool_calls TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_chat_messages_session ON chat_messages(session_id, id ASC);
   `);
 
   return db;
@@ -522,6 +541,82 @@ export function deleteMemory(id: string): void {
   const db = getDb();
   db.query("DELETE FROM memories WHERE id = $id").run({ $id: id });
   db.query("DELETE FROM memories_fts WHERE id = $id").run({ $id: id });
+}
+
+// ---- Chat sessions ----
+
+export interface ChatSessionRow {
+  id: string;
+  title: string | null;
+  source: string;
+  created_at: string;
+  updated_at: string;
+  message_count?: number;
+}
+
+export interface ChatMessageRow {
+  id: number;
+  session_id: string;
+  role: string;
+  content: string;
+  tool_calls: string | null;
+  created_at: string;
+}
+
+export function upsertChatSession(id: string, title: string | null, source: string): void {
+  getDb().query(`
+    INSERT INTO chat_sessions (id, title, source)
+    VALUES ($id, $title, $source)
+    ON CONFLICT(id) DO UPDATE SET
+      title = COALESCE($title, title),
+      updated_at = datetime('now')
+  `).run({ $id: id, $title: title ?? null, $source: source });
+}
+
+export function touchChatSession(id: string): void {
+  getDb().query(`UPDATE chat_sessions SET updated_at = datetime('now') WHERE id = $id`).run({ $id: id });
+}
+
+export function appendChatMessages(sessionId: string, msgs: Array<{ role: string; content: string; toolCalls?: unknown }>): void {
+  const db = getDb();
+  const stmt = db.query(`
+    INSERT INTO chat_messages (session_id, role, content, tool_calls)
+    VALUES ($session_id, $role, $content, $tool_calls)
+  `);
+  for (const m of msgs) {
+    stmt.run({
+      $session_id: sessionId,
+      $role: m.role,
+      $content: m.content,
+      $tool_calls: m.toolCalls != null ? JSON.stringify(m.toolCalls) : null,
+    });
+  }
+  touchChatSession(sessionId);
+}
+
+export function listChatSessions(limit = 50): ChatSessionRow[] {
+  return getDb().query(`
+    SELECT s.*, COUNT(m.id) AS message_count
+    FROM chat_sessions s
+    LEFT JOIN chat_messages m ON m.session_id = s.id
+    GROUP BY s.id
+    ORDER BY s.updated_at DESC
+    LIMIT $limit
+  `).all({ $limit: limit }) as ChatSessionRow[];
+}
+
+export function getChatSession(id: string): ChatSessionRow | undefined {
+  return getDb().query(`SELECT * FROM chat_sessions WHERE id = $id`).get({ $id: id }) as ChatSessionRow | undefined;
+}
+
+export function getChatMessages(sessionId: string): ChatMessageRow[] {
+  return getDb().query(`
+    SELECT * FROM chat_messages WHERE session_id = $session_id ORDER BY id ASC
+  `).all({ $session_id: sessionId }) as ChatMessageRow[];
+}
+
+export function deleteChatSession(id: string): void {
+  getDb().query(`DELETE FROM chat_sessions WHERE id = $id`).run({ $id: id });
 }
 
 // ---- Tool usage log ----

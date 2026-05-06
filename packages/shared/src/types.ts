@@ -146,7 +146,11 @@ export type WSMessageType =
   | "task_enqueue"
   | "task_status"
   | "schedule_update"
-  | "schedule_delete";
+  | "schedule_delete"
+  | "get_chat_sessions"
+  | "chat_sessions_response"
+  | "get_chat_history"
+  | "chat_history_response";
 
 /**
  * LLM provider type — controls which AI SDK provider is instantiated.
@@ -489,4 +493,44 @@ export interface GraphEdge {
 export interface GraphData {
   nodes: GraphNode[];
   edges: GraphEdge[];
+}
+
+// ---- Chat session types (agent ↔ control plane) ----
+
+export interface ChatSession {
+  id: string;
+  title: string | null;
+  source: string;
+  createdAt: string;
+  updatedAt: string;
+  messageCount: number;
+}
+
+export interface ChatHistoryMessage {
+  id: number;
+  role: string;
+  content: string;
+  toolCalls?: unknown;
+  createdAt: string;
+}
+
+/** Sent by control plane to request the agent's session list. */
+export interface WSGetChatSessionsPayload {
+  limit?: number;
+}
+
+/** Sent by agent in response with its list of sessions. */
+export interface WSChatSessionsResponsePayload {
+  sessions: ChatSession[];
+}
+
+/** Sent by control plane to request full message history for one session. */
+export interface WSGetChatHistoryPayload {
+  sessionId: string;
+}
+
+/** Sent by agent in response with the session's messages. */
+export interface WSChatHistoryResponsePayload {
+  sessionId: string;
+  messages: ChatHistoryMessage[];
 }

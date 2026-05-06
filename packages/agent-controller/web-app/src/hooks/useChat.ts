@@ -1,5 +1,5 @@
-import { useState, useCallback, useRef } from "react";
-import type { ChatMessage, ChatItem, ToolCallEvent } from "../types";
+import { useState, useCallback, useRef, useEffect } from "react";
+import type { ChatMessage, ChatItem, ToolCallEvent, ChatSession } from "../types";
 
 export interface UseChatResult {
   items: ChatItem[];
@@ -9,18 +9,62 @@ export interface UseChatResult {
   clearHistory: () => void;
   /** Flat messages array (user + assistant only) for sending to the API. */
   messages: ChatMessage[];
+  // Session management
+  sessions: ChatSession[];
+  activeSessionId: string | null;
+  loadSession: (sessionId: string) => Promise<void>;
+  startNewSession: () => void;
+  refreshSessions: () => Promise<void>;
 }
 
 export function useChat(): UseChatResult {
   const [items, setItems] = useState<ChatItem[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [sessions, setSessions] = useState<ChatSession[]>([]);
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
-  // Derive the flat message array from items (only message kinds)
   const messages: ChatMessage[] = items
     .filter((it): it is Extract<ChatItem, { kind: "message" }> => it.kind === "message")
     .map((it) => it.msg);
+
+  const refreshSessions = useCallback(async () => {
+    try {
+      const res = await fetch("/api/chat/sessions");
+      if (!res.ok) return;
+      const data = await res.json() as { sessions: ChatSession[] };
+      setSessions(data.sessions);
+    } catch { /* non-fatal */ }
+  }, []);
+
+  useEffect(() => { refreshSessions(); }, [refreshSessions]);
+
+  const loadSession = useCallback(async (sessionId: string) => {
+    if (isStreaming) return;
+    try {
+      const res = await fetch(`/api/chat/sessions/${encodeURIComponent(sessionId)}`);
+      if (!res.ok) return;
+      const data = await res.json() as { messages: Array<{ role: string; content: string }> };
+      const loadedItems: ChatItem[] = data.messages
+        .filter((m) => m.role === "user" || m.role === "assistant")
+        .map((m) => ({
+          kind: "message" as const,
+          msg: { role: m.role as "user" | "assistant", content: m.content },
+        }));
+      setItems(loadedItems);
+      setActiveSessionId(sessionId);
+      setError(null);
+    } catch { /* non-fatal */ }
+  }, [isStreaming]);
+
+  const startNewSession = useCallback(() => {
+    if (abortRef.current) abortRef.current.abort();
+    setItems([]);
+    setError(null);
+    setIsStreaming(false);
+    setActiveSessionId(null);
+  }, []);
 
   const sendMessage = useCallback(
     async (text: string) => {
@@ -44,7 +88,10 @@ export function useChat(): UseChatResult {
         const res = await fetch("/api/chat", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ messages: newMessages }),
+          body: JSON.stringify({
+            messages: newMessages,
+            ...(activeSessionId ? { conversationId: activeSessionId } : {}),
+          }),
           signal: controller.signal,
         });
 
@@ -86,6 +133,14 @@ export function useChat(): UseChatResult {
 
             try {
               const parsed = JSON.parse(payload) as Record<string, unknown>;
+
+              if (eventType === "session") {
+                if (typeof parsed.conversationId === "string") {
+                  setActiveSessionId(parsed.conversationId);
+                }
+                eventType = "message";
+                continue;
+              }
 
               if (eventType === "tool_call") {
                 const tc: ToolCallEvent = {
@@ -150,18 +205,20 @@ export function useChat(): UseChatResult {
       } finally {
         setIsStreaming(false);
         abortRef.current = null;
+        // Refresh sessions list in background
+        refreshSessions().catch(() => {});
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [messages, isStreaming],
+    [messages, isStreaming, activeSessionId, refreshSessions],
   );
 
   const clearHistory = useCallback(() => {
-    if (abortRef.current) abortRef.current.abort();
-    setItems([]);
-    setError(null);
-    setIsStreaming(false);
-  }, []);
+    startNewSession();
+  }, [startNewSession]);
 
-  return { items, messages, isStreaming, error, sendMessage, clearHistory };
+  return {
+    items, messages, isStreaming, error, sendMessage, clearHistory,
+    sessions, activeSessionId, loadSession, startNewSession, refreshSessions,
+  };
 }

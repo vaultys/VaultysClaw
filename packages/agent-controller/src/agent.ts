@@ -24,6 +24,8 @@ import {
   setEncryptedLlmConfigBlob, getEncryptedLlmConfigBlob,
   getPeerjsServer,
   getDb, getRecentTasks,
+  upsertChatSession, appendChatMessages,
+  listChatSessions, getChatMessages, deleteChatSession,
 } from "./db";
 import {
   type WSMessage,
@@ -41,6 +43,10 @@ import {
   type WSToolApprovalRequestPayload,
   type WSToolApprovalResponsePayload,
   type WSToolExecutionPayload,
+  type WSGetChatSessionsPayload,
+  type WSChatSessionsResponsePayload,
+  type WSGetChatHistoryPayload,
+  type WSChatHistoryResponsePayload,
   type ExecutionResult,
   type AgentCapability,
   type LlmConfig,
@@ -660,6 +666,12 @@ export class Agent extends EventEmitter {
           if (this._status !== "connected") { this.log("warn", "Received chat_message before auth — ignoring"); return; }
           this.handleChatMessage(message);
           break;
+        case "get_chat_sessions":
+          this.handleGetChatSessions(message);
+          break;
+        case "get_chat_history":
+          this.handleGetChatHistory(message);
+          break;
         case "policy_update":
           if (this._status !== "connected") { this.log("warn", "Received policy before auth — ignoring"); return; }
           this.handlePolicyUpdate(message);
@@ -1064,6 +1076,13 @@ export class Agent extends EventEmitter {
 
     this.log("info", `Chat request ${conversationId} (${messages.length} messages)`);
 
+    // Persist session + incoming messages
+    const title = messages.find((m) => m.role === "user")?.content.slice(0, 80) ?? null;
+    try {
+      upsertChatSession(conversationId, title, "control_plane");
+      appendChatMessages(conversationId, messages.map((m) => ({ role: m.role, content: m.content })));
+    } catch { /* non-fatal */ }
+
     if (!this.activeLlmConfig) {
       this.send({
         messageId: `chat-resp-${Date.now()}`,
@@ -1122,6 +1141,11 @@ export class Agent extends EventEmitter {
         timestamp: new Date().toISOString(),
       });
 
+      // Persist assistant response
+      try {
+        appendChatMessages(conversationId, [{ role: "assistant", content: chunks.join("") }]);
+      } catch { /* non-fatal */ }
+
       // Async post-processing: summarize the conversation to extract memories
       if (this.activeLlmConfig && messages.length >= 4) {
         const assistantResponse = chunks.join("");
@@ -1149,6 +1173,57 @@ export class Agent extends EventEmitter {
         payload: { conversationId, error: errMsg, done: true } satisfies WSChatResponsePayload,
         timestamp: new Date().toISOString(),
       });
+    }
+  }
+
+  // ---- Chat session queries (from control plane) ----
+
+  private handleGetChatSessions(message: WSMessage): void {
+    const payload = (message.payload ?? {}) as WSGetChatSessionsPayload;
+    const limit = payload.limit ?? 50;
+    try {
+      const rows = listChatSessions(limit);
+      const sessions: WSChatSessionsResponsePayload["sessions"] = rows.map((r) => ({
+        id: r.id,
+        title: r.title,
+        source: r.source,
+        createdAt: r.created_at,
+        updatedAt: r.updated_at,
+        messageCount: (r.message_count as number | undefined) ?? 0,
+      }));
+      this.send({
+        messageId: `chat-sessions-${Date.now()}`,
+        type: "chat_sessions_response",
+        agentId: this.id,
+        payload: { sessions } satisfies WSChatSessionsResponsePayload,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (err) {
+      this.log("warn", "Failed to list chat sessions", err);
+    }
+  }
+
+  private handleGetChatHistory(message: WSMessage): void {
+    const payload = message.payload as WSGetChatHistoryPayload;
+    const { sessionId } = payload;
+    try {
+      const rows = getChatMessages(sessionId);
+      const messages: WSChatHistoryResponsePayload["messages"] = rows.map((r) => ({
+        id: r.id,
+        role: r.role,
+        content: r.content,
+        toolCalls: r.tool_calls ? JSON.parse(r.tool_calls) : undefined,
+        createdAt: r.created_at,
+      }));
+      this.send({
+        messageId: `chat-history-${Date.now()}`,
+        type: "chat_history_response",
+        agentId: this.id,
+        payload: { sessionId, messages } satisfies WSChatHistoryResponsePayload,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (err) {
+      this.log("warn", "Failed to get chat history", err);
     }
   }
 

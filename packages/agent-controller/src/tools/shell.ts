@@ -39,7 +39,6 @@ export const shellTool: AgentToolDefinition = {
         .describe("The command to execute (e.g. 'ls', 'cat', 'grep')"),
       args: z
         .array(z.string())
-        .optional()
         .default([])
         .describe("Arguments to pass to the command (e.g. ['-la', '/tmp'])"),
       cwd: z
@@ -48,7 +47,6 @@ export const shellTool: AgentToolDefinition = {
         .describe("Working directory for the command. Defaults to the agent's cwd."),
       timeoutMs: z
         .number()
-        .optional()
         .default(DEFAULT_TIMEOUT_MS)
         .describe("Maximum execution time in milliseconds (default 30000)"),
     }),

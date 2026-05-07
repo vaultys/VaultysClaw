@@ -14,14 +14,14 @@ let db: Database | null = null;
  * Initialize the agent's local database
  * @param dbDir - directory where the DB file will be stored (same as vaultysId dir)
  */
-export function initDb(dbDir: string): Database {
+export function initDb(dbDir: string, dbFileName = "agent.db"): Database {
   if (db) return db;
 
   if (!fs.existsSync(dbDir)) {
     fs.mkdirSync(dbDir, { recursive: true });
   }
 
-  const dbPath = path.join(dbDir, "agent.db");
+  const dbPath = path.join(dbDir, dbFileName);
   db = new Database(dbPath);
 
   db.exec("PRAGMA journal_mode=WAL");

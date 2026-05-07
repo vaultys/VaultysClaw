@@ -262,7 +262,8 @@ export class Agent extends EventEmitter {
     this.log("info", `VaultysId identity ready`, { did: this.vaultysId.did });
 
     const dbDir = path.dirname(this.config.vaultysIdPath);
-    initDb(dbDir);
+    const dbFileName = path.basename(this.config.vaultysIdPath, ".id") + ".db";
+    initDb(dbDir, dbFileName);
     this.log("info", "Local database initialized");
 
     await this.refreshActiveLlmConfig();

@@ -449,6 +449,14 @@ function ChatTab({ agentId, agentName, online }: { agentId: string; agentName: s
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  // Reset chat state when switching agents
+  useEffect(() => {
+    setMessages([]);
+    setActiveSessionId(null);
+    setSessions([]);
+    setError(null);
+  }, [agentId]);
+
   const fetchSessions = useCallback(async () => {
     try {
       const res = await fetch(`/api/agents/${encodeURIComponent(agentId)}/chat-sessions`);
@@ -559,7 +567,7 @@ function ChatTab({ agentId, agentName, online }: { agentId: string; agentName: s
         fetchSessions().catch(() => {});
       }
     },
-    [messages, agentId, isStreaming, online, fetchSessions]
+    [messages, agentId, activeSessionId, isStreaming, online, fetchSessions]
   );
 
   const startNew = () => {

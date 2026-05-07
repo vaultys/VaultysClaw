@@ -27,6 +27,8 @@ import {
   type DelegationCertPayload,
   type AgentCapability,
   type LlmConfig,
+  type WSAgentPeerCatalogPayload,
+  type AgentPeerGrant,
 } from "@vaultysclaw/shared";
 import { createAuthSession, processChallenge } from "./auth-handler";
 import {
@@ -44,6 +46,7 @@ import {
   enrollInDefaultRealm,
 } from "./db";
 import { DelegationDao } from "./delegation-dao";
+import { AgentPeerGrantDao } from "./agent-peer-grant-dao";
 import { crypto } from "@vaultys/id";
 
 const logger = pino();
@@ -416,6 +419,7 @@ export class AgentWSServer {
               // Push delegation certs and LLM config for freshly reconnected agents
               this.pushDelegationUpdate(agentDid);
               this.pushStoredLlmConfig(agentDid);
+              this.pushPeerCatalog(agentDid);
             }
           }
         } else {
@@ -889,6 +893,7 @@ export class AgentWSServer {
 
     // Push any stored LLM config now that the agent is registered and connected.
     this.pushStoredLlmConfig(agentDid);
+    this.pushPeerCatalog(agentDid);
 
     return true;
   }
@@ -1286,6 +1291,37 @@ export class AgentWSServer {
     for (const agentDid of this.agents.keys()) {
       this.pushDelegationUpdate(agentDid);
     }
+  }
+
+  /**
+   * Push the peer catalog (all outgoing peer grants) to a specific agent.
+   * Called after auth_complete and whenever a grant is created or revoked.
+   */
+  pushPeerCatalog(agentDid: string): void {
+    const agent = this.agents.get(agentDid);
+    if (!agent) return;
+
+    const rows = AgentPeerGrantDao.listBySource(agentDid);
+    const peers: AgentPeerGrant[] = rows.map((r) => ({
+      id: r.id,
+      sourceDid: r.source_did,
+      targetDid: r.target_did,
+      targetName: r.target_name,
+      skillDescription: r.skill_description,
+      capabilities: JSON.parse(r.capabilities) as string[],
+      certificate: r.certificate,
+      ...(r.expires_at ? { expiresAt: r.expires_at } : {}),
+    }));
+
+    this.sendMessage(agent.ws, {
+      messageId: `peer-catalog-${Date.now()}`,
+      type: "agent_peer_catalog",
+      agentId: agentDid,
+      payload: { peers } satisfies WSAgentPeerCatalogPayload,
+      timestamp: new Date().toISOString(),
+    });
+
+    logger.info({ agentDid, count: peers.length }, "Pushed peer catalog to agent");
   }
 
   /**

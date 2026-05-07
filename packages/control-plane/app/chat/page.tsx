@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useAdminWS } from "@/hooks/useAdminWS";
-import { Bot, Send, Trash2, Loader2 } from "lucide-react";
+import { Bot, Send, Trash2, Loader2, WifiOff, Settings } from "lucide-react";
 
 interface ChatMessage {
   role: "user" | "assistant";
@@ -23,6 +23,7 @@ export default function ChatPage() {
   const [input, setInput] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [errorCode, setErrorCode] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -40,6 +41,7 @@ export default function ChatPage() {
       setMessages(updatedMessages);
       setInput("");
       setError(null);
+      setErrorCode(null);
       setIsStreaming(true);
 
       const controller = new AbortController();
@@ -54,7 +56,8 @@ export default function ChatPage() {
         });
 
         if (!res.ok) {
-          const errBody = await res.json().catch(() => ({ error: "Request failed" }));
+          const errBody = await res.json().catch(() => ({ error: "Request failed" })) as { error?: string; errorCode?: string };
+          setErrorCode(errBody.errorCode ?? null);
           throw new Error(errBody.error || `HTTP ${res.status}`);
         }
 
@@ -83,7 +86,10 @@ export default function ChatPage() {
             if (data === "[DONE]") break;
             try {
               const parsed = JSON.parse(data);
-              if (parsed.error) throw new Error(parsed.error);
+              if (parsed.error) {
+                setErrorCode(parsed.errorCode ?? null);
+                throw new Error(parsed.error);
+              }
               if (parsed.text) {
                 assistantContent += parsed.text;
                 setMessages((prev) => {
@@ -119,6 +125,7 @@ export default function ChatPage() {
     abortRef.current?.abort();
     setMessages([]);
     setError(null);
+    setErrorCode(null);
     setIsStreaming(false);
   };
 
@@ -195,8 +202,8 @@ export default function ChatPage() {
           >
             <div
               className={`max-w-[70%] rounded-lg px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap ${msg.role === "user"
-                  ? "bg-vc-accent/20 text-vc-text"
-                  : "bg-vc-subtle text-vc-text"
+                ? "bg-vc-accent/20 text-vc-text"
+                : "bg-vc-subtle text-vc-text"
                 }`}
             >
               {msg.content}
@@ -212,9 +219,7 @@ export default function ChatPage() {
         ))}
 
         {error && (
-          <div className="text-center text-sm text-vc-danger bg-vc-danger/10 rounded-lg px-4 py-2">
-            {error}
-          </div>
+          <ChatErrorBanner message={error} code={errorCode} />
         )}
 
         <div ref={messagesEndRef} />
@@ -243,6 +248,34 @@ export default function ChatPage() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function ChatErrorBanner({ message, code }: { message: string; code: string | null }) {
+  if (code === "llm_unavailable") {
+    return (
+      <div className="flex items-start gap-3 bg-amber-500/10 border border-amber-500/30 text-amber-300 rounded-lg px-4 py-3 text-sm">
+        <WifiOff size={15} className="mt-0.5 shrink-0" />
+        <div className="min-w-0">
+          <p className="font-medium">LLM provider unreachable</p>
+          <p className="text-xs text-amber-400/80 mt-0.5 break-words">{message}</p>
+          <p className="text-xs text-amber-400/60 mt-1">Go to the agent&#39;s <strong>LLM Config</strong> tab to update the provider settings.</p>
+        </div>
+      </div>
+    );
+  }
+  if (code === "agent_offline") {
+    return (
+      <div className="flex items-center gap-2 bg-vc-danger/10 border border-vc-danger/20 text-vc-danger rounded-lg px-4 py-3 text-sm">
+        <WifiOff size={15} className="shrink-0" />
+        <span>Agent disconnected — please wait for it to reconnect</span>
+      </div>
+    );
+  }
+  return (
+    <div className="text-center text-sm text-vc-danger bg-vc-danger/10 rounded-lg px-4 py-2">
+      {message}
     </div>
   );
 }

@@ -96,7 +96,7 @@ export async function POST(request: NextRequest) {
 
     const sent = wsServer.sendChatToAgent(agentDid, conversationId, messages, (payload: WSChatResponsePayload) => {
       if (payload.error) {
-        writer.write(encoder.encode(`data: ${JSON.stringify({ error: payload.error })}\n\n`));
+        writer.write(encoder.encode(`data: ${JSON.stringify({ error: payload.error, errorCode: payload.errorCode })}\n\n`));
         writer.write(encoder.encode("data: [DONE]\n\n"));
         writer.close().catch(() => { });
         return;
@@ -111,7 +111,7 @@ export async function POST(request: NextRequest) {
     });
 
     if (!sent) {
-      return new Response(JSON.stringify({ error: "Agent not connected" }), {
+      return new Response(JSON.stringify({ error: "Agent not connected", errorCode: "agent_offline" }), {
         status: 404,
         headers: { "Content-Type": "application/json" },
       });

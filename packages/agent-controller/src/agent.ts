@@ -26,6 +26,7 @@ import {
   getDb, getRecentTasks,
   upsertChatSession, appendChatMessages,
   listChatSessions, getChatMessages, deleteChatSession,
+  storePeerGrants, getAllPeerGrants, type PeerGrantRow,
 } from "./db";
 import {
   type WSMessage,
@@ -50,10 +51,14 @@ import {
   type ExecutionResult,
   type AgentCapability,
   type LlmConfig,
+  type WSAgentPeerCatalogPayload,
+  type AgentPeerGrant,
 } from "@vaultysclaw/shared";
 import { type AgentControllerConfig } from "./config";
 import { runIntent, LlmNotConfiguredError, LlmProviderError, streamChat } from "./llm";
 import { createToolRegistry, buildToolSet, type ToolRegistry, type ApprovalRequest } from "./tools";
+import { buildRemoteAgentTools } from "./tools/remote-agent-tools";
+import { PeerManager } from "./peer-manager";
 import { SkillLoader, type SkillRegistry } from "./skills";
 import { TaskQueue } from "./task-queue";
 import { Scheduler } from "./scheduler";
@@ -61,6 +66,25 @@ import { MemoryStore, MemoryRetriever, ConversationSummarizer } from "./memory";
 import type { MastraTool } from "@mastra/core/tools";
 
 const Buffer = crypto.Buffer;
+
+// ---- LLM error classification ----
+
+function classifyLlmError(err: unknown): "llm_unavailable" | "llm_error" {
+  if (!(err instanceof Error)) return "llm_error";
+  // AI SDK APICallError with ECONNREFUSED / network cause
+  const cause = (err as any).cause;
+  if (cause?.code === "ECONNREFUSED") return "llm_unavailable";
+  if (cause?.constructor?.name === "AggregateError") return "llm_unavailable";
+  // Mastra re-throws as a retryable APICallError
+  if ((err as any)[Symbol.for("vercel.ai.error.AI_APICallError")] === true && (err as any).isRetryable) {
+    if (err.message.includes("Cannot connect") || err.message.includes("ECONNREFUSED")) return "llm_unavailable";
+  }
+  // Wrapped in LlmProviderError
+  if (err.name === "LlmProviderError") return classifyLlmError((err as any).providerCause);
+  // Fallback string check
+  if (err.message.includes("ECONNREFUSED") || err.message.includes("Cannot connect to API")) return "llm_unavailable";
+  return "llm_error";
+}
 
 // ---- Zod schema serialization (for web dashboard display) ----
 
@@ -205,6 +229,11 @@ export class Agent extends EventEmitter {
   private taskQueue: TaskQueue | null = null;
   private scheduler: Scheduler | null = null;
 
+  // Peer-to-peer agent communication
+  private peerManager: PeerManager | null = null;
+  private peerCatalog: AgentPeerGrant[] = [];
+  private _peerListenerStarted = false;
+
   // Memory system
   private memoryStore = new MemoryStore();
   private memoryRetriever = new MemoryRetriever(this.memoryStore);
@@ -242,6 +271,27 @@ export class Agent extends EventEmitter {
 
     this.initTaskQueue();
 
+    // Initialize peer manager for agent-to-agent communication
+    this.peerManager = new PeerManager(this.vaultysId);
+    this.peerManager.onInvoke(async (remoteDid, action, params) => {
+      return this.executeAction(action, params, remoteDid);
+    });
+    // Restore peer catalog from local DB (populated on next auth_complete)
+    const storedGrants = getAllPeerGrants();
+    if (storedGrants.length > 0) {
+      this.peerCatalog = storedGrants.map((g) => ({
+        id: g.id,
+        sourceDid: g.source_did,
+        targetDid: g.target_did,
+        targetName: g.target_name,
+        skillDescription: g.skill_description,
+        capabilities: JSON.parse(g.capabilities) as string[],
+        certificate: g.certificate,
+        ...(g.expires_at ? { expiresAt: g.expires_at } : {}),
+      }));
+      this.peerManager.updatePeerCatalog(this.peerCatalog);
+    }
+
     this.connect();
   }
 
@@ -262,6 +312,7 @@ export class Agent extends EventEmitter {
     this.taskQueue?.stop();
     this.scheduler?.stop();
     this.skillLoader?.stopWatch();
+    this.peerManager?.shutdown().catch(() => { });
     this.setStatus("disconnected");
   }
 
@@ -646,13 +697,14 @@ export class Agent extends EventEmitter {
       const message: WSMessage = JSON.parse(data);
       switch (message.type) {
         case "auth_challenge": this.handleAuthChallenge(message); break;
-        case "auth_complete": this.handleAuthComplete(message); break;
+        case "auth_complete": this.handleAuthComplete(message).catch((e) => this.log("error", "handleAuthComplete error", e)); break;
         case "auth_failed": this.handleAuthFailed(message); break;
         case "registration_pending": this.handleRegistrationPending(message); break;
         case "registration_approved": this.handleRegistrationApproved(message); break;
         case "registration_rejected": this.handleRegistrationRejected(message); break;
         case "update_capabilities": this.handleUpdateCapabilities(message); break;
         case "delegation_update": this.handleDelegationUpdate(message); break;
+        case "agent_peer_catalog": this.handleAgentPeerCatalog(message); break;
         case "llm_config": this.handleLlmConfig(message); break;
         case "tool_approval_response": this.handleToolApprovalResponse(message); break;
         case "task_enqueue": this.handleTaskEnqueue(message); break;
@@ -753,7 +805,7 @@ export class Agent extends EventEmitter {
     this.log("debug", "Sent initial auth challenge");
   }
 
-  private handleAuthComplete(message: WSMessage): void {
+  private async handleAuthComplete(message: WSMessage): Promise<void> {
     const payload = message.payload as WSAuthCompletePayload;
 
     this.id = payload.agentId;
@@ -783,6 +835,33 @@ export class Agent extends EventEmitter {
 
     this.setStatus("connected");
     this.log("info", `Auth complete — agent id: ${this.id}, did: ${payload.did}`);
+
+    // Extract server public key from the certificate so peer grant certs can be verified offline.
+    // The server's key is in pk1 of the completed Challenger certificate context.
+    if (!this.serverPublicKey) {
+      try {
+        const latestCert = getDb().query("SELECT certificate_data FROM certificates ORDER BY id DESC LIMIT 1").get() as { certificate_data: string } | undefined;
+        if (latestCert?.certificate_data) {
+          const certBuf = Buffer.from(latestCert.certificate_data, "base64");
+          const deserialized = Challenger.deserializeCertificate(certBuf);
+          if (deserialized?.pk1) {
+            const pk = Buffer.from(deserialized.pk1 as Uint8Array) as unknown as Buffer;
+            this.serverPublicKey = pk;
+            this.peerManager?.setServerPublicKey(deserialized.pk1 as Uint8Array);
+          }
+        }
+      } catch (err) {
+        this.log("warn", "Could not extract server public key from certificate", err);
+      }
+    }
+
+    // Start P2P listener (idempotent — only starts once)
+    if (this.peerManager && !this._peerListenerStarted) {
+      this._peerListenerStarted = true;
+      this.peerManager.startListening().catch((err) => {
+        this.log("warn", "Failed to start P2P listener", err);
+      });
+    }
 
     if (this.heartbeatTimer) clearInterval(this.heartbeatTimer);
     this.heartbeatTimer = setInterval(() => {
@@ -877,7 +956,7 @@ export class Agent extends EventEmitter {
     }
   }
 
-  private async executeAction(action: string, params: Record<string, unknown>): Promise<unknown> {
+  private async executeAction(action: string, params: Record<string, unknown>, _callerDid?: string): Promise<unknown> {
     if (!this.activeLlmConfig) throw new LlmNotConfiguredError();
     const tools = this.buildAgentToolSet();
     const queryText = `${action} ${JSON.stringify(params)}`;
@@ -898,10 +977,31 @@ export class Agent extends EventEmitter {
     const caps = this.capabilities.length > 0
       ? this.capabilities
       : this.toolRegistry.tools.map((t) => t.capability);
-    const ts = buildToolSet(this.toolRegistry, caps, (request) => {
+
+    // Include remote agent tools from the peer catalog if any exist
+    let effectiveCaps = caps as string[];
+    let effectiveRegistry = this.toolRegistry;
+
+    if (this.peerCatalog.length > 0 && this.peerManager) {
+      const remoteTools = buildRemoteAgentTools(this.peerCatalog, this.peerManager);
+      // Rebuild registry with remote tools included
+      effectiveRegistry = createToolRegistry({
+        workspaceRoot: this.config.workspaceRoot ?? process.cwd(),
+        extraTools: [
+          ...this.toolRegistry.tools,
+          ...remoteTools,
+        ],
+      });
+      // Ensure agent_communication capability is in the effective caps
+      if (!effectiveCaps.includes("agent_communication")) {
+        effectiveCaps = [...effectiveCaps, "agent_communication"];
+      }
+    }
+
+    const ts = buildToolSet(effectiveRegistry, effectiveCaps as AgentCapability[], (request) => {
       return this.requestToolApproval(request, conversationId);
     });
-    this.log("debug", `buildAgentToolSet: caps=${JSON.stringify([...new Set(caps)])}, tools=${Object.keys(ts).join(",")}`);
+    this.log("debug", `buildAgentToolSet: caps=${JSON.stringify([...new Set(effectiveCaps)])}, tools=${Object.keys(ts).join(",")}`);
     return ts;
   }
 
@@ -1168,13 +1268,16 @@ export class Agent extends EventEmitter {
         });
       }
     } catch (err) {
-      const errMsg = err instanceof Error ? err.message : String(err);
-      this.log("error", `Chat ${conversationId} failed: ${errMsg}`);
+      const errorCode = classifyLlmError(err);
+      const errMsg = errorCode === "llm_unavailable"
+        ? `LLM provider not reachable (${this.activeLlmConfig?.baseUrl ?? this.activeLlmConfig?.provider ?? "unknown"}). Check the agent's LLM configuration.`
+        : (err instanceof Error ? err.message : String(err));
+      this.log("error", `Chat ${conversationId} failed [${errorCode}]: ${errMsg}`);
       this.send({
         messageId: `chat-resp-${Date.now()}`,
         type: "chat_response",
         agentId: this.id,
-        payload: { conversationId, error: errMsg, done: true } satisfies WSChatResponsePayload,
+        payload: { conversationId, error: errMsg, errorCode, done: true } satisfies WSChatResponsePayload,
         timestamp: new Date().toISOString(),
       });
     }
@@ -1273,6 +1376,34 @@ export class Agent extends EventEmitter {
       this.log("info", `Delegation update: ${delegations.length} cert(s) stored`);
     } catch (err) {
       this.log("error", "Error handling delegation update", err);
+    }
+  }
+
+  private handleAgentPeerCatalog(message: WSMessage): void {
+    try {
+      const payload = message.payload as WSAgentPeerCatalogPayload;
+      const peers = payload.peers ?? [];
+
+      // Persist to local DB (replaces previous catalog for this agent)
+      const ownDid = this.vaultysId?.did ?? this.id;
+      storePeerGrants(ownDid, peers.map((p) => ({
+        id: p.id,
+        source_did: p.sourceDid,
+        target_did: p.targetDid,
+        target_name: p.targetName,
+        skill_description: p.skillDescription,
+        capabilities: JSON.stringify(p.capabilities),
+        certificate: p.certificate,
+        expires_at: p.expiresAt ?? null,
+        created_at: new Date().toISOString(),
+      })));
+
+      this.peerCatalog = peers;
+      this.peerManager?.updatePeerCatalog(peers);
+
+      this.log("info", `Peer catalog updated: ${peers.length} peer grant(s)`);
+    } catch (err) {
+      this.log("error", "Error handling agent peer catalog", err);
     }
   }
 

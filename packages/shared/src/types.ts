@@ -22,7 +22,8 @@ export type AgentCapability =
   | "api_call"
   | "mail_send"
   | "code_execution"
-  | "system_command";
+  | "system_command"
+  | "agent_communication";
 
 /**
  * Policy that defines what an agent controller can do
@@ -150,7 +151,8 @@ export type WSMessageType =
   | "get_chat_sessions"
   | "chat_sessions_response"
   | "get_chat_history"
-  | "chat_history_response";
+  | "chat_history_response"
+  | "agent_peer_catalog";
 
 /**
  * LLM provider type — controls which AI SDK provider is instantiated.
@@ -338,6 +340,13 @@ export interface WSChatResponsePayload {
   chunk?: string;
   done?: boolean;
   error?: string;
+  /**
+   * Machine-readable error category sent alongside `error`.
+   * - "llm_unavailable": LLM endpoint is unreachable (ECONNREFUSED / network error)
+   * - "llm_error":       LLM returned an API-level error (auth, quota, bad request…)
+   * - "agent_offline":   Agent disconnected before responding (set by control plane)
+   */
+  errorCode?: "llm_unavailable" | "llm_error" | "agent_offline";
 }
 
 // ---------------------------------------------------------------------------
@@ -533,4 +542,43 @@ export interface WSGetChatHistoryPayload {
 export interface WSChatHistoryResponsePayload {
   sessionId: string;
   messages: ChatHistoryMessage[];
+}
+
+// ---------------------------------------------------------------------------
+// Agent peer grants (agent-to-agent communication)
+// ---------------------------------------------------------------------------
+
+/**
+ * A peer grant authorises one agent (sourceDid) to invoke a remote agent
+ * (targetDid) as an LLM tool.  The certificate is signed by the control
+ * plane so both sides can verify it without a network round-trip.
+ */
+export interface AgentPeerGrant {
+  /** Unique grant identifier. */
+  id: string;
+  /** DID of the agent that is allowed to call the remote agent. */
+  sourceDid: string;
+  /** DID of the remote agent to be called. */
+  targetDid: string;
+  /** Human-readable name for the remote agent (used as tool name suffix). */
+  targetName: string;
+  /**
+   * Description of what the remote agent can do.  Written by the control
+   * plane admin and used verbatim as the LLM tool description.
+   */
+  skillDescription: string;
+  /** Capabilities the calling agent is allowed to request from the remote. */
+  capabilities: string[];
+  /** Base64 control-plane-signed certificate blob. */
+  certificate: string;
+  /** ISO 8601 expiry timestamp, omitted when the grant never expires. */
+  expiresAt?: string;
+}
+
+/**
+ * Sent by the control plane to push the complete set of peer grants for an
+ * agent.  Replaces whatever the agent has stored locally.
+ */
+export interface WSAgentPeerCatalogPayload {
+  peers: AgentPeerGrant[];
 }

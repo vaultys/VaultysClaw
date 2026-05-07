@@ -76,6 +76,23 @@ function migrateSchema(db: Database.Database): void {
   // Ensure realm tables exist (idempotent via CREATE TABLE IF NOT EXISTS)
   ensureRealmTables(db);
 
+  // Ensure agent_peer_grants table exists for existing databases
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS agent_peer_grants (
+      id TEXT PRIMARY KEY,
+      source_did TEXT NOT NULL,
+      target_did TEXT NOT NULL,
+      target_name TEXT NOT NULL,
+      skill_description TEXT NOT NULL,
+      capabilities TEXT NOT NULL DEFAULT '[]',
+      certificate TEXT NOT NULL DEFAULT '',
+      expires_at TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_peer_grants_source ON agent_peer_grants(source_did);
+    CREATE INDEX IF NOT EXISTS idx_peer_grants_target ON agent_peer_grants(target_did);
+  `);
+
   // Seed the default realm if none exists
   const realmCount = (db.prepare("SELECT COUNT(*) AS n FROM realms").get() as { n: number }).n;
   if (realmCount === 0) {
@@ -177,6 +194,21 @@ function createTables(db: Database.Database): void {
       expires_at TEXT,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
+
+    CREATE TABLE IF NOT EXISTS agent_peer_grants (
+      id TEXT PRIMARY KEY,
+      source_did TEXT NOT NULL,
+      target_did TEXT NOT NULL,
+      target_name TEXT NOT NULL,
+      skill_description TEXT NOT NULL,
+      capabilities TEXT NOT NULL DEFAULT '[]',
+      certificate TEXT NOT NULL DEFAULT '',
+      expires_at TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_peer_grants_source ON agent_peer_grants(source_did);
+    CREATE INDEX IF NOT EXISTS idx_peer_grants_target ON agent_peer_grants(target_did);
   `);
 }
 

@@ -132,6 +132,21 @@ export function initDb(dbDir: string): Database {
     );
 
     CREATE INDEX IF NOT EXISTS idx_chat_messages_session ON chat_messages(session_id, id ASC);
+
+    CREATE TABLE IF NOT EXISTS peer_grants (
+      id TEXT PRIMARY KEY,
+      source_did TEXT NOT NULL,
+      target_did TEXT NOT NULL,
+      target_name TEXT NOT NULL,
+      skill_description TEXT NOT NULL,
+      capabilities TEXT NOT NULL DEFAULT '[]',
+      certificate TEXT NOT NULL DEFAULT '',
+      expires_at TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_peer_grants_source ON peer_grants(source_did);
+    CREATE INDEX IF NOT EXISTS idx_peer_grants_target ON peer_grants(target_did);
   `);
 
   return db;
@@ -338,6 +353,53 @@ export function setPeerjsServer(url: string | null): void {
   } else {
     setState("peerjs_server", url);
   }
+}
+
+// --- Peer grant helpers ---
+
+export interface PeerGrantRow {
+  id: string;
+  source_did: string;
+  target_did: string;
+  target_name: string;
+  skill_description: string;
+  capabilities: string; // JSON array
+  certificate: string;
+  expires_at: string | null;
+  created_at: string;
+}
+
+/**
+ * Replace the full peer grant list (as pushed by the control plane).
+ * All existing rows for this agent are deleted first.
+ */
+export function storePeerGrants(sourceDid: string, grants: PeerGrantRow[]): void {
+  const db = getDb();
+  db.query("DELETE FROM peer_grants WHERE source_did = $source_did").run({ $source_did: sourceDid });
+  for (const g of grants) {
+    db.query(`
+      INSERT OR REPLACE INTO peer_grants
+        (id, source_did, target_did, target_name, skill_description, capabilities, certificate, expires_at)
+      VALUES ($id, $source_did, $target_did, $target_name, $skill_description, $capabilities, $certificate, $expires_at)
+    `).run({
+      $id: g.id,
+      $source_did: g.source_did,
+      $target_did: g.target_did,
+      $target_name: g.target_name,
+      $skill_description: g.skill_description,
+      $capabilities: g.capabilities,
+      $certificate: g.certificate,
+      $expires_at: g.expires_at ?? null,
+    });
+  }
+}
+
+export function getAllPeerGrants(): PeerGrantRow[] {
+  return getDb().query("SELECT * FROM peer_grants").all() as PeerGrantRow[];
+}
+
+export function clearAllPeerGrants(): void {
+  getDb().query("DELETE FROM peer_grants").run();
 }
 
 // ---- Task queue helpers ----

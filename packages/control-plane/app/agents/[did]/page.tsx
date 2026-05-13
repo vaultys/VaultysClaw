@@ -578,9 +578,8 @@ function TokensTab({ agentId }: { agentId: string }) {
                 setPeriod(p);
                 if (p === "3m" || p === "12m") setGranularity("month"); else setGranularity("day");
               }}
-              className={`px-3 py-1.5 text-xs rounded-md transition-colors ${
-                period === p ? "bg-vc-accent text-white" : "text-vc-muted hover:text-vc-foreground hover:bg-vc-card"
-              }`}
+              className={`px-3 py-1.5 text-xs rounded-md transition-colors ${period === p ? "bg-vc-accent text-white" : "text-vc-muted hover:text-vc-foreground hover:bg-vc-card"
+                }`}
             >
               {p}
             </button>
@@ -591,9 +590,8 @@ function TokensTab({ agentId }: { agentId: string }) {
             <button
               key={g}
               onClick={() => setGranularity(g)}
-              className={`px-3 py-1.5 text-xs rounded-md capitalize transition-colors ${
-                granularity === g ? "bg-vc-accent text-white" : "text-vc-muted hover:text-vc-foreground hover:bg-vc-card"
-              }`}
+              className={`px-3 py-1.5 text-xs rounded-md capitalize transition-colors ${granularity === g ? "bg-vc-accent text-white" : "text-vc-muted hover:text-vc-foreground hover:bg-vc-card"
+                }`}
             >
               {g}
             </button>

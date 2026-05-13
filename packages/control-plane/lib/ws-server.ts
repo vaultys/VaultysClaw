@@ -100,6 +100,12 @@ interface ConnectedAgent {
   reportedLlm?: { provider: string; model: string };
   /** Cumulative token usage from all heartbeats. */
   tokenUsage?: { promptTokens: number; completionTokens: number };
+  /** Daily token usage (reset each day). */
+  dailyTokenUsage?: { promptTokens: number; completionTokens: number };
+  /** Monthly token usage (reset each month). */
+  monthlyTokenUsage?: { promptTokens: number; completionTokens: number };
+  /** Estimated price spent today in USD. */
+  dailyPriceSpent?: number;
 }
 
 /**
@@ -115,6 +121,8 @@ export class AgentWSServer {
   private pingInterval: ReturnType<typeof setInterval> | null = null;
   /** Callbacks for pending chat streaming responses keyed by conversationId */
   private chatCallbacks: Map<string, (payload: WSChatResponsePayload) => void> = new Map();
+  /** Callbacks for workflow step results keyed by intentId */
+  private resultCallbacks: Map<string, (payload: any) => void> = new Map();
   /** Pending tool approval requests from agents. Key = requestId */
   private pendingToolApprovals: Map<string, { agentId: string; payload: WSToolApprovalRequestPayload; createdAt: number }> = new Map();
   /** Callbacks for tool execution events from agents */
@@ -527,6 +535,15 @@ export class AgentWSServer {
 
       if (agentId) updateAgentLastSeen(agentId);
 
+      // Call registered callback if one exists (for workflow execution)
+      if (payload.intentId && this.resultCallbacks.has(payload.intentId)) {
+        const callback = this.resultCallbacks.get(payload.intentId);
+        if (callback) {
+          callback({ ...payload, agentId });
+          this.resultCallbacks.delete(payload.intentId);
+        }
+      }
+
       // Persist result so test/observability endpoints can retrieve it
       logActivity(
         "intent_result",
@@ -553,7 +570,13 @@ export class AgentWSServer {
         memory?: unknown;
         activeLlm?: { provider: string; model: string };
         name?: string;
-        tokenUsage?: { total: { promptTokens: number; completionTokens: number }; sinceLastSync: { promptTokens: number; completionTokens: number } };
+        tokenUsage?: {
+          total: { promptTokens: number; completionTokens: number };
+          sinceLastSync: { promptTokens: number; completionTokens: number };
+          daily?: { promptTokens: number; completionTokens: number };
+          monthly?: { promptTokens: number; completionTokens: number };
+          dailyPriceSpent?: number;
+        };
       } | undefined;
       if (hbPayload?.activeLlm) {
         agent.reportedLlm = hbPayload.activeLlm;
@@ -569,6 +592,17 @@ export class AgentWSServer {
         }
         agent.tokenUsage.promptTokens = hbPayload.tokenUsage.total.promptTokens;
         agent.tokenUsage.completionTokens = hbPayload.tokenUsage.total.completionTokens;
+
+        // Store daily and monthly stats
+        if (hbPayload.tokenUsage.daily) {
+          agent.dailyTokenUsage = hbPayload.tokenUsage.daily;
+        }
+        if (hbPayload.tokenUsage.monthly) {
+          agent.monthlyTokenUsage = hbPayload.tokenUsage.monthly;
+        }
+        if (hbPayload.tokenUsage.dailyPriceSpent !== undefined) {
+          agent.dailyPriceSpent = hbPayload.tokenUsage.dailyPriceSpent;
+        }
 
         // Persist token usage to DB for the agent
         upsertTokenUsage(agentId, agent.tokenUsage.promptTokens, agent.tokenUsage.completionTokens);
@@ -1290,6 +1324,9 @@ export class AgentWSServer {
         lastHeartbeat: connected?.lastHeartbeat?.toISOString() ?? null,
         reportedLlm: connected?.reportedLlm ?? null,
         tokenUsage: connected?.tokenUsage ?? null,
+        dailyTokenUsage: connected?.dailyTokenUsage ?? null,
+        monthlyTokenUsage: connected?.monthlyTokenUsage ?? null,
+        dailyPriceSpent: connected?.dailyPriceSpent ?? null,
       };
     });
 
@@ -1426,6 +1463,32 @@ export class AgentWSServer {
     } catch {
       logger.warn({ agentDid }, "Failed to parse stored LLM config — skipping push");
     }
+  }
+
+  /**
+   * Register a callback for a workflow step result identified by intentId.
+   * The callback is automatically removed after 30 seconds if not called.
+   * Returns an unsubscribe function.
+   */
+  registerResultCallback(
+    intentId: string,
+    callback: (result: any) => void,
+  ): () => void {
+    this.resultCallbacks.set(intentId, callback);
+
+    // Auto-cleanup after 30 seconds (timeout for agent response)
+    const timer = setTimeout(() => {
+      if (this.resultCallbacks.has(intentId)) {
+        logger.warn({ intentId }, "Result callback timeout, cleaning up");
+        this.resultCallbacks.delete(intentId);
+      }
+    }, 30_000);
+
+    // Return unsubscribe function
+    return () => {
+      clearTimeout(timer);
+      this.resultCallbacks.delete(intentId);
+    };
   }
 
   shutdown(): void {

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Globe2, Plus, Star, Trash2, Users, Bot } from "lucide-react";
+import { Globe2, Plus, Star, Trash2, Users, Bot, GitFork } from "lucide-react";
 
 interface Realm {
   id: string;
@@ -15,6 +15,7 @@ interface Realm {
   created_at: string;
   agentCount?: number;
   userCount?: number;
+  workflowCount?: number;
 }
 
 const PRESET_COLORS = [
@@ -240,6 +241,10 @@ export default function RealmsPage() {
                 <span className="flex items-center gap-1.5 text-xs text-vc-muted">
                   <Users className="w-3.5 h-3.5" />
                   {realm.userCount ?? 0}
+                </span>
+                <span className="flex items-center gap-1.5 text-xs text-vc-muted">
+                  <GitFork className="w-3.5 h-3.5" />
+                  {realm.workflowCount ?? 0}
                 </span>
               </div>
 

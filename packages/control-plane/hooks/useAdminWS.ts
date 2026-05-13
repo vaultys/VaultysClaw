@@ -22,6 +22,9 @@ interface Agent {
   realms?: AgentRealm[];
   reportedLlm?: { provider: string; model: string } | null;
   tokenUsage?: { promptTokens: number; completionTokens: number } | null;
+  dailyTokenUsage?: { promptTokens: number; completionTokens: number } | null;
+  monthlyTokenUsage?: { promptTokens: number; completionTokens: number } | null;
+  dailyPriceSpent?: number | null;
 }
 
 interface AgentsState {

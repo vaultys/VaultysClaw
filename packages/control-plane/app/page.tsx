@@ -240,184 +240,329 @@ function Dashboard() {
   const onlineAgents = agents.filter((a) => a.online);
 
   // Calculate fleet-wide token metrics
-  const totalTokensUsed = onlineAgents.reduce(
+  const tokenMetrics = onlineAgents.reduce(
     (acc, agent) => {
       if (agent.tokenUsage) {
-        acc.prompt += agent.tokenUsage.promptTokens;
-        acc.completion += agent.tokenUsage.completionTokens;
+        acc.totalPrompt += agent.tokenUsage.promptTokens;
+        acc.totalCompletion += agent.tokenUsage.completionTokens;
       }
+      if (agent.dailyTokenUsage) {
+        acc.dailyPrompt += agent.dailyTokenUsage.promptTokens;
+        acc.dailyCompletion += agent.dailyTokenUsage.completionTokens;
+      }
+      if (agent.monthlyTokenUsage) {
+        acc.monthlyPrompt += agent.monthlyTokenUsage.promptTokens;
+        acc.monthlyCompletion += agent.monthlyTokenUsage.completionTokens;
+      }
+      acc.dailyPrice += agent.dailyPriceSpent ?? 0;
       return acc;
     },
-    { prompt: 0, completion: 0 }
+    { totalPrompt: 0, totalCompletion: 0, dailyPrompt: 0, dailyCompletion: 0, monthlyPrompt: 0, monthlyCompletion: 0, dailyPrice: 0 }
   );
-  const totalTokens = totalTokensUsed.prompt + totalTokensUsed.completion;
+
+  const totalTokensDaily = tokenMetrics.dailyPrompt + tokenMetrics.dailyCompletion;
+  const totalTokensMonthly = tokenMetrics.monthlyPrompt + tokenMetrics.monthlyCompletion;
+  const avgCostPerAgent = onlineCount > 0 ? (tokenMetrics.dailyPrice / onlineCount).toFixed(4) : "0";
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
       {/* Page title */}
       <div className="flex items-center justify-between">
-        <h1 className="text-lg font-semibold text-vc-text">Overview</h1>
+        <div>
+          <h1 className="text-2xl font-bold text-vc-text">Dashboard</h1>
+          <p className="text-vc-subtle text-sm mt-1">Manage your agents, users, and workflows</p>
+        </div>
         <span className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full border ${wsConnected
           ? "bg-green-100 dark:bg-green-900/40 border-green-300 dark:border-green-700/50 text-green-700 dark:text-green-400"
-          : "bg-vc-raised border-vc-border text-vc-subtle"
+          : "bg-yellow-100 dark:bg-yellow-900/40 border-yellow-300 dark:border-yellow-700/50 text-yellow-700 dark:text-yellow-400"
           }`}>
           {wsConnected ? <Wifi className="w-3 h-3" /> : <WifiOff className="w-3 h-3" />}
           {wsConnected ? "Live" : "Connecting…"}
         </span>
       </div>
 
-      {/* WS warning */}
+      {/* Alerts */}
       {!wsConnected && (
-        <div className="flex items-center gap-2 bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-300 dark:border-yellow-700/50 rounded-xl px-4 py-3 text-yellow-700 dark:text-yellow-300 text-sm">
+        <div className="flex items-center gap-2 bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-300 dark:border-yellow-700/50 rounded-lg px-4 py-3 text-yellow-700 dark:text-yellow-300 text-sm">
           <WifiOff className="w-4 h-4 shrink-0" />
-          Connecting to WebSocket server…
+          WebSocket connection is being restored. Some metrics may be stale.
         </div>
       )}
 
-      {/* Stat cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <button
-          onClick={() => router.push("/agents")}
-          className="bg-vc-surface rounded-xl border border-vc-border p-5 text-left hover:border-indigo-300 dark:hover:border-indigo-700 transition-colors group"
-        >
-          <div className="flex items-center gap-2 mb-2">
-            <div className="w-7 h-7 bg-indigo-100 dark:bg-indigo-900/40 rounded-lg flex items-center justify-center">
-              <Bot className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-            </div>
-            <p className="text-vc-muted text-xs font-medium uppercase tracking-wider">Agents</p>
-          </div>
-          <p className="text-3xl font-bold text-vc-text">{total}</p>
-          <p className="text-xs text-vc-subtle mt-1">View all →</p>
-        </button>
-
-        <div className="bg-vc-surface rounded-xl border border-vc-border p-5">
-          <div className="flex items-center gap-2 mb-2">
-            <div className="w-7 h-7 bg-green-100 dark:bg-green-900/40 rounded-lg flex items-center justify-center">
-              <CircleDot className="w-4 h-4 text-green-600 dark:text-green-400" />
-            </div>
-            <p className="text-vc-muted text-xs font-medium uppercase tracking-wider">Online</p>
-          </div>
-          <p className="text-3xl font-bold text-green-600 dark:text-green-400">{onlineCount}</p>
-          <p className="text-xs text-vc-subtle mt-1">{total - onlineCount} offline</p>
-        </div>
-
-        <button
-          onClick={() => router.push("/users")}
-          className="bg-vc-surface rounded-xl border border-vc-border p-5 text-left hover:border-indigo-300 dark:hover:border-indigo-700 transition-colors"
-        >
-          <div className="flex items-center gap-2 mb-2">
-            <div className="w-7 h-7 bg-violet-100 dark:bg-violet-900/40 rounded-lg flex items-center justify-center">
-              <Shield className="w-4 h-4 text-violet-600 dark:text-violet-400" />
-            </div>
-            <p className="text-vc-muted text-xs font-medium uppercase tracking-wider">Users</p>
-          </div>
-          <p className="text-3xl font-bold text-vc-text">{users.length}</p>
-          <p className="text-xs text-vc-subtle mt-1">Manage →</p>
-        </button>
-
+      {pendingRegs.length > 0 && (
         <button
           onClick={() => router.push("/registrations")}
-          className="bg-vc-surface rounded-xl border border-vc-border p-5 text-left hover:border-yellow-300 dark:hover:border-yellow-700 transition-colors group"
+          className="w-full flex items-center justify-between gap-3 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 border border-amber-300 dark:border-amber-700/50 rounded-lg px-4 py-3 text-amber-700 dark:text-amber-300 text-sm hover:bg-amber-100/50 dark:hover:bg-amber-900/30 transition-colors group"
         >
-          <div className="flex items-center gap-2 mb-2">
-            <div className="w-7 h-7 bg-yellow-100 dark:bg-yellow-900/40 rounded-lg flex items-center justify-center">
-              <Clock className="w-4 h-4 text-yellow-600 dark:text-yellow-400" />
-            </div>
-            <p className="text-vc-muted text-xs font-medium uppercase tracking-wider">Pending</p>
+          <div className="flex items-center gap-2">
+            <Clock className="w-4 h-4 shrink-0" />
+            <span><strong>{pendingRegs.length}</strong> agent registration{pendingRegs.length !== 1 ? 's' : ''} pending approval</span>
           </div>
-          <p className="text-3xl font-bold text-vc-text">{pendingRegs.length}</p>
-          <p className="text-xs text-vc-subtle mt-1">{pendingRegs.length > 0 ? "Review →" : "Registrations"}</p>
+          <ChevronRight className="w-4 h-4 shrink-0 group-hover:translate-x-0.5 transition-transform" />
+        </button>
+      )}
+
+      {total === 0 && (
+        <button
+          onClick={() => router.push("/agents")}
+          className="w-full flex items-center justify-between gap-3 bg-gradient-to-r from-indigo-50 to-blue-50 dark:from-indigo-900/20 dark:to-blue-900/20 border border-indigo-300 dark:border-indigo-700/50 rounded-lg px-4 py-3 text-indigo-700 dark:text-indigo-300 text-sm hover:bg-indigo-100/50 dark:hover:bg-indigo-900/30 transition-colors group"
+        >
+          <div className="flex items-center gap-2">
+            <Bot className="w-4 h-4 shrink-0" />
+            <span>Get started by registering your first agent</span>
+          </div>
+          <ChevronRight className="w-4 h-4 shrink-0 group-hover:translate-x-0.5 transition-transform" />
+        </button>
+      )}
+
+      {/* Stat cards - Main metrics */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Agents card */}
+        <button
+          onClick={() => router.push("/agents")}
+          className="relative bg-vc-surface rounded-lg border border-vc-border p-5 text-left hover:border-indigo-400 dark:hover:border-indigo-600 transition-all duration-300 group overflow-hidden"
+        >
+          <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 to-indigo-600/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+          <div className="relative z-10">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-8 h-8 bg-gradient-to-br from-indigo-100 to-indigo-200 dark:from-indigo-900/40 dark:to-indigo-800/40 rounded-lg flex items-center justify-center">
+                <Bot className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+              </div>
+              <p className="text-vc-muted text-xs font-semibold uppercase tracking-widest">Agents</p>
+            </div>
+            <p className="text-4xl font-bold text-vc-text mb-1">{total}</p>
+            <p className="text-xs text-vc-subtle flex items-center gap-1">
+              <span className="inline-block w-2 h-2 rounded-full bg-green-500" />
+              {onlineCount} online
+            </p>
+          </div>
         </button>
 
-        <div className="bg-vc-surface rounded-xl border border-vc-border p-5">
-          <div className="flex items-center gap-2 mb-2">
-            <div className="w-7 h-7 bg-blue-100 dark:bg-blue-900/40 rounded-lg flex items-center justify-center">
-              <TrendingUp className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+        {/* Online card */}
+        <button
+          onClick={() => router.push("/agents")}
+          className="relative bg-vc-surface rounded-lg border border-vc-border p-5 text-left hover:border-green-400 dark:hover:border-green-600 transition-all duration-300 group overflow-hidden"
+        >
+          <div className="absolute inset-0 bg-gradient-to-br from-green-500/5 to-emerald-600/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+          <div className="relative z-10">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-8 h-8 bg-gradient-to-br from-green-100 to-emerald-200 dark:from-green-900/40 dark:to-emerald-800/40 rounded-lg flex items-center justify-center">
+                <CircleDot className="w-4 h-4 text-green-600 dark:text-green-400" />
+              </div>
+              <p className="text-vc-muted text-xs font-semibold uppercase tracking-widest">Status</p>
             </div>
-            <p className="text-vc-muted text-xs font-medium uppercase tracking-wider">Tokens Used</p>
+            <p className="text-4xl font-bold text-green-600 dark:text-green-400 mb-1">{onlineCount}/{total}</p>
+            <p className="text-xs text-vc-subtle">{total - onlineCount} offline</p>
           </div>
-          <p className="text-3xl font-bold text-blue-600 dark:text-blue-400">{totalTokens.toLocaleString()}</p>
-          <p className="text-xs text-vc-subtle mt-1">by online agents</p>
+        </button>
+
+        {/* Users card */}
+        <button
+          onClick={() => router.push("/users")}
+          className="relative bg-vc-surface rounded-lg border border-vc-border p-5 text-left hover:border-violet-400 dark:hover:border-violet-600 transition-all duration-300 group overflow-hidden"
+        >
+          <div className="absolute inset-0 bg-gradient-to-br from-violet-500/5 to-purple-600/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+          <div className="relative z-10">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-8 h-8 bg-gradient-to-br from-violet-100 to-purple-200 dark:from-violet-900/40 dark:to-purple-800/40 rounded-lg flex items-center justify-center">
+                <Shield className="w-4 h-4 text-violet-600 dark:text-violet-400" />
+              </div>
+              <p className="text-vc-muted text-xs font-semibold uppercase tracking-widest">Users</p>
+            </div>
+            <p className="text-4xl font-bold text-vc-text mb-1">{users.length}</p>
+            <p className="text-xs text-vc-subtle">System users</p>
+          </div>
+        </button>
+
+        {/* Daily spending card */}
+        <div className="relative bg-vc-surface rounded-lg border border-vc-border p-5 overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-br from-rose-500/5 to-pink-600/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+          <div className="relative z-10">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-8 h-8 bg-gradient-to-br from-rose-100 to-pink-200 dark:from-rose-900/40 dark:to-pink-800/40 rounded-lg flex items-center justify-center">
+                <DollarSign className="w-4 h-4 text-rose-600 dark:text-rose-400" />
+              </div>
+              <p className="text-vc-muted text-xs font-semibold uppercase tracking-widest">Today</p>
+            </div>
+            <p className="text-4xl font-bold text-rose-600 dark:text-rose-400 mb-1">${tokenMetrics.dailyPrice.toFixed(2)}</p>
+            <p className="text-xs text-vc-subtle">{totalTokensDaily.toLocaleString()} tokens</p>
+          </div>
         </div>
       </div>
 
+      {/* Token metrics - Secondary row */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Daily tokens breakdown */}
+        <div className="bg-vc-surface rounded-lg border border-vc-border p-5 hover:border-blue-400 dark:hover:border-blue-600 transition-colors">
+          <div className="flex items-center gap-2 mb-4">
+            <div className="w-8 h-8 bg-gradient-to-br from-blue-100 to-cyan-200 dark:from-blue-900/40 dark:to-cyan-800/40 rounded-lg flex items-center justify-center">
+              <TrendingUp className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+            </div>
+            <h3 className="text-sm font-semibold text-vc-text">Daily Usage</h3>
+          </div>
+          <div className="space-y-3">
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs text-vc-muted">Input tokens</span>
+                <span className="text-sm font-semibold text-vc-text">{tokenMetrics.dailyPrompt.toLocaleString()}</span>
+              </div>
+              <div className="h-1.5 bg-vc-raised rounded-full overflow-hidden">
+                <div 
+                  className="h-full bg-gradient-to-r from-blue-500 to-blue-600 rounded-full"
+                  style={{ width: `${Math.min(100, (tokenMetrics.dailyPrompt / Math.max(1, totalTokensDaily)) * 100)}%` }}
+                />
+              </div>
+            </div>
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs text-vc-muted">Output tokens</span>
+                <span className="text-sm font-semibold text-vc-text">{tokenMetrics.dailyCompletion.toLocaleString()}</span>
+              </div>
+              <div className="h-1.5 bg-vc-raised rounded-full overflow-hidden">
+                <div 
+                  className="h-full bg-gradient-to-r from-cyan-500 to-cyan-600 rounded-full"
+                  style={{ width: `${Math.min(100, (tokenMetrics.dailyCompletion / Math.max(1, totalTokensDaily)) * 100)}%` }}
+                />
+              </div>
+            </div>
+            <div className="pt-2 border-t border-vc-border">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-vc-muted">Avg per agent</span>
+                <span className="text-xs font-semibold text-blue-600 dark:text-blue-400">${avgCostPerAgent}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Monthly tokens breakdown */}
+        <div className="bg-vc-surface rounded-lg border border-vc-border p-5 hover:border-purple-400 dark:hover:border-purple-600 transition-colors">
+          <div className="flex items-center gap-2 mb-4">
+            <div className="w-8 h-8 bg-gradient-to-br from-purple-100 to-fuchsia-200 dark:from-purple-900/40 dark:to-fuchsia-800/40 rounded-lg flex items-center justify-center">
+              <TrendingUp className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+            </div>
+            <h3 className="text-sm font-semibold text-vc-text">Monthly Usage</h3>
+          </div>
+          <div className="space-y-3">
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs text-vc-muted">Input tokens</span>
+                <span className="text-sm font-semibold text-vc-text">{tokenMetrics.monthlyPrompt.toLocaleString()}</span>
+              </div>
+              <div className="h-1.5 bg-vc-raised rounded-full overflow-hidden">
+                <div 
+                  className="h-full bg-gradient-to-r from-purple-500 to-purple-600 rounded-full"
+                  style={{ width: `${Math.min(100, (tokenMetrics.monthlyPrompt / Math.max(1, totalTokensMonthly)) * 100)}%` }}
+                />
+              </div>
+            </div>
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs text-vc-muted">Output tokens</span>
+                <span className="text-sm font-semibold text-vc-text">{tokenMetrics.monthlyCompletion.toLocaleString()}</span>
+              </div>
+              <div className="h-1.5 bg-vc-raised rounded-full overflow-hidden">
+                <div 
+                  className="h-full bg-gradient-to-r from-fuchsia-500 to-fuchsia-600 rounded-full"
+                  style={{ width: `${Math.min(100, (tokenMetrics.monthlyCompletion / Math.max(1, totalTokensMonthly)) * 100)}%` }}
+                />
+              </div>
+            </div>
+            <div className="pt-2 border-t border-vc-border">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-vc-muted">Total this month</span>
+                <span className="text-xs font-semibold text-purple-600 dark:text-purple-400">{totalTokensMonthly.toLocaleString()}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+
+      {/* Sections - Agents and Users */}
       <div className="grid lg:grid-cols-2 gap-6">
         {/* Online agents */}
-        <div className="bg-vc-surface rounded-xl border border-vc-border overflow-hidden">
-          <div className="px-5 py-4 border-b border-vc-border flex items-center justify-between">
+        <div className="bg-vc-surface rounded-lg border border-vc-border overflow-hidden">
+          <div className="px-5 py-4 border-b border-vc-border flex items-center justify-between bg-gradient-to-r from-indigo-50/50 to-blue-50/50 dark:from-indigo-900/10 dark:to-blue-900/10">
             <div className="flex items-center gap-2">
-              <Bot className="w-4 h-4 text-vc-muted" />
+              <Bot className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
               <h2 className="text-sm font-semibold text-vc-text">Online Agents</h2>
+              <span className="inline-flex items-center justify-center w-5 h-5 text-xs font-semibold text-indigo-700 dark:text-indigo-300 bg-indigo-100 dark:bg-indigo-900/40 rounded-full">
+                {onlineAgents.length}
+              </span>
             </div>
-            <button onClick={() => router.push("/agents")} className="text-xs text-indigo-500 dark:text-indigo-400 hover:underline">
+            <button 
+              onClick={() => router.push("/agents")} 
+              className="text-xs text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 font-medium transition-colors"
+            >
               View all ({total})
             </button>
           </div>
           {onlineAgents.length > 0 ? (
-            <div className="divide-y divide-vc-border">
-              {onlineAgents.slice(0, 6).map((agent) => (
+            <div className="divide-y divide-vc-border max-h-96 overflow-y-auto">
+              {onlineAgents.slice(0, 8).map((agent) => (
                 <div
                   key={agent.id}
-                  className="flex items-center gap-3 px-5 py-3 hover:bg-vc-raised/40 cursor-pointer transition-colors"
+                  className="flex items-center gap-3 px-5 py-3.5 hover:bg-vc-raised/50 cursor-pointer transition-colors duration-200"
                   onClick={() => router.push(`/agents/${encodeURIComponent(agent.id)}`)}
                 >
-                  <div className="w-2 h-2 rounded-full bg-green-500 dark:bg-green-400 shrink-0" />
-                  <p className="font-medium text-vc-text text-sm flex-1 truncate">{agent.name}</p>
-                  {agent.reportedLlm && (
-                    <code className="text-[11px] font-mono text-indigo-400 bg-indigo-500/10 border border-indigo-500/20 px-1.5 py-0.5 rounded shrink-0">
-                      {agent.reportedLlm.provider}/{agent.reportedLlm.model}
-                    </code>
-                  )}
-                  <div className="flex gap-1 shrink-0">
-                    {agent.capabilities.map((cap) => (
-                      <span
-                        key={cap}
-                        className="relative group bg-vc-raised border border-vc-ring p-1 rounded text-vc-text-2 flex items-center justify-center"
-                      >
-                        {CAPABILITY_ICONS[cap] ?? <Zap size={14} />}
-                        <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-1 text-[10px] text-white bg-gray-900 rounded whitespace-nowrap opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity z-10">
-                          {cap.replace(/_/g, " ")}
-                        </span>
-                      </span>
-                    ))}
+                  <div className="w-2.5 h-2.5 rounded-full bg-green-500 dark:bg-green-400 shrink-0 animate-pulse" />
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-vc-text text-sm truncate">{agent.name}</p>
+                    {agent.reportedLlm && (
+                      <p className="text-xs text-vc-subtle truncate">{agent.reportedLlm.provider} • {agent.reportedLlm.model}</p>
+                    )}
                   </div>
-                  <span className="text-xs text-vc-subtle shrink-0">{timeAgo(agent.lastHeartbeat)}</span>
+                  <div className="flex items-center gap-2 shrink-0">
+                    {agent.dailyPriceSpent && agent.dailyPriceSpent > 0 && (
+                      <span className="text-[11px] font-medium text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-900/20 px-2 py-0.5 rounded">
+                        ${agent.dailyPriceSpent.toFixed(2)}
+                      </span>
+                    )}
+                    <span className="text-xs text-vc-subtle">{timeAgo(agent.lastHeartbeat)}</span>
+                  </div>
                 </div>
               ))}
             </div>
           ) : (
-            <div className="px-5 py-10 text-center">
+            <div className="px-5 py-12 text-center">
               <Circle className="w-8 h-8 text-vc-ring mx-auto mb-2" />
-              <p className="text-vc-muted text-sm">No agents online</p>
+              <p className="text-vc-muted text-sm font-medium">No agents online</p>
+              <p className="text-vc-subtle text-xs mt-1">Register and approve agents to get started</p>
             </div>
           )}
         </div>
 
         {/* Users overview */}
-        <div className="bg-vc-surface rounded-xl border border-vc-border overflow-hidden">
-          <div className="px-5 py-4 border-b border-vc-border flex items-center justify-between">
+        <div className="bg-vc-surface rounded-lg border border-vc-border overflow-hidden">
+          <div className="px-5 py-4 border-b border-vc-border flex items-center justify-between bg-gradient-to-r from-violet-50/50 to-purple-50/50 dark:from-violet-900/10 dark:to-purple-900/10">
             <div className="flex items-center gap-2">
-              <Shield className="w-4 h-4 text-vc-muted" />
-              <h2 className="text-sm font-semibold text-vc-text">Users</h2>
+              <Shield className="w-4 h-4 text-violet-600 dark:text-violet-400" />
+              <h2 className="text-sm font-semibold text-vc-text">System Users</h2>
+              <span className="inline-flex items-center justify-center w-5 h-5 text-xs font-semibold text-violet-700 dark:text-violet-300 bg-violet-100 dark:bg-violet-900/40 rounded-full">
+                {users.length}
+              </span>
             </div>
-            <button onClick={() => router.push("/users")} className="text-xs text-indigo-500 dark:text-indigo-400 hover:underline">
+            <button 
+              onClick={() => router.push("/users")} 
+              className="text-xs text-violet-600 dark:text-violet-400 hover:text-violet-700 dark:hover:text-violet-300 font-medium transition-colors"
+            >
               Manage
             </button>
           </div>
           {users.length > 0 ? (
-            <div className="divide-y divide-vc-border">
-              {users.slice(0, 6).map((u) => {
+            <div className="divide-y divide-vc-border max-h-96 overflow-y-auto">
+              {users.slice(0, 8).map((u) => {
                 const initials = u.name
                   ? u.name.split(" ").map((w) => w[0]).join("").toUpperCase().slice(0, 2)
                   : u.did.slice(-2).toUpperCase();
                 return (
                   <div
                     key={u.did}
-                    className="flex items-center gap-3 px-5 py-3 hover:bg-vc-raised/40 cursor-pointer transition-colors"
+                    className="flex items-center gap-3 px-5 py-3.5 hover:bg-vc-raised/50 cursor-pointer transition-colors duration-200"
                     onClick={() => router.push("/users")}
                   >
-                    <div className="w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-900/40 border border-indigo-200 dark:border-indigo-700/50 flex items-center justify-center shrink-0">
-                      <span className="text-xs font-semibold text-indigo-600 dark:text-indigo-400">{initials}</span>
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-violet-200 to-purple-300 dark:from-violet-900/50 dark:to-purple-800/50 border border-violet-300 dark:border-violet-700/50 flex items-center justify-center shrink-0">
+                      <span className="text-xs font-bold text-violet-700 dark:text-violet-300">{initials}</span>
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="font-medium text-vc-text text-sm truncate">
@@ -426,7 +571,7 @@ function Dashboard() {
                       <p className="text-xs text-vc-subtle truncate">{u.email ?? shortDid(u.did)}</p>
                     </div>
                     {u.isOwner && (
-                      <span className="text-[10px] font-bold bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700 dark:text-yellow-400 border border-yellow-300 dark:border-yellow-800 px-1.5 py-0.5 rounded-full shrink-0">
+                      <span className="text-[10px] font-bold bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 border border-yellow-300 dark:border-yellow-800 px-2 py-0.5 rounded-full shrink-0">
                         Owner
                       </span>
                     )}
@@ -435,9 +580,10 @@ function Dashboard() {
               })}
             </div>
           ) : (
-            <div className="px-5 py-10 text-center">
+            <div className="px-5 py-12 text-center">
               <Shield className="w-8 h-8 text-vc-ring mx-auto mb-2" />
-              <p className="text-vc-muted text-sm">No users yet</p>
+              <p className="text-vc-muted text-sm font-medium">No users yet</p>
+              <p className="text-vc-subtle text-xs mt-1">Invite team members to collaborate</p>
             </div>
           )}
         </div>

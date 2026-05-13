@@ -93,6 +93,21 @@ function migrateSchema(db: Database.Database): void {
     CREATE INDEX IF NOT EXISTS idx_peer_grants_target ON agent_peer_grants(target_did);
   `);
 
+  // Add realm_id to workflows table if it doesn't exist
+  const workflowCols = (db.pragma("table_info(workflows)") as { name: string }[]).map((c) => c.name);
+  if (!workflowCols.includes("realm_id")) {
+    // Get the default realm ID (or use "default" string as fallback)
+    const defaultRealm = db.prepare("SELECT id FROM realms WHERE is_default = 1").get() as { id: string } | undefined;
+    const realmId = defaultRealm?.id || "default";
+
+    // Step 1: Add column as nullable with default value
+    db.exec(`ALTER TABLE workflows ADD COLUMN realm_id TEXT DEFAULT '${realmId}'`);
+    // Step 2: Update any existing rows to have the realm_id
+    db.exec(`UPDATE workflows SET realm_id = '${realmId}' WHERE realm_id IS NULL`);
+    // Step 3: Create index
+    db.exec("CREATE INDEX IF NOT EXISTS idx_workflows_realm ON workflows(realm_id)");
+  }
+
   // Seed the default realm if none exists
   const realmCount = (db.prepare("SELECT COUNT(*) AS n FROM realms").get() as { n: number }).n;
   if (realmCount === 0) {
@@ -236,6 +251,41 @@ function createTables(db: Database.Database): void {
 
     CREATE INDEX IF NOT EXISTS idx_peer_grants_source ON agent_peer_grants(source_did);
     CREATE INDEX IF NOT EXISTS idx_peer_grants_target ON agent_peer_grants(target_did);
+
+    -- Workflows and executions
+    CREATE TABLE IF NOT EXISTS workflows (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      description TEXT,
+      definition TEXT NOT NULL,
+      created_by TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_workflows_created_by ON workflows(created_by, created_at DESC);
+
+    CREATE TABLE IF NOT EXISTS workflow_runs (
+      id TEXT PRIMARY KEY,
+      workflow_id TEXT NOT NULL REFERENCES workflows(id) ON DELETE CASCADE,
+      status TEXT NOT NULL DEFAULT 'running',
+      started_at TEXT NOT NULL DEFAULT (datetime('now')),
+      completed_at TEXT,
+      results TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_workflow_runs_workflow ON workflow_runs(workflow_id, started_at DESC);
+
+    CREATE TABLE IF NOT EXISTS workflow_steps (
+      id TEXT PRIMARY KEY,
+      run_id TEXT NOT NULL REFERENCES workflow_runs(id) ON DELETE CASCADE,
+      step_id TEXT NOT NULL,
+      agent_id TEXT,
+      status TEXT NOT NULL DEFAULT 'pending',
+      output TEXT,
+      error TEXT,
+      started_at TEXT,
+      completed_at TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_workflow_steps_run ON workflow_steps(run_id, step_id);
   `);
 }
 
@@ -899,5 +949,280 @@ export function getAgentTokenUsageHistory(
     WHERE agent_did = ? AND granularity = ? AND bucket >= ? AND bucket <= ?
     ORDER BY bucket ASC
   `).all(agentDid, granularity, from, to) as AgentTokenUsageHistoryRow[];
+}
+
+// ---------------------------------------------------------------------------
+// Workflow operations
+// ---------------------------------------------------------------------------
+
+export interface WorkflowDefinition {
+  nodes: Array<{
+    id: string;
+    type: string;
+    data: Record<string, unknown>;
+    position?: { x: number; y: number };
+  }>;
+  edges: Array<{
+    id: string;
+    source: string;
+    target: string;
+    data?: Record<string, unknown>;
+  }>;
+  /** Default input passed to the first node. Can be overridden at execution time. */
+  input?: string;
+}
+
+export interface WorkflowRow {
+  id: string;
+  name: string;
+  description: string | null;
+  definition: string;
+  realm_id: string;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface WorkflowRunRow {
+  id: string;
+  workflow_id: string;
+  status: string;
+  started_at: string;
+  completed_at: string | null;
+  results: string | null;
+}
+
+export interface WorkflowStepRow {
+  id: string;
+  run_id: string;
+  step_id: string;
+  agent_id: string | null;
+  status: string;
+  output: string | null;
+  error: string | null;
+  started_at: string | null;
+  completed_at: string | null;
+}
+
+/**
+ * Save a new workflow
+ */
+export function saveWorkflow(
+  name: string,
+  definition: WorkflowDefinition,
+  createdBy?: string,
+  realmId?: string,
+): string {
+  const d = getDb();
+  const id = crypto.randomUUID();
+  const defaultRealm = getDefaultRealm();
+  const finalRealmId = realmId || defaultRealm?.id || "default";
+  d.prepare(
+    "INSERT INTO workflows (id, name, definition, created_by, realm_id) VALUES (?, ?, ?, ?, ?)"
+  ).run(id, name, JSON.stringify(definition), createdBy ?? null, finalRealmId);
+  return id;
+}
+
+/**
+ * Get a single workflow by ID
+ */
+export function getWorkflow(id: string): WorkflowRow | undefined {
+  const d = getDb();
+  return d.prepare("SELECT * FROM workflows WHERE id = ?").get(id) as WorkflowRow | undefined;
+}
+
+/**
+ * List all workflows, optionally filtered by creator or realm
+ */
+export function listWorkflows(createdBy?: string, realmId?: string): WorkflowRow[] {
+  const d = getDb();
+  if (createdBy && realmId) {
+    return d.prepare("SELECT * FROM workflows WHERE created_by = ? AND realm_id = ? ORDER BY created_at DESC")
+      .all(createdBy, realmId) as WorkflowRow[];
+  }
+  if (createdBy) {
+    return d.prepare("SELECT * FROM workflows WHERE created_by = ? ORDER BY created_at DESC")
+      .all(createdBy) as WorkflowRow[];
+  }
+  if (realmId) {
+    return d.prepare("SELECT * FROM workflows WHERE realm_id = ? ORDER BY created_at DESC")
+      .all(realmId) as WorkflowRow[];
+  }
+  return d.prepare("SELECT * FROM workflows ORDER BY created_at DESC").all() as WorkflowRow[];
+}
+
+/**
+ * Update an existing workflow
+ */
+export function updateWorkflow(
+  id: string,
+  name?: string,
+  definition?: WorkflowDefinition,
+  description?: string,
+  realmId?: string,
+): void {
+  const d = getDb();
+  const updates: string[] = [];
+  const values: unknown[] = [];
+
+  if (name !== undefined) {
+    updates.push("name = ?");
+    values.push(name);
+  }
+  if (description !== undefined) {
+    updates.push("description = ?");
+    values.push(description);
+  }
+  if (definition !== undefined) {
+    updates.push("definition = ?");
+    values.push(JSON.stringify(definition));
+  }
+  if (realmId !== undefined) {
+    updates.push("realm_id = ?");
+    values.push(realmId);
+  }
+
+  if (updates.length > 0) {
+    updates.push("updated_at = datetime('now')");
+    values.push(id);
+    d.prepare(`UPDATE workflows SET ${updates.join(", ")} WHERE id = ?`).run(...values);
+  }
+}
+
+/**
+ * Delete a workflow
+ */
+export function deleteWorkflow(id: string): void {
+  const d = getDb();
+  d.prepare("DELETE FROM workflows WHERE id = ?").run(id);
+}
+
+/**
+ * Start a new workflow run
+ */
+export function startWorkflowRun(workflowId: string): string {
+  const d = getDb();
+  const id = crypto.randomUUID();
+  d.prepare(
+    "INSERT INTO workflow_runs (id, workflow_id, status) VALUES (?, ?, 'running')"
+  ).run(id, workflowId);
+  return id;
+}
+
+/**
+ * Get workflow run by ID
+ */
+export function getWorkflowRun(id: string): WorkflowRunRow | undefined {
+  const d = getDb();
+  return d.prepare("SELECT * FROM workflow_runs WHERE id = ?").get(id) as WorkflowRunRow | undefined;
+}
+
+/**
+ * Update workflow run status and optionally completion
+ */
+export function updateWorkflowRunStatus(
+  runId: string,
+  status: "running" | "completed" | "failed",
+  results?: Record<string, unknown>,
+): void {
+  const d = getDb();
+  const completedAt = ["completed", "failed"].includes(status) ? "datetime('now')" : "NULL";
+  const resultsStr = results ? JSON.stringify(results) : null;
+  d.prepare(
+    `UPDATE workflow_runs SET status = ?, completed_at = ${completedAt}, results = ? WHERE id = ?`
+  ).run(status, resultsStr, runId);
+}
+
+/**
+ * Record a workflow step execution
+ */
+export function recordWorkflowStep(
+  runId: string,
+  stepId: string,
+  agentId?: string,
+  status: string = "pending",
+  output?: unknown,
+  error?: string,
+): string {
+  const d = getDb();
+  const id = crypto.randomUUID();
+  d.prepare(
+    `INSERT INTO workflow_steps (id, run_id, step_id, agent_id, status, output, error)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`
+  ).run(
+    id,
+    runId,
+    stepId,
+    agentId ?? null,
+    status,
+    output ? JSON.stringify(output) : null,
+    error ?? null,
+  );
+  return id;
+}
+
+/**
+ * Update a workflow step
+ */
+export function updateWorkflowStep(
+  stepId: string,
+  status?: string,
+  output?: unknown,
+  error?: string,
+): void {
+  const d = getDb();
+  const updates: string[] = [];
+  const values: unknown[] = [];
+
+  if (status !== undefined) {
+    updates.push("status = ?");
+    values.push(status);
+    if (["success", "completed", "failed"].includes(status)) {
+      updates.push("completed_at = datetime('now')");
+    }
+    if (status === "running") {
+      updates.push("started_at = datetime('now')");
+    }
+  }
+  if (output !== undefined) {
+    updates.push("output = ?");
+    values.push(JSON.stringify(output));
+  }
+  if (error !== undefined) {
+    updates.push("error = ?");
+    values.push(error);
+  }
+
+  if (updates.length > 0) {
+    values.push(stepId);
+    d.prepare(`UPDATE workflow_steps SET ${updates.join(", ")} WHERE id = ?`).run(...values);
+  }
+}
+
+/**
+ * Get all steps for a workflow run
+ */
+export function getWorkflowRunSteps(runId: string): WorkflowStepRow[] {
+  const d = getDb();
+  return d.prepare(
+    "SELECT * FROM workflow_steps WHERE run_id = ? ORDER BY started_at ASC, rowid ASC"
+  ).all(runId) as WorkflowStepRow[];
+}
+
+/**
+ * Get complete workflow run history with steps
+ */
+export function getWorkflowRunHistory(
+  runId: string,
+): { run: WorkflowRunRow; steps: WorkflowStepRow[] } | undefined {
+  const d = getDb();
+  const run = d.prepare("SELECT * FROM workflow_runs WHERE id = ?").get(runId) as WorkflowRunRow | undefined;
+  if (!run) return undefined;
+
+  const steps = d.prepare(
+    "SELECT * FROM workflow_steps WHERE run_id = ? ORDER BY started_at ASC, rowid ASC"
+  ).all(runId) as WorkflowStepRow[];
+
+  return { run, steps };
 }
 

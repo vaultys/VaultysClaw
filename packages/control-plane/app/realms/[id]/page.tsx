@@ -4,9 +4,11 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
 import {
   Globe2, ArrowLeft, Bot, Users, Settings, Trash2,
-  ChevronRight, Star, Plus, X, Pencil, Check, Network
+  ChevronRight, Star, Plus, X, Pencil, Check, Network, GitFork, LayoutTemplate
 } from "lucide-react";
 import Link from "next/link";
+import { useWorkflowStore } from "@/components/workflow/store";
+import { TemplateSelectionModal } from "@/components/workflow/TemplateSelectionModal";
 
 interface Realm {
   id: string;
@@ -35,6 +37,14 @@ interface RealmUser {
   email: string | null;
   is_primary: number;
   joined_at: string;
+}
+
+interface RealmWorkflow {
+  id: string;
+  name: string;
+  description: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
 interface FullAgent { id: string; name: string; realms: { id: string }[] }
@@ -163,10 +173,14 @@ export default function RealmDetailPage() {
   const [realm, setRealm] = useState<Realm | null>(null);
   const [agents, setAgents] = useState<RealmAgent[]>([]);
   const [users, setUsers] = useState<RealmUser[]>([]);
+  const [workflows, setWorkflows] = useState<RealmWorkflow[]>([]);
   const [tokenUsage, setTokenUsage] = useState<{ promptTokens: number; completionTokens: number } | null>(null);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<"agents" | "users" | "config">("agents");
+  const [tab, setTab] = useState<"agents" | "users" | "workflows" | "config">("agents");
   const [addModal, setAddModal] = useState<"agent" | "user" | null>(null);
+  const [showTemplateModal, setShowTemplateModal] = useState(false);
+  const setWorkflowStore = useWorkflowStore((s) => s.setWorkflow);
+  const clearWorkflowStore = useWorkflowStore((s) => s.clearWorkflow);
 
   // Inline edit
   const [editing, setEditing] = useState(false);
@@ -178,15 +192,30 @@ export default function RealmDetailPage() {
   const load = useCallback(async () => {
     const res = await fetch(`/api/realms/${id}`);
     if (res.status === 404) { router.replace("/realms"); return; }
-    const data = await res.json() as { realm: Realm; agents: RealmAgent[]; users: RealmUser[]; tokenUsage?: { promptTokens: number; completionTokens: number } | null };
+    const data = await res.json() as { realm: Realm; agents: RealmAgent[]; users: RealmUser[]; workflows: RealmWorkflow[]; tokenUsage?: { promptTokens: number; completionTokens: number } | null };
     setRealm(data.realm);
     setAgents(data.agents);
     setUsers(data.users);
+    setWorkflows(data.workflows ?? []);
     setTokenUsage(data.tokenUsage ?? null);
     setLoading(false);
   }, [id, router]);
 
   useEffect(() => { load(); }, [load]);
+
+  async function handleSelectTemplate(templateId: string) {
+    try {
+      const res = await fetch(`/api/workflows/templates/${templateId}`);
+      if (!res.ok) throw new Error("Failed to load template");
+      const data = (await res.json()) as { template: { definition: any; name: string } };
+      clearWorkflowStore();
+      setWorkflowStore("", data.template.name, "", data.template.definition);
+      router.push(`/workflows/new?fromTemplate=1&realm=${id}`);
+    } catch (err) {
+      console.error("Failed to load template:", err);
+      alert("Failed to load template");
+    }
+  }
 
   function startEdit() {
     if (!realm) return;
@@ -327,7 +356,7 @@ export default function RealmDetailPage() {
                   <p className="text-vc-muted text-sm mt-1">{realm.description}</p>
                 )}
                 <p className="text-vc-subtle text-xs mt-1.5">
-                  {agents.length} agent{agents.length !== 1 ? "s" : ""} · {users.length} user{users.length !== 1 ? "s" : ""}
+                  {agents.length} agent{agents.length !== 1 ? "s" : ""} · {users.length} user{users.length !== 1 ? "s" : ""} · {workflows.length} workflow{workflows.length !== 1 ? "s" : ""}
                   · Created {new Date(realm.created_at).toLocaleDateString()}
                 </p>
               </>
@@ -386,7 +415,7 @@ export default function RealmDetailPage() {
 
       {/* Tabs */}
       <div className="flex gap-1 border-b border-vc-border">
-        {(["agents", "users", "config"] as const).map((t) => (
+        {(["agents", "users", "workflows", "config"] as const).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -397,6 +426,7 @@ export default function RealmDetailPage() {
           >
             {t === "agents" && `Agents (${agents.length})`}
             {t === "users" && `Users (${users.length})`}
+            {t === "workflows" && `Workflows (${workflows.length})`}
             {t === "config" && "Config"}
           </button>
         ))}
@@ -513,6 +543,72 @@ export default function RealmDetailPage() {
         <RealmConfigTab realm={realm} onSaved={load} />
       )}
 
+      {/* Workflows tab */}
+      {tab === "workflows" && (
+        <div className="space-y-3">
+          <div className="flex justify-end gap-2">
+            <button
+              onClick={() => setShowTemplateModal(true)}
+              className="flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-xl bg-violet-600 hover:bg-violet-500 text-white font-medium transition-colors"
+            >
+              <LayoutTemplate className="w-4 h-4" /> From Template
+            </button>
+            <Link
+              href={`/workflows/new?realm=${id}`}
+              className="flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-medium transition-colors"
+            >
+              <Plus className="w-4 h-4" /> New Workflow
+            </Link>
+          </div>
+          {workflows.length === 0 ? (
+            <div className="flex flex-col items-center py-12 text-center">
+              <GitFork className="w-8 h-8 text-vc-ring mb-2" />
+              <p className="text-vc-muted text-sm">No workflows in this realm.</p>
+              <div className="flex gap-3 mt-3">
+                <button
+                  onClick={() => setShowTemplateModal(true)}
+                  className="text-violet-400 hover:text-violet-300 text-sm underline"
+                >
+                  Start from template
+                </button>
+                <span className="text-vc-subtle text-sm">or</span>
+                <Link
+                  href={`/workflows/new?realm=${id}`}
+                  className="text-indigo-400 hover:text-indigo-300 text-sm underline"
+                >
+                  Create blank workflow
+                </Link>
+              </div>
+            </div>
+          ) : (
+            <div className="bg-vc-surface border border-vc-border rounded-2xl overflow-hidden">
+              {workflows.map((wf, i) => (
+                <div key={wf.id}
+                  className={`flex items-center gap-3 px-4 py-3 ${i > 0 ? "border-t border-vc-border/50" : ""}`}>
+                  <div className="w-8 h-8 rounded-lg bg-violet-600/20 flex items-center justify-center shrink-0">
+                    <GitFork className="w-4 h-4 text-violet-400" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <span className="text-sm font-medium text-vc-text truncate block">{wf.name}</span>
+                    {wf.description && (
+                      <p className="text-xs text-vc-muted truncate">{wf.description}</p>
+                    )}
+                    <p className="text-xs text-vc-subtle">Updated {new Date(wf.updatedAt).toLocaleDateString()}</p>
+                  </div>
+                  <Link
+                    href={`/workflows/${wf.id}`}
+                    className="p-1.5 rounded-lg text-vc-muted hover:text-indigo-400 transition-colors"
+                    title="Open workflow editor"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </Link>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Modals */}
       {addModal && (
         <AddMemberModal
@@ -520,6 +616,13 @@ export default function RealmDetailPage() {
           type={addModal}
           onClose={() => setAddModal(null)}
           onAdded={load}
+        />
+      )}
+      {showTemplateModal && (
+        <TemplateSelectionModal
+          isOpen={showTemplateModal}
+          onClose={() => setShowTemplateModal(false)}
+          onSelectTemplate={handleSelectTemplate}
         />
       )}
     </div>

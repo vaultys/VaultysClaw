@@ -28,6 +28,8 @@ import {
   listChatSessions, getChatMessages, deleteChatSession,
   storePeerGrants, getAllPeerGrants, type PeerGrantRow,
   recordTokenUsage,
+  getDailyTokenUsage,
+  getMonthlyTokenUsage,
 } from "./db";
 import {
   type WSMessage,
@@ -664,6 +666,18 @@ export class Agent extends EventEmitter {
   }
 
   private sendHeartbeat(): void {
+    // Calculate price spent based on token usage and pricing
+    const calculatePrice = (): number => {
+      if (!this.activeLlmConfig) return 0;
+      const dailyUsage = getDailyTokenUsage();
+      const inputPricePerToken = (this.activeLlmConfig.pricePerMillionInputTokens ?? 0) / 1_000_000;
+      const outputPricePerToken = (this.activeLlmConfig.pricePerMillionOutputTokens ?? 0) / 1_000_000;
+      return (dailyUsage.promptTokens * inputPricePerToken) + (dailyUsage.completionTokens * outputPricePerToken);
+    };
+
+    const dailyUsage = getDailyTokenUsage();
+    const monthlyUsage = getMonthlyTokenUsage();
+
     const msg: WSMessage = {
       messageId: `heartbeat-${Date.now()}`,
       type: "heartbeat",
@@ -678,6 +692,9 @@ export class Agent extends EventEmitter {
         tokenUsage: {
           total: this._tokenUsageTotal,
           sinceLastSync: this._tokenUsageSinceLastSync,
+          daily: dailyUsage,
+          monthly: monthlyUsage,
+          dailyPriceSpent: calculatePrice(),
         },
       },
       timestamp: new Date().toISOString(),

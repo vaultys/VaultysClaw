@@ -18,14 +18,15 @@ export default withAuth(
       // Return true to allow access; false triggers a redirect to the signIn page
       authorized({ req, token }) {
         const { pathname } = req.nextUrl;
-        // Always allow: auth callbacks, user-facing P2P/bastion endpoints, login, and root (landing page)
-        // /api/test is gated by ENABLE_TEST_API inside the route handler itself
-        // /api/server is the WS-agent registration endpoint (no session needed)
+        // Always allow: auth callbacks, user-facing P2P/bastion endpoints, login, root (landing page),
+        // and test/workflow execution endpoints
         if (
           pathname.startsWith("/api/auth") ||
           pathname.startsWith("/api/user") ||
           pathname.startsWith("/api/server") ||
           pathname.startsWith("/api/test") ||
+          pathname.startsWith("/api/workflows/test-seed") ||
+          /^\/api\/workflows\/[^/]+\/execute$/.test(pathname) ||
           pathname.startsWith("/login") ||
           pathname === "/"
         ) {

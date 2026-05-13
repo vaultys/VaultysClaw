@@ -753,4 +753,40 @@ export function getRecentTokenUsage(limit = 100): TokenUsageRow[] {
   `).all({ $limit: limit }) as TokenUsageRow[];
 }
 
+export function getDailyTokenUsage(): { promptTokens: number; completionTokens: number } {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const todayStart = Math.floor(today.getTime() / 1000);
+
+  const result = getDb().query(`
+    SELECT
+      COALESCE(SUM(prompt_tokens), 0) as prompt_tokens,
+      COALESCE(SUM(completion_tokens), 0) as completion_tokens
+    FROM token_usage
+    WHERE created_at >= $todayStart
+  `).get({ $todayStart: todayStart }) as { prompt_tokens: number; completion_tokens: number } | undefined;
+  return {
+    promptTokens: result?.prompt_tokens ?? 0,
+    completionTokens: result?.completion_tokens ?? 0,
+  };
+}
+
+export function getMonthlyTokenUsage(): { promptTokens: number; completionTokens: number } {
+  const now = new Date();
+  const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+  const monthStart = Math.floor(firstDay.getTime() / 1000);
+
+  const result = getDb().query(`
+    SELECT
+      COALESCE(SUM(prompt_tokens), 0) as prompt_tokens,
+      COALESCE(SUM(completion_tokens), 0) as completion_tokens
+    FROM token_usage
+    WHERE created_at >= $monthStart
+  `).get({ $monthStart: monthStart }) as { prompt_tokens: number; completion_tokens: number } | undefined;
+  return {
+    promptTokens: result?.prompt_tokens ?? 0,
+    completionTokens: result?.completion_tokens ?? 0,
+  };
+}
+
 

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
   getRealmById, updateRealm, deleteRealm,
-  getRealmAgents, getRealmUsers, getRealmTokenUsage,
+  getRealmAgents, getRealmUsers, getRealmTokenUsage, listWorkflows,
 } from "@/lib/db";
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -18,11 +18,19 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
     const agents = getRealmAgents(id);
     const users = getRealmUsers(id);
     const tokenUsage = getRealmTokenUsage(id);
+    const workflows = listWorkflows(undefined, id).map((w) => ({
+      id: w.id,
+      name: w.name,
+      description: w.description,
+      createdAt: w.created_at,
+      updatedAt: w.updated_at,
+    }));
 
     return NextResponse.json({
       realm,
       agents,
       users,
+      workflows,
       tokenUsage: tokenUsage ? {
         promptTokens: tokenUsage.prompt_tokens,
         completionTokens: tokenUsage.completion_tokens,

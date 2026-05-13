@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAllRealms, createRealm, getRealmBySlug, getRealmAgents, getRealmUsers } from "@/lib/db";
+import { getAllRealms, createRealm, getRealmBySlug, getRealmAgents, getRealmUsers, listWorkflows } from "@/lib/db";
 
 /**
  * GET /api/realms — list all realms with member counts
@@ -10,10 +10,12 @@ export async function GET() {
     const realmsWithCounts = realms.map((realm) => {
       const agents = getRealmAgents(realm.id);
       const users = getRealmUsers(realm.id);
+      const workflows = listWorkflows(undefined, realm.id);
       return {
         ...realm,
         agentCount: agents.length,
         userCount: users.length,
+        workflowCount: workflows.length,
       };
     });
     return NextResponse.json({ realms: realmsWithCounts });

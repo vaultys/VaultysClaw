@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
+import ReactMarkdown from "react-markdown";
 import { useChat } from "../hooks/useChat";
 import type { ChatItem, ChatMessage, ToolCallEvent, ChatSession } from "../types";
 
@@ -25,22 +26,61 @@ function MessageBubble({ msg }: { msg: ChatMessage }) {
   return (
     <div className={`flex gap-3 animate-slide-up ${isUser ? "flex-row-reverse" : "flex-row"}`}>
       {/* Avatar */}
-      <div className={`flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold select-none ${
-        isUser
+      <div className={`flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold select-none ${isUser
           ? "bg-indigo-600/30 text-indigo-300 border border-indigo-500/30"
           : "bg-vc-raised text-vc-muted border border-vc-border"
-      }`}>
+        }`}>
         {isUser ? "U" : "A"}
       </div>
 
       {/* Bubble */}
       <div className={`group relative max-w-[80%] ${isUser ? "items-end" : "items-start"} flex flex-col`}>
-        <div className={`px-4 py-2.5 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap break-words ${
-          isUser
-            ? "bg-indigo-600/25 text-vc-text border border-indigo-500/20 rounded-tr-sm"
-            : "bg-vc-raised text-vc-text border border-vc-border rounded-tl-sm"
-        }`}>
-          {msg.content || (
+        <div className={`px-4 py-2.5 rounded-2xl text-sm leading-relaxed break-words prose prose-sm prose-invert max-w-none ${isUser
+            ? "bg-indigo-600/25 text-vc-text border border-indigo-500/20 rounded-tr-sm prose-headings:text-indigo-300 prose-p:m-0 prose-ul:m-0 prose-ol:m-0 prose-li:m-0 prose-code:text-indigo-200 prose-code:bg-indigo-950/30 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-pre:bg-indigo-950/30 prose-pre:border prose-pre:border-indigo-500/20 prose-pre:text-indigo-100"
+            : "bg-vc-raised text-vc-text border border-vc-border rounded-tl-sm prose-headings:text-vc-text prose-p:m-0 prose-ul:m-0 prose-ol:m-0 prose-li:m-0 prose-code:text-vc-text prose-code:bg-vc-bg prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-pre:bg-vc-bg prose-pre:border prose-pre:border-vc-border prose-pre:text-vc-text"
+          }`}>
+          {msg.content ? (
+            <ReactMarkdown
+              components={{
+                p: ({ children }) => <p className="m-0">{children}</p>,
+                ul: ({ children }) => <ul className="m-0 pl-4 list-disc">{children}</ul>,
+                ol: ({ children }) => <ol className="m-0 pl-4 list-decimal">{children}</ol>,
+                li: ({ children }) => <li className="m-0">{children}</li>,
+                code: ({ children }) => (
+                  <code className={`px-1 py-0.5 rounded text-sm font-mono ${isUser
+                      ? "bg-indigo-950/30 text-indigo-200"
+                      : "bg-vc-bg text-vc-text"
+                    }`}>
+                    {children}
+                  </code>
+                ),
+                pre: ({ children }) => (
+                  <pre className={`p-2 rounded text-xs overflow-x-auto my-1 border ${isUser
+                      ? "bg-indigo-950/30 border-indigo-500/20 text-indigo-100"
+                      : "bg-vc-bg border-vc-border text-vc-text"
+                    }`}>
+                    {children}
+                  </pre>
+                ),
+                h1: ({ children }) => <h1 className="text-base font-bold mt-2 mb-1">{children}</h1>,
+                h2: ({ children }) => <h2 className="text-sm font-bold mt-2 mb-1">{children}</h2>,
+                h3: ({ children }) => <h3 className="text-xs font-bold mt-1 mb-0.5">{children}</h3>,
+                blockquote: ({ children }) => (
+                  <blockquote className={`pl-2 border-l-2 my-1 ${isUser ? "border-indigo-500/50" : "border-vc-border"
+                    }`}>
+                    {children}
+                  </blockquote>
+                ),
+                a: ({ children, href }) => (
+                  <a href={href} className={isUser ? "text-indigo-300 underline hover:text-indigo-200" : "text-blue-400 underline hover:text-blue-300"} target="_blank" rel="noopener noreferrer">
+                    {children}
+                  </a>
+                ),
+              }}
+            >
+              {msg.content}
+            </ReactMarkdown>
+          ) : (
             <span className="inline-flex gap-1 items-center">
               <span className="w-1.5 h-1.5 bg-vc-muted rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
               <span className="w-1.5 h-1.5 bg-vc-muted rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
@@ -66,11 +106,10 @@ function ToolCallCard({ event }: { event: ToolCallEvent }) {
       {/* Spacer aligned with avatar */}
       <div className="flex-shrink-0 w-7" />
 
-      <div className={`flex-1 max-w-[80%] rounded-xl border text-xs font-mono overflow-hidden transition-colors ${
-        done
+      <div className={`flex-1 max-w-[80%] rounded-xl border text-xs font-mono overflow-hidden transition-colors ${done
           ? "border-vc-border bg-vc-surface"
           : "border-emerald-500/30 bg-emerald-500/5"
-      }`}>
+        }`}>
         {/* Header */}
         <button
           className="w-full flex items-center gap-2 px-3 py-2 hover:bg-white/5 transition-colors text-left"
@@ -97,11 +136,34 @@ function ToolCallCard({ event }: { event: ToolCallEvent }) {
             {done && (
               <div className="px-3 py-2.5">
                 <p className="text-[9px] text-vc-subtle uppercase tracking-widest mb-1.5">Output</p>
-                <pre className="text-[11px] text-emerald-600 dark:text-emerald-300 whitespace-pre-wrap max-h-48 overflow-y-auto">
-                  {typeof event.result === "string"
-                    ? event.result
-                    : JSON.stringify(event.result, null, 2)}
-                </pre>
+                <div className="text-[11px] text-emerald-600 dark:text-emerald-300 whitespace-pre-wrap max-h-48 overflow-y-auto prose prose-sm prose-invert max-w-none prose-headings:text-emerald-400 prose-p:m-0 prose-ul:m-0 prose-ol:m-0 prose-li:m-0 prose-code:text-emerald-200 prose-code:bg-emerald-950/30 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-pre:bg-emerald-950/30 prose-pre:border prose-pre:border-emerald-500/20 prose-pre:text-emerald-100">
+                  {typeof event.result === "string" ? (
+                    <ReactMarkdown
+                      components={{
+                        p: ({ children }) => <p className="m-0">{children}</p>,
+                        ul: ({ children }) => <ul className="m-0 pl-4 list-disc">{children}</ul>,
+                        ol: ({ children }) => <ol className="m-0 pl-4 list-decimal">{children}</ol>,
+                        li: ({ children }) => <li className="m-0">{children}</li>,
+                        code: ({ children }) => (
+                          <code className="px-1 py-0.5 rounded text-xs font-mono bg-emerald-950/30 text-emerald-200">
+                            {children}
+                          </code>
+                        ),
+                        pre: ({ children }) => (
+                          <pre className="p-2 rounded text-xs overflow-x-auto my-1 border bg-emerald-950/30 border-emerald-500/20 text-emerald-100">
+                            {children}
+                          </pre>
+                        ),
+                      }}
+                    >
+                      {event.result}
+                    </ReactMarkdown>
+                  ) : (
+                    <pre className="text-[11px] font-mono whitespace-pre-wrap">
+                      {JSON.stringify(event.result, null, 2)}
+                    </pre>
+                  )}
+                </div>
               </div>
             )}
           </div>
@@ -166,11 +228,10 @@ function SessionSidebar({
           return (
             <div
               key={s.id}
-              className={`group relative mx-1 rounded-lg mb-0.5 cursor-pointer transition-colors ${
-                isActive
+              className={`group relative mx-1 rounded-lg mb-0.5 cursor-pointer transition-colors ${isActive
                   ? "bg-indigo-600/15 border border-indigo-500/25"
                   : "hover:bg-vc-raised border border-transparent"
-              }`}
+                }`}
               onClick={() => onSelect(s.id)}
             >
               <div className="px-3 py-2">

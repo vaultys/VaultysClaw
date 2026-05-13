@@ -10,7 +10,25 @@ import {
   Circle,
   ChevronLeft,
   ChevronRight,
+  FolderOpen,
+  Globe,
+  Monitor,
+  Plug,
+  Mail,
+  Code,
+  Terminal,
+  Zap,
 } from "lucide-react";
+
+const CAPABILITY_ICONS: Record<string, React.ReactNode> = {
+  file_access: <FolderOpen size={14} />,
+  internet_access: <Globe size={14} />,
+  browser_control: <Monitor size={14} />,
+  api_call: <Plug size={14} />,
+  mail_send: <Mail size={14} />,
+  code_execution: <Code size={14} />,
+  system_command: <Terminal size={14} />,
+};
 
 const PAGE_SIZE = 10;
 
@@ -88,6 +106,7 @@ export default function AgentsPage() {
                     <th className="px-5 py-3">Name</th>
                     <th className="px-5 py-3">DID</th>
                     <th className="px-5 py-3">Capabilities</th>
+                    <th className="px-5 py-3">Tokens</th>
                     <th className="px-5 py-3">Last Seen</th>
                     <th className="px-5 py-3">Registered</th>
                   </tr>
@@ -138,11 +157,26 @@ export default function AgentsPage() {
                       <td className="px-5 py-3.5">
                         <div className="flex flex-wrap gap-1">
                           {agent.capabilities.map((cap) => (
-                            <span key={cap} className="bg-vc-raised border border-vc-ring px-2 py-0.5 rounded text-xs text-vc-text-2">
-                              {cap}
+                            <span
+                              key={cap}
+                              className="relative group bg-vc-raised border border-vc-ring p-1 rounded text-vc-text-2 flex items-center justify-center"
+                            >
+                              {CAPABILITY_ICONS[cap] ?? <Zap size={14} />}
+                              <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-1 text-[10px] text-white bg-gray-900 rounded whitespace-nowrap opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity z-10">
+                                {cap.replace(/_/g, " ")}
+                              </span>
                             </span>
                           ))}
                         </div>
+                      </td>
+                      <td className="px-5 py-3.5 text-vc-muted text-xs">
+                        {agent.tokenUsage ? (
+                          <span title={`Prompt: ${agent.tokenUsage.promptTokens.toLocaleString()}, Completion: ${agent.tokenUsage.completionTokens.toLocaleString()}`}>
+                            {(agent.tokenUsage.promptTokens + agent.tokenUsage.completionTokens).toLocaleString()}
+                          </span>
+                        ) : (
+                          <span className="text-vc-subtle">—</span>
+                        )}
                       </td>
                       <td className="px-5 py-3.5 text-vc-muted text-xs">
                         {agent.online ? timeAgo(agent.lastHeartbeat) : timeAgo(agent.lastSeen)}

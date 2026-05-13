@@ -8,6 +8,7 @@
     "-- DEV --": "",
     "vaultysclaw:dev": "pnpm --filter @vaultysclaw/control-plane dev",
     "agent:dev": "pnpm --filter @vaultysclaw/agent-controller dev",
+    "agent:start": "pnpm --filter @vaultysclaw/agent-controller start",
     "agent:web": "pnpm --filter @vaultysclaw/agent-controller dev:web",
     "agent:tui": "pnpm --filter @vaultysclaw/agent-controller dev:tui",
     "agent:spawn": "pnpm --filter @vaultysclaw/agent-controller spawn",

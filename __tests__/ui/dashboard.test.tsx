@@ -8,6 +8,7 @@
  *   - logout button fires callback
  */
 
+import React from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -62,7 +63,7 @@ const onLogout = vi.fn();
 beforeEach(() => {
   vi.clearAllMocks();
   // Reset to default info
-  vi.mocked(useAgentData).mockReturnValue({
+  (vi.mocked(useAgentData) as any).mockReturnValue({
     info: AGENT_INFO,
     logs: [{ ts: "2026-05-04T10:00:00Z", level: "info", message: "Started" }],
     intents: [],

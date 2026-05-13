@@ -185,6 +185,10 @@ export interface LlmConfig {
   systemPrompt?: string;
   /** Max tokens for the LLM response. */
   maxTokens?: number;
+  /** Price per million input tokens in USD. Used to estimate costs. */
+  pricePerMillionInputTokens?: number;
+  /** Price per million output tokens in USD. Used to estimate costs. */
+  pricePerMillionOutputTokens?: number;
 }
 
 /**
@@ -193,6 +197,35 @@ export interface LlmConfig {
  */
 export interface WSLlmConfigPayload {
   config: LlmConfig | null;
+}
+
+/**
+ * Token usage statistics reported by agent in heartbeat.
+ */
+export interface TokenUsageReport {
+  total: {
+    promptTokens: number;
+    completionTokens: number;
+  };
+  sinceLastSync: {
+    promptTokens: number;
+    completionTokens: number;
+  };
+}
+
+/**
+ * Sent by agent periodically to indicate it's alive.
+ * Includes system stats, active LLM config, and token usage.
+ */
+export interface WSHeartbeatPayload {
+  uptime: number;
+  memory: NodeJS.MemoryUsage;
+  activeLlm?: {
+    provider: LlmProviderType;
+    model: string;
+  };
+  name: string;
+  tokenUsage: TokenUsageReport;
 }
 
 /**
@@ -489,7 +522,8 @@ export type GraphEdgeType =
   | "realm_member"   // user/agent belongs to realm
   | "grant"          // user grants capabilities to agent
   | "reports_to"     // user reports to another user
-  | "delegation";    // delegation cert exists
+  | "delegation"     // delegation cert exists
+  | "peer";          // agent-to-agent peer grant
 
 export interface GraphEdge {
   source: string;

@@ -10,7 +10,17 @@ import { getDb, closeDb, initServerIdentity, setAgentLlmConfig } from "../packag
 import { MockAgent, waitFor } from "./test-utils";
 import type { LlmConfig } from "@vaultysclaw/shared";
 
-const WS_PORT = 8765;
+let WS_PORT = 8765;
+// Find an available port if 8765 is in use
+let portInUse = true;
+while (portInUse) {
+  try {
+    require('net').createServer().listen(WS_PORT).close();
+    portInUse = false;
+  } catch {
+    WS_PORT++;
+  }
+}
 
 describe("VaultysClaw Integration Tests", () => {
   let wsServer: AgentWSServer;
@@ -23,6 +33,7 @@ describe("VaultysClaw Integration Tests", () => {
     db.prepare("DELETE FROM pending_registrations").run();
     db.prepare("DELETE FROM auth_sessions").run();
     db.prepare("DELETE FROM activity_log").run();
+    db.prepare("DELETE FROM agent_token_usage").run();
     // Generate server identity
     await initServerIdentity();
     // Start the WebSocket server

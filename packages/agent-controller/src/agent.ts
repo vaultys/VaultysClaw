@@ -27,6 +27,7 @@ import {
   upsertChatSession, appendChatMessages,
   listChatSessions, getChatMessages, deleteChatSession,
   storePeerGrants, getAllPeerGrants, type PeerGrantRow,
+  recordTokenUsage,
 } from "./db";
 import {
   type WSMessage,
@@ -242,6 +243,10 @@ export class Agent extends EventEmitter {
   // Ring buffers
   private logBuffer = new RingBuffer<LogEntry>(200);
   private intentBuffer = new RingBuffer<IntentEntry>(100);
+
+  // Token usage tracking
+  private _tokenUsageSinceLastSync = { promptTokens: 0, completionTokens: 0 };
+  private _tokenUsageTotal = { promptTokens: 0, completionTokens: 0 };
 
   constructor(config: AgentControllerConfig) {
     super();
@@ -663,11 +668,26 @@ export class Agent extends EventEmitter {
       messageId: `heartbeat-${Date.now()}`,
       type: "heartbeat",
       agentId: this.id,
-      payload: { uptime: process.uptime(), memory: process.memoryUsage() },
+      payload: {
+        uptime: process.uptime(),
+        memory: process.memoryUsage(),
+        activeLlm: this.activeLlmConfig
+          ? { provider: this.activeLlmConfig.provider, model: this.activeLlmConfig.model }
+          : undefined,
+        name: this.config.name,
+        tokenUsage: {
+          total: this._tokenUsageTotal,
+          sinceLastSync: this._tokenUsageSinceLastSync,
+        },
+      },
       timestamp: new Date().toISOString(),
     };
     this.send(msg);
     this.lastHeartbeat = new Date();
+
+    // Reset the sync counter for next heartbeat
+    this._tokenUsageSinceLastSync = { promptTokens: 0, completionTokens: 0 };
+
     this.emit("heartbeat", { uptime: process.uptime() });
   }
 
@@ -963,6 +983,17 @@ export class Agent extends EventEmitter {
     const queryText = `${action} ${JSON.stringify(params)}`;
     const memoryContext = this.memoryRetriever.retrieve(queryText) || undefined;
     const { text, usage } = await runIntent(this.activeLlmConfig, action, params, tools, memoryContext);
+
+    // Record token usage to local DB and update counters
+    if (usage) {
+      this.emit('log', { level: 'info', message: 'Recording token usage from intent', data: { usage, provider: this.activeLlmConfig.provider, model: this.activeLlmConfig.model } });
+      recordTokenUsage(usage.promptTokens, usage.completionTokens, this.activeLlmConfig.provider, this.activeLlmConfig.model);
+      this._tokenUsageSinceLastSync.promptTokens += usage.promptTokens;
+      this._tokenUsageSinceLastSync.completionTokens += usage.completionTokens;
+      this._tokenUsageTotal.promptTokens += usage.promptTokens;
+      this._tokenUsageTotal.completionTokens += usage.completionTokens;
+    }
+
     return { text, usage };
   }
 
@@ -979,30 +1010,19 @@ export class Agent extends EventEmitter {
       ? this.capabilities
       : this.toolRegistry.tools.map((t) => t.capability);
 
-    // Include remote agent tools from the peer catalog if any exist
-    let effectiveCaps = caps as string[];
-    let effectiveRegistry = this.toolRegistry;
+    const ts = buildToolSet(this.toolRegistry, caps as AgentCapability[], (request) => {
+      return this.requestToolApproval(request, conversationId);
+    });
 
+    // Append remote agent tools from the peer catalog directly to the tool map
     if (this.peerCatalog.length > 0 && this.peerManager) {
       const remoteTools = buildRemoteAgentTools(this.peerCatalog, this.peerManager);
-      // Rebuild registry with remote tools included
-      effectiveRegistry = createToolRegistry({
-        workspaceRoot: this.config.workspaceRoot ?? process.cwd(),
-        extraTools: [
-          ...this.toolRegistry.tools,
-          ...remoteTools,
-        ],
-      });
-      // Ensure agent_communication capability is in the effective caps
-      if (!effectiveCaps.includes("agent_communication")) {
-        effectiveCaps = [...effectiveCaps, "agent_communication"];
+      for (const def of remoteTools) {
+        ts[def.name] = def.tool as MastraTool;
       }
     }
 
-    const ts = buildToolSet(effectiveRegistry, effectiveCaps as AgentCapability[], (request) => {
-      return this.requestToolApproval(request, conversationId);
-    });
-    this.log("debug", `buildAgentToolSet: caps=${JSON.stringify([...new Set(effectiveCaps)])}, tools=${Object.keys(ts).join(",")}`);
+    this.log("debug", `buildAgentToolSet: caps=${JSON.stringify([...new Set(caps)])}, tools=${Object.keys(ts).join(",")}`);
     return ts;
   }
 
@@ -1245,6 +1265,23 @@ export class Agent extends EventEmitter {
         payload: { conversationId, done: true } satisfies WSChatResponsePayload,
         timestamp: new Date().toISOString(),
       });
+
+      // Record token usage from streaming
+      try {
+        const usage = await result.usage;
+        if (usage && this.activeLlmConfig) {
+          this.emit('log', { level: 'info', message: 'Recording token usage from chat stream', data: { usage, provider: this.activeLlmConfig.provider, model: this.activeLlmConfig.model } });
+          recordTokenUsage(usage.promptTokens, usage.completionTokens, this.activeLlmConfig.provider, this.activeLlmConfig.model);
+          this._tokenUsageSinceLastSync.promptTokens += usage.promptTokens;
+          this._tokenUsageSinceLastSync.completionTokens += usage.completionTokens;
+          this._tokenUsageTotal.promptTokens += usage.promptTokens;
+          this._tokenUsageTotal.completionTokens += usage.completionTokens;
+        } else {
+          this.emit('log', { level: 'warn', message: 'No usage data from chat stream', data: { usage, hasConfig: !!this.activeLlmConfig } });
+        }
+      } catch (e) {
+        this.emit('log', { level: 'warn', message: 'Failed to record token usage from stream', data: { error: String(e) } });
+      }
 
       // Persist assistant response
       try {

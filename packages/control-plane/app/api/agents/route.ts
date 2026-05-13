@@ -20,13 +20,15 @@ export async function GET() {
       const realms = getAgentRealms(agent.did);
       return {
         id: agent.did,
-        name: agent.name,
+        name: connected?.name ?? agent.name,
         capabilities: JSON.parse(agent.capabilities),
         registeredAt: agent.registered_at,
         lastSeen: agent.last_seen,
         online: connectedDids.has(agent.did),
         connectedAt: connected?.connectedAt?.toISOString() ?? null,
         lastHeartbeat: connected?.lastHeartbeat?.toISOString() ?? null,
+        reportedLlm: connected?.reportedLlm ?? null,
+        tokenUsage: connected?.tokenUsage ?? null,
         realms: realms.map((r) => ({
           id: r.realm_id, name: r.name, slug: r.slug,
           color: r.color, isPrimary: Boolean(r.is_primary),

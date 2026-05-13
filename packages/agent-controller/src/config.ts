@@ -66,7 +66,7 @@ export function loadConfig(): AgentControllerConfig {
     controlPlaneUrl,
     controlPlaneWsUrl,
     llmConfig,
-    vaultysIdPath: process.env.VAULTYS_ID_PATH || "./.vaultys/agent.id",
+    vaultysIdPath: process.env.AGENT_VAULTYS_ID_PATH || process.env.VAULTYS_ID_PATH || "./.vaultys/agent.id",
     requestedCapabilities: process.env.AGENT_CAPABILITIES
       ? (process.env.AGENT_CAPABILITIES.split(",").map((s) => s.trim()).filter(Boolean) as AgentCapability[])
       : [],

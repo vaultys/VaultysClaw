@@ -129,11 +129,17 @@ export async function runIntent(
       "Intent LLM response received",
     );
 
+    // Log the actual usage object structure for debugging
+    logger.info(
+      { usageRaw: result.usage, keys: result.usage ? Object.keys(result.usage) : [] },
+      "Debug: Usage object from runIntent",
+    );
+
     return {
       text: result.text ?? "",
       usage: {
-        promptTokens: result.usage?.promptTokens ?? 0,
-        completionTokens: result.usage?.completionTokens ?? 0,
+        promptTokens: result.usage?.promptTokens ?? result.usage?.inputTokens ?? 0,
+        completionTokens: result.usage?.completionTokens ?? result.usage?.outputTokens ?? 0,
       },
     };
   } catch (err) {
@@ -158,7 +164,7 @@ export function streamChat(
   tools?: Record<string, MastraTool>,
   onStepFinish?: (event: StepFinishEvent) => void | Promise<void>,
   memoryContext?: string,
-): { textStream: AsyncIterable<string> } {
+): { textStream: AsyncIterable<string>; usage: Promise<{ promptTokens: number; completionTokens: number }> } {
   const model = buildModel(config);
   const base = config.systemPrompt?.trim() || DEFAULT_CHAT_PROMPT;
   const instructions = memoryContext ? `${base}\n\n${memoryContext}` : base;
@@ -176,11 +182,34 @@ export function streamChat(
     ...(hasTools ? { tools: tools as Record<string, MastraTool> } : {}),
   });
 
+  // Accumulate token usage from all steps
+  let totalPromptTokens = 0;
+  let totalCompletionTokens = 0;
+
+  // Track when stream is fully consumed so we know tokens are accumulated
+  let streamConsumed = false;
+  let resolveStreamDone: () => void;
+  const streamDonePromise = new Promise<void>((resolve) => {
+    resolveStreamDone = resolve;
+  });
+
   const streamPromise = agent.stream(messages as any, {
     maxSteps: 10,
     modelSettings: config.maxTokens ? { maxOutputTokens: config.maxTokens } : undefined,
     ...(onStepFinish ? {
       onStepFinish: async (step: any) => {
+        // Accumulate tokens from this step - try multiple field name conventions
+        const promptTokens = step.usage?.inputTokens ?? step.usage?.promptTokens ?? 0;
+        const completionTokens = step.usage?.outputTokens ?? step.usage?.completionTokens ?? 0;
+        if (promptTokens > 0 || completionTokens > 0) {
+          logger.info(
+            { promptTokens, completionTokens, stepIndex: step.stepIndex },
+            "Step tokens captured",
+          );
+        }
+        totalPromptTokens += promptTokens;
+        totalCompletionTokens += completionTokens;
+
         const event: StepFinishEvent = {
           text: step.text,
           finishReason: step.finishReason,
@@ -210,13 +239,33 @@ export function streamChat(
               const streamResult = await streamPromise;
               innerIter = streamResult.textStream[Symbol.asyncIterator]();
             }
-            return innerIter!.next();
+            const result = await innerIter!.next();
+            // Mark stream as consumed when we reach the end
+            if (result.done && !streamConsumed) {
+              streamConsumed = true;
+              resolveStreamDone();
+            }
+            return result;
           },
           async return() {
+            if (!streamConsumed) {
+              streamConsumed = true;
+              resolveStreamDone();
+            }
             return { done: true as const, value: undefined };
           },
         };
       },
     },
+    usage: streamDonePromise.then(() => {
+      logger.info(
+        { totalPromptTokens, totalCompletionTokens },
+        "Final token usage from stream",
+      );
+      return {
+        promptTokens: totalPromptTokens,
+        completionTokens: totalCompletionTokens,
+      };
+    }),
   };
 }

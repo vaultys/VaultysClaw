@@ -24,6 +24,7 @@ const EDGE_COLORS: Record<GraphEdgeType, string> = {
   grant: "#f59e0b",
   reports_to: "#a855f7",
   delegation: "#ef4444",
+  peer: "#06b6d4",
 };
 
 const NODE_SIZES: Record<GraphNodeType, number> = {
@@ -116,6 +117,7 @@ export default function Force3DView({ data, height, onNodeClick }: Props) {
   const graphRef = useRef<any>(null);
   const [ForceGraph3D, setForceGraph3D] = useState<any>(null);
   const [dimensions, setDimensions] = useState({ width: 800, height });
+  const [hoveredNode, setHoveredNode] = useState<string | null>(null);
 
   useEffect(() => {
     if (ForceGraph3DModule && THREE) { setForceGraph3D(() => ForceGraph3DModule); return; }
@@ -137,12 +139,16 @@ export default function Force3DView({ data, height, onNodeClick }: Props) {
   }, [height]);
 
   const fgData = useMemo(() => ({
-    nodes: data.nodes.map((n) => ({
-      ...n,
-      val: NODE_SIZES[n.type],
-      _color: n.type === "realm" ? (n.color || NODE_COLORS.realm) : NODE_COLORS[n.type],
-    })),
-    links: data.edges.map((e, i) => ({ ...e, id: `edge-${i}`, _color: EDGE_COLORS[e.type] })),
+    nodes: data.nodes
+      .filter((n) => n.type !== "realm")
+      .map((n) => ({
+        ...n,
+        val: NODE_SIZES[n.type],
+        _color: NODE_COLORS[n.type],
+      })),
+    links: data.edges
+      .filter((e) => e.type !== "realm_member")
+      .map((e, i) => ({ ...e, id: `edge-${i}`, _color: EDGE_COLORS[e.type] })),
   }), [data]);
 
   const handleNodeClick = useCallback((node: any) => {
@@ -168,13 +174,12 @@ export default function Force3DView({ data, height, onNodeClick }: Props) {
     <div ref={containerRef} className="relative w-full" style={{ height }}>
       {/* Legend */}
       <div className="absolute top-3 left-3 z-10 flex flex-col gap-1 bg-vc-card/80 backdrop-blur rounded-lg p-3 text-xs">
-        <LegendItem color={NODE_COLORS.realm}  label="Realm" icon={<IconGlobe />} />
         <LegendItem color={NODE_COLORS.user}   label="User"  icon={<IconUser />} />
         <LegendItem color={NODE_COLORS.agent}  label="Agent" icon={<IconBot />} />
         <hr className="border-vc-border my-1" />
-        <LegendItem color={EDGE_COLORS.realm_member} label="Member"     shape="line" />
         <LegendItem color={EDGE_COLORS.grant}         label="Grant"      shape="line" />
         <LegendItem color={EDGE_COLORS.delegation}    label="Delegation" shape="line" />
+        <LegendItem color={EDGE_COLORS.peer}             label="Peer link"  shape="line" />
         <LegendItem color={EDGE_COLORS.reports_to}    label="Reports to" shape="line" />
       </div>
 
@@ -196,14 +201,21 @@ export default function Force3DView({ data, height, onNodeClick }: Props) {
         }}
         nodeThreeObjectExtend={false}
         linkColor={(l: any) => l._color}
-        linkWidth={(l: any) => (l.type === "grant" || l.type === "delegation" ? 2 : 1)}
+        linkWidth={(l: any) => (l.type === "grant" || l.type === "delegation" ? 2 : l.type === "peer" ? 2.5 : 1)}
+        linkVisibility={(l: any) => {
+          if (l.type !== "peer") return true;
+          if (!hoveredNode) return false;
+          return l.source?.id === hoveredNode || l.target?.id === hoveredNode
+            || l.source === hoveredNode || l.target === hoveredNode;
+        }}
         linkOpacity={0.6}
-        linkDirectionalParticles={(l: any) => (l.type === "delegation" ? 3 : l.type === "grant" ? 2 : 0)}
+        linkDirectionalParticles={(l: any) => (l.type === "delegation" ? 3 : l.type === "grant" ? 2 : l.type === "peer" ? 4 : 0)}
         linkDirectionalParticleSpeed={0.005}
         linkDirectionalParticleWidth={2}
         linkDirectionalParticleColor={(l: any) => l._color}
         linkLabel={(l: any) => l.label ? `<span style="padding:2px 6px;background:#1e293b;border-radius:4px;color:#e2e8f0;font-size:11px">${l.type}: ${l.label}</span>` : ""}
         onNodeClick={handleNodeClick}
+        onNodeHover={(node: any) => setHoveredNode(node?.id ?? null)}
         enableNodeDrag
         enableNavigationControls
         showNavInfo={false}
@@ -227,9 +239,6 @@ function LegendItem({ color, label, shape, icon }: { color: string; label: strin
   );
 }
 
-function IconGlobe() {
-  return <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>;
-}
 function IconUser() {
   return <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>;
 }

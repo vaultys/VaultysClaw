@@ -207,6 +207,33 @@ function createTables(db: Database.Database): void {
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
+    CREATE TABLE IF NOT EXISTS agent_token_usage (
+      agent_did TEXT PRIMARY KEY,
+      prompt_tokens INTEGER NOT NULL DEFAULT 0,
+      completion_tokens INTEGER NOT NULL DEFAULT 0,
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS realm_token_usage (
+      realm_id TEXT PRIMARY KEY,
+      prompt_tokens INTEGER NOT NULL DEFAULT 0,
+      completion_tokens INTEGER NOT NULL DEFAULT 0,
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      FOREIGN KEY (realm_id) REFERENCES realms(id) ON DELETE CASCADE
+    );
+
+    -- Per-agent time-bucketed token usage history (day and month granularity)
+    CREATE TABLE IF NOT EXISTS agent_token_usage_history (
+      agent_did TEXT NOT NULL,
+      bucket TEXT NOT NULL,        -- 'YYYY-MM-DD' for daily, 'YYYY-MM' for monthly
+      granularity TEXT NOT NULL,   -- 'day' or 'month'
+      prompt_tokens INTEGER NOT NULL DEFAULT 0,
+      completion_tokens INTEGER NOT NULL DEFAULT 0,
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      PRIMARY KEY (agent_did, bucket, granularity)
+    );
+    CREATE INDEX IF NOT EXISTS idx_agent_token_history_did ON agent_token_usage_history(agent_did, granularity, bucket);
+
     CREATE INDEX IF NOT EXISTS idx_peer_grants_source ON agent_peer_grants(source_did);
     CREATE INDEX IF NOT EXISTS idx_peer_grants_target ON agent_peer_grants(target_did);
   `);
@@ -703,3 +730,174 @@ export function enrollInDefaultRealm(type: "agent" | "user", did: string): void 
   if (type === "agent") addAgentToRealm(did, realm.id, true);
   else addUserToRealm(did, realm.id, true);
 }
+
+// ---- Token usage tracking ----
+
+export interface AgentTokenUsageRow {
+  agent_did: string;
+  prompt_tokens: number;
+  completion_tokens: number;
+  updated_at: string;
+}
+
+export function getAgentTokenUsage(agentDid: string): AgentTokenUsageRow | undefined {
+  const d = getDb();
+  return d.prepare(
+    "SELECT * FROM agent_token_usage WHERE agent_did = ?"
+  ).get(agentDid) as AgentTokenUsageRow | undefined;
+}
+
+export function getAllTokenUsage(): AgentTokenUsageRow[] {
+  const d = getDb();
+  return d.prepare(
+    "SELECT * FROM agent_token_usage ORDER BY updated_at DESC"
+  ).all() as AgentTokenUsageRow[];
+}
+
+export function upsertTokenUsage(
+  agentDid: string,
+  promptTokens: number,
+  completionTokens: number
+): void {
+  const d = getDb();
+  d.prepare(`
+    INSERT INTO agent_token_usage (agent_did, prompt_tokens, completion_tokens, updated_at)
+    VALUES (?, ?, ?, datetime('now'))
+    ON CONFLICT(agent_did) DO UPDATE SET
+      prompt_tokens = excluded.prompt_tokens,
+      completion_tokens = excluded.completion_tokens,
+      updated_at = datetime('now')
+  `).run(agentDid, promptTokens, completionTokens);
+}
+
+export function getTotalFleetTokenUsage(): { promptTokens: number; completionTokens: number } {
+  const d = getDb();
+  const result = d.prepare(`
+    SELECT
+      COALESCE(SUM(prompt_tokens), 0) as prompt_tokens,
+      COALESCE(SUM(completion_tokens), 0) as completion_tokens
+    FROM agent_token_usage
+  `).get() as { prompt_tokens: number; completion_tokens: number } | undefined;
+  return {
+    promptTokens: result?.prompt_tokens ?? 0,
+    completionTokens: result?.completion_tokens ?? 0,
+  };
+}
+
+// ---- Realm token usage tracking ----
+
+export interface RealmTokenUsageRow {
+  realm_id: string;
+  prompt_tokens: number;
+  completion_tokens: number;
+  updated_at: string;
+}
+
+export function getRealmTokenUsage(realmId: string): RealmTokenUsageRow | undefined {
+  const d = getDb();
+  return d.prepare(
+    "SELECT * FROM realm_token_usage WHERE realm_id = ?"
+  ).get(realmId) as RealmTokenUsageRow | undefined;
+}
+
+export function getAllRealmTokenUsage(): RealmTokenUsageRow[] {
+  const d = getDb();
+  return d.prepare(
+    "SELECT * FROM realm_token_usage ORDER BY updated_at DESC"
+  ).all() as RealmTokenUsageRow[];
+}
+
+export function upsertRealmTokenUsage(
+  realmId: string,
+  promptTokens: number,
+  completionTokens: number
+): void {
+  const d = getDb();
+  d.prepare(`
+    INSERT INTO realm_token_usage (realm_id, prompt_tokens, completion_tokens, updated_at)
+    VALUES (?, ?, ?, datetime('now'))
+    ON CONFLICT(realm_id) DO UPDATE SET
+      prompt_tokens = excluded.prompt_tokens,
+      completion_tokens = excluded.completion_tokens,
+      updated_at = datetime('now')
+  `).run(realmId, promptTokens, completionTokens);
+}
+
+export function getTotalRealmTokenUsage(realmId: string): { promptTokens: number; completionTokens: number } {
+  const d = getDb();
+  const result = d.prepare(`
+    SELECT
+      COALESCE(prompt_tokens, 0) as prompt_tokens,
+      COALESCE(completion_tokens, 0) as completion_tokens
+    FROM realm_token_usage
+    WHERE realm_id = ?
+  `).get(realmId) as { prompt_tokens: number; completion_tokens: number } | undefined;
+  return {
+    promptTokens: result?.prompt_tokens ?? 0,
+    completionTokens: result?.completion_tokens ?? 0,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Agent token usage history (daily / monthly buckets)
+// ---------------------------------------------------------------------------
+
+export interface AgentTokenUsageHistoryRow {
+  agent_did: string;
+  bucket: string;
+  granularity: "day" | "month";
+  prompt_tokens: number;
+  completion_tokens: number;
+  updated_at: string;
+}
+
+/**
+ * Increment token usage for the current day bucket and current month bucket for an agent.
+ * Uses the provided delta values (tokens used since last heartbeat).
+ */
+export function addAgentTokenUsageHistory(
+  agentDid: string,
+  promptDelta: number,
+  completionDelta: number,
+): void {
+  if (promptDelta <= 0 && completionDelta <= 0) return;
+  const d = getDb();
+  const dayBucket = new Date().toISOString().slice(0, 10);    // YYYY-MM-DD
+  const monthBucket = new Date().toISOString().slice(0, 7);  // YYYY-MM
+
+  const upsert = d.prepare(`
+    INSERT INTO agent_token_usage_history (agent_did, bucket, granularity, prompt_tokens, completion_tokens, updated_at)
+    VALUES (?, ?, ?, ?, ?, datetime('now'))
+    ON CONFLICT(agent_did, bucket, granularity) DO UPDATE SET
+      prompt_tokens = prompt_tokens + excluded.prompt_tokens,
+      completion_tokens = completion_tokens + excluded.completion_tokens,
+      updated_at = datetime('now')
+  `);
+
+  const txn = d.transaction(() => {
+    upsert.run(agentDid, dayBucket, "day", promptDelta, completionDelta);
+    upsert.run(agentDid, monthBucket, "month", promptDelta, completionDelta);
+  });
+  txn();
+}
+
+/**
+ * Query per-agent token usage history.
+ * @param granularity 'day' or 'month'
+ * @param from ISO date string (inclusive), e.g. '2026-01-01'
+ * @param to   ISO date string (inclusive), e.g. '2026-12-31'
+ */
+export function getAgentTokenUsageHistory(
+  agentDid: string,
+  granularity: "day" | "month",
+  from: string,
+  to: string,
+): AgentTokenUsageHistoryRow[] {
+  const d = getDb();
+  return d.prepare(`
+    SELECT * FROM agent_token_usage_history
+    WHERE agent_did = ? AND granularity = ? AND bucket >= ? AND bucket <= ?
+    ORDER BY bucket ASC
+  `).all(agentDid, granularity, from, to) as AgentTokenUsageHistoryRow[];
+}
+

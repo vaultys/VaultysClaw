@@ -12,6 +12,7 @@
  */
 
 import { z } from "zod";
+import { createTool } from "@mastra/core/tools";
 import type { AgentPeerGrant } from "@vaultysclaw/shared";
 import type { AgentToolDefinition } from "./types";
 import type { PeerManager } from "../peer-manager";
@@ -45,18 +46,18 @@ export function buildRemoteAgentTools(
       name: toolName,
       capability: "agent_communication" as const,
       requiresApproval: false,
-      tool: {
+      tool: createTool({
         id: toolName,
         description: grant.skillDescription,
         inputSchema: z.object({
           action: z.string().describe(
             "The specific action or question to send to the remote agent.",
           ),
-          params: z.record(z.unknown()).optional().describe(
+          params: z.record(z.string(), z.any()).optional().describe(
             "Optional structured parameters to pass alongside the action.",
           ),
         }),
-        execute: async ({ action, params = {} }: { action: string; params?: Record<string, unknown> }) => {
+        execute: async ({ action, params = {} }: { action: string; params?: Record<string, any> }) => {
           try {
             const result = await peerManager.invoke(grant.targetDid, action, params);
             return { success: true, result };
@@ -67,7 +68,7 @@ export function buildRemoteAgentTools(
             };
           }
         },
-      },
+      }),
     } satisfies AgentToolDefinition;
   });
 }

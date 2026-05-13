@@ -33,6 +33,8 @@ export default defineConfig({
       "__tests__/docker.test.ts",
       // UI component tests need jsdom + React — run with: pnpm test:components
       "__tests__/ui/**",
+      // Exclude worktrees (temporary development directories)
+      ".claude/**",
       "**/node_modules/**",
     ],
   },

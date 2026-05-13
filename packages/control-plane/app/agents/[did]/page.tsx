@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
+import ReactMarkdown from "react-markdown";
 import { useAdminWS } from "../../../hooks/useAdminWS";
 import type { LlmProviderType, GraphNode } from "@vaultysclaw/shared";
 import dynamic from "next/dynamic";
@@ -18,7 +19,29 @@ import {
   FileCode2,
   ChevronLeft,
   WifiOff,
+  FolderOpen,
+  Globe,
+  Monitor,
+  Plug,
+  Mail,
+  Code,
+  Terminal,
+  Zap,
+  TrendingUp,
 } from "lucide-react";
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+} from "recharts";
+
+const CAPABILITY_ICONS: Record<string, React.ReactNode> = {
+  file_access: <FolderOpen size={16} />,
+  internet_access: <Globe size={16} />,
+  browser_control: <Monitor size={16} />,
+  api_call: <Plug size={16} />,
+  mail_send: <Mail size={16} />,
+  code_execution: <Code size={16} />,
+  system_command: <Terminal size={16} />,
+};
 
 const RealmGraph = dynamic(() => import("@/components/graph/RealmGraph"), { ssr: false });
 
@@ -48,6 +71,8 @@ interface AgentDetail {
   online: boolean;
   connectedAt: string | null;
   lastHeartbeat: string | null;
+  reportedLlm: { provider: string; model: string } | null;
+  tokenUsage?: { promptTokens: number; completionTokens: number } | null;
 }
 
 interface LlmConfigDisplay {
@@ -64,7 +89,7 @@ interface ChatMessage {
   content: string;
 }
 
-type TabId = "overview" | "chat" | "config" | "automation" | "approvals" | "details" | "peers";
+type TabId = "overview" | "chat" | "tokens" | "config" | "automation" | "approvals" | "details" | "peers";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -182,6 +207,7 @@ export default function AgentDetailPage() {
             lastSeen: liveAgent.lastSeen,
             capabilities: liveAgent.capabilities,
             name: liveAgent.name,
+            reportedLlm: liveAgent.reportedLlm ?? prev.reportedLlm,
           }
           : prev
       );
@@ -229,6 +255,7 @@ export default function AgentDetailPage() {
   const tabs: Tab[] = [
     { id: "overview", label: "Overview", icon: <LayoutDashboard size={15} /> },
     { id: "chat", label: "Chat", icon: <MessageSquare size={15} /> },
+    { id: "tokens", label: "Tokens", icon: <TrendingUp size={15} /> },
     { id: "config", label: "Config", icon: <Settings2 size={15} /> },
     { id: "automation", label: "Automation", icon: <Clock size={15} /> },
     { id: "approvals", label: "Approvals", icon: <ShieldCheck size={15} />, badge: pendingApprovals },
@@ -293,7 +320,8 @@ export default function AgentDetailPage() {
         <div className="p-6">
           {activeTab === "overview" && <OverviewTab agent={agent} />}
           {activeTab === "chat" && <ChatTab agentId={agent.id} agentName={agent.name} online={agent.online} />}
-          {activeTab === "config" && <ConfigTab did={did} />}
+          {activeTab === "tokens" && <TokensTab agentId={agent.id} />}
+          {activeTab === "config" && <ConfigTab did={did} reportedLlm={agent.reportedLlm} />}
           {activeTab === "automation" && <AutomationTab agentId={agent.id} />}
           {activeTab === "approvals" && <ApprovalsTab onCountChange={setPendingApprovals} />}
           {activeTab === "peers" && <PeerAgentsTab did={did} />}
@@ -397,11 +425,12 @@ function OverviewTab({ agent }: { agent: AgentDetail }) {
                 <button
                   key={cap.id}
                   onClick={() => setEditCaps(active ? editCaps.filter((c) => c !== cap.id) : [...editCaps, cap.id])}
-                  className={`px-3 py-1.5 rounded-md text-sm border transition-colors ${active
+                  className={`px-3 py-1.5 rounded-md text-sm border transition-colors flex items-center gap-1.5 ${active
                     ? "bg-indigo-900/40 border-indigo-500 text-indigo-300"
                     : "bg-vc-raised/40 border-vc-ring text-vc-muted hover:border-vc-muted"
                     }`}
                 >
+                  {CAPABILITY_ICONS[cap.id] ?? <Zap size={14} />}
                   {cap.label}
                 </button>
               );
@@ -410,8 +439,14 @@ function OverviewTab({ agent }: { agent: AgentDetail }) {
         ) : agent.capabilities.length > 0 ? (
           <div className="flex flex-wrap gap-2">
             {agent.capabilities.map((cap) => (
-              <span key={cap} className="bg-indigo-900/30 border border-indigo-700/50 text-indigo-300 px-3 py-1.5 rounded-md text-sm">
-                {cap}
+              <span
+                key={cap}
+                className="relative group bg-indigo-900 border border-indigo-700/50 text-white p-2 rounded-md flex items-center justify-center"
+              >
+                {CAPABILITY_ICONS[cap] ?? <Zap size={16} />}
+                <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-1 text-[10px] text-white bg-gray-900 rounded whitespace-nowrap opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity z-10">
+                  {cap.replace(/_/g, " ")}
+                </span>
               </span>
             ))}
           </div>
@@ -419,6 +454,42 @@ function OverviewTab({ agent }: { agent: AgentDetail }) {
           <p className="text-vc-muted text-sm">No capabilities declared.</p>
         )}
       </section>
+
+      {/* Agent-reported LLM */}
+      {agent.online && agent.reportedLlm && (
+        <section>
+          <h2 className="text-sm font-semibold text-vc-muted uppercase tracking-wider mb-3">Active LLM</h2>
+          <div className="bg-vc-raised rounded-lg border border-vc-border px-4 py-3 flex items-center gap-3">
+            <code className="text-sm font-mono text-indigo-400">
+              {agent.reportedLlm.provider}/{agent.reportedLlm.model}
+            </code>
+            <span className="text-xs text-vc-subtle">reported by agent</span>
+          </div>
+        </section>
+      )}
+
+      {/* Token usage metrics */}
+      {agent.tokenUsage && (
+        <section>
+          <h2 className="text-sm font-semibold text-vc-muted uppercase tracking-wider mb-3">Token Usage</h2>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="bg-vc-raised rounded-lg border border-vc-border px-4 py-3">
+              <p className="text-xs text-vc-subtle mb-1">Input Tokens</p>
+              <p className="text-lg font-bold text-blue-400">{agent.tokenUsage.promptTokens.toLocaleString()}</p>
+            </div>
+            <div className="bg-vc-raised rounded-lg border border-vc-border px-4 py-3">
+              <p className="text-xs text-vc-subtle mb-1">Output Tokens</p>
+              <p className="text-lg font-bold text-blue-400">{agent.tokenUsage.completionTokens.toLocaleString()}</p>
+            </div>
+            <div className="bg-vc-raised rounded-lg border border-vc-border px-4 py-3 col-span-2">
+              <p className="text-xs text-vc-subtle mb-1">Total Tokens</p>
+              <p className="text-lg font-bold text-blue-400">
+                {(agent.tokenUsage.promptTokens + agent.tokenUsage.completionTokens).toLocaleString()}
+              </p>
+            </div>
+          </div>
+        </section>
+      )}
     </div>
   );
 }
@@ -435,6 +506,154 @@ interface ChatSessionMeta {
   updatedAt: string;
   messageCount: number;
 }
+
+// ---------------------------------------------------------------------------
+// TokensTab
+// ---------------------------------------------------------------------------
+
+type TokenGranularity = "day" | "month";
+type TokenPeriod = "7d" | "30d" | "3m" | "12m";
+
+interface TokenBucket {
+  bucket: string;
+  promptTokens: number;
+  completionTokens: number;
+}
+
+function TokensTab({ agentId }: { agentId: string }) {
+  const [granularity, setGranularity] = useState<TokenGranularity>("day");
+  const [period, setPeriod] = useState<TokenPeriod>("30d");
+  const [data, setData] = useState<TokenBucket[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [tokenError, setTokenError] = useState<string | null>(null);
+
+  const fetchData = useCallback(async (g: TokenGranularity, p: TokenPeriod) => {
+    setLoading(true);
+    setTokenError(null);
+    try {
+      const today = new Date();
+      let from: string;
+      if (p === "7d") {
+        const d = new Date(today); d.setDate(d.getDate() - 6);
+        from = d.toISOString().slice(0, 10);
+      } else if (p === "30d") {
+        const d = new Date(today); d.setDate(d.getDate() - 29);
+        from = d.toISOString().slice(0, 10);
+      } else if (p === "3m") {
+        const d = new Date(today); d.setMonth(d.getMonth() - 2);
+        from = g === "month" ? d.toISOString().slice(0, 7) : d.toISOString().slice(0, 10);
+      } else {
+        const d = new Date(today); d.setMonth(d.getMonth() - 11);
+        from = g === "month" ? d.toISOString().slice(0, 7) : d.toISOString().slice(0, 10);
+      }
+      const to = g === "month" ? today.toISOString().slice(0, 7) : today.toISOString().slice(0, 10);
+      const res = await fetch(
+        `/api/agents/${encodeURIComponent(agentId)}/token-usage?granularity=${g}&from=${from}&to=${to}`
+      );
+      if (!res.ok) throw new Error("Failed to fetch token data");
+      const json = await res.json();
+      setData(json.data ?? []);
+    } catch (e) {
+      setTokenError((e as Error).message);
+    } finally {
+      setLoading(false);
+    }
+  }, [agentId]);
+
+  useEffect(() => { fetchData(granularity, period); }, [fetchData, granularity, period]);
+
+  const total = data.reduce(
+    (acc, r) => ({ prompt: acc.prompt + r.promptTokens, completion: acc.completion + r.completionTokens }),
+    { prompt: 0, completion: 0 },
+  );
+
+  return (
+    <div className="p-4 space-y-4">
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div className="flex gap-1 rounded-lg border border-vc-border bg-vc-surface p-0.5">
+          {(["7d", "30d", "3m", "12m"] as TokenPeriod[]).map((p) => (
+            <button
+              key={p}
+              onClick={() => {
+                setPeriod(p);
+                if (p === "3m" || p === "12m") setGranularity("month"); else setGranularity("day");
+              }}
+              className={`px-3 py-1.5 text-xs rounded-md transition-colors ${
+                period === p ? "bg-vc-accent text-white" : "text-vc-muted hover:text-vc-foreground hover:bg-vc-card"
+              }`}
+            >
+              {p}
+            </button>
+          ))}
+        </div>
+        <div className="flex gap-1 rounded-lg border border-vc-border bg-vc-surface p-0.5">
+          {(["day", "month"] as TokenGranularity[]).map((g) => (
+            <button
+              key={g}
+              onClick={() => setGranularity(g)}
+              className={`px-3 py-1.5 text-xs rounded-md capitalize transition-colors ${
+                granularity === g ? "bg-vc-accent text-white" : "text-vc-muted hover:text-vc-foreground hover:bg-vc-card"
+              }`}
+            >
+              {g}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-3 gap-3">
+        <div className="rounded-xl border border-vc-border bg-vc-card p-4">
+          <p className="text-xs text-vc-muted mb-1">Input tokens</p>
+          <p className="text-xl font-semibold text-vc-foreground">{total.prompt.toLocaleString()}</p>
+        </div>
+        <div className="rounded-xl border border-vc-border bg-vc-card p-4">
+          <p className="text-xs text-vc-muted mb-1">Output tokens</p>
+          <p className="text-xl font-semibold text-vc-foreground">{total.completion.toLocaleString()}</p>
+        </div>
+        <div className="rounded-xl border border-vc-border bg-vc-card p-4">
+          <p className="text-xs text-vc-muted mb-1">Total tokens</p>
+          <p className="text-xl font-semibold text-vc-foreground">{(total.prompt + total.completion).toLocaleString()}</p>
+        </div>
+      </div>
+
+      {loading && (
+        <div className="flex items-center justify-center py-12 text-vc-muted">
+          <Loader2 className="animate-spin w-5 h-5 mr-2" /> Loading…
+        </div>
+      )}
+      {tokenError && <p className="text-red-400 text-sm">{tokenError}</p>}
+      {!loading && !tokenError && data.length > 0 && (
+        <div className="rounded-xl border border-vc-border bg-vc-card p-4">
+          <ResponsiveContainer width="100%" height={260}>
+            <BarChart data={data} margin={{ top: 4, right: 8, left: 0, bottom: 4 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.07)" />
+              <XAxis
+                dataKey="bucket"
+                tick={{ fontSize: 11, fill: "#9ca3af" }}
+                tickFormatter={(v: string) => granularity === "month" ? v.slice(0, 7) : v.slice(5)}
+              />
+              <YAxis tick={{ fontSize: 11, fill: "#9ca3af" }} allowDecimals={false} />
+              <Tooltip
+                contentStyle={{ background: "#1a1a1f", border: "1px solid #2d2d35", borderRadius: 8, fontSize: 12 }}
+                labelStyle={{ color: "#e5e7eb" }}
+              />
+              <Legend wrapperStyle={{ fontSize: 12 }} />
+              <Bar dataKey="promptTokens" name="Input" fill="#6366f1" radius={[3, 3, 0, 0]} />
+              <Bar dataKey="completionTokens" name="Output" fill="#818cf8" radius={[3, 3, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+      {!loading && !tokenError && data.length === 0 && (
+        <div className="text-center py-12 text-vc-muted text-sm">No token data for this period.</div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// ChatTab
+// ---------------------------------------------------------------------------
 
 function ChatTab({ agentId, agentName, online }: { agentId: string; agentName: string; online: boolean }) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -660,12 +879,53 @@ function ChatTab({ agentId, agentName, online }: { agentId: string; agentName: s
           {messages.map((msg, i) => (
             <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
               <div
-                className={`max-w-[75%] rounded-xl px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap ${msg.role === "user"
-                  ? "bg-indigo-600/25 text-vc-text rounded-br-sm"
-                  : "bg-vc-raised border border-vc-border text-vc-text rounded-bl-sm"
+                className={`max-w-[75%] rounded-xl px-4 py-2.5 text-sm leading-relaxed prose prose-sm prose-invert max-w-none ${msg.role === "user"
+                  ? "bg-indigo-600/25 text-vc-text rounded-br-sm prose-headings:text-vc-text prose-p:m-0 prose-ul:m-0 prose-ol:m-0 prose-li:m-0 prose-code:text-vc-text prose-code:bg-indigo-950/30 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-pre:bg-indigo-950/30 prose-pre:border prose-pre:border-indigo-500/20 prose-pre:text-indigo-100"
+                  : "bg-vc-raised border border-vc-border text-vc-text rounded-bl-sm prose-headings:text-vc-text prose-p:m-0 prose-ul:m-0 prose-ol:m-0 prose-li:m-0 prose-code:text-vc-text prose-code:bg-vc-bg prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-pre:bg-vc-bg prose-pre:border prose-pre:border-vc-border prose-pre:text-vc-text"
                   }`}
               >
-                {msg.content || (
+                {msg.content ? (
+                  <ReactMarkdown
+                    components={{
+                      p: ({ children }) => <p className="m-0">{children}</p>,
+                      ul: ({ children }) => <ul className="m-0 pl-4 list-disc">{children}</ul>,
+                      ol: ({ children }) => <ol className="m-0 pl-4 list-decimal">{children}</ol>,
+                      li: ({ children }) => <li className="m-0">{children}</li>,
+                      code: ({ children }) => (
+                        <code className={`px-1 py-0.5 rounded text-sm font-mono ${msg.role === "user"
+                          ? "bg-indigo-950/30 text-indigo-200"
+                          : "bg-vc-bg text-vc-text"
+                          }`}>
+                          {children}
+                        </code>
+                      ),
+                      pre: ({ children }) => (
+                        <pre className={`p-2 rounded text-xs overflow-x-auto my-1 border ${msg.role === "user"
+                          ? "bg-indigo-950/30 border-indigo-500/20 text-indigo-100"
+                          : "bg-vc-bg border-vc-border text-vc-text"
+                          }`}>
+                          {children}
+                        </pre>
+                      ),
+                      h1: ({ children }) => <h1 className="text-base font-bold mt-2 mb-1">{children}</h1>,
+                      h2: ({ children }) => <h2 className="text-sm font-bold mt-2 mb-1">{children}</h2>,
+                      h3: ({ children }) => <h3 className="text-xs font-bold mt-1 mb-0.5">{children}</h3>,
+                      blockquote: ({ children }) => (
+                        <blockquote className={`pl-2 border-l-2 my-1 ${msg.role === "user" ? "border-indigo-500/50" : "border-vc-border"
+                          }`}>
+                          {children}
+                        </blockquote>
+                      ),
+                      a: ({ children, href }) => (
+                        <a href={href} className="text-blue-400 underline hover:text-blue-300" target="_blank" rel="noopener noreferrer">
+                          {children}
+                        </a>
+                      ),
+                    }}
+                  >
+                    {msg.content}
+                  </ReactMarkdown>
+                ) : (
                   msg.role === "assistant" && isStreaming && (
                     <span className="inline-flex gap-1 text-vc-muted">
                       <span className="animate-bounce" style={{ animationDelay: "0ms" }}>·</span>
@@ -725,7 +985,7 @@ const PROVIDER_OPTIONS: { value: LlmProviderType; label: string; needsKey: boole
   { value: "openai-compatible", label: "OpenAI-compatible", needsKey: true, needsUrl: true },
 ];
 
-function ConfigTab({ did }: { did: string }) {
+function ConfigTab({ did, reportedLlm }: { did: string; reportedLlm: { provider: string; model: string } | null }) {
   const [llmConfig, setLlmConfig] = useState<LlmConfigDisplay | null>(null);
   const [llmLoading, setLlmLoading] = useState(true);
   const [llmEditing, setLlmEditing] = useState(false);
@@ -766,6 +1026,19 @@ function ConfigTab({ did }: { did: string }) {
 
   return (
     <div className="space-y-6">
+      {/* Agent-reported active LLM */}
+      {reportedLlm && (
+        <div className="bg-vc-raised rounded-lg border border-vc-border px-4 py-3">
+          <div className="text-xs text-vc-muted uppercase tracking-wider font-medium mb-1.5">Agent Active LLM</div>
+          <div className="flex items-center gap-3">
+            <code className="text-sm font-mono text-indigo-400">
+              {reportedLlm.provider}/{reportedLlm.model}
+            </code>
+            <span className="text-xs text-vc-subtle">reported by agent{llmConfig ? "" : " (local env config)"}</span>
+          </div>
+        </div>
+      )}
+
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-base font-semibold text-vc-text">LLM Configuration</h2>

@@ -95,10 +95,25 @@ export default function MatrixView({ data, height, onNodeClick }: Props) {
   const [expandedCells, setExpandedCells] = useState<Set<string>>(new Set());
 
   const userRows  = useMemo(() => buildUserRows(data), [data]);
-  const agentCols = useMemo(() => data.nodes.filter((n) => n.type === "agent"), [data]);
+  const agentAll  = useMemo(() => data.nodes.filter((n) => n.type === "agent"), [data]);
   const grantMap  = useMemo(() => buildGrantMap(data), [data]);
 
-  if (userRows.length === 0) {
+  // Only show users that have at least one grant/delegation edge
+  const filteredUserRows = useMemo(
+    () => userRows.filter(({ node }) => grantMap.has(node.id)),
+    [userRows, grantMap],
+  );
+
+  // Only show agents that appear as a target in at least one grant/delegation edge
+  const agentCols = useMemo(() => {
+    const linked = new Set<string>();
+    for (const inner of grantMap.values()) {
+      for (const agentId of inner.keys()) linked.add(agentId);
+    }
+    return agentAll.filter((a) => linked.has(a.id));
+  }, [agentAll, grantMap]);
+
+  if (filteredUserRows.length === 0) {
     return (
       <div className="flex items-center justify-center text-vc-muted" style={{ height }}>
         No users to display
@@ -152,7 +167,7 @@ export default function MatrixView({ data, height, onNodeClick }: Props) {
           </tr>
         </thead>
         <tbody>
-          {userRows.map(({ node: user, depth }) => {
+          {filteredUserRows.map(({ node: user, depth }) => {
             const label    = user.label || user.id.replace("user:", "");
             const role     = user.role ?? "member";
             const userGrants = grantMap.get(user.id);

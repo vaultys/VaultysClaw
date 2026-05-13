@@ -18,6 +18,7 @@ interface Realm {
   llm_config: string | null;
   default_capabilities: string;
   created_at: string;
+  tokenUsage?: { promptTokens: number; completionTokens: number } | null;
 }
 
 interface RealmAgent {
@@ -162,6 +163,7 @@ export default function RealmDetailPage() {
   const [realm, setRealm] = useState<Realm | null>(null);
   const [agents, setAgents] = useState<RealmAgent[]>([]);
   const [users, setUsers] = useState<RealmUser[]>([]);
+  const [tokenUsage, setTokenUsage] = useState<{ promptTokens: number; completionTokens: number } | null>(null);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<"agents" | "users" | "config">("agents");
   const [addModal, setAddModal] = useState<"agent" | "user" | null>(null);
@@ -176,10 +178,11 @@ export default function RealmDetailPage() {
   const load = useCallback(async () => {
     const res = await fetch(`/api/realms/${id}`);
     if (res.status === 404) { router.replace("/realms"); return; }
-    const data = await res.json() as { realm: Realm; agents: RealmAgent[]; users: RealmUser[] };
+    const data = await res.json() as { realm: Realm; agents: RealmAgent[]; users: RealmUser[]; tokenUsage?: { promptTokens: number; completionTokens: number } | null };
     setRealm(data.realm);
     setAgents(data.agents);
     setUsers(data.users);
+    setTokenUsage(data.tokenUsage ?? null);
     setLoading(false);
   }, [id, router]);
 
@@ -366,6 +369,18 @@ export default function RealmDetailPage() {
               )}
             </div>
           )}
+        </div>
+      </div>
+
+      {/* Token metrics — always shown */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="bg-vc-surface border border-vc-border rounded-2xl p-5">
+          <p className="text-xs text-vc-subtle mb-2">Input Tokens</p>
+          <p className="text-2xl font-bold text-blue-400">{(tokenUsage?.promptTokens ?? 0).toLocaleString()}</p>
+        </div>
+        <div className="bg-vc-surface border border-vc-border rounded-2xl p-5">
+          <p className="text-xs text-vc-subtle mb-2">Output Tokens</p>
+          <p className="text-2xl font-bold text-blue-400">{(tokenUsage?.completionTokens ?? 0).toLocaleString()}</p>
         </div>
       </div>
 

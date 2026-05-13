@@ -2,6 +2,10 @@
  * Custom Next.js server that runs both HTTP and WebSocket servers
  */
 
+// Load .env, .env.local, .env.development, etc. before anything reads process.env
+import { loadEnvConfig } from "@next/env";
+loadEnvConfig(process.cwd());
+
 import "./lib/webrtc-polyfill";
 import { createServer } from "node:http";
 import { parse } from "node:url";

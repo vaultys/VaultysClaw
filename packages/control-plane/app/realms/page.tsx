@@ -13,6 +13,8 @@ interface Realm {
   is_default: number;
   default_capabilities: string;
   created_at: string;
+  agentCount?: number;
+  userCount?: number;
 }
 
 const PRESET_COLORS = [
@@ -228,6 +230,18 @@ export default function RealmsPage() {
               {realm.description && (
                 <p className="text-vc-muted text-xs mb-3 line-clamp-2">{realm.description}</p>
               )}
+
+              {/* Member counts */}
+              <div className="flex items-center gap-3 mb-3">
+                <span className="flex items-center gap-1.5 text-xs text-vc-muted">
+                  <Bot className="w-3.5 h-3.5" />
+                  {realm.agentCount ?? 0}
+                </span>
+                <span className="flex items-center gap-1.5 text-xs text-vc-muted">
+                  <Users className="w-3.5 h-3.5" />
+                  {realm.userCount ?? 0}
+                </span>
+              </div>
 
               <p className="text-vc-subtle text-xs">
                 Created {new Date(realm.created_at).toLocaleDateString()}

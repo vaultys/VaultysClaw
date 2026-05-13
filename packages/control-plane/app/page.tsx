@@ -15,7 +15,28 @@ import {
   ChevronRight,
   CircleDot,
   Circle,
+  FolderOpen,
+  Globe,
+  Monitor,
+  Plug,
+  Mail,
+  Code,
+  Terminal,
+  TrendingUp,
+  DollarSign,
 } from "lucide-react";
+
+/* ─── Capability icon map ────────────────────────────────────── */
+
+const CAPABILITY_ICONS: Record<string, React.ReactNode> = {
+  file_access: <FolderOpen size={14} />,
+  internet_access: <Globe size={14} />,
+  browser_control: <Monitor size={14} />,
+  api_call: <Plug size={14} />,
+  mail_send: <Mail size={14} />,
+  code_execution: <Code size={14} />,
+  system_command: <Terminal size={14} />,
+};
 
 /* ─── Helpers ────────────────────────────────────────────────── */
 
@@ -218,6 +239,19 @@ function Dashboard() {
 
   const onlineAgents = agents.filter((a) => a.online);
 
+  // Calculate fleet-wide token metrics
+  const totalTokensUsed = onlineAgents.reduce(
+    (acc, agent) => {
+      if (agent.tokenUsage) {
+        acc.prompt += agent.tokenUsage.promptTokens;
+        acc.completion += agent.tokenUsage.completionTokens;
+      }
+      return acc;
+    },
+    { prompt: 0, completion: 0 }
+  );
+  const totalTokens = totalTokensUsed.prompt + totalTokensUsed.completion;
+
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
       {/* Page title */}
@@ -294,6 +328,17 @@ function Dashboard() {
           <p className="text-3xl font-bold text-vc-text">{pendingRegs.length}</p>
           <p className="text-xs text-vc-subtle mt-1">{pendingRegs.length > 0 ? "Review →" : "Registrations"}</p>
         </button>
+
+        <div className="bg-vc-surface rounded-xl border border-vc-border p-5">
+          <div className="flex items-center gap-2 mb-2">
+            <div className="w-7 h-7 bg-blue-100 dark:bg-blue-900/40 rounded-lg flex items-center justify-center">
+              <TrendingUp className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+            </div>
+            <p className="text-vc-muted text-xs font-medium uppercase tracking-wider">Tokens Used</p>
+          </div>
+          <p className="text-3xl font-bold text-blue-600 dark:text-blue-400">{totalTokens.toLocaleString()}</p>
+          <p className="text-xs text-vc-subtle mt-1">by online agents</p>
+        </div>
       </div>
 
       <div className="grid lg:grid-cols-2 gap-6">
@@ -318,15 +363,23 @@ function Dashboard() {
                 >
                   <div className="w-2 h-2 rounded-full bg-green-500 dark:bg-green-400 shrink-0" />
                   <p className="font-medium text-vc-text text-sm flex-1 truncate">{agent.name}</p>
+                  {agent.reportedLlm && (
+                    <code className="text-[11px] font-mono text-indigo-400 bg-indigo-500/10 border border-indigo-500/20 px-1.5 py-0.5 rounded shrink-0">
+                      {agent.reportedLlm.provider}/{agent.reportedLlm.model}
+                    </code>
+                  )}
                   <div className="flex gap-1 shrink-0">
-                    {agent.capabilities.slice(0, 2).map((cap) => (
-                      <span key={cap} className="bg-vc-raised border border-vc-ring px-2 py-0.5 rounded text-xs text-vc-text-2">
-                        {cap}
+                    {agent.capabilities.map((cap) => (
+                      <span
+                        key={cap}
+                        className="relative group bg-vc-raised border border-vc-ring p-1 rounded text-vc-text-2 flex items-center justify-center"
+                      >
+                        {CAPABILITY_ICONS[cap] ?? <Zap size={14} />}
+                        <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-1 text-[10px] text-white bg-gray-900 rounded whitespace-nowrap opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity z-10">
+                          {cap.replace(/_/g, " ")}
+                        </span>
                       </span>
                     ))}
-                    {agent.capabilities.length > 2 && (
-                      <span className="text-xs text-vc-subtle">+{agent.capabilities.length - 2}</span>
-                    )}
                   </div>
                   <span className="text-xs text-vc-subtle shrink-0">{timeAgo(agent.lastHeartbeat)}</span>
                 </div>

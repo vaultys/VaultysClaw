@@ -20,6 +20,8 @@ interface Agent {
   connectedAt: string | null;
   lastHeartbeat: string | null;
   realms?: AgentRealm[];
+  reportedLlm?: { provider: string; model: string } | null;
+  tokenUsage?: { promptTokens: number; completionTokens: number } | null;
 }
 
 interface AgentsState {

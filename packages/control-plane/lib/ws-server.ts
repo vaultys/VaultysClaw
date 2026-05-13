@@ -44,6 +44,11 @@ import {
   getAllPendingRegistrations,
   setAgentLlmConfig,
   enrollInDefaultRealm,
+  upsertTokenUsage,
+  getAgentRealms,
+  getRealmTokenUsage,
+  upsertRealmTokenUsage,
+  addAgentTokenUsageHistory,
 } from "./db";
 import { DelegationDao } from "./delegation-dao";
 import { AgentPeerGrantDao } from "./agent-peer-grant-dao";
@@ -91,6 +96,10 @@ interface ConnectedAgent {
   capabilities: string[];
   connectedAt: Date;
   lastHeartbeat: Date;
+  /** LLM config reported by the agent via heartbeat (provider/model only). */
+  reportedLlm?: { provider: string; model: string };
+  /** Cumulative token usage from all heartbeats. */
+  tokenUsage?: { promptTokens: number; completionTokens: number };
 }
 
 /**
@@ -537,6 +546,57 @@ export class AgentWSServer {
     if (agent) {
       agent.lastHeartbeat = new Date();
       if (agentId) updateAgentLastSeen(agentId);
+
+      // Sync agent-reported config from heartbeat payload
+      const hbPayload = message.payload as {
+        uptime?: number;
+        memory?: unknown;
+        activeLlm?: { provider: string; model: string };
+        name?: string;
+        tokenUsage?: { total: { promptTokens: number; completionTokens: number }; sinceLastSync: { promptTokens: number; completionTokens: number } };
+      } | undefined;
+      if (hbPayload?.activeLlm) {
+        agent.reportedLlm = hbPayload.activeLlm;
+      }
+      if (hbPayload?.name && hbPayload.name !== agent.name) {
+        agent.name = hbPayload.name;
+      }
+
+      // Accumulate token usage from heartbeat
+      if (hbPayload?.tokenUsage?.total) {
+        if (!agent.tokenUsage) {
+          agent.tokenUsage = { promptTokens: 0, completionTokens: 0 };
+        }
+        agent.tokenUsage.promptTokens = hbPayload.tokenUsage.total.promptTokens;
+        agent.tokenUsage.completionTokens = hbPayload.tokenUsage.total.completionTokens;
+
+        // Persist token usage to DB for the agent
+        upsertTokenUsage(agentId, agent.tokenUsage.promptTokens, agent.tokenUsage.completionTokens);
+
+        // Update realm token usage if delta is provided
+        if (hbPayload.tokenUsage.sinceLastSync) {
+          const agentRealms = getAgentRealms(agentId);
+          const deltaPrompt = hbPayload.tokenUsage.sinceLastSync.promptTokens;
+          const deltaCompletion = hbPayload.tokenUsage.sinceLastSync.completionTokens;
+
+          // Record in daily/monthly history buckets
+          addAgentTokenUsageHistory(agentId, deltaPrompt, deltaCompletion);
+
+          for (const realmMembership of agentRealms) {
+            const realmId = realmMembership.realm_id;
+            // Get current realm token usage (uses snake_case fields from DB row)
+            const currentUsage = getRealmTokenUsage(realmId);
+            const currentPrompt = currentUsage?.prompt_tokens ?? 0;
+            const currentCompletion = currentUsage?.completion_tokens ?? 0;
+            // Add the delta
+            upsertRealmTokenUsage(
+              realmId,
+              currentPrompt + deltaPrompt,
+              currentCompletion + deltaCompletion
+            );
+          }
+        }
+      }
 
       logger.debug({ agentId }, "Heartbeat received");
 
@@ -1221,13 +1281,15 @@ export class AgentWSServer {
       const connected = this.agents.get(agent.did);
       return {
         id: agent.did,
-        name: agent.name,
+        name: connected?.name ?? agent.name,
         capabilities: JSON.parse(agent.capabilities),
         registeredAt: agent.registered_at,
         lastSeen: agent.last_seen,
         online: connectedDids.has(agent.did),
         connectedAt: connected?.connectedAt?.toISOString() ?? null,
         lastHeartbeat: connected?.lastHeartbeat?.toISOString() ?? null,
+        reportedLlm: connected?.reportedLlm ?? null,
+        tokenUsage: connected?.tokenUsage ?? null,
       };
     });
 

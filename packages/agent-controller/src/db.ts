@@ -147,6 +147,17 @@ export function initDb(dbDir: string, dbFileName = "agent.db"): Database {
 
     CREATE INDEX IF NOT EXISTS idx_peer_grants_source ON peer_grants(source_did);
     CREATE INDEX IF NOT EXISTS idx_peer_grants_target ON peer_grants(target_did);
+
+    CREATE TABLE IF NOT EXISTS token_usage (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      prompt_tokens INTEGER NOT NULL DEFAULT 0,
+      completion_tokens INTEGER NOT NULL DEFAULT 0,
+      provider TEXT NOT NULL,
+      model TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_token_usage_created ON token_usage(created_at DESC);
   `);
 
   return db;
@@ -694,4 +705,52 @@ export function logToolUsage(toolName: string, args: unknown, success: boolean, 
     $duration_ms: durationMs,
   });
 }
+
+// ---- Token usage tracking ----
+
+export interface TokenUsageRow {
+  id: number;
+  prompt_tokens: number;
+  completion_tokens: number;
+  provider: string;
+  model: string;
+  created_at: string;
+}
+
+export function recordTokenUsage(
+  promptTokens: number,
+  completionTokens: number,
+  provider: string,
+  model: string
+): void {
+  getDb().query(`
+    INSERT INTO token_usage (prompt_tokens, completion_tokens, provider, model)
+    VALUES ($prompt_tokens, $completion_tokens, $provider, $model)
+  `).run({
+    $prompt_tokens: promptTokens,
+    $completion_tokens: completionTokens,
+    $provider: provider,
+    $model: model,
+  });
+}
+
+export function getTotalTokenUsage(): { promptTokens: number; completionTokens: number } {
+  const result = getDb().query(`
+    SELECT
+      COALESCE(SUM(prompt_tokens), 0) as prompt_tokens,
+      COALESCE(SUM(completion_tokens), 0) as completion_tokens
+    FROM token_usage
+  `).get() as { prompt_tokens: number; completion_tokens: number } | undefined;
+  return {
+    promptTokens: result?.prompt_tokens ?? 0,
+    completionTokens: result?.completion_tokens ?? 0,
+  };
+}
+
+export function getRecentTokenUsage(limit = 100): TokenUsageRow[] {
+  return getDb().query(`
+    SELECT * FROM token_usage ORDER BY created_at DESC LIMIT $limit
+  `).all({ $limit: limit }) as TokenUsageRow[];
+}
+
 

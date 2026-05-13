@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
+import ReactMarkdown from "react-markdown";
 import { useAdminWS } from "@/hooks/useAdminWS";
 import { Bot, Send, Trash2, Loader2, WifiOff, Settings } from "lucide-react";
 
@@ -201,12 +202,53 @@ export default function ChatPage() {
             className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
           >
             <div
-              className={`max-w-[70%] rounded-lg px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap ${msg.role === "user"
-                ? "bg-vc-accent/20 text-vc-text"
-                : "bg-vc-subtle text-vc-text"
+              className={`max-w-[70%] rounded-lg px-4 py-2.5 text-sm leading-relaxed prose prose-sm prose-invert max-w-none ${msg.role === "user"
+                ? "bg-vc-accent/20 text-vc-text prose-headings:text-vc-text prose-p:m-0 prose-ul:m-0 prose-ol:m-0 prose-li:m-0 prose-code:text-vc-text prose-code:bg-white/10 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-pre:bg-white/10 prose-pre:border prose-pre:border-vc-accent/30 prose-pre:text-vc-text"
+                : "bg-vc-subtle text-vc-text prose-headings:text-vc-text prose-p:m-0 prose-ul:m-0 prose-ol:m-0 prose-li:m-0 prose-code:text-vc-text prose-code:bg-vc-bg prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-pre:bg-vc-bg prose-pre:border prose-pre:border-vc-border prose-pre:text-vc-text"
                 }`}
             >
-              {msg.content}
+              {msg.content ? (
+                <ReactMarkdown
+                  components={{
+                    p: ({ children }) => <p className="m-0">{children}</p>,
+                    ul: ({ children }) => <ul className="m-0 pl-4 list-disc">{children}</ul>,
+                    ol: ({ children }) => <ol className="m-0 pl-4 list-decimal">{children}</ol>,
+                    li: ({ children }) => <li className="m-0">{children}</li>,
+                    code: ({ children }) => (
+                      <code className={`px-1 py-0.5 rounded text-sm font-mono ${msg.role === "user"
+                          ? "bg-white/10 text-vc-text"
+                          : "bg-vc-bg text-vc-text"
+                        }`}>
+                        {children}
+                      </code>
+                    ),
+                    pre: ({ children }) => (
+                      <pre className={`p-2 rounded text-xs overflow-x-auto my-1 border ${msg.role === "user"
+                          ? "bg-white/10 border-vc-accent/30 text-vc-text"
+                          : "bg-vc-bg border-vc-border text-vc-text"
+                        }`}>
+                        {children}
+                      </pre>
+                    ),
+                    h1: ({ children }) => <h1 className="text-base font-bold mt-2 mb-1">{children}</h1>,
+                    h2: ({ children }) => <h2 className="text-sm font-bold mt-2 mb-1">{children}</h2>,
+                    h3: ({ children }) => <h3 className="text-xs font-bold mt-1 mb-0.5">{children}</h3>,
+                    blockquote: ({ children }) => (
+                      <blockquote className={`pl-2 border-l-2 my-1 ${msg.role === "user" ? "border-vc-accent/50" : "border-vc-border"
+                        }`}>
+                        {children}
+                      </blockquote>
+                    ),
+                    a: ({ children, href }) => (
+                      <a href={href} className="text-blue-400 underline hover:text-blue-300" target="_blank" rel="noopener noreferrer">
+                        {children}
+                      </a>
+                    ),
+                  }}
+                >
+                  {msg.content}
+                </ReactMarkdown>
+              ) : null}
               {msg.role === "assistant" && !msg.content && isStreaming && (
                 <span className="inline-flex gap-1 text-vc-muted">
                   <span className="animate-bounce" style={{ animationDelay: "0ms" }}>·</span>

@@ -1,7 +1,11 @@
 "use client";
 
-import { useMemo, useState, useRef } from "react";
+import { useMemo, useState, useRef, useEffect, useCallback } from "react";
 import type { GraphData, GraphNode } from "@vaultysclaw/shared";
+
+const MIN_ZOOM = 0.25;
+const MAX_ZOOM = 3.0;
+const ZOOM_STEP = 0.1;
 
 interface Props {
   data: GraphData;
@@ -213,16 +217,68 @@ function truncate(s: string, max: number) {
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
+const btnStyle: React.CSSProperties = {
+  width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center",
+  background: "#0f172a", border: "1px solid #1e293b", borderRadius: 6,
+  color: "#94a3b8", cursor: "pointer", fontSize: 16, fontFamily: "system-ui",
+};
+
 export default function HierarchyView({ data, height, onNodeClick }: Props) {
   const layout  = useMemo(() => computeLayout(data), [data]);
   const svgRef  = useRef<SVGSVGElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const didFit = useRef(false);
   const [hovered, setHovered] = useState<string | null>(null);
+  const [zoom, setZoom] = useState(1.0);
 
   const { positions, parentMap, agentNodes, agentPositions, grantEdges, totalWidth, maxDepth } = layout;
+
+  // Which agents are linked to the currently hovered user?
+  const hoveredAgentIds = useMemo(() => {
+    if (!hovered) return new Set<string>();
+    // If an agent is hovered, show that agent
+    if (agentPositions.has(hovered)) return new Set([hovered]);
+    // If a user is hovered, show its connected agents
+    const ids = new Set<string>();
+    for (const ge of grantEdges) {
+      if (ge.userId === hovered) ids.add(ge.agentId);
+    }
+    return ids;
+  }, [hovered, grantEdges, agentPositions]);
+
+  const showAgents = hoveredAgentIds.size > 0;
 
   const agentRowY    = (maxDepth + 1) * (NODE_H + V_GAP) + AGENTS_MARGIN;
   const svgH         = agentNodes.length > 0 ? agentRowY + AGENT_H + 48 : (maxDepth + 1) * (NODE_H + V_GAP) + 40;
   const svgW         = Math.max(totalWidth + H_GAP, 500);
+
+  // Fit to container width once on mount (or when svgW changes after a data reload)
+  const svgWRef = useRef(0);
+  useEffect(() => {
+    if (!containerRef.current) return;
+    if (didFit.current && svgWRef.current === svgW) return;
+    const cw = containerRef.current.clientWidth;
+    if (cw > 0 && svgW > 0) {
+      const fit = Math.min(1, (cw - 24) / svgW);
+      setZoom(parseFloat(fit.toFixed(3)));
+      didFit.current = true;
+      svgWRef.current = svgW;
+    }
+  }, [svgW]);
+
+  const clampZoom = (z: number) => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, z));
+
+  const handleWheel = useCallback((e: React.WheelEvent) => {
+    if (!e.ctrlKey && !e.metaKey) return; // plain scroll → normal scrolling
+    e.preventDefault();
+    setZoom((z) => clampZoom(parseFloat((z - e.deltaY * 0.005).toFixed(3))));
+  }, []);
+
+  const fitZoom = () => {
+    if (!containerRef.current || svgW <= 0) return;
+    const cw = containerRef.current.clientWidth;
+    setZoom(clampZoom(parseFloat(Math.min(1, (cw - 24) / svgW).toFixed(3))));
+  };
 
   if (data.nodes.filter((n) => n.type === "user").length === 0) {
     return (
@@ -232,9 +288,36 @@ export default function HierarchyView({ data, height, onNodeClick }: Props) {
     );
   }
 
+  // The SVG uses viewBox — we just change its width/height attributes to zoom.
+  // This avoids CSS transform and the layout issues that come with it.
+  const renderedW = Math.round(svgW * zoom);
+  const renderedH = Math.round(svgH * zoom);
+
   return (
-    <div className="overflow-auto" style={{ height, maxHeight: height }}>
-      <svg ref={svgRef} width={svgW} height={svgH} style={{ display: "block" }}>
+    <div style={{ height, position: "relative" }}>
+      {/* Zoom controls */}
+      <div style={{ position: "absolute", top: 8, right: 8, zIndex: 10, display: "flex", gap: 4, alignItems: "center" }}>
+        <button title="Zoom out"  onClick={() => setZoom((z) => clampZoom(parseFloat((z - ZOOM_STEP).toFixed(2))))} style={btnStyle}>−</button>
+        <button title="Fit width" onClick={fitZoom} style={btnStyle}>⊡</button>
+        <button title="Zoom in"   onClick={() => setZoom((z) => clampZoom(parseFloat((z + ZOOM_STEP).toFixed(2))))} style={btnStyle}>+</button>
+        <span style={{ fontSize: 11, color: "#64748b", minWidth: 36, textAlign: "right" }}>{Math.round(zoom * 100)}%</span>
+      </div>
+
+      {/* Scrollable area */}
+      <div
+        ref={containerRef}
+        onWheel={handleWheel}
+        style={{ height, overflow: "auto" }}
+      >
+        {/* Center the SVG horizontally; when it's wider than the container a scrollbar appears */}
+        <div style={{ minWidth: "100%", width: renderedW, margin: "0 auto" }}>
+          <svg
+            ref={svgRef}
+            viewBox={`0 0 ${svgW} ${svgH}`}
+            width={renderedW}
+            height={renderedH}
+            style={{ display: "block" }}
+          >
         <defs>
           {/* Arrowhead markers */}
           <marker id="arrow-grant" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
@@ -270,8 +353,9 @@ export default function HierarchyView({ data, height, onNodeClick }: Props) {
           );
         })}
 
-        {/* ── Grant/delegation edges (user → agent) ── */}
+        {/* ── Grant/delegation edges (user → agent) — only when hovered ── */}
         {grantEdges.map((ge, i) => {
+          if (!hoveredAgentIds.has(ge.agentId)) return null;
           const uPos = positions.get(ge.userId);
           const aX   = agentPositions.get(ge.agentId);
           if (!uPos || aX === undefined) return null;
@@ -296,7 +380,7 @@ export default function HierarchyView({ data, height, onNodeClick }: Props) {
         })}
 
         {/* ── Agent row label ── */}
-        {agentNodes.length > 0 && (
+        {agentNodes.length > 0 && showAgents && (
           <text
             x={svgW / 2}
             y={agentRowY - 26}
@@ -309,7 +393,7 @@ export default function HierarchyView({ data, height, onNodeClick }: Props) {
             AGENTS
           </text>
         )}
-        {agentNodes.length > 0 && (
+        {agentNodes.length > 0 && showAgents && (
           <line
             x1={Math.max(0, svgW / 2 - 160)} y1={agentRowY - 22}
             x2={Math.min(svgW, svgW / 2 + 160)} y2={agentRowY - 22}
@@ -382,8 +466,9 @@ export default function HierarchyView({ data, height, onNodeClick }: Props) {
           );
         })}
 
-        {/* ── Agent nodes ── */}
+        {/* ── Agent nodes — only visible when related user/agent is hovered ── */}
         {agentNodes.map((node) => {
+          if (!hoveredAgentIds.has(node.id)) return null;
           const ax  = agentPositions.get(node.id);
           if (ax === undefined) return null;
           const y      = agentRowY;
@@ -432,6 +517,8 @@ export default function HierarchyView({ data, height, onNodeClick }: Props) {
         {/* ── Legend ── */}
         <LegendSVG x={12} y={12} />
       </svg>
+        </div>
+      </div>
     </div>
   );
 }

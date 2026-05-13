@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAllRealms, createRealm, getRealmBySlug } from "@/lib/db";
+import { getAllRealms, createRealm, getRealmBySlug, getRealmAgents, getRealmUsers } from "@/lib/db";
 
 /**
  * GET /api/realms — list all realms with member counts
@@ -7,7 +7,16 @@ import { getAllRealms, createRealm, getRealmBySlug } from "@/lib/db";
 export async function GET() {
   try {
     const realms = getAllRealms();
-    return NextResponse.json({ realms });
+    const realmsWithCounts = realms.map((realm) => {
+      const agents = getRealmAgents(realm.id);
+      const users = getRealmUsers(realm.id);
+      return {
+        ...realm,
+        agentCount: agents.length,
+        userCount: users.length,
+      };
+    });
+    return NextResponse.json({ realms: realmsWithCounts });
   } catch (err) {
     console.error(err);
     return NextResponse.json({ error: "Failed to fetch realms" }, { status: 500 });

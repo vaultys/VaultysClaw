@@ -80,7 +80,7 @@ export async function GET(
 
     return NextResponse.json({
       id: agent.did,
-      name: agent.name,
+      name: connected?.name ?? agent.name,
       capabilities: JSON.parse(agent.capabilities),
       publicKey: agent.public_key,
       certificateInfo,
@@ -90,6 +90,8 @@ export async function GET(
       online: !!connected,
       connectedAt: connected?.connectedAt?.toISOString() ?? null,
       lastHeartbeat: connected?.lastHeartbeat?.toISOString() ?? null,
+      reportedLlm: connected?.reportedLlm ?? null,
+      tokenUsage: connected?.tokenUsage ?? null,
     });
   } catch (error) {
     return NextResponse.json(

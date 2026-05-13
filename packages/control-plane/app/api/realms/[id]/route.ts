@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
   getRealmById, updateRealm, deleteRealm,
-  getRealmAgents, getRealmUsers,
+  getRealmAgents, getRealmUsers, getRealmTokenUsage,
 } from "@/lib/db";
 
 type Ctx = { params: Promise<{ id: string }> };
 
 /**
- * GET /api/realms/[id] — realm detail with members
+ * GET /api/realms/[id] — realm detail with members and token usage
  */
 export async function GET(_req: NextRequest, ctx: Ctx) {
   try {
@@ -17,8 +17,17 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
 
     const agents = getRealmAgents(id);
     const users = getRealmUsers(id);
+    const tokenUsage = getRealmTokenUsage(id);
 
-    return NextResponse.json({ realm, agents, users });
+    return NextResponse.json({
+      realm,
+      agents,
+      users,
+      tokenUsage: tokenUsage ? {
+        promptTokens: tokenUsage.prompt_tokens,
+        completionTokens: tokenUsage.completion_tokens,
+      } : null,
+    });
   } catch (err) {
     console.error(err);
     return NextResponse.json({ error: "Failed to fetch realm" }, { status: 500 });

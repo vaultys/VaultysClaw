@@ -7,7 +7,8 @@ import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
 
 /**
  * GET /api/agents/[did]/peers
- * List all outgoing peer grants for an agent. Global admin only.
+ * List all outgoing peer grants for an agent.
+ * Requires access to the agent (realm membership or global admin).
  */
 export async function GET(
   _request: NextRequest,
@@ -16,10 +17,11 @@ export async function GET(
   try {
     const auth = await getAuthContext();
     if (!auth) return unauthorized();
-    if (!auth.isGlobalAdmin) return forbidden();
 
     const { did: rawDid } = await params;
     const sourceDid = decodeURIComponent(rawDid);
+
+    if (!auth.canAccessAgent(sourceDid)) return forbidden();
 
     const agent = getAgent(sourceDid);
     if (!agent) {
@@ -90,7 +92,6 @@ export async function POST(
 
     const expiresAtDate = expiresAt ? new Date(expiresAt) : undefined;
 
-    // Sign the peer grant with the server's identity
     const certificate = await signPeerGrant(
       sourceDid,
       targetDid,
@@ -110,7 +111,6 @@ export async function POST(
       expires_at: expiresAtDate?.toISOString() ?? null,
     });
 
-    // Push updated peer catalog to the source agent if connected
     getWSServer()?.pushPeerCatalog(sourceDid);
 
     return NextResponse.json({

@@ -16,12 +16,22 @@ export async function GET(req: NextRequest) {
   try {
     const auth = await getAuthContext();
     if (!auth) return unauthorized();
-    if (!auth.isGlobalAdmin) return forbidden();
 
     const { searchParams } = req.nextUrl;
     const agentDid = searchParams.get("agent");
     const userDid = searchParams.get("user");
     const realmId = searchParams.get("realm");
+
+    // Full graph is global-admin only; scoped views require matching access
+    if (!auth.isGlobalAdmin) {
+      if (agentDid) {
+        if (!auth.canAccessAgent(agentDid)) return forbidden();
+      } else if (realmId) {
+        if (!auth.canAccessRealm(realmId)) return forbidden();
+      } else {
+        return forbidden();
+      }
+    }
 
     const graph = buildGraph({ agentDid, userDid, realmId });
     return NextResponse.json(graph);

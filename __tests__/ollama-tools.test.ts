@@ -4,7 +4,7 @@
  * Requirements:
  *   - Ollama running on http://localhost:11434
  *   - llama3.2 model pulled: `ollama pull llama3.2`
- *   - qwen3:8b model pulled: `ollama pull qwen3:8b`
+ *   - ministral-3:3b model pulled: `ollama pull ministral-3:3b`
  *
  * Run with:
  *   npx vitest run __tests__/ollama-tools.test.ts
@@ -202,48 +202,48 @@ describe("Ollama tool execution (live)", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Tests: qwen3:8b
+// Tests: ministral-3:3b
 // ---------------------------------------------------------------------------
 
-const QWEN_MODEL = "qwen3:8b";
+const MINISTRAL_MODEL = "ministral-3:3b";
 
-async function qwenAvailable(): Promise<boolean> {
+async function ministralAvailable(): Promise<boolean> {
   try {
     const res = await fetch("http://localhost:11434/api/tags", { signal: AbortSignal.timeout(3000) });
     if (!res.ok) return false;
     const body = (await res.json()) as { models?: Array<{ name: string }> };
-    return body.models?.some((m) => m.name.startsWith("qwen3")) ?? false;
+    return body.models?.some((m) => m.name.startsWith("ministral-3")) ?? false;
   } catch {
     return false;
   }
 }
 
-function qwenConfig(overrides: Partial<LlmConfig> = {}): LlmConfig {
+function ministralConfig(overrides: Partial<LlmConfig> = {}): LlmConfig {
   return {
     provider: "ollama",
-    model: QWEN_MODEL,
+    model: MINISTRAL_MODEL,
     baseUrl: "http://localhost:11434",
     maxTokens: 1024,
     ...overrides,
   } as LlmConfig;
 }
 
-describe("qwen3:8b tool execution (live)", () => {
-  let qwenOk = false;
+describe("ministral-3:3b tool execution (live)", () => {
+  let ministralOk = false;
 
   beforeAll(async () => {
-    qwenOk = await qwenAvailable();
-    if (!qwenOk) console.warn("⚠️  qwen3:8b not available — skipping qwen tests");
+    ministralOk = await ministralAvailable();
+    if (!ministralOk) console.warn("⚠️  ministral-3:3b not available — skipping ministral tests");
   });
 
   function skip() {
-    if (!qwenOk) { console.log("  → skipped (qwen3:8b not available)"); return true; }
+    if (!ministralOk) { console.log("  → skipped (ministral-3:3b not available)"); return true; }
     return false;
   }
 
   it("should respond to a plain chat message", async () => {
     if (skip()) return;
-    const { text } = await runIntent(qwenConfig(), "Say exactly the word 'pong' and nothing else.", {});
+    const { text } = await runIntent(ministralConfig(), "Say exactly the word 'pong' and nothing else.", {});
     expect(text.toLowerCase()).toContain("pong");
   }, 60_000);
 
@@ -253,7 +253,7 @@ describe("qwen3:8b tool execution (live)", () => {
     const tools = buildToolSet(registry, ["file_access"]);
 
     const { text } = await runIntent(
-      qwenConfig({
+      ministralConfig({
         systemPrompt:
           "You are a file system agent. Use the file_list tool to list files. " +
           "After calling the tool, summarize what files you found.",
@@ -278,7 +278,7 @@ describe("qwen3:8b tool execution (live)", () => {
     const tools = buildToolSet(registry, ["internet_access"]);
 
     const { text } = await runIntent(
-      qwenConfig({
+      ministralConfig({
         systemPrompt:
           "You are a web research agent. Use the http_request tool to fetch URLs. " +
           "Always call the tool — do not describe what you would do.",
@@ -298,7 +298,7 @@ describe("qwen3:8b tool execution (live)", () => {
     const tools = buildToolSet(registry, ["file_access", "api_call", "internet_access"]);
 
     const { text } = await runIntent(
-      qwenConfig({ systemPrompt: "You are a helpful assistant. Reply with just 'ok'." }),
+      ministralConfig({ systemPrompt: "You are a helpful assistant. Reply with just 'ok'." }),
       "Acknowledge.",
       {},
       tools,

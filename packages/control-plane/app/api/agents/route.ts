@@ -18,12 +18,12 @@ import { getAuthContext, unauthorized } from "@/lib/auth-utils";
  *   sortBy       – name | lastSeen | registeredAt (default lastSeen)
  *   sortDir      – asc | desc (default desc)
  */
-export async function GET(request: Request) {
+export async function GET(request?: Request) {
   try {
     const auth = await getAuthContext();
     if (!auth) return unauthorized();
 
-    const { searchParams } = new URL(request.url);
+    const { searchParams } = new URL(request?.url ?? "http://localhost/api/agents");
     const q = searchParams.get("q") ?? undefined;
     const onlineFilter = searchParams.get("online");
     const realm = searchParams.get("realm") ?? undefined;

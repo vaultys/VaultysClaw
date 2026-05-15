@@ -4,25 +4,26 @@
  */
 
 import { NextResponse, type NextRequest } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth-config";
 import { getWSServer } from "@/lib/ws-server";
+import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
 
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ did: string }> },
 ) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) {
-    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-  }
+  const auth = await getAuthContext();
+  if (!auth) return unauthorized();
+
+  const { did } = await params;
+  const agentDid = decodeURIComponent(did);
+
+  if (!auth.canAdminAgent(agentDid)) return forbidden();
 
   const wsServer = getWSServer();
   if (!wsServer) {
     return NextResponse.json({ error: "WebSocket server not available" }, { status: 503 });
   }
 
-  const { did } = await params;
   const body = await request.json();
   const { id, name, cron, action, params: schedParams, enabled } = body as {
     id?: string;
@@ -40,7 +41,7 @@ export async function POST(
     );
   }
 
-  const ok = wsServer.sendScheduleToAgent(did, {
+  const ok = wsServer.sendScheduleToAgent(agentDid, {
     id, name, cron, action,
     params: schedParams ?? {},
     enabled: enabled !== false,
@@ -49,24 +50,26 @@ export async function POST(
     return NextResponse.json({ error: "Agent not connected" }, { status: 404 });
   }
 
-  return NextResponse.json({ success: true, agentId: did, scheduleId: id });
+  return NextResponse.json({ success: true, agentId: agentDid, scheduleId: id });
 }
 
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ did: string }> },
 ) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) {
-    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-  }
+  const auth = await getAuthContext();
+  if (!auth) return unauthorized();
+
+  const { did } = await params;
+  const agentDid = decodeURIComponent(did);
+
+  if (!auth.canAdminAgent(agentDid)) return forbidden();
 
   const wsServer = getWSServer();
   if (!wsServer) {
     return NextResponse.json({ error: "WebSocket server not available" }, { status: 503 });
   }
 
-  const { did } = await params;
   const { searchParams } = new URL(request.url);
   const scheduleId = searchParams.get("id");
 
@@ -74,10 +77,10 @@ export async function DELETE(
     return NextResponse.json({ error: "id query parameter is required" }, { status: 400 });
   }
 
-  const ok = wsServer.deleteScheduleOnAgent(did, scheduleId);
+  const ok = wsServer.deleteScheduleOnAgent(agentDid, scheduleId);
   if (!ok) {
     return NextResponse.json({ error: "Agent not connected" }, { status: 404 });
   }
 
-  return NextResponse.json({ success: true, agentId: did, scheduleId });
+  return NextResponse.json({ success: true, agentId: agentDid, scheduleId });
 }

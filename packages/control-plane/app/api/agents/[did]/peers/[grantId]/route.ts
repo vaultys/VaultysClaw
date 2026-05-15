@@ -2,16 +2,21 @@ import { NextRequest, NextResponse } from "next/server";
 import { AgentPeerGrantDao } from "@/lib/agent-peer-grant-dao";
 import { getAgent } from "@/lib/db";
 import { getWSServer } from "@/lib/ws-server";
+import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
 
 /**
  * DELETE /api/agents/[did]/peers/[grantId]
- * Revoke a specific peer grant.
+ * Revoke a specific peer grant. Global admin only.
  */
 export async function DELETE(
   _request: NextRequest,
   { params }: { params: Promise<{ did: string; grantId: string }> },
 ) {
   try {
+    const auth = await getAuthContext();
+    if (!auth) return unauthorized();
+    if (!auth.isGlobalAdmin) return forbidden();
+
     const { did: rawDid, grantId } = await params;
     const sourceDid = decodeURIComponent(rawDid);
 

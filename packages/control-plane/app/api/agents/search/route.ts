@@ -1,13 +1,17 @@
 import { NextResponse } from "next/server";
 import { getWSServer } from "@/lib/ws-server";
 import { getAllAgents, getAgentRealms, getRealmById } from "@/lib/db";
+import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
 
 /**
  * GET /api/agents/search?realm=[realmId]&q=[search query]
- * List agents filtered by realm with optional full-text search by name/description
+ * List agents filtered by realm. Requires auth and realm membership.
  */
 export async function GET(request: Request) {
   try {
+    const auth = await getAuthContext();
+    if (!auth) return unauthorized();
+
     const { searchParams } = new URL(request.url);
     const realmId = searchParams.get("realm");
     const query = searchParams.get("q")?.toLowerCase() || "";
@@ -15,6 +19,8 @@ export async function GET(request: Request) {
     if (!realmId) {
       return NextResponse.json({ error: "Missing realm parameter" }, { status: 400 });
     }
+
+    if (!auth.canAccessRealm(realmId)) return forbidden();
 
     // Verify realm exists
     const realm = getRealmById(realmId);

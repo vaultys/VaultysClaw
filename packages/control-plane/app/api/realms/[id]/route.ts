@@ -3,17 +3,23 @@ import {
   getRealmById, updateRealm, deleteRealm,
   getRealmAgents, getRealmUsers, getRealmTokenUsage, listWorkflows,
 } from "@/lib/db";
+import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
 
 type Ctx = { params: Promise<{ id: string }> };
 
 /**
- * GET /api/realms/[id] — realm detail with members and token usage
+ * GET /api/realms/[id] — realm detail. Requires auth and realm membership.
  */
 export async function GET(_req: NextRequest, ctx: Ctx) {
   try {
+    const auth = await getAuthContext();
+    if (!auth) return unauthorized();
+
     const { id } = await ctx.params;
     const realm = getRealmById(id);
     if (!realm) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+    if (!auth.canAccessRealm(id)) return forbidden();
 
     const agents = getRealmAgents(id);
     const users = getRealmUsers(id);
@@ -43,11 +49,15 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
 }
 
 /**
- * PATCH /api/realms/[id] — update realm metadata or config
+ * PATCH /api/realms/[id] — update realm metadata or config. Global admin only.
  * Body: { name?, description?, color?, llmConfig?, defaultCapabilities? }
  */
 export async function PATCH(req: NextRequest, ctx: Ctx) {
   try {
+    const auth = await getAuthContext();
+    if (!auth) return unauthorized();
+    if (!auth.isGlobalAdmin) return forbidden();
+
     const { id } = await ctx.params;
     const realm = getRealmById(id);
     if (!realm) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -77,10 +87,14 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
 }
 
 /**
- * DELETE /api/realms/[id] — delete realm (not allowed for default realm)
+ * DELETE /api/realms/[id] — delete realm (not allowed for default realm). Global admin only.
  */
 export async function DELETE(_req: NextRequest, ctx: Ctx) {
   try {
+    const auth = await getAuthContext();
+    if (!auth) return unauthorized();
+    if (!auth.isGlobalAdmin) return forbidden();
+
     const { id } = await ctx.params;
     const ok = deleteRealm(id);
     if (!ok) {

@@ -1,16 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getPendingRegistration } from "@/lib/db";
 import { getWSServer } from "@/lib/ws-server";
+import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
 
 /**
  * POST /api/registrations/[id]/reject
- * Reject a pending registration
+ * Reject a pending registration. Global admin only.
  */
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await getAuthContext();
+    if (!auth) return unauthorized();
+    if (!auth.isGlobalAdmin) return forbidden();
+
     const { id } = await params;
     const body = await request.json().catch(() => ({}));
     const reason: string = body.reason ?? "Registration rejected by admin";

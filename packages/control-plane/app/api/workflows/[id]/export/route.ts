@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getWorkflow } from "@/lib/db";
+import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const auth = await getAuthContext();
+  if (!auth) return unauthorized();
+
   const { id } = await params;
   const workflow = getWorkflow(id);
 
@@ -14,6 +18,8 @@ export async function GET(
       { status: 404 }
     );
   }
+
+  if (workflow.realm_id && !auth.canAccessRealm(workflow.realm_id)) return forbidden();
 
   const exportData = {
     name: workflow.name,

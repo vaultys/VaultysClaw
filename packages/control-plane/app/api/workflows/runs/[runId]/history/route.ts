@@ -1,23 +1,30 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getWorkflowRunHistory } from "@/lib/db";
+import { getWorkflowRunHistory, getWorkflow } from "@/lib/db";
+import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
 
 type Params = { runId: string };
 
 /**
  * GET /api/workflows/runs/[runId]/history
- * Get complete execution history with all steps
+ * Get complete execution history with all steps. Requires auth and realm membership.
  */
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<Params> },
 ) {
   try {
+    const auth = await getAuthContext();
+    if (!auth) return unauthorized();
+
     const { runId } = await params;
 
     const history = getWorkflowRunHistory(runId);
     if (!history) {
       return NextResponse.json({ error: "Workflow run not found" }, { status: 404 });
     }
+
+    const workflow = getWorkflow(history.run.workflow_id);
+    if (workflow?.realm_id && !auth.canAccessRealm(workflow.realm_id)) return forbidden();
 
     return NextResponse.json({
       success: true,

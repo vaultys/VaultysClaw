@@ -2,14 +2,19 @@ import { NextResponse } from "next/server";
 import { saveWorkflow, getAllAgents, getDefaultRealm } from "@/lib/db";
 import { getWSServer } from "@/lib/ws-server";
 import type { WorkflowDefinition } from "@/lib/db";
+import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
 
 /**
  * POST /api/workflows/test-seed
- * Create a test workflow with 4 real agents in sequence
+ * Create a test workflow with 4 real agents in sequence. Global admin only.
  * Requires 4 agents to be online and registered
  */
 export async function POST() {
   try {
+    const auth = await getAuthContext();
+    if (!auth) return unauthorized();
+    if (!auth.isGlobalAdmin) return forbidden();
+
     const wsServer = getWSServer();
     if (!wsServer) {
       return NextResponse.json({ error: "WebSocket server not available" }, { status: 500 });

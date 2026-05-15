@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getAllPendingRegistrations } from "@/lib/db";
 import type { AgentCapability } from "@vaultysclaw/shared";
+import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
 
 /**
  * Available capabilities that the admin can assign to agents
@@ -17,10 +18,14 @@ const AVAILABLE_CAPABILITIES: { id: AgentCapability; label: string; description:
 
 /**
  * GET /api/registrations
- * List all pending registrations + available capabilities
+ * List all pending registrations + available capabilities. Global admin only.
  */
 export async function GET() {
   try {
+    const auth = await getAuthContext();
+    if (!auth) return unauthorized();
+    if (!auth.isGlobalAdmin) return forbidden();
+
     const registrations = getAllPendingRegistrations();
     return NextResponse.json({
       registrations,

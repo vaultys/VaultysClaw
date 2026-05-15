@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAgentTokenUsageHistory } from "@/lib/db";
+import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
 
 type Ctx = { params: Promise<{ did: string }> };
 
 /**
  * GET /api/agents/[did]/token-usage
+ * Requires auth and realm membership for the agent.
  *
  * Query params:
  *   granularity = 'day' | 'month'  (default: 'day')
@@ -13,7 +15,13 @@ type Ctx = { params: Promise<{ did: string }> };
  */
 export async function GET(req: NextRequest, ctx: Ctx) {
   try {
+    const auth = await getAuthContext();
+    if (!auth) return unauthorized();
+
     const { did } = await ctx.params;
+    const agentDid = decodeURIComponent(did);
+
+    if (!auth.canAccessAgent(agentDid)) return forbidden();
     const { searchParams } = req.nextUrl;
 
     const granularity = (searchParams.get("granularity") ?? "day") as "day" | "month";
@@ -37,7 +45,7 @@ export async function GET(req: NextRequest, ctx: Ctx) {
     const from = searchParams.get("from") ?? defaultFrom;
     const to = searchParams.get("to") ?? defaultTo;
 
-    const rows = getAgentTokenUsageHistory(decodeURIComponent(did), granularity, from, to);
+    const rows = getAgentTokenUsageHistory(agentDid, granularity, from, to);
 
     // Fill in missing buckets with zeros so the chart always has a complete series
     const filled = fillBuckets(rows, granularity, from, to);

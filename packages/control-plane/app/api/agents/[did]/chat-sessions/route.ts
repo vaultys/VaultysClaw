@@ -4,25 +4,26 @@
  */
 
 import { NextResponse, type NextRequest } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth-config";
 import { getWSServer } from "@/lib/ws-server";
+import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ did: string }> },
 ) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) {
-    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-  }
+  const auth = await getAuthContext();
+  if (!auth) return unauthorized();
+
+  const { did: rawDid } = await params;
+  const did = decodeURIComponent(rawDid);
+
+  if (!auth.canAccessAgent(did)) return forbidden();
 
   const wsServer = getWSServer();
   if (!wsServer) {
     return NextResponse.json({ error: "WebSocket server not available" }, { status: 503 });
   }
 
-  const { did } = await params;
   const sessionId = request.nextUrl.searchParams.get("session");
 
   try {

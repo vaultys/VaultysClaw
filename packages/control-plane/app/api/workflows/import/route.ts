@@ -1,16 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
 import { saveWorkflow } from "@/lib/db";
 import type { WorkflowDefinition } from "@/lib/db";
+import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
 
 interface ImportPayload {
   name: string;
   description?: string;
   definition: WorkflowDefinition;
+  realmId?: string;
 }
 
 export async function POST(request: NextRequest) {
   try {
+    const auth = await getAuthContext();
+    if (!auth) return unauthorized();
+
     const body = (await request.json()) as ImportPayload;
+
+    if (body.realmId && !auth.canAdminRealm(body.realmId)) return forbidden();
+    if (!body.realmId && !auth.isGlobalAdmin) return forbidden();
 
     // Validate required fields
     if (!body.name || !body.definition) {

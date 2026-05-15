@@ -1,15 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getRealmById, addAgentToRealm, removeAgentFromRealm, getAgent } from "@/lib/db";
+import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
 
 type Ctx = { params: Promise<{ id: string }> };
 
 /**
- * POST /api/realms/[id]/agents — add an agent to this realm
+ * POST /api/realms/[id]/agents — add an agent to this realm. Realm admin or global admin.
  * Body: { agentDid, isPrimary? }
  */
 export async function POST(req: NextRequest, ctx: Ctx) {
   try {
+    const auth = await getAuthContext();
+    if (!auth) return unauthorized();
+
     const { id } = await ctx.params;
+    if (!auth.canAdminRealm(id)) return forbidden();
+
     const realm = getRealmById(id);
     if (!realm) return NextResponse.json({ error: "Realm not found" }, { status: 404 });
 
@@ -28,12 +34,17 @@ export async function POST(req: NextRequest, ctx: Ctx) {
 }
 
 /**
- * DELETE /api/realms/[id]/agents — remove an agent from this realm
+ * DELETE /api/realms/[id]/agents — remove an agent from this realm. Realm admin or global admin.
  * Body: { agentDid }
  */
 export async function DELETE(req: NextRequest, ctx: Ctx) {
   try {
+    const auth = await getAuthContext();
+    if (!auth) return unauthorized();
+
     const { id } = await ctx.params;
+    if (!auth.canAdminRealm(id)) return forbidden();
+
     const body = await req.json() as { agentDid?: string };
     if (!body.agentDid) return NextResponse.json({ error: "agentDid is required" }, { status: 400 });
 

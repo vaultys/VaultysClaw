@@ -2,16 +2,20 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   saveWorkflow,
   listWorkflows,
-  deleteWorkflow,
+  getUserRealms,
   type WorkflowDefinition,
 } from "@/lib/db";
+import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
 
 /**
  * POST /api/workflows
- * Save a new workflow
+ * Save a new workflow. Requires realm admin or global admin for the target realm.
  */
 export async function POST(request: NextRequest) {
   try {
+    const auth = await getAuthContext();
+    if (!auth) return unauthorized();
+
     const body = await request.json();
     const { name, description, definition, realmId } = body as {
       name?: string;
@@ -27,6 +31,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "definition (object) is required" }, { status: 400 });
     }
 
+    // If no realmId, must be global admin (no implicit realm to check admin on)
+    if (realmId) {
+      if (!auth.canAdminRealm(realmId)) return forbidden();
+    } else if (!auth.isGlobalAdmin) {
+      return forbidden();
+    }
+
     const id = saveWorkflow(name, definition, undefined, realmId);
 
     return NextResponse.json({ success: true, id, name, description, realmId: realmId || "default" });
@@ -38,15 +49,27 @@ export async function POST(request: NextRequest) {
 
 /**
  * GET /api/workflows
- * List all workflows, optionally filtered by creator or realm
+ * List workflows. Admins see all; members see only workflows in their realms.
  */
 export async function GET(request: NextRequest) {
   try {
+    const auth = await getAuthContext();
+    if (!auth) return unauthorized();
+
     const { searchParams } = request.nextUrl;
     const createdBy = searchParams.get("createdBy");
     const realmId = searchParams.get("realmId");
 
-    const workflows = listWorkflows(createdBy ?? undefined, realmId ?? undefined);
+    // Members can only query realms they belong to
+    if (realmId && !auth.canAccessRealm(realmId)) return forbidden();
+
+    let workflows = listWorkflows(createdBy ?? undefined, realmId ?? undefined);
+
+    // Non-admins: filter to workflows in their realms
+    if (!auth.isGlobalAdmin) {
+      const userRealmIds = new Set(getUserRealms(auth.did).map((r) => r.realm_id));
+      workflows = workflows.filter((w) => w.realm_id && userRealmIds.has(w.realm_id));
+    }
 
     return NextResponse.json({
       success: true,

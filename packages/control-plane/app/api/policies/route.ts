@@ -1,12 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getWSServer } from "@/lib/ws-server";
+import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
 
 /**
  * POST /api/policies
- * Create a new policy for an agent
+ * Create a new policy for an agent. Global admin only.
  */
 export async function POST(request: NextRequest) {
   try {
+    const auth = await getAuthContext();
+    if (!auth) return unauthorized();
+    if (!auth.isGlobalAdmin) return forbidden();
+
     const body = await request.json();
     const { agentId, capabilities, resourceLimits, broadcast } = body;
 
@@ -75,10 +80,13 @@ export async function POST(request: NextRequest) {
 
 /**
  * GET /api/policies
- * List all policies
+ * List all policies. Global admin only.
  */
 export async function GET() {
   try {
+    const auth = await getAuthContext();
+    if (!auth) return unauthorized();
+    if (!auth.isGlobalAdmin) return forbidden();
     // TODO: Query SQLite for policies
 
     return NextResponse.json({

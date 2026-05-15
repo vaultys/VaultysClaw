@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { Challenger, VaultysId, crypto } from "@vaultys/id";
 import { getWSServer } from "@/lib/ws-server";
 import { getAgent } from "@/lib/db";
+import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
 
 const Buffer = crypto.Buffer;
 
@@ -25,13 +26,16 @@ function vaultysIdInfo(pk: unknown) {
 
 /**
  * GET /api/agents/[did]
- * Get detailed info for a single agent by DID
+ * Get detailed info for a single agent by DID. Requires auth and realm membership.
  */
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ did: string }> }
 ) {
   try {
+    const auth = await getAuthContext();
+    if (!auth) return unauthorized();
+
     const { did: rawDid } = await params;
     const did = decodeURIComponent(rawDid);
 
@@ -39,6 +43,8 @@ export async function GET(
     if (!agent) {
       return NextResponse.json({ error: "Agent not found" }, { status: 404 });
     }
+
+    if (!auth.canAccessAgent(did)) return forbidden();
 
     const wsServer = getWSServer();
     const connected = wsServer?.getAgent(did);
@@ -103,13 +109,17 @@ export async function GET(
 
 /**
  * PATCH /api/agents/[did]
- * Update an agent's capabilities. Triggers re-auth if the agent is online.
+ * Update an agent's capabilities. Global admin only.
  */
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ did: string }> }
 ) {
   try {
+    const auth = await getAuthContext();
+    if (!auth) return unauthorized();
+    if (!auth.isGlobalAdmin) return forbidden();
+
     const { did: rawDid } = await params;
     const did = decodeURIComponent(rawDid);
 

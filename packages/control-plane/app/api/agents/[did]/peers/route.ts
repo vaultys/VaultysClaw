@@ -3,16 +3,21 @@ import { getAgent } from "@/lib/db";
 import { AgentPeerGrantDao } from "@/lib/agent-peer-grant-dao";
 import { signPeerGrant } from "@/lib/peer-grant";
 import { getWSServer } from "@/lib/ws-server";
+import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
 
 /**
  * GET /api/agents/[did]/peers
- * List all outgoing peer grants for an agent (grants where this agent is the caller).
+ * List all outgoing peer grants for an agent. Global admin only.
  */
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ did: string }> },
 ) {
   try {
+    const auth = await getAuthContext();
+    if (!auth) return unauthorized();
+    if (!auth.isGlobalAdmin) return forbidden();
+
     const { did: rawDid } = await params;
     const sourceDid = decodeURIComponent(rawDid);
 
@@ -42,7 +47,7 @@ export async function GET(
 
 /**
  * POST /api/agents/[did]/peers
- * Create a new peer grant authorising this agent to call a remote agent.
+ * Create a new peer grant authorising this agent to call a remote agent. Global admin only.
  *
  * Body: { targetDid: string, targetName: string, skillDescription: string, capabilities?: string[], expiresAt?: string }
  */
@@ -51,6 +56,10 @@ export async function POST(
   { params }: { params: Promise<{ did: string }> },
 ) {
   try {
+    const auth = await getAuthContext();
+    if (!auth) return unauthorized();
+    if (!auth.isGlobalAdmin) return forbidden();
+
     const { did: rawDid } = await params;
     const sourceDid = decodeURIComponent(rawDid);
 

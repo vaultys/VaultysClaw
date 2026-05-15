@@ -8,6 +8,8 @@ export default defineConfig({
   resolve: {
     externalConditions: ["node"],
     alias: {
+      // Control-plane path alias — mirrors tsconfig paths used in the package
+      "@": resolve(__dirname, "packages/control-plane"),
       // The AI SDK is a dep of agent-controller only, not the root workspace.
       // Alias it here so tests in __tests__/ can import and mock it.
       "ai": resolve(__dirname, "packages/agent-controller/node_modules/ai"),

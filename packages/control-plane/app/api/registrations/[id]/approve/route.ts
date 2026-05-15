@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getPendingRegistration, addAgentToRealm, getAllRealms } from "@/lib/db";
 import { getWSServer } from "@/lib/ws-server";
 import type { AgentCapability } from "@vaultysclaw/shared";
+import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
 
 /**
  * POST /api/registrations/[id]/approve
@@ -12,6 +13,10 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await getAuthContext();
+    if (!auth) return unauthorized();
+    if (!auth.isGlobalAdmin) return forbidden();
+
     const { id } = await params;
     const body = await request.json();
     const capabilities: AgentCapability[] = body.capabilities;

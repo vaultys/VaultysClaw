@@ -2,9 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { getWSServer } from "@/lib/ws-server";
 import type { GraphNode, GraphEdge, GraphData, AgentCapability, UserRole } from "@vaultysclaw/shared";
+import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
 
 /**
- * GET /api/graph — return the full relationship graph (nodes + edges).
+ * GET /api/graph — return the full relationship graph (nodes + edges). Global admin only.
  *
  * Query params:
  *   ?agent=<did>       — scope to a single agent and its direct neighbours
@@ -13,6 +14,10 @@ import type { GraphNode, GraphEdge, GraphData, AgentCapability, UserRole } from 
  */
 export async function GET(req: NextRequest) {
   try {
+    const auth = await getAuthContext();
+    if (!auth) return unauthorized();
+    if (!auth.isGlobalAdmin) return forbidden();
+
     const { searchParams } = req.nextUrl;
     const agentDid = searchParams.get("agent");
     const userDid = searchParams.get("user");

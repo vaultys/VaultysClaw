@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getWorkflow, startWorkflowRun } from "@/lib/db";
 import { executeWorkflow } from "@/lib/workflow-executor";
+import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
 
 type Params = { id: string };
 
 /**
  * POST /api/workflows/[id]/execute
- * Start a new workflow run
+ * Start a new workflow run. Requires realm membership for the workflow's realm.
  * Body: { input?: string } — optional input for the first node
  */
 export async function POST(
@@ -14,6 +15,9 @@ export async function POST(
   { params }: { params: Promise<Params> },
 ) {
   try {
+    const auth = await getAuthContext();
+    if (!auth) return unauthorized();
+
     const { id } = await params;
 
     // Parse optional input
@@ -30,6 +34,8 @@ export async function POST(
     if (!workflow) {
       return NextResponse.json({ error: "Workflow not found" }, { status: 404 });
     }
+
+    if (workflow.realm_id && !auth.canAccessRealm(workflow.realm_id)) return forbidden();
 
     // Start a new run
     const runId = startWorkflowRun(id);

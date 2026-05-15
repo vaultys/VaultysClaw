@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server";
 import { getWSServer } from "@/lib/ws-server";
-import { getAllAgents, getAgentRealms, queryAgents } from "@/lib/db";
+import { getAllAgents, getAgentRealms, getUserRealms, queryAgents } from "@/lib/db";
+import { getAuthContext, unauthorized } from "@/lib/auth-utils";
 
 /**
  * GET /api/agents
  * List agents with optional pagination and filters.
+ * Admins see all; members see only agents in their realms.
  *
  * Query params:
  *   q            – search by name or capability (case-insensitive)
@@ -18,6 +20,9 @@ import { getAllAgents, getAgentRealms, queryAgents } from "@/lib/db";
  */
 export async function GET(request: Request) {
   try {
+    const auth = await getAuthContext();
+    if (!auth) return unauthorized();
+
     const { searchParams } = new URL(request.url);
     const q = searchParams.get("q") ?? undefined;
     const onlineFilter = searchParams.get("online");
@@ -36,33 +41,44 @@ export async function GET(request: Request) {
 
     const result = queryAgents({ q, online, onlineDids: connectedDids, realm, capabilities, page, pageSize, sortBy, sortDir });
 
-    const agents = result.agents.map((agent) => {
-      const connected = wsServer?.getAgent(agent.did);
-      const realms = getAgentRealms(agent.did);
-      return {
-        id: agent.did,
-        name: connected?.name ?? agent.name,
-        capabilities: JSON.parse(agent.capabilities),
-        registeredAt: agent.registered_at,
-        lastSeen: agent.last_seen,
-        online: connectedDids.has(agent.did),
-        connectedAt: connected?.connectedAt?.toISOString() ?? null,
-        lastHeartbeat: connected?.lastHeartbeat?.toISOString() ?? null,
-        reportedLlm: connected?.reportedLlm ?? null,
-        tokenUsage: connected?.tokenUsage ?? null,
-        realms: realms.map((r) => ({
-          id: r.realm_id, name: r.name, slug: r.slug,
-          color: r.color, isPrimary: Boolean(r.is_primary),
-        })),
-      };
-    });
+    // For non-admins, filter to agents in the user's realms
+    const userRealmIds = auth.isGlobalAdmin
+      ? null
+      : new Set(getUserRealms(auth.did).map((r) => r.realm_id));
+
+    const agents = result.agents
+      .filter((agent) => {
+        if (userRealmIds === null) return true;
+        const agentRealms = getAgentRealms(agent.did);
+        return agentRealms.some((r) => userRealmIds.has(r.realm_id));
+      })
+      .map((agent) => {
+        const connected = wsServer?.getAgent(agent.did);
+        const realms = getAgentRealms(agent.did);
+        return {
+          id: agent.did,
+          name: connected?.name ?? agent.name,
+          capabilities: JSON.parse(agent.capabilities),
+          registeredAt: agent.registered_at,
+          lastSeen: agent.last_seen,
+          online: connectedDids.has(agent.did),
+          connectedAt: connected?.connectedAt?.toISOString() ?? null,
+          lastHeartbeat: connected?.lastHeartbeat?.toISOString() ?? null,
+          reportedLlm: connected?.reportedLlm ?? null,
+          tokenUsage: connected?.tokenUsage ?? null,
+          realms: realms.map((r) => ({
+            id: r.realm_id, name: r.name, slug: r.slug,
+            color: r.color, isPrimary: Boolean(r.is_primary),
+          })),
+        };
+      });
 
     return NextResponse.json({
       agents,
-      total: result.total,
+      total: userRealmIds ? agents.length : result.total,
       page: result.page,
       pageSize: result.pageSize,
-      totalPages: result.totalPages,
+      totalPages: userRealmIds ? Math.ceil(agents.length / pageSize) : result.totalPages,
       online: agents.filter((a) => a.online).length,
     });
   } catch (error) {

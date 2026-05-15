@@ -722,10 +722,17 @@ function ensureRealmTables(db: Database.Database): void {
       user_did TEXT NOT NULL REFERENCES users(did) ON DELETE CASCADE,
       realm_id TEXT NOT NULL REFERENCES realms(id) ON DELETE CASCADE,
       is_primary INTEGER NOT NULL DEFAULT 0,
+      is_realm_admin INTEGER NOT NULL DEFAULT 0,
       joined_at TEXT NOT NULL DEFAULT (datetime('now')),
       PRIMARY KEY (user_did, realm_id)
     );
   `);
+
+  // Migrate existing user_realms tables that don't yet have is_realm_admin
+  const userRealmsCols = (db.prepare("PRAGMA table_info(user_realms)").all() as { name: string }[]).map(c => c.name);
+  if (!userRealmsCols.includes("is_realm_admin")) {
+    db.exec("ALTER TABLE user_realms ADD COLUMN is_realm_admin INTEGER NOT NULL DEFAULT 0");
+  }
 }
 
 export interface RealmRow {
@@ -813,6 +820,7 @@ export interface RealmMembershipRow {
   color: string;
   is_default: number;
   is_primary: number;
+  is_realm_admin: number;
   joined_at: string;
 }
 
@@ -867,7 +875,7 @@ export function getUserRealms(userDid: string): RealmMembershipRow[] {
   const d = getDb();
   return d.prepare(`
     SELECT r.id AS realm_id, r.name, r.slug, r.color, r.is_default,
-           ur.is_primary, ur.joined_at
+           ur.is_primary, ur.is_realm_admin, ur.joined_at
     FROM user_realms ur
     JOIN realms r ON r.id = ur.realm_id
     WHERE ur.user_did = ?
@@ -875,14 +883,32 @@ export function getUserRealms(userDid: string): RealmMembershipRow[] {
   `).all(userDid) as RealmMembershipRow[];
 }
 
-export function addUserToRealm(userDid: string, realmId: string, isPrimary = false): void {
+export function isUserInRealm(userDid: string, realmId: string): boolean {
+  const d = getDb();
+  const row = d.prepare("SELECT 1 FROM user_realms WHERE user_did = ? AND realm_id = ?").get(userDid, realmId);
+  return row !== undefined;
+}
+
+export function isUserRealmAdmin(userDid: string, realmId: string): boolean {
+  const d = getDb();
+  const row = d.prepare("SELECT is_realm_admin FROM user_realms WHERE user_did = ? AND realm_id = ?").get(userDid, realmId) as { is_realm_admin: number } | undefined;
+  return row?.is_realm_admin === 1;
+}
+
+export function setUserRealmAdmin(userDid: string, realmId: string, isAdmin: boolean): boolean {
+  const d = getDb();
+  const result = d.prepare("UPDATE user_realms SET is_realm_admin = ? WHERE user_did = ? AND realm_id = ?").run(isAdmin ? 1 : 0, userDid, realmId);
+  return result.changes > 0;
+}
+
+export function addUserToRealm(userDid: string, realmId: string, isPrimary = false, isRealmAdmin = false): void {
   const d = getDb();
   if (isPrimary) {
     d.prepare("UPDATE user_realms SET is_primary = 0 WHERE user_did = ?").run(userDid);
   }
   d.prepare(
-    "INSERT OR REPLACE INTO user_realms (user_did, realm_id, is_primary) VALUES (?, ?, ?)"
-  ).run(userDid, realmId, isPrimary ? 1 : 0);
+    "INSERT OR REPLACE INTO user_realms (user_did, realm_id, is_primary, is_realm_admin) VALUES (?, ?, ?, ?)"
+  ).run(userDid, realmId, isPrimary ? 1 : 0, isRealmAdmin ? 1 : 0);
 }
 
 export function removeUserFromRealm(userDid: string, realmId: string): boolean {
@@ -893,10 +919,10 @@ export function removeUserFromRealm(userDid: string, realmId: string): boolean {
   return result.changes > 0;
 }
 
-export function getRealmUsers(realmId: string): { user_did: string; name: string | null; email: string | null; is_primary: number; joined_at: string }[] {
+export function getRealmUsers(realmId: string): { user_did: string; name: string | null; email: string | null; is_primary: number; is_realm_admin: number; joined_at: string }[] {
   const d = getDb();
   return d.prepare(`
-    SELECT u.did AS user_did, u.name, u.email, ur.is_primary, ur.joined_at
+    SELECT u.did AS user_did, u.name, u.email, ur.is_primary, ur.is_realm_admin, ur.joined_at
     FROM user_realms ur
     JOIN users u ON u.did = ur.user_did
     WHERE ur.realm_id = ?

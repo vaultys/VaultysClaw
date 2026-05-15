@@ -1,23 +1,29 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getWorkflow, updateWorkflow, deleteWorkflow, type WorkflowDefinition } from "@/lib/db";
+import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
 
 type Params = { id: string };
 
 /**
  * GET /api/workflows/[id]
- * Fetch a single workflow
+ * Fetch a single workflow. Requires auth and realm membership.
  */
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<Params> },
 ) {
   try {
+    const auth = await getAuthContext();
+    if (!auth) return unauthorized();
+
     const { id } = await params;
     const workflow = getWorkflow(id);
 
     if (!workflow) {
       return NextResponse.json({ error: "Workflow not found" }, { status: 404 });
     }
+
+    if (workflow.realm_id && !auth.canAccessRealm(workflow.realm_id)) return forbidden();
 
     return NextResponse.json({
       success: true,
@@ -40,14 +46,25 @@ export async function GET(
 
 /**
  * PATCH /api/workflows/[id]
- * Update a workflow
+ * Update a workflow. Requires realm admin or global admin.
  */
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<Params> },
 ) {
   try {
+    const auth = await getAuthContext();
+    if (!auth) return unauthorized();
+
     const { id } = await params;
+    const workflow = getWorkflow(id);
+    if (!workflow) {
+      return NextResponse.json({ error: "Workflow not found" }, { status: 404 });
+    }
+
+    if (workflow.realm_id && !auth.canAdminRealm(workflow.realm_id)) return forbidden();
+    if (!workflow.realm_id && !auth.isGlobalAdmin) return forbidden();
+
     const body = await request.json();
     const { name, definition, description, realmId } = body as {
       name?: string;
@@ -74,14 +91,25 @@ export async function PATCH(
 
 /**
  * DELETE /api/workflows/[id]
- * Delete a workflow
+ * Delete a workflow. Requires realm admin or global admin.
  */
 export async function DELETE(
   _request: NextRequest,
   { params }: { params: Promise<Params> },
 ) {
   try {
+    const auth = await getAuthContext();
+    if (!auth) return unauthorized();
+
     const { id } = await params;
+    const workflow = getWorkflow(id);
+    if (!workflow) {
+      return NextResponse.json({ error: "Workflow not found" }, { status: 404 });
+    }
+
+    if (workflow.realm_id && !auth.canAdminRealm(workflow.realm_id)) return forbidden();
+    if (!workflow.realm_id && !auth.isGlobalAdmin) return forbidden();
+
     deleteWorkflow(id);
 
     return NextResponse.json({ success: true, id });

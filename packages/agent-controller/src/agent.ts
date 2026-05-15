@@ -56,6 +56,8 @@ import {
   type LlmConfig,
   type WSAgentPeerCatalogPayload,
   type AgentPeerGrant,
+  type WSSkillsConfigPayload,
+  type SkillConfig,
 } from "@vaultysclaw/shared";
 import { type AgentControllerConfig } from "./config";
 import { runIntent, LlmNotConfiguredError, LlmProviderError, streamChat } from "./llm";
@@ -225,6 +227,8 @@ export class Agent extends EventEmitter {
   // Tool system
   private toolRegistry: ToolRegistry;
   private skillLoader: SkillLoader | null = null;
+  /** Skill filter pushed by the control plane. null = no filter (use all local skills). */
+  private realmSkillFilter: SkillConfig[] | null = null;
   private pendingApprovals = new Map<string, { resolve: (approved: boolean) => void; timer: ReturnType<typeof setTimeout> }>();
   private static readonly DEFAULT_APPROVAL_TIMEOUT_MS = 600_000; // 10 minutes
 
@@ -389,21 +393,31 @@ export class Agent extends EventEmitter {
   }
 
   /** Loaded skill definitions with tool schemas for the web dashboard. */
-  getSkills(): Array<{ name: string; description: string; version: string; toolCount: number; systemPromptExtension?: string; tools: Array<{ name: string; description?: string; inputSchema?: Record<string, unknown> }> }> {
+  getSkills(): Array<{ name: string; description: string; version: string; toolCount: number; systemPromptExtension?: string; enabled: boolean; isRequired: boolean; realmManaged: boolean; tools: Array<{ name: string; description?: string; inputSchema?: Record<string, unknown> }> }> {
     if (!this.skillLoader) return [];
     try {
-      return this.skillLoader.lastRegistry.skills.map((s) => ({
-        name: s.name,
-        description: s.description,
-        version: s.version,
-        toolCount: s.tools?.length ?? 0,
-        systemPromptExtension: s.systemPromptExtension,
-        tools: (s.tools ?? []).map((t) => ({
-          name: t.name,
-          description: (t.tool as any).description as string | undefined,
-          inputSchema: serializeZodSchema((t.tool as any).inputSchema),
-        })),
-      }));
+      const filterMap = this.realmSkillFilter
+        ? new Map(this.realmSkillFilter.map((s) => [s.name, s]))
+        : null;
+
+      return this.skillLoader.lastRegistry.skills.map((s) => {
+        const filterEntry = filterMap?.get(s.name);
+        return {
+          name: s.name,
+          description: s.description,
+          version: s.version,
+          toolCount: s.tools?.length ?? 0,
+          systemPromptExtension: s.systemPromptExtension,
+          enabled: filterEntry ? filterEntry.enabled : true,
+          isRequired: filterEntry?.isRequired ?? false,
+          realmManaged: !!filterEntry,
+          tools: (s.tools ?? []).map((t) => ({
+            name: t.name,
+            description: (t.tool as any).description as string | undefined,
+            inputSchema: serializeZodSchema((t.tool as any).inputSchema),
+          })),
+        };
+      });
     } catch { return []; }
   }
 
@@ -744,6 +758,7 @@ export class Agent extends EventEmitter {
         case "delegation_update": this.handleDelegationUpdate(message); break;
         case "agent_peer_catalog": this.handleAgentPeerCatalog(message); break;
         case "llm_config": this.handleLlmConfig(message); break;
+        case "skills_config": this.handleSkillsConfig(message); break;
         case "tool_approval_response": this.handleToolApprovalResponse(message); break;
         case "task_enqueue": this.handleTaskEnqueue(message); break;
         case "schedule_update": this.handleScheduleUpdate(message); break;
@@ -1123,11 +1138,25 @@ export class Agent extends EventEmitter {
     }
   }
 
-  /** Rebuild the tool registry from built-in tools + skill tools. */
+  /** Rebuild the tool registry from built-in tools + skill tools, applying realm skill filter. */
   private rebuildToolRegistry(skillRegistry: SkillRegistry): void {
+    let extraTools = skillRegistry.getAllTools();
+
+    if (this.realmSkillFilter !== null) {
+      const filterMap = new Map(this.realmSkillFilter.map((s) => [s.name, s.enabled]));
+      // Filter at skill level — collect tools only from enabled skills
+      extraTools = skillRegistry.skills
+        .filter((skill) => {
+          const enabled = filterMap.get(skill.name);
+          // Skill not referenced in filter → treat as enabled (not realm-managed)
+          return enabled !== false;
+        })
+        .flatMap((skill) => skill.tools);
+    }
+
     this.toolRegistry = createToolRegistry({
       workspaceRoot: this.config.workspaceRoot ?? process.cwd(),
-      extraTools: skillRegistry.getAllTools(),
+      extraTools,
     });
   }
 
@@ -1402,6 +1431,27 @@ export class Agent extends EventEmitter {
     } else {
       this.log("info", `Remote LLM config received: ${payload.config.provider}/${payload.config.model}`);
     }
+  }
+
+  // ---- Realm skills config ----
+
+  private handleSkillsConfig(message: WSMessage): void {
+    const payload = message.payload as WSSkillsConfigPayload;
+    this.realmSkillFilter = payload.skills.length > 0 ? payload.skills : null;
+
+    // Rebuild tool registry with updated filter
+    if (this.skillLoader) {
+      this.rebuildToolRegistry(this.skillLoader.lastRegistry);
+    }
+
+    const enabled = (this.realmSkillFilter ?? []).filter((s) => s.enabled).map((s) => s.name);
+    const disabled = (this.realmSkillFilter ?? []).filter((s) => !s.enabled).map((s) => s.name);
+    this.log("info", `Realm skills config received: ${enabled.length} enabled, ${disabled.length} disabled`);
+  }
+
+  /** Effective skill filter: skill name → enabled. null means no realm filter. */
+  getRealmSkillFilter(): SkillConfig[] | null {
+    return this.realmSkillFilter;
   }
 
   // ---- Delegations ----

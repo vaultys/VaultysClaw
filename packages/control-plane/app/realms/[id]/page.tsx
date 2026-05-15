@@ -4,7 +4,8 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
 import {
   Globe2, ArrowLeft, Bot, Users, Settings, Trash2,
-  ChevronRight, Star, Plus, X, Pencil, Check, Network, GitFork, LayoutTemplate
+  ChevronRight, Star, Plus, X, Pencil, Check, Network, GitFork, LayoutTemplate,
+  Puzzle, Lock, AlertCircle
 } from "lucide-react";
 import Link from "next/link";
 import { useWorkflowStore } from "@/components/workflow/store";
@@ -46,6 +47,17 @@ interface RealmWorkflow {
   description: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+interface RealmSkill {
+  id: string;
+  realmId: string;
+  name: string;
+  description: string | null;
+  version: string | null;
+  isRequired: boolean;
+  config: Record<string, unknown>;
+  createdAt: string;
 }
 
 interface FullAgent { id: string; name: string; realms: { id: string }[] }
@@ -177,7 +189,8 @@ export default function RealmDetailPage() {
   const [workflows, setWorkflows] = useState<RealmWorkflow[]>([]);
   const [tokenUsage, setTokenUsage] = useState<{ promptTokens: number; completionTokens: number } | null>(null);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<"agents" | "users" | "workflows" | "config" | "org-chart">("agents");
+  const [tab, setTab] = useState<"agents" | "users" | "workflows" | "config" | "org-chart" | "skills">("agents");
+  const [skills, setSkills] = useState<RealmSkill[]>([]);
   const [addModal, setAddModal] = useState<"agent" | "user" | null>(null);
   const [showTemplateModal, setShowTemplateModal] = useState(false);
   const setWorkflowStore = useWorkflowStore((s) => s.setWorkflow);
@@ -191,14 +204,21 @@ export default function RealmDetailPage() {
   const [saving, setSaving] = useState(false);
 
   const load = useCallback(async () => {
-    const res = await fetch(`/api/realms/${id}`);
-    if (res.status === 404) { router.replace("/realms"); return; }
-    const data = await res.json() as { realm: Realm; agents: RealmAgent[]; users: RealmUser[]; workflows: RealmWorkflow[]; tokenUsage?: { promptTokens: number; completionTokens: number } | null };
+    const [realmRes, skillsRes] = await Promise.all([
+      fetch(`/api/realms/${id}`),
+      fetch(`/api/realms/${id}/skills`),
+    ]);
+    if (realmRes.status === 404) { router.replace("/realms"); return; }
+    const data = await realmRes.json() as { realm: Realm; agents: RealmAgent[]; users: RealmUser[]; workflows: RealmWorkflow[]; tokenUsage?: { promptTokens: number; completionTokens: number } | null };
     setRealm(data.realm);
     setAgents(data.agents);
     setUsers(data.users);
     setWorkflows(data.workflows ?? []);
     setTokenUsage(data.tokenUsage ?? null);
+    if (skillsRes.ok) {
+      const skillsData = await skillsRes.json() as { skills: RealmSkill[] };
+      setSkills(skillsData.skills ?? []);
+    }
     setLoading(false);
   }, [id, router]);
 
@@ -416,7 +436,7 @@ export default function RealmDetailPage() {
 
       {/* Tabs */}
       <div className="flex gap-1 border-b border-vc-border">
-        {(["agents", "users", "workflows", "org-chart", "config"] as const).map((t) => (
+        {(["agents", "users", "workflows", "skills", "org-chart", "config"] as const).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -428,6 +448,7 @@ export default function RealmDetailPage() {
             {t === "agents" && `Agents (${agents.length})`}
             {t === "users" && `Users (${users.length})`}
             {t === "workflows" && `Workflows (${workflows.length})`}
+            {t === "skills" && `Skills (${skills.length})`}
             {t === "org-chart" && "Org Chart"}
             {t === "config" && "Config"}
           </button>
@@ -540,6 +561,11 @@ export default function RealmDetailPage() {
         </div>
       )}
 
+      {/* Skills tab */}
+      {tab === "skills" && (
+        <RealmSkillsTab realmId={id} skills={skills} onChanged={load} />
+      )}
+
       {/* Config tab */}
       {tab === "config" && (
         <RealmConfigTab realm={realm} onSaved={load} />
@@ -618,9 +644,6 @@ export default function RealmDetailPage() {
         </div>
       )}
 
-      {/* Config tab */}
-      {tab === "config" && <RealmConfigTab realm={realm} onSaved={load} />}
-
       {/* Modals */}
       {addModal && (
         <AddMemberModal
@@ -636,6 +659,204 @@ export default function RealmDetailPage() {
           onClose={() => setShowTemplateModal(false)}
           onSelectTemplate={handleSelectTemplate}
         />
+      )}
+    </div>
+  );
+}
+
+// ---- Realm skills tab ----
+
+function RealmSkillsTab({
+  realmId,
+  skills,
+  onChanged,
+}: {
+  realmId: string;
+  skills: RealmSkill[];
+  onChanged: () => void;
+}) {
+  const [showAdd, setShowAdd] = useState(false);
+  const [addName, setAddName] = useState("");
+  const [addDesc, setAddDesc] = useState("");
+  const [addVersion, setAddVersion] = useState("");
+  const [addRequired, setAddRequired] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  async function handleAdd() {
+    if (!addName.trim()) return;
+    setSaving(true);
+    setError("");
+    const res = await fetch(`/api/realms/${realmId}/skills`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: addName.trim(),
+        description: addDesc.trim() || undefined,
+        version: addVersion.trim() || undefined,
+        isRequired: addRequired,
+      }),
+    });
+    if (!res.ok) {
+      const d = await res.json();
+      setError(d.error ?? "Failed to add skill");
+      setSaving(false);
+      return;
+    }
+    setAddName(""); setAddDesc(""); setAddVersion(""); setAddRequired(false);
+    setShowAdd(false);
+    setSaving(false);
+    onChanged();
+  }
+
+  async function handleToggleRequired(skill: RealmSkill) {
+    await fetch(`/api/realms/${realmId}/skills/${skill.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ isRequired: !skill.isRequired }),
+    });
+    onChanged();
+  }
+
+  async function handleDelete(skill: RealmSkill) {
+    if (!confirm(`Remove skill "${skill.name}" from this realm?`)) return;
+    await fetch(`/api/realms/${realmId}/skills/${skill.id}`, { method: "DELETE" });
+    onChanged();
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-vc-muted">
+          Skills listed here are pushed to agents in this realm. Required skills cannot be disabled by agents.
+        </p>
+        <button
+          onClick={() => setShowAdd(true)}
+          className="flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-medium transition-colors shrink-0"
+        >
+          <Plus className="w-4 h-4" /> Add Skill
+        </button>
+      </div>
+
+      {showAdd && (
+        <div className="bg-vc-surface border border-vc-border rounded-2xl p-4 space-y-3">
+          <h3 className="text-sm font-semibold text-vc-text">Add Skill</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs text-vc-muted mb-1">Skill name *</label>
+              <input
+                value={addName}
+                onChange={(e) => setAddName(e.target.value)}
+                placeholder="e.g. web-scraper"
+                className="w-full bg-vc-bg border border-vc-border rounded-xl px-3 py-2 text-sm text-vc-text focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-vc-muted mb-1">Version</label>
+              <input
+                value={addVersion}
+                onChange={(e) => setAddVersion(e.target.value)}
+                placeholder="e.g. 1.0.0"
+                className="w-full bg-vc-bg border border-vc-border rounded-xl px-3 py-2 text-sm text-vc-text focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs text-vc-muted mb-1">Description</label>
+            <input
+              value={addDesc}
+              onChange={(e) => setAddDesc(e.target.value)}
+              placeholder="What does this skill do?"
+              className="w-full bg-vc-bg border border-vc-border rounded-xl px-3 py-2 text-sm text-vc-text focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+          </div>
+          <label className="flex items-center gap-2 text-sm text-vc-muted cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={addRequired}
+              onChange={(e) => setAddRequired(e.target.checked)}
+              className="accent-indigo-600"
+            />
+            <Lock className="w-3.5 h-3.5 text-amber-400" />
+            Required — agents cannot disable this skill
+          </label>
+          {error && <p className="text-red-400 text-sm flex items-center gap-1"><AlertCircle className="w-4 h-4" />{error}</p>}
+          <div className="flex gap-2">
+            <button
+              onClick={handleAdd}
+              disabled={!addName.trim() || saving}
+              className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-sm font-medium transition-colors"
+            >
+              {saving ? "Adding…" : "Add Skill"}
+            </button>
+            <button
+              onClick={() => { setShowAdd(false); setError(""); }}
+              className="px-4 py-2 rounded-xl border border-vc-border text-vc-muted hover:text-vc-text text-sm transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {skills.length === 0 && !showAdd ? (
+        <div className="flex flex-col items-center py-12 text-center">
+          <Puzzle className="w-8 h-8 text-vc-ring mb-2" />
+          <p className="text-vc-muted text-sm">No skills configured for this realm.</p>
+          <p className="text-vc-subtle text-xs mt-1">
+            Add skills to control which agent capabilities are available in this realm.
+          </p>
+        </div>
+      ) : (
+        skills.length > 0 && (
+          <div className="bg-vc-surface border border-vc-border rounded-2xl overflow-hidden">
+            {skills.map((skill, i) => (
+              <div
+                key={skill.id}
+                className={`flex items-center gap-3 px-4 py-3 ${i > 0 ? "border-t border-vc-border/50" : ""}`}
+              >
+                <div className="w-8 h-8 rounded-lg bg-violet-600/20 flex items-center justify-center shrink-0">
+                  <Puzzle className="w-4 h-4 text-violet-400" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-sm font-medium text-vc-text font-mono">{skill.name}</span>
+                    {skill.version && (
+                      <span className="text-xs px-1.5 py-0.5 rounded bg-vc-raised text-vc-subtle font-mono">v{skill.version}</span>
+                    )}
+                    {skill.isRequired ? (
+                      <span className="text-xs px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 flex items-center gap-1">
+                        <Lock className="w-3 h-3" /> required
+                      </span>
+                    ) : (
+                      <span className="text-xs px-1.5 py-0.5 rounded bg-vc-raised text-vc-subtle">optional</span>
+                    )}
+                  </div>
+                  {skill.description && (
+                    <p className="text-xs text-vc-muted truncate mt-0.5">{skill.description}</p>
+                  )}
+                </div>
+                <button
+                  onClick={() => handleToggleRequired(skill)}
+                  className={`p-1.5 rounded-lg transition-colors text-xs ${skill.isRequired
+                    ? "text-amber-400 hover:text-vc-muted hover:bg-vc-raised"
+                    : "text-vc-muted hover:text-amber-400 hover:bg-amber-400/10"
+                  }`}
+                  title={skill.isRequired ? "Make optional" : "Make required"}
+                >
+                  <Lock className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => handleDelete(skill)}
+                  className="p-1.5 rounded-lg text-vc-muted hover:text-red-400 hover:bg-red-400/10 transition-colors"
+                  title="Remove skill"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )
       )}
     </div>
   );

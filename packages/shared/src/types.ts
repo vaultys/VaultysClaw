@@ -152,7 +152,8 @@ export type WSMessageType =
   | "chat_sessions_response"
   | "get_chat_history"
   | "chat_history_response"
-  | "agent_peer_catalog";
+  | "agent_peer_catalog"
+  | "skills_config";
 
 /**
  * LLM provider type — controls which AI SDK provider is instantiated.
@@ -503,6 +504,38 @@ export interface RealmConfig {
   realmId: string;
   llmConfig?: import("./types").LlmConfig;
   defaultCapabilities?: import("./types").AgentCapability[];
+}
+
+// ---- Realm skill management ----
+
+export interface RealmSkill {
+  id: string;
+  realmId: string;
+  name: string;
+  description: string | null;
+  version: string | null;
+  isRequired: boolean;
+  config: Record<string, unknown>;
+  createdAt: string;
+}
+
+export interface AgentSkillOverride {
+  agentDid: string;
+  realmSkillId: string;
+  enabled: boolean;
+}
+
+/** Effective skill entry delivered to an agent via skills_config. */
+export interface SkillConfig {
+  name: string;
+  enabled: boolean;
+  isRequired: boolean;
+  config: Record<string, unknown>;
+}
+
+/** Pushed by control plane to configure which skills the agent should activate. */
+export interface WSSkillsConfigPayload {
+  skills: SkillConfig[];
 }
 
 // ---- Graph visualisation ----

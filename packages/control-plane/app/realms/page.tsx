@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Globe2, Plus, Star, Trash2, Users, Bot, GitFork } from "lucide-react";
+import { useRole } from "@/hooks/useRole";
 
 interface Realm {
   id: string;
@@ -136,6 +137,7 @@ function CreateRealmModal({ onClose, onCreated }: { onClose: () => void; onCreat
 
 export default function RealmsPage() {
   const router = useRouter();
+  const { isGlobalAdmin } = useRole();
   const [realms, setRealms] = useState<Realm[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
@@ -173,13 +175,15 @@ export default function RealmsPage() {
             {loading ? "Loading…" : `${realms.length} realm${realms.length !== 1 ? "s" : ""}`}
           </p>
         </div>
-        <button
-          onClick={() => setShowCreate(true)}
-          className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white font-medium px-4 py-2 rounded-xl text-sm transition-colors"
-        >
-          <Plus className="w-4 h-4" />
-          New Realm
-        </button>
+        {isGlobalAdmin && (
+          <button
+            onClick={() => setShowCreate(true)}
+            className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white font-medium px-4 py-2 rounded-xl text-sm transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            New Realm
+          </button>
+        )}
       </div>
 
       {/* Realm cards grid */}
@@ -253,30 +257,32 @@ export default function RealmsPage() {
               </p>
 
               {/* Actions */}
-              <div className="flex gap-1 mt-3 pt-3 border-t border-vc-border/50" onClick={(e) => e.stopPropagation()}>
-                {realm.is_default !== 1 && (
-                  <button
-                    onClick={() => handleSetDefault(realm.id)}
-                    title="Set as default"
-                    className="p-1.5 rounded-lg text-vc-muted hover:text-amber-400 hover:bg-amber-400/10 transition-colors"
-                  >
-                    <Star className="w-4 h-4" />
-                  </button>
-                )}
-                {realm.is_default !== 1 && (
-                  <button
-                    onClick={() => handleDelete(realm.id)}
-                    disabled={deletingId === realm.id}
-                    title="Delete realm"
-                    className="p-1.5 rounded-lg text-vc-muted hover:text-red-400 hover:bg-red-400/10 transition-colors ml-auto"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                )}
-                {realm.is_default === 1 && (
-                  <span className="ml-auto text-xs text-vc-subtle italic py-1.5">Default realm — cannot delete</span>
-                )}
-              </div>
+              {isGlobalAdmin && (
+                <div className="flex gap-1 mt-3 pt-3 border-t border-vc-border/50" onClick={(e) => e.stopPropagation()}>
+                  {realm.is_default !== 1 && (
+                    <button
+                      onClick={() => handleSetDefault(realm.id)}
+                      title="Set as default"
+                      className="p-1.5 rounded-lg text-vc-muted hover:text-amber-400 hover:bg-amber-400/10 transition-colors"
+                    >
+                      <Star className="w-4 h-4" />
+                    </button>
+                  )}
+                  {realm.is_default !== 1 && (
+                    <button
+                      onClick={() => handleDelete(realm.id)}
+                      disabled={deletingId === realm.id}
+                      title="Delete realm"
+                      className="p-1.5 rounded-lg text-vc-muted hover:text-red-400 hover:bg-red-400/10 transition-colors ml-auto"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  )}
+                  {realm.is_default === 1 && (
+                    <span className="ml-auto text-xs text-vc-subtle italic py-1.5">Default realm — cannot delete</span>
+                  )}
+                </div>
+              )}
             </div>
           ))}
         </div>

@@ -20,18 +20,19 @@ import {
   Workflow,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useRole } from "@/hooks/useRole";
 
 const NAV_ITEMS = [
-  { href: "/", icon: LayoutDashboard, label: "Dashboard", exact: true },
-  { href: "/agents", icon: Bot, label: "Agents", exact: false },
-  { href: "/registrations", icon: Clock, label: "Registrations", exact: false },
-  { href: "/users", icon: Users, label: "Users", exact: false },
-  { href: "/workflows", icon: Workflow, label: "Workflows", exact: false },
-  { href: "/realms", icon: Globe2, label: "Realms", exact: false },
-  { href: "/graph", icon: Network, label: "Graph", exact: true },
-  { href: "/chat", icon: MessageSquare, label: "Chat", exact: false },
-  { href: "/inbox", icon: Inbox, label: "Inbox", exact: false },
-  { href: "/server", icon: Server, label: "Server", exact: false },
+  { href: "/", icon: LayoutDashboard, label: "Dashboard", exact: true, adminOnly: false },
+  { href: "/agents", icon: Bot, label: "Agents", exact: false, adminOnly: false },
+  { href: "/registrations", icon: Clock, label: "Registrations", exact: false, adminOnly: true },
+  { href: "/users", icon: Users, label: "Users", exact: false, adminOnly: true },
+  { href: "/workflows", icon: Workflow, label: "Workflows", exact: false, adminOnly: false },
+  { href: "/realms", icon: Globe2, label: "Realms", exact: false, adminOnly: false },
+  { href: "/graph", icon: Network, label: "Graph", exact: true, adminOnly: false },
+  { href: "/chat", icon: MessageSquare, label: "Chat", exact: false, adminOnly: false },
+  { href: "/inbox", icon: Inbox, label: "Inbox", exact: false, adminOnly: false },
+  { href: "/server", icon: Server, label: "Server", exact: false, adminOnly: true },
 ] as const;
 
 const BOTTOM_ITEMS = [
@@ -110,6 +111,8 @@ function usePendingCount() {
 export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const pathname = usePathname();
   const pendingCount = usePendingCount();
+  const { isGlobalAdmin } = useRole();
+  const visibleNavItems = NAV_ITEMS.filter(item => !item.adminOnly || isGlobalAdmin);
 
   return (
     <aside
@@ -137,7 +140,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
 
       {/* Main nav */}
       <nav className="flex-1 py-3 px-2 space-y-0.5 overflow-y-auto">
-        {NAV_ITEMS.map((item) => {
+        {visibleNavItems.map((item) => {
           const active = item.exact
             ? pathname === item.href
             : pathname.startsWith(item.href);

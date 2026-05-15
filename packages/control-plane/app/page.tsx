@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useAdminWS } from "../hooks/useAdminWS";
+import { useRole } from "../hooks/useRole";
 import {
   Bot,
   Wifi,
@@ -236,6 +237,7 @@ interface Approval {
 
 function Dashboard() {
   const router = useRouter();
+  const { isGlobalAdmin } = useRole();
   const { agents: agentsState, registrations: pendingRegs, connected: wsConnected } = useAdminWS();
 
   const agents = agentsState.agents;
@@ -341,7 +343,7 @@ function Dashboard() {
         </div>
       )}
 
-      {pendingRegs.length > 0 && (
+      {isGlobalAdmin && pendingRegs.length > 0 && (
         <button
           onClick={() => router.push("/registrations")}
           className="w-full flex items-center justify-between gap-3 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 border border-amber-300 dark:border-amber-700/50 rounded-lg px-4 py-3 text-amber-700 dark:text-amber-300 text-sm hover:bg-amber-100/50 dark:hover:bg-amber-900/30 transition-colors group"

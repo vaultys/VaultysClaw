@@ -29,6 +29,7 @@ import {
   type LlmConfig,
   type WSAgentPeerCatalogPayload,
   type AgentPeerGrant,
+  type WSSkillsConfigPayload,
 } from "@vaultysclaw/shared";
 import { createAuthSession, processChallenge } from "./auth-handler";
 import {
@@ -49,6 +50,8 @@ import {
   getRealmTokenUsage,
   upsertRealmTokenUsage,
   addAgentTokenUsageHistory,
+  getAgentEffectiveSkills,
+  getRealmAgents,
 } from "./db";
 import { DelegationDao } from "./delegation-dao";
 import { AgentPeerGrantDao } from "./agent-peer-grant-dao";
@@ -433,10 +436,11 @@ export class AgentWSServer {
               logger.info({ agentDid }, "Cert metadata mismatch — triggering silent re-auth to reissue certificate");
               this.triggerCertReissue(agent, storedCapabilities);
             } else {
-              // Push delegation certs and LLM config for freshly reconnected agents
+              // Push delegation certs, LLM config, peer catalog, and skills config
               this.pushDelegationUpdate(agentDid);
               this.pushStoredLlmConfig(agentDid);
               this.pushPeerCatalog(agentDid);
+              this.pushSkillsConfig(agentDid);
             }
           }
         } else {
@@ -988,6 +992,7 @@ export class AgentWSServer {
     // Push any stored LLM config now that the agent is registered and connected.
     this.pushStoredLlmConfig(agentDid);
     this.pushPeerCatalog(agentDid);
+    this.pushSkillsConfig(agentDid);
 
     return true;
   }
@@ -1466,6 +1471,27 @@ export class AgentWSServer {
   }
 
   /**
+   * Push the effective skills configuration to a specific connected agent.
+   * Called on reconnect, registration approval, and when realm skills change.
+   */
+  pushSkillsConfig(agentDid: string): void {
+    const agent = this.agents.get(agentDid);
+    if (!agent) return;
+
+    const skills = getAgentEffectiveSkills(agentDid);
+    // Only push if there are realm-defined skills (empty = no realm config = agent uses all local skills)
+    this.sendMessage(agent.ws, {
+      messageId: `skills-config-${Date.now()}`,
+      type: "skills_config",
+      agentId: agentDid,
+      payload: { skills } satisfies WSSkillsConfigPayload,
+      timestamp: new Date().toISOString(),
+    });
+
+    logger.info({ agentDid, count: skills.length }, "Pushed skills config to agent");
+  }
+
+  /**
    * Register a callback for a workflow step result identified by intentId.
    * The callback is automatically removed after 30 seconds if not called.
    * Returns an unsubscribe function.
@@ -1579,4 +1605,28 @@ export function initializeAdminWS(httpServer: import("node:http").Server): void 
       logger.debug("Admin WS client disconnected");
     });
   });
+}
+
+/**
+ * Push updated skills configuration to a specific agent (by DID).
+ * No-op if the agent is not connected.
+ * Exported for use by API route handlers.
+ */
+export function sendSkillsConfig(agentDid: string): void {
+  getWSServer()?.pushSkillsConfig(agentDid);
+}
+
+/**
+ * Push updated skills configuration to all agents in a realm.
+ * Called when realm skill definitions are created, updated, or deleted.
+ * Exported for use by API route handlers.
+ */
+export function broadcastSkillsConfig(realmId: string): void {
+  const wsServer = getWSServer();
+  if (!wsServer) return;
+
+  const agents = getRealmAgents(realmId);
+  for (const agent of agents) {
+    wsServer.pushSkillsConfig(agent.agent_did);
+  }
 }

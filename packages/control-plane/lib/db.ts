@@ -726,6 +726,25 @@ function ensureRealmTables(db: Database.Database): void {
       joined_at TEXT NOT NULL DEFAULT (datetime('now')),
       PRIMARY KEY (user_did, realm_id)
     );
+
+    CREATE TABLE IF NOT EXISTS realm_skills (
+      id TEXT PRIMARY KEY,
+      realm_id TEXT NOT NULL REFERENCES realms(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      description TEXT,
+      version TEXT,
+      is_required INTEGER NOT NULL DEFAULT 0,
+      config TEXT NOT NULL DEFAULT '{}',
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(realm_id, name)
+    );
+
+    CREATE TABLE IF NOT EXISTS agent_skill_overrides (
+      agent_did TEXT NOT NULL REFERENCES agents(did) ON DELETE CASCADE,
+      realm_skill_id TEXT NOT NULL REFERENCES realm_skills(id) ON DELETE CASCADE,
+      enabled INTEGER NOT NULL DEFAULT 1,
+      PRIMARY KEY (agent_did, realm_skill_id)
+    );
   `);
 
   // Migrate existing user_realms tables that don't yet have is_realm_admin
@@ -1585,4 +1604,145 @@ export function dismissWorkflowNotification(approvalId: string, userDid: string)
      WHERE id = ? AND assigned_user_id = ? AND mode = 'notification'`
   ).run(approvalId, userDid);
   return (result.changes ?? 0) > 0;
+}
+
+// ---- Realm skills ----
+
+export interface RealmSkillRow {
+  id: string;
+  realm_id: string;
+  name: string;
+  description: string | null;
+  version: string | null;
+  is_required: number;
+  config: string;
+  created_at: string;
+}
+
+export function getRealmSkills(realmId: string): RealmSkillRow[] {
+  const d = getDb();
+  return d.prepare(
+    "SELECT * FROM realm_skills WHERE realm_id = ? ORDER BY is_required DESC, name ASC"
+  ).all(realmId) as RealmSkillRow[];
+}
+
+export function getRealmSkillById(id: string): RealmSkillRow | undefined {
+  const d = getDb();
+  return d.prepare("SELECT * FROM realm_skills WHERE id = ?").get(id) as RealmSkillRow | undefined;
+}
+
+export function createRealmSkill(skill: {
+  realmId: string;
+  name: string;
+  description?: string;
+  version?: string;
+  isRequired?: boolean;
+  config?: Record<string, unknown>;
+}): RealmSkillRow {
+  const d = getDb();
+  const id = crypto.randomUUID();
+  d.prepare(`
+    INSERT INTO realm_skills (id, realm_id, name, description, version, is_required, config)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    id,
+    skill.realmId,
+    skill.name,
+    skill.description ?? null,
+    skill.version ?? null,
+    skill.isRequired ? 1 : 0,
+    JSON.stringify(skill.config ?? {}),
+  );
+  return getRealmSkillById(id)!;
+}
+
+export function updateRealmSkill(
+  id: string,
+  updates: { description?: string | null; version?: string | null; isRequired?: boolean; config?: Record<string, unknown> },
+): boolean {
+  const d = getDb();
+  const parts: string[] = [];
+  const vals: unknown[] = [];
+  if ("description" in updates) { parts.push("description = ?"); vals.push(updates.description ?? null); }
+  if ("version" in updates) { parts.push("version = ?"); vals.push(updates.version ?? null); }
+  if ("isRequired" in updates) { parts.push("is_required = ?"); vals.push(updates.isRequired ? 1 : 0); }
+  if ("config" in updates) { parts.push("config = ?"); vals.push(JSON.stringify(updates.config)); }
+  if (parts.length === 0) return false;
+  vals.push(id);
+  const result = d.prepare(`UPDATE realm_skills SET ${parts.join(", ")} WHERE id = ?`).run(...vals);
+  return result.changes > 0;
+}
+
+export function deleteRealmSkill(id: string): boolean {
+  const d = getDb();
+  const result = d.prepare("DELETE FROM realm_skills WHERE id = ?").run(id);
+  return result.changes > 0;
+}
+
+// ---- Agent skill overrides ----
+
+export interface AgentSkillOverrideRow {
+  agent_did: string;
+  realm_skill_id: string;
+  enabled: number;
+}
+
+export function getAgentSkillOverrides(agentDid: string): AgentSkillOverrideRow[] {
+  const d = getDb();
+  return d.prepare(
+    "SELECT * FROM agent_skill_overrides WHERE agent_did = ?"
+  ).all(agentDid) as AgentSkillOverrideRow[];
+}
+
+export function setAgentSkillOverride(agentDid: string, realmSkillId: string, enabled: boolean): void {
+  const d = getDb();
+  d.prepare(`
+    INSERT INTO agent_skill_overrides (agent_did, realm_skill_id, enabled)
+    VALUES (?, ?, ?)
+    ON CONFLICT(agent_did, realm_skill_id) DO UPDATE SET enabled = excluded.enabled
+  `).run(agentDid, realmSkillId, enabled ? 1 : 0);
+}
+
+/**
+ * Compute the effective skill configuration for an agent:
+ * aggregates realm skills from all realms the agent belongs to,
+ * applies per-agent overrides, and returns the merged list.
+ * Required skills cannot be disabled.
+ */
+export function getAgentEffectiveSkills(agentDid: string): import("@vaultysclaw/shared").SkillConfig[] {
+  const d = getDb();
+  const rows = d.prepare(`
+    SELECT rs.id, rs.name, rs.is_required, rs.config,
+           aso.enabled AS override_enabled
+    FROM agent_realms ar
+    JOIN realm_skills rs ON rs.realm_id = ar.realm_id
+    LEFT JOIN agent_skill_overrides aso
+      ON aso.agent_did = ar.agent_did AND aso.realm_skill_id = rs.id
+    WHERE ar.agent_did = ?
+    GROUP BY rs.name
+    ORDER BY rs.is_required DESC, rs.name ASC
+  `).all(agentDid) as Array<{
+    id: string;
+    name: string;
+    is_required: number;
+    config: string;
+    override_enabled: number | null;
+  }>;
+
+  // Deduplicate by name — required wins, then first realm wins
+  const seen = new Map<string, import("@vaultysclaw/shared").SkillConfig>();
+  for (const row of rows) {
+    if (seen.has(row.name)) continue;
+    const isRequired = row.is_required === 1;
+    const enabled = isRequired
+      ? true
+      : (row.override_enabled === null ? true : row.override_enabled === 1);
+    seen.set(row.name, {
+      name: row.name,
+      enabled,
+      isRequired,
+      config: JSON.parse(row.config || "{}"),
+    });
+  }
+  return Array.from(seen.values());
 }

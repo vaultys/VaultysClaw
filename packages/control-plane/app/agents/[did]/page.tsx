@@ -44,6 +44,7 @@ const CAPABILITY_ICONS: Record<string, React.ReactNode> = {
 };
 
 const RealmGraph = dynamic(() => import("@/components/graph/RealmGraph"), { ssr: false });
+const EmbeddedAgentChart = dynamic(() => import("@/components/graph/EmbeddedAgentChart"), { ssr: false });
 
 // ---------------------------------------------------------------------------
 // Constants & types
@@ -72,7 +73,6 @@ interface AgentDetail {
   connectedAt: string | null;
   lastHeartbeat: string | null;
   reportedLlm: { provider: string; model: string } | null;
-  tokenUsage?: { promptTokens: number; completionTokens: number } | null;
 }
 
 interface LlmConfigDisplay {
@@ -264,7 +264,7 @@ export default function AgentDetailPage() {
   ];
 
   return (
-    <div className="p-6 max-w-5xl mx-auto space-y-0">
+    <div className="p-6 w-full max-w-7xl mx-auto space-y-0">
       {/* ── Page header ── */}
       <div className="mb-4">
         <button
@@ -468,28 +468,7 @@ function OverviewTab({ agent }: { agent: AgentDetail }) {
         </section>
       )}
 
-      {/* Token usage metrics */}
-      {agent.tokenUsage && (
-        <section>
-          <h2 className="text-sm font-semibold text-vc-muted uppercase tracking-wider mb-3">Token Usage</h2>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="bg-vc-raised rounded-lg border border-vc-border px-4 py-3">
-              <p className="text-xs text-vc-subtle mb-1">Input Tokens</p>
-              <p className="text-lg font-bold text-blue-400">{agent.tokenUsage.promptTokens.toLocaleString()}</p>
-            </div>
-            <div className="bg-vc-raised rounded-lg border border-vc-border px-4 py-3">
-              <p className="text-xs text-vc-subtle mb-1">Output Tokens</p>
-              <p className="text-lg font-bold text-blue-400">{agent.tokenUsage.completionTokens.toLocaleString()}</p>
-            </div>
-            <div className="bg-vc-raised rounded-lg border border-vc-border px-4 py-3 col-span-2">
-              <p className="text-xs text-vc-subtle mb-1">Total Tokens</p>
-              <p className="text-lg font-bold text-blue-400">
-                {(agent.tokenUsage.promptTokens + agent.tokenUsage.completionTokens).toLocaleString()}
-              </p>
-            </div>
-          </div>
-        </section>
-      )}
+
     </div>
   );
 }
@@ -1461,9 +1440,10 @@ function DetailsTab({ agent, onNodeClick }: { agent: AgentDetail; onNodeClick: (
       <section>
         <h2 className="text-base font-semibold text-vc-text mb-3">Relationships</h2>
         <div className="rounded-lg overflow-hidden border border-vc-border">
-          <RealmGraph
+          <EmbeddedAgentChart
             query={`?agent=${encodeURIComponent(agent.id)}`}
             height={380}
+            targetAgentId={`agent:${agent.id}`}
             onNodeClick={onNodeClick}
           />
         </div>

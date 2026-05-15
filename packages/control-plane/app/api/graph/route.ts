@@ -46,7 +46,20 @@ function buildGraph(filters: Filters): GraphData {
   type UserRow = { did: string; name: string | null; role: string; reports_to: string | null; is_owner: number; is_admin: number };
   let users: UserRow[];
   if (filters.userDid) {
-    users = db.prepare("SELECT did, name, role, reports_to, is_owner, is_admin FROM users WHERE did = ?").all(filters.userDid) as UserRow[];
+    // Fetch: the target user + their direct children (who report to them) + their manager
+    users = db.prepare(
+      "SELECT did, name, role, reports_to, is_owner, is_admin FROM users " +
+      "WHERE did = ? OR reports_to = ?"
+    ).all(filters.userDid, filters.userDid) as UserRow[];
+  } else if (filters.agentDid) {
+    // For focused agent view: fetch users that have grants or delegations to this agent
+    const userDids = db.prepare(
+      "SELECT DISTINCT user_did FROM (SELECT user_did FROM user_grants WHERE agent_did = ? UNION SELECT user_did FROM delegation_certs WHERE agent_did = ?)"
+    ).all(filters.agentDid, filters.agentDid) as Array<{ user_did: string }>;
+    users = userDids.length > 0 
+      ? db.prepare("SELECT did, name, role, reports_to, is_owner, is_admin FROM users WHERE did IN (" + userDids.map(() => "?").join(",") + ")")
+          .all(...userDids.map(u => u.user_did)) as UserRow[]
+      : [];
   } else if (filters.realmId) {
     users = db.prepare(
       "SELECT u.did, u.name, u.role, u.reports_to, u.is_owner, u.is_admin FROM users u " +
@@ -70,7 +83,20 @@ function buildGraph(filters: Filters): GraphData {
   type AgentRow = { did: string; name: string };
   let agents: AgentRow[];
   if (filters.agentDid) {
-    agents = db.prepare("SELECT did, name FROM agents WHERE did = ?").all(filters.agentDid) as AgentRow[];
+    // Fetch target agent + all agents involved in peer grants with it
+    agents = db.prepare(
+      "SELECT DISTINCT did, name FROM agents WHERE did = ? OR did IN " +
+      "(SELECT source_did FROM agent_peer_grants WHERE target_did = ? UNION SELECT target_did FROM agent_peer_grants WHERE source_did = ?)"
+    ).all(filters.agentDid, filters.agentDid, filters.agentDid) as AgentRow[];
+  } else if (filters.userDid) {
+    // For focused user view: fetch agents that this user has grants or delegations to
+    const agentDids = db.prepare(
+      "SELECT DISTINCT agent_did FROM (SELECT agent_did FROM user_grants WHERE user_did = ? AND agent_did IS NOT NULL UNION SELECT agent_did FROM delegation_certs WHERE user_did = ?)"
+    ).all(filters.userDid, filters.userDid) as Array<{ agent_did: string }>;
+    agents = agentDids.length > 0 
+      ? db.prepare("SELECT did, name FROM agents WHERE did IN (" + agentDids.map(() => "?").join(",") + ")")
+          .all(...agentDids.map(a => a.agent_did)) as AgentRow[]
+      : [];
   } else if (filters.realmId) {
     agents = db.prepare(
       "SELECT a.did, a.name FROM agents a " +

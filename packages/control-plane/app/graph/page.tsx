@@ -1,15 +1,17 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Network, Maximize2, Minimize2 } from "lucide-react";
 import dynamic from "next/dynamic";
 import type { GraphNode } from "@vaultysclaw/shared";
+import type { GraphViewMode } from "@/components/graph/RealmGraph";
 
 const RealmGraph = dynamic(() => import("@/components/graph/RealmGraph"), { ssr: false });
 
 export default function FullGraphPage() {
-  const router     = useRouter();
+  const router        = useRouter();
+  const searchParams  = useSearchParams();
   const [fullscreen, setFullscreen] = useState(false);
   const [winH, setWinH] = useState(700);
 
@@ -25,6 +27,15 @@ export default function FullGraphPage() {
     else if (node.type === "user")  router.push(`/users/${encodeURIComponent(node.id.replace("user:", ""))}`);
     else if (node.type === "realm") router.push(`/realms/${node.id.replace("realm:", "")}`);
   }
+
+  // Extract view parameter and build query string for RealmGraph
+  const viewParam = searchParams.get("view") as GraphViewMode | null;
+  const defaultView = viewParam ?? "org-chart";
+  
+  // Build query string from all params except 'view'
+  const queryParams = new URLSearchParams(searchParams);
+  queryParams.delete("view");
+  const graphQuery = queryParams.toString() ? `?${queryParams.toString()}` : "";
 
   const graphHeight = fullscreen ? winH - 80 : 720;
 
@@ -46,8 +57,9 @@ export default function FullGraphPage() {
 
       <div className={fullscreen ? "px-4 pb-4 flex-1 min-h-0" : ""}>
         <RealmGraph
+          query={graphQuery}
           height={graphHeight}
-          defaultView="hierarchy"
+          defaultView={defaultView}
           onNodeClick={handleNodeClick}
         />
       </div>

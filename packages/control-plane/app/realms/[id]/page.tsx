@@ -9,6 +9,7 @@ import {
 import Link from "next/link";
 import { useWorkflowStore } from "@/components/workflow/store";
 import { TemplateSelectionModal } from "@/components/workflow/TemplateSelectionModal";
+import EmbeddedOrgChart from "@/components/graph/EmbeddedOrgChart";
 
 interface Realm {
   id: string;
@@ -176,7 +177,7 @@ export default function RealmDetailPage() {
   const [workflows, setWorkflows] = useState<RealmWorkflow[]>([]);
   const [tokenUsage, setTokenUsage] = useState<{ promptTokens: number; completionTokens: number } | null>(null);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<"agents" | "users" | "workflows" | "config">("agents");
+  const [tab, setTab] = useState<"agents" | "users" | "workflows" | "config" | "org-chart">("agents");
   const [addModal, setAddModal] = useState<"agent" | "user" | null>(null);
   const [showTemplateModal, setShowTemplateModal] = useState(false);
   const setWorkflowStore = useWorkflowStore((s) => s.setWorkflow);
@@ -279,7 +280,7 @@ export default function RealmDetailPage() {
   if (!realm) return null;
 
   return (
-    <div className="p-6 max-w-5xl mx-auto space-y-5">
+    <div className="p-6 max-w-7xl mx-auto space-y-5">
       {/* Back */}
       <Link href="/realms" className="inline-flex items-center gap-1.5 text-vc-muted hover:text-vc-text text-sm transition-colors">
         <ArrowLeft className="w-4 h-4" />
@@ -415,7 +416,7 @@ export default function RealmDetailPage() {
 
       {/* Tabs */}
       <div className="flex gap-1 border-b border-vc-border">
-        {(["agents", "users", "workflows", "config"] as const).map((t) => (
+        {(["agents", "users", "workflows", "org-chart", "config"] as const).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -427,6 +428,7 @@ export default function RealmDetailPage() {
             {t === "agents" && `Agents (${agents.length})`}
             {t === "users" && `Users (${users.length})`}
             {t === "workflows" && `Workflows (${workflows.length})`}
+            {t === "org-chart" && "Org Chart"}
             {t === "config" && "Config"}
           </button>
         ))}
@@ -608,6 +610,16 @@ export default function RealmDetailPage() {
           )}
         </div>
       )}
+
+      {/* Org Chart tab */}
+      {tab === "org-chart" && (
+        <div className="space-y-3">
+          <EmbeddedOrgChart query={`?realm=${id}`} height={600} showFullscreenBtn={true} />
+        </div>
+      )}
+
+      {/* Config tab */}
+      {tab === "config" && <RealmConfigTab realm={realm} onSaved={load} />}
 
       {/* Modals */}
       {addModal && (

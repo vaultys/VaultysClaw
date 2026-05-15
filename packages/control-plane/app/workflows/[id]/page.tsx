@@ -66,13 +66,13 @@ export default function WorkflowDetailPage() {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-white">
+    <div className="flex flex-col h-screen bg-vc-bg">
       {/* Header with back button and title editor */}
-      <div className="border-b border-gray-200 bg-gray-50 flex items-center justify-between">
+      <div className="border-b border-vc-border bg-vc-raised flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Link
             href={realmFromUrl ? `/realms/${realmFromUrl}` : "/workflows"}
-            className="flex items-center gap-2 text-indigo-600 hover:text-indigo-700 font-medium text-sm px-4 py-3"
+            className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 font-medium text-sm px-4 py-3"
           >
             <ChevronLeft size={18} /> {realmFromUrl ? "Back to Realm" : "Back"}
           </Link>

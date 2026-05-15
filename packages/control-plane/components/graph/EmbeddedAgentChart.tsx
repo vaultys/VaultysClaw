@@ -1,0 +1,106 @@
+"use client";
+
+import { useMemo, useState } from "react";
+import dynamic from "next/dynamic";
+import type { GraphData, GraphNode } from "@vaultysclaw/shared";
+import { Maximize2 } from "lucide-react";
+import Link from "next/link";
+
+// Dynamic import to avoid loading React Flow on every page
+const AgentChartFlowView = dynamic(
+  () => import("./views/AgentChartFlowView"),
+  { ssr: false, loading: () => <div className="flex items-center justify-center h-full text-vc-muted">Loading agent chart...</div> }
+);
+
+interface Props {
+  /** API query string for fetching graph data, e.g. "?agent=abc" */
+  query?: string;
+  /** Height in px (defaults to 500) */
+  height?: number;
+  /** Show a fullscreen button */
+  showFullscreenBtn?: boolean;
+  /** If provided, show focused view of this agent + their direct relationships */
+  targetAgentId?: string;
+  /** Called when a node is clicked */
+  onNodeClick?: (node: GraphNode) => void;
+}
+
+/**
+ * Embedded Agent Chart component that can be placed in agent detail pages.
+ * Automatically fetches GraphData from the API and renders an interactive agent chart using React Flow.
+ */
+export default function EmbeddedAgentChart({
+  query = "",
+  height = 500,
+  showFullscreenBtn = true,
+  targetAgentId,
+  onNodeClick,
+}: Props) {
+  const [data, setData] = useState<GraphData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useMemo(() => {
+    setLoading(true);
+    setError(null);
+    fetch(`/api/graph${query}`)
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      })
+      .then((d: GraphData) => setData(d))
+      .catch((err) => setError(err.message))
+      .finally(() => setLoading(false));
+  }, [query]);
+
+  if (loading) {
+    return (
+      <div
+        className="flex items-center justify-center rounded-xl border border-vc-border bg-vc-surface"
+        style={{ height }}
+      >
+        <div className="animate-spin rounded-full h-8 w-8 border-2 border-indigo-500 border-t-transparent" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div
+        className="flex items-center justify-center rounded-xl border border-vc-border bg-vc-surface text-red-400"
+        style={{ height }}
+      >
+        Failed to load agent chart: {error}
+      </div>
+    );
+  }
+
+  if (!data || data.nodes.filter((n) => n.type === "agent").length === 0) {
+    return (
+      <div
+        className="flex items-center justify-center rounded-xl border border-vc-border bg-vc-surface text-vc-muted"
+        style={{ height }}
+      >
+        No agents to display
+      </div>
+    );
+  }
+
+  // Build fullscreen URL with query params preserved
+  const fullscreenUrl = `/graph${query}${query ? "&" : "?"}view=agent-chart`;
+
+  return (
+    <div className="relative rounded-xl border border-vc-border overflow-hidden bg-vc-surface" style={{ height }}>
+      {showFullscreenBtn && (
+        <Link
+          href={fullscreenUrl}
+          className="absolute top-3 right-3 z-10 p-2 rounded-lg hover:bg-vc-raised transition-colors text-vc-muted hover:text-vc-text"
+          title="Open in fullscreen"
+        >
+          <Maximize2 size={18} />
+        </Link>
+      )}
+      <AgentChartFlowView data={data} height={height} onNodeClick={onNodeClick} targetAgentId={targetAgentId} />
+    </div>
+  );
+}

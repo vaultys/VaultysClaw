@@ -147,7 +147,7 @@ export default function RegistrationsPage() {
   }
 
   return (
-    <div className="p-6 max-w-4xl mx-auto space-y-6">
+    <div className="p-6 w-full max-w-7xl mx-auto space-y-6">
       {/* Back nav */}
       <button
         onClick={() => router.push("/")}
@@ -274,8 +274,8 @@ export default function RegistrationsPage() {
                             key={realm.id}
                             onClick={() => toggleRealm(reg.id, realm.id)}
                             className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-colors border ${isSelected
-                                ? "text-white border-transparent"
-                                : "bg-vc-raised border-vc-ring text-vc-text-2 hover:border-vc-muted"
+                              ? "text-white border-transparent"
+                              : "bg-vc-raised border-vc-ring text-vc-text-2 hover:border-vc-muted"
                               }`}
                             style={isSelected ? { backgroundColor: realm.color, borderColor: realm.color } : {}}
                           >

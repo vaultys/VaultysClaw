@@ -48,11 +48,11 @@ interface UserSummary {
 type TabId = "overview" | "access" | "grants" | "details";
 
 const ROLE_OPTIONS = [
-  { value: "member",   label: "Member" },
+  { value: "member", label: "Member" },
   { value: "operator", label: "Operator" },
-  { value: "manager",  label: "Manager" },
-  { value: "admin",    label: "Admin" },
-  { value: "owner",    label: "Owner" },
+  { value: "manager", label: "Manager" },
+  { value: "admin", label: "Admin" },
+  { value: "owner", label: "Owner" },
 ] as const;
 
 // ---------------------------------------------------------------------------
@@ -92,11 +92,10 @@ function TabBar({ tabs, active, onChange }: { tabs: Tab[]; active: TabId; onChan
         <button
           key={tab.id}
           onClick={() => onChange(tab.id)}
-          className={`flex items-center gap-2 px-4 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
-            active === tab.id
-              ? "border-indigo-500 text-indigo-400"
-              : "border-transparent text-vc-muted hover:text-vc-text hover:border-vc-ring"
-          }`}
+          className={`flex items-center gap-2 px-4 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${active === tab.id
+            ? "border-indigo-500 text-indigo-400"
+            : "border-transparent text-vc-muted hover:text-vc-text hover:border-vc-ring"
+            }`}
         >
           {tab.icon}
           {tab.label}
@@ -143,7 +142,7 @@ export default function UserEditPage() {
 
   if (notFound) {
     return (
-      <div className="p-6 max-w-5xl mx-auto">
+      <div className="p-6 max-w-7xl mx-auto">
         <button onClick={() => router.push("/users")} className="flex items-center gap-1.5 text-vc-muted hover:text-vc-text text-sm mb-6 transition-colors">
           <ArrowLeft className="w-4 h-4" /> Back to Users
         </button>
@@ -159,14 +158,14 @@ export default function UserEditPage() {
   if (!user) return null;
 
   const tabs: Tab[] = [
-    { id: "overview", label: "Overview",     icon: <LayoutDashboard size={15} /> },
-    { id: "access",   label: "Access",        icon: <Shield size={15} /> },
-    { id: "grants",   label: "Grants",        icon: <KeyRound size={15} /> },
-    { id: "details",  label: "Details",       icon: <GitBranch size={15} /> },
+    { id: "overview", label: "Overview", icon: <LayoutDashboard size={15} /> },
+    { id: "access", label: "Access", icon: <Shield size={15} /> },
+    { id: "grants", label: "Grants", icon: <KeyRound size={15} /> },
+    { id: "details", label: "Details", icon: <GitBranch size={15} /> },
   ];
 
   return (
-    <div className="p-6 max-w-5xl mx-auto space-y-0">
+    <div className="p-6 w-full max-w-7xl mx-auto space-y-0">
       {/* Back nav */}
       <div className="mb-4">
         <button
@@ -307,7 +306,7 @@ function OverviewTab({
     fetch("/api/users")
       .then((r) => r.json())
       .then((d: { users: UserSummary[] }) => setAllUsers(d.users))
-      .catch(() => {});
+      .catch(() => { });
   }, []);
 
   const handleSave = async () => {
@@ -577,6 +576,8 @@ function DetailsTab({ user, onNodeClick }: { user: UserDetail; onNodeClick: (nod
             query={`?user=${encodeURIComponent(user.did)}`}
             height={380}
             onNodeClick={onNodeClick}
+            currentUserId={user.did}
+            defaultView="org-chart"
           />
         </div>
       </section>
@@ -585,8 +586,8 @@ function DetailsTab({ user, onNodeClick }: { user: UserDetail; onNodeClick: (nod
         <h2 className="text-base font-semibold text-vc-text mb-3">Identity</h2>
         <div className="bg-vc-raised rounded-lg border border-vc-border divide-y divide-vc-border">
           {[
-            { label: "DID",         value: <span className="font-mono text-xs break-all text-vc-text-2">{user.did}</span> },
-            { label: "Registered",  value: <span className="text-vc-text">{formatDate(user.registeredAt)}</span> },
+            { label: "DID", value: <span className="font-mono text-xs break-all text-vc-text-2">{user.did}</span> },
+            { label: "Registered", value: <span className="text-vc-text">{formatDate(user.registeredAt)}</span> },
           ].map(({ label, value }) => (
             <div key={label} className="flex items-start gap-4 px-4 py-3">
               <div className="w-28 flex-shrink-0 text-xs text-vc-muted uppercase pt-0.5">{label}</div>

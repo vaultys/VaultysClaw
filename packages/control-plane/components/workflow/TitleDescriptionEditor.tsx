@@ -51,13 +51,13 @@ export const TitleDescriptionEditor: React.FC = () => {
           type="text"
           value={editName}
           onChange={(e) => setEditName(e.target.value)}
-          className="w-full text-lg font-bold text-gray-900 border border-gray-300 rounded px-2 py-1"
+          className="w-full text-lg font-bold text-vc-text bg-vc-surface border border-vc-border rounded px-2 py-1"
           placeholder="Workflow name"
         />
         <textarea
           value={editDescription}
           onChange={(e) => setEditDescription(e.target.value)}
-          className="w-full text-sm text-gray-600 border border-gray-300 rounded px-2 py-1 resize-none"
+          className="w-full text-sm text-vc-text-2 bg-vc-surface border border-vc-border rounded px-2 py-1 resize-none"
           placeholder="Workflow description"
           rows={2}
         />
@@ -65,13 +65,13 @@ export const TitleDescriptionEditor: React.FC = () => {
           <button
             onClick={handleSave}
             disabled={isSaving}
-            className="flex items-center gap-1 px-3 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700 disabled:bg-gray-400"
+            className="flex items-center gap-1 px-3 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50"
           >
             <Check size={14} /> Save
           </button>
           <button
             onClick={handleCancel}
-            className="flex items-center gap-1 px-3 py-1 text-xs bg-gray-400 text-white rounded hover:bg-gray-500"
+            className="flex items-center gap-1 px-3 py-1 text-xs bg-vc-raised text-vc-text-2 border border-vc-border rounded hover:bg-vc-border"
           >
             <X size={14} /> Cancel
           </button>
@@ -83,12 +83,12 @@ export const TitleDescriptionEditor: React.FC = () => {
   return (
     <div className="flex-1 px-4 py-3 flex items-start justify-between">
       <div>
-        <h1 className="text-lg font-bold text-gray-900">{workflowName}</h1>
-        {workflowDescription && <p className="text-sm text-gray-600 mt-1">{workflowDescription}</p>}
+        <h1 className="text-lg font-bold text-vc-text">{workflowName}</h1>
+        {workflowDescription && <p className="text-sm text-vc-muted mt-1">{workflowDescription}</p>}
       </div>
       <button
         onClick={() => setIsEditing(true)}
-        className="flex items-center gap-1 px-3 py-1 text-xs text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded transition-colors"
+        className="flex items-center gap-1 px-3 py-1 text-xs text-vc-muted hover:text-vc-text hover:bg-vc-raised rounded transition-colors"
         title="Edit workflow title and description"
       >
         <Edit2 size={14} />

@@ -40,6 +40,7 @@ export const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
           data: {
             agentId: "code-analyst",
             params: {
+              input: "${input}",
               focus: "quality",
               checkFor: ["performance", "security", "maintainability"],
               severity: "high",
@@ -54,6 +55,7 @@ export const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
           data: {
             agentId: "writer",
             params: {
+              input: "${analysis}",
               format: "markdown",
               includeMetrics: true,
               suggestionsCount: 5,
@@ -104,6 +106,7 @@ export const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
           data: {
             agentId: "@mock-agent",
             params: {
+              input: "${research}",
               task: "compile-data",
               organization: "by-topic",
               includeReferences: true,
@@ -118,6 +121,7 @@ export const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
           data: {
             agentId: "writer",
             params: {
+              input: "${compile}",
               style: "academic",
               length: "comprehensive",
               includeAbstract: true,
@@ -170,6 +174,7 @@ export const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
           data: {
             agentId: "writer",
             params: {
+              input: "${outline}",
               task: "write-draft",
               expandOutline: true,
               includeExamples: true,
@@ -185,6 +190,7 @@ export const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
           data: {
             agentId: "code-analyst",
             params: {
+              input: "${draft}",
               focus: "clarity",
               checkGrammar: true,
               checkTone: true,
@@ -200,6 +206,7 @@ export const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
           data: {
             agentId: "writer",
             params: {
+              input: "${review}",
               task: "finalize",
               applyEdits: true,
               addSEO: true,
@@ -256,6 +263,7 @@ export const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
           data: {
             agentId: "code-analyst",
             params: {
+              input: "${input}",
               angle: "technical",
               focus: "code-quality",
               checkMetrics: true,
@@ -270,6 +278,7 @@ export const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
           data: {
             agentId: "researcher",
             params: {
+              input: "${input}",
               angle: "strategic",
               focus: "business-impact",
               marketAnalysis: true,
@@ -284,6 +293,8 @@ export const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
           data: {
             agentId: "writer",
             params: {
+              inputA: "${analyze-a}",
+              inputB: "${analyze-b}",
               task: "synthesize",
               integrationStyle: "side-by-side",
               includeConflicts: true,
@@ -341,7 +352,7 @@ export const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
         {
           id: "check-quality",
           type: "condition",
-          data: { expression: "output.quality > 0.7" },
+          data: { input: "${analyze}", expression: "${analyze.quality} > 0.7" },
           position: { x: 300, y: 150 },
         },
         {
@@ -350,6 +361,7 @@ export const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
           data: {
             agentId: "writer",
             params: {
+              input: "${check-quality}",
               task: "publish",
               environments: ["production"],
               notify: true,
@@ -364,6 +376,7 @@ export const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
           data: {
             agentId: "writer",
             params: {
+              input: "${check-quality}",
               task: "revise",
               focusAreas: ["critical-issues"],
               autoFix: true,

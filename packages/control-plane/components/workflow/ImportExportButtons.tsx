@@ -89,7 +89,7 @@ export function ImportExportButtons({
       <div className="flex gap-2">
         <button
           onClick={handleImportClick}
-          className="flex items-center gap-2 px-3 py-2 text-sm bg-blue-50 text-blue-700 rounded hover:bg-blue-100 transition"
+          className="flex items-center gap-2 px-3 py-2 text-sm bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-800 rounded hover:bg-blue-100 dark:hover:bg-blue-900/40 transition"
           title="Import workflow from JSON file"
         >
           <Upload size={16} />
@@ -99,10 +99,11 @@ export function ImportExportButtons({
         <button
           onClick={handleExport}
           disabled={!workflowId}
-          className={`flex items-center gap-2 px-3 py-2 text-sm rounded transition ${workflowId
-              ? "bg-green-50 text-green-700 hover:bg-green-100"
-              : "bg-gray-100 text-gray-400 cursor-not-allowed"
-            }`}
+          className={`flex items-center gap-2 px-3 py-2 text-sm rounded border transition ${
+            workflowId
+              ? "bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 border-green-200 dark:border-green-800 hover:bg-green-100 dark:hover:bg-green-900/40"
+              : "bg-vc-raised text-vc-subtle border-vc-border cursor-not-allowed"
+          }`}
           title="Export workflow as JSON file"
         >
           <Download size={16} />

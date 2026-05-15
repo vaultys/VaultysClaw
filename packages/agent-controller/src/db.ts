@@ -756,7 +756,7 @@ export function getRecentTokenUsage(limit = 100): TokenUsageRow[] {
 export function getDailyTokenUsage(): { promptTokens: number; completionTokens: number } {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const todayStart = Math.floor(today.getTime() / 1000);
+  const todayStart = today.toISOString();
 
   const result = getDb().query(`
     SELECT
@@ -774,7 +774,7 @@ export function getDailyTokenUsage(): { promptTokens: number; completionTokens: 
 export function getMonthlyTokenUsage(): { promptTokens: number; completionTokens: number } {
   const now = new Date();
   const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
-  const monthStart = Math.floor(firstDay.getTime() / 1000);
+  const monthStart = firstDay.toISOString();
 
   const result = getDb().query(`
     SELECT

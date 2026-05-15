@@ -16,6 +16,10 @@ import {
   recordWorkflowStep,
   updateWorkflowStep,
   getWorkflowRunSteps,
+  createWorkflowApproval,
+  resolveWorkflowApproval,
+  getApprovalsForRun,
+  getWorkflow,
   type WorkflowDefinition,
 } from "./db";
 
@@ -23,7 +27,7 @@ const logger = pino({ name: "workflow-executor" });
 
 export interface WorkflowNode {
   id: string;
-  type: string; // "agent", "condition", "parallel", "delay", "custom"
+  type: string; // "agent", "condition", "parallel", "delay", "custom", "user"
   data: {
     agentId?: string;
     params?: Record<string, unknown>;
@@ -313,6 +317,7 @@ export async function executeWorkflow(
   runId: string,
   definition: WorkflowDefinition,
   input?: string,
+  workflowId?: string,
 ): Promise<void> {
   try {
     const { nodes, edges } = parseWorkflow(definition);
@@ -324,6 +329,10 @@ export async function executeWorkflow(
       updateWorkflowRunStatus(runId, "failed", { error: "Workflow contains a cycle" });
       return;
     }
+
+    // Resolve workflow name for approval records
+    const workflowRow = workflowId ? getWorkflow(workflowId) : undefined;
+    const workflowName = workflowRow?.name ?? "Workflow";
 
     // Initialize execution context
     const context: ExecutionContext = {
@@ -365,6 +374,86 @@ export async function executeWorkflow(
       // Check if dependencies are met
       if (!areDependenciesMet(nodeId, edges, context.stepStatus)) {
         logger.info({ nodeId }, "Dependencies not met, skipping step");
+        continue;
+      }
+
+      // Handle user node (approval / notification)
+      if (node.type === "user") {
+        const assignedUserId = node.data.assignedUserId as string | undefined;
+        const mode = (node.data.mode as "approval" | "notification") ?? "approval";
+        const stepDbId = context.stepIds.get(nodeId)!;
+
+        if (!assignedUserId) {
+          // No user configured — skip this node and continue
+          logger.warn({ nodeId }, "User node has no assigned user, skipping");
+          context.stepStatus.set(nodeId, "success");
+          updateWorkflowStep(stepDbId, "success", { skipped: true, reason: "No user assigned" });
+          continue;
+        }
+
+        // Collect current step input for display
+        const stepInput = input
+          ? input
+          : JSON.stringify(Object.fromEntries(context.stepOutputs), null, 2).slice(0, 500);
+
+        // Create approval/notification record
+        const approvalId = createWorkflowApproval({
+          runId,
+          stepId: nodeId,
+          workflowId: workflowId ?? "",
+          workflowName,
+          nodeMessage: node.data.message as string | undefined,
+          stepInput,
+          assignedUserId,
+          mode,
+        });
+
+        if (mode === "notification") {
+          // Fire-and-forget: mark step as success and continue
+          context.stepStatus.set(nodeId, "success");
+          updateWorkflowStep(stepDbId, "success", { notificationId: approvalId });
+          logger.info({ nodeId, approvalId }, "Notification sent, continuing");
+          continue;
+        }
+
+        // Approval mode: pause and poll until resolved or timeout
+        const timeoutMinutes = (node.data.timeout as number | undefined) ?? 0;
+        const deadline = timeoutMinutes > 0 ? Date.now() + timeoutMinutes * 60_000 : Infinity;
+
+        updateWorkflowRunStatus(runId, "waiting_approval");
+        updateWorkflowStep(stepDbId, "waiting_approval");
+
+        logger.info({ nodeId, approvalId, assignedUserId }, "Workflow paused waiting for approval");
+
+        // Poll every 10 seconds
+        const approved = await new Promise<boolean>((resolve) => {
+          const interval = setInterval(() => {
+            const approvals = getApprovalsForRun(runId);
+            const record = approvals.find((a) => a.id === approvalId);
+            if (!record) { clearInterval(interval); return resolve(false); }
+
+            if (record.status === "approved") { clearInterval(interval); return resolve(true); }
+            if (record.status === "rejected") { clearInterval(interval); return resolve(false); }
+
+            if (Date.now() > deadline) {
+              clearInterval(interval);
+              logger.warn({ nodeId, approvalId }, "Approval timed out, auto-continuing");
+              resolve(true);
+            }
+          }, 10_000);
+        });
+
+        updateWorkflowRunStatus(runId, "running");
+
+        if (!approved) {
+          updateWorkflowStep(stepDbId, "failed", undefined, "Approval rejected");
+          updateWorkflowRunStatus(runId, "rejected", { rejectedNode: nodeId, approvalId });
+          logger.info({ nodeId, approvalId }, "Workflow rejected by user");
+          return;
+        }
+
+        context.stepStatus.set(nodeId, "success");
+        updateWorkflowStep(stepDbId, "success", { approvalId, approved: true });
         continue;
       }
 

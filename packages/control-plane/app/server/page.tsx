@@ -78,7 +78,7 @@ export default function ServerPage() {
   }
 
   return (
-    <div className="p-6 max-w-5xl mx-auto space-y-6">
+    <div className="p-6 w-full max-w-7xl mx-auto space-y-6">
       {error && (
         <div className="bg-red-50 dark:bg-red-900/40 border border-red-300 dark:border-red-700 rounded-xl px-4 py-3 text-red-600 dark:text-red-300 text-sm">
           {error}

@@ -39,7 +39,7 @@ export async function POST(
     // Execution-time input overrides the definition's stored input
     const resolvedInput = input ?? definition.input;
     Promise.resolve().then(() => {
-      executeWorkflow(runId, definition, resolvedInput).catch((err) => {
+      executeWorkflow(runId, definition, resolvedInput, id).catch((err) => {
         console.error(`Workflow ${runId} execution failed:`, err);
       });
     });

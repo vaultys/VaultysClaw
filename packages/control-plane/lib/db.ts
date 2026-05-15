@@ -108,6 +108,28 @@ function migrateSchema(db: Database.Database): void {
     db.exec("CREATE INDEX IF NOT EXISTS idx_workflows_realm ON workflows(realm_id)");
   }
 
+  // Ensure workflow_approvals table exists (for databases created before this feature)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS workflow_approvals (
+      id TEXT PRIMARY KEY,
+      run_id TEXT NOT NULL REFERENCES workflow_runs(id) ON DELETE CASCADE,
+      step_id TEXT NOT NULL,
+      workflow_id TEXT NOT NULL,
+      workflow_name TEXT NOT NULL,
+      node_message TEXT,
+      step_input TEXT,
+      assigned_user_id TEXT NOT NULL,
+      mode TEXT NOT NULL DEFAULT 'approval',
+      status TEXT NOT NULL DEFAULT 'pending',
+      decided_at TEXT,
+      decided_by TEXT,
+      comment TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_workflow_approvals_user ON workflow_approvals(assigned_user_id, status);
+    CREATE INDEX IF NOT EXISTS idx_workflow_approvals_run ON workflow_approvals(run_id);
+  `);
+
   // Seed the default realm if none exists
   const realmCount = (db.prepare("SELECT COUNT(*) AS n FROM realms").get() as { n: number }).n;
   if (realmCount === 0) {
@@ -286,6 +308,25 @@ function createTables(db: Database.Database): void {
       completed_at TEXT
     );
     CREATE INDEX IF NOT EXISTS idx_workflow_steps_run ON workflow_steps(run_id, step_id);
+
+    CREATE TABLE IF NOT EXISTS workflow_approvals (
+      id TEXT PRIMARY KEY,
+      run_id TEXT NOT NULL REFERENCES workflow_runs(id) ON DELETE CASCADE,
+      step_id TEXT NOT NULL,
+      workflow_id TEXT NOT NULL,
+      workflow_name TEXT NOT NULL,
+      node_message TEXT,
+      step_input TEXT,
+      assigned_user_id TEXT NOT NULL,
+      mode TEXT NOT NULL DEFAULT 'approval',
+      status TEXT NOT NULL DEFAULT 'pending',
+      decided_at TEXT,
+      decided_by TEXT,
+      comment TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_workflow_approvals_user ON workflow_approvals(assigned_user_id, status);
+    CREATE INDEX IF NOT EXISTS idx_workflow_approvals_run ON workflow_approvals(run_id);
   `);
 }
 
@@ -438,6 +479,98 @@ export function getAgentByName(name: string): AgentRow | undefined {
 export function getAllAgents(): AgentRow[] {
   const d = getDb();
   return d.prepare("SELECT * FROM agents ORDER BY last_seen DESC").all() as AgentRow[];
+}
+
+export interface AgentQueryOptions {
+  /** Full-text search across name and capabilities (case-insensitive) */
+  q?: string;
+  /** Filter by online status (requires connected DID set) */
+  onlineDids?: Set<string>;
+  online?: boolean;
+  /** Filter by realm slug or id */
+  realm?: string;
+  /** Filter by capabilities (match ALL selected) */
+  capabilities?: string[];
+  /** Pagination */
+  page?: number;
+  pageSize?: number;
+  /** Sort field: name | lastSeen | registeredAt */
+  sortBy?: "name" | "lastSeen" | "registeredAt";
+  sortDir?: "asc" | "desc";
+}
+
+export interface AgentQueryResult {
+  agents: AgentRow[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}
+
+export function queryAgents(opts: AgentQueryOptions = {}): AgentQueryResult {
+  const d = getDb();
+  const {
+    q,
+    onlineDids,
+    online,
+    realm,
+    capabilities,
+    page = 1,
+    pageSize = 20,
+    sortBy = "lastSeen",
+    sortDir = "desc",
+  } = opts;
+
+  const sortColumn =
+    sortBy === "name" ? "a.name" :
+      sortBy === "registeredAt" ? "a.registered_at" :
+        "a.last_seen";
+  const dir = sortDir === "asc" ? "ASC" : "DESC";
+
+  const conditions: string[] = [];
+  const params: unknown[] = [];
+
+  if (q) {
+    conditions.push("(LOWER(a.name) LIKE ? OR LOWER(a.capabilities) LIKE ?)");
+    const like = `%${q.toLowerCase()}%`;
+    params.push(like, like);
+  }
+
+  if (realm) {
+    conditions.push("EXISTS (SELECT 1 FROM agent_realms ar JOIN realms r ON r.id = ar.realm_id WHERE ar.agent_did = a.did AND (r.id = ? OR r.slug = ?))");
+    params.push(realm, realm);
+  }
+
+  if (capabilities && capabilities.length > 0) {
+    // Each selected capability must be in the agent's JSON capabilities array
+    const capConditions = capabilities.map(() =>
+      "EXISTS (SELECT 1 FROM json_each(a.capabilities) WHERE json_each.value = ?)"
+    );
+    conditions.push(`(${capConditions.join(" AND ")})`);
+    params.push(...capabilities);
+  }
+
+  const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+
+  const total = (d.prepare(`SELECT COUNT(*) AS count FROM agents a ${where}`).get(...params) as { count: number }).count;
+
+  const offset = (page - 1) * pageSize;
+  const rows = d.prepare(
+    `SELECT a.* FROM agents a ${where} ORDER BY ${sortColumn} ${dir} LIMIT ? OFFSET ?`
+  ).all(...params, pageSize, offset) as AgentRow[];
+
+  // Apply in-memory online filter (requires live WS data not available in DB)
+  const filtered = online !== undefined && onlineDids
+    ? rows.filter((r) => onlineDids.has(r.did) === online)
+    : rows;
+
+  return {
+    agents: filtered,
+    total: online !== undefined ? filtered.length : total,
+    page,
+    pageSize,
+    totalPages: Math.ceil((online !== undefined ? filtered.length : total) / pageSize),
+  };
 }
 
 export function updateAgentLastSeen(did: string): void {
@@ -1200,6 +1333,77 @@ export function updateWorkflowStep(
 }
 
 /**
+ * Query workflow runs with pagination and filtering
+ */
+export interface WorkflowRunQueryOptions {
+  workflowId?: string;  // Filter by workflow ID
+  status?: string;      // Filter by status
+  page?: number;
+  pageSize?: number;
+  sortBy?: "startedAt" | "completedAt";  // Sort field
+  sortDir?: "asc" | "desc";
+}
+
+export interface WorkflowRunQueryResult {
+  runs: (WorkflowRunRow & { workflow_name: string })[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}
+
+export function queryWorkflowRuns(opts: WorkflowRunQueryOptions = {}): WorkflowRunQueryResult {
+  const d = getDb();
+  const {
+    workflowId,
+    status,
+    page = 1,
+    pageSize = 20,
+    sortBy = "startedAt",
+    sortDir = "desc",
+  } = opts;
+
+  const sortColumn = sortBy === "completedAt" ? "wr.completed_at" : "wr.started_at";
+  const dir = sortDir === "asc" ? "ASC" : "DESC";
+
+  const conditions: string[] = [];
+  const params: unknown[] = [];
+
+  if (workflowId) {
+    conditions.push("wr.workflow_id = ?");
+    params.push(workflowId);
+  }
+
+  if (status) {
+    conditions.push("wr.status = ?");
+    params.push(status);
+  }
+
+  const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+
+  const total = (d.prepare(
+    `SELECT COUNT(*) AS count FROM workflow_runs wr ${where}`
+  ).get(...params) as { count: number }).count;
+
+  const offset = (page - 1) * pageSize;
+  const rows = d.prepare(
+    `SELECT wr.*, w.name AS workflow_name FROM workflow_runs wr
+     JOIN workflows w ON w.id = wr.workflow_id
+     ${where}
+     ORDER BY ${sortColumn} ${dir}
+     LIMIT ? OFFSET ?`
+  ).all(...params, pageSize, offset) as (WorkflowRunRow & { workflow_name: string })[];
+
+  return {
+    runs: rows,
+    total,
+    page,
+    pageSize,
+    totalPages: Math.ceil(total / pageSize),
+  };
+}
+
+/**
  * Get all steps for a workflow run
  */
 export function getWorkflowRunSteps(runId: string): WorkflowStepRow[] {
@@ -1212,17 +1416,147 @@ export function getWorkflowRunSteps(runId: string): WorkflowStepRow[] {
 /**
  * Get complete workflow run history with steps
  */
+export interface WorkflowStepWithUserRow extends WorkflowStepRow {
+  assigned_user_id: string | null;
+  assigned_user_name: string | null;
+  assigned_user_email: string | null;
+}
+
 export function getWorkflowRunHistory(
   runId: string,
-): { run: WorkflowRunRow; steps: WorkflowStepRow[] } | undefined {
+): { run: WorkflowRunRow; workflow: WorkflowRow | null; steps: WorkflowStepWithUserRow[] } | undefined {
   const d = getDb();
   const run = d.prepare("SELECT * FROM workflow_runs WHERE id = ?").get(runId) as WorkflowRunRow | undefined;
   if (!run) return undefined;
 
-  const steps = d.prepare(
-    "SELECT * FROM workflow_steps WHERE run_id = ? ORDER BY started_at ASC, rowid ASC"
-  ).all(runId) as WorkflowStepRow[];
+  const workflow = d.prepare("SELECT * FROM workflows WHERE id = ?").get(run.workflow_id) as WorkflowRow | undefined ?? null;
 
-  return { run, steps };
+  const steps = d.prepare(`
+    SELECT ws.*,
+           wa.assigned_user_id,
+           u.name  AS assigned_user_name,
+           u.email AS assigned_user_email
+    FROM workflow_steps ws
+    LEFT JOIN workflow_approvals wa ON wa.run_id = ws.run_id AND wa.step_id = ws.step_id
+    LEFT JOIN users u ON u.did = wa.assigned_user_id
+    WHERE ws.run_id = ?
+    ORDER BY ws.started_at ASC, ws.rowid ASC
+  `).all(runId) as WorkflowStepWithUserRow[];
+
+  return { run, workflow, steps };
 }
 
+// ---------------------------------------------------------------------------
+// Workflow approval operations
+// ---------------------------------------------------------------------------
+
+export interface WorkflowApprovalRow {
+  id: string;
+  run_id: string;
+  step_id: string;
+  workflow_id: string;
+  workflow_name: string;
+  node_message: string | null;
+  step_input: string | null;
+  assigned_user_id: string;
+  mode: string;
+  status: string;
+  decided_at: string | null;
+  decided_by: string | null;
+  comment: string | null;
+  created_at: string;
+}
+
+/**
+ * Create a pending approval (or notification) for a workflow step
+ */
+export function createWorkflowApproval(opts: {
+  runId: string;
+  stepId: string;
+  workflowId: string;
+  workflowName: string;
+  nodeMessage?: string;
+  stepInput?: string;
+  assignedUserId: string;
+  mode: "approval" | "notification";
+}): string {
+  const d = getDb();
+  const id = crypto.randomUUID();
+  d.prepare(
+    `INSERT INTO workflow_approvals
+      (id, run_id, step_id, workflow_id, workflow_name, node_message, step_input, assigned_user_id, mode, status)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  ).run(
+    id,
+    opts.runId,
+    opts.stepId,
+    opts.workflowId,
+    opts.workflowName,
+    opts.nodeMessage ?? null,
+    opts.stepInput ?? null,
+    opts.assignedUserId,
+    opts.mode,
+    opts.mode === "notification" ? "notified" : "pending",
+  );
+  return id;
+}
+
+/**
+ * List pending approval/notification items for a user
+ */
+export function getPendingApprovalsForUser(userDid: string): WorkflowApprovalRow[] {
+  const d = getDb();
+  return d.prepare(
+    "SELECT * FROM workflow_approvals WHERE assigned_user_id = ? AND status IN ('pending','notified') ORDER BY created_at DESC"
+  ).all(userDid) as WorkflowApprovalRow[];
+}
+
+/**
+ * List all approvals for a user (pending + history)
+ */
+export function getAllApprovalsForUser(userDid: string): WorkflowApprovalRow[] {
+  const d = getDb();
+  return d.prepare(
+    "SELECT * FROM workflow_approvals WHERE assigned_user_id = ? ORDER BY created_at DESC"
+  ).all(userDid) as WorkflowApprovalRow[];
+}
+
+/**
+ * List all approvals for a run
+ */
+export function getApprovalsForRun(runId: string): WorkflowApprovalRow[] {
+  const d = getDb();
+  return d.prepare(
+    "SELECT * FROM workflow_approvals WHERE run_id = ? ORDER BY created_at ASC"
+  ).all(runId) as WorkflowApprovalRow[];
+}
+
+/**
+ * Resolve an approval (approve / reject)
+ */
+export function resolveWorkflowApproval(
+  approvalId: string,
+  decidedBy: string,
+  decision: "approved" | "rejected",
+  comment?: string,
+): boolean {
+  const d = getDb();
+  const result = d.prepare(
+    `UPDATE workflow_approvals
+     SET status = ?, decided_at = datetime('now'), decided_by = ?, comment = ?
+     WHERE id = ? AND status = 'pending'`
+  ).run(decision, decidedBy, comment ?? null, approvalId);
+  return (result.changes ?? 0) > 0;
+}
+
+/**
+ * Dismiss a notification
+ */
+export function dismissWorkflowNotification(approvalId: string, userDid: string): boolean {
+  const d = getDb();
+  const result = d.prepare(
+    `UPDATE workflow_approvals SET status = 'dismissed'
+     WHERE id = ? AND assigned_user_id = ? AND mode = 'notification'`
+  ).run(approvalId, userDid);
+  return (result.changes ?? 0) > 0;
+}

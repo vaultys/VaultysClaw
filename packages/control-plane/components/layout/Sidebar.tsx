@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
+import { useSession } from "next-auth/react";
 import {
   LayoutDashboard,
   Users,
@@ -14,6 +16,8 @@ import {
   Globe2,
   Network,
   MessageSquare,
+  Inbox,
+  Workflow,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -22,9 +26,11 @@ const NAV_ITEMS = [
   { href: "/agents", icon: Bot, label: "Agents", exact: false },
   { href: "/registrations", icon: Clock, label: "Registrations", exact: false },
   { href: "/users", icon: Users, label: "Users", exact: false },
+  { href: "/workflows", icon: Workflow, label: "Workflows", exact: false },
   { href: "/realms", icon: Globe2, label: "Realms", exact: false },
   { href: "/graph", icon: Network, label: "Graph", exact: true },
   { href: "/chat", icon: MessageSquare, label: "Chat", exact: false },
+  { href: "/inbox", icon: Inbox, label: "Inbox", exact: false },
   { href: "/server", icon: Server, label: "Server", exact: false },
 ] as const;
 
@@ -43,12 +49,14 @@ function NavLink({
   label,
   active,
   collapsed,
+  badge,
 }: {
   href: string;
   icon: React.ElementType;
   label: string;
   active: boolean;
   collapsed: boolean;
+  badge?: number;
 }) {
   return (
     <Link
@@ -62,14 +70,46 @@ function NavLink({
           : "text-vc-muted hover:text-vc-text hover:bg-vc-raised/50"
       )}
     >
-      <Icon className="w-[18px] h-[18px] shrink-0" />
-      {!collapsed && <span className="truncate">{label}</span>}
+      <div className="relative shrink-0">
+        <Icon className="w-[18px] h-[18px]" />
+        {badge != null && badge > 0 && (
+          <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 bg-amber-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-0.5 leading-none">
+            {badge > 9 ? "9+" : badge}
+          </span>
+        )}
+      </div>
+      {!collapsed && <span className="truncate flex-1">{label}</span>}
+      {!collapsed && badge != null && badge > 0 && (
+        <span className="ml-auto bg-amber-500 text-white text-[10px] font-bold rounded-full px-1.5 py-0.5 leading-none">
+          {badge > 9 ? "9+" : badge}
+        </span>
+      )}
     </Link>
   );
 }
 
+function usePendingCount() {
+  const { status } = useSession();
+  const [count, setCount] = useState(0);
+
+  useEffect(() => {
+    if (status !== "authenticated") return;
+    const fetch_ = () =>
+      fetch("/api/workflow-approvals")
+        .then((r) => r.json())
+        .then((d: { approvals?: { id: string }[] }) => setCount(d.approvals?.length ?? 0))
+        .catch(() => { });
+    fetch_();
+    const id = setInterval(fetch_, 15_000);
+    return () => clearInterval(id);
+  }, [status]);
+
+  return count;
+}
+
 export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const pathname = usePathname();
+  const pendingCount = usePendingCount();
 
   return (
     <aside
@@ -109,6 +149,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
               label={item.label}
               active={active}
               collapsed={collapsed}
+              badge={item.href === "/inbox" ? pendingCount : undefined}
             />
           );
         })}

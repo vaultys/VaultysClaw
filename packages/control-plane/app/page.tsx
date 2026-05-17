@@ -318,6 +318,12 @@ function Dashboard() {
   const totalTokensMonthly = tokenMetrics.monthlyPrompt + tokenMetrics.monthlyCompletion;
   const avgCostPerAgent = onlineCount > 0 ? (tokenMetrics.dailyPrice / onlineCount).toFixed(4) : "0";
 
+  // Calculate projected token usage for the current month
+  const today = new Date();
+  const daysIntoMonth = today.getDate();
+  const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+  const projectedMonthlyTokens = Math.ceil((totalTokensMonthly / daysIntoMonth) * daysInMonth);
+
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
       {/* Page title */}
@@ -425,6 +431,7 @@ function Dashboard() {
           </div>
         </button>
 
+        {isGlobalAdmin && (
         <div className="relative bg-vc-surface rounded-lg border border-vc-border p-5 overflow-hidden">
           <div className="relative z-10">
             <div className="flex items-center gap-2 mb-3">
@@ -437,9 +444,11 @@ function Dashboard() {
             <p className="text-xs text-vc-subtle">{totalTokensDaily.toLocaleString()} tokens</p>
           </div>
         </div>
+        )}
       </div>
 
       {/* Token metrics */}
+      {isGlobalAdmin && (
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="bg-vc-surface rounded-lg border border-vc-border p-5 hover:border-blue-400 dark:hover:border-blue-600 transition-colors">
           <div className="flex items-center gap-2 mb-4">
@@ -508,9 +517,16 @@ function Dashboard() {
                 <span className="text-xs font-semibold text-purple-600 dark:text-purple-400">{totalTokensMonthly.toLocaleString()}</span>
               </div>
             </div>
+            <div className="pt-2 border-t border-vc-border">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-vc-muted">Projected (end of month)</span>
+                <span className="text-xs font-semibold text-purple-500 dark:text-purple-300">{projectedMonthlyTokens.toLocaleString()}</span>
+              </div>
+            </div>
           </div>
         </div>
       </div>
+      )}
 
       {/* Inbox section */}
       <div className="grid lg:grid-cols-2 gap-6">

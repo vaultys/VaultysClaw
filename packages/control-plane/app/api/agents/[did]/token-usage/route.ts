@@ -21,6 +21,9 @@ export async function GET(req: NextRequest, ctx: Ctx) {
     const { did } = await ctx.params;
     const agentDid = decodeURIComponent(did);
 
+    // Token usage is only accessible to owner or admin
+    if (!auth.isGlobalAdmin) return forbidden();
+
     if (!auth.canAccessAgent(agentDid)) return forbidden();
     const { searchParams } = req.nextUrl;
 

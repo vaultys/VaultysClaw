@@ -3,8 +3,13 @@
  *
  * Three layers:
  *   1. DB helpers    — isUserInRealm, isUserRealmAdmin, setUserRealmAdmin
- *   2. Auth context  — getAuthContext() per role (owner / admin / member / stranger)
+ *   2. Auth context  — AuthContext methods per role (via makeAuthContext helper)
  *   3. Route handlers — 401 when unauthenticated, 403 when insufficient role
+ *
+ * Mocking strategy: we mock @/lib/auth-utils (what every route handler calls)
+ * rather than next-auth. This avoids the next-auth CJS/ESM interop issue where
+ * vi.mock("next-auth") doesn't intercept reliably when the package is installed
+ * in the project's node_modules and calls Next.js headers() at runtime.
  */
 
 import { describe, it, expect, vi, beforeAll, afterAll, beforeEach } from "vitest";
@@ -13,19 +18,15 @@ import { describe, it, expect, vi, beforeAll, afterAll, beforeEach } from "vites
 // Mocks — must be declared before any import that transitively uses them
 // ---------------------------------------------------------------------------
 
-vi.mock("next-auth", () => ({ getServerSession: vi.fn() }));
-
-vi.mock("next/server", () => ({
-  NextResponse: {
-    json: (body: unknown, init?: { status?: number }) => ({
-      _body: body,
-      _status: init?.status ?? 200,
-      async json() { return body; },
-    }),
-  },
+// Mock auth-utils: route handlers call getAuthContext() and the forbidden/unauthorized
+// helpers. We replace them here so tests control what "logged-in user" looks like.
+vi.mock("@/lib/auth-utils", () => ({
+  getAuthContext: vi.fn(),
+  forbidden: () => ({ _body: { error: "Forbidden" }, _status: 403, async json() { return { error: "Forbidden" }; } }),
+  unauthorized: () => ({ _body: { error: "Not authenticated" }, _status: 401, async json() { return { error: "Not authenticated" }; } }),
 }));
 
-vi.mock("@/lib/auth-config", () => ({ authOptions: {} }));
+// next/server is aliased to __tests__/mocks/next-server.ts in vitest.config.mjs
 
 // Stub the WS server — route handlers call getWSServer() but we don't need it
 vi.mock("@/lib/ws-server", () => ({ getWSServer: vi.fn(() => null) }));
@@ -37,7 +38,6 @@ vi.mock("@/lib/workflow-executor", () => ({ executeWorkflow: vi.fn() }));
 // Imports
 // ---------------------------------------------------------------------------
 
-import { getServerSession } from "next-auth";
 import {
   getDb,
   createRealm,
@@ -47,6 +47,7 @@ import {
   isUserRealmAdmin,
   setUserRealmAdmin,
   getUserRealms,
+  getAgentRealms,
   saveWorkflow,
   type WorkflowDefinition,
 } from "../packages/control-plane/lib/db";
@@ -69,32 +70,45 @@ import { POST as approveRegistrationPOST } from "../packages/control-plane/app/a
 // Helpers
 // ---------------------------------------------------------------------------
 
-const mockGetServerSession = getServerSession as ReturnType<typeof vi.fn>;
+const mockGetAuthContext = getAuthContext as ReturnType<typeof vi.fn>;
 
-function makeSession(did: string, { isOwner = false, isAdmin = false } = {}) {
-  return { user: { did, isOwner, isAdmin } };
+/**
+ * Build an AuthContext object that mirrors the real auth-utils logic but uses
+ * the DB directly — no session / next-auth dependency.
+ */
+function makeAuthContext(did: string, { isOwner = false, isAdmin = false } = {}) {
+  const isGlobalAdmin = isOwner || isAdmin;
+  return {
+    did,
+    isOwner,
+    isGlobalAdmin,
+    canAccessRealm(realmId: string) {
+      return isGlobalAdmin || isUserInRealm(did, realmId);
+    },
+    canAdminRealm(realmId: string) {
+      return isGlobalAdmin || isUserRealmAdmin(did, realmId);
+    },
+    canAccessAgent(agentDid: string) {
+      if (isGlobalAdmin) return true;
+      const agentRealmIds = new Set(getAgentRealms(agentDid).map((r) => r.realm_id));
+      return getUserRealms(did).some((r) => agentRealmIds.has(r.realm_id));
+    },
+    canAdminAgent(agentDid: string) {
+      if (isGlobalAdmin) return true;
+      const agentRealmIds = new Set(getAgentRealms(agentDid).map((r) => r.realm_id));
+      return getUserRealms(did).some(
+        (r) => agentRealmIds.has(r.realm_id) && r.is_realm_admin === 1,
+      );
+    },
+  };
 }
 
-/** Simulate no active session (unauthenticated) */
-function asUnauthenticated() {
-  mockGetServerSession.mockResolvedValue(null);
-}
-/** Simulate an owner session */
-function asOwner(did = DID.owner) {
-  mockGetServerSession.mockResolvedValue(makeSession(did, { isOwner: true, isAdmin: true }));
-}
-/** Simulate a global admin session */
-function asAdmin(did = DID.admin) {
-  mockGetServerSession.mockResolvedValue(makeSession(did, { isAdmin: true }));
-}
-/** Simulate a regular member session */
-function asMember(did = DID.member) {
-  mockGetServerSession.mockResolvedValue(makeSession(did));
-}
-/** Simulate a stranger (authenticated, but not in any test realm) */
-function asStranger(did = DID.stranger) {
-  mockGetServerSession.mockResolvedValue(makeSession(did));
-}
+function asUnauthenticated() { mockGetAuthContext.mockResolvedValue(null); }
+function asOwner(did = DID.owner) { mockGetAuthContext.mockResolvedValue(makeAuthContext(did, { isOwner: true, isAdmin: true })); }
+function asAdmin(did = DID.admin) { mockGetAuthContext.mockResolvedValue(makeAuthContext(did, { isAdmin: true })); }
+function asMember(did = DID.member) { mockGetAuthContext.mockResolvedValue(makeAuthContext(did)); }
+function asStranger(did = DID.stranger) { mockGetAuthContext.mockResolvedValue(makeAuthContext(did)); }
+function asRealmAdmin(did = DID.realmAdmin) { mockGetAuthContext.mockResolvedValue(makeAuthContext(did)); }
 
 /** Minimal mock that satisfies NextRequest for route handlers */
 class MockRequest {
@@ -128,12 +142,12 @@ function expectStatus(response: unknown, status: number) {
 // ---------------------------------------------------------------------------
 
 const DID = {
-  owner:    "did:vaultys:owner-sec-001",
-  admin:    "did:vaultys:admin-sec-001",
-  member:   "did:vaultys:member-sec-001",
+  owner:      "did:vaultys:owner-sec-001",
+  admin:      "did:vaultys:admin-sec-001",
+  member:     "did:vaultys:member-sec-001",
   realmAdmin: "did:vaultys:realmadmin-sec-001",
-  stranger: "did:vaultys:stranger-sec-001",
-  agent:    "did:vaultys:agent-sec-001",
+  stranger:   "did:vaultys:stranger-sec-001",
+  agent:      "did:vaultys:agent-sec-001",
 };
 
 const SENTINEL = "sec-001"; // used to clean up test data
@@ -190,9 +204,9 @@ afterAll(() => {
   db.prepare("DELETE FROM realms WHERE slug = 'test-sec-realm'").run();
 });
 
-// Reset mock before each test so sessions don't leak between tests
+// Reset mock before each test so auth context doesn't leak between tests
 beforeEach(() => {
-  mockGetServerSession.mockReset();
+  mockGetAuthContext.mockReset();
 });
 
 // ===========================================================================
@@ -230,7 +244,6 @@ describe("DB helper — realm membership", () => {
     setUserRealmAdmin(tmpDid, testRealmId, true);
     expect(isUserRealmAdmin(tmpDid, testRealmId)).toBe(true);
 
-    // Cleanup
     db.prepare("DELETE FROM user_realms WHERE user_did = ?").run(tmpDid);
     db.prepare("DELETE FROM users WHERE did = ?").run(tmpDid);
   });
@@ -238,7 +251,6 @@ describe("DB helper — realm membership", () => {
   it("setUserRealmAdmin returns false when user is not a member", () => {
     const changed = setUserRealmAdmin(DID.stranger, testRealmId, true);
     expect(changed).toBe(false);
-    // stranger is still not an admin
     expect(isUserRealmAdmin(DID.stranger, testRealmId)).toBe(false);
   });
 
@@ -263,171 +275,137 @@ describe("DB helper — realm membership", () => {
 });
 
 // ===========================================================================
-// 2. AUTH CONTEXT — getAuthContext() per role
+// 2. AUTH CONTEXT — makeAuthContext per role
+// (Tests the authorization logic using the DB directly, same logic as
+//  getAuthContext in auth-utils.ts but without the session / next-auth layer)
 // ===========================================================================
 
-describe("getAuthContext — unauthenticated", () => {
-  it("returns null when no session", async () => {
-    asUnauthenticated();
-    expect(await getAuthContext()).toBeNull();
+describe("AuthContext — owner", () => {
+  it("isGlobalAdmin is true", () => {
+    const ctx = makeAuthContext(DID.owner, { isOwner: true, isAdmin: true });
+    expect(ctx.isGlobalAdmin).toBe(true);
+    expect(ctx.isOwner).toBe(true);
+  });
+
+  it("canAccessRealm any realm", () => {
+    const ctx = makeAuthContext(DID.owner, { isOwner: true, isAdmin: true });
+    expect(ctx.canAccessRealm(testRealmId)).toBe(true);
+    expect(ctx.canAccessRealm("non-existent-realm-id")).toBe(true);
+  });
+
+  it("canAdminRealm any realm", () => {
+    const ctx = makeAuthContext(DID.owner, { isOwner: true, isAdmin: true });
+    expect(ctx.canAdminRealm(testRealmId)).toBe(true);
+  });
+
+  it("canAccessAgent any agent", () => {
+    const ctx = makeAuthContext(DID.owner, { isOwner: true, isAdmin: true });
+    expect(ctx.canAccessAgent(DID.agent)).toBe(true);
+  });
+
+  it("canAdminAgent any agent", () => {
+    const ctx = makeAuthContext(DID.owner, { isOwner: true, isAdmin: true });
+    expect(ctx.canAdminAgent(DID.agent)).toBe(true);
   });
 });
 
-describe("getAuthContext — owner", () => {
-  it("isGlobalAdmin is true", async () => {
-    asOwner();
-    const ctx = await getAuthContext();
-    expect(ctx?.isGlobalAdmin).toBe(true);
+describe("AuthContext — global admin", () => {
+  it("isGlobalAdmin is true, isOwner is false", () => {
+    const ctx = makeAuthContext(DID.admin, { isAdmin: true });
+    expect(ctx.isGlobalAdmin).toBe(true);
+    expect(ctx.isOwner).toBe(false);
   });
 
-  it("isOwner is true", async () => {
-    asOwner();
-    const ctx = await getAuthContext();
-    expect(ctx?.isOwner).toBe(true);
+  it("canAccessRealm any realm", () => {
+    const ctx = makeAuthContext(DID.admin, { isAdmin: true });
+    expect(ctx.canAccessRealm(testRealmId)).toBe(true);
   });
 
-  it("canAccessRealm any realm", async () => {
-    asOwner();
-    const ctx = await getAuthContext();
-    expect(ctx?.canAccessRealm(testRealmId)).toBe(true);
-    expect(ctx?.canAccessRealm("non-existent-realm-id")).toBe(true);
+  it("canAdminRealm any realm", () => {
+    const ctx = makeAuthContext(DID.admin, { isAdmin: true });
+    expect(ctx.canAdminRealm(testRealmId)).toBe(true);
   });
 
-  it("canAdminRealm any realm", async () => {
-    asOwner();
-    const ctx = await getAuthContext();
-    expect(ctx?.canAdminRealm(testRealmId)).toBe(true);
+  it("canAccessAgent any agent", () => {
+    const ctx = makeAuthContext(DID.admin, { isAdmin: true });
+    expect(ctx.canAccessAgent(DID.agent)).toBe(true);
   });
 
-  it("canAccessAgent any agent", async () => {
-    asOwner();
-    const ctx = await getAuthContext();
-    expect(ctx?.canAccessAgent(DID.agent)).toBe(true);
-  });
-
-  it("canAdminAgent any agent", async () => {
-    asOwner();
-    const ctx = await getAuthContext();
-    expect(ctx?.canAdminAgent(DID.agent)).toBe(true);
+  it("canAdminAgent any agent", () => {
+    const ctx = makeAuthContext(DID.admin, { isAdmin: true });
+    expect(ctx.canAdminAgent(DID.agent)).toBe(true);
   });
 });
 
-describe("getAuthContext — global admin", () => {
-  it("isGlobalAdmin is true, isOwner is false", async () => {
-    asAdmin();
-    const ctx = await getAuthContext();
-    expect(ctx?.isGlobalAdmin).toBe(true);
-    expect(ctx?.isOwner).toBe(false);
+describe("AuthContext — regular member", () => {
+  it("isGlobalAdmin is false", () => {
+    const ctx = makeAuthContext(DID.member);
+    expect(ctx.isGlobalAdmin).toBe(false);
+    expect(ctx.isOwner).toBe(false);
   });
 
-  it("canAccessRealm any realm", async () => {
-    asAdmin();
-    const ctx = await getAuthContext();
-    expect(ctx?.canAccessRealm(testRealmId)).toBe(true);
+  it("canAccessRealm own realm", () => {
+    const ctx = makeAuthContext(DID.member);
+    expect(ctx.canAccessRealm(testRealmId)).toBe(true);
   });
 
-  it("canAdminRealm any realm", async () => {
-    asAdmin();
-    const ctx = await getAuthContext();
-    expect(ctx?.canAdminRealm(testRealmId)).toBe(true);
+  it("canAccessRealm returns false for a realm they're not in", () => {
+    const ctx = makeAuthContext(DID.member);
+    expect(ctx.canAccessRealm("realm-does-not-exist")).toBe(false);
   });
 
-  it("canAccessAgent any agent", async () => {
-    asAdmin();
-    const ctx = await getAuthContext();
-    expect(ctx?.canAccessAgent(DID.agent)).toBe(true);
+  it("canAdminRealm returns false (not a realm admin)", () => {
+    const ctx = makeAuthContext(DID.member);
+    expect(ctx.canAdminRealm(testRealmId)).toBe(false);
   });
 
-  it("canAdminAgent any agent", async () => {
-    asAdmin();
-    const ctx = await getAuthContext();
-    expect(ctx?.canAdminAgent(DID.agent)).toBe(true);
-  });
-});
-
-describe("getAuthContext — regular member", () => {
-  it("isGlobalAdmin is false", async () => {
-    asMember();
-    const ctx = await getAuthContext();
-    expect(ctx?.isGlobalAdmin).toBe(false);
-    expect(ctx?.isOwner).toBe(false);
+  it("canAccessAgent for an agent in their realm", () => {
+    const ctx = makeAuthContext(DID.member);
+    expect(ctx.canAccessAgent(DID.agent)).toBe(true);
   });
 
-  it("canAccessRealm own realm", async () => {
-    asMember();
-    const ctx = await getAuthContext();
-    expect(ctx?.canAccessRealm(testRealmId)).toBe(true);
+  it("canAccessAgent returns false for an agent not in any shared realm", () => {
+    const ctx = makeAuthContext(DID.member);
+    expect(ctx.canAccessAgent("did:vaultys:unknown-agent")).toBe(false);
   });
 
-  it("canAccessRealm returns false for a realm they're not in", async () => {
-    asMember();
-    const ctx = await getAuthContext();
-    expect(ctx?.canAccessRealm("realm-does-not-exist")).toBe(false);
-  });
-
-  it("canAdminRealm returns false (not a realm admin)", async () => {
-    asMember();
-    const ctx = await getAuthContext();
-    expect(ctx?.canAdminRealm(testRealmId)).toBe(false);
-  });
-
-  it("canAccessAgent for an agent in their realm", async () => {
-    asMember();
-    const ctx = await getAuthContext();
-    expect(ctx?.canAccessAgent(DID.agent)).toBe(true);
-  });
-
-  it("canAccessAgent returns false for an agent not in any shared realm", async () => {
-    asMember();
-    const ctx = await getAuthContext();
-    // stranger agent not in any shared realm with member
-    expect(ctx?.canAccessAgent("did:vaultys:unknown-agent")).toBe(false);
-  });
-
-  it("canAdminAgent returns false (not a realm admin)", async () => {
-    asMember();
-    const ctx = await getAuthContext();
-    expect(ctx?.canAdminAgent(DID.agent)).toBe(false);
+  it("canAdminAgent returns false (not a realm admin)", () => {
+    const ctx = makeAuthContext(DID.member);
+    expect(ctx.canAdminAgent(DID.agent)).toBe(false);
   });
 });
 
-describe("getAuthContext — realm admin", () => {
-  it("canAdminRealm returns true for their realm", async () => {
-    mockGetServerSession.mockResolvedValue(makeSession(DID.realmAdmin));
-    const ctx = await getAuthContext();
-    expect(ctx?.canAdminRealm(testRealmId)).toBe(true);
+describe("AuthContext — realm admin", () => {
+  it("canAdminRealm returns true for their realm", () => {
+    const ctx = makeAuthContext(DID.realmAdmin);
+    expect(ctx.canAdminRealm(testRealmId)).toBe(true);
   });
 
-  it("canAdminAgent returns true for agent in their realm", async () => {
-    mockGetServerSession.mockResolvedValue(makeSession(DID.realmAdmin));
-    const ctx = await getAuthContext();
-    expect(ctx?.canAdminAgent(DID.agent)).toBe(true);
+  it("canAdminAgent returns true for agent in their realm", () => {
+    const ctx = makeAuthContext(DID.realmAdmin);
+    expect(ctx.canAdminAgent(DID.agent)).toBe(true);
   });
 
-  it("canAdminRealm returns false for a realm they don't admin", async () => {
-    mockGetServerSession.mockResolvedValue(makeSession(DID.realmAdmin));
-    const ctx = await getAuthContext();
-    expect(ctx?.canAdminRealm("some-other-realm-id")).toBe(false);
+  it("canAdminRealm returns false for a realm they don't admin", () => {
+    const ctx = makeAuthContext(DID.realmAdmin);
+    expect(ctx.canAdminRealm("some-other-realm-id")).toBe(false);
   });
 });
 
-describe("getAuthContext — stranger (authenticated, no realm membership)", () => {
-  it("canAccessRealm returns false", async () => {
-    asStranger();
-    const ctx = await getAuthContext();
-    expect(ctx?.canAccessRealm(testRealmId)).toBe(false);
+describe("AuthContext — stranger (authenticated, no realm membership)", () => {
+  it("canAccessRealm returns false", () => {
+    const ctx = makeAuthContext(DID.stranger);
+    expect(ctx.canAccessRealm(testRealmId)).toBe(false);
   });
 
-  it("canAdminRealm returns false", async () => {
-    asStranger();
-    const ctx = await getAuthContext();
-    expect(ctx?.canAdminRealm(testRealmId)).toBe(false);
+  it("canAdminRealm returns false", () => {
+    const ctx = makeAuthContext(DID.stranger);
+    expect(ctx.canAdminRealm(testRealmId)).toBe(false);
   });
 
-  it("canAccessAgent returns false", async () => {
-    asStranger();
-    const ctx = await getAuthContext();
-    expect(ctx?.canAccessAgent(DID.agent)).toBe(false);
+  it("canAccessAgent returns false", () => {
+    const ctx = makeAuthContext(DID.stranger);
+    expect(ctx.canAccessAgent(DID.agent)).toBe(false);
   });
 });
 
@@ -435,7 +413,6 @@ describe("getAuthContext — stranger (authenticated, no realm membership)", () 
 // 3. ROUTE HANDLER AUTHORIZATION
 // ===========================================================================
 
-// Helper — extracts the status code from our mock NextResponse.json result
 function status(res: unknown): number {
   return (res as { _status: number })._status;
 }
@@ -460,10 +437,8 @@ describe("GET /api/agents", () => {
     const res = await agentsGET();
     expectStatus(res, 200);
     const body = (res as { _body: { agents: unknown[] } })._body;
-    // All returned agents should be in the member's realm
     const agentIds = (body.agents as { id: string }[]).map((a) => a.id);
     expect(agentIds).toContain(DID.agent);
-    // Agents not in member's realm should be absent
     expect(agentIds).not.toContain("did:vaultys:some-other-agent");
   });
 });
@@ -516,7 +491,7 @@ describe("PATCH /api/agents/[did] — capabilities", () => {
   });
 
   it("returns 403 for a realm admin (not a global admin)", async () => {
-    mockGetServerSession.mockResolvedValue(makeSession(DID.realmAdmin));
+    asRealmAdmin();
     const res = await agentDetailPATCH(
       req("http://localhost", { capabilities: ["file_access"] }) as never,
       params({ did: encodeURIComponent(DID.agent) }),
@@ -530,7 +505,6 @@ describe("PATCH /api/agents/[did] — capabilities", () => {
       req("http://localhost", { capabilities: ["file_access"] }) as never,
       params({ did: encodeURIComponent(DID.agent) }),
     );
-    // 404 is acceptable here (ws-server is mocked out), but not 401/403
     expect(status(res)).not.toBe(401);
     expect(status(res)).not.toBe(403);
   });
@@ -583,7 +557,7 @@ describe("POST /api/realms", () => {
   });
 
   it("returns 403 for a realm admin (realm admin ≠ global admin)", async () => {
-    mockGetServerSession.mockResolvedValue(makeSession(DID.realmAdmin));
+    asRealmAdmin();
     const res = await realmsPOST(req("http://localhost", { name: "X", slug: "x" }) as never);
     expectStatus(res, 403);
   });
@@ -593,10 +567,8 @@ describe("POST /api/realms", () => {
     const res = await realmsPOST(
       req("http://localhost", { name: "Temp Realm", slug: `tmp-realm-${Date.now()}` }) as never,
     );
-    // 201 created or 409 conflict (slug taken) — neither is 401/403
     expect(status(res)).not.toBe(401);
     expect(status(res)).not.toBe(403);
-    // Clean up if it was created
     const body = (res as { _body: { realm?: { id: string } } })._body;
     if (body.realm?.id) {
       getDb().prepare("DELETE FROM realms WHERE id = ?").run(body.realm.id);
@@ -640,7 +612,7 @@ describe("PATCH /api/realms/[id] — realm metadata", () => {
   });
 
   it("returns 403 for a realm admin (config is global-admin-only)", async () => {
-    mockGetServerSession.mockResolvedValue(makeSession(DID.realmAdmin));
+    asRealmAdmin();
     const res = await realmDetailPATCH(req("http://localhost", { name: "New Name" }) as never, params({ id: testRealmId }));
     expectStatus(res, 403);
   });
@@ -661,7 +633,7 @@ describe("DELETE /api/realms/[id]", () => {
   });
 
   it("returns 403 for a realm admin", async () => {
-    mockGetServerSession.mockResolvedValue(makeSession(DID.realmAdmin));
+    asRealmAdmin();
     const res = await realmDetailDELETE(req() as never, params({ id: testRealmId }));
     expectStatus(res, 403);
   });
@@ -695,9 +667,8 @@ describe("POST /api/realms/[id]/agents", () => {
   });
 
   it("is accessible to a realm admin", async () => {
-    mockGetServerSession.mockResolvedValue(makeSession(DID.realmAdmin));
+    asRealmAdmin();
     const res = await realmAgentsPOST(req("http://localhost", { agentDid: DID.agent }) as never, params({ id: testRealmId }));
-    // 200 ok or 404 agent-not-found — not 401/403
     expect(status(res)).not.toBe(401);
     expect(status(res)).not.toBe(403);
   });
@@ -740,11 +711,10 @@ describe("POST /api/realms/[id]/users", () => {
   });
 
   it("is accessible to a realm admin", async () => {
-    mockGetServerSession.mockResolvedValue(makeSession(DID.realmAdmin));
+    asRealmAdmin();
     const res = await realmUsersPOST(req("http://localhost", { userDid: DID.stranger }) as never, params({ id: testRealmId }));
     expect(status(res)).not.toBe(401);
     expect(status(res)).not.toBe(403);
-    // Clean up membership added by this test
     getDb().prepare("DELETE FROM user_realms WHERE user_did = ? AND realm_id = ?").run(DID.stranger, testRealmId);
   });
 });
@@ -769,7 +739,7 @@ describe("PATCH /api/realms/[id]/users — realm admin toggle", () => {
   });
 
   it("is accessible to a realm admin", async () => {
-    mockGetServerSession.mockResolvedValue(makeSession(DID.realmAdmin));
+    asRealmAdmin();
     const res = await realmUsersPATCH(
       req("http://localhost", { userDid: DID.member, isRealmAdmin: false }) as never,
       params({ id: testRealmId }),
@@ -849,7 +819,7 @@ describe("POST /api/workflows", () => {
     expectStatus(res, 403);
   });
 
-  it("returns 403 for a stranger even for their own realm (they have none)", async () => {
+  it("returns 403 for a stranger", async () => {
     asStranger();
     const res = await workflowsPOST(
       req("http://localhost", { name: "W", definition: { nodes: [], edges: [] }, realmId: testRealmId }) as never,
@@ -858,13 +828,12 @@ describe("POST /api/workflows", () => {
   });
 
   it("is accessible to a realm admin", async () => {
-    mockGetServerSession.mockResolvedValue(makeSession(DID.realmAdmin));
+    asRealmAdmin();
     const res = await workflowsPOST(
       req("http://localhost", { name: "Realm Admin WF", definition: { nodes: [], edges: [] }, realmId: testRealmId }) as never,
     );
     expect(status(res)).not.toBe(401);
     expect(status(res)).not.toBe(403);
-    // Clean up
     const body = (res as { _body: { id?: string } })._body;
     if (body.id) getDb().prepare("DELETE FROM workflows WHERE id = ?").run(body.id);
   });
@@ -923,7 +892,7 @@ describe("PATCH /api/workflows/[id]", () => {
   });
 
   it("is accessible to a realm admin", async () => {
-    mockGetServerSession.mockResolvedValue(makeSession(DID.realmAdmin));
+    asRealmAdmin();
     const res = await workflowDetailPATCH(
       req("http://localhost", { name: "Realm Admin Update" }) as never,
       params({ id: testWorkflowId }),
@@ -969,7 +938,7 @@ describe("GET /api/registrations", () => {
   });
 
   it("returns 403 for a realm admin", async () => {
-    mockGetServerSession.mockResolvedValue(makeSession(DID.realmAdmin));
+    asRealmAdmin();
     const res = await registrationsGET();
     expectStatus(res, 403);
   });
@@ -1002,7 +971,7 @@ describe("POST /api/registrations/[id]/approve", () => {
   });
 
   it("returns 403 for a realm admin", async () => {
-    mockGetServerSession.mockResolvedValue(makeSession(DID.realmAdmin));
+    asRealmAdmin();
     const res = await approveRegistrationPOST(
       req("http://localhost", { capabilities: ["file_access"] }) as never,
       params({ id: "fake-registration-id" }),

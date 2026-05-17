@@ -23,6 +23,9 @@ export default defineConfig({
       "ollama-ai-provider-v2": resolve(__dirname, "packages/agent-controller/node_modules/ollama-ai-provider-v2"),
       // bun:sqlite is a Bun built-in — shim it with better-sqlite3 for Node/Vitest
       "bun:sqlite": resolve(__dirname, "packages/agent-controller/src/bun-sqlite-shim.ts"),
+      // next/server uses Next.js CJS internals that vi.mock() can't intercept.
+      // Alias it to a lightweight stub so route-handler tests can inspect responses.
+      "next/server": resolve(__dirname, "__tests__/mocks/next-server.ts"),
     },
   },
   test: {

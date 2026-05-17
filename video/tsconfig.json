@@ -1,0 +1,14 @@
+{
+  "compilerOptions": {
+    "lib": ["dom", "ES2022"],
+    "module": "ESNext",
+    "target": "ES2022",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "outDir": "dist",
+    "jsx": "react",
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true
+  },
+  "include": ["src"]
+}

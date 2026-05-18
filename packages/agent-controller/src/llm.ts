@@ -73,6 +73,22 @@ export function buildModel(config: LlmConfig): any {
         apiKey: config.apiKey ?? "not-required",
         baseURL,
         compatibility: "compatible",
+        // Some servers (e.g. Ollama) reject messages with null content.
+        // Patch outgoing requests to replace null content with "".
+        fetch: async (url, init) => {
+          if (init?.body && typeof init.body === "string") {
+            try {
+              const body = JSON.parse(init.body);
+              if (Array.isArray(body.messages)) {
+                body.messages = body.messages.map((msg: Record<string, unknown>) =>
+                  msg.content == null ? { ...msg, content: "" } : msg,
+                );
+                return fetch(url, { ...init, body: JSON.stringify(body) });
+              }
+            } catch { /* fall through */ }
+          }
+          return fetch(url, init as RequestInit);
+        },
       });
       return client.chat(config.model);
     }

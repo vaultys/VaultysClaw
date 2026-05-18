@@ -7,7 +7,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-config";
-import { getAgent, setAgentLlmConfig } from "@/lib/db";
+import { getAgent, setAgentLlmConfig, getModelRegistryEntry } from "@/lib/db";
 import { getWSServer } from "@/lib/ws-server";
 import type { LlmConfig, LlmProviderType } from "@vaultysclaw/shared";
 
@@ -105,7 +105,26 @@ export async function PUT(
     return NextResponse.json({ error: "Agent not found" }, { status: 404 });
   }
 
-  const body = await req.json().catch(() => null);
+  const body = await req.json().catch(() => null) as Record<string, unknown> | null;
+
+  // Registry model shortcut — resolve full config server-side so the API key never touches the client
+  if (body && typeof body.registryModelId === "string") {
+    const entry = getModelRegistryEntry(body.registryModelId);
+    if (!entry) {
+      return NextResponse.json({ error: "Registry model not found" }, { status: 404 });
+    }
+    const config: LlmConfig = {
+      provider: "openai-compatible",
+      model: entry.model_id,
+      baseUrl: entry.base_url,
+      apiKey: entry.api_key_enc ?? undefined,
+    };
+    setAgentLlmConfig(did, config);
+    const wsServer = getWSServer();
+    const pushed = wsServer?.sendLlmConfig(did, config) ?? false;
+    return NextResponse.json({ ok: true, pushed, config: safeConfig(config) });
+  }
+
   const validation = validateConfig(body);
   if (validation.error || !validation.config) {
     return NextResponse.json({ error: validation.error ?? "Invalid config" }, { status: 400 });

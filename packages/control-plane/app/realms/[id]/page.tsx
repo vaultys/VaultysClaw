@@ -5,7 +5,7 @@ import { useRouter, useParams } from "next/navigation";
 import {
   Globe2, ArrowLeft, Bot, Users, Settings, Trash2,
   ChevronRight, Star, Plus, X, Pencil, Check, Network, GitFork, LayoutTemplate,
-  Puzzle, Lock, AlertCircle
+  Puzzle, Lock, AlertCircle, Cpu, ExternalLink
 } from "lucide-react";
 import Link from "next/link";
 import { useWorkflowStore } from "@/components/workflow/store";
@@ -189,7 +189,9 @@ export default function RealmDetailPage() {
   const [workflows, setWorkflows] = useState<RealmWorkflow[]>([]);
   const [tokenUsage, setTokenUsage] = useState<{ promptTokens: number; completionTokens: number } | null>(null);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<"agents" | "users" | "workflows" | "config" | "org-chart" | "skills">("agents");
+  const [tab, setTab] = useState<"agents" | "users" | "workflows" | "config" | "org-chart" | "skills" | "models">("agents");
+  const [realmModels, setRealmModels] = useState<{ id: string; name: string; provider: string; modelId: string; litellmModelName: string | null; status: string }[]>([]);
+  const [routerKey, setRouterKey] = useState<{ hasVirtualKey: boolean; allowedModels: string[]; monthlyBudgetUsd: number | null } | null>(null);
   const [skills, setSkills] = useState<RealmSkill[]>([]);
   const [addModal, setAddModal] = useState<"agent" | "user" | null>(null);
   const [showTemplateModal, setShowTemplateModal] = useState(false);
@@ -204,9 +206,10 @@ export default function RealmDetailPage() {
   const [saving, setSaving] = useState(false);
 
   const load = useCallback(async () => {
-    const [realmRes, skillsRes] = await Promise.all([
+    const [realmRes, skillsRes, modelsRes] = await Promise.all([
       fetch(`/api/realms/${id}`),
       fetch(`/api/realms/${id}/skills`),
+      fetch(`/api/realms/${id}/models`),
     ]);
     if (realmRes.status === 404) { router.replace("/realms"); return; }
     const data = await realmRes.json() as { realm: Realm; agents: RealmAgent[]; users: RealmUser[]; workflows: RealmWorkflow[]; tokenUsage?: { promptTokens: number; completionTokens: number } | null };
@@ -218,6 +221,11 @@ export default function RealmDetailPage() {
     if (skillsRes.ok) {
       const skillsData = await skillsRes.json() as { skills: RealmSkill[] };
       setSkills(skillsData.skills ?? []);
+    }
+    if (modelsRes.ok) {
+      const modelsData = await modelsRes.json() as { models: typeof realmModels; routerKey: typeof routerKey };
+      setRealmModels(modelsData.models ?? []);
+      setRouterKey(modelsData.routerKey);
     }
     setLoading(false);
   }, [id, router]);
@@ -436,7 +444,7 @@ export default function RealmDetailPage() {
 
       {/* Tabs */}
       <div className="flex gap-1 border-b border-vc-border">
-        {(["agents", "users", "workflows", "skills", "org-chart", "config"] as const).map((t) => (
+        {(["agents", "users", "workflows", "skills", "models", "org-chart", "config"] as const).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -449,6 +457,7 @@ export default function RealmDetailPage() {
             {t === "users" && `Users (${users.length})`}
             {t === "workflows" && `Workflows (${workflows.length})`}
             {t === "skills" && `Skills (${skills.length})`}
+            {t === "models" && `Models (${realmModels.length})`}
             {t === "org-chart" && "Org Chart"}
             {t === "config" && "Config"}
           </button>
@@ -564,6 +573,86 @@ export default function RealmDetailPage() {
       {/* Skills tab */}
       {tab === "skills" && (
         <RealmSkillsTab realmId={id} skills={skills} onChanged={load} />
+      )}
+
+      {/* Models tab */}
+      {tab === "models" && (
+        <div className="space-y-4">
+          {/* Router key status */}
+          <div className="bg-vc-surface border border-vc-border rounded-2xl p-4">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-sm font-semibold text-vc-text flex items-center gap-2">
+                <Cpu className="w-4 h-4 text-indigo-400" /> LiteLLM Router Key
+              </h3>
+              {routerKey?.hasVirtualKey ? (
+                <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-900/40 text-emerald-400 border border-emerald-800 font-medium">Active</span>
+              ) : (
+                <span className="text-xs px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-400 border border-zinc-700 font-medium">Not configured</span>
+              )}
+            </div>
+            <p className="text-xs text-vc-muted">
+              {routerKey?.hasVirtualKey
+                ? `Agents in this realm share a virtual key scoped to ${routerKey.allowedModels.length} model${routerKey.allowedModels.length !== 1 ? "s" : ""}. The key is auto-updated when model access changes.`
+                : "No virtual key yet. Grant access to at least one model to generate a scoped routing key."}
+            </p>
+          </div>
+
+          {/* Model access list */}
+          {realmModels.length === 0 ? (
+            <div className="flex flex-col items-center py-10 text-center">
+              <Cpu className="w-8 h-8 text-vc-ring mb-2" />
+              <p className="text-vc-muted text-sm">No models accessible to this realm.</p>
+              <p className="text-vc-subtle text-xs mt-1 mb-3">Grant access from the Model Registry to route agents here.</p>
+              <a href="/models" className="flex items-center gap-1.5 text-xs text-indigo-400 hover:text-indigo-300 transition-colors">
+                <ExternalLink className="w-3.5 h-3.5" /> Go to Model Registry
+              </a>
+            </div>
+          ) : (
+            <div className="bg-vc-surface border border-vc-border rounded-2xl overflow-hidden">
+              {realmModels.map((m, i) => (
+                <div key={m.id} className={`flex items-center gap-3 px-4 py-3 ${i > 0 ? "border-t border-vc-border/50" : ""}`}>
+                  <div className="w-8 h-8 rounded-lg bg-indigo-600/20 flex items-center justify-center shrink-0">
+                    <Cpu className="w-4 h-4 text-indigo-400" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-vc-text">{m.name}</span>
+                      <span className="text-xs px-1.5 py-0.5 rounded bg-vc-raised text-vc-muted border border-vc-border">{m.provider}</span>
+                    </div>
+                    <code className="text-xs text-vc-subtle font-mono truncate block">{m.modelId}</code>
+                  </div>
+                  <a href={`/models/${m.id}`} className="p-1.5 rounded-lg text-vc-muted hover:text-vc-text transition-colors">
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </a>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Coming soon: budget & rate limits */}
+          <div className="relative">
+            <div className="opacity-40 pointer-events-none select-none">
+              <div className="bg-vc-surface border border-vc-border rounded-2xl p-5 space-y-3">
+                <h3 className="text-sm font-semibold text-vc-text">Budget &amp; Rate Limits</h3>
+                <div className="grid grid-cols-2 gap-3">
+                  {[["Monthly spend cap", "$500 / month"], ["RPM limit", "100 req/min"], ["Alert at", "80% of budget"]].map(([label, val]) => (
+                    <div key={label}>
+                      <p className="text-xs text-vc-muted mb-1">{label}</p>
+                      <div className="h-8 bg-vc-bg border border-vc-border rounded-lg px-3 flex items-center text-sm text-vc-muted">{val}</div>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-xs text-vc-subtle">Enforced by LiteLLM virtual keys — requests rejected once the cap is reached.</p>
+              </div>
+            </div>
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-vc-bg/70 backdrop-blur-[2px] rounded-2xl">
+              <Lock className="w-5 h-5 text-vc-muted" />
+              <p className="text-sm font-semibold text-vc-text">Budget &amp; Rate Limits</p>
+              <p className="text-xs text-vc-muted text-center max-w-xs">Per-realm spend caps and RPM limits — enforced automatically by LiteLLM virtual keys.</p>
+              <span className="text-[10px] font-semibold px-2.5 py-1 rounded-full bg-amber-900/40 text-amber-400 border border-amber-800 uppercase tracking-wide">Coming soon</span>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Config tab */}

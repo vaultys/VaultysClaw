@@ -1016,6 +1016,17 @@ function ConfigTab({ did, reportedLlm }: { did: string; reportedLlm: { provider:
         </div>
       )}
 
+      {/* Realm routing badge */}
+      {llmConfig?.provider === "openai-compatible" && llmConfig?.baseUrl && (
+        <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-indigo-950/40 border border-indigo-800/50">
+          <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-indigo-900/60 text-indigo-300 border border-indigo-700">Realm Routing</span>
+          <span className="text-xs text-vc-muted flex-1">
+            Routed via LiteLLM — model selection and fallback handled centrally.
+          </span>
+          <a href="/models" className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors whitespace-nowrap">Model Registry →</a>
+        </div>
+      )}
+
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-base font-semibold text-vc-text">LLM Configuration</h2>

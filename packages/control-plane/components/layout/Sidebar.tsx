@@ -18,6 +18,7 @@ import {
   MessageSquare,
   Inbox,
   Workflow,
+  Cpu,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useRole } from "@/hooks/useRole";
@@ -29,6 +30,7 @@ const NAV_ITEMS = [
   { href: "/users", icon: Users, label: "Users", exact: false, adminOnly: true },
   { href: "/workflows", icon: Workflow, label: "Workflows", exact: false, adminOnly: false },
   { href: "/realms", icon: Globe2, label: "Realms", exact: false, adminOnly: false },
+  { href: "/models", icon: Cpu, label: "Models", exact: false, adminOnly: false },
   { href: "/graph", icon: Network, label: "Graph", exact: true, adminOnly: false },
   { href: "/chat", icon: MessageSquare, label: "Chat", exact: false, adminOnly: false },
   { href: "/inbox", icon: Inbox, label: "Inbox", exact: false, adminOnly: false },

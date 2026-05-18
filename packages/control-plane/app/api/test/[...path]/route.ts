@@ -178,8 +178,8 @@ export async function POST(
   if (g) return g;
 
   const { path } = await ctx.params;
-  // path[0] = resource, path[1] = id, path[2] = action (for registrations/:id/approve)
-  const [resource, id, action] = path;
+  const [resource, ...rest] = path;
+  const [id, action] = rest;
 
   if (resource === "registrations" && action === "approve") {
     const body = await req.json().catch(() => ({}));
@@ -241,12 +241,10 @@ export async function POST(
     const litellmModelName = `${body.provider}/${slug}`;
     const entry = createModelRegistryEntry({
       name: body.name as string,
-      description: (body.description as string | undefined) ?? null,
+      description: (body.description as string | undefined) ?? undefined,
       provider: body.provider as string,
       modelId: body.modelId as string,
       baseUrl: body.baseUrl as string,
-      apiKeyEnc: null,
-      litellmModelName,
       createdBy: "test-api",
     });
     if (isLiteLLMConfigured()) {

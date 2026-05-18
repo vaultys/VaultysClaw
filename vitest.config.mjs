@@ -34,8 +34,9 @@ export default defineConfig({
     testTimeout: 30000,
     hookTimeout: 30000,
     exclude: [
-      // Docker E2E tests require the docker stack — run with: pnpm test:docker
+      // Docker E2E tests require the docker stack — run with: pnpm test:docker / test:litellm
       "__tests__/docker.test.ts",
+      "__tests__/litellm-docker.test.ts",
       // UI component tests need jsdom + React — run with: pnpm test:components
       "__tests__/ui/**",
       // Exclude worktrees (temporary development directories)

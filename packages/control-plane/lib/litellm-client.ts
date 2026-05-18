@@ -4,27 +4,28 @@
  * Requires LITELLM_BASE_URL and LITELLM_MASTER_KEY env vars.
  */
 
-const BASE_URL = process.env.LITELLM_BASE_URL ?? "";
-const MASTER_KEY = process.env.LITELLM_MASTER_KEY ?? "";
+// Read at call time so tests can override process.env without module-reload
+function getBaseUrl(): string { return process.env.LITELLM_BASE_URL ?? ""; }
+function getMasterKey(): string { return process.env.LITELLM_MASTER_KEY ?? ""; }
 
 export function isLiteLLMConfigured(): boolean {
-  return Boolean(BASE_URL && MASTER_KEY);
+  return Boolean(getBaseUrl() && getMasterKey());
 }
 
 /** Return the configured LiteLLM base URL (undefined when not set). */
 export function getLiteLLMBaseUrl(): string | undefined {
-  return BASE_URL || undefined;
+  return getBaseUrl() || undefined;
 }
 
 async function litellmFetch(path: string, options: RequestInit = {}): Promise<Response> {
   if (!isLiteLLMConfigured()) {
     throw new Error("LiteLLM not configured — set LITELLM_BASE_URL and LITELLM_MASTER_KEY");
   }
-  return fetch(`${BASE_URL}${path}`, {
+  return fetch(`${getBaseUrl()}${path}`, {
     ...options,
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${MASTER_KEY}`,
+      Authorization: `Bearer ${getMasterKey()}`,
       ...options.headers,
     },
   });

@@ -5,9 +5,8 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth-config";
 import { getAgent, setAgentLlmConfig, getModelRegistryEntry, getRealmRouterKey, getModelsByRealm } from "@/lib/db";
+import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
 import { getWSServer } from "@/lib/ws-server";
 import { getLiteLLMBaseUrl } from "@/lib/litellm-client";
 import type { LlmConfig, LlmProviderType } from "@vaultysclaw/shared";
@@ -68,10 +67,9 @@ export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ did: string }> },
 ) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.isAdmin) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const auth = await getAuthContext();
+  if (!auth) return unauthorized();
+  if (!auth.isGlobalAdmin) return forbidden();
 
   const { did } = await params;
   const agent = getAgent(did);
@@ -95,10 +93,9 @@ export async function PUT(
   req: NextRequest,
   { params }: { params: Promise<{ did: string }> },
 ) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.isAdmin) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const auth = await getAuthContext();
+  if (!auth) return unauthorized();
+  if (!auth.isGlobalAdmin) return forbidden();
 
   const { did } = await params;
   const agent = getAgent(did);
@@ -183,10 +180,9 @@ export async function DELETE(
   _req: NextRequest,
   { params }: { params: Promise<{ did: string }> },
 ) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.isAdmin) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const auth = await getAuthContext();
+  if (!auth) return unauthorized();
+  if (!auth.isGlobalAdmin) return forbidden();
 
   const { did } = await params;
   const agent = getAgent(did);

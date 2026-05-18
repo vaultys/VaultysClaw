@@ -109,7 +109,12 @@ describe("Docker E2E — LiteLLM pipeline", () => {
   let agentId: string;
 
   beforeAll(async () => {
-    await execAsync(`docker compose -f ${COMPOSE_FILE} up -d --build --wait`);
+    // Clean up any leftover containers from a previous run before starting
+    await execAsync(`docker compose -f ${COMPOSE_FILE} down -v --remove-orphans`).catch(() => {});
+    // Build separately first — combining --build with --wait can race on Mac/BuildKit
+    // where images aren't loaded into the daemon before container creation starts.
+    await execAsync(`docker compose -f ${COMPOSE_FILE} build`);
+    await execAsync(`docker compose -f ${COMPOSE_FILE} up -d --wait`);
     await waitForTestApi(120_000);
   }, 660_000);
 

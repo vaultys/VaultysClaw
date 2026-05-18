@@ -72,7 +72,7 @@ export async function GET(
     return NextResponse.json(getAllPendingRegistrations());
   }
 
-  if (resource === "agents") {
+  if (resource === "agents" && rest.length === 0) {
     const wsServer = getWSServer();
     const agents = wsServer
       ? wsServer.getConnectedAgents().map((a) => ({

@@ -972,6 +972,28 @@ interface RegistryModel {
   litellmModelName: string | null;
 }
 
+interface RealmLlmModel {
+  id: string;
+  name: string;
+  provider: string;
+  modelId: string;
+  litellmModelName: string | null;
+}
+
+interface RealmLlmRealm {
+  realmId: string;
+  realmName: string;
+  isPrimary: boolean;
+  hasVirtualKey: boolean;
+  models: RealmLlmModel[];
+}
+
+interface RealmLlmData {
+  litellmConfigured: boolean;
+  litellmBaseUrl: string | undefined;
+  realms: RealmLlmRealm[];
+}
+
 const PROVIDER_COLORS: Record<string, string> = {
   openai: "bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400 border-emerald-300 dark:border-emerald-800",
   "openai-compatible": "bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400 border-blue-300 dark:border-blue-800",
@@ -984,10 +1006,13 @@ function ConfigTab({ did, reportedLlm }: { did: string; reportedLlm: { provider:
   const [llmConfig, setLlmConfig] = useState<LlmConfigDisplay | null>(null);
   const [llmLoading, setLlmLoading] = useState(true);
   const [llmEditing, setLlmEditing] = useState(false);
-  const [configMode, setConfigMode] = useState<"registry" | "manual">("registry");
+  const [configMode, setConfigMode] = useState<"realm" | "registry" | "manual">("realm");
   const [registryModels, setRegistryModels] = useState<RegistryModel[]>([]);
   const [registryLoading, setRegistryLoading] = useState(false);
   const [selectedRegistryId, setSelectedRegistryId] = useState("");
+  const [realmLlmData, setRealmLlmData] = useState<RealmLlmData | null>(null);
+  const [selectedRealmId, setSelectedRealmId] = useState("");
+  const [selectedRealmModelId, setSelectedRealmModelId] = useState("");
   const [llmForm, setLlmForm] = useState({
     provider: "openai" as LlmProviderType,
     model: "",
@@ -1003,9 +1028,15 @@ function ConfigTab({ did, reportedLlm }: { did: string; reportedLlm: { provider:
     Promise.all([
       fetch(`/api/agents/${encodeURIComponent(did)}/llm-config`).then((r) => r.json()),
       fetch("/api/models").then((r) => r.json()),
-    ]).then(([configData, modelsData]: [{ config: LlmConfigDisplay | null }, { models?: RegistryModel[] }]) => {
+      fetch(`/api/agents/${encodeURIComponent(did)}/realm-llm`).then((r) => r.json()),
+    ]).then(([configData, modelsData, realmData]: [
+      { config: LlmConfigDisplay | null },
+      { models?: RegistryModel[] },
+      RealmLlmData,
+    ]) => {
       setLlmConfig(configData.config);
       setRegistryModels(modelsData.models ?? []);
+      setRealmLlmData(realmData);
       if (configData.config) {
         setLlmForm({
           provider: configData.config.provider,
@@ -1020,24 +1051,70 @@ function ConfigTab({ did, reportedLlm }: { did: string; reportedLlm: { provider:
   }, [did]);
 
   function openEdit() {
-    // Pre-select mode: if current config matches a registry model, default to registry
     if (llmConfig?.provider === "openai-compatible") {
-      const match = registryModels.find(
-        (m) => m.modelId === llmConfig.model
+      // Check if the current model matches a realm LiteLLM route
+      const realmWithModel = realmLlmData?.realms.find((r) =>
+        r.hasVirtualKey && r.models.some((m) => m.litellmModelName === llmConfig.model),
       );
+      if (realmWithModel) {
+        const realmModel = realmWithModel.models.find((m) => m.litellmModelName === llmConfig.model);
+        setSelectedRealmId(realmWithModel.realmId);
+        setSelectedRealmModelId(realmModel?.id ?? "");
+        setConfigMode("realm");
+        setLlmEditing(true);
+        return;
+      }
+      // Check if it matches a registry model
+      const match = registryModels.find((m) => m.modelId === llmConfig.model);
       if (match) {
         setSelectedRegistryId(match.id);
+        setConfigMode("registry");
+        setLlmEditing(true);
+        return;
+      }
+      setConfigMode("manual");
+    } else if (llmConfig) {
+      setConfigMode("manual");
+    } else {
+      // Default to first available mode
+      const hasRealmRouting = realmLlmData?.realms.some((r) => r.hasVirtualKey && r.models.length > 0);
+      if (hasRealmRouting) {
+        const firstRealm = realmLlmData!.realms.find((r) => r.hasVirtualKey && r.models.length > 0)!;
+        setSelectedRealmId(firstRealm.realmId);
+        setSelectedRealmModelId(firstRealm.models[0]?.id ?? "");
+        setConfigMode("realm");
+      } else if (registryModels.length > 0) {
         setConfigMode("registry");
       } else {
         setConfigMode("manual");
       }
-    } else if (llmConfig) {
-      setConfigMode("manual");
-    } else {
-      setConfigMode(registryModels.length > 0 ? "registry" : "manual");
     }
     setRegistryLoading(false);
     setLlmEditing(true);
+  }
+
+  async function saveRealmRouting() {
+    if (!selectedRealmId || !selectedRealmModelId) return;
+    setLlmSaving(true);
+    setLlmStatus("idle");
+    try {
+      const res = await fetch(`/api/agents/${encodeURIComponent(did)}/llm-config`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ realmId: selectedRealmId, realmModelId: selectedRealmModelId }),
+      });
+      if (res.ok) {
+        const data = await res.json() as { config: LlmConfigDisplay };
+        setLlmConfig(data.config);
+        setLlmEditing(false);
+        setLlmStatus("saved");
+        setTimeout(() => setLlmStatus("idle"), 2500);
+      } else {
+        const data = await res.json().catch(() => ({})) as { error?: string };
+        alert(data.error ?? "Failed to save realm routing config");
+        setLlmStatus("error");
+      }
+    } catch { setLlmStatus("error"); } finally { setLlmSaving(false); }
   }
 
   async function saveRegistryModel() {
@@ -1096,6 +1173,22 @@ function ConfigTab({ did, reportedLlm }: { did: string; reportedLlm: { provider:
     ? registryModels.find((m) => m.modelId === llmConfig.model)
     : null;
 
+  // Detect realm routing: config model matches a litellm_model_name in a realm
+  const activeRealmRoute = llmConfig?.provider === "openai-compatible"
+    ? (() => {
+        for (const realm of realmLlmData?.realms ?? []) {
+          const model = realm.models.find((m) => m.litellmModelName === llmConfig.model);
+          if (model) return { realm, model };
+        }
+        return null;
+      })()
+    : null;
+
+  const hasRealmRouting = Boolean(
+    realmLlmData?.litellmConfigured &&
+    realmLlmData.realms.some((r) => r.hasVirtualKey && r.models.length > 0),
+  );
+
   if (llmLoading) return <p className="text-vc-muted text-sm">Loading…</p>;
 
   return (
@@ -1153,9 +1246,10 @@ function ConfigTab({ did, reportedLlm }: { did: string; reportedLlm: { provider:
             {/* Mode toggle */}
             <div className="flex rounded-lg border border-vc-border overflow-hidden text-sm">
               {[
-                { id: "registry" as const, label: "From Model Registry", disabled: registryModels.length === 0 },
-                { id: "manual" as const, label: "Configure manually" },
-              ].map(({ id, label, disabled }) => (
+                { id: "realm" as const, label: "Realm Routing", disabled: !hasRealmRouting, hint: !realmLlmData?.litellmConfigured ? "LiteLLM not configured" : "no models in realm" },
+                { id: "registry" as const, label: "From Registry", disabled: registryModels.length === 0, hint: "no models registered" },
+                { id: "manual" as const, label: "Configure manually", disabled: false, hint: "" },
+              ].map(({ id, label, disabled, hint }) => (
                 <button
                   key={id}
                   onClick={() => !disabled && setConfigMode(id)}
@@ -1167,14 +1261,81 @@ function ConfigTab({ did, reportedLlm }: { did: string; reportedLlm: { provider:
                         ? "bg-vc-bg text-vc-subtle cursor-not-allowed"
                         : "bg-vc-bg text-vc-muted hover:text-vc-text hover:bg-vc-raised"
                   }`}
+                  title={disabled ? hint : undefined}
                 >
                   {label}
-                  {disabled && <span className="ml-1 opacity-60">(no models registered)</span>}
                 </button>
               ))}
             </div>
 
-            {configMode === "registry" ? (
+            {configMode === "realm" ? (
+              <div className="space-y-3">
+                <p className="text-xs text-vc-muted">
+                  Route this agent through your LiteLLM proxy using a realm-scoped virtual key.
+                  The API key is resolved server-side.
+                </p>
+                {(realmLlmData?.realms ?? [])
+                  .filter((r) => r.hasVirtualKey && r.models.length > 0)
+                  .map((realm) => (
+                    <div key={realm.realmId} className="space-y-1.5">
+                      <div className="flex items-center gap-2 text-xs text-vc-muted font-medium uppercase tracking-wider">
+                        <span>{realm.realmName}</span>
+                        {realm.isPrimary && (
+                          <span className="px-1.5 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-400 border border-indigo-300 dark:border-indigo-700 text-[10px] font-semibold">
+                            Primary
+                          </span>
+                        )}
+                      </div>
+                      {realm.models.map((model) => (
+                        <label
+                          key={model.id}
+                          className={`flex items-center gap-3 px-3 py-3 rounded-xl border cursor-pointer transition-colors ${
+                            selectedRealmId === realm.realmId && selectedRealmModelId === model.id
+                              ? "border-indigo-500 bg-indigo-50 dark:bg-indigo-950/30"
+                              : "border-vc-border hover:border-vc-ring hover:bg-vc-raised/50"
+                          }`}
+                        >
+                          <input
+                            type="radio"
+                            name="realm-model"
+                            checked={selectedRealmId === realm.realmId && selectedRealmModelId === model.id}
+                            onChange={() => { setSelectedRealmId(realm.realmId); setSelectedRealmModelId(model.id); }}
+                            className="accent-indigo-600 shrink-0"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-sm font-medium text-vc-text">{model.name}</span>
+                              <span className={`text-xs px-1.5 py-0.5 rounded-full border font-medium ${PROVIDER_COLORS[model.provider] ?? "bg-gray-100 dark:bg-zinc-800 text-gray-600 dark:text-zinc-400 border-gray-300 dark:border-zinc-700"}`}>
+                                {model.provider}
+                              </span>
+                            </div>
+                            <code className="text-xs text-vc-subtle font-mono">{model.litellmModelName ?? model.modelId}</code>
+                          </div>
+                        </label>
+                      ))}
+                    </div>
+                  ))}
+                <div className="flex items-center gap-3 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => { setLlmEditing(false); setLlmStatus("idle"); }}
+                    className="text-sm text-vc-muted hover:text-vc-text px-3 py-1.5"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    disabled={!selectedRealmId || !selectedRealmModelId || llmSaving}
+                    onClick={saveRealmRouting}
+                    className="px-4 py-1.5 text-sm font-medium rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white disabled:opacity-40 transition"
+                  >
+                    {llmSaving ? "Saving…" : "Use realm routing"}
+                  </button>
+                  <a href="/models" className="text-xs text-vc-muted hover:text-vc-text ml-auto transition-colors">
+                    Manage models →
+                  </a>
+                </div>
+              </div>
+            ) : configMode === "registry" ? (
               <div className="space-y-3">
                 <p className="text-xs text-vc-muted">
                   Select a model from the registry. Endpoint and credentials are resolved server-side.
@@ -1337,8 +1498,21 @@ function ConfigTab({ did, reportedLlm }: { did: string; reportedLlm: { provider:
           </div>
         ) : llmConfig ? (
           <div className="divide-y divide-vc-border">
+            {/* Realm routing banner when applicable */}
+            {activeRealmRoute && (
+              <div className="flex items-center gap-3 px-4 py-3 bg-violet-50 dark:bg-violet-950/30">
+                <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-violet-100 dark:bg-violet-900/60 text-violet-700 dark:text-violet-300 border border-violet-300 dark:border-violet-700 shrink-0">
+                  Realm Routing
+                </span>
+                <span className="text-sm text-vc-text font-medium">{activeRealmRoute.model.name}</span>
+                <span className="text-xs text-vc-muted">via {activeRealmRoute.realm.realmName}</span>
+                <a href={`/models/${activeRealmRoute.model.id}`} className="ml-auto text-xs text-violet-500 hover:text-violet-400 transition-colors shrink-0">
+                  View model →
+                </a>
+              </div>
+            )}
             {/* Registry model banner when applicable */}
-            {activeRegistryModel && (
+            {!activeRealmRoute && activeRegistryModel && (
               <div className="flex items-center gap-3 px-4 py-3 bg-indigo-50 dark:bg-indigo-950/30">
                 <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 border border-indigo-300 dark:border-indigo-700 shrink-0">
                   Registry
@@ -1370,7 +1544,12 @@ function ConfigTab({ did, reportedLlm }: { did: string; reportedLlm: { provider:
               <code className="text-xs bg-vc-raised px-1.5 py-0.5 rounded">LLM_PROVIDER</code>,{" "}
               <code className="text-xs bg-vc-raised px-1.5 py-0.5 rounded">LLM_MODEL</code>, etc.
             </p>
-            {registryModels.length > 0 && (
+            {hasRealmRouting && (
+              <p className="text-xs text-vc-muted mt-2">
+                Realm routing is available — click Configure to route via your LiteLLM proxy.
+              </p>
+            )}
+            {!hasRealmRouting && registryModels.length > 0 && (
               <p className="text-xs text-vc-muted mt-2">
                 {registryModels.length} model{registryModels.length !== 1 ? "s" : ""} available in the registry — click Configure to assign one.
               </p>

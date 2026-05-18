@@ -7,9 +7,38 @@ import {
   getAllRealms,
   getRealmRouterKey,
   upsertRealmRouterKey,
+  getRealmAgents,
+  setAgentLlmConfig,
 } from "@/lib/db";
 import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
-import { createRealmKey, isLiteLLMConfigured } from "@/lib/litellm-client";
+import { createRealmKey, isLiteLLMConfigured, getLiteLLMBaseUrl } from "@/lib/litellm-client";
+import { getWSServer } from "@/lib/ws-server";
+import type { LlmConfig } from "@vaultysclaw/shared";
+
+/** Push a LiteLLM-routed config to all agents currently in a realm. Non-fatal. */
+function pushConfigToRealmAgents(
+  realmId: string,
+  virtualKey: string,
+  litellmModelName: string,
+): void {
+  try {
+    const agents = getRealmAgents(realmId);
+    if (agents.length === 0) return;
+    const config: LlmConfig = {
+      provider: "openai-compatible",
+      baseUrl: getLiteLLMBaseUrl(),
+      apiKey: virtualKey,
+      model: litellmModelName,
+    };
+    const wsServer = getWSServer();
+    for (const agent of agents) {
+      setAgentLlmConfig(agent.agent_did, config);
+      wsServer?.sendLlmConfig(agent.agent_did, config);
+    }
+  } catch (e) {
+    console.warn("pushConfigToRealmAgents failed (non-fatal):", e);
+  }
+}
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -54,7 +83,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
 
     grantModelRealmAccess(id, body.realmId);
 
-    // Update realm router key to include this model
+    // Update realm router key to include this model and push to realm agents
     if (isLiteLLMConfigured() && entry.litellm_model_name) {
       try {
         const existing = getRealmRouterKey(body.realmId);
@@ -63,6 +92,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
           const updatedModels = [...currentModels, entry.litellm_model_name];
           const { virtualKey } = await createRealmKey(body.realmId, updatedModels, existing?.monthly_budget_usd ?? undefined);
           upsertRealmRouterKey(body.realmId, { litellmVirtualKey: virtualKey, allowedModelIds: updatedModels });
+          pushConfigToRealmAgents(body.realmId, virtualKey, entry.litellm_model_name);
         }
       } catch (e) {
         console.warn("LiteLLM realm key update failed (non-fatal):", e);

@@ -11,6 +11,11 @@ export function isLiteLLMConfigured(): boolean {
   return Boolean(BASE_URL && MASTER_KEY);
 }
 
+/** Return the configured LiteLLM base URL (undefined when not set). */
+export function getLiteLLMBaseUrl(): string | undefined {
+  return BASE_URL || undefined;
+}
+
 async function litellmFetch(path: string, options: RequestInit = {}): Promise<Response> {
   if (!isLiteLLMConfigured()) {
     throw new Error("LiteLLM not configured — set LITELLM_BASE_URL and LITELLM_MASTER_KEY");

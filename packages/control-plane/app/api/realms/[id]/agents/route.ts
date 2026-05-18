@@ -1,6 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getRealmById, addAgentToRealm, removeAgentFromRealm, getAgent } from "@/lib/db";
+import {
+  getRealmById,
+  addAgentToRealm,
+  removeAgentFromRealm,
+  getAgent,
+  getRealmRouterKey,
+  getModelsByRealm,
+  setAgentLlmConfig,
+} from "@/lib/db";
 import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
+import { isLiteLLMConfigured, getLiteLLMBaseUrl } from "@/lib/litellm-client";
+import { getWSServer } from "@/lib/ws-server";
+import type { LlmConfig } from "@vaultysclaw/shared";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -26,7 +37,35 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     if (!agent) return NextResponse.json({ error: "Agent not found" }, { status: 404 });
 
     addAgentToRealm(body.agentDid, id, body.isPrimary ?? false);
-    return NextResponse.json({ ok: true });
+
+    // Auto-push LiteLLM config if the realm has a virtual key and accessible models
+    let llmPushed = false;
+    if (isLiteLLMConfigured()) {
+      try {
+        const routerKey = getRealmRouterKey(id);
+        if (routerKey?.litellm_virtual_key) {
+          const models = getModelsByRealm(id).filter(
+            (m) => m.status === "active" && m.litellm_model_name,
+          );
+          const firstModel = models[0];
+          if (firstModel?.litellm_model_name) {
+            const config: LlmConfig = {
+              provider: "openai-compatible",
+              baseUrl: getLiteLLMBaseUrl(),
+              apiKey: routerKey.litellm_virtual_key,
+              model: firstModel.litellm_model_name,
+            };
+            setAgentLlmConfig(body.agentDid, config);
+            const wsServer = getWSServer();
+            llmPushed = wsServer?.sendLlmConfig(body.agentDid, config) ?? false;
+          }
+        }
+      } catch (e) {
+        console.warn("LiteLLM agent config push failed (non-fatal):", e);
+      }
+    }
+
+    return NextResponse.json({ ok: true, llmPushed });
   } catch (err) {
     console.error(err);
     return NextResponse.json({ error: "Failed to add agent to realm" }, { status: 500 });

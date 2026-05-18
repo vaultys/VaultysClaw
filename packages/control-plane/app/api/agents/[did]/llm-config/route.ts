@@ -7,8 +7,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-config";
-import { getAgent, setAgentLlmConfig, getModelRegistryEntry } from "@/lib/db";
+import { getAgent, setAgentLlmConfig, getModelRegistryEntry, getRealmRouterKey, getModelsByRealm } from "@/lib/db";
 import { getWSServer } from "@/lib/ws-server";
+import { getLiteLLMBaseUrl } from "@/lib/litellm-client";
 import type { LlmConfig, LlmProviderType } from "@vaultysclaw/shared";
 
 const VALID_PROVIDERS: LlmProviderType[] = [
@@ -106,6 +107,29 @@ export async function PUT(
   }
 
   const body = await req.json().catch(() => null) as Record<string, unknown> | null;
+
+  // Realm routing shortcut — resolve virtual key + litellm model name server-side
+  if (body && typeof body.realmId === "string" && typeof body.realmModelId === "string") {
+    const routerKey = getRealmRouterKey(body.realmId);
+    if (!routerKey?.litellm_virtual_key) {
+      return NextResponse.json({ error: "Realm has no LiteLLM virtual key configured" }, { status: 400 });
+    }
+    const realmModels = getModelsByRealm(body.realmId);
+    const model = realmModels.find((m) => m.id === body.realmModelId);
+    if (!model?.litellm_model_name) {
+      return NextResponse.json({ error: "Model not found in realm or not registered with LiteLLM" }, { status: 404 });
+    }
+    const config: LlmConfig = {
+      provider: "openai-compatible",
+      baseUrl: getLiteLLMBaseUrl(),
+      apiKey: routerKey.litellm_virtual_key,
+      model: model.litellm_model_name,
+    };
+    setAgentLlmConfig(did, config);
+    const wsServer = getWSServer();
+    const pushed = wsServer?.sendLlmConfig(did, config) ?? false;
+    return NextResponse.json({ ok: true, pushed, config: safeConfig(config) });
+  }
 
   // Registry model shortcut — resolve full config server-side so the API key never touches the client
   if (body && typeof body.registryModelId === "string") {

@@ -7,7 +7,7 @@ import ChatPanel from "./ChatPanel";
 import type {
   AgentInfo, AgentStatus, LogEntry, LlmConfigSafe,
   ToolEntry, SkillEntry, SkillToolEntry, SchemaField,
-  TaskEntry, ScheduleEntry, MemoryEntry, ToolLogEntry,
+  TaskEntry, ScheduleEntry, MemoryEntry, ToolLogEntry, ApprovalEntry,
 } from "../types";
 
 // ---------------------------------------------------------------------------
@@ -220,6 +220,68 @@ function PanelHeader({ title, action }: { title: string; action?: React.ReactNod
     <div className="px-3 py-1.5 bg-canvas-subtle border-b border-border-muted text-[11px] font-bold text-fg-muted uppercase tracking-widest flex items-center flex-shrink-0">
       {title}
       {action && <div className="ml-auto">{action}</div>}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Pending Approvals Banner
+// ---------------------------------------------------------------------------
+
+function ApprovalsBanner() {
+  const [approvals, setApprovals] = useState<ApprovalEntry[]>([]);
+
+  useEffect(() => {
+    const fetchApprovals = () =>
+      fetch("/api/approvals")
+        .then((r) => r.json())
+        .then((d: { approvals?: ApprovalEntry[] }) => setApprovals(d.approvals ?? []))
+        .catch(() => {});
+    fetchApprovals();
+
+    const es = new EventSource("/api/events");
+    es.addEventListener("tool_approval_request", () => fetchApprovals());
+    return () => es.close();
+  }, []);
+
+  const resolve = async (requestId: string, approved: boolean) => {
+    await fetch(`/api/approvals/${encodeURIComponent(requestId)}/resolve`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ approved }),
+    });
+    setApprovals((prev) => prev.filter((a) => a.requestId !== requestId));
+  };
+
+  if (approvals.length === 0) return null;
+
+  return (
+    <div className="flex-shrink-0 border-b border-attention bg-attention-subtle px-4 py-2 space-y-1.5">
+      {approvals.map((a) => (
+        <div key={a.requestId} className="flex items-center gap-3 text-xs">
+          <span className="text-attention font-bold">&#x26A0;</span>
+          <span className="text-fg">
+            Tool approval required: <code className="text-accent font-mono">{a.toolName}</code>
+          </span>
+          <code className="text-fg-muted text-[10px] hidden sm:block truncate max-w-xs">
+            {JSON.stringify(a.args).slice(0, 80)}
+          </code>
+          <div className="ml-auto flex gap-1.5 flex-shrink-0">
+            <button
+              onClick={() => resolve(a.requestId, true)}
+              className="px-2.5 py-0.5 text-[10px] bg-success-emphasis text-white rounded hover:opacity-90 transition-opacity"
+            >
+              Approve
+            </button>
+            <button
+              onClick={() => resolve(a.requestId, false)}
+              className="px-2.5 py-0.5 text-[10px] bg-danger-emphasis text-white rounded hover:opacity-90 transition-opacity"
+            >
+              Reject
+            </button>
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
@@ -485,25 +547,64 @@ function ToolCard({ tool, onInvoke }: { tool: ToolEntry; onInvoke: (t: ToolEntry
 // Skill card
 // ---------------------------------------------------------------------------
 
-function SkillCard({ skill, onInvoke }: { skill: SkillEntry; onInvoke: (t: SkillToolEntry) => void }) {
+function SkillCard({ skill, onInvoke, onToggle }: { skill: SkillEntry; onInvoke: (t: SkillToolEntry) => void; onToggle: (name: string, enabled: boolean) => void }) {
   const [expanded, setExpanded] = useState(false);
   const [expandedTool, setExpandedTool] = useState<string | null>(null);
+  const [toggling, setToggling] = useState(false);
+
+  const handleToggle = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (skill.realmManaged && skill.isRequired) return;
+    setToggling(true);
+    try {
+      await fetch(`/api/skills/${encodeURIComponent(skill.name)}/enabled`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enabled: !skill.enabled }),
+      });
+      onToggle(skill.name, !skill.enabled);
+    } finally {
+      setToggling(false);
+    }
+  };
 
   return (
-    <div className="bg-canvas-subtle border border-border-muted rounded-md overflow-hidden">
+    <div className={`bg-canvas-subtle border rounded-md overflow-hidden ${skill.enabled ? "border-border-muted" : "border-border opacity-60"}`}>
       <div
         className="flex items-start gap-3 px-3 py-2.5 cursor-pointer hover:bg-canvas"
         onClick={() => setExpanded((p) => !p)}
       >
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <span className="text-accent font-mono text-xs font-medium">{skill.name}</span>
             <span className="text-fg-dim text-[10px]">v{skill.version}</span>
+            {skill.realmManaged && (
+              <span className="text-[10px] bg-info-subtle border border-info text-info rounded px-1.5 py-0.5">realm</span>
+            )}
+            {skill.isRequired && (
+              <span className="text-[10px] bg-attention-subtle border border-attention text-attention rounded px-1.5 py-0.5">required</span>
+            )}
             <span className="ml-auto text-fg-muted text-[10px]">{skill.toolCount} tools</span>
           </div>
           <p className="text-fg-muted text-[11px] mt-0.5">{skill.description}</p>
         </div>
-        <span className="text-fg-dim text-[10px] flex-shrink-0">{expanded ? "▲" : "▼"}</span>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {!skill.isRequired && (
+            <button
+              onClick={handleToggle}
+              disabled={toggling}
+              title={skill.realmManaged ? "Managed by realm" : skill.enabled ? "Disable skill" : "Enable skill"}
+              className={`px-2 py-0.5 text-[10px] rounded border transition-colors disabled:opacity-50 ${
+                skill.enabled
+                  ? "border-success text-success hover:bg-danger-subtle hover:text-danger hover:border-danger"
+                  : "border-fg-dim text-fg-muted hover:bg-success-subtle hover:text-success hover:border-success"
+              } ${skill.realmManaged ? "opacity-50 cursor-not-allowed" : ""}`}
+            >
+              {skill.enabled ? "On" : "Off"}
+            </button>
+          )}
+          <span className="text-fg-dim text-[10px]">{expanded ? "▲" : "▼"}</span>
+        </div>
       </div>
 
       {expanded && (
@@ -634,7 +735,14 @@ function ToolsPanel() {
           ) : (
             <div className="space-y-2">
               {skills.map((s) => (
-                <SkillCard key={s.name} skill={s} onInvoke={setInvokeTarget} />
+                <SkillCard
+                  key={s.name}
+                  skill={s}
+                  onInvoke={setInvokeTarget}
+                  onToggle={(name, enabled) =>
+                    setSkills((prev) => prev.map((sk) => sk.name === name ? { ...sk, enabled } : sk))
+                  }
+                />
               ))}
             </div>
           )
@@ -682,6 +790,8 @@ function TasksPanel() {
   const [view, setView] = useState<"tasks" | "schedules">("tasks");
   const [newAction, setNewAction] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [newSchedule, setNewSchedule] = useState({ name: "", cron: "", action: "" });
+  const [scheduleError, setScheduleError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     const [tRes, sRes] = await Promise.all([
@@ -711,6 +821,30 @@ function TasksPanel() {
       body: JSON.stringify({ action: newAction }),
     });
     setNewAction("");
+    refresh();
+  };
+
+  const createSchedule = async () => {
+    setScheduleError(null);
+    if (!newSchedule.name.trim() || !newSchedule.cron.trim() || !newSchedule.action.trim()) {
+      setScheduleError("Name, cron, and action are required");
+      return;
+    }
+    const res = await fetch("/api/schedules", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        id: `schedule-${Date.now()}`,
+        name: newSchedule.name.trim(),
+        cron: newSchedule.cron.trim(),
+        action: newSchedule.action.trim(),
+      }),
+    });
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({ error: "Unknown error" })) as { error: string };
+      setScheduleError(d.error);
+      return;
+    }
+    setNewSchedule({ name: "", cron: "", action: "" });
     refresh();
   };
 
@@ -820,7 +954,35 @@ function TasksPanel() {
         </div>
       )}
       {view === "schedules" && (
-        <div className="flex-1 overflow-y-auto p-3 font-mono text-xs">
+        <div className="flex flex-col flex-1 overflow-hidden">
+          <div className="flex gap-2 p-2 border-b border-border-muted flex-shrink-0 flex-wrap">
+            <input
+              value={newSchedule.name}
+              onChange={(e) => setNewSchedule((p) => ({ ...p, name: e.target.value }))}
+              placeholder="Name"
+              className="w-28 px-2 py-1 text-xs bg-canvas border border-border-muted rounded text-fg placeholder:text-fg-dim outline-none focus:border-accent"
+            />
+            <input
+              value={newSchedule.cron}
+              onChange={(e) => setNewSchedule((p) => ({ ...p, cron: e.target.value }))}
+              placeholder="0 * * * * (cron)"
+              className="w-40 px-2 py-1 text-xs bg-canvas border border-border-muted rounded text-fg placeholder:text-fg-dim outline-none focus:border-accent font-mono"
+            />
+            <input
+              value={newSchedule.action}
+              onChange={(e) => setNewSchedule((p) => ({ ...p, action: e.target.value }))}
+              onKeyDown={(e) => e.key === "Enter" && createSchedule()}
+              placeholder="Action / intent…"
+              className="flex-1 px-2 py-1 text-xs bg-canvas border border-border-muted rounded text-fg placeholder:text-fg-dim outline-none focus:border-accent"
+            />
+            <button onClick={createSchedule} className="px-3 py-1 text-xs bg-accent text-white rounded hover:opacity-90">
+              Add
+            </button>
+            {scheduleError && (
+              <span className="w-full text-[10px] text-danger">{scheduleError}</span>
+            )}
+          </div>
+          <div className="flex-1 overflow-y-auto p-3 font-mono text-xs">
           <table className="w-full text-left">
             <thead>
               <tr className="text-fg-muted border-b border-border-muted">
@@ -858,6 +1020,7 @@ function TasksPanel() {
               )}
             </tbody>
           </table>
+          </div>
         </div>
       )}
     </div>
@@ -1186,6 +1349,7 @@ export default function Dashboard({ did: _did, onLogout }: Props) {
   return (
     <div className="flex flex-col h-full bg-canvas overflow-hidden">
       <TopBar info={info} sseConnected={sseConnected} onLogout={logout} theme={theme} setTheme={setTheme} />
+      <ApprovalsBanner />
       <div className="flex flex-1 overflow-hidden">
         <Sidebar
           activeNav={activeNav}

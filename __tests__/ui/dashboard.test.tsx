@@ -3,9 +3,13 @@
  *
  * Both useAgentData and useChat are mocked — we test:
  *   - loading spinner when info is null
- *   - tab switching (logs / intents / chat)
- *   - top bar shows agent info
+ *   - top bar shows brand + agent name separately
+ *   - active LLM model badge in top bar
+ *   - default tab is "agent" (AgentOverview)
+ *   - tab switching (agent / chat / runs / logs)
  *   - logout button fires callback
+ *   - capability badges in sidebar
+ *   - pending-runs badge on Runs nav item
  */
 
 import React from "react";
@@ -26,6 +30,9 @@ const AGENT_INFO = {
   activeLlmProvider: "openai",
   activeLlmModel: "gpt-4o-mini",
   version: "0.0.1",
+  recentLogs: [],
+  recentIntents: [],
+  lastHeartbeat: null,
 };
 
 vi.mock("@webapp/hooks/useAgentData", () => ({
@@ -49,11 +56,17 @@ vi.mock("@webapp/hooks/useChat", () => ({
   }),
 }));
 
-// Stub fetch for LlmConfigPanel (it fetches /api/config/llm on mount)
+// Stub fetch for SettingsPanel (/api/config/llm), ToolsPanel, MemoryPanel, TasksPanel, ApprovalsPanel
 vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
   ok: true,
-  json: () => Promise.resolve({ config: null }),
+  json: () => Promise.resolve({ none: true, tools: [], skills: [], entries: [], tasks: [], schedules: [], memories: [], approvals: [] }),
 }));
+
+// Stub EventSource (used by ApprovalsBanner and TasksPanel)
+vi.stubGlobal("EventSource", class {
+  addEventListener() {}
+  close() {}
+});
 
 import Dashboard from "../../packages/agent-controller/web-app/src/pages/Dashboard";
 import { useAgentData } from "../../packages/agent-controller/web-app/src/hooks/useAgentData";
@@ -62,8 +75,7 @@ const onLogout = vi.fn();
 
 beforeEach(() => {
   vi.clearAllMocks();
-  // Reset to default info
-  (vi.mocked(useAgentData) as any).mockReturnValue({
+  (vi.mocked(useAgentData) as ReturnType<typeof vi.fn>).mockReturnValue({
     info: AGENT_INFO,
     logs: [{ ts: "2026-05-04T10:00:00Z", level: "info", message: "Started" }],
     intents: [],
@@ -85,48 +97,57 @@ describe("Dashboard", () => {
     });
 
     const { container } = render(<Dashboard did="did:test" onLogout={onLogout} />);
-    // Spinner is an animated div — no text content
     expect(container.querySelector(".animate-spin")).toBeInTheDocument();
   });
 
-  it("renders the agent name and status in the top bar", () => {
+  it("renders the VaultysClaw brand and agent name separately in the top bar", () => {
     render(<Dashboard did="did:test" onLogout={onLogout} />);
-    expect(screen.getByText("VaultysClaw Agent")).toBeInTheDocument();
+    expect(screen.getByText("VaultysClaw")).toBeInTheDocument();
+    expect(screen.getByText("Test Agent")).toBeInTheDocument();
+  });
+
+  it("renders the connected status", () => {
+    render(<Dashboard did="did:test" onLogout={onLogout} />);
     expect(screen.getByText("connected")).toBeInTheDocument();
   });
 
-  it("renders the LLM info", () => {
+  it("renders the LLM model badge", () => {
     render(<Dashboard did="did:test" onLogout={onLogout} />);
     expect(screen.getByText("openai/gpt-4o-mini")).toBeInTheDocument();
   });
 
-  it("defaults to the logs tab", () => {
+  it("defaults to the Agent tab (shows AgentOverview)", async () => {
     render(<Dashboard did="did:test" onLogout={onLogout} />);
-    // The log entry text should be visible
+    // AgentOverview is the default panel — the log entry text should NOT be visible
+    // (that's in the Logs panel which is a different tab)
+    const agentTab = screen.getByRole("button", { name: /^agent$/i });
+    expect(agentTab.className).toContain("text-fg");
+  });
+
+  it("switches to the Logs tab and shows log entries", async () => {
+    render(<Dashboard did="did:test" onLogout={onLogout} />);
+    const logsTab = screen.getByRole("button", { name: /^logs$/i });
+    await userEvent.click(logsTab);
     expect(screen.getByText("Started")).toBeInTheDocument();
   });
 
-  it("switches to the chat tab when clicked", async () => {
+  it("switches to the Chat tab", async () => {
     render(<Dashboard did="did:test" onLogout={onLogout} />);
-    const chatTab = screen.getByRole("button", { name: /chat/i });
+    const chatTab = screen.getByRole("button", { name: /^chat$/i });
     await userEvent.click(chatTab);
-
     // ChatPanel shows the empty-state text
     expect(screen.getByText(/send a message/i)).toBeInTheDocument();
-    // Log entry should be gone
-    expect(screen.queryByText("Started")).not.toBeInTheDocument();
   });
 
-  it("switches to intents tab", async () => {
+  it("switches to the Runs tab", async () => {
     render(<Dashboard did="did:test" onLogout={onLogout} />);
-    const intentsTab = screen.getByRole("button", { name: /intents/i });
-    await userEvent.click(intentsTab);
-
-    // Logs should not be visible
+    const runsTab = screen.getByRole("button", { name: /^runs$/i });
+    await userEvent.click(runsTab);
+    // Logs entry should not be visible in the Runs panel
     expect(screen.queryByText("Started")).not.toBeInTheDocument();
   });
 
-  it("renders capability badges", () => {
+  it("renders capability badges in the sidebar", () => {
     render(<Dashboard did="did:test" onLogout={onLogout} />);
     expect(screen.getByText("cap_a")).toBeInTheDocument();
     expect(screen.getByText("cap_b")).toBeInTheDocument();
@@ -137,5 +158,18 @@ describe("Dashboard", () => {
     const logoutBtn = screen.getByRole("button", { name: /log out/i });
     await userEvent.click(logoutBtn);
     expect(onLogout).toHaveBeenCalledOnce();
+  });
+
+  it("shows a pending-runs badge when there are pending intents", () => {
+    (vi.mocked(useAgentData) as ReturnType<typeof vi.fn>).mockReturnValue({
+      info: AGENT_INFO,
+      logs: [],
+      intents: [{ intentId: "i1", action: "test", params: {}, status: "pending", receivedAt: new Date().toISOString() }],
+      sseConnected: true,
+    });
+
+    render(<Dashboard did="did:test" onLogout={onLogout} />);
+    // Badge "1" should appear next to the Runs nav item
+    expect(screen.getByText("1")).toBeInTheDocument();
   });
 });

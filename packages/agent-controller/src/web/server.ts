@@ -200,7 +200,7 @@ export function startWebServer({ port, agent }: WebServerOptions): http.Server {
     }
   }
 
-  const agentEvents = ["status_changed", "log", "heartbeat", "intent_received", "intent_result", "config_updated", "task_update"];
+  const agentEvents = ["status_changed", "log", "heartbeat", "intent_received", "intent_result", "config_updated", "task_update", "tool_approval_request"];
   for (const ev of agentEvents) agent.on(ev, (data: unknown) => broadcast(ev, data));
   const infoTimer = setInterval(() => broadcast("info", agent.getInfo()), 5000);
 
@@ -567,6 +567,52 @@ export function startWebServer({ port, agent }: WebServerOptions): http.Server {
         if (!memId) return jsonResponse(res, 400, { error: "Memory ID required" });
         agent.deleteMemory(decodeURIComponent(memId));
         return jsonResponse(res, 200, { ok: true });
+      }
+
+      // ---- Skill toggle ----
+
+      const skillToggleMatch = pathname.match(/^\/api\/skills\/([^/]+)\/enabled$/);
+      if (skillToggleMatch && method === "PUT") {
+        const skillName = decodeURIComponent(skillToggleMatch[1]);
+        let body: unknown;
+        try { body = JSON.parse(await readBody(req)); } catch {
+          return jsonResponse(res, 400, { error: "Invalid JSON body" });
+        }
+        const { enabled } = body as Record<string, unknown>;
+        if (typeof enabled !== "boolean") {
+          return jsonResponse(res, 400, { error: "enabled must be a boolean" });
+        }
+        try {
+          agent.toggleSkillEnabled(skillName, enabled);
+          return jsonResponse(res, 200, { ok: true, skillName, enabled });
+        } catch (err) {
+          return jsonResponse(res, 400, { error: err instanceof Error ? err.message : String(err) });
+        }
+      }
+
+      // ---- Tool approvals ----
+
+      if (pathname === "/api/approvals" && method === "GET") {
+        return jsonResponse(res, 200, { approvals: agent.getPendingApprovals() });
+      }
+
+      const approvalMatch = pathname.match(/^\/api\/approvals\/([^/]+)\/resolve$/);
+      if (approvalMatch && method === "POST") {
+        const requestId = decodeURIComponent(approvalMatch[1]);
+        let body: unknown;
+        try { body = JSON.parse(await readBody(req)); } catch {
+          return jsonResponse(res, 400, { error: "Invalid JSON body" });
+        }
+        const { approved } = body as Record<string, unknown>;
+        if (typeof approved !== "boolean") {
+          return jsonResponse(res, 400, { error: "approved must be a boolean" });
+        }
+        try {
+          agent.resolveApproval(requestId, approved);
+          return jsonResponse(res, 200, { ok: true });
+        } catch (err) {
+          return jsonResponse(res, 404, { error: err instanceof Error ? err.message : String(err) });
+        }
       }
 
       res.writeHead(404, { "Content-Type": "text/plain" });

@@ -230,6 +230,7 @@ export class Agent extends EventEmitter {
   /** Skill filter pushed by the control plane. null = no filter (use all local skills). */
   private realmSkillFilter: SkillConfig[] | null = null;
   private pendingApprovals = new Map<string, { resolve: (approved: boolean) => void; timer: ReturnType<typeof setTimeout> }>();
+  private _pendingApprovalsMeta: Array<{ requestId: string; toolName: string; args: Record<string, unknown>; conversationId?: string; requestedAt: string }> = [];
   private static readonly DEFAULT_APPROVAL_TIMEOUT_MS = 600_000; // 10 minutes
 
   // Task queue & scheduler
@@ -475,6 +476,50 @@ export class Agent extends EventEmitter {
   removeSchedule(id: string): void {
     if (!this.scheduler) return;
     this.scheduler.removeSchedule(id);
+  }
+
+  /**
+   * Toggle a skill on or off from the web dashboard.
+   * Realm-managed skills (pushed by the control plane) cannot be changed locally.
+   */
+  toggleSkillEnabled(skillName: string, enabled: boolean): void {
+    if (!this.skillLoader) return;
+    const skill = this.skillLoader.lastRegistry.skills.find((s) => s.name === skillName);
+    if (!skill) throw new Error(`Unknown skill: ${skillName}`);
+
+    // Realm-managed skills are controlled by the control plane, not locally.
+    if (this.realmSkillFilter) {
+      const entry = this.realmSkillFilter.find((s) => s.name === skillName);
+      if (entry?.isRequired) throw new Error(`Skill "${skillName}" is required by the realm and cannot be disabled`);
+    }
+
+    // Update or create a local filter entry
+    if (!this.realmSkillFilter) this.realmSkillFilter = [];
+    const existing = this.realmSkillFilter.find((s) => s.name === skillName);
+    if (existing) {
+      existing.enabled = enabled;
+    } else {
+      this.realmSkillFilter.push({ name: skillName, enabled, isRequired: false });
+    }
+
+    this.rebuildToolRegistry(this.skillLoader.lastRegistry);
+    this.log("info", `Skill "${skillName}" ${enabled ? "enabled" : "disabled"} by dashboard user`);
+  }
+
+  /** List currently pending tool-approval requests. */
+  getPendingApprovals(): Array<{ requestId: string; toolName: string; args: Record<string, unknown>; conversationId?: string; requestedAt: string }> {
+    return this._pendingApprovalsMeta;
+  }
+
+  /** Resolve a pending tool-approval request from the web dashboard. */
+  resolveApproval(requestId: string, approved: boolean): void {
+    const pending = this.pendingApprovals.get(requestId);
+    if (!pending) throw new Error(`No pending approval with id: ${requestId}`);
+    clearTimeout(pending.timer);
+    this.pendingApprovals.delete(requestId);
+    this._pendingApprovalsMeta = this._pendingApprovalsMeta.filter((m) => m.requestId !== requestId);
+    this.log("info", `Tool approval ${approved ? "granted" : "rejected"} by dashboard user: ${requestId}`);
+    pending.resolve(approved);
   }
 
   /** Get the capability-filtered Mastra tool map for use in the web dashboard chat. */
@@ -1067,11 +1112,22 @@ export class Agent extends EventEmitter {
       // Set up timeout — auto-reject after timeoutMs
       const timer = setTimeout(() => {
         this.pendingApprovals.delete(request.requestId);
+        this._pendingApprovalsMeta = this._pendingApprovalsMeta.filter((m) => m.requestId !== request.requestId);
         this.log("warn", `Tool approval timed out: ${request.toolName} (${request.requestId})`);
         resolve(false);
       }, timeoutMs);
 
       this.pendingApprovals.set(request.requestId, { resolve, timer });
+
+      const meta = {
+        requestId: request.requestId,
+        toolName: request.toolName,
+        args: request.args,
+        conversationId,
+        requestedAt: new Date().toISOString(),
+      };
+      this._pendingApprovalsMeta.push(meta);
+      this.emit("tool_approval_request", meta);
 
       // Send approval request to control plane
       this.send({
@@ -1105,6 +1161,7 @@ export class Agent extends EventEmitter {
 
     clearTimeout(pending.timer);
     this.pendingApprovals.delete(payload.requestId);
+    this._pendingApprovalsMeta = this._pendingApprovalsMeta.filter((m) => m.requestId !== payload.requestId);
 
     this.log("info", `Tool approval ${payload.approved ? "granted" : "rejected"}: ${payload.requestId}${payload.reason ? ` (${payload.reason})` : ""}`);
     pending.resolve(payload.approved);

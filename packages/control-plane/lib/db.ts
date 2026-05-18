@@ -327,6 +327,20 @@ function createTables(db: Database.Database): void {
     );
     CREATE INDEX IF NOT EXISTS idx_workflow_approvals_user ON workflow_approvals(assigned_user_id, status);
     CREATE INDEX IF NOT EXISTS idx_workflow_approvals_run ON workflow_approvals(run_id);
+
+    CREATE TABLE IF NOT EXISTS intent_log (
+      intent_id TEXT PRIMARY KEY,
+      agent_did TEXT,
+      action TEXT NOT NULL,
+      params TEXT,
+      status TEXT NOT NULL DEFAULT 'pending',
+      output TEXT,
+      error TEXT,
+      sent_at TEXT NOT NULL DEFAULT (datetime('now')),
+      completed_at TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_intent_log_agent ON intent_log(agent_did, sent_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_intent_log_status ON intent_log(status, sent_at DESC);
   `);
 }
 
@@ -635,6 +649,46 @@ export function getActivityLogByEvent(event: string, limit: number = 50): Activi
   return d
     .prepare("SELECT * FROM activity_log WHERE event = ? ORDER BY created_at DESC LIMIT ?")
     .all(event, limit) as ActivityLogRow[];
+}
+
+// --- Intent log ---
+
+export interface IntentLogRow {
+  intent_id: string;
+  agent_did: string | null;
+  action: string;
+  params: string | null;
+  status: string;
+  output: string | null;
+  error: string | null;
+  sent_at: string;
+  completed_at: string | null;
+}
+
+export function logIntent(intentId: string, agentDid: string | undefined, action: string, params: Record<string, unknown>): void {
+  const d = getDb();
+  d.prepare(
+    "INSERT OR IGNORE INTO intent_log (intent_id, agent_did, action, params) VALUES (?, ?, ?, ?)"
+  ).run(intentId, agentDid ?? null, action, JSON.stringify(params));
+}
+
+export function updateIntentResult(intentId: string, status: "success" | "failed", output?: unknown, error?: string): void {
+  const d = getDb();
+  d.prepare(
+    "UPDATE intent_log SET status = ?, output = ?, error = ?, completed_at = datetime('now') WHERE intent_id = ?"
+  ).run(status, output !== undefined ? JSON.stringify(output) : null, error ?? null, intentId);
+}
+
+export function getIntentLog(limit: number = 100, agentDid?: string): IntentLogRow[] {
+  const d = getDb();
+  if (agentDid) {
+    return d
+      .prepare("SELECT * FROM intent_log WHERE agent_did = ? ORDER BY sent_at DESC LIMIT ?")
+      .all(agentDid, limit) as IntentLogRow[];
+  }
+  return d
+    .prepare("SELECT * FROM intent_log ORDER BY sent_at DESC LIMIT ?")
+    .all(limit) as IntentLogRow[];
 }
 
 // --- Pending registrations ---

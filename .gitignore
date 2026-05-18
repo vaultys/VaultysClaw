@@ -51,3 +51,4 @@ pnpm-debug.log*
 # Turbo
 .turbo
 demo/.demo-pids
+/.claude

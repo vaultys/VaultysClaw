@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-config";
 import { GrantDao } from "@/lib/grant-dao";
 import { getWSServer } from "@/lib/ws-server";
+import { getIntentLog } from "@/lib/db";
 
 /**
  * POST /api/intents
@@ -114,16 +115,33 @@ export async function POST(request: NextRequest) {
 
 /**
  * GET /api/intents
- * List recent intents (placeholder)
+ * List recent intents with their execution results. Admin only.
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    // TODO: Query SQLite for recent intents with results
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
-    return NextResponse.json({
-      intents: [],
-      message: "Intent history tracking coming soon",
-    });
+    const { searchParams } = new URL(request.url);
+    const limit = Math.min(parseInt(searchParams.get("limit") ?? "100", 10), 500);
+    const agentDid = searchParams.get("agentDid") ?? undefined;
+
+    const rows = getIntentLog(limit, agentDid);
+    const intents = rows.map((r) => ({
+      intentId: r.intent_id,
+      agentDid: r.agent_did,
+      action: r.action,
+      params: r.params ? JSON.parse(r.params) : {},
+      status: r.status,
+      output: r.output ? JSON.parse(r.output) : null,
+      error: r.error,
+      sentAt: r.sent_at,
+      completedAt: r.completed_at,
+    }));
+
+    return NextResponse.json({ intents });
   } catch (error) {
     return NextResponse.json(
       { error: "Failed to fetch intents" },

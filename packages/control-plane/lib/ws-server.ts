@@ -36,6 +36,8 @@ import {
   updateAgentLastSeen,
   deleteExpiredAuthSessions,
   logActivity,
+  logIntent,
+  updateIntentResult,
   createPendingRegistration,
   updatePendingRegistration,
   deletePendingRegistration,
@@ -555,6 +557,16 @@ export class AgentWSServer {
         agentId ? this.agents.get(agentId)?.name : undefined,
         JSON.stringify({ intentId: payload.intentId, status: payload.status, output: payload.output }),
       );
+      if (payload.intentId) {
+        try {
+          updateIntentResult(
+            payload.intentId,
+            payload.status === "success" ? "success" : "failed",
+            payload.output,
+            typeof payload.error === "string" ? payload.error : undefined,
+          );
+        } catch { /* non-fatal — intent may not have been logged (e.g. peer-originated) */ }
+      }
     } catch (error) {
       logger.error(error, "Error handling execution result");
     }
@@ -1195,6 +1207,7 @@ export class AgentWSServer {
     try {
       agent.ws.send(JSON.stringify(message));
       logger.info({ agentId, intentId, action }, "Intent sent to agent");
+      try { logIntent(intentId, agentId, action, params); } catch { /* non-fatal */ }
       return true;
     } catch (error) {
       logger.error(error, "Failed to send intent to agent");

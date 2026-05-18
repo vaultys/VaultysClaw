@@ -54,7 +54,7 @@ function ComingSoonOverlay({ title, description, children }: {
           <p className="text-sm font-semibold text-vc-text">{title}</p>
           <p className="text-xs text-vc-muted max-w-xs mt-1">{description}</p>
         </div>
-        <span className="text-[10px] font-semibold px-2.5 py-1 rounded-full bg-amber-900/40 text-amber-400 border border-amber-800 uppercase tracking-wide">
+        <span className="text-[10px] font-semibold px-2.5 py-1 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 border border-amber-300 dark:border-amber-800 uppercase tracking-wide">
           Coming soon
         </span>
       </div>
@@ -196,7 +196,7 @@ function OverviewTab({ model, onSaved, isAdmin }: {
           <p className="text-xs text-vc-muted">Click "Test connection" to verify the endpoint is reachable.</p>
         ) : validateResult.ok ? (
           <div className="space-y-2">
-            <div className="flex items-center gap-2 text-emerald-400 text-sm">
+            <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 text-sm">
               <CheckCircle2 className="w-4 h-4" />
               Endpoint reachable
             </div>
@@ -322,7 +322,7 @@ function DeploymentTab() {
           ))}
         </div>
         <div className="flex items-center gap-2">
-          <div className="flex-1 h-9 rounded-xl bg-indigo-600/30 border border-indigo-800 flex items-center justify-center text-sm text-indigo-300 font-medium">
+          <div className="flex-1 h-9 rounded-xl bg-indigo-100 dark:bg-indigo-600/30 border border-indigo-300 dark:border-indigo-800 flex items-center justify-center text-sm text-indigo-400 dark:text-indigo-300 font-medium">
             Deploy to Kubernetes
           </div>
         </div>
@@ -361,7 +361,7 @@ function TrainingTab() {
           <span>Estimated cost: ~$4.20 on g5.2xlarge</span>
           <span>Est. time: ~45 min</span>
         </div>
-        <div className="h-9 rounded-xl bg-indigo-600/30 border border-indigo-800 flex items-center justify-center text-sm text-indigo-300 font-medium">
+        <div className="h-9 rounded-xl bg-indigo-100 dark:bg-indigo-600/30 border border-indigo-300 dark:border-indigo-800 flex items-center justify-center text-sm text-indigo-400 dark:text-indigo-300 font-medium">
           Start Fine-Tuning
         </div>
       </div>
@@ -415,11 +415,11 @@ export default function ModelDetailPage() {
           </div>
           <div className="ml-auto flex items-center gap-2 shrink-0">
             {model.status === "active" ? (
-              <span className="flex items-center gap-1 text-emerald-400 text-xs font-medium">
+              <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 text-xs font-medium">
                 <CheckCircle2 className="w-3.5 h-3.5" /> Active
               </span>
             ) : (
-              <span className="flex items-center gap-1 text-zinc-500 text-xs font-medium">
+              <span className="flex items-center gap-1 text-zinc-500 dark:text-zinc-500 text-xs font-medium">
                 <XCircle className="w-3.5 h-3.5" /> Inactive
               </span>
             )}
@@ -451,7 +451,7 @@ export default function ModelDetailPage() {
             <Icon className="w-3.5 h-3.5" />
             {label}
             {comingSoon && (
-              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-amber-900/40 text-amber-500 border border-amber-800 uppercase tracking-wide leading-none">
+              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-500 border border-amber-300 dark:border-amber-800 uppercase tracking-wide leading-none">
                 Soon
               </span>
             )}

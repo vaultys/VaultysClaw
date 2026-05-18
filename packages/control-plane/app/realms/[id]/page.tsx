@@ -585,9 +585,9 @@ export default function RealmDetailPage() {
                 <Cpu className="w-4 h-4 text-indigo-400" /> LiteLLM Router Key
               </h3>
               {routerKey?.hasVirtualKey ? (
-                <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-900/40 text-emerald-400 border border-emerald-800 font-medium">Active</span>
+                <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400 border border-emerald-300 dark:border-emerald-800 font-medium">Active</span>
               ) : (
-                <span className="text-xs px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-400 border border-zinc-700 font-medium">Not configured</span>
+                <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 dark:bg-zinc-800 text-gray-500 dark:text-zinc-400 border border-gray-300 dark:border-zinc-700 font-medium">Not configured</span>
               )}
             </div>
             <p className="text-xs text-vc-muted">
@@ -649,7 +649,7 @@ export default function RealmDetailPage() {
               <Lock className="w-5 h-5 text-vc-muted" />
               <p className="text-sm font-semibold text-vc-text">Budget &amp; Rate Limits</p>
               <p className="text-xs text-vc-muted text-center max-w-xs">Per-realm spend caps and RPM limits — enforced automatically by LiteLLM virtual keys.</p>
-              <span className="text-[10px] font-semibold px-2.5 py-1 rounded-full bg-amber-900/40 text-amber-400 border border-amber-800 uppercase tracking-wide">Coming soon</span>
+              <span className="text-[10px] font-semibold px-2.5 py-1 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 border border-amber-300 dark:border-amber-800 uppercase tracking-wide">Coming soon</span>
             </div>
           </div>
         </div>

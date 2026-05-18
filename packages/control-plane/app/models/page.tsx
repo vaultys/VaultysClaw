@@ -28,14 +28,14 @@ const PROVIDERS = [
 
 function ProviderBadge({ provider }: { provider: string }) {
   const colors: Record<string, string> = {
-    openai: "bg-emerald-900/40 text-emerald-400 border-emerald-800",
-    "openai-compatible": "bg-blue-900/40 text-blue-400 border-blue-800",
-    anthropic: "bg-orange-900/40 text-orange-400 border-orange-800",
-    google: "bg-yellow-900/40 text-yellow-400 border-yellow-800",
-    ollama: "bg-purple-900/40 text-purple-400 border-purple-800",
+    openai: "bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400 border-emerald-300 dark:border-emerald-800",
+    "openai-compatible": "bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400 border-blue-300 dark:border-blue-800",
+    anthropic: "bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-400 border-orange-300 dark:border-orange-800",
+    google: "bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700 dark:text-yellow-400 border-yellow-300 dark:border-yellow-800",
+    ollama: "bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-400 border-purple-300 dark:border-purple-800",
   };
   return (
-    <span className={`text-xs px-2 py-0.5 rounded-full border font-medium ${colors[provider] ?? "bg-zinc-800 text-zinc-400 border-zinc-700"}`}>
+    <span className={`text-xs px-2 py-0.5 rounded-full border font-medium ${colors[provider] ?? "bg-gray-100 dark:bg-zinc-800 text-gray-600 dark:text-zinc-400 border-gray-300 dark:border-zinc-700"}`}>
       {provider}
     </span>
   );
@@ -284,7 +284,7 @@ export default function ModelsPage() {
               </div>
               <span className="text-sm font-medium text-vc-text">Kubernetes Deployment</span>
             </div>
-            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-900/40 text-amber-400 border border-amber-800 uppercase tracking-wide">Coming soon</span>
+            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 border border-amber-300 dark:border-amber-800 uppercase tracking-wide">Coming soon</span>
           </div>
           <p className="text-xs text-vc-muted">Auto-provision vLLM GPU pods directly from the control plane. One-click deploy with Karpenter auto-scaling and scale-to-zero.</p>
         </div>
@@ -297,7 +297,7 @@ export default function ModelsPage() {
               </div>
               <span className="text-sm font-medium text-vc-text">Fine-Tuning Pipeline</span>
             </div>
-            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-900/40 text-amber-400 border border-amber-800 uppercase tracking-wide">Coming soon</span>
+            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 border border-amber-300 dark:border-amber-800 uppercase tracking-wide">Coming soon</span>
           </div>
           <p className="text-xs text-vc-muted">Submit Unsloth training jobs from the UI. Upload JSONL datasets, pick a base model, and track job progress — no GPU server management required.</p>
         </div>

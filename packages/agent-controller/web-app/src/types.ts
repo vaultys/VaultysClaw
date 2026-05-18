@@ -109,7 +109,18 @@ export interface SkillEntry {
   version: string;
   toolCount: number;
   systemPromptExtension?: string;
+  enabled: boolean;
+  isRequired: boolean;
+  realmManaged: boolean;
   tools: SkillToolEntry[];
+}
+
+export interface ApprovalEntry {
+  requestId: string;
+  toolName: string;
+  args: Record<string, unknown>;
+  conversationId?: string;
+  requestedAt: string;
 }
 
 export interface TaskEntry {

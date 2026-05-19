@@ -23,6 +23,9 @@ export async function POST(request: NextRequest) {
 
     // Non-owner delegation check
     if (!session.user.isAdmin) {
+      if (!session.user.did) {
+        return NextResponse.json({ error: "Account not fully claimed" }, { status: 403 });
+      }
       const capability: string = action ?? broadcastCapability;
       if (!capability) {
         return NextResponse.json({ error: "action or broadcastCapability required" }, { status: 400 });
@@ -59,7 +62,7 @@ export async function POST(request: NextRequest) {
     const intentId = `intent-${Date.now()}`;
     let sentTo: string[] = [];
     // Pass userDid to agent for delegation verification when the caller is not the owner
-    const intentUserDid = session.user.isAdmin ? undefined : session.user.did;
+    const intentUserDid = session.user.isAdmin ? undefined : (session.user.did ?? undefined);
 
     if (broadcastCapability) {
       // Broadcast to all agents with specific capability

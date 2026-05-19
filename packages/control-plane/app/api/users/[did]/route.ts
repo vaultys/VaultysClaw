@@ -38,14 +38,14 @@ export async function GET(
     reportsTo: user.reports_to ?? null,
     description: user.description ?? null,
     registeredAt: user.registered_at,
-    grants: GrantDao.listByUser(user.did).map((g) => ({
+    grants: user.did ? GrantDao.listByUser(user.did).map((g) => ({
       id: g.id,
       agentDid: g.agent_did,
       capabilities: JSON.parse(g.capabilities) as string[],
       grantedBy: g.granted_by,
       expiresAt: g.expires_at,
       createdAt: g.created_at,
-    })),
+    })) : [],
   });
 }
 
@@ -123,6 +123,6 @@ export async function PATCH(
     }
   }
 
-  UserDao.update(did, fields);
+  UserDao.update(user.id, fields);
   return NextResponse.json({ ok: true });
 }

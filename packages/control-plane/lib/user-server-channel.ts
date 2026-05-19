@@ -41,14 +41,28 @@ const handleError = async (error: string, cert?: Certificate): Promise<Uint8Arra
   return new Uint8Array([0]);
 };
 
-const registerUser = (contact: VaultysId): boolean => {
+const registerUser = (contact: VaultysId, pendingUserId?: string): boolean => {
   const did = contact.toVersion(1).did;
   const publicKey = contact.id.toString("base64");
   const existing = UserDao.getByDid(did);
   console.log(`[registerUser] did=${did} existing=${JSON.stringify(existing)}`);
   if (existing) {
+    // If this real DID already exists and was an Entra placeholder, mark as claimed.
+    if (existing.entra_id && !existing.claimed_at) {
+      UserDao.claimEntraUser(existing.id, did, publicKey);
+    }
     console.log(`[registerUser] already registered — returning true`);
     return true;
+  }
+
+  // If the cert was generated for a specific Entra placeholder user, claim that record.
+  if (pendingUserId) {
+    const pending = UserDao.getById(pendingUserId);
+    if (pending && pending.entra_id && !pending.claimed_at) {
+      console.log(`[registerUser] claiming Entra placeholder id=${pendingUserId} → ${did}`);
+      UserDao.claimEntraUser(pendingUserId, did, publicKey);
+      return true;
+    }
   }
 
   const isOwner = !UserDao.hasAnyUser();
@@ -87,10 +101,11 @@ const handleSuccess = (cert: Certificate, challenger: Challenger): boolean => {
   }
 
   // Wallet devices: register on first use, or verify existing user on login.
+  const pendingUserId = meta.pendingUserId as string | undefined;
   let ok: boolean;
   if (cert.register) {
-    console.log(`[handleSuccess] register=1 → calling registerUser`);
-    ok = registerUser(contact);
+    console.log(`[handleSuccess] register=1 → calling registerUser (pendingUserId=${pendingUserId})`);
+    ok = registerUser(contact, pendingUserId);
   } else {
     console.log(`[handleSuccess] register=0 → calling loginUser (hasAnyUser at cert creation time was true)`);
     ok = loginUser(contact);

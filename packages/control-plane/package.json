@@ -24,6 +24,7 @@
     "lucide-react": "^1.14.0",
     "next": "^16.2.6",
     "next-auth": "^4.24.14",
+    "nodemailer": "^8.0.7",
     "pino": "^10.3.1",
     "qrcode.react": "^4.2.0",
     "react": "^19.2.6",
@@ -40,6 +41,7 @@
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^22.19.19",
+    "@types/nodemailer": "^8.0.0",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@types/three": "^0.184.1",

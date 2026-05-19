@@ -32,7 +32,7 @@ export async function GET(request: Request) {
     });
 
     const users = filtered.map((user) => ({
-      id: user.user_did,
+      id: user.user_id,
       name: user.name || "Unknown",
       email: user.email || "No email",
       joinedAt: user.joined_at,

@@ -96,7 +96,7 @@ export default function InboxPage() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-vc-text flex items-center gap-2">
-            <Bell size={22} className="text-indigo-400" />
+            <Bell size={22} className="text-indigo-700 dark:text-indigo-400" />
             Inbox
           </h1>
           <p className="text-sm text-vc-muted mt-1">
@@ -116,7 +116,7 @@ export default function InboxPage() {
         <button
           onClick={() => setFilter("pending")}
           className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${filter === "pending"
-            ? "border-indigo-500 text-indigo-400"
+            ? "border-indigo-500 text-indigo-700 dark:text-indigo-400"
             : "border-transparent text-vc-muted hover:text-vc-text"
             }`}
         >
@@ -130,7 +130,7 @@ export default function InboxPage() {
         <button
           onClick={() => setFilter("all")}
           className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${filter === "all"
-            ? "border-indigo-500 text-indigo-400"
+            ? "border-indigo-500 text-indigo-700 dark:text-indigo-400"
             : "border-transparent text-vc-muted hover:text-vc-text"
             }`}
         >

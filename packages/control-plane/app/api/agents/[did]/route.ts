@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Challenger, VaultysId, crypto } from "@vaultys/id";
 import { getWSServer } from "@/lib/ws-server";
-import { getAgent } from "@/lib/db";
+import { getAgent, updateAgentBudget, getDb } from "@/lib/db";
 import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
 
 const Buffer = crypto.Buffer;
@@ -84,6 +84,17 @@ export async function GET(
       }
     }
 
+    // Today's and this month's token usage from history
+    const db = getDb();
+    const todayBucket = new Date().toISOString().slice(0, 10);
+    const monthBucket = new Date().toISOString().slice(0, 7);
+    const todayRow = db.prepare(
+      "SELECT prompt_tokens + completion_tokens AS total FROM agent_token_usage_history WHERE agent_did = ? AND granularity = 'day' AND bucket = ?"
+    ).get(agent.did, todayBucket) as { total: number } | undefined;
+    const monthRow = db.prepare(
+      "SELECT prompt_tokens + completion_tokens AS total FROM agent_token_usage_history WHERE agent_did = ? AND granularity = 'month' AND bucket = ?"
+    ).get(agent.did, monthBucket) as { total: number } | undefined;
+
     return NextResponse.json({
       id: agent.did,
       name: connected?.name ?? agent.name,
@@ -98,6 +109,10 @@ export async function GET(
       lastHeartbeat: connected?.lastHeartbeat?.toISOString() ?? null,
       reportedLlm: connected?.reportedLlm ?? null,
       tokenUsage: connected?.tokenUsage ?? null,
+      tokenBudgetDaily: agent.token_budget_daily ?? null,
+      tokenBudgetMonthly: agent.token_budget_monthly ?? null,
+      todayTokens: todayRow?.total ?? 0,
+      monthTokens: monthRow?.total ?? 0,
     });
   } catch (error) {
     return NextResponse.json(
@@ -124,32 +139,37 @@ export async function PATCH(
     const did = decodeURIComponent(rawDid);
 
     const body = await request.json();
-    const { capabilities } = body;
+    const { capabilities, tokenBudgetDaily, tokenBudgetMonthly } = body;
 
-    if (!Array.isArray(capabilities)) {
-      return NextResponse.json(
-        { error: "capabilities must be an array" },
-        { status: 400 }
-      );
+    if (capabilities !== undefined) {
+      if (!Array.isArray(capabilities)) {
+        return NextResponse.json({ error: "capabilities must be an array" }, { status: 400 });
+      }
+
+      const wsServer = getWSServer();
+      if (!wsServer) {
+        return NextResponse.json({ error: "WebSocket server not available" }, { status: 503 });
+      }
+
+      const updated = wsServer.updateAgentCapabilities(did, capabilities);
+      if (!updated) {
+        return NextResponse.json({ error: "Agent not found" }, { status: 404 });
+      }
     }
 
-    const wsServer = getWSServer();
-    if (!wsServer) {
-      return NextResponse.json(
-        { error: "WebSocket server not available" },
-        { status: 503 }
-      );
+    if (tokenBudgetDaily !== undefined || tokenBudgetMonthly !== undefined) {
+      const agent = getAgent(did);
+      if (!agent) {
+        return NextResponse.json({ error: "Agent not found" }, { status: 404 });
+      }
+      updateAgentBudget(did, {
+        tokenBudgetDaily: tokenBudgetDaily === null ? null : (typeof tokenBudgetDaily === "number" ? tokenBudgetDaily : undefined),
+        tokenBudgetMonthly: tokenBudgetMonthly === null ? null : (typeof tokenBudgetMonthly === "number" ? tokenBudgetMonthly : undefined),
+      });
     }
 
-    const updated = wsServer.updateAgentCapabilities(did, capabilities);
-    if (!updated) {
-      return NextResponse.json(
-        { error: "Agent not found" },
-        { status: 404 }
-      );
-    }
-
-    return NextResponse.json({ success: true, capabilities });
+    const updated = getAgent(did);
+    return NextResponse.json({ success: true, capabilities: updated ? JSON.parse(updated.capabilities) : undefined });
   } catch (error) {
     return NextResponse.json(
       { error: "Failed to update capabilities" },

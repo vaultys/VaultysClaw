@@ -393,8 +393,8 @@ export default function WorkflowRunDetailPage() {
                         {/* Error */}
                         {step.error && (
                           <div>
-                            <p className="text-sm text-red-400 mb-2">Error</p>
-                            <pre className="bg-red-950/30 rounded p-3 text-red-300 text-xs font-mono overflow-auto max-h-48 border border-red-900/50">
+                            <p className="text-sm text-red-600 dark:text-red-400 mb-2">Error</p>
+                            <pre className="bg-red-50 dark:bg-red-950/30 rounded p-3 text-red-700 dark:text-red-300 text-xs font-mono overflow-auto max-h-48 border border-red-200 dark:border-red-900/50">
                               {step.error}
                             </pre>
                           </div>

@@ -117,7 +117,8 @@ The API does not enforce rate limits in the default configuration. For productio
 |---|---|
 | [Agents](/docs/api/agents) | `GET /agents`, `GET /agents/:id`, `POST /agents/register` |
 | [Intents](/docs/api/intents) | `POST /intents`, `GET /intents` |
-| [Policies](/docs/api/policies) | `POST /policies`, `GET /policies` |
+| [Policies](/docs/api/policies) | `POST /policies`, `GET /policies`, `GET /policies/:id`, `DELETE /policies/:id` |
+| [Governance](/docs/guides/governance#api-quick-reference) | `GET /governance/summary`, `GET /governance/audit`, `GET /governance/audit/:id` |
 | [Realms](/docs/api/realms) | `GET /realms`, `POST /realms` |
 | [Users](/docs/api/users) | `GET /users`, `GET /users/me` |
 | [Chat](/docs/api/chat) | `POST /chat` (streaming SSE) |

@@ -176,42 +176,70 @@ describe("VaultysClaw Integration Tests", () => {
   });
 
   describe("Policy Distribution", () => {
-    it("should send policy to specific agent", async () => {
+    it("should apply policy to agent via cert reissue", async () => {
       const agent = new MockAgent(`ws://localhost:${WS_PORT}`, "Policy Test Agent");
       await agent.connect();
       await agent.authenticate(["test_capability"], wsServer);
 
-      const policyId = `policy-${Date.now()}`;
-      const policy = {
-        id: policyId,
-        capabilities: ["test_capability"],
-        resourceLimits: { maxMemoryMb: 512 },
+      const policyMeta = {
+        resourceLimits: { maxRequestsPerHour: 20 },
+        policyId: `policy-${Date.now()}`,
+        policyExpiresAt: null,
       };
 
-      const policyPromise = agent.waitForPolicy(3000);
-      const success = wsServer.sendPolicyUpdate(agent.id, policy);
-      expect(success).toBe(true);
+      // applyPolicy triggers update_capabilities → re-auth handshake
+      const reAuthPromise = agent.reAuthAfterCapabilityUpdate();
+      const applied = wsServer.applyPolicy(agent.id, ["test_capability", "api_call"], policyMeta);
+      expect(applied).toBe(true);
 
-      const policyMsg = await policyPromise;
-      expect(policyMsg.payload.id).toBe(policyId);
-      expect(policyMsg.payload.capabilities).toContain("test_capability");
+      await reAuthPromise;
+
+      // Agent should still be connected with updated capabilities embedded in cert
+      const updated = wsServer.getAgent(agent.id);
+      expect(updated).toBeDefined();
+      expect(updated?.capabilities).toContain("test_capability");
+      expect(updated?.capabilities).toContain("api_call");
 
       agent.close();
     });
 
-    it("should broadcast policy to all agents", async () => {
-      const agent1 = new MockAgent(`ws://localhost:${WS_PORT}`, "Policy Broadcast 1");
-      const agent2 = new MockAgent(`ws://localhost:${WS_PORT}`, "Policy Broadcast 2");
+    it("should return false when applying policy to disconnected agent", () => {
+      const result = wsServer.applyPolicy(
+        "did:vaultys:nonexistent",
+        ["test_capability"],
+        { resourceLimits: null, policyId: null, policyExpiresAt: null },
+      );
+      expect(result).toBe(false);
+    });
+
+    it("should apply policy to multiple agents independently", async () => {
+      const agent1 = new MockAgent(`ws://localhost:${WS_PORT}`, "Policy Multi 1");
+      const agent2 = new MockAgent(`ws://localhost:${WS_PORT}`, "Policy Multi 2");
 
       await Promise.all([agent1.connect(), agent2.connect()]);
-      await agent1.authenticate(["test_capability"], wsServer);
-      await agent2.authenticate(["test_capability"], wsServer);
+      await agent1.authenticate(["cap_a"], wsServer);
+      await agent2.authenticate(["cap_b"], wsServer);
 
-      const policyId = `broadcast-policy-${Date.now()}`;
-      const policy = { id: policyId, capabilities: ["test_capability"] };
+      const policyMeta = {
+        resourceLimits: { maxTokensPerDay: 5000 },
+        policyId: `mp-${Date.now()}`,
+        policyExpiresAt: null,
+      };
 
-      const recipients = wsServer.broadcastPolicyUpdate(policy);
-      expect(recipients.length).toBeGreaterThanOrEqual(2);
+      // Start listening for re-auth on both agents before triggering
+      const reAuth1 = agent1.reAuthAfterCapabilityUpdate();
+      const reAuth2 = agent2.reAuthAfterCapabilityUpdate();
+
+      const applied1 = wsServer.applyPolicy(agent1.id, ["cap_a", "api_call"], policyMeta);
+      const applied2 = wsServer.applyPolicy(agent2.id, ["cap_b", "api_call"], policyMeta);
+
+      expect(applied1).toBe(true);
+      expect(applied2).toBe(true);
+
+      await Promise.all([reAuth1, reAuth2]);
+
+      expect(wsServer.getAgent(agent1.id)?.capabilities).toContain("api_call");
+      expect(wsServer.getAgent(agent2.id)?.capabilities).toContain("api_call");
 
       agent1.close();
       agent2.close();
@@ -290,12 +318,20 @@ describe("VaultysClaw Integration Tests", () => {
       // Step 3: Send result
       await agent.sendResult(intentId, "success");
 
-      // Step 4: Receive policy
-      const policyId = `e2e-policy-${Date.now()}`;
-      const policyPromise = agent.waitForPolicy(3000);
-      wsServer.sendPolicyUpdate(agent.id, { id: policyId, capabilities: ["e2e_capability"] });
-      const policy = await policyPromise;
-      expect(policy.payload.id).toBe(policyId);
+      // Step 4: Apply policy via cert reissue
+      const policyMeta = {
+        resourceLimits: { maxRequestsPerHour: 5 },
+        policyId: `e2e-policy-${Date.now()}`,
+        policyExpiresAt: null,
+      };
+      const reAuthPromise = agent.reAuthAfterCapabilityUpdate();
+      const applied = wsServer.applyPolicy(agent.id, ["e2e_capability"], policyMeta);
+      expect(applied).toBe(true);
+      await reAuthPromise;
+
+      // Agent should still be connected with capabilities intact
+      const updated = wsServer.getAgent(agent.id);
+      expect(updated?.capabilities).toContain("e2e_capability");
 
       agent.close();
     });

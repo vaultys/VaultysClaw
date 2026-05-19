@@ -26,17 +26,24 @@ export type AgentCapability =
   | "agent_communication";
 
 /**
- * Policy that defines what an agent controller can do
+ * Runtime constraints embedded in the agent certificate alongside capabilities.
+ * All fields are optional — omitting a field means no limit for that dimension.
+ */
+export interface ResourceLimits {
+  maxTokensPerDay?: number;
+  maxRequestsPerHour?: number;
+  allowedDomains?: string[];
+}
+
+/**
+ * Policy that defines what an agent controller can do.
+ * @deprecated Use the governance policies table + ResourceLimits + cert-embedded enforcement.
  */
 export interface AgentPolicy {
   id: string;
   agentControllerId: string;
   capabilities: AgentCapability[];
-  resourceLimits?: {
-    maxCpuPercent?: number;
-    maxMemoryMb?: number;
-    maxNetworkBandwidthMbps?: number;
-  };
+  resourceLimits?: ResourceLimits;
   timeWindow?: {
     startTime: string; // ISO 8601
     endTime: string; // ISO 8601
@@ -319,10 +326,17 @@ export interface WSRegistrationRejectedPayload {
 
 /**
  * Sent by control plane when admin updates an agent's capabilities.
- * Agent should initiate a new auth handshake to get a fresh certificate.
+ * Agent should initiate a new auth handshake to get a fresh certificate with
+ * the new capabilities (and any resource limits) embedded in the cert metadata.
  */
 export interface WSUpdateCapabilitiesPayload {
   capabilities: AgentCapability[];
+  /** Governance resource limits to embed in the new certificate. Null clears existing limits. */
+  resourceLimits?: ResourceLimits | null;
+  /** ID of the authorising governance policy. */
+  policyId?: string | null;
+  /** ISO-8601 expiry of the policy; agent rejects intents after this time. */
+  policyExpiresAt?: string | null;
   reason?: string;
 }
 

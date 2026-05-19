@@ -21,6 +21,8 @@ Capabilities are the core mechanism by which Vaultys Claw enforces the **princip
 | `system_command` | Execute shell commands | DevOps automation, system monitoring |
 | `agent_communication` | Send intents to peer agents | Multi-agent orchestration, delegation of subtasks |
 
+---
+
 ## Capability lifecycle
 
 ### 1. Agent requests capabilities at registration
@@ -31,7 +33,7 @@ When an agent controller starts, it declares which capabilities it wants:
 AGENT_CAPABILITIES=file_access,api_call,code_execution
 ```
 
-This is a **request**, not a grant. The control plane stores the requested capabilities as a pending registration.
+This is a **request**, not a grant. The control plane stores it as a pending registration.
 
 ### 2. Admin reviews and approves
 
@@ -39,33 +41,61 @@ A global admin reviews the pending registration in the dashboard or via API:
 
 ```bash
 curl -X POST /api/registrations/{id}/approve \
-  -d '{
-    "capabilities": ["file_access", "api_call"]
-  }'
+  -d '{"capabilities": ["file_access", "api_call"]}'
 ```
 
-The admin can grant a **subset** of the requested capabilities. The agent is notified immediately.
+The admin can grant a **subset** of the requested capabilities.
 
-### 3. Policy is signed and pushed
+### 3. Capabilities and resource limits are embedded in the certificate
 
-On approval (and on any subsequent update), the control plane creates a signed policy and pushes it to the agent via the WebSocket channel.
+On approval (and on any subsequent policy change), the control plane triggers a fresh [VaultysId Challenger](/docs/security/vaultys-id) handshake. The capabilities **and** any governance metadata (`resourceLimits`, `policyId`, `policyExpiresAt`) are embedded as native values inside the Challenger certificate's metadata. Both parties co-sign the certificate, so the values cannot be forged or replayed.
+
+```
+Control plane calls challenger.update(agentCert, {
+  capabilities: ["file_access", "api_call"],
+  resourceLimits: { maxTokensPerDay: 50000 },
+  policyId: "policy-abc123",
+  policyExpiresAt: "2025-12-31T23:59:59Z"
+})
+```
+
+The agent reads these values from `ctx.metadata.pk2` after the handshake completes.
 
 ### 4. Runtime enforcement
 
-When an agent receives an intent, it checks whether the action requires a capability, and whether its current policy grants that capability:
+When an agent receives an intent it runs four checks in order:
 
-```typescript
-// Simplified enforcement logic inside the agent
-function canExecute(action: string, policy: AgentPolicy): boolean {
-  const required = CAPABILITY_MAP[action];
-  if (!required) return true; // Action requires no special capability
-  return policy.capabilities.includes(required);
-}
-```
+| Check | What fails it |
+|---|---|
+| Capability check | Action not in the granted capabilities list |
+| Policy expiry | `policyExpiresAt` timestamp has passed |
+| Daily token budget | `maxTokensPerDay` tokens already consumed today |
+| Hourly request rate | `maxRequestsPerHour` intents already executed this hour |
+
+The enforcement code lives in `agent.ts → handleIntent()` and runs **before** `executeAction()`.
 
 ### 5. Revocation
 
-Capabilities can be revoked at any time from the control plane. A new (lower-privilege) policy is signed and pushed to the agent immediately. In-flight executions that already passed the capability check are not interrupted, but the next intent requiring the revoked capability will fail.
+Capabilities can be revoked at any time by deleting the policy from the **Governance** tab or via `DELETE /api/policies/{id}`. The control plane immediately triggers a new certificate handshake for any connected agent, which embeds the updated (or cleared) capability set. In-flight executions that already passed the capability check are not interrupted.
+
+---
+
+## Managing capabilities
+
+Capabilities are **no longer edited directly** on the agent overview page. All capability grants go through the **Governance tab** on the agent detail page (or the global Governance dashboard), which creates a policy record. This ensures:
+
+- Every capability change has an audit trail
+- Resource limits and expiry are set alongside the capability grant
+- The full change is co-signed by both parties in the certificate
+
+To grant capabilities to an agent:
+
+1. Open the agent detail page → **Governance** tab
+2. Click **New Policy**
+3. Select capabilities, set optional resource limits and expiry
+4. Click **Apply Policy** — the certificate is reissued immediately for connected agents
+
+---
 
 ## User-level grants
 
@@ -79,35 +109,40 @@ User sends intent for capability X
     → Forward to agent
 ```
 
-Grants are separate from agent policies. Both must allow the capability for the action to proceed.
+Grants are separate from policies. Both must allow the capability for the action to proceed.
 
-## Resource limits
+---
 
-Policies can also include resource limits that cap the agent's consumption:
+## Resource limits reference
+
+Policies can include resource limits that the agent enforces at intent execution time:
 
 ```json
 {
   "resourceLimits": {
-    "maxCpuPercent": 50,
-    "maxMemoryMb": 512,
-    "maxNetworkBandwidthMbps": 10
+    "maxTokensPerDay": 50000,
+    "maxRequestsPerHour": 60,
+    "allowedDomains": ["api.openai.com", "example.com"]
   }
 }
 ```
 
-Agents are expected to enforce these limits. Monitoring integration for automated enforcement is on the roadmap.
+| Field | Enforcement |
+|---|---|
+| `maxTokensPerDay` | Hard block — agent rejects intents when today's token total ≥ limit |
+| `maxRequestsPerHour` | Hard block — agent rejects intents when current-hour count ≥ limit |
+| `allowedDomains` | Advisory — agents may enforce for outbound HTTP tools |
 
-## Time windows
+Token usage is tracked locally by the agent's SQLite database and resets at UTC midnight.
 
-Policies can restrict when an agent is allowed to operate:
+---
+
+## Policy expiry
+
+Set `expiresAt` on a policy to automatically block an agent after a specific date:
 
 ```json
-{
-  "timeWindow": {
-    "startTime": "08:00",
-    "endTime": "18:00"
-  }
-}
+{ "expiresAt": "2025-12-31T23:59:59Z" }
 ```
 
-This is useful for agents that should only run during business hours, or that have maintenance windows.
+Once the timestamp passes, the agent rejects every intent with `Policy '...' has expired — action blocked`. The policy record remains in the database and is visible with `includeExpired=true` on the list endpoint. To resume operations, create a new policy.

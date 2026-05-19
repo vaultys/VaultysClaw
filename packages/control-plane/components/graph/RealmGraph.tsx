@@ -124,7 +124,7 @@ export default function RealmGraph({
 
   if (error) {
     return (
-      <div className="flex items-center justify-center rounded-xl border border-vc-border text-red-400" style={{ height }}>
+      <div className="flex items-center justify-center rounded-xl border border-vc-border text-red-600 dark:text-red-400" style={{ height }}>
         Failed to load graph: {error}
       </div>
     );
@@ -149,7 +149,7 @@ export default function RealmGraph({
               onClick={() => setView(opt.id)}
               title={opt.tip}
               className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${view === opt.id
-                  ? "bg-indigo-600/20 text-indigo-400 border border-indigo-500/40"
+                  ? "bg-indigo-100 dark:bg-indigo-600/20 text-indigo-700 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/40"
                   : "text-vc-muted hover:text-vc-text hover:bg-vc-raised border border-transparent"
                 }`}
             >

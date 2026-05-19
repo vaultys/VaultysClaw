@@ -80,10 +80,10 @@ function shortDid(did: string): string {
 }
 
 const EVENT_LABELS: Record<string, { label: string; color: string }> = {
-  agent_authenticated: { label: "Authenticated", color: "text-green-400" },
-  agent_connected: { label: "Connected", color: "text-blue-400" },
+  agent_authenticated: { label: "Authenticated", color: "text-green-700 dark:text-green-400" },
+  agent_connected: { label: "Connected", color: "text-blue-700 dark:text-blue-400" },
   agent_disconnected: { label: "Disconnected", color: "text-gray-400" },
-  auth_failed: { label: "Auth Failed", color: "text-red-400" },
+  auth_failed: { label: "Auth Failed", color: "text-red-600 dark:text-red-400" },
 };
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
@@ -265,9 +265,9 @@ function SmtpSection() {
                 {testing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />}
                 Test connection
               </button>
-              {status === "saved" && <span className="text-xs text-emerald-400 flex items-center gap-1"><Check className="w-3 h-3" />Saved</span>}
-              {status === "ok" && <span className="text-xs text-emerald-400 flex items-center gap-1"><CheckCircle className="w-3 h-3" />{statusMsg}</span>}
-              {(status === "error" || status === "fail") && <span className="text-xs text-red-400 flex items-center gap-1"><AlertCircle className="w-3 h-3" />{statusMsg}</span>}
+              {status === "saved" && <span className="text-xs text-emerald-700 dark:text-emerald-400 flex items-center gap-1"><Check className="w-3 h-3" />Saved</span>}
+              {status === "ok" && <span className="text-xs text-emerald-700 dark:text-emerald-400 flex items-center gap-1"><CheckCircle className="w-3 h-3" />{statusMsg}</span>}
+              {(status === "error" || status === "fail") && <span className="text-xs text-red-600 dark:text-red-400 flex items-center gap-1"><AlertCircle className="w-3 h-3" />{statusMsg}</span>}
             </div>
           </>
         )}
@@ -708,8 +708,8 @@ function EntraSection({ smtpConfigured }: { smtpConfigured: boolean }) {
                     <RefreshCw className="w-3 h-3" /> Sync users…
                   </button>
                 )}
-                {configStatus === "saved" && <span className="text-xs text-emerald-400 flex items-center gap-1"><Check className="w-3 h-3" />Saved</span>}
-                {configStatus === "error" && <span className="text-xs text-red-400 flex items-center gap-1"><AlertCircle className="w-3 h-3" />Save failed</span>}
+                {configStatus === "saved" && <span className="text-xs text-emerald-700 dark:text-emerald-400 flex items-center gap-1"><Check className="w-3 h-3" />Saved</span>}
+                {configStatus === "error" && <span className="text-xs text-red-600 dark:text-red-400 flex items-center gap-1"><AlertCircle className="w-3 h-3" />Save failed</span>}
               </div>
 
               {/* Diagnostic results */}
@@ -755,7 +755,7 @@ function EntraSection({ smtpConfigured }: { smtpConfigured: boolean }) {
             <div className="flex items-center gap-2">
               <QrCode className="w-4 h-4 text-vc-muted" />
               <h2 className="text-sm font-semibold text-vc-text">Pending Claims</h2>
-              <span className="text-xs bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-full px-2 py-0.5">
+              <span className="text-xs bg-amber-50 dark:bg-amber-500/20 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-500/30 rounded-full px-2 py-0.5">
                 {unclaimed.length}
               </span>
             </div>
@@ -835,7 +835,7 @@ function EntraSection({ smtpConfigured }: { smtpConfigured: boolean }) {
                     </div>
                   )}
                   {groupsError && (
-                    <div className="bg-red-950/40 border border-red-700 rounded-lg px-4 py-3 text-sm text-red-300 flex items-start gap-2">
+                    <div className="bg-red-50 dark:bg-red-950/40 border border-red-300 dark:border-red-700 rounded-lg px-4 py-3 text-sm text-red-600 dark:text-red-300 flex items-start gap-2">
                       <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />{groupsError}
                     </div>
                   )}
@@ -845,7 +845,7 @@ function EntraSection({ smtpConfigured }: { smtpConfigured: boolean }) {
                         <label key={g.id} className={cn(
                           "flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition",
                           selectedGroups.has(g.id)
-                            ? "bg-indigo-600/15 border-indigo-600/50"
+                            ? "bg-indigo-100 dark:bg-indigo-600/15 border-indigo-300 dark:border-indigo-600/50"
                             : "bg-vc-raised border-vc-ring hover:border-vc-muted",
                         )}>
                           <input
@@ -883,7 +883,7 @@ function EntraSection({ smtpConfigured }: { smtpConfigured: boolean }) {
                         className={cn(
                           "flex-1 py-2.5 rounded-xl border text-sm font-medium transition",
                           mapGroups === v
-                            ? "bg-indigo-600/20 border-indigo-600/60 text-indigo-300"
+                            ? "bg-indigo-50 dark:bg-indigo-600/20 border-indigo-300 dark:border-indigo-600/60 text-indigo-700 dark:text-indigo-300"
                             : "bg-vc-raised border-vc-ring text-vc-muted hover:border-vc-muted",
                         )}
                       >
@@ -975,7 +975,7 @@ function EntraSection({ smtpConfigured }: { smtpConfigured: boolean }) {
               {/* Step: syncing */}
               {wizardStep === "syncing" && (
                 <div className="flex flex-col items-center gap-4 py-8">
-                  <Loader2 className="w-8 h-8 text-indigo-400 animate-spin" />
+                  <Loader2 className="w-8 h-8 text-indigo-700 dark:text-indigo-400 animate-spin" />
                   <p className="text-sm text-vc-muted">Syncing users from Entra…</p>
                 </div>
               )}
@@ -984,13 +984,13 @@ function EntraSection({ smtpConfigured }: { smtpConfigured: boolean }) {
               {wizardStep === "done" && syncResult && (
                 <div className="space-y-4">
                   <div className="flex items-center gap-3">
-                    <CheckCircle className="w-6 h-6 text-emerald-400 shrink-0" />
+                    <CheckCircle className="w-6 h-6 text-emerald-700 dark:text-emerald-400 shrink-0" />
                     <p className="text-sm font-medium text-vc-text">Sync complete</p>
                   </div>
                   <div className="grid grid-cols-3 gap-3">
                     {[
-                      { label: "Created", value: syncResult.created, color: "text-emerald-400" },
-                      { label: "Updated", value: syncResult.updated, color: "text-blue-400" },
+                      { label: "Created", value: syncResult.created, color: "text-emerald-700 dark:text-emerald-400" },
+                      { label: "Updated", value: syncResult.updated, color: "text-blue-700 dark:text-blue-400" },
                       { label: "Skipped", value: syncResult.skipped, color: "text-vc-muted" },
                     ].map(({ label, value, color }) => (
                       <div key={label} className="bg-vc-raised border border-vc-ring rounded-lg p-3 text-center">
@@ -1000,9 +1000,9 @@ function EntraSection({ smtpConfigured }: { smtpConfigured: boolean }) {
                     ))}
                   </div>
                   {syncResult.errors.length > 0 && (
-                    <div className="bg-red-950/40 border border-red-700 rounded-lg p-3 space-y-1 max-h-36 overflow-y-auto">
+                    <div className="bg-red-50 dark:bg-red-950/40 border border-red-300 dark:border-red-700 rounded-lg p-3 space-y-1 max-h-36 overflow-y-auto">
                       {syncResult.errors.map((e, i) => (
-                        <p key={i} className="text-xs text-red-300">{e}</p>
+                        <p key={i} className="text-xs text-red-600 dark:text-red-300">{e}</p>
                       ))}
                     </div>
                   )}
@@ -1064,27 +1064,27 @@ function EntraSection({ smtpConfigured }: { smtpConfigured: boolean }) {
                   <QRCodeSVG value={qrModal.qrUrl} size={200} />
                 </div>
                 <p className="text-xs text-vc-subtle text-center">Waiting for wallet connection…</p>
-                <Loader2 className="w-5 h-5 text-indigo-400 animate-spin" />
+                <Loader2 className="w-5 h-5 text-indigo-700 dark:text-indigo-400 animate-spin" />
               </div>
             )}
 
             {qrModal.phase === "success" && (
               <div className="flex flex-col items-center gap-3 py-4 text-center">
-                <div className="w-12 h-12 rounded-full bg-green-900/40 flex items-center justify-center">
-                  <CheckCircle className="w-6 h-6 text-green-400" />
+                <div className="w-12 h-12 rounded-full bg-green-100 dark:bg-green-900/40 flex items-center justify-center">
+                  <CheckCircle className="w-6 h-6 text-green-700 dark:text-green-400" />
                 </div>
                 <p className="text-vc-text font-medium">Account claimed!</p>
                 <p className="text-xs text-vc-muted">{qrModal.user.name ?? qrModal.user.email} has successfully linked their wallet.</p>
-                <button onClick={() => setQrModal(null)} className="text-indigo-400 hover:text-indigo-300 text-sm mt-1">Close</button>
+                <button onClick={() => setQrModal(null)} className="text-indigo-700 dark:text-indigo-400 hover:text-indigo-300 text-sm mt-1">Close</button>
               </div>
             )}
 
             {qrModal.phase === "failure" && (
               <div className="flex flex-col items-center gap-3 py-4 text-center">
-                <p className="text-red-400 font-medium">Timed out or failed.</p>
+                <p className="text-red-600 dark:text-red-400 font-medium">Timed out or failed.</p>
                 <button
                   onClick={() => setQrModal(null)}
-                  className="text-indigo-400 hover:text-indigo-300 text-sm"
+                  className="text-indigo-700 dark:text-indigo-400 hover:text-indigo-300 text-sm"
                 >
                   Close
                 </button>
@@ -1193,7 +1193,7 @@ export default function ServerPage() {
               </div>
               <div className="bg-vc-surface p-5 rounded-xl border border-vc-border">
                 <div className="text-vc-muted text-xs uppercase tracking-wider mb-1">Online Now</div>
-                <div className="text-3xl font-bold text-green-400">{data.stats.onlineAgents}</div>
+                <div className="text-3xl font-bold text-green-700 dark:text-green-400">{data.stats.onlineAgents}</div>
               </div>
               <div className="bg-vc-surface p-5 rounded-xl border border-vc-border">
                 <div className="text-vc-muted text-xs uppercase tracking-wider mb-1">Offline</div>
@@ -1244,7 +1244,7 @@ export default function ServerPage() {
                           <td className="px-6 py-3 text-sm">
                             {entry.agent_did ? (
                               <span
-                                className="text-blue-400 hover:text-blue-300 cursor-pointer font-mono"
+                                className="text-blue-700 dark:text-blue-400 hover:text-blue-300 cursor-pointer font-mono"
                                 title={entry.agent_did}
                                 onClick={() => router.push(`/agents/${encodeURIComponent(entry.agent_did!)}`)}
                               >

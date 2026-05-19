@@ -548,7 +548,7 @@ function Dashboard() {
 
           {pendingApprovals.length === 0 ? (
             <div className="px-5 py-10 text-center">
-              <CheckCircle className="w-8 h-8 text-green-400 mx-auto mb-2 opacity-50" />
+              <CheckCircle className="w-8 h-8 text-green-700 dark:text-green-400 mx-auto mb-2 opacity-50" />
               <p className="text-vc-muted text-sm">No pending approvals</p>
             </div>
           ) : (

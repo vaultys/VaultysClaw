@@ -359,7 +359,7 @@ export default function WorkflowsPage() {
                                   <td className="px-4 py-3">
                                     <Link
                                       href={`/workflows/runs/${run.id}`}
-                                      className="text-indigo-500 hover:text-indigo-400 text-sm font-medium"
+                                      className="text-indigo-700 dark:text-indigo-400 hover:text-indigo-400 text-sm font-medium"
                                     >
                                       View
                                     </Link>

@@ -1,10 +1,47 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getWSServer } from "@/lib/ws-server";
 import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
+import { createPolicy, listPolicies } from "@/lib/db";
+import type { AgentCapability } from "@vaultysclaw/shared";
+
+/**
+ * GET /api/policies
+ * List all policies. Global admin only.
+ * Query params: agentDid, realmId, includeExpired
+ */
+export async function GET(request: NextRequest) {
+  try {
+    const auth = await getAuthContext();
+    if (!auth) return unauthorized();
+    if (!auth.isGlobalAdmin) return forbidden();
+
+    const { searchParams } = new URL(request.url);
+    const agentDid = searchParams.get("agentDid") ?? undefined;
+    const realmId = searchParams.get("realmId") ?? undefined;
+    const includeExpired = searchParams.get("includeExpired") === "true";
+
+    const policies = listPolicies({ agentDid, realmId, includeExpired });
+
+    return NextResponse.json({
+      policies: policies.map((p) => ({
+        id: p.id,
+        agentDid: p.agent_did,
+        realmId: p.realm_id,
+        capabilities: JSON.parse(p.capabilities),
+        resourceLimits: p.resource_limits ? JSON.parse(p.resource_limits) : null,
+        expiresAt: p.expires_at,
+        createdBy: p.created_by,
+        createdAt: p.created_at,
+      })),
+    });
+  } catch (error) {
+    return NextResponse.json({ error: "Failed to fetch policies" }, { status: 500 });
+  }
+}
 
 /**
  * POST /api/policies
- * Create a new policy for an agent. Global admin only.
+ * Create and persist a new policy. Optionally push to agent via WebSocket. Global admin only.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -13,87 +50,52 @@ export async function POST(request: NextRequest) {
     if (!auth.isGlobalAdmin) return forbidden();
 
     const body = await request.json();
-    const { agentId, capabilities, resourceLimits, broadcast } = body;
+    const { agentDid, realmId, capabilities, resourceLimits, expiresAt, broadcast } = body;
 
-    const wsServer = getWSServer();
-    if (!wsServer) {
-      return NextResponse.json(
-        { error: "WebSocket server not initialized" },
-        { status: 503 }
-      );
+    if (!Array.isArray(capabilities) || capabilities.length === 0) {
+      return NextResponse.json({ error: "capabilities must be a non-empty array" }, { status: 400 });
     }
 
-    const policyId = `policy-${Date.now()}`;
-
-    // Create policy object
-    const policy = {
-      id: policyId,
-      agentId,
+    const policy = createPolicy({
+      agentDid: agentDid ?? undefined,
+      realmId: realmId ?? undefined,
       capabilities,
-      resourceLimits,
-      createdAt: new Date().toISOString(),
-      // TODO: Sign with control plane private key
-      signature: "temp-signature",
-    };
+      resourceLimits: resourceLimits ?? undefined,
+      expiresAt: expiresAt ?? undefined,
+      createdBy: auth.did,
+    });
 
-    let sentTo: string[] = [];
+    // Apply via cert reissue so capabilities + limits are enforced immediately.
+    const wsServer = getWSServer();
+    const sentTo: string[] = [];
 
-    if (broadcast) {
-      // Send to all connected agents
-      sentTo = wsServer.broadcastPolicyUpdate(policy);
-    } else if (agentId) {
-      // Send to specific agent
-      const success = wsServer.sendPolicyUpdate(agentId, policy);
-
-      if (!success) {
-        return NextResponse.json(
-          { error: "Agent not found or not connected" },
-          { status: 404 }
-        );
-      }
-
-      sentTo = [agentId];
-    } else {
-      return NextResponse.json(
-        { error: "Must specify agentId or broadcast: true" },
-        { status: 400 }
-      );
+    if (wsServer && agentDid) {
+      const policyMeta = {
+        resourceLimits: resourceLimits ?? null,
+        policyId: policy.id,
+        policyExpiresAt: expiresAt ?? null,
+      };
+      const applied = wsServer.applyPolicy(agentDid, capabilities as AgentCapability[], policyMeta);
+      if (applied) sentTo.push(agentDid);
     }
 
     return NextResponse.json(
       {
-        id: policyId,
-        agentId,
-        capabilities,
+        policy: {
+          id: policy.id,
+          agentDid: policy.agent_did,
+          realmId: policy.realm_id,
+          capabilities: JSON.parse(policy.capabilities),
+          resourceLimits: policy.resource_limits ? JSON.parse(policy.resource_limits) : null,
+          expiresAt: policy.expires_at,
+          createdBy: policy.created_by,
+          createdAt: policy.created_at,
+        },
         sentTo,
-        message: "Policy created and distributed",
       },
       { status: 201 }
     );
   } catch (error) {
-    return NextResponse.json(
-      { error: "Failed to create policy" },
-      { status: 500 }
-    );
-  }
-}
-
-/**
- * GET /api/policies
- * List all policies. Global admin only.
- */
-export async function GET() {
-  try {
-    const auth = await getAuthContext();
-    if (!auth) return unauthorized();
-    if (!auth.isGlobalAdmin) return forbidden();
-    // TODO: Query SQLite for policies
-
-    return NextResponse.json({
-      policies: [],
-      message: "Policy storage and history coming soon",
-    });
-  } catch (error) {
-    return NextResponse.json({ error: "Failed to fetch policies" }, { status: 500 });
+    return NextResponse.json({ error: "Failed to create policy" }, { status: 500 });
   }
 }

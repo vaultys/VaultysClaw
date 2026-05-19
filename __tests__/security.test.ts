@@ -49,6 +49,8 @@ import {
   getUserRealms,
   getAgentRealms,
   saveWorkflow,
+  createPolicy,
+  deletePolicy,
   type WorkflowDefinition,
 } from "../packages/control-plane/lib/db";
 import { UserDao } from "../packages/control-plane/lib/user-dao";
@@ -65,6 +67,8 @@ import { GET as workflowsGET, POST as workflowsPOST } from "../packages/control-
 import { GET as workflowDetailGET, PATCH as workflowDetailPATCH, DELETE as workflowDetailDELETE } from "../packages/control-plane/app/api/workflows/[id]/route";
 import { GET as registrationsGET } from "../packages/control-plane/app/api/registrations/route";
 import { POST as approveRegistrationPOST } from "../packages/control-plane/app/api/registrations/[id]/approve/route";
+import { GET as policiesGET, POST as policiesPOST } from "../packages/control-plane/app/api/policies/route";
+import { GET as policyDetailGET, DELETE as policyDetailDELETE } from "../packages/control-plane/app/api/policies/[id]/route";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -142,12 +146,12 @@ function expectStatus(response: unknown, status: number) {
 // ---------------------------------------------------------------------------
 
 const DID = {
-  owner:      "did:vaultys:owner-sec-001",
-  admin:      "did:vaultys:admin-sec-001",
-  member:     "did:vaultys:member-sec-001",
+  owner: "did:vaultys:owner-sec-001",
+  admin: "did:vaultys:admin-sec-001",
+  member: "did:vaultys:member-sec-001",
   realmAdmin: "did:vaultys:realmadmin-sec-001",
-  stranger:   "did:vaultys:stranger-sec-001",
-  agent:      "did:vaultys:agent-sec-001",
+  stranger: "did:vaultys:stranger-sec-001",
+  agent: "did:vaultys:agent-sec-001",
 };
 
 const SENTINEL = "sec-001"; // used to clean up test data
@@ -162,7 +166,7 @@ beforeAll(() => {
   const db = getDb();
 
   // Clean up any stale data from a previous interrupted run
-  db.prepare(`DELETE FROM user_realms WHERE user_did LIKE '%${SENTINEL}'`).run();
+  db.prepare(`DELETE FROM user_realms WHERE user_id LIKE '%${SENTINEL}'`).run();
   db.prepare(`DELETE FROM agent_realms WHERE agent_did LIKE '%${SENTINEL}'`).run();
   db.prepare(`DELETE FROM users WHERE did LIKE '%${SENTINEL}'`).run();
   db.prepare(`DELETE FROM agents WHERE did LIKE '%${SENTINEL}'`).run();
@@ -197,7 +201,9 @@ beforeAll(() => {
 
 afterAll(() => {
   const db = getDb();
-  db.prepare(`DELETE FROM user_realms WHERE user_did LIKE '%${SENTINEL}'`).run();
+  db.prepare(`DELETE FROM policies WHERE created_by LIKE '%${SENTINEL}'`).run();
+  db.prepare(`DELETE FROM policies WHERE agent_did LIKE '%${SENTINEL}'`).run();
+  db.prepare(`DELETE FROM user_realms WHERE user_id LIKE '%${SENTINEL}'`).run();
   db.prepare(`DELETE FROM agent_realms WHERE agent_did LIKE '%${SENTINEL}'`).run();
   db.prepare(`DELETE FROM users WHERE did LIKE '%${SENTINEL}'`).run();
   db.prepare(`DELETE FROM agents WHERE did LIKE '%${SENTINEL}'`).run();
@@ -244,7 +250,7 @@ describe("DB helper — realm membership", () => {
     setUserRealmAdmin(tmpDid, testRealmId, true);
     expect(isUserRealmAdmin(tmpDid, testRealmId)).toBe(true);
 
-    db.prepare("DELETE FROM user_realms WHERE user_did = ?").run(tmpDid);
+    db.prepare("DELETE FROM user_realms WHERE user_id = ?").run(tmpDid);
     db.prepare("DELETE FROM users WHERE did = ?").run(tmpDid);
   });
 
@@ -262,7 +268,7 @@ describe("DB helper — realm membership", () => {
 
     expect(isUserRealmAdmin(tmpDid, testRealmId)).toBe(true);
 
-    db.prepare("DELETE FROM user_realms WHERE user_did = ?").run(tmpDid);
+    db.prepare("DELETE FROM user_realms WHERE user_id = ?").run(tmpDid);
     db.prepare("DELETE FROM users WHERE did = ?").run(tmpDid);
   });
 
@@ -715,7 +721,7 @@ describe("POST /api/realms/[id]/users", () => {
     const res = await realmUsersPOST(req("http://localhost", { userDid: DID.stranger }) as never, params({ id: testRealmId }));
     expect(status(res)).not.toBe(401);
     expect(status(res)).not.toBe(403);
-    getDb().prepare("DELETE FROM user_realms WHERE user_did = ? AND realm_id = ?").run(DID.stranger, testRealmId);
+    getDb().prepare("DELETE FROM user_realms WHERE user_id = ? AND realm_id = ?").run(DID.stranger, testRealmId);
   });
 });
 
@@ -977,5 +983,235 @@ describe("POST /api/registrations/[id]/approve", () => {
       params({ id: "fake-registration-id" }),
     );
     expectStatus(res, 403);
+  });
+});
+
+// --- /api/policies -----------------------------------------------------------
+
+describe("GET /api/policies", () => {
+  it("returns 401 when unauthenticated", async () => {
+    asUnauthenticated();
+    const res = await policiesGET(req("http://localhost/api/policies") as never);
+    expectStatus(res, 401);
+  });
+
+  it("returns 403 for a regular member", async () => {
+    asMember();
+    const res = await policiesGET(req("http://localhost/api/policies") as never);
+    expectStatus(res, 403);
+  });
+
+  it("returns 403 for a realm admin", async () => {
+    asRealmAdmin();
+    const res = await policiesGET(req("http://localhost/api/policies") as never);
+    expectStatus(res, 403);
+  });
+
+  it("returns 200 with policies array for a global admin", async () => {
+    asAdmin();
+    const res = await policiesGET(req("http://localhost/api/policies") as never);
+    expectStatus(res, 200);
+    const body = (res as { _body: { policies: unknown[] } })._body;
+    expect(Array.isArray(body.policies)).toBe(true);
+  });
+
+  it("accepts agentDid query param and returns only matching policies", async () => {
+    asAdmin();
+    const policy = createPolicy({
+      capabilities: ["file_access"],
+      agentDid: DID.agent,
+      createdBy: DID.admin,
+    });
+    const res = await policiesGET(
+      req(`http://localhost/api/policies?agentDid=${encodeURIComponent(DID.agent)}`) as never,
+    );
+    expectStatus(res, 200);
+    const body = (res as { _body: { policies: { id: string }[] } })._body;
+    expect(body.policies.some((p) => p.id === policy.id)).toBe(true);
+    deletePolicy(policy.id);
+  });
+});
+
+describe("POST /api/policies", () => {
+  it("returns 401 when unauthenticated", async () => {
+    asUnauthenticated();
+    const res = await policiesPOST(
+      req("http://localhost", { capabilities: ["file_access"], agentDid: DID.agent }) as never,
+    );
+    expectStatus(res, 401);
+  });
+
+  it("returns 403 for a regular member", async () => {
+    asMember();
+    const res = await policiesPOST(
+      req("http://localhost", { capabilities: ["file_access"], agentDid: DID.agent }) as never,
+    );
+    expectStatus(res, 403);
+  });
+
+  it("returns 403 for a realm admin", async () => {
+    asRealmAdmin();
+    const res = await policiesPOST(
+      req("http://localhost", { capabilities: ["file_access"], agentDid: DID.agent }) as never,
+    );
+    expectStatus(res, 403);
+  });
+
+  it("returns 400 when capabilities is missing or empty", async () => {
+    asAdmin();
+    const res = await policiesPOST(
+      req("http://localhost", { capabilities: [], agentDid: DID.agent }) as never,
+    );
+    expectStatus(res, 400);
+  });
+
+  it("returns 400 when capabilities is not an array", async () => {
+    asAdmin();
+    const res = await policiesPOST(
+      req("http://localhost", { capabilities: "file_access" }) as never,
+    );
+    expectStatus(res, 400);
+  });
+
+  it("creates a policy and returns 201 for a global admin", async () => {
+    asAdmin(DID.admin);
+    const res = await policiesPOST(
+      req("http://localhost", {
+        capabilities: ["file_access"],
+        agentDid: DID.agent,
+      }) as never,
+    );
+    expectStatus(res, 201);
+    const body = (res as { _body: { policy: { id: string; capabilities: string[]; agentDid: string } } })._body;
+    expect(body.policy?.id).toBeTruthy();
+    expect(body.policy?.capabilities).toContain("file_access");
+    expect(body.policy?.agentDid).toBe(DID.agent);
+    deletePolicy(body.policy.id);
+  });
+
+  it("creates a policy with resourceLimits and expiresAt", async () => {
+    asAdmin(DID.admin);
+    const expiresAt = new Date(Date.now() + 86_400_000).toISOString();
+    const res = await policiesPOST(
+      req("http://localhost", {
+        capabilities: ["api_call"],
+        agentDid: DID.agent,
+        resourceLimits: { maxTokensPerDay: 10000, maxRequestsPerHour: 60 },
+        expiresAt,
+      }) as never,
+    );
+    expectStatus(res, 201);
+    const body = (res as { _body: { policy: { id: string; resourceLimits: Record<string, unknown> } } })._body;
+    expect(body.policy?.resourceLimits?.maxTokensPerDay).toBe(10000);
+    deletePolicy(body.policy.id);
+  });
+
+  it("creates a realm-scoped policy without agentDid", async () => {
+    asAdmin(DID.admin);
+    const res = await policiesPOST(
+      req("http://localhost", {
+        capabilities: ["file_access"],
+        realmId: testRealmId,
+      }) as never,
+    );
+    expectStatus(res, 201);
+    const body = (res as { _body: { policy: { id: string; realmId: string } } })._body;
+    expect(body.policy?.realmId).toBe(testRealmId);
+    deletePolicy(body.policy.id);
+  });
+});
+
+describe("GET /api/policies/[id]", () => {
+  let testPolicyId: string;
+
+  beforeAll(() => {
+    const p = createPolicy({
+      capabilities: ["file_access"],
+      agentDid: DID.agent,
+      createdBy: DID.admin,
+    });
+    testPolicyId = p.id;
+  });
+
+  afterAll(() => {
+    deletePolicy(testPolicyId);
+  });
+
+  it("returns 401 when unauthenticated", async () => {
+    asUnauthenticated();
+    const res = await policyDetailGET(req() as never, params({ id: testPolicyId }));
+    expectStatus(res, 401);
+  });
+
+  it("returns 403 for a regular member", async () => {
+    asMember();
+    const res = await policyDetailGET(req() as never, params({ id: testPolicyId }));
+    expectStatus(res, 403);
+  });
+
+  it("returns 403 for a realm admin", async () => {
+    asRealmAdmin();
+    const res = await policyDetailGET(req() as never, params({ id: testPolicyId }));
+    expectStatus(res, 403);
+  });
+
+  it("returns 404 for a non-existent policy", async () => {
+    asAdmin();
+    const res = await policyDetailGET(req() as never, params({ id: "non-existent-policy-id" }));
+    expectStatus(res, 404);
+  });
+
+  it("returns 200 with full policy for a global admin", async () => {
+    asAdmin();
+    const res = await policyDetailGET(req() as never, params({ id: testPolicyId }));
+    expectStatus(res, 200);
+    const body = (res as { _body: { policy: { id: string; capabilities: string[]; agentDid: string } } })._body;
+    expect(body.policy?.id).toBe(testPolicyId);
+    expect(body.policy?.capabilities).toContain("file_access");
+    expect(body.policy?.agentDid).toBe(DID.agent);
+  });
+});
+
+describe("DELETE /api/policies/[id]", () => {
+  it("returns 401 when unauthenticated", async () => {
+    asUnauthenticated();
+    const res = await policyDetailDELETE(req() as never, params({ id: "any-policy-id" }));
+    expectStatus(res, 401);
+  });
+
+  it("returns 403 for a regular member", async () => {
+    asMember();
+    const res = await policyDetailDELETE(req() as never, params({ id: "any-policy-id" }));
+    expectStatus(res, 403);
+  });
+
+  it("returns 403 for a realm admin", async () => {
+    asRealmAdmin();
+    const res = await policyDetailDELETE(req() as never, params({ id: "any-policy-id" }));
+    expectStatus(res, 403);
+  });
+
+  it("returns 404 for a non-existent policy id", async () => {
+    asAdmin();
+    const res = await policyDetailDELETE(req() as never, params({ id: "non-existent-id" }));
+    expectStatus(res, 404);
+  });
+
+  it("deletes a policy and returns ok:true for a global admin", async () => {
+    const p = createPolicy({
+      capabilities: ["api_call"],
+      agentDid: DID.agent,
+      createdBy: DID.admin,
+    });
+    asAdmin();
+    const res = await policyDetailDELETE(req() as never, params({ id: p.id }));
+    expectStatus(res, 200);
+    const body = (res as { _body: { ok: boolean; sentTo: string[] } })._body;
+    expect(body.ok).toBe(true);
+    expect(Array.isArray(body.sentTo)).toBe(true);
+    // Policy is gone — a second DELETE should 404
+    asAdmin();
+    const res2 = await policyDetailDELETE(req() as never, params({ id: p.id }));
+    expectStatus(res2, 404);
   });
 });

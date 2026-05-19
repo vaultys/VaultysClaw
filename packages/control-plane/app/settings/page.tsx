@@ -110,7 +110,7 @@ export default function SettingsPage() {
                 </span>
               )}
               {nameStatus === "error" && (
-                <span className="text-xs text-red-400">Failed to save</span>
+                <span className="text-xs text-red-600 dark:text-red-400">Failed to save</span>
               )}
             </div>
           </form>
@@ -133,7 +133,7 @@ export default function SettingsPage() {
                 className={cn(
                   "relative flex flex-col items-center gap-2.5 p-4 rounded-xl border transition-all text-center",
                   theme === value
-                    ? "bg-indigo-600/15 border-indigo-600/50 text-indigo-300"
+                    ? "bg-indigo-100 dark:bg-indigo-600/15 border-indigo-300 dark:border-indigo-600/50 text-indigo-700 dark:text-indigo-300"
                     : "bg-vc-raised/50 border-vc-ring/50 text-vc-muted hover:border-vc-muted hover:text-vc-text-2"
                 )}
               >

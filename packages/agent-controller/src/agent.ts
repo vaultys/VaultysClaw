@@ -58,6 +58,7 @@ import {
   type AgentPeerGrant,
   type WSSkillsConfigPayload,
   type SkillConfig,
+  type ResourceLimits,
 } from "@vaultysclaw/shared";
 import { type AgentControllerConfig } from "./config";
 import { runIntent, LlmNotConfiguredError, LlmProviderError, streamChat } from "./llm";
@@ -254,6 +255,13 @@ export class Agent extends EventEmitter {
   // Token usage tracking
   private _tokenUsageSinceLastSync = { promptTokens: 0, completionTokens: 0 };
   private _tokenUsageTotal = { promptTokens: 0, completionTokens: 0 };
+
+  // Active policy enforcement (populated from cert metadata or update_capabilities)
+  private resourceLimits: ResourceLimits | null = null;
+  private policyId: string | null = null;
+  private policyExpiresAt: string | null = null;
+  /** Rolling hourly request counter for maxRequestsPerHour enforcement. */
+  private _requestsThisHour = { count: 0, hourStart: 0 };
 
   constructor(config: AgentControllerConfig) {
     super();
@@ -914,8 +922,26 @@ export class Agent extends EventEmitter {
       try {
         const ctx = this.authChallenger.getContext();
         const metaCaps = ctx.metadata?.pk2?.capabilities;
-        if (metaCaps) this.capabilities = JSON.parse(metaCaps);
+        // Handle both native array (new certs) and legacy JSON-stringified string
+        if (Array.isArray(metaCaps)) this.capabilities = metaCaps as AgentCapability[];
+        else if (typeof metaCaps === "string") this.capabilities = JSON.parse(metaCaps);
       } catch { /* keep existing */ }
+    }
+
+    // Read policy governance metadata from cert (native types — no JSON.parse needed)
+    if (this.authChallenger) {
+      try {
+        const ctx = this.authChallenger.getContext();
+        const pk2 = ctx.metadata?.pk2;
+        if (pk2) {
+          this.resourceLimits = (pk2.resourceLimits as ResourceLimits | null | undefined) ?? null;
+          this.policyId = (pk2.policyId as string | null | undefined) ?? null;
+          this.policyExpiresAt = (pk2.policyExpiresAt as string | null | undefined) ?? null;
+          if (this.resourceLimits || this.policyId) {
+            this.log("info", `Policy applied from cert — id: ${this.policyId ?? "none"}, limits: ${JSON.stringify(this.resourceLimits)}`);
+          }
+        }
+      } catch { /* keep existing limits */ }
     }
 
     if (this.authChallenger) {
@@ -995,6 +1021,12 @@ export class Agent extends EventEmitter {
   private handleUpdateCapabilities(message: WSMessage): void {
     const payload = message.payload as WSUpdateCapabilitiesPayload;
     this.capabilities = payload.capabilities as AgentCapability[];
+
+    // Store incoming policy metadata so it is available after the re-auth cert is issued
+    if (payload.resourceLimits !== undefined) this.resourceLimits = payload.resourceLimits ?? null;
+    if (payload.policyId !== undefined) this.policyId = payload.policyId ?? null;
+    if (payload.policyExpiresAt !== undefined) this.policyExpiresAt = payload.policyExpiresAt ?? null;
+
     this.authChallenger = null;
     this.authSessionId = null;
     this.reAuthPending = true;
@@ -1022,6 +1054,44 @@ export class Agent extends EventEmitter {
 
       if (!this.capabilities.includes(action as AgentCapability)) {
         throw new Error(`Capability '${action}' not granted`);
+      }
+
+      // ---- Policy enforcement ----
+
+      // 1. Reject if the governing policy has expired
+      if (this.policyExpiresAt) {
+        const expiry = new Date(this.policyExpiresAt).getTime();
+        if (!isNaN(expiry) && Date.now() > expiry) {
+          throw new Error(`Policy '${this.policyId ?? "unknown"}' has expired — action blocked`);
+        }
+      }
+
+      // 2. Reject if the daily token budget is exhausted
+      if (this.resourceLimits?.maxTokensPerDay != null) {
+        const daily = getDailyTokenUsage();
+        const usedToday = (daily?.promptTokens ?? 0) + (daily?.completionTokens ?? 0);
+        if (usedToday >= this.resourceLimits.maxTokensPerDay) {
+          throw new Error(
+            `Daily token budget exhausted (used ${usedToday} / limit ${this.resourceLimits.maxTokensPerDay})`
+          );
+        }
+      }
+
+      // 3. Reject if the hourly request rate is exceeded
+      if (this.resourceLimits?.maxRequestsPerHour != null) {
+        const now = Date.now();
+        const hourMs = 60 * 60 * 1000;
+        if (now - this._requestsThisHour.hourStart > hourMs) {
+          // Roll over to a fresh window
+          this._requestsThisHour = { count: 0, hourStart: now };
+        }
+        if (this._requestsThisHour.count >= this.resourceLimits.maxRequestsPerHour) {
+          const resetIn = Math.ceil((this._requestsThisHour.hourStart + hourMs - now) / 1000);
+          throw new Error(
+            `Hourly request limit reached (${this.resourceLimits.maxRequestsPerHour} req/h) — resets in ${resetIn}s`
+          );
+        }
+        this._requestsThisHour.count++;
       }
 
       if (userDid) {
@@ -1607,13 +1677,16 @@ export class Agent extends EventEmitter {
 
   // ---- Policy ----
 
+  /**
+   * @deprecated The `policy_update` message is superseded by the cert-reissue path
+   * (`update_capabilities` → re-auth). Policy metadata (resourceLimits, policyId,
+   * policyExpiresAt) is now embedded in the Challenger certificate and read in
+   * handleAuthComplete / handleUpdateCapabilities. This handler is kept as a
+   * no-op for backward compatibility with older control-plane builds.
+   */
   private handlePolicyUpdate(message: WSMessage): void {
-    try {
-      const { messageId, payload } = message;
-      this.log("info", `Policy update received: ${payload.id}`);
-      this.sendAck(messageId, true);
-    } catch (err) {
-      this.log("error", "Error handling policy update", err);
-    }
+    const { messageId } = message;
+    this.log("warn", "Received deprecated policy_update message — policies are now enforced via cert reissue");
+    this.sendAck(messageId, true);
   }
 }

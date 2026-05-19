@@ -14,6 +14,7 @@
 import { Challenger, VaultysId, crypto } from "@vaultys/id";
 import { verifyProtocol } from "@vaultysclaw/shared";
 import pino from "pino";
+import type { ResourceLimits } from "@vaultysclaw/shared";
 import {
   getSetting,
   createAuthSession as dbCreateAuthSession,
@@ -21,6 +22,13 @@ import {
   updateAuthSession,
   logActivity,
 } from "./db";
+
+/** Extra governance data embedded alongside capabilities in the cert metadata. */
+export interface PolicyMeta {
+  resourceLimits?: ResourceLimits | null;
+  policyId?: string | null;
+  policyExpiresAt?: string | null;
+}
 
 const logger = pino();
 const Buffer = crypto.Buffer;
@@ -69,16 +77,18 @@ export function createAuthSession(): { sessionId: string } {
 /**
  * Process a challenge message from the agent.
  *
- * @param sessionId - the auth session ID
- * @param data - base64-encoded certificate data from agent
- * @param agentName - the name the agent reported
+ * @param sessionId   - the auth session ID
+ * @param data        - base64-encoded certificate data from agent
+ * @param agentName   - the name the agent reported
  * @param capabilities - the capabilities the agent reported
+ * @param policyMeta  - optional governance metadata embedded alongside capabilities in the cert
  */
 export async function processChallenge(
   sessionId: string,
   data: string,
   agentName: string = "unknown",
-  capabilities: string[] = []
+  capabilities: string[] = [],
+  policyMeta?: PolicyMeta
 ): Promise<AuthResult> {
   const session = getAuthSession(sessionId);
   if (!session) {
@@ -101,14 +111,25 @@ export async function processChallenge(
     }
   }
 
-  // Feed agent's certificate data to the challenger
-  // On first update (no prior certificate), pass capabilities as metadata (pk2 = server side)
+  // Feed agent's certificate data to the challenger.
+  // On the first update we embed capabilities + governance metadata as native types —
+  // the Challenger library serialises the object internally, so no manual JSON.stringify.
   try {
     const isFirstUpdate = !session.certificate_data;
-    const metadata = isFirstUpdate && capabilities.length > 0
-      ? { capabilities: JSON.stringify(capabilities) }
-      : undefined;
-    await challenger.update(Buffer.from(data, "base64"), metadata);
+    let metadata: Record<string, unknown> | undefined;
+    if (isFirstUpdate) {
+      if (capabilities.length > 0 || policyMeta) {
+        metadata = { capabilities };
+        if (policyMeta?.resourceLimits != null) metadata.resourceLimits = policyMeta.resourceLimits;
+        if (policyMeta?.policyId != null) metadata.policyId = policyMeta.policyId;
+        if (policyMeta?.policyExpiresAt != null) metadata.policyExpiresAt = policyMeta.policyExpiresAt;
+      }
+    }
+    // Cast to `any`: the library's type declaration is Record<string,string> but
+    // the runtime implementation serialises the full object, so native values
+    // (arrays, numbers, nested objects) are preserved correctly.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await challenger.update(Buffer.from(data, "base64"), metadata as any);
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : String(error);
     updateAuthSession(sessionId, { status: -2 });
@@ -143,14 +164,14 @@ export async function processChallenge(
       return { done: true, success: false, error: "No contact DID after completion" };
     }
 
-    // Read capabilities from certificate metadata (pk2 = server-assigned)
+    // Read capabilities + policy metadata from cert (pk2 = server-assigned).
+    // Capabilities may be a native array (new certs) or a JSON string (legacy certs).
     const context = challenger.getContext();
     let certCapabilities = capabilities;
     try {
       const metaCaps = context.metadata?.pk2?.capabilities;
-      if (metaCaps) {
-        certCapabilities = JSON.parse(metaCaps);
-      }
+      if (Array.isArray(metaCaps)) certCapabilities = metaCaps;
+      else if (typeof metaCaps === "string") certCapabilities = JSON.parse(metaCaps);
     } catch {
       // fallback to passed capabilities
     }

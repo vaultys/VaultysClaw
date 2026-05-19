@@ -68,6 +68,9 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
       color?: string;
       llmConfig?: object | null;
       defaultCapabilities?: string[];
+      tokenBudgetDaily?: number | null;
+      tokenBudgetMonthly?: number | null;
+      allowedCapabilities?: string[] | null;
     };
 
     const updates: Parameters<typeof updateRealm>[1] = {};
@@ -76,6 +79,9 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
     if (body.color !== undefined) updates.color = body.color;
     if ("llmConfig" in body) updates.llm_config = body.llmConfig !== null ? JSON.stringify(body.llmConfig) : null;
     if (body.defaultCapabilities !== undefined) updates.default_capabilities = JSON.stringify(body.defaultCapabilities);
+    if ("tokenBudgetDaily" in body) updates.token_budget_daily = body.tokenBudgetDaily ?? null;
+    if ("tokenBudgetMonthly" in body) updates.token_budget_monthly = body.tokenBudgetMonthly ?? null;
+    if ("allowedCapabilities" in body) updates.allowed_capabilities = body.allowedCapabilities !== null && body.allowedCapabilities !== undefined ? JSON.stringify(body.allowedCapabilities) : null;
 
     updateRealm(id, updates);
 

@@ -100,16 +100,16 @@ export default function InviteUserModal({ onClose, onSuccess }: InviteUserModalP
               </svg>
             </div>
             <p className="text-vc-text font-medium">User registered!</p>
-            <button onClick={onClose} className="text-indigo-400 hover:text-indigo-300 text-sm transition-colors">Close</button>
+            <button onClick={onClose} className="text-indigo-700 dark:text-indigo-400 hover:text-indigo-300 text-sm transition-colors">Close</button>
           </div>
         )}
 
         {phase === "failure" && (
           <div className="flex flex-col items-center gap-3 py-4 text-center">
-            <p className="text-red-400 font-medium">Registration failed or timed out.</p>
+            <p className="text-red-600 dark:text-red-400 font-medium">Registration failed or timed out.</p>
             <button
               onClick={() => setPhase("idle")}
-              className="text-indigo-400 hover:text-indigo-300 text-sm transition-colors"
+              className="text-indigo-700 dark:text-indigo-400 hover:text-indigo-300 text-sm transition-colors"
             >
               Try again
             </button>

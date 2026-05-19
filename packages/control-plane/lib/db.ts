@@ -145,6 +145,12 @@ function migrateSchema(db: Database.Database): void {
   if (!agentCols.includes("llm_config")) {
     db.exec("ALTER TABLE agents ADD COLUMN llm_config TEXT DEFAULT NULL");
   }
+  if (!agentCols.includes("token_budget_daily")) {
+    db.exec("ALTER TABLE agents ADD COLUMN token_budget_daily INTEGER DEFAULT NULL");
+  }
+  if (!agentCols.includes("token_budget_monthly")) {
+    db.exec("ALTER TABLE agents ADD COLUMN token_budget_monthly INTEGER DEFAULT NULL");
+  }
 
   // Ensure realm tables exist (idempotent via CREATE TABLE IF NOT EXISTS)
   ensureRealmTables(db);
@@ -180,6 +186,34 @@ function migrateSchema(db: Database.Database): void {
     // Step 3: Create index
     db.exec("CREATE INDEX IF NOT EXISTS idx_workflows_realm ON workflows(realm_id)");
   }
+
+  // Migrate realms table for governance budget/guardrails
+  const realmCols = (db.pragma("table_info(realms)") as { name: string }[]).map((c) => c.name);
+  if (!realmCols.includes("token_budget_daily")) {
+    db.exec("ALTER TABLE realms ADD COLUMN token_budget_daily INTEGER DEFAULT NULL");
+  }
+  if (!realmCols.includes("token_budget_monthly")) {
+    db.exec("ALTER TABLE realms ADD COLUMN token_budget_monthly INTEGER DEFAULT NULL");
+  }
+  if (!realmCols.includes("allowed_capabilities")) {
+    db.exec("ALTER TABLE realms ADD COLUMN allowed_capabilities TEXT DEFAULT NULL");
+  }
+
+  // Governance policies table
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS policies (
+      id TEXT PRIMARY KEY,
+      agent_did TEXT,
+      realm_id TEXT REFERENCES realms(id) ON DELETE SET NULL,
+      capabilities TEXT NOT NULL DEFAULT '[]',
+      resource_limits TEXT DEFAULT NULL,
+      expires_at TEXT,
+      created_by TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_policies_agent ON policies(agent_did);
+    CREATE INDEX IF NOT EXISTS idx_policies_realm ON policies(realm_id);
+  `);
 
   // Ensure workflow_approvals table exists (for databases created before this feature)
   db.exec(`
@@ -534,6 +568,8 @@ export interface AgentRow {
   capabilities: string;
   certificate_data: string | null;
   llm_config: string | null; // JSON-encoded LlmConfig or null
+  token_budget_daily: number | null;
+  token_budget_monthly: number | null;
   registered_at: string;
   last_seen: string;
 }
@@ -938,6 +974,20 @@ export interface RealmRow {
   is_default: number;
   llm_config: string | null;
   default_capabilities: string;
+  token_budget_daily: number | null;
+  token_budget_monthly: number | null;
+  allowed_capabilities: string | null; // JSON array or null (null = unrestricted)
+  created_at: string;
+}
+
+export interface PolicyRow {
+  id: string;
+  agent_did: string | null;
+  realm_id: string | null;
+  capabilities: string; // JSON array
+  resource_limits: string | null; // JSON object or null
+  expires_at: string | null;
+  created_by: string | null;
   created_at: string;
 }
 
@@ -977,7 +1027,7 @@ export function createRealm(realm: {
 
 export function updateRealm(
   id: string,
-  updates: Partial<Pick<RealmRow, "name" | "slug" | "description" | "color" | "llm_config" | "default_capabilities">>
+  updates: Partial<Pick<RealmRow, "name" | "slug" | "description" | "color" | "llm_config" | "default_capabilities" | "token_budget_daily" | "token_budget_monthly" | "allowed_capabilities">>
 ): void {
   const d = getDb();
   const sets: string[] = [];
@@ -2083,4 +2133,80 @@ export function upsertRealmRouterKey(
     values.push(realmId);
     d.prepare(`UPDATE realm_router_keys SET ${sets.join(", ")} WHERE realm_id = ?`).run(...values);
   }
+}
+
+// ── Governance: Policies ───────────────────────────────────────────────────
+
+export function createPolicy(policy: {
+  agentDid?: string;
+  realmId?: string;
+  capabilities: string[];
+  resourceLimits?: { maxTokensPerDay?: number; maxRequestsPerHour?: number; allowedDomains?: string[] };
+  expiresAt?: string;
+  createdBy?: string;
+}): PolicyRow {
+  const d = getDb();
+  const id = `policy-${crypto.randomUUID()}`;
+  d.prepare(`
+    INSERT INTO policies (id, agent_did, realm_id, capabilities, resource_limits, expires_at, created_by)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    id,
+    policy.agentDid ?? null,
+    policy.realmId ?? null,
+    JSON.stringify(policy.capabilities),
+    policy.resourceLimits ? JSON.stringify(policy.resourceLimits) : null,
+    policy.expiresAt ?? null,
+    policy.createdBy ?? null,
+  );
+  return d.prepare("SELECT * FROM policies WHERE id = ?").get(id) as PolicyRow;
+}
+
+export function listPolicies(opts: { agentDid?: string; realmId?: string; includeExpired?: boolean } = {}): PolicyRow[] {
+  const d = getDb();
+  const conditions: string[] = [];
+  const values: unknown[] = [];
+  if (opts.agentDid !== undefined) { conditions.push("agent_did = ?"); values.push(opts.agentDid); }
+  if (opts.realmId !== undefined) { conditions.push("realm_id = ?"); values.push(opts.realmId); }
+  if (!opts.includeExpired) {
+    // Use datetime(expires_at) so SQLite parses ISO 8601 strings (which contain 'T'
+    // and 'Z') correctly before comparing — a raw string compare would always treat
+    // ISO dates as greater than datetime('now') because 'T' > ' ' in ASCII.
+    conditions.push("(expires_at IS NULL OR datetime(expires_at) > datetime('now'))");
+  }
+  const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+  return d.prepare(`SELECT * FROM policies ${where} ORDER BY created_at DESC`).all(...values) as PolicyRow[];
+}
+
+export function getPolicy(id: string): PolicyRow | undefined {
+  const d = getDb();
+  return d.prepare("SELECT * FROM policies WHERE id = ?").get(id) as PolicyRow | undefined;
+}
+
+export function deletePolicy(id: string): boolean {
+  const d = getDb();
+  const result = d.prepare("DELETE FROM policies WHERE id = ?").run(id);
+  return result.changes > 0;
+}
+
+export function countPoliciesByAgent(): { agent_did: string; count: number }[] {
+  const d = getDb();
+  return d.prepare(`
+    SELECT agent_did, COUNT(*) AS count FROM policies
+    WHERE agent_did IS NOT NULL AND (expires_at IS NULL OR datetime(expires_at) > datetime('now'))
+    GROUP BY agent_did
+  `).all() as { agent_did: string; count: number }[];
+}
+
+// ── Governance: Agent budget ───────────────────────────────────────────────
+
+export function updateAgentBudget(did: string, budgets: { tokenBudgetDaily?: number | null; tokenBudgetMonthly?: number | null }): void {
+  const d = getDb();
+  const sets: string[] = [];
+  const values: unknown[] = [];
+  if ("tokenBudgetDaily" in budgets) { sets.push("token_budget_daily = ?"); values.push(budgets.tokenBudgetDaily ?? null); }
+  if ("tokenBudgetMonthly" in budgets) { sets.push("token_budget_monthly = ?"); values.push(budgets.tokenBudgetMonthly ?? null); }
+  if (sets.length === 0) return;
+  values.push(did);
+  d.prepare(`UPDATE agents SET ${sets.join(", ")} WHERE did = ?`).run(...values);
 }

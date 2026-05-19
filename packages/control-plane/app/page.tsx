@@ -432,100 +432,100 @@ function Dashboard() {
         </button>
 
         {isGlobalAdmin && (
-        <div className="relative bg-vc-surface rounded-lg border border-vc-border p-5 overflow-hidden">
-          <div className="relative z-10">
-            <div className="flex items-center gap-2 mb-3">
-              <div className="w-8 h-8 bg-gradient-to-br from-rose-100 to-pink-200 dark:from-rose-900/40 dark:to-pink-800/40 rounded-lg flex items-center justify-center">
-                <DollarSign className="w-4 h-4 text-rose-600 dark:text-rose-400" />
+          <div className="relative bg-vc-surface rounded-lg border border-vc-border p-5 overflow-hidden">
+            <div className="relative z-10">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-8 h-8 bg-gradient-to-br from-rose-100 to-pink-200 dark:from-rose-900/40 dark:to-pink-800/40 rounded-lg flex items-center justify-center">
+                  <DollarSign className="w-4 h-4 text-rose-600 dark:text-rose-400" />
+                </div>
+                <p className="text-vc-muted text-xs font-semibold uppercase tracking-widest">Today</p>
               </div>
-              <p className="text-vc-muted text-xs font-semibold uppercase tracking-widest">Today</p>
+              <p className="text-4xl font-bold text-rose-600 dark:text-rose-400 mb-1">${tokenMetrics.dailyPrice.toFixed(2)}</p>
+              <p className="text-xs text-vc-subtle">{totalTokensDaily.toLocaleString()} tokens</p>
             </div>
-            <p className="text-4xl font-bold text-rose-600 dark:text-rose-400 mb-1">${tokenMetrics.dailyPrice.toFixed(2)}</p>
-            <p className="text-xs text-vc-subtle">{totalTokensDaily.toLocaleString()} tokens</p>
           </div>
-        </div>
         )}
       </div>
 
       {/* Token metrics */}
       {isGlobalAdmin && (
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="bg-vc-surface rounded-lg border border-vc-border p-5 hover:border-blue-400 dark:hover:border-blue-600 transition-colors">
-          <div className="flex items-center gap-2 mb-4">
-            <div className="w-8 h-8 bg-gradient-to-br from-blue-100 to-cyan-200 dark:from-blue-900/40 dark:to-cyan-800/40 rounded-lg flex items-center justify-center">
-              <TrendingUp className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="bg-vc-surface rounded-lg border border-vc-border p-5 hover:border-blue-400 dark:hover:border-blue-600 transition-colors">
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-8 h-8 bg-gradient-to-br from-blue-100 to-cyan-200 dark:from-blue-900/40 dark:to-cyan-800/40 rounded-lg flex items-center justify-center">
+                <TrendingUp className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+              </div>
+              <h3 className="text-sm font-semibold text-vc-text">Daily Usage</h3>
             </div>
-            <h3 className="text-sm font-semibold text-vc-text">Daily Usage</h3>
+            <div className="space-y-3">
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs text-vc-muted">Input tokens</span>
+                  <span className="text-sm font-semibold text-vc-text">{tokenMetrics.dailyPrompt.toLocaleString()}</span>
+                </div>
+                <div className="h-1.5 bg-vc-raised rounded-full overflow-hidden">
+                  <div className="h-full bg-gradient-to-r from-blue-500 to-blue-600 rounded-full" style={{ width: `${Math.min(100, (tokenMetrics.dailyPrompt / Math.max(1, totalTokensDaily)) * 100)}%` }} />
+                </div>
+              </div>
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs text-vc-muted">Output tokens</span>
+                  <span className="text-sm font-semibold text-vc-text">{tokenMetrics.dailyCompletion.toLocaleString()}</span>
+                </div>
+                <div className="h-1.5 bg-vc-raised rounded-full overflow-hidden">
+                  <div className="h-full bg-gradient-to-r from-cyan-500 to-cyan-600 rounded-full" style={{ width: `${Math.min(100, (tokenMetrics.dailyCompletion / Math.max(1, totalTokensDaily)) * 100)}%` }} />
+                </div>
+              </div>
+              <div className="pt-2 border-t border-vc-border">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium text-vc-muted">Avg per agent</span>
+                  <span className="text-xs font-semibold text-blue-600 dark:text-blue-400">${avgCostPerAgent}</span>
+                </div>
+              </div>
+            </div>
           </div>
-          <div className="space-y-3">
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-xs text-vc-muted">Input tokens</span>
-                <span className="text-sm font-semibold text-vc-text">{tokenMetrics.dailyPrompt.toLocaleString()}</span>
-              </div>
-              <div className="h-1.5 bg-vc-raised rounded-full overflow-hidden">
-                <div className="h-full bg-gradient-to-r from-blue-500 to-blue-600 rounded-full" style={{ width: `${Math.min(100, (tokenMetrics.dailyPrompt / Math.max(1, totalTokensDaily)) * 100)}%` }} />
-              </div>
-            </div>
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-xs text-vc-muted">Output tokens</span>
-                <span className="text-sm font-semibold text-vc-text">{tokenMetrics.dailyCompletion.toLocaleString()}</span>
-              </div>
-              <div className="h-1.5 bg-vc-raised rounded-full overflow-hidden">
-                <div className="h-full bg-gradient-to-r from-cyan-500 to-cyan-600 rounded-full" style={{ width: `${Math.min(100, (tokenMetrics.dailyCompletion / Math.max(1, totalTokensDaily)) * 100)}%` }} />
-              </div>
-            </div>
-            <div className="pt-2 border-t border-vc-border">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-vc-muted">Avg per agent</span>
-                <span className="text-xs font-semibold text-blue-600 dark:text-blue-400">${avgCostPerAgent}</span>
-              </div>
-            </div>
-          </div>
-        </div>
 
-        <div className="bg-vc-surface rounded-lg border border-vc-border p-5 hover:border-purple-400 dark:hover:border-purple-600 transition-colors">
-          <div className="flex items-center gap-2 mb-4">
-            <div className="w-8 h-8 bg-gradient-to-br from-purple-100 to-fuchsia-200 dark:from-purple-900/40 dark:to-fuchsia-800/40 rounded-lg flex items-center justify-center">
-              <TrendingUp className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+          <div className="bg-vc-surface rounded-lg border border-vc-border p-5 hover:border-purple-400 dark:hover:border-purple-600 transition-colors">
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-8 h-8 bg-gradient-to-br from-purple-100 to-fuchsia-200 dark:from-purple-900/40 dark:to-fuchsia-800/40 rounded-lg flex items-center justify-center">
+                <TrendingUp className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+              </div>
+              <h3 className="text-sm font-semibold text-vc-text">Monthly Usage</h3>
             </div>
-            <h3 className="text-sm font-semibold text-vc-text">Monthly Usage</h3>
-          </div>
-          <div className="space-y-3">
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-xs text-vc-muted">Input tokens</span>
-                <span className="text-sm font-semibold text-vc-text">{tokenMetrics.monthlyPrompt.toLocaleString()}</span>
+            <div className="space-y-3">
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs text-vc-muted">Input tokens</span>
+                  <span className="text-sm font-semibold text-vc-text">{tokenMetrics.monthlyPrompt.toLocaleString()}</span>
+                </div>
+                <div className="h-1.5 bg-vc-raised rounded-full overflow-hidden">
+                  <div className="h-full bg-gradient-to-r from-purple-500 to-purple-600 rounded-full" style={{ width: `${Math.min(100, (tokenMetrics.monthlyPrompt / Math.max(1, totalTokensMonthly)) * 100)}%` }} />
+                </div>
               </div>
-              <div className="h-1.5 bg-vc-raised rounded-full overflow-hidden">
-                <div className="h-full bg-gradient-to-r from-purple-500 to-purple-600 rounded-full" style={{ width: `${Math.min(100, (tokenMetrics.monthlyPrompt / Math.max(1, totalTokensMonthly)) * 100)}%` }} />
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs text-vc-muted">Output tokens</span>
+                  <span className="text-sm font-semibold text-vc-text">{tokenMetrics.monthlyCompletion.toLocaleString()}</span>
+                </div>
+                <div className="h-1.5 bg-vc-raised rounded-full overflow-hidden">
+                  <div className="h-full bg-gradient-to-r from-fuchsia-500 to-fuchsia-600 rounded-full" style={{ width: `${Math.min(100, (tokenMetrics.monthlyCompletion / Math.max(1, totalTokensMonthly)) * 100)}%` }} />
+                </div>
               </div>
-            </div>
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-xs text-vc-muted">Output tokens</span>
-                <span className="text-sm font-semibold text-vc-text">{tokenMetrics.monthlyCompletion.toLocaleString()}</span>
+              <div className="pt-2 border-t border-vc-border">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium text-vc-muted">Total this month</span>
+                  <span className="text-xs font-semibold text-purple-600 dark:text-purple-400">{totalTokensMonthly.toLocaleString()}</span>
+                </div>
               </div>
-              <div className="h-1.5 bg-vc-raised rounded-full overflow-hidden">
-                <div className="h-full bg-gradient-to-r from-fuchsia-500 to-fuchsia-600 rounded-full" style={{ width: `${Math.min(100, (tokenMetrics.monthlyCompletion / Math.max(1, totalTokensMonthly)) * 100)}%` }} />
-              </div>
-            </div>
-            <div className="pt-2 border-t border-vc-border">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-vc-muted">Total this month</span>
-                <span className="text-xs font-semibold text-purple-600 dark:text-purple-400">{totalTokensMonthly.toLocaleString()}</span>
-              </div>
-            </div>
-            <div className="pt-2 border-t border-vc-border">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-vc-muted">Projected (end of month)</span>
-                <span className="text-xs font-semibold text-purple-500 dark:text-purple-300">{projectedMonthlyTokens.toLocaleString()}</span>
+              <div className="pt-2 border-t border-vc-border">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium text-vc-muted">Projected (end of month)</span>
+                  <span className="text-xs font-semibold text-purple-500 dark:text-purple-300">{projectedMonthlyTokens.toLocaleString()}</span>
+                </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
       )}
 
       {/* Inbox section */}

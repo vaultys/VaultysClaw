@@ -19,10 +19,16 @@
 
 ## Highlights
 
-- **Decentralized identity** — every agent controller holds a unique, non-transferable [VaultysId](https://github.com/vaultys/id); no central credential store.
-- **Policy-based capability grants** — the control plane signs and distributes policies; agents verify and enforce them locally.
-- **End-to-end signing** — intents signed by the control plane, results signed by agents; all verified P2P over WebSocket.
-- **Multi-LLM support** — connect agents to local models, OpenAI, Anthropic, or any OpenAI-compatible endpoint.
+- **Decentralized identity** — every user and agent holds a unique, non-transferable [VaultysId](https://github.com/vaultys/id); authentication is passwordless via QR code.
+- **Realms** — multi-tenant namespaces that group users, agents, and models; each realm controls its own LLM access and skill catalog.
+- **Workflow engine** — visual drag-and-drop editor (React Flow) with sequential/parallel execution, human-in-the-loop approval steps, and a live approval inbox.
+- **LiteLLM model registry** — centrally manage models with per-realm virtual keys and request routing; agents pick from an approved registry rather than holding raw API keys.
+- **Entra ID sync** — pull users and groups from Microsoft Azure AD via MS Graph API; groups map automatically to realms.
+- **Token budgets** — daily and monthly token limits per agent and per realm, with live usage tracking and governance alerts.
+- **Governance posture** — dashboard surfacing high-risk agents, uncovered policies, budget violations, and intent success rates.
+- **Skills & tools** — agent controllers expose a plugin-based skill system (calculator, JSON API, web scraper built-in) plus built-in tools for file ops, shell, HTTP, and code execution.
+- **Agent memory** — each agent controller maintains a persistent semantic memory (store, retrieval, summarizer).
+- **Peer grants** — cryptographically signed agent-to-agent capability delegation, verified at execution time.
 - **Monorepo, zero friction** — pnpm workspaces + Turborepo; one command starts the whole stack.
 
 ---
@@ -42,10 +48,10 @@ pnpm dev
 | Service | URL |
 |---|---|
 | Control Plane | http://localhost:3000 |
-| Agent Controller | http://localhost:3001 |
+| Agent Web UI | http://localhost:3002 |
 | WebSocket | ws://localhost:8080 |
 
-On first run, visit the control plane dashboard to register your first agent and define its policy.
+On first run, visit the control plane to complete initial setup — scan the QR code with the VaultysId app to create your admin identity.
 
 ---
 
@@ -54,31 +60,55 @@ On first run, visit the control plane dashboard to register your first agent and
 ```
 VaultysClaw/
 ├── packages/
-│   ├── shared/              # Shared types & security utilities
-│   ├── control-plane/       # Next.js dashboard + WebSocket server
-│   └── agent-controller/    # Agent runtime (Node.js)
-├── turbo.json               # Build orchestration
-└── package.json             # pnpm workspaces root
+│   ├── shared/                  # Shared types & security utilities
+│   ├── control-plane/           # Next.js dashboard + WebSocket server
+│   │   ├── app/                 # Next.js App Router pages & API routes
+│   │   ├── components/          # React UI (layout, workflows, graphs, users)
+│   │   └── lib/                 # DB, auth, DAOs, workflow executor, LiteLLM client
+│   └── agent-controller/        # Agent runtime (Node.js / Bun)
+│       ├── src/                 # Core agent, tools, skills, memory, scheduler
+│       └── web-app/             # Vite React UI (chat, runs, overview)
+├── docs-site/                   # Docusaurus documentation site
+├── docker/                      # Dockerfiles
+├── docker-compose.litellm.yml   # LiteLLM sidecar stack
+├── turbo.json
+└── package.json                 # pnpm workspaces root
 ```
 
 ### Control Plane
-- **React** + Tailwind CSS dashboard
-- **Next.js** API routes
-- **WebSocket server** (port 8080) — distributes signed policies and intents
-- **SQLite** — agent registry, policy store, intent/result history
+- **Next.js** App Router + Tailwind CSS dashboard
+- **VaultysId** — passwordless QR-code authentication; no passwords stored
+- **WebSocket server** (port 8080) — real-time agent heartbeats, intent dispatch, admin push
+- **SQLite** — full persistence: agents, users, realms, policies, workflows, intent log, token usage history, audit activity log
+- **Realms** — multi-tenant namespaces with per-realm model access, user membership, skill catalogs, and token budgets
+- **Users** — role-based (admin/member), hierarchy (`reports_to`), email, Entra ID linkage, delegation certificates
+- **Workflow engine** — visual editor, sequential/parallel node execution, human approval steps, run history
+- **LiteLLM integration** — model registry with realm-scoped virtual keys and request routing
+- **Entra ID sync** — Azure AD group → realm mapping via MS Graph API (client credentials flow)
+- **Governance API** — posture summary: agent coverage, high-risk capabilities, budget violations, intent/approval stats
+- **SMTP** — configurable email notifications
 
 ### Agent Controller
-- Lightweight Node.js service
+- Lightweight Node.js service; optional Bun runtime for SQLite shim
 - Connects to the control plane via a persistent WebSocket
-- Verifies intents against the control plane's public key before execution
-- Executes actions within policy boundaries and signs results
-- Supports local LLMs, OpenAI, Anthropic, or any OpenAI-compatible endpoint
+- **Web UI** (port 3002) — React/Vite app with Chat, Runs, and Overview panels
+- **TUI** — Ink-based terminal dashboard
+- **Skills** — plugin architecture; built-in: `calculator`, `json-api`, `web-scraper`
+- **Tools** — `file-ops`, `http-request`, `shell`, `code-runner`, `remote-agent`
+- **Memory** — persistent semantic store with retrieval and summarization
+- **Scheduler** — cron-style task scheduling
+- **Task queue** — concurrent intent execution with back-pressure
+- **Peer grant verification** — verifies cryptographic capability grants from the control plane before acting
+- **LLM support** — local models, OpenAI, Anthropic, or any OpenAI-compatible endpoint
 
 ### Security Layer
-- VaultysId for non-transferable, decentralized agent identity
-- All intents and results signed and verified P2P
-- Policy-based capability grants — no action runs without a valid signed policy
-- Audit log of every intent and result
+- VaultysId for non-transferable, decentralized identity (users and agents)
+- Passwordless authentication via QR code + VaultysId mobile app
+- Certificate-based delegation (`delegation_certs` table)
+- Peer grants — signed capability delegation between agents
+- Policy-based capability grants — signed by the control plane
+- Intent log — full audit trail of every intent sent and result received
+- Activity log — server-side audit of all admin operations
 
 ---
 
@@ -87,62 +117,41 @@ VaultysClaw/
 ### Control Plane
 ```env
 PORT=3000
+WS_PORT=8080
 DATABASE_URL=sqlite:./data.db
 VAULTYS_ID_PATH=./.vaultys/control-plane.id
+NEXTAUTH_SECRET=<random-secret>
+NEXTAUTH_URL=http://localhost:3000
+
+# Optional: Microsoft Entra ID sync
+ENTRA_TENANT_ID=<tenant-id>
+ENTRA_CLIENT_ID=<client-id>
+ENTRA_CLIENT_SECRET=<client-secret>
+
+# Optional: SMTP notifications
+SMTP_HOST=smtp.example.com
+SMTP_PORT=587
+SMTP_USER=user@example.com
+SMTP_PASS=<password>
+
+# Optional: LiteLLM proxy
+LITELLM_BASE_URL=http://localhost:4000
+LITELLM_MASTER_KEY=<master-key>
 ```
 
 ### Agent Controller
 ```env
 AGENT_NAME=agent-1
-AGENT_PORT=3001
 CONTROL_PLANE_URL=http://localhost:3000
-LLM_TYPE=local|openai|anthropic
+CONTROL_PLANE_WS_URL=ws://localhost:8080   # or set WS_HOST + WS_PORT
+WEB_PORT=3002
+
+# LLM — pick from an approved model in the control plane registry, or configure directly:
 LLM_MODEL=gpt-4o
 LLM_API_KEY=sk-...
-LLM_BASE_URL=https://api.openai.com/v1   # optional override
-VAULTYS_ID_PATH=./.vaultys/agent.id
-```
+LLM_BASE_URL=https://api.openai.com/v1    # optional, for OpenAI-compatible endpoints
 
----
-
-## API Examples
-
-### Register an Agent
-
-```bash
-curl -X POST http://localhost:3000/api/agents/register \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "my-agent",
-    "endpoint": "http://localhost:3001",
-    "capabilities": ["file_access", "api_call"]
-  }'
-```
-
-### Update an Agent Policy
-
-```bash
-curl -X POST http://localhost:3000/api/policies \
-  -H "Content-Type: application/json" \
-  -d '{
-    "agentControllerId": "agent-1",
-    "capabilities": ["file_access", "api_call"],
-    "resourceLimits": { "maxMemoryMb": 512 }
-  }'
-```
-
-### Send an Intent
-
-```bash
-curl -X POST http://localhost:3001/intent \
-  -H "Content-Type: application/json" \
-  -d '{
-    "id": "intent-123",
-    "action": "read_file",
-    "params": { "path": "/data/report.txt" },
-    "signature": "<control-plane-signature>",
-    "publicKey": "<control-plane-public-key>"
-  }'
+VAULTYS_ID_PATH=./.vaultys/agent.id       # or AGENT_VAULTYS_ID_PATH
 ```
 
 ---
@@ -152,7 +161,7 @@ curl -X POST http://localhost:3001/intent \
 ```bash
 pnpm dev            # Start everything in watch mode
 pnpm build          # Production build (all packages)
-pnpm test           # Run test suite
+pnpm test           # Run test suite (Vitest)
 pnpm type-check     # TypeScript checks
 pnpm lint           # ESLint
 pnpm format         # Prettier
@@ -164,15 +173,26 @@ pnpm dev -F @vaultysclaw/control-plane
 pnpm dev -F @vaultysclaw/agent-controller
 ```
 
+Docker:
+```bash
+# Full stack with LiteLLM
+docker compose -f docker-compose.litellm.yml up
+
+# Test environment
+docker compose -f docker-compose.test.yml up
+```
+
 ---
 
 ## Security
 
-1. **Identity**: Each agent controller holds a unique, non-transferable VaultysId — identity cannot be copied or delegated.
-2. **Policies**: Signed by the control plane; agents reject any unsigned or tampered policy.
-3. **Intents**: Signed by the control plane; agents verify the signature before execution.
-4. **Results**: Signed by the agent; the control plane verifies before accepting.
-5. **Capabilities**: Fine-grained, per-agent grants — no implicit permissions.
+1. **Identity**: Each user and agent holds a unique, non-transferable VaultysId — identity cannot be copied or delegated.
+2. **Authentication**: Passwordless QR-code login backed by VaultysId; no password hashes stored.
+3. **Policies**: Signed by the control plane; agents reject any unsigned or tampered policy.
+4. **Peer grants**: Cryptographic capability delegation between agents, verified at execution time.
+5. **Delegation**: Certificate-based user delegation with full audit trail.
+6. **Capabilities**: Fine-grained, per-agent grants — no implicit permissions.
+7. **Audit**: Intent log + activity log capture all operations server-side.
 
 ---
 
@@ -180,41 +200,50 @@ pnpm dev -F @vaultysclaw/agent-controller
 
 ### Phase 1 — Foundation
 - [x] Monorepo structure (pnpm + Turborepo)
-- [x] Agent registration
-- [x] VaultysId integration
-- [x] Policy distribution skeleton
-- [ ] SQLite persistence
-- [ ] Control plane UI
+- [x] Control plane UI (Next.js + React + Tailwind)
+- [x] Agent registration & approval flow
+- [x] VaultysId integration (passwordless QR auth)
+- [x] SQLite persistence (full schema + migrations)
+- [x] WebSocket server (agent heartbeats, intent dispatch)
+- [x] Basic API routes for agents and policies
 
-### Phase 2 — Security & Verification
-- [ ] P2P signature verification in agent controllers
-- [ ] Policy enforcement on all actions
-- [ ] Audit logging
-- [ ] Intent/result history
+### Phase 2 — Security & Identity
+- [x] Peer grant verification (signed capability delegation)
+- [x] Policy management (create, assign, expire)
+- [x] Intent log (full audit trail)
+- [x] Activity log
+- [x] Certificate-based user delegation
 
 ### Phase 3 — Orchestration
-- [ ] Intent queuing & scheduling
-- [ ] Multi-agent workflows
-- [ ] Conditional execution
-- [ ] Error handling & retries
+- [x] Workflow engine (visual editor, execution, run history)
+- [x] Human-in-the-loop approval steps + inbox
+- [x] Task queue & scheduler in agent controller
+- [x] Multi-agent peer tools (remote-agent tool calls)
+- [ ] Conditional branches
+- [ ] Error handling & automatic retries
 
-### Phase 4 — Scale
-- [ ] Clustering support
-- [ ] Performance monitoring
-- [ ] Advanced capability models
-- [ ] Integration marketplace
+### Phase 4 — Integrations & Scale
+- [x] LiteLLM model registry with realm-scoped virtual keys
+- [x] Microsoft Entra ID (Azure AD) user/group sync
+- [x] Token usage tracking & daily/monthly budgets
+- [x] Governance posture dashboard
+- [x] Realms (multi-tenant namespaces)
+- [x] Docker Compose dev environment
+- [ ] Clustering / multi-control-plane support
+- [ ] Webhook support
+- [ ] OpenTelemetry instrumentation
 
 ---
 
 ## Contributing
 
-Early-stage project — contributions welcome. Priority areas:
+Active development — contributions welcome. Priority areas:
 
-- SQLite schema & migrations
+- Workflow conditional branches & retry logic
+- Additional skills/tool integrations
 - Security hardening & audit
-- Control plane UI
-- Agent capabilities & integrations
-- Documentation
+- Documentation & examples
+- Performance & observability
 
 Please open an issue before starting significant work.
 
@@ -229,3 +258,4 @@ Please open an issue before starting significant work.
 - [VaultysId](https://github.com/vaultys/id) — decentralized identity framework
 - [Next.js](https://nextjs.org/docs)
 - [Turborepo](https://turbo.build/repo/docs)
+- [LiteLLM](https://docs.litellm.ai/)

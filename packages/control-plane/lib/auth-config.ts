@@ -6,14 +6,14 @@ import { UserDao } from "./user-dao";
 declare module "next-auth" {
   interface Session {
     user: {
-      did: string;
+      did: string | null;
       isOwner: boolean;
       isAdmin: boolean;
     };
   }
   interface User {
     id: string;
-    did: string;
+    did: string | null;
     isOwner: boolean;
     isAdmin: boolean;
   }
@@ -21,7 +21,7 @@ declare module "next-auth" {
 
 declare module "next-auth/jwt" {
   interface JWT {
-    did: string;
+    did: string | null;
     isOwner: boolean;
     isAdmin: boolean;
   }
@@ -64,7 +64,7 @@ export const authOptions: NextAuthOptions = {
         if (!user) return null;
 
         return {
-          id: user.did,
+          id: user.id,
           did: user.did,
           isOwner: user.is_owner === 1,
           isAdmin: user.is_owner === 1 || user.is_admin === 1,

@@ -37,12 +37,15 @@ export async function GET(request: NextRequest) {
   const sortDir = (searchParams.get("sortDir") ?? "asc") as "asc" | "desc";
 
   const isAdmin = isAdminFilter === "true" ? true : isAdminFilter === "false" ? false : undefined;
+  const hasAccountParam = searchParams.get("hasAccount");
+  const hasAccount = hasAccountParam === "true" ? true : hasAccountParam === "false" ? false : undefined;
 
-  const result = UserDao.query({ q, role, realm, isAdmin, page, pageSize, sortBy, sortDir });
+  const result = UserDao.query({ q, role, realm, isAdmin, hasAccount, page, pageSize, sortBy, sortDir });
 
   const users = result.users.map((u) => {
-    const realms = getUserRealms(u.did);
+    const realms = getUserRealms(u.id);
     return {
+      id: u.id,
       did: u.did,
       name: u.name ?? null,
       email: u.email ?? null,
@@ -50,18 +53,20 @@ export async function GET(request: NextRequest) {
       isAdmin: u.is_admin === 1 || u.is_owner === 1,
       role: u.role,
       registeredAt: u.registered_at,
+      entraId: u.entra_id ?? null,
+      claimedAt: u.claimed_at ?? null,
       realms: realms.map((r) => ({
         id: r.realm_id, name: r.name, slug: r.slug,
         color: r.color, isPrimary: Boolean(r.is_primary),
       })),
-      grants: GrantDao.listByUser(u.did).map((g) => ({
+      grants: u.did ? GrantDao.listByUser(u.did).map((g) => ({
         id: g.id,
         agentDid: g.agent_did,
         capabilities: JSON.parse(g.capabilities) as string[],
         grantedBy: g.granted_by,
         expiresAt: g.expires_at,
         createdAt: g.created_at,
-      })),
+      })) : [],
     };
   });
 

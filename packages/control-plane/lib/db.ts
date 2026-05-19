@@ -806,6 +806,43 @@ function ensureRealmTables(db: Database.Database): void {
   if (!userRealmsCols.includes("is_realm_admin")) {
     db.exec("ALTER TABLE user_realms ADD COLUMN is_realm_admin INTEGER NOT NULL DEFAULT 0");
   }
+
+  // Model registry tables
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS model_registry (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      description TEXT,
+      provider TEXT NOT NULL,
+      model_id TEXT NOT NULL,
+      base_url TEXT NOT NULL,
+      api_key_enc TEXT,
+      litellm_model_name TEXT,
+      status TEXT NOT NULL DEFAULT 'active',
+      metadata TEXT NOT NULL DEFAULT '{}',
+      created_by TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS model_realm_access (
+      model_id TEXT NOT NULL REFERENCES model_registry(id) ON DELETE CASCADE,
+      realm_id TEXT NOT NULL REFERENCES realms(id) ON DELETE CASCADE,
+      granted_at TEXT NOT NULL DEFAULT (datetime('now')),
+      PRIMARY KEY (model_id, realm_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS realm_router_keys (
+      realm_id TEXT PRIMARY KEY REFERENCES realms(id) ON DELETE CASCADE,
+      litellm_virtual_key TEXT,
+      allowed_model_ids TEXT NOT NULL DEFAULT '[]',
+      monthly_budget_usd REAL,
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_model_realm_access_realm ON model_realm_access(realm_id);
+    CREATE INDEX IF NOT EXISTS idx_model_registry_status ON model_registry(status);
+  `);
 }
 
 export interface RealmRow {
@@ -1799,4 +1836,167 @@ export function getAgentEffectiveSkills(agentDid: string): import("@vaultysclaw/
     });
   }
   return Array.from(seen.values());
+}
+
+// ---- Model Registry ----
+
+export interface ModelRegistryRow {
+  id: string;
+  name: string;
+  description: string | null;
+  provider: string;
+  model_id: string;
+  base_url: string;
+  api_key_enc: string | null;
+  litellm_model_name: string | null;
+  status: "active" | "inactive";
+  metadata: string;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export function createModelRegistryEntry(entry: {
+  name: string;
+  description?: string;
+  provider: string;
+  modelId: string;
+  baseUrl: string;
+  apiKeyEnc?: string;
+  createdBy?: string;
+}): ModelRegistryRow {
+  const d = getDb();
+  const id = crypto.randomUUID();
+  const litellmName = `${entry.provider}/${entry.name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
+  d.prepare(`
+    INSERT INTO model_registry (id, name, description, provider, model_id, base_url, api_key_enc, litellm_model_name, created_by)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    id,
+    entry.name,
+    entry.description ?? null,
+    entry.provider,
+    entry.modelId,
+    entry.baseUrl,
+    entry.apiKeyEnc ?? null,
+    litellmName,
+    entry.createdBy ?? null,
+  );
+  return d.prepare("SELECT * FROM model_registry WHERE id = ?").get(id) as ModelRegistryRow;
+}
+
+export function getModelRegistryEntry(id: string): ModelRegistryRow | undefined {
+  const d = getDb();
+  return d.prepare("SELECT * FROM model_registry WHERE id = ?").get(id) as ModelRegistryRow | undefined;
+}
+
+export function getAllModelRegistryEntries(): ModelRegistryRow[] {
+  const d = getDb();
+  return d.prepare("SELECT * FROM model_registry ORDER BY created_at DESC").all() as ModelRegistryRow[];
+}
+
+export function getModelsByRealm(realmId: string): ModelRegistryRow[] {
+  const d = getDb();
+  return d.prepare(`
+    SELECT m.* FROM model_registry m
+    JOIN model_realm_access mra ON mra.model_id = m.id
+    WHERE mra.realm_id = ? AND m.status = 'active'
+    ORDER BY m.name ASC
+  `).all(realmId) as ModelRegistryRow[];
+}
+
+export function updateModelRegistryEntry(
+  id: string,
+  updates: Partial<{
+    name: string;
+    description: string | null;
+    provider: string;
+    modelId: string;
+    baseUrl: string;
+    apiKeyEnc: string | null;
+    status: "active" | "inactive";
+    litellmModelName: string | null;
+    metadata: string;
+  }>
+): void {
+  const d = getDb();
+  const sets: string[] = ["updated_at = datetime('now')"];
+  const values: unknown[] = [];
+
+  if (updates.name !== undefined) { sets.push("name = ?"); values.push(updates.name); }
+  if (updates.description !== undefined) { sets.push("description = ?"); values.push(updates.description); }
+  if (updates.provider !== undefined) { sets.push("provider = ?"); values.push(updates.provider); }
+  if (updates.modelId !== undefined) { sets.push("model_id = ?"); values.push(updates.modelId); }
+  if (updates.baseUrl !== undefined) { sets.push("base_url = ?"); values.push(updates.baseUrl); }
+  if (updates.apiKeyEnc !== undefined) { sets.push("api_key_enc = ?"); values.push(updates.apiKeyEnc); }
+  if (updates.status !== undefined) { sets.push("status = ?"); values.push(updates.status); }
+  if (updates.litellmModelName !== undefined) { sets.push("litellm_model_name = ?"); values.push(updates.litellmModelName); }
+  if (updates.metadata !== undefined) { sets.push("metadata = ?"); values.push(updates.metadata); }
+
+  values.push(id);
+  d.prepare(`UPDATE model_registry SET ${sets.join(", ")} WHERE id = ?`).run(...values);
+}
+
+export function deleteModelRegistryEntry(id: string): void {
+  const d = getDb();
+  d.prepare("DELETE FROM model_registry WHERE id = ?").run(id);
+}
+
+// -- model_realm_access --
+
+export function getModelRealmAccess(modelId: string): { realm_id: string; granted_at: string }[] {
+  const d = getDb();
+  return d.prepare("SELECT realm_id, granted_at FROM model_realm_access WHERE model_id = ?").all(modelId) as { realm_id: string; granted_at: string }[];
+}
+
+export function grantModelRealmAccess(modelId: string, realmId: string): void {
+  const d = getDb();
+  d.prepare("INSERT OR IGNORE INTO model_realm_access (model_id, realm_id) VALUES (?, ?)").run(modelId, realmId);
+}
+
+export function revokeModelRealmAccess(modelId: string, realmId: string): void {
+  const d = getDb();
+  d.prepare("DELETE FROM model_realm_access WHERE model_id = ? AND realm_id = ?").run(modelId, realmId);
+}
+
+// -- realm_router_keys --
+
+export interface RealmRouterKeyRow {
+  realm_id: string;
+  litellm_virtual_key: string | null;
+  allowed_model_ids: string;
+  monthly_budget_usd: number | null;
+  updated_at: string;
+}
+
+export function getRealmRouterKey(realmId: string): RealmRouterKeyRow | undefined {
+  const d = getDb();
+  return d.prepare("SELECT * FROM realm_router_keys WHERE realm_id = ?").get(realmId) as RealmRouterKeyRow | undefined;
+}
+
+export function upsertRealmRouterKey(
+  realmId: string,
+  data: { litellmVirtualKey?: string; allowedModelIds?: string[]; monthlyBudgetUsd?: number | null }
+): void {
+  const d = getDb();
+  const existing = getRealmRouterKey(realmId);
+  if (!existing) {
+    d.prepare(`
+      INSERT INTO realm_router_keys (realm_id, litellm_virtual_key, allowed_model_ids, monthly_budget_usd)
+      VALUES (?, ?, ?, ?)
+    `).run(
+      realmId,
+      data.litellmVirtualKey ?? null,
+      JSON.stringify(data.allowedModelIds ?? []),
+      data.monthlyBudgetUsd ?? null,
+    );
+  } else {
+    const sets: string[] = ["updated_at = datetime('now')"];
+    const values: unknown[] = [];
+    if (data.litellmVirtualKey !== undefined) { sets.push("litellm_virtual_key = ?"); values.push(data.litellmVirtualKey); }
+    if (data.allowedModelIds !== undefined) { sets.push("allowed_model_ids = ?"); values.push(JSON.stringify(data.allowedModelIds)); }
+    if (data.monthlyBudgetUsd !== undefined) { sets.push("monthly_budget_usd = ?"); values.push(data.monthlyBudgetUsd); }
+    values.push(realmId);
+    d.prepare(`UPDATE realm_router_keys SET ${sets.join(", ")} WHERE realm_id = ?`).run(...values);
+  }
 }

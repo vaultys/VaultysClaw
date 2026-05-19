@@ -5,10 +5,10 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth-config";
-import { getAgent, setAgentLlmConfig } from "@/lib/db";
+import { getAgent, setAgentLlmConfig, getModelRegistryEntry, getRealmRouterKey, getModelsByRealm } from "@/lib/db";
+import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
 import { getWSServer } from "@/lib/ws-server";
+import { getLiteLLMBaseUrl } from "@/lib/litellm-client";
 import type { LlmConfig, LlmProviderType } from "@vaultysclaw/shared";
 
 const VALID_PROVIDERS: LlmProviderType[] = [
@@ -67,10 +67,9 @@ export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ did: string }> },
 ) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.isAdmin) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const auth = await getAuthContext();
+  if (!auth) return unauthorized();
+  if (!auth.isGlobalAdmin) return forbidden();
 
   const { did } = await params;
   const agent = getAgent(did);
@@ -94,10 +93,9 @@ export async function PUT(
   req: NextRequest,
   { params }: { params: Promise<{ did: string }> },
 ) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.isAdmin) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const auth = await getAuthContext();
+  if (!auth) return unauthorized();
+  if (!auth.isGlobalAdmin) return forbidden();
 
   const { did } = await params;
   const agent = getAgent(did);
@@ -105,7 +103,49 @@ export async function PUT(
     return NextResponse.json({ error: "Agent not found" }, { status: 404 });
   }
 
-  const body = await req.json().catch(() => null);
+  const body = await req.json().catch(() => null) as Record<string, unknown> | null;
+
+  // Realm routing shortcut — resolve virtual key + litellm model name server-side
+  if (body && typeof body.realmId === "string" && typeof body.realmModelId === "string") {
+    const routerKey = getRealmRouterKey(body.realmId);
+    if (!routerKey?.litellm_virtual_key) {
+      return NextResponse.json({ error: "Realm has no LiteLLM virtual key configured" }, { status: 400 });
+    }
+    const realmModels = getModelsByRealm(body.realmId);
+    const model = realmModels.find((m) => m.id === body.realmModelId);
+    if (!model?.litellm_model_name) {
+      return NextResponse.json({ error: "Model not found in realm or not registered with LiteLLM" }, { status: 404 });
+    }
+    const config: LlmConfig = {
+      provider: "openai-compatible",
+      baseUrl: getLiteLLMBaseUrl(),
+      apiKey: routerKey.litellm_virtual_key,
+      model: model.litellm_model_name,
+    };
+    setAgentLlmConfig(did, config);
+    const wsServer = getWSServer();
+    const pushed = wsServer?.sendLlmConfig(did, config) ?? false;
+    return NextResponse.json({ ok: true, pushed, config: safeConfig(config) });
+  }
+
+  // Registry model shortcut — resolve full config server-side so the API key never touches the client
+  if (body && typeof body.registryModelId === "string") {
+    const entry = getModelRegistryEntry(body.registryModelId);
+    if (!entry) {
+      return NextResponse.json({ error: "Registry model not found" }, { status: 404 });
+    }
+    const config: LlmConfig = {
+      provider: "openai-compatible",
+      model: entry.model_id,
+      baseUrl: entry.base_url,
+      apiKey: entry.api_key_enc ?? undefined,
+    };
+    setAgentLlmConfig(did, config);
+    const wsServer = getWSServer();
+    const pushed = wsServer?.sendLlmConfig(did, config) ?? false;
+    return NextResponse.json({ ok: true, pushed, config: safeConfig(config) });
+  }
+
   const validation = validateConfig(body);
   if (validation.error || !validation.config) {
     return NextResponse.json({ error: validation.error ?? "Invalid config" }, { status: 400 });
@@ -140,10 +180,9 @@ export async function DELETE(
   _req: NextRequest,
   { params }: { params: Promise<{ did: string }> },
 ) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.isAdmin) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const auth = await getAuthContext();
+  if (!auth) return unauthorized();
+  if (!auth.isGlobalAdmin) return forbidden();
 
   const { did } = await params;
   const agent = getAgent(did);

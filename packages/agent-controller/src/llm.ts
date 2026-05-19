@@ -58,10 +58,37 @@ export function buildModel(config: LlmConfig): any {
     }
 
     case "openai-compatible": {
+      // Normalize: append /v1 when the URL has no path (e.g. bare Ollama/vLLM host:port).
+      // The AI SDK appends /chat/completions to baseURL, so without /v1 it would 404.
+      let baseURL = config.baseUrl;
+      if (baseURL) {
+        try {
+          const u = new URL(baseURL);
+          if (u.pathname === "/" || u.pathname === "") {
+            baseURL = baseURL.replace(/\/+$/, "") + "/v1";
+          }
+        } catch { /* invalid URL — pass as-is */ }
+      }
       const client = createOpenAI({
         apiKey: config.apiKey ?? "not-required",
-        baseURL: config.baseUrl,
+        baseURL,
         compatibility: "compatible",
+        // Some servers (e.g. Ollama) reject messages with null content.
+        // Patch outgoing requests to replace null content with "".
+        fetch: async (url, init) => {
+          if (init?.body && typeof init.body === "string") {
+            try {
+              const body = JSON.parse(init.body);
+              if (Array.isArray(body.messages)) {
+                body.messages = body.messages.map((msg: Record<string, unknown>) =>
+                  msg.content == null ? { ...msg, content: "" } : msg,
+                );
+                return fetch(url, { ...init, body: JSON.stringify(body) });
+              }
+            } catch { /* fall through */ }
+          }
+          return fetch(url, init as RequestInit);
+        },
       });
       return client.chat(config.model);
     }

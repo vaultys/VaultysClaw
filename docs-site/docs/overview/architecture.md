@@ -26,6 +26,11 @@ graph TD
     VID_CP -.signs.-> API
   end
 
+  subgraph LiteLLM["LiteLLM Proxy (optional)  :4000"]
+    Router["Model Router"]
+    Keys["Virtual Keys\n(per realm)"]
+  end
+
   subgraph A1["Agent Controller"]
     EX1["Executor"]
     LLM1["LLM: GPT-4o"]
@@ -44,9 +49,12 @@ graph TD
     VID3["VaultysId ⬡"]
   end
 
-  WS -- "WSS signed messages" --> A1
-  WS -- "WSS signed messages" --> A2
-  WS -- "WSS signed messages" --> A3
+  API -- "register models\ncreate realm keys" --> LiteLLM
+  WS -- "WSS signed messages\n+ llm_config push" --> A1
+  WS -- "WSS signed messages\n+ llm_config push" --> A2
+  WS -- "WSS signed messages\n+ llm_config push" --> A3
+  A1 -- "openai-compatible\nvirtual key" --> LiteLLM
+  A2 -- "openai-compatible\nvirtual key" --> LiteLLM
 ```
 
 ## Control plane
@@ -161,6 +169,9 @@ Key tables:
 | `chat_sessions` | LLM conversation history |
 | `workflows` | Workflow definitions and run history |
 | `pending_registrations` | Agents awaiting admin approval |
+| `model_registry` | Registered LLMs with provider, model ID, and LiteLLM name |
+| `model_realm_access` | Which models each realm can access |
+| `realm_router_keys` | Per-realm LiteLLM virtual keys and allowed model lists |
 
 ## Technology stack
 
@@ -175,6 +186,7 @@ Key tables:
 | Identity | @vaultys/id 3.x |
 | Frontend | React 19, Tailwind CSS |
 | LLM SDKs | openai, @anthropic-ai/sdk, @google/generative-ai, ollama |
+| LLM proxy | LiteLLM (optional, self-hosted) |
 | Language | TypeScript 5.x throughout |
 
 ## Deployment topologies

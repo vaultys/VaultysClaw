@@ -54,6 +54,17 @@ GOOGLE_ID=your-google-client-id
 GOOGLE_SECRET=your-google-client-secret
 ```
 
+### LiteLLM integration (optional)
+
+Connect the control plane to a [LiteLLM proxy](https://docs.litellm.ai/docs/proxy/quick_start) to enable the model registry, per-realm virtual keys, and automatic LLM config push. See the [LLM Routing guide](/docs/guides/llm-routing) for a full walkthrough.
+
+| Variable | Default | Description |
+|---|---|---|
+| `LITELLM_BASE_URL` | — | Base URL of the LiteLLM proxy, e.g. `http://litellm:4000` |
+| `LITELLM_MASTER_KEY` | — | LiteLLM master key used to register models and generate virtual keys. |
+
+If either variable is absent, LiteLLM sync calls are silently skipped — the model registry UI is still available but models are not registered with a proxy.
+
 ### Logging
 
 | Variable | Default | Description |
@@ -119,6 +130,7 @@ LLM_MODEL=gemini-2.0-flash
 LLM_API_KEY=AI...
 
 # Ollama (local, no key)
+# Use the bare host — Vaultys Claw appends /v1 automatically
 LLM_PROVIDER=ollama
 LLM_MODEL=llama3.2
 LLM_BASE_URL=http://localhost:11434
@@ -194,7 +206,7 @@ Before going to production, verify:
 
 - [ ] `NEXTAUTH_SECRET` is a cryptographically random string (≥ 32 bytes)
 - [ ] `VAULTYS_ID_PATH` and `AGENT_VAULTYS_ID_PATH` files are backed up securely
-- [ ] LLM API keys are stored in a secrets manager, not in `.env` files committed to git
+- [ ] LLM API keys and `LITELLM_MASTER_KEY` are stored in a secrets manager, not in `.env` files committed to git
 - [ ] `.vaultys/` directories are in `.gitignore`
 - [ ] `NODE_ENV=production` is set on all services
 - [ ] `NEXTAUTH_URL` matches the actual public URL (required for OAuth redirect)

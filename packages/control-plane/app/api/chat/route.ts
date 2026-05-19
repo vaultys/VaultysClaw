@@ -57,6 +57,12 @@ export async function POST(request: NextRequest) {
 
     // Permission check: non-admins need at least one grant for this agent
     if (!session.user.isAdmin) {
+      if (!session.user.did) {
+        return new Response(JSON.stringify({ error: "Account not fully claimed" }), {
+          status: 403,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
       const grants = GrantDao.listByUser(session.user.did);
       const hasGrant = grants.some((g) => {
         const agentMatch = g.agent_did === null || g.agent_did === agentDid;

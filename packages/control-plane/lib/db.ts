@@ -60,6 +60,79 @@ function migrateSchema(db: Database.Database): void {
   if (!existingCols.includes("description")) {
     db.exec("ALTER TABLE users ADD COLUMN description TEXT");
   }
+  // ── Migrate to id-based users table (if not already done) ──────────────────
+  // Existing databases have `did TEXT PRIMARY KEY`. We recreate the table so
+  // that `id` is the PK and `did` becomes a nullable unique column. The same
+  // migration recreates user_realms to reference users(id) instead of users(did).
+  if (!existingCols.includes("id")) {
+    db.pragma("foreign_keys = OFF");
+    db.exec(`
+      -- Create entra_identities table if it doesn't exist yet
+      CREATE TABLE IF NOT EXISTS entra_identities (
+        id TEXT PRIMARY KEY,
+        display_name TEXT,
+        mail TEXT,
+        user_principal_name TEXT,
+        synced_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+
+      -- Recreate users with id PK and nullable did
+      CREATE TABLE users_new (
+        id TEXT PRIMARY KEY,
+        did TEXT UNIQUE,
+        public_key TEXT,
+        name TEXT,
+        email TEXT,
+        is_owner INTEGER NOT NULL DEFAULT 0,
+        is_admin INTEGER NOT NULL DEFAULT 0,
+        role TEXT NOT NULL DEFAULT 'member',
+        reports_to TEXT REFERENCES users_new(id) ON DELETE SET NULL,
+        description TEXT,
+        entra_id TEXT REFERENCES entra_identities(id) ON DELETE SET NULL,
+        claimed_at TEXT,
+        registered_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+
+      -- Copy existing users: id = did (all existing users are claimed)
+      INSERT INTO users_new (id, did, public_key, name, email, is_owner, is_admin, role, description, registered_at)
+      SELECT did, did, public_key, name, email,
+             COALESCE(is_owner, 0), COALESCE(is_admin, 0),
+             COALESCE(role, 'member'), description, registered_at
+      FROM users;
+
+      DROP TABLE users;
+      ALTER TABLE users_new RENAME TO users;
+      CREATE INDEX IF NOT EXISTS idx_users_did ON users(did);
+      CREATE INDEX IF NOT EXISTS idx_users_entra_id ON users(entra_id);
+
+      -- Recreate user_realms to reference users(id)
+      CREATE TABLE user_realms_new (
+        user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        realm_id TEXT NOT NULL REFERENCES realms(id) ON DELETE CASCADE,
+        is_primary INTEGER NOT NULL DEFAULT 0,
+        is_realm_admin INTEGER NOT NULL DEFAULT 0,
+        joined_at TEXT NOT NULL DEFAULT (datetime('now')),
+        PRIMARY KEY (user_id, realm_id)
+      );
+
+      -- Copy existing memberships (user_did was the DID, which is now also the id)
+      INSERT OR IGNORE INTO user_realms_new (user_id, realm_id, is_primary, is_realm_admin, joined_at)
+      SELECT user_did, realm_id, is_primary, is_realm_admin, joined_at FROM user_realms;
+
+      DROP TABLE user_realms;
+      ALTER TABLE user_realms_new RENAME TO user_realms;
+    `);
+    db.pragma("foreign_keys = ON");
+  } else {
+    // Table already migrated — just ensure entra columns exist
+    if (!existingCols.includes("entra_id")) {
+      db.exec("ALTER TABLE users ADD COLUMN entra_id TEXT REFERENCES entra_identities(id) ON DELETE SET NULL");
+      db.exec("CREATE INDEX IF NOT EXISTS idx_users_entra_id ON users(entra_id)");
+    }
+    if (!existingCols.includes("claimed_at")) {
+      db.exec("ALTER TABLE users ADD COLUMN claimed_at TEXT");
+    }
+  }
 
   // Migrate pending_registrations table
   const regCols = (db.pragma("table_info(pending_registrations)") as { name: string }[]).map((c) => c.name);
@@ -186,16 +259,27 @@ function createTables(db: Database.Database): void {
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
+    CREATE TABLE IF NOT EXISTS entra_identities (
+      id TEXT PRIMARY KEY,
+      display_name TEXT,
+      mail TEXT,
+      user_principal_name TEXT,
+      synced_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
     CREATE TABLE IF NOT EXISTS users (
-      did TEXT PRIMARY KEY,
+      id TEXT PRIMARY KEY,
+      did TEXT UNIQUE,
       public_key TEXT,
       name TEXT,
       email TEXT,
       is_owner INTEGER NOT NULL DEFAULT 0,
       is_admin INTEGER NOT NULL DEFAULT 0,
       role TEXT NOT NULL DEFAULT 'member',
-      reports_to TEXT REFERENCES users(did) ON DELETE SET NULL,
+      reports_to TEXT REFERENCES users(id) ON DELETE SET NULL,
       description TEXT,
+      entra_id TEXT REFERENCES entra_identities(id) ON DELETE SET NULL,
+      claimed_at TEXT,
       registered_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
@@ -773,12 +857,12 @@ function ensureRealmTables(db: Database.Database): void {
     );
 
     CREATE TABLE IF NOT EXISTS user_realms (
-      user_did TEXT NOT NULL REFERENCES users(did) ON DELETE CASCADE,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       realm_id TEXT NOT NULL REFERENCES realms(id) ON DELETE CASCADE,
       is_primary INTEGER NOT NULL DEFAULT 0,
       is_realm_admin INTEGER NOT NULL DEFAULT 0,
       joined_at TEXT NOT NULL DEFAULT (datetime('now')),
-      PRIMARY KEY (user_did, realm_id)
+      PRIMARY KEY (user_id, realm_id)
     );
 
     CREATE TABLE IF NOT EXISTS realm_skills (
@@ -981,60 +1065,60 @@ export function getRealmAgents(realmId: string): (RealmRow & { agent_did: string
 
 // ---- Realm membership: users ----
 
-export function getUserRealms(userDid: string): RealmMembershipRow[] {
+export function getUserRealms(userId: string): RealmMembershipRow[] {
   const d = getDb();
   return d.prepare(`
     SELECT r.id AS realm_id, r.name, r.slug, r.color, r.is_default,
            ur.is_primary, ur.is_realm_admin, ur.joined_at
     FROM user_realms ur
     JOIN realms r ON r.id = ur.realm_id
-    WHERE ur.user_did = ?
+    WHERE ur.user_id = ?
     ORDER BY ur.is_primary DESC, r.name ASC
-  `).all(userDid) as RealmMembershipRow[];
+  `).all(userId) as RealmMembershipRow[];
 }
 
-export function isUserInRealm(userDid: string, realmId: string): boolean {
+export function isUserInRealm(userId: string, realmId: string): boolean {
   const d = getDb();
-  const row = d.prepare("SELECT 1 FROM user_realms WHERE user_did = ? AND realm_id = ?").get(userDid, realmId);
+  const row = d.prepare("SELECT 1 FROM user_realms WHERE user_id = ? AND realm_id = ?").get(userId, realmId);
   return row !== undefined;
 }
 
-export function isUserRealmAdmin(userDid: string, realmId: string): boolean {
+export function isUserRealmAdmin(userId: string, realmId: string): boolean {
   const d = getDb();
-  const row = d.prepare("SELECT is_realm_admin FROM user_realms WHERE user_did = ? AND realm_id = ?").get(userDid, realmId) as { is_realm_admin: number } | undefined;
+  const row = d.prepare("SELECT is_realm_admin FROM user_realms WHERE user_id = ? AND realm_id = ?").get(userId, realmId) as { is_realm_admin: number } | undefined;
   return row?.is_realm_admin === 1;
 }
 
-export function setUserRealmAdmin(userDid: string, realmId: string, isAdmin: boolean): boolean {
+export function setUserRealmAdmin(userId: string, realmId: string, isAdmin: boolean): boolean {
   const d = getDb();
-  const result = d.prepare("UPDATE user_realms SET is_realm_admin = ? WHERE user_did = ? AND realm_id = ?").run(isAdmin ? 1 : 0, userDid, realmId);
+  const result = d.prepare("UPDATE user_realms SET is_realm_admin = ? WHERE user_id = ? AND realm_id = ?").run(isAdmin ? 1 : 0, userId, realmId);
   return result.changes > 0;
 }
 
-export function addUserToRealm(userDid: string, realmId: string, isPrimary = false, isRealmAdmin = false): void {
+export function addUserToRealm(userId: string, realmId: string, isPrimary = false, isRealmAdmin = false): void {
   const d = getDb();
   if (isPrimary) {
-    d.prepare("UPDATE user_realms SET is_primary = 0 WHERE user_did = ?").run(userDid);
+    d.prepare("UPDATE user_realms SET is_primary = 0 WHERE user_id = ?").run(userId);
   }
   d.prepare(
-    "INSERT OR REPLACE INTO user_realms (user_did, realm_id, is_primary, is_realm_admin) VALUES (?, ?, ?, ?)"
-  ).run(userDid, realmId, isPrimary ? 1 : 0, isRealmAdmin ? 1 : 0);
+    "INSERT OR REPLACE INTO user_realms (user_id, realm_id, is_primary, is_realm_admin) VALUES (?, ?, ?, ?)"
+  ).run(userId, realmId, isPrimary ? 1 : 0, isRealmAdmin ? 1 : 0);
 }
 
-export function removeUserFromRealm(userDid: string, realmId: string): boolean {
+export function removeUserFromRealm(userId: string, realmId: string): boolean {
   const d = getDb();
   const realm = getRealmById(realmId);
   if (realm?.is_default) return false;
-  const result = d.prepare("DELETE FROM user_realms WHERE user_did = ? AND realm_id = ?").run(userDid, realmId);
+  const result = d.prepare("DELETE FROM user_realms WHERE user_id = ? AND realm_id = ?").run(userId, realmId);
   return result.changes > 0;
 }
 
-export function getRealmUsers(realmId: string): { user_did: string; name: string | null; email: string | null; is_primary: number; is_realm_admin: number; joined_at: string }[] {
+export function getRealmUsers(realmId: string): { user_id: string; did: string | null; name: string | null; email: string | null; is_primary: number; is_realm_admin: number; joined_at: string }[] {
   const d = getDb();
   return d.prepare(`
-    SELECT u.did AS user_did, u.name, u.email, ur.is_primary, ur.is_realm_admin, ur.joined_at
+    SELECT u.id AS user_id, u.did, u.name, u.email, ur.is_primary, ur.is_realm_admin, ur.joined_at
     FROM user_realms ur
-    JOIN users u ON u.did = ur.user_did
+    JOIN users u ON u.id = ur.user_id
     WHERE ur.realm_id = ?
     ORDER BY ur.is_primary DESC, u.name ASC
   `).all(realmId) as any[];

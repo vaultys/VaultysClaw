@@ -70,7 +70,7 @@ export async function POST(
     user_did: did,
     agent_did: agentDid,
     capabilities: JSON.stringify(body.capabilities),
-    granted_by: session.user.did,
+    granted_by: session.user.did ?? "",
     expires_at: expiresAt ? expiresAt.toISOString() : null,
   });
 

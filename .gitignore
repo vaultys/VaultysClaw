@@ -52,3 +52,5 @@ pnpm-debug.log*
 .turbo
 demo/.demo-pids
 /.claude
+/docs-site/.docusaurus
+/packages/agent-controller/src/web/public

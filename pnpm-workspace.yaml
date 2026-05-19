@@ -1,5 +1,6 @@
 packages:
   - "packages/*"
+  - "docs-site"
 allowBuilds:
   better-sqlite3: true
   esbuild: false

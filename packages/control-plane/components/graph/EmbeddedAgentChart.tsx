@@ -67,7 +67,7 @@ export default function EmbeddedAgentChart({
   if (error) {
     return (
       <div
-        className="flex items-center justify-center rounded-xl border border-vc-border bg-vc-surface text-red-400"
+        className="flex items-center justify-center rounded-xl border border-vc-border bg-vc-surface text-red-600 dark:text-red-400"
         style={{ height }}
       >
         Failed to load agent chart: {error}

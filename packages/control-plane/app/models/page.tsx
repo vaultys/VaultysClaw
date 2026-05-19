@@ -139,7 +139,7 @@ function RegisterModelModal({ onClose, onCreated }: { onClose: () => void; onCre
               placeholder="Leave empty if not required"
             />
           </div>
-          {error && <p className="text-red-400 text-sm">{error}</p>}
+          {error && <p className="text-red-600 dark:text-red-400 text-sm">{error}</p>}
           <div className="flex gap-2 pt-1">
             <button
               type="button"
@@ -186,8 +186,8 @@ export default function ModelsPage() {
     <div className="p-6 max-w-5xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-indigo-600/20 flex items-center justify-center">
-            <Cpu className="w-5 h-5 text-indigo-400" />
+          <div className="w-9 h-9 rounded-xl bg-indigo-50 dark:bg-indigo-600/20 flex items-center justify-center">
+            <Cpu className="w-5 h-5 text-indigo-700 dark:text-indigo-400" />
           </div>
           <div>
             <h1 className="text-lg font-semibold text-vc-text">Model Registry</h1>
@@ -258,7 +258,7 @@ export default function ModelsPage() {
                   </td>
                   <td className="px-4 py-3">
                     {m.status === "active" ? (
-                      <span className="flex items-center gap-1 text-emerald-400 text-xs font-medium">
+                      <span className="flex items-center gap-1 text-emerald-700 dark:text-emerald-400 text-xs font-medium">
                         <CheckCircle2 className="w-3.5 h-3.5" /> Active
                       </span>
                     ) : (

@@ -160,7 +160,7 @@ function AddMemberModal({
               className="accent-indigo-600" />
             Set as primary realm for this {type}
           </label>
-          {error && <p className="text-red-400 text-sm">{error}</p>}
+          {error && <p className="text-red-600 dark:text-red-400 text-sm">{error}</p>}
           <div className="flex gap-3 pt-1">
             <button onClick={onClose}
               className="flex-1 py-2 rounded-xl border border-vc-border text-vc-muted text-sm hover:text-vc-text transition-colors">
@@ -375,7 +375,7 @@ export default function RealmDetailPage() {
                 <div className="flex items-center gap-2 flex-wrap">
                   <h1 className="text-lg font-semibold text-vc-text">{realm.name}</h1>
                   {realm.is_default === 1 && (
-                    <span className="text-xs px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-400 font-medium">
+                    <span className="text-xs px-2 py-0.5 rounded-md bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400 font-medium">
                       default
                     </span>
                   )}
@@ -434,11 +434,11 @@ export default function RealmDetailPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div className="bg-vc-surface border border-vc-border rounded-2xl p-5">
           <p className="text-xs text-vc-subtle mb-2">Input Tokens</p>
-          <p className="text-2xl font-bold text-blue-400">{(tokenUsage?.promptTokens ?? 0).toLocaleString()}</p>
+          <p className="text-2xl font-bold text-blue-700 dark:text-blue-400">{(tokenUsage?.promptTokens ?? 0).toLocaleString()}</p>
         </div>
         <div className="bg-vc-surface border border-vc-border rounded-2xl p-5">
           <p className="text-xs text-vc-subtle mb-2">Output Tokens</p>
-          <p className="text-2xl font-bold text-blue-400">{(tokenUsage?.completionTokens ?? 0).toLocaleString()}</p>
+          <p className="text-2xl font-bold text-blue-700 dark:text-blue-400">{(tokenUsage?.completionTokens ?? 0).toLocaleString()}</p>
         </div>
       </div>
 
@@ -449,7 +449,7 @@ export default function RealmDetailPage() {
             key={t}
             onClick={() => setTab(t)}
             className={`px-4 py-2 text-sm font-medium capitalize transition-colors border-b-2 -mb-px ${tab === t
-              ? "border-indigo-500 text-indigo-400"
+              ? "border-indigo-500 text-indigo-700 dark:text-indigo-400"
               : "border-transparent text-vc-muted hover:text-vc-text"
               }`}
           >
@@ -485,14 +485,14 @@ export default function RealmDetailPage() {
               {agents.map((a, i) => (
                 <div key={a.agent_did}
                   className={`flex items-center gap-3 px-4 py-3 ${i > 0 ? "border-t border-vc-border/50" : ""}`}>
-                  <div className="w-8 h-8 rounded-lg bg-indigo-600/20 flex items-center justify-center shrink-0">
-                    <Bot className="w-4 h-4 text-indigo-400" />
+                  <div className="w-8 h-8 rounded-lg bg-indigo-50 dark:bg-indigo-600/20 flex items-center justify-center shrink-0">
+                    <Bot className="w-4 h-4 text-indigo-700 dark:text-indigo-400" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-medium text-vc-text truncate">{a.agent_name}</span>
                       {a.is_primary === 1 && (
-                        <span className="text-xs px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400">primary</span>
+                        <span className="text-xs px-1.5 py-0.5 rounded bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400">primary</span>
                       )}
                     </div>
                     <code className="text-xs text-vc-subtle font-mono">{shortDid(a.agent_did)}</code>
@@ -549,7 +549,7 @@ export default function RealmDetailPage() {
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-medium text-vc-text truncate">{u.name ?? shortDid(u.user_did)}</span>
                       {u.is_primary === 1 && (
-                        <span className="text-xs px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400">primary</span>
+                        <span className="text-xs px-1.5 py-0.5 rounded bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400">primary</span>
                       )}
                     </div>
                     {u.email && <p className="text-xs text-vc-subtle truncate">{u.email}</p>}
@@ -582,7 +582,7 @@ export default function RealmDetailPage() {
           <div className="bg-vc-surface border border-vc-border rounded-2xl p-4">
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-sm font-semibold text-vc-text flex items-center gap-2">
-                <Cpu className="w-4 h-4 text-indigo-400" /> LiteLLM Router Key
+                <Cpu className="w-4 h-4 text-indigo-700 dark:text-indigo-400" /> LiteLLM Router Key
               </h3>
               {routerKey?.hasVirtualKey ? (
                 <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400 border border-emerald-300 dark:border-emerald-800 font-medium">Active</span>
@@ -603,7 +603,7 @@ export default function RealmDetailPage() {
               <Cpu className="w-8 h-8 text-vc-ring mb-2" />
               <p className="text-vc-muted text-sm">No models accessible to this realm.</p>
               <p className="text-vc-subtle text-xs mt-1 mb-3">Grant access from the Model Registry to route agents here.</p>
-              <a href="/models" className="flex items-center gap-1.5 text-xs text-indigo-400 hover:text-indigo-300 transition-colors">
+              <a href="/models" className="flex items-center gap-1.5 text-xs text-indigo-700 dark:text-indigo-400 hover:text-indigo-300 transition-colors">
                 <ExternalLink className="w-3.5 h-3.5" /> Go to Model Registry
               </a>
             </div>
@@ -611,8 +611,8 @@ export default function RealmDetailPage() {
             <div className="bg-vc-surface border border-vc-border rounded-2xl overflow-hidden">
               {realmModels.map((m, i) => (
                 <div key={m.id} className={`flex items-center gap-3 px-4 py-3 ${i > 0 ? "border-t border-vc-border/50" : ""}`}>
-                  <div className="w-8 h-8 rounded-lg bg-indigo-600/20 flex items-center justify-center shrink-0">
-                    <Cpu className="w-4 h-4 text-indigo-400" />
+                  <div className="w-8 h-8 rounded-lg bg-indigo-50 dark:bg-indigo-600/20 flex items-center justify-center shrink-0">
+                    <Cpu className="w-4 h-4 text-indigo-700 dark:text-indigo-400" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
@@ -691,7 +691,7 @@ export default function RealmDetailPage() {
                 <span className="text-vc-subtle text-sm">or</span>
                 <Link
                   href={`/workflows/new?realm=${id}`}
-                  className="text-indigo-400 hover:text-indigo-300 text-sm underline"
+                  className="text-indigo-700 dark:text-indigo-400 hover:text-indigo-300 text-sm underline"
                 >
                   Create blank workflow
                 </Link>
@@ -866,10 +866,10 @@ function RealmSkillsTab({
               onChange={(e) => setAddRequired(e.target.checked)}
               className="accent-indigo-600"
             />
-            <Lock className="w-3.5 h-3.5 text-amber-400" />
+            <Lock className="w-3.5 h-3.5 text-amber-700 dark:text-amber-400" />
             Required — agents cannot disable this skill
           </label>
-          {error && <p className="text-red-400 text-sm flex items-center gap-1"><AlertCircle className="w-4 h-4" />{error}</p>}
+          {error && <p className="text-red-600 dark:text-red-400 text-sm flex items-center gap-1"><AlertCircle className="w-4 h-4" />{error}</p>}
           <div className="flex gap-2">
             <button
               onClick={handleAdd}
@@ -914,7 +914,7 @@ function RealmSkillsTab({
                       <span className="text-xs px-1.5 py-0.5 rounded bg-vc-raised text-vc-subtle font-mono">v{skill.version}</span>
                     )}
                     {skill.isRequired ? (
-                      <span className="text-xs px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 flex items-center gap-1">
+                      <span className="text-xs px-1.5 py-0.5 rounded bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400 flex items-center gap-1">
                         <Lock className="w-3 h-3" /> required
                       </span>
                     ) : (
@@ -992,7 +992,7 @@ function RealmConfigTab({ realm, onSaved }: { realm: Realm; onSaved: () => void 
                 key={cap}
                 onClick={() => toggle(cap)}
                 className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors border ${caps.includes(cap)
-                  ? "bg-indigo-600/20 border-indigo-500/50 text-indigo-300"
+                  ? "bg-indigo-50 dark:bg-indigo-600/20 border-indigo-300 dark:border-indigo-500/50 text-indigo-700 dark:text-indigo-300"
                   : "bg-vc-raised border-vc-border text-vc-muted hover:text-vc-text"
                   }`}
               >

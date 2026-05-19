@@ -28,6 +28,10 @@ import {
   Terminal,
   Zap,
   TrendingUp,
+  Plus,
+  AlertTriangle,
+  X,
+  CalendarDays,
 } from "lucide-react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
@@ -89,7 +93,7 @@ interface ChatMessage {
   content: string;
 }
 
-type TabId = "overview" | "chat" | "tokens" | "config" | "automation" | "approvals" | "details" | "peers";
+type TabId = "overview" | "chat" | "tokens" | "config" | "governance" | "automation" | "approvals" | "details" | "peers";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -257,8 +261,9 @@ export default function AgentDetailPage() {
     { id: "chat", label: "Chat", icon: <MessageSquare size={15} /> },
     { id: "tokens", label: "Tokens", icon: <TrendingUp size={15} /> },
     { id: "config", label: "Config", icon: <Settings2 size={15} /> },
+    { id: "governance", label: "Governance", icon: <ShieldCheck size={15} /> },
     { id: "automation", label: "Automation", icon: <Clock size={15} /> },
-    { id: "approvals", label: "Approvals", icon: <ShieldCheck size={15} />, badge: pendingApprovals },
+    { id: "approvals", label: "Approvals", icon: <AlertTriangle size={15} />, badge: pendingApprovals },
     { id: "peers", label: "Peer Agents", icon: <Bot size={15} /> },
     { id: "details", label: "Details", icon: <FileCode2 size={15} /> },
   ];
@@ -285,7 +290,7 @@ export default function AgentDetailPage() {
             <div className="flex items-center gap-3 flex-wrap">
               <h1 className="text-xl font-bold text-vc-text">{agent.name}</h1>
               {agent.online ? (
-                <span className="inline-flex items-center gap-1.5 text-xs font-medium text-green-400 bg-green-500/10 border border-green-500/20 rounded-full px-2.5 py-0.5">
+                <span className="inline-flex items-center gap-1.5 text-xs font-medium text-green-700 dark:text-green-400 bg-green-100 dark:bg-green-500/10 border border-green-300 dark:border-green-500/20 rounded-full px-2.5 py-0.5">
                   <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
                   Online
                 </span>
@@ -322,6 +327,7 @@ export default function AgentDetailPage() {
           {activeTab === "chat" && <ChatTab agentId={agent.id} agentName={agent.name} online={agent.online} />}
           {activeTab === "tokens" && <TokensTab agentId={agent.id} />}
           {activeTab === "config" && <ConfigTab did={did} reportedLlm={agent.reportedLlm} />}
+          {activeTab === "governance" && <GovernanceTab did={did} agentCapabilities={agent.capabilities} />}
           {activeTab === "automation" && <AutomationTab agentId={agent.id} />}
           {activeTab === "approvals" && <ApprovalsTab onCountChange={setPendingApprovals} />}
           {activeTab === "peers" && <PeerAgentsTab did={did} />}
@@ -340,10 +346,6 @@ export default function AgentDetailPage() {
 // ---------------------------------------------------------------------------
 
 function OverviewTab({ agent }: { agent: AgentDetail }) {
-  const [editing, setEditing] = useState(false);
-  const [editCaps, setEditCaps] = useState<string[]>([]);
-  const [saving, setSaving] = useState(false);
-
   return (
     <div className="space-y-6">
       {/* Connection */}
@@ -351,7 +353,7 @@ function OverviewTab({ agent }: { agent: AgentDetail }) {
         <h2 className="text-sm font-semibold text-vc-muted uppercase tracking-wider mb-3">Connection</h2>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {[
-            { label: "Status", value: agent.online ? <span className="text-green-400">Connected</span> : <span className="text-vc-muted">Disconnected</span> },
+            { label: "Status", value: agent.online ? <span className="text-green-700 dark:text-green-400">Connected</span> : <span className="text-vc-muted">Disconnected</span> },
             { label: "Connected Since", value: <span className="text-vc-text">{formatDate(agent.connectedAt)}</span> },
             { label: "Last Heartbeat", value: <span className="text-vc-text">{agent.online ? timeAgo(agent.lastHeartbeat) : "—"}</span> },
           ].map(({ label, value }) => (
@@ -381,77 +383,26 @@ function OverviewTab({ agent }: { agent: AgentDetail }) {
         </div>
       </section>
 
-      {/* Capabilities */}
+      {/* Active Capabilities — read-only; managed via the Governance tab */}
       <section>
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-sm font-semibold text-vc-muted uppercase tracking-wider">Capabilities</h2>
-          {!editing ? (
-            <button
-              onClick={() => { setEditCaps([...agent.capabilities]); setEditing(true); }}
-              className="text-xs text-indigo-400 hover:text-indigo-300 border border-indigo-500/30 px-2.5 py-1 rounded-md transition-colors"
-            >
-              Edit
-            </button>
-          ) : (
-            <div className="flex gap-2">
-              <button onClick={() => setEditing(false)} className="text-xs text-vc-muted hover:text-vc-text px-2.5 py-1">Cancel</button>
-              <button
-                disabled={saving}
-                onClick={async () => {
-                  setSaving(true);
-                  try {
-                    const res = await fetch(`/api/agents/${encodeURIComponent(agent.id)}`, {
-                      method: "PATCH",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ capabilities: editCaps }),
-                    });
-                    if (!res.ok) throw new Error("Failed to update");
-                    setEditing(false);
-                  } catch { /* keep editing */ } finally { setSaving(false); }
-                }}
-                className="text-xs bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white px-3 py-1 rounded-md transition-colors"
-              >
-                {saving ? "Saving…" : "Save & Reissue"}
-              </button>
-            </div>
-          )}
+          <h2 className="text-sm font-semibold text-vc-muted uppercase tracking-wider">Active Capabilities</h2>
+          <span className="text-xs text-vc-subtle">Managed in the Governance tab</span>
         </div>
-
-        {editing ? (
-          <div className="flex flex-wrap gap-2">
-            {ALL_CAPABILITIES.map((cap) => {
-              const active = editCaps.includes(cap.id);
-              return (
-                <button
-                  key={cap.id}
-                  onClick={() => setEditCaps(active ? editCaps.filter((c) => c !== cap.id) : [...editCaps, cap.id])}
-                  className={`px-3 py-1.5 rounded-md text-sm border transition-colors flex items-center gap-1.5 ${active
-                    ? "bg-indigo-900/40 border-indigo-500 text-indigo-300"
-                    : "bg-vc-raised/40 border-vc-ring text-vc-muted hover:border-vc-muted"
-                    }`}
-                >
-                  {CAPABILITY_ICONS[cap.id] ?? <Zap size={14} />}
-                  {cap.label}
-                </button>
-              );
-            })}
-          </div>
-        ) : agent.capabilities.length > 0 ? (
+        {agent.capabilities.length > 0 ? (
           <div className="flex flex-wrap gap-2">
             {agent.capabilities.map((cap) => (
               <span
                 key={cap}
-                className="relative group bg-indigo-900 border border-indigo-700/50 text-white p-2 rounded-md flex items-center justify-center"
+                className="relative group bg-indigo-100 dark:bg-indigo-900/50 border border-indigo-300 dark:border-indigo-700/50 text-indigo-700 dark:text-indigo-200 px-2.5 py-1 rounded-md text-xs flex items-center gap-1.5"
               >
-                {CAPABILITY_ICONS[cap] ?? <Zap size={16} />}
-                <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-1 text-[10px] text-white bg-gray-900 rounded whitespace-nowrap opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity z-10">
-                  {cap.replace(/_/g, " ")}
-                </span>
+                {CAPABILITY_ICONS[cap] ?? <Zap size={13} />}
+                {cap.replace(/_/g, " ")}
               </span>
             ))}
           </div>
         ) : (
-          <p className="text-vc-muted text-sm">No capabilities declared.</p>
+          <p className="text-vc-muted text-sm">No capabilities granted — create a policy in the Governance tab.</p>
         )}
       </section>
 
@@ -469,6 +420,312 @@ function OverviewTab({ agent }: { agent: AgentDetail }) {
       )}
 
 
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Tab: Governance — policies, resource limits, cert-embedded enforcement
+// ---------------------------------------------------------------------------
+
+interface PolicyEntry {
+  id: string;
+  agentDid: string | null;
+  realmId: string | null;
+  capabilities: string[];
+  resourceLimits: {
+    maxTokensPerDay?: number;
+    maxRequestsPerHour?: number;
+    allowedDomains?: string[];
+  } | null;
+  expiresAt: string | null;
+  createdBy: string | null;
+  createdAt: string;
+}
+
+const EMPTY_LIMITS = { maxTokensPerDay: "", maxRequestsPerHour: "", allowedDomains: "" };
+
+function GovernanceTab({ did, agentCapabilities }: { did: string; agentCapabilities: string[] }) {
+  const [policies, setPolicies] = useState<PolicyEntry[]>([]);
+  const [loadingPolicies, setLoadingPolicies] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+
+  // Form state
+  const [formCaps, setFormCaps] = useState<string[]>([...agentCapabilities]);
+  const [formLimits, setFormLimits] = useState(EMPTY_LIMITS);
+  const [formExpiry, setFormExpiry] = useState("");
+  const [formSaving, setFormSaving] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+
+  const [revoking, setRevoking] = useState<string | null>(null);
+
+  const fetchPolicies = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/policies?agentDid=${encodeURIComponent(did)}`);
+      if (res.ok) {
+        const data = await res.json();
+        setPolicies(data.policies ?? []);
+      }
+    } finally {
+      setLoadingPolicies(false);
+    }
+  }, [did]);
+
+  useEffect(() => { fetchPolicies(); }, [fetchPolicies]);
+
+  const openForm = () => {
+    setFormCaps([...agentCapabilities]);
+    setFormLimits(EMPTY_LIMITS);
+    setFormExpiry("");
+    setFormError(null);
+    setShowForm(true);
+  };
+
+  const savePolicy = async () => {
+    if (formCaps.length === 0) { setFormError("Select at least one capability."); return; }
+    setFormSaving(true);
+    setFormError(null);
+    try {
+      const resourceLimits: Record<string, unknown> = {};
+      if (formLimits.maxTokensPerDay !== "") resourceLimits.maxTokensPerDay = Number(formLimits.maxTokensPerDay);
+      if (formLimits.maxRequestsPerHour !== "") resourceLimits.maxRequestsPerHour = Number(formLimits.maxRequestsPerHour);
+      if (formLimits.allowedDomains.trim() !== "") {
+        resourceLimits.allowedDomains = formLimits.allowedDomains.split(",").map((d) => d.trim()).filter(Boolean);
+      }
+      const body: Record<string, unknown> = {
+        agentDid: did,
+        capabilities: formCaps,
+        resourceLimits: Object.keys(resourceLimits).length > 0 ? resourceLimits : undefined,
+        expiresAt: formExpiry !== "" ? new Date(formExpiry).toISOString() : undefined,
+      };
+      const res = await fetch("/api/policies", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error ?? `HTTP ${res.status}`);
+      }
+      setShowForm(false);
+      await fetchPolicies();
+    } catch (e) {
+      setFormError(e instanceof Error ? e.message : "Failed to create policy");
+    } finally {
+      setFormSaving(false);
+    }
+  };
+
+  const revokePolicy = async (id: string) => {
+    setRevoking(id);
+    try {
+      await fetch(`/api/policies/${encodeURIComponent(id)}`, { method: "DELETE" });
+      await fetchPolicies();
+    } finally {
+      setRevoking(null);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-sm font-semibold text-vc-text">Policies</h2>
+          <p className="text-xs text-vc-muted mt-0.5">
+            Policies define which capabilities and resource limits are embedded in the agent&apos;s certificate.
+            Creating or revoking a policy immediately triggers a certificate reissue for connected agents.
+          </p>
+        </div>
+        {!showForm && (
+          <button
+            onClick={openForm}
+            className="flex items-center gap-1.5 text-xs bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-md transition-colors"
+          >
+            <Plus size={13} /> New Policy
+          </button>
+        )}
+      </div>
+
+      {/* Create form */}
+      {showForm && (
+        <div className="bg-vc-raised border border-vc-border rounded-xl p-5 space-y-5">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-vc-text">New Policy</h3>
+            <button onClick={() => setShowForm(false)} className="text-vc-muted hover:text-vc-text"><X size={16} /></button>
+          </div>
+
+          {/* Capabilities */}
+          <div>
+            <p className="text-xs text-vc-muted uppercase mb-2">Capabilities</p>
+            <div className="flex flex-wrap gap-2">
+              {ALL_CAPABILITIES.map((cap) => {
+                const active = formCaps.includes(cap.id);
+                return (
+                  <button
+                    key={cap.id}
+                    type="button"
+                    onClick={() => setFormCaps(active ? formCaps.filter((c) => c !== cap.id) : [...formCaps, cap.id])}
+                    className={`px-3 py-1.5 rounded-md text-sm border transition-colors flex items-center gap-1.5 ${active
+                      ? "bg-indigo-100 dark:bg-indigo-900/40 border-indigo-500 text-indigo-700 dark:text-indigo-300"
+                      : "bg-vc-surface border-vc-ring text-vc-muted hover:border-vc-muted"}`}
+                  >
+                    {CAPABILITY_ICONS[cap.id] ?? <Zap size={14} />}
+                    {cap.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Resource limits */}
+          <div>
+            <p className="text-xs text-vc-muted uppercase mb-2">Resource Limits <span className="normal-case text-vc-subtle">(optional)</span></p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <label className="space-y-1">
+                <span className="text-xs text-vc-muted">Max tokens / day</span>
+                <input
+                  type="number"
+                  min={0}
+                  placeholder="e.g. 50000"
+                  value={formLimits.maxTokensPerDay}
+                  onChange={(e) => setFormLimits((l) => ({ ...l, maxTokensPerDay: e.target.value }))}
+                  className="w-full bg-vc-surface border border-vc-ring rounded-md px-3 py-1.5 text-sm text-vc-text placeholder:text-vc-subtle focus:outline-none focus:border-indigo-500"
+                />
+              </label>
+              <label className="space-y-1">
+                <span className="text-xs text-vc-muted">Max requests / hour</span>
+                <input
+                  type="number"
+                  min={0}
+                  placeholder="e.g. 60"
+                  value={formLimits.maxRequestsPerHour}
+                  onChange={(e) => setFormLimits((l) => ({ ...l, maxRequestsPerHour: e.target.value }))}
+                  className="w-full bg-vc-surface border border-vc-ring rounded-md px-3 py-1.5 text-sm text-vc-text placeholder:text-vc-subtle focus:outline-none focus:border-indigo-500"
+                />
+              </label>
+              <label className="space-y-1 sm:col-span-2">
+                <span className="text-xs text-vc-muted">Allowed domains <span className="text-vc-subtle">(comma-separated)</span></span>
+                <input
+                  type="text"
+                  placeholder="e.g. api.openai.com, example.com"
+                  value={formLimits.allowedDomains}
+                  onChange={(e) => setFormLimits((l) => ({ ...l, allowedDomains: e.target.value }))}
+                  className="w-full bg-vc-surface border border-vc-ring rounded-md px-3 py-1.5 text-sm text-vc-text placeholder:text-vc-subtle focus:outline-none focus:border-indigo-500"
+                />
+              </label>
+            </div>
+          </div>
+
+          {/* Expiry */}
+          <label className="block space-y-1">
+            <span className="text-xs text-vc-muted uppercase">Expiry <span className="normal-case text-vc-subtle">(optional)</span></span>
+            <input
+              type="datetime-local"
+              value={formExpiry}
+              onChange={(e) => setFormExpiry(e.target.value)}
+              className="bg-vc-surface border border-vc-ring rounded-md px-3 py-1.5 text-sm text-vc-text focus:outline-none focus:border-indigo-500"
+            />
+          </label>
+
+          {formError && (
+            <p className="text-xs text-red-600 dark:text-red-400 flex items-center gap-1.5"><AlertTriangle size={13} />{formError}</p>
+          )}
+
+          <div className="flex gap-2 justify-end">
+            <button onClick={() => setShowForm(false)} className="text-xs text-vc-muted hover:text-vc-text px-3 py-1.5">Cancel</button>
+            <button
+              onClick={savePolicy}
+              disabled={formSaving}
+              className="flex items-center gap-1.5 text-xs bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white px-4 py-1.5 rounded-md transition-colors"
+            >
+              {formSaving ? <Loader2 size={12} className="animate-spin" /> : <ShieldCheck size={13} />}
+              {formSaving ? "Applying…" : "Apply Policy"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Policy list */}
+      {loadingPolicies ? (
+        <div className="flex items-center gap-2 text-vc-muted text-sm py-4">
+          <Loader2 size={14} className="animate-spin" /> Loading policies…
+        </div>
+      ) : policies.length === 0 ? (
+        <div className="text-center py-10 text-vc-muted text-sm border border-dashed border-vc-border rounded-xl">
+          <ShieldCheck size={28} className="mx-auto mb-2 opacity-30" />
+          No active policies. Create one above to grant capabilities and set limits.
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {policies.map((p) => (
+            <div key={p.id} className="bg-vc-raised border border-vc-border rounded-xl p-4">
+              <div className="flex items-start justify-between gap-4">
+                <div className="space-y-3 flex-1 min-w-0">
+                  {/* Capabilities */}
+                  <div className="flex flex-wrap gap-1.5">
+                    {p.capabilities.map((cap) => (
+                      <span
+                        key={cap}
+                        className="flex items-center gap-1 bg-indigo-100 dark:bg-indigo-900/40 border border-indigo-300 dark:border-indigo-700/40 text-indigo-700 dark:text-indigo-300 px-2 py-0.5 rounded text-xs"
+                      >
+                        {CAPABILITY_ICONS[cap] ?? <Zap size={11} />}
+                        {cap.replace(/_/g, " ")}
+                      </span>
+                    ))}
+                  </div>
+
+                  {/* Resource limits */}
+                  {p.resourceLimits && Object.keys(p.resourceLimits).length > 0 && (
+                    <div className="flex flex-wrap gap-3 text-xs text-vc-muted">
+                      {p.resourceLimits.maxTokensPerDay != null && (
+                        <span className="flex items-center gap-1">
+                          <TrendingUp size={11} className="text-amber-600 dark:text-amber-400" />
+                          {p.resourceLimits.maxTokensPerDay.toLocaleString()} tokens/day
+                        </span>
+                      )}
+                      {p.resourceLimits.maxRequestsPerHour != null && (
+                        <span className="flex items-center gap-1">
+                          <Clock size={11} className="text-amber-600 dark:text-amber-400" />
+                          {p.resourceLimits.maxRequestsPerHour} req/h
+                        </span>
+                      )}
+                      {p.resourceLimits.allowedDomains && p.resourceLimits.allowedDomains.length > 0 && (
+                        <span className="flex items-center gap-1">
+                          <Globe size={11} className="text-amber-600 dark:text-amber-400" />
+                          {p.resourceLimits.allowedDomains.join(", ")}
+                        </span>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Meta */}
+                  <div className="flex flex-wrap gap-3 text-xs text-vc-subtle">
+                    <span>Created {timeAgo(p.createdAt)}</span>
+                    {p.createdBy && <span>by <code className="font-mono">{p.createdBy.slice(0, 20)}…</code></span>}
+                    {p.expiresAt && (
+                      <span className="flex items-center gap-1">
+                        <CalendarDays size={11} />
+                        Expires {formatDate(p.expiresAt)}
+                      </span>
+                    )}
+                    <code className="font-mono text-vc-subtle/60">{p.id}</code>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => revokePolicy(p.id)}
+                  disabled={revoking === p.id}
+                  className="flex-shrink-0 flex items-center gap-1.5 text-xs text-red-600 dark:text-red-400 hover:text-red-500 dark:hover:text-red-300 border border-red-300 dark:border-red-500/20 hover:border-red-400 dark:hover:border-red-500/40 px-2.5 py-1.5 rounded-md transition-colors disabled:opacity-50"
+                >
+                  {revoking === p.id ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
+                  Revoke
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -598,7 +855,7 @@ function TokensTab({ agentId }: { agentId: string }) {
           <Loader2 className="animate-spin w-5 h-5 mr-2" /> Loading…
         </div>
       )}
-      {tokenError && <p className="text-red-400 text-sm">{tokenError}</p>}
+      {tokenError && <p className="text-red-600 dark:text-red-400 text-sm">{tokenError}</p>}
       {!loading && !tokenError && data.length > 0 && (
         <div className="rounded-xl border border-vc-border bg-vc-card p-4">
           <ResponsiveContainer width="100%" height={260}>
@@ -1615,7 +1872,7 @@ function TaskSection({ agentId }: { agentId: string }) {
         </button>
       </div>
       {status && (
-        <p className={`mt-2 text-xs ${status.startsWith("Error") ? "text-red-400" : "text-emerald-400"}`}>{status}</p>
+        <p className={`mt-2 text-xs ${status.startsWith("Error") ? "text-red-600 dark:text-red-400" : "text-emerald-700 dark:text-emerald-400"}`}>{status}</p>
       )}
     </div>
   );
@@ -1672,7 +1929,7 @@ function ScheduleSection({ agentId }: { agentId: string }) {
         <button onClick={del} className="px-4 py-2 text-sm bg-red-600/80 text-white rounded-lg hover:bg-red-600 transition-colors">Delete by ID</button>
       </div>
       {status && (
-        <p className={`mt-2 text-xs ${status.startsWith("Error") ? "text-red-400" : "text-emerald-400"}`}>{status}</p>
+        <p className={`mt-2 text-xs ${status.startsWith("Error") ? "text-red-600 dark:text-red-400" : "text-emerald-700 dark:text-emerald-400"}`}>{status}</p>
       )}
     </div>
   );
@@ -1845,26 +2102,26 @@ interface AgentOption {
 function AgentChatErrorBanner({ message, code }: { message: string; code: string | null }) {
   if (code === "llm_unavailable") {
     return (
-      <div className="flex items-start gap-2 bg-amber-500/10 border border-amber-500/30 text-amber-300 rounded-lg px-3 py-2.5 text-xs">
+      <div className="flex items-start gap-2 bg-amber-50 dark:bg-amber-500/10 border border-amber-300 dark:border-amber-500/30 text-amber-700 dark:text-amber-300 rounded-lg px-3 py-2.5 text-xs">
         <WifiOff size={13} className="mt-0.5 shrink-0" />
         <div className="min-w-0">
           <p className="font-medium">LLM provider unreachable</p>
-          <p className="text-amber-400/70 mt-0.5 break-words">{message}</p>
-          <p className="text-amber-400/50 mt-1">Update the LLM config in the <strong>Settings</strong> tab.</p>
+          <p className="text-amber-600/80 dark:text-amber-400/70 mt-0.5 break-words">{message}</p>
+          <p className="text-amber-600/60 dark:text-amber-400/50 mt-1">Update the LLM config in the <strong>Settings</strong> tab.</p>
         </div>
       </div>
     );
   }
   if (code === "agent_offline") {
     return (
-      <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/20 text-red-400 rounded-lg px-3 py-2 text-xs">
+      <div className="flex items-center gap-2 bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 text-red-700 dark:text-red-400 rounded-lg px-3 py-2 text-xs">
         <WifiOff size={13} className="shrink-0" />
         <span>Agent disconnected — waiting to reconnect</span>
       </div>
     );
   }
   return (
-    <div className="text-center text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-4 py-2">
+    <div className="text-center text-xs text-red-700 dark:text-red-400 bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 rounded-lg px-4 py-2">
       {message}
     </div>
   );
@@ -2027,7 +2284,7 @@ function PeerAgentsTab({ did }: { did: string }) {
               className="bg-vc-surface border border-vc-border rounded-md px-3 py-2 text-sm text-vc-text focus:outline-none focus:ring-1 focus:ring-indigo-500"
             />
           </div>
-          {error && <p className="text-red-400 text-xs">{error}</p>}
+          {error && <p className="text-red-600 dark:text-red-400 text-xs">{error}</p>}
           <button
             type="submit"
             disabled={saving || !targetDid || !skillDescription}

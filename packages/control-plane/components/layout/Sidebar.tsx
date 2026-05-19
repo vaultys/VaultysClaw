@@ -19,6 +19,7 @@ import {
   Inbox,
   Workflow,
   Cpu,
+  ShieldCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useRole } from "@/hooks/useRole";
@@ -31,6 +32,7 @@ const NAV_ITEMS = [
   { href: "/workflows", icon: Workflow, label: "Workflows", exact: false, adminOnly: false },
   { href: "/realms", icon: Globe2, label: "Realms", exact: false, adminOnly: false },
   { href: "/models", icon: Cpu, label: "Models", exact: false, adminOnly: false },
+  { href: "/governance", icon: ShieldCheck, label: "Governance", exact: false, adminOnly: true },
   { href: "/graph", icon: Network, label: "Graph", exact: true, adminOnly: false },
   { href: "/chat", icon: MessageSquare, label: "Chat", exact: false, adminOnly: false },
   { href: "/inbox", icon: Inbox, label: "Inbox", exact: false, adminOnly: false },
@@ -69,7 +71,7 @@ function NavLink({
         "group flex items-center gap-3 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors",
         collapsed ? "justify-center" : "",
         active
-          ? "bg-indigo-600/20 text-indigo-400"
+          ? "bg-indigo-100 dark:bg-indigo-600/20 text-indigo-700 dark:text-indigo-400"
           : "text-vc-muted hover:text-vc-text hover:bg-vc-raised/50"
       )}
     >

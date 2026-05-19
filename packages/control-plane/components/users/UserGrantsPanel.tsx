@@ -125,7 +125,7 @@ export default function UserGrantsPanel({ userDid }: UserGrantsPanelProps) {
               <button
                 onClick={() => handleRevoke(g.id)}
                 disabled={revoking === g.id}
-                className="shrink-0 text-xs text-red-400 hover:text-red-300 disabled:opacity-50 transition-colors"
+                className="shrink-0 text-xs text-red-600 dark:text-red-400 hover:text-red-300 disabled:opacity-50 transition-colors"
               >
                 {revoking === g.id ? "…" : "Revoke"}
               </button>

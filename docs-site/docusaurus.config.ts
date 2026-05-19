@@ -110,6 +110,7 @@ const config: Config = {
           items: [
             { label: "Quick Start", to: "/docs/guides/quickstart" },
             { label: "Configuration", to: "/docs/guides/configuration" },
+            { label: "AI Governance", to: "/docs/guides/governance" },
             { label: "Deployment", to: "/docs/guides/deployment" },
           ],
         },

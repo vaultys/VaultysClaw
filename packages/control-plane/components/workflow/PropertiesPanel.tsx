@@ -53,7 +53,7 @@ const PredecessorInputs: React.FC<{
 
   return (
     <div className="rounded-lg border border-indigo-500/40 bg-indigo-500/5 p-3 space-y-2">
-      <div className="flex items-center gap-1.5 text-xs font-semibold text-indigo-400 uppercase tracking-wide">
+      <div className="flex items-center gap-1.5 text-xs font-semibold text-indigo-700 dark:text-indigo-400 uppercase tracking-wide">
         <ArrowRight size={12} />
         Inputs from connected nodes
       </div>
@@ -78,7 +78,7 @@ const PredecessorInputs: React.FC<{
                     <button
                       onClick={() => onInsert(v)}
                       title={`Insert ${v} into Parameters`}
-                      className="font-mono text-[10px] px-1.5 py-0.5 bg-indigo-900/50 border border-indigo-700/60 text-indigo-300 rounded hover:bg-indigo-700/60 transition"
+                      className="font-mono text-[10px] px-1.5 py-0.5 bg-indigo-100 dark:bg-indigo-900/50 border border-indigo-300 dark:border-indigo-700/60 text-indigo-700 dark:text-indigo-300 rounded hover:bg-indigo-700/60 transition"
                     >
                       {v}
                     </button>
@@ -87,7 +87,7 @@ const PredecessorInputs: React.FC<{
                       title="Copy to clipboard"
                       className="p-0.5 text-vc-subtle hover:text-vc-text transition"
                     >
-                      {copiedVar === v ? <Check size={10} className="text-green-400" /> : <Copy size={10} />}
+                      {copiedVar === v ? <Check size={10} className="text-green-700 dark:text-green-400" /> : <Copy size={10} />}
                     </button>
                   </div>
                 ))}
@@ -369,7 +369,7 @@ export const PropertiesPanel: React.FC<{
                   return (
                     <button
                       onClick={() => updateNodeData("params", { ...(node.data.params as object ?? {}), input: expected })}
-                      className="text-[10px] text-indigo-400 hover:text-indigo-300 border border-indigo-700/50 px-1.5 py-0.5 rounded"
+                      className="text-[10px] text-indigo-700 dark:text-indigo-400 hover:text-indigo-300 border border-indigo-300 dark:border-indigo-700/50 px-1.5 py-0.5 rounded"
                     >
                       ↺ Reset auto-wire
                     </button>
@@ -381,7 +381,7 @@ export const PropertiesPanel: React.FC<{
               <div className="mb-2 rounded border border-vc-border bg-vc-raised/60 p-2 space-y-1 text-xs text-vc-muted">
                 <p className="font-semibold text-vc-text">How params work</p>
                 <p>The <strong>full params object</strong> is sent to the agent — every key/value pair, not just <code className="font-mono">input</code>.</p>
-                <p>Use <code className="font-mono text-indigo-300">${'{'}nodeId{'}'}</code> to pass an entire predecessor output, or <code className="font-mono text-indigo-300">${'{'}nodeId.field{'}'}</code> for a specific field.</p>
+                <p>Use <code className="font-mono text-indigo-700 dark:text-indigo-300">${'{'}nodeId{'}'}</code> to pass an entire predecessor output, or <code className="font-mono text-indigo-700 dark:text-indigo-300">${'{'}nodeId.field{'}'}</code> for a specific field.</p>
                 <p className="text-vc-subtle">e.g. <code className="font-mono">{'{'}"input": "${'{'}step-1{'}'}"{'}'}</code> sends step-1's full output as <code className="font-mono">input</code>.</p>
               </div>
 
@@ -414,7 +414,7 @@ export const PropertiesPanel: React.FC<{
             <div>
               <label className="block text-sm font-medium text-vc-text-2 mb-1">Expression</label>
               <div className="mb-2 rounded border border-vc-border bg-vc-raised/60 p-2 text-xs text-vc-muted">
-                Evaluated as JavaScript. Reference predecessor outputs with <code className="font-mono text-indigo-300">${'{'}nodeId.field{'}'}</code>. Must return <code className="font-mono">true</code> or <code className="font-mono">false</code>.
+                Evaluated as JavaScript. Reference predecessor outputs with <code className="font-mono text-indigo-700 dark:text-indigo-300">${'{'}nodeId.field{'}'}</code>. Must return <code className="font-mono">true</code> or <code className="font-mono">false</code>.
               </div>
               <textarea
                 value={node.data.expression || ""}

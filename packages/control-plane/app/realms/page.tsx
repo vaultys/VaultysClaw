@@ -112,7 +112,7 @@ function CreateRealmModal({ onClose, onCreated }: { onClose: () => void; onCreat
               />
             </div>
           </div>
-          {error && <p className="text-red-400 text-sm">{error}</p>}
+          {error && <p className="text-red-600 dark:text-red-400 text-sm">{error}</p>}
           <div className="flex gap-3 pt-1">
             <button
               type="button"
@@ -222,7 +222,7 @@ export default function RealmsPage() {
                     <div className="flex items-center gap-1.5">
                       <span className="font-semibold text-vc-text text-sm">{realm.name}</span>
                       {realm.is_default === 1 && (
-                        <span className="text-xs px-1.5 py-0.5 rounded-md bg-amber-500/10 text-amber-400 font-medium">
+                        <span className="text-xs px-1.5 py-0.5 rounded-md bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400 font-medium">
                           default
                         </span>
                       )}

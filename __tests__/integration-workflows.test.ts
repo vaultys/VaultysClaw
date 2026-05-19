@@ -43,17 +43,39 @@ describe("Workflow Execution with Real Agents", () => {
   let wsServer: AgentWSServer;
   const testRealmId = "test-realm-workflows";
 
+  // Sentinel names used to scope cleanup — avoids clobbering other test files' data
+  const WF_NAMES = [
+    "Sequential Workflow", "Parallel Workflow", "Error Workflow",
+    "Complex Workflow", "Concurrent WF 1", "Concurrent WF 2",
+  ];
+  const AGENT_NAMES = [
+    "Analyzer Agent", "Reviewer Agent",
+    "Parallel Agent 1", "Parallel Agent 2", "Merger Agent",
+    "Failing Agent", "Dependent Agent",
+    "Stage 1 Agent", "Stage 2 Agent", "Stage 3 Agent",
+    "Reconnecting Agent",
+    "Concurrent Agent 0", "Concurrent Agent 1", "Concurrent Agent 2",
+  ];
+
   beforeAll(async () => {
-    // Initialize database
     const db = getDb();
 
-    // Clear previous test data
-    db.prepare("DELETE FROM agents").run();
-    db.prepare("DELETE FROM pending_registrations").run();
+    // Clean up only data belonging to this test suite (name-scoped)
+    // so concurrent test files' workflow_runs/workflows are not affected.
+    for (const name of WF_NAMES) {
+      const rows = db.prepare("SELECT id FROM workflows WHERE name = ?").all(name) as { id: string }[];
+      for (const row of rows) {
+        db.prepare("DELETE FROM workflow_runs WHERE workflow_id = ?").run(row.id);
+      }
+      db.prepare("DELETE FROM workflows WHERE name = ?").run(name);
+    }
+    for (const name of AGENT_NAMES) {
+      db.prepare("DELETE FROM agents WHERE name = ?").run(name);
+    }
+    db.prepare("DELETE FROM pending_registrations WHERE agent_name IN (" +
+      AGENT_NAMES.map(() => "?").join(",") + ")"
+    ).run(...AGENT_NAMES);
     db.prepare("DELETE FROM auth_sessions").run();
-    db.prepare("DELETE FROM workflow_runs").run();
-    db.prepare("DELETE FROM workflow_steps").run();
-    db.prepare("DELETE FROM workflows").run();
 
     // Generate server identity
     await initServerIdentity();
@@ -65,7 +87,9 @@ describe("Workflow Execution with Real Agents", () => {
 
   afterAll(() => {
     wsServer.shutdown();
-    closeDb();
+    // Do NOT call closeDb() — each vitest worker manages its own connection;
+    // closing here would corrupt the shared DB handle for other test files
+    // running in the same worker thread.
   });
 
   // =========================================================================

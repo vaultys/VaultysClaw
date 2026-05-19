@@ -31,7 +31,7 @@ import {
   type AgentPeerGrant,
   type WSSkillsConfigPayload,
 } from "@vaultysclaw/shared";
-import { createAuthSession, processChallenge } from "./auth-handler";
+import { createAuthSession, processChallenge, type PolicyMeta } from "./auth-handler";
 import {
   updateAgentLastSeen,
   deleteExpiredAuthSessions,
@@ -42,6 +42,7 @@ import {
   updatePendingRegistration,
   deletePendingRegistration,
   upsertAgent,
+  updateAgentBudget,
   getAgent,
   getAllAgents,
   getAllPendingRegistrations,
@@ -54,6 +55,7 @@ import {
   addAgentTokenUsageHistory,
   getAgentEffectiveSkills,
   getRealmAgents,
+  listPolicies,
 } from "./db";
 import { DelegationDao } from "./delegation-dao";
 import { AgentPeerGrantDao } from "./agent-peer-grant-dao";
@@ -86,6 +88,8 @@ interface PendingConnection {
   agentDid?: string;
   certificateData?: string;
   capabilities?: string[];
+  /** Governance metadata to embed in the certificate alongside capabilities. */
+  policyMeta?: PolicyMeta;
   /** True when this re-auth was triggered solely to reissue the cert with correct metadata. */
   isCertReissue?: boolean;
   timer: ReturnType<typeof setTimeout>;
@@ -347,7 +351,8 @@ export class AgentWSServer {
         pending.sessionId,
         payload.data,
         pending.agentName ?? "unknown",
-        pending.capabilities ?? []
+        pending.capabilities ?? [],
+        pending.policyMeta,
       );
 
       if (result.done && result.success) {
@@ -436,7 +441,8 @@ export class AgentWSServer {
             const correctCaps = storedCapabilities.slice().sort().join(",");
             if (reportedCaps !== correctCaps) {
               logger.info({ agentDid }, "Cert metadata mismatch — triggering silent re-auth to reissue certificate");
-              this.triggerCertReissue(agent, storedCapabilities);
+              const policyMeta = this.fetchActivePolicyMeta(agentDid);
+              this.triggerCertReissue(agent, storedCapabilities, policyMeta);
             } else {
               // Push delegation certs, LLM config, peer catalog, and skills config
               this.pushDelegationUpdate(agentDid);
@@ -998,8 +1004,9 @@ export class AgentWSServer {
     logger.info({ registrationId, agentDid, capabilities }, "Registration approved — agent connected");
 
     // Trigger a certificate reissue so the cert metadata reflects the admin-assigned
-    // capabilities (the initial cert only carries the agent's requested capabilities).
-    this.triggerCertReissue(agent, capabilities as AgentCapability[]);
+    // capabilities (and any active governance policy limits).
+    const policyMeta = this.fetchActivePolicyMeta(agentDid);
+    this.triggerCertReissue(agent, capabilities as AgentCapability[], policyMeta);
 
     // Push any stored LLM config now that the agent is registered and connected.
     this.pushStoredLlmConfig(agentDid);
@@ -1130,7 +1137,7 @@ export class AgentWSServer {
    * certificate with correct capability metadata is issued.
    * Does NOT update the DB or emit admin broadcasts — purely an internal cert refresh.
    */
-  private triggerCertReissue(agent: ConnectedAgent, capabilities: AgentCapability[]): void {
+  private triggerCertReissue(agent: ConnectedAgent, capabilities: AgentCapability[], policyMeta?: PolicyMeta): void {
     const { sessionId } = createAuthSession();
 
     const timer = setTimeout(() => {
@@ -1144,29 +1151,88 @@ export class AgentWSServer {
       phase: "authenticating",
       agentName: agent.name,
       capabilities: capabilities as string[],
+      policyMeta,
       isCertReissue: true,
       timer,
     });
 
-    // Tell the agent its capabilities (so it sends them back during the handshake)
+    // Tell the agent its new capabilities + governance limits (embedded natively in the payload).
     this.sendMessage(agent.ws, {
       messageId: `cert-reissue-caps-${Date.now()}`,
       type: "update_capabilities",
       agentId: agent.id,
       payload: {
         capabilities,
+        resourceLimits: policyMeta?.resourceLimits ?? null,
+        policyId: policyMeta?.policyId ?? null,
+        policyExpiresAt: policyMeta?.policyExpiresAt ?? null,
         reason: "Certificate reissue",
       } satisfies WSUpdateCapabilitiesPayload,
       timestamp: new Date().toISOString(),
     });
 
-    // Start a fresh auth challenge
+    // Start a fresh auth challenge so the cert gets the new metadata.
     this.sendMessage(agent.ws, {
       messageId: `cert-reissue-auth-${Date.now()}`,
       type: "auth_challenge",
       payload: { sessionId, data: "" } satisfies WSAuthChallengePayload,
       timestamp: new Date().toISOString(),
     });
+  }
+
+  /**
+   * Look up the most recently created (non-expired) governance policy for an agent
+   * and return its metadata for cert embedding.
+   */
+  private fetchActivePolicyMeta(agentDid: string): PolicyMeta | undefined {
+    try {
+      const policies = listPolicies({ agentDid, includeExpired: false });
+      if (policies.length === 0) return undefined;
+      const p = policies[0];
+      return {
+        resourceLimits: p.resource_limits ? JSON.parse(p.resource_limits) : null,
+        policyId: p.id,
+        policyExpiresAt: p.expires_at ?? null,
+      };
+    } catch {
+      return undefined;
+    }
+  }
+
+  /**
+   * Apply a governance policy to an agent: sync capabilities to DB, update token
+   * budget columns, then trigger a cert reissue so the new limits are signed into
+   * the certificate immediately.
+   *
+   * Pass resourceLimits = null / policyId = null to clear a revoked policy.
+   */
+  applyPolicy(
+    agentDid: string,
+    capabilities: AgentCapability[],
+    policyMeta?: PolicyMeta,
+  ): boolean {
+    // Always update the DB so the next reconnect picks up the correct capabilities.
+    const knownAgent = getAgent(agentDid);
+    if (!knownAgent) return false;
+
+    upsertAgent({ did: agentDid, name: knownAgent.name, capabilities });
+
+    // Sync token budget columns if resource limits changed.
+    if (policyMeta?.resourceLimits !== undefined) {
+      updateAgentBudget(agentDid, {
+        tokenBudgetDaily: policyMeta.resourceLimits?.maxTokensPerDay ?? null,
+        tokenBudgetMonthly: null,
+      });
+    }
+
+    // If the agent is connected, trigger an immediate cert reissue.
+    const agent = this.agents.get(agentDid);
+    if (agent) {
+      this.triggerCertReissue(agent, capabilities, policyMeta);
+      return true;
+    }
+
+    return false; // DB updated; cert will be reissued on next connect.
   }
 
   getConnectedAgents(): ConnectedAgent[] {
@@ -1275,46 +1341,16 @@ export class AgentWSServer {
     return recipientIds;
   }
 
-  sendPolicyUpdate(agentId: string, policy: Record<string, any>): boolean {
-    const agent = this.agents.get(agentId);
-    if (!agent || agent.ws.readyState !== WebSocket.OPEN) {
-      logger.warn({ agentId }, "Agent not connected for policy update");
-      return false;
-    }
-
-    const message: WSMessage = {
-      messageId: `policy-${Date.now()}`,
-      type: "policy_update",
-      agentId,
-      payload: policy,
-      timestamp: new Date().toISOString(),
-    };
-
-    try {
-      agent.ws.send(JSON.stringify(message));
-      logger.info({ agentId, policyId: policy.id }, "Policy update sent to agent");
-      return true;
-    } catch (error) {
-      logger.error(error, "Failed to send policy to agent");
-      return false;
-    }
+  /** @deprecated Use applyPolicy() — policies are now enforced via cert reissue, not a separate message. */
+  sendPolicyUpdate(_agentId: string, _policy: Record<string, unknown>): boolean {
+    logger.warn("sendPolicyUpdate is deprecated — use applyPolicy() instead");
+    return false;
   }
 
-  broadcastPolicyUpdate(policy: Record<string, any>): string[] {
-    const recipientIds: string[] = [];
-
-    for (const agentId of this.agents.keys()) {
-      if (this.sendPolicyUpdate(agentId, policy)) {
-        recipientIds.push(agentId);
-      }
-    }
-
-    logger.info(
-      { policyId: policy.id, recipients: recipientIds.length },
-      "Policy broadcasted to all agents"
-    );
-
-    return recipientIds;
+  /** @deprecated Use applyPolicy() — policies are now enforced via cert reissue, not a separate message. */
+  broadcastPolicyUpdate(_policy: Record<string, unknown>): string[] {
+    logger.warn("broadcastPolicyUpdate is deprecated — use applyPolicy() instead");
+    return [];
   }
 
   /**

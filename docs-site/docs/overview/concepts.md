@@ -51,29 +51,27 @@ The control plane signs all intents before forwarding them to agents. Agents **r
 
 ## Policy
 
-A **policy** is a signed document that the control plane pushes to an agent. It defines:
+A **policy** is a governance record that grants an agent a set of capabilities and optional resource limits. Policies are created by global admins through the Governance dashboard or the REST API.
 
-- Which **capabilities** the agent is allowed to exercise
-- Optional **resource limits** (CPU, memory, bandwidth)
-- Optional **time windows** during which the agent may operate
+What makes policies different from a simple access-control list is *how* they are delivered: the capabilities and resource limits are **embedded inside the VaultysId Challenger certificate** that both the control plane and agent co-sign during the auth handshake. The agent reads them from the signed certificate — they cannot be forged, replayed, or tampered with in transit.
 
 ```typescript
-interface AgentPolicy {
-  id: string;
-  agentControllerId: string;
-  capabilities: AgentCapability[];
+// Fields embedded in ctx.metadata.pk2 of the Challenger certificate
+interface PolicyMeta {
+  capabilities: AgentCapability[];      // what the agent may do
   resourceLimits?: {
-    maxCpuPercent?: number;
-    maxMemoryMb?: number;
-    maxNetworkBandwidthMbps?: number;
-  };
-  timeWindow?: { startTime: string; endTime: string };
-  signature: string;    // Signed by control plane
-  signedBy: string;
+    maxTokensPerDay?: number;           // LLM token budget (prompt + completion)
+    maxRequestsPerHour?: number;        // rolling intent rate limit
+    allowedDomains?: string[];          // advisory outbound domain list
+  } | null;
+  policyId?: string | null;            // back-reference to the DB record
+  policyExpiresAt?: string | null;     // ISO 8601 — agent blocks intents after this
 }
 ```
 
-Agents refuse any policy whose version is older than their current one (preventing downgrade attacks).
+Whenever a policy is created or revoked, the control plane sends an `update_capabilities` message followed by a fresh `auth_challenge`. The new certificate carries the updated metadata, signed by both parties.
+
+See [Governance Guide](/docs/guides/governance) for a full walkthrough.
 
 ## Capability
 

@@ -39,6 +39,7 @@ const sidebars: SidebarsConfig = {
         "guides/deployment",
         "guides/workflows",
         "guides/llm-routing",
+        "guides/governance",
         "guides/entra-sync",
       ],
     },

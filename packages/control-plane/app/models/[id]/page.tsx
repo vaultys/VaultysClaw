@@ -113,7 +113,7 @@ function OverviewTab({ model, onSaved, isAdmin }: {
               <button onClick={() => setEditing(false)} className="flex items-center gap-1 text-xs text-vc-muted hover:text-vc-text">
                 <X className="w-3.5 h-3.5" /> Cancel
               </button>
-              <button onClick={handleSave} disabled={saving} className="flex items-center gap-1 text-xs text-indigo-400 hover:text-indigo-300">
+              <button onClick={handleSave} disabled={saving} className="flex items-center gap-1 text-xs text-indigo-700 dark:text-indigo-400 hover:text-indigo-300">
                 <Check className="w-3.5 h-3.5" /> {saving ? "Saving…" : "Save"}
               </button>
             </div>
@@ -212,7 +212,7 @@ function OverviewTab({ model, onSaved, isAdmin }: {
             )}
           </div>
         ) : (
-          <div className="flex items-center gap-2 text-red-400 text-sm">
+          <div className="flex items-center gap-2 text-red-600 dark:text-red-400 text-sm">
             <XCircle className="w-4 h-4" />
             {validateResult.error ?? "Endpoint unreachable"}
           </div>
@@ -406,8 +406,8 @@ export default function ModelDetailPage() {
           <ArrowLeft className="w-5 h-5" />
         </button>
         <div className="flex items-center gap-3 flex-1 min-w-0">
-          <div className="w-8 h-8 rounded-lg bg-indigo-600/20 flex items-center justify-center shrink-0">
-            <Cpu className="w-4 h-4 text-indigo-400" />
+          <div className="w-8 h-8 rounded-lg bg-indigo-50 dark:bg-indigo-600/20 flex items-center justify-center shrink-0">
+            <Cpu className="w-4 h-4 text-indigo-700 dark:text-indigo-400" />
           </div>
           <div className="min-w-0">
             <h1 className="text-base font-semibold text-vc-text truncate">{model.name}</h1>
@@ -444,7 +444,7 @@ export default function ModelDetailPage() {
             onClick={() => setTab(tabId)}
             className={`flex items-center gap-1.5 px-3 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px ${
               tab === tabId
-                ? "border-indigo-500 text-indigo-400"
+                ? "border-indigo-500 text-indigo-700 dark:text-indigo-400"
                 : "border-transparent text-vc-muted hover:text-vc-text"
             }`}
           >

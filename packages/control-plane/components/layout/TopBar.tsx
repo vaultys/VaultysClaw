@@ -148,14 +148,14 @@ export default function TopBar() {
                     className={cn(
                       "flex-1 flex flex-col items-center gap-1 py-1.5 rounded-lg text-xs transition-colors border",
                       theme === value
-                        ? "bg-indigo-600/20 border-indigo-600/50 text-indigo-300"
+                        ? "bg-indigo-100 dark:bg-indigo-600/20 border-indigo-300 dark:border-indigo-600/50 text-indigo-700 dark:text-indigo-300"
                         : "border-transparent text-vc-muted hover:text-vc-text-2 hover:bg-vc-raised"
                     )}
                   >
                     <Icon className="w-3.5 h-3.5" />
                     <span>{label}</span>
                     {theme === value && (
-                      <Check className="w-2.5 h-2.5 text-indigo-400 absolute" />
+                      <Check className="w-2.5 h-2.5 text-indigo-700 dark:text-indigo-400 absolute" />
                     )}
                   </button>
                 ))}

@@ -246,7 +246,7 @@ export default function MatrixView({ data, height, onNodeClick }: Props) {
                             );
                           })}
                           {hasDelegation && (
-                            <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-medium bg-red-950 text-red-400">
+                            <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-medium bg-red-50 dark:bg-red-950 text-red-600 dark:text-red-400">
                               delegated
                             </span>
                           )}
@@ -295,11 +295,11 @@ export default function MatrixView({ data, height, onNodeClick }: Props) {
 
 function RolePill({ role }: { role: string }) {
   const styles: Record<string, string> = {
-    owner:    "bg-amber-950 text-amber-400",
-    admin:    "bg-blue-950 text-blue-400",
-    manager:  "bg-violet-950 text-violet-400",
-    operator: "bg-emerald-950 text-emerald-400",
-    member:   "bg-slate-800 text-slate-400",
+    owner:    "bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-400",
+    admin:    "bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-400",
+    manager:  "bg-violet-50 dark:bg-violet-950 text-violet-700 dark:text-violet-400",
+    operator: "bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400",
+    member:   "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400",
   };
   return (
     <span className={`inline-block text-[9px] font-semibold px-1.5 py-0.5 rounded-full capitalize mt-0.5 ${styles[role] ?? styles.member}`}>

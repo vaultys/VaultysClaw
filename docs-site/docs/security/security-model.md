@@ -51,27 +51,33 @@ Intents include a unique `id` and an ISO 8601 `timestamp`. Agents:
 - Track processed intent IDs in memory (and optionally persist them)
 - Reject any intent whose timestamp is older than the configured staleness threshold (default: 5 minutes)
 
-### 4. Policy version enforcement
+### 4. Certificate-embedded policy enforcement
 
-When a policy is pushed to an agent, it includes a version number. Agents reject any incoming policy whose version is lower than the one they already hold. This prevents an attacker from pushing a stale, more-permissive policy to an agent.
+Capabilities and resource limits are embedded inside the **VaultysId Challenger certificate** that both the control plane and agent co-sign during the auth handshake. This replaces the old separate `policy_update` message flow.
+
+Key properties of this approach:
+
+- **Tamper-evident** — both sides sign the metadata; any modification invalidates the certificate
+- **Offline-verifiable** — agents enforce limits without querying the control plane
+- **Replay-resistant** — a stale certificate from a previous session cannot be reused because the Challenger state machine tracks session state
+
+When a policy changes, the control plane sends `update_capabilities` followed by a fresh `auth_challenge`. The new certificate carries the updated metadata.
 
 ### 5. Intent execution decision tree
 
 ```mermaid
 flowchart TD
-  A([Intent received]) --> B{Signature valid?}
+  A([Intent received]) --> B{Capability\ngranted in cert?}
   B -->|No| FAIL1[Reject ✗]
-  B -->|Yes| C{From trusted\ncontrol plane?}
-  C -->|No| FAIL2[Reject ✗]
-  C -->|Yes| D{Capability\nrequired?}
-  D -->|No| EXEC([Execute ✓])
-  D -->|Yes| E{Policy grants\ncapability?}
-  E -->|No| FAIL3[Reject ✗]
-  E -->|Yes| F{Within\ntime window?}
-  F -->|No| FAIL4[Reject ✗]
-  F -->|Yes| G{Intent ID\nalready seen?}
-  G -->|Yes| FAIL5[Reject ✗]
-  G -->|No| EXEC
+  B -->|Yes| C{Policy\nexpired?}
+  C -->|Yes| FAIL2[Reject ✗]
+  C -->|No| D{Daily token\nbudget OK?}
+  D -->|No| FAIL3[Reject ✗]
+  D -->|Yes| E{Hourly request\nrate OK?}
+  E -->|No| FAIL4[Reject ✗]
+  E -->|Yes| F{User delegation\nvalid?}
+  F -->|No| FAIL5[Reject ✗]
+  F -->|Yes| EXEC([Execute ✓])
 ```
 
 ### 6. Blast radius containment
@@ -102,7 +108,12 @@ Sensitive tools can be flagged as requiring human approval. When an agent encoun
 |---|---|---|
 | Intent tampering in transit | Cryptographic signature | Signature mismatch → rejected |
 | Replay attack | Intent ID + timestamp | Duplicate / stale → rejected |
-| Policy downgrade | Version tracking | Lower version → rejected |
+| Policy tampering | Cert co-signed by both parties | Modification invalidates certificate |
+| Policy replay | Challenger session state | Stale cert from old session rejected |
+| Resource limit bypass | Limits in signed cert metadata | Agent reads from certificate, not network message |
+| Runaway token spend | `maxTokensPerDay` in policy | Agent blocks intents when daily budget exhausted |
+| Unconstrained request rate | `maxRequestsPerHour` in policy | Rolling window counter enforced pre-execution |
+| Expired policy still used | `policyExpiresAt` check | Agent rejects intents after expiry timestamp |
 | Compromised agent | Capability scoping | Blast radius limited to granted caps |
 | Agent impersonation | VaultysId (non-transferable) | Private key cannot be cloned |
 | Privileged user overreach | RBAC + capability grants | Server-side enforcement |

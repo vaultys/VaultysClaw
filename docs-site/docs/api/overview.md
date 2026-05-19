@@ -124,3 +124,6 @@ The API does not enforce rate limits in the default configuration. For productio
 | [Workflows](/docs/api/workflows) | `GET /workflows`, `POST /workflows`, `POST /workflows/:id/run` |
 | [Tool Approvals](/docs/api/tool-approvals) | `GET /tool-approvals`, `POST /tool-approvals/:id/approve`, `POST /tool-approvals/:id/reject` |
 | [Registrations](/docs/api/agents#registration-approval) | `GET /registrations`, `POST /registrations/:id/approve`, `POST /registrations/:id/reject` |
+| [Models](/docs/api/models) | `GET /models`, `POST /models`, `GET /models/:id`, `PUT /models/:id`, `DELETE /models/:id` |
+| [Model Realm Access](/docs/api/models#grant-realm-access) | `POST /models/:id/realms`, `DELETE /models/:id/realms/:realmId` |
+| [Agent LLM Config](/docs/api/models#agent-llm-config-endpoints) | `GET /agents/:did/llm-config`, `PUT /agents/:did/llm-config`, `DELETE /agents/:did/llm-config` |

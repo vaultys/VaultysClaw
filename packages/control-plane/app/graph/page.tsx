@@ -6,12 +6,20 @@ import { Network, Maximize2, Minimize2 } from "lucide-react";
 import dynamic from "next/dynamic";
 import type { GraphNode } from "@vaultysclaw/shared";
 import type { GraphViewMode } from "@/components/graph/RealmGraph";
+import { useRole } from "@/hooks/useRole";
 
 const RealmGraph = dynamic(() => import("@/components/graph/RealmGraph"), { ssr: false });
 
 export default function FullGraphPage() {
   const router        = useRouter();
   const searchParams  = useSearchParams();
+  const { isGlobalAdmin, isLoading } = useRole();
+
+  useEffect(() => {
+    if (!isLoading && !isGlobalAdmin) router.replace("/");
+  }, [isLoading, isGlobalAdmin, router]);
+
+  if (isLoading || !isGlobalAdmin) return null;
   const [fullscreen, setFullscreen] = useState(false);
   const [winH, setWinH] = useState(700);
 

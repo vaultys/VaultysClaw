@@ -3,28 +3,18 @@ import {
   getAllModelRegistryEntries,
   createModelRegistryEntry,
   getModelRealmAccess,
-  getModelsByRealm,
-  getUserRealms,
 } from "@/lib/db";
 import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
 import { registerModel, isLiteLLMConfigured } from "@/lib/litellm-client";
 
-/** GET /api/models — list models. Admins see all; members see only realm-accessible models. */
+/** GET /api/models — list models. Admin only. */
 export async function GET() {
   try {
     const auth = await getAuthContext();
     if (!auth) return unauthorized();
+    if (!auth.isGlobalAdmin) return forbidden();
 
-    let entries;
-    if (auth.isGlobalAdmin) {
-      entries = getAllModelRegistryEntries();
-    } else {
-      const realmIds = getUserRealms(auth.did).map((r) => r.realm_id);
-      const seen = new Set<string>();
-      entries = realmIds
-        .flatMap((rid) => getModelsByRealm(rid))
-        .filter((m) => { if (seen.has(m.id)) return false; seen.add(m.id); return true; });
-    }
+    const entries = getAllModelRegistryEntries();
 
     const models = entries.map((m) => ({
       id: m.id,

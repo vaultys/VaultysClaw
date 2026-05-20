@@ -164,8 +164,12 @@ function RegisterModelModal({ onClose, onCreated }: { onClose: () => void; onCre
 
 export default function ModelsPage() {
   const router = useRouter();
-  const { isGlobalAdmin } = useRole();
+  const { isGlobalAdmin, isLoading } = useRole();
   const [models, setModels] = useState<ModelEntry[]>([]);
+
+  useEffect(() => {
+    if (!isLoading && !isGlobalAdmin) router.replace("/");
+  }, [isLoading, isGlobalAdmin, router]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
 
@@ -181,6 +185,8 @@ export default function ModelsPage() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  if (isLoading || !isGlobalAdmin) return null;
 
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-6">

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getPendingRegistration, addAgentToRealm, getAllRealms } from "@/lib/db";
+import { getPendingRegistration, addAgentToRealm, getAllRealms, getAgentByName } from "@/lib/db";
 import { getWSServer } from "@/lib/ws-server";
 import type { AgentCapability } from "@vaultysclaw/shared";
 import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
@@ -60,18 +60,18 @@ export async function POST(
       );
     }
 
+    const agentRow = getAgentByName(registration.agent_name);
+
     // Enroll agent in additional selected realms (default realm is already enrolled via ws-server)
-    if (realmIds.length > 0) {
+    if (realmIds.length > 0 && agentRow?.did) {
       const allRealms = getAllRealms();
       const defaultRealm = allRealms.find((r) => r.is_default === 1);
       for (const rid of realmIds) {
-        // Skip if it's the default realm (already enrolled)
         if (defaultRealm && rid === defaultRealm.id) continue;
-        try { addAgentToRealm(registration.agent_did, rid, false); } catch { /* already member */ }
+        try { addAgentToRealm(agentRow.did, rid, false); } catch { /* already member */ }
       }
     }
-
-    return NextResponse.json({ success: true, registrationId: id, capabilities });
+    return NextResponse.json({ success: true, registrationId: id, capabilities, agentDid: agentRow?.did ?? null });
   } catch (error) {
     return NextResponse.json(
       { error: "Failed to approve registration" },

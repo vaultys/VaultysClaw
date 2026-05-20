@@ -248,6 +248,19 @@ function Dashboard() {
   const [acting, setActing] = useState<string | null>(null);
   const [comment, setComment] = useState<Record<string, string>>({});
 
+  interface TokenStats {
+    allTime: { promptTokens: number; completionTokens: number };
+    daily: { promptTokens: number; completionTokens: number };
+    monthly: { promptTokens: number; completionTokens: number };
+  }
+  const [dbTokenStats, setDbTokenStats] = useState<TokenStats | null>(null);
+
+  const fetchTokenStats = () =>
+    fetch("/api/stats/tokens")
+      .then((r) => r.ok ? r.json() : null)
+      .then((d: TokenStats | null) => { if (d) setDbTokenStats(d); })
+      .catch(() => { });
+
   const fetchApprovals = () =>
     fetch("/api/workflow-approvals")
       .then((r) => r.json())
@@ -257,6 +270,12 @@ function Dashboard() {
   useEffect(() => {
     fetchApprovals();
     const id = setInterval(fetchApprovals, 15_000);
+    return () => clearInterval(id);
+  }, []);
+
+  useEffect(() => {
+    fetchTokenStats();
+    const id = setInterval(fetchTokenStats, 60_000);
     return () => clearInterval(id);
   }, []);
 
@@ -292,27 +311,24 @@ function Dashboard() {
   const pendingApprovals = approvals.filter((a) => a.mode === "approval" && a.status === "pending");
   const notifications = approvals.filter((a) => a.mode === "notification" && a.status === "notified");
 
-  // Calculate fleet-wide token metrics
+  // Calculate fleet-wide token metrics — prefer DB (all agents) over WS state (online only)
   const onlineAgents = agents.filter((a) => a.online);
-  const tokenMetrics = onlineAgents.reduce(
+  const wsMetrics = onlineAgents.reduce(
     (acc, agent) => {
-      if (agent.tokenUsage) {
-        acc.totalPrompt += agent.tokenUsage.promptTokens;
-        acc.totalCompletion += agent.tokenUsage.completionTokens;
-      }
-      if (agent.dailyTokenUsage) {
-        acc.dailyPrompt += agent.dailyTokenUsage.promptTokens;
-        acc.dailyCompletion += agent.dailyTokenUsage.completionTokens;
-      }
-      if (agent.monthlyTokenUsage) {
-        acc.monthlyPrompt += agent.monthlyTokenUsage.promptTokens;
-        acc.monthlyCompletion += agent.monthlyTokenUsage.completionTokens;
-      }
       acc.dailyPrice += agent.dailyPriceSpent ?? 0;
       return acc;
     },
-    { totalPrompt: 0, totalCompletion: 0, dailyPrompt: 0, dailyCompletion: 0, monthlyPrompt: 0, monthlyCompletion: 0, dailyPrice: 0 }
+    { dailyPrice: 0 }
   );
+  const tokenMetrics = {
+    totalPrompt: dbTokenStats?.allTime.promptTokens ?? 0,
+    totalCompletion: dbTokenStats?.allTime.completionTokens ?? 0,
+    dailyPrompt: dbTokenStats?.daily.promptTokens ?? 0,
+    dailyCompletion: dbTokenStats?.daily.completionTokens ?? 0,
+    monthlyPrompt: dbTokenStats?.monthly.promptTokens ?? 0,
+    monthlyCompletion: dbTokenStats?.monthly.completionTokens ?? 0,
+    dailyPrice: wsMetrics.dailyPrice,
+  };
 
   const totalTokensDaily = tokenMetrics.dailyPrompt + tokenMetrics.dailyCompletion;
   const totalTokensMonthly = tokenMetrics.monthlyPrompt + tokenMetrics.monthlyCompletion;

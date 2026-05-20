@@ -2,7 +2,7 @@ import React from "react";
 import { AbsoluteFill, interpolate, spring, useCurrentFrame, useVideoConfig } from "remotion";
 import { BRAND, MONO, useSceneOpacity, useSlideUp } from "../helpers";
 
-const TOTAL = 240;
+const TOTAL = 300;
 
 const FEATURES = [
   {
@@ -11,7 +11,6 @@ const FEATURES = [
     bg: "rgba(124,58,237,0.12)",
     border: "rgba(124,58,237,0.25)",
     title: "Encode your culture as policy",
-    desc: "Communication style, escalation rules, data access boundaries — formalised and deployed as signed, tamper-proof policy.",
     frame: 30,
   },
   {
@@ -20,7 +19,6 @@ const FEATURES = [
     bg: "rgba(29,78,216,0.12)",
     border: "rgba(29,78,216,0.25)",
     title: "Your org chart, reflected in AI",
-    desc: "Realms, roles, and capability grants mirror your real team structure. The right people govern the right agents — enforced server-side.",
     frame: 90,
   },
   {
@@ -29,7 +27,6 @@ const FEATURES = [
     bg: "rgba(16,185,129,0.1)",
     border: "rgba(16,185,129,0.22)",
     title: "Real-time coordination",
-    desc: "Agents collaborate via a signed WebSocket hub — routing work across departments and escalating to humans in milliseconds.",
     frame: 150,
   },
 ];
@@ -81,12 +78,12 @@ export const SceneCulture: React.FC = () => {
         }}
       />
 
-      <div style={{ width: 1400, padding: "0 80px", display: "flex", gap: 80, alignItems: "flex-start" }}>
+      <div style={{ padding: "0 80px", display: "flex", gap: 80, alignItems: "flex-start" }}>
         {/* Left: features */}
         <div style={{ flex: 1, minWidth: 0 }}>
           <div
             style={{
-              fontSize: 13,
+              fontSize: 30,
               fontWeight: 700,
               letterSpacing: "0.12em",
               textTransform: "uppercase",
@@ -101,7 +98,7 @@ export const SceneCulture: React.FC = () => {
           </div>
           <div
             style={{
-              fontSize: 56,
+              fontSize: 80,
               fontWeight: 900,
               color: BRAND.text,
               lineHeight: 1.1,
@@ -125,7 +122,7 @@ export const SceneCulture: React.FC = () => {
                 extrapolateRight: "clamp",
               });
               return (
-                <div key={i} style={{ display: "flex", gap: 20, alignItems: "flex-start", opacity, transform: `translateX(${x}px)` }}>
+                <div key={i} style={{ display: "flex", gap: 100, alignItems: "flex-start", opacity, transform: `translateX(${x}px)` }}>
                   <div
                     style={{
                       width: 48,
@@ -136,15 +133,14 @@ export const SceneCulture: React.FC = () => {
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
-                      fontSize: 22,
+                      fontSize: 45,
                       flexShrink: 0,
                     }}
                   >
                     {icon}
                   </div>
                   <div>
-                    <div style={{ fontSize: 20, fontWeight: 700, color: BRAND.text, marginBottom: 6 }}>{title}</div>
-                    <div style={{ fontSize: 16, color: BRAND.muted, lineHeight: 1.6 }}>{desc}</div>
+                    <div style={{ fontSize: 40, fontWeight: 700, color: BRAND.text, marginBottom: 6 }}>{title}</div>
                   </div>
                 </div>
               );
@@ -155,7 +151,7 @@ export const SceneCulture: React.FC = () => {
         {/* Right: code panel */}
         <div
           style={{
-            width: 520,
+            width: 820,
             flexShrink: 0,
             opacity: codePanelOpacity,
             transform: `translateX(${codePanelX}px)`,
@@ -185,20 +181,20 @@ export const SceneCulture: React.FC = () => {
                   color: "#fff",
                   padding: "2px 8px",
                   borderRadius: 4,
-                  fontSize: 12,
+                  fontSize: 25,
                   fontWeight: 700,
                 }}
               >
                 POST
               </span>
-              <span style={{ fontSize: 14, color: BRAND.muted, fontFamily: MONO }}>/api/intents</span>
+              <span style={{ fontSize: 30, color: BRAND.muted, fontFamily: MONO }}>/api/intents</span>
             </div>
             <pre
               style={{
                 margin: 0,
                 padding: "24px",
                 fontFamily: MONO,
-                fontSize: 14,
+                fontSize: 25,
                 lineHeight: 1.7,
                 color: "#c9d1d9",
                 overflowX: "auto",

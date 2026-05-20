@@ -121,10 +121,14 @@ export async function runIntent(
   params: Record<string, unknown>,
   tools?: Record<string, MastraTool>,
   memoryContext?: string,
+  skillExtensions?: string[],
 ): Promise<{ text: string; usage: { promptTokens: number; completionTokens: number } }> {
   const model = buildModel(config);
   const base = config.systemPrompt?.trim() || DEFAULT_SYSTEM_PROMPT;
-  const instructions = memoryContext ? `${base}\n\n${memoryContext}` : base;
+  const withMemory = memoryContext ? `${base}\n\n${memoryContext}` : base;
+  const instructions = skillExtensions?.length
+    ? `${withMemory}\n\n---\n\n${skillExtensions.join("\n\n---\n\n")}`
+    : withMemory;
 
   const hasParams = params && Object.keys(params).length > 0;
   const userMessage = hasParams
@@ -191,10 +195,14 @@ export function streamChat(
   tools?: Record<string, MastraTool>,
   onStepFinish?: (event: StepFinishEvent) => void | Promise<void>,
   memoryContext?: string,
+  skillExtensions?: string[],
 ): { textStream: AsyncIterable<string>; usage: Promise<{ promptTokens: number; completionTokens: number }> } {
   const model = buildModel(config);
   const base = config.systemPrompt?.trim() || DEFAULT_CHAT_PROMPT;
-  const instructions = memoryContext ? `${base}\n\n${memoryContext}` : base;
+  const withMemory = memoryContext ? `${base}\n\n${memoryContext}` : base;
+  const instructions = skillExtensions?.length
+    ? `${withMemory}\n\n---\n\n${skillExtensions.join("\n\n---\n\n")}`
+    : withMemory;
   const hasTools = tools && Object.keys(tools).length > 0;
 
   logger.info(

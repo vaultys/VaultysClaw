@@ -1,8 +1,8 @@
 import React from "react";
-import { AbsoluteFill, interpolate, spring, useCurrentFrame, useVideoConfig } from "remotion";
+import { AbsoluteFill, Img, interpolate, spring, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
 import { BRAND, MONO, useSceneOpacity, useFadeIn } from "../helpers";
 
-const TOTAL = 210;
+const TOTAL = 500;
 
 const BULLETS = [
   "Open Source  ·  MIT License  ·  Self-hosted",
@@ -75,23 +75,24 @@ export const SceneCTA: React.FC = () => {
         }}
       />
 
-      {/* Logo hex mark */}
+      {/* Logo */}
       <div
         style={{
-          fontSize: 72,
           marginBottom: 32,
           opacity: logoOpacity,
           transform: `scale(${interpolate(logoScale, [0, 1], [0.6, 1])})`,
-          filter: "drop-shadow(0 0 24px rgba(124,58,237,0.5))",
         }}
       >
-        ⬡
+        <Img
+          src={staticFile("vaultys-logo.svg")}
+          style={{ height: 72, filter: "drop-shadow(0 0 24px rgba(124,58,237,0.5))" }}
+        />
       </div>
 
       {/* Meta tag */}
       <div
         style={{
-          fontSize: 15,
+          fontSize: 30,
           fontWeight: 700,
           letterSpacing: "0.12em",
           color: BRAND.blue400,
@@ -168,61 +169,27 @@ export const SceneCTA: React.FC = () => {
       {/* Subtitle */}
       <div
         style={{
-          fontSize: 22,
+          fontSize: 40,
           color: BRAND.muted,
-          maxWidth: 640,
           lineHeight: 1.65,
           marginBottom: 56,
           opacity: subOpacity,
         }}
       >
-        Deploy in under five minutes. On your infrastructure.
-        With your policies. No vendor lock-in.
-      </div>
-
-      {/* Buttons */}
-      <div style={{ display: "flex", gap: 20, marginBottom: 56 }}>
-        <div
-          style={{
-            background: "linear-gradient(135deg, #1d4ed8, #7c3aed)",
-            color: "#fff",
-            padding: "18px 40px",
-            borderRadius: 12,
-            fontSize: 20,
-            fontWeight: 700,
-            opacity: btn1Opacity,
-            boxShadow: "0 4px 24px rgba(124,58,237,0.35)",
-          }}
-        >
-          Deploy your first agent →
-        </div>
-        <div
-          style={{
-            background: "transparent",
-            color: BRAND.text,
-            padding: "18px 40px",
-            borderRadius: 12,
-            fontSize: 20,
-            fontWeight: 600,
-            border: `1px solid ${BRAND.border}`,
-            opacity: btn2Opacity,
-          }}
-        >
-          ⌥ View on GitHub
-        </div>
+        On your infra. Your policies. No lock-in. Five minutes.
       </div>
 
       {/* URL */}
       <div
         style={{
-          fontSize: 18,
+          fontSize: 35,
           color: BRAND.muted,
           fontFamily: MONO,
           opacity: urlOpacity,
           letterSpacing: "0.04em",
         }}
       >
-        vaultysclaw.io
+        vaultys.com
       </div>
     </AbsoluteFill>
   );

@@ -6,6 +6,8 @@
 import { loadEnvConfig } from "@next/env";
 loadEnvConfig(process.cwd());
 
+console.log(process.env);
+
 import "./lib/webrtc-polyfill";
 import { createServer } from "node:http";
 import { parse } from "node:url";

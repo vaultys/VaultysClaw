@@ -7,8 +7,8 @@
     "agent-controller": "dist/cli.js"
   },
   "scripts": {
-    "dev": "tsx src/index.ts",
-    "dev:tui": "tsx src/tui.tsx",
+    "dev": "tsx src/cli.ts",
+    "dev:tui": "tsx src/cli.ts --mode tui",
     "dev:web": "VAULTYS_ID_PATH=./.vaultys/agent-web2.id AGENT_NAME=agent-web tsx src/web-launcher.ts",
     "build:web": "cd web-app && vite build",
     "dev:web-client": "cd web-app && vite",

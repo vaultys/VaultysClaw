@@ -11,6 +11,7 @@ import { getDb } from "@/lib/db";
  *   limit    – max entries (default 200, max 500)
  *   source   – "activity" | "intent" | "" (both)
  *   status   – filter intent_log by status ("success"|"failed"|"pending")
+ *   agentDid – filter both tables to a specific agent DID
  */
 export async function GET(request: NextRequest) {
   try {
@@ -22,6 +23,7 @@ export async function GET(request: NextRequest) {
     const limit = Math.min(500, Math.max(1, parseInt(searchParams.get("limit") ?? "200", 10) || 200));
     const source = searchParams.get("source") ?? "";
     const statusFilter = searchParams.get("status") ?? "";
+    const agentDidFilter = searchParams.get("agentDid") ?? "";
 
     const db = getDb();
 
@@ -41,9 +43,11 @@ export async function GET(request: NextRequest) {
 
     // Activity log entries
     if (!source || source === "activity") {
-      const rows = db.prepare(
-        "SELECT * FROM activity_log ORDER BY created_at DESC LIMIT ?"
-      ).all(limit) as { id: number; event: string; agent_did: string | null; agent_name: string | null; details: string | null; created_at: string }[];
+      const activityQuery = agentDidFilter
+        ? "SELECT * FROM activity_log WHERE agent_did = ? ORDER BY created_at DESC LIMIT ?"
+        : "SELECT * FROM activity_log ORDER BY created_at DESC LIMIT ?";
+      const activityParams = agentDidFilter ? [agentDidFilter, limit] : [limit];
+      const rows = db.prepare(activityQuery).all(...activityParams) as { id: number; event: string; agent_did: string | null; agent_name: string | null; details: string | null; created_at: string }[];
 
       for (const r of rows) {
         entries.push({
@@ -64,10 +68,10 @@ export async function GET(request: NextRequest) {
     if (!source || source === "intent") {
       let query = "SELECT * FROM intent_log";
       const params: unknown[] = [];
-      if (statusFilter) {
-        query += " WHERE status = ?";
-        params.push(statusFilter);
-      }
+      const conditions: string[] = [];
+      if (statusFilter) conditions.push("status = ?") && params.push(statusFilter);
+      if (agentDidFilter) conditions.push("agent_did = ?") && params.push(agentDidFilter);
+      if (conditions.length) query += " WHERE " + conditions.join(" AND ");
       query += " ORDER BY sent_at DESC LIMIT ?";
       params.push(limit);
 

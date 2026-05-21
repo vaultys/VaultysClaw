@@ -680,6 +680,13 @@ export function getActivityLogByEvent(event: string, limit: number = 50): Activi
     .all(event, limit) as ActivityLogRow[];
 }
 
+export function getActivityLogByAgent(agentDid: string, limit: number = 100): ActivityLogRow[] {
+  const d = getDb();
+  return d
+    .prepare("SELECT * FROM activity_log WHERE agent_did = ? ORDER BY created_at DESC LIMIT ?")
+    .all(agentDid, limit) as ActivityLogRow[];
+}
+
 // --- Intent log ---
 
 export interface IntentLogRow {
@@ -2011,13 +2018,16 @@ export function createPolicy(policy: {
   return d.prepare("SELECT * FROM policies WHERE id = ?").get(id) as PolicyRow;
 }
 
-export function listPolicies(opts: { agentDid?: string; realmId?: string; includeExpired?: boolean } = {}): PolicyRow[] {
+export function listPolicies(opts: { agentDid?: string; realmId?: string; includeExpired?: boolean; expiredOnly?: boolean } = {}): PolicyRow[] {
   const d = getDb();
   const conditions: string[] = [];
   const values: unknown[] = [];
   if (opts.agentDid !== undefined) { conditions.push("agent_did = ?"); values.push(opts.agentDid); }
   if (opts.realmId !== undefined) { conditions.push("realm_id = ?"); values.push(opts.realmId); }
-  if (!opts.includeExpired) {
+  if (opts.expiredOnly) {
+    // Only rows that have a non-null expiresAt that is already in the past.
+    conditions.push("expires_at IS NOT NULL AND datetime(expires_at) <= datetime('now')");
+  } else if (!opts.includeExpired) {
     // Use datetime(expires_at) so SQLite parses ISO 8601 strings (which contain 'T'
     // and 'Z') correctly before comparing — a raw string compare would always treat
     // ISO dates as greater than datetime('now') because 'T' > ' ' in ASCII.

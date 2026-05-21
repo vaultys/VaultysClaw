@@ -400,7 +400,7 @@ export default function ModelDetailPage() {
   if (!model) return <div className="p-6 text-sm text-vc-muted">Model not found.</div>;
 
   return (
-    <div className="p-6 max-w-3xl mx-auto space-y-5">
+    <div className="p-6 max-w-7xl mx-auto space-y-5">
       <div className="flex items-center gap-3">
         <button onClick={() => router.push("/models")} className="text-vc-muted hover:text-vc-text transition-colors">
           <ArrowLeft className="w-5 h-5" />
@@ -438,25 +438,26 @@ export default function ModelDetailPage() {
 
       {/* Tabs */}
       <div className="flex border-b border-vc-border gap-1">
-        {TABS.map((tab_) => { const { id: tabId, label, icon: Icon } = tab_; const comingSoon = "comingSoon" in tab_ && tab_.comingSoon; return (
-          <button
-            key={tabId}
-            onClick={() => setTab(tabId)}
-            className={`flex items-center gap-1.5 px-3 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px ${
-              tab === tabId
-                ? "border-indigo-500 text-indigo-700 dark:text-indigo-400"
-                : "border-transparent text-vc-muted hover:text-vc-text"
-            }`}
-          >
-            <Icon className="w-3.5 h-3.5" />
-            {label}
-            {comingSoon && (
-              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-500 border border-amber-300 dark:border-amber-800 uppercase tracking-wide leading-none">
-                Soon
-              </span>
-            )}
-          </button>
-        ); })}
+        {TABS.map((tab_) => {
+          const { id: tabId, label, icon: Icon } = tab_; const comingSoon = "comingSoon" in tab_ && tab_.comingSoon; return (
+            <button
+              key={tabId}
+              onClick={() => setTab(tabId)}
+              className={`flex items-center gap-1.5 px-3 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px ${tab === tabId
+                  ? "border-indigo-500 text-indigo-700 dark:text-indigo-400"
+                  : "border-transparent text-vc-muted hover:text-vc-text"
+                }`}
+            >
+              <Icon className="w-3.5 h-3.5" />
+              {label}
+              {comingSoon && (
+                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-500 border border-amber-300 dark:border-amber-800 uppercase tracking-wide leading-none">
+                  Soon
+                </span>
+              )}
+            </button>
+          );
+        })}
       </div>
 
       {tab === "overview" && <OverviewTab model={model} onSaved={load} isAdmin={isGlobalAdmin} />}

@@ -141,6 +141,20 @@ A **workflow** is a named, reusable sequence of steps that can involve one or mo
 
 Workflows belong to a realm and inherit its access control.
 
+## Skill
+
+A **skill** is a named unit of reusable agent behaviour attached to a realm. Each skill can carry:
+
+- **Markdown instructions** (`content`) — injected verbatim into the agent's system prompt at the end, separated by `---` dividers
+- **Config JSON** — arbitrary metadata forwarded alongside the skill for future tool integrations
+- An `isRequired` flag — when set, the skill is always active and agents cannot opt out
+
+Skills are managed from the **Skills** page in the control plane (global admin only) or via the REST API. They can also be imported from the [skills library](https://skills-library.com), which provides a curated catalogue of pre-built `SKILL.md` files hosted on GitHub.
+
+When an agent connects, the control plane pushes a `skills_config` message over the WebSocket. Any time a skill is created, updated, or deleted, connected agents in that realm receive the updated configuration immediately.
+
+See [Skills Guide](/docs/guides/skills) for a full walkthrough.
+
 ## Tool Approval
 
 Certain sensitive tools can be configured to require **admin approval** before an agent executes them. When an agent encounters such a tool, it pauses and sends an approval request to the control plane. An admin sees the request in the dashboard and can approve or reject it with a reason. A full audit trail is maintained.

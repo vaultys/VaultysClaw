@@ -153,6 +153,7 @@ export function useVaultysConnect(): UseVaultysConnectResult {
   const [uiStep, setUIStep] = useState<UIStep>("loading");
   const [hasUsers, setHasUsers] = useState(false);
   const [serverDid, setServerDid] = useState<string | null>(null);
+  const [walletUrl, setWalletUrl] = useState("https://wallet.vaultys.net");
   const [browserVid, setBrowserVid] = useState<BrowserIdData | null>(null);
   const [bastionPhase, setBastionPhase] = useState<BastionPhase>();
   const [userConnectionPhase, setUserConnectionPhase] = useState<UserConnectionPhase>();
@@ -162,10 +163,15 @@ export function useVaultysConnect(): UseVaultysConnectResult {
   // Load initial state
   useEffect(() => {
     (async () => {
-      const res = await fetch("/api/user/status");
-      const { hasUsers: hu, serverDid: sd } = (await res.json()) as { hasUsers: boolean; serverDid: string | null };
+      const [statusRes, settingsRes] = await Promise.all([
+        fetch("/api/user/status"),
+        fetch("/api/server/settings"),
+      ]);
+      const { hasUsers: hu, serverDid: sd } = (await statusRes.json()) as { hasUsers: boolean; serverDid: string | null };
+      const { walletUrl: wu } = (await settingsRes.json()) as { walletUrl: string };
       setHasUsers(hu);
       setServerDid(sd);
+      if (wu) setWalletUrl(wu);
       const storedVid = getStoredBrowserId();
       setBrowserVid(storedVid);
       setUIStep(hu ? "first-connect" : "claim-ownership");
@@ -203,7 +209,7 @@ export function useVaultysConnect(): UseVaultysConnectResult {
 
     const isPhone = /iPhone|Android/i.test(navigator.userAgent);
     const vaultysUrl = `vaultys://register?url=${encodeURIComponent(SERVER_URL + "/api/user/request")}&key=${key}${isPhone ? "&phone=true" : ""}`;
-    const browserUrl = `https://wallet.vaultys.net#${encodeURIComponent(vaultysUrl)}`;
+    const browserUrl = `${walletUrl}#${encodeURIComponent(vaultysUrl)}`;
 
     setUserConnectInfo({ key, connectionToken: token, url: browserUrl });
     setUserConnectionPhase("waiting");
@@ -220,7 +226,7 @@ export function useVaultysConnect(): UseVaultysConnectResult {
     } else {
       setUserConnectionPhase("failure");
     }
-  }, [waitForUser]);
+  }, [waitForUser, walletUrl]);
 
   const startP2PMode = useCallback(async () => {
     setUIStep("p2p-connect");
@@ -238,7 +244,7 @@ export function useVaultysConnect(): UseVaultysConnectResult {
 
     const did = sd ?? serverDid;
     const didParam = did ? `&did=${encodeURIComponent(did)}` : "";
-    const fullP2PUrl = `https://wallet.vaultys.net/#${connectionString}&protocol=p2p&service=auth${didParam}`;
+    const fullP2PUrl = `${walletUrl}/#${connectionString}&protocol=p2p&service=auth${didParam}`;
     setP2PUrl(fullP2PUrl);
     setUserConnectionPhase("waiting");
 
@@ -253,7 +259,7 @@ export function useVaultysConnect(): UseVaultysConnectResult {
     } else {
       setUserConnectionPhase("failure");
     }
-  }, [waitForUser, serverDid]);
+  }, [waitForUser, serverDid, walletUrl]);
 
   const performBastionConnect = useCallback(
     async (vid: BrowserIdData) => {

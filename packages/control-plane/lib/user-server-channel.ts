@@ -262,7 +262,8 @@ export class UserServerChannel {
   static async startP2PSession(cert: Certificate): Promise<string> {
     const { PeerjsChannel } = await import("@vaultys/channel-peerjs");
 
-    const channel = new PeerjsChannel(cert.key, "initiator");
+    const peerjsHost = getSetting("peerjs_host") || undefined;
+    const channel = new PeerjsChannel(cert.key, "initiator", peerjsHost);
     const connectionString = channel.getConnectionString();
 
     // Run the full Challenger exchange in the background. WebRTC globals are

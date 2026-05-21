@@ -175,7 +175,7 @@ export default function AuditDetailPage() {
 
   if (error || !entry) {
     return (
-      <div className="p-6 max-w-4xl mx-auto space-y-4">
+      <div className="p-6 max-w-7xl mx-auto space-y-4">
         <button onClick={() => router.back()} className="flex items-center gap-1.5 text-sm text-indigo-500 hover:text-indigo-400">
           <ChevronLeft size={16} /> Back
         </button>
@@ -190,7 +190,7 @@ export default function AuditDetailPage() {
   const isAuth = ["agent_authenticated", "auth_failed", "registration_approved"].includes(entry.event);
 
   return (
-    <div className="p-6 max-w-4xl mx-auto space-y-6">
+    <div className="p-6 max-w-7xl mx-auto space-y-6">
       {/* Back */}
       <button
         onClick={() => router.push("/governance?tab=audit")}
@@ -202,11 +202,10 @@ export default function AuditDetailPage() {
       {/* Header card */}
       <div className="bg-vc-surface border border-vc-border rounded-xl p-5">
         <div className="flex items-start gap-4">
-          <div className={`p-2.5 rounded-lg border flex-shrink-0 ${
-            isActivity
-              ? "bg-indigo-100 dark:bg-indigo-500/10 border-indigo-300 dark:border-indigo-500/20 text-indigo-600 dark:text-indigo-400"
-              : "bg-purple-100 dark:bg-purple-500/10 border-purple-300 dark:border-purple-500/20 text-purple-600 dark:text-purple-400"
-          }`}>
+          <div className={`p-2.5 rounded-lg border flex-shrink-0 ${isActivity
+            ? "bg-indigo-100 dark:bg-indigo-500/10 border-indigo-300 dark:border-indigo-500/20 text-indigo-600 dark:text-indigo-400"
+            : "bg-purple-100 dark:bg-purple-500/10 border-purple-300 dark:border-purple-500/20 text-purple-600 dark:text-purple-400"
+            }`}>
             {isActivity ? <Activity size={18} /> : <FileText size={18} />}
           </div>
           <div className="flex-1 min-w-0">
@@ -215,11 +214,10 @@ export default function AuditDetailPage() {
                 {ACTIVITY_LABELS[entry.event] ?? entry.event.replace(/_/g, " ")}
               </h1>
               {/* Source badge */}
-              <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium border ${
-                isActivity
-                  ? "bg-indigo-100 dark:bg-indigo-500/15 text-indigo-700 dark:text-indigo-400 border-indigo-300 dark:border-indigo-500/25"
-                  : "bg-purple-100 dark:bg-purple-500/15 text-purple-700 dark:text-purple-400 border-purple-300 dark:border-purple-500/25"
-              }`}>
+              <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium border ${isActivity
+                ? "bg-indigo-100 dark:bg-indigo-500/15 text-indigo-700 dark:text-indigo-400 border-indigo-300 dark:border-indigo-500/25"
+                : "bg-purple-100 dark:bg-purple-500/15 text-purple-700 dark:text-purple-400 border-purple-300 dark:border-purple-500/25"
+                }`}>
                 {entry.source}
               </span>
               {/* Status badge */}
@@ -344,11 +342,10 @@ export default function AuditDetailPage() {
                   {
                     label: "Protocol state",
                     value: (
-                      <span className={`font-semibold ${
-                        certInfo.state === 2 ? "text-green-600 dark:text-green-400" :
+                      <span className={`font-semibold ${certInfo.state === 2 ? "text-green-600 dark:text-green-400" :
                         certInfo.state !== null && certInfo.state < 0 ? "text-red-600 dark:text-red-400" :
-                        "text-amber-600 dark:text-amber-400"
-                      }`}>
+                          "text-amber-600 dark:text-amber-400"
+                        }`}>
                         {certInfo.state !== null
                           ? (CERT_STATE_LABELS[certInfo.state] ?? `State ${certInfo.state}`)
                           : "—"}
@@ -471,11 +468,10 @@ export default function AuditDetailPage() {
                     {certInfo.policyExpiresAt && (
                       <div className="flex justify-between px-3 py-2">
                         <span className="text-vc-muted">Expires at</span>
-                        <span className={`font-mono text-[11px] ${
-                          new Date(certInfo.policyExpiresAt) < new Date()
-                            ? "text-red-600 dark:text-red-400"
-                            : "text-vc-text"
-                        }`}>
+                        <span className={`font-mono text-[11px] ${new Date(certInfo.policyExpiresAt) < new Date()
+                          ? "text-red-600 dark:text-red-400"
+                          : "text-vc-text"
+                          }`}>
                           {formatDate(certInfo.policyExpiresAt)}
                         </span>
                       </div>

@@ -121,13 +121,13 @@ function BrowseLibraryModal({
 
   const displayed = search.trim()
     ? allSkills.filter((s) => {
-        const q = search.toLowerCase();
-        return (
-          s.name.toLowerCase().includes(q) ||
-          s.description.toLowerCase().includes(q) ||
-          s.source.toLowerCase().includes(q)
-        );
-      })
+      const q = search.toLowerCase();
+      return (
+        s.name.toLowerCase().includes(q) ||
+        s.description.toLowerCase().includes(q) ||
+        s.source.toLowerCase().includes(q)
+      );
+    })
     : allSkills;
 
   function fmt(n: number): string {
@@ -901,8 +901,8 @@ export default function SkillsPage() {
       const realmList: { id: string; name: string }[] = Array.isArray(rm)
         ? rm
         : Array.isArray(rm?.realms)
-        ? rm.realms
-        : [];
+          ? rm.realms
+          : [];
       setRealms(realmList.map((r) => ({ id: r.id, name: r.name })));
     } catch {
       // ignore
@@ -930,10 +930,10 @@ export default function SkillsPage() {
 
   const filtered = search.trim()
     ? skills.filter(
-        (s) =>
-          s.name.toLowerCase().includes(search.toLowerCase()) ||
-          s.realm_name.toLowerCase().includes(search.toLowerCase())
-      )
+      (s) =>
+        s.name.toLowerCase().includes(search.toLowerCase()) ||
+        s.realm_name.toLowerCase().includes(search.toLowerCase())
+    )
     : skills;
 
   const groups = groupByName(filtered);
@@ -944,7 +944,7 @@ export default function SkillsPage() {
   ).length;
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
+    <div className="p-6 max-w-7xl mx-auto">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">

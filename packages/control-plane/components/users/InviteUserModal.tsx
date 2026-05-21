@@ -22,14 +22,19 @@ export default function InviteUserModal({ onClose, onSuccess }: InviteUserModalP
   const start = useCallback(async () => {
     setPhase("loading");
     try {
-      const res = await fetch("/api/users/invite");
-      if (!res.ok) throw new Error("Failed to create invite");
+      const [inviteRes, settingsRes] = await Promise.all([
+        fetch("/api/users/invite"),
+        fetch("/api/server/settings"),
+      ]);
+      if (!inviteRes.ok) throw new Error("Failed to create invite");
 
-      const data = (await res.json()) as InviteResult;
+      const data = (await inviteRes.json()) as InviteResult;
+      const { walletUrl } = (await settingsRes.json()) as { walletUrl: string };
+      const base = walletUrl ?? "https://wallet.vaultys.net";
       const didParam = data.serverDid
         ? `&did=${encodeURIComponent(data.serverDid)}`
         : "";
-      const url = `https://wallet.vaultys.net/#${data.connectionString}&protocol=p2p&service=auth${didParam}`;
+      const url = `${base}/#${data.connectionString}&protocol=p2p&service=auth${didParam}`;
       setQrUrl(url);
       setPhase("qr");
 

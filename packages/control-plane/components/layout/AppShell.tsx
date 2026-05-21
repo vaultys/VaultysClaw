@@ -7,7 +7,7 @@ import Sidebar from "./Sidebar";
 import TopBar from "./TopBar";
 
 // Pages that bypass the app shell entirely (standalone layouts)
-const STANDALONE_PATHS = ["/login"];
+const STANDALONE_PATHS = ["/login", "/setup"];
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const { status } = useSession();

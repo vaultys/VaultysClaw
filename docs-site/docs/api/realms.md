@@ -121,3 +121,39 @@ POST /api/realms/:id/agents
   "agentDid": "did:vaultys:z6MkAgent..."
 }
 ```
+
+---
+
+## Realm skills
+
+Skills are realm-scoped behaviour packages whose Markdown instructions are injected into agent system prompts. For full documentation see [Skills API](/docs/api/skills).
+
+### Get skill detail
+
+```http
+GET /api/realms/:id/skills/:skillId
+```
+
+**Auth:** Any member of the realm.
+
+Returns the skill's metadata and config (parsed). See [Skills API → Get skill detail](/docs/api/skills#get-skill-detail).
+
+### Update a skill
+
+```http
+PATCH /api/realms/:id/skills/:skillId
+```
+
+**Auth:** Realm admin or global admin.
+
+Accepted body fields: `description`, `version`, `isRequired`, `config`, `content`. All optional — only provided fields are updated. After a successful PATCH, a `skills_config` broadcast is sent to all connected agents in the realm.
+
+### Delete a skill
+
+```http
+DELETE /api/realms/:id/skills/:skillId
+```
+
+**Auth:** Realm admin or global admin.
+
+Removes the skill from the realm and triggers a `skills_config` broadcast.

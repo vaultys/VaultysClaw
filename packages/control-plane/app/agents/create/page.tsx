@@ -66,7 +66,7 @@ interface PendingReg {
 type PkgRunner = "npx" | "pnpm" | "yarn" | "deno";
 
 const PKG_RUNNERS: { id: PkgRunner; label: string; prefix: string }[] = [
-  { id: "npx",  label: "npx",  prefix: "npx @vaultysclaw/agent-controller" },
+  { id: "npx", label: "npx", prefix: "npx @vaultysclaw/agent-controller" },
   { id: "pnpm", label: "pnpm", prefix: "pnpm dlx @vaultysclaw/agent-controller" },
   { id: "yarn", label: "yarn", prefix: "yarn dlx @vaultysclaw/agent-controller" },
   { id: "deno", label: "deno", prefix: "deno run npm:@vaultysclaw/agent-controller" },
@@ -200,7 +200,7 @@ export default function CreateAgentPage() {
           setSelectedRealms(new Set([def.id]));
         }
       })
-      .catch(() => {});
+      .catch(() => { });
   }, []);
 
   // ── Detect new registrations once waiting ─────────────────────────────────
@@ -230,7 +230,7 @@ export default function CreateAgentPage() {
       fetch("/api/models")
         .then((r) => r.json())
         .then((d: { models?: Model[] }) => setModels(d.models ?? []))
-        .catch(() => {});
+        .catch(() => { });
     }
   }, [step, models.length]);
 
@@ -239,7 +239,7 @@ export default function CreateAgentPage() {
       fetch(`/api/agents/${encodeURIComponent(agentDid)}/skills`)
         .then((r) => r.json())
         .then((d: { skills?: Skill[] }) => setSkills(d.skills ?? []))
-        .catch(() => {});
+        .catch(() => { });
     }
   }, [step, agentDid, skills.length]);
 
@@ -358,7 +358,7 @@ export default function CreateAgentPage() {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ realmSkillId, enabled: newEnabled }),
-    }).catch(() => {});
+    }).catch(() => { });
   }
 
   // ── Derived ────────────────────────────────────────────────────────────────
@@ -378,7 +378,7 @@ export default function CreateAgentPage() {
   // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
-    <div className="p-6 max-w-3xl mx-auto">
+    <div className="p-6 max-w-7xl mx-auto">
       {/* Header */}
       <div className="flex items-center gap-3 mb-6">
         <button

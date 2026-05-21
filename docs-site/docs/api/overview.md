@@ -128,3 +128,6 @@ The API does not enforce rate limits in the default configuration. For productio
 | [Models](/docs/api/models) | `GET /models`, `POST /models`, `GET /models/:id`, `PUT /models/:id`, `DELETE /models/:id` |
 | [Model Realm Access](/docs/api/models#grant-realm-access) | `POST /models/:id/realms`, `DELETE /models/:id/realms/:realmId` |
 | [Agent LLM Config](/docs/api/models#agent-llm-config-endpoints) | `GET /agents/:did/llm-config`, `PUT /agents/:did/llm-config`, `DELETE /agents/:did/llm-config` |
+| [Skills](/docs/api/skills) | `GET /skills`, `POST /skills`, `GET /realms/:id/skills/:skillId`, `PATCH /realms/:id/skills/:skillId`, `DELETE /realms/:id/skills/:skillId` |
+| [Skills Library](/docs/api/skills#browse-the-skills-library) | `GET /skills/library`, `GET /skills/library/content` |
+| [Token Stats](/docs/api/skills#fleet-wide-token-statistics) | `GET /stats/tokens` |

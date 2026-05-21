@@ -1,8 +1,8 @@
 import React from "react";
-import { AbsoluteFill, interpolate, spring, useCurrentFrame, useVideoConfig } from "remotion";
+import { AbsoluteFill, Img, interpolate, spring, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
 import { BRAND, MONO, useSceneOpacity, useSlideUp } from "../helpers";
 
-const TOTAL = 240;
+const TOTAL = 300;
 
 export const SceneHero: React.FC = () => {
   const frame = useCurrentFrame();
@@ -52,7 +52,15 @@ export const SceneHero: React.FC = () => {
         }}
       />
 
-      <div style={{ textAlign: "center", maxWidth: 1100, padding: "0 80px", position: "relative" }}>
+      <div style={{ textAlign: "center", padding: "0 80px", position: "relative" }}>
+        {/* Logo */}
+        <div style={{ marginBottom: 36, opacity: badge.opacity, transform: `translateY(${badge.y}px)` }}>
+          <Img
+            src={staticFile("vaultys-logo.svg")}
+            style={{ height: 56, filter: "drop-shadow(0 0 16px rgba(124,58,237,0.45))" }}
+          />
+        </div>
+
         {/* Badge */}
         <div
           style={{
@@ -68,7 +76,7 @@ export const SceneHero: React.FC = () => {
             transform: `translateY(${badge.y}px)`,
           }}
         >
-          <span style={{ fontSize: 13, fontWeight: 700, color: "#a78bfa", letterSpacing: "0.1em", textTransform: "uppercase" }}>
+          <span style={{ fontSize: 30, fontWeight: 700, color: "#a78bfa", letterSpacing: "0.1em", textTransform: "uppercase" }}>
             Enterprise AI Orchestration
           </span>
         </div>
@@ -92,7 +100,7 @@ export const SceneHero: React.FC = () => {
         {/* "a soul." */}
         <div
           style={{
-            fontSize: 108,
+            fontSize: 180,
             fontWeight: 900,
             lineHeight: 1.0,
             opacity: line2Opacity,
@@ -105,7 +113,7 @@ export const SceneHero: React.FC = () => {
             backgroundClip: "text",
           }}
         >
-          a soul.
+          a soul
         </div>
 
         {/* Accent line */}
@@ -122,17 +130,16 @@ export const SceneHero: React.FC = () => {
         {/* Subtitle */}
         <div
           style={{
-            fontSize: 26,
+            fontSize: 50,
             color: BRAND.muted,
             lineHeight: 1.6,
-            maxWidth: 720,
             margin: "0 auto",
             opacity: sub.opacity,
             transform: `translateY(${sub.y}px)`,
           }}
         >
-          Your culture, your processes, your values — deployed as
-          professional AI agents that work the way <em style={{ color: BRAND.text }}>you</em> do.
+          Your culture. Your identity.{" "}
+          <em style={{ color: BRAND.text }}>Deployed as agents.</em>
         </div>
       </div>
     </AbsoluteFill>

@@ -1129,7 +1129,10 @@ export class Agent extends EventEmitter {
     const tools = this.buildAgentToolSet();
     const queryText = `${action} ${JSON.stringify(params)}`;
     const memoryContext = this.memoryRetriever.retrieve(queryText) || undefined;
-    const { text, usage } = await runIntent(this.activeLlmConfig, action, params, tools, memoryContext);
+    const skillExtensions = this.realmSkillFilter
+      ?.filter((s) => s.enabled && s.content)
+      .map((s) => s.content as string);
+    const { text, usage } = await runIntent(this.activeLlmConfig, action, params, tools, memoryContext, skillExtensions);
 
     // Record token usage to local DB and update counters
     if (usage) {
@@ -1418,7 +1421,7 @@ export class Agent extends EventEmitter {
             });
           }
         }
-      }, memoryContext);
+      }, memoryContext, this.realmSkillFilter?.filter((s) => s.enabled && s.content).map((s) => s.content as string));
 
       const chunks: string[] = [];
       for await (const chunk of result.textStream) {

@@ -15,28 +15,40 @@ import {
   Clock,
   Globe2,
   Network,
-  MessageSquare,
   Inbox,
   Workflow,
   Cpu,
   ShieldCheck,
+  Puzzle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useRole } from "@/hooks/useRole";
 
-const NAV_ITEMS = [
-  { href: "/", icon: LayoutDashboard, label: "Dashboard", exact: true, adminOnly: false },
-  { href: "/agents", icon: Bot, label: "Agents", exact: false, adminOnly: false },
-  { href: "/registrations", icon: Clock, label: "Registrations", exact: false, adminOnly: true },
-  { href: "/users", icon: Users, label: "Users", exact: false, adminOnly: true },
-  { href: "/workflows", icon: Workflow, label: "Workflows", exact: false, adminOnly: false },
-  { href: "/realms", icon: Globe2, label: "Realms", exact: false, adminOnly: false },
-  { href: "/models", icon: Cpu, label: "Models", exact: false, adminOnly: false },
-  { href: "/governance", icon: ShieldCheck, label: "Governance", exact: false, adminOnly: true },
-  { href: "/graph", icon: Network, label: "Graph", exact: true, adminOnly: false },
-  { href: "/chat", icon: MessageSquare, label: "Chat", exact: false, adminOnly: false },
-  { href: "/inbox", icon: Inbox, label: "Inbox", exact: false, adminOnly: false },
-  { href: "/server", icon: Server, label: "Server", exact: false, adminOnly: true },
+const NAV_GROUPS = [
+  {
+    label: null,
+    adminOnly: false,
+    items: [
+      { href: "/", icon: LayoutDashboard, label: "Dashboard", exact: true },
+      { href: "/agents", icon: Bot, label: "Agents", exact: false },
+      { href: "/workflows", icon: Workflow, label: "Workflows", exact: false },
+      { href: "/realms", icon: Globe2, label: "Realms", exact: false },
+      { href: "/inbox", icon: Inbox, label: "Inbox", exact: false },
+    ],
+  },
+  {
+    label: "Admin",
+    adminOnly: true,
+    items: [
+      { href: "/models", icon: Cpu, label: "Models", exact: false },
+      { href: "/skills", icon: Puzzle, label: "Skills", exact: false },
+      { href: "/graph", icon: Network, label: "Graph", exact: true },
+      { href: "/registrations", icon: Clock, label: "Registrations", exact: false },
+      { href: "/users", icon: Users, label: "Users", exact: false },
+      { href: "/governance", icon: ShieldCheck, label: "Governance", exact: false },
+      { href: "/server", icon: Server, label: "Server", exact: false },
+    ],
+  },
 ] as const;
 
 const BOTTOM_ITEMS = [
@@ -116,7 +128,6 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const pathname = usePathname();
   const pendingCount = usePendingCount();
   const { isGlobalAdmin } = useRole();
-  const visibleNavItems = NAV_ITEMS.filter(item => !item.adminOnly || isGlobalAdmin);
 
   return (
     <aside
@@ -143,21 +154,38 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
       </div>
 
       {/* Main nav */}
-      <nav className="flex-1 py-3 px-2 space-y-0.5 overflow-y-auto">
-        {visibleNavItems.map((item) => {
-          const active = item.exact
-            ? pathname === item.href
-            : pathname.startsWith(item.href);
+      <nav className="flex-1 py-3 px-2 overflow-y-auto space-y-3">
+        {NAV_GROUPS.map((group) => {
+          if (group.adminOnly && !isGlobalAdmin) return null;
           return (
-            <NavLink
-              key={item.href}
-              href={item.href}
-              icon={item.icon}
-              label={item.label}
-              active={active}
-              collapsed={collapsed}
-              badge={item.href === "/inbox" ? pendingCount : undefined}
-            />
+            <div key={group.label ?? "__main"}>
+              {group.label && !collapsed && (
+                <p className="px-2.5 mb-1 text-[10px] font-semibold uppercase tracking-widest text-vc-muted/60 select-none">
+                  {group.label}
+                </p>
+              )}
+              {group.label && collapsed && (
+                <div className="mx-2 my-1 border-t border-vc-border/40" />
+              )}
+              <div className="space-y-0.5">
+                {group.items.map((item) => {
+                  const active = item.exact
+                    ? pathname === item.href
+                    : pathname.startsWith(item.href);
+                  return (
+                    <NavLink
+                      key={item.href}
+                      href={item.href}
+                      icon={item.icon}
+                      label={item.label}
+                      active={active}
+                      collapsed={collapsed}
+                      badge={item.href === "/inbox" ? pendingCount : undefined}
+                    />
+                  );
+                })}
+              </div>
+            </div>
           );
         })}
       </nav>

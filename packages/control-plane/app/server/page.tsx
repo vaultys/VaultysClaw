@@ -1,20 +1,19 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useSession } from "next-auth/react";
 import {
   Server,
   RefreshCw,
   Users,
   Mail,
+  Send,
   ChevronRight,
   CheckCircle,
   AlertCircle,
   Loader2,
   Settings2,
-  QrCode,
-  Send,
   Eye,
   EyeOff,
   X,
@@ -22,25 +21,31 @@ import {
   ExternalLink,
   BookOpen,
   ChevronDown,
+  Cpu,
+  HardDrive,
+  Network,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { QRCodeSVG } from "qrcode.react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-
-interface ActivityLogEntry {
-  id: number;
-  event: string;
-  agent_did: string | null;
-  agent_name: string | null;
-  details: string | null;
-  created_at: string;
-}
 
 interface ServerData {
   identity: Record<string, unknown> | null;
   stats: { totalAgents: number; onlineAgents: number; offlineAgents: number };
-  activityLog: ActivityLogEntry[];
+  sysInfo: {
+    platform: string;
+    osType: string;
+    osRelease: string;
+    hostname: string;
+    uptime: number;
+    totalMem: number;
+    freeMem: number;
+    cpuCount: number;
+    cpuModel: string;
+    loadAvg: number[];
+    version: string;
+  };
+  walletUrl: string;
 }
 
 interface EntraGroup {
@@ -57,34 +62,24 @@ interface DiagnosticCheck {
   hint: string | null;
 }
 
-interface UnclaimedUser {
-  id: string;
-  name: string | null;
-  email: string | null;
-  entraId: string | null;
-  registeredAt: string;
-}
-
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function parseUTC(iso: string): Date {
-  return new Date(iso.endsWith("Z") ? iso : iso + "Z");
-}
-function formatDate(iso: string | null): string {
-  if (!iso) return "—";
-  return parseUTC(iso).toLocaleString();
-}
-function shortDid(did: string): string {
-  if (did.length <= 24) return did;
-  return `did:…${did.slice(-8)}`;
+function formatBytes(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes <= 0) return "0 B";
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  const index = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+  return `${(bytes / 1024 ** index).toFixed(index === 0 ? 0 : 1)} ${units[index]}`;
 }
 
-const EVENT_LABELS: Record<string, { label: string; color: string }> = {
-  agent_authenticated: { label: "Authenticated", color: "text-green-700 dark:text-green-400" },
-  agent_connected: { label: "Connected", color: "text-blue-700 dark:text-blue-400" },
-  agent_disconnected: { label: "Disconnected", color: "text-gray-400" },
-  auth_failed: { label: "Auth Failed", color: "text-red-600 dark:text-red-400" },
-};
+function formatUptime(seconds: number): string {
+  if (!Number.isFinite(seconds) || seconds <= 0) return "0m";
+  const days = Math.floor(seconds / 86400);
+  const hours = Math.floor((seconds % 86400) / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  if (days > 0) return `${days}d ${hours}h`;
+  if (hours > 0) return `${hours}h ${minutes}m`;
+  return `${minutes}m`;
+}
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
@@ -276,6 +271,110 @@ function SmtpSection() {
   );
 }
 
+// ─── Server Settings Section ─────────────────────────────────────────────────
+
+function ServerSettingsSection() {
+  const [walletUrl, setWalletUrl] = useState("");
+  const [peerjsHost, setPeerjsHost] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [status, setStatus] = useState<"idle" | "saved" | "error">("idle");
+  const [statusMsg, setStatusMsg] = useState("");
+
+  useEffect(() => {
+    fetch("/api/server/settings")
+      .then((r) => r.json())
+      .then((d: { walletUrl?: string; peerjsHost?: string }) => {
+        setWalletUrl(d.walletUrl ?? "https://wallet.vaultys.net");
+        setPeerjsHost(d.peerjsHost ?? "");
+      })
+      .catch(() => {
+        setStatus("error");
+        setStatusMsg("Failed to load settings");
+      })
+      .finally(() => setLoading(false));
+  }, []);
+
+  const flash = (s: "saved" | "error", msg = "") => {
+    setStatus(s);
+    setStatusMsg(msg);
+    setTimeout(() => setStatus("idle"), 3500);
+  };
+
+  const save = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      const r = await fetch("/api/server/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ walletUrl, peerjsHost }),
+      });
+      if (r.ok) flash("saved");
+      else flash("error", "Save failed");
+    } catch {
+      flash("error", "Save failed");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <section className="bg-vc-surface border border-vc-border rounded-xl overflow-hidden">
+      <div className="px-5 py-4 border-b border-vc-border flex items-center gap-2">
+        <Settings2 className="w-4 h-4 text-vc-muted" />
+        <h2 className="text-sm font-semibold text-vc-text">Connection Settings</h2>
+        <span className="text-xs text-vc-subtle ml-1">Wallet and PeerJS endpoints</span>
+      </div>
+      <form onSubmit={save} className="p-5 space-y-4">
+        {loading ? (
+          <div className="flex items-center gap-2 text-vc-muted text-sm">
+            <Loader2 className="w-4 h-4 animate-spin" /> Loading…
+          </div>
+        ) : (
+          <>
+            <Field
+              label="Wallet URL"
+              id="server-wallet-url"
+              type="url"
+              value={walletUrl}
+              onChange={setWalletUrl}
+              placeholder="https://wallet.vaultys.net"
+            />
+            <Field
+              label="PeerJS Host"
+              id="server-peerjs-host"
+              value={peerjsHost}
+              onChange={setPeerjsHost}
+              placeholder="Leave empty to use the default PeerJS relay"
+            />
+            <div className="flex items-center gap-3 pt-1">
+              <button
+                type="submit"
+                disabled={saving}
+                className="px-4 py-1.5 text-xs font-medium rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white disabled:opacity-40 transition flex items-center gap-1.5"
+              >
+                {saving && <Loader2 className="w-3 h-3 animate-spin" />}
+                Save
+              </button>
+              {status === "saved" && (
+                <span className="text-xs text-emerald-700 dark:text-emerald-400 flex items-center gap-1">
+                  <Check className="w-3 h-3" />Saved
+                </span>
+              )}
+              {status === "error" && (
+                <span className="text-xs text-red-600 dark:text-red-400 flex items-center gap-1">
+                  <AlertCircle className="w-3 h-3" />{statusMsg}
+                </span>
+              )}
+            </div>
+          </>
+        )}
+      </form>
+    </section>
+  );
+}
+
 // ─── Entra Setup Guide ───────────────────────────────────────────────────────
 
 const PILL = "font-mono text-xs bg-indigo-100 dark:bg-indigo-950/60 border border-indigo-300 dark:border-indigo-700/60 text-indigo-700 dark:text-indigo-300 px-1.5 py-0.5 rounded";
@@ -432,7 +531,7 @@ type WizardStep = "config" | "groups" | "realm-map" | "confirm" | "syncing" | "d
 
 interface SyncResult { created: number; skipped: number; updated: number; errors: string[] }
 
-function EntraSection({ smtpConfigured }: { smtpConfigured: boolean }) {
+function EntraSection() {
   // Entra config
   const [tenantId, setTenantId] = useState("");
   const [clientId, setClientId] = useState("");
@@ -455,18 +554,9 @@ function EntraSection({ smtpConfigured }: { smtpConfigured: boolean }) {
   const [realms, setRealms] = useState<{ id: string; name: string }[]>([]);
   const [syncResult, setSyncResult] = useState<SyncResult | null>(null);
 
-  // Unclaimed users table
-  const [unclaimed, setUnclaimed] = useState<UnclaimedUser[]>([]);
+  // Unclaimed users summary
+  const [unclaimedCount, setUnclaimedCount] = useState(0);
   const [unclaimedLoading, setUnclaimedLoading] = useState(false);
-
-  // QR modal
-  const [qrModal, setQrModal] = useState<{
-    user: UnclaimedUser;
-    qrUrl: string;
-    token: string;
-    phase: "showing" | "success" | "failure";
-  } | null>(null);
-  const [sendingQr, setSendingQr] = useState<string | null>(null); // id of user being processed
 
   useEffect(() => {
     fetch("/api/server/entra")
@@ -488,7 +578,7 @@ function EntraSection({ smtpConfigured }: { smtpConfigured: boolean }) {
     setUnclaimedLoading(true);
     fetch("/api/server/entra/unclaimed")
       .then((r) => r.json())
-      .then((d: { users?: UnclaimedUser[] }) => setUnclaimed(d.users ?? []))
+      .then((d: { users?: unknown[] }) => setUnclaimedCount(d.users?.length ?? 0))
       .catch(() => { })
       .finally(() => setUnclaimedLoading(false));
   };
@@ -609,52 +699,6 @@ function EntraSection({ smtpConfigured }: { smtpConfigured: boolean }) {
     }
   };
 
-  // ── QR actions ──
-
-  const generateQr = async (user: UnclaimedUser, sendByEmail: boolean) => {
-    setSendingQr(user.id);
-    try {
-      const r = await fetch("/api/server/entra/send-qr", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: user.id, sendByEmail }),
-      });
-      const d = await r.json() as { qrUrl?: string; token?: string; error?: string };
-      if (!r.ok || !d.qrUrl) {
-        alert(d.error ?? "Failed to generate QR");
-        return;
-      }
-
-      setQrModal({ user, qrUrl: d.qrUrl, token: d.token ?? "", phase: "showing" });
-
-      // Poll for completion
-      if (d.token) {
-        const poll = async () => {
-          for (let i = 0; i < 180; i++) {
-            await new Promise((res) => setTimeout(res, 1500));
-            const pr = await fetch(`/api/user/listen/${d.token}`);
-            const { status } = await pr.json() as { status: number };
-            if (status === 2) {
-              setQrModal((m) => m ? { ...m, phase: "success" } : null);
-              loadUnclaimed();
-              return;
-            }
-            if (status === -2) {
-              setQrModal((m) => m ? { ...m, phase: "failure" } : null);
-              return;
-            }
-          }
-          setQrModal((m) => m ? { ...m, phase: "failure" } : null);
-        };
-        poll();
-      }
-    } catch {
-      alert("Failed to generate QR");
-    } finally {
-      setSendingQr(null);
-    }
-  };
-
   const configured = tenantId && clientId && clientSecret;
 
   return (
@@ -712,6 +756,22 @@ function EntraSection({ smtpConfigured }: { smtpConfigured: boolean }) {
                 {configStatus === "error" && <span className="text-xs text-red-600 dark:text-red-400 flex items-center gap-1"><AlertCircle className="w-3 h-3" />Save failed</span>}
               </div>
 
+              <div className="rounded-lg border border-vc-border bg-vc-raised px-4 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div>
+                  <p className="text-sm font-medium text-vc-text">Pending claims</p>
+                  <p className="text-xs text-vc-muted">
+                    {unclaimedLoading ? "Checking unclaimed users…" : `${unclaimedCount} user${unclaimedCount === 1 ? "" : "s"} waiting to claim an account.`}
+                  </p>
+                </div>
+                <Link
+                  href="/users"
+                  className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-vc-surface border border-vc-ring hover:border-indigo-500 text-vc-text transition"
+                >
+                  <Users className="w-3 h-3" />
+                  View users
+                </Link>
+              </div>
+
               {/* Diagnostic results */}
               {diagnostics && (
                 <div className="rounded-lg border border-vc-border overflow-hidden mt-1">
@@ -747,64 +807,6 @@ function EntraSection({ smtpConfigured }: { smtpConfigured: boolean }) {
           )}
         </form>
       </section>
-
-      {/* Unclaimed users */}
-      {unclaimed.length > 0 && (
-        <section className="bg-vc-surface border border-vc-border rounded-xl overflow-hidden">
-          <div className="px-5 py-4 border-b border-vc-border flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <QrCode className="w-4 h-4 text-vc-muted" />
-              <h2 className="text-sm font-semibold text-vc-text">Pending Claims</h2>
-              <span className="text-xs bg-amber-50 dark:bg-amber-500/20 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-500/30 rounded-full px-2 py-0.5">
-                {unclaimed.length}
-              </span>
-            </div>
-            <button
-              onClick={loadUnclaimed}
-              disabled={unclaimedLoading}
-              className="text-vc-subtle hover:text-vc-text text-xs flex items-center gap-1 transition"
-            >
-              <RefreshCw className={cn("w-3 h-3", unclaimedLoading && "animate-spin")} /> Refresh
-            </button>
-          </div>
-          <div className="divide-y divide-vc-border">
-            {unclaimed.map((u) => (
-              <div key={u.id} className="flex items-center gap-3 px-5 py-3">
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-vc-text truncate">{u.name ?? "—"}</p>
-                  <p className="text-xs text-vc-muted truncate">{u.email ?? "No email"}</p>
-                </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  {/* Show QR */}
-                  <button
-                    onClick={() => generateQr(u, false)}
-                    disabled={sendingQr === u.id}
-                    className="px-2.5 py-1 text-xs rounded-lg bg-vc-raised border border-vc-ring hover:border-indigo-500 text-vc-text transition flex items-center gap-1 disabled:opacity-40"
-                    title="Show QR code"
-                  >
-                    {sendingQr === u.id
-                      ? <Loader2 className="w-3 h-3 animate-spin" />
-                      : <QrCode className="w-3 h-3" />}
-                    QR Code
-                  </button>
-                  {/* Send by email */}
-                  {u.email && smtpConfigured && (
-                    <button
-                      onClick={() => generateQr(u, true)}
-                      disabled={sendingQr === u.id}
-                      className="px-2.5 py-1 text-xs rounded-lg bg-vc-raised border border-vc-ring hover:border-indigo-500 text-vc-text transition flex items-center gap-1 disabled:opacity-40"
-                      title="Send QR by email"
-                    >
-                      <Send className="w-3 h-3" />
-                      Email
-                    </button>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
 
       {/* ── Wizard modal ── */}
       {wizardOpen && (
@@ -1042,67 +1044,15 @@ function EntraSection({ smtpConfigured }: { smtpConfigured: boolean }) {
         </div>
       )}
 
-      {/* ── QR modal ── */}
-      {qrModal && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-          <div className="bg-vc-surface border border-vc-ring rounded-2xl p-8 w-full max-w-sm shadow-2xl">
-            <div className="flex items-center justify-between mb-5">
-              <h2 className="text-vc-text font-semibold">Claim Account</h2>
-              {qrModal.phase !== "showing" && (
-                <button onClick={() => setQrModal(null)} className="text-vc-muted hover:text-vc-text">
-                  <X className="w-4 h-4" />
-                </button>
-              )}
-            </div>
-
-            {qrModal.phase === "showing" && (
-              <div className="flex flex-col items-center gap-4">
-                <p className="text-sm text-vc-muted text-center">
-                  Ask <strong className="text-vc-text">{qrModal.user.name ?? qrModal.user.email}</strong> to scan this QR code with their Vaultys wallet.
-                </p>
-                <div className="bg-white p-3 rounded-xl">
-                  <QRCodeSVG value={qrModal.qrUrl} size={200} />
-                </div>
-                <p className="text-xs text-vc-subtle text-center">Waiting for wallet connection…</p>
-                <Loader2 className="w-5 h-5 text-indigo-700 dark:text-indigo-400 animate-spin" />
-              </div>
-            )}
-
-            {qrModal.phase === "success" && (
-              <div className="flex flex-col items-center gap-3 py-4 text-center">
-                <div className="w-12 h-12 rounded-full bg-green-100 dark:bg-green-900/40 flex items-center justify-center">
-                  <CheckCircle className="w-6 h-6 text-green-700 dark:text-green-400" />
-                </div>
-                <p className="text-vc-text font-medium">Account claimed!</p>
-                <p className="text-xs text-vc-muted">{qrModal.user.name ?? qrModal.user.email} has successfully linked their wallet.</p>
-                <button onClick={() => setQrModal(null)} className="text-indigo-700 dark:text-indigo-400 hover:text-indigo-300 text-sm mt-1">Close</button>
-              </div>
-            )}
-
-            {qrModal.phase === "failure" && (
-              <div className="flex flex-col items-center gap-3 py-4 text-center">
-                <p className="text-red-600 dark:text-red-400 font-medium">Timed out or failed.</p>
-                <button
-                  onClick={() => setQrModal(null)}
-                  className="text-indigo-700 dark:text-indigo-400 hover:text-indigo-300 text-sm"
-                >
-                  Close
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
     </>
   );
 }
 
 // ─── Main page ────────────────────────────────────────────────────────────────
 
-type Tab = "overview" | "integrations";
+type Tab = "overview" | "settings" | "integrations";
 
 export default function ServerPage() {
-  const router = useRouter();
   const { data: session } = useSession();
   const isAdmin = (session?.user as { isAdmin?: boolean; isOwner?: boolean } | undefined)?.isAdmin
     || (session?.user as { isOwner?: boolean } | undefined)?.isOwner;
@@ -1111,7 +1061,6 @@ export default function ServerPage() {
   const [data, setData] = useState<ServerData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [smtpConfigured, setSmtpConfigured] = useState(false);
 
   const fetchData = useCallback(async () => {
     try {
@@ -1133,18 +1082,14 @@ export default function ServerPage() {
     return () => clearInterval(interval);
   }, [fetchData]);
 
-  // Check SMTP status for "send by email" button visibility
-  useEffect(() => {
-    if (!isAdmin) return;
-    fetch("/api/server/smtp")
-      .then((r) => r.json())
-      .then((d: { configured?: boolean }) => setSmtpConfigured(!!d.configured))
-      .catch(() => { });
-  }, [isAdmin]);
-
   const tabs: { id: Tab; label: string; icon: React.ElementType }[] = [
     { id: "overview", label: "Overview", icon: Server },
-    ...(isAdmin ? [{ id: "integrations" as Tab, label: "Integrations", icon: Settings2 }] : []),
+    ...(isAdmin
+      ? [
+        { id: "settings" as Tab, label: "Settings", icon: Settings2 },
+        { id: "integrations" as Tab, label: "Integrations", icon: Network },
+      ]
+      : []),
   ];
 
   if (loading) {
@@ -1213,65 +1158,62 @@ export default function ServerPage() {
             )}
           </section>
 
-          <section className="bg-vc-surface rounded-xl border border-vc-border overflow-hidden">
-            <div className="px-5 py-4 border-b border-vc-border flex justify-between items-center">
-              <h2 className="text-sm font-semibold text-vc-text">Activity History</h2>
-              <button
-                onClick={fetchData}
-                className="bg-vc-raised hover:bg-vc-ring px-3 py-1.5 rounded-lg text-xs font-medium transition-colors text-vc-text"
-              >
-                ↻ Refresh
-              </button>
-            </div>
-            {data && data.activityLog.length > 0 ? (
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-vc-ring text-left text-xs font-medium text-vc-muted uppercase">
-                      <th className="px-6 py-3">Time</th>
-                      <th className="px-6 py-3">Event</th>
-                      <th className="px-6 py-3">Agent</th>
-                      <th className="px-6 py-3">Details</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {data.activityLog.map((entry) => {
-                      const evt = EVENT_LABELS[entry.event] ?? { label: entry.event, color: "text-gray-300" };
-                      return (
-                        <tr key={entry.id} className="border-b border-vc-ring hover:bg-vc-raised/50 transition">
-                          <td className="px-6 py-3 text-sm text-vc-muted whitespace-nowrap">{formatDate(entry.created_at)}</td>
-                          <td className={`px-6 py-3 text-sm font-medium ${evt.color}`}>{evt.label}</td>
-                          <td className="px-6 py-3 text-sm">
-                            {entry.agent_did ? (
-                              <span
-                                className="text-blue-700 dark:text-blue-400 hover:text-blue-300 cursor-pointer font-mono"
-                                title={entry.agent_did}
-                                onClick={() => router.push(`/agents/${encodeURIComponent(entry.agent_did!)}`)}
-                              >
-                                {entry.agent_name ?? shortDid(entry.agent_did)}
-                              </span>
-                            ) : <span className="text-vc-subtle">—</span>}
-                          </td>
-                          <td className="px-6 py-3 text-sm text-vc-muted font-mono max-w-xs truncate">{entry.details ?? "—"}</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+          {data?.sysInfo && (
+            <section className="bg-vc-surface rounded-xl border border-vc-border overflow-hidden">
+              <div className="px-5 py-4 border-b border-vc-border flex items-center gap-2">
+                <Cpu className="w-4 h-4 text-vc-muted" />
+                <h2 className="text-sm font-semibold text-vc-text">System Info</h2>
               </div>
-            ) : (
-              <div className="px-6 py-12 text-center text-vc-muted">
-                <p>No activity recorded yet.</p>
+              <div className="p-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {[
+                  { label: "Hostname", value: data.sysInfo.hostname },
+                  { label: "Platform", value: `${data.sysInfo.osType} ${data.sysInfo.osRelease}` },
+                  { label: "Runtime", value: data.sysInfo.platform },
+                  { label: "Uptime", value: formatUptime(data.sysInfo.uptime) },
+                  { label: "Version", value: data.sysInfo.version },
+                  { label: "Wallet URL", value: data.walletUrl },
+                ].map(({ label, value }) => (
+                  <div key={label} className="bg-vc-raised border border-vc-ring rounded-lg p-4 min-w-0">
+                    <div className="text-vc-subtle text-xs uppercase tracking-wider mb-1">{label}</div>
+                    <div className="text-sm font-medium text-vc-text truncate" title={String(value)}>{value}</div>
+                  </div>
+                ))}
+                <div className="bg-vc-raised border border-vc-ring rounded-lg p-4 min-w-0">
+                  <div className="text-vc-subtle text-xs uppercase tracking-wider mb-1">CPU</div>
+                  <div className="text-sm font-medium text-vc-text truncate" title={data.sysInfo.cpuModel}>
+                    {data.sysInfo.cpuCount} cores · {data.sysInfo.cpuModel}
+                  </div>
+                </div>
+                <div className="bg-vc-raised border border-vc-ring rounded-lg p-4 min-w-0">
+                  <div className="text-vc-subtle text-xs uppercase tracking-wider mb-1 flex items-center gap-1">
+                    <HardDrive className="w-3 h-3" /> Memory
+                  </div>
+                  <div className="text-sm font-medium text-vc-text">
+                    {formatBytes(data.sysInfo.totalMem - data.sysInfo.freeMem)} / {formatBytes(data.sysInfo.totalMem)}
+                  </div>
+                </div>
+                <div className="bg-vc-raised border border-vc-ring rounded-lg p-4 min-w-0">
+                  <div className="text-vc-subtle text-xs uppercase tracking-wider mb-1">Load Average</div>
+                  <div className="text-sm font-medium text-vc-text">
+                    {data.sysInfo.loadAvg.map((load) => load.toFixed(2)).join(" / ")}
+                  </div>
+                </div>
               </div>
-            )}
-          </section>
+            </section>
+          )}
+
         </>
+      )}
+
+      {/* ── Settings tab (admin-only) ── */}
+      {activeTab === "settings" && isAdmin && (
+        <ServerSettingsSection />
       )}
 
       {/* ── Integrations tab (admin-only) ── */}
       {activeTab === "integrations" && isAdmin && (
         <div className="space-y-6">
-          <EntraSection smtpConfigured={smtpConfigured} />
+          <EntraSection />
           <SmtpSection />
         </div>
       )}

@@ -50,8 +50,10 @@ interface CertInfo {
   state: number | null;
   certTimestamp: number | null;
   error: string | null;
-  pk1Fingerprint: string | null;
-  pk2Fingerprint: string | null;
+  pk1Did: string | null;
+  pk2Did: string | null;
+  signatureVerified: boolean;
+  signedPayload: string | null;
   capabilities: string[] | null;
   resourceLimits: {
     maxTokensPerDay?: number;
@@ -173,7 +175,7 @@ export default function AuditDetailPage() {
 
   if (error || !entry) {
     return (
-      <div className="p-6 max-w-4xl mx-auto space-y-4">
+      <div className="p-6 max-w-7xl mx-auto space-y-4">
         <button onClick={() => router.back()} className="flex items-center gap-1.5 text-sm text-indigo-500 hover:text-indigo-400">
           <ChevronLeft size={16} /> Back
         </button>
@@ -188,7 +190,7 @@ export default function AuditDetailPage() {
   const isAuth = ["agent_authenticated", "auth_failed", "registration_approved"].includes(entry.event);
 
   return (
-    <div className="p-6 max-w-4xl mx-auto space-y-6">
+    <div className="p-6 max-w-7xl mx-auto space-y-6">
       {/* Back */}
       <button
         onClick={() => router.push("/governance?tab=audit")}
@@ -200,11 +202,10 @@ export default function AuditDetailPage() {
       {/* Header card */}
       <div className="bg-vc-surface border border-vc-border rounded-xl p-5">
         <div className="flex items-start gap-4">
-          <div className={`p-2.5 rounded-lg border flex-shrink-0 ${
-            isActivity
-              ? "bg-indigo-100 dark:bg-indigo-500/10 border-indigo-300 dark:border-indigo-500/20 text-indigo-600 dark:text-indigo-400"
-              : "bg-purple-100 dark:bg-purple-500/10 border-purple-300 dark:border-purple-500/20 text-purple-600 dark:text-purple-400"
-          }`}>
+          <div className={`p-2.5 rounded-lg border flex-shrink-0 ${isActivity
+            ? "bg-indigo-100 dark:bg-indigo-500/10 border-indigo-300 dark:border-indigo-500/20 text-indigo-600 dark:text-indigo-400"
+            : "bg-purple-100 dark:bg-purple-500/10 border-purple-300 dark:border-purple-500/20 text-purple-600 dark:text-purple-400"
+            }`}>
             {isActivity ? <Activity size={18} /> : <FileText size={18} />}
           </div>
           <div className="flex-1 min-w-0">
@@ -213,11 +214,10 @@ export default function AuditDetailPage() {
                 {ACTIVITY_LABELS[entry.event] ?? entry.event.replace(/_/g, " ")}
               </h1>
               {/* Source badge */}
-              <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium border ${
-                isActivity
-                  ? "bg-indigo-100 dark:bg-indigo-500/15 text-indigo-700 dark:text-indigo-400 border-indigo-300 dark:border-indigo-500/25"
-                  : "bg-purple-100 dark:bg-purple-500/15 text-purple-700 dark:text-purple-400 border-purple-300 dark:border-purple-500/25"
-              }`}>
+              <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium border ${isActivity
+                ? "bg-indigo-100 dark:bg-indigo-500/15 text-indigo-700 dark:text-indigo-400 border-indigo-300 dark:border-indigo-500/25"
+                : "bg-purple-100 dark:bg-purple-500/15 text-purple-700 dark:text-purple-400 border-purple-300 dark:border-purple-500/25"
+                }`}>
                 {entry.source}
               </span>
               {/* Status badge */}
@@ -342,11 +342,10 @@ export default function AuditDetailPage() {
                   {
                     label: "Protocol state",
                     value: (
-                      <span className={`font-semibold ${
-                        certInfo.state === 2 ? "text-green-600 dark:text-green-400" :
+                      <span className={`font-semibold ${certInfo.state === 2 ? "text-green-600 dark:text-green-400" :
                         certInfo.state !== null && certInfo.state < 0 ? "text-red-600 dark:text-red-400" :
-                        "text-amber-600 dark:text-amber-400"
-                      }`}>
+                          "text-amber-600 dark:text-amber-400"
+                        }`}>
                         {certInfo.state !== null
                           ? (CERT_STATE_LABELS[certInfo.state] ?? `State ${certInfo.state}`)
                           : "—"}
@@ -365,21 +364,52 @@ export default function AuditDetailPage() {
                 ))}
               </div>
 
-              {/* Key fingerprints */}
+              {/* Signature verification status */}
+              {certInfo.signatureVerified ? (
+                <div className="flex items-center gap-2.5 bg-green-50 dark:bg-green-500/10 border border-green-300 dark:border-green-500/30 rounded-lg px-4 py-3">
+                  <CheckCircle2 size={16} className="text-green-600 dark:text-green-400 shrink-0" />
+                  <div>
+                    <p className="text-sm font-semibold text-green-700 dark:text-green-400">Signature verified</p>
+                    <p className="text-xs text-green-600/80 dark:text-green-500/80">Mutual challenge-response completed — both parties signed</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2.5 bg-amber-50 dark:bg-amber-500/10 border border-amber-300 dark:border-amber-500/30 rounded-lg px-4 py-3">
+                  <AlertTriangle size={16} className="text-amber-600 dark:text-amber-400 shrink-0" />
+                  <div>
+                    <p className="text-sm font-semibold text-amber-700 dark:text-amber-400">Signature not verified</p>
+                    <p className="text-xs text-amber-600/80 dark:text-amber-500/80">Handshake incomplete or failed</p>
+                  </div>
+                </div>
+              )}
+
+              {/* DIDs */}
               <div className="space-y-2">
                 <p className="text-xs text-vc-muted uppercase tracking-wider flex items-center gap-1.5">
-                  <Key size={11} /> Key fingerprints
+                  <Key size={11} /> Signing parties
                 </p>
                 {[
-                  { label: "pk1 — Control plane", fp: certInfo.pk1Fingerprint },
-                  { label: "pk2 — Agent", fp: certInfo.pk2Fingerprint },
-                ].map(({ label, fp }) => (
-                  <div key={label} className="flex items-center justify-between gap-2 bg-vc-raised border border-vc-border rounded-lg px-3 py-2 text-xs">
-                    <span className="text-vc-muted">{label}</span>
-                    <code className="font-mono text-vc-text-2 text-[11px]">{fp ?? "—"}</code>
+                  { label: "pk1 — Control plane", did: certInfo.pk1Did },
+                  { label: "pk2 — Agent", did: certInfo.pk2Did },
+                ].map(({ label, did }) => (
+                  <div key={label} className="bg-vc-raised border border-vc-border rounded-lg px-3 py-2 text-xs space-y-0.5">
+                    <div className="text-vc-subtle uppercase text-[10px]">{label}</div>
+                    <code className="font-mono text-vc-text-2 text-[11px] break-all">{did ?? "—"}</code>
                   </div>
                 ))}
               </div>
+
+              {/* Signed payload */}
+              {certInfo.signedPayload && (
+                <div className="space-y-1.5">
+                  <p className="text-xs text-vc-muted uppercase tracking-wider flex items-center gap-1.5">
+                    <Key size={11} /> Signed payload
+                  </p>
+                  <pre className="bg-vc-bg border border-vc-border rounded-lg p-3 text-[11px] font-mono text-vc-text-2 overflow-x-auto whitespace-pre-wrap break-all leading-relaxed max-h-40">
+                    {certInfo.signedPayload}
+                  </pre>
+                </div>
+              )}
 
               {/* Capabilities in cert */}
               {certInfo.capabilities && certInfo.capabilities.length > 0 && (
@@ -438,11 +468,10 @@ export default function AuditDetailPage() {
                     {certInfo.policyExpiresAt && (
                       <div className="flex justify-between px-3 py-2">
                         <span className="text-vc-muted">Expires at</span>
-                        <span className={`font-mono text-[11px] ${
-                          new Date(certInfo.policyExpiresAt) < new Date()
-                            ? "text-red-600 dark:text-red-400"
-                            : "text-vc-text"
-                        }`}>
+                        <span className={`font-mono text-[11px] ${new Date(certInfo.policyExpiresAt) < new Date()
+                          ? "text-red-600 dark:text-red-400"
+                          : "text-vc-text"
+                          }`}>
                           {formatDate(certInfo.policyExpiresAt)}
                         </span>
                       </div>

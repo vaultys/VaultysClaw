@@ -7,8 +7,8 @@
     "agent-controller": "dist/cli.js"
   },
   "scripts": {
-    "dev": "tsx src/index.ts",
-    "dev:tui": "tsx src/tui.tsx",
+    "dev": "tsx src/cli.ts",
+    "dev:tui": "tsx src/cli.ts --mode tui",
     "dev:web": "VAULTYS_ID_PATH=./.vaultys/agent-web2.id AGENT_NAME=agent-web tsx src/web-launcher.ts",
     "build:web": "cd web-app && vite build",
     "dev:web-client": "cd web-app && vite",
@@ -24,10 +24,10 @@
     "test:coverage": "vitest --coverage"
   },
   "dependencies": {
-    "@ai-sdk/anthropic": "^3.0.72",
-    "@ai-sdk/google": "^3.0.65",
-    "@ai-sdk/openai": "^3.0.54",
-    "@mastra/core": "^1.32.1",
+    "@ai-sdk/anthropic": "^3.0.78",
+    "@ai-sdk/google": "^3.0.75",
+    "@ai-sdk/openai": "^3.0.64",
+    "@mastra/core": "^1.35.0",
     "@msgpack/msgpack": "^3.1.3",
     "@roamhq/wrtc": "^0.10.0",
     "@vaultys/channel-peerjs": "^2.4.3",

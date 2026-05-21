@@ -32,219 +32,11 @@ export function getDb(): Database.Database {
   db.pragma("foreign_keys = ON");
 
   createTables(db);
-  migrateSchema(db);
+  seedDefaults(db);
   ensureServerIdentity(db);
 
   globalForDB.__db = db;
   return db;
-}
-
-/** Add new columns to existing tables without dropping data */
-function migrateSchema(db: Database.Database): void {
-  const existingCols = (db.pragma("table_info(users)") as { name: string }[]).map((c) => c.name);
-  if (!existingCols.includes("name")) {
-    db.exec("ALTER TABLE users ADD COLUMN name TEXT");
-  }
-  if (!existingCols.includes("email")) {
-    db.exec("ALTER TABLE users ADD COLUMN email TEXT");
-  }
-  if (!existingCols.includes("is_admin")) {
-    db.exec("ALTER TABLE users ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0");
-  }
-  if (!existingCols.includes("role")) {
-    db.exec("ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'member'");
-  }
-  if (!existingCols.includes("reports_to")) {
-    db.exec("ALTER TABLE users ADD COLUMN reports_to TEXT REFERENCES users(did) ON DELETE SET NULL");
-  }
-  if (!existingCols.includes("description")) {
-    db.exec("ALTER TABLE users ADD COLUMN description TEXT");
-  }
-  // ── Migrate to id-based users table (if not already done) ──────────────────
-  // Existing databases have `did TEXT PRIMARY KEY`. We recreate the table so
-  // that `id` is the PK and `did` becomes a nullable unique column. The same
-  // migration recreates user_realms to reference users(id) instead of users(did).
-  if (!existingCols.includes("id")) {
-    db.pragma("foreign_keys = OFF");
-    db.exec(`
-      -- Create entra_identities table if it doesn't exist yet
-      CREATE TABLE IF NOT EXISTS entra_identities (
-        id TEXT PRIMARY KEY,
-        display_name TEXT,
-        mail TEXT,
-        user_principal_name TEXT,
-        synced_at TEXT NOT NULL DEFAULT (datetime('now'))
-      );
-
-      -- Recreate users with id PK and nullable did
-      CREATE TABLE users_new (
-        id TEXT PRIMARY KEY,
-        did TEXT UNIQUE,
-        public_key TEXT,
-        name TEXT,
-        email TEXT,
-        is_owner INTEGER NOT NULL DEFAULT 0,
-        is_admin INTEGER NOT NULL DEFAULT 0,
-        role TEXT NOT NULL DEFAULT 'member',
-        reports_to TEXT REFERENCES users_new(id) ON DELETE SET NULL,
-        description TEXT,
-        entra_id TEXT REFERENCES entra_identities(id) ON DELETE SET NULL,
-        claimed_at TEXT,
-        registered_at TEXT NOT NULL DEFAULT (datetime('now'))
-      );
-
-      -- Copy existing users: id = did (all existing users are claimed)
-      INSERT INTO users_new (id, did, public_key, name, email, is_owner, is_admin, role, description, registered_at)
-      SELECT did, did, public_key, name, email,
-             COALESCE(is_owner, 0), COALESCE(is_admin, 0),
-             COALESCE(role, 'member'), description, registered_at
-      FROM users;
-
-      DROP TABLE users;
-      ALTER TABLE users_new RENAME TO users;
-      CREATE INDEX IF NOT EXISTS idx_users_did ON users(did);
-      CREATE INDEX IF NOT EXISTS idx_users_entra_id ON users(entra_id);
-
-      -- Recreate user_realms to reference users(id)
-      CREATE TABLE user_realms_new (
-        user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-        realm_id TEXT NOT NULL REFERENCES realms(id) ON DELETE CASCADE,
-        is_primary INTEGER NOT NULL DEFAULT 0,
-        is_realm_admin INTEGER NOT NULL DEFAULT 0,
-        joined_at TEXT NOT NULL DEFAULT (datetime('now')),
-        PRIMARY KEY (user_id, realm_id)
-      );
-
-      -- Copy existing memberships (user_did was the DID, which is now also the id)
-      INSERT OR IGNORE INTO user_realms_new (user_id, realm_id, is_primary, is_realm_admin, joined_at)
-      SELECT user_did, realm_id, is_primary, is_realm_admin, joined_at FROM user_realms;
-
-      DROP TABLE user_realms;
-      ALTER TABLE user_realms_new RENAME TO user_realms;
-    `);
-    db.pragma("foreign_keys = ON");
-  } else {
-    // Table already migrated — just ensure entra columns exist
-    if (!existingCols.includes("entra_id")) {
-      db.exec("ALTER TABLE users ADD COLUMN entra_id TEXT REFERENCES entra_identities(id) ON DELETE SET NULL");
-      db.exec("CREATE INDEX IF NOT EXISTS idx_users_entra_id ON users(entra_id)");
-    }
-    if (!existingCols.includes("claimed_at")) {
-      db.exec("ALTER TABLE users ADD COLUMN claimed_at TEXT");
-    }
-  }
-
-  // Migrate pending_registrations table
-  const regCols = (db.pragma("table_info(pending_registrations)") as { name: string }[]).map((c) => c.name);
-  if (!regCols.includes("requested_capabilities")) {
-    db.exec("ALTER TABLE pending_registrations ADD COLUMN requested_capabilities TEXT NOT NULL DEFAULT '[]'");
-  }
-
-  // Migrate agents table
-  const agentCols = (db.pragma("table_info(agents)") as { name: string }[]).map((c) => c.name);
-  if (!agentCols.includes("llm_config")) {
-    db.exec("ALTER TABLE agents ADD COLUMN llm_config TEXT DEFAULT NULL");
-  }
-  if (!agentCols.includes("token_budget_daily")) {
-    db.exec("ALTER TABLE agents ADD COLUMN token_budget_daily INTEGER DEFAULT NULL");
-  }
-  if (!agentCols.includes("token_budget_monthly")) {
-    db.exec("ALTER TABLE agents ADD COLUMN token_budget_monthly INTEGER DEFAULT NULL");
-  }
-
-  // Ensure realm tables exist (idempotent via CREATE TABLE IF NOT EXISTS)
-  ensureRealmTables(db);
-
-  // Ensure agent_peer_grants table exists for existing databases
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS agent_peer_grants (
-      id TEXT PRIMARY KEY,
-      source_did TEXT NOT NULL,
-      target_did TEXT NOT NULL,
-      target_name TEXT NOT NULL,
-      skill_description TEXT NOT NULL,
-      capabilities TEXT NOT NULL DEFAULT '[]',
-      certificate TEXT NOT NULL DEFAULT '',
-      expires_at TEXT,
-      created_at TEXT NOT NULL DEFAULT (datetime('now'))
-    );
-    CREATE INDEX IF NOT EXISTS idx_peer_grants_source ON agent_peer_grants(source_did);
-    CREATE INDEX IF NOT EXISTS idx_peer_grants_target ON agent_peer_grants(target_did);
-  `);
-
-  // Add realm_id to workflows table if it doesn't exist
-  const workflowCols = (db.pragma("table_info(workflows)") as { name: string }[]).map((c) => c.name);
-  if (!workflowCols.includes("realm_id")) {
-    // Get the default realm ID (or use "default" string as fallback)
-    const defaultRealm = db.prepare("SELECT id FROM realms WHERE is_default = 1").get() as { id: string } | undefined;
-    const realmId = defaultRealm?.id || "default";
-
-    // Step 1: Add column as nullable with default value
-    db.exec(`ALTER TABLE workflows ADD COLUMN realm_id TEXT DEFAULT '${realmId}'`);
-    // Step 2: Update any existing rows to have the realm_id
-    db.exec(`UPDATE workflows SET realm_id = '${realmId}' WHERE realm_id IS NULL`);
-    // Step 3: Create index
-    db.exec("CREATE INDEX IF NOT EXISTS idx_workflows_realm ON workflows(realm_id)");
-  }
-
-  // Migrate realms table for governance budget/guardrails
-  const realmCols = (db.pragma("table_info(realms)") as { name: string }[]).map((c) => c.name);
-  if (!realmCols.includes("token_budget_daily")) {
-    db.exec("ALTER TABLE realms ADD COLUMN token_budget_daily INTEGER DEFAULT NULL");
-  }
-  if (!realmCols.includes("token_budget_monthly")) {
-    db.exec("ALTER TABLE realms ADD COLUMN token_budget_monthly INTEGER DEFAULT NULL");
-  }
-  if (!realmCols.includes("allowed_capabilities")) {
-    db.exec("ALTER TABLE realms ADD COLUMN allowed_capabilities TEXT DEFAULT NULL");
-  }
-
-  // Governance policies table
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS policies (
-      id TEXT PRIMARY KEY,
-      agent_did TEXT,
-      realm_id TEXT REFERENCES realms(id) ON DELETE SET NULL,
-      capabilities TEXT NOT NULL DEFAULT '[]',
-      resource_limits TEXT DEFAULT NULL,
-      expires_at TEXT,
-      created_by TEXT,
-      created_at TEXT NOT NULL DEFAULT (datetime('now'))
-    );
-    CREATE INDEX IF NOT EXISTS idx_policies_agent ON policies(agent_did);
-    CREATE INDEX IF NOT EXISTS idx_policies_realm ON policies(realm_id);
-  `);
-
-  // Ensure workflow_approvals table exists (for databases created before this feature)
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS workflow_approvals (
-      id TEXT PRIMARY KEY,
-      run_id TEXT NOT NULL REFERENCES workflow_runs(id) ON DELETE CASCADE,
-      step_id TEXT NOT NULL,
-      workflow_id TEXT NOT NULL,
-      workflow_name TEXT NOT NULL,
-      node_message TEXT,
-      step_input TEXT,
-      assigned_user_id TEXT NOT NULL,
-      mode TEXT NOT NULL DEFAULT 'approval',
-      status TEXT NOT NULL DEFAULT 'pending',
-      decided_at TEXT,
-      decided_by TEXT,
-      comment TEXT,
-      created_at TEXT NOT NULL DEFAULT (datetime('now'))
-    );
-    CREATE INDEX IF NOT EXISTS idx_workflow_approvals_user ON workflow_approvals(assigned_user_id, status);
-    CREATE INDEX IF NOT EXISTS idx_workflow_approvals_run ON workflow_approvals(run_id);
-  `);
-
-  // Seed the default realm if none exists
-  const realmCount = (db.prepare("SELECT COUNT(*) AS n FROM realms").get() as { n: number }).n;
-  if (realmCount === 0) {
-    const id = crypto.randomUUID();
-    db.prepare(
-      "INSERT INTO realms (id, name, slug, description, color, is_default) VALUES (?, ?, ?, ?, ?, 1)"
-    ).run(id, "Default", "default", "The default realm", "#6366f1");
-  }
 }
 
 function createTables(db: Database.Database): void {
@@ -254,6 +46,14 @@ function createTables(db: Database.Database): void {
       value TEXT NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS entra_identities (
+      id TEXT PRIMARY KEY,
+      display_name TEXT,
+      mail TEXT,
+      user_principal_name TEXT,
+      synced_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
     CREATE TABLE IF NOT EXISTS agents (
       did TEXT PRIMARY KEY,
       name TEXT NOT NULL,
@@ -261,6 +61,8 @@ function createTables(db: Database.Database): void {
       capabilities TEXT NOT NULL DEFAULT '[]',
       certificate_data TEXT,
       llm_config TEXT DEFAULT NULL,
+      token_budget_daily INTEGER DEFAULT NULL,
+      token_budget_monthly INTEGER DEFAULT NULL,
       registered_at TEXT NOT NULL DEFAULT (datetime('now')),
       last_seen TEXT NOT NULL DEFAULT (datetime('now'))
     );
@@ -293,14 +95,6 @@ function createTables(db: Database.Database): void {
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
-    CREATE TABLE IF NOT EXISTS entra_identities (
-      id TEXT PRIMARY KEY,
-      display_name TEXT,
-      mail TEXT,
-      user_principal_name TEXT,
-      synced_at TEXT NOT NULL DEFAULT (datetime('now'))
-    );
-
     CREATE TABLE IF NOT EXISTS users (
       id TEXT PRIMARY KEY,
       did TEXT UNIQUE,
@@ -316,6 +110,8 @@ function createTables(db: Database.Database): void {
       claimed_at TEXT,
       registered_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
+    CREATE INDEX IF NOT EXISTS idx_users_did ON users(did);
+    CREATE INDEX IF NOT EXISTS idx_users_entra_id ON users(entra_id);
 
     CREATE TABLE IF NOT EXISTS certificates (
       id TEXT PRIMARY KEY,
@@ -361,6 +157,8 @@ function createTables(db: Database.Database): void {
       expires_at TEXT,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
+    CREATE INDEX IF NOT EXISTS idx_peer_grants_source ON agent_peer_grants(source_did);
+    CREATE INDEX IF NOT EXISTS idx_peer_grants_target ON agent_peer_grants(target_did);
 
     CREATE TABLE IF NOT EXISTS agent_token_usage (
       agent_did TEXT PRIMARY KEY,
@@ -369,19 +167,10 @@ function createTables(db: Database.Database): void {
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
-    CREATE TABLE IF NOT EXISTS realm_token_usage (
-      realm_id TEXT PRIMARY KEY,
-      prompt_tokens INTEGER NOT NULL DEFAULT 0,
-      completion_tokens INTEGER NOT NULL DEFAULT 0,
-      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
-      FOREIGN KEY (realm_id) REFERENCES realms(id) ON DELETE CASCADE
-    );
-
-    -- Per-agent time-bucketed token usage history (day and month granularity)
     CREATE TABLE IF NOT EXISTS agent_token_usage_history (
       agent_did TEXT NOT NULL,
-      bucket TEXT NOT NULL,        -- 'YYYY-MM-DD' for daily, 'YYYY-MM' for monthly
-      granularity TEXT NOT NULL,   -- 'day' or 'month'
+      bucket TEXT NOT NULL,
+      granularity TEXT NOT NULL,
       prompt_tokens INTEGER NOT NULL DEFAULT 0,
       completion_tokens INTEGER NOT NULL DEFAULT 0,
       updated_at TEXT NOT NULL DEFAULT (datetime('now')),
@@ -389,20 +178,123 @@ function createTables(db: Database.Database): void {
     );
     CREATE INDEX IF NOT EXISTS idx_agent_token_history_did ON agent_token_usage_history(agent_did, granularity, bucket);
 
-    CREATE INDEX IF NOT EXISTS idx_peer_grants_source ON agent_peer_grants(source_did);
-    CREATE INDEX IF NOT EXISTS idx_peer_grants_target ON agent_peer_grants(target_did);
+    CREATE TABLE IF NOT EXISTS realms (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      slug TEXT NOT NULL UNIQUE,
+      description TEXT,
+      color TEXT NOT NULL DEFAULT '#6366f1',
+      is_default INTEGER NOT NULL DEFAULT 0,
+      llm_config TEXT DEFAULT NULL,
+      default_capabilities TEXT NOT NULL DEFAULT '[]',
+      token_budget_daily INTEGER DEFAULT NULL,
+      token_budget_monthly INTEGER DEFAULT NULL,
+      allowed_capabilities TEXT DEFAULT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
 
-    -- Workflows and executions
+    CREATE TABLE IF NOT EXISTS realm_token_usage (
+      realm_id TEXT PRIMARY KEY REFERENCES realms(id) ON DELETE CASCADE,
+      prompt_tokens INTEGER NOT NULL DEFAULT 0,
+      completion_tokens INTEGER NOT NULL DEFAULT 0,
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS agent_realms (
+      agent_did TEXT NOT NULL REFERENCES agents(did) ON DELETE CASCADE,
+      realm_id TEXT NOT NULL REFERENCES realms(id) ON DELETE CASCADE,
+      is_primary INTEGER NOT NULL DEFAULT 0,
+      joined_at TEXT NOT NULL DEFAULT (datetime('now')),
+      PRIMARY KEY (agent_did, realm_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS user_realms (
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      realm_id TEXT NOT NULL REFERENCES realms(id) ON DELETE CASCADE,
+      is_primary INTEGER NOT NULL DEFAULT 0,
+      is_realm_admin INTEGER NOT NULL DEFAULT 0,
+      joined_at TEXT NOT NULL DEFAULT (datetime('now')),
+      PRIMARY KEY (user_id, realm_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS realm_skills (
+      id TEXT PRIMARY KEY,
+      realm_id TEXT NOT NULL REFERENCES realms(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      description TEXT,
+      version TEXT,
+      is_required INTEGER NOT NULL DEFAULT 0,
+      config TEXT NOT NULL DEFAULT '{}',
+      content TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(realm_id, name)
+    );
+
+    CREATE TABLE IF NOT EXISTS agent_skill_overrides (
+      agent_did TEXT NOT NULL REFERENCES agents(did) ON DELETE CASCADE,
+      realm_skill_id TEXT NOT NULL REFERENCES realm_skills(id) ON DELETE CASCADE,
+      enabled INTEGER NOT NULL DEFAULT 1,
+      PRIMARY KEY (agent_did, realm_skill_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS model_registry (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      description TEXT,
+      provider TEXT NOT NULL,
+      model_id TEXT NOT NULL,
+      base_url TEXT NOT NULL,
+      api_key_enc TEXT,
+      litellm_model_name TEXT,
+      status TEXT NOT NULL DEFAULT 'active',
+      metadata TEXT NOT NULL DEFAULT '{}',
+      created_by TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_model_registry_status ON model_registry(status);
+
+    CREATE TABLE IF NOT EXISTS model_realm_access (
+      model_id TEXT NOT NULL REFERENCES model_registry(id) ON DELETE CASCADE,
+      realm_id TEXT NOT NULL REFERENCES realms(id) ON DELETE CASCADE,
+      granted_at TEXT NOT NULL DEFAULT (datetime('now')),
+      PRIMARY KEY (model_id, realm_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_model_realm_access_realm ON model_realm_access(realm_id);
+
+    CREATE TABLE IF NOT EXISTS realm_router_keys (
+      realm_id TEXT PRIMARY KEY REFERENCES realms(id) ON DELETE CASCADE,
+      litellm_virtual_key TEXT,
+      allowed_model_ids TEXT NOT NULL DEFAULT '[]',
+      monthly_budget_usd REAL,
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS policies (
+      id TEXT PRIMARY KEY,
+      agent_did TEXT,
+      realm_id TEXT REFERENCES realms(id) ON DELETE SET NULL,
+      capabilities TEXT NOT NULL DEFAULT '[]',
+      resource_limits TEXT DEFAULT NULL,
+      expires_at TEXT,
+      created_by TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_policies_agent ON policies(agent_did);
+    CREATE INDEX IF NOT EXISTS idx_policies_realm ON policies(realm_id);
+
     CREATE TABLE IF NOT EXISTS workflows (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
       description TEXT,
       definition TEXT NOT NULL,
+      realm_id TEXT REFERENCES realms(id) ON DELETE SET NULL,
       created_by TEXT,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
     CREATE INDEX IF NOT EXISTS idx_workflows_created_by ON workflows(created_by, created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_workflows_realm ON workflows(realm_id);
 
     CREATE TABLE IF NOT EXISTS workflow_runs (
       id TEXT PRIMARY KEY,
@@ -460,6 +352,23 @@ function createTables(db: Database.Database): void {
     CREATE INDEX IF NOT EXISTS idx_intent_log_agent ON intent_log(agent_did, sent_at DESC);
     CREATE INDEX IF NOT EXISTS idx_intent_log_status ON intent_log(status, sent_at DESC);
   `);
+
+  // Add content column to realm_skills for existing databases that predate this field
+  try {
+    db.prepare("ALTER TABLE realm_skills ADD COLUMN content TEXT").run();
+  } catch {
+    // Column already exists — safe to ignore
+  }
+}
+
+function seedDefaults(db: Database.Database): void {
+  const realmCount = (db.prepare("SELECT COUNT(*) AS n FROM realms").get() as { n: number }).n;
+  if (realmCount === 0) {
+    const id = crypto.randomUUID();
+    db.prepare(
+      "INSERT INTO realms (id, name, slug, description, color, is_default) VALUES (?, ?, ?, ?, ?, 1)"
+    ).run(id, "Default", "default", "The default realm", "#6366f1");
+  }
 }
 
 /**
@@ -771,6 +680,13 @@ export function getActivityLogByEvent(event: string, limit: number = 50): Activi
     .all(event, limit) as ActivityLogRow[];
 }
 
+export function getActivityLogByAgent(agentDid: string, limit: number = 100): ActivityLogRow[] {
+  const d = getDb();
+  return d
+    .prepare("SELECT * FROM activity_log WHERE agent_did = ? ORDER BY created_at DESC LIMIT ?")
+    .all(agentDid, limit) as ActivityLogRow[];
+}
+
 // --- Intent log ---
 
 export interface IntentLogRow {
@@ -870,100 +786,6 @@ export function deletePendingRegistration(id: string): void {
 
 // ---- Realms ----
 
-function ensureRealmTables(db: Database.Database): void {
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS realms (
-      id TEXT PRIMARY KEY,
-      name TEXT NOT NULL,
-      slug TEXT NOT NULL UNIQUE,
-      description TEXT,
-      color TEXT NOT NULL DEFAULT '#6366f1',
-      is_default INTEGER NOT NULL DEFAULT 0,
-      llm_config TEXT DEFAULT NULL,
-      default_capabilities TEXT NOT NULL DEFAULT '[]',
-      created_at TEXT NOT NULL DEFAULT (datetime('now'))
-    );
-
-    CREATE TABLE IF NOT EXISTS agent_realms (
-      agent_did TEXT NOT NULL REFERENCES agents(did) ON DELETE CASCADE,
-      realm_id TEXT NOT NULL REFERENCES realms(id) ON DELETE CASCADE,
-      is_primary INTEGER NOT NULL DEFAULT 0,
-      joined_at TEXT NOT NULL DEFAULT (datetime('now')),
-      PRIMARY KEY (agent_did, realm_id)
-    );
-
-    CREATE TABLE IF NOT EXISTS user_realms (
-      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-      realm_id TEXT NOT NULL REFERENCES realms(id) ON DELETE CASCADE,
-      is_primary INTEGER NOT NULL DEFAULT 0,
-      is_realm_admin INTEGER NOT NULL DEFAULT 0,
-      joined_at TEXT NOT NULL DEFAULT (datetime('now')),
-      PRIMARY KEY (user_id, realm_id)
-    );
-
-    CREATE TABLE IF NOT EXISTS realm_skills (
-      id TEXT PRIMARY KEY,
-      realm_id TEXT NOT NULL REFERENCES realms(id) ON DELETE CASCADE,
-      name TEXT NOT NULL,
-      description TEXT,
-      version TEXT,
-      is_required INTEGER NOT NULL DEFAULT 0,
-      config TEXT NOT NULL DEFAULT '{}',
-      created_at TEXT NOT NULL DEFAULT (datetime('now')),
-      UNIQUE(realm_id, name)
-    );
-
-    CREATE TABLE IF NOT EXISTS agent_skill_overrides (
-      agent_did TEXT NOT NULL REFERENCES agents(did) ON DELETE CASCADE,
-      realm_skill_id TEXT NOT NULL REFERENCES realm_skills(id) ON DELETE CASCADE,
-      enabled INTEGER NOT NULL DEFAULT 1,
-      PRIMARY KEY (agent_did, realm_skill_id)
-    );
-  `);
-
-  // Migrate existing user_realms tables that don't yet have is_realm_admin
-  const userRealmsCols = (db.prepare("PRAGMA table_info(user_realms)").all() as { name: string }[]).map(c => c.name);
-  if (!userRealmsCols.includes("is_realm_admin")) {
-    db.exec("ALTER TABLE user_realms ADD COLUMN is_realm_admin INTEGER NOT NULL DEFAULT 0");
-  }
-
-  // Model registry tables
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS model_registry (
-      id TEXT PRIMARY KEY,
-      name TEXT NOT NULL,
-      description TEXT,
-      provider TEXT NOT NULL,
-      model_id TEXT NOT NULL,
-      base_url TEXT NOT NULL,
-      api_key_enc TEXT,
-      litellm_model_name TEXT,
-      status TEXT NOT NULL DEFAULT 'active',
-      metadata TEXT NOT NULL DEFAULT '{}',
-      created_by TEXT,
-      created_at TEXT NOT NULL DEFAULT (datetime('now')),
-      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
-    );
-
-    CREATE TABLE IF NOT EXISTS model_realm_access (
-      model_id TEXT NOT NULL REFERENCES model_registry(id) ON DELETE CASCADE,
-      realm_id TEXT NOT NULL REFERENCES realms(id) ON DELETE CASCADE,
-      granted_at TEXT NOT NULL DEFAULT (datetime('now')),
-      PRIMARY KEY (model_id, realm_id)
-    );
-
-    CREATE TABLE IF NOT EXISTS realm_router_keys (
-      realm_id TEXT PRIMARY KEY REFERENCES realms(id) ON DELETE CASCADE,
-      litellm_virtual_key TEXT,
-      allowed_model_ids TEXT NOT NULL DEFAULT '[]',
-      monthly_budget_usd REAL,
-      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
-    );
-
-    CREATE INDEX IF NOT EXISTS idx_model_realm_access_realm ON model_realm_access(realm_id);
-    CREATE INDEX IF NOT EXISTS idx_model_registry_status ON model_registry(status);
-  `);
-}
 
 export interface RealmRow {
   id: string;
@@ -1841,6 +1663,7 @@ export interface RealmSkillRow {
   version: string | null;
   is_required: number;
   config: string;
+  content: string | null;
   created_at: string;
 }
 
@@ -1863,12 +1686,13 @@ export function createRealmSkill(skill: {
   version?: string;
   isRequired?: boolean;
   config?: Record<string, unknown>;
+  content?: string;
 }): RealmSkillRow {
   const d = getDb();
   const id = crypto.randomUUID();
   d.prepare(`
-    INSERT INTO realm_skills (id, realm_id, name, description, version, is_required, config)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO realm_skills (id, realm_id, name, description, version, is_required, config, content)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     id,
     skill.realmId,
@@ -1877,13 +1701,14 @@ export function createRealmSkill(skill: {
     skill.version ?? null,
     skill.isRequired ? 1 : 0,
     JSON.stringify(skill.config ?? {}),
+    skill.content ?? null,
   );
   return getRealmSkillById(id)!;
 }
 
 export function updateRealmSkill(
   id: string,
-  updates: { description?: string | null; version?: string | null; isRequired?: boolean; config?: Record<string, unknown> },
+  updates: { description?: string | null; version?: string | null; isRequired?: boolean; config?: Record<string, unknown>; content?: string | null },
 ): boolean {
   const d = getDb();
   const parts: string[] = [];
@@ -1892,6 +1717,7 @@ export function updateRealmSkill(
   if ("version" in updates) { parts.push("version = ?"); vals.push(updates.version ?? null); }
   if ("isRequired" in updates) { parts.push("is_required = ?"); vals.push(updates.isRequired ? 1 : 0); }
   if ("config" in updates) { parts.push("config = ?"); vals.push(JSON.stringify(updates.config)); }
+  if ("content" in updates) { parts.push("content = ?"); vals.push(updates.content ?? null); }
   if (parts.length === 0) return false;
   vals.push(id);
   const result = d.prepare(`UPDATE realm_skills SET ${parts.join(", ")} WHERE id = ?`).run(...vals);
@@ -1902,6 +1728,34 @@ export function deleteRealmSkill(id: string): boolean {
   const d = getDb();
   const result = d.prepare("DELETE FROM realm_skills WHERE id = ?").run(id);
   return result.changes > 0;
+}
+
+export interface SkillWithRealmRow {
+  id: string;
+  realm_id: string;
+  realm_name: string;
+  name: string;
+  description: string | null;
+  version: string | null;
+  is_required: number;
+  config: string;
+  content: string | null;
+  created_at: string;
+  agent_count: number;
+  override_count: number;
+}
+
+export function getAllSkillsWithRealms(): SkillWithRealmRow[] {
+  const d = getDb();
+  return d.prepare(`
+    SELECT rs.id, rs.realm_id, r.name AS realm_name, rs.name, rs.description,
+           rs.version, rs.is_required, rs.config, rs.content, rs.created_at,
+           (SELECT COUNT(*) FROM agent_realms ar WHERE ar.realm_id = r.id) AS agent_count,
+           (SELECT COUNT(*) FROM agent_skill_overrides aso WHERE aso.realm_skill_id = rs.id) AS override_count
+    FROM realm_skills rs
+    JOIN realms r ON r.id = rs.realm_id
+    ORDER BY rs.name ASC, r.name ASC
+  `).all() as SkillWithRealmRow[];
 }
 
 // ---- Agent skill overrides ----
@@ -1937,7 +1791,7 @@ export function setAgentSkillOverride(agentDid: string, realmSkillId: string, en
 export function getAgentEffectiveSkills(agentDid: string): import("@vaultysclaw/shared").SkillConfig[] {
   const d = getDb();
   const rows = d.prepare(`
-    SELECT rs.id, rs.name, rs.is_required, rs.config,
+    SELECT rs.id, rs.name, rs.is_required, rs.config, rs.content,
            aso.enabled AS override_enabled
     FROM agent_realms ar
     JOIN realm_skills rs ON rs.realm_id = ar.realm_id
@@ -1951,6 +1805,7 @@ export function getAgentEffectiveSkills(agentDid: string): import("@vaultysclaw/
     name: string;
     is_required: number;
     config: string;
+    content: string | null;
     override_enabled: number | null;
   }>;
 
@@ -1967,6 +1822,7 @@ export function getAgentEffectiveSkills(agentDid: string): import("@vaultysclaw/
       enabled,
       isRequired,
       config: JSON.parse(row.config || "{}"),
+      content: row.content ?? undefined,
     });
   }
   return Array.from(seen.values());
@@ -2162,13 +2018,16 @@ export function createPolicy(policy: {
   return d.prepare("SELECT * FROM policies WHERE id = ?").get(id) as PolicyRow;
 }
 
-export function listPolicies(opts: { agentDid?: string; realmId?: string; includeExpired?: boolean } = {}): PolicyRow[] {
+export function listPolicies(opts: { agentDid?: string; realmId?: string; includeExpired?: boolean; expiredOnly?: boolean } = {}): PolicyRow[] {
   const d = getDb();
   const conditions: string[] = [];
   const values: unknown[] = [];
   if (opts.agentDid !== undefined) { conditions.push("agent_did = ?"); values.push(opts.agentDid); }
   if (opts.realmId !== undefined) { conditions.push("realm_id = ?"); values.push(opts.realmId); }
-  if (!opts.includeExpired) {
+  if (opts.expiredOnly) {
+    // Only rows that have a non-null expiresAt that is already in the past.
+    conditions.push("expires_at IS NOT NULL AND datetime(expires_at) <= datetime('now')");
+  } else if (!opts.includeExpired) {
     // Use datetime(expires_at) so SQLite parses ISO 8601 strings (which contain 'T'
     // and 'Z') correctly before comparing — a raw string compare would always treat
     // ISO dates as greater than datetime('now') because 'T' > ' ' in ASCII.

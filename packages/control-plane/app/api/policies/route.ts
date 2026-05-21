@@ -19,8 +19,9 @@ export async function GET(request: NextRequest) {
     const agentDid = searchParams.get("agentDid") ?? undefined;
     const realmId = searchParams.get("realmId") ?? undefined;
     const includeExpired = searchParams.get("includeExpired") === "true";
+    const expiredOnly = searchParams.get("expiredOnly") === "true";
 
-    const policies = listPolicies({ agentDid, realmId, includeExpired });
+    const policies = listPolicies({ agentDid, realmId, includeExpired, expiredOnly });
 
     return NextResponse.json({
       policies: policies.map((p) => ({

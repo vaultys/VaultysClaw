@@ -41,7 +41,12 @@ export function createFileTools(workspaceRoot: string): AgentToolDefinition[] {
       }),
       execute: async ({ path: filePath }) => {
         const resolved = safePath(root, filePath);
-        const stat = await fs.stat(resolved);
+        let stat;
+        try {
+          stat = await fs.stat(resolved);
+        } catch {
+          return { error: `File not found: "${filePath}"` };
+        }
         if (!stat.isFile()) return { error: `"${filePath}" is not a file` };
         if (stat.size > MAX_READ_BYTES) {
           const buf = Buffer.alloc(MAX_READ_BYTES);
@@ -88,7 +93,12 @@ export function createFileTools(workspaceRoot: string): AgentToolDefinition[] {
       }),
       execute: async ({ path: dirPath }) => {
         const resolved = safePath(root, dirPath ?? ".");
-        const entries = await fs.readdir(resolved, { withFileTypes: true });
+        let entries;
+        try {
+          entries = await fs.readdir(resolved, { withFileTypes: true });
+        } catch {
+          return { error: `Directory not found: "${dirPath}"` };
+        }
         return {
           entries: entries.map((e) => ({
             name: e.name,

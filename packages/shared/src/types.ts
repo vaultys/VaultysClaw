@@ -545,6 +545,8 @@ export interface SkillConfig {
   enabled: boolean;
   isRequired: boolean;
   config: Record<string, unknown>;
+  /** Markdown instructions injected into the agent's system prompt when the skill is enabled. */
+  content?: string;
 }
 
 /** Pushed by control plane to configure which skills the agent should activate. */

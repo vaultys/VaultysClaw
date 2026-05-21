@@ -18,6 +18,7 @@ import {
   LayoutDashboard,
   FileCode2,
   ChevronLeft,
+  ChevronRight,
   WifiOff,
   FolderOpen,
   Globe,
@@ -30,8 +31,13 @@ import {
   TrendingUp,
   Plus,
   AlertTriangle,
+  RotateCcw,
   X,
   CalendarDays,
+  Activity,
+  FileText,
+  CheckCircle2,
+  XCircle,
 } from "lucide-react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
@@ -77,6 +83,12 @@ interface AgentDetail {
   connectedAt: string | null;
   lastHeartbeat: string | null;
   reportedLlm: { provider: string; model: string } | null;
+  storedLlm: { provider: string; model: string } | null;
+  tokenUsage: { promptTokens: number; completionTokens: number; totalTokens: number } | null;
+  tokenBudgetDaily: number | null;
+  tokenBudgetMonthly: number | null;
+  todayTokens: number;
+  monthTokens: number;
 }
 
 interface LlmConfigDisplay {
@@ -246,8 +258,8 @@ export default function AgentDetailPage() {
   if (error || !agent) {
     return (
       <div className="p-6 max-w-5xl mx-auto">
-        <button onClick={() => router.push("/")} className="text-indigo-400 hover:text-indigo-300 mb-6 inline-block text-sm">
-          ← Back to Dashboard
+        <button onClick={() => router.push("/agents")} className="text-indigo-400 hover:text-indigo-300 mb-6 inline-block text-sm">
+          ← Back to Agents list
         </button>
         <div className="bg-red-50 dark:bg-red-900/40 border border-red-300 dark:border-red-700 rounded-lg px-4 py-3 text-red-600 dark:text-red-300">
           {error ?? "Agent not found"}
@@ -273,11 +285,11 @@ export default function AgentDetailPage() {
       {/* ── Page header ── */}
       <div className="mb-4">
         <button
-          onClick={() => router.push("/")}
+          onClick={() => router.push("/agents")}
           className="inline-flex items-center gap-1.5 text-sm text-vc-muted hover:text-vc-text mb-3 transition-colors"
         >
           <ChevronLeft size={15} />
-          Back to Dashboard
+          Back to Agents List
         </button>
 
         <div className="bg-vc-surface border border-vc-border rounded-xl px-5 py-4 flex items-center gap-4">
@@ -300,6 +312,17 @@ export default function AgentDetailPage() {
                   Offline
                 </span>
               )}
+              {(agent.reportedLlm ?? agent.storedLlm) && (() => {
+                const llm = agent.reportedLlm ?? agent.storedLlm!;
+                return (
+                  <span className="inline-flex items-center gap-1.5 text-xs font-medium text-vc-muted bg-vc-raised border border-vc-ring rounded-full px-2.5 py-0.5">
+                    <Zap size={11} className="text-amber-500" />
+                    <span className="text-vc-text-2">{llm.provider}</span>
+                    <span className="text-vc-subtle">/</span>
+                    <span className="font-mono">{llm.model}</span>
+                  </span>
+                );
+              })()}
             </div>
             <p className="text-xs font-mono text-vc-muted mt-0.5 truncate">{agent.id}</p>
           </div>
@@ -310,6 +333,16 @@ export default function AgentDetailPage() {
               <div className="text-xs text-vc-muted uppercase">Last seen</div>
               <div className="text-sm text-vc-text">{timeAgo(agent.lastSeen)}</div>
             </div>
+            {(agent.reportedLlm ?? agent.storedLlm) && (() => {
+              const llm = agent.reportedLlm ?? agent.storedLlm!;
+              return (
+                <div>
+                  <div className="text-xs text-vc-muted uppercase">LLM</div>
+                  <div className="text-sm text-vc-text font-mono">{llm.model}</div>
+                  <div className="text-[10px] text-vc-subtle">{llm.provider}</div>
+                </div>
+              );
+            })()}
             <div>
               <div className="text-xs text-vc-muted uppercase">Capabilities</div>
               <div className="text-sm text-vc-text">{agent.capabilities.length}</div>
@@ -323,7 +356,7 @@ export default function AgentDetailPage() {
         <TabBar tabs={tabs} active={activeTab} onChange={setActiveTab} />
 
         <div className="p-6">
-          {activeTab === "overview" && <OverviewTab agent={agent} />}
+          {activeTab === "overview" && <OverviewTab agent={agent} onTabChange={setActiveTab} />}
           {activeTab === "chat" && <ChatTab agentId={agent.id} agentName={agent.name} online={agent.online} />}
           {activeTab === "tokens" && <TokensTab agentId={agent.id} />}
           {activeTab === "config" && <ConfigTab did={did} reportedLlm={agent.reportedLlm} />}
@@ -345,81 +378,330 @@ export default function AgentDetailPage() {
 // Tab: Overview
 // ---------------------------------------------------------------------------
 
-function OverviewTab({ agent }: { agent: AgentDetail }) {
-  return (
-    <div className="space-y-6">
-      {/* Connection */}
-      <section>
-        <h2 className="text-sm font-semibold text-vc-muted uppercase tracking-wider mb-3">Connection</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          {[
-            { label: "Status", value: agent.online ? <span className="text-green-700 dark:text-green-400">Connected</span> : <span className="text-vc-muted">Disconnected</span> },
-            { label: "Connected Since", value: <span className="text-vc-text">{formatDate(agent.connectedAt)}</span> },
-            { label: "Last Heartbeat", value: <span className="text-vc-text">{agent.online ? timeAgo(agent.lastHeartbeat) : "—"}</span> },
-          ].map(({ label, value }) => (
-            <div key={label} className="bg-vc-raised rounded-lg p-4 border border-vc-border">
-              <div className="text-xs text-vc-muted uppercase mb-1">{label}</div>
-              <div className="text-sm">{value}</div>
-            </div>
-          ))}
-        </div>
-      </section>
+function OverviewTab({ agent, onTabChange }: { agent: AgentDetail; onTabChange: (tab: TabId) => void }) {
+  const [recentEvents, setRecentEvents] = useState<AuditEntry[]>([]);
+  const [eventsLoading, setEventsLoading] = useState(true);
+  const [activePolicy, setActivePolicy] = useState<PolicyEntry | null>(null);
+  const [intentStats, setIntentStats] = useState<{ success: number; failed: number; pending: number } | null>(null);
 
-      {/* Identity */}
-      <section>
-        <h2 className="text-sm font-semibold text-vc-muted uppercase tracking-wider mb-3">Identity</h2>
-        <div className="bg-vc-raised rounded-lg border border-vc-border divide-y divide-vc-border">
-          {[
-            { label: "DID", value: <span className="font-mono text-xs break-all text-vc-text-2">{agent.id}</span> },
-            { label: "Name", value: <span className="text-vc-text">{agent.name}</span> },
-            { label: "Registered At", value: <span className="text-vc-text">{formatDate(agent.registeredAt)}</span> },
-            { label: "Last Seen", value: <span className="text-vc-text">{formatDate(agent.lastSeen)} <span className="text-vc-subtle">({timeAgo(agent.lastSeen)})</span></span> },
-          ].map(({ label, value }) => (
-            <div key={label} className="flex items-start gap-4 px-4 py-3">
-              <div className="w-28 flex-shrink-0 text-xs text-vc-muted uppercase pt-0.5">{label}</div>
-              <div className="flex-1 text-sm">{value}</div>
-            </div>
-          ))}
-        </div>
-      </section>
+  const overviewRouter = useRouter();
 
-      {/* Active Capabilities — read-only; managed via the Governance tab */}
-      <section>
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-sm font-semibold text-vc-muted uppercase tracking-wider">Active Capabilities</h2>
-          <span className="text-xs text-vc-subtle">Managed in the Governance tab</span>
+  useEffect(() => {
+    (async () => {
+      try {
+        const [auditRes, policyRes] = await Promise.all([
+          fetch(`/api/governance/audit?agentDid=${encodeURIComponent(agent.id)}&limit=50`),
+          fetch(`/api/policies?agentDid=${encodeURIComponent(agent.id)}`),
+        ]);
+        if (auditRes.ok) {
+          const data = await auditRes.json();
+          const entries: AuditEntry[] = data.entries ?? [];
+          setRecentEvents(entries.slice(0, 8));
+          const intents = entries.filter((e) => e.source === "intent");
+          setIntentStats({
+            success: intents.filter((e) => e.status === "success").length,
+            failed: intents.filter((e) => e.status === "failed").length,
+            pending: intents.filter((e) => e.status === "pending").length,
+          });
+        }
+        if (policyRes.ok) {
+          const data = await policyRes.json();
+          const policies: PolicyEntry[] = data.policies ?? [];
+          setActivePolicy(policies[0] ?? null);
+        }
+      } finally {
+        setEventsLoading(false);
+      }
+    })();
+  }, [agent.id]);
+
+  // Token usage: prefer live session value, fall back to DB history
+  const todayUsed = agent.tokenUsage?.totalTokens ?? agent.todayTokens;
+  const monthUsed = agent.monthTokens;
+
+  function TokenBar({ used, budget, label }: { used: number; budget: number | null; label: string }) {
+    const pct = budget ? Math.min(100, Math.round((used / budget) * 100)) : null;
+    const danger = pct !== null && pct >= 90;
+    const warn = pct !== null && pct >= 70 && !danger;
+    return (
+      <div className="space-y-1.5">
+        <div className="flex justify-between text-xs">
+          <span className="text-vc-muted">{label}</span>
+          <span className={`font-mono ${danger ? "text-red-600 dark:text-red-400" : warn ? "text-amber-600 dark:text-amber-400" : "text-vc-text"}`}>
+            {used.toLocaleString()}{budget ? ` / ${budget.toLocaleString()}` : ""}
+          </span>
         </div>
-        {agent.capabilities.length > 0 ? (
-          <div className="flex flex-wrap gap-2">
-            {agent.capabilities.map((cap) => (
-              <span
-                key={cap}
-                className="relative group bg-indigo-100 dark:bg-indigo-900/50 border border-indigo-300 dark:border-indigo-700/50 text-indigo-700 dark:text-indigo-200 px-2.5 py-1 rounded-md text-xs flex items-center gap-1.5"
-              >
-                {CAPABILITY_ICONS[cap] ?? <Zap size={13} />}
-                {cap.replace(/_/g, " ")}
-              </span>
-            ))}
+        {budget && (
+          <div className="h-1.5 bg-vc-raised rounded-full overflow-hidden">
+            <div
+              className={`h-full rounded-full transition-all ${danger ? "bg-red-500" : warn ? "bg-amber-500" : "bg-indigo-500"}`}
+              style={{ width: `${pct}%` }}
+            />
           </div>
-        ) : (
-          <p className="text-vc-muted text-sm">No capabilities granted — create a policy in the Governance tab.</p>
         )}
-      </section>
+      </div>
+    );
+  }
 
-      {/* Agent-reported LLM */}
-      {agent.online && agent.reportedLlm && (
-        <section>
-          <h2 className="text-sm font-semibold text-vc-muted uppercase tracking-wider mb-3">Active LLM</h2>
-          <div className="bg-vc-raised rounded-lg border border-vc-border px-4 py-3 flex items-center gap-3">
-            <code className="text-sm font-mono text-indigo-400">
-              {agent.reportedLlm.provider}/{agent.reportedLlm.model}
-            </code>
-            <span className="text-xs text-vc-subtle">reported by agent</span>
+  // Session uptime
+  function sessionUptime() {
+    if (!agent.online || !agent.connectedAt) return null;
+    const secs = Math.floor((Date.now() - parseUTC(agent.connectedAt).getTime()) / 1000);
+    if (secs < 60) return `${secs}s`;
+    if (secs < 3600) return `${Math.floor(secs / 60)}m`;
+    const h = Math.floor(secs / 3600), m = Math.floor((secs % 3600) / 60);
+    return m > 0 ? `${h}h ${m}m` : `${h}h`;
+  }
+  const uptime = sessionUptime();
+
+  const totalIntents = intentStats ? intentStats.success + intentStats.failed + intentStats.pending : 0;
+  const successRate = totalIntents > 0 && intentStats ? Math.round((intentStats.success / totalIntents) * 100) : null;
+
+  return (
+    <div className="space-y-5">
+
+      {/* ── KPI row ──────────────────────────────────────────────────────── */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {/* Session uptime */}
+        <div className="bg-vc-raised border border-vc-border rounded-xl p-4">
+          <div className="text-xs text-vc-muted uppercase mb-1">Session uptime</div>
+          {uptime ? (
+            <>
+              <div className="text-2xl font-bold text-vc-text">{uptime}</div>
+              <div className="text-xs text-vc-subtle mt-0.5">since {timeAgo(agent.connectedAt)}</div>
+            </>
+          ) : (
+            <>
+              <div className="text-lg font-semibold text-vc-muted">Offline</div>
+              <div className="text-xs text-vc-subtle mt-0.5">last seen {timeAgo(agent.lastSeen)}</div>
+            </>
+          )}
+        </div>
+
+        {/* Tokens today */}
+        <div className="bg-vc-raised border border-vc-border rounded-xl p-4">
+          <div className="text-xs text-vc-muted uppercase mb-2">Tokens today</div>
+          <div className="text-2xl font-bold text-vc-text">{todayUsed.toLocaleString()}</div>
+          {agent.tokenBudgetDaily && (
+            <div className="mt-2">
+              <div className="flex justify-between text-[10px] text-vc-subtle mb-1">
+                <span>budget</span>
+                <span>{Math.round((todayUsed / agent.tokenBudgetDaily) * 100)}%</span>
+              </div>
+              <div className="h-1 bg-vc-border rounded-full overflow-hidden">
+                <div
+                  className={`h-full rounded-full ${todayUsed / agent.tokenBudgetDaily >= 0.9 ? "bg-red-500" :
+                    todayUsed / agent.tokenBudgetDaily >= 0.7 ? "bg-amber-500" : "bg-indigo-500"
+                    }`}
+                  style={{ width: `${Math.min(100, Math.round((todayUsed / agent.tokenBudgetDaily) * 100))}%` }}
+                />
+              </div>
+            </div>
+          )}
+          {!agent.tokenBudgetDaily && <div className="text-xs text-vc-subtle mt-1">no daily limit</div>}
+        </div>
+
+        {/* Tokens this month */}
+        <div className="bg-vc-raised border border-vc-border rounded-xl p-4">
+          <div className="text-xs text-vc-muted uppercase mb-2">Tokens this month</div>
+          <div className="text-2xl font-bold text-vc-text">{monthUsed.toLocaleString()}</div>
+          {agent.tokenBudgetMonthly && (
+            <div className="mt-2">
+              <div className="flex justify-between text-[10px] text-vc-subtle mb-1">
+                <span>budget</span>
+                <span>{Math.round((monthUsed / agent.tokenBudgetMonthly) * 100)}%</span>
+              </div>
+              <div className="h-1 bg-vc-border rounded-full overflow-hidden">
+                <div
+                  className={`h-full rounded-full ${monthUsed / agent.tokenBudgetMonthly >= 0.9 ? "bg-red-500" :
+                    monthUsed / agent.tokenBudgetMonthly >= 0.7 ? "bg-amber-500" : "bg-indigo-500"
+                    }`}
+                  style={{ width: `${Math.min(100, Math.round((monthUsed / agent.tokenBudgetMonthly) * 100))}%` }}
+                />
+              </div>
+            </div>
+          )}
+          {!agent.tokenBudgetMonthly && <div className="text-xs text-vc-subtle mt-1">no monthly limit</div>}
+        </div>
+
+        {/* Intent success rate */}
+        <div className="bg-vc-raised border border-vc-border rounded-xl p-4">
+          <div className="text-xs text-vc-muted uppercase mb-1">Intents (recent 50)</div>
+          {eventsLoading ? (
+            <div className="flex items-center gap-1.5 text-vc-muted text-sm mt-1"><Loader2 size={12} className="animate-spin" /> —</div>
+          ) : intentStats && totalIntents > 0 ? (
+            <>
+              <div className="text-2xl font-bold text-vc-text">
+                {successRate}%
+                <span className="text-sm font-normal text-vc-muted ml-1">success</span>
+              </div>
+              <div className="flex gap-3 mt-1.5 text-xs">
+                <span className="flex items-center gap-1 text-green-700 dark:text-green-400"><CheckCircle2 size={10} />{intentStats.success}</span>
+                {intentStats.failed > 0 && <span className="flex items-center gap-1 text-red-600 dark:text-red-400"><XCircle size={10} />{intentStats.failed}</span>}
+                {intentStats.pending > 0 && <span className="flex items-center gap-1 text-vc-muted"><Clock size={10} />{intentStats.pending}</span>}
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="text-lg font-semibold text-vc-muted">—</div>
+              <div className="text-xs text-vc-subtle mt-0.5">no intents yet</div>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* ── Lower two-column grid ─────────────────────────────────────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+
+        {/* Recent activity */}
+        <div className="bg-vc-surface border border-vc-border rounded-xl p-5">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-sm font-semibold text-vc-text flex items-center gap-1.5">
+              <Activity size={14} className="text-vc-muted" /> Recent Activity
+            </h2>
+            <button
+              onClick={() => onTabChange("governance")}
+              className="text-xs text-indigo-500 hover:text-indigo-400 flex items-center gap-0.5 transition-colors"
+            >
+              Full audit <ChevronRight size={12} />
+            </button>
           </div>
-        </section>
-      )}
+          {eventsLoading ? (
+            <div className="flex items-center gap-2 text-vc-muted text-sm py-4 justify-center">
+              <Loader2 size={13} className="animate-spin" /> Loading…
+            </div>
+          ) : recentEvents.length === 0 ? (
+            <p className="text-xs text-vc-subtle text-center py-6">No activity recorded yet.</p>
+          ) : (
+            <div className="space-y-0">
+              {recentEvents.map((ev, i) => {
+                const isActivity = ev.source === "activity";
+                return (
+                  <button
+                    key={ev.id}
+                    onClick={() => overviewRouter.push(`/governance/audit/${encodeURIComponent(ev.id)}`)}
+                    className="w-full flex items-start gap-3 py-2.5 hover:bg-vc-raised rounded-lg px-2 -mx-2 transition-colors text-left group"
+                  >
+                    {/* Timeline dot */}
+                    <div className="flex flex-col items-center flex-shrink-0 mt-0.5">
+                      <div className={`w-2 h-2 rounded-full ${ev.status === "failed" ? "bg-red-500" :
+                        ev.status === "success" ? "bg-green-500" :
+                          isActivity ? "bg-indigo-500" : "bg-purple-500"
+                        }`} />
+                      {i < recentEvents.length - 1 && <div className="w-px flex-1 bg-vc-border mt-1 min-h-[12px]" />}
+                    </div>
+                    <div className="flex-1 min-w-0 pb-0.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-xs text-vc-text truncate">
+                          {AUDIT_LABELS[ev.event] ?? ev.event.replace(/_/g, " ")}
+                        </span>
+                        <span className="text-[10px] text-vc-subtle flex-shrink-0">{timeAgo(ev.timestamp)}</span>
+                      </div>
+                      {ev.status === "failed" && ev.error && (
+                        <p className="text-[10px] text-red-600 dark:text-red-400 truncate mt-0.5">{ev.error}</p>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
 
+        {/* Active policy snapshot */}
+        <div className="bg-vc-surface border border-vc-border rounded-xl p-5">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-sm font-semibold text-vc-text flex items-center gap-1.5">
+              <ShieldCheck size={14} className="text-vc-muted" /> Active Policy
+            </h2>
+            <button
+              onClick={() => onTabChange("governance")}
+              className="text-xs text-indigo-500 hover:text-indigo-400 flex items-center gap-0.5 transition-colors"
+            >
+              Manage <ChevronRight size={12} />
+            </button>
+          </div>
+          {eventsLoading ? (
+            <div className="flex items-center gap-2 text-vc-muted text-sm py-4 justify-center">
+              <Loader2 size={13} className="animate-spin" /> Loading…
+            </div>
+          ) : !activePolicy ? (
+            <div className="text-center py-6 space-y-2">
+              <ShieldCheck size={26} className="mx-auto text-vc-border" />
+              <p className="text-xs text-vc-subtle">No policy — agent is locked and cannot execute actions.</p>
+              <button
+                onClick={() => onTabChange("governance")}
+                className="text-xs text-indigo-500 hover:text-indigo-400 transition-colors"
+              >
+                Create a policy →
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {/* Capabilities */}
+              <div>
+                <p className="text-[10px] text-vc-subtle uppercase tracking-wider mb-2">Capabilities</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {activePolicy.capabilities.map((cap) => (
+                    <span
+                      key={cap}
+                      className="flex items-center gap-1 bg-indigo-100 dark:bg-indigo-900/40 border border-indigo-300 dark:border-indigo-700/40 text-indigo-700 dark:text-indigo-300 px-2 py-0.5 rounded text-xs"
+                    >
+                      {CAPABILITY_ICONS[cap] ?? <Zap size={11} />}
+                      {cap.replace(/_/g, " ")}
+                    </span>
+                  ))}
+                </div>
+              </div>
 
+              {/* Resource limits */}
+              {activePolicy.resourceLimits && Object.keys(activePolicy.resourceLimits).length > 0 && (
+                <div>
+                  <p className="text-[10px] text-vc-subtle uppercase tracking-wider mb-2">Resource limits</p>
+                  <div className="space-y-2">
+                    {activePolicy.resourceLimits.maxTokensPerDay != null && (
+                      <TokenBar
+                        used={todayUsed}
+                        budget={activePolicy.resourceLimits.maxTokensPerDay}
+                        label="Tokens today"
+                      />
+                    )}
+                    {activePolicy.resourceLimits.maxRequestsPerHour != null && (
+                      <div className="flex justify-between text-xs">
+                        <span className="text-vc-muted">Max requests / hour</span>
+                        <span className="font-mono text-vc-text">{activePolicy.resourceLimits.maxRequestsPerHour}</span>
+                      </div>
+                    )}
+                    {activePolicy.resourceLimits.allowedDomains && activePolicy.resourceLimits.allowedDomains.length > 0 && (
+                      <div className="flex justify-between text-xs gap-4">
+                        <span className="text-vc-muted flex-shrink-0">Allowed domains</span>
+                        <span className="font-mono text-vc-text text-right text-[11px] break-all">{activePolicy.resourceLimits.allowedDomains.join(", ")}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Expiry */}
+              {activePolicy.expiresAt && (
+                <div className={`flex items-center gap-2 text-xs rounded-lg px-3 py-2 border ${new Date(activePolicy.expiresAt) < new Date()
+                  ? "bg-red-50 dark:bg-red-500/10 border-red-200 dark:border-red-500/20 text-red-600 dark:text-red-400"
+                  : "bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/20 text-amber-700 dark:text-amber-400"
+                  }`}>
+                  <CalendarDays size={12} />
+                  {new Date(activePolicy.expiresAt) < new Date() ? "Expired " : "Expires "}
+                  {formatDate(activePolicy.expiresAt)}
+                </div>
+              )}
+
+              {/* Policy meta */}
+              <p className="text-[10px] font-mono text-vc-subtle">
+                {activePolicy.id} · created {timeAgo(activePolicy.createdAt)}
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
@@ -445,6 +727,32 @@ interface PolicyEntry {
 
 const EMPTY_LIMITS = { maxTokensPerDay: "", maxRequestsPerHour: "", allowedDomains: "" };
 
+interface AuditEntry {
+  id: string;
+  source: "activity" | "intent";
+  event: string;
+  agentDid: string | null;
+  agentName: string | null;
+  details: string | null;
+  status: string | null;
+  error: string | null;
+  timestamp: string;
+}
+
+const AUDIT_LABELS: Record<string, string> = {
+  agent_reconnected: "Agent reconnected",
+  agent_authenticated: "Agent authenticated",
+  registration_requested: "Registration requested",
+  registration_approved: "Registration approved",
+  registration_rejected: "Registration rejected",
+  agent_disconnected: "Agent disconnected",
+  capabilities_updated: "Capabilities updated",
+  auth_failed: "Auth failed",
+  user_authenticated: "User authenticated",
+};
+
+const AUDIT_PAGE_SIZE = 20;
+
 function GovernanceTab({ did, agentCapabilities }: { did: string; agentCapabilities: string[] }) {
   const [policies, setPolicies] = useState<PolicyEntry[]>([]);
   const [loadingPolicies, setLoadingPolicies] = useState(true);
@@ -458,6 +766,88 @@ function GovernanceTab({ did, agentCapabilities }: { did: string; agentCapabilit
   const [formError, setFormError] = useState<string | null>(null);
 
   const [revoking, setRevoking] = useState<string | null>(null);
+  const [renewTarget, setRenewTarget] = useState<PolicyEntry | null>(null);
+  const [renewExpiry, setRenewExpiry] = useState("");
+  const [renewRevokeOriginal, setRenewRevokeOriginal] = useState(true);
+  const [renewSaving, setRenewSaving] = useState(false);
+  const [renewError, setRenewError] = useState<string | null>(null);
+
+  const openRenew = (p: PolicyEntry) => {
+    // Suggest same remaining duration, min 1 day; fall back to +30 days
+    const suggestExpiry = () => {
+      const pad = (n: number) => String(n).padStart(2, "0");
+      let ms = 30 * 86_400_000;
+      if (p.expiresAt) {
+        const rem = parseUTC(p.expiresAt).getTime() - Date.now();
+        ms = Math.max(86_400_000, rem);
+      }
+      const d = new Date(Date.now() + ms);
+      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    };
+    setRenewTarget(p);
+    setRenewExpiry(suggestExpiry());
+    setRenewRevokeOriginal(true);
+    setRenewError(null);
+  };
+
+  const confirmRenew = async () => {
+    if (!renewTarget) return;
+    setRenewSaving(true);
+    setRenewError(null);
+    try {
+      const rl = renewTarget.resourceLimits && Object.keys(renewTarget.resourceLimits).length > 0
+        ? renewTarget.resourceLimits : undefined;
+      const res = await fetch("/api/policies", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          agentDid: renewTarget.agentDid,
+          capabilities: renewTarget.capabilities,
+          resourceLimits: rl,
+          expiresAt: renewExpiry ? new Date(renewExpiry).toISOString() : undefined,
+        }),
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({})) as { error?: string };
+        setRenewError(d.error ?? `HTTP ${res.status}`);
+        return;
+      }
+      if (renewRevokeOriginal) {
+        await fetch(`/api/policies/${encodeURIComponent(renewTarget.id)}`, { method: "DELETE" });
+      }
+      setRenewTarget(null);
+      await fetchPolicies();
+    } finally {
+      setRenewSaving(false);
+    }
+  };
+
+  // Audit trail state
+  const router = useRouter();
+  const [auditEntries, setAuditEntries] = useState<AuditEntry[]>([]);
+  const [auditLoading, setAuditLoading] = useState(true);
+  const [auditSourceFilter, setAuditSourceFilter] = useState<"" | "activity" | "intent">("");
+  const [auditStatusFilter, setAuditStatusFilter] = useState<"" | "success" | "failed">("");
+  const [auditPage, setAuditPage] = useState(0);
+
+  const fetchAudit = useCallback(async () => {
+    setAuditLoading(true);
+    try {
+      const params = new URLSearchParams({ agentDid: did, limit: "200" });
+      if (auditSourceFilter) params.set("source", auditSourceFilter);
+      if (auditStatusFilter) params.set("status", auditStatusFilter);
+      const res = await fetch(`/api/governance/audit?${params.toString()}`);
+      if (res.ok) {
+        const data = await res.json();
+        setAuditEntries(data.entries ?? []);
+        setAuditPage(0);
+      }
+    } finally {
+      setAuditLoading(false);
+    }
+  }, [did, auditSourceFilter, auditStatusFilter]);
+
+  useEffect(() => { fetchAudit(); }, [fetchAudit]);
 
   const fetchPolicies = useCallback(async () => {
     try {
@@ -713,19 +1103,272 @@ function GovernanceTab({ did, agentCapabilities }: { did: string; agentCapabilit
                   </div>
                 </div>
 
-                <button
-                  onClick={() => revokePolicy(p.id)}
-                  disabled={revoking === p.id}
-                  className="flex-shrink-0 flex items-center gap-1.5 text-xs text-red-600 dark:text-red-400 hover:text-red-500 dark:hover:text-red-300 border border-red-300 dark:border-red-500/20 hover:border-red-400 dark:hover:border-red-500/40 px-2.5 py-1.5 rounded-md transition-colors disabled:opacity-50"
-                >
-                  {revoking === p.id ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
-                  Revoke
-                </button>
+                <div className="flex-shrink-0 flex items-center gap-1.5">
+                  <button
+                    onClick={() => openRenew(p)}
+                    className="flex items-center gap-1.5 text-xs text-indigo-600 dark:text-indigo-400 hover:text-indigo-500 border border-indigo-300 dark:border-indigo-500/30 hover:border-indigo-400 px-2.5 py-1.5 rounded-md transition-colors"
+                    title="Renew policy"
+                  >
+                    <RotateCcw size={12} /> Renew
+                  </button>
+                  <button
+                    onClick={() => revokePolicy(p.id)}
+                    disabled={revoking === p.id}
+                    className="flex items-center gap-1.5 text-xs text-red-600 dark:text-red-400 hover:text-red-500 dark:hover:text-red-300 border border-red-300 dark:border-red-500/20 hover:border-red-400 dark:hover:border-red-500/40 px-2.5 py-1.5 rounded-md transition-colors disabled:opacity-50"
+                  >
+                    {revoking === p.id ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
+                    Revoke
+                  </button>
+                </div>
               </div>
             </div>
           ))}
         </div>
       )}
+
+      {/* Renew policy modal */}
+      {renewTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-vc-surface border border-vc-border rounded-2xl shadow-2xl w-full max-w-sm">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-vc-border">
+              <span className="flex items-center gap-2 text-sm font-semibold text-vc-text">
+                <RotateCcw size={15} className="text-indigo-500" /> Renew policy
+              </span>
+              <button onClick={() => setRenewTarget(null)} className="text-vc-subtle hover:text-vc-text p-1 rounded-lg hover:bg-vc-raised transition-colors"><X size={15} /></button>
+            </div>
+            <div className="px-5 py-4 space-y-4">
+              {/* Capabilities summary */}
+              <div className="bg-vc-raised border border-vc-border rounded-xl p-3 space-y-2">
+                <div className="flex flex-wrap gap-1">
+                  {renewTarget.capabilities.map((cap) => (
+                    <span key={cap} className="flex items-center gap-1 bg-indigo-100 dark:bg-indigo-900/40 border border-indigo-300 dark:border-indigo-700/40 text-indigo-700 dark:text-indigo-300 px-2 py-0.5 rounded text-xs">
+                      {CAPABILITY_ICONS[cap] ?? <Zap size={11} />}{cap.replace(/_/g, " ")}
+                    </span>
+                  ))}
+                </div>
+                {renewTarget.resourceLimits && (renewTarget.resourceLimits.maxTokensPerDay || renewTarget.resourceLimits.maxRequestsPerHour) && (
+                  <p className="text-xs text-vc-muted">
+                    {renewTarget.resourceLimits.maxTokensPerDay ? `${renewTarget.resourceLimits.maxTokensPerDay.toLocaleString()} tok/d` : ""}
+                    {renewTarget.resourceLimits.maxTokensPerDay && renewTarget.resourceLimits.maxRequestsPerHour ? " · " : ""}
+                    {renewTarget.resourceLimits.maxRequestsPerHour ? `${renewTarget.resourceLimits.maxRequestsPerHour} req/h` : ""}
+                  </p>
+                )}
+                {renewTarget.expiresAt && (
+                  <p className="text-xs text-amber-600 dark:text-amber-400">
+                    Original expiry: {new Date(renewTarget.expiresAt.endsWith("Z") ? renewTarget.expiresAt : renewTarget.expiresAt + "Z").toLocaleString()}
+                  </p>
+                )}
+              </div>
+              {/* New expiry */}
+              <div className="space-y-1.5">
+                <label className="text-xs text-vc-muted font-medium">New expiry date</label>
+                <input
+                  type="datetime-local"
+                  value={renewExpiry}
+                  onChange={(e) => setRenewExpiry(e.target.value)}
+                  className="w-full px-3 py-2 bg-vc-raised border border-vc-border rounded-lg text-sm text-vc-text focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+                <div className="flex gap-1.5 mt-1">
+                  {([7, 30, 90, 365] as const).map((days) => {
+                    const pad = (n: number) => String(n).padStart(2, "0");
+                    const d = new Date(Date.now() + days * 86_400_000);
+                    const val = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+                    return (
+                      <button key={days} type="button" onClick={() => setRenewExpiry(val)}
+                        className="text-[11px] px-2 py-0.5 rounded-md border border-vc-border text-vc-muted hover:text-indigo-600 dark:hover:text-indigo-400 hover:border-indigo-400 transition-colors">
+                        +{days}d
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              {/* Revoke original */}
+              <label className="flex items-center gap-2.5 cursor-pointer group">
+                <input type="checkbox" checked={renewRevokeOriginal} onChange={(e) => setRenewRevokeOriginal(e.target.checked)} className="w-4 h-4 rounded accent-indigo-600" />
+                <span className="text-xs text-vc-muted group-hover:text-vc-text transition-colors">Revoke original policy after renewal</span>
+              </label>
+              {renewError && <p className="text-xs text-red-500 dark:text-red-400">{renewError}</p>}
+            </div>
+            <div className="flex items-center justify-end gap-2 px-5 py-4 border-t border-vc-border">
+              <button onClick={() => setRenewTarget(null)} className="px-3 py-1.5 text-sm text-vc-muted hover:text-vc-text border border-vc-border rounded-lg hover:bg-vc-raised transition-colors">Cancel</button>
+              <button
+                onClick={confirmRenew}
+                disabled={renewSaving || !renewExpiry}
+                className="flex items-center gap-1.5 px-4 py-1.5 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              >
+                {renewSaving ? <Loader2 size={13} className="animate-spin" /> : <RotateCcw size={13} />}
+                Renew policy
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Audit Trail ──────────────────────────────────────────────────────── */}
+      <div className="space-y-3 pt-2">
+        {/* Section header + filters */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h2 className="text-sm font-semibold text-vc-text flex items-center gap-1.5">
+              <Activity size={14} className="text-vc-muted" /> Audit Trail
+            </h2>
+            <p className="text-xs text-vc-muted mt-0.5">
+              All activity and intent events for this agent. Click any row for full detail.
+            </p>
+          </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Source filter */}
+            <div className="flex rounded-md overflow-hidden border border-vc-ring text-xs">
+              {(["", "activity", "intent"] as const).map((s) => (
+                <button
+                  key={s}
+                  onClick={() => setAuditSourceFilter(s)}
+                  className={`px-2.5 py-1 transition-colors ${auditSourceFilter === s
+                    ? "bg-indigo-600 text-white"
+                    : "bg-vc-surface text-vc-muted hover:text-vc-text"
+                    }`}
+                >
+                  {s === "" ? "All" : s.charAt(0).toUpperCase() + s.slice(1)}
+                </button>
+              ))}
+            </div>
+            {/* Status filter */}
+            <div className="flex rounded-md overflow-hidden border border-vc-ring text-xs">
+              {(["", "success", "failed"] as const).map((s) => (
+                <button
+                  key={s}
+                  onClick={() => setAuditStatusFilter(s)}
+                  className={`px-2.5 py-1 transition-colors ${auditStatusFilter === s
+                    ? "bg-indigo-600 text-white"
+                    : "bg-vc-surface text-vc-muted hover:text-vc-text"
+                    }`}
+                >
+                  {s === "" ? "Any status" : s.charAt(0).toUpperCase() + s.slice(1)}
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={fetchAudit}
+              className="text-xs text-vc-muted hover:text-vc-text px-2 py-1 rounded-md border border-vc-ring bg-vc-surface transition-colors"
+              title="Refresh"
+            >
+              ↻
+            </button>
+          </div>
+        </div>
+
+        {/* Table */}
+        {auditLoading ? (
+          <div className="flex items-center gap-2 text-vc-muted text-sm py-6 justify-center">
+            <Loader2 size={14} className="animate-spin" /> Loading audit trail…
+          </div>
+        ) : auditEntries.length === 0 ? (
+          <div className="text-center py-10 text-vc-muted text-sm border border-dashed border-vc-border rounded-xl">
+            <Activity size={28} className="mx-auto mb-2 opacity-30" />
+            No audit events found for this agent.
+          </div>
+        ) : (() => {
+          const totalPages = Math.ceil(auditEntries.length / AUDIT_PAGE_SIZE);
+          const page = Math.min(auditPage, totalPages - 1);
+          const slice = auditEntries.slice(page * AUDIT_PAGE_SIZE, (page + 1) * AUDIT_PAGE_SIZE);
+          return (
+            <div className="space-y-2">
+              <div className="bg-vc-surface border border-vc-border rounded-xl overflow-hidden">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="border-b border-vc-border">
+                      <th className="text-left text-vc-subtle uppercase tracking-wider px-3 py-2 font-medium w-24">Source</th>
+                      <th className="text-left text-vc-subtle uppercase tracking-wider px-3 py-2 font-medium">Event</th>
+                      <th className="text-left text-vc-subtle uppercase tracking-wider px-3 py-2 font-medium w-24">Status</th>
+                      <th className="text-left text-vc-subtle uppercase tracking-wider px-3 py-2 font-medium w-36">Time</th>
+                      <th className="w-6" />
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-vc-border">
+                    {slice.map((entry) => {
+                      const isActivity = entry.source === "activity";
+                      return (
+                        <tr
+                          key={entry.id}
+                          onClick={() => router.push(`/governance/audit/${encodeURIComponent(entry.id)}`)}
+                          className="cursor-pointer hover:bg-vc-raised transition-colors group"
+                        >
+                          {/* Source badge */}
+                          <td className="px-3 py-2.5">
+                            <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium border ${isActivity
+                              ? "bg-indigo-100 dark:bg-indigo-500/15 text-indigo-700 dark:text-indigo-400 border-indigo-300 dark:border-indigo-500/25"
+                              : "bg-purple-100 dark:bg-purple-500/15 text-purple-700 dark:text-purple-400 border-purple-300 dark:border-purple-500/25"
+                              }`}>
+                              {isActivity ? <Activity size={9} /> : <FileText size={9} />}
+                              {entry.source}
+                            </span>
+                          </td>
+                          {/* Event name */}
+                          <td className="px-3 py-2.5 text-vc-text">
+                            {AUDIT_LABELS[entry.event] ?? entry.event.replace(/_/g, " ")}
+                          </td>
+                          {/* Status */}
+                          <td className="px-3 py-2.5">
+                            {entry.status === "success" && (
+                              <span className="flex items-center gap-1 text-green-700 dark:text-green-400">
+                                <CheckCircle2 size={11} /> success
+                              </span>
+                            )}
+                            {entry.status === "failed" && (
+                              <span className="flex items-center gap-1 text-red-600 dark:text-red-400">
+                                <XCircle size={11} /> failed
+                              </span>
+                            )}
+                            {entry.status && entry.status !== "success" && entry.status !== "failed" && (
+                              <span className="flex items-center gap-1 text-amber-600 dark:text-amber-400">
+                                <Clock size={11} /> {entry.status}
+                              </span>
+                            )}
+                            {!entry.status && (
+                              <span className="text-vc-subtle">—</span>
+                            )}
+                          </td>
+                          {/* Timestamp */}
+                          <td className="px-3 py-2.5 text-vc-muted">
+                            {timeAgo(entry.timestamp)}
+                          </td>
+                          {/* Arrow */}
+                          <td className="pr-3">
+                            <ChevronRight size={13} className="text-vc-subtle opacity-0 group-hover:opacity-100 transition-opacity" />
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between text-xs text-vc-muted px-1">
+                  <span>{auditEntries.length} events · page {page + 1} of {totalPages}</span>
+                  <div className="flex gap-1">
+                    <button
+                      onClick={() => setAuditPage(Math.max(0, page - 1))}
+                      disabled={page === 0}
+                      className="px-2.5 py-1 rounded border border-vc-ring bg-vc-surface hover:text-vc-text disabled:opacity-40 transition-colors"
+                    >
+                      ‹ Prev
+                    </button>
+                    <button
+                      onClick={() => setAuditPage(Math.min(totalPages - 1, page + 1))}
+                      disabled={page >= totalPages - 1}
+                      className="px-2.5 py-1 rounded border border-vc-ring bg-vc-surface hover:text-vc-text disabled:opacity-40 transition-colors"
+                    >
+                      Next ›
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })()}
+      </div>
     </div>
   );
 }
@@ -1433,12 +2076,12 @@ function ConfigTab({ did, reportedLlm }: { did: string; reportedLlm: { provider:
   // Detect realm routing: config model matches a litellm_model_name in a realm
   const activeRealmRoute = llmConfig?.provider === "openai-compatible"
     ? (() => {
-        for (const realm of realmLlmData?.realms ?? []) {
-          const model = realm.models.find((m) => m.litellmModelName === llmConfig.model);
-          if (model) return { realm, model };
-        }
-        return null;
-      })()
+      for (const realm of realmLlmData?.realms ?? []) {
+        const model = realm.models.find((m) => m.litellmModelName === llmConfig.model);
+        if (model) return { realm, model };
+      }
+      return null;
+    })()
     : null;
 
   const hasRealmRouting = Boolean(
@@ -1511,13 +2154,12 @@ function ConfigTab({ did, reportedLlm }: { did: string; reportedLlm: { provider:
                   key={id}
                   onClick={() => !disabled && setConfigMode(id)}
                   disabled={disabled}
-                  className={`flex-1 py-2 text-xs font-medium transition-colors ${
-                    configMode === id
-                      ? "bg-indigo-600 text-white"
-                      : disabled
-                        ? "bg-vc-bg text-vc-subtle cursor-not-allowed"
-                        : "bg-vc-bg text-vc-muted hover:text-vc-text hover:bg-vc-raised"
-                  }`}
+                  className={`flex-1 py-2 text-xs font-medium transition-colors ${configMode === id
+                    ? "bg-indigo-600 text-white"
+                    : disabled
+                      ? "bg-vc-bg text-vc-subtle cursor-not-allowed"
+                      : "bg-vc-bg text-vc-muted hover:text-vc-text hover:bg-vc-raised"
+                    }`}
                   title={disabled ? hint : undefined}
                 >
                   {label}
@@ -1546,11 +2188,10 @@ function ConfigTab({ did, reportedLlm }: { did: string; reportedLlm: { provider:
                       {realm.models.map((model) => (
                         <label
                           key={model.id}
-                          className={`flex items-center gap-3 px-3 py-3 rounded-xl border cursor-pointer transition-colors ${
-                            selectedRealmId === realm.realmId && selectedRealmModelId === model.id
-                              ? "border-indigo-500 bg-indigo-50 dark:bg-indigo-950/30"
-                              : "border-vc-border hover:border-vc-ring hover:bg-vc-raised/50"
-                          }`}
+                          className={`flex items-center gap-3 px-3 py-3 rounded-xl border cursor-pointer transition-colors ${selectedRealmId === realm.realmId && selectedRealmModelId === model.id
+                            ? "border-indigo-500 bg-indigo-50 dark:bg-indigo-950/30"
+                            : "border-vc-border hover:border-vc-ring hover:bg-vc-raised/50"
+                            }`}
                         >
                           <input
                             type="radio"
@@ -1604,11 +2245,10 @@ function ConfigTab({ did, reportedLlm }: { did: string; reportedLlm: { provider:
                     {registryModels.filter(m => m.status === "active").map((m) => (
                       <label
                         key={m.id}
-                        className={`flex items-center gap-3 px-3 py-3 rounded-xl border cursor-pointer transition-colors ${
-                          selectedRegistryId === m.id
-                            ? "border-indigo-500 bg-indigo-50 dark:bg-indigo-950/30"
-                            : "border-vc-border hover:border-vc-ring hover:bg-vc-raised/50"
-                        }`}
+                        className={`flex items-center gap-3 px-3 py-3 rounded-xl border cursor-pointer transition-colors ${selectedRegistryId === m.id
+                          ? "border-indigo-500 bg-indigo-50 dark:bg-indigo-950/30"
+                          : "border-vc-border hover:border-vc-ring hover:bg-vc-raised/50"
+                          }`}
                       >
                         <input
                           type="radio"

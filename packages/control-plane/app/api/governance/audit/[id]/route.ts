@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
 import { getDb } from "@/lib/db";
-import { Challenger, crypto } from "@vaultys/id";
+import { Challenger, VaultysId, crypto } from "@vaultys/id";
 
 const Buffer = crypto.Buffer;
 
@@ -148,7 +148,9 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
  * Deserialize the agent's most recent certificate and extract:
  *  - capabilities, resourceLimits, policyId, policyExpiresAt from cert metadata
  *  - protocol, state, timestamp
- *  - pk1 / pk2 fingerprints (control-plane and agent keys)
+ *  - pk1 / pk2 DIDs (control-plane and agent)
+ *  - signedPayload: full base64 of the serialized certificate
+ *  - signatureVerified: true when the mutual challenge-response completed (state === 2)
  *
  * Returns null if the agent has no certificate or deserialization fails.
  */
@@ -179,18 +181,30 @@ function resolveCertInfo(
       }
     }
 
+    // Derive DIDs from public key bytes
+    let pk1Did: string | null = null;
+    let pk2Did: string | null = null;
+    try {
+      if ((cert as any).pk1) pk1Did = VaultysId.fromId(Buffer.from((cert as any).pk1 as Uint8Array)).did;
+    } catch { /* ignore */ }
+    try {
+      if ((cert as any).pk2) pk2Did = VaultysId.fromId(Buffer.from((cert as any).pk2 as Uint8Array)).did;
+    } catch { /* ignore */ }
+
+    const state: number | null = (cert as any).state ?? null;
+
     return {
       protocol: (cert as any).protocol ?? null,
-      state: (cert as any).state ?? null,
+      state,
       certTimestamp: (cert as any).timestamp ?? null,
       error: (cert as any).error ?? null,
-      // pk fingerprints (base64, first 16 chars for display)
-      pk1Fingerprint: (cert as any).pk1
-        ? Buffer.from((cert as any).pk1 as Uint8Array).toString("base64").slice(0, 24)
-        : null,
-      pk2Fingerprint: (cert as any).pk2
-        ? Buffer.from((cert as any).pk2 as Uint8Array).toString("base64").slice(0, 24)
-        : null,
+      // DIDs derived from the certificate public keys
+      pk1Did,
+      pk2Did,
+      // signature verified = mutual challenge-response completed successfully
+      signatureVerified: state === 2,
+      // full serialized signed certificate (the signed payload)
+      signedPayload: agentRow.certificate_data,
       // governance metadata
       capabilities,
       resourceLimits: pk2Meta?.resourceLimits ?? null,

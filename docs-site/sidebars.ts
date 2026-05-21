@@ -38,6 +38,7 @@ const sidebars: SidebarsConfig = {
         "guides/deploying-agents",
         "guides/deployment",
         "guides/workflows",
+        "guides/skills",
         "guides/llm-routing",
         "guides/governance",
         "guides/entra-sync",
@@ -65,6 +66,7 @@ const sidebars: SidebarsConfig = {
         "api/workflows",
         "api/tool-approvals",
         "api/models",
+        "api/skills",
       ],
     },
     {

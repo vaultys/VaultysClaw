@@ -20,6 +20,7 @@ import {
   Zap,
   Search,
   X,
+  Plus,
 } from "lucide-react";
 import { useState, useEffect, useCallback, useRef } from "react";
 
@@ -163,13 +164,21 @@ export default function AgentsPage() {
             {total} registered · {onlineCount} online
           </p>
         </div>
-        <span className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full border ${wsConnected
-          ? "bg-green-100 dark:bg-green-900/40 border-green-300 dark:border-green-700/50 text-green-700 dark:text-green-400"
-          : "bg-vc-raised border-vc-border text-vc-subtle"
-          }`}>
-          {wsConnected ? <Wifi className="w-3 h-3" /> : <WifiOff className="w-3 h-3" />}
-          {wsConnected ? "Live" : "Connecting…"}
-        </span>
+        <div className="flex items-center gap-3">
+          <span className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full border ${wsConnected
+            ? "bg-green-100 dark:bg-green-900/40 border-green-300 dark:border-green-700/50 text-green-700 dark:text-green-400"
+            : "bg-vc-raised border-vc-border text-vc-subtle"
+            }`}>
+            {wsConnected ? <Wifi className="w-3 h-3" /> : <WifiOff className="w-3 h-3" />}
+            {wsConnected ? "Live" : "Connecting…"}
+          </span>
+          <button
+            onClick={() => router.push("/agents/create")}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium rounded-lg transition-colors"
+          >
+            <Plus className="w-3.5 h-3.5" /> Create agent
+          </button>
+        </div>
       </div>
 
       {/* Filters bar */}

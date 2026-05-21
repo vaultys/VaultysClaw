@@ -15,6 +15,7 @@ import {
   Activity,
   Trash2,
   Plus,
+  RotateCcw,
   ChevronLeft,
   ChevronRight,
   FolderOpen,
@@ -238,7 +239,7 @@ function OverviewTab({ summary, loading }: { summary: GovernanceSummary | null; 
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
         <StatCard
           icon={<Bot className="w-4 h-4" />}
-          label="Uncovered agents"
+          label="Locked agents"
           value={agents.uncovered}
           sub={`of ${agents.total} total`}
           tone={agents.uncovered === 0 ? "ok" : "warn"}
@@ -322,6 +323,200 @@ function OverviewTab({ summary, loading }: { summary: GovernanceSummary | null; 
   );
 }
 
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+/** Return a datetime-local string N days from now (local time). */
+function daysFromNow(days: number): string {
+  const d = new Date(Date.now() + days * 86_400_000);
+  // datetime-local expects "YYYY-MM-DDTHH:MM" in local time
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+/** Given an original expiry, suggest the same duration from now (min 1 day). */
+function suggestRenewalExpiry(originalExpiresAt: string | null): string {
+  if (originalExpiresAt) {
+    const orig = parseUTC(originalExpiresAt);
+    const durationMs = orig.getTime() - Date.now();
+    const days = Math.max(1, Math.round(durationMs / 86_400_000));
+    return daysFromNow(days);
+  }
+  return daysFromNow(30);
+}
+
+// ── Renew policy modal ────────────────────────────────────────────────────────
+
+function RenewPolicyModal({
+  policy,
+  agentName,
+  onClose,
+  onRenewed,
+}: {
+  policy: Policy;
+  agentName: string | undefined;
+  onClose: () => void;
+  onRenewed: () => void;
+}) {
+  const [newExpiry, setNewExpiry] = useState(() => suggestRenewalExpiry(policy.expiresAt));
+  const [revokeOriginal, setRevokeOriginal] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleRenew = async () => {
+    setSaving(true);
+    setError(null);
+    try {
+      const resourceLimits = policy.resourceLimits && Object.keys(policy.resourceLimits).length > 0
+        ? policy.resourceLimits
+        : undefined;
+
+      const res = await fetch("/api/policies", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          agentDid: policy.agentDid,
+          realmId: policy.realmId,
+          capabilities: policy.capabilities,
+          resourceLimits,
+          expiresAt: newExpiry ? new Date(newExpiry).toISOString() : undefined,
+        }),
+      });
+
+      if (!res.ok) {
+        const d = await res.json() as { error?: string };
+        setError(d.error ?? "Failed to create renewed policy");
+        return;
+      }
+
+      if (revokeOriginal) {
+        await fetch(`/api/policies/${policy.id}`, { method: "DELETE" });
+      }
+
+      onRenewed();
+      onClose();
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+      <div className="bg-vc-surface border border-vc-border rounded-2xl shadow-2xl w-full max-w-md">
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-vc-border">
+          <div className="flex items-center gap-2 text-vc-text">
+            <RotateCcw className="w-4 h-4 text-indigo-500" />
+            <h2 className="font-semibold text-sm">Renew policy</h2>
+          </div>
+          <button
+            onClick={onClose}
+            className="text-vc-subtle hover:text-vc-text transition-colors p-1 rounded-lg hover:bg-vc-raised"
+          >
+            ✕
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="px-5 py-4 space-y-4">
+          {/* Policy summary (read-only) */}
+          <div className="bg-vc-raised border border-vc-border rounded-xl p-3 space-y-2.5">
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-vc-subtle">Agent</span>
+              <span className="text-xs font-medium text-vc-text">
+                {agentName ?? (policy.agentDid ? shortDid(policy.agentDid) : <span className="italic">global</span>)}
+              </span>
+            </div>
+            <div className="flex items-start justify-between gap-3">
+              <span className="text-xs text-vc-subtle shrink-0">Capabilities</span>
+              <div className="flex flex-wrap gap-1 justify-end">
+                {policy.capabilities.map((c) => <CapPill key={c} cap={c} risky={HIGH_RISK_CAPS.has(c)} />)}
+              </div>
+            </div>
+            {policy.resourceLimits && (policy.resourceLimits.maxTokensPerDay || policy.resourceLimits.maxRequestsPerHour) && (
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-vc-subtle">Limits</span>
+                <span className="text-xs text-vc-muted">
+                  {policy.resourceLimits.maxTokensPerDay ? `${fmtNum(policy.resourceLimits.maxTokensPerDay)} tok/d` : ""}
+                  {policy.resourceLimits.maxTokensPerDay && policy.resourceLimits.maxRequestsPerHour ? " · " : ""}
+                  {policy.resourceLimits.maxRequestsPerHour ? `${policy.resourceLimits.maxRequestsPerHour} req/h` : ""}
+                </span>
+              </div>
+            )}
+            {policy.expiresAt && (
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-vc-subtle">Original expiry</span>
+                <span className="text-xs text-amber-600 dark:text-amber-400">
+                  {new Date(policy.expiresAt.endsWith("Z") ? policy.expiresAt : policy.expiresAt + "Z").toLocaleString()}
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* New expiry picker */}
+          <div className="space-y-1.5">
+            <label className="text-xs text-vc-muted font-medium">New expiry date</label>
+            <input
+              type="datetime-local"
+              value={newExpiry}
+              onChange={(e) => setNewExpiry(e.target.value)}
+              className="w-full px-3 py-2 bg-vc-raised border border-vc-border rounded-lg text-sm text-vc-text focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+            <div className="flex gap-2 mt-1">
+              {[7, 30, 90, 365].map((d) => (
+                <button
+                  key={d}
+                  type="button"
+                  onClick={() => setNewExpiry(daysFromNow(d))}
+                  className="text-[11px] px-2 py-0.5 rounded-md border border-vc-border text-vc-muted hover:text-indigo-600 dark:hover:text-indigo-400 hover:border-indigo-400 dark:hover:border-indigo-500 transition-colors"
+                >
+                  +{d}d
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Revoke original checkbox */}
+          <label className="flex items-center gap-2.5 cursor-pointer group">
+            <input
+              type="checkbox"
+              checked={revokeOriginal}
+              onChange={(e) => setRevokeOriginal(e.target.checked)}
+              className="w-4 h-4 rounded accent-indigo-600"
+            />
+            <span className="text-xs text-vc-muted group-hover:text-vc-text transition-colors">
+              Revoke original policy after renewal
+            </span>
+          </label>
+
+          {error && (
+            <p className="text-xs text-red-500 dark:text-red-400">{error}</p>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="flex items-center justify-end gap-2 px-5 py-4 border-t border-vc-border">
+          <button
+            onClick={onClose}
+            className="px-3 py-1.5 text-sm text-vc-muted hover:text-vc-text border border-vc-border rounded-lg hover:bg-vc-raised transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleRenew}
+            disabled={saving || !newExpiry}
+            className="flex items-center gap-1.5 px-4 py-1.5 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          >
+            {saving
+              ? <div className="w-3.5 h-3.5 border border-white/50 border-t-white rounded-full animate-spin" />
+              : <RotateCcw size={13} />}
+            Renew policy
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Tab: Policies ─────────────────────────────────────────────────────────────
 
 function PoliciesTab() {
@@ -331,6 +526,7 @@ function PoliciesTab() {
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [revoking, setRevoking] = useState<string | null>(null);
+  const [renewPolicy, setRenewPolicy] = useState<Policy | null>(null);
   const [savingBudget, setSavingBudget] = useState<string | null>(null);
 
   // New policy form state
@@ -408,7 +604,7 @@ function PoliciesTab() {
           agentDid: form.agentDid,
           capabilities: form.capabilities,
           resourceLimits: Object.keys(resourceLimits).length > 0 ? resourceLimits : undefined,
-          expiresAt: form.expiresAt || undefined,
+          expiresAt: form.expiresAt ? new Date(form.expiresAt).toISOString() : undefined,
         }),
       });
       setForm({ agentDid: "", capabilities: [], maxTokensPerDay: "", maxRequestsPerHour: "", expiresAt: "" });
@@ -564,7 +760,7 @@ function PoliciesTab() {
           <h3 className="text-sm font-semibold text-vc-text">Active policies ({policies.length})</h3>
         </div>
         {policies.length === 0 ? (
-          <div className="px-4 py-10 text-center text-vc-muted text-sm">No active policies. All agents are currently unrestricted.</div>
+          <div className="px-4 py-10 text-center text-vc-muted text-sm">No active policies. All agents are currently locked.</div>
         ) : (
           <table className="w-full text-sm">
             <thead>
@@ -603,16 +799,25 @@ function PoliciesTab() {
                     </td>
                     <td className="px-4 py-2.5 text-xs text-vc-muted">{timeAgo(p.createdAt)}</td>
                     <td className="px-4 py-2.5">
-                      <button
-                        onClick={() => handleRevoke(p.id)}
-                        disabled={revoking === p.id}
-                        className="p-1.5 rounded-lg text-vc-subtle hover:text-red-400 hover:bg-red-500/10 transition-colors disabled:opacity-40"
-                        title="Revoke policy"
-                      >
-                        {revoking === p.id
-                          ? <div className="w-3.5 h-3.5 border border-current border-t-transparent rounded-full animate-spin" />
-                          : <Trash2 size={13} />}
-                      </button>
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => setRenewPolicy(p)}
+                          className="p-1.5 rounded-lg text-vc-subtle hover:text-indigo-500 hover:bg-indigo-500/10 transition-colors"
+                          title="Renew policy"
+                        >
+                          <RotateCcw size={13} />
+                        </button>
+                        <button
+                          onClick={() => handleRevoke(p.id)}
+                          disabled={revoking === p.id}
+                          className="p-1.5 rounded-lg text-vc-subtle hover:text-red-400 hover:bg-red-500/10 transition-colors disabled:opacity-40"
+                          title="Revoke policy"
+                        >
+                          {revoking === p.id
+                            ? <div className="w-3.5 h-3.5 border border-current border-t-transparent rounded-full animate-spin" />
+                            : <Trash2 size={13} />}
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );
@@ -627,7 +832,7 @@ function PoliciesTab() {
         <div className="bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 rounded-xl overflow-hidden">
           <div className="px-4 py-3 border-b border-amber-500/20">
             <h3 className="text-sm font-semibold text-amber-700 dark:text-amber-400 flex items-center gap-2">
-              <ShieldOff className="w-4 h-4" /> Uncovered agents — no active policy
+              <ShieldOff className="w-4 h-4" /> Locked agents — no active policy
             </h3>
           </div>
           <div className="divide-y divide-amber-500/10">
@@ -648,6 +853,16 @@ function PoliciesTab() {
               ))}
           </div>
         </div>
+      )}
+
+      {/* Renew policy modal */}
+      {renewPolicy && (
+        <RenewPolicyModal
+          policy={renewPolicy}
+          agentName={agents.find((a) => a.id === renewPolicy.agentDid)?.name}
+          onClose={() => setRenewPolicy(null)}
+          onRenewed={fetchAll}
+        />
       )}
 
       {/* Token budgets */}

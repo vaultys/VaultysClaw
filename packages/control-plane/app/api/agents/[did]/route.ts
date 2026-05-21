@@ -108,6 +108,12 @@ export async function GET(
       connectedAt: connected?.connectedAt?.toISOString() ?? null,
       lastHeartbeat: connected?.lastHeartbeat?.toISOString() ?? null,
       reportedLlm: connected?.reportedLlm ?? null,
+      storedLlm: (() => {
+        try {
+          const cfg = agent.llm_config ? JSON.parse(agent.llm_config) : null;
+          return cfg ? { provider: cfg.provider as string, model: cfg.model as string } : null;
+        } catch { return null; }
+      })(),
       tokenUsage: connected?.tokenUsage ?? null,
       tokenBudgetDaily: agent.token_budget_daily ?? null,
       tokenBudgetMonthly: agent.token_budget_monthly ?? null,

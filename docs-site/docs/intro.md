@@ -50,6 +50,8 @@ Agent Controller (Node.js)
 
 - **Capability** — A specific permission granted to an agent, such as `file_access`, `internet_access`, or `code_execution`.
 
+- **Skill** — A named unit of reusable agent behaviour attached to a realm. Skills carry Markdown instructions that are automatically injected into agent system prompts at runtime — no code changes required. Skills can be authored manually or imported from the public [skills library](https://skills-library.com).
+
 ## Next steps
 
 - [Architecture](/docs/overview/architecture) — how the control plane and agents communicate

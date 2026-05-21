@@ -10,13 +10,16 @@
  *   --mode headless|tui|web    Run mode (default: headless)
  *   --port N                   Web UI port (default: 3002, web mode only)
  *   --no-browser               Don't auto-open browser (web mode only)
- *   --name, -n <name>          Agent name
+ *   --name, -n <name>          Agent name (REQUIRED — determines isolated data directory)
  *   --ws, -w <url>             WebSocket URL
  *   --data-dir, -d <dir>       Base directory for agent data (default: .vaultys)
  *   --spawn, -s <count>        Spawn multiple headless agents
  *   --prefix, -p <prefix>      Name prefix for spawned agents (default: agent)
  *   --install-service          Install as a system service (macOS/Linux/Windows)
  *   --help, -h                 Show this help message
+ *
+ * Each named agent stores all its state (identity, database, skills) in its own
+ * subdirectory: <data-dir>/<name>/  — so multiple agents can coexist safely.
  */
 
 import { fork } from "child_process";
@@ -116,7 +119,7 @@ function printHelp(): void {
   console.log(`
 VaultysClaw Agent Controller
 
-Usage: agent-controller [options]
+Usage: agent-controller --name <name> [options]
 
 Modes:
   --mode headless    Run silently (default, structured JSON logs to stdout)
@@ -124,22 +127,28 @@ Modes:
   --mode web         Start web dashboard — open http://localhost:<port>
 
 Options:
-  --name, -n <name>     Agent name (default: agent-1 or AGENT_NAME env var)
+  --name, -n <name>     Agent name — REQUIRED. Creates an isolated environment
+                        at <data-dir>/<name>/ (identity, database, skills).
   --ws, -w <url>        Control plane WebSocket URL
-  --data-dir, -d <dir>  Data directory for identity and DB (default: .vaultys)
+  --data-dir, -d <dir>  Base directory for all agents (default: .vaultys)
   --port <N>            Web UI port (default: 3002, web mode only)
   --no-browser          Don't auto-open browser in web mode
-  --spawn, -s <N>       Spawn N headless agent processes
+  --spawn, -s <N>       Spawn N headless agents (auto-names: <prefix>-1 … <prefix>-N)
   --prefix, -p <str>    Name prefix when spawning (default: agent)
   --install-service     Install as auto-start system service
   --help, -h            This help message
 
 Examples:
-  agent-controller                         # headless, single agent
-  agent-controller --mode tui              # terminal dashboard
-  agent-controller --mode web --port 3002  # web dashboard
-  agent-controller --spawn 3               # 3 headless agents
-  agent-controller --install-service       # install as system service
+  agent-controller --name researcher --ws ws://localhost:8080
+  agent-controller --name analyst --mode tui --ws ws://localhost:8080
+  agent-controller --name api-bot --mode web --port 3002 --ws ws://localhost:8080
+  agent-controller --spawn 3 --prefix worker --ws ws://localhost:8080
+  agent-controller --name researcher --install-service
+
+Each agent's data is isolated in its own subdirectory:
+  .vaultys/researcher/agent.id   — identity key
+  .vaultys/researcher/agent.db   — local task/memory database
+  .vaultys/researcher/skills/    — user-defined skill plugins
 `);
 }
 
@@ -285,7 +294,10 @@ function buildEnv(args: CliArgs): NodeJS.ProcessEnv {
   if (args.name) env.AGENT_NAME = args.name;
   if (args.ws) env.CONTROL_PLANE_WS_URL = args.ws;
   const agentName = args.name || env.AGENT_NAME || "agent-1";
-  env.VAULTYS_ID_PATH = path.join(args.dataDir, `${agentName}.id`);
+  // Each agent lives in its own subdirectory for full isolation
+  const agentDir = path.join(args.dataDir, agentName);
+  env.VAULTYS_ID_PATH = path.join(agentDir, "agent.id");
+  env.SKILLS_DIR = path.join(agentDir, "skills");
   return env;
 }
 
@@ -298,10 +310,12 @@ function spawnMultiple(args: CliArgs): void {
 
   for (let i = 1; i <= args.spawn; i++) {
     const name = `${args.prefix}-${i}`;
+    const agentDir = path.join(args.dataDir, name);
     const env: Record<string, string> = {
       ...(process.env as Record<string, string>),
       AGENT_NAME: name,
-      VAULTYS_ID_PATH: path.join(args.dataDir, `${name}.id`),
+      VAULTYS_ID_PATH: path.join(agentDir, "agent.id"),
+      SKILLS_DIR: path.join(agentDir, "skills"),
     };
     if (args.ws) env.CONTROL_PLANE_WS_URL = args.ws;
     console.log(`  [${i}/${args.spawn}] Starting "${name}"`);
@@ -336,6 +350,14 @@ function main(): void {
   if (args.spawn > 0) {
     spawnMultiple(args);
     return;
+  }
+
+  if (!args.name) {
+    console.error("Error: --name <name> is required.");
+    console.error("  Each agent needs a unique name so it can maintain an isolated environment.");
+    console.error("  Example: agent-controller --name my-agent --ws ws://localhost:8080");
+    console.error("  Run with --help for full usage.");
+    process.exit(1);
   }
 
   switch (args.mode) {

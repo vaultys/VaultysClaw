@@ -68,10 +68,16 @@ export const shellTool: AgentToolDefinition = {
                 : (child.exitCode ?? 1)
               : 0;
 
+            let stderrStr = truncate(String(stderr), MAX_OUTPUT_BYTES);
+            // Expose spawn-level errors (e.g. ENOENT) that don't appear in stderr
+            if (error && !stderrStr && (error as any).code !== "ERR_CHILD_PROCESS_STDIO_MAXBUFFER") {
+              stderrStr = error.message;
+            }
+
             resolve({
               exitCode,
               stdout: truncate(String(stdout), MAX_OUTPUT_BYTES),
-              stderr: truncate(String(stderr), MAX_OUTPUT_BYTES),
+              stderr: stderrStr,
             });
           },
         );

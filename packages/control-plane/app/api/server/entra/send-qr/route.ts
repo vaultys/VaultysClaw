@@ -56,7 +56,8 @@ export async function POST(req: NextRequest) {
   }
 
   const didParam = serverDid ? `&did=${encodeURIComponent(serverDid)}` : "";
-  const qrUrl = `https://wallet.vaultys.net/#${connectionString}&protocol=p2p&service=auth${didParam}`;
+  const walletUrl = getSetting("wallet_url") ?? "https://wallet.vaultys.net";
+  const qrUrl = `${walletUrl}/#${connectionString}&protocol=p2p&service=auth${didParam}`;
 
   if (body.sendByEmail) {
     if (!user.email) {

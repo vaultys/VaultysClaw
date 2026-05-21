@@ -66,6 +66,7 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
       version?: string | null;
       isRequired?: boolean;
       config?: Record<string, unknown>;
+      content?: string | null;
     };
 
     const updates: Parameters<typeof updateRealmSkill>[1] = {};
@@ -73,6 +74,7 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
     if ("version" in body) updates.version = body.version ?? null;
     if ("isRequired" in body) updates.isRequired = body.isRequired;
     if ("config" in body) updates.config = body.config;
+    if ("content" in body) updates.content = body.content ?? null;
 
     updateRealmSkill(skillId, updates);
 

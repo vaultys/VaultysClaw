@@ -29,6 +29,8 @@ import {
   XCircle,
   X,
   Inbox,
+  ShieldAlert,
+  RotateCcw,
 } from "lucide-react";
 
 /* ─── Capability icon map ────────────────────────────────────── */
@@ -105,7 +107,7 @@ function LandingPage() {
     <div className="min-h-screen bg-vc-bg text-vc-text overflow-x-hidden">
       {/* Nav */}
       <nav className="sticky top-0 z-10 bg-vc-bg/80 backdrop-blur border-b border-vc-border/60">
-        <div className="flex items-center justify-between px-6 h-16 max-w-6xl mx-auto">
+        <div className="flex items-center justify-between px-6 h-16 max-w-6xl mx-auto animate-fade-in-up">
           <div className="flex items-center gap-2.5">
             <div className="w-7 h-7 bg-indigo-600 rounded-lg flex items-center justify-center shrink-0">
               <Shield className="w-4 h-4 text-white" />
@@ -122,28 +124,52 @@ function LandingPage() {
       </nav>
 
       {/* Hero */}
-      <section className="bg-gradient-to-b from-indigo-50 via-white to-white dark:from-indigo-950/40 dark:via-vc-bg dark:to-vc-bg border-b border-vc-border/60">
-        <div className="max-w-4xl mx-auto px-6 pt-20 pb-20 text-center">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-indigo-100 dark:bg-indigo-900/40 border border-indigo-200 dark:border-indigo-700/50 rounded-full text-indigo-600 dark:text-indigo-300 text-xs font-medium mb-6">
-            <span className="w-1.5 h-1.5 bg-indigo-500 dark:bg-indigo-400 rounded-full" />
+      <section className="relative border-b border-vc-border/60 overflow-hidden">
+        {/* Aurora background */}
+        <div className="absolute inset-0 bg-gradient-to-b from-indigo-50/80 via-white to-white dark:from-indigo-950/40 dark:via-vc-bg dark:to-vc-bg pointer-events-none" />
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[900px] h-[500px] bg-indigo-400/10 dark:bg-indigo-600/15 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute top-24 left-1/3 w-[320px] h-[320px] bg-purple-400/10 dark:bg-purple-500/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute top-16 right-1/3 w-[220px] h-[220px] bg-blue-400/10 dark:bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="mesh-overlay absolute inset-0 opacity-40 pointer-events-none" />
+
+        <div className="relative z-10 max-w-4xl mx-auto px-6 pt-20 pb-20 text-center">
+          {/* Badge */}
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-indigo-100 dark:bg-indigo-900/40 border border-indigo-200 dark:border-indigo-700/50 rounded-full text-indigo-600 dark:text-indigo-300 text-xs font-medium mb-6 animate-fade-in-up">
+            <span className="w-1.5 h-1.5 bg-indigo-500 dark:bg-indigo-400 rounded-full animate-pulse" />
             Powered by VaultysID · Decentralized · Trustless
           </div>
-          <h1 className="text-5xl md:text-6xl font-bold leading-tight mb-5 text-vc-text">
+
+          {/* Headline */}
+          <h1
+            className="text-5xl md:text-6xl font-bold leading-tight mb-5 text-vc-text animate-fade-in-up"
+            style={{ animationDelay: "100ms" }}
+          >
             Sovereign AI Agent{" "}
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-600 dark:from-indigo-400 dark:via-purple-400 dark:to-indigo-400">
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-600 dark:from-indigo-400 dark:via-purple-400 dark:to-indigo-400 animate-gradient-shift">
               Orchestration
             </span>
           </h1>
-          <p className="text-vc-muted text-lg max-w-2xl mx-auto leading-relaxed mb-10">
+
+          {/* Subtitle */}
+          <p
+            className="text-vc-muted text-lg max-w-2xl mx-auto leading-relaxed mb-10 animate-fade-in-up"
+            style={{ animationDelay: "200ms" }}
+          >
             Cryptographically secure control plane for distributed AI agents.
             Full audit trail, hardware-backed identities, zero trust required.
           </p>
-          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+
+          {/* CTAs */}
+          <div
+            className="flex flex-col sm:flex-row gap-3 justify-center animate-fade-in-up"
+            style={{ animationDelay: "300ms" }}
+          >
             <button
               onClick={() => router.push("/login")}
-              className="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold px-6 py-3 rounded-xl transition-colors shadow-lg shadow-indigo-600/20"
+              className="relative overflow-hidden bg-indigo-600 hover:bg-indigo-500 text-white font-semibold px-6 py-3 rounded-xl transition-colors shadow-lg shadow-indigo-600/20 group"
             >
-              Get Started
+              <span className="relative z-10">Get Started</span>
+              <span className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-700 bg-gradient-to-r from-transparent via-white/15 to-transparent" />
             </button>
             <button
               onClick={() => document.getElementById("features")?.scrollIntoView({ behavior: "smooth" })}
@@ -163,8 +189,12 @@ function LandingPage() {
             { value: "10K+", label: "Concurrent agents" },
             { value: "Ed25519", label: "Signatures" },
             { value: "Zero", label: "Trusted third parties" },
-          ].map(({ value, label }) => (
-            <div key={label}>
+          ].map(({ value, label }, i) => (
+            <div
+              key={label}
+              className="animate-fade-in-up"
+              style={{ animationDelay: `${400 + i * 80}ms` }}
+            >
               <p className="text-2xl font-bold text-vc-text">{value}</p>
               <p className="text-vc-muted text-sm mt-0.5">{label}</p>
             </div>
@@ -174,7 +204,7 @@ function LandingPage() {
 
       {/* Features */}
       <section id="features" className="max-w-5xl mx-auto px-6 py-20">
-        <div className="text-center mb-12">
+        <div className="text-center mb-12 animate-fade-in-up" style={{ animationDelay: "100ms" }}>
           <h2 className="text-3xl font-bold mb-3 text-vc-text">Built for security-first teams</h2>
           <p className="text-vc-muted max-w-xl mx-auto">
             Every component is designed around the principle that no party should be
@@ -182,12 +212,13 @@ function LandingPage() {
           </p>
         </div>
         <div className="grid md:grid-cols-2 gap-5">
-          {LANDING_FEATURES.map(({ icon: Icon, title, description }) => (
+          {LANDING_FEATURES.map(({ icon: Icon, title, description }, i) => (
             <div
               key={title}
-              className="flex gap-4 bg-vc-surface border border-vc-border rounded-2xl p-6 hover:border-indigo-300 dark:hover:border-indigo-700 transition-colors"
+              className="flex gap-4 bg-vc-surface border border-vc-border rounded-2xl p-6 hover:border-indigo-300 dark:hover:border-indigo-700 hover:shadow-lg hover:shadow-indigo-500/10 hover:-translate-y-1 transition-all duration-300 group animate-fade-in-up"
+              style={{ animationDelay: `${200 + i * 100}ms` }}
             >
-              <div className="w-10 h-10 bg-indigo-100 dark:bg-indigo-900/40 border border-indigo-200 dark:border-indigo-700/50 rounded-xl flex items-center justify-center shrink-0">
+              <div className="w-10 h-10 bg-indigo-100 dark:bg-indigo-900/40 border border-indigo-200 dark:border-indigo-700/50 rounded-xl flex items-center justify-center shrink-0 group-hover:scale-110 group-hover:bg-indigo-200 dark:group-hover:bg-indigo-800/60 transition-all duration-300">
                 <Icon className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
               </div>
               <div>
@@ -201,14 +232,15 @@ function LandingPage() {
 
       {/* CTA */}
       <section className="max-w-2xl mx-auto px-6 py-16 text-center">
-        <div className="bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800/60 rounded-3xl p-10">
+        <div className="bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800/60 rounded-3xl p-10 animate-fade-in-up">
           <h2 className="text-2xl font-bold mb-3 text-vc-text">Ready to take control?</h2>
           <p className="text-vc-muted mb-6">Sign in with your Vaultys wallet to access the control plane.</p>
           <button
             onClick={() => router.push("/login")}
-            className="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold px-7 py-3 rounded-xl transition-colors shadow-lg shadow-indigo-600/20"
+            className="relative overflow-hidden bg-indigo-600 hover:bg-indigo-500 text-white font-semibold px-7 py-3 rounded-xl transition-colors shadow-lg shadow-indigo-600/20 group"
           >
-            Sign in with VaultysID
+            <span className="relative z-10">Sign in with VaultysID</span>
+            <span className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-700 bg-gradient-to-r from-transparent via-white/15 to-transparent" />
           </button>
         </div>
       </section>
@@ -244,9 +276,95 @@ function Dashboard() {
   const total = agentsState.total;
   const onlineCount = agentsState.online;
 
+  // ── Setup banner ────────────────────────────────────────────────────────────
+  const [setupBanner, setSetupBanner] = useState<{ completedCount: number } | null>(null);
+
+  useEffect(() => {
+    if (!isGlobalAdmin) return;
+    if (localStorage.getItem("vaultysclaw:wizardDone")) return;
+    let completedCount = 0;
+    try {
+      const raw = localStorage.getItem("vaultysclaw:wizardState");
+      if (raw) completedCount = (JSON.parse(raw).completed ?? []).length;
+    } catch { /* ignore */ }
+    setSetupBanner({ completedCount });
+  }, [isGlobalAdmin]);
+
+  const dismissSetupBanner = () => {
+    localStorage.setItem("vaultysclaw:wizardDone", "1");
+    setSetupBanner(null);
+  };
+
   const [approvals, setApprovals] = useState<Approval[]>([]);
   const [acting, setActing] = useState<string | null>(null);
   const [comment, setComment] = useState<Record<string, string>>({});
+
+  interface TokenStats {
+    allTime: { promptTokens: number; completionTokens: number };
+    daily: { promptTokens: number; completionTokens: number };
+    monthly: { promptTokens: number; completionTokens: number };
+  }
+  const [dbTokenStats, setDbTokenStats] = useState<TokenStats | null>(null);
+
+  const fetchTokenStats = () =>
+    fetch("/api/stats/tokens")
+      .then((r) => r.ok ? r.json() : null)
+      .then((d: TokenStats | null) => { if (d) setDbTokenStats(d); })
+      .catch(() => { });
+
+  interface ExpiredPolicy {
+    id: string;
+    agentDid: string | null;
+    capabilities: string[];
+    resourceLimits: { maxTokensPerDay?: number; maxRequestsPerHour?: number } | null;
+    expiresAt: string | null;
+    createdAt: string;
+  }
+  const [expiredPolicies, setExpiredPolicies] = useState<ExpiredPolicy[]>([]);
+  const [renewingPolicy, setRenewingPolicy] = useState<ExpiredPolicy | null>(null);
+  const [renewExpiry, setRenewExpiry] = useState("");
+  const [renewSaving, setRenewSaving] = useState(false);
+
+  const fetchExpiredPolicies = () => {
+    if (!isGlobalAdmin) return;
+    fetch("/api/policies?expiredOnly=true")
+      .then((r) => r.ok ? r.json() : { policies: [] })
+      .then((d: { policies?: ExpiredPolicy[] }) => setExpiredPolicies(d.policies ?? []))
+      .catch(() => { });
+  };
+
+  const openRenewFromDashboard = (p: ExpiredPolicy) => {
+    const pad = (n: number) => String(n).padStart(2, "0");
+    const d = new Date(Date.now() + 30 * 86_400_000);
+    setRenewExpiry(`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`);
+    setRenewingPolicy(p);
+  };
+
+  const confirmRenewFromDashboard = async () => {
+    if (!renewingPolicy) return;
+    setRenewSaving(true);
+    try {
+      const rl = renewingPolicy.resourceLimits && Object.keys(renewingPolicy.resourceLimits).length > 0
+        ? renewingPolicy.resourceLimits : undefined;
+      const res = await fetch("/api/policies", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          agentDid: renewingPolicy.agentDid,
+          capabilities: renewingPolicy.capabilities,
+          resourceLimits: rl,
+          expiresAt: renewExpiry ? new Date(renewExpiry).toISOString() : undefined,
+        }),
+      });
+      if (res.ok) {
+        await fetch(`/api/policies/${encodeURIComponent(renewingPolicy.id)}`, { method: "DELETE" });
+        setRenewingPolicy(null);
+        fetchExpiredPolicies();
+      }
+    } finally {
+      setRenewSaving(false);
+    }
+  };
 
   const fetchApprovals = () =>
     fetch("/api/workflow-approvals")
@@ -257,6 +375,19 @@ function Dashboard() {
   useEffect(() => {
     fetchApprovals();
     const id = setInterval(fetchApprovals, 15_000);
+    return () => clearInterval(id);
+  }, []);
+
+  useEffect(() => {
+    fetchExpiredPolicies();
+    const id = setInterval(fetchExpiredPolicies, 60_000);
+    return () => clearInterval(id);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isGlobalAdmin]);
+
+  useEffect(() => {
+    fetchTokenStats();
+    const id = setInterval(fetchTokenStats, 60_000);
     return () => clearInterval(id);
   }, []);
 
@@ -292,27 +423,24 @@ function Dashboard() {
   const pendingApprovals = approvals.filter((a) => a.mode === "approval" && a.status === "pending");
   const notifications = approvals.filter((a) => a.mode === "notification" && a.status === "notified");
 
-  // Calculate fleet-wide token metrics
+  // Calculate fleet-wide token metrics — prefer DB (all agents) over WS state (online only)
   const onlineAgents = agents.filter((a) => a.online);
-  const tokenMetrics = onlineAgents.reduce(
+  const wsMetrics = onlineAgents.reduce(
     (acc, agent) => {
-      if (agent.tokenUsage) {
-        acc.totalPrompt += agent.tokenUsage.promptTokens;
-        acc.totalCompletion += agent.tokenUsage.completionTokens;
-      }
-      if (agent.dailyTokenUsage) {
-        acc.dailyPrompt += agent.dailyTokenUsage.promptTokens;
-        acc.dailyCompletion += agent.dailyTokenUsage.completionTokens;
-      }
-      if (agent.monthlyTokenUsage) {
-        acc.monthlyPrompt += agent.monthlyTokenUsage.promptTokens;
-        acc.monthlyCompletion += agent.monthlyTokenUsage.completionTokens;
-      }
       acc.dailyPrice += agent.dailyPriceSpent ?? 0;
       return acc;
     },
-    { totalPrompt: 0, totalCompletion: 0, dailyPrompt: 0, dailyCompletion: 0, monthlyPrompt: 0, monthlyCompletion: 0, dailyPrice: 0 }
+    { dailyPrice: 0 }
   );
+  const tokenMetrics = {
+    totalPrompt: dbTokenStats?.allTime.promptTokens ?? 0,
+    totalCompletion: dbTokenStats?.allTime.completionTokens ?? 0,
+    dailyPrompt: dbTokenStats?.daily.promptTokens ?? 0,
+    dailyCompletion: dbTokenStats?.daily.completionTokens ?? 0,
+    monthlyPrompt: dbTokenStats?.monthly.promptTokens ?? 0,
+    monthlyCompletion: dbTokenStats?.monthly.completionTokens ?? 0,
+    dailyPrice: wsMetrics.dailyPrice,
+  };
 
   const totalTokensDaily = tokenMetrics.dailyPrompt + tokenMetrics.dailyCompletion;
   const totalTokensMonthly = tokenMetrics.monthlyPrompt + tokenMetrics.monthlyCompletion;
@@ -360,6 +488,129 @@ function Dashboard() {
           </div>
           <ChevronRight className="w-4 h-4 shrink-0 group-hover:translate-x-0.5 transition-transform" />
         </button>
+      )}
+
+      {/* Expired policies alert — global admin only */}
+      {isGlobalAdmin && expiredPolicies.length > 0 && (
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-300 dark:border-red-700/50 rounded-lg overflow-hidden">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-red-200 dark:border-red-700/40">
+            <span className="flex items-center gap-2 text-red-700 dark:text-red-400 text-sm font-medium">
+              <ShieldAlert className="w-4 h-4 shrink-0" />
+              {expiredPolicies.length} expired polic{expiredPolicies.length === 1 ? "y" : "ies"} — agents are locked
+            </span>
+            <button
+              onClick={() => router.push("/governance")}
+              className="text-xs text-red-600 dark:text-red-400 hover:underline flex items-center gap-1"
+            >
+              View all <ChevronRight className="w-3 h-3" />
+            </button>
+          </div>
+          <div className="divide-y divide-red-200/60 dark:divide-red-700/20">
+            {expiredPolicies.slice(0, 5).map((p) => {
+              const agentName = agents.find((a) => a.id === p.agentDid)?.name;
+              const expiredAgo = p.expiresAt
+                ? (() => {
+                    const secs = Math.floor((Date.now() - new Date(p.expiresAt.endsWith("Z") ? p.expiresAt : p.expiresAt + "Z").getTime()) / 1000);
+                    if (secs < 60) return `${secs}s ago`;
+                    const mins = Math.floor(secs / 60);
+                    if (mins < 60) return `${mins}m ago`;
+                    const hrs = Math.floor(mins / 60);
+                    if (hrs < 24) return `${hrs}h ago`;
+                    return `${Math.floor(hrs / 24)}d ago`;
+                  })()
+                : "";
+              return (
+                <div key={p.id} className="flex items-center justify-between gap-3 px-4 py-2.5">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="min-w-0">
+                      <p className="text-xs font-medium text-red-800 dark:text-red-300 truncate">
+                        {agentName ?? (p.agentDid ? `${p.agentDid.slice(0, 24)}…` : "Global")}
+                      </p>
+                      <p className="text-[11px] text-red-600/70 dark:text-red-400/60">
+                        Expired {expiredAgo} · {p.capabilities.length} cap{p.capabilities.length !== 1 ? "s" : ""}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => openRenewFromDashboard(p)}
+                    className="flex-shrink-0 flex items-center gap-1 text-xs font-medium text-red-700 dark:text-red-400 hover:text-indigo-600 dark:hover:text-indigo-400 border border-red-300 dark:border-red-500/30 hover:border-indigo-400 dark:hover:border-indigo-500/50 px-2.5 py-1 rounded-md transition-colors"
+                  >
+                    <RotateCcw className="w-3 h-3" /> Renew
+                  </button>
+                </div>
+              );
+            })}
+            {expiredPolicies.length > 5 && (
+              <p className="px-4 py-2 text-xs text-red-600/70 dark:text-red-400/60">
+                +{expiredPolicies.length - 5} more — <button onClick={() => router.push("/governance")} className="underline hover:no-underline">view in Governance</button>
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Renew policy modal (from dashboard) */}
+      {renewingPolicy && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-vc-surface border border-vc-border rounded-2xl shadow-2xl w-full max-w-sm">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-vc-border">
+              <span className="flex items-center gap-2 text-sm font-semibold text-vc-text">
+                <RotateCcw className="w-4 h-4 text-indigo-500" /> Renew expired policy
+              </span>
+              <button onClick={() => setRenewingPolicy(null)} className="text-vc-subtle hover:text-vc-text p-1 rounded-lg hover:bg-vc-raised transition-colors">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="px-5 py-4 space-y-4">
+              <div className="bg-vc-raised border border-vc-border rounded-xl p-3 space-y-1.5">
+                <p className="text-xs font-medium text-vc-text">
+                  {agents.find((a) => a.id === renewingPolicy.agentDid)?.name ?? renewingPolicy.agentDid?.slice(0, 30) ?? "Global"}
+                </p>
+                <p className="text-xs text-vc-muted">{renewingPolicy.capabilities.join(", ")}</p>
+                {renewingPolicy.expiresAt && (
+                  <p className="text-xs text-red-500 dark:text-red-400">
+                    Expired {new Date(renewingPolicy.expiresAt.endsWith("Z") ? renewingPolicy.expiresAt : renewingPolicy.expiresAt + "Z").toLocaleString()}
+                  </p>
+                )}
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs text-vc-muted font-medium">New expiry date</label>
+                <input
+                  type="datetime-local"
+                  value={renewExpiry}
+                  onChange={(e) => setRenewExpiry(e.target.value)}
+                  className="w-full px-3 py-2 bg-vc-raised border border-vc-border rounded-lg text-sm text-vc-text focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+                <div className="flex gap-1.5 mt-1">
+                  {([7, 30, 90, 365] as const).map((days) => {
+                    const pad = (n: number) => String(n).padStart(2, "0");
+                    const d = new Date(Date.now() + days * 86_400_000);
+                    const val = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+                    return (
+                      <button key={days} type="button" onClick={() => setRenewExpiry(val)}
+                        className="text-[11px] px-2 py-0.5 rounded-md border border-vc-border text-vc-muted hover:text-indigo-600 dark:hover:text-indigo-400 hover:border-indigo-400 transition-colors">
+                        +{days}d
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center justify-end gap-2 px-5 py-4 border-t border-vc-border">
+              <button onClick={() => setRenewingPolicy(null)} className="px-3 py-1.5 text-sm text-vc-muted hover:text-vc-text border border-vc-border rounded-lg hover:bg-vc-raised transition-colors">Cancel</button>
+              <button
+                onClick={confirmRenewFromDashboard}
+                disabled={renewSaving || !renewExpiry}
+                className="flex items-center gap-1.5 px-4 py-1.5 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              >
+                {renewSaving
+                  ? <div className="w-3.5 h-3.5 border border-white/50 border-t-white rounded-full animate-spin" />
+                  : <RotateCcw className="w-3.5 h-3.5" />}
+                Renew &amp; revoke old
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {total === 0 && (
@@ -524,6 +775,45 @@ function Dashboard() {
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Setup banner ──────────────────────────────────────────────────── */}
+      {setupBanner && (
+        <div className="flex items-center justify-between gap-4 bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-950/60 dark:to-purple-950/40 border border-indigo-200 dark:border-indigo-700/50 rounded-xl px-4 py-3.5">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-9 h-9 bg-indigo-600 rounded-xl flex items-center justify-center shrink-0 shadow shadow-indigo-600/30">
+              <Shield className="w-4.5 h-4.5 text-white" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-indigo-700 dark:text-indigo-300">
+                {setupBanner.completedCount > 0
+                  ? `Setup in progress — ${setupBanner.completedCount} of 4 steps done`
+                  : "Finish setting up VaultysClaw"}
+              </p>
+              <p className="text-xs text-indigo-600/60 dark:text-indigo-400/60 truncate">
+                {setupBanner.completedCount > 0
+                  ? "Pick up where you left off — models, email, users and agents."
+                  : "Configure LLM models, email, users, and your first agent."}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={() => router.push("/setup")}
+              className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium rounded-lg transition-colors shadow shadow-indigo-600/20"
+            >
+              {setupBanner.completedCount > 0 ? "Continue" : "Start setup"}
+              <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={dismissSetupBanner}
+              title="Dismiss permanently"
+              className="p-1.5 text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-200 rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-colors"
+            >
+              <X className="w-4 h-4" />
+            </button>
           </div>
         </div>
       )}

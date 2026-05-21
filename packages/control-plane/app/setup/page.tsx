@@ -4,8 +4,10 @@ import React, { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
   Cpu, Mail, Users, Bot, Check, X, ChevronRight, Shield,
+  Plus, RefreshCw, CheckCircle2, XCircle,
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
+import { RegisterModelModal } from "@/components/models/RegisterModelModal";
 
 // ─── LocalStorage helpers ─────────────────────────────────────────────────────
 
@@ -26,6 +28,65 @@ function loadWizardState(): WizardState {
 
 function saveWizardState(s: WizardState) {
   localStorage.setItem(LS_STATE, JSON.stringify(s));
+}
+
+// ─── Step progress bar ───────────────────────────────────────────────────────
+
+function StepProgress({
+  currentIdx,
+  completedSteps,
+}: {
+  currentIdx: number;
+  completedSteps: Set<StepId>;
+}) {
+  return (
+    <div className="flex items-start mb-8">
+      {STEPS.map(({ id, label, icon: Icon }, idx) => {
+        const isActive    = idx === currentIdx;
+        const isPast      = idx < currentIdx;
+        const isCompleted = completedSteps.has(id);
+        return (
+          <React.Fragment key={id}>
+            <div className="flex flex-col items-center gap-1.5 min-w-[56px]">
+              <div className={`w-9 h-9 rounded-full border-2 flex items-center justify-center transition-all duration-300 ${
+                isActive
+                  ? "border-indigo-500 bg-indigo-500 text-white shadow-md shadow-indigo-500/30"
+                  : isPast && isCompleted
+                  ? "border-green-500 bg-green-500 text-white"
+                  : isPast
+                  ? "border-vc-border bg-vc-raised text-vc-muted"
+                  : "border-vc-border bg-vc-surface text-vc-subtle"
+              }`}>
+                {isPast && isCompleted
+                  ? <Check className="w-4 h-4" />
+                  : <Icon className="w-4 h-4" />}
+              </div>
+              <span className={`text-[11px] font-medium whitespace-nowrap ${
+                isActive
+                  ? "text-indigo-500 dark:text-indigo-400"
+                  : isPast && isCompleted
+                  ? "text-green-600 dark:text-green-400"
+                  : isPast
+                  ? "text-vc-muted"
+                  : "text-vc-subtle"
+              }`}>
+                {label}
+              </span>
+            </div>
+            {idx < STEPS.length - 1 && (
+              <div className={`flex-1 h-0.5 mt-[18px] mx-1 transition-colors duration-500 ${
+                idx < currentIdx && completedSteps.has(STEPS[idx].id)
+                  ? "bg-green-400 dark:bg-green-500"
+                  : idx < currentIdx
+                  ? "bg-vc-border"
+                  : "bg-vc-raised"
+              }`} />
+            )}
+          </React.Fragment>
+        );
+      })}
+    </div>
+  );
 }
 
 // ─── Step registry ────────────────────────────────────────────────────────────
@@ -82,47 +143,60 @@ function StepFooter({
   );
 }
 
-const PROVIDERS = [
-  { value: "openai-compatible", label: "OpenAI-compatible" },
-  { value: "openai",            label: "OpenAI"            },
-  { value: "anthropic",         label: "Anthropic"         },
-  { value: "google",            label: "Google"            },
-  { value: "ollama",            label: "Ollama"            },
-];
-
 // ─── Step 1 — LLM Model ───────────────────────────────────────────────────────
+
+interface ModelEntry {
+  id: string;
+  name: string;
+  provider: string;
+  modelId: string;
+  status: "active" | "inactive";
+}
+
+function ProviderBadge({ provider }: { provider: string }) {
+  const colors: Record<string, string> = {
+    openai: "bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400 border-emerald-300 dark:border-emerald-800",
+    "openai-compatible": "bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400 border-blue-300 dark:border-blue-800",
+    anthropic: "bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-400 border-orange-300 dark:border-orange-800",
+    google: "bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700 dark:text-yellow-400 border-yellow-300 dark:border-yellow-800",
+    ollama: "bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-400 border-purple-300 dark:border-purple-800",
+  };
+  return (
+    <span className={`text-xs px-2 py-0.5 rounded-full border font-medium shrink-0 ${colors[provider] ?? "bg-gray-100 dark:bg-zinc-800 text-gray-600 dark:text-zinc-400 border-gray-300 dark:border-zinc-700"}`}>
+      {provider}
+    </span>
+  );
+}
 
 function ModelStep({
   onNext, onSkip,
 }: { onNext: () => void; onSkip: () => void }) {
-  const [name,     setName]     = useState("");
-  const [provider, setProvider] = useState("openai-compatible");
-  const [modelId,  setModelId]  = useState("");
-  const [baseUrl,  setBaseUrl]  = useState("");
-  const [apiKey,   setApiKey]   = useState("");
-  const [saving,   setSaving]   = useState(false);
-  const [error,    setError]    = useState("");
-  const [added,    setAdded]    = useState<string[]>([]);
+  const [models,       setModels]       = useState<ModelEntry[]>([]);
+  const [fetching,     setFetching]     = useState(true);
+  const [showRegister, setShowRegister] = useState(false);
+  const [testResults,  setTestResults]  = useState<Record<string, { ok: boolean; error?: string } | "testing">>({});
 
-  const handleAdd = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!name.trim() || !modelId.trim() || !baseUrl.trim()) {
-      setError("Name, Model ID and Base URL are required");
-      return;
-    }
-    setSaving(true); setError("");
+  const loadModels = useCallback(async () => {
     try {
-      const res = await fetch("/api/models", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, provider, modelId, baseUrl, apiKey: apiKey || undefined }),
-      });
-      const data = await res.json();
-      if (!res.ok) { setError(data.error ?? "Failed"); return; }
-      setAdded((a) => [...a, name]);
-      setName(""); setModelId(""); setBaseUrl(""); setApiKey("");
-    } catch { setError("Network error"); }
-    finally { setSaving(false); }
+      const res = await fetch("/api/models");
+      const data = await res.json() as { models?: ModelEntry[] };
+      setModels(data.models ?? []);
+    } finally {
+      setFetching(false);
+    }
+  }, []);
+
+  useEffect(() => { loadModels(); }, [loadModels]);
+
+  const testModel = async (id: string) => {
+    setTestResults((r) => ({ ...r, [id]: "testing" }));
+    try {
+      const res = await fetch(`/api/models/${id}/validate`, { method: "POST" });
+      const data = await res.json() as { ok: boolean; error?: string };
+      setTestResults((r) => ({ ...r, [id]: data }));
+    } catch {
+      setTestResults((r) => ({ ...r, [id]: { ok: false, error: "Network error" } }));
+    }
   };
 
   return (
@@ -131,51 +205,67 @@ function ModelStep({
         Connect an LLM so your agents can reason and act. You can register more models later from the Models page.
       </p>
 
-      {added.length > 0 && (
-        <div className="flex flex-wrap gap-2">
-          {added.map((n) => (
-            <span key={n} className="flex items-center gap-1.5 text-xs bg-green-100 dark:bg-green-500/15 border border-green-300 dark:border-green-500/30 text-green-700 dark:text-green-400 px-2.5 py-1 rounded-full">
-              <Check className="w-3 h-3" />{n}
-            </span>
-          ))}
+      {fetching ? (
+        <div className="flex items-center justify-center py-6">
+          <div className="w-5 h-5 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+        </div>
+      ) : models.length === 0 ? (
+        <div className="rounded-xl border border-vc-border border-dashed bg-vc-raised/40 py-6 text-center space-y-1">
+          <Cpu className="w-6 h-6 text-vc-subtle mx-auto" />
+          <p className="text-sm text-vc-muted">No models registered yet</p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {models.map((m) => {
+            const result    = testResults[m.id];
+            const isTesting = result === "testing";
+            return (
+              <div key={m.id} className="flex items-center gap-3 px-4 py-3 bg-vc-raised border border-vc-border rounded-xl">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-vc-text truncate">{m.name}</p>
+                  <code className="text-xs text-vc-muted font-mono truncate block">{m.modelId}</code>
+                </div>
+                <ProviderBadge provider={m.provider} />
+                {result !== undefined && result !== "testing" && (
+                  result.ok
+                    ? <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" />
+                    : <XCircle      className="w-4 h-4 text-red-500 shrink-0"   />
+                )}
+                <button
+                  onClick={() => testModel(m.id)}
+                  disabled={isTesting}
+                  className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border border-vc-border text-vc-muted hover:text-vc-text hover:bg-vc-surface transition-colors disabled:opacity-50 shrink-0"
+                >
+                  {isTesting
+                    ? <div className="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin" />
+                    : <RefreshCw className="w-3 h-3" />}
+                  Test
+                </button>
+              </div>
+            );
+          })}
         </div>
       )}
 
-      <form onSubmit={handleAdd} className="space-y-4">
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="Name *" value={name} onChange={(e) => setName(e.target.value)} placeholder="GPT-4o" />
-          <div>
-            <label className="block text-xs text-vc-muted mb-1.5">Provider</label>
-            <select
-              value={provider}
-              onChange={(e) => setProvider(e.target.value)}
-              className="w-full bg-vc-raised border border-vc-border rounded-xl px-3 py-2 text-sm text-vc-text focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
-            >
-              {PROVIDERS.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
-            </select>
-          </div>
-          <Field label="Model ID *" value={modelId} onChange={(e) => setModelId(e.target.value)} placeholder="gpt-4o" />
-          <Field label="Base URL *" value={baseUrl}  onChange={(e) => setBaseUrl(e.target.value)}  placeholder="https://api.openai.com/v1" />
-          <div className="col-span-2">
-            <Field label="API Key" type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)} placeholder="sk-…" />
-          </div>
-        </div>
+      <StepFooter
+        onSkip={models.length > 0 ? onNext : onSkip}
+        skipLabel={models.length > 0 ? "Continue →" : "Skip for now"}
+      >
+        <button
+          type="button"
+          onClick={() => setShowRegister(true)}
+          className="flex items-center gap-2 px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium rounded-xl transition-colors"
+        >
+          <Plus className="w-4 h-4" /> Register model
+        </button>
+      </StepFooter>
 
-        {error && <p className="text-xs text-red-600 dark:text-red-400">{error}</p>}
-
-        <StepFooter onSkip={onSkip} skipLabel={added.length > 0 ? "Continue →" : "Skip for now"}>
-          <button
-            type="submit"
-            disabled={saving}
-            className="flex items-center gap-2 px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium rounded-xl disabled:opacity-50 transition-colors"
-          >
-            {saving
-              ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              : <Cpu className="w-4 h-4" />}
-            {added.length > 0 ? "Add another" : "Register model"}
-          </button>
-        </StepFooter>
-      </form>
+      {showRegister && (
+        <RegisterModelModal
+          onClose={() => setShowRegister(false)}
+          onCreated={loadModels}
+        />
+      )}
     </div>
   );
 }
@@ -691,20 +781,23 @@ export default function SetupPage() {
         </header>
 
         {/* Content area */}
-        <div className="flex-1 flex items-center justify-center p-6 md:p-12">
-          <div className="w-full max-w-xl animate-fade-in-up">
+        <div className="flex-1 flex flex-col items-center p-6 md:p-12 pt-10 md:pt-14">
+          <div className="w-full max-w-2xl animate-fade-in-up">
             {done ? (
               <DoneStep completedSteps={completedSteps} onClose={() => finish("/")} />
             ) : (
               <>
-                {/* Step header */}
+                {/* Step header — pinned to top */}
                 <div className="mb-1">
                   <span className="text-vc-subtle text-xs font-semibold uppercase tracking-widest">
                     Step {currentIdx + 1} of {STEP_IDS.length}
                   </span>
                 </div>
-                <h1 className="text-2xl font-bold text-vc-text mb-1">{STEPS[currentIdx].label}</h1>
-                <p className="text-vc-muted text-sm mb-6">{STEPS[currentIdx].desc}</p>
+                <h1 className="text-3xl font-bold text-vc-text mb-1">{STEPS[currentIdx].label}</h1>
+                <p className="text-vc-muted text-sm mb-8">{STEPS[currentIdx].desc}</p>
+
+                {/* Step progress */}
+                <StepProgress currentIdx={currentIdx} completedSteps={completedSteps} />
 
                 {/* Step card */}
                 <div className="bg-vc-surface border border-vc-border rounded-2xl p-6 shadow-sm">
@@ -723,7 +816,7 @@ export default function SetupPage() {
                 </div>
 
                 {/* Mobile step dots */}
-                <div className="flex items-center justify-center gap-2 mt-6 md:hidden">
+                <div className="flex items-center justify-center gap-2 mt-5 md:hidden">
                   {STEPS.map((s, i) => (
                     <button
                       key={s.id}

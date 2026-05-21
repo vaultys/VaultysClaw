@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
-  Cpu, Mail, Users, Bot, Check, X, ChevronRight, ChevronLeft, Shield,
+  Cpu, Mail, Users, Bot, Check, X, ChevronRight, Shield,
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 
@@ -52,41 +52,30 @@ function Field({ label, ...props }: React.InputHTMLAttributes<HTMLInputElement> 
   );
 }
 
-/** Consistent step footer: Back on left, Skip + primary CTA on right */
+/** Consistent step footer: Skip on left, primary CTA on right */
 function StepFooter({
-  onBack,
   onSkip,
   skipLabel = "Skip for now",
   children,
 }: {
-  onBack?: () => void;
   onSkip?: () => void;
   skipLabel?: string;
   children: React.ReactNode;
 }) {
   return (
     <div className="flex items-center justify-between pt-2 mt-1 border-t border-vc-border">
-      {onBack ? (
+      {onSkip ? (
         <button
           type="button"
-          onClick={onBack}
-          className="flex items-center gap-1 text-sm text-vc-subtle hover:text-vc-muted transition-colors"
+          onClick={onSkip}
+          className="text-sm text-vc-subtle hover:text-vc-muted transition-colors"
         >
-          <ChevronLeft className="w-4 h-4" /> Back
+          {skipLabel}
         </button>
       ) : (
         <div />
       )}
       <div className="flex items-center gap-3">
-        {onSkip && (
-          <button
-            type="button"
-            onClick={onSkip}
-            className="text-sm text-vc-subtle hover:text-vc-muted transition-colors"
-          >
-            {skipLabel}
-          </button>
-        )}
         {children}
       </div>
     </div>
@@ -104,8 +93,8 @@ const PROVIDERS = [
 // ─── Step 1 — LLM Model ───────────────────────────────────────────────────────
 
 function ModelStep({
-  onNext, onSkip, onBack,
-}: { onNext: () => void; onSkip: () => void; onBack?: () => void }) {
+  onNext, onSkip,
+}: { onNext: () => void; onSkip: () => void }) {
   const [name,     setName]     = useState("");
   const [provider, setProvider] = useState("openai-compatible");
   const [modelId,  setModelId]  = useState("");
@@ -174,7 +163,7 @@ function ModelStep({
 
         {error && <p className="text-xs text-red-600 dark:text-red-400">{error}</p>}
 
-        <StepFooter onBack={onBack} onSkip={onSkip} skipLabel={added.length > 0 ? "Continue →" : "Skip for now"}>
+        <StepFooter onSkip={onSkip} skipLabel={added.length > 0 ? "Continue →" : "Skip for now"}>
           <button
             type="submit"
             disabled={saving}
@@ -194,8 +183,8 @@ function ModelStep({
 // ─── Step 2 — Email / SMTP ────────────────────────────────────────────────────
 
 function EmailStep({
-  onNext, onSkip, onBack,
-}: { onNext: () => void; onSkip: () => void; onBack?: () => void }) {
+  onNext, onSkip,
+}: { onNext: () => void; onSkip: () => void }) {
   const [host,     setHost]     = useState("");
   const [port,     setPort]     = useState("587");
   const [user,     setUser]     = useState("");
@@ -264,7 +253,7 @@ function EmailStep({
         </p>
       )}
 
-      <StepFooter onBack={onBack} onSkip={onSkip}>
+      <StepFooter onSkip={onSkip}>
         <button
           type="button" onClick={test} disabled={testing || !host}
           className="flex items-center gap-1.5 px-4 py-2 text-sm border border-vc-border text-vc-muted hover:text-vc-text hover:bg-vc-raised rounded-xl disabled:opacity-40 transition-colors"
@@ -289,8 +278,8 @@ function EmailStep({
 // ─── Step 3 — Users ───────────────────────────────────────────────────────────
 
 function UsersStep({
-  onNext, onSkip, onBack,
-}: { onNext: () => void; onSkip: () => void; onBack?: () => void }) {
+  onNext, onSkip,
+}: { onNext: () => void; onSkip: () => void }) {
   const [tab,        setTab]        = useState<"qr" | "entra">("qr");
   const [phase,      setPhase]      = useState<"idle" | "loading" | "qr" | "success" | "failure">("idle");
   const [qrUrl,      setQrUrl]      = useState("");
@@ -421,7 +410,6 @@ function UsersStep({
       {/* Footer — only shown when not mid-flow */}
       {(isIdle || tab === "entra") && (
         <StepFooter
-          onBack={onBack}
           onSkip={onSkip}
           skipLabel={addedCount > 0 ? "Continue →" : "Skip for now"}
         >
@@ -439,8 +427,8 @@ function UsersStep({
 // ─── Step 4 — Agents ──────────────────────────────────────────────────────────
 
 function AgentStep({
-  onSkip, onBack, onFinish,
-}: { onSkip: () => void; onBack?: () => void; onFinish: () => void }) {
+  onSkip, onFinish,
+}: { onSkip: () => void; onFinish: () => void }) {
   return (
     <div className="space-y-5">
       <p className="text-vc-muted text-sm leading-relaxed">
@@ -461,7 +449,7 @@ function AgentStep({
         ))}
       </div>
 
-      <StepFooter onBack={onBack} onSkip={onSkip}>
+      <StepFooter onSkip={onSkip}>
         <button
           onClick={onFinish}
           className="flex items-center gap-2 px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium rounded-xl transition-colors"
@@ -642,10 +630,6 @@ export default function SetupPage() {
     saveWizardState({ step: idx, completed: [...completedSteps] });
   };
 
-  const goBack = () => {
-    if (currentIdx > 0) goToStep(currentIdx - 1);
-  };
-
   /** Advance to next step, optionally marking current as complete */
   const advance = (completed: boolean) => {
     const newSet = completed
@@ -714,19 +698,10 @@ export default function SetupPage() {
             ) : (
               <>
                 {/* Step header */}
-                <div className="flex items-center justify-between mb-1">
+                <div className="mb-1">
                   <span className="text-vc-subtle text-xs font-semibold uppercase tracking-widest">
                     Step {currentIdx + 1} of {STEP_IDS.length}
                   </span>
-                  {/* Mobile back link */}
-                  {currentIdx > 0 && (
-                    <button
-                      onClick={goBack}
-                      className="md:hidden flex items-center gap-1 text-xs text-vc-subtle hover:text-vc-muted transition-colors"
-                    >
-                      <ChevronLeft className="w-3.5 h-3.5" /> Back
-                    </button>
-                  )}
                 </div>
                 <h1 className="text-2xl font-bold text-vc-text mb-1">{STEPS[currentIdx].label}</h1>
                 <p className="text-vc-muted text-sm mb-6">{STEPS[currentIdx].desc}</p>
@@ -734,32 +709,16 @@ export default function SetupPage() {
                 {/* Step card */}
                 <div className="bg-vc-surface border border-vc-border rounded-2xl p-6 shadow-sm">
                   {currentStep === "model" && (
-                    <ModelStep
-                      onNext={() => advance(true)}
-                      onSkip={() => advance(false)}
-                      onBack={currentIdx > 0 ? goBack : undefined}
-                    />
+                    <ModelStep onNext={() => advance(true)} onSkip={() => advance(false)} />
                   )}
                   {currentStep === "email" && (
-                    <EmailStep
-                      onNext={() => advance(true)}
-                      onSkip={() => advance(false)}
-                      onBack={goBack}
-                    />
+                    <EmailStep onNext={() => advance(true)} onSkip={() => advance(false)} />
                   )}
                   {currentStep === "users" && (
-                    <UsersStep
-                      onNext={() => advance(true)}
-                      onSkip={() => advance(false)}
-                      onBack={goBack}
-                    />
+                    <UsersStep onNext={() => advance(true)} onSkip={() => advance(false)} />
                   )}
                   {currentStep === "agent" && (
-                    <AgentStep
-                      onSkip={() => advance(false)}
-                      onBack={goBack}
-                      onFinish={() => finish("/agents/create")}
-                    />
+                    <AgentStep onSkip={() => advance(false)} onFinish={() => finish("/agents/create")} />
                   )}
                 </div>
 

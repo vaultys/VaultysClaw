@@ -11,21 +11,23 @@ import { VaultysId } from "@vaultys/id";
 // Use globalThis so the DB singleton survives Next.js module re-evaluation
 const globalForDB = globalThis as unknown as { __db?: Database.Database };
 
-const DB_PATH = path.resolve(process.cwd(), "data", "vaultysclaw.db");
-
 /**
  * Get or create the singleton database instance
  */
 export function getDb(): Database.Database {
   if (globalForDB.__db) return globalForDB.__db;
 
+  // Resolve path lazily so VAULTYS_DB_PATH set by server.ts before app.prepare() is honoured.
+  // A module-level constant would be evaluated at import time (before server.ts runs its setup).
+  const dbPath = process.env.VAULTYS_DB_PATH || path.resolve(process.cwd(), "data", "vaultysclaw.db");
+
   // Ensure the data directory exists
-  const dir = path.dirname(DB_PATH);
+  const dir = path.dirname(dbPath);
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
   }
 
-  const db = new Database(DB_PATH);
+  const db = new Database(dbPath);
 
   // Enable WAL mode for better concurrent read performance
   db.pragma("journal_mode = WAL");
@@ -643,6 +645,20 @@ export function setAgentLlmConfig(did: string, config: import("@vaultysclaw/shar
     config !== null ? JSON.stringify(config) : null,
     did
   );
+}
+
+/**
+ * Delete an agent and all related data
+ */
+export function deleteAgent(did: string): void {
+  const d = getDb();
+  // Delete agent and all related records
+  d.prepare("DELETE FROM agents WHERE did = ?").run(did);
+  d.prepare("DELETE FROM agent_peer_grants WHERE agent_did = ?").run(did);
+  d.prepare("DELETE FROM agent_token_usage WHERE agent_did = ?").run(did);
+  d.prepare("DELETE FROM agent_token_usage_history WHERE agent_did = ?").run(did);
+  d.prepare("DELETE FROM agent_realms WHERE agent_did = ?").run(did);
+  d.prepare("DELETE FROM agent_skill_overrides WHERE agent_did = ?").run(did);
 }
 
 /**

@@ -3,6 +3,7 @@ import {
   getAllModelRegistryEntries,
   getAllAgents,
   getRealmUsers,
+  getDefaultRealm,
 } from "@/lib/db";
 import { getSmtpConfig } from "@/lib/smtp";
 import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
@@ -22,11 +23,13 @@ export async function GET() {
     if (!auth.isGlobalAdmin) return forbidden();
 
     const allAgents = getAllAgents();
+    const defaultRealm = getDefaultRealm();
+    const realmUsers = defaultRealm ? getRealmUsers(defaultRealm.id) : [];
 
     const status: SetupStatus = {
       model: getAllModelRegistryEntries().length > 0,
       email: getSmtpConfig() !== null,
-      users: allAgents.length > 0, // Users step is complete if agents exist (implies users were invited)
+      users: realmUsers.length > 1, // More than just the admin
       agent: allAgents.length > 0,
     };
 

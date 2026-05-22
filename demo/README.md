@@ -19,11 +19,16 @@ demo/agents/report-agent/.env
 
 Supported: `openai` (gpt-4o-mini recommended), `anthropic` (claude-haiku-4-5-20251001), `ollama`.
 
-### 2. Configure the control plane
+### 2. Configure the control plane (optional)
+
+By default, the control plane uses `demo/data/` as its data directory.
+If you want to use a custom directory, create a `.env` file in `demo/data/`:
 
 ```sh
-cp .env.example packages/control-plane/.env.local
-# Defaults are fine for local demo (port 3300, WS 8880)
+# demo/data/.env
+NODE_ENV=development
+PORT=3000
+WS_PORT=8080
 ```
 
 ### 3. Start everything
@@ -33,12 +38,15 @@ cp .env.example packages/control-plane/.env.local
 ```
 
 This starts:
-- The control plane at http://localhost:3300
-- Three agents (all pending approval)
+- The control plane at http://localhost:3000 (data: `demo/data/`)
+- Three agents in `demo/agents/` (all pending approval)
+  - research-agent (data: `demo/agents/research-agent/`)
+  - code-agent (data: `demo/agents/code-agent/`)
+  - report-agent (data: `demo/agents/report-agent/`)
 
 ### 4. Approve agents in the UI
 
-Open http://localhost:3300 → **Registrations** panel. Approve each agent with these capabilities:
+Open http://localhost:3000 → **Registrations** panel. Approve each agent with these capabilities:
 
 | Agent | Capabilities |
 |-------|-------------|
@@ -81,16 +89,32 @@ demo/
 ├── README.md                        ← this file
 ├── NARRATION_SCRIPT.md              ← word-for-word VO script with timestamps
 ├── setup.sh                         ← starts control plane + 3 agents
+├── data/                            ← control plane data (auto-created)
+│   └── vaultysclaw.db
 ├── workspace/                       ← agent output files (auto-created)
 ├── logs/                            ← per-agent log files (auto-created)
 ├── agents/
-│   ├── research-agent/.env          ← internet_access agent config
-│   ├── code-agent/.env              ← code_execution + file_access config
-│   └── report-agent/.env            ← file_access agent config
+│   ├── research-agent/
+│   │   ├── .env                     ← agent config (internet_access)
+│   │   ├── agent.db                 ← agent database (auto-created)
+│   │   └── .vaultys/agent.id        ← agent identity (auto-created)
+│   ├── code-agent/
+│   │   ├── .env                     ← agent config (code_execution, file_access)
+│   │   ├── agent.db                 ← agent database (auto-created)
+│   │   └── .vaultys/agent.id        ← agent identity (auto-created)
+│   └── report-agent/
+│       ├── .env                     ← agent config (file_access)
+│       ├── agent.db                 ← agent database (auto-created)
+│       └── .vaultys/agent.id        ← agent identity (auto-created)
 └── skills/
     ├── web-research.skill.mjs       ← loaded by research-agent
     └── report-writer.skill.mjs      ← loaded by report-agent
 ```
+
+Each agent has its own data directory (e.g., `demo/agents/research-agent/`) containing:
+- `.env` — Configuration (LLM keys, capabilities, etc.)
+- `agent.db` — SQLite database for tasks, memories, etc.
+- `.vaultys/agent.id` — Agent identity file (auto-created on first run)
 
 ---
 

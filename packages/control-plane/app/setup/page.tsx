@@ -131,6 +131,14 @@ interface ModelEntry {
   status: "active" | "inactive";
 }
 
+const PROVIDERS = [
+  { value: "openai-compatible", label: "OpenAI-compatible / vLLM", defaults: { baseUrl: "http://localhost:8000", modelId: "meta-llama/Llama-3-8B-Instruct" } },
+  { value: "openai",            label: "OpenAI",                   defaults: { baseUrl: "https://api.openai.com/v1", modelId: "gpt-4o-mini" } },
+  { value: "anthropic",         label: "Anthropic",                defaults: { baseUrl: "https://api.anthropic.com", modelId: "claude-opus-4-7" } },
+  { value: "google",            label: "Google",                   defaults: { baseUrl: "https://generativelanguage.googleapis.com/v1beta", modelId: "gemini-2.0-flash" } },
+  { value: "ollama",            label: "Ollama",                   defaults: { baseUrl: "http://localhost:11434", modelId: "llama2" } },
+];
+
 function ProviderBadge({ provider }: { provider: string }) {
   const colors: Record<string, string> = {
     openai: "bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400 border-emerald-300 dark:border-emerald-800",
@@ -152,6 +160,19 @@ function ModelStep({ onNext }: { onNext: () => void }) {
   const [showRegister, setShowRegister] = useState(false);
   const [testResults,  setTestResults]  = useState<Record<string, { ok: boolean; error?: string } | "testing">>({});
 
+  // Form state for new model
+  const [showForm,     setShowForm]     = useState(false);
+  const [name,         setName]         = useState("");
+  const [provider,     setProvider]     = useState("openai-compatible");
+  const [modelId,      setModelId]      = useState("");
+  const [baseUrl,      setBaseUrl]      = useState("");
+  const [apiKey,       setApiKey]       = useState("");
+  const [saving,       setSaving]       = useState(false);
+  const [testingNew,   setTestingNew]   = useState(false);
+  const [formError,    setFormError]    = useState("");
+  const [availableModels, setAvailableModels] = useState<string[]>([]);
+  const [showModelList, setShowModelList] = useState(false);
+
   const loadModels = useCallback(async () => {
     try {
       const res = await fetch("/api/models");
@@ -164,6 +185,15 @@ function ModelStep({ onNext }: { onNext: () => void }) {
 
   useEffect(() => { loadModels(); }, [loadModels]);
 
+  const handleProviderChange = (newProvider: string) => {
+    setProvider(newProvider);
+    const providerConfig = PROVIDERS.find(p => p.value === newProvider);
+    if (providerConfig) {
+      setBaseUrl(providerConfig.defaults.baseUrl);
+      setModelId(providerConfig.defaults.modelId);
+    }
+  };
+
   const testModel = async (id: string) => {
     setTestResults((r) => ({ ...r, [id]: "testing" }));
     try {
@@ -172,6 +202,81 @@ function ModelStep({ onNext }: { onNext: () => void }) {
       setTestResults((r) => ({ ...r, [id]: data }));
     } catch {
       setTestResults((r) => ({ ...r, [id]: { ok: false, error: "Network error" } }));
+    }
+  };
+
+  const deleteModel = async (id: string) => {
+    if (!confirm("Remove this model?")) return;
+    try {
+      const res = await fetch(`/api/models/${id}`, { method: "DELETE" });
+      if (res.ok) {
+        await loadModels();
+      }
+    } catch (err) {
+      console.error("Failed to delete model:", err);
+    }
+  };
+
+  const testNewModel = async () => {
+    if (!baseUrl.trim()) {
+      setFormError("Base URL is required");
+      return;
+    }
+    setTestingNew(true);
+    setFormError("");
+    setAvailableModels([]);
+    setShowModelList(false);
+    try {
+      const res = await fetch("/api/models/test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ provider, modelId, baseUrl, apiKey: apiKey || undefined }),
+      });
+      const data = await res.json() as { ok?: boolean; error?: string; models?: string[] };
+      if (data.ok) {
+        setFormError("✓ Connection successful!");
+        if (data.models && data.models.length > 0) {
+          setAvailableModels(data.models);
+          setShowModelList(true);
+        }
+        setTimeout(() => {
+          if (data.models?.length === 0) setFormError("");
+        }, 2000);
+      } else {
+        setFormError(data.error ?? "Connection failed");
+      }
+    } catch {
+      setFormError("Network error");
+    } finally {
+      setTestingNew(false);
+    }
+  };
+
+  const saveNewModel = async () => {
+    if (!name.trim()) { setFormError("Name is required"); return; }
+    if (!modelId.trim()) { setFormError("Model ID is required"); return; }
+    if (!baseUrl.trim()) { setFormError("Base URL is required"); return; }
+
+    setSaving(true);
+    setFormError("");
+    try {
+      const res = await fetch("/api/models", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, provider, modelId, baseUrl, apiKey: apiKey || undefined }),
+      });
+      const data = await res.json() as { error?: string };
+      if (!res.ok) { setFormError(data.error ?? "Failed to register model"); setSaving(false); return; }
+
+      setName("");
+      setModelId("");
+      setBaseUrl("");
+      setApiKey("");
+      setShowForm(false);
+      await loadModels();
+    } catch {
+      setFormError("Network error");
+      setSaving(false);
     }
   };
 
@@ -185,52 +290,184 @@ function ModelStep({ onNext }: { onNext: () => void }) {
         <div className="flex items-center justify-center py-6">
           <div className="w-5 h-5 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
         </div>
-      ) : models.length === 0 ? (
-        <div className="rounded-xl border border-vc-border border-dashed bg-vc-raised/40 py-6 text-center space-y-1">
-          <Cpu className="w-6 h-6 text-vc-subtle mx-auto" />
-          <p className="text-sm text-vc-muted">No models registered yet</p>
-        </div>
       ) : (
-        <div className="space-y-2">
-          {models.map((m) => {
-            const result    = testResults[m.id];
-            const isTesting = result === "testing";
-            return (
-              <div key={m.id} className="flex items-center gap-3 px-4 py-3 bg-vc-raised border border-vc-border rounded-xl">
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-vc-text truncate">{m.name}</p>
-                  <code className="text-xs text-vc-muted font-mono truncate block">{m.modelId}</code>
-                </div>
-                <ProviderBadge provider={m.provider} />
-                {result !== undefined && result !== "testing" && (
-                  result.ok
-                    ? <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" />
-                    : <XCircle      className="w-4 h-4 text-red-500 shrink-0"   />
-                )}
-                <button
-                  onClick={() => testModel(m.id)}
-                  disabled={isTesting}
-                  className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border border-vc-border text-vc-muted hover:text-vc-text hover:bg-vc-surface transition-colors disabled:opacity-50 shrink-0"
+        <>
+          {models.length > 0 && (
+            <div className="space-y-2">
+              {models.map((m) => {
+                const result    = testResults[m.id];
+                const isTesting = result === "testing";
+                return (
+                  <div key={m.id} className="flex items-center gap-3 px-4 py-3 bg-vc-raised border border-vc-border rounded-xl">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-vc-text truncate">{m.name}</p>
+                      <code className="text-xs text-vc-muted font-mono truncate block">{m.modelId}</code>
+                    </div>
+                    <ProviderBadge provider={m.provider} />
+                    {result !== undefined && result !== "testing" && (
+                      result.ok
+                        ? <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" />
+                        : <XCircle      className="w-4 h-4 text-red-500 shrink-0"   />
+                    )}
+                    <button
+                      onClick={() => testModel(m.id)}
+                      disabled={isTesting}
+                      className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border border-vc-border text-vc-muted hover:text-vc-text hover:bg-vc-surface transition-colors disabled:opacity-50 shrink-0"
+                    >
+                      {isTesting
+                        ? <div className="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin" />
+                        : <RefreshCw className="w-3 h-3" />}
+                      Test
+                    </button>
+                    <button
+                      onClick={() => deleteModel(m.id)}
+                      className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border border-vc-border text-red-500/60 hover:text-red-600 hover:bg-red-500/5 hover:border-red-500/30 transition-colors shrink-0"
+                      title="Remove model"
+                    >
+                      <X className="w-3 h-3" />
+                      Remove
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {showForm && (
+            <div className="bg-vc-raised border border-vc-border rounded-xl p-4 space-y-3">
+              <div>
+                <label className="block text-xs text-vc-muted mb-1.5">Name</label>
+                <input
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="w-full bg-vc-surface border border-vc-border rounded-lg px-3 py-2 text-sm text-vc-text focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                  placeholder="e.g. Production LLaMA"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-vc-muted mb-1.5">Provider</label>
+                <select
+                  value={provider}
+                  onChange={(e) => handleProviderChange(e.target.value)}
+                  className="w-full bg-vc-surface border border-vc-border rounded-lg px-3 py-2 text-sm text-vc-text focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
                 >
-                  {isTesting
+                  {PROVIDERS.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
+                </select>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-xs text-vc-muted mb-1.5">Base URL</label>
+                  <input
+                    value={baseUrl}
+                    onChange={(e) => setBaseUrl(e.target.value)}
+                    className="w-full bg-vc-surface border border-vc-border rounded-lg px-3 py-2 text-sm text-vc-text focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                    placeholder="http://localhost:8000"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-vc-muted mb-1.5">Model ID</label>
+                  <input
+                    value={modelId}
+                    onChange={(e) => setModelId(e.target.value)}
+                    className="w-full bg-vc-surface border border-vc-border rounded-lg px-3 py-2 text-sm text-vc-text focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                    placeholder="gpt-4o-mini"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs text-vc-muted mb-1.5">API Key {provider !== "ollama" && <span className="text-vc-subtle">(optional)</span>}</label>
+                <input
+                  type="password"
+                  value={apiKey}
+                  onChange={(e) => setApiKey(e.target.value)}
+                  className="w-full bg-vc-surface border border-vc-border rounded-lg px-3 py-2 text-sm text-vc-text focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                  placeholder="sk-..."
+                />
+              </div>
+              {formError && (
+                <p className={`text-xs px-3 py-2 rounded-lg border ${
+                  formError.startsWith("✓")
+                    ? "bg-green-50 dark:bg-green-900/20 border-green-300 dark:border-green-700/40 text-green-700 dark:text-green-400"
+                    : "bg-red-50 dark:bg-red-900/20 border-red-300 dark:border-red-700/40 text-red-600 dark:text-red-400"
+                }`}>
+                  {formError}
+                </p>
+              )}
+
+              {showModelList && availableModels.length > 0 && (
+                <div>
+                  <label className="block text-xs text-vc-muted mb-2">Available Models</label>
+                  <div className="space-y-1 max-h-48 overflow-y-auto">
+                    {availableModels.map((model) => (
+                      <button
+                        key={model}
+                        type="button"
+                        onClick={() => {
+                          setModelId(model);
+                          setShowModelList(false);
+                        }}
+                        className="w-full text-left text-xs px-3 py-2 rounded-lg bg-vc-surface border border-vc-border hover:border-indigo-500/50 hover:bg-indigo-500/5 transition-colors truncate"
+                        title={model}
+                      >
+                        {model}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              <div className="flex gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={testNewModel}
+                  disabled={testingNew || !baseUrl.trim() || !modelId.trim()}
+                  className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs border border-vc-border text-vc-muted hover:text-vc-text hover:bg-vc-surface rounded-lg disabled:opacity-50 transition-colors"
+                >
+                  {testingNew
                     ? <div className="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin" />
                     : <RefreshCw className="w-3 h-3" />}
-                  Test
+                  Test Connection
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setShowForm(false); setFormError(""); }}
+                  className="flex-1 px-3 py-2 text-xs border border-vc-border text-vc-muted hover:text-vc-text hover:bg-vc-surface rounded-lg transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={saveNewModel}
+                  disabled={saving}
+                  className="flex-1 px-3 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium rounded-lg disabled:opacity-50 transition-colors"
+                >
+                  {saving ? "Saving…" : "Register"}
                 </button>
               </div>
-            );
-          })}
-        </div>
+            </div>
+          )}
+
+          {!showForm && models.length === 0 && (
+            <div className="rounded-xl border border-vc-border border-dashed bg-vc-raised/40 py-6 text-center space-y-1">
+              <Cpu className="w-6 h-6 text-vc-subtle mx-auto" />
+              <p className="text-sm text-vc-muted">No models registered yet</p>
+            </div>
+          )}
+        </>
       )}
 
       <StepFooter>
-        <button
-          type="button"
-          onClick={() => setShowRegister(true)}
-          className="flex items-center gap-2 px-4 py-2 border border-vc-border text-vc-muted hover:text-vc-text hover:bg-vc-raised text-sm font-medium rounded-xl transition-colors"
-        >
-          <Plus className="w-4 h-4" /> Register model
-        </button>
+        {!showForm && (
+          <button
+            type="button"
+            onClick={() => {
+              setShowForm(true);
+              handleProviderChange(provider);
+            }}
+            className="flex items-center gap-2 px-4 py-2 border border-vc-border text-vc-muted hover:text-vc-text hover:bg-vc-raised text-sm font-medium rounded-xl transition-colors"
+          >
+            <Plus className="w-4 h-4" /> Add model
+          </button>
+        )}
         {models.length > 0 && (
           <button
             type="button"
@@ -241,13 +478,6 @@ function ModelStep({ onNext }: { onNext: () => void }) {
           </button>
         )}
       </StepFooter>
-
-      {showRegister && (
-        <RegisterModelModal
-          onClose={() => setShowRegister(false)}
-          onCreated={loadModels}
-        />
-      )}
     </div>
   );
 }
@@ -272,7 +502,10 @@ function EmailStep({ onNext }: { onNext: () => void }) {
 
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!host.trim()) { onNext(); return; }
+    if (!host.trim()) {
+      flash("fail", "SMTP host is required");
+      return;
+    }
     setSaving(true);
     try {
       const r = await fetch("/api/server/smtp", {
@@ -821,11 +1054,13 @@ export default function SetupPage() {
       return;
     }
     const load = async () => {
+      let backendStatus: { model: boolean; email: boolean; users: boolean; agent: boolean } | null = null;
       try {
         // Fetch actual setup status from backend
         const res = await fetch("/api/setup/status");
         const data = await res.json() as { status?: { model: boolean; email: boolean; users: boolean; agent: boolean } };
         if (data.status) {
+          backendStatus = data.status;
           const completed: StepId[] = [];
           if (data.status.model) completed.push("model");
           if (data.status.email) completed.push("email");
@@ -837,8 +1072,15 @@ export default function SetupPage() {
 
       // Load local state
       const state = loadWizardState();
-      setCurrentIdx(state.step);
-      if (state.step >= STEP_IDS.length) setDone(true);
+      // Ensure currentIdx is within bounds
+      const validStep = Math.min(state.step, STEP_IDS.length - 1);
+      setCurrentIdx(validStep);
+
+      // Only mark as done if BOTH localStorage AND backend agree all steps are complete
+      if (state.step >= STEP_IDS.length && backendStatus &&
+          backendStatus.model && backendStatus.email && backendStatus.users && backendStatus.agent) {
+        setDone(true);
+      }
       setLoading(false);
     };
     load();
@@ -850,7 +1092,7 @@ export default function SetupPage() {
   const goToStep = (idx: number) => {
     if (done) return;
     setCurrentIdx(idx);
-    saveWizardState({ step: idx, completed: [...completedSteps] });
+    saveWizardState({ step: idx, completed: Array.from(completedSteps) });
   };
 
   /** Verify step completion by fetching backend status, then advance */
@@ -859,23 +1101,26 @@ export default function SetupPage() {
       // Check if the current step is actually complete on the backend
       const res = await fetch("/api/setup/status");
       const data = await res.json() as { status?: Record<string, boolean> };
-      if (data.status && !data.status[currentStep]) {
+      // Use optional chaining to safely check if step is complete
+      if (!data.status?.[currentStep]) {
         // Step not actually complete yet, don't advance
         return;
       }
-    } catch {
-      // If we can't verify, proceed anyway (offline mode)
+    } catch (err) {
+      // If we can't verify, don't advance — require backend confirmation
+      console.warn("Could not verify setup status:", err);
+      return;
     }
 
-    const newSet = new Set([...completedSteps, currentStep]);
+    const newSet = new Set([...Array.from(completedSteps), currentStep]);
     setCompletedSteps(newSet);
     const nextIdx = currentIdx + 1;
     if (nextIdx < STEP_IDS.length) {
       setCurrentIdx(nextIdx);
-      saveWizardState({ step: nextIdx, completed: [...newSet] });
+      saveWizardState({ step: nextIdx, completed: Array.from(newSet) });
     } else {
       setDone(true);
-      saveWizardState({ step: nextIdx, completed: [...newSet] });
+      saveWizardState({ step: nextIdx, completed: Array.from(newSet) });
     }
   };
 

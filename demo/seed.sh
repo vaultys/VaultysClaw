@@ -6,6 +6,7 @@ set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CP_DIR="$REPO_ROOT/packages/control-plane"
+DEMO_DIR="$REPO_ROOT/demo"
 TSX="$CP_DIR/node_modules/.bin/tsx"
 
 if [[ ! -f "$TSX" ]]; then
@@ -13,13 +14,25 @@ if [[ ! -f "$TSX" ]]; then
   exit 1
 fi
 
-DB="$CP_DIR/data/vaultysclaw.db"
-if [[ ! -f "$DB" ]]; then
-  echo "Database not found at $DB"
-  echo "Start the control plane at least once (pnpm vaultysclaw:dev) before seeding."
+# Check for database in demo directory first (new data-folder structure), then fallback to control-plane directory
+DB=""
+if [[ -f "$DEMO_DIR/data/vaultysclaw.db" ]]; then
+  DB="$DEMO_DIR/data/vaultysclaw.db"
+elif [[ -f "$CP_DIR/data/vaultysclaw.db" ]]; then
+  DB="$CP_DIR/data/vaultysclaw.db"
+fi
+
+if [[ -z "$DB" ]] || [[ ! -f "$DB" ]]; then
+  echo "Database not found"
+  echo "Expected locations:"
+  echo "  - $DEMO_DIR/data/vaultysclaw.db (if using ./demo/setup.sh)"
+  echo "  - $CP_DIR/data/vaultysclaw.db (if using pnpm vaultysclaw:dev)"
+  echo ""
+  echo "Start the control plane at least once before seeding."
   exit 1
 fi
 
+echo "Using database: $DB"
 echo "Seeding VaultysClaw demo data..."
 cd "$CP_DIR"
 "$TSX" "$REPO_ROOT/demo/seed.ts"

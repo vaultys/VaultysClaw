@@ -129,7 +129,27 @@ function timeAgo(iso: string | null): string {
 
 function formatDate(iso: string | null): string {
   if (!iso) return "—";
-  return parseUTC(iso).toLocaleString();
+  const date = parseUTC(iso);
+  return date.toLocaleString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZoneName: 'short'
+  });
+}
+
+function formatExpiry(iso: string | null): string {
+  if (!iso) return "—";
+  const date = parseUTC(iso);
+  return date.toLocaleString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -190,9 +210,39 @@ export default function AgentDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [pendingApprovals, setPendingApprovals] = useState(0);
+  const [deletingAgent, setDeletingAgent] = useState(false);
 
   const { agents: agentsState, lastEvent } = useAdminWS();
   const liveAgent = agentsState.agents.find((a) => a.id === did);
+
+  const handleDeleteAgent = async () => {
+    if (!confirm("⚠️ Are you sure you want to delete this agent? This action cannot be undone. The agent will be permanently removed from the system.")) {
+      return;
+    }
+    setDeletingAgent(true);
+    try {
+      const res = await fetch(`/api/agents/${encodeURIComponent(did)}`, { method: "DELETE" });
+      console.log("Delete response status:", res.status, "ok:", res.ok);
+      if (res.ok) {
+        router.push("/agents");
+      } else {
+        let errorMsg = "Failed to delete agent";
+        try {
+          const data = await res.json() as { error?: string };
+          errorMsg = data.error ?? errorMsg;
+        } catch {
+          errorMsg = `Failed to delete agent (status ${res.status})`;
+        }
+        console.error("Delete error:", errorMsg);
+        setError(errorMsg);
+      }
+    } catch (err) {
+      console.error("Delete network error:", err);
+      setError("Network error while deleting agent");
+    } finally {
+      setDeletingAgent(false);
+    }
+  };
 
   const fetchAgent = useCallback(async () => {
     try {
@@ -347,6 +397,15 @@ export default function AgentDetailPage() {
               <div className="text-xs text-vc-muted uppercase">Capabilities</div>
               <div className="text-sm text-vc-text">{agent.capabilities.length}</div>
             </div>
+            <button
+              onClick={handleDeleteAgent}
+              disabled={deletingAgent}
+              className="ml-4 px-3 py-2 rounded-lg border border-red-300 dark:border-red-700/40 text-red-600 dark:text-red-400 hover:bg-red-500/10 transition-colors disabled:opacity-50 flex items-center gap-2 text-sm font-medium"
+              title="Delete agent"
+            >
+              {deletingAgent ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+              Delete
+            </button>
           </div>
         </div>
       </div>
@@ -689,8 +748,7 @@ function OverviewTab({ agent, onTabChange }: { agent: AgentDetail; onTabChange: 
                   : "bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/20 text-amber-700 dark:text-amber-400"
                   }`}>
                   <CalendarDays size={12} />
-                  {new Date(activePolicy.expiresAt) < new Date() ? "Expired " : "Expires "}
-                  {formatDate(activePolicy.expiresAt)}
+                  {formatExpiry(activePolicy.expiresAt)}
                 </div>
               )}
 
@@ -1096,7 +1154,7 @@ function GovernanceTab({ did, agentCapabilities }: { did: string; agentCapabilit
                     {p.expiresAt && (
                       <span className="flex items-center gap-1">
                         <CalendarDays size={11} />
-                        Expires {formatDate(p.expiresAt)}
+                        {formatExpiry(p.expiresAt)}
                       </span>
                     )}
                     <code className="font-mono text-vc-subtle/60">{p.id}</code>

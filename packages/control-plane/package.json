@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "description": "Control plane for VaultysClaw - manage policies, agents, and AI orchestration",
   "scripts": {
-    "dev": "tsx watch server.ts",
+    "dev": "tsx watch --exclude 'data*/**' --exclude '.next/**' server.ts --data-dir ../../.devdata",
     "build": "tsc && next build",
     "start": "node dist/server.js",
     "lint": "next lint",

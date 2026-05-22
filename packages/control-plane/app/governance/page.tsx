@@ -119,6 +119,31 @@ function timeAgo(iso: string | null): string {
   return `${Math.floor(hours / 24)}d ago`;
 }
 
+function formatDate(iso: string | null): string {
+  if (!iso) return "—";
+  const date = parseUTC(iso);
+  return date.toLocaleString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZoneName: 'short'
+  });
+}
+
+function formatExpiry(iso: string | null): string {
+  if (!iso) return "Never";
+  const date = parseUTC(iso);
+  return date.toLocaleString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+}
+
 function fmtNum(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
   if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
@@ -795,7 +820,7 @@ function PoliciesTab() {
                       ) : <span className="text-vc-subtle">—</span>}
                     </td>
                     <td className="px-4 py-2.5 text-xs text-vc-muted">
-                      {p.expiresAt ? timeAgo(p.expiresAt) : <span className="text-vc-subtle">Never</span>}
+                      {formatExpiry(p.expiresAt)}
                     </td>
                     <td className="px-4 py-2.5 text-xs text-vc-muted">{timeAgo(p.createdAt)}</td>
                     <td className="px-4 py-2.5">

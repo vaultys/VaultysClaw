@@ -4,7 +4,7 @@
  * policy updates, and result collection
  */
 
-import type { Server as HttpServer } from "node:http";
+import { createServer as createHttpServer, type Server as HttpServer } from "node:http";
 import { WebSocket, WebSocketServer, type Data as WebSocketData } from "ws";
 import pino from "pino";
 import {
@@ -123,6 +123,7 @@ interface ConnectedAgent {
  */
 export class AgentWSServer {
   private wss: WebSocketServer;
+  private httpServer: HttpServer;
   private agents: Map<string, ConnectedAgent> = new Map();
   private pending: Map<WebSocket, PendingConnection> = new Map();
   private port: number;
@@ -145,20 +146,15 @@ export class AgentWSServer {
   constructor(port: number) {
     this.port = port;
 
-    this.wss = new WebSocketServer({ port });
-
-    // Fix: Node.js defaults http.Server.keepAliveTimeout to 5 s.
-    // The ws library creates an internal HTTP server when given { port }.
-    // That 5 s timer fires after the WebSocket upgrade and closes idle sockets,
-    // causing agents to disconnect exactly 5 s after authentication.
-    // Access the internal server via the well-known _server property and zero it out.
-    const internalServer = (this.wss as unknown as { _server?: HttpServer })._server;
-    if (internalServer) {
-      internalServer.keepAliveTimeout = 0;
-      logger.info({ port }, "Agent WebSocket server started (keepAliveTimeout disabled)");
-    } else {
+    // Create the HTTP server explicitly so we can set keepAliveTimeout = 0
+    // before it starts listening. Node.js defaults this to 5 s, which causes
+    // WebSocket connections to drop exactly 5 s after the upgrade handshake.
+    this.httpServer = createHttpServer();
+    this.httpServer.keepAliveTimeout = 0;
+    this.wss = new WebSocketServer({ server: this.httpServer });
+    this.httpServer.listen(port, () => {
       logger.info({ port }, "Agent WebSocket server started");
-    }
+    });
 
     this.setupServer();
 
@@ -1249,6 +1245,13 @@ export class AgentWSServer {
     return this.agents.get(agentId);
   }
 
+  disconnectAgent(agentId: string): void {
+    const agent = this.agents.get(agentId);
+    if (agent && agent.ws.readyState === WebSocket.OPEN) {
+      agent.ws.close(1000, "Agent deleted");
+    }
+  }
+
   sendIntentToAgent(
     agentId: string,
     intentId: string,
@@ -1596,6 +1599,7 @@ export class AgentWSServer {
     this.wss.close(() => {
       logger.info("Agent WebSocket server closed");
     });
+    this.httpServer.close();
   }
 }
 

@@ -3,23 +3,29 @@
 /**
  * VaultysClaw Agent Controller CLI
  *
+ * Data directory structure (--data-dir):
+ *   <data-dir>/
+ *   ├── agent.db
+ *   ├── .env
+ *   ├── .env.local
+ *   ├── .vaultys/agent.id
+ *   ├── workspace/
+ *   └── skills/
+ *
  * Usage:
- *   agent-controller [options]
+ *   agent-controller --name <name> --data-dir <dir> [options]
  *
  * Options:
+ *   --name, -n <name>          Agent name (REQUIRED)
+ *   --data-dir, -d <dir>       Data directory (default: .vaultys/<name>)
  *   --mode headless|tui|web    Run mode (default: headless)
  *   --port N                   Web UI port (default: 3002, web mode only)
  *   --no-browser               Don't auto-open browser (web mode only)
- *   --name, -n <name>          Agent name (REQUIRED — determines isolated data directory)
  *   --ws, -w <url>             WebSocket URL
- *   --data-dir, -d <dir>       Base directory for agent data (default: .vaultys)
  *   --spawn, -s <count>        Spawn multiple headless agents
  *   --prefix, -p <prefix>      Name prefix for spawned agents (default: agent)
  *   --install-service          Install as a system service (macOS/Linux/Windows)
  *   --help, -h                 Show this help message
- *
- * Each named agent stores all its state (identity, database, skills) in its own
- * subdirectory: <data-dir>/<name>/  — so multiple agents can coexist safely.
  */
 
 import { fork } from "child_process";
@@ -36,8 +42,8 @@ interface CliArgs {
   spawn: number;
   prefix: string;
   name?: string;
+  dataDir?: string;
   ws?: string;
-  dataDir: string;
   installService: boolean;
 }
 
@@ -49,7 +55,6 @@ function parseArgs(): CliArgs {
     noBrowser: false,
     spawn: 0,
     prefix: "agent",
-    dataDir: ".vaultys",
     installService: false,
   };
 
@@ -119,7 +124,7 @@ function printHelp(): void {
   console.log(`
 VaultysClaw Agent Controller
 
-Usage: agent-controller --name <name> [options]
+Usage: agent-controller --name <name> [--data-dir <dir>] [options]
 
 Modes:
   --mode headless    Run silently (default, structured JSON logs to stdout)
@@ -127,10 +132,10 @@ Modes:
   --mode web         Start web dashboard — open http://localhost:<port>
 
 Options:
-  --name, -n <name>     Agent name — REQUIRED. Creates an isolated environment
-                        at <data-dir>/<name>/ (identity, database, skills).
+  --name, -n <name>     Agent name (REQUIRED)
+  --data-dir, -d <dir>  Data directory (default: .vaultys/<name>)
+                        Contains: agent.db, .env, .vaultys/agent.id, workspace/, skills/
   --ws, -w <url>        Control plane WebSocket URL
-  --data-dir, -d <dir>  Base directory for all agents (default: .vaultys)
   --port <N>            Web UI port (default: 3002, web mode only)
   --no-browser          Don't auto-open browser in web mode
   --spawn, -s <N>       Spawn N headless agents (auto-names: <prefix>-1 … <prefix>-N)
@@ -140,15 +145,16 @@ Options:
 
 Examples:
   agent-controller --name researcher --ws ws://localhost:8080
+  agent-controller --name researcher --data-dir /data/agents/researcher --ws ws://localhost:8080
   agent-controller --name analyst --mode tui --ws ws://localhost:8080
-  agent-controller --name api-bot --mode web --port 3002 --ws ws://localhost:8080
-  agent-controller --spawn 3 --prefix worker --ws ws://localhost:8080
-  agent-controller --name researcher --install-service
+  agent-controller --spawn 3 --prefix worker --data-dir .agents --ws ws://localhost:8080
 
-Each agent's data is isolated in its own subdirectory:
-  .vaultys/researcher/agent.id   — identity key
-  .vaultys/researcher/agent.db   — local task/memory database
-  .vaultys/researcher/skills/    — user-defined skill plugins
+Data directory structure:
+  <data-dir>/agent.db              — SQLite database
+  <data-dir>/.env                  — Environment config
+  <data-dir>/.vaultys/agent.id     — Agent identity
+  <data-dir>/workspace/            — File operations root
+  <data-dir>/skills/               — Custom skill plugins
 `);
 }
 
@@ -293,11 +299,23 @@ function buildEnv(args: CliArgs): NodeJS.ProcessEnv {
   const env: Record<string, string> = { ...(process.env as Record<string, string>) };
   if (args.name) env.AGENT_NAME = args.name;
   if (args.ws) env.CONTROL_PLANE_WS_URL = args.ws;
-  const agentName = args.name || env.AGENT_NAME || "agent-1";
-  // Each agent lives in its own subdirectory for full isolation
-  const agentDir = path.join(args.dataDir, agentName);
-  env.VAULTYS_ID_PATH = path.join(agentDir, "agent.id");
-  env.SKILLS_DIR = path.join(agentDir, "skills");
+
+  // Determine data directory: explicit --data-dir or default .vaultys/<name>
+  let dataDir: string;
+  if (args.dataDir) {
+    dataDir = path.resolve(args.dataDir);
+  } else if (args.name) {
+    dataDir = path.resolve(".vaultys", args.name);
+  } else {
+    dataDir = path.resolve(".vaultys", "agent-1");
+  }
+
+  // Set up environment variables for the agent
+  env.VAULTYS_DATA_DIR = dataDir;
+  env.VAULTYS_ID_PATH = path.join(dataDir, ".vaultys", "agent.id");
+  env.SKILLS_DIR = path.join(dataDir, "skills");
+  env.AGENT_WORKSPACE_ROOT = path.join(dataDir, "workspace");
+
   return env;
 }
 
@@ -308,17 +326,22 @@ function spawnMultiple(args: CliArgs): void {
   const indexPath = path.resolve(__dirname, "index.ts");
   const agents: ReturnType<typeof fork>[] = [];
 
+  // Base directory for multiple agents (either --data-dir or .vaultys)
+  const baseDir = args.dataDir ? path.resolve(args.dataDir) : path.resolve(".vaultys");
+
   for (let i = 1; i <= args.spawn; i++) {
     const name = `${args.prefix}-${i}`;
-    const agentDir = path.join(args.dataDir, name);
+    const dataDir = path.join(baseDir, name);
     const env: Record<string, string> = {
       ...(process.env as Record<string, string>),
       AGENT_NAME: name,
-      VAULTYS_ID_PATH: path.join(agentDir, "agent.id"),
-      SKILLS_DIR: path.join(agentDir, "skills"),
+      VAULTYS_DATA_DIR: dataDir,
+      VAULTYS_ID_PATH: path.join(dataDir, ".vaultys", "agent.id"),
+      SKILLS_DIR: path.join(dataDir, "skills"),
+      AGENT_WORKSPACE_ROOT: path.join(dataDir, "workspace"),
     };
     if (args.ws) env.CONTROL_PLANE_WS_URL = args.ws;
-    console.log(`  [${i}/${args.spawn}] Starting "${name}"`);
+    console.log(`  [${i}/${args.spawn}] Starting "${name}" (data: ${dataDir})`);
     const child = fork(indexPath, [], { env, execArgv: process.execArgv, stdio: ["ignore", "pipe", "pipe", "ipc"] });
     child.stdout?.on("data", (d: Buffer) => d.toString().split("\n").filter(Boolean).forEach((l) => console.log(`[${name}] ${l}`)));
     child.stderr?.on("data", (d: Buffer) => d.toString().split("\n").filter(Boolean).forEach((l) => console.error(`[${name}] ${l}`)));

@@ -89,15 +89,24 @@ const STEP_INDEX: Record<WizardStep, number> = {
 };
 
 const ALL_CAPABILITIES = [
-  { id: "file_access", label: "File access", icon: <FolderOpen size={13} /> },
-  { id: "internet_access", label: "Internet access", icon: <Globe size={13} /> },
-  { id: "browser_control", label: "Browser control", icon: <Monitor size={13} /> },
-  { id: "api_call", label: "API calls", icon: <Plug size={13} /> },
-  { id: "mail_send", label: "Mail send", icon: <Mail size={13} /> },
-  { id: "code_execution", label: "Code execution", icon: <Code size={13} /> },
-  { id: "system_command", label: "System command", icon: <Terminal size={13} /> },
-  { id: "agent_communication", label: "Agent communication", icon: <Bot size={13} /> },
-];
+  { id: "file_access", label: "File Access" },
+  { id: "internet_access", label: "Internet Access" },
+  { id: "browser_control", label: "Browser Control" },
+  { id: "api_call", label: "API Call" },
+  { id: "mail_send", label: "Mail Send" },
+  { id: "code_execution", label: "Code Execution" },
+  { id: "system_command", label: "System Command" },
+] as const;
+
+const CAPABILITY_ICONS: Record<string, React.ReactNode> = {
+  file_access: <FolderOpen size={13} />,
+  internet_access: <Globe size={13} />,
+  browser_control: <Monitor size={13} />,
+  api_call: <Plug size={13} />,
+  mail_send: <Mail size={13} />,
+  code_execution: <Code size={13} />,
+  system_command: <Terminal size={13} />,
+};
 
 // ── Sub-components ─────────────────────────────────────────────────────────────
 
@@ -165,6 +174,12 @@ export default function CreateAgentPage() {
   const [approveError, setApproveError] = useState<string | null>(null);
   const [rejecting, setRejecting] = useState(false);
 
+  // Policy form state
+  const [policyMaxTokensPerDay, setPolicyMaxTokensPerDay] = useState("");
+  const [policyMaxRequestsPerHour, setPolicyMaxRequestsPerHour] = useState("");
+  const [policyAllowedDomains, setPolicyAllowedDomains] = useState("");
+  const [policyExpiresAt, setPolicyExpiresAt] = useState("");
+
   // Post-approval state
   const [agentDid, setAgentDid] = useState<string | null>(null);
 
@@ -172,6 +187,7 @@ export default function CreateAgentPage() {
   const [models, setModels] = useState<Model[]>([]);
   const [selectedModel, setSelectedModel] = useState<string | null>(null);
   const [savingModel, setSavingModel] = useState(false);
+  const [modelError, setModelError] = useState<string | null>(null);
 
   // Skills state
   const [skills, setSkills] = useState<Skill[]>([]);
@@ -215,7 +231,11 @@ export default function CreateAgentPage() {
     if (reg) {
       setPendingReg(reg as PendingReg);
       const caps = parseJsonArray(reg.requested_capabilities);
-      setSelectedCaps(new Set(caps.length > 0 ? caps : ["agent_communication"]));
+      setSelectedCaps(new Set(caps));
+      setPolicyMaxTokensPerDay("");
+      setPolicyMaxRequestsPerHour("");
+      setPolicyAllowedDomains("");
+      setPolicyExpiresAt("");
       // Realm selection will use the default (already set in initial load)
     }
   }, [regId, registrations, pendingReg]);
@@ -228,7 +248,11 @@ export default function CreateAgentPage() {
     if (newReg && !pendingReg) {
       setPendingReg(newReg as PendingReg);
       const caps = parseJsonArray(newReg.requested_capabilities);
-      setSelectedCaps(new Set(caps.length > 0 ? caps : ["agent_communication"]));
+      setSelectedCaps(new Set(caps));
+      setPolicyMaxTokensPerDay("");
+      setPolicyMaxRequestsPerHour("");
+      setPolicyAllowedDomains("");
+      setPolicyExpiresAt("");
     }
   }, [registrations, step, pendingReg]);
 
@@ -343,7 +367,39 @@ export default function CreateAgentPage() {
         setApproveError(data.error ?? "Approval failed");
         return;
       }
-      setAgentDid(data.agentDid ?? null);
+
+      const agentDid = data.agentDid ?? null;
+      if (agentDid) {
+        // Create initial policy with selected capabilities and resource limits
+        try {
+          const resourceLimits: Record<string, unknown> = {};
+          if (policyMaxTokensPerDay !== "") resourceLimits.maxTokensPerDay = Number(policyMaxTokensPerDay);
+          if (policyMaxRequestsPerHour !== "") resourceLimits.maxRequestsPerHour = Number(policyMaxRequestsPerHour);
+          if (policyAllowedDomains.trim() !== "") {
+            resourceLimits.allowedDomains = policyAllowedDomains.split(",").map((d) => d.trim()).filter(Boolean);
+          }
+
+          const policyBody: Record<string, unknown> = {
+            agentDid,
+            capabilities: Array.from(selectedCaps),
+            resourceLimits: Object.keys(resourceLimits).length > 0 ? resourceLimits : undefined,
+            expiresAt: policyExpiresAt !== "" ? new Date(policyExpiresAt).toISOString() : undefined,
+          };
+
+          const policyRes = await fetch("/api/policies", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(policyBody),
+          });
+          if (!policyRes.ok) {
+            console.error("Failed to create initial policy", await policyRes.json().catch(() => ({})));
+          }
+        } catch (policyError) {
+          console.error("Error creating initial policy:", policyError);
+        }
+      }
+
+      setAgentDid(agentDid);
       setStep("model");
     } catch {
       setApproveError("Network error");
@@ -379,15 +435,23 @@ export default function CreateAgentPage() {
   async function saveModel() {
     if (!agentDid || !selectedModel) { setStep("skills"); return; }
     setSavingModel(true);
+    setModelError(null);
     try {
-      await fetch(`/api/agents/${encodeURIComponent(agentDid)}/llm-config`, {
+      const res = await fetch(`/api/agents/${encodeURIComponent(agentDid)}/llm-config`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ registryModelId: selectedModel }),
       });
+      const data = await res.json() as { error?: string };
+      if (!res.ok) {
+        setModelError(data.error ?? "Failed to save model configuration");
+        return;
+      }
+      setStep("skills");
+    } catch (err) {
+      setModelError("Network error while saving model");
     } finally {
       setSavingModel(false);
-      setStep("skills");
     }
   }
 
@@ -623,7 +687,11 @@ export default function CreateAgentPage() {
                   onClick={() => {
                     setPendingReg(r as PendingReg);
                     const caps = parseJsonArray(r.requested_capabilities);
-                    setSelectedCaps(new Set(caps.length > 0 ? caps : ["agent_communication"]));
+                    setSelectedCaps(new Set(caps));
+      setPolicyMaxTokensPerDay("");
+      setPolicyMaxRequestsPerHour("");
+      setPolicyAllowedDomains("");
+      setPolicyExpiresAt("");
                   }}
                   className={cn(
                     "w-full flex items-center justify-between px-4 py-3 rounded-lg border text-sm transition-colors text-left",
@@ -676,27 +744,24 @@ export default function CreateAgentPage() {
           {/* Capabilities */}
           <div className="space-y-3">
             <p className="text-xs font-medium text-vc-muted uppercase tracking-wide">Capabilities</p>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="flex flex-wrap gap-2">
               {ALL_CAPABILITIES.map((cap) => {
                 const checked = selectedCaps.has(cap.id);
                 return (
                   <button
                     key={cap.id}
+                    type="button"
                     onClick={() => setSelectedCaps((prev) => {
                       const next = new Set(prev);
                       if (next.has(cap.id)) next.delete(cap.id); else next.add(cap.id);
                       return next;
                     })}
-                    className={cn(
-                      "flex items-center gap-2 px-3 py-2.5 rounded-lg border text-sm text-left transition-colors",
-                      checked
-                        ? "bg-indigo-100 dark:bg-indigo-600/20 border-indigo-300 dark:border-indigo-500/40 text-indigo-700 dark:text-indigo-300"
-                        : "bg-vc-surface border-vc-border text-vc-muted hover:bg-vc-raised",
-                    )}
+                    className={`px-3 py-1.5 rounded-md text-sm border transition-colors flex items-center gap-1.5 ${checked
+                      ? "bg-indigo-100 dark:bg-indigo-900/40 border-indigo-500 text-indigo-700 dark:text-indigo-300"
+                      : "bg-vc-surface border-vc-ring text-vc-muted hover:border-vc-muted"}`}
                   >
-                    <span className={checked ? "text-indigo-500" : "text-vc-subtle"}>{cap.icon}</span>
+                    {CAPABILITY_ICONS[cap.id] ?? <Zap size={13} />}
                     {cap.label}
-                    {checked && <Check size={12} className="ml-auto text-indigo-500" />}
                   </button>
                 );
               })}
@@ -707,6 +772,56 @@ export default function CreateAgentPage() {
               </p>
             )}
           </div>
+
+          {/* Resource Limits */}
+          <div className="space-y-3">
+            <p className="text-xs font-medium text-vc-muted uppercase tracking-wide">Resource Limits <span className="normal-case text-vc-subtle">(optional)</span></p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <label className="space-y-1">
+                <span className="text-xs text-vc-muted">Max tokens / day</span>
+                <input
+                  type="number"
+                  min={0}
+                  placeholder="e.g. 50000"
+                  value={policyMaxTokensPerDay}
+                  onChange={(e) => setPolicyMaxTokensPerDay(e.target.value)}
+                  className="w-full bg-vc-surface border border-vc-ring rounded-md px-3 py-1.5 text-sm text-vc-text placeholder:text-vc-subtle focus:outline-none focus:border-indigo-500"
+                />
+              </label>
+              <label className="space-y-1">
+                <span className="text-xs text-vc-muted">Max requests / hour</span>
+                <input
+                  type="number"
+                  min={0}
+                  placeholder="e.g. 60"
+                  value={policyMaxRequestsPerHour}
+                  onChange={(e) => setPolicyMaxRequestsPerHour(e.target.value)}
+                  className="w-full bg-vc-surface border border-vc-ring rounded-md px-3 py-1.5 text-sm text-vc-text placeholder:text-vc-subtle focus:outline-none focus:border-indigo-500"
+                />
+              </label>
+              <label className="space-y-1 sm:col-span-2">
+                <span className="text-xs text-vc-muted">Allowed domains <span className="text-vc-subtle">(comma-separated)</span></span>
+                <input
+                  type="text"
+                  placeholder="e.g. api.openai.com, example.com"
+                  value={policyAllowedDomains}
+                  onChange={(e) => setPolicyAllowedDomains(e.target.value)}
+                  className="w-full bg-vc-surface border border-vc-ring rounded-md px-3 py-1.5 text-sm text-vc-text placeholder:text-vc-subtle focus:outline-none focus:border-indigo-500"
+                />
+              </label>
+            </div>
+          </div>
+
+          {/* Policy Expiry */}
+          <label className="block space-y-1">
+            <span className="text-xs font-medium text-vc-muted uppercase">Policy Expiry <span className="normal-case text-vc-subtle">(optional)</span></span>
+            <input
+              type="datetime-local"
+              value={policyExpiresAt}
+              onChange={(e) => setPolicyExpiresAt(e.target.value)}
+              className="w-full bg-vc-surface border border-vc-ring rounded-md px-3 py-1.5 text-sm text-vc-text focus:outline-none focus:border-indigo-500"
+            />
+          </label>
 
           {/* Realm assignment */}
           {realms.length > 0 && (
@@ -818,6 +933,12 @@ export default function CreateAgentPage() {
                   {selectedModel === m.id && <Check size={14} className="text-indigo-500 shrink-0" />}
                 </button>
               ))}
+            </div>
+          )}
+
+          {modelError && (
+            <div className="rounded-lg border border-red-300 dark:border-red-700/40 bg-red-50 dark:bg-red-900/20 p-3 text-sm text-red-600 dark:text-red-400">
+              <p className="font-medium">Error: {modelError}</p>
             </div>
           )}
 

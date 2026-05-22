@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Challenger, VaultysId, crypto } from "@vaultys/id";
 import { getWSServer } from "@/lib/ws-server";
-import { getAgent, updateAgentBudget, getDb } from "@/lib/db";
+import { getAgent, updateAgentBudget, getDb, deleteAgent } from "@/lib/db";
 import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
 
 const Buffer = crypto.Buffer;
@@ -179,6 +179,51 @@ export async function PATCH(
   } catch (error) {
     return NextResponse.json(
       { error: "Failed to update capabilities" },
+      { status: 500 }
+    );
+  }
+}
+
+/**
+ * DELETE /api/agents/[did]
+ * Delete an agent. Global admin only.
+ */
+export async function DELETE(
+  _request: NextRequest,
+  { params }: { params: Promise<{ did: string }> }
+) {
+  try {
+    const auth = await getAuthContext();
+    if (!auth) return unauthorized();
+    if (!auth.isGlobalAdmin) return forbidden();
+
+    const { did: rawDid } = await params;
+    const did = decodeURIComponent(rawDid);
+
+    const agent = getAgent(did);
+    if (!agent) {
+      return NextResponse.json({ error: "Agent not found" }, { status: 404 });
+    }
+
+    // Disconnect agent from WebSocket server
+    const wsServer = getWSServer();
+    if (wsServer) {
+      wsServer.disconnectAgent(did);
+    }
+
+    try {
+      deleteAgent(did);
+      console.log("Successfully deleted agent:", did);
+    } catch (deleteError) {
+      console.error("Error in deleteAgent:", deleteError);
+      throw deleteError;
+    }
+
+    return NextResponse.json({ success: true }, { status: 200 });
+  } catch (error) {
+    console.error("Error deleting agent:", error);
+    return NextResponse.json(
+      { error: "Failed to delete agent" },
       { status: 500 }
     );
   }

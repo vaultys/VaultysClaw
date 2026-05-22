@@ -23,6 +23,8 @@ set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DEMO_DIR="$REPO_ROOT/demo"
+CP_DATA_DIR="$DEMO_DIR/data"
+AGENTS_BASE_DIR="$DEMO_DIR/agents"
 WORKSPACE_DIR="$DEMO_DIR/workspace"
 LOG_DIR="$DEMO_DIR/logs"
 PIDS_FILE="$DEMO_DIR/.demo-pids"
@@ -82,22 +84,25 @@ cleanup_existing
 # ---------------------------------------------------------------------------
 # 1. Prepare directories
 # ---------------------------------------------------------------------------
+mkdir -p "$CP_DATA_DIR"
 mkdir -p "$WORKSPACE_DIR" "$LOG_DIR"
-mkdir -p "$DEMO_DIR/agents/research-agent/.vaultys"
-mkdir -p "$DEMO_DIR/agents/code-agent/.vaultys"
-mkdir -p "$DEMO_DIR/agents/report-agent/.vaultys"
+mkdir -p "$AGENTS_BASE_DIR/research-agent/.vaultys"
+mkdir -p "$AGENTS_BASE_DIR/code-agent/.vaultys"
+mkdir -p "$AGENTS_BASE_DIR/report-agent/.vaultys"
 > "$PIDS_FILE"
 
-log "Workspace:  $WORKSPACE_DIR"
-log "Logs:       $LOG_DIR"
+log "Control Plane data:  $CP_DATA_DIR"
+log "Agents base dir:     $AGENTS_BASE_DIR"
+log "Shared workspace:    $WORKSPACE_DIR"
+log "Logs:                $LOG_DIR"
 
 # ---------------------------------------------------------------------------
 # 2. Validate API keys
 # ---------------------------------------------------------------------------
 log "Checking API key configuration..."
-check_env_keys "$DEMO_DIR/agents/research-agent"
-check_env_keys "$DEMO_DIR/agents/code-agent"
-check_env_keys "$DEMO_DIR/agents/report-agent"
+check_env_keys "$AGENTS_BASE_DIR/research-agent"
+check_env_keys "$AGENTS_BASE_DIR/code-agent"
+check_env_keys "$AGENTS_BASE_DIR/report-agent"
 
 # ---------------------------------------------------------------------------
 # 3. Start control plane (if not already running)
@@ -105,9 +110,9 @@ check_env_keys "$DEMO_DIR/agents/report-agent"
 if curl -sf "$CONTROL_PLANE_URL/api/health" >/dev/null 2>&1; then
   warn "Control plane already running at $CONTROL_PLANE_URL — skipping start."
 else
-  log "Starting control plane..."
+  log "Starting control plane (data: $CP_DATA_DIR)..."
   cd "$REPO_ROOT"
-  pnpm vaultysclaw:dev \
+  pnpm vaultysclaw:dev -- --data-dir "$CP_DATA_DIR" \
     > "$LOG_DIR/control-plane.log" 2>&1 &
   echo $! >> "$PIDS_FILE"
 
@@ -131,10 +136,11 @@ fi
 # ---------------------------------------------------------------------------
 start_agent() {
   local name="$1"
-  local env_file="$DEMO_DIR/agents/$name/.env"
+  local agent_data_dir="$AGENTS_BASE_DIR/$name"
+  local env_file="$agent_data_dir/.env"
   local log_file="$LOG_DIR/$name.log"
 
-  log "Starting $name..."
+  log "Starting $name (data: $agent_data_dir)..."
 
   # Export env vars from the agent's .env file
   set -a
@@ -143,7 +149,7 @@ start_agent() {
   set +a
 
   cd "$REPO_ROOT"
-  pnpm agent:start \
+  pnpm agent:start -- --name "$name" --data-dir "$agent_data_dir" \
     > "$log_file" 2>&1 &
   local pid=$!
   echo "$pid" >> "$PIDS_FILE"

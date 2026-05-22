@@ -1,8 +1,16 @@
 /**
  * VaultysClaw Agent Controller — headless launcher
  */
+import path from "path";
+import fs from "fs";
 import { loadConfig } from "./config";
 import { Agent } from "./agent";
+
+// Ensure data directory exists and is set up
+const dataDir = process.env.VAULTYS_DATA_DIR;
+if (dataDir && !fs.existsSync(dataDir)) {
+  fs.mkdirSync(dataDir, { recursive: true });
+}
 
 const agent = new Agent(loadConfig());
 

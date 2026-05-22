@@ -56,3 +56,4 @@ demo/.demo-pids
 /packages/agent-controller/src/web/public
 packages/control-plane/tsconfig.tsbuildinfo
 /packages/control-plane/data3
+/.devdata

@@ -1,14 +1,16 @@
 ---
 sidebar_position: 6
 title: Users
-description: Manage users, view your own profile, and handle Entra-provisioned unclaimed accounts.
+description: Manage users, invitations, and profiles. Create unclaimed users via email invitations or Entra ID sync, then users claim their accounts by scanning a QR code.
 ---
 
 # Users API
 
 ## User object
 
-Every user has a stable internal `id` (UUID). The `did` field is null for users provisioned via Entra ID who have not yet claimed their VaultysID account by scanning a QR code.
+Every user has a stable internal `id` (UUID). The `did` field is null for unclaimed users who have not yet activated their account by scanning a QR code with the Vaultys wallet. Unclaimed users can be created via:
+- **Email invitations**: Admin sends email link, user scans QR to claim
+- **Entra ID sync**: Microsoft Graph sync, user gets QR link to claim
 
 ```json
 {
@@ -304,3 +306,137 @@ DELETE /api/users/:did/grants/:grantId
 **Auth:** Admin only.
 
 The associated delegation certificate is immediately invalidated.
+
+## Email Invitations
+
+Send invitations to new users via email. Invitations create unclaimed user records and generate unique registration links.
+
+### Send email invitation
+
+```http
+POST /api/users/invite/email
+```
+
+**Auth:** Owner only.
+
+**Request:**
+```json
+{
+  "email": "alice@company.com",
+  "name": "Alice Johnson",
+  "role": "manager"
+}
+```
+
+**Response:**
+```json
+{
+  "token": "uuid-string",
+  "userId": "uuid-string"
+}
+```
+
+Creates an unclaimed user record with the provided name, email, and role. If an active invitation already exists for this email, the old token is deleted and a new one is generated.
+
+### Get invitation details
+
+```http
+GET /api/invitations/:token
+```
+
+**Auth:** Public (no authentication required).
+
+Returns invitation details for a user who received an email link.
+
+**Response:**
+```json
+{
+  "email": "alice@company.com",
+  "name": "Alice Johnson",
+  "role": "manager"
+}
+```
+
+**Errors:**
+- `404`: Token not found or expired (7+ days old)
+
+### Generate QR from invitation
+
+```http
+POST /api/users/invite/from-email
+```
+
+**Auth:** Public (no authentication required).
+
+Called by the invitation acceptance page to generate a QR code for wallet scanning.
+
+**Request:**
+```json
+{
+  "token": "uuid-string"
+}
+```
+
+**Response:**
+```json
+{
+  "qrUrl": "https://wallet.vaultys.net/#...",
+  "connectionString": "...",
+  "inviteToken": "cert-connection-token",
+  "serverDid": "did:vaultys:..."
+}
+```
+
+The `inviteToken` is used for polling the registration status via `/api/user/listen/:inviteToken`.
+
+**Errors:**
+- `404`: Token not found or expired
+- `500`: Failed to generate registration certificate
+
+### Delete invitation
+
+```http
+POST /api/invitations/:token/delete
+```
+
+**Auth:** Public (no authentication required).
+
+Deletes an invitation token after successful registration. Called automatically when the user completes the wallet connection.
+
+**Response:**
+```json
+{
+  "success": true
+}
+```
+
+## Direct QR Invitations
+
+Generate a QR code immediately without requiring an email.
+
+### Generate QR code
+
+```http
+GET /api/users/invite
+```
+
+**Auth:** Owner only.
+
+Creates a registration certificate and P2P session. Returns a connection string for generating a QR code.
+
+**Response:**
+```json
+{
+  "connectionString": "...",
+  "token": "cert-token-for-polling",
+  "key": "cert-key",
+  "serverDid": "did:vaultys:..."
+}
+```
+
+The QR code format is:
+```
+{walletUrl}/#${connectionString}&protocol=p2p&service=auth&did=${serverDid}
+```
+
+Poll `/api/user/listen/:token` to check registration status.

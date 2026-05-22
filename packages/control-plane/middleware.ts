@@ -19,15 +19,19 @@ export default withAuth(
       authorized({ req, token }) {
         const { pathname } = req.nextUrl;
         // Always allow: auth callbacks, user-facing P2P/bastion endpoints, login, root (landing page),
-        // and test/workflow execution endpoints
+        // email invitations, and test/workflow execution endpoints
         if (
           pathname.startsWith("/api/auth") ||
           pathname.startsWith("/api/user") ||
           pathname.startsWith("/api/server") ||
           pathname.startsWith("/api/test") ||
           pathname.startsWith("/api/workflows/test-seed") ||
+          pathname.startsWith("/api/invitations") ||
+          pathname.startsWith("/api/users/invite/email") ||
+          pathname.startsWith("/api/users/invite/from-email") ||
           /^\/api\/workflows\/[^/]+\/execute$/.test(pathname) ||
           pathname.startsWith("/login") ||
+          pathname.startsWith("/invite/") ||
           pathname === "/"
         ) {
           return true;

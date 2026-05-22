@@ -351,6 +351,18 @@ function createTables(db: Database.Database): void {
     );
     CREATE INDEX IF NOT EXISTS idx_intent_log_agent ON intent_log(agent_did, sent_at DESC);
     CREATE INDEX IF NOT EXISTS idx_intent_log_status ON intent_log(status, sent_at DESC);
+
+    CREATE TABLE IF NOT EXISTS user_invitations (
+      token TEXT PRIMARY KEY,
+      email TEXT NOT NULL,
+      name TEXT NOT NULL,
+      role TEXT NOT NULL DEFAULT 'member',
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      expires_at TEXT NOT NULL,
+      claimed_at TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_user_invitations_email ON user_invitations(email);
+    CREATE INDEX IF NOT EXISTS idx_user_invitations_expires ON user_invitations(expires_at);
   `);
 
   // Add content column to realm_skills for existing databases that predate this field
@@ -2068,4 +2080,40 @@ export function updateAgentBudget(did: string, budgets: { tokenBudgetDaily?: num
   if (sets.length === 0) return;
   values.push(did);
   d.prepare(`UPDATE agents SET ${sets.join(", ")} WHERE did = ?`).run(...values);
+}
+
+// ── User invitations ───────────────────────────────────────────────────
+
+export interface UserInvitationRow {
+  token: string;
+  email: string;
+  name: string;
+  role: string;
+  created_at: string;
+  expires_at: string;
+  claimed_at: string | null;
+}
+
+export function createUserInvitation(email: string, name: string, role: string, expiresAt: string): string {
+  const d = getDb();
+  const token = crypto.randomUUID();
+  d.prepare(
+    "INSERT INTO user_invitations (token, email, name, role, expires_at) VALUES (?, ?, ?, ?, ?)"
+  ).run(token, email, name, role, expiresAt);
+  return token;
+}
+
+export function getUserInvitation(token: string): UserInvitationRow | undefined {
+  const d = getDb();
+  return d.prepare("SELECT * FROM user_invitations WHERE token = ?").get(token) as UserInvitationRow | undefined;
+}
+
+export function claimUserInvitation(token: string): void {
+  const d = getDb();
+  d.prepare("UPDATE user_invitations SET claimed_at = datetime('now') WHERE token = ?").run(token);
+}
+
+export function cleanExpiredInvitations(): void {
+  const d = getDb();
+  d.prepare("DELETE FROM user_invitations WHERE expires_at < datetime('now')").run();
 }

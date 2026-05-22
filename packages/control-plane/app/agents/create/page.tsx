@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   Bot,
   Copy,
@@ -26,6 +26,7 @@ import {
   WifiOff,
   AlertTriangle,
   MessageSquare,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAdminWS } from "@/hooks/useAdminWS";
@@ -145,9 +146,11 @@ function CopyButton({ text }: { text: string }) {
 
 export default function CreateAgentPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { registrations, connected: wsConnected } = useAdminWS();
+  const regId = searchParams.get("regId");
 
-  const [step, setStep] = useState<WizardStep>("launch");
+  const [step, setStep] = useState<WizardStep>(regId ? "approve" : "launch");
   const [agentName, setAgentName] = useState("");
   const [wsUrl, setWsUrl] = useState("");
   const [pkgRunner, setPkgRunner] = useState<PkgRunner>("npx");
@@ -160,6 +163,7 @@ export default function CreateAgentPage() {
   const [selectedRealms, setSelectedRealms] = useState<Set<string>>(new Set());
   const [approving, setApproving] = useState(false);
   const [approveError, setApproveError] = useState<string | null>(null);
+  const [rejecting, setRejecting] = useState(false);
 
   // Post-approval state
   const [agentDid, setAgentDid] = useState<string | null>(null);
@@ -202,6 +206,19 @@ export default function CreateAgentPage() {
       })
       .catch(() => { });
   }, []);
+
+  // ── Load registration from regId query param ─────────────────────────────
+
+  useEffect(() => {
+    if (!regId || pendingReg) return;
+    const reg = registrations.find((r) => r.id === regId);
+    if (reg) {
+      setPendingReg(reg as PendingReg);
+      const caps = parseJsonArray(reg.requested_capabilities);
+      setSelectedCaps(new Set(caps.length > 0 ? caps : ["agent_communication"]));
+      // Realm selection will use the default (already set in initial load)
+    }
+  }, [regId, registrations, pendingReg]);
 
   // ── Detect new registrations once waiting ─────────────────────────────────
 
@@ -332,6 +349,30 @@ export default function CreateAgentPage() {
       setApproveError("Network error");
     } finally {
       setApproving(false);
+    }
+  }
+
+  async function doReject() {
+    if (!pendingReg) return;
+    if (!confirm(`Reject registration for "${pendingReg.agent_name}"? This cannot be undone.`)) return;
+    setRejecting(true);
+    setApproveError(null);
+    try {
+      const res = await fetch(`/api/registrations/${pendingReg.id}/reject`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason: "Rejected by admin" }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({})) as { error?: string };
+        setApproveError(data.error ?? "Rejection failed");
+        return;
+      }
+      router.back();
+    } catch {
+      setApproveError("Network error");
+    } finally {
+      setRejecting(false);
     }
   }
 
@@ -719,14 +760,24 @@ export default function CreateAgentPage() {
             >
               ← Back
             </button>
-            <button
-              onClick={doApprove}
-              disabled={approving || selectedCaps.size === 0}
-              className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors"
-            >
-              {approving ? <Loader2 size={15} className="animate-spin" /> : <CheckCircle2 size={15} />}
-              {approving ? "Approving…" : "Approve agent"}
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={doReject}
+                disabled={approving || rejecting}
+                className="flex items-center gap-2 px-5 py-2.5 bg-red-100 dark:bg-red-600/20 hover:bg-red-200 dark:hover:bg-red-600/30 disabled:opacity-50 disabled:cursor-not-allowed text-red-700 dark:text-red-400 text-sm font-medium rounded-lg transition-colors"
+              >
+                {rejecting ? <Loader2 size={15} className="animate-spin" /> : <X size={15} />}
+                {rejecting ? "Rejecting…" : "Reject"}
+              </button>
+              <button
+                onClick={doApprove}
+                disabled={approving || rejecting || selectedCaps.size === 0}
+                className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors"
+              >
+                {approving ? <Loader2 size={15} className="animate-spin" /> : <CheckCircle2 size={15} />}
+                {approving ? "Approving…" : "Approve agent"}
+              </button>
+            </div>
           </div>
         </div>
       )}

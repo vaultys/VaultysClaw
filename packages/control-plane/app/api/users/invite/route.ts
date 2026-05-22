@@ -2,7 +2,7 @@
  * GET /api/users/invite
  * Create a registration certificate for a new (non-owner) user.
  * Returns connection info so the admin can show a QR code.
- * Owner-only.
+ * Owner or admin.
  */
 
 import { NextResponse } from "next/server";
@@ -14,7 +14,7 @@ import { VaultysId } from "@vaultys/id";
 
 export async function GET() {
   const session = await getServerSession(authOptions);
-  if (!session?.user?.isOwner) {
+  if (!session?.user?.isOwner && !session?.user?.isAdmin) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

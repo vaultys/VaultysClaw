@@ -42,6 +42,7 @@ const sidebars: SidebarsConfig = {
         "guides/llm-routing",
         "guides/governance",
         "guides/entra-sync",
+        "guides/user-invitations",
       ],
     },
   ],

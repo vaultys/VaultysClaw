@@ -41,6 +41,7 @@ import {
   createPendingRegistration,
   updatePendingRegistration,
   deletePendingRegistration,
+  getPendingRegistration,
   upsertAgent,
   updateAgentBudget,
   getAgent,
@@ -1028,30 +1029,35 @@ export class AgentWSServer {
       }
     }
 
-    if (!target) {
-      logger.warn({ registrationId }, "No pending connection found for rejection");
+    // Get registration data from DB to get agent name (needed even if agent disconnected)
+    const reg = getPendingRegistration(registrationId);
+    if (!reg) {
+      logger.warn({ registrationId }, "Registration not found");
       return false;
     }
 
     // Remove from pending_registrations — activity_log keeps the rejection record
     deletePendingRegistration(registrationId);
 
-    logActivity("registration_rejected", undefined, target.agentName, JSON.stringify({ registrationId, reason }));
+    logActivity("registration_rejected", undefined, reg.agent_name, JSON.stringify({ registrationId, reason }));
     this.broadcastAdminUpdate("registration_rejected");
 
-    this.sendMessage(target.ws, {
-      messageId: `reg-rejected-${Date.now()}`,
-      type: "registration_rejected",
-      payload: {
-        registrationId,
-        reason,
-      } satisfies WSRegistrationRejectedPayload,
-      timestamp: new Date().toISOString(),
-    });
+    // If agent is still connected, send rejection message and clean up connection
+    if (target) {
+      this.sendMessage(target.ws, {
+        messageId: `reg-rejected-${Date.now()}`,
+        type: "registration_rejected",
+        payload: {
+          registrationId,
+          reason,
+        } satisfies WSRegistrationRejectedPayload,
+        timestamp: new Date().toISOString(),
+      });
 
-    clearTimeout(target.timer);
-    target.ws.close();
-    this.pending.delete(target.ws);
+      clearTimeout(target.timer);
+      target.ws.close();
+      this.pending.delete(target.ws);
+    }
 
     logger.info({ registrationId, reason }, "Registration rejected");
     return true;

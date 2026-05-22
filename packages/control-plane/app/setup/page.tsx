@@ -113,32 +113,10 @@ function Field({ label, ...props }: React.InputHTMLAttributes<HTMLInputElement> 
   );
 }
 
-/** Consistent step footer: Skip on left, primary CTA on right */
-function StepFooter({
-  onSkip,
-  skipLabel = "Skip for now",
-  children,
-}: {
-  onSkip?: () => void;
-  skipLabel?: string;
-  children: React.ReactNode;
-}) {
+function StepFooter({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex items-center justify-between pt-2 mt-1 border-t border-vc-border">
-      {onSkip ? (
-        <button
-          type="button"
-          onClick={onSkip}
-          className="text-sm text-vc-subtle hover:text-vc-muted transition-colors"
-        >
-          {skipLabel}
-        </button>
-      ) : (
-        <div />
-      )}
-      <div className="flex items-center gap-3">
-        {children}
-      </div>
+    <div className="flex items-center justify-end gap-3 pt-2 mt-1 border-t border-vc-border">
+      {children}
     </div>
   );
 }
@@ -168,9 +146,7 @@ function ProviderBadge({ provider }: { provider: string }) {
   );
 }
 
-function ModelStep({
-  onNext, onSkip,
-}: { onNext: () => void; onSkip: () => void }) {
+function ModelStep({ onNext }: { onNext: () => void }) {
   const [models,       setModels]       = useState<ModelEntry[]>([]);
   const [fetching,     setFetching]     = useState(true);
   const [showRegister, setShowRegister] = useState(false);
@@ -247,17 +223,23 @@ function ModelStep({
         </div>
       )}
 
-      <StepFooter
-        onSkip={models.length > 0 ? onNext : onSkip}
-        skipLabel={models.length > 0 ? "Continue →" : "Skip for now"}
-      >
+      <StepFooter>
         <button
           type="button"
           onClick={() => setShowRegister(true)}
-          className="flex items-center gap-2 px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium rounded-xl transition-colors"
+          className="flex items-center gap-2 px-4 py-2 border border-vc-border text-vc-muted hover:text-vc-text hover:bg-vc-raised text-sm font-medium rounded-xl transition-colors"
         >
           <Plus className="w-4 h-4" /> Register model
         </button>
+        {models.length > 0 && (
+          <button
+            type="button"
+            onClick={onNext}
+            className="flex items-center gap-2 px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium rounded-xl transition-colors"
+          >
+            Continue →
+          </button>
+        )}
       </StepFooter>
 
       {showRegister && (
@@ -272,9 +254,7 @@ function ModelStep({
 
 // ─── Step 2 — Email / SMTP ────────────────────────────────────────────────────
 
-function EmailStep({
-  onNext, onSkip,
-}: { onNext: () => void; onSkip: () => void }) {
+function EmailStep({ onNext }: { onNext: () => void }) {
   const [host,     setHost]     = useState("");
   const [port,     setPort]     = useState("587");
   const [user,     setUser]     = useState("");
@@ -291,7 +271,9 @@ function EmailStep({
   };
 
   const save = async (e: React.FormEvent) => {
-    e.preventDefault(); setSaving(true);
+    e.preventDefault();
+    if (!host.trim()) { onNext(); return; }
+    setSaving(true);
     try {
       const r = await fetch("/api/server/smtp", {
         method: "PUT",
@@ -343,7 +325,7 @@ function EmailStep({
         </p>
       )}
 
-      <StepFooter onSkip={onSkip}>
+      <StepFooter>
         <button
           type="button" onClick={test} disabled={testing || !host}
           className="flex items-center gap-1.5 px-4 py-2 text-sm border border-vc-border text-vc-muted hover:text-vc-text hover:bg-vc-raised rounded-xl disabled:opacity-40 transition-colors"
@@ -354,7 +336,7 @@ function EmailStep({
           Test
         </button>
         <button
-          type="submit" disabled={saving || !host}
+          type="submit" disabled={saving}
           className="flex items-center gap-1.5 px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium rounded-xl disabled:opacity-40 transition-colors"
         >
           {saving && <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
@@ -367,13 +349,14 @@ function EmailStep({
 
 // ─── Step 3 — Users ───────────────────────────────────────────────────────────
 
-function UsersStep({
-  onNext, onSkip,
-}: { onNext: () => void; onSkip: () => void }) {
-  const [tab,        setTab]        = useState<"qr" | "entra">("qr");
+function UsersStep({ onNext }: { onNext: () => void }) {
+  const [tab,        setTab]        = useState<"qr" | "email" | "entra">("qr");
   const [phase,      setPhase]      = useState<"idle" | "loading" | "qr" | "success" | "failure">("idle");
   const [qrUrl,      setQrUrl]      = useState("");
   const [addedCount, setAddedCount] = useState(0);
+  const [emailForm,  setEmailForm]  = useState({ email: "", name: "", role: "member" });
+  const [emailSending, setEmailSending] = useState(false);
+  const [emailMsg, setEmailMsg] = useState<{ type: "ok" | "fail"; text: string } | null>(null);
 
   const startInvite = useCallback(async () => {
     setPhase("loading");
@@ -402,6 +385,31 @@ function UsersStep({
 
   const isIdle = phase === "idle" || phase === "failure";
 
+  const sendEmailInvite = useCallback(async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!emailForm.email || !emailForm.name) return;
+    setEmailSending(true);
+    setEmailMsg(null);
+    try {
+      const res = await fetch("/api/users/invite/email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(emailForm),
+      });
+      if (res.ok) {
+        setEmailMsg({ type: "ok", text: `Invitation sent to ${emailForm.email}` });
+        setEmailForm({ email: "", name: "", role: "member" });
+        setAddedCount((n) => n + 1);
+      } else {
+        setEmailMsg({ type: "fail", text: "Failed to send invitation" });
+      }
+    } catch {
+      setEmailMsg({ type: "fail", text: "Network error" });
+    } finally {
+      setEmailSending(false);
+    }
+  }, [emailForm]);
+
   return (
     <div className="space-y-5">
       <p className="text-vc-muted text-sm leading-relaxed">
@@ -410,7 +418,7 @@ function UsersStep({
 
       {/* Tab selector */}
       <div className="flex gap-1 p-1 bg-vc-raised border border-vc-border rounded-xl">
-        {(["qr", "entra"] as const).map((t) => (
+        {(["qr", "email", "entra"] as const).map((t) => (
           <button
             key={t} type="button" onClick={() => { setTab(t); setPhase("idle"); }}
             className={`flex-1 py-1.5 text-xs font-medium rounded-lg transition-colors ${
@@ -419,7 +427,7 @@ function UsersStep({
                 : "text-vc-muted hover:text-vc-text"
             }`}
           >
-            {t === "qr" ? "QR Code Invite" : "Microsoft Entra ID"}
+            {t === "qr" ? "QR Code" : t === "email" ? "Email Invite" : "Microsoft Entra ID"}
           </button>
         ))}
       </div>
@@ -486,6 +494,66 @@ function UsersStep({
         </>
       )}
 
+      {/* Email tab */}
+      {tab === "email" && (
+        <form onSubmit={sendEmailInvite} className="space-y-4">
+          <p className="text-vc-muted text-sm">Send a registration link via email</p>
+
+          <div className="space-y-3">
+            <Field
+              label="Email" type="email"
+              value={emailForm.email}
+              onChange={(e) => setEmailForm({ ...emailForm, email: e.target.value })}
+              placeholder="user@example.com"
+              required
+            />
+            <Field
+              label="Name"
+              value={emailForm.name}
+              onChange={(e) => setEmailForm({ ...emailForm, name: e.target.value })}
+              placeholder="John Doe"
+              required
+            />
+            <div>
+              <label className="block text-xs text-vc-muted mb-1.5">Role</label>
+              <select
+                value={emailForm.role}
+                onChange={(e) => setEmailForm({ ...emailForm, role: e.target.value })}
+                className="w-full bg-vc-raised border border-vc-border rounded-xl px-3 py-2 text-sm text-vc-text focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+              >
+                <option value="member">Member</option>
+                <option value="operator">Operator</option>
+                <option value="manager">Manager</option>
+                <option value="admin">Admin</option>
+              </select>
+            </div>
+          </div>
+
+          {addedCount > 0 && (
+            <p className="text-sm text-green-600 dark:text-green-400">✓ {addedCount} invitation{addedCount > 1 ? "s" : ""} sent</p>
+          )}
+
+          {emailMsg && (
+            <p className={`text-xs px-3 py-2 rounded-xl border ${
+              emailMsg.type === "ok"
+                ? "bg-green-50 dark:bg-green-900/20 border-green-300 dark:border-green-700/40 text-green-700 dark:text-green-400"
+                : "bg-red-50 dark:bg-red-900/20 border-red-300 dark:border-red-700/40 text-red-600 dark:text-red-400"
+            }`}>
+              {emailMsg.text}
+            </p>
+          )}
+
+          <div className="flex gap-2">
+            <button
+              type="submit" disabled={emailSending || !emailForm.email || !emailForm.name}
+              className="flex-1 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium rounded-xl disabled:opacity-40 transition-colors"
+            >
+              {emailSending ? "Sending…" : "Send Invitation"}
+            </button>
+          </div>
+        </form>
+      )}
+
       {/* Entra tab */}
       {tab === "entra" && (
         <div className="text-center py-6 space-y-4">
@@ -498,13 +566,13 @@ function UsersStep({
       )}
 
       {/* Footer — only shown when not mid-flow */}
-      {(isIdle || tab === "entra") && (
-        <StepFooter
-          onSkip={onSkip}
-          skipLabel={addedCount > 0 ? "Continue →" : "Skip for now"}
-        >
-          {tab === "entra" && (
-            <button onClick={onSkip} className="inline-flex items-center gap-2 px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium rounded-xl transition-colors">
+      {(isIdle || tab === "email" || tab === "entra") && (
+        <StepFooter>
+          {(addedCount > 0 || tab === "email" || tab === "entra") && (
+            <button
+              onClick={onNext}
+              className="inline-flex items-center gap-2 px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium rounded-xl transition-colors"
+            >
               Continue <ChevronRight className="w-4 h-4" />
             </button>
           )}
@@ -516,36 +584,92 @@ function UsersStep({
 
 // ─── Step 4 — Agents ──────────────────────────────────────────────────────────
 
-function AgentStep({
-  onSkip, onFinish,
-}: { onSkip: () => void; onFinish: () => void }) {
+interface AgentEntry {
+  id: string;
+  name: string;
+  online: boolean;
+  capabilities: string[];
+}
+
+function AgentStep({ onNext }: { onNext: () => void }) {
+  const router = useRouter();
+  const [agents,   setAgents]   = useState<AgentEntry[]>([]);
+  const [fetching, setFetching] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/agents?pageSize=20")
+      .then((r) => r.json())
+      .then((d: { agents?: AgentEntry[] }) => setAgents(d.agents ?? []))
+      .catch(() => {})
+      .finally(() => setFetching(false));
+  }, []);
+
   return (
     <div className="space-y-5">
       <p className="text-vc-muted text-sm leading-relaxed">
         Register your first AI agent. Agents connect via WebSocket and receive tasks cryptographically signed by the control plane.
       </p>
 
-      <div className="grid grid-cols-3 gap-3">
-        {[
-          { icon: "🔗", title: "Install SDK",  desc: "Add the VaultysClaw agent package to your project." },
-          { icon: "🔑", title: "Register",     desc: "Agent presents its VaultysID — you approve it here." },
-          { icon: "🎛️", title: "Assign caps",  desc: "Control what tools and resources each agent can use." },
-        ].map(({ icon, title, desc }) => (
-          <div key={title} className="bg-vc-raised border border-vc-border rounded-xl p-3 text-center">
-            <div className="text-2xl mb-2">{icon}</div>
-            <p className="text-xs font-semibold text-vc-text mb-1">{title}</p>
-            <p className="text-xs text-vc-muted leading-snug">{desc}</p>
-          </div>
-        ))}
-      </div>
+      {fetching ? (
+        <div className="flex items-center justify-center py-6">
+          <div className="w-5 h-5 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+        </div>
+      ) : agents.length > 0 ? (
+        <div className="space-y-2">
+          {agents.map((a) => (
+            <div key={a.id} className="flex items-center gap-3 px-4 py-3 bg-vc-raised border border-vc-border rounded-xl">
+              <div className="w-8 h-8 rounded-lg bg-vc-surface border border-vc-border flex items-center justify-center shrink-0">
+                <Bot className="w-4 h-4 text-vc-muted" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-vc-text truncate">{a.name}</p>
+                {a.capabilities.length > 0 && (
+                  <p className="text-xs text-vc-subtle truncate">{a.capabilities.slice(0, 3).join(", ")}{a.capabilities.length > 3 ? ` +${a.capabilities.length - 3}` : ""}</p>
+                )}
+              </div>
+              <span className={`flex items-center gap-1 text-xs font-medium shrink-0 ${
+                a.online
+                  ? "text-emerald-600 dark:text-emerald-400"
+                  : "text-vc-subtle"
+              }`}>
+                <span className={`w-1.5 h-1.5 rounded-full ${a.online ? "bg-emerald-500" : "bg-vc-border"}`} />
+                {a.online ? "Online" : "Offline"}
+              </span>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="grid grid-cols-3 gap-3">
+          {[
+            { icon: "🔗", title: "Install SDK",  desc: "Add the VaultysClaw agent package to your project." },
+            { icon: "🔑", title: "Register",     desc: "Agent presents its VaultysID — you approve it here." },
+            { icon: "🎛️", title: "Assign caps",  desc: "Control what tools and resources each agent can use." },
+          ].map(({ icon, title, desc }) => (
+            <div key={title} className="bg-vc-raised border border-vc-border rounded-xl p-3 text-center">
+              <div className="text-2xl mb-2">{icon}</div>
+              <p className="text-xs font-semibold text-vc-text mb-1">{title}</p>
+              <p className="text-xs text-vc-muted leading-snug">{desc}</p>
+            </div>
+          ))}
+        </div>
+      )}
 
-      <StepFooter onSkip={onSkip}>
-        <button
-          onClick={onFinish}
-          className="flex items-center gap-2 px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium rounded-xl transition-colors"
-        >
-          <Bot className="w-4 h-4" /> Create first agent
-        </button>
+      <StepFooter>
+        {agents.length === 0 ? (
+          <button
+            onClick={() => { onNext(); router.push("/agents/create"); }}
+            className="flex items-center gap-2 px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium rounded-xl transition-colors"
+          >
+            <Bot className="w-4 h-4" /> Create first agent
+          </button>
+        ) : (
+          <button
+            onClick={onNext}
+            className="flex items-center gap-2 px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium rounded-xl transition-colors"
+          >
+            Continue →
+          </button>
+        )}
       </StepFooter>
     </div>
   );
@@ -567,25 +691,16 @@ function DoneStep({ completedSteps, onClose }: { completedSteps: Set<StepId>; on
       </div>
 
       <div className="w-full space-y-2 text-left">
-        {STEPS.map(({ id, label, icon: Icon }) => {
-          const done = completedSteps.has(id);
-          return (
+        {STEPS.map(({ id, label, icon: Icon }) => (
             <div
               key={id}
-              className={`flex items-center gap-3 px-4 py-3 rounded-xl border text-sm ${
-                done
-                  ? "bg-green-50 dark:bg-green-500/10 border-green-200 dark:border-green-500/25 text-green-700 dark:text-green-400"
-                  : "bg-vc-raised border-vc-border text-vc-muted"
-              }`}
+              className="flex items-center gap-3 px-4 py-3 rounded-xl border text-sm bg-green-50 dark:bg-green-500/10 border-green-200 dark:border-green-500/25 text-green-700 dark:text-green-400"
             >
               <Icon className="w-4 h-4 shrink-0" />
               <span className="flex-1 font-medium">{label}</span>
-              {done
-                ? <Check className="w-4 h-4 shrink-0" />
-                : <span className="text-xs opacity-60">skipped</span>}
+              <Check className="w-4 h-4 shrink-0" />
             </div>
-          );
-        })}
+          ))}
       </div>
 
       <button
@@ -705,10 +820,28 @@ export default function SetupPage() {
       router.replace("/");
       return;
     }
-    const state = loadWizardState();
-    setCurrentIdx(state.step);
-    setCompletedSteps(new Set(state.completed));
-    setLoading(false);
+    const load = async () => {
+      try {
+        // Fetch actual setup status from backend
+        const res = await fetch("/api/setup/status");
+        const data = await res.json() as { status?: { model: boolean; email: boolean; users: boolean; agent: boolean } };
+        if (data.status) {
+          const completed: StepId[] = [];
+          if (data.status.model) completed.push("model");
+          if (data.status.email) completed.push("email");
+          if (data.status.users) completed.push("users");
+          if (data.status.agent) completed.push("agent");
+          setCompletedSteps(new Set(completed));
+        }
+      } catch { /* fall back to localStorage */ }
+
+      // Load local state
+      const state = loadWizardState();
+      setCurrentIdx(state.step);
+      if (state.step >= STEP_IDS.length) setDone(true);
+      setLoading(false);
+    };
+    load();
   }, [router]);
 
   const currentStep = STEP_IDS[currentIdx];
@@ -720,12 +853,22 @@ export default function SetupPage() {
     saveWizardState({ step: idx, completed: [...completedSteps] });
   };
 
-  /** Advance to next step, optionally marking current as complete */
-  const advance = (completed: boolean) => {
-    const newSet = completed
-      ? new Set([...completedSteps, currentStep])
-      : completedSteps;
-    if (completed) setCompletedSteps(newSet);
+  /** Verify step completion by fetching backend status, then advance */
+  const advance = async () => {
+    try {
+      // Check if the current step is actually complete on the backend
+      const res = await fetch("/api/setup/status");
+      const data = await res.json() as { status?: Record<string, boolean> };
+      if (data.status && !data.status[currentStep]) {
+        // Step not actually complete yet, don't advance
+        return;
+      }
+    } catch {
+      // If we can't verify, proceed anyway (offline mode)
+    }
+
+    const newSet = new Set([...completedSteps, currentStep]);
+    setCompletedSteps(newSet);
     const nextIdx = currentIdx + 1;
     if (nextIdx < STEP_IDS.length) {
       setCurrentIdx(nextIdx);
@@ -801,18 +944,10 @@ export default function SetupPage() {
 
                 {/* Step card */}
                 <div className="bg-vc-surface border border-vc-border rounded-2xl p-6 shadow-sm">
-                  {currentStep === "model" && (
-                    <ModelStep onNext={() => advance(true)} onSkip={() => advance(false)} />
-                  )}
-                  {currentStep === "email" && (
-                    <EmailStep onNext={() => advance(true)} onSkip={() => advance(false)} />
-                  )}
-                  {currentStep === "users" && (
-                    <UsersStep onNext={() => advance(true)} onSkip={() => advance(false)} />
-                  )}
-                  {currentStep === "agent" && (
-                    <AgentStep onSkip={() => advance(false)} onFinish={() => finish("/agents/create")} />
-                  )}
+                  {currentStep === "model" && <ModelStep onNext={() => advance()} />}
+                  {currentStep === "email" && <EmailStep onNext={() => advance()} />}
+                  {currentStep === "users" && <UsersStep onNext={() => advance()} />}
+                  {currentStep === "agent" && <AgentStep onNext={() => advance()} />}
                 </div>
 
                 {/* Mobile step dots */}

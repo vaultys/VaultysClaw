@@ -55,3 +55,4 @@ demo/.demo-pids
 /docs-site/.docusaurus
 /packages/agent-controller/src/web/public
 packages/control-plane/tsconfig.tsbuildinfo
+/packages/control-plane/data3

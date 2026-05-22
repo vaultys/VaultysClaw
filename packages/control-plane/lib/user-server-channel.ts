@@ -47,19 +47,19 @@ const registerUser = (contact: VaultysId, pendingUserId?: string): boolean => {
   const existing = UserDao.getByDid(did);
   console.log(`[registerUser] did=${did} existing=${JSON.stringify(existing)}`);
   if (existing) {
-    // If this real DID already exists and was an Entra placeholder, mark as claimed.
-    if (existing.entra_id && !existing.claimed_at) {
+    // If this real DID already exists and was an Entra/email placeholder, mark as claimed.
+    if (!existing.claimed_at && (existing.entra_id || !existing.did)) {
       UserDao.claimEntraUser(existing.id, did, publicKey);
     }
     console.log(`[registerUser] already registered — returning true`);
     return true;
   }
 
-  // If the cert was generated for a specific Entra placeholder user, claim that record.
+  // If the cert was generated for a specific unclaimed user (Entra or email-invited), claim that record.
   if (pendingUserId) {
     const pending = UserDao.getById(pendingUserId);
-    if (pending && pending.entra_id && !pending.claimed_at) {
-      console.log(`[registerUser] claiming Entra placeholder id=${pendingUserId} → ${did}`);
+    if (pending && !pending.claimed_at && !pending.did) {
+      console.log(`[registerUser] claiming unclaimed user id=${pendingUserId} → ${did}`);
       UserDao.claimEntraUser(pendingUserId, did, publicKey);
       return true;
     }

@@ -163,32 +163,56 @@ export default function UsersPage() {
   const generateQr = async (user: User, sendByEmail: boolean) => {
     setSendingQr(user.id);
     try {
-      const r = await fetch("/api/server/entra/send-qr", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: user.id, sendByEmail }),
-      });
-      const d = await r.json() as { qrUrl?: string; token?: string; error?: string };
-      if (!r.ok || !d.qrUrl) { alert(d.error ?? "Failed to generate QR"); return; }
-      setQrModal({ user, qrUrl: d.qrUrl, token: d.token ?? "", phase: "showing" });
+      if (sendByEmail) {
+        // Send email invitation
+        const r = await fetch("/api/users/invite/email", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: user.email, name: user.name, role: user.role }),
+        });
+        const d = await r.json() as { token?: string; userId?: string; error?: string };
+        if (!r.ok) {
+          alert(d.error ?? "Failed to send invitation");
+          return;
+        }
+        alert(`Invitation sent to ${user.email}`);
+        loadUsers({ tab, q, role, page, sortBy, sortDir });
+      } else {
+        // Show direct QR code
+        const [inviteRes, settingsRes] = await Promise.all([
+          fetch("/api/users/invite"),
+          fetch("/api/server/settings"),
+        ]);
+        if (!inviteRes.ok) throw new Error("Failed to create invite");
 
-      if (d.token) {
-        (async () => {
-          for (let i = 0; i < 180; i++) {
-            await new Promise((res) => setTimeout(res, 1500));
-            const pr = await fetch(`/api/user/listen/${d.token}`);
-            const { status } = await pr.json() as { status: number };
-            if (status === 2) {
-              setQrModal((m) => m ? { ...m, phase: "success" } : null);
-              loadUsers({ tab, q, role, page, sortBy, sortDir });
-              return;
-            }
-            if (status === -2) {
-              setQrModal((m) => m ? { ...m, phase: "failure" } : null);
-              return;
-            }
+        const data = (await inviteRes.json()) as {
+          connectionString: string;
+          token: string;
+          key: string;
+          serverDid: string | null;
+        };
+        const { walletUrl } = (await settingsRes.json()) as { walletUrl?: string };
+        const base = walletUrl ?? "https://wallet.vaultys.net";
+        const didParam = data.serverDid ? `&did=${encodeURIComponent(data.serverDid)}` : "";
+        const qrUrl = `${base}/#${data.connectionString}&protocol=p2p&service=auth${didParam}`;
+
+        setQrModal({ user, qrUrl, token: data.token, phase: "showing" });
+
+        // Poll until done
+        for (let i = 0; i < 180; i++) {
+          await new Promise((res) => setTimeout(res, 1500));
+          const pr = await fetch(`/api/user/listen/${data.token}`);
+          const { status } = await pr.json() as { status: number };
+          if (status === 2) {
+            setQrModal((m) => m ? { ...m, phase: "success" } : null);
+            loadUsers({ tab, q, role, page, sortBy, sortDir });
+            return;
           }
-        })();
+          if (status === -2) {
+            setQrModal((m) => m ? { ...m, phase: "failure" } : null);
+            return;
+          }
+        }
       }
     } finally {
       setSendingQr(null);

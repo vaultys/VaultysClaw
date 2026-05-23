@@ -13,10 +13,13 @@ import {
   CheckCircle2,
   AlertCircle,
   Clock,
+  Play,
 } from "lucide-react";
 import { useWorkflowStore } from "@/components/workflow/store";
 import { TemplateSelectionModal } from "@/components/workflow/TemplateSelectionModal";
 import { ImportExportButtons } from "@/components/workflow/ImportExportButtons";
+import { WorkflowRunModal } from "@/components/workflow/WorkflowRunModal";
+import type { WorkflowDefinition } from "@/lib/db";
 
 interface WorkflowItem {
   id: string;
@@ -40,23 +43,47 @@ interface WorkflowWithRuns extends WorkflowItem {
   loadingRuns?: boolean;
 }
 
-function formatDate(iso: string | null): string {
-  if (!iso) return "—";
-  const date = new Date(iso);
-  return date.toLocaleString();
+function parseTimestamp(val: unknown): number | null {
+  if (val === null || val === undefined || val === "" || val === false) return null;
+  if (typeof val === "number") return val > 0 ? val * 1000 : null;
+  if (typeof val === "string") {
+    if (!val.trim()) return null;
+    if (/^\d+$/.test(val)) {
+      const n = parseInt(val, 10);
+      return n > 0 ? n * 1000 : null;
+    }
+    let s = val.replace(" ", "T");
+    if (!s.endsWith("Z") && !s.includes("+") && !/[+-]\d{2}:\d{2}$/.test(s)) s += "Z";
+    const t = new Date(s).getTime();
+    return isNaN(t) ? null : t;
+  }
+  return null;
 }
 
-function timeAgo(iso: string): string {
-  const date = new Date(iso);
-  const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
+function formatDate(val: unknown): string {
+  const ms = parseTimestamp(val);
+  if (ms === null) return "—";
+  const date = new Date(ms);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  const seconds = String(date.getSeconds()).padStart(2, "0");
+  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+}
+
+function timeAgo(val: unknown): string {
+  const ms = parseTimestamp(val);
+  if (ms === null) return "—";
+  const seconds = Math.floor((Date.now() - ms) / 1000);
   if (seconds < 5) return "just now";
   if (seconds < 60) return `${seconds}s ago`;
   const minutes = Math.floor(seconds / 60);
   if (minutes < 60) return `${minutes}m ago`;
   const hours = Math.floor(minutes / 60);
   if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  return `${days}d ago`;
+  return `${Math.floor(hours / 24)}d ago`;
 }
 
 function getStatusIcon(status: string) {
@@ -92,6 +119,12 @@ export default function WorkflowsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showTemplateModal, setShowTemplateModal] = useState(false);
+  const [executingWorkflow, setExecutingWorkflow] = useState<{
+    id: string;
+    name: string;
+    description: string | null;
+    definition: WorkflowDefinition;
+  } | null>(null);
   const clearWorkflow = useWorkflowStore((s) => s.clearWorkflow);
   const setWorkflow = useWorkflowStore((s) => s.setWorkflow);
 
@@ -196,6 +229,25 @@ export default function WorkflowsPage() {
     }
   };
 
+  const handleExecuteWorkflow = async (workflowId: string) => {
+    try {
+      const res = await fetch(`/api/workflows/${workflowId}`);
+      if (!res.ok) throw new Error("Failed to load workflow");
+      const data = (await res.json()) as {
+        workflow: {
+          id: string;
+          name: string;
+          description: string | null;
+          definition: WorkflowDefinition;
+        };
+      };
+      setExecutingWorkflow(data.workflow);
+    } catch (error) {
+      console.error("Failed to load workflow:", error);
+      alert("Failed to load workflow");
+    }
+  };
+
   return (
     <div className="min-h-screen bg-vc-bg">
       {/* Header */}
@@ -286,6 +338,14 @@ export default function WorkflowsPage() {
                   </button>
 
                   <div className="flex gap-2 ml-4">
+                    <button
+                      onClick={() => handleExecuteWorkflow(workflow.id)}
+                      className="flex items-center gap-1 px-3 py-2 text-sm font-medium text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 rounded"
+                      title="Execute workflow"
+                    >
+                      <Play size={16} />
+                      Execute
+                    </button>
                     <Link
                       href={`/workflows/${workflow.id}`}
                       className="flex items-center gap-1 px-3 py-2 text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded"
@@ -324,12 +384,10 @@ export default function WorkflowsPage() {
                           </thead>
                           <tbody>
                             {workflow.runs.map((run) => {
-                              const duration = run.completed_at
-                                ? Math.round(
-                                  (new Date(run.completed_at).getTime() -
-                                    new Date(run.started_at).getTime()) /
-                                  1000
-                                )
+                              const startMs = parseTimestamp(run.started_at);
+                              const endMs = parseTimestamp(run.completed_at);
+                              const duration = startMs !== null && endMs !== null
+                                ? Math.round((endMs - startMs) / 1000)
                                 : null;
                               return (
                                 <tr
@@ -389,6 +447,18 @@ export default function WorkflowsPage() {
         onClose={() => setShowTemplateModal(false)}
         onSelectTemplate={handleSelectTemplate}
       />
+
+      {/* Workflow Execution Modal */}
+      {executingWorkflow && (
+        <WorkflowRunModal
+          workflowId={executingWorkflow.id}
+          workflowName={executingWorkflow.name}
+          workflowDescription={executingWorkflow.description}
+          definition={executingWorkflow.definition}
+          isOpen={!!executingWorkflow}
+          onClose={() => setExecutingWorkflow(null)}
+        />
+      )}
 
       {/* Bottom Action Bar for Import/Export */}
       <div className="fixed bottom-6 right-6">

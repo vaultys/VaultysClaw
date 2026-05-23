@@ -58,13 +58,47 @@ interface RunHistory {
   steps: WorkflowRunStep[];
 }
 
-function formatDate(iso: string | null): string {
-  if (!iso) return "—";
-  return new Date(iso).toLocaleString();
+/** Convert any timestamp format to milliseconds since epoch, or null if invalid.
+ *  Handles: number (Unix seconds), numeric string "1748952325", ISO string "2026-05-22 14:05:25"
+ */
+function parseTimestamp(val: unknown): number | null {
+  if (val === null || val === undefined || val === "" || val === false) return null;
+  if (typeof val === "number") {
+    return val > 0 ? val * 1000 : null;
+  }
+  if (typeof val === "string") {
+    if (!val.trim()) return null;
+    // Numeric string — stored as Unix seconds in a TEXT column
+    if (/^\d+$/.test(val)) {
+      const n = parseInt(val, 10);
+      return n > 0 ? n * 1000 : null;
+    }
+    // ISO / SQLite string — append Z so it's always treated as UTC
+    let s = val.replace(" ", "T");
+    if (!s.endsWith("Z") && !s.includes("+") && !/[+-]\d{2}:\d{2}$/.test(s)) s += "Z";
+    const t = new Date(s).getTime();
+    return isNaN(t) ? null : t;
+  }
+  return null;
 }
 
-function timeAgo(iso: string): string {
-  const seconds = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
+function formatDate(val: unknown): string {
+  const ms = parseTimestamp(val);
+  if (ms === null) return "—";
+  const date = new Date(ms);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  const seconds = String(date.getSeconds()).padStart(2, "0");
+  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+}
+
+function timeAgo(val: unknown): string {
+  const ms = parseTimestamp(val);
+  if (ms === null) return "—";
+  const seconds = Math.floor((Date.now() - ms) / 1000);
   if (seconds < 5) return "just now";
   if (seconds < 60) return `${seconds}s ago`;
   const minutes = Math.floor(seconds / 60);
@@ -184,8 +218,8 @@ export default function WorkflowRunDetailPage() {
       return sorted;
     }
     return [...history.steps].sort((a, b) => {
-      const at = a.started_at ? new Date(a.started_at).getTime() : 0;
-      const bt = b.started_at ? new Date(b.started_at).getTime() : 0;
+      const at = parseTimestamp(a.started_at) ?? 0;
+      const bt = parseTimestamp(b.started_at) ?? 0;
       return at - bt;
     });
   };
@@ -219,8 +253,10 @@ export default function WorkflowRunDetailPage() {
   const definition = workflow?.definition;
   const nodeMap = new Map(definition?.nodes.map((n) => [n.id, n]) ?? []);
 
-  const duration = run.completed_at && run.started_at
-    ? Math.round((new Date(run.completed_at).getTime() - new Date(run.started_at).getTime()) / 1000)
+  const startedMs = parseTimestamp(run.started_at);
+  const completedMs = parseTimestamp(run.completed_at);
+  const duration = startedMs !== null && completedMs !== null
+    ? Math.round((completedMs - startedMs) / 1000)
     : null;
 
   const sortedSteps = getSortedSteps();
@@ -300,8 +336,10 @@ export default function WorkflowRunDetailPage() {
                 const nodeLabel = (nodeData.label as string | undefined) ?? step.step_id;
 
                 const isExpanded = expandedSteps.has(step.id);
-                const stepDuration = step.completed_at && step.started_at
-                  ? Math.round((new Date(step.completed_at).getTime() - new Date(step.started_at).getTime()) / 1000)
+                const stepStartMs = parseTimestamp(step.started_at);
+                const stepEndMs = parseTimestamp(step.completed_at);
+                const stepDuration = stepStartMs !== null && stepEndMs !== null
+                  ? Math.round((stepEndMs - stepStartMs) / 1000)
                   : null;
 
                 return (

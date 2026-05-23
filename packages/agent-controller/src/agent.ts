@@ -1052,7 +1052,9 @@ export class Agent extends EventEmitter {
     try {
       this.log("info", `Intent received: ${action} (${messageId})`);
 
-      if (!this.capabilities.includes(action as AgentCapability)) {
+      // "agent" is the legacy name for "agent_communication"
+      const effectiveAction = action === "agent" ? "agent_communication" : action;
+      if (!this.capabilities.includes(effectiveAction as AgentCapability)) {
         throw new Error(`Capability '${action}' not granted`);
       }
 
@@ -1095,7 +1097,7 @@ export class Agent extends EventEmitter {
       }
 
       if (userDid) {
-        const ok = await this.verifyUserDelegation(userDid, action);
+        const ok = await this.verifyUserDelegation(userDid, effectiveAction);
         if (!ok) throw new Error(`User '${userDid}' has no valid delegation for '${action}'`);
         this.log("info", `Delegation verified for ${userDid}`);
       }

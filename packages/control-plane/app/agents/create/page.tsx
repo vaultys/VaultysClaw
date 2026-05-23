@@ -96,6 +96,7 @@ const ALL_CAPABILITIES = [
   { id: "mail_send", label: "Mail Send" },
   { id: "code_execution", label: "Code Execution" },
   { id: "system_command", label: "System Command" },
+  { id: "agent_communication", label: "Agent Communication" },
 ] as const;
 
 const CAPABILITY_ICONS: Record<string, React.ReactNode> = {
@@ -106,6 +107,7 @@ const CAPABILITY_ICONS: Record<string, React.ReactNode> = {
   mail_send: <Mail size={13} />,
   code_execution: <Code size={13} />,
   system_command: <Terminal size={13} />,
+  agent_communication: <Bot size={13} />,
 };
 
 // ── Sub-components ─────────────────────────────────────────────────────────────

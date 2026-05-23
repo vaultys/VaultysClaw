@@ -1,0 +1,647 @@
+"use client";
+
+import React, { useEffect, useState } from "react";
+import Link from "next/link";
+import {
+  X,
+  ChevronLeft,
+  CheckCircle2,
+  AlertCircle,
+  Clock,
+  Activity,
+  Download,
+  Copy,
+} from "lucide-react";
+import type { WorkflowDefinition } from "@/lib/db";
+import { WorkflowInputForm } from "./WorkflowInputForm";
+
+interface WorkflowRunModalProps {
+  workflowId: string;
+  workflowName: string;
+  workflowDescription: string | null;
+  definition: WorkflowDefinition;
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+interface ExecutionState {
+  runId: string | null;
+  status: "idle" | "running" | "completed" | "failed";
+  startedAt: string | null;
+  completedAt: string | null;
+  results: Record<string, unknown> | null;
+  error: string | null;
+}
+
+interface StepInfo {
+  stepId: string;
+  status: string;
+  output: unknown;
+  error: string | null;
+  startedAt: string | null;
+  completedAt: string | null;
+  agentId: string | null;
+  assignedUserName: string | null;
+}
+
+function getStatusIcon(status: string) {
+  switch (status) {
+    case "completed":
+      return <CheckCircle2 size={16} className="text-green-500" />;
+    case "failed":
+      return <AlertCircle size={16} className="text-red-500" />;
+    case "running":
+      return <Activity size={16} className="text-blue-500 animate-pulse" />;
+    default:
+      return <Clock size={16} className="text-vc-muted" />;
+  }
+}
+
+function getStatusBadge(status: string) {
+  const base = "inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium";
+  switch (status) {
+    case "completed":
+      return `${base} bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400`;
+    case "failed":
+      return `${base} bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-400`;
+    case "running":
+      return `${base} bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400`;
+    default:
+      return `${base} bg-vc-raised text-vc-subtle`;
+  }
+}
+
+function parseTimestamp(val: unknown): number | null {
+  if (val === null || val === undefined || val === "" || val === false) return null;
+  if (typeof val === "number") return val > 0 ? val * 1000 : null;
+  if (typeof val === "string") {
+    if (!val.trim()) return null;
+    if (/^\d+$/.test(val)) {
+      const n = parseInt(val, 10);
+      return n > 0 ? n * 1000 : null;
+    }
+    let s = val.replace(" ", "T");
+    if (!s.endsWith("Z") && !s.includes("+") && !/[+-]\d{2}:\d{2}$/.test(s)) s += "Z";
+    const t = new Date(s).getTime();
+    return isNaN(t) ? null : t;
+  }
+  return null;
+}
+
+function formatDate(val: unknown): string {
+  const ms = parseTimestamp(val);
+  if (ms === null) return "—";
+  const date = new Date(ms);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  const seconds = String(date.getSeconds()).padStart(2, "0");
+  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+}
+
+export const WorkflowRunModal: React.FC<WorkflowRunModalProps> = ({
+  workflowId,
+  workflowName,
+  workflowDescription,
+  definition,
+  isOpen,
+  onClose,
+}) => {
+  const [execution, setExecution] = useState<ExecutionState>({
+    runId: null,
+    status: "idle",
+    startedAt: null,
+    completedAt: null,
+    results: null,
+    error: null,
+  });
+
+  const [steps, setSteps] = useState<StepInfo[]>([]);
+  const [elapsedTime, setElapsedTime] = useState(0);
+  const [expandedStepId, setExpandedStepId] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  // Handle input form submission
+  const handleStartExecution = async (input: string) => {
+    try {
+      const res = await fetch(`/api/workflows/${workflowId}/execute`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ input: input || undefined }),
+      });
+
+      if (!res.ok) throw new Error("Failed to start workflow");
+      const data = (await res.json()) as { runId: string };
+
+      setExecution({
+        runId: data.runId,
+        status: "running",
+        startedAt: new Date().toISOString(),
+        completedAt: null,
+        results: null,
+        error: null,
+      });
+    } catch (err) {
+      setExecution((prev) => ({
+        ...prev,
+        status: "failed",
+        error: String(err),
+      }));
+    }
+  };
+
+  // Poll for execution status
+  useEffect(() => {
+    if (execution.status !== "running" || !execution.runId) return;
+
+    const pollInterval = setInterval(async () => {
+      try {
+        // Fetch status
+        const statusRes = await fetch(
+          `/api/workflows/runs/${execution.runId}/status`
+        );
+        if (!statusRes.ok) return;
+        const statusData = (await statusRes.json()) as { status: string };
+
+        // Fetch history
+        const historyRes = await fetch(
+          `/api/workflows/runs/${execution.runId}/history`
+        );
+        if (!historyRes.ok) return;
+        const historyData = (await historyRes.json()) as {
+          steps: StepInfo[];
+          run: { status: string; results: string | null };
+        };
+
+        setSteps(historyData.steps);
+
+        // Check if execution is complete
+        if (["completed", "failed"].includes(statusData.status)) {
+          let results = null;
+          if (historyData.run.results) {
+            try {
+              results = JSON.parse(historyData.run.results);
+            } catch {
+              results = { raw: historyData.run.results };
+            }
+          }
+
+          setExecution((prev) => ({
+            ...prev,
+            status: statusData.status as "completed" | "failed",
+            completedAt: new Date().toISOString(),
+            results,
+          }));
+
+          clearInterval(pollInterval);
+        }
+      } catch (err) {
+        console.error("Failed to poll execution status:", err);
+      }
+    }, 1000);
+
+    return () => clearInterval(pollInterval);
+  }, [execution.status, execution.runId]);
+
+  // Elapsed time counter
+  useEffect(() => {
+    if (execution.status !== "running") return;
+    const timer = setInterval(() => setElapsedTime((t) => t + 1), 1000);
+    return () => clearInterval(timer);
+  }, [execution.status]);
+
+  if (!isOpen) return null;
+
+  const handleCopyResults = () => {
+    if (execution.results) {
+      navigator.clipboard.writeText(JSON.stringify(execution.results, null, 2));
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  const handleDownloadResults = () => {
+    if (execution.results) {
+      const json = JSON.stringify(execution.results, null, 2);
+      const blob = new Blob([json], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${workflowName}-results-${new Date().getTime()}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+  };
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${String(secs).padStart(2, "0")}`;
+  };
+
+  const runningStepCount = steps.filter((s) => s.status === "running").length;
+  const completedStepCount = steps.filter((s) => s.status === "completed").length;
+  const failedStepCount = steps.filter((s) => s.status === "failed").length;
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-vc-surface rounded-xl border border-vc-border w-full max-w-2xl max-h-[90vh] flex flex-col shadow-xl">
+        {/* Header */}
+        <div className="border-b border-vc-border px-6 py-4 flex items-center justify-between bg-vc-raised">
+          <div className="flex items-center gap-3 flex-1 min-w-0">
+            {execution.status !== "idle" && (
+              <button
+                onClick={() => {
+                  if (execution.status === "completed" || execution.status === "failed") {
+                    onClose();
+                  }
+                }}
+                className="p-1 hover:bg-vc-border rounded"
+                title="Go back"
+              >
+                <ChevronLeft size={18} className="text-vc-muted" />
+              </button>
+            )}
+            <div className="min-w-0">
+              <h2 className="text-lg font-semibold text-vc-text truncate">
+                {workflowName}
+              </h2>
+              {workflowDescription && (
+                <p className="text-sm text-vc-muted truncate">
+                  {workflowDescription}
+                </p>
+              )}
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-1 hover:bg-vc-border rounded flex-shrink-0"
+          >
+            <X size={18} className="text-vc-muted" />
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto">
+          {execution.status === "idle" && (
+            <div className="p-6 space-y-4">
+              <WorkflowInputForm
+                definition={definition}
+                onSubmit={handleStartExecution}
+              />
+            </div>
+          )}
+
+          {execution.status === "running" && (
+            <div className="p-6 space-y-6">
+              {/* Timer and Status Summary */}
+              <div className="bg-vc-raised rounded-lg p-4 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-vc-muted">Elapsed Time</p>
+                    <p className="text-2xl font-bold text-vc-text font-mono">
+                      {formatTime(elapsedTime)}
+                    </p>
+                  </div>
+                  <div className={getStatusBadge("running")}>
+                    {getStatusIcon("running")}
+                    Running
+                  </div>
+                </div>
+
+                {/* Step counters */}
+                <div className="grid grid-cols-3 gap-3 pt-4 border-t border-vc-border">
+                  <div className="text-center">
+                    <p className="text-xs text-vc-muted">Running</p>
+                    <p className="text-lg font-semibold text-blue-500">
+                      {runningStepCount}
+                    </p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-xs text-vc-muted">Completed</p>
+                    <p className="text-lg font-semibold text-green-500">
+                      {completedStepCount}
+                    </p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-xs text-vc-muted">Failed</p>
+                    <p className="text-lg font-semibold text-red-500">
+                      {failedStepCount}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Steps Timeline */}
+              <div className="space-y-2">
+                <h3 className="text-sm font-semibold text-vc-text">
+                  Execution Steps
+                </h3>
+                {steps.length === 0 ? (
+                  <p className="text-sm text-vc-muted">Waiting for steps...</p>
+                ) : (
+                  <div className="space-y-2">
+                    {steps.map((step) => (
+                      <div
+                        key={step.stepId}
+                        className="bg-vc-raised rounded-lg overflow-hidden"
+                      >
+                        <button
+                          onClick={() =>
+                            setExpandedStepId(
+                              expandedStepId === step.stepId ? null : step.stepId
+                            )
+                          }
+                          className="w-full px-4 py-3 flex items-center gap-3 hover:bg-vc-border/50 transition text-left"
+                        >
+                          <div className="flex-shrink-0">
+                            {getStatusIcon(step.status)}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-vc-text truncate">
+                              {step.stepId}
+                            </p>
+                            {step.assignedUserName && (
+                              <p className="text-xs text-vc-muted">
+                                👤 {step.assignedUserName}
+                              </p>
+                            )}
+                          </div>
+                          <span className="text-xs font-medium text-vc-muted flex-shrink-0">
+                            {step.status}
+                          </span>
+                        </button>
+
+                        {/* Expanded details */}
+                        {expandedStepId === step.stepId && (
+                          <div className="border-t border-vc-border px-4 py-3 bg-vc-surface space-y-2 text-xs">
+                            {step.error ? (
+                              <div>
+                                <p className="font-semibold text-red-500 mb-1">
+                                  Error
+                                </p>
+                                <pre className="bg-red-950/30 p-2 rounded border border-red-900/30 text-red-300 overflow-auto">
+                                  {step.error}
+                                </pre>
+                              </div>
+                            ) : step.output ? (
+                              <div>
+                                <p className="font-semibold text-vc-muted mb-1">
+                                  Output
+                                </p>
+                                <pre className="bg-vc-bg p-2 rounded border border-vc-border overflow-auto">
+                                  {typeof step.output === "string"
+                                    ? step.output
+                                    : JSON.stringify(step.output, null, 2)}
+                                </pre>
+                              </div>
+                            ) : (
+                              <p className="text-vc-muted">No output yet</p>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {execution.status === "completed" && (
+            <div className="p-6 space-y-6">
+              {/* Success State */}
+              <div className="bg-green-50 dark:bg-green-950/30 rounded-lg p-4 border border-green-200 dark:border-green-900/50 flex items-start gap-3">
+                <CheckCircle2 size={20} className="text-green-600 dark:text-green-400 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-semibold text-green-900 dark:text-green-100">
+                    Workflow completed successfully
+                  </p>
+                  {execution.completedAt && (
+                    <p className="text-sm text-green-800 dark:text-green-300 mt-1">
+                      {formatDate(execution.completedAt)}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Results */}
+              {execution.results ? (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-semibold text-vc-text">Results</h3>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={handleCopyResults}
+                        className="flex items-center gap-1 px-2 py-1 text-xs text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded"
+                      >
+                        <Copy size={14} />
+                        {copied ? "Copied" : "Copy"}
+                      </button>
+                      <button
+                        onClick={handleDownloadResults}
+                        className="flex items-center gap-1 px-2 py-1 text-xs text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded"
+                      >
+                        <Download size={14} />
+                        Download
+                      </button>
+                    </div>
+                  </div>
+                  <pre className="bg-vc-raised rounded-lg p-4 border border-vc-border text-vc-text text-xs font-mono overflow-auto max-h-64">
+                    {JSON.stringify(execution.results, null, 2)}
+                  </pre>
+                </div>
+              ) : (
+                <p className="text-sm text-vc-muted">No results generated</p>
+              )}
+
+              {/* Steps Summary */}
+              <div>
+                <h3 className="text-sm font-semibold text-vc-text mb-3">
+                  Execution Steps ({steps.length})
+                </h3>
+                <div className="space-y-2">
+                  {steps.map((step) => (
+                    <div
+                      key={step.stepId}
+                      className="bg-vc-raised rounded-lg overflow-hidden"
+                    >
+                      <button
+                        onClick={() =>
+                          setExpandedStepId(
+                            expandedStepId === step.stepId ? null : step.stepId
+                          )
+                        }
+                        className="w-full px-4 py-3 flex items-center gap-3 hover:bg-vc-border/50 transition text-left"
+                      >
+                        <div className="flex-shrink-0">
+                          {getStatusIcon(step.status)}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-vc-text truncate">
+                            {step.stepId}
+                          </p>
+                        </div>
+                        <span className="text-xs font-medium text-vc-muted flex-shrink-0">
+                          {step.status}
+                        </span>
+                      </button>
+
+                      {expandedStepId === step.stepId && (
+                        <div className="border-t border-vc-border px-4 py-3 bg-vc-surface space-y-2 text-xs">
+                          {step.error ? (
+                            <div>
+                              <p className="font-semibold text-red-500 mb-1">
+                                Error
+                              </p>
+                              <pre className="bg-red-950/30 p-2 rounded border border-red-900/30 text-red-300 overflow-auto">
+                                {step.error}
+                              </pre>
+                            </div>
+                          ) : step.output ? (
+                            <div>
+                              <p className="font-semibold text-vc-muted mb-1">
+                                Output
+                              </p>
+                              <pre className="bg-vc-bg p-2 rounded border border-vc-border overflow-auto">
+                                {typeof step.output === "string"
+                                  ? step.output
+                                  : JSON.stringify(step.output, null, 2)}
+                              </pre>
+                            </div>
+                          ) : (
+                            <p className="text-vc-muted">No output</p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {execution.status === "failed" && (
+            <div className="p-6 space-y-6">
+              {/* Error State */}
+              <div className="bg-red-50 dark:bg-red-950/30 rounded-lg p-4 border border-red-200 dark:border-red-900/50 flex items-start gap-3">
+                <AlertCircle size={20} className="text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-semibold text-red-900 dark:text-red-100">
+                    Workflow execution failed
+                  </p>
+                  {execution.error && (
+                    <p className="text-sm text-red-800 dark:text-red-300 mt-1 font-mono">
+                      {execution.error}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Steps with failures */}
+              {steps.length > 0 && (
+                <div>
+                  <h3 className="text-sm font-semibold text-vc-text mb-3">
+                    Execution Steps
+                  </h3>
+                  <div className="space-y-2">
+                    {steps.map((step) => (
+                      <div
+                        key={step.stepId}
+                        className="bg-vc-raised rounded-lg overflow-hidden"
+                      >
+                        <button
+                          onClick={() =>
+                            setExpandedStepId(
+                              expandedStepId === step.stepId ? null : step.stepId
+                            )
+                          }
+                          className="w-full px-4 py-3 flex items-center gap-3 hover:bg-vc-border/50 transition text-left"
+                        >
+                          <div className="flex-shrink-0">
+                            {getStatusIcon(step.status)}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-vc-text truncate">
+                              {step.stepId}
+                            </p>
+                          </div>
+                          <span className="text-xs font-medium text-vc-muted flex-shrink-0">
+                            {step.status}
+                          </span>
+                        </button>
+
+                        {expandedStepId === step.stepId && (
+                          <div className="border-t border-vc-border px-4 py-3 bg-vc-surface space-y-2 text-xs">
+                            {step.error && (
+                              <div>
+                                <p className="font-semibold text-red-500 mb-1">
+                                  Error
+                                </p>
+                                <pre className="bg-red-950/30 p-2 rounded border border-red-900/30 text-red-300 overflow-auto">
+                                  {step.error}
+                                </pre>
+                              </div>
+                            )}
+                            {step.output ? (() => {
+                              const outputStr = typeof step.output === "string"
+                                ? step.output
+                                : JSON.stringify(step.output, null, 2);
+                              return (
+                                <div>
+                                  <p className="font-semibold text-vc-muted mb-1">
+                                    Output
+                                  </p>
+                                  <pre className="bg-vc-bg p-2 rounded border border-vc-border overflow-auto">
+                                    {outputStr}
+                                  </pre>
+                                </div>
+                              );
+                            })() : null}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Footer Actions */}
+        {execution.status !== "idle" && (
+          <div className="border-t border-vc-border px-6 py-4 bg-vc-raised flex items-center justify-between">
+            <div className="text-xs text-vc-muted">
+              {execution.runId && (
+                <>
+                  Run ID: <span className="font-mono">{execution.runId.slice(0, 8)}</span>
+                </>
+              )}
+            </div>
+            <div className="flex gap-2">
+              {execution.status !== "running" && (
+                <>
+                  <Link
+                    href={`/workflows/runs/${execution.runId}`}
+                    className="px-3 py-2 text-sm text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded font-medium"
+                  >
+                    View Full Details
+                  </Link>
+                  <button
+                    onClick={onClose}
+                    className="px-4 py-2 text-sm bg-indigo-600 text-white rounded hover:bg-indigo-700 font-medium"
+                  >
+                    Close
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};

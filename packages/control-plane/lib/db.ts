@@ -302,8 +302,8 @@ function createTables(db: Database.Database): void {
       id TEXT PRIMARY KEY,
       workflow_id TEXT NOT NULL REFERENCES workflows(id) ON DELETE CASCADE,
       status TEXT NOT NULL DEFAULT 'running',
-      started_at TEXT NOT NULL DEFAULT (datetime('now')),
-      completed_at TEXT,
+      started_at INTEGER NOT NULL DEFAULT (CAST(strftime('%s', 'now') AS INTEGER)),
+      completed_at INTEGER,
       results TEXT
     );
     CREATE INDEX IF NOT EXISTS idx_workflow_runs_workflow ON workflow_runs(workflow_id, started_at DESC);
@@ -316,8 +316,8 @@ function createTables(db: Database.Database): void {
       status TEXT NOT NULL DEFAULT 'pending',
       output TEXT,
       error TEXT,
-      started_at TEXT,
-      completed_at TEXT
+      started_at INTEGER,
+      completed_at INTEGER
     );
     CREATE INDEX IF NOT EXISTS idx_workflow_steps_run ON workflow_steps(run_id, step_id);
 
@@ -1379,7 +1379,7 @@ export function updateWorkflowRunStatus(
   results?: Record<string, unknown>,
 ): void {
   const d = getDb();
-  const completedAt = ["completed", "failed"].includes(status) ? "datetime('now')" : "NULL";
+  const completedAt = ["completed", "failed"].includes(status) ? "CAST(strftime('%s', 'now') AS INTEGER)" : "NULL";
   const resultsStr = results ? JSON.stringify(results) : null;
   d.prepare(
     `UPDATE workflow_runs SET status = ?, completed_at = ${completedAt}, results = ? WHERE id = ?`
@@ -1431,10 +1431,10 @@ export function updateWorkflowStep(
     updates.push("status = ?");
     values.push(status);
     if (["success", "completed", "failed"].includes(status)) {
-      updates.push("completed_at = datetime('now')");
+      updates.push("completed_at = CAST(strftime('%s', 'now') AS INTEGER)");
     }
     if (status === "running") {
-      updates.push("started_at = datetime('now')");
+      updates.push("started_at = CAST(strftime('%s', 'now') AS INTEGER)");
     }
   }
   if (output !== undefined) {

@@ -51,6 +51,7 @@ const CAPABILITY_ICONS: Record<string, React.ReactNode> = {
   mail_send: <Mail size={16} />,
   code_execution: <Code size={16} />,
   system_command: <Terminal size={16} />,
+  agent_communication: <Bot size={16} />,
 };
 
 const RealmGraph = dynamic(() => import("@/components/graph/RealmGraph"), { ssr: false });
@@ -68,6 +69,7 @@ const ALL_CAPABILITIES = [
   { id: "mail_send", label: "Mail Send" },
   { id: "code_execution", label: "Code Execution" },
   { id: "system_command", label: "System Command" },
+  { id: "agent_communication", label: "Agent Communication" },
 ] as const;
 
 interface AgentDetail {

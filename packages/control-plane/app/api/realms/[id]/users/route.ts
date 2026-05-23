@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getRealmById, addUserToRealm, removeUserFromRealm, setUserRealmAdmin } from "@/lib/db";
+import { UserDao } from "@/lib/user-dao";
 import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -22,7 +23,10 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     const body = await req.json() as { userDid?: string; isPrimary?: boolean; isRealmAdmin?: boolean };
     if (!body.userDid) return NextResponse.json({ error: "userDid is required" }, { status: 400 });
 
-    addUserToRealm(body.userDid, id, body.isPrimary ?? false, body.isRealmAdmin ?? false);
+    const user = UserDao.getByDid(body.userDid) ?? UserDao.getById(body.userDid);
+    if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
+
+    addUserToRealm(user.id, id, body.isPrimary ?? false, body.isRealmAdmin ?? false);
     return NextResponse.json({ ok: true });
   } catch (err) {
     console.error(err);
@@ -46,7 +50,10 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
     if (!body.userDid) return NextResponse.json({ error: "userDid is required" }, { status: 400 });
     if (typeof body.isRealmAdmin !== "boolean") return NextResponse.json({ error: "isRealmAdmin (boolean) is required" }, { status: 400 });
 
-    const changed = setUserRealmAdmin(body.userDid, id, body.isRealmAdmin);
+    const user = UserDao.getByDid(body.userDid) ?? UserDao.getById(body.userDid);
+    if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
+
+    const changed = setUserRealmAdmin(user.id, id, body.isRealmAdmin);
     if (!changed) return NextResponse.json({ error: "User is not a member of this realm" }, { status: 404 });
 
     return NextResponse.json({ ok: true });
@@ -71,7 +78,10 @@ export async function DELETE(req: NextRequest, ctx: Ctx) {
     const body = await req.json() as { userDid?: string };
     if (!body.userDid) return NextResponse.json({ error: "userDid is required" }, { status: 400 });
 
-    const ok = removeUserFromRealm(body.userDid, id);
+    const user = UserDao.getByDid(body.userDid) ?? UserDao.getById(body.userDid);
+    if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
+
+    const ok = removeUserFromRealm(user.id, id);
     if (!ok) return NextResponse.json({ error: "Cannot remove user from the default realm" }, { status: 400 });
 
     return NextResponse.json({ ok: true });

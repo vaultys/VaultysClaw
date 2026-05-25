@@ -70,6 +70,8 @@ import { TaskQueue } from "./task-queue";
 import { Scheduler } from "./scheduler";
 import { MemoryStore, MemoryRetriever, ConversationSummarizer } from "./memory";
 import type { MastraTool } from "@mastra/core/tools";
+import { ingestSource, buildKnowledgeTool } from "./knowledge";
+import type { KnowledgeSourceConfig } from "./knowledge";
 
 const Buffer = crypto.Buffer;
 
@@ -834,6 +836,9 @@ export class Agent extends EventEmitter {
           if (this._status !== "connected") { this.log("warn", "Received policy before auth — ignoring"); return; }
           this.handlePolicyUpdate(message);
           break;
+        case "knowledge_sync":
+          this.handleKnowledgeSync(message).catch((e) => this.log('error', 'handleKnowledgeSync error', e));
+          break;
         case "pong": break;
         case "error":
           this.log("error", "Error from control plane", message.payload);
@@ -1286,9 +1291,18 @@ export class Agent extends EventEmitter {
         .flatMap((skill) => skill.tools);
     }
 
+    // Add knowledge_search tool (always available; uses activeLlmConfig at call-time)
+    const knowledgeTool = buildKnowledgeTool(() => this.activeLlmConfig);
+    const knowledgeToolDef: import("./tools/types").AgentToolDefinition = {
+      capability: 'knowledge_search' as import("@vaultysclaw/shared").AgentCapability,
+      name: 'knowledge_search',
+      requiresApproval: false,
+      tool: knowledgeTool,
+    };
+
     this.toolRegistry = createToolRegistry({
       workspaceRoot: this.config.workspaceRoot ?? process.cwd(),
-      extraTools,
+      extraTools: [...extraTools, knowledgeToolDef],
     });
   }
 
@@ -1693,5 +1707,57 @@ export class Agent extends EventEmitter {
     const { messageId } = message;
     this.log("warn", "Received deprecated policy_update message — policies are now enforced via cert reissue");
     this.sendAck(messageId, true);
+  }
+
+  // ---- Knowledge sync ----
+
+  private async handleKnowledgeSync(message: WSMessage): Promise<void> {
+    const { messageId, payload } = message;
+    const { sourceId, sourceName, sourceType, config } = payload as {
+      sourceId: string;
+      sourceName: string;
+      sourceType: string;
+      config: KnowledgeSourceConfig;
+    };
+
+    this.log('info', `Knowledge sync requested for source "${sourceName}" (${sourceId})`);
+
+    if (!this.activeLlmConfig) {
+      this.send({ type: 'result', messageId, payload: { status: 'failed', error: 'LLM not configured' }, timestamp: new Date().toISOString() });
+      return;
+    }
+
+    // Immediate ACK so the control plane knows the sync started
+    this.send({
+      messageId: `intent-ack-${Date.now()}`,
+      type: 'intent_ack',
+      agentId: this.id,
+      payload: { status: 'started', sourceId },
+      timestamp: new Date().toISOString(),
+    });
+
+    // Run ingestion (non-blocking — reports status back when done)
+    ingestSource(sourceId, sourceName, sourceType, config, this.activeLlmConfig)
+      .then((result) => {
+        this.log('info', `Knowledge sync complete: ${result.docsProcessed} docs, ${result.chunksCreated} chunks`);
+        this.send({
+          messageId: `result-${Date.now()}`,
+          type: 'result',
+          agentId: this.id,
+          payload: { status: 'success', output: result },
+          timestamp: new Date().toISOString(),
+        });
+      })
+      .catch((err) => {
+        const errMsg = err instanceof Error ? err.message : String(err);
+        this.log('error', `Knowledge sync failed: ${errMsg}`);
+        this.send({
+          messageId: `result-${Date.now()}`,
+          type: 'result',
+          agentId: this.id,
+          payload: { status: 'failed', error: errMsg },
+          timestamp: new Date().toISOString(),
+        });
+      });
   }
 }

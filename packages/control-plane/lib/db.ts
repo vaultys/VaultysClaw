@@ -365,6 +365,24 @@ function createTables(db: Database.Database): void {
     );
     CREATE INDEX IF NOT EXISTS idx_user_invitations_email ON user_invitations(email);
     CREATE INDEX IF NOT EXISTS idx_user_invitations_expires ON user_invitations(expires_at);
+
+    CREATE TABLE IF NOT EXISTS knowledge_sources (
+      id TEXT PRIMARY KEY,
+      realm_id TEXT NOT NULL REFERENCES realms(id) ON DELETE CASCADE,
+      agent_did TEXT NOT NULL,
+      name TEXT NOT NULL,
+      source_type TEXT NOT NULL,
+      config TEXT NOT NULL DEFAULT '{}',
+      status TEXT NOT NULL DEFAULT 'idle',
+      doc_count INTEGER NOT NULL DEFAULT 0,
+      chunk_count INTEGER NOT NULL DEFAULT 0,
+      last_synced_at TEXT,
+      error TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_knowledge_sources_realm ON knowledge_sources(realm_id);
+    CREATE INDEX IF NOT EXISTS idx_knowledge_sources_agent ON knowledge_sources(agent_did);
   `);
 
   // Add content column to realm_skills for existing databases that predate this field
@@ -2132,4 +2150,66 @@ export function claimUserInvitation(token: string): void {
 export function cleanExpiredInvitations(): void {
   const d = getDb();
   d.prepare("DELETE FROM user_invitations WHERE expires_at < datetime('now')").run();
+}
+
+// ---- Knowledge source helpers ----
+
+export interface KnowledgeSourceRow {
+  id: string;
+  realm_id: string;
+  agent_did: string;
+  name: string;
+  source_type: string;
+  config: string; // JSON
+  status: string;
+  doc_count: number;
+  chunk_count: number;
+  last_synced_at: string | null;
+  error: string | null;
+  created_at: string;
+}
+
+export function createKnowledgeSource(source: Omit<KnowledgeSourceRow, 'id' | 'created_at'>): KnowledgeSourceRow {
+  const d = getDb();
+  const id = `ks-${crypto.randomUUID()}`;
+  d.prepare(`
+    INSERT INTO knowledge_sources (id, realm_id, agent_did, name, source_type, config, status)
+    VALUES (?, ?, ?, ?, ?, ?, 'idle')
+  `).run(id, source.realm_id, source.agent_did, source.name, source.source_type, source.config);
+  return getKnowledgeSource(id)!;
+}
+
+export function getKnowledgeSource(id: string): KnowledgeSourceRow | undefined {
+  return getDb().prepare('SELECT * FROM knowledge_sources WHERE id = ?').get(id) as KnowledgeSourceRow | undefined;
+}
+
+export function listKnowledgeSources(realmId?: string): KnowledgeSourceRow[] {
+  if (realmId) {
+    return getDb().prepare('SELECT * FROM knowledge_sources WHERE realm_id = ? ORDER BY created_at DESC').all(realmId) as KnowledgeSourceRow[];
+  }
+  return getDb().prepare('SELECT * FROM knowledge_sources ORDER BY created_at DESC').all() as KnowledgeSourceRow[];
+}
+
+export function updateKnowledgeSourceStatus(id: string, status: string, extra?: { docCount?: number; chunkCount?: number; error?: string | null }): void {
+  getDb().prepare(`
+    UPDATE knowledge_sources SET
+      status = ?,
+      doc_count = COALESCE(?, doc_count),
+      chunk_count = COALESCE(?, chunk_count),
+      last_synced_at = CASE WHEN ? = 'ready' THEN datetime('now') ELSE last_synced_at END,
+      error = ?
+    WHERE id = ?
+  `).run(
+    status,
+    extra?.docCount ?? null,
+    extra?.chunkCount ?? null,
+    status,
+    extra?.error ?? null,
+    id,
+  );
+}
+
+export function deleteKnowledgeSource(id: string): boolean {
+  const result = getDb().prepare('DELETE FROM knowledge_sources WHERE id = ?').run(id);
+  return result.changes > 0;
 }

@@ -23,7 +23,8 @@ export type AgentCapability =
   | "mail_send"
   | "code_execution"
   | "system_command"
-  | "agent_communication";
+  | "agent_communication"
+  | "knowledge_search";
 
 /**
  * Runtime constraints embedded in the agent certificate alongside capabilities.
@@ -160,7 +161,8 @@ export type WSMessageType =
   | "get_chat_history"
   | "chat_history_response"
   | "agent_peer_catalog"
-  | "skills_config";
+  | "skills_config"
+  | "knowledge_sync";
 
 /**
  * LLM provider type — controls which AI SDK provider is instantiated.
@@ -197,6 +199,8 @@ export interface LlmConfig {
   pricePerMillionInputTokens?: number;
   /** Price per million output tokens in USD. Used to estimate costs. */
   pricePerMillionOutputTokens?: number;
+  /** Embedding model override for RAG knowledge base indexing. */
+  embeddingModel?: string;
 }
 
 /**

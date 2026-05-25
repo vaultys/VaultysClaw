@@ -1575,6 +1575,38 @@ export class AgentWSServer {
     };
   }
 
+  /**
+   * Check whether an agent is currently connected.
+   */
+  isAgentOnline(agentDid: string): boolean {
+    const agent = this.agents.get(agentDid);
+    return agent !== undefined && agent.ws.readyState === WebSocket.OPEN;
+  }
+
+  /**
+   * Dispatch a knowledge_sync intent to a specific agent.
+   */
+  sendKnowledgeSync(agentDid: string, messageId: string, payload: {
+    sourceId: string;
+    sourceName: string;
+    sourceType: string;
+    config: Record<string, unknown>;
+  }): void {
+    const agent = this.agents.get(agentDid);
+    if (!agent || agent.ws.readyState !== WebSocket.OPEN) {
+      logger.warn({ agentDid }, "sendKnowledgeSync: agent not connected");
+      return;
+    }
+    this.sendMessage(agent.ws, {
+      messageId,
+      type: "knowledge_sync",
+      agentId: agentDid,
+      payload,
+      timestamp: new Date().toISOString(),
+    } as any);
+    logger.info({ agentDid, messageId, sourceId: payload.sourceId }, "Knowledge sync dispatched to agent");
+  }
+
   shutdown(): void {
     logger.info("Shutting down agent WebSocket server");
 
@@ -1625,6 +1657,9 @@ export function initializeWSServer(port: number): AgentWSServer {
 export function getWSServer(): AgentWSServer | null {
   return globalForWS.__wsServer ?? null;
 }
+
+/** Alias for getWSServer — used by knowledge sync route. */
+export const getWsServer = getWSServer;
 
 function getAdminWSS(): WebSocketServer | null {
   return globalForWS.__adminWSS ?? null;

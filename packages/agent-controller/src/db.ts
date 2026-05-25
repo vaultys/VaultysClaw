@@ -158,6 +158,33 @@ export function initDb(dbDir: string, dbFileName = "agent.db"): Database {
     );
 
     CREATE INDEX IF NOT EXISTS idx_token_usage_created ON token_usage(created_at DESC);
+
+    CREATE TABLE IF NOT EXISTS knowledge_sources (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      source_type TEXT NOT NULL,
+      config TEXT NOT NULL DEFAULT '{}',
+      status TEXT NOT NULL DEFAULT 'idle',
+      doc_count INTEGER NOT NULL DEFAULT 0,
+      chunk_count INTEGER NOT NULL DEFAULT 0,
+      last_synced_at TEXT,
+      error TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS knowledge_chunks (
+      id TEXT PRIMARY KEY,
+      source_id TEXT NOT NULL REFERENCES knowledge_sources(id) ON DELETE CASCADE,
+      doc_id TEXT NOT NULL,
+      doc_title TEXT,
+      content TEXT NOT NULL,
+      embedding BLOB NOT NULL,
+      chunk_index INTEGER NOT NULL DEFAULT 0,
+      metadata TEXT NOT NULL DEFAULT '{}',
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_knowledge_chunks_source ON knowledge_chunks(source_id);
   `);
 
   return db;
@@ -787,6 +814,108 @@ export function getMonthlyTokenUsage(): { promptTokens: number; completionTokens
     promptTokens: result?.prompt_tokens ?? 0,
     completionTokens: result?.completion_tokens ?? 0,
   };
+}
+
+// ---- Knowledge base helpers ----
+
+export interface KnowledgeSourceRow {
+  id: string;
+  name: string;
+  source_type: string;
+  config: string; // JSON
+  status: string; // idle | syncing | ready | error
+  doc_count: number;
+  chunk_count: number;
+  last_synced_at: string | null;
+  error: string | null;
+  created_at: string;
+}
+
+export interface KnowledgeChunkRow {
+  id: string;
+  source_id: string;
+  doc_id: string;
+  doc_title: string | null;
+  content: string;
+  embedding: Buffer; // serialized Float32Array
+  chunk_index: number;
+  metadata: string; // JSON
+  created_at: string;
+}
+
+export function upsertKnowledgeSource(s: Omit<KnowledgeSourceRow, 'created_at'>): void {
+  getDb().query(`
+    INSERT INTO knowledge_sources (id, name, source_type, config, status, doc_count, chunk_count, last_synced_at, error)
+    VALUES ($id, $name, $source_type, $config, $status, $doc_count, $chunk_count, $last_synced_at, $error)
+    ON CONFLICT(id) DO UPDATE SET
+      name = excluded.name,
+      source_type = excluded.source_type,
+      config = excluded.config,
+      status = excluded.status,
+      doc_count = excluded.doc_count,
+      chunk_count = excluded.chunk_count,
+      last_synced_at = excluded.last_synced_at,
+      error = excluded.error
+  `).run({
+    $id: s.id, $name: s.name, $source_type: s.source_type,
+    $config: s.config, $status: s.status, $doc_count: s.doc_count,
+    $chunk_count: s.chunk_count, $last_synced_at: s.last_synced_at ?? null, $error: s.error ?? null,
+  });
+}
+
+export function updateKnowledgeSourceStatus(id: string, status: string, extra?: { docCount?: number; chunkCount?: number; error?: string | null }): void {
+  getDb().query(`
+    UPDATE knowledge_sources SET
+      status = $status,
+      doc_count = COALESCE($doc_count, doc_count),
+      chunk_count = COALESCE($chunk_count, chunk_count),
+      last_synced_at = CASE WHEN $status = 'ready' THEN datetime('now') ELSE last_synced_at END,
+      error = $error
+    WHERE id = $id
+  `).run({
+    $id: id, $status: status,
+    $doc_count: extra?.docCount ?? null,
+    $chunk_count: extra?.chunkCount ?? null,
+    $error: extra?.error ?? null,
+  });
+}
+
+export function getKnowledgeSource(id: string): KnowledgeSourceRow | undefined {
+  return getDb().query('SELECT * FROM knowledge_sources WHERE id = $id').get({ $id: id }) as KnowledgeSourceRow | undefined;
+}
+
+export function listKnowledgeSources(): KnowledgeSourceRow[] {
+  return getDb().query('SELECT * FROM knowledge_sources ORDER BY created_at DESC').all() as KnowledgeSourceRow[];
+}
+
+export function deleteKnowledgeSource(id: string): void {
+  getDb().query('DELETE FROM knowledge_sources WHERE id = $id').run({ $id: id });
+}
+
+export function insertKnowledgeChunk(c: Omit<KnowledgeChunkRow, 'created_at'>): void {
+  getDb().query(`
+    INSERT OR REPLACE INTO knowledge_chunks (id, source_id, doc_id, doc_title, content, embedding, chunk_index, metadata)
+    VALUES ($id, $source_id, $doc_id, $doc_title, $content, $embedding, $chunk_index, $metadata)
+  `).run({
+    $id: c.id, $source_id: c.source_id, $doc_id: c.doc_id,
+    $doc_title: c.doc_title ?? null, $content: c.content,
+    $embedding: c.embedding, $chunk_index: c.chunk_index, $metadata: c.metadata,
+  });
+}
+
+export function deleteChunksBySource(sourceId: string): void {
+  getDb().query('DELETE FROM knowledge_chunks WHERE source_id = $source_id').run({ $source_id: sourceId });
+}
+
+export function getAllChunkEmbeddings(sourceId?: string): Array<{ id: string; source_id: string; doc_id: string; doc_title: string | null; content: string; embedding: Buffer; metadata: string }> {
+  if (sourceId) {
+    return getDb().query(
+      'SELECT id, source_id, doc_id, doc_title, content, embedding, metadata FROM knowledge_chunks WHERE source_id = $source_id'
+    ).all({ $source_id: sourceId }) as any[];
+  }
+  return getDb().query(
+    'SELECT id, source_id, doc_id, doc_title, content, embedding, metadata FROM knowledge_chunks'
+  ).all() as any[];
 }
 
 

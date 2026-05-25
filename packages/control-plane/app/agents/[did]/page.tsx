@@ -3444,7 +3444,13 @@ function KsAddSourceModal({ did, realms, doclingConfigured, onClose, onCreated }
   function handleAddFiles(added: File[]) {
     setSelectedFiles(prev => {
       const existing = new Set(prev.map(f => f.name));
-      return [...prev, ...added.filter(f => !existing.has(f.name))];
+      const next = [...prev, ...added.filter(f => !existing.has(f.name))];
+      // Auto-fill name from first file added if the field is still empty
+      if (!name.trim() && next.length > 0) {
+        const firstName = next[0].name.replace(/\.[^.]+$/, ""); // strip extension
+        setName(firstName);
+      }
+      return next;
     });
   }
 

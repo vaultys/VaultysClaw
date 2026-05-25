@@ -135,7 +135,9 @@ export async function PUT(
       return NextResponse.json({ error: "Registry model not found" }, { status: 404 });
     }
     const config: LlmConfig = {
-      provider: "openai-compatible",
+      provider: VALID_PROVIDERS.includes(entry.provider as LlmProviderType)
+        ? (entry.provider as LlmProviderType)
+        : "openai-compatible",
       model: entry.model_id,
       baseUrl: entry.base_url,
       apiKey: entry.api_key_enc ?? undefined,

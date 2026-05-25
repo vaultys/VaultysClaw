@@ -5,27 +5,42 @@ import type { LlmConfig } from '@vaultysclaw/shared';
  * Supports Ollama (local) and OpenAI / OpenAI-compatible endpoints.
  * Returns a Float32Array.
  */
+/** Returns true when a base URL points at a local Ollama instance */
+function isOllamaUrl(url: string): boolean {
+  return /localhost:11434|127\.0\.0\.1:11434|::1:11434/.test(url);
+}
+
 export async function embed(text: string, config: LlmConfig): Promise<Float32Array> {
   const cleanText = text.replace(/\s+/g, ' ').trim().slice(0, 8192);
 
-  switch (config.provider) {
+  // openai-compatible pointing at Ollama → use the native Ollama path
+  const effectiveProvider =
+    config.provider === 'openai-compatible' && isOllamaUrl(config.baseUrl ?? '')
+      ? 'ollama'
+      : config.provider;
+
+  switch (effectiveProvider) {
     case 'ollama': {
-      const base = (config.baseUrl ?? 'http://localhost:11434').replace(/\/api\/?$/, '');
+      const base = (config.baseUrl ?? 'http://localhost:11434')
+        .replace(/\/api\/?$/, '')   // strip /api if present
+        .replace(/\/v1\/?$/, '');   // strip /v1 if present (openai-compat suffix)
       const model = config.embeddingModel ?? 'nomic-embed-text';
       const res = await fetch(`${base}/api/embeddings`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ model, prompt: cleanText }),
       });
-      if (!res.ok) throw new Error(`Ollama embeddings error: ${res.status} ${await res.text()}`);
+      if (!res.ok) {
+        const body = await res.text().catch(() => '');
+        throw new Error(`Ollama embeddings error (${base}/api/embeddings): HTTP ${res.status}${body ? ` — ${body.slice(0, 200)}` : ''}`);
+      }
       const data = await res.json() as { embedding: number[] };
       return new Float32Array(data.embedding);
     }
 
     case 'openai':
     case 'openai-compatible': {
-      // Normalise the base URL: strip trailing slash, then ensure /v1 is present
-      // so that both 'https://api.openai.com' and 'https://api.openai.com/v1' work.
+      // Normalise base URL: strip trailing slash + any /v1, then re-append /v1
       const rawBase = config.provider === 'openai-compatible'
         ? (config.baseUrl ?? 'https://api.openai.com/v1')
         : 'https://api.openai.com/v1';

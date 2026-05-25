@@ -24,9 +24,12 @@ export async function embed(text: string, config: LlmConfig): Promise<Float32Arr
 
     case 'openai':
     case 'openai-compatible': {
-      const base = config.provider === 'openai-compatible'
-        ? (config.baseUrl ?? 'https://api.openai.com/v1').replace(/\/+$/, '')
+      // Normalise the base URL: strip trailing slash, then ensure /v1 is present
+      // so that both 'https://api.openai.com' and 'https://api.openai.com/v1' work.
+      const rawBase = config.provider === 'openai-compatible'
+        ? (config.baseUrl ?? 'https://api.openai.com/v1')
         : 'https://api.openai.com/v1';
+      const base = rawBase.replace(/\/+$/, '').replace(/\/v1$/, '') + '/v1';
       const model = config.embeddingModel ?? 'text-embedding-3-small';
       const url = `${base}/embeddings`;
       const res = await fetch(url, {

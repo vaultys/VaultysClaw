@@ -1591,7 +1591,7 @@ export class AgentWSServer {
     sourceName: string;
     sourceType: string;
     config: Record<string, unknown>;
-    docling?: { url: string };
+    docling?: { url: string; sourceEndpoint?: string; fileEndpoint?: string };
     fileAttachments?: Array<{ id: string; name: string; mimeType: string; size: number; content: string }>;
   }): void {
     const agent = this.agents.get(agentDid);

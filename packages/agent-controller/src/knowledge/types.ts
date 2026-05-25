@@ -16,6 +16,10 @@ export interface KnowledgeSourceConfig {
 export interface DoclingConfig {
   /** Base URL of Docling Serve, e.g. http://localhost:5001 */
   url: string;
+  /** Path for URL/source conversion — discovered from /openapi.json, defaults to /v1alpha/convert/source */
+  sourceEndpoint?: string;
+  /** Path for file upload conversion — discovered from /openapi.json, defaults to /v1alpha/convert/file */
+  fileEndpoint?: string;
 }
 
 export interface KnowledgeFileAttachment {

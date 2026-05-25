@@ -13,6 +13,8 @@ export async function GET() {
     url: cfg?.url ?? '',
     enabled: cfg?.enabled ?? false,
     configured: !!cfg?.url,
+    sourceEndpoint: cfg?.sourceEndpoint ?? null,
+    fileEndpoint:   cfg?.fileEndpoint   ?? null,
   });
 }
 

@@ -17,20 +17,61 @@ const logger = pino({ name: 'knowledge-ingester' });
 // Docling document conversion
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Docling response parsing (shared across versions)
+// ---------------------------------------------------------------------------
+
+type DoclingResponse = {
+  document?: { md_content?: string; export_formats?: { md?: string } };
+  documents?: Array<{ md_content?: string; export_formats?: { md?: string } }>;
+  output?: Array<{ content_md?: string }> | { content_md?: string };
+};
+
+function extractMarkdown(data: DoclingResponse): string | undefined {
+  return (
+    data?.document?.md_content ??
+    data?.document?.export_formats?.md ??
+    data?.documents?.[0]?.md_content ??
+    data?.documents?.[0]?.export_formats?.md ??
+    (Array.isArray(data?.output)
+      ? data.output[0]?.content_md
+      : (data?.output as { content_md?: string } | undefined)?.content_md)
+  );
+}
+
+/**
+ * Build the request body for URL conversion.
+ * v1alpha uses `http_sources`; v1 (stable) uses `sources` with `kind: "http"`.
+ */
+function buildSourceBody(url: string, path: string): string {
+  if (path.includes('/v1alpha/')) {
+    return JSON.stringify({ http_sources: [{ url }] });
+  }
+  // v1 stable API
+  return JSON.stringify({ sources: [{ kind: 'http', url }] });
+}
+
+// ---------------------------------------------------------------------------
+// Docling: URL conversion
+// ---------------------------------------------------------------------------
+
 /**
  * Send a single URL to Docling Serve and get back Markdown.
- * Handles different response shapes across Docling Serve versions.
+ * Uses the endpoint path discovered from /openapi.json (default: v1alpha).
  */
-async function convertWithDocling(doclingUrl: string, url: string): Promise<string> {
-  const endpoint = `${doclingUrl}/v1alpha/convert/source`;
-
+async function convertWithDocling(
+  doclingUrl: string,
+  url: string,
+  sourcePath = '/v1alpha/convert/source',
+): Promise<string> {
+  const endpoint = `${doclingUrl}${sourcePath}`;
   logger.info({ url, endpoint }, 'Sending URL to Docling');
 
   const res = await fetch(endpoint, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-    body: JSON.stringify({ http_sources: [{ url }] }),
-    signal: AbortSignal.timeout(120_000), // 2 min — large PDFs take time
+    body: buildSourceBody(url, sourcePath),
+    signal: AbortSignal.timeout(120_000),
   });
 
   if (!res.ok) {
@@ -38,23 +79,12 @@ async function convertWithDocling(doclingUrl: string, url: string): Promise<stri
     throw new Error(`Docling returned HTTP ${res.status}: ${body.slice(0, 200)}`);
   }
 
-  // Docling Serve response shape varies by version — handle both
-  const data = await res.json() as {
-    // v0.3.x / current
-    document?: { md_content?: string };
-    documents?: Array<{ md_content?: string }>;
-    // older shape
-    output?: Array<{ content_md?: string }> | { content_md?: string };
-  };
-
-  const md =
-    data?.document?.md_content ??
-    data?.documents?.[0]?.md_content ??
-    (Array.isArray(data?.output) ? data.output[0]?.content_md : (data?.output as { content_md?: string })?.content_md);
+  const data = await res.json() as DoclingResponse;
+  const md = extractMarkdown(data);
 
   if (!md) {
-    logger.warn({ responseKeys: Object.keys(data) }, 'Docling: no md_content in response, falling back to raw text');
-    throw new Error('Docling returned no Markdown content — check the Docling Serve version');
+    logger.warn({ endpoint, responseKeys: Object.keys(data) }, 'Docling: no Markdown in response');
+    throw new Error(`Docling returned no Markdown content (endpoint: ${endpoint})`);
   }
 
   return md;
@@ -66,18 +96,21 @@ async function convertWithDocling(doclingUrl: string, url: string): Promise<stri
 
 /**
  * Send a raw file buffer to Docling Serve for conversion → Markdown.
+ * Uses the endpoint path discovered from /openapi.json (default: v1alpha).
  */
 async function convertFileWithDocling(
   doclingUrl: string,
   filename: string,
   content: Buffer,
   mimeType: string,
+  filePath = '/v1alpha/convert/file',
 ): Promise<string> {
-  const endpoint = `${doclingUrl}/v1alpha/convert/file`;
+  const endpoint = `${doclingUrl}${filePath}`;
   logger.info({ filename, endpoint }, 'Sending file to Docling');
 
   const formData = new FormData();
   const blob = new Blob([new Uint8Array(content)], { type: mimeType });
+  // Both v1alpha and v1 use 'files' as the multipart field name
   formData.append('files', blob, filename);
 
   const res = await fetch(endpoint, {
@@ -91,18 +124,10 @@ async function convertFileWithDocling(
     throw new Error(`Docling file conversion returned HTTP ${res.status}: ${body.slice(0, 200)}`);
   }
 
-  const data = await res.json() as {
-    document?: { md_content?: string };
-    documents?: Array<{ md_content?: string }>;
-    output?: Array<{ content_md?: string }> | { content_md?: string };
-  };
+  const data = await res.json() as DoclingResponse;
+  const md = extractMarkdown(data);
 
-  const md =
-    data?.document?.md_content ??
-    data?.documents?.[0]?.md_content ??
-    (Array.isArray(data?.output) ? data.output[0]?.content_md : (data?.output as { content_md?: string })?.content_md);
-
-  if (!md) throw new Error('Docling returned no Markdown content for file');
+  if (!md) throw new Error(`Docling returned no Markdown content for file (endpoint: ${endpoint})`);
   return md;
 }
 
@@ -164,7 +189,7 @@ async function loadDocuments(
         let format: 'markdown' | 'text' = 'text';
 
         if (docling?.url) {
-          content = await convertWithDocling(docling.url, url);
+          content = await convertWithDocling(docling.url, url, docling.sourceEndpoint);
           format = 'markdown';
           logger.info({ url }, 'Docling URL conversion successful');
         } else {
@@ -206,7 +231,7 @@ async function loadDocuments(
 
         if (docling?.url) {
           // Docling can handle all file types (PDF, DOCX, etc.)
-          content = await convertFileWithDocling(docling.url, attachment.name, buffer, attachment.mimeType);
+          content = await convertFileWithDocling(docling.url, attachment.name, buffer, attachment.mimeType, docling.fileEndpoint);
           format = 'markdown';
           logger.info({ file: attachment.name }, 'Docling file conversion successful');
         } else if (isPlainText(attachment.mimeType, attachment.name)) {

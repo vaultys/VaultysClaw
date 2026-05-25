@@ -462,6 +462,10 @@ export function setSetting(key: string, value: string): void {
 export interface DoclingConfig {
   url: string;
   enabled: boolean;
+  /** Discovered from /openapi.json — e.g. '/v1/convert/source' */
+  sourceEndpoint?: string;
+  /** Discovered from /openapi.json — e.g. '/v1/convert/file' */
+  fileEndpoint?: string;
 }
 
 export function getDoclingConfig(): DoclingConfig | null {
@@ -470,12 +474,22 @@ export function getDoclingConfig(): DoclingConfig | null {
   return {
     url,
     enabled: getSetting('docling_enabled') === 'true',
+    sourceEndpoint: getSetting('docling_source_endpoint') || undefined,
+    fileEndpoint:   getSetting('docling_file_endpoint')   || undefined,
   };
 }
 
 export function setDoclingConfig(cfg: DoclingConfig): void {
-  setSetting('docling_url', cfg.url.trim().replace(/\/$/, '')); // strip trailing slash
+  setSetting('docling_url', cfg.url.trim().replace(/\/$/, ''));
   setSetting('docling_enabled', cfg.enabled ? 'true' : 'false');
+  if (cfg.sourceEndpoint) setSetting('docling_source_endpoint', cfg.sourceEndpoint);
+  if (cfg.fileEndpoint)   setSetting('docling_file_endpoint',   cfg.fileEndpoint);
+}
+
+/** Update only the discovered API endpoints (called after a successful test) */
+export function setDoclingEndpoints(sourceEndpoint: string, fileEndpoint: string): void {
+  setSetting('docling_source_endpoint', sourceEndpoint);
+  setSetting('docling_file_endpoint',   fileEndpoint);
 }
 
 // --- Auth session operations ---

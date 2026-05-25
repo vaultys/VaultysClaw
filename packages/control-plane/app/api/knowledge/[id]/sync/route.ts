@@ -38,7 +38,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   // Include Docling URL if configured and enabled
   const doclingCfg = getDoclingConfig();
   const docling = (doclingCfg?.enabled && doclingCfg.url)
-    ? { url: doclingCfg.url }
+    ? {
+        url: doclingCfg.url,
+        sourceEndpoint: doclingCfg.sourceEndpoint,
+        fileEndpoint:   doclingCfg.fileEndpoint,
+      }
     : undefined;
 
   // For 'files' sources, load file attachments (base64 encoded) to send to agent

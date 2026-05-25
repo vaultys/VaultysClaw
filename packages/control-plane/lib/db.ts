@@ -383,6 +383,18 @@ function createTables(db: Database.Database): void {
 
     CREATE INDEX IF NOT EXISTS idx_knowledge_sources_realm ON knowledge_sources(realm_id);
     CREATE INDEX IF NOT EXISTS idx_knowledge_sources_agent ON knowledge_sources(agent_did);
+
+    CREATE TABLE IF NOT EXISTS knowledge_files (
+      id TEXT PRIMARY KEY,
+      source_id TEXT NOT NULL REFERENCES knowledge_sources(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      mime_type TEXT NOT NULL DEFAULT 'application/octet-stream',
+      size INTEGER NOT NULL DEFAULT 0,
+      content BLOB NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_knowledge_files_source ON knowledge_files(source_id);
   `);
 
   // Add content column to realm_skills for existing databases that predate this field
@@ -2240,4 +2252,80 @@ export function updateKnowledgeSourceStatus(id: string, status: string, extra?: 
 export function deleteKnowledgeSource(id: string): boolean {
   const result = getDb().prepare('DELETE FROM knowledge_sources WHERE id = ?').run(id);
   return result.changes > 0;
+}
+
+// --- Knowledge file attachments ---
+
+export interface KnowledgeFileRow {
+  id: string;
+  source_id: string;
+  name: string;
+  mime_type: string;
+  size: number;
+  content: Buffer;
+  created_at: string;
+}
+
+export interface KnowledgeFileMeta {
+  id: string;
+  source_id: string;
+  name: string;
+  mime_type: string;
+  size: number;
+  created_at: string;
+}
+
+export function createKnowledgeFile(
+  sourceId: string,
+  name: string,
+  mimeType: string,
+  content: Buffer,
+): KnowledgeFileMeta {
+  const d = getDb();
+  const id = `kf-${crypto.randomUUID()}`;
+  d.prepare(`
+    INSERT INTO knowledge_files (id, source_id, name, mime_type, size, content)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `).run(id, sourceId, name, mimeType, content.length, content);
+  return { id, source_id: sourceId, name, mime_type: mimeType, size: content.length, created_at: new Date().toISOString() };
+}
+
+/** List file metadata (no content) for a source */
+export function listKnowledgeFiles(sourceId: string): KnowledgeFileMeta[] {
+  return getDb()
+    .prepare('SELECT id, source_id, name, mime_type, size, created_at FROM knowledge_files WHERE source_id = ? ORDER BY created_at ASC')
+    .all(sourceId) as KnowledgeFileMeta[];
+}
+
+/** Get full file row including content blob */
+export function getKnowledgeFileContent(fileId: string): KnowledgeFileRow | undefined {
+  return getDb()
+    .prepare('SELECT * FROM knowledge_files WHERE id = ?')
+    .get(fileId) as KnowledgeFileRow | undefined;
+}
+
+export function deleteKnowledgeFile(fileId: string): boolean {
+  const result = getDb().prepare('DELETE FROM knowledge_files WHERE id = ?').run(fileId);
+  return result.changes > 0;
+}
+
+/** Load all files for a source as base64 attachments (used in sync WS payload) */
+export function getKnowledgeFileAttachments(sourceId: string): Array<{
+  id: string;
+  name: string;
+  mimeType: string;
+  size: number;
+  content: string; // base64
+}> {
+  const rows = getDb()
+    .prepare('SELECT id, name, mime_type, size, content FROM knowledge_files WHERE source_id = ? ORDER BY created_at ASC')
+    .all(sourceId) as Array<{ id: string; name: string; mime_type: string; size: number; content: Buffer }>;
+
+  return rows.map(r => ({
+    id: r.id,
+    name: r.name,
+    mimeType: r.mime_type,
+    size: r.size,
+    content: r.content.toString('base64'),
+  }));
 }

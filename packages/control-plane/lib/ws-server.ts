@@ -1592,6 +1592,7 @@ export class AgentWSServer {
     sourceType: string;
     config: Record<string, unknown>;
     docling?: { url: string };
+    fileAttachments?: Array<{ id: string; name: string; mimeType: string; size: number; content: string }>;
   }): void {
     const agent = this.agents.get(agentDid);
     if (!agent || agent.ws.readyState !== WebSocket.OPEN) {

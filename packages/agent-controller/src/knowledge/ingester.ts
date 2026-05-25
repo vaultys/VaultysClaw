@@ -1,7 +1,7 @@
 import { randomUUID } from 'crypto';
 import pino from 'pino';
 import type { LlmConfig } from '@vaultysclaw/shared';
-import type { KnowledgeSourceConfig, DoclingConfig, Document, SyncResult } from './types';
+import type { KnowledgeSourceConfig, DoclingConfig, KnowledgeFileAttachment, Document, SyncResult } from './types';
 import { chunkDocument } from './chunker';
 import { embed, serializeEmbedding } from './embedder';
 import {
@@ -61,6 +61,65 @@ async function convertWithDocling(doclingUrl: string, url: string): Promise<stri
 }
 
 // ---------------------------------------------------------------------------
+// Docling: file upload conversion
+// ---------------------------------------------------------------------------
+
+/**
+ * Send a raw file buffer to Docling Serve for conversion → Markdown.
+ */
+async function convertFileWithDocling(
+  doclingUrl: string,
+  filename: string,
+  content: Buffer,
+  mimeType: string,
+): Promise<string> {
+  const endpoint = `${doclingUrl}/v1alpha/convert/file`;
+  logger.info({ filename, endpoint }, 'Sending file to Docling');
+
+  const formData = new FormData();
+  const blob = new Blob([new Uint8Array(content)], { type: mimeType });
+  formData.append('files', blob, filename);
+
+  const res = await fetch(endpoint, {
+    method: 'POST',
+    body: formData,
+    signal: AbortSignal.timeout(120_000),
+  });
+
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    throw new Error(`Docling file conversion returned HTTP ${res.status}: ${body.slice(0, 200)}`);
+  }
+
+  const data = await res.json() as {
+    document?: { md_content?: string };
+    documents?: Array<{ md_content?: string }>;
+    output?: Array<{ content_md?: string }> | { content_md?: string };
+  };
+
+  const md =
+    data?.document?.md_content ??
+    data?.documents?.[0]?.md_content ??
+    (Array.isArray(data?.output) ? data.output[0]?.content_md : (data?.output as { content_md?: string })?.content_md);
+
+  if (!md) throw new Error('Docling returned no Markdown content for file');
+  return md;
+}
+
+// Plain-text MIME types and extensions that can be read without Docling
+const PLAIN_TEXT_TYPES = new Set([
+  'text/plain', 'text/markdown', 'text/csv', 'text/html',
+  'application/json', 'application/xml', 'text/xml',
+]);
+const PLAIN_TEXT_EXTS = new Set(['.txt', '.md', '.markdown', '.csv', '.json', '.xml', '.html', '.htm']);
+
+function isPlainText(mimeType: string, filename: string): boolean {
+  if (PLAIN_TEXT_TYPES.has(mimeType)) return true;
+  const ext = filename.slice(filename.lastIndexOf('.')).toLowerCase();
+  return PLAIN_TEXT_EXTS.has(ext);
+}
+
+// ---------------------------------------------------------------------------
 // Fallback: plain HTTP fetch with basic HTML stripping
 // ---------------------------------------------------------------------------
 
@@ -94,6 +153,7 @@ async function loadDocuments(
   sourceType: string,
   config: KnowledgeSourceConfig,
   docling?: DoclingConfig,
+  fileAttachments?: KnowledgeFileAttachment[],
 ): Promise<Document[]> {
   const docs: Document[] = [];
 
@@ -105,8 +165,8 @@ async function loadDocuments(
 
         if (docling?.url) {
           content = await convertWithDocling(docling.url, url);
-          format = 'markdown'; // Docling always outputs Markdown
-          logger.info({ url }, 'Docling conversion successful');
+          format = 'markdown';
+          logger.info({ url }, 'Docling URL conversion successful');
         } else {
           content = await fetchPlainText(url);
           logger.info({ url }, 'Plain fetch successful');
@@ -137,6 +197,49 @@ async function loadDocuments(
         metadata: { format: 'text' },
       });
     }
+  } else if (sourceType === 'files' && fileAttachments?.length) {
+    for (const attachment of fileAttachments) {
+      try {
+        const buffer = Buffer.from(attachment.content, 'base64');
+        let content: string;
+        let format: 'markdown' | 'text' = 'text';
+
+        if (docling?.url) {
+          // Docling can handle all file types (PDF, DOCX, etc.)
+          content = await convertFileWithDocling(docling.url, attachment.name, buffer, attachment.mimeType);
+          format = 'markdown';
+          logger.info({ file: attachment.name }, 'Docling file conversion successful');
+        } else if (isPlainText(attachment.mimeType, attachment.name)) {
+          // Plain text files can be read directly
+          content = buffer.toString('utf-8');
+          format = attachment.name.endsWith('.md') || attachment.name.endsWith('.markdown')
+            ? 'markdown'
+            : 'text';
+          logger.info({ file: attachment.name }, 'Plain text file read directly');
+        } else {
+          throw new Error(
+            `File "${attachment.name}" is a binary format (${attachment.mimeType}). ` +
+            'Configure Docling on the control plane to index PDF, DOCX and other binary documents.',
+          );
+        }
+
+        docs.push({
+          id: randomUUID(),
+          title: attachment.name,
+          content,
+          metadata: { source: attachment.name, format, fileId: attachment.id, mimeType: attachment.mimeType },
+        });
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        logger.error({ file: attachment.name, err }, 'Failed to process file attachment');
+        docs.push({
+          id: randomUUID(),
+          title: attachment.name,
+          content: '',
+          metadata: { source: attachment.name, error: msg },
+        });
+      }
+    }
   } else {
     throw new Error(`Unsupported source type "${sourceType}" or missing config`);
   }
@@ -155,6 +258,7 @@ export async function ingestSource(
   config: KnowledgeSourceConfig,
   llmConfig: LlmConfig,
   docling?: DoclingConfig,
+  fileAttachments?: KnowledgeFileAttachment[],
 ): Promise<SyncResult> {
   const result: SyncResult = { sourceId, docsProcessed: 0, chunksCreated: 0, errors: [] };
 
@@ -173,8 +277,8 @@ export async function ingestSource(
 
   try {
     // 1. Load documents (via Docling or plain fetch)
-    const docs = await loadDocuments(sourceType, config, docling);
-    logger.info({ sourceId, docCount: docs.length, usingDocling: !!docling?.url }, 'Documents loaded');
+    const docs = await loadDocuments(sourceType, config, docling, fileAttachments);
+    logger.info({ sourceId, docCount: docs.length, usingDocling: !!docling?.url, sourceType }, 'Documents loaded');
 
     // 2. Clear old chunks
     deleteChunksBySource(sourceId);

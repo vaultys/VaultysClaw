@@ -43,6 +43,10 @@ import {
   Globe2,
   ChevronDown,
   ChevronUp,
+  Upload,
+  File,
+  FileType2,
+  Layers,
 } from "lucide-react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
@@ -3046,7 +3050,7 @@ function PeerAgentsTab({ did }: { did: string }) {
 }
 
 // ---------------------------------------------------------------------------
-// Tab: Knowledge
+// Tab: Knowledge  (cards + file upload)
 // ---------------------------------------------------------------------------
 
 interface KnowledgeSource {
@@ -3066,6 +3070,8 @@ interface KnowledgeSource {
 
 interface KsRealmOption { id: string; name: string }
 
+interface KnowledgeFile { id: string; name: string; mime_type: string; size: number }
+
 function KsStatusBadge({ status }: { status: KnowledgeSource["status"] }) {
   const map = {
     idle:    { icon: <Clock size={12} />,        label: "Idle",    cls: "bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 border-zinc-300 dark:border-zinc-700" },
@@ -3083,9 +3089,9 @@ function KsStatusBadge({ status }: { status: KnowledgeSource["status"] }) {
 
 function KsTypeBadge({ type }: { type: string }) {
   const map: Record<string, { icon: React.ReactNode; label: string; cls: string }> = {
-    url:   { icon: <Globe size={12} />,     label: "URL",   cls: "bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-400 border-indigo-300 dark:border-indigo-800" },
-    text:  { icon: <FileText size={12} />,  label: "Text",  cls: "bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 border-amber-300 dark:border-amber-800" },
-    files: { icon: <FileText size={12} />,  label: "Files", cls: "bg-teal-100 dark:bg-teal-900/40 text-teal-700 dark:text-teal-400 border-teal-300 dark:border-teal-800" },
+    url:   { icon: <Globe size={12} />,      label: "URL",       cls: "bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-400 border-indigo-300 dark:border-indigo-800" },
+    text:  { icon: <FileText size={12} />,   label: "Text",      cls: "bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 border-amber-300 dark:border-amber-800" },
+    files: { icon: <FileType2 size={12} />,  label: "Documents", cls: "bg-teal-100 dark:bg-teal-900/40 text-teal-700 dark:text-teal-400 border-teal-300 dark:border-teal-800" },
   };
   const { icon, label, cls } = map[type] ?? map.url;
   return (
@@ -3095,123 +3101,487 @@ function KsTypeBadge({ type }: { type: string }) {
   );
 }
 
-function KsSourceDetail({ source }: { source: KnowledgeSource }) {
-  let config: Record<string, unknown> = {};
-  try { config = JSON.parse(source.config); } catch { /**/ }
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function relativeTime(isoString: string | null): string {
+  if (!isoString) return "Never";
+  const iso = isoString;
+  const d = new Date(iso.endsWith("Z") ? iso : iso + "Z");
+  const secs = Math.floor((Date.now() - d.getTime()) / 1000);
+  if (secs < 60) return `${secs}s ago`;
+  if (secs < 3600) return `${Math.floor(secs / 60)}m ago`;
+  if (secs < 86400) return `${Math.floor(secs / 3600)}h ago`;
+  return `${Math.floor(secs / 86400)}d ago`;
+}
+
+function mimeIcon(mime: string): React.ReactNode {
+  if (mime === "application/pdf") return <FileType2 size={13} className="text-red-400 shrink-0" />;
+  if (mime.includes("word") || mime.includes("document")) return <FileText size={13} className="text-blue-400 shrink-0" />;
+  if (mime === "text/markdown" || mime === "text/plain") return <FileText size={13} className="text-zinc-400 shrink-0" />;
+  if (mime === "text/csv") return <Layers size={13} className="text-green-400 shrink-0" />;
+  return <File size={13} className="text-vc-subtle shrink-0" />;
+}
+
+// ---------------------------------------------------------------------------
+// FileDropzone
+// ---------------------------------------------------------------------------
+
+interface FileDropzoneProps {
+  files: File[];
+  onAdd: (added: File[]) => void;
+  onRemove: (index: number) => void;
+}
+
+function FileDropzone({ files, onAdd, onRemove }: FileDropzoneProps) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [dragging, setDragging] = useState(false);
+
+  function handleDrop(e: React.DragEvent<HTMLDivElement>) {
+    e.preventDefault();
+    setDragging(false);
+    const dropped = Array.from(e.dataTransfer.files);
+    onAdd(dropped);
+  }
+
+  function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
+    if (e.target.files) {
+      onAdd(Array.from(e.target.files));
+      e.target.value = "";
+    }
+  }
+
   return (
-    <div className="px-4 pb-4 pt-1 space-y-3">
-      {source.error && (
-        <div className="flex items-start gap-2 p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
-          <XCircle size={14} className="text-red-500 mt-0.5 shrink-0" />
-          <p className="text-xs text-red-600 dark:text-red-400 font-mono break-all">{source.error}</p>
+    <div className="space-y-2">
+      <div
+        onDragOver={e => { e.preventDefault(); setDragging(true); }}
+        onDragLeave={() => setDragging(false)}
+        onDrop={handleDrop}
+        onClick={() => inputRef.current?.click()}
+        className={`flex flex-col items-center justify-center gap-2 px-4 py-8 rounded-xl border-2 border-dashed cursor-pointer transition-colors ${
+          dragging
+            ? "border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20"
+            : "border-vc-border hover:border-indigo-400 hover:bg-vc-raised/40 bg-vc-bg"
+        }`}
+      >
+        <Upload size={22} className={dragging ? "text-indigo-500" : "text-vc-subtle"} />
+        <div className="text-center">
+          <p className="text-sm font-medium text-vc-text">Drop files here or click to browse</p>
+          <p className="text-xs text-vc-muted mt-0.5">PDF, DOCX, TXT, Markdown, CSV — up to 10 MB each</p>
         </div>
-      )}
-      {source.source_type === "url" && Array.isArray(config.urls) && (
-        <div className="space-y-1">
-          <p className="text-xs text-vc-muted font-medium uppercase tracking-wider">Indexed URLs</p>
-          <ul className="space-y-1">
-            {(config.urls as string[]).map(url => (
-              <li key={url} className="flex items-center gap-2 text-xs text-vc-text">
-                <Globe size={11} className="text-vc-subtle shrink-0" />
-                <a href={url} target="_blank" rel="noopener noreferrer" className="hover:text-indigo-500 truncate">{url}</a>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-      {source.source_type === "text" && Array.isArray(config.texts) && (
-        <div className="space-y-1">
-          <p className="text-xs text-vc-muted font-medium uppercase tracking-wider">Documents</p>
-          <ul className="space-y-1">
-            {(config.texts as { title: string }[]).map((t, i) => (
-              <li key={i} className="flex items-center gap-2 text-xs text-vc-text">
-                <FileText size={11} className="text-vc-subtle shrink-0" />
-                {t.title}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-      <div className="flex flex-wrap gap-4 text-xs text-vc-muted">
-        {config.chunkSize != null && <span>Chunk size: <span className="text-vc-text">{String(config.chunkSize)}</span></span>}
-        <span>Created: <span className="text-vc-text">{new Date(source.created_at.endsWith("Z") ? source.created_at : source.created_at + "Z").toLocaleDateString()}</span></span>
-        <span>ID: <span className="text-vc-text font-mono">{source.id}</span></span>
+        <input
+          ref={inputRef}
+          type="file"
+          multiple
+          accept=".pdf,.docx,.doc,.txt,.md,.csv"
+          className="hidden"
+          onChange={handleChange}
+        />
       </div>
+
+      {files.length > 0 && (
+        <ul className="space-y-1.5">
+          {files.map((f, i) => {
+            const oversized = f.size > 10 * 1024 * 1024;
+            return (
+              <li
+                key={`${f.name}-${i}`}
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-xs ${
+                  oversized
+                    ? "border-red-300 dark:border-red-700 bg-red-50 dark:bg-red-900/20"
+                    : "border-vc-border bg-vc-raised/40"
+                }`}
+              >
+                <File size={13} className={oversized ? "text-red-400 shrink-0" : "text-vc-subtle shrink-0"} />
+                <span className={`flex-1 truncate ${oversized ? "text-red-600 dark:text-red-400" : "text-vc-text"}`}>{f.name}</span>
+                <span className={`shrink-0 ${oversized ? "text-red-500" : "text-vc-muted"}`}>{formatBytes(f.size)}</span>
+                {oversized && <span className="shrink-0 text-red-500 font-medium">Too large</span>}
+                <button
+                  type="button"
+                  onClick={() => onRemove(i)}
+                  className="shrink-0 text-vc-subtle hover:text-red-500 transition-colors"
+                >
+                  <X size={13} />
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
     </div>
   );
 }
 
-function KsCreateModal({
-  did,
-  realms,
-  onClose,
-  onCreated,
-}: {
+// ---------------------------------------------------------------------------
+// KsSourceCard
+// ---------------------------------------------------------------------------
+
+interface KsSourceCardProps {
+  source: KnowledgeSource;
+  realmName: string;
+  isSyncing: boolean;
+  isDeleting: boolean;
+  isExpanded: boolean;
+  online: boolean;
+  onToggleExpand: () => void;
+  onSync: () => void;
+  onDelete: () => void;
+}
+
+function KsSourceCard({
+  source,
+  realmName,
+  isSyncing,
+  isDeleting,
+  isExpanded,
+  online,
+  onToggleExpand,
+  onSync,
+  onDelete,
+}: KsSourceCardProps) {
+  const [files, setFiles] = useState<KnowledgeFile[] | null>(null);
+  const [loadingFiles, setLoadingFiles] = useState(false);
+
+  let config: Record<string, unknown> = {};
+  try { config = JSON.parse(source.config); } catch { /**/ }
+
+  const typeIconMap: Record<string, React.ReactNode> = {
+    url:   <Globe size={16} className="text-indigo-400" />,
+    text:  <FileText size={16} className="text-amber-400" />,
+    files: <FileType2 size={16} className="text-teal-400" />,
+  };
+  const typeIcon = typeIconMap[source.source_type] ?? <File size={16} className="text-vc-subtle" />;
+
+  async function loadFiles() {
+    if (files !== null || source.source_type !== "files") return;
+    setLoadingFiles(true);
+    try {
+      const res = await fetch(`/api/knowledge/files?sourceId=${encodeURIComponent(source.id)}`);
+      const data = await res.json() as { files?: KnowledgeFile[] };
+      setFiles(data.files ?? []);
+    } finally {
+      setLoadingFiles(false);
+    }
+  }
+
+  function handleExpand() {
+    if (!isExpanded && source.source_type === "files") {
+      loadFiles();
+    }
+    onToggleExpand();
+  }
+
+  return (
+    <div className="rounded-xl border border-vc-border bg-vc-surface overflow-hidden transition-all">
+      {/* Card header */}
+      <div
+        className="flex items-start gap-3 px-4 py-3.5 cursor-pointer hover:bg-vc-raised/30 transition-colors"
+        onClick={handleExpand}
+      >
+        {/* Type icon */}
+        <div className="mt-0.5 shrink-0 w-8 h-8 rounded-lg bg-vc-bg border border-vc-border flex items-center justify-center">
+          {typeIcon}
+        </div>
+
+        {/* Main info */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-sm font-semibold text-vc-text truncate">{source.name}</span>
+            <KsStatusBadge status={source.status} />
+          </div>
+          <div className="flex items-center gap-1.5 mt-0.5 text-xs text-vc-muted flex-wrap">
+            <Globe2 size={11} className="shrink-0" />
+            <span>{realmName}</span>
+            <span className="text-vc-subtle">·</span>
+            <Layers size={11} className="shrink-0" />
+            <span>{source.chunk_count > 0 ? `${source.chunk_count.toLocaleString()} chunks` : "No chunks yet"}</span>
+            <span className="text-vc-subtle">·</span>
+            <span>{relativeTime(source.last_synced_at)}</span>
+          </div>
+        </div>
+
+        {/* Actions */}
+        <div className="flex items-center gap-1 shrink-0" onClick={e => e.stopPropagation()}>
+          <button
+            onClick={onSync}
+            disabled={isSyncing || isDeleting || !online}
+            title={online ? "Sync now" : "Agent offline"}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-vc-muted hover:text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 disabled:opacity-40 border border-vc-border hover:border-indigo-300 dark:hover:border-indigo-700 transition-colors"
+          >
+            {isSyncing ? <Loader2 size={13} className="animate-spin" /> : <RefreshCw size={13} />}
+            Sync
+          </button>
+          <button
+            onClick={onDelete}
+            disabled={isSyncing || isDeleting}
+            title="Delete source"
+            className="p-1.5 rounded-lg text-vc-muted hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 disabled:opacity-40 border border-transparent hover:border-red-200 dark:hover:border-red-800 transition-colors"
+          >
+            {isDeleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+          </button>
+          <div className="pl-1 text-vc-subtle">
+            {isExpanded ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+          </div>
+        </div>
+      </div>
+
+      {/* Expanded detail */}
+      {isExpanded && (
+        <div className="border-t border-vc-border px-4 pb-4 pt-3 space-y-3 bg-vc-bg">
+          {/* Error */}
+          {source.error && (
+            <div className="flex items-start gap-2 p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
+              <XCircle size={14} className="text-red-500 mt-0.5 shrink-0" />
+              <p className="text-xs text-red-600 dark:text-red-400 font-mono break-all">{source.error}</p>
+            </div>
+          )}
+
+          {/* URL list */}
+          {source.source_type === "url" && Array.isArray(config.urls) && (
+            <div className="space-y-1">
+              <p className="text-xs text-vc-muted font-medium uppercase tracking-wider">Indexed URLs</p>
+              <ul className="space-y-1">
+                {(config.urls as string[]).map(url => (
+                  <li key={url} className="flex items-center gap-2 text-xs text-vc-text">
+                    <Globe size={11} className="text-vc-subtle shrink-0" />
+                    <a href={url} target="_blank" rel="noopener noreferrer" className="hover:text-indigo-500 truncate">
+                      {url}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Text documents list */}
+          {source.source_type === "text" && Array.isArray(config.texts) && (
+            <div className="space-y-1">
+              <p className="text-xs text-vc-muted font-medium uppercase tracking-wider">Documents</p>
+              <ul className="space-y-1">
+                {(config.texts as { title: string }[]).map((t, i) => (
+                  <li key={i} className="flex items-center gap-2 text-xs text-vc-text">
+                    <FileText size={11} className="text-vc-subtle shrink-0" />
+                    {t.title}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Uploaded files list */}
+          {source.source_type === "files" && (
+            <div className="space-y-1">
+              <p className="text-xs text-vc-muted font-medium uppercase tracking-wider">Uploaded Files</p>
+              {loadingFiles ? (
+                <div className="flex items-center gap-2 py-2 text-xs text-vc-muted">
+                  <Loader2 size={12} className="animate-spin" /> Loading files…
+                </div>
+              ) : files && files.length > 0 ? (
+                <ul className="space-y-1">
+                  {files.map(f => (
+                    <li key={f.id} className="flex items-center gap-2 text-xs text-vc-text">
+                      {mimeIcon(f.mime_type)}
+                      <span className="flex-1 truncate">{f.name}</span>
+                      <span className="text-vc-muted shrink-0">{formatBytes(f.size)}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-xs text-vc-subtle italic">No files found.</p>
+              )}
+            </div>
+          )}
+
+          {/* Metadata row */}
+          <div className="flex flex-wrap gap-4 text-xs text-vc-muted pt-1 border-t border-vc-border/60">
+            {config.chunkSize != null && (
+              <span>Chunk size: <span className="text-vc-text">{String(config.chunkSize)}</span></span>
+            )}
+            <span>Created: <span className="text-vc-text">
+              {new Date(source.created_at.endsWith("Z") ? source.created_at : source.created_at + "Z").toLocaleDateString()}
+            </span></span>
+            <span>ID: <span className="text-vc-text font-mono">{source.id}</span></span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// KsAddSourceModal
+// ---------------------------------------------------------------------------
+
+type KsSourceType = "url" | "text" | "files";
+
+interface KsAddSourceModalProps {
   did: string;
   realms: KsRealmOption[];
+  doclingConfigured: boolean;
   onClose: () => void;
   onCreated: () => void;
-}) {
+}
+
+function KsAddSourceModal({ did, realms, doclingConfigured, onClose, onCreated }: KsAddSourceModalProps) {
   const [name, setName] = useState("");
   const [realmId, setRealmId] = useState(realms[0]?.id ?? "");
-  const [sourceType, setSourceType] = useState<"url" | "text">("url");
+  const [sourceType, setSourceType] = useState<KsSourceType>("url");
   const [urls, setUrls] = useState("");
   const [textTitle, setTextTitle] = useState("");
   const [textContent, setTextContent] = useState("");
   const [chunkSize, setChunkSize] = useState("1000");
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [saving, setSaving] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const hasOversizedFile = selectedFiles.some(f => f.size > 10 * 1024 * 1024);
+
+  function handleAddFiles(added: File[]) {
+    setSelectedFiles(prev => {
+      const existing = new Set(prev.map(f => f.name));
+      return [...prev, ...added.filter(f => !existing.has(f.name))];
+    });
+  }
+
+  function handleRemoveFile(index: number) {
+    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!name || !realmId) { setError("Name and realm are required."); return; }
-
-    const config: Record<string, unknown> = { chunkSize: parseInt(chunkSize, 10) || 1000 };
-    if (sourceType === "url") {
-      const list = urls.split("\n").map(u => u.trim()).filter(Boolean);
-      if (!list.length) { setError("Enter at least one URL."); return; }
-      config.urls = list;
-    } else {
-      if (!textTitle || !textContent) { setError("Title and content are required for text sources."); return; }
-      config.texts = [{ title: textTitle, content: textContent }];
-    }
+    if (!name.trim()) { setError("Source name is required."); return; }
+    if (!realmId) { setError("Please select a realm."); return; }
+    if (hasOversizedFile) { setError("Remove files that exceed the 10 MB limit."); return; }
 
     setSaving(true);
     setError(null);
+
     try {
-      const res = await fetch("/api/knowledge", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ realmId, agentDid: did, name, sourceType, config }),
-      });
-      if (!res.ok) {
-        const d = await res.json() as { error?: string };
-        throw new Error(d.error ?? "Failed to create source");
+      if (sourceType === "url") {
+        const list = urls.split("\n").map(u => u.trim()).filter(Boolean);
+        if (!list.length) { setError("Enter at least one URL."); setSaving(false); return; }
+        const config = { chunkSize: parseInt(chunkSize, 10) || 1000, urls: list };
+        const res = await fetch("/api/knowledge", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ realmId, agentDid: did, name: name.trim(), sourceType: "url", config }),
+        });
+        if (!res.ok) {
+          const d = await res.json() as { error?: string };
+          throw new Error(d.error ?? "Failed to create source");
+        }
+
+      } else if (sourceType === "text") {
+        if (!textTitle.trim() || !textContent.trim()) {
+          setError("Title and content are required for text sources.");
+          setSaving(false);
+          return;
+        }
+        const config = {
+          chunkSize: parseInt(chunkSize, 10) || 1000,
+          texts: [{ title: textTitle.trim(), content: textContent.trim() }],
+        };
+        const res = await fetch("/api/knowledge", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ realmId, agentDid: did, name: name.trim(), sourceType: "text", config }),
+        });
+        if (!res.ok) {
+          const d = await res.json() as { error?: string };
+          throw new Error(d.error ?? "Failed to create source");
+        }
+
+      } else {
+        // files source type — multi-step
+        if (!selectedFiles.length) { setError("Select at least one file to upload."); setSaving(false); return; }
+
+        // Step 1: create source record
+        const sourceRes = await fetch("/api/knowledge", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            realmId,
+            agentDid: did,
+            name: name.trim(),
+            sourceType: "files",
+            config: { chunkSize: parseInt(chunkSize, 10) || 1000 },
+          }),
+        });
+        if (!sourceRes.ok) {
+          const d = await sourceRes.json() as { error?: string };
+          throw new Error(d.error ?? "Failed to create source");
+        }
+        const { source } = await sourceRes.json() as { source: { id: string } };
+
+        // Step 2: upload each file
+        for (let i = 0; i < selectedFiles.length; i++) {
+          const file = selectedFiles[i];
+          setUploadProgress(`Uploading ${i + 1}/${selectedFiles.length}: ${file.name}`);
+          const fd = new FormData();
+          fd.append("sourceId", source.id);
+          fd.append("file", file);
+          const uploadRes = await fetch("/api/knowledge/files", { method: "POST", body: fd });
+          if (!uploadRes.ok) {
+            const d = await uploadRes.json() as { error?: string };
+            throw new Error(d.error ?? `Failed to upload ${file.name}`);
+          }
+        }
+        setUploadProgress(null);
       }
+
       onCreated();
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unknown error");
+      setUploadProgress(null);
     } finally {
       setSaving(false);
     }
   }
 
+  const sourceTypeOptions: { value: KsSourceType; icon: React.ReactNode; label: string; description: string }[] = [
+    {
+      value: "url",
+      icon: <Globe size={18} className="text-indigo-400" />,
+      label: "URL Sources",
+      description: "Fetch and index web pages or API docs",
+    },
+    {
+      value: "text",
+      icon: <FileText size={18} className="text-amber-400" />,
+      label: "Inline Text",
+      description: "Paste text directly from any source",
+    },
+    {
+      value: "files",
+      icon: <FileType2 size={18} className="text-teal-400" />,
+      label: "Documents",
+      description: "Upload PDF, DOCX, TXT or Markdown files",
+    },
+  ];
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-      <div className="bg-vc-surface border border-vc-border rounded-2xl w-full max-w-lg shadow-2xl">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-vc-border">
+      <div className="bg-vc-surface border border-vc-border rounded-2xl w-full max-w-lg shadow-2xl flex flex-col max-h-[90vh]">
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-vc-border shrink-0">
           <div className="flex items-center gap-2">
             <BookOpen className="w-5 h-5 text-indigo-500" />
-            <h2 className="text-sm font-semibold text-vc-text">New Knowledge Source</h2>
+            <h2 className="text-sm font-semibold text-vc-text">Add Knowledge Source</h2>
           </div>
           <button onClick={onClose} className="text-vc-muted hover:text-vc-text transition-colors">
             <X size={18} />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-5 space-y-4">
+        {/* Scrollable body */}
+        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-5 space-y-4">
+          {/* Name */}
           <div className="space-y-1">
             <label className="text-xs font-medium text-vc-muted uppercase tracking-wider">Name</label>
             <input
@@ -3222,6 +3592,7 @@ function KsCreateModal({
             />
           </div>
 
+          {/* Realm */}
           <div className="space-y-1">
             <label className="text-xs font-medium text-vc-muted uppercase tracking-wider">Realm</label>
             <select
@@ -3234,30 +3605,46 @@ function KsCreateModal({
             </select>
           </div>
 
-          <div className="space-y-1">
+          {/* Source type selector — option cards */}
+          <div className="space-y-1.5">
             <label className="text-xs font-medium text-vc-muted uppercase tracking-wider">Source type</label>
-            <div className="flex gap-2">
-              {(["url", "text"] as const).map(t => (
+            <div className="grid grid-cols-3 gap-2">
+              {sourceTypeOptions.map(opt => (
                 <button
-                  key={t}
+                  key={opt.value}
                   type="button"
-                  onClick={() => setSourceType(t)}
-                  className={`flex-1 py-2 rounded-lg border text-sm font-medium transition-colors ${
-                    sourceType === t
-                      ? "bg-indigo-600 border-indigo-600 text-white"
-                      : "bg-vc-bg border-vc-border text-vc-muted hover:border-indigo-400"
+                  onClick={() => setSourceType(opt.value)}
+                  className={`flex flex-col items-center gap-1.5 px-2 py-3 rounded-xl border text-center transition-colors ${
+                    sourceType === opt.value
+                      ? "border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20"
+                      : "border-vc-border bg-vc-bg hover:border-indigo-400 hover:bg-vc-raised/40"
                   }`}
                 >
-                  {t === "url" ? "🌐 URLs" : "📄 Inline text"}
+                  {opt.icon}
+                  <span className={`text-xs font-medium leading-tight ${sourceType === opt.value ? "text-indigo-600 dark:text-indigo-300" : "text-vc-text"}`}>
+                    {opt.label}
+                  </span>
+                  <span className="text-[10px] text-vc-muted leading-tight">{opt.description}</span>
                 </button>
               ))}
             </div>
           </div>
 
-          {sourceType === "url" ? (
+          {/* Docling notice for files type */}
+          {sourceType === "files" && !doclingConfigured && (
+            <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
+              <AlertTriangle size={14} className="text-amber-500 mt-0.5 shrink-0" />
+              <p className="text-xs text-amber-700 dark:text-amber-400">
+                PDF and DOCX files require Docling to be configured. Plain text (.txt, .md) files can be indexed without Docling.
+              </p>
+            </div>
+          )}
+
+          {/* URL input */}
+          {sourceType === "url" && (
             <div className="space-y-1">
               <label className="text-xs font-medium text-vc-muted uppercase tracking-wider">
-                URLs <span className="normal-case font-normal">(one per line)</span>
+                URLs <span className="normal-case font-normal text-vc-subtle">(one per line)</span>
               </label>
               <textarea
                 value={urls}
@@ -3267,7 +3654,10 @@ function KsCreateModal({
                 className="w-full px-3 py-2 rounded-lg bg-vc-bg border border-vc-border text-sm text-vc-text placeholder:text-vc-subtle focus:outline-none focus:ring-2 focus:ring-indigo-500/40 font-mono"
               />
             </div>
-          ) : (
+          )}
+
+          {/* Text input */}
+          {sourceType === "text" && (
             <div className="space-y-3">
               <div className="space-y-1">
                 <label className="text-xs font-medium text-vc-muted uppercase tracking-wider">Document title</label>
@@ -3291,6 +3681,16 @@ function KsCreateModal({
             </div>
           )}
 
+          {/* File dropzone */}
+          {sourceType === "files" && (
+            <FileDropzone
+              files={selectedFiles}
+              onAdd={handleAddFiles}
+              onRemove={handleRemoveFile}
+            />
+          )}
+
+          {/* Advanced settings */}
           <div>
             <button
               type="button"
@@ -3303,7 +3703,7 @@ function KsCreateModal({
             {showAdvanced && (
               <div className="mt-3 space-y-1">
                 <label className="text-xs font-medium text-vc-muted uppercase tracking-wider">
-                  Chunk size <span className="normal-case font-normal">(chars)</span>
+                  Chunk size <span className="normal-case font-normal text-vc-subtle">(chars)</span>
                 </label>
                 <input
                   type="number"
@@ -3318,6 +3718,15 @@ function KsCreateModal({
             )}
           </div>
 
+          {/* Upload progress */}
+          {uploadProgress && (
+            <div className="flex items-center gap-2 p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
+              <Loader2 size={14} className="animate-spin text-blue-500 shrink-0" />
+              <p className="text-xs text-blue-700 dark:text-blue-400">{uploadProgress}</p>
+            </div>
+          )}
+
+          {/* Error */}
           {error && (
             <div className="flex items-start gap-2 p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
               <AlertTriangle size={14} className="text-red-500 mt-0.5 shrink-0" />
@@ -3325,6 +3734,7 @@ function KsCreateModal({
             </div>
           )}
 
+          {/* Footer actions */}
           <div className="flex justify-end gap-2 pt-1">
             <button
               type="button"
@@ -3339,7 +3749,7 @@ function KsCreateModal({
               className="flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-sm font-medium transition-colors"
             >
               {saving && <Loader2 size={14} className="animate-spin" />}
-              Create source
+              {sourceType === "files" ? "Upload & create" : "Create source"}
             </button>
           </div>
         </form>
@@ -3347,6 +3757,10 @@ function KsCreateModal({
     </div>
   );
 }
+
+// ---------------------------------------------------------------------------
+// KnowledgeTab
+// ---------------------------------------------------------------------------
 
 function KnowledgeTab({ did, online }: { did: string; agentName: string; online: boolean }) {
   const [sources, setSources] = useState<KnowledgeSource[]>([]);
@@ -3357,6 +3771,7 @@ function KnowledgeTab({ did, online }: { did: string; agentName: string; online:
   const [syncingIds, setSyncingIds] = useState<Set<string>>(new Set());
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
+  const [doclingConfigured, setDoclingConfigured] = useState(false);
 
   const showToast = (msg: string, ok = true) => {
     setToast({ msg, ok });
@@ -3381,6 +3796,17 @@ function KnowledgeTab({ did, online }: { did: string; agentName: string; online:
 
   useEffect(() => { load(); }, [load]);
 
+  // Fetch Docling config on mount
+  useEffect(() => {
+    fetch("/api/settings/docling")
+      .then(r => r.json())
+      .then((d: { configured?: boolean; url?: string }) => {
+        setDoclingConfigured(d.configured === true || Boolean(d.url));
+      })
+      .catch(() => { /* Docling config unavailable */ });
+  }, []);
+
+  // Poll while any source is syncing
   useEffect(() => {
     if (!sources.some(s => s.status === "syncing")) return;
     const id = setInterval(load, 3000);
@@ -3418,12 +3844,14 @@ function KnowledgeTab({ did, online }: { did: string; agentName: string; online:
     }
   }
 
-  const realmName = (id: string) => realms.find(r => r.id === id)?.name ?? id;
+  const getRealmName = (id: string) => realms.find(r => r.id === id)?.name ?? id;
   const totalChunks = sources.reduce((sum, s) => sum + (s.chunk_count ?? 0), 0);
-  const ready = sources.filter(s => s.status === "ready").length;
+  const readyCount = sources.filter(s => s.status === "ready").length;
+  const hasFileSources = sources.some(s => s.source_type === "files");
 
   return (
     <div className="space-y-5">
+      {/* Toast notification */}
       {toast && (
         <div className={`fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-3 rounded-xl shadow-xl text-sm font-medium text-white ${toast.ok ? "bg-green-600" : "bg-red-600"}`}>
           {toast.ok ? <CheckCircle2 size={16} /> : <XCircle size={16} />}
@@ -3431,24 +3859,41 @@ function KnowledgeTab({ did, online }: { did: string; agentName: string; online:
         </div>
       )}
 
-      <div className="flex items-center justify-between">
+      {/* Header */}
+      <div className="flex items-start justify-between gap-3">
         <div>
-          <h3 className="text-sm font-semibold text-vc-text">Knowledge Sources</h3>
+          <div className="flex items-center gap-2">
+            <h3 className="text-sm font-semibold text-vc-text">Knowledge Sources</h3>
+            {hasFileSources && (
+              <span
+                title={doclingConfigured ? "Docling configured — PDF/DOCX parsing enabled" : "Docling not configured — PDF/DOCX parsing unavailable"}
+                className={`inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full border font-medium ${
+                  doclingConfigured
+                    ? "bg-teal-100 dark:bg-teal-900/40 text-teal-700 dark:text-teal-400 border-teal-300 dark:border-teal-800"
+                    : "bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 border-amber-300 dark:border-amber-800"
+                }`}
+              >
+                <FileType2 size={10} />
+                {doclingConfigured ? "Docling on" : "Docling off"}
+              </span>
+            )}
+          </div>
           <p className="text-xs text-vc-muted mt-0.5">
             {sources.length === 0
               ? "No sources yet — add one to enable RAG search"
-              : `${ready}/${sources.length} ready · ${totalChunks.toLocaleString()} chunks indexed`}
+              : `${readyCount}/${sources.length} ready · ${totalChunks.toLocaleString()} chunks indexed`}
           </p>
         </div>
         <button
           onClick={() => setShowCreate(true)}
-          className="flex items-center gap-2 px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium transition-colors"
+          className="shrink-0 flex items-center gap-2 px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium transition-colors"
         >
           <Plus className="w-4 h-4" />
           Add source
         </button>
       </div>
 
+      {/* Offline warning */}
       {!online && (
         <div className="flex items-center gap-2 p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 text-xs text-amber-700 dark:text-amber-400">
           <WifiOff size={14} className="shrink-0" />
@@ -3456,12 +3901,20 @@ function KnowledgeTab({ did, online }: { did: string; agentName: string; online:
         </div>
       )}
 
+      {/* Loading state */}
+      {loading && (
+        <div className="flex items-center justify-center gap-2 py-10 text-sm text-vc-muted">
+          <Loader2 size={16} className="animate-spin" /> Loading…
+        </div>
+      )}
+
+      {/* Empty state */}
       {!loading && sources.length === 0 && (
         <div className="rounded-2xl border border-vc-border border-dashed bg-vc-bg/40 p-10 text-center space-y-3">
           <BookOpen className="w-7 h-7 text-vc-subtle mx-auto" />
           <p className="text-sm font-medium text-vc-text">No knowledge sources yet</p>
           <p className="text-xs text-vc-muted max-w-sm mx-auto">
-            Connect a URL or paste inline text. This agent will fetch, chunk, embed the content locally, and use{" "}
+            Connect URLs, paste inline text, or upload documents. This agent will chunk, embed, and use{" "}
             <code className="bg-vc-raised px-1 rounded text-indigo-400">knowledge_search</code> automatically in conversations.
           </p>
           <button
@@ -3473,107 +3926,32 @@ function KnowledgeTab({ did, online }: { did: string; agentName: string; online:
         </div>
       )}
 
-      {(loading || sources.length > 0) && (
-        <div className="rounded-xl border border-vc-border bg-vc-bg overflow-hidden">
-          {loading ? (
-            <div className="flex items-center justify-center gap-2 py-10 text-sm text-vc-muted">
-              <Loader2 size={16} className="animate-spin" /> Loading…
-            </div>
-          ) : (
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-vc-border text-vc-muted text-xs uppercase tracking-wider">
-                  <th className="text-left px-4 py-3 font-medium">Name</th>
-                  <th className="text-left px-4 py-3 font-medium hidden sm:table-cell">Realm</th>
-                  <th className="text-left px-4 py-3 font-medium">Status</th>
-                  <th className="text-left px-4 py-3 font-medium hidden sm:table-cell">Chunks</th>
-                  <th className="text-left px-4 py-3 font-medium hidden md:table-cell">Last sync</th>
-                  <th className="text-right px-4 py-3 font-medium">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {sources.map(source => {
-                  const isExpanded = expandedId === source.id;
-                  const isSyncing = syncingIds.has(source.id) || source.status === "syncing";
-                  const isDeleting = deletingIds.has(source.id);
-                  const lastSync = (() => {
-                    if (!source.last_synced_at) return "Never";
-                    const iso = source.last_synced_at;
-                    const d = new Date(iso.endsWith("Z") ? iso : iso + "Z");
-                    const secs = Math.floor((Date.now() - d.getTime()) / 1000);
-                    if (secs < 60) return `${secs}s ago`;
-                    if (secs < 3600) return `${Math.floor(secs / 60)}m ago`;
-                    if (secs < 86400) return `${Math.floor(secs / 3600)}h ago`;
-                    return `${Math.floor(secs / 86400)}d ago`;
-                  })();
-
-                  return (
-                    <>
-                      <tr
-                        key={source.id}
-                        className="border-b border-vc-border/50 hover:bg-vc-raised/30 transition-colors last:border-0 cursor-pointer"
-                        onClick={() => setExpandedId(isExpanded ? null : source.id)}
-                      >
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-2">
-                            <KsTypeBadge type={source.source_type} />
-                            <span className="font-medium text-vc-text truncate max-w-[160px]">{source.name}</span>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3 hidden sm:table-cell">
-                          <span className="flex items-center gap-1.5 text-vc-muted text-xs">
-                            <Globe2 size={12} className="shrink-0" />
-                            {realmName(source.realm_id)}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3">
-                          <KsStatusBadge status={source.status} />
-                        </td>
-                        <td className="px-4 py-3 hidden sm:table-cell text-xs text-vc-muted">
-                          {source.status === "ready"
-                            ? <span className="text-vc-text font-medium">{source.chunk_count.toLocaleString()}</span>
-                            : "—"}
-                        </td>
-                        <td className="px-4 py-3 hidden md:table-cell text-xs text-vc-muted">{lastSync}</td>
-                        <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
-                          <div className="flex items-center justify-end gap-1">
-                            <button
-                              onClick={() => handleSync(source)}
-                              disabled={isSyncing || isDeleting || !online}
-                              title={online ? "Sync now" : "Agent offline"}
-                              className="p-1.5 rounded-lg text-vc-muted hover:text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 disabled:opacity-40 transition-colors"
-                            >
-                              {isSyncing ? <Loader2 size={15} className="animate-spin" /> : <RefreshCw size={15} />}
-                            </button>
-                            <button
-                              onClick={() => handleDelete(source)}
-                              disabled={isSyncing || isDeleting}
-                              title="Delete"
-                              className="p-1.5 rounded-lg text-vc-muted hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 disabled:opacity-40 transition-colors"
-                            >
-                              {isDeleting ? <Loader2 size={15} className="animate-spin" /> : <Trash2 size={15} />}
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                      {isExpanded && (
-                        <tr key={`${source.id}-detail`} className="bg-vc-bg border-b border-vc-border/50">
-                          <td colSpan={6}><KsSourceDetail source={source} /></td>
-                        </tr>
-                      )}
-                    </>
-                  );
-                })}
-              </tbody>
-            </table>
-          )}
+      {/* Source cards */}
+      {!loading && sources.length > 0 && (
+        <div className="space-y-3">
+          {sources.map(source => (
+            <KsSourceCard
+              key={source.id}
+              source={source}
+              realmName={getRealmName(source.realm_id)}
+              isSyncing={syncingIds.has(source.id) || source.status === "syncing"}
+              isDeleting={deletingIds.has(source.id)}
+              isExpanded={expandedId === source.id}
+              online={online}
+              onToggleExpand={() => setExpandedId(expandedId === source.id ? null : source.id)}
+              onSync={() => handleSync(source)}
+              onDelete={() => handleDelete(source)}
+            />
+          ))}
         </div>
       )}
 
+      {/* Add source modal */}
       {showCreate && (
-        <KsCreateModal
+        <KsAddSourceModal
           did={did}
           realms={realms}
+          doclingConfigured={doclingConfigured}
           onClose={() => setShowCreate(false)}
           onCreated={load}
         />

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthContext, unauthorized, forbidden } from '@/lib/auth-utils';
-import { getKnowledgeSource, updateKnowledgeSourceStatus, getDoclingConfig } from '@/lib/db';
+import { getKnowledgeSource, updateKnowledgeSourceStatus, getDoclingConfig, getKnowledgeFileAttachments } from '@/lib/db';
 import { getWSServer } from '@/lib/ws-server';
 
 // POST /api/knowledge/:id/sync
@@ -41,12 +41,22 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     ? { url: doclingCfg.url }
     : undefined;
 
+  // For 'files' sources, load file attachments (base64 encoded) to send to agent
+  const fileAttachments = source.source_type === 'files'
+    ? getKnowledgeFileAttachments(source.id)
+    : undefined;
+
+  if (source.source_type === 'files' && (!fileAttachments || fileAttachments.length === 0)) {
+    return NextResponse.json({ error: 'No files attached to this source — upload files first' }, { status: 400 });
+  }
+
   wsServer.sendKnowledgeSync(source.agent_did, messageId, {
     sourceId: source.id,
     sourceName: source.name,
     sourceType: source.source_type,
     config,
     docling,
+    fileAttachments,
   });
 
   return NextResponse.json({ success: true, messageId, status: 'syncing', docling: !!docling });

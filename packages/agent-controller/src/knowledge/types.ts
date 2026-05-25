@@ -18,6 +18,15 @@ export interface DoclingConfig {
   url: string;
 }
 
+export interface KnowledgeFileAttachment {
+  id: string;
+  name: string;
+  mimeType: string;
+  size: number;
+  /** Base64-encoded file content */
+  content: string;
+}
+
 export interface Document {
   id: string;
   title: string;

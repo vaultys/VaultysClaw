@@ -57,6 +57,7 @@ import {
   getAgentEffectiveSkills,
   getRealmAgents,
   listPolicies,
+  updateKnowledgeSourceStatus,
 } from "./db";
 import { DelegationDao } from "./delegation-dao";
 import { AgentPeerGrantDao } from "./agent-peer-grant-dao";
@@ -267,6 +268,10 @@ export class AgentWSServer {
       switch (message.type) {
         case "result":
           this.handleResult(message);
+          break;
+
+        case "knowledge_sync_result":
+          this.handleKnowledgeSyncResult(message);
           break;
 
         case "heartbeat":
@@ -572,6 +577,38 @@ export class AgentWSServer {
       }
     } catch (error) {
       logger.error(error, "Error handling execution result");
+    }
+  }
+
+  private handleKnowledgeSyncResult(message: WSMessage): void {
+    try {
+      const { agentId, payload } = message;
+      const { sourceId, status, docsProcessed, chunksCreated, errors } = payload as {
+        sourceId: string;
+        status: 'ready' | 'error';
+        docsProcessed?: number;
+        chunksCreated?: number;
+        errors?: string[];
+      };
+
+      if (!sourceId) {
+        logger.warn({ agentId }, 'knowledge_sync_result missing sourceId — ignored');
+        return;
+      }
+
+      const errorMsg = errors?.length ? errors.join('; ') : undefined;
+      updateKnowledgeSourceStatus(sourceId, status, {
+        docCount: docsProcessed,
+        chunkCount: chunksCreated,
+        error: errorMsg ?? null,
+      });
+
+      logger.info({ agentId, sourceId, status, docsProcessed, chunksCreated, errors },
+        'Knowledge sync result received — status updated');
+
+      if (agentId) updateAgentLastSeen(agentId);
+    } catch (err) {
+      logger.error(err, 'Error handling knowledge_sync_result');
     }
   }
 

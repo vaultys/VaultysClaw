@@ -1718,7 +1718,7 @@ export class Agent extends EventEmitter {
       sourceName: string;
       sourceType: string;
       config: KnowledgeSourceConfig;
-      docling?: { url: string };
+      docling?: { url: string; sourceEndpoint?: string; fileEndpoint?: string };
       fileAttachments?: Array<{ id: string; name: string; mimeType: string; size: number; content: string }>;
     };
 
@@ -1738,15 +1738,21 @@ export class Agent extends EventEmitter {
       timestamp: new Date().toISOString(),
     });
 
-    // Run ingestion (non-blocking — reports status back when done)
+    // Run ingestion (non-blocking — reports status back to control-plane when done)
     ingestSource(sourceId, sourceName, sourceType, config, this.activeLlmConfig, docling, fileAttachments)
       .then((result) => {
         this.log('info', `Knowledge sync complete: ${result.docsProcessed} docs, ${result.chunksCreated} chunks`);
         this.send({
-          messageId: `result-${Date.now()}`,
-          type: 'result',
+          messageId: `ks-result-${Date.now()}`,
+          type: 'knowledge_sync_result',
           agentId: this.id,
-          payload: { status: 'success', output: result },
+          payload: {
+            sourceId,
+            status: 'ready',
+            docsProcessed: result.docsProcessed,
+            chunksCreated: result.chunksCreated,
+            errors: result.errors,
+          },
           timestamp: new Date().toISOString(),
         });
       })
@@ -1754,10 +1760,16 @@ export class Agent extends EventEmitter {
         const errMsg = err instanceof Error ? err.message : String(err);
         this.log('error', `Knowledge sync failed: ${errMsg}`);
         this.send({
-          messageId: `result-${Date.now()}`,
-          type: 'result',
+          messageId: `ks-result-${Date.now()}`,
+          type: 'knowledge_sync_result',
           agentId: this.id,
-          payload: { status: 'failed', error: errMsg },
+          payload: {
+            sourceId,
+            status: 'error',
+            docsProcessed: 0,
+            chunksCreated: 0,
+            errors: [errMsg],
+          },
           timestamp: new Date().toISOString(),
         });
       });

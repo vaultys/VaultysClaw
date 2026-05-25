@@ -28,6 +28,7 @@ import {
   Zap,
   RefreshCw,
   Gauge,
+  BookOpen,
 } from "lucide-react";
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -88,11 +89,13 @@ const CAPABILITY_ICONS: Record<string, React.ReactNode> = {
   mail_send: <Mail size={13} />,
   code_execution: <Code size={13} />,
   system_command: <Terminal size={13} />,
+  knowledge_search: <BookOpen size={13} />,
 };
 
 const ALL_CAPABILITIES = [
   "file_access", "internet_access", "browser_control", "api_call",
   "mail_send", "code_execution", "system_command", "agent_communication",
+  "knowledge_search",
 ];
 
 const HIGH_RISK_CAPS = new Set(["system_command", "code_execution", "browser_control"]);

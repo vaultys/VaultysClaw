@@ -61,6 +61,7 @@ const CAPABILITY_ICONS: Record<string, React.ReactNode> = {
   code_execution: <Code size={16} />,
   system_command: <Terminal size={16} />,
   agent_communication: <Bot size={16} />,
+  knowledge_search: <BookOpen size={16} />,
 };
 
 const RealmGraph = dynamic(() => import("@/components/graph/RealmGraph"), { ssr: false });
@@ -79,6 +80,7 @@ const ALL_CAPABILITIES = [
   { id: "code_execution", label: "Code Execution" },
   { id: "system_command", label: "System Command" },
   { id: "agent_communication", label: "Agent Communication" },
+  { id: "knowledge_search", label: "Knowledge Search" },
 ] as const;
 
 interface AgentDetail {
@@ -435,7 +437,7 @@ export default function AgentDetailPage() {
           {activeTab === "automation" && <AutomationTab agentId={agent.id} />}
           {activeTab === "approvals" && <ApprovalsTab onCountChange={setPendingApprovals} />}
           {activeTab === "peers" && <PeerAgentsTab did={did} />}
-          {activeTab === "knowledge" && <KnowledgeTab did={did} agentName={agent.name} online={agent.online} />}
+          {activeTab === "knowledge" && <KnowledgeTab did={did} agentName={agent.name} online={agent.online} capabilities={agent.capabilities} />}
           {activeTab === "details" && <DetailsTab agent={agent} onNodeClick={(node: GraphNode) => {
             if (node.type === "user") router.push(`/users/${encodeURIComponent(node.id.replace("user:", ""))}`);
             else if (node.type === "realm") router.push(`/realms/${node.id.replace("realm:", "")}`);
@@ -3768,7 +3770,7 @@ function KsAddSourceModal({ did, realms, doclingConfigured, onClose, onCreated }
 // KnowledgeTab
 // ---------------------------------------------------------------------------
 
-function KnowledgeTab({ did, online }: { did: string; agentName: string; online: boolean }) {
+function KnowledgeTab({ did, online, capabilities }: { did: string; agentName: string; online: boolean; capabilities: string[] }) {
   const [sources, setSources] = useState<KnowledgeSource[]>([]);
   const [realms, setRealms] = useState<KsRealmOption[]>([]);
   const [loading, setLoading] = useState(true);
@@ -3778,6 +3780,7 @@ function KnowledgeTab({ did, online }: { did: string; agentName: string; online:
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
   const [doclingConfigured, setDoclingConfigured] = useState(false);
+  const [granting, setGranting] = useState(false);
 
   const showToast = (msg: string, ok = true) => {
     setToast({ msg, ok });
@@ -3854,10 +3857,57 @@ function KnowledgeTab({ did, online }: { did: string; agentName: string; online:
     }
   }
 
+  // Grant knowledge_search by creating a new policy (with old policy revoked)
+  async function handleGrantKnowledgeSearch() {
+    setGranting(true);
+    try {
+      // 1. Fetch current active policies for this agent
+      const policiesRes = await fetch(`/api/policies?agentDid=${encodeURIComponent(did)}`);
+      const policiesData = await policiesRes.json() as { policies?: Array<{ id: string; capabilities: string[]; resourceLimits: Record<string, unknown> | null; expiresAt: string | null; createdAt: string }> };
+      const activePolicies = (policiesData.policies ?? [])
+        .filter(p => !p.expiresAt || new Date(p.expiresAt) > new Date())
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      const latestPolicy = activePolicies[0] ?? null;
+
+      // 2. Build new capabilities list (base: latest policy caps if any, else current agent caps)
+      const baseCaps: string[] = latestPolicy?.capabilities ?? [...capabilities];
+      const newCaps = baseCaps.includes("knowledge_search") ? baseCaps : [...baseCaps, "knowledge_search"];
+
+      // 3. Delete old policy first so the POST is the final applied state
+      if (latestPolicy) {
+        await fetch(`/api/policies/${encodeURIComponent(latestPolicy.id)}`, { method: "DELETE" });
+      }
+
+      // 4. Create new policy (this triggers immediate cert reissue with knowledge_search)
+      const createRes = await fetch("/api/policies", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          agentDid: did,
+          capabilities: newCaps,
+          resourceLimits: latestPolicy?.resourceLimits ?? undefined,
+          // No expiry on replacement policy (admin can set one later via governance tab)
+        }),
+      });
+      if (!createRes.ok) {
+        const err = await createRes.json().catch(() => ({})) as { error?: string };
+        throw new Error(err.error ?? `HTTP ${createRes.status}`);
+      }
+
+      showToast("knowledge_search granted — new policy applied");
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Failed to grant capability", false);
+    } finally {
+      setGranting(false);
+    }
+  }
+
   const getRealmName = (id: string) => realms.find(r => r.id === id)?.name ?? id;
   const totalChunks = sources.reduce((sum, s) => sum + (s.chunk_count ?? 0), 0);
   const readyCount = sources.filter(s => s.status === "ready").length;
   const hasFileSources = sources.some(s => s.source_type === "files");
+  const hasReadySources = readyCount > 0;
+  const hasKnowledgeCapability = capabilities.includes("knowledge_search");
 
   return (
     <div className="space-y-5">
@@ -3911,6 +3961,34 @@ function KnowledgeTab({ did, online }: { did: string; agentName: string; online:
         </div>
       )}
 
+      {/* Missing knowledge_search capability warning */}
+      {hasReadySources && !hasKnowledgeCapability && (
+        <div className="flex items-start gap-3 p-4 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
+          <AlertTriangle size={16} className="shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-amber-800 dark:text-amber-300">
+              Knowledge sources are ready but the agent cannot use them
+            </p>
+            <p className="text-xs text-amber-700 dark:text-amber-400 mt-1">
+              The <code className="bg-amber-100 dark:bg-amber-800/60 px-1 rounded font-mono">knowledge_search</code> capability
+              is not granted in this agent&apos;s active policy. The LLM will not have access to the{" "}
+              {readyCount === 1 ? "indexed document" : `${readyCount} indexed documents`} during conversations.
+            </p>
+            <p className="text-xs text-amber-600 dark:text-amber-500 mt-1">
+              Granting this capability will create a new policy (replacing the current one) and immediately reissue the agent&apos;s certificate.
+            </p>
+          </div>
+          <button
+            onClick={handleGrantKnowledgeSearch}
+            disabled={granting}
+            className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-500 disabled:opacity-60 text-white text-xs font-medium transition-colors"
+          >
+            {granting ? <Loader2 size={13} className="animate-spin" /> : <ShieldCheck size={13} />}
+            {granting ? "Applying…" : "Grant capability"}
+          </button>
+        </div>
+      )}
+
       {/* Loading state */}
       {loading && (
         <div className="flex items-center justify-center gap-2 py-10 text-sm text-vc-muted">
@@ -3924,8 +4002,8 @@ function KnowledgeTab({ did, online }: { did: string; agentName: string; online:
           <BookOpen className="w-7 h-7 text-vc-subtle mx-auto" />
           <p className="text-sm font-medium text-vc-text">No knowledge sources yet</p>
           <p className="text-xs text-vc-muted max-w-sm mx-auto">
-            Connect URLs, paste inline text, or upload documents. This agent will chunk, embed, and use{" "}
-            <code className="bg-vc-raised px-1 rounded text-indigo-400">knowledge_search</code> automatically in conversations.
+            Connect URLs, paste inline text, or upload documents. Once synced and the{" "}
+            <code className="bg-vc-raised px-1 rounded text-indigo-400">knowledge_search</code> capability is granted, the agent will use indexed content in every conversation.
           </p>
           <button
             onClick={() => setShowCreate(true)}

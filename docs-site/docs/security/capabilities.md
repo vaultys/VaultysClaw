@@ -20,6 +20,7 @@ Capabilities are the core mechanism by which Vaultys Claw enforces the **princip
 | `code_execution` | Execute arbitrary code in a sandbox | Code generation and testing, data analysis scripts |
 | `system_command` | Execute shell commands | DevOps automation, system monitoring |
 | `agent_communication` | Send intents to peer agents | Multi-agent orchestration, delegation of subtasks |
+| `knowledge_search` | Query the agent's local vector knowledge base via the `knowledge_search` tool | RAG over indexed documents, PDF/web knowledge bases, enterprise Q&A |
 
 ---
 
@@ -94,6 +95,10 @@ To grant capabilities to an agent:
 2. Click **New Policy**
 3. Select capabilities, set optional resource limits and expiry
 4. Click **Apply Policy** — the certificate is reissued immediately for connected agents
+
+:::tip Knowledge Search shortcut
+The **Knowledge** tab on the agent detail page detects when indexed documents exist but `knowledge_search` is not granted, and surfaces a one-click **Grant capability** button that creates the policy automatically. See [Knowledge Bases](/docs/guides/knowledge-bases) for details.
+:::
 
 ---
 

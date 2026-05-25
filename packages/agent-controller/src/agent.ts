@@ -1317,7 +1317,7 @@ export class Agent extends EventEmitter {
         .flatMap((skill) => skill.tools);
     }
 
-    // Add knowledge_search tool (always available; uses activeLlmConfig at call-time)
+    // Add knowledge_search tool — requires 'knowledge_search' capability to be granted
     const knowledgeTool = buildKnowledgeTool(() => this.activeLlmConfig);
     const knowledgeToolDef: import("./tools/types").AgentToolDefinition = {
       capability: 'knowledge_search' as import("@vaultysclaw/shared").AgentCapability,

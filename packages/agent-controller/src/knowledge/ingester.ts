@@ -145,6 +145,31 @@ function isPlainText(mimeType: string, filename: string): boolean {
 }
 
 // ---------------------------------------------------------------------------
+// Markdown sanitization — strip binary/non-text content before chunking
+// ---------------------------------------------------------------------------
+
+/**
+ * Remove content that would confuse an LLM or inflate chunk count without
+ * adding searchable text:
+ *   - Markdown image embeds with data URIs  ![alt](data:image/...;base64,...)
+ *   - HTML <img> tags with data URI src
+ *   - Bare base64 lines (100+ chars of only base64 alphabet chars)
+ *   - Trailing runs of 3+ blank lines left by the removals
+ */
+function sanitizeMarkdown(md: string): string {
+  return md
+    // Markdown inline images with base64 data URIs
+    .replace(/!\[[^\]]*\]\(data:[^)]+\)/g, '')
+    // HTML img tags with data URI src (Docling sometimes emits these)
+    .replace(/<img[^>]*src\s*=\s*["']data:[^"']*["'][^>]*\/?>/gi, '')
+    // Bare base64 lines (≥100 chars of only A-Z a-z 0-9 +/= with no spaces)
+    .replace(/^[A-Za-z0-9+/]{100,}={0,2}\s*$/gm, '')
+    // Collapse triple+ blank lines into double
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+// ---------------------------------------------------------------------------
 // Fallback: plain HTTP fetch with basic HTML stripping
 // ---------------------------------------------------------------------------
 
@@ -189,7 +214,7 @@ async function loadDocuments(
         let format: 'markdown' | 'text' = 'text';
 
         if (docling?.url) {
-          content = await convertWithDocling(docling.url, url, docling.sourceEndpoint);
+          content = sanitizeMarkdown(await convertWithDocling(docling.url, url, docling.sourceEndpoint));
           format = 'markdown';
           logger.info({ url }, 'Docling URL conversion successful');
         } else {
@@ -231,7 +256,7 @@ async function loadDocuments(
 
         if (docling?.url) {
           // Docling can handle all file types (PDF, DOCX, etc.)
-          content = await convertFileWithDocling(docling.url, attachment.name, buffer, attachment.mimeType, docling.fileEndpoint);
+          content = sanitizeMarkdown(await convertFileWithDocling(docling.url, attachment.name, buffer, attachment.mimeType, docling.fileEndpoint));
           format = 'markdown';
           logger.info({ file: attachment.name }, 'Docling file conversion successful');
         } else if (isPlainText(attachment.mimeType, attachment.name)) {

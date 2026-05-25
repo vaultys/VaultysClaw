@@ -1742,13 +1742,15 @@ export class Agent extends EventEmitter {
     ingestSource(sourceId, sourceName, sourceType, config, this.activeLlmConfig, docling, fileAttachments)
       .then((result) => {
         this.log('info', `Knowledge sync complete: ${result.docsProcessed} docs, ${result.chunksCreated} chunks`);
+        // Mark as error if every document failed (docsProcessed=0 with errors)
+        const status = result.docsProcessed === 0 && result.errors.length > 0 ? 'error' : 'ready';
         this.send({
           messageId: `ks-result-${Date.now()}`,
           type: 'knowledge_sync_result',
           agentId: this.id,
           payload: {
             sourceId,
-            status: 'ready',
+            status,
             docsProcessed: result.docsProcessed,
             chunksCreated: result.chunksCreated,
             errors: result.errors,

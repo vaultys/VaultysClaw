@@ -28,7 +28,8 @@ export async function embed(text: string, config: LlmConfig): Promise<Float32Arr
         ? (config.baseUrl ?? 'https://api.openai.com/v1').replace(/\/+$/, '')
         : 'https://api.openai.com/v1';
       const model = config.embeddingModel ?? 'text-embedding-3-small';
-      const res = await fetch(`${base}/embeddings`, {
+      const url = `${base}/embeddings`;
+      const res = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -36,7 +37,13 @@ export async function embed(text: string, config: LlmConfig): Promise<Float32Arr
         },
         body: JSON.stringify({ model, input: cleanText }),
       });
-      if (!res.ok) throw new Error(`OpenAI embeddings error: ${res.status} ${await res.text()}`);
+      if (!res.ok) {
+        const body = await res.text().catch(() => '');
+        throw new Error(
+          `Embedding request to ${url} failed with HTTP ${res.status}${body ? `: ${body.slice(0, 200)}` : ''}. ` +
+          `Model: "${model}". Set embeddingModel in the LLM config or switch to Ollama for local embeddings.`,
+        );
+      }
       const data = await res.json() as { data: Array<{ embedding: number[] }> };
       return new Float32Array(data.data[0].embedding);
     }

@@ -163,7 +163,8 @@ export type WSMessageType =
   | "agent_peer_catalog"
   | "skills_config"
   | "knowledge_sync"
-  | "knowledge_sync_result";
+  | "knowledge_sync_result"
+  | "knowledge_status_sync";
 
 /**
  * LLM provider type — controls which AI SDK provider is instantiated.

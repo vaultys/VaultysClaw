@@ -30,6 +30,7 @@ import {
   recordTokenUsage,
   getDailyTokenUsage,
   getMonthlyTokenUsage,
+  listKnowledgeSources,
 } from "./db";
 import {
   type WSMessage,
@@ -996,6 +997,31 @@ export class Agent extends EventEmitter {
     this.heartbeatTimer = setInterval(() => {
       if (this.ws?.readyState === WebSocket.OPEN) this.sendHeartbeat();
     }, 30000);
+
+    // Push current knowledge source statuses so the control-plane can reconcile
+    // any sources stuck in 'syncing' (e.g. after a server restart mid-sync).
+    try {
+      const sources = listKnowledgeSources();
+      if (sources.length > 0) {
+        this.send({
+          messageId: `ks-status-${Date.now()}`,
+          type: 'knowledge_status_sync',
+          agentId: this.id,
+          payload: {
+            sources: sources.map(s => ({
+              sourceId: s.id,
+              status: s.status,
+              docCount: s.doc_count,
+              chunkCount: s.chunk_count,
+              error: s.error ?? null,
+            })),
+          },
+          timestamp: new Date().toISOString(),
+        });
+      }
+    } catch (err) {
+      this.log('warn', 'Could not push knowledge status on connect', err);
+    }
   }
 
   private handleAuthFailed(message: WSMessage): void {

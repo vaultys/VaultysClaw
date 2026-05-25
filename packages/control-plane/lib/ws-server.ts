@@ -58,6 +58,7 @@ import {
   getRealmAgents,
   listPolicies,
   updateKnowledgeSourceStatus,
+  getKnowledgeSource,
 } from "./db";
 import { DelegationDao } from "./delegation-dao";
 import { AgentPeerGrantDao } from "./agent-peer-grant-dao";
@@ -272,6 +273,10 @@ export class AgentWSServer {
 
         case "knowledge_sync_result":
           this.handleKnowledgeSyncResult(message);
+          break;
+
+        case "knowledge_status_sync":
+          this.handleKnowledgeStatusSync(message);
           break;
 
         case "heartbeat":
@@ -577,6 +582,42 @@ export class AgentWSServer {
       }
     } catch (error) {
       logger.error(error, "Error handling execution result");
+    }
+  }
+
+  /** Bulk reconcile knowledge source statuses pushed by the agent on (re)connect. */
+  private handleKnowledgeStatusSync(message: WSMessage): void {
+    try {
+      const { agentId, payload } = message;
+      const sources = (payload.sources ?? []) as Array<{
+        sourceId: string;
+        status: string;
+        docCount?: number;
+        chunkCount?: number;
+        error?: string | null;
+      }>;
+
+      let updated = 0;
+      for (const s of sources) {
+        if (!s.sourceId || !s.status) continue;
+        // Only overwrite if the CP thinks the source is still syncing — never
+        // downgrade a ready/error state the CP already recorded.
+        const existing = getKnowledgeSource(s.sourceId);
+        if (!existing || existing.status !== 'syncing') continue;
+
+        updateKnowledgeSourceStatus(s.sourceId, s.status, {
+          docCount: s.docCount,
+          chunkCount: s.chunkCount,
+          error: s.error ?? null,
+        });
+        updated++;
+      }
+
+      if (updated > 0) {
+        logger.info({ agentId, updated }, 'Reconciled stuck knowledge sources on agent reconnect');
+      }
+    } catch (err) {
+      logger.error(err, 'Error handling knowledge_status_sync');
     }
   }
 

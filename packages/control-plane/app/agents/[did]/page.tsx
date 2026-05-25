@@ -3316,7 +3316,7 @@ function KsSourceCard({
           </button>
           <button
             onClick={onDelete}
-            disabled={isSyncing || isDeleting}
+            disabled={isDeleting}
             title="Delete source"
             className="p-1.5 rounded-lg text-vc-muted hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 disabled:opacity-40 border border-transparent hover:border-red-200 dark:hover:border-red-800 transition-colors"
           >
@@ -3830,7 +3830,11 @@ function KnowledgeTab({ did, online }: { did: string; agentName: string; online:
   }
 
   async function handleDelete(source: KnowledgeSource) {
-    if (!confirm(`Delete knowledge source "${source.name}"?\nThis will remove all indexed chunks from this agent.`)) return;
+    const isSyncing = syncingIds.has(source.id) || source.status === "syncing";
+    const msg = isSyncing
+      ? `"${source.name}" is currently syncing.\nDelete it anyway? The in-progress sync will be abandoned.`
+      : `Delete "${source.name}"?\nAll indexed chunks will be removed from this agent.`;
+    if (!confirm(msg)) return;
     setDeletingIds(s => new Set(s).add(source.id));
     try {
       const res = await fetch(`/api/knowledge/${source.id}`, { method: "DELETE" });

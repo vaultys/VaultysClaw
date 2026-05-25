@@ -18,6 +18,12 @@ import {
   WifiOff,
   Database,
   ArrowUpRight,
+  Cpu,
+  Pencil,
+  Save,
+  RotateCcw,
+  Wifi,
+  X,
 } from "lucide-react";
 import { useRole } from "@/hooks/useRole";
 
@@ -61,6 +67,255 @@ function timeAgo(iso: string | null): string {
 function fmtCount(n: number) {
   if (n >= 1000) return `${(n / 1000).toFixed(1)}k`;
   return String(n);
+}
+
+// ── Docling config panel ──────────────────────────────────────────────────────
+
+interface DoclingState {
+  url: string;
+  enabled: boolean;
+  configured: boolean;
+}
+
+type TestStatus = "idle" | "testing" | "ok" | "error";
+
+function DoclingConfigPanel() {
+  const [cfg, setCfg] = useState<DoclingState>({ url: "", enabled: false, configured: false });
+  const [editing, setEditing] = useState(false);
+  const [draftUrl, setDraftUrl] = useState("");
+  const [draftEnabled, setDraftEnabled] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [testStatus, setTestStatus] = useState<TestStatus>("idle");
+  const [testResult, setTestResult] = useState<{ latency?: number; version?: string; error?: string } | null>(null);
+
+  useEffect(() => {
+    fetch("/api/settings/docling")
+      .then(r => r.json())
+      .then((d: DoclingState) => {
+        setCfg(d);
+        setDraftUrl(d.url ?? "");
+        setDraftEnabled(d.enabled ?? false);
+      })
+      .catch(() => {});
+  }, []);
+
+  function startEdit() {
+    setDraftUrl(cfg.url);
+    setDraftEnabled(cfg.enabled);
+    setTestStatus("idle");
+    setTestResult(null);
+    setEditing(true);
+  }
+
+  function cancelEdit() {
+    setEditing(false);
+    setTestStatus("idle");
+    setTestResult(null);
+  }
+
+  async function handleTest() {
+    if (!draftUrl.trim()) return;
+    setTestStatus("testing");
+    setTestResult(null);
+    try {
+      const res = await fetch("/api/settings/docling/test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: draftUrl.trim() }),
+      });
+      const data = await res.json() as { ok: boolean; latency?: number; version?: string; error?: string };
+      setTestStatus(data.ok ? "ok" : "error");
+      setTestResult(data);
+    } catch (err) {
+      setTestStatus("error");
+      setTestResult({ error: err instanceof Error ? err.message : "Network error" });
+    }
+  }
+
+  async function handleSave() {
+    setSaving(true);
+    try {
+      await fetch("/api/settings/docling", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: draftUrl.trim(), enabled: draftEnabled }),
+      });
+      const next = { url: draftUrl.trim(), enabled: draftEnabled, configured: !!draftUrl.trim() };
+      setCfg(next);
+      setEditing(false);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const connectionPill = (() => {
+    if (!cfg.configured) return (
+      <span className="inline-flex items-center gap-1.5 text-xs font-medium text-vc-muted bg-vc-raised border border-vc-ring rounded-full px-2.5 py-1">
+        <span className="w-1.5 h-1.5 rounded-full bg-zinc-400" />
+        Not configured
+      </span>
+    );
+    if (!cfg.enabled) return (
+      <span className="inline-flex items-center gap-1.5 text-xs font-medium text-amber-700 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/20 border border-amber-300 dark:border-amber-800 rounded-full px-2.5 py-1">
+        <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+        Disabled
+      </span>
+    );
+    return (
+      <span className="inline-flex items-center gap-1.5 text-xs font-medium text-green-700 dark:text-green-400 bg-green-100 dark:bg-green-900/20 border border-green-300 dark:border-green-800 rounded-full px-2.5 py-1">
+        <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
+        Active
+      </span>
+    );
+  })();
+
+  return (
+    <div className={`rounded-xl border bg-vc-surface overflow-hidden transition-colors ${
+      cfg.enabled ? "border-indigo-300 dark:border-indigo-700/60" : "border-vc-border"
+    }`}>
+      {/* Header */}
+      <div className="flex items-center gap-3 px-4 py-3">
+        <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+          cfg.enabled
+            ? "bg-indigo-100 dark:bg-indigo-600/20"
+            : "bg-zinc-100 dark:bg-zinc-800"
+        }`}>
+          <Cpu className={`w-4 h-4 ${cfg.enabled ? "text-indigo-600 dark:text-indigo-400" : "text-vc-muted"}`} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-semibold text-vc-text">Docling</span>
+            {connectionPill}
+          </div>
+          <p className="text-xs text-vc-muted mt-0.5">
+            Document parser — converts PDFs, DOCX &amp; HTML to structured Markdown before chunking
+          </p>
+        </div>
+        {!editing && (
+          <button
+            onClick={startEdit}
+            className="flex items-center gap-1.5 text-xs text-vc-muted hover:text-vc-text transition-colors px-2 py-1 rounded-lg hover:bg-vc-raised"
+          >
+            <Pencil size={13} />
+            Configure
+          </button>
+        )}
+      </div>
+
+      {/* Collapsed summary */}
+      {!editing && cfg.configured && (
+        <div className="px-4 pb-3 flex items-center gap-3 text-xs text-vc-muted border-t border-vc-border/40 pt-2">
+          <span className="font-mono text-vc-text truncate">{cfg.url}</span>
+          <span className={cfg.enabled ? "text-green-600 dark:text-green-400" : "text-amber-600 dark:text-amber-400"}>
+            {cfg.enabled ? "Enabled" : "Disabled"}
+          </span>
+        </div>
+      )}
+
+      {/* Edit form */}
+      {editing && (
+        <div className="px-4 pb-4 border-t border-vc-border/40 pt-3 space-y-3">
+          {/* URL */}
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-vc-muted uppercase tracking-wider">
+              Docling Serve URL
+            </label>
+            <div className="flex gap-2">
+              <input
+                value={draftUrl}
+                onChange={e => { setDraftUrl(e.target.value); setTestStatus("idle"); setTestResult(null); }}
+                placeholder="http://localhost:5001"
+                className="flex-1 px-3 py-2 rounded-lg bg-vc-bg border border-vc-border text-sm text-vc-text placeholder:text-vc-subtle focus:outline-none focus:ring-2 focus:ring-indigo-500/40 font-mono"
+              />
+              <button
+                onClick={handleTest}
+                disabled={!draftUrl.trim() || testStatus === "testing"}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-vc-border text-xs text-vc-muted hover:text-vc-text hover:border-indigo-400 disabled:opacity-40 transition-colors shrink-0"
+              >
+                {testStatus === "testing"
+                  ? <Loader2 size={13} className="animate-spin" />
+                  : <Wifi size={13} />}
+                Test
+              </button>
+            </div>
+
+            {/* Test result */}
+            {testResult && (
+              <div className={`flex items-start gap-2 p-2.5 rounded-lg text-xs ${
+                testStatus === "ok"
+                  ? "bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-400"
+                  : "bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400"
+              }`}>
+                {testStatus === "ok"
+                  ? <CheckCircle2 size={13} className="shrink-0 mt-0.5" />
+                  : <XCircle size={13} className="shrink-0 mt-0.5" />}
+                <div>
+                  {testStatus === "ok" ? (
+                    <>
+                      Connected{testResult.latency != null ? ` · ${testResult.latency}ms` : ""}
+                      {testResult.version && <span className="ml-1 font-mono">({testResult.version})</span>}
+                    </>
+                  ) : (
+                    testResult.error ?? "Connection failed"
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Enable toggle */}
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs font-medium text-vc-text">Enable Docling for sync</p>
+              <p className="text-xs text-vc-muted">When enabled, all URL knowledge sources will be parsed through Docling</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setDraftEnabled(v => !v)}
+              className={`relative inline-flex h-5 w-9 shrink-0 rounded-full border-2 border-transparent transition-colors focus:outline-none ${
+                draftEnabled ? "bg-indigo-600" : "bg-vc-ring"
+              }`}
+            >
+              <span
+                className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow transform transition-transform ${
+                  draftEnabled ? "translate-x-4" : "translate-x-0"
+                }`}
+              />
+            </button>
+          </div>
+
+          {/* Docker tip */}
+          <div className="flex items-start gap-2 p-2.5 rounded-lg bg-vc-bg border border-vc-border/60 text-xs text-vc-muted">
+            <span className="shrink-0 mt-0.5">💡</span>
+            <span>
+              Run Docling locally:{" "}
+              <code className="font-mono text-indigo-400 bg-vc-raised px-1 rounded">
+                docker run -p 5001:5001 quay.io/docling-project/docling-serve
+              </code>
+            </span>
+          </div>
+
+          {/* Actions */}
+          <div className="flex justify-end gap-2">
+            <button
+              onClick={cancelEdit}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-vc-border text-xs text-vc-muted hover:text-vc-text transition-colors"
+            >
+              <X size={13} /> Cancel
+            </button>
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-xs font-medium transition-colors"
+            >
+              {saving ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
+              Save
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 // ── Badges ────────────────────────────────────────────────────────────────────
@@ -339,6 +594,9 @@ export default function KnowledgeDashboardPage() {
         </div>
         {loading && <Loader2 size={16} className="animate-spin text-vc-muted" />}
       </div>
+
+      {/* Docling config */}
+      <DoclingConfigPanel />
 
       {/* Stat cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">

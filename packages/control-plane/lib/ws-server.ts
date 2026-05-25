@@ -1591,6 +1591,7 @@ export class AgentWSServer {
     sourceName: string;
     sourceType: string;
     config: Record<string, unknown>;
+    docling?: { url: string };
   }): void {
     const agent = this.agents.get(agentDid);
     if (!agent || agent.ws.readyState !== WebSocket.OPEN) {

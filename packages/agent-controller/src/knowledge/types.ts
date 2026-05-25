@@ -13,6 +13,11 @@ export interface KnowledgeSourceConfig {
   chunkOverlap?: number;
 }
 
+export interface DoclingConfig {
+  /** Base URL of Docling Serve, e.g. http://localhost:5001 */
+  url: string;
+}
+
 export interface Document {
   id: string;
   title: string;

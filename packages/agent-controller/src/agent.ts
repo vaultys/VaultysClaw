@@ -1713,11 +1713,12 @@ export class Agent extends EventEmitter {
 
   private async handleKnowledgeSync(message: WSMessage): Promise<void> {
     const { messageId, payload } = message;
-    const { sourceId, sourceName, sourceType, config } = payload as {
+    const { sourceId, sourceName, sourceType, config, docling } = payload as {
       sourceId: string;
       sourceName: string;
       sourceType: string;
       config: KnowledgeSourceConfig;
+      docling?: { url: string };
     };
 
     this.log('info', `Knowledge sync requested for source "${sourceName}" (${sourceId})`);
@@ -1737,7 +1738,7 @@ export class Agent extends EventEmitter {
     });
 
     // Run ingestion (non-blocking — reports status back when done)
-    ingestSource(sourceId, sourceName, sourceType, config, this.activeLlmConfig)
+    ingestSource(sourceId, sourceName, sourceType, config, this.activeLlmConfig, docling)
       .then((result) => {
         this.log('info', `Knowledge sync complete: ${result.docsProcessed} docs, ${result.chunksCreated} chunks`);
         this.send({

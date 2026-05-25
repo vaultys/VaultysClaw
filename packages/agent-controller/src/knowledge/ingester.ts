@@ -1,7 +1,7 @@
 import { randomUUID } from 'crypto';
 import pino from 'pino';
 import type { LlmConfig } from '@vaultysclaw/shared';
-import type { KnowledgeSourceConfig, Document, SyncResult } from './types';
+import type { KnowledgeSourceConfig, DoclingConfig, Document, SyncResult } from './types';
 import { chunkDocument } from './chunker';
 import { embed, serializeEmbedding } from './embedder';
 import {
@@ -13,52 +13,148 @@ import {
 
 const logger = pino({ name: 'knowledge-ingester' });
 
+// ---------------------------------------------------------------------------
+// Docling document conversion
+// ---------------------------------------------------------------------------
+
 /**
- * Fetch documents from a URL source.
- * Does a plain-text HTTP fetch — no JS rendering.
+ * Send a single URL to Docling Serve and get back Markdown.
+ * Handles different response shapes across Docling Serve versions.
  */
-async function fetchUrlDocs(urls: string[]): Promise<Document[]> {
-  const docs: Document[] = [];
-  for (const url of urls) {
-    try {
-      const res = await fetch(url, { headers: { 'Accept': 'text/html,text/plain' } });
-      if (!res.ok) {
-        logger.warn({ url, status: res.status }, 'Failed to fetch URL');
-        continue;
-      }
-      const contentType = res.headers.get('content-type') ?? '';
-      let text = await res.text();
-      // Strip HTML tags to plain text
-      if (contentType.includes('html')) {
-        text = text
-          .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
-          .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
-          .replace(/<[^>]+>/g, ' ')
-          .replace(/&nbsp;/g, ' ')
-          .replace(/&amp;/g, '&')
-          .replace(/&lt;/g, '<')
-          .replace(/&gt;/g, '>')
-          .replace(/\s{3,}/g, '\n\n')
-          .trim();
-      }
-      docs.push({ id: randomUUID(), title: url, content: text });
-    } catch (err) {
-      logger.error({ url, err }, 'Error fetching URL');
-    }
+async function convertWithDocling(doclingUrl: string, url: string): Promise<string> {
+  const endpoint = `${doclingUrl}/v1alpha/convert/source`;
+
+  logger.info({ url, endpoint }, 'Sending URL to Docling');
+
+  const res = await fetch(endpoint, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+    body: JSON.stringify({ http_sources: [{ url }] }),
+    signal: AbortSignal.timeout(120_000), // 2 min — large PDFs take time
+  });
+
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    throw new Error(`Docling returned HTTP ${res.status}: ${body.slice(0, 200)}`);
   }
+
+  // Docling Serve response shape varies by version — handle both
+  const data = await res.json() as {
+    // v0.3.x / current
+    document?: { md_content?: string };
+    documents?: Array<{ md_content?: string }>;
+    // older shape
+    output?: Array<{ content_md?: string }> | { content_md?: string };
+  };
+
+  const md =
+    data?.document?.md_content ??
+    data?.documents?.[0]?.md_content ??
+    (Array.isArray(data?.output) ? data.output[0]?.content_md : (data?.output as { content_md?: string })?.content_md);
+
+  if (!md) {
+    logger.warn({ responseKeys: Object.keys(data) }, 'Docling: no md_content in response, falling back to raw text');
+    throw new Error('Docling returned no Markdown content — check the Docling Serve version');
+  }
+
+  return md;
+}
+
+// ---------------------------------------------------------------------------
+// Fallback: plain HTTP fetch with basic HTML stripping
+// ---------------------------------------------------------------------------
+
+async function fetchPlainText(url: string): Promise<string> {
+  const res = await fetch(url, { headers: { 'Accept': 'text/html,text/plain' } });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+  const contentType = res.headers.get('content-type') ?? '';
+  let text = await res.text();
+
+  if (contentType.includes('html')) {
+    text = text
+      .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+      .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/&nbsp;/g, ' ')
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/\s{3,}/g, '\n\n')
+      .trim();
+  }
+  return text;
+}
+
+// ---------------------------------------------------------------------------
+// Document loading
+// ---------------------------------------------------------------------------
+
+async function loadDocuments(
+  sourceType: string,
+  config: KnowledgeSourceConfig,
+  docling?: DoclingConfig,
+): Promise<Document[]> {
+  const docs: Document[] = [];
+
+  if (sourceType === 'url' && config.urls?.length) {
+    for (const url of config.urls) {
+      try {
+        let content: string;
+        let format: 'markdown' | 'text' = 'text';
+
+        if (docling?.url) {
+          content = await convertWithDocling(docling.url, url);
+          format = 'markdown'; // Docling always outputs Markdown
+          logger.info({ url }, 'Docling conversion successful');
+        } else {
+          content = await fetchPlainText(url);
+          logger.info({ url }, 'Plain fetch successful');
+        }
+
+        docs.push({
+          id: randomUUID(),
+          title: url,
+          content,
+          metadata: { source: url, format },
+        });
+      } catch (err) {
+        logger.error({ url, err }, 'Failed to load document');
+        docs.push({
+          id: randomUUID(),
+          title: url,
+          content: '',
+          metadata: { source: url, error: err instanceof Error ? err.message : String(err) },
+        });
+      }
+    }
+  } else if (sourceType === 'text' && config.texts?.length) {
+    for (const t of config.texts) {
+      docs.push({
+        id: randomUUID(),
+        title: t.title,
+        content: t.content,
+        metadata: { format: 'text' },
+      });
+    }
+  } else {
+    throw new Error(`Unsupported source type "${sourceType}" or missing config`);
+  }
+
   return docs;
 }
 
-/**
- * Main ingestion pipeline.
- * Fetches documents → chunks → embeds → stores in SQLite.
- */
+// ---------------------------------------------------------------------------
+// Main ingestion pipeline
+// ---------------------------------------------------------------------------
+
 export async function ingestSource(
   sourceId: string,
   sourceName: string,
   sourceType: string,
   config: KnowledgeSourceConfig,
   llmConfig: LlmConfig,
+  docling?: DoclingConfig,
 ): Promise<SyncResult> {
   const result: SyncResult = { sourceId, docsProcessed: 0, chunksCreated: 0, errors: [] };
 
@@ -76,19 +172,11 @@ export async function ingestSource(
   });
 
   try {
-    // 1. Load documents
-    let docs: Document[] = [];
-    if (sourceType === 'url' && config.urls?.length) {
-      docs = await fetchUrlDocs(config.urls);
-    } else if (sourceType === 'text' && config.texts?.length) {
-      docs = config.texts.map(t => ({ id: randomUUID(), title: t.title, content: t.content }));
-    } else {
-      throw new Error(`Unsupported source type "${sourceType}" or missing config`);
-    }
+    // 1. Load documents (via Docling or plain fetch)
+    const docs = await loadDocuments(sourceType, config, docling);
+    logger.info({ sourceId, docCount: docs.length, usingDocling: !!docling?.url }, 'Documents loaded');
 
-    logger.info({ sourceId, docCount: docs.length }, 'Documents loaded');
-
-    // 2. Clear old chunks for this source
+    // 2. Clear old chunks
     deleteChunksBySource(sourceId);
 
     // 3. Chunk + embed + store
@@ -96,8 +184,16 @@ export async function ingestSource(
     const chunkOverlap = config.chunkOverlap ?? 100;
 
     for (const doc of docs) {
+      if (!doc.content.trim()) {
+        result.errors.push(`Doc "${doc.title}": empty content`);
+        continue;
+      }
+
       try {
-        const chunks = chunkDocument(doc, chunkSize, chunkOverlap);
+        // Detect format from metadata (set by loadDocuments)
+        const fmt = (doc.metadata?.format as 'markdown' | 'text' | undefined);
+        const chunks = chunkDocument(doc, chunkSize, chunkOverlap, fmt);
+
         for (const chunk of chunks) {
           const vec = await embed(chunk.content, llmConfig);
           insertKnowledgeChunk({
@@ -121,7 +217,7 @@ export async function ingestSource(
       }
     }
 
-    // 4. Update status
+    // 4. Finalise status
     updateKnowledgeSourceStatus(sourceId, 'ready', {
       docCount: result.docsProcessed,
       chunkCount: result.chunksCreated,

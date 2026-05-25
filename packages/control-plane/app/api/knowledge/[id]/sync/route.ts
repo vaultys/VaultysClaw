@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthContext, unauthorized, forbidden } from '@/lib/auth-utils';
-import { getKnowledgeSource, updateKnowledgeSourceStatus } from '@/lib/db';
+import { getKnowledgeSource, updateKnowledgeSourceStatus, getDoclingConfig } from '@/lib/db';
 import { getWSServer } from '@/lib/ws-server';
 
 // POST /api/knowledge/:id/sync
@@ -35,12 +35,19 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const messageId = `ks-sync-${Date.now()}`;
   const config = (() => { try { return JSON.parse(source.config); } catch { return {}; } })();
 
+  // Include Docling URL if configured and enabled
+  const doclingCfg = getDoclingConfig();
+  const docling = (doclingCfg?.enabled && doclingCfg.url)
+    ? { url: doclingCfg.url }
+    : undefined;
+
   wsServer.sendKnowledgeSync(source.agent_did, messageId, {
     sourceId: source.id,
     sourceName: source.name,
     sourceType: source.source_type,
     config,
+    docling,
   });
 
-  return NextResponse.json({ success: true, messageId, status: 'syncing' });
+  return NextResponse.json({ success: true, messageId, status: 'syncing', docling: !!docling });
 }

@@ -445,6 +445,27 @@ export function setSetting(key: string, value: string): void {
   d.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)").run(key, value);
 }
 
+// --- Docling config ---
+
+export interface DoclingConfig {
+  url: string;
+  enabled: boolean;
+}
+
+export function getDoclingConfig(): DoclingConfig | null {
+  const url = getSetting('docling_url');
+  if (!url) return null;
+  return {
+    url,
+    enabled: getSetting('docling_enabled') === 'true',
+  };
+}
+
+export function setDoclingConfig(cfg: DoclingConfig): void {
+  setSetting('docling_url', cfg.url.trim().replace(/\/$/, '')); // strip trailing slash
+  setSetting('docling_enabled', cfg.enabled ? 'true' : 'false');
+}
+
 // --- Auth session operations ---
 
 export interface AuthSessionRow {

@@ -1,12 +1,10 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   BookOpen,
-  Plus,
-  Trash2,
-  RefreshCw,
   CheckCircle2,
   XCircle,
   Clock,
@@ -16,13 +14,14 @@ import {
   Bot,
   Globe2,
   AlertTriangle,
-  ChevronDown,
-  ChevronUp,
-  X,
+  ChevronRight,
+  WifiOff,
+  Database,
+  ArrowUpRight,
 } from "lucide-react";
 import { useRole } from "@/hooks/useRole";
 
-// ── Types ────────────────────────────────────────────────────────────────────
+// ── Types ─────────────────────────────────────────────────────────────────────
 
 interface KnowledgeSource {
   id: string;
@@ -37,29 +36,26 @@ interface KnowledgeSource {
   last_synced_at: string | null;
   error: string | null;
   created_at: string;
-  // joined
-  realm_name?: string;
-  agent_name?: string;
 }
 
-interface RealmOption { id: string; name: string }
-interface AgentOption { did: string; name: string; online: boolean }
-
-// ── Helpers ──────────────────────────────────────────────────────────────────
-
-function parseUTC(iso: string): Date {
-  return new Date(iso.endsWith("Z") ? iso : iso + "Z");
+interface AgentInfo {
+  did: string;
+  name: string;
+  online: boolean;
 }
+
+interface RealmInfo { id: string; name: string }
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 function timeAgo(iso: string | null): string {
   if (!iso) return "Never";
-  const seconds = Math.floor((Date.now() - parseUTC(iso).getTime()) / 1000);
-  if (seconds < 60) return `${seconds}s ago`;
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  return `${Math.floor(hours / 24)}d ago`;
+  const d = new Date(iso.endsWith("Z") ? iso : iso + "Z");
+  const secs = Math.floor((Date.now() - d.getTime()) / 1000);
+  if (secs < 60) return `${secs}s ago`;
+  if (secs < 3600) return `${Math.floor(secs / 60)}m ago`;
+  if (secs < 86400) return `${Math.floor(secs / 3600)}h ago`;
+  return `${Math.floor(secs / 86400)}d ago`;
 }
 
 function fmtCount(n: number) {
@@ -67,7 +63,17 @@ function fmtCount(n: number) {
   return String(n);
 }
 
-// ── Status badge ─────────────────────────────────────────────────────────────
+// ── Badges ────────────────────────────────────────────────────────────────────
+
+function StatusDot({ status }: { status: KnowledgeSource["status"] }) {
+  const map = {
+    idle:    "bg-zinc-400",
+    syncing: "bg-blue-500 animate-pulse",
+    ready:   "bg-green-500",
+    error:   "bg-red-500",
+  };
+  return <span className={`inline-block w-2 h-2 rounded-full shrink-0 ${map[status] ?? map.idle}`} />;
+}
 
 function StatusBadge({ status }: { status: KnowledgeSource["status"] }) {
   const map = {
@@ -84,345 +90,212 @@ function StatusBadge({ status }: { status: KnowledgeSource["status"] }) {
   );
 }
 
-// ── Source type badge ─────────────────────────────────────────────────────────
-
-function TypeBadge({ type }: { type: string }) {
-  const map: Record<string, { icon: React.ReactNode; label: string; cls: string }> = {
-    url:   { icon: <Globe size={12} />,     label: "URL",   cls: "bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-400 border-indigo-300 dark:border-indigo-800" },
-    text:  { icon: <FileText size={12} />,  label: "Text",  cls: "bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 border-amber-300 dark:border-amber-800" },
-    files: { icon: <FileText size={12} />,  label: "Files", cls: "bg-teal-100 dark:bg-teal-900/40 text-teal-700 dark:text-teal-400 border-teal-300 dark:border-teal-800" },
-  };
-  const { icon, label, cls } = map[type] ?? map.url;
-  return (
-    <span className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border font-medium ${cls}`}>
-      {icon} {label}
-    </span>
-  );
+function TypeIcon({ type }: { type: string }) {
+  if (type === "url") return <Globe size={13} className="text-indigo-400 shrink-0" />;
+  return <FileText size={13} className="text-amber-400 shrink-0" />;
 }
 
-// ── Create source modal ───────────────────────────────────────────────────────
+// ── Agent card ────────────────────────────────────────────────────────────────
 
-function CreateSourceModal({
+function AgentKnowledgeCard({
+  agent,
+  sources,
   realms,
-  agents,
-  onClose,
-  onCreated,
 }: {
-  realms: RealmOption[];
-  agents: AgentOption[];
-  onClose: () => void;
-  onCreated: () => void;
+  agent: AgentInfo;
+  sources: KnowledgeSource[];
+  realms: RealmInfo[];
 }) {
-  const [name, setName] = useState("");
-  const [realmId, setRealmId] = useState(realms[0]?.id ?? "");
-  const [agentDid, setAgentDid] = useState("");
-  const [sourceType, setSourceType] = useState<"url" | "text">("url");
-  const [urls, setUrls] = useState("");
-  const [textTitle, setTextTitle] = useState("");
-  const [textContent, setTextContent] = useState("");
-  const [chunkSize, setChunkSize] = useState("1000");
-  const [showAdvanced, setShowAdvanced] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState(true);
 
-  const filteredAgents = realmId
-    ? agents // show all — realm membership is soft
-    : agents;
+  const totalChunks = sources.reduce((sum, s) => sum + (s.chunk_count ?? 0), 0);
+  const readyCount = sources.filter(s => s.status === "ready").length;
+  const errorCount = sources.filter(s => s.status === "error").length;
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!name || !realmId || !agentDid) { setError("Name, realm and agent are required."); return; }
-
-    let config: Record<string, unknown> = { chunkSize: parseInt(chunkSize, 10) || 1000 };
-    if (sourceType === "url") {
-      const list = urls.split("\n").map(u => u.trim()).filter(Boolean);
-      if (!list.length) { setError("Enter at least one URL."); return; }
-      config.urls = list;
-    } else {
-      if (!textTitle || !textContent) { setError("Title and content are required for text sources."); return; }
-      config.texts = [{ title: textTitle, content: textContent }];
-    }
-
-    setSaving(true);
-    setError(null);
-    try {
-      const res = await fetch("/api/knowledge", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ realmId, agentDid, name, sourceType, config }),
-      });
-      if (!res.ok) {
-        const d = await res.json() as { error?: string };
-        throw new Error(d.error ?? "Failed to create source");
-      }
-      onCreated();
-      onClose();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Unknown error");
-    } finally {
-      setSaving(false);
-    }
-  }
+  const realmName = (id: string) => realms.find(r => r.id === id)?.name ?? id;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-      <div className="bg-vc-surface border border-vc-border rounded-2xl w-full max-w-lg shadow-2xl">
-        {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-vc-border">
-          <div className="flex items-center gap-2">
-            <BookOpen className="w-5 h-5 text-indigo-500" />
-            <h2 className="text-sm font-semibold text-vc-text">New Knowledge Source</h2>
-          </div>
-          <button onClick={onClose} className="text-vc-muted hover:text-vc-text transition-colors">
-            <X size={18} />
-          </button>
+    <div className="rounded-2xl border border-vc-border bg-vc-surface overflow-hidden">
+      {/* Card header */}
+      <div
+        className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-vc-raised/30 transition-colors select-none"
+        onClick={() => setExpanded(v => !v)}
+      >
+        {/* Agent avatar */}
+        <div className="w-8 h-8 rounded-full bg-indigo-600/20 border border-indigo-500/30 flex items-center justify-center shrink-0">
+          <Bot size={16} className="text-indigo-400" />
         </div>
 
-        <form onSubmit={handleSubmit} className="p-5 space-y-4">
-          {/* Name */}
-          <div className="space-y-1">
-            <label className="text-xs font-medium text-vc-muted uppercase tracking-wider">Name</label>
-            <input
-              value={name}
-              onChange={e => setName(e.target.value)}
-              placeholder="e.g. SharePoint Contracts"
-              className="w-full px-3 py-2 rounded-lg bg-vc-bg border border-vc-border text-sm text-vc-text placeholder:text-vc-subtle focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
-            />
-          </div>
-
-          {/* Realm + Agent */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-vc-muted uppercase tracking-wider">Realm</label>
-              <select
-                value={realmId}
-                onChange={e => { setRealmId(e.target.value); setAgentDid(""); }}
-                className="w-full px-3 py-2 rounded-lg bg-vc-bg border border-vc-border text-sm text-vc-text focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
-              >
-                <option value="">Select realm…</option>
-                {realms.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
-              </select>
-            </div>
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-vc-muted uppercase tracking-wider">Agent</label>
-              <select
-                value={agentDid}
-                onChange={e => setAgentDid(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg bg-vc-bg border border-vc-border text-sm text-vc-text focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
-              >
-                <option value="">Select agent…</option>
-                {filteredAgents.map(a => (
-                  <option key={a.did} value={a.did}>
-                    {a.name}{!a.online ? " (offline)" : ""}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          {/* Source type */}
-          <div className="space-y-1">
-            <label className="text-xs font-medium text-vc-muted uppercase tracking-wider">Source type</label>
-            <div className="flex gap-2">
-              {(["url", "text"] as const).map(t => (
-                <button
-                  key={t}
-                  type="button"
-                  onClick={() => setSourceType(t)}
-                  className={`flex-1 py-2 rounded-lg border text-sm font-medium transition-colors ${
-                    sourceType === t
-                      ? "bg-indigo-600 border-indigo-600 text-white"
-                      : "bg-vc-bg border-vc-border text-vc-muted hover:border-indigo-400"
-                  }`}
-                >
-                  {t === "url" ? "🌐 URLs" : "📄 Inline text"}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Source config */}
-          {sourceType === "url" ? (
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-vc-muted uppercase tracking-wider">URLs <span className="normal-case font-normal">(one per line)</span></label>
-              <textarea
-                value={urls}
-                onChange={e => setUrls(e.target.value)}
-                placeholder={"https://example.com/docs\nhttps://example.com/policy"}
-                rows={4}
-                className="w-full px-3 py-2 rounded-lg bg-vc-bg border border-vc-border text-sm text-vc-text placeholder:text-vc-subtle focus:outline-none focus:ring-2 focus:ring-indigo-500/40 font-mono"
-              />
-            </div>
-          ) : (
-            <div className="space-y-3">
-              <div className="space-y-1">
-                <label className="text-xs font-medium text-vc-muted uppercase tracking-wider">Document title</label>
-                <input
-                  value={textTitle}
-                  onChange={e => setTextTitle(e.target.value)}
-                  placeholder="e.g. Company Policy v2"
-                  className="w-full px-3 py-2 rounded-lg bg-vc-bg border border-vc-border text-sm text-vc-text placeholder:text-vc-subtle focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
-                />
-              </div>
-              <div className="space-y-1">
-                <label className="text-xs font-medium text-vc-muted uppercase tracking-wider">Content</label>
-                <textarea
-                  value={textContent}
-                  onChange={e => setTextContent(e.target.value)}
-                  placeholder="Paste document content here…"
-                  rows={5}
-                  className="w-full px-3 py-2 rounded-lg bg-vc-bg border border-vc-border text-sm text-vc-text placeholder:text-vc-subtle focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
-                />
-              </div>
-            </div>
-          )}
-
-          {/* Advanced */}
-          <div>
-            <button
-              type="button"
-              onClick={() => setShowAdvanced(v => !v)}
-              className="flex items-center gap-1 text-xs text-vc-muted hover:text-vc-text transition-colors"
-            >
-              {showAdvanced ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-              Advanced settings
-            </button>
-            {showAdvanced && (
-              <div className="mt-3 space-y-1">
-                <label className="text-xs font-medium text-vc-muted uppercase tracking-wider">
-                  Chunk size <span className="normal-case font-normal">(chars)</span>
-                </label>
-                <input
-                  type="number"
-                  value={chunkSize}
-                  onChange={e => setChunkSize(e.target.value)}
-                  min={100}
-                  max={8000}
-                  className="w-32 px-3 py-2 rounded-lg bg-vc-bg border border-vc-border text-sm text-vc-text focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
-                />
-                <p className="text-xs text-vc-subtle">Default 1000. Larger = more context per chunk, fewer results.</p>
-              </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-sm font-semibold text-vc-text truncate">{agent.name}</span>
+            {agent.online ? (
+              <span className="inline-flex items-center gap-1 text-[10px] font-medium text-green-700 dark:text-green-400 bg-green-100 dark:bg-green-500/10 border border-green-300 dark:border-green-500/20 rounded-full px-1.5 py-0.5">
+                <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
+                Online
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 text-[10px] font-medium text-vc-muted bg-vc-raised border border-vc-ring rounded-full px-1.5 py-0.5">
+                <WifiOff size={9} />
+                Offline
+              </span>
             )}
           </div>
+          <p className="text-xs text-vc-subtle font-mono truncate mt-0.5">{agent.did}</p>
+        </div>
 
-          {error && (
-            <div className="flex items-start gap-2 p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
-              <AlertTriangle size={14} className="text-red-500 mt-0.5 shrink-0" />
-              <p className="text-xs text-red-600 dark:text-red-400">{error}</p>
+        {/* Summary stats */}
+        <div className="hidden sm:flex items-center gap-4 text-xs text-vc-muted shrink-0">
+          <div className="text-right">
+            <div className="text-vc-text font-semibold">{sources.length}</div>
+            <div>source{sources.length !== 1 ? "s" : ""}</div>
+          </div>
+          <div className="text-right">
+            <div className="text-vc-text font-semibold">{fmtCount(totalChunks)}</div>
+            <div>chunks</div>
+          </div>
+          {errorCount > 0 && (
+            <div className="flex items-center gap-1 text-red-500">
+              <AlertTriangle size={13} />
+              <span>{errorCount} error{errorCount > 1 ? "s" : ""}</span>
             </div>
           )}
+          {readyCount === sources.length && sources.length > 0 && (
+            <div className="flex items-center gap-1 text-green-600 dark:text-green-400">
+              <CheckCircle2 size={13} />
+              <span>All ready</span>
+            </div>
+          )}
+        </div>
 
-          <div className="flex justify-end gap-2 pt-1">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 rounded-xl border border-vc-border text-sm text-vc-muted hover:text-vc-text hover:border-vc-muted transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={saving}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-sm font-medium transition-colors"
-            >
-              {saving && <Loader2 size={14} className="animate-spin" />}
-              Create source
-            </button>
-          </div>
-        </form>
+        {/* Manage link */}
+        <Link
+          href={`/agents/${encodeURIComponent(agent.did)}`}
+          onClick={e => e.stopPropagation()}
+          className="flex items-center gap-1 text-xs text-indigo-500 hover:text-indigo-400 transition-colors shrink-0 ml-2"
+          title="Manage on agent page"
+        >
+          Manage
+          <ArrowUpRight size={13} />
+        </Link>
+
+        <ChevronRight
+          size={16}
+          className={`text-vc-subtle transition-transform shrink-0 ${expanded ? "rotate-90" : ""}`}
+        />
       </div>
-    </div>
-  );
-}
 
-// ── Row expand — shows config + error detail ──────────────────────────────────
+      {/* Sources list */}
+      {expanded && (
+        <div className="border-t border-vc-border/60">
+          {sources.length === 0 ? (
+            <div className="px-4 py-5 text-center">
+              <p className="text-xs text-vc-muted">No knowledge sources configured for this agent.</p>
+              <Link
+                href={`/agents/${encodeURIComponent(agent.did)}`}
+                className="text-xs text-indigo-500 hover:text-indigo-400 mt-1 inline-flex items-center gap-1"
+              >
+                Add sources on the agent page <ArrowUpRight size={11} />
+              </Link>
+            </div>
+          ) : (
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-vc-muted text-xs uppercase tracking-wider border-b border-vc-border/40 bg-vc-bg/60">
+                  <th className="text-left px-4 py-2 font-medium">Source</th>
+                  <th className="text-left px-4 py-2 font-medium hidden md:table-cell">Realm</th>
+                  <th className="text-left px-4 py-2 font-medium">Status</th>
+                  <th className="text-left px-4 py-2 font-medium hidden sm:table-cell">Chunks</th>
+                  <th className="text-left px-4 py-2 font-medium hidden lg:table-cell">Last sync</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sources.map((source, i) => {
+                  let config: Record<string, unknown> = {};
+                  try { config = JSON.parse(source.config); } catch { /**/ }
+                  const urls = Array.isArray(config.urls) ? (config.urls as string[]) : [];
 
-function SourceDetail({ source }: { source: KnowledgeSource }) {
-  let config: Record<string, unknown> = {};
-  try { config = JSON.parse(source.config); } catch { /**/ }
-
-  return (
-    <div className="px-4 pb-4 pt-1 space-y-3">
-      {source.error && (
-        <div className="flex items-start gap-2 p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
-          <XCircle size={14} className="text-red-500 mt-0.5 shrink-0" />
-          <p className="text-xs text-red-600 dark:text-red-400 font-mono break-all">{source.error}</p>
+                  return (
+                    <tr
+                      key={source.id}
+                      className={`border-b border-vc-border/30 last:border-0 ${i % 2 === 0 ? "" : "bg-vc-bg/40"}`}
+                    >
+                      <td className="px-4 py-2.5">
+                        <div className="flex items-center gap-2">
+                          <TypeIcon type={source.source_type} />
+                          <div className="min-w-0">
+                            <span className="text-xs font-medium text-vc-text truncate block max-w-[180px]">{source.name}</span>
+                            {source.source_type === "url" && urls.length > 0 && (
+                              <span className="text-[10px] text-vc-subtle truncate block max-w-[180px]">
+                                {urls[0]}{urls.length > 1 ? ` +${urls.length - 1}` : ""}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-4 py-2.5 hidden md:table-cell">
+                        <span className="flex items-center gap-1.5 text-xs text-vc-muted">
+                          <Globe2 size={11} className="shrink-0" />
+                          {realmName(source.realm_id)}
+                        </span>
+                      </td>
+                      <td className="px-4 py-2.5">
+                        <StatusBadge status={source.status} />
+                        {source.error && (
+                          <p className="text-[10px] text-red-500 mt-0.5 max-w-[200px] truncate" title={source.error}>
+                            {source.error}
+                          </p>
+                        )}
+                      </td>
+                      <td className="px-4 py-2.5 hidden sm:table-cell text-xs text-vc-muted">
+                        {source.status === "ready"
+                          ? <span className="text-vc-text font-medium">{fmtCount(source.chunk_count)}</span>
+                          : "—"}
+                      </td>
+                      <td className="px-4 py-2.5 hidden lg:table-cell text-xs text-vc-muted">
+                        {timeAgo(source.last_synced_at)}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
         </div>
       )}
-      {source.source_type === "url" && Array.isArray(config.urls) && (
-        <div className="space-y-1">
-          <p className="text-xs text-vc-muted font-medium uppercase tracking-wider">Indexed URLs</p>
-          <ul className="space-y-1">
-            {(config.urls as string[]).map(url => (
-              <li key={url} className="flex items-center gap-2 text-xs text-vc-text">
-                <Globe size={11} className="text-vc-subtle shrink-0" />
-                <a href={url} target="_blank" rel="noopener noreferrer" className="hover:text-indigo-500 truncate">{url}</a>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-      {source.source_type === "text" && Array.isArray(config.texts) && (
-        <div className="space-y-1">
-          <p className="text-xs text-vc-muted font-medium uppercase tracking-wider">Documents</p>
-          <ul className="space-y-1">
-            {(config.texts as { title: string }[]).map((t, i) => (
-              <li key={i} className="flex items-center gap-2 text-xs text-vc-text">
-                <FileText size={11} className="text-vc-subtle shrink-0" />
-                {t.title}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-      <div className="flex flex-wrap gap-4 text-xs text-vc-muted">
-        {config.chunkSize != null && <span>Chunk size: <span className="text-vc-text">{String(config.chunkSize)}</span></span>}
-        <span>Created: <span className="text-vc-text">{parseUTC(source.created_at).toLocaleDateString()}</span></span>
-        <span>ID: <span className="text-vc-text font-mono">{source.id}</span></span>
-      </div>
     </div>
   );
 }
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 
-export default function KnowledgePage() {
+export default function KnowledgeDashboardPage() {
   const router = useRouter();
   const { isGlobalAdmin, isLoading: roleLoading } = useRole();
 
   const [sources, setSources] = useState<KnowledgeSource[]>([]);
-  const [realms, setRealms] = useState<RealmOption[]>([]);
-  const [agents, setAgents] = useState<AgentOption[]>([]);
+  const [agents, setAgents] = useState<AgentInfo[]>([]);
+  const [realms, setRealms] = useState<RealmInfo[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showCreate, setShowCreate] = useState(false);
-  const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [syncingIds, setSyncingIds] = useState<Set<string>>(new Set());
-  const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
-  const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
 
   useEffect(() => {
     if (!roleLoading && !isGlobalAdmin) router.replace("/");
   }, [roleLoading, isGlobalAdmin, router]);
 
-  const showToast = (msg: string, ok = true) => {
-    setToast({ msg, ok });
-    setTimeout(() => setToast(null), 3500);
-  };
-
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [ksRes, rlRes, agRes] = await Promise.all([
+      const [ksRes, agRes, rlRes] = await Promise.all([
         fetch("/api/knowledge"),
-        fetch("/api/realms"),
         fetch("/api/agents"),
+        fetch("/api/realms"),
       ]);
       const ksData = await ksRes.json() as { sources?: KnowledgeSource[] };
-      const rlData = await rlRes.json() as { realms?: RealmOption[] };
-      const agData = await agRes.json() as { agents?: AgentOption[] };
+      const agData = await agRes.json() as { agents?: AgentInfo[] };
+      const rlData = await rlRes.json() as { realms?: RealmInfo[] };
       setSources(ksData.sources ?? []);
-      setRealms(rlData.realms ?? []);
       setAgents(agData.agents ?? []);
+      setRealms(rlData.realms ?? []);
     } finally {
       setLoading(false);
     }
@@ -430,65 +303,28 @@ export default function KnowledgePage() {
 
   useEffect(() => { load(); }, [load]);
 
-  // Poll syncing sources every 3s
+  // Poll while syncing
   useEffect(() => {
-    const syncingOnes = sources.filter(s => s.status === "syncing");
-    if (!syncingOnes.length) return;
-    const id = setInterval(load, 3000);
+    if (!sources.some(s => s.status === "syncing")) return;
+    const id = setInterval(load, 4000);
     return () => clearInterval(id);
   }, [sources, load]);
 
-  async function handleSync(source: KnowledgeSource) {
-    setSyncingIds(s => new Set(s).add(source.id));
-    try {
-      const res = await fetch(`/api/knowledge/${source.id}/sync`, { method: "POST" });
-      const data = await res.json() as { error?: string };
-      if (!res.ok) throw new Error(data.error ?? "Sync failed");
-      showToast(`Sync started for "${source.name}"`);
-      await load();
-    } catch (err) {
-      showToast(err instanceof Error ? err.message : "Sync failed", false);
-    } finally {
-      setSyncingIds(s => { const n = new Set(s); n.delete(source.id); return n; });
-    }
-  }
-
-  async function handleDelete(source: KnowledgeSource) {
-    if (!confirm(`Delete knowledge source "${source.name}"? This will remove all indexed chunks.`)) return;
-    setDeletingIds(s => new Set(s).add(source.id));
-    try {
-      const res = await fetch(`/api/knowledge/${source.id}`, { method: "DELETE" });
-      if (!res.ok) throw new Error("Delete failed");
-      showToast(`"${source.name}" deleted`);
-      await load();
-    } catch (err) {
-      showToast(err instanceof Error ? err.message : "Delete failed", false);
-    } finally {
-      setDeletingIds(s => { const n = new Set(s); n.delete(source.id); return n; });
-    }
-  }
-
-  // Summary stats
-  const total = sources.length;
-  const ready = sources.filter(s => s.status === "ready").length;
-  const totalChunks = sources.reduce((sum, s) => sum + (s.chunk_count ?? 0), 0);
-  const errors = sources.filter(s => s.status === "error").length;
-
   if (roleLoading || !isGlobalAdmin) return null;
 
-  const agentName = (did: string) => agents.find(a => a.did === did)?.name ?? did.slice(0, 14) + "…";
-  const realmName = (id: string) => realms.find(r => r.id === id)?.name ?? id;
+  // Summary stats
+  const totalSources = sources.length;
+  const readySources = sources.filter(s => s.status === "ready").length;
+  const totalChunks = sources.reduce((sum, s) => sum + (s.chunk_count ?? 0), 0);
+  const errorSources = sources.filter(s => s.status === "error").length;
+  const agentsWithKnowledge = new Set(sources.map(s => s.agent_did)).size;
+
+  // Agents that have at least one knowledge source, plus those that are online
+  // Show all agents — those without sources show an empty state encouraging setup
+  const agentsWithSources = agents.filter(a => sources.some(s => s.agent_did === a.did));
 
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-6">
-
-      {/* Toast */}
-      {toast && (
-        <div className={`fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-3 rounded-xl shadow-xl text-sm font-medium text-white transition-all ${toast.ok ? "bg-green-600" : "bg-red-600"}`}>
-          {toast.ok ? <CheckCircle2 size={16} /> : <XCircle size={16} />}
-          {toast.msg}
-        </div>
-      )}
 
       {/* Header */}
       <div className="flex items-center justify-between">
@@ -497,26 +333,20 @@ export default function KnowledgePage() {
             <BookOpen className="w-5 h-5 text-indigo-700 dark:text-indigo-400" />
           </div>
           <div>
-            <h1 className="text-lg font-semibold text-vc-text">Knowledge Bases</h1>
-            <p className="text-xs text-vc-muted">Connect data sources — agents index and search them locally</p>
+            <h1 className="text-lg font-semibold text-vc-text">Knowledge Overview</h1>
+            <p className="text-xs text-vc-muted">Data access map — which agents index what, and for which realm</p>
           </div>
         </div>
-        <button
-          onClick={() => setShowCreate(true)}
-          className="flex items-center gap-2 px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium transition-colors"
-        >
-          <Plus className="w-4 h-4" />
-          Add source
-        </button>
+        {loading && <Loader2 size={16} className="animate-spin text-vc-muted" />}
       </div>
 
       {/* Stat cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {[
-          { label: "Total sources",  value: total,       sub: "configured",      icon: <BookOpen size={16} />,     tone: "neutral" },
-          { label: "Ready",          value: ready,       sub: "indexed & live",  icon: <CheckCircle2 size={16} />, tone: ready === total && total > 0 ? "ok" : "neutral" },
-          { label: "Total chunks",   value: fmtCount(totalChunks), sub: "stored locally", icon: <FileText size={16} />,  tone: "neutral" },
-          { label: "Errors",         value: errors,      sub: "need attention",  icon: <AlertTriangle size={16} />,tone: errors > 0 ? "danger" : "ok" },
+          { label: "Total sources",    value: totalSources,        sub: "configured",        icon: <BookOpen size={16} />,     tone: "neutral" },
+          { label: "Ready",            value: readySources,        sub: "indexed & live",    icon: <CheckCircle2 size={16} />, tone: readySources === totalSources && totalSources > 0 ? "ok" : "neutral" },
+          { label: "Total chunks",     value: fmtCount(totalChunks), sub: "stored locally",  icon: <Database size={16} />,     tone: "neutral" },
+          { label: "Agents with RAG",  value: agentsWithKnowledge, sub: "knowledge-enabled", icon: <Bot size={16} />,          tone: errorSources > 0 ? "danger" : agentsWithKnowledge > 0 ? "ok" : "neutral" },
         ].map(card => (
           <div key={card.label} className="bg-vc-surface border border-vc-border rounded-xl p-4 flex flex-col gap-2">
             <div className="flex items-center justify-between">
@@ -531,145 +361,80 @@ export default function KnowledgePage() {
         ))}
       </div>
 
-      {/* How it works callout */}
-      {total === 0 && !loading && (
+      {/* Error alert */}
+      {errorSources > 0 && (
+        <div className="flex items-start gap-3 p-4 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
+          <AlertTriangle size={16} className="text-red-500 mt-0.5 shrink-0" />
+          <div>
+            <p className="text-sm font-medium text-red-700 dark:text-red-400">
+              {errorSources} source{errorSources > 1 ? "s" : ""} failed to sync
+            </p>
+            <p className="text-xs text-red-600/80 dark:text-red-400/70 mt-0.5">
+              Go to the agent&apos;s Knowledge tab to retry or inspect the error.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Agent cards */}
+      {loading ? (
+        <div className="flex items-center justify-center gap-2 py-12 text-sm text-vc-muted">
+          <Loader2 size={16} className="animate-spin" /> Loading…
+        </div>
+      ) : agentsWithSources.length === 0 ? (
         <div className="rounded-2xl border border-vc-border border-dashed bg-vc-surface/40 p-12 text-center space-y-3">
           <BookOpen className="w-8 h-8 text-vc-subtle mx-auto" />
-          <p className="text-sm font-medium text-vc-text">No knowledge sources yet</p>
+          <p className="text-sm font-medium text-vc-text">No knowledge sources configured yet</p>
           <p className="text-xs text-vc-muted max-w-md mx-auto">
-            Connect a URL or paste text — an agent will fetch, chunk, and embed the content locally.
-            The agent then uses <code className="bg-vc-raised px-1 rounded text-indigo-400">knowledge_search</code> automatically when answering relevant questions.
+            Open any agent page, go to the <strong>Knowledge</strong> tab, and connect a URL or text source.
+            Once synced, the agent will automatically use{" "}
+            <code className="bg-vc-raised px-1 rounded text-indigo-400">knowledge_search</code> in conversations.
           </p>
-          <button
-            onClick={() => setShowCreate(true)}
-            className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium transition-colors"
+          <Link
+            href="/agents"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium transition-colors"
           >
-            Add first source
-          </button>
+            <Bot size={14} />
+            Go to Agents
+          </Link>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-vc-text">
+              {agentsWithSources.length} agent{agentsWithSources.length !== 1 ? "s" : ""} with knowledge sources
+            </h2>
+            <p className="text-xs text-vc-muted">
+              Manage sources from each agent&apos;s <span className="text-vc-text">Knowledge tab</span>
+            </p>
+          </div>
+
+          {agentsWithSources.map(agent => (
+            <AgentKnowledgeCard
+              key={agent.did}
+              agent={agent}
+              sources={sources.filter(s => s.agent_did === agent.did)}
+              realms={realms}
+            />
+          ))}
         </div>
       )}
 
-      {/* Sources table */}
-      {(loading || total > 0) && (
-        <div className="rounded-2xl border border-vc-border bg-vc-surface overflow-hidden">
-          {loading ? (
-            <div className="flex items-center justify-center gap-2 py-12 text-sm text-vc-muted">
-              <Loader2 size={16} className="animate-spin" /> Loading…
-            </div>
-          ) : (
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-vc-border text-vc-muted text-xs uppercase tracking-wider">
-                  <th className="text-left px-4 py-3 font-medium">Name</th>
-                  <th className="text-left px-4 py-3 font-medium hidden md:table-cell">Realm</th>
-                  <th className="text-left px-4 py-3 font-medium hidden lg:table-cell">Agent</th>
-                  <th className="text-left px-4 py-3 font-medium">Status</th>
-                  <th className="text-left px-4 py-3 font-medium hidden sm:table-cell">Chunks</th>
-                  <th className="text-left px-4 py-3 font-medium hidden md:table-cell">Last sync</th>
-                  <th className="text-right px-4 py-3 font-medium">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {sources.map(source => {
-                  const isExpanded = expandedId === source.id;
-                  const isSyncing = syncingIds.has(source.id) || source.status === "syncing";
-                  const isDeleting = deletingIds.has(source.id);
-
-                  return (
-                    <>
-                      <tr
-                        key={source.id}
-                        className="border-b border-vc-border/50 hover:bg-vc-raised/30 transition-colors last:border-0 cursor-pointer"
-                        onClick={() => setExpandedId(isExpanded ? null : source.id)}
-                      >
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-2">
-                            <TypeBadge type={source.source_type} />
-                            <span className="font-medium text-vc-text truncate max-w-[140px]">{source.name}</span>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3 hidden md:table-cell">
-                          <span className="flex items-center gap-1.5 text-vc-muted text-xs">
-                            <Globe2 size={12} className="shrink-0" />
-                            {realmName(source.realm_id)}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 hidden lg:table-cell">
-                          <span className="flex items-center gap-1.5 text-vc-muted text-xs">
-                            <Bot size={12} className="shrink-0" />
-                            {agentName(source.agent_did)}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3">
-                          <StatusBadge status={source.status} />
-                        </td>
-                        <td className="px-4 py-3 hidden sm:table-cell text-vc-muted text-xs">
-                          {source.status === "ready"
-                            ? <span className="text-vc-text font-medium">{fmtCount(source.chunk_count)}</span>
-                            : "—"}
-                        </td>
-                        <td className="px-4 py-3 hidden md:table-cell text-xs text-vc-muted">
-                          {timeAgo(source.last_synced_at)}
-                        </td>
-                        <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
-                          <div className="flex items-center justify-end gap-1">
-                            <button
-                              onClick={() => handleSync(source)}
-                              disabled={isSyncing || isDeleting}
-                              title="Sync now"
-                              className="p-1.5 rounded-lg text-vc-muted hover:text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 disabled:opacity-40 transition-colors"
-                            >
-                              {isSyncing
-                                ? <Loader2 size={15} className="animate-spin" />
-                                : <RefreshCw size={15} />}
-                            </button>
-                            <button
-                              onClick={() => handleDelete(source)}
-                              disabled={isSyncing || isDeleting}
-                              title="Delete"
-                              className="p-1.5 rounded-lg text-vc-muted hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 disabled:opacity-40 transition-colors"
-                            >
-                              {isDeleting
-                                ? <Loader2 size={15} className="animate-spin" />
-                                : <Trash2 size={15} />}
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                      {isExpanded && (
-                        <tr key={`${source.id}-detail`} className="bg-vc-bg/60 border-b border-vc-border/50">
-                          <td colSpan={7}>
-                            <SourceDetail source={source} />
-                          </td>
-                        </tr>
-                      )}
-                    </>
-                  );
-                })}
-              </tbody>
-            </table>
-          )}
+      {/* Status legend + info */}
+      {agentsWithSources.length > 0 && (
+        <div className="rounded-xl border border-vc-border bg-vc-surface/60 p-4 space-y-3">
+          <p className="text-xs font-semibold text-vc-text">Status reference</p>
+          <div className="flex flex-wrap gap-x-6 gap-y-2 text-xs text-vc-muted">
+            <span className="flex items-center gap-1.5"><StatusDot status="idle" /> Idle — created, not yet synced</span>
+            <span className="flex items-center gap-1.5"><StatusDot status="syncing" /> Syncing — agent is ingesting</span>
+            <span className="flex items-center gap-1.5"><StatusDot status="ready" /> Ready — chunks indexed &amp; searchable</span>
+            <span className="flex items-center gap-1.5"><StatusDot status="error" /> Error — sync failed, check agent page</span>
+          </div>
+          <p className="text-xs text-vc-muted pt-1 border-t border-vc-border/60">
+            Data is stored <strong className="text-vc-text">locally on the agent</strong> as vector embeddings. It never leaves the agent&apos;s environment.
+            To add, re-sync or remove sources, navigate to the agent and open the <strong className="text-vc-text">Knowledge</strong> tab.
+          </p>
         </div>
-      )}
-
-      {/* How it works info box */}
-      {total > 0 && (
-        <div className="rounded-xl border border-vc-border bg-vc-surface/60 p-4 text-xs text-vc-muted space-y-1">
-          <p className="font-medium text-vc-text text-sm">How agent-local RAG works</p>
-          <p>1. <span className="text-vc-text">Sync</span> — the control plane sends the source config to the agent via WebSocket.</p>
-          <p>2. <span className="text-vc-text">Ingest</span> — the agent fetches docs, chunks them, embeds with Ollama / OpenAI, and stores vectors in its local SQLite.</p>
-          <p>3. <span className="text-vc-text">Search</span> — in conversations, the agent calls <code className="bg-vc-raised px-1 rounded text-indigo-400">knowledge_search</code> automatically. Data never leaves the agent&apos;s environment.</p>
-        </div>
-      )}
-
-      {/* Create modal */}
-      {showCreate && (
-        <CreateSourceModal
-          realms={realms}
-          agents={agents}
-          onClose={() => setShowCreate(false)}
-          onCreated={load}
-        />
       )}
     </div>
   );

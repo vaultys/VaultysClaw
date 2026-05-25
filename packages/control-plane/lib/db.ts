@@ -2183,9 +2183,16 @@ export function getKnowledgeSource(id: string): KnowledgeSourceRow | undefined {
   return getDb().prepare('SELECT * FROM knowledge_sources WHERE id = ?').get(id) as KnowledgeSourceRow | undefined;
 }
 
-export function listKnowledgeSources(realmId?: string): KnowledgeSourceRow[] {
+export function listKnowledgeSources(opts?: { realmId?: string; agentDid?: string }): KnowledgeSourceRow[] {
+  const { realmId, agentDid } = opts ?? {};
+  if (realmId && agentDid) {
+    return getDb().prepare('SELECT * FROM knowledge_sources WHERE realm_id = ? AND agent_did = ? ORDER BY created_at DESC').all(realmId, agentDid) as KnowledgeSourceRow[];
+  }
   if (realmId) {
     return getDb().prepare('SELECT * FROM knowledge_sources WHERE realm_id = ? ORDER BY created_at DESC').all(realmId) as KnowledgeSourceRow[];
+  }
+  if (agentDid) {
+    return getDb().prepare('SELECT * FROM knowledge_sources WHERE agent_did = ? ORDER BY created_at DESC').all(agentDid) as KnowledgeSourceRow[];
   }
   return getDb().prepare('SELECT * FROM knowledge_sources ORDER BY created_at DESC').all() as KnowledgeSourceRow[];
 }

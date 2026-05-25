@@ -7,19 +7,20 @@ import {
   getAgent,
 } from '@/lib/db';
 
-// GET /api/knowledge?realmId=xxx
+// GET /api/knowledge?realmId=xxx&agentDid=xxx
 export async function GET(request: NextRequest) {
   const auth = await getAuthContext();
   if (!auth) return unauthorized();
 
   const realmId = request.nextUrl.searchParams.get('realmId') ?? undefined;
+  const agentDid = request.nextUrl.searchParams.get('agentDid') ?? undefined;
 
   // Non-admins can only list knowledge sources for realms they can access
   if (!auth.isGlobalAdmin && realmId && !auth.canAccessRealm(realmId)) {
     return forbidden();
   }
 
-  const sources = listKnowledgeSources(realmId);
+  const sources = listKnowledgeSources({ realmId, agentDid });
   return NextResponse.json({ sources });
 }
 

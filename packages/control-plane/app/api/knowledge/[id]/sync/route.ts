@@ -4,12 +4,13 @@ import { getKnowledgeSource, updateKnowledgeSourceStatus } from '@/lib/db';
 import { getWSServer } from '@/lib/ws-server';
 
 // POST /api/knowledge/:id/sync
-export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const auth = await getAuthContext();
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
 
-  const source = getKnowledgeSource(params.id);
+  const { id } = await params;
+  const source = getKnowledgeSource(id);
   if (!source) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
   if (source.status === 'syncing') {
@@ -28,7 +29,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
   }
 
   // Mark as syncing in the control plane DB
-  updateKnowledgeSourceStatus(params.id, 'syncing');
+  updateKnowledgeSourceStatus(id, 'syncing');
 
   // Dispatch WebSocket message to agent
   const messageId = `ks-sync-${Date.now()}`;

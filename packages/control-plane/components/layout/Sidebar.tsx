@@ -20,6 +20,7 @@ import {
   Cpu,
   ShieldCheck,
   Puzzle,
+  BookOpen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useRole } from "@/hooks/useRole";
@@ -41,6 +42,7 @@ const NAV_GROUPS = [
     adminOnly: true,
     items: [
       { href: "/models", icon: Cpu, label: "Models", exact: false },
+      { href: "/knowledge", icon: BookOpen, label: "Knowledge", exact: false },
       { href: "/skills", icon: Puzzle, label: "Skills", exact: false },
       { href: "/graph", icon: Network, label: "Graph", exact: true },
       { href: "/registrations", icon: Clock, label: "Registrations", exact: false },

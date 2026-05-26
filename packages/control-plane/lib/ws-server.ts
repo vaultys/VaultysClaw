@@ -27,9 +27,8 @@ import {
   type DelegationCertPayload,
   type AgentCapability,
   type LlmConfig,
-  type WSAgentPeerCatalogPayload,
-  type AgentPeerGrant,
   type WSSkillsConfigPayload,
+  type WSChannelMessageSendPayload,
 } from "@vaultysclaw/shared";
 import { createAuthSession, processChallenge, type PolicyMeta } from "./auth-handler";
 import {
@@ -61,7 +60,7 @@ import {
   getKnowledgeSource,
 } from "./db";
 import { DelegationDao } from "./delegation-dao";
-import { AgentPeerGrantDao } from "./agent-peer-grant-dao";
+import { ChannelService } from "./channel-service";
 import { crypto } from "@vaultys/id";
 
 const logger = pino();
@@ -303,6 +302,10 @@ export class AgentWSServer {
           this.handleChatHistoryResponse(message);
           break;
 
+        case "channel_message_send":
+          this.handleChannelMessageSend(message);
+          break;
+
         default:
           logger.warn({ type: message.type }, "Unknown message type");
       }
@@ -451,10 +454,9 @@ export class AgentWSServer {
               const policyMeta = this.fetchActivePolicyMeta(agentDid);
               this.triggerCertReissue(agent, storedCapabilities, policyMeta);
             } else {
-              // Push delegation certs, LLM config, peer catalog, and skills config
+              // Push delegation certs, LLM config, and skills config
               this.pushDelegationUpdate(agentDid);
               this.pushStoredLlmConfig(agentDid);
-              this.pushPeerCatalog(agentDid);
               this.pushSkillsConfig(agentDid);
             }
           }
@@ -773,6 +775,35 @@ export class AgentWSServer {
     }
   }
 
+  private handleChannelMessageSend(message: WSMessage): void {
+    try {
+      const payload = message.payload as WSChannelMessageSendPayload;
+      const agentId = message.agentId ?? "";
+
+      if (!payload.channelId || !payload.content) {
+        logger.error("Missing required fields in channel message payload");
+        return;
+      }
+
+      // Post message to channel on behalf of agent
+      ChannelService.postMessage({
+        channelId: payload.channelId,
+        authorDid: agentId,
+        authorType: "agent",
+        content: payload.content,
+        threadId: payload.threadId,
+        metadata: payload.metadata,
+      });
+
+      logger.info(
+        { agentId, channelId: payload.channelId, threadId: payload.threadId },
+        "Channel message posted by agent"
+      );
+    } catch (err) {
+      logger.error(err, "Error posting channel message from agent");
+    }
+  }
+
   /** Request the list of chat sessions from an agent. Resolves when the agent responds (10 s timeout). */
   getChatSessions(agentDid: string, limit = 50): Promise<import("@vaultysclaw/shared").ChatSession[]> {
     return new Promise((resolve, reject) => {
@@ -1085,7 +1116,6 @@ export class AgentWSServer {
 
     // Push any stored LLM config now that the agent is registered and connected.
     this.pushStoredLlmConfig(agentDid);
-    this.pushPeerCatalog(agentDid);
     this.pushSkillsConfig(agentDid);
 
     return true;
@@ -1531,37 +1561,6 @@ export class AgentWSServer {
     for (const agentDid of this.agents.keys()) {
       this.pushDelegationUpdate(agentDid);
     }
-  }
-
-  /**
-   * Push the peer catalog (all outgoing peer grants) to a specific agent.
-   * Called after auth_complete and whenever a grant is created or revoked.
-   */
-  pushPeerCatalog(agentDid: string): void {
-    const agent = this.agents.get(agentDid);
-    if (!agent) return;
-
-    const rows = AgentPeerGrantDao.listBySource(agentDid);
-    const peers: AgentPeerGrant[] = rows.map((r) => ({
-      id: r.id,
-      sourceDid: r.source_did,
-      targetDid: r.target_did,
-      targetName: r.target_name,
-      skillDescription: r.skill_description,
-      capabilities: JSON.parse(r.capabilities) as string[],
-      certificate: r.certificate,
-      ...(r.expires_at ? { expiresAt: r.expires_at } : {}),
-    }));
-
-    this.sendMessage(agent.ws, {
-      messageId: `peer-catalog-${Date.now()}`,
-      type: "agent_peer_catalog",
-      agentId: agentDid,
-      payload: { peers } satisfies WSAgentPeerCatalogPayload,
-      timestamp: new Date().toISOString(),
-    });
-
-    logger.info({ agentDid, count: peers.length }, "Pushed peer catalog to agent");
   }
 
   /**

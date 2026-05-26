@@ -485,7 +485,7 @@ export default function CreateAgentPage() {
   // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <div className="p-6 w-full max-w-7xl mx-auto">
       {/* Header */}
       <div className="flex items-center gap-3 mb-6">
         <button

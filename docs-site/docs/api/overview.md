@@ -131,3 +131,11 @@ The API does not enforce rate limits in the default configuration. For productio
 | [Skills](/docs/api/skills) | `GET /skills`, `POST /skills`, `GET /realms/:id/skills/:skillId`, `PATCH /realms/:id/skills/:skillId`, `DELETE /realms/:id/skills/:skillId` |
 | [Skills Library](/docs/api/skills#browse-the-skills-library) | `GET /skills/library`, `GET /skills/library/content` |
 | [Token Stats](/docs/api/skills#fleet-wide-token-statistics) | `GET /stats/tokens` |
+| [Channels](/docs/api/channels) | `GET /channels`, `POST /channels`, `GET /channels/:id`, `PATCH /channels/:id`, `DELETE /channels/:id` |
+| [Channel Members](/docs/api/channels#members) | `POST /channels/:id/members`, `DELETE /channels/:id/members/:memberDid` |
+| [Channel Messages](/docs/api/channels#messages) | `GET /channels/:id/messages`, `POST /channels/:id/messages`, `POST /channels/:id/messages/agent-response` |
+| [Channel Bridges](/docs/api/bridges) | `GET /channels/:id/bridges`, `POST /channels/:id/bridges`, `PATCH /channels/:id/bridges/:bridgeId`, `DELETE /channels/:id/bridges/:bridgeId` |
+| [Webhook Incoming](/docs/api/bridges#incoming-webhook-endpoint) | `POST /bridges/webhook/:bridgeId/incoming` (public, HMAC-verified) |
+| [Teams Incoming](/docs/api/bridges#incoming-teams-endpoint) | `POST /bridges/teams/incoming` (Bot Framework) |
+| [Agent Search](/docs/api/channels#agent-search) | `GET /agents/search?q=...` |
+| [Me — Realms](/docs/api/channels#me--realms) | `GET /me/realms` |

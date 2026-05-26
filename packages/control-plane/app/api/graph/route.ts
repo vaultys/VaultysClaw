@@ -98,11 +98,7 @@ function buildGraph(filters: Filters): GraphData {
   type AgentRow = { did: string; name: string };
   let agents: AgentRow[];
   if (filters.agentDid) {
-    // Fetch target agent + all agents involved in peer grants with it
-    agents = db.prepare(
-      "SELECT DISTINCT did, name FROM agents WHERE did = ? OR did IN " +
-      "(SELECT source_did FROM agent_peer_grants WHERE target_did = ? UNION SELECT target_did FROM agent_peer_grants WHERE source_did = ?)"
-    ).all(filters.agentDid, filters.agentDid, filters.agentDid) as AgentRow[];
+    agents = db.prepare("SELECT did, name FROM agents WHERE did = ?").all(filters.agentDid) as AgentRow[];
   } else if (filters.userDid) {
     // For focused user view: fetch agents that this user has grants or delegations to
     const agentDids = db.prepare(
@@ -214,37 +210,6 @@ function buildGraph(filters: Filters): GraphData {
     if (!nodes.has(`user:${d.user_did}`) || !nodes.has(`agent:${d.agent_did}`)) continue;
     const caps: AgentCapability[] = JSON.parse(d.capabilities);
     edges.push({ source: `user:${d.user_did}`, target: `agent:${d.agent_did}`, type: "delegation", label: caps.join(", "), capabilities: caps });
-  }
-
-  // --- Peer edges (agent → agent) ---
-  type PeerRow = { source_did: string; target_did: string; target_name: string; skill_description: string };
-  let peers: PeerRow[];
-  if (filters.agentDid) {
-    peers = db.prepare(
-      "SELECT source_did, target_did, target_name, skill_description FROM agent_peer_grants WHERE source_did = ? OR target_did = ?"
-    ).all(filters.agentDid, filters.agentDid) as PeerRow[];
-  } else {
-    peers = db.prepare("SELECT source_did, target_did, target_name, skill_description FROM agent_peer_grants").all() as PeerRow[];
-  }
-  for (const p of peers) {
-    const srcKey = `agent:${p.source_did}`;
-    const tgtKey = `agent:${p.target_did}`;
-    // Ensure both agent nodes exist (pull in if in focused view)
-    if (!nodes.has(srcKey)) {
-      if (filters.agentDid) {
-        const a = db.prepare("SELECT did, name FROM agents WHERE did = ?").get(p.source_did) as AgentRow | undefined;
-        if (a) nodes.set(srcKey, { id: srcKey, label: a.name, type: "agent", isOnline: connectedDids.has(a.did) });
-        else continue;
-      } else continue;
-    }
-    if (!nodes.has(tgtKey)) {
-      if (filters.agentDid) {
-        const a = db.prepare("SELECT did, name FROM agents WHERE did = ?").get(p.target_did) as AgentRow | undefined;
-        if (a) nodes.set(tgtKey, { id: tgtKey, label: a.name, type: "agent", isOnline: connectedDids.has(a.did) });
-        else continue;
-      } else continue;
-    }
-    edges.push({ source: srcKey, target: tgtKey, type: "peer", label: p.skill_description });
   }
 
   // In the full view (no focus filter) drop isolated nodes — only show nodes

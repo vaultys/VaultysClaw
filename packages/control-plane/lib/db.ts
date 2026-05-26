@@ -395,6 +395,68 @@ function createTables(db: Database.Database): void {
     );
 
     CREATE INDEX IF NOT EXISTS idx_knowledge_files_source ON knowledge_files(source_id);
+
+    CREATE TABLE IF NOT EXISTS channels (
+      id TEXT PRIMARY KEY,
+      realm_id TEXT REFERENCES realms(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      slug TEXT NOT NULL,
+      description TEXT,
+      is_public INTEGER NOT NULL DEFAULT 1,
+      is_archived INTEGER NOT NULL DEFAULT 0,
+      topic TEXT,
+      creator_did TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(realm_id, slug)
+    );
+    CREATE INDEX IF NOT EXISTS idx_channels_realm ON channels(realm_id);
+    CREATE INDEX IF NOT EXISTS idx_channels_slug ON channels(slug);
+
+    CREATE TABLE IF NOT EXISTS channel_members (
+      id TEXT PRIMARY KEY,
+      channel_id TEXT NOT NULL REFERENCES channels(id) ON DELETE CASCADE,
+      member_did TEXT NOT NULL,
+      member_type TEXT NOT NULL,
+      role TEXT NOT NULL DEFAULT 'member',
+      joined_at TEXT NOT NULL DEFAULT (datetime('now')),
+      invited_by TEXT,
+      UNIQUE(channel_id, member_did)
+    );
+    CREATE INDEX IF NOT EXISTS idx_channel_members_channel ON channel_members(channel_id);
+    CREATE INDEX IF NOT EXISTS idx_channel_members_member ON channel_members(member_did);
+
+    CREATE TABLE IF NOT EXISTS channel_messages (
+      id TEXT PRIMARY KEY,
+      channel_id TEXT NOT NULL REFERENCES channels(id) ON DELETE CASCADE,
+      thread_id TEXT REFERENCES channel_messages(id),
+      author_did TEXT NOT NULL,
+      author_type TEXT NOT NULL,
+      content TEXT NOT NULL,
+      metadata TEXT NOT NULL DEFAULT '{}',
+      reactions TEXT NOT NULL DEFAULT '{}',
+      edited_at TEXT,
+      deleted_at TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_channel_messages_channel ON channel_messages(channel_id, created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_channel_messages_thread ON channel_messages(thread_id);
+    CREATE INDEX IF NOT EXISTS idx_channel_messages_author ON channel_messages(author_did);
+
+    CREATE TABLE IF NOT EXISTS channel_bridges (
+      id TEXT PRIMARY KEY,
+      channel_id TEXT NOT NULL REFERENCES channels(id) ON DELETE CASCADE,
+      external_service TEXT NOT NULL,
+      external_channel_id TEXT NOT NULL,
+      external_channel_name TEXT NOT NULL,
+      external_workspace_id TEXT NOT NULL,
+      sync_direction TEXT NOT NULL DEFAULT 'bidirectional',
+      is_sync_enabled INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      config_json TEXT NOT NULL,
+      UNIQUE(channel_id, external_service, external_channel_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_channel_bridges_channel ON channel_bridges(channel_id);
   `);
 
   // Add content column to realm_skills for existing databases that predate this field
@@ -595,7 +657,7 @@ export function getAgent(did: string): AgentRow | undefined {
 
 export function getAgentByName(name: string): AgentRow | undefined {
   const d = getDb();
-  return d.prepare("SELECT * FROM agents WHERE name = ?").get(name) as AgentRow | undefined;
+  return d.prepare("SELECT * FROM agents WHERE LOWER(name) = LOWER(?)").get(name) as AgentRow | undefined;
 }
 
 export function getAllAgents(): AgentRow[] {

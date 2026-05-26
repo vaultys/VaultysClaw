@@ -167,7 +167,7 @@ export default function AuditDetailPage() {
 
   if (loading) {
     return (
-      <div className="p-6 max-w-4xl mx-auto flex items-center gap-2 text-vc-muted">
+      <div className="p-6 w-full max-w-4xl mx-auto flex items-center gap-2 text-vc-muted">
         <Loader2 size={16} className="animate-spin" /> Loading…
       </div>
     );
@@ -175,7 +175,7 @@ export default function AuditDetailPage() {
 
   if (error || !entry) {
     return (
-      <div className="p-6 max-w-7xl mx-auto space-y-4">
+      <div className="p-6 w-full max-w-7xl mx-auto space-y-4">
         <button onClick={() => router.back()} className="flex items-center gap-1.5 text-sm text-indigo-500 hover:text-indigo-400">
           <ChevronLeft size={16} /> Back
         </button>
@@ -190,7 +190,7 @@ export default function AuditDetailPage() {
   const isAuth = ["agent_authenticated", "auth_failed", "registration_approved"].includes(entry.event);
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-6">
+    <div className="p-6 w-full max-w-7xl mx-auto space-y-6">
       {/* Back */}
       <button
         onClick={() => router.push("/governance?tab=audit")}

@@ -72,7 +72,7 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="p-6 max-w-2xl mx-auto space-y-6">
+    <div className="p-6 w-full max-w-2xl mx-auto space-y-6">
       {/* Profile */}
       <section className="bg-vc-surface border border-vc-border rounded-xl overflow-hidden">
         <div className="px-5 py-4 border-b border-vc-border flex items-center gap-2">

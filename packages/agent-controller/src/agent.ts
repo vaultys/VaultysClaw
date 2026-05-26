@@ -1338,6 +1338,10 @@ export class Agent extends EventEmitter {
     // The executor runs `executeAction` which already uses the tool registry
     this.taskQueue = new TaskQueue(
       async (action, params) => {
+        // Special handling for channel mentions — process and post response
+        if (action === "channel_mention") {
+          return this.handleChannelMentionTask(params as any);
+        }
         return this.executeAction(action, params);
       },
       {
@@ -1407,6 +1411,67 @@ export class Agent extends EventEmitter {
     this.log("info", `Schedule deleted: ${p.id}`);
   }
 
+  // ---- Channel mention handling ----
+
+  private async handleChannelMentionTask(params: {
+    channelId: string;
+    threadId: string;
+    userDid: string;
+    userMessage: string;
+    agentName: string;
+  }): Promise<{ text: string; usage?: { promptTokens: number; completionTokens: number } }> {
+    const { channelId, threadId, userDid, userMessage, agentName } = params;
+
+    try {
+      if (!this.activeLlmConfig) {
+        throw new Error("LLM not configured");
+      }
+
+      this.log("info", `Channel mention received: @${agentName} in ${channelId} thread ${threadId}`);
+
+      // Use executeAction to generate an LLM-based response to the mention
+      const response = await this.executeAction(
+        `Respond to channel mention: ${userMessage}`,
+        { channelId, userDid, userMessage },
+      );
+
+      // Extract text from response
+      const responseText = typeof response === "string"
+        ? response
+        : (response as any).text ?? JSON.stringify(response);
+
+      // Post response to channel via WebSocket
+      this.send({
+        messageId: `channel-msg-${Date.now()}`,
+        type: "channel_message_send",
+        agentId: this.id,
+        payload: {
+          channelId,
+          threadId,
+          content: responseText,
+          metadata: {
+            agentAction: "respond_to_mention",
+            respondingTo: userDid,
+          },
+        } satisfies import("@vaultysclaw/shared").WSChannelMessageSendPayload,
+        timestamp: new Date().toISOString(),
+      });
+
+      this.log("info", `Channel mention response posted to ${channelId} (thread: ${threadId})`);
+
+      return {
+        text: `Response posted to #${channelId}`,
+        ...(typeof response === "object" && (response as any).usage
+          ? { usage: (response as any).usage }
+          : {}),
+      };
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      this.log("error", `Channel mention task failed: ${errMsg}`);
+      throw new Error(`Failed to handle channel mention: ${errMsg}`);
+    }
+  }
+
   // ---- Chat (streaming via WS) ----
 
   private async handleChatMessage(message: WSMessage): Promise<void> {
@@ -1443,6 +1508,34 @@ export class Agent extends EventEmitter {
       const memoryContext = lastUserMsg ? this.memoryRetriever.retrieve(lastUserMsg) : undefined;
 
       const tools = this.buildAgentToolSet(conversationId);
+
+      // Detect @mentions in the last user message and inject routing hints so the
+      // LLM knows to use the correct ask_agent_<name> tool — without this, smaller
+      // models often ignore the tool entirely and just reply in plain text.
+      const peerHints: string[] = [];
+      if (this.peerCatalog.length > 0) {
+        const mentionMatches = [...lastUserMsg.matchAll(/@([\w\-]+)/g)];
+        for (const [, mention] of mentionMatches) {
+          const normalised = mention.toLowerCase().replace(/[^a-z0-9]/g, "");
+          const grant = this.peerCatalog.find(
+            (g) => g.targetName.toLowerCase().replace(/[^a-z0-9]/g, "") === normalised,
+          );
+          if (grant) {
+            const toolName = `ask_agent_${grant.targetName.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 40)}`;
+            peerHints.push(
+              `The user mentioned @${mention} in their message. ` +
+              `You MUST use the \`${toolName}\` tool to forward the user's request to that agent and relay its response. ` +
+              `Do NOT answer on behalf of @${mention} yourself — delegate via the tool.`,
+            );
+            this.log("info", `@mention detected: @${mention} → tool ${toolName}`);
+          }
+        }
+      }
+
+      const skillExtensions = this.realmSkillFilter
+        ?.filter((s) => s.enabled && s.content)
+        .map((s) => s.content as string) ?? [];
+
       const result = streamChat(this.activeLlmConfig, messages, tools, (event) => {
         // Report tool executions to control plane for real-time UI
         if (event.toolCalls && event.toolCalls.length > 0) {
@@ -1463,7 +1556,7 @@ export class Agent extends EventEmitter {
             });
           }
         }
-      }, memoryContext, this.realmSkillFilter?.filter((s) => s.enabled && s.content).map((s) => s.content as string));
+      }, memoryContext, [...skillExtensions, ...peerHints]);
 
       const chunks: string[] = [];
       for await (const chunk of result.textStream) {

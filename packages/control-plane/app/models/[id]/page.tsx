@@ -400,7 +400,7 @@ export default function ModelDetailPage() {
   if (!model) return <div className="p-6 text-sm text-vc-muted">Model not found.</div>;
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-5">
+    <div className="p-6 w-full max-w-7xl mx-auto space-y-5">
       <div className="flex items-center gap-3">
         <button onClick={() => router.push("/models")} className="text-vc-muted hover:text-vc-text transition-colors">
           <ArrowLeft className="w-5 h-5" />

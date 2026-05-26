@@ -30,6 +30,17 @@ const sidebars: SidebarsConfig = {
     },
     {
       type: "category",
+      label: "Channels",
+      collapsed: false,
+      items: [
+        "channels/overview",
+        "channels/channels-and-members",
+        "channels/messaging",
+        "channels/bridges",
+      ],
+    },
+    {
+      type: "category",
       label: "Guides",
       collapsed: false,
       items: [
@@ -69,6 +80,8 @@ const sidebars: SidebarsConfig = {
         "api/tool-approvals",
         "api/models",
         "api/skills",
+        "api/channels",
+        "api/bridges",
       ],
     },
     {

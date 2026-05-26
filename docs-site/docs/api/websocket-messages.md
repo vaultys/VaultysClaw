@@ -43,10 +43,11 @@ Capabilities and resource limits are embedded in the **VaultysId Challenger cert
 | `update_capabilities` | Policy changed — triggers re-auth | `capabilities`, `resourceLimits`, `policyId`, `policyExpiresAt`, `reason` |
 | `intent` | Route work to agent | `action`, `params`, `userDid` |
 | `delegation_update` | Push delegation certificate changes | `delegations[]` |
-| `agent_peer_catalog` | Push peer agent grant changes | `peers[]` |
+| ~~`agent_peer_catalog`~~ | **Deprecated** — peer-to-peer agent grants removed | — |
 | `tool_approval_response` | Admin decision on a tool approval | `requestId`, `approved`, `reason` |
 | `llm_config` | Push LLM configuration | `config` (or `null` to revert to env vars) |
 | `skills_config` | Push skill enable/disable configuration | `skills[]` |
+| `channel_message_send` | Deliver a channel message to an @mentioned agent | `channelId`, `messageId`, `content`, `authorDid`, `threadId`, `createdAt` |
 | `task_enqueue` | Enqueue a task on the agent | `action`, `params`, `priority`, `scheduledAt`, `maxRetries` |
 | `schedule_update` | Add or update a cron schedule | `id`, `name`, `cron`, `action`, `params`, `enabled` |
 | `schedule_delete` | Remove a schedule | `id` |

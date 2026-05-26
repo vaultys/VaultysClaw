@@ -1,0 +1,2191 @@
+/**
+ * Tests for the channels feature:
+ *   Service layer: ChannelService (lib/channel-service.ts)
+ *   Dispatcher:    MessageDispatcher (lib/message-dispatcher.ts)
+ *   Bridge layer:  ChannelBridgeService, WebhookGateway, BridgeFactory
+ *   API routes:
+ *     GET  /api/channels                                    — list channels in realm
+ *     POST /api/channels                                    — create channel
+ *     GET  /api/channels/[id]                               — channel detail
+ *     PATCH /api/channels/[id]                              — update channel
+ *     DELETE /api/channels/[id]                             — archive channel
+ *     POST /api/channels/[id]/members                       — add member
+ *     DELETE /api/channels/[id]/members                     — remove member (did in URL)
+ *     GET  /api/channels/[id]/messages                      — list messages
+ *     POST /api/channels/[id]/messages                      — post message
+ *     POST /api/channels/[id]/messages/agent-response       — agent posts message
+ *     GET  /api/channels/[id]/bridges                       — list bridges
+ *     POST /api/channels/[id]/bridges                       — create bridge
+ *     PATCH /api/channels/[id]/bridges/[bridgeId]           — update bridge
+ *     DELETE /api/channels/[id]/bridges/[bridgeId]          — delete bridge
+ *     POST /api/bridges/webhook/[bridgeId]/incoming         — incoming webhook
+ *     GET  /api/agents/search                               — search agents by name
+ *     GET  /api/me/realms                                   — realms for current user
+ *   Peer agents removal:
+ *     Peer grant API routes have been deleted
+ *     pushPeerCatalog has been removed from WSServer
+ */
+
+import { describe, it, expect, vi, beforeAll, afterAll, beforeEach } from "vitest";
+
+// ---------------------------------------------------------------------------
+// Mocks — must come before imports
+// ---------------------------------------------------------------------------
+
+vi.mock("@/lib/auth-utils", () => ({
+  getAuthContext: vi.fn(),
+  unauthorized: () => ({
+    _status: 401,
+    async json() { return { error: "Not authenticated" }; },
+  }),
+  forbidden: () => ({
+    _status: 403,
+    async json() { return { error: "Forbidden" }; },
+  }),
+}));
+
+vi.mock("@/lib/ws-server", () => ({
+  getWSServer: vi.fn(() => ({
+    sendTaskToAgent: vi.fn(() => false), // returns false → agent offline
+    isAgentOnline: vi.fn(() => false),
+  })),
+}));
+
+vi.mock("@/lib/user-dao", () => ({
+  UserDao: {
+    getByDid: vi.fn((did: string) =>
+      did.startsWith("did:") ? { id: "user-uuid-123", did } : null,
+    ),
+  },
+}));
+
+// ---------------------------------------------------------------------------
+// Imports
+// ---------------------------------------------------------------------------
+
+import { getDb } from "../packages/control-plane/lib/db";
+import { ChannelService } from "../packages/control-plane/lib/channel-service";
+import { MessageDispatcher } from "../packages/control-plane/lib/message-dispatcher";
+import { getAuthContext } from "../packages/control-plane/lib/auth-utils";
+import { getWSServer } from "../packages/control-plane/lib/ws-server";
+import { NextRequest } from "next/server";
+
+// API route handlers
+import {
+  GET as channelsGET,
+  POST as channelsPOST,
+} from "../packages/control-plane/app/api/channels/route";
+import {
+  GET as channelDetailGET,
+  PATCH as channelDetailPATCH,
+  DELETE as channelDetailDELETE,
+} from "../packages/control-plane/app/api/channels/[id]/route";
+import {
+  POST as membersPOST,
+  DELETE as membersDELETE,
+} from "../packages/control-plane/app/api/channels/[id]/members/route";
+import {
+  GET as messagesGET,
+  POST as messagesPOST,
+} from "../packages/control-plane/app/api/channels/[id]/messages/route";
+import { POST as agentResponsePOST } from "../packages/control-plane/app/api/channels/[id]/messages/agent-response/route";
+import {
+  GET as bridgesGET,
+  POST as bridgesPOST,
+} from "../packages/control-plane/app/api/channels/[id]/bridges/route";
+import {
+  PATCH as bridgePATCH,
+  DELETE as bridgeDELETE,
+} from "../packages/control-plane/app/api/channels/[id]/bridges/[bridgeId]/route";
+import { POST as webhookIncomingPOST } from "../packages/control-plane/app/api/bridges/webhook/[bridgeId]/incoming/route";
+import { GET as agentSearchGET } from "../packages/control-plane/app/api/agents/search/route";
+import { GET as meRealmsGET } from "../packages/control-plane/app/api/me/realms/route";
+
+// Bridge / gateway layer
+import { ChannelBridgeService } from "../packages/control-plane/lib/channel-bridge-service";
+import { WebhookGateway } from "../packages/control-plane/lib/bridges/webhook-gateway";
+import { BridgeFactory } from "../packages/control-plane/lib/bridges/bridge-factory";
+import { createHmac } from "crypto";
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+const mockGetAuthContext = getAuthContext as ReturnType<typeof vi.fn>;
+
+/** Test row prefix — used to identify and clean up all test data (IDs, names) */
+const T = "test:channels:";
+/** Slug-safe prefix — only lowercase letters, numbers, hyphens (valid channel slug chars) */
+const S = "tch-";
+
+function makeAdminContext(realmId?: string) {
+  return {
+    did: "did:test:admin",
+    isGlobalAdmin: true,
+    isOwner: true,
+    canAccessRealm: (_id: string) => true,
+    canAdminRealm: (_id: string) => true,
+  };
+}
+
+function makeMemberContext(channelId?: string) {
+  return {
+    did: "did:test:member",
+    isGlobalAdmin: false,
+    isOwner: false,
+    canAccessRealm: (_id: string) => true,
+    canAdminRealm: (_id: string) => false,
+  };
+}
+
+function channelParams(id: string) {
+  return { params: Promise.resolve({ id }) };
+}
+
+function messageParams(id: string) {
+  return { params: Promise.resolve({ id }) };
+}
+
+function msgDetailParams(id: string, msgId: string) {
+  return { params: Promise.resolve({ id, msgId }) };
+}
+
+function bridgeParams(id: string, bridgeId: string) {
+  return { params: Promise.resolve({ id, bridgeId }) };
+}
+
+function webhookIncomingParams(bridgeId: string) {
+  return { params: Promise.resolve({ bridgeId }) };
+}
+
+/** Compute the HMAC-SHA256 signature header matching WebhookGateway format */
+function makeWebhookSignature(body: string, secret: string): string {
+  return "sha256=" + createHmac("sha256", secret).update(body).digest("hex");
+}
+
+function req(method: string, url: string, body?: unknown): NextRequest {
+  return new NextRequest(url, body !== undefined ? { body } : undefined) as unknown as NextRequest;
+}
+
+/**
+ * Fake NextRequest for the webhook incoming route.
+ * The route calls req.text() (raw body for HMAC) then req.headers.get("x-signature").
+ * The test environment's NextRequest doesn't implement .text(), so we provide a
+ * minimal fake that satisfies exactly what the route handler needs.
+ */
+function webhookReq(url: string, bodyStr: string, sig: string): NextRequest {
+  return {
+    text: async () => bodyStr,
+    headers: { get: (h: string) => h.toLowerCase() === "x-signature" ? sig : null },
+  } as unknown as NextRequest;
+}
+
+// ---------------------------------------------------------------------------
+// Test realm + agent setup
+// ---------------------------------------------------------------------------
+
+let testRealmId: string;
+let testAgentDid: string;
+let testAgentName: string;
+
+beforeAll(() => {
+  const db = getDb();
+  testRealmId = `${T}realm-1`;
+  testAgentDid = `${T}agent-did-1`;
+  // Agent name must be mention-safe (no colons — @mention regex only captures [\w\-])
+  testAgentName = "tch-test-agent";
+
+  // Create test realm
+  db.prepare(`
+    INSERT OR IGNORE INTO realms (id, name, slug, color, is_default)
+    VALUES (?, 'Channel Test Realm', 'channel-test-realm', '#6366f1', 0)
+  `).run(testRealmId);
+
+  // Create test agent
+  db.prepare(`
+    INSERT OR IGNORE INTO agents (did, name, capabilities, registered_at)
+    VALUES (?, ?, '[]', datetime('now'))
+  `).run(testAgentDid, testAgentName);
+
+  // Create a user row so user_realms FK can reference it
+  db.prepare(`
+    INSERT OR IGNORE INTO users (id, did, name, registered_at)
+    VALUES ('user-uuid-123', 'did:test:admin', 'Test Admin', datetime('now'))
+  `).run();
+
+  // Enroll that user in the test realm
+  db.prepare(`
+    INSERT OR IGNORE INTO user_realms (user_id, realm_id, is_primary, is_realm_admin)
+    VALUES ('user-uuid-123', ?, 0, 1)
+  `).run(testRealmId);
+});
+
+afterAll(() => {
+  const db = getDb();
+  // Remove channel data in dependency order
+  // Channels in this test suite live under testRealmId (which uses T prefix) and use S-prefixed slugs
+  db.prepare(`
+    DELETE FROM channel_messages WHERE channel_id IN (
+      SELECT id FROM channels WHERE realm_id LIKE ? OR slug LIKE ?
+    )
+  `).run(`${T}%`, `${S}%`);
+  db.prepare(`
+    DELETE FROM channel_members WHERE channel_id IN (
+      SELECT id FROM channels WHERE realm_id LIKE ? OR slug LIKE ?
+    )
+  `).run(`${T}%`, `${S}%`);
+  db.prepare("DELETE FROM channels WHERE realm_id LIKE ? OR slug LIKE ?")
+    .run(`${T}%`, `${S}%`);
+  // Remove test support data
+  db.prepare("DELETE FROM user_realms WHERE user_id = 'user-uuid-123'").run();
+  db.prepare("DELETE FROM users WHERE id = 'user-uuid-123'").run();
+  db.prepare("DELETE FROM agents WHERE did = ?").run(testAgentDid);
+  db.prepare("DELETE FROM realms WHERE id LIKE ?").run(`${T}%`);
+});
+
+beforeEach(() => {
+  mockGetAuthContext.mockResolvedValue(makeAdminContext());
+});
+
+// ===========================================================================
+// SERVICE: ChannelService
+// ===========================================================================
+
+describe("ChannelService: createChannel", () => {
+  it("creates a channel and adds creator as owner member", () => {
+    const channel = ChannelService.createChannel({
+      name: "Test Channel",
+      slug: `${S}create-basic`,
+      realmId: testRealmId,
+      creatorDid: "did:test:creator",
+    });
+
+    try {
+      expect(channel.id).toBeTruthy();
+      // ChannelDao.create returns the raw DB row — verify via getChannel for normalized fields
+      const fetched = ChannelService.getChannel(channel.id);
+      expect(fetched).not.toBeNull();
+      expect(fetched!.name).toBe("Test Channel");
+      expect(fetched!.slug).toBe(`${S}create-basic`);
+      expect(fetched!.realmId).toBe(testRealmId);
+      expect(fetched!.isArchived).toBe(false);
+
+      // Creator should be an owner member
+      const role = ChannelService.getMemberRole(channel.id, "did:test:creator");
+      expect(role).toBe("owner");
+    } finally {
+      getDb().prepare("DELETE FROM channel_members WHERE channel_id = ?").run(channel.id);
+      getDb().prepare("DELETE FROM channels WHERE id = ?").run(channel.id);
+    }
+  });
+
+  it("throws on invalid slug format", () => {
+    expect(() =>
+      ChannelService.createChannel({
+        name: "Bad Slug",
+        slug: "Bad Slug!",
+        realmId: testRealmId,
+        creatorDid: "did:test:admin",
+      }),
+    ).toThrow(/slug/i);
+  });
+
+  it("throws on duplicate slug within the same realm", () => {
+    const slug = `${S}dup-slug`;
+    const channel = ChannelService.createChannel({
+      name: "First",
+      slug,
+      realmId: testRealmId,
+      creatorDid: "did:test:admin",
+    });
+
+    try {
+      expect(() =>
+        ChannelService.createChannel({
+          name: "Second",
+          slug,
+          realmId: testRealmId,
+          creatorDid: "did:test:admin",
+        }),
+      ).toThrow(/already exists/i);
+    } finally {
+      getDb().prepare("DELETE FROM channel_members WHERE channel_id = ?").run(channel.id);
+      getDb().prepare("DELETE FROM channels WHERE id = ?").run(channel.id);
+    }
+  });
+});
+
+describe("ChannelService: getChannel", () => {
+  it("returns null for unknown id", () => {
+    expect(ChannelService.getChannel("does-not-exist")).toBeNull();
+  });
+
+  it("returns the channel for a known id", () => {
+    const channel = ChannelService.createChannel({
+      name: "Get Test",
+      slug: `${S}get-test`,
+      realmId: testRealmId,
+      creatorDid: "did:test:admin",
+    });
+
+    try {
+      const found = ChannelService.getChannel(channel.id);
+      expect(found).not.toBeNull();
+      expect(found!.id).toBe(channel.id);
+    } finally {
+      getDb().prepare("DELETE FROM channel_members WHERE channel_id = ?").run(channel.id);
+      getDb().prepare("DELETE FROM channels WHERE id = ?").run(channel.id);
+    }
+  });
+});
+
+describe("ChannelService: postMessage", () => {
+  it("persists a message in the channel", () => {
+    const channel = ChannelService.createChannel({
+      name: "Msg Test",
+      slug: `${S}msg-test`,
+      realmId: testRealmId,
+      creatorDid: "did:test:admin",
+    });
+
+    try {
+      const msg = ChannelService.postMessage({
+        channelId: channel.id,
+        authorDid: "did:test:admin",
+        authorType: "user",
+        content: "Hello, world!",
+      });
+
+      expect(msg.id).toBeTruthy();
+      expect(msg.channelId).toBe(channel.id);
+      expect(msg.content).toBe("Hello, world!");
+      expect(msg.authorType).toBe("user");
+    } finally {
+      getDb().prepare("DELETE FROM channel_messages WHERE channel_id = ?").run(channel.id);
+      getDb().prepare("DELETE FROM channel_members WHERE channel_id = ?").run(channel.id);
+      getDb().prepare("DELETE FROM channels WHERE id = ?").run(channel.id);
+    }
+  });
+
+  it("does NOT dispatch mention processing for agent messages", async () => {
+    // Reset ws-server mock call counts
+    const mockWs = getWSServer();
+    vi.mocked(mockWs.sendTaskToAgent).mockClear();
+
+    const channel = ChannelService.createChannel({
+      name: "Agent Msg",
+      slug: `${S}agent-msg`,
+      realmId: testRealmId,
+      creatorDid: "did:test:admin",
+    });
+
+    try {
+      // Agent posts a message mentioning something
+      ChannelService.postMessage({
+        channelId: channel.id,
+        authorDid: testAgentDid,
+        authorType: "agent",
+        content: `@${testAgentName} hello`,
+      });
+
+      // Give micro-tasks a chance (even though agent path is sync-only)
+      await new Promise((r) => setTimeout(r, 10));
+
+      // sendTaskToAgent should NOT be called for agent-authored messages
+      expect(vi.mocked(mockWs.sendTaskToAgent)).not.toHaveBeenCalled();
+    } finally {
+      getDb().prepare("DELETE FROM channel_messages WHERE channel_id = ?").run(channel.id);
+      getDb().prepare("DELETE FROM channel_members WHERE channel_id = ?").run(channel.id);
+      getDb().prepare("DELETE FROM channels WHERE id = ?").run(channel.id);
+    }
+  });
+});
+
+describe("ChannelService: createThreadReply", () => {
+  it("creates a reply with correct threadId set to parentMessageId", () => {
+    const channel = ChannelService.createChannel({
+      name: "Thread Test",
+      slug: `${S}thread-test`,
+      realmId: testRealmId,
+      creatorDid: "did:test:admin",
+    });
+
+    try {
+      const parent = ChannelService.postMessage({
+        channelId: channel.id,
+        authorDid: "did:test:admin",
+        authorType: "user",
+        content: "Parent message",
+      });
+
+      const reply = ChannelService.createThreadReply({
+        channelId: channel.id,
+        parentMessageId: parent.id,
+        authorDid: "did:test:admin",
+        authorType: "user",
+        content: "Reply here",
+      });
+
+      expect(reply.threadId).toBe(parent.id);
+      expect(reply.channelId).toBe(channel.id);
+      expect(reply.content).toBe("Reply here");
+    } finally {
+      getDb().prepare("DELETE FROM channel_messages WHERE channel_id = ?").run(channel.id);
+      getDb().prepare("DELETE FROM channel_members WHERE channel_id = ?").run(channel.id);
+      getDb().prepare("DELETE FROM channels WHERE id = ?").run(channel.id);
+    }
+  });
+
+  it("throws if parent message not found", () => {
+    const channel = ChannelService.createChannel({
+      name: "Thread Err",
+      slug: `${S}thread-err`,
+      realmId: testRealmId,
+      creatorDid: "did:test:admin",
+    });
+
+    try {
+      expect(() =>
+        ChannelService.createThreadReply({
+          channelId: channel.id,
+          parentMessageId: "nonexistent-message-id",
+          authorDid: "did:test:admin",
+          authorType: "user",
+          content: "Reply",
+        }),
+      ).toThrow(/not found/i);
+    } finally {
+      getDb().prepare("DELETE FROM channel_members WHERE channel_id = ?").run(channel.id);
+      getDb().prepare("DELETE FROM channels WHERE id = ?").run(channel.id);
+    }
+  });
+});
+
+describe("ChannelService: addChannelMember / removeChannelMember", () => {
+  it("adds a member successfully", () => {
+    const channel = ChannelService.createChannel({
+      name: "Member Test",
+      slug: `${S}member-test`,
+      realmId: testRealmId,
+      creatorDid: "did:test:admin",
+    });
+
+    try {
+      const member = ChannelService.addChannelMember({
+        channelId: channel.id,
+        memberDid: "did:test:new-member",
+        memberType: "user",
+      });
+
+      // ChannelMemberDao.addMember returns raw DB row (member_did, not memberDid)
+      expect((member as any).member_did ?? member.memberDid).toBe("did:test:new-member");
+      expect(member.role).toBe("member");
+      expect(ChannelService.isMember(channel.id, "did:test:new-member")).toBe(true);
+    } finally {
+      getDb().prepare("DELETE FROM channel_members WHERE channel_id = ?").run(channel.id);
+      getDb().prepare("DELETE FROM channels WHERE id = ?").run(channel.id);
+    }
+  });
+
+  it("throws on duplicate member addition", () => {
+    const channel = ChannelService.createChannel({
+      name: "Dup Member",
+      slug: `${S}dup-member`,
+      realmId: testRealmId,
+      creatorDid: "did:test:admin",
+    });
+
+    try {
+      ChannelService.addChannelMember({
+        channelId: channel.id,
+        memberDid: "did:test:dup",
+        memberType: "user",
+      });
+
+      expect(() =>
+        ChannelService.addChannelMember({
+          channelId: channel.id,
+          memberDid: "did:test:dup",
+          memberType: "user",
+        }),
+      ).toThrow(/already in/i);
+    } finally {
+      getDb().prepare("DELETE FROM channel_members WHERE channel_id = ?").run(channel.id);
+      getDb().prepare("DELETE FROM channels WHERE id = ?").run(channel.id);
+    }
+  });
+
+  it("removes a member and isMember returns false", () => {
+    const channel = ChannelService.createChannel({
+      name: "Remove Member",
+      slug: `${S}remove-member`,
+      realmId: testRealmId,
+      creatorDid: "did:test:admin",
+    });
+
+    try {
+      ChannelService.addChannelMember({
+        channelId: channel.id,
+        memberDid: "did:test:to-remove",
+        memberType: "user",
+      });
+
+      expect(ChannelService.isMember(channel.id, "did:test:to-remove")).toBe(true);
+
+      ChannelService.removeChannelMember(channel.id, "did:test:to-remove");
+
+      expect(ChannelService.isMember(channel.id, "did:test:to-remove")).toBe(false);
+    } finally {
+      getDb().prepare("DELETE FROM channel_members WHERE channel_id = ?").run(channel.id);
+      getDb().prepare("DELETE FROM channels WHERE id = ?").run(channel.id);
+    }
+  });
+});
+
+describe("ChannelService: getMemberRole", () => {
+  it("returns correct role for an existing member", () => {
+    const channel = ChannelService.createChannel({
+      name: "Role Test",
+      slug: `${S}role-test`,
+      realmId: testRealmId,
+      creatorDid: "did:test:admin",
+    });
+
+    try {
+      ChannelService.addChannelMember({
+        channelId: channel.id,
+        memberDid: "did:test:moderator",
+        memberType: "user",
+        role: "moderator",
+      });
+
+      expect(ChannelService.getMemberRole(channel.id, "did:test:moderator")).toBe("moderator");
+      // Creator is owner
+      expect(ChannelService.getMemberRole(channel.id, "did:test:admin")).toBe("owner");
+    } finally {
+      getDb().prepare("DELETE FROM channel_members WHERE channel_id = ?").run(channel.id);
+      getDb().prepare("DELETE FROM channels WHERE id = ?").run(channel.id);
+    }
+  });
+
+  it("returns null for a non-member", () => {
+    const channel = ChannelService.createChannel({
+      name: "Null Role",
+      slug: `${S}null-role`,
+      realmId: testRealmId,
+      creatorDid: "did:test:admin",
+    });
+
+    try {
+      expect(ChannelService.getMemberRole(channel.id, "did:test:outsider")).toBeNull();
+    } finally {
+      getDb().prepare("DELETE FROM channel_members WHERE channel_id = ?").run(channel.id);
+      getDb().prepare("DELETE FROM channels WHERE id = ?").run(channel.id);
+    }
+  });
+});
+
+describe("ChannelService: getChannelStats", () => {
+  it("returns message_count and member_count", () => {
+    const channel = ChannelService.createChannel({
+      name: "Stats Test",
+      slug: `${S}stats-test`,
+      realmId: testRealmId,
+      creatorDid: "did:test:admin",
+    });
+
+    try {
+      // Creator is already a member; add one more
+      ChannelService.addChannelMember({
+        channelId: channel.id,
+        memberDid: "did:test:stats-member",
+        memberType: "user",
+      });
+
+      // Post two messages
+      ChannelService.postMessage({
+        channelId: channel.id,
+        authorDid: "did:test:admin",
+        authorType: "user",
+        content: "msg 1",
+      });
+      ChannelService.postMessage({
+        channelId: channel.id,
+        authorDid: "did:test:admin",
+        authorType: "user",
+        content: "msg 2",
+      });
+
+      const stats = ChannelService.getChannelStats(channel.id);
+      expect(stats.messageCount).toBe(2);
+      expect(stats.memberCount).toBe(2); // creator + stats-member
+    } finally {
+      getDb().prepare("DELETE FROM channel_messages WHERE channel_id = ?").run(channel.id);
+      getDb().prepare("DELETE FROM channel_members WHERE channel_id = ?").run(channel.id);
+      getDb().prepare("DELETE FROM channels WHERE id = ?").run(channel.id);
+    }
+  });
+});
+
+// ===========================================================================
+// SERVICE: MessageDispatcher
+// ===========================================================================
+
+describe("MessageDispatcher: extractMentions", () => {
+  it("parses a single @name mention", () => {
+    expect(MessageDispatcher.extractMentions("Hello @alice")).toEqual(["alice"]);
+  });
+
+  it("parses multiple @mentions", () => {
+    const mentions = MessageDispatcher.extractMentions("@bob and @carol please help");
+    expect(mentions).toContain("bob");
+    expect(mentions).toContain("carol");
+    expect(mentions).toHaveLength(2);
+  });
+
+  it("handles hyphenated names", () => {
+    expect(MessageDispatcher.extractMentions("@my-agent do it")).toEqual(["my-agent"]);
+  });
+
+  it("returns empty array when no mentions", () => {
+    expect(MessageDispatcher.extractMentions("no mentions here")).toEqual([]);
+  });
+});
+
+describe("MessageDispatcher: processMessage", () => {
+  it("returns early without creating a thread if no mentions", async () => {
+    const channel = ChannelService.createChannel({
+      name: "Dispatcher No Mention",
+      slug: `${S}dispatcher-no-mention`,
+      realmId: testRealmId,
+      creatorDid: "did:test:admin",
+    });
+
+    try {
+      const msg = ChannelService.postMessage({
+        channelId: channel.id,
+        authorDid: "did:test:admin",
+        authorType: "user",
+        content: "no mention here",
+      });
+
+      await MessageDispatcher.processMessage(
+        channel.id,
+        msg.id,
+        "did:test:admin",
+        "no mention here",
+      );
+
+      // No thread replies should have been created
+      const thread = ChannelService.getThread(msg.id);
+      expect(thread).toHaveLength(0);
+    } finally {
+      getDb().prepare("DELETE FROM channel_messages WHERE channel_id = ?").run(channel.id);
+      getDb().prepare("DELETE FROM channel_members WHERE channel_id = ?").run(channel.id);
+      getDb().prepare("DELETE FROM channels WHERE id = ?").run(channel.id);
+    }
+  });
+
+  it("creates a thread reply when a known agent is @mentioned", async () => {
+    const channel = ChannelService.createChannel({
+      name: "Dispatcher Mention",
+      slug: `${S}dispatcher-mention`,
+      realmId: testRealmId,
+      creatorDid: "did:test:admin",
+    });
+
+    try {
+      const msg = ChannelService.postMessage({
+        channelId: channel.id,
+        authorDid: "did:test:admin",
+        authorType: "user",
+        content: `@${testAgentName} can you help?`,
+      });
+
+      await MessageDispatcher.processMessage(
+        channel.id,
+        msg.id,
+        "did:test:admin",
+        `@${testAgentName} can you help?`,
+      );
+
+      // A thread should have been created for the mention
+      const thread = ChannelService.getThread(msg.id);
+      expect(thread.length).toBeGreaterThanOrEqual(1);
+    } finally {
+      getDb().prepare("DELETE FROM channel_messages WHERE channel_id = ?").run(channel.id);
+      getDb().prepare("DELETE FROM channel_members WHERE channel_id = ?").run(channel.id);
+      getDb().prepare("DELETE FROM channels WHERE id = ?").run(channel.id);
+    }
+  });
+
+  it("posts an offline notice when agent is not connected", async () => {
+    // ws-server mock already returns sendTaskToAgent = () => false (offline)
+    const channel = ChannelService.createChannel({
+      name: "Dispatcher Offline",
+      slug: `${S}dispatcher-offline`,
+      realmId: testRealmId,
+      creatorDid: "did:test:admin",
+    });
+
+    try {
+      const msg = ChannelService.postMessage({
+        channelId: channel.id,
+        authorDid: "did:test:admin",
+        authorType: "user",
+        content: `@${testAgentName} are you there?`,
+      });
+
+      await MessageDispatcher.processMessage(
+        channel.id,
+        msg.id,
+        "did:test:admin",
+        `@${testAgentName} are you there?`,
+      );
+
+      // Offline notice is posted directly as a thread reply on the parent message
+      const thread = ChannelService.getThread(msg.id);
+      const offlineNotice = thread.find(
+        (m) => m.authorType === "agent" && m.content.includes("offline"),
+      );
+      expect(offlineNotice).toBeDefined();
+    } finally {
+      getDb().prepare("DELETE FROM channel_messages WHERE channel_id = ?").run(channel.id);
+      getDb().prepare("DELETE FROM channel_members WHERE channel_id = ?").run(channel.id);
+      getDb().prepare("DELETE FROM channels WHERE id = ?").run(channel.id);
+    }
+  });
+});
+
+// ===========================================================================
+// API: GET /api/channels
+// ===========================================================================
+
+describe("GET /api/channels", () => {
+  it("returns 401 when unauthenticated", async () => {
+    mockGetAuthContext.mockResolvedValueOnce(null);
+    const r = req("GET", `http://localhost/api/channels?realm=${testRealmId}`);
+    const res = await channelsGET(r as any);
+    expect(res._status).toBe(401);
+  });
+
+  it("returns 400 if realm query param is missing", async () => {
+    const r = req("GET", "http://localhost/api/channels");
+    const res = await channelsGET(r as any);
+    expect(res._status).toBe(400);
+  });
+
+  it("returns 404 if realm does not exist", async () => {
+    const r = req("GET", "http://localhost/api/channels?realm=nonexistent-realm");
+    const res = await channelsGET(r as any);
+    expect(res._status).toBe(404);
+  });
+
+  it("returns 200 with channels array for valid realm", async () => {
+    const channel = ChannelService.createChannel({
+      name: "List API Test",
+      slug: `${S}list-api-test`,
+      realmId: testRealmId,
+      creatorDid: "did:test:admin",
+    });
+
+    try {
+      const r = req("GET", `http://localhost/api/channels?realm=${testRealmId}`);
+      const res = await channelsGET(r as any);
+      expect(res._status).toBe(200);
+
+      const body = await res.json() as { channels: { id: string }[] };
+      expect(Array.isArray(body.channels)).toBe(true);
+      expect(body.channels.some((c) => c.id === channel.id)).toBe(true);
+    } finally {
+      getDb().prepare("DELETE FROM channel_members WHERE channel_id = ?").run(channel.id);
+      getDb().prepare("DELETE FROM channels WHERE id = ?").run(channel.id);
+    }
+  });
+});
+
+// ===========================================================================
+// API: POST /api/channels
+// ===========================================================================
+
+describe("POST /api/channels", () => {
+  it("returns 401 when unauthenticated", async () => {
+    mockGetAuthContext.mockResolvedValueOnce(null);
+    const r = req("POST", "http://localhost/api/channels", { name: "Test", realmId: testRealmId });
+    const res = await channelsPOST(r as any);
+    expect(res._status).toBe(401);
+  });
+
+  it("returns 400 if name is missing", async () => {
+    const r = req("POST", "http://localhost/api/channels", { realmId: testRealmId });
+    const res = await channelsPOST(r as any);
+    expect(res._status).toBe(400);
+  });
+
+  it("returns 403 when creating a global channel without global admin", async () => {
+    mockGetAuthContext.mockResolvedValueOnce(makeMemberContext());
+    const r = req("POST", "http://localhost/api/channels", { name: "Global Chan" });
+    const res = await channelsPOST(r as any);
+    expect(res._status).toBe(403);
+  });
+
+  it("creates a realm-scoped channel and returns 201", async () => {
+    const r = req("POST", "http://localhost/api/channels", {
+      name: "Created Via API",
+      realmId: testRealmId,
+      description: "desc",
+    });
+    const res = await channelsPOST(r as any);
+    expect(res._status).toBe(201);
+
+    const body = await res.json() as { channel: { id: string; name: string; realm_id?: string; realmId?: string } };
+    expect(body.channel.id).toBeTruthy();
+    expect(body.channel.name).toBe("Created Via API");
+    // ChannelDao.create returns raw row (realm_id), so accept either form
+    const returnedRealmId = body.channel.realmId ?? body.channel.realm_id;
+    expect(returnedRealmId).toBe(testRealmId);
+
+    // Cleanup
+    getDb().prepare("DELETE FROM channel_members WHERE channel_id = ?").run(body.channel.id);
+    getDb().prepare("DELETE FROM channels WHERE id = ?").run(body.channel.id);
+  });
+});
+
+// ===========================================================================
+// API: GET /api/channels/[id]
+// ===========================================================================
+
+describe("GET /api/channels/[id]", () => {
+  it("returns 404 for unknown channel id", async () => {
+    const res = await channelDetailGET(
+      req("GET", "http://localhost/api/channels/nope") as any,
+      channelParams("nope"),
+    );
+    expect(res._status).toBe(404);
+  });
+
+  it("returns 200 with channel + members + stats", async () => {
+    const channel = ChannelService.createChannel({
+      name: "Detail Test",
+      slug: `${S}detail-test`,
+      realmId: testRealmId,
+      creatorDid: "did:test:admin",
+    });
+
+    try {
+      const res = await channelDetailGET(
+        req("GET", `http://localhost/api/channels/${channel.id}`) as any,
+        channelParams(channel.id),
+      );
+      expect(res._status).toBe(200);
+
+      const body = await res.json() as {
+        channel: { id: string };
+        members: { memberDid: string }[];
+        stats: { messageCount: number; memberCount: number };
+      };
+      expect(body.channel.id).toBe(channel.id);
+      expect(Array.isArray(body.members)).toBe(true);
+      expect(typeof body.stats.messageCount).toBe("number");
+      expect(typeof body.stats.memberCount).toBe("number");
+    } finally {
+      getDb().prepare("DELETE FROM channel_members WHERE channel_id = ?").run(channel.id);
+      getDb().prepare("DELETE FROM channels WHERE id = ?").run(channel.id);
+    }
+  });
+});
+
+// ===========================================================================
+// API: PATCH /api/channels/[id]
+// ===========================================================================
+
+describe("PATCH /api/channels/[id]", () => {
+  it("returns 403 if requester is not owner or admin", async () => {
+    // Member context, not owner of the channel
+    mockGetAuthContext.mockResolvedValueOnce(makeMemberContext());
+    const channel = ChannelService.createChannel({
+      name: "Patch Forbidden",
+      slug: `${S}patch-forbidden`,
+      realmId: testRealmId,
+      creatorDid: "did:test:someone-else",
+    });
+
+    try {
+      const res = await channelDetailPATCH(
+        req("PATCH", "http://localhost/", { name: "New Name" }) as any,
+        channelParams(channel.id),
+      );
+      expect(res._status).toBe(403);
+    } finally {
+      getDb().prepare("DELETE FROM channel_members WHERE channel_id = ?").run(channel.id);
+      getDb().prepare("DELETE FROM channels WHERE id = ?").run(channel.id);
+    }
+  });
+
+  it("returns 200 and updates name when called by admin", async () => {
+    const channel = ChannelService.createChannel({
+      name: "Old Name",
+      slug: `${S}patch-name`,
+      realmId: testRealmId,
+      creatorDid: "did:test:admin",
+    });
+
+    try {
+      const res = await channelDetailPATCH(
+        req("PATCH", "http://localhost/", { name: "New Name" }) as any,
+        channelParams(channel.id),
+      );
+      expect(res._status).toBe(200);
+
+      const body = await res.json() as { channel: { name: string } };
+      expect(body.channel.name).toBe("New Name");
+    } finally {
+      getDb().prepare("DELETE FROM channel_members WHERE channel_id = ?").run(channel.id);
+      getDb().prepare("DELETE FROM channels WHERE id = ?").run(channel.id);
+    }
+  });
+});
+
+// ===========================================================================
+// API: DELETE /api/channels/[id]
+// ===========================================================================
+
+describe("DELETE /api/channels/[id]", () => {
+  it("returns 403 if requester is not owner or admin", async () => {
+    mockGetAuthContext.mockResolvedValueOnce(makeMemberContext());
+    const channel = ChannelService.createChannel({
+      name: "Delete Forbidden",
+      slug: `${S}delete-forbidden`,
+      realmId: testRealmId,
+      creatorDid: "did:test:someone-else",
+    });
+
+    try {
+      const res = await channelDetailDELETE(
+        req("DELETE", "http://localhost/") as any,
+        channelParams(channel.id),
+      );
+      expect(res._status).toBe(403);
+    } finally {
+      getDb().prepare("DELETE FROM channel_members WHERE channel_id = ?").run(channel.id);
+      getDb().prepare("DELETE FROM channels WHERE id = ?").run(channel.id);
+    }
+  });
+
+  it("returns 200 and archives channel when called by admin", async () => {
+    const channel = ChannelService.createChannel({
+      name: "Archive Me",
+      slug: `${S}archive-me`,
+      realmId: testRealmId,
+      creatorDid: "did:test:admin",
+    });
+
+    const res = await channelDetailDELETE(
+      req("DELETE", "http://localhost/") as any,
+      channelParams(channel.id),
+    );
+    expect(res._status).toBe(200);
+
+    const body = await res.json() as { success: boolean };
+    expect(body.success).toBe(true);
+
+    // Verify archived in DB
+    const updated = ChannelService.getChannel(channel.id);
+    expect(updated?.isArchived).toBe(true);
+
+    // Cleanup
+    getDb().prepare("DELETE FROM channel_members WHERE channel_id = ?").run(channel.id);
+    getDb().prepare("DELETE FROM channels WHERE id = ?").run(channel.id);
+  });
+});
+
+// ===========================================================================
+// API: POST /api/channels/[id]/members
+// ===========================================================================
+
+describe("POST /api/channels/[id]/members", () => {
+  it("returns 400 if memberDid is missing", async () => {
+    const channel = ChannelService.createChannel({
+      name: "Members 400",
+      slug: `${S}members-400`,
+      realmId: testRealmId,
+      creatorDid: "did:test:admin",
+    });
+
+    try {
+      // Admin is owner of this channel, so auth passes
+      const res = await membersPOST(
+        req("POST", "http://localhost/", { memberType: "user" }) as any,
+        channelParams(channel.id),
+      );
+      expect(res._status).toBe(400);
+    } finally {
+      getDb().prepare("DELETE FROM channel_members WHERE channel_id = ?").run(channel.id);
+      getDb().prepare("DELETE FROM channels WHERE id = ?").run(channel.id);
+    }
+  });
+
+  it("returns 409 if member is already in channel", async () => {
+    const channel = ChannelService.createChannel({
+      name: "Members 409",
+      slug: `${S}members-409`,
+      realmId: testRealmId,
+      creatorDid: "did:test:admin",
+    });
+
+    try {
+      // Add the member first
+      ChannelService.addChannelMember({
+        channelId: channel.id,
+        memberDid: "did:test:already-there",
+        memberType: "user",
+      });
+
+      const res = await membersPOST(
+        req("POST", "http://localhost/", {
+          memberDid: "did:test:already-there",
+          memberType: "user",
+        }) as any,
+        channelParams(channel.id),
+      );
+      expect(res._status).toBe(409);
+    } finally {
+      getDb().prepare("DELETE FROM channel_members WHERE channel_id = ?").run(channel.id);
+      getDb().prepare("DELETE FROM channels WHERE id = ?").run(channel.id);
+    }
+  });
+
+  it("returns 201 and adds the member successfully", async () => {
+    const channel = ChannelService.createChannel({
+      name: "Members 201",
+      slug: `${S}members-201`,
+      realmId: testRealmId,
+      creatorDid: "did:test:admin",
+    });
+
+    try {
+      const res = await membersPOST(
+        req("POST", "http://localhost/", {
+          memberDid: "did:test:new-user",
+          memberType: "user",
+        }) as any,
+        channelParams(channel.id),
+      );
+      expect(res._status).toBe(201);
+
+      const body = await res.json() as { member: { memberDid?: string; member_did?: string } };
+      // ChannelMemberDao.addMember returns raw DB row (member_did), accept either form
+      const returnedDid = body.member.memberDid ?? body.member.member_did;
+      expect(returnedDid).toBe("did:test:new-user");
+    } finally {
+      getDb().prepare("DELETE FROM channel_members WHERE channel_id = ?").run(channel.id);
+      getDb().prepare("DELETE FROM channels WHERE id = ?").run(channel.id);
+    }
+  });
+});
+
+// ===========================================================================
+// API: DELETE /api/channels/[id]/members
+// (memberDid is read from the URL path — URL ends with /<memberDid>)
+// ===========================================================================
+
+describe("DELETE /api/channels/[id]/members", () => {
+  it("returns 200 and removes the member", async () => {
+    const channel = ChannelService.createChannel({
+      name: "Remove Via API",
+      slug: `${S}remove-via-api`,
+      realmId: testRealmId,
+      creatorDid: "did:test:admin",
+    });
+
+    try {
+      ChannelService.addChannelMember({
+        channelId: channel.id,
+        memberDid: "did:test:to-remove-api",
+        memberType: "user",
+      });
+
+      expect(ChannelService.isMember(channel.id, "did:test:to-remove-api")).toBe(true);
+
+      // The route reads the DID from url.pathname.split("/").pop()
+      const res = await membersDELETE(
+        req(
+          "DELETE",
+          `http://localhost/api/channels/${channel.id}/members/did:test:to-remove-api`,
+        ) as any,
+        channelParams(channel.id),
+      );
+      expect(res._status).toBe(200);
+
+      expect(ChannelService.isMember(channel.id, "did:test:to-remove-api")).toBe(false);
+    } finally {
+      getDb().prepare("DELETE FROM channel_members WHERE channel_id = ?").run(channel.id);
+      getDb().prepare("DELETE FROM channels WHERE id = ?").run(channel.id);
+    }
+  });
+});
+
+// ===========================================================================
+// API: GET /api/channels/[id]/messages
+// ===========================================================================
+
+describe("GET /api/channels/[id]/messages", () => {
+  it("returns 200 with messages array for a channel member", async () => {
+    // Auth context with did:test:admin who is a member (owner)
+    const channel = ChannelService.createChannel({
+      name: "Msgs List",
+      slug: `${S}msgs-list`,
+      realmId: testRealmId,
+      creatorDid: "did:test:admin",
+    });
+
+    try {
+      ChannelService.postMessage({
+        channelId: channel.id,
+        authorDid: "did:test:admin",
+        authorType: "user",
+        content: "First message",
+      });
+
+      const res = await messagesGET(
+        req("GET", `http://localhost/api/channels/${channel.id}/messages`) as any,
+        messageParams(channel.id),
+      );
+      expect(res._status).toBe(200);
+
+      const body = await res.json() as { messages: { content: string }[] };
+      expect(Array.isArray(body.messages)).toBe(true);
+      expect(body.messages.some((m) => m.content === "First message")).toBe(true);
+    } finally {
+      getDb().prepare("DELETE FROM channel_messages WHERE channel_id = ?").run(channel.id);
+      getDb().prepare("DELETE FROM channel_members WHERE channel_id = ?").run(channel.id);
+      getDb().prepare("DELETE FROM channels WHERE id = ?").run(channel.id);
+    }
+  });
+
+  it("returns 403 if requester is not a channel member", async () => {
+    mockGetAuthContext.mockResolvedValueOnce(makeMemberContext()); // did:test:member, not a member of the channel
+    const channel = ChannelService.createChannel({
+      name: "Msgs Forbidden",
+      slug: `${S}msgs-forbidden`,
+      realmId: testRealmId,
+      creatorDid: "did:test:someone-else",
+    });
+
+    try {
+      const res = await messagesGET(
+        req("GET", `http://localhost/api/channels/${channel.id}/messages`) as any,
+        messageParams(channel.id),
+      );
+      expect(res._status).toBe(403);
+    } finally {
+      getDb().prepare("DELETE FROM channel_members WHERE channel_id = ?").run(channel.id);
+      getDb().prepare("DELETE FROM channels WHERE id = ?").run(channel.id);
+    }
+  });
+});
+
+// ===========================================================================
+// API: POST /api/channels/[id]/messages
+// ===========================================================================
+
+describe("POST /api/channels/[id]/messages", () => {
+  it("returns 400 if content is empty", async () => {
+    const channel = ChannelService.createChannel({
+      name: "Post Msg 400",
+      slug: `${S}post-msg-400`,
+      realmId: testRealmId,
+      creatorDid: "did:test:admin",
+    });
+
+    try {
+      const res = await messagesPOST(
+        req("POST", "http://localhost/", { content: "   " }) as any,
+        messageParams(channel.id),
+      );
+      expect(res._status).toBe(400);
+    } finally {
+      getDb().prepare("DELETE FROM channel_members WHERE channel_id = ?").run(channel.id);
+      getDb().prepare("DELETE FROM channels WHERE id = ?").run(channel.id);
+    }
+  });
+
+  it("returns 201 and creates a message for a channel member", async () => {
+    const channel = ChannelService.createChannel({
+      name: "Post Msg 201",
+      slug: `${S}post-msg-201`,
+      realmId: testRealmId,
+      creatorDid: "did:test:admin",
+    });
+
+    try {
+      const res = await messagesPOST(
+        req("POST", "http://localhost/", { content: "Hello from API!" }) as any,
+        messageParams(channel.id),
+      );
+      expect(res._status).toBe(201);
+
+      const body = await res.json() as { message: { content: string; authorType: string } };
+      expect(body.message.content).toBe("Hello from API!");
+      expect(body.message.authorType).toBe("user");
+    } finally {
+      getDb().prepare("DELETE FROM channel_messages WHERE channel_id = ?").run(channel.id);
+      getDb().prepare("DELETE FROM channel_members WHERE channel_id = ?").run(channel.id);
+      getDb().prepare("DELETE FROM channels WHERE id = ?").run(channel.id);
+    }
+  });
+});
+
+// ===========================================================================
+// API: POST /api/channels/[id]/messages/agent-response
+// ===========================================================================
+
+describe("POST /api/channels/[id]/messages/agent-response", () => {
+  it("returns 403 if agent is not a channel member", async () => {
+    // Use agent DID that is not a member
+    mockGetAuthContext.mockResolvedValueOnce({
+      did: "did:test:unknown-agent",
+      isGlobalAdmin: false,
+      canAccessRealm: () => true,
+      canAdminRealm: () => false,
+    });
+
+    const channel = ChannelService.createChannel({
+      name: "Agent Resp 403",
+      slug: `${S}agent-resp-403`,
+      realmId: testRealmId,
+      creatorDid: "did:test:admin",
+    });
+
+    try {
+      const res = await agentResponsePOST(
+        req("POST", "http://localhost/", { content: "Agent reply" }) as any,
+        channelParams(channel.id),
+      );
+      expect(res._status).toBe(403);
+    } finally {
+      getDb().prepare("DELETE FROM channel_members WHERE channel_id = ?").run(channel.id);
+      getDb().prepare("DELETE FROM channels WHERE id = ?").run(channel.id);
+    }
+  });
+
+  it("returns 201 and posts agent message when agent is a member", async () => {
+    const channel = ChannelService.createChannel({
+      name: "Agent Resp 201",
+      slug: `${S}agent-resp-201`,
+      realmId: testRealmId,
+      creatorDid: "did:test:admin",
+    });
+
+    try {
+      // Add the agent as a member
+      ChannelService.addChannelMember({
+        channelId: channel.id,
+        memberDid: testAgentDid,
+        memberType: "agent",
+      });
+
+      // Auth as agent
+      mockGetAuthContext.mockResolvedValueOnce({
+        did: testAgentDid,
+        isGlobalAdmin: false,
+        canAccessRealm: () => true,
+        canAdminRealm: () => false,
+      });
+
+      const res = await agentResponsePOST(
+        req("POST", "http://localhost/", { content: "Agent response here" }) as any,
+        channelParams(channel.id),
+      );
+      expect(res._status).toBe(201);
+
+      const body = await res.json() as { message: { content: string; authorType: string } };
+      expect(body.message.content).toBe("Agent response here");
+      expect(body.message.authorType).toBe("agent");
+    } finally {
+      getDb().prepare("DELETE FROM channel_messages WHERE channel_id = ?").run(channel.id);
+      getDb().prepare("DELETE FROM channel_members WHERE channel_id = ?").run(channel.id);
+      getDb().prepare("DELETE FROM channels WHERE id = ?").run(channel.id);
+    }
+  });
+});
+
+// ===========================================================================
+// API: GET /api/agents/search
+// ===========================================================================
+
+describe("GET /api/agents/search", () => {
+  it("returns 401 when unauthenticated", async () => {
+    mockGetAuthContext.mockResolvedValueOnce(null);
+    const r = req("GET", "http://localhost/api/agents/search?q=test");
+    const res = await agentSearchGET(r as any);
+    expect(res._status).toBe(401);
+  });
+
+  it("returns 200 with matching agents filtered by name", async () => {
+    // testAgentName is already in DB from beforeAll
+    const r = req("GET", `http://localhost/api/agents/search?q=${encodeURIComponent(testAgentName)}`);
+    const res = await agentSearchGET(r as any);
+    expect(res._status).toBe(200);
+
+    const body = await res.json() as { agents: { did: string; name: string }[] };
+    expect(Array.isArray(body.agents)).toBe(true);
+    expect(body.agents.some((a) => a.did === testAgentDid)).toBe(true);
+  });
+
+  it("returns 200 with empty array for unknown query", async () => {
+    const r = req("GET", "http://localhost/api/agents/search?q=zzz-nonexistent-zzz");
+    const res = await agentSearchGET(r as any);
+    expect(res._status).toBe(200);
+
+    const body = await res.json() as { agents: unknown[] };
+    expect(Array.isArray(body.agents)).toBe(true);
+    expect(body.agents).toHaveLength(0);
+  });
+});
+
+// ===========================================================================
+// API: GET /api/me/realms
+// ===========================================================================
+
+describe("GET /api/me/realms", () => {
+  it("returns 401 when unauthenticated", async () => {
+    mockGetAuthContext.mockResolvedValueOnce(null);
+    const r = req("GET", "http://localhost/api/me/realms");
+    const res = await meRealmsGET(r as any);
+    expect(res._status).toBe(401);
+  });
+
+  it("returns 200 with realms for the authenticated user", async () => {
+    // did:test:admin → UserDao.getByDid returns { id: 'user-uuid-123' }
+    // user-uuid-123 is enrolled in testRealmId in beforeAll
+    const r = req("GET", "http://localhost/api/me/realms");
+    const res = await meRealmsGET(r as any);
+    expect(res._status).toBe(200);
+
+    const body = await res.json() as { realms: { id: string }[] };
+    expect(Array.isArray(body.realms)).toBe(true);
+    expect(body.realms.some((r) => r.id === testRealmId)).toBe(true);
+  });
+});
+
+// ===========================================================================
+// UNIT: WebhookGateway
+// ===========================================================================
+
+describe("WebhookGateway: verifySignature", () => {
+  const secret = "test-secret-abc";
+  const body = JSON.stringify({ message: "hello" });
+  const validSig = makeWebhookSignature(body, secret);
+
+  it("returns true for a correct HMAC-SHA256 signature", () => {
+    expect(WebhookGateway.verifySignature(body, secret, validSig)).toBe(true);
+  });
+
+  it("returns false for a wrong signature", () => {
+    expect(WebhookGateway.verifySignature(body, secret, "sha256=deadbeef")).toBe(false);
+  });
+
+  it("returns false when signatureHeader is null", () => {
+    expect(WebhookGateway.verifySignature(body, secret, null)).toBe(false);
+  });
+
+  it("returns false when signature lacks sha256= prefix", () => {
+    const raw = createHmac("sha256", secret).update(body).digest("hex");
+    expect(WebhookGateway.verifySignature(body, secret, raw)).toBe(false);
+  });
+
+  it("returns false for a valid signature computed with a different secret", () => {
+    const wrongSig = makeWebhookSignature(body, "wrong-secret");
+    expect(WebhookGateway.verifySignature(body, secret, wrongSig)).toBe(false);
+  });
+});
+
+describe("WebhookGateway: sendOutgoing", () => {
+  it("returns true when the external URL responds 2xx", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(null, { status: 200 }),
+    );
+
+    const result = await WebhookGateway.sendOutgoing(
+      { webhookUrl: "", outgoingUrl: "https://example.com/hook", secret: "s" },
+      {
+        channelId: "ch-1",
+        messageId: "msg-1",
+        authorDid: "did:test:user",
+        authorType: "user",
+        content: "hello",
+        threadId: null,
+        createdAt: new Date().toISOString(),
+      },
+    );
+
+    expect(result).toBe(true);
+    expect(fetchSpy).toHaveBeenCalledOnce();
+    const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("https://example.com/hook");
+    expect((init.headers as Record<string, string>)["X-Signature"]).toMatch(/^sha256=/);
+    fetchSpy.mockRestore();
+  });
+
+  it("returns false when the external URL responds 5xx", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(null, { status: 503 }),
+    );
+
+    const result = await WebhookGateway.sendOutgoing(
+      { webhookUrl: "", outgoingUrl: "https://example.com/hook", secret: "s" },
+      { channelId: "c", messageId: "m", authorDid: "d", authorType: "user", content: "x", threadId: null, createdAt: "" },
+    );
+
+    expect(result).toBe(false);
+    fetchSpy.mockRestore();
+  });
+
+  it("returns false on network error", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockRejectedValueOnce(
+      new Error("ECONNREFUSED"),
+    );
+
+    const result = await WebhookGateway.sendOutgoing(
+      { webhookUrl: "", outgoingUrl: "https://example.com/hook", secret: "s" },
+      { channelId: "c", messageId: "m", authorDid: "d", authorType: "user", content: "x", threadId: null, createdAt: "" },
+    );
+
+    expect(result).toBe(false);
+    fetchSpy.mockRestore();
+  });
+});
+
+// ===========================================================================
+// UNIT: BridgeFactory.fanOutMessage
+// ===========================================================================
+
+describe("BridgeFactory: fanOutMessage", () => {
+  it("calls WebhookGateway.sendOutgoing for an active outgoing webhook bridge", async () => {
+    const channel = ChannelService.createChannel({
+      name: "Fan-out Test",
+      slug: `${S}fan-out-test`,
+      realmId: testRealmId,
+      creatorDid: "did:test:admin",
+    });
+
+    try {
+      ChannelBridgeService.createBridge({
+        channelId: channel.id,
+        externalService: "webhook",
+        externalChannelId: "ext-ch-1",
+        externalChannelName: "My Webhook",
+        externalWorkspaceId: "ws-1",
+        syncDirection: "bidirectional",
+        config: { webhookUrl: "", outgoingUrl: "https://example.com/out", secret: "fan-secret" },
+      });
+
+      const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+        new Response(null, { status: 200 }),
+      );
+
+      await BridgeFactory.fanOutMessage(channel.id, {
+        id: "msg-fan-1",
+        authorDid: "did:test:admin",
+        authorType: "user",
+        content: "Test fan-out",
+        threadId: null,
+        createdAt: new Date().toISOString(),
+      });
+
+      expect(fetchSpy).toHaveBeenCalledOnce();
+      expect(fetchSpy.mock.calls[0][0]).toBe("https://example.com/out");
+      fetchSpy.mockRestore();
+    } finally {
+      getDb().prepare("DELETE FROM channel_bridges WHERE channel_id = ?").run(channel.id);
+      getDb().prepare("DELETE FROM channel_members WHERE channel_id = ?").run(channel.id);
+      getDb().prepare("DELETE FROM channels WHERE id = ?").run(channel.id);
+    }
+  });
+
+  it("skips disabled bridges", async () => {
+    const channel = ChannelService.createChannel({
+      name: "Skip Disabled",
+      slug: `${S}skip-disabled`,
+      realmId: testRealmId,
+      creatorDid: "did:test:admin",
+    });
+
+    try {
+      const bridge = ChannelBridgeService.createBridge({
+        channelId: channel.id,
+        externalService: "webhook",
+        externalChannelId: "ext-ch-2",
+        externalChannelName: "Disabled Hook",
+        externalWorkspaceId: "ws-2",
+        syncDirection: "bidirectional",
+        config: { webhookUrl: "", outgoingUrl: "https://example.com/out2", secret: "s" },
+      });
+
+      // Disable it
+      ChannelBridgeService.toggleBridgeSync(bridge.id, false);
+
+      const fetchSpy = vi.spyOn(globalThis, "fetch");
+
+      await BridgeFactory.fanOutMessage(channel.id, {
+        id: "msg-2",
+        authorDid: "did:test:admin",
+        authorType: "user",
+        content: "Should not fan out",
+        threadId: null,
+        createdAt: new Date().toISOString(),
+      });
+
+      expect(fetchSpy).not.toHaveBeenCalled();
+      fetchSpy.mockRestore();
+    } finally {
+      getDb().prepare("DELETE FROM channel_bridges WHERE channel_id = ?").run(channel.id);
+      getDb().prepare("DELETE FROM channel_members WHERE channel_id = ?").run(channel.id);
+      getDb().prepare("DELETE FROM channels WHERE id = ?").run(channel.id);
+    }
+  });
+
+  it("skips incoming-only bridges", async () => {
+    const channel = ChannelService.createChannel({
+      name: "Skip Incoming",
+      slug: `${S}skip-incoming`,
+      realmId: testRealmId,
+      creatorDid: "did:test:admin",
+    });
+
+    try {
+      ChannelBridgeService.createBridge({
+        channelId: channel.id,
+        externalService: "webhook",
+        externalChannelId: "ext-ch-3",
+        externalChannelName: "Incoming Only",
+        externalWorkspaceId: "ws-3",
+        syncDirection: "incoming",
+        config: { webhookUrl: "", outgoingUrl: "https://example.com/out3", secret: "s" },
+      });
+
+      const fetchSpy = vi.spyOn(globalThis, "fetch");
+
+      await BridgeFactory.fanOutMessage(channel.id, {
+        id: "msg-3",
+        authorDid: "did:test:admin",
+        authorType: "user",
+        content: "Incoming only — no fan-out",
+        threadId: null,
+        createdAt: new Date().toISOString(),
+      });
+
+      expect(fetchSpy).not.toHaveBeenCalled();
+      fetchSpy.mockRestore();
+    } finally {
+      getDb().prepare("DELETE FROM channel_bridges WHERE channel_id = ?").run(channel.id);
+      getDb().prepare("DELETE FROM channel_members WHERE channel_id = ?").run(channel.id);
+      getDb().prepare("DELETE FROM channels WHERE id = ?").run(channel.id);
+    }
+  });
+});
+
+// ===========================================================================
+// SERVICE: ChannelBridgeService
+// ===========================================================================
+
+describe("ChannelBridgeService: createBridge / listBridges / deleteBridge", () => {
+  it("creates a webhook bridge and returns it via listBridges", () => {
+    const channel = ChannelService.createChannel({
+      name: "Bridge CRUD",
+      slug: `${S}bridge-crud`,
+      realmId: testRealmId,
+      creatorDid: "did:test:admin",
+    });
+
+    try {
+      const bridge = ChannelBridgeService.createBridge({
+        channelId: channel.id,
+        externalService: "webhook",
+        externalChannelId: "ext-list-1",
+        externalChannelName: "List Test",
+        externalWorkspaceId: "ws-list",
+        config: { webhookUrl: "https://in.example.com", outgoingUrl: "https://out.example.com", secret: "s" },
+      });
+
+      expect(bridge.id).toBeTruthy();
+      expect(bridge.externalService).toBe("webhook");
+
+      const list = ChannelBridgeService.listBridges(channel.id);
+      expect(list.some((b) => b.id === bridge.id)).toBe(true);
+
+      // Delete and verify it's gone
+      ChannelBridgeService.deleteBridge(bridge.id);
+      const afterDelete = ChannelBridgeService.listBridges(channel.id);
+      expect(afterDelete.some((b) => b.id === bridge.id)).toBe(false);
+    } finally {
+      getDb().prepare("DELETE FROM channel_bridges WHERE channel_id = ?").run(channel.id);
+      getDb().prepare("DELETE FROM channel_members WHERE channel_id = ?").run(channel.id);
+      getDb().prepare("DELETE FROM channels WHERE id = ?").run(channel.id);
+    }
+  });
+
+  it("throws when creating a duplicate bridge for the same channel+service+externalChannelId", () => {
+    const channel = ChannelService.createChannel({
+      name: "Bridge Dup",
+      slug: `${S}bridge-dup`,
+      realmId: testRealmId,
+      creatorDid: "did:test:admin",
+    });
+
+    try {
+      const config = { webhookUrl: "", outgoingUrl: "https://out.example.com", secret: "s" };
+      ChannelBridgeService.createBridge({
+        channelId: channel.id,
+        externalService: "webhook",
+        externalChannelId: "ext-dup",
+        externalChannelName: "Dup",
+        externalWorkspaceId: "ws-dup",
+        config,
+      });
+
+      expect(() =>
+        ChannelBridgeService.createBridge({
+          channelId: channel.id,
+          externalService: "webhook",
+          externalChannelId: "ext-dup",
+          externalChannelName: "Dup Again",
+          externalWorkspaceId: "ws-dup",
+          config,
+        }),
+      ).toThrow(/already exists/i);
+    } finally {
+      getDb().prepare("DELETE FROM channel_bridges WHERE channel_id = ?").run(channel.id);
+      getDb().prepare("DELETE FROM channel_members WHERE channel_id = ?").run(channel.id);
+      getDb().prepare("DELETE FROM channels WHERE id = ?").run(channel.id);
+    }
+  });
+
+  it("toggleBridgeSync enables and disables a bridge", () => {
+    const channel = ChannelService.createChannel({
+      name: "Bridge Toggle",
+      slug: `${S}bridge-toggle`,
+      realmId: testRealmId,
+      creatorDid: "did:test:admin",
+    });
+
+    try {
+      const bridge = ChannelBridgeService.createBridge({
+        channelId: channel.id,
+        externalService: "webhook",
+        externalChannelId: "ext-toggle",
+        externalChannelName: "Toggle",
+        externalWorkspaceId: "ws-toggle",
+        config: { webhookUrl: "", outgoingUrl: "https://out.example.com", secret: "s" },
+      });
+
+      expect(bridge.isSyncEnabled).toBe(true);
+
+      const disabled = ChannelBridgeService.toggleBridgeSync(bridge.id, false);
+      expect(disabled.isSyncEnabled).toBe(false);
+
+      const enabled = ChannelBridgeService.toggleBridgeSync(bridge.id, true);
+      expect(enabled.isSyncEnabled).toBe(true);
+    } finally {
+      getDb().prepare("DELETE FROM channel_bridges WHERE channel_id = ?").run(channel.id);
+      getDb().prepare("DELETE FROM channel_members WHERE channel_id = ?").run(channel.id);
+      getDb().prepare("DELETE FROM channels WHERE id = ?").run(channel.id);
+    }
+  });
+});
+
+// ===========================================================================
+// API: GET /api/channels/[id]/bridges
+// ===========================================================================
+
+describe("GET /api/channels/[id]/bridges", () => {
+  it("returns 401 when unauthenticated", async () => {
+    mockGetAuthContext.mockResolvedValueOnce(null);
+    const res = await bridgesGET(
+      req("GET", "http://localhost/") as any,
+      channelParams("any-id"),
+    );
+    expect(res._status).toBe(401);
+  });
+
+  it("returns 404 for an unknown channel", async () => {
+    const res = await bridgesGET(
+      req("GET", "http://localhost/") as any,
+      channelParams("does-not-exist"),
+    );
+    expect(res._status).toBe(404);
+  });
+
+  it("returns 200 with bridges array (configJson stripped)", async () => {
+    const channel = ChannelService.createChannel({
+      name: "Bridges GET",
+      slug: `${S}bridges-get`,
+      realmId: testRealmId,
+      creatorDid: "did:test:admin",
+    });
+
+    try {
+      ChannelBridgeService.createBridge({
+        channelId: channel.id,
+        externalService: "webhook",
+        externalChannelId: "ext-get-1",
+        externalChannelName: "Get Test",
+        externalWorkspaceId: "ws-get",
+        config: { webhookUrl: "", outgoingUrl: "https://out.example.com", secret: "topsecret" },
+      });
+
+      const res = await bridgesGET(
+        req("GET", "http://localhost/") as any,
+        channelParams(channel.id),
+      );
+      expect(res._status).toBe(200);
+
+      const body = await res.json() as { bridges: Record<string, unknown>[] };
+      expect(Array.isArray(body.bridges)).toBe(true);
+      expect(body.bridges.length).toBeGreaterThan(0);
+      // configJson must never be exposed
+      expect(body.bridges[0]).not.toHaveProperty("configJson");
+    } finally {
+      getDb().prepare("DELETE FROM channel_bridges WHERE channel_id = ?").run(channel.id);
+      getDb().prepare("DELETE FROM channel_members WHERE channel_id = ?").run(channel.id);
+      getDb().prepare("DELETE FROM channels WHERE id = ?").run(channel.id);
+    }
+  });
+});
+
+// ===========================================================================
+// API: POST /api/channels/[id]/bridges
+// ===========================================================================
+
+describe("POST /api/channels/[id]/bridges", () => {
+  it("returns 401 when unauthenticated", async () => {
+    mockGetAuthContext.mockResolvedValueOnce(null);
+    const res = await bridgesPOST(
+      req("POST", "http://localhost/", {}) as any,
+      channelParams("any-id"),
+    );
+    expect(res._status).toBe(401);
+  });
+
+  it("returns 400 if externalService is missing", async () => {
+    const channel = ChannelService.createChannel({
+      name: "Bridge POST 400a",
+      slug: `${S}bridge-post-400a`,
+      realmId: testRealmId,
+      creatorDid: "did:test:admin",
+    });
+
+    try {
+      const res = await bridgesPOST(
+        req("POST", "http://localhost/", {
+          externalChannelId: "c",
+          externalChannelName: "n",
+          externalWorkspaceId: "w",
+          config: { webhookUrl: "", outgoingUrl: "https://x.com", secret: "s" },
+        }) as any,
+        channelParams(channel.id),
+      );
+      expect(res._status).toBe(400);
+    } finally {
+      getDb().prepare("DELETE FROM channel_members WHERE channel_id = ?").run(channel.id);
+      getDb().prepare("DELETE FROM channels WHERE id = ?").run(channel.id);
+    }
+  });
+
+  it("returns 400 if config is missing", async () => {
+    const channel = ChannelService.createChannel({
+      name: "Bridge POST 400b",
+      slug: `${S}bridge-post-400b`,
+      realmId: testRealmId,
+      creatorDid: "did:test:admin",
+    });
+
+    try {
+      const res = await bridgesPOST(
+        req("POST", "http://localhost/", {
+          externalService: "webhook",
+          externalChannelId: "c",
+          externalChannelName: "n",
+          externalWorkspaceId: "w",
+          // no config
+        }) as any,
+        channelParams(channel.id),
+      );
+      expect(res._status).toBe(400);
+    } finally {
+      getDb().prepare("DELETE FROM channel_members WHERE channel_id = ?").run(channel.id);
+      getDb().prepare("DELETE FROM channels WHERE id = ?").run(channel.id);
+    }
+  });
+
+  it("returns 201 and creates a webhook bridge (configJson stripped)", async () => {
+    const channel = ChannelService.createChannel({
+      name: "Bridge POST 201",
+      slug: `${S}bridge-post-201`,
+      realmId: testRealmId,
+      creatorDid: "did:test:admin",
+    });
+
+    try {
+      const res = await bridgesPOST(
+        req("POST", "http://localhost/", {
+          externalService: "webhook",
+          externalChannelId: "ext-post-201",
+          externalChannelName: "Created Bridge",
+          externalWorkspaceId: "ws-post-201",
+          syncDirection: "outgoing",
+          config: { webhookUrl: "", outgoingUrl: "https://out.example.com", secret: "mysecret" },
+        }) as any,
+        channelParams(channel.id),
+      );
+      expect(res._status).toBe(201);
+
+      const body = await res.json() as { bridge: Record<string, unknown> };
+      expect(body.bridge.id).toBeTruthy();
+      expect(body.bridge.externalService).toBe("webhook");
+      expect(body.bridge.syncDirection).toBe("outgoing");
+      expect(body.bridge).not.toHaveProperty("configJson");
+    } finally {
+      getDb().prepare("DELETE FROM channel_bridges WHERE channel_id = ?").run(channel.id);
+      getDb().prepare("DELETE FROM channel_members WHERE channel_id = ?").run(channel.id);
+      getDb().prepare("DELETE FROM channels WHERE id = ?").run(channel.id);
+    }
+  });
+
+  it("returns 409 when creating a duplicate bridge", async () => {
+    const channel = ChannelService.createChannel({
+      name: "Bridge POST 409",
+      slug: `${S}bridge-post-409`,
+      realmId: testRealmId,
+      creatorDid: "did:test:admin",
+    });
+
+    try {
+      const payload = {
+        externalService: "webhook",
+        externalChannelId: "ext-dup-api",
+        externalChannelName: "Dup",
+        externalWorkspaceId: "ws-dup-api",
+        config: { webhookUrl: "", outgoingUrl: "https://out.example.com", secret: "s" },
+      };
+
+      const first = await bridgesPOST(req("POST", "http://localhost/", payload) as any, channelParams(channel.id));
+      expect(first._status).toBe(201);
+
+      const second = await bridgesPOST(req("POST", "http://localhost/", payload) as any, channelParams(channel.id));
+      expect(second._status).toBe(409);
+    } finally {
+      getDb().prepare("DELETE FROM channel_bridges WHERE channel_id = ?").run(channel.id);
+      getDb().prepare("DELETE FROM channel_members WHERE channel_id = ?").run(channel.id);
+      getDb().prepare("DELETE FROM channels WHERE id = ?").run(channel.id);
+    }
+  });
+});
+
+// ===========================================================================
+// API: PATCH /api/channels/[id]/bridges/[bridgeId]
+// ===========================================================================
+
+describe("PATCH /api/channels/[id]/bridges/[bridgeId]", () => {
+  it("returns 401 when unauthenticated", async () => {
+    mockGetAuthContext.mockResolvedValueOnce(null);
+    const res = await bridgePATCH(
+      req("PATCH", "http://localhost/", {}) as any,
+      bridgeParams("ch", "br"),
+    );
+    expect(res._status).toBe(401);
+  });
+
+  it("returns 404 for a non-existent bridge", async () => {
+    const res = await bridgePATCH(
+      req("PATCH", "http://localhost/", { isSyncEnabled: false }) as any,
+      bridgeParams("ch", "non-existent-bridge-id"),
+    );
+    expect(res._status).toBe(404);
+  });
+
+  it("toggles isSyncEnabled and returns 200", async () => {
+    const channel = ChannelService.createChannel({
+      name: "Bridge PATCH",
+      slug: `${S}bridge-patch`,
+      realmId: testRealmId,
+      creatorDid: "did:test:admin",
+    });
+
+    try {
+      const bridge = ChannelBridgeService.createBridge({
+        channelId: channel.id,
+        externalService: "webhook",
+        externalChannelId: "ext-patch",
+        externalChannelName: "Patch",
+        externalWorkspaceId: "ws-patch",
+        config: { webhookUrl: "", outgoingUrl: "https://out.example.com", secret: "s" },
+      });
+
+      const res = await bridgePATCH(
+        req("PATCH", "http://localhost/", { isSyncEnabled: false }) as any,
+        bridgeParams(channel.id, bridge.id),
+      );
+      expect(res._status).toBe(200);
+
+      const body = await res.json() as { bridge: { isSyncEnabled: boolean } };
+      expect(body.bridge.isSyncEnabled).toBe(false);
+      expect(body.bridge).not.toHaveProperty("configJson");
+    } finally {
+      getDb().prepare("DELETE FROM channel_bridges WHERE channel_id = ?").run(channel.id);
+      getDb().prepare("DELETE FROM channel_members WHERE channel_id = ?").run(channel.id);
+      getDb().prepare("DELETE FROM channels WHERE id = ?").run(channel.id);
+    }
+  });
+
+  it("updates syncDirection and returns 200", async () => {
+    const channel = ChannelService.createChannel({
+      name: "Bridge PATCH Dir",
+      slug: `${S}bridge-patch-dir`,
+      realmId: testRealmId,
+      creatorDid: "did:test:admin",
+    });
+
+    try {
+      const bridge = ChannelBridgeService.createBridge({
+        channelId: channel.id,
+        externalService: "webhook",
+        externalChannelId: "ext-patch-dir",
+        externalChannelName: "Dir",
+        externalWorkspaceId: "ws-dir",
+        syncDirection: "bidirectional",
+        config: { webhookUrl: "", outgoingUrl: "https://out.example.com", secret: "s" },
+      });
+
+      const res = await bridgePATCH(
+        req("PATCH", "http://localhost/", { syncDirection: "outgoing" }) as any,
+        bridgeParams(channel.id, bridge.id),
+      );
+      expect(res._status).toBe(200);
+
+      const body = await res.json() as { bridge: { syncDirection: string } };
+      expect(body.bridge.syncDirection).toBe("outgoing");
+    } finally {
+      getDb().prepare("DELETE FROM channel_bridges WHERE channel_id = ?").run(channel.id);
+      getDb().prepare("DELETE FROM channel_members WHERE channel_id = ?").run(channel.id);
+      getDb().prepare("DELETE FROM channels WHERE id = ?").run(channel.id);
+    }
+  });
+});
+
+// ===========================================================================
+// API: DELETE /api/channels/[id]/bridges/[bridgeId]
+// ===========================================================================
+
+describe("DELETE /api/channels/[id]/bridges/[bridgeId]", () => {
+  it("returns 401 when unauthenticated", async () => {
+    mockGetAuthContext.mockResolvedValueOnce(null);
+    const res = await bridgeDELETE(
+      req("DELETE", "http://localhost/") as any,
+      bridgeParams("ch", "br"),
+    );
+    expect(res._status).toBe(401);
+  });
+
+  it("returns 404 for a non-existent bridge", async () => {
+    const res = await bridgeDELETE(
+      req("DELETE", "http://localhost/") as any,
+      bridgeParams("ch", "non-existent-bridge-id"),
+    );
+    expect(res._status).toBe(404);
+  });
+
+  it("returns 200 and removes the bridge", async () => {
+    const channel = ChannelService.createChannel({
+      name: "Bridge DELETE",
+      slug: `${S}bridge-delete`,
+      realmId: testRealmId,
+      creatorDid: "did:test:admin",
+    });
+
+    try {
+      const bridge = ChannelBridgeService.createBridge({
+        channelId: channel.id,
+        externalService: "webhook",
+        externalChannelId: "ext-del",
+        externalChannelName: "Del",
+        externalWorkspaceId: "ws-del",
+        config: { webhookUrl: "", outgoingUrl: "https://out.example.com", secret: "s" },
+      });
+
+      const res = await bridgeDELETE(
+        req("DELETE", "http://localhost/") as any,
+        bridgeParams(channel.id, bridge.id),
+      );
+      expect(res._status).toBe(200);
+
+      const body = await res.json() as { success: boolean };
+      expect(body.success).toBe(true);
+
+      expect(ChannelBridgeService.getBridge(bridge.id)).toBeNull();
+    } finally {
+      getDb().prepare("DELETE FROM channel_bridges WHERE channel_id = ?").run(channel.id);
+      getDb().prepare("DELETE FROM channel_members WHERE channel_id = ?").run(channel.id);
+      getDb().prepare("DELETE FROM channels WHERE id = ?").run(channel.id);
+    }
+  });
+});
+
+// ===========================================================================
+// API: POST /api/bridges/webhook/[bridgeId]/incoming
+// ===========================================================================
+
+describe("POST /api/bridges/webhook/[bridgeId]/incoming", () => {
+  const secret = "webhook-test-secret";
+
+  it("returns 404 for an unknown bridgeId", async () => {
+    const body = JSON.stringify({ message: "hi" });
+    const sig = makeWebhookSignature(body, secret);
+    const res = await webhookIncomingPOST(
+      webhookReq("http://localhost/api/bridges/webhook/unknown-bridge/incoming", body, sig),
+      webhookIncomingParams("unknown-bridge"),
+    );
+    expect(res._status).toBe(404);
+  });
+
+  it("returns 401 when HMAC signature is invalid", async () => {
+    const channel = ChannelService.createChannel({
+      name: "Webhook Sig Fail",
+      slug: `${S}webhook-sig-fail`,
+      realmId: testRealmId,
+      creatorDid: "did:test:admin",
+    });
+
+    try {
+      const bridge = ChannelBridgeService.createBridge({
+        channelId: channel.id,
+        externalService: "webhook",
+        externalChannelId: "ext-sig-fail",
+        externalChannelName: "Sig Fail",
+        externalWorkspaceId: "ws-sig",
+        syncDirection: "incoming",
+        config: { webhookUrl: "", outgoingUrl: "https://out.example.com", secret },
+      });
+
+      const body = JSON.stringify({ message: "hello" });
+      const res = await webhookIncomingPOST(
+        webhookReq(`http://localhost/api/bridges/webhook/${bridge.id}/incoming`, body, "sha256=wrong"),
+        webhookIncomingParams(bridge.id),
+      );
+      expect(res._status).toBe(401);
+    } finally {
+      getDb().prepare("DELETE FROM channel_bridges WHERE channel_id = ?").run(channel.id);
+      getDb().prepare("DELETE FROM channel_members WHERE channel_id = ?").run(channel.id);
+      getDb().prepare("DELETE FROM channels WHERE id = ?").run(channel.id);
+    }
+  });
+
+  it("returns 403 when bridge sync direction is outgoing-only", async () => {
+    const channel = ChannelService.createChannel({
+      name: "Webhook Outgoing Only",
+      slug: `${S}webhook-out-only`,
+      realmId: testRealmId,
+      creatorDid: "did:test:admin",
+    });
+
+    try {
+      const bridge = ChannelBridgeService.createBridge({
+        channelId: channel.id,
+        externalService: "webhook",
+        externalChannelId: "ext-out-only",
+        externalChannelName: "Out Only",
+        externalWorkspaceId: "ws-out",
+        syncDirection: "outgoing",
+        config: { webhookUrl: "", outgoingUrl: "https://out.example.com", secret },
+      });
+
+      const body = JSON.stringify({ message: "hello" });
+      const sig = makeWebhookSignature(body, secret);
+      const res = await webhookIncomingPOST(
+        webhookReq(`http://localhost/api/bridges/webhook/${bridge.id}/incoming`, body, sig),
+        webhookIncomingParams(bridge.id),
+      );
+      expect(res._status).toBe(403);
+    } finally {
+      getDb().prepare("DELETE FROM channel_bridges WHERE channel_id = ?").run(channel.id);
+      getDb().prepare("DELETE FROM channel_members WHERE channel_id = ?").run(channel.id);
+      getDb().prepare("DELETE FROM channels WHERE id = ?").run(channel.id);
+    }
+  });
+
+  it("returns 200, creates a channel message, and returns messageId on valid HMAC", async () => {
+    const channel = ChannelService.createChannel({
+      name: "Webhook Success",
+      slug: `${S}webhook-success`,
+      realmId: testRealmId,
+      creatorDid: "did:test:admin",
+    });
+
+    try {
+      const bridge = ChannelBridgeService.createBridge({
+        channelId: channel.id,
+        externalService: "webhook",
+        externalChannelId: "ext-success",
+        externalChannelName: "Success",
+        externalWorkspaceId: "ws-success",
+        syncDirection: "incoming",
+        config: { webhookUrl: "", outgoingUrl: "https://out.example.com", secret },
+      });
+
+      const payload = { message: "Hello from webhook!", author: "webhook:ci-bot" };
+      const body = JSON.stringify(payload);
+      const sig = makeWebhookSignature(body, secret);
+
+      const res = await webhookIncomingPOST(
+        webhookReq(`http://localhost/api/bridges/webhook/${bridge.id}/incoming`, body, sig),
+        webhookIncomingParams(bridge.id),
+      );
+      expect(res._status).toBe(200);
+
+      const resBody = await res.json() as { ok: boolean; messageId: string };
+      expect(resBody.ok).toBe(true);
+      expect(resBody.messageId).toBeTruthy();
+
+      // Verify the message was persisted in the channel
+      const messages = ChannelService.listMessages(channel.id, 10, 0);
+      expect(messages.some((m) => m.content === "Hello from webhook!" && m.authorDid === "webhook:ci-bot")).toBe(true);
+    } finally {
+      getDb().prepare("DELETE FROM channel_messages WHERE channel_id = ?").run(channel.id);
+      getDb().prepare("DELETE FROM channel_bridges WHERE channel_id = ?").run(channel.id);
+      getDb().prepare("DELETE FROM channel_members WHERE channel_id = ?").run(channel.id);
+      getDb().prepare("DELETE FROM channels WHERE id = ?").run(channel.id);
+    }
+  });
+});
+
+// ===========================================================================
+// Peer agents removal: verify routes no longer exist
+// ===========================================================================
+
+describe("Peer agents removal", () => {
+  it("agent-peer-grant-dao no longer exists as a module", async () => {
+    // The file was deleted — importing it should throw
+    await expect(
+      import("../packages/control-plane/lib/agent-peer-grant-dao"),
+    ).rejects.toThrow();
+  });
+
+  it("peer-grant signing utility no longer exists as a module", async () => {
+    await expect(
+      import("../packages/control-plane/lib/peer-grant"),
+    ).rejects.toThrow();
+  });
+
+  it("WSServer no longer has a pushPeerCatalog method", async () => {
+    // vi.mock("@/lib/ws-server") at file scope means dynamic import also gets the mock.
+    // Instead, read the actual source file to verify the method was removed.
+    const { readFileSync } = await import("node:fs");
+    const { resolve } = await import("node:path");
+    const src = readFileSync(
+      resolve(process.cwd(), "packages/control-plane/lib/ws-server.ts"),
+      "utf-8",
+    );
+    expect(src).not.toContain("pushPeerCatalog");
+  });
+});

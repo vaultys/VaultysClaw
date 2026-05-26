@@ -118,7 +118,7 @@ interface ChatMessage {
   content: string;
 }
 
-type TabId = "overview" | "chat" | "tokens" | "config" | "governance" | "automation" | "approvals" | "details" | "peers" | "knowledge";
+type TabId = "overview" | "chat" | "tokens" | "config" | "governance" | "automation" | "approvals" | "details" | "knowledge";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -186,7 +186,7 @@ function TabBar({
   onChange: (id: TabId) => void;
 }) {
   return (
-    <div className="flex gap-1 border-b border-vc-border px-1 bg-vc-surface rounded-t-xl overflow-x-auto">
+    <div className="flex gap-1 border-b border-vc-border px-1 bg-vc-surface rounded-t-xl overflow-x-auto flex-shrink-0">
       {tabs.map((tab) => (
         <button
           key={tab.id}
@@ -339,13 +339,12 @@ export default function AgentDetailPage() {
     { id: "governance", label: "Governance", icon: <ShieldCheck size={15} /> },
     { id: "automation", label: "Automation", icon: <Clock size={15} /> },
     { id: "approvals", label: "Approvals", icon: <AlertTriangle size={15} />, badge: pendingApprovals },
-    { id: "peers", label: "Peer Agents", icon: <Bot size={15} /> },
     { id: "knowledge", label: "Knowledge", icon: <BookOpen size={15} /> },
     { id: "details", label: "Details", icon: <FileCode2 size={15} /> },
   ];
 
   return (
-    <div className="p-6 w-full max-w-7xl mx-auto space-y-0">
+    <div className={`p-6 w-full max-w-7xl mx-auto ${activeTab === "chat" ? "flex flex-col flex-1 min-h-0 pb-0" : "space-y-0"}`}>
       {/* ── Page header ── */}
       <div className="mb-4">
         <button
@@ -425,10 +424,10 @@ export default function AgentDetailPage() {
       </div>
 
       {/* ── Tabbed content ── */}
-      <div className="border border-vc-border rounded-xl overflow-hidden bg-vc-surface">
+      <div className={`border border-vc-border rounded-xl overflow-hidden bg-vc-surface ${activeTab === "chat" ? "flex flex-col flex-1 min-h-0" : ""}`}>
         <TabBar tabs={tabs} active={activeTab} onChange={setActiveTab} />
 
-        <div className="p-6">
+        <div className={activeTab === "chat" ? "flex flex-col flex-1 min-h-0 overflow-hidden" : "p-6"}>
           {activeTab === "overview" && <OverviewTab agent={agent} onTabChange={setActiveTab} />}
           {activeTab === "chat" && <ChatTab agentId={agent.id} agentName={agent.name} online={agent.online} />}
           {activeTab === "tokens" && <TokensTab agentId={agent.id} />}
@@ -436,7 +435,6 @@ export default function AgentDetailPage() {
           {activeTab === "governance" && <GovernanceTab did={did} agentCapabilities={agent.capabilities} />}
           {activeTab === "automation" && <AutomationTab agentId={agent.id} />}
           {activeTab === "approvals" && <ApprovalsTab onCountChange={setPendingApprovals} />}
-          {activeTab === "peers" && <PeerAgentsTab did={did} />}
           {activeTab === "knowledge" && <KnowledgeTab did={did} agentName={agent.name} online={agent.online} capabilities={agent.capabilities} />}
           {activeTab === "details" && <DetailsTab agent={agent} onNodeClick={(node: GraphNode) => {
             if (node.type === "user") router.push(`/users/${encodeURIComponent(node.id.replace("user:", ""))}`);
@@ -1765,7 +1763,7 @@ function ChatTab({ agentId, agentName, online }: { agentId: string; agentName: s
   }
 
   return (
-    <div className="flex" style={{ height: "calc(100vh - 22rem)" }}>
+    <div className="flex flex-1 min-h-0">
       {/* Sessions sidebar */}
       <div className="w-44 flex-shrink-0 flex flex-col border-r border-vc-border bg-vc-raised rounded-l-lg overflow-hidden">
         <div className="flex items-center justify-between px-2 py-2 border-b border-vc-border">
@@ -2792,26 +2790,6 @@ function DetailsTab({ agent, onNodeClick }: { agent: AgentDetail; onNodeClick: (
   );
 }
 
-// ---------------------------------------------------------------------------
-// Tab: Peer Agents
-// ---------------------------------------------------------------------------
-
-interface PeerGrant {
-  id: string;
-  sourceDid: string;
-  targetDid: string;
-  targetName: string;
-  skillDescription: string;
-  capabilities: string[];
-  expiresAt?: string;
-  createdAt: string;
-}
-
-interface AgentOption {
-  did: string;
-  name: string;
-}
-
 function AgentChatErrorBanner({ message, code }: { message: string; code: string | null }) {
   if (code === "llm_unavailable") {
     return (
@@ -2836,217 +2814,6 @@ function AgentChatErrorBanner({ message, code }: { message: string; code: string
   return (
     <div className="text-center text-xs text-red-700 dark:text-red-400 bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 rounded-lg px-4 py-2">
       {message}
-    </div>
-  );
-}
-
-function PeerAgentsTab({ did }: { did: string }) {
-  const [grants, setGrants] = useState<PeerGrant[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [agents, setAgents] = useState<AgentOption[]>([]);
-
-  // New grant form
-  const [targetDid, setTargetDid] = useState("");
-  const [targetName, setTargetName] = useState("");
-  const [skillDescription, setSkillDescription] = useState("");
-  const [expiresAt, setExpiresAt] = useState("");
-
-  const fetchGrants = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await fetch(`/api/agents/${encodeURIComponent(did)}/peers`);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json() as { grants: PeerGrant[] };
-      setGrants(data.grants);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load peer grants");
-    } finally {
-      setLoading(false);
-    }
-  }, [did]);
-
-  useEffect(() => {
-    fetchGrants();
-    // Load available agents for the dropdown
-    fetch("/api/agents")
-      .then((r) => r.json())
-      .then((data: { agents?: Array<{ id: string; name: string }> }) => {
-        setAgents((data.agents ?? []).filter((a) => a.id !== did).map((a) => ({ did: a.id, name: a.name })));
-      })
-      .catch(() => { });
-  }, [fetchGrants, did]);
-
-  const handleTargetSelect = (selectedDid: string) => {
-    setTargetDid(selectedDid);
-    const found = agents.find((a) => a.did === selectedDid);
-    if (found) setTargetName(found.name);
-  };
-
-  const handleCreate = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!targetDid || !skillDescription) return;
-    setSaving(true);
-    setError(null);
-    try {
-      const res = await fetch(`/api/agents/${encodeURIComponent(did)}/peers`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          targetDid,
-          targetName: targetName || targetDid.slice(0, 12),
-          skillDescription,
-          capabilities: [],
-          expiresAt: expiresAt || undefined,
-        }),
-      });
-      if (!res.ok) {
-        const data = await res.json() as { error?: string };
-        throw new Error(data.error ?? `HTTP ${res.status}`);
-      }
-      setTargetDid("");
-      setTargetName("");
-      setSkillDescription("");
-      setExpiresAt("");
-      await fetchGrants();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to create peer grant");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleRevoke = async (grantId: string) => {
-    if (!confirm("Revoke this peer grant? The agent will lose access immediately.")) return;
-    try {
-      const res = await fetch(`/api/agents/${encodeURIComponent(did)}/peers/${encodeURIComponent(grantId)}`, {
-        method: "DELETE",
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      await fetchGrants();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to revoke peer grant");
-    }
-  };
-
-  return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-base font-semibold text-vc-text mb-1">Peer Agent Communication</h2>
-        <p className="text-sm text-vc-muted">
-          Grants allow this agent to invoke other agents as transparent LLM tools.
-          Each grant becomes a tool the LLM can call directly, with the skill description
-          as its tool description.
-        </p>
-      </div>
-
-      {/* Create new grant */}
-      <div className="bg-vc-elevated border border-vc-border rounded-lg p-4">
-        <h3 className="text-sm font-semibold text-vc-text mb-3">Grant Access to a Remote Agent</h3>
-        <form onSubmit={handleCreate} className="space-y-3">
-          <div>
-            <label className="block text-xs text-vc-muted mb-1">Target Agent</label>
-            {agents.length > 0 ? (
-              <select
-                value={targetDid}
-                onChange={(e) => handleTargetSelect(e.target.value)}
-                className="w-full bg-vc-surface border border-vc-border rounded-md px-3 py-2 text-sm text-vc-text focus:outline-none focus:ring-1 focus:ring-indigo-500"
-              >
-                <option value="">Select an agent…</option>
-                {agents.map((a) => (
-                  <option key={a.did} value={a.did}>{a.name} ({a.did.slice(0, 16)}…)</option>
-                ))}
-              </select>
-            ) : (
-              <input
-                value={targetDid}
-                onChange={(e) => setTargetDid(e.target.value)}
-                placeholder="did:vaultys:…"
-                className="w-full bg-vc-surface border border-vc-border rounded-md px-3 py-2 text-sm text-vc-text focus:outline-none focus:ring-1 focus:ring-indigo-500"
-              />
-            )}
-          </div>
-          {targetDid && (
-            <div>
-              <label className="block text-xs text-vc-muted mb-1">Display Name (for tool naming)</label>
-              <input
-                value={targetName}
-                onChange={(e) => setTargetName(e.target.value)}
-                placeholder="e.g. Research Bot"
-                className="w-full bg-vc-surface border border-vc-border rounded-md px-3 py-2 text-sm text-vc-text focus:outline-none focus:ring-1 focus:ring-indigo-500"
-              />
-            </div>
-          )}
-          <div>
-            <label className="block text-xs text-vc-muted mb-1">Skill Description (shown to the LLM as tool description)</label>
-            <textarea
-              value={skillDescription}
-              onChange={(e) => setSkillDescription(e.target.value)}
-              rows={3}
-              placeholder="Describe what this remote agent can do. The LLM will see this as the tool description."
-              className="w-full bg-vc-surface border border-vc-border rounded-md px-3 py-2 text-sm text-vc-text focus:outline-none focus:ring-1 focus:ring-indigo-500 resize-none"
-            />
-          </div>
-          <div>
-            <label className="block text-xs text-vc-muted mb-1">Expiry (optional)</label>
-            <input
-              type="datetime-local"
-              value={expiresAt}
-              onChange={(e) => setExpiresAt(e.target.value)}
-              className="bg-vc-surface border border-vc-border rounded-md px-3 py-2 text-sm text-vc-text focus:outline-none focus:ring-1 focus:ring-indigo-500"
-            />
-          </div>
-          {error && <p className="text-red-600 dark:text-red-400 text-xs">{error}</p>}
-          <button
-            type="submit"
-            disabled={saving || !targetDid || !skillDescription}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-sm font-medium rounded-md transition-colors"
-          >
-            {saving ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
-            {saving ? "Creating…" : "Grant Access"}
-          </button>
-        </form>
-      </div>
-
-      {/* Existing grants */}
-      <div>
-        <h3 className="text-sm font-semibold text-vc-text mb-3">Active Peer Grants</h3>
-        {loading ? (
-          <div className="flex items-center gap-2 text-vc-muted text-sm py-4">
-            <Loader2 size={14} className="animate-spin" /> Loading…
-          </div>
-        ) : grants.length === 0 ? (
-          <p className="text-vc-muted text-sm py-4">No peer grants yet. Use the form above to allow this agent to call other agents.</p>
-        ) : (
-          <div className="space-y-2">
-            {grants.map((g) => (
-              <div key={g.id} className="bg-vc-elevated border border-vc-border rounded-lg p-4 flex items-start justify-between gap-4">
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2 mb-1">
-                    <Bot size={14} className="text-indigo-400 shrink-0" />
-                    <span className="text-sm font-medium text-vc-text">{g.targetName}</span>
-                    <span className="text-xs text-vc-muted font-mono">{g.targetDid.slice(0, 20)}…</span>
-                  </div>
-                  <p className="text-xs text-vc-muted mb-2 line-clamp-2">{g.skillDescription}</p>
-                  <div className="flex items-center gap-3 text-xs text-vc-muted">
-                    <span>LLM tool: <code className="text-indigo-300">ask_agent_{g.targetName.toLowerCase().replace(/[^a-z0-9]+/g, "_")}</code></span>
-                    {g.expiresAt && <span>Expires: {new Date(g.expiresAt).toLocaleDateString()}</span>}
-                    <span>Created: {new Date(g.createdAt).toLocaleDateString()}</span>
-                  </div>
-                </div>
-                <button
-                  onClick={() => handleRevoke(g.id)}
-                  title="Revoke grant"
-                  className="shrink-0 p-1.5 text-vc-muted hover:text-red-400 hover:bg-red-500/10 rounded-md transition-colors"
-                >
-                  <Trash2 size={14} />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
     </div>
   );
 }

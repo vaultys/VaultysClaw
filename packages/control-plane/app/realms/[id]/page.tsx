@@ -308,7 +308,7 @@ export default function RealmDetailPage() {
   if (!realm) return null;
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-5">
+    <div className="p-6 w-full max-w-7xl mx-auto space-y-5">
       {/* Back */}
       <Link href="/realms" className="inline-flex items-center gap-1.5 text-vc-muted hover:text-vc-text text-sm transition-colors">
         <ArrowLeft className="w-4 h-4" />

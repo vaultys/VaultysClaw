@@ -1,94 +1,36 @@
-import { NextResponse } from "next/server";
-import { getWSServer } from "@/lib/ws-server";
-import { getAllAgents, getAgentRealms, getRealmById } from "@/lib/db";
-import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
+import { NextRequest, NextResponse } from "next/server";
+import { getAuthContext, unauthorized } from "@/lib/auth-utils";
+import { getAllAgents } from "@/lib/db";
 
 /**
- * GET /api/agents/search?realm=[realmId]&q=[search query]
- * List agents filtered by realm. Requires auth and realm membership.
+ * GET /api/agents/search?q=...
+ * Search for agents by name or DID
  */
-export async function GET(request: Request) {
+export async function GET(req: NextRequest) {
   try {
     const auth = await getAuthContext();
     if (!auth) return unauthorized();
 
-    const { searchParams } = new URL(request.url);
-    const realmId = searchParams.get("realm");
+    const { searchParams } = new URL(req.url);
     const query = searchParams.get("q")?.toLowerCase() || "";
 
-    if (!realmId) {
-      return NextResponse.json({ error: "Missing realm parameter" }, { status: 400 });
-    }
+    const allAgents = getAllAgents();
 
-    if (!auth.canAccessRealm(realmId)) return forbidden();
-
-    // Verify realm exists
-    const realm = getRealmById(realmId);
-    if (!realm) {
-      return NextResponse.json({ error: "Realm not found" }, { status: 404 });
-    }
-
-    const wsServer = getWSServer();
-    const dbAgents = getAllAgents();
-    const connectedDids = new Set(
-      wsServer?.getConnectedAgents().map((a) => a.id) ?? []
-    );
-
-    // Filter agents by realm, then by search query
-    const agentsInRealm = dbAgents
-      .filter((agent) => {
-        const realms = getAgentRealms(agent.did);
-        return realms.some((r) => r.realm_id === realmId);
-      })
-      .map((agent) => {
-        const connected = wsServer?.getAgent(agent.did);
-        const realms = getAgentRealms(agent.did);
-        return {
-          id: agent.did,
-          name: connected?.name ?? agent.name,
-          capabilities: JSON.parse(agent.capabilities),
-          registeredAt: agent.registered_at,
-          lastSeen: agent.last_seen,
-          online: connectedDids.has(agent.did),
-          connectedAt: connected?.connectedAt?.toISOString() ?? null,
-          lastHeartbeat: connected?.lastHeartbeat?.toISOString() ?? null,
-          reportedLlm: connected?.reportedLlm ?? null,
-          tokenUsage: connected?.tokenUsage ?? null,
-          realms: realms.map((r) => ({
-            id: r.realm_id,
-            name: r.name,
-            slug: r.slug,
-            color: r.color,
-            isPrimary: Boolean(r.is_primary),
-          })),
-        };
-      });
-
-    // Apply search filter if query is provided
-    let filtered = agentsInRealm;
-    if (query) {
-      filtered = agentsInRealm.filter((agent) => {
-        const nameMatch = agent.name.toLowerCase().includes(query);
-        const capMatch = agent.capabilities.some((cap: string) =>
-          cap.toLowerCase().includes(query)
-        );
-        return nameMatch || capMatch;
-      });
-    }
+    // Filter agents by name or DID match
+    const matches = allAgents.filter((agent) => {
+      const name = (agent.name || "").toLowerCase();
+      const did = (agent.did || "").toLowerCase();
+      return name.includes(query) || did.includes(query);
+    });
 
     return NextResponse.json({
-      agents: filtered,
-      total: filtered.length,
-      online: filtered.filter((a) => a.online).length,
-      realm: {
-        id: realm.id,
-        name: realm.name,
-        slug: realm.slug,
-        color: realm.color,
-      },
+      agents: matches.slice(0, 20), // Limit to 20 results
     });
-  } catch (error) {
-    console.error("Failed to search agents:", error);
-    return NextResponse.json({ error: "Failed to search agents" }, { status: 500 });
+  } catch (err) {
+    console.error("GET /api/agents/search error:", err);
+    return NextResponse.json(
+      { error: "Failed to search agents" },
+      { status: 500 }
+    );
   }
 }

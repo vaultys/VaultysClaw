@@ -155,7 +155,7 @@ export default function AgentsPage() {
     sortBy === col ? <span className="ml-1">{sortDir === "asc" ? "↑" : "↓"}</span> : null;
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-5">
+    <div className="p-6 w-full max-w-7xl mx-auto space-y-5">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>

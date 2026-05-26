@@ -16,19 +16,28 @@ graph TD
     UI["Next.js UI\nDashboard :3000"]
     API["REST API\n/api/** :3000"]
     WS["WebSocket Hub\n:8080"]
+    CH["Channel Layer\nChannelService · MessageDispatcher\nBridgeFactory"]
     DB[("SQLite\nDatabase")]
     VID_CP["VaultysId ⬡"]
 
     UI --> DB
     API --> DB
     WS --> DB
+    CH --> DB
     VID_CP -.signs.-> WS
     VID_CP -.signs.-> API
+    API --> CH
+    CH --> WS
   end
 
   subgraph LiteLLM["LiteLLM Proxy (optional)  :4000"]
     Router["Model Router"]
     Keys["Virtual Keys\n(per realm)"]
+  end
+
+  subgraph Bridges["External Bridges"]
+    WHook["Webhook Gateway\nHMAC-SHA256"]
+    Teams["Teams Gateway\nGraph API"]
   end
 
   subgraph A1["Agent Controller"]
@@ -50,11 +59,15 @@ graph TD
   end
 
   API -- "register models\ncreate realm keys" --> LiteLLM
-  WS -- "WSS signed messages\n+ llm_config push" --> A1
-  WS -- "WSS signed messages\n+ llm_config push" --> A2
-  WS -- "WSS signed messages\n+ llm_config push" --> A3
+  WS -- "WSS signed messages\n+ channel events" --> A1
+  WS -- "WSS signed messages\n+ channel events" --> A2
+  WS -- "WSS signed messages\n+ channel events" --> A3
   A1 -- "openai-compatible\nvirtual key" --> LiteLLM
   A2 -- "openai-compatible\nvirtual key" --> LiteLLM
+  CH -- "fan-out" --> WHook
+  CH -- "fan-out" --> Teams
+  WHook -- "incoming\nHMAC-verified" --> CH
+  Teams -- "incoming\nBot Framework" --> CH
 ```
 
 ## Control plane
@@ -76,7 +89,7 @@ A persistent WebSocket server that agent controllers connect to. The hub:
 - Distributes policy updates and delegation certificates
 - Receives signed execution results and stores them
 - Handles tool approval requests (agent → control plane → admin → agent)
-- Pushes LLM configuration changes and peer grant catalogs
+- Delivers `channel_message_send` events to @mentioned agents
 
 ### Dashboard
 
@@ -146,7 +159,26 @@ sequenceDiagram
   CP->>Admin: Notify pending registration
   Admin->>CP: POST /api/registrations/:id/approve
   CP->>CP: Sign policy with VaultysId
-  CP->>A: WS "register_ack" {agentId, policy, delegationCerts, peerGrants}
+  CP->>A: WS "register_ack" {agentId, policy, delegationCerts}
+```
+
+### Message flow: channel @mention → agent response
+
+```mermaid
+sequenceDiagram
+  participant U as User
+  participant CP as Control Plane
+  participant MD as MessageDispatcher
+  participant A as Agent
+
+  U->>CP: POST /api/channels/ch-1/messages\n{ content: "@my-agent do X" }
+  CP->>CP: Persist message
+  CP-->>U: 201 Created
+  CP->>MD: processMessage(...) [async, fire-and-forget]
+  MD->>CP: createThreadReply — acknowledgement
+  MD->>A: WS "channel_message_send" { channelId, messageId, threadId }
+  A->>A: Execute task
+  A->>CP: POST /api/channels/ch-1/messages/agent-response\n{ content: "Done!", threadId }
 ```
 
 ## Database schema
@@ -163,7 +195,6 @@ Key tables:
 | `realm_memberships` | User ↔ realm and agent ↔ realm associations |
 | `grants` | Capability grants from users to agents |
 | `delegation_certs` | Control-plane-signed delegation certificates |
-| `agent_peer_grants` | Agent-to-agent capability grants |
 | `policies` | Signed policies pushed to agents |
 | `intents` | Intent log with status and results |
 | `chat_sessions` | LLM conversation history |
@@ -172,6 +203,10 @@ Key tables:
 | `model_registry` | Registered LLMs with provider, model ID, and LiteLLM name |
 | `model_realm_access` | Which models each realm can access |
 | `realm_router_keys` | Per-realm LiteLLM virtual keys and allowed model lists |
+| `channels` | Named rooms (realm-scoped or global) |
+| `channel_members` | User and agent membership with roles |
+| `channel_messages` | Persisted messages with optional threading |
+| `channel_bridges` | External service integrations (webhooks, Teams) |
 
 ## Technology stack
 

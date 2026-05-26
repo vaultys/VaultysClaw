@@ -138,7 +138,7 @@ export default function ChatPage() {
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-4rem)]">
+    <div className="flex flex-col flex-1 min-h-0 w-full">
       {/* Header bar */}
       <div className="flex items-center gap-4 px-6 py-3 border-b border-vc-border bg-vc-panel">
         <h1 className="text-lg font-semibold text-vc-text whitespace-nowrap">Chat</h1>

@@ -2,6 +2,8 @@
  * Core types for VaultysClaw agent orchestration platform
  */
 
+import type { ChannelEvent } from "./channel-types";
+
 /**
  * Non-transferable identity bound to a specific instance
  */
@@ -164,7 +166,9 @@ export type WSMessageType =
   | "skills_config"
   | "knowledge_sync"
   | "knowledge_sync_result"
-  | "knowledge_status_sync";
+  | "knowledge_status_sync"
+  | "channel_event"
+  | "channel_message_send";
 
 /**
  * LLM provider type — controls which AI SDK provider is instantiated.
@@ -440,6 +444,20 @@ export interface WSToolExecutionPayload {
   durationMs: number;
 }
 
+// ---------------------------------------------------------------------------
+// Channel messaging (agent → control plane)
+// ---------------------------------------------------------------------------
+
+/**
+ * Sent by agent to control plane to post a message to a channel (e.g., responding to a mention).
+ */
+export interface WSChannelMessageSendPayload {
+  channelId: string;
+  threadId?: string;  // If responding to a mention/thread
+  content: string;
+  metadata?: Record<string, any>;
+}
+
 export type {
   VaultysIdentity as Identity,
   AgentPolicy as Policy,
@@ -662,6 +680,12 @@ export interface AgentPeerGrant {
   certificate: string;
   /** ISO 8601 expiry timestamp, omitted when the grant never expires. */
   expiresAt?: string;
+  /**
+   * Optional shared VaultysClaw channel ID for channel-based agent-to-agent invocation.
+   * When set, the calling agent can post @mentions to this channel instead of using
+   * the WebRTC PeerManager.  Falls back to WebRTC when absent.
+   */
+  channelId?: string;
 }
 
 /**

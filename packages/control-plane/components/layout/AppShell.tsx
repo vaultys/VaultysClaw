@@ -45,7 +45,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       <Sidebar collapsed={collapsed} onToggle={toggleSidebar} />
       <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
         <TopBar />
-        <main className="flex-1 overflow-y-auto bg-vc-bg">
+        <main className="flex-1 flex flex-col overflow-y-auto bg-vc-bg">
           {status === "loading" ? (
             <div className="flex items-center justify-center h-full">
               <div className="w-7 h-7 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />

@@ -1,16 +1,15 @@
 import type { AgentCapability, LlmConfig } from "@vaultysclaw/shared";
 import path from "path";
-import fs from "fs";
-import { loadEnvConfig } from "@next/env";
 
 /**
  * Environment configuration for agent controller
  *
+ * LLM configuration is now primarily managed via the control plane.
+ * Env vars are supported for backward compatibility.
+ *
  * Data directory structure (VAULTYS_DATA_DIR):
  *   <data-dir>/
  *   ├── agent.db
- *   ├── .env
- *   ├── .env.local
  *   ├── .vaultys/agent.id
  *   ├── workspace/
  *   └── skills/
@@ -43,12 +42,7 @@ export interface AgentControllerConfig {
 }
 
 export function loadConfig(): AgentControllerConfig {
-  // Load .env from the data directory if it exists
   const dataDir = process.env.VAULTYS_DATA_DIR;
-  if (dataDir && fs.existsSync(dataDir)) {
-    loadEnvConfig(dataDir);
-  }
-
   const name = process.env.AGENT_NAME || "agent-1";
   const controlPlaneUrl =
     process.env.CONTROL_PLANE_URL || "http://localhost:3000";

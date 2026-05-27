@@ -8,12 +8,87 @@ export interface WorkflowTemplate {
   id: string;
   name: string;
   description: string;
-  category: "analysis" | "writing" | "research" | "automation";
+  category: "analysis" | "writing" | "research" | "automation" | "social-media";
   definition: WorkflowDefinition;
   icon?: string;
+  /** Suggested cron expression to auto-populate the schedule panel */
+  suggestedCron?: string;
 }
 
 export const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
+  // ── Social-media automation ──────────────────────────────────────────────
+  {
+    id: "template-daily-social-post",
+    name: "Daily Social Media Post",
+    description:
+      "Generates a short, engaging post using an AI agent then publishes it to X (Twitter) via browser automation. " +
+      "Schedule it to run every morning for fully automated daily publishing.",
+    category: "social-media",
+    icon: "📣",
+    suggestedCron: "0 9 * * *", // 9 AM every day
+    definition: {
+      nodes: [
+        {
+          // Step 1 — generate the tweet copy with an LLM agent
+          id: "generate",
+          type: "agent",
+          data: {
+            agentId: undefined, // auto-resolved at runtime; assign a real agent in the editor
+            params: {
+              task:
+                "Write a short, engaging tweet (≤270 characters) about today's focus topic. " +
+                "Be authentic, add value, include 1–2 relevant hashtags. Do NOT include quotation marks.",
+              topic: "AI agents and automation", // user should customise this
+              tone: "professional yet approachable",
+            },
+          },
+          position: { x: 80, y: 160 },
+        },
+        {
+          // Step 2 — human approval gate before posting publicly
+          id: "approve",
+          type: "user",
+          data: {
+            mode: "approval",
+            message:
+              "Please review the tweet below before it is published to X. " +
+              "Approve to post, reject to cancel.\n\n${generate}",
+            timeout: 60, // auto-approve after 60 minutes if nobody reviews
+          },
+          position: { x: 360, y: 160 },
+        },
+        {
+          // Step 3 — post to X via the social-media skill
+          id: "post",
+          type: "skill",
+          data: {
+            skillName: "social-media",
+            toolName: "post_to_x",
+            agentId: undefined, // auto-resolved to a connected agent with social_media_posting capability
+            params: {
+              // The text field is wired to the generator's output.
+              // The executor resolves ${generate} to the text from step 1.
+              text: "${generate}",
+            },
+          },
+          position: { x: 640, y: 160 },
+        },
+      ],
+      edges: [
+        {
+          id: "generate->approve",
+          source: "generate",
+          target: "approve",
+        },
+        {
+          id: "approve->post",
+          source: "approve",
+          target: "post",
+        },
+      ],
+    },
+  },
+  // ── Existing templates ───────────────────────────────────────────────────
   {
     id: "template-code-analysis",
     name: "Code Analysis Pipeline",

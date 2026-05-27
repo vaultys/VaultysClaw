@@ -112,7 +112,7 @@ if curl -sf "$CONTROL_PLANE_URL/api/health" >/dev/null 2>&1; then
 else
   log "Starting control plane (data: $CP_DATA_DIR)..."
   cd "$REPO_ROOT"
-  pnpm vaultysclaw:dev -- --data-dir "$CP_DATA_DIR" \
+  pnpm --filter @vaultysclaw/control-plane dev -- --data-dir "$CP_DATA_DIR" \
     > "$LOG_DIR/control-plane.log" 2>&1 &
   echo $! >> "$PIDS_FILE"
 
@@ -142,15 +142,15 @@ start_agent() {
 
   log "Starting $name (data: $agent_data_dir)..."
 
-  # Export env vars from the agent's .env file
-  set -a
-  # shellcheck disable=SC1090
-  source "$env_file"
-  set +a
-
   cd "$REPO_ROOT"
-  pnpm agent:start -- --name "$name" --data-dir "$agent_data_dir" \
-    > "$log_file" 2>&1 &
+  # Use a subshell to isolate env vars per agent — each agent gets only its own .env
+  (
+    set -a
+    # shellcheck disable=SC1090
+    source "$env_file"
+    set +a
+    pnpm agent:start --name "$name" --data-dir "$agent_data_dir"
+  ) > "$log_file" 2>&1 &
   local pid=$!
   echo "$pid" >> "$PIDS_FILE"
   log "$name started (PID $pid) — log: $log_file"

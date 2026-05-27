@@ -32,7 +32,9 @@ export async function GET(request: Request) {
     });
 
     const users = filtered.map((user) => ({
-      id: user.user_id,
+      // Use the DID as the canonical id — it matches session.user.did used by
+      // the workflow-approvals inbox query. Fall back to user_id for legacy accounts.
+      id: user.did ?? user.user_id,
       name: user.name || "Unknown",
       email: user.email || "No email",
       joinedAt: user.joined_at,

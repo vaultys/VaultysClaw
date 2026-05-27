@@ -7,6 +7,7 @@ interface Template {
   description: string;
   category: string;
   icon?: string;
+  suggestedCron?: string;
 }
 
 interface TemplateModalProps {
@@ -125,9 +126,16 @@ export function TemplateSelectionModal({
                       <p className="text-sm text-vc-muted mt-1">
                         {template.description}
                       </p>
-                      <span className="inline-block mt-2 px-2 py-1 bg-vc-raised text-vc-text-2 text-xs rounded capitalize">
-                        {template.category}
-                      </span>
+                      <div className="flex items-center gap-2 mt-2 flex-wrap">
+                        <span className="px-2 py-1 bg-vc-raised text-vc-text-2 text-xs rounded capitalize">
+                          {template.category}
+                        </span>
+                        {template.suggestedCron && (
+                          <span className="px-2 py-1 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 text-xs rounded font-mono">
+                            ⏰ {template.suggestedCron}
+                          </span>
+                        )}
+                      </div>
                     </div>
                     <Copy size={18} className="text-vc-subtle flex-shrink-0 mt-1" />
                   </div>

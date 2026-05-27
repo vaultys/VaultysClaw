@@ -53,6 +53,7 @@ export interface ExecutionContext {
   stepOutputs: Map<string, unknown>; // step_id -> output
   stepStatus: Map<string, string>; // step_id -> status
   stepIds: Map<string, string>; // node_id -> step_id in DB
+  realmId?: string; // for skill-node agent resolution
 }
 
 /**
@@ -167,6 +168,33 @@ export function areDependenciesMet(
 }
 
 /**
+ * Interpolate ${stepId} / ${stepId.field} tokens in a plain string.
+ * Returns the input unchanged if it is null/undefined.
+ */
+function interpolateString(
+  template: string | null | undefined,
+  context: Map<string, unknown>,
+): string | undefined {
+  if (!template) return template ?? undefined;
+  return template.replace(/\$\{([^}]+)\}/g, (match, path) => {
+    const parts = path.split(".");
+    let current: unknown = context.get(parts[0]);
+    for (let i = 1; i < parts.length && current != null; i++) {
+      current = (current as Record<string, unknown>)[parts[i]];
+    }
+    if (current == null) return match; // leave unresolved tokens as-is
+    if (typeof current === "string") return current;
+    if (typeof current === "object") {
+      // Agent nodes return { text, usage } — prefer text as the human-readable value
+      const obj = current as Record<string, unknown>;
+      if (typeof obj.text === "string") return obj.text;
+      return JSON.stringify(current);
+    }
+    return String(current);
+  });
+}
+
+/**
  * Interpolate variables in params using step outputs
  * Supports syntax: ${stepId.output.fieldName}
  */
@@ -187,7 +215,16 @@ export function interpolateParams(
           current = (current as Record<string, unknown>)[parts[i]];
         }
 
-        return String(current ?? match);
+        if (current == null) return match;
+        if (typeof current === "string") return current;
+        if (typeof current === "object") {
+          // Agent nodes return { text, usage } — prefer the text field
+          // as the natural string representation of a step's output.
+          const obj = current as Record<string, unknown>;
+          if (typeof obj.text === "string") return obj.text;
+          return JSON.stringify(current);
+        }
+        return String(current);
       });
     } else if (typeof value === "object" && value !== null) {
       result[key] = interpolateParams(value as Record<string, unknown>, context);
@@ -215,6 +252,25 @@ export async function executeStep(
     }
 
     updateWorkflowStep(stepDbId, "running");
+
+    // Skill nodes: resolve agentId from the first capable agent in the realm if not explicit
+    if (node.type === "skill" && !node.data.agentId && context.realmId) {
+      try {
+        const { getRealmAgents } = await import("./db");
+        const { getWSServer } = await import("./ws-server");
+        const wsServer = getWSServer();
+        const realmAgents = getRealmAgents(context.realmId) as Array<{ agent_did: string; capabilities?: string }>;
+        for (const ra of realmAgents) {
+          if (wsServer?.getAgent(ra.agent_did)) {
+            const caps: string[] = JSON.parse(ra.capabilities ?? "[]");
+            if (caps.includes("social_media_posting") || caps.includes("api_call")) {
+              node = { ...node, data: { ...node.data, agentId: ra.agent_did } };
+              break;
+            }
+          }
+        }
+      } catch { /* non-fatal */ }
+    }
 
     // Determine agent to execute
     const agentId = node.data.agentId ?? "@mock-agent";
@@ -252,8 +308,39 @@ export async function executeStep(
       // Generate unique intent ID for this execution
       const intentId = `workflow-step-${context.runId}-${stepId}-${Date.now()}`;
 
+      // Resolve agentId: the stored value might be a DID (correct) or a stale
+      // display label like "agent-web 🔴" (saved before the search-route fix).
+      // If the direct DID lookup fails, fall back to a name-based search among
+      // connected agents, stripping any trailing status emoji.
+      let resolvedAgentId = agentId;
+      if (!wsServer.getAgent(agentId)) {
+        const strippedName = agentId.replace(/\s*[🟢🔴]\s*$/, "").trim();
+        const match = wsServer.getConnectedAgents().find(
+          (ca) => ca.name === strippedName || ca.name.toLowerCase() === strippedName.toLowerCase(),
+        );
+        if (match) {
+          logger.info({ stored: agentId, resolved: match.id }, "Resolved agent by name (stale label fallback)");
+          resolvedAgentId = match.id;
+        }
+      }
+
       // Determine action from node type
-      const action = (node.data.action as string) || node.type;
+      // Skill nodes use a dedicated action that the agent understands
+      const action =
+        node.type === "skill"
+          ? "call_skill_tool"
+          : (node.data.action as string) || node.type;
+
+      // For skill nodes, wrap the tool params inside { skillName, toolName, params }
+      // so the agent's call_skill_tool handler can dispatch directly.
+      const agentParams: Record<string, unknown> =
+        node.type === "skill"
+          ? {
+              skillName: node.data.skillName as string | undefined,
+              toolName: node.data.toolName as string | undefined,
+              params,
+            }
+          : params;
 
       // Create a promise that resolves when the agent sends a result
       const resultPromise = new Promise<any>((resolve, reject) => {
@@ -265,17 +352,17 @@ export async function executeStep(
         // Timeout after 30 seconds if no result
         setTimeout(() => {
           unsubscribe();
-          reject(new Error(`Agent execution timeout for ${agentId}`));
+          reject(new Error(`Agent execution timeout for ${resolvedAgentId}`));
         }, 30_000);
       });
 
       // Send the intent to the agent
-      const sent = wsServer.sendIntentToAgent(agentId, intentId, action, params);
+      const sent = wsServer.sendIntentToAgent(resolvedAgentId, intentId, action, agentParams);
       if (!sent) {
-        return { success: false, error: `Agent ${agentId} is not connected` };
+        return { success: false, error: `Agent ${resolvedAgentId} is not connected` };
       }
 
-      logger.info({ stepId, agentId, intentId, action }, "Intent sent to agent");
+      logger.info({ stepId, agentId: resolvedAgentId, intentId, action }, "Intent sent to agent");
 
       // Wait for the result
       const result = await resultPromise;
@@ -285,11 +372,11 @@ export async function executeStep(
         context.stepOutputs.set(stepId, output);
         context.stepStatus.set(stepId, "success");
         updateWorkflowStep(stepDbId, "success", output);
-        logger.info({ stepId, agentId, intentId }, "Step completed (agent)");
+        logger.info({ stepId, agentId: resolvedAgentId, intentId }, "Step completed (agent)");
         return { success: true, output };
       } else {
         const errorMsg = result.error || result.message || "Agent execution failed";
-        logger.error({ stepId, agentId, error: errorMsg }, "Agent execution failed");
+        logger.error({ stepId, agentId: resolvedAgentId, error: errorMsg }, "Agent execution failed");
         updateWorkflowStep(stepDbId, "failed", undefined, errorMsg);
         return { success: false, error: errorMsg };
       }
@@ -318,6 +405,7 @@ export async function executeWorkflow(
   definition: WorkflowDefinition,
   input?: string,
   workflowId?: string,
+  realmId?: string,
 ): Promise<void> {
   try {
     const { nodes, edges } = parseWorkflow(definition);
@@ -340,6 +428,7 @@ export async function executeWorkflow(
       stepOutputs: new Map(),
       stepStatus: new Map(),
       stepIds: new Map(),
+      realmId: realmId ?? workflowRow?.realm_id ?? undefined,
     };
 
     // If input provided, store it in the context as a well-known "input" key
@@ -396,13 +485,20 @@ export async function executeWorkflow(
           ? input
           : JSON.stringify(Object.fromEntries(context.stepOutputs), null, 2).slice(0, 500);
 
-        // Create approval/notification record
+        // Create approval/notification record.
+        // Interpolate ${stepId} tokens in the message so the reviewer sees
+        // the actual generated content rather than the raw template syntax.
+        const nodeMessage = interpolateString(
+          node.data.message as string | undefined,
+          context.stepOutputs,
+        );
+
         const approvalId = createWorkflowApproval({
           runId,
           stepId: nodeId,
           workflowId: workflowId ?? "",
           workflowName,
-          nodeMessage: node.data.message as string | undefined,
+          nodeMessage,
           stepInput,
           assignedUserId,
           mode,

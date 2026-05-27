@@ -19,6 +19,7 @@ export async function GET(request: NextRequest) {
       description: t.description,
       category: t.category,
       icon: t.icon,
+      suggestedCron: t.suggestedCron,
     })),
   });
 }

@@ -58,6 +58,6 @@ export async function POST(request: NextRequest) {
   const content = Buffer.from(arrayBuffer);
   const mimeType = file.type || 'application/octet-stream';
 
-  const meta = createKnowledgeFile(sourceId, file.name, mimeType, content);
+  const meta = await createKnowledgeFile(sourceId, file.name, mimeType, content);
   return NextResponse.json({ file: meta }, { status: 201 });
 }

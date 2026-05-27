@@ -12,17 +12,19 @@ interface Realm {
 interface CreateChannelModalProps {
   onClose: () => void;
   onChannelCreated: (channel: any) => void;
+  preSelectedRealmId?: string;
 }
 
 export default function CreateChannelModal({
   onClose,
   onChannelCreated,
+  preSelectedRealmId,
 }: CreateChannelModalProps) {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [isPublic, setIsPublic] = useState(true);
   const [realms, setRealms] = useState<Realm[]>([]);
-  const [selectedRealmId, setSelectedRealmId] = useState<string>("");
+  const [selectedRealmId, setSelectedRealmId] = useState<string>(preSelectedRealmId ?? "");
   const [isLoadingRealms, setIsLoadingRealms] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -35,8 +37,8 @@ export default function CreateChannelModal({
         if (response.ok) {
           const data = (await response.json()) as { realms: Realm[] };
           setRealms(data.realms);
-          // Auto-select first realm if available
-          if (data.realms.length > 0) {
+          // Auto-select first realm only if no preSelectedRealmId was provided
+          if (!preSelectedRealmId && data.realms.length > 0) {
             setSelectedRealmId(data.realms[0].id);
           }
         }

@@ -115,21 +115,6 @@ function TerminalPreview() {
         <span> Agent "alice-research" connected{"\n"}</span>
         <span style={{ color: "#3fb950" }}>✓</span>
         <span> VaultysId identity loaded{"\n\n"}</span>
-        <span style={{ color: "#8b949e" }}># Your culture, encoded as policy</span>
-        {"\n"}
-        <span style={{ color: "#8b949e" }}>$ </span>
-        <span style={{ color: "#79c0ff" }}>curl</span>
-        <span> -X POST :3000/api/intents \{"\n"}</span>
-        <span>{"  "}</span>
-        <span style={{ color: "#79c0ff" }}>-d</span>
-        <span>{' \'{"action":"brief_ceo","params":{"tone":"direct"}}\'{"\n\n"}'}</span>
-        <span style={{ color: "#f8e3a1" }}>{"{"}</span>
-        {"\n"}
-        <span>{"  "}</span>
-        <span style={{ color: "#7ee787" }}>"intentId"</span>
-        <span>: </span>
-        <span style={{ color: "#a5d6ff" }}>"int_01HZ..."{"\n"}</span>
-        <span style={{ color: "#f8e3a1" }}>{"}"}</span>
       </pre>
     </div>
   );
@@ -185,8 +170,8 @@ function ManifestoSection() {
             </p>
             <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
               {[
-                { Icon: Heart,       color: "#f472b6", text: "Agents that reflect your values and communication style" },
-                { Icon: Users,       color: "#60a5fa", text: "Governed by your org chart — realms, roles, and accountability chains" },
+                { Icon: Heart, color: "#f472b6", text: "Agents that reflect your values and communication style" },
+                { Icon: Users, color: "#60a5fa", text: "Governed by your org chart — realms, roles, and accountability chains" },
                 { Icon: Fingerprint, color: "#a78bfa", text: "Each agent has a soul: a cryptographic identity that is uniquely, irrevocably theirs" },
               ].map(({ Icon, color, text }) => (
                 <div key={text} style={{ display: "flex", gap: "14px", alignItems: "flex-start" }}>
@@ -230,10 +215,10 @@ function AgentProfileCard() {
 
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "14px" }}>
           {[
-            { label: "Realm",    value: "Research" },
-            { label: "Model",    value: "claude-sonnet" },
-            { label: "Role",     value: "Analyst" },
-            { label: "Intents",  value: "2,841 today" },
+            { label: "Realm", value: "Research" },
+            { label: "Model", value: "claude-sonnet" },
+            { label: "Role", value: "Analyst" },
+            { label: "Intents", value: "2,841 today" },
           ].map(({ label, value }) => (
             <div key={label} style={{ background: "var(--ifm-background-surface-color)", border: "1px solid var(--ifm-color-emphasis-200)", borderRadius: "8px", padding: "10px 12px" }}>
               <div style={{ fontSize: "0.68rem", color: "var(--ifm-color-emphasis-600)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: "3px" }}>{label}</div>
@@ -281,55 +266,55 @@ const FEATURES: {
   title: string;
   desc: string;
 }[] = [
-  {
-    Icon: Fingerprint,
-    iconColor: "blue",
-    title: "Every agent has an identity",
-    desc: "A non-transferable VaultysId ties each agent to your organisation. No impersonation, no ambiguity — every action is cryptographically attributed.",
-  },
-  {
-    Icon: Brain,
-    iconColor: "purple",
-    title: "Encode your culture as policy",
-    desc: "Communication style, escalation rules, data access boundaries — formalise how your organisation works and deploy it as signed, tamper-proof policy.",
-  },
-  {
-    Icon: Users,
-    iconColor: "blue",
-    title: "Your org chart, reflected in AI",
-    desc: "Realms, roles, and capability grants mirror your real team structure. The right people govern the right agents — enforced server-side, always.",
-  },
-  {
-    Icon: Zap,
-    iconColor: "emerald",
-    title: "Real-time coordination",
-    desc: "A persistent WebSocket hub lets agents collaborate in real time — routing work across departments, escalating to humans, and returning results in milliseconds.",
-  },
-  {
-    Icon: ShieldCheck,
-    iconColor: "emerald",
-    title: "Zero-trust security",
-    desc: "All intents, policies, and results are cryptographically signed end-to-end. Tampering is detected instantly, even if an intermediate node is compromised.",
-  },
-  {
-    Icon: Lock,
-    iconColor: "purple",
-    title: "Least-privilege by design",
-    desc: "Grant exactly the permissions each agent needs — file access, internet, code execution — and revoke them in one click, no restart required.",
-  },
-  {
-    Icon: Workflow,
-    iconColor: "blue",
-    title: "Automate your processes",
-    desc: "Build multi-step workflows that mirror your real business processes. Agents hand off to each other exactly the way your best teams do.",
-  },
-  {
-    Icon: CheckCircle2,
-    iconColor: "emerald",
-    title: "Human judgment, built in",
-    desc: "Flag sensitive actions for mandatory human review. Every approval is logged — who decided what, when, and why. Compliance loves it.",
-  },
-];
+    {
+      Icon: Fingerprint,
+      iconColor: "blue",
+      title: "Every agent has an identity",
+      desc: "A non-transferable VaultysId ties each agent to your organisation. No impersonation, no ambiguity — every action is cryptographically attributed.",
+    },
+    {
+      Icon: Brain,
+      iconColor: "purple",
+      title: "Encode your culture as policy",
+      desc: "Communication style, escalation rules, data access boundaries — formalise how your organisation works and deploy it as signed, tamper-proof policy.",
+    },
+    {
+      Icon: Users,
+      iconColor: "blue",
+      title: "Your org chart, reflected in AI",
+      desc: "Realms, roles, and capability grants mirror your real team structure. The right people govern the right agents — enforced server-side, always.",
+    },
+    {
+      Icon: Zap,
+      iconColor: "emerald",
+      title: "Real-time coordination",
+      desc: "A persistent WebSocket hub lets agents collaborate in real time — routing work across departments, escalating to humans, and returning results in milliseconds.",
+    },
+    {
+      Icon: ShieldCheck,
+      iconColor: "emerald",
+      title: "Zero-trust security",
+      desc: "All intents, policies, and results are cryptographically signed end-to-end. Tampering is detected instantly, even if an intermediate node is compromised.",
+    },
+    {
+      Icon: Lock,
+      iconColor: "purple",
+      title: "Least-privilege by design",
+      desc: "Grant exactly the permissions each agent needs — file access, internet, code execution — and revoke them in one click, no restart required.",
+    },
+    {
+      Icon: Workflow,
+      iconColor: "blue",
+      title: "Automate your processes",
+      desc: "Build multi-step workflows that mirror your real business processes. Agents hand off to each other exactly the way your best teams do.",
+    },
+    {
+      Icon: CheckCircle2,
+      iconColor: "emerald",
+      title: "Human judgment, built in",
+      desc: "Flag sensitive actions for mandatory human review. Every approval is logged — who decided what, when, and why. Compliance loves it.",
+    },
+  ];
 
 function FeaturesSection() {
   return (
@@ -416,22 +401,22 @@ function ArchitectureSection() {
    Dashboard mockup
    ──────────────────────────────────────────────────────────── */
 const MOCK_AGENTS = [
-  { name: "alice-research",   realm: "Research",    caps: ["internet_access", "api_call"], status: "online",  model: "claude-sonnet" },
-  { name: "bob-analyst",      realm: "Finance",     caps: ["api_call", "file_access"],     status: "online",  model: "gpt-4o" },
-  { name: "ops-dispatcher",   realm: "Operations",  caps: ["mail_send", "api_call"],       status: "online",  model: "gpt-4o-mini" },
-  { name: "dev-coder",        realm: "Engineering", caps: ["code_execution", "file_access"], status: "offline", model: "llama3.2" },
+  { name: "alice-research", realm: "Research", caps: ["internet_access", "api_call"], status: "online", model: "claude-sonnet" },
+  { name: "bob-analyst", realm: "Finance", caps: ["api_call", "file_access"], status: "online", model: "gpt-4o" },
+  { name: "ops-dispatcher", realm: "Operations", caps: ["mail_send", "api_call"], status: "online", model: "gpt-4o-mini" },
+  { name: "dev-coder", realm: "Engineering", caps: ["code_execution", "file_access"], status: "offline", model: "llama3.2" },
 ];
 
 const NAV_ITEMS = [
-  { Icon: Network,         label: "Overview",  active: false },
-  { Icon: Bot,             label: "Agents",    active: true  },
-  { Icon: Send,            label: "Intents",   active: false },
-  { Icon: ShieldCheck,     label: "Policies",  active: false },
-  { Icon: Workflow,        label: "Workflows", active: false },
-  { Icon: MessageSquare,   label: "Chat",      active: false },
-  { Icon: CheckCircle2,    label: "Approvals", active: false },
-  { Icon: Building2,       label: "Realms",    active: false },
-  { Icon: Users,           label: "Users",     active: false },
+  { Icon: Network, label: "Overview", active: false },
+  { Icon: Bot, label: "Agents", active: true },
+  { Icon: Send, label: "Intents", active: false },
+  { Icon: ShieldCheck, label: "Policies", active: false },
+  { Icon: Workflow, label: "Workflows", active: false },
+  { Icon: MessageSquare, label: "Chat", active: false },
+  { Icon: CheckCircle2, label: "Approvals", active: false },
+  { Icon: Building2, label: "Realms", active: false },
+  { Icon: Users, label: "Users", active: false },
 ];
 
 function DashboardMockup() {

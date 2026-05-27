@@ -5,12 +5,15 @@ import { useRouter, useParams } from "next/navigation";
 import {
   Globe2, ArrowLeft, Bot, Users, Settings, Trash2,
   ChevronRight, Star, Plus, X, Pencil, Check, Network, GitFork, LayoutTemplate,
-  Puzzle, Lock, AlertCircle, Cpu, ExternalLink
+  Puzzle, Lock, AlertCircle, Cpu, ExternalLink, MessageSquare
 } from "lucide-react";
 import Link from "next/link";
 import { useWorkflowStore } from "@/components/workflow/store";
 import { TemplateSelectionModal } from "@/components/workflow/TemplateSelectionModal";
 import EmbeddedOrgChart from "@/components/graph/EmbeddedOrgChart";
+import ChannelList from "@/components/channels/ChannelList";
+import ChannelView from "@/components/channels/ChannelView";
+import CreateChannelModal from "@/components/channels/CreateChannelModal";
 
 interface Realm {
   id: string;
@@ -62,6 +65,20 @@ interface RealmSkill {
 
 interface FullAgent { id: string; name: string; realms: { id: string }[] }
 interface FullUser { did: string; name: string | null; email: string | null }
+
+interface Channel {
+  id: string;
+  realmId: string | null;
+  name: string;
+  slug: string;
+  description: string | null;
+  isPublic: boolean;
+  isArchived: boolean;
+  topic: string | null;
+  creatorDid: string;
+  createdAt: string;
+  updatedAt: string;
+}
 
 const PRESET_COLORS = [
   "#6366f1", "#8b5cf6", "#ec4899", "#ef4444",
@@ -189,10 +206,14 @@ export default function RealmDetailPage() {
   const [workflows, setWorkflows] = useState<RealmWorkflow[]>([]);
   const [tokenUsage, setTokenUsage] = useState<{ promptTokens: number; completionTokens: number } | null>(null);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<"agents" | "users" | "workflows" | "config" | "org-chart" | "skills" | "models">("agents");
+  const [tab, setTab] = useState<"agents" | "users" | "workflows" | "config" | "org-chart" | "skills" | "models" | "channels">("agents");
   const [realmModels, setRealmModels] = useState<{ id: string; name: string; provider: string; modelId: string; litellmModelName: string | null; status: string }[]>([]);
   const [routerKey, setRouterKey] = useState<{ hasVirtualKey: boolean; allowedModels: string[]; monthlyBudgetUsd: number | null } | null>(null);
   const [skills, setSkills] = useState<RealmSkill[]>([]);
+  const [channels, setChannels] = useState<Channel[]>([]);
+  const [selectedChannelId, setSelectedChannelId] = useState<string | null>(null);
+  const [showCreateChannel, setShowCreateChannel] = useState(false);
+  const selectedChannel = channels.find((ch) => ch.id === selectedChannelId) ?? null;
   const [addModal, setAddModal] = useState<"agent" | "user" | null>(null);
   const [showTemplateModal, setShowTemplateModal] = useState(false);
   const setWorkflowStore = useWorkflowStore((s) => s.setWorkflow);
@@ -206,10 +227,11 @@ export default function RealmDetailPage() {
   const [saving, setSaving] = useState(false);
 
   const load = useCallback(async () => {
-    const [realmRes, skillsRes, modelsRes] = await Promise.all([
+    const [realmRes, skillsRes, modelsRes, channelsRes] = await Promise.all([
       fetch(`/api/realms/${id}`),
       fetch(`/api/realms/${id}/skills`),
       fetch(`/api/realms/${id}/models`),
+      fetch(`/api/channels?realm=${id}`),
     ]);
     if (realmRes.status === 404) { router.replace("/realms"); return; }
     const data = await realmRes.json() as { realm: Realm; agents: RealmAgent[]; users: RealmUser[]; workflows: RealmWorkflow[]; tokenUsage?: { promptTokens: number; completionTokens: number } | null };
@@ -226,6 +248,10 @@ export default function RealmDetailPage() {
       const modelsData = await modelsRes.json() as { models: typeof realmModels; routerKey: typeof routerKey };
       setRealmModels(modelsData.models ?? []);
       setRouterKey(modelsData.routerKey);
+    }
+    if (channelsRes.ok) {
+      const channelsData = await channelsRes.json() as { channels: Channel[] };
+      setChannels(channelsData.channels ?? []);
     }
     setLoading(false);
   }, [id, router]);
@@ -444,7 +470,7 @@ export default function RealmDetailPage() {
 
       {/* Tabs */}
       <div className="flex gap-1 border-b border-vc-border">
-        {(["agents", "users", "workflows", "skills", "models", "org-chart", "config"] as const).map((t) => (
+        {(["agents", "users", "workflows", "skills", "models", "channels", "org-chart", "config"] as const).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -458,6 +484,7 @@ export default function RealmDetailPage() {
             {t === "workflows" && `Workflows (${workflows.length})`}
             {t === "skills" && `Skills (${skills.length})`}
             {t === "models" && `Models (${realmModels.length})`}
+            {t === "channels" && `Channels (${channels.length})`}
             {t === "org-chart" && "Org Chart"}
             {t === "config" && "Config"}
           </button>
@@ -726,6 +753,72 @@ export default function RealmDetailPage() {
         </div>
       )}
 
+      {/* Channels tab */}
+      {tab === "channels" && (
+          <div className="flex h-[640px] border border-vc-border rounded-2xl overflow-hidden">
+            {/* Sidebar: channel list */}
+            <div className="w-60 border-r border-vc-border bg-vc-surface flex flex-col shrink-0">
+              <div className="px-4 py-3 border-b border-vc-border flex items-center justify-between">
+                <span className="text-sm font-semibold text-vc-text">Channels</span>
+                <button
+                  onClick={() => setShowCreateChannel(true)}
+                  className="p-1 rounded-lg hover:bg-vc-raised transition text-vc-muted hover:text-indigo-400"
+                  title="New channel"
+                >
+                  <Plus size={16} />
+                </button>
+              </div>
+              <div className="flex-1 overflow-y-auto">
+                {channels.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center h-full text-center px-4 gap-2">
+                    <MessageSquare className="w-6 h-6 text-vc-ring" />
+                    <p className="text-xs text-vc-muted">No channels yet.</p>
+                    <button
+                      onClick={() => setShowCreateChannel(true)}
+                      className="text-xs text-indigo-700 dark:text-indigo-400 hover:underline"
+                    >
+                      Create one
+                    </button>
+                  </div>
+                ) : (
+                  <ChannelList
+                    channels={channels}
+                    selectedChannelId={selectedChannelId}
+                    onSelectChannel={setSelectedChannelId}
+                  />
+                )}
+              </div>
+            </div>
+
+            {/* Main: channel view or empty state */}
+            <div className="flex-1 overflow-hidden">
+              {selectedChannel ? (
+                <ChannelView
+                  key={selectedChannel.id}
+                  channel={selectedChannel}
+                  realmId={id}
+                />
+              ) : (
+                <div className="flex flex-col items-center justify-center h-full gap-3 text-center px-8">
+                  <MessageSquare className="w-10 h-10 text-vc-ring" />
+                  <div>
+                    <p className="text-sm font-medium text-vc-text">Select a channel</p>
+                    <p className="text-xs text-vc-muted mt-1">
+                      Choose a channel from the sidebar or create a new one.
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setShowCreateChannel(true)}
+                    className="flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-medium transition-colors"
+                  >
+                    <Plus className="w-4 h-4" /> New Channel
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+      )}
+
       {/* Org Chart tab */}
       {tab === "org-chart" && (
         <div className="space-y-3">
@@ -747,6 +840,17 @@ export default function RealmDetailPage() {
           isOpen={showTemplateModal}
           onClose={() => setShowTemplateModal(false)}
           onSelectTemplate={handleSelectTemplate}
+        />
+      )}
+      {showCreateChannel && (
+        <CreateChannelModal
+          preSelectedRealmId={id}
+          onClose={() => setShowCreateChannel(false)}
+          onChannelCreated={(channel) => {
+            setShowCreateChannel(false);
+            setChannels((prev) => [...prev, channel]);
+            setSelectedChannelId(channel.id);
+          }}
         />
       )}
     </div>

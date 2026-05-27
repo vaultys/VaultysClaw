@@ -37,34 +37,52 @@ interface MessageListProps {
   onDeleteMessage: (messageId: string) => void;
 }
 
+/** Fallback when name cannot be resolved. */
 function shortDid(did?: string): string {
-  if (!did) return "unknown";
-  if (did.length <= 24) return did;
+  if (!did) return "Unknown";
   const parts = did.split(":");
   const last = parts[parts.length - 1];
   return last.length > 16 ? `…${last.slice(-12)}` : last;
 }
 
+function getInitials(name: string): string {
+  return name
+    .split(" ")
+    .filter(Boolean)
+    .map((w) => w[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2) || "?";
+}
+
 const COMMON_EMOJIS = ["👍", "❤️", "😂", "🎉", "🔥", "👀", "😮", "😢"];
+
+// ── MessageBubble ─────────────────────────────────────────────────────────────
 
 function MessageBubble({
   msg,
   channelId,
+  nameMap,
   onAddReaction,
   onDeleteMessage,
   isThread = false,
 }: {
   msg: Message;
   channelId: string;
+  nameMap: Record<string, string>;
   onAddReaction: (id: string, emoji: string) => void;
   onDeleteMessage: (id: string) => void;
   isThread?: boolean;
 }) {
   const [emojiOpen, setEmojiOpen] = useState(false);
 
+  const displayName = nameMap[msg.authorDid] ?? shortDid(msg.authorDid);
+  const initials = getInitials(displayName);
+  const isAgent = msg.authorType === "agent";
+
   const handleReaction = async (emoji: string) => {
     try {
-      const response = await fetch(
+      const res = await fetch(
         `/api/channels/${channelId}/messages/${msg.id}/reactions`,
         {
           method: "POST",
@@ -72,25 +90,24 @@ function MessageBubble({
           body: JSON.stringify({ emoji, add: true }),
         }
       );
-      if (response.ok) onAddReaction(msg.id, emoji);
+      if (res.ok) onAddReaction(msg.id, emoji);
     } catch {}
     setEmojiOpen(false);
   };
 
   const handleDelete = async () => {
     try {
-      const response = await fetch(
-        `/api/channels/${channelId}/messages/${msg.id}`,
-        { method: "DELETE" }
-      );
-      if (response.ok) onDeleteMessage(msg.id);
+      const res = await fetch(`/api/channels/${channelId}/messages/${msg.id}`, {
+        method: "DELETE",
+      });
+      if (res.ok) onDeleteMessage(msg.id);
     } catch {}
   };
 
   return (
     <div
       className={`group flex gap-3 hover:bg-vc-raised px-3 py-2 rounded-lg transition ${
-        isThread ? "ml-10 border-l-2 border-indigo-200 pl-3" : ""
+        isThread ? "ml-10 border-l-2 border-indigo-200 dark:border-indigo-800 pl-3" : ""
       }`}
     >
       {/* Avatar */}
@@ -98,28 +115,37 @@ function MessageBubble({
         className={`rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0 ${
           isThread ? "w-6 h-6" : "w-8 h-8"
         } ${
-          msg.authorType === "agent"
-            ? "bg-gradient-to-br from-purple-400 to-indigo-600"
-            : "bg-gradient-to-br from-blue-400 to-cyan-600"
+          isAgent
+            ? "bg-gradient-to-br from-violet-500 to-indigo-600"
+            : "bg-gradient-to-br from-blue-500 to-cyan-600"
         }`}
       >
-        {shortDid(msg.authorDid).charAt(0).toUpperCase()}
+        {initials}
       </div>
 
       {/* Content */}
       <div className="flex-1 min-w-0">
-        <div className="flex items-baseline gap-2">
-          <span className={`font-semibold text-vc-text ${isThread ? "text-xs" : "text-sm"}`}>
-            {shortDid(msg.authorDid)}
+        <div className="flex items-baseline gap-2 flex-wrap">
+          <span
+            className={`font-semibold text-vc-text ${
+              isThread ? "text-xs" : "text-sm"
+            }`}
+          >
+            {displayName}
           </span>
-          {msg.authorType === "agent" && (
-            <span className="text-xs bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded">
-              agent
+          {isAgent && (
+            <span className="text-[10px] px-1.5 py-0.5 rounded bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-400 font-medium flex-shrink-0">
+              bot
             </span>
           )}
           <span className="text-xs text-vc-muted">{formatTime(msg.createdAt)}</span>
         </div>
-        <div className={`prose prose-sm max-w-none text-vc-text mt-0.5 break-words ${isThread ? "text-sm" : ""} [&_p]:my-0.5 [&_ul]:my-1 [&_ol]:my-1 [&_pre]:bg-vc-raised [&_pre]:rounded [&_pre]:p-2 [&_code]:text-indigo-600 [&_code]:bg-vc-raised [&_code]:px-1 [&_code]:rounded [&_a]:text-indigo-500 [&_a]:underline`}>
+
+        <div
+          className={`prose prose-sm max-w-none text-vc-text mt-0.5 break-words ${
+            isThread ? "text-sm" : ""
+          } [&_p]:my-0.5 [&_ul]:my-1 [&_ol]:my-1 [&_pre]:bg-vc-raised [&_pre]:rounded [&_pre]:p-2 [&_code]:text-indigo-600 dark:[&_code]:text-indigo-400 [&_code]:bg-vc-raised [&_code]:px-1 [&_code]:rounded [&_a]:text-indigo-500 [&_a]:underline`}
+        >
           <ReactMarkdown>{msg.content}</ReactMarkdown>
         </div>
 
@@ -140,8 +166,8 @@ function MessageBubble({
         )}
       </div>
 
-      {/* Actions */}
-      <div className="opacity-0 group-hover:opacity-100 transition flex gap-1 items-start relative pt-1">
+      {/* Actions (hover) */}
+      <div className="opacity-0 group-hover:opacity-100 transition flex gap-1 items-start relative pt-1 flex-shrink-0">
         <div className="relative">
           <button
             onClick={() => setEmojiOpen(!emojiOpen)}
@@ -172,7 +198,7 @@ function MessageBubble({
         </div>
         <button
           onClick={handleDelete}
-          className="p-1 hover:bg-vc-raised rounded text-vc-text-2 hover:text-red-600 transition"
+          className="p-1 hover:bg-vc-raised rounded text-vc-text-2 hover:text-red-600 dark:hover:text-red-400 transition"
           title="Delete"
         >
           <Trash2 size={14} />
@@ -182,14 +208,18 @@ function MessageBubble({
   );
 }
 
+// ── ThreadView ────────────────────────────────────────────────────────────────
+
 function ThreadView({
   channelId,
   parentId,
+  nameMap,
   onAddReaction,
   onDeleteMessage,
 }: {
   channelId: string;
   parentId: string;
+  nameMap: Record<string, string>;
   onAddReaction: (id: string, emoji: string) => void;
   onDeleteMessage: (id: string) => void;
 }) {
@@ -199,25 +229,24 @@ function ThreadView({
   useEffect(() => {
     const fetchThread = async () => {
       try {
-        const response = await fetch(
+        const res = await fetch(
           `/api/channels/${channelId}/messages?threadId=${parentId}`
         );
-        if (response.ok) {
-          const data = (await response.json()) as { messages: Message[] };
+        if (res.ok) {
+          const data = (await res.json()) as { messages: Message[] };
           setReplies(data.messages);
         }
       } catch {}
       setLoading(false);
     };
     fetchThread();
-    // Poll thread too
     const interval = setInterval(fetchThread, 3000);
     return () => clearInterval(interval);
   }, [channelId, parentId]);
 
   if (loading) {
     return (
-      <div className="ml-10 pl-3 border-l-2 border-indigo-100 py-1">
+      <div className="ml-10 pl-3 border-l-2 border-indigo-100 dark:border-indigo-900 py-1">
         <div className="text-xs text-vc-muted animate-pulse">Loading thread…</div>
       </div>
     );
@@ -230,6 +259,7 @@ function ThreadView({
           key={reply.id}
           msg={reply}
           channelId={channelId}
+          nameMap={nameMap}
           onAddReaction={onAddReaction}
           onDeleteMessage={onDeleteMessage}
           isThread
@@ -239,22 +269,25 @@ function ThreadView({
   );
 }
 
+// ── MessageWithThread ─────────────────────────────────────────────────────────
+
 function MessageWithThread({
   msg,
   channelId,
   threadCount,
+  nameMap,
   onAddReaction,
   onDeleteMessage,
 }: {
   msg: Message;
   channelId: string;
   threadCount: number;
+  nameMap: Record<string, string>;
   onAddReaction: (id: string, emoji: string) => void;
   onDeleteMessage: (id: string) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
 
-  // Auto-expand if there are replies
   useEffect(() => {
     if (threadCount > 0) setExpanded(true);
   }, [threadCount]);
@@ -264,6 +297,7 @@ function MessageWithThread({
       <MessageBubble
         msg={msg}
         channelId={channelId}
+        nameMap={nameMap}
         onAddReaction={onAddReaction}
         onDeleteMessage={onDeleteMessage}
       />
@@ -271,11 +305,13 @@ function MessageWithThread({
       {threadCount > 0 && (
         <button
           onClick={() => setExpanded(!expanded)}
-          className="ml-14 mt-1 flex items-center gap-1.5 text-xs text-indigo-500 hover:text-indigo-700 transition"
+          className="ml-14 mt-1 flex items-center gap-1.5 text-xs text-indigo-500 hover:text-indigo-700 dark:hover:text-indigo-300 transition"
         >
           {expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
           <MessageSquare size={12} />
-          <span>{threadCount} {threadCount === 1 ? "reply" : "replies"}</span>
+          <span>
+            {threadCount} {threadCount === 1 ? "reply" : "replies"}
+          </span>
         </button>
       )}
 
@@ -283,6 +319,7 @@ function MessageWithThread({
         <ThreadView
           channelId={channelId}
           parentId={msg.id}
+          nameMap={nameMap}
           onAddReaction={onAddReaction}
           onDeleteMessage={onDeleteMessage}
         />
@@ -290,6 +327,8 @@ function MessageWithThread({
     </div>
   );
 }
+
+// ── MessageList (root) ────────────────────────────────────────────────────────
 
 export default function MessageList({
   channelId,
@@ -300,24 +339,54 @@ export default function MessageList({
 }: MessageListProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const isAtBottom = useRef(true); // start true so initial load scrolls down
+  const isAtBottom = useRef(true);
   const [threadCounts, setThreadCounts] = useState<Record<string, number>>({});
 
-  // Track whether the user is near the bottom of the scroll container
+  // ── Name resolution ─────────────────────────────────────────────────────────
+  const [nameMap, setNameMap] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    const combined: Record<string, string> = {};
+
+    const p1 = fetch("/api/agents/search?q=")
+      .then((r) => r.json())
+      .then((d: { agents?: { id: string; name: string }[] }) => {
+        // Search API returns "id" (= DID), not "did"
+        for (const a of d.agents ?? []) {
+          if (a.id && a.name) combined[a.id] = a.name;
+        }
+      })
+      .catch(() => {/* ignore */});
+
+    const p2 = fetch("/api/users?pageSize=100")
+      .then(async (r) => {
+        if (!r.ok) return; // non-admin: graceful fallback
+        const d = (await r.json()) as {
+          users?: { did: string; name: string | null; email: string | null }[];
+        };
+        for (const u of d.users ?? []) {
+          combined[u.did] = u.name ?? u.email ?? shortDid(u.did);
+        }
+      })
+      .catch(() => {/* ignore */});
+
+    Promise.all([p1, p2]).then(() => setNameMap(combined));
+  }, [/* fetch once per channel mount */]);
+
+  // ── Scroll behaviour ────────────────────────────────────────────────────────
   const handleScroll = () => {
     const el = containerRef.current;
     if (!el) return;
     isAtBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 100;
   };
 
-  // Only auto-scroll when the user is already at (or near) the bottom
   useEffect(() => {
     if (isAtBottom.current) {
       messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }
   }, [messages]);
 
-  // Fetch thread reply counts for top-level messages
+  // ── Thread reply counts ─────────────────────────────────────────────────────
   useEffect(() => {
     if (messages.length === 0) return;
 
@@ -326,11 +395,11 @@ export default function MessageList({
       await Promise.all(
         messages.map(async (msg) => {
           try {
-            const response = await fetch(
+            const res = await fetch(
               `/api/channels/${channelId}/messages?threadId=${msg.id}`
             );
-            if (response.ok) {
-              const data = (await response.json()) as { messages: Message[] };
+            if (res.ok) {
+              const data = (await res.json()) as { messages: Message[] };
               counts[msg.id] = data.messages.length;
             }
           } catch {}
@@ -344,6 +413,7 @@ export default function MessageList({
     return () => clearInterval(interval);
   }, [messages, channelId]);
 
+  // ── Render ──────────────────────────────────────────────────────────────────
   if (isLoading) {
     return (
       <div className="flex-1 flex items-center justify-center">
@@ -353,7 +423,11 @@ export default function MessageList({
   }
 
   return (
-    <div ref={containerRef} onScroll={handleScroll} className="flex-1 overflow-y-auto px-6 py-4 space-y-3">
+    <div
+      ref={containerRef}
+      onScroll={handleScroll}
+      className="flex-1 overflow-y-auto px-6 py-4 space-y-3"
+    >
       {messages.length === 0 ? (
         <div className="text-center text-vc-muted py-8">
           <p>No messages yet. Start the conversation!</p>
@@ -366,6 +440,7 @@ export default function MessageList({
             msg={msg}
             channelId={channelId}
             threadCount={threadCounts[msg.id] ?? 0}
+            nameMap={nameMap}
             onAddReaction={onAddReaction}
             onDeleteMessage={onDeleteMessage}
           />

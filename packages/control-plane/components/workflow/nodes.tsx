@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { Handle, Position, type NodeProps } from "reactflow";
-import { Bot, GitBranch, Zap, Clock, Code, User } from "lucide-react";
+import { Bot, GitBranch, Zap, Clock, Code, User, Wrench } from "lucide-react";
 import { useWorkflowStore } from "./store";
 
 // Base styles for all nodes
@@ -223,6 +223,53 @@ export const UserNode: React.FC<NodeProps> = ({ data }) => {
   );
 };
 
+/**
+ * Skill Node — call a specific skill tool on an agent.
+ *
+ * data shape:
+ *   skillName    {string}  e.g. "social-media"
+ *   toolName     {string}  e.g. "post_to_x"
+ *   agentId      {string}  which agent to dispatch to (optional — falls back to any capable agent)
+ *   inputMapping {string}  dot-path into prev output to use as text input (optional)
+ */
+export const SkillNode: React.FC<NodeProps> = ({ data }) => {
+  const selectedNode = useWorkflowStore((s) => s.selectedNodeId);
+  const isSelectedInStore = selectedNode === data.id;
+
+  const skillName = (data as any).skillName as string | undefined;
+  const toolName  = (data as any).toolName  as string | undefined;
+
+  return (
+    <div
+      className={`${baseNodeStyle} ${
+        isSelectedInStore
+          ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
+          : "border-emerald-300 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-900/20"
+      }`}
+    >
+      <div className="flex items-center gap-2 mb-2">
+        <Wrench size={16} className="text-emerald-600 dark:text-emerald-400" />
+        <span className="font-semibold text-xs text-emerald-900 dark:text-emerald-200">Skill</span>
+      </div>
+      {skillName && (
+        <p className="text-xs text-gray-700 dark:text-gray-300 font-medium truncate">
+          {skillName}
+        </p>
+      )}
+      {toolName && (
+        <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+          {toolName}
+        </p>
+      )}
+      {!skillName && !toolName && (
+        <p className="text-xs text-gray-400 dark:text-gray-500 italic">configure skill…</p>
+      )}
+      <Handle type="target" position={Position.Left} />
+      <Handle type="source" position={Position.Right} />
+    </div>
+  );
+};
+
 export const nodeTypes = {
   agent: AgentNode,
   condition: ConditionNode,
@@ -231,4 +278,5 @@ export const nodeTypes = {
   custom: CustomNode,
   label: LabelNode,
   user: UserNode,
+  skill: SkillNode,
 };

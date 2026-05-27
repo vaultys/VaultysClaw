@@ -1,10 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext, unauthorized } from "@/lib/auth-utils";
-import { getAllAgents } from "@/lib/db";
+import { getAllAgents, getRealmAgents } from "@/lib/db";
+import { getWSServer } from "@/lib/ws-server";
 
 /**
- * GET /api/agents/search?q=...
- * Search for agents by name or DID
+ * GET /api/agents/search?q=...&realm=<realmId>
+ *
+ * Search for agents by name or DID.
+ * When `realm` is provided, only agents in that realm are returned.
+ * Each agent is enriched with a real-time `online` field sourced from
+ * the WebSocket server's in-memory connection map.
  */
 export async function GET(req: NextRequest) {
   try {
@@ -12,19 +17,49 @@ export async function GET(req: NextRequest) {
     if (!auth) return unauthorized();
 
     const { searchParams } = new URL(req.url);
-    const query = searchParams.get("q")?.toLowerCase() || "";
+    const query  = searchParams.get("q")?.toLowerCase() ?? "";
+    const realmId = searchParams.get("realm");
 
-    const allAgents = getAllAgents();
+    // --- Fetch agent list ------------------------------------------------
+    let agentList: { did: string; name: string; capabilities?: string | null }[];
 
-    // Filter agents by name or DID match
-    const matches = allAgents.filter((agent) => {
-      const name = (agent.name || "").toLowerCase();
-      const did = (agent.did || "").toLowerCase();
-      return name.includes(query) || did.includes(query);
+    if (realmId && realmId !== "default") {
+      // Realm-scoped: only members of this realm
+      agentList = getRealmAgents(realmId).map((ra) => ({
+        did:          ra.agent_did,
+        name:         ra.agent_name,
+        capabilities: (ra as any).capabilities ?? null,
+      }));
+    } else {
+      agentList = getAllAgents().map((a) => ({
+        did:          a.did,
+        name:         a.name,
+        capabilities: (a as any).capabilities ?? null,
+      }));
+    }
+
+    // --- Real-time online status from WebSocket server -------------------
+    const wsServer = getWSServer();
+    const connectedDids = new Set(
+      wsServer?.getConnectedAgents().map((ca) => ca.id) ?? [],
+    );
+
+    // --- Filter by query -------------------------------------------------
+    const matches = agentList.filter((a) => {
+      if (!query) return true;
+      return (
+        (a.name ?? "").toLowerCase().includes(query) ||
+        (a.did ?? "").toLowerCase().includes(query)
+      );
     });
 
     return NextResponse.json({
-      agents: matches.slice(0, 20), // Limit to 20 results
+      agents: matches.slice(0, 20).map((a) => ({
+        id:           a.did,
+        name:         a.name,
+        capabilities: (() => { try { return JSON.parse(a.capabilities ?? "[]"); } catch { return []; } })(),
+        online:       connectedDids.has(a.did),
+      })),
     });
   } catch (err) {
     console.error("GET /api/agents/search error:", err);

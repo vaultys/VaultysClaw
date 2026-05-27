@@ -19,15 +19,23 @@ graph TD
     CH["Channel Layer\nChannelService · MessageDispatcher\nBridgeFactory"]
     DB[("SQLite\nDatabase")]
     VID_CP["VaultysId ⬡"]
+    FSA["FileStorage\nAbstraction"]
 
     UI --> DB
     API --> DB
     WS --> DB
     CH --> DB
+    API --> FSA
     VID_CP -.signs.-> WS
     VID_CP -.signs.-> API
+    VID_CP -."encrypts\ncredentials".-> DB
     API --> CH
     CH --> WS
+  end
+
+  subgraph FileStorage["File Storage (optional external)"]
+    FSFS["Filesystem\ndata/knowledge-files/"]
+    S3["S3 / MinIO\nobject store"]
   end
 
   subgraph LiteLLM["LiteLLM Proxy (optional)  :4000"]
@@ -58,6 +66,8 @@ graph TD
     VID3["VaultysId ⬡"]
   end
 
+  FSA -- "default" --> FSFS
+  FSA -. "if configured" .-> S3
   API -- "register models\ncreate realm keys" --> LiteLLM
   WS -- "WSS signed messages\n+ channel events" --> A1
   WS -- "WSS signed messages\n+ channel events" --> A2
@@ -94,6 +104,19 @@ A persistent WebSocket server that agent controllers connect to. The hub:
 ### Dashboard
 
 A React 19 single-page application rendered server-side by Next.js. Provides live visibility over agents, an interactive graph of the trust graph, a chat interface, workflow management, and the admin approval queue.
+
+### File storage
+
+Knowledge file content is decoupled from the SQLite database through a `FileStorage` abstraction layer. Two backends are supported:
+
+| Backend | When to use |
+|---|---|
+| **Filesystem** (default) | Single-node deployments. Files written to `data/knowledge-files/` alongside the database. |
+| **S3 / MinIO** | Multi-node or cloud deployments. Any S3-compatible service — AWS S3, MinIO, Ceph, etc. |
+
+The active backend is determined at startup from the `settings` table. S3 credentials (access key ID + secret) are stored encrypted, signed with the server's VaultysId — never in environment variables. Switching backends takes effect immediately without a restart; the cached storage singleton is invalidated when configuration is saved.
+
+Uploaded files keep their binary content out of SQLite: the `knowledge_files` table stores a `file_path` key and delegates reads/writes to the active backend. Legacy rows with a `content` BLOB (pre-migration) remain readable through the same abstraction.
 
 ## Agent controller
 
@@ -189,24 +212,37 @@ Key tables:
 
 | Table | Purpose |
 |---|---|
+| `settings` | Key-value store for all server configuration (storage type, S3 credentials encrypted, Docling URL, …) |
 | `agents` | Registered agent controllers with DID, capabilities, LLM config |
 | `users` | Human users with DID, email, admin flag |
 | `realms` | Organisational scopes |
-| `realm_memberships` | User ↔ realm and agent ↔ realm associations |
-| `grants` | Capability grants from users to agents |
+| `agent_realms` | Agent ↔ realm associations |
+| `user_realms` | User ↔ realm associations |
+| `user_grants` | Capability grants from users to agents |
 | `delegation_certs` | Control-plane-signed delegation certificates |
+| `certificates` | Agent certificates issued by the control plane |
 | `policies` | Signed policies pushed to agents |
-| `intents` | Intent log with status and results |
-| `chat_sessions` | LLM conversation history |
-| `workflows` | Workflow definitions and run history |
 | `pending_registrations` | Agents awaiting admin approval |
+| `intent_log` | Dispatched intents with status, payload, and results |
+| `workflows` | Workflow definitions (steps, schedule, trigger config) |
+| `workflow_runs` | Execution history per workflow |
+| `workflow_steps` | Per-step execution log within a run |
+| `workflow_approvals` | Human-in-the-loop approval requests |
+| `knowledge_sources` | RAG sources per agent (URL, text, file — with sync status) |
+| `knowledge_files` | Uploaded file metadata + `file_path` key into the FileStorage backend |
 | `model_registry` | Registered LLMs with provider, model ID, and LiteLLM name |
 | `model_realm_access` | Which models each realm can access |
 | `realm_router_keys` | Per-realm LiteLLM virtual keys and allowed model lists |
+| `org_skills` | Organisation-level skill library entries |
+| `realm_skills` | Realm-scoped skill overrides |
+| `agent_skill_overrides` | Per-agent skill configuration |
 | `channels` | Named rooms (realm-scoped or global) |
 | `channel_members` | User and agent membership with roles |
 | `channel_messages` | Persisted messages with optional threading |
 | `channel_bridges` | External service integrations (webhooks, Teams) |
+| `agent_token_usage` | Rolling token counters per agent (budget enforcement) |
+| `user_invitations` | Pending email invitations |
+| `entra_identities` | Microsoft Entra ID / Azure AD identity links |
 
 ## Technology stack
 
@@ -216,6 +252,7 @@ Key tables:
 | Control plane HTTP | Next.js 14+ |
 | Authentication | NextAuth.js |
 | Database | SQLite / better-sqlite3 |
+| File storage | Filesystem (default) · S3 via @aws-sdk/client-s3 (optional) |
 | WebSocket | ws 8.x |
 | Agent HTTP | Express.js |
 | Identity | @vaultys/id 3.x |
@@ -242,15 +279,17 @@ graph TD
   Internet["Internet / Corporate LAN"]
   LB["Load Balancer\nHTTPS / WSS"]
   CP["Control Plane\nHTTPS :443 · WSS :8080"]
-  DB[("SQLite / PostgreSQL")]
+  DB[("SQLite")]
+  S3["S3 / MinIO\nknowledge files"]
   A1["Agent Node A\non-premises"]
   A2["Agent Node B\nprivate cloud"]
 
   Internet --> LB
   LB --> CP
   CP --- DB
+  CP -. "optional" .-> S3
   CP -- "WSS outbound only" --> A1
   CP -- "WSS outbound only" --> A2
 ```
 
-Agents always connect **outbound** — no inbound firewall holes required.
+Agents always connect **outbound** — no inbound firewall holes required. S3-compatible object storage is optional but recommended when running multiple control-plane replicas or when you want knowledge files managed separately from the database volume.

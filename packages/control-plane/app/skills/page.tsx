@@ -67,6 +67,9 @@ interface LibrarySkill {
   githubStars: number;
   repoUrl: string;
   standalone: boolean;
+  icon?: string | null;
+  version?: string;
+  content?: string | null;
   contentType: {
     hasInstructions: boolean;
     hasScripts: boolean;
@@ -143,7 +146,7 @@ function BrowseLibraryModal({
         <div className="flex items-center justify-between px-5 py-4 border-b border-vc-border flex-shrink-0">
           <div className="flex items-center gap-2">
             <BookOpen className="w-4 h-4 text-indigo-400" />
-            <h2 className="text-base font-semibold text-vc-text">Skills Library</h2>
+            <h2 className="text-base font-semibold text-vc-text">Org Skill Catalog</h2>
             {!loading && !error && (
               <span className="text-xs text-vc-muted">
                 {displayed.length} of {allSkills.length}
@@ -188,57 +191,37 @@ function BrowseLibraryModal({
               className="group flex items-start gap-3 p-3 rounded-xl border border-vc-border hover:border-indigo-500/50 hover:bg-indigo-500/5 transition-colors cursor-pointer"
               onClick={() => onSelect(skill)}
             >
-              <Puzzle className="w-4 h-4 text-indigo-400 flex-shrink-0 mt-0.5" />
+              {skill.icon
+                ? <span className="text-lg leading-none flex-shrink-0 mt-0.5">{skill.icon}</span>
+                : <Puzzle className="w-4 h-4 text-indigo-400 flex-shrink-0 mt-0.5" />
+              }
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-0.5">
                   <span className="text-sm font-mono font-medium text-vc-text">{skill.name}</span>
-                  {skill.standalone && (
-                    <span className="text-xs px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-900/30 border border-emerald-300 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400">
-                      standalone
+                  {skill.version && (
+                    <span className="text-xs px-1.5 py-0.5 rounded bg-vc-bg border border-vc-border text-vc-muted font-mono">
+                      v{skill.version}
+                    </span>
+                  )}
+                  {skill.contentType.hasInstructions && (
+                    <span className="text-xs px-1.5 py-0.5 rounded bg-indigo-100 dark:bg-indigo-900/30 border border-indigo-300 dark:border-indigo-800 text-indigo-700 dark:text-indigo-400">
+                      instructions
                     </span>
                   )}
                 </div>
                 {skill.description && (
                   <p className="text-xs text-vc-muted line-clamp-2">{skill.description}</p>
                 )}
-                <div className="flex items-center gap-3 mt-1.5">
-                  <span className="text-xs text-vc-muted">{skill.source}</span>
-                  {skill.installs > 0 && (
-                    <span className="flex items-center gap-1 text-xs text-vc-muted">
-                      <Download className="w-3 h-3" />{fmt(skill.installs)}
-                    </span>
-                  )}
-                  {skill.githubStars > 0 && (
-                    <span className="flex items-center gap-1 text-xs text-vc-muted">
-                      <Star className="w-3 h-3" />{fmt(skill.githubStars)}
-                    </span>
-                  )}
-                  {skill.repoUrl && (
-                    <a
-                      href={skill.repoUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={(e) => e.stopPropagation()}
-                      className="flex items-center gap-1 text-xs text-indigo-400 hover:text-indigo-300"
-                    >
-                      <ExternalLink className="w-3 h-3" />repo
-                    </a>
-                  )}
-                </div>
               </div>
               <span className="flex-shrink-0 text-xs text-indigo-400 opacity-0 group-hover:opacity-100 transition-opacity self-center">
-                Add →
+                Assign →
               </span>
             </div>
           ))}
         </div>
 
         <div className="px-5 py-3 border-t border-vc-border flex-shrink-0 text-xs text-vc-muted">
-          Data from{" "}
-          <a href="https://skills-library.com" target="_blank" rel="noopener noreferrer" className="text-indigo-400 hover:text-indigo-300">
-            skills-library.com
-          </a>
-          . Click a skill to pre-fill the add form — you can edit all fields before saving.
+          Organisation skill catalog · Click a skill to assign it to a realm.
         </div>
       </div>
     </div>
@@ -961,7 +944,7 @@ export default function SkillsPage() {
             onClick={() => setShowLibrary(true)}
             className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-vc-text bg-vc-surface hover:bg-vc-bg border border-vc-border rounded-lg transition-colors"
           >
-            <BookOpen className="w-4 h-4 text-indigo-400" /> Browse Library
+            <BookOpen className="w-4 h-4 text-indigo-400" /> Org Catalog
           </button>
           <button
             onClick={() => setAddModal({ open: true, prefillName: "", prefillDescription: "", prefillContent: "" })}
@@ -1040,23 +1023,13 @@ export default function SkillsPage() {
       {showLibrary && (
         <BrowseLibraryModal
           onClose={() => setShowLibrary(false)}
-          onSelect={async (skill) => {
-            // Fetch content in parallel while opening the modal
-            let prefillContent = "";
-            try {
-              const res = await fetch(
-                `/api/skills/library/content?source=${encodeURIComponent(skill.source)}&skillId=${encodeURIComponent(skill.skillId)}`
-              );
-              if (res.ok) {
-                const data = await res.json();
-                prefillContent = data.content ?? "";
-              }
-            } catch { /* content is optional */ }
+          onSelect={(skill) => {
+            // Content is already included in the catalog response — no extra fetch needed
             setAddModal({
               open: true,
               prefillName: skill.name,
               prefillDescription: skill.description,
-              prefillContent,
+              prefillContent: skill.content ?? "",
             });
           }}
         />

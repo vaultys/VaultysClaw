@@ -195,13 +195,21 @@ export class ChannelService {
       metadata: input.metadata ?? {},
     });
 
-    // Process mentions and create threads (async, no await)
+    // Process mentions and fan out to bridges (async, fire-and-forget).
+    // Only for user-authored top-level messages — agent replies and thread
+    // posts skip dispatch to avoid re-processing already-dispatched content.
     if (input.authorType === "user" && !input.threadId) {
       MessageDispatcher.processMessage(
         input.channelId,
         message.id,
         input.authorDid,
         input.content,
+        {
+          id: message.id,
+          authorType: "user",
+          threadId: message.threadId,
+          createdAt: message.createdAt,
+        },
       ).catch((err) => console.error("MessageDispatcher error:", err));
     }
 

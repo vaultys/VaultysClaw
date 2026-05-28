@@ -14,7 +14,7 @@
     "dev:web-client": "cd web-app && vite",
     "build": "tsc",
     "build:binaries": "bash scripts/build-binaries.sh",
-    "start": "tsx src/index.ts",
+    "start": "tsx src/cli.ts",
     "cli": "tsx src/cli.ts",
     "spawn": "tsx src/cli.ts --spawn",
     "type-check": "tsc --noEmit",
@@ -45,6 +45,7 @@
     "react": "^18.3.0",
     "react-dom": "^18.3.0",
     "react-markdown": "^9.0.1",
+    "playwright": "^1.49.0",
     "ws": "^8.18.0",
     "zod": "^3.23.8"
   },

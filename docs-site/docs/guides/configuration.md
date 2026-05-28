@@ -54,6 +54,17 @@ GOOGLE_ID=your-google-client-id
 GOOGLE_SECRET=your-google-client-secret
 ```
 
+### Integrations
+
+Some integrations are configured entirely through the control plane UI and stored encrypted in the database — no environment variables are involved. The server uses its VaultysId to encrypt credentials at rest.
+
+| Integration | Settings path | What is stored |
+|---|---|---|
+| **File storage** (S3 / filesystem) | Settings → Integrations → File Storage | S3 endpoint, bucket, region, access key ID, secret access key |
+| **Docling** (PDF/DOCX conversion) | Settings → Integrations → Docling | Docling server URL and discovered API version |
+
+Changing either of these takes effect immediately without a server restart.
+
 ### LiteLLM integration (optional)
 
 Connect the control plane to a [LiteLLM proxy](https://docs.litellm.ai/docs/proxy/quick_start) to enable the model registry, per-realm virtual keys, and automatic LLM config push. See the [LLM Routing guide](/docs/guides/llm-routing) for a full walkthrough.

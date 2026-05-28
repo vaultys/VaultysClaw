@@ -46,12 +46,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     : undefined;
 
   // For 'files' sources, load file attachments (base64 encoded) to send to agent
-  const fileAttachments = source.source_type === 'files'
-    ? getKnowledgeFileAttachments(source.id)
-    : undefined;
-
-  if (source.source_type === 'files' && (!fileAttachments || fileAttachments.length === 0)) {
-    return NextResponse.json({ error: 'No files attached to this source — upload files first' }, { status: 400 });
+  let fileAttachments: Awaited<ReturnType<typeof getKnowledgeFileAttachments>> | undefined;
+  if (source.source_type === 'files') {
+    fileAttachments = await getKnowledgeFileAttachments(source.id);
+    if (!fileAttachments || fileAttachments.length === 0) {
+      return NextResponse.json({ error: 'No files attached to this source — upload files first' }, { status: 400 });
+    }
   }
 
   wsServer.sendKnowledgeSync(source.agent_did, messageId, {

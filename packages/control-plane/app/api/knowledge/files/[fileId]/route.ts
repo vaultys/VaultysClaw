@@ -12,7 +12,7 @@ export async function DELETE(
   if (!auth.isGlobalAdmin) return forbidden();
 
   const { fileId } = await params;
-  const file = getKnowledgeFileContent(fileId);
+  const file = await getKnowledgeFileContent(fileId);
   if (!file) return NextResponse.json({ error: 'File not found' }, { status: 404 });
 
   // Verify the parent source exists (for logging context)
@@ -21,6 +21,6 @@ export async function DELETE(
     return forbidden();
   }
 
-  deleteKnowledgeFile(fileId);
+  await deleteKnowledgeFile(fileId);
   return NextResponse.json({ success: true });
 }

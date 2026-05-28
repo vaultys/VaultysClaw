@@ -19,7 +19,8 @@ import next from "next";
 import pino from "pino";
 import { loadEnvConfig } from "@next/env";
 import { initializeWSServer, initializeAdminWS } from "./lib/ws-server";
-import { getDb, closeDb, initServerIdentity } from "./lib/db";
+import { getDb, closeDb, initServerIdentity, getFileStorage } from "./lib/db";
+import { startWorkflowScheduler, stopWorkflowScheduler } from "./lib/workflow-scheduler";
 
 const logger = pino();
 
@@ -63,6 +64,10 @@ app.prepare().then(async () => {
   logger.info("Initializing database");
   getDb();
 
+  // Warm up file storage (reads + decrypts config from DB)
+  await getFileStorage();
+  logger.info("File storage initialized");
+
   // Generate server VaultysId if not present
   await initServerIdentity();
   logger.info("Server identity ready");
@@ -78,6 +83,9 @@ app.prepare().then(async () => {
       res.end("internal server error");
     }
   });
+
+  // Start workflow scheduler (fires cron-scheduled workflows)
+  startWorkflowScheduler();
 
   // Initialize WebSocket server for agents (separate port)
   logger.info({ wsPort }, "Initializing WebSocket server for agents");
@@ -107,6 +115,7 @@ app.prepare().then(async () => {
       logger.info("HTTP server closed");
     });
     wsServer.shutdown();
+    stopWorkflowScheduler();
     closeDb();
   });
 });

@@ -14,7 +14,7 @@ import ReactFlow, {
   MiniMap,
 } from "reactflow";
 import "reactflow/dist/style.css";
-import { Plus, Save, Play, Trash2, RotateCcw, Bot, GitBranch, Clock, Type, User } from "lucide-react";
+import { Plus, Save, Play, Trash2, RotateCcw, Bot, GitBranch, Clock, Type, User, Wrench } from "lucide-react";
 import { nodeTypes } from "./nodes";
 import { PropertiesPanel } from "./PropertiesPanel";
 import { useWorkflowStore } from "./store";
@@ -287,6 +287,12 @@ export const WorkflowEditor: React.FC<WorkflowEditorProps> = ({ initialDefinitio
               className="flex items-center gap-1 px-3 py-1.5 bg-cyan-600 text-white text-sm rounded hover:bg-cyan-700"
             >
               <User size={14} /> User
+            </button>
+            <button
+              onClick={() => handleAddNode("skill")}
+              className="flex items-center gap-1 px-3 py-1.5 bg-emerald-600 text-white text-sm rounded hover:bg-emerald-700"
+            >
+              <Wrench size={14} /> Skill
             </button>
             <button
               onClick={handleSaveWorkflow}

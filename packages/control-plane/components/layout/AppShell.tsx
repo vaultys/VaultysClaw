@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import Sidebar from "./Sidebar";
 import TopBar from "./TopBar";
+import WorkflowApprovalInbox from "@/components/workflow/WorkflowApprovalInbox";
 
 // Pages that bypass the app shell entirely (standalone layouts)
 const STANDALONE_PATHS = ["/login", "/setup"];
@@ -45,6 +46,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       <Sidebar collapsed={collapsed} onToggle={toggleSidebar} />
       <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
         <TopBar />
+        <WorkflowApprovalInbox />
         <main className="flex-1 flex flex-col overflow-y-auto bg-vc-bg">
           {status === "loading" ? (
             <div className="flex items-center justify-center h-full">

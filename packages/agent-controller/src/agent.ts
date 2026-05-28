@@ -1158,6 +1158,30 @@ export class Agent extends EventEmitter {
   }
 
   private async executeAction(action: string, params: Record<string, unknown>, _callerDid?: string): Promise<unknown> {
+    // ── Direct skill-tool invocation (no LLM needed) ──────────────────────────
+    // The workflow executor sends action="call_skill_tool" when a Skill node runs.
+    // We look up the tool by name in the registry and execute it directly.
+    if (action === "call_skill_tool") {
+      const { skillName, toolName, params: toolParams } = params as {
+        skillName?: string;
+        toolName?: string;
+        params?: Record<string, unknown>;
+      };
+      if (!toolName) return { error: "call_skill_tool requires 'toolName'" };
+      const def = this.toolRegistry.get(toolName);
+      if (!def) return { error: `Tool '${toolName}' not found in registry` };
+      if (!def.tool.execute) return { error: `Tool '${toolName}' has no execute function` };
+      try {
+        this.log("info", `Executing skill tool directly: ${skillName ?? ""}/${toolName}`);
+        const result = await def.tool.execute((toolParams ?? {}) as any, {} as any);
+        return { success: true, result, toolName, skillName };
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        this.log("error", `Skill tool '${toolName}' failed: ${msg}`);
+        return { error: msg, toolName, skillName };
+      }
+    }
+
     if (!this.activeLlmConfig) throw new LlmNotConfiguredError();
     const tools = this.buildAgentToolSet();
     const queryText = `${action} ${JSON.stringify(params)}`;

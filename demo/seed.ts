@@ -25,6 +25,7 @@
 import Database from "better-sqlite3";
 import path from "path";
 import fs from "fs";
+import crypto from "crypto";
 import { fileURLToPath } from "url";
 
 // ---------------------------------------------------------------------------
@@ -35,7 +36,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Resolve DB relative to packages/control-plane (cwd when this script is run)
-const DB_PATH = path.resolve(process.cwd(), "data", "vaultysclaw.db");
+const DB_PATH = path.resolve(process.cwd(), "..", "..", "demo", "data", "vaultysclaw.db");
 
 if (!fs.existsSync(DB_PATH)) {
   console.error(`Database not found at ${DB_PATH}`);
@@ -342,6 +343,7 @@ function seed(): void {
     console.log("  → Creating users...");
 
     interface UserDef {
+      id: string;
       did: string;
       name: string;
       email: string;
@@ -357,6 +359,7 @@ function seed(): void {
 
     // C-suite
     const cto: UserDef = {
+      id: crypto.randomUUID(),
       did: makeDid("user-cto-chief"),
       name: "Alexandra Chen",
       email: `a.chen@${DOMAINS[0]}`,
@@ -368,13 +371,14 @@ function seed(): void {
       realm_slugs: REALMS.map((r) => r.slug),
     };
     const ciso: UserDef = {
+      id: crypto.randomUUID(),
       did: makeDid("user-ciso-chief"),
       name: "Marcus Webb",
       email: `m.webb@${DOMAINS[0]}`,
       role: "ciso",
       is_admin: 1,
       is_owner: 0,
-      reports_to: cto.did,
+      reports_to: cto.id,
       description: "Chief Information Security Officer",
       realm_slugs: ["security-ops", "legal", "devops"],
     };
@@ -383,24 +387,25 @@ function seed(): void {
     // VPs (one per realm)
     const vpBySlug: Record<string, UserDef> = {};
     const vpDefs: Array<{ slug: string; name: string; title: string }> = [
-      { slug: "engineering",        name: "James Okonkwo",   title: "VP Engineering" },
-      { slug: "security-ops",       name: "Sarah Lindqvist", title: "VP Security" },
-      { slug: "devops",             name: "Raj Patel",       title: "VP Infrastructure" },
-      { slug: "finance",            name: "Elena Romero",    title: "VP Finance" },
-      { slug: "data",               name: "David Park",      title: "VP Data & AI" },
-      { slug: "customer-success",   name: "Amara Diallo",    title: "VP Customer Success" },
-      { slug: "legal",              name: "Thomas Bergmann", title: "VP Legal" },
-      { slug: "product",            name: "Yuki Tanaka",     title: "VP Product" },
+      { slug: "engineering", name: "James Okonkwo", title: "VP Engineering" },
+      { slug: "security-ops", name: "Sarah Lindqvist", title: "VP Security" },
+      { slug: "devops", name: "Raj Patel", title: "VP Infrastructure" },
+      { slug: "finance", name: "Elena Romero", title: "VP Finance" },
+      { slug: "data", name: "David Park", title: "VP Data & AI" },
+      { slug: "customer-success", name: "Amara Diallo", title: "VP Customer Success" },
+      { slug: "legal", name: "Thomas Bergmann", title: "VP Legal" },
+      { slug: "product", name: "Yuki Tanaka", title: "VP Product" },
     ];
     for (const vp of vpDefs) {
       const u: UserDef = {
+        id: crypto.randomUUID(),
         did: makeDid(`user-vp-${vp.slug}`),
         name: vp.name,
         email: `${vp.name.toLowerCase().replace(" ", ".")}@${DOMAINS[0]}`,
         role: "vp",
         is_admin: 1,
         is_owner: 0,
-        reports_to: vp.slug === "security-ops" || vp.slug === "legal" ? ciso.did : cto.did,
+        reports_to: vp.slug === "security-ops" || vp.slug === "legal" ? ciso.id : cto.id,
         description: `${vp.title} — manages all ${vp.slug} agents and team`,
         realm_slugs: [vp.slug],
       };
@@ -419,13 +424,14 @@ function seed(): void {
         const first = pick(FIRST_NAMES);
         const last = pick(LAST_NAMES);
         const u: UserDef = {
+          id: crypto.randomUUID(),
           did: makeDid(`user-lead-${realm.slug}-${i}`),
           name: `${first} ${last}`,
           email: `${first.toLowerCase()}.${last.toLowerCase()}@${pick(DOMAINS)}`,
           role: "lead",
           is_admin: 0,
           is_owner: 0,
-          reports_to: vp.did,
+          reports_to: vp.id,
           description: `Team lead for ${realm.name} agents`,
           realm_slugs: [realm.slug],
         };
@@ -437,13 +443,14 @@ function seed(): void {
         const first = pick(FIRST_NAMES);
         const last = pick(LAST_NAMES);
         const u: UserDef = {
+          id: crypto.randomUUID(),
           did: makeDid(`user-ic-${realm.slug}-${i}`),
           name: `${first} ${last}`,
           email: `${first.toLowerCase()}.${last.toLowerCase()}@${pick(DOMAINS)}`,
           role: "member",
           is_admin: 0,
           is_owner: 0,
-          reports_to: pick(leads)?.did ?? vp.did,
+          reports_to: pick(leads)?.id ?? vp.id,
           description: `${realm.name} engineer / analyst`,
           realm_slugs: [realm.slug],
         };
@@ -452,20 +459,20 @@ function seed(): void {
     }
 
     const insertUser = db.prepare(`
-      INSERT OR IGNORE INTO users (did, name, email, is_owner, is_admin, role, reports_to, description)
-      VALUES (@did, @name, @email, @is_owner, @is_admin, @role, @reports_to, @description)
+      INSERT OR IGNORE INTO users (id, did, name, email, is_owner, is_admin, role, reports_to, description)
+      VALUES (@id, @did, @name, @email, @is_owner, @is_admin, @role, @reports_to, @description)
     `);
     const insertUserRealm = db.prepare(
-      "INSERT OR IGNORE INTO user_realms (user_did, realm_id, is_primary) VALUES (?, ?, ?)"
+      "INSERT OR IGNORE INTO user_realms (user_id, realm_id, is_primary) VALUES (?, ?, ?)"
     );
 
     for (const u of users) {
       insertUser.run(u);
       for (let i = 0; i < u.realm_slugs.length; i++) {
         const rId = realmIdBySlug[u.realm_slugs[i]];
-        if (rId) insertUserRealm.run(u.did, rId, i === 0 ? 1 : 0);
+        if (rId) insertUserRealm.run(u.id, rId, i === 0 ? 1 : 0);
       }
-      if (defaultRealmId) insertUserRealm.run(u.did, defaultRealmId, 0);
+      if (defaultRealmId) insertUserRealm.run(u.id, defaultRealmId, 0);
     }
 
     console.log(`     ${users.length} users inserted`);
@@ -609,8 +616,8 @@ function seed(): void {
       const numGrants = u.role === "vp" || u.role === "cto" || u.role === "ciso"
         ? rnd(3, 8)
         : u.role === "lead"
-        ? rnd(2, 5)
-        : rnd(1, 3);
+          ? rnd(2, 5)
+          : rnd(1, 3);
 
       for (const agent of sample(realmAgents, numGrants)) {
         const caps = sample(agent.capabilities, rnd(1, Math.min(2, agent.capabilities.length)));

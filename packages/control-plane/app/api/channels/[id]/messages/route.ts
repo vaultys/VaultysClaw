@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
 import { ChannelService } from "@/lib/channel-service";
-import { MessageDispatcher } from "@/lib/message-dispatcher";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -89,6 +88,8 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     }
 
     try {
+      // postMessage internally calls MessageDispatcher.processMessage for
+      // user top-level messages — no need to call it again here.
       const message = ChannelService.postMessage({
         channelId: id,
         authorDid: auth.did,
@@ -97,20 +98,6 @@ export async function POST(req: NextRequest, ctx: Ctx) {
         threadId: body.threadId,
         metadata: body.metadata,
       });
-
-      // Detect @mentions → invoke agents; fan out to bridges (fire-and-forget)
-      MessageDispatcher.processMessage(
-        id,
-        message.id,
-        auth.did,
-        message.content,
-        {
-          id: message.id,
-          authorType: "user",
-          threadId: message.threadId,
-          createdAt: message.createdAt,
-        },
-      ).catch((err) => console.error("MessageDispatcher.processMessage error:", err));
 
       return NextResponse.json({ message }, { status: 201 });
     } catch (err: any) {

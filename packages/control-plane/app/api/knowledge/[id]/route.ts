@@ -28,6 +28,6 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
   const source = getKnowledgeSource(id);
   if (!source) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
-  deleteKnowledgeSource(id);
+  await deleteKnowledgeSource(id);
   return NextResponse.json({ success: true });
 }

@@ -6,10 +6,16 @@
 import Database from "better-sqlite3";
 import path from "path";
 import fs from "fs";
+import crypto from "crypto";
 import { VaultysId } from "@vaultys/id";
+import type { FileStorage } from "./file-storage";
+import { FilesystemStorage, S3Storage, generateFileKey } from "./file-storage";
 
 // Use globalThis so the DB singleton survives Next.js module re-evaluation
-const globalForDB = globalThis as unknown as { __db?: Database.Database };
+const globalForDB = globalThis as unknown as {
+  __db?: Database.Database;
+  __fileStoragePromise?: Promise<FileStorage>;
+};
 
 /**
  * Get or create the singleton database instance
@@ -39,6 +45,51 @@ export function getDb(): Database.Database {
 
   globalForDB.__db = db;
   return db;
+}
+
+/**
+ * Get (or lazily initialise) the FileStorage singleton.
+ * Reads storage config + decrypts credentials from the database.
+ * The promise is cached so the DB round-trip happens at most once per process.
+ */
+export function getFileStorage(): Promise<FileStorage> {
+  if (!globalForDB.__fileStoragePromise) {
+    globalForDB.__fileStoragePromise = _initFileStorage();
+  }
+  return globalForDB.__fileStoragePromise;
+}
+
+/** Invalidate the cached storage so the next call picks up new config. */
+export function resetFileStorageCache(): void {
+  globalForDB.__fileStoragePromise = undefined;
+}
+
+async function _initFileStorage(): Promise<FileStorage> {
+  const { decryptSecret } = await import('./vault');
+  const storageType = getSetting('storage_type') || 'filesystem';
+
+  if (storageType === 's3') {
+    const region = getSetting('s3_region') ?? 'us-east-1';
+    const bucket = getSetting('s3_bucket') ?? '';
+    const endpoint = getSetting('s3_endpoint') ?? undefined;
+    const encAccessKey = getSetting('s3_access_key_id_enc');
+    const encSecretKey = getSetting('s3_secret_access_key_enc');
+
+    if (!bucket || !encAccessKey || !encSecretKey) {
+      console.warn('[storage] S3 selected but credentials missing — falling back to filesystem');
+    } else {
+      try {
+        const accessKeyId = await decryptSecret(encAccessKey);
+        const secretAccessKey = await decryptSecret(encSecretKey);
+        return new S3Storage({ enabled: true, region, bucket, endpoint, accessKeyId, secretAccessKey });
+      } catch (err) {
+        console.error('[storage] Failed to decrypt S3 credentials — falling back to filesystem', err);
+      }
+    }
+  }
+
+  const dir = getSetting('storage_dir') || path.resolve(process.cwd(), 'data', 'knowledge-files');
+  return new FilesystemStorage(dir);
 }
 
 function createTables(db: Database.Database): void {
@@ -219,6 +270,18 @@ function createTables(db: Database.Database): void {
       PRIMARY KEY (user_id, realm_id)
     );
 
+    CREATE TABLE IF NOT EXISTS org_skills (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL UNIQUE,
+      description TEXT,
+      version TEXT NOT NULL DEFAULT '1.0.0',
+      icon TEXT,
+      content TEXT,
+      config_schema TEXT NOT NULL DEFAULT '{}',
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
     CREATE TABLE IF NOT EXISTS realm_skills (
       id TEXT PRIMARY KEY,
       realm_id TEXT NOT NULL REFERENCES realms(id) ON DELETE CASCADE,
@@ -390,7 +453,8 @@ function createTables(db: Database.Database): void {
       name TEXT NOT NULL,
       mime_type TEXT NOT NULL DEFAULT 'application/octet-stream',
       size INTEGER NOT NULL DEFAULT 0,
-      content BLOB NOT NULL,
+      content BLOB,
+      file_path TEXT,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
@@ -457,6 +521,21 @@ function createTables(db: Database.Database): void {
       UNIQUE(channel_id, external_service, external_channel_id)
     );
     CREATE INDEX IF NOT EXISTS idx_channel_bridges_channel ON channel_bridges(channel_id);
+
+    CREATE TABLE IF NOT EXISTS credentials (
+      id TEXT PRIMARY KEY,
+      realm_id TEXT NOT NULL REFERENCES realms(id) ON DELETE CASCADE,
+      service TEXT NOT NULL,
+      name TEXT NOT NULL,
+      secret_enc TEXT NOT NULL,
+      metadata TEXT DEFAULT '{}',
+      created_by TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(realm_id, service, name)
+    );
+    CREATE INDEX IF NOT EXISTS idx_credentials_realm ON credentials(realm_id);
+    CREATE INDEX IF NOT EXISTS idx_credentials_service ON credentials(service);
   `);
 
   // Add content column to realm_skills for existing databases that predate this field
@@ -465,6 +544,20 @@ function createTables(db: Database.Database): void {
   } catch {
     // Column already exists — safe to ignore
   }
+
+  // Add schedule columns to workflows for existing databases
+  try {
+    db.prepare("ALTER TABLE workflows ADD COLUMN schedule_cron TEXT DEFAULT NULL").run();
+  } catch { /* already exists */ }
+  try {
+    db.prepare("ALTER TABLE workflows ADD COLUMN schedule_enabled INTEGER NOT NULL DEFAULT 0").run();
+  } catch { /* already exists */ }
+  try {
+    db.prepare("ALTER TABLE workflows ADD COLUMN schedule_last_run TEXT DEFAULT NULL").run();
+  } catch { /* already exists */ }
+  try {
+    db.prepare("ALTER TABLE workflows ADD COLUMN schedule_next_run TEXT DEFAULT NULL").run();
+  } catch { /* already exists */ }
 }
 
 function seedDefaults(db: Database.Database): void {
@@ -474,6 +567,46 @@ function seedDefaults(db: Database.Database): void {
     db.prepare(
       "INSERT INTO realms (id, name, slug, description, color, is_default) VALUES (?, ?, ?, ?, ?, 1)"
     ).run(id, "Default", "default", "The default realm", "#6366f1");
+  }
+
+  // Seed the org skill catalog with the built-in skills that ship with the agent-controller.
+  // Uses INSERT OR IGNORE so re-runs on existing DBs are safe.
+  const builtInSkills: Array<{ name: string; description: string; version: string; icon: string; content: string }> = [
+    {
+      name: "social-media",
+      description: "Post content to X (Twitter) via Playwright browser automation. Requires a one-time browser login; subsequent runs are headless.",
+      version: "1.0.0",
+      icon: "📣",
+      content: "## Social Media\n\nYou have access to X (Twitter) social-media tools.\n\n- Use `check_x_session` to verify setup.\n- Use `setup_x_session` for first-time authentication (opens a browser).\n- Use `post_to_x` to publish a tweet (max 280 chars, **requires approval**).\n\nTweets must be ≤280 characters. Keep them engaging and on-brand.",
+    },
+    {
+      name: "web-scraper",
+      description: "Scrape web pages and extract their text content. Useful for research, monitoring, and content ingestion tasks.",
+      version: "1.0.0",
+      icon: "🌐",
+      content: "## Web Scraper\n\nYou can scrape public web pages using the `scrape_page` tool.\n\n- Provide a valid URL.\n- Returns the page title and cleaned text content.\n- Respects robots.txt by default.",
+    },
+    {
+      name: "json-api",
+      description: "Make authenticated or anonymous JSON API calls to external HTTP endpoints. Supports GET, POST, PUT, PATCH, DELETE.",
+      version: "1.0.0",
+      icon: "🔌",
+      content: "## JSON API\n\nYou can call external HTTP APIs using the `api_call_json` tool.\n\n- Specify the URL, method, optional headers, and body.\n- The response is returned as a parsed JSON object.\n- Use for reading data from REST APIs or triggering webhooks.",
+    },
+    {
+      name: "calculator",
+      description: "Evaluate arithmetic and algebraic expressions. Useful for quick calculations inside agent workflows.",
+      version: "1.0.0",
+      icon: "🧮",
+      content: "## Calculator\n\nYou can evaluate math expressions using the `calculate` tool.\n\n- Supports standard arithmetic, parentheses, powers, and common functions (sqrt, abs, etc.).\n- Returns the numeric result.",
+    },
+  ];
+
+  const insert = db.prepare(
+    "INSERT OR IGNORE INTO org_skills (id, name, description, version, icon, content, config_schema) VALUES (?, ?, ?, ?, ?, ?, ?)"
+  );
+  for (const skill of builtInSkills) {
+    insert.run(crypto.randomUUID(), skill.name, skill.description, skill.version, skill.icon, skill.content, "{}");
   }
 }
 
@@ -552,6 +685,65 @@ export function setDoclingConfig(cfg: DoclingConfig): void {
 export function setDoclingEndpoints(sourceEndpoint: string, fileEndpoint: string): void {
   setSetting('docling_source_endpoint', sourceEndpoint);
   setSetting('docling_file_endpoint',   fileEndpoint);
+}
+
+// --- File storage config (DB-backed, credentials encrypted) ---
+
+export interface StorageConfig {
+  storageType: 'filesystem' | 's3';
+  filesystemDir: string;
+  s3Enabled: boolean;
+  s3Region: string;
+  s3Bucket: string;
+  s3Endpoint?: string;
+  /** Plaintext — only present when reading back for display purposes (access key ID is not secret) */
+  s3AccessKeyId?: string;
+  /** Never returned to the client — always omitted in API responses */
+  s3SecretAccessKey?: string;
+}
+
+/** Read storage config from DB. Decrypts credentials (async because of vault). */
+export async function getStorageConfig(): Promise<StorageConfig> {
+  const { decryptSecret } = await import('./vault');
+
+  const storageType = (getSetting('storage_type') || 'filesystem') as 'filesystem' | 's3';
+  const filesystemDir = getSetting('storage_dir') || path.resolve(process.cwd(), 'data', 'knowledge-files');
+  const s3Enabled = getSetting('s3_enabled') === 'true';
+  const s3Region = getSetting('s3_region') || 'us-east-1';
+  const s3Bucket = getSetting('s3_bucket') || '';
+  const s3Endpoint = getSetting('s3_endpoint') || undefined;
+
+  let s3AccessKeyId: string | undefined;
+  const encAccessKey = getSetting('s3_access_key_id_enc');
+  if (encAccessKey) {
+    try { s3AccessKeyId = await decryptSecret(encAccessKey); } catch { /* omit on error */ }
+  }
+
+  return { storageType, filesystemDir, s3Enabled, s3Region, s3Bucket, s3Endpoint, s3AccessKeyId };
+}
+
+/** Persist storage config. Encrypts credentials before saving. Resets the storage singleton. */
+export async function setStorageConfig(cfg: Partial<StorageConfig> & { s3SecretAccessKey?: string }): Promise<void> {
+  const { encryptSecret } = await import('./vault');
+
+  if (cfg.storageType !== undefined) setSetting('storage_type', cfg.storageType);
+  if (cfg.filesystemDir !== undefined) setSetting('storage_dir', cfg.filesystemDir);
+  if (cfg.s3Enabled !== undefined) setSetting('s3_enabled', cfg.s3Enabled ? 'true' : 'false');
+  if (cfg.s3Region !== undefined) setSetting('s3_region', cfg.s3Region);
+  if (cfg.s3Bucket !== undefined) setSetting('s3_bucket', cfg.s3Bucket);
+  if (cfg.s3Endpoint !== undefined) setSetting('s3_endpoint', cfg.s3Endpoint);
+
+  if (cfg.s3AccessKeyId !== undefined) {
+    const enc = await encryptSecret(cfg.s3AccessKeyId);
+    setSetting('s3_access_key_id_enc', enc);
+  }
+  if (cfg.s3SecretAccessKey !== undefined) {
+    const enc = await encryptSecret(cfg.s3SecretAccessKey);
+    setSetting('s3_secret_access_key_enc', enc);
+  }
+
+  // Invalidate cached storage so next request uses new config
+  resetFileStorageCache();
 }
 
 // --- Auth session operations ---
@@ -1361,6 +1553,10 @@ export interface WorkflowRow {
   created_by: string | null;
   created_at: string;
   updated_at: string;
+  schedule_cron: string | null;
+  schedule_enabled: number;
+  schedule_last_run: string | null;
+  schedule_next_run: string | null;
 }
 
 export interface WorkflowRunRow {
@@ -1467,6 +1663,51 @@ export function updateWorkflow(
     values.push(id);
     d.prepare(`UPDATE workflows SET ${updates.join(", ")} WHERE id = ?`).run(...values);
   }
+}
+
+/**
+ * Set or clear the cron schedule for a workflow.
+ * Pass null to clear. nextRun should be an ISO string or null.
+ */
+export function setWorkflowSchedule(
+  id: string,
+  cron: string | null,
+  enabled: boolean,
+  nextRun: string | null,
+): void {
+  getDb()
+    .prepare(
+      `UPDATE workflows
+       SET schedule_cron = ?, schedule_enabled = ?, schedule_next_run = ?, updated_at = datetime('now')
+       WHERE id = ?`,
+    )
+    .run(cron, enabled ? 1 : 0, nextRun, id);
+}
+
+/**
+ * Update schedule last_run and next_run after a workflow fires.
+ */
+export function updateWorkflowScheduleRun(id: string, nextRun: string | null): void {
+  getDb()
+    .prepare(
+      `UPDATE workflows SET schedule_last_run = datetime('now'), schedule_next_run = ? WHERE id = ?`,
+    )
+    .run(nextRun, id);
+}
+
+/**
+ * Return all workflows that have an enabled schedule and are due to run (next_run <= now).
+ */
+export function getDueScheduledWorkflows(): WorkflowRow[] {
+  return getDb()
+    .prepare(
+      `SELECT * FROM workflows
+       WHERE schedule_enabled = 1
+         AND schedule_cron IS NOT NULL
+         AND schedule_next_run IS NOT NULL
+         AND schedule_next_run <= datetime('now')`,
+    )
+    .all() as WorkflowRow[];
 }
 
 /**
@@ -1806,6 +2047,91 @@ export function dismissWorkflowNotification(approvalId: string, userDid: string)
      WHERE id = ? AND assigned_user_id = ? AND mode = 'notification'`
   ).run(approvalId, userDid);
   return (result.changes ?? 0) > 0;
+}
+
+// ---- Org skills (organization-level catalog) ----
+
+export interface OrgSkillRow {
+  id: string;
+  name: string;
+  description: string | null;
+  version: string;
+  icon: string | null;
+  content: string | null;
+  config_schema: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export function getOrgSkills(): OrgSkillRow[] {
+  const d = getDb();
+  return d.prepare("SELECT * FROM org_skills ORDER BY name ASC").all() as OrgSkillRow[];
+}
+
+export function getOrgSkillById(id: string): OrgSkillRow | undefined {
+  const d = getDb();
+  return d.prepare("SELECT * FROM org_skills WHERE id = ?").get(id) as OrgSkillRow | undefined;
+}
+
+export function getOrgSkillByName(name: string): OrgSkillRow | undefined {
+  const d = getDb();
+  return d.prepare("SELECT * FROM org_skills WHERE name = ?").get(name) as OrgSkillRow | undefined;
+}
+
+export function createOrgSkill(opts: {
+  name: string;
+  description?: string;
+  version?: string;
+  icon?: string;
+  content?: string;
+  configSchema?: Record<string, unknown>;
+}): OrgSkillRow {
+  const d = getDb();
+  const id = crypto.randomUUID();
+  d.prepare(
+    `INSERT INTO org_skills (id, name, description, version, icon, content, config_schema)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`
+  ).run(
+    id,
+    opts.name.trim(),
+    opts.description?.trim() ?? null,
+    opts.version?.trim() ?? "1.0.0",
+    opts.icon?.trim() ?? null,
+    opts.content ?? null,
+    JSON.stringify(opts.configSchema ?? {}),
+  );
+  return getOrgSkillById(id)!;
+}
+
+export function updateOrgSkill(
+  id: string,
+  updates: { description?: string | null; version?: string; icon?: string | null; content?: string | null; configSchema?: Record<string, unknown> },
+): boolean {
+  const d = getDb();
+  const result = d.prepare(
+    `UPDATE org_skills
+     SET description = COALESCE(?, description),
+         version     = COALESCE(?, version),
+         icon        = ?,
+         content     = ?,
+         config_schema = COALESCE(?, config_schema),
+         updated_at  = datetime('now')
+     WHERE id = ?`
+  ).run(
+    updates.description !== undefined ? updates.description : null,
+    updates.version ?? null,
+    updates.icon !== undefined ? updates.icon : undefined,
+    updates.content !== undefined ? updates.content : undefined,
+    updates.configSchema !== undefined ? JSON.stringify(updates.configSchema) : null,
+    id,
+  );
+  return result.changes > 0;
+}
+
+export function deleteOrgSkill(id: string): boolean {
+  const d = getDb();
+  const result = d.prepare("DELETE FROM org_skills WHERE id = ?").run(id);
+  return result.changes > 0;
 }
 
 // ---- Realm skills ----
@@ -2325,8 +2651,20 @@ export function updateKnowledgeSourceStatus(id: string, status: string, extra?: 
   );
 }
 
-export function deleteKnowledgeSource(id: string): boolean {
-  const result = getDb().prepare('DELETE FROM knowledge_sources WHERE id = ?').run(id);
+export async function deleteKnowledgeSource(id: string): Promise<boolean> {
+  const d = getDb();
+  const storage = await getFileStorage();
+
+  // Get all files for this source and delete from storage
+  const files = d.prepare('SELECT file_path FROM knowledge_files WHERE source_id = ?').all(id) as Array<{ file_path: string | null }>;
+  for (const file of files) {
+    if (file.file_path) {
+      await storage.delete(file.file_path);
+    }
+  }
+
+  // Delete from database (cascade deletes files)
+  const result = d.prepare('DELETE FROM knowledge_sources WHERE id = ?').run(id);
   return result.changes > 0;
 }
 
@@ -2351,18 +2689,26 @@ export interface KnowledgeFileMeta {
   created_at: string;
 }
 
-export function createKnowledgeFile(
+export async function createKnowledgeFile(
   sourceId: string,
   name: string,
   mimeType: string,
   content: Buffer,
-): KnowledgeFileMeta {
+): Promise<KnowledgeFileMeta> {
   const d = getDb();
   const id = `kf-${crypto.randomUUID()}`;
+  const fileKey = generateFileKey(sourceId, id, name);
+
+  // Write file to storage
+  const storage = await getFileStorage();
+  await storage.write(fileKey, content);
+
+  // Store metadata in database
   d.prepare(`
-    INSERT INTO knowledge_files (id, source_id, name, mime_type, size, content)
-    VALUES (?, ?, ?, ?, ?, ?)
-  `).run(id, sourceId, name, mimeType, content.length, content);
+    INSERT INTO knowledge_files (id, source_id, name, mime_type, size, file_path, content)
+    VALUES (?, ?, ?, ?, ?, ?, NULL)
+  `).run(id, sourceId, name, mimeType, content.length, fileKey);
+
   return { id, source_id: sourceId, name, mime_type: mimeType, size: content.length, created_at: new Date().toISOString() };
 }
 
@@ -2374,34 +2720,242 @@ export function listKnowledgeFiles(sourceId: string): KnowledgeFileMeta[] {
 }
 
 /** Get full file row including content blob */
-export function getKnowledgeFileContent(fileId: string): KnowledgeFileRow | undefined {
-  return getDb()
+export async function getKnowledgeFileContent(fileId: string): Promise<KnowledgeFileRow | undefined> {
+  const d = getDb();
+  const row = d
     .prepare('SELECT * FROM knowledge_files WHERE id = ?')
-    .get(fileId) as KnowledgeFileRow | undefined;
+    .get(fileId) as any;
+
+  if (!row) return undefined;
+
+  // If file_path is set, read from storage; otherwise use legacy BLOB
+  let content: Buffer;
+  if (row.file_path) {
+    const storage = await getFileStorage();
+    content = await storage.read(row.file_path);
+  } else {
+    content = row.content;
+  }
+
+  return {
+    id: row.id,
+    source_id: row.source_id,
+    name: row.name,
+    mime_type: row.mime_type,
+    size: row.size,
+    content,
+    created_at: row.created_at,
+  };
 }
 
-export function deleteKnowledgeFile(fileId: string): boolean {
-  const result = getDb().prepare('DELETE FROM knowledge_files WHERE id = ?').run(fileId);
+export async function deleteKnowledgeFile(fileId: string): Promise<boolean> {
+  const d = getDb();
+  const row = d.prepare('SELECT file_path FROM knowledge_files WHERE id = ?').get(fileId) as any;
+
+  if (!row) return false;
+
+  // Delete from storage if file_path is set
+  if (row.file_path) {
+    const storage = await getFileStorage();
+    await storage.delete(row.file_path);
+  }
+
+  // Delete from database
+  const result = d.prepare('DELETE FROM knowledge_files WHERE id = ?').run(fileId);
   return result.changes > 0;
 }
 
 /** Load all files for a source as base64 attachments (used in sync WS payload) */
-export function getKnowledgeFileAttachments(sourceId: string): Array<{
+export async function getKnowledgeFileAttachments(sourceId: string): Promise<Array<{
   id: string;
   name: string;
   mimeType: string;
   size: number;
   content: string; // base64
-}> {
+}>> {
+  const d = getDb();
+  const rows = d
+    .prepare('SELECT id, name, mime_type, size, content, file_path FROM knowledge_files WHERE source_id = ? ORDER BY created_at ASC')
+    .all(sourceId) as Array<{ id: string; name: string; mime_type: string; size: number; content: Buffer | null; file_path: string | null }>;
+
+  const storage = await getFileStorage();
+  const result = await Promise.all(
+    rows.map(async (r) => {
+      let content: Buffer;
+      if (r.file_path) {
+        content = await storage.read(r.file_path);
+      } else {
+        content = r.content!;
+      }
+
+      return {
+        id: r.id,
+        name: r.name,
+        mimeType: r.mime_type,
+        size: r.size,
+        content: content.toString('base64'),
+      };
+    })
+  );
+
+  return result;
+}
+
+// --- Credentials Vault ---
+
+export interface CredentialRow {
+  id: string;
+  realm_id: string;
+  service: string;
+  name: string;
+  secret_enc: string;
+  metadata: string;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CredentialMetadata {
+  id: string;
+  realm_id: string;
+  service: string;
+  name: string;
+  metadata: Record<string, unknown>;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * Save a credential (API key, secret, token) encrypted in the vault.
+ * Returns the credential ID.
+ */
+export function saveCredential(
+  realmId: string,
+  service: string,
+  name: string,
+  secretEncrypted: string,
+  metadata?: Record<string, unknown>,
+  createdBy?: string,
+): string {
+  const d = getDb();
+  const id = `cred-${crypto.randomUUID()}`;
+  const metadataJson = JSON.stringify(metadata || {});
+
+  d.prepare(`
+    INSERT INTO credentials (id, realm_id, service, name, secret_enc, metadata, created_by, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+    ON CONFLICT(realm_id, service, name) DO UPDATE SET
+      secret_enc = excluded.secret_enc,
+      metadata = excluded.metadata,
+      updated_at = datetime('now')
+  `).run(id, realmId, service, name, secretEncrypted, metadataJson, createdBy ?? null);
+
+  return id;
+}
+
+/**
+ * Get a credential by ID (returns encrypted secret).
+ */
+export function getCredentialById(id: string): CredentialRow | undefined {
+  return getDb().prepare("SELECT * FROM credentials WHERE id = ?").get(id) as CredentialRow | undefined;
+}
+
+/**
+ * Get a credential by realm, service, and name (returns encrypted secret).
+ */
+export function getCredentialByKey(
+  realmId: string,
+  service: string,
+  name: string,
+): CredentialRow | undefined {
+  return getDb()
+    .prepare("SELECT * FROM credentials WHERE realm_id = ? AND service = ? AND name = ?")
+    .get(realmId, service, name) as CredentialRow | undefined;
+}
+
+/**
+ * List all credentials for a realm (does NOT include encrypted secrets, metadata only).
+ */
+export function listCredentials(realmId: string): CredentialMetadata[] {
   const rows = getDb()
-    .prepare('SELECT id, name, mime_type, size, content FROM knowledge_files WHERE source_id = ? ORDER BY created_at ASC')
-    .all(sourceId) as Array<{ id: string; name: string; mime_type: string; size: number; content: Buffer }>;
+    .prepare(`
+      SELECT id, realm_id, service, name, metadata, created_by, created_at, updated_at
+      FROM credentials
+      WHERE realm_id = ?
+      ORDER BY service, name
+    `)
+    .all(realmId) as Array<{
+      id: string;
+      realm_id: string;
+      service: string;
+      name: string;
+      metadata: string;
+      created_by: string | null;
+      created_at: string;
+      updated_at: string;
+    }>;
 
   return rows.map(r => ({
     id: r.id,
+    realm_id: r.realm_id,
+    service: r.service,
     name: r.name,
-    mimeType: r.mime_type,
-    size: r.size,
-    content: r.content.toString('base64'),
+    metadata: JSON.parse(r.metadata),
+    created_by: r.created_by,
+    created_at: r.created_at,
+    updated_at: r.updated_at,
   }));
+}
+
+/**
+ * List all credentials for a service in a realm (metadata only, no secrets).
+ */
+export function listCredentialsByService(realmId: string, service: string): CredentialMetadata[] {
+  const rows = getDb()
+    .prepare(`
+      SELECT id, realm_id, service, name, metadata, created_by, created_at, updated_at
+      FROM credentials
+      WHERE realm_id = ? AND service = ?
+      ORDER BY name
+    `)
+    .all(realmId, service) as Array<{
+      id: string;
+      realm_id: string;
+      service: string;
+      name: string;
+      metadata: string;
+      created_by: string | null;
+      created_at: string;
+      updated_at: string;
+    }>;
+
+  return rows.map(r => ({
+    id: r.id,
+    realm_id: r.realm_id,
+    service: r.service,
+    name: r.name,
+    metadata: JSON.parse(r.metadata),
+    created_by: r.created_by,
+    created_at: r.created_at,
+    updated_at: r.updated_at,
+  }));
+}
+
+/**
+ * Delete a credential by ID.
+ */
+export function deleteCredential(id: string): boolean {
+  const result = getDb().prepare("DELETE FROM credentials WHERE id = ?").run(id);
+  return result.changes > 0;
+}
+
+/**
+ * Delete a credential by realm, service, and name.
+ */
+export function deleteCredentialByKey(realmId: string, service: string, name: string): boolean {
+  const result = getDb()
+    .prepare("DELETE FROM credentials WHERE realm_id = ? AND service = ? AND name = ?")
+    .run(realmId, service, name);
+  return result.changes > 0;
 }

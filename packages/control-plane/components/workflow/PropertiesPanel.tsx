@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { X, Bot, Search, FileText, ArrowRight, Copy, Check } from "lucide-react";
+import { X, Bot, Search, FileText, ArrowRight, Copy, Check, Wrench, Calendar, Clock } from "lucide-react";
 import { useWorkflowStore } from "./store";
 import type { WorkflowNode } from "@/lib/workflow-executor";
 
@@ -99,6 +99,348 @@ const PredecessorInputs: React.FC<{
       <p className="text-[10px] text-vc-subtle mt-1">
         e.g. <code className="font-mono">&#123;&quot;input&quot;: &quot;$&#123;{predecessors[0]?.id}.output&#125;&quot;&#125;</code>
       </p>
+    </div>
+  );
+};
+
+// ---------------------------------------------------------------------------
+// Static skill catalog — matches packages/agent-controller/skills/*
+// ---------------------------------------------------------------------------
+const SKILL_CATALOG: Record<string, { label: string; tools: { name: string; label: string; approvalRequired?: boolean }[] }> = {
+  "social-media": {
+    label: "Social Media",
+    tools: [
+      { name: "setup_x_session", label: "Setup X session" },
+      { name: "post_to_x", label: "Post to X", approvalRequired: true },
+      { name: "check_x_session", label: "Check X session" },
+      { name: "clear_x_session", label: "Clear X session" },
+    ],
+  },
+  "web-scraper": {
+    label: "Web Scraper",
+    tools: [{ name: "scrape_page", label: "Scrape page" }],
+  },
+  "json-api": {
+    label: "JSON API",
+    tools: [{ name: "api_call_json", label: "API call (JSON)" }],
+  },
+  "calculator": {
+    label: "Calculator",
+    tools: [{ name: "calculate", label: "Calculate" }],
+  },
+};
+
+// ---------------------------------------------------------------------------
+// Schedule panel (workflow-level, no node selected)
+// ---------------------------------------------------------------------------
+const CRON_PRESETS = [
+  { label: "Every day at 9 AM", value: "0 9 * * *" },
+  { label: "Every day at noon", value: "0 12 * * *" },
+  { label: "Weekdays at 9 AM", value: "0 9 * * 1-5" },
+  { label: "Every Monday at 8 AM", value: "0 8 * * 1" },
+  { label: "Every hour", value: "0 * * * *" },
+  { label: "Every 6 hours", value: "0 */6 * * *" },
+  { label: "Custom…", value: "" },
+] as const;
+
+const SchedulePanel: React.FC<{ workflowId: string | null }> = ({ workflowId }) => {
+  const [cron, setCron] = useState("");
+  const [enabled, setEnabled] = useState(false);
+  const [nextRun, setNextRun] = useState<string | null>(null);
+  const [lastRun, setLastRun] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [status, setStatus] = useState<"idle" | "saved" | "error">("idle");
+  const [customMode, setCustomMode] = useState(false);
+
+  useEffect(() => {
+    if (!workflowId || workflowId === "default") return;
+    setLoading(true);
+    fetch(`/api/workflows/${workflowId}/schedule`)
+      .then((r) => r.json())
+      .then((d: any) => {
+        setCron(d.scheduleCron ?? "");
+        setEnabled(Boolean(d.scheduleEnabled));
+        setNextRun(d.scheduleNextRun ?? null);
+        setLastRun(d.scheduleLastRun ?? null);
+        // If current cron doesn't match any preset, switch to custom mode
+        const isPreset = CRON_PRESETS.some((p) => p.value === d.scheduleCron && p.value !== "");
+        setCustomMode(!!d.scheduleCron && !isPreset);
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [workflowId]);
+
+  const handleSave = async () => {
+    if (!workflowId) return;
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/workflows/${workflowId}/schedule`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cron: cron || null, enabled }),
+      });
+      const d = await res.json() as any;
+      if (!res.ok) throw new Error(d.error || "Failed");
+      setNextRun(d.scheduleNextRun ?? null);
+      setStatus("saved");
+      setTimeout(() => setStatus("idle"), 2000);
+    } catch {
+      setStatus("error");
+      setTimeout(() => setStatus("idle"), 3000);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDisable = async () => {
+    if (!workflowId) return;
+    setSaving(true);
+    try {
+      await fetch(`/api/workflows/${workflowId}/schedule`, { method: "DELETE" });
+      setCron("");
+      setEnabled(false);
+      setNextRun(null);
+      setStatus("saved");
+      setTimeout(() => setStatus("idle"), 2000);
+    } catch {
+      setStatus("error");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (!workflowId || workflowId === "default") {
+    return (
+      <div className="text-xs text-vc-subtle italic">Save the workflow first to configure a schedule.</div>
+    );
+  }
+
+  if (loading) return <div className="text-xs text-vc-muted">Loading schedule…</div>;
+
+  const selectedPreset = customMode ? "" : CRON_PRESETS.find((p) => p.value === cron)?.value ?? "";
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <label className="text-xs font-medium text-vc-text-2">Auto-run</label>
+        <button
+          onClick={() => setEnabled(!enabled)}
+          className={`relative inline-flex h-5 w-9 rounded-full transition-colors ${enabled ? "bg-emerald-500" : "bg-vc-border"}`}
+        >
+          <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform mt-0.5 ${enabled ? "translate-x-4.5" : "translate-x-0.5"}`} />
+        </button>
+      </div>
+
+      {/* Preset dropdown */}
+      <div>
+        <label className="block text-xs font-medium text-vc-text-2 mb-1">Frequency</label>
+        <select
+          value={selectedPreset}
+          onChange={(e) => {
+            if (e.target.value === "") {
+              setCustomMode(true);
+            } else {
+              setCustomMode(false);
+              setCron(e.target.value);
+            }
+          }}
+          className="w-full px-2 py-1.5 bg-vc-surface text-vc-text border border-vc-border rounded text-xs focus:ring-1 focus:ring-emerald-500"
+        >
+          {CRON_PRESETS.map((p) => (
+            <option key={p.label} value={p.value}>{p.label}</option>
+          ))}
+        </select>
+      </div>
+
+      {/* Custom cron input */}
+      {customMode && (
+        <div>
+          <label className="block text-xs font-medium text-vc-text-2 mb-1">Cron expression</label>
+          <input
+            type="text"
+            value={cron}
+            onChange={(e) => setCron(e.target.value)}
+            placeholder="0 9 * * *"
+            className="w-full px-2 py-1.5 bg-vc-surface text-vc-text border border-vc-border rounded text-xs font-mono focus:ring-1 focus:ring-emerald-500"
+          />
+          <p className="text-[10px] text-vc-subtle mt-1">5 fields: minute hour day month weekday</p>
+        </div>
+      )}
+
+      {/* Next / last run */}
+      {nextRun && (
+        <p className="text-[10px] text-vc-muted">
+          Next run: <span className="font-medium text-vc-text">{new Date(nextRun).toLocaleString()}</span>
+        </p>
+      )}
+      {lastRun && (
+        <p className="text-[10px] text-vc-subtle">
+          Last run: {new Date(lastRun).toLocaleString()}
+        </p>
+      )}
+
+      {/* Actions */}
+      <div className="flex gap-2">
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          className="flex-1 text-xs py-1.5 bg-emerald-600 text-white rounded hover:bg-emerald-700 disabled:opacity-50"
+        >
+          {saving ? "Saving…" : "Save schedule"}
+        </button>
+        {(cron || enabled) && (
+          <button
+            onClick={handleDisable}
+            disabled={saving}
+            className="text-xs px-2 py-1.5 border border-vc-border text-vc-muted rounded hover:bg-vc-raised disabled:opacity-50"
+          >
+            Disable
+          </button>
+        )}
+      </div>
+
+      {status === "saved" && <p className="text-xs text-emerald-600 dark:text-emerald-400">✓ Schedule saved</p>}
+      {status === "error" && <p className="text-xs text-red-500">✗ Failed to save schedule</p>}
+    </div>
+  );
+};
+
+// ---------------------------------------------------------------------------
+// Skill node properties
+// ---------------------------------------------------------------------------
+const SkillNodeProperties: React.FC<{
+  node: any;
+  nodes: any[];
+  edges: WorkflowEdge[];
+  agents: Agent[];
+  filteredAgents: Agent[];
+  searchQuery: string;
+  setSearchQuery: (q: string) => void;
+  loading: boolean;
+  selectedNodeId: string | null;
+  updateNodeData: (key: string, value: any) => void;
+  setNodes: (nodes: any[]) => void;
+  insertIntoParams: (variable: string) => void;
+  paramsTextRef: React.RefObject<HTMLTextAreaElement | null>;
+}> = ({
+  node, nodes, edges, agents, filteredAgents, searchQuery, setSearchQuery,
+  loading, selectedNodeId, updateNodeData, setNodes, insertIntoParams, paramsTextRef,
+}) => {
+  const skillName = (node.data.skillName as string | undefined) ?? "";
+  const toolName = (node.data.toolName as string | undefined) ?? "";
+  const catalog = SKILL_CATALOG[skillName];
+  const selectedTool = catalog?.tools.find((t) => t.name === toolName);
+
+  return (
+    <div className="space-y-4">
+      {/* Skill selector */}
+      <div>
+        <label className="block text-sm font-medium text-vc-text-2 mb-1">Skill</label>
+        <select
+          value={skillName}
+          onChange={(e) => {
+            updateNodeData("skillName", e.target.value || undefined);
+            updateNodeData("toolName", undefined); // reset tool when skill changes
+          }}
+          className="w-full px-3 py-2 bg-vc-surface text-vc-text border border-vc-border rounded-md text-sm focus:ring-2 focus:ring-emerald-500"
+        >
+          <option value="">— select skill —</option>
+          {Object.entries(SKILL_CATALOG).map(([id, { label }]) => (
+            <option key={id} value={id}>{label}</option>
+          ))}
+        </select>
+      </div>
+
+      {/* Tool selector */}
+      {catalog && (
+        <div>
+          <label className="block text-sm font-medium text-vc-text-2 mb-1">Tool</label>
+          <select
+            value={toolName}
+            onChange={(e) => updateNodeData("toolName", e.target.value || undefined)}
+            className="w-full px-3 py-2 bg-vc-surface text-vc-text border border-vc-border rounded-md text-sm focus:ring-2 focus:ring-emerald-500"
+          >
+            <option value="">— select tool —</option>
+            {catalog.tools.map((t) => (
+              <option key={t.name} value={t.name}>
+                {t.label}{t.approvalRequired ? " ⚠️" : ""}
+              </option>
+            ))}
+          </select>
+          {selectedTool?.approvalRequired && (
+            <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">⚠️ This tool requires human approval before executing.</p>
+          )}
+        </div>
+      )}
+
+      {/* Agent picker (optional override — auto-resolved if blank) */}
+      <div>
+        <label className="block text-sm font-medium text-vc-text-2 mb-1">Agent <span className="text-vc-subtle font-normal">(optional)</span></label>
+        <p className="text-xs text-vc-subtle mb-2">Leave blank to auto-select a capable agent in the realm.</p>
+        <div className="relative mb-2">
+          <Search size={14} className="absolute left-3 top-2.5 text-vc-subtle" />
+          <input
+            type="text"
+            placeholder="Search agents..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-9 pr-3 py-2 bg-vc-surface text-vc-text border border-vc-border rounded-md text-sm focus:ring-2 focus:ring-emerald-500"
+          />
+        </div>
+        <select
+          value={(node.data.agentId as string | undefined) ?? ""}
+          onChange={(e) => {
+            const selected = agents.find((a) => a.id === e.target.value);
+            setNodes(
+              nodes.map((n: any) =>
+                n.id === selectedNodeId
+                  ? { ...n, data: { ...n.data, agentId: e.target.value || undefined, agentName: selected?.name } }
+                  : n,
+              ),
+            );
+          }}
+          className="w-full px-3 py-2 bg-vc-surface text-vc-text border border-vc-border rounded-md text-sm focus:ring-2 focus:ring-emerald-500"
+        >
+          <option value="">— auto —</option>
+          {loading ? (
+            <option disabled>Loading agents…</option>
+          ) : filteredAgents.length === 0 ? (
+            <option disabled>No agents found</option>
+          ) : (
+            filteredAgents.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.name}{a.online ? " 🟢" : " 🔴"}
+              </option>
+            ))
+          )}
+        </select>
+      </div>
+
+      {/* Predecessor wiring */}
+      <PredecessorInputs
+        nodeId={node.id}
+        nodes={nodes}
+        edges={edges}
+        onInsert={insertIntoParams}
+      />
+
+      {/* Params (tool input) */}
+      <div>
+        <label className="block text-sm font-medium text-vc-text-2 mb-1">Tool params</label>
+        <p className="text-xs text-vc-subtle mb-2">
+          JSON object passed directly as tool input. Use <code className="font-mono text-emerald-600 dark:text-emerald-400">$&#123;nodeId&#125;</code> to reference predecessor outputs.
+        </p>
+        <textarea
+          ref={paramsTextRef}
+          value={JSON.stringify(node.data.params || {}, null, 2)}
+          onChange={(e) => {
+            try { updateNodeData("params", JSON.parse(e.target.value)); } catch { /* ignore */ }
+          }}
+          className="w-full px-3 py-2 bg-vc-surface text-vc-text border border-vc-border rounded-md text-xs font-mono focus:ring-2 focus:ring-emerald-500 h-24"
+          placeholder={'{\n  "text": "${prev-node}"\n}'}
+        />
+      </div>
     </div>
   );
 };
@@ -201,6 +543,7 @@ export const PropertiesPanel: React.FC<{
     setFilteredUsers(filtered);
   }, [userSearchQuery, users]);
 
+  const workflowId = useWorkflowStore((s) => s.workflowId);
   const workflowName = useWorkflowStore((s) => s.workflowName);
   const workflowDescription = useWorkflowStore((s) => s.workflowDescription);
   const workflowInput = useWorkflowStore((s) => s.workflowInput);
@@ -236,6 +579,13 @@ export const PropertiesPanel: React.FC<{
               className="w-full bg-vc-raised text-vc-text border border-vc-border rounded-md px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
             />
             <p className="text-xs text-vc-subtle mt-1">Overridden at execution time if left empty.</p>
+          </div>
+          <div className="pt-2 border-t border-vc-border space-y-3">
+            <div className="flex items-center gap-2">
+              <Calendar size={13} className="text-vc-subtle" />
+              <p className="text-xs font-semibold text-vc-text-2 uppercase tracking-wide">Schedule</p>
+            </div>
+            <SchedulePanel workflowId={workflowId} />
           </div>
           <div className="pt-2 border-t border-vc-border">
             <p className="text-xs text-vc-subtle">Click a node on the canvas to configure it.</p>
@@ -595,6 +945,23 @@ export const PropertiesPanel: React.FC<{
             </div>
           </div>
         );
+
+      case "skill":
+        return <SkillNodeProperties
+          node={node}
+          nodes={nodes}
+          edges={edges}
+          agents={agents}
+          filteredAgents={filteredAgents}
+          searchQuery={searchQuery}
+          setSearchQuery={setSearchQuery}
+          loading={loading}
+          selectedNodeId={selectedNodeId}
+          updateNodeData={updateNodeData}
+          setNodes={setNodes}
+          insertIntoParams={insertIntoParams}
+          paramsTextRef={paramsTextRef}
+        />;
 
       default:
         return (

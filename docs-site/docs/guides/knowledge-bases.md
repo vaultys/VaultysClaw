@@ -153,6 +153,80 @@ With a cloud embedding provider, every chunk of every indexed document is sent t
 
 ---
 
+## File storage
+
+By default, uploaded knowledge files are stored in `data/knowledge-files/` on the control plane host. For multi-instance deployments or to keep your data directory small, you can switch to S3-compatible object storage.
+
+### Filesystem (default)
+
+No configuration required. Files are written to:
+
+```
+<data-dir>/knowledge-files/sources/<sourceId>/<fileId>_<filename>
+```
+
+Metadata and file paths are stored in the SQLite database; the binary content lives on disk.
+
+### S3 / MinIO
+
+1. Go to **Settings → Integrations → File Storage**
+2. Toggle **Use S3 storage** on
+3. Fill in the fields:
+
+| Field | Description |
+|---|---|
+| Region | AWS region, e.g. `us-east-1`. For MinIO, any non-empty value works. |
+| Bucket | The bucket that must already exist |
+| Endpoint | Leave blank for AWS. For MinIO: `http://minio:9000` |
+| Access Key ID | IAM access key or MinIO user |
+| Secret Access Key | Leave blank to keep the previously saved key |
+
+4. Click **Test connection** — the control plane sends a `HeadBucket` request and reports latency or a specific error (wrong credentials vs. bucket not found vs. access denied)
+5. Click **Save** to persist the configuration (encrypted with the server's VaultysId)
+
+The storage backend switches immediately without a server restart.
+
+### MinIO (self-hosted S3)
+
+MinIO is the recommended option for on-premise deployments. Add it to your `docker-compose.yml`:
+
+```yaml
+minio:
+  image: minio/minio:latest
+  ports:
+    - "9000:9000"
+    - "9001:9001"  # console UI
+  environment:
+    MINIO_ROOT_USER: minioadmin
+    MINIO_ROOT_PASSWORD: minioadmin
+  command: minio server /data --console-address :9001
+  volumes:
+    - minio_data:/data
+
+volumes:
+  minio_data:
+```
+
+Create the bucket before saving the config:
+
+```bash
+# Using the mc CLI
+mc alias set local http://localhost:9000 minioadmin minioadmin
+mc mb local/vaultysclaw-knowledge
+```
+
+### Migrating existing files
+
+If you have knowledge files that were indexed before this feature (stored as BLOBs in SQLite), you can move them to the current storage backend without re-syncing:
+
+1. Configure and save your storage destination (filesystem or S3)
+2. In **Settings → Integrations → File Storage**, click **Migrate legacy files**
+3. The control plane moves files in batches of 100 — click again if there are more
+
+The migration copies each BLOB to the storage backend, writes the file path back to the database, and clears the BLOB column. It is safe to run multiple times; files with a path already set are skipped.
+
+---
+
 ## Docling integration (PDF / DOCX)
 
 Docling Serve is an open-source document conversion service that converts PDF, DOCX, HTML, and other formats into clean Markdown before chunking.
@@ -197,6 +271,8 @@ Deleting removes all stored chunks and vectors for that source from the agent's 
 
 ## API quick reference
 
+### Knowledge sources
+
 | Method | Path | Auth | Description |
 |---|---|---|---|
 | `GET` | `/api/knowledge` | Admin | List all knowledge sources (filter by `agentDid`) |
@@ -206,3 +282,12 @@ Deleting removes all stored chunks and vectors for that source from the agent's 
 | `POST` | `/api/knowledge/{id}/sync` | Admin | Trigger a sync (dispatches `knowledge_sync` to the agent via WebSocket) |
 
 The sync endpoint dispatches a WebSocket `knowledge_sync` message to the agent and returns immediately; poll the source's `status` field to track progress.
+
+### File storage configuration
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| `GET` | `/api/settings/storage` | Global Admin | Get current storage config (type, S3 fields — secret never returned) |
+| `PUT` | `/api/settings/storage` | Global Admin | Update storage config; omit `secretAccessKey` to keep the existing one |
+| `POST` | `/api/settings/storage/test` | Global Admin | Test S3 connectivity via `HeadBucket`; returns `{ ok, latency }` or `{ ok: false, error }` |
+| `POST` | `/api/settings/storage/migrate` | Global Admin | Migrate one batch (up to 100) of legacy BLOB files to the current storage backend |

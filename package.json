@@ -6,7 +6,7 @@
   "packageManager": "pnpm@10.33.2",
   "scripts": {
     "-- DEV --": "",
-    "vaultysclaw:dev": "pnpm --filter @vaultysclaw/control-plane dev",
+    "vaultysclaw:dev": "pnpm --filter @vaultysclaw/control-plane dev --data-dir ../../.devdata",
     "agent:dev": "pnpm --filter @vaultysclaw/agent-controller dev",
     "agent:start": "pnpm --filter @vaultysclaw/agent-controller start",
     "agent:web": "pnpm --filter @vaultysclaw/agent-controller dev:web",

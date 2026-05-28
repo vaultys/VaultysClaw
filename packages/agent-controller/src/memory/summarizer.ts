@@ -75,6 +75,7 @@ export class ConversationSummarizer {
     try {
       const model = buildModel(llmConfig);
       const summaryAgent = new Agent({
+        id: "memory-extractor",
         name: "memory-extractor",
         instructions: EXTRACTION_PROMPT,
         model,

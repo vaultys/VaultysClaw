@@ -69,10 +69,22 @@ export const httpRequestTool: AgentToolDefinition = {
           responseBody = `[Binary response, ${res.headers.get("content-length") ?? "unknown"} bytes]`;
         }
 
+        // Convert headers to object - use entries() if available, otherwise iterate manually
+        const headersObj: Record<string, string> = {};
+        const headersAny = res.headers as any;
+        if (typeof headersAny.entries === "function") {
+          for (const [key, value] of headersAny.entries()) {
+            headersObj[key] = value;
+          }
+        } else if (res.headers instanceof Map) {
+          for (const [key, value] of res.headers) {
+            headersObj[key] = value;
+          }
+        }
         return {
           status: res.status,
           statusText: res.statusText,
-          headers: Object.fromEntries(res.headers.entries()),
+          headers: headersObj,
           body: responseBody,
         };
       } catch (err) {

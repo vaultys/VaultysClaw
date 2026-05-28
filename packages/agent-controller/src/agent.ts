@@ -70,7 +70,7 @@ import { SkillLoader, type SkillRegistry } from "./skills";
 import { TaskQueue } from "./task-queue";
 import { Scheduler } from "./scheduler";
 import { MemoryStore, MemoryRetriever, ConversationSummarizer } from "./memory";
-import type { MastraTool } from "@mastra/core/tools";
+import type { MastraTool } from "./tools/types";
 import { ingestSource, buildKnowledgeTool } from "./knowledge";
 import type { KnowledgeSourceConfig } from "./knowledge";
 
@@ -510,7 +510,7 @@ export class Agent extends EventEmitter {
     if (existing) {
       existing.enabled = enabled;
     } else {
-      this.realmSkillFilter.push({ name: skillName, enabled, isRequired: false });
+      this.realmSkillFilter.push({ name: skillName, enabled, isRequired: false, config: {} });
     }
 
     this.rebuildToolRegistry(this.skillLoader.lastRegistry);

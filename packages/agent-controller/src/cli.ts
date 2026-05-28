@@ -257,7 +257,13 @@ function buildAgentArgs(args: CliArgs, execPath: string): string[] {
   const argv: string[] = [execPath, "--mode", args.mode];
   if (args.name) argv.push("--name", args.name);
   if (args.ws) argv.push("--ws", args.ws);
-  argv.push("--data-dir", path.resolve(args.dataDir));
+  // Determine data directory: explicit --data-dir or default .vaultys/<name>
+  const dataDir = args.dataDir
+    ? path.resolve(args.dataDir)
+    : (args.name
+      ? path.resolve(".vaultys", args.name)
+      : path.resolve(".vaultys", "agent-1"));
+  argv.push("--data-dir", dataDir);
   if (args.mode === "web") {
     argv.push("--port", String(args.port), "--no-browser");
   }

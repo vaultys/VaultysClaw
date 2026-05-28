@@ -7,8 +7,7 @@
  */
 
 import type { AgentCapability } from "@vaultysclaw/shared";
-import type { AgentToolDefinition, ToolRegistry, ApprovalCallback } from "./types";
-import type { MastraTool } from "@mastra/core/tools";
+import type { AgentToolDefinition, ToolRegistry, ApprovalCallback, MastraTool } from "./types";
 import { shellTool } from "./shell";
 import { httpRequestTool } from "./http-request";
 import { createFileTools } from "./file-ops";

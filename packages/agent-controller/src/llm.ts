@@ -6,7 +6,7 @@ import { Agent } from "@mastra/core/agent";
 import { createOllama } from "ollama-ai-provider-v2";
 import { createOpenAI } from "@ai-sdk/openai";
 import type { LlmConfig } from "@vaultysclaw/shared";
-import type { MastraTool } from "@mastra/core/tools";
+import type { MastraTool } from "./tools/types";
 import pino from "pino";
 
 const logger = pino({ name: "llm" });
@@ -72,7 +72,6 @@ export function buildModel(config: LlmConfig): any {
       const client = createOpenAI({
         apiKey: config.apiKey ?? "not-required",
         baseURL,
-        compatibility: "compatible",
         // Some servers (e.g. Ollama) reject messages with null content.
         // Patch outgoing requests to replace null content with "".
         fetch: async (url, init) => {
@@ -144,6 +143,7 @@ export async function runIntent(
 
   try {
     const agent = new Agent({
+      id: "vaultysclaw-intent",
       name: "vaultysclaw-intent",
       instructions,
       model,
@@ -166,11 +166,12 @@ export async function runIntent(
       "Debug: Usage object from runIntent",
     );
 
+    const usage = result.usage as any;
     return {
       text: result.text ?? "",
       usage: {
-        promptTokens: result.usage?.promptTokens ?? result.usage?.inputTokens ?? 0,
-        completionTokens: result.usage?.completionTokens ?? result.usage?.outputTokens ?? 0,
+        promptTokens: usage?.promptTokens ?? usage?.inputTokens ?? 0,
+        completionTokens: usage?.completionTokens ?? usage?.outputTokens ?? 0,
       },
     };
   } catch (err) {
@@ -211,6 +212,7 @@ export function streamChat(
   );
 
   const agent = new Agent({
+    id: "vaultysclaw-chat",
     name: "vaultysclaw-chat",
     instructions,
     model,

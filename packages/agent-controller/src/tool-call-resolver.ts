@@ -111,7 +111,7 @@ export async function executeToolCall(
   }
 
   try {
-    const result = await tool.execute(args, { toolCallId: `resolver-${Date.now()}` });
+    const result = tool.execute ? await (tool.execute as any)(args, {}) : undefined;
     return { tool: toolName, result };
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);

@@ -55,7 +55,8 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({
       agents: matches.slice(0, 20).map((a) => ({
-        id:           a.did,
+        id:           a.did, // @deprecated use `did`
+        did:          a.did,
         name:         a.name,
         capabilities: (() => { try { return JSON.parse(a.capabilities ?? "[]"); } catch { return []; } })(),
         online:       connectedDids.has(a.did),

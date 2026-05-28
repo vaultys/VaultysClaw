@@ -48,6 +48,7 @@ vi.mock("@/lib/ws-server", () => ({
   getWSServer: vi.fn(() => ({
     sendTaskToAgent: vi.fn(() => false), // returns false → agent offline
     isAgentOnline: vi.fn(() => false),
+    getConnectedAgents: vi.fn(() => []),
   })),
 }));
 

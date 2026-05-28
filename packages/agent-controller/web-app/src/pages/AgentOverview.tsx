@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { fmtUptime } from "@vaultysclaw/shared";
 import type { AgentInfo, IntentEntry, LlmConfigSafe, ToolEntry } from "../types";
 
 interface Props {
@@ -7,12 +8,6 @@ interface Props {
 }
 
 type RunOutput = { text?: string; usage?: { promptTokens?: number; completionTokens?: number } };
-
-function fmtUptime(s: number) {
-  if (s < 60) return `${s}s`;
-  if (s < 3600) return `${Math.floor(s / 60)}m ${s % 60}s`;
-  return `${Math.floor(s / 3600)}h ${Math.floor((s % 3600) / 60)}m`;
-}
 
 function Card({ title, children }: { title: string; children: React.ReactNode }) {
   return (

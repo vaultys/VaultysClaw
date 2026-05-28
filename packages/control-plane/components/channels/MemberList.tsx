@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { Loader2, UserMinus, Plus, Bot, User, Search, X } from "lucide-react";
+import { shortDid, getInitials } from "@vaultysclaw/shared";
 
 interface ChannelMember {
   id: string;
@@ -26,22 +27,6 @@ interface UserRecord {
 
 interface MemberListProps {
   channelId: string;
-}
-
-function shortDid(did?: string): string {
-  if (!did) return "unknown";
-  if (did.length <= 20) return did;
-  return `${did.slice(0, 8)}…${did.slice(-6)}`;
-}
-
-function getInitials(name: string): string {
-  return name
-    .split(" ")
-    .filter(Boolean)
-    .map((w) => w[0])
-    .join("")
-    .toUpperCase()
-    .slice(0, 2);
 }
 
 const ROLE_STYLES: Record<string, string> = {

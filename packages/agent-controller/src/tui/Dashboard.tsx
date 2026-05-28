@@ -1,21 +1,15 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Box, Text, useInput, useApp } from "ink";
 import TextInput from "ink-text-input";
+import { fmtUptime, getStatusColor, getLogLevelColor, formatTimeOnly } from "@vaultysclaw/shared";
 import type { Agent, AgentInfo, LogEntry, IntentEntry } from "../agent";
 import type { LlmConfig } from "@vaultysclaw/shared";
 
 // ---- Sub-components ----
 
 function StatusBar({ info }: { info: AgentInfo }) {
-  const statusColor: Record<string, string> = {
-    connected: "green",
-    connecting: "yellow",
-    pending_approval: "cyan",
-    disconnected: "red",
-    initializing: "gray",
-  };
-  const color = statusColor[info.status] ?? "white";
-  const uptime = `${Math.floor(info.uptime / 60)}m ${info.uptime % 60}s`;
+  const color = getStatusColor(info.status);
+  const uptime = fmtUptime(info.uptime);
   const llm = info.activeLlmProvider
     ? `${info.activeLlmProvider}/${info.activeLlmModel}`
     : "none";
@@ -39,14 +33,13 @@ function StatusBar({ info }: { info: AgentInfo }) {
 }
 
 function LogPanel({ logs, height }: { logs: LogEntry[]; height: number }) {
-  const levelColor = (l: string) => l === "error" ? "red" : l === "warn" ? "yellow" : l === "debug" ? "gray" : "white";
   const visible = logs.slice(-height);
   return (
     <Box flexDirection="column" flexGrow={1} borderStyle="round" paddingX={1}>
       <Text bold dimColor>LOGS</Text>
       {visible.map((e, i) => (
-        <Text key={i} color={levelColor(e.level)} wrap="truncate">
-          <Text dimColor>{e.ts.slice(11, 19)}</Text>
+        <Text key={i} color={getLogLevelColor(e.level)} wrap="truncate">
+          <Text dimColor>{formatTimeOnly(e.ts)}</Text>
           {" "}<Text bold>[{e.level.toUpperCase()}]</Text>
           {" "}{e.message}
         </Text>
@@ -56,15 +49,14 @@ function LogPanel({ logs, height }: { logs: LogEntry[]; height: number }) {
 }
 
 function IntentPanel({ intents, height }: { intents: IntentEntry[]; height: number }) {
-  const statusColor = (s: string) => s === "success" ? "green" : s === "failed" ? "red" : "yellow";
   const visible = intents.slice(-height);
   return (
     <Box flexDirection="column" flexGrow={1} borderStyle="round" paddingX={1}>
       <Text bold dimColor>INTENTS</Text>
       {visible.map((e, i) => (
         <Text key={i} wrap="truncate">
-          <Text color={statusColor(e.status)}>■ </Text>
-          <Text dimColor>{e.receivedAt.slice(11, 19)}</Text>
+          <Text color={getStatusColor(e.status)}>■ </Text>
+          <Text dimColor>{formatTimeOnly(e.receivedAt)}</Text>
           {" "}<Text bold>{e.action}</Text>
           {" "}
           {e.status === "failed"

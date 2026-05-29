@@ -15,7 +15,22 @@ cd VaultysClaw
 
 # Install dependencies
 pnpm install
+
+# build 
+pnpm build
 ```
+
+## .env
+Create a .env in working directory
+
+For dev mode: 
+
+```bash
+mkdir .devdata
+cp packages/control-plane/.env.example .devdata/.env.local
+```
+
+
 
 ## Run Everything
 
@@ -25,7 +40,7 @@ Open 2 terminals:
 
 **Terminal 1** - Control Plane (HTTP + WebSocket):
 ```bash
-pnpm dev -F @vaultysclaw/control-plane
+pnpm vaultysclaw:dev
 # HTTP server: http://localhost:3000
 # WebSocket server: ws://localhost:8080 (for agents)
 ```

@@ -21,6 +21,7 @@ import {
   Search,
   X,
   Plus,
+  BookOpen,
 } from "lucide-react";
 import { useState, useEffect, useCallback, useRef } from "react";
 
@@ -32,6 +33,8 @@ const CAPABILITY_ICONS: Record<string, React.ReactNode> = {
   mail_send: <Mail size={14} />,
   code_execution: <Code size={14} />,
   system_command: <Terminal size={14} />,
+  agent_communication: <BookOpen size={14} />,
+
 };
 
 const AVAILABLE_CAPABILITIES = Object.keys(CAPABILITY_ICONS) as Array<keyof typeof CAPABILITY_ICONS>;

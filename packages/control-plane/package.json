@@ -22,6 +22,7 @@
     "@vaultysclaw/shared": "workspace:*",
     "axios": "^1.16.1",
     "better-sqlite3": "^12.10.0",
+    "dotenv": "^16.6.1",
     "lucide-react": "^1.14.0",
     "next": "^16.2.6",
     "next-auth": "^4.24.14",

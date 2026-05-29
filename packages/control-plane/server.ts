@@ -17,7 +17,7 @@ import path from "path";
 import fs from "fs";
 import next from "next";
 import pino from "pino";
-import { loadEnvConfig } from "@next/env";
+import dotenv from "dotenv";
 import { initializeWSServer, initializeAdminWS } from "./lib/ws-server";
 import { getDb, closeDb, initServerIdentity, getFileStorage } from "./lib/db";
 import { startWorkflowScheduler, stopWorkflowScheduler } from "./lib/workflow-scheduler";
@@ -42,8 +42,14 @@ if (!fs.existsSync(dataDir)) {
   fs.mkdirSync(dataDir, { recursive: true });
 }
 
-// Load .env, .env.local, .env.development from the data directory
-loadEnvConfig(dataDir);
+// Load .env files from the data directory
+const envFiles = [".env", ".env.local", ".env.development"];
+for (const envFile of envFiles) {
+  const envPath = path.join(dataDir, envFile);
+  if (fs.existsSync(envPath)) {
+    dotenv.config({ path: envPath });
+  }
+}
 
 // Expose paths via env so db.ts and other modules resolve them lazily (at call time, not import time).
 process.env.VAULTYS_DB_PATH = path.join(dataDir, "vaultysclaw.db");

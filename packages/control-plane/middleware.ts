@@ -1,8 +1,13 @@
 import { withAuth } from "next-auth/middleware";
 import { NextResponse } from "next/server";
+import type { NextRequestWithAuth } from "next-auth/middleware";
 
+/**
+ * Authentication middleware for protected routes.
+ * Handles login redirects and token validation.
+ */
 export default withAuth(
-  function middleware(request) {
+  function middleware(request: NextRequestWithAuth) {
     const { pathname } = request.nextUrl;
 
     // Authenticated user visiting /login → redirect to callbackUrl or home
@@ -20,22 +25,30 @@ export default withAuth(
         const { pathname } = req.nextUrl;
         // Always allow: auth callbacks, user-facing P2P/bastion endpoints, login, root (landing page),
         // email invitations, and test/workflow execution endpoints
-        if (
-          pathname.startsWith("/api/auth") ||
-          pathname.startsWith("/api/user") ||
-          pathname.startsWith("/api/server") ||
-          pathname.startsWith("/api/test") ||
-          pathname.startsWith("/api/workflows/test-seed") ||
-          pathname.startsWith("/api/invitations") ||
-          pathname.startsWith("/api/users/invite/email") ||
-          pathname.startsWith("/api/users/invite/from-email") ||
-          /^\/api\/workflows\/[^/]+\/execute$/.test(pathname) ||
-          pathname.startsWith("/login") ||
-          pathname.startsWith("/invite/") ||
-          pathname === "/"
-        ) {
+        const publicPaths = [
+          "/api/auth",
+          "/api/user",
+          "/api/server",
+          "/api/test",
+          "/api/workflows/test-seed",
+          "/api/invitations",
+          "/api/users/invite/email",
+          "/api/users/invite/from-email",
+          "/login",
+          "/invite/",
+          "/",
+        ];
+
+        // Check if path is public
+        const isPublic = publicPaths.some((path) => pathname.startsWith(path));
+        if (isPublic) return true;
+
+        // Check workflow execution endpoints (dynamic pattern)
+        if (/^\/api\/workflows\/[^/]+\/execute$/.test(pathname)) {
           return true;
         }
+
+        // Require token for all other paths
         return !!token;
       },
     },
@@ -43,6 +56,10 @@ export default withAuth(
   },
 );
 
+// Configure which paths should be processed by this middleware
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+  matcher: [
+    // Run middleware on all paths except static files and images
+    "/((?!_next/static|_next/image|favicon.ico|.+\\.(?:png|jpg|jpeg|gif|svg|webp|ico)).*)",
+  ],
 };

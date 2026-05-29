@@ -97,6 +97,7 @@ interface AgentDetail {
   lastHeartbeat: string | null;
   reportedLlm: { provider: string; model: string } | null;
   storedLlm: { provider: string; model: string } | null;
+  transport?: "ws" | "peerjs" | null;
   tokenUsage: { promptTokens: number; completionTokens: number; totalTokens: number } | null;
   tokenBudgetDaily: number | null;
   tokenBudgetMonthly: number | null;
@@ -373,6 +374,15 @@ export default function AgentDetailPage() {
                 <span className="inline-flex items-center gap-1.5 text-xs font-medium text-vc-muted bg-vc-raised border border-vc-ring rounded-full px-2.5 py-0.5">
                   <span className="w-1.5 h-1.5 bg-vc-ring rounded-full" />
                   Offline
+                </span>
+              )}
+              {agent.online && agent.transport && (
+                <span className={`inline-flex items-center gap-1.5 text-xs font-medium rounded-full px-2.5 py-0.5 border ${
+                  agent.transport === "peerjs"
+                    ? "text-violet-700 dark:text-violet-400 bg-violet-100 dark:bg-violet-500/10 border-violet-300 dark:border-violet-500/20"
+                    : "text-sky-700 dark:text-sky-400 bg-sky-100 dark:bg-sky-500/10 border-sky-300 dark:border-sky-500/20"
+                }`}>
+                  {agent.transport === "peerjs" ? "WebRTC" : "WebSocket"}
                 </span>
               )}
               {(agent.reportedLlm ?? agent.storedLlm) && (() => {

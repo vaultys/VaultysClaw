@@ -26,6 +26,17 @@ export interface AgentControllerConfig {
   /** Capabilities the agent requests on first registration. The control plane assigns the actual capabilities. */
   requestedCapabilities: AgentCapability[];
   /**
+   * Control plane PeerJS peer ID. When set, the agent connects via WebRTC instead of WebSocket.
+   * Set via --peerjs <id> or CONTROL_PLANE_PEERJS_ID env var.
+   */
+  peerjsControlPlaneId?: string;
+  /**
+   * Custom PeerJS signaling server URL (e.g. https://my.peerserver.com).
+   * When not set, the public peerjs.com server is used.
+   * Set via --peerjs-server <url> or CONTROL_PLANE_PEERJS_SERVER env var.
+   */
+  peerjsServerUrl?: string;
+  /**
    * Optional PeerJS relay server URL override for the web dashboard P2P auth.
    * When null, the default public PeerJS relay is used.
    * The control plane can also override this at runtime via the DB (peerjs_server key).
@@ -91,6 +102,8 @@ export function loadConfig(): AgentControllerConfig {
     requestedCapabilities: process.env.AGENT_CAPABILITIES
       ? (process.env.AGENT_CAPABILITIES.split(",").map((s) => s.trim()).filter(Boolean) as AgentCapability[])
       : [],
+    peerjsControlPlaneId: process.env.CONTROL_PLANE_PEERJS_ID || undefined,
+    peerjsServerUrl: process.env.CONTROL_PLANE_PEERJS_SERVER || undefined,
     peerjsServer: process.env.PEERJS_SERVER || undefined,
     workspaceRoot: process.env.AGENT_WORKSPACE_ROOT || undefined,
     skillsDir: process.env.SKILLS_DIR || undefined,

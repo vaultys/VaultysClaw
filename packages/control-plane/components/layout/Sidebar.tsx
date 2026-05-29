@@ -21,6 +21,7 @@ import {
   ShieldCheck,
   Puzzle,
   BookOpen,
+  Activity,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useRole } from "@/hooks/useRole";
@@ -48,6 +49,7 @@ const NAV_GROUPS = [
       { href: "/registrations", icon: Clock, label: "Registrations", exact: false },
       { href: "/users", icon: Users, label: "Users", exact: false },
       { href: "/governance", icon: ShieldCheck, label: "Governance", exact: false },
+      { href: "/network", icon: Activity, label: "Network", exact: false },
       { href: "/server", icon: Server, label: "Server", exact: false },
     ],
   },

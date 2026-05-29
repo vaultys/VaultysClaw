@@ -15,6 +15,13 @@ import fs from "fs";
 import path from "path";
 import { WebSocket } from "ws";
 import { decode as msgpackDecode } from "@msgpack/msgpack";
+
+// WebRTC polyfills required by PeerJS in Node.js (same as peer-manager.ts)
+import * as wrtc from "@roamhq/wrtc";
+(global as Record<string, unknown>).RTCPeerConnection = wrtc.RTCPeerConnection;
+(global as Record<string, unknown>).RTCSessionDescription = wrtc.RTCSessionDescription;
+(global as Record<string, unknown>).RTCIceCandidate = wrtc.RTCIceCandidate;
+(global as Record<string, unknown>).getUserMedia = wrtc.getUserMedia;
 import { Challenger, VaultysId, crypto } from "@vaultys/id";
 import {
   initDb, storeCertificate,
@@ -206,6 +213,10 @@ export class Agent extends EventEmitter {
 
   // Connection
   private ws: WebSocket | null = null;
+  /** Active PeerJS DataConnection (when connecting via WebRTC instead of WebSocket). */
+  private peerjsConn: import("peerjs").DataConnection | null = null;
+  /** Underlying PeerJS Peer instance (kept for cleanup on reconnect). */
+  private peerjsPeer: import("peerjs").Peer | null = null;
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private stopped = false;
@@ -332,6 +343,14 @@ export class Agent extends EventEmitter {
     if (this.ws) {
       this.ws.close();
       this.ws = null;
+    }
+    if (this.peerjsConn) {
+      this.peerjsConn.close();
+      this.peerjsConn = null;
+    }
+    if (this.peerjsPeer) {
+      this.peerjsPeer.destroy();
+      this.peerjsPeer = null;
     }
     this.taskQueue?.stop();
     this.scheduler?.stop();
@@ -674,9 +693,114 @@ export class Agent extends EventEmitter {
     return vid.toVersion(1);
   }
 
-  // ---- WebSocket connection ----
+  // ---- Transport connection ----
 
   private connect(): void {
+    if (this.stopped) return;
+    if (this.config.peerjsControlPlaneId) {
+      this.connectViaPeerjs();
+    } else {
+      this.connectViaWs();
+    }
+  }
+
+  private connectViaPeerjs(): void {
+    if (this.stopped) return;
+
+    const controlPlanePeerId = this.config.peerjsControlPlaneId!;
+    this.log("info", `Connecting to control plane via PeerJS: peer=${controlPlanePeerId}`);
+    this.setStatus("connecting");
+
+    this.authChallenger = null;
+    this.authSessionId = null;
+    this.reAuthPending = false;
+
+    // Destroy old peer before creating a new one
+    if (this.peerjsPeer) {
+      this.peerjsPeer.destroy();
+      this.peerjsPeer = null;
+    }
+    this.peerjsConn = null;
+
+    // Parse optional custom signaling server
+    const serverUrl = this.config.peerjsServerUrl;
+    const peerOptions: import("peerjs").PeerOptions = serverUrl
+      ? (() => {
+          try {
+            const parsed = new URL(serverUrl);
+            return {
+              host: parsed.hostname,
+              port: parsed.port ? parseInt(parsed.port, 10) : (parsed.protocol === "https:" ? 443 : 80),
+              path: parsed.pathname || "/",
+              secure: parsed.protocol === "https:",
+              debug: 1,
+            };
+          } catch {
+            return { host: serverUrl, secure: true, debug: 1 };
+          }
+        })()
+      : { host: "0.peerjs.com", port: 443, path: "/", secure: true, debug: 1 };
+
+    // Import peerjs dynamically to avoid issues at module load time before polyfills
+    import("peerjs").then(({ Peer }) => {
+      if (this.stopped) return;
+
+      const peer = new Peer(peerOptions);
+      this.peerjsPeer = peer;
+
+      peer.on("open", () => {
+        if (this.stopped) { peer.destroy(); return; }
+        this.log("info", `PeerJS peer ready (id=${peer.id}) — connecting to control plane`);
+
+        const conn = peer.connect(controlPlanePeerId, { reliable: true });
+        this.peerjsConn = conn;
+
+        conn.on("open", () => {
+          this.log("info", "PeerJS DataConnection open — awaiting auth challenge");
+        });
+
+        conn.on("data", (raw: unknown) => {
+          const data = typeof raw === "string" ? raw : JSON.stringify(raw);
+          this.handleMessage(data);
+        });
+
+        conn.on("error", (err) => {
+          this.log("error", "PeerJS connection error", err);
+        });
+
+        conn.on("close", () => {
+          if (this.stopped) return;
+          if (this.peerjsConn !== conn) return; // stale connection
+          this.log("warn", "PeerJS connection closed — reconnecting in 5s");
+          this.setStatus("disconnected");
+          if (this.heartbeatTimer) {
+            clearInterval(this.heartbeatTimer);
+            this.heartbeatTimer = null;
+          }
+          this.peerjsConn = null;
+          this.reconnectTimer = setTimeout(() => this.connectViaPeerjs(), 5000);
+        });
+      });
+
+      peer.on("error", (err) => {
+        this.log("error", "PeerJS peer error", err);
+        if (this.stopped) return;
+        this.setStatus("disconnected");
+        this.reconnectTimer = setTimeout(() => this.connectViaPeerjs(), 5000);
+      });
+
+      peer.on("disconnected", () => {
+        this.log("warn", "PeerJS disconnected from signaling server — reconnecting peer");
+        peer.reconnect();
+      });
+    }).catch((err) => {
+      this.log("error", "Failed to load peerjs module", err);
+    });
+  }
+
+  // ---- WebSocket connection ----
+
+  private connectViaWs(): void {
     if (this.stopped) return;
 
     const wsUrl = this.config.controlPlaneWsUrl;
@@ -724,12 +848,27 @@ export class Agent extends EventEmitter {
   }
 
   private send(message: WSMessage): void {
+    const data = JSON.stringify(message);
+
+    if (this.peerjsConn) {
+      if (!this.peerjsConn.open) {
+        this.log("error", "PeerJS connection not open — cannot send message");
+        return;
+      }
+      try {
+        this.peerjsConn.send(data);
+      } catch (err) {
+        this.log("error", "Failed to send PeerJS message", err);
+      }
+      return;
+    }
+
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
       this.log("error", "WebSocket not open — cannot send message");
       return;
     }
     try {
-      this.ws.send(JSON.stringify(message));
+      this.ws.send(data);
     } catch (err) {
       this.log("error", "Failed to send message", err);
     }

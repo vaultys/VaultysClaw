@@ -72,6 +72,7 @@ interface AgentItem {
   realms?: { id: string; name: string; slug: string; color: string; isPrimary: boolean }[];
   reportedLlm?: { provider: string; model: string } | null;
   tokenUsage?: { promptTokens: number; completionTokens: number } | null;
+  transport?: "ws" | "peerjs" | null;
 }
 
 interface ApiResponse {
@@ -330,15 +331,26 @@ export default function AgentsPage() {
                       onClick={() => router.push(`/agents/${encodeURIComponent(agent.id)}`)}
                     >
                       <td className="px-5 py-3.5">
-                        {agent.online ? (
-                          <span className="flex items-center gap-1.5 text-green-600 dark:text-green-400 text-xs">
-                            <CircleDot className="w-3.5 h-3.5" /> Online
-                          </span>
-                        ) : (
-                          <span className="flex items-center gap-1.5 text-vc-subtle text-xs">
-                            <Circle className="w-3.5 h-3.5" /> Offline
-                          </span>
-                        )}
+                        <div className="flex flex-col gap-1">
+                          {agent.online ? (
+                            <span className="flex items-center gap-1.5 text-green-600 dark:text-green-400 text-xs">
+                              <CircleDot className="w-3.5 h-3.5" /> Online
+                            </span>
+                          ) : (
+                            <span className="flex items-center gap-1.5 text-vc-subtle text-xs">
+                              <Circle className="w-3.5 h-3.5" /> Offline
+                            </span>
+                          )}
+                          {agent.online && agent.transport && (
+                            <span className={`inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded font-medium border ${
+                              agent.transport === "peerjs"
+                                ? "bg-violet-100 dark:bg-violet-500/15 text-violet-700 dark:text-violet-400 border-violet-300 dark:border-violet-500/30"
+                                : "bg-sky-100 dark:bg-sky-500/15 text-sky-700 dark:text-sky-400 border-sky-300 dark:border-sky-500/30"
+                            }`}>
+                              {agent.transport === "peerjs" ? "WebRTC" : "WebSocket"}
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-5 py-3.5 font-medium text-vc-text">
                         <div className="flex flex-col gap-1">

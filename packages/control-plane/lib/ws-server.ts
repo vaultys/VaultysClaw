@@ -7,6 +7,7 @@
 import { createServer as createHttpServer, type Server as HttpServer } from "node:http";
 import { WebSocket, WebSocketServer, type Data as WebSocketData } from "ws";
 import pino from "pino";
+import { type AgentSender, WsSender } from "./agent-sender";
 import {
   type WSMessage,
   type WSAuthChallengePayload,
@@ -82,7 +83,7 @@ const SESSION_CLEANUP_INTERVAL_MS = 5 * 60_000;
 type PendingPhase = "awaiting_register" | "awaiting_approval" | "authenticating";
 
 interface PendingConnection {
-  ws: WebSocket;
+  sender: AgentSender;
   sessionId: string;
   phase: PendingPhase;
   registrationId?: string;
@@ -103,7 +104,7 @@ interface PendingConnection {
 interface ConnectedAgent {
   id: string; // DID
   name: string;
-  ws: WebSocket;
+  sender: AgentSender;
   capabilities: string[];
   connectedAt: Date;
   lastHeartbeat: Date;
@@ -117,6 +118,8 @@ interface ConnectedAgent {
   monthlyTokenUsage?: { promptTokens: number; completionTokens: number };
   /** Estimated price spent today in USD. */
   dailyPriceSpent?: number;
+  /** Transport used by this agent connection. */
+  transport: "ws" | "peerjs";
 }
 
 /**
@@ -126,7 +129,9 @@ export class AgentWSServer {
   private wss: WebSocketServer;
   private httpServer: HttpServer;
   private agents: Map<string, ConnectedAgent> = new Map();
-  private pending: Map<WebSocket, PendingConnection> = new Map();
+  private pending: Map<AgentSender, PendingConnection> = new Map();
+  /** Map from raw WebSocket to its WsSender wrapper — for event handler lookups */
+  private wsSenders: Map<WebSocket, WsSender> = new Map();
   private port: number;
   private cleanupInterval: ReturnType<typeof setInterval> | null = null;
   /** Ping interval — keeps TCP connections alive and detects ghosts */
@@ -143,6 +148,12 @@ export class AgentWSServer {
   private chatSessionsCallbacks: Map<string, (payload: import("@vaultysclaw/shared").WSChatSessionsResponsePayload) => void> = new Map();
   /** Pending one-shot callbacks for chat history responses. Key = `agentId:sessionId` */
   private chatHistoryCallbacks: Map<string, (payload: import("@vaultysclaw/shared").WSChatHistoryResponsePayload) => void> = new Map();
+  /** Cumulative message counters per transport, reset on server restart. */
+  private transportStats = {
+    ws: { messagesIn: 0, messagesOut: 0, bytesIn: 0, bytesOut: 0, connectionsTotal: 0 },
+    peerjs: { messagesIn: 0, messagesOut: 0, bytesIn: 0, bytesOut: 0, connectionsTotal: 0 },
+  };
+  private startedAt = new Date();
 
   constructor(port: number) {
     this.port = port;
@@ -167,19 +178,15 @@ export class AgentWSServer {
       }
     }, SESSION_CLEANUP_INTERVAL_MS);
 
-    // Ping all connected agents every 20 s to keep the TCP connection alive
+    // Ping all connected WS agents every 20 s to keep the TCP connection alive
     // and to detect stale/ghost connections (no pong → terminate).
+    // PeerJS connections have their own keep-alive mechanism.
     this.pingInterval = setInterval(() => {
       for (const agent of this.agents.values()) {
-        if (agent.ws.readyState === WebSocket.OPEN) {
-          agent.ws.ping();
-        }
+        agent.sender.ping?.();
       }
-      // Also ping pending connections so they don't time out on the network layer
       for (const conn of this.pending.values()) {
-        if (conn.ws.readyState === WebSocket.OPEN) {
-          conn.ws.ping();
-        }
+        conn.sender.ping?.();
       }
     }, 20_000);
   }
@@ -188,26 +195,30 @@ export class AgentWSServer {
     this.wss.on("connection", (ws: WebSocket) => {
       logger.info("New WebSocket connection — awaiting register or auth_challenge");
 
+      const sender = new WsSender(ws);
+      this.wsSenders.set(ws, sender);
+      this.transportStats.ws.connectionsTotal++;
+
       try {
         const { sessionId } = createAuthSession();
 
         // Set initial auth timeout
         const timer = setTimeout(() => {
           logger.warn({ sessionId }, "Auth timeout — closing connection");
-          this.sendMessage(ws, {
+          this.sendMessage(sender, {
             messageId: `auth-fail-${Date.now()}`,
             type: "auth_failed",
             payload: { reason: "Authentication timeout" } satisfies WSAuthFailedPayload,
             timestamp: new Date().toISOString(),
           });
-          ws.close();
-          this.pending.delete(ws);
+          sender.close();
+          this.pending.delete(sender);
         }, AUTH_TIMEOUT_MS);
 
-        this.pending.set(ws, { ws, sessionId, phase: "awaiting_register", timer });
+        this.pending.set(sender, { sender, sessionId, phase: "awaiting_register", timer });
 
         // Send session ID to agent — agent decides to register (new) or auth (returning)
-        this.sendMessage(ws, {
+        this.sendMessage(sender, {
           messageId: `auth-${Date.now()}`,
           type: "auth_challenge",
           payload: { sessionId, data: "" } satisfies WSAuthChallengePayload,
@@ -215,16 +226,18 @@ export class AgentWSServer {
         });
       } catch (error) {
         logger.error(error, "Failed to start auth session");
-        ws.close();
+        sender.close();
+        this.wsSenders.delete(ws);
         return;
       }
 
       ws.on("message", (data: WebSocketData) => {
-        this.handleMessage(ws, data);
+        this.handleMessage(sender, data as string);
       });
 
       ws.on("close", () => {
-        this.handleDisconnect(ws);
+        this.handleDisconnect(sender);
+        this.wsSenders.delete(ws);
       });
 
       ws.on("error", (error: Error) => {
@@ -233,9 +246,13 @@ export class AgentWSServer {
     });
   }
 
-  private handleMessage(ws: WebSocket, data: WebSocketData): void {
+  private handleMessage(sender: AgentSender, data: string | WebSocketData): void {
     try {
-      const message: WSMessage = JSON.parse(data as string);
+      const raw = data as string;
+      const bucket = this.transportStats[sender.transport];
+      bucket.messagesIn++;
+      bucket.bytesIn += raw.length;
+      const message: WSMessage = JSON.parse(raw);
 
       logger.debug(
         { messageId: message.messageId, type: message.type },
@@ -243,7 +260,7 @@ export class AgentWSServer {
       );
 
       // If connection is still pending, route based on phase
-      const pendingConn = this.pending.get(ws);
+      const pendingConn = this.pending.get(sender);
       if (pendingConn) {
         if (message.type === "register" && pendingConn.phase === "awaiting_register") {
           this.handleRegisterRequest(pendingConn, message);
@@ -254,7 +271,7 @@ export class AgentWSServer {
             { type: message.type, phase: pendingConn.phase },
             "Rejecting message — not expected in current phase"
           );
-          this.sendMessage(ws, {
+          this.sendMessage(sender, {
             messageId: `err-${Date.now()}`,
             type: "error",
             payload: { error: "Unexpected message in current phase" },
@@ -335,7 +352,7 @@ export class AgentWSServer {
 
     // Send auth_challenge to start VaultysId handshake
     // DID-based approval happens after auth completes
-    this.sendMessage(pending.ws, {
+    this.sendMessage(pending.sender, {
       messageId: `auth-${Date.now()}`,
       type: "auth_challenge",
       payload: { sessionId: pending.sessionId, data: "" } satisfies WSAuthChallengePayload,
@@ -378,24 +395,25 @@ export class AgentWSServer {
         if (knownAgent) {
           // Known agent — auto-approve with stored capabilities
           clearTimeout(pending.timer);
-          this.pending.delete(pending.ws);
+          this.pending.delete(pending.sender);
 
           const storedCapabilities = JSON.parse(knownAgent.capabilities) as AgentCapability[];
 
           // Close existing connection if agent reconnected from new socket
           const existing = this.agents.get(agentDid);
-          if (existing && existing.ws !== pending.ws) {
+          if (existing && existing.sender !== pending.sender) {
             logger.info({ agentDid }, "Agent reconnecting with verified certificate — replacing old connection");
-            existing.ws.close();
+            existing.sender.close();
           }
 
           const agent: ConnectedAgent = {
             id: agentDid,
             name: result.agentName ?? knownAgent.name,
-            ws: pending.ws,
+            sender: pending.sender,
             capabilities: storedCapabilities,
             connectedAt: new Date(),
             lastHeartbeat: new Date(),
+            transport: pending.sender.transport,
           };
 
           this.agents.set(agentDid, agent);
@@ -412,7 +430,7 @@ export class AgentWSServer {
           this.broadcastAdminUpdate("agent_reconnected");
 
           // Send auth_complete
-          this.sendMessage(pending.ws, {
+          this.sendMessage(pending.sender, {
             messageId: `auth-complete-${Date.now()}`,
             type: "auth_complete",
             agentId: agentDid,
@@ -431,7 +449,7 @@ export class AgentWSServer {
 
           // Send final challenge response if any
           if (result.responseData) {
-            this.sendMessage(pending.ws, {
+            this.sendMessage(pending.sender, {
               messageId: `auth-data-${Date.now()}`,
               type: "auth_challenge",
               payload: {
@@ -473,14 +491,14 @@ export class AgentWSServer {
           clearTimeout(pending.timer);
           pending.timer = setTimeout(() => {
             logger.warn({ registrationId }, "Registration approval timeout — closing connection");
-            this.sendMessage(pending.ws, {
+            this.sendMessage(pending.sender, {
               messageId: `auth-fail-${Date.now()}`,
               type: "auth_failed",
               payload: { reason: "Registration approval timeout" } satisfies WSAuthFailedPayload,
               timestamp: new Date().toISOString(),
             });
-            pending.ws.close();
-            this.pending.delete(pending.ws);
+            pending.sender.close();
+            this.pending.delete(pending.sender);
             deletePendingRegistration(registrationId);
           }, REGISTRATION_TIMEOUT_MS);
 
@@ -491,7 +509,7 @@ export class AgentWSServer {
           this.broadcastAdminUpdate("registration_requested");
 
           // Notify agent it's pending
-          this.sendMessage(pending.ws, {
+          this.sendMessage(pending.sender, {
             messageId: `reg-pending-${Date.now()}`,
             type: "registration_pending",
             payload: {
@@ -506,9 +524,9 @@ export class AgentWSServer {
       } else if (result.done && !result.success) {
         // Auth failed
         clearTimeout(pending.timer);
-        this.pending.delete(pending.ws);
+        this.pending.delete(pending.sender);
 
-        this.sendMessage(pending.ws, {
+        this.sendMessage(pending.sender, {
           messageId: `auth-fail-${Date.now()}`,
           type: "auth_failed",
           payload: { reason: result.error ?? "Authentication failed" } satisfies WSAuthFailedPayload,
@@ -516,11 +534,11 @@ export class AgentWSServer {
         });
 
         logger.warn({ sessionId: pending.sessionId, error: result.error }, "Auth failed");
-        pending.ws.close();
+        pending.sender.close();
       } else {
         // Challenge in progress — send next data
         if (result.responseData) {
-          this.sendMessage(pending.ws, {
+          this.sendMessage(pending.sender, {
             messageId: `auth-${Date.now()}`,
             type: "auth_challenge",
             payload: {
@@ -533,15 +551,15 @@ export class AgentWSServer {
       }
     } catch (error) {
       logger.error(error, "Error processing auth challenge");
-      this.sendMessage(pending.ws, {
+      this.sendMessage(pending.sender, {
         messageId: `auth-fail-${Date.now()}`,
         type: "auth_failed",
         payload: { reason: "Internal error" } satisfies WSAuthFailedPayload,
         timestamp: new Date().toISOString(),
       });
-      pending.ws.close();
+      pending.sender.close();
       clearTimeout(pending.timer);
-      this.pending.delete(pending.ws);
+      this.pending.delete(pending.sender);
     }
   }
 
@@ -733,7 +751,7 @@ export class AgentWSServer {
 
       logger.debug({ agentId }, "Heartbeat received");
 
-      this.sendMessage(agent.ws, {
+      this.sendMessage(agent.sender, {
         messageId: `pong-${Date.now()}`,
         type: "pong",
         agentId,
@@ -808,7 +826,7 @@ export class AgentWSServer {
   getChatSessions(agentDid: string, limit = 50): Promise<import("@vaultysclaw/shared").ChatSession[]> {
     return new Promise((resolve, reject) => {
       const agent = this.agents.get(agentDid);
-      if (!agent || agent.ws.readyState !== WebSocket.OPEN) {
+      if (!agent || !agent.sender.isOpen()) {
         return reject(new Error("Agent not connected"));
       }
       const timer = setTimeout(() => {
@@ -819,7 +837,7 @@ export class AgentWSServer {
         clearTimeout(timer);
         resolve(payload.sessions);
       });
-      this.sendMessage(agent.ws, {
+      this.sendMessage(agent.sender, {
         messageId: `get-sessions-${Date.now()}`,
         type: "get_chat_sessions",
         agentId: agentDid,
@@ -833,7 +851,7 @@ export class AgentWSServer {
   getChatHistory(agentDid: string, sessionId: string): Promise<import("@vaultysclaw/shared").ChatHistoryMessage[]> {
     return new Promise((resolve, reject) => {
       const agent = this.agents.get(agentDid);
-      if (!agent || agent.ws.readyState !== WebSocket.OPEN) {
+      if (!agent || !agent.sender.isOpen()) {
         return reject(new Error("Agent not connected"));
       }
       const key = `${agentDid}:${sessionId}`;
@@ -845,7 +863,7 @@ export class AgentWSServer {
         clearTimeout(timer);
         resolve(payload.messages);
       });
-      this.sendMessage(agent.ws, {
+      this.sendMessage(agent.sender, {
         messageId: `get-history-${Date.now()}`,
         type: "get_chat_history",
         agentId: agentDid,
@@ -910,13 +928,13 @@ export class AgentWSServer {
     }
 
     const agent = this.agents.get(entry.agentId);
-    if (!agent || agent.ws.readyState !== WebSocket.OPEN) {
+    if (!agent || !agent.sender.isOpen()) {
       logger.warn({ requestId, agentId: entry.agentId }, "Agent not connected");
       this.pendingToolApprovals.delete(requestId);
       return false;
     }
 
-    this.sendMessage(agent.ws, {
+    this.sendMessage(agent.sender, {
       messageId: `approval-resp-${Date.now()}`,
       type: "tool_approval_response",
       agentId: entry.agentId,
@@ -950,8 +968,8 @@ export class AgentWSServer {
   /** Enqueue a task on an agent via WS. */
   sendTaskToAgent(agentId: string, action: string, params: Record<string, unknown> = {}): boolean {
     const agent = this.agents.get(agentId);
-    if (!agent || agent.ws.readyState !== WebSocket.OPEN) return false;
-    this.sendMessage(agent.ws, {
+    if (!agent || !agent.sender.isOpen()) return false;
+    this.sendMessage(agent.sender, {
       messageId: `task-enq-${Date.now()}`,
       type: "task_enqueue",
       agentId,
@@ -964,8 +982,8 @@ export class AgentWSServer {
   /** Send a schedule upsert to an agent via WS. */
   sendScheduleToAgent(agentId: string, schedule: { id: string; name: string; cron: string; action: string; params?: Record<string, unknown>; enabled?: boolean }): boolean {
     const agent = this.agents.get(agentId);
-    if (!agent || agent.ws.readyState !== WebSocket.OPEN) return false;
-    this.sendMessage(agent.ws, {
+    if (!agent || !agent.sender.isOpen()) return false;
+    this.sendMessage(agent.sender, {
       messageId: `sched-up-${Date.now()}`,
       type: "schedule_update",
       agentId,
@@ -978,8 +996,8 @@ export class AgentWSServer {
   /** Delete a schedule on an agent via WS. */
   deleteScheduleOnAgent(agentId: string, scheduleId: string): boolean {
     const agent = this.agents.get(agentId);
-    if (!agent || agent.ws.readyState !== WebSocket.OPEN) return false;
-    this.sendMessage(agent.ws, {
+    if (!agent || !agent.sender.isOpen()) return false;
+    this.sendMessage(agent.sender, {
       messageId: `sched-del-${Date.now()}`,
       type: "schedule_delete",
       agentId,
@@ -989,9 +1007,9 @@ export class AgentWSServer {
     return true;
   }
 
-  private handleDisconnect(ws: WebSocket): void {
+  private handleDisconnect(sender: AgentSender): void {
     // Check pending connections
-    const pending = this.pending.get(ws);
+    const pending = this.pending.get(sender);
     if (pending) {
       clearTimeout(pending.timer);
       // If the agent was awaiting approval, clean up the DB row
@@ -1000,14 +1018,14 @@ export class AgentWSServer {
         logger.info({ registrationId: pending.registrationId, agentName: pending.agentName }, "Pending registration removed — agent disconnected");
         this.broadcastAdminUpdate("registration_disconnected");
       }
-      this.pending.delete(ws);
+      this.pending.delete(sender);
       logger.debug({ sessionId: pending.sessionId }, "Pending connection closed");
       return;
     }
 
     // Check authenticated agents
     for (const [agentId, agent] of this.agents.entries()) {
-      if (agent.ws === ws) {
+      if (agent.sender === sender) {
         this.agents.delete(agentId);
         logActivity("agent_disconnected", agentId, agent.name);
         this.broadcastAdminUpdate("agent_disconnected");
@@ -1017,9 +1035,13 @@ export class AgentWSServer {
     }
   }
 
-  private sendMessage(ws: WebSocket, message: WSMessage): void {
-    if (ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify(message));
+  private sendMessage(sender: AgentSender, message: WSMessage): void {
+    if (sender.isOpen()) {
+      const raw = JSON.stringify(message);
+      sender.sendRaw(raw);
+      const bucket = this.transportStats[sender.transport];
+      bucket.messagesOut++;
+      bucket.bytesOut += raw.length;
     }
   }
 
@@ -1065,15 +1087,16 @@ export class AgentWSServer {
 
     // Promote to authenticated agent
     clearTimeout(target.timer);
-    this.pending.delete(target.ws);
+    this.pending.delete(target.sender);
 
     const agent: ConnectedAgent = {
       id: agentDid,
       name: target.agentName ?? "unknown",
-      ws: target.ws,
+      sender: target.sender,
       capabilities,
       connectedAt: new Date(),
       lastHeartbeat: new Date(),
+      transport: target.sender.transport,
     };
 
     this.agents.set(agentDid, agent);
@@ -1085,7 +1108,7 @@ export class AgentWSServer {
     enrollInDefaultRealm("agent", agentDid);
 
     // Notify agent — approved and connected
-    this.sendMessage(target.ws, {
+    this.sendMessage(target.sender, {
       messageId: `reg-approved-${Date.now()}`,
       type: "registration_approved",
       payload: {
@@ -1095,7 +1118,7 @@ export class AgentWSServer {
       timestamp: new Date().toISOString(),
     });
 
-    this.sendMessage(target.ws, {
+    this.sendMessage(target.sender, {
       messageId: `auth-complete-${Date.now()}`,
       type: "auth_complete",
       agentId: agentDid,
@@ -1148,7 +1171,7 @@ export class AgentWSServer {
 
     // If agent is still connected, send rejection message and clean up connection
     if (target) {
-      this.sendMessage(target.ws, {
+      this.sendMessage(target.sender, {
         messageId: `reg-rejected-${Date.now()}`,
         type: "registration_rejected",
         payload: {
@@ -1159,8 +1182,8 @@ export class AgentWSServer {
       });
 
       clearTimeout(target.timer);
-      target.ws.close();
-      this.pending.delete(target.ws);
+      target.sender.close();
+      this.pending.delete(target.sender);
     }
 
     logger.info({ registrationId, reason }, "Registration rejected");
@@ -1202,11 +1225,11 @@ export class AgentWSServer {
       // Move agent back to pending for re-auth
       const timer = setTimeout(() => {
         logger.warn({ agentDid }, "Re-auth timeout after capability update — keeping old connection");
-        this.pending.delete(connected.ws);
+        this.pending.delete(connected.sender);
       }, AUTH_TIMEOUT_MS);
 
-      this.pending.set(connected.ws, {
-        ws: connected.ws,
+      this.pending.set(connected.sender, {
+        sender: connected.sender,
         sessionId,
         phase: "authenticating",
         agentName: connected.name,
@@ -1215,7 +1238,7 @@ export class AgentWSServer {
       });
 
       // Send update_capabilities so agent knows to re-auth
-      this.sendMessage(connected.ws, {
+      this.sendMessage(connected.sender, {
         messageId: `cap-update-${Date.now()}`,
         type: "update_capabilities",
         agentId: agentDid,
@@ -1227,7 +1250,7 @@ export class AgentWSServer {
       });
 
       // Send auth_challenge with empty data to start re-auth
-      this.sendMessage(connected.ws, {
+      this.sendMessage(connected.sender, {
         messageId: `auth-${Date.now()}`,
         type: "auth_challenge",
         payload: { sessionId, data: "" } satisfies WSAuthChallengePayload,
@@ -1252,11 +1275,11 @@ export class AgentWSServer {
 
     const timer = setTimeout(() => {
       logger.warn({ agentId: agent.id }, "Cert re-issue re-auth timeout — keeping existing connection");
-      this.pending.delete(agent.ws);
+      this.pending.delete(agent.sender);
     }, AUTH_TIMEOUT_MS);
 
-    this.pending.set(agent.ws, {
-      ws: agent.ws,
+    this.pending.set(agent.sender, {
+      sender: agent.sender,
       sessionId,
       phase: "authenticating",
       agentName: agent.name,
@@ -1267,7 +1290,7 @@ export class AgentWSServer {
     });
 
     // Tell the agent its new capabilities + governance limits (embedded natively in the payload).
-    this.sendMessage(agent.ws, {
+    this.sendMessage(agent.sender, {
       messageId: `cert-reissue-caps-${Date.now()}`,
       type: "update_capabilities",
       agentId: agent.id,
@@ -1282,7 +1305,7 @@ export class AgentWSServer {
     });
 
     // Start a fresh auth challenge so the cert gets the new metadata.
-    this.sendMessage(agent.ws, {
+    this.sendMessage(agent.sender, {
       messageId: `cert-reissue-auth-${Date.now()}`,
       type: "auth_challenge",
       payload: { sessionId, data: "" } satisfies WSAuthChallengePayload,
@@ -1353,10 +1376,35 @@ export class AgentWSServer {
     return this.agents.get(agentId);
   }
 
+  getNetworkStats() {
+    const agents = Array.from(this.agents.values());
+    const pending = Array.from(this.pending.values());
+    return {
+      startedAt: this.startedAt.toISOString(),
+      ws: {
+        ...this.transportStats.ws,
+        activeAgents: agents.filter((a) => a.transport === "ws").length,
+        pendingConnections: pending.filter((p) => p.sender.transport === "ws").length,
+      },
+      peerjs: {
+        ...this.transportStats.peerjs,
+        activeAgents: agents.filter((a) => a.transport === "peerjs").length,
+        pendingConnections: pending.filter((p) => p.sender.transport === "peerjs").length,
+      },
+      agents: agents.map((a) => ({
+        id: a.id,
+        name: a.name,
+        transport: a.transport,
+        connectedAt: a.connectedAt.toISOString(),
+        lastHeartbeat: a.lastHeartbeat.toISOString(),
+      })),
+    };
+  }
+
   disconnectAgent(agentId: string): void {
     const agent = this.agents.get(agentId);
-    if (agent && agent.ws.readyState === WebSocket.OPEN) {
-      agent.ws.close(1000, "Agent deleted");
+    if (agent && agent.sender.isOpen()) {
+      agent.sender.close(1000, "Agent deleted");
     }
   }
 
@@ -1368,7 +1416,7 @@ export class AgentWSServer {
     userDid?: string,
   ): boolean {
     const agent = this.agents.get(agentId);
-    if (!agent || agent.ws.readyState !== WebSocket.OPEN) {
+    if (!agent || !agent.sender.isOpen()) {
       logger.warn({ agentId }, "Agent not connected");
       return false;
     }
@@ -1388,7 +1436,7 @@ export class AgentWSServer {
     };
 
     try {
-      agent.ws.send(JSON.stringify(message));
+      agent.sender.sendRaw(JSON.stringify(message));
       logger.info({ agentId, intentId, action }, "Intent sent to agent");
       try { logIntent(intentId, agentId, action, params); } catch { /* non-fatal */ }
       return true;
@@ -1412,7 +1460,7 @@ export class AgentWSServer {
     onChunk: (payload: WSChatResponsePayload) => void,
   ): boolean {
     const agent = this.agents.get(agentDid);
-    if (!agent || agent.ws.readyState !== WebSocket.OPEN) {
+    if (!agent || !agent.sender.isOpen()) {
       return false;
     }
 
@@ -1421,7 +1469,7 @@ export class AgentWSServer {
     // Auto-cleanup after 5 minutes to prevent memory leaks
     setTimeout(() => this.chatCallbacks.delete(conversationId), 5 * 60_000);
 
-    this.sendMessage(agent.ws, {
+    this.sendMessage(agent.sender, {
       messageId: `chat-${Date.now()}`,
       type: "chat_message",
       agentId: agentDid,
@@ -1542,7 +1590,7 @@ export class AgentWSServer {
       ...(c.expires_at ? { expiresAt: c.expires_at } : {}),
     }));
 
-    this.sendMessage(agent.ws, {
+    this.sendMessage(agent.sender, {
       messageId: `delegation-${Date.now()}`,
       type: "delegation_update",
       agentId: agentDid,
@@ -1575,7 +1623,7 @@ export class AgentWSServer {
     const agent = this.agents.get(agentDid);
     if (!agent) return false;
 
-    this.sendMessage(agent.ws, {
+    this.sendMessage(agent.sender, {
       messageId: `llm-config-${Date.now()}`,
       type: "llm_config",
       agentId: agentDid,
@@ -1615,7 +1663,7 @@ export class AgentWSServer {
 
     const skills = getAgentEffectiveSkills(agentDid);
     // Only push if there are realm-defined skills (empty = no realm config = agent uses all local skills)
-    this.sendMessage(agent.ws, {
+    this.sendMessage(agent.sender, {
       messageId: `skills-config-${Date.now()}`,
       type: "skills_config",
       agentId: agentDid,
@@ -1657,7 +1705,7 @@ export class AgentWSServer {
    */
   isAgentOnline(agentDid: string): boolean {
     const agent = this.agents.get(agentDid);
-    return agent !== undefined && agent.ws.readyState === WebSocket.OPEN;
+    return agent !== undefined && agent.sender.isOpen();
   }
 
   /**
@@ -1672,11 +1720,11 @@ export class AgentWSServer {
     fileAttachments?: Array<{ id: string; name: string; mimeType: string; size: number; content: string }>;
   }): void {
     const agent = this.agents.get(agentDid);
-    if (!agent || agent.ws.readyState !== WebSocket.OPEN) {
+    if (!agent || !agent.sender.isOpen()) {
       logger.warn({ agentDid }, "sendKnowledgeSync: agent not connected");
       return;
     }
-    this.sendMessage(agent.ws, {
+    this.sendMessage(agent.sender, {
       messageId,
       type: "knowledge_sync",
       agentId: agentDid,
@@ -1699,18 +1747,72 @@ export class AgentWSServer {
 
     for (const pending of this.pending.values()) {
       clearTimeout(pending.timer);
-      pending.ws.close();
+      pending.sender.close();
     }
     this.pending.clear();
 
     for (const agent of this.agents.values()) {
-      agent.ws.close();
+      agent.sender.close();
     }
 
     this.wss.close(() => {
       logger.info("Agent WebSocket server closed");
     });
     this.httpServer.close();
+  }
+
+  // ---- PeerJS transport bridge ----
+
+  /**
+   * Called by the PeerJS server when an agent connects via WebRTC.
+   * Initiates the same auth challenge flow as a WebSocket connection.
+   */
+  acceptPeerjsConnection(sender: AgentSender): void {
+    try {
+      this.transportStats.peerjs.connectionsTotal++;
+      const { sessionId } = createAuthSession();
+
+      const timer = setTimeout(() => {
+        logger.warn({ sessionId }, "PeerJS auth timeout — closing connection");
+        this.sendMessage(sender, {
+          messageId: `auth-fail-${Date.now()}`,
+          type: "auth_failed",
+          payload: { reason: "Authentication timeout" } satisfies WSAuthFailedPayload,
+          timestamp: new Date().toISOString(),
+        });
+        sender.close();
+        this.pending.delete(sender);
+      }, AUTH_TIMEOUT_MS);
+
+      this.pending.set(sender, { sender, sessionId, phase: "awaiting_register", timer });
+
+      this.sendMessage(sender, {
+        messageId: `auth-${Date.now()}`,
+        type: "auth_challenge",
+        payload: { sessionId, data: "" } satisfies WSAuthChallengePayload,
+        timestamp: new Date().toISOString(),
+      });
+
+      logger.info("PeerJS agent connection accepted — awaiting register or auth_challenge");
+    } catch (error) {
+      logger.error(error, "Failed to accept PeerJS connection");
+      sender.close();
+    }
+  }
+
+  /**
+   * Route a message received from a PeerJS-connected agent through
+   * the same message handling pipeline as WebSocket messages.
+   */
+  routePeerjsMessage(sender: AgentSender, data: string): void {
+    this.handleMessage(sender, data);
+  }
+
+  /**
+   * Called by the PeerJS server when a PeerJS agent disconnects.
+   */
+  handlePeerjsDisconnect(sender: AgentSender): void {
+    this.handleDisconnect(sender);
   }
 }
 

@@ -66,6 +66,7 @@ export async function GET(request?: Request) {
           lastHeartbeat: connected?.lastHeartbeat?.toISOString() ?? null,
           reportedLlm: connected?.reportedLlm ?? null,
           tokenUsage: connected?.tokenUsage ?? null,
+          transport: connected?.transport ?? null,
           realms: realms.map((r) => ({
             id: r.realm_id, name: r.name, slug: r.slug,
             color: r.color, isPrimary: Boolean(r.is_primary),

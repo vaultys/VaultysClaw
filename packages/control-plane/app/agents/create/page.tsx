@@ -27,6 +27,7 @@ import {
   AlertTriangle,
   MessageSquare,
   X,
+  Radio,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAdminWS } from "@/hooks/useAdminWS";
@@ -62,6 +63,7 @@ interface PendingReg {
   agent_name: string;
   requested_capabilities: string;
   created_at: string;
+  status: string;
 }
 
 type PkgRunner = "npx" | "pnpm" | "yarn" | "deno";
@@ -164,6 +166,10 @@ export default function CreateAgentPage() {
   const [step, setStep] = useState<WizardStep>(regId ? "approve" : "launch");
   const [agentName, setAgentName] = useState("");
   const [wsUrl, setWsUrl] = useState("");
+  const [connMethod, setConnMethod] = useState<"ws" | "peerjs">("ws");
+  const [peerjsId, setPeerjsId] = useState<string | null>(null);
+  const [peerjsEnabled, setPeerjsEnabled] = useState(false);
+  const [peerjsServerUrl, setPeerjsServerUrl] = useState<string | null>(null);
   const [pkgRunner, setPkgRunner] = useState<PkgRunner>("npx");
   const [realms, setRealms] = useState<Realm[]>([]);
   const [selectedLaunchRealm, setSelectedLaunchRealm] = useState<string>("");
@@ -203,6 +209,8 @@ export default function CreateAgentPage() {
 
   // Track registrations seen before entering waiting step so we can highlight new ones
   const prevRegIds = useRef<Set<string>>(new Set());
+  // Merged set of all pending registrations (REST + WS) shown in the waiting step
+  const [waitingRegs, setWaitingRegs] = useState<PendingReg[]>([]);
 
   // ── Initial data load ──────────────────────────────────────────────────────
 
@@ -221,6 +229,15 @@ export default function CreateAgentPage() {
           setSelectedLaunchRealm(def.id);
           setSelectedRealms(new Set([def.id]));
         }
+      })
+      .catch(() => { });
+
+    fetch("/api/network")
+      .then((r) => r.json())
+      .then((d: { peerjs?: { peerId?: string; running?: boolean; serverUrl?: string | null } }) => {
+        if (d.peerjs?.peerId) setPeerjsId(d.peerjs.peerId);
+        setPeerjsEnabled(d.peerjs?.running ?? false);
+        setPeerjsServerUrl(d.peerjs?.serverUrl ?? null);
       })
       .catch(() => { });
   }, []);
@@ -246,15 +263,23 @@ export default function CreateAgentPage() {
 
   useEffect(() => {
     if (step !== "waiting") return;
-    const newReg = registrations.find((r) => !prevRegIds.current.has(r.id) && r.status === "pending");
-    if (newReg && !pendingReg) {
-      setPendingReg(newReg as PendingReg);
-      const caps = parseJsonArray(newReg.requested_capabilities);
-      setSelectedCaps(new Set(caps));
-      setPolicyMaxTokensPerDay("");
-      setPolicyMaxRequestsPerHour("");
-      setPolicyAllowedDomains("");
-      setPolicyExpiresAt("");
+    const newRegs = registrations.filter((r) => !prevRegIds.current.has(r.id) && r.status === "pending");
+    if (newRegs.length > 0) {
+      // Merge new WS-delivered regs into the waiting list
+      setWaitingRegs((prev) => {
+        const ids = new Set(prev.map((r) => r.id));
+        const merged = [...prev, ...newRegs.filter((r) => !ids.has(r.id)) as PendingReg[]];
+        return merged.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+      });
+      if (!pendingReg) {
+        const latest = newRegs[0] as PendingReg;
+        setPendingReg(latest);
+        setSelectedCaps(new Set(parseJsonArray(latest.requested_capabilities)));
+        setPolicyMaxTokensPerDay("");
+        setPolicyMaxRequestsPerHour("");
+        setPolicyAllowedDomains("");
+        setPolicyExpiresAt("");
+      }
     }
   }, [registrations, step, pendingReg]);
 
@@ -345,10 +370,37 @@ export default function CreateAgentPage() {
 
   // ── Handlers ──────────────────────────────────────────────────────────────
 
-  function startWaiting() {
+  async function startWaiting() {
+    // Snapshot WS-known IDs so genuinely new arrivals can be detected via the effect below
     prevRegIds.current = new Set(registrations.map((r) => r.id));
     setPendingReg(null);
     setStep("waiting");
+
+    // REST-fetch current pending registrations — the WS state may not have delivered them yet
+    // (or they existed before the user clicked this button and were filtered by prevRegIds).
+    try {
+      const res = await fetch("/api/registrations");
+      if (!res.ok) return;
+      const data = await res.json() as { registrations?: PendingReg[] };
+      const pending = (data.registrations ?? []).filter((r) => r.status === "pending");
+      if (pending.length === 0) return;
+      // Show the most recent pending registration
+      const sorted = pending.sort((a, b) =>
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
+      setWaitingRegs(sorted);
+      const latest = sorted[0];
+      setPendingReg(latest);
+      setSelectedCaps(new Set(parseJsonArray(latest.requested_capabilities)));
+      setPolicyMaxTokensPerDay("");
+      setPolicyMaxRequestsPerHour("");
+      setPolicyAllowedDomains("");
+      setPolicyExpiresAt("");
+      // Add these to prevRegIds so the WS effect doesn't double-set
+      prevRegIds.current = new Set([...prevRegIds.current, ...pending.map((r) => r.id)]);
+    } catch {
+      // WS subscription handles live arrivals — this is best-effort
+    }
   }
 
   async function doApprove() {
@@ -472,10 +524,13 @@ export default function CreateAgentPage() {
 
   const runnerPrefix = PKG_RUNNERS.find((r) => r.id === pkgRunner)!.prefix;
   const nameArg = agentName.trim();
+  const connArg = connMethod === "peerjs" && peerjsId
+    ? [`--peerjs ${peerjsId}`, ...(peerjsServerUrl ? [`--peerjs-server ${peerjsServerUrl}`] : [])]
+    : [`--ws ${wsUrl}`];
   const cliCommand = [
     runnerPrefix,
     nameArg ? `--name "${nameArg}"` : "--name <required>",
-    `--ws ${wsUrl}`,
+    ...connArg,
   ].join(" \\\n  ");
 
   const realmNote = selectedLaunchRealm
@@ -510,14 +565,93 @@ export default function CreateAgentPage() {
             </p>
           </div>
 
-          {/* WS URL */}
-          <div className="space-y-1.5">
-            <label className="text-xs font-medium text-vc-muted uppercase tracking-wide">Control plane WebSocket URL</label>
-            <input
-              value={wsUrl}
-              onChange={(e) => setWsUrl(e.target.value)}
-              className="w-full px-3 py-2 bg-vc-surface border border-vc-border rounded-lg text-sm font-mono text-vc-text focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            />
+          {/* Connection method selector */}
+          <div className="space-y-3">
+            <label className="text-xs font-medium text-vc-muted uppercase tracking-wide">Connection method</label>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => setConnMethod("ws")}
+                className={`flex flex-col items-start gap-1.5 px-4 py-3 rounded-xl border text-left transition-colors ${
+                  connMethod === "ws"
+                    ? "bg-sky-50 dark:bg-sky-500/10 border-sky-400 dark:border-sky-500/50"
+                    : "bg-vc-surface border-vc-border hover:bg-vc-raised"
+                }`}
+              >
+                <span className="flex items-center gap-2">
+                  <Wifi size={15} className={connMethod === "ws" ? "text-sky-600 dark:text-sky-400" : "text-vc-muted"} />
+                  <span className={`text-sm font-medium ${connMethod === "ws" ? "text-sky-700 dark:text-sky-300" : "text-vc-text"}`}>
+                    WebSocket
+                  </span>
+                  {connMethod === "ws" && <Check size={13} className="ml-auto text-sky-500" />}
+                </span>
+                <span className="text-xs text-vc-muted">Direct TCP, works everywhere. Default.</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setConnMethod("peerjs")}
+                className={`flex flex-col items-start gap-1.5 px-4 py-3 rounded-xl border text-left transition-colors ${
+                  connMethod === "peerjs"
+                    ? "bg-violet-50 dark:bg-violet-500/10 border-violet-400 dark:border-violet-500/50"
+                    : "bg-vc-surface border-vc-border hover:bg-vc-raised"
+                }`}
+              >
+                <span className="flex items-center gap-2">
+                  <Radio size={15} className={connMethod === "peerjs" ? "text-violet-600 dark:text-violet-400" : "text-vc-muted"} />
+                  <span className={`text-sm font-medium ${connMethod === "peerjs" ? "text-violet-700 dark:text-violet-300" : "text-vc-text"}`}>
+                    WebRTC / PeerJS
+                  </span>
+                  {connMethod === "peerjs" && <Check size={13} className="ml-auto text-violet-500" />}
+                </span>
+                <span className="text-xs text-vc-muted">P2P via WebRTC — NAT-friendly, no port forwarding.</span>
+              </button>
+            </div>
+
+            {/* WebSocket URL input */}
+            {connMethod === "ws" && (
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-vc-muted uppercase tracking-wide">WebSocket URL</label>
+                <input
+                  value={wsUrl}
+                  onChange={(e) => setWsUrl(e.target.value)}
+                  className="w-full px-3 py-2 bg-vc-surface border border-vc-border rounded-lg text-sm font-mono text-vc-text focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+            )}
+
+            {/* PeerJS peer ID info */}
+            {connMethod === "peerjs" && (
+              <div className="space-y-2">
+                {peerjsId ? (
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-vc-muted uppercase tracking-wide">Control plane peer ID</label>
+                    <div className="flex items-center gap-2">
+                      <code className="flex-1 px-3 py-2 bg-vc-bg border border-vc-border rounded-lg text-xs font-mono text-vc-text-2 break-all">
+                        {peerjsId}
+                      </code>
+                      <CopyButton text={peerjsId} />
+                    </div>
+                    {!peerjsEnabled && (
+                      <div className="flex items-center gap-2 bg-amber-50 dark:bg-amber-500/10 border border-amber-300 dark:border-amber-500/30 rounded-lg px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
+                        <AlertTriangle size={12} className="shrink-0" />
+                        PeerJS is not running.{" "}
+                        <a href="/network" className="underline underline-offset-2">Start it from the Network page</a> first.
+                      </div>
+                    )}
+                    {peerjsServerUrl && (
+                      <p className="text-xs text-vc-subtle">
+                        Using custom signaling server: <code className="font-mono">{peerjsServerUrl}</code>
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 bg-vc-raised border border-vc-border rounded-lg px-3 py-2 text-xs text-vc-muted">
+                    <Loader2 size={12} className="animate-spin shrink-0" />
+                    Loading peer ID…
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Agent name (required) */}
@@ -601,10 +735,22 @@ export default function CreateAgentPage() {
           <div className="bg-indigo-50 dark:bg-indigo-600/10 border border-indigo-200 dark:border-indigo-500/20 rounded-xl p-4 text-sm space-y-2">
             <p className="font-medium text-indigo-700 dark:text-indigo-300 flex items-center gap-2"><Zap size={14} /> How it works</p>
             <ol className="list-decimal list-inside space-y-1 text-indigo-700/80 dark:text-indigo-400/80 text-xs">
-              <li>The CLI starts, creates a local identity, and connects via WebSocket</li>
-              <li>The control plane receives the connection and places it in a pending queue</li>
-              <li>You approve it here — assigning capabilities and a realm</li>
-              <li>The agent becomes active and starts accepting instructions</li>
+              {connMethod === "peerjs" ? (
+                <>
+                  <li>The CLI starts, creates a local identity, and connects via WebRTC using the peer ID above</li>
+                  <li>A PeerJS signaling server brokers the connection — no port forwarding required</li>
+                  <li>The control plane receives the connection and places it in a pending queue</li>
+                  <li>You approve it here — assigning capabilities and a realm</li>
+                  <li>The agent becomes active and starts accepting instructions</li>
+                </>
+              ) : (
+                <>
+                  <li>The CLI starts, creates a local identity, and connects via WebSocket</li>
+                  <li>The control plane receives the connection and places it in a pending queue</li>
+                  <li>You approve it here — assigning capabilities and a realm</li>
+                  <li>The agent becomes active and starts accepting instructions</li>
+                </>
+              )}
             </ol>
           </div>
 
@@ -680,10 +826,10 @@ export default function CreateAgentPage() {
           )}
 
           {/* Show all pending registrations if more than one */}
-          {registrations.filter((r) => r.status === "pending").length > 1 && (
+          {waitingRegs.length > 1 && (
             <div className="space-y-2">
               <p className="text-xs text-vc-muted uppercase tracking-wide font-medium">All pending registrations</p>
-              {registrations.filter((r) => r.status === "pending").map((r) => (
+              {waitingRegs.map((r) => (
                 <button
                   key={r.id}
                   onClick={() => {
@@ -713,7 +859,7 @@ export default function CreateAgentPage() {
           )}
 
           <button
-            onClick={() => setStep("launch")}
+            onClick={() => { setStep("launch"); setWaitingRegs([]); }}
             className="text-sm text-vc-muted hover:text-vc-text transition-colors"
           >
             ← Back to instructions

@@ -19,6 +19,8 @@ import next from "next";
 import pino from "pino";
 import dotenv from "dotenv";
 import { initializeWSServer, initializeAdminWS } from "./lib/ws-server";
+import { initializePeerjsServer, AgentPeerjsServer } from "./lib/peerjs-server";
+import { getSetting } from "./lib/db";
 import { getDb, closeDb, initServerIdentity, getFileStorage } from "./lib/db";
 import { startWorkflowScheduler, stopWorkflowScheduler } from "./lib/workflow-scheduler";
 
@@ -60,6 +62,8 @@ const dev = process.env.NODE_ENV !== "production";
 const hostname = process.env.HOSTNAME || "localhost";
 const port = parseInt(process.env.PORT || "3000", 10);
 const wsPort = parseInt(process.env.WS_PORT || "8080", 10);
+const peerjsEnabledEnv = process.env.PEERJS_ENABLED === "true";
+const peerjsServerUrlEnv = process.env.PEERJS_SERVER_URL || undefined;
 
 // Create Next.js app
 const app = next({ dev, hostname, port });
@@ -96,6 +100,26 @@ app.prepare().then(async () => {
   // Initialize WebSocket server for agents (separate port)
   logger.info({ wsPort }, "Initializing WebSocket server for agents");
   const wsServer = initializeWSServer(wsPort);
+
+  // Initialize PeerJS/WebRTC server — enabled by env var or DB setting.
+  const peerjsEnabledDb = getSetting("peerjs_enabled") === "true";
+  const peerjsEnabled = peerjsEnabledEnv || peerjsEnabledDb;
+  const peerjsServerUrl = peerjsServerUrlEnv ?? (getSetting("peerjs_server_url") || undefined);
+  if (peerjsEnabled) {
+    const peerjsServer = initializePeerjsServer(wsServer, peerjsServerUrl);
+    peerjsServer.start().then((peerId) => {
+      logger.info({ peerId, serverUrl: peerjsServerUrl }, "PeerJS server ready — agents can connect with: --peerjs " + peerId);
+    }).catch((err) => {
+      logger.error({ err }, "Failed to start PeerJS server");
+    });
+  } else {
+    // Initialize the singleton without starting — allows API routes to start it later.
+    initializePeerjsServer(wsServer, peerjsServerUrl);
+    const peerId = AgentPeerjsServer.getServerPeerId();
+    if (peerId) {
+      logger.info({ peerId }, "PeerJS transport disabled. Enable from the Network admin page or set PEERJS_ENABLED=true.");
+    }
+  }
 
   // Initialize admin WebSocket on the HTTP server (path: /ws/admin)
   initializeAdminWS(server);

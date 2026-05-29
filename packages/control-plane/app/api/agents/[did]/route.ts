@@ -108,6 +108,7 @@ export async function GET(
       connectedAt: connected?.connectedAt?.toISOString() ?? null,
       lastHeartbeat: connected?.lastHeartbeat?.toISOString() ?? null,
       reportedLlm: connected?.reportedLlm ?? null,
+      transport: connected?.transport ?? null,
       storedLlm: (() => {
         try {
           const cfg = agent.llm_config ? JSON.parse(agent.llm_config) : null;

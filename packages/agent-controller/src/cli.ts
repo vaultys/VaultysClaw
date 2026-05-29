@@ -21,7 +21,9 @@
  *   --mode headless|tui|web    Run mode (default: headless)
  *   --port N                   Web UI port (default: 3002, web mode only)
  *   --no-browser               Don't auto-open browser (web mode only)
- *   --ws, -w <url>             WebSocket URL
+ *   --ws, -w <url>             WebSocket URL (mutually exclusive with --peerjs)
+ *   --peerjs <peer-id>         Control plane PeerJS peer ID (alternative to --ws)
+ *   --peerjs-server <url>      Custom PeerJS signaling server URL (optional, used with --peerjs)
  *   --spawn, -s <count>        Spawn multiple headless agents
  *   --prefix, -p <prefix>      Name prefix for spawned agents (default: agent)
  *   --install-service          Install as a system service (macOS/Linux/Windows)
@@ -44,6 +46,8 @@ interface CliArgs {
   name?: string;
   dataDir?: string;
   ws?: string;
+  peerjsId?: string;
+  peerjsServer?: string;
   installService: boolean;
 }
 
@@ -98,6 +102,12 @@ function parseArgs(): CliArgs {
       case "-w":
         result.ws = args[++i];
         break;
+      case "--peerjs":
+        result.peerjsId = args[++i];
+        break;
+      case "--peerjs-server":
+        result.peerjsServer = args[++i];
+        break;
       case "--data-dir":
       case "-d":
         result.dataDir = args[++i];
@@ -132,20 +142,23 @@ Modes:
   --mode web         Start web dashboard — open http://localhost:<port>
 
 Options:
-  --name, -n <name>     Agent name (REQUIRED)
-  --data-dir, -d <dir>  Data directory (default: .vaultys/<name>)
-                        Contains: agent.db, .env, .vaultys/agent.id, workspace/, skills/
-  --ws, -w <url>        Control plane WebSocket URL
-  --port <N>            Web UI port (default: 3002, web mode only)
-  --no-browser          Don't auto-open browser in web mode
-  --spawn, -s <N>       Spawn N headless agents (auto-names: <prefix>-1 … <prefix>-N)
-  --prefix, -p <str>    Name prefix when spawning (default: agent)
-  --install-service     Install as auto-start system service
-  --help, -h            This help message
+  --name, -n <name>          Agent name (REQUIRED)
+  --data-dir, -d <dir>       Data directory (default: .vaultys/<name>)
+                             Contains: agent.db, .env, .vaultys/agent.id, workspace/, skills/
+  --ws, -w <url>             Control plane WebSocket URL
+  --peerjs <peer-id>         Connect via PeerJS/WebRTC (alternative to --ws)
+                             Use the peer ID logged by the control plane on startup
+  --peerjs-server <url>      Custom PeerJS signaling server (default: public peerjs.com)
+  --port <N>                 Web UI port (default: 3002, web mode only)
+  --no-browser               Don't auto-open browser in web mode
+  --spawn, -s <N>            Spawn N headless agents (auto-names: <prefix>-1 … <prefix>-N)
+  --prefix, -p <str>         Name prefix when spawning (default: agent)
+  --install-service          Install as auto-start system service
+  --help, -h                 This help message
 
 Examples:
   agent-controller --name researcher --ws ws://localhost:8080
-  agent-controller --name researcher --data-dir /data/agents/researcher --ws ws://localhost:8080
+  agent-controller --name researcher --peerjs abc123def456 --peerjs-server https://my.peerjs.com
   agent-controller --name analyst --mode tui --ws ws://localhost:8080
   agent-controller --spawn 3 --prefix worker --data-dir .agents --ws ws://localhost:8080
 
@@ -257,6 +270,8 @@ function buildAgentArgs(args: CliArgs, execPath: string): string[] {
   const argv: string[] = [execPath, "--mode", args.mode];
   if (args.name) argv.push("--name", args.name);
   if (args.ws) argv.push("--ws", args.ws);
+  if (args.peerjsId) argv.push("--peerjs", args.peerjsId);
+  if (args.peerjsServer) argv.push("--peerjs-server", args.peerjsServer);
   // Determine data directory: explicit --data-dir or default .vaultys/<name>
   const dataDir = args.dataDir
     ? path.resolve(args.dataDir)
@@ -305,6 +320,8 @@ function buildEnv(args: CliArgs): NodeJS.ProcessEnv {
   const env: Record<string, string> = { ...(process.env as Record<string, string>) };
   if (args.name) env.AGENT_NAME = args.name;
   if (args.ws) env.CONTROL_PLANE_WS_URL = args.ws;
+  if (args.peerjsId) env.CONTROL_PLANE_PEERJS_ID = args.peerjsId;
+  if (args.peerjsServer) env.CONTROL_PLANE_PEERJS_SERVER = args.peerjsServer;
 
   // Determine data directory: explicit --data-dir or default .vaultys/<name>
   let dataDir: string;
@@ -347,6 +364,8 @@ function spawnMultiple(args: CliArgs): void {
       AGENT_WORKSPACE_ROOT: path.join(dataDir, "workspace"),
     };
     if (args.ws) env.CONTROL_PLANE_WS_URL = args.ws;
+    if (args.peerjsId) env.CONTROL_PLANE_PEERJS_ID = args.peerjsId;
+    if (args.peerjsServer) env.CONTROL_PLANE_PEERJS_SERVER = args.peerjsServer;
     console.log(`  [${i}/${args.spawn}] Starting "${name}" (data: ${dataDir})`);
     const child = fork(indexPath, [], { env, execArgv: process.execArgv, stdio: ["ignore", "pipe", "pipe", "ipc"] });
     child.stdout?.on("data", (d: Buffer) => d.toString().split("\n").filter(Boolean).forEach((l) => console.log(`[${name}] ${l}`)));

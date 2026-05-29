@@ -3,11 +3,11 @@ import { NextResponse } from "next/server";
 import type { NextRequestWithAuth } from "next-auth/middleware";
 
 /**
- * Authentication middleware for protected routes.
+ * Authentication proxy for protected routes.
  * Handles login redirects and token validation.
  */
 export default withAuth(
-  function middleware(request: NextRequestWithAuth) {
+  function proxy(request: NextRequestWithAuth) {
     const { pathname } = request.nextUrl;
 
     // Authenticated user visiting /login → redirect to callbackUrl or home
@@ -23,9 +23,10 @@ export default withAuth(
       // Return true to allow access; false triggers a redirect to the signIn page
       authorized({ req, token }) {
         const { pathname } = req.nextUrl;
-        // Always allow: auth callbacks, user-facing P2P/bastion endpoints, login, root (landing page),
+        // Always allow: health checks, auth callbacks, user-facing P2P/bastion endpoints, login, root (landing page),
         // email invitations, and test/workflow execution endpoints
         const publicPaths = [
+          "/api/health",
           "/api/auth",
           "/api/user",
           "/api/server",

@@ -37,7 +37,10 @@ coverage
 .vaultys/
 
 # SQLite
-
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
 
 # Logs
 logs

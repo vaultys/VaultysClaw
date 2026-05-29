@@ -37,7 +37,7 @@ export async function POST() {
     const connectedAgentIds = connectedAgents.map((a) => a.id);
     const agents = connectedAgentIds
       .map((did) => dbAgents.find((a) => a.did === did))
-      .filter(Boolean);
+      .filter((a): a is NonNullable<typeof a> => a != null);
 
     if (agents.length < 4) {
       return NextResponse.json(

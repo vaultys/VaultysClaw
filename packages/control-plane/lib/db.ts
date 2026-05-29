@@ -1743,11 +1743,11 @@ export function getWorkflowRun(id: string): WorkflowRunRow | undefined {
  */
 export function updateWorkflowRunStatus(
   runId: string,
-  status: "running" | "completed" | "failed",
+  status: "running" | "completed" | "failed" | "waiting_approval" | "rejected",
   results?: Record<string, unknown>,
 ): void {
   const d = getDb();
-  const completedAt = ["completed", "failed"].includes(status) ? "CAST(strftime('%s', 'now') AS INTEGER)" : "NULL";
+  const completedAt = ["completed", "failed", "rejected"].includes(status) ? "CAST(strftime('%s', 'now') AS INTEGER)" : "NULL";
   const resultsStr = results ? JSON.stringify(results) : null;
   d.prepare(
     `UPDATE workflow_runs SET status = ?, completed_at = ${completedAt}, results = ? WHERE id = ?`

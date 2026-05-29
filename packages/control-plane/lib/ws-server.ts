@@ -659,7 +659,7 @@ export class AgentWSServer {
     const { agentId } = message;
 
     const agent = agentId ? this.agents.get(agentId) : undefined;
-    if (agent) {
+    if (agent && agentId) {
       agent.lastHeartbeat = new Date();
       if (agentId) updateAgentLastSeen(agentId);
 

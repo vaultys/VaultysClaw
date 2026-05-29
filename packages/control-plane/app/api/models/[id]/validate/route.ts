@@ -17,7 +17,7 @@ export async function POST(_req: NextRequest, { params }: Ctx) {
     // Normalise: strip trailing slash and any trailing /v1 so both
     // 'https://api.openai.com' and 'https://api.openai.com/v1' resolve correctly.
     const baseUrl = entry.base_url.replace(/\/+$/, "").replace(/\/v1$/, "");
-    const headers = entry.api_key_enc
+    const headers: Record<string, string> = entry.api_key_enc
       ? { Authorization: `Bearer ${entry.api_key_enc}` }
       : {};
 

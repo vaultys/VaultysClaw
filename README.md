@@ -13,6 +13,33 @@
   <a href="ZERO_TRUST_COMPLIANCE.md"><img src="https://img.shields.io/badge/Zero%20Trust-Compliant-blue?style=for-the-badge" alt="Zero Trust Compliant"></a>
 </p>
 
+## 💛 Sponsors
+
+> **VaultysClaw is actively looking for sponsors.**  
+> We are building the missing security layer for enterprise AI — and we want you to help shape it.
+
+Sponsoring gives your organisation a direct line into the core team and meaningful influence over where the platform goes next.
+
+### What sponsors get
+
+| Tier         | Benefits                                                                                                       |
+| ------------ | -------------------------------------------------------------------------------------------------------------- |
+| **Bronze**   | Logo in README & About page · GitHub Sponsors badge                                                            |
+| **Silver**   | Everything above · Private Discord channel with core devs · Early access to releases                           |
+| **Gold**     | Everything above · Roadmap vote · PoC fast-track (we prototype your use-case first) · Co-marketing opportunity |
+| **Platinum** | Everything above · Dedicated support SLA · Architecture review sessions · Custom integration guidance          |
+
+### Why sponsor?
+
+- **Direct roadmap influence** — your production requirements become milestones, not backlog items
+- **Fast-track PoCs** — need a specific integration or compliance feature? Gold+ sponsors get it built first
+- **Private dev channel** — real-time access to the team; no ticket queue, no waiting
+- **Logo placement** — README, control-plane About page, release notes, and future website
+- **Compliance head-start** — we brief sponsors on upcoming security changes before public release
+
+📧 **Get in touch**: [sponsor@vaultys.com](mailto:sponsor@vaultys.com)  
+💛 **GitHub Sponsors**: [github.com/sponsors/vaultys](https://github.com/sponsors/vaultys)
+
 ---
 
 ## The Problem
@@ -721,35 +748,6 @@ Enterprise hardening, SaaS option, community growth.
 - 💬 **Discussions**: GitHub Issues & Discussions  
 - 🐛 **Report bugs**: GitHub Issues  
 - 📧 **Email**: dev@vaultys.com 
-
----
-
-## 💛 Sponsors
-
-> **VaultysClaw is actively looking for sponsors.**  
-> We are building the missing security layer for enterprise AI — and we want you to help shape it.
-
-Sponsoring gives your organisation a direct line into the core team and meaningful influence over where the platform goes next.
-
-### What sponsors get
-
-| Tier | Benefits |
-|------|----------|
-| **Bronze** | Logo in README & About page · GitHub Sponsors badge |
-| **Silver** | Everything above · Private Discord channel with core devs · Early access to releases |
-| **Gold** | Everything above · Roadmap vote · PoC fast-track (we prototype your use-case first) · Co-marketing opportunity |
-| **Platinum** | Everything above · Dedicated support SLA · Architecture review sessions · Custom integration guidance |
-
-### Why sponsor?
-
-- **Direct roadmap influence** — your production requirements become milestones, not backlog items
-- **Fast-track PoCs** — need a specific integration or compliance feature? Gold+ sponsors get it built first
-- **Private dev channel** — real-time access to the team; no ticket queue, no waiting
-- **Logo placement** — README, control-plane About page, release notes, and future website
-- **Compliance head-start** — we brief sponsors on upcoming security changes before public release
-
-📧 **Get in touch**: [sponsor@vaultys.com](mailto:sponsor@vaultys.com)  
-💛 **GitHub Sponsors**: [github.com/sponsors/vaultys](https://github.com/sponsors/vaultys)
 
 ---
 

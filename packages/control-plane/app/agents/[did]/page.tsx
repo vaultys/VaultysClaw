@@ -66,6 +66,7 @@ const CAPABILITY_ICONS: Record<string, React.ReactNode> = {
 
 const RealmGraph = dynamic(() => import("@/components/graph/RealmGraph"), { ssr: false });
 const EmbeddedAgentChart = dynamic(() => import("@/components/graph/EmbeddedAgentChart"), { ssr: false });
+const AgentEnvironmentGraph = dynamic(() => import("@/components/graph/AgentEnvironmentGraph"), { ssr: false });
 
 // ---------------------------------------------------------------------------
 // Constants & types
@@ -119,7 +120,7 @@ interface ChatMessage {
   content: string;
 }
 
-type TabId = "overview" | "chat" | "tokens" | "config" | "governance" | "automation" | "approvals" | "details" | "knowledge";
+type TabId = "overview" | "chat" | "tokens" | "config" | "governance" | "automation" | "approvals" | "graph" | "knowledge";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -341,7 +342,7 @@ export default function AgentDetailPage() {
     { id: "automation", label: "Automation", icon: <Clock size={15} /> },
     { id: "approvals", label: "Approvals", icon: <AlertTriangle size={15} />, badge: pendingApprovals },
     { id: "knowledge", label: "Knowledge", icon: <BookOpen size={15} /> },
-    { id: "details", label: "Details", icon: <FileCode2 size={15} /> },
+    { id: "graph", label: "Graph", icon: <Activity size={15} /> },
   ];
 
   return (
@@ -446,10 +447,17 @@ export default function AgentDetailPage() {
           {activeTab === "automation" && <AutomationTab agentId={agent.id} />}
           {activeTab === "approvals" && <ApprovalsTab onCountChange={setPendingApprovals} />}
           {activeTab === "knowledge" && <KnowledgeTab did={did} agentName={agent.name} online={agent.online} capabilities={agent.capabilities} />}
-          {activeTab === "details" && <DetailsTab agent={agent} onNodeClick={(node: GraphNode) => {
-            if (node.type === "user") router.push(`/users/${encodeURIComponent(node.id.replace("user:", ""))}`);
-            else if (node.type === "realm") router.push(`/realms/${node.id.replace("realm:", "")}`);
-          }} />}
+          {activeTab === "graph" && (
+            <AgentEnvironmentGraph
+              agentId={agent.id}
+              agentName={agent.name}
+              transport={agent.transport}
+              online={agent.online}
+              reportedLlm={agent.reportedLlm}
+              storedLlm={agent.storedLlm}
+              capabilities={agent.capabilities}
+            />
+          )}
         </div>
       </div>
     </div>
@@ -2749,56 +2757,7 @@ function ApprovalsTab({ onCountChange }: { onCountChange: (n: number) => void })
 // Tab: Details (VaultysId, Certificate, Graph)
 // ---------------------------------------------------------------------------
 
-function DetailsTab({ agent, onNodeClick }: { agent: AgentDetail; onNodeClick: (node: GraphNode) => void }) {
-  return (
-    <div className="space-y-6">
-      {/* Relationships */}
-      <section>
-        <h2 className="text-base font-semibold text-vc-text mb-3">Relationships</h2>
-        <div className="rounded-lg overflow-hidden border border-vc-border">
-          <EmbeddedAgentChart
-            query={`?agent=${encodeURIComponent(agent.id)}`}
-            height={380}
-            targetAgentId={`agent:${agent.id}`}
-            onNodeClick={onNodeClick}
-          />
-        </div>
-      </section>
-
-      {/* Agent VaultysId */}
-      <section>
-        <h2 className="text-base font-semibold text-vc-text mb-3">Agent VaultysId</h2>
-        {agent.agentVaultysId ? (
-          <pre className="bg-vc-raised rounded-lg border border-vc-border p-4 text-xs font-mono text-vc-text-2 overflow-x-auto">
-            {JSON.stringify(agent.agentVaultysId, null, 2)}
-          </pre>
-        ) : (
-          <p className="text-vc-muted text-sm">Not available.</p>
-        )}
-      </section>
-
-      {/* Certificate */}
-      <section>
-        <h2 className="text-base font-semibold text-vc-text mb-3">Certificate</h2>
-        {agent.certificateInfo ? (
-          <pre className="bg-vc-raised rounded-lg border border-vc-border p-4 text-xs font-mono text-vc-text-2 overflow-x-auto">
-            {JSON.stringify(agent.certificateInfo, null, 2)}
-          </pre>
-        ) : (
-          <p className="text-vc-muted text-sm">No certificate stored. Agent has not completed authentication.</p>
-        )}
-      </section>
-
-      {/* Activity History */}
-      <section>
-        <h2 className="text-base font-semibold text-vc-text mb-3">Activity History</h2>
-        <p className="text-vc-muted text-sm">
-          Intent execution history will be available once intent logging is implemented.
-        </p>
-      </section>
-    </div>
-  );
-}
+// DetailsTab removed — replaced by Graph tab (AgentEnvironmentGraph component).
 
 function AgentChatErrorBanner({ message, code }: { message: string; code: string | null }) {
   if (code === "llm_unavailable") {

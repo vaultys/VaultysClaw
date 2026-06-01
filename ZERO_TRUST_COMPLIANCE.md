@@ -21,7 +21,7 @@ This document maps VaultysClaw's current implementation against the Zero Trust f
 
 | Capability | VaultysClaw | Status | Notes |
 |---|---|---|---|
-| **Unique cryptographic identity** | VaultysId (ECDSA-backed) | ✅ | Each agent gets persistent cryptographic identity |
+| **Unique cryptographic identity** | VaultysId (EdDSA + PQC-backed) | ✅ | Each agent gets persistent cryptographic identity |
 | **Identity verification** | Public key infrastructure | ✅ | All messages signed and verified against public keys |
 | **Token issuance & refresh** | WebSocket auth challenge/response | ✅ | Short-lived tokens with automatic refresh |
 | **No hardcoded credentials** | ✅ | ✅ | VaultysId eliminates static secrets |

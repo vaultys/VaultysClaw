@@ -19,6 +19,11 @@ module.exports = {
           "text-2": "rgb(var(--vc-text-2) / <alpha-value>)",
           muted: "rgb(var(--vc-muted) / <alpha-value>)",
           subtle: "rgb(var(--vc-subtle) / <alpha-value>)",
+          /* Code-specific surfaces — switch between light/dark */
+          "code-bg":       "rgb(var(--vc-code-bg) / <alpha-value>)",
+          "code-bg-block": "rgb(var(--vc-code-bg-block) / <alpha-value>)",
+          "code-border":   "rgb(var(--vc-code-border) / <alpha-value>)",
+          "code-text":     "rgb(var(--vc-code-text) / <alpha-value>)",
         },
       },
       animation: {
@@ -42,5 +47,5 @@ module.exports = {
       },
     },
   },
-  plugins: [],
+  plugins: [require("@tailwindcss/typography")],
 };

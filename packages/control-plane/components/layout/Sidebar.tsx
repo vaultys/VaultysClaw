@@ -22,6 +22,7 @@ import {
   Puzzle,
   BookOpen,
   Activity,
+  Info,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useRole } from "@/hooks/useRole";
@@ -57,6 +58,7 @@ const NAV_GROUPS = [
 
 const BOTTOM_ITEMS = [
   { href: "/settings", icon: Settings, label: "Settings" },
+  { href: "/about",    icon: Info,     label: "About" },
 ] as const;
 
 interface SidebarProps {

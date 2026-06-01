@@ -571,55 +571,47 @@ function TrafficChart({
   stats: TransportStats | undefined;
   color: "sky" | "violet";
 }) {
-  const palette = color === "sky" ? "#0ea5e9" : "#8b5cf6";
+  const palette    = color === "sky" ? "#0ea5e9" : "#8b5cf6";
   const paletteDim = color === "sky" ? "#38bdf8" : "#a78bfa";
 
-  const msgData = [
-    { name: "Messages In", value: stats?.messagesIn ?? 0 },
-    { name: "Messages Out", value: stats?.messagesOut ?? 0 },
-  ];
+  const toMB = (bytes: number) => bytes / (1024 * 1024);
+
   const byteData = [
-    { name: "Bytes In", value: stats?.bytesIn ?? 0 },
-    { name: "Bytes Out", value: stats?.bytesOut ?? 0 },
+    { name: "In",  value: toMB(stats?.bytesIn  ?? 0) },
+    { name: "Out", value: toMB(stats?.bytesOut ?? 0) },
   ];
+
+  const msgIn  = stats?.messagesIn  ?? 0;
+  const msgOut = stats?.messagesOut ?? 0;
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-      {/* Messages */}
-      <div className="bg-vc-bg border border-vc-border rounded-xl p-4">
-        <p className="text-xs font-medium text-vc-muted uppercase tracking-wide mb-3">
-          Messages
-        </p>
-        <ResponsiveContainer width="100%" height={160}>
-          <BarChart data={msgData} margin={{ top: 4, right: 8, left: -16, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="var(--vc-border, #334155)" />
-            <XAxis
-              dataKey="name"
-              tick={{ fontSize: 11, fill: "var(--vc-muted, #94a3b8)" }}
-              axisLine={false}
-              tickLine={false}
-            />
-            <YAxis
-              tick={{ fontSize: 11, fill: "var(--vc-muted, #94a3b8)" }}
-              axisLine={false}
-              tickLine={false}
-            />
-            <Tooltip
-              contentStyle={CHART_TOOLTIP_STYLE}
-              cursor={{ fill: "var(--vc-raised, #1e293b)", opacity: 0.5 }}
-            />
-            <Bar dataKey="value" name="Count" fill={palette} radius={[4, 4, 0, 0]} />
-          </BarChart>
-        </ResponsiveContainer>
+      {/* Messages — counters instead of a chart (scale would dwarf byte values) */}
+      <div className="bg-vc-bg border border-vc-border rounded-xl p-4 flex flex-col gap-3">
+        <p className="text-xs font-medium text-vc-muted uppercase tracking-wide">Messages</p>
+        <div className="flex flex-1 items-center gap-4">
+          <div className="flex-1 flex flex-col items-center justify-center gap-1 bg-vc-surface border border-vc-border rounded-lg py-6">
+            <span className="text-3xl font-bold tabular-nums" style={{ color: palette }}>
+              {msgIn.toLocaleString()}
+            </span>
+            <span className="text-xs text-vc-muted">received</span>
+          </div>
+          <div className="flex-1 flex flex-col items-center justify-center gap-1 bg-vc-surface border border-vc-border rounded-lg py-6">
+            <span className="text-3xl font-bold tabular-nums" style={{ color: paletteDim }}>
+              {msgOut.toLocaleString()}
+            </span>
+            <span className="text-xs text-vc-muted">sent</span>
+          </div>
+        </div>
       </div>
 
-      {/* Bytes */}
+      {/* Bytes — bar chart scaled to MB */}
       <div className="bg-vc-bg border border-vc-border rounded-xl p-4">
         <p className="text-xs font-medium text-vc-muted uppercase tracking-wide mb-3">
-          Data transferred
+          Data transferred (MB)
         </p>
         <ResponsiveContainer width="100%" height={160}>
-          <BarChart data={byteData} margin={{ top: 4, right: 8, left: -16, bottom: 0 }}>
+          <BarChart data={byteData} margin={{ top: 4, right: 8, left: -8, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--vc-border, #334155)" />
             <XAxis
               dataKey="name"
@@ -631,14 +623,14 @@ function TrafficChart({
               tick={{ fontSize: 11, fill: "var(--vc-muted, #94a3b8)" }}
               axisLine={false}
               tickLine={false}
-              tickFormatter={(v) => formatBytes(v as number)}
+              tickFormatter={(v: number) => v < 1 ? v.toFixed(2) : v.toFixed(1)}
             />
             <Tooltip
               contentStyle={CHART_TOOLTIP_STYLE}
               cursor={{ fill: "var(--vc-raised, #1e293b)", opacity: 0.5 }}
-              formatter={(value: number) => [formatBytes(value), "Size"]}
+              formatter={(value: number) => [`${value.toFixed(3)} MB`, "Size"]}
             />
-            <Bar dataKey="value" name="Bytes" fill={paletteDim} radius={[4, 4, 0, 0]} />
+            <Bar dataKey="value" name="MB" fill={paletteDim} radius={[4, 4, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </div>
@@ -904,59 +896,73 @@ function ComparisonChart({
   ws: TransportStats | undefined;
   peerjs: TransportStats | undefined;
 }) {
-  const data = [
-    {
-      name: "Messages In",
-      WebSocket: ws?.messagesIn ?? 0,
-      WebRTC: peerjs?.messagesIn ?? 0,
-    },
-    {
-      name: "Messages Out",
-      WebSocket: ws?.messagesOut ?? 0,
-      WebRTC: peerjs?.messagesOut ?? 0,
-    },
-    {
-      name: "Bytes In",
-      WebSocket: ws?.bytesIn ?? 0,
-      WebRTC: peerjs?.bytesIn ?? 0,
-    },
-    {
-      name: "Bytes Out",
-      WebSocket: ws?.bytesOut ?? 0,
-      WebRTC: peerjs?.bytesOut ?? 0,
-    },
+  const toMB = (b: number) => b / (1024 * 1024);
+
+  // Messages side — counters per transport
+  const msgRows = [
+    { label: "Received", ws: ws?.messagesIn ?? 0,  pj: peerjs?.messagesIn  ?? 0 },
+    { label: "Sent",     ws: ws?.messagesOut ?? 0, pj: peerjs?.messagesOut ?? 0 },
+  ];
+
+  // Bytes side — MB bar chart
+  const byteData = [
+    { name: "In",  WebSocket: toMB(ws?.bytesIn  ?? 0), WebRTC: toMB(peerjs?.bytesIn  ?? 0) },
+    { name: "Out", WebSocket: toMB(ws?.bytesOut ?? 0), WebRTC: toMB(peerjs?.bytesOut ?? 0) },
   ];
 
   return (
-    <div className="bg-vc-bg border border-vc-border rounded-xl p-4">
-      <p className="text-xs font-medium text-vc-muted uppercase tracking-wide mb-3">
-        Transport comparison
-      </p>
-      <ResponsiveContainer width="100%" height={220}>
-        <BarChart data={data} margin={{ top: 4, right: 16, left: -8, bottom: 0 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="var(--vc-border, #334155)" />
-          <XAxis
-            dataKey="name"
-            tick={{ fontSize: 11, fill: "var(--vc-muted, #94a3b8)" }}
-            axisLine={false}
-            tickLine={false}
-          />
-          <YAxis
-            tick={{ fontSize: 11, fill: "var(--vc-muted, #94a3b8)" }}
-            axisLine={false}
-            tickLine={false}
-          />
-          <Tooltip
-            contentStyle={CHART_TOOLTIP_STYLE}
-            cursor={{ fill: "var(--vc-raised, #1e293b)", opacity: 0.5 }}
-          />
-          <Legend
-            wrapperStyle={{ fontSize: "12px", color: "var(--vc-muted, #94a3b8)" }}
-          />
-          <Bar dataKey="WebSocket" fill="#0ea5e9" radius={[4, 4, 0, 0]} />
-          <Bar dataKey="WebRTC" fill="#8b5cf6" radius={[4, 4, 0, 0]} />
-        </BarChart>
-      </ResponsiveContainer>
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      {/* Message counters */}
+      <div className="bg-vc-bg border border-vc-border rounded-xl p-4 flex flex-col gap-3">
+        <p className="text-xs font-medium text-vc-muted uppercase tracking-wide">Messages</p>
+        <div className="flex flex-col gap-2">
+          {/* Header */}
+          <div className="grid grid-cols-3 text-xs text-vc-subtle font-medium px-1">
+            <span />
+            <span className="text-center text-sky-500">WebSocket</span>
+            <span className="text-center text-violet-500">WebRTC</span>
+          </div>
+          {msgRows.map(({ label, ws: w, pj }) => (
+            <div key={label} className="grid grid-cols-3 items-center bg-vc-surface border border-vc-border rounded-lg px-3 py-2">
+              <span className="text-xs text-vc-muted">{label}</span>
+              <span className="text-center text-lg font-bold tabular-nums text-sky-400">{w.toLocaleString()}</span>
+              <span className="text-center text-lg font-bold tabular-nums text-violet-400">{pj.toLocaleString()}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Bytes bar chart in MB */}
+      <div className="bg-vc-bg border border-vc-border rounded-xl p-4">
+        <p className="text-xs font-medium text-vc-muted uppercase tracking-wide mb-3">
+          Data transferred (MB)
+        </p>
+        <ResponsiveContainer width="100%" height={200}>
+          <BarChart data={byteData} margin={{ top: 4, right: 16, left: -8, bottom: 0 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--vc-border, #334155)" />
+            <XAxis
+              dataKey="name"
+              tick={{ fontSize: 11, fill: "var(--vc-muted, #94a3b8)" }}
+              axisLine={false}
+              tickLine={false}
+            />
+            <YAxis
+              tick={{ fontSize: 11, fill: "var(--vc-muted, #94a3b8)" }}
+              axisLine={false}
+              tickLine={false}
+              tickFormatter={(v: number) => v < 1 ? v.toFixed(2) : v.toFixed(1)}
+            />
+            <Tooltip
+              contentStyle={CHART_TOOLTIP_STYLE}
+              cursor={{ fill: "var(--vc-raised, #1e293b)", opacity: 0.5 }}
+              formatter={(value: number) => [`${value.toFixed(3)} MB`, "Size"]}
+            />
+            <Legend wrapperStyle={{ fontSize: "12px", color: "var(--vc-muted, #94a3b8)" }} />
+            <Bar dataKey="WebSocket" fill="#0ea5e9" radius={[4, 4, 0, 0]} />
+            <Bar dataKey="WebRTC"    fill="#8b5cf6" radius={[4, 4, 0, 0]} />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
     </div>
   );
 }

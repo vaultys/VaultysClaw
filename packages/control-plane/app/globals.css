@@ -30,6 +30,15 @@
   /* gray-500 */
   --vc-subtle: 156 163 175;
   /* gray-400 */
+  /* Code surfaces */
+  --vc-code-bg: 243 244 246;
+  /* gray-100 */
+  --vc-code-bg-block: 249 250 251;
+  /* gray-50  — block code background */
+  --vc-code-border: 209 213 219;
+  /* gray-300 */
+  --vc-code-text: 79 70 229;
+  /* indigo-600 */
   color-scheme: light;
   scrollbar-width: thin;
   scrollbar-color: #d1d5db transparent;
@@ -55,6 +64,15 @@
   /* gray-400 */
   --vc-subtle: 107 114 128;
   /* gray-500 */
+  /* Code surfaces */
+  --vc-code-bg: 15 23 42;
+  /* slate-900 */
+  --vc-code-bg-block: 3 7 18;
+  /* gray-950 — block code background */
+  --vc-code-border: 30 41 59;
+  /* slate-800 */
+  --vc-code-text: 129 140 248;
+  /* indigo-400 */
   color-scheme: dark;
   scrollbar-color: #374151 transparent;
 }

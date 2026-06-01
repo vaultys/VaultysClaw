@@ -58,15 +58,15 @@ Traditional identity systems (usernames, passwords, shared API keys) **don't wor
 
 ### Comparison: VaultysClaw vs. The Alternatives
 
-| Feature | VaultysClaw | API Keys | OAuth | Traditional RBAC |
-|---------|-------------|----------|-------|------------------|
-| Non-transferable identity | ✅ | ❌ | ⚠️ | ❌ |
-| Deny-by-default permissions | ✅ | ❌ | ❌ | ⚠️ |
-| Cryptographic proof of who-did-what | ✅ | ❌ | ✅ | ❌ |
-| Policy-driven (not code-driven) | ✅ | ❌ | ❌ | ⚠️ |
-| Sub-agent isolation | ✅ | ❌ | ❌ | ⚠️ |
-| Real-time approval workflows | ✅ | ❌ | ❌ | ❌ |
-| Open-source, self-hosted | ✅ | ⚠️ | ⚠️ | ✅ |
+| Feature                             | VaultysClaw | API Keys | OAuth | Traditional RBAC |
+| ----------------------------------- | ----------- | -------- | ----- | ---------------- |
+| Non-transferable identity           | ✅           | ❌        | ⚠️     | ❌                |
+| Deny-by-default permissions         | ✅           | ❌        | ❌     | ⚠️                |
+| Cryptographic proof of who-did-what | ✅           | ❌        | ✅     | ❌                |
+| Policy-driven (not code-driven)     | ✅           | ❌        | ❌     | ⚠️                |
+| Sub-agent isolation                 | ✅           | ❌        | ❌     | ⚠️                |
+| Real-time approval workflows        | ✅           | ❌        | ❌     | ❌                |
+| Open-source, self-hosted            | ✅           | ⚠️        | ⚠️     | ✅                |
 
 ---
 
@@ -190,14 +190,14 @@ Visit **http://localhost:3000** and scan the QR code to set up your first identi
 
 ## How It's Different
 
-| Aspect | VaultysClaw | Traditional Approaches |
-|--------|-------------|-----|
-| **Agent Identity** | Cryptographic (non-transferable) | Shared API keys or OAuth tokens |
-| **Permission Model** | Deny-by-default capabilities | Allow-by-default or loose RBAC |
-| **Audit** | Cryptographically-signed, non-repudiable | Text logs (easily tampered) |
-| **Governance** | Policy-engine-driven (no code deploy) | Hardcoded in agent logic |
-| **Compliance** | Built-in (SOC 2, HIPAA-ready) | Bolted on later |
-| **Approval Workflows** | Native (visual, real-time) | Manual, ad-hoc |
+| Aspect                 | VaultysClaw                              | Traditional Approaches          |
+| ---------------------- | ---------------------------------------- | ------------------------------- |
+| **Agent Identity**     | Cryptographic (non-transferable)         | Shared API keys or OAuth tokens |
+| **Permission Model**   | Deny-by-default capabilities             | Allow-by-default or loose RBAC  |
+| **Audit**              | Cryptographically-signed, non-repudiable | Text logs (easily tampered)     |
+| **Governance**         | Policy-engine-driven (no code deploy)    | Hardcoded in agent logic        |
+| **Compliance**         | Built-in (SOC 2, HIPAA-ready)            | Bolted on later                 |
+| **Approval Workflows** | Native (visual, real-time)               | Manual, ad-hoc                  |
 
 ---
 
@@ -312,11 +312,11 @@ pnpm dev
 
 That's it. In 30 seconds:
 
-| Service | URL | What |
-|---|---|---|
-| 🎛️ **Control Plane** | http://localhost:3000 | Dashboard, policies, audit logs |
-| 🤖 **Agent Dashboard** | http://localhost:3002 | Real-time agent monitoring |
-| 🔗 **WebSocket Server** | ws://localhost:8080 | Agent ↔ Control plane communication |
+| Service                | URL                   | What                                |
+| ---------------------- | --------------------- | ----------------------------------- |
+| 🎛️ **Control Plane**    | http://localhost:3000 | Dashboard, policies, audit logs     |
+| 🤖 **Agent Dashboard**  | http://localhost:3002 | Real-time agent monitoring          |
+| 🔗 **WebSocket Server** | ws://localhost:8080   | Agent ↔ Control plane communication |
 
 **First Steps:**
 1. Visit http://localhost:3000
@@ -606,7 +606,7 @@ VaultysClaw doesn't bolt security on afterward—it's the foundation. Built on t
 ## Technical Details
 
 - **VaultysId**: Decentralized, non-transferable cryptographic identity for agents and users
-- **Signed Intents**: All agent work wrapped in ECDSA signatures; tamper-evident
+- **Signed Intents**: All agent work wrapped in EdDSA + PQC signatures; tamper-evident
 - **Policy Engine**: Expression-based rules evaluated at runtime; no code deploy needed
 - **Capability Model**: Agents have capabilities (e.g., `read_database`), not credentials
 - **Peer Grants**: Agents delegate via signed certificates verified at execution
@@ -720,8 +720,36 @@ Enterprise hardening, SaaS option, community growth.
 
 - 💬 **Discussions**: GitHub Issues & Discussions  
 - 🐛 **Report bugs**: GitHub Issues  
-- 📧 **Email**: fx.thoorens@vaultys.com  
-- 🐦 **Twitter**: [@FrancoisXThoor](https://twitter.com/FrancoisXThoor)  
+- 📧 **Email**: dev@vaultys.com 
+
+---
+
+## 💛 Sponsors
+
+> **VaultysClaw is actively looking for sponsors.**  
+> We are building the missing security layer for enterprise AI — and we want you to help shape it.
+
+Sponsoring gives your organisation a direct line into the core team and meaningful influence over where the platform goes next.
+
+### What sponsors get
+
+| Tier | Benefits |
+|------|----------|
+| **Bronze** | Logo in README & About page · GitHub Sponsors badge |
+| **Silver** | Everything above · Private Discord channel with core devs · Early access to releases |
+| **Gold** | Everything above · Roadmap vote · PoC fast-track (we prototype your use-case first) · Co-marketing opportunity |
+| **Platinum** | Everything above · Dedicated support SLA · Architecture review sessions · Custom integration guidance |
+
+### Why sponsor?
+
+- **Direct roadmap influence** — your production requirements become milestones, not backlog items
+- **Fast-track PoCs** — need a specific integration or compliance feature? Gold+ sponsors get it built first
+- **Private dev channel** — real-time access to the team; no ticket queue, no waiting
+- **Logo placement** — README, control-plane About page, release notes, and future website
+- **Compliance head-start** — we brief sponsors on upcoming security changes before public release
+
+📧 **Get in touch**: [sponsor@vaultys.com](mailto:sponsor@vaultys.com)  
+💛 **GitHub Sponsors**: [github.com/sponsors/vaultys](https://github.com/sponsors/vaultys)
 
 ---
 

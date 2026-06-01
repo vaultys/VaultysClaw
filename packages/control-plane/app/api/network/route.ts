@@ -1,16 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getWSServer } from "@/lib/ws-server";
+import { getWSServer, initializeWSServer } from "@/lib/ws-server";
 import { AgentPeerjsServer, getPeerjsServer, initializePeerjsServer } from "@/lib/peerjs-server";
 import { getSetting, setSetting } from "@/lib/db";
 import { getAuthContext, unauthorized } from "@/lib/auth-utils";
 
 /**
  * GET /api/network
- * Returns live transport stats (WS + PeerJS) and PeerJS server state.
+ * Returns live transport stats, per-transport logs, and PeerJS server state.
  */
-export async function GET() {
+export async function GET(req: Request) {
   const auth = await getAuthContext();
   if (!auth) return unauthorized();
+
+  const { searchParams } = new URL(req.url);
+  const logLimit = Math.min(500, parseInt(searchParams.get("logLimit") ?? "200", 10) || 200);
 
   const wsServer = getWSServer();
   const stats = wsServer?.getNetworkStats() ?? null;
@@ -20,6 +23,10 @@ export async function GET() {
 
   return NextResponse.json({
     stats,
+    logs: {
+      ws: wsServer?.getLogs("ws", logLimit) ?? [],
+      peerjs: wsServer?.getLogs("peerjs", logLimit) ?? [],
+    },
     peerjs: {
       peerId,
       running: peerjsServer?.isRunning ?? false,
@@ -31,16 +38,32 @@ export async function GET() {
 
 /**
  * POST /api/network
- * Control PeerJS server at runtime.
- * Body: { action: "start" | "stop", serverUrl?: string }
+ * Control WS and PeerJS servers at runtime.
+ * Body: { action: "start" | "stop" | "restart-ws" | "restart-peerjs", serverUrl?: string }
  */
 export async function POST(req: NextRequest) {
   const auth = await getAuthContext();
   if (!auth || !auth.isGlobalAdmin) return unauthorized();
 
-  const body = await req.json() as { action: "start" | "stop"; serverUrl?: string | null };
+  const body = await req.json() as {
+    action: "start" | "stop" | "restart-ws" | "restart-peerjs";
+    serverUrl?: string | null;
+  };
   const { action, serverUrl } = body;
 
+  // ── WS restart ──────────────────────────────────────────────────────────────
+  if (action === "restart-ws") {
+    const wsServer = getWSServer();
+    if (!wsServer) {
+      return NextResponse.json({ error: "WebSocket server not initialized" }, { status: 503 });
+    }
+    const port = wsServer.wsPort;
+    wsServer.shutdown();
+    initializeWSServer(port);
+    return NextResponse.json({ ok: true, restarted: true, port });
+  }
+
+  // ── PeerJS stop ─────────────────────────────────────────────────────────────
   if (action === "stop") {
     const server = getPeerjsServer();
     if (server) server.shutdown();
@@ -48,19 +71,24 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, running: false });
   }
 
-  if (action === "start") {
+  // ── PeerJS start ─────────────────────────────────────────────────────────────
+  if (action === "start" || action === "restart-peerjs") {
+    // Stop if already running
+    const existing = getPeerjsServer();
+    if (existing?.isRunning) existing.shutdown();
+
     const wsServer = getWSServer();
     if (!wsServer) {
       return NextResponse.json({ error: "WebSocket server not initialized" }, { status: 503 });
     }
 
-    const resolvedUrl = serverUrl !== undefined ? (serverUrl ?? undefined) : (getSetting("peerjs_server_url") ?? undefined);
+    const resolvedUrl =
+      serverUrl !== undefined
+        ? serverUrl ?? undefined
+        : getSetting("peerjs_server_url") || undefined;
+
     if (serverUrl !== undefined) {
-      if (serverUrl) setSetting("peerjs_server_url", serverUrl);
-      else {
-        // clear it — use public relay
-        try { setSetting("peerjs_server_url", ""); } catch { /* key may not exist yet */ }
-      }
+      setSetting("peerjs_server_url", serverUrl ?? "");
     }
     setSetting("peerjs_enabled", "true");
 

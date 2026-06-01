@@ -34,6 +34,8 @@ import { fork } from "child_process";
 import path from "path";
 import os from "os";
 import fs from "fs";
+import { loadConfig } from "./config";
+import { Agent } from "./agent";
 
 type RunMode = "headless" | "tui" | "web";
 
@@ -293,11 +295,58 @@ function escXml(s: string): string {
 
 function runHeadless(args: CliArgs): void {
   const env = buildEnv(args);
-  const agentName = args.name || (env.AGENT_NAME as string) || "agent-1";
+  // Apply env to the current process before loading config/agent, just as fork() would do.
+  Object.assign(process.env, env);
+
+  const agentName = (env.AGENT_NAME as string) || "agent-1";
   console.log(`Starting agent "${agentName}" in headless mode`);
-  const indexPath = path.resolve(__dirname, "index.ts");
-  const child = fork(indexPath, [], { env, execArgv: process.execArgv, stdio: "inherit" });
-  child.on("exit", (code) => process.exit(code ?? 1));
+
+  // Ensure data directory exists
+  const dataDir = process.env.VAULTYS_DATA_DIR;
+  if (dataDir && !fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
+
+  // ── Process-level crash guards ────────────────────────────────────────────
+  // Run in the same process (no fork) so tsx cannot send SIGTERM to us.
+  // Unhandled errors keep the agent alive and retrying rather than crashing.
+  process.on("uncaughtException", (err: Error) => {
+    console.error(`[${new Date().toISOString()}] [ERROR] Uncaught exception — continuing:`, err);
+  });
+  process.on("unhandledRejection", (reason: unknown) => {
+    console.error(`[${new Date().toISOString()}] [ERROR] Unhandled rejection — continuing:`, reason);
+  });
+  // Ignore signals that a parent process / shell might send during cleanup.
+  for (const sig of ["SIGHUP", "SIGPIPE"] as NodeJS.Signals[]) {
+    try { process.on(sig, () => {}); } catch { /* platform may not support */ }
+  }
+  // ─────────────────────────────────────────────────────────────────────────
+
+  const agent = new Agent(loadConfig());
+
+  agent.on("log", ({ level, message, data }: { level: string; message: string; data?: unknown }) => {
+    const prefix = `[${new Date().toISOString()}] [${level.toUpperCase()}]`;
+    if (data) {
+      console[level === "error" ? "error" : level === "warn" ? "warn" : "log"](`${prefix} ${message}`, data);
+    } else {
+      console[level === "error" ? "error" : level === "warn" ? "warn" : "log"](`${prefix} ${message}`);
+    }
+  });
+
+  agent.start().catch((err) => {
+    console.error("Failed to start agent:", err);
+    process.exit(1);
+  });
+
+  // Keep the event loop alive so PeerJS reconnect timers always have something to fire into.
+  const keepAlive = setInterval(() => { /* event-loop anchor */ }, 30_000);
+
+  const shutdown = (sig: string) => () => {
+    console.log(`[${new Date().toISOString()}] [INFO] Received ${sig} — shutting down`);
+    clearInterval(keepAlive);
+    agent.stop();
+    process.exit(0);
+  };
+  process.on("SIGINT",  shutdown("SIGINT"));
+  process.on("SIGTERM", shutdown("SIGTERM"));
 }
 
 function runTui(args: CliArgs): void {

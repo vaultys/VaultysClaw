@@ -155,6 +155,46 @@ export class AgentWSServer {
   };
   private startedAt = new Date();
 
+  /** Circular log buffer — max 500 entries across all transports. */
+  private logBuffer: Array<{
+    id: string;
+    timestamp: string;
+    transport: "ws" | "peerjs";
+    level: "info" | "warn" | "error";
+    event: string;
+    detail?: string;
+  }> = [];
+  private static LOG_MAX = 500;
+  private logSeq = 0;
+
+  private appendLog(
+    transport: "ws" | "peerjs",
+    level: "info" | "warn" | "error",
+    event: string,
+    detail?: string,
+  ): void {
+    this.logBuffer.push({
+      id: `${++this.logSeq}`,
+      timestamp: new Date().toISOString(),
+      transport,
+      level,
+      event,
+      detail,
+    });
+    if (this.logBuffer.length > AgentWSServer.LOG_MAX) {
+      this.logBuffer.shift();
+    }
+  }
+
+  getLogs(transport?: "ws" | "peerjs", limit = 200) {
+    const entries = transport
+      ? this.logBuffer.filter((e) => e.transport === transport)
+      : this.logBuffer;
+    return entries.slice(-limit);
+  }
+
+  get wsPort(): number { return this.port; }
+
   constructor(port: number) {
     this.port = port;
 
@@ -198,6 +238,7 @@ export class AgentWSServer {
       const sender = new WsSender(ws);
       this.wsSenders.set(ws, sender);
       this.transportStats.ws.connectionsTotal++;
+      this.appendLog("ws", "info", "connected", `new TCP connection`);
 
       try {
         const { sessionId } = createAuthSession();
@@ -205,6 +246,7 @@ export class AgentWSServer {
         // Set initial auth timeout
         const timer = setTimeout(() => {
           logger.warn({ sessionId }, "Auth timeout — closing connection");
+          this.appendLog("ws", "warn", "auth_timeout", `session ${sessionId.slice(0, 8)}`);
           this.sendMessage(sender, {
             messageId: `auth-fail-${Date.now()}`,
             type: "auth_failed",
@@ -218,6 +260,7 @@ export class AgentWSServer {
         this.pending.set(sender, { sender, sessionId, phase: "awaiting_register", timer });
 
         // Send session ID to agent — agent decides to register (new) or auth (returning)
+        this.appendLog("ws", "info", "auth_challenge_sent", `session ${sessionId.slice(0, 8)}`);
         this.sendMessage(sender, {
           messageId: `auth-${Date.now()}`,
           type: "auth_challenge",
@@ -427,6 +470,7 @@ export class AgentWSServer {
           });
 
           logActivity("agent_reconnected", agentDid, agent.name);
+          this.appendLog(pending.sender.transport, "info", "auth_complete", agent.name);
           this.broadcastAdminUpdate("agent_reconnected");
 
           // Send auth_complete
@@ -506,6 +550,7 @@ export class AgentWSServer {
           createPendingRegistration(registrationId, pending.sessionId, pending.agentName ?? "unknown", pending.capabilities ?? []);
 
           logActivity("registration_requested", agentDid, pending.agentName, JSON.stringify({ registrationId, did: agentDid }));
+          this.appendLog(pending.sender.transport, "info", "registration_pending", pending.agentName ?? agentDid.slice(0, 16));
           this.broadcastAdminUpdate("registration_requested");
 
           // Notify agent it's pending
@@ -1016,6 +1061,7 @@ export class AgentWSServer {
       if (pending.registrationId) {
         deletePendingRegistration(pending.registrationId);
         logger.info({ registrationId: pending.registrationId, agentName: pending.agentName }, "Pending registration removed — agent disconnected");
+        this.appendLog(sender.transport, "warn", "pending_disconnected", pending.agentName ?? pending.registrationId);
         this.broadcastAdminUpdate("registration_disconnected");
       }
       this.pending.delete(sender);
@@ -1028,6 +1074,7 @@ export class AgentWSServer {
       if (agent.sender === sender) {
         this.agents.delete(agentId);
         logActivity("agent_disconnected", agentId, agent.name);
+        this.appendLog(sender.transport, "info", "disconnected", agent.name);
         this.broadcastAdminUpdate("agent_disconnected");
         logger.info({ agentId, agentName: agent.name }, "Agent disconnected");
         break;
@@ -1102,6 +1149,7 @@ export class AgentWSServer {
     this.agents.set(agentDid, agent);
 
     logActivity("registration_approved", agentDid, agent.name, JSON.stringify({ registrationId, capabilities }));
+    this.appendLog(target.sender.transport, "info", "approved", `${agent.name} · ${capabilities.length} caps`);
     this.broadcastAdminUpdate("registration_approved");
 
     // Enroll agent in default realm on first approval
@@ -1770,6 +1818,7 @@ export class AgentWSServer {
   acceptPeerjsConnection(sender: AgentSender): void {
     try {
       this.transportStats.peerjs.connectionsTotal++;
+      this.appendLog("peerjs", "info", "connected", "WebRTC data channel opened");
       const { sessionId } = createAuthSession();
 
       const timer = setTimeout(() => {
@@ -1793,8 +1842,10 @@ export class AgentWSServer {
         timestamp: new Date().toISOString(),
       });
 
+      this.appendLog("peerjs", "info", "auth_challenge_sent", `session ${sessionId.slice(0, 8)}`);
       logger.info("PeerJS agent connection accepted — awaiting register or auth_challenge");
     } catch (error) {
+      this.appendLog("peerjs", "error", "accept_failed", String(error));
       logger.error(error, "Failed to accept PeerJS connection");
       sender.close();
     }

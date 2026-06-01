@@ -220,6 +220,8 @@ export class Agent extends EventEmitter {
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private stopped = false;
+  /** Consecutive failed connection attempts — drives exponential backoff. */
+  private reconnectAttempts = 0;
 
   // Status
   private _status: AgentStatus = "initializing";
@@ -704,6 +706,29 @@ export class Agent extends EventEmitter {
     }
   }
 
+  /**
+   * Schedule a reconnect attempt with exponential backoff + ±20 % jitter.
+   * Delay starts at 2 s and doubles each attempt, capped at 60 s.
+   * Resets to 0 after a successful authentication.
+   */
+  private scheduleReconnect(): void {
+    if (this.stopped) return;
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+    const base = Math.min(2_000 * 2 ** this.reconnectAttempts, 60_000);
+    const jitter = base * 0.2 * (Math.random() * 2 - 1);
+    const delay = Math.round(base + jitter);
+    this.reconnectAttempts++;
+    this.log("info", `Reconnecting in ${(delay / 1000).toFixed(1)}s (attempt ${this.reconnectAttempts})`);
+    this.reconnectTimer = setTimeout(() => this.connect(), delay);
+  }
+
+  private resetReconnectBackoff(): void {
+    this.reconnectAttempts = 0;
+  }
+
   private connectViaPeerjs(): void {
     if (this.stopped) return;
 
@@ -750,6 +775,8 @@ export class Agent extends EventEmitter {
 
       peer.on("open", () => {
         if (this.stopped) { peer.destroy(); return; }
+        // Guard: a newer peer may have been created while this one was reconnecting.
+        if (this.peerjsPeer !== peer) { peer.destroy(); return; }
         this.log("info", `PeerJS peer ready (id=${peer.id}) — connecting to control plane`);
 
         const conn = peer.connect(controlPlanePeerId, { reliable: true });
@@ -765,36 +792,65 @@ export class Agent extends EventEmitter {
         });
 
         conn.on("error", (err) => {
+          if (this.stopped) return;
+          if (this.peerjsConn !== conn) return; // stale
           this.log("error", "PeerJS connection error", err);
+          // close event may not fire after a DataChannel error — schedule directly
+          this.peerjsConn = null;
+          if (this.heartbeatTimer) { clearInterval(this.heartbeatTimer); this.heartbeatTimer = null; }
+          this.setStatus("disconnected");
+          this.scheduleReconnect();
         });
 
         conn.on("close", () => {
           if (this.stopped) return;
           if (this.peerjsConn !== conn) return; // stale connection
-          this.log("warn", "PeerJS connection closed — reconnecting in 5s");
+          this.log("warn", "PeerJS connection closed");
           this.setStatus("disconnected");
           if (this.heartbeatTimer) {
             clearInterval(this.heartbeatTimer);
             this.heartbeatTimer = null;
           }
           this.peerjsConn = null;
-          this.reconnectTimer = setTimeout(() => this.connectViaPeerjs(), 5000);
+          this.scheduleReconnect();
         });
       });
 
       peer.on("error", (err) => {
-        this.log("error", "PeerJS peer error", err);
         if (this.stopped) return;
+        if (this.peerjsPeer !== peer) return; // stale peer
+        this.log("error", "PeerJS peer error", err);
+        // Null out before destroy() for the same recursion reason as "disconnected".
+        this.peerjsPeer = null;
+        this.peerjsConn = null;
+        if (this.heartbeatTimer) { clearInterval(this.heartbeatTimer); this.heartbeatTimer = null; }
+        peer.destroy();
         this.setStatus("disconnected");
-        this.reconnectTimer = setTimeout(() => this.connectViaPeerjs(), 5000);
+        this.scheduleReconnect();
       });
 
       peer.on("disconnected", () => {
-        this.log("warn", "PeerJS disconnected from signaling server — reconnecting peer");
-        peer.reconnect();
+        if (this.stopped) return;
+        if (this.peerjsPeer !== peer) return; // stale peer — ignore
+        // Don't use peer.reconnect(): if it fails silently, peerjs destroys the peer
+        // with no error event, the event loop drains, and the process exits quietly.
+        // Instead, destroy this peer and let our backoff loop create a fresh one.
+        //
+        // IMPORTANT: null out peerjsPeer BEFORE calling peer.destroy().
+        // peer.destroy() → disconnect() emits "disconnected" synchronously, which
+        // re-enters this handler. If peerjsPeer is still set at that point the guard
+        // passes and scheduleReconnect() fires twice, double-incrementing the backoff.
+        this.log("warn", "PeerJS signaling server disconnected — scheduling reconnect");
+        this.peerjsPeer = null;
+        this.peerjsConn = null;
+        if (this.heartbeatTimer) { clearInterval(this.heartbeatTimer); this.heartbeatTimer = null; }
+        peer.destroy(); // recursive "disconnected" now hits the stale-peer guard → no-op
+        this.setStatus("disconnected");
+        this.scheduleReconnect();
       });
     }).catch((err) => {
       this.log("error", "Failed to load peerjs module", err);
+      if (!this.stopped) this.scheduleReconnect();
     });
   }
 
@@ -811,12 +867,20 @@ export class Agent extends EventEmitter {
     this.authSessionId = null;
     this.reAuthPending = false;
 
-    // Capture socket reference locally so the onclose closure can detect if it
-    // belongs to a stale socket that has been superseded by a newer connect() call.
-    // When the server closes the OLD socket after the new one authenticates
-    // ("replacing old connection"), that close event must not trigger yet another
-    // reconnect — this.ws already points to the new socket at that point.
-    const ws = new WebSocket(wsUrl);
+    let ws: WebSocket;
+    try {
+      // Capture socket reference locally so the onclose closure can detect if it
+      // belongs to a stale socket that has been superseded by a newer connect() call.
+      // When the server closes the OLD socket after the new one authenticates
+      // ("replacing old connection"), that close event must not trigger yet another
+      // reconnect — this.ws already points to the new socket at that point.
+      ws = new WebSocket(wsUrl);
+    } catch (err) {
+      this.log("error", "Failed to create WebSocket (invalid URL?)", err);
+      this.setStatus("disconnected");
+      this.scheduleReconnect();
+      return;
+    }
     this.ws = ws;
 
     ws.onopen = () => {
@@ -837,13 +901,13 @@ export class Agent extends EventEmitter {
       // is from a superseded connection (e.g., the server closed our old socket
       // when a newer connection authenticated). Ignore it — the active socket is fine.
       if (this.ws !== ws) return;
-      this.log("warn", "Disconnected from control plane — reconnecting in 5s");
+      this.log("warn", "Disconnected from control plane");
       this.setStatus("disconnected");
       if (this.heartbeatTimer) {
         clearInterval(this.heartbeatTimer);
         this.heartbeatTimer = null;
       }
-      this.reconnectTimer = setTimeout(() => this.connect(), 5000);
+      this.scheduleReconnect();
     };
   }
 
@@ -1102,6 +1166,7 @@ export class Agent extends EventEmitter {
     this.authSessionId = null;
     this.reAuthPending = false;
 
+    this.resetReconnectBackoff();
     this.setStatus("connected");
     this.log("info", `Auth complete — agent id: ${this.id}, did: ${payload.did}`);
 

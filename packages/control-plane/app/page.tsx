@@ -382,7 +382,7 @@ function Dashboard() {
     fetchExpiredPolicies();
     const id = setInterval(fetchExpiredPolicies, 60_000);
     return () => clearInterval(id);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isGlobalAdmin]);
 
   useEffect(() => {
@@ -453,7 +453,7 @@ function Dashboard() {
   const projectedMonthlyTokens = Math.ceil((totalTokensMonthly / daysIntoMonth) * daysInMonth);
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-6">
+    <div className="p-6 w-full max-w-7xl mx-auto space-y-6">
       {/* Page title */}
       <div className="flex items-center justify-between">
         <div>
@@ -510,14 +510,14 @@ function Dashboard() {
               const agentName = agents.find((a) => a.id === p.agentDid)?.name;
               const expiredAgo = p.expiresAt
                 ? (() => {
-                    const secs = Math.floor((Date.now() - new Date(p.expiresAt.endsWith("Z") ? p.expiresAt : p.expiresAt + "Z").getTime()) / 1000);
-                    if (secs < 60) return `${secs}s ago`;
-                    const mins = Math.floor(secs / 60);
-                    if (mins < 60) return `${mins}m ago`;
-                    const hrs = Math.floor(mins / 60);
-                    if (hrs < 24) return `${hrs}h ago`;
-                    return `${Math.floor(hrs / 24)}d ago`;
-                  })()
+                  const secs = Math.floor((Date.now() - new Date(p.expiresAt.endsWith("Z") ? p.expiresAt : p.expiresAt + "Z").getTime()) / 1000);
+                  if (secs < 60) return `${secs}s ago`;
+                  const mins = Math.floor(secs / 60);
+                  if (mins < 60) return `${mins}m ago`;
+                  const hrs = Math.floor(mins / 60);
+                  if (hrs < 24) return `${hrs}h ago`;
+                  return `${Math.floor(hrs / 24)}d ago`;
+                })()
                 : "";
               return (
                 <div key={p.id} className="flex items-center justify-between gap-3 px-4 py-2.5">

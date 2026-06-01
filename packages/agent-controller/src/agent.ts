@@ -1199,7 +1199,10 @@ export class Agent extends EventEmitter {
 
     if (this.heartbeatTimer) clearInterval(this.heartbeatTimer);
     this.heartbeatTimer = setInterval(() => {
-      if (this.ws?.readyState === WebSocket.OPEN) this.sendHeartbeat();
+      // Send heartbeat over whichever transport is currently open.
+      const wsOpen = this.ws?.readyState === WebSocket.OPEN;
+      const pjOpen = !!this.peerjsConn?.open;
+      if (wsOpen || pjOpen) this.sendHeartbeat();
     }, 30000);
 
     // Push current knowledge source statuses so the control-plane can reconcile

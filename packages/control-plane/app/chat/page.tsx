@@ -3,11 +3,28 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import ReactMarkdown from "react-markdown";
 import { useAdminWS } from "@/hooks/useAdminWS";
-import { Bot, Send, Trash2, Loader2, WifiOff, Settings } from "lucide-react";
+import {
+  Bot,
+  Send,
+  Trash2,
+  Loader2,
+  WifiOff,
+  Settings,
+  CheckCircle2,
+  XCircle,
+} from "lucide-react";
 
 interface ChatMessage {
   role: "user" | "assistant";
   content: string;
+  thinkingContent?: string;
+}
+
+interface PendingApproval {
+  requestId: string;
+  toolName: string;
+  args: Record<string, unknown>;
+  status: "pending" | "submitting" | "approved" | "rejected";
 }
 
 function shortDid(did: string): string {
@@ -25,6 +42,9 @@ export default function ChatPage() {
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [errorCode, setErrorCode] = useState<string | null>(null);
+  const [pendingApprovals, setPendingApprovals] = useState<PendingApproval[]>(
+    []
+  );
   const abortRef = useRef<AbortController | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -52,12 +72,20 @@ export default function ChatPage() {
         const res = await fetch("/api/chat", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ agentDid: selectedAgent, messages: updatedMessages }),
+          body: JSON.stringify({
+            agentDid: selectedAgent,
+            messages: updatedMessages,
+          }),
           signal: controller.signal,
         });
 
         if (!res.ok) {
-          const errBody = await res.json().catch(() => ({ error: "Request failed" })) as { error?: string; errorCode?: string };
+          const errBody = (await res
+            .json()
+            .catch(() => ({ error: "Request failed" }))) as {
+            error?: string;
+            errorCode?: string;
+          };
           setErrorCode(errBody.errorCode ?? null);
           throw new Error(errBody.error || `HTTP ${res.status}`);
         }
@@ -67,11 +95,13 @@ export default function ChatPage() {
 
         const decoder = new TextDecoder();
         let assistantContent = "";
+        let currentThinkingContent = "";
 
         // Add placeholder assistant message
         setMessages((prev) => [...prev, { role: "assistant", content: "" }]);
 
         let buffer = "";
+        let eventType = "message";
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
@@ -81,24 +111,54 @@ export default function ChatPage() {
           buffer = lines.pop() || "";
 
           for (const line of lines) {
-            const trimmed = line.trim();
-            if (!trimmed.startsWith("data: ")) continue;
-            const data = trimmed.slice(6);
+            if (line.startsWith("event: ")) {
+              eventType = line.slice(7).trim();
+              continue;
+            }
+            if (!line.startsWith("data: ")) {
+              if (line === "") eventType = "message";
+              continue;
+            }
+            const data = line.slice(6);
             if (data === "[DONE]") break;
             try {
               const parsed = JSON.parse(data);
+              if (eventType === "tool_approval") {
+                setPendingApprovals((prev) => [
+                  ...prev,
+                  {
+                    requestId: parsed.requestId,
+                    toolName: parsed.toolName,
+                    args: parsed.args ?? {},
+                    status: "pending" as const,
+                  },
+                ]);
+                eventType = "message";
+                continue;
+              }
               if (parsed.error) {
                 setErrorCode(parsed.errorCode ?? null);
                 throw new Error(parsed.error);
               }
               if (parsed.text) {
-                assistantContent += parsed.text;
+                if (parsed.thinking) {
+                  currentThinkingContent += parsed.text;
+                } else {
+                  assistantContent += parsed.text;
+                }
                 setMessages((prev) => {
                   const updated = [...prev];
-                  updated[updated.length - 1] = { role: "assistant", content: assistantContent };
+                  updated[updated.length - 1] = {
+                    role: "assistant",
+                    content: assistantContent,
+                    ...(currentThinkingContent
+                      ? { thinkingContent: currentThinkingContent }
+                      : {}),
+                  };
                   return updated;
                 });
               }
+              eventType = "message";
             } catch (e) {
               if (e instanceof SyntaxError) continue;
               throw e;
@@ -110,16 +170,17 @@ export default function ChatPage() {
         setError(err.message || "Failed to send message");
         // Remove empty assistant message on error
         setMessages((prev) =>
-          prev[prev.length - 1]?.role === "assistant" && !prev[prev.length - 1]?.content
+          prev[prev.length - 1]?.role === "assistant" &&
+          !prev[prev.length - 1]?.content
             ? prev.slice(0, -1)
-            : prev,
+            : prev
         );
       } finally {
         setIsStreaming(false);
         abortRef.current = null;
       }
     },
-    [messages, selectedAgent, isStreaming],
+    [messages, selectedAgent, isStreaming]
   );
 
   const clearChat = () => {
@@ -128,6 +189,7 @@ export default function ChatPage() {
     setError(null);
     setErrorCode(null);
     setIsStreaming(false);
+    setPendingApprovals([]);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -141,7 +203,9 @@ export default function ChatPage() {
     <div className="flex flex-col flex-1 min-h-0 w-full">
       {/* Header bar */}
       <div className="flex items-center gap-4 px-6 py-3 border-b border-vc-border bg-vc-panel">
-        <h1 className="text-lg font-semibold text-vc-text whitespace-nowrap">Chat</h1>
+        <h1 className="text-lg font-semibold text-vc-text whitespace-nowrap">
+          Chat
+        </h1>
 
         {/* Agent selector */}
         <select
@@ -202,45 +266,84 @@ export default function ChatPage() {
             className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
           >
             <div
-              className={`max-w-[70%] rounded-lg px-4 py-2.5 text-sm leading-relaxed prose prose-sm prose-invert max-w-none ${msg.role === "user"
-                ? "bg-vc-accent/20 text-vc-text prose-headings:text-vc-text prose-p:m-0 prose-ul:m-0 prose-ol:m-0 prose-li:m-0 prose-code:text-vc-text prose-code:bg-white/10 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-pre:bg-white/10 prose-pre:border prose-pre:border-vc-accent/30 prose-pre:text-vc-text"
-                : "bg-vc-subtle text-vc-text prose-headings:text-vc-text prose-p:m-0 prose-ul:m-0 prose-ol:m-0 prose-li:m-0 prose-code:text-vc-text prose-code:bg-vc-bg prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-pre:bg-vc-bg prose-pre:border prose-pre:border-vc-border prose-pre:text-vc-text"
-                }`}
+              className={`max-w-[70%] rounded-lg px-4 py-2.5 text-sm leading-relaxed prose prose-sm prose-invert max-w-none ${
+                msg.role === "user"
+                  ? "bg-vc-accent/20 text-vc-text prose-headings:text-vc-text prose-p:m-0 prose-ul:m-0 prose-ol:m-0 prose-li:m-0 prose-code:text-vc-text prose-code:bg-white/10 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-pre:bg-white/10 prose-pre:border prose-pre:border-vc-accent/30 prose-pre:text-vc-text"
+                  : "bg-vc-subtle text-vc-text prose-headings:text-vc-text prose-p:m-0 prose-ul:m-0 prose-ol:m-0 prose-li:m-0 prose-code:text-vc-text prose-code:bg-vc-bg prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-pre:bg-vc-bg prose-pre:border prose-pre:border-vc-border prose-pre:text-vc-text"
+              }`}
             >
+              {msg.role === "assistant" && msg.thinkingContent && (
+                <ChatThinkingBlock
+                  content={msg.thinkingContent}
+                  isStreaming={isStreaming && i === messages.length - 1}
+                />
+              )}
               {msg.content ? (
                 <ReactMarkdown
                   components={{
                     p: ({ children }) => <p className="m-0">{children}</p>,
-                    ul: ({ children }) => <ul className="m-0 pl-4 list-disc">{children}</ul>,
-                    ol: ({ children }) => <ol className="m-0 pl-4 list-decimal">{children}</ol>,
+                    ul: ({ children }) => (
+                      <ul className="m-0 pl-4 list-disc">{children}</ul>
+                    ),
+                    ol: ({ children }) => (
+                      <ol className="m-0 pl-4 list-decimal">{children}</ol>
+                    ),
                     li: ({ children }) => <li className="m-0">{children}</li>,
                     code: ({ children }) => (
-                      <code className={`px-1 py-0.5 rounded text-sm font-mono ${msg.role === "user"
-                          ? "bg-white/10 text-vc-text"
-                          : "bg-vc-bg text-vc-text"
-                        }`}>
+                      <code
+                        className={`px-1 py-0.5 rounded text-sm font-mono ${
+                          msg.role === "user"
+                            ? "bg-white/10 text-vc-text"
+                            : "bg-vc-bg text-vc-text"
+                        }`}
+                      >
                         {children}
                       </code>
                     ),
                     pre: ({ children }) => (
-                      <pre className={`p-2 rounded text-xs overflow-x-auto my-1 border ${msg.role === "user"
-                          ? "bg-white/10 border-vc-accent/30 text-vc-text"
-                          : "bg-vc-bg border-vc-border text-vc-text"
-                        }`}>
+                      <pre
+                        className={`p-2 rounded text-xs overflow-x-auto my-1 border ${
+                          msg.role === "user"
+                            ? "bg-white/10 border-vc-accent/30 text-vc-text"
+                            : "bg-vc-bg border-vc-border text-vc-text"
+                        }`}
+                      >
                         {children}
                       </pre>
                     ),
-                    h1: ({ children }) => <h1 className="text-base font-bold mt-2 mb-1">{children}</h1>,
-                    h2: ({ children }) => <h2 className="text-sm font-bold mt-2 mb-1">{children}</h2>,
-                    h3: ({ children }) => <h3 className="text-xs font-bold mt-1 mb-0.5">{children}</h3>,
+                    h1: ({ children }) => (
+                      <h1 className="text-base font-bold mt-2 mb-1">
+                        {children}
+                      </h1>
+                    ),
+                    h2: ({ children }) => (
+                      <h2 className="text-sm font-bold mt-2 mb-1">
+                        {children}
+                      </h2>
+                    ),
+                    h3: ({ children }) => (
+                      <h3 className="text-xs font-bold mt-1 mb-0.5">
+                        {children}
+                      </h3>
+                    ),
                     blockquote: ({ children }) => (
-                      <blockquote className={`pl-2 border-l-2 my-1 ${msg.role === "user" ? "border-vc-accent/50" : "border-vc-border"
-                        }`}>
+                      <blockquote
+                        className={`pl-2 border-l-2 my-1 ${
+                          msg.role === "user"
+                            ? "border-vc-accent/50"
+                            : "border-vc-border"
+                        }`}
+                      >
                         {children}
                       </blockquote>
                     ),
                     a: ({ children, href }) => (
-                      <a href={href} className="text-blue-700 dark:text-blue-400 underline hover:text-blue-300" target="_blank" rel="noopener noreferrer">
+                      <a
+                        href={href}
+                        className="text-blue-700 dark:text-blue-400 underline hover:text-blue-300"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
                         {children}
                       </a>
                     ),
@@ -251,18 +354,75 @@ export default function ChatPage() {
               ) : null}
               {msg.role === "assistant" && !msg.content && isStreaming && (
                 <span className="inline-flex gap-1 text-vc-muted">
-                  <span className="animate-bounce" style={{ animationDelay: "0ms" }}>·</span>
-                  <span className="animate-bounce" style={{ animationDelay: "150ms" }}>·</span>
-                  <span className="animate-bounce" style={{ animationDelay: "300ms" }}>·</span>
+                  <span
+                    className="animate-bounce"
+                    style={{ animationDelay: "0ms" }}
+                  >
+                    ·
+                  </span>
+                  <span
+                    className="animate-bounce"
+                    style={{ animationDelay: "150ms" }}
+                  >
+                    ·
+                  </span>
+                  <span
+                    className="animate-bounce"
+                    style={{ animationDelay: "300ms" }}
+                  >
+                    ·
+                  </span>
                 </span>
               )}
             </div>
           </div>
         ))}
 
-        {error && (
-          <ChatErrorBanner message={error} code={errorCode} />
-        )}
+        {pendingApprovals.map((a) => (
+          <ChatToolApprovalCard
+            key={a.requestId}
+            approval={a}
+            onRespond={async (approved) => {
+              setPendingApprovals((prev) =>
+                prev.map((x) =>
+                  x.requestId === a.requestId
+                    ? { ...x, status: "submitting" as const }
+                    : x
+                )
+              );
+              try {
+                const res = await fetch("/api/tool-approvals", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ requestId: a.requestId, approved }),
+                });
+                if (!res.ok) throw new Error("Request failed");
+                setPendingApprovals((prev) =>
+                  prev.map((x) =>
+                    x.requestId === a.requestId
+                      ? {
+                          ...x,
+                          status: approved
+                            ? ("approved" as const)
+                            : ("rejected" as const),
+                        }
+                      : x
+                  )
+                );
+              } catch {
+                setPendingApprovals((prev) =>
+                  prev.map((x) =>
+                    x.requestId === a.requestId
+                      ? { ...x, status: "pending" as const }
+                      : x
+                  )
+                );
+              }
+            }}
+          />
+        ))}
+
+        {error && <ChatErrorBanner message={error} code={errorCode} />}
 
         <div ref={messagesEndRef} />
       </div>
@@ -285,7 +445,11 @@ export default function ChatPage() {
               disabled={!input.trim() || isStreaming}
               className="flex items-center justify-center w-10 h-10 rounded-lg bg-vc-accent text-white disabled:opacity-40 disabled:cursor-not-allowed hover:bg-vc-accent/80 transition-colors"
             >
-              {isStreaming ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
+              {isStreaming ? (
+                <Loader2 size={18} className="animate-spin" />
+              ) : (
+                <Send size={18} />
+              )}
             </button>
           </div>
         </div>
@@ -294,15 +458,120 @@ export default function ChatPage() {
   );
 }
 
-function ChatErrorBanner({ message, code }: { message: string; code: string | null }) {
+function ChatThinkingBlock({
+  content,
+  isStreaming,
+}: {
+  content: string;
+  isStreaming: boolean;
+}) {
+  return (
+    <details className="mb-2 text-xs border border-vc-border/50 rounded-lg overflow-hidden">
+      <summary className="px-3 py-1.5 cursor-pointer select-none flex items-center gap-1.5 bg-vc-surface/50 hover:bg-vc-surface transition-colors list-none text-vc-muted">
+        {isStreaming ? (
+          <span className="animate-pulse">Thinking…</span>
+        ) : (
+          <span>View reasoning</span>
+        )}
+      </summary>
+      <pre className="whitespace-pre-wrap font-mono text-xs text-vc-muted bg-vc-surface p-3 m-0 leading-relaxed">
+        {content}
+      </pre>
+    </details>
+  );
+}
+
+function ChatToolApprovalCard({
+  approval,
+  onRespond,
+}: {
+  approval: PendingApproval;
+  onRespond: (approved: boolean) => Promise<void>;
+}) {
+  const isDone =
+    approval.status === "approved" || approval.status === "rejected";
+  const isSubmitting = approval.status === "submitting";
+  return (
+    <div className="mx-auto max-w-[70%] rounded-xl border border-amber-500/30 bg-amber-950/20 p-3 text-sm">
+      <p className="text-xs font-medium text-amber-400 mb-2">
+        Tool approval required:{" "}
+        <span className="font-mono">{approval.toolName}</span>
+      </p>
+      <details className="mb-3">
+        <summary className="cursor-pointer text-xs text-vc-muted hover:text-vc-text select-none list-none">
+          View arguments
+        </summary>
+        <pre className="mt-1 text-xs font-mono bg-vc-bg border border-vc-border rounded p-2 overflow-x-auto text-vc-text whitespace-pre-wrap">
+          {JSON.stringify(approval.args, null, 2)}
+        </pre>
+      </details>
+      {isDone ? (
+        <span
+          className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ${
+            approval.status === "approved"
+              ? "bg-emerald-950/40 text-emerald-400 border border-emerald-500/30"
+              : "bg-red-950/40 text-red-400 border border-red-500/30"
+          }`}
+        >
+          {approval.status === "approved" ? (
+            <CheckCircle2 size={11} />
+          ) : (
+            <XCircle size={11} />
+          )}
+          {approval.status === "approved" ? "Approved" : "Rejected"}
+        </span>
+      ) : (
+        <div className="flex gap-2">
+          <button
+            disabled={isSubmitting}
+            onClick={() => onRespond(true)}
+            className="flex items-center gap-1 px-3 py-1 text-xs rounded-lg bg-emerald-600 text-white hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            {isSubmitting ? (
+              <Loader2 size={11} className="animate-spin" />
+            ) : (
+              <CheckCircle2 size={11} />
+            )}
+            Approve
+          </button>
+          <button
+            disabled={isSubmitting}
+            onClick={() => onRespond(false)}
+            className="flex items-center gap-1 px-3 py-1 text-xs rounded-lg bg-red-700 text-white hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            {isSubmitting ? (
+              <Loader2 size={11} className="animate-spin" />
+            ) : (
+              <XCircle size={11} />
+            )}
+            Reject
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ChatErrorBanner({
+  message,
+  code,
+}: {
+  message: string;
+  code: string | null;
+}) {
   if (code === "llm_unavailable") {
     return (
       <div className="flex items-start gap-3 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 text-amber-700 dark:text-amber-300 rounded-lg px-4 py-3 text-sm">
         <WifiOff size={15} className="mt-0.5 shrink-0" />
         <div className="min-w-0">
           <p className="font-medium">LLM provider unreachable</p>
-          <p className="text-xs text-amber-700 dark:text-amber-400/80 mt-0.5 break-words">{message}</p>
-          <p className="text-xs text-amber-700 dark:text-amber-400/60 mt-1">Go to the agent&#39;s <strong>LLM Config</strong> tab to update the provider settings.</p>
+          <p className="text-xs text-amber-700 dark:text-amber-400/80 mt-0.5 break-words">
+            {message}
+          </p>
+          <p className="text-xs text-amber-700 dark:text-amber-400/60 mt-1">
+            Go to the agent&#39;s <strong>LLM Config</strong> tab to update the
+            provider settings.
+          </p>
         </div>
       </div>
     );

@@ -4,7 +4,10 @@
  * policy updates, and result collection
  */
 
-import { createServer as createHttpServer, type Server as HttpServer } from "node:http";
+import {
+  createServer as createHttpServer,
+  type Server as HttpServer,
+} from "node:http";
 import { WebSocket, WebSocketServer, type Data as WebSocketData } from "ws";
 import pino from "pino";
 import { type AgentSender, WsSender } from "./agent-sender";
@@ -31,7 +34,11 @@ import {
   type WSSkillsConfigPayload,
   type WSChannelMessageSendPayload,
 } from "@vaultysclaw/shared";
-import { createAuthSession, processChallenge, type PolicyMeta } from "./auth-handler";
+import {
+  createAuthSession,
+  processChallenge,
+  type PolicyMeta,
+} from "./auth-handler";
 import {
   updateAgentLastSeen,
   deleteExpiredAuthSessions,
@@ -80,7 +87,10 @@ const SESSION_CLEANUP_INTERVAL_MS = 5 * 60_000;
  * - "awaiting_approval": sent register, waiting for admin approval
  * - "authenticating": auth challenge-response in progress
  */
-type PendingPhase = "awaiting_register" | "awaiting_approval" | "authenticating";
+type PendingPhase =
+  | "awaiting_register"
+  | "awaiting_approval"
+  | "authenticating";
 
 interface PendingConnection {
   sender: AgentSender;
@@ -137,21 +147,59 @@ export class AgentWSServer {
   /** Ping interval — keeps TCP connections alive and detects ghosts */
   private pingInterval: ReturnType<typeof setInterval> | null = null;
   /** Callbacks for pending chat streaming responses keyed by conversationId */
-  private chatCallbacks: Map<string, (payload: WSChatResponsePayload) => void> = new Map();
+  private chatCallbacks: Map<string, (payload: WSChatResponsePayload) => void> =
+    new Map();
+  /** Callbacks for tool approval requests forwarded to the active chat SSE stream, keyed by conversationId */
+  private chatApprovalCallbacks: Map<
+    string,
+    (payload: WSToolApprovalRequestPayload) => void
+  > = new Map();
   /** Callbacks for workflow step results keyed by intentId */
   private resultCallbacks: Map<string, (payload: any) => void> = new Map();
   /** Pending tool approval requests from agents. Key = requestId */
-  private pendingToolApprovals: Map<string, { agentId: string; payload: WSToolApprovalRequestPayload; createdAt: number }> = new Map();
+  private pendingToolApprovals: Map<
+    string,
+    {
+      agentId: string;
+      payload: WSToolApprovalRequestPayload;
+      createdAt: number;
+    }
+  > = new Map();
   /** Callbacks for tool execution events from agents */
-  private toolExecutionCallbacks: Map<string, (payload: WSToolExecutionPayload & { agentId: string }) => void> = new Map();
+  private toolExecutionCallbacks: Map<
+    string,
+    (payload: WSToolExecutionPayload & { agentId: string }) => void
+  > = new Map();
   /** Pending one-shot callbacks for chat session list responses. Key = agentId */
-  private chatSessionsCallbacks: Map<string, (payload: import("@vaultysclaw/shared").WSChatSessionsResponsePayload) => void> = new Map();
+  private chatSessionsCallbacks: Map<
+    string,
+    (
+      payload: import("@vaultysclaw/shared").WSChatSessionsResponsePayload
+    ) => void
+  > = new Map();
   /** Pending one-shot callbacks for chat history responses. Key = `agentId:sessionId` */
-  private chatHistoryCallbacks: Map<string, (payload: import("@vaultysclaw/shared").WSChatHistoryResponsePayload) => void> = new Map();
+  private chatHistoryCallbacks: Map<
+    string,
+    (
+      payload: import("@vaultysclaw/shared").WSChatHistoryResponsePayload
+    ) => void
+  > = new Map();
   /** Cumulative message counters per transport, reset on server restart. */
   private transportStats = {
-    ws: { messagesIn: 0, messagesOut: 0, bytesIn: 0, bytesOut: 0, connectionsTotal: 0 },
-    peerjs: { messagesIn: 0, messagesOut: 0, bytesIn: 0, bytesOut: 0, connectionsTotal: 0 },
+    ws: {
+      messagesIn: 0,
+      messagesOut: 0,
+      bytesIn: 0,
+      bytesOut: 0,
+      connectionsTotal: 0,
+    },
+    peerjs: {
+      messagesIn: 0,
+      messagesOut: 0,
+      bytesIn: 0,
+      bytesOut: 0,
+      connectionsTotal: 0,
+    },
   };
   private startedAt = new Date();
 
@@ -171,7 +219,7 @@ export class AgentWSServer {
     transport: "ws" | "peerjs",
     level: "info" | "warn" | "error",
     event: string,
-    detail?: string,
+    detail?: string
   ): void {
     this.logBuffer.push({
       id: `${++this.logSeq}`,
@@ -193,7 +241,9 @@ export class AgentWSServer {
     return entries.slice(-limit);
   }
 
-  get wsPort(): number { return this.port; }
+  get wsPort(): number {
+    return this.port;
+  }
 
   constructor(port: number) {
     this.port = port;
@@ -233,7 +283,9 @@ export class AgentWSServer {
 
   private setupServer(): void {
     this.wss.on("connection", (ws: WebSocket) => {
-      logger.info("New WebSocket connection — awaiting register or auth_challenge");
+      logger.info(
+        "New WebSocket connection — awaiting register or auth_challenge"
+      );
 
       const sender = new WsSender(ws);
       this.wsSenders.set(ws, sender);
@@ -246,21 +298,38 @@ export class AgentWSServer {
         // Set initial auth timeout
         const timer = setTimeout(() => {
           logger.warn({ sessionId }, "Auth timeout — closing connection");
-          this.appendLog("ws", "warn", "auth_timeout", `session ${sessionId.slice(0, 8)}`);
+          this.appendLog(
+            "ws",
+            "warn",
+            "auth_timeout",
+            `session ${sessionId.slice(0, 8)}`
+          );
           this.sendMessage(sender, {
             messageId: `auth-fail-${Date.now()}`,
             type: "auth_failed",
-            payload: { reason: "Authentication timeout" } satisfies WSAuthFailedPayload,
+            payload: {
+              reason: "Authentication timeout",
+            } satisfies WSAuthFailedPayload,
             timestamp: new Date().toISOString(),
           });
           sender.close();
           this.pending.delete(sender);
         }, AUTH_TIMEOUT_MS);
 
-        this.pending.set(sender, { sender, sessionId, phase: "awaiting_register", timer });
+        this.pending.set(sender, {
+          sender,
+          sessionId,
+          phase: "awaiting_register",
+          timer,
+        });
 
         // Send session ID to agent — agent decides to register (new) or auth (returning)
-        this.appendLog("ws", "info", "auth_challenge_sent", `session ${sessionId.slice(0, 8)}`);
+        this.appendLog(
+          "ws",
+          "info",
+          "auth_challenge_sent",
+          `session ${sessionId.slice(0, 8)}`
+        );
         this.sendMessage(sender, {
           messageId: `auth-${Date.now()}`,
           type: "auth_challenge",
@@ -289,7 +358,10 @@ export class AgentWSServer {
     });
   }
 
-  private handleMessage(sender: AgentSender, data: string | WebSocketData): void {
+  private handleMessage(
+    sender: AgentSender,
+    data: string | WebSocketData
+  ): void {
     try {
       const raw = data as string;
       const bucket = this.transportStats[sender.transport];
@@ -305,9 +377,15 @@ export class AgentWSServer {
       // If connection is still pending, route based on phase
       const pendingConn = this.pending.get(sender);
       if (pendingConn) {
-        if (message.type === "register" && pendingConn.phase === "awaiting_register") {
+        if (
+          message.type === "register" &&
+          pendingConn.phase === "awaiting_register"
+        ) {
           this.handleRegisterRequest(pendingConn, message);
-        } else if (message.type === "auth_challenge" && pendingConn.phase === "authenticating") {
+        } else if (
+          message.type === "auth_challenge" &&
+          pendingConn.phase === "authenticating"
+        ) {
           this.handleAuthChallenge(pendingConn, message);
         } else {
           logger.warn(
@@ -391,14 +469,20 @@ export class AgentWSServer {
     pending.agentName = agentName;
     pending.phase = "authenticating";
 
-    logger.info({ agentName }, "Agent registering — starting auth to verify identity");
+    logger.info(
+      { agentName },
+      "Agent registering — starting auth to verify identity"
+    );
 
     // Send auth_challenge to start VaultysId handshake
     // DID-based approval happens after auth completes
     this.sendMessage(pending.sender, {
       messageId: `auth-${Date.now()}`,
       type: "auth_challenge",
-      payload: { sessionId: pending.sessionId, data: "" } satisfies WSAuthChallengePayload,
+      payload: {
+        sessionId: pending.sessionId,
+        data: "",
+      } satisfies WSAuthChallengePayload,
       timestamp: new Date().toISOString(),
     });
   }
@@ -422,7 +506,7 @@ export class AgentWSServer {
         payload.data,
         pending.agentName ?? "unknown",
         pending.capabilities ?? [],
-        pending.policyMeta,
+        pending.policyMeta
       );
 
       if (result.done && result.success) {
@@ -440,12 +524,17 @@ export class AgentWSServer {
           clearTimeout(pending.timer);
           this.pending.delete(pending.sender);
 
-          const storedCapabilities = JSON.parse(knownAgent.capabilities) as AgentCapability[];
+          const storedCapabilities = JSON.parse(
+            knownAgent.capabilities
+          ) as AgentCapability[];
 
           // Close existing connection if agent reconnected from new socket
           const existing = this.agents.get(agentDid);
           if (existing && existing.sender !== pending.sender) {
-            logger.info({ agentDid }, "Agent reconnecting with verified certificate — replacing old connection");
+            logger.info(
+              { agentDid },
+              "Agent reconnecting with verified certificate — replacing old connection"
+            );
             existing.sender.close();
           }
 
@@ -470,7 +559,12 @@ export class AgentWSServer {
           });
 
           logActivity("agent_reconnected", agentDid, agent.name);
-          this.appendLog(pending.sender.transport, "info", "auth_complete", agent.name);
+          this.appendLog(
+            pending.sender.transport,
+            "info",
+            "auth_complete",
+            agent.name
+          );
           this.broadcastAdminUpdate("agent_reconnected");
 
           // Send auth_complete
@@ -509,10 +603,16 @@ export class AgentWSServer {
           // If they don't match it means the cert has no/wrong metadata — trigger a
           // silent re-auth so a fresh certificate with correct capability metadata is issued.
           if (!pending.isCertReissue) {
-            const reportedCaps = (pending.capabilities ?? []).slice().sort().join(",");
+            const reportedCaps = (pending.capabilities ?? [])
+              .slice()
+              .sort()
+              .join(",");
             const correctCaps = storedCapabilities.slice().sort().join(",");
             if (reportedCaps !== correctCaps) {
-              logger.info({ agentDid }, "Cert metadata mismatch — triggering silent re-auth to reissue certificate");
+              logger.info(
+                { agentDid },
+                "Cert metadata mismatch — triggering silent re-auth to reissue certificate"
+              );
               const policyMeta = this.fetchActivePolicyMeta(agentDid);
               this.triggerCertReissue(agent, storedCapabilities, policyMeta);
             } else {
@@ -534,11 +634,16 @@ export class AgentWSServer {
           // Extend timeout for admin approval
           clearTimeout(pending.timer);
           pending.timer = setTimeout(() => {
-            logger.warn({ registrationId }, "Registration approval timeout — closing connection");
+            logger.warn(
+              { registrationId },
+              "Registration approval timeout — closing connection"
+            );
             this.sendMessage(pending.sender, {
               messageId: `auth-fail-${Date.now()}`,
               type: "auth_failed",
-              payload: { reason: "Registration approval timeout" } satisfies WSAuthFailedPayload,
+              payload: {
+                reason: "Registration approval timeout",
+              } satisfies WSAuthFailedPayload,
               timestamp: new Date().toISOString(),
             });
             pending.sender.close();
@@ -547,10 +652,25 @@ export class AgentWSServer {
           }, REGISTRATION_TIMEOUT_MS);
 
           // Persist pending registration with the capabilities the agent requested
-          createPendingRegistration(registrationId, pending.sessionId, pending.agentName ?? "unknown", pending.capabilities ?? []);
+          createPendingRegistration(
+            registrationId,
+            pending.sessionId,
+            pending.agentName ?? "unknown",
+            pending.capabilities ?? []
+          );
 
-          logActivity("registration_requested", agentDid, pending.agentName, JSON.stringify({ registrationId, did: agentDid }));
-          this.appendLog(pending.sender.transport, "info", "registration_pending", pending.agentName ?? agentDid.slice(0, 16));
+          logActivity(
+            "registration_requested",
+            agentDid,
+            pending.agentName,
+            JSON.stringify({ registrationId, did: agentDid })
+          );
+          this.appendLog(
+            pending.sender.transport,
+            "info",
+            "registration_pending",
+            pending.agentName ?? agentDid.slice(0, 16)
+          );
           this.broadcastAdminUpdate("registration_requested");
 
           // Notify agent it's pending
@@ -559,12 +679,16 @@ export class AgentWSServer {
             type: "registration_pending",
             payload: {
               registrationId,
-              message: "Identity verified. Registration pending admin approval.",
+              message:
+                "Identity verified. Registration pending admin approval.",
             } satisfies WSRegistrationPendingPayload,
             timestamp: new Date().toISOString(),
           });
 
-          logger.info({ registrationId, agentDid, agentName: pending.agentName }, "Unknown DID — registration pending admin approval");
+          logger.info(
+            { registrationId, agentDid, agentName: pending.agentName },
+            "Unknown DID — registration pending admin approval"
+          );
         }
       } else if (result.done && !result.success) {
         // Auth failed
@@ -574,11 +698,16 @@ export class AgentWSServer {
         this.sendMessage(pending.sender, {
           messageId: `auth-fail-${Date.now()}`,
           type: "auth_failed",
-          payload: { reason: result.error ?? "Authentication failed" } satisfies WSAuthFailedPayload,
+          payload: {
+            reason: result.error ?? "Authentication failed",
+          } satisfies WSAuthFailedPayload,
           timestamp: new Date().toISOString(),
         });
 
-        logger.warn({ sessionId: pending.sessionId, error: result.error }, "Auth failed");
+        logger.warn(
+          { sessionId: pending.sessionId, error: result.error },
+          "Auth failed"
+        );
         pending.sender.close();
       } else {
         // Challenge in progress — send next data
@@ -633,7 +762,11 @@ export class AgentWSServer {
         "intent_result",
         agentId,
         agentId ? this.agents.get(agentId)?.name : undefined,
-        JSON.stringify({ intentId: payload.intentId, status: payload.status, output: payload.output }),
+        JSON.stringify({
+          intentId: payload.intentId,
+          status: payload.status,
+          output: payload.output,
+        })
       );
       if (payload.intentId) {
         try {
@@ -641,9 +774,11 @@ export class AgentWSServer {
             payload.intentId,
             payload.status === "success" ? "success" : "failed",
             payload.output,
-            typeof payload.error === "string" ? payload.error : undefined,
+            typeof payload.error === "string" ? payload.error : undefined
           );
-        } catch { /* non-fatal — intent may not have been logged (e.g. peer-originated) */ }
+        } catch {
+          /* non-fatal — intent may not have been logged (e.g. peer-originated) */
+        }
       }
     } catch (error) {
       logger.error(error, "Error handling execution result");
@@ -668,7 +803,7 @@ export class AgentWSServer {
         // Only overwrite if the CP thinks the source is still syncing — never
         // downgrade a ready/error state the CP already recorded.
         const existing = getKnowledgeSource(s.sourceId);
-        if (!existing || existing.status !== 'syncing') continue;
+        if (!existing || existing.status !== "syncing") continue;
 
         updateKnowledgeSourceStatus(s.sourceId, s.status, {
           docCount: s.docCount,
@@ -679,42 +814,51 @@ export class AgentWSServer {
       }
 
       if (updated > 0) {
-        logger.info({ agentId, updated }, 'Reconciled stuck knowledge sources on agent reconnect');
+        logger.info(
+          { agentId, updated },
+          "Reconciled stuck knowledge sources on agent reconnect"
+        );
       }
     } catch (err) {
-      logger.error(err, 'Error handling knowledge_status_sync');
+      logger.error(err, "Error handling knowledge_status_sync");
     }
   }
 
   private handleKnowledgeSyncResult(message: WSMessage): void {
     try {
       const { agentId, payload } = message;
-      const { sourceId, status, docsProcessed, chunksCreated, errors } = payload as {
-        sourceId: string;
-        status: 'ready' | 'error';
-        docsProcessed?: number;
-        chunksCreated?: number;
-        errors?: string[];
-      };
+      const { sourceId, status, docsProcessed, chunksCreated, errors } =
+        payload as {
+          sourceId: string;
+          status: "ready" | "error";
+          docsProcessed?: number;
+          chunksCreated?: number;
+          errors?: string[];
+        };
 
       if (!sourceId) {
-        logger.warn({ agentId }, 'knowledge_sync_result missing sourceId — ignored');
+        logger.warn(
+          { agentId },
+          "knowledge_sync_result missing sourceId — ignored"
+        );
         return;
       }
 
-      const errorMsg = errors?.length ? errors.join('; ') : undefined;
+      const errorMsg = errors?.length ? errors.join("; ") : undefined;
       updateKnowledgeSourceStatus(sourceId, status, {
         docCount: docsProcessed,
         chunkCount: chunksCreated,
         error: errorMsg ?? null,
       });
 
-      logger.info({ agentId, sourceId, status, docsProcessed, chunksCreated, errors },
-        'Knowledge sync result received — status updated');
+      logger.info(
+        { agentId, sourceId, status, docsProcessed, chunksCreated, errors },
+        "Knowledge sync result received — status updated"
+      );
 
       if (agentId) updateAgentLastSeen(agentId);
     } catch (err) {
-      logger.error(err, 'Error handling knowledge_sync_result');
+      logger.error(err, "Error handling knowledge_sync_result");
     }
   }
 
@@ -727,19 +871,21 @@ export class AgentWSServer {
       if (agentId) updateAgentLastSeen(agentId);
 
       // Sync agent-reported config from heartbeat payload
-      const hbPayload = message.payload as {
-        uptime?: number;
-        memory?: unknown;
-        activeLlm?: { provider: string; model: string };
-        name?: string;
-        tokenUsage?: {
-          total: { promptTokens: number; completionTokens: number };
-          sinceLastSync: { promptTokens: number; completionTokens: number };
-          daily?: { promptTokens: number; completionTokens: number };
-          monthly?: { promptTokens: number; completionTokens: number };
-          dailyPriceSpent?: number;
-        };
-      } | undefined;
+      const hbPayload = message.payload as
+        | {
+            uptime?: number;
+            memory?: unknown;
+            activeLlm?: { provider: string; model: string };
+            name?: string;
+            tokenUsage?: {
+              total: { promptTokens: number; completionTokens: number };
+              sinceLastSync: { promptTokens: number; completionTokens: number };
+              daily?: { promptTokens: number; completionTokens: number };
+              monthly?: { promptTokens: number; completionTokens: number };
+              dailyPriceSpent?: number;
+            };
+          }
+        | undefined;
       if (hbPayload?.activeLlm) {
         agent.reportedLlm = hbPayload.activeLlm;
       }
@@ -753,7 +899,8 @@ export class AgentWSServer {
           agent.tokenUsage = { promptTokens: 0, completionTokens: 0 };
         }
         agent.tokenUsage.promptTokens = hbPayload.tokenUsage.total.promptTokens;
-        agent.tokenUsage.completionTokens = hbPayload.tokenUsage.total.completionTokens;
+        agent.tokenUsage.completionTokens =
+          hbPayload.tokenUsage.total.completionTokens;
 
         // Store daily and monthly stats
         if (hbPayload.tokenUsage.daily) {
@@ -767,13 +914,18 @@ export class AgentWSServer {
         }
 
         // Persist token usage to DB for the agent
-        upsertTokenUsage(agentId, agent.tokenUsage.promptTokens, agent.tokenUsage.completionTokens);
+        upsertTokenUsage(
+          agentId,
+          agent.tokenUsage.promptTokens,
+          agent.tokenUsage.completionTokens
+        );
 
         // Update realm token usage if delta is provided
         if (hbPayload.tokenUsage.sinceLastSync) {
           const agentRealms = getAgentRealms(agentId);
           const deltaPrompt = hbPayload.tokenUsage.sinceLastSync.promptTokens;
-          const deltaCompletion = hbPayload.tokenUsage.sinceLastSync.completionTokens;
+          const deltaCompletion =
+            hbPayload.tokenUsage.sinceLastSync.completionTokens;
 
           // Record in daily/monthly history buckets
           addAgentTokenUsageHistory(agentId, deltaPrompt, deltaCompletion);
@@ -813,9 +965,13 @@ export class AgentWSServer {
       cb(payload);
       if (payload.done || payload.error) {
         this.chatCallbacks.delete(payload.conversationId);
+        this.chatApprovalCallbacks.delete(payload.conversationId);
       }
     } else {
-      logger.warn({ conversationId: payload.conversationId }, "No callback for chat response");
+      logger.warn(
+        { conversationId: payload.conversationId },
+        "No callback for chat response"
+      );
     }
   }
 
@@ -824,12 +980,15 @@ export class AgentWSServer {
     const cb = this.chatSessionsCallbacks.get(agentId);
     if (cb) {
       this.chatSessionsCallbacks.delete(agentId);
-      cb(message.payload as import("@vaultysclaw/shared").WSChatSessionsResponsePayload);
+      cb(
+        message.payload as import("@vaultysclaw/shared").WSChatSessionsResponsePayload
+      );
     }
   }
 
   private handleChatHistoryResponse(message: WSMessage): void {
-    const payload = message.payload as import("@vaultysclaw/shared").WSChatHistoryResponsePayload;
+    const payload =
+      message.payload as import("@vaultysclaw/shared").WSChatHistoryResponsePayload;
     const key = `${message.agentId ?? ""}:${payload.sessionId}`;
     const cb = this.chatHistoryCallbacks.get(key);
     if (cb) {
@@ -868,7 +1027,10 @@ export class AgentWSServer {
   }
 
   /** Request the list of chat sessions from an agent. Resolves when the agent responds (10 s timeout). */
-  getChatSessions(agentDid: string, limit = 50): Promise<import("@vaultysclaw/shared").ChatSession[]> {
+  getChatSessions(
+    agentDid: string,
+    limit = 50
+  ): Promise<import("@vaultysclaw/shared").ChatSession[]> {
     return new Promise((resolve, reject) => {
       const agent = this.agents.get(agentDid);
       if (!agent || !agent.sender.isOpen()) {
@@ -886,14 +1048,19 @@ export class AgentWSServer {
         messageId: `get-sessions-${Date.now()}`,
         type: "get_chat_sessions",
         agentId: agentDid,
-        payload: { limit } satisfies import("@vaultysclaw/shared").WSGetChatSessionsPayload,
+        payload: {
+          limit,
+        } satisfies import("@vaultysclaw/shared").WSGetChatSessionsPayload,
         timestamp: new Date().toISOString(),
       });
     });
   }
 
   /** Request the full message history of one session from an agent. */
-  getChatHistory(agentDid: string, sessionId: string): Promise<import("@vaultysclaw/shared").ChatHistoryMessage[]> {
+  getChatHistory(
+    agentDid: string,
+    sessionId: string
+  ): Promise<import("@vaultysclaw/shared").ChatHistoryMessage[]> {
     return new Promise((resolve, reject) => {
       const agent = this.agents.get(agentDid);
       if (!agent || !agent.sender.isOpen()) {
@@ -912,7 +1079,9 @@ export class AgentWSServer {
         messageId: `get-history-${Date.now()}`,
         type: "get_chat_history",
         agentId: agentDid,
-        payload: { sessionId } satisfies import("@vaultysclaw/shared").WSGetChatHistoryPayload,
+        payload: {
+          sessionId,
+        } satisfies import("@vaultysclaw/shared").WSGetChatHistoryPayload,
         timestamp: new Date().toISOString(),
       });
     });
@@ -924,7 +1093,10 @@ export class AgentWSServer {
     const payload = message.payload as WSToolApprovalRequestPayload;
     const agentId = message.agentId ?? payload.agentId ?? "";
 
-    logger.info({ agentId, requestId: payload.requestId, tool: payload.toolName }, "Tool approval request received");
+    logger.info(
+      { agentId, requestId: payload.requestId, tool: payload.toolName },
+      "Tool approval request received"
+    );
 
     this.pendingToolApprovals.set(payload.requestId, {
       agentId,
@@ -933,7 +1105,16 @@ export class AgentWSServer {
     });
 
     // Auto-cleanup after 3 minutes
-    setTimeout(() => this.pendingToolApprovals.delete(payload.requestId), 180_000);
+    setTimeout(
+      () => this.pendingToolApprovals.delete(payload.requestId),
+      180_000
+    );
+
+    // Forward to active chat stream if this approval is tied to a conversation
+    if (payload.conversationId) {
+      const chatCb = this.chatApprovalCallbacks.get(payload.conversationId);
+      if (chatCb) chatCb(payload);
+    }
   }
 
   private handleToolExecution(message: WSMessage): void {
@@ -950,8 +1131,20 @@ export class AgentWSServer {
   }
 
   /** Get all pending tool approval requests (for admin UI). */
-  getPendingToolApprovals(): Array<WSToolApprovalRequestPayload & { agentId: string; agentName?: string; createdAt: number }> {
-    const result: Array<WSToolApprovalRequestPayload & { agentId: string; agentName?: string; createdAt: number }> = [];
+  getPendingToolApprovals(): Array<
+    WSToolApprovalRequestPayload & {
+      agentId: string;
+      agentName?: string;
+      createdAt: number;
+    }
+  > {
+    const result: Array<
+      WSToolApprovalRequestPayload & {
+        agentId: string;
+        agentName?: string;
+        createdAt: number;
+      }
+    > = [];
     for (const [, entry] of this.pendingToolApprovals) {
       const agent = this.agents.get(entry.agentId);
       result.push({
@@ -965,7 +1158,11 @@ export class AgentWSServer {
   }
 
   /** Send an approval/rejection response back to the agent. */
-  respondToToolApproval(requestId: string, approved: boolean, reason?: string): boolean {
+  respondToToolApproval(
+    requestId: string,
+    approved: boolean,
+    reason?: string
+  ): boolean {
     const entry = this.pendingToolApprovals.get(requestId);
     if (!entry) {
       logger.warn({ requestId }, "No pending approval for this request");
@@ -993,25 +1190,42 @@ export class AgentWSServer {
 
     this.pendingToolApprovals.delete(requestId);
 
-    logger.info({ requestId, approved, agentId: entry.agentId }, "Tool approval response sent");
+    logger.info(
+      { requestId, approved, agentId: entry.agentId },
+      "Tool approval response sent"
+    );
     logActivity(
       approved ? "tool_approved" : "tool_rejected",
       entry.agentId,
       undefined,
-      JSON.stringify({ tool: entry.payload.toolName, args: entry.payload.args, reason }),
+      JSON.stringify({
+        tool: entry.payload.toolName,
+        args: entry.payload.args,
+        reason,
+      })
     );
 
     return true;
   }
 
   /** Register a callback for tool execution events on a conversation. */
-  onToolExecution(conversationId: string, callback: (payload: WSToolExecutionPayload & { agentId: string }) => void): void {
+  onToolExecution(
+    conversationId: string,
+    callback: (payload: WSToolExecutionPayload & { agentId: string }) => void
+  ): void {
     this.toolExecutionCallbacks.set(conversationId, callback);
-    setTimeout(() => this.toolExecutionCallbacks.delete(conversationId), 5 * 60_000);
+    setTimeout(
+      () => this.toolExecutionCallbacks.delete(conversationId),
+      5 * 60_000
+    );
   }
 
   /** Enqueue a task on an agent via WS. */
-  sendTaskToAgent(agentId: string, action: string, params: Record<string, unknown> = {}): boolean {
+  sendTaskToAgent(
+    agentId: string,
+    action: string,
+    params: Record<string, unknown> = {}
+  ): boolean {
     const agent = this.agents.get(agentId);
     if (!agent || !agent.sender.isOpen()) return false;
     this.sendMessage(agent.sender, {
@@ -1025,7 +1239,17 @@ export class AgentWSServer {
   }
 
   /** Send a schedule upsert to an agent via WS. */
-  sendScheduleToAgent(agentId: string, schedule: { id: string; name: string; cron: string; action: string; params?: Record<string, unknown>; enabled?: boolean }): boolean {
+  sendScheduleToAgent(
+    agentId: string,
+    schedule: {
+      id: string;
+      name: string;
+      cron: string;
+      action: string;
+      params?: Record<string, unknown>;
+      enabled?: boolean;
+    }
+  ): boolean {
     const agent = this.agents.get(agentId);
     if (!agent || !agent.sender.isOpen()) return false;
     this.sendMessage(agent.sender, {
@@ -1060,12 +1284,26 @@ export class AgentWSServer {
       // If the agent was awaiting approval, clean up the DB row
       if (pending.registrationId) {
         deletePendingRegistration(pending.registrationId);
-        logger.info({ registrationId: pending.registrationId, agentName: pending.agentName }, "Pending registration removed — agent disconnected");
-        this.appendLog(sender.transport, "warn", "pending_disconnected", pending.agentName ?? pending.registrationId);
+        logger.info(
+          {
+            registrationId: pending.registrationId,
+            agentName: pending.agentName,
+          },
+          "Pending registration removed — agent disconnected"
+        );
+        this.appendLog(
+          sender.transport,
+          "warn",
+          "pending_disconnected",
+          pending.agentName ?? pending.registrationId
+        );
         this.broadcastAdminUpdate("registration_disconnected");
       }
       this.pending.delete(sender);
-      logger.debug({ sessionId: pending.sessionId }, "Pending connection closed");
+      logger.debug(
+        { sessionId: pending.sessionId },
+        "Pending connection closed"
+      );
       return;
     }
 
@@ -1099,23 +1337,35 @@ export class AgentWSServer {
    * Since auth already completed before pending, the agent's DID is verified.
    * Directly promotes the connection to authenticated with admin-assigned capabilities.
    */
-  approveRegistration(registrationId: string, capabilities: AgentCapability[]): boolean {
+  approveRegistration(
+    registrationId: string,
+    capabilities: AgentCapability[]
+  ): boolean {
     // Find the pending connection with this registration ID
     let target: PendingConnection | undefined;
     for (const pending of this.pending.values()) {
-      if (pending.registrationId === registrationId && pending.phase === "awaiting_approval") {
+      if (
+        pending.registrationId === registrationId &&
+        pending.phase === "awaiting_approval"
+      ) {
         target = pending;
         break;
       }
     }
 
     if (!target) {
-      logger.warn({ registrationId }, "No pending connection found for registration");
+      logger.warn(
+        { registrationId },
+        "No pending connection found for registration"
+      );
       return false;
     }
 
     if (!target.agentDid) {
-      logger.warn({ registrationId }, "Pending connection has no verified DID — cannot approve");
+      logger.warn(
+        { registrationId },
+        "Pending connection has no verified DID — cannot approve"
+      );
       return false;
     }
 
@@ -1148,8 +1398,18 @@ export class AgentWSServer {
 
     this.agents.set(agentDid, agent);
 
-    logActivity("registration_approved", agentDid, agent.name, JSON.stringify({ registrationId, capabilities }));
-    this.appendLog(target.sender.transport, "info", "approved", `${agent.name} · ${capabilities.length} caps`);
+    logActivity(
+      "registration_approved",
+      agentDid,
+      agent.name,
+      JSON.stringify({ registrationId, capabilities })
+    );
+    this.appendLog(
+      target.sender.transport,
+      "info",
+      "approved",
+      `${agent.name} · ${capabilities.length} caps`
+    );
     this.broadcastAdminUpdate("registration_approved");
 
     // Enroll agent in default realm on first approval
@@ -1178,12 +1438,19 @@ export class AgentWSServer {
       timestamp: new Date().toISOString(),
     });
 
-    logger.info({ registrationId, agentDid, capabilities }, "Registration approved — agent connected");
+    logger.info(
+      { registrationId, agentDid, capabilities },
+      "Registration approved — agent connected"
+    );
 
     // Trigger a certificate reissue so the cert metadata reflects the admin-assigned
     // capabilities (and any active governance policy limits).
     const policyMeta = this.fetchActivePolicyMeta(agentDid);
-    this.triggerCertReissue(agent, capabilities as AgentCapability[], policyMeta);
+    this.triggerCertReissue(
+      agent,
+      capabilities as AgentCapability[],
+      policyMeta
+    );
 
     // Push any stored LLM config now that the agent is registered and connected.
     this.pushStoredLlmConfig(agentDid);
@@ -1195,10 +1462,16 @@ export class AgentWSServer {
   /**
    * Reject a pending registration. Closes the agent's connection.
    */
-  rejectRegistration(registrationId: string, reason: string = "Registration rejected"): boolean {
+  rejectRegistration(
+    registrationId: string,
+    reason: string = "Registration rejected"
+  ): boolean {
     let target: PendingConnection | undefined;
     for (const pending of this.pending.values()) {
-      if (pending.registrationId === registrationId && pending.phase === "awaiting_approval") {
+      if (
+        pending.registrationId === registrationId &&
+        pending.phase === "awaiting_approval"
+      ) {
         target = pending;
         break;
       }
@@ -1214,7 +1487,12 @@ export class AgentWSServer {
     // Remove from pending_registrations — activity_log keeps the rejection record
     deletePendingRegistration(registrationId);
 
-    logActivity("registration_rejected", undefined, reg.agent_name, JSON.stringify({ registrationId, reason }));
+    logActivity(
+      "registration_rejected",
+      undefined,
+      reg.agent_name,
+      JSON.stringify({ registrationId, reason })
+    );
     this.broadcastAdminUpdate("registration_rejected");
 
     // If agent is still connected, send rejection message and clean up connection
@@ -1243,7 +1521,10 @@ export class AgentWSServer {
    * update_capabilities message so the agent re-authenticates and gets
    * a fresh certificate with the new capabilities.
    */
-  updateAgentCapabilities(agentDid: string, capabilities: AgentCapability[]): boolean {
+  updateAgentCapabilities(
+    agentDid: string,
+    capabilities: AgentCapability[]
+  ): boolean {
     // Update in DB
     const existing = getAgent(agentDid);
     if (!existing) {
@@ -1258,7 +1539,12 @@ export class AgentWSServer {
       certificateData: existing.certificate_data ?? undefined,
     });
 
-    logActivity("capabilities_updated", agentDid, existing.name, JSON.stringify({ capabilities }));
+    logActivity(
+      "capabilities_updated",
+      agentDid,
+      existing.name,
+      JSON.stringify({ capabilities })
+    );
     this.broadcastAdminUpdate("capabilities_updated");
 
     // If agent is connected, notify it to re-authenticate
@@ -1272,7 +1558,10 @@ export class AgentWSServer {
 
       // Move agent back to pending for re-auth
       const timer = setTimeout(() => {
-        logger.warn({ agentDid }, "Re-auth timeout after capability update — keeping old connection");
+        logger.warn(
+          { agentDid },
+          "Re-auth timeout after capability update — keeping old connection"
+        );
         this.pending.delete(connected.sender);
       }, AUTH_TIMEOUT_MS);
 
@@ -1305,9 +1594,15 @@ export class AgentWSServer {
         timestamp: new Date().toISOString(),
       });
 
-      logger.info({ agentDid, capabilities }, "Sent capability update + re-auth to agent");
+      logger.info(
+        { agentDid, capabilities },
+        "Sent capability update + re-auth to agent"
+      );
     } else {
-      logger.info({ agentDid, capabilities }, "Capabilities updated in DB (agent offline)");
+      logger.info(
+        { agentDid, capabilities },
+        "Capabilities updated in DB (agent offline)"
+      );
     }
 
     return true;
@@ -1318,11 +1613,18 @@ export class AgentWSServer {
    * certificate with correct capability metadata is issued.
    * Does NOT update the DB or emit admin broadcasts — purely an internal cert refresh.
    */
-  private triggerCertReissue(agent: ConnectedAgent, capabilities: AgentCapability[], policyMeta?: PolicyMeta): void {
+  private triggerCertReissue(
+    agent: ConnectedAgent,
+    capabilities: AgentCapability[],
+    policyMeta?: PolicyMeta
+  ): void {
     const { sessionId } = createAuthSession();
 
     const timer = setTimeout(() => {
-      logger.warn({ agentId: agent.id }, "Cert re-issue re-auth timeout — keeping existing connection");
+      logger.warn(
+        { agentId: agent.id },
+        "Cert re-issue re-auth timeout — keeping existing connection"
+      );
       this.pending.delete(agent.sender);
     }, AUTH_TIMEOUT_MS);
 
@@ -1371,7 +1673,9 @@ export class AgentWSServer {
       if (policies.length === 0) return undefined;
       const p = policies[0];
       return {
-        resourceLimits: p.resource_limits ? JSON.parse(p.resource_limits) : null,
+        resourceLimits: p.resource_limits
+          ? JSON.parse(p.resource_limits)
+          : null,
         policyId: p.id,
         policyExpiresAt: p.expires_at ?? null,
       };
@@ -1390,7 +1694,7 @@ export class AgentWSServer {
   applyPolicy(
     agentDid: string,
     capabilities: AgentCapability[],
-    policyMeta?: PolicyMeta,
+    policyMeta?: PolicyMeta
   ): boolean {
     // Always update the DB so the next reconnect picks up the correct capabilities.
     const knownAgent = getAgent(agentDid);
@@ -1432,12 +1736,15 @@ export class AgentWSServer {
       ws: {
         ...this.transportStats.ws,
         activeAgents: agents.filter((a) => a.transport === "ws").length,
-        pendingConnections: pending.filter((p) => p.sender.transport === "ws").length,
+        pendingConnections: pending.filter((p) => p.sender.transport === "ws")
+          .length,
       },
       peerjs: {
         ...this.transportStats.peerjs,
         activeAgents: agents.filter((a) => a.transport === "peerjs").length,
-        pendingConnections: pending.filter((p) => p.sender.transport === "peerjs").length,
+        pendingConnections: pending.filter(
+          (p) => p.sender.transport === "peerjs"
+        ).length,
       },
       agents: agents.map((a) => ({
         id: a.id,
@@ -1461,7 +1768,7 @@ export class AgentWSServer {
     intentId: string,
     action: string,
     params: Record<string, any>,
-    userDid?: string,
+    userDid?: string
   ): boolean {
     const agent = this.agents.get(agentId);
     if (!agent || !agent.sender.isOpen()) {
@@ -1486,7 +1793,11 @@ export class AgentWSServer {
     try {
       agent.sender.sendRaw(JSON.stringify(message));
       logger.info({ agentId, intentId, action }, "Intent sent to agent");
-      try { logIntent(intentId, agentId, action, params); } catch { /* non-fatal */ }
+      try {
+        logIntent(intentId, agentId, action, params);
+      } catch {
+        /* non-fatal */
+      }
       return true;
     } catch (error) {
       logger.error(error, "Failed to send intent to agent");
@@ -1506,6 +1817,7 @@ export class AgentWSServer {
     conversationId: string,
     messages: ChatMessageEntry[],
     onChunk: (payload: WSChatResponsePayload) => void,
+    onApprovalRequest?: (payload: WSToolApprovalRequestPayload) => void
   ): boolean {
     const agent = this.agents.get(agentDid);
     if (!agent || !agent.sender.isOpen()) {
@@ -1513,9 +1825,15 @@ export class AgentWSServer {
     }
 
     this.chatCallbacks.set(conversationId, onChunk);
+    if (onApprovalRequest) {
+      this.chatApprovalCallbacks.set(conversationId, onApprovalRequest);
+    }
 
     // Auto-cleanup after 5 minutes to prevent memory leaks
-    setTimeout(() => this.chatCallbacks.delete(conversationId), 5 * 60_000);
+    setTimeout(() => {
+      this.chatCallbacks.delete(conversationId);
+      this.chatApprovalCallbacks.delete(conversationId);
+    }, 5 * 60_000);
 
     this.sendMessage(agent.sender, {
       messageId: `chat-${Date.now()}`,
@@ -1525,7 +1843,10 @@ export class AgentWSServer {
       timestamp: new Date().toISOString(),
     });
 
-    logger.info({ agentDid, conversationId, messageCount: messages.length }, "Chat message sent to agent");
+    logger.info(
+      { agentDid, conversationId, messageCount: messages.length },
+      "Chat message sent to agent"
+    );
     return true;
   }
 
@@ -1534,13 +1855,15 @@ export class AgentWSServer {
     intentId: string,
     action: string,
     params: Record<string, any>,
-    userDid?: string,
+    userDid?: string
   ): string[] {
     const recipientIds: string[] = [];
 
     for (const [agentId, agent] of this.agents.entries()) {
       if (agent.capabilities.includes(capability)) {
-        if (this.sendIntentToAgent(agentId, intentId, action, params, userDid)) {
+        if (
+          this.sendIntentToAgent(agentId, intentId, action, params, userDid)
+        ) {
           recipientIds.push(agentId);
         }
       }
@@ -1555,14 +1878,19 @@ export class AgentWSServer {
   }
 
   /** @deprecated Use applyPolicy() — policies are now enforced via cert reissue, not a separate message. */
-  sendPolicyUpdate(_agentId: string, _policy: Record<string, unknown>): boolean {
+  sendPolicyUpdate(
+    _agentId: string,
+    _policy: Record<string, unknown>
+  ): boolean {
     logger.warn("sendPolicyUpdate is deprecated — use applyPolicy() instead");
     return false;
   }
 
   /** @deprecated Use applyPolicy() — policies are now enforced via cert reissue, not a separate message. */
   broadcastPolicyUpdate(_policy: Record<string, unknown>): string[] {
-    logger.warn("broadcastPolicyUpdate is deprecated — use applyPolicy() instead");
+    logger.warn(
+      "broadcastPolicyUpdate is deprecated — use applyPolicy() instead"
+    );
     return [];
   }
 
@@ -1646,7 +1974,10 @@ export class AgentWSServer {
       timestamp: new Date().toISOString(),
     });
 
-    logger.info({ agentDid, count: delegations.length }, "Pushed delegation update to agent");
+    logger.info(
+      { agentDid, count: delegations.length },
+      "Pushed delegation update to agent"
+    );
   }
 
   /**
@@ -1680,7 +2011,11 @@ export class AgentWSServer {
     });
 
     logger.info(
-      { agentDid, provider: config?.provider ?? null, model: config?.model ?? null },
+      {
+        agentDid,
+        provider: config?.provider ?? null,
+        model: config?.model ?? null,
+      },
       config ? "LLM config pushed to agent" : "LLM config cleared for agent"
     );
     return true;
@@ -1697,7 +2032,10 @@ export class AgentWSServer {
       const config = JSON.parse(row.llm_config) as LlmConfig;
       this.sendLlmConfig(agentDid, config);
     } catch {
-      logger.warn({ agentDid }, "Failed to parse stored LLM config — skipping push");
+      logger.warn(
+        { agentDid },
+        "Failed to parse stored LLM config — skipping push"
+      );
     }
   }
 
@@ -1719,7 +2057,10 @@ export class AgentWSServer {
       timestamp: new Date().toISOString(),
     });
 
-    logger.info({ agentDid, count: skills.length }, "Pushed skills config to agent");
+    logger.info(
+      { agentDid, count: skills.length },
+      "Pushed skills config to agent"
+    );
   }
 
   /**
@@ -1729,7 +2070,7 @@ export class AgentWSServer {
    */
   registerResultCallback(
     intentId: string,
-    callback: (result: any) => void,
+    callback: (result: any) => void
   ): () => void {
     this.resultCallbacks.set(intentId, callback);
 
@@ -1759,14 +2100,24 @@ export class AgentWSServer {
   /**
    * Dispatch a knowledge_sync intent to a specific agent.
    */
-  sendKnowledgeSync(agentDid: string, messageId: string, payload: {
-    sourceId: string;
-    sourceName: string;
-    sourceType: string;
-    config: Record<string, unknown>;
-    docling?: { url: string; sourceEndpoint?: string; fileEndpoint?: string };
-    fileAttachments?: Array<{ id: string; name: string; mimeType: string; size: number; content: string }>;
-  }): void {
+  sendKnowledgeSync(
+    agentDid: string,
+    messageId: string,
+    payload: {
+      sourceId: string;
+      sourceName: string;
+      sourceType: string;
+      config: Record<string, unknown>;
+      docling?: { url: string; sourceEndpoint?: string; fileEndpoint?: string };
+      fileAttachments?: Array<{
+        id: string;
+        name: string;
+        mimeType: string;
+        size: number;
+        content: string;
+      }>;
+    }
+  ): void {
     const agent = this.agents.get(agentDid);
     if (!agent || !agent.sender.isOpen()) {
       logger.warn({ agentDid }, "sendKnowledgeSync: agent not connected");
@@ -1779,7 +2130,10 @@ export class AgentWSServer {
       payload,
       timestamp: new Date().toISOString(),
     } as any);
-    logger.info({ agentDid, messageId, sourceId: payload.sourceId }, "Knowledge sync dispatched to agent");
+    logger.info(
+      { agentDid, messageId, sourceId: payload.sourceId },
+      "Knowledge sync dispatched to agent"
+    );
   }
 
   shutdown(): void {
@@ -1818,7 +2172,12 @@ export class AgentWSServer {
   acceptPeerjsConnection(sender: AgentSender): void {
     try {
       this.transportStats.peerjs.connectionsTotal++;
-      this.appendLog("peerjs", "info", "connected", "WebRTC data channel opened");
+      this.appendLog(
+        "peerjs",
+        "info",
+        "connected",
+        "WebRTC data channel opened"
+      );
       const { sessionId } = createAuthSession();
 
       const timer = setTimeout(() => {
@@ -1826,14 +2185,21 @@ export class AgentWSServer {
         this.sendMessage(sender, {
           messageId: `auth-fail-${Date.now()}`,
           type: "auth_failed",
-          payload: { reason: "Authentication timeout" } satisfies WSAuthFailedPayload,
+          payload: {
+            reason: "Authentication timeout",
+          } satisfies WSAuthFailedPayload,
           timestamp: new Date().toISOString(),
         });
         sender.close();
         this.pending.delete(sender);
       }, AUTH_TIMEOUT_MS);
 
-      this.pending.set(sender, { sender, sessionId, phase: "awaiting_register", timer });
+      this.pending.set(sender, {
+        sender,
+        sessionId,
+        phase: "awaiting_register",
+        timer,
+      });
 
       this.sendMessage(sender, {
         messageId: `auth-${Date.now()}`,
@@ -1842,8 +2208,15 @@ export class AgentWSServer {
         timestamp: new Date().toISOString(),
       });
 
-      this.appendLog("peerjs", "info", "auth_challenge_sent", `session ${sessionId.slice(0, 8)}`);
-      logger.info("PeerJS agent connection accepted — awaiting register or auth_challenge");
+      this.appendLog(
+        "peerjs",
+        "info",
+        "auth_challenge_sent",
+        `session ${sessionId.slice(0, 8)}`
+      );
+      logger.info(
+        "PeerJS agent connection accepted — awaiting register or auth_challenge"
+      );
     } catch (error) {
       this.appendLog("peerjs", "error", "accept_failed", String(error));
       logger.error(error, "Failed to accept PeerJS connection");
@@ -1878,8 +2251,14 @@ export function initializeWSServer(port: number): AgentWSServer {
   // Shut down any previous instance so the new code + keepAliveTimeout fix applies
   // on every tsx-watch / HMR restart (globalThis survives module re-evaluation).
   if (globalForWS.__wsServer) {
-    logger.info("Shutting down previous WS server instance (module re-evaluated)");
-    try { globalForWS.__wsServer.shutdown(); } catch { /* best effort */ }
+    logger.info(
+      "Shutting down previous WS server instance (module re-evaluated)"
+    );
+    try {
+      globalForWS.__wsServer.shutdown();
+    } catch {
+      /* best effort */
+    }
     globalForWS.__wsServer = undefined;
   }
   globalForWS.__wsServer = new AgentWSServer(port);
@@ -1901,7 +2280,9 @@ function getAdminWSS(): WebSocketServer | null {
  * Initialize the admin WebSocket server on the HTTP server.
  * Admin clients connect to ws://host:port/ws/admin for live state updates.
  */
-export function initializeAdminWS(httpServer: import("node:http").Server): void {
+export function initializeAdminWS(
+  httpServer: import("node:http").Server
+): void {
   if (globalForWS.__adminWSS) return;
 
   const adminWSS = new WebSocketServer({ noServer: true });

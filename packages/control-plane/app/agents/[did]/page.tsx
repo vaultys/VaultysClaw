@@ -49,7 +49,14 @@ import {
   Layers,
 } from "lucide-react";
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
 } from "recharts";
 
 const CAPABILITY_ICONS: Record<string, React.ReactNode> = {
@@ -64,9 +71,17 @@ const CAPABILITY_ICONS: Record<string, React.ReactNode> = {
   knowledge_search: <BookOpen size={16} />,
 };
 
-const RealmGraph = dynamic(() => import("@/components/graph/RealmGraph"), { ssr: false });
-const EmbeddedAgentChart = dynamic(() => import("@/components/graph/EmbeddedAgentChart"), { ssr: false });
-const AgentEnvironmentGraph = dynamic(() => import("@/components/graph/AgentEnvironmentGraph"), { ssr: false });
+const RealmGraph = dynamic(() => import("@/components/graph/RealmGraph"), {
+  ssr: false,
+});
+const EmbeddedAgentChart = dynamic(
+  () => import("@/components/graph/EmbeddedAgentChart"),
+  { ssr: false }
+);
+const AgentEnvironmentGraph = dynamic(
+  () => import("@/components/graph/AgentEnvironmentGraph"),
+  { ssr: false }
+);
 
 // ---------------------------------------------------------------------------
 // Constants & types
@@ -99,7 +114,11 @@ interface AgentDetail {
   reportedLlm: { provider: string; model: string } | null;
   storedLlm: { provider: string; model: string } | null;
   transport?: "ws" | "peerjs" | null;
-  tokenUsage: { promptTokens: number; completionTokens: number; totalTokens: number } | null;
+  tokenUsage: {
+    promptTokens: number;
+    completionTokens: number;
+    totalTokens: number;
+  } | null;
   tokenBudgetDaily: number | null;
   tokenBudgetMonthly: number | null;
   todayTokens: number;
@@ -118,9 +137,26 @@ interface LlmConfigDisplay {
 interface ChatMessage {
   role: "user" | "assistant";
   content: string;
+  thinkingContent?: string;
 }
 
-type TabId = "overview" | "chat" | "tokens" | "config" | "governance" | "automation" | "approvals" | "graph" | "knowledge";
+interface PendingApproval {
+  requestId: string;
+  toolName: string;
+  args: Record<string, unknown>;
+  status: "pending" | "submitting" | "approved" | "rejected";
+}
+
+type TabId =
+  | "overview"
+  | "chat"
+  | "tokens"
+  | "config"
+  | "governance"
+  | "automation"
+  | "approvals"
+  | "graph"
+  | "knowledge";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -145,25 +181,25 @@ function timeAgo(iso: string | null): string {
 function formatDate(iso: string | null): string {
   if (!iso) return "—";
   const date = parseUTC(iso);
-  return date.toLocaleString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    timeZoneName: 'short'
+  return date.toLocaleString("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZoneName: "short",
   });
 }
 
 function formatExpiry(iso: string | null): string {
   if (!iso) return "—";
   const date = parseUTC(iso);
-  return date.toLocaleString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
+  return date.toLocaleString("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
   });
 }
 
@@ -193,10 +229,11 @@ function TabBar({
         <button
           key={tab.id}
           onClick={() => onChange(tab.id)}
-          className={`flex items-center gap-2 px-4 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${active === tab.id
-            ? "border-indigo-500 text-indigo-400"
-            : "border-transparent text-vc-muted hover:text-vc-text hover:border-vc-ring"
-            }`}
+          className={`flex items-center gap-2 px-4 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
+            active === tab.id
+              ? "border-indigo-500 text-indigo-400"
+              : "border-transparent text-vc-muted hover:text-vc-text hover:border-vc-ring"
+          }`}
         >
           {tab.icon}
           {tab.label}
@@ -231,19 +268,25 @@ export default function AgentDetailPage() {
   const liveAgent = agentsState.agents.find((a) => a.id === did);
 
   const handleDeleteAgent = async () => {
-    if (!confirm("⚠️ Are you sure you want to delete this agent? This action cannot be undone. The agent will be permanently removed from the system.")) {
+    if (
+      !confirm(
+        "⚠️ Are you sure you want to delete this agent? This action cannot be undone. The agent will be permanently removed from the system."
+      )
+    ) {
       return;
     }
     setDeletingAgent(true);
     try {
-      const res = await fetch(`/api/agents/${encodeURIComponent(did)}`, { method: "DELETE" });
+      const res = await fetch(`/api/agents/${encodeURIComponent(did)}`, {
+        method: "DELETE",
+      });
       console.log("Delete response status:", res.status, "ok:", res.ok);
       if (res.ok) {
         router.push("/agents");
       } else {
         let errorMsg = "Failed to delete agent";
         try {
-          const data = await res.json() as { error?: string };
+          const data = (await res.json()) as { error?: string };
           errorMsg = data.error ?? errorMsg;
         } catch {
           errorMsg = `Failed to delete agent (status ${res.status})`;
@@ -262,7 +305,10 @@ export default function AgentDetailPage() {
   const fetchAgent = useCallback(async () => {
     try {
       const res = await fetch(`/api/agents/${encodeURIComponent(did)}`);
-      if (res.status === 404) { setError("Agent not found"); return; }
+      if (res.status === 404) {
+        setError("Agent not found");
+        return;
+      }
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       setAgent(await res.json());
       setError(null);
@@ -273,7 +319,9 @@ export default function AgentDetailPage() {
     }
   }, [did]);
 
-  useEffect(() => { fetchAgent(); }, [fetchAgent]);
+  useEffect(() => {
+    fetchAgent();
+  }, [fetchAgent]);
 
   // Merge live status
   useEffect(() => {
@@ -281,22 +329,25 @@ export default function AgentDetailPage() {
       setAgent((prev) =>
         prev
           ? {
-            ...prev,
-            online: liveAgent.online,
-            connectedAt: liveAgent.connectedAt,
-            lastHeartbeat: liveAgent.lastHeartbeat,
-            lastSeen: liveAgent.lastSeen,
-            capabilities: liveAgent.capabilities,
-            name: liveAgent.name,
-            reportedLlm: liveAgent.reportedLlm ?? prev.reportedLlm,
-          }
+              ...prev,
+              online: liveAgent.online,
+              connectedAt: liveAgent.connectedAt,
+              lastHeartbeat: liveAgent.lastHeartbeat,
+              lastSeen: liveAgent.lastSeen,
+              capabilities: liveAgent.capabilities,
+              name: liveAgent.name,
+              reportedLlm: liveAgent.reportedLlm ?? prev.reportedLlm,
+            }
           : prev
       );
     }
   }, [liveAgent]);
 
   useEffect(() => {
-    if (lastEvent === "agent_reconnected" || lastEvent === "capabilities_updated") {
+    if (
+      lastEvent === "agent_reconnected" ||
+      lastEvent === "capabilities_updated"
+    ) {
       fetchAgent();
     }
   }, [lastEvent, fetchAgent]);
@@ -304,7 +355,9 @@ export default function AgentDetailPage() {
   // Poll approval count for badge
   useEffect(() => {
     const refresh = async () => {
-      const res = await fetch("/api/tool-approvals").then((r) => r.json()).catch(() => ({ approvals: [] }));
+      const res = await fetch("/api/tool-approvals")
+        .then((r) => r.json())
+        .catch(() => ({ approvals: [] }));
       setPendingApprovals((res.approvals ?? []).length);
     };
     refresh();
@@ -323,7 +376,10 @@ export default function AgentDetailPage() {
   if (error || !agent) {
     return (
       <div className="p-6 max-w-5xl mx-auto">
-        <button onClick={() => router.push("/agents")} className="text-indigo-400 hover:text-indigo-300 mb-6 inline-block text-sm">
+        <button
+          onClick={() => router.push("/agents")}
+          className="text-indigo-400 hover:text-indigo-300 mb-6 inline-block text-sm"
+        >
           ← Back to Agents list
         </button>
         <div className="bg-red-50 dark:bg-red-900/40 border border-red-300 dark:border-red-700 rounded-lg px-4 py-3 text-red-600 dark:text-red-300">
@@ -340,13 +396,20 @@ export default function AgentDetailPage() {
     { id: "config", label: "Config", icon: <Settings2 size={15} /> },
     { id: "governance", label: "Governance", icon: <ShieldCheck size={15} /> },
     { id: "automation", label: "Automation", icon: <Clock size={15} /> },
-    { id: "approvals", label: "Approvals", icon: <AlertTriangle size={15} />, badge: pendingApprovals },
+    {
+      id: "approvals",
+      label: "Approvals",
+      icon: <AlertTriangle size={15} />,
+      badge: pendingApprovals,
+    },
     { id: "knowledge", label: "Knowledge", icon: <BookOpen size={15} /> },
     { id: "graph", label: "Graph", icon: <Activity size={15} /> },
   ];
 
   return (
-    <div className={`p-6 w-full max-w-7xl mx-auto ${activeTab === "chat" ? "flex flex-col flex-1 min-h-0 pb-0" : "space-y-0"}`}>
+    <div
+      className={`p-6 w-full max-w-7xl mx-auto ${activeTab === "chat" ? "flex flex-col flex-1 min-h-0 pb-0" : "space-y-0"}`}
+    >
       {/* ── Page header ── */}
       <div className="mb-4">
         <button
@@ -378,48 +441,64 @@ export default function AgentDetailPage() {
                 </span>
               )}
               {agent.online && agent.transport && (
-                <span className={`inline-flex items-center gap-1.5 text-xs font-medium rounded-full px-2.5 py-0.5 border ${
-                  agent.transport === "peerjs"
-                    ? "text-violet-700 dark:text-violet-400 bg-violet-100 dark:bg-violet-500/10 border-violet-300 dark:border-violet-500/20"
-                    : "text-sky-700 dark:text-sky-400 bg-sky-100 dark:bg-sky-500/10 border-sky-300 dark:border-sky-500/20"
-                }`}>
+                <span
+                  className={`inline-flex items-center gap-1.5 text-xs font-medium rounded-full px-2.5 py-0.5 border ${
+                    agent.transport === "peerjs"
+                      ? "text-violet-700 dark:text-violet-400 bg-violet-100 dark:bg-violet-500/10 border-violet-300 dark:border-violet-500/20"
+                      : "text-sky-700 dark:text-sky-400 bg-sky-100 dark:bg-sky-500/10 border-sky-300 dark:border-sky-500/20"
+                  }`}
+                >
                   {agent.transport === "peerjs" ? "WebRTC" : "WebSocket"}
                 </span>
               )}
-              {(agent.reportedLlm ?? agent.storedLlm) && (() => {
-                const llm = agent.reportedLlm ?? agent.storedLlm!;
-                return (
-                  <span className="inline-flex items-center gap-1.5 text-xs font-medium text-vc-muted bg-vc-raised border border-vc-ring rounded-full px-2.5 py-0.5">
-                    <Zap size={11} className="text-amber-500" />
-                    <span className="text-vc-text-2">{llm.provider}</span>
-                    <span className="text-vc-subtle">/</span>
-                    <span className="font-mono">{llm.model}</span>
-                  </span>
-                );
-              })()}
+              {(agent.reportedLlm ?? agent.storedLlm) &&
+                (() => {
+                  const llm = agent.reportedLlm ?? agent.storedLlm!;
+                  return (
+                    <span className="inline-flex items-center gap-1.5 text-xs font-medium text-vc-muted bg-vc-raised border border-vc-ring rounded-full px-2.5 py-0.5">
+                      <Zap size={11} className="text-amber-500" />
+                      <span className="text-vc-text-2">{llm.provider}</span>
+                      <span className="text-vc-subtle">/</span>
+                      <span className="font-mono">{llm.model}</span>
+                    </span>
+                  );
+                })()}
             </div>
-            <p className="text-xs font-mono text-vc-muted mt-0.5 truncate">{agent.id}</p>
+            <p className="text-xs font-mono text-vc-muted mt-0.5 truncate">
+              {agent.id}
+            </p>
           </div>
 
           {/* Quick stats */}
           <div className="hidden sm:flex gap-6 text-right flex-shrink-0">
             <div>
               <div className="text-xs text-vc-muted uppercase">Last seen</div>
-              <div className="text-sm text-vc-text">{timeAgo(agent.lastSeen)}</div>
+              <div className="text-sm text-vc-text">
+                {timeAgo(agent.lastSeen)}
+              </div>
             </div>
-            {(agent.reportedLlm ?? agent.storedLlm) && (() => {
-              const llm = agent.reportedLlm ?? agent.storedLlm!;
-              return (
-                <div>
-                  <div className="text-xs text-vc-muted uppercase">LLM</div>
-                  <div className="text-sm text-vc-text font-mono">{llm.model}</div>
-                  <div className="text-[10px] text-vc-subtle">{llm.provider}</div>
-                </div>
-              );
-            })()}
+            {(agent.reportedLlm ?? agent.storedLlm) &&
+              (() => {
+                const llm = agent.reportedLlm ?? agent.storedLlm!;
+                return (
+                  <div>
+                    <div className="text-xs text-vc-muted uppercase">LLM</div>
+                    <div className="text-sm text-vc-text font-mono">
+                      {llm.model}
+                    </div>
+                    <div className="text-[10px] text-vc-subtle">
+                      {llm.provider}
+                    </div>
+                  </div>
+                );
+              })()}
             <div>
-              <div className="text-xs text-vc-muted uppercase">Capabilities</div>
-              <div className="text-sm text-vc-text">{agent.capabilities.length}</div>
+              <div className="text-xs text-vc-muted uppercase">
+                Capabilities
+              </div>
+              <div className="text-sm text-vc-text">
+                {agent.capabilities.length}
+              </div>
             </div>
             <button
               onClick={handleDeleteAgent}
@@ -427,7 +506,11 @@ export default function AgentDetailPage() {
               className="ml-4 px-3 py-2 rounded-lg border border-red-300 dark:border-red-700/40 text-red-600 dark:text-red-400 hover:bg-red-500/10 transition-colors disabled:opacity-50 flex items-center gap-2 text-sm font-medium"
               title="Delete agent"
             >
-              {deletingAgent ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+              {deletingAgent ? (
+                <Loader2 size={14} className="animate-spin" />
+              ) : (
+                <Trash2 size={14} />
+              )}
               Delete
             </button>
           </div>
@@ -435,18 +518,47 @@ export default function AgentDetailPage() {
       </div>
 
       {/* ── Tabbed content ── */}
-      <div className={`border border-vc-border rounded-xl overflow-hidden bg-vc-surface ${activeTab === "chat" ? "flex flex-col flex-1 min-h-0" : ""}`}>
+      <div
+        className={`border border-vc-border rounded-xl overflow-hidden bg-vc-surface ${activeTab === "chat" ? "flex flex-col flex-1 min-h-0" : ""}`}
+      >
         <TabBar tabs={tabs} active={activeTab} onChange={setActiveTab} />
 
-        <div className={activeTab === "chat" ? "flex flex-col flex-1 min-h-0 overflow-hidden" : "p-6"}>
-          {activeTab === "overview" && <OverviewTab agent={agent} onTabChange={setActiveTab} />}
-          {activeTab === "chat" && <ChatTab agentId={agent.id} agentName={agent.name} online={agent.online} />}
+        <div
+          className={
+            activeTab === "chat"
+              ? "flex flex-col flex-1 min-h-0 overflow-hidden"
+              : "p-6"
+          }
+        >
+          {activeTab === "overview" && (
+            <OverviewTab agent={agent} onTabChange={setActiveTab} />
+          )}
+          {activeTab === "chat" && (
+            <ChatTab
+              agentId={agent.id}
+              agentName={agent.name}
+              online={agent.online}
+            />
+          )}
           {activeTab === "tokens" && <TokensTab agentId={agent.id} />}
-          {activeTab === "config" && <ConfigTab did={did} reportedLlm={agent.reportedLlm} />}
-          {activeTab === "governance" && <GovernanceTab did={did} agentCapabilities={agent.capabilities} />}
+          {activeTab === "config" && (
+            <ConfigTab did={did} reportedLlm={agent.reportedLlm} />
+          )}
+          {activeTab === "governance" && (
+            <GovernanceTab did={did} agentCapabilities={agent.capabilities} />
+          )}
           {activeTab === "automation" && <AutomationTab agentId={agent.id} />}
-          {activeTab === "approvals" && <ApprovalsTab onCountChange={setPendingApprovals} />}
-          {activeTab === "knowledge" && <KnowledgeTab did={did} agentName={agent.name} online={agent.online} capabilities={agent.capabilities} />}
+          {activeTab === "approvals" && (
+            <ApprovalsTab onCountChange={setPendingApprovals} />
+          )}
+          {activeTab === "knowledge" && (
+            <KnowledgeTab
+              did={did}
+              agentName={agent.name}
+              online={agent.online}
+              capabilities={agent.capabilities}
+            />
+          )}
           {activeTab === "graph" && (
             <AgentEnvironmentGraph
               agentId={agent.id}
@@ -468,11 +580,21 @@ export default function AgentDetailPage() {
 // Tab: Overview
 // ---------------------------------------------------------------------------
 
-function OverviewTab({ agent, onTabChange }: { agent: AgentDetail; onTabChange: (tab: TabId) => void }) {
+function OverviewTab({
+  agent,
+  onTabChange,
+}: {
+  agent: AgentDetail;
+  onTabChange: (tab: TabId) => void;
+}) {
   const [recentEvents, setRecentEvents] = useState<AuditEntry[]>([]);
   const [eventsLoading, setEventsLoading] = useState(true);
   const [activePolicy, setActivePolicy] = useState<PolicyEntry | null>(null);
-  const [intentStats, setIntentStats] = useState<{ success: number; failed: number; pending: number } | null>(null);
+  const [intentStats, setIntentStats] = useState<{
+    success: number;
+    failed: number;
+    pending: number;
+  } | null>(null);
 
   const overviewRouter = useRouter();
 
@@ -480,7 +602,9 @@ function OverviewTab({ agent, onTabChange }: { agent: AgentDetail; onTabChange: 
     (async () => {
       try {
         const [auditRes, policyRes] = await Promise.all([
-          fetch(`/api/governance/audit?agentDid=${encodeURIComponent(agent.id)}&limit=50`),
+          fetch(
+            `/api/governance/audit?agentDid=${encodeURIComponent(agent.id)}&limit=50`
+          ),
           fetch(`/api/policies?agentDid=${encodeURIComponent(agent.id)}`),
         ]);
         if (auditRes.ok) {
@@ -509,16 +633,29 @@ function OverviewTab({ agent, onTabChange }: { agent: AgentDetail; onTabChange: 
   const todayUsed = agent.tokenUsage?.totalTokens ?? agent.todayTokens;
   const monthUsed = agent.monthTokens;
 
-  function TokenBar({ used, budget, label }: { used: number; budget: number | null; label: string }) {
-    const pct = budget ? Math.min(100, Math.round((used / budget) * 100)) : null;
+  function TokenBar({
+    used,
+    budget,
+    label,
+  }: {
+    used: number;
+    budget: number | null;
+    label: string;
+  }) {
+    const pct = budget
+      ? Math.min(100, Math.round((used / budget) * 100))
+      : null;
     const danger = pct !== null && pct >= 90;
     const warn = pct !== null && pct >= 70 && !danger;
     return (
       <div className="space-y-1.5">
         <div className="flex justify-between text-xs">
           <span className="text-vc-muted">{label}</span>
-          <span className={`font-mono ${danger ? "text-red-600 dark:text-red-400" : warn ? "text-amber-600 dark:text-amber-400" : "text-vc-text"}`}>
-            {used.toLocaleString()}{budget ? ` / ${budget.toLocaleString()}` : ""}
+          <span
+            className={`font-mono ${danger ? "text-red-600 dark:text-red-400" : warn ? "text-amber-600 dark:text-amber-400" : "text-vc-text"}`}
+          >
+            {used.toLocaleString()}
+            {budget ? ` / ${budget.toLocaleString()}` : ""}
           </span>
         </div>
         {budget && (
@@ -536,105 +673,167 @@ function OverviewTab({ agent, onTabChange }: { agent: AgentDetail; onTabChange: 
   // Session uptime
   function sessionUptime() {
     if (!agent.online || !agent.connectedAt) return null;
-    const secs = Math.floor((Date.now() - parseUTC(agent.connectedAt).getTime()) / 1000);
+    const secs = Math.floor(
+      (Date.now() - parseUTC(agent.connectedAt).getTime()) / 1000
+    );
     if (secs < 60) return `${secs}s`;
     if (secs < 3600) return `${Math.floor(secs / 60)}m`;
-    const h = Math.floor(secs / 3600), m = Math.floor((secs % 3600) / 60);
+    const h = Math.floor(secs / 3600),
+      m = Math.floor((secs % 3600) / 60);
     return m > 0 ? `${h}h ${m}m` : `${h}h`;
   }
   const uptime = sessionUptime();
 
-  const totalIntents = intentStats ? intentStats.success + intentStats.failed + intentStats.pending : 0;
-  const successRate = totalIntents > 0 && intentStats ? Math.round((intentStats.success / totalIntents) * 100) : null;
+  const totalIntents = intentStats
+    ? intentStats.success + intentStats.failed + intentStats.pending
+    : 0;
+  const successRate =
+    totalIntents > 0 && intentStats
+      ? Math.round((intentStats.success / totalIntents) * 100)
+      : null;
 
   return (
     <div className="space-y-5">
-
       {/* ── KPI row ──────────────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {/* Session uptime */}
         <div className="bg-vc-raised border border-vc-border rounded-xl p-4">
-          <div className="text-xs text-vc-muted uppercase mb-1">Session uptime</div>
+          <div className="text-xs text-vc-muted uppercase mb-1">
+            Session uptime
+          </div>
           {uptime ? (
             <>
               <div className="text-2xl font-bold text-vc-text">{uptime}</div>
-              <div className="text-xs text-vc-subtle mt-0.5">since {timeAgo(agent.connectedAt)}</div>
+              <div className="text-xs text-vc-subtle mt-0.5">
+                since {timeAgo(agent.connectedAt)}
+              </div>
             </>
           ) : (
             <>
               <div className="text-lg font-semibold text-vc-muted">Offline</div>
-              <div className="text-xs text-vc-subtle mt-0.5">last seen {timeAgo(agent.lastSeen)}</div>
+              <div className="text-xs text-vc-subtle mt-0.5">
+                last seen {timeAgo(agent.lastSeen)}
+              </div>
             </>
           )}
         </div>
 
         {/* Tokens today */}
         <div className="bg-vc-raised border border-vc-border rounded-xl p-4">
-          <div className="text-xs text-vc-muted uppercase mb-2">Tokens today</div>
-          <div className="text-2xl font-bold text-vc-text">{todayUsed.toLocaleString()}</div>
+          <div className="text-xs text-vc-muted uppercase mb-2">
+            Tokens today
+          </div>
+          <div className="text-2xl font-bold text-vc-text">
+            {todayUsed.toLocaleString()}
+          </div>
           {agent.tokenBudgetDaily && (
             <div className="mt-2">
               <div className="flex justify-between text-[10px] text-vc-subtle mb-1">
                 <span>budget</span>
-                <span>{Math.round((todayUsed / agent.tokenBudgetDaily) * 100)}%</span>
+                <span>
+                  {Math.round((todayUsed / agent.tokenBudgetDaily) * 100)}%
+                </span>
               </div>
               <div className="h-1 bg-vc-border rounded-full overflow-hidden">
                 <div
-                  className={`h-full rounded-full ${todayUsed / agent.tokenBudgetDaily >= 0.9 ? "bg-red-500" :
-                    todayUsed / agent.tokenBudgetDaily >= 0.7 ? "bg-amber-500" : "bg-indigo-500"
-                    }`}
-                  style={{ width: `${Math.min(100, Math.round((todayUsed / agent.tokenBudgetDaily) * 100))}%` }}
+                  className={`h-full rounded-full ${
+                    todayUsed / agent.tokenBudgetDaily >= 0.9
+                      ? "bg-red-500"
+                      : todayUsed / agent.tokenBudgetDaily >= 0.7
+                        ? "bg-amber-500"
+                        : "bg-indigo-500"
+                  }`}
+                  style={{
+                    width: `${Math.min(100, Math.round((todayUsed / agent.tokenBudgetDaily) * 100))}%`,
+                  }}
                 />
               </div>
             </div>
           )}
-          {!agent.tokenBudgetDaily && <div className="text-xs text-vc-subtle mt-1">no daily limit</div>}
+          {!agent.tokenBudgetDaily && (
+            <div className="text-xs text-vc-subtle mt-1">no daily limit</div>
+          )}
         </div>
 
         {/* Tokens this month */}
         <div className="bg-vc-raised border border-vc-border rounded-xl p-4">
-          <div className="text-xs text-vc-muted uppercase mb-2">Tokens this month</div>
-          <div className="text-2xl font-bold text-vc-text">{monthUsed.toLocaleString()}</div>
+          <div className="text-xs text-vc-muted uppercase mb-2">
+            Tokens this month
+          </div>
+          <div className="text-2xl font-bold text-vc-text">
+            {monthUsed.toLocaleString()}
+          </div>
           {agent.tokenBudgetMonthly && (
             <div className="mt-2">
               <div className="flex justify-between text-[10px] text-vc-subtle mb-1">
                 <span>budget</span>
-                <span>{Math.round((monthUsed / agent.tokenBudgetMonthly) * 100)}%</span>
+                <span>
+                  {Math.round((monthUsed / agent.tokenBudgetMonthly) * 100)}%
+                </span>
               </div>
               <div className="h-1 bg-vc-border rounded-full overflow-hidden">
                 <div
-                  className={`h-full rounded-full ${monthUsed / agent.tokenBudgetMonthly >= 0.9 ? "bg-red-500" :
-                    monthUsed / agent.tokenBudgetMonthly >= 0.7 ? "bg-amber-500" : "bg-indigo-500"
-                    }`}
-                  style={{ width: `${Math.min(100, Math.round((monthUsed / agent.tokenBudgetMonthly) * 100))}%` }}
+                  className={`h-full rounded-full ${
+                    monthUsed / agent.tokenBudgetMonthly >= 0.9
+                      ? "bg-red-500"
+                      : monthUsed / agent.tokenBudgetMonthly >= 0.7
+                        ? "bg-amber-500"
+                        : "bg-indigo-500"
+                  }`}
+                  style={{
+                    width: `${Math.min(100, Math.round((monthUsed / agent.tokenBudgetMonthly) * 100))}%`,
+                  }}
                 />
               </div>
             </div>
           )}
-          {!agent.tokenBudgetMonthly && <div className="text-xs text-vc-subtle mt-1">no monthly limit</div>}
+          {!agent.tokenBudgetMonthly && (
+            <div className="text-xs text-vc-subtle mt-1">no monthly limit</div>
+          )}
         </div>
 
         {/* Intent success rate */}
         <div className="bg-vc-raised border border-vc-border rounded-xl p-4">
-          <div className="text-xs text-vc-muted uppercase mb-1">Intents (recent 50)</div>
+          <div className="text-xs text-vc-muted uppercase mb-1">
+            Intents (recent 50)
+          </div>
           {eventsLoading ? (
-            <div className="flex items-center gap-1.5 text-vc-muted text-sm mt-1"><Loader2 size={12} className="animate-spin" /> —</div>
+            <div className="flex items-center gap-1.5 text-vc-muted text-sm mt-1">
+              <Loader2 size={12} className="animate-spin" /> —
+            </div>
           ) : intentStats && totalIntents > 0 ? (
             <>
               <div className="text-2xl font-bold text-vc-text">
                 {successRate}%
-                <span className="text-sm font-normal text-vc-muted ml-1">success</span>
+                <span className="text-sm font-normal text-vc-muted ml-1">
+                  success
+                </span>
               </div>
               <div className="flex gap-3 mt-1.5 text-xs">
-                <span className="flex items-center gap-1 text-green-700 dark:text-green-400"><CheckCircle2 size={10} />{intentStats.success}</span>
-                {intentStats.failed > 0 && <span className="flex items-center gap-1 text-red-600 dark:text-red-400"><XCircle size={10} />{intentStats.failed}</span>}
-                {intentStats.pending > 0 && <span className="flex items-center gap-1 text-vc-muted"><Clock size={10} />{intentStats.pending}</span>}
+                <span className="flex items-center gap-1 text-green-700 dark:text-green-400">
+                  <CheckCircle2 size={10} />
+                  {intentStats.success}
+                </span>
+                {intentStats.failed > 0 && (
+                  <span className="flex items-center gap-1 text-red-600 dark:text-red-400">
+                    <XCircle size={10} />
+                    {intentStats.failed}
+                  </span>
+                )}
+                {intentStats.pending > 0 && (
+                  <span className="flex items-center gap-1 text-vc-muted">
+                    <Clock size={10} />
+                    {intentStats.pending}
+                  </span>
+                )}
               </div>
             </>
           ) : (
             <>
               <div className="text-lg font-semibold text-vc-muted">—</div>
-              <div className="text-xs text-vc-subtle mt-0.5">no intents yet</div>
+              <div className="text-xs text-vc-subtle mt-0.5">
+                no intents yet
+              </div>
             </>
           )}
         </div>
@@ -642,7 +841,6 @@ function OverviewTab({ agent, onTabChange }: { agent: AgentDetail; onTabChange: 
 
       {/* ── Lower two-column grid ─────────────────────────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-
         {/* Recent activity */}
         <div className="bg-vc-surface border border-vc-border rounded-xl p-5">
           <div className="flex items-center justify-between mb-4">
@@ -661,7 +859,9 @@ function OverviewTab({ agent, onTabChange }: { agent: AgentDetail; onTabChange: 
               <Loader2 size={13} className="animate-spin" /> Loading…
             </div>
           ) : recentEvents.length === 0 ? (
-            <p className="text-xs text-vc-subtle text-center py-6">No activity recorded yet.</p>
+            <p className="text-xs text-vc-subtle text-center py-6">
+              No activity recorded yet.
+            </p>
           ) : (
             <div className="space-y-0">
               {recentEvents.map((ev, i) => {
@@ -669,26 +869,44 @@ function OverviewTab({ agent, onTabChange }: { agent: AgentDetail; onTabChange: 
                 return (
                   <button
                     key={ev.id}
-                    onClick={() => overviewRouter.push(`/governance/audit/${encodeURIComponent(ev.id)}`)}
+                    onClick={() =>
+                      overviewRouter.push(
+                        `/governance/audit/${encodeURIComponent(ev.id)}`
+                      )
+                    }
                     className="w-full flex items-start gap-3 py-2.5 hover:bg-vc-raised rounded-lg px-2 -mx-2 transition-colors text-left group"
                   >
                     {/* Timeline dot */}
                     <div className="flex flex-col items-center flex-shrink-0 mt-0.5">
-                      <div className={`w-2 h-2 rounded-full ${ev.status === "failed" ? "bg-red-500" :
-                        ev.status === "success" ? "bg-green-500" :
-                          isActivity ? "bg-indigo-500" : "bg-purple-500"
-                        }`} />
-                      {i < recentEvents.length - 1 && <div className="w-px flex-1 bg-vc-border mt-1 min-h-[12px]" />}
+                      <div
+                        className={`w-2 h-2 rounded-full ${
+                          ev.status === "failed"
+                            ? "bg-red-500"
+                            : ev.status === "success"
+                              ? "bg-green-500"
+                              : isActivity
+                                ? "bg-indigo-500"
+                                : "bg-purple-500"
+                        }`}
+                      />
+                      {i < recentEvents.length - 1 && (
+                        <div className="w-px flex-1 bg-vc-border mt-1 min-h-[12px]" />
+                      )}
                     </div>
                     <div className="flex-1 min-w-0 pb-0.5">
                       <div className="flex items-center justify-between gap-2">
                         <span className="text-xs text-vc-text truncate">
-                          {AUDIT_LABELS[ev.event] ?? ev.event.replace(/_/g, " ")}
+                          {AUDIT_LABELS[ev.event] ??
+                            ev.event.replace(/_/g, " ")}
                         </span>
-                        <span className="text-[10px] text-vc-subtle flex-shrink-0">{timeAgo(ev.timestamp)}</span>
+                        <span className="text-[10px] text-vc-subtle flex-shrink-0">
+                          {timeAgo(ev.timestamp)}
+                        </span>
                       </div>
                       {ev.status === "failed" && ev.error && (
-                        <p className="text-[10px] text-red-600 dark:text-red-400 truncate mt-0.5">{ev.error}</p>
+                        <p className="text-[10px] text-red-600 dark:text-red-400 truncate mt-0.5">
+                          {ev.error}
+                        </p>
                       )}
                     </div>
                   </button>
@@ -718,7 +936,9 @@ function OverviewTab({ agent, onTabChange }: { agent: AgentDetail; onTabChange: 
           ) : !activePolicy ? (
             <div className="text-center py-6 space-y-2">
               <ShieldCheck size={26} className="mx-auto text-vc-border" />
-              <p className="text-xs text-vc-subtle">No policy — agent is locked and cannot execute actions.</p>
+              <p className="text-xs text-vc-subtle">
+                No policy — agent is locked and cannot execute actions.
+              </p>
               <button
                 onClick={() => onTabChange("governance")}
                 className="text-xs text-indigo-500 hover:text-indigo-400 transition-colors"
@@ -730,7 +950,9 @@ function OverviewTab({ agent, onTabChange }: { agent: AgentDetail; onTabChange: 
             <div className="space-y-4">
               {/* Capabilities */}
               <div>
-                <p className="text-[10px] text-vc-subtle uppercase tracking-wider mb-2">Capabilities</p>
+                <p className="text-[10px] text-vc-subtle uppercase tracking-wider mb-2">
+                  Capabilities
+                </p>
                 <div className="flex flex-wrap gap-1.5">
                   {activePolicy.capabilities.map((cap) => (
                     <span
@@ -745,39 +967,58 @@ function OverviewTab({ agent, onTabChange }: { agent: AgentDetail; onTabChange: 
               </div>
 
               {/* Resource limits */}
-              {activePolicy.resourceLimits && Object.keys(activePolicy.resourceLimits).length > 0 && (
-                <div>
-                  <p className="text-[10px] text-vc-subtle uppercase tracking-wider mb-2">Resource limits</p>
-                  <div className="space-y-2">
-                    {activePolicy.resourceLimits.maxTokensPerDay != null && (
-                      <TokenBar
-                        used={todayUsed}
-                        budget={activePolicy.resourceLimits.maxTokensPerDay}
-                        label="Tokens today"
-                      />
-                    )}
-                    {activePolicy.resourceLimits.maxRequestsPerHour != null && (
-                      <div className="flex justify-between text-xs">
-                        <span className="text-vc-muted">Max requests / hour</span>
-                        <span className="font-mono text-vc-text">{activePolicy.resourceLimits.maxRequestsPerHour}</span>
-                      </div>
-                    )}
-                    {activePolicy.resourceLimits.allowedDomains && activePolicy.resourceLimits.allowedDomains.length > 0 && (
-                      <div className="flex justify-between text-xs gap-4">
-                        <span className="text-vc-muted flex-shrink-0">Allowed domains</span>
-                        <span className="font-mono text-vc-text text-right text-[11px] break-all">{activePolicy.resourceLimits.allowedDomains.join(", ")}</span>
-                      </div>
-                    )}
+              {activePolicy.resourceLimits &&
+                Object.keys(activePolicy.resourceLimits).length > 0 && (
+                  <div>
+                    <p className="text-[10px] text-vc-subtle uppercase tracking-wider mb-2">
+                      Resource limits
+                    </p>
+                    <div className="space-y-2">
+                      {activePolicy.resourceLimits.maxTokensPerDay != null && (
+                        <TokenBar
+                          used={todayUsed}
+                          budget={activePolicy.resourceLimits.maxTokensPerDay}
+                          label="Tokens today"
+                        />
+                      )}
+                      {activePolicy.resourceLimits.maxRequestsPerHour !=
+                        null && (
+                        <div className="flex justify-between text-xs">
+                          <span className="text-vc-muted">
+                            Max requests / hour
+                          </span>
+                          <span className="font-mono text-vc-text">
+                            {activePolicy.resourceLimits.maxRequestsPerHour}
+                          </span>
+                        </div>
+                      )}
+                      {activePolicy.resourceLimits.allowedDomains &&
+                        activePolicy.resourceLimits.allowedDomains.length >
+                          0 && (
+                          <div className="flex justify-between text-xs gap-4">
+                            <span className="text-vc-muted flex-shrink-0">
+                              Allowed domains
+                            </span>
+                            <span className="font-mono text-vc-text text-right text-[11px] break-all">
+                              {activePolicy.resourceLimits.allowedDomains.join(
+                                ", "
+                              )}
+                            </span>
+                          </div>
+                        )}
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
 
               {/* Expiry */}
               {activePolicy.expiresAt && (
-                <div className={`flex items-center gap-2 text-xs rounded-lg px-3 py-2 border ${new Date(activePolicy.expiresAt) < new Date()
-                  ? "bg-red-50 dark:bg-red-500/10 border-red-200 dark:border-red-500/20 text-red-600 dark:text-red-400"
-                  : "bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/20 text-amber-700 dark:text-amber-400"
-                  }`}>
+                <div
+                  className={`flex items-center gap-2 text-xs rounded-lg px-3 py-2 border ${
+                    new Date(activePolicy.expiresAt) < new Date()
+                      ? "bg-red-50 dark:bg-red-500/10 border-red-200 dark:border-red-500/20 text-red-600 dark:text-red-400"
+                      : "bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/20 text-amber-700 dark:text-amber-400"
+                  }`}
+                >
                   <CalendarDays size={12} />
                   {formatExpiry(activePolicy.expiresAt)}
                 </div>
@@ -814,7 +1055,11 @@ interface PolicyEntry {
   createdAt: string;
 }
 
-const EMPTY_LIMITS = { maxTokensPerDay: "", maxRequestsPerHour: "", allowedDomains: "" };
+const EMPTY_LIMITS = {
+  maxTokensPerDay: "",
+  maxRequestsPerHour: "",
+  allowedDomains: "",
+};
 
 interface AuditEntry {
   id: string;
@@ -842,7 +1087,13 @@ const AUDIT_LABELS: Record<string, string> = {
 
 const AUDIT_PAGE_SIZE = 20;
 
-function GovernanceTab({ did, agentCapabilities }: { did: string; agentCapabilities: string[] }) {
+function GovernanceTab({
+  did,
+  agentCapabilities,
+}: {
+  did: string;
+  agentCapabilities: string[];
+}) {
   const [policies, setPolicies] = useState<PolicyEntry[]>([]);
   const [loadingPolicies, setLoadingPolicies] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -884,8 +1135,11 @@ function GovernanceTab({ did, agentCapabilities }: { did: string; agentCapabilit
     setRenewSaving(true);
     setRenewError(null);
     try {
-      const rl = renewTarget.resourceLimits && Object.keys(renewTarget.resourceLimits).length > 0
-        ? renewTarget.resourceLimits : undefined;
+      const rl =
+        renewTarget.resourceLimits &&
+        Object.keys(renewTarget.resourceLimits).length > 0
+          ? renewTarget.resourceLimits
+          : undefined;
       const res = await fetch("/api/policies", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -893,16 +1147,20 @@ function GovernanceTab({ did, agentCapabilities }: { did: string; agentCapabilit
           agentDid: renewTarget.agentDid,
           capabilities: renewTarget.capabilities,
           resourceLimits: rl,
-          expiresAt: renewExpiry ? new Date(renewExpiry).toISOString() : undefined,
+          expiresAt: renewExpiry
+            ? new Date(renewExpiry).toISOString()
+            : undefined,
         }),
       });
       if (!res.ok) {
-        const d = await res.json().catch(() => ({})) as { error?: string };
+        const d = (await res.json().catch(() => ({}))) as { error?: string };
         setRenewError(d.error ?? `HTTP ${res.status}`);
         return;
       }
       if (renewRevokeOriginal) {
-        await fetch(`/api/policies/${encodeURIComponent(renewTarget.id)}`, { method: "DELETE" });
+        await fetch(`/api/policies/${encodeURIComponent(renewTarget.id)}`, {
+          method: "DELETE",
+        });
       }
       setRenewTarget(null);
       await fetchPolicies();
@@ -915,8 +1173,12 @@ function GovernanceTab({ did, agentCapabilities }: { did: string; agentCapabilit
   const router = useRouter();
   const [auditEntries, setAuditEntries] = useState<AuditEntry[]>([]);
   const [auditLoading, setAuditLoading] = useState(true);
-  const [auditSourceFilter, setAuditSourceFilter] = useState<"" | "activity" | "intent">("");
-  const [auditStatusFilter, setAuditStatusFilter] = useState<"" | "success" | "failed">("");
+  const [auditSourceFilter, setAuditSourceFilter] = useState<
+    "" | "activity" | "intent"
+  >("");
+  const [auditStatusFilter, setAuditStatusFilter] = useState<
+    "" | "success" | "failed"
+  >("");
   const [auditPage, setAuditPage] = useState(0);
 
   const fetchAudit = useCallback(async () => {
@@ -936,11 +1198,15 @@ function GovernanceTab({ did, agentCapabilities }: { did: string; agentCapabilit
     }
   }, [did, auditSourceFilter, auditStatusFilter]);
 
-  useEffect(() => { fetchAudit(); }, [fetchAudit]);
+  useEffect(() => {
+    fetchAudit();
+  }, [fetchAudit]);
 
   const fetchPolicies = useCallback(async () => {
     try {
-      const res = await fetch(`/api/policies?agentDid=${encodeURIComponent(did)}`);
+      const res = await fetch(
+        `/api/policies?agentDid=${encodeURIComponent(did)}`
+      );
       if (res.ok) {
         const data = await res.json();
         setPolicies(data.policies ?? []);
@@ -950,7 +1216,9 @@ function GovernanceTab({ did, agentCapabilities }: { did: string; agentCapabilit
     }
   }, [did]);
 
-  useEffect(() => { fetchPolicies(); }, [fetchPolicies]);
+  useEffect(() => {
+    fetchPolicies();
+  }, [fetchPolicies]);
 
   const openForm = () => {
     setFormCaps([...agentCapabilities]);
@@ -961,21 +1229,33 @@ function GovernanceTab({ did, agentCapabilities }: { did: string; agentCapabilit
   };
 
   const savePolicy = async () => {
-    if (formCaps.length === 0) { setFormError("Select at least one capability."); return; }
+    if (formCaps.length === 0) {
+      setFormError("Select at least one capability.");
+      return;
+    }
     setFormSaving(true);
     setFormError(null);
     try {
       const resourceLimits: Record<string, unknown> = {};
-      if (formLimits.maxTokensPerDay !== "") resourceLimits.maxTokensPerDay = Number(formLimits.maxTokensPerDay);
-      if (formLimits.maxRequestsPerHour !== "") resourceLimits.maxRequestsPerHour = Number(formLimits.maxRequestsPerHour);
+      if (formLimits.maxTokensPerDay !== "")
+        resourceLimits.maxTokensPerDay = Number(formLimits.maxTokensPerDay);
+      if (formLimits.maxRequestsPerHour !== "")
+        resourceLimits.maxRequestsPerHour = Number(
+          formLimits.maxRequestsPerHour
+        );
       if (formLimits.allowedDomains.trim() !== "") {
-        resourceLimits.allowedDomains = formLimits.allowedDomains.split(",").map((d) => d.trim()).filter(Boolean);
+        resourceLimits.allowedDomains = formLimits.allowedDomains
+          .split(",")
+          .map((d) => d.trim())
+          .filter(Boolean);
       }
       const body: Record<string, unknown> = {
         agentDid: did,
         capabilities: formCaps,
-        resourceLimits: Object.keys(resourceLimits).length > 0 ? resourceLimits : undefined,
-        expiresAt: formExpiry !== "" ? new Date(formExpiry).toISOString() : undefined,
+        resourceLimits:
+          Object.keys(resourceLimits).length > 0 ? resourceLimits : undefined,
+        expiresAt:
+          formExpiry !== "" ? new Date(formExpiry).toISOString() : undefined,
       };
       const res = await fetch("/api/policies", {
         method: "POST",
@@ -998,7 +1278,9 @@ function GovernanceTab({ did, agentCapabilities }: { did: string; agentCapabilit
   const revokePolicy = async (id: string) => {
     setRevoking(id);
     try {
-      await fetch(`/api/policies/${encodeURIComponent(id)}`, { method: "DELETE" });
+      await fetch(`/api/policies/${encodeURIComponent(id)}`, {
+        method: "DELETE",
+      });
       await fetchPolicies();
     } finally {
       setRevoking(null);
@@ -1012,8 +1294,9 @@ function GovernanceTab({ did, agentCapabilities }: { did: string; agentCapabilit
         <div>
           <h2 className="text-sm font-semibold text-vc-text">Policies</h2>
           <p className="text-xs text-vc-muted mt-0.5">
-            Policies define which capabilities and resource limits are embedded in the agent&apos;s certificate.
-            Creating or revoking a policy immediately triggers a certificate reissue for connected agents.
+            Policies define which capabilities and resource limits are embedded
+            in the agent&apos;s certificate. Creating or revoking a policy
+            immediately triggers a certificate reissue for connected agents.
           </p>
         </div>
         {!showForm && (
@@ -1031,7 +1314,12 @@ function GovernanceTab({ did, agentCapabilities }: { did: string; agentCapabilit
         <div className="bg-vc-raised border border-vc-border rounded-xl p-5 space-y-5">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-semibold text-vc-text">New Policy</h3>
-            <button onClick={() => setShowForm(false)} className="text-vc-muted hover:text-vc-text"><X size={16} /></button>
+            <button
+              onClick={() => setShowForm(false)}
+              className="text-vc-muted hover:text-vc-text"
+            >
+              <X size={16} />
+            </button>
           </div>
 
           {/* Capabilities */}
@@ -1044,10 +1332,18 @@ function GovernanceTab({ did, agentCapabilities }: { did: string; agentCapabilit
                   <button
                     key={cap.id}
                     type="button"
-                    onClick={() => setFormCaps(active ? formCaps.filter((c) => c !== cap.id) : [...formCaps, cap.id])}
-                    className={`px-3 py-1.5 rounded-md text-sm border transition-colors flex items-center gap-1.5 ${active
-                      ? "bg-indigo-100 dark:bg-indigo-900/40 border-indigo-500 text-indigo-700 dark:text-indigo-300"
-                      : "bg-vc-surface border-vc-ring text-vc-muted hover:border-vc-muted"}`}
+                    onClick={() =>
+                      setFormCaps(
+                        active
+                          ? formCaps.filter((c) => c !== cap.id)
+                          : [...formCaps, cap.id]
+                      )
+                    }
+                    className={`px-3 py-1.5 rounded-md text-sm border transition-colors flex items-center gap-1.5 ${
+                      active
+                        ? "bg-indigo-100 dark:bg-indigo-900/40 border-indigo-500 text-indigo-700 dark:text-indigo-300"
+                        : "bg-vc-surface border-vc-ring text-vc-muted hover:border-vc-muted"
+                    }`}
                   >
                     {CAPABILITY_ICONS[cap.id] ?? <Zap size={14} />}
                     {cap.label}
@@ -1059,7 +1355,10 @@ function GovernanceTab({ did, agentCapabilities }: { did: string; agentCapabilit
 
           {/* Resource limits */}
           <div>
-            <p className="text-xs text-vc-muted uppercase mb-2">Resource Limits <span className="normal-case text-vc-subtle">(optional)</span></p>
+            <p className="text-xs text-vc-muted uppercase mb-2">
+              Resource Limits{" "}
+              <span className="normal-case text-vc-subtle">(optional)</span>
+            </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <label className="space-y-1">
                 <span className="text-xs text-vc-muted">Max tokens / day</span>
@@ -1068,28 +1367,48 @@ function GovernanceTab({ did, agentCapabilities }: { did: string; agentCapabilit
                   min={0}
                   placeholder="e.g. 50000"
                   value={formLimits.maxTokensPerDay}
-                  onChange={(e) => setFormLimits((l) => ({ ...l, maxTokensPerDay: e.target.value }))}
+                  onChange={(e) =>
+                    setFormLimits((l) => ({
+                      ...l,
+                      maxTokensPerDay: e.target.value,
+                    }))
+                  }
                   className="w-full bg-vc-surface border border-vc-ring rounded-md px-3 py-1.5 text-sm text-vc-text placeholder:text-vc-subtle focus:outline-none focus:border-indigo-500"
                 />
               </label>
               <label className="space-y-1">
-                <span className="text-xs text-vc-muted">Max requests / hour</span>
+                <span className="text-xs text-vc-muted">
+                  Max requests / hour
+                </span>
                 <input
                   type="number"
                   min={0}
                   placeholder="e.g. 60"
                   value={formLimits.maxRequestsPerHour}
-                  onChange={(e) => setFormLimits((l) => ({ ...l, maxRequestsPerHour: e.target.value }))}
+                  onChange={(e) =>
+                    setFormLimits((l) => ({
+                      ...l,
+                      maxRequestsPerHour: e.target.value,
+                    }))
+                  }
                   className="w-full bg-vc-surface border border-vc-ring rounded-md px-3 py-1.5 text-sm text-vc-text placeholder:text-vc-subtle focus:outline-none focus:border-indigo-500"
                 />
               </label>
               <label className="space-y-1 sm:col-span-2">
-                <span className="text-xs text-vc-muted">Allowed domains <span className="text-vc-subtle">(comma-separated)</span></span>
+                <span className="text-xs text-vc-muted">
+                  Allowed domains{" "}
+                  <span className="text-vc-subtle">(comma-separated)</span>
+                </span>
                 <input
                   type="text"
                   placeholder="e.g. api.openai.com, example.com"
                   value={formLimits.allowedDomains}
-                  onChange={(e) => setFormLimits((l) => ({ ...l, allowedDomains: e.target.value }))}
+                  onChange={(e) =>
+                    setFormLimits((l) => ({
+                      ...l,
+                      allowedDomains: e.target.value,
+                    }))
+                  }
                   className="w-full bg-vc-surface border border-vc-ring rounded-md px-3 py-1.5 text-sm text-vc-text placeholder:text-vc-subtle focus:outline-none focus:border-indigo-500"
                 />
               </label>
@@ -1098,7 +1417,10 @@ function GovernanceTab({ did, agentCapabilities }: { did: string; agentCapabilit
 
           {/* Expiry */}
           <label className="block space-y-1">
-            <span className="text-xs text-vc-muted uppercase">Expiry <span className="normal-case text-vc-subtle">(optional)</span></span>
+            <span className="text-xs text-vc-muted uppercase">
+              Expiry{" "}
+              <span className="normal-case text-vc-subtle">(optional)</span>
+            </span>
             <input
               type="datetime-local"
               value={formExpiry}
@@ -1108,17 +1430,29 @@ function GovernanceTab({ did, agentCapabilities }: { did: string; agentCapabilit
           </label>
 
           {formError && (
-            <p className="text-xs text-red-600 dark:text-red-400 flex items-center gap-1.5"><AlertTriangle size={13} />{formError}</p>
+            <p className="text-xs text-red-600 dark:text-red-400 flex items-center gap-1.5">
+              <AlertTriangle size={13} />
+              {formError}
+            </p>
           )}
 
           <div className="flex gap-2 justify-end">
-            <button onClick={() => setShowForm(false)} className="text-xs text-vc-muted hover:text-vc-text px-3 py-1.5">Cancel</button>
+            <button
+              onClick={() => setShowForm(false)}
+              className="text-xs text-vc-muted hover:text-vc-text px-3 py-1.5"
+            >
+              Cancel
+            </button>
             <button
               onClick={savePolicy}
               disabled={formSaving}
               className="flex items-center gap-1.5 text-xs bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white px-4 py-1.5 rounded-md transition-colors"
             >
-              {formSaving ? <Loader2 size={12} className="animate-spin" /> : <ShieldCheck size={13} />}
+              {formSaving ? (
+                <Loader2 size={12} className="animate-spin" />
+              ) : (
+                <ShieldCheck size={13} />
+              )}
               {formSaving ? "Applying…" : "Apply Policy"}
             </button>
           </div>
@@ -1133,12 +1467,16 @@ function GovernanceTab({ did, agentCapabilities }: { did: string; agentCapabilit
       ) : policies.length === 0 ? (
         <div className="text-center py-10 text-vc-muted text-sm border border-dashed border-vc-border rounded-xl">
           <ShieldCheck size={28} className="mx-auto mb-2 opacity-30" />
-          No active policies. Create one above to grant capabilities and set limits.
+          No active policies. Create one above to grant capabilities and set
+          limits.
         </div>
       ) : (
         <div className="space-y-3">
           {policies.map((p) => (
-            <div key={p.id} className="bg-vc-raised border border-vc-border rounded-xl p-4">
+            <div
+              key={p.id}
+              className="bg-vc-raised border border-vc-border rounded-xl p-4"
+            >
               <div className="flex items-start justify-between gap-4">
                 <div className="space-y-3 flex-1 min-w-0">
                   {/* Capabilities */}
@@ -1155,33 +1493,52 @@ function GovernanceTab({ did, agentCapabilities }: { did: string; agentCapabilit
                   </div>
 
                   {/* Resource limits */}
-                  {p.resourceLimits && Object.keys(p.resourceLimits).length > 0 && (
-                    <div className="flex flex-wrap gap-3 text-xs text-vc-muted">
-                      {p.resourceLimits.maxTokensPerDay != null && (
-                        <span className="flex items-center gap-1">
-                          <TrendingUp size={11} className="text-amber-600 dark:text-amber-400" />
-                          {p.resourceLimits.maxTokensPerDay.toLocaleString()} tokens/day
-                        </span>
-                      )}
-                      {p.resourceLimits.maxRequestsPerHour != null && (
-                        <span className="flex items-center gap-1">
-                          <Clock size={11} className="text-amber-600 dark:text-amber-400" />
-                          {p.resourceLimits.maxRequestsPerHour} req/h
-                        </span>
-                      )}
-                      {p.resourceLimits.allowedDomains && p.resourceLimits.allowedDomains.length > 0 && (
-                        <span className="flex items-center gap-1">
-                          <Globe size={11} className="text-amber-600 dark:text-amber-400" />
-                          {p.resourceLimits.allowedDomains.join(", ")}
-                        </span>
-                      )}
-                    </div>
-                  )}
+                  {p.resourceLimits &&
+                    Object.keys(p.resourceLimits).length > 0 && (
+                      <div className="flex flex-wrap gap-3 text-xs text-vc-muted">
+                        {p.resourceLimits.maxTokensPerDay != null && (
+                          <span className="flex items-center gap-1">
+                            <TrendingUp
+                              size={11}
+                              className="text-amber-600 dark:text-amber-400"
+                            />
+                            {p.resourceLimits.maxTokensPerDay.toLocaleString()}{" "}
+                            tokens/day
+                          </span>
+                        )}
+                        {p.resourceLimits.maxRequestsPerHour != null && (
+                          <span className="flex items-center gap-1">
+                            <Clock
+                              size={11}
+                              className="text-amber-600 dark:text-amber-400"
+                            />
+                            {p.resourceLimits.maxRequestsPerHour} req/h
+                          </span>
+                        )}
+                        {p.resourceLimits.allowedDomains &&
+                          p.resourceLimits.allowedDomains.length > 0 && (
+                            <span className="flex items-center gap-1">
+                              <Globe
+                                size={11}
+                                className="text-amber-600 dark:text-amber-400"
+                              />
+                              {p.resourceLimits.allowedDomains.join(", ")}
+                            </span>
+                          )}
+                      </div>
+                    )}
 
                   {/* Meta */}
                   <div className="flex flex-wrap gap-3 text-xs text-vc-subtle">
                     <span>Created {timeAgo(p.createdAt)}</span>
-                    {p.createdBy && <span>by <code className="font-mono">{p.createdBy.slice(0, 20)}…</code></span>}
+                    {p.createdBy && (
+                      <span>
+                        by{" "}
+                        <code className="font-mono">
+                          {p.createdBy.slice(0, 20)}…
+                        </code>
+                      </span>
+                    )}
                     {p.expiresAt && (
                       <span className="flex items-center gap-1">
                         <CalendarDays size={11} />
@@ -1205,7 +1562,11 @@ function GovernanceTab({ did, agentCapabilities }: { did: string; agentCapabilit
                     disabled={revoking === p.id}
                     className="flex items-center gap-1.5 text-xs text-red-600 dark:text-red-400 hover:text-red-500 dark:hover:text-red-300 border border-red-300 dark:border-red-500/20 hover:border-red-400 dark:hover:border-red-500/40 px-2.5 py-1.5 rounded-md transition-colors disabled:opacity-50"
                   >
-                    {revoking === p.id ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
+                    {revoking === p.id ? (
+                      <Loader2 size={12} className="animate-spin" />
+                    ) : (
+                      <Trash2 size={12} />
+                    )}
                     Revoke
                   </button>
                 </div>
@@ -1223,34 +1584,59 @@ function GovernanceTab({ did, agentCapabilities }: { did: string; agentCapabilit
               <span className="flex items-center gap-2 text-sm font-semibold text-vc-text">
                 <RotateCcw size={15} className="text-indigo-500" /> Renew policy
               </span>
-              <button onClick={() => setRenewTarget(null)} className="text-vc-subtle hover:text-vc-text p-1 rounded-lg hover:bg-vc-raised transition-colors"><X size={15} /></button>
+              <button
+                onClick={() => setRenewTarget(null)}
+                className="text-vc-subtle hover:text-vc-text p-1 rounded-lg hover:bg-vc-raised transition-colors"
+              >
+                <X size={15} />
+              </button>
             </div>
             <div className="px-5 py-4 space-y-4">
               {/* Capabilities summary */}
               <div className="bg-vc-raised border border-vc-border rounded-xl p-3 space-y-2">
                 <div className="flex flex-wrap gap-1">
                   {renewTarget.capabilities.map((cap) => (
-                    <span key={cap} className="flex items-center gap-1 bg-indigo-100 dark:bg-indigo-900/40 border border-indigo-300 dark:border-indigo-700/40 text-indigo-700 dark:text-indigo-300 px-2 py-0.5 rounded text-xs">
-                      {CAPABILITY_ICONS[cap] ?? <Zap size={11} />}{cap.replace(/_/g, " ")}
+                    <span
+                      key={cap}
+                      className="flex items-center gap-1 bg-indigo-100 dark:bg-indigo-900/40 border border-indigo-300 dark:border-indigo-700/40 text-indigo-700 dark:text-indigo-300 px-2 py-0.5 rounded text-xs"
+                    >
+                      {CAPABILITY_ICONS[cap] ?? <Zap size={11} />}
+                      {cap.replace(/_/g, " ")}
                     </span>
                   ))}
                 </div>
-                {renewTarget.resourceLimits && (renewTarget.resourceLimits.maxTokensPerDay || renewTarget.resourceLimits.maxRequestsPerHour) && (
-                  <p className="text-xs text-vc-muted">
-                    {renewTarget.resourceLimits.maxTokensPerDay ? `${renewTarget.resourceLimits.maxTokensPerDay.toLocaleString()} tok/d` : ""}
-                    {renewTarget.resourceLimits.maxTokensPerDay && renewTarget.resourceLimits.maxRequestsPerHour ? " · " : ""}
-                    {renewTarget.resourceLimits.maxRequestsPerHour ? `${renewTarget.resourceLimits.maxRequestsPerHour} req/h` : ""}
-                  </p>
-                )}
+                {renewTarget.resourceLimits &&
+                  (renewTarget.resourceLimits.maxTokensPerDay ||
+                    renewTarget.resourceLimits.maxRequestsPerHour) && (
+                    <p className="text-xs text-vc-muted">
+                      {renewTarget.resourceLimits.maxTokensPerDay
+                        ? `${renewTarget.resourceLimits.maxTokensPerDay.toLocaleString()} tok/d`
+                        : ""}
+                      {renewTarget.resourceLimits.maxTokensPerDay &&
+                      renewTarget.resourceLimits.maxRequestsPerHour
+                        ? " · "
+                        : ""}
+                      {renewTarget.resourceLimits.maxRequestsPerHour
+                        ? `${renewTarget.resourceLimits.maxRequestsPerHour} req/h`
+                        : ""}
+                    </p>
+                  )}
                 {renewTarget.expiresAt && (
                   <p className="text-xs text-amber-600 dark:text-amber-400">
-                    Original expiry: {new Date(renewTarget.expiresAt.endsWith("Z") ? renewTarget.expiresAt : renewTarget.expiresAt + "Z").toLocaleString()}
+                    Original expiry:{" "}
+                    {new Date(
+                      renewTarget.expiresAt.endsWith("Z")
+                        ? renewTarget.expiresAt
+                        : renewTarget.expiresAt + "Z"
+                    ).toLocaleString()}
                   </p>
                 )}
               </div>
               {/* New expiry */}
               <div className="space-y-1.5">
-                <label className="text-xs text-vc-muted font-medium">New expiry date</label>
+                <label className="text-xs text-vc-muted font-medium">
+                  New expiry date
+                </label>
                 <input
                   type="datetime-local"
                   value={renewExpiry}
@@ -1263,8 +1649,12 @@ function GovernanceTab({ did, agentCapabilities }: { did: string; agentCapabilit
                     const d = new Date(Date.now() + days * 86_400_000);
                     const val = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
                     return (
-                      <button key={days} type="button" onClick={() => setRenewExpiry(val)}
-                        className="text-[11px] px-2 py-0.5 rounded-md border border-vc-border text-vc-muted hover:text-indigo-600 dark:hover:text-indigo-400 hover:border-indigo-400 transition-colors">
+                      <button
+                        key={days}
+                        type="button"
+                        onClick={() => setRenewExpiry(val)}
+                        className="text-[11px] px-2 py-0.5 rounded-md border border-vc-border text-vc-muted hover:text-indigo-600 dark:hover:text-indigo-400 hover:border-indigo-400 transition-colors"
+                      >
                         +{days}d
                       </button>
                     );
@@ -1273,19 +1663,39 @@ function GovernanceTab({ did, agentCapabilities }: { did: string; agentCapabilit
               </div>
               {/* Revoke original */}
               <label className="flex items-center gap-2.5 cursor-pointer group">
-                <input type="checkbox" checked={renewRevokeOriginal} onChange={(e) => setRenewRevokeOriginal(e.target.checked)} className="w-4 h-4 rounded accent-indigo-600" />
-                <span className="text-xs text-vc-muted group-hover:text-vc-text transition-colors">Revoke original policy after renewal</span>
+                <input
+                  type="checkbox"
+                  checked={renewRevokeOriginal}
+                  onChange={(e) => setRenewRevokeOriginal(e.target.checked)}
+                  className="w-4 h-4 rounded accent-indigo-600"
+                />
+                <span className="text-xs text-vc-muted group-hover:text-vc-text transition-colors">
+                  Revoke original policy after renewal
+                </span>
               </label>
-              {renewError && <p className="text-xs text-red-500 dark:text-red-400">{renewError}</p>}
+              {renewError && (
+                <p className="text-xs text-red-500 dark:text-red-400">
+                  {renewError}
+                </p>
+              )}
             </div>
             <div className="flex items-center justify-end gap-2 px-5 py-4 border-t border-vc-border">
-              <button onClick={() => setRenewTarget(null)} className="px-3 py-1.5 text-sm text-vc-muted hover:text-vc-text border border-vc-border rounded-lg hover:bg-vc-raised transition-colors">Cancel</button>
+              <button
+                onClick={() => setRenewTarget(null)}
+                className="px-3 py-1.5 text-sm text-vc-muted hover:text-vc-text border border-vc-border rounded-lg hover:bg-vc-raised transition-colors"
+              >
+                Cancel
+              </button>
               <button
                 onClick={confirmRenew}
                 disabled={renewSaving || !renewExpiry}
                 className="flex items-center gap-1.5 px-4 py-1.5 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
               >
-                {renewSaving ? <Loader2 size={13} className="animate-spin" /> : <RotateCcw size={13} />}
+                {renewSaving ? (
+                  <Loader2 size={13} className="animate-spin" />
+                ) : (
+                  <RotateCcw size={13} />
+                )}
                 Renew policy
               </button>
             </div>
@@ -1302,7 +1712,8 @@ function GovernanceTab({ did, agentCapabilities }: { did: string; agentCapabilit
               <Activity size={14} className="text-vc-muted" /> Audit Trail
             </h2>
             <p className="text-xs text-vc-muted mt-0.5">
-              All activity and intent events for this agent. Click any row for full detail.
+              All activity and intent events for this agent. Click any row for
+              full detail.
             </p>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
@@ -1312,10 +1723,11 @@ function GovernanceTab({ did, agentCapabilities }: { did: string; agentCapabilit
                 <button
                   key={s}
                   onClick={() => setAuditSourceFilter(s)}
-                  className={`px-2.5 py-1 transition-colors ${auditSourceFilter === s
-                    ? "bg-indigo-600 text-white"
-                    : "bg-vc-surface text-vc-muted hover:text-vc-text"
-                    }`}
+                  className={`px-2.5 py-1 transition-colors ${
+                    auditSourceFilter === s
+                      ? "bg-indigo-600 text-white"
+                      : "bg-vc-surface text-vc-muted hover:text-vc-text"
+                  }`}
                 >
                   {s === "" ? "All" : s.charAt(0).toUpperCase() + s.slice(1)}
                 </button>
@@ -1327,12 +1739,15 @@ function GovernanceTab({ did, agentCapabilities }: { did: string; agentCapabilit
                 <button
                   key={s}
                   onClick={() => setAuditStatusFilter(s)}
-                  className={`px-2.5 py-1 transition-colors ${auditStatusFilter === s
-                    ? "bg-indigo-600 text-white"
-                    : "bg-vc-surface text-vc-muted hover:text-vc-text"
-                    }`}
+                  className={`px-2.5 py-1 transition-colors ${
+                    auditStatusFilter === s
+                      ? "bg-indigo-600 text-white"
+                      : "bg-vc-surface text-vc-muted hover:text-vc-text"
+                  }`}
                 >
-                  {s === "" ? "Any status" : s.charAt(0).toUpperCase() + s.slice(1)}
+                  {s === ""
+                    ? "Any status"
+                    : s.charAt(0).toUpperCase() + s.slice(1)}
                 </button>
               ))}
             </div>
@@ -1356,107 +1771,142 @@ function GovernanceTab({ did, agentCapabilities }: { did: string; agentCapabilit
             <Activity size={28} className="mx-auto mb-2 opacity-30" />
             No audit events found for this agent.
           </div>
-        ) : (() => {
-          const totalPages = Math.ceil(auditEntries.length / AUDIT_PAGE_SIZE);
-          const page = Math.min(auditPage, totalPages - 1);
-          const slice = auditEntries.slice(page * AUDIT_PAGE_SIZE, (page + 1) * AUDIT_PAGE_SIZE);
-          return (
-            <div className="space-y-2">
-              <div className="bg-vc-surface border border-vc-border rounded-xl overflow-hidden">
-                <table className="w-full text-xs">
-                  <thead>
-                    <tr className="border-b border-vc-border">
-                      <th className="text-left text-vc-subtle uppercase tracking-wider px-3 py-2 font-medium w-24">Source</th>
-                      <th className="text-left text-vc-subtle uppercase tracking-wider px-3 py-2 font-medium">Event</th>
-                      <th className="text-left text-vc-subtle uppercase tracking-wider px-3 py-2 font-medium w-24">Status</th>
-                      <th className="text-left text-vc-subtle uppercase tracking-wider px-3 py-2 font-medium w-36">Time</th>
-                      <th className="w-6" />
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-vc-border">
-                    {slice.map((entry) => {
-                      const isActivity = entry.source === "activity";
-                      return (
-                        <tr
-                          key={entry.id}
-                          onClick={() => router.push(`/governance/audit/${encodeURIComponent(entry.id)}`)}
-                          className="cursor-pointer hover:bg-vc-raised transition-colors group"
-                        >
-                          {/* Source badge */}
-                          <td className="px-3 py-2.5">
-                            <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium border ${isActivity
-                              ? "bg-indigo-100 dark:bg-indigo-500/15 text-indigo-700 dark:text-indigo-400 border-indigo-300 dark:border-indigo-500/25"
-                              : "bg-purple-100 dark:bg-purple-500/15 text-purple-700 dark:text-purple-400 border-purple-300 dark:border-purple-500/25"
-                              }`}>
-                              {isActivity ? <Activity size={9} /> : <FileText size={9} />}
-                              {entry.source}
-                            </span>
-                          </td>
-                          {/* Event name */}
-                          <td className="px-3 py-2.5 text-vc-text">
-                            {AUDIT_LABELS[entry.event] ?? entry.event.replace(/_/g, " ")}
-                          </td>
-                          {/* Status */}
-                          <td className="px-3 py-2.5">
-                            {entry.status === "success" && (
-                              <span className="flex items-center gap-1 text-green-700 dark:text-green-400">
-                                <CheckCircle2 size={11} /> success
+        ) : (
+          (() => {
+            const totalPages = Math.ceil(auditEntries.length / AUDIT_PAGE_SIZE);
+            const page = Math.min(auditPage, totalPages - 1);
+            const slice = auditEntries.slice(
+              page * AUDIT_PAGE_SIZE,
+              (page + 1) * AUDIT_PAGE_SIZE
+            );
+            return (
+              <div className="space-y-2">
+                <div className="bg-vc-surface border border-vc-border rounded-xl overflow-hidden">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="border-b border-vc-border">
+                        <th className="text-left text-vc-subtle uppercase tracking-wider px-3 py-2 font-medium w-24">
+                          Source
+                        </th>
+                        <th className="text-left text-vc-subtle uppercase tracking-wider px-3 py-2 font-medium">
+                          Event
+                        </th>
+                        <th className="text-left text-vc-subtle uppercase tracking-wider px-3 py-2 font-medium w-24">
+                          Status
+                        </th>
+                        <th className="text-left text-vc-subtle uppercase tracking-wider px-3 py-2 font-medium w-36">
+                          Time
+                        </th>
+                        <th className="w-6" />
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-vc-border">
+                      {slice.map((entry) => {
+                        const isActivity = entry.source === "activity";
+                        return (
+                          <tr
+                            key={entry.id}
+                            onClick={() =>
+                              router.push(
+                                `/governance/audit/${encodeURIComponent(entry.id)}`
+                              )
+                            }
+                            className="cursor-pointer hover:bg-vc-raised transition-colors group"
+                          >
+                            {/* Source badge */}
+                            <td className="px-3 py-2.5">
+                              <span
+                                className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium border ${
+                                  isActivity
+                                    ? "bg-indigo-100 dark:bg-indigo-500/15 text-indigo-700 dark:text-indigo-400 border-indigo-300 dark:border-indigo-500/25"
+                                    : "bg-purple-100 dark:bg-purple-500/15 text-purple-700 dark:text-purple-400 border-purple-300 dark:border-purple-500/25"
+                                }`}
+                              >
+                                {isActivity ? (
+                                  <Activity size={9} />
+                                ) : (
+                                  <FileText size={9} />
+                                )}
+                                {entry.source}
                               </span>
-                            )}
-                            {entry.status === "failed" && (
-                              <span className="flex items-center gap-1 text-red-600 dark:text-red-400">
-                                <XCircle size={11} /> failed
-                              </span>
-                            )}
-                            {entry.status && entry.status !== "success" && entry.status !== "failed" && (
-                              <span className="flex items-center gap-1 text-amber-600 dark:text-amber-400">
-                                <Clock size={11} /> {entry.status}
-                              </span>
-                            )}
-                            {!entry.status && (
-                              <span className="text-vc-subtle">—</span>
-                            )}
-                          </td>
-                          {/* Timestamp */}
-                          <td className="px-3 py-2.5 text-vc-muted">
-                            {timeAgo(entry.timestamp)}
-                          </td>
-                          {/* Arrow */}
-                          <td className="pr-3">
-                            <ChevronRight size={13} className="text-vc-subtle opacity-0 group-hover:opacity-100 transition-opacity" />
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Pagination */}
-              {totalPages > 1 && (
-                <div className="flex items-center justify-between text-xs text-vc-muted px-1">
-                  <span>{auditEntries.length} events · page {page + 1} of {totalPages}</span>
-                  <div className="flex gap-1">
-                    <button
-                      onClick={() => setAuditPage(Math.max(0, page - 1))}
-                      disabled={page === 0}
-                      className="px-2.5 py-1 rounded border border-vc-ring bg-vc-surface hover:text-vc-text disabled:opacity-40 transition-colors"
-                    >
-                      ‹ Prev
-                    </button>
-                    <button
-                      onClick={() => setAuditPage(Math.min(totalPages - 1, page + 1))}
-                      disabled={page >= totalPages - 1}
-                      className="px-2.5 py-1 rounded border border-vc-ring bg-vc-surface hover:text-vc-text disabled:opacity-40 transition-colors"
-                    >
-                      Next ›
-                    </button>
-                  </div>
+                            </td>
+                            {/* Event name */}
+                            <td className="px-3 py-2.5 text-vc-text">
+                              {AUDIT_LABELS[entry.event] ??
+                                entry.event.replace(/_/g, " ")}
+                            </td>
+                            {/* Status */}
+                            <td className="px-3 py-2.5">
+                              {entry.status === "success" && (
+                                <span className="flex items-center gap-1 text-green-700 dark:text-green-400">
+                                  <CheckCircle2 size={11} /> success
+                                </span>
+                              )}
+                              {entry.status === "failed" && (
+                                <span className="flex items-center gap-1 text-red-600 dark:text-red-400">
+                                  <XCircle size={11} /> failed
+                                </span>
+                              )}
+                              {entry.status &&
+                                entry.status !== "success" &&
+                                entry.status !== "failed" && (
+                                  <span className="flex items-center gap-1 text-amber-600 dark:text-amber-400">
+                                    <Clock size={11} /> {entry.status}
+                                  </span>
+                                )}
+                              {!entry.status && (
+                                <span className="text-vc-subtle">—</span>
+                              )}
+                            </td>
+                            {/* Timestamp */}
+                            <td className="px-3 py-2.5 text-vc-muted">
+                              {timeAgo(entry.timestamp)}
+                            </td>
+                            {/* Arrow */}
+                            <td className="pr-3">
+                              <ChevronRight
+                                size={13}
+                                className="text-vc-subtle opacity-0 group-hover:opacity-100 transition-opacity"
+                              />
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
                 </div>
-              )}
-            </div>
-          );
-        })()}
+
+                {/* Pagination */}
+                {totalPages > 1 && (
+                  <div className="flex items-center justify-between text-xs text-vc-muted px-1">
+                    <span>
+                      {auditEntries.length} events · page {page + 1} of{" "}
+                      {totalPages}
+                    </span>
+                    <div className="flex gap-1">
+                      <button
+                        onClick={() => setAuditPage(Math.max(0, page - 1))}
+                        disabled={page === 0}
+                        className="px-2.5 py-1 rounded border border-vc-ring bg-vc-surface hover:text-vc-text disabled:opacity-40 transition-colors"
+                      >
+                        ‹ Prev
+                      </button>
+                      <button
+                        onClick={() =>
+                          setAuditPage(Math.min(totalPages - 1, page + 1))
+                        }
+                        disabled={page >= totalPages - 1}
+                        className="px-2.5 py-1 rounded border border-vc-ring bg-vc-surface hover:text-vc-text disabled:opacity-40 transition-colors"
+                      >
+                        Next ›
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })()
+        )}
       </div>
     </div>
   );
@@ -1495,44 +1945,65 @@ function TokensTab({ agentId }: { agentId: string }) {
   const [loading, setLoading] = useState(false);
   const [tokenError, setTokenError] = useState<string | null>(null);
 
-  const fetchData = useCallback(async (g: TokenGranularity, p: TokenPeriod) => {
-    setLoading(true);
-    setTokenError(null);
-    try {
-      const today = new Date();
-      let from: string;
-      if (p === "7d") {
-        const d = new Date(today); d.setDate(d.getDate() - 6);
-        from = d.toISOString().slice(0, 10);
-      } else if (p === "30d") {
-        const d = new Date(today); d.setDate(d.getDate() - 29);
-        from = d.toISOString().slice(0, 10);
-      } else if (p === "3m") {
-        const d = new Date(today); d.setMonth(d.getMonth() - 2);
-        from = g === "month" ? d.toISOString().slice(0, 7) : d.toISOString().slice(0, 10);
-      } else {
-        const d = new Date(today); d.setMonth(d.getMonth() - 11);
-        from = g === "month" ? d.toISOString().slice(0, 7) : d.toISOString().slice(0, 10);
+  const fetchData = useCallback(
+    async (g: TokenGranularity, p: TokenPeriod) => {
+      setLoading(true);
+      setTokenError(null);
+      try {
+        const today = new Date();
+        let from: string;
+        if (p === "7d") {
+          const d = new Date(today);
+          d.setDate(d.getDate() - 6);
+          from = d.toISOString().slice(0, 10);
+        } else if (p === "30d") {
+          const d = new Date(today);
+          d.setDate(d.getDate() - 29);
+          from = d.toISOString().slice(0, 10);
+        } else if (p === "3m") {
+          const d = new Date(today);
+          d.setMonth(d.getMonth() - 2);
+          from =
+            g === "month"
+              ? d.toISOString().slice(0, 7)
+              : d.toISOString().slice(0, 10);
+        } else {
+          const d = new Date(today);
+          d.setMonth(d.getMonth() - 11);
+          from =
+            g === "month"
+              ? d.toISOString().slice(0, 7)
+              : d.toISOString().slice(0, 10);
+        }
+        const to =
+          g === "month"
+            ? today.toISOString().slice(0, 7)
+            : today.toISOString().slice(0, 10);
+        const res = await fetch(
+          `/api/agents/${encodeURIComponent(agentId)}/token-usage?granularity=${g}&from=${from}&to=${to}`
+        );
+        if (!res.ok) throw new Error("Failed to fetch token data");
+        const json = await res.json();
+        setData(json.data ?? []);
+      } catch (e) {
+        setTokenError((e as Error).message);
+      } finally {
+        setLoading(false);
       }
-      const to = g === "month" ? today.toISOString().slice(0, 7) : today.toISOString().slice(0, 10);
-      const res = await fetch(
-        `/api/agents/${encodeURIComponent(agentId)}/token-usage?granularity=${g}&from=${from}&to=${to}`
-      );
-      if (!res.ok) throw new Error("Failed to fetch token data");
-      const json = await res.json();
-      setData(json.data ?? []);
-    } catch (e) {
-      setTokenError((e as Error).message);
-    } finally {
-      setLoading(false);
-    }
-  }, [agentId]);
+    },
+    [agentId]
+  );
 
-  useEffect(() => { fetchData(granularity, period); }, [fetchData, granularity, period]);
+  useEffect(() => {
+    fetchData(granularity, period);
+  }, [fetchData, granularity, period]);
 
   const total = data.reduce(
-    (acc, r) => ({ prompt: acc.prompt + r.promptTokens, completion: acc.completion + r.completionTokens }),
-    { prompt: 0, completion: 0 },
+    (acc, r) => ({
+      prompt: acc.prompt + r.promptTokens,
+      completion: acc.completion + r.completionTokens,
+    }),
+    { prompt: 0, completion: 0 }
   );
 
   return (
@@ -1544,10 +2015,14 @@ function TokensTab({ agentId }: { agentId: string }) {
               key={p}
               onClick={() => {
                 setPeriod(p);
-                if (p === "3m" || p === "12m") setGranularity("month"); else setGranularity("day");
+                if (p === "3m" || p === "12m") setGranularity("month");
+                else setGranularity("day");
               }}
-              className={`px-3 py-1.5 text-xs rounded-md transition-colors ${period === p ? "bg-vc-accent text-white" : "text-vc-muted hover:text-vc-foreground hover:bg-vc-card"
-                }`}
+              className={`px-3 py-1.5 text-xs rounded-md transition-colors ${
+                period === p
+                  ? "bg-vc-accent text-white"
+                  : "text-vc-muted hover:text-vc-foreground hover:bg-vc-card"
+              }`}
             >
               {p}
             </button>
@@ -1558,8 +2033,11 @@ function TokensTab({ agentId }: { agentId: string }) {
             <button
               key={g}
               onClick={() => setGranularity(g)}
-              className={`px-3 py-1.5 text-xs rounded-md capitalize transition-colors ${granularity === g ? "bg-vc-accent text-white" : "text-vc-muted hover:text-vc-foreground hover:bg-vc-card"
-                }`}
+              className={`px-3 py-1.5 text-xs rounded-md capitalize transition-colors ${
+                granularity === g
+                  ? "bg-vc-accent text-white"
+                  : "text-vc-muted hover:text-vc-foreground hover:bg-vc-card"
+              }`}
             >
               {g}
             </button>
@@ -1570,15 +2048,21 @@ function TokensTab({ agentId }: { agentId: string }) {
       <div className="grid grid-cols-3 gap-3">
         <div className="rounded-xl border border-vc-border bg-vc-card p-4">
           <p className="text-xs text-vc-muted mb-1">Input tokens</p>
-          <p className="text-xl font-semibold text-vc-foreground">{total.prompt.toLocaleString()}</p>
+          <p className="text-xl font-semibold text-vc-foreground">
+            {total.prompt.toLocaleString()}
+          </p>
         </div>
         <div className="rounded-xl border border-vc-border bg-vc-card p-4">
           <p className="text-xs text-vc-muted mb-1">Output tokens</p>
-          <p className="text-xl font-semibold text-vc-foreground">{total.completion.toLocaleString()}</p>
+          <p className="text-xl font-semibold text-vc-foreground">
+            {total.completion.toLocaleString()}
+          </p>
         </div>
         <div className="rounded-xl border border-vc-border bg-vc-card p-4">
           <p className="text-xs text-vc-muted mb-1">Total tokens</p>
-          <p className="text-xl font-semibold text-vc-foreground">{(total.prompt + total.completion).toLocaleString()}</p>
+          <p className="text-xl font-semibold text-vc-foreground">
+            {(total.prompt + total.completion).toLocaleString()}
+          </p>
         </div>
       </div>
 
@@ -1587,31 +2071,163 @@ function TokensTab({ agentId }: { agentId: string }) {
           <Loader2 className="animate-spin w-5 h-5 mr-2" /> Loading…
         </div>
       )}
-      {tokenError && <p className="text-red-600 dark:text-red-400 text-sm">{tokenError}</p>}
+      {tokenError && (
+        <p className="text-red-600 dark:text-red-400 text-sm">{tokenError}</p>
+      )}
       {!loading && !tokenError && data.length > 0 && (
         <div className="rounded-xl border border-vc-border bg-vc-card p-4">
           <ResponsiveContainer width="100%" height={260}>
-            <BarChart data={data} margin={{ top: 4, right: 8, left: 0, bottom: 4 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.07)" />
+            <BarChart
+              data={data}
+              margin={{ top: 4, right: 8, left: 0, bottom: 4 }}
+            >
+              <CartesianGrid
+                strokeDasharray="3 3"
+                stroke="rgba(255,255,255,0.07)"
+              />
               <XAxis
                 dataKey="bucket"
                 tick={{ fontSize: 11, fill: "#9ca3af" }}
-                tickFormatter={(v: string) => granularity === "month" ? v.slice(0, 7) : v.slice(5)}
+                tickFormatter={(v: string) =>
+                  granularity === "month" ? v.slice(0, 7) : v.slice(5)
+                }
               />
-              <YAxis tick={{ fontSize: 11, fill: "#9ca3af" }} allowDecimals={false} />
+              <YAxis
+                tick={{ fontSize: 11, fill: "#9ca3af" }}
+                allowDecimals={false}
+              />
               <Tooltip
-                contentStyle={{ background: "#1a1a1f", border: "1px solid #2d2d35", borderRadius: 8, fontSize: 12 }}
+                contentStyle={{
+                  background: "#1a1a1f",
+                  border: "1px solid #2d2d35",
+                  borderRadius: 8,
+                  fontSize: 12,
+                }}
                 labelStyle={{ color: "#e5e7eb" }}
               />
               <Legend wrapperStyle={{ fontSize: 12 }} />
-              <Bar dataKey="promptTokens" name="Input" fill="#6366f1" radius={[3, 3, 0, 0]} />
-              <Bar dataKey="completionTokens" name="Output" fill="#818cf8" radius={[3, 3, 0, 0]} />
+              <Bar
+                dataKey="promptTokens"
+                name="Input"
+                fill="#6366f1"
+                radius={[3, 3, 0, 0]}
+              />
+              <Bar
+                dataKey="completionTokens"
+                name="Output"
+                fill="#818cf8"
+                radius={[3, 3, 0, 0]}
+              />
             </BarChart>
           </ResponsiveContainer>
         </div>
       )}
       {!loading && !tokenError && data.length === 0 && (
-        <div className="text-center py-12 text-vc-muted text-sm">No token data for this period.</div>
+        <div className="text-center py-12 text-vc-muted text-sm">
+          No token data for this period.
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// ThinkingBlock
+// ---------------------------------------------------------------------------
+
+function ThinkingBlock({
+  content,
+  isStreaming,
+}: {
+  content: string;
+  isStreaming: boolean;
+}) {
+  return (
+    <details className="mb-2 text-xs border border-vc-border/50 rounded-lg overflow-hidden">
+      <summary className="px-3 py-1.5 cursor-pointer select-none flex items-center gap-1.5 bg-vc-surface/50 hover:bg-vc-surface transition-colors list-none text-vc-muted">
+        {isStreaming ? (
+          <span className="animate-pulse">Thinking…</span>
+        ) : (
+          <span>View reasoning</span>
+        )}
+      </summary>
+      <pre className="whitespace-pre-wrap font-mono text-xs text-vc-muted bg-vc-surface p-3 m-0 leading-relaxed">
+        {content}
+      </pre>
+    </details>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// ToolApprovalCard
+// ---------------------------------------------------------------------------
+
+function ToolApprovalCard({
+  approval,
+  onRespond,
+}: {
+  approval: PendingApproval;
+  onRespond: (approved: boolean) => Promise<void>;
+}) {
+  const isDone =
+    approval.status === "approved" || approval.status === "rejected";
+  const isSubmitting = approval.status === "submitting";
+  return (
+    <div className="mx-auto max-w-[75%] rounded-xl border border-amber-500/30 bg-amber-950/20 p-3 text-sm">
+      <p className="text-xs font-medium text-amber-400 mb-2">
+        Tool approval required:{" "}
+        <span className="font-mono">{approval.toolName}</span>
+      </p>
+      <details className="mb-3">
+        <summary className="cursor-pointer text-xs text-vc-muted hover:text-vc-text select-none list-none">
+          View arguments
+        </summary>
+        <pre className="mt-1 text-xs font-mono bg-vc-bg border border-vc-border rounded p-2 overflow-x-auto text-vc-text whitespace-pre-wrap">
+          {JSON.stringify(approval.args, null, 2)}
+        </pre>
+      </details>
+      {isDone ? (
+        <span
+          className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ${
+            approval.status === "approved"
+              ? "bg-emerald-950/40 text-emerald-400 border border-emerald-500/30"
+              : "bg-red-950/40 text-red-400 border border-red-500/30"
+          }`}
+        >
+          {approval.status === "approved" ? (
+            <CheckCircle2 size={11} />
+          ) : (
+            <XCircle size={11} />
+          )}
+          {approval.status === "approved" ? "Approved" : "Rejected"}
+        </span>
+      ) : (
+        <div className="flex gap-2">
+          <button
+            disabled={isSubmitting}
+            onClick={() => onRespond(true)}
+            className="flex items-center gap-1 px-3 py-1 text-xs rounded-lg bg-emerald-600 text-white hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            {isSubmitting ? (
+              <Loader2 size={11} className="animate-spin" />
+            ) : (
+              <CheckCircle2 size={11} />
+            )}
+            Approve
+          </button>
+          <button
+            disabled={isSubmitting}
+            onClick={() => onRespond(false)}
+            className="flex items-center gap-1 px-3 py-1 text-xs rounded-lg bg-red-700 text-white hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            {isSubmitting ? (
+              <Loader2 size={11} className="animate-spin" />
+            ) : (
+              <XCircle size={11} />
+            )}
+            Reject
+          </button>
+        </div>
       )}
     </div>
   );
@@ -1621,7 +2237,15 @@ function TokensTab({ agentId }: { agentId: string }) {
 // ChatTab
 // ---------------------------------------------------------------------------
 
-function ChatTab({ agentId, agentName, online }: { agentId: string; agentName: string; online: boolean }) {
+function ChatTab({
+  agentId,
+  agentName,
+  online,
+}: {
+  agentId: string;
+  agentName: string;
+  online: boolean;
+}) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
@@ -1629,6 +2253,9 @@ function ChatTab({ agentId, agentName, online }: { agentId: string; agentName: s
   const [errorCode, setErrorCode] = useState<string | null>(null);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [sessions, setSessions] = useState<ChatSessionMeta[]>([]);
+  const [pendingApprovals, setPendingApprovals] = useState<PendingApproval[]>(
+    []
+  );
   const abortRef = useRef<AbortController | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -1646,29 +2273,47 @@ function ChatTab({ agentId, agentName, online }: { agentId: string; agentName: s
 
   const fetchSessions = useCallback(async () => {
     try {
-      const res = await fetch(`/api/agents/${encodeURIComponent(agentId)}/chat-sessions`);
-      if (!res.ok) return;
-      const data = await res.json() as { sessions: ChatSessionMeta[] };
-      setSessions(data.sessions ?? []);
-    } catch { /* non-fatal */ }
-  }, [agentId]);
-
-  useEffect(() => { fetchSessions(); }, [fetchSessions]);
-
-  const loadSession = useCallback(async (sessionId: string) => {
-    try {
-      const res = await fetch(`/api/agents/${encodeURIComponent(agentId)}/chat-sessions?session=${encodeURIComponent(sessionId)}`);
-      if (!res.ok) return;
-      const data = await res.json() as { messages: Array<{ role: string; content: string }> };
-      setMessages(
-        (data.messages ?? [])
-          .filter((m) => m.role === "user" || m.role === "assistant")
-          .map((m) => ({ role: m.role as "user" | "assistant", content: m.content }))
+      const res = await fetch(
+        `/api/agents/${encodeURIComponent(agentId)}/chat-sessions`
       );
-      setActiveSessionId(sessionId);
-      setError(null);
-    } catch { /* non-fatal */ }
+      if (!res.ok) return;
+      const data = (await res.json()) as { sessions: ChatSessionMeta[] };
+      setSessions(data.sessions ?? []);
+    } catch {
+      /* non-fatal */
+    }
   }, [agentId]);
+
+  useEffect(() => {
+    fetchSessions();
+  }, [fetchSessions]);
+
+  const loadSession = useCallback(
+    async (sessionId: string) => {
+      try {
+        const res = await fetch(
+          `/api/agents/${encodeURIComponent(agentId)}/chat-sessions?session=${encodeURIComponent(sessionId)}`
+        );
+        if (!res.ok) return;
+        const data = (await res.json()) as {
+          messages: Array<{ role: string; content: string }>;
+        };
+        setMessages(
+          (data.messages ?? [])
+            .filter((m) => m.role === "user" || m.role === "assistant")
+            .map((m) => ({
+              role: m.role as "user" | "assistant",
+              content: m.content,
+            }))
+        );
+        setActiveSessionId(sessionId);
+        setError(null);
+      } catch {
+        /* non-fatal */
+      }
+    },
+    [agentId]
+  );
 
   const sendMessage = useCallback(
     async (text: string) => {
@@ -1689,12 +2334,21 @@ function ChatTab({ agentId, agentName, online }: { agentId: string; agentName: s
         const res = await fetch("/api/chat", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ agentDid: agentId, messages: updatedMessages, sessionId: activeSessionId ?? undefined }),
+          body: JSON.stringify({
+            agentDid: agentId,
+            messages: updatedMessages,
+            sessionId: activeSessionId ?? undefined,
+          }),
           signal: controller.signal,
         });
 
         if (!res.ok) {
-          const errBody = await res.json().catch(() => ({ error: "Request failed" })) as { error?: string; errorCode?: string };
+          const errBody = (await res
+            .json()
+            .catch(() => ({ error: "Request failed" }))) as {
+            error?: string;
+            errorCode?: string;
+          };
           setErrorCode(errBody.errorCode ?? null);
           throw new Error(errBody.error || `HTTP ${res.status}`);
         }
@@ -1704,6 +2358,7 @@ function ChatTab({ agentId, agentName, online }: { agentId: string; agentName: s
 
         const decoder = new TextDecoder();
         let assistantContent = "";
+        let currentThinkingContent = "";
         setMessages((prev) => [...prev, { role: "assistant", content: "" }]);
 
         let buffer = "";
@@ -1716,25 +2371,56 @@ function ChatTab({ agentId, agentName, online }: { agentId: string; agentName: s
           buffer = lines.pop() || "";
 
           for (const line of lines) {
-            if (line.startsWith("event: ")) { eventType = line.slice(7).trim(); continue; }
-            if (!line.startsWith("data: ")) { if (line === "") eventType = "message"; continue; }
+            if (line.startsWith("event: ")) {
+              eventType = line.slice(7).trim();
+              continue;
+            }
+            if (!line.startsWith("data: ")) {
+              if (line === "") eventType = "message";
+              continue;
+            }
             const data = line.slice(6);
             if (data === "[DONE]") break;
             try {
               const parsed = JSON.parse(data);
               if (eventType === "session") {
-                if (typeof parsed.conversationId === "string") setActiveSessionId(parsed.conversationId);
-                eventType = "message"; continue;
+                if (typeof parsed.conversationId === "string")
+                  setActiveSessionId(parsed.conversationId);
+                eventType = "message";
+                continue;
+              }
+              if (eventType === "tool_approval") {
+                setPendingApprovals((prev) => [
+                  ...prev,
+                  {
+                    requestId: parsed.requestId,
+                    toolName: parsed.toolName,
+                    args: parsed.args ?? {},
+                    status: "pending" as const,
+                  },
+                ]);
+                eventType = "message";
+                continue;
               }
               if (parsed.error) {
                 setErrorCode(parsed.errorCode ?? null);
                 throw new Error(parsed.error);
               }
               if (parsed.text) {
-                assistantContent += parsed.text;
+                if (parsed.thinking) {
+                  currentThinkingContent += parsed.text;
+                } else {
+                  assistantContent += parsed.text;
+                }
                 setMessages((prev) => {
                   const updated = [...prev];
-                  updated[updated.length - 1] = { role: "assistant", content: assistantContent };
+                  updated[updated.length - 1] = {
+                    role: "assistant",
+                    content: assistantContent,
+                    ...(currentThinkingContent
+                      ? { thinkingContent: currentThinkingContent }
+                      : {}),
+                  };
                   return updated;
                 });
               }
@@ -1749,14 +2435,15 @@ function ChatTab({ agentId, agentName, online }: { agentId: string; agentName: s
         if (err instanceof Error && err.name === "AbortError") return;
         setError(err instanceof Error ? err.message : "Failed to send message");
         setMessages((prev) =>
-          prev[prev.length - 1]?.role === "assistant" && !prev[prev.length - 1]?.content
+          prev[prev.length - 1]?.role === "assistant" &&
+          !prev[prev.length - 1]?.content
             ? prev.slice(0, -1)
             : prev
         );
       } finally {
         setIsStreaming(false);
         abortRef.current = null;
-        fetchSessions().catch(() => { });
+        fetchSessions().catch(() => {});
       }
     },
     [messages, agentId, activeSessionId, isStreaming, online, fetchSessions]
@@ -1769,6 +2456,7 @@ function ChatTab({ agentId, agentName, online }: { agentId: string; agentName: s
     setErrorCode(null);
     setIsStreaming(false);
     setActiveSessionId(null);
+    setPendingApprovals([]);
   };
 
   if (!online) {
@@ -1785,21 +2473,31 @@ function ChatTab({ agentId, agentName, online }: { agentId: string; agentName: s
       {/* Sessions sidebar */}
       <div className="w-44 flex-shrink-0 flex flex-col border-r border-vc-border bg-vc-raised rounded-l-lg overflow-hidden">
         <div className="flex items-center justify-between px-2 py-2 border-b border-vc-border">
-          <span className="text-[10px] font-semibold text-vc-muted uppercase tracking-widest">History</span>
-          <button onClick={startNew} className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors font-medium">
+          <span className="text-[10px] font-semibold text-vc-muted uppercase tracking-widest">
+            History
+          </span>
+          <button
+            onClick={startNew}
+            className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors font-medium"
+          >
             + New
           </button>
         </div>
         <div className="flex-1 overflow-y-auto">
           {sessions.length === 0 && (
-            <p className="text-[10px] text-vc-subtle text-center mt-4 px-2">No past sessions</p>
+            <p className="text-[10px] text-vc-subtle text-center mt-4 px-2">
+              No past sessions
+            </p>
           )}
           {sessions.map((s) => (
             <button
               key={s.id}
               onClick={() => loadSession(s.id)}
-              className={`w-full text-left px-2 py-2 border-b border-vc-border/50 hover:bg-vc-surface transition-colors ${activeSessionId === s.id ? "bg-indigo-900/20 border-l-2 border-l-indigo-500" : ""
-                }`}
+              className={`w-full text-left px-2 py-2 border-b border-vc-border/50 hover:bg-vc-surface transition-colors ${
+                activeSessionId === s.id
+                  ? "bg-indigo-900/20 border-l-2 border-l-indigo-500"
+                  : ""
+              }`}
             >
               <p className="text-[11px] text-vc-text truncate leading-tight">
                 {s.title ?? "Untitled"}
@@ -1817,10 +2515,19 @@ function ChatTab({ agentId, agentName, online }: { agentId: string; agentName: s
         {/* Toolbar */}
         <div className="flex items-center justify-between px-3 py-2 border-b border-vc-border flex-shrink-0">
           <p className="text-xs text-vc-muted">
-            {activeSessionId
-              ? <span>Session <span className="font-mono text-vc-subtle">{activeSessionId.slice(0, 8)}…</span></span>
-              : <span>New conversation with <span className="text-vc-text font-medium">{agentName}</span></span>
-            }
+            {activeSessionId ? (
+              <span>
+                Session{" "}
+                <span className="font-mono text-vc-subtle">
+                  {activeSessionId.slice(0, 8)}…
+                </span>
+              </span>
+            ) : (
+              <span>
+                New conversation with{" "}
+                <span className="text-vc-text font-medium">{agentName}</span>
+              </span>
+            )}
           </p>
           {messages.length > 0 && (
             <button
@@ -1838,52 +2545,96 @@ function ChatTab({ agentId, agentName, online }: { agentId: string; agentName: s
           {messages.length === 0 && !isStreaming && (
             <div className="flex flex-col items-center justify-center h-full gap-2 text-vc-muted">
               <Bot size={36} strokeWidth={1} />
-              <p className="text-sm">Send a message to start the conversation</p>
+              <p className="text-sm">
+                Send a message to start the conversation
+              </p>
             </div>
           )}
 
           {messages.map((msg, i) => (
-            <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+            <div
+              key={i}
+              className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+            >
               <div
-                className={`max-w-[75%] rounded-xl px-4 py-2.5 text-sm leading-relaxed prose prose-sm prose-invert max-w-none ${msg.role === "user"
-                  ? "bg-indigo-600/25 text-vc-text rounded-br-sm prose-headings:text-vc-text prose-p:m-0 prose-ul:m-0 prose-ol:m-0 prose-li:m-0 prose-code:text-vc-text prose-code:bg-indigo-950/30 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-pre:bg-indigo-950/30 prose-pre:border prose-pre:border-indigo-500/20 prose-pre:text-indigo-100"
-                  : "bg-vc-raised border border-vc-border text-vc-text rounded-bl-sm prose-headings:text-vc-text prose-p:m-0 prose-ul:m-0 prose-ol:m-0 prose-li:m-0 prose-code:text-vc-text prose-code:bg-vc-bg prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-pre:bg-vc-bg prose-pre:border prose-pre:border-vc-border prose-pre:text-vc-text"
-                  }`}
+                className={`max-w-[75%] rounded-xl px-4 py-2.5 text-sm leading-relaxed prose prose-sm prose-invert max-w-none ${
+                  msg.role === "user"
+                    ? "bg-indigo-600/25 text-vc-text rounded-br-sm prose-headings:text-vc-text prose-p:m-0 prose-ul:m-0 prose-ol:m-0 prose-li:m-0 prose-code:text-vc-text prose-code:bg-indigo-950/30 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-pre:bg-indigo-950/30 prose-pre:border prose-pre:border-indigo-500/20 prose-pre:text-indigo-100"
+                    : "bg-vc-raised border border-vc-border text-vc-text rounded-bl-sm prose-headings:text-vc-text prose-p:m-0 prose-ul:m-0 prose-ol:m-0 prose-li:m-0 prose-code:text-vc-text prose-code:bg-vc-bg prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-pre:bg-vc-bg prose-pre:border prose-pre:border-vc-border prose-pre:text-vc-text"
+                }`}
               >
+                {msg.role === "assistant" && msg.thinkingContent && (
+                  <ThinkingBlock
+                    content={msg.thinkingContent}
+                    isStreaming={isStreaming && i === messages.length - 1}
+                  />
+                )}
                 {msg.content ? (
                   <ReactMarkdown
                     components={{
                       p: ({ children }) => <p className="m-0">{children}</p>,
-                      ul: ({ children }) => <ul className="m-0 pl-4 list-disc">{children}</ul>,
-                      ol: ({ children }) => <ol className="m-0 pl-4 list-decimal">{children}</ol>,
+                      ul: ({ children }) => (
+                        <ul className="m-0 pl-4 list-disc">{children}</ul>
+                      ),
+                      ol: ({ children }) => (
+                        <ol className="m-0 pl-4 list-decimal">{children}</ol>
+                      ),
                       li: ({ children }) => <li className="m-0">{children}</li>,
                       code: ({ children }) => (
-                        <code className={`px-1 py-0.5 rounded text-sm font-mono ${msg.role === "user"
-                          ? "bg-indigo-950/30 text-indigo-200"
-                          : "bg-vc-bg text-vc-text"
-                          }`}>
+                        <code
+                          className={`px-1 py-0.5 rounded text-sm font-mono ${
+                            msg.role === "user"
+                              ? "bg-indigo-950/30 text-indigo-200"
+                              : "bg-vc-bg text-vc-text"
+                          }`}
+                        >
                           {children}
                         </code>
                       ),
                       pre: ({ children }) => (
-                        <pre className={`p-2 rounded text-xs overflow-x-auto my-1 border ${msg.role === "user"
-                          ? "bg-indigo-950/30 border-indigo-500/20 text-indigo-100"
-                          : "bg-vc-bg border-vc-border text-vc-text"
-                          }`}>
+                        <pre
+                          className={`p-2 rounded text-xs overflow-x-auto my-1 border ${
+                            msg.role === "user"
+                              ? "bg-indigo-950/30 border-indigo-500/20 text-indigo-100"
+                              : "bg-vc-bg border-vc-border text-vc-text"
+                          }`}
+                        >
                           {children}
                         </pre>
                       ),
-                      h1: ({ children }) => <h1 className="text-base font-bold mt-2 mb-1">{children}</h1>,
-                      h2: ({ children }) => <h2 className="text-sm font-bold mt-2 mb-1">{children}</h2>,
-                      h3: ({ children }) => <h3 className="text-xs font-bold mt-1 mb-0.5">{children}</h3>,
+                      h1: ({ children }) => (
+                        <h1 className="text-base font-bold mt-2 mb-1">
+                          {children}
+                        </h1>
+                      ),
+                      h2: ({ children }) => (
+                        <h2 className="text-sm font-bold mt-2 mb-1">
+                          {children}
+                        </h2>
+                      ),
+                      h3: ({ children }) => (
+                        <h3 className="text-xs font-bold mt-1 mb-0.5">
+                          {children}
+                        </h3>
+                      ),
                       blockquote: ({ children }) => (
-                        <blockquote className={`pl-2 border-l-2 my-1 ${msg.role === "user" ? "border-indigo-500/50" : "border-vc-border"
-                          }`}>
+                        <blockquote
+                          className={`pl-2 border-l-2 my-1 ${
+                            msg.role === "user"
+                              ? "border-indigo-500/50"
+                              : "border-vc-border"
+                          }`}
+                        >
                           {children}
                         </blockquote>
                       ),
                       a: ({ children, href }) => (
-                        <a href={href} className="text-blue-400 underline hover:text-blue-300" target="_blank" rel="noopener noreferrer">
+                        <a
+                          href={href}
+                          className="text-blue-400 underline hover:text-blue-300"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
                           {children}
                         </a>
                       ),
@@ -1892,11 +2643,27 @@ function ChatTab({ agentId, agentName, online }: { agentId: string; agentName: s
                     {msg.content}
                   </ReactMarkdown>
                 ) : (
-                  msg.role === "assistant" && isStreaming && (
+                  msg.role === "assistant" &&
+                  isStreaming && (
                     <span className="inline-flex gap-1 text-vc-muted">
-                      <span className="animate-bounce" style={{ animationDelay: "0ms" }}>·</span>
-                      <span className="animate-bounce" style={{ animationDelay: "150ms" }}>·</span>
-                      <span className="animate-bounce" style={{ animationDelay: "300ms" }}>·</span>
+                      <span
+                        className="animate-bounce"
+                        style={{ animationDelay: "0ms" }}
+                      >
+                        ·
+                      </span>
+                      <span
+                        className="animate-bounce"
+                        style={{ animationDelay: "150ms" }}
+                      >
+                        ·
+                      </span>
+                      <span
+                        className="animate-bounce"
+                        style={{ animationDelay: "300ms" }}
+                      >
+                        ·
+                      </span>
                     </span>
                   )
                 )}
@@ -1904,9 +2671,51 @@ function ChatTab({ agentId, agentName, online }: { agentId: string; agentName: s
             </div>
           ))}
 
-          {error && (
-            <AgentChatErrorBanner message={error} code={errorCode} />
-          )}
+          {pendingApprovals.map((a) => (
+            <ToolApprovalCard
+              key={a.requestId}
+              approval={a}
+              onRespond={async (approved) => {
+                setPendingApprovals((prev) =>
+                  prev.map((x) =>
+                    x.requestId === a.requestId
+                      ? { ...x, status: "submitting" as const }
+                      : x
+                  )
+                );
+                try {
+                  const res = await fetch("/api/tool-approvals", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ requestId: a.requestId, approved }),
+                  });
+                  if (!res.ok) throw new Error("Request failed");
+                  setPendingApprovals((prev) =>
+                    prev.map((x) =>
+                      x.requestId === a.requestId
+                        ? {
+                            ...x,
+                            status: approved
+                              ? ("approved" as const)
+                              : ("rejected" as const),
+                          }
+                        : x
+                    )
+                  );
+                } catch {
+                  setPendingApprovals((prev) =>
+                    prev.map((x) =>
+                      x.requestId === a.requestId
+                        ? { ...x, status: "pending" as const }
+                        : x
+                    )
+                  );
+                }
+              }}
+            />
+          ))}
+
+          {error && <AgentChatErrorBanner message={error} code={errorCode} />}
 
           <div ref={messagesEndRef} />
         </div>
@@ -1918,7 +2727,10 @@ function ChatTab({ agentId, agentName, online }: { agentId: string; agentName: s
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(input); }
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  sendMessage(input);
+                }
               }}
               placeholder="Type a message… (Enter to send, Shift+Enter for newline)"
               rows={1}
@@ -1930,7 +2742,11 @@ function ChatTab({ agentId, agentName, online }: { agentId: string; agentName: s
               disabled={!input.trim() || isStreaming}
               className="flex items-center justify-center w-10 h-10 rounded-lg bg-indigo-600 text-white disabled:opacity-40 disabled:cursor-not-allowed hover:bg-indigo-500 transition-colors"
             >
-              {isStreaming ? <Loader2 size={17} className="animate-spin" /> : <Send size={17} />}
+              {isStreaming ? (
+                <Loader2 size={17} className="animate-spin" />
+              ) : (
+                <Send size={17} />
+              )}
             </button>
           </div>
         </div>
@@ -1943,12 +2759,22 @@ function ChatTab({ agentId, agentName, online }: { agentId: string; agentName: s
 // Tab: Config (LLM)
 // ---------------------------------------------------------------------------
 
-const PROVIDER_OPTIONS: { value: LlmProviderType; label: string; needsKey: boolean; needsUrl: boolean }[] = [
+const PROVIDER_OPTIONS: {
+  value: LlmProviderType;
+  label: string;
+  needsKey: boolean;
+  needsUrl: boolean;
+}[] = [
   { value: "openai", label: "OpenAI", needsKey: true, needsUrl: false },
   { value: "anthropic", label: "Anthropic", needsKey: true, needsUrl: false },
   { value: "google", label: "Google Gemini", needsKey: true, needsUrl: false },
   { value: "ollama", label: "Ollama (local)", needsKey: false, needsUrl: true },
-  { value: "openai-compatible", label: "OpenAI-compatible", needsKey: true, needsUrl: true },
+  {
+    value: "openai-compatible",
+    label: "OpenAI-compatible",
+    needsKey: true,
+    needsUrl: true,
+  },
 ];
 
 interface RegistryModel {
@@ -1984,18 +2810,31 @@ interface RealmLlmData {
 }
 
 const PROVIDER_COLORS: Record<string, string> = {
-  openai: "bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400 border-emerald-300 dark:border-emerald-800",
-  "openai-compatible": "bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400 border-blue-300 dark:border-blue-800",
-  anthropic: "bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-400 border-orange-300 dark:border-orange-800",
-  google: "bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700 dark:text-yellow-400 border-yellow-300 dark:border-yellow-800",
-  ollama: "bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-400 border-purple-300 dark:border-purple-800",
+  openai:
+    "bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400 border-emerald-300 dark:border-emerald-800",
+  "openai-compatible":
+    "bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400 border-blue-300 dark:border-blue-800",
+  anthropic:
+    "bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-400 border-orange-300 dark:border-orange-800",
+  google:
+    "bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700 dark:text-yellow-400 border-yellow-300 dark:border-yellow-800",
+  ollama:
+    "bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-400 border-purple-300 dark:border-purple-800",
 };
 
-function ConfigTab({ did, reportedLlm }: { did: string; reportedLlm: { provider: string; model: string } | null }) {
+function ConfigTab({
+  did,
+  reportedLlm,
+}: {
+  did: string;
+  reportedLlm: { provider: string; model: string } | null;
+}) {
   const [llmConfig, setLlmConfig] = useState<LlmConfigDisplay | null>(null);
   const [llmLoading, setLlmLoading] = useState(true);
   const [llmEditing, setLlmEditing] = useState(false);
-  const [configMode, setConfigMode] = useState<"realm" | "registry" | "manual">("realm");
+  const [configMode, setConfigMode] = useState<"realm" | "registry" | "manual">(
+    "realm"
+  );
   const [registryModels, setRegistryModels] = useState<RegistryModel[]>([]);
   const [registryLoading, setRegistryLoading] = useState(false);
   const [selectedRegistryId, setSelectedRegistryId] = useState("");
@@ -2011,42 +2850,57 @@ function ConfigTab({ did, reportedLlm }: { did: string; reportedLlm: { provider:
     maxTokens: "",
   });
   const [llmSaving, setLlmSaving] = useState(false);
-  const [llmStatus, setLlmStatus] = useState<"idle" | "saved" | "cleared" | "error">("idle");
+  const [llmStatus, setLlmStatus] = useState<
+    "idle" | "saved" | "cleared" | "error"
+  >("idle");
 
   useEffect(() => {
     Promise.all([
-      fetch(`/api/agents/${encodeURIComponent(did)}/llm-config`).then((r) => r.json()),
+      fetch(`/api/agents/${encodeURIComponent(did)}/llm-config`).then((r) =>
+        r.json()
+      ),
       fetch("/api/models").then((r) => r.json()),
-      fetch(`/api/agents/${encodeURIComponent(did)}/realm-llm`).then((r) => r.json()),
-    ]).then(([configData, modelsData, realmData]: [
-      { config: LlmConfigDisplay | null },
-      { models?: RegistryModel[] },
-      RealmLlmData,
-    ]) => {
-      setLlmConfig(configData.config);
-      setRegistryModels(modelsData.models ?? []);
-      setRealmLlmData(realmData);
-      if (configData.config) {
-        setLlmForm({
-          provider: configData.config.provider,
-          model: configData.config.model,
-          apiKey: "",
-          baseUrl: configData.config.baseUrl ?? "",
-          systemPrompt: configData.config.systemPrompt ?? "",
-          maxTokens: configData.config.maxTokens?.toString() ?? "",
-        });
-      }
-    }).catch(() => { }).finally(() => setLlmLoading(false));
+      fetch(`/api/agents/${encodeURIComponent(did)}/realm-llm`).then((r) =>
+        r.json()
+      ),
+    ])
+      .then(
+        ([configData, modelsData, realmData]: [
+          { config: LlmConfigDisplay | null },
+          { models?: RegistryModel[] },
+          RealmLlmData,
+        ]) => {
+          setLlmConfig(configData.config);
+          setRegistryModels(modelsData.models ?? []);
+          setRealmLlmData(realmData);
+          if (configData.config) {
+            setLlmForm({
+              provider: configData.config.provider,
+              model: configData.config.model,
+              apiKey: "",
+              baseUrl: configData.config.baseUrl ?? "",
+              systemPrompt: configData.config.systemPrompt ?? "",
+              maxTokens: configData.config.maxTokens?.toString() ?? "",
+            });
+          }
+        }
+      )
+      .catch(() => {})
+      .finally(() => setLlmLoading(false));
   }, [did]);
 
   function openEdit() {
     if (llmConfig?.provider === "openai-compatible") {
       // Check if the current model matches a realm LiteLLM route
-      const realmWithModel = realmLlmData?.realms.find((r) =>
-        r.hasVirtualKey && r.models.some((m) => m.litellmModelName === llmConfig.model),
+      const realmWithModel = realmLlmData?.realms.find(
+        (r) =>
+          r.hasVirtualKey &&
+          r.models.some((m) => m.litellmModelName === llmConfig.model)
       );
       if (realmWithModel) {
-        const realmModel = realmWithModel.models.find((m) => m.litellmModelName === llmConfig.model);
+        const realmModel = realmWithModel.models.find(
+          (m) => m.litellmModelName === llmConfig.model
+        );
         setSelectedRealmId(realmWithModel.realmId);
         setSelectedRealmModelId(realmModel?.id ?? "");
         setConfigMode("realm");
@@ -2066,9 +2920,13 @@ function ConfigTab({ did, reportedLlm }: { did: string; reportedLlm: { provider:
       setConfigMode("manual");
     } else {
       // Default to first available mode
-      const hasRealmRouting = realmLlmData?.realms.some((r) => r.hasVirtualKey && r.models.length > 0);
+      const hasRealmRouting = realmLlmData?.realms.some(
+        (r) => r.hasVirtualKey && r.models.length > 0
+      );
       if (hasRealmRouting) {
-        const firstRealm = realmLlmData!.realms.find((r) => r.hasVirtualKey && r.models.length > 0)!;
+        const firstRealm = realmLlmData!.realms.find(
+          (r) => r.hasVirtualKey && r.models.length > 0
+        )!;
         setSelectedRealmId(firstRealm.realmId);
         setSelectedRealmModelId(firstRealm.models[0]?.id ?? "");
         setConfigMode("realm");
@@ -2087,23 +2945,33 @@ function ConfigTab({ did, reportedLlm }: { did: string; reportedLlm: { provider:
     setLlmSaving(true);
     setLlmStatus("idle");
     try {
-      const res = await fetch(`/api/agents/${encodeURIComponent(did)}/llm-config`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ realmId: selectedRealmId, realmModelId: selectedRealmModelId }),
-      });
+      const res = await fetch(
+        `/api/agents/${encodeURIComponent(did)}/llm-config`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            realmId: selectedRealmId,
+            realmModelId: selectedRealmModelId,
+          }),
+        }
+      );
       if (res.ok) {
-        const data = await res.json() as { config: LlmConfigDisplay };
+        const data = (await res.json()) as { config: LlmConfigDisplay };
         setLlmConfig(data.config);
         setLlmEditing(false);
         setLlmStatus("saved");
         setTimeout(() => setLlmStatus("idle"), 2500);
       } else {
-        const data = await res.json().catch(() => ({})) as { error?: string };
+        const data = (await res.json().catch(() => ({}))) as { error?: string };
         alert(data.error ?? "Failed to save realm routing config");
         setLlmStatus("error");
       }
-    } catch { setLlmStatus("error"); } finally { setLlmSaving(false); }
+    } catch {
+      setLlmStatus("error");
+    } finally {
+      setLlmSaving(false);
+    }
   }
 
   async function saveRegistryModel() {
@@ -2111,13 +2979,16 @@ function ConfigTab({ did, reportedLlm }: { did: string; reportedLlm: { provider:
     setLlmSaving(true);
     setLlmStatus("idle");
     try {
-      const res = await fetch(`/api/agents/${encodeURIComponent(did)}/llm-config`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ registryModelId: selectedRegistryId }),
-      });
+      const res = await fetch(
+        `/api/agents/${encodeURIComponent(did)}/llm-config`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ registryModelId: selectedRegistryId }),
+        }
+      );
       if (res.ok) {
-        const data = await res.json() as { config: LlmConfigDisplay };
+        const data = (await res.json()) as { config: LlmConfigDisplay };
         setLlmConfig(data.config);
         setLlmEditing(false);
         setLlmStatus("saved");
@@ -2125,7 +2996,11 @@ function ConfigTab({ did, reportedLlm }: { did: string; reportedLlm: { provider:
       } else {
         setLlmStatus("error");
       }
-    } catch { setLlmStatus("error"); } finally { setLlmSaving(false); }
+    } catch {
+      setLlmStatus("error");
+    } finally {
+      setLlmSaving(false);
+    }
   }
 
   async function saveManualConfig(e: React.FormEvent) {
@@ -2133,49 +3008,65 @@ function ConfigTab({ did, reportedLlm }: { did: string; reportedLlm: { provider:
     setLlmSaving(true);
     setLlmStatus("idle");
     try {
-      const body: Record<string, unknown> = { provider: llmForm.provider, model: llmForm.model };
+      const body: Record<string, unknown> = {
+        provider: llmForm.provider,
+        model: llmForm.model,
+      };
       if (llmForm.apiKey) body.apiKey = llmForm.apiKey;
       if (llmForm.baseUrl) body.baseUrl = llmForm.baseUrl;
       if (llmForm.systemPrompt) body.systemPrompt = llmForm.systemPrompt;
       if (llmForm.maxTokens) body.maxTokens = parseInt(llmForm.maxTokens, 10);
-      const res = await fetch(`/api/agents/${encodeURIComponent(did)}/llm-config`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
+      const res = await fetch(
+        `/api/agents/${encodeURIComponent(did)}/llm-config`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        }
+      );
       if (res.ok) {
-        const data = await res.json() as { config: LlmConfigDisplay };
+        const data = (await res.json()) as { config: LlmConfigDisplay };
         setLlmConfig(data.config);
         setLlmEditing(false);
         setLlmStatus("saved");
         setTimeout(() => setLlmStatus("idle"), 2500);
       } else {
-        const data = await res.json().catch(() => ({})) as { error?: string };
+        const data = (await res.json().catch(() => ({}))) as { error?: string };
         alert(data.error ?? "Failed to save LLM config");
         setLlmStatus("error");
       }
-    } catch { setLlmStatus("error"); } finally { setLlmSaving(false); }
+    } catch {
+      setLlmStatus("error");
+    } finally {
+      setLlmSaving(false);
+    }
   }
 
-  const selectedProvider = PROVIDER_OPTIONS.find((p) => p.value === llmForm.provider)!;
-  const activeRegistryModel = llmConfig?.provider === "openai-compatible"
-    ? registryModels.find((m) => m.modelId === llmConfig.model)
-    : null;
+  const selectedProvider = PROVIDER_OPTIONS.find(
+    (p) => p.value === llmForm.provider
+  )!;
+  const activeRegistryModel =
+    llmConfig?.provider === "openai-compatible"
+      ? registryModels.find((m) => m.modelId === llmConfig.model)
+      : null;
 
   // Detect realm routing: config model matches a litellm_model_name in a realm
-  const activeRealmRoute = llmConfig?.provider === "openai-compatible"
-    ? (() => {
-      for (const realm of realmLlmData?.realms ?? []) {
-        const model = realm.models.find((m) => m.litellmModelName === llmConfig.model);
-        if (model) return { realm, model };
-      }
-      return null;
-    })()
-    : null;
+  const activeRealmRoute =
+    llmConfig?.provider === "openai-compatible"
+      ? (() => {
+          for (const realm of realmLlmData?.realms ?? []) {
+            const model = realm.models.find(
+              (m) => m.litellmModelName === llmConfig.model
+            );
+            if (model) return { realm, model };
+          }
+          return null;
+        })()
+      : null;
 
   const hasRealmRouting = Boolean(
     realmLlmData?.litellmConfigured &&
-    realmLlmData.realms.some((r) => r.hasVirtualKey && r.models.length > 0),
+    realmLlmData.realms.some((r) => r.hasVirtualKey && r.models.length > 0)
   );
 
   if (llmLoading) return <p className="text-vc-muted text-sm">Loading…</p>;
@@ -2185,12 +3076,16 @@ function ConfigTab({ did, reportedLlm }: { did: string; reportedLlm: { provider:
       {/* Agent-reported active LLM */}
       {reportedLlm && (
         <div className="bg-vc-raised rounded-lg border border-vc-border px-4 py-3">
-          <div className="text-xs text-vc-muted uppercase tracking-wider font-medium mb-1.5">Agent Active LLM</div>
+          <div className="text-xs text-vc-muted uppercase tracking-wider font-medium mb-1.5">
+            Agent Active LLM
+          </div>
           <div className="flex items-center gap-3">
             <code className="text-sm font-mono text-indigo-400">
               {reportedLlm.provider}/{reportedLlm.model}
             </code>
-            <span className="text-xs text-vc-subtle">reported by agent{llmConfig ? "" : " (local env config)"}</span>
+            <span className="text-xs text-vc-subtle">
+              reported by agent{llmConfig ? "" : " (local env config)"}
+            </span>
           </div>
         </div>
       )}
@@ -2199,21 +3094,40 @@ function ConfigTab({ did, reportedLlm }: { did: string; reportedLlm: { provider:
       <div className="rounded-xl border border-vc-border bg-vc-surface overflow-hidden">
         <div className="flex items-center justify-between px-4 py-3 border-b border-vc-border">
           <div>
-            <h2 className="text-sm font-semibold text-vc-text">LLM Configuration</h2>
-            <p className="text-xs text-vc-muted mt-0.5">Pushed to the agent remotely on save</p>
+            <h2 className="text-sm font-semibold text-vc-text">
+              LLM Configuration
+            </h2>
+            <p className="text-xs text-vc-muted mt-0.5">
+              Pushed to the agent remotely on save
+            </p>
           </div>
           {!llmEditing && (
             <div className="flex items-center gap-2">
               {llmConfig && (
                 <button
                   onClick={async () => {
-                    if (!confirm("Clear LLM config? The agent will fall back to its local environment variables.")) return;
+                    if (
+                      !confirm(
+                        "Clear LLM config? The agent will fall back to its local environment variables."
+                      )
+                    )
+                      return;
                     setLlmSaving(true);
                     try {
-                      const res = await fetch(`/api/agents/${encodeURIComponent(did)}/llm-config`, { method: "DELETE" });
-                      if (res.ok) { setLlmConfig(null); setLlmStatus("cleared"); setTimeout(() => setLlmStatus("idle"), 2500); }
-                      else setLlmStatus("error");
-                    } catch { setLlmStatus("error"); } finally { setLlmSaving(false); }
+                      const res = await fetch(
+                        `/api/agents/${encodeURIComponent(did)}/llm-config`,
+                        { method: "DELETE" }
+                      );
+                      if (res.ok) {
+                        setLlmConfig(null);
+                        setLlmStatus("cleared");
+                        setTimeout(() => setLlmStatus("idle"), 2500);
+                      } else setLlmStatus("error");
+                    } catch {
+                      setLlmStatus("error");
+                    } finally {
+                      setLlmSaving(false);
+                    }
                   }}
                   className="text-xs text-red-400 hover:text-red-300 border border-red-500/30 px-2.5 py-1.5 rounded-md transition-colors"
                 >
@@ -2235,20 +3149,38 @@ function ConfigTab({ did, reportedLlm }: { did: string; reportedLlm: { provider:
             {/* Mode toggle */}
             <div className="flex rounded-lg border border-vc-border overflow-hidden text-sm">
               {[
-                { id: "realm" as const, label: "Realm Routing", disabled: !hasRealmRouting, hint: !realmLlmData?.litellmConfigured ? "LiteLLM not configured" : "no models in realm" },
-                { id: "registry" as const, label: "From Registry", disabled: registryModels.length === 0, hint: "no models registered" },
-                { id: "manual" as const, label: "Configure manually", disabled: false, hint: "" },
+                {
+                  id: "realm" as const,
+                  label: "Realm Routing",
+                  disabled: !hasRealmRouting,
+                  hint: !realmLlmData?.litellmConfigured
+                    ? "LiteLLM not configured"
+                    : "no models in realm",
+                },
+                {
+                  id: "registry" as const,
+                  label: "From Registry",
+                  disabled: registryModels.length === 0,
+                  hint: "no models registered",
+                },
+                {
+                  id: "manual" as const,
+                  label: "Configure manually",
+                  disabled: false,
+                  hint: "",
+                },
               ].map(({ id, label, disabled, hint }) => (
                 <button
                   key={id}
                   onClick={() => !disabled && setConfigMode(id)}
                   disabled={disabled}
-                  className={`flex-1 py-2 text-xs font-medium transition-colors ${configMode === id
-                    ? "bg-indigo-600 text-white"
-                    : disabled
-                      ? "bg-vc-bg text-vc-subtle cursor-not-allowed"
-                      : "bg-vc-bg text-vc-muted hover:text-vc-text hover:bg-vc-raised"
-                    }`}
+                  className={`flex-1 py-2 text-xs font-medium transition-colors ${
+                    configMode === id
+                      ? "bg-indigo-600 text-white"
+                      : disabled
+                        ? "bg-vc-bg text-vc-subtle cursor-not-allowed"
+                        : "bg-vc-bg text-vc-muted hover:text-vc-text hover:bg-vc-raised"
+                  }`}
                   title={disabled ? hint : undefined}
                 >
                   {label}
@@ -2259,8 +3191,8 @@ function ConfigTab({ did, reportedLlm }: { did: string; reportedLlm: { provider:
             {configMode === "realm" ? (
               <div className="space-y-3">
                 <p className="text-xs text-vc-muted">
-                  Route this agent through your LiteLLM proxy using a realm-scoped virtual key.
-                  The API key is resolved server-side.
+                  Route this agent through your LiteLLM proxy using a
+                  realm-scoped virtual key. The API key is resolved server-side.
                 </p>
                 {(realmLlmData?.realms ?? [])
                   .filter((r) => r.hasVirtualKey && r.models.length > 0)
@@ -2277,26 +3209,40 @@ function ConfigTab({ did, reportedLlm }: { did: string; reportedLlm: { provider:
                       {realm.models.map((model) => (
                         <label
                           key={model.id}
-                          className={`flex items-center gap-3 px-3 py-3 rounded-xl border cursor-pointer transition-colors ${selectedRealmId === realm.realmId && selectedRealmModelId === model.id
-                            ? "border-indigo-500 bg-indigo-50 dark:bg-indigo-950/30"
-                            : "border-vc-border hover:border-vc-ring hover:bg-vc-raised/50"
-                            }`}
+                          className={`flex items-center gap-3 px-3 py-3 rounded-xl border cursor-pointer transition-colors ${
+                            selectedRealmId === realm.realmId &&
+                            selectedRealmModelId === model.id
+                              ? "border-indigo-500 bg-indigo-50 dark:bg-indigo-950/30"
+                              : "border-vc-border hover:border-vc-ring hover:bg-vc-raised/50"
+                          }`}
                         >
                           <input
                             type="radio"
                             name="realm-model"
-                            checked={selectedRealmId === realm.realmId && selectedRealmModelId === model.id}
-                            onChange={() => { setSelectedRealmId(realm.realmId); setSelectedRealmModelId(model.id); }}
+                            checked={
+                              selectedRealmId === realm.realmId &&
+                              selectedRealmModelId === model.id
+                            }
+                            onChange={() => {
+                              setSelectedRealmId(realm.realmId);
+                              setSelectedRealmModelId(model.id);
+                            }}
                             className="accent-indigo-600 shrink-0"
                           />
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 flex-wrap">
-                              <span className="text-sm font-medium text-vc-text">{model.name}</span>
-                              <span className={`text-xs px-1.5 py-0.5 rounded-full border font-medium ${PROVIDER_COLORS[model.provider] ?? "bg-gray-100 dark:bg-zinc-800 text-gray-600 dark:text-zinc-400 border-gray-300 dark:border-zinc-700"}`}>
+                              <span className="text-sm font-medium text-vc-text">
+                                {model.name}
+                              </span>
+                              <span
+                                className={`text-xs px-1.5 py-0.5 rounded-full border font-medium ${PROVIDER_COLORS[model.provider] ?? "bg-gray-100 dark:bg-zinc-800 text-gray-600 dark:text-zinc-400 border-gray-300 dark:border-zinc-700"}`}
+                              >
                                 {model.provider}
                               </span>
                             </div>
-                            <code className="text-xs text-vc-subtle font-mono">{model.litellmModelName ?? model.modelId}</code>
+                            <code className="text-xs text-vc-subtle font-mono">
+                              {model.litellmModelName ?? model.modelId}
+                            </code>
                           </div>
                         </label>
                       ))}
@@ -2305,19 +3251,27 @@ function ConfigTab({ did, reportedLlm }: { did: string; reportedLlm: { provider:
                 <div className="flex items-center gap-3 pt-1">
                   <button
                     type="button"
-                    onClick={() => { setLlmEditing(false); setLlmStatus("idle"); }}
+                    onClick={() => {
+                      setLlmEditing(false);
+                      setLlmStatus("idle");
+                    }}
                     className="text-sm text-vc-muted hover:text-vc-text px-3 py-1.5"
                   >
                     Cancel
                   </button>
                   <button
-                    disabled={!selectedRealmId || !selectedRealmModelId || llmSaving}
+                    disabled={
+                      !selectedRealmId || !selectedRealmModelId || llmSaving
+                    }
                     onClick={saveRealmRouting}
                     className="px-4 py-1.5 text-sm font-medium rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white disabled:opacity-40 transition"
                   >
                     {llmSaving ? "Saving…" : "Use realm routing"}
                   </button>
-                  <a href="/models" className="text-xs text-vc-muted hover:text-vc-text ml-auto transition-colors">
+                  <a
+                    href="/models"
+                    className="text-xs text-vc-muted hover:text-vc-text ml-auto transition-colors"
+                  >
                     Manage models →
                   </a>
                 </div>
@@ -2325,46 +3279,65 @@ function ConfigTab({ did, reportedLlm }: { did: string; reportedLlm: { provider:
             ) : configMode === "registry" ? (
               <div className="space-y-3">
                 <p className="text-xs text-vc-muted">
-                  Select a model from the registry. Endpoint and credentials are resolved server-side.
+                  Select a model from the registry. Endpoint and credentials are
+                  resolved server-side.
                 </p>
                 {registryLoading ? (
-                  <p className="text-xs text-vc-muted py-4 text-center">Loading registry…</p>
+                  <p className="text-xs text-vc-muted py-4 text-center">
+                    Loading registry…
+                  </p>
                 ) : (
                   <div className="space-y-2">
-                    {registryModels.filter(m => m.status === "active").map((m) => (
-                      <label
-                        key={m.id}
-                        className={`flex items-center gap-3 px-3 py-3 rounded-xl border cursor-pointer transition-colors ${selectedRegistryId === m.id
-                          ? "border-indigo-500 bg-indigo-50 dark:bg-indigo-950/30"
-                          : "border-vc-border hover:border-vc-ring hover:bg-vc-raised/50"
+                    {registryModels
+                      .filter((m) => m.status === "active")
+                      .map((m) => (
+                        <label
+                          key={m.id}
+                          className={`flex items-center gap-3 px-3 py-3 rounded-xl border cursor-pointer transition-colors ${
+                            selectedRegistryId === m.id
+                              ? "border-indigo-500 bg-indigo-50 dark:bg-indigo-950/30"
+                              : "border-vc-border hover:border-vc-ring hover:bg-vc-raised/50"
                           }`}
-                      >
-                        <input
-                          type="radio"
-                          name="registry-model"
-                          value={m.id}
-                          checked={selectedRegistryId === m.id}
-                          onChange={() => setSelectedRegistryId(m.id)}
-                          className="accent-indigo-600 shrink-0"
-                        />
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-sm font-medium text-vc-text">{m.name}</span>
-                            <span className={`text-xs px-1.5 py-0.5 rounded-full border font-medium ${PROVIDER_COLORS[m.provider] ?? "bg-gray-100 dark:bg-zinc-800 text-gray-600 dark:text-zinc-400 border-gray-300 dark:border-zinc-700"}`}>
-                              {m.provider}
-                            </span>
+                        >
+                          <input
+                            type="radio"
+                            name="registry-model"
+                            value={m.id}
+                            checked={selectedRegistryId === m.id}
+                            onChange={() => setSelectedRegistryId(m.id)}
+                            className="accent-indigo-600 shrink-0"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-sm font-medium text-vc-text">
+                                {m.name}
+                              </span>
+                              <span
+                                className={`text-xs px-1.5 py-0.5 rounded-full border font-medium ${PROVIDER_COLORS[m.provider] ?? "bg-gray-100 dark:bg-zinc-800 text-gray-600 dark:text-zinc-400 border-gray-300 dark:border-zinc-700"}`}
+                              >
+                                {m.provider}
+                              </span>
+                            </div>
+                            <code className="text-xs text-vc-subtle font-mono">
+                              {m.modelId}
+                            </code>
+                            {m.description && (
+                              <p className="text-xs text-vc-muted mt-0.5">
+                                {m.description}
+                              </p>
+                            )}
                           </div>
-                          <code className="text-xs text-vc-subtle font-mono">{m.modelId}</code>
-                          {m.description && <p className="text-xs text-vc-muted mt-0.5">{m.description}</p>}
-                        </div>
-                      </label>
-                    ))}
+                        </label>
+                      ))}
                   </div>
                 )}
                 <div className="flex items-center gap-3 pt-1">
                   <button
                     type="button"
-                    onClick={() => { setLlmEditing(false); setLlmStatus("idle"); }}
+                    onClick={() => {
+                      setLlmEditing(false);
+                      setLlmStatus("idle");
+                    }}
                     className="text-sm text-vc-muted hover:text-vc-text px-3 py-1.5"
                   >
                     Cancel
@@ -2376,7 +3349,10 @@ function ConfigTab({ did, reportedLlm }: { did: string; reportedLlm: { provider:
                   >
                     {llmSaving ? "Saving…" : "Use this model"}
                   </button>
-                  <a href="/models" className="text-xs text-vc-muted hover:text-vc-text ml-auto transition-colors">
+                  <a
+                    href="/models"
+                    className="text-xs text-vc-muted hover:text-vc-text ml-auto transition-colors"
+                  >
                     Manage registry →
                   </a>
                 </div>
@@ -2385,27 +3361,46 @@ function ConfigTab({ did, reportedLlm }: { did: string; reportedLlm: { provider:
               <form onSubmit={saveManualConfig} className="space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="text-xs text-vc-muted uppercase tracking-wider font-medium block mb-1.5">Provider</label>
+                    <label className="text-xs text-vc-muted uppercase tracking-wider font-medium block mb-1.5">
+                      Provider
+                    </label>
                     <select
                       value={llmForm.provider}
-                      onChange={(e) => setLlmForm((f) => ({ ...f, provider: e.target.value as LlmProviderType }))}
+                      onChange={(e) =>
+                        setLlmForm((f) => ({
+                          ...f,
+                          provider: e.target.value as LlmProviderType,
+                        }))
+                      }
                       className="w-full bg-vc-raised border border-vc-ring rounded-lg px-3 py-2 text-sm text-vc-text focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
                     >
-                      {PROVIDER_OPTIONS.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
+                      {PROVIDER_OPTIONS.map((p) => (
+                        <option key={p.value} value={p.value}>
+                          {p.label}
+                        </option>
+                      ))}
                     </select>
                   </div>
                   <div>
-                    <label className="text-xs text-vc-muted uppercase tracking-wider font-medium block mb-1.5">Model</label>
+                    <label className="text-xs text-vc-muted uppercase tracking-wider font-medium block mb-1.5">
+                      Model
+                    </label>
                     <input
                       type="text"
                       required
                       value={llmForm.model}
-                      onChange={(e) => setLlmForm((f) => ({ ...f, model: e.target.value }))}
+                      onChange={(e) =>
+                        setLlmForm((f) => ({ ...f, model: e.target.value }))
+                      }
                       placeholder={
-                        llmForm.provider === "openai" ? "gpt-4o"
-                          : llmForm.provider === "anthropic" ? "claude-sonnet-4-5"
-                            : llmForm.provider === "google" ? "gemini-2.5-flash"
-                              : llmForm.provider === "ollama" ? "llama3.2"
+                        llmForm.provider === "openai"
+                          ? "gpt-4o"
+                          : llmForm.provider === "anthropic"
+                            ? "claude-sonnet-4-5"
+                            : llmForm.provider === "google"
+                              ? "gemini-2.5-flash"
+                              : llmForm.provider === "ollama"
+                                ? "llama3.2"
                                 : "model-name"
                       }
                       className="w-full bg-vc-raised border border-vc-ring rounded-lg px-3 py-2 text-sm text-vc-text placeholder:text-vc-subtle focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
@@ -2414,38 +3409,60 @@ function ConfigTab({ did, reportedLlm }: { did: string; reportedLlm: { provider:
                   {selectedProvider.needsKey && (
                     <div>
                       <label className="text-xs text-vc-muted uppercase tracking-wider font-medium block mb-1.5">
-                        API Key {llmConfig?.apiKeySet && <span className="text-emerald-500 normal-case">(stored — leave blank to keep)</span>}
+                        API Key{" "}
+                        {llmConfig?.apiKeySet && (
+                          <span className="text-emerald-500 normal-case">
+                            (stored — leave blank to keep)
+                          </span>
+                        )}
                       </label>
                       <input
                         type="password"
                         value={llmForm.apiKey}
-                        onChange={(e) => setLlmForm((f) => ({ ...f, apiKey: e.target.value }))}
-                        placeholder={llmConfig?.apiKeySet ? "••••••••••••••••" : "sk-…"}
+                        onChange={(e) =>
+                          setLlmForm((f) => ({ ...f, apiKey: e.target.value }))
+                        }
+                        placeholder={
+                          llmConfig?.apiKeySet ? "••••••••••••••••" : "sk-…"
+                        }
                         className="w-full bg-vc-raised border border-vc-ring rounded-lg px-3 py-2 text-sm text-vc-text placeholder:text-vc-subtle focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
                       />
                     </div>
                   )}
                   {selectedProvider.needsUrl && (
                     <div>
-                      <label className="text-xs text-vc-muted uppercase tracking-wider font-medium block mb-1.5">Base URL</label>
+                      <label className="text-xs text-vc-muted uppercase tracking-wider font-medium block mb-1.5">
+                        Base URL
+                      </label>
                       <input
                         type="url"
                         value={llmForm.baseUrl}
-                        onChange={(e) => setLlmForm((f) => ({ ...f, baseUrl: e.target.value }))}
-                        placeholder={llmForm.provider === "ollama" ? "http://localhost:11434/api" : "http://localhost:1234/v1"}
+                        onChange={(e) =>
+                          setLlmForm((f) => ({ ...f, baseUrl: e.target.value }))
+                        }
+                        placeholder={
+                          llmForm.provider === "ollama"
+                            ? "http://localhost:11434/api"
+                            : "http://localhost:1234/v1"
+                        }
                         className="w-full bg-vc-raised border border-vc-ring rounded-lg px-3 py-2 text-sm text-vc-text placeholder:text-vc-subtle focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
                       />
                     </div>
                   )}
                   <div>
                     <label className="text-xs text-vc-muted uppercase tracking-wider font-medium block mb-1.5">
-                      Max Tokens <span className="normal-case text-vc-subtle">(optional)</span>
+                      Max Tokens{" "}
+                      <span className="normal-case text-vc-subtle">
+                        (optional)
+                      </span>
                     </label>
                     <input
                       type="number"
                       min={1}
                       value={llmForm.maxTokens}
-                      onChange={(e) => setLlmForm((f) => ({ ...f, maxTokens: e.target.value }))}
+                      onChange={(e) =>
+                        setLlmForm((f) => ({ ...f, maxTokens: e.target.value }))
+                      }
                       placeholder="4096"
                       className="w-full bg-vc-raised border border-vc-ring rounded-lg px-3 py-2 text-sm text-vc-text placeholder:text-vc-subtle focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
                     />
@@ -2453,12 +3470,20 @@ function ConfigTab({ did, reportedLlm }: { did: string; reportedLlm: { provider:
                 </div>
                 <div>
                   <label className="text-xs text-vc-muted uppercase tracking-wider font-medium block mb-1.5">
-                    System Prompt <span className="normal-case text-vc-subtle">(optional — overrides default)</span>
+                    System Prompt{" "}
+                    <span className="normal-case text-vc-subtle">
+                      (optional — overrides default)
+                    </span>
                   </label>
                   <textarea
                     rows={4}
                     value={llmForm.systemPrompt}
-                    onChange={(e) => setLlmForm((f) => ({ ...f, systemPrompt: e.target.value }))}
+                    onChange={(e) =>
+                      setLlmForm((f) => ({
+                        ...f,
+                        systemPrompt: e.target.value,
+                      }))
+                    }
                     placeholder="You are a secure agent…"
                     className="w-full bg-vc-raised border border-vc-ring rounded-lg px-3 py-2 text-sm text-vc-text placeholder:text-vc-subtle focus:outline-none focus:ring-2 focus:ring-indigo-500/50 resize-y"
                   />
@@ -2466,7 +3491,10 @@ function ConfigTab({ did, reportedLlm }: { did: string; reportedLlm: { provider:
                 <div className="flex items-center gap-3">
                   <button
                     type="button"
-                    onClick={() => { setLlmEditing(false); setLlmStatus("idle"); }}
+                    onClick={() => {
+                      setLlmEditing(false);
+                      setLlmStatus("idle");
+                    }}
                     className="text-sm text-vc-muted hover:text-vc-text px-3 py-1.5"
                   >
                     Cancel
@@ -2490,9 +3518,16 @@ function ConfigTab({ did, reportedLlm }: { did: string; reportedLlm: { provider:
                 <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-violet-100 dark:bg-violet-900/60 text-violet-700 dark:text-violet-300 border border-violet-300 dark:border-violet-700 shrink-0">
                   Realm Routing
                 </span>
-                <span className="text-sm text-vc-text font-medium">{activeRealmRoute.model.name}</span>
-                <span className="text-xs text-vc-muted">via {activeRealmRoute.realm.realmName}</span>
-                <a href={`/models/${activeRealmRoute.model.id}`} className="ml-auto text-xs text-violet-500 hover:text-violet-400 transition-colors shrink-0">
+                <span className="text-sm text-vc-text font-medium">
+                  {activeRealmRoute.model.name}
+                </span>
+                <span className="text-xs text-vc-muted">
+                  via {activeRealmRoute.realm.realmName}
+                </span>
+                <a
+                  href={`/models/${activeRealmRoute.model.id}`}
+                  className="ml-auto text-xs text-violet-500 hover:text-violet-400 transition-colors shrink-0"
+                >
                   View model →
                 </a>
               </div>
@@ -2503,22 +3538,75 @@ function ConfigTab({ did, reportedLlm }: { did: string; reportedLlm: { provider:
                 <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 border border-indigo-300 dark:border-indigo-700 shrink-0">
                   Registry
                 </span>
-                <span className="text-sm text-vc-text font-medium">{activeRegistryModel.name}</span>
-                <a href={`/models/${activeRegistryModel.id}`} className="ml-auto text-xs text-indigo-400 hover:text-indigo-300 transition-colors shrink-0">
+                <span className="text-sm text-vc-text font-medium">
+                  {activeRegistryModel.name}
+                </span>
+                <a
+                  href={`/models/${activeRegistryModel.id}`}
+                  className="ml-auto text-xs text-indigo-400 hover:text-indigo-300 transition-colors shrink-0"
+                >
                   View model →
                 </a>
               </div>
             )}
             {[
-              { label: "Provider", value: PROVIDER_OPTIONS.find((p) => p.value === llmConfig.provider)?.label ?? llmConfig.provider },
-              { label: "Model", value: <span className="font-mono">{llmConfig.model}</span> },
-              ...(llmConfig.baseUrl ? [{ label: "Base URL", value: <span className="font-mono text-xs">{llmConfig.baseUrl}</span> }] : []),
-              { label: "API Key", value: llmConfig.apiKeySet ? <span className="text-emerald-600 dark:text-emerald-500">Stored</span> : <span className="text-vc-subtle">Not set</span> },
-              ...(llmConfig.maxTokens ? [{ label: "Max Tokens", value: llmConfig.maxTokens.toString() }] : []),
-              ...(llmConfig.systemPrompt ? [{ label: "System Prompt", value: <span className="whitespace-pre-wrap text-vc-text-2 text-xs">{llmConfig.systemPrompt}</span> }] : []),
+              {
+                label: "Provider",
+                value:
+                  PROVIDER_OPTIONS.find((p) => p.value === llmConfig.provider)
+                    ?.label ?? llmConfig.provider,
+              },
+              {
+                label: "Model",
+                value: <span className="font-mono">{llmConfig.model}</span>,
+              },
+              ...(llmConfig.baseUrl
+                ? [
+                    {
+                      label: "Base URL",
+                      value: (
+                        <span className="font-mono text-xs">
+                          {llmConfig.baseUrl}
+                        </span>
+                      ),
+                    },
+                  ]
+                : []),
+              {
+                label: "API Key",
+                value: llmConfig.apiKeySet ? (
+                  <span className="text-emerald-600 dark:text-emerald-500">
+                    Stored
+                  </span>
+                ) : (
+                  <span className="text-vc-subtle">Not set</span>
+                ),
+              },
+              ...(llmConfig.maxTokens
+                ? [
+                    {
+                      label: "Max Tokens",
+                      value: llmConfig.maxTokens.toString(),
+                    },
+                  ]
+                : []),
+              ...(llmConfig.systemPrompt
+                ? [
+                    {
+                      label: "System Prompt",
+                      value: (
+                        <span className="whitespace-pre-wrap text-vc-text-2 text-xs">
+                          {llmConfig.systemPrompt}
+                        </span>
+                      ),
+                    },
+                  ]
+                : []),
             ].map(({ label, value }) => (
               <div key={label} className="flex items-start gap-4 px-4 py-3">
-                <div className="w-28 flex-shrink-0 text-xs text-vc-muted uppercase pt-0.5">{label}</div>
+                <div className="w-28 flex-shrink-0 text-xs text-vc-muted uppercase pt-0.5">
+                  {label}
+                </div>
                 <div className="flex-1 text-sm text-vc-text">{value}</div>
               </div>
             ))}
@@ -2526,27 +3614,47 @@ function ConfigTab({ did, reportedLlm }: { did: string; reportedLlm: { provider:
         ) : (
           <div className="px-4 py-8 text-center">
             <p className="text-vc-muted text-sm">
-              No remote config set. The agent uses its local environment variables{" "}
-              <code className="text-xs bg-vc-raised px-1.5 py-0.5 rounded">LLM_PROVIDER</code>,{" "}
-              <code className="text-xs bg-vc-raised px-1.5 py-0.5 rounded">LLM_MODEL</code>, etc.
+              No remote config set. The agent uses its local environment
+              variables{" "}
+              <code className="text-xs bg-vc-raised px-1.5 py-0.5 rounded">
+                LLM_PROVIDER
+              </code>
+              ,{" "}
+              <code className="text-xs bg-vc-raised px-1.5 py-0.5 rounded">
+                LLM_MODEL
+              </code>
+              , etc.
             </p>
             {hasRealmRouting && (
               <p className="text-xs text-vc-muted mt-2">
-                Realm routing is available — click Configure to route via your LiteLLM proxy.
+                Realm routing is available — click Configure to route via your
+                LiteLLM proxy.
               </p>
             )}
             {!hasRealmRouting && registryModels.length > 0 && (
               <p className="text-xs text-vc-muted mt-2">
-                {registryModels.length} model{registryModels.length !== 1 ? "s" : ""} available in the registry — click Configure to assign one.
+                {registryModels.length} model
+                {registryModels.length !== 1 ? "s" : ""} available in the
+                registry — click Configure to assign one.
               </p>
             )}
           </div>
         )}
       </div>
 
-      {llmStatus === "saved" && <p className="text-emerald-600 dark:text-emerald-500 text-xs">✓ Config saved and pushed to agent</p>}
-      {llmStatus === "cleared" && <p className="text-emerald-600 dark:text-emerald-500 text-xs">✓ Config cleared</p>}
-      {llmStatus === "error" && <p className="text-red-500 text-xs">Failed to update config</p>}
+      {llmStatus === "saved" && (
+        <p className="text-emerald-600 dark:text-emerald-500 text-xs">
+          ✓ Config saved and pushed to agent
+        </p>
+      )}
+      {llmStatus === "cleared" && (
+        <p className="text-emerald-600 dark:text-emerald-500 text-xs">
+          ✓ Config cleared
+        </p>
+      )}
+      {llmStatus === "error" && (
+        <p className="text-red-500 text-xs">Failed to update config</p>
+      )}
     </div>
   );
 }
@@ -2571,11 +3679,14 @@ function TaskSection({ agentId }: { agentId: string }) {
   const enqueue = async () => {
     if (!action.trim()) return;
     setStatus(null);
-    const res = await fetch(`/api/agents/${encodeURIComponent(agentId)}/tasks`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action }),
-    });
+    const res = await fetch(
+      `/api/agents/${encodeURIComponent(agentId)}/tasks`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action }),
+      }
+    );
     const data = await res.json();
     setStatus(res.ok ? `Task sent: ${data.action}` : `Error: ${data.error}`);
     if (res.ok) setAction("");
@@ -2583,8 +3694,12 @@ function TaskSection({ agentId }: { agentId: string }) {
 
   return (
     <div>
-      <h2 className="text-base font-semibold text-vc-text mb-1">Enqueue Task</h2>
-      <p className="text-xs text-vc-muted mb-4">Send a one-off action to the agent's task queue.</p>
+      <h2 className="text-base font-semibold text-vc-text mb-1">
+        Enqueue Task
+      </h2>
+      <p className="text-xs text-vc-muted mb-4">
+        Send a one-off action to the agent's task queue.
+      </p>
       <div className="flex gap-2">
         <input
           value={action}
@@ -2601,7 +3716,11 @@ function TaskSection({ agentId }: { agentId: string }) {
         </button>
       </div>
       {status && (
-        <p className={`mt-2 text-xs ${status.startsWith("Error") ? "text-red-600 dark:text-red-400" : "text-emerald-700 dark:text-emerald-400"}`}>{status}</p>
+        <p
+          className={`mt-2 text-xs ${status.startsWith("Error") ? "text-red-600 dark:text-red-400" : "text-emerald-700 dark:text-emerald-400"}`}
+        >
+          {status}
+        </p>
       )}
     </div>
   );
@@ -2613,7 +3732,9 @@ function ScheduleSection({ agentId }: { agentId: string }) {
 
   const field = (key: keyof typeof form, placeholder: string) => (
     <div>
-      <label className="text-xs text-vc-muted uppercase tracking-wider block mb-1">{placeholder}</label>
+      <label className="text-xs text-vc-muted uppercase tracking-wider block mb-1">
+        {placeholder}
+      </label>
       <input
         value={form[key]}
         onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
@@ -2624,29 +3745,47 @@ function ScheduleSection({ agentId }: { agentId: string }) {
   );
 
   const upsert = async () => {
-    if (!form.id || !form.name || !form.cron || !form.action) { setStatus("All fields are required"); return; }
+    if (!form.id || !form.name || !form.cron || !form.action) {
+      setStatus("All fields are required");
+      return;
+    }
     setStatus(null);
-    const res = await fetch(`/api/agents/${encodeURIComponent(agentId)}/schedules`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(form),
-    });
+    const res = await fetch(
+      `/api/agents/${encodeURIComponent(agentId)}/schedules`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      }
+    );
     const data = await res.json();
     setStatus(res.ok ? `Schedule "${form.name}" sent` : `Error: ${data.error}`);
     if (res.ok) setForm({ id: "", name: "", cron: "", action: "" });
   };
 
   const del = async () => {
-    if (!form.id) { setStatus("Enter schedule ID to delete"); return; }
-    const res = await fetch(`/api/agents/${encodeURIComponent(agentId)}/schedules?id=${encodeURIComponent(form.id)}`, { method: "DELETE" });
+    if (!form.id) {
+      setStatus("Enter schedule ID to delete");
+      return;
+    }
+    const res = await fetch(
+      `/api/agents/${encodeURIComponent(agentId)}/schedules?id=${encodeURIComponent(form.id)}`,
+      { method: "DELETE" }
+    );
     const data = await res.json();
-    setStatus(res.ok ? `Schedule "${form.id}" deleted` : `Error: ${data.error}`);
+    setStatus(
+      res.ok ? `Schedule "${form.id}" deleted` : `Error: ${data.error}`
+    );
   };
 
   return (
     <div>
-      <h2 className="text-base font-semibold text-vc-text mb-1">Manage Schedules</h2>
-      <p className="text-xs text-vc-muted mb-4">Create, update, or delete cron-based agent schedules.</p>
+      <h2 className="text-base font-semibold text-vc-text mb-1">
+        Manage Schedules
+      </h2>
+      <p className="text-xs text-vc-muted mb-4">
+        Create, update, or delete cron-based agent schedules.
+      </p>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
         {field("id", "ID")}
         {field("name", "Name")}
@@ -2654,11 +3793,25 @@ function ScheduleSection({ agentId }: { agentId: string }) {
         {field("action", "Action")}
       </div>
       <div className="flex gap-2">
-        <button onClick={upsert} className="px-4 py-2 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-500 transition-colors">Upsert</button>
-        <button onClick={del} className="px-4 py-2 text-sm bg-red-600/80 text-white rounded-lg hover:bg-red-600 transition-colors">Delete by ID</button>
+        <button
+          onClick={upsert}
+          className="px-4 py-2 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-500 transition-colors"
+        >
+          Upsert
+        </button>
+        <button
+          onClick={del}
+          className="px-4 py-2 text-sm bg-red-600/80 text-white rounded-lg hover:bg-red-600 transition-colors"
+        >
+          Delete by ID
+        </button>
       </div>
       {status && (
-        <p className={`mt-2 text-xs ${status.startsWith("Error") ? "text-red-600 dark:text-red-400" : "text-emerald-700 dark:text-emerald-400"}`}>{status}</p>
+        <p
+          className={`mt-2 text-xs ${status.startsWith("Error") ? "text-red-600 dark:text-red-400" : "text-emerald-700 dark:text-emerald-400"}`}
+        >
+          {status}
+        </p>
       )}
     </div>
   );
@@ -2668,18 +3821,26 @@ function ScheduleSection({ agentId }: { agentId: string }) {
 // Tab: Approvals
 // ---------------------------------------------------------------------------
 
-function ApprovalsTab({ onCountChange }: { onCountChange: (n: number) => void }) {
-  const [approvals, setApprovals] = useState<Array<{
-    requestId: string;
-    toolName: string;
-    args: Record<string, unknown>;
-    reason: string;
-    agentName?: string;
-    createdAt: number;
-  }>>([]);
+function ApprovalsTab({
+  onCountChange,
+}: {
+  onCountChange: (n: number) => void;
+}) {
+  const [approvals, setApprovals] = useState<
+    Array<{
+      requestId: string;
+      toolName: string;
+      args: Record<string, unknown>;
+      reason: string;
+      agentName?: string;
+      createdAt: number;
+    }>
+  >([]);
 
   const refresh = useCallback(async () => {
-    const res = await fetch("/api/tool-approvals").then((r) => r.json()).catch(() => ({ approvals: [] }));
+    const res = await fetch("/api/tool-approvals")
+      .then((r) => r.json())
+      .catch(() => ({ approvals: [] }));
     const list = res.approvals ?? [];
     setApprovals(list);
     onCountChange(list.length);
@@ -2704,10 +3865,17 @@ function ApprovalsTab({ onCountChange }: { onCountChange: (n: number) => void })
     <div>
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h2 className="text-base font-semibold text-vc-text">Tool Approvals</h2>
-          <p className="text-xs text-vc-muted mt-0.5">Review and approve or reject pending tool use requests.</p>
+          <h2 className="text-base font-semibold text-vc-text">
+            Tool Approvals
+          </h2>
+          <p className="text-xs text-vc-muted mt-0.5">
+            Review and approve or reject pending tool use requests.
+          </p>
         </div>
-        <button onClick={refresh} className="text-xs text-vc-muted hover:text-vc-text border border-vc-ring px-2.5 py-1 rounded-md transition-colors">
+        <button
+          onClick={refresh}
+          className="text-xs text-vc-muted hover:text-vc-text border border-vc-ring px-2.5 py-1 rounded-md transition-colors"
+        >
           ↻ Refresh
         </button>
       </div>
@@ -2720,11 +3888,20 @@ function ApprovalsTab({ onCountChange }: { onCountChange: (n: number) => void })
       ) : (
         <div className="space-y-3">
           {approvals.map((a) => (
-            <div key={a.requestId} className="bg-vc-raised rounded-lg p-4 border border-vc-border">
+            <div
+              key={a.requestId}
+              className="bg-vc-raised rounded-lg p-4 border border-vc-border"
+            >
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <div>
-                  <span className="font-mono text-sm text-vc-text font-medium">{a.toolName}</span>
-                  {a.agentName && <span className="ml-2 text-xs text-vc-muted">from {a.agentName}</span>}
+                  <span className="font-mono text-sm text-vc-text font-medium">
+                    {a.toolName}
+                  </span>
+                  {a.agentName && (
+                    <span className="ml-2 text-xs text-vc-muted">
+                      from {a.agentName}
+                    </span>
+                  )}
                 </div>
                 <div className="flex gap-2">
                   <button
@@ -2759,15 +3936,25 @@ function ApprovalsTab({ onCountChange }: { onCountChange: (n: number) => void })
 
 // DetailsTab removed — replaced by Graph tab (AgentEnvironmentGraph component).
 
-function AgentChatErrorBanner({ message, code }: { message: string; code: string | null }) {
+function AgentChatErrorBanner({
+  message,
+  code,
+}: {
+  message: string;
+  code: string | null;
+}) {
   if (code === "llm_unavailable") {
     return (
       <div className="flex items-start gap-2 bg-amber-50 dark:bg-amber-500/10 border border-amber-300 dark:border-amber-500/30 text-amber-700 dark:text-amber-300 rounded-lg px-3 py-2.5 text-xs">
         <WifiOff size={13} className="mt-0.5 shrink-0" />
         <div className="min-w-0">
           <p className="font-medium">LLM provider unreachable</p>
-          <p className="text-amber-600/80 dark:text-amber-400/70 mt-0.5 break-words">{message}</p>
-          <p className="text-amber-600/60 dark:text-amber-400/50 mt-1">Update the LLM config in the <strong>Settings</strong> tab.</p>
+          <p className="text-amber-600/80 dark:text-amber-400/70 mt-0.5 break-words">
+            {message}
+          </p>
+          <p className="text-amber-600/60 dark:text-amber-400/50 mt-1">
+            Update the LLM config in the <strong>Settings</strong> tab.
+          </p>
         </div>
       </div>
     );
@@ -2806,34 +3993,77 @@ interface KnowledgeSource {
   created_at: string;
 }
 
-interface KsRealmOption { id: string; name: string }
+interface KsRealmOption {
+  id: string;
+  name: string;
+}
 
-interface KnowledgeFile { id: string; name: string; mime_type: string; size: number }
+interface KnowledgeFile {
+  id: string;
+  name: string;
+  mime_type: string;
+  size: number;
+}
 
 function KsStatusBadge({ status }: { status: KnowledgeSource["status"] }) {
   const map = {
-    idle:    { icon: <Clock size={12} />,        label: "Idle",    cls: "bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 border-zinc-300 dark:border-zinc-700" },
-    syncing: { icon: <Loader2 size={12} className="animate-spin" />, label: "Syncing", cls: "bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400 border-blue-300 dark:border-blue-800" },
-    ready:   { icon: <CheckCircle2 size={12} />, label: "Ready",   cls: "bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400 border-green-300 dark:border-green-800" },
-    error:   { icon: <XCircle size={12} />,      label: "Error",   cls: "bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-400 border-red-300 dark:border-red-800" },
+    idle: {
+      icon: <Clock size={12} />,
+      label: "Idle",
+      cls: "bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 border-zinc-300 dark:border-zinc-700",
+    },
+    syncing: {
+      icon: <Loader2 size={12} className="animate-spin" />,
+      label: "Syncing",
+      cls: "bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400 border-blue-300 dark:border-blue-800",
+    },
+    ready: {
+      icon: <CheckCircle2 size={12} />,
+      label: "Ready",
+      cls: "bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400 border-green-300 dark:border-green-800",
+    },
+    error: {
+      icon: <XCircle size={12} />,
+      label: "Error",
+      cls: "bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-400 border-red-300 dark:border-red-800",
+    },
   };
   const { icon, label, cls } = map[status] ?? map.idle;
   return (
-    <span className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border font-medium ${cls}`}>
+    <span
+      className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border font-medium ${cls}`}
+    >
       {icon} {label}
     </span>
   );
 }
 
 function KsTypeBadge({ type }: { type: string }) {
-  const map: Record<string, { icon: React.ReactNode; label: string; cls: string }> = {
-    url:   { icon: <Globe size={12} />,      label: "URL",       cls: "bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-400 border-indigo-300 dark:border-indigo-800" },
-    text:  { icon: <FileText size={12} />,   label: "Text",      cls: "bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 border-amber-300 dark:border-amber-800" },
-    files: { icon: <FileType2 size={12} />,  label: "Documents", cls: "bg-teal-100 dark:bg-teal-900/40 text-teal-700 dark:text-teal-400 border-teal-300 dark:border-teal-800" },
+  const map: Record<
+    string,
+    { icon: React.ReactNode; label: string; cls: string }
+  > = {
+    url: {
+      icon: <Globe size={12} />,
+      label: "URL",
+      cls: "bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-400 border-indigo-300 dark:border-indigo-800",
+    },
+    text: {
+      icon: <FileText size={12} />,
+      label: "Text",
+      cls: "bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 border-amber-300 dark:border-amber-800",
+    },
+    files: {
+      icon: <FileType2 size={12} />,
+      label: "Documents",
+      cls: "bg-teal-100 dark:bg-teal-900/40 text-teal-700 dark:text-teal-400 border-teal-300 dark:border-teal-800",
+    },
   };
   const { icon, label, cls } = map[type] ?? map.url;
   return (
-    <span className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border font-medium ${cls}`}>
+    <span
+      className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border font-medium ${cls}`}
+    >
       {icon} {label}
     </span>
   );
@@ -2857,10 +4087,14 @@ function relativeTime(isoString: string | null): string {
 }
 
 function mimeIcon(mime: string): React.ReactNode {
-  if (mime === "application/pdf") return <FileType2 size={13} className="text-red-400 shrink-0" />;
-  if (mime.includes("word") || mime.includes("document")) return <FileText size={13} className="text-blue-400 shrink-0" />;
-  if (mime === "text/markdown" || mime === "text/plain") return <FileText size={13} className="text-zinc-400 shrink-0" />;
-  if (mime === "text/csv") return <Layers size={13} className="text-green-400 shrink-0" />;
+  if (mime === "application/pdf")
+    return <FileType2 size={13} className="text-red-400 shrink-0" />;
+  if (mime.includes("word") || mime.includes("document"))
+    return <FileText size={13} className="text-blue-400 shrink-0" />;
+  if (mime === "text/markdown" || mime === "text/plain")
+    return <FileText size={13} className="text-zinc-400 shrink-0" />;
+  if (mime === "text/csv")
+    return <Layers size={13} className="text-green-400 shrink-0" />;
   return <File size={13} className="text-vc-subtle shrink-0" />;
 }
 
@@ -2895,7 +4129,10 @@ function FileDropzone({ files, onAdd, onRemove }: FileDropzoneProps) {
   return (
     <div className="space-y-2">
       <div
-        onDragOver={e => { e.preventDefault(); setDragging(true); }}
+        onDragOver={(e) => {
+          e.preventDefault();
+          setDragging(true);
+        }}
         onDragLeave={() => setDragging(false)}
         onDrop={handleDrop}
         onClick={() => inputRef.current?.click()}
@@ -2905,10 +4142,17 @@ function FileDropzone({ files, onAdd, onRemove }: FileDropzoneProps) {
             : "border-vc-border hover:border-indigo-400 hover:bg-vc-raised/40 bg-vc-bg"
         }`}
       >
-        <Upload size={22} className={dragging ? "text-indigo-500" : "text-vc-subtle"} />
+        <Upload
+          size={22}
+          className={dragging ? "text-indigo-500" : "text-vc-subtle"}
+        />
         <div className="text-center">
-          <p className="text-sm font-medium text-vc-text">Drop files here or click to browse</p>
-          <p className="text-xs text-vc-muted mt-0.5">PDF, DOCX, TXT, Markdown, CSV — up to 10 MB each</p>
+          <p className="text-sm font-medium text-vc-text">
+            Drop files here or click to browse
+          </p>
+          <p className="text-xs text-vc-muted mt-0.5">
+            PDF, DOCX, TXT, Markdown, CSV — up to 10 MB each
+          </p>
         </div>
         <input
           ref={inputRef}
@@ -2933,10 +4177,29 @@ function FileDropzone({ files, onAdd, onRemove }: FileDropzoneProps) {
                     : "border-vc-border bg-vc-raised/40"
                 }`}
               >
-                <File size={13} className={oversized ? "text-red-400 shrink-0" : "text-vc-subtle shrink-0"} />
-                <span className={`flex-1 truncate ${oversized ? "text-red-600 dark:text-red-400" : "text-vc-text"}`}>{f.name}</span>
-                <span className={`shrink-0 ${oversized ? "text-red-500" : "text-vc-muted"}`}>{formatBytes(f.size)}</span>
-                {oversized && <span className="shrink-0 text-red-500 font-medium">Too large</span>}
+                <File
+                  size={13}
+                  className={
+                    oversized
+                      ? "text-red-400 shrink-0"
+                      : "text-vc-subtle shrink-0"
+                  }
+                />
+                <span
+                  className={`flex-1 truncate ${oversized ? "text-red-600 dark:text-red-400" : "text-vc-text"}`}
+                >
+                  {f.name}
+                </span>
+                <span
+                  className={`shrink-0 ${oversized ? "text-red-500" : "text-vc-muted"}`}
+                >
+                  {formatBytes(f.size)}
+                </span>
+                {oversized && (
+                  <span className="shrink-0 text-red-500 font-medium">
+                    Too large
+                  </span>
+                )}
                 <button
                   type="button"
                   onClick={() => onRemove(i)}
@@ -2984,21 +4247,29 @@ function KsSourceCard({
   const [loadingFiles, setLoadingFiles] = useState(false);
 
   let config: Record<string, unknown> = {};
-  try { config = JSON.parse(source.config); } catch { /**/ }
+  try {
+    config = JSON.parse(source.config);
+  } catch {
+    /**/
+  }
 
   const typeIconMap: Record<string, React.ReactNode> = {
-    url:   <Globe size={16} className="text-indigo-400" />,
-    text:  <FileText size={16} className="text-amber-400" />,
+    url: <Globe size={16} className="text-indigo-400" />,
+    text: <FileText size={16} className="text-amber-400" />,
     files: <FileType2 size={16} className="text-teal-400" />,
   };
-  const typeIcon = typeIconMap[source.source_type] ?? <File size={16} className="text-vc-subtle" />;
+  const typeIcon = typeIconMap[source.source_type] ?? (
+    <File size={16} className="text-vc-subtle" />
+  );
 
   async function loadFiles() {
     if (files !== null || source.source_type !== "files") return;
     setLoadingFiles(true);
     try {
-      const res = await fetch(`/api/knowledge/files?sourceId=${encodeURIComponent(source.id)}`);
-      const data = await res.json() as { files?: KnowledgeFile[] };
+      const res = await fetch(
+        `/api/knowledge/files?sourceId=${encodeURIComponent(source.id)}`
+      );
+      const data = (await res.json()) as { files?: KnowledgeFile[] };
       setFiles(data.files ?? []);
     } finally {
       setLoadingFiles(false);
@@ -3027,7 +4298,9 @@ function KsSourceCard({
         {/* Main info */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-sm font-semibold text-vc-text truncate">{source.name}</span>
+            <span className="text-sm font-semibold text-vc-text truncate">
+              {source.name}
+            </span>
             <KsStatusBadge status={source.status} />
           </div>
           <div className="flex items-center gap-1.5 mt-0.5 text-xs text-vc-muted flex-wrap">
@@ -3035,21 +4308,32 @@ function KsSourceCard({
             <span>{realmName}</span>
             <span className="text-vc-subtle">·</span>
             <Layers size={11} className="shrink-0" />
-            <span>{source.chunk_count > 0 ? `${source.chunk_count.toLocaleString()} chunks` : "No chunks yet"}</span>
+            <span>
+              {source.chunk_count > 0
+                ? `${source.chunk_count.toLocaleString()} chunks`
+                : "No chunks yet"}
+            </span>
             <span className="text-vc-subtle">·</span>
             <span>{relativeTime(source.last_synced_at)}</span>
           </div>
         </div>
 
         {/* Actions */}
-        <div className="flex items-center gap-1 shrink-0" onClick={e => e.stopPropagation()}>
+        <div
+          className="flex items-center gap-1 shrink-0"
+          onClick={(e) => e.stopPropagation()}
+        >
           <button
             onClick={onSync}
             disabled={isSyncing || isDeleting || !online}
             title={online ? "Sync now" : "Agent offline"}
             className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-vc-muted hover:text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 disabled:opacity-40 border border-vc-border hover:border-indigo-300 dark:hover:border-indigo-700 transition-colors"
           >
-            {isSyncing ? <Loader2 size={13} className="animate-spin" /> : <RefreshCw size={13} />}
+            {isSyncing ? (
+              <Loader2 size={13} className="animate-spin" />
+            ) : (
+              <RefreshCw size={13} />
+            )}
             Sync
           </button>
           <button
@@ -3058,7 +4342,11 @@ function KsSourceCard({
             title="Delete source"
             className="p-1.5 rounded-lg text-vc-muted hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 disabled:opacity-40 border border-transparent hover:border-red-200 dark:hover:border-red-800 transition-colors"
           >
-            {isDeleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+            {isDeleting ? (
+              <Loader2 size={14} className="animate-spin" />
+            ) : (
+              <Trash2 size={14} />
+            )}
           </button>
           <div className="pl-1 text-vc-subtle">
             {isExpanded ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
@@ -3073,19 +4361,31 @@ function KsSourceCard({
           {source.error && (
             <div className="flex items-start gap-2 p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
               <XCircle size={14} className="text-red-500 mt-0.5 shrink-0" />
-              <p className="text-xs text-red-600 dark:text-red-400 font-mono break-all">{source.error}</p>
+              <p className="text-xs text-red-600 dark:text-red-400 font-mono break-all">
+                {source.error}
+              </p>
             </div>
           )}
 
           {/* URL list */}
           {source.source_type === "url" && Array.isArray(config.urls) && (
             <div className="space-y-1">
-              <p className="text-xs text-vc-muted font-medium uppercase tracking-wider">Indexed URLs</p>
+              <p className="text-xs text-vc-muted font-medium uppercase tracking-wider">
+                Indexed URLs
+              </p>
               <ul className="space-y-1">
-                {(config.urls as string[]).map(url => (
-                  <li key={url} className="flex items-center gap-2 text-xs text-vc-text">
+                {(config.urls as string[]).map((url) => (
+                  <li
+                    key={url}
+                    className="flex items-center gap-2 text-xs text-vc-text"
+                  >
                     <Globe size={11} className="text-vc-subtle shrink-0" />
-                    <a href={url} target="_blank" rel="noopener noreferrer" className="hover:text-indigo-500 truncate">
+                    <a
+                      href={url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="hover:text-indigo-500 truncate"
+                    >
                       {url}
                     </a>
                   </li>
@@ -3097,10 +4397,15 @@ function KsSourceCard({
           {/* Text documents list */}
           {source.source_type === "text" && Array.isArray(config.texts) && (
             <div className="space-y-1">
-              <p className="text-xs text-vc-muted font-medium uppercase tracking-wider">Documents</p>
+              <p className="text-xs text-vc-muted font-medium uppercase tracking-wider">
+                Documents
+              </p>
               <ul className="space-y-1">
                 {(config.texts as { title: string }[]).map((t, i) => (
-                  <li key={i} className="flex items-center gap-2 text-xs text-vc-text">
+                  <li
+                    key={i}
+                    className="flex items-center gap-2 text-xs text-vc-text"
+                  >
                     <FileText size={11} className="text-vc-subtle shrink-0" />
                     {t.title}
                   </li>
@@ -3112,18 +4417,25 @@ function KsSourceCard({
           {/* Uploaded files list */}
           {source.source_type === "files" && (
             <div className="space-y-1">
-              <p className="text-xs text-vc-muted font-medium uppercase tracking-wider">Uploaded Files</p>
+              <p className="text-xs text-vc-muted font-medium uppercase tracking-wider">
+                Uploaded Files
+              </p>
               {loadingFiles ? (
                 <div className="flex items-center gap-2 py-2 text-xs text-vc-muted">
                   <Loader2 size={12} className="animate-spin" /> Loading files…
                 </div>
               ) : files && files.length > 0 ? (
                 <ul className="space-y-1">
-                  {files.map(f => (
-                    <li key={f.id} className="flex items-center gap-2 text-xs text-vc-text">
+                  {files.map((f) => (
+                    <li
+                      key={f.id}
+                      className="flex items-center gap-2 text-xs text-vc-text"
+                    >
                       {mimeIcon(f.mime_type)}
                       <span className="flex-1 truncate">{f.name}</span>
-                      <span className="text-vc-muted shrink-0">{formatBytes(f.size)}</span>
+                      <span className="text-vc-muted shrink-0">
+                        {formatBytes(f.size)}
+                      </span>
                     </li>
                   ))}
                 </ul>
@@ -3136,12 +4448,24 @@ function KsSourceCard({
           {/* Metadata row */}
           <div className="flex flex-wrap gap-4 text-xs text-vc-muted pt-1 border-t border-vc-border/60">
             {config.chunkSize != null && (
-              <span>Chunk size: <span className="text-vc-text">{String(config.chunkSize)}</span></span>
+              <span>
+                Chunk size:{" "}
+                <span className="text-vc-text">{String(config.chunkSize)}</span>
+              </span>
             )}
-            <span>Created: <span className="text-vc-text">
-              {new Date(source.created_at.endsWith("Z") ? source.created_at : source.created_at + "Z").toLocaleDateString()}
-            </span></span>
-            <span>ID: <span className="text-vc-text font-mono">{source.id}</span></span>
+            <span>
+              Created:{" "}
+              <span className="text-vc-text">
+                {new Date(
+                  source.created_at.endsWith("Z")
+                    ? source.created_at
+                    : source.created_at + "Z"
+                ).toLocaleDateString()}
+              </span>
+            </span>
+            <span>
+              ID: <span className="text-vc-text font-mono">{source.id}</span>
+            </span>
           </div>
         </div>
       )}
@@ -3163,7 +4487,13 @@ interface KsAddSourceModalProps {
   onCreated: () => void;
 }
 
-function KsAddSourceModal({ did, realms, doclingConfigured, onClose, onCreated }: KsAddSourceModalProps) {
+function KsAddSourceModal({
+  did,
+  realms,
+  doclingConfigured,
+  onClose,
+  onCreated,
+}: KsAddSourceModalProps) {
   const [name, setName] = useState("");
   const [realmId, setRealmId] = useState(realms[0]?.id ?? "");
   const [sourceType, setSourceType] = useState<KsSourceType>("url");
@@ -3177,12 +4507,12 @@ function KsAddSourceModal({ did, realms, doclingConfigured, onClose, onCreated }
   const [uploadProgress, setUploadProgress] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const hasOversizedFile = selectedFiles.some(f => f.size > 10 * 1024 * 1024);
+  const hasOversizedFile = selectedFiles.some((f) => f.size > 10 * 1024 * 1024);
 
   function handleAddFiles(added: File[]) {
-    setSelectedFiles(prev => {
-      const existing = new Set(prev.map(f => f.name));
-      const next = [...prev, ...added.filter(f => !existing.has(f.name))];
+    setSelectedFiles((prev) => {
+      const existing = new Set(prev.map((f) => f.name));
+      const next = [...prev, ...added.filter((f) => !existing.has(f.name))];
       // Auto-fill name from first file added if the field is still empty
       if (!name.trim() && next.length > 0) {
         const firstName = next[0].name.replace(/\.[^.]+$/, ""); // strip extension
@@ -3193,33 +4523,57 @@ function KsAddSourceModal({ did, realms, doclingConfigured, onClose, onCreated }
   }
 
   function handleRemoveFile(index: number) {
-    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+    setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!name.trim()) { setError("Source name is required."); return; }
-    if (!realmId) { setError("Please select a realm."); return; }
-    if (hasOversizedFile) { setError("Remove files that exceed the 10 MB limit."); return; }
+    if (!name.trim()) {
+      setError("Source name is required.");
+      return;
+    }
+    if (!realmId) {
+      setError("Please select a realm.");
+      return;
+    }
+    if (hasOversizedFile) {
+      setError("Remove files that exceed the 10 MB limit.");
+      return;
+    }
 
     setSaving(true);
     setError(null);
 
     try {
       if (sourceType === "url") {
-        const list = urls.split("\n").map(u => u.trim()).filter(Boolean);
-        if (!list.length) { setError("Enter at least one URL."); setSaving(false); return; }
-        const config = { chunkSize: parseInt(chunkSize, 10) || 1000, urls: list };
+        const list = urls
+          .split("\n")
+          .map((u) => u.trim())
+          .filter(Boolean);
+        if (!list.length) {
+          setError("Enter at least one URL.");
+          setSaving(false);
+          return;
+        }
+        const config = {
+          chunkSize: parseInt(chunkSize, 10) || 1000,
+          urls: list,
+        };
         const res = await fetch("/api/knowledge", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ realmId, agentDid: did, name: name.trim(), sourceType: "url", config }),
+          body: JSON.stringify({
+            realmId,
+            agentDid: did,
+            name: name.trim(),
+            sourceType: "url",
+            config,
+          }),
         });
         if (!res.ok) {
-          const d = await res.json() as { error?: string };
+          const d = (await res.json()) as { error?: string };
           throw new Error(d.error ?? "Failed to create source");
         }
-
       } else if (sourceType === "text") {
         if (!textTitle.trim() || !textContent.trim()) {
           setError("Title and content are required for text sources.");
@@ -3233,16 +4587,25 @@ function KsAddSourceModal({ did, realms, doclingConfigured, onClose, onCreated }
         const res = await fetch("/api/knowledge", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ realmId, agentDid: did, name: name.trim(), sourceType: "text", config }),
+          body: JSON.stringify({
+            realmId,
+            agentDid: did,
+            name: name.trim(),
+            sourceType: "text",
+            config,
+          }),
         });
         if (!res.ok) {
-          const d = await res.json() as { error?: string };
+          const d = (await res.json()) as { error?: string };
           throw new Error(d.error ?? "Failed to create source");
         }
-
       } else {
         // files source type — multi-step
-        if (!selectedFiles.length) { setError("Select at least one file to upload."); setSaving(false); return; }
+        if (!selectedFiles.length) {
+          setError("Select at least one file to upload.");
+          setSaving(false);
+          return;
+        }
 
         // Step 1: create source record
         const sourceRes = await fetch("/api/knowledge", {
@@ -3257,21 +4620,28 @@ function KsAddSourceModal({ did, realms, doclingConfigured, onClose, onCreated }
           }),
         });
         if (!sourceRes.ok) {
-          const d = await sourceRes.json() as { error?: string };
+          const d = (await sourceRes.json()) as { error?: string };
           throw new Error(d.error ?? "Failed to create source");
         }
-        const { source } = await sourceRes.json() as { source: { id: string } };
+        const { source } = (await sourceRes.json()) as {
+          source: { id: string };
+        };
 
         // Step 2: upload each file
         for (let i = 0; i < selectedFiles.length; i++) {
           const file = selectedFiles[i];
-          setUploadProgress(`Uploading ${i + 1}/${selectedFiles.length}: ${file.name}`);
+          setUploadProgress(
+            `Uploading ${i + 1}/${selectedFiles.length}: ${file.name}`
+          );
           const fd = new FormData();
           fd.append("sourceId", source.id);
           fd.append("file", file);
-          const uploadRes = await fetch("/api/knowledge/files", { method: "POST", body: fd });
+          const uploadRes = await fetch("/api/knowledge/files", {
+            method: "POST",
+            body: fd,
+          });
           if (!uploadRes.ok) {
-            const d = await uploadRes.json() as { error?: string };
+            const d = (await uploadRes.json()) as { error?: string };
             throw new Error(d.error ?? `Failed to upload ${file.name}`);
           }
         }
@@ -3288,7 +4658,12 @@ function KsAddSourceModal({ did, realms, doclingConfigured, onClose, onCreated }
     }
   }
 
-  const sourceTypeOptions: { value: KsSourceType; icon: React.ReactNode; label: string; description: string }[] = [
+  const sourceTypeOptions: {
+    value: KsSourceType;
+    icon: React.ReactNode;
+    label: string;
+    description: string;
+  }[] = [
     {
       value: "url",
       icon: <Globe size={18} className="text-indigo-400" />,
@@ -3316,21 +4691,31 @@ function KsAddSourceModal({ did, realms, doclingConfigured, onClose, onCreated }
         <div className="flex items-center justify-between px-5 py-4 border-b border-vc-border shrink-0">
           <div className="flex items-center gap-2">
             <BookOpen className="w-5 h-5 text-indigo-500" />
-            <h2 className="text-sm font-semibold text-vc-text">Add Knowledge Source</h2>
+            <h2 className="text-sm font-semibold text-vc-text">
+              Add Knowledge Source
+            </h2>
           </div>
-          <button onClick={onClose} className="text-vc-muted hover:text-vc-text transition-colors">
+          <button
+            onClick={onClose}
+            className="text-vc-muted hover:text-vc-text transition-colors"
+          >
             <X size={18} />
           </button>
         </div>
 
         {/* Scrollable body */}
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-5 space-y-4">
+        <form
+          onSubmit={handleSubmit}
+          className="flex-1 overflow-y-auto p-5 space-y-4"
+        >
           {/* Name */}
           <div className="space-y-1">
-            <label className="text-xs font-medium text-vc-muted uppercase tracking-wider">Name</label>
+            <label className="text-xs font-medium text-vc-muted uppercase tracking-wider">
+              Name
+            </label>
             <input
               value={name}
-              onChange={e => setName(e.target.value)}
+              onChange={(e) => setName(e.target.value)}
               placeholder="e.g. SharePoint Contracts"
               className="w-full px-3 py-2 rounded-lg bg-vc-bg border border-vc-border text-sm text-vc-text placeholder:text-vc-subtle focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
             />
@@ -3338,22 +4723,30 @@ function KsAddSourceModal({ did, realms, doclingConfigured, onClose, onCreated }
 
           {/* Realm */}
           <div className="space-y-1">
-            <label className="text-xs font-medium text-vc-muted uppercase tracking-wider">Realm</label>
+            <label className="text-xs font-medium text-vc-muted uppercase tracking-wider">
+              Realm
+            </label>
             <select
               value={realmId}
-              onChange={e => setRealmId(e.target.value)}
+              onChange={(e) => setRealmId(e.target.value)}
               className="w-full px-3 py-2 rounded-lg bg-vc-bg border border-vc-border text-sm text-vc-text focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
             >
               <option value="">Select realm…</option>
-              {realms.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+              {realms.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.name}
+                </option>
+              ))}
             </select>
           </div>
 
           {/* Source type selector — option cards */}
           <div className="space-y-1.5">
-            <label className="text-xs font-medium text-vc-muted uppercase tracking-wider">Source type</label>
+            <label className="text-xs font-medium text-vc-muted uppercase tracking-wider">
+              Source type
+            </label>
             <div className="grid grid-cols-3 gap-2">
-              {sourceTypeOptions.map(opt => (
+              {sourceTypeOptions.map((opt) => (
                 <button
                   key={opt.value}
                   type="button"
@@ -3365,10 +4758,14 @@ function KsAddSourceModal({ did, realms, doclingConfigured, onClose, onCreated }
                   }`}
                 >
                   {opt.icon}
-                  <span className={`text-xs font-medium leading-tight ${sourceType === opt.value ? "text-indigo-600 dark:text-indigo-300" : "text-vc-text"}`}>
+                  <span
+                    className={`text-xs font-medium leading-tight ${sourceType === opt.value ? "text-indigo-600 dark:text-indigo-300" : "text-vc-text"}`}
+                  >
                     {opt.label}
                   </span>
-                  <span className="text-[10px] text-vc-muted leading-tight">{opt.description}</span>
+                  <span className="text-[10px] text-vc-muted leading-tight">
+                    {opt.description}
+                  </span>
                 </button>
               ))}
             </div>
@@ -3377,9 +4774,13 @@ function KsAddSourceModal({ did, realms, doclingConfigured, onClose, onCreated }
           {/* Docling notice for files type */}
           {sourceType === "files" && !doclingConfigured && (
             <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
-              <AlertTriangle size={14} className="text-amber-500 mt-0.5 shrink-0" />
+              <AlertTriangle
+                size={14}
+                className="text-amber-500 mt-0.5 shrink-0"
+              />
               <p className="text-xs text-amber-700 dark:text-amber-400">
-                PDF and DOCX files require Docling to be configured. Plain text (.txt, .md) files can be indexed without Docling.
+                PDF and DOCX files require Docling to be configured. Plain text
+                (.txt, .md) files can be indexed without Docling.
               </p>
             </div>
           )}
@@ -3388,12 +4789,17 @@ function KsAddSourceModal({ did, realms, doclingConfigured, onClose, onCreated }
           {sourceType === "url" && (
             <div className="space-y-1">
               <label className="text-xs font-medium text-vc-muted uppercase tracking-wider">
-                URLs <span className="normal-case font-normal text-vc-subtle">(one per line)</span>
+                URLs{" "}
+                <span className="normal-case font-normal text-vc-subtle">
+                  (one per line)
+                </span>
               </label>
               <textarea
                 value={urls}
-                onChange={e => setUrls(e.target.value)}
-                placeholder={"https://example.com/docs\nhttps://example.com/policy"}
+                onChange={(e) => setUrls(e.target.value)}
+                placeholder={
+                  "https://example.com/docs\nhttps://example.com/policy"
+                }
                 rows={4}
                 className="w-full px-3 py-2 rounded-lg bg-vc-bg border border-vc-border text-sm text-vc-text placeholder:text-vc-subtle focus:outline-none focus:ring-2 focus:ring-indigo-500/40 font-mono"
               />
@@ -3404,19 +4810,23 @@ function KsAddSourceModal({ did, realms, doclingConfigured, onClose, onCreated }
           {sourceType === "text" && (
             <div className="space-y-3">
               <div className="space-y-1">
-                <label className="text-xs font-medium text-vc-muted uppercase tracking-wider">Document title</label>
+                <label className="text-xs font-medium text-vc-muted uppercase tracking-wider">
+                  Document title
+                </label>
                 <input
                   value={textTitle}
-                  onChange={e => setTextTitle(e.target.value)}
+                  onChange={(e) => setTextTitle(e.target.value)}
                   placeholder="e.g. Company Policy v2"
                   className="w-full px-3 py-2 rounded-lg bg-vc-bg border border-vc-border text-sm text-vc-text placeholder:text-vc-subtle focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-xs font-medium text-vc-muted uppercase tracking-wider">Content</label>
+                <label className="text-xs font-medium text-vc-muted uppercase tracking-wider">
+                  Content
+                </label>
                 <textarea
                   value={textContent}
-                  onChange={e => setTextContent(e.target.value)}
+                  onChange={(e) => setTextContent(e.target.value)}
                   placeholder="Paste document content here…"
                   rows={5}
                   className="w-full px-3 py-2 rounded-lg bg-vc-bg border border-vc-border text-sm text-vc-text placeholder:text-vc-subtle focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
@@ -3438,26 +4848,35 @@ function KsAddSourceModal({ did, realms, doclingConfigured, onClose, onCreated }
           <div>
             <button
               type="button"
-              onClick={() => setShowAdvanced(v => !v)}
+              onClick={() => setShowAdvanced((v) => !v)}
               className="flex items-center gap-1 text-xs text-vc-muted hover:text-vc-text transition-colors"
             >
-              {showAdvanced ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+              {showAdvanced ? (
+                <ChevronUp size={14} />
+              ) : (
+                <ChevronDown size={14} />
+              )}
               Advanced settings
             </button>
             {showAdvanced && (
               <div className="mt-3 space-y-1">
                 <label className="text-xs font-medium text-vc-muted uppercase tracking-wider">
-                  Chunk size <span className="normal-case font-normal text-vc-subtle">(chars)</span>
+                  Chunk size{" "}
+                  <span className="normal-case font-normal text-vc-subtle">
+                    (chars)
+                  </span>
                 </label>
                 <input
                   type="number"
                   value={chunkSize}
-                  onChange={e => setChunkSize(e.target.value)}
+                  onChange={(e) => setChunkSize(e.target.value)}
                   min={100}
                   max={8000}
                   className="w-32 px-3 py-2 rounded-lg bg-vc-bg border border-vc-border text-sm text-vc-text focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
                 />
-                <p className="text-xs text-vc-subtle">Default 1000. Larger = more context per chunk, fewer results.</p>
+                <p className="text-xs text-vc-subtle">
+                  Default 1000. Larger = more context per chunk, fewer results.
+                </p>
               </div>
             )}
           </div>
@@ -3465,15 +4884,23 @@ function KsAddSourceModal({ did, realms, doclingConfigured, onClose, onCreated }
           {/* Upload progress */}
           {uploadProgress && (
             <div className="flex items-center gap-2 p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
-              <Loader2 size={14} className="animate-spin text-blue-500 shrink-0" />
-              <p className="text-xs text-blue-700 dark:text-blue-400">{uploadProgress}</p>
+              <Loader2
+                size={14}
+                className="animate-spin text-blue-500 shrink-0"
+              />
+              <p className="text-xs text-blue-700 dark:text-blue-400">
+                {uploadProgress}
+              </p>
             </div>
           )}
 
           {/* Error */}
           {error && (
             <div className="flex items-start gap-2 p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
-              <AlertTriangle size={14} className="text-red-500 mt-0.5 shrink-0" />
+              <AlertTriangle
+                size={14}
+                className="text-red-500 mt-0.5 shrink-0"
+              />
               <p className="text-xs text-red-600 dark:text-red-400">{error}</p>
             </div>
           )}
@@ -3506,7 +4933,16 @@ function KsAddSourceModal({ did, realms, doclingConfigured, onClose, onCreated }
 // KnowledgeTab
 // ---------------------------------------------------------------------------
 
-function KnowledgeTab({ did, online, capabilities }: { did: string; agentName: string; online: boolean; capabilities: string[] }) {
+function KnowledgeTab({
+  did,
+  online,
+  capabilities,
+}: {
+  did: string;
+  agentName: string;
+  online: boolean;
+  capabilities: string[];
+}) {
   const [sources, setSources] = useState<KnowledgeSource[]>([]);
   const [realms, setRealms] = useState<KsRealmOption[]>([]);
   const [loading, setLoading] = useState(true);
@@ -3530,8 +4966,8 @@ function KnowledgeTab({ did, online, capabilities }: { did: string; agentName: s
         fetch(`/api/knowledge?agentDid=${encodeURIComponent(did)}`),
         fetch("/api/realms"),
       ]);
-      const ksData = await ksRes.json() as { sources?: KnowledgeSource[] };
-      const rlData = await rlRes.json() as { realms?: KsRealmOption[] };
+      const ksData = (await ksRes.json()) as { sources?: KnowledgeSource[] };
+      const rlData = (await rlRes.json()) as { realms?: KsRealmOption[] };
       setSources(ksData.sources ?? []);
       setRealms(rlData.realms ?? []);
     } finally {
@@ -3539,38 +4975,51 @@ function KnowledgeTab({ did, online, capabilities }: { did: string; agentName: s
     }
   }, [did]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
 
   // Fetch Docling config on mount
   useEffect(() => {
     fetch("/api/settings/docling")
-      .then(r => r.json())
+      .then((r) => r.json())
       .then((d: { configured?: boolean; url?: string }) => {
         setDoclingConfigured(d.configured === true || Boolean(d.url));
       })
-      .catch(() => { /* Docling config unavailable */ });
+      .catch(() => {
+        /* Docling config unavailable */
+      });
   }, []);
 
   // Poll while any source is syncing
   useEffect(() => {
-    if (!sources.some(s => s.status === "syncing")) return;
+    if (!sources.some((s) => s.status === "syncing")) return;
     const id = setInterval(load, 3000);
     return () => clearInterval(id);
   }, [sources, load]);
 
   async function handleSync(source: KnowledgeSource) {
-    if (!online) { showToast("Agent is offline — cannot sync", false); return; }
-    setSyncingIds(s => new Set(s).add(source.id));
+    if (!online) {
+      showToast("Agent is offline — cannot sync", false);
+      return;
+    }
+    setSyncingIds((s) => new Set(s).add(source.id));
     try {
-      const res = await fetch(`/api/knowledge/${source.id}/sync`, { method: "POST" });
-      const data = await res.json() as { error?: string };
+      const res = await fetch(`/api/knowledge/${source.id}/sync`, {
+        method: "POST",
+      });
+      const data = (await res.json()) as { error?: string };
       if (!res.ok) throw new Error(data.error ?? "Sync failed");
       showToast(`Sync started for "${source.name}"`);
       await load();
     } catch (err) {
       showToast(err instanceof Error ? err.message : "Sync failed", false);
     } finally {
-      setSyncingIds(s => { const n = new Set(s); n.delete(source.id); return n; });
+      setSyncingIds((s) => {
+        const n = new Set(s);
+        n.delete(source.id);
+        return n;
+      });
     }
   }
 
@@ -3580,16 +5029,22 @@ function KnowledgeTab({ did, online, capabilities }: { did: string; agentName: s
       ? `"${source.name}" is currently syncing.\nDelete it anyway? The in-progress sync will be abandoned.`
       : `Delete "${source.name}"?\nAll indexed chunks will be removed from this agent.`;
     if (!confirm(msg)) return;
-    setDeletingIds(s => new Set(s).add(source.id));
+    setDeletingIds((s) => new Set(s).add(source.id));
     try {
-      const res = await fetch(`/api/knowledge/${source.id}`, { method: "DELETE" });
+      const res = await fetch(`/api/knowledge/${source.id}`, {
+        method: "DELETE",
+      });
       if (!res.ok) throw new Error("Delete failed");
       showToast(`"${source.name}" deleted`);
       await load();
     } catch (err) {
       showToast(err instanceof Error ? err.message : "Delete failed", false);
     } finally {
-      setDeletingIds(s => { const n = new Set(s); n.delete(source.id); return n; });
+      setDeletingIds((s) => {
+        const n = new Set(s);
+        n.delete(source.id);
+        return n;
+      });
     }
   }
 
@@ -3598,20 +5053,39 @@ function KnowledgeTab({ did, online, capabilities }: { did: string; agentName: s
     setGranting(true);
     try {
       // 1. Fetch current active policies for this agent
-      const policiesRes = await fetch(`/api/policies?agentDid=${encodeURIComponent(did)}`);
-      const policiesData = await policiesRes.json() as { policies?: Array<{ id: string; capabilities: string[]; resourceLimits: Record<string, unknown> | null; expiresAt: string | null; createdAt: string }> };
+      const policiesRes = await fetch(
+        `/api/policies?agentDid=${encodeURIComponent(did)}`
+      );
+      const policiesData = (await policiesRes.json()) as {
+        policies?: Array<{
+          id: string;
+          capabilities: string[];
+          resourceLimits: Record<string, unknown> | null;
+          expiresAt: string | null;
+          createdAt: string;
+        }>;
+      };
       const activePolicies = (policiesData.policies ?? [])
-        .filter(p => !p.expiresAt || new Date(p.expiresAt) > new Date())
-        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        .filter((p) => !p.expiresAt || new Date(p.expiresAt) > new Date())
+        .sort(
+          (a, b) =>
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        );
       const latestPolicy = activePolicies[0] ?? null;
 
       // 2. Build new capabilities list (base: latest policy caps if any, else current agent caps)
-      const baseCaps: string[] = latestPolicy?.capabilities ?? [...capabilities];
-      const newCaps = baseCaps.includes("knowledge_search") ? baseCaps : [...baseCaps, "knowledge_search"];
+      const baseCaps: string[] = latestPolicy?.capabilities ?? [
+        ...capabilities,
+      ];
+      const newCaps = baseCaps.includes("knowledge_search")
+        ? baseCaps
+        : [...baseCaps, "knowledge_search"];
 
       // 3. Delete old policy first so the POST is the final applied state
       if (latestPolicy) {
-        await fetch(`/api/policies/${encodeURIComponent(latestPolicy.id)}`, { method: "DELETE" });
+        await fetch(`/api/policies/${encodeURIComponent(latestPolicy.id)}`, {
+          method: "DELETE",
+        });
       }
 
       // 4. Create new policy (this triggers immediate cert reissue with knowledge_search)
@@ -3626,22 +5100,28 @@ function KnowledgeTab({ did, online, capabilities }: { did: string; agentName: s
         }),
       });
       if (!createRes.ok) {
-        const err = await createRes.json().catch(() => ({})) as { error?: string };
+        const err = (await createRes.json().catch(() => ({}))) as {
+          error?: string;
+        };
         throw new Error(err.error ?? `HTTP ${createRes.status}`);
       }
 
       showToast("knowledge_search granted — new policy applied");
     } catch (err) {
-      showToast(err instanceof Error ? err.message : "Failed to grant capability", false);
+      showToast(
+        err instanceof Error ? err.message : "Failed to grant capability",
+        false
+      );
     } finally {
       setGranting(false);
     }
   }
 
-  const getRealmName = (id: string) => realms.find(r => r.id === id)?.name ?? id;
+  const getRealmName = (id: string) =>
+    realms.find((r) => r.id === id)?.name ?? id;
   const totalChunks = sources.reduce((sum, s) => sum + (s.chunk_count ?? 0), 0);
-  const readyCount = sources.filter(s => s.status === "ready").length;
-  const hasFileSources = sources.some(s => s.source_type === "files");
+  const readyCount = sources.filter((s) => s.status === "ready").length;
+  const hasFileSources = sources.some((s) => s.source_type === "files");
   const hasReadySources = readyCount > 0;
   const hasKnowledgeCapability = capabilities.includes("knowledge_search");
 
@@ -3649,7 +5129,9 @@ function KnowledgeTab({ did, online, capabilities }: { did: string; agentName: s
     <div className="space-y-5">
       {/* Toast notification */}
       {toast && (
-        <div className={`fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-3 rounded-xl shadow-xl text-sm font-medium text-white ${toast.ok ? "bg-green-600" : "bg-red-600"}`}>
+        <div
+          className={`fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-3 rounded-xl shadow-xl text-sm font-medium text-white ${toast.ok ? "bg-green-600" : "bg-red-600"}`}
+        >
           {toast.ok ? <CheckCircle2 size={16} /> : <XCircle size={16} />}
           {toast.msg}
         </div>
@@ -3659,10 +5141,16 @@ function KnowledgeTab({ did, online, capabilities }: { did: string; agentName: s
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="flex items-center gap-2">
-            <h3 className="text-sm font-semibold text-vc-text">Knowledge Sources</h3>
+            <h3 className="text-sm font-semibold text-vc-text">
+              Knowledge Sources
+            </h3>
             {hasFileSources && (
               <span
-                title={doclingConfigured ? "Docling configured — PDF/DOCX parsing enabled" : "Docling not configured — PDF/DOCX parsing unavailable"}
+                title={
+                  doclingConfigured
+                    ? "Docling configured — PDF/DOCX parsing enabled"
+                    : "Docling not configured — PDF/DOCX parsing unavailable"
+                }
                 className={`inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full border font-medium ${
                   doclingConfigured
                     ? "bg-teal-100 dark:bg-teal-900/40 text-teal-700 dark:text-teal-400 border-teal-300 dark:border-teal-800"
@@ -3693,25 +5181,37 @@ function KnowledgeTab({ did, online, capabilities }: { did: string; agentName: s
       {!online && (
         <div className="flex items-center gap-2 p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 text-xs text-amber-700 dark:text-amber-400">
           <WifiOff size={14} className="shrink-0" />
-          Agent is offline. You can manage sources but syncing requires the agent to be connected.
+          Agent is offline. You can manage sources but syncing requires the
+          agent to be connected.
         </div>
       )}
 
       {/* Missing knowledge_search capability warning */}
       {hasReadySources && !hasKnowledgeCapability && (
         <div className="flex items-start gap-3 p-4 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
-          <AlertTriangle size={16} className="shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
+          <AlertTriangle
+            size={16}
+            className="shrink-0 mt-0.5 text-amber-600 dark:text-amber-400"
+          />
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-amber-800 dark:text-amber-300">
               Knowledge sources are ready but the agent cannot use them
             </p>
             <p className="text-xs text-amber-700 dark:text-amber-400 mt-1">
-              The <code className="bg-amber-100 dark:bg-amber-800/60 px-1 rounded font-mono">knowledge_search</code> capability
-              is not granted in this agent&apos;s active policy. The LLM will not have access to the{" "}
-              {readyCount === 1 ? "indexed document" : `${readyCount} indexed documents`} during conversations.
+              The{" "}
+              <code className="bg-amber-100 dark:bg-amber-800/60 px-1 rounded font-mono">
+                knowledge_search
+              </code>{" "}
+              capability is not granted in this agent&apos;s active policy. The
+              LLM will not have access to the{" "}
+              {readyCount === 1
+                ? "indexed document"
+                : `${readyCount} indexed documents`}{" "}
+              during conversations.
             </p>
             <p className="text-xs text-amber-600 dark:text-amber-500 mt-1">
-              Granting this capability will create a new policy (replacing the current one) and immediately reissue the agent&apos;s certificate.
+              Granting this capability will create a new policy (replacing the
+              current one) and immediately reissue the agent&apos;s certificate.
             </p>
           </div>
           <button
@@ -3719,7 +5219,11 @@ function KnowledgeTab({ did, online, capabilities }: { did: string; agentName: s
             disabled={granting}
             className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-500 disabled:opacity-60 text-white text-xs font-medium transition-colors"
           >
-            {granting ? <Loader2 size={13} className="animate-spin" /> : <ShieldCheck size={13} />}
+            {granting ? (
+              <Loader2 size={13} className="animate-spin" />
+            ) : (
+              <ShieldCheck size={13} />
+            )}
             {granting ? "Applying…" : "Grant capability"}
           </button>
         </div>
@@ -3736,10 +5240,17 @@ function KnowledgeTab({ did, online, capabilities }: { did: string; agentName: s
       {!loading && sources.length === 0 && (
         <div className="rounded-2xl border border-vc-border border-dashed bg-vc-bg/40 p-10 text-center space-y-3">
           <BookOpen className="w-7 h-7 text-vc-subtle mx-auto" />
-          <p className="text-sm font-medium text-vc-text">No knowledge sources yet</p>
+          <p className="text-sm font-medium text-vc-text">
+            No knowledge sources yet
+          </p>
           <p className="text-xs text-vc-muted max-w-sm mx-auto">
-            Connect URLs, paste inline text, or upload documents. Once synced and the{" "}
-            <code className="bg-vc-raised px-1 rounded text-indigo-400">knowledge_search</code> capability is granted, the agent will use indexed content in every conversation.
+            Connect URLs, paste inline text, or upload documents. Once synced
+            and the{" "}
+            <code className="bg-vc-raised px-1 rounded text-indigo-400">
+              knowledge_search
+            </code>{" "}
+            capability is granted, the agent will use indexed content in every
+            conversation.
           </p>
           <button
             onClick={() => setShowCreate(true)}
@@ -3753,16 +5264,20 @@ function KnowledgeTab({ did, online, capabilities }: { did: string; agentName: s
       {/* Source cards */}
       {!loading && sources.length > 0 && (
         <div className="space-y-3">
-          {sources.map(source => (
+          {sources.map((source) => (
             <KsSourceCard
               key={source.id}
               source={source}
               realmName={getRealmName(source.realm_id)}
-              isSyncing={syncingIds.has(source.id) || source.status === "syncing"}
+              isSyncing={
+                syncingIds.has(source.id) || source.status === "syncing"
+              }
               isDeleting={deletingIds.has(source.id)}
               isExpanded={expandedId === source.id}
               online={online}
-              onToggleExpand={() => setExpandedId(expandedId === source.id ? null : source.id)}
+              onToggleExpand={() =>
+                setExpandedId(expandedId === source.id ? null : source.id)
+              }
               onSync={() => handleSync(source)}
               onDelete={() => handleDelete(source)}
             />

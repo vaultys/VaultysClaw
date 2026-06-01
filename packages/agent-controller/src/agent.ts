@@ -19,21 +19,33 @@ import { decode as msgpackDecode } from "@msgpack/msgpack";
 // WebRTC polyfills required by PeerJS in Node.js (same as peer-manager.ts)
 import * as wrtc from "@roamhq/wrtc";
 (global as Record<string, unknown>).RTCPeerConnection = wrtc.RTCPeerConnection;
-(global as Record<string, unknown>).RTCSessionDescription = wrtc.RTCSessionDescription;
+(global as Record<string, unknown>).RTCSessionDescription =
+  wrtc.RTCSessionDescription;
 (global as Record<string, unknown>).RTCIceCandidate = wrtc.RTCIceCandidate;
 (global as Record<string, unknown>).getUserMedia = wrtc.getUserMedia;
 import { Challenger, VaultysId, crypto } from "@vaultys/id";
 import {
-  initDb, storeCertificate,
-  storeDelegation, clearAllDelegations,
-  getAllDelegations, type DelegationRow,
-  getLlmConfig, setLlmConfig,
-  setEncryptedLlmConfigBlob, getEncryptedLlmConfigBlob,
+  initDb,
+  storeCertificate,
+  storeDelegation,
+  clearAllDelegations,
+  getAllDelegations,
+  type DelegationRow,
+  getLlmConfig,
+  setLlmConfig,
+  setEncryptedLlmConfigBlob,
+  getEncryptedLlmConfigBlob,
   getPeerjsServer,
-  getDb, getRecentTasks,
-  upsertChatSession, appendChatMessages,
-  listChatSessions, getChatMessages, deleteChatSession,
-  storePeerGrants, getAllPeerGrants, type PeerGrantRow,
+  getDb,
+  getRecentTasks,
+  upsertChatSession,
+  appendChatMessages,
+  listChatSessions,
+  getChatMessages,
+  deleteChatSession,
+  storePeerGrants,
+  getAllPeerGrants,
+  type PeerGrantRow,
   recordTokenUsage,
   getDailyTokenUsage,
   getMonthlyTokenUsage,
@@ -69,8 +81,18 @@ import {
   type ResourceLimits,
 } from "@vaultysclaw/shared";
 import { type AgentControllerConfig } from "./config";
-import { runIntent, LlmNotConfiguredError, LlmProviderError, streamChat } from "./llm";
-import { createToolRegistry, buildToolSet, type ToolRegistry, type ApprovalRequest } from "./tools";
+import {
+  runIntent,
+  LlmNotConfiguredError,
+  LlmProviderError,
+  streamChat,
+} from "./llm";
+import {
+  createToolRegistry,
+  buildToolSet,
+  type ToolRegistry,
+  type ApprovalRequest,
+} from "./tools";
 import { buildRemoteAgentTools } from "./tools/remote-agent-tools";
 import { PeerManager } from "./peer-manager";
 import { SkillLoader, type SkillRegistry } from "./skills";
@@ -92,13 +114,25 @@ function classifyLlmError(err: unknown): "llm_unavailable" | "llm_error" {
   if (cause?.code === "ECONNREFUSED") return "llm_unavailable";
   if (cause?.constructor?.name === "AggregateError") return "llm_unavailable";
   // Mastra re-throws as a retryable APICallError
-  if ((err as any)[Symbol.for("vercel.ai.error.AI_APICallError")] === true && (err as any).isRetryable) {
-    if (err.message.includes("Cannot connect") || err.message.includes("ECONNREFUSED")) return "llm_unavailable";
+  if (
+    (err as any)[Symbol.for("vercel.ai.error.AI_APICallError")] === true &&
+    (err as any).isRetryable
+  ) {
+    if (
+      err.message.includes("Cannot connect") ||
+      err.message.includes("ECONNREFUSED")
+    )
+      return "llm_unavailable";
   }
   // Wrapped in LlmProviderError
-  if (err.name === "LlmProviderError") return classifyLlmError((err as any).providerCause);
+  if (err.name === "LlmProviderError")
+    return classifyLlmError((err as any).providerCause);
   // Fallback string check
-  if (err.message.includes("ECONNREFUSED") || err.message.includes("Cannot connect to API")) return "llm_unavailable";
+  if (
+    err.message.includes("ECONNREFUSED") ||
+    err.message.includes("Cannot connect to API")
+  )
+    return "llm_unavailable";
   return "llm_error";
 }
 
@@ -120,15 +154,28 @@ function serializeZodField(field: any): Record<string, unknown> {
   if (def.description) base.description = def.description;
 
   switch (typeName) {
-    case "ZodString": return { ...base, type: "string" };
-    case "ZodNumber": return { ...base, type: "number" };
-    case "ZodBoolean": return { ...base, type: "boolean" };
-    case "ZodArray": return { ...base, type: "array", items: serializeZodField(def.type) };
-    case "ZodObject": return { ...base, type: "object", properties: serializeZodSchema(field) };
-    case "ZodEnum": return { ...base, type: "enum", enum: def.values };
-    case "ZodLiteral": return { ...base, type: "literal", value: def.value };
-    case "ZodUnion": return { ...base, type: "union", options: (def.options as any[]).map(serializeZodField) };
-    default: return { ...base, type: typeName.replace("Zod", "").toLowerCase() };
+    case "ZodString":
+      return { ...base, type: "string" };
+    case "ZodNumber":
+      return { ...base, type: "number" };
+    case "ZodBoolean":
+      return { ...base, type: "boolean" };
+    case "ZodArray":
+      return { ...base, type: "array", items: serializeZodField(def.type) };
+    case "ZodObject":
+      return { ...base, type: "object", properties: serializeZodSchema(field) };
+    case "ZodEnum":
+      return { ...base, type: "enum", enum: def.values };
+    case "ZodLiteral":
+      return { ...base, type: "literal", value: def.value };
+    case "ZodUnion":
+      return {
+        ...base,
+        type: "union",
+        options: (def.options as any[]).map(serializeZodField),
+      };
+    default:
+      return { ...base, type: typeName.replace("Zod", "").toLowerCase() };
   }
 }
 
@@ -136,7 +183,10 @@ function serializeZodSchema(schema: any): Record<string, unknown> | undefined {
   if (!schema?._def) return undefined;
   try {
     if (schema._def.typeName === "ZodObject") {
-      const shape = typeof schema._def.shape === "function" ? schema._def.shape() : schema._def.shape;
+      const shape =
+        typeof schema._def.shape === "function"
+          ? schema._def.shape()
+          : schema._def.shape;
       if (!shape) return undefined;
       const result: Record<string, unknown> = {};
       for (const [key, value] of Object.entries(shape)) {
@@ -144,7 +194,9 @@ function serializeZodSchema(schema: any): Record<string, unknown> | undefined {
       }
       return result;
     }
-  } catch { /* ignore */ }
+  } catch {
+    /* ignore */
+  }
   return undefined;
 }
 
@@ -193,7 +245,7 @@ export interface AgentInfo {
 
 class RingBuffer<T> {
   private buf: T[] = [];
-  constructor(private readonly max: number) { }
+  constructor(private readonly max: number) {}
   push(item: T): void {
     this.buf.push(item);
     if (this.buf.length > this.max) this.buf.shift();
@@ -201,6 +253,50 @@ class RingBuffer<T> {
   toArray(): T[] {
     return [...this.buf];
   }
+}
+
+// ---- Think-content splitter ----
+
+/**
+ * Splits a raw text chunk (with optional buffered prefix) into segments
+ * of normal vs. reasoning content, handling <think>/</think> tags that
+ * may span chunk boundaries.
+ */
+function splitThinkContent(
+  text: string,
+  inThinking: boolean
+): {
+  segments: Array<{ text: string; thinking: boolean }>;
+  remaining: string;
+  inThinking: boolean;
+} {
+  const segments: Array<{ text: string; thinking: boolean }> = [];
+  let pos = 0;
+  let thinking = inThinking;
+  while (pos < text.length) {
+    const tag = thinking ? "<\/think>" : "<think>";
+    const tagIdx = text.indexOf(tag, pos);
+    if (tagIdx === -1) {
+      const tail = text.slice(pos);
+      let trailingPartial = "";
+      for (let len = Math.min(tag.length - 1, tail.length); len >= 1; len--) {
+        if (tag.startsWith(tail.slice(-len))) {
+          trailingPartial = tail.slice(-len);
+          break;
+        }
+      }
+      const emitText = trailingPartial
+        ? tail.slice(0, tail.length - trailingPartial.length)
+        : tail;
+      if (emitText) segments.push({ text: emitText, thinking });
+      return { segments, remaining: trailingPartial, inThinking: thinking };
+    }
+    if (tagIdx > pos)
+      segments.push({ text: text.slice(pos, tagIdx), thinking });
+    pos = tagIdx + tag.length;
+    thinking = !thinking;
+  }
+  return { segments, remaining: "", inThinking: thinking };
 }
 
 // ---- Agent class ----
@@ -246,8 +342,20 @@ export class Agent extends EventEmitter {
   private skillLoader: SkillLoader | null = null;
   /** Skill filter pushed by the control plane. null = no filter (use all local skills). */
   private realmSkillFilter: SkillConfig[] | null = null;
-  private pendingApprovals = new Map<string, { resolve: (approved: boolean) => void; timer: ReturnType<typeof setTimeout> }>();
-  private _pendingApprovalsMeta: Array<{ requestId: string; toolName: string; args: Record<string, unknown>; conversationId?: string; requestedAt: string }> = [];
+  private pendingApprovals = new Map<
+    string,
+    {
+      resolve: (approved: boolean) => void;
+      timer: ReturnType<typeof setTimeout>;
+    }
+  >();
+  private _pendingApprovalsMeta: Array<{
+    requestId: string;
+    toolName: string;
+    args: Record<string, unknown>;
+    conversationId?: string;
+    requestedAt: string;
+  }> = [];
   private static readonly DEFAULT_APPROVAL_TIMEOUT_MS = 600_000; // 10 minutes
 
   // Task queue & scheduler
@@ -357,7 +465,7 @@ export class Agent extends EventEmitter {
     this.taskQueue?.stop();
     this.scheduler?.stop();
     this.skillLoader?.stopWatch();
-    this.peerManager?.shutdown().catch(() => { });
+    this.peerManager?.shutdown().catch(() => {});
     this.setStatus("disconnected");
   }
 
@@ -400,7 +508,9 @@ export class Agent extends EventEmitter {
    * Returns the active LLM config with the apiKey masked for safe display.
    * The returned apiKey is either undefined (not set) or '***' (set but hidden).
    */
-  getLlmConfigSafe(): (Omit<LlmConfig, "apiKey"> & { apiKey?: string; hasApiKey: boolean }) | null {
+  getLlmConfigSafe():
+    | (Omit<LlmConfig, "apiKey"> & { apiKey?: string; hasApiKey: boolean })
+    | null {
     if (!this.activeLlmConfig) return null;
     const { apiKey, ...rest } = this.activeLlmConfig;
     return { ...rest, apiKey: apiKey ? "***" : undefined, hasApiKey: !!apiKey };
@@ -415,18 +525,40 @@ export class Agent extends EventEmitter {
 
   /** Recent tasks from the persistent queue. */
   getRecentTasks(limit = 50): import("./db").TaskRow[] {
-    try { return getRecentTasks(limit); } catch { return []; }
+    try {
+      return getRecentTasks(limit);
+    } catch {
+      return [];
+    }
   }
 
   /** Active (and disabled) schedules. */
   getSchedules(): import("./db").ScheduleRow[] {
     try {
-      return getDb().query("SELECT * FROM schedules ORDER BY created_at DESC").all() as import("./db").ScheduleRow[];
-    } catch { return []; }
+      return getDb()
+        .query("SELECT * FROM schedules ORDER BY created_at DESC")
+        .all() as import("./db").ScheduleRow[];
+    } catch {
+      return [];
+    }
   }
 
   /** Loaded skill definitions with tool schemas for the web dashboard. */
-  getSkills(): Array<{ name: string; description: string; version: string; toolCount: number; systemPromptExtension?: string; enabled: boolean; isRequired: boolean; realmManaged: boolean; tools: Array<{ name: string; description?: string; inputSchema?: Record<string, unknown> }> }> {
+  getSkills(): Array<{
+    name: string;
+    description: string;
+    version: string;
+    toolCount: number;
+    systemPromptExtension?: string;
+    enabled: boolean;
+    isRequired: boolean;
+    realmManaged: boolean;
+    tools: Array<{
+      name: string;
+      description?: string;
+      inputSchema?: Record<string, unknown>;
+    }>;
+  }> {
     if (!this.skillLoader) return [];
     try {
       const filterMap = this.realmSkillFilter
@@ -451,11 +583,19 @@ export class Agent extends EventEmitter {
           })),
         };
       });
-    } catch { return []; }
+    } catch {
+      return [];
+    }
   }
 
   /** All registered tools (built-in + skill) with descriptions and input schemas. */
-  getToolList(): Array<{ name: string; capability: string; requiresApproval: boolean; description?: string; inputSchema?: Record<string, unknown> }> {
+  getToolList(): Array<{
+    name: string;
+    capability: string;
+    requiresApproval: boolean;
+    description?: string;
+    inputSchema?: Record<string, unknown>;
+  }> {
     return this.toolRegistry.tools.map((t) => ({
       name: t.name,
       capability: t.capability,
@@ -466,20 +606,40 @@ export class Agent extends EventEmitter {
   }
 
   /** Recent tool usage log entries. */
-  getToolLog(limit = 100): Array<{ tool_name: string; args: string; success: number; duration_ms: number; created_at: string }> {
+  getToolLog(
+    limit = 100
+  ): Array<{
+    tool_name: string;
+    args: string;
+    success: number;
+    duration_ms: number;
+    created_at: string;
+  }> {
     try {
-      return getDb().query(
-        "SELECT tool_name, args, success, duration_ms, created_at FROM tool_usage_log ORDER BY created_at DESC LIMIT $limit"
-      ).all({ $limit: limit }) as any[];
-    } catch { return []; }
+      return getDb()
+        .query(
+          "SELECT tool_name, args, success, duration_ms, created_at FROM tool_usage_log ORDER BY created_at DESC LIMIT $limit"
+        )
+        .all({ $limit: limit }) as any[];
+    } catch {
+      return [];
+    }
   }
 
   /** Search or list memories. */
   getMemories(query?: string, limit = 20): import("./db").MemoryRow[] {
     if (query && query.trim()) {
-      try { return this.memoryStore.search(query, limit); } catch { return []; }
+      try {
+        return this.memoryStore.search(query, limit);
+      } catch {
+        return [];
+      }
     }
-    try { return this.memoryStore.recent(undefined, limit); } catch { return []; }
+    try {
+      return this.memoryStore.recent(undefined, limit);
+    } catch {
+      return [];
+    }
   }
 
   /** Save a memory manually from the dashboard. */
@@ -493,7 +653,11 @@ export class Agent extends EventEmitter {
   }
 
   /** Enqueue a task from the dashboard. */
-  enqueueTask(action: string, params: Record<string, unknown> = {}, opts: import("./task-queue").EnqueueOptions = {}): string | null {
+  enqueueTask(
+    action: string,
+    params: Record<string, unknown> = {},
+    opts: import("./task-queue").EnqueueOptions = {}
+  ): string | null {
     if (!this.taskQueue) return null;
     return this.taskQueue.enqueue(action, params, opts);
   }
@@ -516,13 +680,18 @@ export class Agent extends EventEmitter {
    */
   toggleSkillEnabled(skillName: string, enabled: boolean): void {
     if (!this.skillLoader) return;
-    const skill = this.skillLoader.lastRegistry.skills.find((s) => s.name === skillName);
+    const skill = this.skillLoader.lastRegistry.skills.find(
+      (s) => s.name === skillName
+    );
     if (!skill) throw new Error(`Unknown skill: ${skillName}`);
 
     // Realm-managed skills are controlled by the control plane, not locally.
     if (this.realmSkillFilter) {
       const entry = this.realmSkillFilter.find((s) => s.name === skillName);
-      if (entry?.isRequired) throw new Error(`Skill "${skillName}" is required by the realm and cannot be disabled`);
+      if (entry?.isRequired)
+        throw new Error(
+          `Skill "${skillName}" is required by the realm and cannot be disabled`
+        );
     }
 
     // Update or create a local filter entry
@@ -531,15 +700,29 @@ export class Agent extends EventEmitter {
     if (existing) {
       existing.enabled = enabled;
     } else {
-      this.realmSkillFilter.push({ name: skillName, enabled, isRequired: false, config: {} });
+      this.realmSkillFilter.push({
+        name: skillName,
+        enabled,
+        isRequired: false,
+        config: {},
+      });
     }
 
     this.rebuildToolRegistry(this.skillLoader.lastRegistry);
-    this.log("info", `Skill "${skillName}" ${enabled ? "enabled" : "disabled"} by dashboard user`);
+    this.log(
+      "info",
+      `Skill "${skillName}" ${enabled ? "enabled" : "disabled"} by dashboard user`
+    );
   }
 
   /** List currently pending tool-approval requests. */
-  getPendingApprovals(): Array<{ requestId: string; toolName: string; args: Record<string, unknown>; conversationId?: string; requestedAt: string }> {
+  getPendingApprovals(): Array<{
+    requestId: string;
+    toolName: string;
+    args: Record<string, unknown>;
+    conversationId?: string;
+    requestedAt: string;
+  }> {
     return this._pendingApprovalsMeta;
   }
 
@@ -549,8 +732,13 @@ export class Agent extends EventEmitter {
     if (!pending) throw new Error(`No pending approval with id: ${requestId}`);
     clearTimeout(pending.timer);
     this.pendingApprovals.delete(requestId);
-    this._pendingApprovalsMeta = this._pendingApprovalsMeta.filter((m) => m.requestId !== requestId);
-    this.log("info", `Tool approval ${approved ? "granted" : "rejected"} by dashboard user: ${requestId}`);
+    this._pendingApprovalsMeta = this._pendingApprovalsMeta.filter(
+      (m) => m.requestId !== requestId
+    );
+    this.log(
+      "info",
+      `Tool approval ${approved ? "granted" : "rejected"} by dashboard user: ${requestId}`
+    );
     pending.resolve(approved);
   }
 
@@ -564,9 +752,10 @@ export class Agent extends EventEmitter {
    * web user is already authenticated as admin.
    */
   getWebChatToolSet(): Record<string, MastraTool> {
-    const caps = this.capabilities.length > 0
-      ? this.capabilities
-      : this.toolRegistry.tools.map((t) => t.capability);
+    const caps =
+      this.capabilities.length > 0
+        ? this.capabilities
+        : this.toolRegistry.tools.map((t) => t.capability);
     return buildToolSet(this.toolRegistry, caps, async (request) => {
       this.log("info", `Web dashboard tool auto-approved: ${request.toolName}`);
       return true;
@@ -577,17 +766,26 @@ export class Agent extends EventEmitter {
    * Invoke a single tool by name with the given args.
    * Used by the web dashboard for direct tool testing.
    */
-  async invokeTool(toolName: string, args: Record<string, unknown>): Promise<unknown> {
+  async invokeTool(
+    toolName: string,
+    args: Record<string, unknown>
+  ): Promise<unknown> {
     const def = this.toolRegistry.get(toolName);
     if (!def) throw new Error(`Unknown tool: ${toolName}`);
-    if (!def.tool.execute) throw new Error(`Tool ${toolName} has no execute function`);
+    if (!def.tool.execute)
+      throw new Error(`Tool ${toolName} has no execute function`);
     const start = Date.now();
     try {
       const result = await def.tool.execute(args as any, {} as any);
-      this.log("info", `Tool invoked from dashboard: ${toolName} (${Date.now() - start}ms)`);
+      this.log(
+        "info",
+        `Tool invoked from dashboard: ${toolName} (${Date.now() - start}ms)`
+      );
       return result;
     } catch (err) {
-      throw new Error(`Tool ${toolName} failed: ${err instanceof Error ? err.message : String(err)}`);
+      throw new Error(
+        `Tool ${toolName} failed: ${err instanceof Error ? err.message : String(err)}`
+      );
     }
   }
 
@@ -601,11 +799,18 @@ export class Agent extends EventEmitter {
     const loaded = config ? await this.loadDecryptedLlmConfig() : null;
     this.activeLlmConfig = loaded ?? this.config.llmConfig;
     if (this.activeLlmConfig) {
-      this.emit("config_updated", { source: "local", provider: this.activeLlmConfig.provider, model: this.activeLlmConfig.model });
+      this.emit("config_updated", {
+        source: "local",
+        provider: this.activeLlmConfig.provider,
+        model: this.activeLlmConfig.model,
+      });
     }
-    this.log("info", config
-      ? `LLM config updated locally: ${config.provider}/${config.model}`
-      : "LLM config cleared — falling back to env config");
+    this.log(
+      "info",
+      config
+        ? `LLM config updated locally: ${config.provider}/${config.model}`
+        : "LLM config cleared — falling back to env config"
+    );
   }
 
   // ---- Private helpers ----
@@ -617,19 +822,31 @@ export class Agent extends EventEmitter {
   }
 
   private log(level: LogEntry["level"], message: string, data?: unknown): void {
-    const entry: LogEntry = { ts: new Date().toISOString(), level, message, data };
+    const entry: LogEntry = {
+      ts: new Date().toISOString(),
+      level,
+      message,
+      data,
+    };
     this.logBuffer.push(entry);
     this.emit("log", entry);
   }
 
   private async refreshActiveLlmConfig(): Promise<void> {
     // Prefer encrypted remote config; fall back to plaintext remote, then env vars.
-    const remote = await this.loadDecryptedLlmConfig() ?? getLlmConfig();
+    const remote = (await this.loadDecryptedLlmConfig()) ?? getLlmConfig();
     this.activeLlmConfig = remote ?? this.config.llmConfig;
     if (this.activeLlmConfig) {
       const source = remote ? "remote" : "env";
-      this.log("info", `Active LLM config: ${this.activeLlmConfig.provider}/${this.activeLlmConfig.model} (${source})`);
-      this.emit("config_updated", { source, provider: this.activeLlmConfig.provider, model: this.activeLlmConfig.model });
+      this.log(
+        "info",
+        `Active LLM config: ${this.activeLlmConfig.provider}/${this.activeLlmConfig.model} (${source})`
+      );
+      this.emit("config_updated", {
+        source,
+        provider: this.activeLlmConfig.provider,
+        model: this.activeLlmConfig.model,
+      });
     } else {
       this.log("warn", "No LLM config — intents requiring LLM will fail");
     }
@@ -639,7 +856,9 @@ export class Agent extends EventEmitter {
    * Encrypt the apiKey field and persist the config blob.
    * Other fields are stored in plaintext. Pass null to clear.
    */
-  private async persistEncryptedLlmConfig(config: LlmConfig | null): Promise<void> {
+  private async persistEncryptedLlmConfig(
+    config: LlmConfig | null
+  ): Promise<void> {
     if (config === null) {
       setLlmConfig(null); // clears both llm_config and llm_config_encrypted
       return;
@@ -647,8 +866,14 @@ export class Agent extends EventEmitter {
     const { apiKey, ...rest } = config;
     if (apiKey && this.vaultysId) {
       // Encrypt the apiKey for this agent's VaultysId only
-      const encryptedApiKey = await VaultysId.encrypt(apiKey, [this.vaultysId.id]);
-      const blob = JSON.stringify({ ...rest, encryptedApiKey, apiKeyEncrypted: true });
+      const encryptedApiKey = await VaultysId.encrypt(apiKey, [
+        this.vaultysId.id,
+      ]);
+      const blob = JSON.stringify({
+        ...rest,
+        encryptedApiKey,
+        apiKeyEncrypted: true,
+      });
       setEncryptedLlmConfigBlob(blob);
     } else {
       // No apiKey to encrypt — store plaintext blob so loadDecryptedLlmConfig can read it
@@ -666,11 +891,16 @@ export class Agent extends EventEmitter {
     const raw = getEncryptedLlmConfigBlob();
     if (!raw) return null;
     try {
-      type Blob = LlmConfig & { encryptedApiKey?: string; apiKeyEncrypted?: boolean };
+      type Blob = LlmConfig & {
+        encryptedApiKey?: string;
+        apiKeyEncrypted?: boolean;
+      };
       const stored = JSON.parse(raw) as Blob;
       const { encryptedApiKey, apiKeyEncrypted, ...rest } = stored;
       if (encryptedApiKey && apiKeyEncrypted && this.vaultysId) {
-        const decrypted = (await this.vaultysId.decrypt(encryptedApiKey)) as string;
+        const decrypted = (await this.vaultysId.decrypt(
+          encryptedApiKey
+        )) as string;
         return { ...rest, apiKey: decrypted } as LlmConfig;
       }
       return rest as LlmConfig;
@@ -684,14 +914,21 @@ export class Agent extends EventEmitter {
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 
     if (fs.existsSync(identityPath)) {
-      this.log("info", `Loading existing VaultysId identity from ${identityPath}`);
+      this.log(
+        "info",
+        `Loading existing VaultysId identity from ${identityPath}`
+      );
       const secret = fs.readFileSync(identityPath, "utf-8").trim();
       return VaultysId.fromSecret(secret, "base64").toVersion(1);
     }
 
     this.log("info", `Creating new VaultysId identity at ${identityPath}`);
     const vid = await VaultysId.generateMachine();
-    fs.writeFileSync(identityPath, vid.toVersion(1).getSecret("base64"), "utf-8");
+    fs.writeFileSync(
+      identityPath,
+      vid.toVersion(1).getSecret("base64"),
+      "utf-8"
+    );
     return vid.toVersion(1);
   }
 
@@ -721,7 +958,10 @@ export class Agent extends EventEmitter {
     const jitter = base * 0.2 * (Math.random() * 2 - 1);
     const delay = Math.round(base + jitter);
     this.reconnectAttempts++;
-    this.log("info", `Reconnecting in ${(delay / 1000).toFixed(1)}s (attempt ${this.reconnectAttempts})`);
+    this.log(
+      "info",
+      `Reconnecting in ${(delay / 1000).toFixed(1)}s (attempt ${this.reconnectAttempts})`
+    );
     this.reconnectTimer = setTimeout(() => this.connect(), delay);
   }
 
@@ -733,7 +973,10 @@ export class Agent extends EventEmitter {
     if (this.stopped) return;
 
     const controlPlanePeerId = this.config.peerjsControlPlaneId!;
-    this.log("info", `Connecting to control plane via PeerJS: peer=${controlPlanePeerId}`);
+    this.log(
+      "info",
+      `Connecting to control plane via PeerJS: peer=${controlPlanePeerId}`
+    );
     this.setStatus("connecting");
 
     this.authChallenger = null;
@@ -755,7 +998,11 @@ export class Agent extends EventEmitter {
             const parsed = new URL(serverUrl);
             return {
               host: parsed.hostname,
-              port: parsed.port ? parseInt(parsed.port, 10) : (parsed.protocol === "https:" ? 443 : 80),
+              port: parsed.port
+                ? parseInt(parsed.port, 10)
+                : parsed.protocol === "https:"
+                  ? 443
+                  : 80,
               path: parsed.pathname || "/",
               secure: parsed.protocol === "https:",
               debug: 1,
@@ -767,91 +1014,117 @@ export class Agent extends EventEmitter {
       : { host: "0.peerjs.com", port: 443, path: "/", secure: true, debug: 1 };
 
     // Import peerjs dynamically to avoid issues at module load time before polyfills
-    import("peerjs").then(({ Peer }) => {
-      if (this.stopped) return;
+    import("peerjs")
+      .then(({ Peer }) => {
+        if (this.stopped) return;
 
-      const peer = new Peer(peerOptions);
-      this.peerjsPeer = peer;
+        const peer = new Peer(peerOptions);
+        this.peerjsPeer = peer;
 
-      peer.on("open", () => {
-        if (this.stopped) { peer.destroy(); return; }
-        // Guard: a newer peer may have been created while this one was reconnecting.
-        if (this.peerjsPeer !== peer) { peer.destroy(); return; }
-        this.log("info", `PeerJS peer ready (id=${peer.id}) — connecting to control plane`);
+        peer.on("open", () => {
+          if (this.stopped) {
+            peer.destroy();
+            return;
+          }
+          // Guard: a newer peer may have been created while this one was reconnecting.
+          if (this.peerjsPeer !== peer) {
+            peer.destroy();
+            return;
+          }
+          this.log(
+            "info",
+            `PeerJS peer ready (id=${peer.id}) — connecting to control plane`
+          );
 
-        const conn = peer.connect(controlPlanePeerId, { reliable: true });
-        this.peerjsConn = conn;
+          const conn = peer.connect(controlPlanePeerId, { reliable: true });
+          this.peerjsConn = conn;
 
-        conn.on("open", () => {
-          this.log("info", "PeerJS DataConnection open — awaiting auth challenge");
+          conn.on("open", () => {
+            this.log(
+              "info",
+              "PeerJS DataConnection open — awaiting auth challenge"
+            );
+          });
+
+          conn.on("data", (raw: unknown) => {
+            const data = typeof raw === "string" ? raw : JSON.stringify(raw);
+            this.handleMessage(data);
+          });
+
+          conn.on("error", (err) => {
+            if (this.stopped) return;
+            if (this.peerjsConn !== conn) return; // stale
+            this.log("error", "PeerJS connection error", err);
+            // close event may not fire after a DataChannel error — schedule directly
+            this.peerjsConn = null;
+            if (this.heartbeatTimer) {
+              clearInterval(this.heartbeatTimer);
+              this.heartbeatTimer = null;
+            }
+            this.setStatus("disconnected");
+            this.scheduleReconnect();
+          });
+
+          conn.on("close", () => {
+            if (this.stopped) return;
+            if (this.peerjsConn !== conn) return; // stale connection
+            this.log("warn", "PeerJS connection closed");
+            this.setStatus("disconnected");
+            if (this.heartbeatTimer) {
+              clearInterval(this.heartbeatTimer);
+              this.heartbeatTimer = null;
+            }
+            this.peerjsConn = null;
+            this.scheduleReconnect();
+          });
         });
 
-        conn.on("data", (raw: unknown) => {
-          const data = typeof raw === "string" ? raw : JSON.stringify(raw);
-          this.handleMessage(data);
-        });
-
-        conn.on("error", (err) => {
+        peer.on("error", (err) => {
           if (this.stopped) return;
-          if (this.peerjsConn !== conn) return; // stale
-          this.log("error", "PeerJS connection error", err);
-          // close event may not fire after a DataChannel error — schedule directly
+          if (this.peerjsPeer !== peer) return; // stale peer
+          this.log("error", "PeerJS peer error", err);
+          // Null out before destroy() for the same recursion reason as "disconnected".
+          this.peerjsPeer = null;
           this.peerjsConn = null;
-          if (this.heartbeatTimer) { clearInterval(this.heartbeatTimer); this.heartbeatTimer = null; }
-          this.setStatus("disconnected");
-          this.scheduleReconnect();
-        });
-
-        conn.on("close", () => {
-          if (this.stopped) return;
-          if (this.peerjsConn !== conn) return; // stale connection
-          this.log("warn", "PeerJS connection closed");
-          this.setStatus("disconnected");
           if (this.heartbeatTimer) {
             clearInterval(this.heartbeatTimer);
             this.heartbeatTimer = null;
           }
-          this.peerjsConn = null;
+          peer.destroy();
+          this.setStatus("disconnected");
           this.scheduleReconnect();
         });
-      });
 
-      peer.on("error", (err) => {
-        if (this.stopped) return;
-        if (this.peerjsPeer !== peer) return; // stale peer
-        this.log("error", "PeerJS peer error", err);
-        // Null out before destroy() for the same recursion reason as "disconnected".
-        this.peerjsPeer = null;
-        this.peerjsConn = null;
-        if (this.heartbeatTimer) { clearInterval(this.heartbeatTimer); this.heartbeatTimer = null; }
-        peer.destroy();
-        this.setStatus("disconnected");
-        this.scheduleReconnect();
+        peer.on("disconnected", () => {
+          if (this.stopped) return;
+          if (this.peerjsPeer !== peer) return; // stale peer — ignore
+          // Don't use peer.reconnect(): if it fails silently, peerjs destroys the peer
+          // with no error event, the event loop drains, and the process exits quietly.
+          // Instead, destroy this peer and let our backoff loop create a fresh one.
+          //
+          // IMPORTANT: null out peerjsPeer BEFORE calling peer.destroy().
+          // peer.destroy() → disconnect() emits "disconnected" synchronously, which
+          // re-enters this handler. If peerjsPeer is still set at that point the guard
+          // passes and scheduleReconnect() fires twice, double-incrementing the backoff.
+          this.log(
+            "warn",
+            "PeerJS signaling server disconnected — scheduling reconnect"
+          );
+          this.peerjsPeer = null;
+          this.peerjsConn = null;
+          if (this.heartbeatTimer) {
+            clearInterval(this.heartbeatTimer);
+            this.heartbeatTimer = null;
+          }
+          peer.destroy(); // recursive "disconnected" now hits the stale-peer guard → no-op
+          this.setStatus("disconnected");
+          this.scheduleReconnect();
+        });
+      })
+      .catch((err) => {
+        this.log("error", "Failed to load peerjs module", err);
+        if (!this.stopped) this.scheduleReconnect();
       });
-
-      peer.on("disconnected", () => {
-        if (this.stopped) return;
-        if (this.peerjsPeer !== peer) return; // stale peer — ignore
-        // Don't use peer.reconnect(): if it fails silently, peerjs destroys the peer
-        // with no error event, the event loop drains, and the process exits quietly.
-        // Instead, destroy this peer and let our backoff loop create a fresh one.
-        //
-        // IMPORTANT: null out peerjsPeer BEFORE calling peer.destroy().
-        // peer.destroy() → disconnect() emits "disconnected" synchronously, which
-        // re-enters this handler. If peerjsPeer is still set at that point the guard
-        // passes and scheduleReconnect() fires twice, double-incrementing the backoff.
-        this.log("warn", "PeerJS signaling server disconnected — scheduling reconnect");
-        this.peerjsPeer = null;
-        this.peerjsConn = null;
-        if (this.heartbeatTimer) { clearInterval(this.heartbeatTimer); this.heartbeatTimer = null; }
-        peer.destroy(); // recursive "disconnected" now hits the stale-peer guard → no-op
-        this.setStatus("disconnected");
-        this.scheduleReconnect();
-      });
-    }).catch((err) => {
-      this.log("error", "Failed to load peerjs module", err);
-      if (!this.stopped) this.scheduleReconnect();
-    });
   }
 
   // ---- WebSocket connection ----
@@ -943,9 +1216,14 @@ export class Agent extends EventEmitter {
     const calculatePrice = (): number => {
       if (!this.activeLlmConfig) return 0;
       const dailyUsage = getDailyTokenUsage();
-      const inputPricePerToken = (this.activeLlmConfig.pricePerMillionInputTokens ?? 0) / 1_000_000;
-      const outputPricePerToken = (this.activeLlmConfig.pricePerMillionOutputTokens ?? 0) / 1_000_000;
-      return (dailyUsage.promptTokens * inputPricePerToken) + (dailyUsage.completionTokens * outputPricePerToken);
+      const inputPricePerToken =
+        (this.activeLlmConfig.pricePerMillionInputTokens ?? 0) / 1_000_000;
+      const outputPricePerToken =
+        (this.activeLlmConfig.pricePerMillionOutputTokens ?? 0) / 1_000_000;
+      return (
+        dailyUsage.promptTokens * inputPricePerToken +
+        dailyUsage.completionTokens * outputPricePerToken
+      );
     };
 
     const dailyUsage = getDailyTokenUsage();
@@ -959,7 +1237,10 @@ export class Agent extends EventEmitter {
         uptime: process.uptime(),
         memory: process.memoryUsage(),
         activeLlm: this.activeLlmConfig
-          ? { provider: this.activeLlmConfig.provider, model: this.activeLlmConfig.model }
+          ? {
+              provider: this.activeLlmConfig.provider,
+              model: this.activeLlmConfig.model,
+            }
           : undefined,
         name: this.config.name,
         tokenUsage: {
@@ -1007,27 +1288,65 @@ export class Agent extends EventEmitter {
     try {
       const message: WSMessage = JSON.parse(data);
       switch (message.type) {
-        case "auth_challenge": this.handleAuthChallenge(message); break;
-        case "auth_complete": this.handleAuthComplete(message).catch((e) => this.log("error", "handleAuthComplete error", e)); break;
-        case "auth_failed": this.handleAuthFailed(message); break;
-        case "registration_pending": this.handleRegistrationPending(message); break;
-        case "registration_approved": this.handleRegistrationApproved(message); break;
-        case "registration_rejected": this.handleRegistrationRejected(message); break;
-        case "update_capabilities": this.handleUpdateCapabilities(message); break;
-        case "delegation_update": this.handleDelegationUpdate(message); break;
-        case "agent_peer_catalog": this.handleAgentPeerCatalog(message); break;
-        case "llm_config": this.handleLlmConfig(message); break;
-        case "skills_config": this.handleSkillsConfig(message); break;
-        case "tool_approval_response": this.handleToolApprovalResponse(message); break;
-        case "task_enqueue": this.handleTaskEnqueue(message); break;
-        case "schedule_update": this.handleScheduleUpdate(message); break;
-        case "schedule_delete": this.handleScheduleDelete(message); break;
+        case "auth_challenge":
+          this.handleAuthChallenge(message);
+          break;
+        case "auth_complete":
+          this.handleAuthComplete(message).catch((e) =>
+            this.log("error", "handleAuthComplete error", e)
+          );
+          break;
+        case "auth_failed":
+          this.handleAuthFailed(message);
+          break;
+        case "registration_pending":
+          this.handleRegistrationPending(message);
+          break;
+        case "registration_approved":
+          this.handleRegistrationApproved(message);
+          break;
+        case "registration_rejected":
+          this.handleRegistrationRejected(message);
+          break;
+        case "update_capabilities":
+          this.handleUpdateCapabilities(message);
+          break;
+        case "delegation_update":
+          this.handleDelegationUpdate(message);
+          break;
+        case "agent_peer_catalog":
+          this.handleAgentPeerCatalog(message);
+          break;
+        case "llm_config":
+          this.handleLlmConfig(message);
+          break;
+        case "skills_config":
+          this.handleSkillsConfig(message);
+          break;
+        case "tool_approval_response":
+          this.handleToolApprovalResponse(message);
+          break;
+        case "task_enqueue":
+          this.handleTaskEnqueue(message);
+          break;
+        case "schedule_update":
+          this.handleScheduleUpdate(message);
+          break;
+        case "schedule_delete":
+          this.handleScheduleDelete(message);
+          break;
         case "intent":
-          if (this._status !== "connected") { this.log("warn", "Received intent before auth — ignoring"); return; }
+          if (this._status !== "connected") {
+            this.log("warn", "Received intent before auth — ignoring");
+            return;
+          }
           this.handleIntent(message);
           break;
         case "chat_message":
-          if (this._status !== "connected") { this.log("warn", "Received chat_message before auth — ignoring"); return; }
+          if (this._status !== "connected") {
+            this.log("warn", "Received chat_message before auth — ignoring");
+            return;
+          }
           this.handleChatMessage(message);
           break;
         case "get_chat_sessions":
@@ -1037,13 +1356,19 @@ export class Agent extends EventEmitter {
           this.handleGetChatHistory(message);
           break;
         case "policy_update":
-          if (this._status !== "connected") { this.log("warn", "Received policy before auth — ignoring"); return; }
+          if (this._status !== "connected") {
+            this.log("warn", "Received policy before auth — ignoring");
+            return;
+          }
           this.handlePolicyUpdate(message);
           break;
         case "knowledge_sync":
-          this.handleKnowledgeSync(message).catch((e) => this.log('error', 'handleKnowledgeSync error', e));
+          this.handleKnowledgeSync(message).catch((e) =>
+            this.log("error", "handleKnowledgeSync error", e)
+          );
           break;
-        case "pong": break;
+        case "pong":
+          break;
         case "error":
           this.log("error", "Error from control plane", message.payload);
           break;
@@ -1132,9 +1457,13 @@ export class Agent extends EventEmitter {
         const ctx = this.authChallenger.getContext();
         const metaCaps = ctx.metadata?.pk2?.capabilities;
         // Handle both native array (new certs) and legacy JSON-stringified string
-        if (Array.isArray(metaCaps)) this.capabilities = metaCaps as AgentCapability[];
-        else if (typeof metaCaps === "string") this.capabilities = JSON.parse(metaCaps);
-      } catch { /* keep existing */ }
+        if (Array.isArray(metaCaps))
+          this.capabilities = metaCaps as AgentCapability[];
+        else if (typeof metaCaps === "string")
+          this.capabilities = JSON.parse(metaCaps);
+      } catch {
+        /* keep existing */
+      }
     }
 
     // Read policy governance metadata from cert (native types — no JSON.parse needed)
@@ -1143,20 +1472,31 @@ export class Agent extends EventEmitter {
         const ctx = this.authChallenger.getContext();
         const pk2 = ctx.metadata?.pk2;
         if (pk2) {
-          this.resourceLimits = (pk2.resourceLimits as ResourceLimits | null | undefined) ?? null;
+          this.resourceLimits =
+            (pk2.resourceLimits as ResourceLimits | null | undefined) ?? null;
           this.policyId = (pk2.policyId as string | null | undefined) ?? null;
-          this.policyExpiresAt = (pk2.policyExpiresAt as string | null | undefined) ?? null;
+          this.policyExpiresAt =
+            (pk2.policyExpiresAt as string | null | undefined) ?? null;
           if (this.resourceLimits || this.policyId) {
-            this.log("info", `Policy applied from cert — id: ${this.policyId ?? "none"}, limits: ${JSON.stringify(this.resourceLimits)}`);
+            this.log(
+              "info",
+              `Policy applied from cert — id: ${this.policyId ?? "none"}, limits: ${JSON.stringify(this.resourceLimits)}`
+            );
           }
         }
-      } catch { /* keep existing limits */ }
+      } catch {
+        /* keep existing limits */
+      }
     }
 
     if (this.authChallenger) {
       try {
         const cert = this.authChallenger.getCertificate();
-        storeCertificate(Buffer.from(cert).toString("base64"), this.capabilities as string[], payload.did);
+        storeCertificate(
+          Buffer.from(cert).toString("base64"),
+          this.capabilities as string[],
+          payload.did
+        );
       } catch (err) {
         this.log("warn", "Failed to store certificate", err);
       }
@@ -1168,24 +1508,39 @@ export class Agent extends EventEmitter {
 
     this.resetReconnectBackoff();
     this.setStatus("connected");
-    this.log("info", `Auth complete — agent id: ${this.id}, did: ${payload.did}`);
+    this.log(
+      "info",
+      `Auth complete — agent id: ${this.id}, did: ${payload.did}`
+    );
 
     // Extract server public key from the certificate so peer grant certs can be verified offline.
     // The server's key is in pk1 of the completed Challenger certificate context.
     if (!this.serverPublicKey) {
       try {
-        const latestCert = getDb().query("SELECT certificate_data FROM certificates ORDER BY id DESC LIMIT 1").get() as { certificate_data: string } | undefined;
+        const latestCert = getDb()
+          .query(
+            "SELECT certificate_data FROM certificates ORDER BY id DESC LIMIT 1"
+          )
+          .get() as { certificate_data: string } | undefined;
         if (latestCert?.certificate_data) {
           const certBuf = Buffer.from(latestCert.certificate_data, "base64");
           const deserialized = Challenger.deserializeCertificate(certBuf);
           if (deserialized?.pk1) {
-            const pk = Buffer.from(deserialized.pk1 as Uint8Array) as unknown as Buffer;
+            const pk = Buffer.from(
+              deserialized.pk1 as Uint8Array
+            ) as unknown as Buffer;
             this.serverPublicKey = pk;
-            this.peerManager?.setServerPublicKey(deserialized.pk1 as Uint8Array);
+            this.peerManager?.setServerPublicKey(
+              deserialized.pk1 as Uint8Array
+            );
           }
         }
       } catch (err) {
-        this.log("warn", "Could not extract server public key from certificate", err);
+        this.log(
+          "warn",
+          "Could not extract server public key from certificate",
+          err
+        );
       }
     }
 
@@ -1212,10 +1567,10 @@ export class Agent extends EventEmitter {
       if (sources.length > 0) {
         this.send({
           messageId: `ks-status-${Date.now()}`,
-          type: 'knowledge_status_sync',
+          type: "knowledge_status_sync",
           agentId: this.id,
           payload: {
-            sources: sources.map(s => ({
+            sources: sources.map((s) => ({
               sourceId: s.id,
               status: s.status,
               docCount: s.doc_count,
@@ -1227,7 +1582,7 @@ export class Agent extends EventEmitter {
         });
       }
     } catch (err) {
-      this.log('warn', 'Could not push knowledge status on connect', err);
+      this.log("warn", "Could not push knowledge status on connect", err);
     }
   }
 
@@ -1242,13 +1597,19 @@ export class Agent extends EventEmitter {
   private handleRegistrationPending(message: WSMessage): void {
     const payload = message.payload as WSRegistrationPendingPayload;
     this.setStatus("pending_approval");
-    this.log("info", `Registration pending (id: ${payload.registrationId}): ${payload.message}`);
+    this.log(
+      "info",
+      `Registration pending (id: ${payload.registrationId}): ${payload.message}`
+    );
   }
 
   private handleRegistrationApproved(message: WSMessage): void {
     const payload = message.payload as WSRegistrationApprovedPayload;
     this.capabilities = payload.capabilities as AgentCapability[];
-    this.log("info", `Registration approved — capabilities: ${payload.capabilities.join(", ")}`);
+    this.log(
+      "info",
+      `Registration approved — capabilities: ${payload.capabilities.join(", ")}`
+    );
   }
 
   private handleRegistrationRejected(message: WSMessage): void {
@@ -1261,21 +1622,31 @@ export class Agent extends EventEmitter {
     this.capabilities = payload.capabilities as AgentCapability[];
 
     // Store incoming policy metadata so it is available after the re-auth cert is issued
-    if (payload.resourceLimits !== undefined) this.resourceLimits = payload.resourceLimits ?? null;
-    if (payload.policyId !== undefined) this.policyId = payload.policyId ?? null;
-    if (payload.policyExpiresAt !== undefined) this.policyExpiresAt = payload.policyExpiresAt ?? null;
+    if (payload.resourceLimits !== undefined)
+      this.resourceLimits = payload.resourceLimits ?? null;
+    if (payload.policyId !== undefined)
+      this.policyId = payload.policyId ?? null;
+    if (payload.policyExpiresAt !== undefined)
+      this.policyExpiresAt = payload.policyExpiresAt ?? null;
 
     this.authChallenger = null;
     this.authSessionId = null;
     this.reAuthPending = true;
-    this.log("info", `Capabilities updated: ${payload.capabilities.join(", ")} — re-auth pending`);
+    this.log(
+      "info",
+      `Capabilities updated: ${payload.capabilities.join(", ")} — re-auth pending`
+    );
   }
 
   // ---- Intent handling ----
 
   private async handleIntent(message: WSMessage): Promise<void> {
     const { messageId, payload } = message;
-    const { action, params, userDid } = payload as { action: string; params: Record<string, unknown>; userDid?: string };
+    const { action, params, userDid } = payload as {
+      action: string;
+      params: Record<string, unknown>;
+      userDid?: string;
+    };
 
     const entry: IntentEntry = {
       intentId: messageId,
@@ -1291,7 +1662,8 @@ export class Agent extends EventEmitter {
       this.log("info", `Intent received: ${action} (${messageId})`);
 
       // "agent" is the legacy name for "agent_communication"
-      const effectiveAction = action === "agent" ? "agent_communication" : action;
+      const effectiveAction =
+        action === "agent" ? "agent_communication" : action;
       if (!this.capabilities.includes(effectiveAction as AgentCapability)) {
         throw new Error(`Capability '${action}' not granted`);
       }
@@ -1302,14 +1674,17 @@ export class Agent extends EventEmitter {
       if (this.policyExpiresAt) {
         const expiry = new Date(this.policyExpiresAt).getTime();
         if (!isNaN(expiry) && Date.now() > expiry) {
-          throw new Error(`Policy '${this.policyId ?? "unknown"}' has expired — action blocked`);
+          throw new Error(
+            `Policy '${this.policyId ?? "unknown"}' has expired — action blocked`
+          );
         }
       }
 
       // 2. Reject if the daily token budget is exhausted
       if (this.resourceLimits?.maxTokensPerDay != null) {
         const daily = getDailyTokenUsage();
-        const usedToday = (daily?.promptTokens ?? 0) + (daily?.completionTokens ?? 0);
+        const usedToday =
+          (daily?.promptTokens ?? 0) + (daily?.completionTokens ?? 0);
         if (usedToday >= this.resourceLimits.maxTokensPerDay) {
           throw new Error(
             `Daily token budget exhausted (used ${usedToday} / limit ${this.resourceLimits.maxTokensPerDay})`
@@ -1325,8 +1700,12 @@ export class Agent extends EventEmitter {
           // Roll over to a fresh window
           this._requestsThisHour = { count: 0, hourStart: now };
         }
-        if (this._requestsThisHour.count >= this.resourceLimits.maxRequestsPerHour) {
-          const resetIn = Math.ceil((this._requestsThisHour.hourStart + hourMs - now) / 1000);
+        if (
+          this._requestsThisHour.count >= this.resourceLimits.maxRequestsPerHour
+        ) {
+          const resetIn = Math.ceil(
+            (this._requestsThisHour.hourStart + hourMs - now) / 1000
+          );
           throw new Error(
             `Hourly request limit reached (${this.resourceLimits.maxRequestsPerHour} req/h) — resets in ${resetIn}s`
           );
@@ -1336,7 +1715,10 @@ export class Agent extends EventEmitter {
 
       if (userDid) {
         const ok = await this.verifyUserDelegation(userDid, effectiveAction);
-        if (!ok) throw new Error(`User '${userDid}' has no valid delegation for '${action}'`);
+        if (!ok)
+          throw new Error(
+            `User '${userDid}' has no valid delegation for '${action}'`
+          );
         this.log("info", `Delegation verified for ${userDid}`);
       }
 
@@ -1346,30 +1728,56 @@ export class Agent extends EventEmitter {
       entry.output = output;
       entry.completedAt = new Date().toISOString();
 
-      const result: ExecutionResult = { intentId: messageId, status: "success", output, executedAt: new Date() };
+      const result: ExecutionResult = {
+        intentId: messageId,
+        status: "success",
+        output,
+        executedAt: new Date(),
+      };
       this.sendResult(messageId, result);
       this.sendAck(messageId, true);
-      this.emit("intent_result", { intentId: messageId, status: "success", output });
+      this.emit("intent_result", {
+        intentId: messageId,
+        status: "success",
+        output,
+      });
     } catch (error) {
       const errMsg = error instanceof Error ? error.message : String(error);
       entry.status = "failed";
       entry.error = errMsg;
       entry.completedAt = new Date().toISOString();
 
-      const result: ExecutionResult = { intentId: messageId, status: "failed", error: errMsg, executedAt: new Date() };
+      const result: ExecutionResult = {
+        intentId: messageId,
+        status: "failed",
+        error: errMsg,
+        executedAt: new Date(),
+      };
       this.sendResult(messageId, result);
       this.sendAck(messageId, false, errMsg);
-      this.emit("intent_result", { intentId: messageId, status: "failed", error: errMsg });
+      this.emit("intent_result", {
+        intentId: messageId,
+        status: "failed",
+        error: errMsg,
+      });
       this.log("error", `Intent ${messageId} failed: ${errMsg}`);
     }
   }
 
-  private async executeAction(action: string, params: Record<string, unknown>, _callerDid?: string): Promise<unknown> {
+  private async executeAction(
+    action: string,
+    params: Record<string, unknown>,
+    _callerDid?: string
+  ): Promise<unknown> {
     // ── Direct skill-tool invocation (no LLM needed) ──────────────────────────
     // The workflow executor sends action="call_skill_tool" when a Skill node runs.
     // We look up the tool by name in the registry and execute it directly.
     if (action === "call_skill_tool") {
-      const { skillName, toolName, params: toolParams } = params as {
+      const {
+        skillName,
+        toolName,
+        params: toolParams,
+      } = params as {
         skillName?: string;
         toolName?: string;
         params?: Record<string, unknown>;
@@ -1377,10 +1785,17 @@ export class Agent extends EventEmitter {
       if (!toolName) return { error: "call_skill_tool requires 'toolName'" };
       const def = this.toolRegistry.get(toolName);
       if (!def) return { error: `Tool '${toolName}' not found in registry` };
-      if (!def.tool.execute) return { error: `Tool '${toolName}' has no execute function` };
+      if (!def.tool.execute)
+        return { error: `Tool '${toolName}' has no execute function` };
       try {
-        this.log("info", `Executing skill tool directly: ${skillName ?? ""}/${toolName}`);
-        const result = await def.tool.execute((toolParams ?? {}) as any, {} as any);
+        this.log(
+          "info",
+          `Executing skill tool directly: ${skillName ?? ""}/${toolName}`
+        );
+        const result = await def.tool.execute(
+          (toolParams ?? {}) as any,
+          {} as any
+        );
         return { success: true, result, toolName, skillName };
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
@@ -1396,12 +1811,32 @@ export class Agent extends EventEmitter {
     const skillExtensions = this.realmSkillFilter
       ?.filter((s) => s.enabled && s.content)
       .map((s) => s.content as string);
-    const { text, usage } = await runIntent(this.activeLlmConfig, action, params, tools, memoryContext, skillExtensions);
+    const { text, usage } = await runIntent(
+      this.activeLlmConfig,
+      action,
+      params,
+      tools,
+      memoryContext,
+      skillExtensions
+    );
 
     // Record token usage to local DB and update counters
     if (usage) {
-      this.emit('log', { level: 'info', message: 'Recording token usage from intent', data: { usage, provider: this.activeLlmConfig.provider, model: this.activeLlmConfig.model } });
-      recordTokenUsage(usage.promptTokens, usage.completionTokens, this.activeLlmConfig.provider, this.activeLlmConfig.model);
+      this.emit("log", {
+        level: "info",
+        message: "Recording token usage from intent",
+        data: {
+          usage,
+          provider: this.activeLlmConfig.provider,
+          model: this.activeLlmConfig.model,
+        },
+      });
+      recordTokenUsage(
+        usage.promptTokens,
+        usage.completionTokens,
+        this.activeLlmConfig.provider,
+        this.activeLlmConfig.model
+      );
       this._tokenUsageSinceLastSync.promptTokens += usage.promptTokens;
       this._tokenUsageSinceLastSync.completionTokens += usage.completionTokens;
       this._tokenUsageTotal.promptTokens += usage.promptTokens;
@@ -1418,39 +1853,61 @@ export class Agent extends EventEmitter {
    * When no capabilities are assigned (local/standalone mode), all tools are available.
    * Tools requiring approval will send a WS request and wait for admin response.
    */
-  private buildAgentToolSet(conversationId?: string): Record<string, MastraTool> {
+  private buildAgentToolSet(
+    conversationId?: string
+  ): Record<string, MastraTool> {
     // If no capabilities assigned (standalone mode), grant all tools
-    const caps = this.capabilities.length > 0
-      ? this.capabilities
-      : this.toolRegistry.tools.map((t) => t.capability);
+    const caps =
+      this.capabilities.length > 0
+        ? this.capabilities
+        : this.toolRegistry.tools.map((t) => t.capability);
 
-    const ts = buildToolSet(this.toolRegistry, caps as AgentCapability[], (request) => {
-      return this.requestToolApproval(request, conversationId);
-    });
+    const ts = buildToolSet(
+      this.toolRegistry,
+      caps as AgentCapability[],
+      (request) => {
+        return this.requestToolApproval(request, conversationId);
+      }
+    );
 
     // Append remote agent tools from the peer catalog directly to the tool map
     if (this.peerCatalog.length > 0 && this.peerManager) {
-      const remoteTools = buildRemoteAgentTools(this.peerCatalog, this.peerManager);
+      const remoteTools = buildRemoteAgentTools(
+        this.peerCatalog,
+        this.peerManager
+      );
       for (const def of remoteTools) {
         ts[def.name] = def.tool as MastraTool;
       }
     }
 
-    this.log("debug", `buildAgentToolSet: caps=${JSON.stringify([...new Set(caps)])}, tools=${Object.keys(ts).join(",")}`);
+    this.log(
+      "debug",
+      `buildAgentToolSet: caps=${JSON.stringify([...new Set(caps)])}, tools=${Object.keys(ts).join(",")}`
+    );
     return ts;
   }
 
   /**
    * Send a tool approval request to the control plane and wait for the response.
    */
-  private requestToolApproval(request: ApprovalRequest, conversationId?: string): Promise<boolean> {
+  private requestToolApproval(
+    request: ApprovalRequest,
+    conversationId?: string
+  ): Promise<boolean> {
     return new Promise<boolean>((resolve) => {
-      const timeoutMs = this.config.approvalTimeoutMs ?? Agent.DEFAULT_APPROVAL_TIMEOUT_MS;
+      const timeoutMs =
+        this.config.approvalTimeoutMs ?? Agent.DEFAULT_APPROVAL_TIMEOUT_MS;
       // Set up timeout — auto-reject after timeoutMs
       const timer = setTimeout(() => {
         this.pendingApprovals.delete(request.requestId);
-        this._pendingApprovalsMeta = this._pendingApprovalsMeta.filter((m) => m.requestId !== request.requestId);
-        this.log("warn", `Tool approval timed out: ${request.toolName} (${request.requestId})`);
+        this._pendingApprovalsMeta = this._pendingApprovalsMeta.filter(
+          (m) => m.requestId !== request.requestId
+        );
+        this.log(
+          "warn",
+          `Tool approval timed out: ${request.toolName} (${request.requestId})`
+        );
         resolve(false);
       }, timeoutMs);
 
@@ -1481,7 +1938,10 @@ export class Agent extends EventEmitter {
         timestamp: new Date().toISOString(),
       });
 
-      this.log("info", `Tool approval requested: ${request.toolName} (${request.requestId})`);
+      this.log(
+        "info",
+        `Tool approval requested: ${request.toolName} (${request.requestId})`
+      );
     });
   }
 
@@ -1492,15 +1952,23 @@ export class Agent extends EventEmitter {
     const payload = message.payload as WSToolApprovalResponsePayload;
     const pending = this.pendingApprovals.get(payload.requestId);
     if (!pending) {
-      this.log("warn", `Received approval response for unknown request: ${payload.requestId}`);
+      this.log(
+        "warn",
+        `Received approval response for unknown request: ${payload.requestId}`
+      );
       return;
     }
 
     clearTimeout(pending.timer);
     this.pendingApprovals.delete(payload.requestId);
-    this._pendingApprovalsMeta = this._pendingApprovalsMeta.filter((m) => m.requestId !== payload.requestId);
+    this._pendingApprovalsMeta = this._pendingApprovalsMeta.filter(
+      (m) => m.requestId !== payload.requestId
+    );
 
-    this.log("info", `Tool approval ${payload.approved ? "granted" : "rejected"}: ${payload.requestId}${payload.reason ? ` (${payload.reason})` : ""}`);
+    this.log(
+      "info",
+      `Tool approval ${payload.approved ? "granted" : "rejected"}: ${payload.requestId}${payload.reason ? ` (${payload.reason})` : ""}`
+    );
     pending.resolve(payload.approved);
   }
 
@@ -1514,7 +1982,7 @@ export class Agent extends EventEmitter {
     const defaultSkillsDir = path.join(
       process.env.HOME ?? process.cwd(),
       ".vaultysclaw",
-      "skills",
+      "skills"
     );
     const skillsDir = this.config.skillsDir ?? defaultSkillsDir;
 
@@ -1522,12 +1990,18 @@ export class Agent extends EventEmitter {
     const skillRegistry = await this.skillLoader.load();
 
     this.rebuildToolRegistry(skillRegistry);
-    this.log("info", `Skills loaded: ${skillRegistry.skills.map((s) => s.name).join(", ") || "(none)"}`);
+    this.log(
+      "info",
+      `Skills loaded: ${skillRegistry.skills.map((s) => s.name).join(", ") || "(none)"}`
+    );
 
     if (this.config.watchSkills) {
       this.skillLoader.startWatch((newRegistry) => {
         this.rebuildToolRegistry(newRegistry);
-        this.log("info", `Skills hot-reloaded: ${newRegistry.skills.map((s) => s.name).join(", ") || "(none)"}`);
+        this.log(
+          "info",
+          `Skills hot-reloaded: ${newRegistry.skills.map((s) => s.name).join(", ") || "(none)"}`
+        );
       });
     }
   }
@@ -1537,7 +2011,9 @@ export class Agent extends EventEmitter {
     let extraTools = skillRegistry.getAllTools();
 
     if (this.realmSkillFilter !== null) {
-      const filterMap = new Map(this.realmSkillFilter.map((s) => [s.name, s.enabled]));
+      const filterMap = new Map(
+        this.realmSkillFilter.map((s) => [s.name, s.enabled])
+      );
       // Filter at skill level — collect tools only from enabled skills
       extraTools = skillRegistry.skills
         .filter((skill) => {
@@ -1551,8 +2027,9 @@ export class Agent extends EventEmitter {
     // Add knowledge_search tool — requires 'knowledge_search' capability to be granted
     const knowledgeTool = buildKnowledgeTool(() => this.activeLlmConfig);
     const knowledgeToolDef: import("./tools/types").AgentToolDefinition = {
-      capability: 'knowledge_search' as import("@vaultysclaw/shared").AgentCapability,
-      name: 'knowledge_search',
+      capability:
+        "knowledge_search" as import("@vaultysclaw/shared").AgentCapability,
+      name: "knowledge_search",
       requiresApproval: false,
       tool: knowledgeTool,
     };
@@ -1578,9 +2055,12 @@ export class Agent extends EventEmitter {
       {
         onTaskUpdate: (task) => {
           this.emit("task_update", task);
-          this.log("info", `Task ${task.id} → ${task.status}${task.error ? `: ${task.error}` : ""}`);
+          this.log(
+            "info",
+            `Task ${task.id} → ${task.status}${task.error ? `: ${task.error}` : ""}`
+          );
         },
-      },
+      }
     );
 
     this.scheduler = new Scheduler();
@@ -1592,17 +2072,14 @@ export class Agent extends EventEmitter {
   private handleTaskEnqueue(message: WSMessage): void {
     if (!this.taskQueue) return;
 
-    const p = message.payload as import("@vaultysclaw/shared").WSTaskEnqueuePayload;
-    const taskId = this.taskQueue.enqueue(
-      p.action,
-      p.params ?? {},
-      {
-        priority: p.priority,
-        scheduledAt: p.scheduledAt,
-        maxRetries: p.maxRetries,
-        createdBy: p.createdBy,
-      },
-    );
+    const p =
+      message.payload as import("@vaultysclaw/shared").WSTaskEnqueuePayload;
+    const taskId = this.taskQueue.enqueue(p.action, p.params ?? {}, {
+      priority: p.priority,
+      scheduledAt: p.scheduledAt,
+      maxRetries: p.maxRetries,
+      createdBy: p.createdBy,
+    });
 
     this.log("info", `Task enqueued via WS: ${taskId} (${p.action})`);
 
@@ -1622,7 +2099,8 @@ export class Agent extends EventEmitter {
   private handleScheduleUpdate(message: WSMessage): void {
     if (!this.scheduler) return;
 
-    const p = message.payload as import("@vaultysclaw/shared").WSScheduleUpdatePayload;
+    const p =
+      message.payload as import("@vaultysclaw/shared").WSScheduleUpdatePayload;
     this.scheduler.addSchedule({
       id: p.id,
       name: p.name,
@@ -1637,7 +2115,8 @@ export class Agent extends EventEmitter {
   private handleScheduleDelete(message: WSMessage): void {
     if (!this.scheduler) return;
 
-    const p = message.payload as import("@vaultysclaw/shared").WSScheduleDeletePayload;
+    const p =
+      message.payload as import("@vaultysclaw/shared").WSScheduleDeletePayload;
     this.scheduler.removeSchedule(p.id);
     this.log("info", `Schedule deleted: ${p.id}`);
   }
@@ -1650,7 +2129,10 @@ export class Agent extends EventEmitter {
     userDid: string;
     userMessage: string;
     agentName: string;
-  }): Promise<{ text: string; usage?: { promptTokens: number; completionTokens: number } }> {
+  }): Promise<{
+    text: string;
+    usage?: { promptTokens: number; completionTokens: number };
+  }> {
     const { channelId, threadId, userDid, userMessage, agentName } = params;
 
     try {
@@ -1658,18 +2140,22 @@ export class Agent extends EventEmitter {
         throw new Error("LLM not configured");
       }
 
-      this.log("info", `Channel mention received: @${agentName} in ${channelId} thread ${threadId}`);
+      this.log(
+        "info",
+        `Channel mention received: @${agentName} in ${channelId} thread ${threadId}`
+      );
 
       // Use executeAction to generate an LLM-based response to the mention
       const response = await this.executeAction(
         `Respond to channel mention: ${userMessage}`,
-        { channelId, userDid, userMessage },
+        { channelId, userDid, userMessage }
       );
 
       // Extract text from response
-      const responseText = typeof response === "string"
-        ? response
-        : (response as any).text ?? JSON.stringify(response);
+      const responseText =
+        typeof response === "string"
+          ? response
+          : ((response as any).text ?? JSON.stringify(response));
 
       // Post response to channel via WebSocket
       this.send({
@@ -1688,7 +2174,10 @@ export class Agent extends EventEmitter {
         timestamp: new Date().toISOString(),
       });
 
-      this.log("info", `Channel mention response posted to ${channelId} (thread: ${threadId})`);
+      this.log(
+        "info",
+        `Channel mention response posted to ${channelId} (thread: ${threadId})`
+      );
 
       return {
         text: `Response posted to #${channelId}`,
@@ -1709,25 +2198,38 @@ export class Agent extends EventEmitter {
     const payload = message.payload as WSChatMessagePayload;
     const { conversationId, messages } = payload;
 
-    this.log("info", `Chat request ${conversationId} (${messages.length} messages)`);
+    this.log(
+      "info",
+      `Chat request ${conversationId} (${messages.length} messages)`
+    );
 
     // Persist session + only new incoming messages (avoid duplicating history on each turn)
-    const title = messages.find((m) => m.role === "user")?.content.slice(0, 80) ?? null;
+    const title =
+      messages.find((m) => m.role === "user")?.content.slice(0, 80) ?? null;
     try {
       upsertChatSession(conversationId, title, "control_plane");
       const existingCount = getChatMessages(conversationId).length;
       const newMessages = messages.slice(existingCount);
       if (newMessages.length > 0) {
-        appendChatMessages(conversationId, newMessages.map((m) => ({ role: m.role, content: m.content })));
+        appendChatMessages(
+          conversationId,
+          newMessages.map((m) => ({ role: m.role, content: m.content }))
+        );
       }
-    } catch { /* non-fatal */ }
+    } catch {
+      /* non-fatal */
+    }
 
     if (!this.activeLlmConfig) {
       this.send({
         messageId: `chat-resp-${Date.now()}`,
         type: "chat_response",
         agentId: this.id,
-        payload: { conversationId, error: "LLM not configured", done: true } satisfies WSChatResponsePayload,
+        payload: {
+          conversationId,
+          error: "LLM not configured",
+          done: true,
+        } satisfies WSChatResponsePayload,
         timestamp: new Date().toISOString(),
       });
       return;
@@ -1735,8 +2237,11 @@ export class Agent extends EventEmitter {
 
     try {
       // Retrieve relevant memories for context
-      const lastUserMsg = [...messages].reverse().find((m) => m.role === "user")?.content ?? "";
-      const memoryContext = lastUserMsg ? this.memoryRetriever.retrieve(lastUserMsg) : undefined;
+      const lastUserMsg =
+        [...messages].reverse().find((m) => m.role === "user")?.content ?? "";
+      const memoryContext = lastUserMsg
+        ? this.memoryRetriever.retrieve(lastUserMsg)
+        : undefined;
 
       const tools = this.buildAgentToolSet(conversationId);
 
@@ -1749,56 +2254,105 @@ export class Agent extends EventEmitter {
         for (const [, mention] of mentionMatches) {
           const normalised = mention.toLowerCase().replace(/[^a-z0-9]/g, "");
           const grant = this.peerCatalog.find(
-            (g) => g.targetName.toLowerCase().replace(/[^a-z0-9]/g, "") === normalised,
+            (g) =>
+              g.targetName.toLowerCase().replace(/[^a-z0-9]/g, "") ===
+              normalised
           );
           if (grant) {
-            const toolName = `ask_agent_${grant.targetName.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 40)}`;
+            const toolName = `ask_agent_${grant.targetName
+              .toLowerCase()
+              .replace(/[^a-z0-9]+/g, "_")
+              .replace(/^_+|_+$/g, "")
+              .slice(0, 40)}`;
             peerHints.push(
               `The user mentioned @${mention} in their message. ` +
-              `You MUST use the \`${toolName}\` tool to forward the user's request to that agent and relay its response. ` +
-              `Do NOT answer on behalf of @${mention} yourself — delegate via the tool.`,
+                `You MUST use the \`${toolName}\` tool to forward the user's request to that agent and relay its response. ` +
+                `Do NOT answer on behalf of @${mention} yourself — delegate via the tool.`
             );
-            this.log("info", `@mention detected: @${mention} → tool ${toolName}`);
+            this.log(
+              "info",
+              `@mention detected: @${mention} → tool ${toolName}`
+            );
           }
         }
       }
 
-      const skillExtensions = this.realmSkillFilter
-        ?.filter((s) => s.enabled && s.content)
-        .map((s) => s.content as string) ?? [];
+      const skillExtensions =
+        this.realmSkillFilter
+          ?.filter((s) => s.enabled && s.content)
+          .map((s) => s.content as string) ?? [];
 
-      const result = streamChat(this.activeLlmConfig, messages, tools, (event) => {
-        // Report tool executions to control plane for real-time UI
-        if (event.toolCalls && event.toolCalls.length > 0) {
-          for (const tc of event.toolCalls) {
-            const toolResult = event.toolResults?.find((r: any) => r.toolCallId === tc.toolCallId);
-            this.send({
-              messageId: `tool-exec-${Date.now()}`,
-              type: "tool_execution",
-              agentId: this.id,
-              payload: {
-                conversationId,
-                toolName: tc.toolName,
-                args: tc.args,
-                result: toolResult?.result,
-                durationMs: 0,
-              } satisfies WSToolExecutionPayload,
-              timestamp: new Date().toISOString(),
-            });
+      const result = streamChat(
+        this.activeLlmConfig,
+        messages,
+        tools,
+        (event) => {
+          // Report tool executions to control plane for real-time UI
+          if (event.toolCalls && event.toolCalls.length > 0) {
+            for (const tc of event.toolCalls) {
+              const toolResult = event.toolResults?.find(
+                (r: any) => r.toolCallId === tc.toolCallId
+              );
+              this.send({
+                messageId: `tool-exec-${Date.now()}`,
+                type: "tool_execution",
+                agentId: this.id,
+                payload: {
+                  conversationId,
+                  toolName: tc.toolName,
+                  args: tc.args,
+                  result: toolResult?.result,
+                  durationMs: 0,
+                } satisfies WSToolExecutionPayload,
+                timestamp: new Date().toISOString(),
+              });
+            }
           }
-        }
-      }, memoryContext, [...skillExtensions, ...peerHints]);
+        },
+        memoryContext,
+        [...skillExtensions, ...peerHints]
+      );
 
       const chunks: string[] = [];
-      for await (const chunk of result.textStream) {
-        chunks.push(chunk);
+      let thinkBuf = "";
+      let inThinking = false;
+      for await (const rawChunk of result.textStream) {
+        const {
+          segments,
+          remaining,
+          inThinking: newInThinking,
+        } = splitThinkContent(thinkBuf + rawChunk, inThinking);
+        thinkBuf = remaining;
+        inThinking = newInThinking;
+        for (const seg of segments) {
+          this.send({
+            messageId: `chat-resp-${Date.now()}`,
+            type: "chat_response",
+            agentId: this.id,
+            payload: {
+              conversationId,
+              chunk: seg.text,
+              ...(seg.thinking ? { thinking: true } : {}),
+            } satisfies WSChatResponsePayload,
+            timestamp: new Date().toISOString(),
+          });
+          if (!seg.thinking) chunks.push(seg.text);
+        }
+      }
+      // Flush any remaining buffered tag-prefix as a final chunk
+      if (thinkBuf) {
         this.send({
           messageId: `chat-resp-${Date.now()}`,
           type: "chat_response",
           agentId: this.id,
-          payload: { conversationId, chunk } satisfies WSChatResponsePayload,
+          payload: {
+            conversationId,
+            chunk: thinkBuf,
+            ...(inThinking ? { thinking: true } : {}),
+          } satisfies WSChatResponsePayload,
           timestamp: new Date().toISOString(),
         });
+        if (!inThinking) chunks.push(thinkBuf);
       }
       this.send({
         messageId: `chat-resp-${Date.now()}`,
@@ -1812,23 +2366,49 @@ export class Agent extends EventEmitter {
       try {
         const usage = await result.usage;
         if (usage && this.activeLlmConfig) {
-          this.emit('log', { level: 'info', message: 'Recording token usage from chat stream', data: { usage, provider: this.activeLlmConfig.provider, model: this.activeLlmConfig.model } });
-          recordTokenUsage(usage.promptTokens, usage.completionTokens, this.activeLlmConfig.provider, this.activeLlmConfig.model);
+          this.emit("log", {
+            level: "info",
+            message: "Recording token usage from chat stream",
+            data: {
+              usage,
+              provider: this.activeLlmConfig.provider,
+              model: this.activeLlmConfig.model,
+            },
+          });
+          recordTokenUsage(
+            usage.promptTokens,
+            usage.completionTokens,
+            this.activeLlmConfig.provider,
+            this.activeLlmConfig.model
+          );
           this._tokenUsageSinceLastSync.promptTokens += usage.promptTokens;
-          this._tokenUsageSinceLastSync.completionTokens += usage.completionTokens;
+          this._tokenUsageSinceLastSync.completionTokens +=
+            usage.completionTokens;
           this._tokenUsageTotal.promptTokens += usage.promptTokens;
           this._tokenUsageTotal.completionTokens += usage.completionTokens;
         } else {
-          this.emit('log', { level: 'warn', message: 'No usage data from chat stream', data: { usage, hasConfig: !!this.activeLlmConfig } });
+          this.emit("log", {
+            level: "warn",
+            message: "No usage data from chat stream",
+            data: { usage, hasConfig: !!this.activeLlmConfig },
+          });
         }
       } catch (e) {
-        this.emit('log', { level: 'warn', message: 'Failed to record token usage from stream', data: { error: String(e) } });
+        this.emit("log", {
+          level: "warn",
+          message: "Failed to record token usage from stream",
+          data: { error: String(e) },
+        });
       }
 
       // Persist assistant response
       try {
-        appendChatMessages(conversationId, [{ role: "assistant", content: chunks.join("") }]);
-      } catch { /* non-fatal */ }
+        appendChatMessages(conversationId, [
+          { role: "assistant", content: chunks.join("") },
+        ]);
+      } catch {
+        /* non-fatal */
+      }
 
       // Async post-processing: summarize the conversation to extract memories
       if (this.activeLlmConfig && messages.length >= 4) {
@@ -1840,24 +2420,39 @@ export class Agent extends EventEmitter {
         const config = this.activeLlmConfig;
         setImmediate(() => {
           if (!this.memorySummarizer) {
-            this.memorySummarizer = new ConversationSummarizer(this.memoryStore);
+            this.memorySummarizer = new ConversationSummarizer(
+              this.memoryStore
+            );
           }
           this.memorySummarizer
             .summarize(fullHistory, config, [`conversation:${conversationId}`])
-            .catch((err) => this.log("warn", "Memory summarization failed", err));
+            .catch((err) =>
+              this.log("warn", "Memory summarization failed", err)
+            );
         });
       }
     } catch (err) {
       const errorCode = classifyLlmError(err);
-      const errMsg = errorCode === "llm_unavailable"
-        ? `LLM provider not reachable (${this.activeLlmConfig?.baseUrl ?? this.activeLlmConfig?.provider ?? "unknown"}). Check the agent's LLM configuration.`
-        : (err instanceof Error ? err.message : String(err));
-      this.log("error", `Chat ${conversationId} failed [${errorCode}]: ${errMsg}`);
+      const errMsg =
+        errorCode === "llm_unavailable"
+          ? `LLM provider not reachable (${this.activeLlmConfig?.baseUrl ?? this.activeLlmConfig?.provider ?? "unknown"}). Check the agent's LLM configuration.`
+          : err instanceof Error
+            ? err.message
+            : String(err);
+      this.log(
+        "error",
+        `Chat ${conversationId} failed [${errorCode}]: ${errMsg}`
+      );
       this.send({
         messageId: `chat-resp-${Date.now()}`,
         type: "chat_response",
         agentId: this.id,
-        payload: { conversationId, error: errMsg, errorCode, done: true } satisfies WSChatResponsePayload,
+        payload: {
+          conversationId,
+          error: errMsg,
+          errorCode,
+          done: true,
+        } satisfies WSChatResponsePayload,
         timestamp: new Date().toISOString(),
       });
     }
@@ -1870,14 +2465,16 @@ export class Agent extends EventEmitter {
     const limit = payload.limit ?? 50;
     try {
       const rows = listChatSessions(limit);
-      const sessions: WSChatSessionsResponsePayload["sessions"] = rows.map((r) => ({
-        id: r.id,
-        title: r.title,
-        source: r.source,
-        createdAt: r.created_at,
-        updatedAt: r.updated_at,
-        messageCount: (r.message_count as number | undefined) ?? 0,
-      }));
+      const sessions: WSChatSessionsResponsePayload["sessions"] = rows.map(
+        (r) => ({
+          id: r.id,
+          title: r.title,
+          source: r.source,
+          createdAt: r.created_at,
+          updatedAt: r.updated_at,
+          messageCount: (r.message_count as number | undefined) ?? 0,
+        })
+      );
       this.send({
         messageId: `chat-sessions-${Date.now()}`,
         type: "chat_sessions_response",
@@ -1895,13 +2492,15 @@ export class Agent extends EventEmitter {
     const { sessionId } = payload;
     try {
       const rows = getChatMessages(sessionId);
-      const messages: WSChatHistoryResponsePayload["messages"] = rows.map((r) => ({
-        id: r.id,
-        role: r.role,
-        content: r.content,
-        toolCalls: r.tool_calls ? JSON.parse(r.tool_calls) : undefined,
-        createdAt: r.created_at,
-      }));
+      const messages: WSChatHistoryResponsePayload["messages"] = rows.map(
+        (r) => ({
+          id: r.id,
+          role: r.role,
+          content: r.content,
+          toolCalls: r.tool_calls ? JSON.parse(r.tool_calls) : undefined,
+          createdAt: r.created_at,
+        })
+      );
       this.send({
         messageId: `chat-history-${Date.now()}`,
         type: "chat_history_response",
@@ -1919,13 +2518,21 @@ export class Agent extends EventEmitter {
   private handleLlmConfig(message: WSMessage): void {
     const payload = message.payload as WSLlmConfigPayload;
     // Encrypt apiKey and persist; then refresh runtime config asynchronously
-    this.persistEncryptedLlmConfig(payload.config).then(() => this.refreshActiveLlmConfig()).catch((err) => {
-      this.log("error", "Failed to persist remote LLM config", err);
-    });
+    this.persistEncryptedLlmConfig(payload.config)
+      .then(() => this.refreshActiveLlmConfig())
+      .catch((err) => {
+        this.log("error", "Failed to persist remote LLM config", err);
+      });
     if (payload.config === null) {
-      this.log("info", "Remote LLM config cleared — falling back to env config");
+      this.log(
+        "info",
+        "Remote LLM config cleared — falling back to env config"
+      );
     } else {
-      this.log("info", `Remote LLM config received: ${payload.config.provider}/${payload.config.model}`);
+      this.log(
+        "info",
+        `Remote LLM config received: ${payload.config.provider}/${payload.config.model}`
+      );
     }
   }
 
@@ -1940,9 +2547,16 @@ export class Agent extends EventEmitter {
       this.rebuildToolRegistry(this.skillLoader.lastRegistry);
     }
 
-    const enabled = (this.realmSkillFilter ?? []).filter((s) => s.enabled).map((s) => s.name);
-    const disabled = (this.realmSkillFilter ?? []).filter((s) => !s.enabled).map((s) => s.name);
-    this.log("info", `Realm skills config received: ${enabled.length} enabled, ${disabled.length} disabled`);
+    const enabled = (this.realmSkillFilter ?? [])
+      .filter((s) => s.enabled)
+      .map((s) => s.name);
+    const disabled = (this.realmSkillFilter ?? [])
+      .filter((s) => !s.enabled)
+      .map((s) => s.name);
+    this.log(
+      "info",
+      `Realm skills config received: ${enabled.length} enabled, ${disabled.length} disabled`
+    );
   }
 
   /** Effective skill filter: skill name → enabled. null means no realm filter. */
@@ -1974,7 +2588,10 @@ export class Agent extends EventEmitter {
           expires_at: d.expiresAt ?? null,
         });
       }
-      this.log("info", `Delegation update: ${delegations.length} cert(s) stored`);
+      this.log(
+        "info",
+        `Delegation update: ${delegations.length} cert(s) stored`
+      );
     } catch (err) {
       this.log("error", "Error handling delegation update", err);
     }
@@ -1987,17 +2604,20 @@ export class Agent extends EventEmitter {
 
       // Persist to local DB (replaces previous catalog for this agent)
       const ownDid = this.vaultysId?.did ?? this.id;
-      storePeerGrants(ownDid, peers.map((p) => ({
-        id: p.id,
-        source_did: p.sourceDid,
-        target_did: p.targetDid,
-        target_name: p.targetName,
-        skill_description: p.skillDescription,
-        capabilities: JSON.stringify(p.capabilities),
-        certificate: p.certificate,
-        expires_at: p.expiresAt ?? null,
-        created_at: new Date().toISOString(),
-      })));
+      storePeerGrants(
+        ownDid,
+        peers.map((p) => ({
+          id: p.id,
+          source_did: p.sourceDid,
+          target_did: p.targetDid,
+          target_name: p.targetName,
+          skill_description: p.skillDescription,
+          capabilities: JSON.stringify(p.capabilities),
+          certificate: p.certificate,
+          expires_at: p.expiresAt ?? null,
+          created_at: new Date().toISOString(),
+        }))
+      );
 
       this.peerCatalog = peers;
       this.peerManager?.updatePeerCatalog(peers);
@@ -2008,9 +2628,15 @@ export class Agent extends EventEmitter {
     }
   }
 
-  private async verifyUserDelegation(userDid: string, capability: string): Promise<boolean> {
+  private async verifyUserDelegation(
+    userDid: string,
+    capability: string
+  ): Promise<boolean> {
     if (!this.serverPublicKey) {
-      this.log("warn", "Server public key not available — cannot verify delegation");
+      this.log(
+        "warn",
+        "Server public key not available — cannot verify delegation"
+      );
       return false;
     }
 
@@ -2027,19 +2653,28 @@ export class Agent extends EventEmitter {
         const signature = combined.subarray(4 + bodyLen);
 
         const serverVid = VaultysId.fromId(this.serverPublicKey);
-        const valid = serverVid.verifyChallenge(Buffer.from(body), Buffer.from(signature), false);
+        const valid = serverVid.verifyChallenge(
+          Buffer.from(body),
+          Buffer.from(signature),
+          false
+        );
         if (!valid) continue;
 
         const p = msgpackDecode(body) as {
-          type: string; userDid: string; agentDid: string;
-          capabilities: string[]; expiresAt?: number;
+          type: string;
+          userDid: string;
+          agentDid: string;
+          capabilities: string[];
+          expiresAt?: number;
         };
         if (p.type !== "delegation") continue;
         if (p.expiresAt && p.expiresAt < Date.now()) continue;
         if (p.agentDid !== this.id && p.agentDid !== "*") continue;
         if (!p.capabilities.includes(capability)) continue;
         return true;
-      } catch { continue; }
+      } catch {
+        continue;
+      }
     }
     return false;
   }
@@ -2055,7 +2690,10 @@ export class Agent extends EventEmitter {
    */
   private handlePolicyUpdate(message: WSMessage): void {
     const { messageId } = message;
-    this.log("warn", "Received deprecated policy_update message — policies are now enforced via cert reissue");
+    this.log(
+      "warn",
+      "Received deprecated policy_update message — policies are now enforced via cert reissue"
+    );
     this.sendAck(messageId, true);
   }
 
@@ -2063,40 +2701,75 @@ export class Agent extends EventEmitter {
 
   private async handleKnowledgeSync(message: WSMessage): Promise<void> {
     const { messageId, payload } = message;
-    const { sourceId, sourceName, sourceType, config, docling, fileAttachments } = payload as {
+    const {
+      sourceId,
+      sourceName,
+      sourceType,
+      config,
+      docling,
+      fileAttachments,
+    } = payload as {
       sourceId: string;
       sourceName: string;
       sourceType: string;
       config: KnowledgeSourceConfig;
       docling?: { url: string; sourceEndpoint?: string; fileEndpoint?: string };
-      fileAttachments?: Array<{ id: string; name: string; mimeType: string; size: number; content: string }>;
+      fileAttachments?: Array<{
+        id: string;
+        name: string;
+        mimeType: string;
+        size: number;
+        content: string;
+      }>;
     };
 
-    this.log('info', `Knowledge sync requested for source "${sourceName}" (${sourceId})`);
+    this.log(
+      "info",
+      `Knowledge sync requested for source "${sourceName}" (${sourceId})`
+    );
 
     if (!this.activeLlmConfig) {
-      this.send({ type: 'result', messageId, payload: { status: 'failed', error: 'LLM not configured' }, timestamp: new Date().toISOString() });
+      this.send({
+        type: "result",
+        messageId,
+        payload: { status: "failed", error: "LLM not configured" },
+        timestamp: new Date().toISOString(),
+      });
       return;
     }
 
     // Immediate ACK so the control plane knows the sync started
     this.send({
       messageId: `intent-ack-${Date.now()}`,
-      type: 'intent_ack',
+      type: "intent_ack",
       agentId: this.id,
-      payload: { status: 'started', sourceId },
+      payload: { status: "started", sourceId },
       timestamp: new Date().toISOString(),
     });
 
     // Run ingestion (non-blocking — reports status back to control-plane when done)
-    ingestSource(sourceId, sourceName, sourceType, config, this.activeLlmConfig, docling, fileAttachments)
+    ingestSource(
+      sourceId,
+      sourceName,
+      sourceType,
+      config,
+      this.activeLlmConfig,
+      docling,
+      fileAttachments
+    )
       .then((result) => {
-        this.log('info', `Knowledge sync complete: ${result.docsProcessed} docs, ${result.chunksCreated} chunks`);
+        this.log(
+          "info",
+          `Knowledge sync complete: ${result.docsProcessed} docs, ${result.chunksCreated} chunks`
+        );
         // Mark as error if every document failed (docsProcessed=0 with errors)
-        const status = result.docsProcessed === 0 && result.errors.length > 0 ? 'error' : 'ready';
+        const status =
+          result.docsProcessed === 0 && result.errors.length > 0
+            ? "error"
+            : "ready";
         this.send({
           messageId: `ks-result-${Date.now()}`,
-          type: 'knowledge_sync_result',
+          type: "knowledge_sync_result",
           agentId: this.id,
           payload: {
             sourceId,
@@ -2110,14 +2783,14 @@ export class Agent extends EventEmitter {
       })
       .catch((err) => {
         const errMsg = err instanceof Error ? err.message : String(err);
-        this.log('error', `Knowledge sync failed: ${errMsg}`);
+        this.log("error", `Knowledge sync failed: ${errMsg}`);
         this.send({
           messageId: `ks-result-${Date.now()}`,
-          type: 'knowledge_sync_result',
+          type: "knowledge_sync_result",
           agentId: this.id,
           payload: {
             sourceId,
-            status: 'error',
+            status: "error",
             docsProcessed: 0,
             chunksCreated: 0,
             errors: [errMsg],

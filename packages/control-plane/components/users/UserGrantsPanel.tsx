@@ -101,12 +101,12 @@ export default function UserGrantsPanel({ userDid }: UserGrantsPanelProps) {
           {grants.map((g) => (
             <div
               key={g.id}
-              className="flex items-start justify-between bg-vc-raised border border-vc-ring rounded-lg p-3 gap-3"
+              className="flex items-start justify-between bg-background-200 border border-neutral-300 rounded-lg p-3 gap-3"
             >
               <div className="min-w-0">
-                <p className="text-xs text-vc-muted">
+                <p className="text-xs text-foreground-500">
                   {g.agentDid ? (
-                    <>Agent: <span className="text-vc-text-2 font-mono">{g.agentDid.slice(-12)}</span></>
+                    <>Agent: <span className="text-foreground-700 font-mono">{g.agentDid.slice(-12)}</span></>
                   ) : (
                     <span className="text-yellow-400">All agents</span>
                   )}
@@ -119,7 +119,7 @@ export default function UserGrantsPanel({ userDid }: UserGrantsPanelProps) {
                   ))}
                 </div>
                 {g.expiresAt && (
-                  <p className="text-xs text-vc-subtle mt-1">Expires {new Date(g.expiresAt).toLocaleDateString()}</p>
+                  <p className="text-xs text-foreground-400 mt-1">Expires {new Date(g.expiresAt).toLocaleDateString()}</p>
                 )}
               </div>
               <button
@@ -133,19 +133,19 @@ export default function UserGrantsPanel({ userDid }: UserGrantsPanelProps) {
           ))}
         </div>
       ) : (
-        <p className="text-vc-subtle text-xs">No grants yet.</p>
+        <p className="text-foreground-400 text-xs">No grants yet.</p>
       )}
 
       {/* New grant form */}
-      <div className="border border-vc-ring rounded-lg p-3 space-y-3">
-        <p className="text-xs text-vc-muted font-medium uppercase tracking-wider">New grant</p>
+      <div className="border border-neutral-300 rounded-lg p-3 space-y-3">
+        <p className="text-xs text-foreground-500 font-medium uppercase tracking-wider">New grant</p>
 
         <div>
-          <label className="text-xs text-vc-muted block mb-1">Target agent</label>
+          <label className="text-xs text-foreground-500 block mb-1">Target agent</label>
           <select
             value={selectedAgent}
             onChange={(e) => setSelectedAgent(e.target.value)}
-            className="w-full bg-vc-raised border border-vc-ring text-vc-text text-sm rounded-lg px-2 py-1.5"
+            className="w-full bg-background-200 border border-neutral-300 text-foreground text-sm rounded-lg px-2 py-1.5"
           >
             <option value="*">All agents</option>
             {agents.map((a) => (
@@ -155,7 +155,7 @@ export default function UserGrantsPanel({ userDid }: UserGrantsPanelProps) {
         </div>
 
         <div>
-          <label className="text-xs text-vc-muted block mb-1">Capabilities</label>
+          <label className="text-xs text-foreground-500 block mb-1">Capabilities</label>
           <div className="flex flex-wrap gap-1.5">
             {CAPABILITIES.map(({ id, label }) => (
               <button
@@ -163,7 +163,7 @@ export default function UserGrantsPanel({ userDid }: UserGrantsPanelProps) {
                 onClick={() => toggleCap(id)}
                 className={`px-2 py-0.5 rounded-full text-xs border transition-colors ${selectedCaps.includes(id)
                   ? "bg-indigo-600 border-indigo-500 text-white"
-                  : "bg-vc-raised border-vc-ring text-vc-muted hover:border-vc-muted"
+                  : "bg-background-200 border-neutral-300 text-foreground-500 hover:border-foreground-500"
                   }`}
               >
                 {label}

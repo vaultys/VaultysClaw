@@ -32,7 +32,7 @@ interface MemberListProps {
 const ROLE_STYLES: Record<string, string> = {
   owner: "text-amber-600 dark:text-amber-400",
   moderator: "text-indigo-600 dark:text-indigo-400",
-  member: "text-vc-muted",
+  member: "text-foreground-500",
 };
 
 export default function MemberList({ channelId }: MemberListProps) {
@@ -234,7 +234,7 @@ export default function MemberList({ channelId }: MemberListProps) {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center p-8">
-        <Loader2 size={20} className="animate-spin text-vc-muted" />
+        <Loader2 size={20} className="animate-spin text-foreground-500" />
       </div>
     );
   }
@@ -246,9 +246,9 @@ export default function MemberList({ channelId }: MemberListProps) {
     <div className="flex flex-col h-full overflow-hidden">
       {/* ── Add Member form ─────────────────────────────────────────────────── */}
       {showAddForm ? (
-        <div className="border-b border-vc-border p-3 space-y-2">
+        <div className="border-b border-neutral-200 p-3 space-y-2">
           {/* Type picker */}
-          <div className="flex gap-1 p-1 bg-vc-bg rounded-lg">
+          <div className="flex gap-1 p-1 bg-background rounded-lg">
             {(["agent", "user"] as const).map((t) => (
               <button
                 key={t}
@@ -263,8 +263,8 @@ export default function MemberList({ channelId }: MemberListProps) {
                 }}
                 className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium transition ${
                   addType === t
-                    ? "bg-vc-surface text-vc-text shadow-sm border border-vc-border"
-                    : "text-vc-muted hover:text-vc-text"
+                    ? "bg-background-100 text-foreground shadow-sm border border-neutral-200"
+                    : "text-foreground-500 hover:text-foreground"
                 }`}
               >
                 {t === "agent" ? <Bot size={13} /> : <User size={13} />}
@@ -285,9 +285,9 @@ export default function MemberList({ channelId }: MemberListProps) {
                   setSelectedDid(e.target.value);
                   setSelectedName(e.target.value);
                 }}
-                className="w-full px-3 py-2 text-sm bg-vc-bg border border-vc-border rounded-lg text-vc-text placeholder-vc-muted focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full px-3 py-2 text-sm bg-background border border-neutral-200 rounded-lg text-foreground placeholder-foreground-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
               />
-              <p className="text-xs text-vc-muted">User search requires admin access.</p>
+              <p className="text-xs text-foreground-500">User search requires admin access.</p>
             </div>
           ) : (
             /* Searchable dropdown */
@@ -295,7 +295,7 @@ export default function MemberList({ channelId }: MemberListProps) {
               <div className="relative">
                 <Search
                   size={14}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 text-vc-muted pointer-events-none"
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-foreground-500 pointer-events-none"
                 />
                 <input
                   type="text"
@@ -315,13 +315,13 @@ export default function MemberList({ channelId }: MemberListProps) {
                     }
                     setSearchQuery(e.target.value);
                   }}
-                  className="w-full pl-8 pr-8 py-2 text-sm bg-vc-bg border border-vc-border rounded-lg text-vc-text placeholder-vc-muted focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full pl-8 pr-8 py-2 text-sm bg-background border border-neutral-200 rounded-lg text-foreground placeholder-foreground-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   autoFocus
                 />
                 {isSearching && (
                   <Loader2
                     size={13}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-vc-muted"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-foreground-500"
                   />
                 )}
                 {selectedDid && (
@@ -332,7 +332,7 @@ export default function MemberList({ channelId }: MemberListProps) {
                       setSelectedName("");
                       setSearchQuery("");
                     }}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-vc-muted hover:text-vc-text"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-foreground-500 hover:text-foreground"
                   >
                     <X size={13} />
                   </button>
@@ -341,7 +341,7 @@ export default function MemberList({ channelId }: MemberListProps) {
 
               {/* Suggestions */}
               {!selectedDid && suggestions.length > 0 && (
-                <div className="absolute top-full left-0 right-0 mt-1 bg-vc-surface border border-vc-border rounded-lg shadow-xl z-20 overflow-hidden max-h-52 overflow-y-auto">
+                <div className="absolute top-full left-0 right-0 mt-1 bg-background-100 border border-neutral-200 rounded-lg shadow-xl z-20 overflow-hidden max-h-52 overflow-y-auto">
                   {(suggestions as (AgentRecord | UserRecord)[]).map((item) => {
                     const agentItem = item as AgentRecord;
                     const userItem = item as UserRecord;
@@ -371,7 +371,7 @@ export default function MemberList({ channelId }: MemberListProps) {
                         className={`w-full flex items-center gap-3 px-3 py-2.5 text-left transition ${
                           already
                             ? "opacity-40 cursor-not-allowed"
-                            : "hover:bg-vc-raised"
+                            : "hover:bg-background-200"
                         }`}
                       >
                         {/* Avatar */}
@@ -385,13 +385,13 @@ export default function MemberList({ channelId }: MemberListProps) {
                           {getInitials(label)}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-vc-text truncate">
+                          <p className="text-sm font-medium text-foreground truncate">
                             {label}
                           </p>
-                          <p className="text-xs text-vc-muted truncate">{sub}</p>
+                          <p className="text-xs text-foreground-500 truncate">{sub}</p>
                         </div>
                         {already && (
-                          <span className="text-xs text-vc-muted flex-shrink-0">
+                          <span className="text-xs text-foreground-500 flex-shrink-0">
                             already member
                           </span>
                         )}
@@ -425,14 +425,14 @@ export default function MemberList({ channelId }: MemberListProps) {
             <button
               type="button"
               onClick={resetForm}
-              className="px-3 py-2 text-sm bg-vc-raised hover:bg-vc-surface text-vc-text rounded-lg border border-vc-border transition"
+              className="px-3 py-2 text-sm bg-background-200 hover:bg-background-100 text-foreground rounded-lg border border-neutral-200 transition"
             >
               Cancel
             </button>
           </div>
         </div>
       ) : (
-        <div className="p-3 border-b border-vc-border">
+        <div className="p-3 border-b border-neutral-200">
           <button
             onClick={() => setShowAddForm(true)}
             className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm rounded-lg transition font-medium"
@@ -454,7 +454,7 @@ export default function MemberList({ channelId }: MemberListProps) {
       <div className="flex-1 overflow-y-auto">
         {members.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full gap-2 px-4 text-center">
-            <p className="text-sm text-vc-muted">No members yet.</p>
+            <p className="text-sm text-foreground-500">No members yet.</p>
             <button
               onClick={() => setShowAddForm(true)}
               className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline"
@@ -472,7 +472,7 @@ export default function MemberList({ channelId }: MemberListProps) {
               return (
                 <li
                   key={member.id}
-                  className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-vc-raised transition group"
+                  className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-background-200 transition group"
                 >
                   {/* Avatar */}
                   <div
@@ -488,7 +488,7 @@ export default function MemberList({ channelId }: MemberListProps) {
                   {/* Info */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className="text-sm font-medium text-vc-text truncate">
+                      <span className="text-sm font-medium text-foreground truncate">
                         {primary}
                       </span>
                       {isAgent && (
@@ -499,14 +499,14 @@ export default function MemberList({ channelId }: MemberListProps) {
                     </div>
                     <div className="flex items-center gap-1.5">
                       {secondary && (
-                        <span className="text-xs text-vc-muted truncate">
+                        <span className="text-xs text-foreground-500 truncate">
                           {secondary}
                         </span>
                       )}
                     </div>
                     <span
                       className={`text-[10px] font-semibold uppercase tracking-wide ${
-                        ROLE_STYLES[member.role] ?? "text-vc-muted"
+                        ROLE_STYLES[member.role] ?? "text-foreground-500"
                       }`}
                     >
                       {member.role}
@@ -516,7 +516,7 @@ export default function MemberList({ channelId }: MemberListProps) {
                   {/* Remove button */}
                   <button
                     onClick={() => handleRemoveMember(member, primary)}
-                    className="opacity-0 group-hover:opacity-100 transition p-1.5 hover:bg-red-100 dark:hover:bg-red-900/30 text-vc-muted hover:text-red-600 dark:hover:text-red-400 rounded-lg flex-shrink-0"
+                    className="opacity-0 group-hover:opacity-100 transition p-1.5 hover:bg-red-100 dark:hover:bg-red-900/30 text-foreground-500 hover:text-red-600 dark:hover:text-red-400 rounded-lg flex-shrink-0"
                     title={`Remove ${primary}`}
                   >
                     <UserMinus size={14} />

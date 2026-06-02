@@ -120,7 +120,7 @@ function Field({
     <div>
       <label
         htmlFor={id}
-        className="text-xs text-vc-subtle uppercase tracking-wider font-medium block mb-1.5"
+        className="text-xs text-foreground-400 uppercase tracking-wider font-medium block mb-1.5"
       >
         {label}
       </label>
@@ -132,13 +132,13 @@ function Field({
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
           disabled={disabled}
-          className="w-full bg-vc-raised border border-vc-ring rounded-lg px-3 py-2 text-sm text-vc-text placeholder:text-vc-subtle focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50 disabled:opacity-50 transition pr-9"
+          className="w-full bg-background-200 border border-neutral-300 rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-foreground-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50 disabled:opacity-50 transition pr-9"
         />
         {showToggle && (
           <button
             type="button"
             onClick={() => setShow((s) => !s)}
-            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-vc-subtle hover:text-vc-text transition"
+            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-foreground-400 hover:text-foreground transition"
           >
             {show ? (
               <EyeOff className="w-4 h-4" />
@@ -253,17 +253,17 @@ function SmtpSection() {
   };
 
   return (
-    <section className="bg-vc-surface border border-vc-border rounded-xl overflow-hidden">
-      <div className="px-5 py-4 border-b border-vc-border flex items-center gap-2">
-        <Mail className="w-4 h-4 text-vc-muted" />
-        <h2 className="text-sm font-semibold text-vc-text">SMTP / Email</h2>
-        <span className="text-xs text-vc-subtle ml-1">
+    <section className="bg-background-100 border border-neutral-200 rounded-xl overflow-hidden">
+      <div className="px-5 py-4 border-b border-neutral-200 flex items-center gap-2">
+        <Mail className="w-4 h-4 text-foreground-500" />
+        <h2 className="text-sm font-semibold text-foreground">SMTP / Email</h2>
+        <span className="text-xs text-foreground-400 ml-1">
           Used to send QR codes to users
         </span>
       </div>
       <form onSubmit={save} className="p-5 space-y-4">
         {loading ? (
-          <div className="flex items-center gap-2 text-vc-muted text-sm">
+          <div className="flex items-center gap-2 text-foreground-500 text-sm">
             <Loader2 className="w-4 h-4 animate-spin" /> Loading…
           </div>
         ) : (
@@ -287,7 +287,7 @@ function SmtpSection() {
                   />
                 </div>
                 <div className="flex flex-col gap-1 pt-1">
-                  <label className="text-xs text-vc-subtle uppercase tracking-wider font-medium">
+                  <label className="text-xs text-foreground-400 uppercase tracking-wider font-medium">
                     TLS
                   </label>
                   <button
@@ -295,7 +295,7 @@ function SmtpSection() {
                     onClick={() => setSecure((s) => !s)}
                     className={cn(
                       "mt-1 w-11 h-6 rounded-full relative transition-colors",
-                      secure ? "bg-indigo-600" : "bg-vc-ring"
+                      secure ? "bg-indigo-600" : "bg-neutral-300"
                     )}
                   >
                     <span
@@ -344,7 +344,7 @@ function SmtpSection() {
                 type="button"
                 onClick={test}
                 disabled={testing || !host}
-                className="px-4 py-1.5 text-xs font-medium rounded-lg bg-vc-raised border border-vc-ring hover:border-vc-muted text-vc-text disabled:opacity-40 transition flex items-center gap-1.5"
+                className="px-4 py-1.5 text-xs font-medium rounded-lg bg-background-200 border border-neutral-300 hover:border-foreground-500 text-foreground disabled:opacity-40 transition flex items-center gap-1.5"
               >
                 {testing ? (
                   <Loader2 className="w-3 h-3 animate-spin" />
@@ -428,19 +428,19 @@ function ServerSettingsSection() {
   };
 
   return (
-    <section className="bg-vc-surface border border-vc-border rounded-xl overflow-hidden">
-      <div className="px-5 py-4 border-b border-vc-border flex items-center gap-2">
-        <Settings2 className="w-4 h-4 text-vc-muted" />
-        <h2 className="text-sm font-semibold text-vc-text">
+    <section className="bg-background-100 border border-neutral-200 rounded-xl overflow-hidden">
+      <div className="px-5 py-4 border-b border-neutral-200 flex items-center gap-2">
+        <Settings2 className="w-4 h-4 text-foreground-500" />
+        <h2 className="text-sm font-semibold text-foreground">
           Connection Settings
         </h2>
-        <span className="text-xs text-vc-subtle ml-1">
+        <span className="text-xs text-foreground-400 ml-1">
           Wallet and PeerJS endpoints
         </span>
       </div>
       <form onSubmit={save} className="p-5 space-y-4">
         {loading ? (
-          <div className="flex items-center gap-2 text-vc-muted text-sm">
+          <div className="flex items-center gap-2 text-foreground-500 text-sm">
             <Loader2 className="w-4 h-4 animate-spin" /> Loading…
           </div>
         ) : (
@@ -493,7 +493,7 @@ function ServerSettingsSection() {
 
 const PILL =
   "font-mono text-xs bg-indigo-100 dark:bg-indigo-950/60 border border-indigo-300 dark:border-indigo-700/60 text-indigo-700 dark:text-indigo-300 px-1.5 py-0.5 rounded";
-const BOLD = "font-semibold text-gray-900 dark:text-vc-text";
+const BOLD = "font-semibold text-gray-900 dark:text-foreground";
 const LINK =
   "text-indigo-600 dark:text-indigo-400 hover:text-indigo-500 dark:hover:text-indigo-300 inline-flex items-center gap-0.5 underline underline-offset-2";
 
@@ -571,7 +571,7 @@ const STEPS = [
           ].map(({ perm, why }) => (
             <li key={perm} className="flex items-start gap-2">
               <span className={cn(PILL, "shrink-0 mt-0.5")}>{perm}</span>
-              <span className="text-gray-500 dark:text-vc-subtle">— {why}</span>
+              <span className="text-gray-500 dark:text-foreground-400">— {why}</span>
             </li>
           ))}
         </ul>
@@ -617,8 +617,8 @@ function EntraSetupGuide() {
               <span className="w-6 h-6 rounded-full bg-indigo-200 dark:bg-indigo-600/30 border border-indigo-400 dark:border-indigo-600/50 text-indigo-700 dark:text-indigo-300 text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">
                 {step.number}
               </span>
-              <div className="text-sm text-gray-600 dark:text-vc-muted leading-relaxed">
-                <span className="font-semibold text-gray-800 dark:text-vc-text-2">
+              <div className="text-sm text-gray-600 dark:text-foreground-500 leading-relaxed">
+                <span className="font-semibold text-gray-800 dark:text-foreground-700">
                   {step.title} —{" "}
                 </span>
                 {step.body}
@@ -884,19 +884,19 @@ function EntraSection() {
   return (
     <>
       {/* Entra config card */}
-      <section className="bg-vc-surface border border-vc-border rounded-xl overflow-hidden">
-        <div className="px-5 py-4 border-b border-vc-border flex items-center gap-2">
-          <Users className="w-4 h-4 text-vc-muted" />
-          <h2 className="text-sm font-semibold text-vc-text">
+      <section className="bg-background-100 border border-neutral-200 rounded-xl overflow-hidden">
+        <div className="px-5 py-4 border-b border-neutral-200 flex items-center gap-2">
+          <Users className="w-4 h-4 text-foreground-500" />
+          <h2 className="text-sm font-semibold text-foreground">
             Microsoft Entra ID
           </h2>
-          <span className="text-xs text-vc-subtle ml-1">
+          <span className="text-xs text-foreground-400 ml-1">
             App registration credentials
           </span>
         </div>
         <form onSubmit={saveConfig} className="p-5 space-y-4">
           {configLoading ? (
-            <div className="flex items-center gap-2 text-vc-muted text-sm">
+            <div className="flex items-center gap-2 text-foreground-500 text-sm">
               <Loader2 className="w-4 h-4 animate-spin" /> Loading…
             </div>
           ) : (
@@ -940,7 +940,7 @@ function EntraSection() {
                     type="button"
                     onClick={checkConnection}
                     disabled={checking}
-                    className="px-4 py-1.5 text-xs font-medium rounded-lg bg-vc-raised border border-vc-ring hover:border-vc-muted text-vc-text disabled:opacity-40 transition flex items-center gap-1.5"
+                    className="px-4 py-1.5 text-xs font-medium rounded-lg bg-background-200 border border-neutral-300 hover:border-foreground-500 text-foreground disabled:opacity-40 transition flex items-center gap-1.5"
                   >
                     {checking ? (
                       <Loader2 className="w-3 h-3 animate-spin" />
@@ -954,7 +954,7 @@ function EntraSection() {
                   <button
                     type="button"
                     onClick={openWizard}
-                    className="px-4 py-1.5 text-xs font-medium rounded-lg bg-vc-raised border border-vc-ring hover:border-indigo-500 text-vc-text transition flex items-center gap-1.5"
+                    className="px-4 py-1.5 text-xs font-medium rounded-lg bg-background-200 border border-neutral-300 hover:border-indigo-500 text-foreground transition flex items-center gap-1.5"
                   >
                     <RefreshCw className="w-3 h-3" /> Sync users…
                   </button>
@@ -973,12 +973,12 @@ function EntraSection() {
                 )}
               </div>
 
-              <div className="rounded-lg border border-vc-border bg-vc-raised px-4 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div className="rounded-lg border border-neutral-200 bg-background-200 px-4 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div>
-                  <p className="text-sm font-medium text-vc-text">
+                  <p className="text-sm font-medium text-foreground">
                     Pending claims
                   </p>
-                  <p className="text-xs text-vc-muted">
+                  <p className="text-xs text-foreground-500">
                     {unclaimedLoading
                       ? "Checking unclaimed users…"
                       : `${unclaimedCount} user${unclaimedCount === 1 ? "" : "s"} waiting to claim an account.`}
@@ -986,7 +986,7 @@ function EntraSection() {
                 </div>
                 <Link
                   href="/users"
-                  className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-vc-surface border border-vc-ring hover:border-indigo-500 text-vc-text transition"
+                  className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-background-100 border border-neutral-300 hover:border-indigo-500 text-foreground transition"
                 >
                   <Users className="w-3 h-3" />
                   View users
@@ -995,14 +995,14 @@ function EntraSection() {
 
               {/* Diagnostic results */}
               {diagnostics && (
-                <div className="rounded-lg border border-vc-border overflow-hidden mt-1">
+                <div className="rounded-lg border border-neutral-200 overflow-hidden mt-1">
                   {diagnostics.map((check, i) => (
                     <div
                       key={check.id}
                       className={cn(
                         "px-4 py-3 space-y-1",
                         i < diagnostics.length - 1 &&
-                          "border-b border-vc-border"
+                          "border-b border-neutral-200"
                       )}
                     >
                       <div className="flex items-center gap-2">
@@ -1023,7 +1023,7 @@ function EntraSection() {
                         </span>
                       </div>
                       {check.status === "fail" && check.hint && (
-                        <p className="text-xs text-gray-600 dark:text-vc-muted pl-6 leading-relaxed">
+                        <p className="text-xs text-gray-600 dark:text-foreground-500 pl-6 leading-relaxed">
                           {check.hint}
                         </p>
                       )}
@@ -1039,14 +1039,14 @@ function EntraSection() {
       {/* ── Wizard modal ── */}
       {wizardOpen && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-          <div className="bg-vc-surface border border-vc-ring rounded-2xl w-full max-w-lg shadow-2xl flex flex-col max-h-[90vh]">
+          <div className="bg-background-100 border border-neutral-300 rounded-2xl w-full max-w-lg shadow-2xl flex flex-col max-h-[90vh]">
             {/* Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-vc-border shrink-0">
-              <h2 className="text-vc-text font-semibold">Sync Entra Users</h2>
+            <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-200 shrink-0">
+              <h2 className="text-foreground font-semibold">Sync Entra Users</h2>
               {wizardStep !== "syncing" && (
                 <button
                   onClick={() => setWizardOpen(false)}
-                  className="text-vc-muted hover:text-vc-text"
+                  className="text-foreground-500 hover:text-foreground"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -1058,12 +1058,12 @@ function EntraSection() {
               {/* Step: groups */}
               {wizardStep === "groups" && (
                 <div className="space-y-4">
-                  <p className="text-sm text-vc-muted">
+                  <p className="text-sm text-foreground-500">
                     Select which Entra groups to import. Leave everything
                     unselected to import all users in the tenant.
                   </p>
                   {groupsLoading && (
-                    <div className="flex items-center gap-2 text-vc-muted text-sm py-4">
+                    <div className="flex items-center gap-2 text-foreground-500 text-sm py-4">
                       <Loader2 className="w-4 h-4 animate-spin" /> Fetching
                       groups…
                     </div>
@@ -1083,7 +1083,7 @@ function EntraSection() {
                             "flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition",
                             selectedGroups.has(g.id)
                               ? "bg-indigo-100 dark:bg-indigo-600/15 border-indigo-300 dark:border-indigo-600/50"
-                              : "bg-vc-raised border-vc-ring hover:border-vc-muted"
+                              : "bg-background-200 border-neutral-300 hover:border-foreground-500"
                           )}
                         >
                           <input
@@ -1093,11 +1093,11 @@ function EntraSection() {
                             className="accent-indigo-500"
                           />
                           <div className="min-w-0">
-                            <p className="text-sm font-medium text-vc-text">
+                            <p className="text-sm font-medium text-foreground">
                               {g.displayName}
                             </p>
                             {g.description && (
-                              <p className="text-xs text-vc-subtle truncate">
+                              <p className="text-xs text-foreground-400 truncate">
                                 {g.description}
                               </p>
                             )}
@@ -1105,7 +1105,7 @@ function EntraSection() {
                         </label>
                       ))}
                       {groups.length === 0 && (
-                        <p className="text-sm text-vc-subtle text-center py-6">
+                        <p className="text-sm text-foreground-400 text-center py-6">
                           No groups found in this tenant.
                         </p>
                       )}
@@ -1117,7 +1117,7 @@ function EntraSection() {
               {/* Step: realm-map */}
               {wizardStep === "realm-map" && (
                 <div className="space-y-4">
-                  <p className="text-sm text-vc-muted">
+                  <p className="text-sm text-foreground-500">
                     Do you want to map Entra groups to VaultysClaw realms?
                     Synced users will be automatically added to the
                     corresponding realm.
@@ -1135,7 +1135,7 @@ function EntraSection() {
                           "flex-1 py-2.5 rounded-xl border text-sm font-medium transition",
                           mapGroups === v
                             ? "bg-indigo-50 dark:bg-indigo-600/20 border-indigo-300 dark:border-indigo-600/60 text-indigo-700 dark:text-indigo-300"
-                            : "bg-vc-raised border-vc-ring text-vc-muted hover:border-vc-muted"
+                            : "bg-background-200 border-neutral-300 text-foreground-500 hover:border-foreground-500"
                         )}
                       >
                         {label}
@@ -1151,12 +1151,12 @@ function EntraSection() {
                         return (
                           <div key={gid} className="flex items-center gap-2">
                             <span
-                              className="text-xs text-vc-text-2 shrink-0 w-36 truncate"
+                              className="text-xs text-foreground-700 shrink-0 w-36 truncate"
                               title={g?.displayName ?? gid}
                             >
                               {g?.displayName ?? gid}
                             </span>
-                            <ChevronRight className="w-3 h-3 text-vc-subtle shrink-0" />
+                            <ChevronRight className="w-3 h-3 text-foreground-400 shrink-0" />
                             <select
                               value={selected}
                               onChange={(e) =>
@@ -1165,7 +1165,7 @@ function EntraSection() {
                                   [gid]: e.target.value,
                                 }))
                               }
-                              className="flex-1 bg-vc-raised border border-vc-ring rounded-lg px-2 py-1 text-xs text-vc-text focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                              className="flex-1 bg-background-200 border border-neutral-300 rounded-lg px-2 py-1 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-indigo-500"
                             >
                               <option value="">— no realm —</option>
                               <option value="__create__">
@@ -1189,7 +1189,7 @@ function EntraSection() {
                   )}
 
                   {mapGroups && selectedGroups.size === 0 && (
-                    <p className="text-xs text-vc-subtle">
+                    <p className="text-xs text-foreground-400">
                       No groups selected — all users will be imported without
                       realm assignment.
                     </p>
@@ -1200,21 +1200,21 @@ function EntraSection() {
               {/* Step: confirm */}
               {wizardStep === "confirm" && (
                 <div className="space-y-4">
-                  <p className="text-sm text-vc-muted">
+                  <p className="text-sm text-foreground-500">
                     Ready to sync. Review your selection:
                   </p>
-                  <div className="bg-vc-raised border border-vc-ring rounded-lg p-4 space-y-2 text-sm">
+                  <div className="bg-background-200 border border-neutral-300 rounded-lg p-4 space-y-2 text-sm">
                     <div className="flex justify-between">
-                      <span className="text-vc-subtle">Groups</span>
-                      <span className="text-vc-text-2">
+                      <span className="text-foreground-400">Groups</span>
+                      <span className="text-foreground-700">
                         {selectedGroups.size === 0
                           ? "All tenant users"
                           : `${selectedGroups.size} group(s)`}
                       </span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-vc-subtle">Realm mapping</span>
-                      <span className="text-vc-text-2">
+                      <span className="text-foreground-400">Realm mapping</span>
+                      <span className="text-foreground-700">
                         {mapGroups ? "Enabled" : "Disabled"}
                       </span>
                     </div>
@@ -1222,8 +1222,8 @@ function EntraSection() {
                       Object.values(realmMap).some(
                         (v) => v === "__create__"
                       ) && (
-                        <div className="pt-1 space-y-1 border-t border-vc-border">
-                          <p className="text-xs text-vc-subtle font-medium">
+                        <div className="pt-1 space-y-1 border-t border-neutral-200">
+                          <p className="text-xs text-foreground-400 font-medium">
                             New realms to be created:
                           </p>
                           {Array.from(selectedGroups)
@@ -1243,12 +1243,12 @@ function EntraSection() {
                             })}
                         </div>
                       )}
-                    <div className="flex justify-between pt-1 border-t border-vc-border">
-                      <span className="text-vc-subtle">Deduplication</span>
-                      <span className="text-vc-text-2">By email address</span>
+                    <div className="flex justify-between pt-1 border-t border-neutral-200">
+                      <span className="text-foreground-400">Deduplication</span>
+                      <span className="text-foreground-700">By email address</span>
                     </div>
                   </div>
-                  <p className="text-xs text-vc-subtle">
+                  <p className="text-xs text-foreground-400">
                     New users will be created as unclaimed accounts. They must
                     scan a QR code with their Vaultys wallet to activate their
                     account.
@@ -1260,7 +1260,7 @@ function EntraSection() {
               {wizardStep === "syncing" && (
                 <div className="flex flex-col items-center gap-4 py-8">
                   <Loader2 className="w-8 h-8 text-indigo-700 dark:text-indigo-400 animate-spin" />
-                  <p className="text-sm text-vc-muted">
+                  <p className="text-sm text-foreground-500">
                     Syncing users from Entra…
                   </p>
                 </div>
@@ -1271,7 +1271,7 @@ function EntraSection() {
                 <div className="space-y-4">
                   <div className="flex items-center gap-3">
                     <CheckCircle className="w-6 h-6 text-emerald-700 dark:text-emerald-400 shrink-0" />
-                    <p className="text-sm font-medium text-vc-text">
+                    <p className="text-sm font-medium text-foreground">
                       Sync complete
                     </p>
                   </div>
@@ -1290,17 +1290,17 @@ function EntraSection() {
                       {
                         label: "Skipped",
                         value: syncResult.skipped,
-                        color: "text-vc-muted",
+                        color: "text-foreground-500",
                       },
                     ].map(({ label, value, color }) => (
                       <div
                         key={label}
-                        className="bg-vc-raised border border-vc-ring rounded-lg p-3 text-center"
+                        className="bg-background-200 border border-neutral-300 rounded-lg p-3 text-center"
                       >
                         <p className={cn("text-2xl font-bold", color)}>
                           {value}
                         </p>
-                        <p className="text-xs text-vc-subtle mt-0.5">{label}</p>
+                        <p className="text-xs text-foreground-400 mt-0.5">{label}</p>
                       </div>
                     ))}
                   </div>
@@ -1322,7 +1322,7 @@ function EntraSection() {
 
             {/* Footer nav */}
             {wizardStep !== "syncing" && (
-              <div className="flex justify-between gap-3 px-6 py-4 border-t border-vc-border shrink-0">
+              <div className="flex justify-between gap-3 px-6 py-4 border-t border-neutral-200 shrink-0">
                 <button
                   onClick={() => {
                     if (wizardStep === "done" || wizardStep === "groups") {
@@ -1332,7 +1332,7 @@ function EntraSection() {
                     if (wizardStep === "realm-map") setWizardStep("groups");
                     if (wizardStep === "confirm") setWizardStep("realm-map");
                   }}
-                  className="px-4 py-2 text-sm rounded-lg bg-vc-raised border border-vc-ring hover:border-vc-muted text-vc-text transition"
+                  className="px-4 py-2 text-sm rounded-lg bg-background-200 border border-neutral-300 hover:border-foreground-500 text-foreground transition"
                 >
                   {wizardStep === "done" || wizardStep === "groups"
                     ? "Close"
@@ -1608,7 +1608,7 @@ function ApiKeysSection() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-40">
-        <Loader2 className="w-5 h-5 animate-spin text-vc-muted" />
+        <Loader2 className="w-5 h-5 animate-spin text-foreground-500" />
       </div>
     );
   }
@@ -1653,30 +1653,30 @@ function ApiKeysSection() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-base font-semibold text-vc-text">API Keys</h2>
-          <p className="text-xs text-vc-muted mt-0.5">
+          <h2 className="text-base font-semibold text-foreground">API Keys</h2>
+          <p className="text-xs text-foreground-500 mt-0.5">
             Authenticate external clients via{" "}
-            <code className="bg-vc-raised px-1 rounded">X-API-Key</code> header
+            <code className="bg-background-200 px-1 rounded">X-API-Key</code> header
           </p>
         </div>
         <button
           onClick={openModal}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-vc-accent text-white rounded-lg text-sm font-medium hover:bg-vc-accent/90 transition"
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 transition"
         >
           <Plus className="w-4 h-4" /> New API Key
         </button>
       </div>
 
       {/* Table */}
-      <div className="bg-vc-surface rounded-xl border border-vc-border overflow-hidden">
+      <div className="bg-background-100 rounded-xl border border-neutral-200 overflow-hidden">
         {keys.length === 0 ? (
-          <div className="text-center py-12 text-vc-muted text-sm">
+          <div className="text-center py-12 text-foreground-500 text-sm">
             No API keys yet.
           </div>
         ) : (
           <table className="w-full text-sm">
-            <thead className="border-b border-vc-border">
-              <tr className="text-left text-xs text-vc-muted uppercase tracking-wider">
+            <thead className="border-b border-neutral-200">
+              <tr className="text-left text-xs text-foreground-500 uppercase tracking-wider">
                 <th className="px-4 py-3">Name</th>
                 <th className="px-4 py-3">Prefix</th>
                 <th className="px-4 py-3">Scope</th>
@@ -1687,18 +1687,18 @@ function ApiKeysSection() {
                 <th className="px-4 py-3"></th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-vc-border">
+            <tbody className="divide-y divide-neutral-200">
               {keys.map((k) => {
                 const realm = realms.find((r) => r.id === k.realmId);
                 return (
-                  <tr key={k.id} className="hover:bg-vc-raised/40 transition">
-                    <td className="px-4 py-3 font-medium text-vc-text">
+                  <tr key={k.id} className="hover:bg-background-200/40 transition">
+                    <td className="px-4 py-3 font-medium text-foreground">
                       {k.name}
                     </td>
-                    <td className="px-4 py-3 font-mono text-vc-text-2 text-xs">
+                    <td className="px-4 py-3 font-mono text-foreground-700 text-xs">
                       {k.keyPrefix}…
                     </td>
-                    <td className="px-4 py-3 text-vc-text-2">
+                    <td className="px-4 py-3 text-foreground-700">
                       {k.realmId ? (
                         <span className="flex items-center gap-1">
                           {realm?.name ?? k.realmId}
@@ -1709,20 +1709,20 @@ function ApiKeysSection() {
                           )}
                         </span>
                       ) : (
-                        <span className="flex items-center gap-1 text-vc-muted">
+                        <span className="flex items-center gap-1 text-foreground-500">
                           <Globe className="w-3 h-3" /> Global
                         </span>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-vc-text-2">
+                    <td className="px-4 py-3 text-foreground-700">
                       {k.allowedRoutes.length}
                     </td>
-                    <td className="px-4 py-3 text-vc-muted text-xs">
+                    <td className="px-4 py-3 text-foreground-500 text-xs">
                       {k.lastUsedAt
                         ? new Date(k.lastUsedAt * 1000).toLocaleDateString()
                         : "Never"}
                     </td>
-                    <td className="px-4 py-3 text-vc-muted text-xs">
+                    <td className="px-4 py-3 text-foreground-500 text-xs">
                       {k.expiresAt
                         ? new Date(k.expiresAt * 1000).toLocaleDateString()
                         : "—"}
@@ -1744,7 +1744,7 @@ function ApiKeysSection() {
                         <button
                           onClick={() => openEditModal(k)}
                           title="Edit"
-                          className="p-1.5 rounded text-vc-muted hover:text-vc-accent hover:bg-vc-raised transition"
+                          className="p-1.5 rounded text-foreground-500 hover:text-primary hover:bg-background-200 transition"
                         >
                           <Pencil className="w-4 h-4" />
                         </button>
@@ -1759,7 +1759,7 @@ function ApiKeysSection() {
                               </button>
                               <button
                                 onClick={() => setConfirmRevokeId(null)}
-                                className="px-2 py-1 rounded text-xs text-vc-muted hover:text-vc-text"
+                                className="px-2 py-1 rounded text-xs text-foreground-500 hover:text-foreground"
                               >
                                 Cancel
                               </button>
@@ -1767,7 +1767,7 @@ function ApiKeysSection() {
                           ) : (
                             <button
                               onClick={() => setConfirmRevokeId(k.id)}
-                              className="p-1.5 rounded text-vc-muted hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition"
+                              className="p-1.5 rounded text-foreground-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition"
                             >
                               <Trash2 className="w-4 h-4" />
                             </button>
@@ -1785,15 +1785,15 @@ function ApiKeysSection() {
       {/* Create modal */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-vc-surface rounded-2xl border border-vc-border shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+          <div className="bg-background-100 rounded-2xl border border-neutral-200 shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
             {/* Modal header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-vc-border">
-              <h3 className="text-base font-semibold text-vc-text">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-200">
+              <h3 className="text-base font-semibold text-foreground">
                 {editingKey ? "Edit API Key" : "New API Key"}
               </h3>
               <button
                 onClick={() => setShowModal(false)}
-                className="p-1.5 rounded-lg text-vc-muted hover:text-vc-text hover:bg-vc-raised transition"
+                className="p-1.5 rounded-lg text-foreground-500 hover:text-foreground hover:bg-background-200 transition"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -1803,26 +1803,26 @@ function ApiKeysSection() {
             <div className="overflow-y-auto flex-1 px-6 py-4 space-y-5">
               {/* Name */}
               <div>
-                <label className="block text-xs font-medium text-vc-text mb-1.5">
+                <label className="block text-xs font-medium text-foreground mb-1.5">
                   Name <span className="text-red-500">*</span>
                 </label>
                 <input
                   value={formName}
                   onChange={(e) => setFormName(e.target.value)}
                   placeholder="e.g. CI Pipeline, External Dashboard"
-                  className="w-full px-3 py-2 rounded-lg bg-vc-raised border border-vc-ring text-sm text-vc-text placeholder:text-vc-muted focus:outline-none focus:ring-2 focus:ring-vc-accent/50"
+                  className="w-full px-3 py-2 rounded-lg bg-background-200 border border-neutral-300 text-sm text-foreground placeholder:text-foreground-500 focus:outline-none focus:ring-2 focus:ring-primary/50"
                 />
               </div>
 
               {/* Realm scope */}
               <div>
-                <label className="block text-xs font-medium text-vc-text mb-1.5">
+                <label className="block text-xs font-medium text-foreground mb-1.5">
                   Realm scope
                 </label>
                 <select
                   value={formRealmId}
                   onChange={(e) => setFormRealmId(e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg bg-vc-raised border border-vc-ring text-sm text-vc-text focus:outline-none focus:ring-2 focus:ring-vc-accent/50"
+                  className="w-full px-3 py-2 rounded-lg bg-background-200 border border-neutral-300 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
                 >
                   <option value="">Global — full admin access</option>
                   {realms.map((r) => (
@@ -1839,46 +1839,46 @@ function ApiKeysSection() {
                       onChange={(e) => setFormIsRealmAdmin(e.target.checked)}
                       className="rounded"
                     />
-                    <span className="text-xs text-vc-text">Realm admin</span>
+                    <span className="text-xs text-foreground">Realm admin</span>
                   </label>
                 )}
               </div>
 
               {/* Expiry */}
               <div>
-                <label className="block text-xs font-medium text-vc-text mb-1.5">
+                <label className="block text-xs font-medium text-foreground mb-1.5">
                   Expiry (optional)
                 </label>
                 <input
                   type="date"
                   value={formExpiry}
                   onChange={(e) => setFormExpiry(e.target.value)}
-                  className="px-3 py-2 rounded-lg bg-vc-raised border border-vc-ring text-sm text-vc-text focus:outline-none focus:ring-2 focus:ring-vc-accent/50"
+                  className="px-3 py-2 rounded-lg bg-background-200 border border-neutral-300 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
                 />
               </div>
 
               {/* Route permissions */}
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <label className="text-xs font-medium text-vc-text">
+                  <label className="text-xs font-medium text-foreground">
                     Allowed routes <span className="text-red-500">*</span>
                   </label>
                   <div className="flex gap-2">
                     <button
                       onClick={selectAll}
-                      className="text-xs text-vc-accent hover:underline"
+                      className="text-xs text-primary hover:underline"
                     >
                       Select all
                     </button>
                     <button
                       onClick={clearAll}
-                      className="text-xs text-vc-muted hover:text-vc-text"
+                      className="text-xs text-foreground-500 hover:text-foreground"
                     >
                       Clear
                     </button>
                   </div>
                 </div>
-                <div className="rounded-lg border border-vc-ring overflow-hidden divide-y divide-vc-ring">
+                <div className="rounded-lg border border-neutral-300 overflow-hidden divide-y divide-neutral-300">
                   {ROUTE_GROUPS.map((group) => {
                     const isExpanded = expandedGroups.has(group.group);
                     const readRoutes = group.routes.flatMap((r) =>
@@ -1898,12 +1898,12 @@ function ApiKeysSection() {
                       writeRoutes.length > 0 &&
                       writeRoutes.every((k) => formAllowed.has(k));
                     return (
-                      <div key={group.group} className="bg-vc-raised">
+                      <div key={group.group} className="bg-background-200">
                         {/* Group header */}
                         <div className="flex items-center px-3 py-2 gap-3">
                           <button
                             onClick={() => toggleGroup(group.group)}
-                            className="flex items-center gap-1.5 flex-1 text-left text-xs font-semibold text-vc-text hover:text-vc-accent transition"
+                            className="flex items-center gap-1.5 flex-1 text-left text-xs font-semibold text-foreground hover:text-primary transition"
                           >
                             {isExpanded ? (
                               <ChevronUp className="w-3.5 h-3.5" />
@@ -1912,7 +1912,7 @@ function ApiKeysSection() {
                             )}
                             {group.group}
                           </button>
-                          <div className="flex items-center gap-4 text-[11px] text-vc-muted">
+                          <div className="flex items-center gap-4 text-[11px] text-foreground-500">
                             {readRoutes.length > 0 && (
                               <label className="flex items-center gap-1.5 cursor-pointer">
                                 <input
@@ -1943,7 +1943,7 @@ function ApiKeysSection() {
                         </div>
                         {/* Route list */}
                         {isExpanded && (
-                          <div className="divide-y divide-vc-border/50 bg-vc-surface">
+                          <div className="divide-y divide-neutral-200/50 bg-background-100">
                             {group.routes.map((route) => {
                               const reads = route.methods.filter(
                                 (m) => m === "GET"
@@ -1956,7 +1956,7 @@ function ApiKeysSection() {
                                   key={route.path}
                                   className="flex items-center px-3 py-1.5 gap-3"
                                 >
-                                  <span className="flex-1 font-mono text-[11px] text-vc-text-2 truncate">
+                                  <span className="flex-1 font-mono text-[11px] text-foreground-700 truncate">
                                     {route.path}
                                   </span>
                                   <div className="flex items-center gap-4">
@@ -2006,7 +2006,7 @@ function ApiKeysSection() {
                     );
                   })}
                 </div>
-                <p className="text-xs text-vc-muted mt-1.5">
+                <p className="text-xs text-foreground-500 mt-1.5">
                   {formAllowed.size} route(s) selected
                 </p>
               </div>
@@ -2019,17 +2019,17 @@ function ApiKeysSection() {
             </div>
 
             {/* Modal footer */}
-            <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-vc-border">
+            <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-neutral-200">
               <button
                 onClick={() => setShowModal(false)}
-                className="px-4 py-2 rounded-lg text-sm text-vc-muted hover:text-vc-text transition"
+                className="px-4 py-2 rounded-lg text-sm text-foreground-500 hover:text-foreground transition"
               >
                 Cancel
               </button>
               <button
                 onClick={editingKey ? handleUpdate : handleCreate}
                 disabled={submitting}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-vc-accent text-white text-sm font-medium hover:bg-vc-accent/90 disabled:opacity-60 transition"
+                className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary text-white text-sm font-medium hover:bg-primary/90 disabled:opacity-60 transition"
               >
                 {submitting ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
@@ -2098,7 +2098,7 @@ export default function ServerPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-40">
-        <p className="text-vc-muted text-sm">Loading server info…</p>
+        <p className="text-foreground-500 text-sm">Loading server info…</p>
       </div>
     );
   }
@@ -2112,7 +2112,7 @@ export default function ServerPage() {
       )}
 
       {/* Tab bar */}
-      <div className="flex gap-1 bg-vc-raised border border-vc-ring rounded-xl p-1 w-fit">
+      <div className="flex gap-1 bg-background-200 border border-neutral-300 rounded-xl p-1 w-fit">
         {tabs.map(({ id, label, icon: Icon }) => (
           <button
             key={id}
@@ -2120,8 +2120,8 @@ export default function ServerPage() {
             className={cn(
               "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition",
               activeTab === id
-                ? "bg-vc-surface text-vc-text shadow-sm"
-                : "text-vc-muted hover:text-vc-text"
+                ? "bg-background-100 text-foreground shadow-sm"
+                : "text-foreground-500 hover:text-foreground"
             )}
           >
             <Icon className="w-4 h-4" />
@@ -2135,24 +2135,24 @@ export default function ServerPage() {
         <>
           {data && (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="bg-vc-surface p-5 rounded-xl border border-vc-border">
-                <div className="text-vc-muted text-xs uppercase tracking-wider mb-1">
+              <div className="bg-background-100 p-5 rounded-xl border border-neutral-200">
+                <div className="text-foreground-500 text-xs uppercase tracking-wider mb-1">
                   Registered Agents
                 </div>
-                <div className="text-3xl font-bold text-vc-text">
+                <div className="text-3xl font-bold text-foreground">
                   {data.stats.totalAgents}
                 </div>
               </div>
-              <div className="bg-vc-surface p-5 rounded-xl border border-vc-border">
-                <div className="text-vc-muted text-xs uppercase tracking-wider mb-1">
+              <div className="bg-background-100 p-5 rounded-xl border border-neutral-200">
+                <div className="text-foreground-500 text-xs uppercase tracking-wider mb-1">
                   Online Now
                 </div>
                 <div className="text-3xl font-bold text-green-700 dark:text-green-400">
                   {data.stats.onlineAgents}
                 </div>
               </div>
-              <div className="bg-vc-surface p-5 rounded-xl border border-vc-border">
-                <div className="text-vc-muted text-xs uppercase tracking-wider mb-1">
+              <div className="bg-background-100 p-5 rounded-xl border border-neutral-200">
+                <div className="text-foreground-500 text-xs uppercase tracking-wider mb-1">
                   Offline
                 </div>
                 <div className="text-3xl font-bold text-gray-500">
@@ -2162,26 +2162,26 @@ export default function ServerPage() {
             </div>
           )}
 
-          <section className="bg-vc-surface rounded-xl border border-vc-border p-5">
-            <h2 className="text-sm font-semibold text-vc-text mb-4">
+          <section className="bg-background-100 rounded-xl border border-neutral-200 p-5">
+            <h2 className="text-sm font-semibold text-foreground mb-4">
               Server VaultysID
             </h2>
             {data?.identity ? (
-              <pre className="bg-vc-raised rounded p-4 text-sm font-mono text-vc-text-2 overflow-x-auto">
+              <pre className="bg-background-200 rounded p-4 text-sm font-mono text-foreground-700 overflow-x-auto">
                 {JSON.stringify(data.identity, null, 2)}
               </pre>
             ) : (
-              <p className="text-vc-muted text-sm">
+              <p className="text-foreground-500 text-sm">
                 Server identity not configured.
               </p>
             )}
           </section>
 
           {data?.sysInfo && (
-            <section className="bg-vc-surface rounded-xl border border-vc-border overflow-hidden">
-              <div className="px-5 py-4 border-b border-vc-border flex items-center gap-2">
-                <Cpu className="w-4 h-4 text-vc-muted" />
-                <h2 className="text-sm font-semibold text-vc-text">
+            <section className="bg-background-100 rounded-xl border border-neutral-200 overflow-hidden">
+              <div className="px-5 py-4 border-b border-neutral-200 flex items-center gap-2">
+                <Cpu className="w-4 h-4 text-foreground-500" />
+                <h2 className="text-sm font-semibold text-foreground">
                   System Info
                 </h2>
               </div>
@@ -2199,44 +2199,44 @@ export default function ServerPage() {
                 ].map(({ label, value }) => (
                   <div
                     key={label}
-                    className="bg-vc-raised border border-vc-ring rounded-lg p-4 min-w-0"
+                    className="bg-background-200 border border-neutral-300 rounded-lg p-4 min-w-0"
                   >
-                    <div className="text-vc-subtle text-xs uppercase tracking-wider mb-1">
+                    <div className="text-foreground-400 text-xs uppercase tracking-wider mb-1">
                       {label}
                     </div>
                     <div
-                      className="text-sm font-medium text-vc-text truncate"
+                      className="text-sm font-medium text-foreground truncate"
                       title={String(value)}
                     >
                       {value}
                     </div>
                   </div>
                 ))}
-                <div className="bg-vc-raised border border-vc-ring rounded-lg p-4 min-w-0">
-                  <div className="text-vc-subtle text-xs uppercase tracking-wider mb-1">
+                <div className="bg-background-200 border border-neutral-300 rounded-lg p-4 min-w-0">
+                  <div className="text-foreground-400 text-xs uppercase tracking-wider mb-1">
                     CPU
                   </div>
                   <div
-                    className="text-sm font-medium text-vc-text truncate"
+                    className="text-sm font-medium text-foreground truncate"
                     title={data.sysInfo.cpuModel}
                   >
                     {data.sysInfo.cpuCount} cores · {data.sysInfo.cpuModel}
                   </div>
                 </div>
-                <div className="bg-vc-raised border border-vc-ring rounded-lg p-4 min-w-0">
-                  <div className="text-vc-subtle text-xs uppercase tracking-wider mb-1 flex items-center gap-1">
+                <div className="bg-background-200 border border-neutral-300 rounded-lg p-4 min-w-0">
+                  <div className="text-foreground-400 text-xs uppercase tracking-wider mb-1 flex items-center gap-1">
                     <HardDrive className="w-3 h-3" /> Memory
                   </div>
-                  <div className="text-sm font-medium text-vc-text">
+                  <div className="text-sm font-medium text-foreground">
                     {formatBytes(data.sysInfo.totalMem - data.sysInfo.freeMem)}{" "}
                     / {formatBytes(data.sysInfo.totalMem)}
                   </div>
                 </div>
-                <div className="bg-vc-raised border border-vc-ring rounded-lg p-4 min-w-0">
-                  <div className="text-vc-subtle text-xs uppercase tracking-wider mb-1">
+                <div className="bg-background-200 border border-neutral-300 rounded-lg p-4 min-w-0">
+                  <div className="text-foreground-400 text-xs uppercase tracking-wider mb-1">
                     Load Average
                   </div>
-                  <div className="text-sm font-medium text-vc-text">
+                  <div className="text-sm font-medium text-foreground">
                     {data.sysInfo.loadAvg
                       .map((load) => load.toFixed(2))
                       .join(" / ")}

@@ -115,7 +115,7 @@ export default function MatrixView({ data, height, onNodeClick }: Props) {
 
   if (filteredUserRows.length === 0) {
     return (
-      <div className="flex items-center justify-center text-vc-muted" style={{ height }}>
+      <div className="flex items-center justify-center text-foreground-500" style={{ height }}>
         No users to display
       </div>
     );
@@ -137,15 +137,15 @@ export default function MatrixView({ data, height, onNodeClick }: Props) {
     <div className="overflow-auto" style={{ height, maxHeight: height }}>
       <table className="w-full border-collapse text-sm" style={{ minWidth: agentCols.length * 140 + 220 }}>
         <thead>
-          <tr className="border-b border-vc-border">
+          <tr className="border-b border-neutral-200">
             {/* User column header */}
-            <th className="sticky left-0 z-10 bg-vc-surface text-left px-4 py-3 text-xs font-semibold text-vc-muted uppercase tracking-wider whitespace-nowrap min-w-[200px]">
+            <th className="sticky left-0 z-10 bg-background-100 text-left px-4 py-3 text-xs font-semibold text-foreground-500 uppercase tracking-wider whitespace-nowrap min-w-[200px]">
               User
             </th>
             {agentCols.map((agent) => (
               <th
                 key={agent.id}
-                className="px-3 py-3 text-center align-bottom cursor-pointer hover:bg-vc-raised transition-colors"
+                className="px-3 py-3 text-center align-bottom cursor-pointer hover:bg-background-200 transition-colors"
                 onClick={() => onNodeClick?.(agent)}
               >
                 <div className="flex flex-col items-center gap-1.5">
@@ -176,17 +176,17 @@ export default function MatrixView({ data, height, onNodeClick }: Props) {
             return (
               <tr
                 key={user.id}
-                className="border-b border-vc-border hover:bg-vc-raised/50 transition-colors group"
+                className="border-b border-neutral-200 hover:bg-background-200/50 transition-colors group"
               >
                 {/* ── User cell ── */}
                 <td
-                  className="sticky left-0 z-10 bg-vc-surface group-hover:bg-vc-raised/50 px-4 py-3 cursor-pointer"
+                  className="sticky left-0 z-10 bg-background-100 group-hover:bg-background-200/50 px-4 py-3 cursor-pointer"
                   onClick={() => onNodeClick?.(user)}
                 >
                   <div className="flex items-center gap-2.5" style={{ paddingLeft: depth * 20 }}>
                     {/* Hierarchy indent connector */}
                     {depth > 0 && (
-                      <span className="text-vc-border text-xs select-none shrink-0">└─</span>
+                      <span className="text-neutral-200 text-xs select-none shrink-0">└─</span>
                     )}
                     {/* Avatar */}
                     <div
@@ -199,7 +199,7 @@ export default function MatrixView({ data, height, onNodeClick }: Props) {
                     </div>
                     {/* Name + role */}
                     <div className="min-w-0">
-                      <div className="text-sm font-medium text-vc-text truncate max-w-[120px]">
+                      <div className="text-sm font-medium text-foreground truncate max-w-[120px]">
                         {label}
                       </div>
                       <RolePill role={role} />
@@ -216,7 +216,7 @@ export default function MatrixView({ data, height, onNodeClick }: Props) {
                   if (grants.length === 0) {
                     return (
                       <td key={agent.id} className="px-3 py-3 text-center">
-                        <span className="text-vc-border text-xs">—</span>
+                        <span className="text-neutral-200 text-xs">—</span>
                       </td>
                     );
                   }
@@ -261,7 +261,7 @@ export default function MatrixView({ data, height, onNodeClick }: Props) {
                               <span className="inline-block w-2 h-2 rounded-full bg-red-500" title="Delegation" />
                             )}
                           </div>
-                          <span className="text-[10px] text-vc-muted">{allCaps.length} cap{allCaps.length !== 1 ? "s" : ""}</span>
+                          <span className="text-[10px] text-foreground-500">{allCaps.length} cap{allCaps.length !== 1 ? "s" : ""}</span>
                         </div>
                       )}
                     </td>
@@ -274,7 +274,7 @@ export default function MatrixView({ data, height, onNodeClick }: Props) {
       </table>
 
       {/* Footer legend */}
-      <div className="flex items-center gap-6 px-4 py-3 border-t border-vc-border text-xs text-vc-muted">
+      <div className="flex items-center gap-6 px-4 py-3 border-t border-neutral-200 text-xs text-foreground-500">
         <span className="flex items-center gap-1.5">
           <span className="inline-block w-2 h-2 rounded-full bg-amber-500" />
           Grant
@@ -287,7 +287,7 @@ export default function MatrixView({ data, height, onNodeClick }: Props) {
           <span className="inline-block w-2 h-2 rounded-full bg-emerald-500" />
           Agent online
         </span>
-        <span className="text-vc-border ml-auto">Click a cell to expand capabilities</span>
+        <span className="text-neutral-200 ml-auto">Click a cell to expand capabilities</span>
       </div>
     </div>
   );

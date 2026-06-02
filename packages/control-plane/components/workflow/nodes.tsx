@@ -121,14 +121,14 @@ export const DelayNode: React.FC<NodeProps> = ({ data }) => {
 
   return (
     <div
-      className={`${baseNodeStyle} ${isSelectedInStore ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20" : "border-vc-border bg-vc-raised"
+      className={`${baseNodeStyle} ${isSelectedInStore ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20" : "border-neutral-200 bg-background-200"
         }`}
     >
       <div className="flex items-center gap-2 mb-2">
-        <Clock size={16} className="text-vc-muted" />
-        <span className="font-semibold text-xs text-vc-text">Delay</span>
+        <Clock size={16} className="text-foreground-500" />
+        <span className="font-semibold text-xs text-foreground">Delay</span>
       </div>
-      <p className="text-xs text-vc-text-2 font-medium">{duration}s</p>
+      <p className="text-xs text-foreground-700 font-medium">{duration}s</p>
       <Handle type="target" position={Position.Left} />
       <Handle type="source" position={Position.Right} />
     </div>

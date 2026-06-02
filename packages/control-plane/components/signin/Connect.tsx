@@ -27,7 +27,7 @@ function ConnectCard() {
   } = useVaultysConnect();
 
   return (
-    <div className="w-full max-w-sm bg-vc-surface border border-vc-border rounded-2xl p-8 shadow-2xl">
+    <div className="w-full max-w-sm bg-background-100 border border-neutral-200 rounded-2xl p-8 shadow-2xl">
       {uiStep === "loading" && <Loader />}
 
       {(uiStep === "claim-ownership" || uiStep === "first-connect") && (
@@ -62,7 +62,7 @@ function ConnectCard() {
               <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
             </svg>
           </div>
-          <p className="text-vc-text font-semibold">Signed in! Redirecting…</p>
+          <p className="text-foreground font-semibold">Signed in! Redirecting…</p>
         </div>
       )}
     </div>
@@ -75,7 +75,7 @@ export default function Connect({ embedded = false }: ConnectProps) {
   }
 
   return (
-    <div className="min-h-screen bg-vc-bg flex items-center justify-center p-4">
+    <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <ConnectCard />
     </div>
   );

@@ -51,66 +51,66 @@ export function RegisterModelModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-      <div className="bg-vc-surface border border-vc-border rounded-2xl shadow-xl w-full max-w-lg p-6">
-        <h2 className="text-base font-semibold text-vc-text mb-4">Register Model</h2>
+      <div className="bg-background-100 border border-neutral-200 rounded-2xl shadow-xl w-full max-w-lg p-6">
+        <h2 className="text-base font-semibold text-foreground mb-4">Register Model</h2>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm text-vc-muted mb-1">Name</label>
+            <label className="block text-sm text-foreground-500 mb-1">Name</label>
             <input
               autoFocus
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full bg-vc-bg border border-vc-border rounded-xl px-3 py-2 text-sm text-vc-text focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full bg-background border border-neutral-200 rounded-xl px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-indigo-500"
               placeholder="e.g. Customer Support LLaMA"
             />
           </div>
           <div>
-            <label className="block text-sm text-vc-muted mb-1">Description</label>
+            <label className="block text-sm text-foreground-500 mb-1">Description</label>
             <input
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="w-full bg-vc-bg border border-vc-border rounded-xl px-3 py-2 text-sm text-vc-text focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full bg-background border border-neutral-200 rounded-xl px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-indigo-500"
               placeholder="Optional description"
             />
           </div>
           <div>
-            <label className="block text-sm text-vc-muted mb-1">Provider</label>
+            <label className="block text-sm text-foreground-500 mb-1">Provider</label>
             <select
               value={provider}
               onChange={(e) => setProvider(e.target.value)}
-              className="w-full bg-vc-bg border border-vc-border rounded-xl px-3 py-2 text-sm text-vc-text focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full bg-background border border-neutral-200 rounded-xl px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-indigo-500"
             >
               {PROVIDERS.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
             </select>
           </div>
           <div>
-            <label className="block text-sm text-vc-muted mb-1">Model ID</label>
+            <label className="block text-sm text-foreground-500 mb-1">Model ID</label>
             <input
               value={modelId}
               onChange={(e) => setModelId(e.target.value)}
-              className="w-full bg-vc-bg border border-vc-border rounded-xl px-3 py-2 text-sm text-vc-text focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full bg-background border border-neutral-200 rounded-xl px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-indigo-500"
               placeholder="e.g. meta-llama/Llama-3-8B-Instruct"
             />
-            <p className="text-xs text-vc-subtle mt-1">The exact model name served by the endpoint</p>
+            <p className="text-xs text-foreground-400 mt-1">The exact model name served by the endpoint</p>
           </div>
           <div>
-            <label className="block text-sm text-vc-muted mb-1">Base URL</label>
+            <label className="block text-sm text-foreground-500 mb-1">Base URL</label>
             <input
               value={baseUrl}
               onChange={(e) => setBaseUrl(e.target.value)}
-              className="w-full bg-vc-bg border border-vc-border rounded-xl px-3 py-2 text-sm text-vc-text focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full bg-background border border-neutral-200 rounded-xl px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-indigo-500"
               placeholder="http://vllm-service:8000"
             />
           </div>
           <div>
-            <label className="block text-sm text-vc-muted mb-1">
-              API Key <span className="text-vc-subtle">(optional)</span>
+            <label className="block text-sm text-foreground-500 mb-1">
+              API Key <span className="text-foreground-400">(optional)</span>
             </label>
             <input
               type="password"
               value={apiKey}
               onChange={(e) => setApiKey(e.target.value)}
-              className="w-full bg-vc-bg border border-vc-border rounded-xl px-3 py-2 text-sm text-vc-text focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full bg-background border border-neutral-200 rounded-xl px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-indigo-500"
               placeholder="Leave empty if not required"
             />
           </div>
@@ -119,7 +119,7 @@ export function RegisterModelModal({
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 px-4 py-2 rounded-xl border border-vc-border text-sm text-vc-muted hover:text-vc-text hover:bg-vc-raised transition-colors"
+              className="flex-1 px-4 py-2 rounded-xl border border-neutral-200 text-sm text-foreground-500 hover:text-foreground hover:bg-background-200 transition-colors"
             >
               Cancel
             </button>

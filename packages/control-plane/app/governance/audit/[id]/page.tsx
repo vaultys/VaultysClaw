@@ -122,13 +122,13 @@ function JsonBlock({ value, label }: { value: unknown; label: string }) {
     <div className="space-y-1.5">
       <button
         onClick={() => setCollapsed(!collapsed)}
-        className="flex items-center gap-1.5 text-xs text-vc-muted hover:text-vc-text transition-colors"
+        className="flex items-center gap-1.5 text-xs text-foreground-500 hover:text-foreground transition-colors"
       >
         <span className={`transition-transform ${collapsed ? "-rotate-90" : ""}`}>▾</span>
         {label}
       </button>
       {!collapsed && (
-        <pre className="bg-vc-bg border border-vc-border rounded-lg p-4 text-xs font-mono text-vc-text-2 overflow-x-auto whitespace-pre-wrap break-all leading-relaxed">
+        <pre className="bg-background border border-neutral-200 rounded-lg p-4 text-xs font-mono text-foreground-700 overflow-x-auto whitespace-pre-wrap break-all leading-relaxed">
           {json}
         </pre>
       )}
@@ -167,7 +167,7 @@ export default function AuditDetailPage() {
 
   if (loading) {
     return (
-      <div className="p-6 w-full max-w-4xl mx-auto flex items-center gap-2 text-vc-muted">
+      <div className="p-6 w-full max-w-4xl mx-auto flex items-center gap-2 text-foreground-500">
         <Loader2 size={16} className="animate-spin" /> Loading…
       </div>
     );
@@ -200,7 +200,7 @@ export default function AuditDetailPage() {
       </button>
 
       {/* Header card */}
-      <div className="bg-vc-surface border border-vc-border rounded-xl p-5">
+      <div className="bg-background-100 border border-neutral-200 rounded-xl p-5">
         <div className="flex items-start gap-4">
           <div className={`p-2.5 rounded-lg border flex-shrink-0 ${isActivity
             ? "bg-indigo-100 dark:bg-indigo-500/10 border-indigo-300 dark:border-indigo-500/20 text-indigo-600 dark:text-indigo-400"
@@ -210,7 +210,7 @@ export default function AuditDetailPage() {
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap mb-1">
-              <h1 className="text-base font-semibold text-vc-text">
+              <h1 className="text-base font-semibold text-foreground">
                 {ACTIVITY_LABELS[entry.event] ?? entry.event.replace(/_/g, " ")}
               </h1>
               {/* Source badge */}
@@ -239,7 +239,7 @@ export default function AuditDetailPage() {
             </div>
 
             {/* Meta row */}
-            <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-vc-muted">
+            <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-foreground-500">
               <span className="flex items-center gap-1"><Clock size={11} /> {formatDate(entry.timestamp)}</span>
               {entry.agentDid && (
                 <span
@@ -260,7 +260,7 @@ export default function AuditDetailPage() {
             </div>
 
             {/* Entry ID */}
-            <p className="text-[10px] font-mono text-vc-subtle mt-1.5">{entry.id}</p>
+            <p className="text-[10px] font-mono text-foreground-400 mt-1.5">{entry.id}</p>
           </div>
         </div>
       </div>
@@ -276,9 +276,9 @@ export default function AuditDetailPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
 
         {/* ── Payload ─────────────────────────────────────────────────────── */}
-        <div className="bg-vc-surface border border-vc-border rounded-xl p-5 space-y-4">
-          <h2 className="text-sm font-semibold text-vc-text flex items-center gap-2">
-            <FileText size={14} className="text-vc-muted" /> Payload
+        <div className="bg-background-100 border border-neutral-200 rounded-xl p-5 space-y-4">
+          <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
+            <FileText size={14} className="text-foreground-500" /> Payload
           </h2>
 
           {/* Intent timing */}
@@ -288,9 +288,9 @@ export default function AuditDetailPage() {
                 { label: "Sent at", value: formatDate(entry.sentAt) },
                 { label: "Completed at", value: entry.completedAt ? formatDate(entry.completedAt) : "—" },
               ].map(({ label, value }) => (
-                <div key={label} className="bg-vc-raised border border-vc-border rounded-lg px-3 py-2">
-                  <div className="text-vc-subtle uppercase text-[10px] mb-0.5">{label}</div>
-                  <div className="text-vc-text">{value}</div>
+                <div key={label} className="bg-background-200 border border-neutral-200 rounded-lg px-3 py-2">
+                  <div className="text-foreground-400 uppercase text-[10px] mb-0.5">{label}</div>
+                  <div className="text-foreground">{value}</div>
                 </div>
               ))}
             </div>
@@ -305,8 +305,8 @@ export default function AuditDetailPage() {
           )}
           {entry.detailsParsed === null && entry.details && (
             <div>
-              <p className="text-xs text-vc-muted mb-1.5">Raw details</p>
-              <pre className="bg-vc-bg border border-vc-border rounded-lg p-3 text-xs font-mono text-vc-text-2 overflow-x-auto whitespace-pre-wrap break-all">
+              <p className="text-xs text-foreground-500 mb-1.5">Raw details</p>
+              <pre className="bg-background border border-neutral-200 rounded-lg p-3 text-xs font-mono text-foreground-700 overflow-x-auto whitespace-pre-wrap break-all">
                 {entry.details}
               </pre>
             </div>
@@ -318,18 +318,18 @@ export default function AuditDetailPage() {
           )}
 
           {!entry.params && !entry.details && !entry.output && (
-            <p className="text-xs text-vc-subtle italic">No payload data recorded for this event.</p>
+            <p className="text-xs text-foreground-400 italic">No payload data recorded for this event.</p>
           )}
         </div>
 
         {/* ── Certificate & crypto verification ────────────────────────────── */}
-        <div className="bg-vc-surface border border-vc-border rounded-xl p-5 space-y-4">
-          <h2 className="text-sm font-semibold text-vc-text flex items-center gap-2">
-            <ShieldCheck size={14} className="text-vc-muted" /> Certificate & Cryptographic State
+        <div className="bg-background-100 border border-neutral-200 rounded-xl p-5 space-y-4">
+          <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
+            <ShieldCheck size={14} className="text-foreground-500" /> Certificate & Cryptographic State
           </h2>
 
           {!certInfo ? (
-            <div className="text-xs text-vc-subtle italic py-4 text-center">
+            <div className="text-xs text-foreground-400 italic py-4 text-center">
               {entry.agentDid
                 ? "No certificate on file for this agent yet."
                 : "No agent DID associated with this entry."}
@@ -357,9 +357,9 @@ export default function AuditDetailPage() {
                     value: <span className="font-mono">{certInfo.protocol ?? "—"}</span>,
                   },
                 ].map(({ label, value }) => (
-                  <div key={label} className="bg-vc-raised border border-vc-border rounded-lg px-3 py-2">
-                    <div className="text-vc-subtle uppercase text-[10px] mb-0.5">{label}</div>
-                    <div className="text-vc-text">{value}</div>
+                  <div key={label} className="bg-background-200 border border-neutral-200 rounded-lg px-3 py-2">
+                    <div className="text-foreground-400 uppercase text-[10px] mb-0.5">{label}</div>
+                    <div className="text-foreground">{value}</div>
                   </div>
                 ))}
               </div>
@@ -385,16 +385,16 @@ export default function AuditDetailPage() {
 
               {/* DIDs */}
               <div className="space-y-2">
-                <p className="text-xs text-vc-muted uppercase tracking-wider flex items-center gap-1.5">
+                <p className="text-xs text-foreground-500 uppercase tracking-wider flex items-center gap-1.5">
                   <Key size={11} /> Signing parties
                 </p>
                 {[
                   { label: "pk1 — Control plane", did: certInfo.pk1Did },
                   { label: "pk2 — Agent", did: certInfo.pk2Did },
                 ].map(({ label, did }) => (
-                  <div key={label} className="bg-vc-raised border border-vc-border rounded-lg px-3 py-2 text-xs space-y-0.5">
-                    <div className="text-vc-subtle uppercase text-[10px]">{label}</div>
-                    <code className="font-mono text-vc-text-2 text-[11px] break-all">{did ?? "—"}</code>
+                  <div key={label} className="bg-background-200 border border-neutral-200 rounded-lg px-3 py-2 text-xs space-y-0.5">
+                    <div className="text-foreground-400 uppercase text-[10px]">{label}</div>
+                    <code className="font-mono text-foreground-700 text-[11px] break-all">{did ?? "—"}</code>
                   </div>
                 ))}
               </div>
@@ -402,10 +402,10 @@ export default function AuditDetailPage() {
               {/* Signed payload */}
               {certInfo.signedPayload && (
                 <div className="space-y-1.5">
-                  <p className="text-xs text-vc-muted uppercase tracking-wider flex items-center gap-1.5">
+                  <p className="text-xs text-foreground-500 uppercase tracking-wider flex items-center gap-1.5">
                     <Key size={11} /> Signed payload
                   </p>
-                  <pre className="bg-vc-bg border border-vc-border rounded-lg p-3 text-[11px] font-mono text-vc-text-2 overflow-x-auto whitespace-pre-wrap break-all leading-relaxed max-h-40">
+                  <pre className="bg-background border border-neutral-200 rounded-lg p-3 text-[11px] font-mono text-foreground-700 overflow-x-auto whitespace-pre-wrap break-all leading-relaxed max-h-40">
                     {certInfo.signedPayload}
                   </pre>
                 </div>
@@ -414,7 +414,7 @@ export default function AuditDetailPage() {
               {/* Capabilities in cert */}
               {certInfo.capabilities && certInfo.capabilities.length > 0 && (
                 <div className="space-y-2">
-                  <p className="text-xs text-vc-muted uppercase tracking-wider">Capabilities in certificate</p>
+                  <p className="text-xs text-foreground-500 uppercase tracking-wider">Capabilities in certificate</p>
                   <div className="flex flex-wrap gap-1.5">
                     {certInfo.capabilities.map((cap) => (
                       <span
@@ -432,24 +432,24 @@ export default function AuditDetailPage() {
               {/* Resource limits in cert */}
               {certInfo.resourceLimits && (
                 <div className="space-y-2">
-                  <p className="text-xs text-vc-muted uppercase tracking-wider">Resource limits in certificate</p>
-                  <div className="bg-vc-raised border border-vc-border rounded-lg divide-y divide-vc-border text-xs">
+                  <p className="text-xs text-foreground-500 uppercase tracking-wider">Resource limits in certificate</p>
+                  <div className="bg-background-200 border border-neutral-200 rounded-lg divide-y divide-neutral-200 text-xs">
                     {certInfo.resourceLimits.maxTokensPerDay != null && (
                       <div className="flex justify-between px-3 py-2">
-                        <span className="text-vc-muted">Max tokens/day</span>
-                        <span className="font-mono text-vc-text">{certInfo.resourceLimits.maxTokensPerDay.toLocaleString()}</span>
+                        <span className="text-foreground-500">Max tokens/day</span>
+                        <span className="font-mono text-foreground">{certInfo.resourceLimits.maxTokensPerDay.toLocaleString()}</span>
                       </div>
                     )}
                     {certInfo.resourceLimits.maxRequestsPerHour != null && (
                       <div className="flex justify-between px-3 py-2">
-                        <span className="text-vc-muted">Max requests/hour</span>
-                        <span className="font-mono text-vc-text">{certInfo.resourceLimits.maxRequestsPerHour}</span>
+                        <span className="text-foreground-500">Max requests/hour</span>
+                        <span className="font-mono text-foreground">{certInfo.resourceLimits.maxRequestsPerHour}</span>
                       </div>
                     )}
                     {certInfo.resourceLimits.allowedDomains && certInfo.resourceLimits.allowedDomains.length > 0 && (
                       <div className="flex justify-between px-3 py-2 gap-4">
-                        <span className="text-vc-muted shrink-0">Allowed domains</span>
-                        <span className="font-mono text-vc-text text-right break-all">{certInfo.resourceLimits.allowedDomains.join(", ")}</span>
+                        <span className="text-foreground-500 shrink-0">Allowed domains</span>
+                        <span className="font-mono text-foreground text-right break-all">{certInfo.resourceLimits.allowedDomains.join(", ")}</span>
                       </div>
                     )}
                   </div>
@@ -459,18 +459,18 @@ export default function AuditDetailPage() {
               {/* Policy reference */}
               {certInfo.policyId && (
                 <div className="space-y-2">
-                  <p className="text-xs text-vc-muted uppercase tracking-wider">Policy reference</p>
-                  <div className="bg-vc-raised border border-vc-border rounded-lg divide-y divide-vc-border text-xs">
+                  <p className="text-xs text-foreground-500 uppercase tracking-wider">Policy reference</p>
+                  <div className="bg-background-200 border border-neutral-200 rounded-lg divide-y divide-neutral-200 text-xs">
                     <div className="flex justify-between px-3 py-2">
-                      <span className="text-vc-muted">Policy ID</span>
-                      <code className="font-mono text-vc-text text-[11px]">{certInfo.policyId}</code>
+                      <span className="text-foreground-500">Policy ID</span>
+                      <code className="font-mono text-foreground text-[11px]">{certInfo.policyId}</code>
                     </div>
                     {certInfo.policyExpiresAt && (
                       <div className="flex justify-between px-3 py-2">
-                        <span className="text-vc-muted">Expires at</span>
+                        <span className="text-foreground-500">Expires at</span>
                         <span className={`font-mono text-[11px] ${new Date(certInfo.policyExpiresAt) < new Date()
                           ? "text-red-600 dark:text-red-400"
-                          : "text-vc-text"
+                          : "text-foreground"
                           }`}>
                           {formatDate(certInfo.policyExpiresAt)}
                         </span>

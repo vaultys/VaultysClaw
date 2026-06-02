@@ -88,7 +88,7 @@ export default function WorkflowApprovalInbox() {
   const notifications = approvals.filter((a) => a.mode === "notification");
 
   return (
-    <div className="border-b border-vc-border bg-vc-raised">
+    <div className="border-b border-neutral-200 bg-background-200">
       {/* Approvals (blocking) */}
       {pendingApprovals.map((approval) => (
         <div key={approval.id} className="border-b border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20">
@@ -129,7 +129,7 @@ export default function WorkflowApprovalInbox() {
               {approval.step_input && (
                 <div>
                   <p className="text-xs font-semibold text-amber-800 dark:text-amber-300 mb-1">Workflow input</p>
-                  <pre className="text-xs bg-vc-surface text-vc-text border border-vc-border rounded-md p-2 overflow-x-auto max-h-32">
+                  <pre className="text-xs bg-background-100 text-foreground border border-neutral-200 rounded-md p-2 overflow-x-auto max-h-32">
                     {approval.step_input}
                   </pre>
                 </div>
@@ -142,7 +142,7 @@ export default function WorkflowApprovalInbox() {
                   rows={2}
                   value={comment[approval.id] || ""}
                   onChange={(e) => setComment((c) => ({ ...c, [approval.id]: e.target.value }))}
-                  className="w-full text-xs bg-vc-surface text-vc-text border border-vc-border rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-amber-400 resize-none"
+                  className="w-full text-xs bg-background-100 text-foreground border border-neutral-200 rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-amber-400 resize-none"
                   placeholder="Add a comment…"
                 />
               </div>
@@ -171,7 +171,7 @@ export default function WorkflowApprovalInbox() {
 
       {/* Notifications (non-blocking) */}
       {notifications.map((notif) => (
-        <div key={notif.id} className="flex items-start gap-3 px-4 py-3 border-b border-vc-border bg-blue-50 dark:bg-blue-900/10">
+        <div key={notif.id} className="flex items-start gap-3 px-4 py-3 border-b border-neutral-200 bg-blue-50 dark:bg-blue-900/10">
           <Bell size={15} className="text-blue-500 shrink-0 mt-0.5" />
           <div className="flex-1 min-w-0">
             <p className="text-sm text-blue-900 dark:text-blue-200">

@@ -66,9 +66,9 @@ export default function WorkflowDetailPage() {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-vc-bg">
+    <div className="flex flex-col h-screen bg-background">
       {/* Header with back button and title editor */}
-      <div className="border-b border-vc-border bg-vc-raised flex items-center justify-between">
+      <div className="border-b border-neutral-200 bg-background-200 flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Link
             href={realmFromUrl ? `/realms/${realmFromUrl}` : "/workflows"}

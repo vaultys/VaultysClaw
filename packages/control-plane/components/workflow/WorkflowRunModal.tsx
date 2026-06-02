@@ -53,7 +53,7 @@ function getStatusIcon(status: string) {
     case "running":
       return <Activity size={16} className="text-blue-500 animate-pulse" />;
     default:
-      return <Clock size={16} className="text-vc-muted" />;
+      return <Clock size={16} className="text-foreground-500" />;
   }
 }
 
@@ -67,7 +67,7 @@ function getStatusBadge(status: string) {
     case "running":
       return `${base} bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400`;
     default:
-      return `${base} bg-vc-raised text-vc-subtle`;
+      return `${base} bg-background-200 text-foreground-400`;
   }
 }
 
@@ -247,9 +247,9 @@ export const WorkflowRunModal: React.FC<WorkflowRunModalProps> = ({
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-vc-surface rounded-xl border border-vc-border w-full max-w-2xl max-h-[90vh] flex flex-col shadow-xl">
+      <div className="bg-background-100 rounded-xl border border-neutral-200 w-full max-w-2xl max-h-[90vh] flex flex-col shadow-xl">
         {/* Header */}
-        <div className="border-b border-vc-border px-6 py-4 flex items-center justify-between bg-vc-raised">
+        <div className="border-b border-neutral-200 px-6 py-4 flex items-center justify-between bg-background-200">
           <div className="flex items-center gap-3 flex-1 min-w-0">
             {execution.status !== "idle" && (
               <button
@@ -258,18 +258,18 @@ export const WorkflowRunModal: React.FC<WorkflowRunModalProps> = ({
                     onClose();
                   }
                 }}
-                className="p-1 hover:bg-vc-border rounded"
+                className="p-1 hover:bg-neutral-200 rounded"
                 title="Go back"
               >
-                <ChevronLeft size={18} className="text-vc-muted" />
+                <ChevronLeft size={18} className="text-foreground-500" />
               </button>
             )}
             <div className="min-w-0">
-              <h2 className="text-lg font-semibold text-vc-text truncate">
+              <h2 className="text-lg font-semibold text-foreground truncate">
                 {workflowName}
               </h2>
               {workflowDescription && (
-                <p className="text-sm text-vc-muted truncate">
+                <p className="text-sm text-foreground-500 truncate">
                   {workflowDescription}
                 </p>
               )}
@@ -277,9 +277,9 @@ export const WorkflowRunModal: React.FC<WorkflowRunModalProps> = ({
           </div>
           <button
             onClick={onClose}
-            className="p-1 hover:bg-vc-border rounded flex-shrink-0"
+            className="p-1 hover:bg-neutral-200 rounded flex-shrink-0"
           >
-            <X size={18} className="text-vc-muted" />
+            <X size={18} className="text-foreground-500" />
           </button>
         </div>
 
@@ -297,11 +297,11 @@ export const WorkflowRunModal: React.FC<WorkflowRunModalProps> = ({
           {execution.status === "running" && (
             <div className="p-6 space-y-6">
               {/* Timer and Status Summary */}
-              <div className="bg-vc-raised rounded-lg p-4 space-y-4">
+              <div className="bg-background-200 rounded-lg p-4 space-y-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-vc-muted">Elapsed Time</p>
-                    <p className="text-2xl font-bold text-vc-text font-mono">
+                    <p className="text-sm text-foreground-500">Elapsed Time</p>
+                    <p className="text-2xl font-bold text-foreground font-mono">
                       {formatTime(elapsedTime)}
                     </p>
                   </div>
@@ -312,21 +312,21 @@ export const WorkflowRunModal: React.FC<WorkflowRunModalProps> = ({
                 </div>
 
                 {/* Step counters */}
-                <div className="grid grid-cols-3 gap-3 pt-4 border-t border-vc-border">
+                <div className="grid grid-cols-3 gap-3 pt-4 border-t border-neutral-200">
                   <div className="text-center">
-                    <p className="text-xs text-vc-muted">Running</p>
+                    <p className="text-xs text-foreground-500">Running</p>
                     <p className="text-lg font-semibold text-blue-500">
                       {runningStepCount}
                     </p>
                   </div>
                   <div className="text-center">
-                    <p className="text-xs text-vc-muted">Completed</p>
+                    <p className="text-xs text-foreground-500">Completed</p>
                     <p className="text-lg font-semibold text-green-500">
                       {completedStepCount}
                     </p>
                   </div>
                   <div className="text-center">
-                    <p className="text-xs text-vc-muted">Failed</p>
+                    <p className="text-xs text-foreground-500">Failed</p>
                     <p className="text-lg font-semibold text-red-500">
                       {failedStepCount}
                     </p>
@@ -336,17 +336,17 @@ export const WorkflowRunModal: React.FC<WorkflowRunModalProps> = ({
 
               {/* Steps Timeline */}
               <div className="space-y-2">
-                <h3 className="text-sm font-semibold text-vc-text">
+                <h3 className="text-sm font-semibold text-foreground">
                   Execution Steps
                 </h3>
                 {steps.length === 0 ? (
-                  <p className="text-sm text-vc-muted">Waiting for steps...</p>
+                  <p className="text-sm text-foreground-500">Waiting for steps...</p>
                 ) : (
                   <div className="space-y-2">
                     {steps.map((step) => (
                       <div
                         key={step.stepId}
-                        className="bg-vc-raised rounded-lg overflow-hidden"
+                        className="bg-background-200 rounded-lg overflow-hidden"
                       >
                         <button
                           onClick={() =>
@@ -354,29 +354,29 @@ export const WorkflowRunModal: React.FC<WorkflowRunModalProps> = ({
                               expandedStepId === step.stepId ? null : step.stepId
                             )
                           }
-                          className="w-full px-4 py-3 flex items-center gap-3 hover:bg-vc-border/50 transition text-left"
+                          className="w-full px-4 py-3 flex items-center gap-3 hover:bg-neutral-200/50 transition text-left"
                         >
                           <div className="flex-shrink-0">
                             {getStatusIcon(step.status)}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-vc-text truncate">
+                            <p className="text-sm font-medium text-foreground truncate">
                               {step.stepId}
                             </p>
                             {step.assignedUserName && (
-                              <p className="text-xs text-vc-muted">
+                              <p className="text-xs text-foreground-500">
                                 👤 {step.assignedUserName}
                               </p>
                             )}
                           </div>
-                          <span className="text-xs font-medium text-vc-muted flex-shrink-0">
+                          <span className="text-xs font-medium text-foreground-500 flex-shrink-0">
                             {step.status}
                           </span>
                         </button>
 
                         {/* Expanded details */}
                         {expandedStepId === step.stepId && (
-                          <div className="border-t border-vc-border px-4 py-3 bg-vc-surface space-y-2 text-xs">
+                          <div className="border-t border-neutral-200 px-4 py-3 bg-background-100 space-y-2 text-xs">
                             {step.error ? (
                               <div>
                                 <p className="font-semibold text-red-500 mb-1">
@@ -388,17 +388,17 @@ export const WorkflowRunModal: React.FC<WorkflowRunModalProps> = ({
                               </div>
                             ) : step.output ? (
                               <div>
-                                <p className="font-semibold text-vc-muted mb-1">
+                                <p className="font-semibold text-foreground-500 mb-1">
                                   Output
                                 </p>
-                                <pre className="bg-vc-bg p-2 rounded border border-vc-border overflow-auto">
+                                <pre className="bg-background p-2 rounded border border-neutral-200 overflow-auto">
                                   {typeof step.output === "string"
                                     ? step.output
                                     : JSON.stringify(step.output, null, 2)}
                                 </pre>
                               </div>
                             ) : (
-                              <p className="text-vc-muted">No output yet</p>
+                              <p className="text-foreground-500">No output yet</p>
                             )}
                           </div>
                         )}
@@ -431,7 +431,7 @@ export const WorkflowRunModal: React.FC<WorkflowRunModalProps> = ({
               {execution.results ? (
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
-                    <h3 className="text-sm font-semibold text-vc-text">Results</h3>
+                    <h3 className="text-sm font-semibold text-foreground">Results</h3>
                     <div className="flex gap-2">
                       <button
                         onClick={handleCopyResults}
@@ -449,24 +449,24 @@ export const WorkflowRunModal: React.FC<WorkflowRunModalProps> = ({
                       </button>
                     </div>
                   </div>
-                  <pre className="bg-vc-raised rounded-lg p-4 border border-vc-border text-vc-text text-xs font-mono overflow-auto max-h-64">
+                  <pre className="bg-background-200 rounded-lg p-4 border border-neutral-200 text-foreground text-xs font-mono overflow-auto max-h-64">
                     {JSON.stringify(execution.results, null, 2)}
                   </pre>
                 </div>
               ) : (
-                <p className="text-sm text-vc-muted">No results generated</p>
+                <p className="text-sm text-foreground-500">No results generated</p>
               )}
 
               {/* Steps Summary */}
               <div>
-                <h3 className="text-sm font-semibold text-vc-text mb-3">
+                <h3 className="text-sm font-semibold text-foreground mb-3">
                   Execution Steps ({steps.length})
                 </h3>
                 <div className="space-y-2">
                   {steps.map((step) => (
                     <div
                       key={step.stepId}
-                      className="bg-vc-raised rounded-lg overflow-hidden"
+                      className="bg-background-200 rounded-lg overflow-hidden"
                     >
                       <button
                         onClick={() =>
@@ -474,23 +474,23 @@ export const WorkflowRunModal: React.FC<WorkflowRunModalProps> = ({
                             expandedStepId === step.stepId ? null : step.stepId
                           )
                         }
-                        className="w-full px-4 py-3 flex items-center gap-3 hover:bg-vc-border/50 transition text-left"
+                        className="w-full px-4 py-3 flex items-center gap-3 hover:bg-neutral-200/50 transition text-left"
                       >
                         <div className="flex-shrink-0">
                           {getStatusIcon(step.status)}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-vc-text truncate">
+                          <p className="text-sm font-medium text-foreground truncate">
                             {step.stepId}
                           </p>
                         </div>
-                        <span className="text-xs font-medium text-vc-muted flex-shrink-0">
+                        <span className="text-xs font-medium text-foreground-500 flex-shrink-0">
                           {step.status}
                         </span>
                       </button>
 
                       {expandedStepId === step.stepId && (
-                        <div className="border-t border-vc-border px-4 py-3 bg-vc-surface space-y-2 text-xs">
+                        <div className="border-t border-neutral-200 px-4 py-3 bg-background-100 space-y-2 text-xs">
                           {step.error ? (
                             <div>
                               <p className="font-semibold text-red-500 mb-1">
@@ -502,17 +502,17 @@ export const WorkflowRunModal: React.FC<WorkflowRunModalProps> = ({
                             </div>
                           ) : step.output ? (
                             <div>
-                              <p className="font-semibold text-vc-muted mb-1">
+                              <p className="font-semibold text-foreground-500 mb-1">
                                 Output
                               </p>
-                              <pre className="bg-vc-bg p-2 rounded border border-vc-border overflow-auto">
+                              <pre className="bg-background p-2 rounded border border-neutral-200 overflow-auto">
                                 {typeof step.output === "string"
                                   ? step.output
                                   : JSON.stringify(step.output, null, 2)}
                               </pre>
                             </div>
                           ) : (
-                            <p className="text-vc-muted">No output</p>
+                            <p className="text-foreground-500">No output</p>
                           )}
                         </div>
                       )}
@@ -543,14 +543,14 @@ export const WorkflowRunModal: React.FC<WorkflowRunModalProps> = ({
               {/* Steps with failures */}
               {steps.length > 0 && (
                 <div>
-                  <h3 className="text-sm font-semibold text-vc-text mb-3">
+                  <h3 className="text-sm font-semibold text-foreground mb-3">
                     Execution Steps
                   </h3>
                   <div className="space-y-2">
                     {steps.map((step) => (
                       <div
                         key={step.stepId}
-                        className="bg-vc-raised rounded-lg overflow-hidden"
+                        className="bg-background-200 rounded-lg overflow-hidden"
                       >
                         <button
                           onClick={() =>
@@ -558,23 +558,23 @@ export const WorkflowRunModal: React.FC<WorkflowRunModalProps> = ({
                               expandedStepId === step.stepId ? null : step.stepId
                             )
                           }
-                          className="w-full px-4 py-3 flex items-center gap-3 hover:bg-vc-border/50 transition text-left"
+                          className="w-full px-4 py-3 flex items-center gap-3 hover:bg-neutral-200/50 transition text-left"
                         >
                           <div className="flex-shrink-0">
                             {getStatusIcon(step.status)}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-vc-text truncate">
+                            <p className="text-sm font-medium text-foreground truncate">
                               {step.stepId}
                             </p>
                           </div>
-                          <span className="text-xs font-medium text-vc-muted flex-shrink-0">
+                          <span className="text-xs font-medium text-foreground-500 flex-shrink-0">
                             {step.status}
                           </span>
                         </button>
 
                         {expandedStepId === step.stepId && (
-                          <div className="border-t border-vc-border px-4 py-3 bg-vc-surface space-y-2 text-xs">
+                          <div className="border-t border-neutral-200 px-4 py-3 bg-background-100 space-y-2 text-xs">
                             {step.error && (
                               <div>
                                 <p className="font-semibold text-red-500 mb-1">
@@ -591,10 +591,10 @@ export const WorkflowRunModal: React.FC<WorkflowRunModalProps> = ({
                                 : JSON.stringify(step.output, null, 2);
                               return (
                                 <div>
-                                  <p className="font-semibold text-vc-muted mb-1">
+                                  <p className="font-semibold text-foreground-500 mb-1">
                                     Output
                                   </p>
-                                  <pre className="bg-vc-bg p-2 rounded border border-vc-border overflow-auto">
+                                  <pre className="bg-background p-2 rounded border border-neutral-200 overflow-auto">
                                     {outputStr}
                                   </pre>
                                 </div>
@@ -613,8 +613,8 @@ export const WorkflowRunModal: React.FC<WorkflowRunModalProps> = ({
 
         {/* Footer Actions */}
         {execution.status !== "idle" && (
-          <div className="border-t border-vc-border px-6 py-4 bg-vc-raised flex items-center justify-between">
-            <div className="text-xs text-vc-muted">
+          <div className="border-t border-neutral-200 px-6 py-4 bg-background-200 flex items-center justify-between">
+            <div className="text-xs text-foreground-500">
               {execution.runId && (
                 <>
                   Run ID: <span className="font-mono">{execution.runId.slice(0, 8)}</span>

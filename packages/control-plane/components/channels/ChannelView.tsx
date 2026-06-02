@@ -104,44 +104,44 @@ export default function ChannelView({ channel, realmId }: ChannelViewProps) {
   }, [fetchMessages]);
 
   return (
-    <div className="flex h-full bg-vc-bg">
+    <div className="flex h-full bg-background">
       {/* Main Content */}
       <div className="flex-1 flex flex-col">
         {/* Channel Header */}
-        <div className="border-b border-vc-border bg-vc-raised px-6 py-4">
+        <div className="border-b border-neutral-200 bg-background-200 px-6 py-4">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-xl font-bold text-vc-text flex items-center gap-2">
+              <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
                 #{channel.slug}
               </h2>
               {channel.topic && (
-                <p className="text-sm text-vc-text-2 mt-1">{channel.topic}</p>
+                <p className="text-sm text-foreground-700 mt-1">{channel.topic}</p>
               )}
             </div>
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setShowInfo(!showInfo)}
-                className="p-2 hover:bg-vc-surface rounded-lg transition text-vc-text-2"
+                className="p-2 hover:bg-background-100 rounded-lg transition text-foreground-700"
                 title="Channel info"
               >
                 <Info size={20} />
               </button>
               <button
                 onClick={() => setShowMembers(!showMembers)}
-                className="p-2 hover:bg-vc-surface rounded-lg transition text-vc-text-2"
+                className="p-2 hover:bg-background-100 rounded-lg transition text-foreground-700"
                 title="Members"
               >
                 <Users size={20} />
               </button>
               <button
                 onClick={() => setShowBridges(!showBridges)}
-                className="p-2 hover:bg-vc-surface rounded-lg transition text-vc-text-2"
+                className="p-2 hover:bg-background-100 rounded-lg transition text-foreground-700"
                 title="Bridges"
               >
                 <Link2 size={20} />
               </button>
               <button
-                className="p-2 hover:bg-vc-surface rounded-lg transition text-vc-text-2"
+                className="p-2 hover:bg-background-100 rounded-lg transition text-foreground-700"
                 title="Settings"
               >
                 <Settings size={20} />
@@ -169,9 +169,9 @@ export default function ChannelView({ channel, realmId }: ChannelViewProps) {
 
       {/* Members Panel */}
       {showMembers && (
-        <div className="w-72 border-l border-vc-border bg-vc-raised flex flex-col">
-          <div className="p-4 border-b border-vc-border">
-            <h3 className="font-semibold text-vc-text">Members</h3>
+        <div className="w-72 border-l border-neutral-200 bg-background-200 flex flex-col">
+          <div className="p-4 border-b border-neutral-200">
+            <h3 className="font-semibold text-foreground">Members</h3>
           </div>
           <MemberList channelId={channel.id} />
         </div>
@@ -179,31 +179,31 @@ export default function ChannelView({ channel, realmId }: ChannelViewProps) {
 
       {/* Info Panel */}
       {showInfo && (
-        <div className="w-72 border-l border-vc-border bg-vc-raised overflow-y-auto">
+        <div className="w-72 border-l border-neutral-200 bg-background-200 overflow-y-auto">
           <div className="p-4 space-y-4">
             <div>
-              <h3 className="text-sm font-semibold text-vc-text mb-2">
+              <h3 className="text-sm font-semibold text-foreground mb-2">
                 About
               </h3>
-              <p className="text-sm text-vc-text-2">
+              <p className="text-sm text-foreground-700">
                 {channel.description || "No description"}
               </p>
             </div>
 
             <div>
-              <h3 className="text-sm font-semibold text-vc-text mb-2">
+              <h3 className="text-sm font-semibold text-foreground mb-2">
                 Channel Type
               </h3>
-              <p className="text-sm text-vc-text-2">
+              <p className="text-sm text-foreground-700">
                 {channel.isPublic ? "Public" : "Private"}
               </p>
             </div>
 
             <div>
-              <h3 className="text-sm font-semibold text-vc-text mb-2">
+              <h3 className="text-sm font-semibold text-foreground mb-2">
                 Created
               </h3>
-              <p className="text-sm text-vc-text-2">
+              <p className="text-sm text-foreground-700">
                 {new Date(channel.createdAt).toLocaleDateString()}
               </p>
             </div>

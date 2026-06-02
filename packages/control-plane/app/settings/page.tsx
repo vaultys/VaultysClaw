@@ -74,15 +74,15 @@ export default function SettingsPage() {
   return (
     <div className="p-6 w-full max-w-2xl mx-auto space-y-6">
       {/* Profile */}
-      <section className="bg-vc-surface border border-vc-border rounded-xl overflow-hidden">
-        <div className="px-5 py-4 border-b border-vc-border flex items-center gap-2">
-          <User className="w-4 h-4 text-vc-muted" />
-          <h2 className="text-sm font-semibold text-vc-text">Profile</h2>
+      <section className="bg-background-100 border border-neutral-200 rounded-xl overflow-hidden">
+        <div className="px-5 py-4 border-b border-neutral-200 flex items-center gap-2">
+          <User className="w-4 h-4 text-foreground-500" />
+          <h2 className="text-sm font-semibold text-foreground">Profile</h2>
         </div>
         <div className="p-5">
           <form onSubmit={saveName} className="flex flex-col gap-3">
             <div>
-              <label htmlFor="display-name" className="text-xs text-vc-subtle uppercase tracking-wider font-medium block mb-1.5">
+              <label htmlFor="display-name" className="text-xs text-foreground-400 uppercase tracking-wider font-medium block mb-1.5">
                 Display name
               </label>
               <input
@@ -93,7 +93,7 @@ export default function SettingsPage() {
                 disabled={nameLoading || nameSaving}
                 maxLength={128}
                 placeholder={nameLoading ? "Loading…" : "Your name"}
-                className="w-full bg-vc-raised border border-vc-ring rounded-lg px-3 py-2 text-sm text-vc-text placeholder:text-vc-subtle focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50 disabled:opacity-50 transition"
+                className="w-full bg-background-200 border border-neutral-300 rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-foreground-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50 disabled:opacity-50 transition"
               />
             </div>
             <div className="flex items-center gap-3">
@@ -118,13 +118,13 @@ export default function SettingsPage() {
       </section>
 
       {/* Appearance */}
-      <section className="bg-vc-surface border border-vc-border rounded-xl overflow-hidden">
-        <div className="px-5 py-4 border-b border-vc-border flex items-center gap-2">
-          <Sun className="w-4 h-4 text-vc-muted" />
-          <h2 className="text-sm font-semibold text-vc-text">Appearance</h2>
+      <section className="bg-background-100 border border-neutral-200 rounded-xl overflow-hidden">
+        <div className="px-5 py-4 border-b border-neutral-200 flex items-center gap-2">
+          <Sun className="w-4 h-4 text-foreground-500" />
+          <h2 className="text-sm font-semibold text-foreground">Appearance</h2>
         </div>
         <div className="p-5">
-          <p className="text-sm text-vc-muted mb-4">Choose how VaultysClaw looks on this device.</p>
+          <p className="text-sm text-foreground-500 mb-4">Choose how VaultysClaw looks on this device.</p>
           <div className="grid grid-cols-3 gap-3">
             {THEME_OPTIONS.map(({ value, label, description, icon: Icon }) => (
               <button
@@ -134,7 +134,7 @@ export default function SettingsPage() {
                   "relative flex flex-col items-center gap-2.5 p-4 rounded-xl border transition-all text-center",
                   theme === value
                     ? "bg-indigo-100 dark:bg-indigo-600/15 border-indigo-300 dark:border-indigo-600/50 text-indigo-700 dark:text-indigo-300"
-                    : "bg-vc-raised/50 border-vc-ring/50 text-vc-muted hover:border-vc-muted hover:text-vc-text-2"
+                    : "bg-background-200/50 border-neutral-300/50 text-foreground-500 hover:border-foreground-500 hover:text-foreground-700"
                 )}
               >
                 {theme === value && (
@@ -145,7 +145,7 @@ export default function SettingsPage() {
                 <Icon className="w-5 h-5" />
                 <div>
                   <p className="text-xs font-semibold">{label}</p>
-                  <p className="text-[11px] text-vc-subtle mt-0.5 leading-tight">{description}</p>
+                  <p className="text-[11px] text-foreground-400 mt-0.5 leading-tight">{description}</p>
                 </div>
               </button>
             ))}
@@ -154,19 +154,19 @@ export default function SettingsPage() {
       </section>
 
       {/* Account */}
-      <section className="bg-vc-surface border border-vc-border rounded-xl overflow-hidden">
-        <div className="px-5 py-4 border-b border-vc-border flex items-center gap-2">
-          <Shield className="w-4 h-4 text-vc-muted" />
-          <h2 className="text-sm font-semibold text-vc-text">Account</h2>
+      <section className="bg-background-100 border border-neutral-200 rounded-xl overflow-hidden">
+        <div className="px-5 py-4 border-b border-neutral-200 flex items-center gap-2">
+          <Shield className="w-4 h-4 text-foreground-500" />
+          <h2 className="text-sm font-semibold text-foreground">Account</h2>
         </div>
         <div className="p-5 space-y-4">
           <div>
-            <label className="text-xs text-vc-subtle uppercase tracking-wider font-medium block mb-1.5">
+            <label className="text-xs text-foreground-400 uppercase tracking-wider font-medium block mb-1.5">
               Decentralized Identity (DID)
             </label>
-            <div className="flex items-center gap-2 bg-vc-raised border border-vc-ring rounded-lg px-3 py-2.5">
-              <Key className="w-3.5 h-3.5 text-vc-subtle shrink-0" />
-              <span className="text-xs font-mono text-vc-text-2 truncate flex-1">{did}</span>
+            <div className="flex items-center gap-2 bg-background-200 border border-neutral-300 rounded-lg px-3 py-2.5">
+              <Key className="w-3.5 h-3.5 text-foreground-400 shrink-0" />
+              <span className="text-xs font-mono text-foreground-700 truncate flex-1">{did}</span>
               {isOwner && (
                 <span className="px-2 py-0.5 bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700 dark:text-yellow-400 border border-yellow-300 dark:border-yellow-800/60 rounded-full text-[10px] font-medium shrink-0">
                   Owner
@@ -185,10 +185,10 @@ export default function SettingsPage() {
       </section>
 
       {/* About */}
-      <section className="bg-vc-surface border border-vc-border rounded-xl overflow-hidden">
-        <div className="px-5 py-4 border-b border-vc-border flex items-center gap-2">
-          <Info className="w-4 h-4 text-vc-muted" />
-          <h2 className="text-sm font-semibold text-vc-text">About</h2>
+      <section className="bg-background-100 border border-neutral-200 rounded-xl overflow-hidden">
+        <div className="px-5 py-4 border-b border-neutral-200 flex items-center gap-2">
+          <Info className="w-4 h-4 text-foreground-500" />
+          <h2 className="text-sm font-semibold text-foreground">About</h2>
         </div>
         <div className="p-5 space-y-2 text-sm">
           {[
@@ -197,9 +197,9 @@ export default function SettingsPage() {
             { label: "Communication", value: "WebSocket + msgpack" },
             { label: "Storage", value: "SQLite (better-sqlite3)" },
           ].map(({ label, value }) => (
-            <div key={label} className="flex justify-between py-1.5 border-b border-vc-border/60 last:border-0">
-              <span className="text-vc-subtle">{label}</span>
-              <span className="text-vc-text-2 text-right">{value}</span>
+            <div key={label} className="flex justify-between py-1.5 border-b border-neutral-200/60 last:border-0">
+              <span className="text-foreground-400">{label}</span>
+              <span className="text-foreground-700 text-right">{value}</span>
             </div>
           ))}
         </div>

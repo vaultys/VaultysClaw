@@ -9,7 +9,7 @@ import Link from "next/link";
 // Dynamic import to avoid loading React Flow on every page
 const AgentChartFlowView = dynamic(
   () => import("./views/AgentChartFlowView"),
-  { ssr: false, loading: () => <div className="flex items-center justify-center h-full text-vc-muted">Loading agent chart...</div> }
+  { ssr: false, loading: () => <div className="flex items-center justify-center h-full text-foreground-500">Loading agent chart...</div> }
 );
 
 interface Props {
@@ -56,7 +56,7 @@ export default function EmbeddedAgentChart({
   if (loading) {
     return (
       <div
-        className="flex items-center justify-center rounded-xl border border-vc-border bg-vc-surface"
+        className="flex items-center justify-center rounded-xl border border-neutral-200 bg-background-100"
         style={{ height }}
       >
         <div className="animate-spin rounded-full h-8 w-8 border-2 border-indigo-500 border-t-transparent" />
@@ -67,7 +67,7 @@ export default function EmbeddedAgentChart({
   if (error) {
     return (
       <div
-        className="flex items-center justify-center rounded-xl border border-vc-border bg-vc-surface text-red-600 dark:text-red-400"
+        className="flex items-center justify-center rounded-xl border border-neutral-200 bg-background-100 text-red-600 dark:text-red-400"
         style={{ height }}
       >
         Failed to load agent chart: {error}
@@ -78,7 +78,7 @@ export default function EmbeddedAgentChart({
   if (!data || data.nodes.filter((n) => n.type === "agent").length === 0) {
     return (
       <div
-        className="flex items-center justify-center rounded-xl border border-vc-border bg-vc-surface text-vc-muted"
+        className="flex items-center justify-center rounded-xl border border-neutral-200 bg-background-100 text-foreground-500"
         style={{ height }}
       >
         No agents to display
@@ -90,11 +90,11 @@ export default function EmbeddedAgentChart({
   const fullscreenUrl = `/graph${query}${query ? "&" : "?"}view=agent-chart`;
 
   return (
-    <div className="relative rounded-xl border border-vc-border overflow-hidden bg-vc-surface" style={{ height }}>
+    <div className="relative rounded-xl border border-neutral-200 overflow-hidden bg-background-100" style={{ height }}>
       {showFullscreenBtn && (
         <Link
           href={fullscreenUrl}
-          className="absolute top-3 right-3 z-10 p-2 rounded-lg hover:bg-vc-raised transition-colors text-vc-muted hover:text-vc-text"
+          className="absolute top-3 right-3 z-10 p-2 rounded-lg hover:bg-background-200 transition-colors text-foreground-500 hover:text-foreground"
           title="Open in fullscreen"
         >
           <Maximize2 size={18} />

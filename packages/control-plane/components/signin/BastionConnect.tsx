@@ -37,12 +37,12 @@ export default function BastionConnect({ bastionPhase }: BastionConnectProps) {
       </div>
 
       <div>
-        <p className="text-vc-text font-semibold text-lg">{step.label}</p>
-        <p className="text-vc-muted text-sm mt-1">{step.description}</p>
+        <p className="text-foreground font-semibold text-lg">{step.label}</p>
+        <p className="text-foreground-500 text-sm mt-1">{step.description}</p>
       </div>
 
       {/* Progress bar */}
-      <div className="w-full max-w-xs bg-vc-raised rounded-full h-1.5">
+      <div className="w-full max-w-xs bg-background-200 rounded-full h-1.5">
         <div
           className={`h-1.5 rounded-full transition-all duration-500 ${isError ? "bg-red-500" : "bg-blue-500"}`}
           style={{

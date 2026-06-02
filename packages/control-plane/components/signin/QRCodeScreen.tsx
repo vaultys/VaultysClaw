@@ -31,10 +31,10 @@ export default function QRCodeScreen({ connectInfo, phase, p2pUrl, onSwitchP2P, 
           </svg>
         </div>
         <div>
-          <p className="text-vc-text font-semibold">Connection failed</p>
-          <p className="text-vc-muted text-sm mt-1">The request timed out or was rejected.</p>
+          <p className="text-foreground font-semibold">Connection failed</p>
+          <p className="text-foreground-500 text-sm mt-1">The request timed out or was rejected.</p>
         </div>
-        <button onClick={onRetry} className="px-5 py-2 bg-vc-raised hover:bg-vc-ring text-vc-text rounded-lg transition-colors">
+        <button onClick={onRetry} className="px-5 py-2 bg-background-200 hover:bg-neutral-300 text-foreground rounded-lg transition-colors">
           Try again
         </button>
       </div>
@@ -49,7 +49,7 @@ export default function QRCodeScreen({ connectInfo, phase, p2pUrl, onSwitchP2P, 
             <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
           </svg>
         </div>
-        <p className="text-vc-text font-semibold">Authenticated! Redirecting…</p>
+        <p className="text-foreground font-semibold">Authenticated! Redirecting…</p>
       </div>
     );
   }
@@ -59,15 +59,15 @@ export default function QRCodeScreen({ connectInfo, phase, p2pUrl, onSwitchP2P, 
     return (
       <div className="flex flex-col items-center gap-6 text-center">
         <div>
-          <h2 className="text-xl font-semibold text-vc-text">P2P Connection</h2>
-          <p className="text-vc-muted text-sm mt-1">Scan with your VaultysID wallet to connect directly</p>
+          <h2 className="text-xl font-semibold text-foreground">P2P Connection</h2>
+          <p className="text-foreground-500 text-sm mt-1">Scan with your VaultysID wallet to connect directly</p>
         </div>
 
         <div className="bg-white p-4 rounded-xl">
           <QRCodeSVG value={p2pUrl} size={200} />
         </div>
 
-        <div className="flex items-center gap-2 text-vc-muted text-sm">
+        <div className="flex items-center gap-2 text-foreground-500 text-sm">
           <div className="w-3 h-3 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
           Waiting for wallet to connect…
         </div>
@@ -78,8 +78,8 @@ export default function QRCodeScreen({ connectInfo, phase, p2pUrl, onSwitchP2P, 
   return (
     <div className="flex flex-col gap-6">
       <div className="text-center">
-        <h2 className="text-xl font-semibold text-vc-text">Scan with VaultysID</h2>
-        <p className="text-vc-muted text-sm mt-1">Open your VaultysID app and scan the QR code below</p>
+        <h2 className="text-xl font-semibold text-foreground">Scan with VaultysID</h2>
+        <p className="text-foreground-500 text-sm mt-1">Open your VaultysID app and scan the QR code below</p>
       </div>
 
       <div className="flex justify-center">
@@ -88,14 +88,14 @@ export default function QRCodeScreen({ connectInfo, phase, p2pUrl, onSwitchP2P, 
             <QRCodeSVG value={connectInfo.url} size={200} />
           </div>
         ) : (
-          <div className="w-52 h-52 bg-vc-raised rounded-xl flex items-center justify-center">
+          <div className="w-52 h-52 bg-background-200 rounded-xl flex items-center justify-center">
             <div className="w-8 h-8 border-4 border-blue-400 border-t-transparent rounded-full animate-spin" />
           </div>
         )}
       </div>
 
       {phase === "waiting" && (
-        <div className="flex items-center justify-center gap-2 text-vc-muted text-sm">
+        <div className="flex items-center justify-center gap-2 text-foreground-500 text-sm">
           <div className="w-3 h-3 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
           Waiting for scan…
         </div>
@@ -105,13 +105,13 @@ export default function QRCodeScreen({ connectInfo, phase, p2pUrl, onSwitchP2P, 
         <button
           onClick={copyLink}
           disabled={!connectInfo?.url}
-          className="px-4 py-2 bg-vc-raised hover:bg-vc-ring text-vc-text-2 rounded-lg text-sm transition-colors disabled:opacity-40"
+          className="px-4 py-2 bg-background-200 hover:bg-neutral-300 text-foreground-700 rounded-lg text-sm transition-colors disabled:opacity-40"
         >
           {copied ? "Copied!" : "Copy deep link"}
         </button>
         <button
           onClick={onSwitchP2P}
-          className="px-4 py-2 text-vc-muted hover:text-vc-text-2 text-sm transition-colors"
+          className="px-4 py-2 text-foreground-500 hover:text-foreground-700 text-sm transition-colors"
         >
           Connect via P2P instead
         </button>

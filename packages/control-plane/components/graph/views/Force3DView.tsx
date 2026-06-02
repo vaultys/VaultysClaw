@@ -173,10 +173,10 @@ export default function Force3DView({ data, height, onNodeClick }: Props) {
   return (
     <div ref={containerRef} className="relative w-full" style={{ height }}>
       {/* Legend */}
-      <div className="absolute top-3 left-3 z-10 flex flex-col gap-1 bg-vc-card/80 backdrop-blur rounded-lg p-3 text-xs">
+      <div className="absolute top-3 left-3 z-10 flex flex-col gap-1 bg-background-100/80 backdrop-blur rounded-lg p-3 text-xs">
         <LegendItem color={NODE_COLORS.user}   label="User"  icon={<IconUser />} />
         <LegendItem color={NODE_COLORS.agent}  label="Agent" icon={<IconBot />} />
-        <hr className="border-vc-border my-1" />
+        <hr className="border-neutral-200 my-1" />
         <LegendItem color={EDGE_COLORS.grant}         label="Grant"      shape="line" />
         <LegendItem color={EDGE_COLORS.delegation}    label="Delegation" shape="line" />
         <LegendItem color={EDGE_COLORS.peer}             label="Peer link"  shape="line" />
@@ -234,7 +234,7 @@ function LegendItem({ color, label, shape, icon }: { color: string; label: strin
       ) : (
         <span className="inline-block w-3 h-3 rounded-full" style={{ backgroundColor: color }} />
       )}
-      <span className="text-vc-muted">{label}</span>
+      <span className="text-foreground-500">{label}</span>
     </div>
   );
 }

@@ -119,35 +119,35 @@ export const WorkflowExecutionPanel: React.FC = () => {
   ).length;
 
   return (
-    <div className="fixed bottom-0 right-0 w-96 bg-vc-surface border-l border-t border-vc-border shadow-lg">
+    <div className="fixed bottom-0 right-0 w-96 bg-background-100 border-l border-t border-neutral-200 shadow-lg">
       {/* Header */}
-      <div className="border-b border-vc-border px-4 py-3 flex justify-between items-center bg-vc-raised">
+      <div className="border-b border-neutral-200 px-4 py-3 flex justify-between items-center bg-background-200">
         <div>
-          <h3 className="font-semibold text-vc-text">Execution Monitor</h3>
-          <p className="text-xs text-vc-muted">
+          <h3 className="font-semibold text-foreground">Execution Monitor</h3>
+          <p className="text-xs text-foreground-500">
             {isExecuting ? "Running..." : "Completed"} ({formatTime(elapsedTime)})
           </p>
         </div>
         <button
           onClick={() => setShowExecutionPanel(false)}
-          className="p-1 hover:bg-vc-border rounded"
+          className="p-1 hover:bg-neutral-200 rounded"
         >
-          <X size={16} className="text-vc-muted" />
+          <X size={16} className="text-foreground-500" />
         </button>
       </div>
 
       {/* Status Summary */}
-      <div className="px-4 py-2 bg-vc-raised border-b border-vc-border grid grid-cols-3 gap-2 text-xs">
+      <div className="px-4 py-2 bg-background-200 border-b border-neutral-200 grid grid-cols-3 gap-2 text-xs">
         <div className="text-center">
-          <p className="text-vc-muted">Running</p>
+          <p className="text-foreground-500">Running</p>
           <p className="font-semibold text-blue-500 dark:text-blue-400">{runningStepCount}</p>
         </div>
         <div className="text-center">
-          <p className="text-vc-muted">Completed</p>
+          <p className="text-foreground-500">Completed</p>
           <p className="font-semibold text-green-500 dark:text-green-400">{completedStepCount}</p>
         </div>
         <div className="text-center">
-          <p className="text-vc-muted">Failed</p>
+          <p className="text-foreground-500">Failed</p>
           <p className="font-semibold text-red-500 dark:text-red-400">{failedStepCount}</p>
         </div>
       </div>
@@ -155,18 +155,18 @@ export const WorkflowExecutionPanel: React.FC = () => {
       {/* Steps List */}
       <div className="overflow-y-auto max-h-64">
         {steps.length === 0 ? (
-          <div className="p-4 text-center text-vc-muted text-sm">No steps yet...</div>
+          <div className="p-4 text-center text-foreground-500 text-sm">No steps yet...</div>
         ) : (
-          <div className="divide-y divide-vc-border">
+          <div className="divide-y divide-neutral-200">
             {steps.map((step) => (
-              <div key={step.stepId} className="border-b border-vc-border">
+              <div key={step.stepId} className="border-b border-neutral-200">
                 <button
                   onClick={() =>
                     setExpandedStepId(
                       expandedStepId === step.stepId ? null : step.stepId,
                     )
                   }
-                  className="w-full px-4 py-2 text-left hover:bg-vc-raised flex items-center justify-between"
+                  className="w-full px-4 py-2 text-left hover:bg-background-200 flex items-center justify-between"
                 >
                   <div className="flex items-center gap-2 flex-1 min-w-0">
                     <span
@@ -176,11 +176,11 @@ export const WorkflowExecutionPanel: React.FC = () => {
                           ? "bg-green-500"
                           : step.status === "failed"
                             ? "bg-red-500"
-                            : "bg-vc-ring"
+                            : "bg-neutral-300"
                         }`}
                     />
                     <div className="flex-1 min-w-0">
-                      <span className="text-xs font-medium text-vc-text truncate block">
+                      <span className="text-xs font-medium text-foreground truncate block">
                         {step.stepId}
                       </span>
                       {step.agentId && (
@@ -194,27 +194,27 @@ export const WorkflowExecutionPanel: React.FC = () => {
                         </span>
                       )}
                     </div>
-                    <span className="text-xs text-vc-muted shrink-0">{step.status}</span>
+                    <span className="text-xs text-foreground-500 shrink-0">{step.status}</span>
                   </div>
                   <ChevronDown
                     size={14}
-                    className={`flex-shrink-0 text-vc-subtle transition-transform ${expandedStepId === step.stepId ? "rotate-180" : ""
+                    className={`flex-shrink-0 text-foreground-400 transition-transform ${expandedStepId === step.stepId ? "rotate-180" : ""
                       }`}
                   />
                 </button>
 
                 {/* Expanded output */}
                 {expandedStepId === step.stepId && (
-                  <div className="px-4 py-2 bg-vc-raised border-t border-vc-border">
+                  <div className="px-4 py-2 bg-background-200 border-t border-neutral-200">
                     {step.error ? (
                       <div className="text-xs text-red-500 dark:text-red-400 font-mono break-words">
                         <p className="font-semibold mb-1">Error:</p>
                         {step.error}
                       </div>
                     ) : (
-                      <div className="text-xs text-vc-text-2">
+                      <div className="text-xs text-foreground-700">
                         <p className="font-semibold mb-1">Output:</p>
-                        <pre className="bg-vc-surface p-2 rounded border border-vc-border overflow-x-auto text-xs">
+                        <pre className="bg-background-100 p-2 rounded border border-neutral-200 overflow-x-auto text-xs">
                           {JSON.stringify(step.output, null, 2)}
                         </pre>
                       </div>

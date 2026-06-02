@@ -75,7 +75,7 @@ const UserNode: React.FC<NodeProps<UserNodeData>> = ({ data, selected }) => {
           {initials(data.label)}
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-xs font-semibold text-vc-text truncate">{truncate(data.label, 18)}</p>
+          <p className="text-xs font-semibold text-foreground truncate">{truncate(data.label, 18)}</p>
           {data.role && <p className={`text-xs font-medium ${style.text}`}>{data.role}</p>}
         </div>
         {data.status === "online" && (
@@ -279,8 +279,8 @@ export default function OrgChartFlowView({ data, height, onNodeClick, currentUse
 
           }}
           style={{
-            backgroundColor: "var(--vc-bg)",
-            border: "1px solid var(--vc-border)",
+            backgroundColor: "var(--background-50)",
+            border: "1px solid var(--neutral-200)",
           }}
           zoomable pannable
         />
@@ -294,16 +294,16 @@ export default function OrgChartFlowView({ data, height, onNodeClick, currentUse
           bottom: 16px !important;
           right: 16px !important;
           border-radius: 0.5rem !important;
-          background: var(--vc-surface) !important;
+          background: var(--background-100) !important;
         }
         .react-flow__controls button {
-          background: var(--vc-surface) !important;
-          border: 1px solid var(--vc-border) !important;
-          color: var(--vc-muted) !important;
+          background: var(--background-100) !important;
+          border: 1px solid var(--neutral-200) !important;
+          color: var(--foreground-500) !important;
         }
         .react-flow__controls button:hover {
-          background: var(--vc-raised) !important;
-          color: var(--vc-text) !important;
+          background: var(--background-200) !important;
+          color: var(--foreground-900) !important;
         }
       `}</style>
     </div>

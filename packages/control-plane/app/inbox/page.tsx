@@ -95,29 +95,29 @@ export default function InboxPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-vc-text flex items-center gap-2">
+          <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
             <Bell size={22} className="text-indigo-700 dark:text-indigo-400" />
             Inbox
           </h1>
-          <p className="text-sm text-vc-muted mt-1">
+          <p className="text-sm text-foreground-500 mt-1">
             Workflow approvals and notifications assigned to you
           </p>
         </div>
         <button
           onClick={fetchApprovals}
-          className="flex items-center gap-1.5 text-xs text-vc-muted hover:text-vc-text px-3 py-1.5 rounded border border-vc-border hover:bg-vc-raised"
+          className="flex items-center gap-1.5 text-xs text-foreground-500 hover:text-foreground px-3 py-1.5 rounded border border-neutral-200 hover:bg-background-200"
         >
           <RefreshCcw size={13} /> Refresh
         </button>
       </div>
 
       {/* Filter tabs */}
-      <div className="flex gap-2 mb-5 border-b border-vc-border">
+      <div className="flex gap-2 mb-5 border-b border-neutral-200">
         <button
           onClick={() => setFilter("pending")}
           className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${filter === "pending"
             ? "border-indigo-500 text-indigo-700 dark:text-indigo-400"
-            : "border-transparent text-vc-muted hover:text-vc-text"
+            : "border-transparent text-foreground-500 hover:text-foreground"
             }`}
         >
           Pending
@@ -131,11 +131,11 @@ export default function InboxPage() {
           onClick={() => setFilter("all")}
           className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${filter === "all"
             ? "border-indigo-500 text-indigo-700 dark:text-indigo-400"
-            : "border-transparent text-vc-muted hover:text-vc-text"
+            : "border-transparent text-foreground-500 hover:text-foreground"
             }`}
         >
           All
-          <span className="ml-2 text-xs text-vc-subtle">({approvals.length})</span>
+          <span className="ml-2 text-xs text-foreground-400">({approvals.length})</span>
         </button>
       </div>
 
@@ -145,7 +145,7 @@ export default function InboxPage() {
           <div className="w-7 h-7 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
         </div>
       ) : displayed.length === 0 ? (
-        <div className="text-center py-16 text-vc-muted">
+        <div className="text-center py-16 text-foreground-500">
           <Bell size={40} className="mx-auto mb-3 opacity-20" />
           <p className="text-sm">No {filter === "pending" ? "pending" : ""} items</p>
         </div>
@@ -175,9 +175,9 @@ function StatusBadge({ status, mode }: { status: string; mode: string }) {
     notified: { label: "Notified", className: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300" },
     approved: { label: "Approved", className: "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300" },
     rejected: { label: "Rejected", className: "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300" },
-    dismissed: { label: "Dismissed", className: "bg-vc-raised text-vc-muted" },
+    dismissed: { label: "Dismissed", className: "bg-background-200 text-foreground-500" },
   };
-  const s = map[status] ?? { label: status, className: "bg-vc-raised text-vc-muted" };
+  const s = map[status] ?? { label: status, className: "bg-background-200 text-foreground-500" };
   return (
     <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${s.className}`}>
       {s.label}
@@ -207,17 +207,17 @@ function ApprovalCard({
   const isDone = ["approved", "rejected", "dismissed"].includes(item.status);
 
   return (
-    <div className={`rounded-xl border bg-vc-surface ${isPending && !isNotification
+    <div className={`rounded-xl border bg-background-100 ${isPending && !isNotification
       ? "border-amber-300 dark:border-amber-700"
       : isNotification && item.status === "notified"
         ? "border-blue-300 dark:border-blue-700"
-        : "border-vc-border"
+        : "border-neutral-200"
       }`}>
       {/* Card header */}
       <div className="flex items-start gap-3 p-4">
         <div className={`mt-0.5 p-1.5 rounded-lg shrink-0 ${isPending && !isNotification ? "bg-amber-100 dark:bg-amber-900/30" :
           isNotification ? "bg-blue-100 dark:bg-blue-900/30" :
-            "bg-vc-raised"
+            "bg-background-200"
           }`}>
           {isNotification
             ? <Bell size={15} className="text-blue-500" />
@@ -226,18 +226,18 @@ function ApprovalCard({
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="font-semibold text-sm text-vc-text">{item.workflow_name}</span>
+            <span className="font-semibold text-sm text-foreground">{item.workflow_name}</span>
             <StatusBadge status={item.status} mode={item.mode} />
-            <span className="text-xs text-vc-subtle ml-auto whitespace-nowrap">
+            <span className="text-xs text-foreground-400 ml-auto whitespace-nowrap">
               {new Date(item.created_at).toLocaleString()}
             </span>
           </div>
 
           {item.node_message && (
-            <p className="text-sm text-vc-text-2 mt-1">{item.node_message}</p>
+            <p className="text-sm text-foreground-700 mt-1">{item.node_message}</p>
           )}
 
-          <div className="flex flex-wrap gap-x-4 gap-y-0.5 mt-1.5 text-xs text-vc-muted">
+          <div className="flex flex-wrap gap-x-4 gap-y-0.5 mt-1.5 text-xs text-foreground-500">
             <span><span className="font-medium">Step:</span> {item.step_id}</span>
             <span><span className="font-medium">Run:</span> <span className="font-mono">{item.run_id.slice(0, 8)}…</span></span>
             <span><span className="font-medium">Type:</span> {item.mode === "approval" ? "Approval required" : "Notification"}</span>
@@ -248,8 +248,8 @@ function ApprovalCard({
       {/* Workflow input */}
       {item.step_input && (
         <div className="px-4 pb-3">
-          <p className="text-xs font-medium text-vc-text-2 mb-1">Workflow input</p>
-          <pre className="text-xs bg-vc-raised text-vc-text border border-vc-border rounded-lg p-3 overflow-x-auto max-h-28 whitespace-pre-wrap break-words">
+          <p className="text-xs font-medium text-foreground-700 mb-1">Workflow input</p>
+          <pre className="text-xs bg-background-200 text-foreground border border-neutral-200 rounded-lg p-3 overflow-x-auto max-h-28 whitespace-pre-wrap break-words">
             {item.step_input}
           </pre>
         </div>
@@ -257,7 +257,7 @@ function ApprovalCard({
 
       {/* Decision info (already decided) */}
       {isDone && item.decided_at && (
-        <div className="px-4 pb-3 flex items-center gap-2 text-xs text-vc-muted">
+        <div className="px-4 pb-3 flex items-center gap-2 text-xs text-foreground-500">
           <Clock size={12} />
           Decided {new Date(item.decided_at).toLocaleString()}
           {item.comment && <span className="ml-2 italic">"{item.comment}"</span>}
@@ -266,7 +266,7 @@ function ApprovalCard({
 
       {/* Actions */}
       {!isDone && (
-        <div className="px-4 pb-4 space-y-2 border-t border-vc-border mt-1 pt-3">
+        <div className="px-4 pb-4 space-y-2 border-t border-neutral-200 mt-1 pt-3">
           {isPending && !isNotification && (
             <>
               <textarea
@@ -274,7 +274,7 @@ function ApprovalCard({
                 value={comment}
                 onChange={(e) => onCommentChange(e.target.value)}
                 placeholder="Add a comment (optional)…"
-                className="w-full text-xs bg-vc-raised text-vc-text border border-vc-border rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-amber-400 resize-none"
+                className="w-full text-xs bg-background-200 text-foreground border border-neutral-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-amber-400 resize-none"
               />
               <div className="flex gap-2">
                 <button
@@ -298,7 +298,7 @@ function ApprovalCard({
             <button
               onClick={onDismiss}
               disabled={acting}
-              className="flex items-center gap-1.5 px-3 py-1.5 border border-vc-border text-vc-muted text-sm rounded-lg hover:bg-vc-raised disabled:opacity-50"
+              className="flex items-center gap-1.5 px-3 py-1.5 border border-neutral-200 text-foreground-500 text-sm rounded-lg hover:bg-background-200 disabled:opacity-50"
             >
               <X size={13} /> Dismiss
             </button>

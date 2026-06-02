@@ -141,7 +141,7 @@ function getStatusIcon(status: string) {
     case "rejected": return <AlertCircle size={20} className="text-orange-500" />;
     case "running": return <Activity size={20} className="text-blue-500 animate-pulse" />;
     case "waiting_approval": return <Clock size={20} className="text-amber-500" />;
-    default: return <Clock size={20} className="text-vc-muted" />;
+    default: return <Clock size={20} className="text-foreground-500" />;
   }
 }
 
@@ -153,7 +153,7 @@ function getStatusBadge(status: string) {
     case "rejected": return `${base} bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-400`;
     case "running": return `${base} bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400`;
     case "waiting_approval": return `${base} bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400`;
-    default: return `${base} bg-vc-raised text-vc-subtle`;
+    default: return `${base} bg-background-200 text-foreground-400`;
   }
 }
 
@@ -165,7 +165,7 @@ function getStepPill(status: string) {
     case "rejected": return `${base} bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-400`;
     case "running": return `${base} bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400`;
     case "waiting_approval": return `${base} bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400`;
-    default: return `${base} bg-vc-raised text-vc-subtle`;
+    default: return `${base} bg-background-200 text-foreground-400`;
   }
 }
 
@@ -226,7 +226,7 @@ export default function WorkflowRunDetailPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-vc-bg flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
       </div>
     );
@@ -234,14 +234,14 @@ export default function WorkflowRunDetailPage() {
 
   if (error || !history) {
     return (
-      <div className="min-h-screen bg-vc-bg p-6">
+      <div className="min-h-screen bg-background p-6">
         <div className="max-w-4xl mx-auto">
           <Link href="/workflows" className="inline-flex items-center gap-2 text-indigo-500 hover:text-indigo-400 mb-6">
             <ChevronLeft size={18} /> Back to Workflows
           </Link>
-          <div className="bg-vc-surface rounded-xl border border-vc-border p-8 text-center">
+          <div className="bg-background-100 rounded-xl border border-neutral-200 p-8 text-center">
             <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
-            <p className="text-vc-text font-medium mb-2">{error || "Workflow run not found"}</p>
+            <p className="text-foreground font-medium mb-2">{error || "Workflow run not found"}</p>
             <Link href="/workflows" className="text-indigo-500 hover:text-indigo-400">Return to workflows</Link>
           </div>
         </div>
@@ -262,7 +262,7 @@ export default function WorkflowRunDetailPage() {
   const sortedSteps = getSortedSteps();
 
   return (
-    <div className="min-h-screen bg-vc-bg">
+    <div className="min-h-screen bg-background">
       <div className="max-w-4xl mx-auto p-6 space-y-6">
         {/* Header */}
         <div>
@@ -270,13 +270,13 @@ export default function WorkflowRunDetailPage() {
             <ChevronLeft size={18} /> Back to Workflows
           </Link>
 
-          <div className="bg-vc-surface rounded-xl border border-vc-border p-6">
+          <div className="bg-background-100 rounded-xl border border-neutral-200 p-6">
             <div className="flex items-start justify-between gap-4 mb-4">
               <div>
-                <h1 className="text-2xl font-bold text-vc-text mb-1">
+                <h1 className="text-2xl font-bold text-foreground mb-1">
                   {workflow?.name ?? "Workflow Run"}
                 </h1>
-                <p className="text-vc-muted font-mono text-xs">{run.id}</p>
+                <p className="text-foreground-500 font-mono text-xs">{run.id}</p>
               </div>
               <div className={getStatusBadge(run.status)}>
                 {getStatusIcon(run.status)}
@@ -284,26 +284,26 @@ export default function WorkflowRunDetailPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 border-t border-vc-border">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 border-t border-neutral-200">
               <div>
-                <p className="text-vc-muted text-sm mb-1">Started</p>
-                <p className="text-vc-text text-xs font-medium">{formatDate(run.started_at)}</p>
-                <p className="text-vc-subtle text-xs mt-0.5">{timeAgo(run.started_at)}</p>
+                <p className="text-foreground-500 text-sm mb-1">Started</p>
+                <p className="text-foreground text-xs font-medium">{formatDate(run.started_at)}</p>
+                <p className="text-foreground-400 text-xs mt-0.5">{timeAgo(run.started_at)}</p>
               </div>
               <div>
-                <p className="text-vc-muted text-sm mb-1">Completed</p>
-                <p className="text-vc-text text-xs font-medium">{formatDate(run.completed_at)}</p>
+                <p className="text-foreground-500 text-sm mb-1">Completed</p>
+                <p className="text-foreground text-xs font-medium">{formatDate(run.completed_at)}</p>
                 {run.completed_at && (
-                  <p className="text-vc-subtle text-xs mt-0.5">{timeAgo(run.completed_at)}</p>
+                  <p className="text-foreground-400 text-xs mt-0.5">{timeAgo(run.completed_at)}</p>
                 )}
               </div>
               <div>
-                <p className="text-vc-muted text-sm mb-1">Duration</p>
-                <p className="text-vc-text text-sm font-medium">{duration !== null ? `${duration}s` : "—"}</p>
+                <p className="text-foreground-500 text-sm mb-1">Duration</p>
+                <p className="text-foreground text-sm font-medium">{duration !== null ? `${duration}s` : "—"}</p>
               </div>
               <div>
-                <p className="text-vc-muted text-sm mb-1">Steps</p>
-                <p className="text-vc-text text-sm font-medium">{history.steps.length}</p>
+                <p className="text-foreground-500 text-sm mb-1">Steps</p>
+                <p className="text-foreground text-sm font-medium">{history.steps.length}</p>
               </div>
             </div>
           </div>
@@ -311,10 +311,10 @@ export default function WorkflowRunDetailPage() {
 
         {/* Steps */}
         <div>
-          <h2 className="text-lg font-semibold text-vc-text mb-4">Execution Steps</h2>
+          <h2 className="text-lg font-semibold text-foreground mb-4">Execution Steps</h2>
 
           {sortedSteps.length === 0 ? (
-            <div className="bg-vc-surface rounded-xl border border-vc-border p-8 text-center text-vc-muted">
+            <div className="bg-background-100 rounded-xl border border-neutral-200 p-8 text-center text-foreground-500">
               No steps recorded for this run
             </div>
           ) : (
@@ -343,14 +343,14 @@ export default function WorkflowRunDetailPage() {
                   : null;
 
                 return (
-                  <div key={step.id} className="bg-vc-surface rounded-xl border border-vc-border overflow-hidden">
+                  <div key={step.id} className="bg-background-100 rounded-xl border border-neutral-200 overflow-hidden">
                     {/* Step header */}
                     <button
                       onClick={() => toggleStep(step.id)}
-                      className="w-full px-4 py-3 flex items-center gap-3 hover:bg-vc-raised/50 transition text-left"
+                      className="w-full px-4 py-3 flex items-center gap-3 hover:bg-background-200/50 transition text-left"
                     >
                       {/* Step number */}
-                      <span className="flex-shrink-0 w-6 h-6 rounded-full bg-vc-raised border border-vc-border text-vc-muted text-xs font-bold flex items-center justify-center">
+                      <span className="flex-shrink-0 w-6 h-6 rounded-full bg-background-200 border border-neutral-200 text-foreground-500 text-xs font-bold flex items-center justify-center">
                         {idx + 1}
                       </span>
 
@@ -358,21 +358,21 @@ export default function WorkflowRunDetailPage() {
 
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-sm font-medium text-vc-text">{nodeLabel}</span>
+                          <span className="text-sm font-medium text-foreground">{nodeLabel}</span>
                           <span className={getStepPill(step.status)}>{step.status}</span>
                           {agentName && (
-                            <span className="inline-flex items-center gap-1 text-xs text-vc-muted">
+                            <span className="inline-flex items-center gap-1 text-xs text-foreground-500">
                               <Bot size={12} /> {agentName}
                             </span>
                           )}
                           {userName && (
-                            <span className="inline-flex items-center gap-1 text-xs text-vc-muted">
+                            <span className="inline-flex items-center gap-1 text-xs text-foreground-500">
                               <User size={12} /> {userName}
                             </span>
                           )}
                         </div>
                         {step.started_at && (
-                          <p className="text-xs text-vc-subtle mt-0.5">
+                          <p className="text-xs text-foreground-400 mt-0.5">
                             {formatDate(step.started_at)}
                             {stepDuration !== null && ` · ${stepDuration}s`}
                           </p>
@@ -380,22 +380,22 @@ export default function WorkflowRunDetailPage() {
                       </div>
 
                       <div className="flex-shrink-0">
-                        {isExpanded ? <ChevronUp size={18} className="text-vc-muted" /> : <ChevronDown size={18} className="text-vc-muted" />}
+                        {isExpanded ? <ChevronUp size={18} className="text-foreground-500" /> : <ChevronDown size={18} className="text-foreground-500" />}
                       </div>
                     </button>
 
                     {/* Step details */}
                     {isExpanded && (
-                      <div className="border-t border-vc-border px-4 py-4 space-y-4 bg-vc-raised/30">
+                      <div className="border-t border-neutral-200 px-4 py-4 space-y-4 bg-background-200/30">
                         {/* Agent */}
                         {agentDid && (
                           <div>
-                            <div className="flex items-center gap-1.5 text-sm text-vc-muted mb-1.5">
+                            <div className="flex items-center gap-1.5 text-sm text-foreground-500 mb-1.5">
                               <Bot size={14} /> Agent
                             </div>
                             <div className="ml-5">
-                              {agentName && <p className="text-vc-text text-sm font-medium">{agentName}</p>}
-                              <p className="text-vc-muted font-mono text-xs break-all">{agentDid}</p>
+                              {agentName && <p className="text-foreground text-sm font-medium">{agentName}</p>}
+                              <p className="text-foreground-500 font-mono text-xs break-all">{agentDid}</p>
                             </div>
                           </div>
                         )}
@@ -403,13 +403,13 @@ export default function WorkflowRunDetailPage() {
                         {/* Assigned user */}
                         {userDid && (
                           <div>
-                            <div className="flex items-center gap-1.5 text-sm text-vc-muted mb-1.5">
+                            <div className="flex items-center gap-1.5 text-sm text-foreground-500 mb-1.5">
                               <User size={14} /> Assigned User
                             </div>
                             <div className="ml-5">
-                              {userName && <p className="text-vc-text text-sm font-medium">{userName}</p>}
-                              {userEmail && <p className="text-vc-subtle text-xs">{userEmail}</p>}
-                              <p className="text-vc-muted font-mono text-xs break-all mt-0.5">{userDid}</p>
+                              {userName && <p className="text-foreground text-sm font-medium">{userName}</p>}
+                              {userEmail && <p className="text-foreground-400 text-xs">{userEmail}</p>}
+                              <p className="text-foreground-500 font-mono text-xs break-all mt-0.5">{userDid}</p>
                             </div>
                           </div>
                         )}
@@ -420,8 +420,8 @@ export default function WorkflowRunDetailPage() {
                           try { parsed = JSON.parse(step.output); } catch { parsed = step.output; }
                           return (
                             <div>
-                              <p className="text-sm text-vc-muted mb-2">Output</p>
-                              <pre className="bg-vc-surface rounded p-3 text-vc-text text-xs font-mono overflow-auto max-h-48 border border-vc-border">
+                              <p className="text-sm text-foreground-500 mb-2">Output</p>
+                              <pre className="bg-background-100 rounded p-3 text-foreground text-xs font-mono overflow-auto max-h-48 border border-neutral-200">
                                 {typeof parsed === "string" ? parsed : JSON.stringify(parsed, null, 2)}
                               </pre>
                             </div>
@@ -439,7 +439,7 @@ export default function WorkflowRunDetailPage() {
                         )}
 
                         {!step.output && !step.error && (
-                          <p className="text-vc-muted text-sm">No output recorded</p>
+                          <p className="text-foreground-500 text-sm">No output recorded</p>
                         )}
                       </div>
                     )}
@@ -456,9 +456,9 @@ export default function WorkflowRunDetailPage() {
           try { parsed = JSON.parse(run.results); } catch { parsed = run.results; }
           return (
             <div>
-              <h2 className="text-lg font-semibold text-vc-text mb-4">Results</h2>
-              <div className="bg-vc-surface rounded-xl border border-vc-border p-4">
-                <pre className="text-vc-text text-sm font-mono overflow-auto max-h-64">
+              <h2 className="text-lg font-semibold text-foreground mb-4">Results</h2>
+              <div className="bg-background-100 rounded-xl border border-neutral-200 p-4">
+                <pre className="text-foreground text-sm font-mono overflow-auto max-h-64">
                   {typeof parsed === "string" ? parsed : JSON.stringify(parsed, null, 2)}
                 </pre>
               </div>

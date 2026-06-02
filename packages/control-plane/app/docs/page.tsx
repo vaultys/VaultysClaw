@@ -45,15 +45,15 @@ export default function ApiDocsPage() {
 
   if (status === "loading" || loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-vc-bg">
-        <div className="text-vc-muted text-sm">Loading API documentation…</div>
+      <div className="flex items-center justify-center min-h-screen bg-background">
+        <div className="text-foreground-500 text-sm">Loading API documentation…</div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-vc-bg">
+      <div className="flex items-center justify-center min-h-screen bg-background">
         <div className="text-red-400 text-sm">Error: {error}</div>
       </div>
     );
@@ -62,12 +62,12 @@ export default function ApiDocsPage() {
   if (!spec) return null;
 
   return (
-    <div className="min-h-screen bg-white dark:bg-vc-bg">
+    <div className="min-h-screen bg-white dark:bg-background">
       <div className="max-w-6xl mx-auto py-8 px-4">
-        <h1 className="text-2xl font-bold text-vc-text mb-6">
+        <h1 className="text-2xl font-bold text-foreground mb-6">
           API Documentation
         </h1>
-        <div className="swagger-wrapper rounded-xl overflow-hidden border border-vc-ring">
+        <div className="swagger-wrapper rounded-xl overflow-hidden border border-neutral-300">
           <SwaggerUI
             spec={spec}
             docExpansion="list"

@@ -91,12 +91,12 @@ const ICON_MAP: Record<NodeKind, React.ElementType> = {
 // Using the string form so the browser resolves them at paint time — they
 // automatically switch when the `.dark` class is toggled on <html>.
 const CV = {
-  text: "rgb(var(--vc-text))",
-  muted: "rgb(var(--vc-muted))",
-  subtle: "rgb(var(--vc-subtle))",
-  surface: "rgb(var(--vc-surface))",
-  raised: "rgb(var(--vc-raised))",
-  border: "rgb(var(--vc-border))",
+  text: "rgb(var(--foreground-900))",
+  muted: "rgb(var(--foreground-500))",
+  subtle: "rgb(var(--foreground-400))",
+  surface: "rgb(var(--background-100))",
+  raised: "rgb(var(--background-200))",
+  border: "rgb(var(--neutral-200))",
 };
 
 function EnvironmentNode({ data }: NodeProps<NodeData>) {
@@ -636,19 +636,19 @@ export default function AgentEnvironmentGraph({
         zoomOnScroll
         proOptions={{ hideAttribution: true }}
       >
-        <Background color="rgb(var(--vc-border))" gap={24} />
+        <Background color="rgb(var(--neutral-200))" gap={24} />
         <Controls />
       </ReactFlow>
 
       <style>{`
         .react-flow__controls button {
-          background: rgb(var(--vc-surface)) !important;
-          border: 1px solid rgb(var(--vc-border)) !important;
-          color: rgb(var(--vc-muted)) !important;
+          background: rgb(var(--background-100)) !important;
+          border: 1px solid rgb(var(--neutral-200)) !important;
+          color: rgb(var(--foreground-500)) !important;
         }
         .react-flow__controls button:hover {
-          background: rgb(var(--vc-raised)) !important;
-          color: rgb(var(--vc-text)) !important;
+          background: rgb(var(--background-200)) !important;
+          color: rgb(var(--foreground-900)) !important;
         }
         .react-flow__edge-label { pointer-events: none; }
       `}</style>

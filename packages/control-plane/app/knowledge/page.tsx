@@ -154,7 +154,7 @@ function DoclingConfigPanel() {
 
   const connectionPill = (() => {
     if (!cfg.configured) return (
-      <span className="inline-flex items-center gap-1.5 text-xs font-medium text-vc-muted bg-vc-raised border border-vc-ring rounded-full px-2.5 py-1">
+      <span className="inline-flex items-center gap-1.5 text-xs font-medium text-foreground-500 bg-background-200 border border-neutral-300 rounded-full px-2.5 py-1">
         <span className="w-1.5 h-1.5 rounded-full bg-zinc-400" />
         Not configured
       </span>
@@ -174,8 +174,8 @@ function DoclingConfigPanel() {
   })();
 
   return (
-    <div className={`rounded-xl border bg-vc-surface overflow-hidden transition-colors ${
-      cfg.enabled ? "border-indigo-300 dark:border-indigo-700/60" : "border-vc-border"
+    <div className={`rounded-xl border bg-background-100 overflow-hidden transition-colors ${
+      cfg.enabled ? "border-indigo-300 dark:border-indigo-700/60" : "border-neutral-200"
     }`}>
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-3">
@@ -184,21 +184,21 @@ function DoclingConfigPanel() {
             ? "bg-indigo-100 dark:bg-indigo-600/20"
             : "bg-zinc-100 dark:bg-zinc-800"
         }`}>
-          <Cpu className={`w-4 h-4 ${cfg.enabled ? "text-indigo-600 dark:text-indigo-400" : "text-vc-muted"}`} />
+          <Cpu className={`w-4 h-4 ${cfg.enabled ? "text-indigo-600 dark:text-indigo-400" : "text-foreground-500"}`} />
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <span className="text-sm font-semibold text-vc-text">Docling</span>
+            <span className="text-sm font-semibold text-foreground">Docling</span>
             {connectionPill}
           </div>
-          <p className="text-xs text-vc-muted mt-0.5">
+          <p className="text-xs text-foreground-500 mt-0.5">
             Document parser — converts PDFs, DOCX &amp; HTML to structured Markdown before chunking
           </p>
         </div>
         {!editing && (
           <button
             onClick={startEdit}
-            className="flex items-center gap-1.5 text-xs text-vc-muted hover:text-vc-text transition-colors px-2 py-1 rounded-lg hover:bg-vc-raised"
+            className="flex items-center gap-1.5 text-xs text-foreground-500 hover:text-foreground transition-colors px-2 py-1 rounded-lg hover:bg-background-200"
           >
             <Pencil size={13} />
             Configure
@@ -208,8 +208,8 @@ function DoclingConfigPanel() {
 
       {/* Collapsed summary */}
       {!editing && cfg.configured && (
-        <div className="px-4 pb-3 flex items-center gap-3 text-xs text-vc-muted border-t border-vc-border/40 pt-2">
-          <span className="font-mono text-vc-text truncate">{cfg.url}</span>
+        <div className="px-4 pb-3 flex items-center gap-3 text-xs text-foreground-500 border-t border-neutral-200/40 pt-2">
+          <span className="font-mono text-foreground truncate">{cfg.url}</span>
           <span className={cfg.enabled ? "text-green-600 dark:text-green-400" : "text-amber-600 dark:text-amber-400"}>
             {cfg.enabled ? "Enabled" : "Disabled"}
           </span>
@@ -218,10 +218,10 @@ function DoclingConfigPanel() {
 
       {/* Edit form */}
       {editing && (
-        <div className="px-4 pb-4 border-t border-vc-border/40 pt-3 space-y-3">
+        <div className="px-4 pb-4 border-t border-neutral-200/40 pt-3 space-y-3">
           {/* URL */}
           <div className="space-y-1">
-            <label className="text-xs font-medium text-vc-muted uppercase tracking-wider">
+            <label className="text-xs font-medium text-foreground-500 uppercase tracking-wider">
               Docling Serve URL
             </label>
             <div className="flex gap-2">
@@ -229,12 +229,12 @@ function DoclingConfigPanel() {
                 value={draftUrl}
                 onChange={e => { setDraftUrl(e.target.value); setTestStatus("idle"); setTestResult(null); }}
                 placeholder="http://localhost:5001"
-                className="flex-1 px-3 py-2 rounded-lg bg-vc-bg border border-vc-border text-sm text-vc-text placeholder:text-vc-subtle focus:outline-none focus:ring-2 focus:ring-indigo-500/40 font-mono"
+                className="flex-1 px-3 py-2 rounded-lg bg-background border border-neutral-200 text-sm text-foreground placeholder:text-foreground-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 font-mono"
               />
               <button
                 onClick={handleTest}
                 disabled={!draftUrl.trim() || testStatus === "testing"}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-vc-border text-xs text-vc-muted hover:text-vc-text hover:border-indigo-400 disabled:opacity-40 transition-colors shrink-0"
+                className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-neutral-200 text-xs text-foreground-500 hover:text-foreground hover:border-indigo-400 disabled:opacity-40 transition-colors shrink-0"
               >
                 {testStatus === "testing"
                   ? <Loader2 size={13} className="animate-spin" />
@@ -270,14 +270,14 @@ function DoclingConfigPanel() {
           {/* Enable toggle */}
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs font-medium text-vc-text">Enable Docling for sync</p>
-              <p className="text-xs text-vc-muted">When enabled, all URL knowledge sources will be parsed through Docling</p>
+              <p className="text-xs font-medium text-foreground">Enable Docling for sync</p>
+              <p className="text-xs text-foreground-500">When enabled, all URL knowledge sources will be parsed through Docling</p>
             </div>
             <button
               type="button"
               onClick={() => setDraftEnabled(v => !v)}
               className={`relative inline-flex h-5 w-9 shrink-0 rounded-full border-2 border-transparent transition-colors focus:outline-none ${
-                draftEnabled ? "bg-indigo-600" : "bg-vc-ring"
+                draftEnabled ? "bg-indigo-600" : "bg-neutral-300"
               }`}
             >
               <span
@@ -289,11 +289,11 @@ function DoclingConfigPanel() {
           </div>
 
           {/* Docker tip */}
-          <div className="flex items-start gap-2 p-2.5 rounded-lg bg-vc-bg border border-vc-border/60 text-xs text-vc-muted">
+          <div className="flex items-start gap-2 p-2.5 rounded-lg bg-background border border-neutral-200/60 text-xs text-foreground-500">
             <span className="shrink-0 mt-0.5">💡</span>
             <span>
               Run Docling locally:{" "}
-              <code className="font-mono text-indigo-400 bg-vc-raised px-1 rounded">
+              <code className="font-mono text-indigo-400 bg-background-200 px-1 rounded">
                 docker run -p 5001:5001 quay.io/docling-project/docling-serve
               </code>
             </span>
@@ -303,7 +303,7 @@ function DoclingConfigPanel() {
           <div className="flex justify-end gap-2">
             <button
               onClick={cancelEdit}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-vc-border text-xs text-vc-muted hover:text-vc-text transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-neutral-200 text-xs text-foreground-500 hover:text-foreground transition-colors"
             >
               <X size={13} /> Cancel
             </button>
@@ -453,7 +453,7 @@ function StorageConfigPanel() {
       S3 active
     </span>
   ) : (
-    <span className="inline-flex items-center gap-1.5 text-xs font-medium text-vc-muted bg-vc-raised border border-vc-ring rounded-full px-2.5 py-1">
+    <span className="inline-flex items-center gap-1.5 text-xs font-medium text-foreground-500 bg-background-200 border border-neutral-300 rounded-full px-2.5 py-1">
       <span className="w-1.5 h-1.5 rounded-full bg-zinc-400" />
       Filesystem
     </span>
@@ -462,29 +462,29 @@ function StorageConfigPanel() {
   const saveDisabled = saving || (draftEnabled && (!draftRegion.trim() || !draftBucket.trim() || !draftAccessKeyId.trim() || (!cfg.s3.configured && !draftSecretKey)));
 
   return (
-    <div className={`rounded-xl border bg-vc-surface overflow-hidden transition-colors ${
-      isS3Active ? "border-indigo-300 dark:border-indigo-700/60" : "border-vc-border"
+    <div className={`rounded-xl border bg-background-100 overflow-hidden transition-colors ${
+      isS3Active ? "border-indigo-300 dark:border-indigo-700/60" : "border-neutral-200"
     }`}>
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-3">
         <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
           isS3Active ? "bg-indigo-100 dark:bg-indigo-600/20" : "bg-zinc-100 dark:bg-zinc-800"
         }`}>
-          <HardDrive className={`w-4 h-4 ${isS3Active ? "text-indigo-600 dark:text-indigo-400" : "text-vc-muted"}`} />
+          <HardDrive className={`w-4 h-4 ${isS3Active ? "text-indigo-600 dark:text-indigo-400" : "text-foreground-500"}`} />
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <span className="text-sm font-semibold text-vc-text">File Storage</span>
+            <span className="text-sm font-semibold text-foreground">File Storage</span>
             {statusPill}
           </div>
-          <p className="text-xs text-vc-muted mt-0.5">
+          <p className="text-xs text-foreground-500 mt-0.5">
             Knowledge file storage backend — filesystem (default) or S3-compatible object storage
           </p>
         </div>
         {!editing && (
           <button
             onClick={startEdit}
-            className="flex items-center gap-1.5 text-xs text-vc-muted hover:text-vc-text transition-colors px-2 py-1 rounded-lg hover:bg-vc-raised"
+            className="flex items-center gap-1.5 text-xs text-foreground-500 hover:text-foreground transition-colors px-2 py-1 rounded-lg hover:bg-background-200"
           >
             <Pencil size={13} /> Configure
           </button>
@@ -493,33 +493,33 @@ function StorageConfigPanel() {
 
       {/* Collapsed summary */}
       {!editing && (
-        <div className="px-4 pb-3 flex items-center gap-3 text-xs text-vc-muted border-t border-vc-border/40 pt-2">
+        <div className="px-4 pb-3 flex items-center gap-3 text-xs text-foreground-500 border-t border-neutral-200/40 pt-2">
           {isS3Active ? (
             <>
-              <span className="font-mono text-vc-text truncate">{cfg.s3.bucket}</span>
-              <span className="text-vc-subtle">{cfg.s3.region}</span>
-              {cfg.s3.endpoint && <span className="font-mono text-vc-subtle truncate">{cfg.s3.endpoint}</span>}
+              <span className="font-mono text-foreground truncate">{cfg.s3.bucket}</span>
+              <span className="text-foreground-400">{cfg.s3.region}</span>
+              {cfg.s3.endpoint && <span className="font-mono text-foreground-400 truncate">{cfg.s3.endpoint}</span>}
             </>
           ) : (
-            <span className="font-mono text-vc-text truncate">{cfg.filesystem.directory}</span>
+            <span className="font-mono text-foreground truncate">{cfg.filesystem.directory}</span>
           )}
         </div>
       )}
 
       {/* Edit form */}
       {editing && (
-        <div className="px-4 pb-4 border-t border-vc-border/40 pt-3 space-y-4">
+        <div className="px-4 pb-4 border-t border-neutral-200/40 pt-3 space-y-4">
 
           {/* S3 toggle */}
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs font-medium text-vc-text">Enable S3 storage</p>
-              <p className="text-xs text-vc-muted">Store files in S3 or a compatible service (MinIO)</p>
+              <p className="text-xs font-medium text-foreground">Enable S3 storage</p>
+              <p className="text-xs text-foreground-500">Store files in S3 or a compatible service (MinIO)</p>
             </div>
             <button
               type="button"
               onClick={() => setDraftEnabled(v => !v)}
-              className={`relative inline-flex h-5 w-9 shrink-0 rounded-full border-2 border-transparent transition-colors focus:outline-none ${draftEnabled ? "bg-indigo-600" : "bg-vc-ring"}`}
+              className={`relative inline-flex h-5 w-9 shrink-0 rounded-full border-2 border-transparent transition-colors focus:outline-none ${draftEnabled ? "bg-indigo-600" : "bg-neutral-300"}`}
             >
               <span className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow transform transition-transform ${draftEnabled ? "translate-x-4" : "translate-x-0"}`} />
             </button>
@@ -531,36 +531,36 @@ function StorageConfigPanel() {
               {/* Region + Bucket */}
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <label className="text-xs font-medium text-vc-muted uppercase tracking-wider">Region</label>
+                  <label className="text-xs font-medium text-foreground-500 uppercase tracking-wider">Region</label>
                   <input value={draftRegion} onChange={e => setDraftRegion(e.target.value)} placeholder="us-east-1"
-                    className="w-full px-3 py-2 rounded-lg bg-vc-bg border border-vc-border text-sm text-vc-text placeholder:text-vc-subtle focus:outline-none focus:ring-2 focus:ring-indigo-500/40 font-mono" />
+                    className="w-full px-3 py-2 rounded-lg bg-background border border-neutral-200 text-sm text-foreground placeholder:text-foreground-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 font-mono" />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs font-medium text-vc-muted uppercase tracking-wider">Bucket</label>
+                  <label className="text-xs font-medium text-foreground-500 uppercase tracking-wider">Bucket</label>
                   <input value={draftBucket} onChange={e => setDraftBucket(e.target.value)} placeholder="vaultysclaw-knowledge"
-                    className="w-full px-3 py-2 rounded-lg bg-vc-bg border border-vc-border text-sm text-vc-text placeholder:text-vc-subtle focus:outline-none focus:ring-2 focus:ring-indigo-500/40 font-mono" />
+                    className="w-full px-3 py-2 rounded-lg bg-background border border-neutral-200 text-sm text-foreground placeholder:text-foreground-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 font-mono" />
                 </div>
               </div>
 
               {/* Endpoint */}
               <div className="space-y-1">
-                <label className="text-xs font-medium text-vc-muted uppercase tracking-wider">
+                <label className="text-xs font-medium text-foreground-500 uppercase tracking-wider">
                   Custom endpoint <span className="normal-case font-normal">(optional — MinIO or S3-compatible)</span>
                 </label>
                 <input value={draftEndpoint} onChange={e => setDraftEndpoint(e.target.value)} placeholder="http://localhost:9000"
-                  className="w-full px-3 py-2 rounded-lg bg-vc-bg border border-vc-border text-sm text-vc-text placeholder:text-vc-subtle focus:outline-none focus:ring-2 focus:ring-indigo-500/40 font-mono" />
+                  className="w-full px-3 py-2 rounded-lg bg-background border border-neutral-200 text-sm text-foreground placeholder:text-foreground-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 font-mono" />
               </div>
 
               {/* Credentials */}
               <div className="space-y-1">
-                <label className="text-xs font-medium text-vc-muted uppercase tracking-wider">Access Key ID</label>
+                <label className="text-xs font-medium text-foreground-500 uppercase tracking-wider">Access Key ID</label>
                 <input value={draftAccessKeyId} onChange={e => setDraftAccessKeyId(e.target.value)} placeholder="AKIAIOSFODNN7EXAMPLE"
-                  className="w-full px-3 py-2 rounded-lg bg-vc-bg border border-vc-border text-sm text-vc-text placeholder:text-vc-subtle focus:outline-none focus:ring-2 focus:ring-indigo-500/40 font-mono" />
+                  className="w-full px-3 py-2 rounded-lg bg-background border border-neutral-200 text-sm text-foreground placeholder:text-foreground-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 font-mono" />
               </div>
               <div className="space-y-1">
-                <label className="text-xs font-medium text-vc-muted uppercase tracking-wider">
+                <label className="text-xs font-medium text-foreground-500 uppercase tracking-wider">
                   Secret Access Key
-                  {cfg.s3.configured && <span className="ml-1 normal-case font-normal text-vc-subtle">(leave blank to keep existing)</span>}
+                  {cfg.s3.configured && <span className="ml-1 normal-case font-normal text-foreground-400">(leave blank to keep existing)</span>}
                 </label>
                 <div className="relative">
                   <input
@@ -568,10 +568,10 @@ function StorageConfigPanel() {
                     value={draftSecretKey}
                     onChange={e => setDraftSecretKey(e.target.value)}
                     placeholder={cfg.s3.configured ? "••••••••" : "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"}
-                    className="w-full px-3 py-2 pr-9 rounded-lg bg-vc-bg border border-vc-border text-sm text-vc-text placeholder:text-vc-subtle focus:outline-none focus:ring-2 focus:ring-indigo-500/40 font-mono"
+                    className="w-full px-3 py-2 pr-9 rounded-lg bg-background border border-neutral-200 text-sm text-foreground placeholder:text-foreground-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 font-mono"
                   />
                   <button type="button" onClick={() => setShowSecret(s => !s)}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-vc-subtle hover:text-vc-text transition">
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-foreground-400 hover:text-foreground transition">
                     {showSecret
                       ? <EyeOff size={14} />
                       : <Eye size={14} />}
@@ -585,7 +585,7 @@ function StorageConfigPanel() {
                   type="button"
                   onClick={handleTest}
                   disabled={testing || !draftBucket.trim() || !draftAccessKeyId.trim()}
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-vc-border text-xs text-vc-muted hover:text-vc-text hover:border-indigo-400 disabled:opacity-40 transition-colors"
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-neutral-200 text-xs text-foreground-500 hover:text-foreground hover:border-indigo-400 disabled:opacity-40 transition-colors"
                 >
                   {testing ? <Loader2 size={13} className="animate-spin" /> : <Wifi size={13} />}
                   Test connection
@@ -607,17 +607,17 @@ function StorageConfigPanel() {
               </div>
 
               {/* MinIO tip */}
-              <div className="flex items-start gap-2 p-2.5 rounded-lg bg-vc-bg border border-vc-border/60 text-xs text-vc-muted">
+              <div className="flex items-start gap-2 p-2.5 rounded-lg bg-background border border-neutral-200/60 text-xs text-foreground-500">
                 <span className="shrink-0 mt-0.5">💡</span>
                 <div className="space-y-1">
                   <p>Run MinIO locally with Docker:</p>
-                  <code className="block font-mono text-indigo-400 bg-vc-raised px-2 py-1 rounded leading-relaxed whitespace-pre">
+                  <code className="block font-mono text-indigo-400 bg-background-200 px-2 py-1 rounded leading-relaxed whitespace-pre">
                     {`docker run -p 9000:9000 -p 9001:9001 \\
   -e MINIO_ROOT_USER=minioadmin \\
   -e MINIO_ROOT_PASSWORD=minioadmin \\
   minio/minio server /data --console-address :9001`}
                   </code>
-                  <p className="text-vc-subtle">Use <code className="font-mono text-indigo-400 bg-vc-raised px-1 rounded">minioadmin</code> as both access key and secret key.</p>
+                  <p className="text-foreground-400">Use <code className="font-mono text-indigo-400 bg-background-200 px-1 rounded">minioadmin</code> as both access key and secret key.</p>
                 </div>
               </div>
             </div>
@@ -631,13 +631,13 @@ function StorageConfigPanel() {
           )}
 
           {/* Migrate existing files */}
-          <div className="flex items-center justify-between p-3 rounded-lg bg-vc-bg border border-vc-border/60">
+          <div className="flex items-center justify-between p-3 rounded-lg bg-background border border-neutral-200/60">
             <div>
-              <p className="text-xs font-medium text-vc-text">Migrate existing files</p>
-              <p className="text-xs text-vc-muted">Move legacy database BLOBs to the current storage backend</p>
+              <p className="text-xs font-medium text-foreground">Migrate existing files</p>
+              <p className="text-xs text-foreground-500">Move legacy database BLOBs to the current storage backend</p>
             </div>
             <button type="button" onClick={handleMigrate} disabled={migrating}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-vc-border text-xs text-vc-muted hover:text-vc-text hover:border-indigo-400 disabled:opacity-40 transition-colors shrink-0">
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-neutral-200 text-xs text-foreground-500 hover:text-foreground hover:border-indigo-400 disabled:opacity-40 transition-colors shrink-0">
               {migrating ? <Loader2 size={13} className="animate-spin" /> : <ArrowRight size={13} />}
               Migrate
             </button>
@@ -659,7 +659,7 @@ function StorageConfigPanel() {
           {/* Actions */}
           <div className="flex justify-end gap-2">
             <button onClick={cancelEdit}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-vc-border text-xs text-vc-muted hover:text-vc-text transition-colors">
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-neutral-200 text-xs text-foreground-500 hover:text-foreground transition-colors">
               <X size={13} /> Cancel
             </button>
             <button onClick={handleSave} disabled={saveDisabled}
@@ -726,10 +726,10 @@ function AgentKnowledgeCard({
   const realmName = (id: string) => realms.find(r => r.id === id)?.name ?? id;
 
   return (
-    <div className="rounded-2xl border border-vc-border bg-vc-surface overflow-hidden">
+    <div className="rounded-2xl border border-neutral-200 bg-background-100 overflow-hidden">
       {/* Card header */}
       <div
-        className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-vc-raised/30 transition-colors select-none"
+        className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-background-200/30 transition-colors select-none"
         onClick={() => setExpanded(v => !v)}
       >
         {/* Agent avatar */}
@@ -739,30 +739,30 @@ function AgentKnowledgeCard({
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-sm font-semibold text-vc-text truncate">{agent.name}</span>
+            <span className="text-sm font-semibold text-foreground truncate">{agent.name}</span>
             {agent.online ? (
               <span className="inline-flex items-center gap-1 text-[10px] font-medium text-green-700 dark:text-green-400 bg-green-100 dark:bg-green-500/10 border border-green-300 dark:border-green-500/20 rounded-full px-1.5 py-0.5">
                 <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
                 Online
               </span>
             ) : (
-              <span className="inline-flex items-center gap-1 text-[10px] font-medium text-vc-muted bg-vc-raised border border-vc-ring rounded-full px-1.5 py-0.5">
+              <span className="inline-flex items-center gap-1 text-[10px] font-medium text-foreground-500 bg-background-200 border border-neutral-300 rounded-full px-1.5 py-0.5">
                 <WifiOff size={9} />
                 Offline
               </span>
             )}
           </div>
-          <p className="text-xs text-vc-subtle font-mono truncate mt-0.5">{agent.did}</p>
+          <p className="text-xs text-foreground-400 font-mono truncate mt-0.5">{agent.did}</p>
         </div>
 
         {/* Summary stats */}
-        <div className="hidden sm:flex items-center gap-4 text-xs text-vc-muted shrink-0">
+        <div className="hidden sm:flex items-center gap-4 text-xs text-foreground-500 shrink-0">
           <div className="text-right">
-            <div className="text-vc-text font-semibold">{sources.length}</div>
+            <div className="text-foreground font-semibold">{sources.length}</div>
             <div>source{sources.length !== 1 ? "s" : ""}</div>
           </div>
           <div className="text-right">
-            <div className="text-vc-text font-semibold">{fmtCount(totalChunks)}</div>
+            <div className="text-foreground font-semibold">{fmtCount(totalChunks)}</div>
             <div>chunks</div>
           </div>
           {errorCount > 0 && (
@@ -792,16 +792,16 @@ function AgentKnowledgeCard({
 
         <ChevronRight
           size={16}
-          className={`text-vc-subtle transition-transform shrink-0 ${expanded ? "rotate-90" : ""}`}
+          className={`text-foreground-400 transition-transform shrink-0 ${expanded ? "rotate-90" : ""}`}
         />
       </div>
 
       {/* Sources list */}
       {expanded && (
-        <div className="border-t border-vc-border/60">
+        <div className="border-t border-neutral-200/60">
           {sources.length === 0 ? (
             <div className="px-4 py-5 text-center">
-              <p className="text-xs text-vc-muted">No knowledge sources configured for this agent.</p>
+              <p className="text-xs text-foreground-500">No knowledge sources configured for this agent.</p>
               <Link
                 href={`/agents/${encodeURIComponent(agent.did)}`}
                 className="text-xs text-indigo-500 hover:text-indigo-400 mt-1 inline-flex items-center gap-1"
@@ -812,7 +812,7 @@ function AgentKnowledgeCard({
           ) : (
             <table className="w-full text-sm">
               <thead>
-                <tr className="text-vc-muted text-xs uppercase tracking-wider border-b border-vc-border/40 bg-vc-bg/60">
+                <tr className="text-foreground-500 text-xs uppercase tracking-wider border-b border-neutral-200/40 bg-background/60">
                   <th className="text-left px-4 py-2 font-medium">Source</th>
                   <th className="text-left px-4 py-2 font-medium hidden md:table-cell">Realm</th>
                   <th className="text-left px-4 py-2 font-medium">Status</th>
@@ -829,15 +829,15 @@ function AgentKnowledgeCard({
                   return (
                     <tr
                       key={source.id}
-                      className={`border-b border-vc-border/30 last:border-0 ${i % 2 === 0 ? "" : "bg-vc-bg/40"}`}
+                      className={`border-b border-neutral-200/30 last:border-0 ${i % 2 === 0 ? "" : "bg-background/40"}`}
                     >
                       <td className="px-4 py-2.5">
                         <div className="flex items-center gap-2">
                           <TypeIcon type={source.source_type} />
                           <div className="min-w-0">
-                            <span className="text-xs font-medium text-vc-text truncate block max-w-[180px]">{source.name}</span>
+                            <span className="text-xs font-medium text-foreground truncate block max-w-[180px]">{source.name}</span>
                             {source.source_type === "url" && urls.length > 0 && (
-                              <span className="text-[10px] text-vc-subtle truncate block max-w-[180px]">
+                              <span className="text-[10px] text-foreground-400 truncate block max-w-[180px]">
                                 {urls[0]}{urls.length > 1 ? ` +${urls.length - 1}` : ""}
                               </span>
                             )}
@@ -845,7 +845,7 @@ function AgentKnowledgeCard({
                         </div>
                       </td>
                       <td className="px-4 py-2.5 hidden md:table-cell">
-                        <span className="flex items-center gap-1.5 text-xs text-vc-muted">
+                        <span className="flex items-center gap-1.5 text-xs text-foreground-500">
                           <Globe2 size={11} className="shrink-0" />
                           {realmName(source.realm_id)}
                         </span>
@@ -858,12 +858,12 @@ function AgentKnowledgeCard({
                           </p>
                         )}
                       </td>
-                      <td className="px-4 py-2.5 hidden sm:table-cell text-xs text-vc-muted">
+                      <td className="px-4 py-2.5 hidden sm:table-cell text-xs text-foreground-500">
                         {source.status === "ready"
-                          ? <span className="text-vc-text font-medium">{fmtCount(source.chunk_count)}</span>
+                          ? <span className="text-foreground font-medium">{fmtCount(source.chunk_count)}</span>
                           : "—"}
                       </td>
-                      <td className="px-4 py-2.5 hidden lg:table-cell text-xs text-vc-muted">
+                      <td className="px-4 py-2.5 hidden lg:table-cell text-xs text-foreground-500">
                         {timeAgo(source.last_synced_at)}
                       </td>
                     </tr>
@@ -944,11 +944,11 @@ export default function KnowledgeDashboardPage() {
             <BookOpen className="w-5 h-5 text-indigo-700 dark:text-indigo-400" />
           </div>
           <div>
-            <h1 className="text-lg font-semibold text-vc-text">Knowledge Overview</h1>
-            <p className="text-xs text-vc-muted">Data access map — which agents index what, and for which realm</p>
+            <h1 className="text-lg font-semibold text-foreground">Knowledge Overview</h1>
+            <p className="text-xs text-foreground-500">Data access map — which agents index what, and for which realm</p>
           </div>
         </div>
-        {loading && <Loader2 size={16} className="animate-spin text-vc-muted" />}
+        {loading && <Loader2 size={16} className="animate-spin text-foreground-500" />}
       </div>
 
       {/* Docling config */}
@@ -965,15 +965,15 @@ export default function KnowledgeDashboardPage() {
           { label: "Total chunks",     value: fmtCount(totalChunks), sub: "stored locally",  icon: <Database size={16} />,     tone: "neutral" },
           { label: "Agents with RAG",  value: agentsWithKnowledge, sub: "knowledge-enabled", icon: <Bot size={16} />,          tone: errorSources > 0 ? "danger" : agentsWithKnowledge > 0 ? "ok" : "neutral" },
         ].map(card => (
-          <div key={card.label} className="bg-vc-surface border border-vc-border rounded-xl p-4 flex flex-col gap-2">
+          <div key={card.label} className="bg-background-100 border border-neutral-200 rounded-xl p-4 flex flex-col gap-2">
             <div className="flex items-center justify-between">
-              <span className="text-xs text-vc-subtle uppercase tracking-wider font-medium">{card.label}</span>
+              <span className="text-xs text-foreground-400 uppercase tracking-wider font-medium">{card.label}</span>
               <span className={card.tone === "ok" ? "text-green-500" : card.tone === "danger" ? "text-red-500" : "text-indigo-500"}>
                 {card.icon}
               </span>
             </div>
-            <p className="text-2xl font-bold text-vc-text">{card.value}</p>
-            {card.sub && <p className="text-xs text-vc-subtle">{card.sub}</p>}
+            <p className="text-2xl font-bold text-foreground">{card.value}</p>
+            {card.sub && <p className="text-xs text-foreground-400">{card.sub}</p>}
           </div>
         ))}
       </div>
@@ -995,17 +995,17 @@ export default function KnowledgeDashboardPage() {
 
       {/* Agent cards */}
       {loading ? (
-        <div className="flex items-center justify-center gap-2 py-12 text-sm text-vc-muted">
+        <div className="flex items-center justify-center gap-2 py-12 text-sm text-foreground-500">
           <Loader2 size={16} className="animate-spin" /> Loading…
         </div>
       ) : agentsWithSources.length === 0 ? (
-        <div className="rounded-2xl border border-vc-border border-dashed bg-vc-surface/40 p-12 text-center space-y-3">
-          <BookOpen className="w-8 h-8 text-vc-subtle mx-auto" />
-          <p className="text-sm font-medium text-vc-text">No knowledge sources configured yet</p>
-          <p className="text-xs text-vc-muted max-w-md mx-auto">
+        <div className="rounded-2xl border border-neutral-200 border-dashed bg-background-100/40 p-12 text-center space-y-3">
+          <BookOpen className="w-8 h-8 text-foreground-400 mx-auto" />
+          <p className="text-sm font-medium text-foreground">No knowledge sources configured yet</p>
+          <p className="text-xs text-foreground-500 max-w-md mx-auto">
             Open any agent page, go to the <strong>Knowledge</strong> tab, and connect a URL or text source.
             Once synced, the agent will automatically use{" "}
-            <code className="bg-vc-raised px-1 rounded text-indigo-400">knowledge_search</code> in conversations.
+            <code className="bg-background-200 px-1 rounded text-indigo-400">knowledge_search</code> in conversations.
           </p>
           <Link
             href="/agents"
@@ -1018,11 +1018,11 @@ export default function KnowledgeDashboardPage() {
       ) : (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-vc-text">
+            <h2 className="text-sm font-semibold text-foreground">
               {agentsWithSources.length} agent{agentsWithSources.length !== 1 ? "s" : ""} with knowledge sources
             </h2>
-            <p className="text-xs text-vc-muted">
-              Manage sources from each agent&apos;s <span className="text-vc-text">Knowledge tab</span>
+            <p className="text-xs text-foreground-500">
+              Manage sources from each agent&apos;s <span className="text-foreground">Knowledge tab</span>
             </p>
           </div>
 
@@ -1039,17 +1039,17 @@ export default function KnowledgeDashboardPage() {
 
       {/* Status legend + info */}
       {agentsWithSources.length > 0 && (
-        <div className="rounded-xl border border-vc-border bg-vc-surface/60 p-4 space-y-3">
-          <p className="text-xs font-semibold text-vc-text">Status reference</p>
-          <div className="flex flex-wrap gap-x-6 gap-y-2 text-xs text-vc-muted">
+        <div className="rounded-xl border border-neutral-200 bg-background-100/60 p-4 space-y-3">
+          <p className="text-xs font-semibold text-foreground">Status reference</p>
+          <div className="flex flex-wrap gap-x-6 gap-y-2 text-xs text-foreground-500">
             <span className="flex items-center gap-1.5"><StatusDot status="idle" /> Idle — created, not yet synced</span>
             <span className="flex items-center gap-1.5"><StatusDot status="syncing" /> Syncing — agent is ingesting</span>
             <span className="flex items-center gap-1.5"><StatusDot status="ready" /> Ready — chunks indexed &amp; searchable</span>
             <span className="flex items-center gap-1.5"><StatusDot status="error" /> Error — sync failed, check agent page</span>
           </div>
-          <p className="text-xs text-vc-muted pt-1 border-t border-vc-border/60">
-            Data is stored <strong className="text-vc-text">locally on the agent</strong> as vector embeddings. It never leaves the agent&apos;s environment.
-            To add, re-sync or remove sources, navigate to the agent and open the <strong className="text-vc-text">Knowledge</strong> tab.
+          <p className="text-xs text-foreground-500 pt-1 border-t border-neutral-200/60">
+            Data is stored <strong className="text-foreground">locally on the agent</strong> as vector embeddings. It never leaves the agent&apos;s environment.
+            To add, re-sync or remove sources, navigate to the agent and open the <strong className="text-foreground">Knowledge</strong> tab.
           </p>
         </div>
       )}

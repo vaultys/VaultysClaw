@@ -61,34 +61,34 @@ function CreateRealmModal({ onClose, onCreated }: { onClose: () => void; onCreat
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-      <div className="bg-vc-surface border border-vc-border rounded-2xl shadow-xl w-full max-w-md p-6">
-        <h2 className="text-base font-semibold text-vc-text mb-4">Create Realm</h2>
+      <div className="bg-background-100 border border-neutral-200 rounded-2xl shadow-xl w-full max-w-md p-6">
+        <h2 className="text-base font-semibold text-foreground mb-4">Create Realm</h2>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm text-vc-muted mb-1">Name</label>
+            <label className="block text-sm text-foreground-500 mb-1">Name</label>
             <input
               autoFocus
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full bg-vc-bg border border-vc-border rounded-xl px-3 py-2 text-sm text-vc-text focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full bg-background border border-neutral-200 rounded-xl px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-indigo-500"
               placeholder="Engineering, Sales, EU Office…"
             />
             {name && (
-              <p className="text-vc-subtle text-xs mt-1">slug: <code className="font-mono">{slug}</code></p>
+              <p className="text-foreground-400 text-xs mt-1">slug: <code className="font-mono">{slug}</code></p>
             )}
           </div>
           <div>
-            <label className="block text-sm text-vc-muted mb-1">Description</label>
+            <label className="block text-sm text-foreground-500 mb-1">Description</label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={2}
-              className="w-full bg-vc-bg border border-vc-border rounded-xl px-3 py-2 text-sm text-vc-text focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
+              className="w-full bg-background border border-neutral-200 rounded-xl px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
               placeholder="Optional description"
             />
           </div>
           <div>
-            <label className="block text-sm text-vc-muted mb-2">Accent color</label>
+            <label className="block text-sm text-foreground-500 mb-2">Accent color</label>
             <div className="flex gap-2 flex-wrap">
               {PRESET_COLORS.map((c) => (
                 <button
@@ -107,7 +107,7 @@ function CreateRealmModal({ onClose, onCreated }: { onClose: () => void; onCreat
                 type="color"
                 value={color}
                 onChange={(e) => setColor(e.target.value)}
-                className="w-7 h-7 rounded-full border border-vc-border cursor-pointer bg-transparent"
+                className="w-7 h-7 rounded-full border border-neutral-200 cursor-pointer bg-transparent"
                 title="Custom color"
               />
             </div>
@@ -117,7 +117,7 @@ function CreateRealmModal({ onClose, onCreated }: { onClose: () => void; onCreat
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 py-2 rounded-xl border border-vc-border text-vc-muted text-sm hover:text-vc-text transition-colors"
+              className="flex-1 py-2 rounded-xl border border-neutral-200 text-foreground-500 text-sm hover:text-foreground transition-colors"
             >
               Cancel
             </button>
@@ -170,8 +170,8 @@ export default function RealmsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-lg font-semibold text-vc-text">Realms</h1>
-          <p className="text-vc-muted text-sm mt-0.5">
+          <h1 className="text-lg font-semibold text-foreground">Realms</h1>
+          <p className="text-foreground-500 text-sm mt-0.5">
             {loading ? "Loading…" : `${realms.length} realm${realms.length !== 1 ? "s" : ""}`}
           </p>
         </div>
@@ -193,8 +193,8 @@ export default function RealmsPage() {
         </div>
       ) : realms.length === 0 ? (
         <div className="flex flex-col items-center py-16 text-center">
-          <Globe2 className="w-10 h-10 text-vc-ring mb-3" />
-          <p className="text-vc-muted">No realms yet.</p>
+          <Globe2 className="w-10 h-10 text-neutral-300 mb-3" />
+          <p className="text-foreground-500">No realms yet.</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -202,7 +202,7 @@ export default function RealmsPage() {
             <div
               key={realm.id}
               onClick={() => router.push(`/realms/${realm.id}`)}
-              className="bg-vc-surface border border-vc-border rounded-2xl overflow-clip p-5 cursor-pointer hover:border-indigo-500/50 transition-all group relative"
+              className="bg-background-100 border border-neutral-200 rounded-2xl overflow-clip p-5 cursor-pointer hover:border-indigo-500/50 transition-all group relative"
             >
               {/* Color accent strip */}
               <div
@@ -220,50 +220,50 @@ export default function RealmsPage() {
                   </div>
                   <div>
                     <div className="flex items-center gap-1.5">
-                      <span className="font-semibold text-vc-text text-sm">{realm.name}</span>
+                      <span className="font-semibold text-foreground text-sm">{realm.name}</span>
                       {realm.is_default === 1 && (
                         <span className="text-xs px-1.5 py-0.5 rounded-md bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400 font-medium">
                           default
                         </span>
                       )}
                     </div>
-                    <code className="text-xs text-vc-subtle font-mono">{realm.slug}</code>
+                    <code className="text-xs text-foreground-400 font-mono">{realm.slug}</code>
                   </div>
                 </div>
               </div>
 
               {realm.description && (
-                <p className="text-vc-muted text-xs mb-3 line-clamp-2">{realm.description}</p>
+                <p className="text-foreground-500 text-xs mb-3 line-clamp-2">{realm.description}</p>
               )}
 
               {/* Member counts */}
               <div className="flex items-center gap-3 mb-3">
-                <span className="flex items-center gap-1.5 text-xs text-vc-muted">
+                <span className="flex items-center gap-1.5 text-xs text-foreground-500">
                   <Bot className="w-3.5 h-3.5" />
                   {realm.agentCount ?? 0}
                 </span>
-                <span className="flex items-center gap-1.5 text-xs text-vc-muted">
+                <span className="flex items-center gap-1.5 text-xs text-foreground-500">
                   <Users className="w-3.5 h-3.5" />
                   {realm.userCount ?? 0}
                 </span>
-                <span className="flex items-center gap-1.5 text-xs text-vc-muted">
+                <span className="flex items-center gap-1.5 text-xs text-foreground-500">
                   <GitFork className="w-3.5 h-3.5" />
                   {realm.workflowCount ?? 0}
                 </span>
               </div>
 
-              <p className="text-vc-subtle text-xs">
+              <p className="text-foreground-400 text-xs">
                 Created {new Date(realm.created_at).toLocaleDateString()}
               </p>
 
               {/* Actions */}
               {isGlobalAdmin && (
-                <div className="flex gap-1 mt-3 pt-3 border-t border-vc-border/50" onClick={(e) => e.stopPropagation()}>
+                <div className="flex gap-1 mt-3 pt-3 border-t border-neutral-200/50" onClick={(e) => e.stopPropagation()}>
                   {realm.is_default !== 1 && (
                     <button
                       onClick={() => handleSetDefault(realm.id)}
                       title="Set as default"
-                      className="p-1.5 rounded-lg text-vc-muted hover:text-amber-400 hover:bg-amber-400/10 transition-colors"
+                      className="p-1.5 rounded-lg text-foreground-500 hover:text-amber-400 hover:bg-amber-400/10 transition-colors"
                     >
                       <Star className="w-4 h-4" />
                     </button>
@@ -273,13 +273,13 @@ export default function RealmsPage() {
                       onClick={() => handleDelete(realm.id)}
                       disabled={deletingId === realm.id}
                       title="Delete realm"
-                      className="p-1.5 rounded-lg text-vc-muted hover:text-red-400 hover:bg-red-400/10 transition-colors ml-auto"
+                      className="p-1.5 rounded-lg text-foreground-500 hover:text-red-400 hover:bg-red-400/10 transition-colors ml-auto"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
                   )}
                   {realm.is_default === 1 && (
-                    <span className="ml-auto text-xs text-vc-subtle italic py-1.5">Default realm — cannot delete</span>
+                    <span className="ml-auto text-xs text-foreground-400 italic py-1.5">Default realm — cannot delete</span>
                   )}
                 </div>
               )}

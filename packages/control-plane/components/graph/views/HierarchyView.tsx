@@ -282,7 +282,7 @@ export default function HierarchyView({ data, height, onNodeClick }: Props) {
 
   if (data.nodes.filter((n) => n.type === "user").length === 0) {
     return (
-      <div className="flex items-center justify-center text-vc-muted" style={{ height }}>
+      <div className="flex items-center justify-center text-foreground-500" style={{ height }}>
         No users to display
       </div>
     );

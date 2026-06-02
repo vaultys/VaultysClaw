@@ -79,9 +79,9 @@ export default function TopBar() {
   const displayLabel = profileName || (did ? shortDid(did) : "Account");
 
   return (
-    <header className="flex items-center justify-between h-14 px-4 bg-vc-bg border-b border-vc-border/60 shrink-0">
+    <header className="flex items-center justify-between h-14 px-4 bg-background border-b border-neutral-200/60 shrink-0">
       {/* Page title */}
-      <h1 className="text-sm font-semibold text-vc-text">
+      <h1 className="text-sm font-semibold text-foreground">
         {getTitle(pathname)}
       </h1>
 
@@ -92,8 +92,8 @@ export default function TopBar() {
           className={cn(
             "flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-sm transition-colors",
             open
-              ? "bg-vc-raised text-vc-text"
-              : "text-vc-muted hover:text-vc-text hover:bg-vc-raised/60"
+              ? "bg-background-200 text-foreground"
+              : "text-foreground-500 hover:text-foreground hover:bg-background-200/60"
           )}
         >
           {/* Avatar */}
@@ -122,21 +122,21 @@ export default function TopBar() {
         </button>
 
         {open && (
-          <div className="absolute right-0 top-full mt-1.5 w-56 bg-vc-surface border border-vc-ring rounded-xl shadow-2xl shadow-black/40 z-50 overflow-hidden">
+          <div className="absolute right-0 top-full mt-1.5 w-56 bg-background-100 border border-neutral-300 rounded-xl shadow-2xl shadow-black/40 z-50 overflow-hidden">
             {/* User info */}
-            <div className="px-3 py-2.5 border-b border-vc-border">
-              <p className="text-xs text-vc-muted font-medium uppercase tracking-wider mb-0.5">
+            <div className="px-3 py-2.5 border-b border-neutral-200">
+              <p className="text-xs text-foreground-500 font-medium uppercase tracking-wider mb-0.5">
                 Signed in as
               </p>
               {profileName && (
-                <p className="text-xs text-vc-text font-medium truncate mb-0.5">{profileName}</p>
+                <p className="text-xs text-foreground font-medium truncate mb-0.5">{profileName}</p>
               )}
-              <p className="text-xs text-vc-subtle font-mono truncate">{shortDid(did)}</p>
+              <p className="text-xs text-foreground-400 font-mono truncate">{shortDid(did)}</p>
             </div>
 
             {/* Appearance */}
-            <div className="px-3 py-2 border-b border-vc-border">
-              <p className="text-xs text-vc-subtle uppercase tracking-wider mb-1.5 font-medium">
+            <div className="px-3 py-2 border-b border-neutral-200">
+              <p className="text-xs text-foreground-400 uppercase tracking-wider mb-1.5 font-medium">
                 Appearance
               </p>
               <div className="flex gap-1">
@@ -149,7 +149,7 @@ export default function TopBar() {
                       "flex-1 flex flex-col items-center gap-1 py-1.5 rounded-lg text-xs transition-colors border",
                       theme === value
                         ? "bg-indigo-100 dark:bg-indigo-600/20 border-indigo-300 dark:border-indigo-600/50 text-indigo-700 dark:text-indigo-300"
-                        : "border-transparent text-vc-muted hover:text-vc-text-2 hover:bg-vc-raised"
+                        : "border-transparent text-foreground-500 hover:text-foreground-700 hover:bg-background-200"
                     )}
                   >
                     <Icon className="w-3.5 h-3.5" />
@@ -165,16 +165,16 @@ export default function TopBar() {
             {/* Settings link */}
             <button
               onClick={() => { router.push("/settings"); setOpen(false); }}
-              className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-vc-text-2 hover:text-vc-text hover:bg-vc-raised/60 transition-colors"
+              className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-foreground-700 hover:text-foreground hover:bg-background-200/60 transition-colors"
             >
-              <User className="w-4 h-4 text-vc-subtle" />
+              <User className="w-4 h-4 text-foreground-400" />
               Account & Settings
             </button>
 
             {/* Sign out */}
             <button
               onClick={() => signOut({ callbackUrl: "/login" })}
-              className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-red-500 dark:text-red-400 hover:text-red-600 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors border-t border-vc-border"
+              className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-red-500 dark:text-red-400 hover:text-red-600 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors border-t border-neutral-200"
             >
               <LogOut className="w-4 h-4" />
               Sign out

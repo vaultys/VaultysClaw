@@ -48,15 +48,15 @@ export default function FullGraphPage() {
   const graphHeight = fullscreen ? winH - 80 : 720;
 
   return (
-    <div className={fullscreen ? "fixed inset-0 z-50 bg-vc-bg flex flex-col" : ""}>
+    <div className={fullscreen ? "fixed inset-0 z-50 bg-background flex flex-col" : ""}>
       <div className={`flex items-center justify-between mb-4 ${fullscreen ? "px-4 pt-4 shrink-0" : ""}`}>
         <div className="flex items-center gap-3">
           <Network size={20} className="text-indigo-400" />
-          <h1 className="text-xl font-bold text-vc-text">Relationship Graph</h1>
+          <h1 className="text-xl font-bold text-foreground">Relationship Graph</h1>
         </div>
         <button
           onClick={() => setFullscreen((f) => !f)}
-          className="p-2 rounded-lg hover:bg-vc-raised transition-colors text-vc-muted hover:text-vc-text"
+          className="p-2 rounded-lg hover:bg-background-200 transition-colors text-foreground-500 hover:text-foreground"
           title={fullscreen ? "Exit fullscreen" : "Fullscreen"}
         >
           {fullscreen ? <Minimize2 size={18} /> : <Maximize2 size={18} />}

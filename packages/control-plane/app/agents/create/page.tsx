@@ -126,7 +126,7 @@ function StepBar({ current }: { current: WizardStep }) {
               ? "bg-indigo-100 dark:bg-indigo-600/20 text-indigo-600 dark:text-indigo-400"
               : i === idx
                 ? "bg-indigo-600 text-white"
-                : "bg-vc-raised text-vc-subtle border border-vc-border",
+                : "bg-background-200 text-foreground-400 border border-neutral-200",
           )}>
             {i < idx
               ? <Check size={11} />
@@ -134,7 +134,7 @@ function StepBar({ current }: { current: WizardStep }) {
             <span>{s.label}</span>
           </div>
           {i < STEPS.length - 1 && (
-            <div className={cn("w-6 h-px mx-1", i < idx ? "bg-indigo-300 dark:bg-indigo-700" : "bg-vc-border")} />
+            <div className={cn("w-6 h-px mx-1", i < idx ? "bg-indigo-300 dark:bg-indigo-700" : "bg-neutral-200")} />
           )}
         </div>
       ))}
@@ -147,7 +147,7 @@ function CopyButton({ text }: { text: string }) {
   return (
     <button
       onClick={() => { navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
-      className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded bg-vc-raised border border-vc-border text-vc-muted hover:text-vc-text transition-colors"
+      className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded bg-background-200 border border-neutral-200 text-foreground-500 hover:text-foreground transition-colors"
     >
       {copied ? <Check size={12} className="text-green-500" /> : <Copy size={12} />}
       {copied ? "Copied!" : "Copy"}
@@ -545,12 +545,12 @@ export default function CreateAgentPage() {
       <div className="flex items-center gap-3 mb-6">
         <button
           onClick={() => router.push("/agents")}
-          className="text-sm text-vc-muted hover:text-vc-text transition-colors"
+          className="text-sm text-foreground-500 hover:text-foreground transition-colors"
         >
           ← Agents
         </button>
-        <span className="text-vc-border">/</span>
-        <h1 className="text-sm font-semibold text-vc-text">New agent</h1>
+        <span className="text-neutral-200">/</span>
+        <h1 className="text-sm font-semibold text-foreground">New agent</h1>
       </div>
 
       <StepBar current={step} />
@@ -559,15 +559,15 @@ export default function CreateAgentPage() {
       {step === "launch" && (
         <div className="space-y-6">
           <div>
-            <h2 className="text-lg font-semibold text-vc-text mb-1">Launch an agent</h2>
-            <p className="text-sm text-vc-muted">
-              An agent runs locally using the <code className="text-xs bg-vc-raised border border-vc-border px-1 py-0.5 rounded">agent-controller</code> CLI. It connects to this control plane over WebSocket and waits for admin approval.
+            <h2 className="text-lg font-semibold text-foreground mb-1">Launch an agent</h2>
+            <p className="text-sm text-foreground-500">
+              An agent runs locally using the <code className="text-xs bg-background-200 border border-neutral-200 px-1 py-0.5 rounded">agent-controller</code> CLI. It connects to this control plane over WebSocket and waits for admin approval.
             </p>
           </div>
 
           {/* Connection method selector */}
           <div className="space-y-3">
-            <label className="text-xs font-medium text-vc-muted uppercase tracking-wide">Connection method</label>
+            <label className="text-xs font-medium text-foreground-500 uppercase tracking-wide">Connection method</label>
             <div className="grid grid-cols-2 gap-3">
               <button
                 type="button"
@@ -575,17 +575,17 @@ export default function CreateAgentPage() {
                 className={`flex flex-col items-start gap-1.5 px-4 py-3 rounded-xl border text-left transition-colors ${
                   connMethod === "ws"
                     ? "bg-sky-50 dark:bg-sky-500/10 border-sky-400 dark:border-sky-500/50"
-                    : "bg-vc-surface border-vc-border hover:bg-vc-raised"
+                    : "bg-background-100 border-neutral-200 hover:bg-background-200"
                 }`}
               >
                 <span className="flex items-center gap-2">
-                  <Wifi size={15} className={connMethod === "ws" ? "text-sky-600 dark:text-sky-400" : "text-vc-muted"} />
-                  <span className={`text-sm font-medium ${connMethod === "ws" ? "text-sky-700 dark:text-sky-300" : "text-vc-text"}`}>
+                  <Wifi size={15} className={connMethod === "ws" ? "text-sky-600 dark:text-sky-400" : "text-foreground-500"} />
+                  <span className={`text-sm font-medium ${connMethod === "ws" ? "text-sky-700 dark:text-sky-300" : "text-foreground"}`}>
                     WebSocket
                   </span>
                   {connMethod === "ws" && <Check size={13} className="ml-auto text-sky-500" />}
                 </span>
-                <span className="text-xs text-vc-muted">Direct TCP, works everywhere. Default.</span>
+                <span className="text-xs text-foreground-500">Direct TCP, works everywhere. Default.</span>
               </button>
               <button
                 type="button"
@@ -593,28 +593,28 @@ export default function CreateAgentPage() {
                 className={`flex flex-col items-start gap-1.5 px-4 py-3 rounded-xl border text-left transition-colors ${
                   connMethod === "peerjs"
                     ? "bg-violet-50 dark:bg-violet-500/10 border-violet-400 dark:border-violet-500/50"
-                    : "bg-vc-surface border-vc-border hover:bg-vc-raised"
+                    : "bg-background-100 border-neutral-200 hover:bg-background-200"
                 }`}
               >
                 <span className="flex items-center gap-2">
-                  <Radio size={15} className={connMethod === "peerjs" ? "text-violet-600 dark:text-violet-400" : "text-vc-muted"} />
-                  <span className={`text-sm font-medium ${connMethod === "peerjs" ? "text-violet-700 dark:text-violet-300" : "text-vc-text"}`}>
+                  <Radio size={15} className={connMethod === "peerjs" ? "text-violet-600 dark:text-violet-400" : "text-foreground-500"} />
+                  <span className={`text-sm font-medium ${connMethod === "peerjs" ? "text-violet-700 dark:text-violet-300" : "text-foreground"}`}>
                     WebRTC / PeerJS
                   </span>
                   {connMethod === "peerjs" && <Check size={13} className="ml-auto text-violet-500" />}
                 </span>
-                <span className="text-xs text-vc-muted">P2P via WebRTC — NAT-friendly, no port forwarding.</span>
+                <span className="text-xs text-foreground-500">P2P via WebRTC — NAT-friendly, no port forwarding.</span>
               </button>
             </div>
 
             {/* WebSocket URL input */}
             {connMethod === "ws" && (
               <div className="space-y-1.5">
-                <label className="text-xs font-medium text-vc-muted uppercase tracking-wide">WebSocket URL</label>
+                <label className="text-xs font-medium text-foreground-500 uppercase tracking-wide">WebSocket URL</label>
                 <input
                   value={wsUrl}
                   onChange={(e) => setWsUrl(e.target.value)}
-                  className="w-full px-3 py-2 bg-vc-surface border border-vc-border rounded-lg text-sm font-mono text-vc-text focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full px-3 py-2 bg-background-100 border border-neutral-200 rounded-lg text-sm font-mono text-foreground focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
             )}
@@ -624,9 +624,9 @@ export default function CreateAgentPage() {
               <div className="space-y-2">
                 {peerjsId ? (
                   <div className="space-y-1.5">
-                    <label className="text-xs font-medium text-vc-muted uppercase tracking-wide">Control plane peer ID</label>
+                    <label className="text-xs font-medium text-foreground-500 uppercase tracking-wide">Control plane peer ID</label>
                     <div className="flex items-center gap-2">
-                      <code className="flex-1 px-3 py-2 bg-vc-bg border border-vc-border rounded-lg text-xs font-mono text-vc-text-2 break-all">
+                      <code className="flex-1 px-3 py-2 bg-background border border-neutral-200 rounded-lg text-xs font-mono text-foreground-700 break-all">
                         {peerjsId}
                       </code>
                       <CopyButton text={peerjsId} />
@@ -639,13 +639,13 @@ export default function CreateAgentPage() {
                       </div>
                     )}
                     {peerjsServerUrl && (
-                      <p className="text-xs text-vc-subtle">
+                      <p className="text-xs text-foreground-400">
                         Using custom signaling server: <code className="font-mono">{peerjsServerUrl}</code>
                       </p>
                     )}
                   </div>
                 ) : (
-                  <div className="flex items-center gap-2 bg-vc-raised border border-vc-border rounded-lg px-3 py-2 text-xs text-vc-muted">
+                  <div className="flex items-center gap-2 bg-background-200 border border-neutral-200 rounded-lg px-3 py-2 text-xs text-foreground-500">
                     <Loader2 size={12} className="animate-spin shrink-0" />
                     Loading peer ID…
                   </div>
@@ -656,7 +656,7 @@ export default function CreateAgentPage() {
 
           {/* Agent name (required) */}
           <div className="space-y-1.5">
-            <label className="text-xs font-medium text-vc-muted uppercase tracking-wide">
+            <label className="text-xs font-medium text-foreground-500 uppercase tracking-wide">
               Agent name <span className="text-red-500">*</span>
             </label>
             <input
@@ -664,19 +664,19 @@ export default function CreateAgentPage() {
               onChange={(e) => setAgentName(e.target.value)}
               placeholder="e.g. researcher"
               className={cn(
-                "w-full px-3 py-2 bg-vc-surface border rounded-lg text-sm text-vc-text focus:outline-none focus:ring-2 focus:ring-indigo-500",
-                agentName.trim() ? "border-vc-border" : "border-amber-400 dark:border-amber-500/60",
+                "w-full px-3 py-2 bg-background-100 border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-indigo-500",
+                agentName.trim() ? "border-neutral-200" : "border-amber-400 dark:border-amber-500/60",
               )}
             />
-            <p className="text-xs text-vc-subtle">
-              All agent data is stored in <code className="font-mono bg-vc-raised px-1 rounded">.vaultys/{agentName.trim() || "<name>"}/</code>
+            <p className="text-xs text-foreground-400">
+              All agent data is stored in <code className="font-mono bg-background-200 px-1 rounded">.vaultys/{agentName.trim() || "<name>"}/</code>
             </p>
           </div>
 
           {/* Realm selector (cosmetic — tells admin which realm to assign during approval) */}
           {realms.length > 0 && (
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-vc-muted uppercase tracking-wide">
+              <label className="text-xs font-medium text-foreground-500 uppercase tracking-wide">
                 Target realm <span className="normal-case font-normal">(assigned during approval)</span>
               </label>
               <select
@@ -685,7 +685,7 @@ export default function CreateAgentPage() {
                   setSelectedLaunchRealm(e.target.value);
                   if (e.target.value) setSelectedRealms(new Set([e.target.value]));
                 }}
-                className="w-full px-3 py-2 bg-vc-surface border border-vc-border rounded-lg text-sm text-vc-text focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full px-3 py-2 bg-background-100 border border-neutral-200 rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-indigo-500"
               >
                 <option value="">No preference</option>
                 {realms.map((r) => (
@@ -695,7 +695,7 @@ export default function CreateAgentPage() {
                 ))}
               </select>
               {realmNote && (
-                <p className="text-xs text-vc-subtle">The agent will be enrolled in <strong>{realmNote}</strong> during the approval step.</p>
+                <p className="text-xs text-foreground-400">The agent will be enrolled in <strong>{realmNote}</strong> during the approval step.</p>
               )}
             </div>
           )}
@@ -703,11 +703,11 @@ export default function CreateAgentPage() {
           {/* Package runner selector + CLI command */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <label className="text-xs font-medium text-vc-muted uppercase tracking-wide flex items-center gap-1.5">
+              <label className="text-xs font-medium text-foreground-500 uppercase tracking-wide flex items-center gap-1.5">
                 <Terminal size={12} /> CLI command
               </label>
               <div className="flex items-center gap-2">
-                <div className="flex rounded-lg border border-vc-border overflow-hidden text-xs">
+                <div className="flex rounded-lg border border-neutral-200 overflow-hidden text-xs">
                   {PKG_RUNNERS.map((r) => (
                     <button
                       key={r.id}
@@ -716,7 +716,7 @@ export default function CreateAgentPage() {
                         "px-2.5 py-1 font-mono transition-colors",
                         pkgRunner === r.id
                           ? "bg-indigo-600 text-white"
-                          : "bg-vc-surface text-vc-muted hover:bg-vc-raised",
+                          : "bg-background-100 text-foreground-500 hover:bg-background-200",
                       )}
                     >
                       {r.label}
@@ -726,7 +726,7 @@ export default function CreateAgentPage() {
                 <CopyButton text={cliCommand} />
               </div>
             </div>
-            <pre className="bg-vc-bg border border-vc-border rounded-xl p-4 text-sm font-mono text-vc-text-2 overflow-x-auto whitespace-pre-wrap leading-relaxed">
+            <pre className="bg-background border border-neutral-200 rounded-xl p-4 text-sm font-mono text-foreground-700 overflow-x-auto whitespace-pre-wrap leading-relaxed">
               {cliCommand}
             </pre>
           </div>
@@ -772,14 +772,14 @@ export default function CreateAgentPage() {
         <div className="space-y-6">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-lg font-semibold text-vc-text mb-1">Waiting for agent connection</h2>
-              <p className="text-sm text-vc-muted">Listening for incoming registration requests in real time.</p>
+              <h2 className="text-lg font-semibold text-foreground mb-1">Waiting for agent connection</h2>
+              <p className="text-sm text-foreground-500">Listening for incoming registration requests in real time.</p>
             </div>
             <span className={cn(
               "flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full border",
               wsConnected
                 ? "bg-green-100 dark:bg-green-900/40 border-green-300 dark:border-green-700/50 text-green-700 dark:text-green-400"
-                : "bg-vc-raised border-vc-border text-vc-subtle",
+                : "bg-background-200 border-neutral-200 text-foreground-400",
             )}>
               {wsConnected ? <Wifi size={11} /> : <WifiOff size={11} />}
               {wsConnected ? "Live" : "Connecting…"}
@@ -793,8 +793,8 @@ export default function CreateAgentPage() {
                   <Bot size={18} className="text-green-600 dark:text-green-400" />
                 </div>
                 <div>
-                  <p className="text-sm font-semibold text-vc-text">Agent connected!</p>
-                  <p className="text-xs text-vc-muted">
+                  <p className="text-sm font-semibold text-foreground">Agent connected!</p>
+                  <p className="text-xs text-foreground-500">
                     <span className="font-medium text-green-700 dark:text-green-400">{pendingReg.agent_name}</span>
                     {" "}is waiting for approval
                   </p>
@@ -808,7 +808,7 @@ export default function CreateAgentPage() {
               </button>
             </div>
           ) : (
-            <div className="bg-vc-surface border border-vc-border rounded-xl p-8 flex flex-col items-center gap-4">
+            <div className="bg-background-100 border border-neutral-200 rounded-xl p-8 flex flex-col items-center gap-4">
               <div className="relative">
                 <div className="w-16 h-16 rounded-full border-2 border-indigo-300 dark:border-indigo-600 flex items-center justify-center">
                   <Bot size={28} className="text-indigo-400" />
@@ -818,9 +818,9 @@ export default function CreateAgentPage() {
                   <span className="relative inline-flex rounded-full h-4 w-4 bg-indigo-500" />
                 </span>
               </div>
-              <p className="text-sm text-vc-muted text-center">
+              <p className="text-sm text-foreground-500 text-center">
                 Waiting for an agent to call home…<br />
-                <span className="text-xs text-vc-subtle">Make sure the CLI is running and points to the correct WebSocket URL.</span>
+                <span className="text-xs text-foreground-400">Make sure the CLI is running and points to the correct WebSocket URL.</span>
               </p>
             </div>
           )}
@@ -828,7 +828,7 @@ export default function CreateAgentPage() {
           {/* Show all pending registrations if more than one */}
           {waitingRegs.length > 1 && (
             <div className="space-y-2">
-              <p className="text-xs text-vc-muted uppercase tracking-wide font-medium">All pending registrations</p>
+              <p className="text-xs text-foreground-500 uppercase tracking-wide font-medium">All pending registrations</p>
               {waitingRegs.map((r) => (
                 <button
                   key={r.id}
@@ -844,15 +844,15 @@ export default function CreateAgentPage() {
                   className={cn(
                     "w-full flex items-center justify-between px-4 py-3 rounded-lg border text-sm transition-colors text-left",
                     pendingReg?.id === r.id
-                      ? "bg-indigo-50 dark:bg-indigo-600/15 border-indigo-300 dark:border-indigo-500/40 text-vc-text"
-                      : "bg-vc-surface border-vc-border hover:bg-vc-raised text-vc-text",
+                      ? "bg-indigo-50 dark:bg-indigo-600/15 border-indigo-300 dark:border-indigo-500/40 text-foreground"
+                      : "bg-background-100 border-neutral-200 hover:bg-background-200 text-foreground",
                   )}
                 >
                   <span className="flex items-center gap-2">
-                    <Bot size={14} className="text-vc-muted" />
+                    <Bot size={14} className="text-foreground-500" />
                     {r.agent_name}
                   </span>
-                  <span className="text-xs text-vc-muted">{timeAgo(r.created_at)}</span>
+                  <span className="text-xs text-foreground-500">{timeAgo(r.created_at)}</span>
                 </button>
               ))}
             </div>
@@ -860,7 +860,7 @@ export default function CreateAgentPage() {
 
           <button
             onClick={() => { setStep("launch"); setWaitingRegs([]); }}
-            className="text-sm text-vc-muted hover:text-vc-text transition-colors"
+            className="text-sm text-foreground-500 hover:text-foreground transition-colors"
           >
             ← Back to instructions
           </button>
@@ -871,27 +871,27 @@ export default function CreateAgentPage() {
       {step === "approve" && pendingReg && (
         <div className="space-y-6">
           <div>
-            <h2 className="text-lg font-semibold text-vc-text mb-1">Approve agent</h2>
-            <p className="text-sm text-vc-muted">
+            <h2 className="text-lg font-semibold text-foreground mb-1">Approve agent</h2>
+            <p className="text-sm text-foreground-500">
               Assign capabilities and enroll in a realm.
               The agent will receive these permissions immediately upon approval.
             </p>
           </div>
 
           {/* Agent identity card */}
-          <div className="bg-vc-surface border border-vc-border rounded-xl p-4 flex items-center gap-3">
+          <div className="bg-background-100 border border-neutral-200 rounded-xl p-4 flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-indigo-100 dark:bg-indigo-600/20 border border-indigo-300 dark:border-indigo-500/30 flex items-center justify-center shrink-0">
               <Bot size={18} className="text-indigo-600 dark:text-indigo-400" />
             </div>
             <div>
-              <p className="text-sm font-semibold text-vc-text">{pendingReg.agent_name}</p>
-              <p className="text-xs text-vc-muted">Registration ID: <code className="font-mono">{pendingReg.id.slice(0, 12)}…</code></p>
+              <p className="text-sm font-semibold text-foreground">{pendingReg.agent_name}</p>
+              <p className="text-xs text-foreground-500">Registration ID: <code className="font-mono">{pendingReg.id.slice(0, 12)}…</code></p>
             </div>
           </div>
 
           {/* Capabilities */}
           <div className="space-y-3">
-            <p className="text-xs font-medium text-vc-muted uppercase tracking-wide">Capabilities</p>
+            <p className="text-xs font-medium text-foreground-500 uppercase tracking-wide">Capabilities</p>
             <div className="flex flex-wrap gap-2">
               {ALL_CAPABILITIES.map((cap) => {
                 const checked = selectedCaps.has(cap.id);
@@ -906,7 +906,7 @@ export default function CreateAgentPage() {
                     })}
                     className={`px-3 py-1.5 rounded-md text-sm border transition-colors flex items-center gap-1.5 ${checked
                       ? "bg-indigo-100 dark:bg-indigo-900/40 border-indigo-500 text-indigo-700 dark:text-indigo-300"
-                      : "bg-vc-surface border-vc-ring text-vc-muted hover:border-vc-muted"}`}
+                      : "bg-background-100 border-neutral-300 text-foreground-500 hover:border-foreground-500"}`}
                   >
                     {CAPABILITY_ICONS[cap.id] ?? <Zap size={13} />}
                     {cap.label}
@@ -923,38 +923,38 @@ export default function CreateAgentPage() {
 
           {/* Resource Limits */}
           <div className="space-y-3">
-            <p className="text-xs font-medium text-vc-muted uppercase tracking-wide">Resource Limits <span className="normal-case text-vc-subtle">(optional)</span></p>
+            <p className="text-xs font-medium text-foreground-500 uppercase tracking-wide">Resource Limits <span className="normal-case text-foreground-400">(optional)</span></p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <label className="space-y-1">
-                <span className="text-xs text-vc-muted">Max tokens / day</span>
+                <span className="text-xs text-foreground-500">Max tokens / day</span>
                 <input
                   type="number"
                   min={0}
                   placeholder="e.g. 50000"
                   value={policyMaxTokensPerDay}
                   onChange={(e) => setPolicyMaxTokensPerDay(e.target.value)}
-                  className="w-full bg-vc-surface border border-vc-ring rounded-md px-3 py-1.5 text-sm text-vc-text placeholder:text-vc-subtle focus:outline-none focus:border-indigo-500"
+                  className="w-full bg-background-100 border border-neutral-300 rounded-md px-3 py-1.5 text-sm text-foreground placeholder:text-foreground-400 focus:outline-none focus:border-indigo-500"
                 />
               </label>
               <label className="space-y-1">
-                <span className="text-xs text-vc-muted">Max requests / hour</span>
+                <span className="text-xs text-foreground-500">Max requests / hour</span>
                 <input
                   type="number"
                   min={0}
                   placeholder="e.g. 60"
                   value={policyMaxRequestsPerHour}
                   onChange={(e) => setPolicyMaxRequestsPerHour(e.target.value)}
-                  className="w-full bg-vc-surface border border-vc-ring rounded-md px-3 py-1.5 text-sm text-vc-text placeholder:text-vc-subtle focus:outline-none focus:border-indigo-500"
+                  className="w-full bg-background-100 border border-neutral-300 rounded-md px-3 py-1.5 text-sm text-foreground placeholder:text-foreground-400 focus:outline-none focus:border-indigo-500"
                 />
               </label>
               <label className="space-y-1 sm:col-span-2">
-                <span className="text-xs text-vc-muted">Allowed domains <span className="text-vc-subtle">(comma-separated)</span></span>
+                <span className="text-xs text-foreground-500">Allowed domains <span className="text-foreground-400">(comma-separated)</span></span>
                 <input
                   type="text"
                   placeholder="e.g. api.openai.com, example.com"
                   value={policyAllowedDomains}
                   onChange={(e) => setPolicyAllowedDomains(e.target.value)}
-                  className="w-full bg-vc-surface border border-vc-ring rounded-md px-3 py-1.5 text-sm text-vc-text placeholder:text-vc-subtle focus:outline-none focus:border-indigo-500"
+                  className="w-full bg-background-100 border border-neutral-300 rounded-md px-3 py-1.5 text-sm text-foreground placeholder:text-foreground-400 focus:outline-none focus:border-indigo-500"
                 />
               </label>
             </div>
@@ -962,19 +962,19 @@ export default function CreateAgentPage() {
 
           {/* Policy Expiry */}
           <label className="block space-y-1">
-            <span className="text-xs font-medium text-vc-muted uppercase">Policy Expiry <span className="normal-case text-vc-subtle">(optional)</span></span>
+            <span className="text-xs font-medium text-foreground-500 uppercase">Policy Expiry <span className="normal-case text-foreground-400">(optional)</span></span>
             <input
               type="datetime-local"
               value={policyExpiresAt}
               onChange={(e) => setPolicyExpiresAt(e.target.value)}
-              className="w-full bg-vc-surface border border-vc-ring rounded-md px-3 py-1.5 text-sm text-vc-text focus:outline-none focus:border-indigo-500"
+              className="w-full bg-background-100 border border-neutral-300 rounded-md px-3 py-1.5 text-sm text-foreground focus:outline-none focus:border-indigo-500"
             />
           </label>
 
           {/* Realm assignment */}
           {realms.length > 0 && (
             <div className="space-y-3">
-              <p className="text-xs font-medium text-vc-muted uppercase tracking-wide">Realms</p>
+              <p className="text-xs font-medium text-foreground-500 uppercase tracking-wide">Realms</p>
               <div className="space-y-1.5">
                 {realms.map((r) => {
                   const checked = selectedRealms.has(r.id);
@@ -989,17 +989,17 @@ export default function CreateAgentPage() {
                       className={cn(
                         "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg border text-sm text-left transition-colors",
                         checked
-                          ? "bg-vc-surface border-indigo-300 dark:border-indigo-500/40"
-                          : "bg-vc-surface border-vc-border hover:bg-vc-raised",
+                          ? "bg-background-100 border-indigo-300 dark:border-indigo-500/40"
+                          : "bg-background-100 border-neutral-200 hover:bg-background-200",
                       )}
                     >
                       <span
                         className="w-3 h-3 rounded-full shrink-0"
                         style={{ background: r.color }}
                       />
-                      <span className={checked ? "text-vc-text" : "text-vc-muted"}>
+                      <span className={checked ? "text-foreground" : "text-foreground-500"}>
                         {r.name}
-                        {r.is_default ? <span className="ml-1.5 text-xs text-vc-subtle">(default)</span> : null}
+                        {r.is_default ? <span className="ml-1.5 text-xs text-foreground-400">(default)</span> : null}
                       </span>
                       {checked && <Check size={12} className="ml-auto text-indigo-500" />}
                     </button>
@@ -1019,7 +1019,7 @@ export default function CreateAgentPage() {
           <div className="flex items-center justify-between">
             <button
               onClick={() => setStep("waiting")}
-              className="text-sm text-vc-muted hover:text-vc-text transition-colors"
+              className="text-sm text-foreground-500 hover:text-foreground transition-colors"
             >
               ← Back
             </button>
@@ -1049,15 +1049,15 @@ export default function CreateAgentPage() {
       {step === "model" && (
         <div className="space-y-6">
           <div>
-            <h2 className="text-lg font-semibold text-vc-text mb-1">Choose a model</h2>
-            <p className="text-sm text-vc-muted">
+            <h2 className="text-lg font-semibold text-foreground mb-1">Choose a model</h2>
+            <p className="text-sm text-foreground-500">
               Select the LLM this agent will use. You can change this later from the agent&apos;s config tab.
             </p>
           </div>
 
           {models.length === 0 ? (
-            <div className="bg-vc-surface border border-vc-border rounded-xl p-6 text-center text-sm text-vc-muted">
-              <Cpu size={20} className="mx-auto mb-2 text-vc-subtle" />
+            <div className="bg-background-100 border border-neutral-200 rounded-xl p-6 text-center text-sm text-foreground-500">
+              <Cpu size={20} className="mx-auto mb-2 text-foreground-400" />
               No models registered yet. You can configure one later from the Model Registry.
             </div>
           ) : (
@@ -1070,13 +1070,13 @@ export default function CreateAgentPage() {
                     "w-full flex items-center gap-3 px-4 py-3 rounded-lg border text-sm text-left transition-colors",
                     selectedModel === m.id
                       ? "bg-indigo-50 dark:bg-indigo-600/15 border-indigo-300 dark:border-indigo-500/40"
-                      : "bg-vc-surface border-vc-border hover:bg-vc-raised",
+                      : "bg-background-100 border-neutral-200 hover:bg-background-200",
                   )}
                 >
-                  <Cpu size={16} className={selectedModel === m.id ? "text-indigo-500" : "text-vc-muted"} />
+                  <Cpu size={16} className={selectedModel === m.id ? "text-indigo-500" : "text-foreground-500"} />
                   <div className="flex-1 min-w-0">
-                    <p className="font-medium text-vc-text truncate">{m.name}</p>
-                    <p className="text-xs text-vc-muted truncate">{m.provider} · {m.modelId}</p>
+                    <p className="font-medium text-foreground truncate">{m.name}</p>
+                    <p className="text-xs text-foreground-500 truncate">{m.provider} · {m.modelId}</p>
                   </div>
                   {selectedModel === m.id && <Check size={14} className="text-indigo-500 shrink-0" />}
                 </button>
@@ -1093,7 +1093,7 @@ export default function CreateAgentPage() {
           <div className="flex items-center justify-between">
             <button
               onClick={() => setStep("skills")}
-              className="text-sm text-vc-muted hover:text-vc-text transition-colors"
+              className="text-sm text-foreground-500 hover:text-foreground transition-colors"
             >
               Skip for now
             </button>
@@ -1113,23 +1113,23 @@ export default function CreateAgentPage() {
       {step === "skills" && (
         <div className="space-y-6">
           <div>
-            <h2 className="text-lg font-semibold text-vc-text mb-1">Configure skills</h2>
-            <p className="text-sm text-vc-muted">
+            <h2 className="text-lg font-semibold text-foreground mb-1">Configure skills</h2>
+            <p className="text-sm text-foreground-500">
               Skills are realm-level capabilities injected into the agent. Required skills cannot be disabled.
             </p>
           </div>
 
           {skills.length === 0 ? (
-            <div className="bg-vc-surface border border-vc-border rounded-xl p-6 text-center text-sm text-vc-muted">
-              <Zap size={20} className="mx-auto mb-2 text-vc-subtle" />
+            <div className="bg-background-100 border border-neutral-200 rounded-xl p-6 text-center text-sm text-foreground-500">
+              <Zap size={20} className="mx-auto mb-2 text-foreground-400" />
               No skills configured for this realm yet.
             </div>
           ) : (
-            <div className="bg-vc-surface border border-vc-border rounded-xl divide-y divide-vc-border overflow-hidden">
+            <div className="bg-background-100 border border-neutral-200 rounded-xl divide-y divide-neutral-200 overflow-hidden">
               {skills.map((skill) => (
                 <div key={skill.name} className="flex items-center justify-between px-4 py-3">
                   <div className="space-y-0.5">
-                    <p className="text-sm font-medium text-vc-text">{skill.name}</p>
+                    <p className="text-sm font-medium text-foreground">{skill.name}</p>
                     {skill.isRequired && (
                       <span className="text-[10px] bg-amber-100 dark:bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-300 dark:border-amber-500/30 px-1.5 py-0.5 rounded font-medium">
                         Required
@@ -1142,7 +1142,7 @@ export default function CreateAgentPage() {
                     className={cn(
                       "transition-colors",
                       skill.isRequired ? "opacity-40 cursor-not-allowed" : "hover:opacity-80",
-                      skill.enabled ? "text-indigo-500" : "text-vc-border",
+                      skill.enabled ? "text-indigo-500" : "text-neutral-200",
                     )}
                     title={skill.isRequired ? "Cannot disable required skill" : (skill.enabled ? "Disable" : "Enable")}
                   >
@@ -1158,7 +1158,7 @@ export default function CreateAgentPage() {
           <div className="flex items-center justify-between">
             <button
               onClick={() => setStep("verify")}
-              className="text-sm text-vc-muted hover:text-vc-text transition-colors"
+              className="text-sm text-foreground-500 hover:text-foreground transition-colors"
             >
               Skip for now
             </button>
@@ -1176,23 +1176,23 @@ export default function CreateAgentPage() {
       {step === "verify" && (
         <div className="space-y-6">
           <div>
-            <h2 className="text-lg font-semibold text-vc-text mb-1">Verify agent setup</h2>
-            <p className="text-sm text-vc-muted">
+            <h2 className="text-lg font-semibold text-foreground mb-1">Verify agent setup</h2>
+            <p className="text-sm text-foreground-500">
               Sending a test prompt to confirm the agent is online and reports its tools correctly.
             </p>
           </div>
 
           {/* Prompt sent */}
-          <div className="bg-vc-raised border border-vc-border rounded-xl px-4 py-3 flex items-start gap-3">
-            <MessageSquare size={14} className="text-vc-muted shrink-0 mt-0.5" />
-            <p className="text-sm text-vc-text italic">&ldquo;List all the tools and skills you currently have access to.&rdquo;</p>
+          <div className="bg-background-200 border border-neutral-200 rounded-xl px-4 py-3 flex items-start gap-3">
+            <MessageSquare size={14} className="text-foreground-500 shrink-0 mt-0.5" />
+            <p className="text-sm text-foreground italic">&ldquo;List all the tools and skills you currently have access to.&rdquo;</p>
           </div>
 
           {/* Response area */}
-          <div className="bg-vc-surface border border-vc-border rounded-xl overflow-hidden">
-            <div className="flex items-center gap-2 px-4 py-2.5 border-b border-vc-border bg-vc-raised">
+          <div className="bg-background-100 border border-neutral-200 rounded-xl overflow-hidden">
+            <div className="flex items-center gap-2 px-4 py-2.5 border-b border-neutral-200 bg-background-200">
               <Bot size={14} className="text-indigo-400" />
-              <span className="text-xs font-medium text-vc-muted">Agent response</span>
+              <span className="text-xs font-medium text-foreground-500">Agent response</span>
               {!verifyDone && !verifyError && (
                 <Loader2 size={12} className="animate-spin text-indigo-400 ml-auto" />
               )}
@@ -1211,9 +1211,9 @@ export default function CreateAgentPage() {
             ) : (
               <pre
                 ref={verifyRef}
-                className="p-4 text-sm font-mono text-vc-text whitespace-pre-wrap break-words leading-relaxed max-h-72 overflow-y-auto"
+                className="p-4 text-sm font-mono text-foreground whitespace-pre-wrap break-words leading-relaxed max-h-72 overflow-y-auto"
               >
-                {verifyText || <span className="text-vc-subtle animate-pulse">Waiting for response…</span>}
+                {verifyText || <span className="text-foreground-400 animate-pulse">Waiting for response…</span>}
               </pre>
             )}
           </div>
@@ -1234,7 +1234,7 @@ export default function CreateAgentPage() {
                 setVerifyDone(false);
                 setVerifyError(null);
               }}
-              className="text-sm text-vc-muted hover:text-vc-text transition-colors"
+              className="text-sm text-foreground-500 hover:text-foreground transition-colors"
             >
               Retry
             </button>

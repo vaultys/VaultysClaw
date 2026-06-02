@@ -74,7 +74,7 @@ function TabBar({ active, onChange }: { active: TabId; onChange: (id: TabId) => 
     { id: "realms", label: "Realms", icon: <Users size={15} /> },
   ];
   return (
-    <div className="flex gap-1 border-b border-vc-border px-1 bg-vc-surface rounded-t-xl overflow-x-auto">
+    <div className="flex gap-1 border-b border-neutral-200 px-1 bg-background-100 rounded-t-xl overflow-x-auto">
       {tabs.map((tab) => (
         <button
           key={tab.id}
@@ -82,7 +82,7 @@ function TabBar({ active, onChange }: { active: TabId; onChange: (id: TabId) => 
           className={`flex items-center gap-2 px-4 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
             active === tab.id
               ? "border-indigo-500 text-indigo-500 dark:text-indigo-400"
-              : "border-transparent text-vc-muted hover:text-vc-text hover:border-vc-ring"
+              : "border-transparent text-foreground-500 hover:text-foreground hover:border-neutral-300"
           }`}
         >
           {tab.icon}
@@ -110,17 +110,17 @@ function QrModal({
 }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-      <div className="bg-vc-surface border border-vc-border rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-4">
+      <div className="bg-background-100 border border-neutral-200 rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-4">
         <div className="flex items-start justify-between">
           <div>
-            <h3 className="font-semibold text-vc-text">Claim Account</h3>
-            <p className="text-xs text-vc-muted mt-0.5">
+            <h3 className="font-semibold text-foreground">Claim Account</h3>
+            <p className="text-xs text-foreground-500 mt-0.5">
               {user.name ?? user.email ?? "Unknown user"}
             </p>
           </div>
           <button
             onClick={onClose}
-            className="p-1 rounded-lg text-vc-muted hover:text-vc-text hover:bg-vc-raised transition-colors"
+            className="p-1 rounded-lg text-foreground-500 hover:text-foreground hover:bg-background-200 transition-colors"
           >
             <X className="w-4 h-4" />
           </button>
@@ -128,13 +128,13 @@ function QrModal({
 
         {phase === "showing" && (
           <>
-            <p className="text-xs text-vc-muted text-center">
+            <p className="text-xs text-foreground-500 text-center">
               Scan this QR code with the Vaultys wallet to activate the account.
             </p>
             <div className="flex justify-center p-4 bg-white rounded-xl">
               <QRCodeSVG value={qrUrl} size={200} />
             </div>
-            <div className="flex items-center gap-2 text-xs text-vc-subtle">
+            <div className="flex items-center gap-2 text-xs text-foreground-400">
               <Loader2 className="w-3 h-3 animate-spin shrink-0" />
               Waiting for wallet scan…
             </div>
@@ -144,7 +144,7 @@ function QrModal({
         {phase === "success" && (
           <div className="flex flex-col items-center gap-3 py-4">
             <CheckCircle className="w-12 h-12 text-green-500" />
-            <p className="text-sm font-medium text-vc-text">Account claimed successfully!</p>
+            <p className="text-sm font-medium text-foreground">Account claimed successfully!</p>
             <button
               onClick={onClose}
               className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-sm font-medium transition-colors"
@@ -157,7 +157,7 @@ function QrModal({
         {phase === "failure" && (
           <div className="flex flex-col items-center gap-3 py-4">
             <XCircle className="w-12 h-12 text-red-500" />
-            <p className="text-sm font-medium text-vc-text">QR code expired or failed.</p>
+            <p className="text-sm font-medium text-foreground">QR code expired or failed.</p>
             <button
               onClick={onRetry}
               className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-sm font-medium transition-colors"
@@ -289,13 +289,13 @@ export default function UnregisteredUserPage() {
   if (notFound) {
     return (
       <div className="p-6 max-w-7xl mx-auto">
-        <button onClick={() => router.push("/users")} className="flex items-center gap-1.5 text-vc-muted hover:text-vc-text text-sm mb-6 transition-colors">
+        <button onClick={() => router.push("/users")} className="flex items-center gap-1.5 text-foreground-500 hover:text-foreground text-sm mb-6 transition-colors">
           <ChevronLeft className="w-4 h-4" /> Back to Users
         </button>
         <div className="flex flex-col items-center py-16 text-center">
-          <AlertCircle className="w-10 h-10 text-vc-ring mb-3" />
-          <p className="text-vc-text font-medium">User not found or already claimed</p>
-          <p className="text-vc-muted text-sm mt-1">They may have claimed their account or been removed.</p>
+          <AlertCircle className="w-10 h-10 text-neutral-300 mb-3" />
+          <p className="text-foreground font-medium">User not found or already claimed</p>
+          <p className="text-foreground-500 text-sm mt-1">They may have claimed their account or been removed.</p>
           <button onClick={() => router.push("/users")} className="mt-4 text-indigo-500 text-sm hover:underline">
             Back to Users
           </button>
@@ -312,22 +312,22 @@ export default function UnregisteredUserPage() {
       <div className="mb-4">
         <button
           onClick={() => router.push("/users")}
-          className="inline-flex items-center gap-1.5 text-sm text-vc-muted hover:text-vc-text mb-3 transition-colors"
+          className="inline-flex items-center gap-1.5 text-sm text-foreground-500 hover:text-foreground mb-3 transition-colors"
         >
           <ChevronLeft size={15} />
           Back to Users
         </button>
 
         {/* Header card */}
-        <div className="bg-vc-surface border border-vc-border rounded-xl px-5 py-4 flex items-center gap-4 flex-wrap">
+        <div className="bg-background-100 border border-neutral-200 rounded-xl px-5 py-4 flex items-center gap-4 flex-wrap">
           <div className="flex-shrink-0 w-11 h-11 rounded-full bg-amber-100 dark:bg-amber-900/30 border border-amber-300 dark:border-amber-700/50 flex items-center justify-center">
             <span className="text-base font-bold text-amber-600 dark:text-amber-400">{initials(user)}</span>
           </div>
 
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-3 flex-wrap">
-              <h1 className="text-xl font-bold text-vc-text">
-                {user.name ?? <span className="italic font-normal text-vc-subtle">Unnamed user</span>}
+              <h1 className="text-xl font-bold text-foreground">
+                {user.name ?? <span className="italic font-normal text-foreground-400">Unnamed user</span>}
               </h1>
               <span className="px-2 py-0.5 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border border-amber-300 dark:border-amber-700/50 rounded-full text-xs font-medium">
                 Unclaimed
@@ -339,9 +339,9 @@ export default function UnregisteredUserPage() {
               )}
             </div>
             {user.email && (
-              <p className="text-xs text-vc-muted mt-0.5">{user.email}</p>
+              <p className="text-xs text-foreground-500 mt-0.5">{user.email}</p>
             )}
-            <p className="text-xs text-vc-subtle mt-0.5">
+            <p className="text-xs text-foreground-400 mt-0.5">
               Provisioned {formatDate(user.registeredAt)} · No VaultysID yet
             </p>
           </div>
@@ -360,7 +360,7 @@ export default function UnregisteredUserPage() {
               <button
                 onClick={() => generateQr(true)}
                 disabled={sendingQr}
-                className="flex items-center gap-2 bg-vc-raised hover:bg-vc-ring/20 border border-vc-ring disabled:opacity-50 text-vc-text text-sm font-medium px-4 py-2 rounded-xl transition-colors"
+                className="flex items-center gap-2 bg-background-200 hover:bg-neutral-300/20 border border-neutral-300 disabled:opacity-50 text-foreground text-sm font-medium px-4 py-2 rounded-xl transition-colors"
               >
                 <Send className="w-4 h-4" />
                 Send by email
@@ -371,7 +371,7 @@ export default function UnregisteredUserPage() {
       </div>
 
       {/* Tabbed content */}
-      <div className="border border-vc-border rounded-xl overflow-hidden bg-vc-surface">
+      <div className="border border-neutral-200 rounded-xl overflow-hidden bg-background-100">
         <TabBar active={activeTab} onChange={setActiveTab} />
 
         <div className="p-6">
@@ -449,51 +449,51 @@ function OverviewTab({
   return (
     <div className="space-y-6">
       <section>
-        <h2 className="text-sm font-semibold text-vc-muted uppercase tracking-wider mb-3">Profile</h2>
+        <h2 className="text-sm font-semibold text-foreground-500 uppercase tracking-wider mb-3">Profile</h2>
         <div className="space-y-4">
           <div className="space-y-1">
-            <label className="text-xs font-medium text-vc-muted uppercase tracking-wider">Display name</label>
+            <label className="text-xs font-medium text-foreground-500 uppercase tracking-wider">Display name</label>
             <input
               type="text"
               placeholder="e.g. Alice Martin"
               value={name}
               onChange={(e) => { setName(e.target.value); mark(); }}
               disabled={!isAdmin}
-              className="w-full bg-vc-raised border border-vc-ring text-vc-text text-sm rounded-xl px-4 py-2.5 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 placeholder:text-vc-subtle transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+              className="w-full bg-background-200 border border-neutral-300 text-foreground text-sm rounded-xl px-4 py-2.5 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 placeholder:text-foreground-400 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
             />
           </div>
 
           <div className="space-y-1">
-            <label className="text-xs font-medium text-vc-muted uppercase tracking-wider">Email address</label>
+            <label className="text-xs font-medium text-foreground-500 uppercase tracking-wider">Email address</label>
             <input
               type="email"
               placeholder="e.g. alice@example.com"
               value={email}
               onChange={(e) => { setEmail(e.target.value); mark(); }}
               disabled={!isAdmin}
-              className="w-full bg-vc-raised border border-vc-ring text-vc-text text-sm rounded-xl px-4 py-2.5 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 placeholder:text-vc-subtle transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+              className="w-full bg-background-200 border border-neutral-300 text-foreground text-sm rounded-xl px-4 py-2.5 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 placeholder:text-foreground-400 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
             />
           </div>
 
           <div className="space-y-1">
-            <label className="text-xs font-medium text-vc-muted uppercase tracking-wider">Description</label>
+            <label className="text-xs font-medium text-foreground-500 uppercase tracking-wider">Description</label>
             <textarea
               rows={3}
               placeholder="Short description of this user's responsibilities…"
               value={description}
               onChange={(e) => { setDescription(e.target.value); mark(); }}
               disabled={!isAdmin}
-              className="w-full bg-vc-raised border border-vc-ring text-vc-text text-sm rounded-xl px-4 py-2.5 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 placeholder:text-vc-subtle transition-colors disabled:opacity-60 disabled:cursor-not-allowed resize-y"
+              className="w-full bg-background-200 border border-neutral-300 text-foreground text-sm rounded-xl px-4 py-2.5 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 placeholder:text-foreground-400 transition-colors disabled:opacity-60 disabled:cursor-not-allowed resize-y"
             />
           </div>
 
           <div className="space-y-1">
-            <label className="text-xs font-medium text-vc-muted uppercase tracking-wider">Role</label>
+            <label className="text-xs font-medium text-foreground-500 uppercase tracking-wider">Role</label>
             <select
               value={role}
               onChange={(e) => { setRole(e.target.value); mark(); }}
               disabled={!isAdmin}
-              className="w-full bg-vc-raised border border-vc-ring text-vc-text text-sm rounded-xl px-4 py-2.5 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+              className="w-full bg-background-200 border border-neutral-300 text-foreground text-sm rounded-xl px-4 py-2.5 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
             >
               {ROLE_OPTIONS.map((r) => (
                 <option key={r.value} value={r.value}>{r.label}</option>
@@ -505,21 +505,21 @@ function OverviewTab({
 
       {user.entraId && (
         <section>
-          <h2 className="text-sm font-semibold text-vc-muted uppercase tracking-wider mb-3">Entra Identity</h2>
-          <div className="bg-vc-raised rounded-lg border border-vc-border divide-y divide-vc-border">
+          <h2 className="text-sm font-semibold text-foreground-500 uppercase tracking-wider mb-3">Entra Identity</h2>
+          <div className="bg-background-200 rounded-lg border border-neutral-200 divide-y divide-neutral-200">
             <div className="flex items-start gap-4 px-4 py-3">
-              <div className="w-28 flex-shrink-0 text-xs text-vc-muted uppercase pt-0.5">Object ID</div>
-              <div className="flex-1 text-xs font-mono text-vc-text break-all">{user.entraId}</div>
+              <div className="w-28 flex-shrink-0 text-xs text-foreground-500 uppercase pt-0.5">Object ID</div>
+              <div className="flex-1 text-xs font-mono text-foreground break-all">{user.entraId}</div>
             </div>
             <div className="flex items-start gap-4 px-4 py-3">
-              <div className="w-28 flex-shrink-0 text-xs text-vc-muted uppercase pt-0.5">Status</div>
+              <div className="w-28 flex-shrink-0 text-xs text-foreground-500 uppercase pt-0.5">Status</div>
               <div className="flex-1 text-sm text-amber-600 dark:text-amber-400">
                 Waiting for account claim via QR code
               </div>
             </div>
             <div className="flex items-start gap-4 px-4 py-3">
-              <div className="w-28 flex-shrink-0 text-xs text-vc-muted uppercase pt-0.5">Provisioned</div>
-              <div className="flex-1 text-sm text-vc-text">{formatDate(user.registeredAt)}</div>
+              <div className="w-28 flex-shrink-0 text-xs text-foreground-500 uppercase pt-0.5">Provisioned</div>
+              <div className="flex-1 text-sm text-foreground">{formatDate(user.registeredAt)}</div>
             </div>
           </div>
         </section>
@@ -553,7 +553,7 @@ function OverviewTab({
 function RealmsTab({ realms }: { realms: UserRealm[] }) {
   if (realms.length === 0) {
     return (
-      <div className="flex flex-col items-center py-12 text-center text-vc-muted gap-2">
+      <div className="flex flex-col items-center py-12 text-center text-foreground-500 gap-2">
         <Users size={36} strokeWidth={1} />
         <p className="text-sm">This user has not been assigned to any realms.</p>
       </div>
@@ -562,16 +562,16 @@ function RealmsTab({ realms }: { realms: UserRealm[] }) {
 
   return (
     <div className="space-y-3">
-      <h2 className="text-sm font-semibold text-vc-muted uppercase tracking-wider">Realm memberships</h2>
-      <div className="divide-y divide-vc-border border border-vc-border rounded-xl overflow-hidden">
+      <h2 className="text-sm font-semibold text-foreground-500 uppercase tracking-wider">Realm memberships</h2>
+      <div className="divide-y divide-neutral-200 border border-neutral-200 rounded-xl overflow-hidden">
         {realms.map((r) => (
-          <div key={r.id} className="flex items-center gap-3 px-4 py-3 bg-vc-raised">
+          <div key={r.id} className="flex items-center gap-3 px-4 py-3 bg-background-200">
             <span
               className="w-2.5 h-2.5 rounded-full shrink-0"
               style={{ backgroundColor: r.color }}
             />
-            <span className="flex-1 text-sm text-vc-text">{r.name}</span>
-            <span className="text-xs text-vc-subtle font-mono">{r.slug}</span>
+            <span className="flex-1 text-sm text-foreground">{r.name}</span>
+            <span className="text-xs text-foreground-400 font-mono">{r.slug}</span>
             {r.isPrimary && (
               <span className="px-1.5 py-0.5 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded text-xs">
                 Primary
@@ -598,9 +598,9 @@ function DangerZone({ id, userName }: { id: string; userName: string | null }) {
   };
 
   return (
-    <div className="mt-6 bg-vc-surface border border-red-200 dark:border-red-900/50 rounded-2xl p-6">
+    <div className="mt-6 bg-background-100 border border-red-200 dark:border-red-900/50 rounded-2xl p-6">
       <h2 className="text-sm font-semibold text-red-600 dark:text-red-400 mb-1">Danger zone</h2>
-      <p className="text-vc-muted text-sm mb-4">
+      <p className="text-foreground-500 text-sm mb-4">
         Removing this provisioned user will delete their record. They will need to be re-synced from Entra to be re-invited.
       </p>
       <button

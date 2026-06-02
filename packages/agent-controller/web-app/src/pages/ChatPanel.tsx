@@ -28,7 +28,7 @@ function MessageBubble({ msg }: { msg: ChatMessage }) {
       {/* Avatar */}
       <div className={`flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold select-none ${isUser
           ? "bg-indigo-600/30 text-indigo-300 border border-indigo-500/30"
-          : "bg-vc-raised text-vc-muted border border-vc-border"
+          : "bg-background-200 text-foreground-500 border border-neutral-200"
         }`}>
         {isUser ? "U" : "A"}
       </div>
@@ -36,8 +36,8 @@ function MessageBubble({ msg }: { msg: ChatMessage }) {
       {/* Bubble */}
       <div className={`group relative max-w-[80%] ${isUser ? "items-end" : "items-start"} flex flex-col`}>
         <div className={`px-4 py-2.5 rounded-2xl text-sm leading-relaxed break-words prose prose-sm prose-invert max-w-none ${isUser
-            ? "bg-indigo-600/25 text-vc-text border border-indigo-500/20 rounded-tr-sm prose-headings:text-indigo-300 prose-p:m-0 prose-ul:m-0 prose-ol:m-0 prose-li:m-0 prose-code:text-indigo-200 prose-code:bg-indigo-950/30 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-pre:bg-indigo-950/30 prose-pre:border prose-pre:border-indigo-500/20 prose-pre:text-indigo-100"
-            : "bg-vc-raised text-vc-text border border-vc-border rounded-tl-sm prose-headings:text-vc-text prose-p:m-0 prose-ul:m-0 prose-ol:m-0 prose-li:m-0 prose-code:text-vc-text prose-code:bg-vc-bg prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-pre:bg-vc-bg prose-pre:border prose-pre:border-vc-border prose-pre:text-vc-text"
+            ? "bg-indigo-600/25 text-foreground border border-indigo-500/20 rounded-tr-sm prose-headings:text-indigo-300 prose-p:m-0 prose-ul:m-0 prose-ol:m-0 prose-li:m-0 prose-code:text-indigo-200 prose-code:bg-indigo-950/30 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-pre:bg-indigo-950/30 prose-pre:border prose-pre:border-indigo-500/20 prose-pre:text-indigo-100"
+            : "bg-background-200 text-foreground border border-neutral-200 rounded-tl-sm prose-headings:text-foreground prose-p:m-0 prose-ul:m-0 prose-ol:m-0 prose-li:m-0 prose-code:text-foreground prose-code:bg-background prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-pre:bg-background prose-pre:border prose-pre:border-neutral-200 prose-pre:text-foreground"
           }`}>
           {msg.content ? (
             <ReactMarkdown
@@ -49,7 +49,7 @@ function MessageBubble({ msg }: { msg: ChatMessage }) {
                 code: ({ children }) => (
                   <code className={`px-1 py-0.5 rounded text-sm font-mono ${isUser
                       ? "bg-indigo-950/30 text-indigo-200"
-                      : "bg-vc-bg text-vc-text"
+                      : "bg-background text-foreground"
                     }`}>
                     {children}
                   </code>
@@ -57,7 +57,7 @@ function MessageBubble({ msg }: { msg: ChatMessage }) {
                 pre: ({ children }) => (
                   <pre className={`p-2 rounded text-xs overflow-x-auto my-1 border ${isUser
                       ? "bg-indigo-950/30 border-indigo-500/20 text-indigo-100"
-                      : "bg-vc-bg border-vc-border text-vc-text"
+                      : "bg-background border-neutral-200 text-foreground"
                     }`}>
                     {children}
                   </pre>
@@ -66,7 +66,7 @@ function MessageBubble({ msg }: { msg: ChatMessage }) {
                 h2: ({ children }) => <h2 className="text-sm font-bold mt-2 mb-1">{children}</h2>,
                 h3: ({ children }) => <h3 className="text-xs font-bold mt-1 mb-0.5">{children}</h3>,
                 blockquote: ({ children }) => (
-                  <blockquote className={`pl-2 border-l-2 my-1 ${isUser ? "border-indigo-500/50" : "border-vc-border"
+                  <blockquote className={`pl-2 border-l-2 my-1 ${isUser ? "border-indigo-500/50" : "border-neutral-200"
                     }`}>
                     {children}
                   </blockquote>
@@ -82,9 +82,9 @@ function MessageBubble({ msg }: { msg: ChatMessage }) {
             </ReactMarkdown>
           ) : (
             <span className="inline-flex gap-1 items-center">
-              <span className="w-1.5 h-1.5 bg-vc-muted rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
-              <span className="w-1.5 h-1.5 bg-vc-muted rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
-              <span className="w-1.5 h-1.5 bg-vc-muted rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+              <span className="w-1.5 h-1.5 bg-foreground-500 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+              <span className="w-1.5 h-1.5 bg-foreground-500 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+              <span className="w-1.5 h-1.5 bg-foreground-500 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
             </span>
           )}
         </div>
@@ -107,7 +107,7 @@ function ToolCallCard({ event }: { event: ToolCallEvent }) {
       <div className="flex-shrink-0 w-7" />
 
       <div className={`flex-1 max-w-[80%] rounded-xl border text-xs font-mono overflow-hidden transition-colors ${done
-          ? "border-vc-border bg-vc-surface"
+          ? "border-neutral-200 bg-background-100"
           : "border-emerald-500/30 bg-emerald-500/5"
         }`}>
         {/* Header */}
@@ -116,26 +116,26 @@ function ToolCallCard({ event }: { event: ToolCallEvent }) {
           onClick={() => setExpanded((p) => !p)}
         >
           <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${done ? "bg-emerald-400" : "bg-emerald-400 animate-pulse"}`} />
-          <span className="text-[10px] text-vc-subtle uppercase tracking-widest">Tool</span>
+          <span className="text-[10px] text-foreground-400 uppercase tracking-widest">Tool</span>
           <code className="text-emerald-400 font-semibold">{event.toolName}</code>
-          {!done && <span className="text-[10px] text-vc-subtle ml-1">Running…</span>}
-          <span className="ml-auto text-vc-subtle">{expanded ? "▲" : "▼"}</span>
+          {!done && <span className="text-[10px] text-foreground-400 ml-1">Running…</span>}
+          <span className="ml-auto text-foreground-400">{expanded ? "▲" : "▼"}</span>
         </button>
 
         {/* Expanded content */}
         {expanded && (
-          <div className="border-t border-vc-border divide-y divide-vc-border">
+          <div className="border-t border-neutral-200 divide-y divide-neutral-200">
             {Object.keys(event.args).length > 0 && (
               <div className="px-3 py-2.5">
-                <p className="text-[9px] text-vc-subtle uppercase tracking-widest mb-1.5">Input</p>
-                <pre className="text-[11px] text-vc-text-2 whitespace-pre-wrap overflow-x-auto">
+                <p className="text-[9px] text-foreground-400 uppercase tracking-widest mb-1.5">Input</p>
+                <pre className="text-[11px] text-foreground-700 whitespace-pre-wrap overflow-x-auto">
                   {JSON.stringify(event.args, null, 2)}
                 </pre>
               </div>
             )}
             {done && (
               <div className="px-3 py-2.5">
-                <p className="text-[9px] text-vc-subtle uppercase tracking-widest mb-1.5">Output</p>
+                <p className="text-[9px] text-foreground-400 uppercase tracking-widest mb-1.5">Output</p>
                 <div className="text-[11px] text-emerald-600 dark:text-emerald-300 whitespace-pre-wrap max-h-48 overflow-y-auto prose prose-sm prose-invert max-w-none prose-headings:text-emerald-400 prose-p:m-0 prose-ul:m-0 prose-ol:m-0 prose-li:m-0 prose-code:text-emerald-200 prose-code:bg-emerald-950/30 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-pre:bg-emerald-950/30 prose-pre:border prose-pre:border-emerald-500/20 prose-pre:text-emerald-100">
                   {typeof event.result === "string" ? (
                     <ReactMarkdown
@@ -196,10 +196,10 @@ function SessionSidebar({
   onDelete: (id: string) => void;
 }) {
   return (
-    <div className="w-52 flex-shrink-0 flex flex-col bg-vc-surface border-r border-vc-border overflow-hidden">
+    <div className="w-52 flex-shrink-0 flex flex-col bg-background-100 border-r border-neutral-200 overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between px-3 py-2.5 border-b border-vc-border">
-        <span className="text-[10px] font-semibold text-vc-muted uppercase tracking-widest">Conversations</span>
+      <div className="flex items-center justify-between px-3 py-2.5 border-b border-neutral-200">
+        <span className="text-[10px] font-semibold text-foreground-500 uppercase tracking-widest">Conversations</span>
         <button
           onClick={onNew}
           className="flex items-center gap-1 text-[11px] text-indigo-400 hover:text-indigo-300 transition-colors font-medium"
@@ -215,7 +215,7 @@ function SessionSidebar({
       {/* Session list */}
       <div className="flex-1 overflow-y-auto py-1">
         {sessions.length === 0 && (
-          <div className="flex flex-col items-center justify-center h-24 gap-1.5 text-vc-subtle">
+          <div className="flex flex-col items-center justify-center h-24 gap-1.5 text-foreground-400">
             <svg className="w-5 h-5 opacity-40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}>
               <path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
@@ -230,21 +230,21 @@ function SessionSidebar({
               key={s.id}
               className={`group relative mx-1 rounded-lg mb-0.5 cursor-pointer transition-colors ${isActive
                   ? "bg-indigo-600/15 border border-indigo-500/25"
-                  : "hover:bg-vc-raised border border-transparent"
+                  : "hover:bg-background-200 border border-transparent"
                 }`}
               onClick={() => onSelect(s.id)}
             >
               <div className="px-3 py-2">
-                <p className={`text-xs leading-snug truncate font-medium ${isActive ? "text-vc-text" : "text-vc-text-2"}`}>
+                <p className={`text-xs leading-snug truncate font-medium ${isActive ? "text-foreground" : "text-foreground-700"}`}>
                   {s.title ?? "Untitled conversation"}
                 </p>
                 <div className="flex items-center gap-1.5 mt-0.5">
-                  <span className="text-[9px] text-vc-subtle">{s.messageCount} msg</span>
-                  <span className="text-[9px] text-vc-ring">·</span>
-                  <span className="text-[9px] text-vc-subtle">{timeLabel(s.updatedAt)}</span>
+                  <span className="text-[9px] text-foreground-400">{s.messageCount} msg</span>
+                  <span className="text-[9px] text-neutral-300">·</span>
+                  <span className="text-[9px] text-foreground-400">{timeLabel(s.updatedAt)}</span>
                   {s.source !== "web" && (
                     <>
-                      <span className="text-[9px] text-vc-ring">·</span>
+                      <span className="text-[9px] text-neutral-300">·</span>
                       <span className="text-[9px] text-indigo-400/70">{s.source}</span>
                     </>
                   )}
@@ -253,7 +253,7 @@ function SessionSidebar({
 
               {/* Delete button */}
               <button
-                className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity w-5 h-5 flex items-center justify-center rounded text-vc-subtle hover:text-red-400 hover:bg-red-500/10"
+                className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity w-5 h-5 flex items-center justify-center rounded text-foreground-400 hover:text-red-400 hover:bg-red-500/10"
                 onClick={(e) => { e.stopPropagation(); onDelete(s.id); }}
                 title="Delete"
               >
@@ -275,17 +275,17 @@ function SessionSidebar({
 
 function EmptyState({ agentName }: { agentName?: string }) {
   return (
-    <div className="flex flex-col items-center justify-center h-full gap-4 text-vc-subtle px-6">
-      <div className="w-14 h-14 rounded-2xl bg-vc-raised border border-vc-border flex items-center justify-center">
-        <svg className="w-7 h-7 text-vc-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}>
+    <div className="flex flex-col items-center justify-center h-full gap-4 text-foreground-400 px-6">
+      <div className="w-14 h-14 rounded-2xl bg-background-200 border border-neutral-200 flex items-center justify-center">
+        <svg className="w-7 h-7 text-foreground-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}>
           <path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       </div>
       <div className="text-center">
-        <p className="text-sm font-medium text-vc-text-2 mb-1">
+        <p className="text-sm font-medium text-foreground-700 mb-1">
           {agentName ? `Chat with ${agentName}` : "Start a conversation"}
         </p>
-        <p className="text-xs text-vc-subtle">Send a message below. Tool calls will appear inline.</p>
+        <p className="text-xs text-foreground-400">Send a message below. Tool calls will appear inline.</p>
       </div>
     </div>
   );
@@ -341,7 +341,7 @@ export default function ChatPanel() {
   };
 
   return (
-    <div className="flex flex-1 h-full overflow-hidden bg-vc-bg">
+    <div className="flex flex-1 h-full overflow-hidden bg-background">
       {/* Sessions sidebar */}
       <SessionSidebar
         sessions={sessions}
@@ -354,12 +354,12 @@ export default function ChatPanel() {
       {/* Chat area */}
       <div className="flex flex-col flex-1 overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-2.5 bg-vc-surface border-b border-vc-border flex-shrink-0">
+        <div className="flex items-center justify-between px-4 py-2.5 bg-background-100 border-b border-neutral-200 flex-shrink-0">
           <div className="flex items-center gap-2.5">
             <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 flex-shrink-0" />
-            <span className="text-sm font-medium text-vc-text">
+            <span className="text-sm font-medium text-foreground">
               {activeSessionId
-                ? <span className="text-vc-text-2">Session <code className="text-[11px] text-vc-subtle font-mono">{activeSessionId.slice(0, 8)}…</code></span>
+                ? <span className="text-foreground-700">Session <code className="text-[11px] text-foreground-400 font-mono">{activeSessionId.slice(0, 8)}…</code></span>
                 : "New conversation"
               }
             </span>
@@ -367,7 +367,7 @@ export default function ChatPanel() {
           {items.length > 0 && (
             <button
               onClick={startNewSession}
-              className="text-xs text-vc-subtle hover:text-red-400 transition-colors flex items-center gap-1"
+              className="text-xs text-foreground-400 hover:text-red-400 transition-colors flex items-center gap-1"
             >
               <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
                 <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2" />
@@ -403,7 +403,7 @@ export default function ChatPanel() {
 
         {/* Input area */}
         <div className="px-4 pb-4 pt-2 flex-shrink-0">
-          <div className="flex items-end gap-2 bg-vc-raised border border-vc-border rounded-xl px-3 py-2.5 focus-within:border-indigo-500/50 transition-colors">
+          <div className="flex items-end gap-2 bg-background-200 border border-neutral-200 rounded-xl px-3 py-2.5 focus-within:border-indigo-500/50 transition-colors">
             <textarea
               ref={inputRef}
               rows={1}
@@ -414,7 +414,7 @@ export default function ChatPanel() {
               onCompositionEnd={() => { isComposingRef.current = false; }}
               placeholder={isStreaming ? "Agent is responding…" : "Message the agent… (Enter to send, Shift+Enter for new line)"}
               disabled={isStreaming}
-              className="flex-1 bg-transparent resize-none text-sm text-vc-text placeholder:text-vc-subtle outline-none disabled:opacity-60 leading-relaxed min-h-[1.5rem]"
+              className="flex-1 bg-transparent resize-none text-sm text-foreground placeholder:text-foreground-400 outline-none disabled:opacity-60 leading-relaxed min-h-[1.5rem]"
               style={{ maxHeight: "120px" }}
             />
             <button
@@ -434,7 +434,7 @@ export default function ChatPanel() {
               )}
             </button>
           </div>
-          <p className="text-[10px] text-vc-subtle mt-1.5 text-center">
+          <p className="text-[10px] text-foreground-400 mt-1.5 text-center">
             Shift+Enter for new line · tool calls appear inline
           </p>
         </div>

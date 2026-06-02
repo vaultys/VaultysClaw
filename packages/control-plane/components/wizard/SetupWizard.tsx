@@ -29,10 +29,10 @@ const PROVIDERS = [
 function Field({ label, ...props }: React.InputHTMLAttributes<HTMLInputElement> & { label: string }) {
   return (
     <div>
-      <label className="block text-xs text-vc-muted mb-1.5">{label}</label>
+      <label className="block text-xs text-foreground-500 mb-1.5">{label}</label>
       <input
         {...props}
-        className="w-full bg-vc-raised border border-vc-border rounded-xl px-3 py-2 text-sm text-vc-text focus:outline-none focus:ring-2 focus:ring-indigo-500/50 disabled:opacity-50"
+        className="w-full bg-background-200 border border-neutral-200 rounded-xl px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-indigo-500/50 disabled:opacity-50"
       />
     </div>
   );
@@ -77,7 +77,7 @@ function ModelStep({ onNext, onSkip }: { onNext: () => void; onSkip: () => void 
 
   return (
     <div className="space-y-4">
-      <p className="text-vc-muted text-sm">Connect an LLM so your agents can reason and act. You can register more models later.</p>
+      <p className="text-foreground-500 text-sm">Connect an LLM so your agents can reason and act. You can register more models later.</p>
 
       {added.length > 0 && (
         <div className="flex flex-wrap gap-2">
@@ -93,11 +93,11 @@ function ModelStep({ onNext, onSkip }: { onNext: () => void; onSkip: () => void 
         <div className="grid grid-cols-2 gap-3">
           <Field label="Name *" value={name} onChange={(e) => setName(e.target.value)} placeholder="GPT-4o" />
           <div>
-            <label className="block text-xs text-vc-muted mb-1.5">Provider</label>
+            <label className="block text-xs text-foreground-500 mb-1.5">Provider</label>
             <select
               value={provider}
               onChange={(e) => setProvider(e.target.value)}
-              className="w-full bg-vc-raised border border-vc-border rounded-xl px-3 py-2 text-sm text-vc-text focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+              className="w-full bg-background-200 border border-neutral-200 rounded-xl px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
             >
               {PROVIDERS.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
             </select>
@@ -112,12 +112,12 @@ function ModelStep({ onNext, onSkip }: { onNext: () => void; onSkip: () => void 
         {error && <p className="text-xs text-red-500 dark:text-red-400">{error}</p>}
 
         <div className="flex items-center justify-between pt-1">
-          <button type="button" onClick={onSkip} className="text-sm text-vc-muted hover:text-vc-text transition-colors">
+          <button type="button" onClick={onSkip} className="text-sm text-foreground-500 hover:text-foreground transition-colors">
             Skip for now
           </button>
           <div className="flex gap-2">
             {added.length > 0 && (
-              <button type="button" onClick={onNext} className="px-4 py-2 text-sm border border-vc-border text-vc-muted hover:text-vc-text rounded-xl hover:bg-vc-raised transition-colors">
+              <button type="button" onClick={onNext} className="px-4 py-2 text-sm border border-neutral-200 text-foreground-500 hover:text-foreground rounded-xl hover:bg-background-200 transition-colors">
                 Continue →
               </button>
             )}
@@ -186,7 +186,7 @@ function EmailStep({ onNext, onSkip }: { onNext: () => void; onSkip: () => void 
 
   return (
     <form onSubmit={save} className="space-y-4">
-      <p className="text-vc-muted text-sm">Configure SMTP so VaultysClaw can send invite emails to new users.</p>
+      <p className="text-foreground-500 text-sm">Configure SMTP so VaultysClaw can send invite emails to new users.</p>
 
       <div className="grid grid-cols-2 gap-3">
         <Field label="SMTP Host" value={host} onChange={(e) => setHost(e.target.value)} placeholder="smtp.example.com" />
@@ -209,7 +209,7 @@ function EmailStep({ onNext, onSkip }: { onNext: () => void; onSkip: () => void 
       )}
 
       <div className="flex items-center justify-between pt-1">
-        <button type="button" onClick={onSkip} className="text-sm text-vc-muted hover:text-vc-text transition-colors">
+        <button type="button" onClick={onSkip} className="text-sm text-foreground-500 hover:text-foreground transition-colors">
           Skip for now
         </button>
         <div className="flex gap-2">
@@ -217,7 +217,7 @@ function EmailStep({ onNext, onSkip }: { onNext: () => void; onSkip: () => void 
             type="button"
             onClick={test}
             disabled={testing || !host}
-            className="flex items-center gap-1.5 px-4 py-2 text-sm border border-vc-border text-vc-muted hover:text-vc-text hover:bg-vc-raised rounded-xl disabled:opacity-40 transition-colors"
+            className="flex items-center gap-1.5 px-4 py-2 text-sm border border-neutral-200 text-foreground-500 hover:text-foreground hover:bg-background-200 rounded-xl disabled:opacity-40 transition-colors"
           >
             {testing
               ? <div className="w-3.5 h-3.5 border border-current border-t-transparent rounded-full animate-spin" />
@@ -273,16 +273,16 @@ function UsersStep({ onNext, onSkip }: { onNext: () => void; onSkip: () => void 
 
   return (
     <div className="space-y-4">
-      <p className="text-vc-muted text-sm">Invite teammates so they can manage agents and workflows.</p>
+      <p className="text-foreground-500 text-sm">Invite teammates so they can manage agents and workflows.</p>
 
-      <div className="flex gap-1 p-1 bg-vc-raised border border-vc-border rounded-xl">
+      <div className="flex gap-1 p-1 bg-background-200 border border-neutral-200 rounded-xl">
         {(["qr", "entra"] as const).map((t) => (
           <button
             key={t}
             type="button"
             onClick={() => setTab(t)}
             className={`flex-1 py-1.5 text-xs font-medium rounded-lg transition-colors ${
-              tab === t ? "bg-vc-surface border border-vc-border text-vc-text shadow-sm" : "text-vc-muted hover:text-vc-text"
+              tab === t ? "bg-background-100 border border-neutral-200 text-foreground shadow-sm" : "text-foreground-500 hover:text-foreground"
             }`}
           >
             {t === "qr" ? "QR Code Invite" : "Microsoft Entra ID"}
@@ -297,7 +297,7 @@ function UsersStep({ onNext, onSkip }: { onNext: () => void; onSkip: () => void 
               {addedCount > 0 && (
                 <p className="text-sm text-green-600 dark:text-green-400">✓ {addedCount} user{addedCount > 1 ? "s" : ""} invited</p>
               )}
-              <p className="text-vc-muted text-sm">Generate a one-time QR code. The user scans it with their Vaultys wallet.</p>
+              <p className="text-foreground-500 text-sm">Generate a one-time QR code. The user scans it with their Vaultys wallet.</p>
               <button
                 onClick={startInvite}
                 className="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium rounded-xl transition-colors"
@@ -310,7 +310,7 @@ function UsersStep({ onNext, onSkip }: { onNext: () => void; onSkip: () => void 
           {phase === "loading" && (
             <div className="flex flex-col items-center gap-3 py-6">
               <div className="w-7 h-7 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
-              <p className="text-vc-muted text-sm">Creating secure channel…</p>
+              <p className="text-foreground-500 text-sm">Creating secure channel…</p>
             </div>
           )}
 
@@ -319,7 +319,7 @@ function UsersStep({ onNext, onSkip }: { onNext: () => void; onSkip: () => void 
               <div className="bg-white p-3 rounded-xl shadow-sm">
                 <QRCodeSVG value={qrUrl} size={172} />
               </div>
-              <div className="flex items-center gap-2 text-vc-subtle text-xs">
+              <div className="flex items-center gap-2 text-foreground-400 text-xs">
                 <div className="w-4 h-4 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
                 Waiting for wallet connection…
               </div>
@@ -331,11 +331,11 @@ function UsersStep({ onNext, onSkip }: { onNext: () => void; onSkip: () => void 
               <div className="w-11 h-11 rounded-full bg-green-100 dark:bg-green-900/40 border border-green-300 dark:border-green-700 flex items-center justify-center">
                 <Check className="w-5 h-5 text-green-600 dark:text-green-400" />
               </div>
-              <p className="text-vc-text font-medium text-sm">{addedCount} user{addedCount > 1 ? "s" : ""} registered!</p>
+              <p className="text-foreground font-medium text-sm">{addedCount} user{addedCount > 1 ? "s" : ""} registered!</p>
               <div className="flex gap-2">
                 <button
                   onClick={() => { setPhase("idle"); setQrUrl(""); }}
-                  className="px-4 py-1.5 text-sm border border-vc-border text-vc-muted hover:text-vc-text rounded-xl hover:bg-vc-raised transition-colors"
+                  className="px-4 py-1.5 text-sm border border-neutral-200 text-foreground-500 hover:text-foreground rounded-xl hover:bg-background-200 transition-colors"
                 >
                   Invite another
                 </button>
@@ -354,7 +354,7 @@ function UsersStep({ onNext, onSkip }: { onNext: () => void; onSkip: () => void 
               <p className="text-red-500 dark:text-red-400 text-sm">Invitation timed out or failed.</p>
               <button
                 onClick={() => setPhase("idle")}
-                className="px-4 py-1.5 text-sm border border-vc-border text-vc-muted hover:text-vc-text rounded-xl hover:bg-vc-raised transition-colors"
+                className="px-4 py-1.5 text-sm border border-neutral-200 text-foreground-500 hover:text-foreground rounded-xl hover:bg-background-200 transition-colors"
               >
                 Try again
               </button>
@@ -366,7 +366,7 @@ function UsersStep({ onNext, onSkip }: { onNext: () => void; onSkip: () => void 
               <button
                 type="button"
                 onClick={addedCount > 0 ? onNext : onSkip}
-                className="text-sm text-vc-muted hover:text-vc-text transition-colors"
+                className="text-sm text-foreground-500 hover:text-foreground transition-colors"
               >
                 {addedCount > 0 ? "Continue →" : "Skip for now"}
               </button>
@@ -378,9 +378,9 @@ function UsersStep({ onNext, onSkip }: { onNext: () => void; onSkip: () => void 
       {tab === "entra" && (
         <div className="text-center py-6 space-y-3">
           <div className="text-4xl">🏢</div>
-          <p className="text-vc-muted text-sm">Connect Microsoft Entra ID (Azure AD) to sync users from your directory.</p>
-          <p className="text-vc-subtle text-xs">
-            Configure this in <strong className="text-vc-muted">Server Settings → Identity Providers</strong> after the wizard.
+          <p className="text-foreground-500 text-sm">Connect Microsoft Entra ID (Azure AD) to sync users from your directory.</p>
+          <p className="text-foreground-400 text-xs">
+            Configure this in <strong className="text-foreground-500">Server Settings → Identity Providers</strong> after the wizard.
           </p>
           <button
             onClick={onSkip}
@@ -400,7 +400,7 @@ function AgentStep({ onSkip, onDismiss }: { onSkip: () => void; onDismiss: () =>
   const router = useRouter();
   return (
     <div className="space-y-4">
-      <p className="text-vc-muted text-sm">Register your first AI agent. Agents connect via WebSocket and receive tasks from VaultysClaw.</p>
+      <p className="text-foreground-500 text-sm">Register your first AI agent. Agents connect via WebSocket and receive tasks from VaultysClaw.</p>
 
       <div className="grid grid-cols-3 gap-3">
         {[
@@ -408,16 +408,16 @@ function AgentStep({ onSkip, onDismiss }: { onSkip: () => void; onDismiss: () =>
           { icon: "🔑", title: "Register", desc: "Agent presents its VaultysID — you approve it here." },
           { icon: "🎛️", title: "Assign caps", desc: "Control what tools each agent can access." },
         ].map(({ icon, title, desc }) => (
-          <div key={title} className="bg-vc-raised border border-vc-border rounded-xl p-3 text-center">
+          <div key={title} className="bg-background-200 border border-neutral-200 rounded-xl p-3 text-center">
             <div className="text-2xl mb-2">{icon}</div>
-            <p className="text-xs font-semibold text-vc-text mb-1">{title}</p>
-            <p className="text-xs text-vc-muted leading-snug">{desc}</p>
+            <p className="text-xs font-semibold text-foreground mb-1">{title}</p>
+            <p className="text-xs text-foreground-500 leading-snug">{desc}</p>
           </div>
         ))}
       </div>
 
       <div className="flex items-center justify-between pt-1">
-        <button type="button" onClick={onSkip} className="text-sm text-vc-muted hover:text-vc-text transition-colors">
+        <button type="button" onClick={onSkip} className="text-sm text-foreground-500 hover:text-foreground transition-colors">
           Skip for now
         </button>
         <button
@@ -440,8 +440,8 @@ function DoneStep({ completedSteps, onClose }: { completedSteps: Set<StepId>; on
         <Check className="w-7 h-7 text-indigo-600 dark:text-indigo-400" />
       </div>
       <div>
-        <h3 className="text-base font-bold text-vc-text">VaultysClaw is ready!</h3>
-        <p className="text-vc-muted text-sm mt-1 max-w-xs mx-auto">
+        <h3 className="text-base font-bold text-foreground">VaultysClaw is ready!</h3>
+        <p className="text-foreground-500 text-sm mt-1 max-w-xs mx-auto">
           Your control plane is configured. Adjust any setting at any time from the sidebar.
         </p>
       </div>
@@ -454,7 +454,7 @@ function DoneStep({ completedSteps, onClose }: { completedSteps: Set<StepId>; on
               className={`flex items-center gap-3 px-3 py-2 rounded-xl border text-sm ${
                 done
                   ? "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-700/40 text-green-700 dark:text-green-400"
-                  : "bg-vc-raised border-vc-border text-vc-muted"
+                  : "bg-background-200 border-neutral-200 text-foreground-500"
               }`}
             >
               <Icon className="w-4 h-4 shrink-0" />
@@ -495,20 +495,20 @@ function ProgressBar({ currentIdx, completedSteps }: { currentIdx: number; compl
                     : isPast && isCompleted
                     ? "border-green-500 bg-green-500 text-white"
                     : isPast
-                    ? "border-vc-border bg-vc-raised text-vc-muted"
-                    : "border-vc-border bg-vc-surface text-vc-subtle"
+                    ? "border-neutral-200 bg-background-200 text-foreground-500"
+                    : "border-neutral-200 bg-background-100 text-foreground-400"
                 }`}>
                   {isPast && isCompleted ? <Check className="w-4 h-4" /> : <Icon className="w-4 h-4" />}
                 </div>
                 <span className={`text-[10px] font-medium whitespace-nowrap ${
-                  isActive ? "text-indigo-500 dark:text-indigo-400" : isPast ? "text-vc-muted" : "text-vc-subtle"
+                  isActive ? "text-indigo-500 dark:text-indigo-400" : isPast ? "text-foreground-500" : "text-foreground-400"
                 }`}>
                   {label}
                 </span>
               </div>
               {idx < STEPS.length - 1 && (
                 <div className={`flex-1 h-0.5 mt-4 mx-1 transition-colors duration-500 ${
-                  idx < currentIdx ? "bg-indigo-500" : "bg-vc-raised"
+                  idx < currentIdx ? "bg-indigo-500" : "bg-background-200"
                 }`} />
               )}
             </React.Fragment>
@@ -543,20 +543,20 @@ export default function SetupWizard({ onClose }: { onClose: () => void }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-      <div className="bg-vc-surface border border-vc-border rounded-2xl shadow-2xl w-full max-w-xl animate-fade-in-up">
+      <div className="bg-background-100 border border-neutral-200 rounded-2xl shadow-2xl w-full max-w-xl animate-fade-in-up">
 
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-vc-border">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-200">
           <div>
-            <h2 className="font-bold text-vc-text">Setup VaultysClaw</h2>
-            <p className="text-vc-subtle text-xs mt-0.5">
+            <h2 className="font-bold text-foreground">Setup VaultysClaw</h2>
+            <p className="text-foreground-400 text-xs mt-0.5">
               {done ? "All done!" : `Step ${currentIdx + 1} of ${STEP_ORDER.length}`}
             </p>
           </div>
           <button
             onClick={dismiss}
             aria-label="Close"
-            className="p-1.5 text-vc-muted hover:text-vc-text rounded-lg hover:bg-vc-raised transition-colors"
+            className="p-1.5 text-foreground-500 hover:text-foreground rounded-lg hover:bg-background-200 transition-colors"
           >
             <X className="w-4 h-4" />
           </button>
@@ -571,7 +571,7 @@ export default function SetupWizard({ onClose }: { onClose: () => void }) {
             <DoneStep completedSteps={completedSteps} onClose={dismiss} />
           ) : (
             <>
-              <h3 className="text-sm font-semibold text-vc-text mb-3">{STEPS[currentIdx].label}</h3>
+              <h3 className="text-sm font-semibold text-foreground mb-3">{STEPS[currentIdx].label}</h3>
               {currentStep === "model" && <ModelStep onNext={() => advance(true)} onSkip={() => advance(false)} />}
               {currentStep === "email" && <EmailStep onNext={() => advance(true)} onSkip={() => advance(false)} />}
               {currentStep === "users" && <UsersStep onNext={() => advance(true)} onSkip={() => advance(false)} />}

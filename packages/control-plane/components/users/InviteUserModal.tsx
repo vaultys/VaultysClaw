@@ -99,7 +99,7 @@ export default function InviteUserModal({ onClose, onSuccess }: InviteUserModalP
 
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-      <div className="bg-vc-surface border border-vc-ring rounded-2xl p-8 w-full max-w-sm shadow-2xl">
+      <div className="bg-background-100 border border-neutral-300 rounded-2xl p-8 w-full max-w-sm shadow-2xl">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           {tab !== "method" && (
@@ -109,38 +109,38 @@ export default function InviteUserModal({ onClose, onSuccess }: InviteUserModalP
                 setPhase("idle");
                 setEmailMsg(null);
               }}
-              className="flex items-center gap-1 text-vc-muted hover:text-vc-text transition-colors"
+              className="flex items-center gap-1 text-foreground-500 hover:text-foreground transition-colors"
             >
               <ChevronLeft size={18} />
               <span className="text-sm">Back</span>
             </button>
           )}
-          {tab === "method" && <h2 className="text-vc-text font-semibold text-lg flex-1">Invite User</h2>}
-          <button onClick={onClose} className="text-vc-muted hover:text-vc-text transition-colors">✕</button>
+          {tab === "method" && <h2 className="text-foreground font-semibold text-lg flex-1">Invite User</h2>}
+          <button onClick={onClose} className="text-foreground-500 hover:text-foreground transition-colors">✕</button>
         </div>
 
         {/* Method selection */}
         {tab === "method" && phase === "idle" && (
           <div className="space-y-3">
-            <p className="text-vc-muted text-sm mb-4">Choose how to invite the user</p>
+            <p className="text-foreground-500 text-sm mb-4">Choose how to invite the user</p>
             <button
               onClick={() => setTab("email")}
-              className="w-full flex items-center gap-3 p-4 border border-vc-border rounded-xl hover:bg-vc-raised transition-colors text-left"
+              className="w-full flex items-center gap-3 p-4 border border-neutral-200 rounded-xl hover:bg-background-200 transition-colors text-left"
             >
               <Mail className="w-5 h-5 text-indigo-600 dark:text-indigo-400 flex-shrink-0" />
               <div>
-                <p className="text-sm font-medium text-vc-text">Send Email Invite</p>
-                <p className="text-xs text-vc-muted">User gets a link to scan QR</p>
+                <p className="text-sm font-medium text-foreground">Send Email Invite</p>
+                <p className="text-xs text-foreground-500">User gets a link to scan QR</p>
               </div>
             </button>
             <button
               onClick={() => setTab("qr")}
-              className="w-full flex items-center gap-3 p-4 border border-vc-border rounded-xl hover:bg-vc-raised transition-colors text-left"
+              className="w-full flex items-center gap-3 p-4 border border-neutral-200 rounded-xl hover:bg-background-200 transition-colors text-left"
             >
               <QrCode className="w-5 h-5 text-indigo-600 dark:text-indigo-400 flex-shrink-0" />
               <div>
-                <p className="text-sm font-medium text-vc-text">Show QR Code</p>
-                <p className="text-xs text-vc-muted">User scans immediately</p>
+                <p className="text-sm font-medium text-foreground">Show QR Code</p>
+                <p className="text-xs text-foreground-500">User scans immediately</p>
               </div>
             </button>
           </div>
@@ -151,33 +151,33 @@ export default function InviteUserModal({ onClose, onSuccess }: InviteUserModalP
           <form onSubmit={sendEmailInvite} className="space-y-4">
             <div className="space-y-3">
               <div>
-                <label className="block text-xs text-vc-muted mb-1.5">Email</label>
+                <label className="block text-xs text-foreground-500 mb-1.5">Email</label>
                 <input
                   type="email"
                   value={emailForm.email}
                   onChange={(e) => setEmailForm({ ...emailForm, email: e.target.value })}
                   placeholder="user@example.com"
-                  className="w-full bg-vc-raised border border-vc-border rounded-xl px-3 py-2 text-sm text-vc-text placeholder:text-vc-subtle focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                  className="w-full bg-background-200 border border-neutral-200 rounded-xl px-3 py-2 text-sm text-foreground placeholder:text-foreground-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
                   required
                 />
               </div>
               <div>
-                <label className="block text-xs text-vc-muted mb-1.5">Name</label>
+                <label className="block text-xs text-foreground-500 mb-1.5">Name</label>
                 <input
                   type="text"
                   value={emailForm.name}
                   onChange={(e) => setEmailForm({ ...emailForm, name: e.target.value })}
                   placeholder="John Doe"
-                  className="w-full bg-vc-raised border border-vc-border rounded-xl px-3 py-2 text-sm text-vc-text placeholder:text-vc-subtle focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                  className="w-full bg-background-200 border border-neutral-200 rounded-xl px-3 py-2 text-sm text-foreground placeholder:text-foreground-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
                   required
                 />
               </div>
               <div>
-                <label className="block text-xs text-vc-muted mb-1.5">Role</label>
+                <label className="block text-xs text-foreground-500 mb-1.5">Role</label>
                 <select
                   value={emailForm.role}
                   onChange={(e) => setEmailForm({ ...emailForm, role: e.target.value })}
-                  className="w-full bg-vc-raised border border-vc-border rounded-xl px-3 py-2 text-sm text-vc-text focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                  className="w-full bg-background-200 border border-neutral-200 rounded-xl px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
                 >
                   <option value="member">Member</option>
                   <option value="operator">Operator</option>
@@ -214,7 +214,7 @@ export default function InviteUserModal({ onClose, onSuccess }: InviteUserModalP
           <>
             {phase === "idle" && (
               <>
-                <p className="text-vc-muted text-sm mb-6">
+                <p className="text-foreground-500 text-sm mb-6">
                   Generate a one-time QR code. The new user scans it with their Vaultys wallet to register.
                 </p>
                 <button
@@ -229,19 +229,19 @@ export default function InviteUserModal({ onClose, onSuccess }: InviteUserModalP
             {phase === "loading" && (
               <div className="flex flex-col items-center gap-4 py-4">
                 <Loader2 className="w-8 h-8 text-indigo-500 animate-spin" />
-                <p className="text-vc-muted text-sm">Creating secure channel…</p>
+                <p className="text-foreground-500 text-sm">Creating secure channel…</p>
               </div>
             )}
 
             {phase === "qr" && (
               <div className="flex flex-col items-center gap-4">
-                <p className="text-vc-muted text-sm text-center">
+                <p className="text-foreground-500 text-sm text-center">
                   Ask the new user to scan this QR with their Vaultys wallet.
                 </p>
                 <div className="bg-white p-3 rounded-xl">
                   <QRCodeSVG value={qrUrl} size={200} />
                 </div>
-                <p className="text-vc-subtle text-xs text-center">Waiting for wallet connection…</p>
+                <p className="text-foreground-400 text-xs text-center">Waiting for wallet connection…</p>
                 <div className="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
               </div>
             )}
@@ -251,7 +251,7 @@ export default function InviteUserModal({ onClose, onSuccess }: InviteUserModalP
                 <div className="w-12 h-12 rounded-full bg-green-100 dark:bg-green-900/40 flex items-center justify-center">
                   <Check className="w-6 h-6 text-green-600 dark:text-green-400" />
                 </div>
-                <p className="text-vc-text font-medium">User registered!</p>
+                <p className="text-foreground font-medium">User registered!</p>
                 <button onClick={onClose} className="text-indigo-700 dark:text-indigo-400 hover:text-indigo-300 text-sm transition-colors">
                   Close
                 </button>

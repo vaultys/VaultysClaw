@@ -77,7 +77,7 @@ function MessageBubble({
 
   return (
     <div
-      className={`group flex gap-3 hover:bg-vc-raised px-3 py-2 rounded-lg transition ${
+      className={`group flex gap-3 hover:bg-background-200 px-3 py-2 rounded-lg transition ${
         isThread ? "ml-10 border-l-2 border-indigo-200 dark:border-indigo-800 pl-3" : ""
       }`}
     >
@@ -98,7 +98,7 @@ function MessageBubble({
       <div className="flex-1 min-w-0">
         <div className="flex items-baseline gap-2 flex-wrap">
           <span
-            className={`font-semibold text-vc-text ${
+            className={`font-semibold text-foreground ${
               isThread ? "text-xs" : "text-sm"
             }`}
           >
@@ -109,13 +109,13 @@ function MessageBubble({
               bot
             </span>
           )}
-          <span className="text-xs text-vc-muted">{formatTime(msg.createdAt)}</span>
+          <span className="text-xs text-foreground-500">{formatTime(msg.createdAt)}</span>
         </div>
 
         <div
-          className={`prose prose-sm max-w-none text-vc-text mt-0.5 break-words ${
+          className={`prose prose-sm max-w-none text-foreground mt-0.5 break-words ${
             isThread ? "text-sm" : ""
-          } [&_p]:my-0.5 [&_ul]:my-1 [&_ol]:my-1 [&_pre]:bg-vc-raised [&_pre]:rounded [&_pre]:p-2 [&_code]:text-indigo-600 dark:[&_code]:text-indigo-400 [&_code]:bg-vc-raised [&_code]:px-1 [&_code]:rounded [&_a]:text-indigo-500 [&_a]:underline`}
+          } [&_p]:my-0.5 [&_ul]:my-1 [&_ol]:my-1 [&_pre]:bg-background-200 [&_pre]:rounded [&_pre]:p-2 [&_code]:text-indigo-600 dark:[&_code]:text-indigo-400 [&_code]:bg-background-200 [&_code]:px-1 [&_code]:rounded [&_a]:text-indigo-500 [&_a]:underline`}
         >
           <ReactMarkdown>{msg.content}</ReactMarkdown>
         </div>
@@ -127,7 +127,7 @@ function MessageBubble({
               <button
                 key={emoji}
                 onClick={() => handleReaction(emoji)}
-                className="flex items-center gap-1 px-2 py-0.5 bg-vc-raised hover:bg-vc-surface rounded text-xs text-vc-text-2 transition"
+                className="flex items-center gap-1 px-2 py-0.5 bg-background-200 hover:bg-background-100 rounded text-xs text-foreground-700 transition"
               >
                 <span>{emoji}</span>
                 <span>{dids.length}</span>
@@ -142,25 +142,25 @@ function MessageBubble({
         <div className="relative">
           <button
             onClick={() => setEmojiOpen(!emojiOpen)}
-            className="p-1 hover:bg-vc-raised rounded text-vc-text-2 hover:text-vc-text transition"
+            className="p-1 hover:bg-background-200 rounded text-foreground-700 hover:text-foreground transition"
             title="React"
           >
             <Smile size={14} />
           </button>
           {emojiOpen && (
-            <div className="absolute right-0 top-full mt-1 bg-vc-surface border border-vc-border rounded-lg shadow-lg p-2 z-10 flex gap-1">
+            <div className="absolute right-0 top-full mt-1 bg-background-100 border border-neutral-200 rounded-lg shadow-lg p-2 z-10 flex gap-1">
               {COMMON_EMOJIS.map((emoji) => (
                 <button
                   key={emoji}
                   onClick={() => handleReaction(emoji)}
-                  className="p-1 hover:bg-vc-raised rounded text-base transition"
+                  className="p-1 hover:bg-background-200 rounded text-base transition"
                 >
                   {emoji}
                 </button>
               ))}
               <button
                 onClick={() => setEmojiOpen(false)}
-                className="p-1 hover:bg-vc-raised rounded text-vc-text-2"
+                className="p-1 hover:bg-background-200 rounded text-foreground-700"
               >
                 <X size={12} />
               </button>
@@ -169,7 +169,7 @@ function MessageBubble({
         </div>
         <button
           onClick={handleDelete}
-          className="p-1 hover:bg-vc-raised rounded text-vc-text-2 hover:text-red-600 dark:hover:text-red-400 transition"
+          className="p-1 hover:bg-background-200 rounded text-foreground-700 hover:text-red-600 dark:hover:text-red-400 transition"
           title="Delete"
         >
           <Trash2 size={14} />
@@ -218,7 +218,7 @@ function ThreadView({
   if (loading) {
     return (
       <div className="ml-10 pl-3 border-l-2 border-indigo-100 dark:border-indigo-900 py-1">
-        <div className="text-xs text-vc-muted animate-pulse">Loading thread…</div>
+        <div className="text-xs text-foreground-500 animate-pulse">Loading thread…</div>
       </div>
     );
   }
@@ -400,7 +400,7 @@ export default function MessageList({
       className="flex-1 overflow-y-auto px-6 py-4 space-y-3"
     >
       {messages.length === 0 ? (
-        <div className="text-center text-vc-muted py-8">
+        <div className="text-center text-foreground-500 py-8">
           <p>No messages yet. Start the conversation!</p>
           <p className="text-xs mt-2">Type @ to mention an agent</p>
         </div>

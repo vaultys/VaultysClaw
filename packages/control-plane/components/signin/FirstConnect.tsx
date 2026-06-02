@@ -7,10 +7,10 @@ export default function FirstConnect({ claimOwnership, onConnect }: FirstConnect
   return (
     <div className="flex flex-col items-center justify-center gap-8 text-center">
       <div className="space-y-2">
-        <h1 className="text-3xl font-bold text-vc-text">
+        <h1 className="text-3xl font-bold text-foreground">
           {claimOwnership ? "Claim Ownership" : "Welcome back"}
         </h1>
-        <p className="text-vc-muted max-w-xs">
+        <p className="text-foreground-500 max-w-xs">
           {claimOwnership
             ? "No users exist yet. Connect your VaultysID to become the owner of this control plane."
             : "Authenticate with your VaultysID to access the control plane."}

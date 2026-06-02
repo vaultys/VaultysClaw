@@ -249,13 +249,13 @@ export const WorkflowEditor: React.FC<WorkflowEditorProps> = ({ initialDefinitio
   };
 
   return (
-    <div className="flex flex-col h-full bg-vc-surface">
+    <div className="flex flex-col h-full bg-background-100">
       {/* Toolbar */}
-      <div className="border-b border-vc-border bg-vc-raised px-4 py-3">
+      <div className="border-b border-neutral-200 bg-background-200 px-4 py-3">
         <div className="flex items-center justify-between mb-3">
           <div>
-            <h2 className="text-lg font-semibold text-vc-text">{workflowName}</h2>
-            <p className="text-xs text-vc-muted">{nodes.length} nodes, {edges.length} edges</p>
+            <h2 className="text-lg font-semibold text-foreground">{workflowName}</h2>
+            <p className="text-xs text-foreground-500">{nodes.length} nodes, {edges.length} edges</p>
           </div>
           <div className="flex gap-2">
             <button
@@ -272,7 +272,7 @@ export const WorkflowEditor: React.FC<WorkflowEditorProps> = ({ initialDefinitio
             </button>
             <button
               onClick={() => handleAddNode("delay")}
-              className="flex items-center gap-1 px-3 py-1.5 bg-vc-text-2 text-white text-sm rounded hover:opacity-80"
+              className="flex items-center gap-1 px-3 py-1.5 bg-foreground-700 text-white text-sm rounded hover:opacity-80"
             >
               <Clock size={14} /> Delay
             </button>
@@ -327,13 +327,13 @@ export const WorkflowEditor: React.FC<WorkflowEditorProps> = ({ initialDefinitio
 
         {/* Default workflow input */}
         <div className="flex items-center gap-2">
-          <label className="text-xs text-vc-muted whitespace-nowrap">Default input:</label>
+          <label className="text-xs text-foreground-500 whitespace-nowrap">Default input:</label>
           <input
             type="text"
             value={workflowInput}
             onChange={(e) => setWorkflowInput(e.target.value)}
             placeholder="Enter default input for the first agent (optional)…"
-            className="flex-1 text-xs bg-vc-surface text-vc-text border border-vc-border rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-indigo-400"
+            className="flex-1 text-xs bg-background-100 text-foreground border border-neutral-200 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-indigo-400"
           />
         </div>
       </div>
@@ -364,19 +364,19 @@ export const WorkflowEditor: React.FC<WorkflowEditorProps> = ({ initialDefinitio
       {/* Input prompt modal — shown when Execute is clicked and no default input is set */}
       {showInputModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-vc-surface rounded-xl shadow-xl p-6 w-full max-w-lg mx-4 border border-vc-border">
-            <h3 className="text-base font-semibold text-vc-text mb-1">Workflow Input</h3>
-            <p className="text-sm text-vc-muted mb-4">Provide an input for the first agent in this workflow.</p>
+          <div className="bg-background-100 rounded-xl shadow-xl p-6 w-full max-w-lg mx-4 border border-neutral-200">
+            <h3 className="text-base font-semibold text-foreground mb-1">Workflow Input</h3>
+            <p className="text-sm text-foreground-500 mb-4">Provide an input for the first agent in this workflow.</p>
             <textarea
               autoFocus
               rows={4}
               value={pendingInput}
               onChange={(e) => setPendingInput(e.target.value)}
               placeholder="Type your input here…"
-              className="w-full bg-vc-raised text-vc-text border border-vc-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
+              className="w-full bg-background-200 text-foreground border border-neutral-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
             />
             <div className="flex items-center gap-2 mt-4 justify-end">
-              <label className="flex items-center gap-1.5 text-xs text-vc-muted mr-auto cursor-pointer">
+              <label className="flex items-center gap-1.5 text-xs text-foreground-500 mr-auto cursor-pointer">
                 <input
                   type="checkbox"
                   className="rounded"
@@ -389,7 +389,7 @@ export const WorkflowEditor: React.FC<WorkflowEditorProps> = ({ initialDefinitio
               </label>
               <button
                 onClick={() => setShowInputModal(false)}
-                className="px-3 py-1.5 text-sm rounded-lg border border-vc-border text-vc-text hover:bg-vc-raised"
+                className="px-3 py-1.5 text-sm rounded-lg border border-neutral-200 text-foreground hover:bg-background-200"
               >
                 Cancel
               </button>

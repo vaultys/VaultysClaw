@@ -32,10 +32,10 @@ export default function ChannelList({
       className={`w-full text-left px-4 py-2 rounded-lg transition flex items-center gap-2 ${
         selectedChannelId === channel.id
           ? "bg-indigo-600 text-white"
-          : "text-vc-text-2 hover:bg-vc-raised"
+          : "text-foreground-700 hover:bg-background-200"
       }`}
     >
-      <span className="text-vc-muted">#{channel.slug}</span>
+      <span className="text-foreground-500">#{channel.slug}</span>
       <span className="flex-1 truncate">{channel.name}</span>
       {!channel.isPublic && <Lock size={14} />}
       {channel.realmId === null && <Globe size={14} />}

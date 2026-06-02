@@ -230,8 +230,8 @@ export default function UsersPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-lg font-semibold text-vc-text">Users</h1>
-          <p className="text-vc-muted text-sm mt-0.5">
+          <h1 className="text-lg font-semibold text-foreground">Users</h1>
+          <p className="text-foreground-500 text-sm mt-0.5">
             {loading ? "Loading…" : `${total} ${tab === "registered" ? "registered" : "unclaimed"}`}
           </p>
         </div>
@@ -244,13 +244,13 @@ export default function UsersPage() {
       </div>
 
       {/* Tab switcher */}
-      <div className="flex gap-1 bg-vc-raised border border-vc-border rounded-xl p-1 w-fit">
+      <div className="flex gap-1 bg-background-200 border border-neutral-200 rounded-xl p-1 w-fit">
         <button
           onClick={() => switchTab("registered")}
           className={`flex items-center gap-2 px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
             tab === "registered"
-              ? "bg-vc-surface shadow text-vc-text border border-vc-border"
-              : "text-vc-muted hover:text-vc-text"
+              ? "bg-background-100 shadow text-foreground border border-neutral-200"
+              : "text-foreground-500 hover:text-foreground"
           }`}
         >
           <UserCheck className="w-4 h-4" />
@@ -260,8 +260,8 @@ export default function UsersPage() {
           onClick={() => switchTab("unregistered")}
           className={`flex items-center gap-2 px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
             tab === "unregistered"
-              ? "bg-vc-surface shadow text-vc-text border border-vc-border"
-              : "text-vc-muted hover:text-vc-text"
+              ? "bg-background-100 shadow text-foreground border border-neutral-200"
+              : "text-foreground-500 hover:text-foreground"
           }`}
         >
           <Clock className="w-4 h-4" />
@@ -272,16 +272,16 @@ export default function UsersPage() {
       {/* Filters bar */}
       <div className="flex flex-wrap items-center gap-3">
         <div className="relative flex-1 min-w-[200px] max-w-sm">
-          <Search size={14} className="absolute left-3 top-2.5 text-vc-subtle" />
+          <Search size={14} className="absolute left-3 top-2.5 text-foreground-400" />
           <input
             type="text"
             value={q}
             onChange={(e) => { setQ(e.target.value); setPage(1); }}
             placeholder={tab === "registered" ? "Search name, email or DID…" : "Search name or email…"}
-            className="w-full pl-9 pr-8 py-2 bg-vc-surface text-vc-text border border-vc-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="w-full pl-9 pr-8 py-2 bg-background-100 text-foreground border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
           />
           {q && (
-            <button onClick={() => { setQ(""); setPage(1); }} className="absolute right-2.5 top-2.5 text-vc-subtle hover:text-vc-text">
+            <button onClick={() => { setQ(""); setPage(1); }} className="absolute right-2.5 top-2.5 text-foreground-400 hover:text-foreground">
               <X size={14} />
             </button>
           )}
@@ -291,7 +291,7 @@ export default function UsersPage() {
           <select
             value={role}
             onChange={(e) => { setRole(e.target.value); setPage(1); }}
-            className="px-3 py-2 bg-vc-surface text-vc-text border border-vc-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="px-3 py-2 bg-background-100 text-foreground border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
           >
             <option value="">All roles</option>
             {ROLES.filter(Boolean).map((r) => (
@@ -306,7 +306,7 @@ export default function UsersPage() {
             const [col, dir] = e.target.value.split(":") as [typeof sortBy, typeof sortDir];
             setSortBy(col); setSortDir(dir); setPage(1);
           }}
-          className="px-3 py-2 bg-vc-surface text-vc-text border border-vc-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          className="px-3 py-2 bg-background-100 text-foreground border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
         >
           <option value="registeredAt:asc">Provisioned (oldest)</option>
           <option value="registeredAt:desc">Provisioned (newest)</option>
@@ -317,15 +317,15 @@ export default function UsersPage() {
       </div>
 
       {/* Table */}
-      <div className="bg-vc-surface border border-vc-border rounded-2xl overflow-hidden">
+      <div className="bg-background-100 border border-neutral-200 rounded-2xl overflow-hidden">
         {loading ? (
           <div className="flex justify-center py-16">
             <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
           </div>
         ) : users.length === 0 ? (
           <div className="flex flex-col items-center py-16 text-center">
-            <Users className="w-10 h-10 text-vc-ring mb-3" />
-            <p className="text-vc-muted">{emptyMessage}</p>
+            <Users className="w-10 h-10 text-neutral-300 mb-3" />
+            <p className="text-foreground-500">{emptyMessage}</p>
             {(q || role) && (
               <button onClick={() => { setQ(""); setRole(""); setPage(1); }} className="text-indigo-500 text-sm mt-2 hover:underline">
                 Clear filters
@@ -358,15 +358,15 @@ export default function UsersPage() {
             </div>
 
             {/* Pagination */}
-            <div className="flex items-center justify-between px-5 py-3 border-t border-vc-border">
-              <p className="text-xs text-vc-subtle">
+            <div className="flex items-center justify-between px-5 py-3 border-t border-neutral-200">
+              <p className="text-xs text-foreground-400">
                 {total === 0 ? "0 results" : `${(page - 1) * PAGE_SIZE + 1}–${Math.min(page * PAGE_SIZE, total)} of ${total}`}
               </p>
               <div className="flex items-center gap-1">
                 <button
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
                   disabled={page === 1}
-                  className="p-1.5 rounded-lg text-vc-muted hover:text-vc-text hover:bg-vc-raised disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                  className="p-1.5 rounded-lg text-foreground-500 hover:text-foreground hover:bg-background-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                 >
                   <ChevronLeft className="w-4 h-4" />
                 </button>
@@ -380,7 +380,7 @@ export default function UsersPage() {
                     key={p}
                     onClick={() => setPage(p)}
                     className={`min-w-[28px] h-7 rounded-lg text-xs font-medium transition-colors ${
-                      p === page ? "bg-indigo-600 text-white" : "text-vc-muted hover:text-vc-text hover:bg-vc-raised"
+                      p === page ? "bg-indigo-600 text-white" : "text-foreground-500 hover:text-foreground hover:bg-background-200"
                     }`}
                   >
                     {p}
@@ -389,7 +389,7 @@ export default function UsersPage() {
                 <button
                   onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                   disabled={page === totalPages}
-                  className="p-1.5 rounded-lg text-vc-muted hover:text-vc-text hover:bg-vc-raised disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                  className="p-1.5 rounded-lg text-foreground-500 hover:text-foreground hover:bg-background-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                 >
                   <ChevronRight className="w-4 h-4" />
                 </button>
@@ -409,24 +409,24 @@ export default function UsersPage() {
       {/* QR claim modal */}
       {qrModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-vc-surface border border-vc-border rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-4">
+          <div className="bg-background-100 border border-neutral-200 rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-4">
             <div className="flex items-start justify-between">
               <div>
-                <h3 className="font-semibold text-vc-text">Claim Account</h3>
-                <p className="text-xs text-vc-muted mt-0.5">{qrModal.user.name ?? qrModal.user.email ?? "Unknown user"}</p>
+                <h3 className="font-semibold text-foreground">Claim Account</h3>
+                <p className="text-xs text-foreground-500 mt-0.5">{qrModal.user.name ?? qrModal.user.email ?? "Unknown user"}</p>
               </div>
-              <button onClick={() => setQrModal(null)} className="p-1 rounded-lg text-vc-muted hover:text-vc-text hover:bg-vc-raised transition-colors">
+              <button onClick={() => setQrModal(null)} className="p-1 rounded-lg text-foreground-500 hover:text-foreground hover:bg-background-200 transition-colors">
                 <X className="w-4 h-4" />
               </button>
             </div>
 
             {qrModal.phase === "showing" && (
               <>
-                <p className="text-xs text-vc-muted text-center">Scan this QR code with the Vaultys wallet to activate the account.</p>
+                <p className="text-xs text-foreground-500 text-center">Scan this QR code with the Vaultys wallet to activate the account.</p>
                 <div className="flex justify-center p-4 bg-white rounded-xl">
                   <QRCodeSVG value={qrModal.qrUrl} size={200} />
                 </div>
-                <div className="flex items-center gap-2 text-xs text-vc-subtle">
+                <div className="flex items-center gap-2 text-xs text-foreground-400">
                   <Loader2 className="w-3 h-3 animate-spin shrink-0" />
                   Waiting for wallet scan…
                 </div>
@@ -436,7 +436,7 @@ export default function UsersPage() {
             {qrModal.phase === "success" && (
               <div className="flex flex-col items-center gap-3 py-4">
                 <CheckCircle className="w-12 h-12 text-green-500" />
-                <p className="text-sm font-medium text-vc-text">Account claimed successfully!</p>
+                <p className="text-sm font-medium text-foreground">Account claimed successfully!</p>
                 <button onClick={() => setQrModal(null)} className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-sm font-medium transition-colors">Done</button>
               </div>
             )}
@@ -444,7 +444,7 @@ export default function UsersPage() {
             {qrModal.phase === "failure" && (
               <div className="flex flex-col items-center gap-3 py-4">
                 <XCircle className="w-12 h-12 text-red-500" />
-                <p className="text-sm font-medium text-vc-text">QR code expired or failed.</p>
+                <p className="text-sm font-medium text-foreground">QR code expired or failed.</p>
                 <button onClick={() => { setQrModal(null); generateQr(qrModal.user, false); }} className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-sm font-medium transition-colors">Try again</button>
               </div>
             )}
@@ -473,25 +473,25 @@ function RegisteredTable({
   return (
     <table className="w-full text-sm">
       <thead>
-        <tr className="border-b border-vc-border text-left text-xs font-medium text-vc-subtle uppercase tracking-wider">
-          <th className="px-5 py-3 cursor-pointer select-none hover:text-vc-text" onClick={() => handleSort("name")}>
+        <tr className="border-b border-neutral-200 text-left text-xs font-medium text-foreground-400 uppercase tracking-wider">
+          <th className="px-5 py-3 cursor-pointer select-none hover:text-foreground" onClick={() => handleSort("name")}>
             User<SortIndicator col="name" />
           </th>
-          <th className="px-5 py-3 cursor-pointer select-none hover:text-vc-text" onClick={() => handleSort("email")}>
+          <th className="px-5 py-3 cursor-pointer select-none hover:text-foreground" onClick={() => handleSort("email")}>
             Email<SortIndicator col="email" />
           </th>
           <th className="px-5 py-3">DID</th>
           <th className="px-5 py-3">Role</th>
-          <th className="px-5 py-3 cursor-pointer select-none hover:text-vc-text" onClick={() => handleSort("registeredAt")}>
+          <th className="px-5 py-3 cursor-pointer select-none hover:text-foreground" onClick={() => handleSort("registeredAt")}>
             Registered<SortIndicator col="registeredAt" />
           </th>
         </tr>
       </thead>
-      <tbody className="divide-y divide-vc-border">
+      <tbody className="divide-y divide-neutral-200">
         {users.map((u) => (
           <tr
             key={u.id}
-            className="hover:bg-vc-raised/40 transition-colors cursor-pointer"
+            className="hover:bg-background-200/40 transition-colors cursor-pointer"
             onClick={() => u.did && router.push(`/users/${encodeURIComponent(u.did)}`)}
           >
             <td className="px-5 py-3.5">
@@ -500,8 +500,8 @@ function RegisteredTable({
                   <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400">{initials(u)}</span>
                 </div>
                 <div>
-                  <span className="font-medium text-vc-text">
-                    {u.name ?? <span className="text-vc-subtle italic font-normal">Unnamed</span>}
+                  <span className="font-medium text-foreground">
+                    {u.name ?? <span className="text-foreground-400 italic font-normal">Unnamed</span>}
                   </span>
                   {u.realms && u.realms.length > 0 && (
                     <div className="flex flex-wrap gap-1 mt-0.5">
@@ -519,10 +519,10 @@ function RegisteredTable({
                 </div>
               </div>
             </td>
-            <td className="px-5 py-3.5 text-vc-muted">
-              {u.email ?? <span className="text-vc-subtle">—</span>}
+            <td className="px-5 py-3.5 text-foreground-500">
+              {u.email ?? <span className="text-foreground-400">—</span>}
             </td>
-            <td className="px-5 py-3.5 text-vc-muted font-mono text-xs">
+            <td className="px-5 py-3.5 text-foreground-500 font-mono text-xs">
               <span title={u.did ?? ""}>{shortDid(u.did)}</span>
             </td>
             <td className="px-5 py-3.5">
@@ -531,10 +531,10 @@ function RegisteredTable({
               ) : u.isAdmin ? (
                 <span className="px-2 py-0.5 bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400 border border-blue-300 dark:border-blue-800 rounded-full text-xs font-medium">Admin</span>
               ) : (
-                <span className="px-2 py-0.5 bg-vc-raised text-vc-muted border border-vc-border rounded-full text-xs font-medium capitalize">{u.role || "Member"}</span>
+                <span className="px-2 py-0.5 bg-background-200 text-foreground-500 border border-neutral-200 rounded-full text-xs font-medium capitalize">{u.role || "Member"}</span>
               )}
             </td>
-            <td className="px-5 py-3.5 text-vc-muted text-xs">
+            <td className="px-5 py-3.5 text-foreground-500 text-xs">
               {new Date(u.registeredAt + (u.registeredAt.endsWith("Z") ? "" : "Z")).toLocaleDateString()}
             </td>
           </tr>
@@ -568,26 +568,26 @@ function UnclaimedTable({
   return (
     <table className="w-full text-sm">
       <thead>
-        <tr className="border-b border-vc-border text-left text-xs font-medium text-vc-subtle uppercase tracking-wider">
-          <th className="px-5 py-3 cursor-pointer select-none hover:text-vc-text" onClick={() => handleSort("name")}>
+        <tr className="border-b border-neutral-200 text-left text-xs font-medium text-foreground-400 uppercase tracking-wider">
+          <th className="px-5 py-3 cursor-pointer select-none hover:text-foreground" onClick={() => handleSort("name")}>
             User<SortIndicator col="name" />
           </th>
-          <th className="px-5 py-3 cursor-pointer select-none hover:text-vc-text" onClick={() => handleSort("email")}>
+          <th className="px-5 py-3 cursor-pointer select-none hover:text-foreground" onClick={() => handleSort("email")}>
             Email<SortIndicator col="email" />
           </th>
           <th className="px-5 py-3">Source</th>
           <th className="px-5 py-3">Role</th>
-          <th className="px-5 py-3 cursor-pointer select-none hover:text-vc-text" onClick={() => handleSort("registeredAt")}>
+          <th className="px-5 py-3 cursor-pointer select-none hover:text-foreground" onClick={() => handleSort("registeredAt")}>
             Provisioned<SortIndicator col="registeredAt" />
           </th>
           <th className="px-5 py-3">Claim</th>
         </tr>
       </thead>
-      <tbody className="divide-y divide-vc-border">
+      <tbody className="divide-y divide-neutral-200">
         {users.map((u) => (
           <tr
             key={u.id}
-            className="hover:bg-vc-raised/40 transition-colors cursor-pointer"
+            className="hover:bg-background-200/40 transition-colors cursor-pointer"
             onClick={() => router.push(`/users/unregistered/${u.id}`)}
           >
             <td className="px-5 py-3.5">
@@ -595,13 +595,13 @@ function UnclaimedTable({
                 <div className="w-8 h-8 rounded-full bg-amber-100 dark:bg-amber-900/30 border border-amber-300 dark:border-amber-700/50 flex items-center justify-center shrink-0">
                   <span className="text-xs font-bold text-amber-600 dark:text-amber-400">{initials(u)}</span>
                 </div>
-                <span className="font-medium text-vc-text">
-                  {u.name ?? <span className="text-vc-subtle italic font-normal">Unnamed</span>}
+                <span className="font-medium text-foreground">
+                  {u.name ?? <span className="text-foreground-400 italic font-normal">Unnamed</span>}
                 </span>
               </div>
             </td>
-            <td className="px-5 py-3.5 text-vc-muted">
-              {u.email ?? <span className="text-vc-subtle">—</span>}
+            <td className="px-5 py-3.5 text-foreground-500">
+              {u.email ?? <span className="text-foreground-400">—</span>}
             </td>
             <td className="px-5 py-3.5">
               {u.entraId ? (
@@ -609,15 +609,15 @@ function UnclaimedTable({
                   Entra ID
                 </span>
               ) : (
-                <span className="text-vc-subtle text-xs">—</span>
+                <span className="text-foreground-400 text-xs">—</span>
               )}
             </td>
             <td className="px-5 py-3.5">
-              <span className="px-2 py-0.5 bg-vc-raised text-vc-muted border border-vc-border rounded-full text-xs font-medium capitalize">
+              <span className="px-2 py-0.5 bg-background-200 text-foreground-500 border border-neutral-200 rounded-full text-xs font-medium capitalize">
                 {u.role || "Member"}
               </span>
             </td>
-            <td className="px-5 py-3.5 text-vc-muted text-xs">
+            <td className="px-5 py-3.5 text-foreground-500 text-xs">
               {new Date(u.registeredAt + (u.registeredAt.endsWith("Z") ? "" : "Z")).toLocaleDateString()}
             </td>
             <td className="px-5 py-3.5" onClick={(e) => e.stopPropagation()}>
@@ -635,7 +635,7 @@ function UnclaimedTable({
                   <button
                     onClick={() => generateQr(u, true)}
                     disabled={sendingQr === u.id}
-                    className="flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-lg bg-vc-raised border border-vc-ring hover:border-indigo-500 text-vc-text disabled:opacity-40 transition-colors"
+                    className="flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-lg bg-background-200 border border-neutral-300 hover:border-indigo-500 text-foreground disabled:opacity-40 transition-colors"
                     title="Send by email"
                   >
                     <Send className="w-3 h-3" />

@@ -95,7 +95,7 @@ function getStatusIcon(status: string) {
     case "running":
       return <Activity size={16} className="text-blue-500 animate-pulse" />;
     default:
-      return <Clock size={16} className="text-vc-muted" />;
+      return <Clock size={16} className="text-foreground-500" />;
   }
 }
 
@@ -109,7 +109,7 @@ function getStatusBadge(status: string) {
     case "running":
       return `${baseClass} bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400`;
     default:
-      return `${baseClass} bg-vc-raised text-vc-subtle`;
+      return `${baseClass} bg-background-200 text-foreground-400`;
   }
 }
 
@@ -249,14 +249,14 @@ export default function WorkflowsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-vc-bg">
+    <div className="min-h-screen bg-background">
       {/* Header */}
-      <div className="bg-vc-surface border-b border-vc-border">
+      <div className="bg-background-100 border-b border-neutral-200">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex justify-between items-center gap-4">
             <div>
-              <h1 className="text-3xl font-bold text-vc-text">Workflows</h1>
-              <p className="text-vc-muted mt-1">
+              <h1 className="text-3xl font-bold text-foreground">Workflows</h1>
+              <p className="text-foreground-500 mt-1">
                 Create and manage AI agent orchestration workflows
               </p>
             </div>
@@ -295,7 +295,7 @@ export default function WorkflowsPage() {
 
         {!loading && workflows.length === 0 && (
           <div className="text-center">
-            <p className="text-vc-muted mb-4">No workflows yet. Create your first one!</p>
+            <p className="text-foreground-500 mb-4">No workflows yet. Create your first one!</p>
             <Link
               href="/workflows/new"
               onClick={handleCreateWorkflow}
@@ -311,28 +311,28 @@ export default function WorkflowsPage() {
             {workflows.map((workflow) => (
               <div
                 key={workflow.id}
-                className="bg-vc-surface rounded-lg border border-vc-border overflow-hidden"
+                className="bg-background-100 rounded-lg border border-neutral-200 overflow-hidden"
               >
                 {/* Workflow header */}
-                <div className="px-6 py-4 flex items-center justify-between border-b border-vc-border hover:bg-vc-raised/30 transition">
+                <div className="px-6 py-4 flex items-center justify-between border-b border-neutral-200 hover:bg-background-200/30 transition">
                   <button
                     onClick={() => toggleRuns(workflow.id)}
                     className="flex-1 flex items-center justify-between text-left"
                   >
                     <div className="flex-1">
-                      <h3 className="text-lg font-semibold text-vc-text">{workflow.name}</h3>
+                      <h3 className="text-lg font-semibold text-foreground">{workflow.name}</h3>
                       {workflow.description && (
-                        <p className="text-vc-muted text-sm mt-1">{workflow.description}</p>
+                        <p className="text-foreground-500 text-sm mt-1">{workflow.description}</p>
                       )}
-                      <p className="text-xs text-vc-subtle mt-2">
+                      <p className="text-xs text-foreground-400 mt-2">
                         Updated {new Date(workflow.updatedAt).toLocaleDateString()}
                       </p>
                     </div>
                     <div className="ml-4">
                       {workflow.runsExpanded ? (
-                        <ChevronUp className="text-vc-muted" />
+                        <ChevronUp className="text-foreground-500" />
                       ) : (
-                        <ChevronDown className="text-vc-muted" />
+                        <ChevronDown className="text-foreground-500" />
                       )}
                     </div>
                   </button>
@@ -365,7 +365,7 @@ export default function WorkflowsPage() {
 
                 {/* Runs section */}
                 {workflow.runsExpanded && (
-                  <div className="border-t border-vc-border">
+                  <div className="border-t border-neutral-200">
                     {workflow.loadingRuns ? (
                       <div className="flex justify-center py-8">
                         <div className="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
@@ -374,7 +374,7 @@ export default function WorkflowsPage() {
                       <div className="overflow-x-auto">
                         <table className="w-full text-sm">
                           <thead>
-                            <tr className="border-b border-vc-border text-left text-xs font-medium text-vc-subtle uppercase tracking-wider bg-vc-raised/50">
+                            <tr className="border-b border-neutral-200 text-left text-xs font-medium text-foreground-400 uppercase tracking-wider bg-background-200/50">
                               <th className="px-4 py-3">Status</th>
                               <th className="px-4 py-3">Run ID</th>
                               <th className="px-4 py-3">Started</th>
@@ -392,7 +392,7 @@ export default function WorkflowsPage() {
                               return (
                                 <tr
                                   key={run.id}
-                                  className="border-b border-vc-border/50 hover:bg-vc-raised/30 transition"
+                                  className="border-b border-neutral-200/50 hover:bg-background-200/30 transition"
                                 >
                                   <td className="px-4 py-3">
                                     <div className={getStatusBadge(run.status)}>
@@ -400,18 +400,18 @@ export default function WorkflowsPage() {
                                       {run.status}
                                     </div>
                                   </td>
-                                  <td className="px-4 py-3 text-vc-muted font-mono text-xs">
+                                  <td className="px-4 py-3 text-foreground-500 font-mono text-xs">
                                     {run.id.slice(0, 8)}…
                                   </td>
                                   <td className="px-4 py-3">
-                                    <div className="text-vc-text text-xs">
+                                    <div className="text-foreground text-xs">
                                       {formatDate(run.started_at)}
                                     </div>
-                                    <div className="text-vc-muted text-xs mt-0.5">
+                                    <div className="text-foreground-500 text-xs mt-0.5">
                                       {timeAgo(run.started_at)}
                                     </div>
                                   </td>
-                                  <td className="px-4 py-3 text-vc-muted text-xs">
+                                  <td className="px-4 py-3 text-foreground-500 text-xs">
                                     {duration !== null ? `${duration}s` : "—"}
                                   </td>
                                   <td className="px-4 py-3">
@@ -429,7 +429,7 @@ export default function WorkflowsPage() {
                         </table>
                       </div>
                     ) : (
-                      <div className="px-4 py-8 text-center text-vc-muted text-sm">
+                      <div className="px-4 py-8 text-center text-foreground-500 text-sm">
                         No runs yet for this workflow
                       </div>
                     )}

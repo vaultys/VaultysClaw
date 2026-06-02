@@ -137,13 +137,13 @@ function StatBox({
       className={cn(
         "border rounded-lg px-4 py-3 transition-opacity",
         disabled
-          ? "bg-vc-bg border-vc-border opacity-40"
-          : "bg-vc-bg border-vc-border",
+          ? "bg-background border-neutral-200 opacity-40"
+          : "bg-background border-neutral-200",
       )}
     >
-      <div className="text-xs text-vc-muted uppercase tracking-wide mb-1">{label}</div>
-      <div className="text-xl font-bold text-vc-text">{value}</div>
-      {sub && <div className="text-xs text-vc-subtle mt-0.5">{sub}</div>}
+      <div className="text-xs text-foreground-500 uppercase tracking-wide mb-1">{label}</div>
+      <div className="text-xl font-bold text-foreground">{value}</div>
+      {sub && <div className="text-xs text-foreground-400 mt-0.5">{sub}</div>}
     </div>
   );
 }
@@ -157,7 +157,7 @@ function CopyButton({ text }: { text: string }) {
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
       }}
-      className="flex items-center gap-1 text-xs px-2 py-1 rounded bg-vc-raised border border-vc-border text-vc-muted hover:text-vc-text transition-colors"
+      className="flex items-center gap-1 text-xs px-2 py-1 rounded bg-background-200 border border-neutral-200 text-foreground-500 hover:text-foreground transition-colors"
     >
       {copied ? <Check size={11} className="text-green-500" /> : <Copy size={11} />}
       {copied ? "Copied" : "Copy"}
@@ -178,43 +178,43 @@ function AgentsTable({
   const accent = transport === "ws" ? "sky" : "violet";
 
   return (
-    <div className="bg-vc-surface border border-vc-border rounded-xl overflow-hidden">
-      <div className="px-5 py-3.5 border-b border-vc-border flex items-center justify-between">
+    <div className="bg-background-100 border border-neutral-200 rounded-xl overflow-hidden">
+      <div className="px-5 py-3.5 border-b border-neutral-200 flex items-center justify-between">
         <div>
-          <span className="text-sm font-semibold text-vc-text">Live connections</span>
-          <span className="ml-2 text-xs text-vc-subtle">
+          <span className="text-sm font-semibold text-foreground">Live connections</span>
+          <span className="ml-2 text-xs text-foreground-400">
             {filtered.length} agent{filtered.length !== 1 ? "s" : ""}
           </span>
         </div>
-        <div className="flex items-center gap-2 text-xs text-vc-subtle">
+        <div className="flex items-center gap-2 text-xs text-foreground-400">
           <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse inline-block" />
           Auto-refreshes every 5s
         </div>
       </div>
 
       {filtered.length === 0 ? (
-        <div className="px-5 py-12 text-center text-sm text-vc-muted">
+        <div className="px-5 py-12 text-center text-sm text-foreground-500">
           No {transport === "ws" ? "WebSocket" : "WebRTC"} agents connected
         </div>
       ) : (
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-vc-border text-left text-xs font-medium text-vc-subtle uppercase tracking-wider">
+            <tr className="border-b border-neutral-200 text-left text-xs font-medium text-foreground-400 uppercase tracking-wider">
               <th className="px-5 py-3">Agent</th>
               <th className="px-5 py-3">DID</th>
               <th className="px-5 py-3">Connected</th>
               <th className="px-5 py-3">Last heartbeat</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-vc-border">
+          <tbody className="divide-y divide-neutral-200">
             {filtered.map((agent) => (
-              <tr key={agent.id} className="hover:bg-vc-raised/30 transition-colors">
-                <td className="px-5 py-3 font-medium text-vc-text">{agent.name}</td>
-                <td className="px-5 py-3 font-mono text-xs text-vc-muted">
+              <tr key={agent.id} className="hover:bg-background-200/30 transition-colors">
+                <td className="px-5 py-3 font-medium text-foreground">{agent.name}</td>
+                <td className="px-5 py-3 font-mono text-xs text-foreground-500">
                   <span title={agent.id}>{shortDid(agent.id)}</span>
                 </td>
-                <td className="px-5 py-3 text-xs text-vc-muted">{timeAgo(agent.connectedAt)}</td>
-                <td className="px-5 py-3 text-xs text-vc-muted">
+                <td className="px-5 py-3 text-xs text-foreground-500">{timeAgo(agent.connectedAt)}</td>
+                <td className="px-5 py-3 text-xs text-foreground-500">
                   {timeAgo(agent.lastHeartbeat)}
                 </td>
               </tr>
@@ -367,12 +367,12 @@ function PeerjsPanel({
           onClick={() => setShowHelpModal(false)}
         >
           <div
-            className="relative bg-vc-surface border border-vc-border rounded-2xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto"
+            className="relative bg-background-100 border border-neutral-200 rounded-2xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             <button
               onClick={() => setShowHelpModal(false)}
-              className="absolute top-3 right-3 p-1.5 rounded hover:bg-vc-raised transition-colors text-vc-muted z-10"
+              className="absolute top-3 right-3 p-1.5 rounded hover:bg-background-200 transition-colors text-foreground-500 z-10"
             >
               <X size={16} />
             </button>
@@ -388,7 +388,7 @@ function PeerjsPanel({
           "rounded-xl border p-5 space-y-4",
           data.running
             ? "bg-violet-50/60 dark:bg-violet-500/5 border-violet-300 dark:border-violet-500/30"
-            : "bg-vc-surface border-vc-border",
+            : "bg-background-100 border-neutral-200",
         )}
       >
         {/* Header */}
@@ -398,43 +398,43 @@ function PeerjsPanel({
               "w-9 h-9 rounded-lg flex items-center justify-center border",
               data.running
                 ? "bg-violet-100 dark:bg-violet-500/20 border-violet-300 dark:border-violet-500/30"
-                : "bg-vc-raised border-vc-border",
+                : "bg-background-200 border-neutral-200",
             )}
           >
             <Radio
               size={18}
-              className={data.running ? "text-violet-600 dark:text-violet-400" : "text-vc-muted"}
+              className={data.running ? "text-violet-600 dark:text-violet-400" : "text-foreground-500"}
             />
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
-              <span className="font-semibold text-vc-text">WebRTC / PeerJS</span>
+              <span className="font-semibold text-foreground">WebRTC / PeerJS</span>
               <span
                 className={cn(
                   "text-[10px] font-medium px-2 py-0.5 rounded-full border",
                   data.running
                     ? "bg-violet-100 dark:bg-violet-500/15 text-violet-700 dark:text-violet-400 border-violet-300 dark:border-violet-500/30"
-                    : "bg-vc-raised text-vc-muted border-vc-border",
+                    : "bg-background-200 text-foreground-500 border-neutral-200",
                 )}
               >
                 {data.running ? "Running" : "Stopped"}
               </span>
             </div>
             {data.running && data.startedAt && (
-              <p className="text-xs text-vc-muted mt-0.5">Started {timeAgo(data.startedAt)}</p>
+              <p className="text-xs text-foreground-500 mt-0.5">Started {timeAgo(data.startedAt)}</p>
             )}
           </div>
           <div className="flex items-center gap-2">
             <button
               onClick={() => setShowConfig((v) => !v)}
-              className="p-1.5 rounded hover:bg-vc-raised transition-colors text-vc-muted"
+              className="p-1.5 rounded hover:bg-background-200 transition-colors text-foreground-500"
               title="Configure"
             >
               <Settings2 size={15} />
             </button>
             <button
               onClick={() => setShowHelpModal(true)}
-              className="p-1.5 rounded hover:bg-vc-raised transition-colors text-vc-muted"
+              className="p-1.5 rounded hover:bg-background-200 transition-colors text-foreground-500"
               title="Setup guide"
             >
               <HelpCircle size={15} />
@@ -444,7 +444,7 @@ function PeerjsPanel({
                 <button
                   onClick={() => handle("restart-peerjs")}
                   disabled={acting}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-vc-raised border border-vc-border text-amber-600 dark:text-amber-400 hover:border-amber-400 dark:hover:border-amber-500 hover:text-amber-700 dark:hover:text-amber-300 disabled:opacity-50 transition-colors"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-background-200 border border-neutral-200 text-amber-600 dark:text-amber-400 hover:border-amber-400 dark:hover:border-amber-500 hover:text-amber-700 dark:hover:text-amber-300 disabled:opacity-50 transition-colors"
                 >
                   {acting && actingAction === "restart-peerjs" ? (
                     <Loader2 size={12} className="animate-spin" />
@@ -481,32 +481,32 @@ function PeerjsPanel({
 
         {/* Config panel */}
         {showConfig && (
-          <div className="bg-vc-bg border border-vc-border rounded-lg p-4 space-y-3">
+          <div className="bg-background border border-neutral-200 rounded-lg p-4 space-y-3">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-vc-muted uppercase tracking-wide">
+              <span className="text-xs font-medium text-foreground-500 uppercase tracking-wide">
                 Configuration
               </span>
               <button
                 onClick={() => setShowConfig(false)}
-                className="text-vc-muted hover:text-vc-text"
+                className="text-foreground-500 hover:text-foreground"
               >
                 <X size={14} />
               </button>
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs text-vc-muted">
+              <label className="text-xs text-foreground-500">
                 Signaling server URL{" "}
-                <span className="text-vc-subtle">(leave blank for public relay)</span>
+                <span className="text-foreground-400">(leave blank for public relay)</span>
               </label>
               <input
                 value={serverUrl}
                 onChange={(e) => setServerUrl(e.target.value)}
                 placeholder="https://my.peerserver.example"
-                className="w-full px-3 py-2 bg-vc-surface border border-vc-border rounded-lg text-sm font-mono text-vc-text focus:outline-none focus:ring-2 focus:ring-violet-500"
+                className="w-full px-3 py-2 bg-background-100 border border-neutral-200 rounded-lg text-sm font-mono text-foreground focus:outline-none focus:ring-2 focus:ring-violet-500"
               />
             </div>
             {!data.running && (
-              <p className="text-xs text-vc-subtle">URL is applied when you click Start.</p>
+              <p className="text-xs text-foreground-400">URL is applied when you click Start.</p>
             )}
             {data.running && (
               <p className="text-xs text-amber-600 dark:text-amber-400">
@@ -519,22 +519,22 @@ function PeerjsPanel({
         {/* Peer ID */}
         {data.peerId && (
           <div className="space-y-1.5">
-            <label className="text-xs font-medium text-vc-muted uppercase tracking-wide flex items-center gap-1.5">
+            <label className="text-xs font-medium text-foreground-500 uppercase tracking-wide flex items-center gap-1.5">
               <Link2 size={11} /> Peer ID
             </label>
             <div className="flex items-center gap-2">
-              <code className="flex-1 text-xs font-mono text-vc-text bg-vc-bg border border-vc-border rounded-lg px-3 py-2 break-all">
+              <code className="flex-1 text-xs font-mono text-foreground bg-background border border-neutral-200 rounded-lg px-3 py-2 break-all">
                 {data.peerId}
               </code>
               <CopyButton text={data.peerId} />
             </div>
-            <p className="text-xs text-vc-subtle">
+            <p className="text-xs text-foreground-400">
               Agents connect with:{" "}
-              <code className="font-mono text-vc-muted">--peerjs {data.peerId}</code>
+              <code className="font-mono text-foreground-500">--peerjs {data.peerId}</code>
               {data.serverUrl && (
                 <>
                   {" "}
-                  <code className="font-mono text-vc-muted">
+                  <code className="font-mono text-foreground-500">
                     --peerjs-server {data.serverUrl}
                   </code>
                 </>
@@ -557,10 +557,10 @@ function PeerjsPanel({
 // ── Traffic BarChart ──────────────────────────────────────────────────────────
 
 const CHART_TOOLTIP_STYLE = {
-  backgroundColor: "var(--vc-surface, #1e293b)",
-  border: "1px solid var(--vc-border, #334155)",
+  backgroundColor: "var(--background-100, #1e293b)",
+  border: "1px solid var(--neutral-200, #334155)",
   borderRadius: "8px",
-  color: "var(--vc-text, #f1f5f9)",
+  color: "var(--foreground-900, #f1f5f9)",
   fontSize: "12px",
 };
 
@@ -587,47 +587,47 @@ function TrafficChart({
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
       {/* Messages — counters instead of a chart (scale would dwarf byte values) */}
-      <div className="bg-vc-bg border border-vc-border rounded-xl p-4 flex flex-col gap-3">
-        <p className="text-xs font-medium text-vc-muted uppercase tracking-wide">Messages</p>
+      <div className="bg-background border border-neutral-200 rounded-xl p-4 flex flex-col gap-3">
+        <p className="text-xs font-medium text-foreground-500 uppercase tracking-wide">Messages</p>
         <div className="flex flex-1 items-center gap-4">
-          <div className="flex-1 flex flex-col items-center justify-center gap-1 bg-vc-surface border border-vc-border rounded-lg py-6">
+          <div className="flex-1 flex flex-col items-center justify-center gap-1 bg-background-100 border border-neutral-200 rounded-lg py-6">
             <span className="text-3xl font-bold tabular-nums" style={{ color: palette }}>
               {msgIn.toLocaleString()}
             </span>
-            <span className="text-xs text-vc-muted">received</span>
+            <span className="text-xs text-foreground-500">received</span>
           </div>
-          <div className="flex-1 flex flex-col items-center justify-center gap-1 bg-vc-surface border border-vc-border rounded-lg py-6">
+          <div className="flex-1 flex flex-col items-center justify-center gap-1 bg-background-100 border border-neutral-200 rounded-lg py-6">
             <span className="text-3xl font-bold tabular-nums" style={{ color: paletteDim }}>
               {msgOut.toLocaleString()}
             </span>
-            <span className="text-xs text-vc-muted">sent</span>
+            <span className="text-xs text-foreground-500">sent</span>
           </div>
         </div>
       </div>
 
       {/* Bytes — bar chart scaled to MB */}
-      <div className="bg-vc-bg border border-vc-border rounded-xl p-4">
-        <p className="text-xs font-medium text-vc-muted uppercase tracking-wide mb-3">
+      <div className="bg-background border border-neutral-200 rounded-xl p-4">
+        <p className="text-xs font-medium text-foreground-500 uppercase tracking-wide mb-3">
           Data transferred (MB)
         </p>
         <ResponsiveContainer width="100%" height={160}>
           <BarChart data={byteData} margin={{ top: 4, right: 8, left: -8, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="var(--vc-border, #334155)" />
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--neutral-200, #334155)" />
             <XAxis
               dataKey="name"
-              tick={{ fontSize: 11, fill: "var(--vc-muted, #94a3b8)" }}
+              tick={{ fontSize: 11, fill: "var(--foreground-500, #94a3b8)" }}
               axisLine={false}
               tickLine={false}
             />
             <YAxis
-              tick={{ fontSize: 11, fill: "var(--vc-muted, #94a3b8)" }}
+              tick={{ fontSize: 11, fill: "var(--foreground-500, #94a3b8)" }}
               axisLine={false}
               tickLine={false}
               tickFormatter={(v: number) => v < 1 ? v.toFixed(2) : v.toFixed(1)}
             />
             <Tooltip
               contentStyle={CHART_TOOLTIP_STYLE}
-              cursor={{ fill: "var(--vc-raised, #1e293b)", opacity: 0.5 }}
+              cursor={{ fill: "var(--background-200, #1e293b)", opacity: 0.5 }}
               formatter={(value: number) => [`${value.toFixed(3)} MB`, "Size"]}
             />
             <Bar dataKey="value" name="MB" fill={paletteDim} radius={[4, 4, 0, 0]} />
@@ -844,12 +844,12 @@ function NetworkMapFlow({
         >
           <span
             style={{
-              color: "var(--vc-muted, #94a3b8)",
+              color: "var(--foreground-500, #94a3b8)",
               fontSize: "13px",
-              background: "var(--vc-surface, #0f172a)",
+              background: "var(--background-100, #0f172a)",
               padding: "8px 16px",
               borderRadius: "8px",
-              border: "1px solid var(--vc-border, #1e293b)",
+              border: "1px solid var(--neutral-200, #1e293b)",
             }}
           >
             No agents connected — topology will appear here
@@ -871,13 +871,13 @@ function NetworkMapFlow({
       </ReactFlow>
       <style>{`
         .react-flow__controls button {
-          background: var(--vc-surface, #1e293b) !important;
-          border: 1px solid var(--vc-border, #334155) !important;
-          color: var(--vc-muted, #94a3b8) !important;
+          background: var(--background-100, #1e293b) !important;
+          border: 1px solid var(--neutral-200, #334155) !important;
+          color: var(--foreground-500, #94a3b8) !important;
         }
         .react-flow__controls button:hover {
-          background: var(--vc-raised, #1e293b) !important;
-          color: var(--vc-text, #f1f5f9) !important;
+          background: var(--background-200, #1e293b) !important;
+          color: var(--foreground-900, #f1f5f9) !important;
         }
         .react-flow__edge-label {
           pointer-events: none;
@@ -913,18 +913,18 @@ function ComparisonChart({
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
       {/* Message counters */}
-      <div className="bg-vc-bg border border-vc-border rounded-xl p-4 flex flex-col gap-3">
-        <p className="text-xs font-medium text-vc-muted uppercase tracking-wide">Messages</p>
+      <div className="bg-background border border-neutral-200 rounded-xl p-4 flex flex-col gap-3">
+        <p className="text-xs font-medium text-foreground-500 uppercase tracking-wide">Messages</p>
         <div className="flex flex-col gap-2">
           {/* Header */}
-          <div className="grid grid-cols-3 text-xs text-vc-subtle font-medium px-1">
+          <div className="grid grid-cols-3 text-xs text-foreground-400 font-medium px-1">
             <span />
             <span className="text-center text-sky-500">WebSocket</span>
             <span className="text-center text-violet-500">WebRTC</span>
           </div>
           {msgRows.map(({ label, ws: w, pj }) => (
-            <div key={label} className="grid grid-cols-3 items-center bg-vc-surface border border-vc-border rounded-lg px-3 py-2">
-              <span className="text-xs text-vc-muted">{label}</span>
+            <div key={label} className="grid grid-cols-3 items-center bg-background-100 border border-neutral-200 rounded-lg px-3 py-2">
+              <span className="text-xs text-foreground-500">{label}</span>
               <span className="text-center text-lg font-bold tabular-nums text-sky-400">{w.toLocaleString()}</span>
               <span className="text-center text-lg font-bold tabular-nums text-violet-400">{pj.toLocaleString()}</span>
             </div>
@@ -933,31 +933,31 @@ function ComparisonChart({
       </div>
 
       {/* Bytes bar chart in MB */}
-      <div className="bg-vc-bg border border-vc-border rounded-xl p-4">
-        <p className="text-xs font-medium text-vc-muted uppercase tracking-wide mb-3">
+      <div className="bg-background border border-neutral-200 rounded-xl p-4">
+        <p className="text-xs font-medium text-foreground-500 uppercase tracking-wide mb-3">
           Data transferred (MB)
         </p>
         <ResponsiveContainer width="100%" height={200}>
           <BarChart data={byteData} margin={{ top: 4, right: 16, left: -8, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="var(--vc-border, #334155)" />
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--neutral-200, #334155)" />
             <XAxis
               dataKey="name"
-              tick={{ fontSize: 11, fill: "var(--vc-muted, #94a3b8)" }}
+              tick={{ fontSize: 11, fill: "var(--foreground-500, #94a3b8)" }}
               axisLine={false}
               tickLine={false}
             />
             <YAxis
-              tick={{ fontSize: 11, fill: "var(--vc-muted, #94a3b8)" }}
+              tick={{ fontSize: 11, fill: "var(--foreground-500, #94a3b8)" }}
               axisLine={false}
               tickLine={false}
               tickFormatter={(v: number) => v < 1 ? v.toFixed(2) : v.toFixed(1)}
             />
             <Tooltip
               contentStyle={CHART_TOOLTIP_STYLE}
-              cursor={{ fill: "var(--vc-raised, #1e293b)", opacity: 0.5 }}
+              cursor={{ fill: "var(--background-200, #1e293b)", opacity: 0.5 }}
               formatter={(value: number) => [`${value.toFixed(3)} MB`, "Size"]}
             />
-            <Legend wrapperStyle={{ fontSize: "12px", color: "var(--vc-muted, #94a3b8)" }} />
+            <Legend wrapperStyle={{ fontSize: "12px", color: "var(--foreground-500, #94a3b8)" }} />
             <Bar dataKey="WebSocket" fill="#0ea5e9" radius={[4, 4, 0, 0]} />
             <Bar dataKey="WebRTC"    fill="#8b5cf6" radius={[4, 4, 0, 0]} />
           </BarChart>
@@ -1018,17 +1018,17 @@ function WsTab({
           </div>
           <div className="flex-1">
             <div className="flex items-center gap-2">
-              <span className="font-semibold text-vc-text">WebSocket</span>
+              <span className="font-semibold text-foreground">WebSocket</span>
               <span className="text-[10px] font-medium px-2 py-0.5 rounded-full border bg-sky-100 dark:bg-sky-500/15 text-sky-700 dark:text-sky-400 border-sky-300 dark:border-sky-500/30">
                 Always on
               </span>
             </div>
-            <p className="text-xs text-vc-muted mt-0.5">TCP on port 8080 — always running</p>
+            <p className="text-xs text-foreground-500 mt-0.5">TCP on port 8080 — always running</p>
           </div>
           <button
             onClick={handleRestart}
             disabled={restarting}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-vc-raised border border-vc-border text-amber-600 dark:text-amber-400 hover:border-amber-400 dark:hover:border-amber-500 hover:text-amber-700 dark:hover:text-amber-300 disabled:opacity-50 transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-background-200 border border-neutral-200 text-amber-600 dark:text-amber-400 hover:border-amber-400 dark:hover:border-amber-500 hover:text-amber-700 dark:hover:text-amber-300 disabled:opacity-50 transition-colors"
           >
             {restarting ? (
               <Loader2 size={12} className="animate-spin" />
@@ -1206,28 +1206,28 @@ function PeerjsSetupGuide({ configuredUrl }: { configuredUrl: string | null }) {
       : "http://peerjs-server.default.svc.cluster.local:9000";
 
   return (
-    <div className="rounded-xl border border-vc-border bg-vc-surface overflow-hidden">
+    <div className="rounded-xl border border-neutral-200 bg-background-100 overflow-hidden">
       {/* Accordion header */}
       <button
         onClick={() => setOpen((v) => !v)}
-        className="w-full flex items-center gap-3 px-5 py-4 text-left hover:bg-vc-raised/50 transition-colors"
+        className="w-full flex items-center gap-3 px-5 py-4 text-left hover:bg-background-200/50 transition-colors"
       >
         <Terminal size={16} className="text-violet-500 shrink-0" />
         <div className="flex-1 min-w-0">
-          <span className="text-sm font-semibold text-vc-text">Self-host a PeerJS signaling server</span>
-          <p className="text-xs text-vc-muted mt-0.5">
+          <span className="text-sm font-semibold text-foreground">Self-host a PeerJS signaling server</span>
+          <p className="text-xs text-foreground-500 mt-0.5">
             Run your own relay for maximum privacy and no rate limits — Docker or Kubernetes
           </p>
         </div>
         {open
-          ? <ChevronDown size={15} className="text-vc-muted shrink-0" />
-          : <ChevronRight size={15} className="text-vc-muted shrink-0" />}
+          ? <ChevronDown size={15} className="text-foreground-500 shrink-0" />
+          : <ChevronRight size={15} className="text-foreground-500 shrink-0" />}
       </button>
 
       {open && (
-        <div className="border-t border-vc-border px-5 pb-5 pt-4 space-y-5">
+        <div className="border-t border-neutral-200 px-5 pb-5 pt-4 space-y-5">
           {/* Flavour tabs */}
-          <div className="flex gap-1 bg-vc-bg border border-vc-border rounded-lg p-1 w-fit">
+          <div className="flex gap-1 bg-background border border-neutral-200 rounded-lg p-1 w-fit">
             {([
               { id: "docker" as SetupFlavour, icon: <Package size={13} />, label: "Docker" },
               { id: "kubernetes" as SetupFlavour, icon: <Container size={13} />, label: "Kubernetes" },
@@ -1239,7 +1239,7 @@ function PeerjsSetupGuide({ configuredUrl }: { configuredUrl: string | null }) {
                   "flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium transition-colors",
                   flavour === id
                     ? "bg-violet-600 text-white"
-                    : "text-vc-muted hover:text-vc-text hover:bg-vc-raised",
+                    : "text-foreground-500 hover:text-foreground hover:bg-background-200",
                 )}
               >
                 {icon}
@@ -1252,19 +1252,19 @@ function PeerjsSetupGuide({ configuredUrl }: { configuredUrl: string | null }) {
           {flavour === "docker" && (
             <div className="space-y-4">
               <div className="space-y-2">
-                <p className="text-xs font-semibold text-vc-text">1. Quick start</p>
+                <p className="text-xs font-semibold text-foreground">1. Quick start</p>
                 <CodeBlock code={DOCKER_QUICKSTART} />
               </div>
 
               <div className="space-y-2">
-                <p className="text-xs font-semibold text-vc-text">2. Or with Docker Compose</p>
-                <p className="text-xs text-vc-muted">Save as <code className="font-mono bg-vc-raised px-1 rounded">docker-compose.yml</code> then run <code className="font-mono bg-vc-raised px-1 rounded">docker compose up -d</code>.</p>
+                <p className="text-xs font-semibold text-foreground">2. Or with Docker Compose</p>
+                <p className="text-xs text-foreground-500">Save as <code className="font-mono bg-background-200 px-1 rounded">docker-compose.yml</code> then run <code className="font-mono bg-background-200 px-1 rounded">docker compose up -d</code>.</p>
                 <CodeBlock code={DOCKER_COMPOSE} language="yaml" />
               </div>
 
               <div className="space-y-2">
-                <p className="text-xs font-semibold text-vc-text">3. Put it behind a reverse proxy (optional but recommended)</p>
-                <p className="text-xs text-vc-muted">PeerJS uses WebSocket upgrades — make sure your proxy forwards the <code className="font-mono bg-vc-raised px-1 rounded">Upgrade</code> header.</p>
+                <p className="text-xs font-semibold text-foreground">3. Put it behind a reverse proxy (optional but recommended)</p>
+                <p className="text-xs text-foreground-500">PeerJS uses WebSocket upgrades — make sure your proxy forwards the <code className="font-mono bg-background-200 px-1 rounded">Upgrade</code> header.</p>
                 <CodeBlock code={DOCKER_NGINX} language="nginx" />
               </div>
 
@@ -1287,19 +1287,19 @@ function PeerjsSetupGuide({ configuredUrl }: { configuredUrl: string | null }) {
           {flavour === "kubernetes" && (
             <div className="space-y-4">
               <div className="space-y-2">
-                <p className="text-xs font-semibold text-vc-text">1. Apply the manifest</p>
-                <p className="text-xs text-vc-muted">Save as <code className="font-mono bg-vc-raised px-1 rounded">peerjs-server.yaml</code> and apply it.</p>
+                <p className="text-xs font-semibold text-foreground">1. Apply the manifest</p>
+                <p className="text-xs text-foreground-500">Save as <code className="font-mono bg-background-200 px-1 rounded">peerjs-server.yaml</code> and apply it.</p>
                 <CodeBlock code={K8S_MANIFEST} language="yaml" />
               </div>
 
               <div className="space-y-2">
-                <p className="text-xs font-semibold text-vc-text">2. Deploy and verify</p>
+                <p className="text-xs font-semibold text-foreground">2. Deploy and verify</p>
                 <CodeBlock code={K8S_APPLY} />
               </div>
 
               <div className="space-y-2">
-                <p className="text-xs font-semibold text-vc-text">3. Expose externally (optional)</p>
-                <p className="text-xs text-vc-muted">
+                <p className="text-xs font-semibold text-foreground">3. Expose externally (optional)</p>
+                <p className="text-xs text-foreground-500">
                   If the control plane runs <em>inside</em> the same cluster, the ClusterIP service is enough and you can skip this step. For external agents, add an Ingress:
                 </p>
                 <CodeBlock code={K8S_INGRESS} language="yaml" />
@@ -1401,10 +1401,10 @@ function MapTab({
       <ComparisonChart ws={stats?.ws} peerjs={stats?.peerjs} />
 
       {/* ReactFlow topology */}
-      <div className="bg-vc-surface border border-vc-border rounded-xl overflow-hidden">
-        <div className="px-5 py-3.5 border-b border-vc-border">
-          <span className="text-sm font-semibold text-vc-text">Network topology</span>
-          <span className="ml-2 text-xs text-vc-subtle">
+      <div className="bg-background-100 border border-neutral-200 rounded-xl overflow-hidden">
+        <div className="px-5 py-3.5 border-b border-neutral-200">
+          <span className="text-sm font-semibold text-foreground">Network topology</span>
+          <span className="ml-2 text-xs text-foreground-400">
             {agents.length} agent{agents.length !== 1 ? "s" : ""} connected
           </span>
         </div>
@@ -1487,14 +1487,14 @@ export default function NetworkPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-vc-text flex items-center gap-2">
+          <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
             <Activity size={20} className="text-indigo-400" />
             Network
           </h1>
-          <p className="text-sm text-vc-muted mt-0.5">
+          <p className="text-sm text-foreground-500 mt-0.5">
             Monitor and control transport connections
             {stats?.startedAt && (
-              <span className="ml-1.5 text-vc-subtle">
+              <span className="ml-1.5 text-foreground-400">
                 · server up since {timeAgo(stats.startedAt)}
               </span>
             )}
@@ -1503,7 +1503,7 @@ export default function NetworkPage() {
         <button
           onClick={() => fetchData(false)}
           disabled={refreshing}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-vc-surface border border-vc-border text-vc-muted hover:text-vc-text hover:bg-vc-raised disabled:opacity-50 transition-colors"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-background-100 border border-neutral-200 text-foreground-500 hover:text-foreground hover:bg-background-200 disabled:opacity-50 transition-colors"
         >
           <RefreshCw size={13} className={refreshing ? "animate-spin" : ""} />
           Refresh
@@ -1522,7 +1522,7 @@ export default function NetworkPage() {
       ) : (
         <>
           {/* Tab bar */}
-          <div className="flex items-center gap-1 border-b border-vc-border">
+          <div className="flex items-center gap-1 border-b border-neutral-200">
             {TABS.map(({ id, label, icon: Icon }) => (
               <button
                 key={id}
@@ -1531,7 +1531,7 @@ export default function NetworkPage() {
                   "flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors",
                   tab === id
                     ? "border-indigo-500 text-indigo-500 dark:text-indigo-400"
-                    : "border-transparent text-vc-muted hover:text-vc-text",
+                    : "border-transparent text-foreground-500 hover:text-foreground",
                 )}
               >
                 <Icon size={14} />

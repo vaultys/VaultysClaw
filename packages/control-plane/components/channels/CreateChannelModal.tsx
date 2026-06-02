@@ -98,12 +98,12 @@ export default function CreateChannelModal({
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-vc-surface rounded-lg w-full max-w-md p-6 border border-vc-border">
+      <div className="bg-background-100 rounded-lg w-full max-w-md p-6 border border-neutral-200">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-bold text-vc-text">Create Channel</h2>
+          <h2 className="text-xl font-bold text-foreground">Create Channel</h2>
           <button
             onClick={onClose}
-            className="p-1 hover:bg-vc-raised rounded-lg transition text-vc-text-2"
+            className="p-1 hover:bg-background-200 rounded-lg transition text-foreground-700"
           >
             <X size={20} />
           </button>
@@ -117,23 +117,23 @@ export default function CreateChannelModal({
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-vc-text mb-2">
+            <label className="block text-sm font-medium text-foreground mb-2">
               Organization
             </label>
             {isLoadingRealms ? (
-              <div className="flex items-center gap-2 px-4 py-2 text-vc-text-2 text-sm">
+              <div className="flex items-center gap-2 px-4 py-2 text-foreground-700 text-sm">
                 <Loader2 size={14} className="animate-spin" />
                 Loading organizations...
               </div>
             ) : realms.length === 0 ? (
-              <div className="px-4 py-2 text-vc-text-2 text-sm bg-vc-surface rounded-lg border border-vc-border">
+              <div className="px-4 py-2 text-foreground-700 text-sm bg-background-100 rounded-lg border border-neutral-200">
                 No organizations found. Create a global channel.
               </div>
             ) : (
               <select
                 value={selectedRealmId}
                 onChange={(e) => setSelectedRealmId(e.target.value)}
-                className="w-full bg-vc-bg border border-vc-border rounded-lg px-4 py-2 text-vc-text focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full bg-background border border-neutral-200 rounded-lg px-4 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-indigo-500"
               >
                 <option value="">Global Channel</option>
                 {realms.map((realm) => (
@@ -146,7 +146,7 @@ export default function CreateChannelModal({
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-vc-text mb-2">
+            <label className="block text-sm font-medium text-foreground mb-2">
               Channel Name
             </label>
             <input
@@ -154,19 +154,19 @@ export default function CreateChannelModal({
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g., engineering, marketing, general"
-              className="w-full bg-vc-bg border border-vc-border rounded-lg px-4 py-2 text-vc-text placeholder-vc-muted focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full bg-background border border-neutral-200 rounded-lg px-4 py-2 text-foreground placeholder-foreground-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-vc-text mb-2">
+            <label className="block text-sm font-medium text-foreground mb-2">
               Description (optional)
             </label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="What is this channel for?"
-              className="w-full bg-vc-bg border border-vc-border rounded-lg px-4 py-2 text-vc-text placeholder-vc-muted focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
+              className="w-full bg-background border border-neutral-200 rounded-lg px-4 py-2 text-foreground placeholder-foreground-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
               rows={3}
             />
           </div>
@@ -179,7 +179,7 @@ export default function CreateChannelModal({
               onChange={(e) => setIsPublic(e.target.checked)}
               className="rounded"
             />
-            <label htmlFor="isPublic" className="text-sm text-vc-text-2">
+            <label htmlFor="isPublic" className="text-sm text-foreground-700">
               Public channel (anyone can join)
             </label>
           </div>
@@ -188,14 +188,14 @@ export default function CreateChannelModal({
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 px-4 py-2 bg-vc-raised hover:bg-vc-surface text-vc-text rounded-lg transition font-medium"
+              className="flex-1 px-4 py-2 bg-background-200 hover:bg-background-100 text-foreground rounded-lg transition font-medium"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isLoading}
-              className="flex-1 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-vc-muted disabled:cursor-not-allowed text-white rounded-lg transition font-medium flex items-center justify-center gap-2"
+              className="flex-1 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-foreground-500 disabled:cursor-not-allowed text-white rounded-lg transition font-medium flex items-center justify-center gap-2"
             >
               {isLoading && <Loader2 size={16} className="animate-spin" />}
               Create

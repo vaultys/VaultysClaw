@@ -58,7 +58,7 @@ export default function RegistrationsPage() {
       {/* Back nav */}
       <button
         onClick={() => router.push("/")}
-        className="flex items-center gap-1.5 text-vc-muted hover:text-vc-text text-sm transition-colors"
+        className="flex items-center gap-1.5 text-foreground-500 hover:text-foreground text-sm transition-colors"
       >
         <ArrowLeft className="w-4 h-4" /> Back to Dashboard
       </button>
@@ -66,15 +66,15 @@ export default function RegistrationsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-lg font-semibold text-vc-text">Pending Registrations</h1>
-          <p className="text-vc-muted text-sm mt-0.5">
+          <h1 className="text-lg font-semibold text-foreground">Pending Registrations</h1>
+          <p className="text-foreground-500 text-sm mt-0.5">
             Review and approve or reject agents waiting to join.
           </p>
         </div>
         <span
           className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full border ${wsConnected
             ? "bg-green-100 dark:bg-green-900/40 border-green-300 dark:border-green-700/50 text-green-700 dark:text-green-400"
-            : "bg-vc-raised border-vc-border text-vc-subtle"
+            : "bg-background-200 border-neutral-200 text-foreground-400"
             }`}
         >
           {wsConnected ? <Wifi className="w-3 h-3" /> : <WifiOff className="w-3 h-3" />}
@@ -84,10 +84,10 @@ export default function RegistrationsPage() {
 
       {/* Empty state */}
       {pendingRegs.length === 0 && (
-        <div className="bg-vc-surface border border-vc-border rounded-2xl px-6 py-16 text-center">
-          <Clock className="w-10 h-10 text-vc-ring mx-auto mb-3" />
-          <p className="text-vc-text font-medium">No pending registrations</p>
-          <p className="text-vc-muted text-sm mt-1">
+        <div className="bg-background-100 border border-neutral-200 rounded-2xl px-6 py-16 text-center">
+          <Clock className="w-10 h-10 text-neutral-300 mx-auto mb-3" />
+          <p className="text-foreground font-medium">No pending registrations</p>
+          <p className="text-foreground-500 text-sm mt-1">
             New agent registration requests will appear here.
           </p>
         </div>
@@ -113,7 +113,7 @@ export default function RegistrationsPage() {
             {pendingRegs.map((reg) => (
               <div key={reg.id} className="px-5 py-4 flex items-center justify-between hover:bg-yellow-100/50 dark:hover:bg-yellow-900/10 transition-colors group">
                 <div className="flex-1 cursor-pointer" onClick={() => router.push(`/agents/create?regId=${reg.id}`)}>
-                  <p className="font-semibold text-vc-text">{reg.agent_name}</p>
+                  <p className="font-semibold text-foreground">{reg.agent_name}</p>
                   <p className="text-yellow-600/80 dark:text-yellow-400/60 text-xs mt-0.5">
                     Requested {timeAgo(reg.created_at)}
                   </p>
@@ -134,7 +134,7 @@ export default function RegistrationsPage() {
                     )}
                     {rejectingId === reg.id ? "Rejecting…" : "Reject"}
                   </button>
-                  <ChevronRight className="w-5 h-5 text-vc-muted flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
+                  <ChevronRight className="w-5 h-5 text-foreground-500 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
                 </div>
               </div>
             ))}

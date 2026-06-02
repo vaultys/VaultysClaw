@@ -224,7 +224,7 @@ function TabBar({
   onChange: (id: TabId) => void;
 }) {
   return (
-    <div className="flex gap-1 border-b border-vc-border px-1 bg-vc-surface rounded-t-xl overflow-x-auto flex-shrink-0">
+    <div className="flex gap-1 border-b border-neutral-200 px-1 bg-background-100 rounded-t-xl overflow-x-auto flex-shrink-0">
       {tabs.map((tab) => (
         <button
           key={tab.id}
@@ -232,7 +232,7 @@ function TabBar({
           className={`flex items-center gap-2 px-4 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
             active === tab.id
               ? "border-indigo-500 text-indigo-400"
-              : "border-transparent text-vc-muted hover:text-vc-text hover:border-vc-ring"
+              : "border-transparent text-foreground-500 hover:text-foreground hover:border-neutral-300"
           }`}
         >
           {tab.icon}
@@ -368,7 +368,7 @@ export default function AgentDetailPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-40">
-        <p className="text-vc-muted">Loading agent details…</p>
+        <p className="text-foreground-500">Loading agent details…</p>
       </div>
     );
   }
@@ -414,13 +414,13 @@ export default function AgentDetailPage() {
       <div className="mb-4">
         <button
           onClick={() => router.push("/agents")}
-          className="inline-flex items-center gap-1.5 text-sm text-vc-muted hover:text-vc-text mb-3 transition-colors"
+          className="inline-flex items-center gap-1.5 text-sm text-foreground-500 hover:text-foreground mb-3 transition-colors"
         >
           <ChevronLeft size={15} />
           Back to Agents List
         </button>
 
-        <div className="bg-vc-surface border border-vc-border rounded-xl px-5 py-4 flex items-center gap-4">
+        <div className="bg-background-100 border border-neutral-200 rounded-xl px-5 py-4 flex items-center gap-4">
           {/* Avatar */}
           <div className="flex-shrink-0 w-11 h-11 rounded-full bg-indigo-600/20 border border-indigo-500/30 flex items-center justify-center">
             <Bot size={22} className="text-indigo-400" />
@@ -428,15 +428,15 @@ export default function AgentDetailPage() {
 
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-3 flex-wrap">
-              <h1 className="text-xl font-bold text-vc-text">{agent.name}</h1>
+              <h1 className="text-xl font-bold text-foreground">{agent.name}</h1>
               {agent.online ? (
                 <span className="inline-flex items-center gap-1.5 text-xs font-medium text-green-700 dark:text-green-400 bg-green-100 dark:bg-green-500/10 border border-green-300 dark:border-green-500/20 rounded-full px-2.5 py-0.5">
                   <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
                   Online
                 </span>
               ) : (
-                <span className="inline-flex items-center gap-1.5 text-xs font-medium text-vc-muted bg-vc-raised border border-vc-ring rounded-full px-2.5 py-0.5">
-                  <span className="w-1.5 h-1.5 bg-vc-ring rounded-full" />
+                <span className="inline-flex items-center gap-1.5 text-xs font-medium text-foreground-500 bg-background-200 border border-neutral-300 rounded-full px-2.5 py-0.5">
+                  <span className="w-1.5 h-1.5 bg-neutral-300 rounded-full" />
                   Offline
                 </span>
               )}
@@ -455,16 +455,16 @@ export default function AgentDetailPage() {
                 (() => {
                   const llm = agent.reportedLlm ?? agent.storedLlm!;
                   return (
-                    <span className="inline-flex items-center gap-1.5 text-xs font-medium text-vc-muted bg-vc-raised border border-vc-ring rounded-full px-2.5 py-0.5">
+                    <span className="inline-flex items-center gap-1.5 text-xs font-medium text-foreground-500 bg-background-200 border border-neutral-300 rounded-full px-2.5 py-0.5">
                       <Zap size={11} className="text-amber-500" />
-                      <span className="text-vc-text-2">{llm.provider}</span>
-                      <span className="text-vc-subtle">/</span>
+                      <span className="text-foreground-700">{llm.provider}</span>
+                      <span className="text-foreground-400">/</span>
                       <span className="font-mono">{llm.model}</span>
                     </span>
                   );
                 })()}
             </div>
-            <p className="text-xs font-mono text-vc-muted mt-0.5 truncate">
+            <p className="text-xs font-mono text-foreground-500 mt-0.5 truncate">
               {agent.id}
             </p>
           </div>
@@ -472,8 +472,8 @@ export default function AgentDetailPage() {
           {/* Quick stats */}
           <div className="hidden sm:flex gap-6 text-right flex-shrink-0">
             <div>
-              <div className="text-xs text-vc-muted uppercase">Last seen</div>
-              <div className="text-sm text-vc-text">
+              <div className="text-xs text-foreground-500 uppercase">Last seen</div>
+              <div className="text-sm text-foreground">
                 {timeAgo(agent.lastSeen)}
               </div>
             </div>
@@ -482,21 +482,21 @@ export default function AgentDetailPage() {
                 const llm = agent.reportedLlm ?? agent.storedLlm!;
                 return (
                   <div>
-                    <div className="text-xs text-vc-muted uppercase">LLM</div>
-                    <div className="text-sm text-vc-text font-mono">
+                    <div className="text-xs text-foreground-500 uppercase">LLM</div>
+                    <div className="text-sm text-foreground font-mono">
                       {llm.model}
                     </div>
-                    <div className="text-[10px] text-vc-subtle">
+                    <div className="text-[10px] text-foreground-400">
                       {llm.provider}
                     </div>
                   </div>
                 );
               })()}
             <div>
-              <div className="text-xs text-vc-muted uppercase">
+              <div className="text-xs text-foreground-500 uppercase">
                 Capabilities
               </div>
-              <div className="text-sm text-vc-text">
+              <div className="text-sm text-foreground">
                 {agent.capabilities.length}
               </div>
             </div>
@@ -519,7 +519,7 @@ export default function AgentDetailPage() {
 
       {/* ── Tabbed content ── */}
       <div
-        className={`border border-vc-border rounded-xl overflow-hidden bg-vc-surface ${activeTab === "chat" ? "flex flex-col flex-1 min-h-0" : ""}`}
+        className={`border border-neutral-200 rounded-xl overflow-hidden bg-background-100 ${activeTab === "chat" ? "flex flex-col flex-1 min-h-0" : ""}`}
       >
         <TabBar tabs={tabs} active={activeTab} onChange={setActiveTab} />
 
@@ -650,16 +650,16 @@ function OverviewTab({
     return (
       <div className="space-y-1.5">
         <div className="flex justify-between text-xs">
-          <span className="text-vc-muted">{label}</span>
+          <span className="text-foreground-500">{label}</span>
           <span
-            className={`font-mono ${danger ? "text-red-600 dark:text-red-400" : warn ? "text-amber-600 dark:text-amber-400" : "text-vc-text"}`}
+            className={`font-mono ${danger ? "text-red-600 dark:text-red-400" : warn ? "text-amber-600 dark:text-amber-400" : "text-foreground"}`}
           >
             {used.toLocaleString()}
             {budget ? ` / ${budget.toLocaleString()}` : ""}
           </span>
         </div>
         {budget && (
-          <div className="h-1.5 bg-vc-raised rounded-full overflow-hidden">
+          <div className="h-1.5 bg-background-200 rounded-full overflow-hidden">
             <div
               className={`h-full rounded-full transition-all ${danger ? "bg-red-500" : warn ? "bg-amber-500" : "bg-indigo-500"}`}
               style={{ width: `${pct}%` }}
@@ -697,21 +697,21 @@ function OverviewTab({
       {/* ── KPI row ──────────────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {/* Session uptime */}
-        <div className="bg-vc-raised border border-vc-border rounded-xl p-4">
-          <div className="text-xs text-vc-muted uppercase mb-1">
+        <div className="bg-background-200 border border-neutral-200 rounded-xl p-4">
+          <div className="text-xs text-foreground-500 uppercase mb-1">
             Session uptime
           </div>
           {uptime ? (
             <>
-              <div className="text-2xl font-bold text-vc-text">{uptime}</div>
-              <div className="text-xs text-vc-subtle mt-0.5">
+              <div className="text-2xl font-bold text-foreground">{uptime}</div>
+              <div className="text-xs text-foreground-400 mt-0.5">
                 since {timeAgo(agent.connectedAt)}
               </div>
             </>
           ) : (
             <>
-              <div className="text-lg font-semibold text-vc-muted">Offline</div>
-              <div className="text-xs text-vc-subtle mt-0.5">
+              <div className="text-lg font-semibold text-foreground-500">Offline</div>
+              <div className="text-xs text-foreground-400 mt-0.5">
                 last seen {timeAgo(agent.lastSeen)}
               </div>
             </>
@@ -719,22 +719,22 @@ function OverviewTab({
         </div>
 
         {/* Tokens today */}
-        <div className="bg-vc-raised border border-vc-border rounded-xl p-4">
-          <div className="text-xs text-vc-muted uppercase mb-2">
+        <div className="bg-background-200 border border-neutral-200 rounded-xl p-4">
+          <div className="text-xs text-foreground-500 uppercase mb-2">
             Tokens today
           </div>
-          <div className="text-2xl font-bold text-vc-text">
+          <div className="text-2xl font-bold text-foreground">
             {todayUsed.toLocaleString()}
           </div>
           {agent.tokenBudgetDaily && (
             <div className="mt-2">
-              <div className="flex justify-between text-[10px] text-vc-subtle mb-1">
+              <div className="flex justify-between text-[10px] text-foreground-400 mb-1">
                 <span>budget</span>
                 <span>
                   {Math.round((todayUsed / agent.tokenBudgetDaily) * 100)}%
                 </span>
               </div>
-              <div className="h-1 bg-vc-border rounded-full overflow-hidden">
+              <div className="h-1 bg-neutral-200 rounded-full overflow-hidden">
                 <div
                   className={`h-full rounded-full ${
                     todayUsed / agent.tokenBudgetDaily >= 0.9
@@ -751,27 +751,27 @@ function OverviewTab({
             </div>
           )}
           {!agent.tokenBudgetDaily && (
-            <div className="text-xs text-vc-subtle mt-1">no daily limit</div>
+            <div className="text-xs text-foreground-400 mt-1">no daily limit</div>
           )}
         </div>
 
         {/* Tokens this month */}
-        <div className="bg-vc-raised border border-vc-border rounded-xl p-4">
-          <div className="text-xs text-vc-muted uppercase mb-2">
+        <div className="bg-background-200 border border-neutral-200 rounded-xl p-4">
+          <div className="text-xs text-foreground-500 uppercase mb-2">
             Tokens this month
           </div>
-          <div className="text-2xl font-bold text-vc-text">
+          <div className="text-2xl font-bold text-foreground">
             {monthUsed.toLocaleString()}
           </div>
           {agent.tokenBudgetMonthly && (
             <div className="mt-2">
-              <div className="flex justify-between text-[10px] text-vc-subtle mb-1">
+              <div className="flex justify-between text-[10px] text-foreground-400 mb-1">
                 <span>budget</span>
                 <span>
                   {Math.round((monthUsed / agent.tokenBudgetMonthly) * 100)}%
                 </span>
               </div>
-              <div className="h-1 bg-vc-border rounded-full overflow-hidden">
+              <div className="h-1 bg-neutral-200 rounded-full overflow-hidden">
                 <div
                   className={`h-full rounded-full ${
                     monthUsed / agent.tokenBudgetMonthly >= 0.9
@@ -788,24 +788,24 @@ function OverviewTab({
             </div>
           )}
           {!agent.tokenBudgetMonthly && (
-            <div className="text-xs text-vc-subtle mt-1">no monthly limit</div>
+            <div className="text-xs text-foreground-400 mt-1">no monthly limit</div>
           )}
         </div>
 
         {/* Intent success rate */}
-        <div className="bg-vc-raised border border-vc-border rounded-xl p-4">
-          <div className="text-xs text-vc-muted uppercase mb-1">
+        <div className="bg-background-200 border border-neutral-200 rounded-xl p-4">
+          <div className="text-xs text-foreground-500 uppercase mb-1">
             Intents (recent 50)
           </div>
           {eventsLoading ? (
-            <div className="flex items-center gap-1.5 text-vc-muted text-sm mt-1">
+            <div className="flex items-center gap-1.5 text-foreground-500 text-sm mt-1">
               <Loader2 size={12} className="animate-spin" /> —
             </div>
           ) : intentStats && totalIntents > 0 ? (
             <>
-              <div className="text-2xl font-bold text-vc-text">
+              <div className="text-2xl font-bold text-foreground">
                 {successRate}%
-                <span className="text-sm font-normal text-vc-muted ml-1">
+                <span className="text-sm font-normal text-foreground-500 ml-1">
                   success
                 </span>
               </div>
@@ -821,7 +821,7 @@ function OverviewTab({
                   </span>
                 )}
                 {intentStats.pending > 0 && (
-                  <span className="flex items-center gap-1 text-vc-muted">
+                  <span className="flex items-center gap-1 text-foreground-500">
                     <Clock size={10} />
                     {intentStats.pending}
                   </span>
@@ -830,8 +830,8 @@ function OverviewTab({
             </>
           ) : (
             <>
-              <div className="text-lg font-semibold text-vc-muted">—</div>
-              <div className="text-xs text-vc-subtle mt-0.5">
+              <div className="text-lg font-semibold text-foreground-500">—</div>
+              <div className="text-xs text-foreground-400 mt-0.5">
                 no intents yet
               </div>
             </>
@@ -842,10 +842,10 @@ function OverviewTab({
       {/* ── Lower two-column grid ─────────────────────────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Recent activity */}
-        <div className="bg-vc-surface border border-vc-border rounded-xl p-5">
+        <div className="bg-background-100 border border-neutral-200 rounded-xl p-5">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-semibold text-vc-text flex items-center gap-1.5">
-              <Activity size={14} className="text-vc-muted" /> Recent Activity
+            <h2 className="text-sm font-semibold text-foreground flex items-center gap-1.5">
+              <Activity size={14} className="text-foreground-500" /> Recent Activity
             </h2>
             <button
               onClick={() => onTabChange("governance")}
@@ -855,11 +855,11 @@ function OverviewTab({
             </button>
           </div>
           {eventsLoading ? (
-            <div className="flex items-center gap-2 text-vc-muted text-sm py-4 justify-center">
+            <div className="flex items-center gap-2 text-foreground-500 text-sm py-4 justify-center">
               <Loader2 size={13} className="animate-spin" /> Loading…
             </div>
           ) : recentEvents.length === 0 ? (
-            <p className="text-xs text-vc-subtle text-center py-6">
+            <p className="text-xs text-foreground-400 text-center py-6">
               No activity recorded yet.
             </p>
           ) : (
@@ -874,7 +874,7 @@ function OverviewTab({
                         `/governance/audit/${encodeURIComponent(ev.id)}`
                       )
                     }
-                    className="w-full flex items-start gap-3 py-2.5 hover:bg-vc-raised rounded-lg px-2 -mx-2 transition-colors text-left group"
+                    className="w-full flex items-start gap-3 py-2.5 hover:bg-background-200 rounded-lg px-2 -mx-2 transition-colors text-left group"
                   >
                     {/* Timeline dot */}
                     <div className="flex flex-col items-center flex-shrink-0 mt-0.5">
@@ -890,16 +890,16 @@ function OverviewTab({
                         }`}
                       />
                       {i < recentEvents.length - 1 && (
-                        <div className="w-px flex-1 bg-vc-border mt-1 min-h-[12px]" />
+                        <div className="w-px flex-1 bg-neutral-200 mt-1 min-h-[12px]" />
                       )}
                     </div>
                     <div className="flex-1 min-w-0 pb-0.5">
                       <div className="flex items-center justify-between gap-2">
-                        <span className="text-xs text-vc-text truncate">
+                        <span className="text-xs text-foreground truncate">
                           {AUDIT_LABELS[ev.event] ??
                             ev.event.replace(/_/g, " ")}
                         </span>
-                        <span className="text-[10px] text-vc-subtle flex-shrink-0">
+                        <span className="text-[10px] text-foreground-400 flex-shrink-0">
                           {timeAgo(ev.timestamp)}
                         </span>
                       </div>
@@ -917,10 +917,10 @@ function OverviewTab({
         </div>
 
         {/* Active policy snapshot */}
-        <div className="bg-vc-surface border border-vc-border rounded-xl p-5">
+        <div className="bg-background-100 border border-neutral-200 rounded-xl p-5">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-semibold text-vc-text flex items-center gap-1.5">
-              <ShieldCheck size={14} className="text-vc-muted" /> Active Policy
+            <h2 className="text-sm font-semibold text-foreground flex items-center gap-1.5">
+              <ShieldCheck size={14} className="text-foreground-500" /> Active Policy
             </h2>
             <button
               onClick={() => onTabChange("governance")}
@@ -930,13 +930,13 @@ function OverviewTab({
             </button>
           </div>
           {eventsLoading ? (
-            <div className="flex items-center gap-2 text-vc-muted text-sm py-4 justify-center">
+            <div className="flex items-center gap-2 text-foreground-500 text-sm py-4 justify-center">
               <Loader2 size={13} className="animate-spin" /> Loading…
             </div>
           ) : !activePolicy ? (
             <div className="text-center py-6 space-y-2">
-              <ShieldCheck size={26} className="mx-auto text-vc-border" />
-              <p className="text-xs text-vc-subtle">
+              <ShieldCheck size={26} className="mx-auto text-neutral-200" />
+              <p className="text-xs text-foreground-400">
                 No policy — agent is locked and cannot execute actions.
               </p>
               <button
@@ -950,7 +950,7 @@ function OverviewTab({
             <div className="space-y-4">
               {/* Capabilities */}
               <div>
-                <p className="text-[10px] text-vc-subtle uppercase tracking-wider mb-2">
+                <p className="text-[10px] text-foreground-400 uppercase tracking-wider mb-2">
                   Capabilities
                 </p>
                 <div className="flex flex-wrap gap-1.5">
@@ -970,7 +970,7 @@ function OverviewTab({
               {activePolicy.resourceLimits &&
                 Object.keys(activePolicy.resourceLimits).length > 0 && (
                   <div>
-                    <p className="text-[10px] text-vc-subtle uppercase tracking-wider mb-2">
+                    <p className="text-[10px] text-foreground-400 uppercase tracking-wider mb-2">
                       Resource limits
                     </p>
                     <div className="space-y-2">
@@ -984,10 +984,10 @@ function OverviewTab({
                       {activePolicy.resourceLimits.maxRequestsPerHour !=
                         null && (
                         <div className="flex justify-between text-xs">
-                          <span className="text-vc-muted">
+                          <span className="text-foreground-500">
                             Max requests / hour
                           </span>
-                          <span className="font-mono text-vc-text">
+                          <span className="font-mono text-foreground">
                             {activePolicy.resourceLimits.maxRequestsPerHour}
                           </span>
                         </div>
@@ -996,10 +996,10 @@ function OverviewTab({
                         activePolicy.resourceLimits.allowedDomains.length >
                           0 && (
                           <div className="flex justify-between text-xs gap-4">
-                            <span className="text-vc-muted flex-shrink-0">
+                            <span className="text-foreground-500 flex-shrink-0">
                               Allowed domains
                             </span>
-                            <span className="font-mono text-vc-text text-right text-[11px] break-all">
+                            <span className="font-mono text-foreground text-right text-[11px] break-all">
                               {activePolicy.resourceLimits.allowedDomains.join(
                                 ", "
                               )}
@@ -1025,7 +1025,7 @@ function OverviewTab({
               )}
 
               {/* Policy meta */}
-              <p className="text-[10px] font-mono text-vc-subtle">
+              <p className="text-[10px] font-mono text-foreground-400">
                 {activePolicy.id} · created {timeAgo(activePolicy.createdAt)}
               </p>
             </div>
@@ -1292,8 +1292,8 @@ function GovernanceTab({
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-sm font-semibold text-vc-text">Policies</h2>
-          <p className="text-xs text-vc-muted mt-0.5">
+          <h2 className="text-sm font-semibold text-foreground">Policies</h2>
+          <p className="text-xs text-foreground-500 mt-0.5">
             Policies define which capabilities and resource limits are embedded
             in the agent&apos;s certificate. Creating or revoking a policy
             immediately triggers a certificate reissue for connected agents.
@@ -1311,12 +1311,12 @@ function GovernanceTab({
 
       {/* Create form */}
       {showForm && (
-        <div className="bg-vc-raised border border-vc-border rounded-xl p-5 space-y-5">
+        <div className="bg-background-200 border border-neutral-200 rounded-xl p-5 space-y-5">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-vc-text">New Policy</h3>
+            <h3 className="text-sm font-semibold text-foreground">New Policy</h3>
             <button
               onClick={() => setShowForm(false)}
-              className="text-vc-muted hover:text-vc-text"
+              className="text-foreground-500 hover:text-foreground"
             >
               <X size={16} />
             </button>
@@ -1324,7 +1324,7 @@ function GovernanceTab({
 
           {/* Capabilities */}
           <div>
-            <p className="text-xs text-vc-muted uppercase mb-2">Capabilities</p>
+            <p className="text-xs text-foreground-500 uppercase mb-2">Capabilities</p>
             <div className="flex flex-wrap gap-2">
               {ALL_CAPABILITIES.map((cap) => {
                 const active = formCaps.includes(cap.id);
@@ -1342,7 +1342,7 @@ function GovernanceTab({
                     className={`px-3 py-1.5 rounded-md text-sm border transition-colors flex items-center gap-1.5 ${
                       active
                         ? "bg-indigo-100 dark:bg-indigo-900/40 border-indigo-500 text-indigo-700 dark:text-indigo-300"
-                        : "bg-vc-surface border-vc-ring text-vc-muted hover:border-vc-muted"
+                        : "bg-background-100 border-neutral-300 text-foreground-500 hover:border-foreground-500"
                     }`}
                   >
                     {CAPABILITY_ICONS[cap.id] ?? <Zap size={14} />}
@@ -1355,13 +1355,13 @@ function GovernanceTab({
 
           {/* Resource limits */}
           <div>
-            <p className="text-xs text-vc-muted uppercase mb-2">
+            <p className="text-xs text-foreground-500 uppercase mb-2">
               Resource Limits{" "}
-              <span className="normal-case text-vc-subtle">(optional)</span>
+              <span className="normal-case text-foreground-400">(optional)</span>
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <label className="space-y-1">
-                <span className="text-xs text-vc-muted">Max tokens / day</span>
+                <span className="text-xs text-foreground-500">Max tokens / day</span>
                 <input
                   type="number"
                   min={0}
@@ -1373,11 +1373,11 @@ function GovernanceTab({
                       maxTokensPerDay: e.target.value,
                     }))
                   }
-                  className="w-full bg-vc-surface border border-vc-ring rounded-md px-3 py-1.5 text-sm text-vc-text placeholder:text-vc-subtle focus:outline-none focus:border-indigo-500"
+                  className="w-full bg-background-100 border border-neutral-300 rounded-md px-3 py-1.5 text-sm text-foreground placeholder:text-foreground-400 focus:outline-none focus:border-indigo-500"
                 />
               </label>
               <label className="space-y-1">
-                <span className="text-xs text-vc-muted">
+                <span className="text-xs text-foreground-500">
                   Max requests / hour
                 </span>
                 <input
@@ -1391,13 +1391,13 @@ function GovernanceTab({
                       maxRequestsPerHour: e.target.value,
                     }))
                   }
-                  className="w-full bg-vc-surface border border-vc-ring rounded-md px-3 py-1.5 text-sm text-vc-text placeholder:text-vc-subtle focus:outline-none focus:border-indigo-500"
+                  className="w-full bg-background-100 border border-neutral-300 rounded-md px-3 py-1.5 text-sm text-foreground placeholder:text-foreground-400 focus:outline-none focus:border-indigo-500"
                 />
               </label>
               <label className="space-y-1 sm:col-span-2">
-                <span className="text-xs text-vc-muted">
+                <span className="text-xs text-foreground-500">
                   Allowed domains{" "}
-                  <span className="text-vc-subtle">(comma-separated)</span>
+                  <span className="text-foreground-400">(comma-separated)</span>
                 </span>
                 <input
                   type="text"
@@ -1409,7 +1409,7 @@ function GovernanceTab({
                       allowedDomains: e.target.value,
                     }))
                   }
-                  className="w-full bg-vc-surface border border-vc-ring rounded-md px-3 py-1.5 text-sm text-vc-text placeholder:text-vc-subtle focus:outline-none focus:border-indigo-500"
+                  className="w-full bg-background-100 border border-neutral-300 rounded-md px-3 py-1.5 text-sm text-foreground placeholder:text-foreground-400 focus:outline-none focus:border-indigo-500"
                 />
               </label>
             </div>
@@ -1417,15 +1417,15 @@ function GovernanceTab({
 
           {/* Expiry */}
           <label className="block space-y-1">
-            <span className="text-xs text-vc-muted uppercase">
+            <span className="text-xs text-foreground-500 uppercase">
               Expiry{" "}
-              <span className="normal-case text-vc-subtle">(optional)</span>
+              <span className="normal-case text-foreground-400">(optional)</span>
             </span>
             <input
               type="datetime-local"
               value={formExpiry}
               onChange={(e) => setFormExpiry(e.target.value)}
-              className="bg-vc-surface border border-vc-ring rounded-md px-3 py-1.5 text-sm text-vc-text focus:outline-none focus:border-indigo-500"
+              className="bg-background-100 border border-neutral-300 rounded-md px-3 py-1.5 text-sm text-foreground focus:outline-none focus:border-indigo-500"
             />
           </label>
 
@@ -1439,7 +1439,7 @@ function GovernanceTab({
           <div className="flex gap-2 justify-end">
             <button
               onClick={() => setShowForm(false)}
-              className="text-xs text-vc-muted hover:text-vc-text px-3 py-1.5"
+              className="text-xs text-foreground-500 hover:text-foreground px-3 py-1.5"
             >
               Cancel
             </button>
@@ -1461,11 +1461,11 @@ function GovernanceTab({
 
       {/* Policy list */}
       {loadingPolicies ? (
-        <div className="flex items-center gap-2 text-vc-muted text-sm py-4">
+        <div className="flex items-center gap-2 text-foreground-500 text-sm py-4">
           <Loader2 size={14} className="animate-spin" /> Loading policies…
         </div>
       ) : policies.length === 0 ? (
-        <div className="text-center py-10 text-vc-muted text-sm border border-dashed border-vc-border rounded-xl">
+        <div className="text-center py-10 text-foreground-500 text-sm border border-dashed border-neutral-200 rounded-xl">
           <ShieldCheck size={28} className="mx-auto mb-2 opacity-30" />
           No active policies. Create one above to grant capabilities and set
           limits.
@@ -1475,7 +1475,7 @@ function GovernanceTab({
           {policies.map((p) => (
             <div
               key={p.id}
-              className="bg-vc-raised border border-vc-border rounded-xl p-4"
+              className="bg-background-200 border border-neutral-200 rounded-xl p-4"
             >
               <div className="flex items-start justify-between gap-4">
                 <div className="space-y-3 flex-1 min-w-0">
@@ -1495,7 +1495,7 @@ function GovernanceTab({
                   {/* Resource limits */}
                   {p.resourceLimits &&
                     Object.keys(p.resourceLimits).length > 0 && (
-                      <div className="flex flex-wrap gap-3 text-xs text-vc-muted">
+                      <div className="flex flex-wrap gap-3 text-xs text-foreground-500">
                         {p.resourceLimits.maxTokensPerDay != null && (
                           <span className="flex items-center gap-1">
                             <TrendingUp
@@ -1529,7 +1529,7 @@ function GovernanceTab({
                     )}
 
                   {/* Meta */}
-                  <div className="flex flex-wrap gap-3 text-xs text-vc-subtle">
+                  <div className="flex flex-wrap gap-3 text-xs text-foreground-400">
                     <span>Created {timeAgo(p.createdAt)}</span>
                     {p.createdBy && (
                       <span>
@@ -1545,7 +1545,7 @@ function GovernanceTab({
                         {formatExpiry(p.expiresAt)}
                       </span>
                     )}
-                    <code className="font-mono text-vc-subtle/60">{p.id}</code>
+                    <code className="font-mono text-foreground-400/60">{p.id}</code>
                   </div>
                 </div>
 
@@ -1579,21 +1579,21 @@ function GovernanceTab({
       {/* Renew policy modal */}
       {renewTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="bg-vc-surface border border-vc-border rounded-2xl shadow-2xl w-full max-w-sm">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-vc-border">
-              <span className="flex items-center gap-2 text-sm font-semibold text-vc-text">
+          <div className="bg-background-100 border border-neutral-200 rounded-2xl shadow-2xl w-full max-w-sm">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-neutral-200">
+              <span className="flex items-center gap-2 text-sm font-semibold text-foreground">
                 <RotateCcw size={15} className="text-indigo-500" /> Renew policy
               </span>
               <button
                 onClick={() => setRenewTarget(null)}
-                className="text-vc-subtle hover:text-vc-text p-1 rounded-lg hover:bg-vc-raised transition-colors"
+                className="text-foreground-400 hover:text-foreground p-1 rounded-lg hover:bg-background-200 transition-colors"
               >
                 <X size={15} />
               </button>
             </div>
             <div className="px-5 py-4 space-y-4">
               {/* Capabilities summary */}
-              <div className="bg-vc-raised border border-vc-border rounded-xl p-3 space-y-2">
+              <div className="bg-background-200 border border-neutral-200 rounded-xl p-3 space-y-2">
                 <div className="flex flex-wrap gap-1">
                   {renewTarget.capabilities.map((cap) => (
                     <span
@@ -1608,7 +1608,7 @@ function GovernanceTab({
                 {renewTarget.resourceLimits &&
                   (renewTarget.resourceLimits.maxTokensPerDay ||
                     renewTarget.resourceLimits.maxRequestsPerHour) && (
-                    <p className="text-xs text-vc-muted">
+                    <p className="text-xs text-foreground-500">
                       {renewTarget.resourceLimits.maxTokensPerDay
                         ? `${renewTarget.resourceLimits.maxTokensPerDay.toLocaleString()} tok/d`
                         : ""}
@@ -1634,14 +1634,14 @@ function GovernanceTab({
               </div>
               {/* New expiry */}
               <div className="space-y-1.5">
-                <label className="text-xs text-vc-muted font-medium">
+                <label className="text-xs text-foreground-500 font-medium">
                   New expiry date
                 </label>
                 <input
                   type="datetime-local"
                   value={renewExpiry}
                   onChange={(e) => setRenewExpiry(e.target.value)}
-                  className="w-full px-3 py-2 bg-vc-raised border border-vc-border rounded-lg text-sm text-vc-text focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full px-3 py-2 bg-background-200 border border-neutral-200 rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
                 <div className="flex gap-1.5 mt-1">
                   {([7, 30, 90, 365] as const).map((days) => {
@@ -1653,7 +1653,7 @@ function GovernanceTab({
                         key={days}
                         type="button"
                         onClick={() => setRenewExpiry(val)}
-                        className="text-[11px] px-2 py-0.5 rounded-md border border-vc-border text-vc-muted hover:text-indigo-600 dark:hover:text-indigo-400 hover:border-indigo-400 transition-colors"
+                        className="text-[11px] px-2 py-0.5 rounded-md border border-neutral-200 text-foreground-500 hover:text-indigo-600 dark:hover:text-indigo-400 hover:border-indigo-400 transition-colors"
                       >
                         +{days}d
                       </button>
@@ -1669,7 +1669,7 @@ function GovernanceTab({
                   onChange={(e) => setRenewRevokeOriginal(e.target.checked)}
                   className="w-4 h-4 rounded accent-indigo-600"
                 />
-                <span className="text-xs text-vc-muted group-hover:text-vc-text transition-colors">
+                <span className="text-xs text-foreground-500 group-hover:text-foreground transition-colors">
                   Revoke original policy after renewal
                 </span>
               </label>
@@ -1679,10 +1679,10 @@ function GovernanceTab({
                 </p>
               )}
             </div>
-            <div className="flex items-center justify-end gap-2 px-5 py-4 border-t border-vc-border">
+            <div className="flex items-center justify-end gap-2 px-5 py-4 border-t border-neutral-200">
               <button
                 onClick={() => setRenewTarget(null)}
-                className="px-3 py-1.5 text-sm text-vc-muted hover:text-vc-text border border-vc-border rounded-lg hover:bg-vc-raised transition-colors"
+                className="px-3 py-1.5 text-sm text-foreground-500 hover:text-foreground border border-neutral-200 rounded-lg hover:bg-background-200 transition-colors"
               >
                 Cancel
               </button>
@@ -1708,17 +1708,17 @@ function GovernanceTab({
         {/* Section header + filters */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <h2 className="text-sm font-semibold text-vc-text flex items-center gap-1.5">
-              <Activity size={14} className="text-vc-muted" /> Audit Trail
+            <h2 className="text-sm font-semibold text-foreground flex items-center gap-1.5">
+              <Activity size={14} className="text-foreground-500" /> Audit Trail
             </h2>
-            <p className="text-xs text-vc-muted mt-0.5">
+            <p className="text-xs text-foreground-500 mt-0.5">
               All activity and intent events for this agent. Click any row for
               full detail.
             </p>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             {/* Source filter */}
-            <div className="flex rounded-md overflow-hidden border border-vc-ring text-xs">
+            <div className="flex rounded-md overflow-hidden border border-neutral-300 text-xs">
               {(["", "activity", "intent"] as const).map((s) => (
                 <button
                   key={s}
@@ -1726,7 +1726,7 @@ function GovernanceTab({
                   className={`px-2.5 py-1 transition-colors ${
                     auditSourceFilter === s
                       ? "bg-indigo-600 text-white"
-                      : "bg-vc-surface text-vc-muted hover:text-vc-text"
+                      : "bg-background-100 text-foreground-500 hover:text-foreground"
                   }`}
                 >
                   {s === "" ? "All" : s.charAt(0).toUpperCase() + s.slice(1)}
@@ -1734,7 +1734,7 @@ function GovernanceTab({
               ))}
             </div>
             {/* Status filter */}
-            <div className="flex rounded-md overflow-hidden border border-vc-ring text-xs">
+            <div className="flex rounded-md overflow-hidden border border-neutral-300 text-xs">
               {(["", "success", "failed"] as const).map((s) => (
                 <button
                   key={s}
@@ -1742,7 +1742,7 @@ function GovernanceTab({
                   className={`px-2.5 py-1 transition-colors ${
                     auditStatusFilter === s
                       ? "bg-indigo-600 text-white"
-                      : "bg-vc-surface text-vc-muted hover:text-vc-text"
+                      : "bg-background-100 text-foreground-500 hover:text-foreground"
                   }`}
                 >
                   {s === ""
@@ -1753,7 +1753,7 @@ function GovernanceTab({
             </div>
             <button
               onClick={fetchAudit}
-              className="text-xs text-vc-muted hover:text-vc-text px-2 py-1 rounded-md border border-vc-ring bg-vc-surface transition-colors"
+              className="text-xs text-foreground-500 hover:text-foreground px-2 py-1 rounded-md border border-neutral-300 bg-background-100 transition-colors"
               title="Refresh"
             >
               ↻
@@ -1763,11 +1763,11 @@ function GovernanceTab({
 
         {/* Table */}
         {auditLoading ? (
-          <div className="flex items-center gap-2 text-vc-muted text-sm py-6 justify-center">
+          <div className="flex items-center gap-2 text-foreground-500 text-sm py-6 justify-center">
             <Loader2 size={14} className="animate-spin" /> Loading audit trail…
           </div>
         ) : auditEntries.length === 0 ? (
-          <div className="text-center py-10 text-vc-muted text-sm border border-dashed border-vc-border rounded-xl">
+          <div className="text-center py-10 text-foreground-500 text-sm border border-dashed border-neutral-200 rounded-xl">
             <Activity size={28} className="mx-auto mb-2 opacity-30" />
             No audit events found for this agent.
           </div>
@@ -1781,26 +1781,26 @@ function GovernanceTab({
             );
             return (
               <div className="space-y-2">
-                <div className="bg-vc-surface border border-vc-border rounded-xl overflow-hidden">
+                <div className="bg-background-100 border border-neutral-200 rounded-xl overflow-hidden">
                   <table className="w-full text-xs">
                     <thead>
-                      <tr className="border-b border-vc-border">
-                        <th className="text-left text-vc-subtle uppercase tracking-wider px-3 py-2 font-medium w-24">
+                      <tr className="border-b border-neutral-200">
+                        <th className="text-left text-foreground-400 uppercase tracking-wider px-3 py-2 font-medium w-24">
                           Source
                         </th>
-                        <th className="text-left text-vc-subtle uppercase tracking-wider px-3 py-2 font-medium">
+                        <th className="text-left text-foreground-400 uppercase tracking-wider px-3 py-2 font-medium">
                           Event
                         </th>
-                        <th className="text-left text-vc-subtle uppercase tracking-wider px-3 py-2 font-medium w-24">
+                        <th className="text-left text-foreground-400 uppercase tracking-wider px-3 py-2 font-medium w-24">
                           Status
                         </th>
-                        <th className="text-left text-vc-subtle uppercase tracking-wider px-3 py-2 font-medium w-36">
+                        <th className="text-left text-foreground-400 uppercase tracking-wider px-3 py-2 font-medium w-36">
                           Time
                         </th>
                         <th className="w-6" />
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-vc-border">
+                    <tbody className="divide-y divide-neutral-200">
                       {slice.map((entry) => {
                         const isActivity = entry.source === "activity";
                         return (
@@ -1811,7 +1811,7 @@ function GovernanceTab({
                                 `/governance/audit/${encodeURIComponent(entry.id)}`
                               )
                             }
-                            className="cursor-pointer hover:bg-vc-raised transition-colors group"
+                            className="cursor-pointer hover:bg-background-200 transition-colors group"
                           >
                             {/* Source badge */}
                             <td className="px-3 py-2.5">
@@ -1831,7 +1831,7 @@ function GovernanceTab({
                               </span>
                             </td>
                             {/* Event name */}
-                            <td className="px-3 py-2.5 text-vc-text">
+                            <td className="px-3 py-2.5 text-foreground">
                               {AUDIT_LABELS[entry.event] ??
                                 entry.event.replace(/_/g, " ")}
                             </td>
@@ -1855,18 +1855,18 @@ function GovernanceTab({
                                   </span>
                                 )}
                               {!entry.status && (
-                                <span className="text-vc-subtle">—</span>
+                                <span className="text-foreground-400">—</span>
                               )}
                             </td>
                             {/* Timestamp */}
-                            <td className="px-3 py-2.5 text-vc-muted">
+                            <td className="px-3 py-2.5 text-foreground-500">
                               {timeAgo(entry.timestamp)}
                             </td>
                             {/* Arrow */}
                             <td className="pr-3">
                               <ChevronRight
                                 size={13}
-                                className="text-vc-subtle opacity-0 group-hover:opacity-100 transition-opacity"
+                                className="text-foreground-400 opacity-0 group-hover:opacity-100 transition-opacity"
                               />
                             </td>
                           </tr>
@@ -1878,7 +1878,7 @@ function GovernanceTab({
 
                 {/* Pagination */}
                 {totalPages > 1 && (
-                  <div className="flex items-center justify-between text-xs text-vc-muted px-1">
+                  <div className="flex items-center justify-between text-xs text-foreground-500 px-1">
                     <span>
                       {auditEntries.length} events · page {page + 1} of{" "}
                       {totalPages}
@@ -1887,7 +1887,7 @@ function GovernanceTab({
                       <button
                         onClick={() => setAuditPage(Math.max(0, page - 1))}
                         disabled={page === 0}
-                        className="px-2.5 py-1 rounded border border-vc-ring bg-vc-surface hover:text-vc-text disabled:opacity-40 transition-colors"
+                        className="px-2.5 py-1 rounded border border-neutral-300 bg-background-100 hover:text-foreground disabled:opacity-40 transition-colors"
                       >
                         ‹ Prev
                       </button>
@@ -1896,7 +1896,7 @@ function GovernanceTab({
                           setAuditPage(Math.min(totalPages - 1, page + 1))
                         }
                         disabled={page >= totalPages - 1}
-                        className="px-2.5 py-1 rounded border border-vc-ring bg-vc-surface hover:text-vc-text disabled:opacity-40 transition-colors"
+                        className="px-2.5 py-1 rounded border border-neutral-300 bg-background-100 hover:text-foreground disabled:opacity-40 transition-colors"
                       >
                         Next ›
                       </button>
@@ -2009,7 +2009,7 @@ function TokensTab({ agentId }: { agentId: string }) {
   return (
     <div className="p-4 space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-3">
-        <div className="flex gap-1 rounded-lg border border-vc-border bg-vc-surface p-0.5">
+        <div className="flex gap-1 rounded-lg border border-neutral-200 bg-background-100 p-0.5">
           {(["7d", "30d", "3m", "12m"] as TokenPeriod[]).map((p) => (
             <button
               key={p}
@@ -2020,23 +2020,23 @@ function TokensTab({ agentId }: { agentId: string }) {
               }}
               className={`px-3 py-1.5 text-xs rounded-md transition-colors ${
                 period === p
-                  ? "bg-vc-accent text-white"
-                  : "text-vc-muted hover:text-vc-foreground hover:bg-vc-card"
+                  ? "bg-primary text-white"
+                  : "text-foreground-500 hover:text-foreground hover:bg-background-100"
               }`}
             >
               {p}
             </button>
           ))}
         </div>
-        <div className="flex gap-1 rounded-lg border border-vc-border bg-vc-surface p-0.5">
+        <div className="flex gap-1 rounded-lg border border-neutral-200 bg-background-100 p-0.5">
           {(["day", "month"] as TokenGranularity[]).map((g) => (
             <button
               key={g}
               onClick={() => setGranularity(g)}
               className={`px-3 py-1.5 text-xs rounded-md capitalize transition-colors ${
                 granularity === g
-                  ? "bg-vc-accent text-white"
-                  : "text-vc-muted hover:text-vc-foreground hover:bg-vc-card"
+                  ? "bg-primary text-white"
+                  : "text-foreground-500 hover:text-foreground hover:bg-background-100"
               }`}
             >
               {g}
@@ -2046,28 +2046,28 @@ function TokensTab({ agentId }: { agentId: string }) {
       </div>
 
       <div className="grid grid-cols-3 gap-3">
-        <div className="rounded-xl border border-vc-border bg-vc-card p-4">
-          <p className="text-xs text-vc-muted mb-1">Input tokens</p>
-          <p className="text-xl font-semibold text-vc-foreground">
+        <div className="rounded-xl border border-neutral-200 bg-background-100 p-4">
+          <p className="text-xs text-foreground-500 mb-1">Input tokens</p>
+          <p className="text-xl font-semibold text-foreground">
             {total.prompt.toLocaleString()}
           </p>
         </div>
-        <div className="rounded-xl border border-vc-border bg-vc-card p-4">
-          <p className="text-xs text-vc-muted mb-1">Output tokens</p>
-          <p className="text-xl font-semibold text-vc-foreground">
+        <div className="rounded-xl border border-neutral-200 bg-background-100 p-4">
+          <p className="text-xs text-foreground-500 mb-1">Output tokens</p>
+          <p className="text-xl font-semibold text-foreground">
             {total.completion.toLocaleString()}
           </p>
         </div>
-        <div className="rounded-xl border border-vc-border bg-vc-card p-4">
-          <p className="text-xs text-vc-muted mb-1">Total tokens</p>
-          <p className="text-xl font-semibold text-vc-foreground">
+        <div className="rounded-xl border border-neutral-200 bg-background-100 p-4">
+          <p className="text-xs text-foreground-500 mb-1">Total tokens</p>
+          <p className="text-xl font-semibold text-foreground">
             {(total.prompt + total.completion).toLocaleString()}
           </p>
         </div>
       </div>
 
       {loading && (
-        <div className="flex items-center justify-center py-12 text-vc-muted">
+        <div className="flex items-center justify-center py-12 text-foreground-500">
           <Loader2 className="animate-spin w-5 h-5 mr-2" /> Loading…
         </div>
       )}
@@ -2075,7 +2075,7 @@ function TokensTab({ agentId }: { agentId: string }) {
         <p className="text-red-600 dark:text-red-400 text-sm">{tokenError}</p>
       )}
       {!loading && !tokenError && data.length > 0 && (
-        <div className="rounded-xl border border-vc-border bg-vc-card p-4">
+        <div className="rounded-xl border border-neutral-200 bg-background-100 p-4">
           <ResponsiveContainer width="100%" height={260}>
             <BarChart
               data={data}
@@ -2123,7 +2123,7 @@ function TokensTab({ agentId }: { agentId: string }) {
         </div>
       )}
       {!loading && !tokenError && data.length === 0 && (
-        <div className="text-center py-12 text-vc-muted text-sm">
+        <div className="text-center py-12 text-foreground-500 text-sm">
           No token data for this period.
         </div>
       )}
@@ -2143,15 +2143,15 @@ function ThinkingBlock({
   isStreaming: boolean;
 }) {
   return (
-    <details className="mb-2 text-xs border border-vc-border/50 rounded-lg overflow-hidden">
-      <summary className="px-3 py-1.5 cursor-pointer select-none flex items-center gap-1.5 bg-vc-surface/50 hover:bg-vc-surface transition-colors list-none text-vc-muted">
+    <details className="mb-2 text-xs border border-neutral-200/50 rounded-lg overflow-hidden">
+      <summary className="px-3 py-1.5 cursor-pointer select-none flex items-center gap-1.5 bg-background-100/50 hover:bg-background-100 transition-colors list-none text-foreground-500">
         {isStreaming ? (
           <span className="animate-pulse">Thinking…</span>
         ) : (
           <span>View reasoning</span>
         )}
       </summary>
-      <pre className="whitespace-pre-wrap font-mono text-xs text-vc-muted bg-vc-surface p-3 m-0 leading-relaxed">
+      <pre className="whitespace-pre-wrap font-mono text-xs text-foreground-500 bg-background-100 p-3 m-0 leading-relaxed">
         {content}
       </pre>
     </details>
@@ -2179,10 +2179,10 @@ function ToolApprovalCard({
         <span className="font-mono">{approval.toolName}</span>
       </p>
       <details className="mb-3">
-        <summary className="cursor-pointer text-xs text-vc-muted hover:text-vc-text select-none list-none">
+        <summary className="cursor-pointer text-xs text-foreground-500 hover:text-foreground select-none list-none">
           View arguments
         </summary>
-        <pre className="mt-1 text-xs font-mono bg-vc-bg border border-vc-border rounded p-2 overflow-x-auto text-vc-text whitespace-pre-wrap">
+        <pre className="mt-1 text-xs font-mono bg-background border border-neutral-200 rounded p-2 overflow-x-auto text-foreground whitespace-pre-wrap">
           {JSON.stringify(approval.args, null, 2)}
         </pre>
       </details>
@@ -2461,7 +2461,7 @@ function ChatTab({
 
   if (!online) {
     return (
-      <div className="flex flex-col items-center justify-center h-64 gap-3 text-vc-muted">
+      <div className="flex flex-col items-center justify-center h-64 gap-3 text-foreground-500">
         <Bot size={40} strokeWidth={1} />
         <p className="text-sm">{agentName} is offline — chat unavailable</p>
       </div>
@@ -2471,9 +2471,9 @@ function ChatTab({
   return (
     <div className="flex flex-1 min-h-0">
       {/* Sessions sidebar */}
-      <div className="w-44 flex-shrink-0 flex flex-col border-r border-vc-border bg-vc-raised rounded-l-lg overflow-hidden">
-        <div className="flex items-center justify-between px-2 py-2 border-b border-vc-border">
-          <span className="text-[10px] font-semibold text-vc-muted uppercase tracking-widest">
+      <div className="w-44 flex-shrink-0 flex flex-col border-r border-neutral-200 bg-background-200 rounded-l-lg overflow-hidden">
+        <div className="flex items-center justify-between px-2 py-2 border-b border-neutral-200">
+          <span className="text-[10px] font-semibold text-foreground-500 uppercase tracking-widest">
             History
           </span>
           <button
@@ -2485,7 +2485,7 @@ function ChatTab({
         </div>
         <div className="flex-1 overflow-y-auto">
           {sessions.length === 0 && (
-            <p className="text-[10px] text-vc-subtle text-center mt-4 px-2">
+            <p className="text-[10px] text-foreground-400 text-center mt-4 px-2">
               No past sessions
             </p>
           )}
@@ -2493,16 +2493,16 @@ function ChatTab({
             <button
               key={s.id}
               onClick={() => loadSession(s.id)}
-              className={`w-full text-left px-2 py-2 border-b border-vc-border/50 hover:bg-vc-surface transition-colors ${
+              className={`w-full text-left px-2 py-2 border-b border-neutral-200/50 hover:bg-background-100 transition-colors ${
                 activeSessionId === s.id
                   ? "bg-indigo-900/20 border-l-2 border-l-indigo-500"
                   : ""
               }`}
             >
-              <p className="text-[11px] text-vc-text truncate leading-tight">
+              <p className="text-[11px] text-foreground truncate leading-tight">
                 {s.title ?? "Untitled"}
               </p>
-              <p className="text-[9px] text-vc-subtle mt-0.5">
+              <p className="text-[9px] text-foreground-400 mt-0.5">
                 {s.messageCount} msg · {s.source}
               </p>
             </button>
@@ -2513,26 +2513,26 @@ function ChatTab({
       {/* Chat area */}
       <div className="flex flex-col flex-1 overflow-hidden">
         {/* Toolbar */}
-        <div className="flex items-center justify-between px-3 py-2 border-b border-vc-border flex-shrink-0">
-          <p className="text-xs text-vc-muted">
+        <div className="flex items-center justify-between px-3 py-2 border-b border-neutral-200 flex-shrink-0">
+          <p className="text-xs text-foreground-500">
             {activeSessionId ? (
               <span>
                 Session{" "}
-                <span className="font-mono text-vc-subtle">
+                <span className="font-mono text-foreground-400">
                   {activeSessionId.slice(0, 8)}…
                 </span>
               </span>
             ) : (
               <span>
                 New conversation with{" "}
-                <span className="text-vc-text font-medium">{agentName}</span>
+                <span className="text-foreground font-medium">{agentName}</span>
               </span>
             )}
           </p>
           {messages.length > 0 && (
             <button
               onClick={startNew}
-              className="flex items-center gap-1.5 text-xs text-vc-muted hover:text-red-400 transition-colors"
+              className="flex items-center gap-1.5 text-xs text-foreground-500 hover:text-red-400 transition-colors"
             >
               <Trash2 size={13} />
               Clear
@@ -2543,7 +2543,7 @@ function ChatTab({
         {/* Messages */}
         <div className="flex-1 overflow-y-auto space-y-3 p-3">
           {messages.length === 0 && !isStreaming && (
-            <div className="flex flex-col items-center justify-center h-full gap-2 text-vc-muted">
+            <div className="flex flex-col items-center justify-center h-full gap-2 text-foreground-500">
               <Bot size={36} strokeWidth={1} />
               <p className="text-sm">
                 Send a message to start the conversation
@@ -2559,8 +2559,8 @@ function ChatTab({
               <div
                 className={`max-w-[75%] rounded-xl px-4 py-2.5 text-sm leading-relaxed prose prose-sm prose-invert max-w-none ${
                   msg.role === "user"
-                    ? "bg-indigo-600/25 text-vc-text rounded-br-sm prose-headings:text-vc-text prose-p:m-0 prose-ul:m-0 prose-ol:m-0 prose-li:m-0 prose-code:text-vc-text prose-code:bg-indigo-950/30 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-pre:bg-indigo-950/30 prose-pre:border prose-pre:border-indigo-500/20 prose-pre:text-indigo-100"
-                    : "bg-vc-raised border border-vc-border text-vc-text rounded-bl-sm prose-headings:text-vc-text prose-p:m-0 prose-ul:m-0 prose-ol:m-0 prose-li:m-0 prose-code:text-vc-text prose-code:bg-vc-bg prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-pre:bg-vc-bg prose-pre:border prose-pre:border-vc-border prose-pre:text-vc-text"
+                    ? "bg-indigo-600/25 text-foreground rounded-br-sm prose-headings:text-foreground prose-p:m-0 prose-ul:m-0 prose-ol:m-0 prose-li:m-0 prose-code:text-foreground prose-code:bg-indigo-950/30 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-pre:bg-indigo-950/30 prose-pre:border prose-pre:border-indigo-500/20 prose-pre:text-indigo-100"
+                    : "bg-background-200 border border-neutral-200 text-foreground rounded-bl-sm prose-headings:text-foreground prose-p:m-0 prose-ul:m-0 prose-ol:m-0 prose-li:m-0 prose-code:text-foreground prose-code:bg-background prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-pre:bg-background prose-pre:border prose-pre:border-neutral-200 prose-pre:text-foreground"
                 }`}
               >
                 {msg.role === "assistant" && msg.thinkingContent && (
@@ -2585,7 +2585,7 @@ function ChatTab({
                           className={`px-1 py-0.5 rounded text-sm font-mono ${
                             msg.role === "user"
                               ? "bg-indigo-950/30 text-indigo-200"
-                              : "bg-vc-bg text-vc-text"
+                              : "bg-background text-foreground"
                           }`}
                         >
                           {children}
@@ -2596,7 +2596,7 @@ function ChatTab({
                           className={`p-2 rounded text-xs overflow-x-auto my-1 border ${
                             msg.role === "user"
                               ? "bg-indigo-950/30 border-indigo-500/20 text-indigo-100"
-                              : "bg-vc-bg border-vc-border text-vc-text"
+                              : "bg-background border-neutral-200 text-foreground"
                           }`}
                         >
                           {children}
@@ -2622,7 +2622,7 @@ function ChatTab({
                           className={`pl-2 border-l-2 my-1 ${
                             msg.role === "user"
                               ? "border-indigo-500/50"
-                              : "border-vc-border"
+                              : "border-neutral-200"
                           }`}
                         >
                           {children}
@@ -2645,7 +2645,7 @@ function ChatTab({
                 ) : (
                   msg.role === "assistant" &&
                   isStreaming && (
-                    <span className="inline-flex gap-1 text-vc-muted">
+                    <span className="inline-flex gap-1 text-foreground-500">
                       <span
                         className="animate-bounce"
                         style={{ animationDelay: "0ms" }}
@@ -2721,7 +2721,7 @@ function ChatTab({
         </div>
 
         {/* Input */}
-        <div className="px-3 pb-3 pt-2 border-t border-vc-border flex-shrink-0">
+        <div className="px-3 pb-3 pt-2 border-t border-neutral-200 flex-shrink-0">
           <div className="flex items-end gap-2">
             <textarea
               value={input}
@@ -2735,7 +2735,7 @@ function ChatTab({
               placeholder="Type a message… (Enter to send, Shift+Enter for newline)"
               rows={1}
               disabled={isStreaming}
-              className="flex-1 resize-none bg-vc-raised border border-vc-border rounded-lg px-4 py-2.5 text-sm text-vc-text placeholder:text-vc-muted focus:outline-none focus:ring-1 focus:ring-indigo-500/50"
+              className="flex-1 resize-none bg-background-200 border border-neutral-200 rounded-lg px-4 py-2.5 text-sm text-foreground placeholder:text-foreground-500 focus:outline-none focus:ring-1 focus:ring-indigo-500/50"
             />
             <button
               onClick={() => sendMessage(input)}
@@ -3069,21 +3069,21 @@ function ConfigTab({
     realmLlmData.realms.some((r) => r.hasVirtualKey && r.models.length > 0)
   );
 
-  if (llmLoading) return <p className="text-vc-muted text-sm">Loading…</p>;
+  if (llmLoading) return <p className="text-foreground-500 text-sm">Loading…</p>;
 
   return (
     <div className="space-y-5">
       {/* Agent-reported active LLM */}
       {reportedLlm && (
-        <div className="bg-vc-raised rounded-lg border border-vc-border px-4 py-3">
-          <div className="text-xs text-vc-muted uppercase tracking-wider font-medium mb-1.5">
+        <div className="bg-background-200 rounded-lg border border-neutral-200 px-4 py-3">
+          <div className="text-xs text-foreground-500 uppercase tracking-wider font-medium mb-1.5">
             Agent Active LLM
           </div>
           <div className="flex items-center gap-3">
             <code className="text-sm font-mono text-indigo-400">
               {reportedLlm.provider}/{reportedLlm.model}
             </code>
-            <span className="text-xs text-vc-subtle">
+            <span className="text-xs text-foreground-400">
               reported by agent{llmConfig ? "" : " (local env config)"}
             </span>
           </div>
@@ -3091,13 +3091,13 @@ function ConfigTab({
       )}
 
       {/* Current config display */}
-      <div className="rounded-xl border border-vc-border bg-vc-surface overflow-hidden">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-vc-border">
+      <div className="rounded-xl border border-neutral-200 bg-background-100 overflow-hidden">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-200">
           <div>
-            <h2 className="text-sm font-semibold text-vc-text">
+            <h2 className="text-sm font-semibold text-foreground">
               LLM Configuration
             </h2>
-            <p className="text-xs text-vc-muted mt-0.5">
+            <p className="text-xs text-foreground-500 mt-0.5">
               Pushed to the agent remotely on save
             </p>
           </div>
@@ -3147,7 +3147,7 @@ function ConfigTab({
         {llmEditing ? (
           <div className="p-4 space-y-4">
             {/* Mode toggle */}
-            <div className="flex rounded-lg border border-vc-border overflow-hidden text-sm">
+            <div className="flex rounded-lg border border-neutral-200 overflow-hidden text-sm">
               {[
                 {
                   id: "realm" as const,
@@ -3178,8 +3178,8 @@ function ConfigTab({
                     configMode === id
                       ? "bg-indigo-600 text-white"
                       : disabled
-                        ? "bg-vc-bg text-vc-subtle cursor-not-allowed"
-                        : "bg-vc-bg text-vc-muted hover:text-vc-text hover:bg-vc-raised"
+                        ? "bg-background text-foreground-400 cursor-not-allowed"
+                        : "bg-background text-foreground-500 hover:text-foreground hover:bg-background-200"
                   }`}
                   title={disabled ? hint : undefined}
                 >
@@ -3190,7 +3190,7 @@ function ConfigTab({
 
             {configMode === "realm" ? (
               <div className="space-y-3">
-                <p className="text-xs text-vc-muted">
+                <p className="text-xs text-foreground-500">
                   Route this agent through your LiteLLM proxy using a
                   realm-scoped virtual key. The API key is resolved server-side.
                 </p>
@@ -3198,7 +3198,7 @@ function ConfigTab({
                   .filter((r) => r.hasVirtualKey && r.models.length > 0)
                   .map((realm) => (
                     <div key={realm.realmId} className="space-y-1.5">
-                      <div className="flex items-center gap-2 text-xs text-vc-muted font-medium uppercase tracking-wider">
+                      <div className="flex items-center gap-2 text-xs text-foreground-500 font-medium uppercase tracking-wider">
                         <span>{realm.realmName}</span>
                         {realm.isPrimary && (
                           <span className="px-1.5 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-400 border border-indigo-300 dark:border-indigo-700 text-[10px] font-semibold">
@@ -3213,7 +3213,7 @@ function ConfigTab({
                             selectedRealmId === realm.realmId &&
                             selectedRealmModelId === model.id
                               ? "border-indigo-500 bg-indigo-50 dark:bg-indigo-950/30"
-                              : "border-vc-border hover:border-vc-ring hover:bg-vc-raised/50"
+                              : "border-neutral-200 hover:border-neutral-300 hover:bg-background-200/50"
                           }`}
                         >
                           <input
@@ -3231,7 +3231,7 @@ function ConfigTab({
                           />
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 flex-wrap">
-                              <span className="text-sm font-medium text-vc-text">
+                              <span className="text-sm font-medium text-foreground">
                                 {model.name}
                               </span>
                               <span
@@ -3240,7 +3240,7 @@ function ConfigTab({
                                 {model.provider}
                               </span>
                             </div>
-                            <code className="text-xs text-vc-subtle font-mono">
+                            <code className="text-xs text-foreground-400 font-mono">
                               {model.litellmModelName ?? model.modelId}
                             </code>
                           </div>
@@ -3255,7 +3255,7 @@ function ConfigTab({
                       setLlmEditing(false);
                       setLlmStatus("idle");
                     }}
-                    className="text-sm text-vc-muted hover:text-vc-text px-3 py-1.5"
+                    className="text-sm text-foreground-500 hover:text-foreground px-3 py-1.5"
                   >
                     Cancel
                   </button>
@@ -3270,7 +3270,7 @@ function ConfigTab({
                   </button>
                   <a
                     href="/models"
-                    className="text-xs text-vc-muted hover:text-vc-text ml-auto transition-colors"
+                    className="text-xs text-foreground-500 hover:text-foreground ml-auto transition-colors"
                   >
                     Manage models →
                   </a>
@@ -3278,12 +3278,12 @@ function ConfigTab({
               </div>
             ) : configMode === "registry" ? (
               <div className="space-y-3">
-                <p className="text-xs text-vc-muted">
+                <p className="text-xs text-foreground-500">
                   Select a model from the registry. Endpoint and credentials are
                   resolved server-side.
                 </p>
                 {registryLoading ? (
-                  <p className="text-xs text-vc-muted py-4 text-center">
+                  <p className="text-xs text-foreground-500 py-4 text-center">
                     Loading registry…
                   </p>
                 ) : (
@@ -3296,7 +3296,7 @@ function ConfigTab({
                           className={`flex items-center gap-3 px-3 py-3 rounded-xl border cursor-pointer transition-colors ${
                             selectedRegistryId === m.id
                               ? "border-indigo-500 bg-indigo-50 dark:bg-indigo-950/30"
-                              : "border-vc-border hover:border-vc-ring hover:bg-vc-raised/50"
+                              : "border-neutral-200 hover:border-neutral-300 hover:bg-background-200/50"
                           }`}
                         >
                           <input
@@ -3309,7 +3309,7 @@ function ConfigTab({
                           />
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 flex-wrap">
-                              <span className="text-sm font-medium text-vc-text">
+                              <span className="text-sm font-medium text-foreground">
                                 {m.name}
                               </span>
                               <span
@@ -3318,11 +3318,11 @@ function ConfigTab({
                                 {m.provider}
                               </span>
                             </div>
-                            <code className="text-xs text-vc-subtle font-mono">
+                            <code className="text-xs text-foreground-400 font-mono">
                               {m.modelId}
                             </code>
                             {m.description && (
-                              <p className="text-xs text-vc-muted mt-0.5">
+                              <p className="text-xs text-foreground-500 mt-0.5">
                                 {m.description}
                               </p>
                             )}
@@ -3338,7 +3338,7 @@ function ConfigTab({
                       setLlmEditing(false);
                       setLlmStatus("idle");
                     }}
-                    className="text-sm text-vc-muted hover:text-vc-text px-3 py-1.5"
+                    className="text-sm text-foreground-500 hover:text-foreground px-3 py-1.5"
                   >
                     Cancel
                   </button>
@@ -3351,7 +3351,7 @@ function ConfigTab({
                   </button>
                   <a
                     href="/models"
-                    className="text-xs text-vc-muted hover:text-vc-text ml-auto transition-colors"
+                    className="text-xs text-foreground-500 hover:text-foreground ml-auto transition-colors"
                   >
                     Manage registry →
                   </a>
@@ -3361,7 +3361,7 @@ function ConfigTab({
               <form onSubmit={saveManualConfig} className="space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="text-xs text-vc-muted uppercase tracking-wider font-medium block mb-1.5">
+                    <label className="text-xs text-foreground-500 uppercase tracking-wider font-medium block mb-1.5">
                       Provider
                     </label>
                     <select
@@ -3372,7 +3372,7 @@ function ConfigTab({
                           provider: e.target.value as LlmProviderType,
                         }))
                       }
-                      className="w-full bg-vc-raised border border-vc-ring rounded-lg px-3 py-2 text-sm text-vc-text focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                      className="w-full bg-background-200 border border-neutral-300 rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
                     >
                       {PROVIDER_OPTIONS.map((p) => (
                         <option key={p.value} value={p.value}>
@@ -3382,7 +3382,7 @@ function ConfigTab({
                     </select>
                   </div>
                   <div>
-                    <label className="text-xs text-vc-muted uppercase tracking-wider font-medium block mb-1.5">
+                    <label className="text-xs text-foreground-500 uppercase tracking-wider font-medium block mb-1.5">
                       Model
                     </label>
                     <input
@@ -3403,12 +3403,12 @@ function ConfigTab({
                                 ? "llama3.2"
                                 : "model-name"
                       }
-                      className="w-full bg-vc-raised border border-vc-ring rounded-lg px-3 py-2 text-sm text-vc-text placeholder:text-vc-subtle focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                      className="w-full bg-background-200 border border-neutral-300 rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-foreground-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
                     />
                   </div>
                   {selectedProvider.needsKey && (
                     <div>
-                      <label className="text-xs text-vc-muted uppercase tracking-wider font-medium block mb-1.5">
+                      <label className="text-xs text-foreground-500 uppercase tracking-wider font-medium block mb-1.5">
                         API Key{" "}
                         {llmConfig?.apiKeySet && (
                           <span className="text-emerald-500 normal-case">
@@ -3425,13 +3425,13 @@ function ConfigTab({
                         placeholder={
                           llmConfig?.apiKeySet ? "••••••••••••••••" : "sk-…"
                         }
-                        className="w-full bg-vc-raised border border-vc-ring rounded-lg px-3 py-2 text-sm text-vc-text placeholder:text-vc-subtle focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                        className="w-full bg-background-200 border border-neutral-300 rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-foreground-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
                       />
                     </div>
                   )}
                   {selectedProvider.needsUrl && (
                     <div>
-                      <label className="text-xs text-vc-muted uppercase tracking-wider font-medium block mb-1.5">
+                      <label className="text-xs text-foreground-500 uppercase tracking-wider font-medium block mb-1.5">
                         Base URL
                       </label>
                       <input
@@ -3445,14 +3445,14 @@ function ConfigTab({
                             ? "http://localhost:11434/api"
                             : "http://localhost:1234/v1"
                         }
-                        className="w-full bg-vc-raised border border-vc-ring rounded-lg px-3 py-2 text-sm text-vc-text placeholder:text-vc-subtle focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                        className="w-full bg-background-200 border border-neutral-300 rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-foreground-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
                       />
                     </div>
                   )}
                   <div>
-                    <label className="text-xs text-vc-muted uppercase tracking-wider font-medium block mb-1.5">
+                    <label className="text-xs text-foreground-500 uppercase tracking-wider font-medium block mb-1.5">
                       Max Tokens{" "}
-                      <span className="normal-case text-vc-subtle">
+                      <span className="normal-case text-foreground-400">
                         (optional)
                       </span>
                     </label>
@@ -3464,14 +3464,14 @@ function ConfigTab({
                         setLlmForm((f) => ({ ...f, maxTokens: e.target.value }))
                       }
                       placeholder="4096"
-                      className="w-full bg-vc-raised border border-vc-ring rounded-lg px-3 py-2 text-sm text-vc-text placeholder:text-vc-subtle focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                      className="w-full bg-background-200 border border-neutral-300 rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-foreground-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
                     />
                   </div>
                 </div>
                 <div>
-                  <label className="text-xs text-vc-muted uppercase tracking-wider font-medium block mb-1.5">
+                  <label className="text-xs text-foreground-500 uppercase tracking-wider font-medium block mb-1.5">
                     System Prompt{" "}
-                    <span className="normal-case text-vc-subtle">
+                    <span className="normal-case text-foreground-400">
                       (optional — overrides default)
                     </span>
                   </label>
@@ -3485,7 +3485,7 @@ function ConfigTab({
                       }))
                     }
                     placeholder="You are a secure agent…"
-                    className="w-full bg-vc-raised border border-vc-ring rounded-lg px-3 py-2 text-sm text-vc-text placeholder:text-vc-subtle focus:outline-none focus:ring-2 focus:ring-indigo-500/50 resize-y"
+                    className="w-full bg-background-200 border border-neutral-300 rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-foreground-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 resize-y"
                   />
                 </div>
                 <div className="flex items-center gap-3">
@@ -3495,7 +3495,7 @@ function ConfigTab({
                       setLlmEditing(false);
                       setLlmStatus("idle");
                     }}
-                    className="text-sm text-vc-muted hover:text-vc-text px-3 py-1.5"
+                    className="text-sm text-foreground-500 hover:text-foreground px-3 py-1.5"
                   >
                     Cancel
                   </button>
@@ -3511,17 +3511,17 @@ function ConfigTab({
             )}
           </div>
         ) : llmConfig ? (
-          <div className="divide-y divide-vc-border">
+          <div className="divide-y divide-neutral-200">
             {/* Realm routing banner when applicable */}
             {activeRealmRoute && (
               <div className="flex items-center gap-3 px-4 py-3 bg-violet-50 dark:bg-violet-950/30">
                 <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-violet-100 dark:bg-violet-900/60 text-violet-700 dark:text-violet-300 border border-violet-300 dark:border-violet-700 shrink-0">
                   Realm Routing
                 </span>
-                <span className="text-sm text-vc-text font-medium">
+                <span className="text-sm text-foreground font-medium">
                   {activeRealmRoute.model.name}
                 </span>
-                <span className="text-xs text-vc-muted">
+                <span className="text-xs text-foreground-500">
                   via {activeRealmRoute.realm.realmName}
                 </span>
                 <a
@@ -3538,7 +3538,7 @@ function ConfigTab({
                 <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 border border-indigo-300 dark:border-indigo-700 shrink-0">
                   Registry
                 </span>
-                <span className="text-sm text-vc-text font-medium">
+                <span className="text-sm text-foreground font-medium">
                   {activeRegistryModel.name}
                 </span>
                 <a
@@ -3579,7 +3579,7 @@ function ConfigTab({
                     Stored
                   </span>
                 ) : (
-                  <span className="text-vc-subtle">Not set</span>
+                  <span className="text-foreground-400">Not set</span>
                 ),
               },
               ...(llmConfig.maxTokens
@@ -3595,7 +3595,7 @@ function ConfigTab({
                     {
                       label: "System Prompt",
                       value: (
-                        <span className="whitespace-pre-wrap text-vc-text-2 text-xs">
+                        <span className="whitespace-pre-wrap text-foreground-700 text-xs">
                           {llmConfig.systemPrompt}
                         </span>
                       ),
@@ -3604,35 +3604,35 @@ function ConfigTab({
                 : []),
             ].map(({ label, value }) => (
               <div key={label} className="flex items-start gap-4 px-4 py-3">
-                <div className="w-28 flex-shrink-0 text-xs text-vc-muted uppercase pt-0.5">
+                <div className="w-28 flex-shrink-0 text-xs text-foreground-500 uppercase pt-0.5">
                   {label}
                 </div>
-                <div className="flex-1 text-sm text-vc-text">{value}</div>
+                <div className="flex-1 text-sm text-foreground">{value}</div>
               </div>
             ))}
           </div>
         ) : (
           <div className="px-4 py-8 text-center">
-            <p className="text-vc-muted text-sm">
+            <p className="text-foreground-500 text-sm">
               No remote config set. The agent uses its local environment
               variables{" "}
-              <code className="text-xs bg-vc-raised px-1.5 py-0.5 rounded">
+              <code className="text-xs bg-background-200 px-1.5 py-0.5 rounded">
                 LLM_PROVIDER
               </code>
               ,{" "}
-              <code className="text-xs bg-vc-raised px-1.5 py-0.5 rounded">
+              <code className="text-xs bg-background-200 px-1.5 py-0.5 rounded">
                 LLM_MODEL
               </code>
               , etc.
             </p>
             {hasRealmRouting && (
-              <p className="text-xs text-vc-muted mt-2">
+              <p className="text-xs text-foreground-500 mt-2">
                 Realm routing is available — click Configure to route via your
                 LiteLLM proxy.
               </p>
             )}
             {!hasRealmRouting && registryModels.length > 0 && (
-              <p className="text-xs text-vc-muted mt-2">
+              <p className="text-xs text-foreground-500 mt-2">
                 {registryModels.length} model
                 {registryModels.length !== 1 ? "s" : ""} available in the
                 registry — click Configure to assign one.
@@ -3694,10 +3694,10 @@ function TaskSection({ agentId }: { agentId: string }) {
 
   return (
     <div>
-      <h2 className="text-base font-semibold text-vc-text mb-1">
+      <h2 className="text-base font-semibold text-foreground mb-1">
         Enqueue Task
       </h2>
-      <p className="text-xs text-vc-muted mb-4">
+      <p className="text-xs text-foreground-500 mb-4">
         Send a one-off action to the agent's task queue.
       </p>
       <div className="flex gap-2">
@@ -3706,7 +3706,7 @@ function TaskSection({ agentId }: { agentId: string }) {
           onChange={(e) => setAction(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && enqueue()}
           placeholder="Task action…"
-          className="flex-1 px-3 py-2 text-sm bg-vc-raised border border-vc-border rounded-lg text-vc-text focus:outline-none focus:ring-1 focus:ring-indigo-500/50"
+          className="flex-1 px-3 py-2 text-sm bg-background-200 border border-neutral-200 rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-indigo-500/50"
         />
         <button
           onClick={enqueue}
@@ -3732,14 +3732,14 @@ function ScheduleSection({ agentId }: { agentId: string }) {
 
   const field = (key: keyof typeof form, placeholder: string) => (
     <div>
-      <label className="text-xs text-vc-muted uppercase tracking-wider block mb-1">
+      <label className="text-xs text-foreground-500 uppercase tracking-wider block mb-1">
         {placeholder}
       </label>
       <input
         value={form[key]}
         onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
         placeholder={key === "cron" ? "*/5 * * * *" : placeholder}
-        className="w-full px-3 py-2 text-sm bg-vc-raised border border-vc-border rounded-lg text-vc-text focus:outline-none focus:ring-1 focus:ring-indigo-500/50"
+        className="w-full px-3 py-2 text-sm bg-background-200 border border-neutral-200 rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-indigo-500/50"
       />
     </div>
   );
@@ -3780,10 +3780,10 @@ function ScheduleSection({ agentId }: { agentId: string }) {
 
   return (
     <div>
-      <h2 className="text-base font-semibold text-vc-text mb-1">
+      <h2 className="text-base font-semibold text-foreground mb-1">
         Manage Schedules
       </h2>
-      <p className="text-xs text-vc-muted mb-4">
+      <p className="text-xs text-foreground-500 mb-4">
         Create, update, or delete cron-based agent schedules.
       </p>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
@@ -3865,23 +3865,23 @@ function ApprovalsTab({
     <div>
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h2 className="text-base font-semibold text-vc-text">
+          <h2 className="text-base font-semibold text-foreground">
             Tool Approvals
           </h2>
-          <p className="text-xs text-vc-muted mt-0.5">
+          <p className="text-xs text-foreground-500 mt-0.5">
             Review and approve or reject pending tool use requests.
           </p>
         </div>
         <button
           onClick={refresh}
-          className="text-xs text-vc-muted hover:text-vc-text border border-vc-ring px-2.5 py-1 rounded-md transition-colors"
+          className="text-xs text-foreground-500 hover:text-foreground border border-neutral-300 px-2.5 py-1 rounded-md transition-colors"
         >
           ↻ Refresh
         </button>
       </div>
 
       {approvals.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-12 text-vc-muted gap-2">
+        <div className="flex flex-col items-center justify-center py-12 text-foreground-500 gap-2">
           <ShieldCheck size={36} strokeWidth={1} />
           <p className="text-sm">No pending tool approvals</p>
         </div>
@@ -3890,15 +3890,15 @@ function ApprovalsTab({
           {approvals.map((a) => (
             <div
               key={a.requestId}
-              className="bg-vc-raised rounded-lg p-4 border border-vc-border"
+              className="bg-background-200 rounded-lg p-4 border border-neutral-200"
             >
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <div>
-                  <span className="font-mono text-sm text-vc-text font-medium">
+                  <span className="font-mono text-sm text-foreground font-medium">
                     {a.toolName}
                   </span>
                   {a.agentName && (
-                    <span className="ml-2 text-xs text-vc-muted">
+                    <span className="ml-2 text-xs text-foreground-500">
                       from {a.agentName}
                     </span>
                   )}
@@ -3918,8 +3918,8 @@ function ApprovalsTab({
                   </button>
                 </div>
               </div>
-              <p className="mt-1.5 text-xs text-vc-muted">{a.reason}</p>
-              <pre className="mt-2 text-xs font-mono text-vc-text-2 bg-vc-surface border border-vc-border rounded p-2 overflow-x-auto">
+              <p className="mt-1.5 text-xs text-foreground-500">{a.reason}</p>
+              <pre className="mt-2 text-xs font-mono text-foreground-700 bg-background-100 border border-neutral-200 rounded p-2 overflow-x-auto">
                 {JSON.stringify(a.args, null, 2)}
               </pre>
             </div>
@@ -4095,7 +4095,7 @@ function mimeIcon(mime: string): React.ReactNode {
     return <FileText size={13} className="text-zinc-400 shrink-0" />;
   if (mime === "text/csv")
     return <Layers size={13} className="text-green-400 shrink-0" />;
-  return <File size={13} className="text-vc-subtle shrink-0" />;
+  return <File size={13} className="text-foreground-400 shrink-0" />;
 }
 
 // ---------------------------------------------------------------------------
@@ -4139,18 +4139,18 @@ function FileDropzone({ files, onAdd, onRemove }: FileDropzoneProps) {
         className={`flex flex-col items-center justify-center gap-2 px-4 py-8 rounded-xl border-2 border-dashed cursor-pointer transition-colors ${
           dragging
             ? "border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20"
-            : "border-vc-border hover:border-indigo-400 hover:bg-vc-raised/40 bg-vc-bg"
+            : "border-neutral-200 hover:border-indigo-400 hover:bg-background-200/40 bg-background"
         }`}
       >
         <Upload
           size={22}
-          className={dragging ? "text-indigo-500" : "text-vc-subtle"}
+          className={dragging ? "text-indigo-500" : "text-foreground-400"}
         />
         <div className="text-center">
-          <p className="text-sm font-medium text-vc-text">
+          <p className="text-sm font-medium text-foreground">
             Drop files here or click to browse
           </p>
-          <p className="text-xs text-vc-muted mt-0.5">
+          <p className="text-xs text-foreground-500 mt-0.5">
             PDF, DOCX, TXT, Markdown, CSV — up to 10 MB each
           </p>
         </div>
@@ -4174,7 +4174,7 @@ function FileDropzone({ files, onAdd, onRemove }: FileDropzoneProps) {
                 className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-xs ${
                   oversized
                     ? "border-red-300 dark:border-red-700 bg-red-50 dark:bg-red-900/20"
-                    : "border-vc-border bg-vc-raised/40"
+                    : "border-neutral-200 bg-background-200/40"
                 }`}
               >
                 <File
@@ -4182,16 +4182,16 @@ function FileDropzone({ files, onAdd, onRemove }: FileDropzoneProps) {
                   className={
                     oversized
                       ? "text-red-400 shrink-0"
-                      : "text-vc-subtle shrink-0"
+                      : "text-foreground-400 shrink-0"
                   }
                 />
                 <span
-                  className={`flex-1 truncate ${oversized ? "text-red-600 dark:text-red-400" : "text-vc-text"}`}
+                  className={`flex-1 truncate ${oversized ? "text-red-600 dark:text-red-400" : "text-foreground"}`}
                 >
                   {f.name}
                 </span>
                 <span
-                  className={`shrink-0 ${oversized ? "text-red-500" : "text-vc-muted"}`}
+                  className={`shrink-0 ${oversized ? "text-red-500" : "text-foreground-500"}`}
                 >
                   {formatBytes(f.size)}
                 </span>
@@ -4203,7 +4203,7 @@ function FileDropzone({ files, onAdd, onRemove }: FileDropzoneProps) {
                 <button
                   type="button"
                   onClick={() => onRemove(i)}
-                  className="shrink-0 text-vc-subtle hover:text-red-500 transition-colors"
+                  className="shrink-0 text-foreground-400 hover:text-red-500 transition-colors"
                 >
                   <X size={13} />
                 </button>
@@ -4259,7 +4259,7 @@ function KsSourceCard({
     files: <FileType2 size={16} className="text-teal-400" />,
   };
   const typeIcon = typeIconMap[source.source_type] ?? (
-    <File size={16} className="text-vc-subtle" />
+    <File size={16} className="text-foreground-400" />
   );
 
   async function loadFiles() {
@@ -4284,36 +4284,36 @@ function KsSourceCard({
   }
 
   return (
-    <div className="rounded-xl border border-vc-border bg-vc-surface overflow-hidden transition-all">
+    <div className="rounded-xl border border-neutral-200 bg-background-100 overflow-hidden transition-all">
       {/* Card header */}
       <div
-        className="flex items-start gap-3 px-4 py-3.5 cursor-pointer hover:bg-vc-raised/30 transition-colors"
+        className="flex items-start gap-3 px-4 py-3.5 cursor-pointer hover:bg-background-200/30 transition-colors"
         onClick={handleExpand}
       >
         {/* Type icon */}
-        <div className="mt-0.5 shrink-0 w-8 h-8 rounded-lg bg-vc-bg border border-vc-border flex items-center justify-center">
+        <div className="mt-0.5 shrink-0 w-8 h-8 rounded-lg bg-background border border-neutral-200 flex items-center justify-center">
           {typeIcon}
         </div>
 
         {/* Main info */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-sm font-semibold text-vc-text truncate">
+            <span className="text-sm font-semibold text-foreground truncate">
               {source.name}
             </span>
             <KsStatusBadge status={source.status} />
           </div>
-          <div className="flex items-center gap-1.5 mt-0.5 text-xs text-vc-muted flex-wrap">
+          <div className="flex items-center gap-1.5 mt-0.5 text-xs text-foreground-500 flex-wrap">
             <Globe2 size={11} className="shrink-0" />
             <span>{realmName}</span>
-            <span className="text-vc-subtle">·</span>
+            <span className="text-foreground-400">·</span>
             <Layers size={11} className="shrink-0" />
             <span>
               {source.chunk_count > 0
                 ? `${source.chunk_count.toLocaleString()} chunks`
                 : "No chunks yet"}
             </span>
-            <span className="text-vc-subtle">·</span>
+            <span className="text-foreground-400">·</span>
             <span>{relativeTime(source.last_synced_at)}</span>
           </div>
         </div>
@@ -4327,7 +4327,7 @@ function KsSourceCard({
             onClick={onSync}
             disabled={isSyncing || isDeleting || !online}
             title={online ? "Sync now" : "Agent offline"}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-vc-muted hover:text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 disabled:opacity-40 border border-vc-border hover:border-indigo-300 dark:hover:border-indigo-700 transition-colors"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-foreground-500 hover:text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 disabled:opacity-40 border border-neutral-200 hover:border-indigo-300 dark:hover:border-indigo-700 transition-colors"
           >
             {isSyncing ? (
               <Loader2 size={13} className="animate-spin" />
@@ -4340,7 +4340,7 @@ function KsSourceCard({
             onClick={onDelete}
             disabled={isDeleting}
             title="Delete source"
-            className="p-1.5 rounded-lg text-vc-muted hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 disabled:opacity-40 border border-transparent hover:border-red-200 dark:hover:border-red-800 transition-colors"
+            className="p-1.5 rounded-lg text-foreground-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 disabled:opacity-40 border border-transparent hover:border-red-200 dark:hover:border-red-800 transition-colors"
           >
             {isDeleting ? (
               <Loader2 size={14} className="animate-spin" />
@@ -4348,7 +4348,7 @@ function KsSourceCard({
               <Trash2 size={14} />
             )}
           </button>
-          <div className="pl-1 text-vc-subtle">
+          <div className="pl-1 text-foreground-400">
             {isExpanded ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
           </div>
         </div>
@@ -4356,7 +4356,7 @@ function KsSourceCard({
 
       {/* Expanded detail */}
       {isExpanded && (
-        <div className="border-t border-vc-border px-4 pb-4 pt-3 space-y-3 bg-vc-bg">
+        <div className="border-t border-neutral-200 px-4 pb-4 pt-3 space-y-3 bg-background">
           {/* Error */}
           {source.error && (
             <div className="flex items-start gap-2 p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
@@ -4370,16 +4370,16 @@ function KsSourceCard({
           {/* URL list */}
           {source.source_type === "url" && Array.isArray(config.urls) && (
             <div className="space-y-1">
-              <p className="text-xs text-vc-muted font-medium uppercase tracking-wider">
+              <p className="text-xs text-foreground-500 font-medium uppercase tracking-wider">
                 Indexed URLs
               </p>
               <ul className="space-y-1">
                 {(config.urls as string[]).map((url) => (
                   <li
                     key={url}
-                    className="flex items-center gap-2 text-xs text-vc-text"
+                    className="flex items-center gap-2 text-xs text-foreground"
                   >
-                    <Globe size={11} className="text-vc-subtle shrink-0" />
+                    <Globe size={11} className="text-foreground-400 shrink-0" />
                     <a
                       href={url}
                       target="_blank"
@@ -4397,16 +4397,16 @@ function KsSourceCard({
           {/* Text documents list */}
           {source.source_type === "text" && Array.isArray(config.texts) && (
             <div className="space-y-1">
-              <p className="text-xs text-vc-muted font-medium uppercase tracking-wider">
+              <p className="text-xs text-foreground-500 font-medium uppercase tracking-wider">
                 Documents
               </p>
               <ul className="space-y-1">
                 {(config.texts as { title: string }[]).map((t, i) => (
                   <li
                     key={i}
-                    className="flex items-center gap-2 text-xs text-vc-text"
+                    className="flex items-center gap-2 text-xs text-foreground"
                   >
-                    <FileText size={11} className="text-vc-subtle shrink-0" />
+                    <FileText size={11} className="text-foreground-400 shrink-0" />
                     {t.title}
                   </li>
                 ))}
@@ -4417,11 +4417,11 @@ function KsSourceCard({
           {/* Uploaded files list */}
           {source.source_type === "files" && (
             <div className="space-y-1">
-              <p className="text-xs text-vc-muted font-medium uppercase tracking-wider">
+              <p className="text-xs text-foreground-500 font-medium uppercase tracking-wider">
                 Uploaded Files
               </p>
               {loadingFiles ? (
-                <div className="flex items-center gap-2 py-2 text-xs text-vc-muted">
+                <div className="flex items-center gap-2 py-2 text-xs text-foreground-500">
                   <Loader2 size={12} className="animate-spin" /> Loading files…
                 </div>
               ) : files && files.length > 0 ? (
@@ -4429,33 +4429,33 @@ function KsSourceCard({
                   {files.map((f) => (
                     <li
                       key={f.id}
-                      className="flex items-center gap-2 text-xs text-vc-text"
+                      className="flex items-center gap-2 text-xs text-foreground"
                     >
                       {mimeIcon(f.mime_type)}
                       <span className="flex-1 truncate">{f.name}</span>
-                      <span className="text-vc-muted shrink-0">
+                      <span className="text-foreground-500 shrink-0">
                         {formatBytes(f.size)}
                       </span>
                     </li>
                   ))}
                 </ul>
               ) : (
-                <p className="text-xs text-vc-subtle italic">No files found.</p>
+                <p className="text-xs text-foreground-400 italic">No files found.</p>
               )}
             </div>
           )}
 
           {/* Metadata row */}
-          <div className="flex flex-wrap gap-4 text-xs text-vc-muted pt-1 border-t border-vc-border/60">
+          <div className="flex flex-wrap gap-4 text-xs text-foreground-500 pt-1 border-t border-neutral-200/60">
             {config.chunkSize != null && (
               <span>
                 Chunk size:{" "}
-                <span className="text-vc-text">{String(config.chunkSize)}</span>
+                <span className="text-foreground">{String(config.chunkSize)}</span>
               </span>
             )}
             <span>
               Created:{" "}
-              <span className="text-vc-text">
+              <span className="text-foreground">
                 {new Date(
                   source.created_at.endsWith("Z")
                     ? source.created_at
@@ -4464,7 +4464,7 @@ function KsSourceCard({
               </span>
             </span>
             <span>
-              ID: <span className="text-vc-text font-mono">{source.id}</span>
+              ID: <span className="text-foreground font-mono">{source.id}</span>
             </span>
           </div>
         </div>
@@ -4686,18 +4686,18 @@ function KsAddSourceModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-      <div className="bg-vc-surface border border-vc-border rounded-2xl w-full max-w-lg shadow-2xl flex flex-col max-h-[90vh]">
+      <div className="bg-background-100 border border-neutral-200 rounded-2xl w-full max-w-lg shadow-2xl flex flex-col max-h-[90vh]">
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-vc-border shrink-0">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-neutral-200 shrink-0">
           <div className="flex items-center gap-2">
             <BookOpen className="w-5 h-5 text-indigo-500" />
-            <h2 className="text-sm font-semibold text-vc-text">
+            <h2 className="text-sm font-semibold text-foreground">
               Add Knowledge Source
             </h2>
           </div>
           <button
             onClick={onClose}
-            className="text-vc-muted hover:text-vc-text transition-colors"
+            className="text-foreground-500 hover:text-foreground transition-colors"
           >
             <X size={18} />
           </button>
@@ -4710,26 +4710,26 @@ function KsAddSourceModal({
         >
           {/* Name */}
           <div className="space-y-1">
-            <label className="text-xs font-medium text-vc-muted uppercase tracking-wider">
+            <label className="text-xs font-medium text-foreground-500 uppercase tracking-wider">
               Name
             </label>
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g. SharePoint Contracts"
-              className="w-full px-3 py-2 rounded-lg bg-vc-bg border border-vc-border text-sm text-vc-text placeholder:text-vc-subtle focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+              className="w-full px-3 py-2 rounded-lg bg-background border border-neutral-200 text-sm text-foreground placeholder:text-foreground-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
             />
           </div>
 
           {/* Realm */}
           <div className="space-y-1">
-            <label className="text-xs font-medium text-vc-muted uppercase tracking-wider">
+            <label className="text-xs font-medium text-foreground-500 uppercase tracking-wider">
               Realm
             </label>
             <select
               value={realmId}
               onChange={(e) => setRealmId(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg bg-vc-bg border border-vc-border text-sm text-vc-text focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+              className="w-full px-3 py-2 rounded-lg bg-background border border-neutral-200 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
             >
               <option value="">Select realm…</option>
               {realms.map((r) => (
@@ -4742,7 +4742,7 @@ function KsAddSourceModal({
 
           {/* Source type selector — option cards */}
           <div className="space-y-1.5">
-            <label className="text-xs font-medium text-vc-muted uppercase tracking-wider">
+            <label className="text-xs font-medium text-foreground-500 uppercase tracking-wider">
               Source type
             </label>
             <div className="grid grid-cols-3 gap-2">
@@ -4754,16 +4754,16 @@ function KsAddSourceModal({
                   className={`flex flex-col items-center gap-1.5 px-2 py-3 rounded-xl border text-center transition-colors ${
                     sourceType === opt.value
                       ? "border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20"
-                      : "border-vc-border bg-vc-bg hover:border-indigo-400 hover:bg-vc-raised/40"
+                      : "border-neutral-200 bg-background hover:border-indigo-400 hover:bg-background-200/40"
                   }`}
                 >
                   {opt.icon}
                   <span
-                    className={`text-xs font-medium leading-tight ${sourceType === opt.value ? "text-indigo-600 dark:text-indigo-300" : "text-vc-text"}`}
+                    className={`text-xs font-medium leading-tight ${sourceType === opt.value ? "text-indigo-600 dark:text-indigo-300" : "text-foreground"}`}
                   >
                     {opt.label}
                   </span>
-                  <span className="text-[10px] text-vc-muted leading-tight">
+                  <span className="text-[10px] text-foreground-500 leading-tight">
                     {opt.description}
                   </span>
                 </button>
@@ -4788,9 +4788,9 @@ function KsAddSourceModal({
           {/* URL input */}
           {sourceType === "url" && (
             <div className="space-y-1">
-              <label className="text-xs font-medium text-vc-muted uppercase tracking-wider">
+              <label className="text-xs font-medium text-foreground-500 uppercase tracking-wider">
                 URLs{" "}
-                <span className="normal-case font-normal text-vc-subtle">
+                <span className="normal-case font-normal text-foreground-400">
                   (one per line)
                 </span>
               </label>
@@ -4801,7 +4801,7 @@ function KsAddSourceModal({
                   "https://example.com/docs\nhttps://example.com/policy"
                 }
                 rows={4}
-                className="w-full px-3 py-2 rounded-lg bg-vc-bg border border-vc-border text-sm text-vc-text placeholder:text-vc-subtle focus:outline-none focus:ring-2 focus:ring-indigo-500/40 font-mono"
+                className="w-full px-3 py-2 rounded-lg bg-background border border-neutral-200 text-sm text-foreground placeholder:text-foreground-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 font-mono"
               />
             </div>
           )}
@@ -4810,18 +4810,18 @@ function KsAddSourceModal({
           {sourceType === "text" && (
             <div className="space-y-3">
               <div className="space-y-1">
-                <label className="text-xs font-medium text-vc-muted uppercase tracking-wider">
+                <label className="text-xs font-medium text-foreground-500 uppercase tracking-wider">
                   Document title
                 </label>
                 <input
                   value={textTitle}
                   onChange={(e) => setTextTitle(e.target.value)}
                   placeholder="e.g. Company Policy v2"
-                  className="w-full px-3 py-2 rounded-lg bg-vc-bg border border-vc-border text-sm text-vc-text placeholder:text-vc-subtle focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+                  className="w-full px-3 py-2 rounded-lg bg-background border border-neutral-200 text-sm text-foreground placeholder:text-foreground-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-xs font-medium text-vc-muted uppercase tracking-wider">
+                <label className="text-xs font-medium text-foreground-500 uppercase tracking-wider">
                   Content
                 </label>
                 <textarea
@@ -4829,7 +4829,7 @@ function KsAddSourceModal({
                   onChange={(e) => setTextContent(e.target.value)}
                   placeholder="Paste document content here…"
                   rows={5}
-                  className="w-full px-3 py-2 rounded-lg bg-vc-bg border border-vc-border text-sm text-vc-text placeholder:text-vc-subtle focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+                  className="w-full px-3 py-2 rounded-lg bg-background border border-neutral-200 text-sm text-foreground placeholder:text-foreground-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
                 />
               </div>
             </div>
@@ -4849,7 +4849,7 @@ function KsAddSourceModal({
             <button
               type="button"
               onClick={() => setShowAdvanced((v) => !v)}
-              className="flex items-center gap-1 text-xs text-vc-muted hover:text-vc-text transition-colors"
+              className="flex items-center gap-1 text-xs text-foreground-500 hover:text-foreground transition-colors"
             >
               {showAdvanced ? (
                 <ChevronUp size={14} />
@@ -4860,9 +4860,9 @@ function KsAddSourceModal({
             </button>
             {showAdvanced && (
               <div className="mt-3 space-y-1">
-                <label className="text-xs font-medium text-vc-muted uppercase tracking-wider">
+                <label className="text-xs font-medium text-foreground-500 uppercase tracking-wider">
                   Chunk size{" "}
-                  <span className="normal-case font-normal text-vc-subtle">
+                  <span className="normal-case font-normal text-foreground-400">
                     (chars)
                   </span>
                 </label>
@@ -4872,9 +4872,9 @@ function KsAddSourceModal({
                   onChange={(e) => setChunkSize(e.target.value)}
                   min={100}
                   max={8000}
-                  className="w-32 px-3 py-2 rounded-lg bg-vc-bg border border-vc-border text-sm text-vc-text focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+                  className="w-32 px-3 py-2 rounded-lg bg-background border border-neutral-200 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
                 />
-                <p className="text-xs text-vc-subtle">
+                <p className="text-xs text-foreground-400">
                   Default 1000. Larger = more context per chunk, fewer results.
                 </p>
               </div>
@@ -4910,7 +4910,7 @@ function KsAddSourceModal({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-xl border border-vc-border text-sm text-vc-muted hover:text-vc-text hover:border-vc-muted transition-colors"
+              className="px-4 py-2 rounded-xl border border-neutral-200 text-sm text-foreground-500 hover:text-foreground hover:border-foreground-500 transition-colors"
             >
               Cancel
             </button>
@@ -5141,7 +5141,7 @@ function KnowledgeTab({
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="flex items-center gap-2">
-            <h3 className="text-sm font-semibold text-vc-text">
+            <h3 className="text-sm font-semibold text-foreground">
               Knowledge Sources
             </h3>
             {hasFileSources && (
@@ -5162,7 +5162,7 @@ function KnowledgeTab({
               </span>
             )}
           </div>
-          <p className="text-xs text-vc-muted mt-0.5">
+          <p className="text-xs text-foreground-500 mt-0.5">
             {sources.length === 0
               ? "No sources yet — add one to enable RAG search"
               : `${readyCount}/${sources.length} ready · ${totalChunks.toLocaleString()} chunks indexed`}
@@ -5231,22 +5231,22 @@ function KnowledgeTab({
 
       {/* Loading state */}
       {loading && (
-        <div className="flex items-center justify-center gap-2 py-10 text-sm text-vc-muted">
+        <div className="flex items-center justify-center gap-2 py-10 text-sm text-foreground-500">
           <Loader2 size={16} className="animate-spin" /> Loading…
         </div>
       )}
 
       {/* Empty state */}
       {!loading && sources.length === 0 && (
-        <div className="rounded-2xl border border-vc-border border-dashed bg-vc-bg/40 p-10 text-center space-y-3">
-          <BookOpen className="w-7 h-7 text-vc-subtle mx-auto" />
-          <p className="text-sm font-medium text-vc-text">
+        <div className="rounded-2xl border border-neutral-200 border-dashed bg-background/40 p-10 text-center space-y-3">
+          <BookOpen className="w-7 h-7 text-foreground-400 mx-auto" />
+          <p className="text-sm font-medium text-foreground">
             No knowledge sources yet
           </p>
-          <p className="text-xs text-vc-muted max-w-sm mx-auto">
+          <p className="text-xs text-foreground-500 max-w-sm mx-auto">
             Connect URLs, paste inline text, or upload documents. Once synced
             and the{" "}
-            <code className="bg-vc-raised px-1 rounded text-indigo-400">
+            <code className="bg-background-200 px-1 rounded text-indigo-400">
               knowledge_search
             </code>{" "}
             capability is granted, the agent will use indexed content in every

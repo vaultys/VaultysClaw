@@ -102,7 +102,7 @@ function NavLink({
         collapsed ? "justify-center" : "",
         active
           ? "bg-indigo-100 dark:bg-indigo-600/20 text-indigo-700 dark:text-indigo-400"
-          : "text-vc-muted hover:text-vc-text hover:bg-vc-raised/50"
+          : "text-foreground-500 hover:text-foreground hover:bg-background-200/50"
       )}
     >
       <div className="relative shrink-0">
@@ -152,14 +152,14 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
   return (
     <aside
       className={cn(
-        "relative flex flex-col h-full bg-vc-bg border-r border-vc-border/60 transition-all duration-300 shrink-0",
+        "relative flex flex-col h-full bg-background border-r border-neutral-200/60 transition-all duration-300 shrink-0",
         collapsed ? "w-[60px]" : "w-[220px]"
       )}
     >
       {/* Brand */}
       <div
         className={cn(
-          "flex items-center h-14 border-b border-vc-border/60 px-3",
+          "flex items-center h-14 border-b border-neutral-200/60 px-3",
           collapsed ? "justify-center" : "gap-2.5"
         )}
       >
@@ -167,7 +167,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
           🦞
         </div>
         {!collapsed && (
-          <span className="font-semibold text-vc-text text-sm tracking-tight truncate">
+          <span className="font-semibold text-foreground text-sm tracking-tight truncate">
             VaultysClaw
           </span>
         )}
@@ -180,12 +180,12 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
           return (
             <div key={group.label ?? "__main"}>
               {group.label && !collapsed && (
-                <p className="px-2.5 mb-1 text-[10px] font-semibold uppercase tracking-widest text-vc-muted/60 select-none">
+                <p className="px-2.5 mb-1 text-[10px] font-semibold uppercase tracking-widest text-foreground-500/60 select-none">
                   {group.label}
                 </p>
               )}
               {group.label && collapsed && (
-                <div className="mx-2 my-1 border-t border-vc-border/40" />
+                <div className="mx-2 my-1 border-t border-neutral-200/40" />
               )}
               <div className="space-y-0.5">
                 {group.items.map((item) => {
@@ -211,7 +211,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
       </nav>
 
       {/* Bottom nav */}
-      <div className="py-3 px-2 border-t border-vc-border/60 space-y-0.5">
+      <div className="py-3 px-2 border-t border-neutral-200/60 space-y-0.5">
         {BOTTOM_ITEMS.map((item) => {
           const active = pathname.startsWith(item.href);
           return (
@@ -231,7 +231,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
       <button
         onClick={onToggle}
         aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-        className="absolute -right-3 top-[52px] z-10 w-6 h-6 bg-vc-surface border border-vc-ring rounded-full flex items-center justify-center text-vc-muted hover:text-vc-text hover:border-vc-muted transition-colors shadow-md"
+        className="absolute -right-3 top-[52px] z-10 w-6 h-6 bg-background-100 border border-neutral-300 rounded-full flex items-center justify-center text-foreground-500 hover:text-foreground hover:border-foreground-500 transition-colors shadow-md"
       >
         {collapsed ? (
           <ChevronRight className="w-3 h-3" />

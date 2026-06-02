@@ -228,7 +228,7 @@ export default function MessageInput({
 
   // ── Render ────────────────────────────────────────────────────────────────────
   return (
-    <div className="border-t border-vc-border bg-vc-surface px-6 py-4">
+    <div className="border-t border-neutral-200 bg-background-100 px-6 py-4">
       {error && (
         <div className="mb-2 px-3 py-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 text-sm rounded-lg">
           {error}
@@ -238,8 +238,8 @@ export default function MessageInput({
       <form onSubmit={handleSendMessage} className="relative flex gap-3">
         {/* @mention suggestion dropdown */}
         {suggestions.length > 0 && (
-          <div className="absolute bottom-full left-0 mb-2 w-72 bg-vc-surface border border-vc-border rounded-xl shadow-2xl overflow-hidden z-20">
-            <div className="px-3 py-2 text-xs font-medium text-vc-muted border-b border-vc-border bg-vc-raised">
+          <div className="absolute bottom-full left-0 mb-2 w-72 bg-background-100 border border-neutral-200 rounded-xl shadow-2xl overflow-hidden z-20">
+            <div className="px-3 py-2 text-xs font-medium text-foreground-500 border-b border-neutral-200 bg-background-200">
               Members — ↑↓ navigate · Tab/Enter to pick · Esc to close
             </div>
             {suggestions.map((s, i) => {
@@ -255,7 +255,7 @@ export default function MessageInput({
                   className={`w-full flex items-center gap-3 px-3 py-2.5 text-left transition ${
                     isSelected
                       ? "bg-indigo-600 text-white"
-                      : "hover:bg-vc-raised text-vc-text"
+                      : "hover:bg-background-200 text-foreground"
                   }`}
                 >
                   {/* Avatar */}
@@ -304,7 +304,7 @@ export default function MessageInput({
               ? "Message… (@ to mention · ⌘↵ to send)"
               : "Message… (⌘↵ to send)"
           }
-          className="flex-1 bg-vc-bg border border-vc-border rounded-xl px-4 py-2.5 text-vc-text placeholder-vc-muted focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none leading-relaxed"
+          className="flex-1 bg-background border border-neutral-200 rounded-xl px-4 py-2.5 text-foreground placeholder-foreground-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none leading-relaxed"
           rows={1}
         />
 
@@ -312,7 +312,7 @@ export default function MessageInput({
         <button
           type="submit"
           disabled={!content.trim() || isLoading}
-          className="self-end p-2.5 bg-indigo-600 hover:bg-indigo-500 disabled:bg-vc-muted disabled:cursor-not-allowed rounded-xl transition text-white"
+          className="self-end p-2.5 bg-indigo-600 hover:bg-indigo-500 disabled:bg-foreground-500 disabled:cursor-not-allowed rounded-xl transition text-white"
           title="Send (⌘↵)"
         >
           {isLoading ? (

@@ -102,7 +102,7 @@ export function ImportExportButtons({
           className={`flex items-center gap-2 px-3 py-2 text-sm rounded border transition ${
             workflowId
               ? "bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 border-green-200 dark:border-green-800 hover:bg-green-100 dark:hover:bg-green-900/40"
-              : "bg-vc-raised text-vc-subtle border-vc-border cursor-not-allowed"
+              : "bg-background-200 text-foreground-400 border-neutral-200 cursor-not-allowed"
           }`}
           title="Export workflow as JSON file"
         >

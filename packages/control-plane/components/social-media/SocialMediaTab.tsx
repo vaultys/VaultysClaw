@@ -72,8 +72,8 @@ function CronPreview({ cron }: { cron: string }) {
       : `${String(parseInt(hour)).padStart(2, "0")}:${String(parseInt(min)).padStart(2, "0")} UTC`;
 
   return (
-    <span className="text-xs text-vc-muted">
-      Posts at <strong className="text-vc-text">{time}</strong>, {days}
+    <span className="text-xs text-foreground-500">
+      Posts at <strong className="text-foreground">{time}</strong>, {days}
     </span>
   );
 }
@@ -238,9 +238,9 @@ export function SocialMediaTab({ realmId }: SocialMediaTabProps) {
     <div className="space-y-6">
 
       {/* X Account Section */}
-      <div className="bg-vc-surface border border-vc-border rounded-2xl p-5 space-y-4">
+      <div className="bg-background-100 border border-neutral-200 rounded-2xl p-5 space-y-4">
         <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-vc-text flex items-center gap-2">
+          <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
             <XLogo className="w-4 h-4 text-sky-500" /> X (Twitter) Account
           </h3>
           {hasXCred && (
@@ -253,13 +253,13 @@ export function SocialMediaTab({ realmId }: SocialMediaTabProps) {
         {hasXCred ? (
           /* Credential already saved — show summary */
           <div className="space-y-3">
-            <div className="flex items-center gap-3 bg-vc-raised border border-vc-border rounded-xl px-4 py-3">
-              <Key className="w-4 h-4 text-vc-muted shrink-0" />
+            <div className="flex items-center gap-3 bg-background-200 border border-neutral-200 rounded-xl px-4 py-3">
+              <Key className="w-4 h-4 text-foreground-500 shrink-0" />
               <div className="flex-1 min-w-0">
-                <p className="text-sm text-vc-text font-medium">
+                <p className="text-sm text-foreground font-medium">
                   {(xCred?.metadata?.username as string) ?? "X account"}
                 </p>
-                <p className="text-xs text-vc-muted">
+                <p className="text-xs text-foreground-500">
                   Password stored encrypted · Last updated {new Date(xCred?.updated_at ?? "").toLocaleDateString()}
                 </p>
               </div>
@@ -295,36 +295,36 @@ export function SocialMediaTab({ realmId }: SocialMediaTabProps) {
         ) : (
           /* Credential input form */
           <form onSubmit={saveXCredentials} className="space-y-3">
-            <p className="text-xs text-vc-muted">
+            <p className="text-xs text-foreground-500">
               Enter your X login credentials. They are encrypted with the server&apos;s VaultysId before storage — never stored in plaintext.
             </p>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-medium text-vc-muted mb-1">X Username / Email</label>
+                <label className="block text-xs font-medium text-foreground-500 mb-1">X Username / Email</label>
                 <input
                   type="text"
                   value={xUsername}
                   onChange={(e) => setXUsername(e.target.value)}
                   placeholder="@handle or email"
-                  className="w-full px-3 py-2 text-sm rounded-xl bg-vc-bg border border-vc-border text-vc-text placeholder:text-vc-subtle focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+                  className="w-full px-3 py-2 text-sm rounded-xl bg-background border border-neutral-200 text-foreground placeholder:text-foreground-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
                   required
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-vc-muted mb-1">Password</label>
+                <label className="block text-xs font-medium text-foreground-500 mb-1">Password</label>
                 <div className="relative">
                   <input
                     type={showPassword ? "text" : "password"}
                     value={xPassword}
                     onChange={(e) => setXPassword(e.target.value)}
                     placeholder="••••••••"
-                    className="w-full px-3 py-2 pr-9 text-sm rounded-xl bg-vc-bg border border-vc-border text-vc-text placeholder:text-vc-subtle focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+                    className="w-full px-3 py-2 pr-9 text-sm rounded-xl bg-background border border-neutral-200 text-foreground placeholder:text-foreground-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
                     required
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-vc-muted hover:text-vc-text"
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-foreground-500 hover:text-foreground"
                   >
                     {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                   </button>
@@ -352,12 +352,12 @@ export function SocialMediaTab({ realmId }: SocialMediaTabProps) {
       </div>
 
       {/* Schedule Section */}
-      <div className="bg-vc-surface border border-vc-border rounded-2xl p-5 space-y-4">
-        <h3 className="text-sm font-semibold text-vc-text flex items-center gap-2">
+      <div className="bg-background-100 border border-neutral-200 rounded-2xl p-5 space-y-4">
+        <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
           <Clock className="w-4 h-4 text-indigo-500" /> Daily Post Schedule
         </h3>
         <form onSubmit={saveSchedule} className="space-y-3">
-          <p className="text-xs text-vc-muted">
+          <p className="text-xs text-foreground-500">
             Configure when the agent automatically posts. Uses 5-field cron syntax (UTC).
           </p>
           <div className="flex items-center gap-3">
@@ -366,7 +366,7 @@ export function SocialMediaTab({ realmId }: SocialMediaTabProps) {
               value={cronExpr}
               onChange={(e) => setCronExpr(e.target.value)}
               placeholder="0 9 * * 1-5"
-              className="w-52 px-3 py-2 text-sm rounded-xl bg-vc-bg border border-vc-border text-vc-text font-mono placeholder:text-vc-subtle focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+              className="w-52 px-3 py-2 text-sm rounded-xl bg-background border border-neutral-200 text-foreground font-mono placeholder:text-foreground-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
             />
             <div className="flex-1">
               <CronPreview cron={cronExpr} />
@@ -385,7 +385,7 @@ export function SocialMediaTab({ realmId }: SocialMediaTabProps) {
                 onClick={() => setCronExpr(expr)}
                 className={`px-3 py-1 text-xs rounded-lg border transition-colors ${cronExpr === expr
                   ? "bg-indigo-50 dark:bg-indigo-600/20 border-indigo-300 dark:border-indigo-500/50 text-indigo-700 dark:text-indigo-300"
-                  : "bg-vc-raised border-vc-border text-vc-muted hover:text-vc-text"}`}
+                  : "bg-background-200 border-neutral-200 text-foreground-500 hover:text-foreground"}`}
               >
                 {label}
               </button>
@@ -411,12 +411,12 @@ export function SocialMediaTab({ realmId }: SocialMediaTabProps) {
       </div>
 
       {/* Quick post */}
-      <div className="bg-vc-surface border border-vc-border rounded-2xl p-5 space-y-4">
-        <h3 className="text-sm font-semibold text-vc-text flex items-center gap-2">
+      <div className="bg-background-100 border border-neutral-200 rounded-2xl p-5 space-y-4">
+        <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
           <XLogo className="w-4 h-4 text-sky-500" /> Post Now
         </h3>
         <form onSubmit={postNow} className="space-y-3">
-          <p className="text-xs text-vc-muted">
+          <p className="text-xs text-foreground-500">
             Dispatch a one-off tweet immediately via the realm&apos;s agent. Requires agent to be online and X session set up.
           </p>
           <div className="relative">
@@ -426,9 +426,9 @@ export function SocialMediaTab({ realmId }: SocialMediaTabProps) {
               placeholder="What's happening?"
               maxLength={280}
               rows={3}
-              className="w-full px-3 py-2 text-sm rounded-xl bg-vc-bg border border-vc-border text-vc-text placeholder:text-vc-subtle focus:outline-none focus:ring-2 focus:ring-indigo-500/40 resize-none"
+              className="w-full px-3 py-2 text-sm rounded-xl bg-background border border-neutral-200 text-foreground placeholder:text-foreground-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 resize-none"
             />
-            <span className={`absolute bottom-2.5 right-3 text-xs ${postText.length > 260 ? "text-amber-500" : "text-vc-subtle"}`}>
+            <span className={`absolute bottom-2.5 right-3 text-xs ${postText.length > 260 ? "text-amber-500" : "text-foreground-400"}`}>
               {postText.length} / 280
             </span>
           </div>

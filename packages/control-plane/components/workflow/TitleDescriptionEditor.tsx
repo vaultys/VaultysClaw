@@ -51,13 +51,13 @@ export const TitleDescriptionEditor: React.FC = () => {
           type="text"
           value={editName}
           onChange={(e) => setEditName(e.target.value)}
-          className="w-full text-lg font-bold text-vc-text bg-vc-surface border border-vc-border rounded px-2 py-1"
+          className="w-full text-lg font-bold text-foreground bg-background-100 border border-neutral-200 rounded px-2 py-1"
           placeholder="Workflow name"
         />
         <textarea
           value={editDescription}
           onChange={(e) => setEditDescription(e.target.value)}
-          className="w-full text-sm text-vc-text-2 bg-vc-surface border border-vc-border rounded px-2 py-1 resize-none"
+          className="w-full text-sm text-foreground-700 bg-background-100 border border-neutral-200 rounded px-2 py-1 resize-none"
           placeholder="Workflow description"
           rows={2}
         />
@@ -71,7 +71,7 @@ export const TitleDescriptionEditor: React.FC = () => {
           </button>
           <button
             onClick={handleCancel}
-            className="flex items-center gap-1 px-3 py-1 text-xs bg-vc-raised text-vc-text-2 border border-vc-border rounded hover:bg-vc-border"
+            className="flex items-center gap-1 px-3 py-1 text-xs bg-background-200 text-foreground-700 border border-neutral-200 rounded hover:bg-neutral-200"
           >
             <X size={14} /> Cancel
           </button>
@@ -83,12 +83,12 @@ export const TitleDescriptionEditor: React.FC = () => {
   return (
     <div className="flex-1 px-4 py-3 flex items-start justify-between">
       <div>
-        <h1 className="text-lg font-bold text-vc-text">{workflowName}</h1>
-        {workflowDescription && <p className="text-sm text-vc-muted mt-1">{workflowDescription}</p>}
+        <h1 className="text-lg font-bold text-foreground">{workflowName}</h1>
+        {workflowDescription && <p className="text-sm text-foreground-500 mt-1">{workflowDescription}</p>}
       </div>
       <button
         onClick={() => setIsEditing(true)}
-        className="flex items-center gap-1 px-3 py-1 text-xs text-vc-muted hover:text-vc-text hover:bg-vc-raised rounded transition-colors"
+        className="flex items-center gap-1 px-3 py-1 text-xs text-foreground-500 hover:text-foreground hover:bg-background-200 rounded transition-colors"
         title="Edit workflow title and description"
       >
         <Edit2 size={14} />

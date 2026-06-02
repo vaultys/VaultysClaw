@@ -87,14 +87,14 @@ interface Tab {
 
 function TabBar({ tabs, active, onChange }: { tabs: Tab[]; active: TabId; onChange: (id: TabId) => void }) {
   return (
-    <div className="flex gap-1 border-b border-vc-border px-1 bg-vc-surface rounded-t-xl overflow-x-auto">
+    <div className="flex gap-1 border-b border-neutral-200 px-1 bg-background-100 rounded-t-xl overflow-x-auto">
       {tabs.map((tab) => (
         <button
           key={tab.id}
           onClick={() => onChange(tab.id)}
           className={`flex items-center gap-2 px-4 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${active === tab.id
             ? "border-indigo-500 text-indigo-400"
-            : "border-transparent text-vc-muted hover:text-vc-text hover:border-vc-ring"
+            : "border-transparent text-foreground-500 hover:text-foreground hover:border-neutral-300"
             }`}
         >
           {tab.icon}
@@ -143,13 +143,13 @@ export default function UserEditPage() {
   if (notFound) {
     return (
       <div className="p-6 max-w-7xl mx-auto">
-        <button onClick={() => router.push("/users")} className="flex items-center gap-1.5 text-vc-muted hover:text-vc-text text-sm mb-6 transition-colors">
+        <button onClick={() => router.push("/users")} className="flex items-center gap-1.5 text-foreground-500 hover:text-foreground text-sm mb-6 transition-colors">
           <ArrowLeft className="w-4 h-4" /> Back to Users
         </button>
         <div className="flex flex-col items-center py-16 text-center">
-          <AlertCircle className="w-10 h-10 text-vc-ring mb-3" />
-          <p className="text-vc-text font-medium">User not found</p>
-          <p className="text-vc-muted text-sm mt-1">This user may have been removed.</p>
+          <AlertCircle className="w-10 h-10 text-neutral-300 mb-3" />
+          <p className="text-foreground font-medium">User not found</p>
+          <p className="text-foreground-500 text-sm mt-1">This user may have been removed.</p>
         </div>
       </div>
     );
@@ -170,22 +170,22 @@ export default function UserEditPage() {
       <div className="mb-4">
         <button
           onClick={() => router.push("/users")}
-          className="inline-flex items-center gap-1.5 text-sm text-vc-muted hover:text-vc-text mb-3 transition-colors"
+          className="inline-flex items-center gap-1.5 text-sm text-foreground-500 hover:text-foreground mb-3 transition-colors"
         >
           <ChevronLeft size={15} />
           Back to Users
         </button>
 
         {/* Header card */}
-        <div className="bg-vc-surface border border-vc-border rounded-xl px-5 py-4 flex items-center gap-4">
+        <div className="bg-background-100 border border-neutral-200 rounded-xl px-5 py-4 flex items-center gap-4">
           <div className="flex-shrink-0 w-11 h-11 rounded-full bg-indigo-600/20 border border-indigo-500/30 flex items-center justify-center">
             <span className="text-base font-bold text-indigo-400">{initials(user)}</span>
           </div>
 
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-3 flex-wrap">
-              <h1 className="text-xl font-bold text-vc-text">
-                {user.name ?? <span className="italic font-normal text-vc-subtle">Unnamed user</span>}
+              <h1 className="text-xl font-bold text-foreground">
+                {user.name ?? <span className="italic font-normal text-foreground-400">Unnamed user</span>}
               </h1>
               {user.isOwner && (
                 <span className="px-2 py-0.5 bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700 dark:text-yellow-400 border border-yellow-300 dark:border-yellow-800 rounded-full text-xs font-medium">
@@ -198,28 +198,28 @@ export default function UserEditPage() {
                 </span>
               )}
               {!user.isOwner && !user.isAdmin && (
-                <span className="px-2 py-0.5 bg-vc-raised border border-vc-ring text-vc-muted rounded-full text-xs font-medium capitalize">
+                <span className="px-2 py-0.5 bg-background-200 border border-neutral-300 text-foreground-500 rounded-full text-xs font-medium capitalize">
                   {user.role}
                 </span>
               )}
             </div>
-            <p className="text-xs font-mono text-vc-muted mt-0.5 truncate" title={user.did}>{shortDid(user.did)}</p>
+            <p className="text-xs font-mono text-foreground-500 mt-0.5 truncate" title={user.did}>{shortDid(user.did)}</p>
             {user.description && (
-              <p className="text-xs text-vc-muted mt-0.5 truncate">{user.description}</p>
+              <p className="text-xs text-foreground-500 mt-0.5 truncate">{user.description}</p>
             )}
           </div>
 
           <div className="hidden sm:flex gap-6 text-right flex-shrink-0">
             <div>
-              <div className="text-xs text-vc-muted uppercase">Registered</div>
-              <div className="text-sm text-vc-text">{formatDate(user.registeredAt)}</div>
+              <div className="text-xs text-foreground-500 uppercase">Registered</div>
+              <div className="text-sm text-foreground">{formatDate(user.registeredAt)}</div>
             </div>
           </div>
         </div>
       </div>
 
       {/* Tabbed content */}
-      <div className="border border-vc-border rounded-xl overflow-hidden bg-vc-surface">
+      <div className="border border-neutral-200 rounded-xl overflow-hidden bg-background-100">
         <TabBar tabs={tabs} active={activeTab} onChange={setActiveTab} />
 
         <div className="p-6">
@@ -240,14 +240,14 @@ export default function UserEditPage() {
           {activeTab === "grants" && !user.isOwner && (
             <div>
               <div className="mb-4">
-                <h2 className="text-base font-semibold text-vc-text">Agent Grants</h2>
-                <p className="text-xs text-vc-muted mt-0.5">Capabilities this user can delegate to agents.</p>
+                <h2 className="text-base font-semibold text-foreground">Agent Grants</h2>
+                <p className="text-xs text-foreground-500 mt-0.5">Capabilities this user can delegate to agents.</p>
               </div>
               <UserGrantsPanel userDid={user.did} />
             </div>
           )}
           {activeTab === "grants" && user.isOwner && (
-            <div className="flex flex-col items-center py-12 text-vc-muted gap-2">
+            <div className="flex flex-col items-center py-12 text-foreground-500 gap-2">
               <KeyRound size={36} strokeWidth={1} />
               <p className="text-sm">The owner has access to all capabilities.</p>
             </div>
@@ -346,47 +346,47 @@ function OverviewTab({
     <div className="space-y-6">
       {/* Profile */}
       <section>
-        <h2 className="text-sm font-semibold text-vc-muted uppercase tracking-wider mb-3">Profile</h2>
+        <h2 className="text-sm font-semibold text-foreground-500 uppercase tracking-wider mb-3">Profile</h2>
         <div className="space-y-4">
           <div className="space-y-1">
-            <label className="text-xs font-medium text-vc-muted uppercase tracking-wider">Display name</label>
+            <label className="text-xs font-medium text-foreground-500 uppercase tracking-wider">Display name</label>
             <input
               type="text"
               placeholder="e.g. Alice Martin"
               value={name}
               onChange={(e) => { setName(e.target.value); mark(); }}
               disabled={!isOwner}
-              className="w-full bg-vc-raised border border-vc-ring text-vc-text text-sm rounded-xl px-4 py-2.5 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 placeholder:text-vc-subtle transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+              className="w-full bg-background-200 border border-neutral-300 text-foreground text-sm rounded-xl px-4 py-2.5 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 placeholder:text-foreground-400 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
             />
           </div>
 
           <div className="space-y-1">
-            <label className="text-xs font-medium text-vc-muted uppercase tracking-wider">Email address</label>
+            <label className="text-xs font-medium text-foreground-500 uppercase tracking-wider">Email address</label>
             <input
               type="email"
               placeholder="e.g. alice@example.com"
               value={email}
               onChange={(e) => { setEmail(e.target.value); mark(); }}
               disabled={!isOwner}
-              className="w-full bg-vc-raised border border-vc-ring text-vc-text text-sm rounded-xl px-4 py-2.5 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 placeholder:text-vc-subtle transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+              className="w-full bg-background-200 border border-neutral-300 text-foreground text-sm rounded-xl px-4 py-2.5 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 placeholder:text-foreground-400 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
             />
           </div>
 
           <div className="space-y-1">
-            <label className="text-xs font-medium text-vc-muted uppercase tracking-wider">Description</label>
+            <label className="text-xs font-medium text-foreground-500 uppercase tracking-wider">Description</label>
             <textarea
               rows={3}
               placeholder="Short description of this user's responsibilities…"
               value={description}
               onChange={(e) => { setDescription(e.target.value); mark(); }}
               disabled={!isOwner}
-              className="w-full bg-vc-raised border border-vc-ring text-vc-text text-sm rounded-xl px-4 py-2.5 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 placeholder:text-vc-subtle transition-colors disabled:opacity-60 disabled:cursor-not-allowed resize-y"
+              className="w-full bg-background-200 border border-neutral-300 text-foreground text-sm rounded-xl px-4 py-2.5 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 placeholder:text-foreground-400 transition-colors disabled:opacity-60 disabled:cursor-not-allowed resize-y"
             />
           </div>
 
           <div className="space-y-1">
-            <label className="text-xs font-medium text-vc-muted uppercase tracking-wider">Decentralized Identity (DID)</label>
-            <div className="w-full bg-vc-raised border border-vc-border rounded-xl px-4 py-2.5 text-sm font-mono text-vc-muted break-all select-all">
+            <label className="text-xs font-medium text-foreground-500 uppercase tracking-wider">Decentralized Identity (DID)</label>
+            <div className="w-full bg-background-200 border border-neutral-200 rounded-xl px-4 py-2.5 text-sm font-mono text-foreground-500 break-all select-all">
               {user.did}
             </div>
           </div>
@@ -395,12 +395,12 @@ function OverviewTab({
 
       {/* Role & Hierarchy */}
       <section>
-        <h2 className="text-sm font-semibold text-vc-muted uppercase tracking-wider mb-3">Role & Hierarchy</h2>
+        <h2 className="text-sm font-semibold text-foreground-500 uppercase tracking-wider mb-3">Role & Hierarchy</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-1">
-            <label className="text-xs font-medium text-vc-muted uppercase tracking-wider">Role</label>
+            <label className="text-xs font-medium text-foreground-500 uppercase tracking-wider">Role</label>
             {user.isOwner ? (
-              <div className="w-full bg-vc-raised border border-vc-border rounded-xl px-4 py-2.5 text-sm text-vc-muted">
+              <div className="w-full bg-background-200 border border-neutral-200 rounded-xl px-4 py-2.5 text-sm text-foreground-500">
                 Owner (cannot be changed)
               </div>
             ) : (
@@ -408,7 +408,7 @@ function OverviewTab({
                 value={role}
                 onChange={(e) => { setRole(e.target.value); mark(); }}
                 disabled={!isOwner}
-                className="w-full bg-vc-raised border border-vc-ring text-vc-text text-sm rounded-xl px-4 py-2.5 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                className="w-full bg-background-200 border border-neutral-300 text-foreground text-sm rounded-xl px-4 py-2.5 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 {ROLE_OPTIONS.map((r) => (
                   <option key={r.value} value={r.value}>{r.label}</option>
@@ -418,9 +418,9 @@ function OverviewTab({
           </div>
 
           <div className="space-y-1">
-            <label className="text-xs font-medium text-vc-muted uppercase tracking-wider">Supervisor</label>
+            <label className="text-xs font-medium text-foreground-500 uppercase tracking-wider">Supervisor</label>
             {!isOwner ? (
-              <div className="w-full bg-vc-raised border border-vc-border rounded-xl px-4 py-2.5 text-sm text-vc-muted">
+              <div className="w-full bg-background-200 border border-neutral-200 rounded-xl px-4 py-2.5 text-sm text-foreground-500">
                 {currentSupervisor
                   ? currentSupervisor.name ?? shortDid(currentSupervisor.did)
                   : <span className="italic">None</span>}
@@ -429,7 +429,7 @@ function OverviewTab({
               <select
                 value={reportsTo}
                 onChange={(e) => { setReportsTo(e.target.value); mark(); }}
-                className="w-full bg-vc-raised border border-vc-ring text-vc-text text-sm rounded-xl px-4 py-2.5 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-colors"
+                className="w-full bg-background-200 border border-neutral-300 text-foreground text-sm rounded-xl px-4 py-2.5 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-colors"
               >
                 <option value="">— No supervisor —</option>
                 {supervisorOptions.map((u) => (
@@ -439,7 +439,7 @@ function OverviewTab({
                 ))}
               </select>
             )}
-            <p className="text-xs text-vc-subtle mt-1">
+            <p className="text-xs text-foreground-400 mt-1">
               Defines the reporting line shown in the relationship graph.
             </p>
           </div>
@@ -504,7 +504,7 @@ function AccessTab({
 
   if (user.isOwner) {
     return (
-      <div className="flex flex-col items-center py-12 text-vc-muted gap-2">
+      <div className="flex flex-col items-center py-12 text-foreground-500 gap-2">
         <Shield size={36} strokeWidth={1} />
         <p className="text-sm">The owner has full control-plane access by default.</p>
       </div>
@@ -514,8 +514,8 @@ function AccessTab({
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-base font-semibold text-vc-text mb-0.5">Control-plane access</h2>
-        <p className="text-xs text-vc-muted">
+        <h2 className="text-base font-semibold text-foreground mb-0.5">Control-plane access</h2>
+        <p className="text-xs text-foreground-500">
           Admins can log into the control plane and manage agents, users, and grants.
         </p>
       </div>
@@ -527,10 +527,10 @@ function AccessTab({
         </div>
       )}
 
-      <div className="bg-vc-raised rounded-lg border border-vc-border px-5 py-4 flex items-center justify-between gap-4">
+      <div className="bg-background-200 rounded-lg border border-neutral-200 px-5 py-4 flex items-center justify-between gap-4">
         <div>
-          <p className="text-sm font-medium text-vc-text">Admin role</p>
-          <p className="text-xs text-vc-muted mt-0.5">
+          <p className="text-sm font-medium text-foreground">Admin role</p>
+          <p className="text-xs text-foreground-500 mt-0.5">
             {user.isAdmin
               ? "This user can access the control plane."
               : "This user has no control-plane access."}
@@ -541,7 +541,7 @@ function AccessTab({
             <button
               onClick={() => handleAdminToggle(false)}
               disabled={adminLoading}
-              className="flex items-center gap-2 bg-vc-raised border border-vc-ring hover:border-red-400 text-vc-text hover:text-red-500 disabled:opacity-50 text-sm font-medium px-4 py-2 rounded-xl transition-colors"
+              className="flex items-center gap-2 bg-background-200 border border-neutral-300 hover:border-red-400 text-foreground hover:text-red-500 disabled:opacity-50 text-sm font-medium px-4 py-2 rounded-xl transition-colors"
             >
               <ShieldOff className="w-4 h-4" />
               {adminLoading ? "Updating…" : "Revoke admin"}
@@ -570,8 +570,8 @@ function DetailsTab({ user, onNodeClick }: { user: UserDetail; onNodeClick: (nod
   return (
     <div className="space-y-6">
       <section>
-        <h2 className="text-base font-semibold text-vc-text mb-3">Relationships</h2>
-        <div className="rounded-lg overflow-hidden border border-vc-border">
+        <h2 className="text-base font-semibold text-foreground mb-3">Relationships</h2>
+        <div className="rounded-lg overflow-hidden border border-neutral-200">
           <RealmGraph
             query={`?user=${encodeURIComponent(user.did)}`}
             height={380}
@@ -583,14 +583,14 @@ function DetailsTab({ user, onNodeClick }: { user: UserDetail; onNodeClick: (nod
       </section>
 
       <section>
-        <h2 className="text-base font-semibold text-vc-text mb-3">Identity</h2>
-        <div className="bg-vc-raised rounded-lg border border-vc-border divide-y divide-vc-border">
+        <h2 className="text-base font-semibold text-foreground mb-3">Identity</h2>
+        <div className="bg-background-200 rounded-lg border border-neutral-200 divide-y divide-neutral-200">
           {[
-            { label: "DID", value: <span className="font-mono text-xs break-all text-vc-text-2">{user.did}</span> },
-            { label: "Registered", value: <span className="text-vc-text">{formatDate(user.registeredAt)}</span> },
+            { label: "DID", value: <span className="font-mono text-xs break-all text-foreground-700">{user.did}</span> },
+            { label: "Registered", value: <span className="text-foreground">{formatDate(user.registeredAt)}</span> },
           ].map(({ label, value }) => (
             <div key={label} className="flex items-start gap-4 px-4 py-3">
-              <div className="w-28 flex-shrink-0 text-xs text-vc-muted uppercase pt-0.5">{label}</div>
+              <div className="w-28 flex-shrink-0 text-xs text-foreground-500 uppercase pt-0.5">{label}</div>
               <div className="flex-1 text-sm">{value}</div>
             </div>
           ))}
@@ -616,9 +616,9 @@ function DangerZone({ did, userName }: { did: string; userName: string | null })
   };
 
   return (
-    <div className="mt-6 bg-vc-surface border border-red-200 dark:border-red-900/50 rounded-2xl p-6">
+    <div className="mt-6 bg-background-100 border border-red-200 dark:border-red-900/50 rounded-2xl p-6">
       <h2 className="text-sm font-semibold text-red-600 dark:text-red-400 mb-1">Danger zone</h2>
-      <p className="text-vc-muted text-sm mb-4">Removing a user revokes all their grants permanently.</p>
+      <p className="text-foreground-500 text-sm mb-4">Removing a user revokes all their grants permanently.</p>
       <button
         onClick={handleRemove}
         disabled={removing}

@@ -202,8 +202,8 @@ export default function ChatPage() {
   return (
     <div className="flex flex-col flex-1 min-h-0 w-full">
       {/* Header bar */}
-      <div className="flex items-center gap-4 px-6 py-3 border-b border-vc-border bg-vc-panel">
-        <h1 className="text-lg font-semibold text-vc-text whitespace-nowrap">
+      <div className="flex items-center gap-4 px-6 py-3 border-b border-neutral-200 bg-background-100">
+        <h1 className="text-lg font-semibold text-foreground whitespace-nowrap">
           Chat
         </h1>
 
@@ -214,7 +214,7 @@ export default function ChatPage() {
             setSelectedAgent(e.target.value);
             clearChat();
           }}
-          className="bg-vc-bg border border-vc-border rounded-md px-3 py-1.5 text-sm text-vc-text focus:outline-none focus:ring-1 focus:ring-vc-accent min-w-[200px]"
+          className="bg-background border border-neutral-200 rounded-md px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary min-w-[200px]"
         >
           <option value="">Select an agent…</option>
           {onlineAgents.map((a) => (
@@ -225,7 +225,7 @@ export default function ChatPage() {
         </select>
 
         {!wsConnected && (
-          <span className="text-xs text-vc-danger">WS disconnected</span>
+          <span className="text-xs text-danger">WS disconnected</span>
         )}
 
         <div className="flex-1" />
@@ -233,7 +233,7 @@ export default function ChatPage() {
         {messages.length > 0 && (
           <button
             onClick={clearChat}
-            className="flex items-center gap-1.5 text-sm text-vc-muted hover:text-vc-danger transition-colors"
+            className="flex items-center gap-1.5 text-sm text-foreground-500 hover:text-danger transition-colors"
           >
             <Trash2 size={14} />
             Clear
@@ -244,17 +244,17 @@ export default function ChatPage() {
       {/* Messages area */}
       <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
         {!selectedAgent && (
-          <div className="flex flex-col items-center justify-center h-full text-vc-muted gap-3">
+          <div className="flex flex-col items-center justify-center h-full text-foreground-500 gap-3">
             <Bot size={48} strokeWidth={1} />
             <p className="text-sm">Select an online agent to start chatting</p>
             {onlineAgents.length === 0 && (
-              <p className="text-xs text-vc-danger">No agents online</p>
+              <p className="text-xs text-danger">No agents online</p>
             )}
           </div>
         )}
 
         {selectedAgent && messages.length === 0 && !isStreaming && (
-          <div className="flex flex-col items-center justify-center h-full text-vc-muted gap-2">
+          <div className="flex flex-col items-center justify-center h-full text-foreground-500 gap-2">
             <Bot size={40} strokeWidth={1} />
             <p className="text-sm">Send a message to start the conversation</p>
           </div>
@@ -268,8 +268,8 @@ export default function ChatPage() {
             <div
               className={`max-w-[70%] rounded-lg px-4 py-2.5 text-sm leading-relaxed prose prose-sm prose-invert max-w-none ${
                 msg.role === "user"
-                  ? "bg-vc-accent/20 text-vc-text prose-headings:text-vc-text prose-p:m-0 prose-ul:m-0 prose-ol:m-0 prose-li:m-0 prose-code:text-vc-text prose-code:bg-white/10 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-pre:bg-white/10 prose-pre:border prose-pre:border-vc-accent/30 prose-pre:text-vc-text"
-                  : "bg-vc-subtle text-vc-text prose-headings:text-vc-text prose-p:m-0 prose-ul:m-0 prose-ol:m-0 prose-li:m-0 prose-code:text-vc-text prose-code:bg-vc-bg prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-pre:bg-vc-bg prose-pre:border prose-pre:border-vc-border prose-pre:text-vc-text"
+                  ? "bg-primary/20 text-foreground prose-headings:text-foreground prose-p:m-0 prose-ul:m-0 prose-ol:m-0 prose-li:m-0 prose-code:text-foreground prose-code:bg-white/10 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-pre:bg-white/10 prose-pre:border prose-pre:border-primary/30 prose-pre:text-foreground"
+                  : "bg-foreground-400 text-foreground prose-headings:text-foreground prose-p:m-0 prose-ul:m-0 prose-ol:m-0 prose-li:m-0 prose-code:text-foreground prose-code:bg-background prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-pre:bg-background prose-pre:border prose-pre:border-neutral-200 prose-pre:text-foreground"
               }`}
             >
               {msg.role === "assistant" && msg.thinkingContent && (
@@ -293,8 +293,8 @@ export default function ChatPage() {
                       <code
                         className={`px-1 py-0.5 rounded text-sm font-mono ${
                           msg.role === "user"
-                            ? "bg-white/10 text-vc-text"
-                            : "bg-vc-bg text-vc-text"
+                            ? "bg-white/10 text-foreground"
+                            : "bg-background text-foreground"
                         }`}
                       >
                         {children}
@@ -304,8 +304,8 @@ export default function ChatPage() {
                       <pre
                         className={`p-2 rounded text-xs overflow-x-auto my-1 border ${
                           msg.role === "user"
-                            ? "bg-white/10 border-vc-accent/30 text-vc-text"
-                            : "bg-vc-bg border-vc-border text-vc-text"
+                            ? "bg-white/10 border-primary/30 text-foreground"
+                            : "bg-background border-neutral-200 text-foreground"
                         }`}
                       >
                         {children}
@@ -330,8 +330,8 @@ export default function ChatPage() {
                       <blockquote
                         className={`pl-2 border-l-2 my-1 ${
                           msg.role === "user"
-                            ? "border-vc-accent/50"
-                            : "border-vc-border"
+                            ? "border-primary/50"
+                            : "border-neutral-200"
                         }`}
                       >
                         {children}
@@ -353,7 +353,7 @@ export default function ChatPage() {
                 </ReactMarkdown>
               ) : null}
               {msg.role === "assistant" && !msg.content && isStreaming && (
-                <span className="inline-flex gap-1 text-vc-muted">
+                <span className="inline-flex gap-1 text-foreground-500">
                   <span
                     className="animate-bounce"
                     style={{ animationDelay: "0ms" }}
@@ -429,7 +429,7 @@ export default function ChatPage() {
 
       {/* Input area */}
       {selectedAgent && (
-        <div className="px-6 py-3 border-t border-vc-border bg-vc-panel">
+        <div className="px-6 py-3 border-t border-neutral-200 bg-background-100">
           <div className="flex items-end gap-3 max-w-4xl mx-auto">
             <textarea
               value={input}
@@ -437,13 +437,13 @@ export default function ChatPage() {
               onKeyDown={handleKeyDown}
               placeholder="Type a message… (Enter to send, Shift+Enter for newline)"
               rows={1}
-              className="flex-1 resize-none bg-vc-bg border border-vc-border rounded-lg px-4 py-2.5 text-sm text-vc-text placeholder:text-vc-muted focus:outline-none focus:ring-1 focus:ring-vc-accent"
+              className="flex-1 resize-none bg-background border border-neutral-200 rounded-lg px-4 py-2.5 text-sm text-foreground placeholder:text-foreground-500 focus:outline-none focus:ring-1 focus:ring-primary"
               disabled={isStreaming}
             />
             <button
               onClick={() => sendMessage(input)}
               disabled={!input.trim() || isStreaming}
-              className="flex items-center justify-center w-10 h-10 rounded-lg bg-vc-accent text-white disabled:opacity-40 disabled:cursor-not-allowed hover:bg-vc-accent/80 transition-colors"
+              className="flex items-center justify-center w-10 h-10 rounded-lg bg-primary text-white disabled:opacity-40 disabled:cursor-not-allowed hover:bg-primary/80 transition-colors"
             >
               {isStreaming ? (
                 <Loader2 size={18} className="animate-spin" />
@@ -466,15 +466,15 @@ function ChatThinkingBlock({
   isStreaming: boolean;
 }) {
   return (
-    <details className="mb-2 text-xs border border-vc-border/50 rounded-lg overflow-hidden">
-      <summary className="px-3 py-1.5 cursor-pointer select-none flex items-center gap-1.5 bg-vc-surface/50 hover:bg-vc-surface transition-colors list-none text-vc-muted">
+    <details className="mb-2 text-xs border border-neutral-200/50 rounded-lg overflow-hidden">
+      <summary className="px-3 py-1.5 cursor-pointer select-none flex items-center gap-1.5 bg-background-100/50 hover:bg-background-100 transition-colors list-none text-foreground-500">
         {isStreaming ? (
           <span className="animate-pulse">Thinking…</span>
         ) : (
           <span>View reasoning</span>
         )}
       </summary>
-      <pre className="whitespace-pre-wrap font-mono text-xs text-vc-muted bg-vc-surface p-3 m-0 leading-relaxed">
+      <pre className="whitespace-pre-wrap font-mono text-xs text-foreground-500 bg-background-100 p-3 m-0 leading-relaxed">
         {content}
       </pre>
     </details>
@@ -498,10 +498,10 @@ function ChatToolApprovalCard({
         <span className="font-mono">{approval.toolName}</span>
       </p>
       <details className="mb-3">
-        <summary className="cursor-pointer text-xs text-vc-muted hover:text-vc-text select-none list-none">
+        <summary className="cursor-pointer text-xs text-foreground-500 hover:text-foreground select-none list-none">
           View arguments
         </summary>
-        <pre className="mt-1 text-xs font-mono bg-vc-bg border border-vc-border rounded p-2 overflow-x-auto text-vc-text whitespace-pre-wrap">
+        <pre className="mt-1 text-xs font-mono bg-background border border-neutral-200 rounded p-2 overflow-x-auto text-foreground whitespace-pre-wrap">
           {JSON.stringify(approval.args, null, 2)}
         </pre>
       </details>
@@ -578,14 +578,14 @@ function ChatErrorBanner({
   }
   if (code === "agent_offline") {
     return (
-      <div className="flex items-center gap-2 bg-vc-danger/10 border border-vc-danger/20 text-vc-danger rounded-lg px-4 py-3 text-sm">
+      <div className="flex items-center gap-2 bg-danger/10 border border-danger/20 text-danger rounded-lg px-4 py-3 text-sm">
         <WifiOff size={15} className="shrink-0" />
         <span>Agent disconnected — please wait for it to reconnect</span>
       </div>
     );
   }
   return (
-    <div className="text-center text-sm text-vc-danger bg-vc-danger/10 rounded-lg px-4 py-2">
+    <div className="text-center text-sm text-danger bg-danger/10 rounded-lg px-4 py-2">
       {message}
     </div>
   );

@@ -136,7 +136,10 @@ Scripts:
 
 **Styling**:
 
-- Tailwind only, using `vc-*` color tokens defined in `tailwind.config.js` (e.g., `vc-bg`, `vc-surface`, `vc-text`)
+- Tailwind only, using the adaptive palette tokens defined in `tailwind.config.js` and `app/theme.css`
+- Colors: `background`, `foreground`, `primary`, `secondary`, `success`, `warning`, `danger`, `neutral` — each with steps 50–950 (e.g., `bg-background`, `text-foreground-500`, `border-neutral-200`, `bg-primary-100`)
+- Steps auto-invert between light and dark: `bg-danger-50` = pale red in light, deep red in dark — write one class, both modes handled
+- Common patterns: `bg-background` (page), `bg-background-100` (card), `bg-background-200` (raised), `text-foreground` (body), `text-foreground-500` (muted), `border-neutral-200` (dividers), `bg-primary` (CTA button)
 - Never use `dark:` — dark mode is applied by `ThemeProvider` toggling a class on `<html>`
 - Icons: `lucide-react` exclusively
 - Charts: `recharts`; workflow diagrams: `ReactFlow`

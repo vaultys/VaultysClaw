@@ -57,9 +57,9 @@ function example() {
 
 ## Styling
 
-- **Agent messages** (assistant): Use vc-theme colors (muted tones)
-- **User messages**: Use indigo theme colors (brighter, user-focused)
-- **Code blocks**: Monospace font with background highlighting
+- **Agent messages** (assistant): Use adaptive palette tokens — `bg-background-200`, `text-foreground`, `border-neutral-200`
+- **User messages**: Use indigo/primary theme — `bg-primary/25`, `text-foreground`, `border-primary/20`
+- **Code blocks**: `bg-background-200` background, `text-primary-600` for inline code, `border-neutral-200` borders
 - **All prose**: Semantic HTML with proper spacing and margins
 
 ## Implementation Details

@@ -12,7 +12,7 @@ module.exports = {
         // ── Adaptive palette (50–950 auto-invert in dark mode) ──
         primary: {
           DEFAULT: "rgb(var(--primary-500) / <alpha-value>)",
-          50:  "rgb(var(--primary-50)  / <alpha-value>)",
+          50: "rgb(var(--primary-50)  / <alpha-value>)",
           100: "rgb(var(--primary-100) / <alpha-value>)",
           200: "rgb(var(--primary-200) / <alpha-value>)",
           300: "rgb(var(--primary-300) / <alpha-value>)",
@@ -26,7 +26,7 @@ module.exports = {
         },
         secondary: {
           DEFAULT: "rgb(var(--secondary-500) / <alpha-value>)",
-          50:  "rgb(var(--secondary-50)  / <alpha-value>)",
+          50: "rgb(var(--secondary-50)  / <alpha-value>)",
           100: "rgb(var(--secondary-100) / <alpha-value>)",
           200: "rgb(var(--secondary-200) / <alpha-value>)",
           300: "rgb(var(--secondary-300) / <alpha-value>)",
@@ -40,7 +40,7 @@ module.exports = {
         },
         success: {
           DEFAULT: "rgb(var(--success-500) / <alpha-value>)",
-          50:  "rgb(var(--success-50)  / <alpha-value>)",
+          50: "rgb(var(--success-50)  / <alpha-value>)",
           100: "rgb(var(--success-100) / <alpha-value>)",
           200: "rgb(var(--success-200) / <alpha-value>)",
           300: "rgb(var(--success-300) / <alpha-value>)",
@@ -54,7 +54,7 @@ module.exports = {
         },
         warning: {
           DEFAULT: "rgb(var(--warning-500) / <alpha-value>)",
-          50:  "rgb(var(--warning-50)  / <alpha-value>)",
+          50: "rgb(var(--warning-50)  / <alpha-value>)",
           100: "rgb(var(--warning-100) / <alpha-value>)",
           200: "rgb(var(--warning-200) / <alpha-value>)",
           300: "rgb(var(--warning-300) / <alpha-value>)",
@@ -68,7 +68,7 @@ module.exports = {
         },
         danger: {
           DEFAULT: "rgb(var(--danger-500) / <alpha-value>)",
-          50:  "rgb(var(--danger-50)  / <alpha-value>)",
+          50: "rgb(var(--danger-50)  / <alpha-value>)",
           100: "rgb(var(--danger-100) / <alpha-value>)",
           200: "rgb(var(--danger-200) / <alpha-value>)",
           300: "rgb(var(--danger-300) / <alpha-value>)",
@@ -82,7 +82,7 @@ module.exports = {
         },
         neutral: {
           DEFAULT: "rgb(var(--neutral-500) / <alpha-value>)",
-          50:  "rgb(var(--neutral-50)  / <alpha-value>)",
+          50: "rgb(var(--neutral-50)  / <alpha-value>)",
           100: "rgb(var(--neutral-100) / <alpha-value>)",
           200: "rgb(var(--neutral-200) / <alpha-value>)",
           300: "rgb(var(--neutral-300) / <alpha-value>)",
@@ -96,7 +96,7 @@ module.exports = {
         },
         background: {
           DEFAULT: "rgb(var(--background-50) / <alpha-value>)",
-          50:  "rgb(var(--background-50)  / <alpha-value>)",
+          50: "rgb(var(--background-50)  / <alpha-value>)",
           100: "rgb(var(--background-100) / <alpha-value>)",
           200: "rgb(var(--background-200) / <alpha-value>)",
           300: "rgb(var(--background-300) / <alpha-value>)",
@@ -110,7 +110,7 @@ module.exports = {
         },
         foreground: {
           DEFAULT: "rgb(var(--foreground-900) / <alpha-value>)",
-          50:  "rgb(var(--foreground-50)  / <alpha-value>)",
+          50: "rgb(var(--foreground-50)  / <alpha-value>)",
           100: "rgb(var(--foreground-100) / <alpha-value>)",
           200: "rgb(var(--foreground-200) / <alpha-value>)",
           300: "rgb(var(--foreground-300) / <alpha-value>)",
@@ -121,22 +121,6 @@ module.exports = {
           800: "rgb(var(--foreground-800) / <alpha-value>)",
           900: "rgb(var(--foreground-900) / <alpha-value>)",
           950: "rgb(var(--foreground-950) / <alpha-value>)",
-        },
-        vc: {
-          bg: "rgb(var(--vc-bg) / <alpha-value>)",
-          surface: "rgb(var(--vc-surface) / <alpha-value>)",
-          raised: "rgb(var(--vc-raised) / <alpha-value>)",
-          border: "rgb(var(--vc-border) / <alpha-value>)",
-          ring: "rgb(var(--vc-ring) / <alpha-value>)",
-          text: "rgb(var(--vc-text) / <alpha-value>)",
-          "text-2": "rgb(var(--vc-text-2) / <alpha-value>)",
-          muted: "rgb(var(--vc-muted) / <alpha-value>)",
-          subtle: "rgb(var(--vc-subtle) / <alpha-value>)",
-          /* Code-specific surfaces — switch between light/dark */
-          "code-bg":       "rgb(var(--vc-code-bg) / <alpha-value>)",
-          "code-bg-block": "rgb(var(--vc-code-bg-block) / <alpha-value>)",
-          "code-border":   "rgb(var(--vc-code-border) / <alpha-value>)",
-          "code-text":     "rgb(var(--vc-code-text) / <alpha-value>)",
         },
       },
       animation: {

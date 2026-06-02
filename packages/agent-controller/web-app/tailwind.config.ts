@@ -8,27 +8,27 @@ export default {
       colors: {
         canvas: {
           DEFAULT: "rgb(var(--canvas) / <alpha-value>)",
-          subtle:  "rgb(var(--canvas-subtle) / <alpha-value>)",
+          subtle: "rgb(var(--canvas-subtle) / <alpha-value>)",
           overlay: "rgb(var(--canvas-overlay) / <alpha-value>)",
         },
         border: {
           DEFAULT: "rgb(var(--border) / <alpha-value>)",
-          muted:   "rgb(var(--border-muted) / <alpha-value>)",
+          muted: "rgb(var(--border-muted) / <alpha-value>)",
         },
         fg: {
           DEFAULT: "rgb(var(--fg) / <alpha-value>)",
-          muted:   "rgb(var(--fg-muted) / <alpha-value>)",
-          subtle:  "rgb(var(--fg-subtle) / <alpha-value>)",
-          dim:     "rgb(var(--fg-dim) / <alpha-value>)",
+          muted: "rgb(var(--fg-muted) / <alpha-value>)",
+          subtle: "rgb(var(--fg-subtle) / <alpha-value>)",
+          dim: "rgb(var(--fg-dim) / <alpha-value>)",
         },
         accent: {
-          DEFAULT:  "rgb(var(--accent) / <alpha-value>)",
+          DEFAULT: "rgb(var(--accent) / <alpha-value>)",
           emphasis: "rgb(var(--accent-emphasis) / <alpha-value>)",
         },
         success: {
-          DEFAULT:  "rgb(var(--success) / <alpha-value>)",
+          DEFAULT: "rgb(var(--success) / <alpha-value>)",
           emphasis: "rgb(var(--success-emphasis) / <alpha-value>)",
-          50:  "rgb(var(--success-50)  / <alpha-value>)",
+          50: "rgb(var(--success-50)  / <alpha-value>)",
           100: "rgb(var(--success-100) / <alpha-value>)",
           200: "rgb(var(--success-200) / <alpha-value>)",
           300: "rgb(var(--success-300) / <alpha-value>)",
@@ -41,13 +41,13 @@ export default {
           950: "rgb(var(--success-950) / <alpha-value>)",
         },
         attention: {
-          DEFAULT:  "rgb(var(--attention) / <alpha-value>)",
+          DEFAULT: "rgb(var(--attention) / <alpha-value>)",
           emphasis: "rgb(var(--attention-emphasis) / <alpha-value>)",
         },
         danger: {
-          DEFAULT:  "rgb(var(--danger) / <alpha-value>)",
+          DEFAULT: "rgb(var(--danger) / <alpha-value>)",
           emphasis: "rgb(var(--danger-emphasis) / <alpha-value>)",
-          50:  "rgb(var(--danger-50)  / <alpha-value>)",
+          50: "rgb(var(--danger-50)  / <alpha-value>)",
           100: "rgb(var(--danger-100) / <alpha-value>)",
           200: "rgb(var(--danger-200) / <alpha-value>)",
           300: "rgb(var(--danger-300) / <alpha-value>)",
@@ -60,13 +60,13 @@ export default {
           950: "rgb(var(--danger-950) / <alpha-value>)",
         },
         info: {
-          DEFAULT:  "rgb(var(--info) / <alpha-value>)",
+          DEFAULT: "rgb(var(--info) / <alpha-value>)",
           emphasis: "rgb(var(--info-emphasis) / <alpha-value>)",
         },
         // ── Adaptive palette (50–950 auto-invert in dark mode) ──
         primary: {
           DEFAULT: "rgb(var(--primary-500) / <alpha-value>)",
-          50:  "rgb(var(--primary-50)  / <alpha-value>)",
+          50: "rgb(var(--primary-50)  / <alpha-value>)",
           100: "rgb(var(--primary-100) / <alpha-value>)",
           200: "rgb(var(--primary-200) / <alpha-value>)",
           300: "rgb(var(--primary-300) / <alpha-value>)",
@@ -80,7 +80,7 @@ export default {
         },
         secondary: {
           DEFAULT: "rgb(var(--secondary-500) / <alpha-value>)",
-          50:  "rgb(var(--secondary-50)  / <alpha-value>)",
+          50: "rgb(var(--secondary-50)  / <alpha-value>)",
           100: "rgb(var(--secondary-100) / <alpha-value>)",
           200: "rgb(var(--secondary-200) / <alpha-value>)",
           300: "rgb(var(--secondary-300) / <alpha-value>)",
@@ -94,7 +94,7 @@ export default {
         },
         warning: {
           DEFAULT: "rgb(var(--warning-500) / <alpha-value>)",
-          50:  "rgb(var(--warning-50)  / <alpha-value>)",
+          50: "rgb(var(--warning-50)  / <alpha-value>)",
           100: "rgb(var(--warning-100) / <alpha-value>)",
           200: "rgb(var(--warning-200) / <alpha-value>)",
           300: "rgb(var(--warning-300) / <alpha-value>)",
@@ -108,7 +108,7 @@ export default {
         },
         neutral: {
           DEFAULT: "rgb(var(--neutral-500) / <alpha-value>)",
-          50:  "rgb(var(--neutral-50)  / <alpha-value>)",
+          50: "rgb(var(--neutral-50)  / <alpha-value>)",
           100: "rgb(var(--neutral-100) / <alpha-value>)",
           200: "rgb(var(--neutral-200) / <alpha-value>)",
           300: "rgb(var(--neutral-300) / <alpha-value>)",
@@ -122,7 +122,7 @@ export default {
         },
         background: {
           DEFAULT: "rgb(var(--background-50) / <alpha-value>)",
-          50:  "rgb(var(--background-50)  / <alpha-value>)",
+          50: "rgb(var(--background-50)  / <alpha-value>)",
           100: "rgb(var(--background-100) / <alpha-value>)",
           200: "rgb(var(--background-200) / <alpha-value>)",
           300: "rgb(var(--background-300) / <alpha-value>)",
@@ -136,7 +136,7 @@ export default {
         },
         foreground: {
           DEFAULT: "rgb(var(--foreground-900) / <alpha-value>)",
-          50:  "rgb(var(--foreground-50)  / <alpha-value>)",
+          50: "rgb(var(--foreground-50)  / <alpha-value>)",
           100: "rgb(var(--foreground-100) / <alpha-value>)",
           200: "rgb(var(--foreground-200) / <alpha-value>)",
           300: "rgb(var(--foreground-300) / <alpha-value>)",
@@ -148,29 +148,20 @@ export default {
           900: "rgb(var(--foreground-900) / <alpha-value>)",
           950: "rgb(var(--foreground-950) / <alpha-value>)",
         },
-        // vc-* design tokens (CSS-variable-backed)
-        vc: {
-          bg:       "rgb(var(--vc-bg) / <alpha-value>)",
-          surface:  "rgb(var(--vc-surface) / <alpha-value>)",
-          raised:   "rgb(var(--vc-raised) / <alpha-value>)",
-          border:   "rgb(var(--vc-border) / <alpha-value>)",
-          ring:     "rgb(var(--vc-ring) / <alpha-value>)",
-          text:     "rgb(var(--vc-text) / <alpha-value>)",
-          "text-2": "rgb(var(--vc-text-2) / <alpha-value>)",
-          muted:    "rgb(var(--vc-muted) / <alpha-value>)",
-          subtle:   "rgb(var(--vc-subtle) / <alpha-value>)",
-        },
       },
       fontFamily: {
         mono: ["'SF Mono'", "Consolas", "monospace"],
       },
       animation: {
-        "fade-in":  "fade-in 0.15s ease forwards",
+        "fade-in": "fade-in 0.15s ease forwards",
         "slide-up": "slide-up 0.2s ease forwards",
       },
       keyframes: {
-        "fade-in":  { from: { opacity: "0" }, to: { opacity: "1" } },
-        "slide-up": { from: { opacity: "0", transform: "translateY(6px)" }, to: { opacity: "1", transform: "translateY(0)" } },
+        "fade-in": { from: { opacity: "0" }, to: { opacity: "1" } },
+        "slide-up": {
+          from: { opacity: "0", transform: "translateY(6px)" },
+          to: { opacity: "1", transform: "translateY(0)" },
+        },
       },
     },
   },

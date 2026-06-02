@@ -89,9 +89,7 @@ function MessageBubble({
   return (
     <div
       className={`group flex gap-3 hover:bg-background-200 px-3 py-2 rounded-lg transition ${
-        isThread
-          ? "ml-10 border-l-2 border-primary-200 dark:border-primary-800 pl-3"
-          : ""
+        isThread ? "ml-10 border-l-2 border-primary-200 pl-3" : ""
       }`}
     >
       {/* Avatar */}
@@ -118,7 +116,7 @@ function MessageBubble({
             {displayName}
           </span>
           {isAgent && (
-            <span className="text-[10px] px-1.5 py-0.5 rounded bg-secondary-100 dark:bg-secondary-900/30 text-secondary-700 dark:text-secondary-400 font-medium flex-shrink-0">
+            <span className="text-[10px] px-1.5 py-0.5 rounded bg-secondary-100 text-secondary-700 font-medium flex-shrink-0">
               bot
             </span>
           )}
@@ -130,7 +128,7 @@ function MessageBubble({
         <div
           className={`prose prose-sm max-w-none text-foreground mt-0.5 break-words ${
             isThread ? "text-sm" : ""
-          } [&_p]:my-0.5 [&_ul]:my-1 [&_ol]:my-1 [&_pre]:bg-background-200 [&_pre]:rounded [&_pre]:p-2 [&_code]:text-primary-600 dark:[&_code]:text-primary-400 [&_code]:bg-background-200 [&_code]:px-1 [&_code]:rounded [&_a]:text-primary-500 [&_a]:underline`}
+          } [&_p]:my-0.5 [&_ul]:my-1 [&_ol]:my-1 [&_pre]:bg-background-200 [&_pre]:rounded [&_pre]:p-2 [&_code]:text-primary-600&_code]:text-primary-400 [&_code]:bg-background-200 [&_code]:px-1 [&_code]:rounded [&_a]:text-primary-500 [&_a]:underline`}
         >
           <ReactMarkdown>{msg.content}</ReactMarkdown>
         </div>
@@ -184,7 +182,7 @@ function MessageBubble({
         </div>
         <button
           onClick={handleDelete}
-          className="p-1 hover:bg-background-200 rounded text-foreground-700 hover:text-danger-600 dark:hover:text-danger-400 transition"
+          className="p-1 hover:bg-background-200 rounded text-foreground-700 hover:text-danger-600:text-danger-400 transition"
           title="Delete"
         >
           <Trash2 size={14} />
@@ -232,7 +230,7 @@ function ThreadView({
 
   if (loading) {
     return (
-      <div className="ml-10 pl-3 border-l-2 border-primary-100 dark:border-primary-900 py-1">
+      <div className="ml-10 pl-3 border-l-2 border-primary-100 py-1">
         <div className="text-xs text-foreground-500 animate-pulse">
           Loading thread…
         </div>
@@ -293,7 +291,7 @@ function MessageWithThread({
       {threadCount > 0 && (
         <button
           onClick={() => setExpanded(!expanded)}
-          className="ml-14 mt-1 flex items-center gap-1.5 text-xs text-primary-500 hover:text-primary-700 dark:hover:text-primary-300 transition"
+          className="ml-14 mt-1 flex items-center gap-1.5 text-xs text-primary-500 hover:text-primary-700:text-primary-300 transition"
         >
           {expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
           <MessageSquare size={12} />

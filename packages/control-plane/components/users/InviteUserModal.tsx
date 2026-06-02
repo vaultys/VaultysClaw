@@ -161,7 +161,7 @@ export default function InviteUserModal({
               onClick={() => setTab("email")}
               className="w-full flex items-center gap-3 p-4 border border-neutral-200 rounded-xl hover:bg-background-200 transition-colors text-left"
             >
-              <Mail className="w-5 h-5 text-primary-600 dark:text-primary-400 flex-shrink-0" />
+              <Mail className="w-5 h-5 text-primary-600 flex-shrink-0" />
               <div>
                 <p className="text-sm font-medium text-foreground">
                   Send Email Invite
@@ -175,7 +175,7 @@ export default function InviteUserModal({
               onClick={() => setTab("qr")}
               className="w-full flex items-center gap-3 p-4 border border-neutral-200 rounded-xl hover:bg-background-200 transition-colors text-left"
             >
-              <QrCode className="w-5 h-5 text-primary-600 dark:text-primary-400 flex-shrink-0" />
+              <QrCode className="w-5 h-5 text-primary-600 flex-shrink-0" />
               <div>
                 <p className="text-sm font-medium text-foreground">
                   Show QR Code
@@ -245,8 +245,8 @@ export default function InviteUserModal({
               <p
                 className={`text-xs px-3 py-2 rounded-xl border ${
                   emailMsg.type === "ok"
-                    ? "bg-success-50 dark:bg-success-900/20 border-success-300 dark:border-success-700/40 text-success-700 dark:text-success-400"
-                    : "bg-danger-50 dark:bg-danger-900/20 border-danger-300 dark:border-danger-700/40 text-danger-600 dark:text-danger-400"
+                    ? "bg-success-50 border-success-300 text-success-700"
+                    : "bg-danger-50 border-danger-300 text-danger-600"
                 }`}
               >
                 {emailMsg.text}
@@ -307,13 +307,13 @@ export default function InviteUserModal({
 
             {phase === "success" && (
               <div className="flex flex-col items-center gap-3 py-4 text-center">
-                <div className="w-12 h-12 rounded-full bg-success-100 dark:bg-success-900/40 flex items-center justify-center">
-                  <Check className="w-6 h-6 text-success-600 dark:text-success-400" />
+                <div className="w-12 h-12 rounded-full bg-success-100 flex items-center justify-center">
+                  <Check className="w-6 h-6 text-success-600" />
                 </div>
                 <p className="text-foreground font-medium">User registered!</p>
                 <button
                   onClick={onClose}
-                  className="text-primary-700 dark:text-primary-400 hover:text-primary-300 text-sm transition-colors"
+                  className="text-primary-700 hover:text-primary-300 text-sm transition-colors"
                 >
                   Close
                 </button>
@@ -322,13 +322,13 @@ export default function InviteUserModal({
 
             {phase === "failure" && (
               <div className="flex flex-col items-center gap-3 py-4 text-center">
-                <AlertCircle className="w-6 h-6 text-danger-600 dark:text-danger-400" />
-                <p className="text-danger-600 dark:text-danger-400 font-medium">
+                <AlertCircle className="w-6 h-6 text-danger-600" />
+                <p className="text-danger-600 font-medium">
                   Registration failed or timed out.
                 </p>
                 <button
                   onClick={() => setPhase("idle")}
-                  className="text-primary-700 dark:text-primary-400 hover:text-primary-300 text-sm transition-colors"
+                  className="text-primary-700 hover:text-primary-300 text-sm transition-colors"
                 >
                   Try again
                 </button>

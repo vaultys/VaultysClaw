@@ -189,9 +189,9 @@ const EDGES: Edge[] = [
 ];
 
 // Nodes are all horizontally centred around x = 180:
-//   identity  (280 px wide) x=40  → centre 180
-//   ctrlPlane (360 px wide) x=0   → centre 180
-//   agents    (140 px wide) x=-50, 110, 270 → centres 20, 180, 340
+// identity (280 px wide) x=40 → centre 180
+// ctrlPlane (360 px wide) x=0 → centre 180
+// agents (140 px wide) x=-50, 110, 270 → centres 20, 180, 340
 const NODES: Node[] = [
   {
     id: "identity",

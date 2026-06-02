@@ -44,21 +44,19 @@ export const AgentNode: React.FC<NodeProps> = ({ data }) => {
     <div
       className={`${baseNodeStyle} ${
         isSelectedInStore
-          ? "border-primary-500 bg-primary-50 dark:bg-primary-900/20"
-          : "border-primary-300 dark:border-primary-700 bg-primary-50 dark:bg-primary-900/20"
+          ? "border-primary-500 bg-primary-50"
+          : "border-primary-300 bg-primary-50"
       }`}
     >
       <div className="flex items-center gap-2 mb-2">
-        <Bot size={16} className="text-primary-600 dark:text-primary-400" />
-        <span className="font-semibold text-xs text-primary-900 dark:text-primary-200">
-          Agent
-        </span>
+        <Bot size={16} className="text-primary-600" />
+        <span className="font-semibold text-xs text-primary-900">Agent</span>
       </div>
-      <p className="text-xs text-neutral-700 dark:text-neutral-300 font-medium">
+      <p className="text-xs text-neutral-700 font-medium">
         {agentName || (data as any).agentId || "Select agent"}
       </p>
       {(data as any).params && (
-        <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
+        <p className="text-xs text-neutral-500 mt-1">
           {Object.keys((data as any).params).length} param
           {Object.keys((data as any).params).length !== 1 ? "s" : ""}
         </p>
@@ -80,20 +78,17 @@ export const ConditionNode: React.FC<NodeProps> = ({ data }) => {
     <div
       className={`${baseNodeStyle} ${
         isSelectedInStore
-          ? "border-primary-500 bg-primary-50 dark:bg-primary-900/20"
-          : "border-warning-300 dark:border-warning-700 bg-warning-50 dark:bg-warning-900/20"
+          ? "border-primary-500 bg-primary-50"
+          : "border-warning-300 bg-warning-50"
       }`}
     >
       <div className="flex items-center gap-2 mb-2">
-        <GitBranch
-          size={16}
-          className="text-warning-600 dark:text-warning-400"
-        />
-        <span className="font-semibold text-xs text-warning-900 dark:text-warning-200">
+        <GitBranch size={16} className="text-warning-600" />
+        <span className="font-semibold text-xs text-warning-900">
           Condition
         </span>
       </div>
-      <p className="text-xs text-neutral-700 dark:text-neutral-300 font-mono break-words">
+      <p className="text-xs text-neutral-700 font-mono break-words">
         {(data as any).expression || "if (...)"}
       </p>
       <Handle type="target" position={Position.Left} />
@@ -116,17 +111,17 @@ export const ParallelNode: React.FC<NodeProps> = ({ data }) => {
     <div
       className={`${baseNodeStyle} ${
         isSelectedInStore
-          ? "border-primary-500 bg-primary-50 dark:bg-primary-900/20"
-          : "border-secondary-300 dark:border-secondary-700 bg-secondary-50 dark:bg-secondary-900/20"
+          ? "border-primary-500 bg-primary-50"
+          : "border-secondary-300 bg-secondary-50"
       }`}
     >
       <div className="flex items-center gap-2 mb-2">
-        <Zap size={16} className="text-secondary-600 dark:text-secondary-400" />
-        <span className="font-semibold text-xs text-secondary-900 dark:text-secondary-200">
+        <Zap size={16} className="text-secondary-600" />
+        <span className="font-semibold text-xs text-secondary-900">
           Parallel
         </span>
       </div>
-      <p className="text-xs text-neutral-700 dark:text-neutral-300 font-medium">
+      <p className="text-xs text-neutral-700 font-medium">
         {parallelCount} agents
       </p>
       <Handle type="target" position={Position.Left} />
@@ -147,7 +142,7 @@ export const DelayNode: React.FC<NodeProps> = ({ data }) => {
     <div
       className={`${baseNodeStyle} ${
         isSelectedInStore
-          ? "border-primary-500 bg-primary-50 dark:bg-primary-900/20"
+          ? "border-primary-500 bg-primary-50"
           : "border-neutral-200 bg-background-200"
       }`}
     >
@@ -173,19 +168,15 @@ export const CustomNode: React.FC<NodeProps> = ({ data }) => {
     <div
       className={`${baseNodeStyle} ${
         isSelectedInStore
-          ? "border-primary-500 bg-primary-50 dark:bg-primary-900/20"
-          : "border-success-300 dark:border-success-700 bg-success-50 dark:bg-success-900/20"
+          ? "border-primary-500 bg-primary-50"
+          : "border-success-300 bg-success-50"
       }`}
     >
       <div className="flex items-center gap-2 mb-2">
-        <Code size={16} className="text-success-600 dark:text-success-400" />
-        <span className="font-semibold text-xs text-success-900 dark:text-success-200">
-          Custom
-        </span>
+        <Code size={16} className="text-success-600" />
+        <span className="font-semibold text-xs text-success-900">Custom</span>
       </div>
-      <p className="text-xs text-neutral-700 dark:text-neutral-300">
-        Custom logic
-      </p>
+      <p className="text-xs text-neutral-700">Custom logic</p>
       <Handle type="target" position={Position.Left} />
       <Handle type="source" position={Position.Right} />
     </div>
@@ -203,44 +194,44 @@ export const LabelNode: React.FC<NodeProps> = ({ data }) => {
   const colorMap: Record<string, { bg: string; border: string; text: string }> =
     {
       yellow: {
-        bg: "bg-warning-50 dark:bg-warning-900/20",
-        border: "border-warning-300 dark:border-warning-700",
-        text: "text-warning-900 dark:text-warning-200",
+        bg: "bg-warning-50",
+        border: "border-warning-300",
+        text: "text-warning-900",
       },
       pink: {
-        bg: "bg-danger-50 dark:bg-danger-900/20",
-        border: "border-danger-300 dark:border-danger-700",
-        text: "text-danger-900 dark:text-danger-200",
+        bg: "bg-danger-50",
+        border: "border-danger-300",
+        text: "text-danger-900",
       },
       blue: {
-        bg: "bg-primary-50 dark:bg-primary-900/20",
-        border: "border-primary-300 dark:border-primary-700",
-        text: "text-primary-900 dark:text-primary-200",
+        bg: "bg-primary-50",
+        border: "border-primary-300",
+        text: "text-primary-900",
       },
       green: {
-        bg: "bg-success-50 dark:bg-success-900/20",
-        border: "border-success-300 dark:border-success-700",
-        text: "text-success-900 dark:text-success-200",
+        bg: "bg-success-50",
+        border: "border-success-300",
+        text: "text-success-900",
       },
       purple: {
-        bg: "bg-secondary-50 dark:bg-secondary-900/20",
-        border: "border-secondary-300 dark:border-secondary-700",
-        text: "text-secondary-900 dark:text-secondary-200",
+        bg: "bg-secondary-50",
+        border: "border-secondary-300",
+        text: "text-secondary-900",
       },
       red: {
-        bg: "bg-danger-50 dark:bg-danger-900/20",
-        border: "border-danger-300 dark:border-danger-700",
-        text: "text-danger-900 dark:text-danger-200",
+        bg: "bg-danger-50",
+        border: "border-danger-300",
+        text: "text-danger-900",
       },
       amber: {
-        bg: "bg-warning-50 dark:bg-warning-900/20",
-        border: "border-warning-300 dark:border-warning-700",
-        text: "text-warning-900 dark:text-warning-200",
+        bg: "bg-warning-50",
+        border: "border-warning-300",
+        text: "text-warning-900",
       },
       cyan: {
-        bg: "bg-primary-50 dark:bg-primary-900/20",
-        border: "border-primary-300 dark:border-primary-700",
-        text: "text-primary-900 dark:text-primary-200",
+        bg: "bg-primary-50",
+        border: "border-primary-300",
+        text: "text-primary-900",
       },
     };
 
@@ -273,21 +264,19 @@ export const UserNode: React.FC<NodeProps> = ({ data }) => {
     <div
       className={`${baseNodeStyle} ${
         isSelectedInStore
-          ? "border-primary-500 bg-primary-50 dark:bg-primary-900/20"
-          : "border-primary-300 dark:border-primary-700 bg-primary-50 dark:bg-primary-900/20"
+          ? "border-primary-500 bg-primary-50"
+          : "border-primary-300 bg-primary-50"
       }`}
     >
       <div className="flex items-center gap-2 mb-2">
-        <User size={16} className="text-primary-600 dark:text-primary-400" />
-        <span className="font-semibold text-xs text-primary-900 dark:text-primary-200">
-          User
-        </span>
+        <User size={16} className="text-primary-600" />
+        <span className="font-semibold text-xs text-primary-900">User</span>
       </div>
-      <p className="text-xs text-neutral-700 dark:text-neutral-300 font-medium">
+      <p className="text-xs text-neutral-700 font-medium">
         {mode === "approval" ? "⏳ Awaits approval" : "📢 Notification"}
       </p>
       {((data as any).assignedUserName || (data as any).assignedUserId) && (
-        <p className="text-xs text-neutral-600 dark:text-neutral-400 mt-1 truncate">
+        <p className="text-xs text-neutral-600 mt-1 truncate">
           {(data as any).assignedUserName ||
             `…${((data as any).assignedUserId as string).slice(-8)}`}
         </p>
@@ -302,10 +291,10 @@ export const UserNode: React.FC<NodeProps> = ({ data }) => {
  * Skill Node — call a specific skill tool on an agent.
  *
  * data shape:
- *   skillName    {string}  e.g. "social-media"
- *   toolName     {string}  e.g. "post_to_x"
- *   agentId      {string}  which agent to dispatch to (optional — falls back to any capable agent)
- *   inputMapping {string}  dot-path into prev output to use as text input (optional)
+ * skillName {string} e.g. "social-media"
+ * toolName {string} e.g. "post_to_x"
+ * agentId {string} which agent to dispatch to (optional — falls back to any capable agent)
+ * inputMapping {string} dot-path into prev output to use as text input (optional)
  */
 export const SkillNode: React.FC<NodeProps> = ({ data }) => {
   const selectedNode = useWorkflowStore((s) => s.selectedNodeId);
@@ -318,30 +307,24 @@ export const SkillNode: React.FC<NodeProps> = ({ data }) => {
     <div
       className={`${baseNodeStyle} ${
         isSelectedInStore
-          ? "border-primary-500 bg-primary-50 dark:bg-primary-900/20"
-          : "border-success-300 dark:border-success-700 bg-success-50 dark:bg-success-900/20"
+          ? "border-primary-500 bg-primary-50"
+          : "border-success-300 bg-success-50"
       }`}
     >
       <div className="flex items-center gap-2 mb-2">
-        <Wrench size={16} className="text-success-600 dark:text-success-400" />
-        <span className="font-semibold text-xs text-success-900 dark:text-success-200">
-          Skill
-        </span>
+        <Wrench size={16} className="text-success-600" />
+        <span className="font-semibold text-xs text-success-900">Skill</span>
       </div>
       {skillName && (
-        <p className="text-xs text-neutral-700 dark:text-neutral-300 font-medium truncate">
+        <p className="text-xs text-neutral-700 font-medium truncate">
           {skillName}
         </p>
       )}
       {toolName && (
-        <p className="text-xs text-neutral-500 dark:text-neutral-400 truncate">
-          {toolName}
-        </p>
+        <p className="text-xs text-neutral-500 truncate">{toolName}</p>
       )}
       {!skillName && !toolName && (
-        <p className="text-xs text-neutral-400 dark:text-neutral-500 italic">
-          configure skill…
-        </p>
+        <p className="text-xs text-neutral-400 italic">configure skill…</p>
       )}
       <Handle type="target" position={Position.Left} />
       <Handle type="source" position={Position.Right} />

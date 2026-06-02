@@ -222,7 +222,7 @@ export default function AgentsPage() {
           <span
             className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full border ${
               wsConnected
-                ? "bg-success-100 dark:bg-success-900/40 border-success-300 dark:border-success-700/50 text-success-700 dark:text-success-400"
+                ? "bg-success-100 border-success-300 text-success-700"
                 : "bg-background-200 border-neutral-200 text-foreground-400"
             }`}
           >
@@ -445,7 +445,7 @@ export default function AgentsPage() {
                       <td className="px-5 py-3.5">
                         <div className="flex flex-col gap-1">
                           {agent.online ? (
-                            <span className="flex items-center gap-1.5 text-success-600 dark:text-success-400 text-xs">
+                            <span className="flex items-center gap-1.5 text-success-600 text-xs">
                               <CircleDot className="w-3.5 h-3.5" /> Online
                             </span>
                           ) : (
@@ -457,8 +457,8 @@ export default function AgentsPage() {
                             <span
                               className={`inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded font-medium border ${
                                 agent.transport === "peerjs"
-                                  ? "bg-secondary-100 dark:bg-secondary-500/15 text-secondary-700 dark:text-secondary-400 border-secondary-300 dark:border-secondary-500/30"
-                                  : "bg-primary-100 dark:bg-primary-500/15 text-primary-700 dark:text-primary-400 border-primary-300 dark:border-primary-500/30"
+                                  ? "bg-secondary-100 text-secondary-700 border-secondary-300"
+                                  : "bg-primary-100 text-primary-700 border-primary-300"
                               }`}
                             >
                               {agent.transport === "peerjs"

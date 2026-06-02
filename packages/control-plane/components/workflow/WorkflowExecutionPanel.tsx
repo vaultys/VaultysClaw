@@ -145,21 +145,15 @@ export const WorkflowExecutionPanel: React.FC = () => {
       <div className="px-4 py-2 bg-background-200 border-b border-neutral-200 grid grid-cols-3 gap-2 text-xs">
         <div className="text-center">
           <p className="text-foreground-500">Running</p>
-          <p className="font-semibold text-primary-500 dark:text-primary-400">
-            {runningStepCount}
-          </p>
+          <p className="font-semibold text-primary-500">{runningStepCount}</p>
         </div>
         <div className="text-center">
           <p className="text-foreground-500">Completed</p>
-          <p className="font-semibold text-success-500 dark:text-success-400">
-            {completedStepCount}
-          </p>
+          <p className="font-semibold text-success-500">{completedStepCount}</p>
         </div>
         <div className="text-center">
           <p className="text-foreground-500">Failed</p>
-          <p className="font-semibold text-danger-500 dark:text-danger-400">
-            {failedStepCount}
-          </p>
+          <p className="font-semibold text-danger-500">{failedStepCount}</p>
         </div>
       </div>
 
@@ -198,14 +192,14 @@ export const WorkflowExecutionPanel: React.FC = () => {
                         {step.stepId}
                       </span>
                       {step.agentId && (
-                        <span className="text-[11px] text-primary-500 dark:text-primary-400 truncate block">
+                        <span className="text-[11px] text-primary-500 truncate block">
                           🤖{" "}
                           {agentNames[step.agentId] ??
                             `…${step.agentId.slice(-8)}`}
                         </span>
                       )}
                       {step.assignedUserId && (
-                        <span className="text-[11px] text-primary-600 dark:text-primary-400 truncate block">
+                        <span className="text-[11px] text-primary-600 truncate block">
                           👤{" "}
                           {step.assignedUserName ??
                             step.assignedUserEmail ??
@@ -229,7 +223,7 @@ export const WorkflowExecutionPanel: React.FC = () => {
                 {expandedStepId === step.stepId && (
                   <div className="px-4 py-2 bg-background-200 border-t border-neutral-200">
                     {step.error ? (
-                      <div className="text-xs text-danger-500 dark:text-danger-400 font-mono break-words">
+                      <div className="text-xs text-danger-500 font-mono break-words">
                         <p className="font-semibold mb-1">Error:</p>
                         {step.error}
                       </div>

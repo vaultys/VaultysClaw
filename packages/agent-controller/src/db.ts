@@ -1125,9 +1125,7 @@ export function deleteChunksBySource(sourceId: string): void {
     .run({ $source_id: sourceId });
 }
 
-export function getAllChunkEmbeddings(
-  sourceId?: string
-): Array<{
+export function getAllChunkEmbeddings(sourceId?: string): Array<{
   id: string;
   source_id: string;
   doc_id: string;

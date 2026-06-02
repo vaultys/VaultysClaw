@@ -6,10 +6,10 @@
  * Placed inside the Realm detail page as the "Social Media" tab.
  *
  * Features:
- *  - X (Twitter) credential management (saves encrypted via VaultysId vault)
- *  - Session status display (tells users whether the agent has a live browser session)
- *  - Daily post schedule configuration
- *  - Quick "post now" for ad-hoc tweets
+ * - X (Twitter) credential management (saves encrypted via VaultysId vault)
+ * - Session status display (tells users whether the agent has a live browser session)
+ * - Daily post schedule configuration
+ * - Quick "post now" for ad-hoc tweets
  */
 
 import { useState, useEffect, useCallback } from "react";
@@ -275,7 +275,7 @@ export function SocialMediaTab({ realmId }: SocialMediaTabProps) {
             <XLogo className="w-4 h-4 text-primary-500" /> X (Twitter) Account
           </h3>
           {hasXCred && (
-            <span className="text-xs px-2 py-0.5 rounded-full bg-success-100 dark:bg-success-900/40 text-success-700 dark:text-success-400 border border-success-300 dark:border-success-800 font-medium flex items-center gap-1">
+            <span className="text-xs px-2 py-0.5 rounded-full bg-success-100 text-success-700 border border-success-300 font-medium flex items-center gap-1">
               <CheckCircle2 className="w-3 h-3" /> Configured
             </span>
           )}
@@ -297,7 +297,7 @@ export function SocialMediaTab({ realmId }: SocialMediaTabProps) {
               </div>
               <button
                 onClick={deleteXCredential}
-                className="p-1.5 rounded-lg text-danger-500 hover:bg-danger-50 dark:hover:bg-danger-900/20 transition-colors"
+                className="p-1.5 rounded-lg text-danger-500 hover:bg-danger-50:bg-danger-900/20 transition-colors"
                 title="Delete credentials"
               >
                 <Trash2 className="w-4 h-4" />
@@ -305,7 +305,7 @@ export function SocialMediaTab({ realmId }: SocialMediaTabProps) {
             </div>
 
             {/* Session setup instructions */}
-            <div className="flex gap-3 p-3 bg-warning-50 dark:bg-warning-900/20 border border-warning-200 dark:border-warning-800 rounded-xl text-xs text-warning-800 dark:text-warning-300">
+            <div className="flex gap-3 p-3 bg-warning-50 border border-warning-200 rounded-xl text-xs text-warning-800">
               <Info className="w-4 h-4 shrink-0 mt-0.5" />
               <div className="space-y-1">
                 <p className="font-medium">
@@ -313,7 +313,7 @@ export function SocialMediaTab({ realmId }: SocialMediaTabProps) {
                 </p>
                 <p>
                   The agent posts via browser automation. Ask the agent to run{" "}
-                  <code className="bg-warning-100 dark:bg-warning-900/40 px-1 py-0.5 rounded font-mono">
+                  <code className="bg-warning-100 px-1 py-0.5 rounded font-mono">
                     setup_x_session
                   </code>{" "}
                   once. It will open a browser window — log in to X and the
@@ -324,7 +324,7 @@ export function SocialMediaTab({ realmId }: SocialMediaTabProps) {
 
             <button
               onClick={() => setCredMsg(null)}
-              className="text-xs text-primary-600 dark:text-primary-400 hover:underline"
+              className="text-xs text-primary-600 hover:underline"
             >
               Update credentials
             </button>
@@ -443,7 +443,7 @@ export function SocialMediaTab({ realmId }: SocialMediaTabProps) {
                 onClick={() => setCronExpr(expr)}
                 className={`px-3 py-1 text-xs rounded-lg border transition-colors ${
                   cronExpr === expr
-                    ? "bg-primary-50 dark:bg-primary-600/20 border-primary-300 dark:border-primary-500/50 text-primary-700 dark:text-primary-300"
+                    ? "bg-primary-50 border-primary-300 text-primary-700"
                     : "bg-background-200 border-neutral-200 text-foreground-500 hover:text-foreground"
                 }`}
               >

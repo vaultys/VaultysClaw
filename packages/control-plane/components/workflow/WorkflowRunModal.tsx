@@ -62,11 +62,11 @@ function getStatusBadge(status: string) {
     "inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium";
   switch (status) {
     case "completed":
-      return `${base} bg-success-100 dark:bg-success-900/40 text-success-700 dark:text-success-400`;
+      return `${base} bg-success-100 text-success-700`;
     case "failed":
-      return `${base} bg-danger-100 dark:bg-danger-900/40 text-danger-700 dark:text-danger-400`;
+      return `${base} bg-danger-100 text-danger-700`;
     case "running":
-      return `${base} bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-400`;
+      return `${base} bg-primary-100 text-primary-700`;
     default:
       return `${base} bg-background-200 text-foreground-400`;
   }
@@ -427,17 +427,17 @@ export const WorkflowRunModal: React.FC<WorkflowRunModalProps> = ({
           {execution.status === "completed" && (
             <div className="p-6 space-y-6">
               {/* Success State */}
-              <div className="bg-success-50 dark:bg-success-950/30 rounded-lg p-4 border border-success-200 dark:border-success-900/50 flex items-start gap-3">
+              <div className="bg-success-50 rounded-lg p-4 border border-success-200 flex items-start gap-3">
                 <CheckCircle2
                   size={20}
-                  className="text-success-600 dark:text-success-400 flex-shrink-0 mt-0.5"
+                  className="text-success-600 flex-shrink-0 mt-0.5"
                 />
                 <div>
-                  <p className="font-semibold text-success-900 dark:text-success-100">
+                  <p className="font-semibold text-success-900">
                     Workflow completed successfully
                   </p>
                   {execution.completedAt && (
-                    <p className="text-sm text-success-800 dark:text-success-300 mt-1">
+                    <p className="text-sm text-success-800 mt-1">
                       {formatDate(execution.completedAt)}
                     </p>
                   )}
@@ -454,14 +454,14 @@ export const WorkflowRunModal: React.FC<WorkflowRunModalProps> = ({
                     <div className="flex gap-2">
                       <button
                         onClick={handleCopyResults}
-                        className="flex items-center gap-1 px-2 py-1 text-xs text-primary-600 dark:text-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded"
+                        className="flex items-center gap-1 px-2 py-1 text-xs text-primary-600 hover:bg-primary-50:bg-primary-900/20 rounded"
                       >
                         <Copy size={14} />
                         {copied ? "Copied" : "Copy"}
                       </button>
                       <button
                         onClick={handleDownloadResults}
-                        className="flex items-center gap-1 px-2 py-1 text-xs text-primary-600 dark:text-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded"
+                        className="flex items-center gap-1 px-2 py-1 text-xs text-primary-600 hover:bg-primary-50:bg-primary-900/20 rounded"
                       >
                         <Download size={14} />
                         Download
@@ -547,17 +547,17 @@ export const WorkflowRunModal: React.FC<WorkflowRunModalProps> = ({
           {execution.status === "failed" && (
             <div className="p-6 space-y-6">
               {/* Error State */}
-              <div className="bg-danger-50 dark:bg-danger-950/30 rounded-lg p-4 border border-danger-200 dark:border-danger-900/50 flex items-start gap-3">
+              <div className="bg-danger-50 rounded-lg p-4 border border-danger-200 flex items-start gap-3">
                 <AlertCircle
                   size={20}
-                  className="text-danger-600 dark:text-danger-400 flex-shrink-0 mt-0.5"
+                  className="text-danger-600 flex-shrink-0 mt-0.5"
                 />
                 <div>
-                  <p className="font-semibold text-danger-900 dark:text-danger-100">
+                  <p className="font-semibold text-danger-900">
                     Workflow execution failed
                   </p>
                   {execution.error && (
-                    <p className="text-sm text-danger-800 dark:text-danger-300 mt-1 font-mono">
+                    <p className="text-sm text-danger-800 mt-1 font-mono">
                       {execution.error}
                     </p>
                   )}
@@ -658,7 +658,7 @@ export const WorkflowRunModal: React.FC<WorkflowRunModalProps> = ({
                 <>
                   <Link
                     href={`/workflows/runs/${execution.runId}`}
-                    className="px-3 py-2 text-sm text-primary-600 dark:text-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded font-medium"
+                    className="px-3 py-2 text-sm text-primary-600 hover:bg-primary-50:bg-primary-900/20 rounded font-medium"
                   >
                     View Full Details
                   </Link>

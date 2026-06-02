@@ -65,7 +65,7 @@ function MarkdownDoc({ content }: { content: string }) {
         "prose-p:text-foreground-500 prose-p:leading-7",
         "prose-strong:text-foreground prose-li:text-foreground-500",
         // Links
-        "prose-a:text-primary-500 dark:prose-a:text-primary-400 prose-a:no-underline hover:prose-a:underline prose-a:font-normal",
+        "prose-a:text-primary-500:text-primary-400 prose-a:no-underline hover:prose-a:underline prose-a:font-normal",
         // Inline code — suppress typography backtick decoration; styling is in component below
         "prose-code:before:content-none prose-code:after:content-none",
         "prose-pre:bg-transparent prose-pre:p-0 prose-pre:m-0",
@@ -194,7 +194,7 @@ function GitHubCTA() {
           {
             href: `${GITHUB_URL}/stargazers`,
             icon: Star,
-            iconColor: "text-warning-500 dark:text-warning-400",
+            iconColor: "text-warning-500",
             bg: "bg-warning-500/5",
             title: "Star the repo",
             desc: "Show support and help others discover VaultysClaw",
@@ -203,7 +203,7 @@ function GitHubCTA() {
           {
             href: FORK_URL,
             icon: GitFork,
-            iconColor: "text-primary-600 dark:text-primary-400",
+            iconColor: "text-primary-600",
             bg: "bg-primary-500/5",
             title: "Fork & contribute",
             desc: "Build features, fix bugs, improve docs — PRs welcome",
@@ -212,7 +212,7 @@ function GitHubCTA() {
           {
             href: ISSUES_URL,
             icon: MessageSquare,
-            iconColor: "text-secondary-600 dark:text-secondary-400",
+            iconColor: "text-secondary-600",
             bg: "bg-secondary-500/5",
             title: "Give feedback",
             desc: "Bug reports, feature requests, integrations ideas",
@@ -251,14 +251,14 @@ function GitHubCTA() {
 const SPONSOR_TIERS = [
   {
     name: "Bronze",
-    color: "text-warning-700 dark:text-warning-500",
-    bg: "bg-warning-50 dark:bg-warning-500/5",
+    color: "text-warning-700",
+    bg: "bg-warning-50",
     perks: ["Logo in README & About page", "GitHub Sponsors badge"],
   },
   {
     name: "Silver",
-    color: "text-neutral-600 dark:text-neutral-400",
-    bg: "bg-neutral-50 dark:bg-neutral-500/5",
+    color: "text-neutral-600",
+    bg: "bg-neutral-50",
     perks: [
       "Everything in Bronze",
       "Private Discord with core devs",
@@ -267,8 +267,8 @@ const SPONSOR_TIERS = [
   },
   {
     name: "Gold",
-    color: "text-warning-700 dark:text-warning-400",
-    bg: "bg-warning-50 dark:bg-warning-500/5",
+    color: "text-warning-700",
+    bg: "bg-warning-50",
     perks: [
       "Everything in Silver",
       "Roadmap vote",
@@ -278,8 +278,8 @@ const SPONSOR_TIERS = [
   },
   {
     name: "Platinum",
-    color: "text-primary-700 dark:text-primary-400",
-    bg: "bg-primary-50 dark:bg-primary-500/5",
+    color: "text-primary-700",
+    bg: "bg-primary-50",
     perks: [
       "Everything in Gold",
       "Dedicated support SLA",
@@ -291,19 +291,16 @@ const SPONSOR_TIERS = [
 
 function SponsorsCard() {
   return (
-    <div className="rounded-2xl border border-warning-400/40 dark:border-warning-500/30 bg-gradient-to-br from-warning-50 dark:from-warning-500/5 via-background-100 to-background-100 overflow-hidden">
+    <div className="rounded-2xl border border-warning-400/40 bg-gradient-to-br from-warning-50 via-background-100 to-background-100 overflow-hidden">
       {/* Header */}
       <div className="px-6 py-5 border-b border-neutral-200 flex items-start gap-4">
-        <div className="w-10 h-10 rounded-xl bg-warning-100 dark:bg-warning-500/10 border border-warning-300 dark:border-warning-500/30 flex items-center justify-center shrink-0">
-          <Sparkles
-            size={18}
-            className="text-warning-600 dark:text-warning-400"
-          />
+        <div className="w-10 h-10 rounded-xl bg-warning-100 border border-warning-300 flex items-center justify-center shrink-0">
+          <Sparkles size={18} className="text-warning-600" />
         </div>
         <div className="flex-1 min-w-0">
           <h2 className="font-semibold text-foreground text-sm flex items-center gap-2">
             We&apos;re looking for sponsors
-            <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-warning-100 dark:bg-warning-500/15 text-warning-700 dark:text-warning-400 border border-warning-300 dark:border-warning-500/30">
+            <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-warning-100 text-warning-700 border border-warning-300">
               Open
             </span>
           </h2>
@@ -353,7 +350,7 @@ function SponsorsCard() {
         <div className="flex items-center gap-2 shrink-0">
           <a
             href="mailto:sponsor@vaultys.com"
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-background-200 border border-neutral-200 text-foreground-500 hover:text-foreground hover:border-warning-400 dark:hover:border-warning-500/50 transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-background-200 border border-neutral-200 text-foreground-500 hover:text-foreground hover:border-warning-400:border-warning-500/50 transition-colors"
           >
             <Mail size={12} />
             sponsor@vaultys.com
@@ -362,7 +359,7 @@ function SponsorsCard() {
             href="https://github.com/sponsors/vaultys"
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-warning-500 hover:bg-warning-400 dark:hover:bg-warning-600 text-white transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-warning-500 hover:bg-warning-400:bg-warning-600 text-white transition-colors"
           >
             <Sparkles size={12} />
             Become a sponsor
@@ -380,7 +377,7 @@ function VaultysCard() {
     <div className="rounded-2xl border border-neutral-200 bg-background-100 overflow-hidden">
       <div className="px-6 py-5 border-b border-neutral-200">
         <h2 className="font-semibold text-foreground text-sm flex items-center gap-2">
-          <Heart size={15} className="text-primary-500 dark:text-primary-400" />
+          <Heart size={15} className="text-primary-500" />
           Built by Vaultys
         </h2>
       </div>
@@ -392,7 +389,7 @@ function VaultysCard() {
             icon: Globe,
             label: "vaultys.com",
             desc: "Company website",
-            color: "text-primary-500 dark:text-primary-400",
+            color: "text-primary-500",
           },
           {
             href: "https://github.com/vaultys",
@@ -406,14 +403,14 @@ function VaultysCard() {
             icon: Code2,
             label: "Architecture docs",
             desc: "Deep-dive technical docs",
-            color: "text-primary-600 dark:text-primary-400",
+            color: "text-primary-600",
           },
           {
             href: "https://github.com/vaultys/VaultysClaw/blob/main/docs/QUICK_START.md",
             icon: Zap,
             label: "Quick start",
             desc: "Up and running in minutes",
-            color: "text-warning-600 dark:text-warning-400",
+            color: "text-warning-600",
           },
         ].map(({ href, icon: Icon, label, desc, color }) => (
           <a
@@ -445,7 +442,7 @@ function VaultysCard() {
             href="https://github.com/vaultys"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-primary-500 dark:text-primary-400 hover:underline"
+            className="text-primary-500 hover:underline"
           >
             VaultysId
           </a>{" "}
@@ -456,7 +453,7 @@ function VaultysCard() {
             href="https://github.com/vaultys/VaultysClaw/blob/main/docs/SECURITY.md"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-primary-500 dark:text-primary-400 hover:underline"
+            className="text-primary-500 hover:underline"
           >
             Read the security model →
           </a>
@@ -487,17 +484,14 @@ function ZeroTrustPanel() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <Loader2
-          size={24}
-          className="animate-spin text-primary-500 dark:text-primary-400"
-        />
+        <Loader2 size={24} className="animate-spin text-primary-500" />
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="flex items-center gap-2 bg-danger-50 dark:bg-danger-500/10 border border-danger-300 dark:border-danger-500/20 rounded-xl px-4 py-3 text-sm text-danger-700 dark:text-danger-400">
+      <div className="flex items-center gap-2 bg-danger-50 border border-danger-300 rounded-xl px-4 py-3 text-sm text-danger-700">
         <AlertTriangle size={14} className="shrink-0" />
         {error}
       </div>
@@ -544,10 +538,7 @@ export default function AboutPage() {
       {/* Zero-Trust Roadmap */}
       <div className="space-y-3">
         <div className="flex items-center gap-2">
-          <ShieldCheck
-            size={16}
-            className="text-primary-500 dark:text-primary-400"
-          />
+          <ShieldCheck size={16} className="text-primary-500" />
           <h2 className="text-sm font-semibold text-foreground">
             Zero-Trust Compliance Roadmap
           </h2>

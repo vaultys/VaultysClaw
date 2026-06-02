@@ -184,13 +184,13 @@ function DoclingConfigPanel() {
       );
     if (!cfg.enabled)
       return (
-        <span className="inline-flex items-center gap-1.5 text-xs font-medium text-warning-700 dark:text-warning-400 bg-warning-100 dark:bg-warning-900/20 border border-warning-300 dark:border-warning-800 rounded-full px-2.5 py-1">
+        <span className="inline-flex items-center gap-1.5 text-xs font-medium text-warning-700 bg-warning-100 border border-warning-300 rounded-full px-2.5 py-1">
           <span className="w-1.5 h-1.5 rounded-full bg-warning-500" />
           Disabled
         </span>
       );
     return (
-      <span className="inline-flex items-center gap-1.5 text-xs font-medium text-success-700 dark:text-success-400 bg-success-100 dark:bg-success-900/20 border border-success-300 dark:border-success-800 rounded-full px-2.5 py-1">
+      <span className="inline-flex items-center gap-1.5 text-xs font-medium text-success-700 bg-success-100 border border-success-300 rounded-full px-2.5 py-1">
         <span className="w-1.5 h-1.5 rounded-full bg-success-500" />
         Active
       </span>
@@ -200,22 +200,18 @@ function DoclingConfigPanel() {
   return (
     <div
       className={`rounded-xl border bg-background-100 overflow-hidden transition-colors ${
-        cfg.enabled
-          ? "border-primary-300 dark:border-primary-700/60"
-          : "border-neutral-200"
+        cfg.enabled ? "border-primary-300" : "border-neutral-200"
       }`}
     >
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-3">
         <div
           className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
-            cfg.enabled
-              ? "bg-primary-100 dark:bg-primary-600/20"
-              : "bg-neutral-100 dark:bg-neutral-800"
+            cfg.enabled ? "bg-primary-100" : "bg-neutral-100"
           }`}
         >
           <Cpu
-            className={`w-4 h-4 ${cfg.enabled ? "text-primary-600 dark:text-primary-400" : "text-foreground-500"}`}
+            className={`w-4 h-4 ${cfg.enabled ? "text-primary-600" : "text-foreground-500"}`}
           />
         </div>
         <div className="flex-1 min-w-0">
@@ -246,11 +242,7 @@ function DoclingConfigPanel() {
         <div className="px-4 pb-3 flex items-center gap-3 text-xs text-foreground-500 border-t border-neutral-200/40 pt-2">
           <span className="font-mono text-foreground truncate">{cfg.url}</span>
           <span
-            className={
-              cfg.enabled
-                ? "text-success-600 dark:text-success-400"
-                : "text-warning-600 dark:text-warning-400"
-            }
+            className={cfg.enabled ? "text-success-600" : "text-warning-600"}
           >
             {cfg.enabled ? "Enabled" : "Disabled"}
           </span>
@@ -295,8 +287,8 @@ function DoclingConfigPanel() {
               <div
                 className={`flex items-start gap-2 p-2.5 rounded-lg text-xs ${
                   testStatus === "ok"
-                    ? "bg-success-50 dark:bg-success-900/20 border border-success-200 dark:border-success-800 text-success-700 dark:text-success-400"
-                    : "bg-danger-50 dark:bg-danger-900/20 border border-danger-200 dark:border-danger-800 text-danger-700 dark:text-danger-400"
+                    ? "bg-success-50 border border-success-200 text-success-700"
+                    : "bg-danger-50 border border-danger-200 text-danger-700"
                 }`}
               >
                 {testStatus === "ok" ? (
@@ -547,7 +539,7 @@ function StorageConfigPanel() {
   const isS3Active = cfg.storageType === "s3" && cfg.s3.enabled;
 
   const statusPill = isS3Active ? (
-    <span className="inline-flex items-center gap-1.5 text-xs font-medium text-primary-700 dark:text-primary-400 bg-primary-100 dark:bg-primary-900/20 border border-primary-300 dark:border-primary-800 rounded-full px-2.5 py-1">
+    <span className="inline-flex items-center gap-1.5 text-xs font-medium text-primary-700 bg-primary-100 border border-primary-300 rounded-full px-2.5 py-1">
       <span className="w-1.5 h-1.5 rounded-full bg-primary-500" />
       S3 active
     </span>
@@ -569,22 +561,18 @@ function StorageConfigPanel() {
   return (
     <div
       className={`rounded-xl border bg-background-100 overflow-hidden transition-colors ${
-        isS3Active
-          ? "border-primary-300 dark:border-primary-700/60"
-          : "border-neutral-200"
+        isS3Active ? "border-primary-300" : "border-neutral-200"
       }`}
     >
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-3">
         <div
           className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
-            isS3Active
-              ? "bg-primary-100 dark:bg-primary-600/20"
-              : "bg-neutral-100 dark:bg-neutral-800"
+            isS3Active ? "bg-primary-100" : "bg-neutral-100"
           }`}
         >
           <HardDrive
-            className={`w-4 h-4 ${isS3Active ? "text-primary-600 dark:text-primary-400" : "text-foreground-500"}`}
+            className={`w-4 h-4 ${isS3Active ? "text-primary-600" : "text-foreground-500"}`}
           />
         </div>
         <div className="flex-1 min-w-0">
@@ -765,8 +753,8 @@ function StorageConfigPanel() {
                   <div
                     className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs ${
                       testResult.ok
-                        ? "bg-success-50 dark:bg-success-900/20 border border-success-200 dark:border-success-800 text-success-700 dark:text-success-400"
-                        : "bg-danger-50 dark:bg-danger-900/20 border border-danger-200 dark:border-danger-800 text-danger-700 dark:text-danger-400"
+                        ? "bg-success-50 border border-success-200 text-success-700"
+                        : "bg-danger-50 border border-danger-200 text-danger-700"
                     }`}
                   >
                     {testResult.ok ? (
@@ -788,9 +776,9 @@ function StorageConfigPanel() {
                   <p>Run MinIO locally with Docker:</p>
                   <code className="block font-mono text-primary-400 bg-background-200 px-2 py-1 rounded leading-relaxed whitespace-pre">
                     {`docker run -p 9000:9000 -p 9001:9001 \\
-  -e MINIO_ROOT_USER=minioadmin \\
-  -e MINIO_ROOT_PASSWORD=minioadmin \\
-  minio/minio server /data --console-address :9001`}
+ -e MINIO_ROOT_USER=minioadmin \\
+ -e MINIO_ROOT_PASSWORD=minioadmin \\
+ minio/minio server /data --console-address :9001`}
                   </code>
                   <p className="text-foreground-400">
                     Use{" "}
@@ -806,7 +794,7 @@ function StorageConfigPanel() {
 
           {/* Save error */}
           {saveError && (
-            <div className="flex items-center gap-2 p-2.5 rounded-lg bg-danger-50 dark:bg-danger-900/20 border border-danger-200 dark:border-danger-800 text-xs text-danger-700 dark:text-danger-400">
+            <div className="flex items-center gap-2 p-2.5 rounded-lg bg-danger-50 border border-danger-200 text-xs text-danger-700">
               <XCircle size={13} className="shrink-0" /> {saveError}
             </div>
           )}
@@ -839,8 +827,8 @@ function StorageConfigPanel() {
             <div
               className={`flex items-center gap-2 p-2.5 rounded-lg text-xs ${
                 migrateResult.errorCount > 0
-                  ? "bg-warning-50 dark:bg-warning-900/20 border border-warning-200 dark:border-warning-800 text-warning-700 dark:text-warning-400"
-                  : "bg-success-50 dark:bg-success-900/20 border border-success-200 dark:border-success-800 text-success-700 dark:text-success-400"
+                  ? "bg-warning-50 border border-warning-200 text-warning-700"
+                  : "bg-success-50 border border-success-200 text-success-700"
               }`}
             >
               <CheckCircle2 size={13} className="shrink-0" />
@@ -900,22 +888,22 @@ function StatusBadge({ status }: { status: KnowledgeSource["status"] }) {
     idle: {
       icon: <Clock size={12} />,
       label: "Idle",
-      cls: "bg-neutral-100 dark:bg-neutral-800 text-neutral-500 dark:text-neutral-400 border-neutral-300 dark:border-neutral-700",
+      cls: "bg-neutral-100 text-neutral-500 border-neutral-300",
     },
     syncing: {
       icon: <Loader2 size={12} className="animate-spin" />,
       label: "Syncing",
-      cls: "bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-400 border-primary-300 dark:border-primary-800",
+      cls: "bg-primary-100 text-primary-700 border-primary-300",
     },
     ready: {
       icon: <CheckCircle2 size={12} />,
       label: "Ready",
-      cls: "bg-success-100 dark:bg-success-900/40 text-success-700 dark:text-success-400 border-success-300 dark:border-success-800",
+      cls: "bg-success-100 text-success-700 border-success-300",
     },
     error: {
       icon: <XCircle size={12} />,
       label: "Error",
-      cls: "bg-danger-100 dark:bg-danger-900/40 text-danger-700 dark:text-danger-400 border-danger-300 dark:border-danger-800",
+      cls: "bg-danger-100 text-danger-700 border-danger-300",
     },
   };
   const { icon, label, cls } = map[status] ?? map.idle;
@@ -971,7 +959,7 @@ function AgentKnowledgeCard({
               {agent.name}
             </span>
             {agent.online ? (
-              <span className="inline-flex items-center gap-1 text-[10px] font-medium text-success-700 dark:text-success-400 bg-success-100 dark:bg-success-500/10 border border-success-300 dark:border-success-500/20 rounded-full px-1.5 py-0.5">
+              <span className="inline-flex items-center gap-1 text-[10px] font-medium text-success-700 bg-success-100 border border-success-300 rounded-full px-1.5 py-0.5">
                 <span className="w-1.5 h-1.5 bg-success-500 rounded-full animate-pulse" />
                 Online
               </span>
@@ -1010,7 +998,7 @@ function AgentKnowledgeCard({
             </div>
           )}
           {readyCount === sources.length && sources.length > 0 && (
-            <div className="flex items-center gap-1 text-success-600 dark:text-success-400">
+            <div className="flex items-center gap-1 text-success-600">
               <CheckCircle2 size={13} />
               <span>All ready</span>
             </div>
@@ -1208,8 +1196,8 @@ export default function KnowledgeDashboardPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-primary-50 dark:bg-primary-600/20 flex items-center justify-center">
-            <BookOpen className="w-5 h-5 text-primary-700 dark:text-primary-400" />
+          <div className="w-9 h-9 rounded-xl bg-primary-50 flex items-center justify-center">
+            <BookOpen className="w-5 h-5 text-primary-700" />
           </div>
           <div>
             <h1 className="text-lg font-semibold text-foreground">
@@ -1301,16 +1289,16 @@ export default function KnowledgeDashboardPage() {
 
       {/* Error alert */}
       {errorSources > 0 && (
-        <div className="flex items-start gap-3 p-4 rounded-xl bg-danger-50 dark:bg-danger-900/20 border border-danger-200 dark:border-danger-800">
+        <div className="flex items-start gap-3 p-4 rounded-xl bg-danger-50 border border-danger-200">
           <AlertTriangle
             size={16}
             className="text-danger-500 mt-0.5 shrink-0"
           />
           <div>
-            <p className="text-sm font-medium text-danger-700 dark:text-danger-400">
+            <p className="text-sm font-medium text-danger-700">
               {errorSources} source{errorSources > 1 ? "s" : ""} failed to sync
             </p>
-            <p className="text-xs text-danger-600/80 dark:text-danger-400/70 mt-0.5">
+            <p className="text-xs text-danger-600/80 mt-0.5">
               Go to the agent&apos;s Knowledge tab to retry or inspect the
               error.
             </p>

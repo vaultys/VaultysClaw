@@ -110,7 +110,7 @@ function ModelStep({
           {added.map((n) => (
             <span
               key={n}
-              className="flex items-center gap-1 text-xs bg-success-100 dark:bg-success-900/40 border border-success-300 dark:border-success-700 text-success-700 dark:text-success-400 px-2 py-0.5 rounded-full"
+              className="flex items-center gap-1 text-xs bg-success-100 border border-success-300 text-success-700 px-2 py-0.5 rounded-full"
             >
               <Check className="w-3 h-3" />
               {n}
@@ -166,11 +166,7 @@ function ModelStep({
           </div>
         </div>
 
-        {error && (
-          <p className="text-xs text-danger-500 dark:text-danger-400">
-            {error}
-          </p>
-        )}
+        {error && <p className="text-xs text-danger-500">{error}</p>}
 
         <div className="flex items-center justify-between pt-1">
           <button
@@ -331,8 +327,8 @@ function EmailStep({
         <p
           className={`text-xs px-3 py-2 rounded-xl border ${
             msg.type === "ok"
-              ? "bg-success-50 dark:bg-success-900/20 border-success-300 dark:border-success-700/40 text-success-700 dark:text-success-400"
-              : "bg-danger-50 dark:bg-danger-900/20 border-danger-300 dark:border-danger-700/40 text-danger-600 dark:text-danger-400"
+              ? "bg-success-50 border-success-300 text-success-700"
+              : "bg-danger-50 border-danger-300 text-danger-600"
           }`}
         >
           {msg.text}
@@ -463,7 +459,7 @@ function UsersStep({
           {phase === "idle" && (
             <div className="text-center py-4 space-y-3">
               {addedCount > 0 && (
-                <p className="text-sm text-success-600 dark:text-success-400">
+                <p className="text-sm text-success-600">
                   ✓ {addedCount} user{addedCount > 1 ? "s" : ""} invited
                 </p>
               )}
@@ -503,8 +499,8 @@ function UsersStep({
 
           {phase === "success" && (
             <div className="flex flex-col items-center gap-3 py-3 text-center">
-              <div className="w-11 h-11 rounded-full bg-success-100 dark:bg-success-900/40 border border-success-300 dark:border-success-700 flex items-center justify-center">
-                <Check className="w-5 h-5 text-success-600 dark:text-success-400" />
+              <div className="w-11 h-11 rounded-full bg-success-100 border border-success-300 flex items-center justify-center">
+                <Check className="w-5 h-5 text-success-600" />
               </div>
               <p className="text-foreground font-medium text-sm">
                 {addedCount} user{addedCount > 1 ? "s" : ""} registered!
@@ -531,7 +527,7 @@ function UsersStep({
 
           {phase === "failure" && (
             <div className="flex flex-col items-center gap-3 py-3 text-center">
-              <p className="text-danger-500 dark:text-danger-400 text-sm">
+              <p className="text-danger-500 text-sm">
                 Invitation timed out or failed.
               </p>
               <button
@@ -664,8 +660,8 @@ function DoneStep({
 }) {
   return (
     <div className="flex flex-col items-center gap-5 py-2 text-center">
-      <div className="w-14 h-14 rounded-full bg-primary-100 dark:bg-primary-900/40 border border-primary-300 dark:border-primary-700 flex items-center justify-center">
-        <Check className="w-7 h-7 text-primary-600 dark:text-primary-400" />
+      <div className="w-14 h-14 rounded-full bg-primary-100 border border-primary-300 flex items-center justify-center">
+        <Check className="w-7 h-7 text-primary-600" />
       </div>
       <div>
         <h3 className="text-base font-bold text-foreground">
@@ -684,14 +680,14 @@ function DoneStep({
               key={id}
               className={`flex items-center gap-3 px-3 py-2 rounded-xl border text-sm ${
                 done
-                  ? "bg-success-50 dark:bg-success-900/20 border-success-200 dark:border-success-700/40 text-success-700 dark:text-success-400"
+                  ? "bg-success-50 border-success-200 text-success-700"
                   : "bg-background-200 border-neutral-200 text-foreground-500"
               }`}
             >
               <Icon className="w-4 h-4 shrink-0" />
               <span className="flex-1">{label}</span>
               {done ? (
-                <Check className="w-4 h-4 shrink-0 text-success-600 dark:text-success-400" />
+                <Check className="w-4 h-4 shrink-0 text-success-600" />
               ) : (
                 <span className="text-xs opacity-60">skipped</span>
               )}
@@ -748,7 +744,7 @@ function ProgressBar({
                 <span
                   className={`text-[10px] font-medium whitespace-nowrap ${
                     isActive
-                      ? "text-primary-500 dark:text-primary-400"
+                      ? "text-primary-500"
                       : isPast
                         ? "text-foreground-500"
                         : "text-foreground-400"

@@ -120,7 +120,7 @@ export default function UserGrantsPanel({ userDid }: UserGrantsPanelProps) {
                   {g.capabilities.map((c) => (
                     <span
                       key={c}
-                      className="px-1.5 py-0.5 bg-primary-100 dark:bg-primary-900/50 text-primary-600 dark:text-primary-300 rounded text-xs"
+                      className="px-1.5 py-0.5 bg-primary-100 text-primary-600 rounded text-xs"
                     >
                       {c}
                     </span>
@@ -135,7 +135,7 @@ export default function UserGrantsPanel({ userDid }: UserGrantsPanelProps) {
               <button
                 onClick={() => handleRevoke(g.id)}
                 disabled={revoking === g.id}
-                className="shrink-0 text-xs text-danger-600 dark:text-danger-400 hover:text-danger-300 disabled:opacity-50 transition-colors"
+                className="shrink-0 text-xs text-danger-600 hover:text-danger-300 disabled:opacity-50 transition-colors"
               >
                 {revoking === g.id ? "…" : "Revoke"}
               </button>

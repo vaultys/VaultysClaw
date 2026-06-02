@@ -128,16 +128,16 @@ function LandingPage() {
       {/* Hero */}
       <section className="relative border-b border-neutral-200/60 overflow-hidden">
         {/* Aurora background */}
-        <div className="absolute inset-0 bg-gradient-to-b from-primary-50/80 via-background to-background dark:from-primary-950/40 dark:via-background dark:to-background pointer-events-none" />
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[900px] h-[500px] bg-primary-400/10 dark:bg-primary-600/15 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute top-24 left-1/3 w-[320px] h-[320px] bg-secondary-400/10 dark:bg-secondary-500/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute top-16 right-1/3 w-[220px] h-[220px] bg-primary-400/10 dark:bg-primary-500/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute inset-0 bg-gradient-to-b from-primary-50/80 via-background to-background pointer-events-none" />
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[900px] h-[500px] bg-primary-400/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute top-24 left-1/3 w-[320px] h-[320px] bg-secondary-400/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute top-16 right-1/3 w-[220px] h-[220px] bg-primary-400/10 rounded-full blur-3xl pointer-events-none" />
         <div className="mesh-overlay absolute inset-0 opacity-40 pointer-events-none" />
 
         <div className="relative z-10 max-w-4xl mx-auto px-6 pt-20 pb-20 text-center">
           {/* Badge */}
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-primary-100 dark:bg-primary-900/40 border border-primary-200 dark:border-primary-700/50 rounded-full text-primary-600 dark:text-primary-300 text-xs font-medium mb-6 animate-fade-in-up">
-            <span className="w-1.5 h-1.5 bg-primary-500 dark:bg-primary-400 rounded-full animate-pulse" />
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-primary-100 border border-primary-200 rounded-full text-primary-600 text-xs font-medium mb-6 animate-fade-in-up">
+            <span className="w-1.5 h-1.5 bg-primary-500 rounded-full animate-pulse" />
             Powered by VaultysID · Decentralized · Trustless
           </div>
 
@@ -147,7 +147,7 @@ function LandingPage() {
             style={{ animationDelay: "100ms" }}
           >
             Sovereign AI Agent{" "}
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary-600 via-secondary-600 to-primary-600 dark:from-primary-400 dark:via-secondary-400 dark:to-primary-400 animate-gradient-shift">
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary-600 via-secondary-600 to-primary-600 animate-gradient-shift">
               Orchestration
             </span>
           </h1>
@@ -226,11 +226,11 @@ function LandingPage() {
           {LANDING_FEATURES.map(({ icon: Icon, title, description }, i) => (
             <div
               key={title}
-              className="flex gap-4 bg-background-100 border border-neutral-200 rounded-2xl p-6 hover:border-primary-300 dark:hover:border-primary-700 hover:shadow-lg hover:shadow-primary-500/10 hover:-translate-y-1 transition-all duration-300 group animate-fade-in-up"
+              className="flex gap-4 bg-background-100 border border-neutral-200 rounded-2xl p-6 hover:border-primary-300:border-primary-700 hover:shadow-lg hover:shadow-primary-500/10 hover:-translate-y-1 transition-all duration-300 group animate-fade-in-up"
               style={{ animationDelay: `${200 + i * 100}ms` }}
             >
-              <div className="w-10 h-10 bg-primary-100 dark:bg-primary-900/40 border border-primary-200 dark:border-primary-700/50 rounded-xl flex items-center justify-center shrink-0 group-hover:scale-110 group-hover:bg-primary-200 dark:group-hover:bg-primary-800/60 transition-all duration-300">
-                <Icon className="w-5 h-5 text-primary-600 dark:text-primary-400" />
+              <div className="w-10 h-10 bg-primary-100 border border-primary-200 rounded-xl flex items-center justify-center shrink-0 group-hover:scale-110 group-hover:bg-primary-200:bg-primary-800/60 transition-all duration-300">
+                <Icon className="w-5 h-5 text-primary-600" />
               </div>
               <div>
                 <h3 className="font-semibold text-foreground mb-1.5">
@@ -247,7 +247,7 @@ function LandingPage() {
 
       {/* CTA */}
       <section className="max-w-2xl mx-auto px-6 py-16 text-center">
-        <div className="bg-primary-50 dark:bg-primary-950/40 border border-primary-200 dark:border-primary-800/60 rounded-3xl p-10 animate-fade-in-up">
+        <div className="bg-primary-50 border border-primary-200 rounded-3xl p-10 animate-fade-in-up">
           <h2 className="text-2xl font-bold mb-3 text-foreground">
             Ready to take control?
           </h2>
@@ -523,8 +523,8 @@ function Dashboard() {
         <span
           className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full border ${
             wsConnected
-              ? "bg-success-100 dark:bg-success-900/40 border-success-300 dark:border-success-700/50 text-success-700 dark:text-success-400"
-              : "bg-warning-100 dark:bg-warning-900/40 border-warning-300 dark:border-warning-700/50 text-warning-700 dark:text-warning-400"
+              ? "bg-success-100 border-success-300 text-success-700"
+              : "bg-warning-100 border-warning-300 text-warning-700"
           }`}
         >
           {wsConnected ? (
@@ -538,7 +538,7 @@ function Dashboard() {
 
       {/* Alerts */}
       {!wsConnected && (
-        <div className="flex items-center gap-2 bg-warning-50 dark:bg-warning-900/30 border border-warning-300 dark:border-warning-700/50 rounded-lg px-4 py-3 text-warning-700 dark:text-warning-300 text-sm">
+        <div className="flex items-center gap-2 bg-warning-50 border border-warning-300 rounded-lg px-4 py-3 text-warning-700 text-sm">
           <WifiOff className="w-4 h-4 shrink-0" />
           WebSocket connection is being restored. Some metrics may be stale.
         </div>
@@ -547,7 +547,7 @@ function Dashboard() {
       {isGlobalAdmin && pendingRegs.length > 0 && (
         <button
           onClick={() => router.push("/registrations")}
-          className="w-full flex items-center justify-between gap-3 bg-gradient-to-r from-warning-50 to-warning-50 dark:from-warning-900/20 dark:to-warning-900/20 border border-warning-300 dark:border-warning-700/50 rounded-lg px-4 py-3 text-warning-700 dark:text-warning-300 text-sm hover:bg-warning-100/50 dark:hover:bg-warning-900/30 transition-colors group"
+          className="w-full flex items-center justify-between gap-3 bg-gradient-to-r from-warning-50 to-warning-50 border border-warning-300 rounded-lg px-4 py-3 text-warning-700 text-sm hover:bg-warning-100/50:bg-warning-900/30 transition-colors group"
         >
           <div className="flex items-center gap-2">
             <Clock className="w-4 h-4 shrink-0" />
@@ -562,21 +562,21 @@ function Dashboard() {
 
       {/* Expired policies alert — global admin only */}
       {isGlobalAdmin && expiredPolicies.length > 0 && (
-        <div className="bg-danger-50 dark:bg-danger-900/20 border border-danger-300 dark:border-danger-700/50 rounded-lg overflow-hidden">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-danger-200 dark:border-danger-700/40">
-            <span className="flex items-center gap-2 text-danger-700 dark:text-danger-400 text-sm font-medium">
+        <div className="bg-danger-50 border border-danger-300 rounded-lg overflow-hidden">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-danger-200">
+            <span className="flex items-center gap-2 text-danger-700 text-sm font-medium">
               <ShieldAlert className="w-4 h-4 shrink-0" />
               {expiredPolicies.length} expired polic
               {expiredPolicies.length === 1 ? "y" : "ies"} — agents are locked
             </span>
             <button
               onClick={() => router.push("/governance")}
-              className="text-xs text-danger-600 dark:text-danger-400 hover:underline flex items-center gap-1"
+              className="text-xs text-danger-600 hover:underline flex items-center gap-1"
             >
               View all <ChevronRight className="w-3 h-3" />
             </button>
           </div>
-          <div className="divide-y divide-danger-200/60 dark:divide-danger-700/20">
+          <div className="divide-y divide-danger-200/60">
             {expiredPolicies.slice(0, 5).map((p) => {
               const agentName = agents.find((a) => a.id === p.agentDid)?.name;
               const expiredAgo = p.expiresAt
@@ -605,13 +605,13 @@ function Dashboard() {
                 >
                   <div className="flex items-center gap-3 min-w-0">
                     <div className="min-w-0">
-                      <p className="text-xs font-medium text-danger-800 dark:text-danger-300 truncate">
+                      <p className="text-xs font-medium text-danger-800 truncate">
                         {agentName ??
                           (p.agentDid
                             ? `${p.agentDid.slice(0, 24)}…`
                             : "Global")}
                       </p>
-                      <p className="text-[11px] text-danger-600/70 dark:text-danger-400/60">
+                      <p className="text-[11px] text-danger-600/70">
                         Expired {expiredAgo} · {p.capabilities.length} cap
                         {p.capabilities.length !== 1 ? "s" : ""}
                       </p>
@@ -619,7 +619,7 @@ function Dashboard() {
                   </div>
                   <button
                     onClick={() => openRenewFromDashboard(p)}
-                    className="flex-shrink-0 flex items-center gap-1 text-xs font-medium text-danger-700 dark:text-danger-400 hover:text-primary-600 dark:hover:text-primary-400 border border-danger-300 dark:border-danger-500/30 hover:border-primary-400 dark:hover:border-primary-500/50 px-2.5 py-1 rounded-md transition-colors"
+                    className="flex-shrink-0 flex items-center gap-1 text-xs font-medium text-danger-700 hover:text-primary-600:text-primary-400 border border-danger-300 hover:border-primary-400:border-primary-500/50 px-2.5 py-1 rounded-md transition-colors"
                   >
                     <RotateCcw className="w-3 h-3" /> Renew
                   </button>
@@ -627,7 +627,7 @@ function Dashboard() {
               );
             })}
             {expiredPolicies.length > 5 && (
-              <p className="px-4 py-2 text-xs text-danger-600/70 dark:text-danger-400/60">
+              <p className="px-4 py-2 text-xs text-danger-600/70">
                 +{expiredPolicies.length - 5} more —{" "}
                 <button
                   onClick={() => router.push("/governance")}
@@ -668,7 +668,7 @@ function Dashboard() {
                   {renewingPolicy.capabilities.join(", ")}
                 </p>
                 {renewingPolicy.expiresAt && (
-                  <p className="text-xs text-danger-500 dark:text-danger-400">
+                  <p className="text-xs text-danger-500">
                     Expired{" "}
                     {new Date(
                       renewingPolicy.expiresAt.endsWith("Z")
@@ -698,7 +698,7 @@ function Dashboard() {
                         key={days}
                         type="button"
                         onClick={() => setRenewExpiry(val)}
-                        className="text-[11px] px-2 py-0.5 rounded-md border border-neutral-200 text-foreground-500 hover:text-primary-600 dark:hover:text-primary-400 hover:border-primary-400 transition-colors"
+                        className="text-[11px] px-2 py-0.5 rounded-md border border-neutral-200 text-foreground-500 hover:text-primary-600:text-primary-400 hover:border-primary-400 transition-colors"
                       >
                         +{days}d
                       </button>
@@ -734,7 +734,7 @@ function Dashboard() {
       {total === 0 && (
         <button
           onClick={() => router.push("/agents")}
-          className="w-full flex items-center justify-between gap-3 bg-gradient-to-r from-primary-50 to-primary-50 dark:from-primary-900/20 dark:to-primary-900/20 border border-primary-300 dark:border-primary-700/50 rounded-lg px-4 py-3 text-primary-700 dark:text-primary-300 text-sm hover:bg-primary-100/50 dark:hover:bg-primary-900/30 transition-colors group"
+          className="w-full flex items-center justify-between gap-3 bg-gradient-to-r from-primary-50 to-primary-50 border border-primary-300 rounded-lg px-4 py-3 text-primary-700 text-sm hover:bg-primary-100/50:bg-primary-900/30 transition-colors group"
         >
           <div className="flex items-center gap-2">
             <Bot className="w-4 h-4 shrink-0" />
@@ -748,13 +748,13 @@ function Dashboard() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <button
           onClick={() => router.push("/agents")}
-          className="relative bg-background-100 rounded-lg border border-neutral-200 p-5 text-left hover:border-primary-400 dark:hover:border-primary-600 transition-all duration-300 group overflow-hidden"
+          className="relative bg-background-100 rounded-lg border border-neutral-200 p-5 text-left hover:border-primary-400:border-primary-600 transition-all duration-300 group overflow-hidden"
         >
           <div className="absolute inset-0 bg-gradient-to-br from-primary-500/5 to-primary-600/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
           <div className="relative z-10">
             <div className="flex items-center gap-2 mb-3">
-              <div className="w-8 h-8 bg-gradient-to-br from-primary-100 to-primary-200 dark:from-primary-900/40 dark:to-primary-800/40 rounded-lg flex items-center justify-center">
-                <Bot className="w-4 h-4 text-primary-600 dark:text-primary-400" />
+              <div className="w-8 h-8 bg-gradient-to-br from-primary-100 to-primary-200 rounded-lg flex items-center justify-center">
+                <Bot className="w-4 h-4 text-primary-600" />
               </div>
               <p className="text-foreground-500 text-xs font-semibold uppercase tracking-widest">
                 Agents
@@ -770,19 +770,19 @@ function Dashboard() {
 
         <button
           onClick={() => router.push("/agents")}
-          className="relative bg-background-100 rounded-lg border border-neutral-200 p-5 text-left hover:border-success-400 dark:hover:border-success-600 transition-all duration-300 group overflow-hidden"
+          className="relative bg-background-100 rounded-lg border border-neutral-200 p-5 text-left hover:border-success-400:border-success-600 transition-all duration-300 group overflow-hidden"
         >
           <div className="absolute inset-0 bg-gradient-to-br from-success-500/5 to-success-600/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
           <div className="relative z-10">
             <div className="flex items-center gap-2 mb-3">
-              <div className="w-8 h-8 bg-gradient-to-br from-success-100 to-success-200 dark:from-success-900/40 dark:to-success-800/40 rounded-lg flex items-center justify-center">
-                <CircleDot className="w-4 h-4 text-success-600 dark:text-success-400" />
+              <div className="w-8 h-8 bg-gradient-to-br from-success-100 to-success-200 rounded-lg flex items-center justify-center">
+                <CircleDot className="w-4 h-4 text-success-600" />
               </div>
               <p className="text-foreground-500 text-xs font-semibold uppercase tracking-widest">
                 Status
               </p>
             </div>
-            <p className="text-4xl font-bold text-success-600 dark:text-success-400 mb-1">
+            <p className="text-4xl font-bold text-success-600 mb-1">
               {onlineCount}/{total}
             </p>
             <p className="text-xs text-foreground-400">
@@ -793,19 +793,19 @@ function Dashboard() {
 
         <button
           onClick={() => router.push("/inbox")}
-          className="relative bg-background-100 rounded-lg border border-neutral-200 p-5 text-left hover:border-warning-400 dark:hover:border-warning-600 transition-all duration-300 group overflow-hidden"
+          className="relative bg-background-100 rounded-lg border border-neutral-200 p-5 text-left hover:border-warning-400:border-warning-600 transition-all duration-300 group overflow-hidden"
         >
           <div className="absolute inset-0 bg-gradient-to-br from-warning-500/5 to-warning-600/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
           <div className="relative z-10">
             <div className="flex items-center gap-2 mb-3">
-              <div className="w-8 h-8 bg-gradient-to-br from-warning-100 to-warning-200 dark:from-warning-900/40 dark:to-warning-800/40 rounded-lg flex items-center justify-center">
-                <Inbox className="w-4 h-4 text-warning-600 dark:text-warning-400" />
+              <div className="w-8 h-8 bg-gradient-to-br from-warning-100 to-warning-200 rounded-lg flex items-center justify-center">
+                <Inbox className="w-4 h-4 text-warning-600" />
               </div>
               <p className="text-foreground-500 text-xs font-semibold uppercase tracking-widest">
                 Approvals
               </p>
             </div>
-            <p className="text-4xl font-bold text-warning-600 dark:text-warning-400 mb-1">
+            <p className="text-4xl font-bold text-warning-600 mb-1">
               {pendingApprovals.length}
             </p>
             <p className="text-xs text-foreground-400">
@@ -818,14 +818,14 @@ function Dashboard() {
           <div className="relative bg-background-100 rounded-lg border border-neutral-200 p-5 overflow-hidden">
             <div className="relative z-10">
               <div className="flex items-center gap-2 mb-3">
-                <div className="w-8 h-8 bg-gradient-to-br from-danger-100 to-danger-200 dark:from-danger-900/40 dark:to-danger-800/40 rounded-lg flex items-center justify-center">
-                  <DollarSign className="w-4 h-4 text-danger-600 dark:text-danger-400" />
+                <div className="w-8 h-8 bg-gradient-to-br from-danger-100 to-danger-200 rounded-lg flex items-center justify-center">
+                  <DollarSign className="w-4 h-4 text-danger-600" />
                 </div>
                 <p className="text-foreground-500 text-xs font-semibold uppercase tracking-widest">
                   Today
                 </p>
               </div>
-              <p className="text-4xl font-bold text-danger-600 dark:text-danger-400 mb-1">
+              <p className="text-4xl font-bold text-danger-600 mb-1">
                 ${tokenMetrics.dailyPrice.toFixed(2)}
               </p>
               <p className="text-xs text-foreground-400">
@@ -839,10 +839,10 @@ function Dashboard() {
       {/* Token metrics */}
       {isGlobalAdmin && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="bg-background-100 rounded-lg border border-neutral-200 p-5 hover:border-primary-400 dark:hover:border-primary-600 transition-colors">
+          <div className="bg-background-100 rounded-lg border border-neutral-200 p-5 hover:border-primary-400:border-primary-600 transition-colors">
             <div className="flex items-center gap-2 mb-4">
-              <div className="w-8 h-8 bg-gradient-to-br from-primary-100 to-primary-200 dark:from-primary-900/40 dark:to-primary-800/40 rounded-lg flex items-center justify-center">
-                <TrendingUp className="w-4 h-4 text-primary-600 dark:text-primary-400" />
+              <div className="w-8 h-8 bg-gradient-to-br from-primary-100 to-primary-200 rounded-lg flex items-center justify-center">
+                <TrendingUp className="w-4 h-4 text-primary-600" />
               </div>
               <h3 className="text-sm font-semibold text-foreground">
                 Daily Usage
@@ -890,7 +890,7 @@ function Dashboard() {
                   <span className="text-xs font-medium text-foreground-500">
                     Avg per agent
                   </span>
-                  <span className="text-xs font-semibold text-primary-600 dark:text-primary-400">
+                  <span className="text-xs font-semibold text-primary-600">
                     ${avgCostPerAgent}
                   </span>
                 </div>
@@ -898,10 +898,10 @@ function Dashboard() {
             </div>
           </div>
 
-          <div className="bg-background-100 rounded-lg border border-neutral-200 p-5 hover:border-secondary-400 dark:hover:border-secondary-600 transition-colors">
+          <div className="bg-background-100 rounded-lg border border-neutral-200 p-5 hover:border-secondary-400:border-secondary-600 transition-colors">
             <div className="flex items-center gap-2 mb-4">
-              <div className="w-8 h-8 bg-gradient-to-br from-secondary-100 to-secondary-200 dark:from-secondary-900/40 dark:to-secondary-800/40 rounded-lg flex items-center justify-center">
-                <TrendingUp className="w-4 h-4 text-secondary-600 dark:text-secondary-400" />
+              <div className="w-8 h-8 bg-gradient-to-br from-secondary-100 to-secondary-200 rounded-lg flex items-center justify-center">
+                <TrendingUp className="w-4 h-4 text-secondary-600" />
               </div>
               <h3 className="text-sm font-semibold text-foreground">
                 Monthly Usage
@@ -949,7 +949,7 @@ function Dashboard() {
                   <span className="text-xs font-medium text-foreground-500">
                     Total this month
                   </span>
-                  <span className="text-xs font-semibold text-secondary-600 dark:text-secondary-400">
+                  <span className="text-xs font-semibold text-secondary-600">
                     {totalTokensMonthly.toLocaleString()}
                   </span>
                 </div>
@@ -959,7 +959,7 @@ function Dashboard() {
                   <span className="text-xs font-medium text-foreground-500">
                     Projected (end of month)
                   </span>
-                  <span className="text-xs font-semibold text-secondary-500 dark:text-secondary-300">
+                  <span className="text-xs font-semibold text-secondary-500">
                     {projectedMonthlyTokens.toLocaleString()}
                   </span>
                 </div>
@@ -971,18 +971,18 @@ function Dashboard() {
 
       {/* ── Setup banner ──────────────────────────────────────────────────── */}
       {setupBanner && (
-        <div className="flex items-center justify-between gap-4 bg-gradient-to-r from-primary-50 to-secondary-50 dark:from-primary-950/60 dark:to-secondary-950/40 border border-primary-200 dark:border-primary-700/50 rounded-xl px-4 py-3.5">
+        <div className="flex items-center justify-between gap-4 bg-gradient-to-r from-primary-50 to-secondary-50 border border-primary-200 rounded-xl px-4 py-3.5">
           <div className="flex items-center gap-3 min-w-0">
             <div className="w-9 h-9 bg-primary-600 rounded-xl flex items-center justify-center shrink-0 shadow shadow-primary-600/30">
               <Shield className="w-4.5 h-4.5 text-white" />
             </div>
             <div className="min-w-0">
-              <p className="text-sm font-semibold text-primary-700 dark:text-primary-300">
+              <p className="text-sm font-semibold text-primary-700">
                 {setupBanner.completedCount > 0
                   ? `Setup in progress — ${setupBanner.completedCount} of 4 steps done`
                   : "Finish setting up VaultysClaw"}
               </p>
-              <p className="text-xs text-primary-600/60 dark:text-primary-400/60 truncate">
+              <p className="text-xs text-primary-600/60 truncate">
                 {setupBanner.completedCount > 0
                   ? "Pick up where you left off — models, email, users and agents."
                   : "Configure LLM models, email, users, and your first agent."}
@@ -1000,7 +1000,7 @@ function Dashboard() {
             <button
               onClick={dismissSetupBanner}
               title="Dismiss permanently"
-              className="p-1.5 text-primary-400 hover:text-primary-700 dark:hover:text-primary-200 rounded-lg hover:bg-primary-100 dark:hover:bg-primary-900/40 transition-colors"
+              className="p-1.5 text-primary-400 hover:text-primary-700:text-primary-200 rounded-lg hover:bg-primary-100:bg-primary-900/40 transition-colors"
             >
               <X className="w-4 h-4" />
             </button>
@@ -1012,21 +1012,21 @@ function Dashboard() {
       <div className="grid lg:grid-cols-2 gap-6">
         {/* Pending approvals */}
         <div className="bg-background-100 rounded-xl border border-neutral-200 overflow-hidden">
-          <div className="px-5 py-4 border-b border-neutral-200 flex items-center justify-between bg-gradient-to-r from-warning-50/50 to-warning-50/50 dark:from-warning-900/10 dark:to-warning-900/10">
+          <div className="px-5 py-4 border-b border-neutral-200 flex items-center justify-between bg-gradient-to-r from-warning-50/50 to-warning-50/50">
             <div className="flex items-center gap-2">
-              <Inbox className="w-4 h-4 text-warning-600 dark:text-warning-400" />
+              <Inbox className="w-4 h-4 text-warning-600" />
               <h2 className="text-sm font-semibold text-foreground">
                 Pending Approvals
               </h2>
               {pendingApprovals.length > 0 && (
-                <span className="inline-flex items-center justify-center w-5 h-5 text-xs font-semibold text-warning-700 dark:text-warning-300 bg-warning-100 dark:bg-warning-900/40 rounded-full">
+                <span className="inline-flex items-center justify-center w-5 h-5 text-xs font-semibold text-warning-700 bg-warning-100 rounded-full">
                   {pendingApprovals.length}
                 </span>
               )}
             </div>
             <button
               onClick={() => router.push("/inbox")}
-              className="text-xs text-warning-600 dark:text-warning-400 hover:underline font-medium"
+              className="text-xs text-warning-600 hover:underline font-medium"
             >
               View all
             </button>
@@ -1034,7 +1034,7 @@ function Dashboard() {
 
           {pendingApprovals.length === 0 ? (
             <div className="px-5 py-10 text-center">
-              <CheckCircle className="w-8 h-8 text-success-700 dark:text-success-400 mx-auto mb-2 opacity-50" />
+              <CheckCircle className="w-8 h-8 text-success-700 mx-auto mb-2 opacity-50" />
               <p className="text-foreground-500 text-sm">
                 No pending approvals
               </p>
@@ -1104,14 +1104,14 @@ function Dashboard() {
 
         {/* Recent notifications */}
         <div className="bg-background-100 rounded-xl border border-neutral-200 overflow-hidden">
-          <div className="px-5 py-4 border-b border-neutral-200 flex items-center justify-between bg-gradient-to-r from-primary-50/50 to-primary-50/50 dark:from-primary-900/10 dark:to-primary-900/10">
+          <div className="px-5 py-4 border-b border-neutral-200 flex items-center justify-between bg-gradient-to-r from-primary-50/50 to-primary-50/50">
             <div className="flex items-center gap-2">
               <Bell className="w-4 h-4 text-primary-500" />
               <h2 className="text-sm font-semibold text-foreground">
                 Notifications
               </h2>
               {notifications.length > 0 && (
-                <span className="inline-flex items-center justify-center w-5 h-5 text-xs font-semibold text-primary-700 dark:text-primary-300 bg-primary-100 dark:bg-primary-900/40 rounded-full">
+                <span className="inline-flex items-center justify-center w-5 h-5 text-xs font-semibold text-primary-700 bg-primary-100 rounded-full">
                   {notifications.length}
                 </span>
               )}

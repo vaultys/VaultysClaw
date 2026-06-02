@@ -106,19 +106,19 @@ export default function InvitePage() {
   }, [token]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-50/70 via-background to-secondary-50/40 dark:from-neutral-950 dark:via-primary-950 dark:to-neutral-950 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-50/70 via-background to-secondary-50/40 p-4">
       {/* Ambient blobs */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[700px] h-[450px] bg-primary-200/40 dark:bg-primary-600/10 rounded-full blur-3xl" />
-        <div className="absolute bottom-0 right-0 w-[400px] h-[400px] bg-secondary-200/30 dark:bg-secondary-600/8 rounded-full blur-3xl" />
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[700px] h-[450px] bg-primary-200/40 rounded-full blur-3xl" />
+        <div className="absolute bottom-0 right-0 w-[400px] h-[400px] bg-secondary-200/30 rounded-full blur-3xl" />
       </div>
 
       <div className="relative w-full max-w-md">
         {/* Loading */}
         {phase === "loading" && (
           <div className="text-center space-y-4">
-            <div className="w-12 h-12 rounded-full bg-primary-100 dark:bg-primary-500/20 border border-primary-200 dark:border-primary-400/30 flex items-center justify-center mx-auto">
-              <Loader2 className="w-6 h-6 text-primary-600 dark:text-primary-400 animate-spin" />
+            <div className="w-12 h-12 rounded-full bg-primary-100 border border-primary-200 flex items-center justify-center mx-auto">
+              <Loader2 className="w-6 h-6 text-primary-600 animate-spin" />
             </div>
             <p className="text-foreground-500">Loading invitation…</p>
           </div>
@@ -127,8 +127,8 @@ export default function InvitePage() {
         {/* Expired */}
         {phase === "expired" && (
           <div className="bg-background-100 border border-neutral-200 rounded-2xl p-6 shadow-sm text-center space-y-4">
-            <div className="w-12 h-12 rounded-full bg-danger-100 dark:bg-danger-500/20 border border-danger-200 dark:border-danger-400/30 flex items-center justify-center mx-auto">
-              <AlertCircle className="w-6 h-6 text-danger-600 dark:text-danger-400" />
+            <div className="w-12 h-12 rounded-full bg-danger-100 border border-danger-200 flex items-center justify-center mx-auto">
+              <AlertCircle className="w-6 h-6 text-danger-600" />
             </div>
             <div>
               <h2 className="text-lg font-bold text-foreground">
@@ -145,8 +145,8 @@ export default function InvitePage() {
         {/* Error */}
         {phase === "error" && (
           <div className="bg-background-100 border border-neutral-200 rounded-2xl p-6 shadow-sm text-center space-y-4">
-            <div className="w-12 h-12 rounded-full bg-danger-100 dark:bg-danger-500/20 border border-danger-200 dark:border-danger-400/30 flex items-center justify-center mx-auto">
-              <AlertCircle className="w-6 h-6 text-danger-600 dark:text-danger-400" />
+            <div className="w-12 h-12 rounded-full bg-danger-100 border border-danger-200 flex items-center justify-center mx-auto">
+              <AlertCircle className="w-6 h-6 text-danger-600" />
             </div>
             <div>
               <h2 className="text-lg font-bold text-foreground">Error</h2>
@@ -212,8 +212,8 @@ export default function InvitePage() {
         {/* QR Loading */}
         {phase === "qr-loading" && (
           <div className="bg-background-100 border border-neutral-200 rounded-2xl p-8 shadow-sm text-center space-y-4">
-            <div className="w-12 h-12 rounded-full bg-primary-100 dark:bg-primary-500/20 border border-primary-200 dark:border-primary-400/30 flex items-center justify-center mx-auto">
-              <Loader2 className="w-6 h-6 text-primary-600 dark:text-primary-400 animate-spin" />
+            <div className="w-12 h-12 rounded-full bg-primary-100 border border-primary-200 flex items-center justify-center mx-auto">
+              <Loader2 className="w-6 h-6 text-primary-600 animate-spin" />
             </div>
             <p className="text-foreground-500">Generating QR code…</p>
           </div>
@@ -239,8 +239,8 @@ export default function InvitePage() {
         {/* Success */}
         {phase === "success" && (
           <div className="bg-background-100 border border-neutral-200 rounded-2xl p-8 shadow-sm text-center space-y-4">
-            <div className="w-12 h-12 rounded-full bg-success-100 dark:bg-success-500/15 border border-success-300 dark:border-success-500/30 flex items-center justify-center mx-auto">
-              <Check className="w-6 h-6 text-success-600 dark:text-success-400" />
+            <div className="w-12 h-12 rounded-full bg-success-100 border border-success-300 flex items-center justify-center mx-auto">
+              <Check className="w-6 h-6 text-success-600" />
             </div>
             <div>
               <h2 className="text-lg font-bold text-foreground">

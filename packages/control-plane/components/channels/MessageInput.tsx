@@ -240,7 +240,7 @@ export default function MessageInput({
   return (
     <div className="border-t border-neutral-200 bg-background-100 px-6 py-4">
       {error && (
-        <div className="mb-2 px-3 py-2 bg-danger-50 dark:bg-danger-900/20 border border-danger-200 dark:border-danger-800 text-danger-700 dark:text-danger-400 text-sm rounded-lg">
+        <div className="mb-2 px-3 py-2 bg-danger-50 border border-danger-200 text-danger-700 text-sm rounded-lg">
           {error}
         </div>
       )}
@@ -257,8 +257,8 @@ export default function MessageInput({
               const badgeClass = isSelected
                 ? "bg-white/20 text-white"
                 : s.type === "agent"
-                  ? "bg-secondary-100 dark:bg-secondary-900/40 text-secondary-700 dark:text-secondary-400"
-                  : "bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-400";
+                  ? "bg-secondary-100 text-secondary-700"
+                  : "bg-primary-100 text-primary-700";
               return (
                 <button
                   key={s.did}

@@ -354,19 +354,19 @@ function SmtpSection() {
                 Test connection
               </button>
               {status === "saved" && (
-                <span className="text-xs text-success-700 dark:text-success-400 flex items-center gap-1">
+                <span className="text-xs text-success-700 flex items-center gap-1">
                   <Check className="w-3 h-3" />
                   Saved
                 </span>
               )}
               {status === "ok" && (
-                <span className="text-xs text-success-700 dark:text-success-400 flex items-center gap-1">
+                <span className="text-xs text-success-700 flex items-center gap-1">
                   <CheckCircle className="w-3 h-3" />
                   {statusMsg}
                 </span>
               )}
               {(status === "error" || status === "fail") && (
-                <span className="text-xs text-danger-600 dark:text-danger-400 flex items-center gap-1">
+                <span className="text-xs text-danger-600 flex items-center gap-1">
                   <AlertCircle className="w-3 h-3" />
                   {statusMsg}
                 </span>
@@ -470,13 +470,13 @@ function ServerSettingsSection() {
                 Save
               </button>
               {status === "saved" && (
-                <span className="text-xs text-success-700 dark:text-success-400 flex items-center gap-1">
+                <span className="text-xs text-success-700 flex items-center gap-1">
                   <Check className="w-3 h-3" />
                   Saved
                 </span>
               )}
               {status === "error" && (
-                <span className="text-xs text-danger-600 dark:text-danger-400 flex items-center gap-1">
+                <span className="text-xs text-danger-600 flex items-center gap-1">
                   <AlertCircle className="w-3 h-3" />
                   {statusMsg}
                 </span>
@@ -492,10 +492,10 @@ function ServerSettingsSection() {
 // ─── Entra Setup Guide ───────────────────────────────────────────────────────
 
 const PILL =
-  "font-mono text-xs bg-primary-100 dark:bg-primary-950/60 border border-primary-300 dark:border-primary-700/60 text-primary-700 dark:text-primary-300 px-1.5 py-0.5 rounded";
-const BOLD = "font-semibold text-foreground dark:text-foreground";
+  "font-mono text-xs bg-primary-100 border border-primary-300 text-primary-700 px-1.5 py-0.5 rounded";
+const BOLD = "font-semibold text-foreground";
 const LINK =
-  "text-primary-600 dark:text-primary-400 hover:text-primary-500 dark:hover:text-primary-300 inline-flex items-center gap-0.5 underline underline-offset-2";
+  "text-primary-600 hover:text-primary-500:text-primary-300 inline-flex items-center gap-0.5 underline underline-offset-2";
 
 const STEPS = [
   {
@@ -557,7 +557,7 @@ const STEPS = [
         <strong className={BOLD}>Add a permission</strong> →{" "}
         <strong className={BOLD}>Microsoft Graph</strong>. In the panel that
         opens, choose <strong className={BOLD}>Application permissions</strong>{" "}
-        <span className="inline-flex items-center gap-1 text-xs font-semibold bg-danger-100 dark:bg-danger-900/40 text-danger-700 dark:text-danger-300 border border-danger-300 dark:border-danger-700/60 rounded px-1.5 py-0.5">
+        <span className="inline-flex items-center gap-1 text-xs font-semibold bg-danger-100 text-danger-700 border border-danger-300 rounded px-1.5 py-0.5">
           ⚠ not Delegated
         </span>
         , then search for and add:
@@ -571,15 +571,13 @@ const STEPS = [
           ].map(({ perm, why }) => (
             <li key={perm} className="flex items-start gap-2">
               <span className={cn(PILL, "shrink-0 mt-0.5")}>{perm}</span>
-              <span className="text-neutral-500 dark:text-foreground-400">
-                — {why}
-              </span>
+              <span className="text-neutral-500">— {why}</span>
             </li>
           ))}
         </ul>
-        <div className="mt-3 flex items-start gap-2 bg-warning-50 dark:bg-warning-900/20 border border-warning-300 dark:border-warning-700/50 rounded-lg px-3 py-2">
-          <AlertCircle className="w-4 h-4 text-warning-600 dark:text-warning-400 shrink-0 mt-0.5" />
-          <span className="text-xs text-warning-800 dark:text-warning-300 leading-relaxed">
+        <div className="mt-3 flex items-start gap-2 bg-warning-50 border border-warning-300 rounded-lg px-3 py-2">
+          <AlertCircle className="w-4 h-4 text-warning-600 shrink-0 mt-0.5" />
+          <span className="text-xs text-warning-800 leading-relaxed">
             After adding both permissions you <strong>must</strong> click{" "}
             <strong>Grant admin consent for [your organisation]</strong> at the
             top of the permissions list, then confirm. Without this step the app
@@ -594,33 +592,33 @@ const STEPS = [
 function EntraSetupGuide() {
   const [open, setOpen] = useState(false);
   return (
-    <div className="rounded-lg border border-primary-200 dark:border-primary-800/40 bg-primary-50 dark:bg-primary-950/30 overflow-hidden">
+    <div className="rounded-lg border border-primary-200 bg-primary-50 overflow-hidden">
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="w-full flex items-center gap-2 px-4 py-3 text-left hover:bg-primary-100/70 dark:hover:bg-primary-950/50 transition"
+        className="w-full flex items-center gap-2 px-4 py-3 text-left hover:bg-primary-100/70:bg-primary-950/50 transition"
       >
-        <BookOpen className="w-4 h-4 text-primary-500 dark:text-primary-400 shrink-0" />
-        <span className="text-sm font-medium text-primary-700 dark:text-primary-300 flex-1">
+        <BookOpen className="w-4 h-4 text-primary-500 shrink-0" />
+        <span className="text-sm font-medium text-primary-700 flex-1">
           How to get these credentials from the Azure portal
         </span>
         <ChevronDown
           className={cn(
-            "w-4 h-4 text-primary-500 dark:text-primary-400 transition-transform duration-200",
+            "w-4 h-4 text-primary-500 transition-transform duration-200",
             open && "rotate-180"
           )}
         />
       </button>
 
       {open && (
-        <div className="px-4 pb-5 pt-2 space-y-4 border-t border-primary-200 dark:border-primary-800/40">
+        <div className="px-4 pb-5 pt-2 space-y-4 border-t border-primary-200">
           {STEPS.map((step) => (
             <div key={step.number} className="flex gap-3">
-              <span className="w-6 h-6 rounded-full bg-primary-200 dark:bg-primary-600/30 border border-primary-400 dark:border-primary-600/50 text-primary-700 dark:text-primary-300 text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">
+              <span className="w-6 h-6 rounded-full bg-primary-200 border border-primary-400 text-primary-700 text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">
                 {step.number}
               </span>
-              <div className="text-sm text-neutral-600 dark:text-foreground-500 leading-relaxed">
-                <span className="font-semibold text-neutral-800 dark:text-foreground-700">
+              <div className="text-sm text-neutral-600 leading-relaxed">
+                <span className="font-semibold text-neutral-800">
                   {step.title} —{" "}
                 </span>
                 {step.body}
@@ -628,9 +626,9 @@ function EntraSetupGuide() {
             </div>
           ))}
 
-          <div className="flex items-start gap-2 pt-3 border-t border-primary-200 dark:border-primary-800/30">
-            <AlertCircle className="w-4 h-4 text-warning-500 dark:text-warning-400 shrink-0 mt-0.5" />
-            <p className="text-xs text-warning-700 dark:text-warning-300/80 leading-relaxed">
+          <div className="flex items-start gap-2 pt-3 border-t border-primary-200">
+            <AlertCircle className="w-4 h-4 text-warning-500 shrink-0 mt-0.5" />
+            <p className="text-xs text-warning-700 leading-relaxed">
               The client secret value is only visible immediately after
               creation. Store it securely — if lost you will need to create a
               new one.
@@ -641,7 +639,7 @@ function EntraSetupGuide() {
             href="https://learn.microsoft.com/en-us/entra/identity-platform/quickstart-register-app"
             target="_blank"
             rel="noreferrer"
-            className="inline-flex items-center gap-1.5 text-xs text-primary-600 dark:text-primary-400 hover:text-primary-500 dark:hover:text-primary-300 transition"
+            className="inline-flex items-center gap-1.5 text-xs text-primary-600 hover:text-primary-500:text-primary-300 transition"
           >
             <ExternalLink className="w-3 h-3" />
             Full Microsoft documentation
@@ -962,13 +960,13 @@ function EntraSection() {
                   </button>
                 )}
                 {configStatus === "saved" && (
-                  <span className="text-xs text-success-700 dark:text-success-400 flex items-center gap-1">
+                  <span className="text-xs text-success-700 flex items-center gap-1">
                     <Check className="w-3 h-3" />
                     Saved
                   </span>
                 )}
                 {configStatus === "error" && (
-                  <span className="text-xs text-danger-600 dark:text-danger-400 flex items-center gap-1">
+                  <span className="text-xs text-danger-600 flex items-center gap-1">
                     <AlertCircle className="w-3 h-3" />
                     Save failed
                   </span>
@@ -1017,15 +1015,15 @@ function EntraSection() {
                           className={cn(
                             "text-sm font-medium",
                             check.status === "ok"
-                              ? "text-success-700 dark:text-success-400"
-                              : "text-danger-700 dark:text-danger-400"
+                              ? "text-success-700"
+                              : "text-danger-700"
                           )}
                         >
                           {check.label}
                         </span>
                       </div>
                       {check.status === "fail" && check.hint && (
-                        <p className="text-xs text-neutral-600 dark:text-foreground-500 pl-6 leading-relaxed">
+                        <p className="text-xs text-neutral-600 pl-6 leading-relaxed">
                           {check.hint}
                         </p>
                       )}
@@ -1073,7 +1071,7 @@ function EntraSection() {
                     </div>
                   )}
                   {groupsError && (
-                    <div className="bg-danger-50 dark:bg-danger-950/40 border border-danger-300 dark:border-danger-700 rounded-lg px-4 py-3 text-sm text-danger-600 dark:text-danger-300 flex items-start gap-2">
+                    <div className="bg-danger-50 border border-danger-300 rounded-lg px-4 py-3 text-sm text-danger-600 flex items-start gap-2">
                       <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
                       {groupsError}
                     </div>
@@ -1086,7 +1084,7 @@ function EntraSection() {
                           className={cn(
                             "flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition",
                             selectedGroups.has(g.id)
-                              ? "bg-primary-100 dark:bg-primary-600/15 border-primary-300 dark:border-primary-600/50"
+                              ? "bg-primary-100 border-primary-300"
                               : "bg-background-200 border-neutral-300 hover:border-foreground-500"
                           )}
                         >
@@ -1138,7 +1136,7 @@ function EntraSection() {
                         className={cn(
                           "flex-1 py-2.5 rounded-xl border text-sm font-medium transition",
                           mapGroups === v
-                            ? "bg-primary-50 dark:bg-primary-600/20 border-primary-300 dark:border-primary-600/60 text-primary-700 dark:text-primary-300"
+                            ? "bg-primary-50 border-primary-300 text-primary-700"
                             : "bg-background-200 border-neutral-300 text-foreground-500 hover:border-foreground-500"
                         )}
                       >
@@ -1182,7 +1180,7 @@ function EntraSection() {
                               ))}
                             </select>
                             {selected === "__create__" && (
-                              <span className="text-[10px] font-medium bg-success-100 dark:bg-success-900/40 text-success-700 dark:text-success-400 border border-success-300 dark:border-success-700/50 rounded px-1.5 py-0.5 shrink-0 whitespace-nowrap">
+                              <span className="text-[10px] font-medium bg-success-100 text-success-700 border border-success-300 rounded px-1.5 py-0.5 shrink-0 whitespace-nowrap">
                                 new: {g?.displayName ?? gid}
                               </span>
                             )}
@@ -1239,7 +1237,7 @@ function EntraSection() {
                                   key={gid}
                                   className="flex items-center gap-2"
                                 >
-                                  <span className="text-[10px] font-medium bg-success-100 dark:bg-success-900/40 text-success-700 dark:text-success-400 border border-success-300 dark:border-success-700/50 rounded px-1.5 py-0.5">
+                                  <span className="text-[10px] font-medium bg-success-100 text-success-700 border border-success-300 rounded px-1.5 py-0.5">
                                     {g?.displayName ?? gid}
                                   </span>
                                 </div>
@@ -1265,7 +1263,7 @@ function EntraSection() {
               {/* Step: syncing */}
               {wizardStep === "syncing" && (
                 <div className="flex flex-col items-center gap-4 py-8">
-                  <Loader2 className="w-8 h-8 text-primary-700 dark:text-primary-400 animate-spin" />
+                  <Loader2 className="w-8 h-8 text-primary-700 animate-spin" />
                   <p className="text-sm text-foreground-500">
                     Syncing users from Entra…
                   </p>
@@ -1276,7 +1274,7 @@ function EntraSection() {
               {wizardStep === "done" && syncResult && (
                 <div className="space-y-4">
                   <div className="flex items-center gap-3">
-                    <CheckCircle className="w-6 h-6 text-success-700 dark:text-success-400 shrink-0" />
+                    <CheckCircle className="w-6 h-6 text-success-700 shrink-0" />
                     <p className="text-sm font-medium text-foreground">
                       Sync complete
                     </p>
@@ -1286,12 +1284,12 @@ function EntraSection() {
                       {
                         label: "Created",
                         value: syncResult.created,
-                        color: "text-success-700 dark:text-success-400",
+                        color: "text-success-700",
                       },
                       {
                         label: "Updated",
                         value: syncResult.updated,
-                        color: "text-primary-700 dark:text-primary-400",
+                        color: "text-primary-700",
                       },
                       {
                         label: "Skipped",
@@ -1313,12 +1311,9 @@ function EntraSection() {
                     ))}
                   </div>
                   {syncResult.errors.length > 0 && (
-                    <div className="bg-danger-50 dark:bg-danger-950/40 border border-danger-300 dark:border-danger-700 rounded-lg p-3 space-y-1 max-h-36 overflow-y-auto">
+                    <div className="bg-danger-50 border border-danger-300 rounded-lg p-3 space-y-1 max-h-36 overflow-y-auto">
                       {syncResult.errors.map((e, i) => (
-                        <p
-                          key={i}
-                          className="text-xs text-danger-600 dark:text-danger-300"
-                        >
+                        <p key={i} className="text-xs text-danger-600">
                           {e}
                         </p>
                       ))}
@@ -1625,13 +1620,13 @@ function ApiKeysSection() {
     <div className="space-y-4">
       {/* One-time key banner */}
       {createdKey && (
-        <div className="bg-success-50 dark:bg-success-900/30 border border-success-300 dark:border-success-700 rounded-xl p-4">
+        <div className="bg-success-50 border border-success-300 rounded-xl p-4">
           <div className="flex items-start justify-between gap-4">
             <div className="flex-1 min-w-0">
-              <p className="text-success-800 dark:text-success-200 text-sm font-semibold mb-1">
+              <p className="text-success-800 text-sm font-semibold mb-1">
                 API key created — copy it now, it won&apos;t be shown again.
               </p>
-              <code className="block bg-white/50 dark:bg-black/30 rounded px-3 py-2 text-sm font-mono text-success-900 dark:text-success-100 break-all border border-success-200 dark:border-success-700">
+              <code className="block bg-white/50 rounded px-3 py-2 text-sm font-mono text-success-900 break-all border border-success-200">
                 {createdKey}
               </code>
             </div>
@@ -1649,7 +1644,7 @@ function ApiKeysSection() {
               </button>
               <button
                 onClick={() => setCreatedKey(null)}
-                className="p-1.5 rounded-lg text-success-700 dark:text-success-300 hover:bg-success-100 dark:hover:bg-success-800/40 transition"
+                className="p-1.5 rounded-lg text-success-700 hover:bg-success-100:bg-success-800/40 transition"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -1715,7 +1710,7 @@ function ApiKeysSection() {
                         <span className="flex items-center gap-1">
                           {realm?.name ?? k.realmId}
                           {k.isRealmAdmin && (
-                            <span className="text-[10px] bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-300 px-1.5 rounded">
+                            <span className="text-[10px] bg-primary-100 text-primary-700 px-1.5 rounded">
                               admin
                             </span>
                           )}
@@ -1744,8 +1739,8 @@ function ApiKeysSection() {
                         className={cn(
                           "px-2 py-0.5 rounded-full text-[11px] font-medium",
                           k.isActive
-                            ? "bg-success-100 dark:bg-success-900/40 text-success-700 dark:text-success-300"
-                            : "bg-neutral-100 dark:bg-neutral-700 text-neutral-500"
+                            ? "bg-success-100 text-success-700"
+                            : "bg-neutral-100 text-neutral-500"
                         )}
                       >
                         {k.isActive ? "Active" : "Revoked"}
@@ -1779,7 +1774,7 @@ function ApiKeysSection() {
                           ) : (
                             <button
                               onClick={() => setConfirmRevokeId(k.id)}
-                              className="p-1.5 rounded text-foreground-500 hover:text-danger-500 hover:bg-danger-50 dark:hover:bg-danger-900/20 transition"
+                              className="p-1.5 rounded text-foreground-500 hover:text-danger-500 hover:bg-danger-50:bg-danger-900/20 transition"
                             >
                               <Trash2 className="w-4 h-4" />
                             </button>
@@ -2024,7 +2019,7 @@ function ApiKeysSection() {
               </div>
 
               {formError && (
-                <p className="text-danger-500 text-xs bg-danger-50 dark:bg-danger-900/20 rounded-lg px-3 py-2">
+                <p className="text-danger-500 text-xs bg-danger-50 rounded-lg px-3 py-2">
                   {formError}
                 </p>
               )}
@@ -2118,7 +2113,7 @@ export default function ServerPage() {
   return (
     <div className="p-6 w-full max-w-7xl mx-auto space-y-6">
       {error && (
-        <div className="bg-danger-50 dark:bg-danger-900/40 border border-danger-300 dark:border-danger-700 rounded-xl px-4 py-3 text-danger-600 dark:text-danger-300 text-sm">
+        <div className="bg-danger-50 border border-danger-300 rounded-xl px-4 py-3 text-danger-600 text-sm">
           {error}
         </div>
       )}
@@ -2159,7 +2154,7 @@ export default function ServerPage() {
                 <div className="text-foreground-500 text-xs uppercase tracking-wider mb-1">
                   Online Now
                 </div>
-                <div className="text-3xl font-bold text-success-700 dark:text-success-400">
+                <div className="text-3xl font-bold text-success-700">
                   {data.stats.onlineAgents}
                 </div>
               </div>

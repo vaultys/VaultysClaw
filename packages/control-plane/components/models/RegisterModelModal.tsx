@@ -152,11 +152,7 @@ export function RegisterModelModal({
               placeholder="Leave empty if not required"
             />
           </div>
-          {error && (
-            <p className="text-danger-600 dark:text-danger-400 text-sm">
-              {error}
-            </p>
-          )}
+          {error && <p className="text-danger-600 text-sm">{error}</p>}
           <div className="flex gap-2 pt-1">
             <button
               type="button"

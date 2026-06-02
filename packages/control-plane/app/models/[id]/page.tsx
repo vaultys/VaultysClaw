@@ -81,7 +81,7 @@ function ComingSoonOverlay({
             {description}
           </p>
         </div>
-        <span className="text-[10px] font-semibold px-2.5 py-1 rounded-full bg-warning-100 dark:bg-warning-900/40 text-warning-700 dark:text-warning-400 border border-warning-300 dark:border-warning-800 uppercase tracking-wide">
+        <span className="text-[10px] font-semibold px-2.5 py-1 rounded-full bg-warning-100 text-warning-700 border border-warning-300 uppercase tracking-wide">
           Coming soon
         </span>
       </div>
@@ -171,7 +171,7 @@ function OverviewTab({
               <button
                 onClick={handleSave}
                 disabled={saving}
-                className="flex items-center gap-1 text-xs text-primary-700 dark:text-primary-400 hover:text-primary-300"
+                className="flex items-center gap-1 text-xs text-primary-700 hover:text-primary-300"
               >
                 <Check className="w-3.5 h-3.5" /> {saving ? "Saving…" : "Save"}
               </button>
@@ -292,7 +292,7 @@ function OverviewTab({
           </p>
         ) : validateResult.ok ? (
           <div className="space-y-2">
-            <div className="flex items-center gap-2 text-success-600 dark:text-success-400 text-sm">
+            <div className="flex items-center gap-2 text-success-600 text-sm">
               <CheckCircle2 className="w-4 h-4" />
               Endpoint reachable
             </div>
@@ -315,7 +315,7 @@ function OverviewTab({
             )}
           </div>
         ) : (
-          <div className="flex items-center gap-2 text-danger-600 dark:text-danger-400 text-sm">
+          <div className="flex items-center gap-2 text-danger-600 text-sm">
             <XCircle className="w-4 h-4" />
             {validateResult.error ?? "Endpoint unreachable"}
           </div>
@@ -465,7 +465,7 @@ function DeploymentTab() {
           ))}
         </div>
         <div className="flex items-center gap-2">
-          <div className="flex-1 h-9 rounded-xl bg-primary-100 dark:bg-primary-600/30 border border-primary-300 dark:border-primary-800 flex items-center justify-center text-sm text-primary-400 dark:text-primary-300 font-medium">
+          <div className="flex-1 h-9 rounded-xl bg-primary-100 border border-primary-300 flex items-center justify-center text-sm text-primary-400 font-medium">
             Deploy to Kubernetes
           </div>
         </div>
@@ -519,7 +519,7 @@ function TrainingTab() {
           <span>Estimated cost: ~$4.20 on g5.2xlarge</span>
           <span>Est. time: ~45 min</span>
         </div>
-        <div className="h-9 rounded-xl bg-primary-100 dark:bg-primary-600/30 border border-primary-300 dark:border-primary-800 flex items-center justify-center text-sm text-primary-400 dark:text-primary-300 font-medium">
+        <div className="h-9 rounded-xl bg-primary-100 border border-primary-300 flex items-center justify-center text-sm text-primary-400 font-medium">
           Start Fine-Tuning
         </div>
       </div>
@@ -574,8 +574,8 @@ export default function ModelDetailPage() {
           <ArrowLeft className="w-5 h-5" />
         </button>
         <div className="flex items-center gap-3 flex-1 min-w-0">
-          <div className="w-8 h-8 rounded-lg bg-primary-50 dark:bg-primary-600/20 flex items-center justify-center shrink-0">
-            <Cpu className="w-4 h-4 text-primary-700 dark:text-primary-400" />
+          <div className="w-8 h-8 rounded-lg bg-primary-50 flex items-center justify-center shrink-0">
+            <Cpu className="w-4 h-4 text-primary-700" />
           </div>
           <div className="min-w-0">
             <h1 className="text-base font-semibold text-foreground truncate">
@@ -589,11 +589,11 @@ export default function ModelDetailPage() {
           </div>
           <div className="ml-auto flex items-center gap-2 shrink-0">
             {model.status === "active" ? (
-              <span className="flex items-center gap-1 text-success-600 dark:text-success-400 text-xs font-medium">
+              <span className="flex items-center gap-1 text-success-600 text-xs font-medium">
                 <CheckCircle2 className="w-3.5 h-3.5" /> Active
               </span>
             ) : (
-              <span className="flex items-center gap-1 text-neutral-500 dark:text-neutral-500 text-xs font-medium">
+              <span className="flex items-center gap-1 text-neutral-500 text-xs font-medium">
                 <XCircle className="w-3.5 h-3.5" /> Inactive
               </span>
             )}
@@ -621,14 +621,14 @@ export default function ModelDetailPage() {
               onClick={() => setTab(tabId)}
               className={`flex items-center gap-1.5 px-3 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px ${
                 tab === tabId
-                  ? "border-primary-500 text-primary-700 dark:text-primary-400"
+                  ? "border-primary-500 text-primary-700"
                   : "border-transparent text-foreground-500 hover:text-foreground"
               }`}
             >
               <Icon className="w-3.5 h-3.5" />
               {label}
               {comingSoon && (
-                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-warning-100 dark:bg-warning-900/40 text-warning-700 dark:text-warning-500 border border-warning-300 dark:border-warning-800 uppercase tracking-wide leading-none">
+                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-warning-100 text-warning-700 border border-warning-300 uppercase tracking-wide leading-none">
                   Soon
                 </span>
               )}

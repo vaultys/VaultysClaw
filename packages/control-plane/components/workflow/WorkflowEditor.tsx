@@ -350,12 +350,12 @@ export const WorkflowEditor: React.FC<WorkflowEditorProps> = ({
 
         {/* Status message */}
         {saveStatus === "success" && (
-          <div className="text-xs text-success-600 dark:text-success-400 font-medium">
+          <div className="text-xs text-success-600 font-medium">
             ✓ Workflow saved
           </div>
         )}
         {saveStatus === "error" && (
-          <div className="text-xs text-danger-600 dark:text-danger-400 font-medium">
+          <div className="text-xs text-danger-600 font-medium">
             ✗ Failed to save workflow
           </div>
         )}

@@ -197,7 +197,7 @@ function StatCard({
     ok: "text-success-500",
     warn: "text-warning-500",
     danger: "text-danger-500",
-    neutral: "text-primary-700 dark:text-primary-400",
+    neutral: "text-primary-700",
   }[tone ?? "neutral"];
 
   return (
@@ -220,11 +220,11 @@ function CapPill({ cap, risky }: { cap: string; risky?: boolean }) {
   return (
     <span
       className={`inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded border font-normal
-        ${
-          risky
-            ? "bg-danger-50 dark:bg-danger-500/10 text-danger-600 dark:text-danger-400 border-danger-200 dark:border-danger-500/30"
-            : "bg-background-200 text-foreground-400 border-neutral-200"
-        }`}
+ ${
+   risky
+     ? "bg-danger-50 text-danger-600 border-danger-200"
+     : "bg-background-200 text-foreground-400 border-neutral-200"
+ }`}
     >
       {CAPABILITY_ICONS[cap] ?? <Zap size={11} />}
       {cap.replace(/_/g, " ")}
@@ -317,13 +317,13 @@ function OverviewTab({
       {/* Posture banner */}
       <div
         className={`flex items-center gap-3 rounded-xl border p-4
-        ${
-          posture === "ok"
-            ? "bg-success-50 dark:bg-success-500/10 border-success-500/30 text-success-700 dark:text-success-400"
-            : posture === "warn"
-              ? "bg-warning-50 dark:bg-warning-500/10 border-warning-200 dark:border-warning-500/30 text-warning-700 dark:text-warning-400"
-              : "bg-danger-50 dark:bg-danger-500/10 border-danger-200 dark:border-danger-500/30 text-danger-600 dark:text-danger-400"
-        }`}
+ ${
+   posture === "ok"
+     ? "bg-success-50 border-success-500/30 text-success-700"
+     : posture === "warn"
+       ? "bg-warning-50 border-warning-200 text-warning-700"
+       : "bg-danger-50 border-danger-200 text-danger-600"
+ }`}
       >
         <PostureIcon className="w-5 h-5 shrink-0" />
         <div>
@@ -399,19 +399,19 @@ function OverviewTab({
       {/* Budget alerts */}
       {(budgets.agentsOverDailyBudget > 0 ||
         budgets.agentsOverMonthlyBudget > 0) && (
-        <div className="bg-danger-50 dark:bg-danger-500/10 border border-danger-200 dark:border-danger-500/30 rounded-xl p-4 space-y-1">
-          <p className="text-danger-600 dark:text-danger-400 font-semibold text-sm flex items-center gap-2">
+        <div className="bg-danger-50 border border-danger-200 rounded-xl p-4 space-y-1">
+          <p className="text-danger-600 font-semibold text-sm flex items-center gap-2">
             <Gauge className="w-4 h-4" /> Budget violations
           </p>
           {budgets.agentsOverDailyBudget > 0 && (
-            <p className="text-xs text-danger-700 dark:text-danger-300">
+            <p className="text-xs text-danger-700">
               {budgets.agentsOverDailyBudget} agent
               {budgets.agentsOverDailyBudget !== 1 ? "s" : ""} exceeded daily
               token budget
             </p>
           )}
           {budgets.agentsOverMonthlyBudget > 0 && (
-            <p className="text-xs text-danger-700 dark:text-danger-300">
+            <p className="text-xs text-danger-700">
               {budgets.agentsOverMonthlyBudget} agent
               {budgets.agentsOverMonthlyBudget !== 1 ? "s" : ""} exceeded
               monthly token budget
@@ -425,8 +425,8 @@ function OverviewTab({
         <div className="bg-background-100 border border-neutral-200 rounded-xl overflow-hidden">
           <div className="px-4 py-3 border-b border-neutral-200">
             <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4 text-warning-700 dark:text-warning-400" />{" "}
-              High-risk agents
+              <AlertTriangle className="w-4 h-4 text-warning-700" /> High-risk
+              agents
             </h3>
           </div>
           <table className="w-full text-sm">
@@ -610,7 +610,7 @@ function RenewPolicyModal({
                 <span className="text-xs text-foreground-400">
                   Original expiry
                 </span>
-                <span className="text-xs text-warning-600 dark:text-warning-400">
+                <span className="text-xs text-warning-600">
                   {new Date(
                     policy.expiresAt.endsWith("Z")
                       ? policy.expiresAt
@@ -638,7 +638,7 @@ function RenewPolicyModal({
                   key={d}
                   type="button"
                   onClick={() => setNewExpiry(daysFromNow(d))}
-                  className="text-[11px] px-2 py-0.5 rounded-md border border-neutral-200 text-foreground-500 hover:text-primary-600 dark:hover:text-primary-400 hover:border-primary-400 dark:hover:border-primary-500 transition-colors"
+                  className="text-[11px] px-2 py-0.5 rounded-md border border-neutral-200 text-foreground-500 hover:text-primary-600:text-primary-400 hover:border-primary-400:border-primary-500 transition-colors"
                 >
                   +{d}d
                 </button>
@@ -659,11 +659,7 @@ function RenewPolicyModal({
             </span>
           </label>
 
-          {error && (
-            <p className="text-xs text-danger-500 dark:text-danger-400">
-              {error}
-            </p>
-          )}
+          {error && <p className="text-xs text-danger-500">{error}</p>}
         </div>
 
         {/* Footer */}
@@ -879,8 +875,7 @@ function PoliciesTab() {
       <div className="bg-background-100 border border-neutral-200 rounded-xl overflow-hidden">
         <div className="px-4 py-3 border-b border-neutral-200">
           <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
-            <Plus className="w-4 h-4 text-primary-700 dark:text-primary-400" />{" "}
-            New policy
+            <Plus className="w-4 h-4 text-primary-700" /> New policy
           </h3>
         </div>
         <div className="p-4 space-y-4">
@@ -1103,9 +1098,9 @@ function PoliciesTab() {
 
       {/* Uncovered agents */}
       {agents.filter((a) => !coveredDids.has(a.id)).length > 0 && (
-        <div className="bg-warning-50 dark:bg-warning-500/10 border border-warning-200 dark:border-warning-500/30 rounded-xl overflow-hidden">
+        <div className="bg-warning-50 border border-warning-200 rounded-xl overflow-hidden">
           <div className="px-4 py-3 border-b border-warning-500/20">
-            <h3 className="text-sm font-semibold text-warning-700 dark:text-warning-400 flex items-center gap-2">
+            <h3 className="text-sm font-semibold text-warning-700 flex items-center gap-2">
               <ShieldOff className="w-4 h-4" /> Locked agents — no active policy
             </h3>
           </div>
@@ -1150,8 +1145,8 @@ function PoliciesTab() {
       <div className="bg-background-100 border border-neutral-200 rounded-xl overflow-hidden">
         <div className="px-4 py-3 border-b border-neutral-200">
           <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
-            <Gauge className="w-4 h-4 text-primary-700 dark:text-primary-400" />{" "}
-            Token budgets per agent
+            <Gauge className="w-4 h-4 text-primary-700" /> Token budgets per
+            agent
           </h3>
         </div>
         {budgets.length === 0 ? (
@@ -1309,11 +1304,11 @@ function AuditTab() {
 
   const sourceBadge = (source: "activity" | "intent") =>
     source === "activity" ? (
-      <span className="text-[10px] px-1.5 py-0.5 rounded font-medium border bg-primary-100 dark:bg-primary-500/15 text-primary-700 dark:text-primary-400 border-primary-300 dark:border-primary-500/25">
+      <span className="text-[10px] px-1.5 py-0.5 rounded font-medium border bg-primary-100 text-primary-700 border-primary-300">
         activity
       </span>
     ) : (
-      <span className="text-[10px] px-1.5 py-0.5 rounded font-medium border bg-secondary-100 dark:bg-secondary-500/15 text-secondary-700 dark:text-secondary-400 border-secondary-300 dark:border-secondary-500/25">
+      <span className="text-[10px] px-1.5 py-0.5 rounded font-medium border bg-secondary-100 text-secondary-700 border-secondary-300">
         intent
       </span>
     );
@@ -1322,18 +1317,18 @@ function AuditTab() {
     if (!status) return null;
     if (status === "success")
       return (
-        <span className="flex items-center gap-1 text-success-700 dark:text-success-400 text-xs">
+        <span className="flex items-center gap-1 text-success-700 text-xs">
           <CheckCircle2 size={11} /> success
         </span>
       );
     if (status === "failed")
       return (
-        <span className="flex items-center gap-1 text-danger-600 dark:text-danger-400 text-xs">
+        <span className="flex items-center gap-1 text-danger-600 text-xs">
           <XCircle size={11} /> failed
         </span>
       );
     return (
-      <span className="flex items-center gap-1 text-warning-600 dark:text-warning-400 text-xs">
+      <span className="flex items-center gap-1 text-warning-600 text-xs">
         <Clock size={11} /> {status}
       </span>
     );
@@ -1558,11 +1553,11 @@ export default function GovernancePage() {
             key={t.id}
             onClick={() => setTab(t.id)}
             className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium border-b-2 transition-colors -mb-px
-              ${
-                tab === t.id
-                  ? "border-primary-500 text-primary-700 dark:text-primary-400"
-                  : "border-transparent text-foreground-500 hover:text-foreground"
-              }`}
+ ${
+   tab === t.id
+     ? "border-primary-500 text-primary-700"
+     : "border-transparent text-foreground-500 hover:text-foreground"
+ }`}
           >
             {t.icon}
             {t.label}

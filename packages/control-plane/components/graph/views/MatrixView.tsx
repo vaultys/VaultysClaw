@@ -279,7 +279,7 @@ export default function MatrixView({ data, height, onNodeClick }: Props) {
                             );
                           })}
                           {hasDelegation && (
-                            <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-medium bg-danger-50 dark:bg-danger-950 text-danger-600 dark:text-danger-400">
+                            <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-medium bg-danger-50 text-danger-600">
                               delegated
                             </span>
                           )}
@@ -339,16 +339,11 @@ export default function MatrixView({ data, height, onNodeClick }: Props) {
 
 function RolePill({ role }: { role: string }) {
   const styles: Record<string, string> = {
-    owner:
-      "bg-warning-50 dark:bg-warning-950 text-warning-700 dark:text-warning-400",
-    admin:
-      "bg-primary-50 dark:bg-primary-950 text-primary-700 dark:text-primary-400",
-    manager:
-      "bg-secondary-50 dark:bg-secondary-950 text-secondary-700 dark:text-secondary-400",
-    operator:
-      "bg-success-50 dark:bg-success-950 text-success-700 dark:text-success-400",
-    member:
-      "bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400",
+    owner: "bg-warning-50 text-warning-700",
+    admin: "bg-primary-50 text-primary-700",
+    manager: "bg-secondary-50 text-secondary-700",
+    operator: "bg-success-50 text-success-700",
+    member: "bg-neutral-100 text-neutral-600",
   };
   return (
     <span

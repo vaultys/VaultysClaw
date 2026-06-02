@@ -25,29 +25,29 @@ const UNIT = NODE_W + H_GAP;
 const ROLE_STYLE: Record<string, { bg: string; border: string; text: string }> =
   {
     owner: {
-      bg: "bg-warning-900/30 dark:bg-warning-900/30",
-      border: "border-warning-600 dark:border-warning-700",
-      text: "text-warning-700 dark:text-warning-400",
+      bg: "bg-warning-900/30",
+      border: "border-warning-600",
+      text: "text-warning-700",
     },
     admin: {
-      bg: "bg-primary-900/30 dark:bg-primary-900/30",
-      border: "border-primary-600 dark:border-primary-700",
-      text: "text-primary-700 dark:text-primary-400",
+      bg: "bg-primary-900/30",
+      border: "border-primary-600",
+      text: "text-primary-700",
     },
     manager: {
-      bg: "bg-primary-900/30 dark:bg-primary-900/30",
-      border: "border-primary-600 dark:border-primary-700",
-      text: "text-primary-700 dark:text-primary-400",
+      bg: "bg-primary-900/30",
+      border: "border-primary-600",
+      text: "text-primary-700",
     },
     operator: {
-      bg: "bg-success-900/30 dark:bg-success-900/30",
-      border: "border-success-600 dark:border-success-700",
-      text: "text-success-700 dark:text-success-400",
+      bg: "bg-success-900/30",
+      border: "border-success-600",
+      text: "text-success-700",
     },
     member: {
-      bg: "bg-neutral-900/30 dark:bg-neutral-900/30",
-      border: "border-neutral-600 dark:border-neutral-700",
-      text: "text-neutral-700 dark:text-neutral-400",
+      bg: "bg-neutral-900/30",
+      border: "border-neutral-600",
+      text: "text-neutral-700",
     },
   };
 
@@ -84,11 +84,11 @@ const UserNode: React.FC<NodeProps<UserNodeData>> = ({ data, selected }) => {
   return (
     <div
       className={`
-        px-3 py-2 rounded-lg border-2 cursor-pointer
-        ${style.bg} ${style.border}
-        ${selected ? "ring-2 ring-primary-500" : ""}
-        transition-all hover:shadow-lg
-      `}
+ px-3 py-2 rounded-lg border-2 cursor-pointer
+ ${style.bg} ${style.border}
+ ${selected ? "ring-2 ring-primary-500" : ""}
+ transition-all hover:shadow-lg
+ `}
       style={{ width: NODE_W }}
     >
       <Handle type="target" position={Position.Top} />
@@ -341,26 +341,26 @@ export default function OrgChartFlowView({
         />
       </ReactFlow>
       <style>{`
-        .react-flow-controls {
-          bottom: 16px !important;
-          left: 16px !important;
-        }
-        .react-flow-minimap {
-          bottom: 16px !important;
-          right: 16px !important;
-          border-radius: 0.5rem !important;
-          background: var(--background-100) !important;
-        }
-        .react-flow__controls button {
-          background: var(--background-100) !important;
-          border: 1px solid var(--neutral-200) !important;
-          color: var(--foreground-500) !important;
-        }
-        .react-flow__controls button:hover {
-          background: var(--background-200) !important;
-          color: var(--foreground-900) !important;
-        }
-      `}</style>
+ .react-flow-controls {
+ bottom: 16px !important;
+ left: 16px !important;
+ }
+ .react-flow-minimap {
+ bottom: 16px !important;
+ right: 16px !important;
+ border-radius: 0.5rem !important;
+ background: var(--background-100) !important;
+ }
+ .react-flow__controls button {
+ background: var(--background-100) !important;
+ border: 1px solid var(--neutral-200) !important;
+ color: var(--foreground-500) !important;
+ }
+ .react-flow__controls button:hover {
+ background: var(--background-200) !important;
+ color: var(--foreground-900) !important;
+ }
+ `}</style>
     </div>
   );
 }

@@ -382,7 +382,7 @@ export default function AgentDetailPage() {
         >
           ← Back to Agents list
         </button>
-        <div className="bg-danger-50 dark:bg-danger-900/40 border border-danger-300 dark:border-danger-700 rounded-lg px-4 py-3 text-danger-600 dark:text-danger-300">
+        <div className="bg-danger-50 border border-danger-300 rounded-lg px-4 py-3 text-danger-600">
           {error ?? "Agent not found"}
         </div>
       </div>
@@ -432,7 +432,7 @@ export default function AgentDetailPage() {
                 {agent.name}
               </h1>
               {agent.online ? (
-                <span className="inline-flex items-center gap-1.5 text-xs font-medium text-success-700 dark:text-success-400 bg-success-100 dark:bg-success-500/10 border border-success-300 dark:border-success-500/20 rounded-full px-2.5 py-0.5">
+                <span className="inline-flex items-center gap-1.5 text-xs font-medium text-success-700 bg-success-100 border border-success-300 rounded-full px-2.5 py-0.5">
                   <span className="w-1.5 h-1.5 bg-success-500 rounded-full animate-pulse" />
                   Online
                 </span>
@@ -446,8 +446,8 @@ export default function AgentDetailPage() {
                 <span
                   className={`inline-flex items-center gap-1.5 text-xs font-medium rounded-full px-2.5 py-0.5 border ${
                     agent.transport === "peerjs"
-                      ? "text-secondary-700 dark:text-secondary-400 bg-secondary-100 dark:bg-secondary-500/10 border-secondary-300 dark:border-secondary-500/20"
-                      : "text-primary-700 dark:text-primary-400 bg-primary-100 dark:bg-primary-500/10 border-primary-300 dark:border-primary-500/20"
+                      ? "text-secondary-700 bg-secondary-100 border-secondary-300"
+                      : "text-primary-700 bg-primary-100 border-primary-300"
                   }`}
                 >
                   {agent.transport === "peerjs" ? "WebRTC" : "WebSocket"}
@@ -511,7 +511,7 @@ export default function AgentDetailPage() {
             <button
               onClick={handleDeleteAgent}
               disabled={deletingAgent}
-              className="ml-4 px-3 py-2 rounded-lg border border-danger-300 dark:border-danger-700/40 text-danger-600 dark:text-danger-400 hover:bg-danger-500/10 transition-colors disabled:opacity-50 flex items-center gap-2 text-sm font-medium"
+              className="ml-4 px-3 py-2 rounded-lg border border-danger-300 text-danger-600 hover:bg-danger-500/10 transition-colors disabled:opacity-50 flex items-center gap-2 text-sm font-medium"
               title="Delete agent"
             >
               {deletingAgent ? (
@@ -660,7 +660,7 @@ function OverviewTab({
         <div className="flex justify-between text-xs">
           <span className="text-foreground-500">{label}</span>
           <span
-            className={`font-mono ${danger ? "text-danger-600 dark:text-danger-400" : warn ? "text-warning-600 dark:text-warning-400" : "text-foreground"}`}
+            className={`font-mono ${danger ? "text-danger-600" : warn ? "text-warning-600" : "text-foreground"}`}
           >
             {used.toLocaleString()}
             {budget ? ` / ${budget.toLocaleString()}` : ""}
@@ -824,12 +824,12 @@ function OverviewTab({
                 </span>
               </div>
               <div className="flex gap-3 mt-1.5 text-xs">
-                <span className="flex items-center gap-1 text-success-700 dark:text-success-400">
+                <span className="flex items-center gap-1 text-success-700">
                   <CheckCircle2 size={10} />
                   {intentStats.success}
                 </span>
                 {intentStats.failed > 0 && (
-                  <span className="flex items-center gap-1 text-danger-600 dark:text-danger-400">
+                  <span className="flex items-center gap-1 text-danger-600">
                     <XCircle size={10} />
                     {intentStats.failed}
                   </span>
@@ -919,7 +919,7 @@ function OverviewTab({
                         </span>
                       </div>
                       {ev.status === "failed" && ev.error && (
-                        <p className="text-[10px] text-danger-600 dark:text-danger-400 truncate mt-0.5">
+                        <p className="text-[10px] text-danger-600 truncate mt-0.5">
                           {ev.error}
                         </p>
                       )}
@@ -973,7 +973,7 @@ function OverviewTab({
                   {activePolicy.capabilities.map((cap) => (
                     <span
                       key={cap}
-                      className="flex items-center gap-1 bg-primary-100 dark:bg-primary-900/40 border border-primary-300 dark:border-primary-700/40 text-primary-700 dark:text-primary-300 px-2 py-0.5 rounded text-xs"
+                      className="flex items-center gap-1 bg-primary-100 border border-primary-300 text-primary-700 px-2 py-0.5 rounded text-xs"
                     >
                       {CAPABILITY_ICONS[cap] ?? <Zap size={11} />}
                       {cap.replace(/_/g, " ")}
@@ -1031,8 +1031,8 @@ function OverviewTab({
                 <div
                   className={`flex items-center gap-2 text-xs rounded-lg px-3 py-2 border ${
                     new Date(activePolicy.expiresAt) < new Date()
-                      ? "bg-danger-50 dark:bg-danger-500/10 border-danger-200 dark:border-danger-500/20 text-danger-600 dark:text-danger-400"
-                      : "bg-warning-50 dark:bg-warning-500/10 border-warning-200 dark:border-warning-500/20 text-warning-700 dark:text-warning-400"
+                      ? "bg-danger-50 border-danger-200 text-danger-600"
+                      : "bg-warning-50 border-warning-200 text-warning-700"
                   }`}
                 >
                   <CalendarDays size={12} />
@@ -1361,7 +1361,7 @@ function GovernanceTab({
                     }
                     className={`px-3 py-1.5 rounded-md text-sm border transition-colors flex items-center gap-1.5 ${
                       active
-                        ? "bg-primary-100 dark:bg-primary-900/40 border-primary-500 text-primary-700 dark:text-primary-300"
+                        ? "bg-primary-100 border-primary-500 text-primary-700"
                         : "bg-background-100 border-neutral-300 text-foreground-500 hover:border-foreground-500"
                     }`}
                   >
@@ -1456,7 +1456,7 @@ function GovernanceTab({
           </label>
 
           {formError && (
-            <p className="text-xs text-danger-600 dark:text-danger-400 flex items-center gap-1.5">
+            <p className="text-xs text-danger-600 flex items-center gap-1.5">
               <AlertTriangle size={13} />
               {formError}
             </p>
@@ -1510,7 +1510,7 @@ function GovernanceTab({
                     {p.capabilities.map((cap) => (
                       <span
                         key={cap}
-                        className="flex items-center gap-1 bg-primary-100 dark:bg-primary-900/40 border border-primary-300 dark:border-primary-700/40 text-primary-700 dark:text-primary-300 px-2 py-0.5 rounded text-xs"
+                        className="flex items-center gap-1 bg-primary-100 border border-primary-300 text-primary-700 px-2 py-0.5 rounded text-xs"
                       >
                         {CAPABILITY_ICONS[cap] ?? <Zap size={11} />}
                         {cap.replace(/_/g, " ")}
@@ -1526,7 +1526,7 @@ function GovernanceTab({
                           <span className="flex items-center gap-1">
                             <TrendingUp
                               size={11}
-                              className="text-warning-600 dark:text-warning-400"
+                              className="text-warning-600"
                             />
                             {p.resourceLimits.maxTokensPerDay.toLocaleString()}{" "}
                             tokens/day
@@ -1534,20 +1534,14 @@ function GovernanceTab({
                         )}
                         {p.resourceLimits.maxRequestsPerHour != null && (
                           <span className="flex items-center gap-1">
-                            <Clock
-                              size={11}
-                              className="text-warning-600 dark:text-warning-400"
-                            />
+                            <Clock size={11} className="text-warning-600" />
                             {p.resourceLimits.maxRequestsPerHour} req/h
                           </span>
                         )}
                         {p.resourceLimits.allowedDomains &&
                           p.resourceLimits.allowedDomains.length > 0 && (
                             <span className="flex items-center gap-1">
-                              <Globe
-                                size={11}
-                                className="text-warning-600 dark:text-warning-400"
-                              />
+                              <Globe size={11} className="text-warning-600" />
                               {p.resourceLimits.allowedDomains.join(", ")}
                             </span>
                           )}
@@ -1580,7 +1574,7 @@ function GovernanceTab({
                 <div className="flex-shrink-0 flex items-center gap-1.5">
                   <button
                     onClick={() => openRenew(p)}
-                    className="flex items-center gap-1.5 text-xs text-primary-600 dark:text-primary-400 hover:text-primary-500 border border-primary-300 dark:border-primary-500/30 hover:border-primary-400 px-2.5 py-1.5 rounded-md transition-colors"
+                    className="flex items-center gap-1.5 text-xs text-primary-600 hover:text-primary-500 border border-primary-300 hover:border-primary-400 px-2.5 py-1.5 rounded-md transition-colors"
                     title="Renew policy"
                   >
                     <RotateCcw size={12} /> Renew
@@ -1588,7 +1582,7 @@ function GovernanceTab({
                   <button
                     onClick={() => revokePolicy(p.id)}
                     disabled={revoking === p.id}
-                    className="flex items-center gap-1.5 text-xs text-danger-600 dark:text-danger-400 hover:text-danger-500 dark:hover:text-danger-300 border border-danger-300 dark:border-danger-500/20 hover:border-danger-400 dark:hover:border-danger-500/40 px-2.5 py-1.5 rounded-md transition-colors disabled:opacity-50"
+                    className="flex items-center gap-1.5 text-xs text-danger-600 hover:text-danger-500:text-danger-300 border border-danger-300 hover:border-danger-400:border-danger-500/40 px-2.5 py-1.5 rounded-md transition-colors disabled:opacity-50"
                   >
                     {revoking === p.id ? (
                       <Loader2 size={12} className="animate-spin" />
@@ -1627,7 +1621,7 @@ function GovernanceTab({
                   {renewTarget.capabilities.map((cap) => (
                     <span
                       key={cap}
-                      className="flex items-center gap-1 bg-primary-100 dark:bg-primary-900/40 border border-primary-300 dark:border-primary-700/40 text-primary-700 dark:text-primary-300 px-2 py-0.5 rounded text-xs"
+                      className="flex items-center gap-1 bg-primary-100 border border-primary-300 text-primary-700 px-2 py-0.5 rounded text-xs"
                     >
                       {CAPABILITY_ICONS[cap] ?? <Zap size={11} />}
                       {cap.replace(/_/g, " ")}
@@ -1651,7 +1645,7 @@ function GovernanceTab({
                     </p>
                   )}
                 {renewTarget.expiresAt && (
-                  <p className="text-xs text-warning-600 dark:text-warning-400">
+                  <p className="text-xs text-warning-600">
                     Original expiry:{" "}
                     {new Date(
                       renewTarget.expiresAt.endsWith("Z")
@@ -1682,7 +1676,7 @@ function GovernanceTab({
                         key={days}
                         type="button"
                         onClick={() => setRenewExpiry(val)}
-                        className="text-[11px] px-2 py-0.5 rounded-md border border-neutral-200 text-foreground-500 hover:text-primary-600 dark:hover:text-primary-400 hover:border-primary-400 transition-colors"
+                        className="text-[11px] px-2 py-0.5 rounded-md border border-neutral-200 text-foreground-500 hover:text-primary-600:text-primary-400 hover:border-primary-400 transition-colors"
                       >
                         +{days}d
                       </button>
@@ -1703,9 +1697,7 @@ function GovernanceTab({
                 </span>
               </label>
               {renewError && (
-                <p className="text-xs text-danger-500 dark:text-danger-400">
-                  {renewError}
-                </p>
+                <p className="text-xs text-danger-500">{renewError}</p>
               )}
             </div>
             <div className="flex items-center justify-end gap-2 px-5 py-4 border-t border-neutral-200">
@@ -1847,8 +1839,8 @@ function GovernanceTab({
                               <span
                                 className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium border ${
                                   isActivity
-                                    ? "bg-primary-100 dark:bg-primary-500/15 text-primary-700 dark:text-primary-400 border-primary-300 dark:border-primary-500/25"
-                                    : "bg-secondary-100 dark:bg-secondary-500/15 text-secondary-700 dark:text-secondary-400 border-secondary-300 dark:border-secondary-500/25"
+                                    ? "bg-primary-100 text-primary-700 border-primary-300"
+                                    : "bg-secondary-100 text-secondary-700 border-secondary-300"
                                 }`}
                               >
                                 {isActivity ? (
@@ -1867,19 +1859,19 @@ function GovernanceTab({
                             {/* Status */}
                             <td className="px-3 py-2.5">
                               {entry.status === "success" && (
-                                <span className="flex items-center gap-1 text-success-700 dark:text-success-400">
+                                <span className="flex items-center gap-1 text-success-700">
                                   <CheckCircle2 size={11} /> success
                                 </span>
                               )}
                               {entry.status === "failed" && (
-                                <span className="flex items-center gap-1 text-danger-600 dark:text-danger-400">
+                                <span className="flex items-center gap-1 text-danger-600">
                                   <XCircle size={11} /> failed
                                 </span>
                               )}
                               {entry.status &&
                                 entry.status !== "success" &&
                                 entry.status !== "failed" && (
-                                  <span className="flex items-center gap-1 text-warning-600 dark:text-warning-400">
+                                  <span className="flex items-center gap-1 text-warning-600">
                                     <Clock size={11} /> {entry.status}
                                   </span>
                                 )}
@@ -2100,11 +2092,7 @@ function TokensTab({ agentId }: { agentId: string }) {
           <Loader2 className="animate-spin w-5 h-5 mr-2" /> Loading…
         </div>
       )}
-      {tokenError && (
-        <p className="text-danger-600 dark:text-danger-400 text-sm">
-          {tokenError}
-        </p>
-      )}
+      {tokenError && <p className="text-danger-600 text-sm">{tokenError}</p>}
       {!loading && !tokenError && data.length > 0 && (
         <div className="rounded-xl border border-neutral-200 bg-background-100 p-4">
           <ResponsiveContainer width="100%" height={260}>
@@ -2841,16 +2829,11 @@ interface RealmLlmData {
 }
 
 const PROVIDER_COLORS: Record<string, string> = {
-  openai:
-    "bg-success-100 dark:bg-success-900/40 text-success-700 dark:text-success-400 border-success-300 dark:border-success-800",
-  "openai-compatible":
-    "bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-400 border-primary-300 dark:border-primary-800",
-  anthropic:
-    "bg-warning-100 dark:bg-warning-900/40 text-warning-700 dark:text-warning-400 border-warning-300 dark:border-warning-800",
-  google:
-    "bg-warning-100 dark:bg-warning-900/40 text-warning-700 dark:text-warning-400 border-warning-300 dark:border-warning-800",
-  ollama:
-    "bg-secondary-100 dark:bg-secondary-900/40 text-secondary-700 dark:text-secondary-400 border-secondary-300 dark:border-secondary-800",
+  openai: "bg-success-100 text-success-700 border-success-300",
+  "openai-compatible": "bg-primary-100 text-primary-700 border-primary-300",
+  anthropic: "bg-warning-100 text-warning-700 border-warning-300",
+  google: "bg-warning-100 text-warning-700 border-warning-300",
+  ollama: "bg-secondary-100 text-secondary-700 border-secondary-300",
 };
 
 function ConfigTab({
@@ -3233,7 +3216,7 @@ function ConfigTab({
                       <div className="flex items-center gap-2 text-xs text-foreground-500 font-medium uppercase tracking-wider">
                         <span>{realm.realmName}</span>
                         {realm.isPrimary && (
-                          <span className="px-1.5 py-0.5 rounded-full bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-400 border border-primary-300 dark:border-primary-700 text-[10px] font-semibold">
+                          <span className="px-1.5 py-0.5 rounded-full bg-primary-100 text-primary-700 border border-primary-300 text-[10px] font-semibold">
                             Primary
                           </span>
                         )}
@@ -3244,7 +3227,7 @@ function ConfigTab({
                           className={`flex items-center gap-3 px-3 py-3 rounded-xl border cursor-pointer transition-colors ${
                             selectedRealmId === realm.realmId &&
                             selectedRealmModelId === model.id
-                              ? "border-primary-500 bg-primary-50 dark:bg-primary-950/30"
+                              ? "border-primary-500 bg-primary-50"
                               : "border-neutral-200 hover:border-neutral-300 hover:bg-background-200/50"
                           }`}
                         >
@@ -3267,7 +3250,7 @@ function ConfigTab({
                                 {model.name}
                               </span>
                               <span
-                                className={`text-xs px-1.5 py-0.5 rounded-full border font-medium ${PROVIDER_COLORS[model.provider] ?? "bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 border-neutral-300 dark:border-neutral-700"}`}
+                                className={`text-xs px-1.5 py-0.5 rounded-full border font-medium ${PROVIDER_COLORS[model.provider] ?? "bg-neutral-100 text-neutral-600 border-neutral-300"}`}
                               >
                                 {model.provider}
                               </span>
@@ -3327,7 +3310,7 @@ function ConfigTab({
                           key={m.id}
                           className={`flex items-center gap-3 px-3 py-3 rounded-xl border cursor-pointer transition-colors ${
                             selectedRegistryId === m.id
-                              ? "border-primary-500 bg-primary-50 dark:bg-primary-950/30"
+                              ? "border-primary-500 bg-primary-50"
                               : "border-neutral-200 hover:border-neutral-300 hover:bg-background-200/50"
                           }`}
                         >
@@ -3345,7 +3328,7 @@ function ConfigTab({
                                 {m.name}
                               </span>
                               <span
-                                className={`text-xs px-1.5 py-0.5 rounded-full border font-medium ${PROVIDER_COLORS[m.provider] ?? "bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 border-neutral-300 dark:border-neutral-700"}`}
+                                className={`text-xs px-1.5 py-0.5 rounded-full border font-medium ${PROVIDER_COLORS[m.provider] ?? "bg-neutral-100 text-neutral-600 border-neutral-300"}`}
                               >
                                 {m.provider}
                               </span>
@@ -3546,8 +3529,8 @@ function ConfigTab({
           <div className="divide-y divide-neutral-200">
             {/* Realm routing banner when applicable */}
             {activeRealmRoute && (
-              <div className="flex items-center gap-3 px-4 py-3 bg-secondary-50 dark:bg-secondary-950/30">
-                <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-secondary-100 dark:bg-secondary-900/60 text-secondary-700 dark:text-secondary-300 border border-secondary-300 dark:border-secondary-700 shrink-0">
+              <div className="flex items-center gap-3 px-4 py-3 bg-secondary-50">
+                <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-secondary-100 text-secondary-700 border border-secondary-300 shrink-0">
                   Realm Routing
                 </span>
                 <span className="text-sm text-foreground font-medium">
@@ -3566,8 +3549,8 @@ function ConfigTab({
             )}
             {/* Registry model banner when applicable */}
             {!activeRealmRoute && activeRegistryModel && (
-              <div className="flex items-center gap-3 px-4 py-3 bg-primary-50 dark:bg-primary-950/30">
-                <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-primary-100 dark:bg-primary-900/60 text-primary-700 dark:text-primary-300 border border-primary-300 dark:border-primary-700 shrink-0">
+              <div className="flex items-center gap-3 px-4 py-3 bg-primary-50">
+                <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-primary-100 text-primary-700 border border-primary-300 shrink-0">
                   Registry
                 </span>
                 <span className="text-sm text-foreground font-medium">
@@ -3607,9 +3590,7 @@ function ConfigTab({
               {
                 label: "API Key",
                 value: llmConfig.apiKeySet ? (
-                  <span className="text-success-600 dark:text-success-500">
-                    Stored
-                  </span>
+                  <span className="text-success-600">Stored</span>
                 ) : (
                   <span className="text-foreground-400">Not set</span>
                 ),
@@ -3675,14 +3656,12 @@ function ConfigTab({
       </div>
 
       {llmStatus === "saved" && (
-        <p className="text-success-600 dark:text-success-500 text-xs">
+        <p className="text-success-600 text-xs">
           ✓ Config saved and pushed to agent
         </p>
       )}
       {llmStatus === "cleared" && (
-        <p className="text-success-600 dark:text-success-500 text-xs">
-          ✓ Config cleared
-        </p>
+        <p className="text-success-600 text-xs">✓ Config cleared</p>
       )}
       {llmStatus === "error" && (
         <p className="text-danger-500 text-xs">Failed to update config</p>
@@ -3749,7 +3728,7 @@ function TaskSection({ agentId }: { agentId: string }) {
       </div>
       {status && (
         <p
-          className={`mt-2 text-xs ${status.startsWith("Error") ? "text-danger-600 dark:text-danger-400" : "text-success-700 dark:text-success-400"}`}
+          className={`mt-2 text-xs ${status.startsWith("Error") ? "text-danger-600" : "text-success-700"}`}
         >
           {status}
         </p>
@@ -3840,7 +3819,7 @@ function ScheduleSection({ agentId }: { agentId: string }) {
       </div>
       {status && (
         <p
-          className={`mt-2 text-xs ${status.startsWith("Error") ? "text-danger-600 dark:text-danger-400" : "text-success-700 dark:text-success-400"}`}
+          className={`mt-2 text-xs ${status.startsWith("Error") ? "text-danger-600" : "text-success-700"}`}
         >
           {status}
         </p>
@@ -3977,14 +3956,12 @@ function AgentChatErrorBanner({
 }) {
   if (code === "llm_unavailable") {
     return (
-      <div className="flex items-start gap-2 bg-warning-50 dark:bg-warning-500/10 border border-warning-300 dark:border-warning-500/30 text-warning-700 dark:text-warning-300 rounded-lg px-3 py-2.5 text-xs">
+      <div className="flex items-start gap-2 bg-warning-50 border border-warning-300 text-warning-700 rounded-lg px-3 py-2.5 text-xs">
         <WifiOff size={13} className="mt-0.5 shrink-0" />
         <div className="min-w-0">
           <p className="font-medium">LLM provider unreachable</p>
-          <p className="text-warning-600/80 dark:text-warning-400/70 mt-0.5 break-words">
-            {message}
-          </p>
-          <p className="text-warning-600/60 dark:text-warning-400/50 mt-1">
+          <p className="text-warning-600/80 mt-0.5 break-words">{message}</p>
+          <p className="text-warning-600/60 mt-1">
             Update the LLM config in the <strong>Settings</strong> tab.
           </p>
         </div>
@@ -3993,21 +3970,21 @@ function AgentChatErrorBanner({
   }
   if (code === "agent_offline") {
     return (
-      <div className="flex items-center gap-2 bg-danger-50 dark:bg-danger-500/10 border border-danger-200 dark:border-danger-500/20 text-danger-700 dark:text-danger-400 rounded-lg px-3 py-2 text-xs">
+      <div className="flex items-center gap-2 bg-danger-50 border border-danger-200 text-danger-700 rounded-lg px-3 py-2 text-xs">
         <WifiOff size={13} className="shrink-0" />
         <span>Agent disconnected — waiting to reconnect</span>
       </div>
     );
   }
   return (
-    <div className="text-center text-xs text-danger-700 dark:text-danger-400 bg-danger-50 dark:bg-danger-500/10 border border-danger-200 dark:border-danger-500/20 rounded-lg px-4 py-2">
+    <div className="text-center text-xs text-danger-700 bg-danger-50 border border-danger-200 rounded-lg px-4 py-2">
       {message}
     </div>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Tab: Knowledge  (cards + file upload)
+// Tab: Knowledge (cards + file upload)
 // ---------------------------------------------------------------------------
 
 interface KnowledgeSource {
@@ -4042,22 +4019,22 @@ function KsStatusBadge({ status }: { status: KnowledgeSource["status"] }) {
     idle: {
       icon: <Clock size={12} />,
       label: "Idle",
-      cls: "bg-neutral-100 dark:bg-neutral-800 text-neutral-500 dark:text-neutral-400 border-neutral-300 dark:border-neutral-700",
+      cls: "bg-neutral-100 text-neutral-500 border-neutral-300",
     },
     syncing: {
       icon: <Loader2 size={12} className="animate-spin" />,
       label: "Syncing",
-      cls: "bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-400 border-primary-300 dark:border-primary-800",
+      cls: "bg-primary-100 text-primary-700 border-primary-300",
     },
     ready: {
       icon: <CheckCircle2 size={12} />,
       label: "Ready",
-      cls: "bg-success-100 dark:bg-success-900/40 text-success-700 dark:text-success-400 border-success-300 dark:border-success-800",
+      cls: "bg-success-100 text-success-700 border-success-300",
     },
     error: {
       icon: <XCircle size={12} />,
       label: "Error",
-      cls: "bg-danger-100 dark:bg-danger-900/40 text-danger-700 dark:text-danger-400 border-danger-300 dark:border-danger-800",
+      cls: "bg-danger-100 text-danger-700 border-danger-300",
     },
   };
   const { icon, label, cls } = map[status] ?? map.idle;
@@ -4078,17 +4055,17 @@ function KsTypeBadge({ type }: { type: string }) {
     url: {
       icon: <Globe size={12} />,
       label: "URL",
-      cls: "bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-400 border-primary-300 dark:border-primary-800",
+      cls: "bg-primary-100 text-primary-700 border-primary-300",
     },
     text: {
       icon: <FileText size={12} />,
       label: "Text",
-      cls: "bg-warning-100 dark:bg-warning-900/40 text-warning-700 dark:text-warning-400 border-warning-300 dark:border-warning-800",
+      cls: "bg-warning-100 text-warning-700 border-warning-300",
     },
     files: {
       icon: <FileType2 size={12} />,
       label: "Documents",
-      cls: "bg-success-100 dark:bg-success-900/40 text-success-700 dark:text-success-400 border-success-300 dark:border-success-800",
+      cls: "bg-success-100 text-success-700 border-success-300",
     },
   };
   const { icon, label, cls } = map[type] ?? map.url;
@@ -4170,7 +4147,7 @@ function FileDropzone({ files, onAdd, onRemove }: FileDropzoneProps) {
         onClick={() => inputRef.current?.click()}
         className={`flex flex-col items-center justify-center gap-2 px-4 py-8 rounded-xl border-2 border-dashed cursor-pointer transition-colors ${
           dragging
-            ? "border-primary-500 bg-primary-50 dark:bg-primary-900/20"
+            ? "border-primary-500 bg-primary-50"
             : "border-neutral-200 hover:border-primary-400 hover:bg-background-200/40 bg-background"
         }`}
       >
@@ -4205,7 +4182,7 @@ function FileDropzone({ files, onAdd, onRemove }: FileDropzoneProps) {
                 key={`${f.name}-${i}`}
                 className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-xs ${
                   oversized
-                    ? "border-danger-300 dark:border-danger-700 bg-danger-50 dark:bg-danger-900/20"
+                    ? "border-danger-300 bg-danger-50"
                     : "border-neutral-200 bg-background-200/40"
                 }`}
               >
@@ -4218,7 +4195,7 @@ function FileDropzone({ files, onAdd, onRemove }: FileDropzoneProps) {
                   }
                 />
                 <span
-                  className={`flex-1 truncate ${oversized ? "text-danger-600 dark:text-danger-400" : "text-foreground"}`}
+                  className={`flex-1 truncate ${oversized ? "text-danger-600" : "text-foreground"}`}
                 >
                   {f.name}
                 </span>
@@ -4359,7 +4336,7 @@ function KsSourceCard({
             onClick={onSync}
             disabled={isSyncing || isDeleting || !online}
             title={online ? "Sync now" : "Agent offline"}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-foreground-500 hover:text-primary-500 hover:bg-primary-50 dark:hover:bg-primary-900/20 disabled:opacity-40 border border-neutral-200 hover:border-primary-300 dark:hover:border-primary-700 transition-colors"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-foreground-500 hover:text-primary-500 hover:bg-primary-50:bg-primary-900/20 disabled:opacity-40 border border-neutral-200 hover:border-primary-300:border-primary-700 transition-colors"
           >
             {isSyncing ? (
               <Loader2 size={13} className="animate-spin" />
@@ -4372,7 +4349,7 @@ function KsSourceCard({
             onClick={onDelete}
             disabled={isDeleting}
             title="Delete source"
-            className="p-1.5 rounded-lg text-foreground-500 hover:text-danger-500 hover:bg-danger-50 dark:hover:bg-danger-900/20 disabled:opacity-40 border border-transparent hover:border-danger-200 dark:hover:border-danger-800 transition-colors"
+            className="p-1.5 rounded-lg text-foreground-500 hover:text-danger-500 hover:bg-danger-50:bg-danger-900/20 disabled:opacity-40 border border-transparent hover:border-danger-200:border-danger-800 transition-colors"
           >
             {isDeleting ? (
               <Loader2 size={14} className="animate-spin" />
@@ -4391,9 +4368,9 @@ function KsSourceCard({
         <div className="border-t border-neutral-200 px-4 pb-4 pt-3 space-y-3 bg-background">
           {/* Error */}
           {source.error && (
-            <div className="flex items-start gap-2 p-3 rounded-lg bg-danger-50 dark:bg-danger-900/20 border border-danger-200 dark:border-danger-800">
+            <div className="flex items-start gap-2 p-3 rounded-lg bg-danger-50 border border-danger-200">
               <XCircle size={14} className="text-danger-500 mt-0.5 shrink-0" />
-              <p className="text-xs text-danger-600 dark:text-danger-400 font-mono break-all">
+              <p className="text-xs text-danger-600 font-mono break-all">
                 {source.error}
               </p>
             </div>
@@ -4792,13 +4769,13 @@ function KsAddSourceModal({
                   onClick={() => setSourceType(opt.value)}
                   className={`flex flex-col items-center gap-1.5 px-2 py-3 rounded-xl border text-center transition-colors ${
                     sourceType === opt.value
-                      ? "border-primary-500 bg-primary-50 dark:bg-primary-900/20"
+                      ? "border-primary-500 bg-primary-50"
                       : "border-neutral-200 bg-background hover:border-primary-400 hover:bg-background-200/40"
                   }`}
                 >
                   {opt.icon}
                   <span
-                    className={`text-xs font-medium leading-tight ${sourceType === opt.value ? "text-primary-600 dark:text-primary-300" : "text-foreground"}`}
+                    className={`text-xs font-medium leading-tight ${sourceType === opt.value ? "text-primary-600" : "text-foreground"}`}
                   >
                     {opt.label}
                   </span>
@@ -4812,12 +4789,12 @@ function KsAddSourceModal({
 
           {/* Docling notice for files type */}
           {sourceType === "files" && !doclingConfigured && (
-            <div className="flex items-start gap-2 p-3 rounded-lg bg-warning-50 dark:bg-warning-900/20 border border-warning-200 dark:border-warning-800">
+            <div className="flex items-start gap-2 p-3 rounded-lg bg-warning-50 border border-warning-200">
               <AlertTriangle
                 size={14}
                 className="text-warning-500 mt-0.5 shrink-0"
               />
-              <p className="text-xs text-warning-700 dark:text-warning-400">
+              <p className="text-xs text-warning-700">
                 PDF and DOCX files require Docling to be configured. Plain text
                 (.txt, .md) files can be indexed without Docling.
               </p>
@@ -4922,27 +4899,23 @@ function KsAddSourceModal({
 
           {/* Upload progress */}
           {uploadProgress && (
-            <div className="flex items-center gap-2 p-3 rounded-lg bg-primary-50 dark:bg-primary-900/20 border border-primary-200 dark:border-primary-800">
+            <div className="flex items-center gap-2 p-3 rounded-lg bg-primary-50 border border-primary-200">
               <Loader2
                 size={14}
                 className="animate-spin text-primary-500 shrink-0"
               />
-              <p className="text-xs text-primary-700 dark:text-primary-400">
-                {uploadProgress}
-              </p>
+              <p className="text-xs text-primary-700">{uploadProgress}</p>
             </div>
           )}
 
           {/* Error */}
           {error && (
-            <div className="flex items-start gap-2 p-3 rounded-lg bg-danger-50 dark:bg-danger-900/20 border border-danger-200 dark:border-danger-800">
+            <div className="flex items-start gap-2 p-3 rounded-lg bg-danger-50 border border-danger-200">
               <AlertTriangle
                 size={14}
                 className="text-danger-500 mt-0.5 shrink-0"
               />
-              <p className="text-xs text-danger-600 dark:text-danger-400">
-                {error}
-              </p>
+              <p className="text-xs text-danger-600">{error}</p>
             </div>
           )}
 
@@ -5194,8 +5167,8 @@ function KnowledgeTab({
                 }
                 className={`inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full border font-medium ${
                   doclingConfigured
-                    ? "bg-success-100 dark:bg-success-900/40 text-success-700 dark:text-success-400 border-success-300 dark:border-success-800"
-                    : "bg-warning-100 dark:bg-warning-900/40 text-warning-700 dark:text-warning-400 border-warning-300 dark:border-warning-800"
+                    ? "bg-success-100 text-success-700 border-success-300"
+                    : "bg-warning-100 text-warning-700 border-warning-300"
                 }`}
               >
                 <FileType2 size={10} />
@@ -5220,7 +5193,7 @@ function KnowledgeTab({
 
       {/* Offline warning */}
       {!online && (
-        <div className="flex items-center gap-2 p-3 rounded-lg bg-warning-50 dark:bg-warning-900/20 border border-warning-200 dark:border-warning-800 text-xs text-warning-700 dark:text-warning-400">
+        <div className="flex items-center gap-2 p-3 rounded-lg bg-warning-50 border border-warning-200 text-xs text-warning-700">
           <WifiOff size={14} className="shrink-0" />
           Agent is offline. You can manage sources but syncing requires the
           agent to be connected.
@@ -5229,18 +5202,18 @@ function KnowledgeTab({
 
       {/* Missing knowledge_search capability warning */}
       {hasReadySources && !hasKnowledgeCapability && (
-        <div className="flex items-start gap-3 p-4 rounded-xl bg-warning-50 dark:bg-warning-900/20 border border-warning-200 dark:border-warning-800">
+        <div className="flex items-start gap-3 p-4 rounded-xl bg-warning-50 border border-warning-200">
           <AlertTriangle
             size={16}
-            className="shrink-0 mt-0.5 text-warning-600 dark:text-warning-400"
+            className="shrink-0 mt-0.5 text-warning-600"
           />
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-warning-800 dark:text-warning-300">
+            <p className="text-sm font-medium text-warning-800">
               Knowledge sources are ready but the agent cannot use them
             </p>
-            <p className="text-xs text-warning-700 dark:text-warning-400 mt-1">
+            <p className="text-xs text-warning-700 mt-1">
               The{" "}
-              <code className="bg-warning-100 dark:bg-warning-800/60 px-1 rounded font-mono">
+              <code className="bg-warning-100 px-1 rounded font-mono">
                 knowledge_search
               </code>{" "}
               capability is not granted in this agent&apos;s active policy. The
@@ -5250,7 +5223,7 @@ function KnowledgeTab({
                 : `${readyCount} indexed documents`}{" "}
               during conversations.
             </p>
-            <p className="text-xs text-warning-600 dark:text-warning-500 mt-1">
+            <p className="text-xs text-warning-600 mt-1">
               Granting this capability will create a new policy (replacing the
               current one) and immediately reissue the agent&apos;s certificate.
             </p>

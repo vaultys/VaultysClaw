@@ -207,7 +207,7 @@ function ToolCallCard({ event }: { event: ToolCallEvent }) {
                 <p className="text-[9px] text-foreground-400 uppercase tracking-widest mb-1.5">
                   Output
                 </p>
-                <div className="text-[11px] text-success-600 dark:text-success-300 whitespace-pre-wrap max-h-48 overflow-y-auto prose prose-sm prose-invert max-w-none prose-headings:text-success-400 prose-p:m-0 prose-ul:m-0 prose-ol:m-0 prose-li:m-0 prose-code:text-success-200 prose-code:bg-success-950/30 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-pre:bg-success-950/30 prose-pre:border prose-pre:border-success-500/20 prose-pre:text-success-100">
+                <div className="text-[11px] text-success-600 whitespace-pre-wrap max-h-48 overflow-y-auto prose prose-sm prose-invert max-w-none prose-headings:text-success-400 prose-p:m-0 prose-ul:m-0 prose-ol:m-0 prose-li:m-0 prose-code:text-success-200 prose-code:bg-success-950/30 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-pre:bg-success-950/30 prose-pre:border prose-pre:border-success-500/20 prose-pre:text-success-100">
                   {typeof event.result === "string" ? (
                     <ReactMarkdown
                       components={{

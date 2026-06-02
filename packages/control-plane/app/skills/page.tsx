@@ -227,7 +227,7 @@ function BrowseLibraryModal({
                       </span>
                     )}
                     {skill.contentType.hasInstructions && (
-                      <span className="text-xs px-1.5 py-0.5 rounded bg-primary-100 dark:bg-primary-900/30 border border-primary-300 dark:border-primary-800 text-primary-700 dark:text-primary-400">
+                      <span className="text-xs px-1.5 py-0.5 rounded bg-primary-100 border border-primary-300 text-primary-700">
                         instructions
                       </span>
                     )}
@@ -652,7 +652,7 @@ function AddSkillModal({
             </label>
             <textarea
               className={`w-full bg-background border rounded-lg px-3 py-2 text-xs font-mono text-foreground focus:outline-none focus:ring-2 focus:ring-primary-500 h-24 resize-none ${configError ? "border-danger-500" : "border-neutral-200"}`}
-              placeholder={'{\n  "apiKey": "...",\n  "maxResults": 10\n}'}
+              placeholder={'{\n "apiKey": "...",\n "maxResults": 10\n}'}
               value={configText}
               onChange={(e) => {
                 setConfigText(e.target.value);
@@ -950,7 +950,7 @@ function SkillGroupCard({
           {group.name}
         </span>
         {isShared && (
-          <span className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-400 border border-primary-300 dark:border-primary-800">
+          <span className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-primary-100 text-primary-700 border border-primary-300">
             <Share2 className="w-3 h-3" />
             shared · {group.entries.length} realms
           </span>
@@ -1007,7 +1007,7 @@ function SkillGroupCard({
                     </span>
                   )}
                   {entry.is_required === 1 && (
-                    <span className="flex items-center gap-1 text-xs px-1.5 py-0.5 rounded bg-warning-100 dark:bg-warning-900/30 border border-warning-300 dark:border-warning-800 text-warning-700 dark:text-warning-400">
+                    <span className="flex items-center gap-1 text-xs px-1.5 py-0.5 rounded bg-warning-100 border border-warning-300 text-warning-700">
                       <Shield className="w-3 h-3" /> Required
                     </span>
                   )}
@@ -1019,7 +1019,7 @@ function SkillGroupCard({
                       `, ${entry.override_count} override${entry.override_count !== 1 ? "s" : ""}`}
                   </span>
                   {entry.content ? (
-                    <span className="text-xs px-1.5 py-0.5 rounded bg-primary-100 dark:bg-primary-900/30 border border-primary-300 dark:border-primary-800 text-primary-700 dark:text-primary-400">
+                    <span className="text-xs px-1.5 py-0.5 rounded bg-primary-100 border border-primary-300 text-primary-700">
                       instructions
                     </span>
                   ) : (

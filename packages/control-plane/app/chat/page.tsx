@@ -340,7 +340,7 @@ export default function ChatPage() {
                     a: ({ children, href }) => (
                       <a
                         href={href}
-                        className="text-primary-700 dark:text-primary-400 underline hover:text-primary-300"
+                        className="text-primary-700 underline hover:text-primary-300"
                         target="_blank"
                         rel="noopener noreferrer"
                       >
@@ -561,14 +561,14 @@ function ChatErrorBanner({
 }) {
   if (code === "llm_unavailable") {
     return (
-      <div className="flex items-start gap-3 bg-warning-50 dark:bg-warning-500/10 border border-warning-200 dark:border-warning-500/30 text-warning-700 dark:text-warning-300 rounded-lg px-4 py-3 text-sm">
+      <div className="flex items-start gap-3 bg-warning-50 border border-warning-200 text-warning-700 rounded-lg px-4 py-3 text-sm">
         <WifiOff size={15} className="mt-0.5 shrink-0" />
         <div className="min-w-0">
           <p className="font-medium">LLM provider unreachable</p>
-          <p className="text-xs text-warning-700 dark:text-warning-400/80 mt-0.5 break-words">
+          <p className="text-xs text-warning-700 mt-0.5 break-words">
             {message}
           </p>
-          <p className="text-xs text-warning-700 dark:text-warning-400/60 mt-1">
+          <p className="text-xs text-warning-700 mt-1">
             Go to the agent&#39;s <strong>LLM Config</strong> tab to update the
             provider settings.
           </p>

@@ -83,9 +83,9 @@ function StepProgress({
               <span
                 className={`text-[11px] font-medium whitespace-nowrap ${
                   isActive
-                    ? "text-primary-500 dark:text-primary-400"
+                    ? "text-primary-500"
                     : isPast && isCompleted
-                      ? "text-success-600 dark:text-success-400"
+                      ? "text-success-600"
                       : isPast
                         ? "text-foreground-500"
                         : "text-foreground-400"
@@ -98,7 +98,7 @@ function StepProgress({
               <div
                 className={`flex-1 h-0.5 mt-[18px] mx-1 transition-colors duration-500 ${
                   idx < currentIdx && completedSteps.has(STEPS[idx].id)
-                    ? "bg-success-400 dark:bg-success-500"
+                    ? "bg-success-400"
                     : idx < currentIdx
                       ? "bg-neutral-200"
                       : "bg-background-200"
@@ -208,20 +208,15 @@ const PROVIDERS = [
 
 function ProviderBadge({ provider }: { provider: string }) {
   const colors: Record<string, string> = {
-    openai:
-      "bg-success-100 dark:bg-success-900/40 text-success-700 dark:text-success-400 border-success-300 dark:border-success-800",
-    "openai-compatible":
-      "bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-400 border-primary-300 dark:border-primary-800",
-    anthropic:
-      "bg-warning-100 dark:bg-warning-900/40 text-warning-700 dark:text-warning-400 border-warning-300 dark:border-warning-800",
-    google:
-      "bg-warning-100 dark:bg-warning-900/40 text-warning-700 dark:text-warning-400 border-warning-300 dark:border-warning-800",
-    ollama:
-      "bg-secondary-100 dark:bg-secondary-900/40 text-secondary-700 dark:text-secondary-400 border-secondary-300 dark:border-secondary-800",
+    openai: "bg-success-100 text-success-700 border-success-300",
+    "openai-compatible": "bg-primary-100 text-primary-700 border-primary-300",
+    anthropic: "bg-warning-100 text-warning-700 border-warning-300",
+    google: "bg-warning-100 text-warning-700 border-warning-300",
+    ollama: "bg-secondary-100 text-secondary-700 border-secondary-300",
   };
   return (
     <span
-      className={`text-xs px-2 py-0.5 rounded-full border font-medium shrink-0 ${colors[provider] ?? "bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 border-neutral-300 dark:border-neutral-700"}`}
+      className={`text-xs px-2 py-0.5 rounded-full border font-medium shrink-0 ${colors[provider] ?? "bg-neutral-100 text-neutral-600 border-neutral-300"}`}
     >
       {provider}
     </span>
@@ -526,8 +521,8 @@ function ModelStep({ onNext }: { onNext: () => void }) {
                 <p
                   className={`text-xs px-3 py-2 rounded-lg border ${
                     formError.startsWith("✓")
-                      ? "bg-success-50 dark:bg-success-900/20 border-success-300 dark:border-success-700/40 text-success-700 dark:text-success-400"
-                      : "bg-danger-50 dark:bg-danger-900/20 border-danger-300 dark:border-danger-700/40 text-danger-600 dark:text-danger-400"
+                      ? "bg-success-50 border-success-300 text-success-700"
+                      : "bg-danger-50 border-danger-300 text-danger-600"
                   }`}
                 >
                   {formError}
@@ -751,8 +746,8 @@ function EmailStep({ onNext }: { onNext: () => void }) {
         <p
           className={`text-xs px-3 py-2 rounded-xl border ${
             msg.type === "ok"
-              ? "bg-success-50 dark:bg-success-900/20 border-success-300 dark:border-success-700/40 text-success-700 dark:text-success-400"
-              : "bg-danger-50 dark:bg-danger-900/20 border-danger-300 dark:border-danger-700/40 text-danger-600 dark:text-danger-400"
+              ? "bg-success-50 border-success-300 text-success-700"
+              : "bg-danger-50 border-danger-300 text-danger-600"
           }`}
         >
           {msg.text}
@@ -920,7 +915,7 @@ function UsersStep({ onNext }: { onNext: () => void }) {
           {phase === "idle" && (
             <div className="text-center py-4 space-y-4">
               {addedCount > 0 && (
-                <p className="text-sm text-success-600 dark:text-success-400">
+                <p className="text-sm text-success-600">
                   ✓ {addedCount} user{addedCount > 1 ? "s" : ""} invited
                 </p>
               )}
@@ -960,8 +955,8 @@ function UsersStep({ onNext }: { onNext: () => void }) {
 
           {phase === "success" && (
             <div className="flex flex-col items-center gap-4 py-4 text-center">
-              <div className="w-12 h-12 rounded-full bg-success-100 dark:bg-success-500/15 border border-success-300 dark:border-success-500/30 flex items-center justify-center">
-                <Check className="w-6 h-6 text-success-600 dark:text-success-400" />
+              <div className="w-12 h-12 rounded-full bg-success-100 border border-success-300 flex items-center justify-center">
+                <Check className="w-6 h-6 text-success-600" />
               </div>
               <p className="text-foreground font-medium">
                 {addedCount} user{addedCount > 1 ? "s" : ""} registered!
@@ -988,7 +983,7 @@ function UsersStep({ onNext }: { onNext: () => void }) {
 
           {phase === "failure" && (
             <div className="flex flex-col items-center gap-3 py-4 text-center">
-              <p className="text-danger-600 dark:text-danger-400 text-sm">
+              <p className="text-danger-600 text-sm">
                 Invitation timed out or failed.
               </p>
               <button
@@ -1049,7 +1044,7 @@ function UsersStep({ onNext }: { onNext: () => void }) {
           </div>
 
           {addedCount > 0 && (
-            <p className="text-sm text-success-600 dark:text-success-400">
+            <p className="text-sm text-success-600">
               ✓ {addedCount} invitation{addedCount > 1 ? "s" : ""} sent
             </p>
           )}
@@ -1058,8 +1053,8 @@ function UsersStep({ onNext }: { onNext: () => void }) {
             <p
               className={`text-xs px-3 py-2 rounded-xl border ${
                 emailMsg.type === "ok"
-                  ? "bg-success-50 dark:bg-success-900/20 border-success-300 dark:border-success-700/40 text-success-700 dark:text-success-400"
-                  : "bg-danger-50 dark:bg-danger-900/20 border-danger-300 dark:border-danger-700/40 text-danger-600 dark:text-danger-400"
+                  ? "bg-success-50 border-success-300 text-success-700"
+                  : "bg-danger-50 border-danger-300 text-danger-600"
               }`}
             >
               {emailMsg.text}
@@ -1171,9 +1166,7 @@ function AgentStep({ onNext }: { onNext: () => void }) {
               </div>
               <span
                 className={`flex items-center gap-1 text-xs font-medium shrink-0 ${
-                  a.online
-                    ? "text-success-600 dark:text-success-400"
-                    : "text-foreground-400"
+                  a.online ? "text-success-600" : "text-foreground-400"
                 }`}
               >
                 <span
@@ -1252,8 +1245,8 @@ function DoneStep({
 }) {
   return (
     <div className="flex flex-col items-center gap-6 py-4 text-center">
-      <div className="w-16 h-16 rounded-2xl bg-primary-100 dark:bg-primary-500/20 border border-primary-200 dark:border-primary-400/30 flex items-center justify-center">
-        <Shield className="w-8 h-8 text-primary-600 dark:text-primary-400" />
+      <div className="w-16 h-16 rounded-2xl bg-primary-100 border border-primary-200 flex items-center justify-center">
+        <Shield className="w-8 h-8 text-primary-600" />
       </div>
       <div>
         <h2 className="text-xl font-bold text-foreground">
@@ -1269,7 +1262,7 @@ function DoneStep({
         {STEPS.map(({ id, label, icon: Icon }) => (
           <div
             key={id}
-            className="flex items-center gap-3 px-4 py-3 rounded-xl border text-sm bg-success-50 dark:bg-success-500/10 border-success-200 dark:border-success-500/25 text-success-700 dark:text-success-400"
+            className="flex items-center gap-3 px-4 py-3 rounded-xl border text-sm bg-success-50 border-success-200 text-success-700"
           >
             <Icon className="w-4 h-4 shrink-0" />
             <span className="flex-1 font-medium">{label}</span>
@@ -1335,9 +1328,9 @@ function Sidebar({
                   done ? "cursor-default" : "cursor-pointer"
                 } ${
                   isActive
-                    ? "bg-primary-50 dark:bg-primary-600/20 border border-primary-200 dark:border-primary-500/40 text-primary-900 dark:text-white"
+                    ? "bg-primary-50 border border-primary-200 text-primary-900"
                     : isPast && isCompleted
-                      ? "text-success-600 dark:text-success-400 hover:bg-background-200"
+                      ? "text-success-600 hover:bg-background-200"
                       : !done
                         ? "text-foreground-400 hover:bg-background-200 hover:text-foreground-500"
                         : "text-foreground-400"
@@ -1348,7 +1341,7 @@ function Sidebar({
                     isActive
                       ? "bg-primary-600 border-primary-500 text-white"
                       : isPast && isCompleted
-                        ? "bg-success-100 dark:bg-success-500/15 border-success-200 dark:border-success-500/30 text-success-600 dark:text-success-400"
+                        ? "bg-success-100 border-success-200 text-success-600"
                         : "bg-background-200 border-neutral-200 text-foreground-400"
                   }`}
                 >
@@ -1362,16 +1355,14 @@ function Sidebar({
                   <p className="text-xs font-semibold truncate">{label}</p>
                   <p
                     className={`text-[10px] truncate ${
-                      isActive
-                        ? "text-primary-600/70 dark:text-primary-300/60"
-                        : "text-foreground-400"
+                      isActive ? "text-primary-600/70" : "text-foreground-400"
                     }`}
                   >
                     {desc}
                   </p>
                 </div>
                 {isActive && (
-                  <div className="ml-auto w-1.5 h-1.5 rounded-full bg-primary-500 dark:bg-primary-400 shrink-0 animate-pulse" />
+                  <div className="ml-auto w-1.5 h-1.5 rounded-full bg-primary-500 shrink-0 animate-pulse" />
                 )}
               </button>
             );
@@ -1512,11 +1503,11 @@ export default function SetupPage() {
   if (loading) return null;
 
   return (
-    <div className="min-h-screen flex bg-gradient-to-br from-primary-50/70 via-background to-secondary-50/40 dark:from-neutral-950 dark:via-primary-950 dark:to-neutral-950">
+    <div className="min-h-screen flex bg-gradient-to-br from-primary-50/70 via-background to-secondary-50/40">
       {/* Ambient blobs */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[700px] h-[450px] bg-primary-200/40 dark:bg-primary-600/10 rounded-full blur-3xl" />
-        <div className="absolute bottom-0 right-0 w-[400px] h-[400px] bg-secondary-200/30 dark:bg-secondary-600/8 rounded-full blur-3xl" />
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[700px] h-[450px] bg-primary-200/40 rounded-full blur-3xl" />
+        <div className="absolute bottom-0 right-0 w-[400px] h-[400px] bg-secondary-200/30 rounded-full blur-3xl" />
       </div>
 
       {/* Sidebar */}
@@ -1602,9 +1593,9 @@ export default function SetupPage() {
                       onClick={() => goToStep(i)}
                       className={`rounded-full transition-all ${
                         i === currentIdx
-                          ? "w-4 h-2 bg-primary-500 dark:bg-primary-400"
+                          ? "w-4 h-2 bg-primary-500"
                           : i < currentIdx
-                            ? "w-2 h-2 bg-primary-400/60 dark:bg-primary-600/60"
+                            ? "w-2 h-2 bg-primary-400/60"
                             : "w-2 h-2 bg-neutral-200"
                       }`}
                     />

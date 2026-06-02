@@ -124,7 +124,7 @@ export function TemplateSelectionModal({
                     onSelectTemplate(template.id);
                     onClose();
                   }}
-                  className="p-4 border border-neutral-200 rounded-lg hover:border-primary-500 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition text-left"
+                  className="p-4 border border-neutral-200 rounded-lg hover:border-primary-500 hover:bg-primary-50:bg-primary-900/20 transition text-left"
                 >
                   <div className="flex items-start gap-3">
                     <div className="flex-1">
@@ -139,7 +139,7 @@ export function TemplateSelectionModal({
                           {template.category}
                         </span>
                         {template.suggestedCron && (
-                          <span className="px-2 py-1 bg-success-100 dark:bg-success-900/30 text-success-700 dark:text-success-400 text-xs rounded font-mono">
+                          <span className="px-2 py-1 bg-success-100 text-success-700 text-xs rounded font-mono">
                             ⏰ {template.suggestedCron}
                           </span>
                         )}

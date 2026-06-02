@@ -64,7 +64,7 @@ const PredecessorInputs: React.FC<{
 
   return (
     <div className="rounded-lg border border-primary-500/40 bg-primary-500/5 p-3 space-y-2">
-      <div className="flex items-center gap-1.5 text-xs font-semibold text-primary-700 dark:text-primary-400 uppercase tracking-wide">
+      <div className="flex items-center gap-1.5 text-xs font-semibold text-primary-700 uppercase tracking-wide">
         <ArrowRight size={12} />
         Inputs from connected nodes
       </div>
@@ -92,7 +92,7 @@ const PredecessorInputs: React.FC<{
                     <button
                       onClick={() => onInsert(v)}
                       title={`Insert ${v} into Parameters`}
-                      className="font-mono text-[10px] px-1.5 py-0.5 bg-primary-100 dark:bg-primary-900/50 border border-primary-300 dark:border-primary-700/60 text-primary-700 dark:text-primary-300 rounded hover:bg-primary-700/60 transition"
+                      className="font-mono text-[10px] px-1.5 py-0.5 bg-primary-100 border border-primary-300 text-primary-700 rounded hover:bg-primary-700/60 transition"
                     >
                       {v}
                     </button>
@@ -102,10 +102,7 @@ const PredecessorInputs: React.FC<{
                       className="p-0.5 text-foreground-400 hover:text-foreground transition"
                     >
                       {copiedVar === v ? (
-                        <Check
-                          size={10}
-                          className="text-success-700 dark:text-success-400"
-                        />
+                        <Check size={10} className="text-success-700" />
                       ) : (
                         <Copy size={10} />
                       )}
@@ -358,9 +355,7 @@ const SchedulePanel: React.FC<{ workflowId: string | null }> = ({
       </div>
 
       {status === "saved" && (
-        <p className="text-xs text-success-600 dark:text-success-400">
-          ✓ Schedule saved
-        </p>
+        <p className="text-xs text-success-600">✓ Schedule saved</p>
       )}
       {status === "error" && (
         <p className="text-xs text-danger-500">✗ Failed to save schedule</p>
@@ -452,7 +447,7 @@ const SkillNodeProperties: React.FC<{
             ))}
           </select>
           {selectedTool?.approvalRequired && (
-            <p className="text-xs text-warning-600 dark:text-warning-400 mt-1">
+            <p className="text-xs text-warning-600 mt-1">
               ⚠️ This tool requires human approval before executing.
             </p>
           )}
@@ -533,7 +528,7 @@ const SkillNodeProperties: React.FC<{
         </label>
         <p className="text-xs text-foreground-400 mb-2">
           JSON object passed directly as tool input. Use{" "}
-          <code className="font-mono text-success-600 dark:text-success-400">
+          <code className="font-mono text-success-600">
             $&#123;nodeId&#125;
           </code>{" "}
           to reference predecessor outputs.
@@ -549,7 +544,7 @@ const SkillNodeProperties: React.FC<{
             }
           }}
           className="w-full px-3 py-2 bg-background-100 text-foreground border border-neutral-200 rounded-md text-xs font-mono focus:ring-2 focus:ring-success-500 h-24"
-          placeholder={'{\n  "text": "${prev-node}"\n}'}
+          placeholder={'{\n "text": "${prev-node}"\n}'}
         />
       </div>
     </div>
@@ -878,7 +873,7 @@ export const PropertiesPanel: React.FC<{
                             input: expected,
                           })
                         }
-                        className="text-[10px] text-primary-700 dark:text-primary-400 hover:text-primary-300 border border-primary-300 dark:border-primary-700/50 px-1.5 py-0.5 rounded"
+                        className="text-[10px] text-primary-700 hover:text-primary-300 border border-primary-300 px-1.5 py-0.5 rounded"
                       >
                         ↺ Reset auto-wire
                       </button>
@@ -896,11 +891,11 @@ export const PropertiesPanel: React.FC<{
                 </p>
                 <p>
                   Use{" "}
-                  <code className="font-mono text-primary-700 dark:text-primary-300">
+                  <code className="font-mono text-primary-700">
                     ${"{"}nodeId{"}"}
                   </code>{" "}
                   to pass an entire predecessor output, or{" "}
-                  <code className="font-mono text-primary-700 dark:text-primary-300">
+                  <code className="font-mono text-primary-700">
                     ${"{"}nodeId.field{"}"}
                   </code>{" "}
                   for a specific field.
@@ -926,7 +921,7 @@ export const PropertiesPanel: React.FC<{
                   }
                 }}
                 className="w-full px-3 py-2 bg-background-100 text-foreground border border-neutral-200 rounded-md text-xs font-mono focus:ring-2 focus:ring-primary-500 focus:border-transparent h-24"
-                placeholder="{&#10;  &#34;input&#34;: &#34;${prevNodeId}&#34;&#10;}"
+                placeholder="{&#10; &#34;input&#34;: &#34;${prevNodeId}&#34;&#10;}"
               />
             </div>
           </div>
@@ -949,7 +944,7 @@ export const PropertiesPanel: React.FC<{
               </label>
               <div className="mb-2 rounded border border-neutral-200 bg-background-200/60 p-2 text-xs text-foreground-500">
                 Evaluated as JavaScript. Reference predecessor outputs with{" "}
-                <code className="font-mono text-primary-700 dark:text-primary-300">
+                <code className="font-mono text-primary-700">
                   ${"{"}nodeId.field{"}"}
                 </code>
                 . Must return <code className="font-mono">true</code> or{" "}
@@ -1047,7 +1042,7 @@ export const PropertiesPanel: React.FC<{
                     onClick={() => updateNodeData("color", color)}
                     className={`w-8 h-8 rounded border-2 capitalize text-xs font-bold transition-all ${
                       node.data.color === color
-                        ? "border-primary-500 ring-2 ring-offset-1 ring-primary-500 dark:ring-offset-neutral-900"
+                        ? "border-primary-500 ring-2 ring-offset-1 ring-primary-500"
                         : "border-neutral-200"
                     } ${
                       {

@@ -108,12 +108,12 @@ export default function TopBar() {
             {displayLabel}
           </span>
           {isOwner && (
-            <span className="hidden sm:block px-1.5 py-0.5 bg-warning-100 dark:bg-warning-900/40 text-warning-700 dark:text-warning-400 border border-warning-300 dark:border-warning-800/60 rounded text-[10px] leading-none">
+            <span className="hidden sm:block px-1.5 py-0.5 bg-warning-100 text-warning-700 border border-warning-300 rounded text-[10px] leading-none">
               Owner
             </span>
           )}
           {isAdmin && !isOwner && (
-            <span className="hidden sm:block px-1.5 py-0.5 bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-400 border border-primary-300 dark:border-primary-800/60 rounded text-[10px] leading-none">
+            <span className="hidden sm:block px-1.5 py-0.5 bg-primary-100 text-primary-700 border border-primary-300 rounded text-[10px] leading-none">
               Admin
             </span>
           )}
@@ -156,14 +156,14 @@ export default function TopBar() {
                     className={cn(
                       "flex-1 flex flex-col items-center gap-1 py-1.5 rounded-lg text-xs transition-colors border",
                       theme === value
-                        ? "bg-primary-100 dark:bg-primary-600/20 border-primary-300 dark:border-primary-600/50 text-primary-700 dark:text-primary-300"
+                        ? "bg-primary-100 border-primary-300 text-primary-700"
                         : "border-transparent text-foreground-500 hover:text-foreground-700 hover:bg-background-200"
                     )}
                   >
                     <Icon className="w-3.5 h-3.5" />
                     <span>{label}</span>
                     {theme === value && (
-                      <Check className="w-2.5 h-2.5 text-primary-700 dark:text-primary-400 absolute" />
+                      <Check className="w-2.5 h-2.5 text-primary-700 absolute" />
                     )}
                   </button>
                 ))}
@@ -185,7 +185,7 @@ export default function TopBar() {
             {/* Sign out */}
             <button
               onClick={() => signOut({ callbackUrl: "/login" })}
-              className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-danger-500 dark:text-danger-400 hover:text-danger-600 dark:hover:text-danger-300 hover:bg-danger-50 dark:hover:bg-danger-900/20 transition-colors border-t border-neutral-200"
+              className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-danger-500 hover:text-danger-600:text-danger-300 hover:bg-danger-50:bg-danger-900/20 transition-colors border-t border-neutral-200"
             >
               <LogOut className="w-4 h-4" />
               Sign out

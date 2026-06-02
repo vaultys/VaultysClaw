@@ -79,10 +79,16 @@ export async function POST(request: NextRequest) {
     };
 
     if (!name || typeof name !== "string") {
-      return NextResponse.json({ error: "name (string) is required" }, { status: 400 });
+      return NextResponse.json(
+        { error: "name (string) is required" },
+        { status: 400 }
+      );
     }
     if (!definition || typeof definition !== "object") {
-      return NextResponse.json({ error: "definition (object) is required" }, { status: 400 });
+      return NextResponse.json(
+        { error: "definition (object) is required" },
+        { status: 400 }
+      );
     }
 
     // If no realmId, must be global admin (no implicit realm to check admin on)
@@ -94,10 +100,19 @@ export async function POST(request: NextRequest) {
 
     const id = saveWorkflow(name, definition, undefined, realmId);
 
-    return NextResponse.json({ success: true, id, name, description, realmId: realmId || "default" });
+    return NextResponse.json({
+      success: true,
+      id,
+      name,
+      description,
+      realmId: realmId || "default",
+    });
   } catch (err) {
     console.error("POST /api/workflows error:", err);
-    return NextResponse.json({ error: "Failed to save workflow" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to save workflow" },
+      { status: 500 }
+    );
   }
 }
 
@@ -165,8 +180,12 @@ export async function GET(request: NextRequest) {
 
     // Non-admins: filter to workflows in their realms
     if (!auth.isGlobalAdmin) {
-      const userRealmIds = new Set(getUserRealms(auth.did).map((r) => r.realm_id));
-      workflows = workflows.filter((w) => w.realm_id && userRealmIds.has(w.realm_id));
+      const userRealmIds = new Set(
+        getUserRealms(auth.did).map((r) => r.realm_id)
+      );
+      workflows = workflows.filter(
+        (w) => w.realm_id && userRealmIds.has(w.realm_id)
+      );
     }
 
     return NextResponse.json({
@@ -183,6 +202,9 @@ export async function GET(request: NextRequest) {
     });
   } catch (err) {
     console.error("GET /api/workflows error:", err);
-    return NextResponse.json({ error: "Failed to list workflows" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to list workflows" },
+      { status: 500 }
+    );
   }
 }

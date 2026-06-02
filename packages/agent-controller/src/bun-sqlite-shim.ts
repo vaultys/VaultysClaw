@@ -20,7 +20,9 @@ function normalizeParams(
   if (Array.isArray(params)) return params;
   return Object.fromEntries(
     Object.entries(params).map(([k, v]) => [
-      k.startsWith("$") || k.startsWith(":") || k.startsWith("@") ? k.slice(1) : k,
+      k.startsWith("$") || k.startsWith(":") || k.startsWith("@")
+        ? k.slice(1)
+        : k,
       v,
     ])
   );
@@ -46,7 +48,9 @@ export class Database {
       },
       get: (params?: Record<string, unknown> | unknown[]): T | undefined => {
         const p = normalizeParams(params);
-        return (p !== undefined ? stmt.get(p as any) : stmt.get()) as T | undefined;
+        return (p !== undefined ? stmt.get(p as any) : stmt.get()) as
+          | T
+          | undefined;
       },
       all: (params?: Record<string, unknown> | unknown[]): T[] => {
         const p = normalizeParams(params);

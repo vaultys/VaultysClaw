@@ -48,12 +48,16 @@ export async function POST(_req: NextRequest, ctx: Ctx) {
 
     const { id } = await ctx.params;
     const realm = getRealmById(id);
-    if (!realm) return NextResponse.json({ error: "Realm not found" }, { status: 404 });
+    if (!realm)
+      return NextResponse.json({ error: "Realm not found" }, { status: 404 });
 
     setDefaultRealm(id);
     return NextResponse.json({ ok: true });
   } catch (err) {
     console.error(err);
-    return NextResponse.json({ error: "Failed to set default realm" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to set default realm" },
+      { status: 500 }
+    );
   }
 }

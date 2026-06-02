@@ -78,7 +78,13 @@ export const AGENTS_LIST_SCHEMA: QuerySchema = {
   status: {
     type: "string",
     description: "Filter by connection status",
-    enum: ["connected", "connecting", "disconnected", "initializing", "pending_approval"],
+    enum: [
+      "connected",
+      "connecting",
+      "disconnected",
+      "initializing",
+      "pending_approval",
+    ],
   },
 };
 
@@ -206,7 +212,9 @@ export function validateQueryParams(
       // Type validation
       const actualType = typeof value;
       if (paramSchema.type && actualType !== paramSchema.type.toLowerCase()) {
-        errors.push(`Parameter ${key} must be ${paramSchema.type}, got ${actualType}`);
+        errors.push(
+          `Parameter ${key} must be ${paramSchema.type}, got ${actualType}`
+        );
       }
 
       // Enum validation

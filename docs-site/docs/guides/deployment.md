@@ -96,6 +96,7 @@ server {
 
 :::tip Using Caddy?
 Caddy handles TLS automatically. A minimal `Caddyfile`:
+
 ```
 vaultysclaw.acme.com {
     reverse_proxy /ws localhost:8080 {
@@ -105,6 +106,7 @@ vaultysclaw.acme.com {
     reverse_proxy localhost:3000
 }
 ```
+
 :::
 
 ### 4. Run the control plane as a service
@@ -153,6 +155,7 @@ docker compose up -d
 ```
 
 The Compose file starts:
+
 - `control-plane` — the Next.js app + WebSocket hub
 - `caddy` — reverse proxy with automatic HTTPS (Let's Encrypt)
 
@@ -219,9 +222,9 @@ node server.js | filebeat
 
 ### Health endpoints
 
-| Endpoint | Returns |
-|---|---|
-| `GET /api/health` | Control plane health |
+| Endpoint                      | Returns                  |
+| ----------------------------- | ------------------------ |
+| `GET /api/health`             | Control plane health     |
 | `GET /api/agents?online=true` | List of connected agents |
 
 ## Upgrade procedure

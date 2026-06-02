@@ -6,7 +6,12 @@
 
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { AgentWSServer } from "../packages/control-plane/lib/ws-server";
-import { getDb, closeDb, initServerIdentity, setAgentLlmConfig } from "../packages/control-plane/lib/db";
+import {
+  getDb,
+  closeDb,
+  initServerIdentity,
+  setAgentLlmConfig,
+} from "../packages/control-plane/lib/db";
 import { MockAgent, waitFor } from "./test-utils";
 import type { LlmConfig } from "@vaultysclaw/shared";
 
@@ -15,7 +20,7 @@ let WS_PORT = 8765;
 let portInUse = true;
 while (portInUse) {
   try {
-    require('net').createServer().listen(WS_PORT).close();
+    require("net").createServer().listen(WS_PORT).close();
     portInUse = false;
   } catch {
     WS_PORT++;
@@ -48,7 +53,10 @@ describe("VaultysClaw Integration Tests", () => {
 
   describe("VaultysId Authentication", () => {
     it("should authenticate an agent via challenge-response", async () => {
-      const agent = new MockAgent(`ws://localhost:${WS_PORT}`, "Auth Test Agent");
+      const agent = new MockAgent(
+        `ws://localhost:${WS_PORT}`,
+        "Auth Test Agent"
+      );
       await agent.connect();
       await agent.authenticate(["test_capability"], wsServer);
 
@@ -60,7 +68,10 @@ describe("VaultysClaw Integration Tests", () => {
     });
 
     it("should track authenticated agents in server", async () => {
-      const agent = new MockAgent(`ws://localhost:${WS_PORT}`, "Tracking Agent");
+      const agent = new MockAgent(
+        `ws://localhost:${WS_PORT}`,
+        "Tracking Agent"
+      );
       await agent.connect();
       await agent.authenticate(["capability1", "capability2"], wsServer);
 
@@ -75,14 +86,18 @@ describe("VaultysClaw Integration Tests", () => {
     });
 
     it("should authenticate multiple agents concurrently", async () => {
-      const agents = Array.from({ length: 3 }, (_, i) =>
-        new MockAgent(`ws://localhost:${WS_PORT}`, `Concurrent Agent ${i}`)
+      const agents = Array.from(
+        { length: 3 },
+        (_, i) =>
+          new MockAgent(`ws://localhost:${WS_PORT}`, `Concurrent Agent ${i}`)
       );
 
       // Connect all
       await Promise.all(agents.map((a) => a.connect()));
       // Authenticate all
-      await Promise.all(agents.map((a, i) => a.authenticate([`capability-${i}`], wsServer)));
+      await Promise.all(
+        agents.map((a, i) => a.authenticate([`capability-${i}`], wsServer))
+      );
 
       for (const agent of agents) {
         expect(agent.isAuthenticated()).toBe(true);
@@ -101,7 +116,10 @@ describe("VaultysClaw Integration Tests", () => {
 
   describe("Intent Distribution", () => {
     it("should send intent to specific agent", async () => {
-      const agent = new MockAgent(`ws://localhost:${WS_PORT}`, "Intent Test Agent");
+      const agent = new MockAgent(
+        `ws://localhost:${WS_PORT}`,
+        "Intent Test Agent"
+      );
       await agent.connect();
       await agent.authenticate(["test_capability"], wsServer);
 
@@ -125,9 +143,18 @@ describe("VaultysClaw Integration Tests", () => {
     });
 
     it("should broadcast intent to agents with capability", async () => {
-      const agent1 = new MockAgent(`ws://localhost:${WS_PORT}`, "Broadcast Agent 1");
-      const agent2 = new MockAgent(`ws://localhost:${WS_PORT}`, "Broadcast Agent 2");
-      const agent3 = new MockAgent(`ws://localhost:${WS_PORT}`, "Broadcast Agent 3");
+      const agent1 = new MockAgent(
+        `ws://localhost:${WS_PORT}`,
+        "Broadcast Agent 1"
+      );
+      const agent2 = new MockAgent(
+        `ws://localhost:${WS_PORT}`,
+        "Broadcast Agent 2"
+      );
+      const agent3 = new MockAgent(
+        `ws://localhost:${WS_PORT}`,
+        "Broadcast Agent 3"
+      );
 
       await Promise.all([agent1.connect(), agent2.connect(), agent3.connect()]);
       await agent1.authenticate(["broadcast_cap"], wsServer);
@@ -156,7 +183,10 @@ describe("VaultysClaw Integration Tests", () => {
 
   describe("Execution Results", () => {
     it("should receive execution results from agent", async () => {
-      const agent = new MockAgent(`ws://localhost:${WS_PORT}`, "Result Test Agent");
+      const agent = new MockAgent(
+        `ws://localhost:${WS_PORT}`,
+        "Result Test Agent"
+      );
       await agent.connect();
       await agent.authenticate(["test_capability"], wsServer);
 
@@ -177,7 +207,10 @@ describe("VaultysClaw Integration Tests", () => {
 
   describe("Policy Distribution", () => {
     it("should apply policy to agent via cert reissue", async () => {
-      const agent = new MockAgent(`ws://localhost:${WS_PORT}`, "Policy Test Agent");
+      const agent = new MockAgent(
+        `ws://localhost:${WS_PORT}`,
+        "Policy Test Agent"
+      );
       await agent.connect();
       await agent.authenticate(["test_capability"], wsServer);
 
@@ -189,7 +222,11 @@ describe("VaultysClaw Integration Tests", () => {
 
       // applyPolicy triggers update_capabilities → re-auth handshake
       const reAuthPromise = agent.reAuthAfterCapabilityUpdate();
-      const applied = wsServer.applyPolicy(agent.id, ["test_capability", "api_call"], policyMeta);
+      const applied = wsServer.applyPolicy(
+        agent.id,
+        ["test_capability", "api_call"],
+        policyMeta
+      );
       expect(applied).toBe(true);
 
       await reAuthPromise;
@@ -207,14 +244,20 @@ describe("VaultysClaw Integration Tests", () => {
       const result = wsServer.applyPolicy(
         "did:vaultys:nonexistent",
         ["test_capability"],
-        { resourceLimits: null, policyId: null, policyExpiresAt: null },
+        { resourceLimits: null, policyId: null, policyExpiresAt: null }
       );
       expect(result).toBe(false);
     });
 
     it("should apply policy to multiple agents independently", async () => {
-      const agent1 = new MockAgent(`ws://localhost:${WS_PORT}`, "Policy Multi 1");
-      const agent2 = new MockAgent(`ws://localhost:${WS_PORT}`, "Policy Multi 2");
+      const agent1 = new MockAgent(
+        `ws://localhost:${WS_PORT}`,
+        "Policy Multi 1"
+      );
+      const agent2 = new MockAgent(
+        `ws://localhost:${WS_PORT}`,
+        "Policy Multi 2"
+      );
 
       await Promise.all([agent1.connect(), agent2.connect()]);
       await agent1.authenticate(["cap_a"], wsServer);
@@ -230,8 +273,16 @@ describe("VaultysClaw Integration Tests", () => {
       const reAuth1 = agent1.reAuthAfterCapabilityUpdate();
       const reAuth2 = agent2.reAuthAfterCapabilityUpdate();
 
-      const applied1 = wsServer.applyPolicy(agent1.id, ["cap_a", "api_call"], policyMeta);
-      const applied2 = wsServer.applyPolicy(agent2.id, ["cap_b", "api_call"], policyMeta);
+      const applied1 = wsServer.applyPolicy(
+        agent1.id,
+        ["cap_a", "api_call"],
+        policyMeta
+      );
+      const applied2 = wsServer.applyPolicy(
+        agent2.id,
+        ["cap_b", "api_call"],
+        policyMeta
+      );
 
       expect(applied1).toBe(true);
       expect(applied2).toBe(true);
@@ -248,7 +299,10 @@ describe("VaultysClaw Integration Tests", () => {
 
   describe("Heartbeat", () => {
     it("should handle agent heartbeats", async () => {
-      const agent = new MockAgent(`ws://localhost:${WS_PORT}`, "Heartbeat Agent");
+      const agent = new MockAgent(
+        `ws://localhost:${WS_PORT}`,
+        "Heartbeat Agent"
+      );
       await agent.connect();
       await agent.authenticate(["test_capability"], wsServer);
 
@@ -259,7 +313,10 @@ describe("VaultysClaw Integration Tests", () => {
     });
 
     it("should track agent heartbeat timestamps", async () => {
-      const agent = new MockAgent(`ws://localhost:${WS_PORT}`, "Heartbeat Track Agent");
+      const agent = new MockAgent(
+        `ws://localhost:${WS_PORT}`,
+        "Heartbeat Track Agent"
+      );
       await agent.connect();
       await agent.authenticate(["test_capability"], wsServer);
 
@@ -281,7 +338,10 @@ describe("VaultysClaw Integration Tests", () => {
 
   describe("Agent Disconnection", () => {
     it("should remove agent from connected agents on disconnect", async () => {
-      const agent = new MockAgent(`ws://localhost:${WS_PORT}`, "Disconnect Agent");
+      const agent = new MockAgent(
+        `ws://localhost:${WS_PORT}`,
+        "Disconnect Agent"
+      );
       await agent.connect();
       await agent.authenticate(["test_capability"], wsServer);
 
@@ -292,7 +352,10 @@ describe("VaultysClaw Integration Tests", () => {
       agent.close();
 
       // Wait for the server to process the disconnect event
-      await waitFor(() => !wsServer.getConnectedAgents().some((a) => a.id === agentId), 3000);
+      await waitFor(
+        () => !wsServer.getConnectedAgents().some((a) => a.id === agentId),
+        3000
+      );
 
       agents = wsServer.getConnectedAgents();
       expect(agents.find((a) => a.id === agentId)).toBeUndefined();
@@ -311,7 +374,9 @@ describe("VaultysClaw Integration Tests", () => {
       // Step 2: Receive intent
       const intentId = `e2e-intent-${Date.now()}`;
       const intentPromise = agent.waitForIntent(3000);
-      wsServer.sendIntentToAgent(agent.id, intentId, "e2e_action", { data: "test" });
+      wsServer.sendIntentToAgent(agent.id, intentId, "e2e_action", {
+        data: "test",
+      });
       const intent = await intentPromise;
       expect(intent.payload.action).toBe("e2e_action");
 
@@ -325,7 +390,11 @@ describe("VaultysClaw Integration Tests", () => {
         policyExpiresAt: null,
       };
       const reAuthPromise = agent.reAuthAfterCapabilityUpdate();
-      const applied = wsServer.applyPolicy(agent.id, ["e2e_capability"], policyMeta);
+      const applied = wsServer.applyPolicy(
+        agent.id,
+        ["e2e_capability"],
+        policyMeta
+      );
       expect(applied).toBe(true);
       await reAuthPromise;
 
@@ -350,14 +419,23 @@ describe("VaultysClaw Integration Tests", () => {
     });
 
     it("should approve registration and complete auth", async () => {
-      const agent = new MockAgent(`ws://localhost:${WS_PORT}`, "Approval Agent");
+      const agent = new MockAgent(
+        `ws://localhost:${WS_PORT}`,
+        "Approval Agent"
+      );
       await agent.connect();
 
       const registrationId = await agent.register();
 
       // Admin approves with capabilities
-      const approvePromise = agent.authenticateAfterApproval(["file_access", "api_call"]);
-      const approved = wsServer.approveRegistration(registrationId, ["file_access", "api_call"]);
+      const approvePromise = agent.authenticateAfterApproval([
+        "file_access",
+        "api_call",
+      ]);
+      const approved = wsServer.approveRegistration(registrationId, [
+        "file_access",
+        "api_call",
+      ]);
       expect(approved).toBe(true);
 
       await approvePromise;
@@ -375,12 +453,18 @@ describe("VaultysClaw Integration Tests", () => {
     });
 
     it("should reject registration and close connection", async () => {
-      const agent = new MockAgent(`ws://localhost:${WS_PORT}`, "Rejected Agent");
+      const agent = new MockAgent(
+        `ws://localhost:${WS_PORT}`,
+        "Rejected Agent"
+      );
       await agent.connect();
 
       const registrationId = await agent.register();
 
-      const rejected = wsServer.rejectRegistration(registrationId, "Not authorized");
+      const rejected = wsServer.rejectRegistration(
+        registrationId,
+        "Not authorized"
+      );
       expect(rejected).toBe(true);
 
       // Agent should not be authenticated
@@ -391,14 +475,19 @@ describe("VaultysClaw Integration Tests", () => {
     });
 
     it("should return false when approving non-existent registration", () => {
-      const result = wsServer.approveRegistration("non-existent-id", ["file_access"]);
+      const result = wsServer.approveRegistration("non-existent-id", [
+        "file_access",
+      ]);
       expect(result).toBe(false);
     });
   });
 
   describe("Capability Update & Re-Auth", () => {
     it("should re-authenticate agent with new capabilities", async () => {
-      const agent = new MockAgent(`ws://localhost:${WS_PORT}`, "CapUpdate Agent");
+      const agent = new MockAgent(
+        `ws://localhost:${WS_PORT}`,
+        "CapUpdate Agent"
+      );
       await agent.connect();
       await agent.authenticate(["file_access"], wsServer);
 
@@ -407,7 +496,11 @@ describe("VaultysClaw Integration Tests", () => {
 
       // Admin updates capabilities
       const reAuthPromise = agent.reAuthAfterCapabilityUpdate();
-      const updated = wsServer.updateAgentCapabilities(agentId, ["file_access", "api_call", "code_execution"]);
+      const updated = wsServer.updateAgentCapabilities(agentId, [
+        "file_access",
+        "api_call",
+        "code_execution",
+      ]);
       expect(updated).toBe(true);
 
       await reAuthPromise;
@@ -426,7 +519,10 @@ describe("VaultysClaw Integration Tests", () => {
     });
 
     it("should return false when updating non-existent agent", () => {
-      const result = wsServer.updateAgentCapabilities("did:vaultys:nonexistent", ["file_access"]);
+      const result = wsServer.updateAgentCapabilities(
+        "did:vaultys:nonexistent",
+        ["file_access"]
+      );
       expect(result).toBe(false);
     });
   });
@@ -439,7 +535,10 @@ describe("VaultysClaw Integration Tests", () => {
     };
 
     it("should push llm_config message to a connected agent", async () => {
-      const agent = new MockAgent(`ws://localhost:${WS_PORT}`, "LLM Config Agent");
+      const agent = new MockAgent(
+        `ws://localhost:${WS_PORT}`,
+        "LLM Config Agent"
+      );
       await agent.connect();
       await agent.authenticate(["test_capability"], wsServer);
 
@@ -456,7 +555,10 @@ describe("VaultysClaw Integration Tests", () => {
     });
 
     it("should push null llm_config to clear remote config", async () => {
-      const agent = new MockAgent(`ws://localhost:${WS_PORT}`, "LLM Clear Agent");
+      const agent = new MockAgent(
+        `ws://localhost:${WS_PORT}`,
+        "LLM Clear Agent"
+      );
       await agent.connect();
       await agent.authenticate(["test_capability"], wsServer);
 
@@ -480,7 +582,10 @@ describe("VaultysClaw Integration Tests", () => {
 
     it("should re-push stored llm_config when agent reconnects", async () => {
       // Step 1: authenticate first connection and persist config to DB
-      const agent1 = new MockAgent(`ws://localhost:${WS_PORT}`, "LLM Reconnect Agent");
+      const agent1 = new MockAgent(
+        `ws://localhost:${WS_PORT}`,
+        "LLM Reconnect Agent"
+      );
       await agent1.connect();
       await agent1.authenticate(["test_capability"], wsServer);
       const did = agent1.id;
@@ -519,7 +624,10 @@ describe("VaultysClaw Integration Tests", () => {
 
   describe("Chat Message Relay", () => {
     it("should relay chat_message to a connected agent", async () => {
-      const agent = new MockAgent(`ws://localhost:${WS_PORT}`, "Chat Relay Agent");
+      const agent = new MockAgent(
+        `ws://localhost:${WS_PORT}`,
+        "Chat Relay Agent"
+      );
       await agent.connect();
       await agent.authenticate(["test_capability"], wsServer);
 
@@ -531,7 +639,7 @@ describe("VaultysClaw Integration Tests", () => {
         agent.id,
         conversationId,
         messages,
-        () => { },
+        () => {}
       );
       expect(sent).toBe(true);
 
@@ -548,13 +656,16 @@ describe("VaultysClaw Integration Tests", () => {
         "did:vaultys:nonexistent",
         "conv-offline",
         [{ role: "user", content: "hi" }],
-        () => { },
+        () => {}
       );
       expect(sent).toBe(false);
     });
 
     it("should route chat_response chunks back to the callback", async () => {
-      const agent = new MockAgent(`ws://localhost:${WS_PORT}`, "Chat Response Agent");
+      const agent = new MockAgent(
+        `ws://localhost:${WS_PORT}`,
+        "Chat Response Agent"
+      );
       await agent.connect();
       await agent.authenticate(["test_capability"], wsServer);
 
@@ -569,7 +680,7 @@ describe("VaultysClaw Integration Tests", () => {
           (payload) => {
             received.push(payload);
             if (payload.done) resolve();
-          },
+          }
         );
       });
 
@@ -592,7 +703,10 @@ describe("VaultysClaw Integration Tests", () => {
     });
 
     it("should route chat_response errors back to the callback", async () => {
-      const agent = new MockAgent(`ws://localhost:${WS_PORT}`, "Chat Error Agent");
+      const agent = new MockAgent(
+        `ws://localhost:${WS_PORT}`,
+        "Chat Error Agent"
+      );
       await agent.connect();
       await agent.authenticate(["test_capability"], wsServer);
 
@@ -607,12 +721,15 @@ describe("VaultysClaw Integration Tests", () => {
           (payload) => {
             received.push(payload);
             if (payload.done || payload.error) resolve();
-          },
+          }
         );
       });
 
       await agent.waitForChatMessage(3000);
-      await agent.sendChatResponse(conversationId, { error: "LLM not configured", done: true });
+      await agent.sendChatResponse(conversationId, {
+        error: "LLM not configured",
+        done: true,
+      });
 
       await done;
 
@@ -623,7 +740,10 @@ describe("VaultysClaw Integration Tests", () => {
     });
 
     it("should clean up callback after done message", async () => {
-      const agent = new MockAgent(`ws://localhost:${WS_PORT}`, "Chat Cleanup Agent");
+      const agent = new MockAgent(
+        `ws://localhost:${WS_PORT}`,
+        "Chat Cleanup Agent"
+      );
       await agent.connect();
       await agent.authenticate(["test_capability"], wsServer);
 
@@ -638,7 +758,7 @@ describe("VaultysClaw Integration Tests", () => {
           (payload) => {
             callCount++;
             if (payload.done) resolve();
-          },
+          }
         );
       });
 

@@ -17,11 +17,13 @@ This document summarizes the major refactoring effort completed in May 2026 to i
 **Created shared utilities that were previously duplicated across packages:**
 
 **New Files:**
+
 - `packages/shared/src/utils/formatting.ts` - Time, uptime, and display formatting utilities
 - `packages/shared/src/utils/colors.ts` - Status and log-level color mappings
 - `packages/shared/src/errors.ts` - Centralized error classes
 
 **Key utilities extracted:**
+
 - `fmtUptime()` - Format uptime in seconds to readable format
 - `formatTime()` - Format ISO timestamps to relative time
 - `getInitials()` - Extract initials from names
@@ -31,6 +33,7 @@ This document summarizes the major refactoring effort completed in May 2026 to i
 - Error classes: `LlmNotConfiguredError`, `ValidationError`, etc.
 
 **Components updated:**
+
 - `packages/agent-controller/web-app/src/pages/AgentOverview.tsx`
 - `packages/agent-controller/src/tui/Dashboard.tsx`
 - `packages/control-plane/components/channels/MessageList.tsx`
@@ -41,14 +44,17 @@ This document summarizes the major refactoring effort completed in May 2026 to i
 **Created reusable UI component library:**
 
 **New Components:**
+
 - `components/shared/Modal.tsx` - Reusable modal dialog
 - `components/shared/Avatar.tsx` - User/agent avatar with automatic coloring
 - `components/shared/Badge.tsx` - Status, role, and capability badges
 
 **New Hooks:**
+
 - `lib/hooks/useNameResolution.ts` - Resolve DIDs to human-readable names
 
 **Benefits:**
+
 - Eliminates duplicate modal/form patterns
 - Consistent avatar styling across UI
 - Centralized name resolution logic
@@ -58,17 +64,20 @@ This document summarizes the major refactoring effort completed in May 2026 to i
 **Created standardized API response types and utilities:**
 
 **New Files:**
+
 - `lib/api-types.ts` - Standard response shapes (ListResponse, ErrorResponse)
 - `lib/api-utils.ts` - Helper functions for API responses
 - `lib/api-docs.ts` - Query parameter schemas and documentation
 
 **Standardized patterns:**
+
 - All list endpoints return: `{ items: T[], pagination: {...} }`
 - All errors return: `{ error, code, statusCode, details, timestamp }`
 - Consistent pagination: `page`, `pageSize`, `sortBy`, `sortDir`
 - Common filters: `q` (search), `realm`, `status`, etc.
 
 **Benefits:**
+
 - Single source of truth for API response formats
 - Clear documentation of all query parameters
 - Type-safe API responses
@@ -79,10 +88,12 @@ This document summarizes the major refactoring effort completed in May 2026 to i
 **Added comprehensive tests:**
 
 **New Test Files:**
+
 - `__tests__/api-types.test.ts` - 9 tests for response types
 - `__tests__/formatting.test.ts` - 29 tests for formatting utilities
 
 **Test Coverage:**
+
 - API response type helpers (pagination, error, success)
 - Formatting utilities (uptime, dates, times, initials, DIDs)
 - All tests passing with 100% coverage for these modules
@@ -92,6 +103,7 @@ This document summarizes the major refactoring effort completed in May 2026 to i
 **Created API documentation:**
 
 **New Documentation:**
+
 - `docs-site/docs/api/overview.md` - API overview and common patterns
 - Documents response formats, pagination, errors, authentication
 - Provides examples for common API usage patterns
@@ -99,6 +111,7 @@ This document summarizes the major refactoring effort completed in May 2026 to i
 ## Code Quality Improvements
 
 ### Reduced Duplication
+
 - **Before:** `shortDid()`, `getInitials()` defined in 6+ components
 - **After:** Single definition in shared package, imported everywhere
 
@@ -109,12 +122,14 @@ This document summarizes the major refactoring effort completed in May 2026 to i
 - **After:** Reusable `Modal` component in shared UI library
 
 ### Established Consistent Patterns
+
 - All list API responses follow same pagination format
 - All errors use standardized error response with code
 - All formatting utilities available from shared package
 - All UI components follow consistent styling
 
 ### Improved Type Safety
+
 - API response types defined in `api-types.ts`
 - Resource summaries typed for type-safe integration
 - Helper functions for creating responses (`toPaginatedResponse`, etc.)
@@ -124,6 +139,7 @@ This document summarizes the major refactoring effort completed in May 2026 to i
 The refactoring maintains backward compatibility. Existing code continues to work, but should gradually migrate to use shared utilities:
 
 ### Before
+
 ```typescript
 // In MessageList.tsx
 function shortDid(did?: string): string {
@@ -141,6 +157,7 @@ function shortDid(did?: string): string {
 ```
 
 ### After
+
 ```typescript
 // In both files
 import { shortDid } from "@vaultysclaw/shared";
@@ -156,6 +173,7 @@ import { shortDid } from "@vaultysclaw/shared";
 ## Testing
 
 All changes tested:
+
 - Type checking passes across all packages
 - New tests pass (38 tests for utilities and API types)
 - Existing tests continue to pass
@@ -164,6 +182,7 @@ All changes tested:
 ## Files Modified/Created
 
 ### New Files (27)
+
 - `packages/shared/src/utils/formatting.ts`
 - `packages/shared/src/utils/colors.ts`
 - `packages/shared/src/errors.ts`
@@ -182,6 +201,7 @@ All changes tested:
 - (Plus others)
 
 ### Modified Files (4)
+
 - `packages/agent-controller/web-app/src/pages/AgentOverview.tsx`
 - `packages/agent-controller/src/tui/Dashboard.tsx`
 - `packages/control-plane/components/channels/MessageList.tsx`
@@ -202,6 +222,7 @@ The refactoring establishes a foundation for further improvements:
 ## Backward Compatibility
 
 ✅ **All changes are backward compatible**
+
 - Old code paths still work
 - New utilities are additions, not replacements
 - Existing imports continue to function

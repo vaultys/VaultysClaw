@@ -90,18 +90,20 @@ CREATE TABLE agent_realms (
 ```
 
 **Key Points:**
+
 - An agent can belong to **multiple realms**
 - One realm is marked as **primary** (the agent's "home")
 - When an agent registers, it's auto-enrolled in the **default realm** as primary
 - Cross-realm memberships happen via explicit API calls
 
 **Functions:**
+
 ```typescript
-getAgentRealms(agentDid)           // Returns RealmMembershipRow[]
-addAgentToRealm(agentDid, realmId, isPrimary) // Add/update membership
-removeAgentFromRealm(agentDid, realmId)       // Remove (fails for default)
-getRealmAgents(realmId)            // Get all agents in a realm
-enrollInDefaultRealm("agent", did)  // Auto-enroll after registration
+getAgentRealms(agentDid); // Returns RealmMembershipRow[]
+addAgentToRealm(agentDid, realmId, isPrimary); // Add/update membership
+removeAgentFromRealm(agentDid, realmId); // Remove (fails for default)
+getRealmAgents(realmId); // Get all agents in a realm
+enrollInDefaultRealm("agent", did); // Auto-enroll after registration
 ```
 
 ### User-Realm Association
@@ -119,11 +121,12 @@ CREATE TABLE user_realms (
 ```
 
 **Functions:**
+
 ```typescript
-getUserRealms(userDid)
-addUserToRealm(userDid, realmId, isPrimary)
-removeUserFromRealm(userDid, realmId)
-getRealmUsers(realmId)
+getUserRealms(userDid);
+addUserToRealm(userDid, realmId, isPrimary);
+removeUserFromRealm(userDid, realmId);
+getRealmUsers(realmId);
 ```
 
 ---
@@ -161,13 +164,13 @@ CREATE TABLE agents (
 ### Available Capabilities
 
 ```typescript
-"file_access"      // Read/write files
-"internet_access"  // HTTP requests
-"browser_control"  // Browser automation
-"api_call"         // API integrations
-"mail_send"        // Email sending
-"code_execution"   // Run code
-"system_command"   // Execute OS commands
+"file_access"; // Read/write files
+"internet_access"; // HTTP requests
+"browser_control"; // Browser automation
+"api_call"; // API integrations
+"mail_send"; // Email sending
+"code_execution"; // Run code
+"system_command"; // Execute OS commands
 ```
 
 ### Agent API Endpoint
@@ -205,6 +208,7 @@ CREATE TABLE agents (
 ```
 
 **Key Observations:**
+
 - Returns agents from **both DB and live WebSocket** connections
 - Includes **realm memberships** with is_primary flag
 - Shows **online status** + live metadata (heartbeat, reported LLM, token usage)
@@ -265,23 +269,23 @@ CREATE INDEX idx_workflow_steps_run ON workflow_steps(run_id, step_id);
 ```typescript
 interface WorkflowDefinition {
   nodes: Array<{
-    id: string;                    // Node identifier
-    type: string;                  // 'agent', 'condition', 'parallel', 'delay', 'custom'
+    id: string; // Node identifier
+    type: string; // 'agent', 'condition', 'parallel', 'delay', 'custom'
     data: {
-      agentId?: string;            // "did:vaultys:..." or "@mock-agent"
-      params?: Record<string, any>;// Parameters for the node
-      expression?: string;         // For condition nodes
-      duration?: number;           // For delay nodes
+      agentId?: string; // "did:vaultys:..." or "@mock-agent"
+      params?: Record<string, any>; // Parameters for the node
+      expression?: string; // For condition nodes
+      duration?: number; // For delay nodes
       [key: string]: unknown;
     };
     position?: { x: number; y: number }; // For UI visualization
   }>;
   edges: Array<{
     id: string;
-    source: string;                // Source node ID
-    target: string;                // Target node ID
+    source: string; // Source node ID
+    target: string; // Target node ID
     data?: {
-      condition?: string;          // Conditional routing
+      condition?: string; // Conditional routing
       [key: string]: unknown;
     };
   }>;
@@ -326,6 +330,7 @@ updateWorkflowStep(stepId, status?, output?, error?)
 ### Workflow Templates
 
 Pre-built templates are defined in [lib/workflow-templates.ts](lib/workflow-templates.ts):
+
 - Content Creation Workflow
 - Multi-Agent Report Generation
 - Conditional Decision Tree Workflow
@@ -339,6 +344,7 @@ Pre-built templates are defined in [lib/workflow-templates.ts](lib/workflow-temp
 ### Workflow Executor (lib/workflow-executor.ts)
 
 The executor handles:
+
 1. **DAG Validation** — Topological sort to detect cycles
 2. **Step Recording** — Creates DB entries for each node execution
 3. **Parameter Interpolation** — Supports `${stepId.output.fieldName}` syntax
@@ -367,7 +373,7 @@ The executor handles:
 // Only this is implemented:
 if (agentId === "@mock-agent") {
   // Simulate async work with configurable duration
-  await new Promise(resolve => setTimeout(resolve, duration));
+  await new Promise((resolve) => setTimeout(resolve, duration));
   // Return mock output
 }
 
@@ -385,6 +391,7 @@ if (agentId === "@mock-agent") {
 ### Current State
 
 **Workflows have NO realm association:**
+
 - ❌ No `realm_id` column in workflows table
 - ❌ No realm-based filtering in workflow endpoints
 - ❌ No access control (who can create/view/execute workflows)
@@ -401,12 +408,14 @@ if (agentId === "@mock-agent") {
 ### Required Integrations for MVP
 
 **To associate workflows with realms:**
+
 1. Add `realm_id` column to workflows table
 2. Filter workflows by realm in API endpoints
 3. Add realm-based access control checks
 4. Filter available agents by realm membership in workflow execution
 
 **To enable real agent execution:**
+
 1. Implement agent lookup by DID (from WebSocket server or DB)
 2. Send task messages to agents via WebSocket
 3. Handle agent responses and timeout scenarios
@@ -452,6 +461,7 @@ The system comes with realistic demo data (demo/seed.ts):
 ## 8. KEY TAKEAWAYS & RECOMMENDATIONS
 
 ### What's Already Built ✅
+
 1. **Multi-realm architecture** with proper schema
 2. **Agent registry** with capability tracking
 3. **Workflow definition & execution engine** (mock agents)
@@ -460,6 +470,7 @@ The system comes with realistic demo data (demo/seed.ts):
 6. **API endpoints** for most CRUD operations
 
 ### What Needs to Be Added ⚠️
+
 1. **Realm-workflow association** (schema + APIs)
 2. **Real agent execution** in workflows (not just mock)
 3. **Agent availability filtering** by realm in workflow UX
@@ -468,6 +479,7 @@ The system comes with realistic demo data (demo/seed.ts):
 6. **Workflow result persistence** and history
 
 ### Architecture Strengths 💪
+
 - Clean separation: realms, agents, users, workflows are all independent
 - Proper foreign key relationships with CASCADE deletes
 - Indexes on frequently-queried columns
@@ -480,4 +492,3 @@ The system comes with realistic demo data (demo/seed.ts):
 2. **Agent list:** `GET /api/agents?realm=[id]` — needs filtering implementation
 3. **Real execution:** Implement agent message protocol (WebSocket RPC)
 4. **Realm scoping:** Add workflow filtering by user's realm membership
-

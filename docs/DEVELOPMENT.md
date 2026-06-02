@@ -5,6 +5,7 @@
 ### 1. Choose Your Monorepo Tools
 
 We use:
+
 - **pnpm**: Fast, space-efficient package manager
 - **Turbo**: Build system with caching and parallelization
 - **TypeScript**: Type-safe development
@@ -31,6 +32,7 @@ cp .env.example .env.local
 ### 4. Start Development
 
 Terminal 1 - Control Plane (HTTP + WebSocket):
+
 ```bash
 pnpm dev -F @vaultysclaw/control-plane
 # HTTP: http://localhost:3000
@@ -38,6 +40,7 @@ pnpm dev -F @vaultysclaw/control-plane
 ```
 
 Terminal 2 - Agent Controller:
+
 ```bash
 pnpm dev -F @vaultysclaw/agent-controller
 # HTTP: http://localhost:3001
@@ -47,31 +50,36 @@ pnpm dev -F @vaultysclaw/agent-controller
 ## Project Structure Deep Dive
 
 ### `/packages/shared`
+
 Shared TypeScript types and utilities accessible to all packages.
 
 ```typescript
 // Import in any package:
-import { 
-  type WSMessage, 
-  type AgentPolicy, 
-  verifySignature 
+import {
+  type WSMessage,
+  type AgentPolicy,
+  verifySignature,
 } from "@vaultysclaw/shared";
 ```
 
 **Key files:**
+
 - `src/types.ts`: Core domain models + WebSocket message types
 - `src/security.ts`: VaultysId integration stubs
 
 **WebSocket Types (types.ts):**
+
 - `WSMessage` - Wrapper for all WebSocket messages
 - `WSMessageType` - Message type enum
 - `WSRegisterPayload` - Agent registration
 - `WSAckPayload` - Message acknowledgment
 
 ### `/packages/control-plane`
+
 Next.js app + WebSocket server for agent orchestration.
 
 **Structure:**
+
 ```
 app/
   ├── layout.tsx                    # Root layout
@@ -88,6 +96,7 @@ components/                         # React components
 ```
 
 **Key files:**
+
 - `lib/ws-server.ts`: AgentWSServer implementation
   - Manages connected agents
   - Routes intents to agents
@@ -100,20 +109,24 @@ components/                         # React components
   - Handles graceful shutdown
 
 **Running:**
+
 ```bash
 pnpm dev -F @vaultysclaw/control-plane
 # Starts both HTTP (3000) and WS (8080) servers
 ```
 
 **Building:**
+
 ```bash
 pnpm build -F @vaultysclaw/control-plane
 ```
 
 ### `/packages/agent-controller`
+
 Node.js app with WebSocket client connection to control plane.
 
 **Key files:**
+
 - `src/index.ts`: Express + WebSocket client
   - HTTP endpoints for health/testing
   - WebSocket connection management
@@ -128,6 +141,7 @@ Node.js app with WebSocket client connection to control plane.
 - `src/cli.ts`: CLI entry point
 
 **Running:**
+
 ```bash
 pnpm dev -F @vaultysclaw/agent-controller
 # Starts HTTP on 3001
@@ -135,6 +149,7 @@ pnpm dev -F @vaultysclaw/agent-controller
 ```
 
 **Building:**
+
 ```bash
 pnpm build -F @vaultysclaw/agent-controller
 ```
@@ -152,6 +167,7 @@ pnpm build -F @vaultysclaw/agent-controller
 ### Debugging WebSocket
 
 **Check connection status:**
+
 ```bash
 # Agent is connected when HTTP response includes "connected": true
 curl http://localhost:3001/health
@@ -163,6 +179,7 @@ curl http://localhost:3001/health
 ```
 
 **List connected agents:**
+
 ```bash
 curl http://localhost:3000/api/agents
 
@@ -170,12 +187,14 @@ curl http://localhost:3000/api/agents
 ```
 
 **Monitor WebSocket traffic** (developer tools):
+
 ```bash
 # In agent-controller index.ts, messages are logged
 # Check pino logs for "Received message from control plane"
 ```
 
 **Manual WebSocket testing:**
+
 ```bash
 # Install wscat globally
 npm install -g wscat
@@ -189,8 +208,9 @@ wscat -c ws://localhost:8080
 ### Adding a New Message Type
 
 1. Add to `WSMessageType` in `packages/shared/src/types.ts`:
+
 ```typescript
-export type WSMessageType = 
+export type WSMessageType =
   | "register"
   | "register_ack"
   | "intent"
@@ -199,6 +219,7 @@ export type WSMessageType =
 ```
 
 2. Add payload type if needed:
+
 ```typescript
 export interface MyNewPayload {
   // Your fields
@@ -206,6 +227,7 @@ export interface MyNewPayload {
 ```
 
 3. Handle in control plane `lib/ws-server.ts`:
+
 ```typescript
 private handleMessage(ws: WebSocket, data: WebSocket.Data) {
   switch (message.type) {
@@ -221,6 +243,7 @@ private handleMyNewType(message: WSMessage): void {
 ```
 
 4. Handle in agent `src/index.ts`:
+
 ```typescript
 function handleMessage(data: string): void {
   switch (message.type) {
@@ -331,7 +354,8 @@ pnpm build -F @vaultysclaw/control-plane
 Placeholders exist in `packages/shared/src/security.ts`:
 
 1. `verifySignature()` - Verify signed messages
-```
+
+````
 
 ## Common Development Tasks
 
@@ -349,7 +373,7 @@ pnpm add @vaultys/id -F @vaultysclaw/shared
 
 # Add dev dependency
 pnpm add -D @types/react -F @vaultysclaw/control-plane
-```
+````
 
 ### Type Checking
 
@@ -398,6 +422,7 @@ Placeholders exist in `packages/shared/src/security.ts`:
 4. `verifyPolicy()` - Verify policy signatures
 
 When VaultysId is released:
+
 ```bash
 pnpm add @vaultys/id
 ```
@@ -409,6 +434,7 @@ Then update these functions to use the actual VaultysId APIs.
 Currently using SQLite placeholders. To implement:
 
 1. Install `better-sqlite3`:
+
 ```bash
 pnpm add better-sqlite3 -F @vaultysclaw/control-plane
 ```
@@ -429,6 +455,7 @@ pnpm add better-sqlite3 -F @vaultysclaw/control-plane
 4. Type the response with TypeScript
 
 Example:
+
 ```typescript
 // app/api/agents/[id]/route.ts
 import { NextRequest, NextResponse } from "next/server";
@@ -441,10 +468,7 @@ export async function GET(
     // TODO: Query database
     return NextResponse.json({ agent: { id: params.id } });
   } catch (error) {
-    return NextResponse.json(
-      { error: "Not found" },
-      { status: 404 }
-    );
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 }
 ```
@@ -454,6 +478,7 @@ export async function GET(
 ### Adding a New Component
 
 1. Create in `components/`:
+
 ```typescript
 // components/AgentCard.tsx
 import React from "react";
@@ -474,6 +499,7 @@ export function AgentCard({ name, status }: AgentCardProps) {
 ```
 
 2. Use in pages/components:
+
 ```typescript
 import { AgentCard } from "@/components/AgentCard";
 
@@ -517,7 +543,9 @@ Currently no test setup. To add:
 ## Debugging
 
 ### VS Code
+
 Add `.vscode/launch.json`:
+
 ```json
 {
   "version": "0.2.0",
@@ -535,7 +563,9 @@ Add `.vscode/launch.json`:
 ```
 
 ### Logging
+
 Using Pino in agent-controller. Adjust log levels:
+
 ```typescript
 const logger = pino({
   level: process.env.LOG_LEVEL || "info",
@@ -545,6 +575,7 @@ const logger = pino({
 ## Common Issues
 
 ### Port Already in Use
+
 ```bash
 # Kill process on port 3000
 lsof -ti :3000 | xargs kill -9
@@ -554,6 +585,7 @@ lsof -ti :3001 | xargs kill -9
 ```
 
 ### Dependency Issues
+
 ```bash
 # Clean everything
 pnpm clean
@@ -563,6 +595,7 @@ pnpm install
 ```
 
 ### TypeScript Errors
+
 ```bash
 # Rebuild
 pnpm build

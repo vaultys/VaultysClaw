@@ -101,7 +101,10 @@ interface NetworkData {
 function formatBytes(n: number): string {
   if (n === 0) return "0 B";
   const units = ["B", "KB", "MB", "GB"];
-  const i = Math.min(Math.floor(Math.log(n) / Math.log(1024)), units.length - 1);
+  const i = Math.min(
+    Math.floor(Math.log(n) / Math.log(1024)),
+    units.length - 1
+  );
   return `${(n / 1024 ** i).toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
 }
 
@@ -138,10 +141,12 @@ function StatBox({
         "border rounded-lg px-4 py-3 transition-opacity",
         disabled
           ? "bg-background border-neutral-200 opacity-40"
-          : "bg-background border-neutral-200",
+          : "bg-background border-neutral-200"
       )}
     >
-      <div className="text-xs text-foreground-500 uppercase tracking-wide mb-1">{label}</div>
+      <div className="text-xs text-foreground-500 uppercase tracking-wide mb-1">
+        {label}
+      </div>
       <div className="text-xl font-bold text-foreground">{value}</div>
       {sub && <div className="text-xs text-foreground-400 mt-0.5">{sub}</div>}
     </div>
@@ -159,7 +164,11 @@ function CopyButton({ text }: { text: string }) {
       }}
       className="flex items-center gap-1 text-xs px-2 py-1 rounded bg-background-200 border border-neutral-200 text-foreground-500 hover:text-foreground transition-colors"
     >
-      {copied ? <Check size={11} className="text-green-500" /> : <Copy size={11} />}
+      {copied ? (
+        <Check size={11} className="text-success-500" />
+      ) : (
+        <Copy size={11} />
+      )}
       {copied ? "Copied" : "Copy"}
     </button>
   );
@@ -175,19 +184,20 @@ function AgentsTable({
   transport: "ws" | "peerjs";
 }) {
   const filtered = agents.filter((a) => a.transport === transport);
-  const accent = transport === "ws" ? "sky" : "violet";
 
   return (
     <div className="bg-background-100 border border-neutral-200 rounded-xl overflow-hidden">
       <div className="px-5 py-3.5 border-b border-neutral-200 flex items-center justify-between">
         <div>
-          <span className="text-sm font-semibold text-foreground">Live connections</span>
+          <span className="text-sm font-semibold text-foreground">
+            Live connections
+          </span>
           <span className="ml-2 text-xs text-foreground-400">
             {filtered.length} agent{filtered.length !== 1 ? "s" : ""}
           </span>
         </div>
         <div className="flex items-center gap-2 text-xs text-foreground-400">
-          <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse inline-block" />
+          <span className="w-1.5 h-1.5 rounded-full bg-success-500 animate-pulse inline-block" />
           Auto-refreshes every 5s
         </div>
       </div>
@@ -208,12 +218,19 @@ function AgentsTable({
           </thead>
           <tbody className="divide-y divide-neutral-200">
             {filtered.map((agent) => (
-              <tr key={agent.id} className="hover:bg-background-200/30 transition-colors">
-                <td className="px-5 py-3 font-medium text-foreground">{agent.name}</td>
+              <tr
+                key={agent.id}
+                className="hover:bg-background-200/30 transition-colors"
+              >
+                <td className="px-5 py-3 font-medium text-foreground">
+                  {agent.name}
+                </td>
                 <td className="px-5 py-3 font-mono text-xs text-foreground-500">
                   <span title={agent.id}>{shortDid(agent.id)}</span>
                 </td>
-                <td className="px-5 py-3 text-xs text-foreground-500">{timeAgo(agent.connectedAt)}</td>
+                <td className="px-5 py-3 text-xs text-foreground-500">
+                  {timeAgo(agent.connectedAt)}
+                </td>
                 <td className="px-5 py-3 text-xs text-foreground-500">
                   {timeAgo(agent.lastHeartbeat)}
                 </td>
@@ -256,39 +273,47 @@ function LogPanel({ logs }: { logs: LogEntry[] }) {
   function formatTime(iso: string): string {
     try {
       const d = new Date(iso);
-      return d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+      return d.toLocaleTimeString("en-GB", {
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+      });
     } catch {
       return iso;
     }
   }
 
   const levelStyle: Record<LogEntry["level"], string> = {
-    info: "text-green-400",
-    warn: "text-amber-400",
-    error: "text-red-400",
+    info: "text-success-400",
+    warn: "text-warning-400",
+    error: "text-danger-400",
   };
 
   return (
-    <div className="bg-gray-950 border border-gray-800 rounded-xl overflow-hidden">
+    <div className="bg-neutral-950 border border-neutral-800 rounded-xl overflow-hidden">
       {/* Header */}
-      <div className="flex items-center gap-2 px-4 py-2.5 border-b border-gray-800">
-        <Terminal size={14} className="text-gray-400 shrink-0" />
-        <span className="text-xs font-semibold text-gray-300">Logs</span>
-        <span className="text-xs text-gray-600 ml-0.5">({entries.length})</span>
+      <div className="flex items-center gap-2 px-4 py-2.5 border-b border-neutral-800">
+        <Terminal size={14} className="text-neutral-400 shrink-0" />
+        <span className="text-xs font-semibold text-neutral-300">Logs</span>
+        <span className="text-xs text-neutral-600 ml-0.5">
+          ({entries.length})
+        </span>
         <div className="flex-1" />
         <button
           onClick={() => setAutoScroll((v) => !v)}
           title={autoScroll ? "Auto-scroll on" : "Auto-scroll off"}
           className={cn(
             "p-1 rounded transition-colors",
-            autoScroll ? "text-indigo-400 hover:text-indigo-300" : "text-gray-600 hover:text-gray-400",
+            autoScroll
+              ? "text-primary-400 hover:text-primary-300"
+              : "text-neutral-600 hover:text-neutral-400"
           )}
         >
           {autoScroll ? <Pin size={12} /> : <ArrowDown size={12} />}
         </button>
         <button
           onClick={() => setEntries([])}
-          className="text-xs text-gray-600 hover:text-gray-400 transition-colors px-1.5 py-0.5 rounded hover:bg-gray-800"
+          className="text-xs text-neutral-600 hover:text-neutral-400 transition-colors px-1.5 py-0.5 rounded hover:bg-neutral-800"
         >
           Clear
         </button>
@@ -301,24 +326,28 @@ function LogPanel({ logs }: { logs: LogEntry[] }) {
         className="h-52 overflow-y-auto font-mono text-xs px-3 py-2 space-y-0.5"
       >
         {entries.length === 0 ? (
-          <div className="flex items-center justify-center h-full text-gray-600 text-xs">
+          <div className="flex items-center justify-center h-full text-neutral-600 text-xs">
             No events yet
           </div>
         ) : (
           entries.map((entry) => (
             <div key={entry.id} className="flex items-start gap-2 py-0.5">
-              <span className="text-gray-600 shrink-0">[{formatTime(entry.timestamp)}]</span>
+              <span className="text-neutral-600 shrink-0">
+                [{formatTime(entry.timestamp)}]
+              </span>
               <span
                 className={cn(
                   "uppercase shrink-0 font-semibold text-[10px] tracking-wider",
-                  levelStyle[entry.level],
+                  levelStyle[entry.level]
                 )}
               >
                 {entry.level}
               </span>
-              <span className="text-gray-200">{entry.event}</span>
+              <span className="text-neutral-200">{entry.event}</span>
               {entry.detail && (
-                <span className="text-gray-500 truncate">{entry.detail}</span>
+                <span className="text-neutral-500 truncate">
+                  {entry.detail}
+                </span>
               )}
             </div>
           ))
@@ -335,7 +364,10 @@ function PeerjsPanel({
   onAction,
 }: {
   data: NetworkData["peerjs"];
-  onAction: (action: "start" | "stop" | "restart-peerjs", serverUrl?: string | null) => Promise<void>;
+  onAction: (
+    action: "start" | "stop" | "restart-peerjs",
+    serverUrl?: string | null
+  ) => Promise<void>;
 }) {
   const [acting, setActing] = useState(false);
   const [actingAction, setActingAction] = useState<string | null>(null);
@@ -349,7 +381,10 @@ function PeerjsPanel({
     setActingAction(action);
     setError(null);
     try {
-      await onAction(action, action === "start" ? serverUrl.trim() || null : undefined);
+      await onAction(
+        action,
+        action === "start" ? serverUrl.trim() || null : undefined
+      );
     } catch (e) {
       setError(e instanceof Error ? e.message : "Request failed");
     } finally {
@@ -387,8 +422,8 @@ function PeerjsPanel({
         className={cn(
           "rounded-xl border p-5 space-y-4",
           data.running
-            ? "bg-violet-50/60 dark:bg-violet-500/5 border-violet-300 dark:border-violet-500/30"
-            : "bg-background-100 border-neutral-200",
+            ? "bg-secondary-50/60 dark:bg-secondary-500/5 border-secondary-300 dark:border-secondary-500/30"
+            : "bg-background-100 border-neutral-200"
         )}
       >
         {/* Header */}
@@ -397,31 +432,39 @@ function PeerjsPanel({
             className={cn(
               "w-9 h-9 rounded-lg flex items-center justify-center border",
               data.running
-                ? "bg-violet-100 dark:bg-violet-500/20 border-violet-300 dark:border-violet-500/30"
-                : "bg-background-200 border-neutral-200",
+                ? "bg-secondary-100 dark:bg-secondary-500/20 border-secondary-300 dark:border-secondary-500/30"
+                : "bg-background-200 border-neutral-200"
             )}
           >
             <Radio
               size={18}
-              className={data.running ? "text-violet-600 dark:text-violet-400" : "text-foreground-500"}
+              className={
+                data.running
+                  ? "text-secondary-600 dark:text-secondary-400"
+                  : "text-foreground-500"
+              }
             />
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
-              <span className="font-semibold text-foreground">WebRTC / PeerJS</span>
+              <span className="font-semibold text-foreground">
+                WebRTC / PeerJS
+              </span>
               <span
                 className={cn(
                   "text-[10px] font-medium px-2 py-0.5 rounded-full border",
                   data.running
-                    ? "bg-violet-100 dark:bg-violet-500/15 text-violet-700 dark:text-violet-400 border-violet-300 dark:border-violet-500/30"
-                    : "bg-background-200 text-foreground-500 border-neutral-200",
+                    ? "bg-secondary-100 dark:bg-secondary-500/15 text-secondary-700 dark:text-secondary-400 border-secondary-300 dark:border-secondary-500/30"
+                    : "bg-background-200 text-foreground-500 border-neutral-200"
                 )}
               >
                 {data.running ? "Running" : "Stopped"}
               </span>
             </div>
             {data.running && data.startedAt && (
-              <p className="text-xs text-foreground-500 mt-0.5">Started {timeAgo(data.startedAt)}</p>
+              <p className="text-xs text-foreground-500 mt-0.5">
+                Started {timeAgo(data.startedAt)}
+              </p>
             )}
           </div>
           <div className="flex items-center gap-2">
@@ -444,7 +487,7 @@ function PeerjsPanel({
                 <button
                   onClick={() => handle("restart-peerjs")}
                   disabled={acting}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-background-200 border border-neutral-200 text-amber-600 dark:text-amber-400 hover:border-amber-400 dark:hover:border-amber-500 hover:text-amber-700 dark:hover:text-amber-300 disabled:opacity-50 transition-colors"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-background-200 border border-neutral-200 text-warning-600 dark:text-warning-400 hover:border-warning-400 dark:hover:border-warning-500 hover:text-warning-700 dark:hover:text-warning-300 disabled:opacity-50 transition-colors"
                 >
                   {acting && actingAction === "restart-peerjs" ? (
                     <Loader2 size={12} className="animate-spin" />
@@ -456,7 +499,7 @@ function PeerjsPanel({
                 <button
                   onClick={() => handle("stop")}
                   disabled={acting}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-red-100 dark:bg-red-500/15 text-red-700 dark:text-red-400 border border-red-300 dark:border-red-500/30 hover:bg-red-200 dark:hover:bg-red-500/25 disabled:opacity-50 transition-colors"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-danger-100 dark:bg-danger-500/15 text-danger-700 dark:text-danger-400 border border-danger-300 dark:border-danger-500/30 hover:bg-danger-200 dark:hover:bg-danger-500/25 disabled:opacity-50 transition-colors"
                 >
                   {acting && actingAction === "stop" ? (
                     <Loader2 size={12} className="animate-spin" />
@@ -470,9 +513,13 @@ function PeerjsPanel({
               <button
                 onClick={() => handle("start")}
                 disabled={acting}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-violet-600 hover:bg-violet-500 text-white disabled:opacity-50 transition-colors"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-secondary-600 hover:bg-secondary-500 text-white disabled:opacity-50 transition-colors"
               >
-                {acting ? <Loader2 size={12} className="animate-spin" /> : <Play size={12} />}
+                {acting ? (
+                  <Loader2 size={12} className="animate-spin" />
+                ) : (
+                  <Play size={12} />
+                )}
                 Start
               </button>
             )}
@@ -496,20 +543,24 @@ function PeerjsPanel({
             <div className="space-y-1.5">
               <label className="text-xs text-foreground-500">
                 Signaling server URL{" "}
-                <span className="text-foreground-400">(leave blank for public relay)</span>
+                <span className="text-foreground-400">
+                  (leave blank for public relay)
+                </span>
               </label>
               <input
                 value={serverUrl}
                 onChange={(e) => setServerUrl(e.target.value)}
                 placeholder="https://my.peerserver.example"
-                className="w-full px-3 py-2 bg-background-100 border border-neutral-200 rounded-lg text-sm font-mono text-foreground focus:outline-none focus:ring-2 focus:ring-violet-500"
+                className="w-full px-3 py-2 bg-background-100 border border-neutral-200 rounded-lg text-sm font-mono text-foreground focus:outline-none focus:ring-2 focus:ring-secondary-500"
               />
             </div>
             {!data.running && (
-              <p className="text-xs text-foreground-400">URL is applied when you click Start.</p>
+              <p className="text-xs text-foreground-400">
+                URL is applied when you click Start.
+              </p>
             )}
             {data.running && (
-              <p className="text-xs text-amber-600 dark:text-amber-400">
+              <p className="text-xs text-warning-600 dark:text-warning-400">
                 Stop and restart to apply a new URL.
               </p>
             )}
@@ -530,7 +581,9 @@ function PeerjsPanel({
             </div>
             <p className="text-xs text-foreground-400">
               Agents connect with:{" "}
-              <code className="font-mono text-foreground-500">--peerjs {data.peerId}</code>
+              <code className="font-mono text-foreground-500">
+                --peerjs {data.peerId}
+              </code>
               {data.serverUrl && (
                 <>
                   {" "}
@@ -544,7 +597,7 @@ function PeerjsPanel({
         )}
 
         {error && (
-          <div className="flex items-center gap-2 bg-red-50 dark:bg-red-500/10 border border-red-300 dark:border-red-500/20 rounded-lg px-3 py-2 text-xs text-red-600 dark:text-red-400">
+          <div className="flex items-center gap-2 bg-danger-50 dark:bg-danger-500/10 border border-danger-300 dark:border-danger-500/20 rounded-lg px-3 py-2 text-xs text-danger-600 dark:text-danger-400">
             <AlertTriangle size={12} className="shrink-0" />
             {error}
           </div>
@@ -569,35 +622,49 @@ function TrafficChart({
   color,
 }: {
   stats: TransportStats | undefined;
-  color: "sky" | "violet";
+  color: "primary" | "secondary";
 }) {
-  const palette    = color === "sky" ? "#0ea5e9" : "#8b5cf6";
-  const paletteDim = color === "sky" ? "#38bdf8" : "#a78bfa";
+  const palette =
+    color === "primary"
+      ? "rgb(var(--primary-500))"
+      : "rgb(var(--secondary-500))";
+  const paletteDim =
+    color === "primary"
+      ? "rgb(var(--primary-400))"
+      : "rgb(var(--secondary-400))";
 
   const toMB = (bytes: number) => bytes / (1024 * 1024);
 
   const byteData = [
-    { name: "In",  value: toMB(stats?.bytesIn  ?? 0) },
+    { name: "In", value: toMB(stats?.bytesIn ?? 0) },
     { name: "Out", value: toMB(stats?.bytesOut ?? 0) },
   ];
 
-  const msgIn  = stats?.messagesIn  ?? 0;
+  const msgIn = stats?.messagesIn ?? 0;
   const msgOut = stats?.messagesOut ?? 0;
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
       {/* Messages — counters instead of a chart (scale would dwarf byte values) */}
       <div className="bg-background border border-neutral-200 rounded-xl p-4 flex flex-col gap-3">
-        <p className="text-xs font-medium text-foreground-500 uppercase tracking-wide">Messages</p>
+        <p className="text-xs font-medium text-foreground-500 uppercase tracking-wide">
+          Messages
+        </p>
         <div className="flex flex-1 items-center gap-4">
           <div className="flex-1 flex flex-col items-center justify-center gap-1 bg-background-100 border border-neutral-200 rounded-lg py-6">
-            <span className="text-3xl font-bold tabular-nums" style={{ color: palette }}>
+            <span
+              className="text-3xl font-bold tabular-nums"
+              style={{ color: palette }}
+            >
               {msgIn.toLocaleString()}
             </span>
             <span className="text-xs text-foreground-500">received</span>
           </div>
           <div className="flex-1 flex flex-col items-center justify-center gap-1 bg-background-100 border border-neutral-200 rounded-lg py-6">
-            <span className="text-3xl font-bold tabular-nums" style={{ color: paletteDim }}>
+            <span
+              className="text-3xl font-bold tabular-nums"
+              style={{ color: paletteDim }}
+            >
               {msgOut.toLocaleString()}
             </span>
             <span className="text-xs text-foreground-500">sent</span>
@@ -611,8 +678,14 @@ function TrafficChart({
           Data transferred (MB)
         </p>
         <ResponsiveContainer width="100%" height={160}>
-          <BarChart data={byteData} margin={{ top: 4, right: 8, left: -8, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="var(--neutral-200, #334155)" />
+          <BarChart
+            data={byteData}
+            margin={{ top: 4, right: 8, left: -8, bottom: 0 }}
+          >
+            <CartesianGrid
+              strokeDasharray="3 3"
+              stroke="var(--neutral-200, #334155)"
+            />
             <XAxis
               dataKey="name"
               tick={{ fontSize: 11, fill: "var(--foreground-500, #94a3b8)" }}
@@ -623,14 +696,21 @@ function TrafficChart({
               tick={{ fontSize: 11, fill: "var(--foreground-500, #94a3b8)" }}
               axisLine={false}
               tickLine={false}
-              tickFormatter={(v: number) => v < 1 ? v.toFixed(2) : v.toFixed(1)}
+              tickFormatter={(v: number) =>
+                v < 1 ? v.toFixed(2) : v.toFixed(1)
+              }
             />
             <Tooltip
               contentStyle={CHART_TOOLTIP_STYLE}
               cursor={{ fill: "var(--background-200, #1e293b)", opacity: 0.5 }}
               formatter={(value: number) => [`${value.toFixed(3)} MB`, "Size"]}
             />
-            <Bar dataKey="value" name="MB" fill={paletteDim} radius={[4, 4, 0, 0]} />
+            <Bar
+              dataKey="value"
+              name="MB"
+              fill={paletteDim}
+              radius={[4, 4, 0, 0]}
+            />
           </BarChart>
         </ResponsiveContainer>
       </div>
@@ -664,8 +744,18 @@ const ServerNode: React.FC<NodeProps<ServerNodeData>> = ({ data }) => (
     }}
   >
     {/* Explicit IDs so edges can pin to the correct side */}
-    <Handle type="source" id="left"  position={Position.Left}  style={{ opacity: 0 }} />
-    <Handle type="source" id="right" position={Position.Right} style={{ opacity: 0 }} />
+    <Handle
+      type="source"
+      id="left"
+      position={Position.Left}
+      style={{ opacity: 0 }}
+    />
+    <Handle
+      type="source"
+      id="right"
+      position={Position.Right}
+      style={{ opacity: 0 }}
+    />
     <div style={{ fontWeight: 700, fontSize: "13px", marginBottom: "6px" }}>
       Control Plane
     </div>
@@ -702,7 +792,7 @@ const AgentNode: React.FC<NodeProps<AgentNodeData>> = ({ data }) => {
         background: isWs
           ? "linear-gradient(135deg, #0c4a6e 0%, #0369a1 100%)"
           : "linear-gradient(135deg, #2e1065 0%, #6d28d9 100%)",
-        border: `2px solid ${isWs ? "#0ea5e9" : "#8b5cf6"}`,
+        border: `2px solid ${isWs ? "rgb(var(--primary-500))" : "rgb(var(--secondary-500))"}`,
         borderRadius: "10px",
         padding: "10px 14px",
         minWidth: "130px",
@@ -744,7 +834,7 @@ const AGENT_GAP = 80;
 
 function buildFlowGraph(
   agents: ConnectedAgentRow[],
-  peerjsRunning: boolean,
+  peerjsRunning: boolean
 ): { nodes: Node[]; edges: Edge[] } {
   const wsAgents = agents.filter((a) => a.transport === "ws");
   const pjAgents = agents.filter((a) => a.transport === "peerjs");
@@ -782,8 +872,12 @@ function buildFlowGraph(
       target: `ws-${agent.id}`,
       targetHandle: "conn",
       label: "ws",
-      style: { stroke: "#0ea5e9", strokeWidth: 2 },
-      labelStyle: { fill: "#0ea5e9", fontSize: 10, fontWeight: 600 },
+      style: { stroke: "rgb(var(--primary-500))", strokeWidth: 2 },
+      labelStyle: {
+        fill: "rgb(var(--primary-500))",
+        fontSize: 10,
+        fontWeight: 600,
+      },
       labelBgStyle: { fill: "transparent" },
       animated: true,
     });
@@ -805,8 +899,12 @@ function buildFlowGraph(
       target: `pj-${agent.id}`,
       targetHandle: "conn",
       label: "webrtc",
-      style: { stroke: "#8b5cf6", strokeWidth: 2 },
-      labelStyle: { fill: "#8b5cf6", fontSize: 10, fontWeight: 600 },
+      style: { stroke: "rgb(var(--secondary-500))", strokeWidth: 2 },
+      labelStyle: {
+        fill: "rgb(var(--secondary-500))",
+        fontSize: 10,
+        fontWeight: 600,
+      },
       labelBgStyle: { fill: "transparent" },
       animated: true,
     });
@@ -822,10 +920,13 @@ function NetworkMapFlow({
   agents: ConnectedAgentRow[];
   peerjsRunning: boolean;
 }) {
-  const nodeTypes = useMemo(() => ({ server: ServerNode, agent: AgentNode }), []);
+  const nodeTypes = useMemo(
+    () => ({ server: ServerNode, agent: AgentNode }),
+    []
+  );
   const { nodes, edges } = useMemo(
     () => buildFlowGraph(agents, peerjsRunning),
-    [agents, peerjsRunning],
+    [agents, peerjsRunning]
   );
 
   return (
@@ -900,33 +1001,50 @@ function ComparisonChart({
 
   // Messages side — counters per transport
   const msgRows = [
-    { label: "Received", ws: ws?.messagesIn ?? 0,  pj: peerjs?.messagesIn  ?? 0 },
-    { label: "Sent",     ws: ws?.messagesOut ?? 0, pj: peerjs?.messagesOut ?? 0 },
+    { label: "Received", ws: ws?.messagesIn ?? 0, pj: peerjs?.messagesIn ?? 0 },
+    { label: "Sent", ws: ws?.messagesOut ?? 0, pj: peerjs?.messagesOut ?? 0 },
   ];
 
   // Bytes side — MB bar chart
   const byteData = [
-    { name: "In",  WebSocket: toMB(ws?.bytesIn  ?? 0), WebRTC: toMB(peerjs?.bytesIn  ?? 0) },
-    { name: "Out", WebSocket: toMB(ws?.bytesOut ?? 0), WebRTC: toMB(peerjs?.bytesOut ?? 0) },
+    {
+      name: "In",
+      WebSocket: toMB(ws?.bytesIn ?? 0),
+      WebRTC: toMB(peerjs?.bytesIn ?? 0),
+    },
+    {
+      name: "Out",
+      WebSocket: toMB(ws?.bytesOut ?? 0),
+      WebRTC: toMB(peerjs?.bytesOut ?? 0),
+    },
   ];
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
       {/* Message counters */}
       <div className="bg-background border border-neutral-200 rounded-xl p-4 flex flex-col gap-3">
-        <p className="text-xs font-medium text-foreground-500 uppercase tracking-wide">Messages</p>
+        <p className="text-xs font-medium text-foreground-500 uppercase tracking-wide">
+          Messages
+        </p>
         <div className="flex flex-col gap-2">
           {/* Header */}
           <div className="grid grid-cols-3 text-xs text-foreground-400 font-medium px-1">
             <span />
-            <span className="text-center text-sky-500">WebSocket</span>
-            <span className="text-center text-violet-500">WebRTC</span>
+            <span className="text-center text-primary-500">WebSocket</span>
+            <span className="text-center text-secondary-500">WebRTC</span>
           </div>
           {msgRows.map(({ label, ws: w, pj }) => (
-            <div key={label} className="grid grid-cols-3 items-center bg-background-100 border border-neutral-200 rounded-lg px-3 py-2">
+            <div
+              key={label}
+              className="grid grid-cols-3 items-center bg-background-100 border border-neutral-200 rounded-lg px-3 py-2"
+            >
               <span className="text-xs text-foreground-500">{label}</span>
-              <span className="text-center text-lg font-bold tabular-nums text-sky-400">{w.toLocaleString()}</span>
-              <span className="text-center text-lg font-bold tabular-nums text-violet-400">{pj.toLocaleString()}</span>
+              <span className="text-center text-lg font-bold tabular-nums text-primary-400">
+                {w.toLocaleString()}
+              </span>
+              <span className="text-center text-lg font-bold tabular-nums text-secondary-400">
+                {pj.toLocaleString()}
+              </span>
             </div>
           ))}
         </div>
@@ -938,8 +1056,14 @@ function ComparisonChart({
           Data transferred (MB)
         </p>
         <ResponsiveContainer width="100%" height={200}>
-          <BarChart data={byteData} margin={{ top: 4, right: 16, left: -8, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="var(--neutral-200, #334155)" />
+          <BarChart
+            data={byteData}
+            margin={{ top: 4, right: 16, left: -8, bottom: 0 }}
+          >
+            <CartesianGrid
+              strokeDasharray="3 3"
+              stroke="var(--neutral-200, #334155)"
+            />
             <XAxis
               dataKey="name"
               tick={{ fontSize: 11, fill: "var(--foreground-500, #94a3b8)" }}
@@ -950,16 +1074,31 @@ function ComparisonChart({
               tick={{ fontSize: 11, fill: "var(--foreground-500, #94a3b8)" }}
               axisLine={false}
               tickLine={false}
-              tickFormatter={(v: number) => v < 1 ? v.toFixed(2) : v.toFixed(1)}
+              tickFormatter={(v: number) =>
+                v < 1 ? v.toFixed(2) : v.toFixed(1)
+              }
             />
             <Tooltip
               contentStyle={CHART_TOOLTIP_STYLE}
               cursor={{ fill: "var(--background-200, #1e293b)", opacity: 0.5 }}
               formatter={(value: number) => [`${value.toFixed(3)} MB`, "Size"]}
             />
-            <Legend wrapperStyle={{ fontSize: "12px", color: "var(--foreground-500, #94a3b8)" }} />
-            <Bar dataKey="WebSocket" fill="#0ea5e9" radius={[4, 4, 0, 0]} />
-            <Bar dataKey="WebRTC"    fill="#8b5cf6" radius={[4, 4, 0, 0]} />
+            <Legend
+              wrapperStyle={{
+                fontSize: "12px",
+                color: "var(--foreground-500, #94a3b8)",
+              }}
+            />
+            <Bar
+              dataKey="WebSocket"
+              fill="rgb(var(--primary-500))"
+              radius={[4, 4, 0, 0]}
+            />
+            <Bar
+              dataKey="WebRTC"
+              fill="rgb(var(--secondary-500))"
+              radius={[4, 4, 0, 0]}
+            />
           </BarChart>
         </ResponsiveContainer>
       </div>
@@ -986,7 +1125,7 @@ function WsTab({
   async function handleRestart() {
     if (
       !window.confirm(
-        "Restart the WebSocket server? All agents will be disconnected.",
+        "Restart the WebSocket server? All agents will be disconnected."
       )
     )
       return;
@@ -1004,31 +1143,36 @@ function WsTab({
     <div className="space-y-5">
       {/* Success banner */}
       {successBanner && (
-        <div className="flex items-center gap-2 bg-green-50 dark:bg-green-500/10 border border-green-300 dark:border-green-500/20 rounded-xl px-4 py-3 text-sm text-green-700 dark:text-green-400">
+        <div className="flex items-center gap-2 bg-success-50 dark:bg-success-500/10 border border-success-300 dark:border-success-500/20 rounded-xl px-4 py-3 text-sm text-success-700 dark:text-success-400">
           <Check size={14} className="shrink-0" />
           WebSocket server restarted successfully.
         </div>
       )}
 
       {/* Status card */}
-      <div className="rounded-xl border bg-sky-50/60 dark:bg-sky-500/5 border-sky-300 dark:border-sky-500/30 p-5">
+      <div className="rounded-xl border bg-primary-50/60 dark:bg-primary-500/5 border-primary-300 dark:border-primary-500/30 p-5">
         <div className="flex items-center gap-3 mb-4">
-          <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-sky-100 dark:bg-sky-500/20 border border-sky-300 dark:border-sky-500/30">
-            <Wifi size={18} className="text-sky-600 dark:text-sky-400" />
+          <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-primary-100 dark:bg-primary-500/20 border border-primary-300 dark:border-primary-500/30">
+            <Wifi
+              size={18}
+              className="text-primary-600 dark:text-primary-400"
+            />
           </div>
           <div className="flex-1">
             <div className="flex items-center gap-2">
               <span className="font-semibold text-foreground">WebSocket</span>
-              <span className="text-[10px] font-medium px-2 py-0.5 rounded-full border bg-sky-100 dark:bg-sky-500/15 text-sky-700 dark:text-sky-400 border-sky-300 dark:border-sky-500/30">
+              <span className="text-[10px] font-medium px-2 py-0.5 rounded-full border bg-primary-100 dark:bg-primary-500/15 text-primary-700 dark:text-primary-400 border-primary-300 dark:border-primary-500/30">
                 Always on
               </span>
             </div>
-            <p className="text-xs text-foreground-500 mt-0.5">TCP on port 8080 — always running</p>
+            <p className="text-xs text-foreground-500 mt-0.5">
+              TCP on port 8080 — always running
+            </p>
           </div>
           <button
             onClick={handleRestart}
             disabled={restarting}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-background-200 border border-neutral-200 text-amber-600 dark:text-amber-400 hover:border-amber-400 dark:hover:border-amber-500 hover:text-amber-700 dark:hover:text-amber-300 disabled:opacity-50 transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-background-200 border border-neutral-200 text-warning-600 dark:text-warning-400 hover:border-warning-400 dark:hover:border-warning-500 hover:text-warning-700 dark:hover:text-warning-300 disabled:opacity-50 transition-colors"
           >
             {restarting ? (
               <Loader2 size={12} className="animate-spin" />
@@ -1059,7 +1203,7 @@ function WsTab({
       </div>
 
       {/* Chart */}
-      <TrafficChart stats={stats} color="sky" />
+      <TrafficChart stats={stats} color="primary" />
 
       {/* Table */}
       <AgentsTable agents={agents} transport="ws" />
@@ -1074,18 +1218,34 @@ function WsTab({
 
 type SetupFlavour = "docker" | "kubernetes";
 
-function CodeBlock({ code, language = "bash" }: { code: string; language?: string }) {
+function CodeBlock({
+  code,
+  language = "bash",
+}: {
+  code: string;
+  language?: string;
+}) {
   const [copied, setCopied] = useState(false);
   return (
     <div className="relative group">
-      <pre className={`bg-gray-950 text-gray-100 rounded-lg p-4 text-xs font-mono overflow-x-auto leading-relaxed whitespace-pre lang-${language}`}>
+      <pre
+        className={`bg-neutral-950 text-neutral-100 rounded-lg p-4 text-xs font-mono overflow-x-auto leading-relaxed whitespace-pre lang-${language}`}
+      >
         {code}
       </pre>
       <button
-        onClick={() => { navigator.clipboard.writeText(code); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
-        className="absolute top-2.5 right-2.5 flex items-center gap-1 text-[10px] px-2 py-1 rounded bg-gray-800 border border-gray-700 text-gray-400 hover:text-gray-200 hover:bg-gray-700 opacity-0 group-hover:opacity-100 transition-all"
+        onClick={() => {
+          navigator.clipboard.writeText(code);
+          setCopied(true);
+          setTimeout(() => setCopied(false), 2000);
+        }}
+        className="absolute top-2.5 right-2.5 flex items-center gap-1 text-[10px] px-2 py-1 rounded bg-neutral-800 border border-neutral-700 text-neutral-400 hover:text-neutral-200 hover:bg-neutral-700 opacity-0 group-hover:opacity-100 transition-all"
       >
-        {copied ? <Check size={10} className="text-green-400" /> : <Copy size={10} />}
+        {copied ? (
+          <Check size={10} className="text-success-400" />
+        ) : (
+          <Copy size={10} />
+        )}
         {copied ? "Copied" : "Copy"}
       </button>
     </div>
@@ -1212,34 +1372,49 @@ function PeerjsSetupGuide({ configuredUrl }: { configuredUrl: string | null }) {
         onClick={() => setOpen((v) => !v)}
         className="w-full flex items-center gap-3 px-5 py-4 text-left hover:bg-background-200/50 transition-colors"
       >
-        <Terminal size={16} className="text-violet-500 shrink-0" />
+        <Terminal size={16} className="text-secondary-500 shrink-0" />
         <div className="flex-1 min-w-0">
-          <span className="text-sm font-semibold text-foreground">Self-host a PeerJS signaling server</span>
+          <span className="text-sm font-semibold text-foreground">
+            Self-host a PeerJS signaling server
+          </span>
           <p className="text-xs text-foreground-500 mt-0.5">
-            Run your own relay for maximum privacy and no rate limits — Docker or Kubernetes
+            Run your own relay for maximum privacy and no rate limits — Docker
+            or Kubernetes
           </p>
         </div>
-        {open
-          ? <ChevronDown size={15} className="text-foreground-500 shrink-0" />
-          : <ChevronRight size={15} className="text-foreground-500 shrink-0" />}
+        {open ? (
+          <ChevronDown size={15} className="text-foreground-500 shrink-0" />
+        ) : (
+          <ChevronRight size={15} className="text-foreground-500 shrink-0" />
+        )}
       </button>
 
       {open && (
         <div className="border-t border-neutral-200 px-5 pb-5 pt-4 space-y-5">
           {/* Flavour tabs */}
           <div className="flex gap-1 bg-background border border-neutral-200 rounded-lg p-1 w-fit">
-            {([
-              { id: "docker" as SetupFlavour, icon: <Package size={13} />, label: "Docker" },
-              { id: "kubernetes" as SetupFlavour, icon: <Container size={13} />, label: "Kubernetes" },
-            ] as const).map(({ id, icon, label }) => (
+            {(
+              [
+                {
+                  id: "docker" as SetupFlavour,
+                  icon: <Package size={13} />,
+                  label: "Docker",
+                },
+                {
+                  id: "kubernetes" as SetupFlavour,
+                  icon: <Container size={13} />,
+                  label: "Kubernetes",
+                },
+              ] as const
+            ).map(({ id, icon, label }) => (
               <button
                 key={id}
                 onClick={() => setFlavour(id)}
                 className={cn(
                   "flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium transition-colors",
                   flavour === id
-                    ? "bg-violet-600 text-white"
-                    : "text-foreground-500 hover:text-foreground hover:bg-background-200",
+                    ? "bg-secondary-600 text-white"
+                    : "text-foreground-500 hover:text-foreground hover:bg-background-200"
                 )}
               >
                 {icon}
@@ -1252,32 +1427,60 @@ function PeerjsSetupGuide({ configuredUrl }: { configuredUrl: string | null }) {
           {flavour === "docker" && (
             <div className="space-y-4">
               <div className="space-y-2">
-                <p className="text-xs font-semibold text-foreground">1. Quick start</p>
+                <p className="text-xs font-semibold text-foreground">
+                  1. Quick start
+                </p>
                 <CodeBlock code={DOCKER_QUICKSTART} />
               </div>
 
               <div className="space-y-2">
-                <p className="text-xs font-semibold text-foreground">2. Or with Docker Compose</p>
-                <p className="text-xs text-foreground-500">Save as <code className="font-mono bg-background-200 px-1 rounded">docker-compose.yml</code> then run <code className="font-mono bg-background-200 px-1 rounded">docker compose up -d</code>.</p>
+                <p className="text-xs font-semibold text-foreground">
+                  2. Or with Docker Compose
+                </p>
+                <p className="text-xs text-foreground-500">
+                  Save as{" "}
+                  <code className="font-mono bg-background-200 px-1 rounded">
+                    docker-compose.yml
+                  </code>{" "}
+                  then run{" "}
+                  <code className="font-mono bg-background-200 px-1 rounded">
+                    docker compose up -d
+                  </code>
+                  .
+                </p>
                 <CodeBlock code={DOCKER_COMPOSE} language="yaml" />
               </div>
 
               <div className="space-y-2">
-                <p className="text-xs font-semibold text-foreground">3. Put it behind a reverse proxy (optional but recommended)</p>
-                <p className="text-xs text-foreground-500">PeerJS uses WebSocket upgrades — make sure your proxy forwards the <code className="font-mono bg-background-200 px-1 rounded">Upgrade</code> header.</p>
+                <p className="text-xs font-semibold text-foreground">
+                  3. Put it behind a reverse proxy (optional but recommended)
+                </p>
+                <p className="text-xs text-foreground-500">
+                  PeerJS uses WebSocket upgrades — make sure your proxy forwards
+                  the{" "}
+                  <code className="font-mono bg-background-200 px-1 rounded">
+                    Upgrade
+                  </code>{" "}
+                  header.
+                </p>
                 <CodeBlock code={DOCKER_NGINX} language="nginx" />
               </div>
 
-              <div className="bg-sky-50 dark:bg-sky-500/10 border border-sky-200 dark:border-sky-500/20 rounded-lg px-4 py-3 space-y-1.5">
-                <p className="text-xs font-semibold text-sky-700 dark:text-sky-400">4. Point this control plane at your server</p>
-                <p className="text-xs text-sky-700/80 dark:text-sky-400/70">
-                  Open the configuration panel above (⚙) and set the signaling server URL to:
+              <div className="bg-primary-50 dark:bg-primary-500/10 border border-primary-200 dark:border-primary-500/20 rounded-lg px-4 py-3 space-y-1.5">
+                <p className="text-xs font-semibold text-primary-700 dark:text-primary-400">
+                  4. Point this control plane at your server
                 </p>
-                <code className="block text-xs font-mono bg-sky-100 dark:bg-sky-500/15 border border-sky-200 dark:border-sky-500/20 rounded px-3 py-1.5 text-sky-800 dark:text-sky-300">
+                <p className="text-xs text-primary-700/80 dark:text-primary-400/70">
+                  Open the configuration panel above (⚙) and set the signaling
+                  server URL to:
+                </p>
+                <code className="block text-xs font-mono bg-primary-100 dark:bg-primary-500/15 border border-primary-200 dark:border-primary-500/20 rounded px-3 py-1.5 text-primary-800 dark:text-primary-300">
                   {internalUrl}
                 </code>
-                <p className="text-xs text-sky-700/70 dark:text-sky-400/60">
-                  If you added a reverse proxy with TLS, use the <code className="font-mono">https://</code> URL instead. Then click Start.
+                <p className="text-xs text-primary-700/70 dark:text-primary-400/60">
+                  If you added a reverse proxy with TLS, use the{" "}
+                  <code className="font-mono">https://</code> URL instead. Then
+                  click Start.
                 </p>
               </div>
             </div>
@@ -1287,34 +1490,56 @@ function PeerjsSetupGuide({ configuredUrl }: { configuredUrl: string | null }) {
           {flavour === "kubernetes" && (
             <div className="space-y-4">
               <div className="space-y-2">
-                <p className="text-xs font-semibold text-foreground">1. Apply the manifest</p>
-                <p className="text-xs text-foreground-500">Save as <code className="font-mono bg-background-200 px-1 rounded">peerjs-server.yaml</code> and apply it.</p>
+                <p className="text-xs font-semibold text-foreground">
+                  1. Apply the manifest
+                </p>
+                <p className="text-xs text-foreground-500">
+                  Save as{" "}
+                  <code className="font-mono bg-background-200 px-1 rounded">
+                    peerjs-server.yaml
+                  </code>{" "}
+                  and apply it.
+                </p>
                 <CodeBlock code={K8S_MANIFEST} language="yaml" />
               </div>
 
               <div className="space-y-2">
-                <p className="text-xs font-semibold text-foreground">2. Deploy and verify</p>
+                <p className="text-xs font-semibold text-foreground">
+                  2. Deploy and verify
+                </p>
                 <CodeBlock code={K8S_APPLY} />
               </div>
 
               <div className="space-y-2">
-                <p className="text-xs font-semibold text-foreground">3. Expose externally (optional)</p>
+                <p className="text-xs font-semibold text-foreground">
+                  3. Expose externally (optional)
+                </p>
                 <p className="text-xs text-foreground-500">
-                  If the control plane runs <em>inside</em> the same cluster, the ClusterIP service is enough and you can skip this step. For external agents, add an Ingress:
+                  If the control plane runs <em>inside</em> the same cluster,
+                  the ClusterIP service is enough and you can skip this step.
+                  For external agents, add an Ingress:
                 </p>
                 <CodeBlock code={K8S_INGRESS} language="yaml" />
               </div>
 
-              <div className="bg-sky-50 dark:bg-sky-500/10 border border-sky-200 dark:border-sky-500/20 rounded-lg px-4 py-3 space-y-1.5">
-                <p className="text-xs font-semibold text-sky-700 dark:text-sky-400">4. Point this control plane at your server</p>
-                <p className="text-xs text-sky-700/80 dark:text-sky-400/70">
-                  Open the configuration panel above (⚙) and set the signaling server URL. Use the internal cluster DNS if running in the same cluster:
+              <div className="bg-primary-50 dark:bg-primary-500/10 border border-primary-200 dark:border-primary-500/20 rounded-lg px-4 py-3 space-y-1.5">
+                <p className="text-xs font-semibold text-primary-700 dark:text-primary-400">
+                  4. Point this control plane at your server
                 </p>
-                <code className="block text-xs font-mono bg-sky-100 dark:bg-sky-500/15 border border-sky-200 dark:border-sky-500/20 rounded px-3 py-1.5 text-sky-800 dark:text-sky-300">
+                <p className="text-xs text-primary-700/80 dark:text-primary-400/70">
+                  Open the configuration panel above (⚙) and set the signaling
+                  server URL. Use the internal cluster DNS if running in the
+                  same cluster:
+                </p>
+                <code className="block text-xs font-mono bg-primary-100 dark:bg-primary-500/15 border border-primary-200 dark:border-primary-500/20 rounded px-3 py-1.5 text-primary-800 dark:text-primary-300">
                   {internalUrl}
                 </code>
-                <p className="text-xs text-sky-700/70 dark:text-sky-400/60">
-                  Or use your Ingress hostname (e.g. <code className="font-mono">https://peerjs.your-domain.com</code>) for cross-cluster or external agents. Then click Start.
+                <p className="text-xs text-primary-700/70 dark:text-primary-400/60">
+                  Or use your Ingress hostname (e.g.{" "}
+                  <code className="font-mono">
+                    https://peerjs.your-domain.com
+                  </code>
+                  ) for cross-cluster or external agents. Then click Start.
                 </p>
               </div>
             </div>
@@ -1336,7 +1561,10 @@ function PeerjsTab({
   stats: TransportStats | undefined;
   agents: ConnectedAgentRow[];
   logs: LogEntry[];
-  onAction: (action: "start" | "stop" | "restart-peerjs", serverUrl?: string | null) => Promise<void>;
+  onAction: (
+    action: "start" | "stop" | "restart-peerjs",
+    serverUrl?: string | null
+  ) => Promise<void>;
 }) {
   const running = data.running;
   return (
@@ -1346,17 +1574,30 @@ function PeerjsTab({
 
       {/* Not running banner */}
       {!running && (
-        <div className="flex items-center gap-2.5 bg-amber-50 dark:bg-amber-500/10 border border-amber-300 dark:border-amber-500/20 rounded-xl px-4 py-3 text-sm text-amber-700 dark:text-amber-400">
+        <div className="flex items-center gap-2.5 bg-warning-50 dark:bg-warning-500/10 border border-warning-300 dark:border-warning-500/20 rounded-xl px-4 py-3 text-sm text-warning-700 dark:text-warning-400">
           <AlertTriangle size={15} className="shrink-0" />
-          PeerJS relay is not running. Start it above to accept WebRTC agent connections.
+          PeerJS relay is not running. Start it above to accept WebRTC agent
+          connections.
         </div>
       )}
 
       {/* Stat boxes */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-        <StatBox label="Active agents" value={stats?.activeAgents ?? 0} disabled={!running} />
-        <StatBox label="Pending" value={stats?.pendingConnections ?? 0} disabled={!running} />
-        <StatBox label="Total conn." value={stats?.connectionsTotal ?? 0} disabled={!running} />
+        <StatBox
+          label="Active agents"
+          value={stats?.activeAgents ?? 0}
+          disabled={!running}
+        />
+        <StatBox
+          label="Pending"
+          value={stats?.pendingConnections ?? 0}
+          disabled={!running}
+        />
+        <StatBox
+          label="Total conn."
+          value={stats?.connectionsTotal ?? 0}
+          disabled={!running}
+        />
         <StatBox
           label="Messages in"
           value={(stats?.messagesIn ?? 0).toLocaleString()}
@@ -1375,7 +1616,7 @@ function PeerjsTab({
       </div>
 
       {/* Chart */}
-      <TrafficChart stats={stats} color="violet" />
+      <TrafficChart stats={stats} color="secondary" />
 
       {/* Table */}
       <AgentsTable agents={agents} transport="peerjs" />
@@ -1403,7 +1644,9 @@ function MapTab({
       {/* ReactFlow topology */}
       <div className="bg-background-100 border border-neutral-200 rounded-xl overflow-hidden">
         <div className="px-5 py-3.5 border-b border-neutral-200">
-          <span className="text-sm font-semibold text-foreground">Network topology</span>
+          <span className="text-sm font-semibold text-foreground">
+            Network topology
+          </span>
           <span className="ml-2 text-xs text-foreground-400">
             {agents.length} agent{agents.length !== 1 ? "s" : ""} connected
           </span>
@@ -1455,7 +1698,7 @@ export default function NetworkPage() {
 
   async function handlePeerjsAction(
     action: "start" | "stop" | "restart-peerjs",
-    serverUrl?: string | null,
+    serverUrl?: string | null
   ) {
     const res = await fetch("/api/network", {
       method: "POST",
@@ -1463,7 +1706,8 @@ export default function NetworkPage() {
       body: JSON.stringify({ action, serverUrl }),
     });
     const body = (await res.json()) as { error?: string };
-    if (!res.ok) throw new Error(body.error ?? `Request failed (${res.status})`);
+    if (!res.ok)
+      throw new Error(body.error ?? `Request failed (${res.status})`);
     await fetchData(false);
   }
 
@@ -1474,7 +1718,8 @@ export default function NetworkPage() {
       body: JSON.stringify({ action: "restart-ws" }),
     });
     const body = (await res.json()) as { error?: string };
-    if (!res.ok) throw new Error(body.error ?? `Request failed (${res.status})`);
+    if (!res.ok)
+      throw new Error(body.error ?? `Request failed (${res.status})`);
     await fetchData(false);
   }
 
@@ -1488,7 +1733,7 @@ export default function NetworkPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
-            <Activity size={20} className="text-indigo-400" />
+            <Activity size={20} className="text-primary-400" />
             Network
           </h1>
           <p className="text-sm text-foreground-500 mt-0.5">
@@ -1512,10 +1757,10 @@ export default function NetworkPage() {
 
       {loading ? (
         <div className="flex justify-center py-20">
-          <Loader2 size={28} className="animate-spin text-indigo-400" />
+          <Loader2 size={28} className="animate-spin text-primary-400" />
         </div>
       ) : error ? (
-        <div className="flex items-center gap-2 bg-red-50 dark:bg-red-500/10 border border-red-300 dark:border-red-500/20 rounded-xl px-4 py-3 text-sm text-red-600 dark:text-red-400">
+        <div className="flex items-center gap-2 bg-danger-50 dark:bg-danger-500/10 border border-danger-300 dark:border-danger-500/20 rounded-xl px-4 py-3 text-sm text-danger-600 dark:text-danger-400">
           <AlertTriangle size={14} />
           {error}
         </div>
@@ -1530,8 +1775,8 @@ export default function NetworkPage() {
                 className={cn(
                   "flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors",
                   tab === id
-                    ? "border-indigo-500 text-indigo-500 dark:text-indigo-400"
-                    : "border-transparent text-foreground-500 hover:text-foreground",
+                    ? "border-primary-500 text-primary-500 dark:text-primary-400"
+                    : "border-transparent text-foreground-500 hover:text-foreground"
                 )}
               >
                 <Icon size={14} />

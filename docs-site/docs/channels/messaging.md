@@ -31,11 +31,11 @@ POST /api/channels/:channelId/messages
 }
 ```
 
-| Field | Type | Required | Description |
-|---|---|---|---|
-| `content` | string | Yes | Message body (Markdown supported) |
-| `threadId` | string | No | ID of the parent message to reply to. Omit for top-level messages. |
-| `metadata` | object | No | Optional enrichment (mentions, attachments, tool calls) |
+| Field      | Type   | Required | Description                                                        |
+| ---------- | ------ | -------- | ------------------------------------------------------------------ |
+| `content`  | string | Yes      | Message body (Markdown supported)                                  |
+| `threadId` | string | No       | ID of the parent message to reply to. Omit for top-level messages. |
+| `metadata` | object | No       | Optional enrichment (mentions, attachments, tool calls)            |
 
 **Response:**
 
@@ -224,7 +224,7 @@ The `MessageDispatcher` is a server-side class responsible for routing @mentions
 // Simplified from lib/message-dispatcher.ts
 class MessageDispatcher {
   static extractMentions(content: string): string[] {
-    return [...content.matchAll(/@([\w\-]+)/g)].map(m => m[1]);
+    return [...content.matchAll(/@([\w\-]+)/g)].map((m) => m[1]);
   }
 
   static async processMessage(
@@ -232,7 +232,12 @@ class MessageDispatcher {
     messageId: string,
     authorDid: string,
     content: string,
-    messageContext?: { id: string; authorType: string; threadId: string | null; createdAt: string }
+    messageContext?: {
+      id: string;
+      authorType: string;
+      threadId: string | null;
+      createdAt: string;
+    }
   ): Promise<void> {
     const mentions = this.extractMentions(content);
     // For each mention, look up agent, create ack thread reply, dispatch WS event

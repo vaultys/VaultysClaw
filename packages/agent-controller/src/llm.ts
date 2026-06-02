@@ -15,7 +15,7 @@ export class LlmNotConfiguredError extends Error {
   constructor() {
     super(
       "LLM is not configured. Set LLM_PROVIDER + LLM_MODEL env vars, " +
-      "or push a config from the control plane."
+        "or push a config from the control plane."
     );
     this.name = "LlmNotConfiguredError";
   }
@@ -67,7 +67,9 @@ export function buildModel(config: LlmConfig): any {
           if (u.pathname === "/" || u.pathname === "") {
             baseURL = baseURL.replace(/\/+$/, "") + "/v1";
           }
-        } catch { /* invalid URL — pass as-is */ }
+        } catch {
+          /* invalid URL — pass as-is */
+        }
       }
       const client = createOpenAI({
         apiKey: config.apiKey ?? "not-required",
@@ -79,12 +81,15 @@ export function buildModel(config: LlmConfig): any {
             try {
               const body = JSON.parse(init.body);
               if (Array.isArray(body.messages)) {
-                body.messages = body.messages.map((msg: Record<string, unknown>) =>
-                  msg.content == null ? { ...msg, content: "" } : msg,
+                body.messages = body.messages.map(
+                  (msg: Record<string, unknown>) =>
+                    msg.content == null ? { ...msg, content: "" } : msg
                 );
                 return fetch(url, { ...init, body: JSON.stringify(body) });
               }
-            } catch { /* fall through */ }
+            } catch {
+              /* fall through */
+            }
           }
           return fetch(url, init as RequestInit);
         },
@@ -120,8 +125,11 @@ export async function runIntent(
   params: Record<string, unknown>,
   tools?: Record<string, MastraTool>,
   memoryContext?: string,
-  skillExtensions?: string[],
-): Promise<{ text: string; usage: { promptTokens: number; completionTokens: number } }> {
+  skillExtensions?: string[]
+): Promise<{
+  text: string;
+  usage: { promptTokens: number; completionTokens: number };
+}> {
   const model = buildModel(config);
   const base = config.systemPrompt?.trim() || DEFAULT_SYSTEM_PROMPT;
   const withMemory = memoryContext ? `${base}\n\n${memoryContext}` : base;
@@ -137,8 +145,13 @@ export async function runIntent(
   const hasTools = tools && Object.keys(tools).length > 0;
 
   logger.info(
-    { provider: config.provider, model: config.model, action, toolCount: hasTools ? Object.keys(tools!).length : 0 },
-    "Running intent",
+    {
+      provider: config.provider,
+      model: config.model,
+      action,
+      toolCount: hasTools ? Object.keys(tools!).length : 0,
+    },
+    "Running intent"
   );
 
   try {
@@ -152,18 +165,28 @@ export async function runIntent(
 
     const result = await agent.generate(userMessage, {
       maxSteps: 10,
-      modelSettings: config.maxTokens ? { maxOutputTokens: config.maxTokens } : undefined,
+      modelSettings: config.maxTokens
+        ? { maxOutputTokens: config.maxTokens }
+        : undefined,
     });
 
     logger.info(
-      { action, steps: result.steps?.length ?? 0, finishReason: result.finishReason, textLength: result.text?.length ?? 0 },
-      "Intent LLM response received",
+      {
+        action,
+        steps: result.steps?.length ?? 0,
+        finishReason: result.finishReason,
+        textLength: result.text?.length ?? 0,
+      },
+      "Intent LLM response received"
     );
 
     // Log the actual usage object structure for debugging
     logger.info(
-      { usageRaw: result.usage, keys: result.usage ? Object.keys(result.usage) : [] },
-      "Debug: Usage object from runIntent",
+      {
+        usageRaw: result.usage,
+        keys: result.usage ? Object.keys(result.usage) : [],
+      },
+      "Debug: Usage object from runIntent"
     );
 
     const usage = result.usage as any;
@@ -184,7 +207,11 @@ export async function runIntent(
  * Returns an object with a textStream AsyncIterable<string>.
  */
 export interface StepFinishEvent {
-  toolCalls?: Array<{ toolCallId: string; toolName: string; args: Record<string, unknown> }>;
+  toolCalls?: Array<{
+    toolCallId: string;
+    toolName: string;
+    args: Record<string, unknown>;
+  }>;
   toolResults?: Array<{ toolCallId: string; result: unknown }>;
   text?: string;
   finishReason?: string;
@@ -196,8 +223,11 @@ export function streamChat(
   tools?: Record<string, MastraTool>,
   onStepFinish?: (event: StepFinishEvent) => void | Promise<void>,
   memoryContext?: string,
-  skillExtensions?: string[],
-): { textStream: AsyncIterable<string>; usage: Promise<{ promptTokens: number; completionTokens: number }> } {
+  skillExtensions?: string[]
+): {
+  textStream: AsyncIterable<string>;
+  usage: Promise<{ promptTokens: number; completionTokens: number }>;
+} {
   const model = buildModel(config);
   const base = config.systemPrompt?.trim() || DEFAULT_CHAT_PROMPT;
   const withMemory = memoryContext ? `${base}\n\n${memoryContext}` : base;
@@ -207,7 +237,12 @@ export function streamChat(
   const hasTools = tools && Object.keys(tools).length > 0;
 
   logger.info(
-    { provider: config.provider, model: config.model, messageCount: messages.length, toolCount: hasTools ? Object.keys(tools!).length : 0 },
+    {
+      provider: config.provider,
+      model: config.model,
+      messageCount: messages.length,
+      toolCount: hasTools ? Object.keys(tools!).length : 0,
+    },
     "Starting chat stream"
   );
 
@@ -232,37 +267,43 @@ export function streamChat(
 
   const streamPromise = agent.stream(messages as any, {
     maxSteps: 10,
-    modelSettings: config.maxTokens ? { maxOutputTokens: config.maxTokens } : undefined,
-    ...(onStepFinish ? {
-      onStepFinish: async (step: any) => {
-        // Accumulate tokens from this step - try multiple field name conventions
-        const promptTokens = step.usage?.inputTokens ?? step.usage?.promptTokens ?? 0;
-        const completionTokens = step.usage?.outputTokens ?? step.usage?.completionTokens ?? 0;
-        if (promptTokens > 0 || completionTokens > 0) {
-          logger.info(
-            { promptTokens, completionTokens, stepIndex: step.stepIndex },
-            "Step tokens captured",
-          );
-        }
-        totalPromptTokens += promptTokens;
-        totalCompletionTokens += completionTokens;
+    modelSettings: config.maxTokens
+      ? { maxOutputTokens: config.maxTokens }
+      : undefined,
+    ...(onStepFinish
+      ? {
+          onStepFinish: async (step: any) => {
+            // Accumulate tokens from this step - try multiple field name conventions
+            const promptTokens =
+              step.usage?.inputTokens ?? step.usage?.promptTokens ?? 0;
+            const completionTokens =
+              step.usage?.outputTokens ?? step.usage?.completionTokens ?? 0;
+            if (promptTokens > 0 || completionTokens > 0) {
+              logger.info(
+                { promptTokens, completionTokens, stepIndex: step.stepIndex },
+                "Step tokens captured"
+              );
+            }
+            totalPromptTokens += promptTokens;
+            totalCompletionTokens += completionTokens;
 
-        const event: StepFinishEvent = {
-          text: step.text,
-          finishReason: step.finishReason,
-          toolCalls: step.toolCalls?.map((tc: any) => ({
-            toolCallId: tc.toolCallId,
-            toolName: tc.toolName,
-            args: tc.args ?? {},
-          })),
-          toolResults: step.toolResults?.map((tr: any) => ({
-            toolCallId: tr.toolCallId,
-            result: tr.result,
-          })),
-        };
-        await onStepFinish(event);
-      },
-    } : {}),
+            const event: StepFinishEvent = {
+              text: step.text,
+              finishReason: step.finishReason,
+              toolCalls: step.toolCalls?.map((tc: any) => ({
+                toolCallId: tc.toolCallId,
+                toolName: tc.toolName,
+                args: tc.args ?? {},
+              })),
+              toolResults: step.toolResults?.map((tr: any) => ({
+                toolCallId: tr.toolCallId,
+                result: tr.result,
+              })),
+            };
+            await onStepFinish(event);
+          },
+        }
+      : {}),
   });
 
   // Lazy AsyncIterable that resolves the stream on first iteration
@@ -297,7 +338,7 @@ export function streamChat(
     usage: streamDonePromise.then(() => {
       logger.info(
         { totalPromptTokens, totalCompletionTokens },
-        "Final token usage from stream",
+        "Final token usage from stream"
       );
       return {
         promptTokens: totalPromptTokens,

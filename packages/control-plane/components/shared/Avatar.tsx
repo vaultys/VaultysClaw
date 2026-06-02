@@ -14,14 +14,14 @@ const SIZE_CLASSES = {
 };
 
 const BG_COLORS = [
-  "bg-blue-600",
-  "bg-purple-600",
-  "bg-pink-600",
-  "bg-green-600",
-  "bg-orange-600",
-  "bg-red-600",
-  "bg-indigo-600",
-  "bg-cyan-600",
+  "bg-primary-600",
+  "bg-secondary-600",
+  "bg-danger-600",
+  "bg-success-600",
+  "bg-warning-600",
+  "bg-danger-600",
+  "bg-primary-600",
+  "bg-primary-600",
 ];
 
 /**

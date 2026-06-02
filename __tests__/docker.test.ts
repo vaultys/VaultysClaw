@@ -177,7 +177,9 @@ describe("Docker E2E — full stack", () => {
   }, 660_000);
 
   afterAll(async () => {
-    await execAsync(`docker compose -f ${COMPOSE_FILE} down -v`).catch(() => { });
+    await execAsync(`docker compose -f ${COMPOSE_FILE} down -v`).catch(
+      () => {}
+    );
   }, 60_000);
 
   // ---------------------------------------------------------------------------
@@ -208,7 +210,8 @@ describe("Docker E2E — full stack", () => {
     const reg = regs.find(
       (r) => r.agent_name === AGENT_NAME && r.status === "pending"
     );
-    if (!reg) throw new Error("No pending registration found for " + AGENT_NAME);
+    if (!reg)
+      throw new Error("No pending registration found for " + AGENT_NAME);
 
     // Approve it
     const result = await postJson<{ ok: boolean; capabilities: string[] }>(
@@ -227,7 +230,8 @@ describe("Docker E2E — full stack", () => {
 
   // ---------------------------------------------------------------------------
   it("intent triggers LLM invocation", async () => {
-    if (!agentId) throw new Error("Agent not connected — prior test may have failed");
+    if (!agentId)
+      throw new Error("Agent not connected — prior test may have failed");
 
     // Clear mock LLM call log
     await fetch(`${MOCK_LLM}/test/calls`, { method: "DELETE" });
@@ -235,7 +239,11 @@ describe("Docker E2E — full stack", () => {
     // Send intent
     const { intentId } = await postJson<{ ok: boolean; intentId: string }>(
       `${CONTROL_PLANE}/api/test/intent`,
-      { agentId, action: "llm_query", params: { prompt: "Hello from the test!" } }
+      {
+        agentId,
+        action: "llm_query",
+        params: { prompt: "Hello from the test!" },
+      }
     );
     expect(intentId).toBeTruthy();
 
@@ -286,7 +294,8 @@ describe("Docker E2E — full stack", () => {
   // ---------------------------------------------------------------------------
 
   it("chat message triggers streaming LLM response", async () => {
-    if (!agentId) throw new Error("Agent not connected — prior test may have failed");
+    if (!agentId)
+      throw new Error("Agent not connected — prior test may have failed");
 
     // Clear mock LLM call log
     await fetch(`${MOCK_LLM}/test/calls`, { method: "DELETE" });

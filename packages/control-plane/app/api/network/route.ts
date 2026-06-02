@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getWSServer, initializeWSServer } from "@/lib/ws-server";
-import { AgentPeerjsServer, getPeerjsServer, initializePeerjsServer } from "@/lib/peerjs-server";
+import {
+  AgentPeerjsServer,
+  getPeerjsServer,
+  initializePeerjsServer,
+} from "@/lib/peerjs-server";
 import { getSetting, setSetting } from "@/lib/db";
 import { getAuthContext, unauthorized } from "@/lib/auth-utils";
 
@@ -59,7 +63,10 @@ export async function GET(req: Request) {
   if (!auth) return unauthorized();
 
   const { searchParams } = new URL(req.url);
-  const logLimit = Math.min(500, parseInt(searchParams.get("logLimit") ?? "200", 10) || 200);
+  const logLimit = Math.min(
+    500,
+    parseInt(searchParams.get("logLimit") ?? "200", 10) || 200
+  );
 
   const wsServer = getWSServer();
   const stats = wsServer?.getNetworkStats() ?? null;
@@ -77,7 +84,8 @@ export async function GET(req: Request) {
       peerId,
       running: peerjsServer?.isRunning ?? false,
       startedAt: peerjsServer?.startedAt ?? null,
-      serverUrl: peerjsServer?.signalingServerUrl ?? configuredServerUrl ?? null,
+      serverUrl:
+        peerjsServer?.signalingServerUrl ?? configuredServerUrl ?? null,
     },
   });
 }
@@ -122,7 +130,7 @@ export async function POST(req: NextRequest) {
   const auth = await getAuthContext(req);
   if (!auth || !auth.isGlobalAdmin) return unauthorized();
 
-  const body = await req.json() as {
+  const body = (await req.json()) as {
     action: "start" | "stop" | "restart-ws" | "restart-peerjs";
     serverUrl?: string | null;
   };
@@ -132,7 +140,10 @@ export async function POST(req: NextRequest) {
   if (action === "restart-ws") {
     const wsServer = getWSServer();
     if (!wsServer) {
-      return NextResponse.json({ error: "WebSocket server not initialized" }, { status: 503 });
+      return NextResponse.json(
+        { error: "WebSocket server not initialized" },
+        { status: 503 }
+      );
     }
     const port = wsServer.wsPort;
     wsServer.shutdown();
@@ -156,12 +167,15 @@ export async function POST(req: NextRequest) {
 
     const wsServer = getWSServer();
     if (!wsServer) {
-      return NextResponse.json({ error: "WebSocket server not initialized" }, { status: 503 });
+      return NextResponse.json(
+        { error: "WebSocket server not initialized" },
+        { status: 503 }
+      );
     }
 
     const resolvedUrl =
       serverUrl !== undefined
-        ? serverUrl ?? undefined
+        ? (serverUrl ?? undefined)
         : getSetting("peerjs_server_url") || undefined;
 
     if (serverUrl !== undefined) {
@@ -175,8 +189,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true, running: true, peerId });
     } catch (err) {
       return NextResponse.json(
-        { error: err instanceof Error ? err.message : "Failed to start PeerJS server" },
-        { status: 500 },
+        {
+          error:
+            err instanceof Error
+              ? err.message
+              : "Failed to start PeerJS server",
+        },
+        { status: 500 }
       );
     }
   }

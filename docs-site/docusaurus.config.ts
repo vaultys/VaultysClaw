@@ -4,8 +4,7 @@ import type * as Preset from "@docusaurus/preset-classic";
 
 const config: Config = {
   title: "Vaultys Claw",
-  tagline:
-    "Decentralised AI Agent Orchestration — Secured by VaultysId",
+  tagline: "Decentralised AI Agent Orchestration — Secured by VaultysId",
   favicon: "img/favicon.ico",
 
   url: "https://docs.vaultys.io",
@@ -57,7 +56,7 @@ const config: Config = {
     announcementBar: {
       id: "beta",
       content:
-        "Vaultys Claw is currently in <strong>public alpha</strong>. Star us on <a href=\"https://github.com/vaultys/vaultysclaw\" target=\"_blank\">GitHub</a> and help shape the roadmap.",
+        'Vaultys Claw is currently in <strong>public alpha</strong>. Star us on <a href="https://github.com/vaultys/vaultysclaw" target="_blank">GitHub</a> and help shape the roadmap.',
       backgroundColor: "#1e40af",
       textColor: "#e0e7ff",
       isCloseable: true,

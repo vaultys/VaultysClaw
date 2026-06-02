@@ -1,6 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getAuthContext, unauthorized, forbidden } from '@/lib/auth-utils';
-import { setDoclingEndpoints } from '@/lib/db';
+import { NextRequest, NextResponse } from "next/server";
+import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
+import { setDoclingEndpoints } from "@/lib/db";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -22,32 +22,32 @@ async function discoverEndpoints(baseUrl: string): Promise<{
   fileEndpoint: string;
 }> {
   const defaults = {
-    sourceEndpoint: '/v1alpha/convert/source',
-    fileEndpoint:   '/v1alpha/convert/file',
+    sourceEndpoint: "/v1alpha/convert/source",
+    fileEndpoint: "/v1alpha/convert/file",
   };
 
   try {
     const res = await fetch(`${baseUrl}/openapi.json`, {
       signal: AbortSignal.timeout(5_000),
-      headers: { Accept: 'application/json' },
+      headers: { Accept: "application/json" },
     });
     if (!res.ok) return defaults;
 
-    const spec = await res.json() as OpenApiSpec;
+    const spec = (await res.json()) as OpenApiSpec;
     const paths = Object.keys(spec.paths ?? {});
 
     // POST paths only
-    const postPaths = paths.filter(p => spec.paths![p].post !== undefined);
+    const postPaths = paths.filter((p) => spec.paths![p].post !== undefined);
 
     // Source / URL conversion — prefer paths containing both "convert" and "source"
     const sourceEndpoint =
-      postPaths.find(p => /convert/.test(p) && /source/.test(p)) ??
-      postPaths.find(p => /convert/.test(p) && !/file/.test(p)) ??
+      postPaths.find((p) => /convert/.test(p) && /source/.test(p)) ??
+      postPaths.find((p) => /convert/.test(p) && !/file/.test(p)) ??
       defaults.sourceEndpoint;
 
     // File conversion — prefer paths containing both "convert" and "file"
     const fileEndpoint =
-      postPaths.find(p => /convert/.test(p) && /file/.test(p)) ??
+      postPaths.find((p) => /convert/.test(p) && /file/.test(p)) ??
       sourceEndpoint; // fall back to same path if no dedicated file endpoint
 
     return { sourceEndpoint, fileEndpoint };
@@ -108,11 +108,14 @@ export async function POST(request: NextRequest) {
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
 
-  const body = await request.json() as { url?: string };
-  const rawUrl = (body.url ?? '').trim().replace(/\/$/, '');
+  const body = (await request.json()) as { url?: string };
+  const rawUrl = (body.url ?? "").trim().replace(/\/$/, "");
 
   if (!rawUrl) {
-    return NextResponse.json({ ok: false, error: 'No URL provided' }, { status: 400 });
+    return NextResponse.json(
+      { ok: false, error: "No URL provided" },
+      { status: 400 }
+    );
   }
 
   const start = Date.now();
@@ -120,7 +123,7 @@ export async function POST(request: NextRequest) {
     // 1. Health check
     const healthRes = await fetch(`${rawUrl}/health`, {
       signal: AbortSignal.timeout(5_000),
-      headers: { Accept: 'application/json' },
+      headers: { Accept: "application/json" },
     });
 
     const latency = Date.now() - start;
@@ -135,9 +138,14 @@ export async function POST(request: NextRequest) {
 
     let version: string | undefined;
     try {
-      const data = await healthRes.json() as { version?: string; docling_version?: string };
+      const data = (await healthRes.json()) as {
+        version?: string;
+        docling_version?: string;
+      };
       version = data.version ?? data.docling_version;
-    } catch { /* non-JSON health response — fine */ }
+    } catch {
+      /* non-JSON health response — fine */
+    }
 
     // 2. Discover real API endpoints from OpenAPI spec
     const { sourceEndpoint, fileEndpoint } = await discoverEndpoints(rawUrl);

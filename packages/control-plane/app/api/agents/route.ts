@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import { getWSServer } from "@/lib/ws-server";
-import { getAllAgents, getAgentRealms, getUserRealms, queryAgents } from "@/lib/db";
+import {
+  getAllAgents,
+  getAgentRealms,
+  getUserRealms,
+  queryAgents,
+} from "@/lib/db";
 import { getAuthContext, unauthorized } from "@/lib/auth-utils";
 
 /**
@@ -107,23 +112,56 @@ export async function GET(request?: Request) {
     const auth = await getAuthContext(request);
     if (!auth) return unauthorized();
 
-    const { searchParams } = new URL(request?.url ?? "http://localhost/api/agents");
+    const { searchParams } = new URL(
+      request?.url ?? "http://localhost/api/agents"
+    );
     const q = searchParams.get("q") ?? undefined;
     const onlineFilter = searchParams.get("online");
     const realm = searchParams.get("realm") ?? undefined;
     const capStr = searchParams.get("capabilities");
-    const capabilities = capStr ? capStr.split(",").map((c) => c.trim()).filter(Boolean) : undefined;
-    const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10) || 1);
-    const pageSize = Math.min(100, Math.max(1, parseInt(searchParams.get("pageSize") ?? "20", 10) || 20));
-    const sortBy = (searchParams.get("sortBy") ?? "lastSeen") as "name" | "lastSeen" | "registeredAt";
+    const capabilities = capStr
+      ? capStr
+          .split(",")
+          .map((c) => c.trim())
+          .filter(Boolean)
+      : undefined;
+    const page = Math.max(
+      1,
+      parseInt(searchParams.get("page") ?? "1", 10) || 1
+    );
+    const pageSize = Math.min(
+      100,
+      Math.max(1, parseInt(searchParams.get("pageSize") ?? "20", 10) || 20)
+    );
+    const sortBy = (searchParams.get("sortBy") ?? "lastSeen") as
+      | "name"
+      | "lastSeen"
+      | "registeredAt";
     const sortDir = (searchParams.get("sortDir") ?? "desc") as "asc" | "desc";
 
     const wsServer = getWSServer();
-    const connectedDids = new Set(wsServer?.getConnectedAgents().map((a) => a.id) ?? []);
+    const connectedDids = new Set(
+      wsServer?.getConnectedAgents().map((a) => a.id) ?? []
+    );
 
-    const online = onlineFilter === "true" ? true : onlineFilter === "false" ? false : undefined;
+    const online =
+      onlineFilter === "true"
+        ? true
+        : onlineFilter === "false"
+          ? false
+          : undefined;
 
-    const result = queryAgents({ q, online, onlineDids: connectedDids, realm, capabilities, page, pageSize, sortBy, sortDir });
+    const result = queryAgents({
+      q,
+      online,
+      onlineDids: connectedDids,
+      realm,
+      capabilities,
+      page,
+      pageSize,
+      sortBy,
+      sortDir,
+    });
 
     // For non-admins, filter to agents in the user's realms
     const userRealmIds = auth.isGlobalAdmin
@@ -152,8 +190,11 @@ export async function GET(request?: Request) {
           tokenUsage: connected?.tokenUsage ?? null,
           transport: connected?.transport ?? null,
           realms: realms.map((r) => ({
-            id: r.realm_id, name: r.name, slug: r.slug,
-            color: r.color, isPrimary: Boolean(r.is_primary),
+            id: r.realm_id,
+            name: r.name,
+            slug: r.slug,
+            color: r.color,
+            isPrimary: Boolean(r.is_primary),
           })),
         };
       });
@@ -163,10 +204,15 @@ export async function GET(request?: Request) {
       total: userRealmIds ? agents.length : result.total,
       page: result.page,
       pageSize: result.pageSize,
-      totalPages: userRealmIds ? Math.ceil(agents.length / pageSize) : result.totalPages,
+      totalPages: userRealmIds
+        ? Math.ceil(agents.length / pageSize)
+        : result.totalPages,
       online: agents.filter((a) => a.online).length,
     });
   } catch (error) {
-    return NextResponse.json({ error: "Failed to fetch agents" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to fetch agents" },
+      { status: 500 }
+    );
   }
 }

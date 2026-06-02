@@ -35,8 +35,6 @@ vi.mock("next/link", () => ({
   ),
 }));
 
-
-
 // Mock the cn utility
 vi.mock("@/lib/utils", () => ({
   cn: (...args: any[]) =>
@@ -128,7 +126,9 @@ describe("Sidebar", () => {
   });
 
   it("hides labels when collapsed", () => {
-    const { container } = render(<Sidebar collapsed={true} onToggle={onToggle} />);
+    const { container } = render(
+      <Sidebar collapsed={true} onToggle={onToggle} />
+    );
     // Labels should not be visible text
     expect(screen.queryByText("Chat")).not.toBeInTheDocument();
     expect(screen.queryByText("Dashboard")).not.toBeInTheDocument();
@@ -138,7 +138,9 @@ describe("Sidebar", () => {
   });
 
   it("calls onToggle when the collapse button is clicked", async () => {
-    const { container } = render(<Sidebar collapsed={false} onToggle={onToggle} />);
+    const { container } = render(
+      <Sidebar collapsed={false} onToggle={onToggle} />
+    );
     // The toggle button is a standalone button (not inside an <a>)
     // It's positioned after all the nav links
     const allButtons = container.querySelectorAll("button");

@@ -40,7 +40,7 @@ import { getWSServer } from "@/lib/ws-server";
  */
 export async function DELETE(
   _req: NextRequest,
-  { params }: { params: Promise<{ did: string; id: string }> },
+  { params }: { params: Promise<{ did: string; id: string }> }
 ) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.isAdmin) {

@@ -14,7 +14,8 @@ describe("Template Loading Flow", () => {
   });
 
   it("should preserve template data in store when loading from template", () => {
-    const { setWorkflow, definition, workflowName } = useWorkflowStore.getState();
+    const { setWorkflow, definition, workflowName } =
+      useWorkflowStore.getState();
 
     // Simulate template loading: template has nodes and edges
     const templateDefinition = {

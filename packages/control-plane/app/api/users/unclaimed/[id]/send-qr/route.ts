@@ -89,10 +89,16 @@ export async function POST(
     return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
   if (user.did) {
-    return NextResponse.json({ error: "User has already claimed their account" }, { status: 400 });
+    return NextResponse.json(
+      { error: "User has already claimed their account" },
+      { status: 400 }
+    );
   }
   if (!user.email) {
-    return NextResponse.json({ error: "User has no email address" }, { status: 400 });
+    return NextResponse.json(
+      { error: "User has no email address" },
+      { status: 400 }
+    );
   }
 
   // Create a registration certificate
@@ -114,7 +120,10 @@ export async function POST(
   const sendByEmail = body.sendByEmail !== false;
   if (sendByEmail) {
     if (!getSmtpConfig()) {
-      return NextResponse.json({ error: "SMTP is not configured" }, { status: 400 });
+      return NextResponse.json(
+        { error: "SMTP is not configured" },
+        { status: 400 }
+      );
     }
 
     const displayName = user.name ?? user.email;
@@ -165,5 +174,9 @@ export async function POST(
 }
 
 function escapeHtml(str: string): string {
-  return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }

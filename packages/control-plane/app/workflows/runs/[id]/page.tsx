@@ -62,7 +62,8 @@ interface RunHistory {
  *  Handles: number (Unix seconds), numeric string "1748952325", ISO string "2026-05-22 14:05:25"
  */
 function parseTimestamp(val: unknown): number | null {
-  if (val === null || val === undefined || val === "" || val === false) return null;
+  if (val === null || val === undefined || val === "" || val === false)
+    return null;
   if (typeof val === "number") {
     return val > 0 ? val * 1000 : null;
   }
@@ -75,7 +76,8 @@ function parseTimestamp(val: unknown): number | null {
     }
     // ISO / SQLite string — append Z so it's always treated as UTC
     let s = val.replace(" ", "T");
-    if (!s.endsWith("Z") && !s.includes("+") && !/[+-]\d{2}:\d{2}$/.test(s)) s += "Z";
+    if (!s.endsWith("Z") && !s.includes("+") && !/[+-]\d{2}:\d{2}$/.test(s))
+      s += "Z";
     const t = new Date(s).getTime();
     return isNaN(t) ? null : t;
   }
@@ -111,16 +113,21 @@ function timeAgo(val: unknown): string {
 /** Topological sort of node ids using Kahn's algorithm */
 function topoSort(
   nodes: Array<{ id: string }>,
-  edges: Array<{ source: string; target: string }>,
+  edges: Array<{ source: string; target: string }>
 ): string[] {
   const inDegree = new Map<string, number>();
   const adj = new Map<string, string[]>();
-  for (const n of nodes) { inDegree.set(n.id, 0); adj.set(n.id, []); }
+  for (const n of nodes) {
+    inDegree.set(n.id, 0);
+    adj.set(n.id, []);
+  }
   for (const e of edges) {
     adj.get(e.source)?.push(e.target);
     inDegree.set(e.target, (inDegree.get(e.target) ?? 0) + 1);
   }
-  const queue = [...inDegree.entries()].filter(([, d]) => d === 0).map(([id]) => id);
+  const queue = [...inDegree.entries()]
+    .filter(([, d]) => d === 0)
+    .map(([id]) => id);
   const order: string[] = [];
   while (queue.length > 0) {
     const cur = queue.shift()!;
@@ -136,36 +143,56 @@ function topoSort(
 
 function getStatusIcon(status: string) {
   switch (status) {
-    case "completed": return <CheckCircle2 size={20} className="text-green-500" />;
-    case "failed": return <AlertCircle size={20} className="text-red-500" />;
-    case "rejected": return <AlertCircle size={20} className="text-orange-500" />;
-    case "running": return <Activity size={20} className="text-blue-500 animate-pulse" />;
-    case "waiting_approval": return <Clock size={20} className="text-amber-500" />;
-    default: return <Clock size={20} className="text-foreground-500" />;
+    case "completed":
+      return <CheckCircle2 size={20} className="text-success-500" />;
+    case "failed":
+      return <AlertCircle size={20} className="text-danger-500" />;
+    case "rejected":
+      return <AlertCircle size={20} className="text-warning-500" />;
+    case "running":
+      return <Activity size={20} className="text-primary-500 animate-pulse" />;
+    case "waiting_approval":
+      return <Clock size={20} className="text-warning-500" />;
+    default:
+      return <Clock size={20} className="text-foreground-500" />;
   }
 }
 
 function getStatusBadge(status: string) {
-  const base = "inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium";
+  const base =
+    "inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium";
   switch (status) {
-    case "completed": return `${base} bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400`;
-    case "failed": return `${base} bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-400`;
-    case "rejected": return `${base} bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-400`;
-    case "running": return `${base} bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400`;
-    case "waiting_approval": return `${base} bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400`;
-    default: return `${base} bg-background-200 text-foreground-400`;
+    case "completed":
+      return `${base} bg-success-100 dark:bg-success-900/40 text-success-700 dark:text-success-400`;
+    case "failed":
+      return `${base} bg-danger-100 dark:bg-danger-900/40 text-danger-700 dark:text-danger-400`;
+    case "rejected":
+      return `${base} bg-warning-100 dark:bg-warning-900/40 text-warning-700 dark:text-warning-400`;
+    case "running":
+      return `${base} bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-400`;
+    case "waiting_approval":
+      return `${base} bg-warning-100 dark:bg-warning-900/40 text-warning-700 dark:text-warning-400`;
+    default:
+      return `${base} bg-background-200 text-foreground-400`;
   }
 }
 
 function getStepPill(status: string) {
-  const base = "inline-flex items-center px-2 py-0.5 rounded text-xs font-medium";
+  const base =
+    "inline-flex items-center px-2 py-0.5 rounded text-xs font-medium";
   switch (status) {
-    case "completed": return `${base} bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400`;
-    case "failed": return `${base} bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-400`;
-    case "rejected": return `${base} bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-400`;
-    case "running": return `${base} bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400`;
-    case "waiting_approval": return `${base} bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400`;
-    default: return `${base} bg-background-200 text-foreground-400`;
+    case "completed":
+      return `${base} bg-success-100 dark:bg-success-900/40 text-success-700 dark:text-success-400`;
+    case "failed":
+      return `${base} bg-danger-100 dark:bg-danger-900/40 text-danger-700 dark:text-danger-400`;
+    case "rejected":
+      return `${base} bg-warning-100 dark:bg-warning-900/40 text-warning-700 dark:text-warning-400`;
+    case "running":
+      return `${base} bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-400`;
+    case "waiting_approval":
+      return `${base} bg-warning-100 dark:bg-warning-900/40 text-warning-700 dark:text-warning-400`;
+    default:
+      return `${base} bg-background-200 text-foreground-400`;
   }
 }
 
@@ -182,10 +209,14 @@ export default function WorkflowRunDetailPage() {
     fetch(`/api/workflow-runs/${runId}`)
       .then(async (res) => {
         if (!res.ok) {
-          setError(res.status === 404 ? "Workflow run not found" : "Failed to fetch run");
+          setError(
+            res.status === 404
+              ? "Workflow run not found"
+              : "Failed to fetch run"
+          );
           return;
         }
-        setHistory(await res.json() as RunHistory);
+        setHistory((await res.json()) as RunHistory);
       })
       .catch(() => setError("Failed to load workflow run"))
       .finally(() => setLoading(false));
@@ -227,7 +258,7 @@ export default function WorkflowRunDetailPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+        <div className="w-8 h-8 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
@@ -236,13 +267,23 @@ export default function WorkflowRunDetailPage() {
     return (
       <div className="min-h-screen bg-background p-6">
         <div className="max-w-4xl mx-auto">
-          <Link href="/workflows" className="inline-flex items-center gap-2 text-indigo-500 hover:text-indigo-400 mb-6">
+          <Link
+            href="/workflows"
+            className="inline-flex items-center gap-2 text-primary-500 hover:text-primary-400 mb-6"
+          >
             <ChevronLeft size={18} /> Back to Workflows
           </Link>
           <div className="bg-background-100 rounded-xl border border-neutral-200 p-8 text-center">
-            <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
-            <p className="text-foreground font-medium mb-2">{error || "Workflow run not found"}</p>
-            <Link href="/workflows" className="text-indigo-500 hover:text-indigo-400">Return to workflows</Link>
+            <AlertCircle className="w-12 h-12 text-danger-500 mx-auto mb-4" />
+            <p className="text-foreground font-medium mb-2">
+              {error || "Workflow run not found"}
+            </p>
+            <Link
+              href="/workflows"
+              className="text-primary-500 hover:text-primary-400"
+            >
+              Return to workflows
+            </Link>
           </div>
         </div>
       </div>
@@ -255,9 +296,10 @@ export default function WorkflowRunDetailPage() {
 
   const startedMs = parseTimestamp(run.started_at);
   const completedMs = parseTimestamp(run.completed_at);
-  const duration = startedMs !== null && completedMs !== null
-    ? Math.round((completedMs - startedMs) / 1000)
-    : null;
+  const duration =
+    startedMs !== null && completedMs !== null
+      ? Math.round((completedMs - startedMs) / 1000)
+      : null;
 
   const sortedSteps = getSortedSteps();
 
@@ -266,7 +308,10 @@ export default function WorkflowRunDetailPage() {
       <div className="max-w-4xl mx-auto p-6 space-y-6">
         {/* Header */}
         <div>
-          <Link href="/workflows" className="inline-flex items-center gap-2 text-indigo-500 hover:text-indigo-400 mb-4">
+          <Link
+            href="/workflows"
+            className="inline-flex items-center gap-2 text-primary-500 hover:text-primary-400 mb-4"
+          >
             <ChevronLeft size={18} /> Back to Workflows
           </Link>
 
@@ -276,7 +321,9 @@ export default function WorkflowRunDetailPage() {
                 <h1 className="text-2xl font-bold text-foreground mb-1">
                   {workflow?.name ?? "Workflow Run"}
                 </h1>
-                <p className="text-foreground-500 font-mono text-xs">{run.id}</p>
+                <p className="text-foreground-500 font-mono text-xs">
+                  {run.id}
+                </p>
               </div>
               <div className={getStatusBadge(run.status)}>
                 {getStatusIcon(run.status)}
@@ -287,23 +334,35 @@ export default function WorkflowRunDetailPage() {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 border-t border-neutral-200">
               <div>
                 <p className="text-foreground-500 text-sm mb-1">Started</p>
-                <p className="text-foreground text-xs font-medium">{formatDate(run.started_at)}</p>
-                <p className="text-foreground-400 text-xs mt-0.5">{timeAgo(run.started_at)}</p>
+                <p className="text-foreground text-xs font-medium">
+                  {formatDate(run.started_at)}
+                </p>
+                <p className="text-foreground-400 text-xs mt-0.5">
+                  {timeAgo(run.started_at)}
+                </p>
               </div>
               <div>
                 <p className="text-foreground-500 text-sm mb-1">Completed</p>
-                <p className="text-foreground text-xs font-medium">{formatDate(run.completed_at)}</p>
+                <p className="text-foreground text-xs font-medium">
+                  {formatDate(run.completed_at)}
+                </p>
                 {run.completed_at && (
-                  <p className="text-foreground-400 text-xs mt-0.5">{timeAgo(run.completed_at)}</p>
+                  <p className="text-foreground-400 text-xs mt-0.5">
+                    {timeAgo(run.completed_at)}
+                  </p>
                 )}
               </div>
               <div>
                 <p className="text-foreground-500 text-sm mb-1">Duration</p>
-                <p className="text-foreground text-sm font-medium">{duration !== null ? `${duration}s` : "—"}</p>
+                <p className="text-foreground text-sm font-medium">
+                  {duration !== null ? `${duration}s` : "—"}
+                </p>
               </div>
               <div>
                 <p className="text-foreground-500 text-sm mb-1">Steps</p>
-                <p className="text-foreground text-sm font-medium">{history.steps.length}</p>
+                <p className="text-foreground text-sm font-medium">
+                  {history.steps.length}
+                </p>
               </div>
             </div>
           </div>
@@ -311,7 +370,9 @@ export default function WorkflowRunDetailPage() {
 
         {/* Steps */}
         <div>
-          <h2 className="text-lg font-semibold text-foreground mb-4">Execution Steps</h2>
+          <h2 className="text-lg font-semibold text-foreground mb-4">
+            Execution Steps
+          </h2>
 
           {sortedSteps.length === 0 ? (
             <div className="bg-background-100 rounded-xl border border-neutral-200 p-8 text-center text-foreground-500">
@@ -324,26 +385,41 @@ export default function WorkflowRunDetailPage() {
                 const nodeData = node?.data ?? {};
 
                 // Resolve agent display: prefer node's agentName, then agent_id from step
-                const agentDid = (nodeData.agentId as string | undefined) ?? step.agent_id ?? null;
-                const agentName = (nodeData.agentName as string | undefined) ?? null;
+                const agentDid =
+                  (nodeData.agentId as string | undefined) ??
+                  step.agent_id ??
+                  null;
+                const agentName =
+                  (nodeData.agentName as string | undefined) ?? null;
 
                 // Resolve user display: prefer DB-resolved name (from approval JOIN), then node data
-                const userDid = step.assigned_user_id ?? (nodeData.assignedUserId as string | undefined) ?? null;
-                const userName = step.assigned_user_name ?? (nodeData.assignedUserName as string | undefined) ?? null;
+                const userDid =
+                  step.assigned_user_id ??
+                  (nodeData.assignedUserId as string | undefined) ??
+                  null;
+                const userName =
+                  step.assigned_user_name ??
+                  (nodeData.assignedUserName as string | undefined) ??
+                  null;
                 const userEmail = step.assigned_user_email ?? null;
 
                 // Node label for step title
-                const nodeLabel = (nodeData.label as string | undefined) ?? step.step_id;
+                const nodeLabel =
+                  (nodeData.label as string | undefined) ?? step.step_id;
 
                 const isExpanded = expandedSteps.has(step.id);
                 const stepStartMs = parseTimestamp(step.started_at);
                 const stepEndMs = parseTimestamp(step.completed_at);
-                const stepDuration = stepStartMs !== null && stepEndMs !== null
-                  ? Math.round((stepEndMs - stepStartMs) / 1000)
-                  : null;
+                const stepDuration =
+                  stepStartMs !== null && stepEndMs !== null
+                    ? Math.round((stepEndMs - stepStartMs) / 1000)
+                    : null;
 
                 return (
-                  <div key={step.id} className="bg-background-100 rounded-xl border border-neutral-200 overflow-hidden">
+                  <div
+                    key={step.id}
+                    className="bg-background-100 rounded-xl border border-neutral-200 overflow-hidden"
+                  >
                     {/* Step header */}
                     <button
                       onClick={() => toggleStep(step.id)}
@@ -354,12 +430,18 @@ export default function WorkflowRunDetailPage() {
                         {idx + 1}
                       </span>
 
-                      <div className="flex-shrink-0">{getStatusIcon(step.status)}</div>
+                      <div className="flex-shrink-0">
+                        {getStatusIcon(step.status)}
+                      </div>
 
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-sm font-medium text-foreground">{nodeLabel}</span>
-                          <span className={getStepPill(step.status)}>{step.status}</span>
+                          <span className="text-sm font-medium text-foreground">
+                            {nodeLabel}
+                          </span>
+                          <span className={getStepPill(step.status)}>
+                            {step.status}
+                          </span>
                           {agentName && (
                             <span className="inline-flex items-center gap-1 text-xs text-foreground-500">
                               <Bot size={12} /> {agentName}
@@ -380,7 +462,17 @@ export default function WorkflowRunDetailPage() {
                       </div>
 
                       <div className="flex-shrink-0">
-                        {isExpanded ? <ChevronUp size={18} className="text-foreground-500" /> : <ChevronDown size={18} className="text-foreground-500" />}
+                        {isExpanded ? (
+                          <ChevronUp
+                            size={18}
+                            className="text-foreground-500"
+                          />
+                        ) : (
+                          <ChevronDown
+                            size={18}
+                            className="text-foreground-500"
+                          />
+                        )}
                       </div>
                     </button>
 
@@ -394,8 +486,14 @@ export default function WorkflowRunDetailPage() {
                               <Bot size={14} /> Agent
                             </div>
                             <div className="ml-5">
-                              {agentName && <p className="text-foreground text-sm font-medium">{agentName}</p>}
-                              <p className="text-foreground-500 font-mono text-xs break-all">{agentDid}</p>
+                              {agentName && (
+                                <p className="text-foreground text-sm font-medium">
+                                  {agentName}
+                                </p>
+                              )}
+                              <p className="text-foreground-500 font-mono text-xs break-all">
+                                {agentDid}
+                              </p>
                             </div>
                           </div>
                         )}
@@ -407,39 +505,62 @@ export default function WorkflowRunDetailPage() {
                               <User size={14} /> Assigned User
                             </div>
                             <div className="ml-5">
-                              {userName && <p className="text-foreground text-sm font-medium">{userName}</p>}
-                              {userEmail && <p className="text-foreground-400 text-xs">{userEmail}</p>}
-                              <p className="text-foreground-500 font-mono text-xs break-all mt-0.5">{userDid}</p>
+                              {userName && (
+                                <p className="text-foreground text-sm font-medium">
+                                  {userName}
+                                </p>
+                              )}
+                              {userEmail && (
+                                <p className="text-foreground-400 text-xs">
+                                  {userEmail}
+                                </p>
+                              )}
+                              <p className="text-foreground-500 font-mono text-xs break-all mt-0.5">
+                                {userDid}
+                              </p>
                             </div>
                           </div>
                         )}
 
                         {/* Output */}
-                        {step.output && (() => {
-                          let parsed: unknown;
-                          try { parsed = JSON.parse(step.output); } catch { parsed = step.output; }
-                          return (
-                            <div>
-                              <p className="text-sm text-foreground-500 mb-2">Output</p>
-                              <pre className="bg-background-100 rounded p-3 text-foreground text-xs font-mono overflow-auto max-h-48 border border-neutral-200">
-                                {typeof parsed === "string" ? parsed : JSON.stringify(parsed, null, 2)}
-                              </pre>
-                            </div>
-                          );
-                        })()}
+                        {step.output &&
+                          (() => {
+                            let parsed: unknown;
+                            try {
+                              parsed = JSON.parse(step.output);
+                            } catch {
+                              parsed = step.output;
+                            }
+                            return (
+                              <div>
+                                <p className="text-sm text-foreground-500 mb-2">
+                                  Output
+                                </p>
+                                <pre className="bg-background-100 rounded p-3 text-foreground text-xs font-mono overflow-auto max-h-48 border border-neutral-200">
+                                  {typeof parsed === "string"
+                                    ? parsed
+                                    : JSON.stringify(parsed, null, 2)}
+                                </pre>
+                              </div>
+                            );
+                          })()}
 
                         {/* Error */}
                         {step.error && (
                           <div>
-                            <p className="text-sm text-red-600 dark:text-red-400 mb-2">Error</p>
-                            <pre className="bg-red-50 dark:bg-red-950/30 rounded p-3 text-red-700 dark:text-red-300 text-xs font-mono overflow-auto max-h-48 border border-red-200 dark:border-red-900/50">
+                            <p className="text-sm text-danger-600 dark:text-danger-400 mb-2">
+                              Error
+                            </p>
+                            <pre className="bg-danger-50 dark:bg-danger-950/30 rounded p-3 text-danger-700 dark:text-danger-300 text-xs font-mono overflow-auto max-h-48 border border-danger-200 dark:border-danger-900/50">
                               {step.error}
                             </pre>
                           </div>
                         )}
 
                         {!step.output && !step.error && (
-                          <p className="text-foreground-500 text-sm">No output recorded</p>
+                          <p className="text-foreground-500 text-sm">
+                            No output recorded
+                          </p>
                         )}
                       </div>
                     )}
@@ -451,20 +572,29 @@ export default function WorkflowRunDetailPage() {
         </div>
 
         {/* Results */}
-        {run.results && (() => {
-          let parsed: unknown;
-          try { parsed = JSON.parse(run.results); } catch { parsed = run.results; }
-          return (
-            <div>
-              <h2 className="text-lg font-semibold text-foreground mb-4">Results</h2>
-              <div className="bg-background-100 rounded-xl border border-neutral-200 p-4">
-                <pre className="text-foreground text-sm font-mono overflow-auto max-h-64">
-                  {typeof parsed === "string" ? parsed : JSON.stringify(parsed, null, 2)}
-                </pre>
+        {run.results &&
+          (() => {
+            let parsed: unknown;
+            try {
+              parsed = JSON.parse(run.results);
+            } catch {
+              parsed = run.results;
+            }
+            return (
+              <div>
+                <h2 className="text-lg font-semibold text-foreground mb-4">
+                  Results
+                </h2>
+                <div className="bg-background-100 rounded-xl border border-neutral-200 p-4">
+                  <pre className="text-foreground text-sm font-mono overflow-auto max-h-64">
+                    {typeof parsed === "string"
+                      ? parsed
+                      : JSON.stringify(parsed, null, 2)}
+                  </pre>
+                </div>
               </div>
-            </div>
-          );
-        })()}
+            );
+          })()}
       </div>
     </div>
   );

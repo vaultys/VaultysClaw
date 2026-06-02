@@ -7,7 +7,12 @@
  * Used by the agent ConfigTab to present "Realm Routing" mode.
  */
 import { NextRequest, NextResponse } from "next/server";
-import { getAgent, getAgentRealms, getRealmRouterKey, getModelsByRealm } from "@/lib/db";
+import {
+  getAgent,
+  getAgentRealms,
+  getRealmRouterKey,
+  getModelsByRealm,
+} from "@/lib/db";
 import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
 import { isLiteLLMConfigured, getLiteLLMBaseUrl } from "@/lib/litellm-client";
 
@@ -73,7 +78,7 @@ import { isLiteLLMConfigured, getLiteLLMBaseUrl } from "@/lib/litellm-client";
  */
 export async function GET(
   _req: NextRequest,
-  { params }: { params: Promise<{ did: string }> },
+  { params }: { params: Promise<{ did: string }> }
 ) {
   const auth = await getAuthContext(_req);
   if (!auth) return unauthorized();

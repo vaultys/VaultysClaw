@@ -1,5 +1,11 @@
 import React from "react";
-import { AbsoluteFill, interpolate, spring, useCurrentFrame, useVideoConfig } from "remotion";
+import {
+  AbsoluteFill,
+  interpolate,
+  spring,
+  useCurrentFrame,
+  useVideoConfig,
+} from "remotion";
 import { BRAND, MONO, useSceneOpacity, useSlideUp } from "../helpers";
 
 const TOTAL = 300;
@@ -53,7 +59,8 @@ export const SceneCulture: React.FC = () => {
   // Code panel slides in from right
   const codePanelX = interpolate(
     spring({ frame: frame - 40, fps, config: { damping: 16, stiffness: 80 } }),
-    [0, 1], [80, 0]
+    [0, 1],
+    [80, 0]
   );
   const codePanelOpacity = interpolate(frame, [40, 60], [0, 1], {
     extrapolateLeft: "clamp",
@@ -64,7 +71,8 @@ export const SceneCulture: React.FC = () => {
     <AbsoluteFill
       style={{
         opacity: sceneOpacity,
-        background: "linear-gradient(135deg, #0d1117 0%, #0f172a 60%, #0d1117 100%)",
+        background:
+          "linear-gradient(135deg, #0d1117 0%, #0f172a 60%, #0d1117 100%)",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
@@ -72,13 +80,21 @@ export const SceneCulture: React.FC = () => {
     >
       <AbsoluteFill
         style={{
-          backgroundImage: "radial-gradient(circle, rgba(167,139,250,0.04) 1px, transparent 1px)",
+          backgroundImage:
+            "radial-gradient(circle, rgba(167,139,250,0.04) 1px, transparent 1px)",
           backgroundSize: "44px 44px",
           pointerEvents: "none",
         }}
       />
 
-      <div style={{ padding: "0 80px", display: "flex", gap: 80, alignItems: "flex-start" }}>
+      <div
+        style={{
+          padding: "0 80px",
+          display: "flex",
+          gap: 80,
+          alignItems: "flex-start",
+        }}
+      >
         {/* Left: features */}
         <div style={{ flex: 1, minWidth: 0 }}>
           <div
@@ -108,43 +124,78 @@ export const SceneCulture: React.FC = () => {
               transform: `translateY(${titleSlide.y}px)`,
             }}
           >
-            Your culture,<br />deployed as policy.
+            Your culture,
+            <br />
+            deployed as policy.
           </div>
 
           <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-            {FEATURES.map(({ icon, color, bg, border, title, desc, frame: startFrame }, i) => {
-              const opacity = interpolate(frame, [startFrame, startFrame + 20], [0, 1], {
-                extrapolateLeft: "clamp",
-                extrapolateRight: "clamp",
-              });
-              const x = interpolate(frame, [startFrame, startFrame + 25], [-30, 0], {
-                extrapolateLeft: "clamp",
-                extrapolateRight: "clamp",
-              });
-              return (
-                <div key={i} style={{ display: "flex", gap: 100, alignItems: "flex-start", opacity, transform: `translateX(${x}px)` }}>
+            {FEATURES.map(
+              (
+                { icon, color, bg, border, title, desc, frame: startFrame },
+                i
+              ) => {
+                const opacity = interpolate(
+                  frame,
+                  [startFrame, startFrame + 20],
+                  [0, 1],
+                  {
+                    extrapolateLeft: "clamp",
+                    extrapolateRight: "clamp",
+                  }
+                );
+                const x = interpolate(
+                  frame,
+                  [startFrame, startFrame + 25],
+                  [-30, 0],
+                  {
+                    extrapolateLeft: "clamp",
+                    extrapolateRight: "clamp",
+                  }
+                );
+                return (
                   <div
+                    key={i}
                     style={{
-                      width: 48,
-                      height: 48,
-                      borderRadius: 12,
-                      background: bg,
-                      border: `1px solid ${border}`,
                       display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      fontSize: 45,
-                      flexShrink: 0,
+                      gap: 100,
+                      alignItems: "flex-start",
+                      opacity,
+                      transform: `translateX(${x}px)`,
                     }}
                   >
-                    {icon}
+                    <div
+                      style={{
+                        width: 48,
+                        height: 48,
+                        borderRadius: 12,
+                        background: bg,
+                        border: `1px solid ${border}`,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontSize: 45,
+                        flexShrink: 0,
+                      }}
+                    >
+                      {icon}
+                    </div>
+                    <div>
+                      <div
+                        style={{
+                          fontSize: 40,
+                          fontWeight: 700,
+                          color: BRAND.text,
+                          marginBottom: 6,
+                        }}
+                      >
+                        {title}
+                      </div>
+                    </div>
                   </div>
-                  <div>
-                    <div style={{ fontSize: 40, fontWeight: 700, color: BRAND.text, marginBottom: 6 }}>{title}</div>
-                  </div>
-                </div>
-              );
-            })}
+                );
+              }
+            )}
           </div>
         </div>
 
@@ -187,7 +238,11 @@ export const SceneCulture: React.FC = () => {
               >
                 POST
               </span>
-              <span style={{ fontSize: 30, color: BRAND.muted, fontFamily: MONO }}>/api/intents</span>
+              <span
+                style={{ fontSize: 30, color: BRAND.muted, fontFamily: MONO }}
+              >
+                /api/intents
+              </span>
             </div>
             <pre
               style={{
@@ -201,11 +256,19 @@ export const SceneCulture: React.FC = () => {
               }}
             >
               {CODE.split("\n").map((line, i) => {
-                const lineOpacity = interpolate(frame, [55 + i * 6, 70 + i * 6], [0, 1], {
-                  extrapolateLeft: "clamp",
-                  extrapolateRight: "clamp",
-                });
-                const highlight = line.includes("tone") || line.includes("format") || line.includes("cite_sources");
+                const lineOpacity = interpolate(
+                  frame,
+                  [55 + i * 6, 70 + i * 6],
+                  [0, 1],
+                  {
+                    extrapolateLeft: "clamp",
+                    extrapolateRight: "clamp",
+                  }
+                );
+                const highlight =
+                  line.includes("tone") ||
+                  line.includes("format") ||
+                  line.includes("cite_sources");
                 return (
                   <div
                     key={i}

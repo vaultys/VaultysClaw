@@ -69,7 +69,9 @@ export default function MessageInput({
           .then((d: { agents?: { id: string; name: string }[] }) => {
             for (const a of d.agents ?? []) combined[a.id] = a.name;
           })
-          .catch(() => {/* ignore */})
+          .catch(() => {
+            /* ignore */
+          })
       );
     }
 
@@ -80,17 +82,25 @@ export default function MessageInput({
           .then(async (r) => {
             if (!r.ok) return;
             const d = (await r.json()) as {
-              users?: { did: string; name: string | null; email: string | null }[];
+              users?: {
+                did: string;
+                name: string | null;
+                email: string | null;
+              }[];
             };
             for (const u of d.users ?? []) {
               combined[u.did] = u.name ?? u.email ?? u.did.slice(-8);
             }
           })
-          .catch(() => {/* ignore */})
+          .catch(() => {
+            /* ignore */
+          })
       );
     }
 
-    Promise.all(promises).then(() => setNameMap((prev) => ({ ...prev, ...combined })));
+    Promise.all(promises).then(() =>
+      setNameMap((prev) => ({ ...prev, ...combined }))
+    );
   }, [members]);
 
   // ── Build suggestion list matching the current @query ─────────────────────────
@@ -230,7 +240,7 @@ export default function MessageInput({
   return (
     <div className="border-t border-neutral-200 bg-background-100 px-6 py-4">
       {error && (
-        <div className="mb-2 px-3 py-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 text-sm rounded-lg">
+        <div className="mb-2 px-3 py-2 bg-danger-50 dark:bg-danger-900/20 border border-danger-200 dark:border-danger-800 text-danger-700 dark:text-danger-400 text-sm rounded-lg">
           {error}
         </div>
       )}
@@ -244,6 +254,11 @@ export default function MessageInput({
             </div>
             {suggestions.map((s, i) => {
               const isSelected = i === selectedSuggestion;
+              const badgeClass = isSelected
+                ? "bg-white/20 text-white"
+                : s.type === "agent"
+                  ? "bg-secondary-100 dark:bg-secondary-900/40 text-secondary-700 dark:text-secondary-400"
+                  : "bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-400";
               return (
                 <button
                   key={s.did}
@@ -254,7 +269,7 @@ export default function MessageInput({
                   }}
                   className={`w-full flex items-center gap-3 px-3 py-2.5 text-left transition ${
                     isSelected
-                      ? "bg-indigo-600 text-white"
+                      ? "bg-primary-600 text-white"
                       : "hover:bg-background-200 text-foreground"
                   }`}
                 >
@@ -262,8 +277,8 @@ export default function MessageInput({
                   <div
                     className={`w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0 ${
                       s.type === "agent"
-                        ? "bg-gradient-to-br from-violet-500 to-indigo-600"
-                        : "bg-gradient-to-br from-blue-500 to-cyan-600"
+                        ? "bg-gradient-to-br from-secondary-500 to-primary-600"
+                        : "bg-gradient-to-br from-primary-500 to-primary-600"
                     }`}
                   >
                     {s.name.charAt(0).toUpperCase()}
@@ -277,13 +292,7 @@ export default function MessageInput({
 
                   {/* Type badge */}
                   <span
-                    className={`text-[10px] px-1.5 py-0.5 rounded font-medium flex-shrink-0 ${
-                      isSelected
-                        ? "bg-white/20 text-white"
-                        : s.type === "agent"
-                        ? "bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-400"
-                        : "bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400"
-                    }`}
+                    className={`text-[10px] px-1.5 py-0.5 rounded font-medium flex-shrink-0 ${badgeClass}`}
                   >
                     {s.type === "agent" ? "bot" : "user"}
                   </span>
@@ -304,7 +313,7 @@ export default function MessageInput({
               ? "Message… (@ to mention · ⌘↵ to send)"
               : "Message… (⌘↵ to send)"
           }
-          className="flex-1 bg-background border border-neutral-200 rounded-xl px-4 py-2.5 text-foreground placeholder-foreground-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none leading-relaxed"
+          className="flex-1 bg-background border border-neutral-200 rounded-xl px-4 py-2.5 text-foreground placeholder-foreground-500 focus:outline-none focus:ring-2 focus:ring-primary-500 resize-none leading-relaxed"
           rows={1}
         />
 
@@ -312,7 +321,7 @@ export default function MessageInput({
         <button
           type="submit"
           disabled={!content.trim() || isLoading}
-          className="self-end p-2.5 bg-indigo-600 hover:bg-indigo-500 disabled:bg-foreground-500 disabled:cursor-not-allowed rounded-xl transition text-white"
+          className="self-end p-2.5 bg-primary-600 hover:bg-primary-500 disabled:bg-foreground-500 disabled:cursor-not-allowed rounded-xl transition text-white"
           title="Send (⌘↵)"
         >
           {isLoading ? (

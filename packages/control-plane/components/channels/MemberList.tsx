@@ -30,8 +30,8 @@ interface MemberListProps {
 }
 
 const ROLE_STYLES: Record<string, string> = {
-  owner: "text-amber-600 dark:text-amber-400",
-  moderator: "text-indigo-600 dark:text-indigo-400",
+  owner: "text-warning-600 dark:text-warning-400",
+  moderator: "text-primary-600 dark:text-primary-400",
   member: "text-foreground-500",
 };
 
@@ -92,16 +92,24 @@ export default function MemberList({ channelId }: MemberListProps) {
         for (const a of d.agents ?? []) map[a.id] = a.name;
         setAgentNameMap(map);
       })
-      .catch(() => {/* ignore */});
+      .catch(() => {
+        /* ignore */
+      });
 
     // Users (admin-only — graceful fallback)
     fetch("/api/users?pageSize=100")
       .then(async (r) => {
-        if (!r.ok) { setUsersAccessible(false); return; }
+        if (!r.ok) {
+          setUsersAccessible(false);
+          return;
+        }
         const d = (await r.json()) as { users?: UserRecord[] };
         const users = d.users ?? [];
         setAllUsers(users);
-        const map: Record<string, { name: string | null; email: string | null }> = {};
+        const map: Record<
+          string,
+          { name: string | null; email: string | null }
+        > = {};
         for (const u of users) map[u.did] = { name: u.name, email: u.email };
         setUserNameMap(map);
       })
@@ -109,7 +117,10 @@ export default function MemberList({ channelId }: MemberListProps) {
   }, []);
 
   // ── Resolve display name for a member ────────────────────────────────────────
-  function resolveName(member: ChannelMember): { primary: string; secondary: string } {
+  function resolveName(member: ChannelMember): {
+    primary: string;
+    secondary: string;
+  } {
     if (member.memberType === "agent") {
       const name = agentNameMap[member.memberDid];
       return {
@@ -120,7 +131,8 @@ export default function MemberList({ channelId }: MemberListProps) {
     const info = userNameMap[member.memberDid];
     if (info) {
       const primary = info.name ?? info.email ?? shortDid(member.memberDid);
-      const secondary = info.name && info.email ? info.email : shortDid(member.memberDid);
+      const secondary =
+        info.name && info.email ? info.email : shortDid(member.memberDid);
       return { primary, secondary };
     }
     return { primary: shortDid(member.memberDid), secondary: "" };
@@ -128,8 +140,14 @@ export default function MemberList({ channelId }: MemberListProps) {
 
   // ── Agent search (debounced) ──────────────────────────────────────────────────
   useEffect(() => {
-    if (addType !== "agent") { setAgentResults([]); return; }
-    if (!searchQuery.trim()) { setAgentResults([]); return; }
+    if (addType !== "agent") {
+      setAgentResults([]);
+      return;
+    }
+    if (!searchQuery.trim()) {
+      setAgentResults([]);
+      return;
+    }
 
     const t = setTimeout(async () => {
       setIsSearching(true);
@@ -139,10 +157,16 @@ export default function MemberList({ channelId }: MemberListProps) {
         );
         if (res.ok) {
           // Search API returns "id" (= DID); normalise to "did" for consistency
-          const data = (await res.json()) as { agents: { id: string; name: string }[] };
-          setAgentResults(data.agents.map((a) => ({ did: a.id, name: a.name })));
+          const data = (await res.json()) as {
+            agents: { id: string; name: string }[];
+          };
+          setAgentResults(
+            data.agents.map((a) => ({ did: a.id, name: a.name }))
+          );
         }
-      } catch {/* ignore */} finally {
+      } catch {
+        /* ignore */
+      } finally {
         setIsSearching(false);
       }
     }, 250);
@@ -151,8 +175,14 @@ export default function MemberList({ channelId }: MemberListProps) {
 
   // ── User search (client-side filter against already-fetched list) ─────────────
   useEffect(() => {
-    if (addType !== "user") { setUserResults([]); return; }
-    if (!searchQuery.trim()) { setUserResults(allUsers.slice(0, 8)); return; }
+    if (addType !== "user") {
+      setUserResults([]);
+      return;
+    }
+    if (!searchQuery.trim()) {
+      setUserResults(allUsers.slice(0, 8));
+      return;
+    }
     const q = searchQuery.toLowerCase();
     setUserResults(
       allUsers
@@ -210,7 +240,10 @@ export default function MemberList({ channelId }: MemberListProps) {
   }
 
   // ── Remove member ─────────────────────────────────────────────────────────────
-  const handleRemoveMember = async (member: ChannelMember, displayName: string) => {
+  const handleRemoveMember = async (
+    member: ChannelMember,
+    displayName: string
+  ) => {
     if (!confirm(`Remove "${displayName}" from this channel?`)) return;
 
     try {
@@ -223,9 +256,13 @@ export default function MemberList({ channelId }: MemberListProps) {
         const d = (await res.json()) as { error?: string };
         throw new Error(d.error ?? "Failed to remove member");
       }
-      setMembers((prev) => prev.filter((m) => m.memberDid !== member.memberDid));
+      setMembers((prev) =>
+        prev.filter((m) => m.memberDid !== member.memberDid)
+      );
     } catch (err) {
-      setRemoveError(err instanceof Error ? err.message : "Failed to remove member");
+      setRemoveError(
+        err instanceof Error ? err.message : "Failed to remove member"
+      );
     }
   };
 
@@ -285,9 +322,11 @@ export default function MemberList({ channelId }: MemberListProps) {
                   setSelectedDid(e.target.value);
                   setSelectedName(e.target.value);
                 }}
-                className="w-full px-3 py-2 text-sm bg-background border border-neutral-200 rounded-lg text-foreground placeholder-foreground-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full px-3 py-2 text-sm bg-background border border-neutral-200 rounded-lg text-foreground placeholder-foreground-500 focus:outline-none focus:ring-2 focus:ring-primary-500"
               />
-              <p className="text-xs text-foreground-500">User search requires admin access.</p>
+              <p className="text-xs text-foreground-500">
+                User search requires admin access.
+              </p>
             </div>
           ) : (
             /* Searchable dropdown */
@@ -303,8 +342,8 @@ export default function MemberList({ channelId }: MemberListProps) {
                     selectedName
                       ? selectedName
                       : addType === "agent"
-                      ? "Search agents…"
-                      : "Search users…"
+                        ? "Search agents…"
+                        : "Search users…"
                   }
                   value={selectedDid ? selectedName : searchQuery}
                   onChange={(e) => {
@@ -315,7 +354,7 @@ export default function MemberList({ channelId }: MemberListProps) {
                     }
                     setSearchQuery(e.target.value);
                   }}
-                  className="w-full pl-8 pr-8 py-2 text-sm bg-background border border-neutral-200 rounded-lg text-foreground placeholder-foreground-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full pl-8 pr-8 py-2 text-sm bg-background border border-neutral-200 rounded-lg text-foreground placeholder-foreground-500 focus:outline-none focus:ring-2 focus:ring-primary-500"
                   autoFocus
                 />
                 {isSearching && (
@@ -349,13 +388,13 @@ export default function MemberList({ channelId }: MemberListProps) {
                     const label =
                       addType === "agent"
                         ? agentItem.name
-                        : userItem.name ?? userItem.email ?? shortDid(did);
+                        : (userItem.name ?? userItem.email ?? shortDid(did));
                     const sub =
                       addType === "agent"
                         ? shortDid(did)
                         : userItem.name && userItem.email
-                        ? userItem.email
-                        : shortDid(did);
+                          ? userItem.email
+                          : shortDid(did);
                     const already = alreadyMemberDids.has(did);
 
                     return (
@@ -378,8 +417,8 @@ export default function MemberList({ channelId }: MemberListProps) {
                         <div
                           className={`w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0 ${
                             addType === "agent"
-                              ? "bg-gradient-to-br from-violet-500 to-indigo-600"
-                              : "bg-gradient-to-br from-blue-500 to-cyan-600"
+                              ? "bg-gradient-to-br from-secondary-500 to-primary-600"
+                              : "bg-gradient-to-br from-primary-500 to-primary-600"
                           }`}
                         >
                           {getInitials(label)}
@@ -388,7 +427,9 @@ export default function MemberList({ channelId }: MemberListProps) {
                           <p className="text-sm font-medium text-foreground truncate">
                             {label}
                           </p>
-                          <p className="text-xs text-foreground-500 truncate">{sub}</p>
+                          <p className="text-xs text-foreground-500 truncate">
+                            {sub}
+                          </p>
                         </div>
                         {already && (
                           <span className="text-xs text-foreground-500 flex-shrink-0">
@@ -404,7 +445,9 @@ export default function MemberList({ channelId }: MemberListProps) {
           )}
 
           {addError && (
-            <p className="text-xs text-red-600 dark:text-red-400">{addError}</p>
+            <p className="text-xs text-danger-600 dark:text-danger-400">
+              {addError}
+            </p>
           )}
 
           {/* Actions */}
@@ -413,7 +456,7 @@ export default function MemberList({ channelId }: MemberListProps) {
               type="button"
               onClick={handleAddMember}
               disabled={isAdding || !selectedDid}
-              className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-sm bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg font-medium transition"
+              className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-sm bg-primary-600 hover:bg-primary-500 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg font-medium transition"
             >
               {isAdding ? (
                 <Loader2 size={14} className="animate-spin" />
@@ -435,7 +478,7 @@ export default function MemberList({ channelId }: MemberListProps) {
         <div className="p-3 border-b border-neutral-200">
           <button
             onClick={() => setShowAddForm(true)}
-            className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm rounded-lg transition font-medium"
+            className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-primary-600 hover:bg-primary-500 text-white text-sm rounded-lg transition font-medium"
           >
             <Plus size={14} />
             Add Member
@@ -445,7 +488,7 @@ export default function MemberList({ channelId }: MemberListProps) {
 
       {/* ── Error banners ────────────────────────────────────────────────────── */}
       {(error || removeError) && (
-        <div className="mx-3 mt-3 p-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 text-xs rounded-lg">
+        <div className="mx-3 mt-3 p-2 bg-danger-50 dark:bg-danger-900/20 border border-danger-200 dark:border-danger-800 text-danger-700 dark:text-danger-400 text-xs rounded-lg">
           {error ?? removeError}
         </div>
       )}
@@ -457,7 +500,7 @@ export default function MemberList({ channelId }: MemberListProps) {
             <p className="text-sm text-foreground-500">No members yet.</p>
             <button
               onClick={() => setShowAddForm(true)}
-              className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline"
+              className="text-xs text-primary-600 dark:text-primary-400 hover:underline"
             >
               Add the first member
             </button>
@@ -478,11 +521,12 @@ export default function MemberList({ channelId }: MemberListProps) {
                   <div
                     className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0 ${
                       isAgent
-                        ? "bg-gradient-to-br from-violet-500 to-indigo-600"
-                        : "bg-gradient-to-br from-blue-500 to-cyan-600"
+                        ? "bg-gradient-to-br from-secondary-500 to-primary-600"
+                        : "bg-gradient-to-br from-primary-500 to-primary-600"
                     }`}
                   >
-                    {initials || (isAgent ? <Bot size={14} /> : <User size={14} />)}
+                    {initials ||
+                      (isAgent ? <Bot size={14} /> : <User size={14} />)}
                   </div>
 
                   {/* Info */}
@@ -492,7 +536,7 @@ export default function MemberList({ channelId }: MemberListProps) {
                         {primary}
                       </span>
                       {isAgent && (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-400 font-medium flex-shrink-0">
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-secondary-100 dark:bg-secondary-900/30 text-secondary-700 dark:text-secondary-400 font-medium flex-shrink-0">
                           bot
                         </span>
                       )}
@@ -516,7 +560,7 @@ export default function MemberList({ channelId }: MemberListProps) {
                   {/* Remove button */}
                   <button
                     onClick={() => handleRemoveMember(member, primary)}
-                    className="opacity-0 group-hover:opacity-100 transition p-1.5 hover:bg-red-100 dark:hover:bg-red-900/30 text-foreground-500 hover:text-red-600 dark:hover:text-red-400 rounded-lg flex-shrink-0"
+                    className="opacity-0 group-hover:opacity-100 transition p-1.5 hover:bg-danger-100 dark:hover:bg-danger-900/30 text-foreground-500 hover:text-danger-600 dark:hover:text-danger-400 rounded-lg flex-shrink-0"
                     title={`Remove ${primary}`}
                   >
                     <UserMinus size={14} />

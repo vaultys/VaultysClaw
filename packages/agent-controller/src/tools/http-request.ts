@@ -14,7 +14,10 @@ const DEFAULT_TIMEOUT_MS = 30_000;
 
 function truncateBody(s: string): string {
   if (Buffer.byteLength(s) <= MAX_BODY_BYTES) return s;
-  return Buffer.from(s).subarray(0, MAX_BODY_BYTES).toString("utf-8") + "\n... [body truncated]";
+  return (
+    Buffer.from(s).subarray(0, MAX_BODY_BYTES).toString("utf-8") +
+    "\n... [body truncated]"
+  );
 }
 
 export const httpRequestTool: AgentToolDefinition = {
@@ -47,7 +50,10 @@ export const httpRequestTool: AgentToolDefinition = {
     }),
     execute: async ({ url, method, headers, body, timeoutMs }) => {
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), timeoutMs ?? DEFAULT_TIMEOUT_MS);
+      const timer = setTimeout(
+        () => controller.abort(),
+        timeoutMs ?? DEFAULT_TIMEOUT_MS
+      );
 
       try {
         const res = await fetch(url, {
@@ -63,7 +69,10 @@ export const httpRequestTool: AgentToolDefinition = {
         if (contentType.includes("application/json")) {
           const text = await res.text();
           responseBody = truncateBody(text);
-        } else if (contentType.startsWith("text/") || contentType.includes("xml")) {
+        } else if (
+          contentType.startsWith("text/") ||
+          contentType.includes("xml")
+        ) {
           responseBody = truncateBody(await res.text());
         } else {
           responseBody = `[Binary response, ${res.headers.get("content-length") ?? "unknown"} bytes]`;
@@ -89,9 +98,19 @@ export const httpRequestTool: AgentToolDefinition = {
         };
       } catch (err) {
         if ((err as Error).name === "AbortError") {
-          return { status: 0, statusText: "Timeout", headers: {}, body: `Request timed out after ${timeoutMs}ms` };
+          return {
+            status: 0,
+            statusText: "Timeout",
+            headers: {},
+            body: `Request timed out after ${timeoutMs}ms`,
+          };
         }
-        return { status: 0, statusText: "Error", headers: {}, body: String(err) };
+        return {
+          status: 0,
+          statusText: "Error",
+          headers: {},
+          body: String(err),
+        };
       } finally {
         clearTimeout(timer);
       }

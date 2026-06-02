@@ -12,7 +12,8 @@ export default withAuth(
 
     // Authenticated user visiting /login → redirect to callbackUrl or home
     if (pathname.startsWith("/login") && request.nextauth.token) {
-      const callbackUrl = request.nextUrl.searchParams.get("callbackUrl") ?? "/";
+      const callbackUrl =
+        request.nextUrl.searchParams.get("callbackUrl") ?? "/";
       return NextResponse.redirect(new URL(callbackUrl, request.url));
     }
 
@@ -54,7 +55,7 @@ export default withAuth(
       },
     },
     pages: { signIn: "/login" },
-  },
+  }
 );
 
 // Configure which paths should be processed by this middleware

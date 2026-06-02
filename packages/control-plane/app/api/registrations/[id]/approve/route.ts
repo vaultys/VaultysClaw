@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getPendingRegistration, addAgentToRealm, getAllRealms, getAgentByName } from "@/lib/db";
+import {
+  getPendingRegistration,
+  addAgentToRealm,
+  getAllRealms,
+  getAgentByName,
+} from "@/lib/db";
 import { getWSServer } from "@/lib/ws-server";
 import type { AgentCapability } from "@vaultysclaw/shared";
 import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
@@ -84,7 +89,9 @@ export async function POST(
     const { id } = await params;
     const body = await request.json();
     const capabilities: AgentCapability[] = body.capabilities;
-    const realmIds: string[] = Array.isArray(body.realmIds) ? body.realmIds : [];
+    const realmIds: string[] = Array.isArray(body.realmIds)
+      ? body.realmIds
+      : [];
 
     if (!Array.isArray(capabilities) || capabilities.length === 0) {
       return NextResponse.json(
@@ -132,10 +139,19 @@ export async function POST(
       const defaultRealm = allRealms.find((r) => r.is_default === 1);
       for (const rid of realmIds) {
         if (defaultRealm && rid === defaultRealm.id) continue;
-        try { addAgentToRealm(agentRow.did, rid, false); } catch { /* already member */ }
+        try {
+          addAgentToRealm(agentRow.did, rid, false);
+        } catch {
+          /* already member */
+        }
       }
     }
-    return NextResponse.json({ success: true, registrationId: id, capabilities, agentDid: agentRow?.did ?? null });
+    return NextResponse.json({
+      success: true,
+      registrationId: id,
+      capabilities,
+      agentDid: agentRow?.did ?? null,
+    });
   } catch (error) {
     return NextResponse.json(
       { error: "Failed to approve registration" },

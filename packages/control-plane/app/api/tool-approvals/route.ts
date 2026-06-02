@@ -39,7 +39,10 @@ export async function GET() {
 
   const wsServer = getWSServer();
   if (!wsServer) {
-    return NextResponse.json({ error: "WebSocket server not available" }, { status: 503 });
+    return NextResponse.json(
+      { error: "WebSocket server not available" },
+      { status: 503 }
+    );
   }
 
   const approvals = wsServer.getPendingToolApprovals();
@@ -91,7 +94,10 @@ export async function POST(request: NextRequest) {
 
   const wsServer = getWSServer();
   if (!wsServer) {
-    return NextResponse.json({ error: "WebSocket server not available" }, { status: 503 });
+    return NextResponse.json(
+      { error: "WebSocket server not available" },
+      { status: 503 }
+    );
   }
 
   const body = await request.json();
@@ -104,7 +110,7 @@ export async function POST(request: NextRequest) {
   if (!requestId || typeof approved !== "boolean") {
     return NextResponse.json(
       { error: "requestId (string) and approved (boolean) are required" },
-      { status: 400 },
+      { status: 400 }
     );
   }
 
@@ -112,7 +118,7 @@ export async function POST(request: NextRequest) {
   if (!ok) {
     return NextResponse.json(
       { error: "Approval request not found or agent disconnected" },
-      { status: 404 },
+      { status: 404 }
     );
   }
 

@@ -46,7 +46,10 @@ class PolicyEnforcer {
   private _requestsThisHour = { count: 0, hourStart: 0 };
 
   /** Simulates the token-usage DB query. */
-  getDailyUsage: () => DailyUsage = () => ({ promptTokens: 0, completionTokens: 0 });
+  getDailyUsage: () => DailyUsage = () => ({
+    promptTokens: 0,
+    completionTokens: 0,
+  });
 
   /** Simulates Date.now() so we can control time in tests. */
   now: () => number = () => Date.now();
@@ -60,14 +63,17 @@ class PolicyEnforcer {
     if (this.policyExpiresAt) {
       const expiry = new Date(this.policyExpiresAt).getTime();
       if (!isNaN(expiry) && this.now() > expiry) {
-        throw new Error(`Policy '${this.policyId ?? "unknown"}' has expired — action blocked`);
+        throw new Error(
+          `Policy '${this.policyId ?? "unknown"}' has expired — action blocked`
+        );
       }
     }
 
     // 2. Daily token budget
     if (this.resourceLimits?.maxTokensPerDay != null) {
       const daily = this.getDailyUsage();
-      const usedToday = (daily?.promptTokens ?? 0) + (daily?.completionTokens ?? 0);
+      const usedToday =
+        (daily?.promptTokens ?? 0) + (daily?.completionTokens ?? 0);
       if (usedToday >= this.resourceLimits.maxTokensPerDay) {
         throw new Error(
           `Daily token budget exhausted (used ${usedToday} / limit ${this.resourceLimits.maxTokensPerDay})`
@@ -82,8 +88,12 @@ class PolicyEnforcer {
       if (now - this._requestsThisHour.hourStart > hourMs) {
         this._requestsThisHour = { count: 0, hourStart: now };
       }
-      if (this._requestsThisHour.count >= this.resourceLimits.maxRequestsPerHour) {
-        const resetIn = Math.ceil((this._requestsThisHour.hourStart + hourMs - now) / 1000);
+      if (
+        this._requestsThisHour.count >= this.resourceLimits.maxRequestsPerHour
+      ) {
+        const resetIn = Math.ceil(
+          (this._requestsThisHour.hourStart + hourMs - now) / 1000
+        );
         throw new Error(
           `Hourly request limit reached (${this.resourceLimits.maxRequestsPerHour} req/h) — resets in ${resetIn}s`
         );
@@ -95,7 +105,9 @@ class PolicyEnforcer {
   }
 
   /** Expose counter for assertions. */
-  get requestCount() { return this._requestsThisHour.count; }
+  get requestCount() {
+    return this._requestsThisHour.count;
+  }
 
   /** Directly set the hour window (for rate-limit reset tests). */
   setHourWindow(count: number, hourStart: number) {
@@ -111,10 +123,13 @@ class PolicyEnforcer {
  * Mirrors the cert-metadata reading done in agent.ts handleAuthComplete
  * and handleUpdateCapabilities.
  */
-function readCapabilitiesFromMeta(pk2: Record<string, unknown>): AgentCapability[] {
+function readCapabilitiesFromMeta(
+  pk2: Record<string, unknown>
+): AgentCapability[] {
   const metaCaps = pk2?.capabilities;
   if (Array.isArray(metaCaps)) return metaCaps as AgentCapability[];
-  if (typeof metaCaps === "string") return JSON.parse(metaCaps) as AgentCapability[];
+  if (typeof metaCaps === "string")
+    return JSON.parse(metaCaps) as AgentCapability[];
   return [];
 }
 
@@ -124,7 +139,8 @@ function readPolicyMetaFromCert(pk2: Record<string, unknown>): {
   policyExpiresAt: string | null;
 } {
   return {
-    resourceLimits: (pk2.resourceLimits as ResourceLimits | null | undefined) ?? null,
+    resourceLimits:
+      (pk2.resourceLimits as ResourceLimits | null | undefined) ?? null,
     policyId: (pk2.policyId as string | null | undefined) ?? null,
     policyExpiresAt: (pk2.policyExpiresAt as string | null | undefined) ?? null,
   };
@@ -136,7 +152,9 @@ function readPolicyMetaFromCert(pk2: Record<string, unknown>): {
 
 describe("Policy expiry gate", () => {
   let enforcer: PolicyEnforcer;
-  beforeEach(() => { enforcer = new PolicyEnforcer(); });
+  beforeEach(() => {
+    enforcer = new PolicyEnforcer();
+  });
 
   it("passes when no policyExpiresAt is set", () => {
     expect(enforcer.check()).toBe("passed");
@@ -175,36 +193,53 @@ describe("Policy expiry gate", () => {
 
 describe("Daily token budget gate", () => {
   let enforcer: PolicyEnforcer;
-  beforeEach(() => { enforcer = new PolicyEnforcer(); });
+  beforeEach(() => {
+    enforcer = new PolicyEnforcer();
+  });
 
   it("passes when no maxTokensPerDay is set", () => {
     enforcer.resourceLimits = { maxRequestsPerHour: 10 }; // only rate limit, no token limit
-    enforcer.getDailyUsage = () => ({ promptTokens: 999_999, completionTokens: 999_999 });
+    enforcer.getDailyUsage = () => ({
+      promptTokens: 999_999,
+      completionTokens: 999_999,
+    });
     expect(enforcer.check()).toBe("passed");
   });
 
   it("passes when usage is below the budget", () => {
     enforcer.resourceLimits = { maxTokensPerDay: 1000 };
-    enforcer.getDailyUsage = () => ({ promptTokens: 400, completionTokens: 400 });
+    enforcer.getDailyUsage = () => ({
+      promptTokens: 400,
+      completionTokens: 400,
+    });
     expect(enforcer.check()).toBe("passed");
   });
 
   it("passes when usage exactly equals budget minus one", () => {
     enforcer.resourceLimits = { maxTokensPerDay: 1000 };
-    enforcer.getDailyUsage = () => ({ promptTokens: 500, completionTokens: 499 });
+    enforcer.getDailyUsage = () => ({
+      promptTokens: 500,
+      completionTokens: 499,
+    });
     expect(enforcer.check()).toBe("passed");
   });
 
   it("blocks when usage equals the budget", () => {
     enforcer.resourceLimits = { maxTokensPerDay: 1000 };
-    enforcer.getDailyUsage = () => ({ promptTokens: 600, completionTokens: 400 });
+    enforcer.getDailyUsage = () => ({
+      promptTokens: 600,
+      completionTokens: 400,
+    });
     expect(() => enforcer.check()).toThrow("Daily token budget exhausted");
     expect(() => enforcer.check()).toThrow("1000 / limit 1000");
   });
 
   it("blocks when usage exceeds the budget", () => {
     enforcer.resourceLimits = { maxTokensPerDay: 500 };
-    enforcer.getDailyUsage = () => ({ promptTokens: 400, completionTokens: 200 });
+    enforcer.getDailyUsage = () => ({
+      promptTokens: 400,
+      completionTokens: 200,
+    });
     expect(() => enforcer.check()).toThrow("exhausted");
   });
 
@@ -212,9 +247,13 @@ describe("Daily token budget gate", () => {
     enforcer.resourceLimits = { maxTokensPerDay: 100 };
     enforcer.getDailyUsage = () => ({ promptTokens: 70, completionTokens: 40 });
     let msg = "";
-    try { enforcer.check(); } catch (e) { msg = (e as Error).message; }
-    expect(msg).toContain("110");  // 70 + 40
-    expect(msg).toContain("100");  // limit
+    try {
+      enforcer.check();
+    } catch (e) {
+      msg = (e as Error).message;
+    }
+    expect(msg).toContain("110"); // 70 + 40
+    expect(msg).toContain("100"); // limit
   });
 });
 
@@ -224,7 +263,9 @@ describe("Daily token budget gate", () => {
 
 describe("Hourly request rate gate", () => {
   let enforcer: PolicyEnforcer;
-  beforeEach(() => { enforcer = new PolicyEnforcer(); });
+  beforeEach(() => {
+    enforcer = new PolicyEnforcer();
+  });
 
   it("passes when no maxRequestsPerHour is set", () => {
     for (let i = 0; i < 100; i++) expect(enforcer.check()).toBe("passed");
@@ -274,7 +315,11 @@ describe("Hourly request rate gate", () => {
     enforcer.now = () => baseTime;
     enforcer.check();
     let msg = "";
-    try { enforcer.check(); } catch (e) { msg = (e as Error).message; }
+    try {
+      enforcer.check();
+    } catch (e) {
+      msg = (e as Error).message;
+    }
     expect(msg).toMatch(/resets in \d+s/);
   });
 });
@@ -285,7 +330,9 @@ describe("Hourly request rate gate", () => {
 
 describe("Combined policy limits", () => {
   let enforcer: PolicyEnforcer;
-  beforeEach(() => { enforcer = new PolicyEnforcer(); });
+  beforeEach(() => {
+    enforcer = new PolicyEnforcer();
+  });
 
   it("expiry gate fires before token budget gate", () => {
     enforcer.policyExpiresAt = new Date(Date.now() - 1).toISOString();
@@ -303,13 +350,19 @@ describe("Combined policy limits", () => {
   it("passes when all limits are within bounds", () => {
     enforcer.policyExpiresAt = new Date(Date.now() + 3600 * 1000).toISOString();
     enforcer.resourceLimits = { maxTokensPerDay: 1000, maxRequestsPerHour: 10 };
-    enforcer.getDailyUsage = () => ({ promptTokens: 200, completionTokens: 200 });
+    enforcer.getDailyUsage = () => ({
+      promptTokens: 200,
+      completionTokens: 200,
+    });
     expect(enforcer.check()).toBe("passed");
   });
 
   it("null resourceLimits bypasses both token and rate gates", () => {
     enforcer.resourceLimits = null;
-    enforcer.getDailyUsage = () => ({ promptTokens: 999_999, completionTokens: 999_999 });
+    enforcer.getDailyUsage = () => ({
+      promptTokens: 999_999,
+      completionTokens: 999_999,
+    });
     for (let i = 0; i < 50; i++) expect(enforcer.check()).toBe("passed");
   });
 });
@@ -322,22 +375,35 @@ describe("handleUpdateCapabilities policy metadata storage", () => {
   it("stores resourceLimits from payload", () => {
     // Mirrors: if (payload.resourceLimits !== undefined) this.resourceLimits = payload.resourceLimits ?? null;
     const agent = { resourceLimits: null as ResourceLimits | null };
-    const payload = { capabilities: ["api_call"] as AgentCapability[], resourceLimits: { maxTokensPerDay: 5000 } };
-    if (payload.resourceLimits !== undefined) agent.resourceLimits = payload.resourceLimits ?? null;
+    const payload = {
+      capabilities: ["api_call"] as AgentCapability[],
+      resourceLimits: { maxTokensPerDay: 5000 },
+    };
+    if (payload.resourceLimits !== undefined)
+      agent.resourceLimits = payload.resourceLimits ?? null;
     expect(agent.resourceLimits).toEqual({ maxTokensPerDay: 5000 });
   });
 
   it("clears resourceLimits when payload sends null", () => {
-    const agent = { resourceLimits: { maxTokensPerDay: 1000 } as ResourceLimits | null };
-    const payload = { capabilities: [] as AgentCapability[], resourceLimits: null as ResourceLimits | null };
-    if (payload.resourceLimits !== undefined) agent.resourceLimits = payload.resourceLimits ?? null;
+    const agent = {
+      resourceLimits: { maxTokensPerDay: 1000 } as ResourceLimits | null,
+    };
+    const payload = {
+      capabilities: [] as AgentCapability[],
+      resourceLimits: null as ResourceLimits | null,
+    };
+    if (payload.resourceLimits !== undefined)
+      agent.resourceLimits = payload.resourceLimits ?? null;
     expect(agent.resourceLimits).toBeNull();
   });
 
   it("leaves resourceLimits unchanged when field is absent from payload", () => {
-    const agent = { resourceLimits: { maxTokensPerDay: 999 } as ResourceLimits | null };
+    const agent = {
+      resourceLimits: { maxTokensPerDay: 999 } as ResourceLimits | null,
+    };
     const payload = { capabilities: [] as AgentCapability[] }; // no resourceLimits key
-    if ((payload as any).resourceLimits !== undefined) agent.resourceLimits = (payload as any).resourceLimits ?? null;
+    if ((payload as any).resourceLimits !== undefined)
+      agent.resourceLimits = (payload as any).resourceLimits ?? null;
     expect(agent.resourceLimits).toEqual({ maxTokensPerDay: 999 });
   });
 });
@@ -349,12 +415,16 @@ describe("handleUpdateCapabilities policy metadata storage", () => {
 describe("Cert metadata reading", () => {
   describe("readCapabilitiesFromMeta", () => {
     it("reads a native array directly", () => {
-      const caps = readCapabilitiesFromMeta({ capabilities: ["api_call", "file_access"] });
+      const caps = readCapabilitiesFromMeta({
+        capabilities: ["api_call", "file_access"],
+      });
       expect(caps).toEqual(["api_call", "file_access"]);
     });
 
     it("parses a legacy JSON-stringified string", () => {
-      const caps = readCapabilitiesFromMeta({ capabilities: JSON.stringify(["api_call", "internet_access"]) });
+      const caps = readCapabilitiesFromMeta({
+        capabilities: JSON.stringify(["api_call", "internet_access"]),
+      });
       expect(caps).toEqual(["api_call", "internet_access"]);
     });
 
@@ -371,7 +441,10 @@ describe("Cert metadata reading", () => {
         policyExpiresAt: "2030-01-01T00:00:00.000Z",
       };
       const meta = readPolicyMetaFromCert(pk2);
-      expect(meta.resourceLimits).toEqual({ maxTokensPerDay: 2000, maxRequestsPerHour: 30 });
+      expect(meta.resourceLimits).toEqual({
+        maxTokensPerDay: 2000,
+        maxRequestsPerHour: 30,
+      });
       expect(meta.policyId).toBe("pol-xyz");
       expect(meta.policyExpiresAt).toBe("2030-01-01T00:00:00.000Z");
     });
@@ -395,7 +468,10 @@ describe("Cert metadata reading", () => {
         resourceLimits: { allowedDomains: ["api.openai.com", "example.com"] },
       };
       const meta = readPolicyMetaFromCert(pk2);
-      expect(meta.resourceLimits?.allowedDomains).toEqual(["api.openai.com", "example.com"]);
+      expect(meta.resourceLimits?.allowedDomains).toEqual([
+        "api.openai.com",
+        "example.com",
+      ]);
     });
 
     it("treats explicit null values as null (not undefined)", () => {

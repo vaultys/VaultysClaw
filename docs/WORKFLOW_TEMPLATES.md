@@ -15,21 +15,26 @@ VaultyscLaw now includes three powerful features for managing workflows:
 The system includes 5 pre-built templates across different categories:
 
 #### Analysis Category
+
 - **Code Analysis Pipeline** - Analyze code quality and suggest improvements
 - **Parallel Analysis** - Analyze data from multiple perspectives in parallel
 
 #### Writing Category
+
 - **Content Creation Workflow** - Create and refine content for multiple platforms
 
 #### Research Category
+
 - **Research & Report Generation** - Research a topic and generate a comprehensive report
 
 #### Automation Category
+
 - **Conditional Processing** - Process data with conditional branching based on analysis
 
 ### Using Templates
 
 #### Via UI
+
 1. Click the **"From Template"** button on the Workflows page
 2. Browse available templates organized by category
 3. Click on a template to load it into the editor
@@ -37,6 +42,7 @@ The system includes 5 pre-built templates across different categories:
 5. Save your new workflow
 
 #### Programmatically
+
 ```typescript
 import { getTemplate, getTemplates } from "@/lib/workflow-templates";
 
@@ -53,14 +59,17 @@ const analysisTemplates = getTemplates("analysis");
 ### Template API Endpoints
 
 #### Get All Templates
+
 ```bash
 GET /api/workflows/templates
 ```
 
 **Query Parameters:**
+
 - `category` (optional) - Filter by category (analysis, writing, research, automation)
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -77,11 +86,13 @@ GET /api/workflows/templates
 ```
 
 #### Get Specific Template
+
 ```bash
 GET /api/workflows/templates/{templateId}
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -101,6 +112,7 @@ GET /api/workflows/templates/{templateId}
 ## Workflow Export
 
 ### Export Features
+
 - Export any saved workflow as a JSON file
 - Includes workflow name, description, and complete definition
 - Easy sharing with team members
@@ -109,11 +121,13 @@ GET /api/workflows/templates/{templateId}
 ### Using Export
 
 #### Via UI
+
 1. Open a workflow in the editor
 2. Click the **"Export"** button in the header
 3. A JSON file will download automatically
 
 #### Exported File Format
+
 ```json
 {
   "name": "My Workflow",
@@ -128,6 +142,7 @@ GET /api/workflows/templates/{templateId}
 ```
 
 ### Export API Endpoint
+
 ```bash
 GET /api/workflows/{workflowId}/export
 ```
@@ -137,6 +152,7 @@ GET /api/workflows/{workflowId}/export
 ## Workflow Import
 
 ### Import Features
+
 - Import workflows from JSON files
 - Supports files exported from VaultyscLaw
 - Validates workflow structure before saving
@@ -145,23 +161,27 @@ GET /api/workflows/{workflowId}/export
 ### Using Import
 
 #### Via Workflows List Page
+
 1. Click the **"Import"** button in the bottom-right corner
 2. Select a JSON workflow file from your computer
 3. The workflow will be imported and added to your list
 4. The Workflows page will refresh automatically
 
 #### Via Upload
+
 1. Choose a workflow JSON file from your device
 2. System validates the file structure
 3. Workflow is saved with the original name
 4. Navigate to the new workflow to edit it
 
 ### Import API Endpoint
+
 ```bash
 POST /api/workflows/import
 ```
 
 **Request Body:**
+
 ```json
 {
   "name": "Imported Workflow",
@@ -174,6 +194,7 @@ POST /api/workflows/import
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -183,6 +204,7 @@ POST /api/workflows/import
 ```
 
 **Error Response:**
+
 ```json
 {
   "success": false,
@@ -191,6 +213,7 @@ POST /api/workflows/import
 ```
 
 ### Validation Rules
+
 - `name` (required): Non-empty string
 - `description` (optional): String
 - `definition` (required): Object with:
@@ -200,22 +223,26 @@ POST /api/workflows/import
 ## Use Cases
 
 ### Team Collaboration
+
 1. Create a workflow for a common task
 2. Export it as JSON
 3. Share the file with team members
 4. They import it into their account
 
 ### Backup & Recovery
+
 1. Regularly export important workflows
 2. Store backups in version control or cloud storage
 3. Import to restore if needed
 
 ### Workflow Patterns
+
 1. Use templates as starting points for new workflows
 2. Customize templates for your specific needs
 3. Export customized workflows to reuse later
 
 ### Workflow Migration
+
 1. Export workflows from one environment
 2. Import into another environment
 3. Useful for moving between development/production
@@ -223,34 +250,35 @@ POST /api/workflows/import
 ## Examples
 
 ### Creating Workflow from Template + Export
+
 ```typescript
 // 1. Load template
 const template = getTemplate("template-code-analysis");
 
 // 2. Create workflow from template
-const workflowId = saveWorkflow(
-  "My Code Analysis",
-  template.definition
-);
+const workflowId = saveWorkflow("My Code Analysis", template.definition);
 
 // 3. User exports in UI via Export button
 // File downloads as "workflow-my-code-analysis.json"
 ```
 
 ### Import from File
+
 ```typescript
 // User selects file: exported-workflow.json
 const data = {
-  "name": "Imported Code Analyzer",
-  "description": "Customized for our project",
-  "definition": { /* workflow definition */ }
+  name: "Imported Code Analyzer",
+  description: "Customized for our project",
+  definition: {
+    /* workflow definition */
+  },
 };
 
 // POST to /api/workflows/import
 const response = await fetch("/api/workflows/import", {
   method: "POST",
   headers: { "Content-Type": "application/json" },
-  body: JSON.stringify(data)
+  body: JSON.stringify(data),
 });
 
 const result = await response.json();
@@ -260,23 +288,26 @@ const result = await response.json();
 ## Technical Details
 
 ### Template Storage
+
 - Templates are defined in `packages/control-plane/lib/workflow-templates.ts`
 - No database storage required
 - Can be extended by adding entries to `WORKFLOW_TEMPLATES` array
 
 ### Template Structure
+
 ```typescript
 interface WorkflowTemplate {
-  id: string;                      // Unique identifier
-  name: string;                    // Display name
-  description: string;             // User-friendly description
+  id: string; // Unique identifier
+  name: string; // Display name
+  description: string; // User-friendly description
   category: "analysis" | "writing" | "research" | "automation";
-  definition: WorkflowDefinition;  // The actual workflow
-  icon?: string;                   // Optional emoji/icon
+  definition: WorkflowDefinition; // The actual workflow
+  icon?: string; // Optional emoji/icon
 }
 ```
 
 ### Export/Import Safety
+
 - File format validation before import
 - Definition structure validation (must have nodes and edges arrays)
 - Workflow ID and timestamps generated on import (not preserved)
@@ -285,12 +316,14 @@ interface WorkflowTemplate {
 ## Testing
 
 All functionality is covered by tests:
+
 - 5 templates defined and validated
 - 15 test cases for templates, export, and import
 - Verification of structure preservation
 - Error handling and edge cases
 
 Run tests:
+
 ```bash
 npx vitest run __tests__/workflows-templates.test.ts
 ```
@@ -298,6 +331,7 @@ npx vitest run __tests__/workflows-templates.test.ts
 ## Future Enhancements
 
 Potential improvements to consider:
+
 - Template versioning and updates
 - Community template library/marketplace
 - Template sharing with visibility controls

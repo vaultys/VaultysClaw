@@ -62,11 +62,15 @@ export function getLogLevelColor(level: string): string {
 
 /** Get Tailwind class for status */
 export function getStatusTailwindClass(status: string): string {
-  return STATUS_TAILWIND[status as keyof typeof STATUS_TAILWIND] ?? "text-gray-600";
+  return (
+    STATUS_TAILWIND[status as keyof typeof STATUS_TAILWIND] ?? "text-gray-600"
+  );
 }
 
 /** Get Tailwind class for badge */
-export function getBadgeColorClass(type: "success" | "error" | "warning" | "info" | "neutral"): string {
+export function getBadgeColorClass(
+  type: "success" | "error" | "warning" | "info" | "neutral"
+): string {
   return BADGE_COLORS[type];
 }
 
@@ -86,8 +90,19 @@ export const STATUS_BG_COLORS = {
 
 /** Get background color class for status */
 export function getStatusBgClass(status: string): string {
-  return STATUS_BG_COLORS[status as keyof typeof STATUS_BG_COLORS] ?? "bg-gray-50";
+  return (
+    STATUS_BG_COLORS[status as keyof typeof STATUS_BG_COLORS] ?? "bg-gray-50"
+  );
 }
 
 /** Common emoji reactions */
-export const COMMON_EMOJIS = ["👍", "❤️", "😂", "🎉", "🔥", "👀", "😮", "😢"] as const;
+export const COMMON_EMOJIS = [
+  "👍",
+  "❤️",
+  "😂",
+  "🎉",
+  "🔥",
+  "👀",
+  "😮",
+  "😢",
+] as const;

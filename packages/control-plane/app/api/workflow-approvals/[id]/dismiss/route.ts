@@ -34,7 +34,10 @@ interface Params {
  *       500:
  *         description: Failed to dismiss the notification.
  */
-export async function POST(_request: Request, { params }: { params: Promise<Params> }) {
+export async function POST(
+  _request: Request,
+  { params }: { params: Promise<Params> }
+) {
   try {
     const { id } = await params;
     const session = await getServerSession(authOptions);
@@ -44,7 +47,10 @@ export async function POST(_request: Request, { params }: { params: Promise<Para
 
     const updated = dismissWorkflowNotification(id, session.user.did);
     if (!updated) {
-      return NextResponse.json({ error: "Notification not found or not dismissable" }, { status: 404 });
+      return NextResponse.json(
+        { error: "Notification not found or not dismissable" },
+        { status: 404 }
+      );
     }
 
     return NextResponse.json({ success: true });

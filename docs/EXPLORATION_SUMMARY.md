@@ -5,6 +5,7 @@
 ### GET `/api/workflow-runs` - List Workflow Runs
 
 **Response Structure:**
+
 ```json
 {
   "runs": [
@@ -26,6 +27,7 @@
 ```
 
 **Query Parameters:**
+
 - `workflowId` (optional): Filter by workflow ID
 - `status` (optional): Filter by status (running|completed|failed)
 - `page` (default: 1): Page number
@@ -34,6 +36,7 @@
 - `sortDir` (default: desc): Sort direction asc | desc
 
 **TypeScript Interfaces:**
+
 ```typescript
 export interface WorkflowRunRow {
   id: string;
@@ -56,6 +59,7 @@ export interface WorkflowRunQueryResult {
 ### GET `/api/workflow-runs/[id]` - Get Specific Workflow Run
 
 **Response Structure:**
+
 ```json
 {
   "run": {
@@ -91,6 +95,7 @@ export interface WorkflowRunQueryResult {
 ```
 
 **TypeScript Interface:**
+
 ```typescript
 export interface WorkflowStepWithUserRow extends WorkflowStepRow {
   assigned_user_id: string | null;
@@ -116,7 +121,7 @@ export class Agent extends EventEmitter {
   private scheduler: Scheduler | null = null;
   private peerManager: PeerManager | null = null;
   private memoryStore = new MemoryStore();
-  
+
   constructor(config: AgentControllerConfig) {
     super();
     this.config = config;
@@ -165,14 +170,14 @@ When an agent receives an intent (action request), it executes through this flow
 ```typescript
 private async executeAction(action: string, params: Record<string, unknown>, _callerDid?: string): Promise<unknown> {
   if (!this.activeLlmConfig) throw new LlmNotConfiguredError();
-  
+
   // 1. Build tool set filtered by agent's capabilities
   const tools = this.buildAgentToolSet();
-  
+
   // 2. Retrieve memory context if available
   const queryText = `${action} ${JSON.stringify(params)}`;
   const memoryContext = this.memoryRetriever.retrieve(queryText) || undefined;
-  
+
   // 3. Call LLM with action, params, and available tools
   const { text, usage } = await runIntent(
     this.activeLlmConfig,
@@ -247,14 +252,14 @@ private async refreshActiveLlmConfig(): Promise<void> {
   // Prefer encrypted remote config; fall back to plaintext remote, then env vars.
   const remote = await this.loadDecryptedLlmConfig() ?? getLlmConfig();
   this.activeLlmConfig = remote ?? this.config.llmConfig;
-  
+
   if (this.activeLlmConfig) {
     const source = remote ? "remote" : "env";
     this.log("info", `Active LLM config: ${this.activeLlmConfig.provider}/${this.activeLlmConfig.model} (${source})`);
-    this.emit("config_updated", { 
-      source, 
-      provider: this.activeLlmConfig.provider, 
-      model: this.activeLlmConfig.model 
+    this.emit("config_updated", {
+      source,
+      provider: this.activeLlmConfig.provider,
+      model: this.activeLlmConfig.model
     });
   } else {
     this.log("warn", "No LLM config — intents requiring LLM will fail");
@@ -287,7 +292,7 @@ private async persistEncryptedLlmConfig(config: LlmConfig | null): Promise<void>
     setLlmConfig(null); // clears both llm_config and llm_config_encrypted
     return;
   }
-  
+
   const { apiKey, ...rest } = config;
   if (apiKey && this.vaultysId) {
     // Encrypt the apiKey for this agent's VaultysId only
@@ -298,7 +303,7 @@ private async persistEncryptedLlmConfig(config: LlmConfig | null): Promise<void>
     // No apiKey to encrypt — store plaintext blob
     setEncryptedLlmConfigBlob(JSON.stringify({ ...rest }));
   }
-  
+
   // Also update the plaintext slot (apiKey omitted) so getLlmConfig() still works
   setLlmConfig({ ...rest, apiKey: undefined });
 }
@@ -306,17 +311,17 @@ private async persistEncryptedLlmConfig(config: LlmConfig | null): Promise<void>
 private async loadDecryptedLlmConfig(): Promise<LlmConfig | null> {
   const raw = getEncryptedLlmConfigBlob();
   if (!raw) return null;
-  
+
   try {
     type Blob = LlmConfig & { encryptedApiKey?: string; apiKeyEncrypted?: boolean };
     const stored = JSON.parse(raw) as Blob;
     const { encryptedApiKey, apiKeyEncrypted, ...rest } = stored;
-    
+
     if (encryptedApiKey && apiKeyEncrypted && this.vaultysId) {
       const decrypted = (await this.vaultysId.decrypt(encryptedApiKey)) as string;
       return { ...rest, apiKey: decrypted } as LlmConfig;
     }
-    
+
     return rest as LlmConfig;
   } catch {
     return null;
@@ -338,8 +343,11 @@ export async function runIntent(
   action: string,
   params: Record<string, unknown>,
   tools?: Record<string, MastraTool>,
-  memoryContext?: string,
-): Promise<{ text: string; usage: { promptTokens: number; completionTokens: number } }> {
+  memoryContext?: string
+): Promise<{
+  text: string;
+  usage: { promptTokens: number; completionTokens: number };
+}> {
   const model = buildModel(config);
   const base = config.systemPrompt?.trim() || DEFAULT_SYSTEM_PROMPT;
   const instructions = memoryContext ? `${base}\n\n${memoryContext}` : base;
@@ -352,8 +360,13 @@ export async function runIntent(
   const hasTools = tools && Object.keys(tools).length > 0;
 
   logger.info(
-    { provider: config.provider, model: config.model, action, toolCount: hasTools ? Object.keys(tools!).length : 0 },
-    "Running intent",
+    {
+      provider: config.provider,
+      model: config.model,
+      action,
+      toolCount: hasTools ? Object.keys(tools!).length : 0,
+    },
+    "Running intent"
   );
 
   try {
@@ -366,19 +379,28 @@ export async function runIntent(
 
     const result = await agent.generate(userMessage, {
       maxSteps: 10,
-      modelSettings: config.maxTokens ? { maxOutputTokens: config.maxTokens } : undefined,
+      modelSettings: config.maxTokens
+        ? { maxOutputTokens: config.maxTokens }
+        : undefined,
     });
 
     logger.info(
-      { action, steps: result.steps?.length ?? 0, finishReason: result.finishReason, textLength: result.text?.length ?? 0 },
-      "Intent LLM response received",
+      {
+        action,
+        steps: result.steps?.length ?? 0,
+        finishReason: result.finishReason,
+        textLength: result.text?.length ?? 0,
+      },
+      "Intent LLM response received"
     );
 
     return {
       text: result.text ?? "",
       usage: {
-        promptTokens: result.usage?.promptTokens ?? result.usage?.inputTokens ?? 0,
-        completionTokens: result.usage?.completionTokens ?? result.usage?.outputTokens ?? 0,
+        promptTokens:
+          result.usage?.promptTokens ?? result.usage?.inputTokens ?? 0,
+        completionTokens:
+          result.usage?.completionTokens ?? result.usage?.outputTokens ?? 0,
       },
     };
   } catch (err) {
@@ -395,7 +417,7 @@ The `buildToolSet` function filters available tools by capability and wraps them
 export function buildToolSet(
   registry: ToolRegistry,
   capabilities: AgentCapability[],
-  approvalFn?: (request: ApprovalRequest) => Promise<boolean>,
+  approvalFn?: (request: ApprovalRequest) => Promise<boolean>
 ): Record<string, MastraTool> {
   const tools = registry.forCapabilities(capabilities);
   const toolMap: Record<string, MastraTool> = {};
@@ -403,7 +425,11 @@ export function buildToolSet(
   for (const toolDef of tools) {
     if (toolDef.requiresApproval && approvalFn) {
       // Wrap the tool with an approval gate
-      toolMap[toolDef.name] = wrapToolWithApproval(toolDef.tool, toolDef.name, approvalFn);
+      toolMap[toolDef.name] = wrapToolWithApproval(
+        toolDef.tool,
+        toolDef.name,
+        approvalFn
+      );
     } else {
       toolMap[toolDef.name] = toolDef.tool;
     }
@@ -471,7 +497,9 @@ describe("runIntent", () => {
       apiKey: "sk-test",
     };
 
-    const result = await runIntent(config, "summarise", { text: "hello world" });
+    const result = await runIntent(config, "summarise", {
+      text: "hello world",
+    });
 
     expect(result.text).toBe("mock LLM response");
     expect(result.usage.promptTokens).toBe(15);
@@ -497,8 +525,13 @@ describe("runIntent", () => {
   it("should wrap Agent.generate errors in LlmProviderError", async () => {
     mockGenerate.mockRejectedValueOnce(new Error("Rate limit exceeded"));
 
-    const config = { provider: "anthropic" as const, model: "claude-3-haiku-20240307" };
-    await expect(runIntent(config, "ping", {})).rejects.toBeInstanceOf(LlmProviderError);
+    const config = {
+      provider: "anthropic" as const,
+      model: "claude-3-haiku-20240307",
+    };
+    await expect(runIntent(config, "ping", {})).rejects.toBeInstanceOf(
+      LlmProviderError
+    );
   });
 });
 ```
@@ -574,7 +607,7 @@ describe("buildToolSet", () => {
       { code: "1 + 1", timeoutMs: 5000 },
       {}
     );
-    
+
     expect(approvalFn).toHaveBeenCalledOnce();
     expect(result.result).toBe("2");
   });
@@ -625,7 +658,9 @@ describe("Workflow Database Operations", () => {
   describe("saveWorkflow", () => {
     it("should create a new workflow and return an ID", () => {
       const definition: WorkflowDefinition = {
-        nodes: [{ id: "node-1", type: "agent", data: { agentId: "@mock-agent" } }],
+        nodes: [
+          { id: "node-1", type: "agent", data: { agentId: "@mock-agent" } },
+        ],
         edges: [],
       };
 

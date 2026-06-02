@@ -72,7 +72,7 @@ import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
  */
 export async function POST(
   request: NextRequest,
-  { params }: { params: Promise<{ did: string }> },
+  { params }: { params: Promise<{ did: string }> }
 ) {
   const auth = await getAuthContext(request);
   if (!auth) return unauthorized();
@@ -84,11 +84,21 @@ export async function POST(
 
   const wsServer = getWSServer();
   if (!wsServer) {
-    return NextResponse.json({ error: "WebSocket server not available" }, { status: 503 });
+    return NextResponse.json(
+      { error: "WebSocket server not available" },
+      { status: 503 }
+    );
   }
 
   const body = await request.json();
-  const { id, name, cron, action, params: schedParams, enabled } = body as {
+  const {
+    id,
+    name,
+    cron,
+    action,
+    params: schedParams,
+    enabled,
+  } = body as {
     id?: string;
     name?: string;
     cron?: string;
@@ -100,12 +110,15 @@ export async function POST(
   if (!id || !name || !cron || !action) {
     return NextResponse.json(
       { error: "id, name, cron, and action are required strings" },
-      { status: 400 },
+      { status: 400 }
     );
   }
 
   const ok = wsServer.sendScheduleToAgent(agentDid, {
-    id, name, cron, action,
+    id,
+    name,
+    cron,
+    action,
     params: schedParams ?? {},
     enabled: enabled !== false,
   });
@@ -113,7 +126,11 @@ export async function POST(
     return NextResponse.json({ error: "Agent not connected" }, { status: 404 });
   }
 
-  return NextResponse.json({ success: true, agentId: agentDid, scheduleId: id });
+  return NextResponse.json({
+    success: true,
+    agentId: agentDid,
+    scheduleId: id,
+  });
 }
 
 /**
@@ -160,7 +177,7 @@ export async function POST(
  */
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: Promise<{ did: string }> },
+  { params }: { params: Promise<{ did: string }> }
 ) {
   const auth = await getAuthContext(request);
   if (!auth) return unauthorized();
@@ -172,14 +189,20 @@ export async function DELETE(
 
   const wsServer = getWSServer();
   if (!wsServer) {
-    return NextResponse.json({ error: "WebSocket server not available" }, { status: 503 });
+    return NextResponse.json(
+      { error: "WebSocket server not available" },
+      { status: 503 }
+    );
   }
 
   const { searchParams } = new URL(request.url);
   const scheduleId = searchParams.get("id");
 
   if (!scheduleId) {
-    return NextResponse.json({ error: "id query parameter is required" }, { status: 400 });
+    return NextResponse.json(
+      { error: "id query parameter is required" },
+      { status: 400 }
+    );
   }
 
   const ok = wsServer.deleteScheduleOnAgent(agentDid, scheduleId);

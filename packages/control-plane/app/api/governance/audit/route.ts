@@ -96,7 +96,10 @@ export async function GET(request: NextRequest) {
     if (!auth.isGlobalAdmin) return forbidden();
 
     const { searchParams } = new URL(request.url);
-    const limit = Math.min(500, Math.max(1, parseInt(searchParams.get("limit") ?? "200", 10) || 200));
+    const limit = Math.min(
+      500,
+      Math.max(1, parseInt(searchParams.get("limit") ?? "200", 10) || 200)
+    );
     const source = searchParams.get("source") ?? "";
     const statusFilter = searchParams.get("status") ?? "";
     const agentDidFilter = searchParams.get("agentDid") ?? "";
@@ -123,7 +126,14 @@ export async function GET(request: NextRequest) {
         ? "SELECT * FROM activity_log WHERE agent_did = ? ORDER BY created_at DESC LIMIT ?"
         : "SELECT * FROM activity_log ORDER BY created_at DESC LIMIT ?";
       const activityParams = agentDidFilter ? [agentDidFilter, limit] : [limit];
-      const rows = db.prepare(activityQuery).all(...activityParams) as { id: number; event: string; agent_did: string | null; agent_name: string | null; details: string | null; created_at: string }[];
+      const rows = db.prepare(activityQuery).all(...activityParams) as {
+        id: number;
+        event: string;
+        agent_did: string | null;
+        agent_name: string | null;
+        details: string | null;
+        created_at: string;
+      }[];
 
       for (const r of rows) {
         entries.push({
@@ -145,8 +155,10 @@ export async function GET(request: NextRequest) {
       let query = "SELECT * FROM intent_log";
       const params: unknown[] = [];
       const conditions: string[] = [];
-      if (statusFilter) conditions.push("status = ?") && params.push(statusFilter);
-      if (agentDidFilter) conditions.push("agent_did = ?") && params.push(agentDidFilter);
+      if (statusFilter)
+        conditions.push("status = ?") && params.push(statusFilter);
+      if (agentDidFilter)
+        conditions.push("agent_did = ?") && params.push(agentDidFilter);
       if (conditions.length) query += " WHERE " + conditions.join(" AND ");
       query += " ORDER BY sent_at DESC LIMIT ?";
       params.push(limit);
@@ -184,6 +196,9 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ entries: result, total: result.length });
   } catch (error) {
     console.error(error);
-    return NextResponse.json({ error: "Failed to fetch audit log" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to fetch audit log" },
+      { status: 500 }
+    );
   }
 }

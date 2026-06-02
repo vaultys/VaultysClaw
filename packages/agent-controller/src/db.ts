@@ -191,7 +191,8 @@ export function initDb(dbDir: string, dbFileName = "agent.db"): Database {
 }
 
 export function getDb(): Database {
-  if (!db) throw new Error("Agent database not initialized — call initDb() first");
+  if (!db)
+    throw new Error("Agent database not initialized — call initDb() first");
   return db;
 }
 
@@ -205,26 +206,35 @@ export function storeCertificate(
   serverDid?: string
 ): void {
   const d = getDb();
-  d.query(`
+  d.query(
+    `
     INSERT INTO certificates (certificate_data, capabilities, agent_did, server_did)
     VALUES ($certificateData, $capabilities, $agentDid, $serverDid)
-  `).run({ $certificateData: certificateData, $capabilities: JSON.stringify(capabilities), $agentDid: agentDid ?? null, $serverDid: serverDid ?? null });
+  `
+  ).run({
+    $certificateData: certificateData,
+    $capabilities: JSON.stringify(capabilities),
+    $agentDid: agentDid ?? null,
+    $serverDid: serverDid ?? null,
+  });
 }
 
 /**
  * Get the latest certificate
  */
-export function getLatestCertificate(): {
-  certificate_data: string;
-  capabilities: string;
-  agent_did: string | null;
-  server_did: string | null;
-  created_at: string;
-} | undefined {
+export function getLatestCertificate():
+  | {
+      certificate_data: string;
+      capabilities: string;
+      agent_did: string | null;
+      server_did: string | null;
+      created_at: string;
+    }
+  | undefined {
   const d = getDb();
-  return d.query(
-    "SELECT * FROM certificates ORDER BY id DESC LIMIT 1"
-  ).get() as any;
+  return d
+    .query("SELECT * FROM certificates ORDER BY id DESC LIMIT 1")
+    .get() as any;
 }
 
 /**
@@ -232,40 +242,56 @@ export function getLatestCertificate(): {
  */
 export function getState(key: string): string | undefined {
   const d = getDb();
-  const row = d.query("SELECT value FROM state WHERE key = $key").get({ $key: key }) as { value: string } | undefined;
+  const row = d
+    .query("SELECT value FROM state WHERE key = $key")
+    .get({ $key: key }) as { value: string } | undefined;
   return row?.value;
 }
 
 export function setState(key: string, value: string): void {
   const d = getDb();
-  d.query("INSERT OR REPLACE INTO state (key, value) VALUES ($key, $value)").run({ $key: key, $value: value });
+  d.query(
+    "INSERT OR REPLACE INTO state (key, value) VALUES ($key, $value)"
+  ).run({ $key: key, $value: value });
 }
 
 // ---------------------------------------------------------------------------
 // Web sessions (persisted across restarts)
 // ---------------------------------------------------------------------------
 
-export function upsertWebSession(token: string, did: string, createdAt: number): void {
+export function upsertWebSession(
+  token: string,
+  did: string,
+  createdAt: number
+): void {
   const d = getDb();
   d.query(
     "INSERT OR REPLACE INTO web_sessions (token, did, created_at) VALUES ($token, $did, $createdAt)"
   ).run({ $token: token, $did: did, $createdAt: createdAt });
 }
 
-export function getWebSessionByToken(token: string): { token: string; did: string; created_at: number } | undefined {
+export function getWebSessionByToken(
+  token: string
+): { token: string; did: string; created_at: number } | undefined {
   const d = getDb();
-  return d.query("SELECT * FROM web_sessions WHERE token = $token").get({ $token: token }) as any;
+  return d
+    .query("SELECT * FROM web_sessions WHERE token = $token")
+    .get({ $token: token }) as any;
 }
 
 export function deleteWebSession(token: string): void {
   const d = getDb();
-  d.query("DELETE FROM web_sessions WHERE token = $token").run({ $token: token });
+  d.query("DELETE FROM web_sessions WHERE token = $token").run({
+    $token: token,
+  });
 }
 
 export function deleteExpiredWebSessions(maxAgeMs: number): void {
   const d = getDb();
   const cutoff = Date.now() - maxAgeMs;
-  d.query("DELETE FROM web_sessions WHERE created_at < $cutoff").run({ $cutoff: cutoff });
+  d.query("DELETE FROM web_sessions WHERE created_at < $cutoff").run({
+    $cutoff: cutoff,
+  });
 }
 
 export function closeDb(): void {
@@ -288,33 +314,47 @@ export interface DelegationRow {
   created_at: string;
 }
 
-export function storeDelegation(d: Omit<DelegationRow, 'created_at'>): void {
+export function storeDelegation(d: Omit<DelegationRow, "created_at">): void {
   const db = getDb();
-  db.query(`
+  db.query(
+    `
     INSERT OR REPLACE INTO delegations
       (id, grant_id, user_did, agent_did, capabilities, certificate, expires_at)
     VALUES ($id, $grant_id, $user_did, $agent_did, $capabilities, $certificate, $expires_at)
-  `).run({ $id: d.id, $grant_id: d.grant_id, $user_did: d.user_did, $agent_did: d.agent_did, $capabilities: d.capabilities, $certificate: d.certificate, $expires_at: d.expires_at ?? null });
+  `
+  ).run({
+    $id: d.id,
+    $grant_id: d.grant_id,
+    $user_did: d.user_did,
+    $agent_did: d.agent_did,
+    $capabilities: d.capabilities,
+    $certificate: d.certificate,
+    $expires_at: d.expires_at ?? null,
+  });
 }
 
 export function clearDelegationsForUser(userDid: string): void {
   const db = getDb();
-  db.query('DELETE FROM delegations WHERE user_did = $user_did').run({ $user_did: userDid });
+  db.query("DELETE FROM delegations WHERE user_did = $user_did").run({
+    $user_did: userDid,
+  });
 }
 
 export function clearAllDelegations(): void {
   const db = getDb();
-  db.query('DELETE FROM delegations').run();
+  db.query("DELETE FROM delegations").run();
 }
 
 export function getDelegationsForUser(userDid: string): DelegationRow[] {
   const db = getDb();
-  return db.query('SELECT * FROM delegations WHERE user_did = $user_did').all({ $user_did: userDid }) as DelegationRow[];
+  return db
+    .query("SELECT * FROM delegations WHERE user_did = $user_did")
+    .all({ $user_did: userDid }) as DelegationRow[];
 }
 
 export function getAllDelegations(): DelegationRow[] {
   const db = getDb();
-  return db.query('SELECT * FROM delegations').all() as DelegationRow[];
+  return db.query("SELECT * FROM delegations").all() as DelegationRow[];
 }
 
 // --- LLM config helpers (stored in the state k/v table) ---
@@ -348,7 +388,9 @@ export function setLlmConfig(config: LlmConfig | null): void {
   if (config === null) {
     const d = getDb();
     d.query("DELETE FROM state WHERE key = $key").run({ $key: LLM_CONFIG_KEY });
-    d.query("DELETE FROM state WHERE key = $key").run({ $key: ENCRYPTED_LLM_CONFIG_KEY });
+    d.query("DELETE FROM state WHERE key = $key").run({
+      $key: ENCRYPTED_LLM_CONFIG_KEY,
+    });
   } else {
     setState(LLM_CONFIG_KEY, JSON.stringify(config));
   }
@@ -387,7 +429,9 @@ export function getPeerjsServer(): string | null {
  */
 export function setPeerjsServer(url: string | null): void {
   if (url === null) {
-    getDb().query("DELETE FROM state WHERE key = $key").run({ $key: "peerjs_server" });
+    getDb()
+      .query("DELETE FROM state WHERE key = $key")
+      .run({ $key: "peerjs_server" });
   } else {
     setState("peerjs_server", url);
   }
@@ -411,15 +455,22 @@ export interface PeerGrantRow {
  * Replace the full peer grant list (as pushed by the control plane).
  * All existing rows for this agent are deleted first.
  */
-export function storePeerGrants(sourceDid: string, grants: PeerGrantRow[]): void {
+export function storePeerGrants(
+  sourceDid: string,
+  grants: PeerGrantRow[]
+): void {
   const db = getDb();
-  db.query("DELETE FROM peer_grants WHERE source_did = $source_did").run({ $source_did: sourceDid });
+  db.query("DELETE FROM peer_grants WHERE source_did = $source_did").run({
+    $source_did: sourceDid,
+  });
   for (const g of grants) {
-    db.query(`
+    db.query(
+      `
       INSERT OR REPLACE INTO peer_grants
         (id, source_did, target_did, target_name, skill_description, capabilities, certificate, expires_at)
       VALUES ($id, $source_did, $target_did, $target_name, $skill_description, $capabilities, $certificate, $expires_at)
-    `).run({
+    `
+    ).run({
       $id: g.id,
       $source_did: g.source_did,
       $target_did: g.target_did,
@@ -447,7 +498,7 @@ export type TaskStatus = "pending" | "running" | "success" | "failed" | "dead";
 export interface TaskRow {
   id: string;
   action: string;
-  params: string;       // JSON
+  params: string; // JSON
   status: TaskStatus;
   priority: number;
   scheduled_at: string | null;
@@ -462,71 +513,100 @@ export interface TaskRow {
 }
 
 export function insertTask(task: Omit<TaskRow, "created_at">): void {
-  getDb().query(`
+  getDb()
+    .query(
+      `
     INSERT INTO tasks
       (id, action, params, status, priority, scheduled_at, max_retries, created_by)
     VALUES ($id, $action, $params, $status, $priority, $scheduled_at, $max_retries, $created_by)
-  `).run({
-    $id: task.id,
-    $action: task.action,
-    $params: task.params,
-    $status: task.status,
-    $priority: task.priority,
-    $scheduled_at: task.scheduled_at ?? null,
-    $max_retries: task.max_retries,
-    $created_by: task.created_by ?? null,
-  });
+  `
+    )
+    .run({
+      $id: task.id,
+      $action: task.action,
+      $params: task.params,
+      $status: task.status,
+      $priority: task.priority,
+      $scheduled_at: task.scheduled_at ?? null,
+      $max_retries: task.max_retries,
+      $created_by: task.created_by ?? null,
+    });
 }
 
 export function getNextPendingTask(): TaskRow | undefined {
-  return getDb().query(`
+  return getDb()
+    .query(
+      `
     SELECT * FROM tasks
     WHERE status = 'pending'
       AND (scheduled_at IS NULL OR scheduled_at <= datetime('now'))
     ORDER BY priority DESC, created_at ASC
     LIMIT 1
-  `).get() as TaskRow | undefined;
+  `
+    )
+    .get() as TaskRow | undefined;
 }
 
 export function setTaskRunning(id: string): void {
-  getDb().query(`
+  getDb()
+    .query(
+      `
     UPDATE tasks SET status = 'running', started_at = datetime('now') WHERE id = $id
-  `).run({ $id: id });
+  `
+    )
+    .run({ $id: id });
 }
 
 export function setTaskCompleted(id: string, result: unknown): void {
-  getDb().query(`
+  getDb()
+    .query(
+      `
     UPDATE tasks SET status = 'success', completed_at = datetime('now'), result = $result WHERE id = $id
-  `).run({ $id: id, $result: JSON.stringify(result) });
+  `
+    )
+    .run({ $id: id, $result: JSON.stringify(result) });
 }
 
 export function setTaskFailed(id: string, error: string): void {
-  getDb().query(`
+  getDb()
+    .query(
+      `
     UPDATE tasks
     SET status = CASE WHEN retry_count + 1 >= max_retries THEN 'dead' ELSE 'failed' END,
         completed_at = datetime('now'),
         error = $error
     WHERE id = $id
-  `).run({ $id: id, $error: error });
+  `
+    )
+    .run({ $id: id, $error: error });
 }
 
 export function requeueFailedTask(id: string, delayMs: number): void {
-  const scheduledAt = new Date(Date.now() + delayMs).toISOString().replace("T", " ").slice(0, 19);
-  getDb().query(`
+  const scheduledAt = new Date(Date.now() + delayMs)
+    .toISOString()
+    .replace("T", " ")
+    .slice(0, 19);
+  getDb()
+    .query(
+      `
     UPDATE tasks
     SET status = 'pending', started_at = NULL, retry_count = retry_count + 1, scheduled_at = $scheduled_at
     WHERE id = $id
-  `).run({ $id: id, $scheduled_at: scheduledAt });
+  `
+    )
+    .run({ $id: id, $scheduled_at: scheduledAt });
 }
 
 export function getTaskById(id: string): TaskRow | undefined {
-  return getDb().query("SELECT * FROM tasks WHERE id = $id").get({ $id: id }) as TaskRow | undefined;
+  return getDb()
+    .query("SELECT * FROM tasks WHERE id = $id")
+    .get({ $id: id }) as TaskRow | undefined;
 }
 
 export function getRecentTasks(limit = 50): TaskRow[] {
-  return getDb().query(
-    "SELECT * FROM tasks ORDER BY created_at DESC LIMIT $limit"
-  ).all({ $limit: limit }) as TaskRow[];
+  return getDb()
+    .query("SELECT * FROM tasks ORDER BY created_at DESC LIMIT $limit")
+    .all({ $limit: limit }) as TaskRow[];
 }
 
 // ---- Schedule helpers ----
@@ -544,31 +624,42 @@ export interface ScheduleRow {
 }
 
 export function upsertSchedule(s: Omit<ScheduleRow, "created_at">): void {
-  getDb().query(`
+  getDb()
+    .query(
+      `
     INSERT OR REPLACE INTO schedules (id, name, cron, action, params, enabled, last_run, next_run)
     VALUES ($id, $name, $cron, $action, $params, $enabled, $last_run, $next_run)
-  `).run({
-    $id: s.id,
-    $name: s.name,
-    $cron: s.cron,
-    $action: s.action,
-    $params: s.params,
-    $enabled: s.enabled,
-    $last_run: s.last_run ?? null,
-    $next_run: s.next_run ?? null,
-  });
+  `
+    )
+    .run({
+      $id: s.id,
+      $name: s.name,
+      $cron: s.cron,
+      $action: s.action,
+      $params: s.params,
+      $enabled: s.enabled,
+      $last_run: s.last_run ?? null,
+      $next_run: s.next_run ?? null,
+    });
 }
 
 export function getActiveSchedules(): ScheduleRow[] {
-  return getDb().query(
-    "SELECT * FROM schedules WHERE enabled = 1"
-  ).all() as ScheduleRow[];
+  return getDb()
+    .query("SELECT * FROM schedules WHERE enabled = 1")
+    .all() as ScheduleRow[];
 }
 
-export function updateScheduleLastRun(id: string, nextRun: string | null): void {
-  getDb().query(`
+export function updateScheduleLastRun(
+  id: string,
+  nextRun: string | null
+): void {
+  getDb()
+    .query(
+      `
     UPDATE schedules SET last_run = datetime('now'), next_run = $next_run WHERE id = $id
-  `).run({ $id: id, $next_run: nextRun });
+  `
+    )
+    .run({ $id: id, $next_run: nextRun });
 }
 
 export function deleteSchedule(id: string): void {
@@ -577,25 +668,33 @@ export function deleteSchedule(id: string): void {
 
 // ---- Memory helpers ----
 
-export type MemoryType = "fact" | "procedure" | "preference" | "conversation_summary";
+export type MemoryType =
+  | "fact"
+  | "procedure"
+  | "preference"
+  | "conversation_summary";
 
 export interface MemoryRow {
   id: string;
   type: MemoryType;
   content: string;
-  tags: string;       // JSON array
+  tags: string; // JSON array
   importance: number; // 0.0 – 1.0
   access_count: number;
   last_accessed: string | null;
   created_at: string;
 }
 
-export function insertMemory(m: Omit<MemoryRow, "created_at" | "access_count" | "last_accessed">): void {
+export function insertMemory(
+  m: Omit<MemoryRow, "created_at" | "access_count" | "last_accessed">
+): void {
   const db = getDb();
-  db.query(`
+  db.query(
+    `
     INSERT OR REPLACE INTO memories (id, type, content, tags, importance)
     VALUES ($id, $type, $content, $tags, $importance)
-  `).run({
+  `
+  ).run({
     $id: m.id,
     $type: m.type,
     $content: m.content,
@@ -603,7 +702,9 @@ export function insertMemory(m: Omit<MemoryRow, "created_at" | "access_count" | 
     $importance: m.importance,
   });
   // Sync FTS index
-  db.query(`INSERT INTO memories_fts(id, content, tags) VALUES ($id, $content, $tags)`).run({
+  db.query(
+    `INSERT INTO memories_fts(id, content, tags) VALUES ($id, $content, $tags)`
+  ).run({
     $id: m.id,
     $content: m.content,
     $tags: m.tags,
@@ -611,30 +712,40 @@ export function insertMemory(m: Omit<MemoryRow, "created_at" | "access_count" | 
 }
 
 export function searchMemories(query: string, limit = 10): MemoryRow[] {
-  return getDb().query(`
+  return getDb()
+    .query(
+      `
     SELECT m.* FROM memories m
     JOIN memories_fts ON memories_fts.id = m.id
     WHERE memories_fts MATCH $query
     ORDER BY rank, m.importance DESC
     LIMIT $limit
-  `).all({ $query: query, $limit: limit }) as MemoryRow[];
+  `
+    )
+    .all({ $query: query, $limit: limit }) as MemoryRow[];
 }
 
 export function getRecentMemories(type?: MemoryType, limit = 20): MemoryRow[] {
   if (type) {
-    return getDb().query(
-      "SELECT * FROM memories WHERE type = $type ORDER BY created_at DESC LIMIT $limit"
-    ).all({ $type: type, $limit: limit }) as MemoryRow[];
+    return getDb()
+      .query(
+        "SELECT * FROM memories WHERE type = $type ORDER BY created_at DESC LIMIT $limit"
+      )
+      .all({ $type: type, $limit: limit }) as MemoryRow[];
   }
-  return getDb().query(
-    "SELECT * FROM memories ORDER BY created_at DESC LIMIT $limit"
-  ).all({ $limit: limit }) as MemoryRow[];
+  return getDb()
+    .query("SELECT * FROM memories ORDER BY created_at DESC LIMIT $limit")
+    .all({ $limit: limit }) as MemoryRow[];
 }
 
 export function touchMemory(id: string): void {
-  getDb().query(`
+  getDb()
+    .query(
+      `
     UPDATE memories SET access_count = access_count + 1, last_accessed = datetime('now') WHERE id = $id
-  `).run({ $id: id });
+  `
+    )
+    .run({ $id: id });
 }
 
 export function deleteMemory(id: string): void {
@@ -663,21 +774,36 @@ export interface ChatMessageRow {
   created_at: string;
 }
 
-export function upsertChatSession(id: string, title: string | null, source: string): void {
-  getDb().query(`
+export function upsertChatSession(
+  id: string,
+  title: string | null,
+  source: string
+): void {
+  getDb()
+    .query(
+      `
     INSERT INTO chat_sessions (id, title, source)
     VALUES ($id, $title, $source)
     ON CONFLICT(id) DO UPDATE SET
       title = COALESCE($title, title),
       updated_at = datetime('now')
-  `).run({ $id: id, $title: title ?? null, $source: source });
+  `
+    )
+    .run({ $id: id, $title: title ?? null, $source: source });
 }
 
 export function touchChatSession(id: string): void {
-  getDb().query(`UPDATE chat_sessions SET updated_at = datetime('now') WHERE id = $id`).run({ $id: id });
+  getDb()
+    .query(
+      `UPDATE chat_sessions SET updated_at = datetime('now') WHERE id = $id`
+    )
+    .run({ $id: id });
 }
 
-export function appendChatMessages(sessionId: string, msgs: Array<{ role: string; content: string; toolCalls?: unknown }>): void {
+export function appendChatMessages(
+  sessionId: string,
+  msgs: Array<{ role: string; content: string; toolCalls?: unknown }>
+): void {
   const db = getDb();
   const stmt = db.query(`
     INSERT INTO chat_messages (session_id, role, content, tool_calls)
@@ -695,24 +821,34 @@ export function appendChatMessages(sessionId: string, msgs: Array<{ role: string
 }
 
 export function listChatSessions(limit = 50): ChatSessionRow[] {
-  return getDb().query(`
+  return getDb()
+    .query(
+      `
     SELECT s.*, COUNT(m.id) AS message_count
     FROM chat_sessions s
     LEFT JOIN chat_messages m ON m.session_id = s.id
     GROUP BY s.id
     ORDER BY s.updated_at DESC
     LIMIT $limit
-  `).all({ $limit: limit }) as ChatSessionRow[];
+  `
+    )
+    .all({ $limit: limit }) as ChatSessionRow[];
 }
 
 export function getChatSession(id: string): ChatSessionRow | undefined {
-  return getDb().query(`SELECT * FROM chat_sessions WHERE id = $id`).get({ $id: id }) as ChatSessionRow | undefined;
+  return getDb()
+    .query(`SELECT * FROM chat_sessions WHERE id = $id`)
+    .get({ $id: id }) as ChatSessionRow | undefined;
 }
 
 export function getChatMessages(sessionId: string): ChatMessageRow[] {
-  return getDb().query(`
+  return getDb()
+    .query(
+      `
     SELECT * FROM chat_messages WHERE session_id = $session_id ORDER BY id ASC
-  `).all({ $session_id: sessionId }) as ChatMessageRow[];
+  `
+    )
+    .all({ $session_id: sessionId }) as ChatMessageRow[];
 }
 
 export function deleteChatSession(id: string): void {
@@ -721,16 +857,25 @@ export function deleteChatSession(id: string): void {
 
 // ---- Tool usage log ----
 
-export function logToolUsage(toolName: string, args: unknown, success: boolean, durationMs: number): void {
-  getDb().query(`
+export function logToolUsage(
+  toolName: string,
+  args: unknown,
+  success: boolean,
+  durationMs: number
+): void {
+  getDb()
+    .query(
+      `
     INSERT INTO tool_usage_log (tool_name, args, success, duration_ms)
     VALUES ($tool_name, $args, $success, $duration_ms)
-  `).run({
-    $tool_name: toolName,
-    $args: JSON.stringify(args),
-    $success: success ? 1 : 0,
-    $duration_ms: durationMs,
-  });
+  `
+    )
+    .run({
+      $tool_name: toolName,
+      $args: JSON.stringify(args),
+      $success: success ? 1 : 0,
+      $duration_ms: durationMs,
+    });
 }
 
 // ---- Token usage tracking ----
@@ -750,24 +895,35 @@ export function recordTokenUsage(
   provider: string,
   model: string
 ): void {
-  getDb().query(`
+  getDb()
+    .query(
+      `
     INSERT INTO token_usage (prompt_tokens, completion_tokens, provider, model)
     VALUES ($prompt_tokens, $completion_tokens, $provider, $model)
-  `).run({
-    $prompt_tokens: promptTokens,
-    $completion_tokens: completionTokens,
-    $provider: provider,
-    $model: model,
-  });
+  `
+    )
+    .run({
+      $prompt_tokens: promptTokens,
+      $completion_tokens: completionTokens,
+      $provider: provider,
+      $model: model,
+    });
 }
 
-export function getTotalTokenUsage(): { promptTokens: number; completionTokens: number } {
-  const result = getDb().query(`
+export function getTotalTokenUsage(): {
+  promptTokens: number;
+  completionTokens: number;
+} {
+  const result = getDb()
+    .query(
+      `
     SELECT
       COALESCE(SUM(prompt_tokens), 0) as prompt_tokens,
       COALESCE(SUM(completion_tokens), 0) as completion_tokens
     FROM token_usage
-  `).get() as { prompt_tokens: number; completion_tokens: number } | undefined;
+  `
+    )
+    .get() as { prompt_tokens: number; completion_tokens: number } | undefined;
   return {
     promptTokens: result?.prompt_tokens ?? 0,
     completionTokens: result?.completion_tokens ?? 0,
@@ -775,41 +931,63 @@ export function getTotalTokenUsage(): { promptTokens: number; completionTokens: 
 }
 
 export function getRecentTokenUsage(limit = 100): TokenUsageRow[] {
-  return getDb().query(`
+  return getDb()
+    .query(
+      `
     SELECT * FROM token_usage ORDER BY created_at DESC LIMIT $limit
-  `).all({ $limit: limit }) as TokenUsageRow[];
+  `
+    )
+    .all({ $limit: limit }) as TokenUsageRow[];
 }
 
-export function getDailyTokenUsage(): { promptTokens: number; completionTokens: number } {
+export function getDailyTokenUsage(): {
+  promptTokens: number;
+  completionTokens: number;
+} {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const todayStart = today.toISOString();
 
-  const result = getDb().query(`
+  const result = getDb()
+    .query(
+      `
     SELECT
       COALESCE(SUM(prompt_tokens), 0) as prompt_tokens,
       COALESCE(SUM(completion_tokens), 0) as completion_tokens
     FROM token_usage
     WHERE created_at >= $todayStart
-  `).get({ $todayStart: todayStart }) as { prompt_tokens: number; completion_tokens: number } | undefined;
+  `
+    )
+    .get({ $todayStart: todayStart }) as
+    | { prompt_tokens: number; completion_tokens: number }
+    | undefined;
   return {
     promptTokens: result?.prompt_tokens ?? 0,
     completionTokens: result?.completion_tokens ?? 0,
   };
 }
 
-export function getMonthlyTokenUsage(): { promptTokens: number; completionTokens: number } {
+export function getMonthlyTokenUsage(): {
+  promptTokens: number;
+  completionTokens: number;
+} {
   const now = new Date();
   const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
   const monthStart = firstDay.toISOString();
 
-  const result = getDb().query(`
+  const result = getDb()
+    .query(
+      `
     SELECT
       COALESCE(SUM(prompt_tokens), 0) as prompt_tokens,
       COALESCE(SUM(completion_tokens), 0) as completion_tokens
     FROM token_usage
     WHERE created_at >= $monthStart
-  `).get({ $monthStart: monthStart }) as { prompt_tokens: number; completion_tokens: number } | undefined;
+  `
+    )
+    .get({ $monthStart: monthStart }) as
+    | { prompt_tokens: number; completion_tokens: number }
+    | undefined;
   return {
     promptTokens: result?.prompt_tokens ?? 0,
     completionTokens: result?.completion_tokens ?? 0,
@@ -843,8 +1021,12 @@ export interface KnowledgeChunkRow {
   created_at: string;
 }
 
-export function upsertKnowledgeSource(s: Omit<KnowledgeSourceRow, 'created_at'>): void {
-  getDb().query(`
+export function upsertKnowledgeSource(
+  s: Omit<KnowledgeSourceRow, "created_at">
+): void {
+  getDb()
+    .query(
+      `
     INSERT INTO knowledge_sources (id, name, source_type, config, status, doc_count, chunk_count, last_synced_at, error)
     VALUES ($id, $name, $source_type, $config, $status, $doc_count, $chunk_count, $last_synced_at, $error)
     ON CONFLICT(id) DO UPDATE SET
@@ -856,15 +1038,29 @@ export function upsertKnowledgeSource(s: Omit<KnowledgeSourceRow, 'created_at'>)
       chunk_count = excluded.chunk_count,
       last_synced_at = excluded.last_synced_at,
       error = excluded.error
-  `).run({
-    $id: s.id, $name: s.name, $source_type: s.source_type,
-    $config: s.config, $status: s.status, $doc_count: s.doc_count,
-    $chunk_count: s.chunk_count, $last_synced_at: s.last_synced_at ?? null, $error: s.error ?? null,
-  });
+  `
+    )
+    .run({
+      $id: s.id,
+      $name: s.name,
+      $source_type: s.source_type,
+      $config: s.config,
+      $status: s.status,
+      $doc_count: s.doc_count,
+      $chunk_count: s.chunk_count,
+      $last_synced_at: s.last_synced_at ?? null,
+      $error: s.error ?? null,
+    });
 }
 
-export function updateKnowledgeSourceStatus(id: string, status: string, extra?: { docCount?: number; chunkCount?: number; error?: string | null }): void {
-  getDb().query(`
+export function updateKnowledgeSourceStatus(
+  id: string,
+  status: string,
+  extra?: { docCount?: number; chunkCount?: number; error?: string | null }
+): void {
+  getDb()
+    .query(
+      `
     UPDATE knowledge_sources SET
       status = $status,
       doc_count = COALESCE($doc_count, doc_count),
@@ -872,50 +1068,84 @@ export function updateKnowledgeSourceStatus(id: string, status: string, extra?: 
       last_synced_at = CASE WHEN $status = 'ready' THEN datetime('now') ELSE last_synced_at END,
       error = $error
     WHERE id = $id
-  `).run({
-    $id: id, $status: status,
-    $doc_count: extra?.docCount ?? null,
-    $chunk_count: extra?.chunkCount ?? null,
-    $error: extra?.error ?? null,
-  });
+  `
+    )
+    .run({
+      $id: id,
+      $status: status,
+      $doc_count: extra?.docCount ?? null,
+      $chunk_count: extra?.chunkCount ?? null,
+      $error: extra?.error ?? null,
+    });
 }
 
 export function getKnowledgeSource(id: string): KnowledgeSourceRow | undefined {
-  return getDb().query('SELECT * FROM knowledge_sources WHERE id = $id').get({ $id: id }) as KnowledgeSourceRow | undefined;
+  return getDb()
+    .query("SELECT * FROM knowledge_sources WHERE id = $id")
+    .get({ $id: id }) as KnowledgeSourceRow | undefined;
 }
 
 export function listKnowledgeSources(): KnowledgeSourceRow[] {
-  return getDb().query('SELECT * FROM knowledge_sources ORDER BY created_at DESC').all() as KnowledgeSourceRow[];
+  return getDb()
+    .query("SELECT * FROM knowledge_sources ORDER BY created_at DESC")
+    .all() as KnowledgeSourceRow[];
 }
 
 export function deleteKnowledgeSource(id: string): void {
-  getDb().query('DELETE FROM knowledge_sources WHERE id = $id').run({ $id: id });
+  getDb()
+    .query("DELETE FROM knowledge_sources WHERE id = $id")
+    .run({ $id: id });
 }
 
-export function insertKnowledgeChunk(c: Omit<KnowledgeChunkRow, 'created_at'>): void {
-  getDb().query(`
+export function insertKnowledgeChunk(
+  c: Omit<KnowledgeChunkRow, "created_at">
+): void {
+  getDb()
+    .query(
+      `
     INSERT OR REPLACE INTO knowledge_chunks (id, source_id, doc_id, doc_title, content, embedding, chunk_index, metadata)
     VALUES ($id, $source_id, $doc_id, $doc_title, $content, $embedding, $chunk_index, $metadata)
-  `).run({
-    $id: c.id, $source_id: c.source_id, $doc_id: c.doc_id,
-    $doc_title: c.doc_title ?? null, $content: c.content,
-    $embedding: c.embedding, $chunk_index: c.chunk_index, $metadata: c.metadata,
-  });
+  `
+    )
+    .run({
+      $id: c.id,
+      $source_id: c.source_id,
+      $doc_id: c.doc_id,
+      $doc_title: c.doc_title ?? null,
+      $content: c.content,
+      $embedding: c.embedding,
+      $chunk_index: c.chunk_index,
+      $metadata: c.metadata,
+    });
 }
 
 export function deleteChunksBySource(sourceId: string): void {
-  getDb().query('DELETE FROM knowledge_chunks WHERE source_id = $source_id').run({ $source_id: sourceId });
+  getDb()
+    .query("DELETE FROM knowledge_chunks WHERE source_id = $source_id")
+    .run({ $source_id: sourceId });
 }
 
-export function getAllChunkEmbeddings(sourceId?: string): Array<{ id: string; source_id: string; doc_id: string; doc_title: string | null; content: string; embedding: Buffer; metadata: string }> {
+export function getAllChunkEmbeddings(
+  sourceId?: string
+): Array<{
+  id: string;
+  source_id: string;
+  doc_id: string;
+  doc_title: string | null;
+  content: string;
+  embedding: Buffer;
+  metadata: string;
+}> {
   if (sourceId) {
-    return getDb().query(
-      'SELECT id, source_id, doc_id, doc_title, content, embedding, metadata FROM knowledge_chunks WHERE source_id = $source_id'
-    ).all({ $source_id: sourceId }) as any[];
+    return getDb()
+      .query(
+        "SELECT id, source_id, doc_id, doc_title, content, embedding, metadata FROM knowledge_chunks WHERE source_id = $source_id"
+      )
+      .all({ $source_id: sourceId }) as any[];
   }
-  return getDb().query(
-    'SELECT id, source_id, doc_id, doc_title, content, embedding, metadata FROM knowledge_chunks'
-  ).all() as any[];
+  return getDb()
+    .query(
+      "SELECT id, source_id, doc_id, doc_title, content, embedding, metadata FROM knowledge_chunks"
+    )
+    .all() as any[];
 }
-
-

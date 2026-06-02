@@ -37,6 +37,7 @@ VaultysClaw uses a **WebSocket-based architecture** for real-time, bidirectional
 ### Registration
 
 **Agent → Control Plane**
+
 ```json
 {
   "messageId": "register-1234567890",
@@ -53,6 +54,7 @@ VaultysClaw uses a **WebSocket-based architecture** for real-time, bidirectional
 ```
 
 **Control Plane → Agent**
+
 ```json
 {
   "messageId": "ack-1234567890",
@@ -70,6 +72,7 @@ VaultysClaw uses a **WebSocket-based architecture** for real-time, bidirectional
 ### Intent Distribution
 
 **Control Plane → Agent**
+
 ```json
 {
   "messageId": "intent-123",
@@ -89,6 +92,7 @@ VaultysClaw uses a **WebSocket-based architecture** for real-time, bidirectional
 ```
 
 **Agent → Control Plane**
+
 ```json
 {
   "messageId": "result-123",
@@ -110,6 +114,7 @@ VaultysClaw uses a **WebSocket-based architecture** for real-time, bidirectional
 ### Policy Updates
 
 **Control Plane → Agent(s)**
+
 ```json
 {
   "messageId": "policy-456",
@@ -129,6 +134,7 @@ VaultysClaw uses a **WebSocket-based architecture** for real-time, bidirectional
 ```
 
 **Agent → Control Plane (Ack)**
+
 ```json
 {
   "messageId": "policy-ack-456",
@@ -145,6 +151,7 @@ VaultysClaw uses a **WebSocket-based architecture** for real-time, bidirectional
 ### Heartbeat
 
 **Agent → Control Plane** (Every 30 seconds)
+
 ```json
 {
   "messageId": "heartbeat-789",
@@ -162,6 +169,7 @@ VaultysClaw uses a **WebSocket-based architecture** for real-time, bidirectional
 ```
 
 **Control Plane → Agent** (Pong response)
+
 ```json
 {
   "messageId": "pong-789",
@@ -283,8 +291,8 @@ VaultysClaw uses a **WebSocket-based architecture** for real-time, bidirectional
 | Connection     | Persistent         | Negotiated per request        |
 | Latency        | Low (10-50ms)      | Higher (100-500ms)            |
 | Overhead       | Minimal            | Headers, TLS negotiation      |
-| Real-time Push | ✅ Native           | ⚠️ Polling required            |
-| Bidirectional  | ✅ Full duplex      | ⚠️ Request-response            |
+| Real-time Push | ✅ Native          | ⚠️ Polling required           |
+| Bidirectional  | ✅ Full duplex     | ⚠️ Request-response           |
 | Scalability    | Good (10K+ agents) | Limited by connection pooling |
 | Complexity     | Moderate           | Simple                        |
 
@@ -312,11 +320,13 @@ VaultysClaw uses a **WebSocket-based architecture** for real-time, bidirectional
 ## Scalability
 
 ### Single Control Plane
+
 - **Agents**: 1,000-10,000 concurrent connections
 - **Throughput**: 1,000-5,000 intents/second
 - **Latency**: <100ms p95
 
 ### Multiple Control Planes (Future)
+
 - **Sharding**: Agents assigned to control plane by hash(agentId)
 - **Clustering**: Control planes communicate via message queue
 - **Load Balancing**: Round-robin DNS for control plane endpoints
@@ -369,16 +379,19 @@ packages/
 ## Testing the Architecture
 
 ### 1. Health Check
+
 ```bash
 curl http://localhost:3001/health
 ```
 
 ### 2. List Connected Agents
+
 ```bash
 curl http://localhost:3000/api/agents
 ```
 
 ### 3. Send Intent
+
 ```bash
 curl -X POST http://localhost:3000/api/intents \
   -H "Content-Type: application/json" \
@@ -390,13 +403,16 @@ curl -X POST http://localhost:3000/api/intents \
 ```
 
 ### 4. WebSocket Debugging
+
 Use browser DevTools or wscat:
+
 ```bash
 npm install -g wscat
 wscat -c ws://localhost:8080
 ```
 
 Then send a manual message:
+
 ```json
 {"messageId": "test-1", "type": "register", "payload": {...}}
 ```

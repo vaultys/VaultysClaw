@@ -41,12 +41,9 @@ describe("API Types", () => {
 
   describe("toErrorResponse", () => {
     it("should create an error response with correct structure", () => {
-      const result = toErrorResponse(
-        "Resource not found",
-        "NOT_FOUND",
-        404,
-        { resourceId: "123" }
-      );
+      const result = toErrorResponse("Resource not found", "NOT_FOUND", 404, {
+        resourceId: "123",
+      });
 
       expect(result).toMatchObject({
         error: "Resource not found",

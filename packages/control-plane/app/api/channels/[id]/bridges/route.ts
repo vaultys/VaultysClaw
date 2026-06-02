@@ -2,7 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext, unauthorized } from "@/lib/auth-utils";
 import { ChannelBridgeService } from "@/lib/channel-bridge-service";
 import { ChannelService } from "@/lib/channel-service";
-import type { ChannelBridge, TeamsBridgeConfig, WebhookBridgeConfig } from "@vaultysclaw/shared";
+import type {
+  ChannelBridge,
+  TeamsBridgeConfig,
+  WebhookBridgeConfig,
+} from "@vaultysclaw/shared";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -64,7 +68,10 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
     return NextResponse.json({ bridges });
   } catch (err) {
     console.error("GET /api/channels/[id]/bridges error:", err);
-    return NextResponse.json({ error: "Failed to fetch bridges" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to fetch bridges" },
+      { status: 500 }
+    );
   }
 }
 
@@ -176,23 +183,38 @@ export async function POST(req: NextRequest, ctx: Ctx) {
       config?: TeamsBridgeConfig | WebhookBridgeConfig;
     };
 
-    if (!body.externalService || !["teams", "webhook"].includes(body.externalService)) {
+    if (
+      !body.externalService ||
+      !["teams", "webhook"].includes(body.externalService)
+    ) {
       return NextResponse.json(
         { error: "externalService must be 'teams' or 'webhook'" },
-        { status: 400 },
+        { status: 400 }
       );
     }
     if (!body.externalChannelId?.trim()) {
-      return NextResponse.json({ error: "externalChannelId is required" }, { status: 400 });
+      return NextResponse.json(
+        { error: "externalChannelId is required" },
+        { status: 400 }
+      );
     }
     if (!body.externalChannelName?.trim()) {
-      return NextResponse.json({ error: "externalChannelName is required" }, { status: 400 });
+      return NextResponse.json(
+        { error: "externalChannelName is required" },
+        { status: 400 }
+      );
     }
     if (!body.externalWorkspaceId?.trim()) {
-      return NextResponse.json({ error: "externalWorkspaceId is required" }, { status: 400 });
+      return NextResponse.json(
+        { error: "externalWorkspaceId is required" },
+        { status: 400 }
+      );
     }
     if (!body.config) {
-      return NextResponse.json({ error: "config is required" }, { status: 400 });
+      return NextResponse.json(
+        { error: "config is required" },
+        { status: 400 }
+      );
     }
 
     try {
@@ -206,13 +228,20 @@ export async function POST(req: NextRequest, ctx: Ctx) {
         config: body.config,
       });
 
-      return NextResponse.json({ bridge: stripConfig(bridge) }, { status: 201 });
+      return NextResponse.json(
+        { bridge: stripConfig(bridge) },
+        { status: 201 }
+      );
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Failed to create bridge";
+      const message =
+        err instanceof Error ? err.message : "Failed to create bridge";
       return NextResponse.json({ error: message }, { status: 409 });
     }
   } catch (err) {
     console.error("POST /api/channels/[id]/bridges error:", err);
-    return NextResponse.json({ error: "Failed to create bridge" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to create bridge" },
+      { status: 500 }
+    );
   }
 }

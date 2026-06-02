@@ -45,13 +45,14 @@ Sponsoring gives your organisation a direct line into the core team and meaningf
 ## The Problem
 
 Enterprises are deploying AI agents but have **no idea what they're doing**:
+
 - ❌ Agents run with overly broad permissions → one compromised agent = full breach
-- ❌ No audit trail of what agents accessed or why → compliance nightmare  
+- ❌ No audit trail of what agents accessed or why → compliance nightmare
 - ❌ No way to revoke access → credentials leak and stay leaked
 - ❌ Shared credentials across agents → can't tell who did what
 - ❌ No approval workflows → agents make high-risk decisions in the dark
 
-Traditional identity systems (usernames, passwords, shared API keys) **don't work** for autonomous AI. 
+Traditional identity systems (usernames, passwords, shared API keys) **don't work** for autonomous AI.
 
 ---
 
@@ -60,23 +61,25 @@ Traditional identity systems (usernames, passwords, shared API keys) **don't wor
 Three principles. Built in from day one:
 
 ✅ **Never Trust, Always Verify** — Cryptographic identity per agent (VaultysId); all intents signed and verified  
-✅ **Assume Breach** — Deny-by-default permissions; policies define what agents *can't* do  
-✅ **Verify Every Access** — Fine-grained capabilities ("read DB 9am–5pm weekdays only"); approval workflows for high-risk actions  
+✅ **Assume Breach** — Deny-by-default permissions; policies define what agents _can't_ do  
+✅ **Verify Every Access** — Fine-grained capabilities ("read DB 9am–5pm weekdays only"); approval workflows for high-risk actions
 
-**Result**: Non-repudiation. You know who did what, can prove it cryptographically, and can respond in milliseconds.  
+**Result**: Non-repudiation. You know who did what, can prove it cryptographically, and can respond in milliseconds.
 
 ---
 
 ## Why VaultysClaw
 
 ### For Enterprises
+
 - **Framework-Aligned**: Implements Anthropic's "Zero Trust for AI Agents" framework (production-ready Foundation tier)
 - **Compliance-Ready**: Covers SOC 2, HIPAA, GDPR, NIST 800-207, FedRAMP core requirements
 - **Audit Trail**: Every action tied to agent identity via cryptographic signature—non-repudiable proof
-- **Controlled Risk**: Policies define what agents *can't* do; reduce blast radius to minutes, not hours
+- **Controlled Risk**: Policies define what agents _can't_ do; reduce blast radius to minutes, not hours
 - **Self-Hosted**: Run on-premise or in your VPC; no data leaving your infrastructure
 
 ### For Startups & Builders
+
 - **Drop-in Replacement**: Swap your API key approach for cryptographic identity in hours
 - **Monorepo-Ready**: One `pnpm dev` boots the whole stack—control plane, agents, WebSocket server
 - **Skills & Tools**: 30+ built-in tools (file ops, shell, HTTP, code runner, remote agents) and 10+ skills
@@ -86,13 +89,13 @@ Three principles. Built in from day one:
 
 | Feature                             | VaultysClaw | API Keys | OAuth | Traditional RBAC |
 | ----------------------------------- | ----------- | -------- | ----- | ---------------- |
-| Non-transferable identity           | ✅           | ❌        | ⚠️     | ❌                |
-| Deny-by-default permissions         | ✅           | ❌        | ❌     | ⚠️                |
-| Cryptographic proof of who-did-what | ✅           | ❌        | ✅     | ❌                |
-| Policy-driven (not code-driven)     | ✅           | ❌        | ❌     | ⚠️                |
-| Sub-agent isolation                 | ✅           | ❌        | ❌     | ⚠️                |
-| Real-time approval workflows        | ✅           | ❌        | ❌     | ❌                |
-| Open-source, self-hosted            | ✅           | ⚠️        | ⚠️     | ✅                |
+| Non-transferable identity           | ✅          | ❌       | ⚠️    | ❌               |
+| Deny-by-default permissions         | ✅          | ❌       | ❌    | ⚠️               |
+| Cryptographic proof of who-did-what | ✅          | ❌       | ✅    | ❌               |
+| Policy-driven (not code-driven)     | ✅          | ❌       | ❌    | ⚠️               |
+| Sub-agent isolation                 | ✅          | ❌       | ❌    | ⚠️               |
+| Real-time approval workflows        | ✅          | ❌       | ❌    | ❌               |
+| Open-source, self-hosted            | ✅          | ⚠️       | ⚠️    | ✅               |
 
 ---
 
@@ -103,7 +106,7 @@ Three principles. Built in from day one:
 pnpm dev
 
 # ✓ Control plane UI at http://localhost:3000
-# ✓ Agent web dashboard at http://localhost:3002  
+# ✓ Agent web dashboard at http://localhost:3002
 # ✓ WebSocket server ready at ws://localhost:8080
 # ✓ Passwordless QR-code login (no passwords!)
 
@@ -116,30 +119,34 @@ pnpm dev
 ## Key Features
 
 ### 🔐 Zero Trust Foundation
+
 - **VaultysId**: Each agent & user gets a unique, cryptographically-rooted identity (like a passport, not a password)
 - **Signed Intents**: All agent work is cryptographically signed; no one can deny what they did
 - **Policy Engine**: Express complex rules without touching code: `"allow read_database if time >= 9am AND time <= 5pm AND day != weekend"`
-- **Capabilities, Not Credentials**: Agents are granted *capabilities* (e.g., "can read customer DB"), not raw API keys
+- **Capabilities, Not Credentials**: Agents are granted _capabilities_ (e.g., "can read customer DB"), not raw API keys
 
 ### 🎛️ Governance Out of the Box
-- **Realms**: Multi-tenant namespaces for teams, departments, or customers  
-- **Token Budgets**: Daily/monthly spend limits per agent and realm with real-time tracking  
-- **Approval Workflows**: Visual editor for routing high-risk intents to humans first  
-- **Governance Dashboard**: Real-time posture view—agent coverage, policy violations, budget spend, risk score  
-- **Audit Trail**: Every operation (who, what, when, why) with cryptographic proof  
+
+- **Realms**: Multi-tenant namespaces for teams, departments, or customers
+- **Token Budgets**: Daily/monthly spend limits per agent and realm with real-time tracking
+- **Approval Workflows**: Visual editor for routing high-risk intents to humans first
+- **Governance Dashboard**: Real-time posture view—agent coverage, policy violations, budget spend, risk score
+- **Audit Trail**: Every operation (who, what, when, why) with cryptographic proof
 
 ### 🚀 Agent Orchestration
-- **Workflow Engine**: Drag-and-drop visual editor (React Flow) with sequential/parallel execution  
-- **Skills & Tools**: 30+ built-in integrations (Slack, email, file ops, shell, HTTP, code runner, remote agents, knowledge search)  
-- **Semantic Memory**: Persistent agent memory with automatic summarization and retrieval  
-- **Multi-Agent Coordination**: Agents delegate tasks to each other via cryptographically-signed peer grants  
-- **LiteLLM Registry**: Centrally manage models; agents pick from approved roster instead of holding raw keys  
+
+- **Workflow Engine**: Drag-and-drop visual editor (React Flow) with sequential/parallel execution
+- **Skills & Tools**: 30+ built-in integrations (Slack, email, file ops, shell, HTTP, code runner, remote agents, knowledge search)
+- **Semantic Memory**: Persistent agent memory with automatic summarization and retrieval
+- **Multi-Agent Coordination**: Agents delegate tasks to each other via cryptographically-signed peer grants
+- **LiteLLM Registry**: Centrally manage models; agents pick from approved roster instead of holding raw keys
 
 ### 🔌 Enterprise Integrations
-- **Microsoft Entra ID**: Auto-sync users and groups from Azure AD  
-- **SMTP**: Configurable email notifications  
-- **Docker Compose**: Pre-built dev + production stacks  
-- **LiteLLM Proxy**: Route requests to any LLM (OpenAI, Anthropic, local models, open-source)  
+
+- **Microsoft Entra ID**: Auto-sync users and groups from Azure AD
+- **SMTP**: Configurable email notifications
+- **Docker Compose**: Pre-built dev + production stacks
+- **LiteLLM Proxy**: Route requests to any LLM (OpenAI, Anthropic, local models, open-source)
 
 ---
 
@@ -152,6 +159,7 @@ VaultysClaw was built to implement the recent [**Anthropic's "Zero Trust for AI 
 <a href="ZERO_TRUST_COMPLIANCE.md">📋 **Full Compliance Matrix & Roadmap →**</a>
 
 **Current Status**: **Foundation Tier** ✅ (Production-Ready)
+
 - ✅ Unique cryptographic identity per agent (VaultysId)
 - ✅ Deny-by-default permission model
 - ✅ Comprehensive audit logging (non-repudiable)
@@ -160,11 +168,13 @@ VaultysClaw was built to implement the recent [**Anthropic's "Zero Trust for AI 
 - ✅ Identity-based resource isolation
 
 **Compliance Readiness**:
+
 - 🏛️ **NIST SP 800-207** — Zero Trust Architecture (all three principles implemented)
 - 📋 **SOC 2, HIPAA, GDPR** — Foundation controls in place; Enterprise tier adds automation
 - 🔒 **Anthropic Framework** — 70% Foundation tier coverage; clear roadmap to Enterprise
 
 **What's Next** (Enterprise Tier Priorities):
+
 1. **Output filtering** — Prevent agents from leaking credentials/PII
 2. **Automated behavioral response** — Auto-revoke on anomaly detection
 3. **Immutable audit logs** — Cryptographically signed, tamper-evident logs
@@ -196,11 +206,12 @@ VaultysClaw was built to implement the recent [**Anthropic's "Zero Trust for AI 
 ```
 
 Each agent:
-- Holds a unique VaultysId (like a cryptographic passport)  
-- Connects to control plane over WebSocket  
-- Receives signed policy updates & intents  
-- Reports actions back for audit trail  
-- Can delegate tasks to peer agents  
+
+- Holds a unique VaultysId (like a cryptographic passport)
+- Connects to control plane over WebSocket
+- Receives signed policy updates & intents
+- Reports actions back for audit trail
+- Can delegate tasks to peer agents
 
 ---
 
@@ -234,11 +245,11 @@ Visit **http://localhost:3000** and scan the QR code to set up your first identi
 
 ## Use Cases
 
-- **Regulatory compliance**: Healthcare, finance, government agencies needing audit trails and approval workflows  
-- **Multi-team orchestration**: Engineering, sales, ops teams running agents without stepping on each other  
-- **Sensitive data handling**: Agents that touch customer data, credentials, or PII with zero-trust controls  
-- **Autonomous backends**: Replace microservices with agents; policy defines their behavior, not code  
-- **Controlled experimentation**: Test new agent behaviors with time-limited, capability-limited deployments  
+- **Regulatory compliance**: Healthcare, finance, government agencies needing audit trails and approval workflows
+- **Multi-team orchestration**: Engineering, sales, ops teams running agents without stepping on each other
+- **Sensitive data handling**: Agents that touch customer data, credentials, or PII with zero-trust controls
+- **Autonomous backends**: Replace microservices with agents; policy defines their behavior, not code
+- **Controlled experimentation**: Test new agent behaviors with time-limited, capability-limited deployments
 
 ---
 
@@ -254,17 +265,17 @@ Visit **http://localhost:3000** and scan the QR code to set up your first identi
 
 ## Resources
 
-- **[Zero Trust Compliance Matrix](ZERO_TRUST_COMPLIANCE.md)** — Full feature checklist vs. Anthropic framework  
-- **[VaultysId](https://github.com/vaultys/id)** — Decentralized identity framework  
-- **[Contributing](README.md#contributing)** — Help us harden the platform  
+- **[Zero Trust Compliance Matrix](ZERO_TRUST_COMPLIANCE.md)** — Full feature checklist vs. Anthropic framework
+- **[VaultysId](https://github.com/vaultys/id)** — Decentralized identity framework
+- **[Contributing](README.md#contributing)** — Help us harden the platform
 
 ---
 
 ## Community & Support
 
-- 💬 Discussions: Open GitHub issues  
-- 🐛 Bugs: GitHub Issues  
-- 📧 Email: dev@vaultys.com  
+- 💬 Discussions: Open GitHub issues
+- 🐛 Bugs: GitHub Issues
+- 📧 Email: dev@vaultys.com
 
 ---
 
@@ -275,39 +286,44 @@ Visit **http://localhost:3000** and scan the QR code to set up your first identi
 ## Core Features Breakdown
 
 ### 🔐 Security & Compliance
+
 - **Cryptographic Identity** — Each agent and user holds a unique, non-transferable [VaultysId](https://github.com/vaultys/id); impossible to impersonate
-- **Deny-by-Default Model** — Agents have zero permissions; capabilities are explicitly granted  
-- **Signed Intents & Policies** — Cryptographic signatures on all operations; agents reject unsigned messages  
-- **Peer Grants** — Agents can securely delegate capabilities to other agents via signed certificates  
-- **Zero Trust Ready** — Aligns with NIST SP 800-207, Anthropic's AI agent security framework  
+- **Deny-by-Default Model** — Agents have zero permissions; capabilities are explicitly granted
+- **Signed Intents & Policies** — Cryptographic signatures on all operations; agents reject unsigned messages
+- **Peer Grants** — Agents can securely delegate capabilities to other agents via signed certificates
+- **Zero Trust Ready** — Aligns with NIST SP 800-207, Anthropic's AI agent security framework
 
 ### 🎛️ Governance & Control
-- **Realms** — Multi-tenant namespaces: separate teams, departments, or customer tenants with isolated policies  
-- **Policy Engine** — Express rules without code: `"agent can read DB on weekdays 9am–5pm"`  
-- **Token Budgets** — Daily/monthly spend limits per agent and realm; real-time tracking  
-- **Approval Workflows** — Visual editor for routing high-risk intents through human approval first  
-- **Governance Dashboard** — Real-time posture: agent coverage, policy violations, risk scoring, budget spend  
+
+- **Realms** — Multi-tenant namespaces: separate teams, departments, or customer tenants with isolated policies
+- **Policy Engine** — Express rules without code: `"agent can read DB on weekdays 9am–5pm"`
+- **Token Budgets** — Daily/monthly spend limits per agent and realm; real-time tracking
+- **Approval Workflows** — Visual editor for routing high-risk intents through human approval first
+- **Governance Dashboard** — Real-time posture: agent coverage, policy violations, risk scoring, budget spend
 
 ### 🚀 Orchestration & Integration
-- **Workflow Engine** — React Flow visual editor with sequential/parallel execution, loops, and human approval steps  
-- **Skills & Tools** — 30+ built-in integrations: file ops, shell, HTTP, code runner, remote agents, knowledge search, Slack, email  
-- **Agent Memory** — Persistent semantic memory with auto-summarization; agents learn from past interactions  
-- **LiteLLM Registry** — Centrally manage any LLM (OpenAI, Anthropic, Llama, local models) with per-realm access  
-- **Entra ID Sync** — Auto-pull users and groups from Azure AD; groups map to realms automatically  
-- **Multi-Agent Coordination** — Agents communicate and delegate via cryptographically-signed peer grants  
+
+- **Workflow Engine** — React Flow visual editor with sequential/parallel execution, loops, and human approval steps
+- **Skills & Tools** — 30+ built-in integrations: file ops, shell, HTTP, code runner, remote agents, knowledge search, Slack, email
+- **Agent Memory** — Persistent semantic memory with auto-summarization; agents learn from past interactions
+- **LiteLLM Registry** — Centrally manage any LLM (OpenAI, Anthropic, Llama, local models) with per-realm access
+- **Entra ID Sync** — Auto-pull users and groups from Azure AD; groups map to realms automatically
+- **Multi-Agent Coordination** — Agents communicate and delegate via cryptographically-signed peer grants
 
 ### 🏗️ Developer Experience
-- **Monorepo Stack** — pnpm workspaces + Turborepo; one `pnpm dev` boots everything  
-- **Multiple UIs** — Web dashboard (React/Vite) or terminal dashboard (Ink TUI) for agent control  
-- **Type-Safe APIs** — Standardized response types and validation across all endpoints  
-- **30+ Built-in Tools** — No need to write glue code for common tasks  
-- **Docker Compose** — Pre-configured dev and production stacks  
+
+- **Monorepo Stack** — pnpm workspaces + Turborepo; one `pnpm dev` boots everything
+- **Multiple UIs** — Web dashboard (React/Vite) or terminal dashboard (Ink TUI) for agent control
+- **Type-Safe APIs** — Standardized response types and validation across all endpoints
+- **30+ Built-in Tools** — No need to write glue code for common tasks
+- **Docker Compose** — Pre-configured dev and production stacks
 
 ---
 
 ## Recent Improvements (May 2026)
 
 ### Code Quality & Maintainability
+
 - **Shared utilities library** — Centralized formatting, colors, and error handling utilities to eliminate duplication
 - **Reusable UI components** — Avatar, Badge, and Modal components in shared library for consistent UI
 - **API type safety** — Standardized response types and query parameter schemas for all endpoints
@@ -316,16 +332,18 @@ Visit **http://localhost:3000** and scan the QR code to set up your first identi
 - **Build system fixes** — Fixed Mastra v1.35.0 compatibility issues in agent-controller
 
 ### Developer Experience
+
 - New npm scripts for common workflows (`pnpm agent:web`, `pnpm agent:tui`, `pnpm test:ui`)
 - Test UI dashboard for interactive test running
 - Improved error messages and validation
 
 ### Architecture Improvements
+
 - Reduced code duplication by ~30% through utility extraction
 - Consistent patterns across control plane and agent controller
 - Better type safety with centralized type definitions
 - Faster TypeScript compilation through reduced duplication
-  
+
 ---
 
 ## Quick Start
@@ -341,19 +359,21 @@ pnpm dev
 
 That's it. In 30 seconds:
 
-| Service                | URL                   | What                                |
-| ---------------------- | --------------------- | ----------------------------------- |
+| Service                 | URL                   | What                                |
+| ----------------------- | --------------------- | ----------------------------------- |
 | 🎛️ **Control Plane**    | http://localhost:3000 | Dashboard, policies, audit logs     |
 | 🤖 **Agent Dashboard**  | http://localhost:3002 | Real-time agent monitoring          |
 | 🔗 **WebSocket Server** | ws://localhost:8080   | Agent ↔ Control plane communication |
 
 **First Steps:**
+
 1. Visit http://localhost:3000
 2. Scan the QR code to create your identity (passwordless, via VaultysId app)
 3. Deploy an agent in the dashboard
 4. Watch it execute tasks with cryptographically-signed audit trail
 
 **Try it in 5 minutes:**
+
 ```bash
 # In a second terminal, spawn 3 agents automatically on your machine
 pnpm agent:spawn 3
@@ -371,7 +391,7 @@ pnpm agent:spawn 3
 ✅ **Audit everything** — Every action tied to agent identity; non-repudiable proof  
 ✅ **Approval workflows** — Route high-stakes decisions through humans  
 ✅ **Token budgets** — Spend limits prevent runaway costs  
-✅ **30+ tools built-in** — File ops, shell, HTTP, code runner, remote agents, knowledge search  
+✅ **30+ tools built-in** — File ops, shell, HTTP, code runner, remote agents, knowledge search
 
 No plugins to install. No keys to manage. No shared credentials. Just deploy and govern.
 
@@ -438,14 +458,16 @@ VaultysClaw/
 ```
 
 ### Shared Package (`@vaultysclaw/shared`)
+
 - **Types**: Core domain types for agents, users, policies, workflows, intents, realms
-- **Utilities**: 
+- **Utilities**:
   - Formatting: `fmtUptime()`, `formatTime()`, `getInitials()`, `shortDid()`
   - Colors: Status and log-level color mappings for terminal/UI
 - **Errors**: Centralized error classes (`LlmNotConfiguredError`, `ValidationError`, etc.)
 - Used by both control plane and agent controller
 
 ### Control Plane (`@vaultysclaw/control-plane`)
+
 - **Next.js** App Router + Tailwind CSS dashboard
 - **VaultysId** — passwordless QR-code authentication; no passwords stored
 - **WebSocket server** (port 8080) — real-time agent heartbeats, intent dispatch, admin push
@@ -461,6 +483,7 @@ VaultysClaw/
 - **Standardized APIs** — All responses use consistent `ListResponse`, `ErrorResponse` types with pagination
 
 ### Agent Controller (`@vaultysclaw/agent-controller`)
+
 - Lightweight Node.js service; optional Bun runtime for SQLite shim
 - Connects to the control plane via a persistent WebSocket
 - **Web UI** (port 3002) — React/Vite app with Chat, Runs, and Overview panels
@@ -475,6 +498,7 @@ VaultysClaw/
 - **LLM support** — local models, OpenAI, Anthropic, or any OpenAI-compatible endpoint (via Mastra)
 
 ### Security Layer
+
 - VaultysId for non-transferable, decentralized identity (users and agents)
 - Passwordless authentication via QR code + VaultysId mobile app
 - Certificate-based delegation (`delegation_certs` table)
@@ -484,12 +508,14 @@ VaultysClaw/
 - Activity log — server-side audit of all admin operations
 
 ### Knowledge & Memory System
+
 - File ingestion for building knowledge bases
 - Semantic search with vector embeddings
 - Conversation memory with automatic summarization
 - Multi-agent knowledge sharing through peer tools
 
 ### Code Organization
+
 - **Shared utilities** (`@vaultysclaw/shared`) — formatting, colors, error handling
 - **Reusable components** (`components/shared/`) — Avatar, Badge, Modal
 - **Type-safe APIs** (`lib/api-types.ts`) — standardized request/response formats
@@ -501,6 +527,7 @@ VaultysClaw/
 ## Configuration
 
 ### Control Plane
+
 ```env
 PORT=3000
 WS_PORT=8080
@@ -526,6 +553,7 @@ LITELLM_MASTER_KEY=<master-key>
 ```
 
 ### Agent Controller
+
 ```env
 AGENT_NAME=agent-1
 CONTROL_PLANE_URL=http://localhost:3000
@@ -545,6 +573,7 @@ VAULTYS_ID_PATH=./.vaultys/agent.id       # or AGENT_VAULTYS_ID_PATH
 ## Development
 
 ### Quick Start
+
 ```bash
 # Start everything (control plane + agent controller)
 pnpm dev
@@ -555,6 +584,7 @@ pnpm dev
 ```
 
 ### Available Commands
+
 ```bash
 # -- Development --
 pnpm vaultysclaw:dev          # Control plane only
@@ -586,6 +616,7 @@ pnpm clean                    # Remove build artifacts and node_modules
 ```
 
 ### Target Single Package
+
 ```bash
 pnpm dev --filter @vaultysclaw/control-plane
 pnpm dev --filter @vaultysclaw/agent-controller
@@ -593,6 +624,7 @@ pnpm build --filter @vaultysclaw/shared
 ```
 
 ### Docker
+
 ```bash
 # Full stack with LiteLLM
 docker compose -f docker-compose.litellm.yml up
@@ -602,6 +634,7 @@ docker compose -f docker-compose.test.yml up
 ```
 
 ### Environment Setup
+
 Each package can have its own `.env` file. See [Configuration](#configuration) above for details.
 
 ---
@@ -611,24 +644,27 @@ Each package can have its own `.env` file. See [Configuration](#configuration) a
 VaultysClaw doesn't bolt security on afterward—it's the foundation. Built on three Zero Trust principles:
 
 ### 1️⃣ Never Trust, Always Verify
+
 - Every intent is cryptographically signed by the agent that created it
 - Control plane verifies signature before accepting any work
 - Agents verify that policies are signed by control plane before obeying them
 - Peer-to-peer agent calls are cryptographically verified
 
 ### 2️⃣ Assume Breach
-- Agents are assumed compromised; policies define what they *can't* do
+
+- Agents are assumed compromised; policies define what they _can't_ do
 - One compromised agent ≠ full breach; its blast radius is constrained by policy
 - Revoke access in milliseconds; no waiting for certificates to expire
 - Credentials are per-agent; breach of one doesn't compromise others
 
 ### 3️⃣ Verify Every Access
+
 - Identity: Each agent has a unique, non-transferable VaultysId (impossible to impersonate)
 - Authentication: Passwordless QR-code login; no passwords stored
 - Authorization: Every action checked against policies before execution
 - Audit: Full trail—who, what, when, why—cryptographically signed
 
-**Result**: Non-repudiation. You *know* who did what and can prove it.
+**Result**: Non-repudiation. You _know_ who did what and can prove it.
 
 ---
 
@@ -649,7 +685,9 @@ VaultysClaw doesn't bolt security on afterward—it's the foundation. Built on t
 Guided by **[Anthropic's "Zero Trust for AI Agents" framework](https://claude.com/blog/zero-trust-for-ai-agents)**. See **[ZERO_TRUST_COMPLIANCE.md](ZERO_TRUST_COMPLIANCE.md)** for detailed feature matrix, gap analysis, and priority quick wins.
 
 ### Phase 1 — Foundation ✅ **COMPLETE**
+
 Zero Trust principles implemented; production-ready for most deployments.
+
 - [x] Cryptographic identity (VaultysId) per agent & user
 - [x] Deny-by-default permission model
 - [x] Signed intents and policies
@@ -658,7 +696,9 @@ Zero Trust principles implemented; production-ready for most deployments.
 - [x] Monorepo (pnpm + Turborepo), full-stack development
 
 ### Phase 2 — Security & Identity ✅ **COMPLETE**
+
 Enterprise security controls implemented.
+
 - [x] Peer grant verification (agent-to-agent delegation)
 - [x] Policy engine (expression-based rules)
 - [x] Intent log + activity log (full audit)
@@ -666,7 +706,9 @@ Enterprise security controls implemented.
 - [x] Token lifecycle management
 
 ### Phase 3 — Orchestration ✅ **COMPLETE**
+
 Workflow automation and multi-agent coordination.
+
 - [x] Visual workflow editor (React Flow)
 - [x] Sequential/parallel execution
 - [x] Human-in-the-loop approval steps
@@ -676,7 +718,9 @@ Workflow automation and multi-agent coordination.
 - [x] Conditional branches (basic)
 
 ### Phase 4 — Enterprise Integration 🟡 **IN PROGRESS**
+
 Governance, compliance, and scale.
+
 - [x] LiteLLM model registry with realm isolation
 - [x] Microsoft Entra ID (Azure AD) sync
 - [x] Token budgets & spend tracking
@@ -692,7 +736,9 @@ Governance, compliance, and scale.
 - [ ] Advanced anomaly detection
 
 ### Phase 5 — Advanced & Documentation 🔲 **PLANNED**
+
 Enterprise hardening, SaaS option, community growth.
+
 - [ ] ML-based behavioral analysis
 - [ ] Container isolation per agent
 - [ ] Hardware isolation (confidential computing)
@@ -707,17 +753,20 @@ Enterprise hardening, SaaS option, community growth.
 ## What We Need (How You Can Help)
 
 ### 🌟 Help Us Grow
+
 - **Star the repo** — Signals to the community that this matters
 - **Share your use case** — Tell us how you're using VaultysClaw (issues, discussions, Twitter)
 - **Feedback on governance** — What policies would you need for your organization?
 
 ### 🔐 Security Hardening
+
 - **Penetration testing** — Find vulnerabilities in the Zero Trust model
 - **Output filtering** — Implement pattern-based detection of leaking credentials/PII
 - **Behavioral detection** — ML models for anomaly detection
 - **Code audit** — Security-focused review of core modules
 
 ### 🛠️ Quick Wins (1–5 days each)
+
 1. **Output filtering MVP** — Regex-based secret detection before results returned
 2. **Baseline establishment** — Document expected agent behavior profiles
 3. **Configuration versioning** — Store policy snapshots for rollback
@@ -725,18 +774,21 @@ Enterprise hardening, SaaS option, community growth.
 5. **Audit trail enhancement** — Immutable logging with tamper detection
 
 ### 📚 Documentation & Examples
+
 - **Compliance guides** — HIPAA, GDPR, SOC 2, FedRAMP checklists
 - **Video tutorials** — Setup, deployment, policy writing
 - **Community examples** — Slack bot, email agent, data pipeline agents
 - **API reference** — Full endpoint documentation
 
 ### 🚀 Advanced Features
+
 - **ABAC (Attribute-Based Access Control)** — Time, location, risk-score-aware policies
 - **Distributed tracing** — OpenTelemetry integration for multi-agent workflows
 - **Container isolation** — Run agents in per-realm Docker containers
 - **Hardware isolation** — Confidential computing support (AMD SEV, Intel TDX)
 
 **Guidelines**
+
 - Open an issue before starting significant work
 - Follow patterns in [REFACTORING_SUMMARY.md](REFACTORING_SUMMARY.md)
 - Add tests for new functionality
@@ -747,20 +799,22 @@ Enterprise hardening, SaaS option, community growth.
 
 ## Join the Community
 
-- 💬 **Discussions**: GitHub Issues & Discussions  
-- 🐛 **Report bugs**: GitHub Issues  
-- 📧 **Email**: dev@vaultys.com 
+- 💬 **Discussions**: GitHub Issues & Discussions
+- 🐛 **Report bugs**: GitHub Issues
+- 📧 **Email**: dev@vaultys.com
 
 ---
 
 ## Acknowledgments
 
 **Core inspiration & frameworks:**
+
 - [**Anthropic's "Zero Trust for AI Agents"**](https://claude.com/blog/zero-trust-for-ai-agents) — The security architecture guiding this project
 - [NIST SP 800-207](https://csrc.nist.gov/publications/detail/sp/800-207/final) — Zero Trust Architecture principles
 - [VaultysId](https://github.com/vaultys/id) — Decentralized, non-transferable identity
 
 **Built with:**
+
 - Next.js, React, TypeScript (control plane UI)
 - Node.js, Mastra (agent runtime)
 - Turborepo, pnpm (monorepo orchestration)

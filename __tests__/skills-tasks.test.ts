@@ -13,16 +13,20 @@ import * as path from "node:path";
 // ---------------------------------------------------------------------------
 
 describe("SkillRegistry", async () => {
-  const { createSkillRegistry } = await import(
-    "../packages/agent-controller/src/skills/registry"
-  );
+  const { createSkillRegistry } =
+    await import("../packages/agent-controller/src/skills/registry");
 
   const mockSkill1 = {
     name: "test-skill-a",
     description: "First test skill",
     version: "1.0.0",
     tools: [
-      { name: "tool_a1", capability: "api_call" as const, requiresApproval: false, tool: {} as any },
+      {
+        name: "tool_a1",
+        capability: "api_call" as const,
+        requiresApproval: false,
+        tool: {} as any,
+      },
     ],
     systemPromptExtension: "Use tool_a1 for A.",
   };
@@ -32,8 +36,18 @@ describe("SkillRegistry", async () => {
     description: "Second test skill",
     version: "2.0.0",
     tools: [
-      { name: "tool_b1", capability: "code_execution" as const, requiresApproval: true, tool: {} as any },
-      { name: "tool_b2", capability: "file_access" as const, requiresApproval: false, tool: {} as any },
+      {
+        name: "tool_b1",
+        capability: "code_execution" as const,
+        requiresApproval: true,
+        tool: {} as any,
+      },
+      {
+        name: "tool_b2",
+        capability: "file_access" as const,
+        requiresApproval: false,
+        tool: {} as any,
+      },
     ],
   };
 
@@ -80,9 +94,8 @@ describe("SkillRegistry", async () => {
 // ---------------------------------------------------------------------------
 
 describe("SkillLoader", async () => {
-  const { SkillLoader } = await import(
-    "../packages/agent-controller/src/skills/loader"
-  );
+  const { SkillLoader } =
+    await import("../packages/agent-controller/src/skills/loader");
 
   let tmpDir: string;
 
@@ -154,9 +167,8 @@ export const skill = {
 // ---------------------------------------------------------------------------
 
 describe("Cron parser", async () => {
-  const { parseCron, nextCronRun } = await import(
-    "../packages/agent-controller/src/scheduler"
-  );
+  const { parseCron, nextCronRun } =
+    await import("../packages/agent-controller/src/scheduler");
 
   it("parses wildcard expression", () => {
     const fields = parseCron("* * * * *");
@@ -237,12 +249,15 @@ describe("Cron parser", async () => {
 
 describe("TaskQueue", async () => {
   const dbModule = await import("../packages/agent-controller/src/db");
-  const { TaskQueue } = await import("../packages/agent-controller/src/task-queue");
+  const { TaskQueue } =
+    await import("../packages/agent-controller/src/task-queue");
 
   let tmpDir: string;
 
   beforeEach(() => {
-    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "vaultysclaw-taskqueue-test-"));
+    tmpDir = fs.mkdtempSync(
+      path.join(os.tmpdir(), "vaultysclaw-taskqueue-test-")
+    );
     dbModule.initDb(tmpDir);
   });
 
@@ -274,10 +289,13 @@ describe("TaskQueue", async () => {
 
   it("executes task and marks as success", async () => {
     const results: string[] = [];
-    const queue = new TaskQueue(async (action) => {
-      results.push(action);
-      return { done: true };
-    }, { pollIntervalMs: 50 });
+    const queue = new TaskQueue(
+      async (action) => {
+        results.push(action);
+        return { done: true };
+      },
+      { pollIntervalMs: 50 }
+    );
 
     const id = queue.enqueue("my_action", {});
     queue.start();
@@ -302,7 +320,7 @@ describe("TaskQueue", async () => {
         attempts.push(attemptCount);
         throw new Error("always fails");
       },
-      { pollIntervalMs: 50, retryBaseDelayMs: 10 },
+      { pollIntervalMs: 50, retryBaseDelayMs: 10 }
     );
 
     const id = queue.enqueue("failing_action", {}, { maxRetries: 2 });
@@ -321,8 +339,11 @@ describe("TaskQueue", async () => {
   it("defers task scheduled in the future", async () => {
     const results: string[] = [];
     const queue = new TaskQueue(
-      async (action) => { results.push(action); return null; },
-      { pollIntervalMs: 50 },
+      async (action) => {
+        results.push(action);
+        return null;
+      },
+      { pollIntervalMs: 50 }
     );
 
     const futureDate = new Date(Date.now() + 60_000).toISOString();
@@ -350,13 +371,17 @@ describe("TaskQueue", async () => {
 
 describe("Scheduler", async () => {
   const dbModule = await import("../packages/agent-controller/src/db");
-  const { TaskQueue } = await import("../packages/agent-controller/src/task-queue");
-  const { Scheduler } = await import("../packages/agent-controller/src/scheduler");
+  const { TaskQueue } =
+    await import("../packages/agent-controller/src/task-queue");
+  const { Scheduler } =
+    await import("../packages/agent-controller/src/scheduler");
 
   let tmpDir: string;
 
   beforeEach(() => {
-    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "vaultysclaw-scheduler-test-"));
+    tmpDir = fs.mkdtempSync(
+      path.join(os.tmpdir(), "vaultysclaw-scheduler-test-")
+    );
     dbModule.initDb(tmpDir);
   });
 
@@ -402,8 +427,11 @@ describe("Scheduler", async () => {
   it("fires overdue schedules on poll", async () => {
     const enqueued: string[] = [];
     const queue = new TaskQueue(
-      async (action) => { enqueued.push(action); return null; },
-      { pollIntervalMs: 50 },
+      async (action) => {
+        enqueued.push(action);
+        return null;
+      },
+      { pollIntervalMs: 50 }
     );
     queue.start();
 

@@ -120,18 +120,21 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   const wf = getWorkflow(id);
   if (!wf) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const body = await req.json() as { cron?: string; enabled?: boolean };
+  const body = (await req.json()) as { cron?: string; enabled?: boolean };
   const cron = body.cron ?? null;
   const enabled = body.enabled !== false; // default true when setting
 
   if (cron) {
     // Validate cron has 5 fields
     if (cron.trim().split(/\s+/).length !== 5) {
-      return NextResponse.json({ error: "Invalid cron expression (expected 5 fields)" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Invalid cron expression (expected 5 fields)" },
+        { status: 400 }
+      );
     }
   }
 
-  const nextRun = cron ? nextCronRun(cron)?.toISOString() ?? null : null;
+  const nextRun = cron ? (nextCronRun(cron)?.toISOString() ?? null) : null;
   setWorkflowSchedule(id, cron, enabled, nextRun);
 
   return NextResponse.json({

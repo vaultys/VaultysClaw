@@ -5,7 +5,8 @@ export type Theme = "light" | "dark" | "system";
 function resolveAndApply(t: Theme) {
   const isDark =
     t === "dark" ||
-    (t === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+    (t === "system" &&
+      window.matchMedia("(prefers-color-scheme: dark)").matches);
   document.documentElement.classList.toggle("dark", isDark);
 }
 
@@ -15,7 +16,7 @@ export function initTheme() {
 
 export function useTheme() {
   const [theme, setThemeState] = useState<Theme>(
-    () => (localStorage.getItem("theme") as Theme) ?? "system",
+    () => (localStorage.getItem("theme") as Theme) ?? "system"
   );
 
   useEffect(() => {

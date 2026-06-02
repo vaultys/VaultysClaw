@@ -63,7 +63,7 @@ import type { AgentCapability } from "@vaultysclaw/shared";
  */
 export async function GET(
   _req: NextRequest,
-  { params }: { params: Promise<{ did: string }> },
+  { params }: { params: Promise<{ did: string }> }
 ) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.isAdmin) {
@@ -72,7 +72,8 @@ export async function GET(
 
   const { did } = await params;
   const user = UserDao.getByDid(did);
-  if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
+  if (!user)
+    return NextResponse.json({ error: "User not found" }, { status: 404 });
 
   const grants = GrantDao.listByUser(did).map((g) => ({
     id: g.id,
@@ -155,7 +156,7 @@ export async function GET(
  */
 export async function POST(
   req: NextRequest,
-  { params }: { params: Promise<{ did: string }> },
+  { params }: { params: Promise<{ did: string }> }
 ) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.isAdmin) {
@@ -164,16 +165,20 @@ export async function POST(
 
   const { did } = await params;
   const user = UserDao.getByDid(did);
-  if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
+  if (!user)
+    return NextResponse.json({ error: "User not found" }, { status: 404 });
 
-  const body = await req.json() as {
+  const body = (await req.json()) as {
     agentDid?: string | null;
     capabilities: AgentCapability[];
     expiresAt?: string;
   };
 
   if (!Array.isArray(body.capabilities) || body.capabilities.length === 0) {
-    return NextResponse.json({ error: "capabilities must be a non-empty array" }, { status: 400 });
+    return NextResponse.json(
+      { error: "capabilities must be a non-empty array" },
+      { status: 400 }
+    );
   }
 
   const expiresAt = body.expiresAt ? new Date(body.expiresAt) : undefined;
@@ -194,7 +199,7 @@ export async function POST(
     did,
     effectiveAgentDid,
     body.capabilities,
-    expiresAt,
+    expiresAt
   );
 
   DelegationDao.create({
@@ -217,14 +222,17 @@ export async function POST(
     }
   }
 
-  return NextResponse.json({
-    grant: {
-      id: grant.id,
-      agentDid: grant.agent_did,
-      capabilities: JSON.parse(grant.capabilities) as string[],
-      grantedBy: grant.granted_by,
-      expiresAt: grant.expires_at,
-      createdAt: grant.created_at,
+  return NextResponse.json(
+    {
+      grant: {
+        id: grant.id,
+        agentDid: grant.agent_did,
+        capabilities: JSON.parse(grant.capabilities) as string[],
+        grantedBy: grant.granted_by,
+        expiresAt: grant.expires_at,
+        createdAt: grant.created_at,
+      },
     },
-  }, { status: 201 });
+    { status: 201 }
+  );
 }

@@ -1,7 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getAuthContext, unauthorized, forbidden } from '@/lib/auth-utils';
-import { getStorageConfig, getSetting } from '@/lib/db';
-import { decryptSecret } from '@/lib/vault';
+import { NextRequest, NextResponse } from "next/server";
+import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
+import { getStorageConfig, getSetting } from "@/lib/db";
+import { decryptSecret } from "@/lib/vault";
 
 // POST /api/settings/storage/test
 // Body fields are optional — omit any to fall back to the saved (DB) config.
@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
 
-  const body = await request.json() as {
+  const body = (await request.json()) as {
     region?: string;
     bucket?: string;
     endpoint?: string;
@@ -69,31 +69,38 @@ export async function POST(request: NextRequest) {
 
   const saved = await getStorageConfig();
 
-  const region = body.region?.trim() || saved.s3Region || 'us-east-1';
+  const region = body.region?.trim() || saved.s3Region || "us-east-1";
   const bucket = body.bucket?.trim() || saved.s3Bucket;
   const endpoint = body.endpoint?.trim() || saved.s3Endpoint || undefined;
-  const accessKeyId = body.accessKeyId?.trim() || saved.s3AccessKeyId || '';
+  const accessKeyId = body.accessKeyId?.trim() || saved.s3AccessKeyId || "";
 
   // Secret key is never returned by GET — accept from body or decrypt from DB
-  let secretAccessKey = body.secretAccessKey ?? '';
+  let secretAccessKey = body.secretAccessKey ?? "";
   if (!secretAccessKey) {
-    const enc = getSetting('s3_secret_access_key_enc');
+    const enc = getSetting("s3_secret_access_key_enc");
     if (enc) {
-      try { secretAccessKey = await decryptSecret(enc); } catch { /* will fail below */ }
+      try {
+        secretAccessKey = await decryptSecret(enc);
+      } catch {
+        /* will fail below */
+      }
     }
   }
 
   if (!bucket || !accessKeyId || !secretAccessKey) {
     return NextResponse.json(
-      { ok: false, error: 'bucket, accessKeyId and secretAccessKey are required' },
-      { status: 400 },
+      {
+        ok: false,
+        error: "bucket, accessKeyId and secretAccessKey are required",
+      },
+      { status: 400 }
     );
   }
 
   const start = Date.now();
   try {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { S3Client, HeadBucketCommand } = require('@aws-sdk/client-s3');
+    const { S3Client, HeadBucketCommand } = require("@aws-sdk/client-s3");
 
     const s3Cfg: Record<string, unknown> = {
       region,
@@ -107,7 +114,12 @@ export async function POST(request: NextRequest) {
     const client = new S3Client(s3Cfg);
     await client.send(new HeadBucketCommand({ Bucket: bucket }));
 
-    return NextResponse.json({ ok: true, latency: Date.now() - start, bucket, region });
+    return NextResponse.json({
+      ok: true,
+      latency: Date.now() - start,
+      bucket,
+      region,
+    });
   } catch (err: any) {
     const latency = Date.now() - start;
     const status = err.$metadata?.httpStatusCode;
@@ -115,15 +127,24 @@ export async function POST(request: NextRequest) {
     // 403 → credentials are valid but missing s3:HeadBucket permission
     if (status === 403) {
       return NextResponse.json({
-        ok: false, latency,
-        error: 'Connected but access denied — check bucket permissions',
+        ok: false,
+        latency,
+        error: "Connected but access denied — check bucket permissions",
       });
     }
     // 404 → credentials valid, bucket missing
     if (status === 404) {
-      return NextResponse.json({ ok: false, latency, error: `Bucket "${bucket}" not found` });
+      return NextResponse.json({
+        ok: false,
+        latency,
+        error: `Bucket "${bucket}" not found`,
+      });
     }
 
-    return NextResponse.json({ ok: false, latency, error: err.message ?? String(err) });
+    return NextResponse.json({
+      ok: false,
+      latency,
+      error: err.message ?? String(err),
+    });
   }
 }

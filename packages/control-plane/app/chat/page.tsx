@@ -340,7 +340,7 @@ export default function ChatPage() {
                     a: ({ children, href }) => (
                       <a
                         href={href}
-                        className="text-blue-700 dark:text-blue-400 underline hover:text-blue-300"
+                        className="text-primary-700 dark:text-primary-400 underline hover:text-primary-300"
                         target="_blank"
                         rel="noopener noreferrer"
                       >
@@ -492,8 +492,8 @@ function ChatToolApprovalCard({
     approval.status === "approved" || approval.status === "rejected";
   const isSubmitting = approval.status === "submitting";
   return (
-    <div className="mx-auto max-w-[70%] rounded-xl border border-amber-500/30 bg-amber-950/20 p-3 text-sm">
-      <p className="text-xs font-medium text-amber-400 mb-2">
+    <div className="mx-auto max-w-[70%] rounded-xl border border-warning-500/30 bg-warning-950/20 p-3 text-sm">
+      <p className="text-xs font-medium text-warning-400 mb-2">
         Tool approval required:{" "}
         <span className="font-mono">{approval.toolName}</span>
       </p>
@@ -509,8 +509,8 @@ function ChatToolApprovalCard({
         <span
           className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ${
             approval.status === "approved"
-              ? "bg-emerald-950/40 text-emerald-400 border border-emerald-500/30"
-              : "bg-red-950/40 text-red-400 border border-red-500/30"
+              ? "bg-success-950/40 text-success-400 border border-success-500/30"
+              : "bg-danger-950/40 text-danger-400 border border-danger-500/30"
           }`}
         >
           {approval.status === "approved" ? (
@@ -525,7 +525,7 @@ function ChatToolApprovalCard({
           <button
             disabled={isSubmitting}
             onClick={() => onRespond(true)}
-            className="flex items-center gap-1 px-3 py-1 text-xs rounded-lg bg-emerald-600 text-white hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="flex items-center gap-1 px-3 py-1 text-xs rounded-lg bg-success-600 text-white hover:bg-success-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             {isSubmitting ? (
               <Loader2 size={11} className="animate-spin" />
@@ -537,7 +537,7 @@ function ChatToolApprovalCard({
           <button
             disabled={isSubmitting}
             onClick={() => onRespond(false)}
-            className="flex items-center gap-1 px-3 py-1 text-xs rounded-lg bg-red-700 text-white hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="flex items-center gap-1 px-3 py-1 text-xs rounded-lg bg-danger-700 text-white hover:bg-danger-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             {isSubmitting ? (
               <Loader2 size={11} className="animate-spin" />
@@ -561,14 +561,14 @@ function ChatErrorBanner({
 }) {
   if (code === "llm_unavailable") {
     return (
-      <div className="flex items-start gap-3 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 text-amber-700 dark:text-amber-300 rounded-lg px-4 py-3 text-sm">
+      <div className="flex items-start gap-3 bg-warning-50 dark:bg-warning-500/10 border border-warning-200 dark:border-warning-500/30 text-warning-700 dark:text-warning-300 rounded-lg px-4 py-3 text-sm">
         <WifiOff size={15} className="mt-0.5 shrink-0" />
         <div className="min-w-0">
           <p className="font-medium">LLM provider unreachable</p>
-          <p className="text-xs text-amber-700 dark:text-amber-400/80 mt-0.5 break-words">
+          <p className="text-xs text-warning-700 dark:text-warning-400/80 mt-0.5 break-words">
             {message}
           </p>
-          <p className="text-xs text-amber-700 dark:text-amber-400/60 mt-1">
+          <p className="text-xs text-warning-700 dark:text-warning-400/60 mt-1">
             Go to the agent&#39;s <strong>LLM Config</strong> tab to update the
             provider settings.
           </p>

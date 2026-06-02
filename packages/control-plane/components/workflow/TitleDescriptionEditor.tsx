@@ -5,7 +5,14 @@ import { Edit2, Check, X } from "lucide-react";
 import { useWorkflowStore } from "./store";
 
 export const TitleDescriptionEditor: React.FC = () => {
-  const { workflowName, workflowDescription, workflowId, workflowRealmId, setWorkflow, definition } = useWorkflowStore();
+  const {
+    workflowName,
+    workflowDescription,
+    workflowId,
+    workflowRealmId,
+    setWorkflow,
+    definition,
+  } = useWorkflowStore();
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState(workflowName);
   const [editDescription, setEditDescription] = useState(workflowDescription);
@@ -28,7 +35,13 @@ export const TitleDescriptionEditor: React.FC = () => {
         });
         if (!res.ok) throw new Error("Failed to update workflow");
       }
-      setWorkflow(workflowId || "temp", editName, editDescription, definition, workflowRealmId);
+      setWorkflow(
+        workflowId || "temp",
+        editName,
+        editDescription,
+        definition,
+        workflowRealmId
+      );
       setIsEditing(false);
     } catch (err) {
       console.error("Failed to save workflow metadata:", err);
@@ -65,7 +78,7 @@ export const TitleDescriptionEditor: React.FC = () => {
           <button
             onClick={handleSave}
             disabled={isSaving}
-            className="flex items-center gap-1 px-3 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50"
+            className="flex items-center gap-1 px-3 py-1 text-xs bg-success-600 text-white rounded hover:bg-success-700 disabled:opacity-50"
           >
             <Check size={14} /> Save
           </button>
@@ -84,7 +97,11 @@ export const TitleDescriptionEditor: React.FC = () => {
     <div className="flex-1 px-4 py-3 flex items-start justify-between">
       <div>
         <h1 className="text-lg font-bold text-foreground">{workflowName}</h1>
-        {workflowDescription && <p className="text-sm text-foreground-500 mt-1">{workflowDescription}</p>}
+        {workflowDescription && (
+          <p className="text-sm text-foreground-500 mt-1">
+            {workflowDescription}
+          </p>
+        )}
       </div>
       <button
         onClick={() => setIsEditing(true)}

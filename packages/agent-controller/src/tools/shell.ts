@@ -15,7 +15,7 @@ import { execFile } from "child_process";
 import type { AgentToolDefinition } from "./types";
 
 const MAX_OUTPUT_BYTES = 64 * 1024; // 64 KB
-const DEFAULT_TIMEOUT_MS = 30_000;  // 30 seconds
+const DEFAULT_TIMEOUT_MS = 30_000; // 30 seconds
 
 function truncate(s: string, max: number): string {
   if (Buffer.byteLength(s) <= max) return s;
@@ -44,44 +44,52 @@ export const shellTool: AgentToolDefinition = {
       cwd: z
         .string()
         .optional()
-        .describe("Working directory for the command. Defaults to the agent's cwd."),
+        .describe(
+          "Working directory for the command. Defaults to the agent's cwd."
+        ),
       timeoutMs: z
         .number()
         .default(DEFAULT_TIMEOUT_MS)
         .describe("Maximum execution time in milliseconds (default 30000)"),
     }),
     execute: async ({ command, args, cwd, timeoutMs }) => {
-      return new Promise<{ exitCode: number; stdout: string; stderr: string }>((resolve) => {
-        const child = execFile(
-          command,
-          args,
-          {
-            timeout: timeoutMs ?? DEFAULT_TIMEOUT_MS,
-            maxBuffer: MAX_OUTPUT_BYTES * 2,
-            cwd: cwd || undefined,
-            env: { ...process.env, TERM: "dumb" },
-          },
-          (error, stdout, stderr) => {
-            const exitCode = error
-              ? (error as any).code === "ERR_CHILD_PROCESS_STDIO_MAXBUFFER"
-                ? 1
-                : (child.exitCode ?? 1)
-              : 0;
+      return new Promise<{ exitCode: number; stdout: string; stderr: string }>(
+        (resolve) => {
+          const child = execFile(
+            command,
+            args,
+            {
+              timeout: timeoutMs ?? DEFAULT_TIMEOUT_MS,
+              maxBuffer: MAX_OUTPUT_BYTES * 2,
+              cwd: cwd || undefined,
+              env: { ...process.env, TERM: "dumb" },
+            },
+            (error, stdout, stderr) => {
+              const exitCode = error
+                ? (error as any).code === "ERR_CHILD_PROCESS_STDIO_MAXBUFFER"
+                  ? 1
+                  : (child.exitCode ?? 1)
+                : 0;
 
-            let stderrStr = truncate(String(stderr), MAX_OUTPUT_BYTES);
-            // Expose spawn-level errors (e.g. ENOENT) that don't appear in stderr
-            if (error && !stderrStr && (error as any).code !== "ERR_CHILD_PROCESS_STDIO_MAXBUFFER") {
-              stderrStr = error.message;
+              let stderrStr = truncate(String(stderr), MAX_OUTPUT_BYTES);
+              // Expose spawn-level errors (e.g. ENOENT) that don't appear in stderr
+              if (
+                error &&
+                !stderrStr &&
+                (error as any).code !== "ERR_CHILD_PROCESS_STDIO_MAXBUFFER"
+              ) {
+                stderrStr = error.message;
+              }
+
+              resolve({
+                exitCode,
+                stdout: truncate(String(stdout), MAX_OUTPUT_BYTES),
+                stderr: stderrStr,
+              });
             }
-
-            resolve({
-              exitCode,
-              stdout: truncate(String(stdout), MAX_OUTPUT_BYTES),
-              stderr: stderrStr,
-            });
-          },
-        );
-      });
+          );
+        }
+      );
     },
   }),
 };

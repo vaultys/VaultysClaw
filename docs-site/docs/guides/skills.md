@@ -42,18 +42,18 @@ This means you can give an agent specialised domain knowledge, personas, or beha
 
 ## Managing skills from the dashboard
 
-Navigate to **Skills** (sidebar → *Skills*) — this page is available to global admins.
+Navigate to **Skills** (sidebar → _Skills_) — this page is available to global admins.
 
 ### Statistics bar
 
 The top of the page shows four counters:
 
-| Counter | Description |
-|---|---|
-| Total entries | Number of skill-realm pairs across all realms |
-| Unique skills | Number of distinct skill names |
-| Realms with skills | Realms that have at least one skill configured |
-| Shared across realms | Skills that appear in more than one realm |
+| Counter              | Description                                    |
+| -------------------- | ---------------------------------------------- |
+| Total entries        | Number of skill-realm pairs across all realms  |
+| Unique skills        | Number of distinct skill names                 |
+| Realms with skills   | Realms that have at least one skill configured |
+| Shared across realms | Skills that appear in more than one realm      |
 
 ### Skill cards
 
@@ -74,15 +74,15 @@ Type in the search box to filter by skill name or description. Results update wi
 
 Click **New skill** in the top-right corner of the Skills page. Fill in:
 
-| Field | Required | Notes |
-|---|---|---|
-| Realm | Yes | The realm this skill instance belongs to |
-| Name | Yes | Must be unique within the realm |
-| Description | No | Human-readable summary |
-| Version | No | Semver string — informational only |
-| Required | No | Checked → always active; unchecked → agents can disable via override |
-| Config (JSON) | No | Arbitrary metadata forwarded alongside the skill |
-| Instructions (Markdown) | No | Content injected into the agent system prompt |
+| Field                   | Required | Notes                                                                |
+| ----------------------- | -------- | -------------------------------------------------------------------- |
+| Realm                   | Yes      | The realm this skill instance belongs to                             |
+| Name                    | Yes      | Must be unique within the realm                                      |
+| Description             | No       | Human-readable summary                                               |
+| Version                 | No       | Semver string — informational only                                   |
+| Required                | No       | Checked → always active; unchecked → agents can disable via override |
+| Config (JSON)           | No       | Arbitrary metadata forwarded alongside the skill                     |
+| Instructions (Markdown) | No       | Content injected into the agent system prompt                        |
 
 ---
 
@@ -138,7 +138,7 @@ https://github.com/{source}/raw/refs/heads/{branch}/{skillId}/SKILL.md
 https://github.com/{source}/raw/refs/heads/{branch}/{skillId}.md
 ```
 
-The first successful fetch wins. YAML frontmatter (` --- ... --- `) is stripped before the content is stored.
+The first successful fetch wins. YAML frontmatter (`--- ... ---`) is stripped before the content is stored.
 
 ---
 
@@ -172,10 +172,10 @@ You are a friendly, empathetic customer support specialist for Acme Corp.
 
 ## `isRequired` vs agent overrides
 
-| `isRequired` | Effect |
-|---|---|
-| `true` | The skill is always active. The agent ignores any per-agent override. |
-| `false` | The skill defaults to enabled. A realm admin or agent operator can disable it for a specific agent via the agent detail page. |
+| `isRequired` | Effect                                                                                                                        |
+| ------------ | ----------------------------------------------------------------------------------------------------------------------------- |
+| `true`       | The skill is always active. The agent ignores any per-agent override.                                                         |
+| `false`      | The skill defaults to enabled. A realm admin or agent operator can disable it for a specific agent via the agent detail page. |
 
 :::info
 Required skills are always injected into the system prompt, even if an agent has an override record that sets `enabled = false` for that skill. Use `isRequired` for compliance or safety-critical instructions.
@@ -185,7 +185,7 @@ Required skills are always injected into the system prompt, even if an agent has
 
 ## Token metrics dashboard
 
-The **Dashboard** (home page) shows three token metric cards — *Today*, *This month*, and *All time* — covering the **entire fleet**, including agents that are currently offline.
+The **Dashboard** (home page) shows three token metric cards — _Today_, _This month_, and _All time_ — covering the **entire fleet**, including agents that are currently offline.
 
 These metrics are sourced directly from the `agent_token_usage` and `agent_token_usage_history` tables, which are updated via heartbeat messages from every agent. The data is refreshed every 60 seconds.
 
@@ -197,15 +197,15 @@ Before this feature was introduced, the dashboard only reflected the subset of a
 
 ## API quick reference
 
-| Method | Path | Auth | Description |
-|---|---|---|---|
-| `GET` | `/api/skills` | Global admin | List all skills across all realms |
-| `POST` | `/api/skills` | Global admin | Create a skill in a realm |
-| `GET` | `/api/realms/:id/skills/:skillId` | Realm member | Get skill detail |
-| `PATCH` | `/api/realms/:id/skills/:skillId` | Realm admin | Update skill |
-| `DELETE` | `/api/realms/:id/skills/:skillId` | Realm admin | Delete skill from realm |
-| `GET` | `/api/skills/library` | Global admin | Proxy to skills-library.com (1 h cache) |
-| `GET` | `/api/skills/library/content` | Global admin | Fetch SKILL.md from a GitHub source |
-| `GET` | `/api/stats/tokens` | Global admin | Fleet-wide token stats (all-time, daily, monthly) |
+| Method   | Path                              | Auth         | Description                                       |
+| -------- | --------------------------------- | ------------ | ------------------------------------------------- |
+| `GET`    | `/api/skills`                     | Global admin | List all skills across all realms                 |
+| `POST`   | `/api/skills`                     | Global admin | Create a skill in a realm                         |
+| `GET`    | `/api/realms/:id/skills/:skillId` | Realm member | Get skill detail                                  |
+| `PATCH`  | `/api/realms/:id/skills/:skillId` | Realm admin  | Update skill                                      |
+| `DELETE` | `/api/realms/:id/skills/:skillId` | Realm admin  | Delete skill from realm                           |
+| `GET`    | `/api/skills/library`             | Global admin | Proxy to skills-library.com (1 h cache)           |
+| `GET`    | `/api/skills/library/content`     | Global admin | Fetch SKILL.md from a GitHub source               |
+| `GET`    | `/api/stats/tokens`               | Global admin | Fleet-wide token stats (all-time, daily, monthly) |
 
 See [Skills API](/docs/api/skills) for full request/response documentation.

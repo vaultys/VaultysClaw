@@ -18,7 +18,10 @@ export class VaultysError extends Error {
 
 /** LLM is not configured or configuration is invalid */
 export class LlmNotConfiguredError extends VaultysError {
-  constructor(message: string = "LLM is not configured", details?: Record<string, any>) {
+  constructor(
+    message: string = "LLM is not configured",
+    details?: Record<string, any>
+  ) {
     super(message, "LLM_NOT_CONFIGURED", 400, details);
   }
 }
@@ -79,7 +82,10 @@ export class TimeoutError extends VaultysError {
 
 /** Agent is not available */
 export class AgentNotAvailableError extends VaultysError {
-  constructor(message: string = "Agent is not available", details?: Record<string, any>) {
+  constructor(
+    message: string = "Agent is not available",
+    details?: Record<string, any>
+  ) {
     super(message, "AGENT_NOT_AVAILABLE", 503, details);
   }
 }

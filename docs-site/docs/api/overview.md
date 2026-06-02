@@ -7,6 +7,7 @@ VaultysClaw provides a comprehensive REST API for managing agents, workflows, ch
 All successful API responses follow a consistent structure:
 
 ### List Responses (Paginated)
+
 ```json
 {
   "items": [],
@@ -20,6 +21,7 @@ All successful API responses follow a consistent structure:
 ```
 
 ### Single Resource Responses
+
 ```json
 {
   "id": "resource-id",
@@ -30,6 +32,7 @@ All successful API responses follow a consistent structure:
 ```
 
 ### Error Responses
+
 ```json
 {
   "error": "Resource not found",
@@ -44,12 +47,12 @@ All successful API responses follow a consistent structure:
 
 All list endpoints support standard pagination parameters:
 
-| Parameter | Type | Default | Max | Description |
-|-----------|------|---------|-----|-------------|
-| `page` | number | 1 | - | 1-indexed page number |
-| `pageSize` | number | 50 | 100 | Items per page |
-| `sortBy` | string | - | - | Field to sort by |
-| `sortDir` | string | desc | - | Sort direction: `asc` or `desc` |
+| Parameter  | Type   | Default | Max | Description                     |
+| ---------- | ------ | ------- | --- | ------------------------------- |
+| `page`     | number | 1       | -   | 1-indexed page number           |
+| `pageSize` | number | 50      | 100 | Items per page                  |
+| `sortBy`   | string | -       | -   | Field to sort by                |
+| `sortDir`  | string | desc    | -   | Sort direction: `asc` or `desc` |
 
 ## Searching and Filtering
 
@@ -57,9 +60,9 @@ Most list endpoints support a search parameter `q` for free-text search. Filter 
 
 ## Common Error Codes
 
-| Code | Status | Description |
-|------|--------|-------------|
-| `VALIDATION_ERROR` | 400 | Request validation failed |
-| `NOT_FOUND` | 404 | Resource not found |
-| `UNAUTHORIZED` | 401 | Authentication required |
-| `FORBIDDEN` | 403 | Insufficient permissions |
+| Code               | Status | Description               |
+| ------------------ | ------ | ------------------------- |
+| `VALIDATION_ERROR` | 400    | Request validation failed |
+| `NOT_FOUND`        | 404    | Resource not found        |
+| `UNAUTHORIZED`     | 401    | Authentication required   |
+| `FORBIDDEN`        | 403    | Insufficient permissions  |

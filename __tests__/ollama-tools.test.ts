@@ -14,7 +14,10 @@ import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import os from "os";
 import fs from "fs/promises";
 import path from "path";
-import { createToolRegistry, buildToolSet } from "../packages/agent-controller/src/tools/index";
+import {
+  createToolRegistry,
+  buildToolSet,
+} from "../packages/agent-controller/src/tools/index";
 import { runIntent, streamChat } from "../packages/agent-controller/src/llm";
 import { initDb, closeDb } from "../packages/agent-controller/src/db";
 import type { LlmConfig } from "../packages/agent-controller/node_modules/@vaultysclaw/shared";
@@ -29,7 +32,9 @@ const MODEL = "llama3.2";
 /** Check whether Ollama is reachable. Skip tests if not. */
 async function ollamaAvailable(): Promise<boolean> {
   try {
-    const res = await fetch("http://localhost:11434/api/tags", { signal: AbortSignal.timeout(3000) });
+    const res = await fetch("http://localhost:11434/api/tags", {
+      signal: AbortSignal.timeout(3000),
+    });
     if (!res.ok) return false;
     const body = (await res.json()) as { models?: Array<{ name: string }> };
     return body.models?.some((m) => m.name.startsWith("llama3.2")) ?? false;
@@ -59,15 +64,23 @@ let dbDir: string;
 beforeAll(async () => {
   available = await ollamaAvailable();
   if (!available) {
-    console.warn("⚠️  Ollama not available or llama3.2 not installed — skipping live tests");
+    console.warn(
+      "⚠️  Ollama not available or llama3.2 not installed — skipping live tests"
+    );
     return;
   }
 
   // Create temp workspace with a test file
   tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "vc-ollama-test-"));
-  await fs.writeFile(path.join(tmpDir, "hello.txt"), "Hello from VaultysClaw test!\n");
+  await fs.writeFile(
+    path.join(tmpDir, "hello.txt"),
+    "Hello from VaultysClaw test!\n"
+  );
   await fs.mkdir(path.join(tmpDir, "subdir"));
-  await fs.writeFile(path.join(tmpDir, "subdir", "data.json"), '{"key":"value"}');
+  await fs.writeFile(
+    path.join(tmpDir, "subdir", "data.json"),
+    '{"key":"value"}'
+  );
 
   // Init DB for runIntent (it uses logToolUsage)
   dbDir = await fs.mkdtemp(path.join(os.tmpdir(), "vc-ollama-db-"));
@@ -76,8 +89,10 @@ beforeAll(async () => {
 
 afterAll(async () => {
   closeDb();
-  if (tmpDir) await fs.rm(tmpDir, { recursive: true, force: true }).catch(() => { });
-  if (dbDir) await fs.rm(dbDir, { recursive: true, force: true }).catch(() => { });
+  if (tmpDir)
+    await fs.rm(tmpDir, { recursive: true, force: true }).catch(() => {});
+  if (dbDir)
+    await fs.rm(dbDir, { recursive: true, force: true }).catch(() => {});
 });
 
 /** Skip helper — call at start of each test */
@@ -104,7 +119,12 @@ describe("Ollama tool execution (live)", () => {
     const registry = createToolRegistry({ workspaceRoot: tmpDir });
     const tools = buildToolSet(registry, ["file_access"]);
 
-    const { text } = await runIntent(config, `Use the file_list tool with path "." to list files.`, {}, tools);
+    const { text } = await runIntent(
+      config,
+      `Use the file_list tool with path "." to list files.`,
+      {},
+      tools
+    );
     expect(typeof text).toBe("string");
   }, 60_000);
 
@@ -118,14 +138,23 @@ describe("Ollama tool execution (live)", () => {
     const registry = createToolRegistry({ workspaceRoot: tmpDir });
     const tools = buildToolSet(registry, ["file_access"]);
 
-    const { text } = await runIntent(config, `Read the file "hello.txt"`, {}, tools);
+    const { text } = await runIntent(
+      config,
+      `Read the file "hello.txt"`,
+      {},
+      tools
+    );
     expect(typeof text).toBe("string");
   }, 60_000);
 
   it("should respond to a plain chat message using runIntent", async () => {
     if (skipIfUnavailable()) return;
     const config = ollamaConfig();
-    const { text } = await runIntent(config, "Say exactly the word 'pong' and nothing else.", {});
+    const { text } = await runIntent(
+      config,
+      "Say exactly the word 'pong' and nothing else.",
+      {}
+    );
     expect(text.toLowerCase()).toContain("pong");
   }, 60_000);
 
@@ -145,7 +174,12 @@ describe("Ollama tool execution (live)", () => {
     const registry = createToolRegistry({ workspaceRoot: tmpDir });
     const tools = buildToolSet(registry, ["file_access"]);
 
-    const { text } = await runIntent(config, "list_files", { directory: "." }, tools);
+    const { text } = await runIntent(
+      config,
+      "list_files",
+      { directory: "." },
+      tools
+    );
 
     // Key assertion: no schema error, no crash
     expect(typeof text).toBe("string");
@@ -159,7 +193,9 @@ describe("Ollama tool execution (live)", () => {
     if (skipIfUnavailable()) return;
     const config = ollamaConfig();
 
-    const result = streamChat(config, [{ role: "user", content: "Say 'pong' and nothing else." }]);
+    const result = streamChat(config, [
+      { role: "user", content: "Say 'pong' and nothing else." },
+    ]);
 
     let text = "";
     for await (const chunk of result.textStream) {
@@ -176,22 +212,35 @@ describe("Ollama tool execution (live)", () => {
   it("should handle http_request tool schema without errors", async () => {
     if (skipIfUnavailable()) return;
     const config = ollamaConfig({
-      systemPrompt: "You are a helpful assistant. Answer concisely without calling any tools.",
+      systemPrompt:
+        "You are a helpful assistant. Answer concisely without calling any tools.",
     });
     const registry = createToolRegistry({ workspaceRoot: tmpDir });
     const tools = buildToolSet(registry, ["api_call"]);
 
-    const { text } = await runIntent(config, "Say hello in one word.", {}, tools);
+    const { text } = await runIntent(
+      config,
+      "Say hello in one word.",
+      {},
+      tools
+    );
     expect(text.length).toBeGreaterThanOrEqual(0);
   }, 30_000);
 
   it("should handle all tool schemas without errors", async () => {
     if (skipIfUnavailable()) return;
     const config = ollamaConfig({
-      systemPrompt: "You are a helpful assistant. Just say 'ok' and nothing else. Do not call any tools.",
+      systemPrompt:
+        "You are a helpful assistant. Just say 'ok' and nothing else. Do not call any tools.",
     });
     const registry = createToolRegistry({ workspaceRoot: tmpDir });
-    const allCaps: any[] = ["file_access", "system_command", "api_call", "internet_access", "code_execution"];
+    const allCaps: any[] = [
+      "file_access",
+      "system_command",
+      "api_call",
+      "internet_access",
+      "code_execution",
+    ];
     const tools = buildToolSet(registry, allCaps);
 
     expect(Object.keys(tools).length).toBeGreaterThanOrEqual(5);
@@ -209,7 +258,9 @@ const MINISTRAL_MODEL = "ministral-3:3b";
 
 async function ministralAvailable(): Promise<boolean> {
   try {
-    const res = await fetch("http://localhost:11434/api/tags", { signal: AbortSignal.timeout(3000) });
+    const res = await fetch("http://localhost:11434/api/tags", {
+      signal: AbortSignal.timeout(3000),
+    });
     if (!res.ok) return false;
     const body = (await res.json()) as { models?: Array<{ name: string }> };
     return body.models?.some((m) => m.name.startsWith("ministral-3")) ?? false;
@@ -233,17 +284,27 @@ describe("ministral-3:3b tool execution (live)", () => {
 
   beforeAll(async () => {
     ministralOk = await ministralAvailable();
-    if (!ministralOk) console.warn("⚠️  ministral-3:3b not available — skipping ministral tests");
+    if (!ministralOk)
+      console.warn(
+        "⚠️  ministral-3:3b not available — skipping ministral tests"
+      );
   });
 
   function skip() {
-    if (!ministralOk) { console.log("  → skipped (ministral-3:3b not available)"); return true; }
+    if (!ministralOk) {
+      console.log("  → skipped (ministral-3:3b not available)");
+      return true;
+    }
     return false;
   }
 
   it("should respond to a plain chat message", async () => {
     if (skip()) return;
-    const { text } = await runIntent(ministralConfig(), "Say exactly the word 'pong' and nothing else.", {});
+    const { text } = await runIntent(
+      ministralConfig(),
+      "Say exactly the word 'pong' and nothing else.",
+      {}
+    );
     expect(text.toLowerCase()).toContain("pong");
   }, 60_000);
 
@@ -260,7 +321,7 @@ describe("ministral-3:3b tool execution (live)", () => {
       }),
       `List the files in the directory "${tmpDir}"`,
       {},
-      tools,
+      tools
     );
 
     expect(typeof text).toBe("string");
@@ -285,7 +346,7 @@ describe("ministral-3:3b tool execution (live)", () => {
       }),
       "can you tell me the headlines of today on CNN",
       {},
-      tools,
+      tools
     );
 
     expect(typeof text).toBe("string");
@@ -295,13 +356,19 @@ describe("ministral-3:3b tool execution (live)", () => {
   it("should handle all tool schemas without errors", async () => {
     if (skip()) return;
     const registry = createToolRegistry({ workspaceRoot: tmpDir });
-    const tools = buildToolSet(registry, ["file_access", "api_call", "internet_access"]);
+    const tools = buildToolSet(registry, [
+      "file_access",
+      "api_call",
+      "internet_access",
+    ]);
 
     const { text } = await runIntent(
-      ministralConfig({ systemPrompt: "You are a helpful assistant. Reply with just 'ok'." }),
+      ministralConfig({
+        systemPrompt: "You are a helpful assistant. Reply with just 'ok'.",
+      }),
       "Acknowledge.",
       {},
-      tools,
+      tools
     );
     expect(typeof text).toBe("string");
   }, 30_000);

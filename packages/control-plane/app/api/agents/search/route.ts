@@ -69,23 +69,27 @@ export async function GET(req: NextRequest) {
     if (!auth) return unauthorized();
 
     const { searchParams } = new URL(req.url);
-    const query  = searchParams.get("q")?.toLowerCase() ?? "";
+    const query = searchParams.get("q")?.toLowerCase() ?? "";
     const realmId = searchParams.get("realm");
 
     // --- Fetch agent list ------------------------------------------------
-    let agentList: { did: string; name: string; capabilities?: string | null }[];
+    let agentList: {
+      did: string;
+      name: string;
+      capabilities?: string | null;
+    }[];
 
     if (realmId && realmId !== "default") {
       // Realm-scoped: only members of this realm
       agentList = getRealmAgents(realmId).map((ra) => ({
-        did:          ra.agent_did,
-        name:         ra.agent_name,
+        did: ra.agent_did,
+        name: ra.agent_name,
         capabilities: (ra as any).capabilities ?? null,
       }));
     } else {
       agentList = getAllAgents().map((a) => ({
-        did:          a.did,
-        name:         a.name,
+        did: a.did,
+        name: a.name,
         capabilities: (a as any).capabilities ?? null,
       }));
     }
@@ -93,7 +97,7 @@ export async function GET(req: NextRequest) {
     // --- Real-time online status from WebSocket server -------------------
     const wsServer = getWSServer();
     const connectedDids = new Set(
-      wsServer?.getConnectedAgents().map((ca) => ca.id) ?? [],
+      wsServer?.getConnectedAgents().map((ca) => ca.id) ?? []
     );
 
     // --- Filter by query -------------------------------------------------
@@ -107,11 +111,17 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({
       agents: matches.slice(0, 20).map((a) => ({
-        id:           a.did, // @deprecated use `did`
-        did:          a.did,
-        name:         a.name,
-        capabilities: (() => { try { return JSON.parse(a.capabilities ?? "[]"); } catch { return []; } })(),
-        online:       connectedDids.has(a.did),
+        id: a.did, // @deprecated use `did`
+        did: a.did,
+        name: a.name,
+        capabilities: (() => {
+          try {
+            return JSON.parse(a.capabilities ?? "[]");
+          } catch {
+            return [];
+          }
+        })(),
+        online: connectedDids.has(a.did),
       })),
     });
   } catch (err) {

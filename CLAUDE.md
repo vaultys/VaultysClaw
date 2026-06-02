@@ -7,6 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 VaultysClaw is a decentralized AI agent orchestration platform. A central **control plane** (Next.js + WebSocket server) manages lightweight **agent controllers** that connect via WebSocket, execute LLM-driven intents using tools, and maintain cryptographic identity via [VaultysId](https://github.com/vaultys/id).
 
 **Monorepo**: pnpm workspaces + Turborepo. Three main packages:
+
 - `packages/shared` — types, security utils, channel protocol definitions
 - `packages/control-plane` — Next.js App Router dashboard + WebSocket server (port 3000 / WS 8080)
 - `packages/agent-controller` — agent runtime CLI, tools, skills, memory
@@ -46,6 +47,7 @@ pnpm format
 Agents connect to the control plane via WebSocket on port 8080. All messages follow a typed envelope defined in `packages/shared/src/channel-types.ts`. Critical messages (policies, intents) carry ECDSA signatures verified against the sender's VaultysId public key.
 
 **Agent lifecycle**:
+
 1. Agent connects → sends `register` with its public key
 2. Admin approves in UI → control plane sends `register_ack` + certificate
 3. Control plane routes `intent` messages to agents
@@ -95,6 +97,7 @@ Core domain types live in `src/types.ts`: `VaultysIdentity`, `AgentCapability` e
 Tests live in `__tests__/` at the repo root and use Vitest. They test integration paths (API routes, tool execution, workflow logic). Test files import from packages directly using the `@vaultysclaw/shared` path alias.
 
 Multiple vitest configs for different test scopes:
+
 - `vitest.config.mjs` — default (no Docker)
 - `vitest.config.docker.mjs` — requires running Docker stack
 - `vitest.config.litellm.mjs` — requires LiteLLM proxy (`docker-compose.litellm.yml`)
@@ -103,12 +106,12 @@ Multiple vitest configs for different test scopes:
 
 Control plane reads from `.env` in `packages/control-plane/`. Agent reads from `.env` in `packages/agent-controller/` or environment variables. Key variables:
 
-| Variable | Package | Purpose |
-|---|---|---|
-| `PORT` / `WS_PORT` | control-plane | HTTP + WebSocket ports (default 3000/8080) |
-| `VAULTYS_ID_PATH` | both | Path to VaultysId identity file |
-| `NEXTAUTH_SECRET` | control-plane | NextAuth session secret |
-| `LITELLM_BASE_URL` | control-plane | LiteLLM proxy URL |
-| `AGENT_NAME` | agent-controller | Agent display name |
-| `CONTROL_PLANE_URL` | agent-controller | Control plane base URL |
-| `LLM_MODEL` / `LLM_API_KEY` | agent-controller | LLM provider config |
+| Variable                    | Package          | Purpose                                    |
+| --------------------------- | ---------------- | ------------------------------------------ |
+| `PORT` / `WS_PORT`          | control-plane    | HTTP + WebSocket ports (default 3000/8080) |
+| `VAULTYS_ID_PATH`           | both             | Path to VaultysId identity file            |
+| `NEXTAUTH_SECRET`           | control-plane    | NextAuth session secret                    |
+| `LITELLM_BASE_URL`          | control-plane    | LiteLLM proxy URL                          |
+| `AGENT_NAME`                | agent-controller | Agent display name                         |
+| `CONTROL_PLANE_URL`         | agent-controller | Control plane base URL                     |
+| `LLM_MODEL` / `LLM_API_KEY` | agent-controller | LLM provider config                        |

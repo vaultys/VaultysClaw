@@ -18,9 +18,9 @@ GET /api/workflows
 
 ### Query parameters
 
-| Parameter | Type | Description |
-|---|---|---|
-| `realmId` | string | Filter by realm |
+| Parameter   | Type   | Description           |
+| ----------- | ------ | --------------------- |
+| `realmId`   | string | Filter by realm       |
 | `createdBy` | string | Filter by creator DID |
 
 ### Response

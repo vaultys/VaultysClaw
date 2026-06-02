@@ -38,7 +38,9 @@ export class XClient {
    * Post a tweet to X.
    * Text must be <= 280 characters.
    */
-  async postTweet(text: string): Promise<{ id: string; text: string; url: string }> {
+  async postTweet(
+    text: string
+  ): Promise<{ id: string; text: string; url: string }> {
     if (!text || text.trim().length === 0) {
       throw new Error("Tweet text is required");
     }
@@ -62,10 +64,11 @@ export class XClient {
 
       if (!response.ok) {
         const errorData = (await response.json()) as XErrorResponse;
-        const errorMsg = errorData.errors?.[0]?.message || errorData.detail || response.statusText;
-        throw new Error(
-          `X API error (${response.status}): ${errorMsg}`
-        );
+        const errorMsg =
+          errorData.errors?.[0]?.message ||
+          errorData.detail ||
+          response.statusText;
+        throw new Error(`X API error (${response.status}): ${errorMsg}`);
       }
 
       const data = (await response.json()) as XPostResponse;
@@ -90,7 +93,7 @@ export class XClient {
    */
   async postTweetWithMedia(
     text: string,
-    mediaIds: string[],
+    mediaIds: string[]
   ): Promise<{ id: string; text: string; url: string }> {
     if (mediaIds.length === 0) {
       return this.postTweet(text);
@@ -106,12 +109,15 @@ export class XClient {
    */
   async validateToken(): Promise<boolean> {
     try {
-      const response = await fetch(`${this.apiBaseUrl}/tweets/search/recent?max_results=10`, {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${this.bearerToken}`,
-        },
-      });
+      const response = await fetch(
+        `${this.apiBaseUrl}/tweets/search/recent?max_results=10`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${this.bearerToken}`,
+          },
+        }
+      );
 
       return response.ok;
     } catch {

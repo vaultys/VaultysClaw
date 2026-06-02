@@ -41,8 +41,10 @@ export const codeRunnerTool: AgentToolDefinition = {
       const sandbox = {
         console: {
           log: (...args: unknown[]) => logs.push(args.map(String).join(" ")),
-          warn: (...args: unknown[]) => logs.push("[warn] " + args.map(String).join(" ")),
-          error: (...args: unknown[]) => logs.push("[error] " + args.map(String).join(" ")),
+          warn: (...args: unknown[]) =>
+            logs.push("[warn] " + args.map(String).join(" ")),
+          error: (...args: unknown[]) =>
+            logs.push("[error] " + args.map(String).join(" ")),
         },
         JSON,
         Math,
@@ -87,9 +89,10 @@ export const codeRunnerTool: AgentToolDefinition = {
               ? resultStr.slice(0, MAX_OUTPUT_LENGTH) + "... [truncated]"
               : resultStr
             : null,
-          output: output.length > MAX_OUTPUT_LENGTH
-            ? output.slice(0, MAX_OUTPUT_LENGTH) + "... [truncated]"
-            : output || null,
+          output:
+            output.length > MAX_OUTPUT_LENGTH
+              ? output.slice(0, MAX_OUTPUT_LENGTH) + "... [truncated]"
+              : output || null,
         };
       } catch (err) {
         const output = logs.join("\n");

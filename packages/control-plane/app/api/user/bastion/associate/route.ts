@@ -50,10 +50,16 @@ import { UserServerChannel } from "@/lib/user-server-channel";
  */
 export async function POST(request: NextRequest) {
   const body = await request.json();
-  const { userToken, browserToken } = body as { userToken: string; browserToken: string };
+  const { userToken, browserToken } = body as {
+    userToken: string;
+    browserToken: string;
+  };
 
   if (!userToken || !browserToken) {
-    return NextResponse.json({ error: "userToken and browserToken are required" }, { status: 400 });
+    return NextResponse.json(
+      { error: "userToken and browserToken are required" },
+      { status: 400 }
+    );
   }
 
   const userCert = UserServerChannel.connecting(userToken);
@@ -64,7 +70,10 @@ export async function POST(request: NextRequest) {
   }
 
   if (userCert.status !== 2 || browserCert.status !== 2) {
-    return NextResponse.json({ error: "Both certificates must be completed" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Both certificates must be completed" },
+      { status: 400 }
+    );
   }
 
   return NextResponse.json({ ok: true });

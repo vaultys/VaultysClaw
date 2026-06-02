@@ -22,7 +22,13 @@ export interface WorkflowState {
   showExecutionPanel: boolean;
 
   // Actions
-  setWorkflow: (id: string, name: string, description: string, definition: WorkflowDefinition, realmId?: string) => void;
+  setWorkflow: (
+    id: string,
+    name: string,
+    description: string,
+    definition: WorkflowDefinition,
+    realmId?: string
+  ) => void;
   setDefinition: (definition: WorkflowDefinition) => void;
   setSelectedNode: (nodeId: string | null) => void;
   clearWorkflow: () => void;

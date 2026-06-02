@@ -13,7 +13,7 @@
 /* ── Light mode ─────────────────────────────────────────────── */
 :root {
   /* primary — Indigo */
-  --primary-50:  238 242 255;
+  --primary-50: 238 242 255;
   --primary-100: 224 231 255;
   --primary-200: 199 210 254;
   --primary-300: 165 180 252;
@@ -26,7 +26,7 @@
   --primary-950: 30 27 75;
 
   /* secondary — Violet */
-  --secondary-50:  245 243 255;
+  --secondary-50: 245 243 255;
   --secondary-100: 237 233 254;
   --secondary-200: 221 214 254;
   --secondary-300: 196 181 253;
@@ -39,7 +39,7 @@
   --secondary-950: 46 16 101;
 
   /* success — Emerald */
-  --success-50:  236 253 245;
+  --success-50: 236 253 245;
   --success-100: 209 250 229;
   --success-200: 167 243 208;
   --success-300: 110 231 183;
@@ -52,7 +52,7 @@
   --success-950: 2 44 34;
 
   /* warning — Amber */
-  --warning-50:  255 251 235;
+  --warning-50: 255 251 235;
   --warning-100: 254 243 199;
   --warning-200: 253 230 138;
   --warning-300: 252 211 77;
@@ -65,7 +65,7 @@
   --warning-950: 69 26 3;
 
   /* danger — Red */
-  --danger-50:  254 242 242;
+  --danger-50: 254 242 242;
   --danger-100: 254 226 226;
   --danger-200: 254 202 202;
   --danger-300: 252 165 165;
@@ -78,7 +78,7 @@
   --danger-950: 69 10 10;
 
   /* neutral — Zinc */
-  --neutral-50:  250 250 250;
+  --neutral-50: 250 250 250;
   --neutral-100: 244 244 245;
   --neutral-200: 228 228 231;
   --neutral-300: 212 212 216;
@@ -91,7 +91,7 @@
   --neutral-950: 9 9 11;
 
   /* background — Slate (surfaces & page bg) */
-  --background-50:  248 250 252;
+  --background-50: 248 250 252;
   --background-100: 241 245 249;
   --background-200: 226 232 240;
   --background-300: 203 213 225;
@@ -104,7 +104,7 @@
   --background-950: 2 6 23;
 
   /* foreground — Gray (text & icons) */
-  --foreground-50:  249 250 251;
+  --foreground-50: 249 250 251;
   --foreground-100: 243 244 246;
   --foreground-200: 229 231 235;
   --foreground-300: 209 213 219;
@@ -120,7 +120,7 @@
 /* ── Dark mode (lightness inverted: 50↔950, 100↔900, ...) ──── */
 .dark {
   /* primary */
-  --primary-50:  30 27 75;
+  --primary-50: 30 27 75;
   --primary-100: 49 46 129;
   --primary-200: 55 48 163;
   --primary-300: 67 56 202;
@@ -133,7 +133,7 @@
   --primary-950: 238 242 255;
 
   /* secondary */
-  --secondary-50:  46 16 101;
+  --secondary-50: 46 16 101;
   --secondary-100: 76 29 149;
   --secondary-200: 91 33 182;
   --secondary-300: 109 40 217;
@@ -146,7 +146,7 @@
   --secondary-950: 245 243 255;
 
   /* success */
-  --success-50:  2 44 34;
+  --success-50: 2 44 34;
   --success-100: 6 78 59;
   --success-200: 6 95 70;
   --success-300: 4 120 87;
@@ -159,7 +159,7 @@
   --success-950: 236 253 245;
 
   /* warning */
-  --warning-50:  69 26 3;
+  --warning-50: 69 26 3;
   --warning-100: 120 53 15;
   --warning-200: 146 64 14;
   --warning-300: 180 83 9;
@@ -172,7 +172,7 @@
   --warning-950: 255 251 235;
 
   /* danger */
-  --danger-50:  69 10 10;
+  --danger-50: 69 10 10;
   --danger-100: 127 29 29;
   --danger-200: 153 27 27;
   --danger-300: 185 28 28;
@@ -185,7 +185,7 @@
   --danger-950: 254 242 242;
 
   /* neutral */
-  --neutral-50:  9 9 11;
+  --neutral-50: 9 9 11;
   --neutral-100: 24 24 27;
   --neutral-200: 39 39 42;
   --neutral-300: 63 63 70;
@@ -198,7 +198,7 @@
   --neutral-950: 250 250 250;
 
   /* background */
-  --background-50:  2 6 23;
+  --background-50: 2 6 23;
   --background-100: 15 23 42;
   --background-200: 30 41 59;
   --background-300: 51 65 85;
@@ -211,7 +211,7 @@
   --background-950: 248 250 252;
 
   /* foreground */
-  --foreground-50:  3 7 18;
+  --foreground-50: 3 7 18;
   --foreground-100: 17 24 39;
   --foreground-200: 31 41 55;
   --foreground-300: 55 65 81;

@@ -44,7 +44,7 @@ import { UserDao } from "@/lib/user-dao";
  */
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: Promise<{ did: string }> },
+  { params }: { params: Promise<{ did: string }> }
 ) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.isOwner) {
@@ -59,12 +59,18 @@ export async function PATCH(
   }
 
   if (user.is_owner === 1) {
-    return NextResponse.json({ error: "Cannot change the owner's admin status" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Cannot change the owner's admin status" },
+      { status: 400 }
+    );
   }
 
-  const body = await req.json() as { isAdmin: boolean };
+  const body = (await req.json()) as { isAdmin: boolean };
   if (typeof body.isAdmin !== "boolean") {
-    return NextResponse.json({ error: "isAdmin must be a boolean" }, { status: 400 });
+    return NextResponse.json(
+      { error: "isAdmin must be a boolean" },
+      { status: 400 }
+    );
   }
 
   UserDao.setAdmin(did, body.isAdmin);

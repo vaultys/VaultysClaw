@@ -131,7 +131,11 @@ describe("registerModel", () => {
   it("omits api_key when not provided", async () => {
     mockFetch.mockResolvedValueOnce(makeResponse({ ok: true }));
 
-    await registerModel({ modelName: "m", litellmModel: "openai/m", apiBase: "http://x" });
+    await registerModel({
+      modelName: "m",
+      litellmModel: "openai/m",
+      apiBase: "http://x",
+    });
 
     const body = JSON.parse(mockFetch.mock.calls[0][1].body as string);
     expect(body.litellm_params.api_key).toBeUndefined();
@@ -140,14 +144,22 @@ describe("registerModel", () => {
   it("throws on non-2xx response", async () => {
     mockFetch.mockResolvedValueOnce(makeResponse({ error: "conflict" }, 409));
     await expect(
-      registerModel({ modelName: "m", litellmModel: "openai/m", apiBase: "http://x" }),
+      registerModel({
+        modelName: "m",
+        litellmModel: "openai/m",
+        apiBase: "http://x",
+      })
     ).rejects.toThrow("409");
   });
 
   it("throws when LiteLLM is not configured", async () => {
     delete process.env.LITELLM_BASE_URL;
     await expect(
-      registerModel({ modelName: "m", litellmModel: "openai/m", apiBase: "http://x" }),
+      registerModel({
+        modelName: "m",
+        litellmModel: "openai/m",
+        apiBase: "http://x",
+      })
     ).rejects.toThrow("LiteLLM not configured");
   });
 });
@@ -218,7 +230,9 @@ describe("createRealmKey", () => {
   });
 
   it("throws on non-2xx response", async () => {
-    mockFetch.mockResolvedValueOnce(makeResponse({ error: "bad request" }, 400));
+    mockFetch.mockResolvedValueOnce(
+      makeResponse({ error: "bad request" }, 400)
+    );
     await expect(createRealmKey("r", ["m"])).rejects.toThrow("400");
   });
 });
@@ -250,12 +264,20 @@ describe("healthCheck", () => {
 
 describe("listModels", () => {
   it("returns model list from /model/info", async () => {
-    mockFetch.mockResolvedValueOnce(makeResponse({
-      data: [
-        { model_name: "ft-llama3", litellm_params: { model: "openai/ft-llama3" } },
-        { model_name: "ft-mistral", litellm_params: { model: "openai/ft-mistral" } },
-      ],
-    }));
+    mockFetch.mockResolvedValueOnce(
+      makeResponse({
+        data: [
+          {
+            model_name: "ft-llama3",
+            litellm_params: { model: "openai/ft-llama3" },
+          },
+          {
+            model_name: "ft-mistral",
+            litellm_params: { model: "openai/ft-mistral" },
+          },
+        ],
+      })
+    );
 
     const models = await listModels();
     expect(models).toHaveLength(2);

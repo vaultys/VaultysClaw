@@ -24,7 +24,10 @@ import {
   addUserToRealm,
   type WorkflowDefinition,
 } from "../packages/control-plane/lib/db";
-import { executeWorkflow, topologicalSort } from "../packages/control-plane/lib/workflow-executor";
+import {
+  executeWorkflow,
+  topologicalSort,
+} from "../packages/control-plane/lib/workflow-executor";
 import { MockAgent, waitFor } from "./test-utils";
 
 let WS_PORT = 9876;
@@ -45,16 +48,28 @@ describe("Workflow Execution with Real Agents", () => {
 
   // Sentinel names used to scope cleanup — avoids clobbering other test files' data
   const WF_NAMES = [
-    "Sequential Workflow", "Parallel Workflow", "Error Workflow",
-    "Complex Workflow", "Concurrent WF 1", "Concurrent WF 2",
+    "Sequential Workflow",
+    "Parallel Workflow",
+    "Error Workflow",
+    "Complex Workflow",
+    "Concurrent WF 1",
+    "Concurrent WF 2",
   ];
   const AGENT_NAMES = [
-    "Analyzer Agent", "Reviewer Agent",
-    "Parallel Agent 1", "Parallel Agent 2", "Merger Agent",
-    "Failing Agent", "Dependent Agent",
-    "Stage 1 Agent", "Stage 2 Agent", "Stage 3 Agent",
+    "Analyzer Agent",
+    "Reviewer Agent",
+    "Parallel Agent 1",
+    "Parallel Agent 2",
+    "Merger Agent",
+    "Failing Agent",
+    "Dependent Agent",
+    "Stage 1 Agent",
+    "Stage 2 Agent",
+    "Stage 3 Agent",
     "Reconnecting Agent",
-    "Concurrent Agent 0", "Concurrent Agent 1", "Concurrent Agent 2",
+    "Concurrent Agent 0",
+    "Concurrent Agent 1",
+    "Concurrent Agent 2",
   ];
 
   beforeAll(async () => {
@@ -63,17 +78,23 @@ describe("Workflow Execution with Real Agents", () => {
     // Clean up only data belonging to this test suite (name-scoped)
     // so concurrent test files' workflow_runs/workflows are not affected.
     for (const name of WF_NAMES) {
-      const rows = db.prepare("SELECT id FROM workflows WHERE name = ?").all(name) as { id: string }[];
+      const rows = db
+        .prepare("SELECT id FROM workflows WHERE name = ?")
+        .all(name) as { id: string }[];
       for (const row of rows) {
-        db.prepare("DELETE FROM workflow_runs WHERE workflow_id = ?").run(row.id);
+        db.prepare("DELETE FROM workflow_runs WHERE workflow_id = ?").run(
+          row.id
+        );
       }
       db.prepare("DELETE FROM workflows WHERE name = ?").run(name);
     }
     for (const name of AGENT_NAMES) {
       db.prepare("DELETE FROM agents WHERE name = ?").run(name);
     }
-    db.prepare("DELETE FROM pending_registrations WHERE agent_name IN (" +
-      AGENT_NAMES.map(() => "?").join(",") + ")"
+    db.prepare(
+      "DELETE FROM pending_registrations WHERE agent_name IN (" +
+        AGENT_NAMES.map(() => "?").join(",") +
+        ")"
     ).run(...AGENT_NAMES);
     db.prepare("DELETE FROM auth_sessions").run();
 
@@ -99,8 +120,14 @@ describe("Workflow Execution with Real Agents", () => {
   describe("Sequential Workflow Execution", () => {
     it("should execute sequential workflow with two agents", async () => {
       // Create two test agents
-      const analyzerAgent = new MockAgent(`ws://localhost:${WS_PORT}`, "Analyzer Agent");
-      const reviewerAgent = new MockAgent(`ws://localhost:${WS_PORT}`, "Reviewer Agent");
+      const analyzerAgent = new MockAgent(
+        `ws://localhost:${WS_PORT}`,
+        "Analyzer Agent"
+      );
+      const reviewerAgent = new MockAgent(
+        `ws://localhost:${WS_PORT}`,
+        "Reviewer Agent"
+      );
 
       // Connect and authenticate
       await analyzerAgent.connect();
@@ -132,57 +159,109 @@ describe("Workflow Execution with Real Agents", () => {
             data: {
               agentId: reviewerAgent.id,
               label: "Reviewer",
-              params: { input: `\${${analyzerAgent.id}}`, task: "review analysis" },
+              params: {
+                input: `\${${analyzerAgent.id}}`,
+                task: "review analysis",
+              },
             },
             position: { x: 200, y: 0 },
           },
         ],
         edges: [
-          { id: "seq-edge", source: analyzerAgent.id, target: reviewerAgent.id },
+          {
+            id: "seq-edge",
+            source: analyzerAgent.id,
+            target: reviewerAgent.id,
+          },
         ],
       };
 
-      const workflowId = saveWorkflow("Sequential Workflow", workflow, undefined);
+      const workflowId = saveWorkflow(
+        "Sequential Workflow",
+        workflow,
+        undefined
+      );
       const runId = startWorkflowRun(workflowId);
 
       // Step 1: Send intent to analyzer
       const analyzerIntentPromise = analyzerAgent.waitForIntent(5000);
-      wsServer.sendIntentToAgent(analyzerAgent.id, `${runId}-analyze`, "execute_step", {
-        stepId: analyzerAgent.id,
-        runId,
-        task: "analyze code quality",
-      });
+      wsServer.sendIntentToAgent(
+        analyzerAgent.id,
+        `${runId}-analyze`,
+        "execute_step",
+        {
+          stepId: analyzerAgent.id,
+          runId,
+          task: "analyze code quality",
+        }
+      );
 
       const analyzerIntent = await analyzerIntentPromise;
       expect(analyzerIntent.payload.action).toBe("execute_step");
 
       // Simulate analyzer execution
-      const analyzerResult = { quality_score: 8.5, issues: ["minor formatting"] };
-      await analyzerAgent.sendResult(`${runId}-analyze`, "success", analyzerResult);
+      const analyzerResult = {
+        quality_score: 8.5,
+        issues: ["minor formatting"],
+      };
+      await analyzerAgent.sendResult(
+        `${runId}-analyze`,
+        "success",
+        analyzerResult
+      );
 
       // Record analyzer step completion
-      const analyzerStepId = recordWorkflowStep(runId, analyzerAgent.id, analyzerAgent.id, "pending");
-      updateWorkflowStep(analyzerStepId, "completed", analyzerResult, undefined);
+      const analyzerStepId = recordWorkflowStep(
+        runId,
+        analyzerAgent.id,
+        analyzerAgent.id,
+        "pending"
+      );
+      updateWorkflowStep(
+        analyzerStepId,
+        "completed",
+        analyzerResult,
+        undefined
+      );
 
       // Step 2: Send intent to reviewer (with analyzer results)
       const reviewerIntentPromise = reviewerAgent.waitForIntent(5000);
-      wsServer.sendIntentToAgent(reviewerAgent.id, `${runId}-review`, "execute_step", {
-        stepId: reviewerAgent.id,
-        runId,
-        task: "review analysis",
-        input: analyzerResult,
-      });
+      wsServer.sendIntentToAgent(
+        reviewerAgent.id,
+        `${runId}-review`,
+        "execute_step",
+        {
+          stepId: reviewerAgent.id,
+          runId,
+          task: "review analysis",
+          input: analyzerResult,
+        }
+      );
 
       const reviewerIntent = await reviewerIntentPromise;
       expect(reviewerIntent.payload.action).toBe("execute_step");
 
       // Simulate reviewer execution
       const reviewerResult = { approved: true, feedback: "Good analysis" };
-      await reviewerAgent.sendResult(`${runId}-review`, "success", reviewerResult);
+      await reviewerAgent.sendResult(
+        `${runId}-review`,
+        "success",
+        reviewerResult
+      );
 
       // Record reviewer step completion
-      const reviewerStepId = recordWorkflowStep(runId, reviewerAgent.id, reviewerAgent.id, "pending");
-      updateWorkflowStep(reviewerStepId, "completed", reviewerResult, undefined);
+      const reviewerStepId = recordWorkflowStep(
+        runId,
+        reviewerAgent.id,
+        reviewerAgent.id,
+        "pending"
+      );
+      updateWorkflowStep(
+        reviewerStepId,
+        "completed",
+        reviewerResult,
+        undefined
+      );
 
       // Verify workflow completion
       const history = getWorkflowRunHistory(runId);
@@ -200,9 +279,18 @@ describe("Workflow Execution with Real Agents", () => {
 
   describe("Parallel Workflow Execution", () => {
     it("should execute parallel workflow with two concurrent agents and merger", async () => {
-      const agent1 = new MockAgent(`ws://localhost:${WS_PORT}`, "Parallel Agent 1");
-      const agent2 = new MockAgent(`ws://localhost:${WS_PORT}`, "Parallel Agent 2");
-      const mergerAgent = new MockAgent(`ws://localhost:${WS_PORT}`, "Merger Agent");
+      const agent1 = new MockAgent(
+        `ws://localhost:${WS_PORT}`,
+        "Parallel Agent 1"
+      );
+      const agent2 = new MockAgent(
+        `ws://localhost:${WS_PORT}`,
+        "Parallel Agent 2"
+      );
+      const mergerAgent = new MockAgent(
+        `ws://localhost:${WS_PORT}`,
+        "Merger Agent"
+      );
 
       await agent1.connect();
       await agent2.connect();
@@ -218,13 +306,21 @@ describe("Workflow Execution with Real Agents", () => {
           {
             id: agent1.id,
             type: "agent",
-            data: { agentId: agent1.id, label: "Processor 1", params: { task: "process data 1" } },
+            data: {
+              agentId: agent1.id,
+              label: "Processor 1",
+              params: { task: "process data 1" },
+            },
             position: { x: 0, y: -100 },
           },
           {
             id: agent2.id,
             type: "agent",
-            data: { agentId: agent2.id, label: "Processor 2", params: { task: "process data 2" } },
+            data: {
+              agentId: agent2.id,
+              label: "Processor 2",
+              params: { task: "process data 2" },
+            },
             position: { x: 0, y: 100 },
           },
           {
@@ -258,9 +354,16 @@ describe("Workflow Execution with Real Agents", () => {
         runId,
       });
       await intent1;
-      await agent1.sendResult(`${runId}-p1`, "success", { result: "data1 processed" });
+      await agent1.sendResult(`${runId}-p1`, "success", {
+        result: "data1 processed",
+      });
       const step1 = recordWorkflowStep(runId, agent1.id, agent1.id, "pending");
-      updateWorkflowStep(step1, "completed", { result: "data1 processed" }, undefined);
+      updateWorkflowStep(
+        step1,
+        "completed",
+        { result: "data1 processed" },
+        undefined
+      );
 
       // Execute agent2
       const intent2 = agent2.waitForIntent(5000);
@@ -269,22 +372,44 @@ describe("Workflow Execution with Real Agents", () => {
         runId,
       });
       await intent2;
-      await agent2.sendResult(`${runId}-p2`, "success", { result: "data2 processed" });
+      await agent2.sendResult(`${runId}-p2`, "success", {
+        result: "data2 processed",
+      });
       const step2 = recordWorkflowStep(runId, agent2.id, agent2.id, "pending");
-      updateWorkflowStep(step2, "completed", { result: "data2 processed" }, undefined);
+      updateWorkflowStep(
+        step2,
+        "completed",
+        { result: "data2 processed" },
+        undefined
+      );
 
       // Execute merger
       const intentMerge = mergerAgent.waitForIntent(5000);
-      wsServer.sendIntentToAgent(mergerAgent.id, `${runId}-merge`, "execute_step", {
-        stepId: mergerAgent.id,
-        runId,
-      });
+      wsServer.sendIntentToAgent(
+        mergerAgent.id,
+        `${runId}-merge`,
+        "execute_step",
+        {
+          stepId: mergerAgent.id,
+          runId,
+        }
+      );
       await intentMerge;
       await mergerAgent.sendResult(`${runId}-merge`, "success", {
         merged: "combined results",
       });
-      const stepMerge = recordWorkflowStep(runId, mergerAgent.id, mergerAgent.id, "pending");
-      updateWorkflowStep(stepMerge, "completed", { merged: "combined results" }, undefined);
+      const stepMerge = recordWorkflowStep(
+        runId,
+        mergerAgent.id,
+        mergerAgent.id,
+        "pending"
+      );
+      updateWorkflowStep(
+        stepMerge,
+        "completed",
+        { merged: "combined results" },
+        undefined
+      );
 
       // Verify completion
       const history = getWorkflowRunHistory(runId);
@@ -303,8 +428,14 @@ describe("Workflow Execution with Real Agents", () => {
 
   describe("Workflow Error Handling", () => {
     it("should handle agent execution failure in workflow", async () => {
-      const agent1 = new MockAgent(`ws://localhost:${WS_PORT}`, "Failing Agent");
-      const agent2 = new MockAgent(`ws://localhost:${WS_PORT}`, "Dependent Agent");
+      const agent1 = new MockAgent(
+        `ws://localhost:${WS_PORT}`,
+        "Failing Agent"
+      );
+      const agent2 = new MockAgent(
+        `ws://localhost:${WS_PORT}`,
+        "Dependent Agent"
+      );
 
       await agent1.connect();
       await agent2.connect();
@@ -317,13 +448,21 @@ describe("Workflow Execution with Real Agents", () => {
           {
             id: agent1.id,
             type: "agent",
-            data: { agentId: agent1.id, label: "Will Fail", params: { task: "fail" } },
+            data: {
+              agentId: agent1.id,
+              label: "Will Fail",
+              params: { task: "fail" },
+            },
             position: { x: 0, y: 0 },
           },
           {
             id: agent2.id,
             type: "agent",
-            data: { agentId: agent2.id, label: "Dependent", params: { input: `\${${agent1.id}}` } },
+            data: {
+              agentId: agent2.id,
+              label: "Dependent",
+              params: { input: `\${${agent1.id}}` },
+            },
             position: { x: 200, y: 0 },
           },
         ],
@@ -340,7 +479,12 @@ describe("Workflow Execution with Real Agents", () => {
         runId,
       });
       await intent1;
-      await agent1.sendResult(`${runId}-fail`, "failed", undefined, "Execution timeout");
+      await agent1.sendResult(
+        `${runId}-fail`,
+        "failed",
+        undefined,
+        "Execution timeout"
+      );
 
       const step1 = recordWorkflowStep(runId, agent1.id, agent1.id, "pending");
       updateWorkflowStep(step1, "failed", undefined, "Execution timeout");
@@ -360,8 +504,10 @@ describe("Workflow Execution with Real Agents", () => {
 
   describe("Complex Multi-Agent Workflows", () => {
     it("should execute complex workflow with multiple sequential stages", async () => {
-      const agents = Array.from({ length: 4 }, (_, i) =>
-        new MockAgent(`ws://localhost:${WS_PORT}`, `Stage ${i + 1} Agent`)
+      const agents = Array.from(
+        { length: 4 },
+        (_, i) =>
+          new MockAgent(`ws://localhost:${WS_PORT}`, `Stage ${i + 1} Agent`)
       );
 
       // Connect and authenticate all
@@ -399,11 +545,16 @@ describe("Workflow Execution with Real Agents", () => {
       for (let i = 0; i < agents.length; i++) {
         const agent = agents[i]!;
         const intentPromise = agent.waitForIntent(5000);
-        wsServer.sendIntentToAgent(agent.id, `${runId}-stage${i}`, "execute_step", {
-          stepId: agent.id,
-          runId,
-          stage: i + 1,
-        });
+        wsServer.sendIntentToAgent(
+          agent.id,
+          `${runId}-stage${i}`,
+          "execute_step",
+          {
+            stepId: agent.id,
+            runId,
+            stage: i + 1,
+          }
+        );
 
         await intentPromise;
         await agent.sendResult(`${runId}-stage${i}`, "success", {
@@ -493,7 +644,10 @@ describe("Workflow Execution with Real Agents", () => {
 
   describe("Agent Resilience", () => {
     it("should handle agent reconnection during workflow", async () => {
-      const agent = new MockAgent(`ws://localhost:${WS_PORT}`, "Reconnecting Agent");
+      const agent = new MockAgent(
+        `ws://localhost:${WS_PORT}`,
+        "Reconnecting Agent"
+      );
       const vaultysId = (await agent.getVaultysId?.()) || undefined;
 
       await agent.connect();
@@ -517,7 +671,10 @@ describe("Workflow Execution with Real Agents", () => {
       expect(wsServer.getAgent(agentId)).toBeUndefined();
 
       // Agent reconnects
-      const reconnected = new MockAgent(`ws://localhost:${WS_PORT}`, "Reconnecting Agent");
+      const reconnected = new MockAgent(
+        `ws://localhost:${WS_PORT}`,
+        "Reconnecting Agent"
+      );
       if (vaultysId) {
         // Use same identity if available
         await reconnected.connect();
@@ -540,8 +697,10 @@ describe("Workflow Execution with Real Agents", () => {
 
   describe("Concurrent Workflows", () => {
     it("should execute multiple workflows concurrently with different agents", async () => {
-      const agents = Array.from({ length: 4 }, (_, i) =>
-        new MockAgent(`ws://localhost:${WS_PORT}`, `Concurrent Agent ${i}`)
+      const agents = Array.from(
+        { length: 4 },
+        (_, i) =>
+          new MockAgent(`ws://localhost:${WS_PORT}`, `Concurrent Agent ${i}`)
       );
 
       await Promise.all(agents.map((a) => a.connect()));

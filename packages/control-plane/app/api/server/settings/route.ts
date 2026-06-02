@@ -68,7 +68,10 @@ export async function PUT(req: NextRequest) {
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
 
-  const body = (await req.json()) as { walletUrl?: string; peerjsHost?: string };
+  const body = (await req.json()) as {
+    walletUrl?: string;
+    peerjsHost?: string;
+  };
 
   if (body.walletUrl !== undefined) {
     setSetting("wallet_url", body.walletUrl.trim());

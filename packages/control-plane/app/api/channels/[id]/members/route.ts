@@ -105,10 +105,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
 
       return NextResponse.json({ member }, { status: 201 });
     } catch (err: any) {
-      return NextResponse.json(
-        { error: err.message },
-        { status: 409 }
-      );
+      return NextResponse.json({ error: err.message }, { status: 409 });
     }
   } catch (err) {
     console.error("POST /api/channels/[id]/members error:", err);

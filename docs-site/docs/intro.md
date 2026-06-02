@@ -12,14 +12,14 @@ description: What is Vaultys Claw, and why should your organisation care?
 
 Running AI agents at enterprise scale introduces problems that most frameworks ignore:
 
-| Problem | How Vaultys Claw solves it |
-|---|---|
-| **Who authorised this action?** | Every intent is signed by the issuer's VaultysId key — tamper-evident, non-repudiable |
-| **Can I trust this agent?** | Agents carry non-transferable DID identities; impersonation is cryptographically impossible |
-| **How do I revoke access?** | Capability grants and policies are revoked instantly from the control plane and pushed to agents |
-| **LLM vendor lock-in** | Per-agent LLM configuration: OpenAI, Anthropic, Gemini, Ollama, or any OpenAI-compatible endpoint |
-| **Multi-team isolation** | Realms provide hard boundaries between teams; role-based access from member to global admin |
-| **Audit trail** | Every intent, result, and approval is logged and cryptographically attributable |
+| Problem                         | How Vaultys Claw solves it                                                                        |
+| ------------------------------- | ------------------------------------------------------------------------------------------------- |
+| **Who authorised this action?** | Every intent is signed by the issuer's VaultysId key — tamper-evident, non-repudiable             |
+| **Can I trust this agent?**     | Agents carry non-transferable DID identities; impersonation is cryptographically impossible       |
+| **How do I revoke access?**     | Capability grants and policies are revoked instantly from the control plane and pushed to agents  |
+| **LLM vendor lock-in**          | Per-agent LLM configuration: OpenAI, Anthropic, Gemini, Ollama, or any OpenAI-compatible endpoint |
+| **Multi-team isolation**        | Realms provide hard boundaries between teams; role-based access from member to global admin       |
+| **Audit trail**                 | Every intent, result, and approval is logged and cryptographically attributable                   |
 
 ## Core components
 

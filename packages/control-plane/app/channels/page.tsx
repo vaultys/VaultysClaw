@@ -77,7 +77,9 @@ export default function ChannelsPage() {
       try {
         const response = await fetch("/api/realms");
         if (response.ok) {
-          const data = (await response.json()) as { realms: Array<{ id: string; name: string }> };
+          const data = (await response.json()) as {
+            realms: Array<{ id: string; name: string }>;
+          };
           if (data.realms.length > 0) {
             const realmId = data.realms[0].id;
             setCurrentRealmId(realmId);
@@ -134,7 +136,7 @@ export default function ChannelsPage() {
               placeholder="Search channels..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 bg-background-100 border border-neutral-200 rounded-lg text-foreground placeholder-foreground-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full pl-9 pr-3 py-2 bg-background-100 border border-neutral-200 rounded-lg text-foreground placeholder-foreground-500 focus:outline-none focus:ring-2 focus:ring-primary-500"
             />
           </div>
         </div>
@@ -142,9 +144,11 @@ export default function ChannelsPage() {
         {/* Channel List */}
         <div className="flex-1 overflow-y-auto">
           {isLoading ? (
-            <div className="p-4 text-foreground-700 text-sm">Loading channels...</div>
+            <div className="p-4 text-foreground-700 text-sm">
+              Loading channels...
+            </div>
           ) : error ? (
-            <div className="p-4 text-red-600 text-sm">{error}</div>
+            <div className="p-4 text-danger-600 text-sm">{error}</div>
           ) : filteredChannels.length === 0 ? (
             <div className="p-4 text-foreground-700 text-sm">
               No channels found. Create one to get started!
@@ -173,7 +177,11 @@ export default function ChannelsPage() {
       {/* Main Content */}
       <div className="flex-1 bg-background flex flex-col">
         {selectedChannel ? (
-          <ChannelView key={selectedChannelId} channel={selectedChannel} realmId={currentRealmId} />
+          <ChannelView
+            key={selectedChannelId}
+            channel={selectedChannel}
+            realmId={currentRealmId}
+          />
         ) : (
           <div className="flex-1 flex items-center justify-center text-foreground-500">
             <div className="text-center">

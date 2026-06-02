@@ -1,7 +1,12 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getAuthContext, unauthorized, forbidden } from '@/lib/auth-utils';
-import { getKnowledgeSource, updateKnowledgeSourceStatus, getDoclingConfig, getKnowledgeFileAttachments } from '@/lib/db';
-import { getWSServer } from '@/lib/ws-server';
+import { NextRequest, NextResponse } from "next/server";
+import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
+import {
+  getKnowledgeSource,
+  updateKnowledgeSourceStatus,
+  getDoclingConfig,
+  getKnowledgeFileAttachments,
+} from "@/lib/db";
+import { getWSServer } from "@/lib/ws-server";
 
 // POST /api/knowledge/:id/sync
 /**
@@ -46,53 +51,78 @@ import { getWSServer } from '@/lib/ws-server';
  *       503:
  *         description: Service unavailable or agent offline.
  */
-export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function POST(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   const auth = await getAuthContext(request);
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
 
   const { id } = await params;
   const source = getKnowledgeSource(id);
-  if (!source) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  if (!source)
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  if (source.status === 'syncing') {
-    return NextResponse.json({ error: 'Sync already in progress' }, { status: 409 });
+  if (source.status === "syncing") {
+    return NextResponse.json(
+      { error: "Sync already in progress" },
+      { status: 409 }
+    );
   }
 
   const wsServer = getWSServer();
   if (!wsServer) {
-    return NextResponse.json({ error: 'WebSocket server not available' }, { status: 503 });
+    return NextResponse.json(
+      { error: "WebSocket server not available" },
+      { status: 503 }
+    );
   }
 
   // Check if the agent is connected
   const isOnline = wsServer.isAgentOnline(source.agent_did);
   if (!isOnline) {
-    return NextResponse.json({ error: 'Agent is offline — cannot trigger sync' }, { status: 503 });
+    return NextResponse.json(
+      { error: "Agent is offline — cannot trigger sync" },
+      { status: 503 }
+    );
   }
 
   // Mark as syncing in the control plane DB
-  updateKnowledgeSourceStatus(id, 'syncing');
+  updateKnowledgeSourceStatus(id, "syncing");
 
   // Dispatch WebSocket message to agent
   const messageId = `ks-sync-${Date.now()}`;
-  const config = (() => { try { return JSON.parse(source.config); } catch { return {}; } })();
+  const config = (() => {
+    try {
+      return JSON.parse(source.config);
+    } catch {
+      return {};
+    }
+  })();
 
   // Include Docling URL if configured and enabled
   const doclingCfg = getDoclingConfig();
-  const docling = (doclingCfg?.enabled && doclingCfg.url)
-    ? {
-        url: doclingCfg.url,
-        sourceEndpoint: doclingCfg.sourceEndpoint,
-        fileEndpoint:   doclingCfg.fileEndpoint,
-      }
-    : undefined;
+  const docling =
+    doclingCfg?.enabled && doclingCfg.url
+      ? {
+          url: doclingCfg.url,
+          sourceEndpoint: doclingCfg.sourceEndpoint,
+          fileEndpoint: doclingCfg.fileEndpoint,
+        }
+      : undefined;
 
   // For 'files' sources, load file attachments (base64 encoded) to send to agent
-  let fileAttachments: Awaited<ReturnType<typeof getKnowledgeFileAttachments>> | undefined;
-  if (source.source_type === 'files') {
+  let fileAttachments:
+    | Awaited<ReturnType<typeof getKnowledgeFileAttachments>>
+    | undefined;
+  if (source.source_type === "files") {
     fileAttachments = await getKnowledgeFileAttachments(source.id);
     if (!fileAttachments || fileAttachments.length === 0) {
-      return NextResponse.json({ error: 'No files attached to this source — upload files first' }, { status: 400 });
+      return NextResponse.json(
+        { error: "No files attached to this source — upload files first" },
+        { status: 400 }
+      );
     }
   }
 
@@ -105,5 +135,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     fileAttachments,
   });
 
-  return NextResponse.json({ success: true, messageId, status: 'syncing', docling: !!docling });
+  return NextResponse.json({
+    success: true,
+    messageId,
+    status: "syncing",
+    docling: !!docling,
+  });
 }

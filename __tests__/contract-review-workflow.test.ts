@@ -79,9 +79,13 @@ describe("Contract Review & Approval Pipeline Workflow", () => {
 
     // Clean up test data
     for (const name of WORKFLOW_NAMES) {
-      const rows = db.prepare("SELECT id FROM workflows WHERE name = ?").all(name) as { id: string }[];
+      const rows = db
+        .prepare("SELECT id FROM workflows WHERE name = ?")
+        .all(name) as { id: string }[];
       for (const row of rows) {
-        db.prepare("DELETE FROM workflow_runs WHERE workflow_id = ?").run(row.id);
+        db.prepare("DELETE FROM workflow_runs WHERE workflow_id = ?").run(
+          row.id
+        );
       }
       db.prepare("DELETE FROM workflows WHERE name = ?").run(name);
     }
@@ -90,10 +94,16 @@ describe("Contract Review & Approval Pipeline Workflow", () => {
     }
 
     // Clean up realm if it exists (by slug)
-    const existingRealm = db.prepare("SELECT id FROM realms WHERE slug = ?").get(testRealmSlug) as { id: string } | undefined;
+    const existingRealm = db
+      .prepare("SELECT id FROM realms WHERE slug = ?")
+      .get(testRealmSlug) as { id: string } | undefined;
     if (existingRealm) {
-      db.prepare("DELETE FROM agent_realms WHERE realm_id = ?").run(existingRealm.id);
-      db.prepare("DELETE FROM user_realms WHERE realm_id = ?").run(existingRealm.id);
+      db.prepare("DELETE FROM agent_realms WHERE realm_id = ?").run(
+        existingRealm.id
+      );
+      db.prepare("DELETE FROM user_realms WHERE realm_id = ?").run(
+        existingRealm.id
+      );
       db.prepare("DELETE FROM realms WHERE id = ?").run(existingRealm.id);
     }
 
@@ -113,9 +123,18 @@ describe("Contract Review & Approval Pipeline Workflow", () => {
     testRealmId = createdRealm.id;
 
     // Create test agents
-    documentAnalyzer = new MockAgent(`ws://localhost:${WS_PORT}`, "Document Analyzer");
-    complianceChecker = new MockAgent(`ws://localhost:${WS_PORT}`, "Compliance Checker");
-    legalReviewer = new MockAgent(`ws://localhost:${WS_PORT}`, "Legal Reviewer");
+    documentAnalyzer = new MockAgent(
+      `ws://localhost:${WS_PORT}`,
+      "Document Analyzer"
+    );
+    complianceChecker = new MockAgent(
+      `ws://localhost:${WS_PORT}`,
+      "Compliance Checker"
+    );
+    legalReviewer = new MockAgent(
+      `ws://localhost:${WS_PORT}`,
+      "Legal Reviewer"
+    );
     archiveAgent = new MockAgent(`ws://localhost:${WS_PORT}`, "Archive Agent");
 
     // Connect and authenticate all agents
@@ -130,7 +149,12 @@ describe("Contract Review & Approval Pipeline Workflow", () => {
     await archiveAgent.authenticate(["store", "archive"], wsServer);
 
     // Upsert agents in database and add to realm
-    const agents = [documentAnalyzer, complianceChecker, legalReviewer, archiveAgent];
+    const agents = [
+      documentAnalyzer,
+      complianceChecker,
+      legalReviewer,
+      archiveAgent,
+    ];
     for (const agent of agents) {
       upsertAgent({
         did: agent.id,
@@ -224,22 +248,35 @@ describe("Contract Review & Approval Pipeline Workflow", () => {
           },
         ],
         edges: [
-          { id: "e1", source: documentAnalyzer.id, target: complianceChecker.id },
+          {
+            id: "e1",
+            source: documentAnalyzer.id,
+            target: complianceChecker.id,
+          },
           { id: "e2", source: complianceChecker.id, target: legalReviewer.id },
           { id: "e3", source: legalReviewer.id, target: archiveAgent.id },
         ],
       };
 
-      const workflowId = saveWorkflow("Contract Review Pipeline", workflow, testRealmId);
+      const workflowId = saveWorkflow(
+        "Contract Review Pipeline",
+        workflow,
+        testRealmId
+      );
       const runId = startWorkflowRun(workflowId);
 
       // Step 1: Document Analyzer extracts key terms
       const analyzerIntentPromise = documentAnalyzer.waitForIntent(5000);
-      wsServer.sendIntentToAgent(documentAnalyzer.id, `${runId}-analyze`, "execute_step", {
-        stepId: documentAnalyzer.id,
-        runId,
-        task: "extract_key_terms",
-      });
+      wsServer.sendIntentToAgent(
+        documentAnalyzer.id,
+        `${runId}-analyze`,
+        "execute_step",
+        {
+          stepId: documentAnalyzer.id,
+          runId,
+          task: "extract_key_terms",
+        }
+      );
 
       const analyzerIntent = await analyzerIntentPromise;
       expect(analyzerIntent.payload.action).toBe("execute_step");
@@ -252,19 +289,38 @@ describe("Contract Review & Approval Pipeline Workflow", () => {
         data_classification: "confidential",
         liability_cap: "2x annual fees",
       };
-      await documentAnalyzer.sendResult(`${runId}-analyze`, "success", extractedTerms);
+      await documentAnalyzer.sendResult(
+        `${runId}-analyze`,
+        "success",
+        extractedTerms
+      );
 
-      const analyzerStepId = recordWorkflowStep(runId, documentAnalyzer.id, documentAnalyzer.id, "pending");
-      updateWorkflowStep(analyzerStepId, "completed", extractedTerms, undefined);
+      const analyzerStepId = recordWorkflowStep(
+        runId,
+        documentAnalyzer.id,
+        documentAnalyzer.id,
+        "pending"
+      );
+      updateWorkflowStep(
+        analyzerStepId,
+        "completed",
+        extractedTerms,
+        undefined
+      );
 
       // Step 2: Compliance Checker validates against policies
       const checkerIntentPromise = complianceChecker.waitForIntent(5000);
-      wsServer.sendIntentToAgent(complianceChecker.id, `${runId}-check`, "execute_step", {
-        stepId: complianceChecker.id,
-        runId,
-        task: "check_compliance",
-        input: extractedTerms,
-      });
+      wsServer.sendIntentToAgent(
+        complianceChecker.id,
+        `${runId}-check`,
+        "execute_step",
+        {
+          stepId: complianceChecker.id,
+          runId,
+          task: "check_compliance",
+          input: extractedTerms,
+        }
+      );
 
       const checkerIntent = await checkerIntentPromise;
       expect(checkerIntent.payload.action).toBe("execute_step");
@@ -272,23 +328,45 @@ describe("Contract Review & Approval Pipeline Workflow", () => {
       const complianceResult = {
         status: "compliant",
         data_protection: { passed: true, notes: "CCPA/GDPR clauses present" },
-        vendor_limits: { passed: true, notes: "Within approved vendor spend limits" },
+        vendor_limits: {
+          passed: true,
+          notes: "Within approved vendor spend limits",
+        },
         risk_level: "low",
         flags: [],
       };
-      await complianceChecker.sendResult(`${runId}-check`, "success", complianceResult);
+      await complianceChecker.sendResult(
+        `${runId}-check`,
+        "success",
+        complianceResult
+      );
 
-      const checkerStepId = recordWorkflowStep(runId, complianceChecker.id, complianceChecker.id, "pending");
-      updateWorkflowStep(checkerStepId, "completed", complianceResult, undefined);
+      const checkerStepId = recordWorkflowStep(
+        runId,
+        complianceChecker.id,
+        complianceChecker.id,
+        "pending"
+      );
+      updateWorkflowStep(
+        checkerStepId,
+        "completed",
+        complianceResult,
+        undefined
+      );
 
       // Step 3: Legal Reviewer approves
       const reviewerIntentPromise = legalReviewer.waitForIntent(5000);
-      wsServer.sendIntentToAgent(legalReviewer.id, `${runId}-review`, "execute_step", {
-        stepId: legalReviewer.id,
-        runId,
-        task: "review_contract",
-        compliance_status: complianceResult,
-      });
+      wsServer.sendIntentToAgent(
+        legalReviewer.id,
+        `${runId}-review`,
+        "execute_step",
+        {
+          stepId: legalReviewer.id,
+          runId,
+          task: "review_contract",
+          compliance_status: complianceResult,
+        }
+      );
 
       const reviewerIntent = await reviewerIntentPromise;
       expect(reviewerIntent.payload.action).toBe("execute_step");
@@ -300,18 +378,32 @@ describe("Contract Review & Approval Pipeline Workflow", () => {
         recommendations: [],
         execution_authorized: true,
       };
-      await legalReviewer.sendResult(`${runId}-review`, "success", reviewResult);
+      await legalReviewer.sendResult(
+        `${runId}-review`,
+        "success",
+        reviewResult
+      );
 
-      const reviewerStepId = recordWorkflowStep(runId, legalReviewer.id, legalReviewer.id, "pending");
+      const reviewerStepId = recordWorkflowStep(
+        runId,
+        legalReviewer.id,
+        legalReviewer.id,
+        "pending"
+      );
       updateWorkflowStep(reviewerStepId, "completed", reviewResult, undefined);
 
       // Step 4: Archive Agent stores contract
       const archiveIntentPromise = archiveAgent.waitForIntent(5000);
-      wsServer.sendIntentToAgent(archiveAgent.id, `${runId}-archive`, "execute_step", {
-        stepId: archiveAgent.id,
-        runId,
-        task: "archive_contract",
-      });
+      wsServer.sendIntentToAgent(
+        archiveAgent.id,
+        `${runId}-archive`,
+        "execute_step",
+        {
+          stepId: archiveAgent.id,
+          runId,
+          task: "archive_contract",
+        }
+      );
 
       const archiveIntent = await archiveIntentPromise;
       expect(archiveIntent.payload.action).toBe("execute_step");
@@ -322,9 +414,18 @@ describe("Contract Review & Approval Pipeline Workflow", () => {
         storage_location: "s3://contracts/2026/05/contract-001",
         metadata_stored: true,
       };
-      await archiveAgent.sendResult(`${runId}-archive`, "success", archiveResult);
+      await archiveAgent.sendResult(
+        `${runId}-archive`,
+        "success",
+        archiveResult
+      );
 
-      const archiveStepId = recordWorkflowStep(runId, archiveAgent.id, archiveAgent.id, "pending");
+      const archiveStepId = recordWorkflowStep(
+        runId,
+        archiveAgent.id,
+        archiveAgent.id,
+        "pending"
+      );
       updateWorkflowStep(archiveStepId, "completed", archiveResult, undefined);
 
       // Verify full workflow completion
@@ -333,8 +434,14 @@ describe("Contract Review & Approval Pipeline Workflow", () => {
       expect(history.steps.every((s) => s.status === "completed")).toBe(true);
 
       // Parse outputs (they may be stored as JSON strings)
-      const step0Output = typeof history.steps[0].output === "string" ? JSON.parse(history.steps[0].output) : history.steps[0].output;
-      const step1Output = typeof history.steps[1].output === "string" ? JSON.parse(history.steps[1].output) : history.steps[1].output;
+      const step0Output =
+        typeof history.steps[0].output === "string"
+          ? JSON.parse(history.steps[0].output)
+          : history.steps[0].output;
+      const step1Output =
+        typeof history.steps[1].output === "string"
+          ? JSON.parse(history.steps[1].output)
+          : history.steps[1].output;
 
       expect(step0Output).toEqual(extractedTerms);
       expect(step1Output.status).toBe("compliant");
@@ -350,12 +457,15 @@ describe("Contract Review & Approval Pipeline Workflow", () => {
       const db = getDb();
 
       // Set up token budget for analyzer agent (10,000 tokens/day)
-      db.prepare(
-        "UPDATE agents SET token_budget_daily = ? WHERE did = ?"
-      ).run(10000, documentAnalyzer.id);
+      db.prepare("UPDATE agents SET token_budget_daily = ? WHERE did = ?").run(
+        10000,
+        documentAnalyzer.id
+      );
 
       // Verify agent has a budget set
-      const agent = db.prepare("SELECT token_budget_daily FROM agents WHERE did = ?").get(documentAnalyzer.id) as { token_budget_daily: number } | undefined;
+      const agent = db
+        .prepare("SELECT token_budget_daily FROM agents WHERE did = ?")
+        .get(documentAnalyzer.id) as { token_budget_daily: number } | undefined;
       expect(agent).toBeDefined();
       expect(agent?.token_budget_daily).toBe(10000);
 
@@ -375,16 +485,25 @@ describe("Contract Review & Approval Pipeline Workflow", () => {
         edges: [],
       };
 
-      const workflowId = saveWorkflow("Token Budget Test", workflow, testRealmId);
+      const workflowId = saveWorkflow(
+        "Token Budget Test",
+        workflow,
+        testRealmId
+      );
       const runId = startWorkflowRun(workflowId);
 
       // Simulate document analysis (uses ~3000 tokens)
       const intentPromise = documentAnalyzer.waitForIntent(5000);
-      wsServer.sendIntentToAgent(documentAnalyzer.id, `${runId}-analyze`, "execute_step", {
-        stepId: documentAnalyzer.id,
-        runId,
-        task: "extract_key_terms",
-      });
+      wsServer.sendIntentToAgent(
+        documentAnalyzer.id,
+        `${runId}-analyze`,
+        "execute_step",
+        {
+          stepId: documentAnalyzer.id,
+          runId,
+          task: "extract_key_terms",
+        }
+      );
 
       const intent = await intentPromise;
       expect(intent.payload.action).toBe("execute_step");
@@ -392,7 +511,12 @@ describe("Contract Review & Approval Pipeline Workflow", () => {
       const result = { terms: "extracted", token_cost: 3000 };
       await documentAnalyzer.sendResult(`${runId}-analyze`, "success", result);
 
-      const stepId = recordWorkflowStep(runId, documentAnalyzer.id, documentAnalyzer.id, "pending");
+      const stepId = recordWorkflowStep(
+        runId,
+        documentAnalyzer.id,
+        documentAnalyzer.id,
+        "pending"
+      );
       updateWorkflowStep(
         stepId,
         "completed",
@@ -470,14 +594,23 @@ describe("Contract Review & Approval Pipeline Workflow", () => {
         ],
       };
 
-      const workflowId = saveWorkflow("High-Value Contract Review", workflow, testRealmId);
+      const workflowId = saveWorkflow(
+        "High-Value Contract Review",
+        workflow,
+        testRealmId
+      );
       const runId = startWorkflowRun(workflowId);
 
       const analyzerIntentPromise = documentAnalyzer.waitForIntent(5000);
-      wsServer.sendIntentToAgent(documentAnalyzer.id, `${runId}-score`, "execute_step", {
-        stepId: documentAnalyzer.id,
-        runId,
-      });
+      wsServer.sendIntentToAgent(
+        documentAnalyzer.id,
+        `${runId}-score`,
+        "execute_step",
+        {
+          stepId: documentAnalyzer.id,
+          runId,
+        }
+      );
 
       const analyzerIntent = await analyzerIntentPromise;
       const scoreResult = {
@@ -486,13 +619,25 @@ describe("Contract Review & Approval Pipeline Workflow", () => {
         requires_high_approval: true,
       };
 
-      await documentAnalyzer.sendResult(`${runId}-score`, "success", scoreResult);
-      const scoreStepId = recordWorkflowStep(runId, documentAnalyzer.id, documentAnalyzer.id, "pending");
+      await documentAnalyzer.sendResult(
+        `${runId}-score`,
+        "success",
+        scoreResult
+      );
+      const scoreStepId = recordWorkflowStep(
+        runId,
+        documentAnalyzer.id,
+        documentAnalyzer.id,
+        "pending"
+      );
       updateWorkflowStep(scoreStepId, "completed", scoreResult, undefined);
 
       // Verify routing decision would be made (setup for conditional feature)
       const history = getWorkflowRunHistory(runId);
-      const stepOutput = typeof history.steps[0].output === "string" ? JSON.parse(history.steps[0].output) : history.steps[0].output;
+      const stepOutput =
+        typeof history.steps[0].output === "string"
+          ? JSON.parse(history.steps[0].output)
+          : history.steps[0].output;
       expect(stepOutput.requires_high_approval).toBe(true);
       expect(stepOutput.contract_value).toBeGreaterThan(100000);
     });
@@ -520,14 +665,23 @@ describe("Contract Review & Approval Pipeline Workflow", () => {
         edges: [],
       };
 
-      const workflowId = saveWorkflow("Contract with Compliance Issues", workflow, testRealmId);
+      const workflowId = saveWorkflow(
+        "Contract with Compliance Issues",
+        workflow,
+        testRealmId
+      );
       const runId = startWorkflowRun(workflowId);
 
       const checkerIntentPromise = complianceChecker.waitForIntent(5000);
-      wsServer.sendIntentToAgent(complianceChecker.id, `${runId}-check`, "execute_step", {
-        stepId: complianceChecker.id,
-        runId,
-      });
+      wsServer.sendIntentToAgent(
+        complianceChecker.id,
+        `${runId}-check`,
+        "execute_step",
+        {
+          stepId: complianceChecker.id,
+          runId,
+        }
+      );
 
       const checkerIntent = await checkerIntentPromise;
       expect(checkerIntent.payload.action).toBe("execute_step");
@@ -540,15 +694,32 @@ describe("Contract Review & Approval Pipeline Workflow", () => {
         requires_escalation: true,
       };
 
-      await complianceChecker.sendResult(`${runId}-check`, "failure", errorResult);
+      await complianceChecker.sendResult(
+        `${runId}-check`,
+        "failure",
+        errorResult
+      );
 
-      const stepId = recordWorkflowStep(runId, complianceChecker.id, complianceChecker.id, "pending");
-      updateWorkflowStep(stepId, "failed", errorResult, "Compliance check failed");
+      const stepId = recordWorkflowStep(
+        runId,
+        complianceChecker.id,
+        complianceChecker.id,
+        "pending"
+      );
+      updateWorkflowStep(
+        stepId,
+        "failed",
+        errorResult,
+        "Compliance check failed"
+      );
 
       // Verify error was recorded
       const history = getWorkflowRunHistory(runId);
       expect(history.steps[0].status).toBe("failed");
-      const errorOutput = typeof history.steps[0].output === "string" ? JSON.parse(history.steps[0].output) : history.steps[0].output;
+      const errorOutput =
+        typeof history.steps[0].output === "string"
+          ? JSON.parse(history.steps[0].output)
+          : history.steps[0].output;
       expect(errorOutput.requires_escalation).toBe(true);
     });
   });
@@ -583,17 +754,21 @@ describe("Contract Review & Approval Pipeline Workflow", () => {
             position: { x: 200, y: 0 },
           },
         ],
-        edges: [
-          { id: "e1", source: "analyzer-sa", target: "checker-sa" },
-        ],
+        edges: [{ id: "e1", source: "analyzer-sa", target: "checker-sa" }],
       };
 
-      const templateId = saveWorkflow("Service Agreement Template", serviceAgreementWorkflow, testRealmId);
+      const templateId = saveWorkflow(
+        "Service Agreement Template",
+        serviceAgreementWorkflow,
+        testRealmId
+      );
       expect(templateId).toBeDefined();
 
       // Verify template can be queried
       const db = getDb();
-      const template = db.prepare("SELECT * FROM workflows WHERE id = ?").get(templateId) as any;
+      const template = db
+        .prepare("SELECT * FROM workflows WHERE id = ?")
+        .get(templateId) as any;
       expect(template).toBeDefined();
       expect(template.name).toBe("Service Agreement Template");
     });

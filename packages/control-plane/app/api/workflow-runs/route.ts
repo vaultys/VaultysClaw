@@ -95,12 +95,27 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const workflowId = searchParams.get("workflowId") ?? undefined;
     const status = searchParams.get("status") ?? undefined;
-    const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10) || 1);
-    const pageSize = Math.min(100, Math.max(1, parseInt(searchParams.get("pageSize") ?? "20", 10) || 20));
-    const sortBy = (searchParams.get("sortBy") ?? "startedAt") as "startedAt" | "completedAt";
+    const page = Math.max(
+      1,
+      parseInt(searchParams.get("page") ?? "1", 10) || 1
+    );
+    const pageSize = Math.min(
+      100,
+      Math.max(1, parseInt(searchParams.get("pageSize") ?? "20", 10) || 20)
+    );
+    const sortBy = (searchParams.get("sortBy") ?? "startedAt") as
+      | "startedAt"
+      | "completedAt";
     const sortDir = (searchParams.get("sortDir") ?? "desc") as "asc" | "desc";
 
-    const result = queryWorkflowRuns({ workflowId, status, page, pageSize, sortBy, sortDir });
+    const result = queryWorkflowRuns({
+      workflowId,
+      status,
+      page,
+      pageSize,
+      sortBy,
+      sortDir,
+    });
 
     return NextResponse.json({
       runs: result.runs,
@@ -111,6 +126,9 @@ export async function GET(request: Request) {
     });
   } catch (error) {
     console.error("Failed to fetch workflow runs:", error);
-    return NextResponse.json({ error: "Failed to fetch workflow runs" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to fetch workflow runs" },
+      { status: 500 }
+    );
   }
 }

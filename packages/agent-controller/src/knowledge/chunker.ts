@@ -1,5 +1,5 @@
-import { randomUUID } from 'crypto';
-import type { Document, Chunk } from './types';
+import { randomUUID } from "crypto";
+import type { Document, Chunk } from "./types";
 
 // ---------------------------------------------------------------------------
 // Recursive splitter — LangChain-style but dependency-free
@@ -11,17 +11,18 @@ import type { Document, Chunk } from './types';
  */
 const SEPARATORS: Record<string, string[]> = {
   markdown: [
-    '\n## ', '\n### ', '\n#### ',   // section headers
-    '\n\n',                          // paragraph break
-    '\n',                            // line break
-    '. ', '! ', '? ',               // sentence boundaries
-    ' ', '',                         // word / char fallback
+    "\n## ",
+    "\n### ",
+    "\n#### ", // section headers
+    "\n\n", // paragraph break
+    "\n", // line break
+    ". ",
+    "! ",
+    "? ", // sentence boundaries
+    " ",
+    "", // word / char fallback
   ],
-  text: [
-    '\n\n', '\n',
-    '. ', '! ', '? ',
-    ' ', '',
-  ],
+  text: ["\n\n", "\n", ". ", "! ", "? ", " ", ""],
 };
 
 /**
@@ -32,14 +33,14 @@ function recursiveSplit(
   text: string,
   separators: string[],
   chunkSize: number,
-  overlap: number,
+  overlap: number
 ): string[] {
   if (text.length <= chunkSize) return text.trim() ? [text] : [];
 
   const [sep, ...rest] = separators;
 
   // No more separators — hard split
-  if (sep === '') {
+  if (sep === "") {
     const chunks: string[] = [];
     for (let i = 0; i < text.length; i += chunkSize - overlap) {
       chunks.push(text.slice(i, i + chunkSize));
@@ -50,7 +51,7 @@ function recursiveSplit(
 
   const parts = text.split(sep);
   const chunks: string[] = [];
-  let current = '';
+  let current = "";
 
   for (const part of parts) {
     const candidate = current ? current + sep + part : part;
@@ -81,7 +82,7 @@ function recursiveSplit(
     }
   }
 
-  return chunks.filter(c => c.trim().length > 0);
+  return chunks.filter((c) => c.trim().length > 0);
 }
 
 // ---------------------------------------------------------------------------
@@ -99,14 +100,13 @@ export function chunkDocument(
   doc: Document,
   chunkSize = 1000,
   overlap = 100,
-  format?: 'markdown' | 'text',
+  format?: "markdown" | "text"
 ): Chunk[] {
   const text = doc.content.trim();
   if (!text) return [];
 
   // Auto-detect: if the document starts with a '#' header or has markdown headings, treat as markdown
-  const detectedFormat = format
-    ?? (isMarkdown(text) ? 'markdown' : 'text');
+  const detectedFormat = format ?? (isMarkdown(text) ? "markdown" : "text");
 
   const separators = SEPARATORS[detectedFormat];
   const rawChunks = recursiveSplit(text, separators, chunkSize, overlap);
@@ -120,14 +120,14 @@ export function chunkDocument(
       chunkIndex: index,
       metadata: doc.metadata,
     }))
-    .filter(c => c.content.length > 20); // drop tiny trailing fragments
+    .filter((c) => c.content.length > 20); // drop tiny trailing fragments
 }
 
 /** Heuristic: treat as Markdown if 3+ lines look like headings or bullet lists */
 function isMarkdown(text: string): boolean {
-  const lines = text.slice(0, 2000).split('\n');
+  const lines = text.slice(0, 2000).split("\n");
   const mdLines = lines.filter(
-    l => /^#{1,6}\s/.test(l) || /^[-*]\s/.test(l) || /^\d+\.\s/.test(l),
+    (l) => /^#{1,6}\s/.test(l) || /^[-*]\s/.test(l) || /^\d+\.\s/.test(l)
   );
   return mdLines.length >= 3;
 }

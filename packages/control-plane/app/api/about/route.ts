@@ -4,11 +4,7 @@ import fs from "fs";
 import path from "path";
 
 const DOCS: Record<string, string[]> = {
-  readme: [
-    "README.md",
-    "../../README.md",
-    "../../../README.md",
-  ],
+  readme: ["README.md", "../../README.md", "../../../README.md"],
   zerotrust: [
     "ZERO_TRUST_COMPLIANCE.md",
     "../../ZERO_TRUST_COMPLIANCE.md",

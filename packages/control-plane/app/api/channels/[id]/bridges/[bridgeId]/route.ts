@@ -84,23 +84,37 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
     let updated = bridge;
 
     if (body.syncDirection !== undefined) {
-      if (!["incoming", "outgoing", "bidirectional"].includes(body.syncDirection)) {
+      if (
+        !["incoming", "outgoing", "bidirectional"].includes(body.syncDirection)
+      ) {
         return NextResponse.json(
-          { error: "syncDirection must be 'incoming', 'outgoing', or 'bidirectional'" },
-          { status: 400 },
+          {
+            error:
+              "syncDirection must be 'incoming', 'outgoing', or 'bidirectional'",
+          },
+          { status: 400 }
         );
       }
-      updated = ChannelBridgeService.updateBridgeSyncDirection(bridgeId, body.syncDirection);
+      updated = ChannelBridgeService.updateBridgeSyncDirection(
+        bridgeId,
+        body.syncDirection
+      );
     }
 
     if (body.isSyncEnabled !== undefined) {
-      updated = ChannelBridgeService.toggleBridgeSync(bridgeId, Boolean(body.isSyncEnabled));
+      updated = ChannelBridgeService.toggleBridgeSync(
+        bridgeId,
+        Boolean(body.isSyncEnabled)
+      );
     }
 
     return NextResponse.json({ bridge: stripConfig(updated) });
   } catch (err) {
     console.error("PATCH /api/channels/[id]/bridges/[bridgeId] error:", err);
-    return NextResponse.json({ error: "Failed to update bridge" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to update bridge" },
+      { status: 500 }
+    );
   }
 }
 
@@ -164,6 +178,9 @@ export async function DELETE(_req: NextRequest, ctx: Ctx) {
     return NextResponse.json({ success: true });
   } catch (err) {
     console.error("DELETE /api/channels/[id]/bridges/[bridgeId] error:", err);
-    return NextResponse.json({ error: "Failed to delete bridge" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to delete bridge" },
+      { status: 500 }
+    );
   }
 }

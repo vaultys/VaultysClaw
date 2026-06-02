@@ -1,19 +1,23 @@
 # Workflow Template Parameters Guide
 
 ## Overview
+
 All workflow templates come pre-configured with realistic parameters that you can customize for your specific use case. Each parameter is editable directly in the workflow editor's Properties Panel.
 
 ---
 
 ## 1. Code Analysis Pipeline
+
 **Purpose**: Analyze code quality and suggest improvements
 
 ### Input Node Parameters
+
 - `role` - Code reviewer role/perspective
 - `task` - Description of what to analyze
 - `language` - Programming language (e.g., typescript, python, javascript)
 
 ### Analysis Node Parameters
+
 - `focus` - What to focus on (quality, performance, etc.)
 - `checkFor` - Array of checks to perform
   - `["performance", "security", "maintainability"]`
@@ -21,6 +25,7 @@ All workflow templates come pre-configured with realistic parameters that you ca
 - `maxIssues` - Maximum number of issues to report
 
 ### Summary Node Parameters
+
 - `format` - Output format (markdown, html, json)
 - `includeMetrics` - Include code metrics (true/false)
 - `suggestionsCount` - Number of improvement suggestions
@@ -29,21 +34,25 @@ All workflow templates come pre-configured with realistic parameters that you ca
 ---
 
 ## 2. Research & Report Generation
+
 **Purpose**: Research a topic and generate a comprehensive report
 
 ### Research Node Parameters
+
 - `depth` - Research depth (quick, standard, comprehensive)
 - `sources` - Source types (academic, news, industry, all)
 - `researchHours` - Time to spend on research (1-8 hours)
 - `topicsToExplore` - Number of related topics to cover
 
 ### Compile Node Parameters
+
 - `task` - Compilation task description
 - `organization` - How to organize data (by-topic, by-source, by-importance)
 - `includeReferences` - Include source citations (true/false)
 - `maxDataPoints` - Maximum number of data points to include
 
 ### Write Node Parameters
+
 - `style` - Writing style (academic, journalistic, technical, casual)
 - `length` - Report length (brief, standard, comprehensive)
 - `includeAbstract` - Add abstract/summary section (true/false)
@@ -53,9 +62,11 @@ All workflow templates come pre-configured with realistic parameters that you ca
 ---
 
 ## 3. Content Creation Workflow
+
 **Purpose**: Create and refine content for multiple platforms
 
 ### Outline Node Parameters
+
 - `task` - Task description (create-outline)
 - `contentType` - Type of content (blog, article, tutorial, guide)
 - `targetAudience` - Intended audience (developers, managers, general)
@@ -63,6 +74,7 @@ All workflow templates come pre-configured with realistic parameters that you ca
 - `detailLevel` - Detail level (minimal, medium, detailed)
 
 ### Draft Node Parameters
+
 - `task` - Task description (write-draft)
 - `expandOutline` - Expand outline into full draft (true/false)
 - `includeExamples` - Add code/practical examples (true/false)
@@ -70,6 +82,7 @@ All workflow templates come pre-configured with realistic parameters that you ca
 - `wordCount` - Target word count range (e.g., "1500-2000")
 
 ### Review Node Parameters
+
 - `focus` - Review focus (clarity, consistency, accuracy, engagement)
 - `checkGrammar` - Check for grammar issues (true/false)
 - `checkTone` - Verify appropriate tone (true/false)
@@ -77,6 +90,7 @@ All workflow templates come pre-configured with realistic parameters that you ca
 - `suggestSectionCount` - Number of suggestions to provide
 
 ### Finalize Node Parameters
+
 - `task` - Task description (finalize)
 - `applyEdits` - Apply suggested edits (true/false)
 - `addSEO` - Add SEO optimization (true/false)
@@ -86,27 +100,32 @@ All workflow templates come pre-configured with realistic parameters that you ca
 ---
 
 ## 4. Parallel Analysis
+
 **Purpose**: Analyze data from multiple perspectives in parallel
 
 ### Input Node Parameters
+
 - `task` - Preparation task description
 - `dataFormat` - Input data format (json, csv, xml, text)
 - `normalize` - Normalize data format (true/false)
 - `maxSize` - Maximum file size (e.g., "10MB", "100MB")
 
 ### Technical Analysis Node Parameters
+
 - `angle` - Analysis perspective (technical)
 - `focus` - Specific focus area (code-quality, performance, security)
 - `checkMetrics` - Include metrics analysis (true/false)
 - `reportDepth` - Report detail level (summary, detailed, comprehensive)
 
 ### Strategic Analysis Node Parameters
+
 - `angle` - Analysis perspective (strategic)
 - `focus` - Specific focus area (business-impact, market-fit)
 - `marketAnalysis` - Include market analysis (true/false)
 - `competitorComparison` - Compare with competitors (true/false)
 
 ### Merge Node Parameters
+
 - `task` - Task description (synthesize)
 - `integrationStyle` - How to combine results (side-by-side, integrated, comparative)
 - `includeConflicts` - Note where analyses disagree (true/false)
@@ -115,26 +134,31 @@ All workflow templates come pre-configured with realistic parameters that you ca
 ---
 
 ## 5. Conditional Processing
+
 **Purpose**: Process data with conditional branching based on analysis
 
 ### Analyze Node Parameters
+
 - `task` - Analysis task description
 - `metrics` - Metrics to evaluate (array of metric names)
 - `threshold` - Quality threshold (0.0-1.0)
 - `detailed` - Include detailed analysis (true/false)
 
 ### Condition Node Parameters
+
 - `expression` - JavaScript expression for branching
   - Default: `output.quality > 0.7`
   - Can be customized based on your metrics
 
 ### High Quality Path Parameters
+
 - `task` - Task when condition is true (publish)
 - `environments` - Deployment environments (["production"], ["staging"], etc.)
 - `notify` - Send notifications (true/false)
 - `logSuccess` - Log successful execution (true/false)
 
 ### Low Quality Path Parameters
+
 - `task` - Task when condition is false (revise)
 - `focusAreas` - Areas to focus on during revision (["critical-issues"], etc.)
 - `autoFix` - Auto-fix common issues (true/false)
@@ -145,6 +169,7 @@ All workflow templates come pre-configured with realistic parameters that you ca
 ## How to Customize Parameters
 
 ### In the Workflow Editor:
+
 1. Click on any node in the canvas
 2. The Properties Panel will appear on the right side
 3. Scroll to the "Parameters" section
@@ -152,6 +177,7 @@ All workflow templates come pre-configured with realistic parameters that you ca
 5. Click Save
 
 ### Example: Modifying Code Analysis Parameters
+
 ```json
 {
   "focus": "security",
@@ -162,6 +188,7 @@ All workflow templates come pre-configured with realistic parameters that you ca
 ```
 
 ### Example: Customizing Content Creation
+
 ```json
 {
   "contentType": "tutorial",
@@ -187,6 +214,7 @@ All workflow templates come pre-configured with realistic parameters that you ca
 ## Common Customization Scenarios
 
 ### Faster Code Reviews
+
 ```json
 {
   "severity": "high",
@@ -196,6 +224,7 @@ All workflow templates come pre-configured with realistic parameters that you ca
 ```
 
 ### Academic Research
+
 ```json
 {
   "depth": "comprehensive",
@@ -206,6 +235,7 @@ All workflow templates come pre-configured with realistic parameters that you ca
 ```
 
 ### Quick Blog Posts
+
 ```json
 {
   "contentType": "blog",
@@ -216,6 +246,7 @@ All workflow templates come pre-configured with realistic parameters that you ca
 ```
 
 ### Strict Quality Gate
+
 ```json
 {
   "threshold": 0.9,

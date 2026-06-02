@@ -65,10 +65,10 @@ export async function GET(
       run: result.run,
       workflow: result.workflow
         ? {
-          id: result.workflow.id,
-          name: result.workflow.name,
-          definition: JSON.parse(result.workflow.definition),
-        }
+            id: result.workflow.id,
+            name: result.workflow.name,
+            definition: JSON.parse(result.workflow.definition),
+          }
         : null,
       steps: result.steps,
     });

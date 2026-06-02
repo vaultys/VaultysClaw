@@ -230,7 +230,9 @@ function installLinuxSystemd(execPath: string, args: CliArgs): void {
   const unitDir = path.join(os.homedir(), ".config", "systemd", "user");
   const unitPath = path.join(unitDir, "vaultysclaw-agent.service");
   const agentArgs = buildAgentArgs(args, execPath);
-  const execLine = agentArgs.map((a) => `"${a.replace(/"/g, '\\"')}"`).join(" ");
+  const execLine = agentArgs
+    .map((a) => `"${a.replace(/"/g, '\\"')}"`)
+    .join(" ");
 
   const unit = `[Unit]
 Description=VaultysClaw Agent Controller
@@ -249,7 +251,9 @@ WantedBy=default.target
   fs.mkdirSync(unitDir, { recursive: true });
   fs.writeFileSync(unitPath, unit, "utf-8");
   console.log(`✅ systemd unit installed: ${unitPath}`);
-  console.log(`   Enable & start: systemctl --user enable --now vaultysclaw-agent`);
+  console.log(
+    `   Enable & start: systemctl --user enable --now vaultysclaw-agent`
+  );
   console.log(`   Stop:           systemctl --user stop vaultysclaw-agent`);
   console.log(`   Logs:           journalctl --user -u vaultysclaw-agent -f`);
 }
@@ -257,7 +261,10 @@ WantedBy=default.target
 function installWindowsTask(execPath: string, args: CliArgs): void {
   const agentArgs = buildAgentArgs(args, execPath);
   const scriptPath = path.join(os.homedir(), "vaultysclaw-agent-install.bat");
-  const cmdArgs = agentArgs.slice(1).map((a) => `"${a.replace(/"/g, '""')}"`).join(" ");
+  const cmdArgs = agentArgs
+    .slice(1)
+    .map((a) => `"${a.replace(/"/g, '""')}"`)
+    .join(" ");
   const bat = `@echo off
 schtasks /create /tn "VaultysClaw Agent" /tr "${agentArgs[0]} ${cmdArgs}" /sc onlogon /ru "%USERNAME%" /f
 echo Service task created. It will start on next logon.
@@ -277,9 +284,9 @@ function buildAgentArgs(args: CliArgs, execPath: string): string[] {
   // Determine data directory: explicit --data-dir or default .vaultys/<name>
   const dataDir = args.dataDir
     ? path.resolve(args.dataDir)
-    : (args.name
+    : args.name
       ? path.resolve(".vaultys", args.name)
-      : path.resolve(".vaultys", "agent-1"));
+      : path.resolve(".vaultys", "agent-1");
   argv.push("--data-dir", dataDir);
   if (args.mode === "web") {
     argv.push("--port", String(args.port), "--no-browser");
@@ -288,7 +295,11 @@ function buildAgentArgs(args: CliArgs, execPath: string): string[] {
 }
 
 function escXml(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }
 
 // ---- Single agent runners ----
@@ -303,33 +314,59 @@ function runHeadless(args: CliArgs): void {
 
   // Ensure data directory exists
   const dataDir = process.env.VAULTYS_DATA_DIR;
-  if (dataDir && !fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
+  if (dataDir && !fs.existsSync(dataDir))
+    fs.mkdirSync(dataDir, { recursive: true });
 
   // ── Process-level crash guards ────────────────────────────────────────────
   // Run in the same process (no fork) so tsx cannot send SIGTERM to us.
   // Unhandled errors keep the agent alive and retrying rather than crashing.
   process.on("uncaughtException", (err: Error) => {
-    console.error(`[${new Date().toISOString()}] [ERROR] Uncaught exception — continuing:`, err);
+    console.error(
+      `[${new Date().toISOString()}] [ERROR] Uncaught exception — continuing:`,
+      err
+    );
   });
   process.on("unhandledRejection", (reason: unknown) => {
-    console.error(`[${new Date().toISOString()}] [ERROR] Unhandled rejection — continuing:`, reason);
+    console.error(
+      `[${new Date().toISOString()}] [ERROR] Unhandled rejection — continuing:`,
+      reason
+    );
   });
   // Ignore signals that a parent process / shell might send during cleanup.
   for (const sig of ["SIGHUP", "SIGPIPE"] as NodeJS.Signals[]) {
-    try { process.on(sig, () => {}); } catch { /* platform may not support */ }
+    try {
+      process.on(sig, () => {});
+    } catch {
+      /* platform may not support */
+    }
   }
   // ─────────────────────────────────────────────────────────────────────────
 
   const agent = new Agent(loadConfig());
 
-  agent.on("log", ({ level, message, data }: { level: string; message: string; data?: unknown }) => {
-    const prefix = `[${new Date().toISOString()}] [${level.toUpperCase()}]`;
-    if (data) {
-      console[level === "error" ? "error" : level === "warn" ? "warn" : "log"](`${prefix} ${message}`, data);
-    } else {
-      console[level === "error" ? "error" : level === "warn" ? "warn" : "log"](`${prefix} ${message}`);
+  agent.on(
+    "log",
+    ({
+      level,
+      message,
+      data,
+    }: {
+      level: string;
+      message: string;
+      data?: unknown;
+    }) => {
+      const prefix = `[${new Date().toISOString()}] [${level.toUpperCase()}]`;
+      if (data) {
+        console[
+          level === "error" ? "error" : level === "warn" ? "warn" : "log"
+        ](`${prefix} ${message}`, data);
+      } else {
+        console[
+          level === "error" ? "error" : level === "warn" ? "warn" : "log"
+        ](`${prefix} ${message}`);
+      }
     }
-  });
+  );
 
   agent.start().catch((err) => {
     console.error("Failed to start agent:", err);
@@ -337,22 +374,30 @@ function runHeadless(args: CliArgs): void {
   });
 
   // Keep the event loop alive so PeerJS reconnect timers always have something to fire into.
-  const keepAlive = setInterval(() => { /* event-loop anchor */ }, 30_000);
+  const keepAlive = setInterval(() => {
+    /* event-loop anchor */
+  }, 30_000);
 
   const shutdown = (sig: string) => () => {
-    console.log(`[${new Date().toISOString()}] [INFO] Received ${sig} — shutting down`);
+    console.log(
+      `[${new Date().toISOString()}] [INFO] Received ${sig} — shutting down`
+    );
     clearInterval(keepAlive);
     agent.stop();
     process.exit(0);
   };
-  process.on("SIGINT",  shutdown("SIGINT"));
+  process.on("SIGINT", shutdown("SIGINT"));
   process.on("SIGTERM", shutdown("SIGTERM"));
 }
 
 function runTui(args: CliArgs): void {
   const env = buildEnv(args);
   const tuiPath = path.resolve(__dirname, "tui.tsx");
-  const child = fork(tuiPath, [], { env, execArgv: process.execArgv, stdio: "inherit" });
+  const child = fork(tuiPath, [], {
+    env,
+    execArgv: process.execArgv,
+    stdio: "inherit",
+  });
   child.on("exit", (code) => process.exit(code ?? 1));
 }
 
@@ -361,12 +406,18 @@ function runWeb(args: CliArgs): void {
   env.WEB_PORT = String(args.port);
   env.WEB_NO_BROWSER = args.noBrowser ? "1" : "0";
   const webPath = path.resolve(__dirname, "web-launcher.ts");
-  const child = fork(webPath, [], { env, execArgv: process.execArgv, stdio: "inherit" });
+  const child = fork(webPath, [], {
+    env,
+    execArgv: process.execArgv,
+    stdio: "inherit",
+  });
   child.on("exit", (code) => process.exit(code ?? 1));
 }
 
 function buildEnv(args: CliArgs): NodeJS.ProcessEnv {
-  const env: Record<string, string> = { ...(process.env as Record<string, string>) };
+  const env: Record<string, string> = {
+    ...(process.env as Record<string, string>),
+  };
   if (args.name) env.AGENT_NAME = args.name;
   if (args.ws) env.CONTROL_PLANE_WS_URL = args.ws;
   if (args.peerjsId) env.CONTROL_PLANE_PEERJS_ID = args.peerjsId;
@@ -394,12 +445,16 @@ function buildEnv(args: CliArgs): NodeJS.ProcessEnv {
 // ---- Multi-spawn ----
 
 function spawnMultiple(args: CliArgs): void {
-  console.log(`Spawning ${args.spawn} agent(s) [headless] with prefix "${args.prefix}"`);
+  console.log(
+    `Spawning ${args.spawn} agent(s) [headless] with prefix "${args.prefix}"`
+  );
   const indexPath = path.resolve(__dirname, "index.ts");
   const agents: ReturnType<typeof fork>[] = [];
 
   // Base directory for multiple agents (either --data-dir or .vaultys)
-  const baseDir = args.dataDir ? path.resolve(args.dataDir) : path.resolve(".vaultys");
+  const baseDir = args.dataDir
+    ? path.resolve(args.dataDir)
+    : path.resolve(".vaultys");
 
   for (let i = 1; i <= args.spawn; i++) {
     const name = `${args.prefix}-${i}`;
@@ -416,9 +471,25 @@ function spawnMultiple(args: CliArgs): void {
     if (args.peerjsId) env.CONTROL_PLANE_PEERJS_ID = args.peerjsId;
     if (args.peerjsServer) env.CONTROL_PLANE_PEERJS_SERVER = args.peerjsServer;
     console.log(`  [${i}/${args.spawn}] Starting "${name}" (data: ${dataDir})`);
-    const child = fork(indexPath, [], { env, execArgv: process.execArgv, stdio: ["ignore", "pipe", "pipe", "ipc"] });
-    child.stdout?.on("data", (d: Buffer) => d.toString().split("\n").filter(Boolean).forEach((l) => console.log(`[${name}] ${l}`)));
-    child.stderr?.on("data", (d: Buffer) => d.toString().split("\n").filter(Boolean).forEach((l) => console.error(`[${name}] ${l}`)));
+    const child = fork(indexPath, [], {
+      env,
+      execArgv: process.execArgv,
+      stdio: ["ignore", "pipe", "pipe", "ipc"],
+    });
+    child.stdout?.on("data", (d: Buffer) =>
+      d
+        .toString()
+        .split("\n")
+        .filter(Boolean)
+        .forEach((l) => console.log(`[${name}] ${l}`))
+    );
+    child.stderr?.on("data", (d: Buffer) =>
+      d
+        .toString()
+        .split("\n")
+        .filter(Boolean)
+        .forEach((l) => console.error(`[${name}] ${l}`))
+    );
     child.on("exit", (code) => console.log(`[${name}] exited (code ${code})`));
     agents.push(child);
   }
@@ -428,7 +499,10 @@ function spawnMultiple(args: CliArgs): void {
   const shutdown = () => {
     console.log("Shutting down...");
     for (const c of agents) c.kill("SIGTERM");
-    setTimeout(() => { for (const c of agents) if (!c.killed) c.kill("SIGKILL"); process.exit(0); }, 3000);
+    setTimeout(() => {
+      for (const c of agents) if (!c.killed) c.kill("SIGKILL");
+      process.exit(0);
+    }, 3000);
   };
   process.on("SIGINT", shutdown);
   process.on("SIGTERM", shutdown);
@@ -451,16 +525,26 @@ function main(): void {
 
   if (!args.name) {
     console.error("Error: --name <name> is required.");
-    console.error("  Each agent needs a unique name so it can maintain an isolated environment.");
-    console.error("  Example: agent-controller --name my-agent --ws ws://localhost:8080");
+    console.error(
+      "  Each agent needs a unique name so it can maintain an isolated environment."
+    );
+    console.error(
+      "  Example: agent-controller --name my-agent --ws ws://localhost:8080"
+    );
     console.error("  Run with --help for full usage.");
     process.exit(1);
   }
 
   switch (args.mode) {
-    case "headless": runHeadless(args); break;
-    case "tui":      runTui(args);     break;
-    case "web":      runWeb(args);     break;
+    case "headless":
+      runHeadless(args);
+      break;
+    case "tui":
+      runTui(args);
+      break;
+    case "web":
+      runWeb(args);
+      break;
   }
 }
 

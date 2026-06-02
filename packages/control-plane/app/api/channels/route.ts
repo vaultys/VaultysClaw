@@ -84,7 +84,9 @@ export async function GET(req: NextRequest) {
     const realmChannels = ChannelService.listChannels(realmId).filter(
       (c) => c.realmId === realmId
     );
-    const globalChannels = includeGlobal ? ChannelService.listGlobalChannels() : [];
+    const globalChannels = includeGlobal
+      ? ChannelService.listGlobalChannels()
+      : [];
 
     return NextResponse.json({
       channels: [...realmChannels, ...globalChannels],
@@ -170,10 +172,7 @@ export async function POST(req: NextRequest) {
     };
 
     if (!body.name?.trim()) {
-      return NextResponse.json(
-        { error: "name is required" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "name is required" }, { status: 400 });
     }
 
     const realmId = body.realmId || null;
@@ -182,10 +181,7 @@ export async function POST(req: NextRequest) {
     if (realmId) {
       const realm = getRealmById(realmId);
       if (!realm) {
-        return NextResponse.json(
-          { error: "Realm not found" },
-          { status: 404 }
-        );
+        return NextResponse.json({ error: "Realm not found" }, { status: 404 });
       }
 
       if (!auth.canAccessRealm(realmId)) {

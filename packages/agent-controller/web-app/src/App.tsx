@@ -15,8 +15,10 @@ export default function App() {
         return null;
       })
       .then((d) => {
-        if (d?.did) { setDid(d.did); setAuthState("authenticated"); }
-        else setAuthState("unauthenticated");
+        if (d?.did) {
+          setDid(d.did);
+          setAuthState("authenticated");
+        } else setAuthState("unauthenticated");
       })
       .catch(() => setAuthState("unauthenticated"));
   }, []);

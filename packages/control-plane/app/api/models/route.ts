@@ -83,7 +83,10 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ models });
   } catch (err) {
     console.error(err);
-    return NextResponse.json({ error: "Failed to fetch models" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to fetch models" },
+      { status: 500 }
+    );
   }
 }
 
@@ -144,7 +147,7 @@ export async function POST(req: NextRequest) {
     if (!auth) return unauthorized();
     if (!auth.isGlobalAdmin) return forbidden();
 
-    const body = await req.json() as {
+    const body = (await req.json()) as {
       name?: string;
       description?: string;
       provider?: string;
@@ -153,10 +156,23 @@ export async function POST(req: NextRequest) {
       apiKey?: string;
     };
 
-    if (!body.name?.trim()) return NextResponse.json({ error: "name is required" }, { status: 400 });
-    if (!body.provider?.trim()) return NextResponse.json({ error: "provider is required" }, { status: 400 });
-    if (!body.modelId?.trim()) return NextResponse.json({ error: "modelId is required" }, { status: 400 });
-    if (!body.baseUrl?.trim()) return NextResponse.json({ error: "baseUrl is required" }, { status: 400 });
+    if (!body.name?.trim())
+      return NextResponse.json({ error: "name is required" }, { status: 400 });
+    if (!body.provider?.trim())
+      return NextResponse.json(
+        { error: "provider is required" },
+        { status: 400 }
+      );
+    if (!body.modelId?.trim())
+      return NextResponse.json(
+        { error: "modelId is required" },
+        { status: 400 }
+      );
+    if (!body.baseUrl?.trim())
+      return NextResponse.json(
+        { error: "baseUrl is required" },
+        { status: 400 }
+      );
 
     const entry = createModelRegistryEntry({
       name: body.name.trim(),
@@ -182,21 +198,27 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    return NextResponse.json({
-      model: {
-        id: entry.id,
-        name: entry.name,
-        description: entry.description,
-        provider: entry.provider,
-        modelId: entry.model_id,
-        baseUrl: entry.base_url,
-        litellmModelName: entry.litellm_model_name,
-        status: entry.status,
-        createdAt: entry.created_at,
+    return NextResponse.json(
+      {
+        model: {
+          id: entry.id,
+          name: entry.name,
+          description: entry.description,
+          provider: entry.provider,
+          modelId: entry.model_id,
+          baseUrl: entry.base_url,
+          litellmModelName: entry.litellm_model_name,
+          status: entry.status,
+          createdAt: entry.created_at,
+        },
       },
-    }, { status: 201 });
+      { status: 201 }
+    );
   } catch (err) {
     console.error(err);
-    return NextResponse.json({ error: "Failed to create model" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to create model" },
+      { status: 500 }
+    );
   }
 }

@@ -35,7 +35,11 @@ function shortDid(did: string): string {
   return `${did.slice(0, 10)}…${did.slice(-6)}`;
 }
 
-const THEME_OPTIONS: { value: Theme; label: string; icon: React.ElementType }[] = [
+const THEME_OPTIONS: {
+  value: Theme;
+  label: string;
+  icon: React.ElementType;
+}[] = [
   { value: "dark", label: "Dark", icon: Moon },
   { value: "light", label: "Light", icon: Sun },
   { value: "system", label: "System", icon: Monitor },
@@ -69,7 +73,7 @@ export default function TopBar() {
       .then((data: { name?: string | null }) => {
         setProfileName(data.name ?? null);
       })
-      .catch(() => { });
+      .catch(() => {});
   }, [session?.user]);
 
   const did = (session?.user as { did?: string } | undefined)?.did ?? "";
@@ -97,19 +101,19 @@ export default function TopBar() {
           )}
         >
           {/* Avatar */}
-          <span className="w-6 h-6 bg-indigo-600 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0">
+          <span className="w-6 h-6 bg-primary-600 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0">
             <User className="w-3.5 h-3.5" />
           </span>
           <span className="hidden sm:block max-w-[120px] truncate text-xs">
             {displayLabel}
           </span>
           {isOwner && (
-            <span className="hidden sm:block px-1.5 py-0.5 bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700 dark:text-yellow-400 border border-yellow-300 dark:border-yellow-800/60 rounded text-[10px] leading-none">
+            <span className="hidden sm:block px-1.5 py-0.5 bg-warning-100 dark:bg-warning-900/40 text-warning-700 dark:text-warning-400 border border-warning-300 dark:border-warning-800/60 rounded text-[10px] leading-none">
               Owner
             </span>
           )}
           {isAdmin && !isOwner && (
-            <span className="hidden sm:block px-1.5 py-0.5 bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400 border border-blue-300 dark:border-blue-800/60 rounded text-[10px] leading-none">
+            <span className="hidden sm:block px-1.5 py-0.5 bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-400 border border-primary-300 dark:border-primary-800/60 rounded text-[10px] leading-none">
               Admin
             </span>
           )}
@@ -129,9 +133,13 @@ export default function TopBar() {
                 Signed in as
               </p>
               {profileName && (
-                <p className="text-xs text-foreground font-medium truncate mb-0.5">{profileName}</p>
+                <p className="text-xs text-foreground font-medium truncate mb-0.5">
+                  {profileName}
+                </p>
               )}
-              <p className="text-xs text-foreground-400 font-mono truncate">{shortDid(did)}</p>
+              <p className="text-xs text-foreground-400 font-mono truncate">
+                {shortDid(did)}
+              </p>
             </div>
 
             {/* Appearance */}
@@ -148,14 +156,14 @@ export default function TopBar() {
                     className={cn(
                       "flex-1 flex flex-col items-center gap-1 py-1.5 rounded-lg text-xs transition-colors border",
                       theme === value
-                        ? "bg-indigo-100 dark:bg-indigo-600/20 border-indigo-300 dark:border-indigo-600/50 text-indigo-700 dark:text-indigo-300"
+                        ? "bg-primary-100 dark:bg-primary-600/20 border-primary-300 dark:border-primary-600/50 text-primary-700 dark:text-primary-300"
                         : "border-transparent text-foreground-500 hover:text-foreground-700 hover:bg-background-200"
                     )}
                   >
                     <Icon className="w-3.5 h-3.5" />
                     <span>{label}</span>
                     {theme === value && (
-                      <Check className="w-2.5 h-2.5 text-indigo-700 dark:text-indigo-400 absolute" />
+                      <Check className="w-2.5 h-2.5 text-primary-700 dark:text-primary-400 absolute" />
                     )}
                   </button>
                 ))}
@@ -164,7 +172,10 @@ export default function TopBar() {
 
             {/* Settings link */}
             <button
-              onClick={() => { router.push("/settings"); setOpen(false); }}
+              onClick={() => {
+                router.push("/settings");
+                setOpen(false);
+              }}
               className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-foreground-700 hover:text-foreground hover:bg-background-200/60 transition-colors"
             >
               <User className="w-4 h-4 text-foreground-400" />
@@ -174,7 +185,7 @@ export default function TopBar() {
             {/* Sign out */}
             <button
               onClick={() => signOut({ callbackUrl: "/login" })}
-              className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-red-500 dark:text-red-400 hover:text-red-600 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors border-t border-neutral-200"
+              className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-danger-500 dark:text-danger-400 hover:text-danger-600 dark:hover:text-danger-300 hover:bg-danger-50 dark:hover:bg-danger-900/20 transition-colors border-t border-neutral-200"
             >
               <LogOut className="w-4 h-4" />
               Sign out

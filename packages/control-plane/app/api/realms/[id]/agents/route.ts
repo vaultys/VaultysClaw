@@ -79,13 +79,22 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     if (!auth.canAdminRealm(id)) return forbidden();
 
     const realm = getRealmById(id);
-    if (!realm) return NextResponse.json({ error: "Realm not found" }, { status: 404 });
+    if (!realm)
+      return NextResponse.json({ error: "Realm not found" }, { status: 404 });
 
-    const body = await req.json() as { agentDid?: string; isPrimary?: boolean };
-    if (!body.agentDid) return NextResponse.json({ error: "agentDid is required" }, { status: 400 });
+    const body = (await req.json()) as {
+      agentDid?: string;
+      isPrimary?: boolean;
+    };
+    if (!body.agentDid)
+      return NextResponse.json(
+        { error: "agentDid is required" },
+        { status: 400 }
+      );
 
     const agent = getAgent(body.agentDid);
-    if (!agent) return NextResponse.json({ error: "Agent not found" }, { status: 404 });
+    if (!agent)
+      return NextResponse.json({ error: "Agent not found" }, { status: 404 });
 
     addAgentToRealm(body.agentDid, id, body.isPrimary ?? false);
 
@@ -96,7 +105,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
         const routerKey = getRealmRouterKey(id);
         if (routerKey?.litellm_virtual_key) {
           const models = getModelsByRealm(id).filter(
-            (m) => m.status === "active" && m.litellm_model_name,
+            (m) => m.status === "active" && m.litellm_model_name
           );
           const firstModel = models[0];
           if (firstModel?.litellm_model_name) {
@@ -119,7 +128,10 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     return NextResponse.json({ ok: true, llmPushed });
   } catch (err) {
     console.error(err);
-    return NextResponse.json({ error: "Failed to add agent to realm" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to add agent to realm" },
+      { status: 500 }
+    );
   }
 }
 
@@ -173,15 +185,26 @@ export async function DELETE(req: NextRequest, ctx: Ctx) {
     const { id } = await ctx.params;
     if (!auth.canAdminRealm(id)) return forbidden();
 
-    const body = await req.json() as { agentDid?: string };
-    if (!body.agentDid) return NextResponse.json({ error: "agentDid is required" }, { status: 400 });
+    const body = (await req.json()) as { agentDid?: string };
+    if (!body.agentDid)
+      return NextResponse.json(
+        { error: "agentDid is required" },
+        { status: 400 }
+      );
 
     const ok = removeAgentFromRealm(body.agentDid, id);
-    if (!ok) return NextResponse.json({ error: "Cannot remove agent from the default realm" }, { status: 400 });
+    if (!ok)
+      return NextResponse.json(
+        { error: "Cannot remove agent from the default realm" },
+        { status: 400 }
+      );
 
     return NextResponse.json({ ok: true });
   } catch (err) {
     console.error(err);
-    return NextResponse.json({ error: "Failed to remove agent from realm" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to remove agent from realm" },
+      { status: 500 }
+    );
   }
 }

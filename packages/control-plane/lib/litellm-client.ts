@@ -5,8 +5,12 @@
  */
 
 // Read at call time so tests can override process.env without module-reload
-function getBaseUrl(): string { return process.env.LITELLM_BASE_URL ?? ""; }
-function getMasterKey(): string { return process.env.LITELLM_MASTER_KEY ?? ""; }
+function getBaseUrl(): string {
+  return process.env.LITELLM_BASE_URL ?? "";
+}
+function getMasterKey(): string {
+  return process.env.LITELLM_MASTER_KEY ?? "";
+}
 
 export function isLiteLLMConfigured(): boolean {
   return Boolean(getBaseUrl() && getMasterKey());
@@ -17,9 +21,14 @@ export function getLiteLLMBaseUrl(): string | undefined {
   return getBaseUrl() || undefined;
 }
 
-async function litellmFetch(path: string, options: RequestInit = {}): Promise<Response> {
+async function litellmFetch(
+  path: string,
+  options: RequestInit = {}
+): Promise<Response> {
   if (!isLiteLLMConfigured()) {
-    throw new Error("LiteLLM not configured — set LITELLM_BASE_URL and LITELLM_MASTER_KEY");
+    throw new Error(
+      "LiteLLM not configured — set LITELLM_BASE_URL and LITELLM_MASTER_KEY"
+    );
   }
   return fetch(`${getBaseUrl()}${path}`, {
     ...options,
@@ -93,7 +102,7 @@ export async function createRealmKey(
     const text = await res.text();
     throw new Error(`LiteLLM createRealmKey failed (${res.status}): ${text}`);
   }
-  const data = await res.json() as { key: string };
+  const data = (await res.json()) as { key: string };
   return { virtualKey: data.key };
 }
 
@@ -108,9 +117,13 @@ export async function healthCheck(): Promise<boolean> {
 }
 
 /** List models currently registered in LiteLLM. */
-export async function listModels(): Promise<{ model_name: string; litellm_params: Record<string, unknown> }[]> {
+export async function listModels(): Promise<
+  { model_name: string; litellm_params: Record<string, unknown> }[]
+> {
   const res = await litellmFetch("/model/info");
   if (!res.ok) return [];
-  const data = await res.json() as { data?: { model_name: string; litellm_params: Record<string, unknown> }[] };
+  const data = (await res.json()) as {
+    data?: { model_name: string; litellm_params: Record<string, unknown> }[];
+  };
   return data.data ?? [];
 }

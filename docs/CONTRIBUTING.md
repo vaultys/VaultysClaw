@@ -5,6 +5,7 @@ Thanks for your interest in contributing! 🙏
 ## Philosophy
 
 We believe in **shipping early and often**. Your contribution should:
+
 - Be small and focused
 - Have clear value
 - Include tests when possible
@@ -20,26 +21,31 @@ We believe in **shipping early and often**. Your contribution should:
 ## Types of Contributions
 
 ### 🐛 Bug Reports
+
 - Use [bug report template](./.github/ISSUE_TEMPLATE/bug_report.md)
 - Include steps to reproduce
 - Include environment details
 
 ### ✨ Features
+
 - Use [feature request template](./.github/ISSUE_TEMPLATE/feature_request.md)
 - Explain the problem it solves
 - Start small
 
 ### 📚 Documentation
+
 - Grammar/clarity improvements
 - Examples and tutorials
 - API documentation
 - Architecture diagrams
 
 ### 🔒 Security
+
 - Report security issues privately (see [SECURITY.md](./SECURITY.md))
 - Do NOT open public GitHub issues for vulnerabilities
 
 ### ♻️ Code Improvements
+
 - Performance optimizations
 - Refactoring
 - Test coverage
@@ -61,6 +67,7 @@ We believe in **shipping early and often**. Your contribution should:
 ## Code Style
 
 We use:
+
 - **TypeScript** strict mode
 - **Prettier** for formatting
 - **ESLint** for linting
@@ -88,6 +95,7 @@ type(scope): description
 ```
 
 Types:
+
 - `feat`: New feature
 - `fix`: Bug fix
 - `docs`: Documentation
@@ -98,6 +106,7 @@ Types:
 - `chore`: Dependencies, build config, etc.
 
 Examples:
+
 ```
 feat(agent-controller): add support for OpenAI API
 fix(control-plane): prevent policy downgrade attacks
@@ -108,6 +117,7 @@ refactor(shared): extract security verification to util
 ## Scope
 
 Keep changes focused. Large changes should:
+
 1. Be discussed in an issue first
 2. Be broken into smaller PRs
 3. Reference the issue
@@ -115,12 +125,14 @@ Keep changes focused. Large changes should:
 ## Testing
 
 While we don't have a test suite yet, when adding features:
+
 - Manually test the functionality
 - Try edge cases
 - Break the code and fix it
 - Document your testing in PR
 
 Once we add testing:
+
 - Write tests for new features
 - Maintain >80% coverage
 - Test both happy path and errors
@@ -128,6 +140,7 @@ Once we add testing:
 ## Documentation
 
 For new features, update:
+
 - Inline code comments (especially complex logic)
 - Relevant markdown docs
 - TypeScript types/interfaces
@@ -163,6 +176,7 @@ pnpm lint -F @vaultysclaw/shared
 ## Review Process
 
 Your PR will be reviewed for:
+
 - ✅ Does it work?
 - ✅ Is it secure?
 - ✅ Is it maintainable?
@@ -182,6 +196,7 @@ Be responsive to feedback. Reviews help make the project better!
 ## Recognition
 
 Contributors are:
+
 - Added to CONTRIBUTORS file
 - Mentioned in release notes
 - Recognized in discussions

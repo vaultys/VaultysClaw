@@ -12,17 +12,26 @@ export default defineConfig({
       "@": resolve(__dirname, "packages/control-plane"),
       // The AI SDK is a dep of agent-controller only, not the root workspace.
       // Alias it here so tests in __tests__/ can import and mock it.
-      "ai": resolve(__dirname, "packages/agent-controller/node_modules/ai"),
+      ai: resolve(__dirname, "packages/agent-controller/node_modules/ai"),
       // Mastra is a dep of agent-controller only — agent/tools subpaths resolve
       // transitively via packages/agent-controller/node_modules. The base alias
       // is needed so vi.mock("@mastra/core/agent") works in llm.test.ts.
-      "@mastra/core/agent": resolve(__dirname, "packages/agent-controller/node_modules/@mastra/core/dist/agent/index.js"),
+      "@mastra/core/agent": resolve(
+        __dirname,
+        "packages/agent-controller/node_modules/@mastra/core/dist/agent/index.js"
+      ),
       // zod is a transitive dep of ai — alias so tool modules can import it
-      "zod": resolve(__dirname, "node_modules/.pnpm/zod@4.3.6/node_modules/zod"),
+      zod: resolve(__dirname, "node_modules/.pnpm/zod@4.3.6/node_modules/zod"),
       // Ollama provider — used by live integration tests
-      "ollama-ai-provider-v2": resolve(__dirname, "packages/agent-controller/node_modules/ollama-ai-provider-v2"),
+      "ollama-ai-provider-v2": resolve(
+        __dirname,
+        "packages/agent-controller/node_modules/ollama-ai-provider-v2"
+      ),
       // bun:sqlite is a Bun built-in — shim it with better-sqlite3 for Node/Vitest
-      "bun:sqlite": resolve(__dirname, "packages/agent-controller/src/bun-sqlite-shim.ts"),
+      "bun:sqlite": resolve(
+        __dirname,
+        "packages/agent-controller/src/bun-sqlite-shim.ts"
+      ),
       // next/server uses Next.js CJS internals that vi.mock() can't intercept.
       // Alias it to a lightweight stub so route-handler tests can inspect responses.
       "next/server": resolve(__dirname, "__tests__/mocks/next-server.ts"),

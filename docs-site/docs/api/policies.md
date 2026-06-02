@@ -39,16 +39,16 @@ POST /api/policies
 }
 ```
 
-| Field | Type | Required | Description |
-|---|---|---|---|
-| `agentDid` | string | No | Target agent DID. Omit to create a realm-scoped policy. |
-| `realmId` | string | No | Target realm ID. At least one of `agentDid` / `realmId` should be set. |
-| `capabilities` | string[] | **Yes** | Capabilities to grant (non-empty array). |
-| `resourceLimits` | object | No | Runtime limits embedded in the certificate. |
-| `resourceLimits.maxTokensPerDay` | number | No | Maximum total LLM tokens (prompt + completion) per calendar day. |
-| `resourceLimits.maxRequestsPerHour` | number | No | Maximum intent executions per rolling 60-minute window. |
-| `resourceLimits.allowedDomains` | string[] | No | Advisory list of permitted outbound domains. |
-| `expiresAt` | string | No | ISO 8601 timestamp. Agent rejects intents after this time. |
+| Field                               | Type     | Required | Description                                                            |
+| ----------------------------------- | -------- | -------- | ---------------------------------------------------------------------- |
+| `agentDid`                          | string   | No       | Target agent DID. Omit to create a realm-scoped policy.                |
+| `realmId`                           | string   | No       | Target realm ID. At least one of `agentDid` / `realmId` should be set. |
+| `capabilities`                      | string[] | **Yes**  | Capabilities to grant (non-empty array).                               |
+| `resourceLimits`                    | object   | No       | Runtime limits embedded in the certificate.                            |
+| `resourceLimits.maxTokensPerDay`    | number   | No       | Maximum total LLM tokens (prompt + completion) per calendar day.       |
+| `resourceLimits.maxRequestsPerHour` | number   | No       | Maximum intent executions per rolling 60-minute window.                |
+| `resourceLimits.allowedDomains`     | string[] | No       | Advisory list of permitted outbound domains.                           |
+| `expiresAt`                         | string   | No       | ISO 8601 timestamp. Agent rejects intents after this time.             |
 
 ### Response `201 Created`
 
@@ -85,10 +85,10 @@ GET /api/policies
 
 ### Query parameters
 
-| Parameter | Type | Default | Description |
-|---|---|---|---|
-| `agentDid` | string | — | Filter to a specific agent. |
-| `realmId` | string | — | Filter to a specific realm. |
+| Parameter        | Type    | Default | Description                                        |
+| ---------------- | ------- | ------- | -------------------------------------------------- |
+| `agentDid`       | string  | —       | Filter to a specific agent.                        |
+| `realmId`        | string  | —       | Filter to a specific realm.                        |
 | `includeExpired` | boolean | `false` | Include policies whose `expiresAt` is in the past. |
 
 ### Response `200 OK`
@@ -221,11 +221,11 @@ If an agent is offline when a policy is created or revoked:
 
 ## Resource limits reference
 
-| Field | Unit | Behaviour when exceeded |
-|---|---|---|
-| `maxTokensPerDay` | Total tokens (prompt + completion) | Intent rejected with `Daily token budget exhausted` error |
-| `maxRequestsPerHour` | Intent executions per rolling 60-minute window | Intent rejected with `Hourly request limit reached` error |
-| `allowedDomains` | Array of hostnames | Advisory — agents may enforce this for outbound HTTP tools |
+| Field                | Unit                                           | Behaviour when exceeded                                    |
+| -------------------- | ---------------------------------------------- | ---------------------------------------------------------- |
+| `maxTokensPerDay`    | Total tokens (prompt + completion)             | Intent rejected with `Daily token budget exhausted` error  |
+| `maxRequestsPerHour` | Intent executions per rolling 60-minute window | Intent rejected with `Hourly request limit reached` error  |
+| `allowedDomains`     | Array of hostnames                             | Advisory — agents may enforce this for outbound HTTP tools |
 
 Token usage is tracked in the agent's local SQLite database by `recordTokenUsage()` and queried by `getDailyTokenUsage()`. The daily counter resets at UTC midnight.
 

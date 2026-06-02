@@ -58,7 +58,8 @@ export async function GET(
     );
   }
 
-  if (workflow.realm_id && !auth.canAccessRealm(workflow.realm_id)) return forbidden();
+  if (workflow.realm_id && !auth.canAccessRealm(workflow.realm_id))
+    return forbidden();
 
   const exportData = {
     name: workflow.name,

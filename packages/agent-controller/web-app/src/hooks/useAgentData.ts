@@ -14,7 +14,9 @@ export interface AgentData {
 export function useAgentData(): AgentData {
   const [info, setInfo] = useState<AgentInfo | null>(null);
   const [logs, setLogs] = useState<LogEntry[]>([]);
-  const [intentMap, setIntentMap] = useState<Map<string, IntentEntry>>(new Map());
+  const [intentMap, setIntentMap] = useState<Map<string, IntentEntry>>(
+    new Map()
+  );
   const [sseConnected, setSseConnected] = useState(false);
 
   useEffect(() => {
@@ -39,62 +41,100 @@ export function useAgentData(): AgentData {
     es.addEventListener("info", (e: MessageEvent) => {
       try {
         setInfo(JSON.parse(e.data) as AgentInfo);
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
     });
 
     es.addEventListener("log", (e: MessageEvent) => {
       try {
         const entry = JSON.parse(e.data) as LogEntry;
         setLogs((prev) => [...prev.slice(-(MAX_LOGS - 1)), entry]);
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
     });
 
     es.addEventListener("status_changed", (e: MessageEvent) => {
       try {
-        const { status } = JSON.parse(e.data) as { status: AgentInfo["status"] };
+        const { status } = JSON.parse(e.data) as {
+          status: AgentInfo["status"];
+        };
         setInfo((prev) => (prev ? { ...prev, status } : prev));
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
     });
 
     es.addEventListener("heartbeat", (e: MessageEvent) => {
       try {
         const { uptime } = JSON.parse(e.data) as { uptime: number };
         setInfo((prev) => (prev ? { ...prev, uptime } : prev));
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
     });
 
     es.addEventListener("config_updated", (e: MessageEvent) => {
       try {
-        const { provider, model } = JSON.parse(e.data) as { provider?: string; model?: string };
-        setInfo((prev) => prev ? { ...prev, activeLlmProvider: provider, activeLlmModel: model } : prev);
-      } catch { /* ignore */ }
+        const { provider, model } = JSON.parse(e.data) as {
+          provider?: string;
+          model?: string;
+        };
+        setInfo((prev) =>
+          prev
+            ? { ...prev, activeLlmProvider: provider, activeLlmModel: model }
+            : prev
+        );
+      } catch {
+        /* ignore */
+      }
     });
 
     es.addEventListener("intent_received", (e: MessageEvent) => {
       try {
-        const d = JSON.parse(e.data) as { intentId: string; action: string; params: Record<string, unknown> };
+        const d = JSON.parse(e.data) as {
+          intentId: string;
+          action: string;
+          params: Record<string, unknown>;
+        };
         setIntentMap((prev) => {
           const next = new Map(prev);
           if (next.size >= MAX_INTENTS) {
             const oldest = next.keys().next().value;
             if (oldest !== undefined) next.delete(oldest);
           }
-          next.set(d.intentId, { ...d, status: "pending", receivedAt: new Date().toISOString() });
+          next.set(d.intentId, {
+            ...d,
+            status: "pending",
+            receivedAt: new Date().toISOString(),
+          });
           return next;
         });
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
     });
 
     es.addEventListener("intent_result", (e: MessageEvent) => {
       try {
-        const d = JSON.parse(e.data) as Partial<IntentEntry> & { intentId: string };
+        const d = JSON.parse(e.data) as Partial<IntentEntry> & {
+          intentId: string;
+        };
         setIntentMap((prev) => {
           const next = new Map(prev);
           const existing = next.get(d.intentId);
-          if (existing) next.set(d.intentId, { ...existing, ...d, completedAt: new Date().toISOString() });
+          if (existing)
+            next.set(d.intentId, {
+              ...existing,
+              ...d,
+              completedAt: new Date().toISOString(),
+            });
           return next;
         });
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
     });
 
     return () => {
@@ -104,7 +144,7 @@ export function useAgentData(): AgentData {
   }, []);
 
   const intents = [...intentMap.values()].sort((a, b) =>
-    b.receivedAt.localeCompare(a.receivedAt),
+    b.receivedAt.localeCompare(a.receivedAt)
   );
 
   return { info, logs, intents, sseConnected };

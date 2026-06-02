@@ -71,7 +71,8 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
 
     const { id } = await ctx.params;
     const policy = getPolicy(id);
-    if (!policy) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    if (!policy)
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
 
     return NextResponse.json({
       policy: {
@@ -79,14 +80,19 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
         agentDid: policy.agent_did,
         realmId: policy.realm_id,
         capabilities: JSON.parse(policy.capabilities),
-        resourceLimits: policy.resource_limits ? JSON.parse(policy.resource_limits) : null,
+        resourceLimits: policy.resource_limits
+          ? JSON.parse(policy.resource_limits)
+          : null,
         expiresAt: policy.expires_at,
         createdBy: policy.created_by,
         createdAt: policy.created_at,
       },
     });
   } catch {
-    return NextResponse.json({ error: "Failed to fetch policy" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to fetch policy" },
+      { status: 500 }
+    );
   }
 }
 
@@ -142,10 +148,12 @@ export async function DELETE(_req: NextRequest, ctx: Ctx) {
 
     // Fetch before deleting so we know which agent / capabilities to reissue
     const policy = getPolicy(id);
-    if (!policy) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    if (!policy)
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
 
     const deleted = deletePolicy(id);
-    if (!deleted) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    if (!deleted)
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
 
     // If the policy was bound to a specific agent, reissue its cert immediately
     // so the removed resource limits are no longer enforced.
@@ -156,7 +164,9 @@ export async function DELETE(_req: NextRequest, ctx: Ctx) {
         const agent = getAgent(policy.agent_did);
         // Use the capabilities stored on the policy (what it granted) but clear
         // all governance metadata — policyId null signals "no active policy".
-        const capabilities = (JSON.parse(policy.capabilities) as AgentCapability[]);
+        const capabilities = JSON.parse(
+          policy.capabilities
+        ) as AgentCapability[];
         const applied = wsServer.applyPolicy(policy.agent_did, capabilities, {
           resourceLimits: null,
           policyId: null,
@@ -168,6 +178,9 @@ export async function DELETE(_req: NextRequest, ctx: Ctx) {
 
     return NextResponse.json({ ok: true, sentTo });
   } catch {
-    return NextResponse.json({ error: "Failed to delete policy" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to delete policy" },
+      { status: 500 }
+    );
   }
 }

@@ -1,5 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAllRealms, createRealm, getRealmBySlug, getRealmAgents, getRealmUsers, listWorkflows, getUserRealms } from "@/lib/db";
+import {
+  getAllRealms,
+  createRealm,
+  getRealmBySlug,
+  getRealmAgents,
+  getRealmUsers,
+  listWorkflows,
+  getUserRealms,
+} from "@/lib/db";
 import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
 
 /**
@@ -73,7 +81,10 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ realms: realmsWithCounts });
   } catch (err) {
     console.error(err);
-    return NextResponse.json({ error: "Failed to fetch realms" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to fetch realms" },
+      { status: 500 }
+    );
   }
 }
 
@@ -135,7 +146,12 @@ export async function POST(req: NextRequest) {
     if (!auth) return unauthorized();
     if (!auth.isGlobalAdmin) return forbidden();
 
-    const body = await req.json() as { name?: string; slug?: string; description?: string; color?: string };
+    const body = (await req.json()) as {
+      name?: string;
+      slug?: string;
+      description?: string;
+      color?: string;
+    };
 
     if (!body.name?.trim()) {
       return NextResponse.json({ error: "name is required" }, { status: 400 });
@@ -152,7 +168,10 @@ export async function POST(req: NextRequest) {
 
     const existing = getRealmBySlug(slug);
     if (existing) {
-      return NextResponse.json({ error: "A realm with this slug already exists" }, { status: 409 });
+      return NextResponse.json(
+        { error: "A realm with this slug already exists" },
+        { status: 409 }
+      );
     }
 
     const realm = createRealm({
@@ -165,6 +184,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ realm }, { status: 201 });
   } catch (err) {
     console.error(err);
-    return NextResponse.json({ error: "Failed to create realm" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to create realm" },
+      { status: 500 }
+    );
   }
 }

@@ -89,7 +89,10 @@ export async function POST(request: NextRequest) {
 
     const wsServer = getWSServer();
     if (!wsServer) {
-      return NextResponse.json({ error: "WebSocket server not available" }, { status: 500 });
+      return NextResponse.json(
+        { error: "WebSocket server not available" },
+        { status: 500 }
+      );
     }
 
     // Get connected agents
@@ -121,7 +124,10 @@ export async function POST(request: NextRequest) {
     // Get default realm
     const defaultRealm = getDefaultRealm();
     if (!defaultRealm) {
-      return NextResponse.json({ error: "No default realm found" }, { status: 500 });
+      return NextResponse.json(
+        { error: "No default realm found" },
+        { status: 500 }
+      );
     }
 
     // Use the first agent's first capability, or fallback to a generic action
@@ -211,6 +217,9 @@ export async function POST(request: NextRequest) {
     });
   } catch (err) {
     console.error("POST /api/workflows/test-seed error:", err);
-    return NextResponse.json({ error: "Failed to create test workflow" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to create test workflow" },
+      { status: 500 }
+    );
   }
 }

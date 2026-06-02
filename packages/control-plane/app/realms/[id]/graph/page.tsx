@@ -7,7 +7,9 @@ import Link from "next/link";
 import dynamic from "next/dynamic";
 import type { GraphNode } from "@vaultysclaw/shared";
 
-const RealmGraph = dynamic(() => import("@/components/graph/RealmGraph"), { ssr: false });
+const RealmGraph = dynamic(() => import("@/components/graph/RealmGraph"), {
+  ssr: false,
+});
 
 export default function RealmGraphPage() {
   const { id } = useParams<{ id: string }>();
@@ -35,14 +37,19 @@ export default function RealmGraphPage() {
   }
 
   return (
-    <div className={`${fullscreen ? "fixed inset-0 z-50 bg-[var(--background-50)]" : ""}`}>
+    <div
+      className={`${fullscreen ? "fixed inset-0 z-50 bg-[var(--background-50)]" : ""}`}
+    >
       {/* Header */}
       <div className="flex items-center justify-between mb-4 px-4 pt-4">
         <div className="flex items-center gap-3">
-          <Link href={`/realms/${id}`} className="p-2 rounded-lg hover:bg-[var(--background-200)] transition-colors">
+          <Link
+            href={`/realms/${id}`}
+            className="p-2 rounded-lg hover:bg-[var(--background-200)] transition-colors"
+          >
             <ArrowLeft size={18} />
           </Link>
-          <Globe2 size={20} className="text-indigo-400" />
+          <Globe2 size={20} className="text-primary-400" />
           <h1 className="text-xl font-bold">{realmName} — Graph</h1>
         </div>
         <button

@@ -101,21 +101,21 @@ function NavLink({
         "group flex items-center gap-3 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors",
         collapsed ? "justify-center" : "",
         active
-          ? "bg-indigo-100 dark:bg-indigo-600/20 text-indigo-700 dark:text-indigo-400"
+          ? "bg-primary-100 dark:bg-primary-600/20 text-primary-700 dark:text-primary-400"
           : "text-foreground-500 hover:text-foreground hover:bg-background-200/50"
       )}
     >
       <div className="relative shrink-0">
         <Icon className="w-[18px] h-[18px]" />
         {badge != null && badge > 0 && (
-          <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 bg-amber-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-0.5 leading-none">
+          <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 bg-warning-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-0.5 leading-none">
             {badge > 9 ? "9+" : badge}
           </span>
         )}
       </div>
       {!collapsed && <span className="truncate flex-1">{label}</span>}
       {!collapsed && badge != null && badge > 0 && (
-        <span className="ml-auto bg-amber-500 text-white text-[10px] font-bold rounded-full px-1.5 py-0.5 leading-none">
+        <span className="ml-auto bg-warning-500 text-white text-[10px] font-bold rounded-full px-1.5 py-0.5 leading-none">
           {badge > 9 ? "9+" : badge}
         </span>
       )}
@@ -163,7 +163,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
           collapsed ? "justify-center" : "gap-2.5"
         )}
       >
-        <div className="w-7 h-7 bg-indigo-600 rounded-lg flex items-center justify-center shrink-0 shadow-lg shadow-indigo-600/20">
+        <div className="w-7 h-7 bg-primary-600 rounded-lg flex items-center justify-center shrink-0 shadow-lg shadow-primary-600/20">
           🦞
         </div>
         {!collapsed && (

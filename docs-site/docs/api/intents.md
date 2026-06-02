@@ -32,12 +32,12 @@ Returns `202 Accepted` immediately. The intent is routed to the target agent(s) 
 }
 ```
 
-| Field | Type | Required | Description |
-|---|---|---|---|
-| `agentId` | string | No | Target agent DID. Omit to broadcast. |
-| `action` | string | Yes | The action name to execute |
-| `params` | object | Yes | Action-specific parameters |
-| `broadcastCapability` | string | No | When broadcasting (no `agentId`), only send to agents that have this capability |
+| Field                 | Type   | Required | Description                                                                     |
+| --------------------- | ------ | -------- | ------------------------------------------------------------------------------- |
+| `agentId`             | string | No       | Target agent DID. Omit to broadcast.                                            |
+| `action`              | string | Yes      | The action name to execute                                                      |
+| `params`              | object | Yes      | Action-specific parameters                                                      |
+| `broadcastCapability` | string | No       | When broadcasting (no `agentId`), only send to agents that have this capability |
 
 ### Broadcast to all capable agents
 
@@ -71,11 +71,11 @@ Or broadcast only to agents with a specific capability:
 }
 ```
 
-| Field | Description |
-|---|---|
+| Field      | Description                                            |
+| ---------- | ------------------------------------------------------ |
 | `intentId` | Unique ID for this intent (used for replay prevention) |
-| `sentTo` | Array of agent DIDs that received the intent |
-| `count` | Number of agents the intent was sent to |
+| `sentTo`   | Array of agent DIDs that received the intent           |
+| `count`    | Number of agents the intent was sent to                |
 
 ### Error: no capable agents online
 
@@ -118,16 +118,16 @@ Full intent history with results is currently in development. This endpoint retu
 
 Actions are arbitrary strings — Vaultys Claw does not enforce a naming scheme. By convention, use `snake_case` verbs:
 
-| Example action | Description |
-|---|---|
-| `echo` | Built-in test action; returns params as output |
-| `chat_completion` | Ask the agent's LLM a question |
-| `summarise_document` | Summarise a document at a URL |
-| `send_email` | Send an email (requires `mail_send` capability) |
-| `run_code` | Execute a code snippet (requires `code_execution`) |
-| `fetch_url` | Fetch and return HTTP response (requires `internet_access`) |
-| `search_web` | Web search (requires `internet_access`) |
-| `read_file` | Read a local file (requires `file_access`) |
-| `write_file` | Write a local file (requires `file_access`) |
+| Example action       | Description                                                 |
+| -------------------- | ----------------------------------------------------------- |
+| `echo`               | Built-in test action; returns params as output              |
+| `chat_completion`    | Ask the agent's LLM a question                              |
+| `summarise_document` | Summarise a document at a URL                               |
+| `send_email`         | Send an email (requires `mail_send` capability)             |
+| `run_code`           | Execute a code snippet (requires `code_execution`)          |
+| `fetch_url`          | Fetch and return HTTP response (requires `internet_access`) |
+| `search_web`         | Web search (requires `internet_access`)                     |
+| `read_file`          | Read a local file (requires `file_access`)                  |
+| `write_file`         | Write a local file (requires `file_access`)                 |
 
 Custom agents can define any action name. The `CAPABILITY_MAP` in the agent controller maps action names to the required capability.

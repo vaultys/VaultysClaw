@@ -104,23 +104,23 @@ Sensitive tools can be flagged as requiring human approval. When an agent encoun
 
 ## Threat mitigations table
 
-| Threat | Control | Mitigation |
-|---|---|---|
-| Intent tampering in transit | Cryptographic signature | Signature mismatch → rejected |
-| Replay attack | Intent ID + timestamp | Duplicate / stale → rejected |
-| Policy tampering | Cert co-signed by both parties | Modification invalidates certificate |
-| Policy replay | Challenger session state | Stale cert from old session rejected |
-| Resource limit bypass | Limits in signed cert metadata | Agent reads from certificate, not network message |
-| Runaway token spend | `maxTokensPerDay` in policy | Agent blocks intents when daily budget exhausted |
-| Unconstrained request rate | `maxRequestsPerHour` in policy | Rolling window counter enforced pre-execution |
-| Expired policy still used | `policyExpiresAt` check | Agent rejects intents after expiry timestamp |
-| Compromised agent | Capability scoping | Blast radius limited to granted caps |
-| Agent impersonation | VaultysId (non-transferable) | Private key cannot be cloned |
-| Privileged user overreach | RBAC + capability grants | Server-side enforcement |
-| Man-in-the-middle | All messages signed E2E | Tampering detected at receiver |
-| Unauthorised agent | Registration approval flow | Admin must approve before agent connects |
-| Stale delegation | Expiry timestamps | Certificates expire and are not renewed |
-| Control plane compromise | Key is the root of trust | Rotate control plane identity, re-issue certs |
+| Threat                      | Control                        | Mitigation                                        |
+| --------------------------- | ------------------------------ | ------------------------------------------------- |
+| Intent tampering in transit | Cryptographic signature        | Signature mismatch → rejected                     |
+| Replay attack               | Intent ID + timestamp          | Duplicate / stale → rejected                      |
+| Policy tampering            | Cert co-signed by both parties | Modification invalidates certificate              |
+| Policy replay               | Challenger session state       | Stale cert from old session rejected              |
+| Resource limit bypass       | Limits in signed cert metadata | Agent reads from certificate, not network message |
+| Runaway token spend         | `maxTokensPerDay` in policy    | Agent blocks intents when daily budget exhausted  |
+| Unconstrained request rate  | `maxRequestsPerHour` in policy | Rolling window counter enforced pre-execution     |
+| Expired policy still used   | `policyExpiresAt` check        | Agent rejects intents after expiry timestamp      |
+| Compromised agent           | Capability scoping             | Blast radius limited to granted caps              |
+| Agent impersonation         | VaultysId (non-transferable)   | Private key cannot be cloned                      |
+| Privileged user overreach   | RBAC + capability grants       | Server-side enforcement                           |
+| Man-in-the-middle           | All messages signed E2E        | Tampering detected at receiver                    |
+| Unauthorised agent          | Registration approval flow     | Admin must approve before agent connects          |
+| Stale delegation            | Expiry timestamps              | Certificates expire and are not renewed           |
+| Control plane compromise    | Key is the root of trust       | Rotate control plane identity, re-issue certs     |
 
 ## Network security recommendations
 

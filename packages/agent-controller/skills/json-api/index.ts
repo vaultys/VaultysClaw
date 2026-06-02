@@ -53,9 +53,19 @@ export const skill: SkillDefinition = {
             .default(DEFAULT_TIMEOUT)
             .describe("Request timeout in milliseconds"),
         }),
-        execute: async ({ url, method, headers, bearerToken, body, timeoutMs }) => {
+        execute: async ({
+          url,
+          method,
+          headers,
+          bearerToken,
+          body,
+          timeoutMs,
+        }) => {
           const controller = new AbortController();
-          const timer = setTimeout(() => controller.abort(), timeoutMs ?? DEFAULT_TIMEOUT);
+          const timer = setTimeout(
+            () => controller.abort(),
+            timeoutMs ?? DEFAULT_TIMEOUT
+          );
 
           const reqHeaders: Record<string, string> = {
             "Content-Type": "application/json",
@@ -77,7 +87,9 @@ export const skill: SkillDefinition = {
 
             const text = await res.text();
             const truncated = text.length > MAX_BODY;
-            const truncText = truncated ? text.slice(0, MAX_BODY) + "..." : text;
+            const truncText = truncated
+              ? text.slice(0, MAX_BODY) + "..."
+              : text;
 
             let parsed: unknown = truncText;
             try {
@@ -94,7 +106,12 @@ export const skill: SkillDefinition = {
             };
           } catch (err) {
             if ((err as Error).name === "AbortError") {
-              return { status: 0, ok: false, data: null, error: "Request timed out" };
+              return {
+                status: 0,
+                ok: false,
+                data: null,
+                error: "Request timed out",
+              };
             }
             return { status: 0, ok: false, data: null, error: String(err) };
           } finally {

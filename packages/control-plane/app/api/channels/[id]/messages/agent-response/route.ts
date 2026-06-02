@@ -75,7 +75,10 @@ export async function POST(req: NextRequest, ctx: Ctx) {
 
     // Check if caller is a member of the channel
     if (!ChannelService.isMember(channelId, auth.did)) {
-      return NextResponse.json({ error: "Caller is not a member of this channel" }, { status: 403 });
+      return NextResponse.json(
+        { error: "Caller is not a member of this channel" },
+        { status: 403 }
+      );
     }
 
     const body = (await req.json()) as {
@@ -85,7 +88,10 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     };
 
     if (!body.content?.trim()) {
-      return NextResponse.json({ error: "content is required" }, { status: 400 });
+      return NextResponse.json(
+        { error: "content is required" },
+        { status: 400 }
+      );
     }
 
     // Post agent message
@@ -100,7 +106,13 @@ export async function POST(req: NextRequest, ctx: Ctx) {
 
     return NextResponse.json({ message }, { status: 201 });
   } catch (err) {
-    console.error("POST /api/channels/[id]/messages/agent-response error:", err);
-    return NextResponse.json({ error: "Failed to post message" }, { status: 500 });
+    console.error(
+      "POST /api/channels/[id]/messages/agent-response error:",
+      err
+    );
+    return NextResponse.json(
+      { error: "Failed to post message" },
+      { status: 500 }
+    );
   }
 }

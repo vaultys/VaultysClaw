@@ -150,8 +150,7 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
     // Check authorization: channel owner or realm admin
     const role = ChannelService.getMemberRole(id, auth.did);
     const isChannelOwner = role === "owner";
-    const isRealmAdmin =
-      channel.realmId && auth.canAdminRealm(channel.realmId);
+    const isRealmAdmin = channel.realmId && auth.canAdminRealm(channel.realmId);
     const isGlobalAdmin = !channel.realmId && auth.isGlobalAdmin;
 
     if (!isChannelOwner && !isRealmAdmin && !isGlobalAdmin) {
@@ -226,8 +225,7 @@ export async function DELETE(req: NextRequest, ctx: Ctx) {
     // Check authorization: channel owner or realm admin
     const role = ChannelService.getMemberRole(id, auth.did);
     const isChannelOwner = role === "owner";
-    const isRealmAdmin =
-      channel.realmId && auth.canAdminRealm(channel.realmId);
+    const isRealmAdmin = channel.realmId && auth.canAdminRealm(channel.realmId);
     const isGlobalAdmin = !channel.realmId && auth.isGlobalAdmin;
 
     if (!isChannelOwner && !isRealmAdmin && !isGlobalAdmin) {

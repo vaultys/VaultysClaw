@@ -61,7 +61,7 @@ type Params = { id: string };
  */
 export async function POST(
   request: NextRequest,
-  { params }: { params: Promise<Params> },
+  { params }: { params: Promise<Params> }
 ) {
   try {
     const auth = await getAuthContext(request);
@@ -81,10 +81,14 @@ export async function POST(
     // Verify workflow exists
     const workflow = getWorkflow(id);
     if (!workflow) {
-      return NextResponse.json({ error: "Workflow not found" }, { status: 404 });
+      return NextResponse.json(
+        { error: "Workflow not found" },
+        { status: 404 }
+      );
     }
 
-    if (workflow.realm_id && !auth.canAccessRealm(workflow.realm_id)) return forbidden();
+    if (workflow.realm_id && !auth.canAccessRealm(workflow.realm_id))
+      return forbidden();
 
     // Start a new run
     const runId = startWorkflowRun(id);
@@ -107,6 +111,9 @@ export async function POST(
     });
   } catch (err) {
     console.error("POST /api/workflows/[id]/execute error:", err);
-    return NextResponse.json({ error: "Failed to start workflow execution" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to start workflow execution" },
+      { status: 500 }
+    );
   }
 }

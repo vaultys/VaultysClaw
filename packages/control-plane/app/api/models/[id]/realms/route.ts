@@ -11,7 +11,11 @@ import {
   setAgentLlmConfig,
 } from "@/lib/db";
 import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
-import { createRealmKey, isLiteLLMConfigured, getLiteLLMBaseUrl } from "@/lib/litellm-client";
+import {
+  createRealmKey,
+  isLiteLLMConfigured,
+  getLiteLLMBaseUrl,
+} from "@/lib/litellm-client";
 import { getWSServer } from "@/lib/ws-server";
 import type { LlmConfig } from "@vaultysclaw/shared";
 
@@ -19,7 +23,7 @@ import type { LlmConfig } from "@vaultysclaw/shared";
 function pushConfigToRealmAgents(
   realmId: string,
   virtualKey: string,
-  litellmModelName: string,
+  litellmModelName: string
 ): void {
   try {
     const agents = getRealmAgents(realmId);
@@ -92,7 +96,8 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
     if (!auth.isGlobalAdmin) return forbidden();
 
     const { id } = await params;
-    if (!getModelRegistryEntry(id)) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    if (!getModelRegistryEntry(id))
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
 
     const access = getModelRealmAccess(id);
     const allRealms = getAllRealms();
@@ -100,12 +105,19 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
     return NextResponse.json({
       realms: access.map((ra) => {
         const realm = allRealms.find((r) => r.id === ra.realm_id);
-        return { realmId: ra.realm_id, realmName: realm?.name ?? ra.realm_id, grantedAt: ra.granted_at };
+        return {
+          realmId: ra.realm_id,
+          realmName: realm?.name ?? ra.realm_id,
+          grantedAt: ra.granted_at,
+        };
       }),
     });
   } catch (err) {
     console.error(err);
-    return NextResponse.json({ error: "Failed to fetch realm access" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to fetch realm access" },
+      { status: 500 }
+    );
   }
 }
 
@@ -156,10 +168,15 @@ export async function POST(req: NextRequest, { params }: Ctx) {
 
     const { id } = await params;
     const entry = getModelRegistryEntry(id);
-    if (!entry) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    if (!entry)
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-    const body = await req.json() as { realmId?: string };
-    if (!body.realmId) return NextResponse.json({ error: "realmId is required" }, { status: 400 });
+    const body = (await req.json()) as { realmId?: string };
+    if (!body.realmId)
+      return NextResponse.json(
+        { error: "realmId is required" },
+        { status: 400 }
+      );
 
     grantModelRealmAccess(id, body.realmId);
 
@@ -167,12 +184,25 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     if (isLiteLLMConfigured() && entry.litellm_model_name) {
       try {
         const existing = getRealmRouterKey(body.realmId);
-        const currentModels: string[] = existing ? JSON.parse(existing.allowed_model_ids) : [];
+        const currentModels: string[] = existing
+          ? JSON.parse(existing.allowed_model_ids)
+          : [];
         if (!currentModels.includes(entry.litellm_model_name)) {
           const updatedModels = [...currentModels, entry.litellm_model_name];
-          const { virtualKey } = await createRealmKey(body.realmId, updatedModels, existing?.monthly_budget_usd ?? undefined);
-          upsertRealmRouterKey(body.realmId, { litellmVirtualKey: virtualKey, allowedModelIds: updatedModels });
-          pushConfigToRealmAgents(body.realmId, virtualKey, entry.litellm_model_name);
+          const { virtualKey } = await createRealmKey(
+            body.realmId,
+            updatedModels,
+            existing?.monthly_budget_usd ?? undefined
+          );
+          upsertRealmRouterKey(body.realmId, {
+            litellmVirtualKey: virtualKey,
+            allowedModelIds: updatedModels,
+          });
+          pushConfigToRealmAgents(
+            body.realmId,
+            virtualKey,
+            entry.litellm_model_name
+          );
         }
       } catch (e) {
         console.warn("LiteLLM realm key update failed (non-fatal):", e);
@@ -182,7 +212,10 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     return NextResponse.json({ ok: true });
   } catch (err) {
     console.error(err);
-    return NextResponse.json({ error: "Failed to grant realm access" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to grant realm access" },
+      { status: 500 }
+    );
   }
 }
 
@@ -228,11 +261,16 @@ export async function DELETE(req: NextRequest, { params }: Ctx) {
 
     const { id } = await params;
     const entry = getModelRegistryEntry(id);
-    if (!entry) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    if (!entry)
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
 
     const { searchParams } = new URL(req.url);
     const realmId = searchParams.get("realmId");
-    if (!realmId) return NextResponse.json({ error: "realmId query param required" }, { status: 400 });
+    if (!realmId)
+      return NextResponse.json(
+        { error: "realmId query param required" },
+        { status: 400 }
+      );
 
     revokeModelRealmAccess(id, realmId);
 
@@ -241,10 +279,21 @@ export async function DELETE(req: NextRequest, { params }: Ctx) {
       try {
         const existing = getRealmRouterKey(realmId);
         if (existing) {
-          const currentModels: string[] = JSON.parse(existing.allowed_model_ids);
-          const updatedModels = currentModels.filter((m) => m !== entry.litellm_model_name);
-          const { virtualKey } = await createRealmKey(realmId, updatedModels, existing.monthly_budget_usd ?? undefined);
-          upsertRealmRouterKey(realmId, { litellmVirtualKey: virtualKey, allowedModelIds: updatedModels });
+          const currentModels: string[] = JSON.parse(
+            existing.allowed_model_ids
+          );
+          const updatedModels = currentModels.filter(
+            (m) => m !== entry.litellm_model_name
+          );
+          const { virtualKey } = await createRealmKey(
+            realmId,
+            updatedModels,
+            existing.monthly_budget_usd ?? undefined
+          );
+          upsertRealmRouterKey(realmId, {
+            litellmVirtualKey: virtualKey,
+            allowedModelIds: updatedModels,
+          });
         }
       } catch (e) {
         console.warn("LiteLLM realm key update failed (non-fatal):", e);
@@ -254,6 +303,9 @@ export async function DELETE(req: NextRequest, { params }: Ctx) {
     return NextResponse.json({ ok: true });
   } catch (err) {
     console.error(err);
-    return NextResponse.json({ error: "Failed to revoke realm access" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to revoke realm access" },
+      { status: 500 }
+    );
   }
 }

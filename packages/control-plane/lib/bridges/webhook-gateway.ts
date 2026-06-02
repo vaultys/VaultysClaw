@@ -9,11 +9,12 @@ export const WebhookGateway = {
   verifySignature(
     body: string,
     secret: string,
-    signatureHeader: string | null,
+    signatureHeader: string | null
   ): boolean {
     if (!signatureHeader) return false;
 
-    const expected = "sha256=" + createHmac("sha256", secret).update(body).digest("hex");
+    const expected =
+      "sha256=" + createHmac("sha256", secret).update(body).digest("hex");
 
     try {
       const expectedBuf = Buffer.from(expected, "utf8");
@@ -40,11 +41,12 @@ export const WebhookGateway = {
       content: string;
       threadId: string | null;
       createdAt: string;
-    },
+    }
   ): Promise<boolean> {
     const body = JSON.stringify(payload);
     const signature =
-      "sha256=" + createHmac("sha256", config.secret).update(body).digest("hex");
+      "sha256=" +
+      createHmac("sha256", config.secret).update(body).digest("hex");
 
     try {
       const response = await fetch(config.outgoingUrl, {

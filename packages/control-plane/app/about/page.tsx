@@ -36,7 +36,7 @@ function useDarkMode(): boolean {
     const root = document.documentElement;
     setIsDark(root.classList.contains("dark"));
     const observer = new MutationObserver(() =>
-      setIsDark(root.classList.contains("dark")),
+      setIsDark(root.classList.contains("dark"))
     );
     observer.observe(root, { attributes: true, attributeFilter: ["class"] });
     return () => observer.disconnect();
@@ -51,30 +51,32 @@ function MarkdownDoc({ content }: { content: string }) {
   const isDark = useDarkMode();
 
   return (
-    <div className={[
-      "prose prose-sm max-w-none",
-      // prose-invert only in dark so light text/bg works correctly
-      isDark ? "prose-invert" : "",
-      // Headings
-      "prose-headings:text-foreground prose-headings:font-semibold",
-      "prose-h1:text-xl prose-h1:border-b prose-h1:border-neutral-200 prose-h1:pb-3",
-      "prose-h2:text-lg prose-h2:border-b prose-h2:border-neutral-200/60 prose-h2:pb-2",
-      "prose-h3:text-base",
-      // Body
-      "prose-p:text-foreground-500 prose-p:leading-7",
-      "prose-strong:text-foreground prose-li:text-foreground-500",
-      // Links
-      "prose-a:text-indigo-500 dark:prose-a:text-indigo-400 prose-a:no-underline hover:prose-a:underline prose-a:font-normal",
-      // Inline code — suppress typography backtick decoration; styling is in component below
-      "prose-code:before:content-none prose-code:after:content-none",
-      "prose-pre:bg-transparent prose-pre:p-0 prose-pre:m-0",
-      // Blockquote
-      "prose-blockquote:border-indigo-500 prose-blockquote:text-foreground-500 prose-blockquote:bg-indigo-500/5 prose-blockquote:rounded-r-lg prose-blockquote:not-italic",
-      // Tables
-      "prose-table:text-sm prose-th:text-foreground-500 prose-th:font-semibold prose-td:text-foreground-500",
-      // HR
-      "prose-hr:border-neutral-200",
-    ].join(" ")}>
+    <div
+      className={[
+        "prose prose-sm max-w-none",
+        // prose-invert only in dark so light text/bg works correctly
+        isDark ? "prose-invert" : "",
+        // Headings
+        "prose-headings:text-foreground prose-headings:font-semibold",
+        "prose-h1:text-xl prose-h1:border-b prose-h1:border-neutral-200 prose-h1:pb-3",
+        "prose-h2:text-lg prose-h2:border-b prose-h2:border-neutral-200/60 prose-h2:pb-2",
+        "prose-h3:text-base",
+        // Body
+        "prose-p:text-foreground-500 prose-p:leading-7",
+        "prose-strong:text-foreground prose-li:text-foreground-500",
+        // Links
+        "prose-a:text-primary-500 dark:prose-a:text-primary-400 prose-a:no-underline hover:prose-a:underline prose-a:font-normal",
+        // Inline code — suppress typography backtick decoration; styling is in component below
+        "prose-code:before:content-none prose-code:after:content-none",
+        "prose-pre:bg-transparent prose-pre:p-0 prose-pre:m-0",
+        // Blockquote
+        "prose-blockquote:border-primary-500 prose-blockquote:text-foreground-500 prose-blockquote:bg-primary-500/5 prose-blockquote:rounded-r-lg prose-blockquote:not-italic",
+        // Tables
+        "prose-table:text-sm prose-th:text-foreground-500 prose-th:font-semibold prose-td:text-foreground-500",
+        // HR
+        "prose-hr:border-neutral-200",
+      ].join(" ")}
+    >
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         rehypePlugins={[rehypeRaw]}
@@ -88,13 +90,17 @@ function MarkdownDoc({ content }: { content: string }) {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const codeNode = (node as any)?.children?.find(
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              (c: any) => c.type === "element" && c.tagName === "code",
+              (c: any) => c.type === "element" && c.tagName === "code"
             );
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const classList: string[] = codeNode?.properties?.className ?? [];
-            const lang = classList.join(" ").match(/language-(\w+)/)?.[1] ?? "text";
+            const lang =
+              classList.join(" ").match(/language-(\w+)/)?.[1] ?? "text";
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const raw = (codeNode?.children ?? []).map((c: any) => c.value ?? "").join("").replace(/\n$/, "");
+            const raw = (codeNode?.children ?? [])
+              .map((c: any) => c.value ?? "")
+              .join("")
+              .replace(/\n$/, "");
 
             return (
               <div className="my-4">
@@ -110,7 +116,9 @@ function MarkdownDoc({ content }: { content: string }) {
                     border: "1px solid rgb(var(--neutral-200))",
                     background: "rgb(var(--background-50))",
                   }}
-                  codeTagProps={{ style: { fontFamily: "ui-monospace, monospace" } }}
+                  codeTagProps={{
+                    style: { fontFamily: "ui-monospace, monospace" },
+                  }}
                 >
                   {raw}
                 </SyntaxHighlighter>
@@ -149,19 +157,21 @@ function MarkdownDoc({ content }: { content: string }) {
 // ── GitHub CTA card ───────────────────────────────────────────────────────────
 
 const GITHUB_URL = "https://github.com/vaultys/VaultysClaw";
-const ISSUES_URL  = `${GITHUB_URL}/issues`;
-const FORK_URL    = `${GITHUB_URL}/fork`;
+const ISSUES_URL = `${GITHUB_URL}/issues`;
+const FORK_URL = `${GITHUB_URL}/fork`;
 
 function GitHubCTA() {
   return (
-    <div className="rounded-2xl border border-indigo-500/30 bg-gradient-to-br from-indigo-500/5 via-background-100 to-background-100 overflow-hidden">
+    <div className="rounded-2xl border border-primary-500/30 bg-gradient-to-br from-primary-500/5 via-background-100 to-background-100 overflow-hidden">
       {/* Header */}
       <div className="flex items-center gap-4 px-6 py-5 border-b border-neutral-200">
         <div className="w-10 h-10 bg-background-200 rounded-xl flex items-center justify-center border border-neutral-200 shrink-0">
           <GitBranch size={20} className="text-foreground" />
         </div>
         <div className="flex-1 min-w-0">
-          <h2 className="font-semibold text-foreground text-sm">vaultys / VaultysClaw</h2>
+          <h2 className="font-semibold text-foreground text-sm">
+            vaultys / VaultysClaw
+          </h2>
           <p className="text-xs text-foreground-500 mt-0.5">
             Open-source Zero Trust AI agent orchestration platform
           </p>
@@ -184,8 +194,8 @@ function GitHubCTA() {
           {
             href: `${GITHUB_URL}/stargazers`,
             icon: Star,
-            iconColor: "text-amber-500 dark:text-amber-400",
-            bg: "bg-amber-500/5",
+            iconColor: "text-warning-500 dark:text-warning-400",
+            bg: "bg-warning-500/5",
             title: "Star the repo",
             desc: "Show support and help others discover VaultysClaw",
             action: "Star on GitHub",
@@ -193,8 +203,8 @@ function GitHubCTA() {
           {
             href: FORK_URL,
             icon: GitFork,
-            iconColor: "text-sky-600 dark:text-sky-400",
-            bg: "bg-sky-500/5",
+            iconColor: "text-primary-600 dark:text-primary-400",
+            bg: "bg-primary-500/5",
             title: "Fork & contribute",
             desc: "Build features, fix bugs, improve docs — PRs welcome",
             action: "Fork repository",
@@ -202,8 +212,8 @@ function GitHubCTA() {
           {
             href: ISSUES_URL,
             icon: MessageSquare,
-            iconColor: "text-violet-600 dark:text-violet-400",
-            bg: "bg-violet-500/5",
+            iconColor: "text-secondary-600 dark:text-secondary-400",
+            bg: "bg-secondary-500/5",
             title: "Give feedback",
             desc: "Bug reports, feature requests, integrations ideas",
             action: "Open an issue",
@@ -216,13 +226,15 @@ function GitHubCTA() {
             rel="noopener noreferrer"
             className={cn(
               "flex flex-col gap-3 px-5 py-4 bg-background-100 hover:bg-background-200 transition-colors",
-              bg,
+              bg
             )}
           >
             <Icon size={20} className={iconColor} />
             <div>
               <p className="text-sm font-semibold text-foreground">{title}</p>
-              <p className="text-xs text-foreground-500 mt-0.5 leading-relaxed">{desc}</p>
+              <p className="text-xs text-foreground-500 mt-0.5 leading-relaxed">
+                {desc}
+              </p>
             </div>
             <span className={cn("text-xs font-medium mt-auto", iconColor)}>
               {action} →
@@ -239,49 +251,67 @@ function GitHubCTA() {
 const SPONSOR_TIERS = [
   {
     name: "Bronze",
-    color: "text-amber-700 dark:text-amber-500",
-    bg: "bg-amber-50 dark:bg-amber-500/5",
+    color: "text-warning-700 dark:text-warning-500",
+    bg: "bg-warning-50 dark:bg-warning-500/5",
     perks: ["Logo in README & About page", "GitHub Sponsors badge"],
   },
   {
     name: "Silver",
-    color: "text-slate-600 dark:text-slate-400",
-    bg: "bg-slate-50 dark:bg-slate-500/5",
-    perks: ["Everything in Bronze", "Private Discord with core devs", "Early access to releases"],
+    color: "text-neutral-600 dark:text-neutral-400",
+    bg: "bg-neutral-50 dark:bg-neutral-500/5",
+    perks: [
+      "Everything in Bronze",
+      "Private Discord with core devs",
+      "Early access to releases",
+    ],
   },
   {
     name: "Gold",
-    color: "text-yellow-700 dark:text-yellow-400",
-    bg: "bg-yellow-50 dark:bg-yellow-500/5",
-    perks: ["Everything in Silver", "Roadmap vote", "PoC fast-track", "Co-marketing opportunity"],
+    color: "text-warning-700 dark:text-warning-400",
+    bg: "bg-warning-50 dark:bg-warning-500/5",
+    perks: [
+      "Everything in Silver",
+      "Roadmap vote",
+      "PoC fast-track",
+      "Co-marketing opportunity",
+    ],
   },
   {
     name: "Platinum",
-    color: "text-sky-700 dark:text-sky-400",
-    bg: "bg-sky-50 dark:bg-sky-500/5",
-    perks: ["Everything in Gold", "Dedicated support SLA", "Architecture review sessions", "Custom integration guidance"],
+    color: "text-primary-700 dark:text-primary-400",
+    bg: "bg-primary-50 dark:bg-primary-500/5",
+    perks: [
+      "Everything in Gold",
+      "Dedicated support SLA",
+      "Architecture review sessions",
+      "Custom integration guidance",
+    ],
   },
 ] as const;
 
 function SponsorsCard() {
   return (
-    <div className="rounded-2xl border border-amber-400/40 dark:border-amber-500/30 bg-gradient-to-br from-amber-50 dark:from-amber-500/5 via-background-100 to-background-100 overflow-hidden">
+    <div className="rounded-2xl border border-warning-400/40 dark:border-warning-500/30 bg-gradient-to-br from-warning-50 dark:from-warning-500/5 via-background-100 to-background-100 overflow-hidden">
       {/* Header */}
       <div className="px-6 py-5 border-b border-neutral-200 flex items-start gap-4">
-        <div className="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-500/10 border border-amber-300 dark:border-amber-500/30 flex items-center justify-center shrink-0">
-          <Sparkles size={18} className="text-amber-600 dark:text-amber-400" />
+        <div className="w-10 h-10 rounded-xl bg-warning-100 dark:bg-warning-500/10 border border-warning-300 dark:border-warning-500/30 flex items-center justify-center shrink-0">
+          <Sparkles
+            size={18}
+            className="text-warning-600 dark:text-warning-400"
+          />
         </div>
         <div className="flex-1 min-w-0">
           <h2 className="font-semibold text-foreground text-sm flex items-center gap-2">
             We&apos;re looking for sponsors
-            <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-300 dark:border-amber-500/30">
+            <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-warning-100 dark:bg-warning-500/15 text-warning-700 dark:text-warning-400 border border-warning-300 dark:border-warning-500/30">
               Open
             </span>
           </h2>
           <p className="text-xs text-foreground-500 mt-1 leading-relaxed">
-            VaultysClaw is building the missing security layer for enterprise AI. Sponsors get direct
-            access to the core team, real influence over the roadmap, and fast-track support for their
-            specific use-cases — not a ticket queue.
+            VaultysClaw is building the missing security layer for enterprise
+            AI. Sponsors get direct access to the core team, real influence over
+            the roadmap, and fast-track support for their specific use-cases —
+            not a ticket queue.
           </p>
         </div>
       </div>
@@ -290,10 +320,20 @@ function SponsorsCard() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-px bg-neutral-200">
         {SPONSOR_TIERS.map(({ name, color, bg, perks }) => (
           <div key={name} className={cn("px-4 py-4 flex flex-col gap-2", bg)}>
-            <span className={cn("text-xs font-bold uppercase tracking-wider", color)}>{name}</span>
+            <span
+              className={cn(
+                "text-xs font-bold uppercase tracking-wider",
+                color
+              )}
+            >
+              {name}
+            </span>
             <ul className="space-y-1.5 flex-1">
               {perks.map((p) => (
-                <li key={p} className="flex items-start gap-1.5 text-xs text-foreground-500">
+                <li
+                  key={p}
+                  className="flex items-start gap-1.5 text-xs text-foreground-500"
+                >
                   <span className={cn("mt-0.5 shrink-0", color)}>✓</span>
                   {p}
                 </li>
@@ -306,13 +346,14 @@ function SponsorsCard() {
       {/* CTA footer */}
       <div className="px-6 py-4 bg-background/60 border-t border-neutral-200 flex flex-col sm:flex-row items-start sm:items-center gap-3">
         <p className="text-xs text-foreground-500 flex-1 leading-relaxed">
-          Sponsoring directly funds security hardening, compliance tooling, and the features your
-          organisation needs. Logos appear in README, this About page, and future marketing.
+          Sponsoring directly funds security hardening, compliance tooling, and
+          the features your organisation needs. Logos appear in README, this
+          About page, and future marketing.
         </p>
         <div className="flex items-center gap-2 shrink-0">
           <a
             href="mailto:sponsor@vaultys.com"
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-background-200 border border-neutral-200 text-foreground-500 hover:text-foreground hover:border-amber-400 dark:hover:border-amber-500/50 transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-background-200 border border-neutral-200 text-foreground-500 hover:text-foreground hover:border-warning-400 dark:hover:border-warning-500/50 transition-colors"
           >
             <Mail size={12} />
             sponsor@vaultys.com
@@ -321,7 +362,7 @@ function SponsorsCard() {
             href="https://github.com/sponsors/vaultys"
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-amber-500 hover:bg-amber-400 dark:hover:bg-amber-600 text-white transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-warning-500 hover:bg-warning-400 dark:hover:bg-warning-600 text-white transition-colors"
           >
             <Sparkles size={12} />
             Become a sponsor
@@ -339,7 +380,7 @@ function VaultysCard() {
     <div className="rounded-2xl border border-neutral-200 bg-background-100 overflow-hidden">
       <div className="px-6 py-5 border-b border-neutral-200">
         <h2 className="font-semibold text-foreground text-sm flex items-center gap-2">
-          <Heart size={15} className="text-indigo-500 dark:text-indigo-400" />
+          <Heart size={15} className="text-primary-500 dark:text-primary-400" />
           Built by Vaultys
         </h2>
       </div>
@@ -351,7 +392,7 @@ function VaultysCard() {
             icon: Globe,
             label: "vaultys.com",
             desc: "Company website",
-            color: "text-indigo-500 dark:text-indigo-400",
+            color: "text-primary-500 dark:text-primary-400",
           },
           {
             href: "https://github.com/vaultys",
@@ -365,14 +406,14 @@ function VaultysCard() {
             icon: Code2,
             label: "Architecture docs",
             desc: "Deep-dive technical docs",
-            color: "text-sky-600 dark:text-sky-400",
+            color: "text-primary-600 dark:text-primary-400",
           },
           {
             href: "https://github.com/vaultys/VaultysClaw/blob/main/docs/QUICK_START.md",
             icon: Zap,
             label: "Quick start",
             desc: "Up and running in minutes",
-            color: "text-amber-600 dark:text-amber-400",
+            color: "text-warning-600 dark:text-warning-400",
           },
         ].map(({ href, icon: Icon, label, desc, color }) => (
           <a
@@ -384,10 +425,15 @@ function VaultysCard() {
           >
             <Icon size={16} className={cn("shrink-0", color)} />
             <div className="min-w-0">
-              <p className="text-xs font-medium text-foreground truncate">{label}</p>
+              <p className="text-xs font-medium text-foreground truncate">
+                {label}
+              </p>
               <p className="text-[11px] text-foreground-500">{desc}</p>
             </div>
-            <ExternalLink size={11} className="shrink-0 text-foreground-400 ml-auto" />
+            <ExternalLink
+              size={11}
+              className="shrink-0 text-foreground-400 ml-auto"
+            />
           </a>
         ))}
       </div>
@@ -399,17 +445,18 @@ function VaultysCard() {
             href="https://github.com/vaultys"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-indigo-500 dark:text-indigo-400 hover:underline"
+            className="text-primary-500 dark:text-primary-400 hover:underline"
           >
             VaultysId
           </a>{" "}
-          cryptographic identity ecosystem. Every agent gets a unique, non-transferable EdDSA &amp; PQC-backed
-          identity — no shared secrets, no passwords, no API key leaks.{" "}
+          cryptographic identity ecosystem. Every agent gets a unique,
+          non-transferable EdDSA &amp; PQC-backed identity — no shared secrets,
+          no passwords, no API key leaks.{" "}
           <a
             href="https://github.com/vaultys/VaultysClaw/blob/main/docs/SECURITY.md"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-indigo-500 dark:text-indigo-400 hover:underline"
+            className="text-primary-500 dark:text-primary-400 hover:underline"
           >
             Read the security model →
           </a>
@@ -423,7 +470,7 @@ function VaultysCard() {
 
 function ZeroTrustPanel() {
   const [content, setContent] = useState<string | null>(null);
-  const [error, setError]     = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -440,14 +487,17 @@ function ZeroTrustPanel() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <Loader2 size={24} className="animate-spin text-indigo-500 dark:text-indigo-400" />
+        <Loader2
+          size={24}
+          className="animate-spin text-primary-500 dark:text-primary-400"
+        />
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="flex items-center gap-2 bg-red-50 dark:bg-red-500/10 border border-red-300 dark:border-red-500/20 rounded-xl px-4 py-3 text-sm text-red-700 dark:text-red-400">
+      <div className="flex items-center gap-2 bg-danger-50 dark:bg-danger-500/10 border border-danger-300 dark:border-danger-500/20 rounded-xl px-4 py-3 text-sm text-danger-700 dark:text-danger-400">
         <AlertTriangle size={14} className="shrink-0" />
         {error}
       </div>
@@ -468,13 +518,16 @@ export default function AboutPage() {
     <div className="p-6 w-full max-w-5xl mx-auto space-y-6">
       {/* Header */}
       <div className="flex items-center gap-3">
-        <div className="w-9 h-9 bg-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-600/20 text-xl">
+        <div className="w-9 h-9 bg-primary-600 rounded-xl flex items-center justify-center shadow-lg shadow-primary-600/20 text-xl">
           🦞
         </div>
         <div>
-          <h1 className="text-xl font-bold text-foreground">About VaultysClaw</h1>
+          <h1 className="text-xl font-bold text-foreground">
+            About VaultysClaw
+          </h1>
           <p className="text-sm text-foreground-500 mt-0.5">
-            Zero Trust AI agent orchestration — open source, self-hosted, cryptographically secure
+            Zero Trust AI agent orchestration — open source, self-hosted,
+            cryptographically secure
           </p>
         </div>
       </div>
@@ -491,8 +544,13 @@ export default function AboutPage() {
       {/* Zero-Trust Roadmap */}
       <div className="space-y-3">
         <div className="flex items-center gap-2">
-          <ShieldCheck size={16} className="text-indigo-500 dark:text-indigo-400" />
-          <h2 className="text-sm font-semibold text-foreground">Zero-Trust Compliance Roadmap</h2>
+          <ShieldCheck
+            size={16}
+            className="text-primary-500 dark:text-primary-400"
+          />
+          <h2 className="text-sm font-semibold text-foreground">
+            Zero-Trust Compliance Roadmap
+          </h2>
         </div>
         <ZeroTrustPanel />
       </div>

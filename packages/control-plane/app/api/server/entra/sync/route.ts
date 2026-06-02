@@ -71,7 +71,7 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "Sync failed" },
-      { status: 502 },
+      { status: 502 }
     );
   }
 }

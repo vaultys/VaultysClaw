@@ -87,10 +87,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     const body = (await req.json()) as { emoji?: string; add?: boolean };
 
     if (!body.emoji?.trim()) {
-      return NextResponse.json(
-        { error: "emoji is required" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "emoji is required" }, { status: 400 });
     }
 
     const isAdd = body.add !== false;
@@ -102,10 +99,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
 
       return NextResponse.json({ message: updated });
     } catch (err: any) {
-      return NextResponse.json(
-        { error: err.message },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: err.message }, { status: 400 });
     }
   } catch (err) {
     console.error(

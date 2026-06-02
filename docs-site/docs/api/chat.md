@@ -33,11 +33,11 @@ Returns a `text/event-stream` (Server-Sent Events) response.
 }
 ```
 
-| Field | Type | Required | Description |
-|---|---|---|---|
-| `agentDid` | string | Yes | The agent to chat with |
-| `messages` | array | Yes | Conversation history (OpenAI-compatible format) |
-| `sessionId` | string | No | Resume an existing session. Omit to create a new one. |
+| Field       | Type   | Required | Description                                           |
+| ----------- | ------ | -------- | ----------------------------------------------------- |
+| `agentDid`  | string | Yes      | The agent to chat with                                |
+| `messages`  | array  | Yes      | Conversation history (OpenAI-compatible format)       |
+| `sessionId` | string | No       | Resume an existing session. Omit to create a new one. |
 
 ### Message format
 
@@ -45,8 +45,8 @@ Returns a `text/event-stream` (Server-Sent Events) response.
 interface ChatMessageEntry {
   role: "system" | "user" | "assistant" | "tool";
   content: string | ContentBlock[];
-  name?: string;       // For tool messages
-  tool_calls?: any[];  // For assistant messages with tool use
+  name?: string; // For tool messages
+  tool_calls?: any[]; // For assistant messages with tool use
 }
 ```
 
@@ -159,8 +159,8 @@ GET /api/chat/sessions/:sessionId/messages
 ```json
 {
   "messages": [
-    { "role": "user",      "content": "Summarise Q1 trends...", "createdAt": "..." },
-    { "role": "assistant", "content": "The key trends...",       "createdAt": "..." }
+    { "role": "user", "content": "Summarise Q1 trends...", "createdAt": "..." },
+    { "role": "assistant", "content": "The key trends...", "createdAt": "..." }
   ]
 }
 ```

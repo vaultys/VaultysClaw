@@ -15,12 +15,14 @@ VaultysClaw is **secure by design** using VaultysId for decentralized, non-trans
 ## Identity Model
 
 ### Control Plane Identity (VaultysID)
+
 - Created and managed by the control plane
 - Signs policies and intents
 - Non-transferable to other control planes
 - Public VaultysID shared with all agents
 
 ### Agent Identity (VaultysID)
+
 - Created during agent registration
 - Unique per agent controller instance
 - Signs execution results
@@ -57,7 +59,7 @@ Agent Controller              Control Plane
         |                            |
  Create VaultysId              Create VaultysId
         |                            |
-        |←-- Registration (SRP)  --→ | 
+        |←-- Registration (SRP)  --→ |
         |                            |
         |                    Generate Policy
         |                            |
@@ -89,7 +91,7 @@ Agent Controller              Control Plane
         |                            |
    Execute Intent                    |
    Prepare Result                    |
-   Sign with Agent VaultysID         | 
+   Sign with Agent VaultysID         |
         |                            |
         |--- Send signed result   --→|
         |                    Verify Signature
@@ -117,11 +119,7 @@ const signature = await vaultysId.sign(message);
 import { VaultysId } from "@vaultys/id";
 
 // Verify using public key
-const isValid = await VaultysId.verify(
-  message,
-  signature,
-  publicKey
-);
+const isValid = await VaultysId.verify(message, signature, publicKey);
 
 if (!isValid) {
   throw new Error("Invalid signature - possible tampering");
@@ -134,38 +132,39 @@ if (!isValid) {
 interface AgentPolicy {
   id: string;
   agentControllerId: string;
-  
+
   // What the agent can do
   capabilities: [
-    "file_access",      // Read/write files
-    "internet_access",  // Make HTTP requests
-    "browser_control",  // Control browser
-    "api_call",         // Call APIs
-    "mail_send",        // Send emails
-    "code_execution",   // Run code
-    "system_command"    // System commands
+    "file_access", // Read/write files
+    "internet_access", // Make HTTP requests
+    "browser_control", // Control browser
+    "api_call", // Call APIs
+    "mail_send", // Send emails
+    "code_execution", // Run code
+    "system_command", // System commands
   ];
 
   // Resource limits
   resourceLimits: {
-    maxCpuPercent: 50,
-    maxMemoryMb: 512,
-    maxNetworkBandwidthMbps: 10
+    maxCpuPercent: 50;
+    maxMemoryMb: 512;
+    maxNetworkBandwidthMbps: 10;
   };
 
   // Time window
   timeWindow: {
-    startTime: "2024-01-01T00:00:00Z",
-    endTime: "2024-12-31T23:59:59Z"
+    startTime: "2024-01-01T00:00:00Z";
+    endTime: "2024-12-31T23:59:59Z";
   };
 
   // Signed by control plane
-  signature: "...",
-  signedBy: "control-plane-id"
+  signature: "...";
+  signedBy: "control-plane-id";
 }
 ```
 
 Policies are:
+
 1. **Created by control plane**
 2. **Signed by control plane private key**
 3. **Published to agents**
@@ -178,7 +177,7 @@ Before executing an intent, agent checks:
 
 ```typescript
 // 1. Signature valid?
-if (!await verifySignature(intent.signature, cpPublicKey)) {
+if (!(await verifySignature(intent.signature, cpPublicKey))) {
   throw new Error("Invalid intent signature");
 }
 
@@ -189,7 +188,7 @@ if (!policy || policy.expired) {
 }
 
 // 3. Policy is properly signed?
-if (!await verifySignature(policy.signature, cpPublicKey)) {
+if (!(await verifySignature(policy.signature, cpPublicKey))) {
   throw new Error("Invalid policy signature");
 }
 
@@ -215,39 +214,51 @@ execute(intent);
 ## Threat Model
 
 ### Attack: Intent Tampering
+
 **Defense**: Signature verification
+
 - Intent is signed by control plane
 - Agent verifies signature before execution
 - Attacker cannot modify intent without private key
 
 ### Attack: Replay Attack
+
 **Defense**: Intent IDs and timestamps
+
 - Each intent has unique ID
 - Timestamp included
 - Agent tracks processed intents
 - Prevents processing same intent twice
 
 ### Attack: Policy Downgrade
+
 **Defense**: Policy version tracking
+
 - Policies have version numbers
 - Agent refuses to downgrade to older policy
 - All changes logged and signed
 
 ### Attack: Man-in-the-Middle
+
 **Defense**: Signature verification
+
 - All communication signed
 - Verification with public key
 - No plaintext secrets in transit
 
 ### Attack: Compromised Agent
+
 **Defense**: Limited capabilities
+
 - Each agent has specific capability grants
 - Other agents unaffected
 - Logs show what compromised agent did
 - Can revoke immediately
 
 ### Attack: Unauthorized Agent
+
 **Defense**: Registration flow
+
 - Registration signed by control plane
 - Identity verified before use
 - Public key verification
@@ -266,18 +277,21 @@ execute(intent);
 ## Key Management
 
 ### Private Key Storage
+
 - Agent: Encrypted local file (`.vaultys/agent.id`)
 - Control Plane: Encrypted local file (`.vaultys/control-plane.id`)
 - **Never** commit to git (in `.gitignore`)
 - **Protect** with file permissions (chmod 600)
 
 ### Public Key Distribution
+
 - Each service publishes its public key
 - Agents fetch control plane public key on registration
 - Control plane stores agent public keys
 - Distribution via direct API calls (HTTPS only)
 
 ### Key Rotation
+
 - Support periodic key rotation
 - New keys distributed to all agents
 - Old keys continue working for grace period
@@ -309,6 +323,7 @@ execute(intent);
 ## Compliance
 
 Consider for your deployment:
+
 - GDPR (data protection)
 - HIPAA (healthcare)
 - SOC 2 (security controls)

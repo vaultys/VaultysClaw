@@ -7,7 +7,13 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { getRealmById, saveCredential, listCredentialsByService, listCredentials, deleteCredentialByKey } from "@/lib/db";
+import {
+  getRealmById,
+  saveCredential,
+  listCredentialsByService,
+  listCredentials,
+  deleteCredentialByKey,
+} from "@/lib/db";
 import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
 import { encryptSecret } from "@/lib/vault";
 
@@ -57,7 +63,8 @@ export async function GET(req: NextRequest, ctx: Ctx) {
 
   const { id: realmId } = await ctx.params;
   const realm = getRealmById(realmId);
-  if (!realm) return NextResponse.json({ error: "Realm not found" }, { status: 404 });
+  if (!realm)
+    return NextResponse.json({ error: "Realm not found" }, { status: 404 });
   if (!auth.canAccessRealm(realmId)) return forbidden();
 
   const service = req.nextUrl.searchParams.get("service");
@@ -125,10 +132,11 @@ export async function POST(req: NextRequest, ctx: Ctx) {
 
   const { id: realmId } = await ctx.params;
   const realm = getRealmById(realmId);
-  if (!realm) return NextResponse.json({ error: "Realm not found" }, { status: 404 });
+  if (!realm)
+    return NextResponse.json({ error: "Realm not found" }, { status: 404 });
   if (!auth.canAdminRealm(realmId)) return forbidden();
 
-  const body = await req.json() as {
+  const body = (await req.json()) as {
     service?: string;
     name?: string;
     secret?: string;
@@ -138,7 +146,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   if (!body.service || !body.name || !body.secret) {
     return NextResponse.json(
       { error: "service, name, and secret are required" },
-      { status: 400 },
+      { status: 400 }
     );
   }
 
@@ -149,7 +157,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     body.name,
     secretEncrypted,
     body.metadata,
-    auth.did,
+    auth.did
   );
 
   return NextResponse.json({ success: true, id }, { status: 201 });
@@ -207,7 +215,10 @@ export async function DELETE(req: NextRequest, ctx: Ctx) {
   const service = req.nextUrl.searchParams.get("service");
   const name = req.nextUrl.searchParams.get("name");
   if (!service || !name) {
-    return NextResponse.json({ error: "service and name query params are required" }, { status: 400 });
+    return NextResponse.json(
+      { error: "service and name query params are required" },
+      { status: 400 }
+    );
   }
 
   const deleted = deleteCredentialByKey(realmId, service, name);

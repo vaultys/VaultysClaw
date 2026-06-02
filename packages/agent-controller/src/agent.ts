@@ -606,9 +606,7 @@ export class Agent extends EventEmitter {
   }
 
   /** Recent tool usage log entries. */
-  getToolLog(
-    limit = 100
-  ): Array<{
+  getToolLog(limit = 100): Array<{
     tool_name: string;
     args: string;
     success: number;

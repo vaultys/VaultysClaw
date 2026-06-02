@@ -26,7 +26,15 @@
  *     pushPeerCatalog has been removed from WSServer
  */
 
-import { describe, it, expect, vi, beforeAll, afterAll, beforeEach } from "vitest";
+import {
+  describe,
+  it,
+  expect,
+  vi,
+  beforeAll,
+  afterAll,
+  beforeEach,
+} from "vitest";
 
 // ---------------------------------------------------------------------------
 // Mocks — must come before imports
@@ -36,11 +44,15 @@ vi.mock("@/lib/auth-utils", () => ({
   getAuthContext: vi.fn(),
   unauthorized: () => ({
     _status: 401,
-    async json() { return { error: "Not authenticated" }; },
+    async json() {
+      return { error: "Not authenticated" };
+    },
   }),
   forbidden: () => ({
     _status: 403,
-    async json() { return { error: "Forbidden" }; },
+    async json() {
+      return { error: "Forbidden" };
+    },
   }),
 }));
 
@@ -55,7 +67,7 @@ vi.mock("@/lib/ws-server", () => ({
 vi.mock("@/lib/user-dao", () => ({
   UserDao: {
     getByDid: vi.fn((did: string) =>
-      did.startsWith("did:") ? { id: "user-uuid-123", did } : null,
+      did.startsWith("did:") ? { id: "user-uuid-123", did } : null
     ),
   },
 }));
@@ -165,7 +177,10 @@ function makeWebhookSignature(body: string, secret: string): string {
 }
 
 function req(method: string, url: string, body?: unknown): NextRequest {
-  return new NextRequest(url, body !== undefined ? { body } : undefined) as unknown as NextRequest;
+  return new NextRequest(
+    url,
+    body !== undefined ? { body } : undefined
+  ) as unknown as NextRequest;
 }
 
 /**
@@ -177,7 +192,9 @@ function req(method: string, url: string, body?: unknown): NextRequest {
 function webhookReq(url: string, bodyStr: string, sig: string): NextRequest {
   return {
     text: async () => bodyStr,
-    headers: { get: (h: string) => h.toLowerCase() === "x-signature" ? sig : null },
+    headers: {
+      get: (h: string) => (h.toLowerCase() === "x-signature" ? sig : null),
+    },
   } as unknown as NextRequest;
 }
 
@@ -197,46 +214,60 @@ beforeAll(() => {
   testAgentName = "tch-test-agent";
 
   // Create test realm
-  db.prepare(`
+  db.prepare(
+    `
     INSERT OR IGNORE INTO realms (id, name, slug, color, is_default)
     VALUES (?, 'Channel Test Realm', 'channel-test-realm', '#6366f1', 0)
-  `).run(testRealmId);
+  `
+  ).run(testRealmId);
 
   // Create test agent
-  db.prepare(`
+  db.prepare(
+    `
     INSERT OR IGNORE INTO agents (did, name, capabilities, registered_at)
     VALUES (?, ?, '[]', datetime('now'))
-  `).run(testAgentDid, testAgentName);
+  `
+  ).run(testAgentDid, testAgentName);
 
   // Create a user row so user_realms FK can reference it
-  db.prepare(`
+  db.prepare(
+    `
     INSERT OR IGNORE INTO users (id, did, name, registered_at)
     VALUES ('user-uuid-123', 'did:test:admin', 'Test Admin', datetime('now'))
-  `).run();
+  `
+  ).run();
 
   // Enroll that user in the test realm
-  db.prepare(`
+  db.prepare(
+    `
     INSERT OR IGNORE INTO user_realms (user_id, realm_id, is_primary, is_realm_admin)
     VALUES ('user-uuid-123', ?, 0, 1)
-  `).run(testRealmId);
+  `
+  ).run(testRealmId);
 });
 
 afterAll(() => {
   const db = getDb();
   // Remove channel data in dependency order
   // Channels in this test suite live under testRealmId (which uses T prefix) and use S-prefixed slugs
-  db.prepare(`
+  db.prepare(
+    `
     DELETE FROM channel_messages WHERE channel_id IN (
       SELECT id FROM channels WHERE realm_id LIKE ? OR slug LIKE ?
     )
-  `).run(`${T}%`, `${S}%`);
-  db.prepare(`
+  `
+  ).run(`${T}%`, `${S}%`);
+  db.prepare(
+    `
     DELETE FROM channel_members WHERE channel_id IN (
       SELECT id FROM channels WHERE realm_id LIKE ? OR slug LIKE ?
     )
-  `).run(`${T}%`, `${S}%`);
-  db.prepare("DELETE FROM channels WHERE realm_id LIKE ? OR slug LIKE ?")
-    .run(`${T}%`, `${S}%`);
+  `
+  ).run(`${T}%`, `${S}%`);
+  db.prepare("DELETE FROM channels WHERE realm_id LIKE ? OR slug LIKE ?").run(
+    `${T}%`,
+    `${S}%`
+  );
   // Remove test support data
   db.prepare("DELETE FROM user_realms WHERE user_id = 'user-uuid-123'").run();
   db.prepare("DELETE FROM users WHERE id = 'user-uuid-123'").run();
@@ -275,7 +306,9 @@ describe("ChannelService: createChannel", () => {
       const role = ChannelService.getMemberRole(channel.id, "did:test:creator");
       expect(role).toBe("owner");
     } finally {
-      getDb().prepare("DELETE FROM channel_members WHERE channel_id = ?").run(channel.id);
+      getDb()
+        .prepare("DELETE FROM channel_members WHERE channel_id = ?")
+        .run(channel.id);
       getDb().prepare("DELETE FROM channels WHERE id = ?").run(channel.id);
     }
   });
@@ -287,7 +320,7 @@ describe("ChannelService: createChannel", () => {
         slug: "Bad Slug!",
         realmId: testRealmId,
         creatorDid: "did:test:admin",
-      }),
+      })
     ).toThrow(/slug/i);
   });
 
@@ -307,10 +340,12 @@ describe("ChannelService: createChannel", () => {
           slug,
           realmId: testRealmId,
           creatorDid: "did:test:admin",
-        }),
+        })
       ).toThrow(/already exists/i);
     } finally {
-      getDb().prepare("DELETE FROM channel_members WHERE channel_id = ?").run(channel.id);
+      getDb()
+        .prepare("DELETE FROM channel_members WHERE channel_id = ?")
+        .run(channel.id);
       getDb().prepare("DELETE FROM channels WHERE id = ?").run(channel.id);
     }
   });
@@ -334,7 +369,9 @@ describe("ChannelService: getChannel", () => {
       expect(found).not.toBeNull();
       expect(found!.id).toBe(channel.id);
     } finally {
-      getDb().prepare("DELETE FROM channel_members WHERE channel_id = ?").run(channel.id);
+      getDb()
+        .prepare("DELETE FROM channel_members WHERE channel_id = ?")
+        .run(channel.id);
       getDb().prepare("DELETE FROM channels WHERE id = ?").run(channel.id);
     }
   });
@@ -362,8 +399,12 @@ describe("ChannelService: postMessage", () => {
       expect(msg.content).toBe("Hello, world!");
       expect(msg.authorType).toBe("user");
     } finally {
-      getDb().prepare("DELETE FROM channel_messages WHERE channel_id = ?").run(channel.id);
-      getDb().prepare("DELETE FROM channel_members WHERE channel_id = ?").run(channel.id);
+      getDb()
+        .prepare("DELETE FROM channel_messages WHERE channel_id = ?")
+        .run(channel.id);
+      getDb()
+        .prepare("DELETE FROM channel_members WHERE channel_id = ?")
+        .run(channel.id);
       getDb().prepare("DELETE FROM channels WHERE id = ?").run(channel.id);
     }
   });
@@ -395,8 +436,12 @@ describe("ChannelService: postMessage", () => {
       // sendTaskToAgent should NOT be called for agent-authored messages
       expect(vi.mocked(mockWs.sendTaskToAgent)).not.toHaveBeenCalled();
     } finally {
-      getDb().prepare("DELETE FROM channel_messages WHERE channel_id = ?").run(channel.id);
-      getDb().prepare("DELETE FROM channel_members WHERE channel_id = ?").run(channel.id);
+      getDb()
+        .prepare("DELETE FROM channel_messages WHERE channel_id = ?")
+        .run(channel.id);
+      getDb()
+        .prepare("DELETE FROM channel_members WHERE channel_id = ?")
+        .run(channel.id);
       getDb().prepare("DELETE FROM channels WHERE id = ?").run(channel.id);
     }
   });
@@ -431,8 +476,12 @@ describe("ChannelService: createThreadReply", () => {
       expect(reply.channelId).toBe(channel.id);
       expect(reply.content).toBe("Reply here");
     } finally {
-      getDb().prepare("DELETE FROM channel_messages WHERE channel_id = ?").run(channel.id);
-      getDb().prepare("DELETE FROM channel_members WHERE channel_id = ?").run(channel.id);
+      getDb()
+        .prepare("DELETE FROM channel_messages WHERE channel_id = ?")
+        .run(channel.id);
+      getDb()
+        .prepare("DELETE FROM channel_members WHERE channel_id = ?")
+        .run(channel.id);
       getDb().prepare("DELETE FROM channels WHERE id = ?").run(channel.id);
     }
   });
@@ -453,10 +502,12 @@ describe("ChannelService: createThreadReply", () => {
           authorDid: "did:test:admin",
           authorType: "user",
           content: "Reply",
-        }),
+        })
       ).toThrow(/not found/i);
     } finally {
-      getDb().prepare("DELETE FROM channel_members WHERE channel_id = ?").run(channel.id);
+      getDb()
+        .prepare("DELETE FROM channel_members WHERE channel_id = ?")
+        .run(channel.id);
       getDb().prepare("DELETE FROM channels WHERE id = ?").run(channel.id);
     }
   });
@@ -479,11 +530,17 @@ describe("ChannelService: addChannelMember / removeChannelMember", () => {
       });
 
       // ChannelMemberDao.addMember returns raw DB row (member_did, not memberDid)
-      expect((member as any).member_did ?? member.memberDid).toBe("did:test:new-member");
+      expect((member as any).member_did ?? member.memberDid).toBe(
+        "did:test:new-member"
+      );
       expect(member.role).toBe("member");
-      expect(ChannelService.isMember(channel.id, "did:test:new-member")).toBe(true);
+      expect(ChannelService.isMember(channel.id, "did:test:new-member")).toBe(
+        true
+      );
     } finally {
-      getDb().prepare("DELETE FROM channel_members WHERE channel_id = ?").run(channel.id);
+      getDb()
+        .prepare("DELETE FROM channel_members WHERE channel_id = ?")
+        .run(channel.id);
       getDb().prepare("DELETE FROM channels WHERE id = ?").run(channel.id);
     }
   });
@@ -508,10 +565,12 @@ describe("ChannelService: addChannelMember / removeChannelMember", () => {
           channelId: channel.id,
           memberDid: "did:test:dup",
           memberType: "user",
-        }),
+        })
       ).toThrow(/already in/i);
     } finally {
-      getDb().prepare("DELETE FROM channel_members WHERE channel_id = ?").run(channel.id);
+      getDb()
+        .prepare("DELETE FROM channel_members WHERE channel_id = ?")
+        .run(channel.id);
       getDb().prepare("DELETE FROM channels WHERE id = ?").run(channel.id);
     }
   });
@@ -531,13 +590,19 @@ describe("ChannelService: addChannelMember / removeChannelMember", () => {
         memberType: "user",
       });
 
-      expect(ChannelService.isMember(channel.id, "did:test:to-remove")).toBe(true);
+      expect(ChannelService.isMember(channel.id, "did:test:to-remove")).toBe(
+        true
+      );
 
       ChannelService.removeChannelMember(channel.id, "did:test:to-remove");
 
-      expect(ChannelService.isMember(channel.id, "did:test:to-remove")).toBe(false);
+      expect(ChannelService.isMember(channel.id, "did:test:to-remove")).toBe(
+        false
+      );
     } finally {
-      getDb().prepare("DELETE FROM channel_members WHERE channel_id = ?").run(channel.id);
+      getDb()
+        .prepare("DELETE FROM channel_members WHERE channel_id = ?")
+        .run(channel.id);
       getDb().prepare("DELETE FROM channels WHERE id = ?").run(channel.id);
     }
   });
@@ -560,11 +625,17 @@ describe("ChannelService: getMemberRole", () => {
         role: "moderator",
       });
 
-      expect(ChannelService.getMemberRole(channel.id, "did:test:moderator")).toBe("moderator");
+      expect(
+        ChannelService.getMemberRole(channel.id, "did:test:moderator")
+      ).toBe("moderator");
       // Creator is owner
-      expect(ChannelService.getMemberRole(channel.id, "did:test:admin")).toBe("owner");
+      expect(ChannelService.getMemberRole(channel.id, "did:test:admin")).toBe(
+        "owner"
+      );
     } finally {
-      getDb().prepare("DELETE FROM channel_members WHERE channel_id = ?").run(channel.id);
+      getDb()
+        .prepare("DELETE FROM channel_members WHERE channel_id = ?")
+        .run(channel.id);
       getDb().prepare("DELETE FROM channels WHERE id = ?").run(channel.id);
     }
   });
@@ -578,9 +649,13 @@ describe("ChannelService: getMemberRole", () => {
     });
 
     try {
-      expect(ChannelService.getMemberRole(channel.id, "did:test:outsider")).toBeNull();
+      expect(
+        ChannelService.getMemberRole(channel.id, "did:test:outsider")
+      ).toBeNull();
     } finally {
-      getDb().prepare("DELETE FROM channel_members WHERE channel_id = ?").run(channel.id);
+      getDb()
+        .prepare("DELETE FROM channel_members WHERE channel_id = ?")
+        .run(channel.id);
       getDb().prepare("DELETE FROM channels WHERE id = ?").run(channel.id);
     }
   });
@@ -621,8 +696,12 @@ describe("ChannelService: getChannelStats", () => {
       expect(stats.messageCount).toBe(2);
       expect(stats.memberCount).toBe(2); // creator + stats-member
     } finally {
-      getDb().prepare("DELETE FROM channel_messages WHERE channel_id = ?").run(channel.id);
-      getDb().prepare("DELETE FROM channel_members WHERE channel_id = ?").run(channel.id);
+      getDb()
+        .prepare("DELETE FROM channel_messages WHERE channel_id = ?")
+        .run(channel.id);
+      getDb()
+        .prepare("DELETE FROM channel_members WHERE channel_id = ?")
+        .run(channel.id);
       getDb().prepare("DELETE FROM channels WHERE id = ?").run(channel.id);
     }
   });
@@ -634,18 +713,24 @@ describe("ChannelService: getChannelStats", () => {
 
 describe("MessageDispatcher: extractMentions", () => {
   it("parses a single @name mention", () => {
-    expect(MessageDispatcher.extractMentions("Hello @alice")).toEqual(["alice"]);
+    expect(MessageDispatcher.extractMentions("Hello @alice")).toEqual([
+      "alice",
+    ]);
   });
 
   it("parses multiple @mentions", () => {
-    const mentions = MessageDispatcher.extractMentions("@bob and @carol please help");
+    const mentions = MessageDispatcher.extractMentions(
+      "@bob and @carol please help"
+    );
     expect(mentions).toContain("bob");
     expect(mentions).toContain("carol");
     expect(mentions).toHaveLength(2);
   });
 
   it("handles hyphenated names", () => {
-    expect(MessageDispatcher.extractMentions("@my-agent do it")).toEqual(["my-agent"]);
+    expect(MessageDispatcher.extractMentions("@my-agent do it")).toEqual([
+      "my-agent",
+    ]);
   });
 
   it("returns empty array when no mentions", () => {
@@ -674,15 +759,19 @@ describe("MessageDispatcher: processMessage", () => {
         channel.id,
         msg.id,
         "did:test:admin",
-        "no mention here",
+        "no mention here"
       );
 
       // No thread replies should have been created
       const thread = ChannelService.getThread(msg.id);
       expect(thread).toHaveLength(0);
     } finally {
-      getDb().prepare("DELETE FROM channel_messages WHERE channel_id = ?").run(channel.id);
-      getDb().prepare("DELETE FROM channel_members WHERE channel_id = ?").run(channel.id);
+      getDb()
+        .prepare("DELETE FROM channel_messages WHERE channel_id = ?")
+        .run(channel.id);
+      getDb()
+        .prepare("DELETE FROM channel_members WHERE channel_id = ?")
+        .run(channel.id);
       getDb().prepare("DELETE FROM channels WHERE id = ?").run(channel.id);
     }
   });
@@ -707,15 +796,19 @@ describe("MessageDispatcher: processMessage", () => {
         channel.id,
         msg.id,
         "did:test:admin",
-        `@${testAgentName} can you help?`,
+        `@${testAgentName} can you help?`
       );
 
       // A thread should have been created for the mention
       const thread = ChannelService.getThread(msg.id);
       expect(thread.length).toBeGreaterThanOrEqual(1);
     } finally {
-      getDb().prepare("DELETE FROM channel_messages WHERE channel_id = ?").run(channel.id);
-      getDb().prepare("DELETE FROM channel_members WHERE channel_id = ?").run(channel.id);
+      getDb()
+        .prepare("DELETE FROM channel_messages WHERE channel_id = ?")
+        .run(channel.id);
+      getDb()
+        .prepare("DELETE FROM channel_members WHERE channel_id = ?")
+        .run(channel.id);
       getDb().prepare("DELETE FROM channels WHERE id = ?").run(channel.id);
     }
   });
@@ -741,18 +834,22 @@ describe("MessageDispatcher: processMessage", () => {
         channel.id,
         msg.id,
         "did:test:admin",
-        `@${testAgentName} are you there?`,
+        `@${testAgentName} are you there?`
       );
 
       // Offline notice is posted directly as a thread reply on the parent message
       const thread = ChannelService.getThread(msg.id);
       const offlineNotice = thread.find(
-        (m) => m.authorType === "agent" && m.content.includes("offline"),
+        (m) => m.authorType === "agent" && m.content.includes("offline")
       );
       expect(offlineNotice).toBeDefined();
     } finally {
-      getDb().prepare("DELETE FROM channel_messages WHERE channel_id = ?").run(channel.id);
-      getDb().prepare("DELETE FROM channel_members WHERE channel_id = ?").run(channel.id);
+      getDb()
+        .prepare("DELETE FROM channel_messages WHERE channel_id = ?")
+        .run(channel.id);
+      getDb()
+        .prepare("DELETE FROM channel_members WHERE channel_id = ?")
+        .run(channel.id);
       getDb().prepare("DELETE FROM channels WHERE id = ?").run(channel.id);
     }
   });
@@ -777,7 +874,10 @@ describe("GET /api/channels", () => {
   });
 
   it("returns 404 if realm does not exist", async () => {
-    const r = req("GET", "http://localhost/api/channels?realm=nonexistent-realm");
+    const r = req(
+      "GET",
+      "http://localhost/api/channels?realm=nonexistent-realm"
+    );
     const res = await channelsGET(r as any);
     expect(res._status).toBe(404);
   });
@@ -791,15 +891,20 @@ describe("GET /api/channels", () => {
     });
 
     try {
-      const r = req("GET", `http://localhost/api/channels?realm=${testRealmId}`);
+      const r = req(
+        "GET",
+        `http://localhost/api/channels?realm=${testRealmId}`
+      );
       const res = await channelsGET(r as any);
       expect(res._status).toBe(200);
 
-      const body = await res.json() as { channels: { id: string }[] };
+      const body = (await res.json()) as { channels: { id: string }[] };
       expect(Array.isArray(body.channels)).toBe(true);
       expect(body.channels.some((c) => c.id === channel.id)).toBe(true);
     } finally {
-      getDb().prepare("DELETE FROM channel_members WHERE channel_id = ?").run(channel.id);
+      getDb()
+        .prepare("DELETE FROM channel_members WHERE channel_id = ?")
+        .run(channel.id);
       getDb().prepare("DELETE FROM channels WHERE id = ?").run(channel.id);
     }
   });
@@ -812,20 +917,27 @@ describe("GET /api/channels", () => {
 describe("POST /api/channels", () => {
   it("returns 401 when unauthenticated", async () => {
     mockGetAuthContext.mockResolvedValueOnce(null);
-    const r = req("POST", "http://localhost/api/channels", { name: "Test", realmId: testRealmId });
+    const r = req("POST", "http://localhost/api/channels", {
+      name: "Test",
+      realmId: testRealmId,
+    });
     const res = await channelsPOST(r as any);
     expect(res._status).toBe(401);
   });
 
   it("returns 400 if name is missing", async () => {
-    const r = req("POST", "http://localhost/api/channels", { realmId: testRealmId });
+    const r = req("POST", "http://localhost/api/channels", {
+      realmId: testRealmId,
+    });
     const res = await channelsPOST(r as any);
     expect(res._status).toBe(400);
   });
 
   it("returns 403 when creating a global channel without global admin", async () => {
     mockGetAuthContext.mockResolvedValueOnce(makeMemberContext());
-    const r = req("POST", "http://localhost/api/channels", { name: "Global Chan" });
+    const r = req("POST", "http://localhost/api/channels", {
+      name: "Global Chan",
+    });
     const res = await channelsPOST(r as any);
     expect(res._status).toBe(403);
   });
@@ -839,7 +951,14 @@ describe("POST /api/channels", () => {
     const res = await channelsPOST(r as any);
     expect(res._status).toBe(201);
 
-    const body = await res.json() as { channel: { id: string; name: string; realm_id?: string; realmId?: string } };
+    const body = (await res.json()) as {
+      channel: {
+        id: string;
+        name: string;
+        realm_id?: string;
+        realmId?: string;
+      };
+    };
     expect(body.channel.id).toBeTruthy();
     expect(body.channel.name).toBe("Created Via API");
     // ChannelDao.create returns raw row (realm_id), so accept either form
@@ -847,7 +966,9 @@ describe("POST /api/channels", () => {
     expect(returnedRealmId).toBe(testRealmId);
 
     // Cleanup
-    getDb().prepare("DELETE FROM channel_members WHERE channel_id = ?").run(body.channel.id);
+    getDb()
+      .prepare("DELETE FROM channel_members WHERE channel_id = ?")
+      .run(body.channel.id);
     getDb().prepare("DELETE FROM channels WHERE id = ?").run(body.channel.id);
   });
 });
@@ -860,7 +981,7 @@ describe("GET /api/channels/[id]", () => {
   it("returns 404 for unknown channel id", async () => {
     const res = await channelDetailGET(
       req("GET", "http://localhost/api/channels/nope") as any,
-      channelParams("nope"),
+      channelParams("nope")
     );
     expect(res._status).toBe(404);
   });
@@ -876,11 +997,11 @@ describe("GET /api/channels/[id]", () => {
     try {
       const res = await channelDetailGET(
         req("GET", `http://localhost/api/channels/${channel.id}`) as any,
-        channelParams(channel.id),
+        channelParams(channel.id)
       );
       expect(res._status).toBe(200);
 
-      const body = await res.json() as {
+      const body = (await res.json()) as {
         channel: { id: string };
         members: { memberDid: string }[];
         stats: { messageCount: number; memberCount: number };
@@ -890,7 +1011,9 @@ describe("GET /api/channels/[id]", () => {
       expect(typeof body.stats.messageCount).toBe("number");
       expect(typeof body.stats.memberCount).toBe("number");
     } finally {
-      getDb().prepare("DELETE FROM channel_members WHERE channel_id = ?").run(channel.id);
+      getDb()
+        .prepare("DELETE FROM channel_members WHERE channel_id = ?")
+        .run(channel.id);
       getDb().prepare("DELETE FROM channels WHERE id = ?").run(channel.id);
     }
   });
@@ -914,11 +1037,13 @@ describe("PATCH /api/channels/[id]", () => {
     try {
       const res = await channelDetailPATCH(
         req("PATCH", "http://localhost/", { name: "New Name" }) as any,
-        channelParams(channel.id),
+        channelParams(channel.id)
       );
       expect(res._status).toBe(403);
     } finally {
-      getDb().prepare("DELETE FROM channel_members WHERE channel_id = ?").run(channel.id);
+      getDb()
+        .prepare("DELETE FROM channel_members WHERE channel_id = ?")
+        .run(channel.id);
       getDb().prepare("DELETE FROM channels WHERE id = ?").run(channel.id);
     }
   });
@@ -934,14 +1059,16 @@ describe("PATCH /api/channels/[id]", () => {
     try {
       const res = await channelDetailPATCH(
         req("PATCH", "http://localhost/", { name: "New Name" }) as any,
-        channelParams(channel.id),
+        channelParams(channel.id)
       );
       expect(res._status).toBe(200);
 
-      const body = await res.json() as { channel: { name: string } };
+      const body = (await res.json()) as { channel: { name: string } };
       expect(body.channel.name).toBe("New Name");
     } finally {
-      getDb().prepare("DELETE FROM channel_members WHERE channel_id = ?").run(channel.id);
+      getDb()
+        .prepare("DELETE FROM channel_members WHERE channel_id = ?")
+        .run(channel.id);
       getDb().prepare("DELETE FROM channels WHERE id = ?").run(channel.id);
     }
   });
@@ -964,11 +1091,13 @@ describe("DELETE /api/channels/[id]", () => {
     try {
       const res = await channelDetailDELETE(
         req("DELETE", "http://localhost/") as any,
-        channelParams(channel.id),
+        channelParams(channel.id)
       );
       expect(res._status).toBe(403);
     } finally {
-      getDb().prepare("DELETE FROM channel_members WHERE channel_id = ?").run(channel.id);
+      getDb()
+        .prepare("DELETE FROM channel_members WHERE channel_id = ?")
+        .run(channel.id);
       getDb().prepare("DELETE FROM channels WHERE id = ?").run(channel.id);
     }
   });
@@ -983,11 +1112,11 @@ describe("DELETE /api/channels/[id]", () => {
 
     const res = await channelDetailDELETE(
       req("DELETE", "http://localhost/") as any,
-      channelParams(channel.id),
+      channelParams(channel.id)
     );
     expect(res._status).toBe(200);
 
-    const body = await res.json() as { success: boolean };
+    const body = (await res.json()) as { success: boolean };
     expect(body.success).toBe(true);
 
     // Verify archived in DB
@@ -995,7 +1124,9 @@ describe("DELETE /api/channels/[id]", () => {
     expect(updated?.isArchived).toBe(true);
 
     // Cleanup
-    getDb().prepare("DELETE FROM channel_members WHERE channel_id = ?").run(channel.id);
+    getDb()
+      .prepare("DELETE FROM channel_members WHERE channel_id = ?")
+      .run(channel.id);
     getDb().prepare("DELETE FROM channels WHERE id = ?").run(channel.id);
   });
 });
@@ -1017,11 +1148,13 @@ describe("POST /api/channels/[id]/members", () => {
       // Admin is owner of this channel, so auth passes
       const res = await membersPOST(
         req("POST", "http://localhost/", { memberType: "user" }) as any,
-        channelParams(channel.id),
+        channelParams(channel.id)
       );
       expect(res._status).toBe(400);
     } finally {
-      getDb().prepare("DELETE FROM channel_members WHERE channel_id = ?").run(channel.id);
+      getDb()
+        .prepare("DELETE FROM channel_members WHERE channel_id = ?")
+        .run(channel.id);
       getDb().prepare("DELETE FROM channels WHERE id = ?").run(channel.id);
     }
   });
@@ -1047,11 +1180,13 @@ describe("POST /api/channels/[id]/members", () => {
           memberDid: "did:test:already-there",
           memberType: "user",
         }) as any,
-        channelParams(channel.id),
+        channelParams(channel.id)
       );
       expect(res._status).toBe(409);
     } finally {
-      getDb().prepare("DELETE FROM channel_members WHERE channel_id = ?").run(channel.id);
+      getDb()
+        .prepare("DELETE FROM channel_members WHERE channel_id = ?")
+        .run(channel.id);
       getDb().prepare("DELETE FROM channels WHERE id = ?").run(channel.id);
     }
   });
@@ -1070,16 +1205,20 @@ describe("POST /api/channels/[id]/members", () => {
           memberDid: "did:test:new-user",
           memberType: "user",
         }) as any,
-        channelParams(channel.id),
+        channelParams(channel.id)
       );
       expect(res._status).toBe(201);
 
-      const body = await res.json() as { member: { memberDid?: string; member_did?: string } };
+      const body = (await res.json()) as {
+        member: { memberDid?: string; member_did?: string };
+      };
       // ChannelMemberDao.addMember returns raw DB row (member_did), accept either form
       const returnedDid = body.member.memberDid ?? body.member.member_did;
       expect(returnedDid).toBe("did:test:new-user");
     } finally {
-      getDb().prepare("DELETE FROM channel_members WHERE channel_id = ?").run(channel.id);
+      getDb()
+        .prepare("DELETE FROM channel_members WHERE channel_id = ?")
+        .run(channel.id);
       getDb().prepare("DELETE FROM channels WHERE id = ?").run(channel.id);
     }
   });
@@ -1106,21 +1245,27 @@ describe("DELETE /api/channels/[id]/members", () => {
         memberType: "user",
       });
 
-      expect(ChannelService.isMember(channel.id, "did:test:to-remove-api")).toBe(true);
+      expect(
+        ChannelService.isMember(channel.id, "did:test:to-remove-api")
+      ).toBe(true);
 
       // The route reads the DID from url.pathname.split("/").pop()
       const res = await membersDELETE(
         req(
           "DELETE",
-          `http://localhost/api/channels/${channel.id}/members/did:test:to-remove-api`,
+          `http://localhost/api/channels/${channel.id}/members/did:test:to-remove-api`
         ) as any,
-        channelParams(channel.id),
+        channelParams(channel.id)
       );
       expect(res._status).toBe(200);
 
-      expect(ChannelService.isMember(channel.id, "did:test:to-remove-api")).toBe(false);
+      expect(
+        ChannelService.isMember(channel.id, "did:test:to-remove-api")
+      ).toBe(false);
     } finally {
-      getDb().prepare("DELETE FROM channel_members WHERE channel_id = ?").run(channel.id);
+      getDb()
+        .prepare("DELETE FROM channel_members WHERE channel_id = ?")
+        .run(channel.id);
       getDb().prepare("DELETE FROM channels WHERE id = ?").run(channel.id);
     }
   });
@@ -1149,17 +1294,26 @@ describe("GET /api/channels/[id]/messages", () => {
       });
 
       const res = await messagesGET(
-        req("GET", `http://localhost/api/channels/${channel.id}/messages`) as any,
-        messageParams(channel.id),
+        req(
+          "GET",
+          `http://localhost/api/channels/${channel.id}/messages`
+        ) as any,
+        messageParams(channel.id)
       );
       expect(res._status).toBe(200);
 
-      const body = await res.json() as { messages: { content: string }[] };
+      const body = (await res.json()) as { messages: { content: string }[] };
       expect(Array.isArray(body.messages)).toBe(true);
-      expect(body.messages.some((m) => m.content === "First message")).toBe(true);
+      expect(body.messages.some((m) => m.content === "First message")).toBe(
+        true
+      );
     } finally {
-      getDb().prepare("DELETE FROM channel_messages WHERE channel_id = ?").run(channel.id);
-      getDb().prepare("DELETE FROM channel_members WHERE channel_id = ?").run(channel.id);
+      getDb()
+        .prepare("DELETE FROM channel_messages WHERE channel_id = ?")
+        .run(channel.id);
+      getDb()
+        .prepare("DELETE FROM channel_members WHERE channel_id = ?")
+        .run(channel.id);
       getDb().prepare("DELETE FROM channels WHERE id = ?").run(channel.id);
     }
   });
@@ -1175,12 +1329,17 @@ describe("GET /api/channels/[id]/messages", () => {
 
     try {
       const res = await messagesGET(
-        req("GET", `http://localhost/api/channels/${channel.id}/messages`) as any,
-        messageParams(channel.id),
+        req(
+          "GET",
+          `http://localhost/api/channels/${channel.id}/messages`
+        ) as any,
+        messageParams(channel.id)
       );
       expect(res._status).toBe(403);
     } finally {
-      getDb().prepare("DELETE FROM channel_members WHERE channel_id = ?").run(channel.id);
+      getDb()
+        .prepare("DELETE FROM channel_members WHERE channel_id = ?")
+        .run(channel.id);
       getDb().prepare("DELETE FROM channels WHERE id = ?").run(channel.id);
     }
   });
@@ -1202,11 +1361,13 @@ describe("POST /api/channels/[id]/messages", () => {
     try {
       const res = await messagesPOST(
         req("POST", "http://localhost/", { content: "   " }) as any,
-        messageParams(channel.id),
+        messageParams(channel.id)
       );
       expect(res._status).toBe(400);
     } finally {
-      getDb().prepare("DELETE FROM channel_members WHERE channel_id = ?").run(channel.id);
+      getDb()
+        .prepare("DELETE FROM channel_members WHERE channel_id = ?")
+        .run(channel.id);
       getDb().prepare("DELETE FROM channels WHERE id = ?").run(channel.id);
     }
   });
@@ -1222,16 +1383,22 @@ describe("POST /api/channels/[id]/messages", () => {
     try {
       const res = await messagesPOST(
         req("POST", "http://localhost/", { content: "Hello from API!" }) as any,
-        messageParams(channel.id),
+        messageParams(channel.id)
       );
       expect(res._status).toBe(201);
 
-      const body = await res.json() as { message: { content: string; authorType: string } };
+      const body = (await res.json()) as {
+        message: { content: string; authorType: string };
+      };
       expect(body.message.content).toBe("Hello from API!");
       expect(body.message.authorType).toBe("user");
     } finally {
-      getDb().prepare("DELETE FROM channel_messages WHERE channel_id = ?").run(channel.id);
-      getDb().prepare("DELETE FROM channel_members WHERE channel_id = ?").run(channel.id);
+      getDb()
+        .prepare("DELETE FROM channel_messages WHERE channel_id = ?")
+        .run(channel.id);
+      getDb()
+        .prepare("DELETE FROM channel_members WHERE channel_id = ?")
+        .run(channel.id);
       getDb().prepare("DELETE FROM channels WHERE id = ?").run(channel.id);
     }
   });
@@ -1261,11 +1428,13 @@ describe("POST /api/channels/[id]/messages/agent-response", () => {
     try {
       const res = await agentResponsePOST(
         req("POST", "http://localhost/", { content: "Agent reply" }) as any,
-        channelParams(channel.id),
+        channelParams(channel.id)
       );
       expect(res._status).toBe(403);
     } finally {
-      getDb().prepare("DELETE FROM channel_members WHERE channel_id = ?").run(channel.id);
+      getDb()
+        .prepare("DELETE FROM channel_members WHERE channel_id = ?")
+        .run(channel.id);
       getDb().prepare("DELETE FROM channels WHERE id = ?").run(channel.id);
     }
   });
@@ -1295,17 +1464,25 @@ describe("POST /api/channels/[id]/messages/agent-response", () => {
       });
 
       const res = await agentResponsePOST(
-        req("POST", "http://localhost/", { content: "Agent response here" }) as any,
-        channelParams(channel.id),
+        req("POST", "http://localhost/", {
+          content: "Agent response here",
+        }) as any,
+        channelParams(channel.id)
       );
       expect(res._status).toBe(201);
 
-      const body = await res.json() as { message: { content: string; authorType: string } };
+      const body = (await res.json()) as {
+        message: { content: string; authorType: string };
+      };
       expect(body.message.content).toBe("Agent response here");
       expect(body.message.authorType).toBe("agent");
     } finally {
-      getDb().prepare("DELETE FROM channel_messages WHERE channel_id = ?").run(channel.id);
-      getDb().prepare("DELETE FROM channel_members WHERE channel_id = ?").run(channel.id);
+      getDb()
+        .prepare("DELETE FROM channel_messages WHERE channel_id = ?")
+        .run(channel.id);
+      getDb()
+        .prepare("DELETE FROM channel_members WHERE channel_id = ?")
+        .run(channel.id);
       getDb().prepare("DELETE FROM channels WHERE id = ?").run(channel.id);
     }
   });
@@ -1325,21 +1502,29 @@ describe("GET /api/agents/search", () => {
 
   it("returns 200 with matching agents filtered by name", async () => {
     // testAgentName is already in DB from beforeAll
-    const r = req("GET", `http://localhost/api/agents/search?q=${encodeURIComponent(testAgentName)}`);
+    const r = req(
+      "GET",
+      `http://localhost/api/agents/search?q=${encodeURIComponent(testAgentName)}`
+    );
     const res = await agentSearchGET(r as any);
     expect(res._status).toBe(200);
 
-    const body = await res.json() as { agents: { did: string; name: string }[] };
+    const body = (await res.json()) as {
+      agents: { did: string; name: string }[];
+    };
     expect(Array.isArray(body.agents)).toBe(true);
     expect(body.agents.some((a) => a.did === testAgentDid)).toBe(true);
   });
 
   it("returns 200 with empty array for unknown query", async () => {
-    const r = req("GET", "http://localhost/api/agents/search?q=zzz-nonexistent-zzz");
+    const r = req(
+      "GET",
+      "http://localhost/api/agents/search?q=zzz-nonexistent-zzz"
+    );
     const res = await agentSearchGET(r as any);
     expect(res._status).toBe(200);
 
-    const body = await res.json() as { agents: unknown[] };
+    const body = (await res.json()) as { agents: unknown[] };
     expect(Array.isArray(body.agents)).toBe(true);
     expect(body.agents).toHaveLength(0);
   });
@@ -1364,7 +1549,7 @@ describe("GET /api/me/realms", () => {
     const res = await meRealmsGET(r as any);
     expect(res._status).toBe(200);
 
-    const body = await res.json() as { realms: { id: string }[] };
+    const body = (await res.json()) as { realms: { id: string }[] };
     expect(Array.isArray(body.realms)).toBe(true);
     expect(body.realms.some((r) => r.id === testRealmId)).toBe(true);
   });
@@ -1384,7 +1569,9 @@ describe("WebhookGateway: verifySignature", () => {
   });
 
   it("returns false for a wrong signature", () => {
-    expect(WebhookGateway.verifySignature(body, secret, "sha256=deadbeef")).toBe(false);
+    expect(
+      WebhookGateway.verifySignature(body, secret, "sha256=deadbeef")
+    ).toBe(false);
   });
 
   it("returns false when signatureHeader is null", () => {
@@ -1404,9 +1591,9 @@ describe("WebhookGateway: verifySignature", () => {
 
 describe("WebhookGateway: sendOutgoing", () => {
   it("returns true when the external URL responds 2xx", async () => {
-    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
-      new Response(null, { status: 200 }),
-    );
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(new Response(null, { status: 200 }));
 
     const result = await WebhookGateway.sendOutgoing(
       { webhookUrl: "", outgoingUrl: "https://example.com/hook", secret: "s" },
@@ -1418,25 +1605,35 @@ describe("WebhookGateway: sendOutgoing", () => {
         content: "hello",
         threadId: null,
         createdAt: new Date().toISOString(),
-      },
+      }
     );
 
     expect(result).toBe(true);
     expect(fetchSpy).toHaveBeenCalledOnce();
     const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
     expect(url).toBe("https://example.com/hook");
-    expect((init.headers as Record<string, string>)["X-Signature"]).toMatch(/^sha256=/);
+    expect((init.headers as Record<string, string>)["X-Signature"]).toMatch(
+      /^sha256=/
+    );
     fetchSpy.mockRestore();
   });
 
   it("returns false when the external URL responds 5xx", async () => {
-    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
-      new Response(null, { status: 503 }),
-    );
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(new Response(null, { status: 503 }));
 
     const result = await WebhookGateway.sendOutgoing(
       { webhookUrl: "", outgoingUrl: "https://example.com/hook", secret: "s" },
-      { channelId: "c", messageId: "m", authorDid: "d", authorType: "user", content: "x", threadId: null, createdAt: "" },
+      {
+        channelId: "c",
+        messageId: "m",
+        authorDid: "d",
+        authorType: "user",
+        content: "x",
+        threadId: null,
+        createdAt: "",
+      }
     );
 
     expect(result).toBe(false);
@@ -1444,13 +1641,21 @@ describe("WebhookGateway: sendOutgoing", () => {
   });
 
   it("returns false on network error", async () => {
-    const fetchSpy = vi.spyOn(globalThis, "fetch").mockRejectedValueOnce(
-      new Error("ECONNREFUSED"),
-    );
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockRejectedValueOnce(new Error("ECONNREFUSED"));
 
     const result = await WebhookGateway.sendOutgoing(
       { webhookUrl: "", outgoingUrl: "https://example.com/hook", secret: "s" },
-      { channelId: "c", messageId: "m", authorDid: "d", authorType: "user", content: "x", threadId: null, createdAt: "" },
+      {
+        channelId: "c",
+        messageId: "m",
+        authorDid: "d",
+        authorType: "user",
+        content: "x",
+        threadId: null,
+        createdAt: "",
+      }
     );
 
     expect(result).toBe(false);
@@ -1479,12 +1684,16 @@ describe("BridgeFactory: fanOutMessage", () => {
         externalChannelName: "My Webhook",
         externalWorkspaceId: "ws-1",
         syncDirection: "bidirectional",
-        config: { webhookUrl: "", outgoingUrl: "https://example.com/out", secret: "fan-secret" },
+        config: {
+          webhookUrl: "",
+          outgoingUrl: "https://example.com/out",
+          secret: "fan-secret",
+        },
       });
 
-      const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
-        new Response(null, { status: 200 }),
-      );
+      const fetchSpy = vi
+        .spyOn(globalThis, "fetch")
+        .mockResolvedValueOnce(new Response(null, { status: 200 }));
 
       await BridgeFactory.fanOutMessage(channel.id, {
         id: "msg-fan-1",
@@ -1499,8 +1708,12 @@ describe("BridgeFactory: fanOutMessage", () => {
       expect(fetchSpy.mock.calls[0][0]).toBe("https://example.com/out");
       fetchSpy.mockRestore();
     } finally {
-      getDb().prepare("DELETE FROM channel_bridges WHERE channel_id = ?").run(channel.id);
-      getDb().prepare("DELETE FROM channel_members WHERE channel_id = ?").run(channel.id);
+      getDb()
+        .prepare("DELETE FROM channel_bridges WHERE channel_id = ?")
+        .run(channel.id);
+      getDb()
+        .prepare("DELETE FROM channel_members WHERE channel_id = ?")
+        .run(channel.id);
       getDb().prepare("DELETE FROM channels WHERE id = ?").run(channel.id);
     }
   });
@@ -1521,7 +1734,11 @@ describe("BridgeFactory: fanOutMessage", () => {
         externalChannelName: "Disabled Hook",
         externalWorkspaceId: "ws-2",
         syncDirection: "bidirectional",
-        config: { webhookUrl: "", outgoingUrl: "https://example.com/out2", secret: "s" },
+        config: {
+          webhookUrl: "",
+          outgoingUrl: "https://example.com/out2",
+          secret: "s",
+        },
       });
 
       // Disable it
@@ -1541,8 +1758,12 @@ describe("BridgeFactory: fanOutMessage", () => {
       expect(fetchSpy).not.toHaveBeenCalled();
       fetchSpy.mockRestore();
     } finally {
-      getDb().prepare("DELETE FROM channel_bridges WHERE channel_id = ?").run(channel.id);
-      getDb().prepare("DELETE FROM channel_members WHERE channel_id = ?").run(channel.id);
+      getDb()
+        .prepare("DELETE FROM channel_bridges WHERE channel_id = ?")
+        .run(channel.id);
+      getDb()
+        .prepare("DELETE FROM channel_members WHERE channel_id = ?")
+        .run(channel.id);
       getDb().prepare("DELETE FROM channels WHERE id = ?").run(channel.id);
     }
   });
@@ -1563,7 +1784,11 @@ describe("BridgeFactory: fanOutMessage", () => {
         externalChannelName: "Incoming Only",
         externalWorkspaceId: "ws-3",
         syncDirection: "incoming",
-        config: { webhookUrl: "", outgoingUrl: "https://example.com/out3", secret: "s" },
+        config: {
+          webhookUrl: "",
+          outgoingUrl: "https://example.com/out3",
+          secret: "s",
+        },
       });
 
       const fetchSpy = vi.spyOn(globalThis, "fetch");
@@ -1580,8 +1805,12 @@ describe("BridgeFactory: fanOutMessage", () => {
       expect(fetchSpy).not.toHaveBeenCalled();
       fetchSpy.mockRestore();
     } finally {
-      getDb().prepare("DELETE FROM channel_bridges WHERE channel_id = ?").run(channel.id);
-      getDb().prepare("DELETE FROM channel_members WHERE channel_id = ?").run(channel.id);
+      getDb()
+        .prepare("DELETE FROM channel_bridges WHERE channel_id = ?")
+        .run(channel.id);
+      getDb()
+        .prepare("DELETE FROM channel_members WHERE channel_id = ?")
+        .run(channel.id);
       getDb().prepare("DELETE FROM channels WHERE id = ?").run(channel.id);
     }
   });
@@ -1607,7 +1836,11 @@ describe("ChannelBridgeService: createBridge / listBridges / deleteBridge", () =
         externalChannelId: "ext-list-1",
         externalChannelName: "List Test",
         externalWorkspaceId: "ws-list",
-        config: { webhookUrl: "https://in.example.com", outgoingUrl: "https://out.example.com", secret: "s" },
+        config: {
+          webhookUrl: "https://in.example.com",
+          outgoingUrl: "https://out.example.com",
+          secret: "s",
+        },
       });
 
       expect(bridge.id).toBeTruthy();
@@ -1621,8 +1854,12 @@ describe("ChannelBridgeService: createBridge / listBridges / deleteBridge", () =
       const afterDelete = ChannelBridgeService.listBridges(channel.id);
       expect(afterDelete.some((b) => b.id === bridge.id)).toBe(false);
     } finally {
-      getDb().prepare("DELETE FROM channel_bridges WHERE channel_id = ?").run(channel.id);
-      getDb().prepare("DELETE FROM channel_members WHERE channel_id = ?").run(channel.id);
+      getDb()
+        .prepare("DELETE FROM channel_bridges WHERE channel_id = ?")
+        .run(channel.id);
+      getDb()
+        .prepare("DELETE FROM channel_members WHERE channel_id = ?")
+        .run(channel.id);
       getDb().prepare("DELETE FROM channels WHERE id = ?").run(channel.id);
     }
   });
@@ -1636,7 +1873,11 @@ describe("ChannelBridgeService: createBridge / listBridges / deleteBridge", () =
     });
 
     try {
-      const config = { webhookUrl: "", outgoingUrl: "https://out.example.com", secret: "s" };
+      const config = {
+        webhookUrl: "",
+        outgoingUrl: "https://out.example.com",
+        secret: "s",
+      };
       ChannelBridgeService.createBridge({
         channelId: channel.id,
         externalService: "webhook",
@@ -1654,11 +1895,15 @@ describe("ChannelBridgeService: createBridge / listBridges / deleteBridge", () =
           externalChannelName: "Dup Again",
           externalWorkspaceId: "ws-dup",
           config,
-        }),
+        })
       ).toThrow(/already exists/i);
     } finally {
-      getDb().prepare("DELETE FROM channel_bridges WHERE channel_id = ?").run(channel.id);
-      getDb().prepare("DELETE FROM channel_members WHERE channel_id = ?").run(channel.id);
+      getDb()
+        .prepare("DELETE FROM channel_bridges WHERE channel_id = ?")
+        .run(channel.id);
+      getDb()
+        .prepare("DELETE FROM channel_members WHERE channel_id = ?")
+        .run(channel.id);
       getDb().prepare("DELETE FROM channels WHERE id = ?").run(channel.id);
     }
   });
@@ -1678,7 +1923,11 @@ describe("ChannelBridgeService: createBridge / listBridges / deleteBridge", () =
         externalChannelId: "ext-toggle",
         externalChannelName: "Toggle",
         externalWorkspaceId: "ws-toggle",
-        config: { webhookUrl: "", outgoingUrl: "https://out.example.com", secret: "s" },
+        config: {
+          webhookUrl: "",
+          outgoingUrl: "https://out.example.com",
+          secret: "s",
+        },
       });
 
       expect(bridge.isSyncEnabled).toBe(true);
@@ -1689,8 +1938,12 @@ describe("ChannelBridgeService: createBridge / listBridges / deleteBridge", () =
       const enabled = ChannelBridgeService.toggleBridgeSync(bridge.id, true);
       expect(enabled.isSyncEnabled).toBe(true);
     } finally {
-      getDb().prepare("DELETE FROM channel_bridges WHERE channel_id = ?").run(channel.id);
-      getDb().prepare("DELETE FROM channel_members WHERE channel_id = ?").run(channel.id);
+      getDb()
+        .prepare("DELETE FROM channel_bridges WHERE channel_id = ?")
+        .run(channel.id);
+      getDb()
+        .prepare("DELETE FROM channel_members WHERE channel_id = ?")
+        .run(channel.id);
       getDb().prepare("DELETE FROM channels WHERE id = ?").run(channel.id);
     }
   });
@@ -1705,7 +1958,7 @@ describe("GET /api/channels/[id]/bridges", () => {
     mockGetAuthContext.mockResolvedValueOnce(null);
     const res = await bridgesGET(
       req("GET", "http://localhost/") as any,
-      channelParams("any-id"),
+      channelParams("any-id")
     );
     expect(res._status).toBe(401);
   });
@@ -1713,7 +1966,7 @@ describe("GET /api/channels/[id]/bridges", () => {
   it("returns 404 for an unknown channel", async () => {
     const res = await bridgesGET(
       req("GET", "http://localhost/") as any,
-      channelParams("does-not-exist"),
+      channelParams("does-not-exist")
     );
     expect(res._status).toBe(404);
   });
@@ -1733,23 +1986,31 @@ describe("GET /api/channels/[id]/bridges", () => {
         externalChannelId: "ext-get-1",
         externalChannelName: "Get Test",
         externalWorkspaceId: "ws-get",
-        config: { webhookUrl: "", outgoingUrl: "https://out.example.com", secret: "topsecret" },
+        config: {
+          webhookUrl: "",
+          outgoingUrl: "https://out.example.com",
+          secret: "topsecret",
+        },
       });
 
       const res = await bridgesGET(
         req("GET", "http://localhost/") as any,
-        channelParams(channel.id),
+        channelParams(channel.id)
       );
       expect(res._status).toBe(200);
 
-      const body = await res.json() as { bridges: Record<string, unknown>[] };
+      const body = (await res.json()) as { bridges: Record<string, unknown>[] };
       expect(Array.isArray(body.bridges)).toBe(true);
       expect(body.bridges.length).toBeGreaterThan(0);
       // configJson must never be exposed
       expect(body.bridges[0]).not.toHaveProperty("configJson");
     } finally {
-      getDb().prepare("DELETE FROM channel_bridges WHERE channel_id = ?").run(channel.id);
-      getDb().prepare("DELETE FROM channel_members WHERE channel_id = ?").run(channel.id);
+      getDb()
+        .prepare("DELETE FROM channel_bridges WHERE channel_id = ?")
+        .run(channel.id);
+      getDb()
+        .prepare("DELETE FROM channel_members WHERE channel_id = ?")
+        .run(channel.id);
       getDb().prepare("DELETE FROM channels WHERE id = ?").run(channel.id);
     }
   });
@@ -1764,7 +2025,7 @@ describe("POST /api/channels/[id]/bridges", () => {
     mockGetAuthContext.mockResolvedValueOnce(null);
     const res = await bridgesPOST(
       req("POST", "http://localhost/", {}) as any,
-      channelParams("any-id"),
+      channelParams("any-id")
     );
     expect(res._status).toBe(401);
   });
@@ -1785,11 +2046,13 @@ describe("POST /api/channels/[id]/bridges", () => {
           externalWorkspaceId: "w",
           config: { webhookUrl: "", outgoingUrl: "https://x.com", secret: "s" },
         }) as any,
-        channelParams(channel.id),
+        channelParams(channel.id)
       );
       expect(res._status).toBe(400);
     } finally {
-      getDb().prepare("DELETE FROM channel_members WHERE channel_id = ?").run(channel.id);
+      getDb()
+        .prepare("DELETE FROM channel_members WHERE channel_id = ?")
+        .run(channel.id);
       getDb().prepare("DELETE FROM channels WHERE id = ?").run(channel.id);
     }
   });
@@ -1811,11 +2074,13 @@ describe("POST /api/channels/[id]/bridges", () => {
           externalWorkspaceId: "w",
           // no config
         }) as any,
-        channelParams(channel.id),
+        channelParams(channel.id)
       );
       expect(res._status).toBe(400);
     } finally {
-      getDb().prepare("DELETE FROM channel_members WHERE channel_id = ?").run(channel.id);
+      getDb()
+        .prepare("DELETE FROM channel_members WHERE channel_id = ?")
+        .run(channel.id);
       getDb().prepare("DELETE FROM channels WHERE id = ?").run(channel.id);
     }
   });
@@ -1836,20 +2101,28 @@ describe("POST /api/channels/[id]/bridges", () => {
           externalChannelName: "Created Bridge",
           externalWorkspaceId: "ws-post-201",
           syncDirection: "outgoing",
-          config: { webhookUrl: "", outgoingUrl: "https://out.example.com", secret: "mysecret" },
+          config: {
+            webhookUrl: "",
+            outgoingUrl: "https://out.example.com",
+            secret: "mysecret",
+          },
         }) as any,
-        channelParams(channel.id),
+        channelParams(channel.id)
       );
       expect(res._status).toBe(201);
 
-      const body = await res.json() as { bridge: Record<string, unknown> };
+      const body = (await res.json()) as { bridge: Record<string, unknown> };
       expect(body.bridge.id).toBeTruthy();
       expect(body.bridge.externalService).toBe("webhook");
       expect(body.bridge.syncDirection).toBe("outgoing");
       expect(body.bridge).not.toHaveProperty("configJson");
     } finally {
-      getDb().prepare("DELETE FROM channel_bridges WHERE channel_id = ?").run(channel.id);
-      getDb().prepare("DELETE FROM channel_members WHERE channel_id = ?").run(channel.id);
+      getDb()
+        .prepare("DELETE FROM channel_bridges WHERE channel_id = ?")
+        .run(channel.id);
+      getDb()
+        .prepare("DELETE FROM channel_members WHERE channel_id = ?")
+        .run(channel.id);
       getDb().prepare("DELETE FROM channels WHERE id = ?").run(channel.id);
     }
   });
@@ -1868,17 +2141,31 @@ describe("POST /api/channels/[id]/bridges", () => {
         externalChannelId: "ext-dup-api",
         externalChannelName: "Dup",
         externalWorkspaceId: "ws-dup-api",
-        config: { webhookUrl: "", outgoingUrl: "https://out.example.com", secret: "s" },
+        config: {
+          webhookUrl: "",
+          outgoingUrl: "https://out.example.com",
+          secret: "s",
+        },
       };
 
-      const first = await bridgesPOST(req("POST", "http://localhost/", payload) as any, channelParams(channel.id));
+      const first = await bridgesPOST(
+        req("POST", "http://localhost/", payload) as any,
+        channelParams(channel.id)
+      );
       expect(first._status).toBe(201);
 
-      const second = await bridgesPOST(req("POST", "http://localhost/", payload) as any, channelParams(channel.id));
+      const second = await bridgesPOST(
+        req("POST", "http://localhost/", payload) as any,
+        channelParams(channel.id)
+      );
       expect(second._status).toBe(409);
     } finally {
-      getDb().prepare("DELETE FROM channel_bridges WHERE channel_id = ?").run(channel.id);
-      getDb().prepare("DELETE FROM channel_members WHERE channel_id = ?").run(channel.id);
+      getDb()
+        .prepare("DELETE FROM channel_bridges WHERE channel_id = ?")
+        .run(channel.id);
+      getDb()
+        .prepare("DELETE FROM channel_members WHERE channel_id = ?")
+        .run(channel.id);
       getDb().prepare("DELETE FROM channels WHERE id = ?").run(channel.id);
     }
   });
@@ -1893,7 +2180,7 @@ describe("PATCH /api/channels/[id]/bridges/[bridgeId]", () => {
     mockGetAuthContext.mockResolvedValueOnce(null);
     const res = await bridgePATCH(
       req("PATCH", "http://localhost/", {}) as any,
-      bridgeParams("ch", "br"),
+      bridgeParams("ch", "br")
     );
     expect(res._status).toBe(401);
   });
@@ -1901,7 +2188,7 @@ describe("PATCH /api/channels/[id]/bridges/[bridgeId]", () => {
   it("returns 404 for a non-existent bridge", async () => {
     const res = await bridgePATCH(
       req("PATCH", "http://localhost/", { isSyncEnabled: false }) as any,
-      bridgeParams("ch", "non-existent-bridge-id"),
+      bridgeParams("ch", "non-existent-bridge-id")
     );
     expect(res._status).toBe(404);
   });
@@ -1921,21 +2208,29 @@ describe("PATCH /api/channels/[id]/bridges/[bridgeId]", () => {
         externalChannelId: "ext-patch",
         externalChannelName: "Patch",
         externalWorkspaceId: "ws-patch",
-        config: { webhookUrl: "", outgoingUrl: "https://out.example.com", secret: "s" },
+        config: {
+          webhookUrl: "",
+          outgoingUrl: "https://out.example.com",
+          secret: "s",
+        },
       });
 
       const res = await bridgePATCH(
         req("PATCH", "http://localhost/", { isSyncEnabled: false }) as any,
-        bridgeParams(channel.id, bridge.id),
+        bridgeParams(channel.id, bridge.id)
       );
       expect(res._status).toBe(200);
 
-      const body = await res.json() as { bridge: { isSyncEnabled: boolean } };
+      const body = (await res.json()) as { bridge: { isSyncEnabled: boolean } };
       expect(body.bridge.isSyncEnabled).toBe(false);
       expect(body.bridge).not.toHaveProperty("configJson");
     } finally {
-      getDb().prepare("DELETE FROM channel_bridges WHERE channel_id = ?").run(channel.id);
-      getDb().prepare("DELETE FROM channel_members WHERE channel_id = ?").run(channel.id);
+      getDb()
+        .prepare("DELETE FROM channel_bridges WHERE channel_id = ?")
+        .run(channel.id);
+      getDb()
+        .prepare("DELETE FROM channel_members WHERE channel_id = ?")
+        .run(channel.id);
       getDb().prepare("DELETE FROM channels WHERE id = ?").run(channel.id);
     }
   });
@@ -1956,20 +2251,28 @@ describe("PATCH /api/channels/[id]/bridges/[bridgeId]", () => {
         externalChannelName: "Dir",
         externalWorkspaceId: "ws-dir",
         syncDirection: "bidirectional",
-        config: { webhookUrl: "", outgoingUrl: "https://out.example.com", secret: "s" },
+        config: {
+          webhookUrl: "",
+          outgoingUrl: "https://out.example.com",
+          secret: "s",
+        },
       });
 
       const res = await bridgePATCH(
         req("PATCH", "http://localhost/", { syncDirection: "outgoing" }) as any,
-        bridgeParams(channel.id, bridge.id),
+        bridgeParams(channel.id, bridge.id)
       );
       expect(res._status).toBe(200);
 
-      const body = await res.json() as { bridge: { syncDirection: string } };
+      const body = (await res.json()) as { bridge: { syncDirection: string } };
       expect(body.bridge.syncDirection).toBe("outgoing");
     } finally {
-      getDb().prepare("DELETE FROM channel_bridges WHERE channel_id = ?").run(channel.id);
-      getDb().prepare("DELETE FROM channel_members WHERE channel_id = ?").run(channel.id);
+      getDb()
+        .prepare("DELETE FROM channel_bridges WHERE channel_id = ?")
+        .run(channel.id);
+      getDb()
+        .prepare("DELETE FROM channel_members WHERE channel_id = ?")
+        .run(channel.id);
       getDb().prepare("DELETE FROM channels WHERE id = ?").run(channel.id);
     }
   });
@@ -1984,7 +2287,7 @@ describe("DELETE /api/channels/[id]/bridges/[bridgeId]", () => {
     mockGetAuthContext.mockResolvedValueOnce(null);
     const res = await bridgeDELETE(
       req("DELETE", "http://localhost/") as any,
-      bridgeParams("ch", "br"),
+      bridgeParams("ch", "br")
     );
     expect(res._status).toBe(401);
   });
@@ -1992,7 +2295,7 @@ describe("DELETE /api/channels/[id]/bridges/[bridgeId]", () => {
   it("returns 404 for a non-existent bridge", async () => {
     const res = await bridgeDELETE(
       req("DELETE", "http://localhost/") as any,
-      bridgeParams("ch", "non-existent-bridge-id"),
+      bridgeParams("ch", "non-existent-bridge-id")
     );
     expect(res._status).toBe(404);
   });
@@ -2012,22 +2315,30 @@ describe("DELETE /api/channels/[id]/bridges/[bridgeId]", () => {
         externalChannelId: "ext-del",
         externalChannelName: "Del",
         externalWorkspaceId: "ws-del",
-        config: { webhookUrl: "", outgoingUrl: "https://out.example.com", secret: "s" },
+        config: {
+          webhookUrl: "",
+          outgoingUrl: "https://out.example.com",
+          secret: "s",
+        },
       });
 
       const res = await bridgeDELETE(
         req("DELETE", "http://localhost/") as any,
-        bridgeParams(channel.id, bridge.id),
+        bridgeParams(channel.id, bridge.id)
       );
       expect(res._status).toBe(200);
 
-      const body = await res.json() as { success: boolean };
+      const body = (await res.json()) as { success: boolean };
       expect(body.success).toBe(true);
 
       expect(ChannelBridgeService.getBridge(bridge.id)).toBeNull();
     } finally {
-      getDb().prepare("DELETE FROM channel_bridges WHERE channel_id = ?").run(channel.id);
-      getDb().prepare("DELETE FROM channel_members WHERE channel_id = ?").run(channel.id);
+      getDb()
+        .prepare("DELETE FROM channel_bridges WHERE channel_id = ?")
+        .run(channel.id);
+      getDb()
+        .prepare("DELETE FROM channel_members WHERE channel_id = ?")
+        .run(channel.id);
       getDb().prepare("DELETE FROM channels WHERE id = ?").run(channel.id);
     }
   });
@@ -2044,8 +2355,12 @@ describe("POST /api/bridges/webhook/[bridgeId]/incoming", () => {
     const body = JSON.stringify({ message: "hi" });
     const sig = makeWebhookSignature(body, secret);
     const res = await webhookIncomingPOST(
-      webhookReq("http://localhost/api/bridges/webhook/unknown-bridge/incoming", body, sig),
-      webhookIncomingParams("unknown-bridge"),
+      webhookReq(
+        "http://localhost/api/bridges/webhook/unknown-bridge/incoming",
+        body,
+        sig
+      ),
+      webhookIncomingParams("unknown-bridge")
     );
     expect(res._status).toBe(404);
   });
@@ -2066,18 +2381,30 @@ describe("POST /api/bridges/webhook/[bridgeId]/incoming", () => {
         externalChannelName: "Sig Fail",
         externalWorkspaceId: "ws-sig",
         syncDirection: "incoming",
-        config: { webhookUrl: "", outgoingUrl: "https://out.example.com", secret },
+        config: {
+          webhookUrl: "",
+          outgoingUrl: "https://out.example.com",
+          secret,
+        },
       });
 
       const body = JSON.stringify({ message: "hello" });
       const res = await webhookIncomingPOST(
-        webhookReq(`http://localhost/api/bridges/webhook/${bridge.id}/incoming`, body, "sha256=wrong"),
-        webhookIncomingParams(bridge.id),
+        webhookReq(
+          `http://localhost/api/bridges/webhook/${bridge.id}/incoming`,
+          body,
+          "sha256=wrong"
+        ),
+        webhookIncomingParams(bridge.id)
       );
       expect(res._status).toBe(401);
     } finally {
-      getDb().prepare("DELETE FROM channel_bridges WHERE channel_id = ?").run(channel.id);
-      getDb().prepare("DELETE FROM channel_members WHERE channel_id = ?").run(channel.id);
+      getDb()
+        .prepare("DELETE FROM channel_bridges WHERE channel_id = ?")
+        .run(channel.id);
+      getDb()
+        .prepare("DELETE FROM channel_members WHERE channel_id = ?")
+        .run(channel.id);
       getDb().prepare("DELETE FROM channels WHERE id = ?").run(channel.id);
     }
   });
@@ -2098,19 +2425,31 @@ describe("POST /api/bridges/webhook/[bridgeId]/incoming", () => {
         externalChannelName: "Out Only",
         externalWorkspaceId: "ws-out",
         syncDirection: "outgoing",
-        config: { webhookUrl: "", outgoingUrl: "https://out.example.com", secret },
+        config: {
+          webhookUrl: "",
+          outgoingUrl: "https://out.example.com",
+          secret,
+        },
       });
 
       const body = JSON.stringify({ message: "hello" });
       const sig = makeWebhookSignature(body, secret);
       const res = await webhookIncomingPOST(
-        webhookReq(`http://localhost/api/bridges/webhook/${bridge.id}/incoming`, body, sig),
-        webhookIncomingParams(bridge.id),
+        webhookReq(
+          `http://localhost/api/bridges/webhook/${bridge.id}/incoming`,
+          body,
+          sig
+        ),
+        webhookIncomingParams(bridge.id)
       );
       expect(res._status).toBe(403);
     } finally {
-      getDb().prepare("DELETE FROM channel_bridges WHERE channel_id = ?").run(channel.id);
-      getDb().prepare("DELETE FROM channel_members WHERE channel_id = ?").run(channel.id);
+      getDb()
+        .prepare("DELETE FROM channel_bridges WHERE channel_id = ?")
+        .run(channel.id);
+      getDb()
+        .prepare("DELETE FROM channel_members WHERE channel_id = ?")
+        .run(channel.id);
       getDb().prepare("DELETE FROM channels WHERE id = ?").run(channel.id);
     }
   });
@@ -2131,30 +2470,53 @@ describe("POST /api/bridges/webhook/[bridgeId]/incoming", () => {
         externalChannelName: "Success",
         externalWorkspaceId: "ws-success",
         syncDirection: "incoming",
-        config: { webhookUrl: "", outgoingUrl: "https://out.example.com", secret },
+        config: {
+          webhookUrl: "",
+          outgoingUrl: "https://out.example.com",
+          secret,
+        },
       });
 
-      const payload = { message: "Hello from webhook!", author: "webhook:ci-bot" };
+      const payload = {
+        message: "Hello from webhook!",
+        author: "webhook:ci-bot",
+      };
       const body = JSON.stringify(payload);
       const sig = makeWebhookSignature(body, secret);
 
       const res = await webhookIncomingPOST(
-        webhookReq(`http://localhost/api/bridges/webhook/${bridge.id}/incoming`, body, sig),
-        webhookIncomingParams(bridge.id),
+        webhookReq(
+          `http://localhost/api/bridges/webhook/${bridge.id}/incoming`,
+          body,
+          sig
+        ),
+        webhookIncomingParams(bridge.id)
       );
       expect(res._status).toBe(200);
 
-      const resBody = await res.json() as { ok: boolean; messageId: string };
+      const resBody = (await res.json()) as { ok: boolean; messageId: string };
       expect(resBody.ok).toBe(true);
       expect(resBody.messageId).toBeTruthy();
 
       // Verify the message was persisted in the channel
       const messages = ChannelService.listMessages(channel.id, 10, 0);
-      expect(messages.some((m) => m.content === "Hello from webhook!" && m.authorDid === "webhook:ci-bot")).toBe(true);
+      expect(
+        messages.some(
+          (m) =>
+            m.content === "Hello from webhook!" &&
+            m.authorDid === "webhook:ci-bot"
+        )
+      ).toBe(true);
     } finally {
-      getDb().prepare("DELETE FROM channel_messages WHERE channel_id = ?").run(channel.id);
-      getDb().prepare("DELETE FROM channel_bridges WHERE channel_id = ?").run(channel.id);
-      getDb().prepare("DELETE FROM channel_members WHERE channel_id = ?").run(channel.id);
+      getDb()
+        .prepare("DELETE FROM channel_messages WHERE channel_id = ?")
+        .run(channel.id);
+      getDb()
+        .prepare("DELETE FROM channel_bridges WHERE channel_id = ?")
+        .run(channel.id);
+      getDb()
+        .prepare("DELETE FROM channel_members WHERE channel_id = ?")
+        .run(channel.id);
       getDb().prepare("DELETE FROM channels WHERE id = ?").run(channel.id);
     }
   });
@@ -2168,13 +2530,13 @@ describe("Peer agents removal", () => {
   it("agent-peer-grant-dao no longer exists as a module", async () => {
     // The file was deleted — importing it should throw
     await expect(
-      import("../packages/control-plane/lib/agent-peer-grant-dao"),
+      import("../packages/control-plane/lib/agent-peer-grant-dao")
     ).rejects.toThrow();
   });
 
   it("peer-grant signing utility no longer exists as a module", async () => {
     await expect(
-      import("../packages/control-plane/lib/peer-grant"),
+      import("../packages/control-plane/lib/peer-grant")
     ).rejects.toThrow();
   });
 
@@ -2185,7 +2547,7 @@ describe("Peer agents removal", () => {
     const { resolve } = await import("node:path");
     const src = readFileSync(
       resolve(process.cwd(), "packages/control-plane/lib/ws-server.ts"),
-      "utf-8",
+      "utf-8"
     );
     expect(src).not.toContain("pushPeerCatalog");
   });

@@ -1,9 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import {
-  getRealmById,
-  getRealmSkills,
-  createRealmSkill,
-} from "@/lib/db";
+import { getRealmById, getRealmSkills, createRealmSkill } from "@/lib/db";
 import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
 import { broadcastSkillsConfig } from "@/lib/ws-server";
 
@@ -74,7 +70,8 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
     if (!auth.canAccessRealm(id)) return forbidden();
 
     const realm = getRealmById(id);
-    if (!realm) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    if (!realm)
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
 
     const skills = getRealmSkills(id).map((s) => ({
       id: s.id,
@@ -90,7 +87,10 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
     return NextResponse.json({ skills });
   } catch (err) {
     console.error(err);
-    return NextResponse.json({ error: "Failed to fetch realm skills" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to fetch realm skills" },
+      { status: 500 }
+    );
   }
 }
 
@@ -161,9 +161,10 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     if (!auth.canAdminRealm(id)) return forbidden();
 
     const realm = getRealmById(id);
-    if (!realm) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    if (!realm)
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-    const body = await req.json() as {
+    const body = (await req.json()) as {
       name?: string;
       description?: string;
       version?: string;
@@ -187,23 +188,32 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     // Push updated skills config to all agents in this realm
     broadcastSkillsConfig(id);
 
-    return NextResponse.json({
-      skill: {
-        id: skill.id,
-        realmId: skill.realm_id,
-        name: skill.name,
-        description: skill.description,
-        version: skill.version,
-        isRequired: skill.is_required === 1,
-        config: JSON.parse(skill.config || "{}"),
-        createdAt: skill.created_at,
+    return NextResponse.json(
+      {
+        skill: {
+          id: skill.id,
+          realmId: skill.realm_id,
+          name: skill.name,
+          description: skill.description,
+          version: skill.version,
+          isRequired: skill.is_required === 1,
+          config: JSON.parse(skill.config || "{}"),
+          createdAt: skill.created_at,
+        },
       },
-    }, { status: 201 });
+      { status: 201 }
+    );
   } catch (err: unknown) {
     if (err instanceof Error && err.message?.includes("UNIQUE")) {
-      return NextResponse.json({ error: "A skill with this name already exists in this realm" }, { status: 409 });
+      return NextResponse.json(
+        { error: "A skill with this name already exists in this realm" },
+        { status: 409 }
+      );
     }
     console.error(err);
-    return NextResponse.json({ error: "Failed to create realm skill" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to create realm skill" },
+      { status: 500 }
+    );
   }
 }

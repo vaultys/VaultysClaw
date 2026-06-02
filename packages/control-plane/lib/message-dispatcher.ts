@@ -37,7 +37,7 @@ export const MessageDispatcher = {
       content: string;
       threadId: string | null;
       createdAt: string;
-    },
+    }
   ): Promise<void> {
     try {
       await BridgeFactory.fanOutMessage(channelId, message);
@@ -59,7 +59,7 @@ export const MessageDispatcher = {
       authorType: string;
       threadId: string | null;
       createdAt: string;
-    },
+    }
   ): Promise<void> {
     const mentions = this.extractMentions(content);
 
@@ -76,7 +76,7 @@ export const MessageDispatcher = {
           messageId,
           mentionedName,
           authorDid,
-          content,
+          content
         );
       }
     }
@@ -91,7 +91,7 @@ export const MessageDispatcher = {
         threadId: messageContext.threadId,
         createdAt: messageContext.createdAt,
       }).catch((err) =>
-        console.error("[MessageDispatcher] bridge fan-out error:", err),
+        console.error("[MessageDispatcher] bridge fan-out error:", err)
       );
     }
   },
@@ -104,14 +104,14 @@ export const MessageDispatcher = {
     parentMessageId: string,
     mentionedName: string,
     authorDid: string,
-    fullMessageContent: string,
+    fullMessageContent: string
   ): Promise<void> {
     // Publish thread created event so subscribers know a thread is starting
     publishThreadCreated(
       channelId,
       parentMessageId,
       parentMessageId, // agent will reply directly in the parent's thread
-      mentionedName,
+      mentionedName
     );
 
     // Agent responds directly to parentMessageId as the threadId
@@ -138,7 +138,7 @@ export const MessageDispatcher = {
       userDid: string;
       content: string;
       context: Record<string, any>;
-    },
+    }
   ): Promise<void> {
     // Find agent by name
     const agentRow = getAgentByName(agentName);
@@ -167,7 +167,9 @@ export const MessageDispatcher = {
     });
 
     if (!taskSent) {
-      console.warn(`[MessageDispatcher] Agent not connected: ${agentName} (${agentDid})`);
+      console.warn(
+        `[MessageDispatcher] Agent not connected: ${agentName} (${agentDid})`
+      );
       // Post message to thread that agent is offline
       ChannelService.createThreadReply({
         channelId: context.channelId,

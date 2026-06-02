@@ -8,10 +8,12 @@ export const ChannelDao = {
     const id = randomUUID();
     const now = new Date().toISOString();
 
-    db.prepare(`
+    db.prepare(
+      `
       INSERT INTO channels (id, realm_id, name, slug, description, is_public, is_archived, topic, creator_did, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
+    `
+    ).run(
       id,
       input.realmId ?? null,
       input.name,
@@ -22,7 +24,7 @@ export const ChannelDao = {
       input.topic ?? null,
       input.creatorDid,
       now,
-      now,
+      now
     );
 
     return db.prepare("SELECT * FROM channels WHERE id = ?").get(id) as any;
@@ -30,7 +32,9 @@ export const ChannelDao = {
 
   getById(id: string): Channel | null {
     const db = getDb();
-    const row = db.prepare("SELECT * FROM channels WHERE id = ?").get(id) as any;
+    const row = db
+      .prepare("SELECT * FROM channels WHERE id = ?")
+      .get(id) as any;
     return row ? normalizeChannel(row) : null;
   },
 
@@ -53,7 +57,9 @@ export const ChannelDao = {
   listByRealm(realmId: string): Channel[] {
     const db = getDb();
     const rows = db
-      .prepare("SELECT * FROM channels WHERE realm_id = ? AND is_archived = 0 ORDER BY created_at DESC")
+      .prepare(
+        "SELECT * FROM channels WHERE realm_id = ? AND is_archived = 0 ORDER BY created_at DESC"
+      )
       .all(realmId) as any[];
     return rows.map(normalizeChannel);
   },
@@ -61,7 +67,9 @@ export const ChannelDao = {
   listGlobal(): Channel[] {
     const db = getDb();
     const rows = db
-      .prepare("SELECT * FROM channels WHERE realm_id IS NULL AND is_archived = 0 ORDER BY created_at DESC")
+      .prepare(
+        "SELECT * FROM channels WHERE realm_id IS NULL AND is_archived = 0 ORDER BY created_at DESC"
+      )
       .all() as any[];
     return rows.map(normalizeChannel);
   },
@@ -69,11 +77,13 @@ export const ChannelDao = {
   listByRealmWithGlobal(realmId: string): Channel[] {
     const db = getDb();
     const rows = db
-      .prepare(`
+      .prepare(
+        `
         SELECT * FROM channels
         WHERE (realm_id = ? OR realm_id IS NULL) AND is_archived = 0
         ORDER BY created_at DESC
-      `)
+      `
+      )
       .all(realmId) as any[];
     return rows.map(normalizeChannel);
   },
@@ -108,7 +118,9 @@ export const ChannelDao = {
 
     values.push(id);
 
-    db.prepare(`UPDATE channels SET ${fields.join(", ")} WHERE id = ?`).run(...values);
+    db.prepare(`UPDATE channels SET ${fields.join(", ")} WHERE id = ?`).run(
+      ...values
+    );
 
     return db.prepare("SELECT * FROM channels WHERE id = ?").get(id) as any;
   },
@@ -116,7 +128,9 @@ export const ChannelDao = {
   archive(id: string): void {
     const db = getDb();
     const now = new Date().toISOString();
-    db.prepare("UPDATE channels SET is_archived = 1, updated_at = ? WHERE id = ?").run(now, id);
+    db.prepare(
+      "UPDATE channels SET is_archived = 1, updated_at = ? WHERE id = ?"
+    ).run(now, id);
   },
 
   delete(id: string): void {

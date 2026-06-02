@@ -51,7 +51,7 @@ import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ did: string }> },
+  { params }: { params: Promise<{ did: string }> }
 ) {
   const auth = await getAuthContext(request);
   if (!auth) return unauthorized();
@@ -63,7 +63,10 @@ export async function GET(
 
   const wsServer = getWSServer();
   if (!wsServer) {
-    return NextResponse.json({ error: "WebSocket server not available" }, { status: 503 });
+    return NextResponse.json(
+      { error: "WebSocket server not available" },
+      { status: 503 }
+    );
   }
 
   const sessionId = request.nextUrl.searchParams.get("session");

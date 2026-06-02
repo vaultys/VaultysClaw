@@ -114,12 +114,17 @@ export async function PUT(req: NextRequest) {
   };
 
   if (!body.host || !body.port || !body.from) {
-    return NextResponse.json({ error: "host, port and from are required" }, { status: 400 });
+    return NextResponse.json(
+      { error: "host, port and from are required" },
+      { status: 400 }
+    );
   }
 
   const existing = getSmtpConfig();
   const password =
-    body.password === "••••••••" && existing ? existing.password : (body.password ?? "");
+    body.password === "••••••••" && existing
+      ? existing.password
+      : (body.password ?? "");
 
   saveSmtpConfig({
     host: body.host,
@@ -209,7 +214,7 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "Connection failed" },
-      { status: 502 },
+      { status: 502 }
     );
   }
 }

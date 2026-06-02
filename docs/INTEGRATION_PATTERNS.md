@@ -13,7 +13,7 @@ This document provides concrete code patterns for integrating workflows with rea
 export async function GET() {
   const wsServer = getWSServer();
   const dbAgents = getAllAgents();
-  
+
   const agents = dbAgents.map((agent) => {
     const realms = getAgentRealms(agent.did);
     return {
@@ -39,11 +39,12 @@ export async function GET(req: NextRequest, ctx: Ctx) {
   try {
     const { id: realmId } = await ctx.params;
     const realm = getRealmById(realmId);
-    if (!realm) return NextResponse.json({ error: "Realm not found" }, { status: 404 });
+    if (!realm)
+      return NextResponse.json({ error: "Realm not found" }, { status: 404 });
 
     // Get agents in this realm
     const realmAgents = getRealmAgents(realmId);
-    
+
     // Enrich with live status from WebSocket server
     const wsServer = getWSServer();
     const agents = realmAgents.map((agent) => {
@@ -72,7 +73,10 @@ export async function GET(req: NextRequest, ctx: Ctx) {
     });
   } catch (err) {
     console.error(err);
-    return NextResponse.json({ error: "Failed to fetch realm agents" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to fetch realm agents" },
+      { status: 500 }
+    );
   }
 }
 ```
@@ -85,14 +89,16 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = request.nextUrl;
     const realmId = searchParams.get("realm");
-    
+
     const wsServer = getWSServer();
     let dbAgents: AgentRow[];
 
     if (realmId) {
       // Get agents in specific realm
       const realmAgents = getRealmAgents(realmId);
-      dbAgents = realmAgents.map(ra => getAgent(ra.agent_did)!).filter(Boolean);
+      dbAgents = realmAgents
+        .map((ra) => getAgent(ra.agent_did)!)
+        .filter(Boolean);
     } else {
       // Get all agents
       dbAgents = getAllAgents();
@@ -101,7 +107,7 @@ export async function GET(request: NextRequest) {
     const agents = dbAgents.map((agent) => {
       const connected = wsServer?.getAgent(agent.did);
       const realms = getAgentRealms(agent.did);
-      
+
       return {
         id: agent.did,
         name: agent.name,
@@ -118,7 +124,10 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ agents });
   } catch (error) {
-    return NextResponse.json({ error: "Failed to fetch agents" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to fetch agents" },
+      { status: 500 }
+    );
   }
 }
 ```
@@ -131,8 +140,9 @@ export async function GET(request: NextRequest) {
 
 ```typescript
 // Add to migrateSchema in lib/db.ts
-const workflowCols = (db.pragma("table_info(workflows)") as { name: string }[])
-  .map((c) => c.name);
+const workflowCols = (
+  db.pragma("table_info(workflows)") as { name: string }[]
+).map((c) => c.name);
 
 if (!workflowCols.includes("realm_id")) {
   db.exec(`
@@ -151,17 +161,26 @@ export function saveWorkflow(
   name: string,
   definition: WorkflowDefinition,
   createdBy?: string,
-  realmId?: string,
+  realmId?: string
 ): string {
   const d = getDb();
   const id = crypto.randomUUID();
   d.prepare(
     "INSERT INTO workflows (id, name, definition, created_by, realm_id) VALUES (?, ?, ?, ?, ?)"
-  ).run(id, name, JSON.stringify(definition), createdBy ?? null, realmId ?? null);
+  ).run(
+    id,
+    name,
+    JSON.stringify(definition),
+    createdBy ?? null,
+    realmId ?? null
+  );
   return id;
 }
 
-export function listWorkflows(createdBy?: string, realmId?: string): WorkflowRow[] {
+export function listWorkflows(
+  createdBy?: string,
+  realmId?: string
+): WorkflowRow[] {
   const d = getDb();
   const conditions: string[] = [];
   const params: unknown[] = [];
@@ -176,15 +195,19 @@ export function listWorkflows(createdBy?: string, realmId?: string): WorkflowRow
     params.push(realmId);
   }
 
-  const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
-  return d.prepare(
-    `SELECT * FROM workflows ${where} ORDER BY created_at DESC`
-  ).all(...params) as WorkflowRow[];
+  const where =
+    conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+  return d
+    .prepare(`SELECT * FROM workflows ${where} ORDER BY created_at DESC`)
+    .all(...params) as WorkflowRow[];
 }
 
 export function getWorkflowsByRealm(realmId: string): WorkflowRow[] {
   const d = getDb();
-  return d.prepare("SELECT * FROM workflows WHERE realm_id = ? ORDER BY created_at DESC")
+  return d
+    .prepare(
+      "SELECT * FROM workflows WHERE realm_id = ? ORDER BY created_at DESC"
+    )
     .all(realmId) as WorkflowRow[];
 }
 ```
@@ -198,10 +221,11 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
   try {
     const { id: realmId } = await ctx.params;
     const realm = getRealmById(realmId);
-    if (!realm) return NextResponse.json({ error: "Realm not found" }, { status: 404 });
+    if (!realm)
+      return NextResponse.json({ error: "Realm not found" }, { status: 404 });
 
     const workflows = getWorkflowsByRealm(realmId);
-    
+
     return NextResponse.json({
       realm: { id: realm.id, name: realm.name, slug: realm.slug },
       workflows: workflows.map((w) => ({
@@ -216,7 +240,10 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
     });
   } catch (err) {
     console.error(err);
-    return NextResponse.json({ error: "Failed to fetch realm workflows" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to fetch realm workflows" },
+      { status: 500 }
+    );
   }
 }
 
@@ -224,9 +251,10 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   try {
     const { id: realmId } = await ctx.params;
     const realm = getRealmById(realmId);
-    if (!realm) return NextResponse.json({ error: "Realm not found" }, { status: 404 });
+    if (!realm)
+      return NextResponse.json({ error: "Realm not found" }, { status: 404 });
 
-    const body = await req.json() as {
+    const body = (await req.json()) as {
       name?: string;
       description?: string;
       definition?: WorkflowDefinition;
@@ -237,12 +265,20 @@ export async function POST(req: NextRequest, ctx: Ctx) {
       return NextResponse.json({ error: "name is required" }, { status: 400 });
     }
 
-    const id = saveWorkflow(body.name, body.definition ?? { nodes: [], edges: [] }, body.createdBy, realmId);
+    const id = saveWorkflow(
+      body.name,
+      body.definition ?? { nodes: [], edges: [] },
+      body.createdBy,
+      realmId
+    );
 
     return NextResponse.json({ success: true, id, realmId }, { status: 201 });
   } catch (err) {
     console.error(err);
-    return NextResponse.json({ error: "Failed to create workflow" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to create workflow" },
+      { status: 500 }
+    );
   }
 }
 ```
@@ -256,7 +292,10 @@ export async function GET(request: NextRequest) {
     const createdBy = searchParams.get("createdBy");
     const realmId = searchParams.get("realmId");
 
-    const workflows = listWorkflows(createdBy ?? undefined, realmId ?? undefined);
+    const workflows = listWorkflows(
+      createdBy ?? undefined,
+      realmId ?? undefined
+    );
 
     return NextResponse.json({
       success: true,
@@ -272,7 +311,10 @@ export async function GET(request: NextRequest) {
     });
   } catch (err) {
     console.error("GET /api/workflows error:", err);
-    return NextResponse.json({ error: "Failed to list workflows" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to list workflows" },
+      { status: 500 }
+    );
   }
 }
 
@@ -288,10 +330,16 @@ export async function POST(request: NextRequest) {
     };
 
     if (!name || typeof name !== "string") {
-      return NextResponse.json({ error: "name (string) is required" }, { status: 400 });
+      return NextResponse.json(
+        { error: "name (string) is required" },
+        { status: 400 }
+      );
     }
     if (!definition || typeof definition !== "object") {
-      return NextResponse.json({ error: "definition (object) is required" }, { status: 400 });
+      return NextResponse.json(
+        { error: "definition (object) is required" },
+        { status: 400 }
+      );
     }
 
     // Validate realm exists if provided
@@ -304,16 +352,19 @@ export async function POST(request: NextRequest) {
 
     const id = saveWorkflow(name, definition, createdBy, realmId);
 
-    return NextResponse.json({ 
-      success: true, 
-      id, 
-      name, 
-      description, 
-      realmId: realmId || null 
+    return NextResponse.json({
+      success: true,
+      id,
+      name,
+      description,
+      realmId: realmId || null,
     });
   } catch (err) {
     console.error("POST /api/workflows error:", err);
-    return NextResponse.json({ error: "Failed to save workflow" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to save workflow" },
+      { status: 500 }
+    );
   }
 }
 ```
@@ -341,7 +392,7 @@ interface Agent {
  */
 function resolveAgent(agentId: string): Agent | null {
   const wsServer = getWSServer();
-  
+
   // First, check live connections
   const connected = wsServer?.getAgent(agentId);
   if (connected) {
@@ -355,7 +406,9 @@ function resolveAgent(agentId: string): Agent | null {
   // Fall back to database (offline agent)
   const dbAgent = getAgent(agentId);
   if (dbAgent) {
-    console.warn(`Agent ${agentId} is offline (last seen: ${dbAgent.last_seen})`);
+    console.warn(
+      `Agent ${agentId} is offline (last seen: ${dbAgent.last_seen})`
+    );
     return null; // Can't execute on offline agents
   }
 
@@ -369,7 +422,7 @@ export async function executeStep(
   stepId: string,
   node: WorkflowNode,
   params: Record<string, unknown>,
-  context: ExecutionContext,
+  context: ExecutionContext
 ): Promise<{ success: boolean; output?: unknown; error?: string }> {
   try {
     const stepDbId = context.stepIds.get(stepId);
@@ -385,7 +438,7 @@ export async function executeStep(
     if (agentId === "@mock-agent") {
       const duration = (node.data.duration as number) ?? 1000;
       await new Promise((resolve) => setTimeout(resolve, duration));
-      
+
       const mockOutput = {
         nodeId: node.id,
         nodeType: node.type,
@@ -420,7 +473,7 @@ export async function executeStep(
     };
 
     const result = await sendTaskToAgent(agent, task);
-    
+
     if (result.success) {
       context.stepOutputs.set(stepId, result.output);
       context.stepStatus.set(stepId, "success");
@@ -448,7 +501,7 @@ export async function executeStep(
  */
 async function sendTaskToAgent(
   agent: Agent,
-  task: any,
+  task: any
 ): Promise<{ success: boolean; output?: any; error?: string }> {
   return new Promise((resolve) => {
     const timeoutId = setTimeout(() => {
@@ -476,7 +529,7 @@ async function sendTaskToAgent(
 
 class AgentWebSocketServer {
   // Existing methods...
-  
+
   /**
    * Send a workflow step task to an agent
    */
@@ -500,10 +553,12 @@ class AgentWebSocketServer {
       });
     });
 
-    agent.send(JSON.stringify({
-      type: "execute_workflow_step",
-      payload: task,
-    }));
+    agent.send(
+      JSON.stringify({
+        type: "execute_workflow_step",
+        payload: task,
+      })
+    );
 
     return responsePromise;
   }
@@ -511,7 +566,11 @@ class AgentWebSocketServer {
   /**
    * Handle workflow step response from agent
    */
-  handleWorkflowStepResponse(agentId: string, taskId: string, result: any): void {
+  handleWorkflowStepResponse(
+    agentId: string,
+    taskId: string,
+    result: any
+  ): void {
     const callback = this.taskCallbacks.get(taskId);
     if (callback) {
       clearTimeout(callback.timeout);
@@ -520,11 +579,14 @@ class AgentWebSocketServer {
     }
   }
 
-  private taskCallbacks = new Map<string, {
-    resolve: (result: any) => void;
-    reject: (error: any) => void;
-    timeout: NodeJS.Timeout;
-  }>();
+  private taskCallbacks = new Map<
+    string,
+    {
+      resolve: (result: any) => void;
+      reject: (error: any) => void;
+      timeout: NodeJS.Timeout;
+    }
+  >();
 }
 ```
 
@@ -539,25 +601,23 @@ class AgentWebSocketServer {
 
 export async function validateWorkflowExecution(
   definition: WorkflowDefinition,
-  realmId: string,
+  realmId: string
 ): Promise<{ valid: boolean; errors: string[] }> {
   const errors: string[] = [];
   const realm = getRealmById(realmId);
-  
+
   if (!realm) {
     return { valid: false, errors: ["Realm not found"] };
   }
 
   const nodes = definition.nodes;
-  const realmAgents = new Set(
-    getRealmAgents(realmId).map((a) => a.agent_did)
-  );
+  const realmAgents = new Set(getRealmAgents(realmId).map((a) => a.agent_did));
 
   // Validate all agent nodes
   for (const node of nodes) {
     if (node.type === "agent" && node.data.agentId !== "@mock-agent") {
       const agentId = node.data.agentId as string;
-      
+
       if (!realmAgents.has(agentId)) {
         errors.push(
           `Agent ${agentId} (node ${node.id}) is not in realm ${realm.name}`
@@ -581,12 +641,15 @@ export async function validateWorkflowExecution(
 export async function executeWorkflow(
   runId: string,
   definition: WorkflowDefinition,
-  realmId: string,
+  realmId: string
 ): Promise<void> {
   // Validate agents are in realm
   const validation = await validateWorkflowExecution(definition, realmId);
   if (!validation.valid) {
-    logger.error({ runId, errors: validation.errors }, "Workflow validation failed");
+    logger.error(
+      { runId, errors: validation.errors },
+      "Workflow validation failed"
+    );
     updateWorkflowRunStatus(runId, "failed", {
       error: "Workflow validation failed",
       details: validation.errors,
@@ -605,14 +668,17 @@ export async function executeWorkflow(
 
 export async function POST(
   _request: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id: workflowId } = await params;
 
     const workflow = getWorkflow(workflowId);
     if (!workflow) {
-      return NextResponse.json({ error: "Workflow not found" }, { status: 404 });
+      return NextResponse.json(
+        { error: "Workflow not found" },
+        { status: 404 }
+      );
     }
 
     // Validate realm association
@@ -672,19 +738,22 @@ export async function POST(
 ## 5. SUGGESTED API ENDPOINT SUMMARY
 
 ### Realm Workflows
+
 - `GET /api/realms/[id]/workflows` — List workflows in realm
 - `POST /api/realms/[id]/workflows` — Create workflow in realm
 - `DELETE /api/realms/[id]/workflows/[wid]` — Delete workflow from realm
 
 ### Agent Lists
+
 - `GET /api/agents?realm=[id]` — Filter agents by realm
 - `GET /api/realms/[id]/agents` — Get agents in realm
 
 ### Workflow Execution
+
 - `POST /api/workflows/[id]/execute?realmId=[id]` — Execute with realm context
 - `GET /api/workflows/[id]/realms` — List realms where workflow can execute
 
 ### Enhanced Status Tracking
+
 - `GET /api/workflows/runs/[runId]/agents` — Agents used in this run
 - `GET /api/workflows/[id]/agents` — List agents referenced in workflow
-

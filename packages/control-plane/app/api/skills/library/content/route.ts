@@ -52,7 +52,10 @@ export async function GET(request: NextRequest) {
 
   const skill = getOrgSkillByName(skillId);
   if (!skill || !skill.content) {
-    return NextResponse.json({ error: "Skill content not found" }, { status: 404 });
+    return NextResponse.json(
+      { error: "Skill content not found" },
+      { status: 404 }
+    );
   }
 
   return NextResponse.json({ content: skill.content });

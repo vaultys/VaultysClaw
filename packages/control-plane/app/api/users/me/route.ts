@@ -96,15 +96,21 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const body = await req.json() as { name?: unknown };
+  const body = (await req.json()) as { name?: unknown };
 
   if (typeof body.name !== "string") {
-    return NextResponse.json({ error: "name must be a string" }, { status: 400 });
+    return NextResponse.json(
+      { error: "name must be a string" },
+      { status: 400 }
+    );
   }
 
   const name = body.name.trim();
   if (name.length > 128) {
-    return NextResponse.json({ error: "name must be 128 characters or fewer" }, { status: 400 });
+    return NextResponse.json(
+      { error: "name must be 128 characters or fewer" },
+      { status: 400 }
+    );
   }
 
   UserDao.update(session.user.did, { name: name || "" });

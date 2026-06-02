@@ -10,17 +10,17 @@ Capabilities are the core mechanism by which Vaultys Claw enforces the **princip
 
 ## Available capabilities
 
-| Capability | What it allows | Typical use cases |
-|---|---|---|
-| `file_access` | Read and write files within the agent's workspace root | Document processing, report generation, local data pipelines |
-| `internet_access` | Make outbound HTTP/HTTPS requests | Web scraping, API consumption, data enrichment |
-| `browser_control` | Control a headless browser (Playwright / Puppeteer) | Web automation, screenshot capture, form submission |
-| `api_call` | Call external APIs (structured, not arbitrary HTTP) | CRM integrations, ticket systems, SaaS connectors |
-| `mail_send` | Send email | Notifications, digests, alerts |
-| `code_execution` | Execute arbitrary code in a sandbox | Code generation and testing, data analysis scripts |
-| `system_command` | Execute shell commands | DevOps automation, system monitoring |
-| `agent_communication` | Send intents to peer agents | Multi-agent orchestration, delegation of subtasks |
-| `knowledge_search` | Query the agent's local vector knowledge base via the `knowledge_search` tool | RAG over indexed documents, PDF/web knowledge bases, enterprise Q&A |
+| Capability            | What it allows                                                                | Typical use cases                                                   |
+| --------------------- | ----------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| `file_access`         | Read and write files within the agent's workspace root                        | Document processing, report generation, local data pipelines        |
+| `internet_access`     | Make outbound HTTP/HTTPS requests                                             | Web scraping, API consumption, data enrichment                      |
+| `browser_control`     | Control a headless browser (Playwright / Puppeteer)                           | Web automation, screenshot capture, form submission                 |
+| `api_call`            | Call external APIs (structured, not arbitrary HTTP)                           | CRM integrations, ticket systems, SaaS connectors                   |
+| `mail_send`           | Send email                                                                    | Notifications, digests, alerts                                      |
+| `code_execution`      | Execute arbitrary code in a sandbox                                           | Code generation and testing, data analysis scripts                  |
+| `system_command`      | Execute shell commands                                                        | DevOps automation, system monitoring                                |
+| `agent_communication` | Send intents to peer agents                                                   | Multi-agent orchestration, delegation of subtasks                   |
+| `knowledge_search`    | Query the agent's local vector knowledge base via the `knowledge_search` tool | RAG over indexed documents, PDF/web knowledge bases, enterprise Q&A |
 
 ---
 
@@ -66,11 +66,11 @@ The agent reads these values from `ctx.metadata.pk2` after the handshake complet
 
 When an agent receives an intent it runs four checks in order:
 
-| Check | What fails it |
-|---|---|
-| Capability check | Action not in the granted capabilities list |
-| Policy expiry | `policyExpiresAt` timestamp has passed |
-| Daily token budget | `maxTokensPerDay` tokens already consumed today |
+| Check               | What fails it                                           |
+| ------------------- | ------------------------------------------------------- |
+| Capability check    | Action not in the granted capabilities list             |
+| Policy expiry       | `policyExpiresAt` timestamp has passed                  |
+| Daily token budget  | `maxTokensPerDay` tokens already consumed today         |
 | Hourly request rate | `maxRequestsPerHour` intents already executed this hour |
 
 The enforcement code lives in `agent.ts → handleIntent()` and runs **before** `executeAction()`.
@@ -132,11 +132,11 @@ Policies can include resource limits that the agent enforces at intent execution
 }
 ```
 
-| Field | Enforcement |
-|---|---|
-| `maxTokensPerDay` | Hard block — agent rejects intents when today's token total ≥ limit |
-| `maxRequestsPerHour` | Hard block — agent rejects intents when current-hour count ≥ limit |
-| `allowedDomains` | Advisory — agents may enforce for outbound HTTP tools |
+| Field                | Enforcement                                                         |
+| -------------------- | ------------------------------------------------------------------- |
+| `maxTokensPerDay`    | Hard block — agent rejects intents when today's token total ≥ limit |
+| `maxRequestsPerHour` | Hard block — agent rejects intents when current-hour count ≥ limit  |
+| `allowedDomains`     | Advisory — agents may enforce for outbound HTTP tools               |
 
 Token usage is tracked locally by the agent's SQLite database and resets at UTC midnight.
 

@@ -95,7 +95,10 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
     });
   } catch (err) {
     console.error(err);
-    return NextResponse.json({ error: "Failed to fetch skill" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to fetch skill" },
+      { status: 500 }
+    );
   }
 }
 
@@ -174,7 +177,7 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
-    const body = await req.json() as {
+    const body = (await req.json()) as {
       description?: string | null;
       version?: string | null;
       isRequired?: boolean;
@@ -208,7 +211,10 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
     });
   } catch (err) {
     console.error(err);
-    return NextResponse.json({ error: "Failed to update skill" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to update skill" },
+      { status: 500 }
+    );
   }
 }
 
@@ -274,6 +280,9 @@ export async function DELETE(_req: NextRequest, ctx: Ctx) {
     return NextResponse.json({ ok: true });
   } catch (err) {
     console.error(err);
-    return NextResponse.json({ error: "Failed to delete skill" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to delete skill" },
+      { status: 500 }
+    );
   }
 }

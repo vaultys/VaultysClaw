@@ -16,21 +16,20 @@ cd VaultysClaw
 # Install dependencies
 pnpm install
 
-# build 
+# build
 pnpm build
 ```
 
 ## .env
+
 Create a .env in working directory
 
-For dev mode: 
+For dev mode:
 
 ```bash
 mkdir .devdata
 cp packages/control-plane/.env.example .devdata/.env.local
 ```
-
-
 
 ## Run Everything
 
@@ -39,6 +38,7 @@ cp packages/control-plane/.env.example .devdata/.env.local
 Open 2 terminals:
 
 **Terminal 1** - Control Plane (HTTP + WebSocket):
+
 ```bash
 pnpm vaultysclaw:dev
 # HTTP server: http://localhost:3000
@@ -46,6 +46,7 @@ pnpm vaultysclaw:dev
 ```
 
 **Terminal 2** - Agent Controller:
+
 ```bash
 pnpm dev -F @vaultysclaw/agent-controller
 # Starts at http://localhost:3001
@@ -108,9 +109,11 @@ pnpm dev
 ## First Steps
 
 ### 1. Visit Control Plane
+
 Open [http://localhost:3000](http://localhost:3000)
 
 You should see:
+
 - Dashboard with agent stats
 - "Connected Agents" section (will show agents as they connect via WebSocket)
 - "Getting Started" guide
@@ -118,6 +121,7 @@ You should see:
 ### 2. Verify Agent Connection
 
 In terminal 2 (agent controller), you should see:
+
 ```
 Connected to control plane
 Sent registration to control plane

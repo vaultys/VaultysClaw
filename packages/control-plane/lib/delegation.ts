@@ -19,7 +19,10 @@
  * The signature covers the entire msgpack payload (no envelope).
  */
 
-import { encode as msgpackEncode, decode as msgpackDecode } from "@msgpack/msgpack";
+import {
+  encode as msgpackEncode,
+  decode as msgpackDecode,
+} from "@msgpack/msgpack";
 import { VaultysId, crypto } from "@vaultys/id";
 import { getSetting } from "./db";
 
@@ -44,7 +47,7 @@ export async function signDelegation(
   userDid: string,
   agentDid: string,
   capabilities: string[],
-  expiresAt?: Date,
+  expiresAt?: Date
 ): Promise<string> {
   const serverSecret = getSetting("serverSecret");
   if (!serverSecret) throw new Error("Server identity not initialized");
@@ -79,7 +82,7 @@ export async function signDelegation(
  */
 export async function verifyDelegation(
   cert: string,
-  serverPublicKey: Buffer,
+  serverPublicKey: Buffer
 ): Promise<DelegationPayload | null> {
   try {
     const combined = Buffer.from(cert, "base64");
@@ -92,7 +95,11 @@ export async function verifyDelegation(
     const signature = combined.subarray(4 + bodyLen);
 
     const serverVid = VaultysId.fromId(serverPublicKey);
-    const valid = serverVid.verifyChallenge(Buffer.from(body), Buffer.from(signature), false);
+    const valid = serverVid.verifyChallenge(
+      Buffer.from(body),
+      Buffer.from(signature),
+      false
+    );
     if (!valid) return null;
 
     const payload = msgpackDecode(body) as DelegationPayload;

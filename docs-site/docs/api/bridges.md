@@ -90,30 +90,30 @@ POST /api/channels/:channelId/bridges
 
 **Common fields:**
 
-| Field | Type | Required | Description |
-|---|---|---|---|
-| `externalService` | `"webhook"` \| `"teams"` | Yes | Bridge type |
-| `externalChannelId` | string | Yes | External identifier (webhook: your choice; Teams: channel ID) |
-| `externalChannelName` | string | Yes | Human-readable label for the UI |
-| `externalWorkspaceId` | string | Yes | Logical grouping (CI platform name, tenant ID, etc.) |
-| `syncDirection` | string | No | `"incoming"`, `"outgoing"`, or `"bidirectional"`. Default: `"bidirectional"` |
-| `config` | object | Yes | Service-specific configuration (see above) |
+| Field                 | Type                     | Required | Description                                                                  |
+| --------------------- | ------------------------ | -------- | ---------------------------------------------------------------------------- |
+| `externalService`     | `"webhook"` \| `"teams"` | Yes      | Bridge type                                                                  |
+| `externalChannelId`   | string                   | Yes      | External identifier (webhook: your choice; Teams: channel ID)                |
+| `externalChannelName` | string                   | Yes      | Human-readable label for the UI                                              |
+| `externalWorkspaceId` | string                   | Yes      | Logical grouping (CI platform name, tenant ID, etc.)                         |
+| `syncDirection`       | string                   | No       | `"incoming"`, `"outgoing"`, or `"bidirectional"`. Default: `"bidirectional"` |
+| `config`              | object                   | Yes      | Service-specific configuration (see above)                                   |
 
 **Webhook `config` fields:**
 
-| Field | Required | Description |
-|---|---|---|
-| `secret` | Yes | HMAC-SHA256 shared secret for incoming request verification |
-| `outgoingUrl` | No | URL the control plane POSTs to for outgoing messages |
-| `webhookUrl` | No | Unused; leave empty |
+| Field         | Required | Description                                                 |
+| ------------- | -------- | ----------------------------------------------------------- |
+| `secret`      | Yes      | HMAC-SHA256 shared secret for incoming request verification |
+| `outgoingUrl` | No       | URL the control plane POSTs to for outgoing messages        |
+| `webhookUrl`  | No       | Unused; leave empty                                         |
 
 **Teams `config` fields:**
 
-| Field | Required | Description |
-|---|---|---|
-| `accessToken` | Yes | Microsoft Graph API OAuth access token |
-| `tenantId` | Yes | Azure AD tenant ID |
-| `botId` | Yes | Teams bot application (client) ID |
+| Field         | Required | Description                            |
+| ------------- | -------- | -------------------------------------- |
+| `accessToken` | Yes      | Microsoft Graph API OAuth access token |
+| `tenantId`    | Yes      | Azure AD tenant ID                     |
+| `botId`       | Yes      | Teams bot application (client) ID      |
 
 **Response `201`:**
 
@@ -152,10 +152,10 @@ All fields are optional. Send only the fields you want to change.
 }
 ```
 
-| Field | Type | Description |
-|---|---|---|
-| `isSyncEnabled` | boolean | Enable or disable sync without deleting configuration |
-| `syncDirection` | string | Change direction: `"incoming"`, `"outgoing"`, `"bidirectional"` |
+| Field           | Type    | Description                                                     |
+| --------------- | ------- | --------------------------------------------------------------- |
+| `isSyncEnabled` | boolean | Enable or disable sync without deleting configuration           |
+| `syncDirection` | string  | Change direction: `"incoming"`, `"outgoing"`, `"bidirectional"` |
 
 **Response `200`:**
 
@@ -201,10 +201,10 @@ POST /api/bridges/webhook/:bridgeId/incoming
 
 **Headers:**
 
-| Header | Required | Description |
-|---|---|---|
-| `Content-Type` | Yes | `application/json` |
-| `X-Signature` | Yes | `sha256=<hex>` — HMAC-SHA256 of the raw request body |
+| Header         | Required | Description                                          |
+| -------------- | -------- | ---------------------------------------------------- |
+| `Content-Type` | Yes      | `application/json`                                   |
+| `X-Signature`  | Yes      | `sha256=<hex>` — HMAC-SHA256 of the raw request body |
 
 **Request body:**
 
@@ -219,11 +219,11 @@ POST /api/bridges/webhook/:bridgeId/incoming
 }
 ```
 
-| Field | Required | Description |
-|---|---|---|
-| `message` | Yes | Content posted to the channel. Must be non-empty. |
-| `author` | No | DID or label. Defaults to `webhook:external`. |
-| `metadata` | No | Arbitrary JSON stored in message metadata. |
+| Field      | Required | Description                                       |
+| ---------- | -------- | ------------------------------------------------- |
+| `message`  | Yes      | Content posted to the channel. Must be non-empty. |
+| `author`   | No       | DID or label. Defaults to `webhook:external`.     |
+| `metadata` | No       | Arbitrary JSON stored in message metadata.        |
 
 **Response `200`:**
 
@@ -236,12 +236,12 @@ POST /api/bridges/webhook/:bridgeId/incoming
 
 **Error responses:**
 
-| Status | Reason |
-|---|---|
-| `400` | Missing or empty `message` field, or invalid JSON |
-| `401` | Invalid or missing `X-Signature` header |
-| `403` | Bridge `syncDirection` is `"outgoing"` only, or `isSyncEnabled` is false |
-| `404` | `bridgeId` does not exist, or bridge type is not `webhook` |
+| Status | Reason                                                                   |
+| ------ | ------------------------------------------------------------------------ |
+| `400`  | Missing or empty `message` field, or invalid JSON                        |
+| `401`  | Invalid or missing `X-Signature` header                                  |
+| `403`  | Bridge `syncDirection` is `"outgoing"` only, or `isSyncEnabled` is false |
+| `404`  | `bridgeId` does not exist, or bridge type is not `webhook`               |
 
 ### Computing the HMAC signature
 
@@ -279,15 +279,19 @@ requests.post(
 ```typescript
 const crypto = require("crypto");
 
-const secret  = "a-random-secret-at-least-32-chars";
+const secret = "a-random-secret-at-least-32-chars";
 const payload = JSON.stringify({ message: "Build failed", author: "ci-bot" });
-const sig     = "sha256=" + crypto.createHmac("sha256", secret).update(payload).digest("hex");
+const sig =
+  "sha256=" + crypto.createHmac("sha256", secret).update(payload).digest("hex");
 
-await fetch("https://vaultysclaw.acme.com/api/bridges/webhook/br_01HZ.../incoming", {
-  method:  "POST",
-  headers: { "Content-Type": "application/json", "X-Signature": sig },
-  body:    payload,
-});
+await fetch(
+  "https://vaultysclaw.acme.com/api/bridges/webhook/br_01HZ.../incoming",
+  {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Signature": sig },
+    body: payload,
+  }
+);
 ```
 
 ---
@@ -306,10 +310,10 @@ JWT verification of the Bot Framework `Authorization` header is marked as a TODO
 
 **Headers:**
 
-| Header | Description |
-|---|---|
+| Header          | Description                                         |
+| --------------- | --------------------------------------------------- |
 | `Authorization` | Bearer token from Bot Framework (verification TODO) |
-| `Content-Type` | `application/json` |
+| `Content-Type`  | `application/json`                                  |
 
 The request body follows the [Bot Framework Activity schema](https://docs.microsoft.com/en-us/azure/bot-service/rest-api/bot-framework-rest-connector-api-reference). The endpoint extracts `activity.channelData.teamsChannelId`, looks up the matching bridge, and creates a `ChannelMessage` from the activity text.
 

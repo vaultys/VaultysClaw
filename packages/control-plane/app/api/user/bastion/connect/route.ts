@@ -53,7 +53,10 @@ import { VaultysId } from "@vaultys/id";
 export async function GET(request: NextRequest) {
   const browserVid = request.nextUrl.searchParams.get("vid");
   if (!browserVid) {
-    return NextResponse.json({ error: "Browser VID not provided" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Browser VID not provided" },
+      { status: 400 }
+    );
   }
 
   const ip =
@@ -62,14 +65,28 @@ export async function GET(request: NextRequest) {
     "";
   const userAgent = request.headers.get("user-agent") ?? "";
   const type = request.nextUrl.searchParams.get("type");
-  const deviceType = type === "extension" ? ("BROWSER_EXTENSION" as const) : ("BROWSER" as const);
+  const deviceType =
+    type === "extension"
+      ? ("BROWSER_EXTENSION" as const)
+      : ("BROWSER" as const);
 
   // Normalise vid to v0 id
-  const vaultysId = VaultysId.fromId(Buffer.from(browserVid, "base64")).toVersion(1);
+  const vaultysId = VaultysId.fromId(
+    Buffer.from(browserVid, "base64")
+  ).toVersion(1);
   const vid64 = vaultysId.id.toString("base64");
 
-  const result = await UserServerChannel.handleBastionConnect(vid64, ip, userAgent, deviceType);
-  if (!result) return NextResponse.json({ error: "Failed to create bastion certificate" }, { status: 500 });
+  const result = await UserServerChannel.handleBastionConnect(
+    vid64,
+    ip,
+    userAgent,
+    deviceType
+  );
+  if (!result)
+    return NextResponse.json(
+      { error: "Failed to create bastion certificate" },
+      { status: 500 }
+    );
 
   return NextResponse.json(result);
 }

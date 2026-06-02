@@ -231,14 +231,14 @@ function TabBar({
           onClick={() => onChange(tab.id)}
           className={`flex items-center gap-2 px-4 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
             active === tab.id
-              ? "border-indigo-500 text-indigo-400"
+              ? "border-primary-500 text-primary-400"
               : "border-transparent text-foreground-500 hover:text-foreground hover:border-neutral-300"
           }`}
         >
           {tab.icon}
           {tab.label}
           {tab.badge !== undefined && tab.badge > 0 && (
-            <span className="ml-1 inline-flex items-center justify-center min-w-[1.1rem] h-[1.1rem] rounded-full bg-red-500 text-white text-[10px] font-bold px-1">
+            <span className="ml-1 inline-flex items-center justify-center min-w-[1.1rem] h-[1.1rem] rounded-full bg-danger-500 text-white text-[10px] font-bold px-1">
               {tab.badge}
             </span>
           )}
@@ -378,11 +378,11 @@ export default function AgentDetailPage() {
       <div className="p-6 max-w-5xl mx-auto">
         <button
           onClick={() => router.push("/agents")}
-          className="text-indigo-400 hover:text-indigo-300 mb-6 inline-block text-sm"
+          className="text-primary-400 hover:text-primary-300 mb-6 inline-block text-sm"
         >
           ← Back to Agents list
         </button>
-        <div className="bg-red-50 dark:bg-red-900/40 border border-red-300 dark:border-red-700 rounded-lg px-4 py-3 text-red-600 dark:text-red-300">
+        <div className="bg-danger-50 dark:bg-danger-900/40 border border-danger-300 dark:border-danger-700 rounded-lg px-4 py-3 text-danger-600 dark:text-danger-300">
           {error ?? "Agent not found"}
         </div>
       </div>
@@ -422,16 +422,18 @@ export default function AgentDetailPage() {
 
         <div className="bg-background-100 border border-neutral-200 rounded-xl px-5 py-4 flex items-center gap-4">
           {/* Avatar */}
-          <div className="flex-shrink-0 w-11 h-11 rounded-full bg-indigo-600/20 border border-indigo-500/30 flex items-center justify-center">
-            <Bot size={22} className="text-indigo-400" />
+          <div className="flex-shrink-0 w-11 h-11 rounded-full bg-primary-600/20 border border-primary-500/30 flex items-center justify-center">
+            <Bot size={22} className="text-primary-400" />
           </div>
 
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-3 flex-wrap">
-              <h1 className="text-xl font-bold text-foreground">{agent.name}</h1>
+              <h1 className="text-xl font-bold text-foreground">
+                {agent.name}
+              </h1>
               {agent.online ? (
-                <span className="inline-flex items-center gap-1.5 text-xs font-medium text-green-700 dark:text-green-400 bg-green-100 dark:bg-green-500/10 border border-green-300 dark:border-green-500/20 rounded-full px-2.5 py-0.5">
-                  <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
+                <span className="inline-flex items-center gap-1.5 text-xs font-medium text-success-700 dark:text-success-400 bg-success-100 dark:bg-success-500/10 border border-success-300 dark:border-success-500/20 rounded-full px-2.5 py-0.5">
+                  <span className="w-1.5 h-1.5 bg-success-500 rounded-full animate-pulse" />
                   Online
                 </span>
               ) : (
@@ -444,8 +446,8 @@ export default function AgentDetailPage() {
                 <span
                   className={`inline-flex items-center gap-1.5 text-xs font-medium rounded-full px-2.5 py-0.5 border ${
                     agent.transport === "peerjs"
-                      ? "text-violet-700 dark:text-violet-400 bg-violet-100 dark:bg-violet-500/10 border-violet-300 dark:border-violet-500/20"
-                      : "text-sky-700 dark:text-sky-400 bg-sky-100 dark:bg-sky-500/10 border-sky-300 dark:border-sky-500/20"
+                      ? "text-secondary-700 dark:text-secondary-400 bg-secondary-100 dark:bg-secondary-500/10 border-secondary-300 dark:border-secondary-500/20"
+                      : "text-primary-700 dark:text-primary-400 bg-primary-100 dark:bg-primary-500/10 border-primary-300 dark:border-primary-500/20"
                   }`}
                 >
                   {agent.transport === "peerjs" ? "WebRTC" : "WebSocket"}
@@ -456,8 +458,10 @@ export default function AgentDetailPage() {
                   const llm = agent.reportedLlm ?? agent.storedLlm!;
                   return (
                     <span className="inline-flex items-center gap-1.5 text-xs font-medium text-foreground-500 bg-background-200 border border-neutral-300 rounded-full px-2.5 py-0.5">
-                      <Zap size={11} className="text-amber-500" />
-                      <span className="text-foreground-700">{llm.provider}</span>
+                      <Zap size={11} className="text-warning-500" />
+                      <span className="text-foreground-700">
+                        {llm.provider}
+                      </span>
                       <span className="text-foreground-400">/</span>
                       <span className="font-mono">{llm.model}</span>
                     </span>
@@ -472,7 +476,9 @@ export default function AgentDetailPage() {
           {/* Quick stats */}
           <div className="hidden sm:flex gap-6 text-right flex-shrink-0">
             <div>
-              <div className="text-xs text-foreground-500 uppercase">Last seen</div>
+              <div className="text-xs text-foreground-500 uppercase">
+                Last seen
+              </div>
               <div className="text-sm text-foreground">
                 {timeAgo(agent.lastSeen)}
               </div>
@@ -482,7 +488,9 @@ export default function AgentDetailPage() {
                 const llm = agent.reportedLlm ?? agent.storedLlm!;
                 return (
                   <div>
-                    <div className="text-xs text-foreground-500 uppercase">LLM</div>
+                    <div className="text-xs text-foreground-500 uppercase">
+                      LLM
+                    </div>
                     <div className="text-sm text-foreground font-mono">
                       {llm.model}
                     </div>
@@ -503,7 +511,7 @@ export default function AgentDetailPage() {
             <button
               onClick={handleDeleteAgent}
               disabled={deletingAgent}
-              className="ml-4 px-3 py-2 rounded-lg border border-red-300 dark:border-red-700/40 text-red-600 dark:text-red-400 hover:bg-red-500/10 transition-colors disabled:opacity-50 flex items-center gap-2 text-sm font-medium"
+              className="ml-4 px-3 py-2 rounded-lg border border-danger-300 dark:border-danger-700/40 text-danger-600 dark:text-danger-400 hover:bg-danger-500/10 transition-colors disabled:opacity-50 flex items-center gap-2 text-sm font-medium"
               title="Delete agent"
             >
               {deletingAgent ? (
@@ -652,7 +660,7 @@ function OverviewTab({
         <div className="flex justify-between text-xs">
           <span className="text-foreground-500">{label}</span>
           <span
-            className={`font-mono ${danger ? "text-red-600 dark:text-red-400" : warn ? "text-amber-600 dark:text-amber-400" : "text-foreground"}`}
+            className={`font-mono ${danger ? "text-danger-600 dark:text-danger-400" : warn ? "text-warning-600 dark:text-warning-400" : "text-foreground"}`}
           >
             {used.toLocaleString()}
             {budget ? ` / ${budget.toLocaleString()}` : ""}
@@ -661,7 +669,7 @@ function OverviewTab({
         {budget && (
           <div className="h-1.5 bg-background-200 rounded-full overflow-hidden">
             <div
-              className={`h-full rounded-full transition-all ${danger ? "bg-red-500" : warn ? "bg-amber-500" : "bg-indigo-500"}`}
+              className={`h-full rounded-full transition-all ${danger ? "bg-danger-500" : warn ? "bg-warning-500" : "bg-primary-500"}`}
               style={{ width: `${pct}%` }}
             />
           </div>
@@ -710,7 +718,9 @@ function OverviewTab({
             </>
           ) : (
             <>
-              <div className="text-lg font-semibold text-foreground-500">Offline</div>
+              <div className="text-lg font-semibold text-foreground-500">
+                Offline
+              </div>
               <div className="text-xs text-foreground-400 mt-0.5">
                 last seen {timeAgo(agent.lastSeen)}
               </div>
@@ -738,10 +748,10 @@ function OverviewTab({
                 <div
                   className={`h-full rounded-full ${
                     todayUsed / agent.tokenBudgetDaily >= 0.9
-                      ? "bg-red-500"
+                      ? "bg-danger-500"
                       : todayUsed / agent.tokenBudgetDaily >= 0.7
-                        ? "bg-amber-500"
-                        : "bg-indigo-500"
+                        ? "bg-warning-500"
+                        : "bg-primary-500"
                   }`}
                   style={{
                     width: `${Math.min(100, Math.round((todayUsed / agent.tokenBudgetDaily) * 100))}%`,
@@ -751,7 +761,9 @@ function OverviewTab({
             </div>
           )}
           {!agent.tokenBudgetDaily && (
-            <div className="text-xs text-foreground-400 mt-1">no daily limit</div>
+            <div className="text-xs text-foreground-400 mt-1">
+              no daily limit
+            </div>
           )}
         </div>
 
@@ -775,10 +787,10 @@ function OverviewTab({
                 <div
                   className={`h-full rounded-full ${
                     monthUsed / agent.tokenBudgetMonthly >= 0.9
-                      ? "bg-red-500"
+                      ? "bg-danger-500"
                       : monthUsed / agent.tokenBudgetMonthly >= 0.7
-                        ? "bg-amber-500"
-                        : "bg-indigo-500"
+                        ? "bg-warning-500"
+                        : "bg-primary-500"
                   }`}
                   style={{
                     width: `${Math.min(100, Math.round((monthUsed / agent.tokenBudgetMonthly) * 100))}%`,
@@ -788,7 +800,9 @@ function OverviewTab({
             </div>
           )}
           {!agent.tokenBudgetMonthly && (
-            <div className="text-xs text-foreground-400 mt-1">no monthly limit</div>
+            <div className="text-xs text-foreground-400 mt-1">
+              no monthly limit
+            </div>
           )}
         </div>
 
@@ -810,12 +824,12 @@ function OverviewTab({
                 </span>
               </div>
               <div className="flex gap-3 mt-1.5 text-xs">
-                <span className="flex items-center gap-1 text-green-700 dark:text-green-400">
+                <span className="flex items-center gap-1 text-success-700 dark:text-success-400">
                   <CheckCircle2 size={10} />
                   {intentStats.success}
                 </span>
                 {intentStats.failed > 0 && (
-                  <span className="flex items-center gap-1 text-red-600 dark:text-red-400">
+                  <span className="flex items-center gap-1 text-danger-600 dark:text-danger-400">
                     <XCircle size={10} />
                     {intentStats.failed}
                   </span>
@@ -845,11 +859,12 @@ function OverviewTab({
         <div className="bg-background-100 border border-neutral-200 rounded-xl p-5">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-sm font-semibold text-foreground flex items-center gap-1.5">
-              <Activity size={14} className="text-foreground-500" /> Recent Activity
+              <Activity size={14} className="text-foreground-500" /> Recent
+              Activity
             </h2>
             <button
               onClick={() => onTabChange("governance")}
-              className="text-xs text-indigo-500 hover:text-indigo-400 flex items-center gap-0.5 transition-colors"
+              className="text-xs text-primary-500 hover:text-primary-400 flex items-center gap-0.5 transition-colors"
             >
               Full audit <ChevronRight size={12} />
             </button>
@@ -881,12 +896,12 @@ function OverviewTab({
                       <div
                         className={`w-2 h-2 rounded-full ${
                           ev.status === "failed"
-                            ? "bg-red-500"
+                            ? "bg-danger-500"
                             : ev.status === "success"
-                              ? "bg-green-500"
+                              ? "bg-success-500"
                               : isActivity
-                                ? "bg-indigo-500"
-                                : "bg-purple-500"
+                                ? "bg-primary-500"
+                                : "bg-secondary-500"
                         }`}
                       />
                       {i < recentEvents.length - 1 && (
@@ -904,7 +919,7 @@ function OverviewTab({
                         </span>
                       </div>
                       {ev.status === "failed" && ev.error && (
-                        <p className="text-[10px] text-red-600 dark:text-red-400 truncate mt-0.5">
+                        <p className="text-[10px] text-danger-600 dark:text-danger-400 truncate mt-0.5">
                           {ev.error}
                         </p>
                       )}
@@ -920,11 +935,12 @@ function OverviewTab({
         <div className="bg-background-100 border border-neutral-200 rounded-xl p-5">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-sm font-semibold text-foreground flex items-center gap-1.5">
-              <ShieldCheck size={14} className="text-foreground-500" /> Active Policy
+              <ShieldCheck size={14} className="text-foreground-500" /> Active
+              Policy
             </h2>
             <button
               onClick={() => onTabChange("governance")}
-              className="text-xs text-indigo-500 hover:text-indigo-400 flex items-center gap-0.5 transition-colors"
+              className="text-xs text-primary-500 hover:text-primary-400 flex items-center gap-0.5 transition-colors"
             >
               Manage <ChevronRight size={12} />
             </button>
@@ -941,7 +957,7 @@ function OverviewTab({
               </p>
               <button
                 onClick={() => onTabChange("governance")}
-                className="text-xs text-indigo-500 hover:text-indigo-400 transition-colors"
+                className="text-xs text-primary-500 hover:text-primary-400 transition-colors"
               >
                 Create a policy →
               </button>
@@ -957,7 +973,7 @@ function OverviewTab({
                   {activePolicy.capabilities.map((cap) => (
                     <span
                       key={cap}
-                      className="flex items-center gap-1 bg-indigo-100 dark:bg-indigo-900/40 border border-indigo-300 dark:border-indigo-700/40 text-indigo-700 dark:text-indigo-300 px-2 py-0.5 rounded text-xs"
+                      className="flex items-center gap-1 bg-primary-100 dark:bg-primary-900/40 border border-primary-300 dark:border-primary-700/40 text-primary-700 dark:text-primary-300 px-2 py-0.5 rounded text-xs"
                     >
                       {CAPABILITY_ICONS[cap] ?? <Zap size={11} />}
                       {cap.replace(/_/g, " ")}
@@ -1015,8 +1031,8 @@ function OverviewTab({
                 <div
                   className={`flex items-center gap-2 text-xs rounded-lg px-3 py-2 border ${
                     new Date(activePolicy.expiresAt) < new Date()
-                      ? "bg-red-50 dark:bg-red-500/10 border-red-200 dark:border-red-500/20 text-red-600 dark:text-red-400"
-                      : "bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/20 text-amber-700 dark:text-amber-400"
+                      ? "bg-danger-50 dark:bg-danger-500/10 border-danger-200 dark:border-danger-500/20 text-danger-600 dark:text-danger-400"
+                      : "bg-warning-50 dark:bg-warning-500/10 border-warning-200 dark:border-warning-500/20 text-warning-700 dark:text-warning-400"
                   }`}
                 >
                   <CalendarDays size={12} />
@@ -1302,7 +1318,7 @@ function GovernanceTab({
         {!showForm && (
           <button
             onClick={openForm}
-            className="flex items-center gap-1.5 text-xs bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-md transition-colors"
+            className="flex items-center gap-1.5 text-xs bg-primary-600 hover:bg-primary-500 text-white px-3 py-1.5 rounded-md transition-colors"
           >
             <Plus size={13} /> New Policy
           </button>
@@ -1313,7 +1329,9 @@ function GovernanceTab({
       {showForm && (
         <div className="bg-background-200 border border-neutral-200 rounded-xl p-5 space-y-5">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-foreground">New Policy</h3>
+            <h3 className="text-sm font-semibold text-foreground">
+              New Policy
+            </h3>
             <button
               onClick={() => setShowForm(false)}
               className="text-foreground-500 hover:text-foreground"
@@ -1324,7 +1342,9 @@ function GovernanceTab({
 
           {/* Capabilities */}
           <div>
-            <p className="text-xs text-foreground-500 uppercase mb-2">Capabilities</p>
+            <p className="text-xs text-foreground-500 uppercase mb-2">
+              Capabilities
+            </p>
             <div className="flex flex-wrap gap-2">
               {ALL_CAPABILITIES.map((cap) => {
                 const active = formCaps.includes(cap.id);
@@ -1341,7 +1361,7 @@ function GovernanceTab({
                     }
                     className={`px-3 py-1.5 rounded-md text-sm border transition-colors flex items-center gap-1.5 ${
                       active
-                        ? "bg-indigo-100 dark:bg-indigo-900/40 border-indigo-500 text-indigo-700 dark:text-indigo-300"
+                        ? "bg-primary-100 dark:bg-primary-900/40 border-primary-500 text-primary-700 dark:text-primary-300"
                         : "bg-background-100 border-neutral-300 text-foreground-500 hover:border-foreground-500"
                     }`}
                   >
@@ -1357,11 +1377,15 @@ function GovernanceTab({
           <div>
             <p className="text-xs text-foreground-500 uppercase mb-2">
               Resource Limits{" "}
-              <span className="normal-case text-foreground-400">(optional)</span>
+              <span className="normal-case text-foreground-400">
+                (optional)
+              </span>
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <label className="space-y-1">
-                <span className="text-xs text-foreground-500">Max tokens / day</span>
+                <span className="text-xs text-foreground-500">
+                  Max tokens / day
+                </span>
                 <input
                   type="number"
                   min={0}
@@ -1373,7 +1397,7 @@ function GovernanceTab({
                       maxTokensPerDay: e.target.value,
                     }))
                   }
-                  className="w-full bg-background-100 border border-neutral-300 rounded-md px-3 py-1.5 text-sm text-foreground placeholder:text-foreground-400 focus:outline-none focus:border-indigo-500"
+                  className="w-full bg-background-100 border border-neutral-300 rounded-md px-3 py-1.5 text-sm text-foreground placeholder:text-foreground-400 focus:outline-none focus:border-primary-500"
                 />
               </label>
               <label className="space-y-1">
@@ -1391,7 +1415,7 @@ function GovernanceTab({
                       maxRequestsPerHour: e.target.value,
                     }))
                   }
-                  className="w-full bg-background-100 border border-neutral-300 rounded-md px-3 py-1.5 text-sm text-foreground placeholder:text-foreground-400 focus:outline-none focus:border-indigo-500"
+                  className="w-full bg-background-100 border border-neutral-300 rounded-md px-3 py-1.5 text-sm text-foreground placeholder:text-foreground-400 focus:outline-none focus:border-primary-500"
                 />
               </label>
               <label className="space-y-1 sm:col-span-2">
@@ -1409,7 +1433,7 @@ function GovernanceTab({
                       allowedDomains: e.target.value,
                     }))
                   }
-                  className="w-full bg-background-100 border border-neutral-300 rounded-md px-3 py-1.5 text-sm text-foreground placeholder:text-foreground-400 focus:outline-none focus:border-indigo-500"
+                  className="w-full bg-background-100 border border-neutral-300 rounded-md px-3 py-1.5 text-sm text-foreground placeholder:text-foreground-400 focus:outline-none focus:border-primary-500"
                 />
               </label>
             </div>
@@ -1419,18 +1443,20 @@ function GovernanceTab({
           <label className="block space-y-1">
             <span className="text-xs text-foreground-500 uppercase">
               Expiry{" "}
-              <span className="normal-case text-foreground-400">(optional)</span>
+              <span className="normal-case text-foreground-400">
+                (optional)
+              </span>
             </span>
             <input
               type="datetime-local"
               value={formExpiry}
               onChange={(e) => setFormExpiry(e.target.value)}
-              className="bg-background-100 border border-neutral-300 rounded-md px-3 py-1.5 text-sm text-foreground focus:outline-none focus:border-indigo-500"
+              className="bg-background-100 border border-neutral-300 rounded-md px-3 py-1.5 text-sm text-foreground focus:outline-none focus:border-primary-500"
             />
           </label>
 
           {formError && (
-            <p className="text-xs text-red-600 dark:text-red-400 flex items-center gap-1.5">
+            <p className="text-xs text-danger-600 dark:text-danger-400 flex items-center gap-1.5">
               <AlertTriangle size={13} />
               {formError}
             </p>
@@ -1446,7 +1472,7 @@ function GovernanceTab({
             <button
               onClick={savePolicy}
               disabled={formSaving}
-              className="flex items-center gap-1.5 text-xs bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white px-4 py-1.5 rounded-md transition-colors"
+              className="flex items-center gap-1.5 text-xs bg-primary-600 hover:bg-primary-500 disabled:opacity-50 text-white px-4 py-1.5 rounded-md transition-colors"
             >
               {formSaving ? (
                 <Loader2 size={12} className="animate-spin" />
@@ -1484,7 +1510,7 @@ function GovernanceTab({
                     {p.capabilities.map((cap) => (
                       <span
                         key={cap}
-                        className="flex items-center gap-1 bg-indigo-100 dark:bg-indigo-900/40 border border-indigo-300 dark:border-indigo-700/40 text-indigo-700 dark:text-indigo-300 px-2 py-0.5 rounded text-xs"
+                        className="flex items-center gap-1 bg-primary-100 dark:bg-primary-900/40 border border-primary-300 dark:border-primary-700/40 text-primary-700 dark:text-primary-300 px-2 py-0.5 rounded text-xs"
                       >
                         {CAPABILITY_ICONS[cap] ?? <Zap size={11} />}
                         {cap.replace(/_/g, " ")}
@@ -1500,7 +1526,7 @@ function GovernanceTab({
                           <span className="flex items-center gap-1">
                             <TrendingUp
                               size={11}
-                              className="text-amber-600 dark:text-amber-400"
+                              className="text-warning-600 dark:text-warning-400"
                             />
                             {p.resourceLimits.maxTokensPerDay.toLocaleString()}{" "}
                             tokens/day
@@ -1510,7 +1536,7 @@ function GovernanceTab({
                           <span className="flex items-center gap-1">
                             <Clock
                               size={11}
-                              className="text-amber-600 dark:text-amber-400"
+                              className="text-warning-600 dark:text-warning-400"
                             />
                             {p.resourceLimits.maxRequestsPerHour} req/h
                           </span>
@@ -1520,7 +1546,7 @@ function GovernanceTab({
                             <span className="flex items-center gap-1">
                               <Globe
                                 size={11}
-                                className="text-amber-600 dark:text-amber-400"
+                                className="text-warning-600 dark:text-warning-400"
                               />
                               {p.resourceLimits.allowedDomains.join(", ")}
                             </span>
@@ -1545,14 +1571,16 @@ function GovernanceTab({
                         {formatExpiry(p.expiresAt)}
                       </span>
                     )}
-                    <code className="font-mono text-foreground-400/60">{p.id}</code>
+                    <code className="font-mono text-foreground-400/60">
+                      {p.id}
+                    </code>
                   </div>
                 </div>
 
                 <div className="flex-shrink-0 flex items-center gap-1.5">
                   <button
                     onClick={() => openRenew(p)}
-                    className="flex items-center gap-1.5 text-xs text-indigo-600 dark:text-indigo-400 hover:text-indigo-500 border border-indigo-300 dark:border-indigo-500/30 hover:border-indigo-400 px-2.5 py-1.5 rounded-md transition-colors"
+                    className="flex items-center gap-1.5 text-xs text-primary-600 dark:text-primary-400 hover:text-primary-500 border border-primary-300 dark:border-primary-500/30 hover:border-primary-400 px-2.5 py-1.5 rounded-md transition-colors"
                     title="Renew policy"
                   >
                     <RotateCcw size={12} /> Renew
@@ -1560,7 +1588,7 @@ function GovernanceTab({
                   <button
                     onClick={() => revokePolicy(p.id)}
                     disabled={revoking === p.id}
-                    className="flex items-center gap-1.5 text-xs text-red-600 dark:text-red-400 hover:text-red-500 dark:hover:text-red-300 border border-red-300 dark:border-red-500/20 hover:border-red-400 dark:hover:border-red-500/40 px-2.5 py-1.5 rounded-md transition-colors disabled:opacity-50"
+                    className="flex items-center gap-1.5 text-xs text-danger-600 dark:text-danger-400 hover:text-danger-500 dark:hover:text-danger-300 border border-danger-300 dark:border-danger-500/20 hover:border-danger-400 dark:hover:border-danger-500/40 px-2.5 py-1.5 rounded-md transition-colors disabled:opacity-50"
                   >
                     {revoking === p.id ? (
                       <Loader2 size={12} className="animate-spin" />
@@ -1582,7 +1610,8 @@ function GovernanceTab({
           <div className="bg-background-100 border border-neutral-200 rounded-2xl shadow-2xl w-full max-w-sm">
             <div className="flex items-center justify-between px-5 py-4 border-b border-neutral-200">
               <span className="flex items-center gap-2 text-sm font-semibold text-foreground">
-                <RotateCcw size={15} className="text-indigo-500" /> Renew policy
+                <RotateCcw size={15} className="text-primary-500" /> Renew
+                policy
               </span>
               <button
                 onClick={() => setRenewTarget(null)}
@@ -1598,7 +1627,7 @@ function GovernanceTab({
                   {renewTarget.capabilities.map((cap) => (
                     <span
                       key={cap}
-                      className="flex items-center gap-1 bg-indigo-100 dark:bg-indigo-900/40 border border-indigo-300 dark:border-indigo-700/40 text-indigo-700 dark:text-indigo-300 px-2 py-0.5 rounded text-xs"
+                      className="flex items-center gap-1 bg-primary-100 dark:bg-primary-900/40 border border-primary-300 dark:border-primary-700/40 text-primary-700 dark:text-primary-300 px-2 py-0.5 rounded text-xs"
                     >
                       {CAPABILITY_ICONS[cap] ?? <Zap size={11} />}
                       {cap.replace(/_/g, " ")}
@@ -1622,7 +1651,7 @@ function GovernanceTab({
                     </p>
                   )}
                 {renewTarget.expiresAt && (
-                  <p className="text-xs text-amber-600 dark:text-amber-400">
+                  <p className="text-xs text-warning-600 dark:text-warning-400">
                     Original expiry:{" "}
                     {new Date(
                       renewTarget.expiresAt.endsWith("Z")
@@ -1641,7 +1670,7 @@ function GovernanceTab({
                   type="datetime-local"
                   value={renewExpiry}
                   onChange={(e) => setRenewExpiry(e.target.value)}
-                  className="w-full px-3 py-2 bg-background-200 border border-neutral-200 rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full px-3 py-2 bg-background-200 border border-neutral-200 rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary-500"
                 />
                 <div className="flex gap-1.5 mt-1">
                   {([7, 30, 90, 365] as const).map((days) => {
@@ -1653,7 +1682,7 @@ function GovernanceTab({
                         key={days}
                         type="button"
                         onClick={() => setRenewExpiry(val)}
-                        className="text-[11px] px-2 py-0.5 rounded-md border border-neutral-200 text-foreground-500 hover:text-indigo-600 dark:hover:text-indigo-400 hover:border-indigo-400 transition-colors"
+                        className="text-[11px] px-2 py-0.5 rounded-md border border-neutral-200 text-foreground-500 hover:text-primary-600 dark:hover:text-primary-400 hover:border-primary-400 transition-colors"
                       >
                         +{days}d
                       </button>
@@ -1667,14 +1696,14 @@ function GovernanceTab({
                   type="checkbox"
                   checked={renewRevokeOriginal}
                   onChange={(e) => setRenewRevokeOriginal(e.target.checked)}
-                  className="w-4 h-4 rounded accent-indigo-600"
+                  className="w-4 h-4 rounded accent-primary-600"
                 />
                 <span className="text-xs text-foreground-500 group-hover:text-foreground transition-colors">
                   Revoke original policy after renewal
                 </span>
               </label>
               {renewError && (
-                <p className="text-xs text-red-500 dark:text-red-400">
+                <p className="text-xs text-danger-500 dark:text-danger-400">
                   {renewError}
                 </p>
               )}
@@ -1689,7 +1718,7 @@ function GovernanceTab({
               <button
                 onClick={confirmRenew}
                 disabled={renewSaving || !renewExpiry}
-                className="flex items-center gap-1.5 px-4 py-1.5 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                className="flex items-center gap-1.5 px-4 py-1.5 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
               >
                 {renewSaving ? (
                   <Loader2 size={13} className="animate-spin" />
@@ -1725,7 +1754,7 @@ function GovernanceTab({
                   onClick={() => setAuditSourceFilter(s)}
                   className={`px-2.5 py-1 transition-colors ${
                     auditSourceFilter === s
-                      ? "bg-indigo-600 text-white"
+                      ? "bg-primary-600 text-white"
                       : "bg-background-100 text-foreground-500 hover:text-foreground"
                   }`}
                 >
@@ -1741,7 +1770,7 @@ function GovernanceTab({
                   onClick={() => setAuditStatusFilter(s)}
                   className={`px-2.5 py-1 transition-colors ${
                     auditStatusFilter === s
-                      ? "bg-indigo-600 text-white"
+                      ? "bg-primary-600 text-white"
                       : "bg-background-100 text-foreground-500 hover:text-foreground"
                   }`}
                 >
@@ -1818,8 +1847,8 @@ function GovernanceTab({
                               <span
                                 className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium border ${
                                   isActivity
-                                    ? "bg-indigo-100 dark:bg-indigo-500/15 text-indigo-700 dark:text-indigo-400 border-indigo-300 dark:border-indigo-500/25"
-                                    : "bg-purple-100 dark:bg-purple-500/15 text-purple-700 dark:text-purple-400 border-purple-300 dark:border-purple-500/25"
+                                    ? "bg-primary-100 dark:bg-primary-500/15 text-primary-700 dark:text-primary-400 border-primary-300 dark:border-primary-500/25"
+                                    : "bg-secondary-100 dark:bg-secondary-500/15 text-secondary-700 dark:text-secondary-400 border-secondary-300 dark:border-secondary-500/25"
                                 }`}
                               >
                                 {isActivity ? (
@@ -1838,19 +1867,19 @@ function GovernanceTab({
                             {/* Status */}
                             <td className="px-3 py-2.5">
                               {entry.status === "success" && (
-                                <span className="flex items-center gap-1 text-green-700 dark:text-green-400">
+                                <span className="flex items-center gap-1 text-success-700 dark:text-success-400">
                                   <CheckCircle2 size={11} /> success
                                 </span>
                               )}
                               {entry.status === "failed" && (
-                                <span className="flex items-center gap-1 text-red-600 dark:text-red-400">
+                                <span className="flex items-center gap-1 text-danger-600 dark:text-danger-400">
                                   <XCircle size={11} /> failed
                                 </span>
                               )}
                               {entry.status &&
                                 entry.status !== "success" &&
                                 entry.status !== "failed" && (
-                                  <span className="flex items-center gap-1 text-amber-600 dark:text-amber-400">
+                                  <span className="flex items-center gap-1 text-warning-600 dark:text-warning-400">
                                     <Clock size={11} /> {entry.status}
                                   </span>
                                 )}
@@ -2072,7 +2101,9 @@ function TokensTab({ agentId }: { agentId: string }) {
         </div>
       )}
       {tokenError && (
-        <p className="text-red-600 dark:text-red-400 text-sm">{tokenError}</p>
+        <p className="text-danger-600 dark:text-danger-400 text-sm">
+          {tokenError}
+        </p>
       )}
       {!loading && !tokenError && data.length > 0 && (
         <div className="rounded-xl border border-neutral-200 bg-background-100 p-4">
@@ -2109,7 +2140,7 @@ function TokensTab({ agentId }: { agentId: string }) {
               <Bar
                 dataKey="promptTokens"
                 name="Input"
-                fill="#6366f1"
+                fill="primary"
                 radius={[3, 3, 0, 0]}
               />
               <Bar
@@ -2173,8 +2204,8 @@ function ToolApprovalCard({
     approval.status === "approved" || approval.status === "rejected";
   const isSubmitting = approval.status === "submitting";
   return (
-    <div className="mx-auto max-w-[75%] rounded-xl border border-amber-500/30 bg-amber-950/20 p-3 text-sm">
-      <p className="text-xs font-medium text-amber-400 mb-2">
+    <div className="mx-auto max-w-[75%] rounded-xl border border-warning-500/30 bg-warning-950/20 p-3 text-sm">
+      <p className="text-xs font-medium text-warning-400 mb-2">
         Tool approval required:{" "}
         <span className="font-mono">{approval.toolName}</span>
       </p>
@@ -2190,8 +2221,8 @@ function ToolApprovalCard({
         <span
           className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ${
             approval.status === "approved"
-              ? "bg-emerald-950/40 text-emerald-400 border border-emerald-500/30"
-              : "bg-red-950/40 text-red-400 border border-red-500/30"
+              ? "bg-success-950/40 text-success-400 border border-success-500/30"
+              : "bg-danger-950/40 text-danger-400 border border-danger-500/30"
           }`}
         >
           {approval.status === "approved" ? (
@@ -2206,7 +2237,7 @@ function ToolApprovalCard({
           <button
             disabled={isSubmitting}
             onClick={() => onRespond(true)}
-            className="flex items-center gap-1 px-3 py-1 text-xs rounded-lg bg-emerald-600 text-white hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="flex items-center gap-1 px-3 py-1 text-xs rounded-lg bg-success-600 text-white hover:bg-success-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             {isSubmitting ? (
               <Loader2 size={11} className="animate-spin" />
@@ -2218,7 +2249,7 @@ function ToolApprovalCard({
           <button
             disabled={isSubmitting}
             onClick={() => onRespond(false)}
-            className="flex items-center gap-1 px-3 py-1 text-xs rounded-lg bg-red-700 text-white hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="flex items-center gap-1 px-3 py-1 text-xs rounded-lg bg-danger-700 text-white hover:bg-danger-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             {isSubmitting ? (
               <Loader2 size={11} className="animate-spin" />
@@ -2478,7 +2509,7 @@ function ChatTab({
           </span>
           <button
             onClick={startNew}
-            className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors font-medium"
+            className="text-xs text-primary-400 hover:text-primary-300 transition-colors font-medium"
           >
             + New
           </button>
@@ -2495,7 +2526,7 @@ function ChatTab({
               onClick={() => loadSession(s.id)}
               className={`w-full text-left px-2 py-2 border-b border-neutral-200/50 hover:bg-background-100 transition-colors ${
                 activeSessionId === s.id
-                  ? "bg-indigo-900/20 border-l-2 border-l-indigo-500"
+                  ? "bg-primary-900/20 border-l-2 border-l-indigo-500"
                   : ""
               }`}
             >
@@ -2532,7 +2563,7 @@ function ChatTab({
           {messages.length > 0 && (
             <button
               onClick={startNew}
-              className="flex items-center gap-1.5 text-xs text-foreground-500 hover:text-red-400 transition-colors"
+              className="flex items-center gap-1.5 text-xs text-foreground-500 hover:text-danger-400 transition-colors"
             >
               <Trash2 size={13} />
               Clear
@@ -2559,7 +2590,7 @@ function ChatTab({
               <div
                 className={`max-w-[75%] rounded-xl px-4 py-2.5 text-sm leading-relaxed prose prose-sm prose-invert max-w-none ${
                   msg.role === "user"
-                    ? "bg-indigo-600/25 text-foreground rounded-br-sm prose-headings:text-foreground prose-p:m-0 prose-ul:m-0 prose-ol:m-0 prose-li:m-0 prose-code:text-foreground prose-code:bg-indigo-950/30 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-pre:bg-indigo-950/30 prose-pre:border prose-pre:border-indigo-500/20 prose-pre:text-indigo-100"
+                    ? "bg-primary-600/25 text-foreground rounded-br-sm prose-headings:text-foreground prose-p:m-0 prose-ul:m-0 prose-ol:m-0 prose-li:m-0 prose-code:text-foreground prose-code:bg-primary-950/30 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-pre:bg-primary-950/30 prose-pre:border prose-pre:border-primary-500/20 prose-pre:text-primary-100"
                     : "bg-background-200 border border-neutral-200 text-foreground rounded-bl-sm prose-headings:text-foreground prose-p:m-0 prose-ul:m-0 prose-ol:m-0 prose-li:m-0 prose-code:text-foreground prose-code:bg-background prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-pre:bg-background prose-pre:border prose-pre:border-neutral-200 prose-pre:text-foreground"
                 }`}
               >
@@ -2584,7 +2615,7 @@ function ChatTab({
                         <code
                           className={`px-1 py-0.5 rounded text-sm font-mono ${
                             msg.role === "user"
-                              ? "bg-indigo-950/30 text-indigo-200"
+                              ? "bg-primary-950/30 text-primary-200"
                               : "bg-background text-foreground"
                           }`}
                         >
@@ -2595,7 +2626,7 @@ function ChatTab({
                         <pre
                           className={`p-2 rounded text-xs overflow-x-auto my-1 border ${
                             msg.role === "user"
-                              ? "bg-indigo-950/30 border-indigo-500/20 text-indigo-100"
+                              ? "bg-primary-950/30 border-primary-500/20 text-primary-100"
                               : "bg-background border-neutral-200 text-foreground"
                           }`}
                         >
@@ -2621,7 +2652,7 @@ function ChatTab({
                         <blockquote
                           className={`pl-2 border-l-2 my-1 ${
                             msg.role === "user"
-                              ? "border-indigo-500/50"
+                              ? "border-primary-500/50"
                               : "border-neutral-200"
                           }`}
                         >
@@ -2631,7 +2662,7 @@ function ChatTab({
                       a: ({ children, href }) => (
                         <a
                           href={href}
-                          className="text-blue-400 underline hover:text-blue-300"
+                          className="text-primary-400 underline hover:text-primary-300"
                           target="_blank"
                           rel="noopener noreferrer"
                         >
@@ -2735,12 +2766,12 @@ function ChatTab({
               placeholder="Type a message… (Enter to send, Shift+Enter for newline)"
               rows={1}
               disabled={isStreaming}
-              className="flex-1 resize-none bg-background-200 border border-neutral-200 rounded-lg px-4 py-2.5 text-sm text-foreground placeholder:text-foreground-500 focus:outline-none focus:ring-1 focus:ring-indigo-500/50"
+              className="flex-1 resize-none bg-background-200 border border-neutral-200 rounded-lg px-4 py-2.5 text-sm text-foreground placeholder:text-foreground-500 focus:outline-none focus:ring-1 focus:ring-primary-500/50"
             />
             <button
               onClick={() => sendMessage(input)}
               disabled={!input.trim() || isStreaming}
-              className="flex items-center justify-center w-10 h-10 rounded-lg bg-indigo-600 text-white disabled:opacity-40 disabled:cursor-not-allowed hover:bg-indigo-500 transition-colors"
+              className="flex items-center justify-center w-10 h-10 rounded-lg bg-primary-600 text-white disabled:opacity-40 disabled:cursor-not-allowed hover:bg-primary-500 transition-colors"
             >
               {isStreaming ? (
                 <Loader2 size={17} className="animate-spin" />
@@ -2811,15 +2842,15 @@ interface RealmLlmData {
 
 const PROVIDER_COLORS: Record<string, string> = {
   openai:
-    "bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400 border-emerald-300 dark:border-emerald-800",
+    "bg-success-100 dark:bg-success-900/40 text-success-700 dark:text-success-400 border-success-300 dark:border-success-800",
   "openai-compatible":
-    "bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400 border-blue-300 dark:border-blue-800",
+    "bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-400 border-primary-300 dark:border-primary-800",
   anthropic:
-    "bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-400 border-orange-300 dark:border-orange-800",
+    "bg-warning-100 dark:bg-warning-900/40 text-warning-700 dark:text-warning-400 border-warning-300 dark:border-warning-800",
   google:
-    "bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700 dark:text-yellow-400 border-yellow-300 dark:border-yellow-800",
+    "bg-warning-100 dark:bg-warning-900/40 text-warning-700 dark:text-warning-400 border-warning-300 dark:border-warning-800",
   ollama:
-    "bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-400 border-purple-300 dark:border-purple-800",
+    "bg-secondary-100 dark:bg-secondary-900/40 text-secondary-700 dark:text-secondary-400 border-secondary-300 dark:border-secondary-800",
 };
 
 function ConfigTab({
@@ -3069,7 +3100,8 @@ function ConfigTab({
     realmLlmData.realms.some((r) => r.hasVirtualKey && r.models.length > 0)
   );
 
-  if (llmLoading) return <p className="text-foreground-500 text-sm">Loading…</p>;
+  if (llmLoading)
+    return <p className="text-foreground-500 text-sm">Loading…</p>;
 
   return (
     <div className="space-y-5">
@@ -3080,7 +3112,7 @@ function ConfigTab({
             Agent Active LLM
           </div>
           <div className="flex items-center gap-3">
-            <code className="text-sm font-mono text-indigo-400">
+            <code className="text-sm font-mono text-primary-400">
               {reportedLlm.provider}/{reportedLlm.model}
             </code>
             <span className="text-xs text-foreground-400">
@@ -3129,14 +3161,14 @@ function ConfigTab({
                       setLlmSaving(false);
                     }
                   }}
-                  className="text-xs text-red-400 hover:text-red-300 border border-red-500/30 px-2.5 py-1.5 rounded-md transition-colors"
+                  className="text-xs text-danger-400 hover:text-danger-300 border border-danger-500/30 px-2.5 py-1.5 rounded-md transition-colors"
                 >
                   Clear
                 </button>
               )}
               <button
                 onClick={openEdit}
-                className="text-xs text-indigo-400 hover:text-indigo-300 border border-indigo-500/30 px-2.5 py-1.5 rounded-md transition-colors"
+                className="text-xs text-primary-400 hover:text-primary-300 border border-primary-500/30 px-2.5 py-1.5 rounded-md transition-colors"
               >
                 {llmConfig ? "Edit" : "Configure"}
               </button>
@@ -3176,7 +3208,7 @@ function ConfigTab({
                   disabled={disabled}
                   className={`flex-1 py-2 text-xs font-medium transition-colors ${
                     configMode === id
-                      ? "bg-indigo-600 text-white"
+                      ? "bg-primary-600 text-white"
                       : disabled
                         ? "bg-background text-foreground-400 cursor-not-allowed"
                         : "bg-background text-foreground-500 hover:text-foreground hover:bg-background-200"
@@ -3201,7 +3233,7 @@ function ConfigTab({
                       <div className="flex items-center gap-2 text-xs text-foreground-500 font-medium uppercase tracking-wider">
                         <span>{realm.realmName}</span>
                         {realm.isPrimary && (
-                          <span className="px-1.5 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-400 border border-indigo-300 dark:border-indigo-700 text-[10px] font-semibold">
+                          <span className="px-1.5 py-0.5 rounded-full bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-400 border border-primary-300 dark:border-primary-700 text-[10px] font-semibold">
                             Primary
                           </span>
                         )}
@@ -3212,7 +3244,7 @@ function ConfigTab({
                           className={`flex items-center gap-3 px-3 py-3 rounded-xl border cursor-pointer transition-colors ${
                             selectedRealmId === realm.realmId &&
                             selectedRealmModelId === model.id
-                              ? "border-indigo-500 bg-indigo-50 dark:bg-indigo-950/30"
+                              ? "border-primary-500 bg-primary-50 dark:bg-primary-950/30"
                               : "border-neutral-200 hover:border-neutral-300 hover:bg-background-200/50"
                           }`}
                         >
@@ -3227,7 +3259,7 @@ function ConfigTab({
                               setSelectedRealmId(realm.realmId);
                               setSelectedRealmModelId(model.id);
                             }}
-                            className="accent-indigo-600 shrink-0"
+                            className="accent-primary-600 shrink-0"
                           />
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 flex-wrap">
@@ -3235,7 +3267,7 @@ function ConfigTab({
                                 {model.name}
                               </span>
                               <span
-                                className={`text-xs px-1.5 py-0.5 rounded-full border font-medium ${PROVIDER_COLORS[model.provider] ?? "bg-gray-100 dark:bg-zinc-800 text-gray-600 dark:text-zinc-400 border-gray-300 dark:border-zinc-700"}`}
+                                className={`text-xs px-1.5 py-0.5 rounded-full border font-medium ${PROVIDER_COLORS[model.provider] ?? "bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 border-neutral-300 dark:border-neutral-700"}`}
                               >
                                 {model.provider}
                               </span>
@@ -3264,7 +3296,7 @@ function ConfigTab({
                       !selectedRealmId || !selectedRealmModelId || llmSaving
                     }
                     onClick={saveRealmRouting}
-                    className="px-4 py-1.5 text-sm font-medium rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white disabled:opacity-40 transition"
+                    className="px-4 py-1.5 text-sm font-medium rounded-lg bg-primary-600 hover:bg-primary-500 text-white disabled:opacity-40 transition"
                   >
                     {llmSaving ? "Saving…" : "Use realm routing"}
                   </button>
@@ -3295,7 +3327,7 @@ function ConfigTab({
                           key={m.id}
                           className={`flex items-center gap-3 px-3 py-3 rounded-xl border cursor-pointer transition-colors ${
                             selectedRegistryId === m.id
-                              ? "border-indigo-500 bg-indigo-50 dark:bg-indigo-950/30"
+                              ? "border-primary-500 bg-primary-50 dark:bg-primary-950/30"
                               : "border-neutral-200 hover:border-neutral-300 hover:bg-background-200/50"
                           }`}
                         >
@@ -3305,7 +3337,7 @@ function ConfigTab({
                             value={m.id}
                             checked={selectedRegistryId === m.id}
                             onChange={() => setSelectedRegistryId(m.id)}
-                            className="accent-indigo-600 shrink-0"
+                            className="accent-primary-600 shrink-0"
                           />
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 flex-wrap">
@@ -3313,7 +3345,7 @@ function ConfigTab({
                                 {m.name}
                               </span>
                               <span
-                                className={`text-xs px-1.5 py-0.5 rounded-full border font-medium ${PROVIDER_COLORS[m.provider] ?? "bg-gray-100 dark:bg-zinc-800 text-gray-600 dark:text-zinc-400 border-gray-300 dark:border-zinc-700"}`}
+                                className={`text-xs px-1.5 py-0.5 rounded-full border font-medium ${PROVIDER_COLORS[m.provider] ?? "bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 border-neutral-300 dark:border-neutral-700"}`}
                               >
                                 {m.provider}
                               </span>
@@ -3345,7 +3377,7 @@ function ConfigTab({
                   <button
                     disabled={!selectedRegistryId || llmSaving}
                     onClick={saveRegistryModel}
-                    className="px-4 py-1.5 text-sm font-medium rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white disabled:opacity-40 transition"
+                    className="px-4 py-1.5 text-sm font-medium rounded-lg bg-primary-600 hover:bg-primary-500 text-white disabled:opacity-40 transition"
                   >
                     {llmSaving ? "Saving…" : "Use this model"}
                   </button>
@@ -3372,7 +3404,7 @@ function ConfigTab({
                           provider: e.target.value as LlmProviderType,
                         }))
                       }
-                      className="w-full bg-background-200 border border-neutral-300 rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                      className="w-full bg-background-200 border border-neutral-300 rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary-500/50"
                     >
                       {PROVIDER_OPTIONS.map((p) => (
                         <option key={p.value} value={p.value}>
@@ -3403,7 +3435,7 @@ function ConfigTab({
                                 ? "llama3.2"
                                 : "model-name"
                       }
-                      className="w-full bg-background-200 border border-neutral-300 rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-foreground-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                      className="w-full bg-background-200 border border-neutral-300 rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-foreground-400 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
                     />
                   </div>
                   {selectedProvider.needsKey && (
@@ -3411,7 +3443,7 @@ function ConfigTab({
                       <label className="text-xs text-foreground-500 uppercase tracking-wider font-medium block mb-1.5">
                         API Key{" "}
                         {llmConfig?.apiKeySet && (
-                          <span className="text-emerald-500 normal-case">
+                          <span className="text-success-500 normal-case">
                             (stored — leave blank to keep)
                           </span>
                         )}
@@ -3425,7 +3457,7 @@ function ConfigTab({
                         placeholder={
                           llmConfig?.apiKeySet ? "••••••••••••••••" : "sk-…"
                         }
-                        className="w-full bg-background-200 border border-neutral-300 rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-foreground-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                        className="w-full bg-background-200 border border-neutral-300 rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-foreground-400 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
                       />
                     </div>
                   )}
@@ -3445,7 +3477,7 @@ function ConfigTab({
                             ? "http://localhost:11434/api"
                             : "http://localhost:1234/v1"
                         }
-                        className="w-full bg-background-200 border border-neutral-300 rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-foreground-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                        className="w-full bg-background-200 border border-neutral-300 rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-foreground-400 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
                       />
                     </div>
                   )}
@@ -3464,7 +3496,7 @@ function ConfigTab({
                         setLlmForm((f) => ({ ...f, maxTokens: e.target.value }))
                       }
                       placeholder="4096"
-                      className="w-full bg-background-200 border border-neutral-300 rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-foreground-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                      className="w-full bg-background-200 border border-neutral-300 rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-foreground-400 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
                     />
                   </div>
                 </div>
@@ -3485,7 +3517,7 @@ function ConfigTab({
                       }))
                     }
                     placeholder="You are a secure agent…"
-                    className="w-full bg-background-200 border border-neutral-300 rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-foreground-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 resize-y"
+                    className="w-full bg-background-200 border border-neutral-300 rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-foreground-400 focus:outline-none focus:ring-2 focus:ring-primary-500/50 resize-y"
                   />
                 </div>
                 <div className="flex items-center gap-3">
@@ -3502,7 +3534,7 @@ function ConfigTab({
                   <button
                     type="submit"
                     disabled={llmSaving}
-                    className="px-4 py-1.5 text-sm font-medium rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white disabled:opacity-40 transition"
+                    className="px-4 py-1.5 text-sm font-medium rounded-lg bg-primary-600 hover:bg-primary-500 text-white disabled:opacity-40 transition"
                   >
                     {llmSaving ? "Saving…" : "Save & Push to Agent"}
                   </button>
@@ -3514,8 +3546,8 @@ function ConfigTab({
           <div className="divide-y divide-neutral-200">
             {/* Realm routing banner when applicable */}
             {activeRealmRoute && (
-              <div className="flex items-center gap-3 px-4 py-3 bg-violet-50 dark:bg-violet-950/30">
-                <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-violet-100 dark:bg-violet-900/60 text-violet-700 dark:text-violet-300 border border-violet-300 dark:border-violet-700 shrink-0">
+              <div className="flex items-center gap-3 px-4 py-3 bg-secondary-50 dark:bg-secondary-950/30">
+                <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-secondary-100 dark:bg-secondary-900/60 text-secondary-700 dark:text-secondary-300 border border-secondary-300 dark:border-secondary-700 shrink-0">
                   Realm Routing
                 </span>
                 <span className="text-sm text-foreground font-medium">
@@ -3526,7 +3558,7 @@ function ConfigTab({
                 </span>
                 <a
                   href={`/models/${activeRealmRoute.model.id}`}
-                  className="ml-auto text-xs text-violet-500 hover:text-violet-400 transition-colors shrink-0"
+                  className="ml-auto text-xs text-secondary-500 hover:text-secondary-400 transition-colors shrink-0"
                 >
                   View model →
                 </a>
@@ -3534,8 +3566,8 @@ function ConfigTab({
             )}
             {/* Registry model banner when applicable */}
             {!activeRealmRoute && activeRegistryModel && (
-              <div className="flex items-center gap-3 px-4 py-3 bg-indigo-50 dark:bg-indigo-950/30">
-                <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 border border-indigo-300 dark:border-indigo-700 shrink-0">
+              <div className="flex items-center gap-3 px-4 py-3 bg-primary-50 dark:bg-primary-950/30">
+                <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-primary-100 dark:bg-primary-900/60 text-primary-700 dark:text-primary-300 border border-primary-300 dark:border-primary-700 shrink-0">
                   Registry
                 </span>
                 <span className="text-sm text-foreground font-medium">
@@ -3543,7 +3575,7 @@ function ConfigTab({
                 </span>
                 <a
                   href={`/models/${activeRegistryModel.id}`}
-                  className="ml-auto text-xs text-indigo-400 hover:text-indigo-300 transition-colors shrink-0"
+                  className="ml-auto text-xs text-primary-400 hover:text-primary-300 transition-colors shrink-0"
                 >
                   View model →
                 </a>
@@ -3575,7 +3607,7 @@ function ConfigTab({
               {
                 label: "API Key",
                 value: llmConfig.apiKeySet ? (
-                  <span className="text-emerald-600 dark:text-emerald-500">
+                  <span className="text-success-600 dark:text-success-500">
                     Stored
                   </span>
                 ) : (
@@ -3643,17 +3675,17 @@ function ConfigTab({
       </div>
 
       {llmStatus === "saved" && (
-        <p className="text-emerald-600 dark:text-emerald-500 text-xs">
+        <p className="text-success-600 dark:text-success-500 text-xs">
           ✓ Config saved and pushed to agent
         </p>
       )}
       {llmStatus === "cleared" && (
-        <p className="text-emerald-600 dark:text-emerald-500 text-xs">
+        <p className="text-success-600 dark:text-success-500 text-xs">
           ✓ Config cleared
         </p>
       )}
       {llmStatus === "error" && (
-        <p className="text-red-500 text-xs">Failed to update config</p>
+        <p className="text-danger-500 text-xs">Failed to update config</p>
       )}
     </div>
   );
@@ -3706,18 +3738,18 @@ function TaskSection({ agentId }: { agentId: string }) {
           onChange={(e) => setAction(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && enqueue()}
           placeholder="Task action…"
-          className="flex-1 px-3 py-2 text-sm bg-background-200 border border-neutral-200 rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-indigo-500/50"
+          className="flex-1 px-3 py-2 text-sm bg-background-200 border border-neutral-200 rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary-500/50"
         />
         <button
           onClick={enqueue}
-          className="px-4 py-2 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-500 transition-colors"
+          className="px-4 py-2 text-sm bg-primary-600 text-white rounded-lg hover:bg-primary-500 transition-colors"
         >
           Send
         </button>
       </div>
       {status && (
         <p
-          className={`mt-2 text-xs ${status.startsWith("Error") ? "text-red-600 dark:text-red-400" : "text-emerald-700 dark:text-emerald-400"}`}
+          className={`mt-2 text-xs ${status.startsWith("Error") ? "text-danger-600 dark:text-danger-400" : "text-success-700 dark:text-success-400"}`}
         >
           {status}
         </p>
@@ -3739,7 +3771,7 @@ function ScheduleSection({ agentId }: { agentId: string }) {
         value={form[key]}
         onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
         placeholder={key === "cron" ? "*/5 * * * *" : placeholder}
-        className="w-full px-3 py-2 text-sm bg-background-200 border border-neutral-200 rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-indigo-500/50"
+        className="w-full px-3 py-2 text-sm bg-background-200 border border-neutral-200 rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary-500/50"
       />
     </div>
   );
@@ -3795,20 +3827,20 @@ function ScheduleSection({ agentId }: { agentId: string }) {
       <div className="flex gap-2">
         <button
           onClick={upsert}
-          className="px-4 py-2 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-500 transition-colors"
+          className="px-4 py-2 text-sm bg-primary-600 text-white rounded-lg hover:bg-primary-500 transition-colors"
         >
           Upsert
         </button>
         <button
           onClick={del}
-          className="px-4 py-2 text-sm bg-red-600/80 text-white rounded-lg hover:bg-red-600 transition-colors"
+          className="px-4 py-2 text-sm bg-danger-600/80 text-white rounded-lg hover:bg-danger-600 transition-colors"
         >
           Delete by ID
         </button>
       </div>
       {status && (
         <p
-          className={`mt-2 text-xs ${status.startsWith("Error") ? "text-red-600 dark:text-red-400" : "text-emerald-700 dark:text-emerald-400"}`}
+          className={`mt-2 text-xs ${status.startsWith("Error") ? "text-danger-600 dark:text-danger-400" : "text-success-700 dark:text-success-400"}`}
         >
           {status}
         </p>
@@ -3906,13 +3938,13 @@ function ApprovalsTab({
                 <div className="flex gap-2">
                   <button
                     onClick={() => respond(a.requestId, true)}
-                    className="px-3 py-1 text-xs bg-green-600 text-white rounded-md hover:bg-green-500 transition-colors"
+                    className="px-3 py-1 text-xs bg-success-600 text-white rounded-md hover:bg-success-500 transition-colors"
                   >
                     Approve
                   </button>
                   <button
                     onClick={() => respond(a.requestId, false)}
-                    className="px-3 py-1 text-xs bg-red-600/80 text-white rounded-md hover:bg-red-600 transition-colors"
+                    className="px-3 py-1 text-xs bg-danger-600/80 text-white rounded-md hover:bg-danger-600 transition-colors"
                   >
                     Reject
                   </button>
@@ -3945,14 +3977,14 @@ function AgentChatErrorBanner({
 }) {
   if (code === "llm_unavailable") {
     return (
-      <div className="flex items-start gap-2 bg-amber-50 dark:bg-amber-500/10 border border-amber-300 dark:border-amber-500/30 text-amber-700 dark:text-amber-300 rounded-lg px-3 py-2.5 text-xs">
+      <div className="flex items-start gap-2 bg-warning-50 dark:bg-warning-500/10 border border-warning-300 dark:border-warning-500/30 text-warning-700 dark:text-warning-300 rounded-lg px-3 py-2.5 text-xs">
         <WifiOff size={13} className="mt-0.5 shrink-0" />
         <div className="min-w-0">
           <p className="font-medium">LLM provider unreachable</p>
-          <p className="text-amber-600/80 dark:text-amber-400/70 mt-0.5 break-words">
+          <p className="text-warning-600/80 dark:text-warning-400/70 mt-0.5 break-words">
             {message}
           </p>
-          <p className="text-amber-600/60 dark:text-amber-400/50 mt-1">
+          <p className="text-warning-600/60 dark:text-warning-400/50 mt-1">
             Update the LLM config in the <strong>Settings</strong> tab.
           </p>
         </div>
@@ -3961,14 +3993,14 @@ function AgentChatErrorBanner({
   }
   if (code === "agent_offline") {
     return (
-      <div className="flex items-center gap-2 bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 text-red-700 dark:text-red-400 rounded-lg px-3 py-2 text-xs">
+      <div className="flex items-center gap-2 bg-danger-50 dark:bg-danger-500/10 border border-danger-200 dark:border-danger-500/20 text-danger-700 dark:text-danger-400 rounded-lg px-3 py-2 text-xs">
         <WifiOff size={13} className="shrink-0" />
         <span>Agent disconnected — waiting to reconnect</span>
       </div>
     );
   }
   return (
-    <div className="text-center text-xs text-red-700 dark:text-red-400 bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 rounded-lg px-4 py-2">
+    <div className="text-center text-xs text-danger-700 dark:text-danger-400 bg-danger-50 dark:bg-danger-500/10 border border-danger-200 dark:border-danger-500/20 rounded-lg px-4 py-2">
       {message}
     </div>
   );
@@ -4010,22 +4042,22 @@ function KsStatusBadge({ status }: { status: KnowledgeSource["status"] }) {
     idle: {
       icon: <Clock size={12} />,
       label: "Idle",
-      cls: "bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 border-zinc-300 dark:border-zinc-700",
+      cls: "bg-neutral-100 dark:bg-neutral-800 text-neutral-500 dark:text-neutral-400 border-neutral-300 dark:border-neutral-700",
     },
     syncing: {
       icon: <Loader2 size={12} className="animate-spin" />,
       label: "Syncing",
-      cls: "bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400 border-blue-300 dark:border-blue-800",
+      cls: "bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-400 border-primary-300 dark:border-primary-800",
     },
     ready: {
       icon: <CheckCircle2 size={12} />,
       label: "Ready",
-      cls: "bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400 border-green-300 dark:border-green-800",
+      cls: "bg-success-100 dark:bg-success-900/40 text-success-700 dark:text-success-400 border-success-300 dark:border-success-800",
     },
     error: {
       icon: <XCircle size={12} />,
       label: "Error",
-      cls: "bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-400 border-red-300 dark:border-red-800",
+      cls: "bg-danger-100 dark:bg-danger-900/40 text-danger-700 dark:text-danger-400 border-danger-300 dark:border-danger-800",
     },
   };
   const { icon, label, cls } = map[status] ?? map.idle;
@@ -4046,17 +4078,17 @@ function KsTypeBadge({ type }: { type: string }) {
     url: {
       icon: <Globe size={12} />,
       label: "URL",
-      cls: "bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-400 border-indigo-300 dark:border-indigo-800",
+      cls: "bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-400 border-primary-300 dark:border-primary-800",
     },
     text: {
       icon: <FileText size={12} />,
       label: "Text",
-      cls: "bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 border-amber-300 dark:border-amber-800",
+      cls: "bg-warning-100 dark:bg-warning-900/40 text-warning-700 dark:text-warning-400 border-warning-300 dark:border-warning-800",
     },
     files: {
       icon: <FileType2 size={12} />,
       label: "Documents",
-      cls: "bg-teal-100 dark:bg-teal-900/40 text-teal-700 dark:text-teal-400 border-teal-300 dark:border-teal-800",
+      cls: "bg-success-100 dark:bg-success-900/40 text-success-700 dark:text-success-400 border-success-300 dark:border-success-800",
     },
   };
   const { icon, label, cls } = map[type] ?? map.url;
@@ -4088,13 +4120,13 @@ function relativeTime(isoString: string | null): string {
 
 function mimeIcon(mime: string): React.ReactNode {
   if (mime === "application/pdf")
-    return <FileType2 size={13} className="text-red-400 shrink-0" />;
+    return <FileType2 size={13} className="text-danger-400 shrink-0" />;
   if (mime.includes("word") || mime.includes("document"))
-    return <FileText size={13} className="text-blue-400 shrink-0" />;
+    return <FileText size={13} className="text-primary-400 shrink-0" />;
   if (mime === "text/markdown" || mime === "text/plain")
-    return <FileText size={13} className="text-zinc-400 shrink-0" />;
+    return <FileText size={13} className="text-neutral-400 shrink-0" />;
   if (mime === "text/csv")
-    return <Layers size={13} className="text-green-400 shrink-0" />;
+    return <Layers size={13} className="text-success-400 shrink-0" />;
   return <File size={13} className="text-foreground-400 shrink-0" />;
 }
 
@@ -4138,13 +4170,13 @@ function FileDropzone({ files, onAdd, onRemove }: FileDropzoneProps) {
         onClick={() => inputRef.current?.click()}
         className={`flex flex-col items-center justify-center gap-2 px-4 py-8 rounded-xl border-2 border-dashed cursor-pointer transition-colors ${
           dragging
-            ? "border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20"
-            : "border-neutral-200 hover:border-indigo-400 hover:bg-background-200/40 bg-background"
+            ? "border-primary-500 bg-primary-50 dark:bg-primary-900/20"
+            : "border-neutral-200 hover:border-primary-400 hover:bg-background-200/40 bg-background"
         }`}
       >
         <Upload
           size={22}
-          className={dragging ? "text-indigo-500" : "text-foreground-400"}
+          className={dragging ? "text-primary-500" : "text-foreground-400"}
         />
         <div className="text-center">
           <p className="text-sm font-medium text-foreground">
@@ -4173,7 +4205,7 @@ function FileDropzone({ files, onAdd, onRemove }: FileDropzoneProps) {
                 key={`${f.name}-${i}`}
                 className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-xs ${
                   oversized
-                    ? "border-red-300 dark:border-red-700 bg-red-50 dark:bg-red-900/20"
+                    ? "border-danger-300 dark:border-danger-700 bg-danger-50 dark:bg-danger-900/20"
                     : "border-neutral-200 bg-background-200/40"
                 }`}
               >
@@ -4181,29 +4213,29 @@ function FileDropzone({ files, onAdd, onRemove }: FileDropzoneProps) {
                   size={13}
                   className={
                     oversized
-                      ? "text-red-400 shrink-0"
+                      ? "text-danger-400 shrink-0"
                       : "text-foreground-400 shrink-0"
                   }
                 />
                 <span
-                  className={`flex-1 truncate ${oversized ? "text-red-600 dark:text-red-400" : "text-foreground"}`}
+                  className={`flex-1 truncate ${oversized ? "text-danger-600 dark:text-danger-400" : "text-foreground"}`}
                 >
                   {f.name}
                 </span>
                 <span
-                  className={`shrink-0 ${oversized ? "text-red-500" : "text-foreground-500"}`}
+                  className={`shrink-0 ${oversized ? "text-danger-500" : "text-foreground-500"}`}
                 >
                   {formatBytes(f.size)}
                 </span>
                 {oversized && (
-                  <span className="shrink-0 text-red-500 font-medium">
+                  <span className="shrink-0 text-danger-500 font-medium">
                     Too large
                   </span>
                 )}
                 <button
                   type="button"
                   onClick={() => onRemove(i)}
-                  className="shrink-0 text-foreground-400 hover:text-red-500 transition-colors"
+                  className="shrink-0 text-foreground-400 hover:text-danger-500 transition-colors"
                 >
                   <X size={13} />
                 </button>
@@ -4254,9 +4286,9 @@ function KsSourceCard({
   }
 
   const typeIconMap: Record<string, React.ReactNode> = {
-    url: <Globe size={16} className="text-indigo-400" />,
-    text: <FileText size={16} className="text-amber-400" />,
-    files: <FileType2 size={16} className="text-teal-400" />,
+    url: <Globe size={16} className="text-primary-400" />,
+    text: <FileText size={16} className="text-warning-400" />,
+    files: <FileType2 size={16} className="text-success-400" />,
   };
   const typeIcon = typeIconMap[source.source_type] ?? (
     <File size={16} className="text-foreground-400" />
@@ -4327,7 +4359,7 @@ function KsSourceCard({
             onClick={onSync}
             disabled={isSyncing || isDeleting || !online}
             title={online ? "Sync now" : "Agent offline"}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-foreground-500 hover:text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 disabled:opacity-40 border border-neutral-200 hover:border-indigo-300 dark:hover:border-indigo-700 transition-colors"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-foreground-500 hover:text-primary-500 hover:bg-primary-50 dark:hover:bg-primary-900/20 disabled:opacity-40 border border-neutral-200 hover:border-primary-300 dark:hover:border-primary-700 transition-colors"
           >
             {isSyncing ? (
               <Loader2 size={13} className="animate-spin" />
@@ -4340,7 +4372,7 @@ function KsSourceCard({
             onClick={onDelete}
             disabled={isDeleting}
             title="Delete source"
-            className="p-1.5 rounded-lg text-foreground-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 disabled:opacity-40 border border-transparent hover:border-red-200 dark:hover:border-red-800 transition-colors"
+            className="p-1.5 rounded-lg text-foreground-500 hover:text-danger-500 hover:bg-danger-50 dark:hover:bg-danger-900/20 disabled:opacity-40 border border-transparent hover:border-danger-200 dark:hover:border-danger-800 transition-colors"
           >
             {isDeleting ? (
               <Loader2 size={14} className="animate-spin" />
@@ -4359,9 +4391,9 @@ function KsSourceCard({
         <div className="border-t border-neutral-200 px-4 pb-4 pt-3 space-y-3 bg-background">
           {/* Error */}
           {source.error && (
-            <div className="flex items-start gap-2 p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
-              <XCircle size={14} className="text-red-500 mt-0.5 shrink-0" />
-              <p className="text-xs text-red-600 dark:text-red-400 font-mono break-all">
+            <div className="flex items-start gap-2 p-3 rounded-lg bg-danger-50 dark:bg-danger-900/20 border border-danger-200 dark:border-danger-800">
+              <XCircle size={14} className="text-danger-500 mt-0.5 shrink-0" />
+              <p className="text-xs text-danger-600 dark:text-danger-400 font-mono break-all">
                 {source.error}
               </p>
             </div>
@@ -4384,7 +4416,7 @@ function KsSourceCard({
                       href={url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="hover:text-indigo-500 truncate"
+                      className="hover:text-primary-500 truncate"
                     >
                       {url}
                     </a>
@@ -4406,7 +4438,10 @@ function KsSourceCard({
                     key={i}
                     className="flex items-center gap-2 text-xs text-foreground"
                   >
-                    <FileText size={11} className="text-foreground-400 shrink-0" />
+                    <FileText
+                      size={11}
+                      className="text-foreground-400 shrink-0"
+                    />
                     {t.title}
                   </li>
                 ))}
@@ -4440,7 +4475,9 @@ function KsSourceCard({
                   ))}
                 </ul>
               ) : (
-                <p className="text-xs text-foreground-400 italic">No files found.</p>
+                <p className="text-xs text-foreground-400 italic">
+                  No files found.
+                </p>
               )}
             </div>
           )}
@@ -4450,7 +4487,9 @@ function KsSourceCard({
             {config.chunkSize != null && (
               <span>
                 Chunk size:{" "}
-                <span className="text-foreground">{String(config.chunkSize)}</span>
+                <span className="text-foreground">
+                  {String(config.chunkSize)}
+                </span>
               </span>
             )}
             <span>
@@ -4666,19 +4705,19 @@ function KsAddSourceModal({
   }[] = [
     {
       value: "url",
-      icon: <Globe size={18} className="text-indigo-400" />,
+      icon: <Globe size={18} className="text-primary-400" />,
       label: "URL Sources",
       description: "Fetch and index web pages or API docs",
     },
     {
       value: "text",
-      icon: <FileText size={18} className="text-amber-400" />,
+      icon: <FileText size={18} className="text-warning-400" />,
       label: "Inline Text",
       description: "Paste text directly from any source",
     },
     {
       value: "files",
-      icon: <FileType2 size={18} className="text-teal-400" />,
+      icon: <FileType2 size={18} className="text-success-400" />,
       label: "Documents",
       description: "Upload PDF, DOCX, TXT or Markdown files",
     },
@@ -4690,7 +4729,7 @@ function KsAddSourceModal({
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-neutral-200 shrink-0">
           <div className="flex items-center gap-2">
-            <BookOpen className="w-5 h-5 text-indigo-500" />
+            <BookOpen className="w-5 h-5 text-primary-500" />
             <h2 className="text-sm font-semibold text-foreground">
               Add Knowledge Source
             </h2>
@@ -4717,7 +4756,7 @@ function KsAddSourceModal({
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g. SharePoint Contracts"
-              className="w-full px-3 py-2 rounded-lg bg-background border border-neutral-200 text-sm text-foreground placeholder:text-foreground-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+              className="w-full px-3 py-2 rounded-lg bg-background border border-neutral-200 text-sm text-foreground placeholder:text-foreground-400 focus:outline-none focus:ring-2 focus:ring-primary-500/40"
             />
           </div>
 
@@ -4729,7 +4768,7 @@ function KsAddSourceModal({
             <select
               value={realmId}
               onChange={(e) => setRealmId(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg bg-background border border-neutral-200 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+              className="w-full px-3 py-2 rounded-lg bg-background border border-neutral-200 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary-500/40"
             >
               <option value="">Select realm…</option>
               {realms.map((r) => (
@@ -4753,13 +4792,13 @@ function KsAddSourceModal({
                   onClick={() => setSourceType(opt.value)}
                   className={`flex flex-col items-center gap-1.5 px-2 py-3 rounded-xl border text-center transition-colors ${
                     sourceType === opt.value
-                      ? "border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20"
-                      : "border-neutral-200 bg-background hover:border-indigo-400 hover:bg-background-200/40"
+                      ? "border-primary-500 bg-primary-50 dark:bg-primary-900/20"
+                      : "border-neutral-200 bg-background hover:border-primary-400 hover:bg-background-200/40"
                   }`}
                 >
                   {opt.icon}
                   <span
-                    className={`text-xs font-medium leading-tight ${sourceType === opt.value ? "text-indigo-600 dark:text-indigo-300" : "text-foreground"}`}
+                    className={`text-xs font-medium leading-tight ${sourceType === opt.value ? "text-primary-600 dark:text-primary-300" : "text-foreground"}`}
                   >
                     {opt.label}
                   </span>
@@ -4773,12 +4812,12 @@ function KsAddSourceModal({
 
           {/* Docling notice for files type */}
           {sourceType === "files" && !doclingConfigured && (
-            <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
+            <div className="flex items-start gap-2 p-3 rounded-lg bg-warning-50 dark:bg-warning-900/20 border border-warning-200 dark:border-warning-800">
               <AlertTriangle
                 size={14}
-                className="text-amber-500 mt-0.5 shrink-0"
+                className="text-warning-500 mt-0.5 shrink-0"
               />
-              <p className="text-xs text-amber-700 dark:text-amber-400">
+              <p className="text-xs text-warning-700 dark:text-warning-400">
                 PDF and DOCX files require Docling to be configured. Plain text
                 (.txt, .md) files can be indexed without Docling.
               </p>
@@ -4801,7 +4840,7 @@ function KsAddSourceModal({
                   "https://example.com/docs\nhttps://example.com/policy"
                 }
                 rows={4}
-                className="w-full px-3 py-2 rounded-lg bg-background border border-neutral-200 text-sm text-foreground placeholder:text-foreground-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 font-mono"
+                className="w-full px-3 py-2 rounded-lg bg-background border border-neutral-200 text-sm text-foreground placeholder:text-foreground-400 focus:outline-none focus:ring-2 focus:ring-primary-500/40 font-mono"
               />
             </div>
           )}
@@ -4817,7 +4856,7 @@ function KsAddSourceModal({
                   value={textTitle}
                   onChange={(e) => setTextTitle(e.target.value)}
                   placeholder="e.g. Company Policy v2"
-                  className="w-full px-3 py-2 rounded-lg bg-background border border-neutral-200 text-sm text-foreground placeholder:text-foreground-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+                  className="w-full px-3 py-2 rounded-lg bg-background border border-neutral-200 text-sm text-foreground placeholder:text-foreground-400 focus:outline-none focus:ring-2 focus:ring-primary-500/40"
                 />
               </div>
               <div className="space-y-1">
@@ -4829,7 +4868,7 @@ function KsAddSourceModal({
                   onChange={(e) => setTextContent(e.target.value)}
                   placeholder="Paste document content here…"
                   rows={5}
-                  className="w-full px-3 py-2 rounded-lg bg-background border border-neutral-200 text-sm text-foreground placeholder:text-foreground-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+                  className="w-full px-3 py-2 rounded-lg bg-background border border-neutral-200 text-sm text-foreground placeholder:text-foreground-400 focus:outline-none focus:ring-2 focus:ring-primary-500/40"
                 />
               </div>
             </div>
@@ -4872,7 +4911,7 @@ function KsAddSourceModal({
                   onChange={(e) => setChunkSize(e.target.value)}
                   min={100}
                   max={8000}
-                  className="w-32 px-3 py-2 rounded-lg bg-background border border-neutral-200 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+                  className="w-32 px-3 py-2 rounded-lg bg-background border border-neutral-200 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary-500/40"
                 />
                 <p className="text-xs text-foreground-400">
                   Default 1000. Larger = more context per chunk, fewer results.
@@ -4883,12 +4922,12 @@ function KsAddSourceModal({
 
           {/* Upload progress */}
           {uploadProgress && (
-            <div className="flex items-center gap-2 p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
+            <div className="flex items-center gap-2 p-3 rounded-lg bg-primary-50 dark:bg-primary-900/20 border border-primary-200 dark:border-primary-800">
               <Loader2
                 size={14}
-                className="animate-spin text-blue-500 shrink-0"
+                className="animate-spin text-primary-500 shrink-0"
               />
-              <p className="text-xs text-blue-700 dark:text-blue-400">
+              <p className="text-xs text-primary-700 dark:text-primary-400">
                 {uploadProgress}
               </p>
             </div>
@@ -4896,12 +4935,14 @@ function KsAddSourceModal({
 
           {/* Error */}
           {error && (
-            <div className="flex items-start gap-2 p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
+            <div className="flex items-start gap-2 p-3 rounded-lg bg-danger-50 dark:bg-danger-900/20 border border-danger-200 dark:border-danger-800">
               <AlertTriangle
                 size={14}
-                className="text-red-500 mt-0.5 shrink-0"
+                className="text-danger-500 mt-0.5 shrink-0"
               />
-              <p className="text-xs text-red-600 dark:text-red-400">{error}</p>
+              <p className="text-xs text-danger-600 dark:text-danger-400">
+                {error}
+              </p>
             </div>
           )}
 
@@ -4917,7 +4958,7 @@ function KsAddSourceModal({
             <button
               type="submit"
               disabled={saving}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-sm font-medium transition-colors"
+              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary-600 hover:bg-primary-500 disabled:opacity-50 text-white text-sm font-medium transition-colors"
             >
               {saving && <Loader2 size={14} className="animate-spin" />}
               {sourceType === "files" ? "Upload & create" : "Create source"}
@@ -5130,7 +5171,7 @@ function KnowledgeTab({
       {/* Toast notification */}
       {toast && (
         <div
-          className={`fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-3 rounded-xl shadow-xl text-sm font-medium text-white ${toast.ok ? "bg-green-600" : "bg-red-600"}`}
+          className={`fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-3 rounded-xl shadow-xl text-sm font-medium text-white ${toast.ok ? "bg-success-600" : "bg-danger-600"}`}
         >
           {toast.ok ? <CheckCircle2 size={16} /> : <XCircle size={16} />}
           {toast.msg}
@@ -5153,8 +5194,8 @@ function KnowledgeTab({
                 }
                 className={`inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full border font-medium ${
                   doclingConfigured
-                    ? "bg-teal-100 dark:bg-teal-900/40 text-teal-700 dark:text-teal-400 border-teal-300 dark:border-teal-800"
-                    : "bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 border-amber-300 dark:border-amber-800"
+                    ? "bg-success-100 dark:bg-success-900/40 text-success-700 dark:text-success-400 border-success-300 dark:border-success-800"
+                    : "bg-warning-100 dark:bg-warning-900/40 text-warning-700 dark:text-warning-400 border-warning-300 dark:border-warning-800"
                 }`}
               >
                 <FileType2 size={10} />
@@ -5170,7 +5211,7 @@ function KnowledgeTab({
         </div>
         <button
           onClick={() => setShowCreate(true)}
-          className="shrink-0 flex items-center gap-2 px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium transition-colors"
+          className="shrink-0 flex items-center gap-2 px-3 py-2 rounded-xl bg-primary-600 hover:bg-primary-500 text-white text-sm font-medium transition-colors"
         >
           <Plus className="w-4 h-4" />
           Add source
@@ -5179,7 +5220,7 @@ function KnowledgeTab({
 
       {/* Offline warning */}
       {!online && (
-        <div className="flex items-center gap-2 p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 text-xs text-amber-700 dark:text-amber-400">
+        <div className="flex items-center gap-2 p-3 rounded-lg bg-warning-50 dark:bg-warning-900/20 border border-warning-200 dark:border-warning-800 text-xs text-warning-700 dark:text-warning-400">
           <WifiOff size={14} className="shrink-0" />
           Agent is offline. You can manage sources but syncing requires the
           agent to be connected.
@@ -5188,18 +5229,18 @@ function KnowledgeTab({
 
       {/* Missing knowledge_search capability warning */}
       {hasReadySources && !hasKnowledgeCapability && (
-        <div className="flex items-start gap-3 p-4 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
+        <div className="flex items-start gap-3 p-4 rounded-xl bg-warning-50 dark:bg-warning-900/20 border border-warning-200 dark:border-warning-800">
           <AlertTriangle
             size={16}
-            className="shrink-0 mt-0.5 text-amber-600 dark:text-amber-400"
+            className="shrink-0 mt-0.5 text-warning-600 dark:text-warning-400"
           />
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-amber-800 dark:text-amber-300">
+            <p className="text-sm font-medium text-warning-800 dark:text-warning-300">
               Knowledge sources are ready but the agent cannot use them
             </p>
-            <p className="text-xs text-amber-700 dark:text-amber-400 mt-1">
+            <p className="text-xs text-warning-700 dark:text-warning-400 mt-1">
               The{" "}
-              <code className="bg-amber-100 dark:bg-amber-800/60 px-1 rounded font-mono">
+              <code className="bg-warning-100 dark:bg-warning-800/60 px-1 rounded font-mono">
                 knowledge_search
               </code>{" "}
               capability is not granted in this agent&apos;s active policy. The
@@ -5209,7 +5250,7 @@ function KnowledgeTab({
                 : `${readyCount} indexed documents`}{" "}
               during conversations.
             </p>
-            <p className="text-xs text-amber-600 dark:text-amber-500 mt-1">
+            <p className="text-xs text-warning-600 dark:text-warning-500 mt-1">
               Granting this capability will create a new policy (replacing the
               current one) and immediately reissue the agent&apos;s certificate.
             </p>
@@ -5217,7 +5258,7 @@ function KnowledgeTab({
           <button
             onClick={handleGrantKnowledgeSearch}
             disabled={granting}
-            className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-500 disabled:opacity-60 text-white text-xs font-medium transition-colors"
+            className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-warning-600 hover:bg-warning-500 disabled:opacity-60 text-white text-xs font-medium transition-colors"
           >
             {granting ? (
               <Loader2 size={13} className="animate-spin" />
@@ -5246,7 +5287,7 @@ function KnowledgeTab({
           <p className="text-xs text-foreground-500 max-w-sm mx-auto">
             Connect URLs, paste inline text, or upload documents. Once synced
             and the{" "}
-            <code className="bg-background-200 px-1 rounded text-indigo-400">
+            <code className="bg-background-200 px-1 rounded text-primary-400">
               knowledge_search
             </code>{" "}
             capability is granted, the agent will use indexed content in every
@@ -5254,7 +5295,7 @@ function KnowledgeTab({
           </p>
           <button
             onClick={() => setShowCreate(true)}
-            className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium transition-colors"
+            className="px-4 py-2 rounded-xl bg-primary-600 hover:bg-primary-500 text-white text-sm font-medium transition-colors"
           >
             Add first source
           </button>

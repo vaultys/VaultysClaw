@@ -94,7 +94,7 @@ type Params = { runId: string };
  */
 export async function GET(
   _request: NextRequest,
-  { params }: { params: Promise<Params> },
+  { params }: { params: Promise<Params> }
 ) {
   try {
     const auth = await getAuthContext(_request);
@@ -104,11 +104,15 @@ export async function GET(
 
     const history = getWorkflowRunHistory(runId);
     if (!history) {
-      return NextResponse.json({ error: "Workflow run not found" }, { status: 404 });
+      return NextResponse.json(
+        { error: "Workflow run not found" },
+        { status: 404 }
+      );
     }
 
     const workflow = getWorkflow(history.run.workflow_id);
-    if (workflow?.realm_id && !auth.canAccessRealm(workflow.realm_id)) return forbidden();
+    if (workflow?.realm_id && !auth.canAccessRealm(workflow.realm_id))
+      return forbidden();
 
     return NextResponse.json({
       success: true,
@@ -136,6 +140,9 @@ export async function GET(
     });
   } catch (err) {
     console.error("GET /api/workflows/runs/[runId]/history error:", err);
-    return NextResponse.json({ error: "Failed to fetch workflow run history" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to fetch workflow run history" },
+      { status: 500 }
+    );
   }
 }

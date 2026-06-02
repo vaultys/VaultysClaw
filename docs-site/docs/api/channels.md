@@ -24,11 +24,11 @@ Returns all non-archived channels in the realm, plus global channels (`realmId =
 
 **Query parameters:**
 
-| Parameter | Required | Description |
-|---|---|---|
-| `realm` | Yes | Realm ID to scope the query |
-| `includeArchived` | No | Set to `true` to include archived channels |
-| `includeGlobal` | No | Default `true`. Set to `false` to exclude global channels. |
+| Parameter         | Required | Description                                                |
+| ----------------- | -------- | ---------------------------------------------------------- |
+| `realm`           | Yes      | Realm ID to scope the query                                |
+| `includeArchived` | No       | Set to `true` to include archived channels                 |
+| `includeGlobal`   | No       | Default `true`. Set to `false` to exclude global channels. |
 
 **Response `200`:**
 
@@ -74,13 +74,13 @@ POST /api/channels
 }
 ```
 
-| Field | Type | Required | Description |
-|---|---|---|---|
-| `name` | string | Yes | Display name |
-| `realmId` | string | No | Omit for a global channel |
-| `description` | string | No | Short description |
-| `slug` | string | No | URL-safe identifier; auto-generated from `name` if omitted |
-| `isPublic` | boolean | No | Default `true` |
+| Field         | Type    | Required | Description                                                |
+| ------------- | ------- | -------- | ---------------------------------------------------------- |
+| `name`        | string  | Yes      | Display name                                               |
+| `realmId`     | string  | No       | Omit for a global channel                                  |
+| `description` | string  | No       | Short description                                          |
+| `slug`        | string  | No       | URL-safe identifier; auto-generated from `name` if omitted |
+| `isPublic`    | boolean | No       | Default `true`                                             |
 
 **Response `201`:**
 
@@ -197,11 +197,11 @@ POST /api/channels/:channelId/members
 }
 ```
 
-| Field | Type | Required | Description |
-|---|---|---|---|
-| `memberDid` | string | Yes | User or agent DID |
-| `memberType` | `"user"` \| `"agent"` | Yes | |
-| `role` | `"member"` \| `"moderator"` \| `"owner"` | No | Default `"member"` |
+| Field        | Type                                     | Required | Description        |
+| ------------ | ---------------------------------------- | -------- | ------------------ |
+| `memberDid`  | string                                   | Yes      | User or agent DID  |
+| `memberType` | `"user"` \| `"agent"`                    | Yes      |                    |
+| `role`       | `"member"` \| `"moderator"` \| `"owner"` | No       | Default `"member"` |
 
 **Response `201`:**
 
@@ -255,11 +255,11 @@ GET /api/channels/:channelId/messages?limit=50&offset=0
 
 **Query parameters:**
 
-| Parameter | Default | Description |
-|---|---|---|
-| `limit` | `50` | Max messages to return (capped at 100) |
-| `offset` | `0` | Pagination offset |
-| `threadId` | — | If provided, returns replies to this parent message |
+| Parameter  | Default | Description                                         |
+| ---------- | ------- | --------------------------------------------------- |
+| `limit`    | `50`    | Max messages to return (capped at 100)              |
+| `offset`   | `0`     | Pagination offset                                   |
+| `threadId` | —       | If provided, returns replies to this parent message |
 
 **Response `200`:**
 
@@ -307,13 +307,14 @@ POST /api/channels/:channelId/messages
 }
 ```
 
-| Field | Type | Required | Description |
-|---|---|---|---|
-| `content` | string | Yes | Message body (Markdown). Must not be blank. |
-| `threadId` | string | No | Parent message ID for a threaded reply |
-| `metadata` | object | No | Optional enrichment |
+| Field      | Type   | Required | Description                                 |
+| ---------- | ------ | -------- | ------------------------------------------- |
+| `content`  | string | Yes      | Message body (Markdown). Must not be blank. |
+| `threadId` | string | No       | Parent message ID for a threaded reply      |
+| `metadata` | object | No       | Optional enrichment                         |
 
 After creating the message the server asynchronously:
+
 1. Detects @mentions and dispatches agent invocations via WebSocket.
 2. Fans out to active outgoing bridges.
 

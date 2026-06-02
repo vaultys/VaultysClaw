@@ -22,7 +22,9 @@ import { getSetting } from "./db";
 function getServerVaultysId(): VaultysId {
   const serverSecret = getSetting("serverSecret");
   if (!serverSecret) {
-    throw new Error("Server VaultysId secret not configured (run the initial setup)");
+    throw new Error(
+      "Server VaultysId secret not configured (run the initial setup)"
+    );
   }
   return VaultysId.fromSecret(serverSecret, "base64");
 }

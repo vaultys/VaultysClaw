@@ -88,7 +88,10 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate definition structure
-    if (!Array.isArray(body.definition.nodes) || !Array.isArray(body.definition.edges)) {
+    if (
+      !Array.isArray(body.definition.nodes) ||
+      !Array.isArray(body.definition.edges)
+    ) {
       return NextResponse.json(
         { success: false, error: "Invalid workflow definition structure" },
         { status: 400 }

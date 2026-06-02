@@ -22,9 +22,7 @@ function swatch(color: Color, step: number) {
 }
 
 function textOn(color: Color, step: number) {
-  return step <= 400
-    ? `rgb(var(--${color}-950))`
-    : `rgb(var(--${color}-50))`;
+  return step <= 400 ? `rgb(var(--${color}-950))` : `rgb(var(--${color}-50))`;
 }
 
 export default function ThemeDemoPage() {
@@ -85,7 +83,10 @@ export default function ThemeDemoPage() {
                     />
                     <p
                       className="text-center mt-1 font-mono"
-                      style={{ fontSize: "9px", color: "rgb(var(--foreground-400))" }}
+                      style={{
+                        fontSize: "9px",
+                        color: "rgb(var(--foreground-400))",
+                      }}
                     >
                       {step}
                     </p>
@@ -197,10 +198,30 @@ export default function ThemeDemoPage() {
           <div className="space-y-3">
             {(
               [
-                ["success", "✓", "Deployment successful", "All 3 agents are running normally."],
-                ["warning", "⚠", "High latency detected", "Agent response time exceeded 2s threshold."],
-                ["danger", "✕", "Connection lost", "Unable to reach control plane on port 8080."],
-                ["primary", "ℹ", "Update available", "Version 2.1.0 is ready to install."],
+                [
+                  "success",
+                  "✓",
+                  "Deployment successful",
+                  "All 3 agents are running normally.",
+                ],
+                [
+                  "warning",
+                  "⚠",
+                  "High latency detected",
+                  "Agent response time exceeded 2s threshold.",
+                ],
+                [
+                  "danger",
+                  "✕",
+                  "Connection lost",
+                  "Unable to reach control plane on port 8080.",
+                ],
+                [
+                  "primary",
+                  "ℹ",
+                  "Update available",
+                  "Version 2.1.0 is ready to install.",
+                ],
               ] as const
             ).map(([color, icon, title, body]) => (
               <div

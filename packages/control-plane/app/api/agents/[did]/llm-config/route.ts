@@ -5,7 +5,13 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { getAgent, setAgentLlmConfig, getModelRegistryEntry, getRealmRouterKey, getModelsByRealm } from "@/lib/db";
+import {
+  getAgent,
+  setAgentLlmConfig,
+  getModelRegistryEntry,
+  getRealmRouterKey,
+  getModelsByRealm,
+} from "@/lib/db";
 import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
 import { getWSServer } from "@/lib/ws-server";
 import { getLiteLLMBaseUrl } from "@/lib/litellm-client";
@@ -19,7 +25,9 @@ const VALID_PROVIDERS: LlmProviderType[] = [
   "openai-compatible",
 ];
 
-function validateConfig(body: unknown): { config: LlmConfig; error?: never } | { error: string; config?: never } {
+function validateConfig(
+  body: unknown
+): { config: LlmConfig; error?: never } | { error: string; config?: never } {
   if (typeof body !== "object" || body === null) {
     return { error: "Request body must be a JSON object" };
   }
@@ -40,7 +48,10 @@ function validateConfig(body: unknown): { config: LlmConfig; error?: never } | {
   if (b.systemPrompt !== undefined && typeof b.systemPrompt !== "string") {
     return { error: "systemPrompt must be a string" };
   }
-  if (b.maxTokens !== undefined && (typeof b.maxTokens !== "number" || b.maxTokens < 1)) {
+  if (
+    b.maxTokens !== undefined &&
+    (typeof b.maxTokens !== "number" || b.maxTokens < 1)
+  ) {
     return { error: "maxTokens must be a positive number" };
   }
 
@@ -49,7 +60,9 @@ function validateConfig(body: unknown): { config: LlmConfig; error?: never } | {
     model: (b.model as string).trim(),
     apiKey: b.apiKey ? (b.apiKey as string).trim() : undefined,
     baseUrl: b.baseUrl ? (b.baseUrl as string).trim() : undefined,
-    systemPrompt: b.systemPrompt ? (b.systemPrompt as string).trim() : undefined,
+    systemPrompt: b.systemPrompt
+      ? (b.systemPrompt as string).trim()
+      : undefined,
     maxTokens: b.maxTokens as number | undefined,
   };
 
@@ -57,7 +70,9 @@ function validateConfig(body: unknown): { config: LlmConfig; error?: never } | {
 }
 
 /** Strip the apiKey from the response — it is write-only */
-function safeConfig(config: LlmConfig): Omit<LlmConfig, "apiKey"> & { apiKeySet: boolean } {
+function safeConfig(
+  config: LlmConfig
+): Omit<LlmConfig, "apiKey"> & { apiKeySet: boolean } {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { apiKey, ...rest } = config;
   return { ...rest, apiKeySet: Boolean(apiKey) };
@@ -108,7 +123,7 @@ function safeConfig(config: LlmConfig): Omit<LlmConfig, "apiKey"> & { apiKeySet:
  */
 export async function GET(
   _req: NextRequest,
-  { params }: { params: Promise<{ did: string }> },
+  { params }: { params: Promise<{ did: string }> }
 ) {
   const auth = await getAuthContext(_req);
   if (!auth) return unauthorized();
@@ -203,7 +218,7 @@ export async function GET(
  */
 export async function PUT(
   req: NextRequest,
-  { params }: { params: Promise<{ did: string }> },
+  { params }: { params: Promise<{ did: string }> }
 ) {
   const auth = await getAuthContext(req);
   if (!auth) return unauthorized();
@@ -215,18 +230,31 @@ export async function PUT(
     return NextResponse.json({ error: "Agent not found" }, { status: 404 });
   }
 
-  const body = await req.json().catch(() => null) as Record<string, unknown> | null;
+  const body = (await req.json().catch(() => null)) as Record<
+    string,
+    unknown
+  > | null;
 
   // Realm routing shortcut — resolve virtual key + litellm model name server-side
-  if (body && typeof body.realmId === "string" && typeof body.realmModelId === "string") {
+  if (
+    body &&
+    typeof body.realmId === "string" &&
+    typeof body.realmModelId === "string"
+  ) {
     const routerKey = getRealmRouterKey(body.realmId);
     if (!routerKey?.litellm_virtual_key) {
-      return NextResponse.json({ error: "Realm has no LiteLLM virtual key configured" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Realm has no LiteLLM virtual key configured" },
+        { status: 400 }
+      );
     }
     const realmModels = getModelsByRealm(body.realmId);
     const model = realmModels.find((m) => m.id === body.realmModelId);
     if (!model?.litellm_model_name) {
-      return NextResponse.json({ error: "Model not found in realm or not registered with LiteLLM" }, { status: 404 });
+      return NextResponse.json(
+        { error: "Model not found in realm or not registered with LiteLLM" },
+        { status: 404 }
+      );
     }
     const config: LlmConfig = {
       provider: "openai-compatible",
@@ -244,7 +272,10 @@ export async function PUT(
   if (body && typeof body.registryModelId === "string") {
     const entry = getModelRegistryEntry(body.registryModelId);
     if (!entry) {
-      return NextResponse.json({ error: "Registry model not found" }, { status: 404 });
+      return NextResponse.json(
+        { error: "Registry model not found" },
+        { status: 404 }
+      );
     }
     const config: LlmConfig = {
       provider: VALID_PROVIDERS.includes(entry.provider as LlmProviderType)
@@ -262,7 +293,10 @@ export async function PUT(
 
   const validation = validateConfig(body);
   if (validation.error || !validation.config) {
-    return NextResponse.json({ error: validation.error ?? "Invalid config" }, { status: 400 });
+    return NextResponse.json(
+      { error: validation.error ?? "Invalid config" },
+      { status: 400 }
+    );
   }
 
   const config: LlmConfig = { ...validation.config };
@@ -270,7 +304,9 @@ export async function PUT(
   // If the user omitted apiKey on an update but one was already stored, preserve it
   if (!config.apiKey) {
     try {
-      const existing = agent.llm_config ? (JSON.parse(agent.llm_config) as LlmConfig) : null;
+      const existing = agent.llm_config
+        ? (JSON.parse(agent.llm_config) as LlmConfig)
+        : null;
       if (existing?.apiKey) config.apiKey = existing.apiKey;
     } catch {
       // ignore
@@ -324,7 +360,7 @@ export async function PUT(
  */
 export async function DELETE(
   _req: NextRequest,
-  { params }: { params: Promise<{ did: string }> },
+  { params }: { params: Promise<{ did: string }> }
 ) {
   const auth = await getAuthContext(_req);
   if (!auth) return unauthorized();

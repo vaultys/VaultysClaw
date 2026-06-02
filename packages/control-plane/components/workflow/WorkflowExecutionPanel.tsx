@@ -37,7 +37,8 @@ export const WorkflowExecutionPanel: React.FC = () => {
     endExecution,
   } = useWorkflowStore();
 
-  const [executionStatus, setExecutionStatus] = useState<ExecutionStatus | null>(null);
+  const [executionStatus, setExecutionStatus] =
+    useState<ExecutionStatus | null>(null);
   const [steps, setSteps] = useState<StepInfo[]>([]);
   const [expandedStepId, setExpandedStepId] = useState<string | null>(null);
   const [elapsedTime, setElapsedTime] = useState(0);
@@ -56,7 +57,8 @@ export const WorkflowExecutionPanel: React.FC = () => {
         const res = await fetch(`/api/agents/${encodeURIComponent(did)}`);
         if (res.ok) {
           const data = (await res.json()) as { name?: string };
-          if (data.name) setAgentNames((prev) => ({ ...prev, [did]: data.name! }));
+          if (data.name)
+            setAgentNames((prev) => ({ ...prev, [did]: data.name! }));
         }
       } catch {
         // ignore
@@ -76,7 +78,9 @@ export const WorkflowExecutionPanel: React.FC = () => {
         setExecutionStatus(data as any);
 
         // Fetch execution history
-        const historyRes = await fetch(`/api/workflows/runs/${executionRunId}/history`);
+        const historyRes = await fetch(
+          `/api/workflows/runs/${executionRunId}/history`
+        );
         if (!historyRes.ok) return;
         const historyData = (await historyRes.json()) as { steps: StepInfo[] };
         setSteps(historyData.steps);
@@ -109,13 +113,13 @@ export const WorkflowExecutionPanel: React.FC = () => {
   };
 
   const runningStepCount = Array.from(stepStatus.values()).filter(
-    (s) => s === "running",
+    (s) => s === "running"
   ).length;
   const completedStepCount = Array.from(stepStatus.values()).filter(
-    (s) => s === "success",
+    (s) => s === "success"
   ).length;
   const failedStepCount = Array.from(stepStatus.values()).filter(
-    (s) => s === "failed",
+    (s) => s === "failed"
   ).length;
 
   return (
@@ -125,7 +129,8 @@ export const WorkflowExecutionPanel: React.FC = () => {
         <div>
           <h3 className="font-semibold text-foreground">Execution Monitor</h3>
           <p className="text-xs text-foreground-500">
-            {isExecuting ? "Running..." : "Completed"} ({formatTime(elapsedTime)})
+            {isExecuting ? "Running..." : "Completed"} (
+            {formatTime(elapsedTime)})
           </p>
         </div>
         <button
@@ -140,22 +145,30 @@ export const WorkflowExecutionPanel: React.FC = () => {
       <div className="px-4 py-2 bg-background-200 border-b border-neutral-200 grid grid-cols-3 gap-2 text-xs">
         <div className="text-center">
           <p className="text-foreground-500">Running</p>
-          <p className="font-semibold text-blue-500 dark:text-blue-400">{runningStepCount}</p>
+          <p className="font-semibold text-primary-500 dark:text-primary-400">
+            {runningStepCount}
+          </p>
         </div>
         <div className="text-center">
           <p className="text-foreground-500">Completed</p>
-          <p className="font-semibold text-green-500 dark:text-green-400">{completedStepCount}</p>
+          <p className="font-semibold text-success-500 dark:text-success-400">
+            {completedStepCount}
+          </p>
         </div>
         <div className="text-center">
           <p className="text-foreground-500">Failed</p>
-          <p className="font-semibold text-red-500 dark:text-red-400">{failedStepCount}</p>
+          <p className="font-semibold text-danger-500 dark:text-danger-400">
+            {failedStepCount}
+          </p>
         </div>
       </div>
 
       {/* Steps List */}
       <div className="overflow-y-auto max-h-64">
         {steps.length === 0 ? (
-          <div className="p-4 text-center text-foreground-500 text-sm">No steps yet...</div>
+          <div className="p-4 text-center text-foreground-500 text-sm">
+            No steps yet...
+          </div>
         ) : (
           <div className="divide-y divide-neutral-200">
             {steps.map((step) => (
@@ -163,43 +176,52 @@ export const WorkflowExecutionPanel: React.FC = () => {
                 <button
                   onClick={() =>
                     setExpandedStepId(
-                      expandedStepId === step.stepId ? null : step.stepId,
+                      expandedStepId === step.stepId ? null : step.stepId
                     )
                   }
                   className="w-full px-4 py-2 text-left hover:bg-background-200 flex items-center justify-between"
                 >
                   <div className="flex items-center gap-2 flex-1 min-w-0">
                     <span
-                      className={`w-2 h-2 rounded-full flex-shrink-0 ${step.status === "running"
-                        ? "bg-blue-500"
-                        : step.status === "success"
-                          ? "bg-green-500"
-                          : step.status === "failed"
-                            ? "bg-red-500"
-                            : "bg-neutral-300"
-                        }`}
+                      className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                        step.status === "running"
+                          ? "bg-primary-500"
+                          : step.status === "success"
+                            ? "bg-success-500"
+                            : step.status === "failed"
+                              ? "bg-danger-500"
+                              : "bg-neutral-300"
+                      }`}
                     />
                     <div className="flex-1 min-w-0">
                       <span className="text-xs font-medium text-foreground truncate block">
                         {step.stepId}
                       </span>
                       {step.agentId && (
-                        <span className="text-[11px] text-indigo-500 dark:text-indigo-400 truncate block">
-                          🤖 {agentNames[step.agentId] ?? `…${step.agentId.slice(-8)}`}
+                        <span className="text-[11px] text-primary-500 dark:text-primary-400 truncate block">
+                          🤖{" "}
+                          {agentNames[step.agentId] ??
+                            `…${step.agentId.slice(-8)}`}
                         </span>
                       )}
                       {step.assignedUserId && (
-                        <span className="text-[11px] text-cyan-600 dark:text-cyan-400 truncate block">
-                          👤 {step.assignedUserName ?? step.assignedUserEmail ?? `…${step.assignedUserId.slice(-8)}`}
+                        <span className="text-[11px] text-primary-600 dark:text-primary-400 truncate block">
+                          👤{" "}
+                          {step.assignedUserName ??
+                            step.assignedUserEmail ??
+                            `…${step.assignedUserId.slice(-8)}`}
                         </span>
                       )}
                     </div>
-                    <span className="text-xs text-foreground-500 shrink-0">{step.status}</span>
+                    <span className="text-xs text-foreground-500 shrink-0">
+                      {step.status}
+                    </span>
                   </div>
                   <ChevronDown
                     size={14}
-                    className={`flex-shrink-0 text-foreground-400 transition-transform ${expandedStepId === step.stepId ? "rotate-180" : ""
-                      }`}
+                    className={`flex-shrink-0 text-foreground-400 transition-transform ${
+                      expandedStepId === step.stepId ? "rotate-180" : ""
+                    }`}
                   />
                 </button>
 
@@ -207,7 +229,7 @@ export const WorkflowExecutionPanel: React.FC = () => {
                 {expandedStepId === step.stepId && (
                   <div className="px-4 py-2 bg-background-200 border-t border-neutral-200">
                     {step.error ? (
-                      <div className="text-xs text-red-500 dark:text-red-400 font-mono break-words">
+                      <div className="text-xs text-danger-500 dark:text-danger-400 font-mono break-words">
                         <p className="font-semibold mb-1">Error:</p>
                         {step.error}
                       </div>

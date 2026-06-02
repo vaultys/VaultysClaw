@@ -12,13 +12,13 @@ Vaultys Claw provides a built-in governance layer that lets you control **what**
 
 ## Overview
 
-The **Governance** dashboard (sidebar → *Governance*) gives a platform-wide view across all agents:
+The **Governance** dashboard (sidebar → _Governance_) gives a platform-wide view across all agents:
 
-| Panel | What it shows |
-|---|---|
-| Posture overview | Active agents, policy coverage %, agents with no policy, intents blocked vs allowed |
-| Policies & Budgets | Create/revoke policies per agent or realm; view active resource limits |
-| Audit Log | Unified timeline of auth events, connection changes, and intent outcomes |
+| Panel              | What it shows                                                                       |
+| ------------------ | ----------------------------------------------------------------------------------- |
+| Posture overview   | Active agents, policy coverage %, agents with no policy, intents blocked vs allowed |
+| Policies & Budgets | Create/revoke policies per agent or realm; view active resource limits              |
+| Audit Log          | Unified timeline of auth events, connection changes, and intent outcomes            |
 
 Individual agents also have a dedicated **Governance tab** on their detail page, showing only that agent's active policies.
 
@@ -34,19 +34,19 @@ A policy grants an agent a set of capabilities and optionally attaches resource 
 
 ### Required fields
 
-| Field | Description |
-|---|---|
-| `agentDid` | DID of the target agent (required unless realm-scoped) |
-| `capabilities` | One or more capabilities to grant |
+| Field          | Description                                            |
+| -------------- | ------------------------------------------------------ |
+| `agentDid`     | DID of the target agent (required unless realm-scoped) |
+| `capabilities` | One or more capabilities to grant                      |
 
 ### Optional fields
 
-| Field | Description |
-|---|---|
-| `resourceLimits.maxTokensPerDay` | Maximum LLM tokens (prompt + completion) per calendar day |
-| `resourceLimits.maxRequestsPerHour` | Maximum intent executions per rolling 60-minute window |
-| `resourceLimits.allowedDomains` | Advisory list of permitted outbound domains |
-| `expiresAt` | ISO 8601 timestamp after which the agent blocks all intents |
+| Field                               | Description                                                 |
+| ----------------------------------- | ----------------------------------------------------------- |
+| `resourceLimits.maxTokensPerDay`    | Maximum LLM tokens (prompt + completion) per calendar day   |
+| `resourceLimits.maxRequestsPerHour` | Maximum intent executions per rolling 60-minute window      |
+| `resourceLimits.allowedDomains`     | Advisory list of permitted outbound domains                 |
+| `expiresAt`                         | ISO 8601 timestamp after which the agent blocks all intents |
 
 ### What happens on save
 
@@ -132,10 +132,10 @@ The agent runs these gates **before** calling the LLM:
 
 The Governance → Audit Log tab merges two data sources:
 
-| Source | Events |
-|---|---|
+| Source         | Events                                                                      |
+| -------------- | --------------------------------------------------------------------------- |
 | `activity_log` | Agent connects, disconnects, registers, authenticates; capabilities updated |
-| `intent_log` | Intent received, succeeded, or failed (with error message) |
+| `intent_log`   | Intent received, succeeded, or failed (with error message)                  |
 
 You can filter by source (`activity` / `intent`) and by status (`success` / `failed`).
 
@@ -146,30 +146,33 @@ Click any row in the audit log to open the full detail page for that entry.
 **Left panel — Payload**
 
 For intent entries:
+
 - Timing grid: sent at, completed at, duration in milliseconds
 - Collapsible JSON blocks for `params` (intent inputs) and `output` (agent result)
 - Error message, if the intent failed
 
 For activity entries:
+
 - Details JSON parsed from the activity payload
 
 **Right panel — Certificate & Cryptographic State**
 
 This panel shows the state of the agent's VaultysId Challenger certificate at the time of the event:
 
-| Field | Description |
-|---|---|
-| Protocol state | `complete` (green), `failed` (red), or intermediate state (amber) |
-| pk1 fingerprint | First 24 chars of the control-plane key in this cert (base64) |
-| pk2 fingerprint | First 24 chars of the agent key in this cert (base64) |
-| Capabilities in cert | All capabilities currently embedded in the signed certificate |
-| Resource limits | `maxTokensPerDay`, `maxRequestsPerHour`, `allowedDomains` if set |
-| Policy reference | `policyId` + `policyExpiresAt` — red badge if the policy has expired |
-| Raw metadata | Full cert metadata (collapsible), for audit transparency |
+| Field                | Description                                                          |
+| -------------------- | -------------------------------------------------------------------- |
+| Protocol state       | `complete` (green), `failed` (red), or intermediate state (amber)    |
+| pk1 fingerprint      | First 24 chars of the control-plane key in this cert (base64)        |
+| pk2 fingerprint      | First 24 chars of the agent key in this cert (base64)                |
+| Capabilities in cert | All capabilities currently embedded in the signed certificate        |
+| Resource limits      | `maxTokensPerDay`, `maxRequestsPerHour`, `allowedDomains` if set     |
+| Policy reference     | `policyId` + `policyExpiresAt` — red badge if the policy has expired |
+| Raw metadata         | Full cert metadata (collapsible), for audit transparency             |
 
 The cert information is read live from the agent's stored certificate at query time — it reflects the **current** certificate state, not a historical snapshot.
 
 Entry IDs use a prefix to indicate their source:
+
 - `act-{rowid}` — activity log entry
 - `int-{intentId}` — intent log entry
 
@@ -181,15 +184,15 @@ For production deployments, pipe the Pino log output from the control plane proc
 
 ## API quick reference
 
-| Method | Path | Auth | Description |
-|---|---|---|---|
-| `POST` | `/api/policies` | Global admin | Create a policy |
-| `GET` | `/api/policies` | Global admin | List policies (filter by `agentDid`, `realmId`, `includeExpired`) |
-| `GET` | `/api/policies/{id}` | Global admin | Get a single policy |
-| `DELETE` | `/api/policies/{id}` | Global admin | Revoke a policy |
-| `GET` | `/api/governance/summary` | Global admin | Platform-wide posture stats |
-| `GET` | `/api/governance/audit` | Global admin | Unified audit log (paginated) |
-| `GET` | `/api/governance/audit/{id}` | Global admin | Single audit entry with full payload and cert metadata |
+| Method   | Path                         | Auth         | Description                                                       |
+| -------- | ---------------------------- | ------------ | ----------------------------------------------------------------- |
+| `POST`   | `/api/policies`              | Global admin | Create a policy                                                   |
+| `GET`    | `/api/policies`              | Global admin | List policies (filter by `agentDid`, `realmId`, `includeExpired`) |
+| `GET`    | `/api/policies/{id}`         | Global admin | Get a single policy                                               |
+| `DELETE` | `/api/policies/{id}`         | Global admin | Revoke a policy                                                   |
+| `GET`    | `/api/governance/summary`    | Global admin | Platform-wide posture stats                                       |
+| `GET`    | `/api/governance/audit`      | Global admin | Unified audit log (paginated)                                     |
+| `GET`    | `/api/governance/audit/{id}` | Global admin | Single audit entry with full payload and cert metadata            |
 
 The `{id}` for the audit detail endpoint uses the prefixed format returned by `GET /api/governance/audit` (`act-{rowid}` or `int-{intentId}`).
 

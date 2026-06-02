@@ -68,20 +68,22 @@ export function loadConfig(): AgentControllerConfig {
   }
 
   // Build LlmConfig from env vars. Requires at minimum LLM_PROVIDER + LLM_MODEL.
-  const llmProvider = process.env.LLM_PROVIDER as LlmConfig["provider"] | undefined;
+  const llmProvider = process.env.LLM_PROVIDER as
+    | LlmConfig["provider"]
+    | undefined;
   const llmModel = process.env.LLM_MODEL;
   const llmConfig: LlmConfig | null =
     llmProvider && llmModel
       ? {
-        provider: llmProvider,
-        model: llmModel,
-        apiKey: process.env.LLM_API_KEY,
-        baseUrl: process.env.LLM_BASE_URL,
-        systemPrompt: process.env.LLM_SYSTEM_PROMPT,
-        maxTokens: process.env.LLM_MAX_TOKENS
-          ? parseInt(process.env.LLM_MAX_TOKENS, 10)
-          : undefined,
-      }
+          provider: llmProvider,
+          model: llmModel,
+          apiKey: process.env.LLM_API_KEY,
+          baseUrl: process.env.LLM_BASE_URL,
+          systemPrompt: process.env.LLM_SYSTEM_PROMPT,
+          maxTokens: process.env.LLM_MAX_TOKENS
+            ? parseInt(process.env.LLM_MAX_TOKENS, 10)
+            : undefined,
+        }
       : null;
 
   // Determine vaultys ID path (from env or derive from data dir)
@@ -100,7 +102,9 @@ export function loadConfig(): AgentControllerConfig {
     llmConfig,
     vaultysIdPath,
     requestedCapabilities: process.env.AGENT_CAPABILITIES
-      ? (process.env.AGENT_CAPABILITIES.split(",").map((s) => s.trim()).filter(Boolean) as AgentCapability[])
+      ? (process.env.AGENT_CAPABILITIES.split(",")
+          .map((s) => s.trim())
+          .filter(Boolean) as AgentCapability[])
       : [],
     peerjsControlPlaneId: process.env.CONTROL_PLANE_PEERJS_ID || undefined,
     peerjsServerUrl: process.env.CONTROL_PLANE_PEERJS_SERVER || undefined,

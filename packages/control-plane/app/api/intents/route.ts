@@ -82,11 +82,17 @@ export async function POST(request: NextRequest) {
     // Non-owner delegation check
     if (!session.user.isAdmin) {
       if (!session.user.did) {
-        return NextResponse.json({ error: "Account not fully claimed" }, { status: 403 });
+        return NextResponse.json(
+          { error: "Account not fully claimed" },
+          { status: 403 }
+        );
       }
       const capability: string = action ?? broadcastCapability;
       if (!capability) {
-        return NextResponse.json({ error: "action or broadcastCapability required" }, { status: 400 });
+        return NextResponse.json(
+          { error: "action or broadcastCapability required" },
+          { status: 400 }
+        );
       }
 
       const targetAgentId: string | null = agentId ?? null;
@@ -95,7 +101,8 @@ export async function POST(request: NextRequest) {
       const grants = GrantDao.listByUser(session.user.did);
       const hasGrant = grants.some((g) => {
         const caps = JSON.parse(g.capabilities) as string[];
-        const agentMatch = g.agent_did === null || g.agent_did === targetAgentId;
+        const agentMatch =
+          g.agent_did === null || g.agent_did === targetAgentId;
         const capMatch = caps.includes(capability);
         const notExpired = !g.expires_at || new Date(g.expires_at) > new Date();
         return agentMatch && capMatch && notExpired;
@@ -104,7 +111,7 @@ export async function POST(request: NextRequest) {
       if (!hasGrant) {
         return NextResponse.json(
           { error: "No grant found for this agent/capability" },
-          { status: 403 },
+          { status: 403 }
         );
       }
     }
@@ -120,7 +127,9 @@ export async function POST(request: NextRequest) {
     const intentId = `intent-${Date.now()}`;
     let sentTo: string[] = [];
     // Pass userDid to agent for delegation verification when the caller is not the owner
-    const intentUserDid = session.user.isAdmin ? undefined : (session.user.did ?? undefined);
+    const intentUserDid = session.user.isAdmin
+      ? undefined
+      : (session.user.did ?? undefined);
 
     if (broadcastCapability) {
       // Broadcast to all agents with specific capability
@@ -129,7 +138,7 @@ export async function POST(request: NextRequest) {
         intentId,
         action,
         params,
-        intentUserDid,
+        intentUserDid
       );
 
       if (sentTo.length === 0) {
@@ -140,7 +149,13 @@ export async function POST(request: NextRequest) {
       }
     } else if (agentId) {
       // Send to specific agent
-      const success = wsServer.sendIntentToAgent(agentId, intentId, action, params, intentUserDid);
+      const success = wsServer.sendIntentToAgent(
+        agentId,
+        intentId,
+        action,
+        params,
+        intentUserDid
+      );
 
       if (!success) {
         return NextResponse.json(
@@ -233,7 +248,10 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url);
-    const limit = Math.min(parseInt(searchParams.get("limit") ?? "100", 10), 500);
+    const limit = Math.min(
+      parseInt(searchParams.get("limit") ?? "100", 10),
+      500
+    );
     const agentDid = searchParams.get("agentDid") ?? undefined;
 
     const rows = getIntentLog(limit, agentDid);

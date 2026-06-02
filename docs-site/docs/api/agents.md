@@ -18,16 +18,16 @@ Returns a paginated list of registered agent controllers.
 
 ### Query parameters
 
-| Parameter | Type | Description |
-|---|---|---|
-| `q` | string | Search by agent name or DID |
-| `online` | boolean | Filter to online/offline agents |
-| `realm` | string | Filter by realm ID or slug |
-| `capabilities` | string | Comma-separated capabilities — returns agents that have **all** listed |
-| `page` | integer | Page number (default: 1) |
-| `pageSize` | integer | Items per page (default: 20) |
-| `sortBy` | string | `name`, `registeredAt`, `lastSeen` |
-| `sortDir` | string | `asc` or `desc` |
+| Parameter      | Type    | Description                                                            |
+| -------------- | ------- | ---------------------------------------------------------------------- |
+| `q`            | string  | Search by agent name or DID                                            |
+| `online`       | boolean | Filter to online/offline agents                                        |
+| `realm`        | string  | Filter by realm ID or slug                                             |
+| `capabilities` | string  | Comma-separated capabilities — returns agents that have **all** listed |
+| `page`         | integer | Page number (default: 1)                                               |
+| `pageSize`     | integer | Items per page (default: 20)                                           |
+| `sortBy`       | string  | `name`, `registeredAt`, `lastSeen`                                     |
+| `sortDir`      | string  | `asc` or `desc`                                                        |
 
 ### Response
 
@@ -85,7 +85,12 @@ Returns full details for a single agent including its current policy.
   "registeredAt": "2026-04-01T10:00:00Z",
   "lastSeen": "2026-05-15T08:59:00Z",
   "publicKey": "z6Mkf9x3TQ...",
-  "realm": { "id": "realm_eng", "name": "Engineering", "slug": "eng", "color": "#3b82f6" }
+  "realm": {
+    "id": "realm_eng",
+    "name": "Engineering",
+    "slug": "eng",
+    "color": "#3b82f6"
+  }
 }
 ```
 
@@ -147,9 +152,14 @@ GET /api/registrations
     }
   ],
   "availableCapabilities": [
-    "file_access", "internet_access", "browser_control",
-    "api_call", "mail_send", "code_execution",
-    "system_command", "agent_communication"
+    "file_access",
+    "internet_access",
+    "browser_control",
+    "api_call",
+    "mail_send",
+    "code_execution",
+    "system_command",
+    "agent_communication"
   ]
 }
 ```
@@ -171,6 +181,7 @@ POST /api/registrations/:id/approve
 You can grant a **subset** of the requested capabilities.
 
 Response `200 OK`:
+
 ```json
 {
   "success": true,
@@ -193,6 +204,7 @@ POST /api/registrations/:id/reject
 ```
 
 Response `200 OK`:
+
 ```json
 { "success": true }
 ```

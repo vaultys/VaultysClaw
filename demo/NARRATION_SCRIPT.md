@@ -1,4 +1,5 @@
 # VaultysClaw Demo — Narration Script
+
 ## Target: 50 seconds | Audience: Enterprise Architects & Developers
 
 ---
@@ -23,9 +24,10 @@
 
 **Visual**: Slide/text overlay on black background.
 
-> **VO**: *"Enterprise AI is here. But most teams are building agents they can't audit, can't govern, and can't trust."*
+> **VO**: _"Enterprise AI is here. But most teams are building agents they can't audit, can't govern, and can't trust."_
 
 **Text on screen**:
+
 ```
 NO IDENTITY.  NO POLICY.  NO CONTROL.
 ```
@@ -44,9 +46,10 @@ In the capability selector, check `internet_access`. Click Confirm.
 
 **Visual**: Agent status flips from `pending` → `online` (green dot).
 
-> **VO**: *"In VaultysClaw, every agent has a cryptographic identity — verified on connection, never assumed. You approve it once, you own who's in your mesh."*
+> **VO**: _"In VaultysClaw, every agent has a cryptographic identity — verified on connection, never assumed. You approve it once, you own who's in your mesh."_
 
 **Text overlay (bottom)**:
+
 ```
 ZERO-TRUST  ·  CRYPTOGRAPHIC IDENTITY  ·  ONE CLICK ONBOARDING
 ```
@@ -58,9 +61,10 @@ ZERO-TRUST  ·  CRYPTOGRAPHIC IDENTITY  ·  ONE CLICK ONBOARDING
 **Visual**: Click on the "Research Agent" row → Policy Editor opens.
 Show `internet_access` already checked. Scroll to show `requiresApproval: true` on the `http_request` tool.
 
-> **VO**: *"Every capability is policy-gated. Need a tool to require human approval before it fires? One toggle. Every execution is signed and auditable."*
+> **VO**: _"Every capability is policy-gated. Need a tool to require human approval before it fires? One toggle. Every execution is signed and auditable."_
 
 **Text overlay**:
+
 ```
 FINE-GRAINED POLICY  ·  APPROVAL GATES  ·  SIGNED EXECUTION
 ```
@@ -74,18 +78,21 @@ Type: `Research microservices security best practices and summarize the top 5 ri
 Press Enter.
 
 **Visual**: Show the **Tool Approval** popup appear:
+
 ```
 ⚠  Research Agent wants to call: http_request
    url: https://owasp.org/www-project-top-ten/
    [Approve]  [Reject]
 ```
+
 Click **Approve**.
 
 **Visual**: Streaming response appears in chat. Result shows signed summary.
 
-> **VO**: *"Intent delivered in milliseconds over a persistent, authenticated WebSocket. The agent executes, the tool fires only after you approve — and every result comes back cryptographically signed."*
+> **VO**: _"Intent delivered in milliseconds over a persistent, authenticated WebSocket. The agent executes, the tool fires only after you approve — and every result comes back cryptographically signed."_
 
 **Text overlay**:
+
 ```
 REAL-TIME  ·  SIGNED RESULTS  ·  HUMAN IN THE LOOP
 ```
@@ -95,6 +102,7 @@ REAL-TIME  ·  SIGNED RESULTS  ·  HUMAN IN THE LOOP
 ### SCENE 5 — The Agent Graph [38s–46s]
 
 **Visual**: Navigate to the **Graph** view. Animated 3D force-directed graph shows:
+
 - `Control Plane` (center)
 - `Research Agent` — `Code Agent` — `Report Agent` (orbiting)
 - Edges labelled with capabilities
@@ -102,9 +110,10 @@ REAL-TIME  ·  SIGNED RESULTS  ·  HUMAN IN THE LOOP
 
 Slow zoom in on the graph. Let it breathe for 2–3 seconds.
 
-> **VO**: *"Full observability of your entire agent mesh — who delegates to whom, what capabilities flow where. At a glance."*
+> **VO**: _"Full observability of your entire agent mesh — who delegates to whom, what capabilities flow where. At a glance."_
 
 **Text overlay**:
+
 ```
 AGENT MESH  ·  DELEGATION GRAPH  ·  FULL OBSERVABILITY
 ```
@@ -122,21 +131,21 @@ Orchestrate with trust.
 github.com/fxthoorens/VaultysClaw
 ```
 
-> **VO**: *"VaultysClaw — the open enterprise foundation for AI agent orchestration."*
+> **VO**: _"VaultysClaw — the open enterprise foundation for AI agent orchestration."_
 
 ---
 
 ## Timing summary
 
-| Scene | Duration | Key visual |
-|-------|----------|-----------|
-| 1. Problem | 5s | Text slide |
-| 2. Register | 13s | Pending → Online (green dot) |
-| 3. Policy | 9s | Policy editor, approval toggle |
-| 4. Intent + Approval | 11s | Chat → Tool approval → Signed result |
-| 5. Graph | 8s | 3D agent mesh |
-| 6. CTA | 4s | Logo + URL |
-| **Total** | **50s** | |
+| Scene                | Duration | Key visual                           |
+| -------------------- | -------- | ------------------------------------ |
+| 1. Problem           | 5s       | Text slide                           |
+| 2. Register          | 13s      | Pending → Online (green dot)         |
+| 3. Policy            | 9s       | Policy editor, approval toggle       |
+| 4. Intent + Approval | 11s      | Chat → Tool approval → Signed result |
+| 5. Graph             | 8s       | 3D agent mesh                        |
+| 6. CTA               | 4s       | Logo + URL                           |
+| **Total**            | **50s**  |                                      |
 
 ---
 

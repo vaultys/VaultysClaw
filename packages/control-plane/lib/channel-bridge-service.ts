@@ -1,4 +1,9 @@
-import { ChannelBridge, ChannelBridgeInput, TeamsBridgeConfig, WebhookBridgeConfig } from "@vaultysclaw/shared";
+import {
+  ChannelBridge,
+  ChannelBridgeInput,
+  TeamsBridgeConfig,
+  WebhookBridgeConfig,
+} from "@vaultysclaw/shared";
 import { ChannelBridgeDao } from "./channel-bridge-dao";
 
 /**
@@ -25,12 +30,12 @@ export class ChannelBridgeService {
     const existing = ChannelBridgeDao.getByChannelAndService(
       input.channelId,
       input.externalService,
-      input.externalChannelId,
+      input.externalChannelId
     );
 
     if (existing) {
       throw new Error(
-        `Bridge already exists for ${input.externalService} channel ${input.externalChannelId}`,
+        `Bridge already exists for ${input.externalService} channel ${input.externalChannelId}`
       );
     }
 
@@ -68,12 +73,12 @@ export class ChannelBridgeService {
   static getBridgeByService(
     channelId: string,
     externalService: string,
-    externalChannelId: string,
+    externalChannelId: string
   ): ChannelBridge | null {
     return ChannelBridgeDao.getByChannelAndService(
       channelId,
       externalService,
-      externalChannelId,
+      externalChannelId
     );
   }
 
@@ -82,7 +87,7 @@ export class ChannelBridgeService {
    */
   static updateBridgeSyncDirection(
     bridgeId: string,
-    syncDirection: "incoming" | "outgoing" | "bidirectional",
+    syncDirection: "incoming" | "outgoing" | "bidirectional"
   ): ChannelBridge {
     return ChannelBridgeDao.update(bridgeId, { syncDirection });
   }
@@ -99,7 +104,7 @@ export class ChannelBridgeService {
    */
   static updateBridgeConfig(
     bridgeId: string,
-    config: TeamsBridgeConfig | WebhookBridgeConfig,
+    config: TeamsBridgeConfig | WebhookBridgeConfig
   ): ChannelBridge {
     const encryptedConfig = this.encryptConfig(config);
     return ChannelBridgeDao.update(bridgeId, { configJson: encryptedConfig });
@@ -115,7 +120,10 @@ export class ChannelBridgeService {
   /**
    * Delete all bridges of a specific service for a channel
    */
-  static deleteServiceBridges(channelId: string, externalService: string): void {
+  static deleteServiceBridges(
+    channelId: string,
+    externalService: string
+  ): void {
     ChannelBridgeDao.deleteByChannelAndService(channelId, externalService);
   }
 
@@ -123,7 +131,9 @@ export class ChannelBridgeService {
    * Validate Teams bridge connection
    * In real implementation, would test OAuth token against Teams API
    */
-  static async validateTeamsBridge(config: TeamsBridgeConfig): Promise<boolean> {
+  static async validateTeamsBridge(
+    config: TeamsBridgeConfig
+  ): Promise<boolean> {
     try {
       // TODO: Implement Teams Graph API health check
       // For now, just validate required fields
@@ -139,7 +149,9 @@ export class ChannelBridgeService {
   /**
    * Validate webhook bridge connection
    */
-  static async validateWebhookBridge(config: WebhookBridgeConfig): Promise<boolean> {
+  static async validateWebhookBridge(
+    config: WebhookBridgeConfig
+  ): Promise<boolean> {
     try {
       // TODO: Implement webhook connectivity check
       if (!config.webhookUrl || !config.outgoingUrl || !config.secret) {
@@ -155,7 +167,9 @@ export class ChannelBridgeService {
    * Get decrypted configuration for a bridge
    * In production, this would decrypt using a KMS or vault
    */
-  static getDecryptedConfig(bridge: ChannelBridge): TeamsBridgeConfig | WebhookBridgeConfig {
+  static getDecryptedConfig(
+    bridge: ChannelBridge
+  ): TeamsBridgeConfig | WebhookBridgeConfig {
     // TODO: Implement actual decryption
     return this.decryptConfig(bridge.configJson);
   }
@@ -163,7 +177,9 @@ export class ChannelBridgeService {
   /**
    * Encrypt configuration before storing (placeholder - implement with actual encryption)
    */
-  private static encryptConfig(config: TeamsBridgeConfig | WebhookBridgeConfig): string {
+  private static encryptConfig(
+    config: TeamsBridgeConfig | WebhookBridgeConfig
+  ): string {
     // TODO: Implement actual encryption (e.g., using crypto.encrypt with a key)
     // For now, just return JSON as-is
     return JSON.stringify(config);
@@ -172,7 +188,9 @@ export class ChannelBridgeService {
   /**
    * Decrypt configuration from storage (placeholder - implement with actual decryption)
    */
-  private static decryptConfig(encryptedJson: string): TeamsBridgeConfig | WebhookBridgeConfig {
+  private static decryptConfig(
+    encryptedJson: string
+  ): TeamsBridgeConfig | WebhookBridgeConfig {
     // TODO: Implement actual decryption
     // For now, just parse JSON as-is
     return JSON.parse(encryptedJson);

@@ -65,20 +65,31 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const { email, name, role } = await request.json() as { email?: string; name?: string; role?: string };
+    const { email, name, role } = (await request.json()) as {
+      email?: string;
+      name?: string;
+      role?: string;
+    };
 
     if (!email || !name) {
-      return NextResponse.json({ error: "Email and name required" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Email and name required" },
+        { status: 400 }
+      );
     }
 
     const userRole = role ?? "member";
-    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+    const expiresAt = new Date(
+      Date.now() + 7 * 24 * 60 * 60 * 1000
+    ).toISOString();
 
     // Check if this email already has an active invitation
     const db = getDb();
-    const existingInvitation = db.prepare(
-      "SELECT token FROM user_invitations WHERE email = ? AND expires_at > datetime('now')"
-    ).get(email) as { token: string } | undefined;
+    const existingInvitation = db
+      .prepare(
+        "SELECT token FROM user_invitations WHERE email = ? AND expires_at > datetime('now')"
+      )
+      .get(email) as { token: string } | undefined;
 
     // Delete old invitation if it exists (will create new one)
     if (existingInvitation) {
@@ -86,9 +97,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if unclaimed user already exists for this email
-    let unclaimed = db.prepare(
-      "SELECT id FROM users WHERE email = ? AND did IS NULL"
-    ).get(email) as { id: string } | undefined;
+    let unclaimed = db
+      .prepare("SELECT id FROM users WHERE email = ? AND did IS NULL")
+      .get(email) as { id: string } | undefined;
 
     const userId = unclaimed?.id ?? crypto.randomUUID();
 
@@ -99,9 +110,11 @@ export async function POST(request: NextRequest) {
       ).run(userId, name, email, userRole);
     } else {
       // Update existing unclaimed user with new name/role
-      db.prepare(
-        "UPDATE users SET name = ?, role = ? WHERE id = ?"
-      ).run(name, userRole, userId);
+      db.prepare("UPDATE users SET name = ?, role = ? WHERE id = ?").run(
+        name,
+        userRole,
+        userId
+      );
     }
 
     // Create invitation token linked to user
@@ -109,7 +122,7 @@ export async function POST(request: NextRequest) {
     // Store the link between invitation and user
     db.prepare(
       "INSERT INTO user_invitations (token, email, name, role, expires_at) VALUES (?, ?, ?, ?, ?) " +
-      "ON CONFLICT(token) DO UPDATE SET email = excluded.email, name = excluded.name, role = excluded.role"
+        "ON CONFLICT(token) DO UPDATE SET email = excluded.email, name = excluded.name, role = excluded.role"
     ).run(token, email, name, userRole, expiresAt);
 
     const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
@@ -139,6 +152,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ token, userId });
   } catch (err) {
     console.error("Email invitation error:", err);
-    return NextResponse.json({ error: "Failed to send invitation" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to send invitation" },
+      { status: 500 }
+    );
   }
 }

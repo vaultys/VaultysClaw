@@ -5,8 +5,12 @@ import dynamic from "next/dynamic";
 import type { GraphData, GraphNode } from "@vaultysclaw/shared";
 
 // All views are code-split to avoid loading Three.js everywhere
-const Force3DView = dynamic(() => import("./views/Force3DView"), { ssr: false });
-const OrgChartFlowView = dynamic(() => import("./views/OrgChartFlowView"), { ssr: false });
+const Force3DView = dynamic(() => import("./views/Force3DView"), {
+  ssr: false,
+});
+const OrgChartFlowView = dynamic(() => import("./views/OrgChartFlowView"), {
+  ssr: false,
+});
 const MatrixView = dynamic(() => import("./views/MatrixView"), { ssr: false });
 
 export type GraphViewMode = "force3d" | "org-chart" | "matrix";
@@ -26,14 +30,26 @@ interface Props {
   currentUserId?: string;
 }
 
-const VIEW_OPTIONS: { id: GraphViewMode; label: string; icon: React.ReactNode; tip: string }[] = [
+const VIEW_OPTIONS: {
+  id: GraphViewMode;
+  label: string;
+  icon: React.ReactNode;
+  tip: string;
+}[] = [
   {
     id: "force3d",
     label: "3D Force",
     tip: "Interactive 3D force-directed graph — drag & rotate",
     icon: (
-      <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6"
-        strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
+      <svg
+        viewBox="0 0 20 20"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className="w-4 h-4"
+      >
         <circle cx="10" cy="10" r="2.5" />
         <circle cx="3.5" cy="5" r="1.8" />
         <circle cx="16.5" cy="5" r="1.8" />
@@ -51,8 +67,15 @@ const VIEW_OPTIONS: { id: GraphViewMode; label: string; icon: React.ReactNode; t
     label: "Org Chart (Flow)",
     tip: "Interactive org chart with React Flow — drag nodes, pan, zoom",
     icon: (
-      <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6"
-        strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
+      <svg
+        viewBox="0 0 20 20"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className="w-4 h-4"
+      >
         <rect x="6.5" y="1" width="7" height="4" rx="1" />
         <rect x="1" y="10" width="6" height="4" rx="1" />
         <rect x="6.5" y="10" width="7" height="4" rx="1" />
@@ -71,8 +94,15 @@ const VIEW_OPTIONS: { id: GraphViewMode; label: string; icon: React.ReactNode; t
     label: "Matrix",
     tip: "Users × agents access matrix — shows who has what capabilities",
     icon: (
-      <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6"
-        strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
+      <svg
+        viewBox="0 0 20 20"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className="w-4 h-4"
+      >
         <rect x="1" y="1" width="18" height="18" rx="2" />
         <line x1="7" y1="1" x2="7" y2="19" />
         <line x1="13" y1="1" x2="13" y2="19" />
@@ -104,7 +134,10 @@ export default function RealmGraph({
     setLoading(true);
     setError(null);
     fetch(`/api/graph${query}`)
-      .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      })
       .then((d: GraphData) => setData(d))
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
@@ -116,15 +149,21 @@ export default function RealmGraph({
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center rounded-xl border border-neutral-200" style={{ height }}>
-        <div className="animate-spin rounded-full h-8 w-8 border-2 border-indigo-500 border-t-transparent" />
+      <div
+        className="flex items-center justify-center rounded-xl border border-neutral-200"
+        style={{ height }}
+      >
+        <div className="animate-spin rounded-full h-8 w-8 border-2 border-primary-500 border-t-transparent" />
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="flex items-center justify-center rounded-xl border border-neutral-200 text-red-600 dark:text-red-400" style={{ height }}>
+      <div
+        className="flex items-center justify-center rounded-xl border border-neutral-200 text-danger-600 dark:text-danger-400"
+        style={{ height }}
+      >
         Failed to load graph: {error}
       </div>
     );
@@ -132,14 +171,20 @@ export default function RealmGraph({
 
   if (!data || data.nodes.length === 0) {
     return (
-      <div className="flex items-center justify-center rounded-xl border border-neutral-200 text-foreground-500" style={{ height }}>
+      <div
+        className="flex items-center justify-center rounded-xl border border-neutral-200 text-foreground-500"
+        style={{ height }}
+      >
         No data to display
       </div>
     );
   }
 
   return (
-    <div className="rounded-xl border border-neutral-200 overflow-hidden bg-background-100" style={{ height }}>
+    <div
+      className="rounded-xl border border-neutral-200 overflow-hidden bg-background-100"
+      style={{ height }}
+    >
       {/* ── View switcher ── */}
       {!hideViewSwitcher && (
         <div className="flex items-center gap-1 px-3 py-2 border-b border-neutral-200 bg-background-100">
@@ -148,10 +193,11 @@ export default function RealmGraph({
               key={opt.id}
               onClick={() => setView(opt.id)}
               title={opt.tip}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${view === opt.id
-                  ? "bg-indigo-100 dark:bg-indigo-600/20 text-indigo-700 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/40"
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                view === opt.id
+                  ? "bg-primary-100 dark:bg-primary-600/20 text-primary-700 dark:text-primary-400 border border-primary-200 dark:border-primary-500/40"
                   : "text-foreground-500 hover:text-foreground hover:bg-background-200 border border-transparent"
-                }`}
+              }`}
             >
               {opt.icon}
               {opt.label}
@@ -163,10 +209,19 @@ export default function RealmGraph({
       {/* ── Active view ── */}
       <div style={{ height: contentH }}>
         {view === "force3d" && (
-          <Force3DView data={data} height={contentH} onNodeClick={onNodeClick} />
+          <Force3DView
+            data={data}
+            height={contentH}
+            onNodeClick={onNodeClick}
+          />
         )}
         {view === "org-chart" && (
-          <OrgChartFlowView data={data} height={contentH} onNodeClick={onNodeClick} currentUserId={currentUserId} />
+          <OrgChartFlowView
+            data={data}
+            height={contentH}
+            onNodeClick={onNodeClick}
+            currentUserId={currentUserId}
+          />
         )}
         {view === "matrix" && (
           <MatrixView data={data} height={contentH} onNodeClick={onNodeClick} />

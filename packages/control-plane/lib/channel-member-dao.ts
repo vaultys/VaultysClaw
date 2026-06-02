@@ -8,32 +8,40 @@ export const ChannelMemberDao = {
     const id = randomUUID();
     const now = new Date().toISOString();
 
-    db.prepare(`
+    db.prepare(
+      `
       INSERT INTO channel_members (id, channel_id, member_did, member_type, role, joined_at, invited_by)
       VALUES (?, ?, ?, ?, ?, ?, ?)
-    `).run(
+    `
+    ).run(
       id,
       input.channelId,
       input.memberDid,
       input.memberType,
       input.role,
       now,
-      input.invitedBy ?? null,
+      input.invitedBy ?? null
     );
 
-    return db.prepare("SELECT * FROM channel_members WHERE id = ?").get(id) as any;
+    return db
+      .prepare("SELECT * FROM channel_members WHERE id = ?")
+      .get(id) as any;
   },
 
   getById(id: string): ChannelMember | null {
     const db = getDb();
-    const row = db.prepare("SELECT * FROM channel_members WHERE id = ?").get(id) as any;
+    const row = db
+      .prepare("SELECT * FROM channel_members WHERE id = ?")
+      .get(id) as any;
     return row ? normalizeMember(row) : null;
   },
 
   getMember(channelId: string, memberDid: string): ChannelMember | null {
     const db = getDb();
     const row = db
-      .prepare("SELECT * FROM channel_members WHERE channel_id = ? AND member_did = ?")
+      .prepare(
+        "SELECT * FROM channel_members WHERE channel_id = ? AND member_did = ?"
+      )
       .get(channelId, memberDid) as any;
     return row ? normalizeMember(row) : null;
   },
@@ -41,7 +49,9 @@ export const ChannelMemberDao = {
   listByChannel(channelId: string): ChannelMember[] {
     const db = getDb();
     const rows = db
-      .prepare("SELECT * FROM channel_members WHERE channel_id = ? ORDER BY joined_at ASC")
+      .prepare(
+        "SELECT * FROM channel_members WHERE channel_id = ? ORDER BY joined_at ASC"
+      )
       .all(channelId) as any[];
     return rows.map(normalizeMember);
   },
@@ -49,31 +59,36 @@ export const ChannelMemberDao = {
   listByMember(memberDid: string): ChannelMember[] {
     const db = getDb();
     const rows = db
-      .prepare("SELECT * FROM channel_members WHERE member_did = ? ORDER BY joined_at DESC")
+      .prepare(
+        "SELECT * FROM channel_members WHERE member_did = ? ORDER BY joined_at DESC"
+      )
       .all(memberDid) as any[];
     return rows.map(normalizeMember);
   },
 
-  updateRole(channelId: string, memberDid: string, role: "member" | "moderator" | "owner"): ChannelMember {
+  updateRole(
+    channelId: string,
+    memberDid: string,
+    role: "member" | "moderator" | "owner"
+  ): ChannelMember {
     const db = getDb();
-    db.prepare("UPDATE channel_members SET role = ? WHERE channel_id = ? AND member_did = ?").run(
-      role,
-      channelId,
-      memberDid,
-    );
+    db.prepare(
+      "UPDATE channel_members SET role = ? WHERE channel_id = ? AND member_did = ?"
+    ).run(role, channelId, memberDid);
 
     const row = db
-      .prepare("SELECT * FROM channel_members WHERE channel_id = ? AND member_did = ?")
+      .prepare(
+        "SELECT * FROM channel_members WHERE channel_id = ? AND member_did = ?"
+      )
       .get(channelId, memberDid) as any;
     return normalizeMember(row);
   },
 
   removeMember(channelId: string, memberDid: string): void {
     const db = getDb();
-    db.prepare("DELETE FROM channel_members WHERE channel_id = ? AND member_did = ?").run(
-      channelId,
-      memberDid,
-    );
+    db.prepare(
+      "DELETE FROM channel_members WHERE channel_id = ? AND member_did = ?"
+    ).run(channelId, memberDid);
   },
 
   removeById(id: string): void {
@@ -84,7 +99,9 @@ export const ChannelMemberDao = {
   getChannelMemberCount(channelId: string): number {
     const db = getDb();
     const result = db
-      .prepare("SELECT COUNT(*) AS count FROM channel_members WHERE channel_id = ?")
+      .prepare(
+        "SELECT COUNT(*) AS count FROM channel_members WHERE channel_id = ?"
+      )
       .get(channelId) as any;
     return result.count;
   },

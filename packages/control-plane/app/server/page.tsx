@@ -132,7 +132,7 @@ function Field({
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
           disabled={disabled}
-          className="w-full bg-background-200 border border-neutral-300 rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-foreground-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50 disabled:opacity-50 transition pr-9"
+          className="w-full bg-background-200 border border-neutral-300 rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-foreground-400 focus:outline-none focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500/50 disabled:opacity-50 transition pr-9"
         />
         {showToggle && (
           <button
@@ -295,7 +295,7 @@ function SmtpSection() {
                     onClick={() => setSecure((s) => !s)}
                     className={cn(
                       "mt-1 w-11 h-6 rounded-full relative transition-colors",
-                      secure ? "bg-indigo-600" : "bg-neutral-300"
+                      secure ? "bg-primary-600" : "bg-neutral-300"
                     )}
                   >
                     <span
@@ -335,7 +335,7 @@ function SmtpSection() {
               <button
                 type="submit"
                 disabled={saving}
-                className="px-4 py-1.5 text-xs font-medium rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white disabled:opacity-40 transition flex items-center gap-1.5"
+                className="px-4 py-1.5 text-xs font-medium rounded-lg bg-primary-600 hover:bg-primary-500 text-white disabled:opacity-40 transition flex items-center gap-1.5"
               >
                 {saving && <Loader2 className="w-3 h-3 animate-spin" />}
                 Save
@@ -354,19 +354,19 @@ function SmtpSection() {
                 Test connection
               </button>
               {status === "saved" && (
-                <span className="text-xs text-emerald-700 dark:text-emerald-400 flex items-center gap-1">
+                <span className="text-xs text-success-700 dark:text-success-400 flex items-center gap-1">
                   <Check className="w-3 h-3" />
                   Saved
                 </span>
               )}
               {status === "ok" && (
-                <span className="text-xs text-emerald-700 dark:text-emerald-400 flex items-center gap-1">
+                <span className="text-xs text-success-700 dark:text-success-400 flex items-center gap-1">
                   <CheckCircle className="w-3 h-3" />
                   {statusMsg}
                 </span>
               )}
               {(status === "error" || status === "fail") && (
-                <span className="text-xs text-red-600 dark:text-red-400 flex items-center gap-1">
+                <span className="text-xs text-danger-600 dark:text-danger-400 flex items-center gap-1">
                   <AlertCircle className="w-3 h-3" />
                   {statusMsg}
                 </span>
@@ -464,19 +464,19 @@ function ServerSettingsSection() {
               <button
                 type="submit"
                 disabled={saving}
-                className="px-4 py-1.5 text-xs font-medium rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white disabled:opacity-40 transition flex items-center gap-1.5"
+                className="px-4 py-1.5 text-xs font-medium rounded-lg bg-primary-600 hover:bg-primary-500 text-white disabled:opacity-40 transition flex items-center gap-1.5"
               >
                 {saving && <Loader2 className="w-3 h-3 animate-spin" />}
                 Save
               </button>
               {status === "saved" && (
-                <span className="text-xs text-emerald-700 dark:text-emerald-400 flex items-center gap-1">
+                <span className="text-xs text-success-700 dark:text-success-400 flex items-center gap-1">
                   <Check className="w-3 h-3" />
                   Saved
                 </span>
               )}
               {status === "error" && (
-                <span className="text-xs text-red-600 dark:text-red-400 flex items-center gap-1">
+                <span className="text-xs text-danger-600 dark:text-danger-400 flex items-center gap-1">
                   <AlertCircle className="w-3 h-3" />
                   {statusMsg}
                 </span>
@@ -492,10 +492,10 @@ function ServerSettingsSection() {
 // ─── Entra Setup Guide ───────────────────────────────────────────────────────
 
 const PILL =
-  "font-mono text-xs bg-indigo-100 dark:bg-indigo-950/60 border border-indigo-300 dark:border-indigo-700/60 text-indigo-700 dark:text-indigo-300 px-1.5 py-0.5 rounded";
-const BOLD = "font-semibold text-gray-900 dark:text-foreground";
+  "font-mono text-xs bg-primary-100 dark:bg-primary-950/60 border border-primary-300 dark:border-primary-700/60 text-primary-700 dark:text-primary-300 px-1.5 py-0.5 rounded";
+const BOLD = "font-semibold text-foreground dark:text-foreground";
 const LINK =
-  "text-indigo-600 dark:text-indigo-400 hover:text-indigo-500 dark:hover:text-indigo-300 inline-flex items-center gap-0.5 underline underline-offset-2";
+  "text-primary-600 dark:text-primary-400 hover:text-primary-500 dark:hover:text-primary-300 inline-flex items-center gap-0.5 underline underline-offset-2";
 
 const STEPS = [
   {
@@ -557,7 +557,7 @@ const STEPS = [
         <strong className={BOLD}>Add a permission</strong> →{" "}
         <strong className={BOLD}>Microsoft Graph</strong>. In the panel that
         opens, choose <strong className={BOLD}>Application permissions</strong>{" "}
-        <span className="inline-flex items-center gap-1 text-xs font-semibold bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300 border border-red-300 dark:border-red-700/60 rounded px-1.5 py-0.5">
+        <span className="inline-flex items-center gap-1 text-xs font-semibold bg-danger-100 dark:bg-danger-900/40 text-danger-700 dark:text-danger-300 border border-danger-300 dark:border-danger-700/60 rounded px-1.5 py-0.5">
           ⚠ not Delegated
         </span>
         , then search for and add:
@@ -571,13 +571,15 @@ const STEPS = [
           ].map(({ perm, why }) => (
             <li key={perm} className="flex items-start gap-2">
               <span className={cn(PILL, "shrink-0 mt-0.5")}>{perm}</span>
-              <span className="text-gray-500 dark:text-foreground-400">— {why}</span>
+              <span className="text-neutral-500 dark:text-foreground-400">
+                — {why}
+              </span>
             </li>
           ))}
         </ul>
-        <div className="mt-3 flex items-start gap-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-300 dark:border-amber-700/50 rounded-lg px-3 py-2">
-          <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
-          <span className="text-xs text-amber-800 dark:text-amber-300 leading-relaxed">
+        <div className="mt-3 flex items-start gap-2 bg-warning-50 dark:bg-warning-900/20 border border-warning-300 dark:border-warning-700/50 rounded-lg px-3 py-2">
+          <AlertCircle className="w-4 h-4 text-warning-600 dark:text-warning-400 shrink-0 mt-0.5" />
+          <span className="text-xs text-warning-800 dark:text-warning-300 leading-relaxed">
             After adding both permissions you <strong>must</strong> click{" "}
             <strong>Grant admin consent for [your organisation]</strong> at the
             top of the permissions list, then confirm. Without this step the app
@@ -592,33 +594,33 @@ const STEPS = [
 function EntraSetupGuide() {
   const [open, setOpen] = useState(false);
   return (
-    <div className="rounded-lg border border-indigo-200 dark:border-indigo-800/40 bg-indigo-50 dark:bg-indigo-950/30 overflow-hidden">
+    <div className="rounded-lg border border-primary-200 dark:border-primary-800/40 bg-primary-50 dark:bg-primary-950/30 overflow-hidden">
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="w-full flex items-center gap-2 px-4 py-3 text-left hover:bg-indigo-100/70 dark:hover:bg-indigo-950/50 transition"
+        className="w-full flex items-center gap-2 px-4 py-3 text-left hover:bg-primary-100/70 dark:hover:bg-primary-950/50 transition"
       >
-        <BookOpen className="w-4 h-4 text-indigo-500 dark:text-indigo-400 shrink-0" />
-        <span className="text-sm font-medium text-indigo-700 dark:text-indigo-300 flex-1">
+        <BookOpen className="w-4 h-4 text-primary-500 dark:text-primary-400 shrink-0" />
+        <span className="text-sm font-medium text-primary-700 dark:text-primary-300 flex-1">
           How to get these credentials from the Azure portal
         </span>
         <ChevronDown
           className={cn(
-            "w-4 h-4 text-indigo-500 dark:text-indigo-400 transition-transform duration-200",
+            "w-4 h-4 text-primary-500 dark:text-primary-400 transition-transform duration-200",
             open && "rotate-180"
           )}
         />
       </button>
 
       {open && (
-        <div className="px-4 pb-5 pt-2 space-y-4 border-t border-indigo-200 dark:border-indigo-800/40">
+        <div className="px-4 pb-5 pt-2 space-y-4 border-t border-primary-200 dark:border-primary-800/40">
           {STEPS.map((step) => (
             <div key={step.number} className="flex gap-3">
-              <span className="w-6 h-6 rounded-full bg-indigo-200 dark:bg-indigo-600/30 border border-indigo-400 dark:border-indigo-600/50 text-indigo-700 dark:text-indigo-300 text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">
+              <span className="w-6 h-6 rounded-full bg-primary-200 dark:bg-primary-600/30 border border-primary-400 dark:border-primary-600/50 text-primary-700 dark:text-primary-300 text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">
                 {step.number}
               </span>
-              <div className="text-sm text-gray-600 dark:text-foreground-500 leading-relaxed">
-                <span className="font-semibold text-gray-800 dark:text-foreground-700">
+              <div className="text-sm text-neutral-600 dark:text-foreground-500 leading-relaxed">
+                <span className="font-semibold text-neutral-800 dark:text-foreground-700">
                   {step.title} —{" "}
                 </span>
                 {step.body}
@@ -626,9 +628,9 @@ function EntraSetupGuide() {
             </div>
           ))}
 
-          <div className="flex items-start gap-2 pt-3 border-t border-indigo-200 dark:border-indigo-800/30">
-            <AlertCircle className="w-4 h-4 text-amber-500 dark:text-amber-400 shrink-0 mt-0.5" />
-            <p className="text-xs text-amber-700 dark:text-amber-300/80 leading-relaxed">
+          <div className="flex items-start gap-2 pt-3 border-t border-primary-200 dark:border-primary-800/30">
+            <AlertCircle className="w-4 h-4 text-warning-500 dark:text-warning-400 shrink-0 mt-0.5" />
+            <p className="text-xs text-warning-700 dark:text-warning-300/80 leading-relaxed">
               The client secret value is only visible immediately after
               creation. Store it securely — if lost you will need to create a
               new one.
@@ -639,7 +641,7 @@ function EntraSetupGuide() {
             href="https://learn.microsoft.com/en-us/entra/identity-platform/quickstart-register-app"
             target="_blank"
             rel="noreferrer"
-            className="inline-flex items-center gap-1.5 text-xs text-indigo-600 dark:text-indigo-400 hover:text-indigo-500 dark:hover:text-indigo-300 transition"
+            className="inline-flex items-center gap-1.5 text-xs text-primary-600 dark:text-primary-400 hover:text-primary-500 dark:hover:text-primary-300 transition"
           >
             <ExternalLink className="w-3 h-3" />
             Full Microsoft documentation
@@ -930,7 +932,7 @@ function EntraSection() {
                 <button
                   type="submit"
                   disabled={configSaving}
-                  className="px-4 py-1.5 text-xs font-medium rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white disabled:opacity-40 transition flex items-center gap-1.5"
+                  className="px-4 py-1.5 text-xs font-medium rounded-lg bg-primary-600 hover:bg-primary-500 text-white disabled:opacity-40 transition flex items-center gap-1.5"
                 >
                   {configSaving && <Loader2 className="w-3 h-3 animate-spin" />}
                   Save
@@ -954,19 +956,19 @@ function EntraSection() {
                   <button
                     type="button"
                     onClick={openWizard}
-                    className="px-4 py-1.5 text-xs font-medium rounded-lg bg-background-200 border border-neutral-300 hover:border-indigo-500 text-foreground transition flex items-center gap-1.5"
+                    className="px-4 py-1.5 text-xs font-medium rounded-lg bg-background-200 border border-neutral-300 hover:border-primary-500 text-foreground transition flex items-center gap-1.5"
                   >
                     <RefreshCw className="w-3 h-3" /> Sync users…
                   </button>
                 )}
                 {configStatus === "saved" && (
-                  <span className="text-xs text-emerald-700 dark:text-emerald-400 flex items-center gap-1">
+                  <span className="text-xs text-success-700 dark:text-success-400 flex items-center gap-1">
                     <Check className="w-3 h-3" />
                     Saved
                   </span>
                 )}
                 {configStatus === "error" && (
-                  <span className="text-xs text-red-600 dark:text-red-400 flex items-center gap-1">
+                  <span className="text-xs text-danger-600 dark:text-danger-400 flex items-center gap-1">
                     <AlertCircle className="w-3 h-3" />
                     Save failed
                   </span>
@@ -986,7 +988,7 @@ function EntraSection() {
                 </div>
                 <Link
                   href="/users"
-                  className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-background-100 border border-neutral-300 hover:border-indigo-500 text-foreground transition"
+                  className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-background-100 border border-neutral-300 hover:border-primary-500 text-foreground transition"
                 >
                   <Users className="w-3 h-3" />
                   View users
@@ -1007,23 +1009,23 @@ function EntraSection() {
                     >
                       <div className="flex items-center gap-2">
                         {check.status === "ok" ? (
-                          <CheckCircle className="w-4 h-4 text-emerald-500 shrink-0" />
+                          <CheckCircle className="w-4 h-4 text-success-500 shrink-0" />
                         ) : (
-                          <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
+                          <AlertCircle className="w-4 h-4 text-danger-500 shrink-0" />
                         )}
                         <span
                           className={cn(
                             "text-sm font-medium",
                             check.status === "ok"
-                              ? "text-emerald-700 dark:text-emerald-400"
-                              : "text-red-700 dark:text-red-400"
+                              ? "text-success-700 dark:text-success-400"
+                              : "text-danger-700 dark:text-danger-400"
                           )}
                         >
                           {check.label}
                         </span>
                       </div>
                       {check.status === "fail" && check.hint && (
-                        <p className="text-xs text-gray-600 dark:text-foreground-500 pl-6 leading-relaxed">
+                        <p className="text-xs text-neutral-600 dark:text-foreground-500 pl-6 leading-relaxed">
                           {check.hint}
                         </p>
                       )}
@@ -1042,7 +1044,9 @@ function EntraSection() {
           <div className="bg-background-100 border border-neutral-300 rounded-2xl w-full max-w-lg shadow-2xl flex flex-col max-h-[90vh]">
             {/* Header */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-200 shrink-0">
-              <h2 className="text-foreground font-semibold">Sync Entra Users</h2>
+              <h2 className="text-foreground font-semibold">
+                Sync Entra Users
+              </h2>
               {wizardStep !== "syncing" && (
                 <button
                   onClick={() => setWizardOpen(false)}
@@ -1069,7 +1073,7 @@ function EntraSection() {
                     </div>
                   )}
                   {groupsError && (
-                    <div className="bg-red-50 dark:bg-red-950/40 border border-red-300 dark:border-red-700 rounded-lg px-4 py-3 text-sm text-red-600 dark:text-red-300 flex items-start gap-2">
+                    <div className="bg-danger-50 dark:bg-danger-950/40 border border-danger-300 dark:border-danger-700 rounded-lg px-4 py-3 text-sm text-danger-600 dark:text-danger-300 flex items-start gap-2">
                       <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
                       {groupsError}
                     </div>
@@ -1082,7 +1086,7 @@ function EntraSection() {
                           className={cn(
                             "flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition",
                             selectedGroups.has(g.id)
-                              ? "bg-indigo-100 dark:bg-indigo-600/15 border-indigo-300 dark:border-indigo-600/50"
+                              ? "bg-primary-100 dark:bg-primary-600/15 border-primary-300 dark:border-primary-600/50"
                               : "bg-background-200 border-neutral-300 hover:border-foreground-500"
                           )}
                         >
@@ -1090,7 +1094,7 @@ function EntraSection() {
                             type="checkbox"
                             checked={selectedGroups.has(g.id)}
                             onChange={() => toggleGroup(g.id)}
-                            className="accent-indigo-500"
+                            className="accent-primary-500"
                           />
                           <div className="min-w-0">
                             <p className="text-sm font-medium text-foreground">
@@ -1134,7 +1138,7 @@ function EntraSection() {
                         className={cn(
                           "flex-1 py-2.5 rounded-xl border text-sm font-medium transition",
                           mapGroups === v
-                            ? "bg-indigo-50 dark:bg-indigo-600/20 border-indigo-300 dark:border-indigo-600/60 text-indigo-700 dark:text-indigo-300"
+                            ? "bg-primary-50 dark:bg-primary-600/20 border-primary-300 dark:border-primary-600/60 text-primary-700 dark:text-primary-300"
                             : "bg-background-200 border-neutral-300 text-foreground-500 hover:border-foreground-500"
                         )}
                       >
@@ -1165,7 +1169,7 @@ function EntraSection() {
                                   [gid]: e.target.value,
                                 }))
                               }
-                              className="flex-1 bg-background-200 border border-neutral-300 rounded-lg px-2 py-1 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                              className="flex-1 bg-background-200 border border-neutral-300 rounded-lg px-2 py-1 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary-500"
                             >
                               <option value="">— no realm —</option>
                               <option value="__create__">
@@ -1178,7 +1182,7 @@ function EntraSection() {
                               ))}
                             </select>
                             {selected === "__create__" && (
-                              <span className="text-[10px] font-medium bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400 border border-emerald-300 dark:border-emerald-700/50 rounded px-1.5 py-0.5 shrink-0 whitespace-nowrap">
+                              <span className="text-[10px] font-medium bg-success-100 dark:bg-success-900/40 text-success-700 dark:text-success-400 border border-success-300 dark:border-success-700/50 rounded px-1.5 py-0.5 shrink-0 whitespace-nowrap">
                                 new: {g?.displayName ?? gid}
                               </span>
                             )}
@@ -1235,7 +1239,7 @@ function EntraSection() {
                                   key={gid}
                                   className="flex items-center gap-2"
                                 >
-                                  <span className="text-[10px] font-medium bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400 border border-emerald-300 dark:border-emerald-700/50 rounded px-1.5 py-0.5">
+                                  <span className="text-[10px] font-medium bg-success-100 dark:bg-success-900/40 text-success-700 dark:text-success-400 border border-success-300 dark:border-success-700/50 rounded px-1.5 py-0.5">
                                     {g?.displayName ?? gid}
                                   </span>
                                 </div>
@@ -1245,7 +1249,9 @@ function EntraSection() {
                       )}
                     <div className="flex justify-between pt-1 border-t border-neutral-200">
                       <span className="text-foreground-400">Deduplication</span>
-                      <span className="text-foreground-700">By email address</span>
+                      <span className="text-foreground-700">
+                        By email address
+                      </span>
                     </div>
                   </div>
                   <p className="text-xs text-foreground-400">
@@ -1259,7 +1265,7 @@ function EntraSection() {
               {/* Step: syncing */}
               {wizardStep === "syncing" && (
                 <div className="flex flex-col items-center gap-4 py-8">
-                  <Loader2 className="w-8 h-8 text-indigo-700 dark:text-indigo-400 animate-spin" />
+                  <Loader2 className="w-8 h-8 text-primary-700 dark:text-primary-400 animate-spin" />
                   <p className="text-sm text-foreground-500">
                     Syncing users from Entra…
                   </p>
@@ -1270,7 +1276,7 @@ function EntraSection() {
               {wizardStep === "done" && syncResult && (
                 <div className="space-y-4">
                   <div className="flex items-center gap-3">
-                    <CheckCircle className="w-6 h-6 text-emerald-700 dark:text-emerald-400 shrink-0" />
+                    <CheckCircle className="w-6 h-6 text-success-700 dark:text-success-400 shrink-0" />
                     <p className="text-sm font-medium text-foreground">
                       Sync complete
                     </p>
@@ -1280,12 +1286,12 @@ function EntraSection() {
                       {
                         label: "Created",
                         value: syncResult.created,
-                        color: "text-emerald-700 dark:text-emerald-400",
+                        color: "text-success-700 dark:text-success-400",
                       },
                       {
                         label: "Updated",
                         value: syncResult.updated,
-                        color: "text-blue-700 dark:text-blue-400",
+                        color: "text-primary-700 dark:text-primary-400",
                       },
                       {
                         label: "Skipped",
@@ -1300,16 +1306,18 @@ function EntraSection() {
                         <p className={cn("text-2xl font-bold", color)}>
                           {value}
                         </p>
-                        <p className="text-xs text-foreground-400 mt-0.5">{label}</p>
+                        <p className="text-xs text-foreground-400 mt-0.5">
+                          {label}
+                        </p>
                       </div>
                     ))}
                   </div>
                   {syncResult.errors.length > 0 && (
-                    <div className="bg-red-50 dark:bg-red-950/40 border border-red-300 dark:border-red-700 rounded-lg p-3 space-y-1 max-h-36 overflow-y-auto">
+                    <div className="bg-danger-50 dark:bg-danger-950/40 border border-danger-300 dark:border-danger-700 rounded-lg p-3 space-y-1 max-h-36 overflow-y-auto">
                       {syncResult.errors.map((e, i) => (
                         <p
                           key={i}
-                          className="text-xs text-red-600 dark:text-red-300"
+                          className="text-xs text-danger-600 dark:text-danger-300"
                         >
                           {e}
                         </p>
@@ -1352,7 +1360,7 @@ function EntraSection() {
                       if (wizardStep === "confirm") doSync();
                     }}
                     disabled={groupsLoading || !!groupsError}
-                    className="px-4 py-2 text-sm rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white disabled:opacity-40 transition flex items-center gap-2"
+                    className="px-4 py-2 text-sm rounded-lg bg-primary-600 hover:bg-primary-500 text-white disabled:opacity-40 transition flex items-center gap-2"
                   >
                     {wizardStep === "confirm" ? (
                       <>
@@ -1617,20 +1625,20 @@ function ApiKeysSection() {
     <div className="space-y-4">
       {/* One-time key banner */}
       {createdKey && (
-        <div className="bg-green-50 dark:bg-green-900/30 border border-green-300 dark:border-green-700 rounded-xl p-4">
+        <div className="bg-success-50 dark:bg-success-900/30 border border-success-300 dark:border-success-700 rounded-xl p-4">
           <div className="flex items-start justify-between gap-4">
             <div className="flex-1 min-w-0">
-              <p className="text-green-800 dark:text-green-200 text-sm font-semibold mb-1">
+              <p className="text-success-800 dark:text-success-200 text-sm font-semibold mb-1">
                 API key created — copy it now, it won&apos;t be shown again.
               </p>
-              <code className="block bg-white dark:bg-black/30 rounded px-3 py-2 text-sm font-mono text-green-900 dark:text-green-100 break-all border border-green-200 dark:border-green-700">
+              <code className="block bg-white/50 dark:bg-black/30 rounded px-3 py-2 text-sm font-mono text-success-900 dark:text-success-100 break-all border border-success-200 dark:border-success-700">
                 {createdKey}
               </code>
             </div>
             <div className="flex gap-2 shrink-0">
               <button
                 onClick={handleCopy}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-green-700 text-white text-xs font-medium hover:bg-green-800 transition"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-success-700 text-white text-xs font-medium hover:bg-success-800 transition"
               >
                 {copied ? (
                   <Check className="w-3.5 h-3.5" />
@@ -1641,7 +1649,7 @@ function ApiKeysSection() {
               </button>
               <button
                 onClick={() => setCreatedKey(null)}
-                className="p-1.5 rounded-lg text-green-700 dark:text-green-300 hover:bg-green-100 dark:hover:bg-green-800/40 transition"
+                className="p-1.5 rounded-lg text-success-700 dark:text-success-300 hover:bg-success-100 dark:hover:bg-success-800/40 transition"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -1656,7 +1664,8 @@ function ApiKeysSection() {
           <h2 className="text-base font-semibold text-foreground">API Keys</h2>
           <p className="text-xs text-foreground-500 mt-0.5">
             Authenticate external clients via{" "}
-            <code className="bg-background-200 px-1 rounded">X-API-Key</code> header
+            <code className="bg-background-200 px-1 rounded">X-API-Key</code>{" "}
+            header
           </p>
         </div>
         <button
@@ -1691,7 +1700,10 @@ function ApiKeysSection() {
               {keys.map((k) => {
                 const realm = realms.find((r) => r.id === k.realmId);
                 return (
-                  <tr key={k.id} className="hover:bg-background-200/40 transition">
+                  <tr
+                    key={k.id}
+                    className="hover:bg-background-200/40 transition"
+                  >
                     <td className="px-4 py-3 font-medium text-foreground">
                       {k.name}
                     </td>
@@ -1703,7 +1715,7 @@ function ApiKeysSection() {
                         <span className="flex items-center gap-1">
                           {realm?.name ?? k.realmId}
                           {k.isRealmAdmin && (
-                            <span className="text-[10px] bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 px-1.5 rounded">
+                            <span className="text-[10px] bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-300 px-1.5 rounded">
                               admin
                             </span>
                           )}
@@ -1732,8 +1744,8 @@ function ApiKeysSection() {
                         className={cn(
                           "px-2 py-0.5 rounded-full text-[11px] font-medium",
                           k.isActive
-                            ? "bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300"
-                            : "bg-gray-100 dark:bg-gray-700 text-gray-500"
+                            ? "bg-success-100 dark:bg-success-900/40 text-success-700 dark:text-success-300"
+                            : "bg-neutral-100 dark:bg-neutral-700 text-neutral-500"
                         )}
                       >
                         {k.isActive ? "Active" : "Revoked"}
@@ -1753,7 +1765,7 @@ function ApiKeysSection() {
                             <div className="flex items-center gap-1">
                               <button
                                 onClick={() => handleRevoke(k.id)}
-                                className="px-2 py-1 bg-red-600 text-white rounded text-xs hover:bg-red-700"
+                                className="px-2 py-1 bg-danger-600 text-white rounded text-xs hover:bg-danger-700"
                               >
                                 Confirm
                               </button>
@@ -1767,7 +1779,7 @@ function ApiKeysSection() {
                           ) : (
                             <button
                               onClick={() => setConfirmRevokeId(k.id)}
-                              className="p-1.5 rounded text-foreground-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition"
+                              className="p-1.5 rounded text-foreground-500 hover:text-danger-500 hover:bg-danger-50 dark:hover:bg-danger-900/20 transition"
                             >
                               <Trash2 className="w-4 h-4" />
                             </button>
@@ -1804,7 +1816,7 @@ function ApiKeysSection() {
               {/* Name */}
               <div>
                 <label className="block text-xs font-medium text-foreground mb-1.5">
-                  Name <span className="text-red-500">*</span>
+                  Name <span className="text-danger-500">*</span>
                 </label>
                 <input
                   value={formName}
@@ -1861,7 +1873,7 @@ function ApiKeysSection() {
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <label className="text-xs font-medium text-foreground">
-                    Allowed routes <span className="text-red-500">*</span>
+                    Allowed routes <span className="text-danger-500">*</span>
                   </label>
                   <div className="flex gap-2">
                     <button
@@ -2012,7 +2024,7 @@ function ApiKeysSection() {
               </div>
 
               {formError && (
-                <p className="text-red-500 text-xs bg-red-50 dark:bg-red-900/20 rounded-lg px-3 py-2">
+                <p className="text-danger-500 text-xs bg-danger-50 dark:bg-danger-900/20 rounded-lg px-3 py-2">
                   {formError}
                 </p>
               )}
@@ -2106,7 +2118,7 @@ export default function ServerPage() {
   return (
     <div className="p-6 w-full max-w-7xl mx-auto space-y-6">
       {error && (
-        <div className="bg-red-50 dark:bg-red-900/40 border border-red-300 dark:border-red-700 rounded-xl px-4 py-3 text-red-600 dark:text-red-300 text-sm">
+        <div className="bg-danger-50 dark:bg-danger-900/40 border border-danger-300 dark:border-danger-700 rounded-xl px-4 py-3 text-danger-600 dark:text-danger-300 text-sm">
           {error}
         </div>
       )}
@@ -2147,7 +2159,7 @@ export default function ServerPage() {
                 <div className="text-foreground-500 text-xs uppercase tracking-wider mb-1">
                   Online Now
                 </div>
-                <div className="text-3xl font-bold text-green-700 dark:text-green-400">
+                <div className="text-3xl font-bold text-success-700 dark:text-success-400">
                   {data.stats.onlineAgents}
                 </div>
               </div>
@@ -2155,7 +2167,7 @@ export default function ServerPage() {
                 <div className="text-foreground-500 text-xs uppercase tracking-wider mb-1">
                   Offline
                 </div>
-                <div className="text-3xl font-bold text-gray-500">
+                <div className="text-3xl font-bold text-neutral-500">
                   {data.stats.offlineAgents}
                 </div>
               </div>

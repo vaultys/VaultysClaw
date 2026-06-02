@@ -11,10 +11,10 @@ const Buffer = crypto.Buffer;
 
 // Mock logger for tests
 const logger = {
-  info: (_: string) => { },
-  error: (error: Error, _: string) => { },
-  debug: (_: string) => { },
-  warn: (_: string) => { },
+  info: (_: string) => {},
+  error: (error: Error, _: string) => {},
+  debug: (_: string) => {},
+  warn: (_: string) => {},
 };
 
 /**
@@ -32,9 +32,7 @@ export async function waitFor(
       return;
     }
     if (Date.now() - startTime > maxWaitTime) {
-      throw new Error(
-        `Timeout waiting for condition after ${maxWaitTime}ms`
-      );
+      throw new Error(`Timeout waiting for condition after ${maxWaitTime}ms`);
     }
     await new Promise((resolve) => setTimeout(resolve, checkInterval));
   }
@@ -221,32 +219,42 @@ export class MockAgent {
    * fresh session (server already sent the empty-data auth_challenge prompt).
    * Returns when auth_complete is received.
    */
-  private async doAuthHandshake(sessionId: string, caps: string[]): Promise<{ agentId: string }> {
+  private async doAuthHandshake(
+    sessionId: string,
+    caps: string[]
+  ): Promise<{ agentId: string }> {
     const challenger = new Challenger(this.vaultysId.toVersion(1));
     challenger.createChallenge("p2p", "auth");
     let certificate = challenger.getCertificate();
 
-    this.ws.ws.send(JSON.stringify({
-      messageId: `auth-${Date.now()}`,
-      type: "auth_challenge",
-      payload: {
-        sessionId,
-        data: Buffer.from(certificate).toString("base64"),
-        name: this.name,
-        capabilities: caps,
-      },
-      timestamp: new Date().toISOString(),
-    }));
+    this.ws.ws.send(
+      JSON.stringify({
+        messageId: `auth-${Date.now()}`,
+        type: "auth_challenge",
+        payload: {
+          sessionId,
+          data: Buffer.from(certificate).toString("base64"),
+          name: this.name,
+          capabilities: caps,
+        },
+        timestamp: new Date().toISOString(),
+      })
+    );
 
     while (true) {
       const msg = await this.ws.waitForAnyOf(
-        ["auth_challenge", "auth_complete", "auth_failed", "registration_pending"],
+        [
+          "auth_challenge",
+          "auth_complete",
+          "auth_failed",
+          "registration_pending",
+        ],
         5000
       );
 
       if (msg.type === "auth_complete") {
         // Drain the post-completion cert the VaultysId protocol always sends
-        await this.ws.waitForAnyOf(["auth_challenge"], 500).catch(() => { });
+        await this.ws.waitForAnyOf(["auth_challenge"], 500).catch(() => {});
         return { agentId: msg.payload.agentId };
       }
 
@@ -256,24 +264,29 @@ export class MockAgent {
 
       if (msg.type === "registration_pending") {
         // Caller must handle this
-        throw Object.assign(new Error("registration_pending"), { registrationPending: true, msg });
+        throw Object.assign(new Error("registration_pending"), {
+          registrationPending: true,
+          msg,
+        });
       }
 
       if (msg.type === "auth_challenge" && msg.payload.data) {
         const serverCert = Buffer.from(msg.payload.data, "base64");
         await challenger.update(serverCert);
         certificate = challenger.getCertificate();
-        this.ws.ws.send(JSON.stringify({
-          messageId: `auth-${Date.now()}`,
-          type: "auth_challenge",
-          payload: {
-            sessionId,
-            data: Buffer.from(certificate).toString("base64"),
-            name: this.name,
-            capabilities: caps,
-          },
-          timestamp: new Date().toISOString(),
-        }));
+        this.ws.ws.send(
+          JSON.stringify({
+            messageId: `auth-${Date.now()}`,
+            type: "auth_challenge",
+            payload: {
+              sessionId,
+              data: Buffer.from(certificate).toString("base64"),
+              name: this.name,
+              capabilities: caps,
+            },
+            timestamp: new Date().toISOString(),
+          })
+        );
       }
       // auth_challenge with empty data = unexpected prompt; ignore and continue
     }
@@ -316,7 +329,10 @@ export class MockAgent {
    * Authenticate with the control plane.
    * For new agents (unknown DID), pass wsServer to auto-approve.
    */
-  async authenticate(capabilities: string[] = ["test"], wsServer?: any): Promise<void> {
+  async authenticate(
+    capabilities: string[] = ["test"],
+    wsServer?: any
+  ): Promise<void> {
     this.capabilities = capabilities;
 
     // Wait for the server's initial auth_challenge (session start)
@@ -325,15 +341,20 @@ export class MockAgent {
     this._sessionId = sessionId;
 
     // Send register
-    this.ws.ws.send(JSON.stringify({
-      messageId: `register-${Date.now()}`,
-      type: "register",
-      payload: { name: this.name, version: "0.0.1" },
-      timestamp: new Date().toISOString(),
-    }));
+    this.ws.ws.send(
+      JSON.stringify({
+        messageId: `register-${Date.now()}`,
+        type: "register",
+        payload: { name: this.name, version: "0.0.1" },
+        timestamp: new Date().toISOString(),
+      })
+    );
 
     // Wait for the post-register auth_challenge (fresh prompt, data="")
-    const postRegisterMsg = await this.ws.waitForAnyOf(["auth_challenge"], 5000);
+    const postRegisterMsg = await this.ws.waitForAnyOf(
+      ["auth_challenge"],
+      5000
+    );
     const authSessionId = postRegisterMsg.payload.sessionId;
 
     // Start the VaultysId handshake
@@ -341,22 +362,29 @@ export class MockAgent {
     challenger.createChallenge("p2p", "auth");
     let certificate = challenger.getCertificate();
 
-    this.ws.ws.send(JSON.stringify({
-      messageId: `auth-${Date.now()}`,
-      type: "auth_challenge",
-      payload: {
-        sessionId: authSessionId,
-        data: Buffer.from(certificate).toString("base64"),
-        name: this.name,
-        capabilities: this.capabilities,
-      },
-      timestamp: new Date().toISOString(),
-    }));
+    this.ws.ws.send(
+      JSON.stringify({
+        messageId: `auth-${Date.now()}`,
+        type: "auth_challenge",
+        payload: {
+          sessionId: authSessionId,
+          data: Buffer.from(certificate).toString("base64"),
+          name: this.name,
+          capabilities: this.capabilities,
+        },
+        timestamp: new Date().toISOString(),
+      })
+    );
 
     // Exchange until we get a terminal message
     while (true) {
       const msg = await this.ws.waitForAnyOf(
-        ["auth_challenge", "auth_complete", "auth_failed", "registration_pending"],
+        [
+          "auth_challenge",
+          "auth_complete",
+          "auth_failed",
+          "registration_pending",
+        ],
         5000
       );
 
@@ -364,7 +392,7 @@ export class MockAgent {
         this.id = msg.payload.agentId;
         this.authenticated = true;
         // Drain the post-completion cert (VaultysId protocol)
-        await this.ws.waitForAnyOf(["auth_challenge"], 500).catch(() => { });
+        await this.ws.waitForAnyOf(["auth_challenge"], 500).catch(() => {});
         return;
       }
 
@@ -374,7 +402,9 @@ export class MockAgent {
 
       if (msg.type === "registration_pending") {
         if (!wsServer) {
-          throw new Error("New agent requires wsServer for approval — pass wsServer to authenticate()");
+          throw new Error(
+            "New agent requires wsServer for approval — pass wsServer to authenticate()"
+          );
         }
         const registrationId = msg.payload.registrationId;
         wsServer.approveRegistration(registrationId, capabilities);
@@ -393,17 +423,19 @@ export class MockAgent {
         const serverCert = Buffer.from(msg.payload.data, "base64");
         await challenger.update(serverCert);
         certificate = challenger.getCertificate();
-        this.ws.ws.send(JSON.stringify({
-          messageId: `auth-${Date.now()}`,
-          type: "auth_challenge",
-          payload: {
-            sessionId: authSessionId,
-            data: Buffer.from(certificate).toString("base64"),
-            name: this.name,
-            capabilities: this.capabilities,
-          },
-          timestamp: new Date().toISOString(),
-        }));
+        this.ws.ws.send(
+          JSON.stringify({
+            messageId: `auth-${Date.now()}`,
+            type: "auth_challenge",
+            payload: {
+              sessionId: authSessionId,
+              data: Buffer.from(certificate).toString("base64"),
+              name: this.name,
+              capabilities: this.capabilities,
+            },
+            timestamp: new Date().toISOString(),
+          })
+        );
       }
     }
   }
@@ -416,12 +448,14 @@ export class MockAgent {
     const initialMsg = await this.ws.waitForMessage("auth_challenge", 5000);
     this._sessionId = initialMsg.payload.sessionId;
 
-    this.ws.ws.send(JSON.stringify({
-      messageId: `register-${Date.now()}`,
-      type: "register",
-      payload: { name: this.name, version: "0.0.1" },
-      timestamp: new Date().toISOString(),
-    }));
+    this.ws.ws.send(
+      JSON.stringify({
+        messageId: `register-${Date.now()}`,
+        type: "register",
+        payload: { name: this.name, version: "0.0.1" },
+        timestamp: new Date().toISOString(),
+      })
+    );
 
     const postRegMsg = await this.ws.waitForAnyOf(["auth_challenge"], 5000);
     const sessionId = postRegMsg.payload.sessionId;
@@ -430,21 +464,28 @@ export class MockAgent {
     challenger.createChallenge("p2p", "auth");
     let certificate = challenger.getCertificate();
 
-    this.ws.ws.send(JSON.stringify({
-      messageId: `auth-${Date.now()}`,
-      type: "auth_challenge",
-      payload: {
-        sessionId,
-        data: Buffer.from(certificate).toString("base64"),
-        name: this.name,
-        capabilities: [],
-      },
-      timestamp: new Date().toISOString(),
-    }));
+    this.ws.ws.send(
+      JSON.stringify({
+        messageId: `auth-${Date.now()}`,
+        type: "auth_challenge",
+        payload: {
+          sessionId,
+          data: Buffer.from(certificate).toString("base64"),
+          name: this.name,
+          capabilities: [],
+        },
+        timestamp: new Date().toISOString(),
+      })
+    );
 
     while (true) {
       const msg = await this.ws.waitForAnyOf(
-        ["auth_challenge", "auth_complete", "auth_failed", "registration_pending"],
+        [
+          "auth_challenge",
+          "auth_complete",
+          "auth_failed",
+          "registration_pending",
+        ],
         5000
       );
 
@@ -455,8 +496,10 @@ export class MockAgent {
       if (msg.type === "auth_complete") {
         this.id = msg.payload.agentId;
         this.authenticated = true;
-        await this.ws.waitForAnyOf(["auth_challenge"], 500).catch(() => { });
-        throw new Error("Agent was auto-approved (known DID) — use authenticate() instead");
+        await this.ws.waitForAnyOf(["auth_challenge"], 500).catch(() => {});
+        throw new Error(
+          "Agent was auto-approved (known DID) — use authenticate() instead"
+        );
       }
 
       if (msg.type === "auth_failed") {
@@ -467,17 +510,19 @@ export class MockAgent {
         const serverCert = Buffer.from(msg.payload.data, "base64");
         await challenger.update(serverCert);
         certificate = challenger.getCertificate();
-        this.ws.ws.send(JSON.stringify({
-          messageId: `auth-${Date.now()}`,
-          type: "auth_challenge",
-          payload: {
-            sessionId,
-            data: Buffer.from(certificate).toString("base64"),
-            name: this.name,
-            capabilities: [],
-          },
-          timestamp: new Date().toISOString(),
-        }));
+        this.ws.ws.send(
+          JSON.stringify({
+            messageId: `auth-${Date.now()}`,
+            type: "auth_challenge",
+            payload: {
+              sessionId,
+              data: Buffer.from(certificate).toString("base64"),
+              name: this.name,
+              capabilities: [],
+            },
+            timestamp: new Date().toISOString(),
+          })
+        );
       }
     }
   }
@@ -487,7 +532,10 @@ export class MockAgent {
    * Waits for registration_approved + auth_complete, then drains cert-reissue.
    */
   async authenticateAfterApproval(capabilities: string[]): Promise<void> {
-    const approved = await this.ws.waitForMessage("registration_approved", 10000);
+    const approved = await this.ws.waitForMessage(
+      "registration_approved",
+      10000
+    );
     this.capabilities = approved.payload.capabilities;
 
     const complete = await this.ws.waitForMessage("auth_complete", 5000);
@@ -502,7 +550,10 @@ export class MockAgent {
     return this.authenticated;
   }
 
-  async sendResult(intentId: string, status: string = "success"): Promise<void> {
+  async sendResult(
+    intentId: string,
+    status: string = "success"
+  ): Promise<void> {
     await this.ws.send({
       messageId: `result-${Date.now()}`,
       type: "result",
@@ -562,14 +613,19 @@ export class MockAgent {
    * Send a chat_response message (agent → control plane).
    * Call multiple times with chunks, then once with { done: true }.
    */
-  async sendChatResponse(conversationId: string, opts: { chunk?: string; done?: boolean; error?: string }): Promise<void> {
-    this.ws.ws.send(JSON.stringify({
-      messageId: `chat-resp-${Date.now()}`,
-      type: "chat_response",
-      agentId: this.id,
-      payload: { conversationId, ...opts },
-      timestamp: new Date().toISOString(),
-    }));
+  async sendChatResponse(
+    conversationId: string,
+    opts: { chunk?: string; done?: boolean; error?: string }
+  ): Promise<void> {
+    this.ws.ws.send(
+      JSON.stringify({
+        messageId: `chat-resp-${Date.now()}`,
+        type: "chat_response",
+        agentId: this.id,
+        payload: { conversationId, ...opts },
+        timestamp: new Date().toISOString(),
+      })
+    );
   }
 
   /**

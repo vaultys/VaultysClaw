@@ -1,5 +1,8 @@
 import { ReactNode } from "react";
-import { getStatusTailwindClass, getBadgeColorClass } from "@vaultysclaw/shared";
+import {
+  getStatusTailwindClass,
+  getBadgeColorClass,
+} from "@vaultysclaw/shared";
 
 type BadgeType = "status" | "role" | "capability" | "badge";
 type BadgeVariant = "success" | "error" | "warning" | "info" | "neutral";

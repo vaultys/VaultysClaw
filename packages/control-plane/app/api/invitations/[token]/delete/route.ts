@@ -53,6 +53,9 @@ export async function POST(
     return NextResponse.json({ success: true });
   } catch (err) {
     console.error("Error deleting invitation:", err);
-    return NextResponse.json({ error: "Failed to delete invitation" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to delete invitation" },
+      { status: 500 }
+    );
   }
 }

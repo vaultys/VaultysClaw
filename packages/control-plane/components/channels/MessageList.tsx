@@ -1,9 +1,21 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Smile, Trash2, X, MessageSquare, ChevronDown, ChevronRight } from "lucide-react";
+import {
+  Smile,
+  Trash2,
+  X,
+  MessageSquare,
+  ChevronDown,
+  ChevronRight,
+} from "lucide-react";
 import ReactMarkdown from "react-markdown";
-import { formatTime, shortDid, getInitials, COMMON_EMOJIS } from "@vaultysclaw/shared";
+import {
+  formatTime,
+  shortDid,
+  getInitials,
+  COMMON_EMOJIS,
+} from "@vaultysclaw/shared";
 
 interface Message {
   id: string;
@@ -26,7 +38,6 @@ interface MessageListProps {
   onAddReaction: (messageId: string, emoji: string) => void;
   onDeleteMessage: (messageId: string) => void;
 }
-
 
 // ── MessageBubble ─────────────────────────────────────────────────────────────
 
@@ -78,7 +89,9 @@ function MessageBubble({
   return (
     <div
       className={`group flex gap-3 hover:bg-background-200 px-3 py-2 rounded-lg transition ${
-        isThread ? "ml-10 border-l-2 border-indigo-200 dark:border-indigo-800 pl-3" : ""
+        isThread
+          ? "ml-10 border-l-2 border-primary-200 dark:border-primary-800 pl-3"
+          : ""
       }`}
     >
       {/* Avatar */}
@@ -87,8 +100,8 @@ function MessageBubble({
           isThread ? "w-6 h-6" : "w-8 h-8"
         } ${
           isAgent
-            ? "bg-gradient-to-br from-violet-500 to-indigo-600"
-            : "bg-gradient-to-br from-blue-500 to-cyan-600"
+            ? "bg-gradient-to-br from-secondary-500 to-primary-600"
+            : "bg-gradient-to-br from-primary-500 to-primary-600"
         }`}
       >
         {initials}
@@ -105,17 +118,19 @@ function MessageBubble({
             {displayName}
           </span>
           {isAgent && (
-            <span className="text-[10px] px-1.5 py-0.5 rounded bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-400 font-medium flex-shrink-0">
+            <span className="text-[10px] px-1.5 py-0.5 rounded bg-secondary-100 dark:bg-secondary-900/30 text-secondary-700 dark:text-secondary-400 font-medium flex-shrink-0">
               bot
             </span>
           )}
-          <span className="text-xs text-foreground-500">{formatTime(msg.createdAt)}</span>
+          <span className="text-xs text-foreground-500">
+            {formatTime(msg.createdAt)}
+          </span>
         </div>
 
         <div
           className={`prose prose-sm max-w-none text-foreground mt-0.5 break-words ${
             isThread ? "text-sm" : ""
-          } [&_p]:my-0.5 [&_ul]:my-1 [&_ol]:my-1 [&_pre]:bg-background-200 [&_pre]:rounded [&_pre]:p-2 [&_code]:text-indigo-600 dark:[&_code]:text-indigo-400 [&_code]:bg-background-200 [&_code]:px-1 [&_code]:rounded [&_a]:text-indigo-500 [&_a]:underline`}
+          } [&_p]:my-0.5 [&_ul]:my-1 [&_ol]:my-1 [&_pre]:bg-background-200 [&_pre]:rounded [&_pre]:p-2 [&_code]:text-primary-600 dark:[&_code]:text-primary-400 [&_code]:bg-background-200 [&_code]:px-1 [&_code]:rounded [&_a]:text-primary-500 [&_a]:underline`}
         >
           <ReactMarkdown>{msg.content}</ReactMarkdown>
         </div>
@@ -169,7 +184,7 @@ function MessageBubble({
         </div>
         <button
           onClick={handleDelete}
-          className="p-1 hover:bg-background-200 rounded text-foreground-700 hover:text-red-600 dark:hover:text-red-400 transition"
+          className="p-1 hover:bg-background-200 rounded text-foreground-700 hover:text-danger-600 dark:hover:text-danger-400 transition"
           title="Delete"
         >
           <Trash2 size={14} />
@@ -217,8 +232,10 @@ function ThreadView({
 
   if (loading) {
     return (
-      <div className="ml-10 pl-3 border-l-2 border-indigo-100 dark:border-indigo-900 py-1">
-        <div className="text-xs text-foreground-500 animate-pulse">Loading thread…</div>
+      <div className="ml-10 pl-3 border-l-2 border-primary-100 dark:border-primary-900 py-1">
+        <div className="text-xs text-foreground-500 animate-pulse">
+          Loading thread…
+        </div>
       </div>
     );
   }
@@ -276,7 +293,7 @@ function MessageWithThread({
       {threadCount > 0 && (
         <button
           onClick={() => setExpanded(!expanded)}
-          className="ml-14 mt-1 flex items-center gap-1.5 text-xs text-indigo-500 hover:text-indigo-700 dark:hover:text-indigo-300 transition"
+          className="ml-14 mt-1 flex items-center gap-1.5 text-xs text-primary-500 hover:text-primary-700 dark:hover:text-primary-300 transition"
         >
           {expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
           <MessageSquare size={12} />
@@ -316,33 +333,46 @@ export default function MessageList({
   // ── Name resolution ─────────────────────────────────────────────────────────
   const [nameMap, setNameMap] = useState<Record<string, string>>({});
 
-  useEffect(() => {
-    const combined: Record<string, string> = {};
+  useEffect(
+    () => {
+      const combined: Record<string, string> = {};
 
-    const p1 = fetch("/api/agents/search?q=")
-      .then((r) => r.json())
-      .then((d: { agents?: { id: string; name: string }[] }) => {
-        // Search API returns "id" (= DID), not "did"
-        for (const a of d.agents ?? []) {
-          if (a.id && a.name) combined[a.id] = a.name;
-        }
-      })
-      .catch(() => {/* ignore */});
+      const p1 = fetch("/api/agents/search?q=")
+        .then((r) => r.json())
+        .then((d: { agents?: { id: string; name: string }[] }) => {
+          // Search API returns "id" (= DID), not "did"
+          for (const a of d.agents ?? []) {
+            if (a.id && a.name) combined[a.id] = a.name;
+          }
+        })
+        .catch(() => {
+          /* ignore */
+        });
 
-    const p2 = fetch("/api/users?pageSize=100")
-      .then(async (r) => {
-        if (!r.ok) return; // non-admin: graceful fallback
-        const d = (await r.json()) as {
-          users?: { did: string; name: string | null; email: string | null }[];
-        };
-        for (const u of d.users ?? []) {
-          combined[u.did] = u.name ?? u.email ?? shortDid(u.did);
-        }
-      })
-      .catch(() => {/* ignore */});
+      const p2 = fetch("/api/users?pageSize=100")
+        .then(async (r) => {
+          if (!r.ok) return; // non-admin: graceful fallback
+          const d = (await r.json()) as {
+            users?: {
+              did: string;
+              name: string | null;
+              email: string | null;
+            }[];
+          };
+          for (const u of d.users ?? []) {
+            combined[u.did] = u.name ?? u.email ?? shortDid(u.did);
+          }
+        })
+        .catch(() => {
+          /* ignore */
+        });
 
-    Promise.all([p1, p2]).then(() => setNameMap(combined));
-  }, [/* fetch once per channel mount */]);
+      Promise.all([p1, p2]).then(() => setNameMap(combined));
+    },
+    [
+      /* fetch once per channel mount */
+    ]
+  );
 
   // ── Scroll behaviour ────────────────────────────────────────────────────────
   const handleScroll = () => {
@@ -388,7 +418,7 @@ export default function MessageList({
   if (isLoading) {
     return (
       <div className="flex-1 flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+        <div className="w-8 h-8 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }

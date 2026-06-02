@@ -111,15 +111,41 @@ export async function GET(request: NextRequest) {
   const realm = searchParams.get("realm") ?? undefined;
   const isAdminFilter = searchParams.get("isAdmin");
   const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10) || 1);
-  const pageSize = Math.min(100, Math.max(1, parseInt(searchParams.get("pageSize") ?? "20", 10) || 20));
-  const sortBy = (searchParams.get("sortBy") ?? "registeredAt") as "name" | "email" | "registeredAt";
+  const pageSize = Math.min(
+    100,
+    Math.max(1, parseInt(searchParams.get("pageSize") ?? "20", 10) || 20)
+  );
+  const sortBy = (searchParams.get("sortBy") ?? "registeredAt") as
+    | "name"
+    | "email"
+    | "registeredAt";
   const sortDir = (searchParams.get("sortDir") ?? "asc") as "asc" | "desc";
 
-  const isAdmin = isAdminFilter === "true" ? true : isAdminFilter === "false" ? false : undefined;
+  const isAdmin =
+    isAdminFilter === "true"
+      ? true
+      : isAdminFilter === "false"
+        ? false
+        : undefined;
   const hasAccountParam = searchParams.get("hasAccount");
-  const hasAccount = hasAccountParam === "true" ? true : hasAccountParam === "false" ? false : undefined;
+  const hasAccount =
+    hasAccountParam === "true"
+      ? true
+      : hasAccountParam === "false"
+        ? false
+        : undefined;
 
-  const result = UserDao.query({ q, role, realm, isAdmin, hasAccount, page, pageSize, sortBy, sortDir });
+  const result = UserDao.query({
+    q,
+    role,
+    realm,
+    isAdmin,
+    hasAccount,
+    page,
+    pageSize,
+    sortBy,
+    sortDir,
+  });
 
   const users = result.users.map((u) => {
     const realms = getUserRealms(u.id);
@@ -135,17 +161,22 @@ export async function GET(request: NextRequest) {
       entraId: u.entra_id ?? null,
       claimedAt: u.claimed_at ?? null,
       realms: realms.map((r) => ({
-        id: r.realm_id, name: r.name, slug: r.slug,
-        color: r.color, isPrimary: Boolean(r.is_primary),
+        id: r.realm_id,
+        name: r.name,
+        slug: r.slug,
+        color: r.color,
+        isPrimary: Boolean(r.is_primary),
       })),
-      grants: u.did ? GrantDao.listByUser(u.did).map((g) => ({
-        id: g.id,
-        agentDid: g.agent_did,
-        capabilities: JSON.parse(g.capabilities) as string[],
-        grantedBy: g.granted_by,
-        expiresAt: g.expires_at,
-        createdAt: g.created_at,
-      })) : [],
+      grants: u.did
+        ? GrantDao.listByUser(u.did).map((g) => ({
+            id: g.id,
+            agentDid: g.agent_did,
+            capabilities: JSON.parse(g.capabilities) as string[],
+            grantedBy: g.granted_by,
+            expiresAt: g.expires_at,
+            createdAt: g.created_at,
+          }))
+        : [],
     };
   });
 

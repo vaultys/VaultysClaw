@@ -77,24 +77,34 @@ export async function POST(req: NextRequest, ctx: Ctx) {
 
   const { id: realmId } = await ctx.params;
   const realm = getRealmById(realmId);
-  if (!realm) return NextResponse.json({ error: "Realm not found" }, { status: 404 });
+  if (!realm)
+    return NextResponse.json({ error: "Realm not found" }, { status: 404 });
   if (!auth.canAccessRealm(realmId)) return forbidden();
 
-  const body = await req.json() as { text?: string };
+  const body = (await req.json()) as { text?: string };
   if (!body.text || body.text.trim().length === 0) {
     return NextResponse.json({ error: "text is required" }, { status: 400 });
   }
   if (body.text.trim().length > 280) {
-    return NextResponse.json({ error: "text exceeds 280 characters" }, { status: 400 });
+    return NextResponse.json(
+      { error: "text exceeds 280 characters" },
+      { status: 400 }
+    );
   }
 
   const wsServer = getWSServer();
   if (!wsServer) {
-    return NextResponse.json({ error: "WebSocket server unavailable" }, { status: 503 });
+    return NextResponse.json(
+      { error: "WebSocket server unavailable" },
+      { status: 503 }
+    );
   }
 
   // Find the first online agent in this realm that has the social_media_posting capability
-  const realmAgents = getRealmAgents(realmId) as Array<{ agent_did: string; capabilities?: string }>;
+  const realmAgents = getRealmAgents(realmId) as Array<{
+    agent_did: string;
+    capabilities?: string;
+  }>;
   let targetAgentDid: string | null = null;
 
   for (const ra of realmAgents) {
@@ -115,7 +125,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
           "No online agent with social_media_posting capability found in this realm. " +
           "Ensure an agent is running and has the social-media skill enabled.",
       },
-      { status: 503 },
+      { status: 503 }
     );
   }
 
@@ -129,11 +139,14 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     intentId,
     "post_to_x",
     { text: body.text.trim() },
-    auth.did,
+    auth.did
   );
 
   if (!sent) {
-    return NextResponse.json({ error: "Failed to dispatch intent to agent" }, { status: 503 });
+    return NextResponse.json(
+      { error: "Failed to dispatch intent to agent" },
+      { status: 503 }
+    );
   }
 
   return NextResponse.json({

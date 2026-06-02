@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAllSkillsWithRealms, createRealmSkill, getAllRealms } from "@/lib/db";
+import {
+  getAllSkillsWithRealms,
+  createRealmSkill,
+  getAllRealms,
+} from "@/lib/db";
 import { broadcastSkillsConfig } from "@/lib/ws-server";
 import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
 
@@ -111,15 +115,22 @@ export async function POST(request: NextRequest) {
       version: version?.trim() || undefined,
       isRequired: isRequired === true,
       config: config && typeof config === "object" ? config : {},
-      content: typeof body.content === "string" ? body.content || null : undefined,
+      content:
+        typeof body.content === "string" ? body.content || null : undefined,
     });
     broadcastSkillsConfig(realmId);
     return NextResponse.json(skill, { status: 201 });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     if (msg.includes("UNIQUE")) {
-      return NextResponse.json({ error: `Skill "${name}" already exists in this realm` }, { status: 409 });
+      return NextResponse.json(
+        { error: `Skill "${name}" already exists in this realm` },
+        { status: 409 }
+      );
     }
-    return NextResponse.json({ error: "Failed to create skill" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to create skill" },
+      { status: 500 }
+    );
   }
 }

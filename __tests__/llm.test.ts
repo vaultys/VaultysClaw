@@ -31,7 +31,11 @@ function makeMockStream(chunks: string[]) {
   };
 }
 
-const mockStream = vi.fn().mockImplementation(() => Promise.resolve(makeMockStream(["Hello", " world"])));
+const mockStream = vi
+  .fn()
+  .mockImplementation(() =>
+    Promise.resolve(makeMockStream(["Hello", " world"]))
+  );
 
 vi.mock("@mastra/core/agent", () => ({
   Agent: vi.fn().mockImplementation(() => ({
@@ -66,7 +70,9 @@ beforeEach(() => {
     steps: [],
     finishReason: "stop",
   });
-  mockStream.mockImplementation(() => Promise.resolve(makeMockStream(["Hello", " world"])));
+  mockStream.mockImplementation(() =>
+    Promise.resolve(makeMockStream(["Hello", " world"]))
+  );
 });
 
 // ---------------------------------------------------------------------------
@@ -115,18 +121,30 @@ describe("LlmProviderError", () => {
 
 describe("buildModel", () => {
   it(`should return an object for provider "openai"`, () => {
-    const lm = buildModel({ provider: "openai", model: "gpt-4o-mini", apiKey: "sk-test" } as any);
+    const lm = buildModel({
+      provider: "openai",
+      model: "gpt-4o-mini",
+      apiKey: "sk-test",
+    } as any);
     expect(lm).toBeTruthy();
     expect(typeof lm).toBe("object");
   });
 
   it(`should return a string for provider "anthropic"`, () => {
-    const lm = buildModel({ provider: "anthropic", model: "claude-3-haiku-20240307", apiKey: "sk-ant-test" } as any);
+    const lm = buildModel({
+      provider: "anthropic",
+      model: "claude-3-haiku-20240307",
+      apiKey: "sk-ant-test",
+    } as any);
     expect(lm).toBe("anthropic/claude-3-haiku-20240307");
   });
 
   it(`should return a string for provider "google"`, () => {
-    const lm = buildModel({ provider: "google", model: "gemini-1.5-flash", apiKey: "AItest" } as any);
+    const lm = buildModel({
+      provider: "google",
+      model: "gemini-1.5-flash",
+      apiKey: "AItest",
+    } as any);
     expect(lm).toBe("google/gemini-1.5-flash");
   });
 
@@ -137,7 +155,11 @@ describe("buildModel", () => {
   });
 
   it(`should return an object for provider "openai-compatible"`, () => {
-    const lm = buildModel({ provider: "openai-compatible", model: "local-model", baseUrl: "http://localhost:1234/v1" } as any);
+    const lm = buildModel({
+      provider: "openai-compatible",
+      model: "local-model",
+      baseUrl: "http://localhost:1234/v1",
+    } as any);
     expect(lm).toBeTruthy();
     expect(typeof lm).toBe("object");
   });
@@ -175,7 +197,10 @@ describe("buildModel — openai-compatible URL normalization", () => {
   });
 
   it("handles missing baseUrl gracefully", () => {
-    const lm = buildModel({ provider: "openai-compatible", model: "model" } as any);
+    const lm = buildModel({
+      provider: "openai-compatible",
+      model: "model",
+    } as any);
     expect(lm).toBeTruthy();
   });
 });
@@ -197,7 +222,11 @@ describe("buildModel — openai-compatible null-content fetch patch", async () =
     vi.stubGlobal("fetch", async (url: string, init: RequestInit) => {
       capturedRequests.push({ url: url as string, body: init?.body as string });
       // Return a minimal valid streaming response to avoid errors
-      const body = new ReadableStream({ start(c) { c.close(); } });
+      const body = new ReadableStream({
+        start(c) {
+          c.close();
+        },
+      });
       return new Response(body, {
         status: 200,
         headers: { "Content-Type": "text/event-stream" },
@@ -228,7 +257,9 @@ describe("runIntent", () => {
       apiKey: "sk-test",
     };
 
-    const result = await runIntent(config, "summarise", { text: "hello world" });
+    const result = await runIntent(config, "summarise", {
+      text: "hello world",
+    });
 
     expect(result.text).toBe("mock LLM response");
     expect(result.usage.promptTokens).toBe(15);
@@ -284,14 +315,22 @@ describe("runIntent", () => {
   it("should wrap Agent.generate errors in LlmProviderError", async () => {
     mockGenerate.mockRejectedValueOnce(new Error("Rate limit exceeded"));
 
-    const config = { provider: "anthropic" as const, model: "claude-3-haiku-20240307" };
-    await expect(runIntent(config, "ping", {})).rejects.toBeInstanceOf(LlmProviderError);
+    const config = {
+      provider: "anthropic" as const,
+      model: "claude-3-haiku-20240307",
+    };
+    await expect(runIntent(config, "ping", {})).rejects.toBeInstanceOf(
+      LlmProviderError
+    );
   });
 
   it("should include the provider name in LlmProviderError on failure", async () => {
     mockGenerate.mockRejectedValueOnce(new Error("Timeout"));
 
-    const config = { provider: "anthropic" as const, model: "claude-3-haiku-20240307" };
+    const config = {
+      provider: "anthropic" as const,
+      model: "claude-3-haiku-20240307",
+    };
     const err = await runIntent(config, "ping", {}).catch((e) => e);
     expect(err.message).toContain("anthropic");
   });
@@ -401,7 +440,10 @@ describe("Agent DB: getLlmConfig / setLlmConfig", () => {
   });
 
   it("should clear stored config when null is passed", () => {
-    setLlmConfig({ provider: "anthropic" as const, model: "claude-3-haiku-20240307" });
+    setLlmConfig({
+      provider: "anthropic" as const,
+      model: "claude-3-haiku-20240307",
+    });
     setLlmConfig(null);
     expect(getLlmConfig()).toBeNull();
   });
@@ -415,7 +457,13 @@ describe("Agent DB: getLlmConfig / setLlmConfig", () => {
   });
 
   it("should store configs for all supported providers without error", () => {
-    const providers = ["openai", "anthropic", "google", "ollama", "openai-compatible"] as const;
+    const providers = [
+      "openai",
+      "anthropic",
+      "google",
+      "ollama",
+      "openai-compatible",
+    ] as const;
     for (const provider of providers) {
       setLlmConfig({ provider, model: "test-model" });
       const loaded = getLlmConfig();
@@ -497,6 +545,8 @@ describe("streamChat", () => {
     });
 
     const config = { provider: "openai" as const, model: "gpt-4o-mini" };
-    expect(() => streamChat(config, [{ role: "user", content: "x" }])).toThrow("Provider error");
+    expect(() => streamChat(config, [{ role: "user", content: "x" }])).toThrow(
+      "Provider error"
+    );
   });
 });

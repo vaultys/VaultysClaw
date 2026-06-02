@@ -1,4 +1,12 @@
-import { Channel, ChannelMember, ChannelMessage, ChannelInput, ChannelMemberInput, ChannelMessageInput, MessageMetadata } from "@vaultysclaw/shared";
+import {
+  Channel,
+  ChannelMember,
+  ChannelMessage,
+  ChannelInput,
+  ChannelMemberInput,
+  ChannelMessageInput,
+  MessageMetadata,
+} from "@vaultysclaw/shared";
 import { ChannelDao } from "./channel-dao";
 import { ChannelMemberDao } from "./channel-member-dao";
 import { ChannelMessageDao } from "./channel-message-dao";
@@ -27,7 +35,9 @@ export class ChannelService {
   }): Channel {
     // Validate slug (alphanumeric, hyphens, underscores only)
     if (!/^[a-z0-9_-]+$/.test(input.slug)) {
-      throw new Error("Channel slug must contain only lowercase letters, numbers, hyphens, and underscores");
+      throw new Error(
+        "Channel slug must contain only lowercase letters, numbers, hyphens, and underscores"
+      );
     }
 
     // Check for duplicate slug within realm/global scope
@@ -90,7 +100,7 @@ export class ChannelService {
       description?: string;
       topic?: string;
       isPublic?: boolean;
-    },
+    }
   ): Channel {
     return ChannelDao.update(channelId, updates);
   }
@@ -120,7 +130,10 @@ export class ChannelService {
     invitedBy?: string;
   }): ChannelMember {
     // Check member isn't already in channel
-    const existing = ChannelMemberDao.getMember(input.channelId, input.memberDid);
+    const existing = ChannelMemberDao.getMember(
+      input.channelId,
+      input.memberDid
+    );
     if (existing) {
       throw new Error(`Member ${input.memberDid} is already in this channel`);
     }
@@ -159,7 +172,10 @@ export class ChannelService {
   /**
    * Get member role in a channel
    */
-  static getMemberRole(channelId: string, memberDid: string): "member" | "moderator" | "owner" | null {
+  static getMemberRole(
+    channelId: string,
+    memberDid: string
+  ): "member" | "moderator" | "owner" | null {
     const member = ChannelMemberDao.getMember(channelId, memberDid);
     return member?.role ?? null;
   }
@@ -170,7 +186,7 @@ export class ChannelService {
   static updateMemberRole(
     channelId: string,
     memberDid: string,
-    role: "member" | "moderator" | "owner",
+    role: "member" | "moderator" | "owner"
   ): ChannelMember {
     return ChannelMemberDao.updateRole(channelId, memberDid, role);
   }
@@ -209,7 +225,7 @@ export class ChannelService {
           authorType: "user",
           threadId: message.threadId,
           createdAt: message.createdAt,
-        },
+        }
       ).catch((err) => console.error("MessageDispatcher error:", err));
     }
 
@@ -254,7 +270,11 @@ export class ChannelService {
   /**
    * List messages in a channel (top-level only, excludes threads)
    */
-  static listMessages(channelId: string, limit?: number, offset?: number): ChannelMessage[] {
+  static listMessages(
+    channelId: string,
+    limit?: number,
+    offset?: number
+  ): ChannelMessage[] {
     return ChannelMessageDao.listByChannel(channelId, limit, offset);
   }
 
@@ -294,21 +314,33 @@ export class ChannelService {
   /**
    * Add a reaction to a message
    */
-  static addReaction(messageId: string, emoji: string, memberDid: string): ChannelMessage {
+  static addReaction(
+    messageId: string,
+    emoji: string,
+    memberDid: string
+  ): ChannelMessage {
     return ChannelMessageDao.addReaction(messageId, emoji, memberDid);
   }
 
   /**
    * Remove a reaction from a message
    */
-  static removeReaction(messageId: string, emoji: string, memberDid: string): ChannelMessage {
+  static removeReaction(
+    messageId: string,
+    emoji: string,
+    memberDid: string
+  ): ChannelMessage {
     return ChannelMessageDao.removeReaction(messageId, emoji, memberDid);
   }
 
   /**
    * Search messages in a channel
    */
-  static searchMessages(channelId: string, query: string, limit?: number): ChannelMessage[] {
+  static searchMessages(
+    channelId: string,
+    query: string,
+    limit?: number
+  ): ChannelMessage[] {
     return ChannelMessageDao.searchInChannel(channelId, query, limit);
   }
 

@@ -60,7 +60,7 @@ import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
  */
 export async function POST(
   request: NextRequest,
-  { params }: { params: Promise<{ did: string }> },
+  { params }: { params: Promise<{ did: string }> }
 ) {
   const auth = await getAuthContext(request);
   if (!auth) return unauthorized();
@@ -72,7 +72,10 @@ export async function POST(
 
   const wsServer = getWSServer();
   if (!wsServer) {
-    return NextResponse.json({ error: "WebSocket server not available" }, { status: 503 });
+    return NextResponse.json(
+      { error: "WebSocket server not available" },
+      { status: 503 }
+    );
   }
 
   const body = await request.json();
@@ -82,7 +85,10 @@ export async function POST(
   };
 
   if (!action || typeof action !== "string") {
-    return NextResponse.json({ error: "action (string) is required" }, { status: 400 });
+    return NextResponse.json(
+      { error: "action (string) is required" },
+      { status: 400 }
+    );
   }
 
   const ok = wsServer.sendTaskToAgent(agentDid, action, taskParams ?? {});

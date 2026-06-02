@@ -42,12 +42,16 @@ describe("Formatting Utilities", () => {
     });
 
     it("should show hours ago", () => {
-      const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
+      const twoHoursAgo = new Date(
+        Date.now() - 2 * 60 * 60 * 1000
+      ).toISOString();
       expect(formatTime(twoHoursAgo)).toBe("2h ago");
     });
 
     it("should show days ago", () => {
-      const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString();
+      const threeDaysAgo = new Date(
+        Date.now() - 3 * 24 * 60 * 60 * 1000
+      ).toISOString();
       expect(formatTime(threeDaysAgo)).toBe("3d ago");
     });
   });

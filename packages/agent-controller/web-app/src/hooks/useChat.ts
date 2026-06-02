@@ -1,5 +1,10 @@
 import { useState, useCallback, useRef, useEffect } from "react";
-import type { ChatMessage, ChatItem, ToolCallEvent, ChatSession } from "../types";
+import type {
+  ChatMessage,
+  ChatItem,
+  ToolCallEvent,
+  ChatSession,
+} from "../types";
 
 export interface UseChatResult {
   items: ChatItem[];
@@ -26,37 +31,53 @@ export function useChat(): UseChatResult {
   const abortRef = useRef<AbortController | null>(null);
 
   const messages: ChatMessage[] = items
-    .filter((it): it is Extract<ChatItem, { kind: "message" }> => it.kind === "message")
+    .filter(
+      (it): it is Extract<ChatItem, { kind: "message" }> =>
+        it.kind === "message"
+    )
     .map((it) => it.msg);
 
   const refreshSessions = useCallback(async () => {
     try {
       const res = await fetch("/api/chat/sessions");
       if (!res.ok) return;
-      const data = await res.json() as { sessions: ChatSession[] };
+      const data = (await res.json()) as { sessions: ChatSession[] };
       setSessions(data.sessions);
-    } catch { /* non-fatal */ }
+    } catch {
+      /* non-fatal */
+    }
   }, []);
 
-  useEffect(() => { refreshSessions(); }, [refreshSessions]);
+  useEffect(() => {
+    refreshSessions();
+  }, [refreshSessions]);
 
-  const loadSession = useCallback(async (sessionId: string) => {
-    if (isStreaming) return;
-    try {
-      const res = await fetch(`/api/chat/sessions/${encodeURIComponent(sessionId)}`);
-      if (!res.ok) return;
-      const data = await res.json() as { messages: Array<{ role: string; content: string }> };
-      const loadedItems: ChatItem[] = data.messages
-        .filter((m) => m.role === "user" || m.role === "assistant")
-        .map((m) => ({
-          kind: "message" as const,
-          msg: { role: m.role as "user" | "assistant", content: m.content },
-        }));
-      setItems(loadedItems);
-      setActiveSessionId(sessionId);
-      setError(null);
-    } catch { /* non-fatal */ }
-  }, [isStreaming]);
+  const loadSession = useCallback(
+    async (sessionId: string) => {
+      if (isStreaming) return;
+      try {
+        const res = await fetch(
+          `/api/chat/sessions/${encodeURIComponent(sessionId)}`
+        );
+        if (!res.ok) return;
+        const data = (await res.json()) as {
+          messages: Array<{ role: string; content: string }>;
+        };
+        const loadedItems: ChatItem[] = data.messages
+          .filter((m) => m.role === "user" || m.role === "assistant")
+          .map((m) => ({
+            kind: "message" as const,
+            msg: { role: m.role as "user" | "assistant", content: m.content },
+          }));
+        setItems(loadedItems);
+        setActiveSessionId(sessionId);
+        setError(null);
+      } catch {
+        /* non-fatal */
+      }
+    },
+    [isStreaming]
+  );
 
   const startNewSession = useCallback(() => {
     if (abortRef.current) abortRef.current.abort();
@@ -96,7 +117,9 @@ export function useChat(): UseChatResult {
         });
 
         if (!res.ok) {
-          const err = await res.json().catch(() => ({ error: res.statusText })) as { error: string };
+          const err = (await res
+            .json()
+            .catch(() => ({ error: res.statusText }))) as { error: string };
           throw new Error(err.error ?? `HTTP ${res.status}`);
         }
 
@@ -106,7 +129,10 @@ export function useChat(): UseChatResult {
         const decoder = new TextDecoder();
         let assistantText = "";
 
-        setItems((prev) => [...prev, { kind: "message", msg: { role: "assistant", content: "" } }]);
+        setItems((prev) => [
+          ...prev,
+          { kind: "message", msg: { role: "assistant", content: "" } },
+        ]);
 
         let buffer = "";
         let eventType = "message";
@@ -129,7 +155,10 @@ export function useChat(): UseChatResult {
               continue;
             }
             const payload = line.slice(6);
-            if (payload === "[DONE]") { eventType = "message"; continue; }
+            if (payload === "[DONE]") {
+              eventType = "message";
+              continue;
+            }
 
             try {
               const parsed = JSON.parse(payload) as Record<string, unknown>;
@@ -162,7 +191,8 @@ export function useChat(): UseChatResult {
                   pendingToolCalls.set(toolCallId, updated);
                   setItems((prev) =>
                     prev.map((it) =>
-                      it.kind === "tool_call" && it.event.toolCallId === toolCallId
+                      it.kind === "tool_call" &&
+                      it.event.toolCallId === toolCallId
                         ? { kind: "tool_call", event: updated }
                         : it
                     )
@@ -179,15 +209,25 @@ export function useChat(): UseChatResult {
                   const copy = [...prev];
                   const lastIdx = copy.length - 1;
                   const last = copy[lastIdx];
-                  if (last?.kind === "message" && last.msg.role === "assistant") {
-                    copy[lastIdx] = { kind: "message", msg: { role: "assistant", content: assistantText } };
+                  if (
+                    last?.kind === "message" &&
+                    last.msg.role === "assistant"
+                  ) {
+                    copy[lastIdx] = {
+                      kind: "message",
+                      msg: { role: "assistant", content: assistantText },
+                    };
                   }
                   return copy;
                 });
               }
               eventType = "message";
             } catch (e) {
-              if (e instanceof Error && e.message !== "Unexpected end of JSON input") throw e;
+              if (
+                e instanceof Error &&
+                e.message !== "Unexpected end of JSON input"
+              )
+                throw e;
             }
           }
         }
@@ -197,7 +237,11 @@ export function useChat(): UseChatResult {
         setError(msg);
         setItems((prev) => {
           const last = prev[prev.length - 1];
-          if (last?.kind === "message" && last.msg.role === "assistant" && !last.msg.content) {
+          if (
+            last?.kind === "message" &&
+            last.msg.role === "assistant" &&
+            !last.msg.content
+          ) {
             return prev.slice(0, -1);
           }
           return prev;
@@ -210,7 +254,7 @@ export function useChat(): UseChatResult {
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [messages, isStreaming, activeSessionId, refreshSessions],
+    [messages, isStreaming, activeSessionId, refreshSessions]
   );
 
   const clearHistory = useCallback(() => {
@@ -218,7 +262,16 @@ export function useChat(): UseChatResult {
   }, [startNewSession]);
 
   return {
-    items, messages, isStreaming, error, sendMessage, clearHistory,
-    sessions, activeSessionId, loadSession, startNewSession, refreshSessions,
+    items,
+    messages,
+    isStreaming,
+    error,
+    sendMessage,
+    clearHistory,
+    sessions,
+    activeSessionId,
+    loadSession,
+    startNewSession,
+    refreshSessions,
   };
 }

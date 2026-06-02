@@ -49,7 +49,10 @@ type RouteContext = { params: Promise<{ path: string[] }> };
 
 function guard(): NextResponse | null {
   if (!TEST_API_ENABLED) {
-    return NextResponse.json({ error: "Test API is disabled" }, { status: 404 });
+    return NextResponse.json(
+      { error: "Test API is disabled" },
+      { status: 404 }
+    );
   }
   return null;
 }
@@ -99,12 +102,12 @@ export async function GET(
     const wsServer = getWSServer();
     const agents = wsServer
       ? wsServer.getConnectedAgents().map((a) => ({
-        id: a.id,
-        name: a.name,
-        capabilities: a.capabilities,
-        connectedAt: a.connectedAt,
-        lastHeartbeat: a.lastHeartbeat,
-      }))
+          id: a.id,
+          name: a.name,
+          capabilities: a.capabilities,
+          connectedAt: a.connectedAt,
+          lastHeartbeat: a.lastHeartbeat,
+        }))
       : [];
     return NextResponse.json(agents);
   }
@@ -116,7 +119,9 @@ export async function GET(
     const realms = memberships.map((m) => {
       const routerKey = getRealmRouterKey(m.realm_id);
       const models = getModelsByRealm(m.realm_id)
-        .filter((model) => model.status === "active" && model.litellm_model_name)
+        .filter(
+          (model) => model.status === "active" && model.litellm_model_name
+        )
         .map((model) => ({
           id: model.id,
           name: model.name,
@@ -175,7 +180,7 @@ export async function GET(
         let parsed: Record<string, unknown> = {};
         try {
           parsed = r.details ? JSON.parse(r.details) : {};
-        } catch { }
+        } catch {}
         return {
           agentDid: r.agent_did,
           agentName: r.agent_name,
@@ -228,7 +233,10 @@ export async function POST(
 
     const wsServer = getWSServer();
     if (!wsServer) {
-      return NextResponse.json({ error: "WS server not initialised" }, { status: 503 });
+      return NextResponse.json(
+        { error: "WS server not initialised" },
+        { status: 503 }
+      );
     }
 
     const ok = wsServer.approveRegistration(id, capabilities as any);
@@ -244,16 +252,28 @@ export async function POST(
   // POST /api/test/agents/:id/llm-config — set agent LLM config (realm routing shortcut)
   if (resource === "agents" && rest[1] === "llm-config") {
     const agentDid = rest[0];
-    const body = await req.json().catch(() => ({})) as Record<string, unknown>;
-    if (typeof body.realmId === "string" && typeof body.realmModelId === "string") {
+    const body = (await req.json().catch(() => ({}))) as Record<
+      string,
+      unknown
+    >;
+    if (
+      typeof body.realmId === "string" &&
+      typeof body.realmModelId === "string"
+    ) {
       const routerKey = getRealmRouterKey(body.realmId);
       if (!routerKey?.litellm_virtual_key) {
-        return NextResponse.json({ error: "Realm has no LiteLLM virtual key configured" }, { status: 400 });
+        return NextResponse.json(
+          { error: "Realm has no LiteLLM virtual key configured" },
+          { status: 400 }
+        );
       }
       const realmModels = getModelsByRealm(body.realmId);
       const model = realmModels.find((m) => m.id === body.realmModelId);
       if (!model?.litellm_model_name) {
-        return NextResponse.json({ error: "Model not found in realm" }, { status: 404 });
+        return NextResponse.json(
+          { error: "Model not found in realm" },
+          { status: 404 }
+        );
       }
       const config: LlmConfig = {
         provider: "openai-compatible",
@@ -265,18 +285,33 @@ export async function POST(
       const wsServer = getWSServer();
       const pushed = wsServer?.sendLlmConfig(agentDid, config) ?? false;
       const { apiKey: _k, ...rest_ } = config;
-      return NextResponse.json({ ok: true, pushed, config: { ...rest_, apiKeySet: true } });
+      return NextResponse.json({
+        ok: true,
+        pushed,
+        config: { ...rest_, apiKeySet: true },
+      });
     }
-    return NextResponse.json({ error: "realmId and realmModelId required" }, { status: 400 });
+    return NextResponse.json(
+      { error: "realmId and realmModelId required" },
+      { status: 400 }
+    );
   }
 
   // POST /api/test/models — create a model
   if (resource === "models" && rest.length === 0) {
-    const body = await req.json().catch(() => ({})) as Record<string, unknown>;
+    const body = (await req.json().catch(() => ({}))) as Record<
+      string,
+      unknown
+    >;
     if (!body.name || !body.provider || !body.modelId || !body.baseUrl) {
-      return NextResponse.json({ error: "name, provider, modelId, baseUrl required" }, { status: 400 });
+      return NextResponse.json(
+        { error: "name, provider, modelId, baseUrl required" },
+        { status: 400 }
+      );
     }
-    const slug = (body.name as string).toLowerCase().replace(/[^a-z0-9]+/g, "-");
+    const slug = (body.name as string)
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-");
     const litellmModelName = `${body.provider}/${slug}`;
     const entry = createModelRegistryEntry({
       name: body.name as string,
@@ -297,30 +332,47 @@ export async function POST(
         console.warn("[test-api] LiteLLM registerModel failed (non-fatal):", e);
       }
     }
-    return NextResponse.json({ model: { id: entry.id, name: entry.name } }, { status: 201 });
+    return NextResponse.json(
+      { model: { id: entry.id, name: entry.name } },
+      { status: 201 }
+    );
   }
 
   // POST /api/test/models/:id/realms — grant realm access
   if (resource === "models" && rest[1] === "realms") {
     const modelId = rest[0];
-    const body = await req.json().catch(() => ({})) as { realmId?: string };
-    if (!body.realmId) return NextResponse.json({ error: "realmId required" }, { status: 400 });
+    const body = (await req.json().catch(() => ({}))) as { realmId?: string };
+    if (!body.realmId)
+      return NextResponse.json({ error: "realmId required" }, { status: 400 });
     const entry = getModelRegistryEntry(modelId);
-    if (!entry) return NextResponse.json({ error: "Model not found" }, { status: 404 });
+    if (!entry)
+      return NextResponse.json({ error: "Model not found" }, { status: 404 });
 
     grantModelRealmAccess(modelId, body.realmId);
 
     if (isLiteLLMConfigured() && entry.litellm_model_name) {
       try {
         const existing = getRealmRouterKey(body.realmId);
-        const currentModels: string[] = existing ? JSON.parse(existing.allowed_model_ids) : [];
+        const currentModels: string[] = existing
+          ? JSON.parse(existing.allowed_model_ids)
+          : [];
         if (!currentModels.includes(entry.litellm_model_name)) {
           const updated = [...currentModels, entry.litellm_model_name];
-          const { virtualKey } = await createRealmKey(body.realmId, updated, existing?.monthly_budget_usd ?? undefined);
-          upsertRealmRouterKey(body.realmId, { litellmVirtualKey: virtualKey, allowedModelIds: updated });
+          const { virtualKey } = await createRealmKey(
+            body.realmId,
+            updated,
+            existing?.monthly_budget_usd ?? undefined
+          );
+          upsertRealmRouterKey(body.realmId, {
+            litellmVirtualKey: virtualKey,
+            allowedModelIds: updated,
+          });
         }
       } catch (e) {
-        console.warn("[test-api] LiteLLM realm key update failed (non-fatal):", e);
+        console.warn(
+          "[test-api] LiteLLM realm key update failed (non-fatal):",
+          e
+        );
       }
     }
     return NextResponse.json({ ok: true });
@@ -332,21 +384,39 @@ export async function POST(
       agentId,
       action: intentAction,
       params,
-    } = body as { agentId?: string; action?: string; params?: Record<string, unknown> };
+    } = body as {
+      agentId?: string;
+      action?: string;
+      params?: Record<string, unknown>;
+    };
 
     if (!agentId || !intentAction) {
-      return NextResponse.json({ error: "agentId and action are required" }, { status: 400 });
+      return NextResponse.json(
+        { error: "agentId and action are required" },
+        { status: 400 }
+      );
     }
 
     const wsServer = getWSServer();
     if (!wsServer) {
-      return NextResponse.json({ error: "WS server not initialised" }, { status: 503 });
+      return NextResponse.json(
+        { error: "WS server not initialised" },
+        { status: 503 }
+      );
     }
 
     const intentId = `test-intent-${Date.now()}`;
-    const ok = wsServer.sendIntentToAgent(agentId, intentId, intentAction, params ?? {});
+    const ok = wsServer.sendIntentToAgent(
+      agentId,
+      intentId,
+      intentAction,
+      params ?? {}
+    );
     if (!ok) {
-      return NextResponse.json({ error: "Agent not connected" }, { status: 404 });
+      return NextResponse.json(
+        { error: "Agent not connected" },
+        { status: 404 }
+      );
     }
     return NextResponse.json({ ok: true, intentId });
   }
@@ -361,13 +431,16 @@ export async function POST(
     if (!agentId || !Array.isArray(messages) || messages.length === 0) {
       return NextResponse.json(
         { error: "agentId and messages are required" },
-        { status: 400 },
+        { status: 400 }
       );
     }
 
     const wsServer = getWSServer();
     if (!wsServer) {
-      return NextResponse.json({ error: "WS server not initialised" }, { status: 503 });
+      return NextResponse.json(
+        { error: "WS server not initialised" },
+        { status: 503 }
+      );
     }
 
     const conversationId = `test-chat-${Date.now()}`;
@@ -382,32 +455,47 @@ export async function POST(
       messages as any,
       (payload) => {
         if (payload.error) {
-          writer.write(encoder.encode(`data: ${JSON.stringify({ error: payload.error })}\n\n`));
+          writer.write(
+            encoder.encode(
+              `data: ${JSON.stringify({ error: payload.error })}\n\n`
+            )
+          );
           writer.write(encoder.encode("data: [DONE]\n\n"));
-          writer.close().catch(() => { });
+          writer.close().catch(() => {});
           return;
         }
         if (payload.chunk) {
-          writer.write(encoder.encode(`data: ${JSON.stringify({ text: payload.chunk })}\n\n`));
+          writer.write(
+            encoder.encode(
+              `data: ${JSON.stringify({ text: payload.chunk })}\n\n`
+            )
+          );
         }
         if (payload.done) {
           writer.write(encoder.encode("data: [DONE]\n\n"));
-          writer.close().catch(() => { });
+          writer.close().catch(() => {});
         }
-      },
+      }
     );
 
     if (!sent) {
-      return NextResponse.json({ error: "Agent not connected" }, { status: 404 });
+      return NextResponse.json(
+        { error: "Agent not connected" },
+        { status: 404 }
+      );
     }
 
     // Timeout safety
     const timeout = setTimeout(() => {
-      writer.write(encoder.encode(`data: ${JSON.stringify({ error: "timeout" })}\n\n`));
+      writer.write(
+        encoder.encode(`data: ${JSON.stringify({ error: "timeout" })}\n\n`)
+      );
       writer.write(encoder.encode("data: [DONE]\n\n"));
-      writer.close().catch(() => { });
+      writer.close().catch(() => {});
     }, 30_000);
-    writer.closed.then(() => clearTimeout(timeout)).catch(() => clearTimeout(timeout));
+    writer.closed
+      .then(() => clearTimeout(timeout))
+      .catch(() => clearTimeout(timeout));
 
     return new Response(readable, {
       headers: {
@@ -446,7 +534,7 @@ export async function POST(
  */
 export async function DELETE(
   _req: NextRequest,
-  ctx: RouteContext,
+  ctx: RouteContext
 ): Promise<NextResponse> {
   const g = guard();
   if (g) return g;
@@ -457,9 +545,12 @@ export async function DELETE(
   // DELETE /api/test/models/:id
   if (resource === "models" && id) {
     const entry = getModelRegistryEntry(id);
-    if (!entry) return NextResponse.json({ error: "Model not found" }, { status: 404 });
+    if (!entry)
+      return NextResponse.json({ error: "Model not found" }, { status: 404 });
     if (isLiteLLMConfigured() && entry.litellm_model_name) {
-      try { await removeModel(entry.litellm_model_name); } catch (e) {
+      try {
+        await removeModel(entry.litellm_model_name);
+      } catch (e) {
         console.warn("[test-api] LiteLLM removeModel failed (non-fatal):", e);
       }
     }

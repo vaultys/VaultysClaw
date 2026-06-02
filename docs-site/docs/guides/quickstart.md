@@ -55,11 +55,13 @@ AGENT_CAPABILITIES=api_call,file_access
 ```
 
 :::tip Using Ollama (no API key required)?
+
 ```env
 LLM_PROVIDER=ollama
 LLM_MODEL=llama3.2
 LLM_BASE_URL=http://localhost:11434
 ```
+
 :::
 
 ## 4. Start the platform
@@ -67,22 +69,26 @@ LLM_BASE_URL=http://localhost:11434
 Open two terminals:
 
 **Terminal 1 — Control plane:**
+
 ```bash
 pnpm dev -F @vaultysclaw/control-plane
 ```
 
 You should see:
+
 ```
 ✓ Control plane ready on http://localhost:3000
 ✓ WebSocket hub ready on ws://localhost:8080
 ```
 
 **Terminal 2 — Agent controller:**
+
 ```bash
 pnpm dev -F @vaultysclaw/agent-controller
 ```
 
 You should see:
+
 ```
 ✓ VaultysId loaded: did:vaultys:z6Mkf...
 ✓ Connected to control plane WebSocket
@@ -112,6 +118,7 @@ curl -X POST http://localhost:3000/api/intents \
 ```
 
 Response:
+
 ```json
 {
   "intentId": "int_01HZ...",

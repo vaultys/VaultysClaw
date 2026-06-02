@@ -81,24 +81,39 @@ export async function POST(req: NextRequest, ctx: Ctx) {
 
     // Validate bridge type and sync settings
     if (bridge.externalService !== "webhook") {
-      return NextResponse.json({ error: "Bridge is not a webhook bridge" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Bridge is not a webhook bridge" },
+        { status: 400 }
+      );
     }
     if (!bridge.isSyncEnabled) {
-      return NextResponse.json({ error: "Bridge sync is disabled" }, { status: 403 });
+      return NextResponse.json(
+        { error: "Bridge sync is disabled" },
+        { status: 403 }
+      );
     }
     if (bridge.syncDirection === "outgoing") {
-      return NextResponse.json({ error: "Bridge does not accept incoming messages" }, { status: 403 });
+      return NextResponse.json(
+        { error: "Bridge does not accept incoming messages" },
+        { status: 403 }
+      );
     }
 
     // Decrypt config and verify HMAC
-    const config = ChannelBridgeService.getDecryptedConfig(bridge) as WebhookBridgeConfig;
+    const config = ChannelBridgeService.getDecryptedConfig(
+      bridge
+    ) as WebhookBridgeConfig;
 
     if (!WebhookGateway.verifySignature(body, config.secret, signatureHeader)) {
       return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
     }
 
     // Parse body JSON
-    let parsed: { message?: string; author?: string; metadata?: Record<string, unknown> };
+    let parsed: {
+      message?: string;
+      author?: string;
+      metadata?: Record<string, unknown>;
+    };
     try {
       parsed = JSON.parse(body) as typeof parsed;
     } catch {
@@ -107,7 +122,10 @@ export async function POST(req: NextRequest, ctx: Ctx) {
 
     const content = parsed.message?.trim();
     if (!content) {
-      return NextResponse.json({ error: "message is required" }, { status: 400 });
+      return NextResponse.json(
+        { error: "message is required" },
+        { status: 400 }
+      );
     }
 
     const authorDid = parsed.author ?? "webhook:external";
@@ -121,7 +139,9 @@ export async function POST(req: NextRequest, ctx: Ctx) {
       metadata: {
         attachments: [],
         agentAction: "webhook_incoming",
-        ...(parsed.metadata ? { toolCalls: parsed.metadata as Record<string, unknown> } : {}),
+        ...(parsed.metadata
+          ? { toolCalls: parsed.metadata as Record<string, unknown> }
+          : {}),
       },
     });
 
@@ -136,12 +156,15 @@ export async function POST(req: NextRequest, ctx: Ctx) {
         authorType: "user",
         threadId: message.threadId,
         createdAt: message.createdAt,
-      },
+      }
     );
 
     return NextResponse.json({ ok: true, messageId: message.id });
   } catch (err) {
     console.error("POST /api/bridges/webhook/[bridgeId]/incoming error:", err);
-    return NextResponse.json({ error: "Failed to process incoming webhook" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to process incoming webhook" },
+      { status: 500 }
+    );
   }
 }

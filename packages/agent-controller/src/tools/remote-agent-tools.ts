@@ -67,7 +67,7 @@ async function pollForReply(
   threadId: string,
   invokerDid: string,
   timeoutMs = 60_000,
-  pollIntervalMs = 2_000,
+  pollIntervalMs = 2_000
 ): Promise<string | null> {
   const deadline = Date.now() + timeoutMs;
 
@@ -76,7 +76,7 @@ async function pollForReply(
 
     try {
       const res = await fetch(
-        `${controlPlaneBaseUrl}/api/channels/${channelId}/messages?threadId=${encodeURIComponent(threadId)}&limit=20`,
+        `${controlPlaneBaseUrl}/api/channels/${channelId}/messages?threadId=${encodeURIComponent(threadId)}&limit=20`
       );
 
       if (!res.ok) continue;
@@ -85,7 +85,7 @@ async function pollForReply(
       const messages = data.messages ?? [];
 
       const reply = messages.find(
-        (m) => m.authorDid !== invokerDid && m.threadId === threadId,
+        (m) => m.authorDid !== invokerDid && m.threadId === threadId
       );
 
       if (reply) return reply.content;
@@ -104,14 +104,17 @@ async function pollForReply(
 async function postChannelMessage(
   controlPlaneBaseUrl: string,
   channelId: string,
-  content: string,
+  content: string
 ): Promise<string | null> {
   try {
-    const res = await fetch(`${controlPlaneBaseUrl}/api/channels/${channelId}/messages`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ content }),
-    });
+    const res = await fetch(
+      `${controlPlaneBaseUrl}/api/channels/${channelId}/messages`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content }),
+      }
+    );
 
     if (!res.ok) return null;
 
@@ -136,7 +139,7 @@ async function postChannelMessage(
  */
 export function buildRemoteAgentTools(
   peerCatalog: AgentPeerGrant[],
-  peerManager: PeerManager,
+  peerManager: PeerManager
 ): AgentToolDefinition[] {
   return peerCatalog.map((grant) => {
     const toolName = `ask_agent_${sanitizeName(grant.targetName)}`;
@@ -149,16 +152,31 @@ export function buildRemoteAgentTools(
         id: toolName,
         description: grant.skillDescription,
         inputSchema: z.object({
-          action: z.string().describe(
-            "The specific action or question to send to the remote agent.",
-          ),
-          params: z.record(z.string(), z.any()).optional().describe(
-            "Optional structured parameters to pass alongside the action.",
-          ),
+          action: z
+            .string()
+            .describe(
+              "The specific action or question to send to the remote agent."
+            ),
+          params: z
+            .record(z.string(), z.any())
+            .optional()
+            .describe(
+              "Optional structured parameters to pass alongside the action."
+            ),
         }),
-        execute: async ({ action, params = {} }: { action: string; params?: Record<string, any> }) => {
+        execute: async ({
+          action,
+          params = {},
+        }: {
+          action: string;
+          params?: Record<string, any>;
+        }) => {
           try {
-            const result = await peerManager.invoke(grant.targetDid, action, params);
+            const result = await peerManager.invoke(
+              grant.targetDid,
+              action,
+              params
+            );
             return { success: true, result };
           } catch (err) {
             return {
@@ -190,7 +208,7 @@ export function buildChannelAgentTools(
   sendWsMessage: (msg: WSMessage) => void,
   controlPlaneBaseUrl: string,
   agentDid: string,
-  peerManagerFallback?: PeerManager,
+  peerManagerFallback?: PeerManager
 ): AgentToolDefinition[] {
   return peerCatalog.map((grant) => {
     const toolName = `ask_agent_${sanitizeName(grant.targetName)}`;
@@ -203,18 +221,31 @@ export function buildChannelAgentTools(
         id: toolName,
         description: grant.skillDescription,
         inputSchema: z.object({
-          action: z.string().describe(
-            "The specific action or question to send to the remote agent.",
-          ),
-          params: z.record(z.string(), z.any()).optional().describe(
-            "Optional structured parameters to pass alongside the action.",
-          ),
+          action: z
+            .string()
+            .describe(
+              "The specific action or question to send to the remote agent."
+            ),
+          params: z
+            .record(z.string(), z.any())
+            .optional()
+            .describe(
+              "Optional structured parameters to pass alongside the action."
+            ),
         }),
-        execute: async ({ action, params = {} }: { action: string; params?: Record<string, any> }) => {
+        execute: async ({
+          action,
+          params = {},
+        }: {
+          action: string;
+          params?: Record<string, any>;
+        }) => {
           // Channel-based invocation
           if (grant.channelId) {
             const content = `@${grant.targetName} ${action}${
-              Object.keys(params).length > 0 ? "\n" + JSON.stringify(params, null, 2) : ""
+              Object.keys(params).length > 0
+                ? "\n" + JSON.stringify(params, null, 2)
+                : ""
             }`;
 
             try {
@@ -222,7 +253,7 @@ export function buildChannelAgentTools(
               const messageId = await postChannelMessage(
                 controlPlaneBaseUrl,
                 grant.channelId,
-                content,
+                content
               );
 
               if (!messageId) {
@@ -249,7 +280,7 @@ export function buildChannelAgentTools(
                 controlPlaneBaseUrl,
                 grant.channelId,
                 messageId,
-                agentDid,
+                agentDid
               );
 
               if (reply === null) {
@@ -261,7 +292,12 @@ export function buildChannelAgentTools(
                 };
               }
 
-              return { success: true, result: reply, channelId: grant.channelId, messageId };
+              return {
+                success: true,
+                result: reply,
+                channelId: grant.channelId,
+                messageId,
+              };
             } catch (err) {
               return {
                 success: false,
@@ -273,7 +309,11 @@ export function buildChannelAgentTools(
           // WebRTC fallback
           if (peerManagerFallback) {
             try {
-              const result = await peerManagerFallback.invoke(grant.targetDid, action, params);
+              const result = await peerManagerFallback.invoke(
+                grant.targetDid,
+                action,
+                params
+              );
               return { success: true, result };
             } catch (err) {
               return {
@@ -285,7 +325,8 @@ export function buildChannelAgentTools(
 
           return {
             success: false,
-            error: "No invocation strategy available: grant has no channelId and no PeerManager",
+            error:
+              "No invocation strategy available: grant has no channelId and no PeerManager",
           };
         },
       }),

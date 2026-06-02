@@ -27,12 +27,18 @@ function peerIdForDid(did: string): string {
 }
 
 /** Parse a URL string into PeerJS PeerOptions fields. */
-function parsePeerjsServerUrl(url: string): Pick<PeerOptions, "host" | "port" | "path" | "secure"> {
+function parsePeerjsServerUrl(
+  url: string
+): Pick<PeerOptions, "host" | "port" | "path" | "secure"> {
   try {
     const parsed = new URL(url);
     return {
       host: parsed.hostname,
-      port: parsed.port ? parseInt(parsed.port, 10) : (parsed.protocol === "https:" ? 443 : 80),
+      port: parsed.port
+        ? parseInt(parsed.port, 10)
+        : parsed.protocol === "https:"
+          ? 443
+          : 80,
       path: parsed.pathname || "/",
       secure: parsed.protocol === "https:",
     };
@@ -60,10 +66,18 @@ export class AgentPeerjsServer {
     this.serverUrl = serverUrl;
   }
 
-  get isRunning(): boolean { return this._running; }
-  get startedAt(): string | null { return this._startedAt?.toISOString() ?? null; }
-  get peerjsId(): string { return this.peerId; }
-  get signalingServerUrl(): string | undefined { return this.serverUrl; }
+  get isRunning(): boolean {
+    return this._running;
+  }
+  get startedAt(): string | null {
+    return this._startedAt?.toISOString() ?? null;
+  }
+  get peerjsId(): string {
+    return this.peerId;
+  }
+  get signalingServerUrl(): string | undefined {
+    return this.serverUrl;
+  }
 
   /** Derive and return the control plane's stable PeerJS peer ID. */
   static getServerPeerId(): string | null {
@@ -80,18 +94,22 @@ export class AgentPeerjsServer {
   async start(): Promise<string> {
     const peerId = AgentPeerjsServer.getServerPeerId();
     if (!peerId) {
-      throw new Error("Server identity not initialized — call initServerIdentity() first");
+      throw new Error(
+        "Server identity not initialized — call initServerIdentity() first"
+      );
     }
     this.peerId = peerId;
 
     const options: PeerOptions = {
       debug: 1,
-      ...(this.serverUrl ? parsePeerjsServerUrl(this.serverUrl) : {
-        host: "0.peerjs.com",
-        port: 443,
-        path: "/",
-        secure: true,
-      }),
+      ...(this.serverUrl
+        ? parsePeerjsServerUrl(this.serverUrl)
+        : {
+            host: "0.peerjs.com",
+            port: 443,
+            path: "/",
+            secure: true,
+          }),
     };
 
     await new Promise<void>((resolve, reject) => {
@@ -106,7 +124,10 @@ export class AgentPeerjsServer {
         clearTimeout(timeout);
         this._running = true;
         this._startedAt = new Date();
-        logger.info({ peerId: id, serverUrl: this.serverUrl }, "PeerJS server ready — waiting for agent connections");
+        logger.info(
+          { peerId: id, serverUrl: this.serverUrl },
+          "PeerJS server ready — waiting for agent connections"
+        );
         resolve();
       });
 
@@ -121,7 +142,9 @@ export class AgentPeerjsServer {
       });
 
       peer.on("disconnected", () => {
-        logger.warn("PeerJS disconnected from signaling server — attempting reconnect");
+        logger.warn(
+          "PeerJS disconnected from signaling server — attempting reconnect"
+        );
         peer.reconnect();
       });
 
@@ -134,10 +157,16 @@ export class AgentPeerjsServer {
   }
 
   private handleIncoming(conn: DataConnection): void {
-    logger.info({ remotePeerId: conn.peer }, "Incoming PeerJS connection — waiting for open");
+    logger.info(
+      { remotePeerId: conn.peer },
+      "Incoming PeerJS connection — waiting for open"
+    );
 
     conn.on("open", () => {
-      logger.info({ remotePeerId: conn.peer }, "PeerJS DataConnection open — initiating auth");
+      logger.info(
+        { remotePeerId: conn.peer },
+        "PeerJS DataConnection open — initiating auth"
+      );
 
       const sender = new PeerjsSender(conn);
 
@@ -155,13 +184,19 @@ export class AgentPeerjsServer {
       });
 
       conn.on("error", (err) => {
-        logger.error({ remotePeerId: conn.peer, err }, "PeerJS connection error");
+        logger.error(
+          { remotePeerId: conn.peer, err },
+          "PeerJS connection error"
+        );
         this.wsServer.handlePeerjsDisconnect(sender);
       });
     });
 
     conn.on("error", (err) => {
-      logger.error({ remotePeerId: conn.peer, err }, "PeerJS connection error before open");
+      logger.error(
+        { remotePeerId: conn.peer, err },
+        "PeerJS connection error before open"
+      );
     });
   }
 
@@ -177,7 +212,7 @@ export class AgentPeerjsServer {
 
 export function initializePeerjsServer(
   wsServer: AgentWSServer,
-  serverUrl?: string,
+  serverUrl?: string
 ): AgentPeerjsServer {
   if (globalForPeerjs.__peerjsServer) {
     globalForPeerjs.__peerjsServer.shutdown();

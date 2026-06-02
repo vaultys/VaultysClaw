@@ -61,6 +61,7 @@
 ## Data Flow
 
 ### Template Usage Flow
+
 ```
 User clicks "From Template"
     │
@@ -88,6 +89,7 @@ TemplateSelectionModal opens
 ```
 
 ### Export Flow
+
 ```
 User clicks "Export" button
     │
@@ -114,6 +116,7 @@ JSON file downloads to user's device
 ```
 
 ### Import Flow
+
 ```
 User clicks "Import" button
     │
@@ -156,6 +159,7 @@ Validate structure
 ## State Management
 
 ### Zustand Store Integration
+
 ```
 useWorkflowStore()
     │
@@ -256,17 +260,21 @@ Editor Page
 ## Feature Parity
 
 Both Import and Export buttons appear in:
+
 - ✓ Workflows list page (bottom corner)
 - ✓ Editor page (header)
 
 Template selection available in:
+
 - ✓ Workflows list page (primary way)
 - Workflows list "New Workflow" button uses blank template
 
 Export enabled:
+
 - ✓ Only when workflow is saved (has ID)
 - ✓ Disabled state with tooltip
 
 Import always available:
+
 - ✓ From anywhere to add new workflows
 - ✓ Auto-refresh after successful import

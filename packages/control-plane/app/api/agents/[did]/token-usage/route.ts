@@ -96,7 +96,9 @@ export async function GET(req: NextRequest, ctx: Ctx) {
     if (!auth.canAccessAgent(agentDid)) return forbidden();
     const { searchParams } = req.nextUrl;
 
-    const granularity = (searchParams.get("granularity") ?? "day") as "day" | "month";
+    const granularity = (searchParams.get("granularity") ?? "day") as
+      | "day"
+      | "month";
     const today = new Date();
 
     let defaultFrom: string;
@@ -110,9 +112,10 @@ export async function GET(req: NextRequest, ctx: Ctx) {
       defaultFrom = d.toISOString().slice(0, 10); // YYYY-MM-DD
     }
 
-    const defaultTo = granularity === "month"
-      ? today.toISOString().slice(0, 7)
-      : today.toISOString().slice(0, 10);
+    const defaultTo =
+      granularity === "month"
+        ? today.toISOString().slice(0, 7)
+        : today.toISOString().slice(0, 10);
 
     const from = searchParams.get("from") ?? defaultFrom;
     const to = searchParams.get("to") ?? defaultTo;
@@ -125,7 +128,10 @@ export async function GET(req: NextRequest, ctx: Ctx) {
     return NextResponse.json({ granularity, from, to, data: filled });
   } catch (err) {
     console.error(err);
-    return NextResponse.json({ error: "Failed to fetch token usage" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to fetch token usage" },
+      { status: 500 }
+    );
   }
 }
 
@@ -139,7 +145,7 @@ function fillBuckets(
   rows: { bucket: string; prompt_tokens: number; completion_tokens: number }[],
   granularity: "day" | "month",
   from: string,
-  to: string,
+  to: string
 ): BucketPoint[] {
   const map = new Map(rows.map((r) => [r.bucket, r]));
   const result: BucketPoint[] = [];
@@ -148,9 +154,10 @@ function fillBuckets(
   const end = new Date(granularity === "day" ? to : to + "-01");
 
   while (current <= end) {
-    const bucket = granularity === "day"
-      ? current.toISOString().slice(0, 10)
-      : current.toISOString().slice(0, 7);
+    const bucket =
+      granularity === "day"
+        ? current.toISOString().slice(0, 10)
+        : current.toISOString().slice(0, 7);
 
     const row = map.get(bucket);
     result.push({

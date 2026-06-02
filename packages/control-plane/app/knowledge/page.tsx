@@ -54,7 +54,10 @@ interface AgentInfo {
   online: boolean;
 }
 
-interface RealmInfo { id: string; name: string }
+interface RealmInfo {
+  id: string;
+  name: string;
+}
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -84,17 +87,25 @@ interface DoclingState {
 type TestStatus = "idle" | "testing" | "ok" | "error";
 
 function DoclingConfigPanel() {
-  const [cfg, setCfg] = useState<DoclingState>({ url: "", enabled: false, configured: false });
+  const [cfg, setCfg] = useState<DoclingState>({
+    url: "",
+    enabled: false,
+    configured: false,
+  });
   const [editing, setEditing] = useState(false);
   const [draftUrl, setDraftUrl] = useState("");
   const [draftEnabled, setDraftEnabled] = useState(false);
   const [saving, setSaving] = useState(false);
   const [testStatus, setTestStatus] = useState<TestStatus>("idle");
-  const [testResult, setTestResult] = useState<{ latency?: number; version?: string; error?: string } | null>(null);
+  const [testResult, setTestResult] = useState<{
+    latency?: number;
+    version?: string;
+    error?: string;
+  } | null>(null);
 
   useEffect(() => {
     fetch("/api/settings/docling")
-      .then(r => r.json())
+      .then((r) => r.json())
       .then((d: DoclingState) => {
         setCfg(d);
         setDraftUrl(d.url ?? "");
@@ -127,12 +138,19 @@ function DoclingConfigPanel() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ url: draftUrl.trim() }),
       });
-      const data = await res.json() as { ok: boolean; latency?: number; version?: string; error?: string };
+      const data = (await res.json()) as {
+        ok: boolean;
+        latency?: number;
+        version?: string;
+        error?: string;
+      };
       setTestStatus(data.ok ? "ok" : "error");
       setTestResult(data);
     } catch (err) {
       setTestStatus("error");
-      setTestResult({ error: err instanceof Error ? err.message : "Network error" });
+      setTestResult({
+        error: err instanceof Error ? err.message : "Network error",
+      });
     }
   }
 
@@ -144,7 +162,11 @@ function DoclingConfigPanel() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ url: draftUrl.trim(), enabled: draftEnabled }),
       });
-      const next = { url: draftUrl.trim(), enabled: draftEnabled, configured: !!draftUrl.trim() };
+      const next = {
+        url: draftUrl.trim(),
+        enabled: draftEnabled,
+        configured: !!draftUrl.trim(),
+      };
       setCfg(next);
       setEditing(false);
     } finally {
@@ -153,46 +175,59 @@ function DoclingConfigPanel() {
   }
 
   const connectionPill = (() => {
-    if (!cfg.configured) return (
-      <span className="inline-flex items-center gap-1.5 text-xs font-medium text-foreground-500 bg-background-200 border border-neutral-300 rounded-full px-2.5 py-1">
-        <span className="w-1.5 h-1.5 rounded-full bg-zinc-400" />
-        Not configured
-      </span>
-    );
-    if (!cfg.enabled) return (
-      <span className="inline-flex items-center gap-1.5 text-xs font-medium text-amber-700 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/20 border border-amber-300 dark:border-amber-800 rounded-full px-2.5 py-1">
-        <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-        Disabled
-      </span>
-    );
+    if (!cfg.configured)
+      return (
+        <span className="inline-flex items-center gap-1.5 text-xs font-medium text-foreground-500 bg-background-200 border border-neutral-300 rounded-full px-2.5 py-1">
+          <span className="w-1.5 h-1.5 rounded-full bg-neutral-400" />
+          Not configured
+        </span>
+      );
+    if (!cfg.enabled)
+      return (
+        <span className="inline-flex items-center gap-1.5 text-xs font-medium text-warning-700 dark:text-warning-400 bg-warning-100 dark:bg-warning-900/20 border border-warning-300 dark:border-warning-800 rounded-full px-2.5 py-1">
+          <span className="w-1.5 h-1.5 rounded-full bg-warning-500" />
+          Disabled
+        </span>
+      );
     return (
-      <span className="inline-flex items-center gap-1.5 text-xs font-medium text-green-700 dark:text-green-400 bg-green-100 dark:bg-green-900/20 border border-green-300 dark:border-green-800 rounded-full px-2.5 py-1">
-        <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
+      <span className="inline-flex items-center gap-1.5 text-xs font-medium text-success-700 dark:text-success-400 bg-success-100 dark:bg-success-900/20 border border-success-300 dark:border-success-800 rounded-full px-2.5 py-1">
+        <span className="w-1.5 h-1.5 rounded-full bg-success-500" />
         Active
       </span>
     );
   })();
 
   return (
-    <div className={`rounded-xl border bg-background-100 overflow-hidden transition-colors ${
-      cfg.enabled ? "border-indigo-300 dark:border-indigo-700/60" : "border-neutral-200"
-    }`}>
+    <div
+      className={`rounded-xl border bg-background-100 overflow-hidden transition-colors ${
+        cfg.enabled
+          ? "border-primary-300 dark:border-primary-700/60"
+          : "border-neutral-200"
+      }`}
+    >
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-3">
-        <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
-          cfg.enabled
-            ? "bg-indigo-100 dark:bg-indigo-600/20"
-            : "bg-zinc-100 dark:bg-zinc-800"
-        }`}>
-          <Cpu className={`w-4 h-4 ${cfg.enabled ? "text-indigo-600 dark:text-indigo-400" : "text-foreground-500"}`} />
+        <div
+          className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+            cfg.enabled
+              ? "bg-primary-100 dark:bg-primary-600/20"
+              : "bg-neutral-100 dark:bg-neutral-800"
+          }`}
+        >
+          <Cpu
+            className={`w-4 h-4 ${cfg.enabled ? "text-primary-600 dark:text-primary-400" : "text-foreground-500"}`}
+          />
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <span className="text-sm font-semibold text-foreground">Docling</span>
+            <span className="text-sm font-semibold text-foreground">
+              Docling
+            </span>
             {connectionPill}
           </div>
           <p className="text-xs text-foreground-500 mt-0.5">
-            Document parser — converts PDFs, DOCX &amp; HTML to structured Markdown before chunking
+            Document parser — converts PDFs, DOCX &amp; HTML to structured
+            Markdown before chunking
           </p>
         </div>
         {!editing && (
@@ -210,7 +245,13 @@ function DoclingConfigPanel() {
       {!editing && cfg.configured && (
         <div className="px-4 pb-3 flex items-center gap-3 text-xs text-foreground-500 border-t border-neutral-200/40 pt-2">
           <span className="font-mono text-foreground truncate">{cfg.url}</span>
-          <span className={cfg.enabled ? "text-green-600 dark:text-green-400" : "text-amber-600 dark:text-amber-400"}>
+          <span
+            className={
+              cfg.enabled
+                ? "text-success-600 dark:text-success-400"
+                : "text-warning-600 dark:text-warning-400"
+            }
+          >
             {cfg.enabled ? "Enabled" : "Disabled"}
           </span>
         </div>
@@ -227,40 +268,57 @@ function DoclingConfigPanel() {
             <div className="flex gap-2">
               <input
                 value={draftUrl}
-                onChange={e => { setDraftUrl(e.target.value); setTestStatus("idle"); setTestResult(null); }}
+                onChange={(e) => {
+                  setDraftUrl(e.target.value);
+                  setTestStatus("idle");
+                  setTestResult(null);
+                }}
                 placeholder="http://localhost:5001"
-                className="flex-1 px-3 py-2 rounded-lg bg-background border border-neutral-200 text-sm text-foreground placeholder:text-foreground-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 font-mono"
+                className="flex-1 px-3 py-2 rounded-lg bg-background border border-neutral-200 text-sm text-foreground placeholder:text-foreground-400 focus:outline-none focus:ring-2 focus:ring-primary-500/40 font-mono"
               />
               <button
                 onClick={handleTest}
                 disabled={!draftUrl.trim() || testStatus === "testing"}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-neutral-200 text-xs text-foreground-500 hover:text-foreground hover:border-indigo-400 disabled:opacity-40 transition-colors shrink-0"
+                className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-neutral-200 text-xs text-foreground-500 hover:text-foreground hover:border-primary-400 disabled:opacity-40 transition-colors shrink-0"
               >
-                {testStatus === "testing"
-                  ? <Loader2 size={13} className="animate-spin" />
-                  : <Wifi size={13} />}
+                {testStatus === "testing" ? (
+                  <Loader2 size={13} className="animate-spin" />
+                ) : (
+                  <Wifi size={13} />
+                )}
                 Test
               </button>
             </div>
 
             {/* Test result */}
             {testResult && (
-              <div className={`flex items-start gap-2 p-2.5 rounded-lg text-xs ${
-                testStatus === "ok"
-                  ? "bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-400"
-                  : "bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400"
-              }`}>
-                {testStatus === "ok"
-                  ? <CheckCircle2 size={13} className="shrink-0 mt-0.5" />
-                  : <XCircle size={13} className="shrink-0 mt-0.5" />}
+              <div
+                className={`flex items-start gap-2 p-2.5 rounded-lg text-xs ${
+                  testStatus === "ok"
+                    ? "bg-success-50 dark:bg-success-900/20 border border-success-200 dark:border-success-800 text-success-700 dark:text-success-400"
+                    : "bg-danger-50 dark:bg-danger-900/20 border border-danger-200 dark:border-danger-800 text-danger-700 dark:text-danger-400"
+                }`}
+              >
+                {testStatus === "ok" ? (
+                  <CheckCircle2 size={13} className="shrink-0 mt-0.5" />
+                ) : (
+                  <XCircle size={13} className="shrink-0 mt-0.5" />
+                )}
                 <div>
                   {testStatus === "ok" ? (
                     <>
-                      Connected{testResult.latency != null ? ` · ${testResult.latency}ms` : ""}
-                      {testResult.version && <span className="ml-1 font-mono">({testResult.version})</span>}
+                      Connected
+                      {testResult.latency != null
+                        ? ` · ${testResult.latency}ms`
+                        : ""}
+                      {testResult.version && (
+                        <span className="ml-1 font-mono">
+                          ({testResult.version})
+                        </span>
+                      )}
                     </>
                   ) : (
-                    testResult.error ?? "Connection failed"
+                    (testResult.error ?? "Connection failed")
                   )}
                 </div>
               </div>
@@ -270,14 +328,19 @@ function DoclingConfigPanel() {
           {/* Enable toggle */}
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs font-medium text-foreground">Enable Docling for sync</p>
-              <p className="text-xs text-foreground-500">When enabled, all URL knowledge sources will be parsed through Docling</p>
+              <p className="text-xs font-medium text-foreground">
+                Enable Docling for sync
+              </p>
+              <p className="text-xs text-foreground-500">
+                When enabled, all URL knowledge sources will be parsed through
+                Docling
+              </p>
             </div>
             <button
               type="button"
-              onClick={() => setDraftEnabled(v => !v)}
+              onClick={() => setDraftEnabled((v) => !v)}
               className={`relative inline-flex h-5 w-9 shrink-0 rounded-full border-2 border-transparent transition-colors focus:outline-none ${
-                draftEnabled ? "bg-indigo-600" : "bg-neutral-300"
+                draftEnabled ? "bg-primary-600" : "bg-neutral-300"
               }`}
             >
               <span
@@ -293,7 +356,7 @@ function DoclingConfigPanel() {
             <span className="shrink-0 mt-0.5">💡</span>
             <span>
               Run Docling locally:{" "}
-              <code className="font-mono text-indigo-400 bg-background-200 px-1 rounded">
+              <code className="font-mono text-primary-400 bg-background-200 px-1 rounded">
                 docker run -p 5001:5001 quay.io/docling-project/docling-serve
               </code>
             </span>
@@ -310,9 +373,13 @@ function DoclingConfigPanel() {
             <button
               onClick={handleSave}
               disabled={saving}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-xs font-medium transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary-600 hover:bg-primary-500 disabled:opacity-50 text-white text-xs font-medium transition-colors"
             >
-              {saving ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
+              {saving ? (
+                <Loader2 size={13} className="animate-spin" />
+              ) : (
+                <Save size={13} />
+              )}
               Save
             </button>
           </div>
@@ -327,7 +394,14 @@ function DoclingConfigPanel() {
 interface StorageState {
   storageType: string;
   filesystem: { directory: string };
-  s3: { enabled: boolean; configured: boolean; region: string; bucket: string; endpoint: string | null; accessKeyId: string };
+  s3: {
+    enabled: boolean;
+    configured: boolean;
+    region: string;
+    bucket: string;
+    endpoint: string | null;
+    accessKeyId: string;
+  };
 }
 
 function StorageConfigPanel() {
@@ -343,18 +417,28 @@ function StorageConfigPanel() {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [testing, setTesting] = useState(false);
-  const [testResult, setTestResult] = useState<{ ok: boolean; latency?: number; error?: string } | null>(null);
+  const [testResult, setTestResult] = useState<{
+    ok: boolean;
+    latency?: number;
+    error?: string;
+  } | null>(null);
   const [migrating, setMigrating] = useState(false);
-  const [migrateResult, setMigrateResult] = useState<{ migratedCount: number; errorCount: number; hasMore: boolean } | null>(null);
+  const [migrateResult, setMigrateResult] = useState<{
+    migratedCount: number;
+    errorCount: number;
+    hasMore: boolean;
+  } | null>(null);
 
   const loadCfg = useCallback(() => {
     fetch("/api/settings/storage")
-      .then(r => r.json())
+      .then((r) => r.json())
       .then((d: StorageState) => setCfg(d))
       .catch(() => {});
   }, []);
 
-  useEffect(() => { loadCfg(); }, [loadCfg]);
+  useEffect(() => {
+    loadCfg();
+  }, [loadCfg]);
 
   function startEdit() {
     if (!cfg) return;
@@ -371,7 +455,12 @@ function StorageConfigPanel() {
     setEditing(true);
   }
 
-  function cancelEdit() { setEditing(false); setSaveError(null); setTestResult(null); setMigrateResult(null); }
+  function cancelEdit() {
+    setEditing(false);
+    setSaveError(null);
+    setTestResult(null);
+    setMigrateResult(null);
+  }
 
   async function handleTest() {
     setTesting(true);
@@ -388,7 +477,9 @@ function StorageConfigPanel() {
           ...(draftSecretKey ? { secretAccessKey: draftSecretKey } : {}),
         }),
       });
-      setTestResult(await res.json() as { ok: boolean; latency?: number; error?: string });
+      setTestResult(
+        (await res.json()) as { ok: boolean; latency?: number; error?: string }
+      );
     } catch {
       setTestResult({ ok: false, error: "Network error" });
     } finally {
@@ -420,7 +511,7 @@ function StorageConfigPanel() {
         loadCfg();
         setEditing(false);
       } else {
-        const err = await res.json() as { error?: string };
+        const err = (await res.json()) as { error?: string };
         setSaveError(err.error ?? "Save failed");
       }
     } catch {
@@ -434,8 +525,16 @@ function StorageConfigPanel() {
     setMigrating(true);
     setMigrateResult(null);
     try {
-      const res = await fetch("/api/settings/storage/migrate", { method: "POST" });
-      setMigrateResult(await res.json() as { migratedCount: number; errorCount: number; hasMore: boolean });
+      const res = await fetch("/api/settings/storage/migrate", {
+        method: "POST",
+      });
+      setMigrateResult(
+        (await res.json()) as {
+          migratedCount: number;
+          errorCount: number;
+          hasMore: boolean;
+        }
+      );
     } catch {
       setMigrateResult({ migratedCount: 0, errorCount: 1, hasMore: false });
     } finally {
@@ -448,37 +547,56 @@ function StorageConfigPanel() {
   const isS3Active = cfg.storageType === "s3" && cfg.s3.enabled;
 
   const statusPill = isS3Active ? (
-    <span className="inline-flex items-center gap-1.5 text-xs font-medium text-indigo-700 dark:text-indigo-400 bg-indigo-100 dark:bg-indigo-900/20 border border-indigo-300 dark:border-indigo-800 rounded-full px-2.5 py-1">
-      <span className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
+    <span className="inline-flex items-center gap-1.5 text-xs font-medium text-primary-700 dark:text-primary-400 bg-primary-100 dark:bg-primary-900/20 border border-primary-300 dark:border-primary-800 rounded-full px-2.5 py-1">
+      <span className="w-1.5 h-1.5 rounded-full bg-primary-500" />
       S3 active
     </span>
   ) : (
     <span className="inline-flex items-center gap-1.5 text-xs font-medium text-foreground-500 bg-background-200 border border-neutral-300 rounded-full px-2.5 py-1">
-      <span className="w-1.5 h-1.5 rounded-full bg-zinc-400" />
+      <span className="w-1.5 h-1.5 rounded-full bg-neutral-400" />
       Filesystem
     </span>
   );
 
-  const saveDisabled = saving || (draftEnabled && (!draftRegion.trim() || !draftBucket.trim() || !draftAccessKeyId.trim() || (!cfg.s3.configured && !draftSecretKey)));
+  const saveDisabled =
+    saving ||
+    (draftEnabled &&
+      (!draftRegion.trim() ||
+        !draftBucket.trim() ||
+        !draftAccessKeyId.trim() ||
+        (!cfg.s3.configured && !draftSecretKey)));
 
   return (
-    <div className={`rounded-xl border bg-background-100 overflow-hidden transition-colors ${
-      isS3Active ? "border-indigo-300 dark:border-indigo-700/60" : "border-neutral-200"
-    }`}>
+    <div
+      className={`rounded-xl border bg-background-100 overflow-hidden transition-colors ${
+        isS3Active
+          ? "border-primary-300 dark:border-primary-700/60"
+          : "border-neutral-200"
+      }`}
+    >
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-3">
-        <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
-          isS3Active ? "bg-indigo-100 dark:bg-indigo-600/20" : "bg-zinc-100 dark:bg-zinc-800"
-        }`}>
-          <HardDrive className={`w-4 h-4 ${isS3Active ? "text-indigo-600 dark:text-indigo-400" : "text-foreground-500"}`} />
+        <div
+          className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+            isS3Active
+              ? "bg-primary-100 dark:bg-primary-600/20"
+              : "bg-neutral-100 dark:bg-neutral-800"
+          }`}
+        >
+          <HardDrive
+            className={`w-4 h-4 ${isS3Active ? "text-primary-600 dark:text-primary-400" : "text-foreground-500"}`}
+          />
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <span className="text-sm font-semibold text-foreground">File Storage</span>
+            <span className="text-sm font-semibold text-foreground">
+              File Storage
+            </span>
             {statusPill}
           </div>
           <p className="text-xs text-foreground-500 mt-0.5">
-            Knowledge file storage backend — filesystem (default) or S3-compatible object storage
+            Knowledge file storage backend — filesystem (default) or
+            S3-compatible object storage
           </p>
         </div>
         {!editing && (
@@ -496,12 +614,20 @@ function StorageConfigPanel() {
         <div className="px-4 pb-3 flex items-center gap-3 text-xs text-foreground-500 border-t border-neutral-200/40 pt-2">
           {isS3Active ? (
             <>
-              <span className="font-mono text-foreground truncate">{cfg.s3.bucket}</span>
+              <span className="font-mono text-foreground truncate">
+                {cfg.s3.bucket}
+              </span>
               <span className="text-foreground-400">{cfg.s3.region}</span>
-              {cfg.s3.endpoint && <span className="font-mono text-foreground-400 truncate">{cfg.s3.endpoint}</span>}
+              {cfg.s3.endpoint && (
+                <span className="font-mono text-foreground-400 truncate">
+                  {cfg.s3.endpoint}
+                </span>
+              )}
             </>
           ) : (
-            <span className="font-mono text-foreground truncate">{cfg.filesystem.directory}</span>
+            <span className="font-mono text-foreground truncate">
+              {cfg.filesystem.directory}
+            </span>
           )}
         </div>
       )}
@@ -509,19 +635,24 @@ function StorageConfigPanel() {
       {/* Edit form */}
       {editing && (
         <div className="px-4 pb-4 border-t border-neutral-200/40 pt-3 space-y-4">
-
           {/* S3 toggle */}
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs font-medium text-foreground">Enable S3 storage</p>
-              <p className="text-xs text-foreground-500">Store files in S3 or a compatible service (MinIO)</p>
+              <p className="text-xs font-medium text-foreground">
+                Enable S3 storage
+              </p>
+              <p className="text-xs text-foreground-500">
+                Store files in S3 or a compatible service (MinIO)
+              </p>
             </div>
             <button
               type="button"
-              onClick={() => setDraftEnabled(v => !v)}
-              className={`relative inline-flex h-5 w-9 shrink-0 rounded-full border-2 border-transparent transition-colors focus:outline-none ${draftEnabled ? "bg-indigo-600" : "bg-neutral-300"}`}
+              onClick={() => setDraftEnabled((v) => !v)}
+              className={`relative inline-flex h-5 w-9 shrink-0 rounded-full border-2 border-transparent transition-colors focus:outline-none ${draftEnabled ? "bg-primary-600" : "bg-neutral-300"}`}
             >
-              <span className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow transform transition-transform ${draftEnabled ? "translate-x-4" : "translate-x-0"}`} />
+              <span
+                className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow transform transition-transform ${draftEnabled ? "translate-x-4" : "translate-x-0"}`}
+              />
             </button>
           </div>
 
@@ -531,50 +662,84 @@ function StorageConfigPanel() {
               {/* Region + Bucket */}
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <label className="text-xs font-medium text-foreground-500 uppercase tracking-wider">Region</label>
-                  <input value={draftRegion} onChange={e => setDraftRegion(e.target.value)} placeholder="us-east-1"
-                    className="w-full px-3 py-2 rounded-lg bg-background border border-neutral-200 text-sm text-foreground placeholder:text-foreground-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 font-mono" />
+                  <label className="text-xs font-medium text-foreground-500 uppercase tracking-wider">
+                    Region
+                  </label>
+                  <input
+                    value={draftRegion}
+                    onChange={(e) => setDraftRegion(e.target.value)}
+                    placeholder="us-east-1"
+                    className="w-full px-3 py-2 rounded-lg bg-background border border-neutral-200 text-sm text-foreground placeholder:text-foreground-400 focus:outline-none focus:ring-2 focus:ring-primary-500/40 font-mono"
+                  />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs font-medium text-foreground-500 uppercase tracking-wider">Bucket</label>
-                  <input value={draftBucket} onChange={e => setDraftBucket(e.target.value)} placeholder="vaultysclaw-knowledge"
-                    className="w-full px-3 py-2 rounded-lg bg-background border border-neutral-200 text-sm text-foreground placeholder:text-foreground-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 font-mono" />
+                  <label className="text-xs font-medium text-foreground-500 uppercase tracking-wider">
+                    Bucket
+                  </label>
+                  <input
+                    value={draftBucket}
+                    onChange={(e) => setDraftBucket(e.target.value)}
+                    placeholder="vaultysclaw-knowledge"
+                    className="w-full px-3 py-2 rounded-lg bg-background border border-neutral-200 text-sm text-foreground placeholder:text-foreground-400 focus:outline-none focus:ring-2 focus:ring-primary-500/40 font-mono"
+                  />
                 </div>
               </div>
 
               {/* Endpoint */}
               <div className="space-y-1">
                 <label className="text-xs font-medium text-foreground-500 uppercase tracking-wider">
-                  Custom endpoint <span className="normal-case font-normal">(optional — MinIO or S3-compatible)</span>
+                  Custom endpoint{" "}
+                  <span className="normal-case font-normal">
+                    (optional — MinIO or S3-compatible)
+                  </span>
                 </label>
-                <input value={draftEndpoint} onChange={e => setDraftEndpoint(e.target.value)} placeholder="http://localhost:9000"
-                  className="w-full px-3 py-2 rounded-lg bg-background border border-neutral-200 text-sm text-foreground placeholder:text-foreground-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 font-mono" />
+                <input
+                  value={draftEndpoint}
+                  onChange={(e) => setDraftEndpoint(e.target.value)}
+                  placeholder="http://localhost:9000"
+                  className="w-full px-3 py-2 rounded-lg bg-background border border-neutral-200 text-sm text-foreground placeholder:text-foreground-400 focus:outline-none focus:ring-2 focus:ring-primary-500/40 font-mono"
+                />
               </div>
 
               {/* Credentials */}
               <div className="space-y-1">
-                <label className="text-xs font-medium text-foreground-500 uppercase tracking-wider">Access Key ID</label>
-                <input value={draftAccessKeyId} onChange={e => setDraftAccessKeyId(e.target.value)} placeholder="AKIAIOSFODNN7EXAMPLE"
-                  className="w-full px-3 py-2 rounded-lg bg-background border border-neutral-200 text-sm text-foreground placeholder:text-foreground-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 font-mono" />
+                <label className="text-xs font-medium text-foreground-500 uppercase tracking-wider">
+                  Access Key ID
+                </label>
+                <input
+                  value={draftAccessKeyId}
+                  onChange={(e) => setDraftAccessKeyId(e.target.value)}
+                  placeholder="AKIAIOSFODNN7EXAMPLE"
+                  className="w-full px-3 py-2 rounded-lg bg-background border border-neutral-200 text-sm text-foreground placeholder:text-foreground-400 focus:outline-none focus:ring-2 focus:ring-primary-500/40 font-mono"
+                />
               </div>
               <div className="space-y-1">
                 <label className="text-xs font-medium text-foreground-500 uppercase tracking-wider">
                   Secret Access Key
-                  {cfg.s3.configured && <span className="ml-1 normal-case font-normal text-foreground-400">(leave blank to keep existing)</span>}
+                  {cfg.s3.configured && (
+                    <span className="ml-1 normal-case font-normal text-foreground-400">
+                      (leave blank to keep existing)
+                    </span>
+                  )}
                 </label>
                 <div className="relative">
                   <input
                     type={showSecret ? "text" : "password"}
                     value={draftSecretKey}
-                    onChange={e => setDraftSecretKey(e.target.value)}
-                    placeholder={cfg.s3.configured ? "••••••••" : "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"}
-                    className="w-full px-3 py-2 pr-9 rounded-lg bg-background border border-neutral-200 text-sm text-foreground placeholder:text-foreground-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 font-mono"
+                    onChange={(e) => setDraftSecretKey(e.target.value)}
+                    placeholder={
+                      cfg.s3.configured
+                        ? "••••••••"
+                        : "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+                    }
+                    className="w-full px-3 py-2 pr-9 rounded-lg bg-background border border-neutral-200 text-sm text-foreground placeholder:text-foreground-400 focus:outline-none focus:ring-2 focus:ring-primary-500/40 font-mono"
                   />
-                  <button type="button" onClick={() => setShowSecret(s => !s)}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-foreground-400 hover:text-foreground transition">
-                    {showSecret
-                      ? <EyeOff size={14} />
-                      : <Eye size={14} />}
+                  <button
+                    type="button"
+                    onClick={() => setShowSecret((s) => !s)}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-foreground-400 hover:text-foreground transition"
+                  >
+                    {showSecret ? <EyeOff size={14} /> : <Eye size={14} />}
                   </button>
                 </div>
               </div>
@@ -584,21 +749,31 @@ function StorageConfigPanel() {
                 <button
                   type="button"
                   onClick={handleTest}
-                  disabled={testing || !draftBucket.trim() || !draftAccessKeyId.trim()}
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-neutral-200 text-xs text-foreground-500 hover:text-foreground hover:border-indigo-400 disabled:opacity-40 transition-colors"
+                  disabled={
+                    testing || !draftBucket.trim() || !draftAccessKeyId.trim()
+                  }
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-neutral-200 text-xs text-foreground-500 hover:text-foreground hover:border-primary-400 disabled:opacity-40 transition-colors"
                 >
-                  {testing ? <Loader2 size={13} className="animate-spin" /> : <Wifi size={13} />}
+                  {testing ? (
+                    <Loader2 size={13} className="animate-spin" />
+                  ) : (
+                    <Wifi size={13} />
+                  )}
                   Test connection
                 </button>
                 {testResult && (
-                  <div className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs ${
-                    testResult.ok
-                      ? "bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-400"
-                      : "bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400"
-                  }`}>
-                    {testResult.ok
-                      ? <CheckCircle2 size={13} className="shrink-0" />
-                      : <XCircle size={13} className="shrink-0" />}
+                  <div
+                    className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs ${
+                      testResult.ok
+                        ? "bg-success-50 dark:bg-success-900/20 border border-success-200 dark:border-success-800 text-success-700 dark:text-success-400"
+                        : "bg-danger-50 dark:bg-danger-900/20 border border-danger-200 dark:border-danger-800 text-danger-700 dark:text-danger-400"
+                    }`}
+                  >
+                    {testResult.ok ? (
+                      <CheckCircle2 size={13} className="shrink-0" />
+                    ) : (
+                      <XCircle size={13} className="shrink-0" />
+                    )}
                     {testResult.ok
                       ? `Connected${testResult.latency != null ? ` · ${testResult.latency}ms` : ""}`
                       : testResult.error}
@@ -611,13 +786,19 @@ function StorageConfigPanel() {
                 <span className="shrink-0 mt-0.5">💡</span>
                 <div className="space-y-1">
                   <p>Run MinIO locally with Docker:</p>
-                  <code className="block font-mono text-indigo-400 bg-background-200 px-2 py-1 rounded leading-relaxed whitespace-pre">
+                  <code className="block font-mono text-primary-400 bg-background-200 px-2 py-1 rounded leading-relaxed whitespace-pre">
                     {`docker run -p 9000:9000 -p 9001:9001 \\
   -e MINIO_ROOT_USER=minioadmin \\
   -e MINIO_ROOT_PASSWORD=minioadmin \\
   minio/minio server /data --console-address :9001`}
                   </code>
-                  <p className="text-foreground-400">Use <code className="font-mono text-indigo-400 bg-background-200 px-1 rounded">minioadmin</code> as both access key and secret key.</p>
+                  <p className="text-foreground-400">
+                    Use{" "}
+                    <code className="font-mono text-primary-400 bg-background-200 px-1 rounded">
+                      minioadmin
+                    </code>{" "}
+                    as both access key and secret key.
+                  </p>
                 </div>
               </div>
             </div>
@@ -625,7 +806,7 @@ function StorageConfigPanel() {
 
           {/* Save error */}
           {saveError && (
-            <div className="flex items-center gap-2 p-2.5 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-xs text-red-700 dark:text-red-400">
+            <div className="flex items-center gap-2 p-2.5 rounded-lg bg-danger-50 dark:bg-danger-900/20 border border-danger-200 dark:border-danger-800 text-xs text-danger-700 dark:text-danger-400">
               <XCircle size={13} className="shrink-0" /> {saveError}
             </div>
           )}
@@ -633,23 +814,38 @@ function StorageConfigPanel() {
           {/* Migrate existing files */}
           <div className="flex items-center justify-between p-3 rounded-lg bg-background border border-neutral-200/60">
             <div>
-              <p className="text-xs font-medium text-foreground">Migrate existing files</p>
-              <p className="text-xs text-foreground-500">Move legacy database BLOBs to the current storage backend</p>
+              <p className="text-xs font-medium text-foreground">
+                Migrate existing files
+              </p>
+              <p className="text-xs text-foreground-500">
+                Move legacy database BLOBs to the current storage backend
+              </p>
             </div>
-            <button type="button" onClick={handleMigrate} disabled={migrating}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-neutral-200 text-xs text-foreground-500 hover:text-foreground hover:border-indigo-400 disabled:opacity-40 transition-colors shrink-0">
-              {migrating ? <Loader2 size={13} className="animate-spin" /> : <ArrowRight size={13} />}
+            <button
+              type="button"
+              onClick={handleMigrate}
+              disabled={migrating}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-neutral-200 text-xs text-foreground-500 hover:text-foreground hover:border-primary-400 disabled:opacity-40 transition-colors shrink-0"
+            >
+              {migrating ? (
+                <Loader2 size={13} className="animate-spin" />
+              ) : (
+                <ArrowRight size={13} />
+              )}
               Migrate
             </button>
           </div>
           {migrateResult && (
-            <div className={`flex items-center gap-2 p-2.5 rounded-lg text-xs ${
-              migrateResult.errorCount > 0
-                ? "bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-400"
-                : "bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-400"
-            }`}>
+            <div
+              className={`flex items-center gap-2 p-2.5 rounded-lg text-xs ${
+                migrateResult.errorCount > 0
+                  ? "bg-warning-50 dark:bg-warning-900/20 border border-warning-200 dark:border-warning-800 text-warning-700 dark:text-warning-400"
+                  : "bg-success-50 dark:bg-success-900/20 border border-success-200 dark:border-success-800 text-success-700 dark:text-success-400"
+              }`}
+            >
               <CheckCircle2 size={13} className="shrink-0" />
-              {migrateResult.migratedCount === 0 && migrateResult.errorCount === 0
+              {migrateResult.migratedCount === 0 &&
+              migrateResult.errorCount === 0
                 ? "No files to migrate"
                 : `Migrated ${migrateResult.migratedCount} file(s)${migrateResult.errorCount > 0 ? `, ${migrateResult.errorCount} error(s)` : ""}`}
               {migrateResult.hasMore && " — run again for more"}
@@ -658,13 +854,22 @@ function StorageConfigPanel() {
 
           {/* Actions */}
           <div className="flex justify-end gap-2">
-            <button onClick={cancelEdit}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-neutral-200 text-xs text-foreground-500 hover:text-foreground transition-colors">
+            <button
+              onClick={cancelEdit}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-neutral-200 text-xs text-foreground-500 hover:text-foreground transition-colors"
+            >
               <X size={13} /> Cancel
             </button>
-            <button onClick={handleSave} disabled={saveDisabled}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-xs font-medium transition-colors">
-              {saving ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
+            <button
+              onClick={handleSave}
+              disabled={saveDisabled}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary-600 hover:bg-primary-500 disabled:opacity-50 text-white text-xs font-medium transition-colors"
+            >
+              {saving ? (
+                <Loader2 size={13} className="animate-spin" />
+              ) : (
+                <Save size={13} />
+              )}
               Save
             </button>
           </div>
@@ -678,32 +883,55 @@ function StorageConfigPanel() {
 
 function StatusDot({ status }: { status: KnowledgeSource["status"] }) {
   const map = {
-    idle:    "bg-zinc-400",
-    syncing: "bg-blue-500 animate-pulse",
-    ready:   "bg-green-500",
-    error:   "bg-red-500",
+    idle: "bg-neutral-400",
+    syncing: "bg-primary-500 animate-pulse",
+    ready: "bg-success-500",
+    error: "bg-danger-500",
   };
-  return <span className={`inline-block w-2 h-2 rounded-full shrink-0 ${map[status] ?? map.idle}`} />;
+  return (
+    <span
+      className={`inline-block w-2 h-2 rounded-full shrink-0 ${map[status] ?? map.idle}`}
+    />
+  );
 }
 
 function StatusBadge({ status }: { status: KnowledgeSource["status"] }) {
   const map = {
-    idle:    { icon: <Clock size={12} />,        label: "Idle",    cls: "bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 border-zinc-300 dark:border-zinc-700" },
-    syncing: { icon: <Loader2 size={12} className="animate-spin" />, label: "Syncing", cls: "bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400 border-blue-300 dark:border-blue-800" },
-    ready:   { icon: <CheckCircle2 size={12} />, label: "Ready",   cls: "bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400 border-green-300 dark:border-green-800" },
-    error:   { icon: <XCircle size={12} />,      label: "Error",   cls: "bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-400 border-red-300 dark:border-red-800" },
+    idle: {
+      icon: <Clock size={12} />,
+      label: "Idle",
+      cls: "bg-neutral-100 dark:bg-neutral-800 text-neutral-500 dark:text-neutral-400 border-neutral-300 dark:border-neutral-700",
+    },
+    syncing: {
+      icon: <Loader2 size={12} className="animate-spin" />,
+      label: "Syncing",
+      cls: "bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-400 border-primary-300 dark:border-primary-800",
+    },
+    ready: {
+      icon: <CheckCircle2 size={12} />,
+      label: "Ready",
+      cls: "bg-success-100 dark:bg-success-900/40 text-success-700 dark:text-success-400 border-success-300 dark:border-success-800",
+    },
+    error: {
+      icon: <XCircle size={12} />,
+      label: "Error",
+      cls: "bg-danger-100 dark:bg-danger-900/40 text-danger-700 dark:text-danger-400 border-danger-300 dark:border-danger-800",
+    },
   };
   const { icon, label, cls } = map[status] ?? map.idle;
   return (
-    <span className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border font-medium ${cls}`}>
+    <span
+      className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border font-medium ${cls}`}
+    >
       {icon} {label}
     </span>
   );
 }
 
 function TypeIcon({ type }: { type: string }) {
-  if (type === "url") return <Globe size={13} className="text-indigo-400 shrink-0" />;
-  return <FileText size={13} className="text-amber-400 shrink-0" />;
+  if (type === "url")
+    return <Globe size={13} className="text-primary-400 shrink-0" />;
+  return <FileText size={13} className="text-warning-400 shrink-0" />;
 }
 
 // ── Agent card ────────────────────────────────────────────────────────────────
@@ -720,29 +948,31 @@ function AgentKnowledgeCard({
   const [expanded, setExpanded] = useState(true);
 
   const totalChunks = sources.reduce((sum, s) => sum + (s.chunk_count ?? 0), 0);
-  const readyCount = sources.filter(s => s.status === "ready").length;
-  const errorCount = sources.filter(s => s.status === "error").length;
+  const readyCount = sources.filter((s) => s.status === "ready").length;
+  const errorCount = sources.filter((s) => s.status === "error").length;
 
-  const realmName = (id: string) => realms.find(r => r.id === id)?.name ?? id;
+  const realmName = (id: string) => realms.find((r) => r.id === id)?.name ?? id;
 
   return (
     <div className="rounded-2xl border border-neutral-200 bg-background-100 overflow-hidden">
       {/* Card header */}
       <div
         className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-background-200/30 transition-colors select-none"
-        onClick={() => setExpanded(v => !v)}
+        onClick={() => setExpanded((v) => !v)}
       >
         {/* Agent avatar */}
-        <div className="w-8 h-8 rounded-full bg-indigo-600/20 border border-indigo-500/30 flex items-center justify-center shrink-0">
-          <Bot size={16} className="text-indigo-400" />
+        <div className="w-8 h-8 rounded-full bg-primary-600/20 border border-primary-500/30 flex items-center justify-center shrink-0">
+          <Bot size={16} className="text-primary-400" />
         </div>
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-sm font-semibold text-foreground truncate">{agent.name}</span>
+            <span className="text-sm font-semibold text-foreground truncate">
+              {agent.name}
+            </span>
             {agent.online ? (
-              <span className="inline-flex items-center gap-1 text-[10px] font-medium text-green-700 dark:text-green-400 bg-green-100 dark:bg-green-500/10 border border-green-300 dark:border-green-500/20 rounded-full px-1.5 py-0.5">
-                <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
+              <span className="inline-flex items-center gap-1 text-[10px] font-medium text-success-700 dark:text-success-400 bg-success-100 dark:bg-success-500/10 border border-success-300 dark:border-success-500/20 rounded-full px-1.5 py-0.5">
+                <span className="w-1.5 h-1.5 bg-success-500 rounded-full animate-pulse" />
                 Online
               </span>
             ) : (
@@ -752,27 +982,35 @@ function AgentKnowledgeCard({
               </span>
             )}
           </div>
-          <p className="text-xs text-foreground-400 font-mono truncate mt-0.5">{agent.did}</p>
+          <p className="text-xs text-foreground-400 font-mono truncate mt-0.5">
+            {agent.did}
+          </p>
         </div>
 
         {/* Summary stats */}
         <div className="hidden sm:flex items-center gap-4 text-xs text-foreground-500 shrink-0">
           <div className="text-right">
-            <div className="text-foreground font-semibold">{sources.length}</div>
+            <div className="text-foreground font-semibold">
+              {sources.length}
+            </div>
             <div>source{sources.length !== 1 ? "s" : ""}</div>
           </div>
           <div className="text-right">
-            <div className="text-foreground font-semibold">{fmtCount(totalChunks)}</div>
+            <div className="text-foreground font-semibold">
+              {fmtCount(totalChunks)}
+            </div>
             <div>chunks</div>
           </div>
           {errorCount > 0 && (
-            <div className="flex items-center gap-1 text-red-500">
+            <div className="flex items-center gap-1 text-danger-500">
               <AlertTriangle size={13} />
-              <span>{errorCount} error{errorCount > 1 ? "s" : ""}</span>
+              <span>
+                {errorCount} error{errorCount > 1 ? "s" : ""}
+              </span>
             </div>
           )}
           {readyCount === sources.length && sources.length > 0 && (
-            <div className="flex items-center gap-1 text-green-600 dark:text-green-400">
+            <div className="flex items-center gap-1 text-success-600 dark:text-success-400">
               <CheckCircle2 size={13} />
               <span>All ready</span>
             </div>
@@ -782,8 +1020,8 @@ function AgentKnowledgeCard({
         {/* Manage link */}
         <Link
           href={`/agents/${encodeURIComponent(agent.did)}`}
-          onClick={e => e.stopPropagation()}
-          className="flex items-center gap-1 text-xs text-indigo-500 hover:text-indigo-400 transition-colors shrink-0 ml-2"
+          onClick={(e) => e.stopPropagation()}
+          className="flex items-center gap-1 text-xs text-primary-500 hover:text-primary-400 transition-colors shrink-0 ml-2"
           title="Manage on agent page"
         >
           Manage
@@ -801,10 +1039,12 @@ function AgentKnowledgeCard({
         <div className="border-t border-neutral-200/60">
           {sources.length === 0 ? (
             <div className="px-4 py-5 text-center">
-              <p className="text-xs text-foreground-500">No knowledge sources configured for this agent.</p>
+              <p className="text-xs text-foreground-500">
+                No knowledge sources configured for this agent.
+              </p>
               <Link
                 href={`/agents/${encodeURIComponent(agent.did)}`}
-                className="text-xs text-indigo-500 hover:text-indigo-400 mt-1 inline-flex items-center gap-1"
+                className="text-xs text-primary-500 hover:text-primary-400 mt-1 inline-flex items-center gap-1"
               >
                 Add sources on the agent page <ArrowUpRight size={11} />
               </Link>
@@ -814,17 +1054,29 @@ function AgentKnowledgeCard({
               <thead>
                 <tr className="text-foreground-500 text-xs uppercase tracking-wider border-b border-neutral-200/40 bg-background/60">
                   <th className="text-left px-4 py-2 font-medium">Source</th>
-                  <th className="text-left px-4 py-2 font-medium hidden md:table-cell">Realm</th>
+                  <th className="text-left px-4 py-2 font-medium hidden md:table-cell">
+                    Realm
+                  </th>
                   <th className="text-left px-4 py-2 font-medium">Status</th>
-                  <th className="text-left px-4 py-2 font-medium hidden sm:table-cell">Chunks</th>
-                  <th className="text-left px-4 py-2 font-medium hidden lg:table-cell">Last sync</th>
+                  <th className="text-left px-4 py-2 font-medium hidden sm:table-cell">
+                    Chunks
+                  </th>
+                  <th className="text-left px-4 py-2 font-medium hidden lg:table-cell">
+                    Last sync
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 {sources.map((source, i) => {
                   let config: Record<string, unknown> = {};
-                  try { config = JSON.parse(source.config); } catch { /**/ }
-                  const urls = Array.isArray(config.urls) ? (config.urls as string[]) : [];
+                  try {
+                    config = JSON.parse(source.config);
+                  } catch {
+                    /**/
+                  }
+                  const urls = Array.isArray(config.urls)
+                    ? (config.urls as string[])
+                    : [];
 
                   return (
                     <tr
@@ -835,12 +1087,18 @@ function AgentKnowledgeCard({
                         <div className="flex items-center gap-2">
                           <TypeIcon type={source.source_type} />
                           <div className="min-w-0">
-                            <span className="text-xs font-medium text-foreground truncate block max-w-[180px]">{source.name}</span>
-                            {source.source_type === "url" && urls.length > 0 && (
-                              <span className="text-[10px] text-foreground-400 truncate block max-w-[180px]">
-                                {urls[0]}{urls.length > 1 ? ` +${urls.length - 1}` : ""}
-                              </span>
-                            )}
+                            <span className="text-xs font-medium text-foreground truncate block max-w-[180px]">
+                              {source.name}
+                            </span>
+                            {source.source_type === "url" &&
+                              urls.length > 0 && (
+                                <span className="text-[10px] text-foreground-400 truncate block max-w-[180px]">
+                                  {urls[0]}
+                                  {urls.length > 1
+                                    ? ` +${urls.length - 1}`
+                                    : ""}
+                                </span>
+                              )}
                           </div>
                         </div>
                       </td>
@@ -853,15 +1111,22 @@ function AgentKnowledgeCard({
                       <td className="px-4 py-2.5">
                         <StatusBadge status={source.status} />
                         {source.error && (
-                          <p className="text-[10px] text-red-500 mt-0.5 max-w-[200px] truncate" title={source.error}>
+                          <p
+                            className="text-[10px] text-danger-500 mt-0.5 max-w-[200px] truncate"
+                            title={source.error}
+                          >
                             {source.error}
                           </p>
                         )}
                       </td>
                       <td className="px-4 py-2.5 hidden sm:table-cell text-xs text-foreground-500">
-                        {source.status === "ready"
-                          ? <span className="text-foreground font-medium">{fmtCount(source.chunk_count)}</span>
-                          : "—"}
+                        {source.status === "ready" ? (
+                          <span className="text-foreground font-medium">
+                            {fmtCount(source.chunk_count)}
+                          </span>
+                        ) : (
+                          "—"
+                        )}
                       </td>
                       <td className="px-4 py-2.5 hidden lg:table-cell text-xs text-foreground-500">
                         {timeAgo(source.last_synced_at)}
@@ -901,9 +1166,9 @@ export default function KnowledgeDashboardPage() {
         fetch("/api/agents"),
         fetch("/api/realms"),
       ]);
-      const ksData = await ksRes.json() as { sources?: KnowledgeSource[] };
-      const agData = await agRes.json() as { agents?: AgentInfo[] };
-      const rlData = await rlRes.json() as { realms?: RealmInfo[] };
+      const ksData = (await ksRes.json()) as { sources?: KnowledgeSource[] };
+      const agData = (await agRes.json()) as { agents?: AgentInfo[] };
+      const rlData = (await rlRes.json()) as { realms?: RealmInfo[] };
       setSources(ksData.sources ?? []);
       setAgents(agData.agents ?? []);
       setRealms(rlData.realms ?? []);
@@ -912,11 +1177,13 @@ export default function KnowledgeDashboardPage() {
     }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
 
   // Poll while syncing
   useEffect(() => {
-    if (!sources.some(s => s.status === "syncing")) return;
+    if (!sources.some((s) => s.status === "syncing")) return;
     const id = setInterval(load, 4000);
     return () => clearInterval(id);
   }, [sources, load]);
@@ -925,30 +1192,37 @@ export default function KnowledgeDashboardPage() {
 
   // Summary stats
   const totalSources = sources.length;
-  const readySources = sources.filter(s => s.status === "ready").length;
+  const readySources = sources.filter((s) => s.status === "ready").length;
   const totalChunks = sources.reduce((sum, s) => sum + (s.chunk_count ?? 0), 0);
-  const errorSources = sources.filter(s => s.status === "error").length;
-  const agentsWithKnowledge = new Set(sources.map(s => s.agent_did)).size;
+  const errorSources = sources.filter((s) => s.status === "error").length;
+  const agentsWithKnowledge = new Set(sources.map((s) => s.agent_did)).size;
 
   // Agents that have at least one knowledge source, plus those that are online
   // Show all agents — those without sources show an empty state encouraging setup
-  const agentsWithSources = agents.filter(a => sources.some(s => s.agent_did === a.did));
+  const agentsWithSources = agents.filter((a) =>
+    sources.some((s) => s.agent_did === a.did)
+  );
 
   return (
     <div className="p-6 w-full max-w-5xl mx-auto space-y-6">
-
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-indigo-50 dark:bg-indigo-600/20 flex items-center justify-center">
-            <BookOpen className="w-5 h-5 text-indigo-700 dark:text-indigo-400" />
+          <div className="w-9 h-9 rounded-xl bg-primary-50 dark:bg-primary-600/20 flex items-center justify-center">
+            <BookOpen className="w-5 h-5 text-primary-700 dark:text-primary-400" />
           </div>
           <div>
-            <h1 className="text-lg font-semibold text-foreground">Knowledge Overview</h1>
-            <p className="text-xs text-foreground-500">Data access map — which agents index what, and for which realm</p>
+            <h1 className="text-lg font-semibold text-foreground">
+              Knowledge Overview
+            </h1>
+            <p className="text-xs text-foreground-500">
+              Data access map — which agents index what, and for which realm
+            </p>
           </div>
         </div>
-        {loading && <Loader2 size={16} className="animate-spin text-foreground-500" />}
+        {loading && (
+          <Loader2 size={16} className="animate-spin text-foreground-500" />
+        )}
       </div>
 
       {/* Docling config */}
@@ -960,34 +1234,85 @@ export default function KnowledgeDashboardPage() {
       {/* Stat cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {[
-          { label: "Total sources",    value: totalSources,        sub: "configured",        icon: <BookOpen size={16} />,     tone: "neutral" },
-          { label: "Ready",            value: readySources,        sub: "indexed & live",    icon: <CheckCircle2 size={16} />, tone: readySources === totalSources && totalSources > 0 ? "ok" : "neutral" },
-          { label: "Total chunks",     value: fmtCount(totalChunks), sub: "stored locally",  icon: <Database size={16} />,     tone: "neutral" },
-          { label: "Agents with RAG",  value: agentsWithKnowledge, sub: "knowledge-enabled", icon: <Bot size={16} />,          tone: errorSources > 0 ? "danger" : agentsWithKnowledge > 0 ? "ok" : "neutral" },
-        ].map(card => (
-          <div key={card.label} className="bg-background-100 border border-neutral-200 rounded-xl p-4 flex flex-col gap-2">
+          {
+            label: "Total sources",
+            value: totalSources,
+            sub: "configured",
+            icon: <BookOpen size={16} />,
+            tone: "neutral",
+          },
+          {
+            label: "Ready",
+            value: readySources,
+            sub: "indexed & live",
+            icon: <CheckCircle2 size={16} />,
+            tone:
+              readySources === totalSources && totalSources > 0
+                ? "ok"
+                : "neutral",
+          },
+          {
+            label: "Total chunks",
+            value: fmtCount(totalChunks),
+            sub: "stored locally",
+            icon: <Database size={16} />,
+            tone: "neutral",
+          },
+          {
+            label: "Agents with RAG",
+            value: agentsWithKnowledge,
+            sub: "knowledge-enabled",
+            icon: <Bot size={16} />,
+            tone:
+              errorSources > 0
+                ? "danger"
+                : agentsWithKnowledge > 0
+                  ? "ok"
+                  : "neutral",
+          },
+        ].map((card) => (
+          <div
+            key={card.label}
+            className="bg-background-100 border border-neutral-200 rounded-xl p-4 flex flex-col gap-2"
+          >
             <div className="flex items-center justify-between">
-              <span className="text-xs text-foreground-400 uppercase tracking-wider font-medium">{card.label}</span>
-              <span className={card.tone === "ok" ? "text-green-500" : card.tone === "danger" ? "text-red-500" : "text-indigo-500"}>
+              <span className="text-xs text-foreground-400 uppercase tracking-wider font-medium">
+                {card.label}
+              </span>
+              <span
+                className={
+                  card.tone === "ok"
+                    ? "text-success-500"
+                    : card.tone === "danger"
+                      ? "text-danger-500"
+                      : "text-primary-500"
+                }
+              >
                 {card.icon}
               </span>
             </div>
             <p className="text-2xl font-bold text-foreground">{card.value}</p>
-            {card.sub && <p className="text-xs text-foreground-400">{card.sub}</p>}
+            {card.sub && (
+              <p className="text-xs text-foreground-400">{card.sub}</p>
+            )}
           </div>
         ))}
       </div>
 
       {/* Error alert */}
       {errorSources > 0 && (
-        <div className="flex items-start gap-3 p-4 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
-          <AlertTriangle size={16} className="text-red-500 mt-0.5 shrink-0" />
+        <div className="flex items-start gap-3 p-4 rounded-xl bg-danger-50 dark:bg-danger-900/20 border border-danger-200 dark:border-danger-800">
+          <AlertTriangle
+            size={16}
+            className="text-danger-500 mt-0.5 shrink-0"
+          />
           <div>
-            <p className="text-sm font-medium text-red-700 dark:text-red-400">
+            <p className="text-sm font-medium text-danger-700 dark:text-danger-400">
               {errorSources} source{errorSources > 1 ? "s" : ""} failed to sync
             </p>
-            <p className="text-xs text-red-600/80 dark:text-red-400/70 mt-0.5">
-              Go to the agent&apos;s Knowledge tab to retry or inspect the error.
+            <p className="text-xs text-danger-600/80 dark:text-danger-400/70 mt-0.5">
+              Go to the agent&apos;s Knowledge tab to retry or inspect the
+              error.
             </p>
           </div>
         </div>
@@ -1001,15 +1326,21 @@ export default function KnowledgeDashboardPage() {
       ) : agentsWithSources.length === 0 ? (
         <div className="rounded-2xl border border-neutral-200 border-dashed bg-background-100/40 p-12 text-center space-y-3">
           <BookOpen className="w-8 h-8 text-foreground-400 mx-auto" />
-          <p className="text-sm font-medium text-foreground">No knowledge sources configured yet</p>
+          <p className="text-sm font-medium text-foreground">
+            No knowledge sources configured yet
+          </p>
           <p className="text-xs text-foreground-500 max-w-md mx-auto">
-            Open any agent page, go to the <strong>Knowledge</strong> tab, and connect a URL or text source.
-            Once synced, the agent will automatically use{" "}
-            <code className="bg-background-200 px-1 rounded text-indigo-400">knowledge_search</code> in conversations.
+            Open any agent page, go to the <strong>Knowledge</strong> tab, and
+            connect a URL or text source. Once synced, the agent will
+            automatically use{" "}
+            <code className="bg-background-200 px-1 rounded text-primary-400">
+              knowledge_search
+            </code>{" "}
+            in conversations.
           </p>
           <Link
             href="/agents"
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium transition-colors"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary-600 hover:bg-primary-500 text-white text-sm font-medium transition-colors"
           >
             <Bot size={14} />
             Go to Agents
@@ -1019,18 +1350,20 @@ export default function KnowledgeDashboardPage() {
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-semibold text-foreground">
-              {agentsWithSources.length} agent{agentsWithSources.length !== 1 ? "s" : ""} with knowledge sources
+              {agentsWithSources.length} agent
+              {agentsWithSources.length !== 1 ? "s" : ""} with knowledge sources
             </h2>
             <p className="text-xs text-foreground-500">
-              Manage sources from each agent&apos;s <span className="text-foreground">Knowledge tab</span>
+              Manage sources from each agent&apos;s{" "}
+              <span className="text-foreground">Knowledge tab</span>
             </p>
           </div>
 
-          {agentsWithSources.map(agent => (
+          {agentsWithSources.map((agent) => (
             <AgentKnowledgeCard
               key={agent.did}
               agent={agent}
-              sources={sources.filter(s => s.agent_did === agent.did)}
+              sources={sources.filter((s) => s.agent_did === agent.did)}
               realms={realms}
             />
           ))}
@@ -1040,16 +1373,30 @@ export default function KnowledgeDashboardPage() {
       {/* Status legend + info */}
       {agentsWithSources.length > 0 && (
         <div className="rounded-xl border border-neutral-200 bg-background-100/60 p-4 space-y-3">
-          <p className="text-xs font-semibold text-foreground">Status reference</p>
+          <p className="text-xs font-semibold text-foreground">
+            Status reference
+          </p>
           <div className="flex flex-wrap gap-x-6 gap-y-2 text-xs text-foreground-500">
-            <span className="flex items-center gap-1.5"><StatusDot status="idle" /> Idle — created, not yet synced</span>
-            <span className="flex items-center gap-1.5"><StatusDot status="syncing" /> Syncing — agent is ingesting</span>
-            <span className="flex items-center gap-1.5"><StatusDot status="ready" /> Ready — chunks indexed &amp; searchable</span>
-            <span className="flex items-center gap-1.5"><StatusDot status="error" /> Error — sync failed, check agent page</span>
+            <span className="flex items-center gap-1.5">
+              <StatusDot status="idle" /> Idle — created, not yet synced
+            </span>
+            <span className="flex items-center gap-1.5">
+              <StatusDot status="syncing" /> Syncing — agent is ingesting
+            </span>
+            <span className="flex items-center gap-1.5">
+              <StatusDot status="ready" /> Ready — chunks indexed &amp;
+              searchable
+            </span>
+            <span className="flex items-center gap-1.5">
+              <StatusDot status="error" /> Error — sync failed, check agent page
+            </span>
           </div>
           <p className="text-xs text-foreground-500 pt-1 border-t border-neutral-200/60">
-            Data is stored <strong className="text-foreground">locally on the agent</strong> as vector embeddings. It never leaves the agent&apos;s environment.
-            To add, re-sync or remove sources, navigate to the agent and open the <strong className="text-foreground">Knowledge</strong> tab.
+            Data is stored{" "}
+            <strong className="text-foreground">locally on the agent</strong> as
+            vector embeddings. It never leaves the agent&apos;s environment. To
+            add, re-sync or remove sources, navigate to the agent and open the{" "}
+            <strong className="text-foreground">Knowledge</strong> tab.
           </p>
         </div>
       )}

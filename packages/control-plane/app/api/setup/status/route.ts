@@ -68,6 +68,9 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ status });
   } catch (err) {
     console.error(err);
-    return NextResponse.json({ error: "Failed to fetch setup status" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to fetch setup status" },
+      { status: 500 }
+    );
   }
 }

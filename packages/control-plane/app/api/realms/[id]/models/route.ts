@@ -73,7 +73,8 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
 
     const { id } = await params;
     const realm = getRealmById(id);
-    if (!realm) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    if (!realm)
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
 
     const models = getModelsByRealm(id).map((m) => ({
       id: m.id,
@@ -99,6 +100,9 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
     });
   } catch (err) {
     console.error(err);
-    return NextResponse.json({ error: "Failed to fetch realm models" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to fetch realm models" },
+      { status: 500 }
+    );
   }
 }

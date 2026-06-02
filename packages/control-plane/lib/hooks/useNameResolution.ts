@@ -96,7 +96,9 @@ export function useNameResolution(
 
       setNameMap(newMap);
     } catch (err) {
-      setError(err instanceof Error ? err : new Error("Failed to resolve names"));
+      setError(
+        err instanceof Error ? err : new Error("Failed to resolve names")
+      );
       // Still set fallback names
       const fallbackMap: Record<string, string> = {};
       dids.forEach((did) => {

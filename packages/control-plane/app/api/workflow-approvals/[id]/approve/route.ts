@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-config";
-import { resolveWorkflowApproval, dismissWorkflowNotification, getApprovalsForRun } from "@/lib/db";
+import {
+  resolveWorkflowApproval,
+  dismissWorkflowNotification,
+  getApprovalsForRun,
+} from "@/lib/db";
 
 interface Params {
   id: string;
@@ -43,7 +47,10 @@ interface Params {
  *       500:
  *         description: Failed to approve the workflow step.
  */
-export async function POST(request: Request, { params }: { params: Promise<Params> }) {
+export async function POST(
+  request: Request,
+  { params }: { params: Promise<Params> }
+) {
   try {
     const { id } = await params;
     const session = await getServerSession(authOptions);
@@ -51,11 +58,21 @@ export async function POST(request: Request, { params }: { params: Promise<Param
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const body = await request.json().catch(() => ({})) as { comment?: string };
+    const body = (await request.json().catch(() => ({}))) as {
+      comment?: string;
+    };
 
-    const updated = resolveWorkflowApproval(id, session.user.did, "approved", body.comment);
+    const updated = resolveWorkflowApproval(
+      id,
+      session.user.did,
+      "approved",
+      body.comment
+    );
     if (!updated) {
-      return NextResponse.json({ error: "Approval not found or already decided" }, { status: 404 });
+      return NextResponse.json(
+        { error: "Approval not found or already decided" },
+        { status: 404 }
+      );
     }
 
     return NextResponse.json({ success: true });

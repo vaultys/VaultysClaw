@@ -24,7 +24,9 @@ export default function CreateChannelModal({
   const [description, setDescription] = useState("");
   const [isPublic, setIsPublic] = useState(true);
   const [realms, setRealms] = useState<Realm[]>([]);
-  const [selectedRealmId, setSelectedRealmId] = useState<string>(preSelectedRealmId ?? "");
+  const [selectedRealmId, setSelectedRealmId] = useState<string>(
+    preSelectedRealmId ?? ""
+  );
   const [isLoadingRealms, setIsLoadingRealms] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -110,7 +112,7 @@ export default function CreateChannelModal({
         </div>
 
         {error && (
-          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm">
+          <div className="mb-4 p-3 bg-danger-50 border border-danger-200 rounded-lg text-danger-600 text-sm">
             {error}
           </div>
         )}
@@ -133,7 +135,7 @@ export default function CreateChannelModal({
               <select
                 value={selectedRealmId}
                 onChange={(e) => setSelectedRealmId(e.target.value)}
-                className="w-full bg-background border border-neutral-200 rounded-lg px-4 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full bg-background border border-neutral-200 rounded-lg px-4 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-primary-500"
               >
                 <option value="">Global Channel</option>
                 {realms.map((realm) => (
@@ -154,7 +156,7 @@ export default function CreateChannelModal({
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g., engineering, marketing, general"
-              className="w-full bg-background border border-neutral-200 rounded-lg px-4 py-2 text-foreground placeholder-foreground-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full bg-background border border-neutral-200 rounded-lg px-4 py-2 text-foreground placeholder-foreground-500 focus:outline-none focus:ring-2 focus:ring-primary-500"
             />
           </div>
 
@@ -166,7 +168,7 @@ export default function CreateChannelModal({
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="What is this channel for?"
-              className="w-full bg-background border border-neutral-200 rounded-lg px-4 py-2 text-foreground placeholder-foreground-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
+              className="w-full bg-background border border-neutral-200 rounded-lg px-4 py-2 text-foreground placeholder-foreground-500 focus:outline-none focus:ring-2 focus:ring-primary-500 resize-none"
               rows={3}
             />
           </div>
@@ -195,7 +197,7 @@ export default function CreateChannelModal({
             <button
               type="submit"
               disabled={isLoading}
-              className="flex-1 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-foreground-500 disabled:cursor-not-allowed text-white rounded-lg transition font-medium flex items-center justify-center gap-2"
+              className="flex-1 px-4 py-2 bg-primary-600 hover:bg-primary-700 disabled:bg-foreground-500 disabled:cursor-not-allowed text-white rounded-lg transition font-medium flex items-center justify-center gap-2"
             >
               {isLoading && <Loader2 size={16} className="animate-spin" />}
               Create

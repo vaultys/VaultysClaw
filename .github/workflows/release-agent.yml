@@ -3,7 +3,7 @@ name: Release Agent Controller
 on:
   push:
     tags:
-      - 'agent/v*'
+      - "agent/v*"
 
 permissions:
   contents: write
@@ -11,7 +11,7 @@ permissions:
 jobs:
   build:
     name: Build & Release
-    runs-on: macos-latest   # macOS can cross-compile all targets via Bun
+    runs-on: macos-latest # macOS can cross-compile all targets via Bun
 
     steps:
       - name: Checkout
@@ -45,7 +45,7 @@ jobs:
       - name: Package macOS (.dmg)
         working-directory: packages/agent-controller
         run: bash scripts/package-macos.sh
-        continue-on-error: false  # lipo + hdiutil always available on macos-latest
+        continue-on-error: false # lipo + hdiutil always available on macos-latest
 
       - name: Package Linux (.tar.gz)
         working-directory: packages/agent-controller

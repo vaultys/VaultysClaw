@@ -44,7 +44,8 @@ interface WorkflowWithRuns extends WorkflowItem {
 }
 
 function parseTimestamp(val: unknown): number | null {
-  if (val === null || val === undefined || val === "" || val === false) return null;
+  if (val === null || val === undefined || val === "" || val === false)
+    return null;
   if (typeof val === "number") return val > 0 ? val * 1000 : null;
   if (typeof val === "string") {
     if (!val.trim()) return null;
@@ -53,7 +54,8 @@ function parseTimestamp(val: unknown): number | null {
       return n > 0 ? n * 1000 : null;
     }
     let s = val.replace(" ", "T");
-    if (!s.endsWith("Z") && !s.includes("+") && !/[+-]\d{2}:\d{2}$/.test(s)) s += "Z";
+    if (!s.endsWith("Z") && !s.includes("+") && !/[+-]\d{2}:\d{2}$/.test(s))
+      s += "Z";
     const t = new Date(s).getTime();
     return isNaN(t) ? null : t;
   }
@@ -89,25 +91,26 @@ function timeAgo(val: unknown): string {
 function getStatusIcon(status: string) {
   switch (status) {
     case "completed":
-      return <CheckCircle2 size={16} className="text-green-500" />;
+      return <CheckCircle2 size={16} className="text-success-500" />;
     case "failed":
-      return <AlertCircle size={16} className="text-red-500" />;
+      return <AlertCircle size={16} className="text-danger-500" />;
     case "running":
-      return <Activity size={16} className="text-blue-500 animate-pulse" />;
+      return <Activity size={16} className="text-primary-500 animate-pulse" />;
     default:
       return <Clock size={16} className="text-foreground-500" />;
   }
 }
 
 function getStatusBadge(status: string) {
-  const baseClass = "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium";
+  const baseClass =
+    "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium";
   switch (status) {
     case "completed":
-      return `${baseClass} bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400`;
+      return `${baseClass} bg-success-100 dark:bg-success-900/40 text-success-700 dark:text-success-400`;
     case "failed":
-      return `${baseClass} bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-400`;
+      return `${baseClass} bg-danger-100 dark:bg-danger-900/40 text-danger-700 dark:text-danger-400`;
     case "running":
-      return `${baseClass} bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400`;
+      return `${baseClass} bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-400`;
     default:
       return `${baseClass} bg-background-200 text-foreground-400`;
   }
@@ -216,7 +219,9 @@ export default function WorkflowsPage() {
     try {
       const res = await fetch(`/api/workflows/templates/${templateId}`);
       if (!res.ok) throw new Error("Failed to load template");
-      const data = (await res.json()) as { template: { definition: any; name: string } };
+      const data = (await res.json()) as {
+        template: { definition: any; name: string };
+      };
 
       clearWorkflow();
       setWorkflow("", data.template.name, "", data.template.definition);
@@ -263,14 +268,14 @@ export default function WorkflowsPage() {
             <div className="flex gap-2">
               <button
                 onClick={() => setShowTemplateModal(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-medium"
+                className="flex items-center gap-2 px-4 py-2 bg-secondary-600 text-white rounded-lg hover:bg-secondary-700 font-medium"
               >
                 <Plus size={18} /> From Template
               </button>
               <Link
                 href="/workflows/new"
                 onClick={handleCreateWorkflow}
-                className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium"
+                className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 font-medium"
               >
                 <Plus size={18} /> New Workflow
               </Link>
@@ -283,23 +288,25 @@ export default function WorkflowsPage() {
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {loading && (
           <div className="flex justify-center py-16">
-            <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+            <div className="w-8 h-8 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />
           </div>
         )}
 
         {error && (
-          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 px-4 py-3 rounded-lg">
+          <div className="bg-danger-50 dark:bg-danger-900/20 border border-danger-200 dark:border-danger-800 text-danger-600 dark:text-danger-400 px-4 py-3 rounded-lg">
             {error}
           </div>
         )}
 
         {!loading && workflows.length === 0 && (
           <div className="text-center">
-            <p className="text-foreground-500 mb-4">No workflows yet. Create your first one!</p>
+            <p className="text-foreground-500 mb-4">
+              No workflows yet. Create your first one!
+            </p>
             <Link
               href="/workflows/new"
               onClick={handleCreateWorkflow}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
             >
               <Plus size={18} /> Create Workflow
             </Link>
@@ -320,12 +327,17 @@ export default function WorkflowsPage() {
                     className="flex-1 flex items-center justify-between text-left"
                   >
                     <div className="flex-1">
-                      <h3 className="text-lg font-semibold text-foreground">{workflow.name}</h3>
+                      <h3 className="text-lg font-semibold text-foreground">
+                        {workflow.name}
+                      </h3>
                       {workflow.description && (
-                        <p className="text-foreground-500 text-sm mt-1">{workflow.description}</p>
+                        <p className="text-foreground-500 text-sm mt-1">
+                          {workflow.description}
+                        </p>
                       )}
                       <p className="text-xs text-foreground-400 mt-2">
-                        Updated {new Date(workflow.updatedAt).toLocaleDateString()}
+                        Updated{" "}
+                        {new Date(workflow.updatedAt).toLocaleDateString()}
                       </p>
                     </div>
                     <div className="ml-4">
@@ -340,7 +352,7 @@ export default function WorkflowsPage() {
                   <div className="flex gap-2 ml-4">
                     <button
                       onClick={() => handleExecuteWorkflow(workflow.id)}
-                      className="flex items-center gap-1 px-3 py-2 text-sm font-medium text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 rounded"
+                      className="flex items-center gap-1 px-3 py-2 text-sm font-medium text-success-600 dark:text-success-400 hover:bg-success-50 dark:hover:bg-success-900/20 rounded"
                       title="Execute workflow"
                     >
                       <Play size={16} />
@@ -348,14 +360,14 @@ export default function WorkflowsPage() {
                     </button>
                     <Link
                       href={`/workflows/${workflow.id}`}
-                      className="flex items-center gap-1 px-3 py-2 text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded"
+                      className="flex items-center gap-1 px-3 py-2 text-sm font-medium text-primary-600 dark:text-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded"
                     >
                       Edit
                       <ChevronRight size={16} />
                     </Link>
                     <button
                       onClick={() => handleDeleteWorkflow(workflow.id)}
-                      className="p-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded"
+                      className="p-2 text-danger-600 dark:text-danger-400 hover:bg-danger-50 dark:hover:bg-danger-900/20 rounded"
                       title="Delete workflow"
                     >
                       <Trash2 size={16} />
@@ -368,7 +380,7 @@ export default function WorkflowsPage() {
                   <div className="border-t border-neutral-200">
                     {workflow.loadingRuns ? (
                       <div className="flex justify-center py-8">
-                        <div className="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+                        <div className="w-6 h-6 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />
                       </div>
                     ) : workflow.runs && workflow.runs.length > 0 ? (
                       <div className="overflow-x-auto">
@@ -386,9 +398,10 @@ export default function WorkflowsPage() {
                             {workflow.runs.map((run) => {
                               const startMs = parseTimestamp(run.started_at);
                               const endMs = parseTimestamp(run.completed_at);
-                              const duration = startMs !== null && endMs !== null
-                                ? Math.round((endMs - startMs) / 1000)
-                                : null;
+                              const duration =
+                                startMs !== null && endMs !== null
+                                  ? Math.round((endMs - startMs) / 1000)
+                                  : null;
                               return (
                                 <tr
                                   key={run.id}
@@ -417,7 +430,7 @@ export default function WorkflowsPage() {
                                   <td className="px-4 py-3">
                                     <Link
                                       href={`/workflows/runs/${run.id}`}
-                                      className="text-indigo-700 dark:text-indigo-400 hover:text-indigo-400 text-sm font-medium"
+                                      className="text-primary-700 dark:text-primary-400 hover:text-primary-400 text-sm font-medium"
                                     >
                                       View
                                     </Link>

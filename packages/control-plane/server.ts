@@ -22,7 +22,10 @@ import { initializeWSServer, initializeAdminWS } from "./lib/ws-server";
 import { initializePeerjsServer, AgentPeerjsServer } from "./lib/peerjs-server";
 import { getSetting } from "./lib/db";
 import { getDb, closeDb, initServerIdentity, getFileStorage } from "./lib/db";
-import { startWorkflowScheduler, stopWorkflowScheduler } from "./lib/workflow-scheduler";
+import {
+  startWorkflowScheduler,
+  stopWorkflowScheduler,
+} from "./lib/workflow-scheduler";
 
 const logger = pino();
 
@@ -104,20 +107,30 @@ app.prepare().then(async () => {
   // Initialize PeerJS/WebRTC server — enabled by env var or DB setting.
   const peerjsEnabledDb = getSetting("peerjs_enabled") === "true";
   const peerjsEnabled = peerjsEnabledEnv || peerjsEnabledDb;
-  const peerjsServerUrl = peerjsServerUrlEnv ?? (getSetting("peerjs_server_url") || undefined);
+  const peerjsServerUrl =
+    peerjsServerUrlEnv ?? (getSetting("peerjs_server_url") || undefined);
   if (peerjsEnabled) {
     const peerjsServer = initializePeerjsServer(wsServer, peerjsServerUrl);
-    peerjsServer.start().then((peerId) => {
-      logger.info({ peerId, serverUrl: peerjsServerUrl }, "PeerJS server ready — agents can connect with: --peerjs " + peerId);
-    }).catch((err) => {
-      logger.error({ err }, "Failed to start PeerJS server");
-    });
+    peerjsServer
+      .start()
+      .then((peerId) => {
+        logger.info(
+          { peerId, serverUrl: peerjsServerUrl },
+          "PeerJS server ready — agents can connect with: --peerjs " + peerId
+        );
+      })
+      .catch((err) => {
+        logger.error({ err }, "Failed to start PeerJS server");
+      });
   } else {
     // Initialize the singleton without starting — allows API routes to start it later.
     initializePeerjsServer(wsServer, peerjsServerUrl);
     const peerId = AgentPeerjsServer.getServerPeerId();
     if (peerId) {
-      logger.info({ peerId }, "PeerJS transport disabled. Enable from the Network admin page or set PEERJS_ENABLED=true.");
+      logger.info(
+        { peerId },
+        "PeerJS transport disabled. Enable from the Network admin page or set PEERJS_ENABLED=true."
+      );
     }
   }
 
@@ -128,14 +141,8 @@ app.prepare().then(async () => {
   // Start servers
   server.listen(port, (err?: Error) => {
     if (err) throw err;
-    logger.info(
-      { port, hostname },
-      "Next.js HTTP server started"
-    );
-    logger.info(
-      { wsPort },
-      "WebSocket server ready for agent connections"
-    );
+    logger.info({ port, hostname }, "Next.js HTTP server started");
+    logger.info({ wsPort }, "WebSocket server ready for agent connections");
   });
 
   // Graceful shutdown

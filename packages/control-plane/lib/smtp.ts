@@ -56,7 +56,9 @@ export async function sendMail(opts: MailOptions): Promise<void> {
     host: config.host,
     port: config.port,
     secure: config.secure,
-    auth: config.user ? { user: config.user, pass: config.password } : undefined,
+    auth: config.user
+      ? { user: config.user, pass: config.password }
+      : undefined,
   });
 
   await transporter.sendMail({
@@ -74,7 +76,9 @@ export async function testSmtpConnection(config: SmtpConfig): Promise<void> {
     host: config.host,
     port: config.port,
     secure: config.secure,
-    auth: config.user ? { user: config.user, pass: config.password } : undefined,
+    auth: config.user
+      ? { user: config.user, pass: config.password }
+      : undefined,
   });
   await transporter.verify();
 }

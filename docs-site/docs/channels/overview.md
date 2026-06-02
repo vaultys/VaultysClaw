@@ -10,13 +10,13 @@ Vaultys Claw organises all communication — between users, between users and ag
 
 ## Why channels?
 
-| Concern | Without channels | With channels |
-|---|---|---|
-| **Multi-agent workflows** | Pair-wise P2P connections; O(n²) wiring | Any agent joins a channel; O(n) membership |
-| **Async tasks** | Blocked on the target agent being online | Messages queue; agent processes on reconnect |
-| **Audit trail** | Ephemeral; lost on reconnect | All messages persisted and searchable |
-| **External integration** | Custom webhooks per agent | Bridge the channel once; all members benefit |
-| **Group collaboration** | Not supported | Users + agents share a channel naturally |
+| Concern                   | Without channels                         | With channels                                |
+| ------------------------- | ---------------------------------------- | -------------------------------------------- |
+| **Multi-agent workflows** | Pair-wise P2P connections; O(n²) wiring  | Any agent joins a channel; O(n) membership   |
+| **Async tasks**           | Blocked on the target agent being online | Messages queue; agent processes on reconnect |
+| **Audit trail**           | Ephemeral; lost on reconnect             | All messages persisted and searchable        |
+| **External integration**  | Custom webhooks per agent                | Bridge the channel once; all members benefit |
+| **Group collaboration**   | Not supported                            | Users + agents share a channel naturally     |
 
 ## Core concepts
 
@@ -27,12 +27,12 @@ A channel is a named, persistent room that accumulates messages over time. Chann
 ```typescript
 interface Channel {
   id: string;
-  realmId: string | null;   // null = global channel
+  realmId: string | null; // null = global channel
   name: string;
-  slug: string;             // URL-safe identifier, unique within realm
+  slug: string; // URL-safe identifier, unique within realm
   description: string | null;
   topic: string | null;
-  isPublic: boolean;        // true: all realm members can view; false: invite-only
+  isPublic: boolean; // true: all realm members can view; false: invite-only
   isArchived: boolean;
   creatorDid: string;
   createdAt: string;
@@ -44,17 +44,17 @@ interface Channel {
 
 Both **users** and **agents** are first-class members of a channel. Each member carries a role:
 
-| Role | Permissions |
-|---|---|
-| `owner` | Full control — edit, archive, add/remove any member |
-| `moderator` | Add members, delete any message |
-| `member` | Post messages, read history |
+| Role        | Permissions                                         |
+| ----------- | --------------------------------------------------- |
+| `owner`     | Full control — edit, archive, add/remove any member |
+| `moderator` | Add members, delete any message                     |
+| `member`    | Post messages, read history                         |
 
 ```typescript
 interface ChannelMember {
   id: string;
   channelId: string;
-  memberDid: string;          // User or agent DID
+  memberDid: string; // User or agent DID
   memberType: "user" | "agent";
   role: "member" | "moderator" | "owner";
   joinedAt: string;
@@ -70,19 +70,19 @@ Messages persist in the database and support **threading**. A reply is a message
 interface ChannelMessage {
   id: string;
   channelId: string;
-  threadId: string | null;    // Parent message ID, or null for top-level
+  threadId: string | null; // Parent message ID, or null for top-level
   authorDid: string;
   authorType: "user" | "agent";
-  content: string;            // Markdown supported
+  content: string; // Markdown supported
   metadata: {
     toolCalls?: Record<string, unknown>;
     attachments?: Array<{ type: "file" | "link" | "json"; data: unknown }>;
     mentions?: string[];
-    agentAction?: string;     // e.g. "webhook_incoming", "task_created"
+    agentAction?: string; // e.g. "webhook_incoming", "task_created"
   };
-  reactions: Record<string, string[]>;  // { "👍": ["did:1", "did:2"] }
+  reactions: Record<string, string[]>; // { "👍": ["did:1", "did:2"] }
   editedAt: string | null;
-  deletedAt: string | null;   // Soft delete
+  deletedAt: string | null; // Soft delete
   createdAt: string;
 }
 ```
@@ -91,11 +91,11 @@ interface ChannelMessage {
 
 A bridge connects a channel to an external service — currently **webhooks** and **Microsoft Teams** (bidirectional). Bridges can be configured per-direction:
 
-| Direction | Behaviour |
-|---|---|
-| `incoming` | External messages are posted into the channel |
-| `outgoing` | Channel messages are pushed to the external service |
-| `bidirectional` | Both directions active |
+| Direction       | Behaviour                                           |
+| --------------- | --------------------------------------------------- |
+| `incoming`      | External messages are posted into the channel       |
+| `outgoing`      | Channel messages are pushed to the external service |
+| `bidirectional` | Both directions active                              |
 
 ## System architecture
 
@@ -250,13 +250,13 @@ CREATE TABLE channel_bridges (
 
 ## Realm-scoped vs global channels
 
-| | Realm channel | Global channel |
-|---|---|---|
-| **Visibility** | Members of that realm only | All realms in the installation |
-| **slug uniqueness** | Unique per realm | Unique globally |
-| **Creator required** | Any realm admin | Global admin only |
-| **Bridge scoping** | Realm-specific integration | Organisation-wide integration |
-| **Typical use** | `#engineering`, `#customer-support` | `#announcements`, `#outages` |
+|                      | Realm channel                       | Global channel                 |
+| -------------------- | ----------------------------------- | ------------------------------ |
+| **Visibility**       | Members of that realm only          | All realms in the installation |
+| **slug uniqueness**  | Unique per realm                    | Unique globally                |
+| **Creator required** | Any realm admin                     | Global admin only              |
+| **Bridge scoping**   | Realm-specific integration          | Organisation-wide integration  |
+| **Typical use**      | `#engineering`, `#customer-support` | `#announcements`, `#outages`   |
 
 ## Agent-to-agent communication
 

@@ -46,12 +46,12 @@ curl -X POST https://vaultysclaw.acme.internal/api/realms \
 
 ### Realm visibility rules
 
-| User type | Visible realms |
-|---|---|
-| Global admin | All realms |
-| Realm admin | Realms they administer |
-| Realm member | Realms they belong to |
-| Unauthenticated | None |
+| User type       | Visible realms         |
+| --------------- | ---------------------- |
+| Global admin    | All realms             |
+| Realm admin     | Realms they administer |
+| Realm member    | Realms they belong to  |
+| Unauthenticated | None                   |
 
 ## Roles
 
@@ -59,17 +59,17 @@ Every user has a **role** within each realm they belong to. Roles are hierarchic
 
 ### Role capabilities
 
-| Action | member | operator | manager | admin | owner | global admin |
-|---|:---:|:---:|:---:|:---:|:---:|:---:|
-| View agents in realm | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| Send intents | — | ✓ | ✓ | ✓ | ✓ | ✓ |
-| Approve tool requests | — | — | ✓ | ✓ | ✓ | ✓ |
-| Create/edit workflows | — | — | — | ✓ | ✓ | ✓ |
-| Manage realm users | — | — | — | ✓ | ✓ | ✓ |
-| Manage realm agents | — | — | — | ✓ | ✓ | ✓ |
-| Create/manage policies | — | — | — | — | — | ✓ |
-| Delete realm | — | — | — | — | ✓ | ✓ |
-| Manage global settings | — | — | — | — | — | ✓ |
+| Action                 | member | operator | manager | admin | owner | global admin |
+| ---------------------- | :----: | :------: | :-----: | :---: | :---: | :----------: |
+| View agents in realm   |   ✓    |    ✓     |    ✓    |   ✓   |   ✓   |      ✓       |
+| Send intents           |   —    |    ✓     |    ✓    |   ✓   |   ✓   |      ✓       |
+| Approve tool requests  |   —    |    —     |    ✓    |   ✓   |   ✓   |      ✓       |
+| Create/edit workflows  |   —    |    —     |    —    |   ✓   |   ✓   |      ✓       |
+| Manage realm users     |   —    |    —     |    —    |   ✓   |   ✓   |      ✓       |
+| Manage realm agents    |   —    |    —     |    —    |   ✓   |   ✓   |      ✓       |
+| Create/manage policies |   —    |    —     |    —    |   —   |   —   |      ✓       |
+| Delete realm           |   —    |    —     |    —    |   —   |   ✓   |      ✓       |
+| Manage global settings |   —    |    —     |    —    |   —   |   —   |      ✓       |
 
 ### Assigning roles
 

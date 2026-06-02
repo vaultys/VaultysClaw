@@ -1,7 +1,18 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { X, Bot, Search, FileText, ArrowRight, Copy, Check, Wrench, Calendar, Clock } from "lucide-react";
+import {
+  X,
+  Bot,
+  Search,
+  FileText,
+  ArrowRight,
+  Copy,
+  Check,
+  Wrench,
+  Calendar,
+  Clock,
+} from "lucide-react";
 import { useWorkflowStore } from "./store";
 import type { WorkflowNode } from "@/lib/workflow-executor";
 
@@ -46,19 +57,20 @@ const PredecessorInputs: React.FC<{
     .filter(Boolean);
 
   const handleCopy = (variable: string) => {
-    navigator.clipboard.writeText(variable).catch(() => { });
+    navigator.clipboard.writeText(variable).catch(() => {});
     setCopiedVar(variable);
     setTimeout(() => setCopiedVar(null), 1500);
   };
 
   return (
-    <div className="rounded-lg border border-indigo-500/40 bg-indigo-500/5 p-3 space-y-2">
-      <div className="flex items-center gap-1.5 text-xs font-semibold text-indigo-700 dark:text-indigo-400 uppercase tracking-wide">
+    <div className="rounded-lg border border-primary-500/40 bg-primary-500/5 p-3 space-y-2">
+      <div className="flex items-center gap-1.5 text-xs font-semibold text-primary-700 dark:text-primary-400 uppercase tracking-wide">
         <ArrowRight size={12} />
         Inputs from connected nodes
       </div>
       <p className="text-xs text-foreground-500">
-        Click a variable to insert it into Parameters. Use dot notation to access nested fields.
+        Click a variable to insert it into Parameters. Use dot notation to
+        access nested fields.
       </p>
       <div className="space-y-2">
         {predecessors.map((pred: any) => {
@@ -66,7 +78,9 @@ const PredecessorInputs: React.FC<{
           const fullOutput = `\${${pred.id}}`;
           return (
             <div key={pred.id} className="space-y-1">
-              <p className="text-xs font-medium text-foreground truncate">{label}</p>
+              <p className="text-xs font-medium text-foreground truncate">
+                {label}
+              </p>
               <div className="flex flex-wrap gap-1">
                 {[
                   { var: `\${${pred.id}}`, desc: "full output" },
@@ -78,7 +92,7 @@ const PredecessorInputs: React.FC<{
                     <button
                       onClick={() => onInsert(v)}
                       title={`Insert ${v} into Parameters`}
-                      className="font-mono text-[10px] px-1.5 py-0.5 bg-indigo-100 dark:bg-indigo-900/50 border border-indigo-300 dark:border-indigo-700/60 text-indigo-700 dark:text-indigo-300 rounded hover:bg-indigo-700/60 transition"
+                      className="font-mono text-[10px] px-1.5 py-0.5 bg-primary-100 dark:bg-primary-900/50 border border-primary-300 dark:border-primary-700/60 text-primary-700 dark:text-primary-300 rounded hover:bg-primary-700/60 transition"
                     >
                       {v}
                     </button>
@@ -87,7 +101,14 @@ const PredecessorInputs: React.FC<{
                       title="Copy to clipboard"
                       className="p-0.5 text-foreground-400 hover:text-foreground transition"
                     >
-                      {copiedVar === v ? <Check size={10} className="text-green-700 dark:text-green-400" /> : <Copy size={10} />}
+                      {copiedVar === v ? (
+                        <Check
+                          size={10}
+                          className="text-success-700 dark:text-success-400"
+                        />
+                      ) : (
+                        <Copy size={10} />
+                      )}
                     </button>
                   </div>
                 ))}
@@ -97,7 +118,11 @@ const PredecessorInputs: React.FC<{
         })}
       </div>
       <p className="text-[10px] text-foreground-400 mt-1">
-        e.g. <code className="font-mono">&#123;&quot;input&quot;: &quot;$&#123;{predecessors[0]?.id}.output&#125;&quot;&#125;</code>
+        e.g.{" "}
+        <code className="font-mono">
+          &#123;&quot;input&quot;: &quot;$&#123;{predecessors[0]?.id}
+          .output&#125;&quot;&#125;
+        </code>
       </p>
     </div>
   );
@@ -106,7 +131,13 @@ const PredecessorInputs: React.FC<{
 // ---------------------------------------------------------------------------
 // Static skill catalog — matches packages/agent-controller/skills/*
 // ---------------------------------------------------------------------------
-const SKILL_CATALOG: Record<string, { label: string; tools: { name: string; label: string; approvalRequired?: boolean }[] }> = {
+const SKILL_CATALOG: Record<
+  string,
+  {
+    label: string;
+    tools: { name: string; label: string; approvalRequired?: boolean }[];
+  }
+> = {
   "social-media": {
     label: "Social Media",
     tools: [
@@ -124,7 +155,7 @@ const SKILL_CATALOG: Record<string, { label: string; tools: { name: string; labe
     label: "JSON API",
     tools: [{ name: "api_call_json", label: "API call (JSON)" }],
   },
-  "calculator": {
+  calculator: {
     label: "Calculator",
     tools: [{ name: "calculate", label: "Calculate" }],
   },
@@ -143,7 +174,9 @@ const CRON_PRESETS = [
   { label: "Custom…", value: "" },
 ] as const;
 
-const SchedulePanel: React.FC<{ workflowId: string | null }> = ({ workflowId }) => {
+const SchedulePanel: React.FC<{ workflowId: string | null }> = ({
+  workflowId,
+}) => {
   const [cron, setCron] = useState("");
   const [enabled, setEnabled] = useState(false);
   const [nextRun, setNextRun] = useState<string | null>(null);
@@ -164,7 +197,9 @@ const SchedulePanel: React.FC<{ workflowId: string | null }> = ({ workflowId }) 
         setNextRun(d.scheduleNextRun ?? null);
         setLastRun(d.scheduleLastRun ?? null);
         // If current cron doesn't match any preset, switch to custom mode
-        const isPreset = CRON_PRESETS.some((p) => p.value === d.scheduleCron && p.value !== "");
+        const isPreset = CRON_PRESETS.some(
+          (p) => p.value === d.scheduleCron && p.value !== ""
+        );
         setCustomMode(!!d.scheduleCron && !isPreset);
       })
       .catch(() => {})
@@ -180,7 +215,7 @@ const SchedulePanel: React.FC<{ workflowId: string | null }> = ({ workflowId }) 
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ cron: cron || null, enabled }),
       });
-      const d = await res.json() as any;
+      const d = (await res.json()) as any;
       if (!res.ok) throw new Error(d.error || "Failed");
       setNextRun(d.scheduleNextRun ?? null);
       setStatus("saved");
@@ -197,7 +232,9 @@ const SchedulePanel: React.FC<{ workflowId: string | null }> = ({ workflowId }) 
     if (!workflowId) return;
     setSaving(true);
     try {
-      await fetch(`/api/workflows/${workflowId}/schedule`, { method: "DELETE" });
+      await fetch(`/api/workflows/${workflowId}/schedule`, {
+        method: "DELETE",
+      });
       setCron("");
       setEnabled(false);
       setNextRun(null);
@@ -212,29 +249,40 @@ const SchedulePanel: React.FC<{ workflowId: string | null }> = ({ workflowId }) 
 
   if (!workflowId || workflowId === "default") {
     return (
-      <div className="text-xs text-foreground-400 italic">Save the workflow first to configure a schedule.</div>
+      <div className="text-xs text-foreground-400 italic">
+        Save the workflow first to configure a schedule.
+      </div>
     );
   }
 
-  if (loading) return <div className="text-xs text-foreground-500">Loading schedule…</div>;
+  if (loading)
+    return <div className="text-xs text-foreground-500">Loading schedule…</div>;
 
-  const selectedPreset = customMode ? "" : CRON_PRESETS.find((p) => p.value === cron)?.value ?? "";
+  const selectedPreset = customMode
+    ? ""
+    : (CRON_PRESETS.find((p) => p.value === cron)?.value ?? "");
 
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <label className="text-xs font-medium text-foreground-700">Auto-run</label>
+        <label className="text-xs font-medium text-foreground-700">
+          Auto-run
+        </label>
         <button
           onClick={() => setEnabled(!enabled)}
-          className={`relative inline-flex h-5 w-9 rounded-full transition-colors ${enabled ? "bg-emerald-500" : "bg-neutral-200"}`}
+          className={`relative inline-flex h-5 w-9 rounded-full transition-colors ${enabled ? "bg-success-500" : "bg-neutral-200"}`}
         >
-          <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform mt-0.5 ${enabled ? "translate-x-4.5" : "translate-x-0.5"}`} />
+          <span
+            className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform mt-0.5 ${enabled ? "translate-x-4.5" : "translate-x-0.5"}`}
+          />
         </button>
       </div>
 
       {/* Preset dropdown */}
       <div>
-        <label className="block text-xs font-medium text-foreground-700 mb-1">Frequency</label>
+        <label className="block text-xs font-medium text-foreground-700 mb-1">
+          Frequency
+        </label>
         <select
           value={selectedPreset}
           onChange={(e) => {
@@ -245,10 +293,12 @@ const SchedulePanel: React.FC<{ workflowId: string | null }> = ({ workflowId }) 
               setCron(e.target.value);
             }
           }}
-          className="w-full px-2 py-1.5 bg-background-100 text-foreground border border-neutral-200 rounded text-xs focus:ring-1 focus:ring-emerald-500"
+          className="w-full px-2 py-1.5 bg-background-100 text-foreground border border-neutral-200 rounded text-xs focus:ring-1 focus:ring-success-500"
         >
           {CRON_PRESETS.map((p) => (
-            <option key={p.label} value={p.value}>{p.label}</option>
+            <option key={p.label} value={p.value}>
+              {p.label}
+            </option>
           ))}
         </select>
       </div>
@@ -256,22 +306,29 @@ const SchedulePanel: React.FC<{ workflowId: string | null }> = ({ workflowId }) 
       {/* Custom cron input */}
       {customMode && (
         <div>
-          <label className="block text-xs font-medium text-foreground-700 mb-1">Cron expression</label>
+          <label className="block text-xs font-medium text-foreground-700 mb-1">
+            Cron expression
+          </label>
           <input
             type="text"
             value={cron}
             onChange={(e) => setCron(e.target.value)}
             placeholder="0 9 * * *"
-            className="w-full px-2 py-1.5 bg-background-100 text-foreground border border-neutral-200 rounded text-xs font-mono focus:ring-1 focus:ring-emerald-500"
+            className="w-full px-2 py-1.5 bg-background-100 text-foreground border border-neutral-200 rounded text-xs font-mono focus:ring-1 focus:ring-success-500"
           />
-          <p className="text-[10px] text-foreground-400 mt-1">5 fields: minute hour day month weekday</p>
+          <p className="text-[10px] text-foreground-400 mt-1">
+            5 fields: minute hour day month weekday
+          </p>
         </div>
       )}
 
       {/* Next / last run */}
       {nextRun && (
         <p className="text-[10px] text-foreground-500">
-          Next run: <span className="font-medium text-foreground">{new Date(nextRun).toLocaleString()}</span>
+          Next run:{" "}
+          <span className="font-medium text-foreground">
+            {new Date(nextRun).toLocaleString()}
+          </span>
         </p>
       )}
       {lastRun && (
@@ -285,7 +342,7 @@ const SchedulePanel: React.FC<{ workflowId: string | null }> = ({ workflowId }) 
         <button
           onClick={handleSave}
           disabled={saving}
-          className="flex-1 text-xs py-1.5 bg-emerald-600 text-white rounded hover:bg-emerald-700 disabled:opacity-50"
+          className="flex-1 text-xs py-1.5 bg-success-600 text-white rounded hover:bg-success-700 disabled:opacity-50"
         >
           {saving ? "Saving…" : "Save schedule"}
         </button>
@@ -300,8 +357,14 @@ const SchedulePanel: React.FC<{ workflowId: string | null }> = ({ workflowId }) 
         )}
       </div>
 
-      {status === "saved" && <p className="text-xs text-emerald-600 dark:text-emerald-400">✓ Schedule saved</p>}
-      {status === "error" && <p className="text-xs text-red-500">✗ Failed to save schedule</p>}
+      {status === "saved" && (
+        <p className="text-xs text-success-600 dark:text-success-400">
+          ✓ Schedule saved
+        </p>
+      )}
+      {status === "error" && (
+        <p className="text-xs text-danger-500">✗ Failed to save schedule</p>
+      )}
     </div>
   );
 };
@@ -324,8 +387,19 @@ const SkillNodeProperties: React.FC<{
   insertIntoParams: (variable: string) => void;
   paramsTextRef: React.RefObject<HTMLTextAreaElement | null>;
 }> = ({
-  node, nodes, edges, agents, filteredAgents, searchQuery, setSearchQuery,
-  loading, selectedNodeId, updateNodeData, setNodes, insertIntoParams, paramsTextRef,
+  node,
+  nodes,
+  edges,
+  agents,
+  filteredAgents,
+  searchQuery,
+  setSearchQuery,
+  loading,
+  selectedNodeId,
+  updateNodeData,
+  setNodes,
+  insertIntoParams,
+  paramsTextRef,
 }) => {
   const skillName = (node.data.skillName as string | undefined) ?? "";
   const toolName = (node.data.toolName as string | undefined) ?? "";
@@ -336,18 +410,22 @@ const SkillNodeProperties: React.FC<{
     <div className="space-y-4">
       {/* Skill selector */}
       <div>
-        <label className="block text-sm font-medium text-foreground-700 mb-1">Skill</label>
+        <label className="block text-sm font-medium text-foreground-700 mb-1">
+          Skill
+        </label>
         <select
           value={skillName}
           onChange={(e) => {
             updateNodeData("skillName", e.target.value || undefined);
             updateNodeData("toolName", undefined); // reset tool when skill changes
           }}
-          className="w-full px-3 py-2 bg-background-100 text-foreground border border-neutral-200 rounded-md text-sm focus:ring-2 focus:ring-emerald-500"
+          className="w-full px-3 py-2 bg-background-100 text-foreground border border-neutral-200 rounded-md text-sm focus:ring-2 focus:ring-success-500"
         >
           <option value="">— select skill —</option>
           {Object.entries(SKILL_CATALOG).map(([id, { label }]) => (
-            <option key={id} value={id}>{label}</option>
+            <option key={id} value={id}>
+              {label}
+            </option>
           ))}
         </select>
       </div>
@@ -355,37 +433,52 @@ const SkillNodeProperties: React.FC<{
       {/* Tool selector */}
       {catalog && (
         <div>
-          <label className="block text-sm font-medium text-foreground-700 mb-1">Tool</label>
+          <label className="block text-sm font-medium text-foreground-700 mb-1">
+            Tool
+          </label>
           <select
             value={toolName}
-            onChange={(e) => updateNodeData("toolName", e.target.value || undefined)}
-            className="w-full px-3 py-2 bg-background-100 text-foreground border border-neutral-200 rounded-md text-sm focus:ring-2 focus:ring-emerald-500"
+            onChange={(e) =>
+              updateNodeData("toolName", e.target.value || undefined)
+            }
+            className="w-full px-3 py-2 bg-background-100 text-foreground border border-neutral-200 rounded-md text-sm focus:ring-2 focus:ring-success-500"
           >
             <option value="">— select tool —</option>
             {catalog.tools.map((t) => (
               <option key={t.name} value={t.name}>
-                {t.label}{t.approvalRequired ? " ⚠️" : ""}
+                {t.label}
+                {t.approvalRequired ? " ⚠️" : ""}
               </option>
             ))}
           </select>
           {selectedTool?.approvalRequired && (
-            <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">⚠️ This tool requires human approval before executing.</p>
+            <p className="text-xs text-warning-600 dark:text-warning-400 mt-1">
+              ⚠️ This tool requires human approval before executing.
+            </p>
           )}
         </div>
       )}
 
       {/* Agent picker (optional override — auto-resolved if blank) */}
       <div>
-        <label className="block text-sm font-medium text-foreground-700 mb-1">Agent <span className="text-foreground-400 font-normal">(optional)</span></label>
-        <p className="text-xs text-foreground-400 mb-2">Leave blank to auto-select a capable agent in the realm.</p>
+        <label className="block text-sm font-medium text-foreground-700 mb-1">
+          Agent{" "}
+          <span className="text-foreground-400 font-normal">(optional)</span>
+        </label>
+        <p className="text-xs text-foreground-400 mb-2">
+          Leave blank to auto-select a capable agent in the realm.
+        </p>
         <div className="relative mb-2">
-          <Search size={14} className="absolute left-3 top-2.5 text-foreground-400" />
+          <Search
+            size={14}
+            className="absolute left-3 top-2.5 text-foreground-400"
+          />
           <input
             type="text"
             placeholder="Search agents..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-3 py-2 bg-background-100 text-foreground border border-neutral-200 rounded-md text-sm focus:ring-2 focus:ring-emerald-500"
+            className="w-full pl-9 pr-3 py-2 bg-background-100 text-foreground border border-neutral-200 rounded-md text-sm focus:ring-2 focus:ring-success-500"
           />
         </div>
         <select
@@ -395,12 +488,19 @@ const SkillNodeProperties: React.FC<{
             setNodes(
               nodes.map((n: any) =>
                 n.id === selectedNodeId
-                  ? { ...n, data: { ...n.data, agentId: e.target.value || undefined, agentName: selected?.name } }
-                  : n,
-              ),
+                  ? {
+                      ...n,
+                      data: {
+                        ...n.data,
+                        agentId: e.target.value || undefined,
+                        agentName: selected?.name,
+                      },
+                    }
+                  : n
+              )
             );
           }}
-          className="w-full px-3 py-2 bg-background-100 text-foreground border border-neutral-200 rounded-md text-sm focus:ring-2 focus:ring-emerald-500"
+          className="w-full px-3 py-2 bg-background-100 text-foreground border border-neutral-200 rounded-md text-sm focus:ring-2 focus:ring-success-500"
         >
           <option value="">— auto —</option>
           {loading ? (
@@ -410,7 +510,8 @@ const SkillNodeProperties: React.FC<{
           ) : (
             filteredAgents.map((a) => (
               <option key={a.id} value={a.id}>
-                {a.name}{a.online ? " 🟢" : " 🔴"}
+                {a.name}
+                {a.online ? " 🟢" : " 🔴"}
               </option>
             ))
           )}
@@ -427,17 +528,27 @@ const SkillNodeProperties: React.FC<{
 
       {/* Params (tool input) */}
       <div>
-        <label className="block text-sm font-medium text-foreground-700 mb-1">Tool params</label>
+        <label className="block text-sm font-medium text-foreground-700 mb-1">
+          Tool params
+        </label>
         <p className="text-xs text-foreground-400 mb-2">
-          JSON object passed directly as tool input. Use <code className="font-mono text-emerald-600 dark:text-emerald-400">$&#123;nodeId&#125;</code> to reference predecessor outputs.
+          JSON object passed directly as tool input. Use{" "}
+          <code className="font-mono text-success-600 dark:text-success-400">
+            $&#123;nodeId&#125;
+          </code>{" "}
+          to reference predecessor outputs.
         </p>
         <textarea
           ref={paramsTextRef}
           value={JSON.stringify(node.data.params || {}, null, 2)}
           onChange={(e) => {
-            try { updateNodeData("params", JSON.parse(e.target.value)); } catch { /* ignore */ }
+            try {
+              updateNodeData("params", JSON.parse(e.target.value));
+            } catch {
+              /* ignore */
+            }
           }}
-          className="w-full px-3 py-2 bg-background-100 text-foreground border border-neutral-200 rounded-md text-xs font-mono focus:ring-2 focus:ring-emerald-500 h-24"
+          className="w-full px-3 py-2 bg-background-100 text-foreground border border-neutral-200 rounded-md text-xs font-mono focus:ring-2 focus:ring-success-500 h-24"
           placeholder={'{\n  "text": "${prev-node}"\n}'}
         />
       </div>
@@ -561,34 +672,50 @@ export const PropertiesPanel: React.FC<{
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
           <div>
             <p className="text-xs font-medium text-foreground-700 mb-1">Name</p>
-            <p className="text-sm text-foreground truncate">{workflowName || <span className="italic text-foreground-400">Untitled</span>}</p>
+            <p className="text-sm text-foreground truncate">
+              {workflowName || (
+                <span className="italic text-foreground-400">Untitled</span>
+              )}
+            </p>
           </div>
           {workflowDescription && (
             <div>
-              <p className="text-xs font-medium text-foreground-700 mb-1">Description</p>
-              <p className="text-sm text-foreground-500">{workflowDescription}</p>
+              <p className="text-xs font-medium text-foreground-700 mb-1">
+                Description
+              </p>
+              <p className="text-sm text-foreground-500">
+                {workflowDescription}
+              </p>
             </div>
           )}
           <div>
-            <label className="block text-xs font-medium text-foreground-700 mb-1">Default Input</label>
+            <label className="block text-xs font-medium text-foreground-700 mb-1">
+              Default Input
+            </label>
             <textarea
               rows={4}
               value={workflowInput}
               onChange={(e) => setWorkflowInput(e.target.value)}
               placeholder="Default input passed to the first agent (optional)…"
-              className="w-full bg-background-200 text-foreground border border-neutral-200 rounded-md px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
+              className="w-full bg-background-200 text-foreground border border-neutral-200 rounded-md px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-primary-500 resize-none"
             />
-            <p className="text-xs text-foreground-400 mt-1">Overridden at execution time if left empty.</p>
+            <p className="text-xs text-foreground-400 mt-1">
+              Overridden at execution time if left empty.
+            </p>
           </div>
           <div className="pt-2 border-t border-neutral-200 space-y-3">
             <div className="flex items-center gap-2">
               <Calendar size={13} className="text-foreground-400" />
-              <p className="text-xs font-semibold text-foreground-700 uppercase tracking-wide">Schedule</p>
+              <p className="text-xs font-semibold text-foreground-700 uppercase tracking-wide">
+                Schedule
+              </p>
             </div>
             <SchedulePanel workflowId={workflowId} />
           </div>
           <div className="pt-2 border-t border-neutral-200">
-            <p className="text-xs text-foreground-400">Click a node on the canvas to configure it.</p>
+            <p className="text-xs text-foreground-400">
+              Click a node on the canvas to configure it.
+            </p>
           </div>
         </div>
       </div>
@@ -618,7 +745,9 @@ export const PropertiesPanel: React.FC<{
         const parsed = JSON.parse(currentRaw);
         parsed["input"] = variable;
         updateNodeData("params", parsed);
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
       return;
     }
     const start = ta.selectionStart ?? currentRaw.length;
@@ -630,14 +759,19 @@ export const PropertiesPanel: React.FC<{
       // If inserting broke JSON, just put cursor back at end — user can fix manually
     }
     // Restore focus
-    setTimeout(() => { ta.focus(); ta.setSelectionRange(start + variable.length, start + variable.length); }, 0);
+    setTimeout(() => {
+      ta.focus();
+      ta.setSelectionRange(start + variable.length, start + variable.length);
+    }, 0);
   };
 
   const updateNodeData = (key: string, value: any) => {
     setNodes(
       nodes.map((n) =>
-        n.id === selectedNodeId ? { ...n, data: { ...n.data, [key]: value } } : n,
-      ),
+        n.id === selectedNodeId
+          ? { ...n, data: { ...n.data, [key]: value } }
+          : n
+      )
     );
   };
 
@@ -647,17 +781,22 @@ export const PropertiesPanel: React.FC<{
         return (
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-foreground-700 mb-2">Agent</label>
+              <label className="block text-sm font-medium text-foreground-700 mb-2">
+                Agent
+              </label>
 
               {/* Search Box */}
               <div className="relative mb-2">
-                <Search size={14} className="absolute left-3 top-2.5 text-foreground-400" />
+                <Search
+                  size={14}
+                  className="absolute left-3 top-2.5 text-foreground-400"
+                />
                 <input
                   type="text"
                   placeholder="Search agents..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2 bg-background-100 text-foreground border border-neutral-200 rounded-md text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  className="w-full pl-9 pr-3 py-2 bg-background-100 text-foreground border border-neutral-200 rounded-md text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 />
               </div>
 
@@ -665,16 +804,25 @@ export const PropertiesPanel: React.FC<{
               <select
                 value={node.data.agentId || ""}
                 onChange={(e) => {
-                  const selectedAgent = agents.find((a) => a.id === e.target.value);
+                  const selectedAgent = agents.find(
+                    (a) => a.id === e.target.value
+                  );
                   setNodes(
                     nodes.map((n) =>
                       n.id === selectedNodeId
-                        ? { ...n, data: { ...n.data, agentId: e.target.value || undefined, agentName: selectedAgent?.name || undefined } }
-                        : n,
-                    ),
+                        ? {
+                            ...n,
+                            data: {
+                              ...n.data,
+                              agentId: e.target.value || undefined,
+                              agentName: selectedAgent?.name || undefined,
+                            },
+                          }
+                        : n
+                    )
                   );
                 }}
-                className="w-full px-3 py-2 bg-background-100 text-foreground border border-neutral-200 rounded-md text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent max-h-48"
+                className="w-full px-3 py-2 bg-background-100 text-foreground border border-neutral-200 rounded-md text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent max-h-48"
               >
                 <option value="">-- Select agent --</option>
                 {loading ? (
@@ -693,7 +841,8 @@ export const PropertiesPanel: React.FC<{
 
               {filteredAgents.length > 0 && (
                 <p className="text-xs text-foreground-400 mt-1">
-                  {filteredAgents.length} agent{filteredAgents.length !== 1 ? "s" : ""} found
+                  {filteredAgents.length} agent
+                  {filteredAgents.length !== 1 ? "s" : ""} found
                 </p>
               )}
             </div>
@@ -709,30 +858,61 @@ export const PropertiesPanel: React.FC<{
 
             <div>
               <div className="flex items-center justify-between mb-1">
-                <label className="block text-sm font-medium text-foreground-700">Parameters</label>
+                <label className="block text-sm font-medium text-foreground-700">
+                  Parameters
+                </label>
                 {/* Re-wire button: reset input to predecessor output */}
-                {edges.filter((e) => e.target === node.id).length > 0 && (() => {
-                  const srcId = edges.find((e) => e.target === node.id)?.source;
-                  const expected = srcId ? `\${${srcId}}` : null;
-                  const current = (node.data.params as any)?.input;
-                  if (!expected || current === expected) return null;
-                  return (
-                    <button
-                      onClick={() => updateNodeData("params", { ...(node.data.params as object ?? {}), input: expected })}
-                      className="text-[10px] text-indigo-700 dark:text-indigo-400 hover:text-indigo-300 border border-indigo-300 dark:border-indigo-700/50 px-1.5 py-0.5 rounded"
-                    >
-                      ↺ Reset auto-wire
-                    </button>
-                  );
-                })()}
+                {edges.filter((e) => e.target === node.id).length > 0 &&
+                  (() => {
+                    const srcId = edges.find(
+                      (e) => e.target === node.id
+                    )?.source;
+                    const expected = srcId ? `\${${srcId}}` : null;
+                    const current = (node.data.params as any)?.input;
+                    if (!expected || current === expected) return null;
+                    return (
+                      <button
+                        onClick={() =>
+                          updateNodeData("params", {
+                            ...((node.data.params as object) ?? {}),
+                            input: expected,
+                          })
+                        }
+                        className="text-[10px] text-primary-700 dark:text-primary-400 hover:text-primary-300 border border-primary-300 dark:border-primary-700/50 px-1.5 py-0.5 rounded"
+                      >
+                        ↺ Reset auto-wire
+                      </button>
+                    );
+                  })()}
               </div>
 
               {/* How params work — always visible */}
               <div className="mb-2 rounded border border-neutral-200 bg-background-200/60 p-2 space-y-1 text-xs text-foreground-500">
                 <p className="font-semibold text-foreground">How params work</p>
-                <p>The <strong>full params object</strong> is sent to the agent — every key/value pair, not just <code className="font-mono">input</code>.</p>
-                <p>Use <code className="font-mono text-indigo-700 dark:text-indigo-300">${'{'}nodeId{'}'}</code> to pass an entire predecessor output, or <code className="font-mono text-indigo-700 dark:text-indigo-300">${'{'}nodeId.field{'}'}</code> for a specific field.</p>
-                <p className="text-foreground-400">e.g. <code className="font-mono">{'{'}"input": "${'{'}step-1{'}'}"{'}'}</code> sends step-1's full output as <code className="font-mono">input</code>.</p>
+                <p>
+                  The <strong>full params object</strong> is sent to the agent —
+                  every key/value pair, not just{" "}
+                  <code className="font-mono">input</code>.
+                </p>
+                <p>
+                  Use{" "}
+                  <code className="font-mono text-primary-700 dark:text-primary-300">
+                    ${"{"}nodeId{"}"}
+                  </code>{" "}
+                  to pass an entire predecessor output, or{" "}
+                  <code className="font-mono text-primary-700 dark:text-primary-300">
+                    ${"{"}nodeId.field{"}"}
+                  </code>{" "}
+                  for a specific field.
+                </p>
+                <p className="text-foreground-400">
+                  e.g.{" "}
+                  <code className="font-mono">
+                    {"{"}"input": "${"{"}step-1{"}"}"{"}"}
+                  </code>{" "}
+                  sends step-1's full output as{" "}
+                  <code className="font-mono">input</code>.
+                </p>
               </div>
 
               <textarea
@@ -745,7 +925,7 @@ export const PropertiesPanel: React.FC<{
                     // Invalid JSON, ignore
                   }
                 }}
-                className="w-full px-3 py-2 bg-background-100 text-foreground border border-neutral-200 rounded-md text-xs font-mono focus:ring-2 focus:ring-indigo-500 focus:border-transparent h-24"
+                className="w-full px-3 py-2 bg-background-100 text-foreground border border-neutral-200 rounded-md text-xs font-mono focus:ring-2 focus:ring-primary-500 focus:border-transparent h-24"
                 placeholder="{&#10;  &#34;input&#34;: &#34;${prevNodeId}&#34;&#10;}"
               />
             </div>
@@ -759,20 +939,31 @@ export const PropertiesPanel: React.FC<{
               nodeId={node.id}
               nodes={nodes}
               edges={edges}
-              onInsert={(v) => updateNodeData("expression", (node.data.expression || "") + v)}
+              onInsert={(v) =>
+                updateNodeData("expression", (node.data.expression || "") + v)
+              }
             />
             <div>
-              <label className="block text-sm font-medium text-foreground-700 mb-1">Expression</label>
+              <label className="block text-sm font-medium text-foreground-700 mb-1">
+                Expression
+              </label>
               <div className="mb-2 rounded border border-neutral-200 bg-background-200/60 p-2 text-xs text-foreground-500">
-                Evaluated as JavaScript. Reference predecessor outputs with <code className="font-mono text-indigo-700 dark:text-indigo-300">${'{'}nodeId.field{'}'}</code>. Must return <code className="font-mono">true</code> or <code className="font-mono">false</code>.
+                Evaluated as JavaScript. Reference predecessor outputs with{" "}
+                <code className="font-mono text-primary-700 dark:text-primary-300">
+                  ${"{"}nodeId.field{"}"}
+                </code>
+                . Must return <code className="font-mono">true</code> or{" "}
+                <code className="font-mono">false</code>.
               </div>
               <textarea
                 value={node.data.expression || ""}
                 onChange={(e) => updateNodeData("expression", e.target.value)}
-                className="w-full px-3 py-2 bg-background-100 text-foreground border border-neutral-200 rounded-md text-xs font-mono focus:ring-2 focus:ring-orange-500 focus:border-transparent h-20"
+                className="w-full px-3 py-2 bg-background-100 text-foreground border border-neutral-200 rounded-md text-xs font-mono focus:ring-2 focus:ring-warning-500 focus:border-transparent h-20"
                 placeholder="e.g., output.status === 'success' && output.confidence > 0.8"
               />
-              <p className="text-xs text-foreground-400 mt-1">Returns true/false to route execution.</p>
+              <p className="text-xs text-foreground-400 mt-1">
+                Returns true/false to route execution.
+              </p>
             </div>
           </div>
         );
@@ -781,12 +972,16 @@ export const PropertiesPanel: React.FC<{
         return (
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-foreground-700 mb-1">Duration (seconds)</label>
+              <label className="block text-sm font-medium text-foreground-700 mb-1">
+                Duration (seconds)
+              </label>
               <input
                 type="number"
                 value={node.data.duration || 1}
-                onChange={(e) => updateNodeData("duration", parseInt(e.target.value) || 1)}
-                className="w-full px-3 py-2 bg-background-100 text-foreground border border-neutral-200 rounded-md text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                onChange={(e) =>
+                  updateNodeData("duration", parseInt(e.target.value) || 1)
+                }
+                className="w-full px-3 py-2 bg-background-100 text-foreground border border-neutral-200 rounded-md text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 min="1"
                 step="1"
               />
@@ -798,11 +993,20 @@ export const PropertiesPanel: React.FC<{
         return (
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-foreground-700 mb-1">Agents (one per line)</label>
+              <label className="block text-sm font-medium text-foreground-700 mb-1">
+                Agents (one per line)
+              </label>
               <textarea
-                value={(node.data.agents as string[] | undefined)?.join("\n") || ""}
-                onChange={(e) => updateNodeData("agents", e.target.value.split("\n").filter((a) => a.trim()))}
-                className="w-full px-3 py-2 bg-background-100 text-foreground border border-neutral-200 rounded-md text-xs font-mono focus:ring-2 focus:ring-purple-500 focus:border-transparent h-24"
+                value={
+                  (node.data.agents as string[] | undefined)?.join("\n") || ""
+                }
+                onChange={(e) =>
+                  updateNodeData(
+                    "agents",
+                    e.target.value.split("\n").filter((a) => a.trim())
+                  )
+                }
+                className="w-full px-3 py-2 bg-background-100 text-foreground border border-neutral-200 rounded-md text-xs font-mono focus:ring-2 focus:ring-secondary-500 focus:border-transparent h-24"
                 placeholder="agent-1&#10;agent-2&#10;agent-3"
               />
             </div>
@@ -813,32 +1017,50 @@ export const PropertiesPanel: React.FC<{
         return (
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-foreground-700 mb-1">Label Text</label>
+              <label className="block text-sm font-medium text-foreground-700 mb-1">
+                Label Text
+              </label>
               <textarea
                 value={node.data.text || ""}
                 onChange={(e) => updateNodeData("text", e.target.value)}
-                className="w-full px-3 py-2 bg-background-100 text-foreground border border-neutral-200 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent h-24"
+                className="w-full px-3 py-2 bg-background-100 text-foreground border border-neutral-200 rounded-md text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent h-24"
                 placeholder="Enter label text..."
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-foreground-700 mb-2">Color</label>
+              <label className="block text-sm font-medium text-foreground-700 mb-2">
+                Color
+              </label>
               <div className="grid grid-cols-4 gap-2">
-                {["yellow", "pink", "blue", "green", "purple", "red", "amber", "cyan"].map((color) => (
+                {[
+                  "yellow",
+                  "pink",
+                  "blue",
+                  "green",
+                  "purple",
+                  "red",
+                  "amber",
+                  "cyan",
+                ].map((color) => (
                   <button
                     key={color}
                     onClick={() => updateNodeData("color", color)}
-                    className={`w-8 h-8 rounded border-2 capitalize text-xs font-bold transition-all ${node.data.color === color ? "border-indigo-500 ring-2 ring-offset-1 ring-indigo-500 dark:ring-offset-gray-900" : "border-neutral-200"
-                      } ${{
-                        yellow: "bg-yellow-300",
-                        pink: "bg-pink-300",
-                        blue: "bg-blue-300",
-                        green: "bg-green-300",
-                        purple: "bg-purple-300",
-                        red: "bg-red-300",
-                        amber: "bg-amber-300",
-                        cyan: "bg-cyan-300",
-                      }[color]}`}
+                    className={`w-8 h-8 rounded border-2 capitalize text-xs font-bold transition-all ${
+                      node.data.color === color
+                        ? "border-primary-500 ring-2 ring-offset-1 ring-primary-500 dark:ring-offset-neutral-900"
+                        : "border-neutral-200"
+                    } ${
+                      {
+                        yellow: "bg-warning-300",
+                        pink: "bg-danger-300",
+                        blue: "bg-primary-300",
+                        green: "bg-success-300",
+                        purple: "bg-secondary-300",
+                        red: "bg-danger-300",
+                        amber: "bg-warning-300",
+                        cyan: "bg-primary-300",
+                      }[color]
+                    }`}
                     title={color}
                   />
                 ))}
@@ -851,42 +1073,52 @@ export const PropertiesPanel: React.FC<{
         return (
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-foreground-700 mb-1">Mode</label>
+              <label className="block text-sm font-medium text-foreground-700 mb-1">
+                Mode
+              </label>
               <select
                 value={node.data.mode || "approval"}
                 onChange={(e) => updateNodeData("mode", e.target.value)}
-                className="w-full px-3 py-2 bg-background-100 text-foreground border border-neutral-200 rounded-md text-sm focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+                className="w-full px-3 py-2 bg-background-100 text-foreground border border-neutral-200 rounded-md text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent"
               >
                 <option value="approval">Approval (blocks workflow)</option>
                 <option value="notification">Notification (continues)</option>
               </select>
               <p className="text-xs text-foreground-400 mt-1">
-                Approval mode waits for user confirmation. Notification mode sends a message and continues.
+                Approval mode waits for user confirmation. Notification mode
+                sends a message and continues.
               </p>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-foreground-700 mb-1">Message</label>
+              <label className="block text-sm font-medium text-foreground-700 mb-1">
+                Message
+              </label>
               <textarea
                 value={node.data.message || ""}
                 onChange={(e) => updateNodeData("message", e.target.value)}
-                className="w-full px-3 py-2 bg-background-100 text-foreground border border-neutral-200 rounded-md text-sm focus:ring-2 focus:ring-cyan-500 focus:border-transparent h-20"
+                className="w-full px-3 py-2 bg-background-100 text-foreground border border-neutral-200 rounded-md text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent h-20"
                 placeholder="Enter a message for the user..."
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-foreground-700 mb-1">Assigned user</label>
+              <label className="block text-sm font-medium text-foreground-700 mb-1">
+                Assigned user
+              </label>
 
               {/* Search Box */}
               <div className="relative mb-2">
-                <Search size={14} className="absolute left-3 top-2.5 text-foreground-400" />
+                <Search
+                  size={14}
+                  className="absolute left-3 top-2.5 text-foreground-400"
+                />
                 <input
                   type="text"
                   placeholder="Search users..."
                   value={userSearchQuery}
                   onChange={(e) => setUserSearchQuery(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2 bg-background-100 text-foreground border border-neutral-200 rounded-md text-sm focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+                  className="w-full pl-9 pr-3 py-2 bg-background-100 text-foreground border border-neutral-200 rounded-md text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 />
               </div>
 
@@ -894,16 +1126,25 @@ export const PropertiesPanel: React.FC<{
               <select
                 value={(node.data.assignedUserId as string) || ""}
                 onChange={(e) => {
-                  const selectedUser = users.find((u) => u.id === e.target.value);
+                  const selectedUser = users.find(
+                    (u) => u.id === e.target.value
+                  );
                   setNodes(
                     nodes.map((n) =>
                       n.id === selectedNodeId
-                        ? { ...n, data: { ...n.data, assignedUserId: e.target.value || undefined, assignedUserName: selectedUser?.name || undefined } }
-                        : n,
-                    ),
+                        ? {
+                            ...n,
+                            data: {
+                              ...n.data,
+                              assignedUserId: e.target.value || undefined,
+                              assignedUserName: selectedUser?.name || undefined,
+                            },
+                          }
+                        : n
+                    )
                   );
                 }}
-                className="w-full px-3 py-2 bg-background-100 text-foreground border border-neutral-200 rounded-md text-sm focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+                className="w-full px-3 py-2 bg-background-100 text-foreground border border-neutral-200 rounded-md text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent"
               >
                 <option value="">-- Select user --</option>
                 {userLoading ? (
@@ -919,49 +1160,67 @@ export const PropertiesPanel: React.FC<{
                 )}
               </select>
 
-              {node.data.assignedUserId && (() => {
-                const user = users.find((u) => u.id === node.data.assignedUserId);
-                return user ? (
-                  <p className="text-xs text-foreground-400 mt-1">
-                    {user.name} — {user.email}
-                  </p>
-                ) : null;
-              })()}
-              <p className="text-xs text-foreground-400 mt-1">The user who will receive this step for {node.data.mode === "approval" ? "approval" : "notification"}.</p>
+              {node.data.assignedUserId &&
+                (() => {
+                  const user = users.find(
+                    (u) => u.id === node.data.assignedUserId
+                  );
+                  return user ? (
+                    <p className="text-xs text-foreground-400 mt-1">
+                      {user.name} — {user.email}
+                    </p>
+                  ) : null;
+                })()}
+              <p className="text-xs text-foreground-400 mt-1">
+                The user who will receive this step for{" "}
+                {node.data.mode === "approval" ? "approval" : "notification"}.
+              </p>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-foreground-700 mb-1">Timeout (minutes, optional)</label>
+              <label className="block text-sm font-medium text-foreground-700 mb-1">
+                Timeout (minutes, optional)
+              </label>
               <input
                 type="number"
                 value={node.data.timeout || ""}
-                onChange={(e) => updateNodeData("timeout", e.target.value ? parseInt(e.target.value) : undefined)}
-                className="w-full px-3 py-2 bg-background-100 text-foreground border border-neutral-200 rounded-md text-sm focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+                onChange={(e) =>
+                  updateNodeData(
+                    "timeout",
+                    e.target.value ? parseInt(e.target.value) : undefined
+                  )
+                }
+                className="w-full px-3 py-2 bg-background-100 text-foreground border border-neutral-200 rounded-md text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 placeholder="Leave empty for no timeout"
                 min="1"
                 step="1"
               />
-              <p className="text-xs text-foreground-400 mt-1">If set, workflow auto-continues after timeout (approval mode only).</p>
+              <p className="text-xs text-foreground-400 mt-1">
+                If set, workflow auto-continues after timeout (approval mode
+                only).
+              </p>
             </div>
           </div>
         );
 
       case "skill":
-        return <SkillNodeProperties
-          node={node}
-          nodes={nodes}
-          edges={edges}
-          agents={agents}
-          filteredAgents={filteredAgents}
-          searchQuery={searchQuery}
-          setSearchQuery={setSearchQuery}
-          loading={loading}
-          selectedNodeId={selectedNodeId}
-          updateNodeData={updateNodeData}
-          setNodes={setNodes}
-          insertIntoParams={insertIntoParams}
-          paramsTextRef={paramsTextRef}
-        />;
+        return (
+          <SkillNodeProperties
+            node={node}
+            nodes={nodes}
+            edges={edges}
+            agents={agents}
+            filteredAgents={filteredAgents}
+            searchQuery={searchQuery}
+            setSearchQuery={setSearchQuery}
+            loading={loading}
+            selectedNodeId={selectedNodeId}
+            updateNodeData={updateNodeData}
+            setNodes={setNodes}
+            insertIntoParams={insertIntoParams}
+            paramsTextRef={paramsTextRef}
+          />
+        );
 
       default:
         return (
@@ -988,13 +1247,13 @@ export const PropertiesPanel: React.FC<{
       {/* Node Type */}
       <div className="px-4 py-3 border-b border-neutral-200 bg-background-200">
         <p className="text-xs text-foreground-500">Node type</p>
-        <p className="font-medium text-sm text-foreground capitalize">{node.type}</p>
+        <p className="font-medium text-sm text-foreground capitalize">
+          {node.type}
+        </p>
       </div>
 
       {/* Properties */}
-      <div className="flex-1 overflow-y-auto p-4">
-        {renderNodeProperties()}
-      </div>
+      <div className="flex-1 overflow-y-auto p-4">{renderNodeProperties()}</div>
     </div>
   );
 };

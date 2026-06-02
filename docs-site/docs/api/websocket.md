@@ -23,11 +23,11 @@ Every message on the channel is a JSON string with this envelope:
 
 ```typescript
 interface WsMessage {
-  type: string;             // Message type (see below)
-  payload: object;          // Message-specific payload
-  signature?: string;       // Base64 signature of the payload
-  publicKey?: string;       // Sender's VaultysId public key
-  timestamp: string;        // ISO 8601 — used for freshness checks
+  type: string; // Message type (see below)
+  payload: object; // Message-specific payload
+  signature?: string; // Base64 signature of the payload
+  publicKey?: string; // Sender's VaultysId public key
+  timestamp: string; // ISO 8601 — used for freshness checks
 }
 ```
 

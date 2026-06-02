@@ -65,13 +65,17 @@ export async function GET(req: NextRequest, ctx: Ctx) {
 
   const { id: realmId, credId } = await ctx.params;
   const realm = getRealmById(realmId);
-  if (!realm) return NextResponse.json({ error: "Realm not found" }, { status: 404 });
+  if (!realm)
+    return NextResponse.json({ error: "Realm not found" }, { status: 404 });
   // Only realm admins can retrieve plaintext secrets
   if (!auth.canAdminRealm(realmId)) return forbidden();
 
   const cred = getCredentialById(credId);
   if (!cred || cred.realm_id !== realmId) {
-    return NextResponse.json({ error: "Credential not found" }, { status: 404 });
+    return NextResponse.json(
+      { error: "Credential not found" },
+      { status: 404 }
+    );
   }
 
   try {
@@ -83,6 +87,9 @@ export async function GET(req: NextRequest, ctx: Ctx) {
       secret,
     });
   } catch {
-    return NextResponse.json({ error: "Failed to decrypt credential" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to decrypt credential" },
+      { status: 500 }
+    );
   }
 }

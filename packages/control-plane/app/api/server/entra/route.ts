@@ -6,7 +6,12 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext, forbidden, unauthorized } from "@/lib/auth-utils";
-import { getEntraConfig, saveEntraConfig, listEntraGroups, diagnoseEntraConfig } from "@/lib/entra-sync";
+import {
+  getEntraConfig,
+  saveEntraConfig,
+  listEntraGroups,
+  diagnoseEntraConfig,
+} from "@/lib/entra-sync";
 
 /**
  * @openapi
@@ -97,15 +102,24 @@ export async function PUT(req: NextRequest) {
   };
 
   if (!body.tenantId || !body.clientId || !body.clientSecret) {
-    return NextResponse.json({ error: "tenantId, clientId and clientSecret are required" }, { status: 400 });
+    return NextResponse.json(
+      { error: "tenantId, clientId and clientSecret are required" },
+      { status: 400 }
+    );
   }
 
   // If secret is the redacted placeholder, keep the existing one
   const existing = getEntraConfig();
   const secret =
-    body.clientSecret === "••••••••" && existing ? existing.clientSecret : body.clientSecret;
+    body.clientSecret === "••••••••" && existing
+      ? existing.clientSecret
+      : body.clientSecret;
 
-  saveEntraConfig({ tenantId: body.tenantId, clientId: body.clientId, clientSecret: secret });
+  saveEntraConfig({
+    tenantId: body.tenantId,
+    clientId: body.clientId,
+    clientSecret: secret,
+  });
   return NextResponse.json({ ok: true });
 }
 
@@ -188,7 +202,10 @@ export async function POST(req: NextRequest) {
   };
 
   if (!config.tenantId || !config.clientId || !config.clientSecret) {
-    return NextResponse.json({ error: "Entra credentials are not configured" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Entra credentials are not configured" },
+      { status: 400 }
+    );
   }
 
   // Always run diagnostics first
@@ -205,8 +222,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, checks, groups });
   } catch (err) {
     return NextResponse.json(
-      { ok: false, checks, error: err instanceof Error ? err.message : "Failed to list groups" },
-      { status: 200 },
+      {
+        ok: false,
+        checks,
+        error: err instanceof Error ? err.message : "Failed to list groups",
+      },
+      { status: 200 }
     );
   }
 }

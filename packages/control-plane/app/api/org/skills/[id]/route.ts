@@ -103,9 +103,10 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
   if (!auth.isGlobalAdmin) return forbidden();
 
   const { id } = await ctx.params;
-  if (!getOrgSkillById(id)) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (!getOrgSkillById(id))
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const body = await req.json() as {
+  const body = (await req.json()) as {
     description?: string | null;
     version?: string;
     icon?: string | null;
@@ -114,10 +115,10 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
   };
 
   updateOrgSkill(id, {
-    description:  body.description,
-    version:      body.version,
-    icon:         body.icon,
-    content:      body.content,
+    description: body.description,
+    version: body.version,
+    icon: body.icon,
+    content: body.content,
     configSchema: body.configSchema,
   });
 
@@ -161,7 +162,8 @@ export async function DELETE(_req: NextRequest, ctx: Ctx) {
   if (!auth.isGlobalAdmin) return forbidden();
 
   const { id } = await ctx.params;
-  if (!getOrgSkillById(id)) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (!getOrgSkillById(id))
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   deleteOrgSkill(id);
   return NextResponse.json({ success: true });

@@ -10,12 +10,12 @@ Vaultys Claw integrates with [LiteLLM Proxy](https://docs.litellm.ai/docs/proxy/
 
 ## Why use it
 
-| Without LiteLLM | With LiteLLM |
-|---|---|
-| Each agent carries its own API key in env vars | Keys are stored in the control plane only |
-| Changing providers requires redeploying agents | Swap models from the dashboard; agents pick it up live |
-| No per-realm model access control | Each realm gets a virtual key scoped to its allowed models |
-| No unified cost tracking | All usage flows through one proxy with budget limits |
+| Without LiteLLM                                | With LiteLLM                                               |
+| ---------------------------------------------- | ---------------------------------------------------------- |
+| Each agent carries its own API key in env vars | Keys are stored in the control plane only                  |
+| Changing providers requires redeploying agents | Swap models from the dashboard; agents pick it up live     |
+| No per-realm model access control              | Each realm gets a virtual key scoped to its allowed models |
+| No unified cost tracking                       | All usage flows through one proxy with budget limits       |
 
 ## How it works
 
@@ -101,6 +101,7 @@ curl -X POST https://vaultysclaw.acme.com/api/models/{modelId}/realms \
 ```
 
 This:
+
 1. Creates (or refreshes) a LiteLLM virtual key for the realm, scoped to the newly allowed model list.
 2. Pushes updated `llm_config` to every agent currently in that realm.
 

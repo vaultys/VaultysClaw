@@ -1,4 +1,4 @@
-export type SourceType = 'url' | 'text' | 'files';
+export type SourceType = "url" | "text" | "files";
 
 export interface KnowledgeSourceConfig {
   /** For 'url' sources: list of URLs to index */

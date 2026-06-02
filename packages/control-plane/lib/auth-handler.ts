@@ -120,9 +120,12 @@ export async function processChallenge(
     if (isFirstUpdate) {
       if (capabilities.length > 0 || policyMeta) {
         metadata = { capabilities };
-        if (policyMeta?.resourceLimits != null) metadata.resourceLimits = policyMeta.resourceLimits;
-        if (policyMeta?.policyId != null) metadata.policyId = policyMeta.policyId;
-        if (policyMeta?.policyExpiresAt != null) metadata.policyExpiresAt = policyMeta.policyExpiresAt;
+        if (policyMeta?.resourceLimits != null)
+          metadata.resourceLimits = policyMeta.resourceLimits;
+        if (policyMeta?.policyId != null)
+          metadata.policyId = policyMeta.policyId;
+        if (policyMeta?.policyExpiresAt != null)
+          metadata.policyExpiresAt = policyMeta.policyExpiresAt;
       }
     }
     // Cast to `any`: the library's type declaration is Record<string,string> but
@@ -154,14 +157,16 @@ export async function processChallenge(
     return { done: true, success: false, error: "Protocol tampered" };
   }
 
-
-
   // If challenge is complete, authentication succeeded
   if (challenger.isComplete()) {
     const contactDid = challenger.getContactId().toVersion(1).did;
     if (!contactDid) {
       updateAuthSession(sessionId, { certificate_data: certB64, status: -2 });
-      return { done: true, success: false, error: "No contact DID after completion" };
+      return {
+        done: true,
+        success: false,
+        error: "No contact DID after completion",
+      };
     }
 
     // Read capabilities + policy metadata from cert (pk2 = server-assigned).
@@ -171,7 +176,8 @@ export async function processChallenge(
     try {
       const metaCaps = context.metadata?.pk2?.capabilities;
       if (Array.isArray(metaCaps)) certCapabilities = metaCaps;
-      else if (typeof metaCaps === "string") certCapabilities = JSON.parse(metaCaps);
+      else if (typeof metaCaps === "string")
+        certCapabilities = JSON.parse(metaCaps);
     } catch {
       // fallback to passed capabilities
     }
@@ -186,13 +192,16 @@ export async function processChallenge(
       agent_did: contactDid,
     });
 
-    logger.info({ sessionId, agentDid: contactDid }, "Auth completed successfully");
+    logger.info(
+      { sessionId, agentDid: contactDid },
+      "Auth completed successfully"
+    );
 
     logActivity(
       "agent_authenticated",
       contactDid,
       agentName,
-      JSON.stringify({ capabilities: certCapabilities, sessionId }),
+      JSON.stringify({ capabilities: certCapabilities, sessionId })
     );
 
     return {
@@ -213,7 +222,10 @@ export async function processChallenge(
     agent_did: undefined,
   });
 
-  logger.debug({ sessionId, state: challenger.state }, "Auth challenge in progress");
+  logger.debug(
+    { sessionId, state: challenger.state },
+    "Auth challenge in progress"
+  );
 
   return { done: false, responseData: certB64 };
 }

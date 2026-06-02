@@ -48,7 +48,8 @@ export async function POST(_req: NextRequest, { params }: Ctx) {
 
     const { id } = await params;
     const entry = getModelRegistryEntry(id);
-    if (!entry) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    if (!entry)
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
 
     // Normalise: strip trailing slash and any trailing /v1 so both
     // 'https://api.openai.com' and 'https://api.openai.com/v1' resolve correctly.
@@ -64,13 +65,17 @@ export async function POST(_req: NextRequest, { params }: Ctx) {
         signal: AbortSignal.timeout(5000),
       });
       if (res.ok) {
-        const data = await res.json() as { data?: { id: string }[] };
+        const data = (await res.json()) as { data?: { id: string }[] };
         const modelIds = data.data?.map((m) => m.id) ?? [];
         return NextResponse.json({ ok: true, models: modelIds });
       }
       // Non-OK but reachable (e.g. 401 bad key, 403 insufficient scope) — still reachable
       if (res.status !== 404) {
-        return NextResponse.json({ ok: false, error: `HTTP ${res.status}`, models: [] });
+        return NextResponse.json({
+          ok: false,
+          error: `HTTP ${res.status}`,
+          models: [],
+        });
       }
     } catch {
       // fall through to /health check
@@ -78,7 +83,10 @@ export async function POST(_req: NextRequest, { params }: Ctx) {
 
     // Fallback: /health (Ollama, vLLM, etc.)
     try {
-      const res = await fetch(`${baseUrl}/health`, { headers, signal: AbortSignal.timeout(5000) });
+      const res = await fetch(`${baseUrl}/health`, {
+        headers,
+        signal: AbortSignal.timeout(5000),
+      });
       return NextResponse.json({ ok: res.ok, models: [] });
     } catch {
       return NextResponse.json({ ok: false, error: "Endpoint unreachable" });

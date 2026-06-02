@@ -39,7 +39,7 @@ interface PendingRegistration {
   agent_name: string;
   status: string;
   requested_capabilities: string; // JSON array — what the agent requested
-  assigned_capabilities: string;  // JSON array — what admin assigned
+  assigned_capabilities: string; // JSON array — what admin assigned
   created_at: string;
 }
 

@@ -52,7 +52,9 @@ import { VaultysId } from "@vaultys/id";
  */
 export async function GET() {
   const shouldRegister = !UserDao.hasAnyUser();
-  console.log(`[p2p/connect] hasAnyUser=${!shouldRegister} → cert type=${shouldRegister ? "REGISTER" : "LOGIN"}`);
+  console.log(
+    `[p2p/connect] hasAnyUser=${!shouldRegister} → cert type=${shouldRegister ? "REGISTER" : "LOGIN"}`
+  );
   const cert = shouldRegister
     ? UserServerChannel.createRegistrationCertificate()
     : UserServerChannel.createConnectionCertificate();

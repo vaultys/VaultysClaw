@@ -7,6 +7,7 @@
 **Goal**: Working prototype. Agents register, receive tasks, execute, return results.
 
 ### Sprint 1.1: Basic Server & UI
+
 - [x] Monorepo structure with pnpm + Turbo
 - [x] Control plane UI shell (Next.js + React)
 - [ ] revamp for CLI only Agent controller
@@ -14,6 +15,7 @@
 - [ ] Dashboard shows connected agents
 
 ### Sprint 1.2: Agent Lifecycle
+
 - [ ] Agent registration endpoint
 - [ ] Health check heartbeat
 - [ ] Simple policy distribution
@@ -21,6 +23,7 @@
 - [ ] Result collection
 
 ### Sprint 1.3: User Testing
+
 - [ ] Documentation for first-time users
 - [ ] CLI tools for manual testing
 - [ ] Example agent configurations
@@ -31,18 +34,21 @@
 **Goal**: Trust model works. P2P verification functional.
 
 ### Sprint 2.1: VaultysId Integration
+
 - [ ] Integrate @vaultys/id library
 - [ ] Implement `signMessage()` in security.ts
 - [ ] Implement `verifySignature()` in security.ts
 - [ ] Generate identities at startup
 
 ### Sprint 2.2: Policy Signing
+
 - [ ] Control plane signs policies with VaultysId
 - [ ] Agents verify policy signatures
 - [ ] Policy enforcement in intent execution
 - [ ] Audit logging for all operations
 
 ### Sprint 2.3: Intent Verification
+
 - [ ] Control plane signs intents
 - [ ] Agents verify intent signatures
 - [ ] Result signing by agents
@@ -53,18 +59,21 @@
 **Goal**: Run multi-agent workflows. Rules-based task distribution.
 
 ### Sprint 3.1: Workflow Engine
+
 - [ ] Define workflow structure
 - [ ] Task dependencies
 - [ ] Conditional branches
 - [ ] Error handling & retries
 
 ### Sprint 3.2: Multi-Agent Coordination
+
 - [ ] Agent groups/teams
 - [ ] Message passing between agents
 - [ ] Load balancing
 - [ ] Failover handling
 
 ### Sprint 3.3: UI Improvements
+
 - [ ] Workflow visualization
 - [ ] Real-time execution logs
 - [ ] Performance metrics
@@ -75,18 +84,21 @@
 **Goal**: Data survives restarts. Historical audit trail.
 
 ### Sprint 4.1: SQLite Schema
+
 - [ ] Define schema for agents
 - [ ] Policies table
 - [ ] Execution history
 - [ ] Audit logs
 
 ### Sprint 4.2: Migrations & Backups
+
 - [ ] Migration system
 - [ ] Database backups
 - [ ] Data export/import
 - [ ] Cleanup/archival
 
 ### Sprint 4.3: Analytics
+
 - [ ] Basic dashboards
 - [ ] Performance metrics
 - [ ] Cost tracking (if using API LLMs)
@@ -97,24 +109,28 @@
 **Goal**: Production-ready enterprise features.
 
 ### Sprint 5.1: Scaling
+
 - [ ] Multi-control-plane support
 - [ ] Agent clustering
 - [ ] Load balancing
 - [ ] High availability
 
 ### Sprint 5.2: Capabilities & Restrictions
+
 - [ ] Fine-grained file access (directories)
 - [ ] API endpoint whitelisting
 - [ ] Rate limiting
 - [ ] Resource quotas
 
 ### Sprint 5.3: Integration & Extensibility
+
 - [ ] Webhook support
 - [ ] Custom action plugins
 - [ ] Third-party integrations (Slack, etc.)
 - [ ] API marketplace
 
 ### Sprint 5.4: Observability
+
 - [ ] Distributed tracing
 - [ ] Metrics collection
 - [ ] Alerting
@@ -136,6 +152,7 @@ These can be done in parallel:
 ## Technology Decisions
 
 ### Locked In (Use These)
+
 - pnpm workspaces
 - TypeScript strict mode
 - Next.js for control plane
@@ -145,6 +162,7 @@ These can be done in parallel:
 - VaultysId for security
 
 ### Flexible (Decide Later)
+
 - Testing framework (Jest, Vitest, Playwright)
 - Database (SQLite → PostgreSQL for prod)
 - Authentication (OAuth, API keys, etc.)
@@ -154,30 +172,35 @@ These can be done in parallel:
 ## Success Criteria
 
 ### Phase 1
+
 - [ ] Can register agent from UI
 - [ ] Agent receives task, executes, returns result
 - [ ] Dashboard shows agent status
 - [ ] Docs clear enough for new user
 
 ### Phase 2
+
 - [ ] P2P signature verification works
 - [ ] Policy enforcement blocks unauthorized actions
 - [ ] Audit log captures all operations
 - [ ] Security review passed
 
 ### Phase 3
+
 - [ ] Can define multi-step workflows
 - [ ] Multi-agent coordination works
 - [ ] UI shows workflow progress
 - [ ] Performance acceptable (< 100ms latency)
 
 ### Phase 4
+
 - [ ] Data persists across restarts
 - [ ] Can query execution history
 - [ ] Analytics dashboards work
 - [ ] Backup/restore tested
 
 ### Phase 5
+
 - [ ] Handles 1000+ agents
 - [ ] < 5s end-to-end execution time
 - [ ] 99.9% availability
@@ -186,6 +209,7 @@ These can be done in parallel:
 ## Iteration Cycle
 
 Each sprint should:
+
 1. **Plan** (1 day): What are we building?
 2. **Build** (2-3 days): Code it
 3. **Test** (1 day): Does it work?

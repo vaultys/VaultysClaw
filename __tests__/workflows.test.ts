@@ -248,7 +248,12 @@ describe("Workflow Database Operations", () => {
       const workflowId = saveWorkflow("Step Update", def, undefined);
       const runId = startWorkflowRun(workflowId);
 
-      const dbId = recordWorkflowStep(runId, "step-1", "@mock-agent", "pending");
+      const dbId = recordWorkflowStep(
+        runId,
+        "step-1",
+        "@mock-agent",
+        "pending"
+      );
       updateWorkflowStep(dbId, "success", { result: "test" }, undefined);
 
       const history = getWorkflowRunHistory(runId);
@@ -327,9 +332,7 @@ describe("Workflow Executor", () => {
         { id: "b", type: "agent", data: {} },
         { id: "c", type: "agent", data: {} }, // Disconnected
       ];
-      const edges: WorkflowEdge[] = [
-        { id: "e1", source: "a", target: "b" },
-      ];
+      const edges: WorkflowEdge[] = [{ id: "e1", source: "a", target: "b" }];
 
       const sorted = topologicalSort(nodes, edges);
 
@@ -365,10 +368,7 @@ describe("Workflow Executor", () => {
       };
 
       // Without setting output in context, these expressions evaluate differently
-      const result = evaluateCondition(
-        'true',
-        context
-      );
+      const result = evaluateCondition("true", context);
 
       expect(result).toBe(true);
     });
@@ -381,10 +381,7 @@ describe("Workflow Executor", () => {
       };
 
       // Simple boolean logic without context
-      const result = evaluateCondition(
-        "1 + 2 > 0",
-        context
-      );
+      const result = evaluateCondition("1 + 2 > 0", context);
 
       expect(result).toBe(true);
     });

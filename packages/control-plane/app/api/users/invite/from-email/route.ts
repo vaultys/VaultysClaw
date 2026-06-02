@@ -6,7 +6,12 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { getUserInvitation, claimUserInvitation, getSetting, getDb } from "@/lib/db";
+import {
+  getUserInvitation,
+  claimUserInvitation,
+  getSetting,
+  getDb,
+} from "@/lib/db";
 import { UserServerChannel } from "@/lib/user-server-channel";
 import { VaultysId } from "@vaultys/id";
 
@@ -57,7 +62,7 @@ import { VaultysId } from "@vaultys/id";
  */
 export async function POST(request: NextRequest) {
   try {
-    const { token } = await request.json() as { token?: string };
+    const { token } = (await request.json()) as { token?: string };
 
     if (!token) {
       return NextResponse.json({ error: "Token required" }, { status: 400 });
@@ -65,19 +70,25 @@ export async function POST(request: NextRequest) {
 
     const invitation = getUserInvitation(token);
     if (!invitation) {
-      return NextResponse.json({ error: "Invitation not found" }, { status: 404 });
+      return NextResponse.json(
+        { error: "Invitation not found" },
+        { status: 404 }
+      );
     }
 
     const expiresAt = new Date(invitation.expires_at);
     if (expiresAt < new Date()) {
-      return NextResponse.json({ error: "Invitation expired" }, { status: 404 });
+      return NextResponse.json(
+        { error: "Invitation expired" },
+        { status: 404 }
+      );
     }
 
     // Get the unclaimed user ID for this email
     const db = getDb();
-    const user = db.prepare(
-      "SELECT id FROM users WHERE email = ? AND did IS NULL"
-    ).get(invitation.email) as { id: string } | undefined;
+    const user = db
+      .prepare("SELECT id FROM users WHERE email = ? AND did IS NULL")
+      .get(invitation.email) as { id: string } | undefined;
 
     // Create registration certificate with pendingUserId in metadata
     const cert = UserServerChannel.createRegistrationCertificate({
@@ -107,6 +118,9 @@ export async function POST(request: NextRequest) {
     });
   } catch (err) {
     console.error("Email invite QR generation error:", err);
-    return NextResponse.json({ error: "Failed to generate QR" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to generate QR" },
+      { status: 500 }
+    );
   }
 }

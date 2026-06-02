@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getWorkflow, updateWorkflow, deleteWorkflow, type WorkflowDefinition } from "@/lib/db";
+import {
+  getWorkflow,
+  updateWorkflow,
+  deleteWorkflow,
+  type WorkflowDefinition,
+} from "@/lib/db";
 import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
 
 type Params = { id: string };
@@ -44,7 +49,7 @@ type Params = { id: string };
  */
 export async function GET(
   _request: NextRequest,
-  { params }: { params: Promise<Params> },
+  { params }: { params: Promise<Params> }
 ) {
   try {
     const auth = await getAuthContext(_request);
@@ -54,10 +59,14 @@ export async function GET(
     const workflow = getWorkflow(id);
 
     if (!workflow) {
-      return NextResponse.json({ error: "Workflow not found" }, { status: 404 });
+      return NextResponse.json(
+        { error: "Workflow not found" },
+        { status: 404 }
+      );
     }
 
-    if (workflow.realm_id && !auth.canAccessRealm(workflow.realm_id)) return forbidden();
+    if (workflow.realm_id && !auth.canAccessRealm(workflow.realm_id))
+      return forbidden();
 
     return NextResponse.json({
       success: true,
@@ -74,7 +83,10 @@ export async function GET(
     });
   } catch (err) {
     console.error("GET /api/workflows/[id] error:", err);
-    return NextResponse.json({ error: "Failed to fetch workflow" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to fetch workflow" },
+      { status: 500 }
+    );
   }
 }
 
@@ -135,7 +147,7 @@ export async function GET(
  */
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: Promise<Params> },
+  { params }: { params: Promise<Params> }
 ) {
   try {
     const auth = await getAuthContext(request);
@@ -144,10 +156,14 @@ export async function PATCH(
     const { id } = await params;
     const workflow = getWorkflow(id);
     if (!workflow) {
-      return NextResponse.json({ error: "Workflow not found" }, { status: 404 });
+      return NextResponse.json(
+        { error: "Workflow not found" },
+        { status: 404 }
+      );
     }
 
-    if (workflow.realm_id && !auth.canAdminRealm(workflow.realm_id)) return forbidden();
+    if (workflow.realm_id && !auth.canAdminRealm(workflow.realm_id))
+      return forbidden();
     if (!workflow.realm_id && !auth.isGlobalAdmin) return forbidden();
 
     const body = await request.json();
@@ -160,8 +176,11 @@ export async function PATCH(
 
     if (!name && !definition && !description && !realmId) {
       return NextResponse.json(
-        { error: "At least one of name, definition, description, or realmId is required" },
-        { status: 400 },
+        {
+          error:
+            "At least one of name, definition, description, or realmId is required",
+        },
+        { status: 400 }
       );
     }
 
@@ -170,7 +189,10 @@ export async function PATCH(
     return NextResponse.json({ success: true, id });
   } catch (err) {
     console.error("PATCH /api/workflows/[id] error:", err);
-    return NextResponse.json({ error: "Failed to update workflow" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to update workflow" },
+      { status: 500 }
+    );
   }
 }
 
@@ -214,7 +236,7 @@ export async function PATCH(
  */
 export async function DELETE(
   _request: NextRequest,
-  { params }: { params: Promise<Params> },
+  { params }: { params: Promise<Params> }
 ) {
   try {
     const auth = await getAuthContext(_request);
@@ -223,10 +245,14 @@ export async function DELETE(
     const { id } = await params;
     const workflow = getWorkflow(id);
     if (!workflow) {
-      return NextResponse.json({ error: "Workflow not found" }, { status: 404 });
+      return NextResponse.json(
+        { error: "Workflow not found" },
+        { status: 404 }
+      );
     }
 
-    if (workflow.realm_id && !auth.canAdminRealm(workflow.realm_id)) return forbidden();
+    if (workflow.realm_id && !auth.canAdminRealm(workflow.realm_id))
+      return forbidden();
     if (!workflow.realm_id && !auth.isGlobalAdmin) return forbidden();
 
     deleteWorkflow(id);
@@ -234,6 +260,9 @@ export async function DELETE(
     return NextResponse.json({ success: true, id });
   } catch (err) {
     console.error("DELETE /api/workflows/[id] error:", err);
-    return NextResponse.json({ error: "Failed to delete workflow" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to delete workflow" },
+      { status: 500 }
+    );
   }
 }

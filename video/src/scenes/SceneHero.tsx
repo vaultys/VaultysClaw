@@ -1,5 +1,13 @@
 import React from "react";
-import { AbsoluteFill, Img, interpolate, spring, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
+import {
+  AbsoluteFill,
+  Img,
+  interpolate,
+  spring,
+  staticFile,
+  useCurrentFrame,
+  useVideoConfig,
+} from "remotion";
 import { BRAND, MONO, useSceneOpacity, useSlideUp } from "../helpers";
 
 const TOTAL = 300;
@@ -14,19 +22,30 @@ export const SceneHero: React.FC = () => {
   // "Give your company"
   const line1 = useSlideUp(25, 25);
   // "a soul."
-  const line2Spring = spring({ frame: frame - 60, fps, config: { damping: 12, stiffness: 70 } });
-  const line2Opacity = interpolate(frame, [60, 80], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const line2Spring = spring({
+    frame: frame - 60,
+    fps,
+    config: { damping: 12, stiffness: 70 },
+  });
+  const line2Opacity = interpolate(frame, [60, 80], [0, 1], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
   const line2Scale = interpolate(line2Spring, [0, 1], [0.9, 1]);
   // Subtitle
   const sub = useSlideUp(100, 25);
   // Accent line
-  const accentWidth = interpolate(frame, [130, 180], [0, 340], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const accentWidth = interpolate(frame, [130, 180], [0, 340], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
 
   return (
     <AbsoluteFill
       style={{
         opacity: sceneOpacity,
-        background: "linear-gradient(135deg, #0d1117 0%, #0f172a 55%, #1a0533 100%)",
+        background:
+          "linear-gradient(135deg, #0d1117 0%, #0f172a 55%, #1a0533 100%)",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
@@ -52,12 +71,23 @@ export const SceneHero: React.FC = () => {
         }}
       />
 
-      <div style={{ textAlign: "center", padding: "0 80px", position: "relative" }}>
+      <div
+        style={{ textAlign: "center", padding: "0 80px", position: "relative" }}
+      >
         {/* Logo */}
-        <div style={{ marginBottom: 36, opacity: badge.opacity, transform: `translateY(${badge.y}px)` }}>
+        <div
+          style={{
+            marginBottom: 36,
+            opacity: badge.opacity,
+            transform: `translateY(${badge.y}px)`,
+          }}
+        >
           <Img
             src={staticFile("vaultys-logo.svg")}
-            style={{ height: 56, filter: "drop-shadow(0 0 16px rgba(124,58,237,0.45))" }}
+            style={{
+              height: 56,
+              filter: "drop-shadow(0 0 16px rgba(124,58,237,0.45))",
+            }}
           />
         </div>
 
@@ -76,7 +106,15 @@ export const SceneHero: React.FC = () => {
             transform: `translateY(${badge.y}px)`,
           }}
         >
-          <span style={{ fontSize: 30, fontWeight: 700, color: "#a78bfa", letterSpacing: "0.1em", textTransform: "uppercase" }}>
+          <span
+            style={{
+              fontSize: 30,
+              fontWeight: 700,
+              color: "#a78bfa",
+              letterSpacing: "0.1em",
+              textTransform: "uppercase",
+            }}
+          >
             Enterprise AI Orchestration
           </span>
         </div>
@@ -107,7 +145,8 @@ export const SceneHero: React.FC = () => {
             transform: `scale(${line2Scale})`,
             marginBottom: 56,
             letterSpacing: "-0.03em",
-            background: "linear-gradient(135deg, #60a5fa 0%, #a78bfa 50%, #f472b6 100%)",
+            background:
+              "linear-gradient(135deg, #60a5fa 0%, #a78bfa 50%, #f472b6 100%)",
             WebkitBackgroundClip: "text",
             WebkitTextFillColor: "transparent",
             backgroundClip: "text",

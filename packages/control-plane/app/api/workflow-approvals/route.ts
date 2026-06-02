@@ -53,6 +53,9 @@ export async function GET(request: Request) {
     return NextResponse.json({ approvals });
   } catch (err) {
     console.error("GET /api/workflow-approvals error:", err);
-    return NextResponse.json({ error: "Failed to fetch approvals" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to fetch approvals" },
+      { status: 500 }
+    );
   }
 }

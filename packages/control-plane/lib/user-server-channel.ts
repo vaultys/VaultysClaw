@@ -14,7 +14,9 @@ const registrationKey = (key: string) =>
   crypto.hash("sha256", Buffer.from(`vaultys-${key}-server`)).toString("hex");
 
 const connectionKey = (key: string) =>
-  crypto.hash("sha256", Buffer.from(`connecting-${key}-vaultys`)).toString("hex");
+  crypto
+    .hash("sha256", Buffer.from(`connecting-${key}-vaultys`))
+    .toString("hex");
 
 const verifyProtocol = (challenger: Challenger) => {
   const { protocol, service } = challenger.getContext();
@@ -27,7 +29,10 @@ const getErrorMessage = (error: unknown): string => {
   return "Unknown error";
 };
 
-const handleError = async (error: string, cert?: Certificate): Promise<Uint8Array> => {
+const handleError = async (
+  error: string,
+  cert?: Certificate
+): Promise<Uint8Array> => {
   if (cert) {
     CertificateDao.update(cert.id, {
       ...cert,
@@ -59,7 +64,9 @@ const registerUser = (contact: VaultysId, pendingUserId?: string): boolean => {
   if (pendingUserId) {
     const pending = UserDao.getById(pendingUserId);
     if (pending && !pending.claimed_at && !pending.did) {
-      console.log(`[registerUser] claiming unclaimed user id=${pendingUserId} → ${did}`);
+      console.log(
+        `[registerUser] claiming unclaimed user id=${pendingUserId} → ${did}`
+      );
       UserDao.claimEntraUser(pendingUserId, did, publicKey);
       return true;
     }
@@ -77,7 +84,9 @@ const loginUser = (contact: VaultysId): boolean => {
   const user = UserDao.getByDid(did);
   console.log(`[loginUser] did=${did} found=${JSON.stringify(user)}`);
   if (!user) {
-    console.warn(`[loginUser] FAILED — DID not in users table. Did you register with a different wallet, or was the DB not reset between runs?`);
+    console.warn(
+      `[loginUser] FAILED — DID not in users table. Did you register with a different wallet, or was the DB not reset between runs?`
+    );
   }
   return user !== null;
 };
@@ -88,7 +97,9 @@ const handleSuccess = (cert: Certificate, challenger: Challenger): boolean => {
   const meta = JSON.parse(cert.metadata ?? "{}") as Record<string, unknown>;
   const deviceType = meta.deviceType as string | undefined;
 
-  console.log(`[handleSuccess] cert.id=${cert.id} cert.register=${cert.register} deviceType=${deviceType} walletDid=${did}`);
+  console.log(
+    `[handleSuccess] cert.id=${cert.id} cert.register=${cert.register} deviceType=${deviceType} walletDid=${did}`
+  );
 
   // Browser / extension devices are authenticating themselves (bastion flow).
   // They are not "users" — just store their DID in the cert so listenBastion
@@ -96,7 +107,9 @@ const handleSuccess = (cert: Certificate, challenger: Challenger): boolean => {
   if (deviceType === "BROWSER" || deviceType === "BROWSER_EXTENSION") {
     meta.did = did;
     cert.metadata = JSON.stringify(meta);
-    console.log(`[handleSuccess] browser device — returning true without touching users table`);
+    console.log(
+      `[handleSuccess] browser device — returning true without touching users table`
+    );
     return true;
   }
 
@@ -104,10 +117,14 @@ const handleSuccess = (cert: Certificate, challenger: Challenger): boolean => {
   const pendingUserId = meta.pendingUserId as string | undefined;
   let ok: boolean;
   if (cert.register) {
-    console.log(`[handleSuccess] register=1 → calling registerUser (pendingUserId=${pendingUserId})`);
+    console.log(
+      `[handleSuccess] register=1 → calling registerUser (pendingUserId=${pendingUserId})`
+    );
     ok = registerUser(contact, pendingUserId);
   } else {
-    console.log(`[handleSuccess] register=0 → calling loginUser (hasAnyUser at cert creation time was true)`);
+    console.log(
+      `[handleSuccess] register=0 → calling loginUser (hasAnyUser at cert creation time was true)`
+    );
     ok = loginUser(contact);
   }
   if (ok) {
@@ -118,8 +135,12 @@ const handleSuccess = (cert: Certificate, challenger: Challenger): boolean => {
   return ok;
 };
 
-export const parseUserAgent = (userAgent: string): { browser?: string; os?: string } => {
-  const browser = new RegExp(/(Chrome|Firefox|Safari|Edge|Opera)/i).exec(userAgent)?.[1];
+export const parseUserAgent = (
+  userAgent: string
+): { browser?: string; os?: string } => {
+  const browser = new RegExp(/(Chrome|Firefox|Safari|Edge|Opera)/i).exec(
+    userAgent
+  )?.[1];
   let os: string | undefined;
   if (/Windows/i.test(userAgent)) os = "Windows";
   else if (/Mac OS X/i.test(userAgent)) os = "macOS";
@@ -130,7 +151,9 @@ export const parseUserAgent = (userAgent: string): { browser?: string; os?: stri
 };
 
 export class UserServerChannel {
-  static createRegistrationCertificate(metadata?: Record<string, unknown>): Certificate {
+  static createRegistrationCertificate(
+    metadata?: Record<string, unknown>
+  ): Certificate {
     const key = crypto.randomBytes(32).toString("hex");
     const registration = registrationKey(key);
     const connection = connectionKey(key);
@@ -145,7 +168,9 @@ export class UserServerChannel {
     });
   }
 
-  static createConnectionCertificate(metadata?: Record<string, unknown>): Certificate {
+  static createConnectionCertificate(
+    metadata?: Record<string, unknown>
+  ): Certificate {
     const key = crypto.randomBytes(32).toString("hex");
     const registration = registrationKey(key);
     const connection = connectionKey(key);
@@ -164,7 +189,7 @@ export class UserServerChannel {
     browserVid: string,
     ip?: string,
     userAgent?: string,
-    deviceType: "BROWSER" | "BROWSER_EXTENSION" = "BROWSER",
+    deviceType: "BROWSER" | "BROWSER_EXTENSION" = "BROWSER"
   ): Promise<{ key: string } | undefined> {
     const { browser, os } = userAgent ? parseUserAgent(userAgent) : {};
     const cert = UserServerChannel.createConnectionCertificate({
@@ -180,13 +205,20 @@ export class UserServerChannel {
     return { key: encryptedKey };
   }
 
-  static listenBastion(token: string): { status: number; browserDid?: string } | null {
+  static listenBastion(
+    token: string
+  ): { status: number; browserDid?: string } | null {
     if (!token) return null;
     const cert = CertificateDao.getByConnection(token);
     if (!cert) return null;
     if (cert.status === 2) {
-      const metadata: Record<string, unknown> = JSON.parse(cert.metadata ?? "{}");
-      return { status: cert.status, browserDid: metadata.id as string | undefined };
+      const metadata: Record<string, unknown> = JSON.parse(
+        cert.metadata ?? "{}"
+      );
+      return {
+        status: cert.status,
+        browserDid: metadata.id as string | undefined,
+      };
     }
     return { status: cert.status };
   }
@@ -199,7 +231,8 @@ export class UserServerChannel {
 
     const uintkey = Buffer.from(cert.key, "hex");
     const serverSecret = getSetting("serverSecret");
-    if (!serverSecret) return handleError("Server identity not initialized", cert);
+    if (!serverSecret)
+      return handleError("Server identity not initialized", cert);
 
     const vid = VaultysId.fromSecret(serverSecret, "base64");
     const challenger = new Challenger(vid.toVersion(1));
@@ -225,7 +258,10 @@ export class UserServerChannel {
     cert.data = certificate.toString("base64");
 
     if (challenger.hasFailed()) {
-      return handleError(challenger.challenge?.error ?? "Challenge failed", cert);
+      return handleError(
+        challenger.challenge?.error ?? "Challenge failed",
+        cert
+      );
     }
 
     if (!verifyProtocol(challenger)) {
@@ -238,7 +274,11 @@ export class UserServerChannel {
       }
     }
 
-    CertificateDao.update(cert.id, { status: cert.status, data: cert.data, metadata: cert.metadata });
+    CertificateDao.update(cert.id, {
+      status: cert.status,
+      data: cert.data,
+      metadata: cert.metadata,
+    });
     return CryptoChannel.encrypt(certificate, uintkey);
   }
 
@@ -270,7 +310,9 @@ export class UserServerChannel {
     // polyfilled at server startup via lib/webrtc-polyfill.ts.
     // The API route returns immediately; the session lives in the Node.js event loop.
     (async () => {
-      console.log(`[P2P] session started for cert.id=${cert.id} key=${cert.key.slice(0, 8)}...`);
+      console.log(
+        `[P2P] session started for cert.id=${cert.id} key=${cert.key.slice(0, 8)}...`
+      );
       try {
         // Block until the wallet connects via PeerJS relay
         console.log(`[P2P] waiting for wallet to connect...`);
@@ -287,47 +329,66 @@ export class UserServerChannel {
         const vid = VaultysId.fromSecret(serverSecret, "base64");
         console.log(`[P2P] server DID=${vid.toVersion(1).did}`);
         const challenger = new Challenger(vid.toVersion(1));
-        console.log(`[P2P] challenger created, initial state=${challenger.state}`);
+        console.log(
+          `[P2P] challenger created, initial state=${challenger.state}`
+        );
 
         // P2P Challenger exchange:
         //   round 0: wallet sends challenge cert → server updates → server sends back
         //   round 1: wallet sends final cert → server updates → protocol complete
         for (let round = 0; round < 4; round++) {
-          console.log(`[P2P] round ${round}: waiting for wallet cert (challenger.state=${challenger.state})`);
+          console.log(
+            `[P2P] round ${round}: waiting for wallet cert (challenger.state=${challenger.state})`
+          );
           const walletCert = await channel.receive();
-          console.log(`[P2P] round ${round}: received ${walletCert.length} bytes`);
+          console.log(
+            `[P2P] round ${round}: received ${walletCert.length} bytes`
+          );
 
           try {
             await challenger.update(walletCert);
           } catch (updateErr) {
-            console.error(`[P2P] round ${round}: challenger.update() threw:`, updateErr);
+            console.error(
+              `[P2P] round ${round}: challenger.update() threw:`,
+              updateErr
+            );
             CertificateDao.update(cert.id, { status: -2 });
             break;
           }
 
           const ctx = challenger.getContext();
-          console.log(`[P2P] round ${round}: challenger state after update=${challenger.state}, protocol=${ctx.protocol}, service=${ctx.service}`);
+          console.log(
+            `[P2P] round ${round}: challenger state after update=${challenger.state}, protocol=${ctx.protocol}, service=${ctx.service}`
+          );
 
           cert.data = challenger.getCertificate().toString("base64");
           cert.status = challenger.state;
 
           if (challenger.hasFailed()) {
-            console.error(`[P2P] round ${round}: challenger.hasFailed() — error=${(challenger as unknown as { challenge?: { error?: string } }).challenge?.error}`);
+            console.error(
+              `[P2P] round ${round}: challenger.hasFailed() — error=${(challenger as unknown as { challenge?: { error?: string } }).challenge?.error}`
+            );
             CertificateDao.update(cert.id, { status: -2, data: cert.data });
             break;
           }
 
           const protocolOk = verifyProtocol(challenger);
-          console.log(`[P2P] round ${round}: verifyProtocol=${protocolOk} (expected protocol=p2p, service=register|auth, got protocol=${ctx.protocol}, service=${ctx.service})`);
+          console.log(
+            `[P2P] round ${round}: verifyProtocol=${protocolOk} (expected protocol=p2p, service=register|auth, got protocol=${ctx.protocol}, service=${ctx.service})`
+          );
           if (!protocolOk) {
             CertificateDao.update(cert.id, { status: -2, data: cert.data });
             break;
           }
 
           if (challenger.isComplete()) {
-            console.log(`[P2P] round ${round}: protocol COMPLETE — calling handleSuccess`);
+            console.log(
+              `[P2P] round ${round}: protocol COMPLETE — calling handleSuccess`
+            );
             const ok = handleSuccess(cert, challenger);
-            console.log(`[P2P] round ${round}: handleSuccess=${ok}, metadata=${cert.metadata}`);
+            console.log(
+              `[P2P] round ${round}: handleSuccess=${ok}, metadata=${cert.metadata}`
+            );
             CertificateDao.update(cert.id, {
               status: ok ? 2 : -2,
               data: cert.data,
@@ -338,7 +399,9 @@ export class UserServerChannel {
 
           // Not yet complete — send server cert and wait for next round
           const serverCert = challenger.getCertificate();
-          console.log(`[P2P] round ${round}: sending server cert (${serverCert.length} bytes)`);
+          console.log(
+            `[P2P] round ${round}: sending server cert (${serverCert.length} bytes)`
+          );
           await channel.send(serverCert);
         }
       } catch (err) {
@@ -346,7 +409,7 @@ export class UserServerChannel {
         CertificateDao.update(cert.id, { status: -2 });
       } finally {
         console.log(`[P2P] session ending for cert.id=${cert.id}`);
-        await channel.close().catch(() => { });
+        await channel.close().catch(() => {});
       }
     })();
 

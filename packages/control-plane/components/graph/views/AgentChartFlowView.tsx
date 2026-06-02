@@ -22,22 +22,54 @@ const H_GAP = 40;
 const V_GAP = 120;
 const UNIT = NODE_W + H_GAP;
 
-const ROLE_STYLE: Record<string, { bg: string; border: string; text: string }> = {
-  owner: { bg: "bg-yellow-900/30 dark:bg-yellow-900/30", border: "border-yellow-600 dark:border-yellow-700", text: "text-yellow-700 dark:text-yellow-400" },
-  admin: { bg: "bg-blue-900/30 dark:bg-blue-900/30", border: "border-blue-600 dark:border-blue-700", text: "text-blue-700 dark:text-blue-400" },
-  manager: { bg: "bg-indigo-900/30 dark:bg-indigo-900/30", border: "border-indigo-600 dark:border-indigo-700", text: "text-indigo-700 dark:text-indigo-400" },
-  operator: { bg: "bg-emerald-900/30 dark:bg-emerald-900/30", border: "border-emerald-600 dark:border-emerald-700", text: "text-emerald-700 dark:text-emerald-400" },
-  member: { bg: "bg-slate-900/30 dark:bg-slate-900/30", border: "border-slate-600 dark:border-slate-700", text: "text-slate-700 dark:text-slate-400" },
-};
+const ROLE_STYLE: Record<string, { bg: string; border: string; text: string }> =
+  {
+    owner: {
+      bg: "bg-warning-900/30 dark:bg-warning-900/30",
+      border: "border-warning-600 dark:border-warning-700",
+      text: "text-warning-700 dark:text-warning-400",
+    },
+    admin: {
+      bg: "bg-primary-900/30 dark:bg-primary-900/30",
+      border: "border-primary-600 dark:border-primary-700",
+      text: "text-primary-700 dark:text-primary-400",
+    },
+    manager: {
+      bg: "bg-primary-900/30 dark:bg-primary-900/30",
+      border: "border-primary-600 dark:border-primary-700",
+      text: "text-primary-700 dark:text-primary-400",
+    },
+    operator: {
+      bg: "bg-success-900/30 dark:bg-success-900/30",
+      border: "border-success-600 dark:border-success-700",
+      text: "text-success-700 dark:text-success-400",
+    },
+    member: {
+      bg: "bg-neutral-900/30 dark:bg-neutral-900/30",
+      border: "border-neutral-600 dark:border-neutral-700",
+      text: "text-neutral-700 dark:text-neutral-400",
+    },
+  };
 
-const AGENT_STYLE = { bg: "bg-purple-900/30 dark:bg-purple-900/30", border: "border-purple-600 dark:border-purple-700", text: "text-purple-700 dark:text-purple-400" };
+const AGENT_STYLE = {
+  bg: "bg-secondary-900/30 dark:bg-secondary-900/30",
+  border: "border-secondary-600 dark:border-secondary-700",
+  text: "text-secondary-700 dark:text-secondary-400",
+};
 
 function roleStyle(role?: string) {
   return ROLE_STYLE[role ?? "member"] ?? ROLE_STYLE.member;
 }
 
 function initials(label: string): string {
-  return label.split(/\s+/).map((w) => w[0] ?? "").join("").toUpperCase().slice(0, 2) || "?";
+  return (
+    label
+      .split(/\s+/)
+      .map((w) => w[0] ?? "")
+      .join("")
+      .toUpperCase()
+      .slice(0, 2) || "?"
+  );
 }
 
 function truncate(s: string, max: number) {
@@ -58,23 +90,23 @@ const AgentUserNode: React.FC<NodeProps<NodeData>> = ({ data, selected }) => {
   const isAgent = data.type === "agent";
   const style = isAgent ? AGENT_STYLE : roleStyle(data.role);
   const bgColor = isAgent
-    ? "bg-purple-600"
+    ? "bg-secondary-600"
     : data.role === "owner"
-      ? "bg-yellow-600"
+      ? "bg-warning-600"
       : data.role === "admin"
-        ? "bg-blue-600"
+        ? "bg-primary-600"
         : data.role === "manager"
-          ? "bg-indigo-600"
+          ? "bg-primary-600"
           : data.role === "operator"
-            ? "bg-emerald-600"
-            : "bg-slate-600";
+            ? "bg-success-600"
+            : "bg-neutral-600";
 
   return (
     <div
       className={`
         px-3 py-2 rounded-lg border-2 cursor-pointer
         ${style.bg} ${style.border}
-        ${selected ? "ring-2 ring-indigo-500" : ""}
+        ${selected ? "ring-2 ring-primary-500" : ""}
         transition-all hover:shadow-lg
       `}
       style={{ width: NODE_W }}
@@ -82,15 +114,26 @@ const AgentUserNode: React.FC<NodeProps<NodeData>> = ({ data, selected }) => {
       <Handle type="target" position={Position.Top} />
 
       <div className="flex items-start gap-2">
-        <div className={`w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0 ${bgColor}`}>
+        <div
+          className={`w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0 ${bgColor}`}
+        >
           {initials(data.label)}
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-xs font-semibold text-foreground truncate">{truncate(data.label, 18)}</p>
-          {data.role && <p className={`text-xs font-medium ${style.text}`}>{isAgent ? "Agent" : data.role}</p>}
+          <p className="text-xs font-semibold text-foreground truncate">
+            {truncate(data.label, 18)}
+          </p>
+          {data.role && (
+            <p className={`text-xs font-medium ${style.text}`}>
+              {isAgent ? "Agent" : data.role}
+            </p>
+          )}
         </div>
         {data.status === "online" && (
-          <div className="w-2 h-2 rounded-full bg-green-500 flex-shrink-0 mt-1" title="Online" />
+          <div
+            className="w-2 h-2 rounded-full bg-success-500 flex-shrink-0 mt-1"
+            title="Online"
+          />
         )}
       </div>
 
@@ -106,7 +149,10 @@ interface ComputedPosition {
   depth: number;
 }
 
-function computeLayout(data: GraphData, targetAgentId?: string): { nodes: Node[]; edges: Edge[] } {
+function computeLayout(
+  data: GraphData,
+  targetAgentId?: string
+): { nodes: Node[]; edges: Edge[] } {
   const flowNodes: Node[] = [];
   const flowEdges: Edge[] = [];
 
@@ -154,7 +200,8 @@ function computeLayout(data: GraphData, targetAgentId?: string): { nodes: Node[]
     let countBelow = 0;
 
     for (const edge of data.edges) {
-      if (!visibleNodeIds.has(edge.source) || !visibleNodeIds.has(edge.target)) continue;
+      if (!visibleNodeIds.has(edge.source) || !visibleNodeIds.has(edge.target))
+        continue;
 
       if (edge.target === targetAgentId) {
         // User → Agent (grant/delegation): user above
@@ -197,7 +244,9 @@ function computeLayout(data: GraphData, targetAgentId?: string): { nodes: Node[]
   } else {
     // ── FULL VIEW: grid layout for all agents and users ──
     // Separate agents and users
-    const agentIds = Array.from(visibleNodeIds).filter((id) => agentMap.has(id));
+    const agentIds = Array.from(visibleNodeIds).filter((id) =>
+      agentMap.has(id)
+    );
     const userIds = Array.from(visibleNodeIds).filter((id) => userMap.has(id));
 
     const COLS = Math.ceil(Math.sqrt(agentIds.length)) || 1;
@@ -233,15 +282,26 @@ function computeLayout(data: GraphData, targetAgentId?: string): { nodes: Node[]
 
       if (connectedAgents.length > 0) {
         // Average position of connected agents
-        const avgX = connectedAgents.reduce((sum, agentId) => sum + (agentPositions.get(agentId)?.x ?? 0), 0) / connectedAgents.length;
-        const avgDepth = connectedAgents.reduce((sum, agentId) => sum + (agentPositions.get(agentId)?.depth ?? 0), 0) / connectedAgents.length;
+        const avgX =
+          connectedAgents.reduce(
+            (sum, agentId) => sum + (agentPositions.get(agentId)?.x ?? 0),
+            0
+          ) / connectedAgents.length;
+        const avgDepth =
+          connectedAgents.reduce(
+            (sum, agentId) => sum + (agentPositions.get(agentId)?.depth ?? 0),
+            0
+          ) / connectedAgents.length;
         // Place user below its agents
         positionMap.set(userId, { x: avgX + UNIT / 2, depth: avgDepth + 1 });
       } else {
         // Place disconnected users in the last row
         const idx = userIds.indexOf(userId);
-        const col = (idx % COLS);
-        positionMap.set(userId, { x: (col - (COLS - 1) / 2) * UNIT, depth: ROWS + 1 });
+        const col = idx % COLS;
+        positionMap.set(userId, {
+          x: (col - (COLS - 1) / 2) * UNIT,
+          depth: ROWS + 1,
+        });
       }
     });
   }
@@ -270,7 +330,8 @@ function computeLayout(data: GraphData, targetAgentId?: string): { nodes: Node[]
 
   // Create edges
   for (const edge of data.edges) {
-    if (!visibleNodeIds.has(edge.source) || !visibleNodeIds.has(edge.target)) continue;
+    if (!visibleNodeIds.has(edge.source) || !visibleNodeIds.has(edge.target))
+      continue;
     flowEdges.push({
       id: edge.source + "->" + edge.target,
       source: edge.source,
@@ -293,8 +354,16 @@ interface Props {
   targetAgentId?: string; // If provided, show focused view of this agent + their direct relationships
 }
 
-export default function AgentChartFlowView({ data, height, onNodeClick, targetAgentId }: Props) {
-  const { nodes: layoutNodes, edges: layoutEdges } = useMemo(() => computeLayout(data, targetAgentId), [data, targetAgentId]);
+export default function AgentChartFlowView({
+  data,
+  height,
+  onNodeClick,
+  targetAgentId,
+}: Props) {
+  const { nodes: layoutNodes, edges: layoutEdges } = useMemo(
+    () => computeLayout(data, targetAgentId),
+    [data, targetAgentId]
+  );
   const nodeTypes = useMemo(() => ({ "agent-user": AgentUserNode }), []);
 
   const handleNodeClick = useCallback(
@@ -316,25 +385,26 @@ export default function AgentChartFlowView({ data, height, onNodeClick, targetAg
         nodeTypes={nodeTypes}
         fitView
       >
-        <Background color="#64748b" gap={16} />
+        <Background color="rgb(var(--neutral-500))" gap={16} />
         <Controls className="react-flow-controls" />
         <MiniMap
           className="react-flow-minimap"
           nodeColor={(node: Node) => {
             const type = node.data?.type;
-            if (type === "agent") return "#a855f7";
+            if (type === "agent") return "rgb(var(--secondary-500))";
             const role = node.data?.role;
-            if (role === "owner") return "#ca8a04";
-            if (role === "admin") return "#2563eb";
-            if (role === "manager") return "#4f46e5";
-            if (role === "operator") return "#059669";
-            return "#64748b";
+            if (role === "owner") return "rgb(var(--warning-600))";
+            if (role === "admin") return "rgb(var(--primary-600))";
+            if (role === "manager") return "rgb(var(--primary-500))";
+            if (role === "operator") return "rgb(var(--success-600))";
+            return "rgb(var(--neutral-500))";
           }}
           style={{
             backgroundColor: "var(--background-50)",
             border: "1px solid var(--neutral-200)",
           }}
-          zoomable pannable
+          zoomable
+          pannable
         />
       </ReactFlow>
       <style>{`

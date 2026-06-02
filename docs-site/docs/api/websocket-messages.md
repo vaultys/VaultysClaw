@@ -16,45 +16,45 @@ Capabilities and resource limits are embedded in the **VaultysId Challenger cert
 
 ## Agent → Control Plane
 
-| Type | When sent | Key fields |
-|---|---|---|
-| `register` | Immediately after WS connect (new agent) | `name`, `publicKey`, `capabilities` |
-| `result` | After executing an intent | `intentId`, `status`, `output`, `error` |
-| `heartbeat` | Every 30 seconds | `uptime`, `memory`, `activeLlm`, `tokenUsage` |
-| `tool_approval_request` | Agent needs human approval before using a tool | `requestId`, `toolName`, `args`, `conversationId` |
-| `chat_message` | Streaming chat request from control plane UI | `conversationId`, `messages` |
-| `chat_response` | Streaming LLM response chunk | `conversationId`, `chunk`, `done`, `error`, `errorCode` |
-| `task_status` | Task queue status update | `taskId`, `status`, `result`, `error`, `action`, `retryCount` |
-| `get_chat_sessions` | Request list of chat sessions | `limit` |
-| `get_chat_history` | Request message history for a session | `sessionId` |
+| Type                    | When sent                                      | Key fields                                                    |
+| ----------------------- | ---------------------------------------------- | ------------------------------------------------------------- |
+| `register`              | Immediately after WS connect (new agent)       | `name`, `publicKey`, `capabilities`                           |
+| `result`                | After executing an intent                      | `intentId`, `status`, `output`, `error`                       |
+| `heartbeat`             | Every 30 seconds                               | `uptime`, `memory`, `activeLlm`, `tokenUsage`                 |
+| `tool_approval_request` | Agent needs human approval before using a tool | `requestId`, `toolName`, `args`, `conversationId`             |
+| `chat_message`          | Streaming chat request from control plane UI   | `conversationId`, `messages`                                  |
+| `chat_response`         | Streaming LLM response chunk                   | `conversationId`, `chunk`, `done`, `error`, `errorCode`       |
+| `task_status`           | Task queue status update                       | `taskId`, `status`, `result`, `error`, `action`, `retryCount` |
+| `get_chat_sessions`     | Request list of chat sessions                  | `limit`                                                       |
+| `get_chat_history`      | Request message history for a session          | `sessionId`                                                   |
 
 ---
 
 ## Control Plane → Agent
 
-| Type | When sent | Key fields |
-|---|---|---|
-| `auth_challenge` | Start (or restart) of auth handshake | `sessionId`, `data` (base64 cert) |
-| `auth_complete` | Auth handshake succeeded | `agentId`, `did`, `capabilities` |
-| `auth_failed` | Auth handshake failed | `reason` |
-| `registration_pending` | New agent awaiting admin approval | `registrationId`, `message` |
-| `registration_approved` | Admin approved a pending registration | `registrationId`, `capabilities` |
-| `registration_rejected` | Admin rejected a pending registration | `registrationId`, `reason` |
-| `update_capabilities` | Policy changed — triggers re-auth | `capabilities`, `resourceLimits`, `policyId`, `policyExpiresAt`, `reason` |
-| `intent` | Route work to agent | `action`, `params`, `userDid` |
-| `delegation_update` | Push delegation certificate changes | `delegations[]` |
-| ~~`agent_peer_catalog`~~ | **Deprecated** — peer-to-peer agent grants removed | — |
-| `tool_approval_response` | Admin decision on a tool approval | `requestId`, `approved`, `reason` |
-| `llm_config` | Push LLM configuration | `config` (or `null` to revert to env vars) |
-| `skills_config` | Push skill enable/disable configuration | `skills[]` |
-| `channel_message_send` | Deliver a channel message to an @mentioned agent | `channelId`, `messageId`, `content`, `authorDid`, `threadId`, `createdAt` |
-| `task_enqueue` | Enqueue a task on the agent | `action`, `params`, `priority`, `scheduledAt`, `maxRetries` |
-| `schedule_update` | Add or update a cron schedule | `id`, `name`, `cron`, `action`, `params`, `enabled` |
-| `schedule_delete` | Remove a schedule | `id` |
-| `chat_sessions_response` | Reply to `get_chat_sessions` | `sessions[]` |
-| `chat_history_response` | Reply to `get_chat_history` | `sessionId`, `messages[]` |
-| `pong` | Heartbeat acknowledgement | — |
-| `error` | Protocol-level error | `code`, `message` |
+| Type                     | When sent                                          | Key fields                                                                |
+| ------------------------ | -------------------------------------------------- | ------------------------------------------------------------------------- |
+| `auth_challenge`         | Start (or restart) of auth handshake               | `sessionId`, `data` (base64 cert)                                         |
+| `auth_complete`          | Auth handshake succeeded                           | `agentId`, `did`, `capabilities`                                          |
+| `auth_failed`            | Auth handshake failed                              | `reason`                                                                  |
+| `registration_pending`   | New agent awaiting admin approval                  | `registrationId`, `message`                                               |
+| `registration_approved`  | Admin approved a pending registration              | `registrationId`, `capabilities`                                          |
+| `registration_rejected`  | Admin rejected a pending registration              | `registrationId`, `reason`                                                |
+| `update_capabilities`    | Policy changed — triggers re-auth                  | `capabilities`, `resourceLimits`, `policyId`, `policyExpiresAt`, `reason` |
+| `intent`                 | Route work to agent                                | `action`, `params`, `userDid`                                             |
+| `delegation_update`      | Push delegation certificate changes                | `delegations[]`                                                           |
+| ~~`agent_peer_catalog`~~ | **Deprecated** — peer-to-peer agent grants removed | —                                                                         |
+| `tool_approval_response` | Admin decision on a tool approval                  | `requestId`, `approved`, `reason`                                         |
+| `llm_config`             | Push LLM configuration                             | `config` (or `null` to revert to env vars)                                |
+| `skills_config`          | Push skill enable/disable configuration            | `skills[]`                                                                |
+| `channel_message_send`   | Deliver a channel message to an @mentioned agent   | `channelId`, `messageId`, `content`, `authorDid`, `threadId`, `createdAt` |
+| `task_enqueue`           | Enqueue a task on the agent                        | `action`, `params`, `priority`, `scheduledAt`, `maxRetries`               |
+| `schedule_update`        | Add or update a cron schedule                      | `id`, `name`, `cron`, `action`, `params`, `enabled`                       |
+| `schedule_delete`        | Remove a schedule                                  | `id`                                                                      |
+| `chat_sessions_response` | Reply to `get_chat_sessions`                       | `sessions[]`                                                              |
+| `chat_history_response`  | Reply to `get_chat_history`                        | `sessionId`, `messages[]`                                                 |
+| `pong`                   | Heartbeat acknowledgement                          | —                                                                         |
+| `error`                  | Protocol-level error                               | `code`, `message`                                                         |
 
 ---
 
@@ -86,9 +86,9 @@ The `auth_complete` message carries `capabilities` in its payload as a convenien
 ```typescript
 // Inside handleAuthComplete (agent.ts)
 const pk2 = ctx.metadata?.pk2;
-this.resourceLimits  = pk2?.resourceLimits  ?? null;   // native ResourceLimits object
-this.policyId        = pk2?.policyId        ?? null;   // string | null
-this.policyExpiresAt = pk2?.policyExpiresAt ?? null;   // ISO 8601 string | null
+this.resourceLimits = pk2?.resourceLimits ?? null; // native ResourceLimits object
+this.policyId = pk2?.policyId ?? null; // string | null
+this.policyExpiresAt = pk2?.policyExpiresAt ?? null; // ISO 8601 string | null
 ```
 
 All values are stored as native JavaScript types — no JSON parsing required.
@@ -97,9 +97,9 @@ All values are stored as native JavaScript types — no JSON parsing required.
 
 ## Deprecated messages
 
-| Type | Status | Replacement |
-|---|---|---|
+| Type            | Status                                                    | Replacement                                      |
+| --------------- | --------------------------------------------------------- | ------------------------------------------------ |
 | `policy_update` | **Deprecated** — kept as no-op for backward compatibility | `update_capabilities` + `auth_challenge` re-auth |
-| `policy_ack` | **Deprecated** — no longer sent | — |
+| `policy_ack`    | **Deprecated** — no longer sent                           | —                                                |
 
 The `policy_update` message was the old mechanism for pushing signed policy documents to agents. It has been superseded by the certificate-embedding approach, which is tamper-evident and offline-verifiable.

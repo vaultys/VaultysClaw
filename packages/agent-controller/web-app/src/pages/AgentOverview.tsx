@@ -1,39 +1,81 @@
 import { useState, useEffect, useCallback } from "react";
 import { fmtUptime } from "@vaultysclaw/shared";
-import type { AgentInfo, IntentEntry, LlmConfigSafe, ToolEntry } from "../types";
+import type {
+  AgentInfo,
+  IntentEntry,
+  LlmConfigSafe,
+  ToolEntry,
+} from "../types";
 
 interface Props {
   info: AgentInfo;
   intents: IntentEntry[];
 }
 
-type RunOutput = { text?: string; usage?: { promptTokens?: number; completionTokens?: number } };
+type RunOutput = {
+  text?: string;
+  usage?: { promptTokens?: number; completionTokens?: number };
+};
 
-function Card({ title, children }: { title: string; children: React.ReactNode }) {
+function Card({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
   return (
     <div className="bg-canvas-subtle border border-border rounded-lg overflow-hidden">
       <div className="px-4 py-2.5 border-b border-border-muted">
-        <h3 className="text-[11px] font-bold uppercase tracking-widest text-fg-muted">{title}</h3>
+        <h3 className="text-[11px] font-bold uppercase tracking-widest text-fg-muted">
+          {title}
+        </h3>
       </div>
       <div className="px-4 py-3">{children}</div>
     </div>
   );
 }
 
-function Field({ label, value, mono = false, highlight = false }: { label: string; value: string; mono?: boolean; highlight?: boolean }) {
+function Field({
+  label,
+  value,
+  mono = false,
+  highlight = false,
+}: {
+  label: string;
+  value: string;
+  mono?: boolean;
+  highlight?: boolean;
+}) {
   return (
     <div>
-      <p className="text-[10px] text-fg-muted uppercase tracking-wide mb-0.5">{label}</p>
-      <p className={`text-sm ${mono ? "font-mono text-xs" : ""} ${highlight ? "text-fg font-medium" : "text-fg-muted"}`}>{value}</p>
+      <p className="text-[10px] text-fg-muted uppercase tracking-wide mb-0.5">
+        {label}
+      </p>
+      <p
+        className={`text-sm ${mono ? "font-mono text-xs" : ""} ${highlight ? "text-fg font-medium" : "text-fg-muted"}`}
+      >
+        {value}
+      </p>
     </div>
   );
 }
 
-function Stat({ label, value, color }: { label: string; value: number; color: string }) {
+function Stat({
+  label,
+  value,
+  color,
+}: {
+  label: string;
+  value: number;
+  color: string;
+}) {
   return (
     <div className="text-center min-w-[56px]">
       <p className={`text-2xl font-bold tabular-nums ${color}`}>{value}</p>
-      <p className="text-[10px] text-fg-muted uppercase tracking-wide mt-0.5">{label}</p>
+      <p className="text-[10px] text-fg-muted uppercase tracking-wide mt-0.5">
+        {label}
+      </p>
     </div>
   );
 }
@@ -44,14 +86,20 @@ export default function AgentOverview({ info, intents }: Props) {
 
   const load = useCallback(async () => {
     const [cfgRes, toolsRes] = await Promise.all([
-      fetch("/api/config/llm").then((r) => r.json()).catch(() => null),
-      fetch("/api/tools").then((r) => r.json()).catch(() => ({ tools: [] })),
+      fetch("/api/config/llm")
+        .then((r) => r.json())
+        .catch(() => null),
+      fetch("/api/tools")
+        .then((r) => r.json())
+        .catch(() => ({ tools: [] })),
     ]);
     if (cfgRes && !cfgRes.none) setLlmCfg(cfgRes as LlmConfigSafe);
     setTools(toolsRes.tools ?? []);
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
 
   const model = llmCfg
     ? `${llmCfg.provider}/${llmCfg.model}`
@@ -84,11 +132,15 @@ export default function AgentOverview({ info, intents }: Props) {
               <code className="text-accent text-sm bg-canvas px-2.5 py-1 rounded border border-border-muted font-mono">
                 {model}
               </code>
-              <span className="text-fg-dim text-[11px]">Mastra model specifier</span>
+              <span className="text-fg-dim text-[11px]">
+                Mastra model specifier
+              </span>
             </div>
             {llmCfg?.systemPrompt && (
               <div>
-                <p className="text-[10px] text-fg-muted uppercase tracking-wide mb-1">Instructions (system prompt)</p>
+                <p className="text-[10px] text-fg-muted uppercase tracking-wide mb-1">
+                  Instructions (system prompt)
+                </p>
                 <p className="text-fg-muted text-xs bg-canvas px-3 py-2 rounded border border-border-muted leading-relaxed line-clamp-4">
                   {llmCfg.systemPrompt}
                 </p>
@@ -96,14 +148,18 @@ export default function AgentOverview({ info, intents }: Props) {
             )}
             {llmCfg?.maxTokens && (
               <p className="text-xs text-fg-muted">
-                Max output tokens: <span className="text-fg font-mono">{llmCfg.maxTokens}</span>
+                Max output tokens:{" "}
+                <span className="text-fg font-mono">{llmCfg.maxTokens}</span>
               </p>
             )}
           </div>
         ) : (
           <p className="text-attention text-sm">
             No model configured.{" "}
-            <span className="text-fg-muted">Go to <span className="text-accent">Settings</span> to configure an LLM.</span>
+            <span className="text-fg-muted">
+              Go to <span className="text-accent">Settings</span> to configure
+              an LLM.
+            </span>
           </p>
         )}
       </Card>
@@ -112,7 +168,8 @@ export default function AgentOverview({ info, intents }: Props) {
       <Card title={`Tools (${tools.length}) — Agent.tools`}>
         {tools.length === 0 ? (
           <p className="text-fg-dim text-xs">
-            No tools registered. Tools are enabled by capabilities granted from the control plane.
+            No tools registered. Tools are enabled by capabilities granted from
+            the control plane.
           </p>
         ) : (
           <div className="flex flex-wrap gap-2">
@@ -166,10 +223,14 @@ export default function AgentOverview({ info, intents }: Props) {
             {recentRuns.map((run) => {
               const out = run.output as RunOutput | undefined;
               const totalTokens = out?.usage
-                ? (out.usage.promptTokens ?? 0) + (out.usage.completionTokens ?? 0)
+                ? (out.usage.promptTokens ?? 0) +
+                  (out.usage.completionTokens ?? 0)
                 : null;
               return (
-                <div key={run.intentId} className="flex items-start gap-2.5 py-2 first:pt-0 last:pb-0">
+                <div
+                  key={run.intentId}
+                  className="flex items-start gap-2.5 py-2 first:pt-0 last:pb-0"
+                >
                   <span
                     className={`w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0 ${
                       run.status === "success"
@@ -183,18 +244,25 @@ export default function AgentOverview({ info, intents }: Props) {
                     <code className="text-accent text-xs">{run.action}</code>
                     {out?.text && (
                       <p className="text-fg-muted text-[11px] mt-0.5 truncate">
-                        {out.text.slice(0, 100)}{out.text.length > 100 ? "…" : ""}
+                        {out.text.slice(0, 100)}
+                        {out.text.length > 100 ? "…" : ""}
                       </p>
                     )}
                     {run.error && (
-                      <p className="text-danger text-[11px] mt-0.5 truncate">{run.error}</p>
+                      <p className="text-danger text-[11px] mt-0.5 truncate">
+                        {run.error}
+                      </p>
                     )}
                   </div>
                   <div className="flex-shrink-0 text-right">
                     {totalTokens !== null && (
-                      <p className="text-fg-dim text-[10px]">{totalTokens} tok</p>
+                      <p className="text-fg-dim text-[10px]">
+                        {totalTokens} tok
+                      </p>
                     )}
-                    <p className="text-fg-dim text-[10px]">{run.receivedAt.slice(11, 19)}</p>
+                    <p className="text-fg-dim text-[10px]">
+                      {run.receivedAt.slice(11, 19)}
+                    </p>
                   </div>
                 </div>
               );

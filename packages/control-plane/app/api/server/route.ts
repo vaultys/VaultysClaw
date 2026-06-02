@@ -8,7 +8,9 @@ import { getSetting, getAllAgents } from "@/lib/db";
 
 function getVersion(): string {
   try {
-    const pkg = JSON.parse(readFileSync(join(process.cwd(), "package.json"), "utf-8")) as { version?: string };
+    const pkg = JSON.parse(
+      readFileSync(join(process.cwd(), "package.json"), "utf-8")
+    ) as { version?: string };
     return pkg.version ?? "unknown";
   } catch {
     return "unknown";

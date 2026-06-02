@@ -11,7 +11,9 @@ export interface RoleInfo {
 
 export function useRole(): RoleInfo {
   const { data: session, status } = useSession();
-  const user = session?.user as { isOwner?: boolean; isAdmin?: boolean } | undefined;
+  const user = session?.user as
+    | { isOwner?: boolean; isAdmin?: boolean }
+    | undefined;
   const isOwner = Boolean(user?.isOwner);
   const isAdmin = Boolean(user?.isAdmin);
   const isGlobalAdmin = isOwner || isAdmin;

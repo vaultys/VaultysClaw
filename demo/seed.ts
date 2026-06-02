@@ -36,7 +36,14 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Resolve DB relative to packages/control-plane (cwd when this script is run)
-const DB_PATH = path.resolve(process.cwd(), "..", "..", "demo", "data", "vaultysclaw.db");
+const DB_PATH = path.resolve(
+  process.cwd(),
+  "..",
+  "..",
+  "demo",
+  "data",
+  "vaultysclaw.db"
+);
 
 if (!fs.existsSync(DB_PATH)) {
   console.error(`Database not found at ${DB_PATH}`);
@@ -54,7 +61,9 @@ function makeDid(seed: string): string {
   for (let i = 0; i < seed.length; i++) h = ((h << 5) + h) ^ seed.charCodeAt(i);
   const hex = Math.abs(h).toString(16).padStart(8, "0");
   // Pad to 32 hex chars with a stable suffix
-  const full = (hex + seed.replace(/[^a-z0-9]/gi, "")).slice(0, 32).padEnd(32, "0");
+  const full = (hex + seed.replace(/[^a-z0-9]/gi, ""))
+    .slice(0, 32)
+    .padEnd(32, "0");
   return `did:vaultys:${full}`;
 }
 
@@ -90,7 +99,13 @@ function daysAgo(d: number, hoursJitter = 0): string {
 // Static reference data
 // ---------------------------------------------------------------------------
 
-const REALMS: Array<{ name: string; slug: string; description: string; color: string; defaultCaps: string[] }> = [
+const REALMS: Array<{
+  name: string;
+  slug: string;
+  description: string;
+  color: string;
+  defaultCaps: string[];
+}> = [
   {
     name: "Engineering",
     slug: "engineering",
@@ -101,7 +116,8 @@ const REALMS: Array<{ name: string; slug: string; description: string; color: st
   {
     name: "Security Operations",
     slug: "security-ops",
-    description: "Threat detection, vulnerability scanning, and incident response",
+    description:
+      "Threat detection, vulnerability scanning, and incident response",
     color: "#ef4444",
     defaultCaps: ["internet_access", "api_call", "system_command"],
   },
@@ -110,12 +126,18 @@ const REALMS: Array<{ name: string; slug: string; description: string; color: st
     slug: "devops",
     description: "CI/CD pipelines, deployments, and infrastructure automation",
     color: "#f59e0b",
-    defaultCaps: ["code_execution", "system_command", "api_call", "file_access"],
+    defaultCaps: [
+      "code_execution",
+      "system_command",
+      "api_call",
+      "file_access",
+    ],
   },
   {
     name: "Finance & Compliance",
     slug: "finance",
-    description: "Financial reporting, expense analysis, and regulatory compliance",
+    description:
+      "Financial reporting, expense analysis, and regulatory compliance",
     color: "#10b981",
     defaultCaps: ["file_access", "api_call"],
   },
@@ -129,14 +151,16 @@ const REALMS: Array<{ name: string; slug: string; description: string; color: st
   {
     name: "Customer Success",
     slug: "customer-success",
-    description: "Support ticket routing, sentiment analysis, and escalation handling",
+    description:
+      "Support ticket routing, sentiment analysis, and escalation handling",
     color: "#06b6d4",
     defaultCaps: ["api_call", "mail_send"],
   },
   {
     name: "Legal & Audit",
     slug: "legal",
-    description: "Contract review, policy enforcement, and audit trail management",
+    description:
+      "Contract review, policy enforcement, and audit trail management",
     color: "#64748b",
     defaultCaps: ["file_access", "api_call"],
   },
@@ -247,23 +271,96 @@ const AGENT_ARCHETYPES: Record<string, Array<[string, Cap[]]>> = {
 
 // User first/last names pool
 const FIRST_NAMES = [
-  "Alice", "Bob", "Carlos", "Diana", "Ethan", "Fiona", "George", "Hannah",
-  "Ivan", "Julia", "Kevin", "Laura", "Marcus", "Nina", "Omar", "Priya",
-  "Quinn", "Rachel", "Samuel", "Tara", "Umar", "Valeria", "William", "Xena",
-  "Yusuf", "Zara", "Adrian", "Beatrice", "Colin", "Daphne", "Eduardo",
-  "Florence", "Gavin", "Helena", "Igor", "Jasmine", "Kai", "Lena",
+  "Alice",
+  "Bob",
+  "Carlos",
+  "Diana",
+  "Ethan",
+  "Fiona",
+  "George",
+  "Hannah",
+  "Ivan",
+  "Julia",
+  "Kevin",
+  "Laura",
+  "Marcus",
+  "Nina",
+  "Omar",
+  "Priya",
+  "Quinn",
+  "Rachel",
+  "Samuel",
+  "Tara",
+  "Umar",
+  "Valeria",
+  "William",
+  "Xena",
+  "Yusuf",
+  "Zara",
+  "Adrian",
+  "Beatrice",
+  "Colin",
+  "Daphne",
+  "Eduardo",
+  "Florence",
+  "Gavin",
+  "Helena",
+  "Igor",
+  "Jasmine",
+  "Kai",
+  "Lena",
 ];
 
 const LAST_NAMES = [
-  "Smith", "Johnson", "Williams", "Brown", "Jones", "Garcia", "Miller",
-  "Davis", "Rodriguez", "Martinez", "Hernandez", "Lopez", "Gonzalez",
-  "Wilson", "Anderson", "Thomas", "Taylor", "Moore", "Jackson", "Martin",
-  "Lee", "Perez", "Thompson", "White", "Harris", "Sanchez", "Clark",
-  "Ramirez", "Lewis", "Robinson", "Walker", "Young", "Allen", "King",
-  "Wright", "Scott", "Torres", "Nguyen", "Hill", "Flores",
+  "Smith",
+  "Johnson",
+  "Williams",
+  "Brown",
+  "Jones",
+  "Garcia",
+  "Miller",
+  "Davis",
+  "Rodriguez",
+  "Martinez",
+  "Hernandez",
+  "Lopez",
+  "Gonzalez",
+  "Wilson",
+  "Anderson",
+  "Thomas",
+  "Taylor",
+  "Moore",
+  "Jackson",
+  "Martin",
+  "Lee",
+  "Perez",
+  "Thompson",
+  "White",
+  "Harris",
+  "Sanchez",
+  "Clark",
+  "Ramirez",
+  "Lewis",
+  "Robinson",
+  "Walker",
+  "Young",
+  "Allen",
+  "King",
+  "Wright",
+  "Scott",
+  "Torres",
+  "Nguyen",
+  "Hill",
+  "Flores",
 ];
 
-const DOMAINS = ["acme.corp", "enterprise.io", "megacorp.com", "infra.tech", "dataworks.ai"];
+const DOMAINS = [
+  "acme.corp",
+  "enterprise.io",
+  "megacorp.com",
+  "infra.tech",
+  "dataworks.ai",
+];
 
 const ACTIVITY_EVENTS = [
   "agent.registered",
@@ -320,21 +417,35 @@ function seed(): void {
     const realmIdBySlug: Record<string, string> = {};
 
     // Preserve existing realms; just add missing ones
-    const existingRealms = db.prepare("SELECT id, slug FROM realms").all() as { id: string; slug: string }[];
+    const existingRealms = db.prepare("SELECT id, slug FROM realms").all() as {
+      id: string;
+      slug: string;
+    }[];
     for (const r of existingRealms) realmIdBySlug[r.slug] = r.id;
 
     for (const realm of REALMS) {
       if (realmIdBySlug[realm.slug]) continue;
       const id = crypto.randomUUID();
-      db.prepare(`
+      db.prepare(
+        `
         INSERT OR IGNORE INTO realms (id, name, slug, description, color, default_capabilities)
         VALUES (?, ?, ?, ?, ?, ?)
-      `).run(id, realm.name, realm.slug, realm.description, realm.color, JSON.stringify(realm.defaultCaps));
+      `
+      ).run(
+        id,
+        realm.name,
+        realm.slug,
+        realm.description,
+        realm.color,
+        JSON.stringify(realm.defaultCaps)
+      );
       realmIdBySlug[realm.slug] = id;
     }
 
     // Get default realm id
-    const defaultRealm = db.prepare("SELECT id FROM realms WHERE is_default = 1 LIMIT 1").get() as { id: string } | undefined;
+    const defaultRealm = db
+      .prepare("SELECT id FROM realms WHERE is_default = 1 LIMIT 1")
+      .get() as { id: string } | undefined;
     const defaultRealmId = defaultRealm?.id;
 
     // ------------------------------------------------------------------
@@ -367,7 +478,8 @@ function seed(): void {
       is_admin: 1,
       is_owner: 1,
       reports_to: null,
-      description: "Chief Technology Officer — owns the entire AI agent platform",
+      description:
+        "Chief Technology Officer — owns the entire AI agent platform",
       realm_slugs: REALMS.map((r) => r.slug),
     };
     const ciso: UserDef = {
@@ -392,7 +504,11 @@ function seed(): void {
       { slug: "devops", name: "Raj Patel", title: "VP Infrastructure" },
       { slug: "finance", name: "Elena Romero", title: "VP Finance" },
       { slug: "data", name: "David Park", title: "VP Data & AI" },
-      { slug: "customer-success", name: "Amara Diallo", title: "VP Customer Success" },
+      {
+        slug: "customer-success",
+        name: "Amara Diallo",
+        title: "VP Customer Success",
+      },
       { slug: "legal", name: "Thomas Bergmann", title: "VP Legal" },
       { slug: "product", name: "Yuki Tanaka", title: "VP Product" },
     ];
@@ -405,7 +521,8 @@ function seed(): void {
         role: "vp",
         is_admin: 1,
         is_owner: 0,
-        reports_to: vp.slug === "security-ops" || vp.slug === "legal" ? ciso.id : cto.id,
+        reports_to:
+          vp.slug === "security-ops" || vp.slug === "legal" ? ciso.id : cto.id,
         description: `${vp.title} — manages all ${vp.slug} agents and team`,
         realm_slugs: [vp.slug],
       };
@@ -523,7 +640,10 @@ function seed(): void {
     );
 
     for (const a of agents) {
-      insertAgent.run({ ...a, capabilities_json: JSON.stringify(a.capabilities) });
+      insertAgent.run({
+        ...a,
+        capabilities_json: JSON.stringify(a.capabilities),
+      });
       const rId = realmIdBySlug[a.realm_slug];
       if (rId) insertAgentRealm.run(a.did, rId, 1);
       if (defaultRealmId) insertAgentRealm.run(a.did, defaultRealmId, 0);
@@ -557,9 +677,14 @@ function seed(): void {
 
     for (const a of agents) {
       // Intra-realm edges: each agent connects to 1–3 peers in same realm
-      const sameRealm = (agentsByRealm[a.realm_slug] ?? []).filter((x) => x.did !== a.did);
+      const sameRealm = (agentsByRealm[a.realm_slug] ?? []).filter(
+        (x) => x.did !== a.did
+      );
       for (const target of sample(sameRealm, rnd(1, 3))) {
-        const caps = sample(target.capabilities, rnd(1, Math.min(2, target.capabilities.length)));
+        const caps = sample(
+          target.capabilities,
+          rnd(1, Math.min(2, target.capabilities.length))
+        );
         const expiresInDays = rnd(30, 365);
         insertPeerGrant.run(
           makeDid(`pg-${a.did}-${target.did}`).slice(12, 44),
@@ -613,14 +738,18 @@ function seed(): void {
       const realmSlug = u.realm_slugs[0];
       const realmAgents = agentsByRealm[realmSlug] ?? [];
       // Each user gets 1–5 agent grants, proportional to seniority
-      const numGrants = u.role === "vp" || u.role === "cto" || u.role === "ciso"
-        ? rnd(3, 8)
-        : u.role === "lead"
-          ? rnd(2, 5)
-          : rnd(1, 3);
+      const numGrants =
+        u.role === "vp" || u.role === "cto" || u.role === "ciso"
+          ? rnd(3, 8)
+          : u.role === "lead"
+            ? rnd(2, 5)
+            : rnd(1, 3);
 
       for (const agent of sample(realmAgents, numGrants)) {
-        const caps = sample(agent.capabilities, rnd(1, Math.min(2, agent.capabilities.length)));
+        const caps = sample(
+          agent.capabilities,
+          rnd(1, Math.min(2, agent.capabilities.length))
+        );
         const grantedBy = u.reports_to ?? u.did;
         insertGrant.run(
           makeDid(`grant-${u.did}-${agent.did}`).slice(12, 44),
@@ -654,13 +783,36 @@ function seed(): void {
       let details: string | null = null;
 
       if (event === "intent.dispatched") {
-        details = JSON.stringify({ intent: pick(["summarize", "analyze", "deploy", "scan", "report", "validate"]), status: "queued" });
+        details = JSON.stringify({
+          intent: pick([
+            "summarize",
+            "analyze",
+            "deploy",
+            "scan",
+            "report",
+            "validate",
+          ]),
+          status: "queued",
+        });
       } else if (event === "intent.completed") {
-        details = JSON.stringify({ durationMs: rnd(200, 8000), toolCalls: rnd(1, 6) });
+        details = JSON.stringify({
+          durationMs: rnd(200, 8000),
+          toolCalls: rnd(1, 6),
+        });
       } else if (event === "tool.approved" || event === "tool.rejected") {
-        details = JSON.stringify({ tool: pick(["http_request", "shell_exec", "file_write", "code_run", "send_email"]) });
+        details = JSON.stringify({
+          tool: pick([
+            "http_request",
+            "shell_exec",
+            "file_write",
+            "code_run",
+            "send_email",
+          ]),
+        });
       } else if (event === "capability.granted") {
-        details = JSON.stringify({ capability: pick(ALL_CAPS as unknown as string[]) });
+        details = JSON.stringify({
+          capability: pick(ALL_CAPS as unknown as string[]),
+        });
       }
 
       insertActivity.run(

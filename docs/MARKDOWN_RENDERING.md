@@ -5,23 +5,29 @@ As of this update, both the agent-controller web-app and control-plane chat inte
 ## Supported Markdown Features
 
 ### Text Formatting
+
 ```markdown
 **Bold text**
-*Italic text*
+_Italic text_
 ~~Strikethrough~~ (via markdown)
 ```
 
 ### Headings
+
 ```markdown
 # Heading 1
+
 ## Heading 2
+
 ### Heading 3
 ```
 
 ### Code
+
 Inline: `inline code`
 
 Code blocks:
+
 ```javascript
 function example() {
   return "code block";
@@ -31,6 +37,7 @@ function example() {
 ### Lists
 
 **Unordered:**
+
 ```markdown
 - Item 1
 - Item 2
@@ -38,6 +45,7 @@ function example() {
 ```
 
 **Ordered:**
+
 ```markdown
 1. First
 2. Second
@@ -45,12 +53,14 @@ function example() {
 ```
 
 ### Blockquotes
+
 ```markdown
 > This is a quote
 > It can span multiple lines
 ```
 
 ### Links
+
 ```markdown
 [Link text](https://example.com)
 ```
@@ -65,10 +75,12 @@ function example() {
 ## Implementation Details
 
 ### Files Modified
+
 - `packages/agent-controller/web-app/src/pages/ChatPanel.tsx` - MessageBubble and ToolCallCard components
 - `packages/control-plane/app/chat/page.tsx` - Chat message rendering
 
 ### Library Used
+
 - `react-markdown@^9.0.1` - Parse and render markdown as React components
 - Custom component renderers for each markdown element type
 
@@ -76,7 +88,7 @@ function example() {
 
 **In chat, an assistant might respond with:**
 
-```markdown
+````markdown
 # Summary
 
 Here's what I found:
@@ -88,6 +100,7 @@ Here's what I found:
    data = load_data()
    processed = pipeline.transform(data)
    ```
+````
 
 2. **Results** - Key metrics:
    - Accuracy: 94.2%
@@ -95,6 +108,8 @@ Here's what I found:
    - Cost: $0.001/req
 
 > Note: These are production benchmarks from last quarter
+
 ```
 
 **This will render as formatted HTML** with proper heading sizes, bold text, code highlighting, lists, and quote styling instead of showing raw markdown syntax.
+```

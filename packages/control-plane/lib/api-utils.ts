@@ -16,10 +16,9 @@ export function apiPaginatedResponse<T>(
   pageSize: number = 50,
   status: number = 200
 ) {
-  return NextResponse.json(
-    toPaginatedResponse(items, total, page, pageSize),
-    { status }
-  );
+  return NextResponse.json(toPaginatedResponse(items, total, page, pageSize), {
+    status,
+  });
 }
 
 /**

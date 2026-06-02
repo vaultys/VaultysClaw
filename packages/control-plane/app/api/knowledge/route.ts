@@ -1,11 +1,11 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getAuthContext, unauthorized, forbidden } from '@/lib/auth-utils';
+import { NextRequest, NextResponse } from "next/server";
+import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
 import {
   createKnowledgeSource,
   listKnowledgeSources,
   getRealmById,
   getAgent,
-} from '@/lib/db';
+} from "@/lib/db";
 
 // GET /api/knowledge?realmId=xxx&agentDid=xxx
 /**
@@ -48,8 +48,8 @@ export async function GET(request: NextRequest) {
   const auth = await getAuthContext(request);
   if (!auth) return unauthorized();
 
-  const realmId = request.nextUrl.searchParams.get('realmId') ?? undefined;
-  const agentDid = request.nextUrl.searchParams.get('agentDid') ?? undefined;
+  const realmId = request.nextUrl.searchParams.get("realmId") ?? undefined;
+  const agentDid = request.nextUrl.searchParams.get("agentDid") ?? undefined;
 
   // Non-admins can only list knowledge sources for realms they can access
   if (!auth.isGlobalAdmin && realmId && !auth.canAccessRealm(realmId)) {
@@ -119,14 +119,19 @@ export async function POST(request: NextRequest) {
   };
 
   if (!realmId || !agentDid || !name || !sourceType) {
-    return NextResponse.json({ error: 'Missing required fields: realmId, agentDid, name, sourceType' }, { status: 400 });
+    return NextResponse.json(
+      { error: "Missing required fields: realmId, agentDid, name, sourceType" },
+      { status: 400 }
+    );
   }
 
   const realm = getRealmById(realmId);
-  if (!realm) return NextResponse.json({ error: 'Realm not found' }, { status: 404 });
+  if (!realm)
+    return NextResponse.json({ error: "Realm not found" }, { status: 404 });
 
   const agent = getAgent(agentDid);
-  if (!agent) return NextResponse.json({ error: 'Agent not found' }, { status: 404 });
+  if (!agent)
+    return NextResponse.json({ error: "Agent not found" }, { status: 404 });
 
   const source = createKnowledgeSource({
     realm_id: realmId,
@@ -134,7 +139,7 @@ export async function POST(request: NextRequest) {
     name,
     source_type: sourceType,
     config: JSON.stringify(config ?? {}),
-    status: 'idle',
+    status: "idle",
     doc_count: 0,
     chunk_count: 0,
     last_synced_at: null,

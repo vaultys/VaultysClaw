@@ -80,7 +80,10 @@ export async function GET(req: NextRequest, ctx: Ctx) {
     }
 
     const url = new URL(req.url);
-    const limit = Math.min(parseInt(url.searchParams.get("limit") || "50"), 100);
+    const limit = Math.min(
+      parseInt(url.searchParams.get("limit") || "50"),
+      100
+    );
     const offset = parseInt(url.searchParams.get("offset") || "0");
     const threadId = url.searchParams.get("threadId");
 
@@ -216,10 +219,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
 
       return NextResponse.json({ message }, { status: 201 });
     } catch (err: any) {
-      return NextResponse.json(
-        { error: err.message },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: err.message }, { status: 400 });
     }
   } catch (err) {
     console.error("POST /api/channels/[id]/messages error:", err);

@@ -60,7 +60,10 @@ export async function GET(request: Request) {
     const query = searchParams.get("q")?.toLowerCase() || "";
 
     if (!realmId) {
-      return NextResponse.json({ error: "Missing realm parameter" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Missing realm parameter" },
+        { status: 400 }
+      );
     }
 
     // Verify realm exists

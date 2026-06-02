@@ -7,10 +7,14 @@ import { Maximize2 } from "lucide-react";
 import Link from "next/link";
 
 // Dynamic import to avoid loading React Flow on every page
-const OrgChartFlowView = dynamic(
-  () => import("./views/OrgChartFlowView"),
-  { ssr: false, loading: () => <div className="flex items-center justify-center h-full text-foreground-500">Loading org chart...</div> }
-);
+const OrgChartFlowView = dynamic(() => import("./views/OrgChartFlowView"), {
+  ssr: false,
+  loading: () => (
+    <div className="flex items-center justify-center h-full text-foreground-500">
+      Loading org chart...
+    </div>
+  ),
+});
 
 interface Props {
   /** API query string for fetching graph data, e.g. "?realm=abc" */
@@ -59,7 +63,7 @@ export default function EmbeddedOrgChart({
         className="flex items-center justify-center rounded-xl border border-neutral-200 bg-background-100"
         style={{ height }}
       >
-        <div className="animate-spin rounded-full h-8 w-8 border-2 border-indigo-500 border-t-transparent" />
+        <div className="animate-spin rounded-full h-8 w-8 border-2 border-primary-500 border-t-transparent" />
       </div>
     );
   }
@@ -67,7 +71,7 @@ export default function EmbeddedOrgChart({
   if (error) {
     return (
       <div
-        className="flex items-center justify-center rounded-xl border border-neutral-200 bg-background-100 text-red-600 dark:text-red-400"
+        className="flex items-center justify-center rounded-xl border border-neutral-200 bg-background-100 text-danger-600 dark:text-danger-400"
         style={{ height }}
       >
         Failed to load org chart: {error}
@@ -90,7 +94,10 @@ export default function EmbeddedOrgChart({
   const fullscreenUrl = `/graph${query}${query ? "&" : "?"}view=org-chart`;
 
   return (
-    <div className="relative rounded-xl border border-neutral-200 overflow-hidden bg-background-100" style={{ height }}>
+    <div
+      className="relative rounded-xl border border-neutral-200 overflow-hidden bg-background-100"
+      style={{ height }}
+    >
       {showFullscreenBtn && (
         <Link
           href={fullscreenUrl}
@@ -100,7 +107,12 @@ export default function EmbeddedOrgChart({
           <Maximize2 size={18} />
         </Link>
       )}
-      <OrgChartFlowView data={data} height={height} onNodeClick={onNodeClick} currentUserId={currentUserId} />
+      <OrgChartFlowView
+        data={data}
+        height={height}
+        onNodeClick={onNodeClick}
+        currentUserId={currentUserId}
+      />
     </div>
   );
 }

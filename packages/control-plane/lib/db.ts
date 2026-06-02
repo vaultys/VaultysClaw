@@ -1484,9 +1484,7 @@ export function removeAgentFromRealm(
   return result.changes > 0;
 }
 
-export function getRealmAgents(
-  realmId: string
-): (RealmRow & {
+export function getRealmAgents(realmId: string): (RealmRow & {
   agent_did: string;
   agent_name: string;
   is_primary: number;
@@ -1585,9 +1583,7 @@ export function removeUserFromRealm(userId: string, realmId: string): boolean {
   return result.changes > 0;
 }
 
-export function getRealmUsers(
-  realmId: string
-): {
+export function getRealmUsers(realmId: string): {
   user_id: string;
   did: string | null;
   name: string | null;
@@ -2247,9 +2243,7 @@ export interface WorkflowStepWithUserRow extends WorkflowStepRow {
   assigned_user_email: string | null;
 }
 
-export function getWorkflowRunHistory(
-  runId: string
-):
+export function getWorkflowRunHistory(runId: string):
   | {
       run: WorkflowRunRow;
       workflow: WorkflowRow | null;

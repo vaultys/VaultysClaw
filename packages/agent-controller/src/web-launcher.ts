@@ -17,24 +17,29 @@ const server = startWebServer({ port, agent });
 // Log to console as well (web mode users still have a terminal)
 agent.on("log", ({ level, message }: { level: string; message: string }) => {
   const prefix = `[${new Date().toISOString().slice(11, 23)}] [${level.toUpperCase()}]`;
-  console[level === "error" ? "error" : level === "warn" ? "warn" : "log"](`${prefix} ${message}`);
+  console[level === "error" ? "error" : level === "warn" ? "warn" : "log"](
+    `${prefix} ${message}`
+  );
 });
 
-agent.start().then(async () => {
-  if (!noBrowser) {
-    const url = `http://127.0.0.1:${port}`;
-    // Use dynamic import for 'open' so it doesn't break when bundled without it
-    try {
-      const { default: open } = await import("open");
-      await open(url);
-    } catch {
-      // 'open' not available — user can open manually
+agent
+  .start()
+  .then(async () => {
+    if (!noBrowser) {
+      const url = `http://127.0.0.1:${port}`;
+      // Use dynamic import for 'open' so it doesn't break when bundled without it
+      try {
+        const { default: open } = await import("open");
+        await open(url);
+      } catch {
+        // 'open' not available — user can open manually
+      }
     }
-  }
-}).catch((err) => {
-  console.error("Failed to start agent:", err);
-  process.exit(1);
-});
+  })
+  .catch((err) => {
+    console.error("Failed to start agent:", err);
+    process.exit(1);
+  });
 
 const shutdown = () => {
   agent.stop();

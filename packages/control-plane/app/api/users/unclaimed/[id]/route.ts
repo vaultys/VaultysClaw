@@ -11,7 +11,13 @@ import { authOptions } from "@/lib/auth-config";
 import { UserDao } from "@/lib/user-dao";
 import { getUserRealms } from "@/lib/db";
 
-const VALID_ROLES = ["owner", "admin", "manager", "operator", "member"] as const;
+const VALID_ROLES = [
+  "owner",
+  "admin",
+  "manager",
+  "operator",
+  "member",
+] as const;
 type ValidRole = (typeof VALID_ROLES)[number];
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -98,7 +104,10 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
   const user = UserDao.getById(id);
   if (!user || user.did) {
     // Not found or already claimed — redirect callers to the normal route
-    return NextResponse.json({ error: "User not found or already claimed" }, { status: 404 });
+    return NextResponse.json(
+      { error: "User not found or already claimed" },
+      { status: 404 }
+    );
   }
 
   const realms = getUserRealms(user.id);
@@ -178,10 +187,13 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
   const { id } = await params;
   const user = UserDao.getById(id);
   if (!user || user.did) {
-    return NextResponse.json({ error: "User not found or already claimed" }, { status: 404 });
+    return NextResponse.json(
+      { error: "User not found or already claimed" },
+      { status: 404 }
+    );
   }
 
-  const body = await req.json() as {
+  const body = (await req.json()) as {
     name?: string;
     email?: string;
     role?: string;
@@ -193,7 +205,8 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
   if (typeof body.name === "string") fields.name = body.name.trim();
   if (typeof body.email === "string") fields.email = body.email.trim();
   if (typeof body.description === "string" || body.description === null) {
-    fields.description = typeof body.description === "string" ? body.description.trim() : null;
+    fields.description =
+      typeof body.description === "string" ? body.description.trim() : null;
   }
   if (typeof body.role === "string") {
     if (!VALID_ROLES.includes(body.role as ValidRole)) {
@@ -239,7 +252,10 @@ export async function DELETE(_req: NextRequest, { params }: Ctx) {
   const { id } = await params;
   const user = UserDao.getById(id);
   if (!user || user.did) {
-    return NextResponse.json({ error: "User not found or already claimed" }, { status: 404 });
+    return NextResponse.json(
+      { error: "User not found or already claimed" },
+      { status: 404 }
+    );
   }
 
   UserDao.removeById(id);

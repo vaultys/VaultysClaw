@@ -60,22 +60,25 @@ export default function ChannelView({ channel, realmId }: ChannelViewProps) {
   const [messagesLoading, setMessagesLoading] = useState(true);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const fetchMessages = useCallback(async (silent = false) => {
-    try {
-      if (!silent) setMessagesLoading(true);
-      const response = await fetch(
-        `/api/channels/${channel.id}/messages?limit=50&offset=0`
-      );
-      if (response.ok) {
-        const data = (await response.json()) as { messages: Message[] };
-        setMessages(data.messages);
+  const fetchMessages = useCallback(
+    async (silent = false) => {
+      try {
+        if (!silent) setMessagesLoading(true);
+        const response = await fetch(
+          `/api/channels/${channel.id}/messages?limit=50&offset=0`
+        );
+        if (response.ok) {
+          const data = (await response.json()) as { messages: Message[] };
+          setMessages(data.messages);
+        }
+      } catch (err) {
+        console.error("Failed to fetch messages:", err);
+      } finally {
+        if (!silent) setMessagesLoading(false);
       }
-    } catch (err) {
-      console.error("Failed to fetch messages:", err);
-    } finally {
-      if (!silent) setMessagesLoading(false);
-    }
-  }, [channel.id]);
+    },
+    [channel.id]
+  );
 
   const fetchMembers = useCallback(async () => {
     try {
@@ -115,7 +118,9 @@ export default function ChannelView({ channel, realmId }: ChannelViewProps) {
                 #{channel.slug}
               </h2>
               {channel.topic && (
-                <p className="text-sm text-foreground-700 mt-1">{channel.topic}</p>
+                <p className="text-sm text-foreground-700 mt-1">
+                  {channel.topic}
+                </p>
               )}
             </div>
             <div className="flex items-center gap-2">

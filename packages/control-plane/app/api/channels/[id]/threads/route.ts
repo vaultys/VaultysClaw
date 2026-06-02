@@ -110,10 +110,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
 
       return NextResponse.json({ message }, { status: 201 });
     } catch (err: any) {
-      return NextResponse.json(
-        { error: err.message },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: err.message }, { status: 400 });
     }
   } catch (err) {
     console.error("POST /api/channels/[id]/threads error:", err);

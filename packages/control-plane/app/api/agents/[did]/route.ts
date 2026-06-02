@@ -17,7 +17,13 @@ function vaultysIdInfo(pk: unknown) {
       did: vid.did,
       fingerprint: vid.fingerprint,
       version: vid.version,
-      type: vid.isMachine() ? "machine" : vid.isPerson() ? "person" : vid.isHardware() ? "hardware" : "unknown",
+      type: vid.isMachine()
+        ? "machine"
+        : vid.isPerson()
+          ? "person"
+          : vid.isHardware()
+            ? "hardware"
+            : "unknown",
     };
   } catch {
     return null;
@@ -162,12 +168,16 @@ export async function GET(
     const db = getDb();
     const todayBucket = new Date().toISOString().slice(0, 10);
     const monthBucket = new Date().toISOString().slice(0, 7);
-    const todayRow = db.prepare(
-      "SELECT prompt_tokens + completion_tokens AS total FROM agent_token_usage_history WHERE agent_did = ? AND granularity = 'day' AND bucket = ?"
-    ).get(agent.did, todayBucket) as { total: number } | undefined;
-    const monthRow = db.prepare(
-      "SELECT prompt_tokens + completion_tokens AS total FROM agent_token_usage_history WHERE agent_did = ? AND granularity = 'month' AND bucket = ?"
-    ).get(agent.did, monthBucket) as { total: number } | undefined;
+    const todayRow = db
+      .prepare(
+        "SELECT prompt_tokens + completion_tokens AS total FROM agent_token_usage_history WHERE agent_did = ? AND granularity = 'day' AND bucket = ?"
+      )
+      .get(agent.did, todayBucket) as { total: number } | undefined;
+    const monthRow = db
+      .prepare(
+        "SELECT prompt_tokens + completion_tokens AS total FROM agent_token_usage_history WHERE agent_did = ? AND granularity = 'month' AND bucket = ?"
+      )
+      .get(agent.did, monthBucket) as { total: number } | undefined;
 
     return NextResponse.json({
       id: agent.did,
@@ -186,8 +196,12 @@ export async function GET(
       storedLlm: (() => {
         try {
           const cfg = agent.llm_config ? JSON.parse(agent.llm_config) : null;
-          return cfg ? { provider: cfg.provider as string, model: cfg.model as string } : null;
-        } catch { return null; }
+          return cfg
+            ? { provider: cfg.provider as string, model: cfg.model as string }
+            : null;
+        } catch {
+          return null;
+        }
       })(),
       tokenUsage: connected?.tokenUsage ?? null,
       tokenBudgetDaily: agent.token_budget_daily ?? null,
@@ -279,12 +293,18 @@ export async function PATCH(
 
     if (capabilities !== undefined) {
       if (!Array.isArray(capabilities)) {
-        return NextResponse.json({ error: "capabilities must be an array" }, { status: 400 });
+        return NextResponse.json(
+          { error: "capabilities must be an array" },
+          { status: 400 }
+        );
       }
 
       const wsServer = getWSServer();
       if (!wsServer) {
-        return NextResponse.json({ error: "WebSocket server not available" }, { status: 503 });
+        return NextResponse.json(
+          { error: "WebSocket server not available" },
+          { status: 503 }
+        );
       }
 
       const updated = wsServer.updateAgentCapabilities(did, capabilities);
@@ -299,13 +319,26 @@ export async function PATCH(
         return NextResponse.json({ error: "Agent not found" }, { status: 404 });
       }
       updateAgentBudget(did, {
-        tokenBudgetDaily: tokenBudgetDaily === null ? null : (typeof tokenBudgetDaily === "number" ? tokenBudgetDaily : undefined),
-        tokenBudgetMonthly: tokenBudgetMonthly === null ? null : (typeof tokenBudgetMonthly === "number" ? tokenBudgetMonthly : undefined),
+        tokenBudgetDaily:
+          tokenBudgetDaily === null
+            ? null
+            : typeof tokenBudgetDaily === "number"
+              ? tokenBudgetDaily
+              : undefined,
+        tokenBudgetMonthly:
+          tokenBudgetMonthly === null
+            ? null
+            : typeof tokenBudgetMonthly === "number"
+              ? tokenBudgetMonthly
+              : undefined,
       });
     }
 
     const updated = getAgent(did);
-    return NextResponse.json({ success: true, capabilities: updated ? JSON.parse(updated.capabilities) : undefined });
+    return NextResponse.json({
+      success: true,
+      capabilities: updated ? JSON.parse(updated.capabilities) : undefined,
+    });
   } catch (error) {
     return NextResponse.json(
       { error: "Failed to update capabilities" },

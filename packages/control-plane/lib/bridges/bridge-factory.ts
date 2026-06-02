@@ -1,4 +1,7 @@
-import type { TeamsBridgeConfig, WebhookBridgeConfig } from "@vaultysclaw/shared";
+import type {
+  TeamsBridgeConfig,
+  WebhookBridgeConfig,
+} from "@vaultysclaw/shared";
 import { ChannelBridgeService } from "../channel-bridge-service";
 import { WebhookGateway } from "./webhook-gateway";
 import { TeamsGateway } from "./teams-gateway";
@@ -17,11 +20,14 @@ export const BridgeFactory = {
    * Fan out a posted channel message to all active bridges on that channel.
    * Only sends to bridges where isSyncEnabled and syncDirection is not "incoming".
    */
-  async fanOutMessage(channelId: string, message: OutgoingMessage): Promise<void> {
+  async fanOutMessage(
+    channelId: string,
+    message: OutgoingMessage
+  ): Promise<void> {
     const bridges = ChannelBridgeService.listBridges(channelId);
 
     const activeBridges = bridges.filter(
-      (b) => b.isSyncEnabled && b.syncDirection !== "incoming",
+      (b) => b.isSyncEnabled && b.syncDirection !== "incoming"
     );
 
     await Promise.allSettled(
@@ -51,16 +57,16 @@ export const BridgeFactory = {
               {
                 content: message.content,
                 authorName: message.authorDid,
-              },
+              }
             );
           }
         } catch (err) {
           console.error(
             `[BridgeFactory] fanOutMessage error for bridge ${bridge.id}:`,
-            err,
+            err
           );
         }
-      }),
+      })
     );
   },
 };

@@ -2591,6 +2591,12 @@ function ChatTab({
                 {msg.content ? (
                   <ReactMarkdown
                     components={{
+                      strong: ({ children }) => (
+                        <span className="font-semibold">{children}</span>
+                      ),
+                      em: ({ children }) => (
+                        <span className="italic">{children}</span>
+                      ),
                       p: ({ children }) => <p className="m-0">{children}</p>,
                       ul: ({ children }) => (
                         <ul className="m-0 pl-4 list-disc">{children}</ul>

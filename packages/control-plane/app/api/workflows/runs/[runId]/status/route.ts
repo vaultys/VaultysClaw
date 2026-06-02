@@ -8,6 +8,53 @@ type Params = { runId: string };
  * GET /api/workflows/runs/[runId]/status
  * Get the status of a workflow run. Requires auth and realm membership.
  */
+/**
+ * @openapi
+ * /api/workflows/runs/{runId}/status:
+ *   get:
+ *     summary: Get the status of a workflow run.
+ *     tags: [Workflows]
+ *     parameters:
+ *       - name: runId
+ *         in: path
+ *         required: true
+ *         description: The ID of the workflow run.
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved workflow run status.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 runId:
+ *                   type: string
+ *                 workflowId:
+ *                   type: string
+ *                 status:
+ *                   type: string
+ *                 startedAt:
+ *                   type: string
+ *                   format: date-time
+ *                 completedAt:
+ *                   type: string
+ *                   format: date-time
+ *                 results:
+ *                   type: object
+ *                   nullable: true
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ *       500:
+ *         description: Failed to fetch workflow run status.
+ */
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<Params> },

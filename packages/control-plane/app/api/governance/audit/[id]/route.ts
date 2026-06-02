@@ -15,6 +15,44 @@ type Ctx = { params: Promise<{ id: string }> };
  * ID format:  act-{rowid}   → activity_log
  *             int-{intentId} → intent_log
  */
+/**
+ * @openapi
+ * /api/governance/audit/{id}:
+ *   get:
+ *     summary: Retrieve a single audit entry with full details and metadata.
+ *     tags: [Governance]
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         description: The ID of the audit entry (e.g., act-{rowid} or int-{intentId}).
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Audit entry retrieved successfully.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 entry:
+ *                   type: object
+ *                   description: The audit entry details.
+ *                 certInfo:
+ *                   type: object
+ *                   description: Certificate information for the agent.
+ *       400:
+ *         $ref: '#/components/responses/BadRequest'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ *       500:
+ *         description: Failed to fetch audit entry.
+ */
 export async function GET(_req: NextRequest, ctx: Ctx) {
   try {
     const auth = await getAuthContext(_req);

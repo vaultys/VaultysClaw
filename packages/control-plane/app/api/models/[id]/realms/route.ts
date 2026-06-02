@@ -43,6 +43,48 @@ function pushConfigToRealmAgents(
 type Ctx = { params: Promise<{ id: string }> };
 
 /** GET /api/models/[id]/realms — list realms with access to this model */
+/**
+ * @openapi
+ * /api/models/{id}/realms:
+ *   get:
+ *     summary: List realms with access to a specific model.
+ *     tags: [Models]
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         description: The ID of the model.
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: A list of realms with access to the model.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 realms:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       realmId:
+ *                         type: string
+ *                       realmName:
+ *                         type: string
+ *                       grantedAt:
+ *                         type: string
+ *                         format: date-time
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ *       500:
+ *         description: Failed to fetch realm access.
+ */
 export async function GET(_req: NextRequest, { params }: Ctx) {
   try {
     const auth = await getAuthContext(_req);
@@ -68,6 +110,44 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
 }
 
 /** POST /api/models/[id]/realms — grant realm access. Body: { realmId } */
+/**
+ * @openapi
+ * /api/models/{id}/realms:
+ *   post:
+ *     summary: Grant realm access to a model.
+ *     tags: [Models]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The model ID.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               realmId:
+ *                 type: string
+ *             required:
+ *               - realmId
+ *     responses:
+ *       200:
+ *         description: Realm access granted successfully.
+ *       400:
+ *         $ref: '#/components/responses/BadRequest'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ *       500:
+ *         description: Failed to grant realm access.
+ */
 export async function POST(req: NextRequest, { params }: Ctx) {
   try {
     const auth = await getAuthContext(req);
@@ -107,6 +187,39 @@ export async function POST(req: NextRequest, { params }: Ctx) {
 }
 
 /** DELETE /api/models/[id]/realms/[realmId] is in a sub-route; support via query param here */
+/**
+ * @openapi
+ * /api/models/{id}/realms:
+ *   delete:
+ *     summary: Revoke realm access for a model.
+ *     tags: [Models]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The model ID.
+ *       - in: query
+ *         name: realmId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The realm ID to revoke access from.
+ *     responses:
+ *       200:
+ *         description: Realm access revoked successfully.
+ *       400:
+ *         $ref: '#/components/responses/BadRequest'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ *       500:
+ *         description: Failed to revoke realm access.
+ */
 export async function DELETE(req: NextRequest, { params }: Ctx) {
   try {
     const auth = await getAuthContext(req);

@@ -12,6 +12,44 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext, forbidden, unauthorized } from "@/lib/auth-utils";
 import { syncEntraUsers } from "@/lib/entra-sync";
 
+/**
+ * @openapi
+ * /api/server/entra/sync:
+ *   post:
+ *     summary: Trigger a user sync from Microsoft Entra ID.
+ *     tags: [Server]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               groupIds:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                 description: Entra group IDs to import (empty = all users)
+ *               groupRealmMap:
+ *                 type: object
+ *                 additionalProperties:
+ *                   type: string
+ *                 description: Map from group ID to realm ID
+ *     responses:
+ *       200:
+ *         description: Sync operation successful.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               additionalProperties: true
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       502:
+ *         description: Sync failed due to server error.
+ */
 export async function POST(req: NextRequest) {
   const auth = await getAuthContext(req);
   if (!auth) return unauthorized();

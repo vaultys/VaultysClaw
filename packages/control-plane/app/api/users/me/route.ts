@@ -8,6 +8,34 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-config";
 import { UserDao } from "@/lib/user-dao";
 
+/**
+ * @openapi
+ * /api/users/me:
+ *   get:
+ *     summary: Return the current user's profile.
+ *     tags: [Users]
+ *     responses:
+ *       200:
+ *         description: Successful response with user profile.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 did:
+ *                   type: string
+ *                 name:
+ *                   type: string
+ *                   nullable: true
+ *                 isOwner:
+ *                   type: boolean
+ *                 isAdmin:
+ *                   type: boolean
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ */
 export async function GET() {
   const session = await getServerSession(authOptions);
   if (!session?.user?.did) {
@@ -27,6 +55,41 @@ export async function GET() {
   });
 }
 
+/**
+ * @openapi
+ * /api/users/me:
+ *   patch:
+ *     summary: Update the current user's own name.
+ *     tags: [Users]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 description: The new name for the user.
+ *                 maxLength: 128
+ *     responses:
+ *       200:
+ *         description: Successfully updated the user's name.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 ok:
+ *                   type: boolean
+ *                 name:
+ *                   type: string
+ *                   nullable: true
+ *       400:
+ *         $ref: '#/components/responses/BadRequest'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ */
 export async function PATCH(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.did) {

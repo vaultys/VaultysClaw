@@ -8,6 +8,35 @@ import { getPendingApprovalsForUser, getAllApprovalsForUser } from "@/lib/db";
  * Returns approval/notification items for the logged-in user.
  * Without ?all=1, only pending/notified are returned.
  */
+/**
+ * @openapi
+ * /api/workflow-approvals:
+ *   get:
+ *     summary: Retrieve approval items for the logged-in user.
+ *     tags: [Workflows]
+ *     parameters:
+ *       - in: query
+ *         name: all
+ *         schema:
+ *           type: string
+ *         description: Include all approvals if set to 1, otherwise only pending.
+ *     responses:
+ *       200:
+ *         description: A list of approval items.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 approvals:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       500:
+ *         description: Failed to fetch approvals.
+ */
 export async function GET(request: Request) {
   try {
     const session = await getServerSession(authOptions);

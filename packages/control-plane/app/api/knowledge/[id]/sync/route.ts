@@ -4,6 +4,48 @@ import { getKnowledgeSource, updateKnowledgeSourceStatus, getDoclingConfig, getK
 import { getWSServer } from '@/lib/ws-server';
 
 // POST /api/knowledge/:id/sync
+/**
+ * @openapi
+ * /api/knowledge/{id}/sync:
+ *   post:
+ *     summary: Initiate a sync for a knowledge source.
+ *     tags: [Knowledge]
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         description: The ID of the knowledge source to sync.
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Sync initiated successfully.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 messageId:
+ *                   type: string
+ *                 status:
+ *                   type: string
+ *                 docling:
+ *                   type: boolean
+ *       400:
+ *         $ref: '#/components/responses/BadRequest'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ *       409:
+ *         description: Sync already in progress.
+ *       503:
+ *         description: Service unavailable or agent offline.
+ */
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const auth = await getAuthContext(request);
   if (!auth) return unauthorized();

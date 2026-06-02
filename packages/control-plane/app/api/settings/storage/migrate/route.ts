@@ -5,6 +5,37 @@ import { generateFileKey } from '@/lib/file-storage';
 
 // POST /api/settings/storage/migrate
 // Migrate files from SQLite BLOB storage to filesystem/S3 storage
+/**
+ * @openapi
+ * /api/settings/storage/migrate:
+ *   post:
+ *     summary: Migrate files from SQLite BLOB storage to filesystem/S3 storage.
+ *     tags: [Settings]
+ *     responses:
+ *       200:
+ *         description: Migration completed successfully.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 migratedCount:
+ *                   type: integer
+ *                 errorCount:
+ *                   type: integer
+ *                 message:
+ *                   type: string
+ *                 hasMore:
+ *                   type: boolean
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       500:
+ *         description: Migration failed due to server error.
+ */
 export async function POST(request: NextRequest) {
   const auth = await getAuthContext(request);
   if (!auth) return unauthorized();

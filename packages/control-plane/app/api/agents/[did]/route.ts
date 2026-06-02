@@ -28,6 +28,80 @@ function vaultysIdInfo(pk: unknown) {
  * GET /api/agents/[did]
  * Get detailed info for a single agent by DID. Requires auth and realm membership.
  */
+/**
+ * @openapi
+ * /api/agents/{did}:
+ *   get:
+ *     summary: Get detailed info for a single agent by DID.
+ *     tags: [Agents]
+ *     parameters:
+ *       - name: did
+ *         in: path
+ *         required: true
+ *         description: The DID of the agent.
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Detailed information about the agent.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 id:
+ *                   type: string
+ *                 name:
+ *                   type: string
+ *                 capabilities:
+ *                   type: array
+ *                   items:
+ *                     type: string
+ *                 publicKey:
+ *                   type: string
+ *                 certificateInfo:
+ *                   type: object
+ *                 agentVaultysId:
+ *                   type: object
+ *                 registeredAt:
+ *                   type: string
+ *                   format: date-time
+ *                 lastSeen:
+ *                   type: string
+ *                   format: date-time
+ *                 online:
+ *                   type: boolean
+ *                 connectedAt:
+ *                   type: string
+ *                   format: date-time
+ *                 lastHeartbeat:
+ *                   type: string
+ *                   format: date-time
+ *                 reportedLlm:
+ *                   type: string
+ *                 transport:
+ *                   type: string
+ *                 storedLlm:
+ *                   type: object
+ *                 tokenUsage:
+ *                   type: object
+ *                 tokenBudgetDaily:
+ *                   type: integer
+ *                 tokenBudgetMonthly:
+ *                   type: integer
+ *                 todayTokens:
+ *                   type: integer
+ *                 monthTokens:
+ *                   type: integer
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ *       500:
+ *         description: Failed to fetch agent.
+ */
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ did: string }> }
@@ -133,6 +207,61 @@ export async function GET(
  * PATCH /api/agents/[did]
  * Update an agent's capabilities. Global admin only.
  */
+/**
+ * @openapi
+ * /api/agents/{did}:
+ *   patch:
+ *     summary: Update an agent's capabilities.
+ *     tags: [Agents]
+ *     parameters:
+ *       - name: did
+ *         in: path
+ *         required: true
+ *         description: The DID of the agent to update.
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               capabilities:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *               tokenBudgetDaily:
+ *                 type: number
+ *                 nullable: true
+ *               tokenBudgetMonthly:
+ *                 type: number
+ *                 nullable: true
+ *     responses:
+ *       200:
+ *         description: Agent capabilities updated successfully.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 capabilities:
+ *                   type: array
+ *                   items:
+ *                     type: string
+ *       400:
+ *         $ref: '#/components/responses/BadRequest'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ *       500:
+ *         description: Failed to update capabilities.
+ */
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ did: string }> }
@@ -188,6 +317,31 @@ export async function PATCH(
 /**
  * DELETE /api/agents/[did]
  * Delete an agent. Global admin only.
+ */
+/**
+ * @openapi
+ * /api/agents/{did}:
+ *   delete:
+ *     summary: Delete an agent.
+ *     tags: [Agents]
+ *     parameters:
+ *       - name: did
+ *         in: path
+ *         required: true
+ *         description: The DID of the agent to delete.
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Agent successfully deleted.
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ *       500:
+ *         description: Failed to delete agent.
  */
 export async function DELETE(
   _request: NextRequest,

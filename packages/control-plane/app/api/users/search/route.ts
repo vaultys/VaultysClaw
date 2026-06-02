@@ -5,6 +5,54 @@ import { getRealmById, getRealmUsers } from "@/lib/db";
  * GET /api/users/search?realm=[realmId]&q=[search query]
  * List users in a realm with optional search by name/email
  */
+/**
+ * @openapi
+ * /api/users/search:
+ *   get:
+ *     summary: List users in a realm with optional search by name/email.
+ *     tags: [Users]
+ *     parameters:
+ *       - in: query
+ *         name: realm
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the realm to search within.
+ *       - in: query
+ *         name: q
+ *         required: false
+ *         schema:
+ *           type: string
+ *         description: The search query to filter users by name or email.
+ *     responses:
+ *       200:
+ *         description: A list of users matching the search criteria.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 users:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: string
+ *                       name:
+ *                         type: string
+ *                       email:
+ *                         type: string
+ *                       joinedAt:
+ *                         type: string
+ *                         format: date-time
+ *       400:
+ *         $ref: '#/components/responses/BadRequest'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ *       500:
+ *         description: Failed to search users due to server error.
+ */
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);

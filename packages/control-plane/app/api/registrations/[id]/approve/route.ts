@@ -8,6 +8,70 @@ import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
  * POST /api/registrations/[id]/approve
  * Approve a pending registration with selected capabilities and optional realm assignments
  */
+/**
+ * @openapi
+ * /api/registrations/{id}/approve:
+ *   post:
+ *     summary: Approve a pending registration with selected capabilities.
+ *     tags: [Registrations]
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         description: Registration ID to approve
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               capabilities:
+ *                 type: array
+ *                 items:
+ *                   $ref: '#/components/schemas/AgentCapability'
+ *               realmIds:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *     responses:
+ *       200:
+ *         description: Registration approved successfully.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 registrationId:
+ *                   type: string
+ *                 capabilities:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/AgentCapability'
+ *                 agentDid:
+ *                   type: string
+ *                   nullable: true
+ *       400:
+ *         $ref: '#/components/responses/BadRequest'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ *       409:
+ *         description: Registration already processed.
+ *       410:
+ *         description: Agent connection no longer available.
+ *       500:
+ *         description: Failed to approve registration.
+ *       503:
+ *         description: WebSocket server not available.
+ */
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }

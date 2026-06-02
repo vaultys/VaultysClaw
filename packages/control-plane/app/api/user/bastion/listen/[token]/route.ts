@@ -13,6 +13,42 @@ interface Params {
  * Returns { status: number, browserDid?: string }
  *   status 2 + browserDid → success, browser device DID known
  */
+/**
+ * @openapi
+ * /api/user/bastion/listen/{token}:
+ *   post:
+ *     summary: Poll bastion connection authentication status.
+ *     tags: [User]
+ *     parameters:
+ *       - name: token
+ *         in: path
+ *         required: true
+ *         description: The connection token.
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Successful response with status and optional browser device DID.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: integer
+ *                   description: Status code indicating the result.
+ *                 browserDid:
+ *                   type: string
+ *                   description: Browser device DID if known.
+ *       400:
+ *         $ref: '#/components/responses/BadRequest'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ */
 export async function POST(_request: NextRequest, { params }: Params) {
   const { token } = await params;
   const result = UserServerChannel.listenBastion(token);

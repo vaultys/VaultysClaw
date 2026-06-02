@@ -18,6 +18,90 @@ import { getAuthContext, unauthorized } from "@/lib/auth-utils";
  *   sortBy       – name | lastSeen | registeredAt (default lastSeen)
  *   sortDir      – asc | desc (default desc)
  */
+/**
+ * @openapi
+ * /api/agents:
+ *   get:
+ *     summary: List agents with optional pagination and filters.
+ *     tags: [Agents]
+ *     parameters:
+ *       - in: query
+ *         name: q
+ *         schema:
+ *           type: string
+ *         description: Search by name or capability (case-insensitive).
+ *       - in: query
+ *         name: online
+ *         schema:
+ *           type: string
+ *           enum: [true, false]
+ *         description: Filter by online status.
+ *       - in: query
+ *         name: realm
+ *         schema:
+ *           type: string
+ *         description: Realm id or slug.
+ *       - in: query
+ *         name: capabilities
+ *         schema:
+ *           type: string
+ *         description: Comma-separated capability names (e.g., "file_access,code_execution").
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number.
+ *       - in: query
+ *         name: pageSize
+ *         schema:
+ *           type: integer
+ *           default: 20
+ *           maximum: 100
+ *         description: Items per page.
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [name, lastSeen, registeredAt]
+ *           default: lastSeen
+ *         description: Sort by field.
+ *       - in: query
+ *         name: sortDir
+ *         schema:
+ *           type: string
+ *           enum: [asc, desc]
+ *           default: desc
+ *         description: Sort direction.
+ *     responses:
+ *       200:
+ *         description: A list of agents.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 agents:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Agent'
+ *                 total:
+ *                   type: integer
+ *                 page:
+ *                   type: integer
+ *                 pageSize:
+ *                   type: integer
+ *                 totalPages:
+ *                   type: integer
+ *                 online:
+ *                   type: integer
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       500:
+ *         description: Failed to fetch agents.
+ */
 export async function GET(request?: Request) {
   try {
     const auth = await getAuthContext(request);

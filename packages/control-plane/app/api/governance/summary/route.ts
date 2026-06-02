@@ -6,6 +6,85 @@ import { getDb } from "@/lib/db";
  * GET /api/governance/summary
  * Returns governance posture stats. Global admin only.
  */
+/**
+ * @openapi
+ * /api/governance/summary:
+ *   get:
+ *     summary: Retrieve governance posture statistics.
+ *     tags: [Governance]
+ *     responses:
+ *       200:
+ *         description: Governance summary retrieved successfully.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 agents:
+ *                   type: object
+ *                   properties:
+ *                     total:
+ *                       type: integer
+ *                     uncovered:
+ *                       type: integer
+ *                     highRisk:
+ *                       type: integer
+ *                     highRiskList:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           did:
+ *                             type: string
+ *                           riskyCaps:
+ *                             type: array
+ *                             items:
+ *                               type: string
+ *                 intents:
+ *                   type: object
+ *                   properties:
+ *                     total:
+ *                       type: integer
+ *                     failed:
+ *                       type: integer
+ *                     pending:
+ *                       type: integer
+ *                     successRate:
+ *                       type: integer
+ *                 approvals:
+ *                   type: object
+ *                   properties:
+ *                     total:
+ *                       type: integer
+ *                     approved:
+ *                       type: integer
+ *                     rejected:
+ *                       type: integer
+ *                     pending:
+ *                       type: integer
+ *                     approvalRate:
+ *                       type: integer
+ *                 policies:
+ *                   type: object
+ *                   properties:
+ *                     active:
+ *                       type: integer
+ *                     expired:
+ *                       type: integer
+ *                 budgets:
+ *                   type: object
+ *                   properties:
+ *                     agentsOverDailyBudget:
+ *                       type: integer
+ *                     agentsOverMonthlyBudget:
+ *                       type: integer
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       500:
+ *         description: Failed to fetch governance summary.
+ */
 export async function GET(request: NextRequest) {
   try {
     const auth = await getAuthContext(request);

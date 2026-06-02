@@ -7,6 +7,43 @@ import { getWorkflowRunHistory } from "@/lib/db";
  * GET /api/workflow-runs/[id]
  * Get a specific workflow run with its history and steps
  */
+/**
+ * @openapi
+ * /api/workflow-runs/{id}:
+ *   get:
+ *     summary: Get a specific workflow run with its history and steps.
+ *     tags: [Workflows]
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         description: The ID of the workflow run.
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Successful response with workflow run details.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 run:
+ *                   type: object
+ *                 workflow:
+ *                   type: object
+ *                   nullable: true
+ *                 steps:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ *       500:
+ *         description: Failed to fetch workflow run.
+ */
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }

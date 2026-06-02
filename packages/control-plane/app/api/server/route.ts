@@ -19,6 +19,82 @@ function getVersion(): string {
  * GET /api/server
  * Server identity, status, registered agents summary, and system info.
  */
+/**
+ * @openapi
+ * /api/server:
+ *   get:
+ *     summary: Retrieve server identity, status, and system info.
+ *     tags: [Server]
+ *     responses:
+ *       200:
+ *         description: Successful response with server details.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 identity:
+ *                   type: object
+ *                   nullable: true
+ *                   properties:
+ *                     did:
+ *                       type: string
+ *                     fingerprint:
+ *                       type: string
+ *                     version:
+ *                       type: number
+ *                     type:
+ *                       type: string
+ *                       enum: [machine, person, unknown]
+ *                 stats:
+ *                   type: object
+ *                   properties:
+ *                     totalAgents:
+ *                       type: integer
+ *                     onlineAgents:
+ *                       type: integer
+ *                     offlineAgents:
+ *                       type: integer
+ *                 sysInfo:
+ *                   type: object
+ *                   properties:
+ *                     platform:
+ *                       type: string
+ *                     osType:
+ *                       type: string
+ *                     osRelease:
+ *                       type: string
+ *                     hostname:
+ *                       type: string
+ *                     uptime:
+ *                       type: number
+ *                     totalMem:
+ *                       type: integer
+ *                     freeMem:
+ *                       type: integer
+ *                     cpuCount:
+ *                       type: integer
+ *                     cpuModel:
+ *                       type: string
+ *                     loadAvg:
+ *                       type: array
+ *                       items:
+ *                         type: number
+ *                     version:
+ *                       type: string
+ *                 walletUrl:
+ *                   type: string
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ *       400:
+ *         $ref: '#/components/responses/BadRequest'
+ *       500:
+ *         description: Internal server error.
+ */
 export async function GET() {
   try {
     // Server VaultysId identity

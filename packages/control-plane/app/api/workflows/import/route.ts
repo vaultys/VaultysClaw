@@ -10,6 +10,65 @@ interface ImportPayload {
   realmId?: string;
 }
 
+/**
+ * @openapi
+ * /api/workflows/import:
+ *   post:
+ *     summary: Import a new workflow definition.
+ *     tags: [Workflows]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 description: The name of the workflow.
+ *               description:
+ *                 type: string
+ *                 description: An optional description of the workflow.
+ *               definition:
+ *                 $ref: '#/components/schemas/WorkflowDefinition'
+ *               realmId:
+ *                 type: string
+ *                 description: The ID of the realm, if applicable.
+ *             required:
+ *               - name
+ *               - definition
+ *     responses:
+ *       200:
+ *         description: Workflow imported successfully.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 id:
+ *                   type: string
+ *                 message:
+ *                   type: string
+ *       400:
+ *         $ref: '#/components/responses/BadRequest'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       500:
+ *         description: Failed to import workflow.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 error:
+ *                   type: string
+ */
 export async function POST(request: NextRequest) {
   try {
     const auth = await getAuthContext(request);

@@ -13,6 +13,82 @@ import { getDb } from "@/lib/db";
  *   status   – filter intent_log by status ("success"|"failed"|"pending")
  *   agentDid – filter both tables to a specific agent DID
  */
+/**
+ * @openapi
+ * /api/governance/audit:
+ *   get:
+ *     summary: Retrieve a unified audit stream of activity and intent logs.
+ *     tags: [Governance]
+ *     parameters:
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 200
+ *           maximum: 500
+ *         description: Maximum number of entries to return.
+ *       - in: query
+ *         name: source
+ *         schema:
+ *           type: string
+ *           enum: [activity, intent, ""]
+ *         description: Filter by log source.
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [success, failed, pending]
+ *         description: Filter intent logs by status.
+ *       - in: query
+ *         name: agentDid
+ *         schema:
+ *           type: string
+ *         description: Filter logs by a specific agent DID.
+ *     responses:
+ *       200:
+ *         description: A list of audit log entries.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 entries:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: string
+ *                       source:
+ *                         type: string
+ *                       event:
+ *                         type: string
+ *                       agentDid:
+ *                         type: string
+ *                         nullable: true
+ *                       agentName:
+ *                         type: string
+ *                         nullable: true
+ *                       details:
+ *                         type: string
+ *                         nullable: true
+ *                       status:
+ *                         type: string
+ *                         nullable: true
+ *                       error:
+ *                         type: string
+ *                         nullable: true
+ *                       timestamp:
+ *                         type: string
+ *                 total:
+ *                   type: integer
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       500:
+ *         description: Failed to fetch audit log.
+ */
 export async function GET(request: NextRequest) {
   try {
     const auth = await getAuthContext(request);

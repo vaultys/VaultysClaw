@@ -8,6 +8,29 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-config";
 import { getWSServer } from "@/lib/ws-server";
 
+/**
+ * @openapi
+ * /api/tool-approvals:
+ *   get:
+ *     summary: List pending tool approval requests.
+ *     tags: [Tool Approvals]
+ *     responses:
+ *       200:
+ *         description: A list of pending tool approval requests.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 approvals:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       503:
+ *         description: WebSocket server not available.
+ */
 export async function GET() {
   const session = await getServerSession(authOptions);
   if (!session?.user) {
@@ -23,6 +46,43 @@ export async function GET() {
   return NextResponse.json({ approvals });
 }
 
+/**
+ * @openapi
+ * /api/tool-approvals:
+ *   post:
+ *     summary: Respond to a tool approval request.
+ *     tags: [Tool Approvals]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               requestId:
+ *                 type: string
+ *                 description: The ID of the approval request.
+ *               approved:
+ *                 type: boolean
+ *                 description: Approval status.
+ *               reason:
+ *                 type: string
+ *                 description: Optional reason for approval or rejection.
+ *             required:
+ *               - requestId
+ *               - approved
+ *     responses:
+ *       200:
+ *         description: Approval response processed successfully.
+ *       400:
+ *         $ref: '#/components/responses/BadRequest'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ *       503:
+ *         description: WebSocket server not available.
+ */
 export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user) {

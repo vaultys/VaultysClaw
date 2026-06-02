@@ -10,6 +10,58 @@ type Ctx = { params: Promise<{ id: string }> };
 /**
  * GET /api/realms/[id] — realm detail. Requires auth and realm membership.
  */
+/**
+ * @openapi
+ * /api/realms/{id}:
+ *   get:
+ *     summary: Retrieve details of a specific realm.
+ *     tags: [Realms]
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         description: The ID of the realm to retrieve.
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: A JSON object containing realm details.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 realm:
+ *                   $ref: '#/components/schemas/Realm'
+ *                 agents:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Agent'
+ *                 users:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/User'
+ *                 workflows:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Workflow'
+ *                 tokenUsage:
+ *                   type: object
+ *                   nullable: true
+ *                   properties:
+ *                     promptTokens:
+ *                       type: integer
+ *                     completionTokens:
+ *                       type: integer
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ *       500:
+ *         description: Failed to fetch realm
+ */
 export async function GET(_req: NextRequest, ctx: Ctx) {
   try {
     const auth = await getAuthContext(_req);
@@ -51,6 +103,66 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
 /**
  * PATCH /api/realms/[id] — update realm metadata or config. Global admin only.
  * Body: { name?, description?, color?, llmConfig?, defaultCapabilities? }
+ */
+/**
+ * @openapi
+ * /api/realms/{id}:
+ *   patch:
+ *     summary: Update realm metadata or config.
+ *     tags: [Realms]
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         description: The ID of the realm to update.
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *               description:
+ *                 type: string
+ *               color:
+ *                 type: string
+ *               llmConfig:
+ *                 type: object
+ *                 nullable: true
+ *               defaultCapabilities:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *               tokenBudgetDaily:
+ *                 type: integer
+ *                 nullable: true
+ *               tokenBudgetMonthly:
+ *                 type: integer
+ *                 nullable: true
+ *               allowedCapabilities:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                 nullable: true
+ *     responses:
+ *       200:
+ *         description: Realm updated successfully.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Realm'
+ *       400:
+ *         $ref: '#/components/responses/BadRequest'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
  */
 export async function PATCH(req: NextRequest, ctx: Ctx) {
   try {
@@ -94,6 +206,41 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
 
 /**
  * DELETE /api/realms/[id] — delete realm (not allowed for default realm). Global admin only.
+ */
+/**
+ * @openapi
+ * /api/realms/{id}:
+ *   delete:
+ *     summary: Delete a realm (not allowed for default realm).
+ *     tags: [Realms]
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         description: The ID of the realm to delete.
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Realm successfully deleted.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 ok:
+ *                   type: boolean
+ *                   example: true
+ *       400:
+ *         $ref: '#/components/responses/BadRequest'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ *       500:
+ *         description: Failed to delete realm.
  */
 export async function DELETE(_req: NextRequest, ctx: Ctx) {
   try {

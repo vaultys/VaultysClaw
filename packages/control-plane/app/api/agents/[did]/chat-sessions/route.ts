@@ -7,6 +7,48 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getWSServer } from "@/lib/ws-server";
 import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
 
+/**
+ * @openapi
+ * /api/agents/{did}/chat-sessions:
+ *   get:
+ *     summary: Retrieve chat sessions or full history for a session.
+ *     tags: [Agents]
+ *     parameters:
+ *       - name: did
+ *         in: path
+ *         required: true
+ *         description: The decentralized identifier of the agent.
+ *         schema:
+ *           type: string
+ *       - name: session
+ *         in: query
+ *         required: false
+ *         description: The session ID to retrieve full history.
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: A list of chat sessions or messages.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 sessions:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                 messages:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       503:
+ *         description: Service unavailable or failed to fetch data.
+ */
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ did: string }> },

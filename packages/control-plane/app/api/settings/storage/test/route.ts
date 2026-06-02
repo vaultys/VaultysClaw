@@ -6,6 +6,54 @@ import { decryptSecret } from '@/lib/vault';
 // POST /api/settings/storage/test
 // Body fields are optional — omit any to fall back to the saved (DB) config.
 // secretAccessKey must be supplied in the body if not yet saved.
+/**
+ * @openapi
+ * /api/settings/storage/test:
+ *   post:
+ *     summary: Test storage settings with optional overrides.
+ *     tags: [Settings]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               region:
+ *                 type: string
+ *               bucket:
+ *                 type: string
+ *               endpoint:
+ *                 type: string
+ *               accessKeyId:
+ *                 type: string
+ *               secretAccessKey:
+ *                 type: string
+ *             required:
+ *               - secretAccessKey
+ *     responses:
+ *       200:
+ *         description: Storage settings tested successfully.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 ok:
+ *                   type: boolean
+ *                 latency:
+ *                   type: integer
+ *                 bucket:
+ *                   type: string
+ *                 region:
+ *                   type: string
+ *       400:
+ *         $ref: '#/components/responses/BadRequest'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ */
 export async function POST(request: NextRequest) {
   const auth = await getAuthContext(request);
   if (!auth) return unauthorized();

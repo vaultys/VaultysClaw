@@ -12,6 +12,36 @@ import { registerModel, removeModel, isLiteLLMConfigured } from "@/lib/litellm-c
 type Ctx = { params: Promise<{ id: string }> };
 
 /** GET /api/models/[id] */
+/**
+ * @openapi
+ * /api/models/{id}:
+ *   get:
+ *     summary: Retrieve a model by its ID.
+ *     tags: [Models]
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         description: The ID of the model to retrieve.
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Model retrieved successfully.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 model:
+ *                   $ref: '#/components/schemas/Model'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ *       500:
+ *         description: Failed to fetch model.
+ */
 export async function GET(_req: NextRequest, { params }: Ctx) {
   try {
     const auth = await getAuthContext(_req);
@@ -51,6 +81,57 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
 }
 
 /** PUT /api/models/[id] — update model. Admin only. */
+/**
+ * @openapi
+ * /api/models/{id}:
+ *   put:
+ *     summary: Update a model entry. Admin only.
+ *     tags: [Models]
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         description: The ID of the model to update
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *               description:
+ *                 type: string
+ *                 nullable: true
+ *               provider:
+ *                 type: string
+ *               modelId:
+ *                 type: string
+ *               baseUrl:
+ *                 type: string
+ *               apiKey:
+ *                 type: string
+ *                 nullable: true
+ *               status:
+ *                 type: string
+ *                 enum: [active, inactive]
+ *     responses:
+ *       200:
+ *         description: Model updated successfully
+ *       400:
+ *         $ref: '#/components/responses/BadRequest'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ *       500:
+ *         description: Failed to update model
+ */
 export async function PUT(req: NextRequest, { params }: Ctx) {
   try {
     const auth = await getAuthContext(req);
@@ -104,6 +185,31 @@ export async function PUT(req: NextRequest, { params }: Ctx) {
 }
 
 /** DELETE /api/models/[id] — admin only. */
+/**
+ * @openapi
+ * /api/models/{id}:
+ *   delete:
+ *     summary: Delete a model by ID. Admin only.
+ *     tags: [Models]
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         description: The ID of the model to delete
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Model deleted successfully
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ *       500:
+ *         description: Failed to delete model
+ */
 export async function DELETE(_req: NextRequest, { params }: Ctx) {
   try {
     const auth = await getAuthContext(_req);

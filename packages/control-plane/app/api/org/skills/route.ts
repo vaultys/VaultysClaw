@@ -7,6 +7,27 @@ import { NextRequest, NextResponse } from "next/server";
 import { getOrgSkills, createOrgSkill } from "@/lib/db";
 import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
 
+/**
+ * @openapi
+ * /api/org/skills:
+ *   get:
+ *     summary: List the organization skill catalog.
+ *     tags: [OrgSkills]
+ *     responses:
+ *       200:
+ *         description: A list of skills in the organization catalog.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 skills:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ */
 export async function GET(request: NextRequest) {
   const auth = await getAuthContext(request);
   if (!auth) return unauthorized();
@@ -14,6 +35,75 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({ skills: getOrgSkills() });
 }
 
+/**
+ * @openapi
+ * /api/org/skills:
+ *   post:
+ *     summary: Add a new skill to the catalog.
+ *     tags: [Org]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 description: The name of the skill.
+ *               description:
+ *                 type: string
+ *                 description: A brief description of the skill.
+ *               version:
+ *                 type: string
+ *                 description: The version of the skill.
+ *               icon:
+ *                 type: string
+ *                 description: The icon URL of the skill.
+ *               content:
+ *                 type: string
+ *                 description: The content of the skill.
+ *               configSchema:
+ *                 type: object
+ *                 additionalProperties: true
+ *                 description: The configuration schema for the skill.
+ *     responses:
+ *       201:
+ *         description: Skill created successfully.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 skill:
+ *                   $ref: '#/components/schemas/Skill'
+ *       400:
+ *         $ref: '#/components/responses/BadRequest'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       409:
+ *         description: Skill already exists in the catalog.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: string
+ *                   description: Error message.
+ *       500:
+ *         description: Failed to create skill.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: string
+ *                   description: Error message.
+ */
 export async function POST(req: NextRequest) {
   const auth = await getAuthContext(req);
   if (!auth) return unauthorized();

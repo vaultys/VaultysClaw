@@ -19,6 +19,57 @@ type Ctx = { params: Promise<{ id: string }> };
  * POST /api/realms/[id]/agents — add an agent to this realm. Realm admin or global admin.
  * Body: { agentDid, isPrimary? }
  */
+/**
+ * @openapi
+ * /api/realms/{id}/agents:
+ *   post:
+ *     summary: Add an agent to a realm.
+ *     tags: [Realms]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the realm.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               agentDid:
+ *                 type: string
+ *                 description: The DID of the agent to add.
+ *               isPrimary:
+ *                 type: boolean
+ *                 description: Whether the agent is primary.
+ *             required:
+ *               - agentDid
+ *     responses:
+ *       200:
+ *         description: Agent added successfully.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 ok:
+ *                   type: boolean
+ *                 llmPushed:
+ *                   type: boolean
+ *       400:
+ *         $ref: '#/components/responses/BadRequest'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ *       500:
+ *         description: Failed to add agent to realm.
+ */
 export async function POST(req: NextRequest, ctx: Ctx) {
   try {
     const auth = await getAuthContext(req);
@@ -75,6 +126,44 @@ export async function POST(req: NextRequest, ctx: Ctx) {
 /**
  * DELETE /api/realms/[id]/agents — remove an agent from this realm. Realm admin or global admin.
  * Body: { agentDid }
+ */
+/**
+ * @openapi
+ * /api/realms/{id}/agents:
+ *   delete:
+ *     summary: Remove an agent from a realm.
+ *     tags: [Realms]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Realm ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               agentDid:
+ *                 type: string
+ *             required:
+ *               - agentDid
+ *     responses:
+ *       200:
+ *         description: Agent removed successfully.
+ *       400:
+ *         $ref: '#/components/responses/BadRequest'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ *       500:
+ *         description: Failed to remove agent from realm.
  */
 export async function DELETE(req: NextRequest, ctx: Ctx) {
   try {

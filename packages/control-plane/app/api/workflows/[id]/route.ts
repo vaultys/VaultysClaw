@@ -8,6 +8,40 @@ type Params = { id: string };
  * GET /api/workflows/[id]
  * Fetch a single workflow. Requires auth and realm membership.
  */
+/**
+ * @openapi
+ * /api/workflows/{id}:
+ *   get:
+ *     summary: Fetch a single workflow by ID.
+ *     tags: [Workflows]
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         description: The ID of the workflow to fetch.
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Successfully fetched the workflow.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 workflow:
+ *                   $ref: '#/components/schemas/Workflow'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ *       500:
+ *         description: Failed to fetch workflow.
+ */
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<Params> },
@@ -47,6 +81,57 @@ export async function GET(
 /**
  * PATCH /api/workflows/[id]
  * Update a workflow. Requires realm admin or global admin.
+ */
+/**
+ * @openapi
+ * /api/workflows/{id}:
+ *   patch:
+ *     summary: Update a workflow.
+ *     tags: [Workflows]
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         description: The ID of the workflow to update.
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *               definition:
+ *                 $ref: '#/components/schemas/WorkflowDefinition'
+ *               description:
+ *                 type: string
+ *               realmId:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Workflow updated successfully.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 id:
+ *                   type: string
+ *       400:
+ *         $ref: '#/components/responses/BadRequest'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ *       500:
+ *         description: Failed to update workflow.
  */
 export async function PATCH(
   request: NextRequest,
@@ -92,6 +177,40 @@ export async function PATCH(
 /**
  * DELETE /api/workflows/[id]
  * Delete a workflow. Requires realm admin or global admin.
+ */
+/**
+ * @openapi
+ * /api/workflows/{id}:
+ *   delete:
+ *     summary: Delete a workflow
+ *     tags: [Workflows]
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         description: The ID of the workflow to delete
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Workflow successfully deleted
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 id:
+ *                   type: string
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ *       500:
+ *         description: Failed to delete workflow
  */
 export async function DELETE(
   _request: NextRequest,

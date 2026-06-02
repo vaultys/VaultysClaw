@@ -15,6 +15,62 @@ import { getSetting } from "@/lib/db";
 import { VaultysId } from "@vaultys/id";
 import { sendMail, getSmtpConfig } from "@/lib/smtp";
 
+/**
+ * @openapi
+ * /api/users/unclaimed/{id}/send-qr:
+ *   post:
+ *     summary: Send a QR code to an unclaimed user via email.
+ *     tags: [Users]
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         description: The ID of the unclaimed user.
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               sendByEmail:
+ *                 type: boolean
+ *                 description: When true, emails the QR URL to the user's email address.
+ *                 default: true
+ *     responses:
+ *       200:
+ *         description: QR code sent successfully.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 qrUrl:
+ *                   type: string
+ *                   description: The URL of the QR code.
+ *                 token:
+ *                   type: string
+ *                   description: The connection token.
+ *                 key:
+ *                   type: string
+ *                   description: The connection key.
+ *                 serverDid:
+ *                   type: string
+ *                   description: The server DID.
+ *                 emailSent:
+ *                   type: boolean
+ *                   description: Indicates if the email was sent.
+ *       400:
+ *         $ref: '#/components/responses/BadRequest'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ */
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }

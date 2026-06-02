@@ -3,6 +3,48 @@ import { getAuthContext, unauthorized, forbidden } from '@/lib/auth-utils';
 import { getStorageConfig, setStorageConfig, getSetting } from '@/lib/db';
 
 // GET /api/settings/storage
+/**
+ * @openapi
+ * /api/settings/storage:
+ *   get:
+ *     summary: Retrieve the current storage configuration.
+ *     tags: [Settings]
+ *     responses:
+ *       200:
+ *         description: Successful response with storage configuration.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 storageType:
+ *                   type: string
+ *                 filesystem:
+ *                   type: object
+ *                   properties:
+ *                     directory:
+ *                       type: string
+ *                 s3:
+ *                   type: object
+ *                   properties:
+ *                     enabled:
+ *                       type: boolean
+ *                     region:
+ *                       type: string
+ *                     bucket:
+ *                       type: string
+ *                     endpoint:
+ *                       type: string
+ *                       nullable: true
+ *                     accessKeyId:
+ *                       type: string
+ *                     configured:
+ *                       type: boolean
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ */
 export async function GET(request: NextRequest) {
   const auth = await getAuthContext(request);
   if (!auth) return unauthorized();
@@ -26,6 +68,71 @@ export async function GET(request: NextRequest) {
 }
 
 // PUT /api/settings/storage
+/**
+ * @openapi
+ * /api/settings/storage:
+ *   put:
+ *     summary: Update storage configuration settings.
+ *     tags: [Settings]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               storageType:
+ *                 type: string
+ *                 enum: [filesystem, s3]
+ *               filesystemDir:
+ *                 type: string
+ *               s3:
+ *                 type: object
+ *                 properties:
+ *                   enabled:
+ *                     type: boolean
+ *                   region:
+ *                     type: string
+ *                   bucket:
+ *                     type: string
+ *                   endpoint:
+ *                     type: string
+ *                   accessKeyId:
+ *                     type: string
+ *                   secretAccessKey:
+ *                     type: string
+ *     responses:
+ *       200:
+ *         description: Storage configuration updated successfully.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 ok:
+ *                   type: boolean
+ *                 storageType:
+ *                   type: string
+ *                 s3:
+ *                   type: object
+ *                   properties:
+ *                     enabled:
+ *                       type: boolean
+ *                     bucket:
+ *                       type: string
+ *                     region:
+ *                       type: string
+ *                     accessKeyId:
+ *                       type: string
+ *                     configured:
+ *                       type: boolean
+ *       400:
+ *         $ref: '#/components/responses/BadRequest'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ */
 export async function PUT(request: NextRequest) {
   const auth = await getAuthContext(request);
   if (!auth) return unauthorized();

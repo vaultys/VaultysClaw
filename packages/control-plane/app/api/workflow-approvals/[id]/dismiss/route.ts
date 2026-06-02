@@ -11,6 +11,29 @@ interface Params {
  * POST /api/workflow-approvals/[id]/dismiss
  * Dismiss a notification item.
  */
+/**
+ * @openapi
+ * /api/workflow-approvals/{id}/dismiss:
+ *   post:
+ *     summary: Dismiss a workflow notification.
+ *     tags: [Workflow Approvals]
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         description: The ID of the workflow approval to dismiss.
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Notification dismissed successfully.
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ *       500:
+ *         description: Failed to dismiss the notification.
+ */
 export async function POST(_request: Request, { params }: { params: Promise<Params> }) {
   try {
     const { id } = await params;

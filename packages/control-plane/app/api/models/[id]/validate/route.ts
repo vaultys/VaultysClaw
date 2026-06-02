@@ -5,6 +5,42 @@ import { getAuthContext, unauthorized } from "@/lib/auth-utils";
 type Ctx = { params: Promise<{ id: string }> };
 
 /** POST /api/models/[id]/validate — test connectivity to the model's endpoint */
+/**
+ * @openapi
+ * /api/models/{id}/validate:
+ *   post:
+ *     summary: Validate connectivity to a model's endpoint.
+ *     tags: [Models]
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         description: The ID of the model to validate.
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Validation result with model IDs if reachable.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 ok:
+ *                   type: boolean
+ *                 models:
+ *                   type: array
+ *                   items:
+ *                     type: string
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ *       500:
+ *         description: Validation failed due to server error.
+ */
 export async function POST(_req: NextRequest, { params }: Ctx) {
   try {
     const auth = await getAuthContext(_req);

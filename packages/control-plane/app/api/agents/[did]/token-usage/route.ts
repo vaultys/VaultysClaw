@@ -13,6 +13,75 @@ type Ctx = { params: Promise<{ did: string }> };
  *   from        = ISO date string   (default: 30 days ago for day, 12 months ago for month)
  *   to          = ISO date string   (default: today)
  */
+/**
+ * @openapi
+ * /api/agents/{did}/token-usage:
+ *   get:
+ *     summary: Retrieve token usage history for an agent.
+ *     tags: [Agents]
+ *     parameters:
+ *       - name: did
+ *         in: path
+ *         required: true
+ *         description: Decentralized Identifier of the agent.
+ *         schema:
+ *           type: string
+ *       - name: granularity
+ *         in: query
+ *         required: false
+ *         description: Granularity of the data ('day' or 'month').
+ *         schema:
+ *           type: string
+ *           enum: [day, month]
+ *           default: day
+ *       - name: from
+ *         in: query
+ *         required: false
+ *         description: Start date for the data range (ISO format).
+ *         schema:
+ *           type: string
+ *           format: date
+ *       - name: to
+ *         in: query
+ *         required: false
+ *         description: End date for the data range (ISO format).
+ *         schema:
+ *           type: string
+ *           format: date
+ *     responses:
+ *       200:
+ *         description: Token usage data retrieved successfully.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 granularity:
+ *                   type: string
+ *                 from:
+ *                   type: string
+ *                 to:
+ *                   type: string
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       bucket:
+ *                         type: string
+ *                       promptTokens:
+ *                         type: integer
+ *                       completionTokens:
+ *                         type: integer
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ *       400:
+ *         $ref: '#/components/responses/BadRequest'
+ */
 export async function GET(req: NextRequest, ctx: Ctx) {
   try {
     const auth = await getAuthContext(req);

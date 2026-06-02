@@ -13,6 +13,44 @@ import { encryptSecret } from "@/lib/vault";
 
 type Ctx = { params: Promise<{ id: string }> };
 
+/**
+ * @openapi
+ * /api/realms/{id}/credentials:
+ *   get:
+ *     summary: List credential metadata for a realm.
+ *     tags: [Realms]
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         description: Realm ID
+ *         schema:
+ *           type: string
+ *       - name: service
+ *         in: query
+ *         required: false
+ *         description: Filter credentials by service
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: A list of credential metadata.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 credentials:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ */
 export async function GET(req: NextRequest, ctx: Ctx) {
   const auth = await getAuthContext(req);
   if (!auth) return unauthorized();
@@ -30,6 +68,57 @@ export async function GET(req: NextRequest, ctx: Ctx) {
   return NextResponse.json({ credentials });
 }
 
+/**
+ * @openapi
+ * /api/realms/{id}/credentials:
+ *   post:
+ *     summary: Save or update a credential for a realm.
+ *     tags: [Realms]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               service:
+ *                 type: string
+ *                 description: The service associated with the credential.
+ *               name:
+ *                 type: string
+ *                 description: The name of the credential.
+ *               secret:
+ *                 type: string
+ *                 description: The secret to be encrypted and stored.
+ *               metadata:
+ *                 type: object
+ *                 additionalProperties: true
+ *                 description: Additional metadata for the credential.
+ *             required:
+ *               - service
+ *               - name
+ *               - secret
+ *     responses:
+ *       201:
+ *         description: Credential saved successfully.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 id:
+ *                   type: string
+ *       400:
+ *         $ref: '#/components/responses/BadRequest'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ */
 export async function POST(req: NextRequest, ctx: Ctx) {
   const auth = await getAuthContext(req);
   if (!auth) return unauthorized();
@@ -66,6 +155,48 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   return NextResponse.json({ success: true, id }, { status: 201 });
 }
 
+/**
+ * @openapi
+ * /api/realms/{id}/credentials:
+ *   delete:
+ *     summary: Remove a credential from a realm.
+ *     tags: [Realms]
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         description: The ID of the realm.
+ *         schema:
+ *           type: string
+ *       - name: service
+ *         in: query
+ *         required: true
+ *         description: The service associated with the credential.
+ *         schema:
+ *           type: string
+ *       - name: name
+ *         in: query
+ *         required: true
+ *         description: The name of the credential.
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Credential successfully removed.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *       400:
+ *         $ref: '#/components/responses/BadRequest'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ */
 export async function DELETE(req: NextRequest, ctx: Ctx) {
   const auth = await getAuthContext(req);
   if (!auth) return unauthorized();

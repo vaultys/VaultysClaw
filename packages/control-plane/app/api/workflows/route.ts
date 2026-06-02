@@ -11,6 +11,60 @@ import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
  * POST /api/workflows
  * Save a new workflow. Requires realm admin or global admin for the target realm.
  */
+/**
+ * @openapi
+ * /api/workflows:
+ *   post:
+ *     summary: Save a new workflow.
+ *     tags: [Workflows]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 description: The name of the workflow.
+ *               description:
+ *                 type: string
+ *                 description: A brief description of the workflow.
+ *               definition:
+ *                 $ref: '#/components/schemas/WorkflowDefinition'
+ *               realmId:
+ *                 type: string
+ *                 description: The ID of the realm.
+ *             required:
+ *               - name
+ *               - definition
+ *     responses:
+ *       200:
+ *         description: Workflow saved successfully.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 id:
+ *                   type: string
+ *                 name:
+ *                   type: string
+ *                 description:
+ *                   type: string
+ *                 realmId:
+ *                   type: string
+ *       400:
+ *         $ref: '#/components/responses/BadRequest'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       500:
+ *         description: Failed to save workflow.
+ */
 export async function POST(request: NextRequest) {
   try {
     const auth = await getAuthContext(request);
@@ -50,6 +104,50 @@ export async function POST(request: NextRequest) {
 /**
  * GET /api/workflows
  * List workflows. Admins see all; members see only workflows in their realms.
+ */
+/**
+ * @openapi
+ * /api/workflows:
+ *   get:
+ *     summary: List workflows visible to the user.
+ *     tags: [Workflows]
+ *     responses:
+ *       200:
+ *         description: A list of workflows.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 workflows:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: string
+ *                       name:
+ *                         type: string
+ *                       description:
+ *                         type: string
+ *                       realmId:
+ *                         type: string
+ *                       createdBy:
+ *                         type: string
+ *                       createdAt:
+ *                         type: string
+ *                         format: date-time
+ *                       updatedAt:
+ *                         type: string
+ *                         format: date-time
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       500:
+ *         description: Failed to list workflows.
  */
 export async function GET(request: NextRequest) {
   try {

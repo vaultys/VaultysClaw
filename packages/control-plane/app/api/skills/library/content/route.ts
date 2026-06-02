@@ -8,6 +8,37 @@ import { getOrgSkillByName } from "@/lib/db";
  * Returns the markdown instructions (content) for an org skill by name.
  * Used by the EditSkillModal to pre-fill the instructions textarea.
  */
+/**
+ * @openapi
+ * /api/skills/library/content:
+ *   get:
+ *     summary: Retrieve markdown instructions for an organization skill by name.
+ *     tags: [Skills]
+ *     parameters:
+ *       - in: query
+ *         name: skillId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The name of the skill to retrieve content for.
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved skill content.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 content:
+ *                   type: string
+ *                   description: The markdown content of the skill.
+ *       400:
+ *         $ref: '#/components/responses/BadRequest'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ */
 export async function GET(request: NextRequest) {
   const auth = await getAuthContext(request);
   if (!auth) return unauthorized();

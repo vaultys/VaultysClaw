@@ -14,6 +14,53 @@ import { signDelegation } from "@/lib/delegation";
 import { getWSServer } from "@/lib/ws-server";
 import type { AgentCapability } from "@vaultysclaw/shared";
 
+/**
+ * @openapi
+ * /api/users/{did}/grants:
+ *   get:
+ *     summary: List grants for a user.
+ *     tags: [Users]
+ *     parameters:
+ *       - name: did
+ *         in: path
+ *         required: true
+ *         description: The DID of the user.
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: A list of grants for the user.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 grants:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: string
+ *                       agentDid:
+ *                         type: string
+ *                       capabilities:
+ *                         type: array
+ *                         items:
+ *                           type: string
+ *                       grantedBy:
+ *                         type: string
+ *                       expiresAt:
+ *                         type: string
+ *                         format: date-time
+ *                       createdAt:
+ *                         type: string
+ *                         format: date-time
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ */
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ did: string }> },
@@ -39,6 +86,73 @@ export async function GET(
   return NextResponse.json({ grants });
 }
 
+/**
+ * @openapi
+ * /api/users/{did}/grants:
+ *   post:
+ *     summary: Create a grant and sign delegation certificate for a user.
+ *     tags: [Users]
+ *     parameters:
+ *       - name: did
+ *         in: path
+ *         required: true
+ *         description: The DID of the user.
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               agentDid:
+ *                 type: string
+ *                 nullable: true
+ *                 description: The DID of the agent or null for all agents.
+ *               capabilities:
+ *                 type: array
+ *                 items:
+ *                   $ref: '#/components/schemas/AgentCapability'
+ *                 description: List of capabilities to grant.
+ *               expiresAt:
+ *                 type: string
+ *                 format: date-time
+ *                 description: Expiration date of the grant.
+ *     responses:
+ *       201:
+ *         description: Grant created successfully.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 grant:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: string
+ *                     agentDid:
+ *                       type: string
+ *                     capabilities:
+ *                       type: array
+ *                       items:
+ *                         type: string
+ *                     grantedBy:
+ *                       type: string
+ *                     expiresAt:
+ *                       type: string
+ *                       format: date-time
+ *                     createdAt:
+ *                       type: string
+ *                       format: date-time
+ *       400:
+ *         $ref: '#/components/responses/BadRequest'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ */
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ did: string }> },

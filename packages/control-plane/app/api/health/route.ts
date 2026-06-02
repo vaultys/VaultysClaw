@@ -14,6 +14,27 @@ import { NextResponse } from "next/server";
  *   "timestamp": "2026-05-29T12:34:56.789Z"
  * }
  */
+/**
+ * @openapi
+ * /api/health:
+ *   get:
+ *     summary: Health check for the control plane.
+ *     tags: [Health]
+ *     responses:
+ *       200:
+ *         description: Control plane is running.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: ok
+ *                 timestamp:
+ *                   type: string
+ *                   format: date-time
+ */
 export async function GET() {
   return NextResponse.json(
     {

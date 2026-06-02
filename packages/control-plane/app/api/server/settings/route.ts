@@ -10,6 +10,27 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext, forbidden, unauthorized } from "@/lib/auth-utils";
 import { getSetting, setSetting } from "@/lib/db";
 
+/**
+ * @openapi
+ * /api/server/settings:
+ *   get:
+ *     summary: Retrieve server connection settings.
+ *     tags: [Server]
+ *     responses:
+ *       200:
+ *         description: Successful retrieval of connection settings.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 walletUrl:
+ *                   type: string
+ *                   example: https://wallet.vaultys.net
+ *                 peerjsHost:
+ *                   type: string
+ *                   example: ""
+ */
 export async function GET(request: NextRequest) {
   return NextResponse.json({
     walletUrl: getSetting("wallet_url") ?? "https://wallet.vaultys.net",
@@ -17,6 +38,31 @@ export async function GET(request: NextRequest) {
   });
 }
 
+/**
+ * @openapi
+ * /api/server/settings:
+ *   put:
+ *     summary: Save connection settings
+ *     tags: [Server]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               walletUrl:
+ *                 type: string
+ *               peerjsHost:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Settings updated successfully
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ */
 export async function PUT(req: NextRequest) {
   const auth = await getAuthContext(req);
   if (!auth) return unauthorized();

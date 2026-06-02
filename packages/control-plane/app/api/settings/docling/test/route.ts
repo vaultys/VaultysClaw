@@ -62,6 +62,47 @@ async function discoverEndpoints(baseUrl: string): Promise<{
 
 // POST /api/settings/docling/test
 // Body: { url: string }
+/**
+ * @openapi
+ * /api/settings/docling/test:
+ *   post:
+ *     summary: Test and discover Docling endpoints.
+ *     tags: [Settings]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               url:
+ *                 type: string
+ *                 description: The base URL to test and discover endpoints from.
+ *     responses:
+ *       200:
+ *         description: Successfully discovered endpoints.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 ok:
+ *                   type: boolean
+ *                 latency:
+ *                   type: integer
+ *                 version:
+ *                   type: string
+ *                 sourceEndpoint:
+ *                   type: string
+ *                 fileEndpoint:
+ *                   type: string
+ *       400:
+ *         $ref: '#/components/responses/BadRequest'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ */
 export async function POST(request: NextRequest) {
   const auth = await getAuthContext(request);
   if (!auth) return unauthorized();

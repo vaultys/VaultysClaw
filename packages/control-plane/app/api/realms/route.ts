@@ -5,6 +5,48 @@ import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
 /**
  * GET /api/realms — list realms. Admins see all; members see only their realms.
  */
+/**
+ * @openapi
+ * /api/realms:
+ *   get:
+ *     summary: List realms with counts of agents, users, and workflows.
+ *     tags: [Realms]
+ *     responses:
+ *       200:
+ *         description: A list of realms with associated counts.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 realms:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: string
+ *                       name:
+ *                         type: string
+ *                       slug:
+ *                         type: string
+ *                       description:
+ *                         type: string
+ *                       color:
+ *                         type: string
+ *                       agentCount:
+ *                         type: integer
+ *                       userCount:
+ *                         type: integer
+ *                       workflowCount:
+ *                         type: integer
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       500:
+ *         description: Failed to fetch realms.
+ */
 export async function GET(request: NextRequest) {
   try {
     const auth = await getAuthContext(request);
@@ -38,6 +80,54 @@ export async function GET(request: NextRequest) {
 /**
  * POST /api/realms — create a new realm. Global admin only.
  * Body: { name, slug, description?, color? }
+ */
+/**
+ * @openapi
+ * /api/realms:
+ *   post:
+ *     summary: Create a new realm.
+ *     tags: [Realms]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 description: The name of the realm.
+ *               slug:
+ *                 type: string
+ *                 description: The slug for the realm.
+ *               description:
+ *                 type: string
+ *                 description: A brief description of the realm.
+ *               color:
+ *                 type: string
+ *                 description: The color associated with the realm.
+ *             required:
+ *               - name
+ *     responses:
+ *       201:
+ *         description: Realm created successfully.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 realm:
+ *                   $ref: '#/components/schemas/Realm'
+ *       400:
+ *         $ref: '#/components/responses/BadRequest'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       409:
+ *         description: A realm with this slug already exists.
+ *       500:
+ *         description: Failed to create realm.
  */
 export async function POST(req: NextRequest) {
   try {

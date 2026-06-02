@@ -10,6 +10,34 @@ import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
 
 type Ctx = { params: Promise<{ id: string }> };
 
+/**
+ * @openapi
+ * /api/org/skills/{id}:
+ *   get:
+ *     summary: Retrieve a specific organization skill by ID.
+ *     tags: [OrgSkills]
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         description: The ID of the organization skill.
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: A skill object.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 skill:
+ *                   $ref: '#/components/schemas/OrgSkill'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ */
 export async function GET(_req: NextRequest, ctx: Ctx) {
   const auth = await getAuthContext(_req);
   if (!auth) return unauthorized();
@@ -21,6 +49,54 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
   return NextResponse.json({ skill });
 }
 
+/**
+ * @openapi
+ * /api/org/skills/{id}:
+ *   patch:
+ *     summary: Update an organization skill.
+ *     tags: [OrgSkills]
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         description: The ID of the organization skill to update.
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               description:
+ *                 type: string
+ *                 nullable: true
+ *               version:
+ *                 type: string
+ *               icon:
+ *                 type: string
+ *                 nullable: true
+ *               content:
+ *                 type: string
+ *                 nullable: true
+ *               configSchema:
+ *                 type: object
+ *                 additionalProperties: true
+ *     responses:
+ *       200:
+ *         description: Skill updated successfully.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/OrgSkill'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ */
 export async function PATCH(req: NextRequest, ctx: Ctx) {
   const auth = await getAuthContext(req);
   if (!auth) return unauthorized();
@@ -48,6 +124,37 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
   return NextResponse.json({ skill: getOrgSkillById(id) });
 }
 
+/**
+ * @openapi
+ * /api/org/skills/{id}:
+ *   delete:
+ *     summary: Remove an organization skill from the catalog.
+ *     tags: [OrgSkills]
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         description: The ID of the organization skill to delete.
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Skill successfully deleted.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ */
 export async function DELETE(_req: NextRequest, ctx: Ctx) {
   const auth = await getAuthContext(_req);
   if (!auth) return unauthorized();

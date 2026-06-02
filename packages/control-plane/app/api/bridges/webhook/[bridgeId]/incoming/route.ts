@@ -12,6 +12,59 @@ type Ctx = { params: Promise<{ bridgeId: string }> };
  * Public endpoint — authenticated via HMAC-SHA256 signature.
  * Accepts inbound messages from external webhook sources.
  */
+/**
+ * @openapi
+ * /api/bridges/webhook/{bridgeId}/incoming:
+ *   post:
+ *     summary: Accepts inbound messages from external webhook sources.
+ *     tags: [Bridges]
+ *     parameters:
+ *       - name: bridgeId
+ *         in: path
+ *         required: true
+ *         description: The ID of the webhook bridge.
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               message:
+ *                 type: string
+ *                 description: The message content.
+ *               author:
+ *                 type: string
+ *                 description: The author of the message.
+ *               metadata:
+ *                 type: object
+ *                 additionalProperties: true
+ *                 description: Additional metadata for the message.
+ *     responses:
+ *       200:
+ *         description: Message processed successfully.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 ok:
+ *                   type: boolean
+ *                 messageId:
+ *                   type: string
+ *       400:
+ *         $ref: '#/components/responses/BadRequest'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ *       500:
+ *         description: Failed to process incoming webhook.
+ */
 export async function POST(req: NextRequest, ctx: Ctx) {
   try {
     const { bridgeId } = await ctx.params;

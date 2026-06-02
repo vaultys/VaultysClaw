@@ -8,6 +8,52 @@ import { getAuthContext, unauthorized } from "@/lib/auth-utils";
  * GET /api/network
  * Returns live transport stats, per-transport logs, and PeerJS server state.
  */
+/**
+ * @openapi
+ * /api/network:
+ *   get:
+ *     summary: Retrieve live transport stats and server state.
+ *     tags: [Network]
+ *     responses:
+ *       200:
+ *         description: Successful response with network stats and logs.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 stats:
+ *                   type: object
+ *                   nullable: true
+ *                 logs:
+ *                   type: object
+ *                   properties:
+ *                     ws:
+ *                       type: array
+ *                       items:
+ *                         type: string
+ *                     peerjs:
+ *                       type: array
+ *                       items:
+ *                         type: string
+ *                 peerjs:
+ *                   type: object
+ *                   properties:
+ *                     peerId:
+ *                       type: string
+ *                       nullable: true
+ *                     running:
+ *                       type: boolean
+ *                     startedAt:
+ *                       type: string
+ *                       format: date-time
+ *                       nullable: true
+ *                     serverUrl:
+ *                       type: string
+ *                       nullable: true
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ */
 export async function GET(req: Request) {
   const auth = await getAuthContext(req);
   if (!auth) return unauthorized();
@@ -40,6 +86,37 @@ export async function GET(req: Request) {
  * POST /api/network
  * Control WS and PeerJS servers at runtime.
  * Body: { action: "start" | "stop" | "restart-ws" | "restart-peerjs", serverUrl?: string }
+ */
+/**
+ * @openapi
+ * /api/network:
+ *   post:
+ *     summary: Control WS and PeerJS servers at runtime.
+ *     tags: [Network]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               action:
+ *                 type: string
+ *                 enum: ["start", "stop", "restart-ws", "restart-peerjs"]
+ *               serverUrl:
+ *                 type: string
+ *                 nullable: true
+ *     responses:
+ *       200:
+ *         description: Successfully controlled the servers.
+ *       400:
+ *         $ref: '#/components/responses/BadRequest'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       503:
+ *         description: WebSocket server not initialized.
+ *       500:
+ *         description: Failed to start PeerJS server.
  */
 export async function POST(req: NextRequest) {
   const auth = await getAuthContext(req);

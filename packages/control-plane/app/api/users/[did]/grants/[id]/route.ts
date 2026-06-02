@@ -11,6 +11,33 @@ import { GrantDao } from "@/lib/grant-dao";
 import { DelegationDao } from "@/lib/delegation-dao";
 import { getWSServer } from "@/lib/ws-server";
 
+/**
+ * @openapi
+ * /api/users/{did}/grants/{id}:
+ *   delete:
+ *     summary: Revoke a delegation grant.
+ *     tags: [Users]
+ *     parameters:
+ *       - name: did
+ *         in: path
+ *         required: true
+ *         description: The DID of the user.
+ *         schema:
+ *           type: string
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         description: The ID of the grant.
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Grant successfully revoked.
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ */
 export async function DELETE(
   _req: NextRequest,
   { params }: { params: Promise<{ did: string; id: string }> },

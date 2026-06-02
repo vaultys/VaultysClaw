@@ -16,6 +16,38 @@ interface SetupStatus {
 }
 
 /** GET /api/setup/status — check which setup steps are completed */
+/**
+ * @openapi
+ * /api/setup/status:
+ *   get:
+ *     summary: Check which setup steps are completed.
+ *     tags: [Setup]
+ *     responses:
+ *       200:
+ *         description: A list of completed setup steps.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: object
+ *                   properties:
+ *                     model:
+ *                       type: boolean
+ *                     email:
+ *                       type: boolean
+ *                     users:
+ *                       type: boolean
+ *                     agent:
+ *                       type: boolean
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       500:
+ *         description: Failed to fetch setup status.
+ */
 export async function GET(request: NextRequest) {
   try {
     const auth = await getAuthContext(request);

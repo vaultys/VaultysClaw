@@ -11,6 +11,38 @@ interface Params {
  * POST /api/workflow-approvals/[id]/reject
  * Reject a pending workflow step. Body: { comment?: string }
  */
+/**
+ * @openapi
+ * /api/workflow-approvals/{id}/reject:
+ *   post:
+ *     summary: Reject a pending workflow step.
+ *     tags: [Workflow Approvals]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the workflow approval to reject.
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               comment:
+ *                 type: string
+ *                 description: Optional comment for the rejection.
+ *     responses:
+ *       200:
+ *         description: Workflow step rejected successfully.
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ *       500:
+ *         description: Failed to reject the workflow step.
+ */
 export async function POST(request: Request, { params }: { params: Promise<Params> }) {
   try {
     const { id } = await params;

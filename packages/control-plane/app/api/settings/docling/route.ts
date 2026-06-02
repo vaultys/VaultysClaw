@@ -3,6 +3,37 @@ import { getAuthContext, unauthorized, forbidden } from '@/lib/auth-utils';
 import { getDoclingConfig, setDoclingConfig } from '@/lib/db';
 
 // GET /api/settings/docling
+/**
+ * @openapi
+ * /api/settings/docling:
+ *   get:
+ *     summary: Retrieve the Docling configuration settings.
+ *     tags: [Settings]
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved Docling configuration.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 url:
+ *                   type: string
+ *                 enabled:
+ *                   type: boolean
+ *                 configured:
+ *                   type: boolean
+ *                 sourceEndpoint:
+ *                   type: string
+ *                   nullable: true
+ *                 fileEndpoint:
+ *                   type: string
+ *                   nullable: true
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ */
 export async function GET(request: NextRequest) {
   const auth = await getAuthContext(request);
   if (!auth) return unauthorized();
@@ -19,6 +50,35 @@ export async function GET(request: NextRequest) {
 }
 
 // PUT /api/settings/docling
+/**
+ * @openapi
+ * /api/settings/docling:
+ *   put:
+ *     summary: Update the Docling configuration settings.
+ *     tags: [Settings]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               url:
+ *                 type: string
+ *                 description: The URL for the Docling service.
+ *               enabled:
+ *                 type: boolean
+ *                 description: Flag to enable or disable Docling.
+ *     responses:
+ *       200:
+ *         description: Docling configuration updated successfully.
+ *       400:
+ *         $ref: '#/components/responses/BadRequest'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ */
 export async function PUT(request: NextRequest) {
   const auth = await getAuthContext(request);
   if (!auth) return unauthorized();

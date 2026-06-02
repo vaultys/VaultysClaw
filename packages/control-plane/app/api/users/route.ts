@@ -20,6 +20,85 @@ import { UserDao } from "@/lib/user-dao";
 import { GrantDao } from "@/lib/grant-dao";
 import { getUserRealms } from "@/lib/db";
 
+/**
+ * @openapi
+ * /api/users:
+ *   get:
+ *     summary: List registered users with optional pagination and filters.
+ *     tags: [Users]
+ *     parameters:
+ *       - in: query
+ *         name: q
+ *         schema:
+ *           type: string
+ *         description: Search by name, email, or DID (case-insensitive).
+ *       - in: query
+ *         name: role
+ *         schema:
+ *           type: string
+ *           enum: [owner, admin, manager, operator, member]
+ *         description: Filter by user role.
+ *       - in: query
+ *         name: isAdmin
+ *         schema:
+ *           type: string
+ *           enum: ["true", "false"]
+ *         description: Filter by admin status.
+ *       - in: query
+ *         name: realm
+ *         schema:
+ *           type: string
+ *         description: Filter by realm id or slug.
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number.
+ *       - in: query
+ *         name: pageSize
+ *         schema:
+ *           type: integer
+ *           default: 20
+ *           maximum: 100
+ *         description: Items per page.
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [name, email, registeredAt]
+ *           default: registeredAt
+ *         description: Sort by field.
+ *       - in: query
+ *         name: sortDir
+ *         schema:
+ *           type: string
+ *           enum: [asc, desc]
+ *           default: asc
+ *         description: Sort direction.
+ *     responses:
+ *       200:
+ *         description: A list of users.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 users:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/User'
+ *                 total:
+ *                   type: integer
+ *                 page:
+ *                   type: integer
+ *                 pageSize:
+ *                   type: integer
+ *                 totalPages:
+ *                   type: integer
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ */
 export async function GET(request: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.isAdmin) {

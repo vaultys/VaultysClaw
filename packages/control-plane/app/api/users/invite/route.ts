@@ -12,6 +12,31 @@ import { UserServerChannel } from "@/lib/user-server-channel";
 import { getSetting } from "@/lib/db";
 import { VaultysId } from "@vaultys/id";
 
+/**
+ * @openapi
+ * /api/users/invite:
+ *   get:
+ *     summary: Create a registration certificate for a new user.
+ *     tags: [Users]
+ *     responses:
+ *       200:
+ *         description: Connection info for QR code display.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 connectionString:
+ *                   type: string
+ *                 token:
+ *                   type: string
+ *                 key:
+ *                   type: string
+ *                 serverDid:
+ *                   type: string
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ */
 export async function GET() {
   const session = await getServerSession(authOptions);
   if (!session?.user?.isOwner && !session?.user?.isAdmin) {

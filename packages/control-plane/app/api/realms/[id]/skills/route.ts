@@ -13,6 +13,58 @@ type Ctx = { params: Promise<{ id: string }> };
  * GET /api/realms/[id]/skills — list all skills defined for a realm.
  * Requires realm membership.
  */
+/**
+ * @openapi
+ * /api/realms/{id}/skills:
+ *   get:
+ *     summary: List all skills defined for a realm.
+ *     tags: [Realms]
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         description: Realm ID
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: A list of skills for the specified realm.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 skills:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: string
+ *                       realmId:
+ *                         type: string
+ *                       name:
+ *                         type: string
+ *                       description:
+ *                         type: string
+ *                       version:
+ *                         type: string
+ *                       isRequired:
+ *                         type: boolean
+ *                       config:
+ *                         type: object
+ *                       createdAt:
+ *                         type: string
+ *                         format: date-time
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ *       500:
+ *         description: Failed to fetch realm skills.
+ */
 export async function GET(_req: NextRequest, ctx: Ctx) {
   try {
     const auth = await getAuthContext(_req);
@@ -46,6 +98,59 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
  * POST /api/realms/[id]/skills — register a skill for this realm.
  * Requires realm admin or global admin.
  * Body: { name, description?, version?, isRequired?, config? }
+ */
+/**
+ * @openapi
+ * /api/realms/{id}/skills:
+ *   post:
+ *     summary: Register a skill for a realm.
+ *     tags: [Realms]
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         description: Realm ID
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *               description:
+ *                 type: string
+ *               version:
+ *                 type: string
+ *               isRequired:
+ *                 type: boolean
+ *               config:
+ *                 type: object
+ *     responses:
+ *       201:
+ *         description: Skill successfully registered.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 skill:
+ *                   $ref: '#/components/schemas/Skill'
+ *       400:
+ *         $ref: '#/components/responses/BadRequest'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ *       409:
+ *         description: A skill with this name already exists in this realm.
+ *       500:
+ *         description: Failed to create realm skill.
  */
 export async function POST(req: NextRequest, ctx: Ctx) {
   try {

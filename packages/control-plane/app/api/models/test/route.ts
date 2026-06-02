@@ -2,6 +2,53 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext, unauthorized } from "@/lib/auth-utils";
 
 /** POST /api/models/test — test connectivity to a model endpoint and fetch available models */
+/**
+ * @openapi
+ * /api/models/test:
+ *   post:
+ *     summary: Test connectivity to a model endpoint and fetch available models.
+ *     tags: [Models]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               provider:
+ *                 type: string
+ *               modelId:
+ *                 type: string
+ *               baseUrl:
+ *                 type: string
+ *               apiKey:
+ *                 type: string
+ *                 nullable: true
+ *             required:
+ *               - provider
+ *               - modelId
+ *               - baseUrl
+ *     responses:
+ *       200:
+ *         description: Successful response with available models.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 ok:
+ *                   type: boolean
+ *                 models:
+ *                   type: array
+ *                   items:
+ *                     type: string
+ *       400:
+ *         $ref: '#/components/responses/BadRequest'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       500:
+ *         description: Validation failed.
+ */
 export async function POST(req: NextRequest) {
   try {
     const auth = await getAuthContext(req);

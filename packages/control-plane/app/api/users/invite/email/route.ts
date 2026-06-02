@@ -11,6 +11,53 @@ import { authOptions } from "@/lib/auth-config";
 import { createUserInvitation, getSetting, getDb } from "@/lib/db";
 import { sendMail } from "@/lib/smtp";
 
+/**
+ * @openapi
+ * /api/users/invite/email:
+ *   post:
+ *     summary: Send an email invitation to a new user.
+ *     tags: [Users]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 description: The email of the user to invite.
+ *               name:
+ *                 type: string
+ *                 description: The name of the user to invite.
+ *               role:
+ *                 type: string
+ *                 description: The role assigned to the user.
+ *             required:
+ *               - email
+ *               - name
+ *     responses:
+ *       200:
+ *         description: Invitation sent successfully.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 token:
+ *                   type: string
+ *                   description: The invitation token.
+ *                 userId:
+ *                   type: string
+ *                   description: The ID of the unclaimed user.
+ *       400:
+ *         $ref: '#/components/responses/BadRequest'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       500:
+ *         description: Failed to send invitation.
+ */
 export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.isOwner && !session?.user?.isAdmin) {

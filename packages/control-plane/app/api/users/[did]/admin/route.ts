@@ -9,6 +9,39 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-config";
 import { UserDao } from "@/lib/user-dao";
 
+/**
+ * @openapi
+ * /api/users/{did}/admin:
+ *   patch:
+ *     summary: Promote or demote a user to/from admin.
+ *     tags: [Users]
+ *     parameters:
+ *       - in: path
+ *         name: did
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The decentralized identifier of the user.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               isAdmin:
+ *                 type: boolean
+ *                 description: Whether the user should be an admin.
+ *     responses:
+ *       200:
+ *         description: User admin status updated successfully.
+ *       400:
+ *         $ref: '#/components/responses/BadRequest'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ */
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ did: string }> },

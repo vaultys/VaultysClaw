@@ -8,6 +8,39 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext, forbidden, unauthorized } from "@/lib/auth-utils";
 import { getSmtpConfig, saveSmtpConfig, testSmtpConnection } from "@/lib/smtp";
 
+/**
+ * @openapi
+ * /api/server/smtp:
+ *   get:
+ *     summary: Retrieve SMTP configuration with password redacted.
+ *     tags: [Server]
+ *     responses:
+ *       200:
+ *         description: SMTP configuration retrieved successfully.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 configured:
+ *                   type: boolean
+ *                 host:
+ *                   type: string
+ *                 port:
+ *                   type: integer
+ *                 secure:
+ *                   type: boolean
+ *                 user:
+ *                   type: string
+ *                 password:
+ *                   type: string
+ *                 from:
+ *                   type: string
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ */
 export async function GET(request: NextRequest) {
   const auth = await getAuthContext(request);
   if (!auth) return unauthorized();
@@ -27,6 +60,45 @@ export async function GET(request: NextRequest) {
   });
 }
 
+/**
+ * @openapi
+ * /api/server/smtp:
+ *   put:
+ *     summary: Save SMTP configuration.
+ *     tags: [Server]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               host:
+ *                 type: string
+ *               port:
+ *                 type: integer
+ *               secure:
+ *                 type: boolean
+ *               user:
+ *                 type: string
+ *               password:
+ *                 type: string
+ *               from:
+ *                 type: string
+ *             required:
+ *               - host
+ *               - port
+ *               - from
+ *     responses:
+ *       200:
+ *         description: SMTP configuration saved successfully.
+ *       400:
+ *         $ref: '#/components/responses/BadRequest'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ */
 export async function PUT(req: NextRequest) {
   const auth = await getAuthContext(req);
   if (!auth) return unauthorized();
@@ -61,6 +133,43 @@ export async function PUT(req: NextRequest) {
   return NextResponse.json({ ok: true });
 }
 
+/**
+ * @openapi
+ * /api/server/smtp:
+ *   post:
+ *     summary: Verify SMTP connection.
+ *     tags: [Server]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               host:
+ *                 type: string
+ *               port:
+ *                 type: integer
+ *               secure:
+ *                 type: boolean
+ *               user:
+ *                 type: string
+ *               password:
+ *                 type: string
+ *               from:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: SMTP connection verified successfully.
+ *       400:
+ *         $ref: '#/components/responses/BadRequest'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       502:
+ *         description: Connection failed.
+ */
 export async function POST(req: NextRequest) {
   const auth = await getAuthContext(req);
   if (!auth) return unauthorized();

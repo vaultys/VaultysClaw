@@ -9,6 +9,78 @@ import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
  * Create a test workflow with 4 real agents in sequence. Global admin only.
  * Requires 4 agents to be online and registered
  */
+/**
+ * @openapi
+ * /api/workflows/test-seed:
+ *   post:
+ *     summary: Create a test workflow with 4 real agents in sequence.
+ *     tags: [Workflows]
+ *     responses:
+ *       200:
+ *         description: Successfully created a test workflow.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 workflowId:
+ *                   type: string
+ *                 name:
+ *                   type: string
+ *                 realmId:
+ *                   type: string
+ *                 agents:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       did:
+ *                         type: string
+ *                       name:
+ *                         type: string
+ *                       capability:
+ *                         type: string
+ *                 nodes:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: string
+ *                       type:
+ *                         type: string
+ *                       data:
+ *                         type: object
+ *                         properties:
+ *                           agentId:
+ *                             type: string
+ *                           action:
+ *                             type: string
+ *                           params:
+ *                             type: object
+ *                             properties:
+ *                               test:
+ *                                 type: boolean
+ *                               step:
+ *                                 type: integer
+ *                       position:
+ *                         type: object
+ *                         properties:
+ *                           x:
+ *                             type: integer
+ *                           y:
+ *                             type: integer
+ *       400:
+ *         $ref: '#/components/responses/BadRequest'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       500:
+ *         description: Internal server error.
+ */
 export async function POST(request: NextRequest) {
   try {
     const auth = await getAuthContext(request);

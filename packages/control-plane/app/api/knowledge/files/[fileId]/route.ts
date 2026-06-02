@@ -3,6 +3,29 @@ import { getAuthContext, unauthorized, forbidden } from '@/lib/auth-utils';
 import { getKnowledgeFileContent, deleteKnowledgeFile, getKnowledgeSource } from '@/lib/db';
 
 // DELETE /api/knowledge/files/:fileId
+/**
+ * @openapi
+ * /api/knowledge/files/{fileId}:
+ *   delete:
+ *     summary: Delete a knowledge file by ID.
+ *     tags: [Knowledge]
+ *     parameters:
+ *       - name: fileId
+ *         in: path
+ *         required: true
+ *         description: The ID of the knowledge file to delete.
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Knowledge file successfully deleted.
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ */
 export async function DELETE(
   _request: NextRequest,
   { params }: { params: Promise<{ fileId: string }> },

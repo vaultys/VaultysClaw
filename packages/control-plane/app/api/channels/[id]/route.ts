@@ -9,6 +9,44 @@ type Ctx = { params: Promise<{ id: string }> };
  * GET /api/channels/[id]
  * Get channel details including members
  */
+/**
+ * @openapi
+ * /api/channels/{id}:
+ *   get:
+ *     summary: Get channel details including members.
+ *     tags: [Channels]
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         description: The ID of the channel.
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Channel details retrieved successfully.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 channel:
+ *                   $ref: '#/components/schemas/Channel'
+ *                 members:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Member'
+ *                 stats:
+ *                   $ref: '#/components/schemas/ChannelStats'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ *       500:
+ *         description: Failed to fetch channel.
+ */
 export async function GET(_req: NextRequest, ctx: Ctx) {
   try {
     const auth = await getAuthContext(_req);
@@ -47,6 +85,55 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
  * PATCH /api/channels/[id]
  * Update channel metadata
  * Body: { name?, description?, topic?, isPublic? }
+ */
+/**
+ * @openapi
+ * /api/channels/{id}:
+ *   patch:
+ *     summary: Update channel metadata
+ *     tags: [Channels]
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         description: Channel ID
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *               description:
+ *                 type: string
+ *               topic:
+ *                 type: string
+ *               isPublic:
+ *                 type: boolean
+ *     responses:
+ *       200:
+ *         description: Channel updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 channel:
+ *                   $ref: '#/components/schemas/Channel'
+ *       400:
+ *         $ref: '#/components/responses/BadRequest'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ *       500:
+ *         description: Internal server error
  */
 export async function PATCH(req: NextRequest, ctx: Ctx) {
   try {
@@ -98,6 +185,31 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
 /**
  * DELETE /api/channels/[id]
  * Archive a channel (soft delete)
+ */
+/**
+ * @openapi
+ * /api/channels/{id}:
+ *   delete:
+ *     summary: Archive a channel (soft delete)
+ *     tags: [Channels]
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         description: Channel ID
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Channel archived successfully
+ *       400:
+ *         $ref: '#/components/responses/BadRequest'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
  */
 export async function DELETE(req: NextRequest, ctx: Ctx) {
   try {

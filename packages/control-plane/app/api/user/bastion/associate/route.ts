@@ -12,6 +12,42 @@ import { UserServerChannel } from "@/lib/user-server-channel";
  *
  * Returns { ok: true } on success.
  */
+/**
+ * @openapi
+ * /api/user/bastion/associate:
+ *   post:
+ *     summary: Associate a user certificate with a browser device certificate.
+ *     tags: [User]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               userToken:
+ *                 type: string
+ *                 description: Raw key from the user's connection certificate.
+ *               browserToken:
+ *                 type: string
+ *                 description: Raw key from the browser device certificate.
+ *             required:
+ *               - userToken
+ *               - browserToken
+ *     responses:
+ *       200:
+ *         description: Successful association.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 ok:
+ *                   type: boolean
+ *                   example: true
+ *       400:
+ *         $ref: '#/components/responses/BadRequest'
+ */
 export async function POST(request: NextRequest) {
   const body = await request.json();
   const { userToken, browserToken } = body as { userToken: string; browserToken: string };

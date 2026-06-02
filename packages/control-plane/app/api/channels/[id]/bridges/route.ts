@@ -16,6 +16,38 @@ function stripConfig(bridge: ChannelBridge): Omit<ChannelBridge, "configJson"> {
  * GET /api/channels/[id]/bridges
  * List all bridges for a channel (configJson stripped).
  */
+/**
+ * @openapi
+ * /api/channels/{id}/bridges:
+ *   get:
+ *     summary: List all bridges for a channel.
+ *     tags: [Channels]
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         description: The ID of the channel.
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: A list of bridges.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 bridges:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/ChannelBridge'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ *       500:
+ *         description: Failed to fetch bridges.
+ */
 export async function GET(_req: NextRequest, ctx: Ctx) {
   try {
     const auth = await getAuthContext(_req);
@@ -40,6 +72,88 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
  * POST /api/channels/[id]/bridges
  * Create a new bridge for the channel.
  * Body: { externalService, externalChannelId, externalChannelName, externalWorkspaceId, syncDirection?, config }
+ */
+/**
+ * @openapi
+ * /api/channels/{id}/bridges:
+ *   post:
+ *     summary: Create a new bridge for the channel.
+ *     tags: [Channels]
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         description: The ID of the channel.
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               externalService:
+ *                 type: string
+ *                 enum: [teams, webhook]
+ *                 description: The external service type.
+ *               externalChannelId:
+ *                 type: string
+ *                 description: The ID of the external channel.
+ *               externalChannelName:
+ *                 type: string
+ *                 description: The name of the external channel.
+ *               externalWorkspaceId:
+ *                 type: string
+ *                 description: The ID of the external workspace.
+ *               syncDirection:
+ *                 type: string
+ *                 enum: [incoming, outgoing, bidirectional]
+ *                 description: The sync direction.
+ *               config:
+ *                 oneOf:
+ *                   - $ref: '#/components/schemas/TeamsBridgeConfig'
+ *                   - $ref: '#/components/schemas/WebhookBridgeConfig'
+ *                 description: The configuration for the bridge.
+ *     responses:
+ *       201:
+ *         description: Bridge created successfully.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 bridge:
+ *                   type: object
+ *                   description: The created bridge without configJson.
+ *       400:
+ *         $ref: '#/components/responses/BadRequest'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ *       409:
+ *         description: Conflict in creating the bridge.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: string
+ *                   description: Error message.
+ *       500:
+ *         description: Internal server error.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: string
+ *                   description: Error message.
  */
 export async function POST(req: NextRequest, ctx: Ctx) {
   try {

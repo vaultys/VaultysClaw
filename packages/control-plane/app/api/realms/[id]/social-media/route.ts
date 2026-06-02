@@ -13,6 +13,64 @@ import { getWSServer } from "@/lib/ws-server";
 
 type Ctx = { params: Promise<{ id: string }> };
 
+/**
+ * @openapi
+ * /api/realms/{id}/social-media:
+ *   post:
+ *     summary: Dispatch a social media post intent to an online agent.
+ *     tags: [Realms]
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         description: The ID of the realm.
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               text:
+ *                 type: string
+ *                 description: The text to post on social media.
+ *                 maxLength: 280
+ *     responses:
+ *       200:
+ *         description: Post dispatched to agent.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 intentId:
+ *                   type: string
+ *                 agentDid:
+ *                   type: string
+ *                 message:
+ *                   type: string
+ *       400:
+ *         $ref: '#/components/responses/BadRequest'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ *       503:
+ *         description: Service unavailable or no suitable agent found.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: string
+ */
 export async function POST(req: NextRequest, ctx: Ctx) {
   const auth = await getAuthContext(req);
   if (!auth) return unauthorized();

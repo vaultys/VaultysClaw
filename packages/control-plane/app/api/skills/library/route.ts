@@ -9,6 +9,24 @@ import { getOrgSkills } from "@/lib/db";
  * Consumed by the BrowseLibraryModal in the skills page — the response is
  * mapped to the LibrarySkill shape expected by that component.
  */
+/**
+ * @openapi
+ * /api/skills/library:
+ *   get:
+ *     summary: Retrieve the organisation's skill catalog.
+ *     tags: [Skills]
+ *     responses:
+ *       200:
+ *         description: A list of skills in the organisation's catalog.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/LibrarySkill'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ */
 export async function GET(request: NextRequest) {
   const auth = await getAuthContext(request);
   if (!auth) return unauthorized();

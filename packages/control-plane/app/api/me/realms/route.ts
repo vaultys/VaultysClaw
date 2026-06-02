@@ -8,6 +8,38 @@ import { UserDao } from "@/lib/user-dao";
  * Get realms the current user belongs to (for channel creation)
  * Resolves the user's UUID from their DID since user_realms uses users.id (UUID)
  */
+/**
+ * @openapi
+ * /api/me/realms:
+ *   get:
+ *     summary: Get realms the current user belongs to.
+ *     tags: [Me]
+ *     responses:
+ *       200:
+ *         description: A list of realms the user belongs to.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 realms:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: string
+ *                       name:
+ *                         type: string
+ *                       slug:
+ *                         type: string
+ *                       color:
+ *                         type: string
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       500:
+ *         description: Failed to fetch realms.
+ */
 export async function GET(req: NextRequest) {
   try {
     const auth = await getAuthContext(req);

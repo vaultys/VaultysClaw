@@ -8,6 +8,90 @@ type Params = { runId: string };
  * GET /api/workflows/runs/[runId]/history
  * Get complete execution history with all steps. Requires auth and realm membership.
  */
+/**
+ * @openapi
+ * /api/workflows/runs/{runId}/history:
+ *   get:
+ *     summary: Get complete execution history of a workflow run.
+ *     tags: [Workflows]
+ *     parameters:
+ *       - name: runId
+ *         in: path
+ *         required: true
+ *         description: The ID of the workflow run.
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Successful response with workflow run history.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 run:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: string
+ *                     workflowId:
+ *                       type: string
+ *                     status:
+ *                       type: string
+ *                     startedAt:
+ *                       type: string
+ *                       format: date-time
+ *                     completedAt:
+ *                       type: string
+ *                       format: date-time
+ *                     results:
+ *                       type: object
+ *                       nullable: true
+ *                 steps:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: string
+ *                       stepId:
+ *                         type: string
+ *                       agentId:
+ *                         type: string
+ *                       assignedUserId:
+ *                         type: string
+ *                         nullable: true
+ *                       assignedUserName:
+ *                         type: string
+ *                         nullable: true
+ *                       assignedUserEmail:
+ *                         type: string
+ *                         nullable: true
+ *                       status:
+ *                         type: string
+ *                       output:
+ *                         type: object
+ *                         nullable: true
+ *                       error:
+ *                         type: string
+ *                         nullable: true
+ *                       startedAt:
+ *                         type: string
+ *                         format: date-time
+ *                       completedAt:
+ *                         type: string
+ *                         format: date-time
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ *       500:
+ *         description: Internal server error.
+ */
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<Params> },

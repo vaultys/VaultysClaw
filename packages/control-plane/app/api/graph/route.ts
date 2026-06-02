@@ -12,6 +12,54 @@ import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
  *   ?user=<did>        — scope to a single user and its direct neighbours
  *   ?realm=<id>        — scope to users and agents that are members of the realm
  */
+/**
+ * @openapi
+ * /api/graph:
+ *   get:
+ *     summary: Retrieve the full relationship graph of nodes and edges.
+ *     tags: [Graph]
+ *     parameters:
+ *       - name: agent
+ *         in: query
+ *         description: Scope to a single agent and its direct neighbours.
+ *         required: false
+ *         schema:
+ *           type: string
+ *       - name: user
+ *         in: query
+ *         description: Scope to a single user and its direct neighbours.
+ *         required: false
+ *         schema:
+ *           type: string
+ *       - name: realm
+ *         in: query
+ *         description: Scope to users and agents that are members of the realm.
+ *         required: false
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved the graph data.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 nodes:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/GraphNode'
+ *                 edges:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/GraphEdge'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       500:
+ *         description: Failed to build graph.
+ */
 export async function GET(req: NextRequest) {
   try {
     const auth = await getAuthContext(req);

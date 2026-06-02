@@ -17,6 +17,34 @@ function getFleetHistoryTotals(granularity: "day" | "month", bucket: string) {
   };
 }
 
+/**
+ * @openapi
+ * /api/stats/tokens:
+ *   get:
+ *     summary: Retrieve token usage statistics.
+ *     tags: [Stats]
+ *     responses:
+ *       200:
+ *         description: Successful retrieval of token usage statistics.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 allTime:
+ *                   type: object
+ *                   description: Total token usage.
+ *                 daily:
+ *                   type: object
+ *                   description: Daily token usage.
+ *                 monthly:
+ *                   type: object
+ *                   description: Monthly token usage.
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ */
 export async function GET(request: NextRequest) {
   const auth = await getAuthContext(request);
   if (!auth) return unauthorized();

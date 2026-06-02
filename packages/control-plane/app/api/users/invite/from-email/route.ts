@@ -10,6 +10,51 @@ import { getUserInvitation, claimUserInvitation, getSetting, getDb } from "@/lib
 import { UserServerChannel } from "@/lib/user-server-channel";
 import { VaultysId } from "@vaultys/id";
 
+/**
+ * @openapi
+ * /api/users/invite/from-email:
+ *   post:
+ *     summary: Generate QR code from an email invitation token.
+ *     tags: [Users]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               token:
+ *                 type: string
+ *                 description: Invitation token from email.
+ *             required:
+ *               - token
+ *     responses:
+ *       200:
+ *         description: QR code and connection details generated successfully.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 qrUrl:
+ *                   type: string
+ *                   description: URL for the generated QR code.
+ *                 connectionString:
+ *                   type: string
+ *                   description: Connection string for P2P session.
+ *                 inviteToken:
+ *                   type: string
+ *                   description: Invitation token for the connection.
+ *                 serverDid:
+ *                   type: string
+ *                   description: Server DID if available.
+ *       400:
+ *         $ref: '#/components/responses/BadRequest'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ *       500:
+ *         description: Failed to generate QR code due to server error.
+ */
 export async function POST(request: NextRequest) {
   try {
     const { token } = await request.json() as { token?: string };

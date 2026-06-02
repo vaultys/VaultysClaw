@@ -8,6 +8,34 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext, forbidden, unauthorized } from "@/lib/auth-utils";
 import { getEntraConfig, saveEntraConfig, listEntraGroups, diagnoseEntraConfig } from "@/lib/entra-sync";
 
+/**
+ * @openapi
+ * /api/server/entra:
+ *   get:
+ *     summary: Retrieve the Entra configuration with secrets redacted.
+ *     tags: [Server]
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved Entra configuration.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 configured:
+ *                   type: boolean
+ *                 tenantId:
+ *                   type: string
+ *                 clientId:
+ *                   type: string
+ *                 clientSecret:
+ *                   type: string
+ *                   example: "••••••••"
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ */
 export async function GET(request: NextRequest) {
   const auth = await getAuthContext(request);
   if (!auth) return unauthorized();
@@ -24,6 +52,39 @@ export async function GET(request: NextRequest) {
   });
 }
 
+/**
+ * @openapi
+ * /api/server/entra:
+ *   put:
+ *     summary: Save Entra configuration.
+ *     tags: [Server]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               tenantId:
+ *                 type: string
+ *               clientId:
+ *                 type: string
+ *               clientSecret:
+ *                 type: string
+ *             required:
+ *               - tenantId
+ *               - clientId
+ *               - clientSecret
+ *     responses:
+ *       200:
+ *         description: Configuration saved successfully.
+ *       400:
+ *         $ref: '#/components/responses/BadRequest'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ */
 export async function PUT(req: NextRequest) {
   const auth = await getAuthContext(req);
   if (!auth) return unauthorized();
@@ -48,6 +109,62 @@ export async function PUT(req: NextRequest) {
   return NextResponse.json({ ok: true });
 }
 
+/**
+ * @openapi
+ * /api/server/entra:
+ *   post:
+ *     summary: Test connectivity and list Entra groups.
+ *     tags: [Server]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               tenantId:
+ *                 type: string
+ *               clientId:
+ *                 type: string
+ *               clientSecret:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Connectivity test results and group list.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 ok:
+ *                   type: boolean
+ *                 checks:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       status:
+ *                         type: string
+ *                       message:
+ *                         type: string
+ *                 groups:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: string
+ *                       name:
+ *                         type: string
+ *                 error:
+ *                   type: string
+ *       400:
+ *         $ref: '#/components/responses/BadRequest'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ */
 export async function POST(req: NextRequest) {
   const auth = await getAuthContext(req);
   if (!auth) return unauthorized();

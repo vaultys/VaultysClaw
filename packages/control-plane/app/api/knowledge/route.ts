@@ -8,6 +8,42 @@ import {
 } from '@/lib/db';
 
 // GET /api/knowledge?realmId=xxx&agentDid=xxx
+/**
+ * @openapi
+ * /api/knowledge:
+ *   get:
+ *     summary: List knowledge sources.
+ *     tags: [Knowledge]
+ *     parameters:
+ *       - in: query
+ *         name: realmId
+ *         schema:
+ *           type: string
+ *         required: false
+ *         description: The ID of the realm to filter knowledge sources.
+ *       - in: query
+ *         name: agentDid
+ *         schema:
+ *           type: string
+ *         required: false
+ *         description: The DID of the agent to filter knowledge sources.
+ *     responses:
+ *       200:
+ *         description: A list of knowledge sources.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 sources:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ */
 export async function GET(request: NextRequest) {
   const auth = await getAuthContext(request);
   if (!auth) return unauthorized();
@@ -26,6 +62,48 @@ export async function GET(request: NextRequest) {
 
 // POST /api/knowledge
 // Body: { realmId, agentDid, name, sourceType, config }
+/**
+ * @openapi
+ * /api/knowledge:
+ *   post:
+ *     summary: Create a new knowledge source.
+ *     tags: [Knowledge]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               realmId:
+ *                 type: string
+ *               agentDid:
+ *                 type: string
+ *               name:
+ *                 type: string
+ *               sourceType:
+ *                 type: string
+ *               config:
+ *                 type: object
+ *     responses:
+ *       201:
+ *         description: Knowledge source created successfully.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 source:
+ *                   type: object
+ *       400:
+ *         $ref: '#/components/responses/BadRequest'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ */
 export async function POST(request: NextRequest) {
   const auth = await getAuthContext(request);
   if (!auth) return unauthorized();

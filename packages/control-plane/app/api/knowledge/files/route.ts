@@ -5,6 +5,49 @@ import { createKnowledgeFile, listKnowledgeFiles, getKnowledgeSource } from '@/l
 const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20 MB
 
 // GET /api/knowledge/files?sourceId=xxx — list file metadata (no content)
+/**
+ * @openapi
+ * /api/knowledge/files:
+ *   get:
+ *     summary: List file metadata for a knowledge source.
+ *     tags: [Knowledge]
+ *     parameters:
+ *       - in: query
+ *         name: sourceId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the knowledge source.
+ *     responses:
+ *       200:
+ *         description: A list of file metadata.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 files:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: string
+ *                       name:
+ *                         type: string
+ *                       mimeType:
+ *                         type: string
+ *                       size:
+ *                         type: integer
+ *       400:
+ *         $ref: '#/components/responses/BadRequest'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ */
 export async function GET(request: NextRequest) {
   const auth = await getAuthContext(request);
   if (!auth) return unauthorized();
@@ -25,6 +68,47 @@ export async function GET(request: NextRequest) {
 
 // POST /api/knowledge/files — upload a file attached to a knowledge source
 // Body: multipart/form-data  { sourceId: string, file: File }
+/**
+ * @openapi
+ * /api/knowledge/files:
+ *   post:
+ *     summary: Upload a file attached to a knowledge source.
+ *     tags: [Knowledge]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               sourceId:
+ *                 type: string
+ *                 description: The ID of the knowledge source.
+ *               file:
+ *                 type: string
+ *                 format: binary
+ *                 description: The file to upload.
+ *     responses:
+ *       201:
+ *         description: File uploaded successfully.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 file:
+ *                   $ref: '#/components/schemas/KnowledgeFile'
+ *       400:
+ *         $ref: '#/components/responses/BadRequest'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ *       413:
+ *         description: File exceeds maximum size of 20MB.
+ */
 export async function POST(request: NextRequest) {
   const auth = await getAuthContext(request);
   if (!auth) return unauthorized();

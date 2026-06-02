@@ -11,6 +11,66 @@ import { getAgent, getAgentRealms, getRealmRouterKey, getModelsByRealm } from "@
 import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
 import { isLiteLLMConfigured, getLiteLLMBaseUrl } from "@/lib/litellm-client";
 
+/**
+ * @openapi
+ * /api/agents/{did}/realm-llm:
+ *   get:
+ *     summary: Get the agent's realm LiteLLM routing options.
+ *     tags: [Agents]
+ *     parameters:
+ *       - name: did
+ *         in: path
+ *         required: true
+ *         description: The DID of the agent.
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: A list of realms and their routing options.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 litellmConfigured:
+ *                   type: boolean
+ *                 litellmBaseUrl:
+ *                   type: string
+ *                 realms:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       realmId:
+ *                         type: string
+ *                       realmName:
+ *                         type: string
+ *                       isPrimary:
+ *                         type: boolean
+ *                       hasVirtualKey:
+ *                         type: boolean
+ *                       models:
+ *                         type: array
+ *                         items:
+ *                           type: object
+ *                           properties:
+ *                             id:
+ *                               type: string
+ *                             name:
+ *                               type: string
+ *                             provider:
+ *                               type: string
+ *                             modelId:
+ *                               type: string
+ *                             litellmModelName:
+ *                               type: string
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ */
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ did: string }> },

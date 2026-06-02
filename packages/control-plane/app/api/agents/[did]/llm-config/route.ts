@@ -63,6 +63,49 @@ function safeConfig(config: LlmConfig): Omit<LlmConfig, "apiKey"> & { apiKeySet:
   return { ...rest, apiKeySet: Boolean(apiKey) };
 }
 
+/**
+ * @openapi
+ * /api/agents/{did}/llm-config:
+ *   get:
+ *     summary: Retrieve stored LLM config with masked API key.
+ *     tags: [Agents]
+ *     parameters:
+ *       - name: did
+ *         in: path
+ *         required: true
+ *         description: The agent's DID.
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved the LLM config.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 config:
+ *                   type: object
+ *                   properties:
+ *                     provider:
+ *                       type: string
+ *                     model:
+ *                       type: string
+ *                     baseUrl:
+ *                       type: string
+ *                     systemPrompt:
+ *                       type: string
+ *                     maxTokens:
+ *                       type: integer
+ *                     apiKeySet:
+ *                       type: boolean
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ */
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ did: string }> },
@@ -89,6 +132,75 @@ export async function GET(
   }
 }
 
+/**
+ * @openapi
+ * /api/agents/{did}/llm-config:
+ *   put:
+ *     summary: Set or update the LLM config for an agent.
+ *     tags: [Agents]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               provider:
+ *                 type: string
+ *                 enum: ["openai", "anthropic", "google", "ollama", "openai-compatible"]
+ *               model:
+ *                 type: string
+ *               apiKey:
+ *                 type: string
+ *               baseUrl:
+ *                 type: string
+ *               systemPrompt:
+ *                 type: string
+ *               maxTokens:
+ *                 type: integer
+ *                 minimum: 1
+ *               realmId:
+ *                 type: string
+ *               realmModelId:
+ *                 type: string
+ *               registryModelId:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Successfully updated the LLM config.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 ok:
+ *                   type: boolean
+ *                 pushed:
+ *                   type: boolean
+ *                 config:
+ *                   type: object
+ *                   properties:
+ *                     provider:
+ *                       type: string
+ *                     model:
+ *                       type: string
+ *                     baseUrl:
+ *                       type: string
+ *                     systemPrompt:
+ *                       type: string
+ *                     maxTokens:
+ *                       type: integer
+ *                     apiKeySet:
+ *                       type: boolean
+ *       400:
+ *         $ref: '#/components/responses/BadRequest'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ */
 export async function PUT(
   req: NextRequest,
   { params }: { params: Promise<{ did: string }> },
@@ -178,6 +290,38 @@ export async function PUT(
   });
 }
 
+/**
+ * @openapi
+ * /api/agents/{did}/llm-config:
+ *   delete:
+ *     summary: Clear LLM config for the agent.
+ *     tags: [Agents]
+ *     parameters:
+ *       - name: did
+ *         in: path
+ *         required: true
+ *         description: The DID of the agent.
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: LLM config cleared successfully.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 ok:
+ *                   type: boolean
+ *                 pushed:
+ *                   type: boolean
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ */
 export async function DELETE(
   _req: NextRequest,
   { params }: { params: Promise<{ did: string }> },

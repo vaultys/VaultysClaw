@@ -14,6 +14,40 @@ type Ctx = { params: Promise<{ did: string }> };
  * GET /api/agents/[did]/skills — get effective skill configuration for an agent.
  * Returns realm-defined skills merged with per-agent overrides.
  */
+/**
+ * @openapi
+ * /api/agents/{did}/skills:
+ *   get:
+ *     summary: Get effective skill configuration for an agent.
+ *     tags: [Agents]
+ *     parameters:
+ *       - name: did
+ *         in: path
+ *         required: true
+ *         description: The DID of the agent.
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: A list of effective skills for the agent.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 skills:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Skill'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ *       500:
+ *         description: Failed to fetch agent skills.
+ */
 export async function GET(_req: NextRequest, ctx: Ctx) {
   try {
     const auth = await getAuthContext(_req);
@@ -37,6 +71,58 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
  * PATCH /api/agents/[did]/skills — update an agent's skill override.
  * Only applicable to non-required skills.
  * Body: { realmSkillId, enabled }
+ */
+/**
+ * @openapi
+ * /api/agents/{did}/skills:
+ *   patch:
+ *     summary: Update an agent's skill override.
+ *     tags: [Agents]
+ *     parameters:
+ *       - name: did
+ *         in: path
+ *         required: true
+ *         description: The DID of the agent.
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               realmSkillId:
+ *                 type: string
+ *                 description: ID of the realm skill.
+ *               enabled:
+ *                 type: boolean
+ *                 description: Whether the skill is enabled.
+ *             required:
+ *               - realmSkillId
+ *               - enabled
+ *     responses:
+ *       200:
+ *         description: Successfully updated the agent's skill override.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 skills:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Skill'
+ *       400:
+ *         $ref: '#/components/responses/BadRequest'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ *       500:
+ *         description: Failed to update agent skill override.
  */
 export async function PATCH(req: NextRequest, ctx: Ctx) {
   try {

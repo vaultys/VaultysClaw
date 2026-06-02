@@ -9,6 +9,52 @@ type Ctx = { params: Promise<{ id: string }> };
  * Add a member to a channel
  * Body: { memberDid, memberType, role?, invitedBy? }
  */
+/**
+ * @openapi
+ * /api/channels/{id}/members:
+ *   post:
+ *     summary: Add a member to a channel.
+ *     tags: [Channels]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               memberDid:
+ *                 type: string
+ *                 description: The DID of the member to add.
+ *               memberType:
+ *                 type: string
+ *                 enum: [user, agent]
+ *                 description: The type of the member.
+ *               role:
+ *                 type: string
+ *                 enum: [member, moderator, owner]
+ *                 description: The role of the member in the channel.
+ *               invitedBy:
+ *                 type: string
+ *                 description: The DID of the inviter.
+ *             required:
+ *               - memberDid
+ *               - memberType
+ *     responses:
+ *       201:
+ *         description: Member added successfully.
+ *       400:
+ *         $ref: '#/components/responses/BadRequest'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ *       409:
+ *         description: Conflict, member already exists.
+ *       500:
+ *         description: Internal server error.
+ */
 export async function POST(req: NextRequest, ctx: Ctx) {
   try {
     const auth = await getAuthContext(req);
@@ -76,6 +122,39 @@ export async function POST(req: NextRequest, ctx: Ctx) {
 /**
  * DELETE /api/channels/[id]/members/:memberDid
  * Remove a member from a channel
+ */
+/**
+ * @openapi
+ * /api/channels/{id}/members/{memberDid}:
+ *   delete:
+ *     summary: Remove a member from a channel.
+ *     tags: [Channels]
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         description: The ID of the channel.
+ *         schema:
+ *           type: string
+ *       - name: memberDid
+ *         in: path
+ *         required: true
+ *         description: The DID of the member to remove.
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Member removed successfully.
+ *       400:
+ *         $ref: '#/components/responses/BadRequest'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ *       500:
+ *         description: Failed to remove member.
  */
 export async function DELETE(req: NextRequest, ctx: Ctx) {
   try {

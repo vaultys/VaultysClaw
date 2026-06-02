@@ -20,6 +20,43 @@ const AVAILABLE_CAPABILITIES: { id: AgentCapability; label: string; description:
  * GET /api/registrations
  * List all pending registrations + available capabilities. Global admin only.
  */
+/**
+ * @openapi
+ * /api/registrations:
+ *   get:
+ *     summary: List all pending registrations and available capabilities.
+ *     tags: [Registrations]
+ *     responses:
+ *       200:
+ *         description: A list of pending registrations and available capabilities.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 registrations:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     additionalProperties: true
+ *                 availableCapabilities:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: string
+ *                       label:
+ *                         type: string
+ *                       description:
+ *                         type: string
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       500:
+ *         description: Failed to fetch registrations.
+ */
 export async function GET(request: NextRequest) {
   try {
     const auth = await getAuthContext(request);

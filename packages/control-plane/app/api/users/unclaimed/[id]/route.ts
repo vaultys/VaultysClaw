@@ -16,6 +16,78 @@ type ValidRole = (typeof VALID_ROLES)[number];
 
 type Ctx = { params: Promise<{ id: string }> };
 
+/**
+ * @openapi
+ * /api/users/unclaimed/{id}:
+ *   get:
+ *     summary: Get an unclaimed Entra user by internal ID.
+ *     tags: [Users]
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         description: The internal ID of the unclaimed user.
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved the unclaimed user.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 id:
+ *                   type: string
+ *                 did:
+ *                   type: string
+ *                   nullable: true
+ *                 name:
+ *                   type: string
+ *                 email:
+ *                   type: string
+ *                 isOwner:
+ *                   type: boolean
+ *                 isAdmin:
+ *                   type: boolean
+ *                 role:
+ *                   type: string
+ *                 reportsTo:
+ *                   type: string
+ *                   nullable: true
+ *                 description:
+ *                   type: string
+ *                   nullable: true
+ *                 registeredAt:
+ *                   type: string
+ *                   format: date-time
+ *                 entraId:
+ *                   type: string
+ *                   nullable: true
+ *                 claimedAt:
+ *                   type: string
+ *                   format: date-time
+ *                   nullable: true
+ *                 realms:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: string
+ *                       name:
+ *                         type: string
+ *                       slug:
+ *                         type: string
+ *                       color:
+ *                         type: string
+ *                       isPrimary:
+ *                         type: boolean
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ */
 export async function GET(_req: NextRequest, { params }: Ctx) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.isAdmin) {
@@ -54,6 +126,49 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
   });
 }
 
+/**
+ * @openapi
+ * /api/users/unclaimed/{id}:
+ *   patch:
+ *     summary: Update profile fields of an unclaimed user.
+ *     tags: [Users]
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         description: Internal ID of the unclaimed user
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *               email:
+ *                 type: string
+ *               role:
+ *                 type: string
+ *                 enum: ["owner", "admin", "manager", "operator", "member"]
+ *               reportsTo:
+ *                 type: string
+ *                 nullable: true
+ *               description:
+ *                 type: string
+ *                 nullable: true
+ *     responses:
+ *       200:
+ *         description: Profile fields updated successfully.
+ *       400:
+ *         $ref: '#/components/responses/BadRequest'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ */
 export async function PATCH(req: NextRequest, { params }: Ctx) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.isAdmin) {
@@ -94,6 +209,27 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
   return NextResponse.json({ ok: true });
 }
 
+/**
+ * @openapi
+ * /api/users/unclaimed/{id}:
+ *   delete:
+ *     summary: Remove an unclaimed user by internal ID.
+ *     tags: [Users]
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         description: The internal ID of the unclaimed user.
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: User successfully removed.
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ */
 export async function DELETE(_req: NextRequest, { params }: Ctx) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.isAdmin) {

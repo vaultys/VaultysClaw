@@ -25,6 +25,54 @@ import type {
  *   data: {"error":"msg"}\n\n    — error
  *   data: [DONE]\n\n              — stream finished
  */
+/**
+ * @openapi
+ * /api/chat:
+ *   post:
+ *     summary: Stream a chat response from a connected agent.
+ *     tags: [Chat]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               agentDid:
+ *                 type: string
+ *               messages:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   properties:
+ *                     role:
+ *                       type: string
+ *                       enum: [user, assistant]
+ *                     content:
+ *                       type: string
+ *               sessionId:
+ *                 type: string
+ *             required:
+ *               - agentDid
+ *               - messages
+ *     responses:
+ *       200:
+ *         description: Successful response streaming.
+ *         content:
+ *           text/event-stream:
+ *             schema:
+ *               type: string
+ *       400:
+ *         $ref: '#/components/responses/BadRequest'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ *       500:
+ *         description: Internal server error.
+ */
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);

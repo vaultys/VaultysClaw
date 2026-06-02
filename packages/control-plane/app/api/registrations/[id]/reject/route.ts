@@ -7,6 +7,59 @@ import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
  * POST /api/registrations/[id]/reject
  * Reject a pending registration. Global admin only.
  */
+/**
+ * @openapi
+ * /api/registrations/{id}/reject:
+ *   post:
+ *     summary: Reject a pending registration.
+ *     tags: [Registrations]
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         description: The ID of the registration to reject.
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       description: Reason for rejection.
+ *       required: false
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               reason:
+ *                 type: string
+ *                 description: Reason for rejecting the registration.
+ *     responses:
+ *       200:
+ *         description: Registration successfully rejected.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 registrationId:
+ *                   type: string
+ *       400:
+ *         $ref: '#/components/responses/BadRequest'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ *       409:
+ *         description: Registration is not in a pending state.
+ *       410:
+ *         description: Agent connection no longer available.
+ *       503:
+ *         description: WebSocket server not available.
+ *       500:
+ *         description: Failed to reject registration.
+ */
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }

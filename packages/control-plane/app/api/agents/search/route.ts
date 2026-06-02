@@ -11,6 +11,58 @@ import { getWSServer } from "@/lib/ws-server";
  * Each agent is enriched with a real-time `online` field sourced from
  * the WebSocket server's in-memory connection map.
  */
+/**
+ * @openapi
+ * /api/agents/search:
+ *   get:
+ *     summary: Search for agents by name or DID.
+ *     tags: [Agents]
+ *     parameters:
+ *       - in: query
+ *         name: q
+ *         schema:
+ *           type: string
+ *         description: Query string to search agents by name or DID.
+ *       - in: query
+ *         name: realm
+ *         schema:
+ *           type: string
+ *         description: Realm ID to filter agents within a specific realm.
+ *     responses:
+ *       200:
+ *         description: A list of agents matching the search criteria.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 agents:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: string
+ *                         description: Deprecated, use `did`.
+ *                       did:
+ *                         type: string
+ *                         description: The DID of the agent.
+ *                       name:
+ *                         type: string
+ *                         description: The name of the agent.
+ *                       capabilities:
+ *                         type: array
+ *                         items:
+ *                           type: string
+ *                         description: The capabilities of the agent.
+ *                       online:
+ *                         type: boolean
+ *                         description: Real-time online status of the agent.
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       500:
+ *         description: Failed to search agents.
+ */
 export async function GET(req: NextRequest) {
   try {
     const auth = await getAuthContext(req);

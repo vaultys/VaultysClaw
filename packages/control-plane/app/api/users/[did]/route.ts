@@ -13,6 +13,76 @@ import { GrantDao } from "@/lib/grant-dao";
 const VALID_ROLES = ["owner", "admin", "manager", "operator", "member"] as const;
 type ValidRole = typeof VALID_ROLES[number];
 
+/**
+ * @openapi
+ * /api/users/{did}:
+ *   get:
+ *     summary: Get a single user by DID.
+ *     tags: [Users]
+ *     parameters:
+ *       - name: did
+ *         in: path
+ *         required: true
+ *         description: The DID of the user to retrieve.
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: A user object.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 did:
+ *                   type: string
+ *                 name:
+ *                   type: string
+ *                   nullable: true
+ *                 email:
+ *                   type: string
+ *                   nullable: true
+ *                 isOwner:
+ *                   type: boolean
+ *                 isAdmin:
+ *                   type: boolean
+ *                 role:
+ *                   type: string
+ *                 reportsTo:
+ *                   type: string
+ *                   nullable: true
+ *                 description:
+ *                   type: string
+ *                   nullable: true
+ *                 registeredAt:
+ *                   type: string
+ *                   format: date-time
+ *                 grants:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: string
+ *                       agentDid:
+ *                         type: string
+ *                       capabilities:
+ *                         type: array
+ *                         items:
+ *                           type: string
+ *                       grantedBy:
+ *                         type: string
+ *                       expiresAt:
+ *                         type: string
+ *                         format: date-time
+ *                       createdAt:
+ *                         type: string
+ *                         format: date-time
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ */
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ did: string }> },
@@ -49,6 +119,29 @@ export async function GET(
   });
 }
 
+/**
+ * @openapi
+ * /api/users/{did}:
+ *   delete:
+ *     summary: Remove a user and all their grants (owner-only).
+ *     tags: [Users]
+ *     parameters:
+ *       - name: did
+ *         in: path
+ *         required: true
+ *         description: The DID of the user to be removed.
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: User successfully removed.
+ *       400:
+ *         $ref: '#/components/responses/BadRequest'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ */
 export async function DELETE(
   _req: NextRequest,
   { params }: { params: Promise<{ did: string }> },
@@ -73,6 +166,49 @@ export async function DELETE(
   return NextResponse.json({ ok: true });
 }
 
+/**
+ * @openapi
+ * /api/users/{did}:
+ *   patch:
+ *     summary: Update a user's profile fields.
+ *     tags: [Users]
+ *     parameters:
+ *       - name: did
+ *         in: path
+ *         required: true
+ *         description: The DID of the user to update.
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *               email:
+ *                 type: string
+ *               role:
+ *                 type: string
+ *                 enum: ["owner", "admin", "manager", "operator", "member"]
+ *               reportsTo:
+ *                 type: string
+ *                 nullable: true
+ *               description:
+ *                 type: string
+ *                 nullable: true
+ *     responses:
+ *       200:
+ *         description: User profile updated successfully.
+ *       400:
+ *         $ref: '#/components/responses/BadRequest'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ */
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ did: string }> },

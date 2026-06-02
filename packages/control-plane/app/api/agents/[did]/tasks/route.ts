@@ -6,6 +6,58 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getWSServer } from "@/lib/ws-server";
 import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
 
+/**
+ * @openapi
+ * /api/agents/{did}/tasks:
+ *   post:
+ *     summary: Enqueue a task on an agent via WebSocket.
+ *     tags: [Agents]
+ *     parameters:
+ *       - name: did
+ *         in: path
+ *         required: true
+ *         description: The decentralized identifier of the agent.
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               action:
+ *                 type: string
+ *                 description: The action to be performed by the agent.
+ *               params:
+ *                 type: object
+ *                 additionalProperties: true
+ *                 description: Additional parameters for the task.
+ *     responses:
+ *       200:
+ *         description: Task successfully enqueued.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 agentId:
+ *                   type: string
+ *                 action:
+ *                   type: string
+ *       400:
+ *         $ref: '#/components/responses/BadRequest'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ *       503:
+ *         description: WebSocket server not available.
+ */
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ did: string }> },

@@ -5,6 +5,67 @@ import { getAuthContext, unauthorized } from "@/lib/auth-utils";
 type Ctx = { params: Promise<{ id: string }> };
 
 /** GET /api/realms/[id]/models — list models available to a realm + router key info */
+/**
+ * @openapi
+ * /api/realms/{id}/models:
+ *   get:
+ *     summary: List models available to a realm along with router key info.
+ *     tags: [Realms]
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         description: The ID of the realm.
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: A list of models and router key information.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 models:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: string
+ *                       name:
+ *                         type: string
+ *                       description:
+ *                         type: string
+ *                       provider:
+ *                         type: string
+ *                       modelId:
+ *                         type: string
+ *                       litellmModelName:
+ *                         type: string
+ *                       status:
+ *                         type: string
+ *                 routerKey:
+ *                   type: object
+ *                   nullable: true
+ *                   properties:
+ *                     hasVirtualKey:
+ *                       type: boolean
+ *                     allowedModels:
+ *                       type: array
+ *                       items:
+ *                         type: string
+ *                     monthlyBudgetUsd:
+ *                       type: number
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ *       500:
+ *         description: Failed to fetch realm models.
+ */
 export async function GET(_req: NextRequest, { params }: Ctx) {
   try {
     const auth = await getAuthContext(_req);

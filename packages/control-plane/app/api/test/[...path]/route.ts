@@ -58,6 +58,29 @@ function guard(): NextResponse | null {
 // GET handlers
 // ─────────────────────────────────────────────
 
+/**
+ * @openapi
+ * /api/test/{...path}:
+ *   get:
+ *     summary: Handle various GET requests for test resources.
+ *     tags: [Test]
+ *     parameters:
+ *       - name: path
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: array
+ *           items:
+ *             type: string
+ *         style: simple
+ *         explode: false
+ *         description: The resource path segments.
+ *     responses:
+ *       200:
+ *         description: Successful response with requested data.
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ */
 export async function GET(
   _req: NextRequest,
   ctx: RouteContext
@@ -170,6 +193,22 @@ export async function GET(
 // POST handlers
 // ─────────────────────────────────────────────
 
+/**
+ * @openapi
+ * /api/test/{...path}:
+ *   post:
+ *     summary: Handle various POST operations for test API.
+ *     tags: [Test]
+ *     responses:
+ *       200:
+ *         description: Successful operation
+ *       400:
+ *         $ref: '#/components/responses/BadRequest'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ *       503:
+ *         description: WS server not initialised
+ */
 export async function POST(
   req: NextRequest,
   ctx: RouteContext
@@ -386,6 +425,25 @@ export async function POST(
 // DELETE handlers
 // ─────────────────────────────────────────────
 
+/**
+ * @openapi
+ * /api/test/models/{id}:
+ *   delete:
+ *     summary: Delete a model registry entry.
+ *     tags: [Test]
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         description: The ID of the model to delete.
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Model successfully deleted.
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ */
 export async function DELETE(
   _req: NextRequest,
   ctx: RouteContext,

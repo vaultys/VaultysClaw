@@ -10,6 +10,61 @@ import { TeamsGateway } from "@/lib/bridges/teams-gateway";
  * Public endpoint — called by Teams Bot Framework.
  * Verifies the request (stub) and routes the message to the matching VaultysClaw channel.
  */
+/**
+ * @openapi
+ * /api/bridges/teams/incoming:
+ *   post:
+ *     summary: Process incoming messages from Teams Bot Framework.
+ *     tags: [Bridges]
+ *     requestBody:
+ *       description: Teams Activity object.
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               text:
+ *                 type: string
+ *               from:
+ *                 type: object
+ *                 properties:
+ *                   id:
+ *                     type: string
+ *                   name:
+ *                     type: string
+ *               channelId:
+ *                 type: string
+ *               conversation:
+ *                 type: object
+ *                 properties:
+ *                   id:
+ *                     type: string
+ *               type:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Message processed successfully.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 ok:
+ *                   type: boolean
+ *                 messageId:
+ *                   type: string
+ *       400:
+ *         $ref: '#/components/responses/BadRequest'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ *       500:
+ *         description: Failed to process Teams message.
+ */
 export async function POST(req: NextRequest) {
   try {
     const body = await req.text();

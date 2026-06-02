@@ -15,6 +15,50 @@ import { decryptSecret } from "@/lib/vault";
 
 type Ctx = { params: Promise<{ id: string; credId: string }> };
 
+/**
+ * @openapi
+ * /api/realms/{id}/credentials/{credId}:
+ *   get:
+ *     summary: Retrieve the plaintext secret for a specific credential.
+ *     tags: [Realms]
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         description: Realm ID
+ *         schema:
+ *           type: string
+ *       - name: credId
+ *         in: path
+ *         required: true
+ *         description: Credential ID
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved the credential secret.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 id:
+ *                   type: string
+ *                 service:
+ *                   type: string
+ *                 name:
+ *                   type: string
+ *                 secret:
+ *                   type: string
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ *       500:
+ *         description: Failed to decrypt credential.
+ */
 export async function GET(req: NextRequest, ctx: Ctx) {
   const auth = await getAuthContext(req);
   if (!auth) return unauthorized();

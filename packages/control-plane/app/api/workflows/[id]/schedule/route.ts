@@ -11,6 +11,47 @@ import { nextCronRun } from "@/lib/workflow-scheduler";
 
 type Ctx = { params: Promise<{ id: string }> };
 
+/**
+ * @openapi
+ * /api/workflows/{id}/schedule:
+ *   get:
+ *     summary: Retrieve the current schedule configuration for a workflow.
+ *     tags: [Workflows]
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         description: The ID of the workflow.
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: The current schedule configuration.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 workflowId:
+ *                   type: string
+ *                 scheduleCron:
+ *                   type: string
+ *                   nullable: true
+ *                 scheduleEnabled:
+ *                   type: boolean
+ *                 scheduleLastRun:
+ *                   type: string
+ *                   format: date-time
+ *                   nullable: true
+ *                 scheduleNextRun:
+ *                   type: string
+ *                   format: date-time
+ *                   nullable: true
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ */
 export async function GET(_req: NextRequest, ctx: Ctx) {
   const auth = await getAuthContext(_req);
   if (!auth) return unauthorized();
@@ -28,6 +69,49 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
   });
 }
 
+/**
+ * @openapi
+ * /api/workflows/{id}/schedule:
+ *   post:
+ *     summary: Set or update the cron schedule for a workflow.
+ *     tags: [Workflows]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               cron:
+ *                 type: string
+ *                 description: Cron expression to schedule the workflow.
+ *               enabled:
+ *                 type: boolean
+ *                 description: Whether the schedule is enabled.
+ *     responses:
+ *       200:
+ *         description: Schedule updated successfully.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 scheduleCron:
+ *                   type: string
+ *                 scheduleEnabled:
+ *                   type: boolean
+ *                 scheduleNextRun:
+ *                   type: string
+ *                   format: date-time
+ *       400:
+ *         $ref: '#/components/responses/BadRequest'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ */
 export async function POST(req: NextRequest, ctx: Ctx) {
   const auth = await getAuthContext(req);
   if (!auth) return unauthorized();
@@ -58,6 +142,27 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   });
 }
 
+/**
+ * @openapi
+ * /api/workflows/{id}/schedule:
+ *   delete:
+ *     summary: Disable or clear the workflow schedule.
+ *     tags: [Workflows]
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         description: The ID of the workflow.
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Schedule successfully disabled or cleared.
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ */
 export async function DELETE(_req: NextRequest, ctx: Ctx) {
   const auth = await getAuthContext(_req);
   if (!auth) return unauthorized();

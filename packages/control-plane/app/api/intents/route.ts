@@ -11,6 +11,64 @@ import { getIntentLog } from "@/lib/db";
  * Owners can send any intent; non-owners must have an active grant covering
  * the target agent + action (capability).
  */
+/**
+ * @openapi
+ * /api/intents:
+ *   post:
+ *     summary: Send an intent to one or more agents.
+ *     tags: [Intents]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               agentId:
+ *                 type: string
+ *                 description: ID of the target agent.
+ *               action:
+ *                 type: string
+ *                 description: Action to be performed.
+ *               params:
+ *                 type: object
+ *                 description: Parameters for the action.
+ *               broadcastCapability:
+ *                 type: string
+ *                 description: Capability to broadcast to all agents.
+ *     responses:
+ *       202:
+ *         description: Intent accepted and being processed.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 intentId:
+ *                   type: string
+ *                   description: Unique identifier for the intent.
+ *                 action:
+ *                   type: string
+ *                   description: Action to be performed.
+ *                 sentTo:
+ *                   type: array
+ *                   items:
+ *                     type: string
+ *                   description: List of agents the intent was sent to.
+ *                 count:
+ *                   type: integer
+ *                   description: Number of agents the intent was sent to.
+ *       400:
+ *         $ref: '#/components/responses/BadRequest'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ *       500:
+ *         description: Failed to send intent.
+ */
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
@@ -119,6 +177,53 @@ export async function POST(request: NextRequest) {
 /**
  * GET /api/intents
  * List recent intents with their execution results. Admin only.
+ */
+/**
+ * @openapi
+ * /api/intents:
+ *   get:
+ *     summary: List recent intents with their execution results.
+ *     tags: [Intents]
+ *     responses:
+ *       200:
+ *         description: A list of recent intents.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 intents:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       intentId:
+ *                         type: string
+ *                       agentDid:
+ *                         type: string
+ *                       action:
+ *                         type: string
+ *                       params:
+ *                         type: object
+ *                       status:
+ *                         type: string
+ *                       output:
+ *                         type: object
+ *                         nullable: true
+ *                       error:
+ *                         type: string
+ *                         nullable: true
+ *                       sentAt:
+ *                         type: string
+ *                         format: date-time
+ *                       completedAt:
+ *                         type: string
+ *                         format: date-time
+ *                         nullable: true
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       500:
+ *         description: Failed to fetch intents.
  */
 export async function GET(request: NextRequest) {
   try {

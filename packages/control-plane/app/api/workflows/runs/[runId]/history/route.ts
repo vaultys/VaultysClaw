@@ -13,7 +13,7 @@ export async function GET(
   { params }: { params: Promise<Params> },
 ) {
   try {
-    const auth = await getAuthContext();
+    const auth = await getAuthContext(_request);
     if (!auth) return unauthorized();
 
     const { runId } = await params;

@@ -8,8 +8,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext, forbidden, unauthorized } from "@/lib/auth-utils";
 import { getEntraConfig, saveEntraConfig, listEntraGroups, diagnoseEntraConfig } from "@/lib/entra-sync";
 
-export async function GET() {
-  const auth = await getAuthContext();
+export async function GET(request: NextRequest) {
+  const auth = await getAuthContext(request);
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
 
@@ -25,7 +25,7 @@ export async function GET() {
 }
 
 export async function PUT(req: NextRequest) {
-  const auth = await getAuthContext();
+  const auth = await getAuthContext(req);
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
 
@@ -49,7 +49,7 @@ export async function PUT(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const auth = await getAuthContext();
+  const auth = await getAuthContext(req);
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
 

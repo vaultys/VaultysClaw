@@ -10,7 +10,7 @@ import { UserDao } from "@/lib/user-dao";
  */
 export async function GET(req: NextRequest) {
   try {
-    const auth = await getAuthContext();
+    const auth = await getAuthContext(req);
     if (!auth) return unauthorized();
 
     // user_realms.user_id references users.id (UUID), not users.did

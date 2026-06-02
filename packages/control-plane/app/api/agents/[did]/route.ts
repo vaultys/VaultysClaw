@@ -33,7 +33,7 @@ export async function GET(
   { params }: { params: Promise<{ did: string }> }
 ) {
   try {
-    const auth = await getAuthContext();
+    const auth = await getAuthContext(_request);
     if (!auth) return unauthorized();
 
     const { did: rawDid } = await params;
@@ -138,7 +138,7 @@ export async function PATCH(
   { params }: { params: Promise<{ did: string }> }
 ) {
   try {
-    const auth = await getAuthContext();
+    const auth = await getAuthContext(request);
     if (!auth) return unauthorized();
     if (!auth.isGlobalAdmin) return forbidden();
 
@@ -194,7 +194,7 @@ export async function DELETE(
   { params }: { params: Promise<{ did: string }> }
 ) {
   try {
-    const auth = await getAuthContext();
+    const auth = await getAuthContext(_request);
     if (!auth) return unauthorized();
     if (!auth.isGlobalAdmin) return forbidden();
 

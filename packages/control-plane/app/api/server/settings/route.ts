@@ -10,7 +10,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext, forbidden, unauthorized } from "@/lib/auth-utils";
 import { getSetting, setSetting } from "@/lib/db";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   return NextResponse.json({
     walletUrl: getSetting("wallet_url") ?? "https://wallet.vaultys.net",
     peerjsHost: getSetting("peerjs_host") ?? "",
@@ -18,7 +18,7 @@ export async function GET() {
 }
 
 export async function PUT(req: NextRequest) {
-  const auth = await getAuthContext();
+  const auth = await getAuthContext(req);
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
 

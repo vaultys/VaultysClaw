@@ -7,7 +7,7 @@ import { decryptSecret } from '@/lib/vault';
 // Body fields are optional — omit any to fall back to the saved (DB) config.
 // secretAccessKey must be supplied in the body if not yet saved.
 export async function POST(request: NextRequest) {
-  const auth = await getAuthContext();
+  const auth = await getAuthContext(request);
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
 

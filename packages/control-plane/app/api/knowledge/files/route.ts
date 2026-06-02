@@ -6,7 +6,7 @@ const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20 MB
 
 // GET /api/knowledge/files?sourceId=xxx — list file metadata (no content)
 export async function GET(request: NextRequest) {
-  const auth = await getAuthContext();
+  const auth = await getAuthContext(request);
   if (!auth) return unauthorized();
 
   const sourceId = request.nextUrl.searchParams.get('sourceId');
@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
 // POST /api/knowledge/files — upload a file attached to a knowledge source
 // Body: multipart/form-data  { sourceId: string, file: File }
 export async function POST(request: NextRequest) {
-  const auth = await getAuthContext();
+  const auth = await getAuthContext(request);
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
 

@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext, unauthorized } from "@/lib/auth-utils";
 import { getOrgSkills } from "@/lib/db";
 
@@ -9,8 +9,8 @@ import { getOrgSkills } from "@/lib/db";
  * Consumed by the BrowseLibraryModal in the skills page — the response is
  * mapped to the LibrarySkill shape expected by that component.
  */
-export async function GET() {
-  const auth = await getAuthContext();
+export async function GET(request: NextRequest) {
+  const auth = await getAuthContext(request);
   if (!auth) return unauthorized();
 
   const skills = getOrgSkills();

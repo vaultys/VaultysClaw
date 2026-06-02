@@ -7,7 +7,7 @@ export async function DELETE(
   _request: NextRequest,
   { params }: { params: Promise<{ fileId: string }> },
 ) {
-  const auth = await getAuthContext();
+  const auth = await getAuthContext(_request);
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
 

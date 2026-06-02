@@ -11,7 +11,7 @@ import type { AgentCapability } from "@vaultysclaw/shared";
  */
 export async function GET(request: NextRequest) {
   try {
-    const auth = await getAuthContext();
+    const auth = await getAuthContext(request);
     if (!auth) return unauthorized();
     if (!auth.isGlobalAdmin) return forbidden();
 
@@ -46,7 +46,7 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    const auth = await getAuthContext();
+    const auth = await getAuthContext(request);
     if (!auth) return unauthorized();
     if (!auth.isGlobalAdmin) return forbidden();
 

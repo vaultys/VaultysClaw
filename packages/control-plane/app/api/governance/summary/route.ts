@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
 import { getDb } from "@/lib/db";
 
@@ -6,9 +6,9 @@ import { getDb } from "@/lib/db";
  * GET /api/governance/summary
  * Returns governance posture stats. Global admin only.
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const auth = await getAuthContext();
+    const auth = await getAuthContext(request);
     if (!auth) return unauthorized();
     if (!auth.isGlobalAdmin) return forbidden();
 

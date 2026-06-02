@@ -13,7 +13,7 @@ import { getAuthContext, forbidden, unauthorized } from "@/lib/auth-utils";
 import { syncEntraUsers } from "@/lib/entra-sync";
 
 export async function POST(req: NextRequest) {
-  const auth = await getAuthContext();
+  const auth = await getAuthContext(req);
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
 

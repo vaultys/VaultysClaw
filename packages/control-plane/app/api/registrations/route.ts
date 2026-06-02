@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getAllPendingRegistrations } from "@/lib/db";
 import type { AgentCapability } from "@vaultysclaw/shared";
 import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
@@ -20,9 +20,9 @@ const AVAILABLE_CAPABILITIES: { id: AgentCapability; label: string; description:
  * GET /api/registrations
  * List all pending registrations + available capabilities. Global admin only.
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const auth = await getAuthContext();
+    const auth = await getAuthContext(request);
     if (!auth) return unauthorized();
     if (!auth.isGlobalAdmin) return forbidden();
 

@@ -11,7 +11,7 @@ type Ctx = { params: Promise<{ id: string }> };
  */
 export async function POST(req: NextRequest, ctx: Ctx) {
   try {
-    const auth = await getAuthContext();
+    const auth = await getAuthContext(req);
     if (!auth) return unauthorized();
 
     const { id: channelId } = await ctx.params;

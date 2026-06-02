@@ -6,7 +6,7 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ templateId: string }> }
 ) {
-  const auth = await getAuthContext();
+  const auth = await getAuthContext(request);
   if (!auth) return unauthorized();
 
   const { templateId } = await params;

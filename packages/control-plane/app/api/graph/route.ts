@@ -14,7 +14,7 @@ import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
  */
 export async function GET(req: NextRequest) {
   try {
-    const auth = await getAuthContext();
+    const auth = await getAuthContext(req);
     if (!auth) return unauthorized();
 
     const { searchParams } = req.nextUrl;

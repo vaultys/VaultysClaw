@@ -29,6 +29,8 @@
     "test:docker": "vitest --config vitest.config.docker.mjs --run",
     "test:litellm": "vitest --config vitest.config.litellm.mjs --run",
     "-- MISC --": "",
+    "swagger:generate": "pnpm tsx scripts/generate-swagger-docs.ts",
+    "swagger:check": "pnpm tsx scripts/generate-swagger-docs.ts --check",
     "clean": "turbo clean && rm -rf node_modules"
   },
   "devDependencies": {

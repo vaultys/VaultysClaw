@@ -9,7 +9,7 @@ import { getOrgSkillByName } from "@/lib/db";
  * Used by the EditSkillModal to pre-fill the instructions textarea.
  */
 export async function GET(request: NextRequest) {
-  const auth = await getAuthContext();
+  const auth = await getAuthContext(request);
   if (!auth) return unauthorized();
 
   const { searchParams } = new URL(request.url);

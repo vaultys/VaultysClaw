@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import {
   getAllModelRegistryEntries,
   getAllAgents,
@@ -16,9 +16,9 @@ interface SetupStatus {
 }
 
 /** GET /api/setup/status — check which setup steps are completed */
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const auth = await getAuthContext();
+    const auth = await getAuthContext(request);
     if (!auth) return unauthorized();
     if (!auth.isGlobalAdmin) return forbidden();
 

@@ -17,7 +17,7 @@ type Ctx = { params: Promise<{ id: string }> };
  */
 export async function GET(_req: NextRequest, ctx: Ctx) {
   try {
-    const auth = await getAuthContext();
+    const auth = await getAuthContext(_req);
     if (!auth) return unauthorized();
     if (!auth.isGlobalAdmin) return forbidden();
 

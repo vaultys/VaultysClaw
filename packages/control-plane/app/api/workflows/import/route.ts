@@ -12,7 +12,7 @@ interface ImportPayload {
 
 export async function POST(request: NextRequest) {
   try {
-    const auth = await getAuthContext();
+    const auth = await getAuthContext(request);
     if (!auth) return unauthorized();
 
     const body = (await request.json()) as ImportPayload;

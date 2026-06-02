@@ -27,7 +27,7 @@ If sub-resource (e.g. `realms/members`): `app/api/realms/[id]/members/route.ts`.
 
 Use [./assets/route-template.ts](./assets/route-template.ts) as starting point. Key rules:
 
-- Always call `getAuthContext()` first; return `unauthorized()` if null
+- Always call `getAuthContext(request)` first (pass `request` for API key auth); return `unauthorized()` if null
 - Use `forbidden()` for permission failures (e.g. `!auth.isGlobalAdmin`, `!auth.canAccessRealm(id)`)
 - Wrap all handlers in `try/catch`; log with `console.error("METHOD /api/<resource> error:", err)`
 - For list endpoints, apply pagination — see template for the pattern
@@ -48,7 +48,41 @@ Add to `packages/control-plane/lib/api-types.ts`:
 - Summary type for list items (e.g. `InvitationSummary`)
 - Full type for detail response if different from summary
 
-### 5. Scaffold the Test
+### 5. Register in Route Registry
+
+Add an entry to `packages/control-plane/lib/route-registry.ts` (`ROUTE_REGISTRY`):
+
+```typescript
+{ path: "/api/my-resource",     methods: ["GET", "POST"], group: "MyGroup", description: "List / create my resources" },
+{ path: "/api/my-resource/[id]", methods: ["GET", "PUT", "DELETE"], group: "MyGroup", description: "Get / update / delete a my resource" },
+```
+
+This drives the API key permission tree in the admin UI and the `check-api-coverage.ts` script.
+
+### 6. Add Swagger JSDoc
+
+Annotate each handler with an `@openapi` JSDoc block:
+
+```typescript
+/**
+ * @openapi
+ * /api/my-resource:
+ *   get:
+ *     summary: List my resources
+ *     tags: [MyGroup]
+ *     security:
+ *       - sessionCookie: []
+ *       - apiKey: []
+ *     responses:
+ *       200:
+ *         description: OK
+ */
+export async function GET(request: NextRequest) {
+```
+
+Or let the AI generator add it: `pnpm tsx scripts/generate-swagger-docs.ts` (requires `OPENAI_API_KEY` in `packages/control-plane/.env`).
+
+### 7. Scaffold the Test
 
 Use [./assets/test-template.ts](./assets/test-template.ts). Key rules:
 
@@ -59,10 +93,12 @@ Use [./assets/test-template.ts](./assets/test-template.ts). Key rules:
 
 ### 6. Checklist Before Done
 
-- [ ] Auth guard at the top of every handler
+- [ ] Auth guard with `getAuthContext(request)` at the top of every handler
 - [ ] `try/catch` with console.error in every handler
 - [ ] Paginated GET list returns `{ items, total, page, pageSize, totalPages }`
 - [ ] POST returns 201 on creation (`{ status: 201 }`)
 - [ ] No hardcoded strings for error messages — keep them descriptive
 - [ ] Types added to `api-types.ts` if new resource
+- [ ] Entry added to `lib/route-registry.ts` (`ROUTE_REGISTRY`)
+- [ ] `@openapi` JSDoc annotation on each handler
 - [ ] Test file created with at least auth coverage

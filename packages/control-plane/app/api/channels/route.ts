@@ -9,7 +9,7 @@ import { getRealmById } from "@/lib/db";
  */
 export async function GET(req: NextRequest) {
   try {
-    const auth = await getAuthContext();
+    const auth = await getAuthContext(req);
     if (!auth) return unauthorized();
 
     const url = new URL(req.url);
@@ -63,7 +63,7 @@ export async function GET(req: NextRequest) {
  */
 export async function POST(req: NextRequest) {
   try {
-    const auth = await getAuthContext();
+    const auth = await getAuthContext(req);
     if (!auth) return unauthorized();
 
     const body = (await req.json()) as {

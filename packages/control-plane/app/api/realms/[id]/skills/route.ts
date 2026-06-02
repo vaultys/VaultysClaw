@@ -15,7 +15,7 @@ type Ctx = { params: Promise<{ id: string }> };
  */
 export async function GET(_req: NextRequest, ctx: Ctx) {
   try {
-    const auth = await getAuthContext();
+    const auth = await getAuthContext(_req);
     if (!auth) return unauthorized();
 
     const { id } = await ctx.params;
@@ -49,7 +49,7 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
  */
 export async function POST(req: NextRequest, ctx: Ctx) {
   try {
-    const auth = await getAuthContext();
+    const auth = await getAuthContext(req);
     if (!auth) return unauthorized();
 
     const { id } = await ctx.params;

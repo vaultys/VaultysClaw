@@ -20,7 +20,7 @@ import { getAuthContext, unauthorized } from "@/lib/auth-utils";
  */
 export async function GET(request?: Request) {
   try {
-    const auth = await getAuthContext();
+    const auth = await getAuthContext(request);
     if (!auth) return unauthorized();
 
     const { searchParams } = new URL(request?.url ?? "http://localhost/api/agents");

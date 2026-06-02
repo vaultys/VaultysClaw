@@ -45,7 +45,7 @@ type Ctx = { params: Promise<{ id: string }> };
 /** GET /api/models/[id]/realms — list realms with access to this model */
 export async function GET(_req: NextRequest, { params }: Ctx) {
   try {
-    const auth = await getAuthContext();
+    const auth = await getAuthContext(_req);
     if (!auth) return unauthorized();
     if (!auth.isGlobalAdmin) return forbidden();
 
@@ -70,7 +70,7 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
 /** POST /api/models/[id]/realms — grant realm access. Body: { realmId } */
 export async function POST(req: NextRequest, { params }: Ctx) {
   try {
-    const auth = await getAuthContext();
+    const auth = await getAuthContext(req);
     if (!auth) return unauthorized();
     if (!auth.isGlobalAdmin) return forbidden();
 
@@ -109,7 +109,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
 /** DELETE /api/models/[id]/realms/[realmId] is in a sub-route; support via query param here */
 export async function DELETE(req: NextRequest, { params }: Ctx) {
   try {
-    const auth = await getAuthContext();
+    const auth = await getAuthContext(req);
     if (!auth) return unauthorized();
     if (!auth.isGlobalAdmin) return forbidden();
 

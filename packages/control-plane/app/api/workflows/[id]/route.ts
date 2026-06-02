@@ -13,7 +13,7 @@ export async function GET(
   { params }: { params: Promise<Params> },
 ) {
   try {
-    const auth = await getAuthContext();
+    const auth = await getAuthContext(_request);
     if (!auth) return unauthorized();
 
     const { id } = await params;
@@ -53,7 +53,7 @@ export async function PATCH(
   { params }: { params: Promise<Params> },
 ) {
   try {
-    const auth = await getAuthContext();
+    const auth = await getAuthContext(request);
     if (!auth) return unauthorized();
 
     const { id } = await params;
@@ -98,7 +98,7 @@ export async function DELETE(
   { params }: { params: Promise<Params> },
 ) {
   try {
-    const auth = await getAuthContext();
+    const auth = await getAuthContext(_request);
     if (!auth) return unauthorized();
 
     const { id } = await params;

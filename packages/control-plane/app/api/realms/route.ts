@@ -5,9 +5,9 @@ import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
 /**
  * GET /api/realms — list realms. Admins see all; members see only their realms.
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const auth = await getAuthContext();
+    const auth = await getAuthContext(request);
     if (!auth) return unauthorized();
 
     const allRealms = getAllRealms();
@@ -41,7 +41,7 @@ export async function GET() {
  */
 export async function POST(req: NextRequest) {
   try {
-    const auth = await getAuthContext();
+    const auth = await getAuthContext(req);
     if (!auth) return unauthorized();
     if (!auth.isGlobalAdmin) return forbidden();
 

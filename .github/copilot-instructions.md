@@ -40,18 +40,31 @@ See [docs/QUICK_START.md](../docs/QUICK_START.md) for setup and [docs/DEVELOPMEN
 
 ```typescript
 export async function GET(request: NextRequest) {
-  const auth = await getAuthContext();
+  const auth = await getAuthContext(request);   // ← always pass request (API key auth)
   if (!auth) return unauthorized();
   // query via getDb() — no ORM
   return NextResponse.json({ success: true, data: ... });
 }
 ```
 
+After creating a route:
+
+1. **Register in route registry**: add an entry to `packages/control-plane/lib/route-registry.ts` (`ROUTE_REGISTRY`)
+2. **Add Swagger JSDoc**: annotate each handler with `@openapi` (or run `pnpm tsx scripts/generate-swagger-docs.ts`)
+
+**API Key** → managed in the "API Keys" tab at `/server`. Keys use `X-API-Key` header or `Authorization: Bearer`. Schema in `api_keys` table in `lib/db.ts`. Types in `lib/api-types.ts` (`ApiKey`, `ApiKeyCreateRequest`).
+
 **Tool** → `packages/agent-controller/src/tools/<name>.ts`, export `AgentToolDefinition`, register in `src/tools/index.ts`.
 
 **Skill** → `packages/agent-controller/skills/<name>/index.ts`, export `SkillDefinition`. Auto-discovered by `src/skills/loader.ts`.
 
 **WebSocket message type** → add to `packages/shared/src/channel-types.ts` union, handle in `lib/ws-server.ts` (control plane) and `src/agent.ts` (agent).
+
+## Scripts
+
+- `pnpm tsx scripts/check-api-coverage.ts` — find routes in filesystem missing from `ROUTE_REGISTRY`
+- `pnpm tsx scripts/generate-swagger-docs.ts [--check] [--force]` — AI-generate `@openapi` JSDoc (requires `OPENAI_API_KEY` in `packages/control-plane/.env`)
+- `pnpm tsx scripts/update-route-auth-calls.ts [--dry-run]` — bulk-migrate `getAuthContext()` → `getAuthContext(request)`
 
 ## Testing Conventions
 

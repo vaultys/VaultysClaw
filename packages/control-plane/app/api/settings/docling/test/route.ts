@@ -63,7 +63,7 @@ async function discoverEndpoints(baseUrl: string): Promise<{
 // POST /api/settings/docling/test
 // Body: { url: string }
 export async function POST(request: NextRequest) {
-  const auth = await getAuthContext();
+  const auth = await getAuthContext(request);
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
 

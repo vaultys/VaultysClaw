@@ -13,7 +13,7 @@ Every handler follows this order: auth check → permission check → DB query �
 
 ```typescript
 export async function GET(request: NextRequest) {
-  const auth = await getAuthContext();
+  const auth = await getAuthContext(request);
   if (!auth) return unauthorized();
   if (!auth.canAccessRealm(realmId)) return forbidden();
 
@@ -56,11 +56,73 @@ Schema changes go directly in `createTables()` in `lib/db.ts` — there are no m
 
 Import from `@/lib/auth-utils`:
 
-- `getAuthContext()` — returns `AuthContext | null` (null = unauthenticated)
+- `getAuthContext(request?)` — returns `AuthContext | null` (null = unauthenticated). **Always pass the `request` parameter** so API key authentication works in addition to session auth.
 - `unauthorized()` / `forbidden()` — return typed `NextResponse` with 401/403
 - Permission methods: `canAccessRealm`, `canAdminRealm`, `canAccessAgent`, `canAdminAgent`
 
-Never use NextAuth middleware — call `getAuthContext()` at the top of each handler.
+Never use NextAuth middleware — call `getAuthContext(request)` at the top of each handler.
+
+```typescript
+export async function GET(request: NextRequest) {
+  const auth = await getAuthContext(request); // ← pass request for API key support
+  if (!auth) return unauthorized();
+  // ...
+}
+```
+
+## API Key Authentication
+
+External clients can authenticate using an `X-API-Key` header or `Authorization: Bearer <key>` instead of a session cookie. The auth logic is centralized in `getAuthContext(request)`.
+
+**Key format**: `vc_key_<32 base62 chars>`. Stored as SHA-256 hash only. Never log or expose raw keys.
+
+**Public routes** (no auth required): `GET /api/health`, `GET /api/setup/status`, `GET /api/about`, all `/api/auth/**`. Detected automatically by `isPublicRoute()` in `lib/api-key-utils.ts`.
+
+**Route scoping**: Each API key carries an `allowedRoutes` list of `"METHOD /api/path"` strings (e.g., `"GET /api/agents/[did]"`). The `matchRoute()` function converts `[param]` segments to regex for matching.
+
+**Realm scoping**: `realmId = null` → global key (same as admin session). `realmId` set → scoped key (only routes for that realm).
+
+**Managing keys**: Admin UI at `/server` → "API Keys" tab. Or programmatically via `POST /api/api-keys`.
+
+## Route Registry
+
+Every new route **must** be registered in `packages/control-plane/lib/route-registry.ts` (`ROUTE_REGISTRY` array). This drives:
+
+- The permission tree in the "New API Key" modal
+- The `pnpm tsx scripts/check-api-coverage.ts` coverage check
+
+```typescript
+{ path: "/api/my-resource", methods: ["GET", "POST"], group: "MyGroup", description: "..." }
+```
+
+## Swagger / OpenAPI Docs
+
+The admin Swagger UI is at `/docs`. The spec is generated from `@openapi` JSDoc annotations on every route handler.
+
+**Every handler needs a JSDoc block** (or the AI generator will add one):
+
+```typescript
+/**
+ * @openapi
+ * /api/my-resource:
+ *   get:
+ *     summary: List my resources
+ *     tags: [MyGroup]
+ *     security:
+ *       - sessionCookie: []
+ *       - apiKey: []
+ *     responses:
+ *       200:
+ *         description: Success
+ */
+export async function GET(request: NextRequest) {
+```
+
+Scripts:
+
+- `pnpm tsx scripts/check-api-coverage.ts` — find routes missing from registry
+- `pnpm tsx scripts/generate-swagger-docs.ts [--check] [--force]` — generate missing `@openapi` JSDoc via AI (requires `OPENAI_API_KEY` in `.env`)
+- `pnpm tsx scripts/update-route-auth-calls.ts [--dry-run]` — migrate `getAuthContext()` → `getAuthContext(request)` in bulk
 
 ## React Components
 

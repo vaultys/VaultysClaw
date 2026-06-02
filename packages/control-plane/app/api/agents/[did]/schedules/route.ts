@@ -11,7 +11,7 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ did: string }> },
 ) {
-  const auth = await getAuthContext();
+  const auth = await getAuthContext(request);
   if (!auth) return unauthorized();
 
   const { did } = await params;
@@ -57,7 +57,7 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ did: string }> },
 ) {
-  const auth = await getAuthContext();
+  const auth = await getAuthContext(request);
   if (!auth) return unauthorized();
 
   const { did } = await params;

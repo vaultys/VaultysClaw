@@ -3,8 +3,8 @@ import { getAllSkillsWithRealms, createRealmSkill, getAllRealms } from "@/lib/db
 import { broadcastSkillsConfig } from "@/lib/ws-server";
 import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
 
-export async function GET() {
-  const auth = await getAuthContext();
+export async function GET(request: NextRequest) {
+  const auth = await getAuthContext(request);
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
 
@@ -13,7 +13,7 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
-  const auth = await getAuthContext();
+  const auth = await getAuthContext(request);
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
 

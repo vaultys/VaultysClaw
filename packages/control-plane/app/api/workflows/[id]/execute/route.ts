@@ -15,7 +15,7 @@ export async function POST(
   { params }: { params: Promise<Params> },
 ) {
   try {
-    const auth = await getAuthContext();
+    const auth = await getAuthContext(request);
     if (!auth) return unauthorized();
 
     const { id } = await params;

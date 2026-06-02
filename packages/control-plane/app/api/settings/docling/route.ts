@@ -3,8 +3,8 @@ import { getAuthContext, unauthorized, forbidden } from '@/lib/auth-utils';
 import { getDoclingConfig, setDoclingConfig } from '@/lib/db';
 
 // GET /api/settings/docling
-export async function GET() {
-  const auth = await getAuthContext();
+export async function GET(request: NextRequest) {
+  const auth = await getAuthContext(request);
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
 
@@ -20,7 +20,7 @@ export async function GET() {
 
 // PUT /api/settings/docling
 export async function PUT(request: NextRequest) {
-  const auth = await getAuthContext();
+  const auth = await getAuthContext(request);
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
 

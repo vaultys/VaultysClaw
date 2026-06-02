@@ -9,7 +9,7 @@ import { getAuthContext, unauthorized } from "@/lib/auth-utils";
  * Returns live transport stats, per-transport logs, and PeerJS server state.
  */
 export async function GET(req: Request) {
-  const auth = await getAuthContext();
+  const auth = await getAuthContext(req);
   if (!auth) return unauthorized();
 
   const { searchParams } = new URL(req.url);
@@ -42,7 +42,7 @@ export async function GET(req: Request) {
  * Body: { action: "start" | "stop" | "restart-ws" | "restart-peerjs", serverUrl?: string }
  */
 export async function POST(req: NextRequest) {
-  const auth = await getAuthContext();
+  const auth = await getAuthContext(req);
   if (!auth || !auth.isGlobalAdmin) return unauthorized();
 
   const body = await req.json() as {

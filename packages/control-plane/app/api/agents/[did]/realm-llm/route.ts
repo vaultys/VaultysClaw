@@ -15,7 +15,7 @@ export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ did: string }> },
 ) {
-  const auth = await getAuthContext();
+  const auth = await getAuthContext(_req);
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
 

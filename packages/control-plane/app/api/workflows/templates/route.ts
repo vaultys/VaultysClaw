@@ -3,7 +3,7 @@ import { getTemplates } from "@/lib/workflow-templates";
 import { getAuthContext, unauthorized } from "@/lib/auth-utils";
 
 export async function GET(request: NextRequest) {
-  const auth = await getAuthContext();
+  const auth = await getAuthContext(request);
   if (!auth) return unauthorized();
 
   const searchParams = request.nextUrl.searchParams;

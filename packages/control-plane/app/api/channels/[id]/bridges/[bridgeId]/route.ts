@@ -18,7 +18,7 @@ function stripConfig(bridge: ChannelBridge): Omit<ChannelBridge, "configJson"> {
  */
 export async function PATCH(req: NextRequest, ctx: Ctx) {
   try {
-    const auth = await getAuthContext();
+    const auth = await getAuthContext(req);
     if (!auth) return unauthorized();
 
     const { bridgeId } = await ctx.params;
@@ -62,7 +62,7 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
  */
 export async function DELETE(_req: NextRequest, ctx: Ctx) {
   try {
-    const auth = await getAuthContext();
+    const auth = await getAuthContext(_req);
     if (!auth) return unauthorized();
 
     const { bridgeId } = await ctx.params;

@@ -12,7 +12,7 @@ type Ctx = { params: Promise<{ id: string }> };
  */
 export async function GET(_req: NextRequest, ctx: Ctx) {
   try {
-    const auth = await getAuthContext();
+    const auth = await getAuthContext(_req);
     if (!auth) return unauthorized();
 
     const { id } = await ctx.params;
@@ -54,7 +54,7 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
  */
 export async function PATCH(req: NextRequest, ctx: Ctx) {
   try {
-    const auth = await getAuthContext();
+    const auth = await getAuthContext(req);
     if (!auth) return unauthorized();
     if (!auth.isGlobalAdmin) return forbidden();
 
@@ -97,7 +97,7 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
  */
 export async function DELETE(_req: NextRequest, ctx: Ctx) {
   try {
-    const auth = await getAuthContext();
+    const auth = await getAuthContext(_req);
     if (!auth) return unauthorized();
     if (!auth.isGlobalAdmin) return forbidden();
 

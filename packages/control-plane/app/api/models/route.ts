@@ -8,9 +8,9 @@ import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
 import { registerModel, isLiteLLMConfigured } from "@/lib/litellm-client";
 
 /** GET /api/models — list models. Admin only. */
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const auth = await getAuthContext();
+    const auth = await getAuthContext(request);
     if (!auth) return unauthorized();
     if (!auth.isGlobalAdmin) return forbidden();
 
@@ -40,7 +40,7 @@ export async function GET() {
 /** POST /api/models — register a new model. Admin only. */
 export async function POST(req: NextRequest) {
   try {
-    const auth = await getAuthContext();
+    const auth = await getAuthContext(req);
     if (!auth) return unauthorized();
     if (!auth.isGlobalAdmin) return forbidden();
 

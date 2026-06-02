@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
 import { getTotalFleetTokenUsage, getDb } from "@/lib/db";
 
@@ -17,8 +17,8 @@ function getFleetHistoryTotals(granularity: "day" | "month", bucket: string) {
   };
 }
 
-export async function GET() {
-  const auth = await getAuthContext();
+export async function GET(request: NextRequest) {
+  const auth = await getAuthContext(request);
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
 

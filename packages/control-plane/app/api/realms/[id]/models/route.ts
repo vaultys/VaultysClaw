@@ -7,7 +7,7 @@ type Ctx = { params: Promise<{ id: string }> };
 /** GET /api/realms/[id]/models — list models available to a realm + router key info */
 export async function GET(_req: NextRequest, { params }: Ctx) {
   try {
-    const auth = await getAuthContext();
+    const auth = await getAuthContext(_req);
     if (!auth) return unauthorized();
 
     const { id } = await params;

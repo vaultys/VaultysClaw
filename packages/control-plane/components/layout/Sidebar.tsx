@@ -22,6 +22,7 @@ import {
   Puzzle,
   BookOpen,
   Activity,
+  ScrollText,
   Info,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -47,18 +48,29 @@ const NAV_GROUPS = [
       { href: "/knowledge", icon: BookOpen, label: "Knowledge", exact: false },
       { href: "/skills", icon: Puzzle, label: "Skills", exact: false },
       { href: "/graph", icon: Network, label: "Graph", exact: true },
-      { href: "/registrations", icon: Clock, label: "Registrations", exact: false },
+      {
+        href: "/registrations",
+        icon: Clock,
+        label: "Registrations",
+        exact: false,
+      },
       { href: "/users", icon: Users, label: "Users", exact: false },
-      { href: "/governance", icon: ShieldCheck, label: "Governance", exact: false },
+      {
+        href: "/governance",
+        icon: ShieldCheck,
+        label: "Governance",
+        exact: false,
+      },
       { href: "/network", icon: Activity, label: "Network", exact: false },
       { href: "/server", icon: Server, label: "Server", exact: false },
+      { href: "/docs", icon: ScrollText, label: "API Docs", exact: true },
     ],
   },
 ] as const;
 
 const BOTTOM_ITEMS = [
   { href: "/settings", icon: Settings, label: "Settings" },
-  { href: "/about",    icon: Info,     label: "About" },
+  { href: "/about", icon: Info, label: "About" },
 ] as const;
 
 interface SidebarProps {
@@ -120,8 +132,10 @@ function usePendingCount() {
     const fetch_ = () =>
       fetch("/api/workflow-approvals")
         .then((r) => r.json())
-        .then((d: { approvals?: { id: string }[] }) => setCount(d.approvals?.length ?? 0))
-        .catch(() => { });
+        .then((d: { approvals?: { id: string }[] }) =>
+          setCount(d.approvals?.length ?? 0)
+        )
+        .catch(() => {});
     fetch_();
     const id = setInterval(fetch_, 15_000);
     return () => clearInterval(id);

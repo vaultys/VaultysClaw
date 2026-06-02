@@ -14,7 +14,7 @@ import { getWSServer } from "@/lib/ws-server";
 type Ctx = { params: Promise<{ id: string }> };
 
 export async function POST(req: NextRequest, ctx: Ctx) {
-  const auth = await getAuthContext();
+  const auth = await getAuthContext(req);
   if (!auth) return unauthorized();
 
   const { id: realmId } = await ctx.params;

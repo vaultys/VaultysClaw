@@ -13,7 +13,7 @@ import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
  */
 export async function POST(request: NextRequest) {
   try {
-    const auth = await getAuthContext();
+    const auth = await getAuthContext(request);
     if (!auth) return unauthorized();
 
     const body = await request.json();
@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
  */
 export async function GET(request: NextRequest) {
   try {
-    const auth = await getAuthContext();
+    const auth = await getAuthContext(request);
     if (!auth) return unauthorized();
 
     const { searchParams } = request.nextUrl;

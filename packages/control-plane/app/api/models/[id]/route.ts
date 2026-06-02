@@ -14,7 +14,7 @@ type Ctx = { params: Promise<{ id: string }> };
 /** GET /api/models/[id] */
 export async function GET(_req: NextRequest, { params }: Ctx) {
   try {
-    const auth = await getAuthContext();
+    const auth = await getAuthContext(_req);
     if (!auth) return unauthorized();
 
     const { id } = await params;
@@ -53,7 +53,7 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
 /** PUT /api/models/[id] — update model. Admin only. */
 export async function PUT(req: NextRequest, { params }: Ctx) {
   try {
-    const auth = await getAuthContext();
+    const auth = await getAuthContext(req);
     if (!auth) return unauthorized();
     if (!auth.isGlobalAdmin) return forbidden();
 
@@ -106,7 +106,7 @@ export async function PUT(req: NextRequest, { params }: Ctx) {
 /** DELETE /api/models/[id] — admin only. */
 export async function DELETE(_req: NextRequest, { params }: Ctx) {
   try {
-    const auth = await getAuthContext();
+    const auth = await getAuthContext(_req);
     if (!auth) return unauthorized();
     if (!auth.isGlobalAdmin) return forbidden();
 

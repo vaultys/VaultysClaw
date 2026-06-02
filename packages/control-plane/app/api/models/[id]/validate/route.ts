@@ -7,7 +7,7 @@ type Ctx = { params: Promise<{ id: string }> };
 /** POST /api/models/[id]/validate — test connectivity to the model's endpoint */
 export async function POST(_req: NextRequest, { params }: Ctx) {
   try {
-    const auth = await getAuthContext();
+    const auth = await getAuthContext(_req);
     if (!auth) return unauthorized();
 
     const { id } = await params;

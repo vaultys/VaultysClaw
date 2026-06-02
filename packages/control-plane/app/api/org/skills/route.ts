@@ -7,15 +7,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { getOrgSkills, createOrgSkill } from "@/lib/db";
 import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
 
-export async function GET() {
-  const auth = await getAuthContext();
+export async function GET(request: NextRequest) {
+  const auth = await getAuthContext(request);
   if (!auth) return unauthorized();
 
   return NextResponse.json({ skills: getOrgSkills() });
 }
 
 export async function POST(req: NextRequest) {
-  const auth = await getAuthContext();
+  const auth = await getAuthContext(req);
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
 

@@ -5,7 +5,7 @@ import { getWSServer } from '@/lib/ws-server';
 
 // POST /api/knowledge/:id/sync
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const auth = await getAuthContext();
+  const auth = await getAuthContext(request);
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
 

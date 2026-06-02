@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { saveWorkflow, getAllAgents, getDefaultRealm } from "@/lib/db";
 import { getWSServer } from "@/lib/ws-server";
 import type { WorkflowDefinition } from "@/lib/db";
@@ -9,9 +9,9 @@ import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
  * Create a test workflow with 4 real agents in sequence. Global admin only.
  * Requires 4 agents to be online and registered
  */
-export async function POST() {
+export async function POST(request: NextRequest) {
   try {
-    const auth = await getAuthContext();
+    const auth = await getAuthContext(request);
     if (!auth) return unauthorized();
     if (!auth.isGlobalAdmin) return forbidden();
 

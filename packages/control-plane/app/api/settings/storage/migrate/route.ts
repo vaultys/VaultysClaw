@@ -6,7 +6,7 @@ import { generateFileKey } from '@/lib/file-storage';
 // POST /api/settings/storage/migrate
 // Migrate files from SQLite BLOB storage to filesystem/S3 storage
 export async function POST(request: NextRequest) {
-  const auth = await getAuthContext();
+  const auth = await getAuthContext(request);
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
 

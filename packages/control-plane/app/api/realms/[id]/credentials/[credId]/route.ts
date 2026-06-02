@@ -16,7 +16,7 @@ import { decryptSecret } from "@/lib/vault";
 type Ctx = { params: Promise<{ id: string; credId: string }> };
 
 export async function GET(req: NextRequest, ctx: Ctx) {
-  const auth = await getAuthContext();
+  const auth = await getAuthContext(req);
   if (!auth) return unauthorized();
 
   const { id: realmId, credId } = await ctx.params;

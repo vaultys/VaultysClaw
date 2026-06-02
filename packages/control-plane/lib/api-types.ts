@@ -49,7 +49,12 @@ export interface AgentSummary {
   id: string;
   did: string;
   name: string;
-  status: "connected" | "connecting" | "disconnected" | "initializing" | "pending_approval";
+  status:
+    | "connected"
+    | "connecting"
+    | "disconnected"
+    | "initializing"
+    | "pending_approval";
   capabilities: string[];
   online?: boolean;
   createdAt: string;
@@ -106,6 +111,50 @@ export interface ChatSessionSummary {
   messageCount: number;
   createdAt: string;
   updatedAt: string;
+}
+
+// ────────────────────────────────────────────────────────────
+// API Key Types
+// ────────────────────────────────────────────────────────────
+
+export interface ApiKey {
+  id: string;
+  name: string;
+  /** Displayable prefix, e.g. "vc_key_XXXXXXXX" — never the full key */
+  keyPrefix: string;
+  allowedRoutes: string[];
+  /** null = global access, string = scoped to this realm */
+  realmId: string | null;
+  isRealmAdmin: boolean;
+  createdBy: string;
+  createdAt: number;
+  lastUsedAt: number | null;
+  expiresAt: number | null;
+  isActive: boolean;
+}
+
+export interface ApiKeyCreateRequest {
+  name: string;
+  allowedRoutes: string[];
+  realmId?: string | null;
+  isRealmAdmin?: boolean;
+  expiresAt?: number | null;
+}
+
+export interface ApiKeyUpdateRequest {
+  name?: string;
+  allowedRoutes?: string[];
+  realmId?: string | null;
+  isRealmAdmin?: boolean;
+  expiresAt?: number | null;
+  isActive?: boolean;
+}
+
+/** Returned only on creation — includes the full raw key shown once */
+export interface ApiKeyCreatedResponse {
+  apiKey: ApiKey;
+  /** The full raw key — shown to the user exactly once, never stored */
+  key: string;
 }
 
 // ────────────────────────────────────────────────────────────

@@ -9,7 +9,7 @@ import {
 
 // GET /api/knowledge?realmId=xxx&agentDid=xxx
 export async function GET(request: NextRequest) {
-  const auth = await getAuthContext();
+  const auth = await getAuthContext(request);
   if (!auth) return unauthorized();
 
   const realmId = request.nextUrl.searchParams.get('realmId') ?? undefined;
@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
 // POST /api/knowledge
 // Body: { realmId, agentDid, name, sourceType, config }
 export async function POST(request: NextRequest) {
-  const auth = await getAuthContext();
+  const auth = await getAuthContext(request);
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
 

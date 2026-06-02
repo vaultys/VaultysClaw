@@ -13,7 +13,7 @@ import { getWSServer } from "@/lib/ws-server";
  */
 export async function GET(req: NextRequest) {
   try {
-    const auth = await getAuthContext();
+    const auth = await getAuthContext(req);
     if (!auth) return unauthorized();
 
     const { searchParams } = new URL(req.url);

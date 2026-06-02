@@ -4,7 +4,7 @@ import { getAuthContext, unauthorized } from "@/lib/auth-utils";
 /** POST /api/models/test — test connectivity to a model endpoint and fetch available models */
 export async function POST(req: NextRequest) {
   try {
-    const auth = await getAuthContext();
+    const auth = await getAuthContext(req);
     if (!auth) return unauthorized();
 
     const body = await req.json() as {

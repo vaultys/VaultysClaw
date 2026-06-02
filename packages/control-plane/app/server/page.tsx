@@ -30,6 +30,7 @@ import {
   Copy,
   Globe,
   ChevronUp,
+  Pencil,
 } from "lucide-react";
 import { ROUTE_REGISTRY } from "@/lib/route-registry";
 import type { ApiKey } from "@/lib/api-types";
@@ -1406,6 +1407,7 @@ function ApiKeysSection() {
   const [realms, setRealms] = useState<{ id: string; name: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [editingKey, setEditingKey] = useState<ApiKey | null>(null);
   const [createdKey, setCreatedKey] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [confirmRevokeId, setConfirmRevokeId] = useState<string | null>(null);
@@ -1480,11 +1482,27 @@ function ApiKeysSection() {
   }
 
   function openModal() {
+    setEditingKey(null);
     setFormName("");
     setFormRealmId("");
     setFormIsRealmAdmin(false);
     setFormExpiry("");
     setFormAllowed(new Set());
+    setFormError(null);
+    setShowModal(true);
+  }
+
+  function openEditModal(k: ApiKey) {
+    setEditingKey(k);
+    setFormName(k.name);
+    setFormRealmId(k.realmId ?? "");
+    setFormIsRealmAdmin(k.isRealmAdmin);
+    setFormExpiry(
+      k.expiresAt
+        ? new Date(k.expiresAt * 1000).toISOString().split("T")[0]
+        : ""
+    );
+    setFormAllowed(new Set(k.allowedRoutes));
     setFormError(null);
     setShowModal(true);
   }
@@ -1530,6 +1548,44 @@ function ApiKeysSection() {
     await fetch(`/api/api-keys/${id}`, { method: "DELETE" });
     setConfirmRevokeId(null);
     fetchData();
+  }
+
+  async function handleUpdate() {
+    if (!editingKey) return;
+    if (!formName.trim()) {
+      setFormError("Name is required.");
+      return;
+    }
+    if (formAllowed.size === 0) {
+      setFormError("Select at least one route.");
+      return;
+    }
+    setSubmitting(true);
+    setFormError(null);
+    try {
+      const res = await fetch(`/api/api-keys/${editingKey.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: formName.trim(),
+          allowedRoutes: Array.from(formAllowed),
+          realmId: formRealmId || null,
+          isRealmAdmin: formIsRealmAdmin,
+          expiresAt: formExpiry
+            ? Math.floor(new Date(formExpiry).getTime() / 1000)
+            : null,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed");
+      setShowModal(false);
+      setEditingKey(null);
+      fetchData();
+    } catch (e) {
+      setFormError(e instanceof Error ? e.message : "Error");
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   function handleCopy() {
@@ -1684,30 +1740,39 @@ function ApiKeysSection() {
                       </span>
                     </td>
                     <td className="px-4 py-3">
-                      {k.isActive &&
-                        (confirmRevokeId === k.id ? (
-                          <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => openEditModal(k)}
+                          title="Edit"
+                          className="p-1.5 rounded text-vc-muted hover:text-vc-accent hover:bg-vc-raised transition"
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </button>
+                        {k.isActive &&
+                          (confirmRevokeId === k.id ? (
+                            <div className="flex items-center gap-1">
+                              <button
+                                onClick={() => handleRevoke(k.id)}
+                                className="px-2 py-1 bg-red-600 text-white rounded text-xs hover:bg-red-700"
+                              >
+                                Confirm
+                              </button>
+                              <button
+                                onClick={() => setConfirmRevokeId(null)}
+                                className="px-2 py-1 rounded text-xs text-vc-muted hover:text-vc-text"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          ) : (
                             <button
-                              onClick={() => handleRevoke(k.id)}
-                              className="px-2 py-1 bg-red-600 text-white rounded text-xs hover:bg-red-700"
+                              onClick={() => setConfirmRevokeId(k.id)}
+                              className="p-1.5 rounded text-vc-muted hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition"
                             >
-                              Confirm
+                              <Trash2 className="w-4 h-4" />
                             </button>
-                            <button
-                              onClick={() => setConfirmRevokeId(null)}
-                              className="px-2 py-1 rounded text-xs text-vc-muted hover:text-vc-text"
-                            >
-                              Cancel
-                            </button>
-                          </div>
-                        ) : (
-                          <button
-                            onClick={() => setConfirmRevokeId(k.id)}
-                            className="p-1.5 rounded text-vc-muted hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        ))}
+                          ))}
+                      </div>
                     </td>
                   </tr>
                 );
@@ -1724,7 +1789,7 @@ function ApiKeysSection() {
             {/* Modal header */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-vc-border">
               <h3 className="text-base font-semibold text-vc-text">
-                New API Key
+                {editingKey ? "Edit API Key" : "New API Key"}
               </h3>
               <button
                 onClick={() => setShowModal(false)}
@@ -1962,16 +2027,18 @@ function ApiKeysSection() {
                 Cancel
               </button>
               <button
-                onClick={handleCreate}
+                onClick={editingKey ? handleUpdate : handleCreate}
                 disabled={submitting}
                 className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-vc-accent text-white text-sm font-medium hover:bg-vc-accent/90 disabled:opacity-60 transition"
               >
                 {submitting ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
+                ) : editingKey ? (
+                  <Check className="w-4 h-4" />
                 ) : (
                   <Key className="w-4 h-4" />
                 )}
-                Create Key
+                {editingKey ? "Save changes" : "Create Key"}
               </button>
             </div>
           </div>

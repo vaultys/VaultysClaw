@@ -49,7 +49,7 @@ interface Params {
  */
 export async function GET(_request: NextRequest, { params }: Params) {
   const { token } = await params;
-  const cert = UserServerChannel.listen(token);
+  const cert = await UserServerChannel.listen(token);
   if (!cert) return NextResponse.json({ status: -1 });
   return NextResponse.json({ status: cert.status });
 }

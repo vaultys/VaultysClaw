@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { UserServerChannel } from "@/lib/user-server-channel";
-import { UserDao } from "@/lib/user-dao";
+import { UserDAO } from "@/db";
 
 /**
  * GET /api/user/connect
@@ -46,11 +46,12 @@ import { UserDao } from "@/lib/user-dao";
  */
 export async function GET(request: NextRequest) {
   const isRegister = request.nextUrl.searchParams.get("register") === "true";
-  const shouldRegister = isRegister || !UserDao.hasAnyUser();
+  const hasUsers = (await UserDAO.list({ page: 1, pageSize: 1 })).total > 0;
+  const shouldRegister = isRegister || !hasUsers;
 
   const cert = shouldRegister
-    ? UserServerChannel.createRegistrationCertificate()
-    : UserServerChannel.createConnectionCertificate();
+    ? await UserServerChannel.createRegistrationCertificate()
+    : await UserServerChannel.createConnectionCertificate();
 
   return NextResponse.json({ key: cert.key, token: cert.connection });
 }

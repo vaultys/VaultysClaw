@@ -5,9 +5,9 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { getWorkflow, setWorkflowSchedule } from "@/lib/db";
 import { getAuthContext, unauthorized } from "@/lib/auth-utils";
 import { nextCronRun } from "@/lib/workflow-scheduler";
+import { WorkflowDAO } from "@/db";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -57,15 +57,15 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
   if (!auth) return unauthorized();
 
   const { id } = await ctx.params;
-  const wf = getWorkflow(id);
+  const wf = await WorkflowDAO.findById(id);
   if (!wf) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   return NextResponse.json({
     workflowId: id,
-    scheduleCron: wf.schedule_cron,
-    scheduleEnabled: Boolean(wf.schedule_enabled),
-    scheduleLastRun: wf.schedule_last_run,
-    scheduleNextRun: wf.schedule_next_run,
+    scheduleCron: wf.scheduleCron,
+    scheduleEnabled: Boolean(wf.scheduleEnabled),
+    scheduleLastRun: wf.scheduleLastRun,
+    scheduleNextRun: wf.scheduleNextRun,
   });
 }
 
@@ -117,7 +117,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   if (!auth) return unauthorized();
 
   const { id } = await ctx.params;
-  const wf = getWorkflow(id);
+  const wf = await WorkflowDAO.findById(id);
   if (!wf) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const body = (await req.json()) as { cron?: string; enabled?: boolean };
@@ -135,7 +135,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   }
 
   const nextRun = cron ? (nextCronRun(cron)?.toISOString() ?? null) : null;
-  setWorkflowSchedule(id, cron, enabled, nextRun);
+  await WorkflowDAO.setSchedule(id, cron, enabled, nextRun);
 
   return NextResponse.json({
     success: true,
@@ -171,9 +171,9 @@ export async function DELETE(_req: NextRequest, ctx: Ctx) {
   if (!auth) return unauthorized();
 
   const { id } = await ctx.params;
-  const wf = getWorkflow(id);
+  const wf = await WorkflowDAO.findById(id);
   if (!wf) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  setWorkflowSchedule(id, null, false, null);
+  await WorkflowDAO.setSchedule(id, null, false, null);
   return NextResponse.json({ success: true });
 }

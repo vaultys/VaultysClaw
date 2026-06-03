@@ -7,15 +7,9 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import {
-  getRealmById,
-  saveCredential,
-  listCredentialsByService,
-  listCredentials,
-  deleteCredentialByKey,
-} from "@/lib/db";
 import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
 import { encryptSecret } from "@/lib/vault";
+import { CredentialDAO, RealmDAO } from "@/db";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -62,15 +56,15 @@ export async function GET(req: NextRequest, ctx: Ctx) {
   if (!auth) return unauthorized();
 
   const { id: realmId } = await ctx.params;
-  const realm = getRealmById(realmId);
+  const realm = await RealmDAO.findById(realmId);
   if (!realm)
     return NextResponse.json({ error: "Realm not found" }, { status: 404 });
-  if (!auth.canAccessRealm(realmId)) return forbidden();
+  if (!(await auth.canAccessRealm(realmId))) return forbidden();
 
   const service = req.nextUrl.searchParams.get("service");
   const credentials = service
-    ? listCredentialsByService(realmId, service)
-    : listCredentials(realmId);
+    ? await CredentialDAO.listByService(realmId, service)
+    : await CredentialDAO.list(realmId);
 
   return NextResponse.json({ credentials });
 }
@@ -131,10 +125,10 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   if (!auth) return unauthorized();
 
   const { id: realmId } = await ctx.params;
-  const realm = getRealmById(realmId);
+  const realm = await RealmDAO.findById(realmId);
   if (!realm)
     return NextResponse.json({ error: "Realm not found" }, { status: 404 });
-  if (!auth.canAdminRealm(realmId)) return forbidden();
+  if (!(await auth.canAdminRealm(realmId))) return forbidden();
 
   const body = (await req.json()) as {
     service?: string;
@@ -151,7 +145,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   }
 
   const secretEncrypted = await encryptSecret(body.secret);
-  const id = saveCredential(
+  const id = await CredentialDAO.save(
     realmId,
     body.service,
     body.name,
@@ -210,7 +204,7 @@ export async function DELETE(req: NextRequest, ctx: Ctx) {
   if (!auth) return unauthorized();
 
   const { id: realmId } = await ctx.params;
-  if (!auth.canAdminRealm(realmId)) return forbidden();
+  if (!(await auth.canAdminRealm(realmId))) return forbidden();
 
   const service = req.nextUrl.searchParams.get("service");
   const name = req.nextUrl.searchParams.get("name");
@@ -221,6 +215,6 @@ export async function DELETE(req: NextRequest, ctx: Ctx) {
     );
   }
 
-  const deleted = deleteCredentialByKey(realmId, service, name);
+  const deleted = await CredentialDAO.deleteByKey(realmId, service, name);
   return NextResponse.json({ success: deleted });
 }

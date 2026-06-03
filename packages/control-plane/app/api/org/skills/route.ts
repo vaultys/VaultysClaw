@@ -4,8 +4,8 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { getOrgSkills, createOrgSkill } from "@/lib/db";
 import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
+import { OrgSkillDAO } from "@/db";
 
 /**
  * @openapi
@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
   const auth = await getAuthContext(request);
   if (!auth) return unauthorized();
 
-  return NextResponse.json({ skills: getOrgSkills() });
+  return NextResponse.json({ skills: await OrgSkillDAO.findAll() });
 }
 
 /**
@@ -123,7 +123,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const skill = createOrgSkill({
+    const skill = await OrgSkillDAO.create({
       name: body.name.trim(),
       description: body.description?.trim(),
       version: body.version?.trim(),

@@ -6,7 +6,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-config";
-import { UserDao } from "@/lib/user-dao";
+import { UserDAO } from "@/db";
 
 /**
  * @openapi
@@ -42,7 +42,7 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const user = UserDao.getByDid(session.user.did);
+  const user = await UserDAO.findByDid(session.user.did);
   if (!user) {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
@@ -50,8 +50,8 @@ export async function GET() {
   return NextResponse.json({
     did: user.did,
     name: user.name ?? null,
-    isOwner: user.is_owner === 1,
-    isAdmin: user.is_admin === 1 || user.is_owner === 1,
+    isOwner: user.isOwner,
+    isAdmin: user.isAdmin || user.isOwner,
   });
 }
 
@@ -113,6 +113,6 @@ export async function PATCH(req: NextRequest) {
     );
   }
 
-  UserDao.update(session.user.did, { name: name || "" });
+  await UserDAO.update(session.user.did, { name: name || "" });
   return NextResponse.json({ ok: true, name: name || null });
 }

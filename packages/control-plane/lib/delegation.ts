@@ -24,7 +24,7 @@ import {
   decode as msgpackDecode,
 } from "@msgpack/msgpack";
 import { VaultysId, crypto } from "@vaultys/id";
-import { getSetting } from "./db";
+import { SettingsDAO } from "@/db";
 
 const Buffer = crypto.Buffer;
 
@@ -49,7 +49,7 @@ export async function signDelegation(
   capabilities: string[],
   expiresAt?: Date
 ): Promise<string> {
-  const serverSecret = getSetting("serverSecret");
+  const serverSecret = await SettingsDAO.get("serverSecret");
   if (!serverSecret) throw new Error("Server identity not initialized");
 
   const vid = VaultysId.fromSecret(serverSecret, "base64");

@@ -1,10 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
-import {
-  createKnowledgeFile,
-  listKnowledgeFiles,
-  getKnowledgeSource,
-} from "@/lib/db";
+import { KnowledgeDAO } from "@/db";
 
 const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20 MB
 
@@ -60,15 +56,15 @@ export async function GET(request: NextRequest) {
   if (!sourceId)
     return NextResponse.json({ error: "sourceId required" }, { status: 400 });
 
-  const source = getKnowledgeSource(sourceId);
+  const source = await KnowledgeDAO.findSource(sourceId);
   if (!source)
     return NextResponse.json({ error: "Source not found" }, { status: 404 });
 
-  if (!auth.isGlobalAdmin && !auth.canAccessRealm(source.realm_id)) {
+  if (!auth.isGlobalAdmin && !(await auth.canAccessRealm(source.realmId))) {
     return forbidden();
   }
 
-  const files = listKnowledgeFiles(sourceId);
+  const files = await KnowledgeDAO.listFiles(sourceId);
   return NextResponse.json({ files });
 }
 
@@ -140,7 +136,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const source = getKnowledgeSource(sourceId);
+  const source = await KnowledgeDAO.findSource(sourceId);
   if (!source)
     return NextResponse.json({ error: "Source not found" }, { status: 404 });
 
@@ -157,11 +153,12 @@ export async function POST(request: NextRequest) {
   const content = Buffer.from(arrayBuffer);
   const mimeType = file.type || "application/octet-stream";
 
-  const meta = await createKnowledgeFile(
+  const meta = await KnowledgeDAO.createFile(
     sourceId,
     file.name,
     mimeType,
-    content
+    content.length,
+    ""
   );
   return NextResponse.json({ file: meta }, { status: 201 });
 }

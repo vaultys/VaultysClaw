@@ -4,7 +4,7 @@ import { readFileSync } from "fs";
 import { join } from "path";
 import { VaultysId } from "@vaultys/id";
 import { getWSServer } from "@/lib/ws-server";
-import { getSetting, getAllAgents } from "@/lib/db";
+import { AgentDAO, SettingsDAO } from "@/db";
 
 function getVersion(): string {
   try {
@@ -101,7 +101,7 @@ export async function GET() {
   try {
     // Server VaultysId identity
     let serverIdentity: Record<string, unknown> | null = null;
-    const serverSecret = getSetting("serverSecret");
+    const serverSecret = await SettingsDAO.get("serverSecret");
     if (serverSecret) {
       try {
         const vid = VaultysId.fromSecret(serverSecret, "base64").toVersion(1);
@@ -123,7 +123,7 @@ export async function GET() {
     // Connected agents summary
     const wsServer = getWSServer();
     const connectedAgents = wsServer?.getConnectedAgents() ?? [];
-    const allAgents = getAllAgents();
+    const allAgents = await AgentDAO.findAll();
 
     // System info
     const cpus = os.cpus();
@@ -149,7 +149,7 @@ export async function GET() {
         offlineAgents: allAgents.length - connectedAgents.length,
       },
       sysInfo,
-      walletUrl: getSetting("wallet_url") ?? "https://wallet.vaultys.net",
+      walletUrl: await SettingsDAO.get("wallet_url") ?? "https://wallet.vaultys.net",
     });
   } catch (error) {
     return NextResponse.json(

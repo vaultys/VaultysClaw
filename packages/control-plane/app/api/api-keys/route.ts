@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
-import { getDb } from "@/lib/db";
 import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
 import { generateApiKey } from "@/lib/api-key-utils";
+import { getDb } from "@/lib/db";
 import type {
   ApiKey,
   ApiKeyCreateRequest,
@@ -13,15 +13,15 @@ function rowToApiKey(row: Record<string, unknown>): ApiKey {
   return {
     id: row.id as string,
     name: row.name as string,
-    keyPrefix: row.key_prefix as string,
-    allowedRoutes: JSON.parse(row.allowed_routes as string),
-    realmId: (row.realm_id as string | null) ?? null,
-    isRealmAdmin: (row.is_realm_admin as number) === 1,
-    createdBy: row.created_by as string,
-    createdAt: row.created_at as number,
-    lastUsedAt: (row.last_used_at as number | null) ?? null,
-    expiresAt: (row.expires_at as number | null) ?? null,
-    isActive: (row.is_active as number) === 1,
+    keyPrefix: row.keyPrefix as string,
+    allowedRoutes: JSON.parse(row.allowedRoutes as string),
+    realmId: (row.realmId as string | null) ?? null,
+    isRealmAdmin: (row.isRealmAdmin as number) === 1,
+    createdBy: row.createdBy as string,
+    createdAt: row.createdAt as number,
+    lastUsedAt: (row.lastUsedAt as number | null) ?? null,
+    expiresAt: (row.expiresAt as number | null) ?? null,
+    isActive: (row.isActive as number) === 1,
   };
 }
 
@@ -107,6 +107,7 @@ export async function POST(request: NextRequest) {
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
 
+  const db = getDb();
   const body = (await request.json()) as ApiKeyCreateRequest;
   const {
     name,
@@ -130,8 +131,7 @@ export async function POST(request: NextRequest) {
   const id = crypto.randomUUID();
   const now = Math.floor(Date.now() / 1000);
 
-  const db = getDb();
-  db.prepare(
+    db.prepare(
     `INSERT INTO api_keys
        (id, name, key_hash, key_prefix, allowed_routes, realm_id, is_realm_admin,
         created_by, created_at, expires_at, is_active)

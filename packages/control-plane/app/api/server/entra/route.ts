@@ -46,7 +46,7 @@ export async function GET(request: NextRequest) {
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
 
-  const config = getEntraConfig();
+  const config = await getEntraConfig();
   if (!config) return NextResponse.json({ configured: false });
 
   return NextResponse.json({
@@ -109,13 +109,13 @@ export async function PUT(req: NextRequest) {
   }
 
   // If secret is the redacted placeholder, keep the existing one
-  const existing = getEntraConfig();
+  const existing = await getEntraConfig();
   const secret =
     body.clientSecret === "••••••••" && existing
       ? existing.clientSecret
       : body.clientSecret;
 
-  saveEntraConfig({
+  await saveEntraConfig({
     tenantId: body.tenantId,
     clientId: body.clientId,
     clientSecret: secret,
@@ -191,7 +191,7 @@ export async function POST(req: NextRequest) {
     clientSecret?: string;
   };
 
-  const saved = getEntraConfig();
+  const saved = await getEntraConfig();
   const config = {
     tenantId: body.tenantId ?? saved?.tenantId ?? "",
     clientId: body.clientId ?? saved?.clientId ?? "",

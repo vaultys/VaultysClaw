@@ -1,11 +1,7 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-config";
-import {
-  resolveWorkflowApproval,
-  dismissWorkflowNotification,
-  getApprovalsForRun,
-} from "@/lib/db";
+import { WorkflowDAO } from "@/db";
 
 interface Params {
   id: string;
@@ -62,7 +58,7 @@ export async function POST(
       comment?: string;
     };
 
-    const updated = resolveWorkflowApproval(
+    const updated = await WorkflowDAO.resolveApproval(
       id,
       session.user.did,
       "approved",

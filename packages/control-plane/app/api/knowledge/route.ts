@@ -1,11 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
-import {
-  createKnowledgeSource,
-  listKnowledgeSources,
-  getRealmById,
-  getAgent,
-} from "@/lib/db";
+import { AgentDAO, KnowledgeDAO, RealmDAO } from "@/db";
 
 // GET /api/knowledge?realmId=xxx&agentDid=xxx
 /**
@@ -52,11 +47,11 @@ export async function GET(request: NextRequest) {
   const agentDid = request.nextUrl.searchParams.get("agentDid") ?? undefined;
 
   // Non-admins can only list knowledge sources for realms they can access
-  if (!auth.isGlobalAdmin && realmId && !auth.canAccessRealm(realmId)) {
+  if (!auth.isGlobalAdmin && realmId && !(await auth.canAccessRealm(realmId))) {
     return forbidden();
   }
 
-  const sources = listKnowledgeSources({ realmId, agentDid });
+  const sources = await KnowledgeDAO.listSources({ realmId, agentDid });
   return NextResponse.json({ sources });
 }
 
@@ -125,25 +120,20 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const realm = getRealmById(realmId);
+  const realm = await RealmDAO.findById(realmId);
   if (!realm)
     return NextResponse.json({ error: "Realm not found" }, { status: 404 });
 
-  const agent = getAgent(agentDid);
+  const agent = await AgentDAO.findByDid(agentDid);
   if (!agent)
     return NextResponse.json({ error: "Agent not found" }, { status: 404 });
 
-  const source = createKnowledgeSource({
-    realm_id: realmId,
-    agent_did: agentDid,
+  const source = await KnowledgeDAO.createSource({
+    realmId,
+    agentDid,
     name,
-    source_type: sourceType,
-    config: JSON.stringify(config ?? {}),
-    status: "idle",
-    doc_count: 0,
-    chunk_count: 0,
-    last_synced_at: null,
-    error: null,
+    sourceType,
+    config: config ?? {},
   });
 
   return NextResponse.json({ source }, { status: 201 });

@@ -7,7 +7,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-config";
-import { UserDao } from "@/lib/user-dao";
+import { UserDAO } from "@/db";
 
 /**
  * @openapi
@@ -53,12 +53,12 @@ export async function PATCH(
 
   const { did } = await params;
 
-  const user = UserDao.getByDid(did);
+  const user = await UserDAO.findByDid(did);
   if (!user) {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
 
-  if (user.is_owner === 1) {
+  if (user.isOwner) {
     return NextResponse.json(
       { error: "Cannot change the owner's admin status" },
       { status: 400 }
@@ -73,6 +73,6 @@ export async function PATCH(
     );
   }
 
-  UserDao.setAdmin(did, body.isAdmin);
+  await UserDAO.update(user.id, { isAdmin: body.isAdmin });
   return NextResponse.json({ ok: true });
 }

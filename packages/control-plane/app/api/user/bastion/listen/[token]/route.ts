@@ -51,7 +51,7 @@ interface Params {
  */
 export async function POST(_request: NextRequest, { params }: Params) {
   const { token } = await params;
-  const result = UserServerChannel.listenBastion(token);
+  const result = await UserServerChannel.listenBastion(token);
   if (!result) return NextResponse.json({ status: -1 });
   return NextResponse.json(result);
 }

@@ -1,11 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import {
-  getWorkflow,
-  updateWorkflow,
-  deleteWorkflow,
-  type WorkflowDefinition,
-} from "@/lib/db";
 import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
+import { WorkflowDAO } from "@/db";
+import type { WorkflowDefinition } from "@/lib/workflow-executor";
 
 type Params = { id: string };
 
@@ -56,7 +52,7 @@ export async function GET(
     if (!auth) return unauthorized();
 
     const { id } = await params;
-    const workflow = getWorkflow(id);
+    const workflow = await WorkflowDAO.findById(id);
 
     if (!workflow) {
       return NextResponse.json(
@@ -65,7 +61,7 @@ export async function GET(
       );
     }
 
-    if (workflow.realm_id && !auth.canAccessRealm(workflow.realm_id))
+    if (workflow.realmId && !(await auth.canAccessRealm(workflow.realmId)))
       return forbidden();
 
     return NextResponse.json({
@@ -74,11 +70,11 @@ export async function GET(
         id: workflow.id,
         name: workflow.name,
         description: workflow.description,
-        definition: JSON.parse(workflow.definition),
-        realmId: workflow.realm_id,
-        createdBy: workflow.created_by,
-        createdAt: workflow.created_at,
-        updatedAt: workflow.updated_at,
+        definition: workflow.definition,
+        realmId: workflow.realmId,
+        createdBy: workflow.createdBy,
+        createdAt: workflow.createdAt,
+        updatedAt: workflow.updatedAt,
       },
     });
   } catch (err) {
@@ -154,7 +150,7 @@ export async function PATCH(
     if (!auth) return unauthorized();
 
     const { id } = await params;
-    const workflow = getWorkflow(id);
+    const workflow = await WorkflowDAO.findById(id);
     if (!workflow) {
       return NextResponse.json(
         { error: "Workflow not found" },
@@ -162,9 +158,9 @@ export async function PATCH(
       );
     }
 
-    if (workflow.realm_id && !auth.canAdminRealm(workflow.realm_id))
+    if (workflow.realmId && !(await auth.canAdminRealm(workflow.realmId)))
       return forbidden();
-    if (!workflow.realm_id && !auth.isGlobalAdmin) return forbidden();
+    if (!workflow.realmId && !auth.isGlobalAdmin) return forbidden();
 
     const body = await request.json();
     const { name, definition, description, realmId } = body as {
@@ -184,7 +180,7 @@ export async function PATCH(
       );
     }
 
-    updateWorkflow(id, name, definition, description, realmId);
+    await WorkflowDAO.update(id, { name, definition: definition as Record<string, unknown> | undefined, description, realmId });
 
     return NextResponse.json({ success: true, id });
   } catch (err) {
@@ -243,7 +239,7 @@ export async function DELETE(
     if (!auth) return unauthorized();
 
     const { id } = await params;
-    const workflow = getWorkflow(id);
+    const workflow = await WorkflowDAO.findById(id);
     if (!workflow) {
       return NextResponse.json(
         { error: "Workflow not found" },
@@ -251,11 +247,11 @@ export async function DELETE(
       );
     }
 
-    if (workflow.realm_id && !auth.canAdminRealm(workflow.realm_id))
+    if (workflow.realmId && !(await auth.canAdminRealm(workflow.realmId)))
       return forbidden();
-    if (!workflow.realm_id && !auth.isGlobalAdmin) return forbidden();
+    if (!workflow.realmId && !auth.isGlobalAdmin) return forbidden();
 
-    deleteWorkflow(id);
+    await WorkflowDAO.delete(id);
 
     return NextResponse.json({ success: true, id });
   } catch (err) {

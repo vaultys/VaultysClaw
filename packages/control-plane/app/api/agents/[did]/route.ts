@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Challenger, VaultysId, crypto } from "@vaultys/id";
 import { getWSServer } from "@/lib/ws-server";
-import { getAgent, updateAgentBudget, getDb, deleteAgent } from "@/lib/db";
 import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
+import { AgentDAO } from "@/db";
 
 const Buffer = crypto.Buffer;
 
@@ -119,12 +119,12 @@ export async function GET(
     const { did: rawDid } = await params;
     const did = decodeURIComponent(rawDid);
 
-    const agent = getAgent(did);
+    const agent = await AgentDAO.findByDid(did);
     if (!agent) {
       return NextResponse.json({ error: "Agent not found" }, { status: 404 });
     }
 
-    if (!auth.canAccessAgent(did)) return forbidden();
+    if (!(await auth.canAccessAgent(did))) return forbidden();
 
     const wsServer = getWSServer();
     const connected = wsServer?.getAgent(did);
@@ -133,9 +133,9 @@ export async function GET(
     let certificateInfo: Record<string, unknown> | null = null;
     let agentVaultysId: Record<string, unknown> | null = null;
 
-    if (agent.certificate_data) {
+    if (agent.certificateData) {
       try {
-        const certBuffer = Buffer.from(agent.certificate_data, "base64");
+        const certBuffer = Buffer.from(agent.certificateData, "base64");
         const cert = Challenger.deserializeCertificate(certBuffer);
 
         certificateInfo = {
@@ -158,36 +158,30 @@ export async function GET(
       } catch {
         certificateInfo = {
           present: true,
-          dataSize: agent.certificate_data.length,
+          dataSize: agent.certificateData.length,
           parseError: true,
         };
       }
     }
 
     // Today's and this month's token usage from history
-    const db = getDb();
     const todayBucket = new Date().toISOString().slice(0, 10);
     const monthBucket = new Date().toISOString().slice(0, 7);
-    const todayRow = db
-      .prepare(
-        "SELECT prompt_tokens + completion_tokens AS total FROM agent_token_usage_history WHERE agent_did = ? AND granularity = 'day' AND bucket = ?"
-      )
-      .get(agent.did, todayBucket) as { total: number } | undefined;
-    const monthRow = db
-      .prepare(
-        "SELECT prompt_tokens + completion_tokens AS total FROM agent_token_usage_history WHERE agent_did = ? AND granularity = 'month' AND bucket = ?"
-      )
-      .get(agent.did, monthBucket) as { total: number } | undefined;
+    const { todayTokens, monthTokens } = await AgentDAO.getTokenBuckets(
+      agent.did,
+      todayBucket,
+      monthBucket
+    );
 
     return NextResponse.json({
       id: agent.did,
       name: connected?.name ?? agent.name,
-      capabilities: JSON.parse(agent.capabilities),
-      publicKey: agent.public_key,
+      capabilities: agent.capabilities,
+      publicKey: agent.publicKey,
       certificateInfo,
       agentVaultysId,
-      registeredAt: agent.registered_at,
-      lastSeen: agent.last_seen,
+      registeredAt: agent.registeredAt,
+      lastSeen: agent.lastSeen,
       online: !!connected,
       connectedAt: connected?.connectedAt?.toISOString() ?? null,
       lastHeartbeat: connected?.lastHeartbeat?.toISOString() ?? null,
@@ -195,19 +189,22 @@ export async function GET(
       transport: connected?.transport ?? null,
       storedLlm: (() => {
         try {
-          const cfg = agent.llm_config ? JSON.parse(agent.llm_config) : null;
-          return cfg
-            ? { provider: cfg.provider as string, model: cfg.model as string }
+          const cfg = agent.llmConfig ? agent.llmConfig : null;
+          return cfg && typeof cfg === "object" && !Array.isArray(cfg)
+            ? {
+                provider: String(cfg.provider ?? ""),
+                model: String(cfg.model ?? ""),
+              }
             : null;
         } catch {
           return null;
         }
       })(),
       tokenUsage: connected?.tokenUsage ?? null,
-      tokenBudgetDaily: agent.token_budget_daily ?? null,
-      tokenBudgetMonthly: agent.token_budget_monthly ?? null,
-      todayTokens: todayRow?.total ?? 0,
-      monthTokens: monthRow?.total ?? 0,
+      tokenBudgetDaily: agent.tokenBudgetDaily ?? null,
+      tokenBudgetMonthly: agent.tokenBudgetMonthly ?? null,
+      todayTokens,
+      monthTokens,
     });
   } catch (error) {
     return NextResponse.json(
@@ -314,11 +311,11 @@ export async function PATCH(
     }
 
     if (tokenBudgetDaily !== undefined || tokenBudgetMonthly !== undefined) {
-      const agent = getAgent(did);
+      const agent = await AgentDAO.findByDid(did);
       if (!agent) {
         return NextResponse.json({ error: "Agent not found" }, { status: 404 });
       }
-      updateAgentBudget(did, {
+      await AgentDAO.updateBudget(did, {
         tokenBudgetDaily:
           tokenBudgetDaily === null
             ? null
@@ -334,10 +331,10 @@ export async function PATCH(
       });
     }
 
-    const updated = getAgent(did);
+    const updated = await AgentDAO.findByDid(did);
     return NextResponse.json({
       success: true,
-      capabilities: updated ? JSON.parse(updated.capabilities) : undefined,
+      capabilities: updated ? updated.capabilities : undefined,
     });
   } catch (error) {
     return NextResponse.json(
@@ -388,7 +385,7 @@ export async function DELETE(
     const { did: rawDid } = await params;
     const did = decodeURIComponent(rawDid);
 
-    const agent = getAgent(did);
+    const agent = await AgentDAO.findByDid(did);
     if (!agent) {
       return NextResponse.json({ error: "Agent not found" }, { status: 404 });
     }
@@ -400,7 +397,7 @@ export async function DELETE(
     }
 
     try {
-      deleteAgent(did);
+      await AgentDAO.delete(did);
       console.log("Successfully deleted agent:", did);
     } catch (deleteError) {
       console.error("Error in deleteAgent:", deleteError);

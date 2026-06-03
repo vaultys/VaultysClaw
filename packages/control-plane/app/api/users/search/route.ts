@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getRealmById, getRealmUsers } from "@/lib/db";
+import { RealmDAO } from "@/db";
 
 /**
  * GET /api/users/search?realm=[realmId]&q=[search query]
@@ -67,28 +67,28 @@ export async function GET(request: Request) {
     }
 
     // Verify realm exists
-    const realm = getRealmById(realmId);
+    const realm = await RealmDAO.findById(realmId);
     if (!realm) {
       return NextResponse.json({ error: "Realm not found" }, { status: 404 });
     }
 
-    const realmUsers = getRealmUsers(realmId);
+    const realmUsers = await RealmDAO.getUsers(realmId);
 
     // Filter by search query (name or email)
-    const filtered = realmUsers.filter((user) => {
+    const filtered = realmUsers.filter((row) => {
       if (!query) return true;
-      const name = (user.name || "").toLowerCase();
-      const email = (user.email || "").toLowerCase();
+      const name = (row.user.name || "").toLowerCase();
+      const email = (row.user.email || "").toLowerCase();
       return name.includes(query) || email.includes(query);
     });
 
-    const users = filtered.map((user) => ({
+    const users = filtered.map((row) => ({
       // Use the DID as the canonical id — it matches session.user.did used by
-      // the workflow-approvals inbox query. Fall back to user_id for legacy accounts.
-      id: user.did ?? user.user_id,
-      name: user.name || "Unknown",
-      email: user.email || "No email",
-      joinedAt: user.joined_at,
+      // the workflow-approvals inbox query. Fall back to userId for legacy accounts.
+      id: row.user.did ?? row.userId,
+      name: row.user.name || "Unknown",
+      email: row.user.email || "No email",
+      joinedAt: row.joinedAt,
     }));
 
     return NextResponse.json({ users });

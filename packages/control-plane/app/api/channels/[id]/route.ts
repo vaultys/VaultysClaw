@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
 import { ChannelService } from "@/lib/channel-service";
-import { getRealmById } from "@/lib/db";
+import { RealmDAO } from "@/db";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -60,7 +60,7 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
     }
 
     // Check access: member can view their channels, admins can view all in their realm
-    if (channel.realmId && !auth.canAccessRealm(channel.realmId)) {
+    if (channel.realmId && !(await auth.canAccessRealm(channel.realmId))) {
       return forbidden();
     }
 
@@ -150,7 +150,7 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
     // Check authorization: channel owner or realm admin
     const role = ChannelService.getMemberRole(id, auth.did);
     const isChannelOwner = role === "owner";
-    const isRealmAdmin = channel.realmId && auth.canAdminRealm(channel.realmId);
+    const isRealmAdmin = channel.realmId && await auth.canAdminRealm(channel.realmId);
     const isGlobalAdmin = !channel.realmId && auth.isGlobalAdmin;
 
     if (!isChannelOwner && !isRealmAdmin && !isGlobalAdmin) {
@@ -225,7 +225,7 @@ export async function DELETE(req: NextRequest, ctx: Ctx) {
     // Check authorization: channel owner or realm admin
     const role = ChannelService.getMemberRole(id, auth.did);
     const isChannelOwner = role === "owner";
-    const isRealmAdmin = channel.realmId && auth.canAdminRealm(channel.realmId);
+    const isRealmAdmin = channel.realmId && await auth.canAdminRealm(channel.realmId);
     const isGlobalAdmin = !channel.realmId && auth.isGlobalAdmin;
 
     if (!isChannelOwner && !isRealmAdmin && !isGlobalAdmin) {

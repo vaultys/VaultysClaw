@@ -1,12 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import {
-  getRealmById,
-  addUserToRealm,
-  removeUserFromRealm,
-  setUserRealmAdmin,
-} from "@/lib/db";
-import { UserDao } from "@/lib/user-dao";
 import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
+import { RealmDAO, UserDAO } from "@/db";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -62,9 +56,9 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     if (!auth) return unauthorized();
 
     const { id } = await ctx.params;
-    if (!auth.canAdminRealm(id)) return forbidden();
+    if (!(await auth.canAdminRealm(id))) return forbidden();
 
-    const realm = getRealmById(id);
+    const realm = await RealmDAO.findById(id);
     if (!realm)
       return NextResponse.json({ error: "Realm not found" }, { status: 404 });
 
@@ -80,11 +74,11 @@ export async function POST(req: NextRequest, ctx: Ctx) {
       );
 
     const user =
-      UserDao.getByDid(body.userDid) ?? UserDao.getById(body.userDid);
+      await UserDAO.findByDid(body.userDid) ?? await UserDAO.findById(body.userDid);
     if (!user)
       return NextResponse.json({ error: "User not found" }, { status: 404 });
 
-    addUserToRealm(
+    await RealmDAO.addUserToRealm(
       user.id,
       id,
       body.isPrimary ?? false,
@@ -153,7 +147,7 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
     if (!auth) return unauthorized();
 
     const { id } = await ctx.params;
-    if (!auth.canAdminRealm(id)) return forbidden();
+    if (!(await auth.canAdminRealm(id))) return forbidden();
 
     const body = (await req.json()) as {
       userDid?: string;
@@ -171,11 +165,11 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
       );
 
     const user =
-      UserDao.getByDid(body.userDid) ?? UserDao.getById(body.userDid);
+      await UserDAO.findByDid(body.userDid) ?? await UserDAO.findById(body.userDid);
     if (!user)
       return NextResponse.json({ error: "User not found" }, { status: 404 });
 
-    const changed = setUserRealmAdmin(user.id, id, body.isRealmAdmin);
+    const changed = await RealmDAO.setUserRealmAdmin(user.id, id, body.isRealmAdmin);
     if (!changed)
       return NextResponse.json(
         { error: "User is not a member of this realm" },
@@ -241,7 +235,7 @@ export async function DELETE(req: NextRequest, ctx: Ctx) {
     if (!auth) return unauthorized();
 
     const { id } = await ctx.params;
-    if (!auth.canAdminRealm(id)) return forbidden();
+    if (!(await auth.canAdminRealm(id))) return forbidden();
 
     const body = (await req.json()) as { userDid?: string };
     if (!body.userDid)
@@ -251,11 +245,11 @@ export async function DELETE(req: NextRequest, ctx: Ctx) {
       );
 
     const user =
-      UserDao.getByDid(body.userDid) ?? UserDao.getById(body.userDid);
+      await UserDAO.findByDid(body.userDid) ?? await UserDAO.findById(body.userDid);
     if (!user)
       return NextResponse.json({ error: "User not found" }, { status: 404 });
 
-    const ok = removeUserFromRealm(user.id, id);
+    const ok = await RealmDAO.removeUserFromRealm(user.id, id);
     if (!ok)
       return NextResponse.json(
         { error: "Cannot remove user from the default realm" },

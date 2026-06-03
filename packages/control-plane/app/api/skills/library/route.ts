@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext, unauthorized } from "@/lib/auth-utils";
-import { getOrgSkills } from "@/lib/db";
+import { OrgSkillDAO } from "@/db";
 
 /**
  * GET /api/skills/library
@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
   const auth = await getAuthContext(request);
   if (!auth) return unauthorized();
 
-  const skills = getOrgSkills();
+  const skills = await OrgSkillDAO.findAll();
 
   // Map to the LibrarySkill interface used by the frontend modal
   const payload = skills.map((s) => ({

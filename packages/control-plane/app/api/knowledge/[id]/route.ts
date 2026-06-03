@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
-import { getKnowledgeSource, deleteKnowledgeSource } from "@/lib/db";
+import { KnowledgeDAO } from "@/db";
 
 // GET /api/knowledge/:id
 /**
@@ -42,11 +42,11 @@ export async function GET(
   if (!auth) return unauthorized();
 
   const { id } = await params;
-  const source = getKnowledgeSource(id);
+  const source = await KnowledgeDAO.findSource(id);
   if (!source)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  if (!auth.isGlobalAdmin && !auth.canAccessRealm(source.realm_id)) {
+  if (!auth.isGlobalAdmin && !(await auth.canAccessRealm(source.realmId))) {
     return forbidden();
   }
 
@@ -86,10 +86,10 @@ export async function DELETE(
   if (!auth.isGlobalAdmin) return forbidden();
 
   const { id } = await params;
-  const source = getKnowledgeSource(id);
+  const source = await KnowledgeDAO.findSource(id);
   if (!source)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  await deleteKnowledgeSource(id);
+  await KnowledgeDAO.deleteSource(id);
   return NextResponse.json({ success: true });
 }

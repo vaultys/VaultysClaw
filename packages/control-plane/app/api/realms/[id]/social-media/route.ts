@@ -7,9 +7,9 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
-import { getRealmById, getRealmAgents, logIntent } from "@/lib/db";
 import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
 import { getWSServer } from "@/lib/ws-server";
+import { AgentDAO, IntentDAO, RealmDAO } from "@/db";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -76,10 +76,10 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   if (!auth) return unauthorized();
 
   const { id: realmId } = await ctx.params;
-  const realm = getRealmById(realmId);
+  const realm = await RealmDAO.findById(realmId);
   if (!realm)
     return NextResponse.json({ error: "Realm not found" }, { status: 404 });
-  if (!auth.canAccessRealm(realmId)) return forbidden();
+  if (!(await auth.canAccessRealm(realmId))) return forbidden();
 
   const body = (await req.json()) as { text?: string };
   if (!body.text || body.text.trim().length === 0) {
@@ -101,19 +101,18 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   }
 
   // Find the first online agent in this realm that has the social_media_posting capability
-  const realmAgents = getRealmAgents(realmId) as Array<{
-    agent_did: string;
-    capabilities?: string;
-  }>;
+  const realmAgents = await RealmDAO.getAgents(realmId);
   let targetAgentDid: string | null = null;
 
   for (const ra of realmAgents) {
-    const connected = wsServer.getAgent(ra.agent_did);
+    const connected = wsServer.getAgent(ra.agentDid);
     if (!connected) continue;
 
-    const caps: string[] = JSON.parse(ra.capabilities ?? "[]");
+    const caps: string[] = Array.isArray(ra.agent.capabilities)
+      ? (ra.agent.capabilities as string[])
+      : [];
     if (caps.includes("social_media_posting")) {
-      targetAgentDid = ra.agent_did;
+      targetAgentDid = ra.agentDid;
       break;
     }
   }
@@ -132,7 +131,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   const intentId = `intent-x-post-${crypto.randomUUID()}`;
 
   // Log intent before sending
-  logIntent(intentId, targetAgentDid, "post_to_x", { text: body.text });
+  await IntentDAO.log(intentId, targetAgentDid, "post_to_x", { text: body.text });
 
   const sent = wsServer.sendIntentToAgent(
     targetAgentDid,

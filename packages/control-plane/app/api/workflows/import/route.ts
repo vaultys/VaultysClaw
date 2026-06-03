@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { saveWorkflow } from "@/lib/db";
-import type { WorkflowDefinition } from "@/lib/db";
 import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
+import { WorkflowDAO } from "@/db";
+import type { WorkflowDefinition } from "@/lib/workflow-executor";
 
 interface ImportPayload {
   name: string;
@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
 
     const body = (await request.json()) as ImportPayload;
 
-    if (body.realmId && !auth.canAdminRealm(body.realmId)) return forbidden();
+    if (body.realmId && !(await auth.canAdminRealm(body.realmId))) return forbidden();
     if (!body.realmId && !auth.isGlobalAdmin) return forbidden();
 
     // Validate required fields
@@ -98,7 +98,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const id = saveWorkflow(body.name, body.definition, undefined);
+    const id = await WorkflowDAO.create(body.name, body.definition, undefined);
 
     return NextResponse.json({
       success: true,

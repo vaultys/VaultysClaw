@@ -1,11 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import {
-  getAllModelRegistryEntries,
-  createModelRegistryEntry,
-  getModelRealmAccess,
-} from "@/lib/db";
 import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
 import { registerModel, isLiteLLMConfigured } from "@/lib/litellm-client";
+import { ModelDAO } from "@/db";
 
 /** GET /api/models — list models. Admin only. */
 /**
@@ -64,21 +60,23 @@ export async function GET(request: NextRequest) {
     if (!auth) return unauthorized();
     if (!auth.isGlobalAdmin) return forbidden();
 
-    const entries = getAllModelRegistryEntries();
+    const entries = await ModelDAO.findAll();
 
-    const models = entries.map((m) => ({
-      id: m.id,
-      name: m.name,
-      description: m.description,
-      provider: m.provider,
-      modelId: m.model_id,
-      baseUrl: m.base_url,
-      litellmModelName: m.litellm_model_name,
-      status: m.status,
-      createdAt: m.created_at,
-      updatedAt: m.updated_at,
-      realmCount: getModelRealmAccess(m.id).length,
-    }));
+    const models = await Promise.all(
+      entries.map(async (m) => ({
+        id: m.id,
+        name: m.name,
+        description: m.description,
+        provider: m.provider,
+        modelId: m.modelId,
+        baseUrl: m.baseUrl,
+        litellmModelName: m.litellmModelName,
+        status: m.status,
+        createdAt: m.createdAt,
+        updatedAt: m.updatedAt,
+        realmCount: (await ModelDAO.getRealmAccess(m.id)).length,
+      }))
+    );
 
     return NextResponse.json({ models });
   } catch (err) {
@@ -174,7 +172,7 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
 
-    const entry = createModelRegistryEntry({
+    const entry = await ModelDAO.create({
       name: body.name.trim(),
       description: body.description?.trim(),
       provider: body.provider.trim(),
@@ -185,12 +183,12 @@ export async function POST(req: NextRequest) {
     });
 
     // Register with LiteLLM if configured
-    if (isLiteLLMConfigured() && entry.litellm_model_name) {
+    if (isLiteLLMConfigured() && entry.litellmModelName) {
       try {
         await registerModel({
-          modelName: entry.litellm_model_name,
-          litellmModel: `openai/${entry.model_id}`,
-          apiBase: entry.base_url,
+          modelName: entry.litellmModelName,
+          litellmModel: `openai/${entry.modelId}`,
+          apiBase: entry.baseUrl,
           apiKey: body.apiKey?.trim() || undefined,
         });
       } catch (litellmErr) {
@@ -205,11 +203,11 @@ export async function POST(req: NextRequest) {
           name: entry.name,
           description: entry.description,
           provider: entry.provider,
-          modelId: entry.model_id,
-          baseUrl: entry.base_url,
-          litellmModelName: entry.litellm_model_name,
+          modelId: entry.modelId,
+          baseUrl: entry.baseUrl,
+          litellmModelName: entry.litellmModelName,
           status: entry.status,
-          createdAt: entry.created_at,
+          createdAt: entry.createdAt,
         },
       },
       { status: 201 }

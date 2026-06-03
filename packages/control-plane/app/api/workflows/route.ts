@@ -1,11 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import {
-  saveWorkflow,
-  listWorkflows,
-  getUserRealms,
-  type WorkflowDefinition,
-} from "@/lib/db";
 import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
+import { RealmDAO, WorkflowDAO } from "@/db";
+import type { WorkflowDefinition } from "@/lib/workflow-executor";
 
 /**
  * POST /api/workflows
@@ -93,12 +89,12 @@ export async function POST(request: NextRequest) {
 
     // If no realmId, must be global admin (no implicit realm to check admin on)
     if (realmId) {
-      if (!auth.canAdminRealm(realmId)) return forbidden();
+      if (!(await auth.canAdminRealm(realmId))) return forbidden();
     } else if (!auth.isGlobalAdmin) {
       return forbidden();
     }
 
-    const id = saveWorkflow(name, definition, undefined, realmId);
+    const id = await WorkflowDAO.create(name, definition, undefined, realmId);
 
     return NextResponse.json({
       success: true,
@@ -174,17 +170,17 @@ export async function GET(request: NextRequest) {
     const realmId = searchParams.get("realmId");
 
     // Members can only query realms they belong to
-    if (realmId && !auth.canAccessRealm(realmId)) return forbidden();
+    if (realmId && !(await auth.canAccessRealm(realmId))) return forbidden();
 
-    let workflows = listWorkflows(createdBy ?? undefined, realmId ?? undefined);
+    let workflows = await WorkflowDAO.list({ createdBy: createdBy ?? undefined, realmId: realmId ?? undefined });
 
     // Non-admins: filter to workflows in their realms
     if (!auth.isGlobalAdmin) {
       const userRealmIds = new Set(
-        getUserRealms(auth.did).map((r) => r.realm_id)
+        (await RealmDAO.getUserRealms(auth.did)).map((r) => r.realmId)
       );
       workflows = workflows.filter(
-        (w) => w.realm_id && userRealmIds.has(w.realm_id)
+        (w) => w.realmId && userRealmIds.has(w.realmId)
       );
     }
 
@@ -194,10 +190,10 @@ export async function GET(request: NextRequest) {
         id: w.id,
         name: w.name,
         description: w.description,
-        realmId: w.realm_id,
-        createdBy: w.created_by,
-        createdAt: w.created_at,
-        updatedAt: w.updated_at,
+        realmId: w.realmId,
+        createdBy: w.createdBy,
+        createdAt: w.createdAt,
+        updatedAt: w.updatedAt,
       })),
     });
   } catch (err) {

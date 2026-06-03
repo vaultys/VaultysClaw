@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getRealmById, getRealmSkills, createRealmSkill } from "@/lib/db";
 import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
 import { broadcastSkillsConfig } from "@/lib/ws-server";
+import { RealmDAO, RealmSkillDAO } from "@/db";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -67,21 +67,21 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
     if (!auth) return unauthorized();
 
     const { id } = await ctx.params;
-    if (!auth.canAccessRealm(id)) return forbidden();
+    if (!(await auth.canAccessRealm(id))) return forbidden();
 
-    const realm = getRealmById(id);
+    const realm = await RealmDAO.findById(id);
     if (!realm)
       return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-    const skills = getRealmSkills(id).map((s) => ({
+    const skills = (await RealmSkillDAO.findAll(id)).map((s) => ({
       id: s.id,
-      realmId: s.realm_id,
+      realmId: s.realmId,
       name: s.name,
       description: s.description,
       version: s.version,
-      isRequired: s.is_required === 1,
-      config: JSON.parse(s.config || "{}"),
-      createdAt: s.created_at,
+      isRequired: s.isRequired,
+      config: s.config,
+      createdAt: s.createdAt,
     }));
 
     return NextResponse.json({ skills });
@@ -158,9 +158,9 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     if (!auth) return unauthorized();
 
     const { id } = await ctx.params;
-    if (!auth.canAdminRealm(id)) return forbidden();
+    if (!(await auth.canAdminRealm(id))) return forbidden();
 
-    const realm = getRealmById(id);
+    const realm = await RealmDAO.findById(id);
     if (!realm)
       return NextResponse.json({ error: "Not found" }, { status: 404 });
 
@@ -176,7 +176,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
       return NextResponse.json({ error: "name is required" }, { status: 400 });
     }
 
-    const skill = createRealmSkill({
+    const skill = await RealmSkillDAO.create({
       realmId: id,
       name: body.name.trim(),
       description: body.description?.trim(),
@@ -192,13 +192,13 @@ export async function POST(req: NextRequest, ctx: Ctx) {
       {
         skill: {
           id: skill.id,
-          realmId: skill.realm_id,
+          realmId: skill.realmId,
           name: skill.name,
           description: skill.description,
           version: skill.version,
-          isRequired: skill.is_required === 1,
-          config: JSON.parse(skill.config || "{}"),
-          createdAt: skill.created_at,
+          isRequired: skill.isRequired,
+          config: skill.config,
+          createdAt: skill.createdAt,
         },
       },
       { status: 201 }

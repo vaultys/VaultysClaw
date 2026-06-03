@@ -1,16 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import {
-  getModelRegistryEntry,
-  getModelRealmAccess,
-  grantModelRealmAccess,
-  revokeModelRealmAccess,
-  getAllRealms,
-  getRealmRouterKey,
-  upsertRealmRouterKey,
-  getRealmAgents,
-  setAgentLlmConfig,
-} from "@/lib/db";
 import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
+import { AgentDAO, ModelDAO, RealmDAO } from "@/db";
 import {
   createRealmKey,
   isLiteLLMConfigured,
@@ -20,13 +10,13 @@ import { getWSServer } from "@/lib/ws-server";
 import type { LlmConfig } from "@vaultysclaw/shared";
 
 /** Push a LiteLLM-routed config to all agents currently in a realm. Non-fatal. */
-function pushConfigToRealmAgents(
+async function pushConfigToRealmAgents(
   realmId: string,
   virtualKey: string,
   litellmModelName: string
-): void {
+): Promise<void> {
   try {
-    const agents = getRealmAgents(realmId);
+    const agents = await RealmDAO.getAgents(realmId);
     if (agents.length === 0) return;
     const config: LlmConfig = {
       provider: "openai-compatible",
@@ -36,8 +26,8 @@ function pushConfigToRealmAgents(
     };
     const wsServer = getWSServer();
     for (const agent of agents) {
-      setAgentLlmConfig(agent.agent_did, config);
-      wsServer?.sendLlmConfig(agent.agent_did, config);
+      await AgentDAO.setLlmConfig(agent.agentDid, config);
+      wsServer?.sendLlmConfig(agent.agentDid, config);
     }
   } catch (e) {
     console.warn("pushConfigToRealmAgents failed (non-fatal):", e);
@@ -96,19 +86,19 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
     if (!auth.isGlobalAdmin) return forbidden();
 
     const { id } = await params;
-    if (!getModelRegistryEntry(id))
+    if (!await ModelDAO.findById(id))
       return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-    const access = getModelRealmAccess(id);
-    const allRealms = getAllRealms();
+    const access = await ModelDAO.getRealmAccess(id);
+    const allRealms = await RealmDAO.findAll();
 
     return NextResponse.json({
       realms: access.map((ra) => {
-        const realm = allRealms.find((r) => r.id === ra.realm_id);
+        const realm = allRealms.find((r) => r.id === ra.realmId);
         return {
-          realmId: ra.realm_id,
-          realmName: realm?.name ?? ra.realm_id,
-          grantedAt: ra.granted_at,
+          realmId: ra.realmId,
+          realmName: realm?.name ?? ra.realmId,
+          grantedAt: ra.grantedAt,
         };
       }),
     });
@@ -167,7 +157,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     if (!auth.isGlobalAdmin) return forbidden();
 
     const { id } = await params;
-    const entry = getModelRegistryEntry(id);
+    const entry = await ModelDAO.findById(id);
     if (!entry)
       return NextResponse.json({ error: "Not found" }, { status: 404 });
 
@@ -178,30 +168,30 @@ export async function POST(req: NextRequest, { params }: Ctx) {
         { status: 400 }
       );
 
-    grantModelRealmAccess(id, body.realmId);
+    await ModelDAO.grantRealmAccess(id, body.realmId);
 
     // Update realm router key to include this model and push to realm agents
-    if (isLiteLLMConfigured() && entry.litellm_model_name) {
+    if (isLiteLLMConfigured() && entry.litellmModelName) {
       try {
-        const existing = getRealmRouterKey(body.realmId);
-        const currentModels: string[] = existing
-          ? JSON.parse(existing.allowed_model_ids)
+        const existing = await RealmDAO.getRouterKey(body.realmId);
+        const currentModels: string[] = existing && Array.isArray(existing.allowedModelIds)
+          ? (existing.allowedModelIds as string[])
           : [];
-        if (!currentModels.includes(entry.litellm_model_name)) {
-          const updatedModels = [...currentModels, entry.litellm_model_name];
+        if (!currentModels.includes(entry.litellmModelName)) {
+          const updatedModels = [...currentModels, entry.litellmModelName];
           const { virtualKey } = await createRealmKey(
             body.realmId,
             updatedModels,
-            existing?.monthly_budget_usd ?? undefined
+            existing?.monthlyBudgetUsd ?? undefined
           );
-          upsertRealmRouterKey(body.realmId, {
+          await RealmDAO.upsertRouterKey(body.realmId, {
             litellmVirtualKey: virtualKey,
             allowedModelIds: updatedModels,
           });
           pushConfigToRealmAgents(
             body.realmId,
             virtualKey,
-            entry.litellm_model_name
+            entry.litellmModelName
           );
         }
       } catch (e) {
@@ -260,7 +250,7 @@ export async function DELETE(req: NextRequest, { params }: Ctx) {
     if (!auth.isGlobalAdmin) return forbidden();
 
     const { id } = await params;
-    const entry = getModelRegistryEntry(id);
+    const entry = await ModelDAO.findById(id);
     if (!entry)
       return NextResponse.json({ error: "Not found" }, { status: 404 });
 
@@ -272,25 +262,25 @@ export async function DELETE(req: NextRequest, { params }: Ctx) {
         { status: 400 }
       );
 
-    revokeModelRealmAccess(id, realmId);
+    await ModelDAO.revokeRealmAccess(id, realmId);
 
     // Update realm router key to remove this model
-    if (isLiteLLMConfigured() && entry.litellm_model_name) {
+    if (isLiteLLMConfigured() && entry.litellmModelName) {
       try {
-        const existing = getRealmRouterKey(realmId);
+        const existing = await RealmDAO.getRouterKey(realmId);
         if (existing) {
-          const currentModels: string[] = JSON.parse(
-            existing.allowed_model_ids
-          );
+          const currentModels: string[] = Array.isArray(existing.allowedModelIds)
+            ? (existing.allowedModelIds as string[])
+            : [];
           const updatedModels = currentModels.filter(
-            (m) => m !== entry.litellm_model_name
+            (m) => m !== entry.litellmModelName
           );
           const { virtualKey } = await createRealmKey(
             realmId,
             updatedModels,
-            existing.monthly_budget_usd ?? undefined
+            existing.monthlyBudgetUsd ?? undefined
           );
-          upsertRealmRouterKey(realmId, {
+          await RealmDAO.upsertRouterKey(realmId, {
             litellmVirtualKey: virtualKey,
             allowedModelIds: updatedModels,
           });

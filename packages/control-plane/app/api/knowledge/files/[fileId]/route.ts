@@ -1,10 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
-import {
-  getKnowledgeFileContent,
-  deleteKnowledgeFile,
-  getKnowledgeSource,
-} from "@/lib/db";
+import { KnowledgeDAO } from "@/db";
 
 // DELETE /api/knowledge/files/:fileId
 /**
@@ -39,16 +35,16 @@ export async function DELETE(
   if (!auth.isGlobalAdmin) return forbidden();
 
   const { fileId } = await params;
-  const file = await getKnowledgeFileContent(fileId);
+  const file = await KnowledgeDAO.findFile(fileId);
   if (!file)
     return NextResponse.json({ error: "File not found" }, { status: 404 });
 
   // Verify the parent source exists (for logging context)
-  const source = getKnowledgeSource(file.source_id);
-  if (source && !auth.isGlobalAdmin && !auth.canAccessRealm(source.realm_id)) {
+  const source = await KnowledgeDAO.findSource(file.sourceId);
+  if (source && !auth.isGlobalAdmin && !(await auth.canAccessRealm(source.realmId))) {
     return forbidden();
   }
 
-  await deleteKnowledgeFile(fileId);
+  await KnowledgeDAO.deleteFile(fileId);
   return NextResponse.json({ success: true });
 }

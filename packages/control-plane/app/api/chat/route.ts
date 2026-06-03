@@ -1,9 +1,9 @@
 import { NextRequest } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-config";
-import { GrantDao } from "@/lib/grant-dao";
 import { getWSServer } from "@/lib/ws-server";
 import { crypto } from "@vaultys/id";
+import { GrantDAO } from "@/db";
 import type {
   WSChatResponsePayload,
   WSToolApprovalRequestPayload,
@@ -127,10 +127,10 @@ export async function POST(request: NextRequest) {
           }
         );
       }
-      const grants = GrantDao.listByUser(session.user.did);
+      const grants = await GrantDAO.listByUser(session.user.did);
       const hasGrant = grants.some((g) => {
-        const agentMatch = g.agent_did === null || g.agent_did === agentDid;
-        const notExpired = !g.expires_at || new Date(g.expires_at) > new Date();
+        const agentMatch = g.agentDid === null || g.agentDid === agentDid;
+        const notExpired = !g.expiresAt || new Date(g.expiresAt) > new Date();
         return agentMatch && notExpired;
       });
       if (!hasGrant) {

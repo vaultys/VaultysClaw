@@ -7,12 +7,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-config";
-import { UserDao } from "@/lib/user-dao";
-import { GrantDao } from "@/lib/grant-dao";
-import { DelegationDao } from "@/lib/delegation-dao";
 import { signDelegation } from "@/lib/delegation";
 import { getWSServer } from "@/lib/ws-server";
 import type { AgentCapability } from "@vaultysclaw/shared";
+import { DelegationCertDAO, GrantDAO, UserDAO } from "@/db";
 
 /**
  * @openapi
@@ -71,17 +69,17 @@ export async function GET(
   }
 
   const { did } = await params;
-  const user = UserDao.getByDid(did);
+  const user = await UserDAO.findByDid(did);
   if (!user)
     return NextResponse.json({ error: "User not found" }, { status: 404 });
 
-  const grants = GrantDao.listByUser(did).map((g) => ({
+  const grants = (await GrantDAO.listByUser(did)).map((g) => ({
     id: g.id,
-    agentDid: g.agent_did,
-    capabilities: JSON.parse(g.capabilities) as string[],
-    grantedBy: g.granted_by,
-    expiresAt: g.expires_at,
-    createdAt: g.created_at,
+    agentDid: g.agentDid,
+    capabilities: g.capabilities as string[],
+    grantedBy: g.grantedBy,
+    expiresAt: g.expiresAt,
+    createdAt: g.createdAt,
   }));
 
   return NextResponse.json({ grants });
@@ -164,7 +162,7 @@ export async function POST(
   }
 
   const { did } = await params;
-  const user = UserDao.getByDid(did);
+  const user = await UserDAO.findByDid(did);
   if (!user)
     return NextResponse.json({ error: "User not found" }, { status: 404 });
 
@@ -185,12 +183,13 @@ export async function POST(
   const agentDid = body.agentDid ?? null; // null = all agents
 
   // Create the grant row
-  const grant = GrantDao.create({
-    user_did: did,
-    agent_did: agentDid,
-    capabilities: JSON.stringify(body.capabilities),
-    granted_by: session.user.did ?? "",
-    expires_at: expiresAt ? expiresAt.toISOString() : null,
+  const grant = await GrantDAO.create({
+    id: crypto.randomUUID(),
+    userDid: did,
+    agentDid: agentDid ?? undefined,
+    capabilities: body.capabilities,
+    grantedBy: session.user.did ?? "",
+    expiresAt: expiresAt ? expiresAt.toISOString() : undefined,
   });
 
   // Sign a delegation certificate for each target agent (or wildcard)
@@ -202,13 +201,14 @@ export async function POST(
     expiresAt
   );
 
-  DelegationDao.create({
-    grant_id: grant.id,
-    user_did: did,
-    agent_did: effectiveAgentDid,
-    capabilities: JSON.stringify(body.capabilities),
+  await DelegationCertDAO.create({
+    id: crypto.randomUUID(),
+    grantId: grant.id,
+    userDid: did,
+    agentDid: effectiveAgentDid,
+    capabilities: body.capabilities,
     certificate,
-    expires_at: expiresAt ? expiresAt.toISOString() : null,
+    expiresAt: expiresAt ? expiresAt.toISOString() : undefined,
   });
 
   // Push delegation_update to the affected agent(s)
@@ -226,11 +226,11 @@ export async function POST(
     {
       grant: {
         id: grant.id,
-        agentDid: grant.agent_did,
-        capabilities: JSON.parse(grant.capabilities) as string[],
-        grantedBy: grant.granted_by,
-        expiresAt: grant.expires_at,
-        createdAt: grant.created_at,
+        agentDid: grant.agentDid,
+        capabilities: grant.capabilities as string[],
+        grantedBy: grant.grantedBy,
+        expiresAt: grant.expiresAt,
+        createdAt: grant.createdAt,
       },
     },
     { status: 201 }

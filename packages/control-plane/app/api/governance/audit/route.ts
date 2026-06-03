@@ -95,6 +95,7 @@ export async function GET(request: NextRequest) {
     if (!auth) return unauthorized();
     if (!auth.isGlobalAdmin) return forbidden();
 
+    const db = getDb();
     const { searchParams } = new URL(request.url);
     const limit = Math.min(
       500,
@@ -104,8 +105,7 @@ export async function GET(request: NextRequest) {
     const statusFilter = searchParams.get("status") ?? "";
     const agentDidFilter = searchParams.get("agentDid") ?? "";
 
-    const db = getDb();
-
+    
     type AuditEntry = {
       id: string;
       source: "activity" | "intent";

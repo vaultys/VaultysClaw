@@ -1,11 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import {
-  getAllSkillsWithRealms,
-  createRealmSkill,
-  getAllRealms,
-} from "@/lib/db";
 import { broadcastSkillsConfig } from "@/lib/ws-server";
 import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
+import { RealmDAO, RealmSkillDAO } from "@/db";
 
 /**
  * @openapi
@@ -32,7 +28,7 @@ export async function GET(request: NextRequest) {
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
 
-  const rows = getAllSkillsWithRealms();
+  const rows = await RealmSkillDAO.findAllWithRealms();
   return NextResponse.json(rows);
 }
 
@@ -102,13 +98,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "name is required" }, { status: 400 });
   }
 
-  const realms = getAllRealms();
+  const realms = await RealmDAO.findAll();
   if (!realms.find((r) => r.id === realmId)) {
     return NextResponse.json({ error: "Realm not found" }, { status: 404 });
   }
 
   try {
-    const skill = createRealmSkill({
+    const skill = await RealmSkillDAO.create({
       realmId,
       name: name.trim(),
       description: description?.trim() || undefined,

@@ -8,8 +8,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-config";
-import { UserDao } from "@/lib/user-dao";
-import { getUserRealms } from "@/lib/db";
+import { RealmDAO, UserDAO } from "@/db";
 
 const VALID_ROLES = [
   "owner",
@@ -101,7 +100,7 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
   }
 
   const { id } = await params;
-  const user = UserDao.getById(id);
+  const user = await UserDAO.findById(id);
   if (!user || user.did) {
     // Not found or already claimed — redirect callers to the normal route
     return NextResponse.json(
@@ -110,27 +109,27 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
     );
   }
 
-  const realms = getUserRealms(user.id);
+  const realms = await RealmDAO.getUserRealms(user.id);
 
   return NextResponse.json({
     id: user.id,
     did: user.did,
     name: user.name,
     email: user.email,
-    isOwner: user.is_owner === 1,
-    isAdmin: user.is_admin === 1 || user.is_owner === 1,
+    isOwner: user.isOwner,
+    isAdmin: user.isAdmin || user.isOwner,
     role: user.role ?? "member",
-    reportsTo: user.reports_to ?? null,
+    reportsTo: user.reportsTo ?? null,
     description: user.description ?? null,
-    registeredAt: user.registered_at,
-    entraId: user.entra_id ?? null,
-    claimedAt: user.claimed_at ?? null,
+    registeredAt: user.registeredAt,
+    entraId: user.entraId ?? null,
+    claimedAt: user.claimedAt ?? null,
     realms: realms.map((r) => ({
-      id: r.realm_id,
-      name: r.name,
-      slug: r.slug,
-      color: r.color,
-      isPrimary: Boolean(r.is_primary),
+      id: r.realmId,
+      name: r.realm.name,
+      slug: r.realm.slug,
+      color: r.realm.color,
+      isPrimary: Boolean(r.isPrimary),
     })),
   });
 }
@@ -185,7 +184,7 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
   }
 
   const { id } = await params;
-  const user = UserDao.getById(id);
+  const user = await UserDAO.findById(id);
   if (!user || user.did) {
     return NextResponse.json(
       { error: "User not found or already claimed" },
@@ -201,7 +200,7 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
     description?: string | null;
   };
 
-  const fields: Parameters<typeof UserDao.update>[1] = {};
+  const fields: Parameters<typeof UserDAO.update>[1] = {};
   if (typeof body.name === "string") fields.name = body.name.trim();
   if (typeof body.email === "string") fields.email = body.email.trim();
   if (typeof body.description === "string" || body.description === null) {
@@ -215,10 +214,10 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
     fields.role = body.role;
   }
   if ("reportsTo" in body) {
-    fields.reports_to = body.reportsTo || null;
+    fields.reportsTo = body.reportsTo || null;
   }
 
-  UserDao.update(user.id, fields);
+  await UserDAO.update(user.id, fields);
   return NextResponse.json({ ok: true });
 }
 
@@ -250,7 +249,7 @@ export async function DELETE(_req: NextRequest, { params }: Ctx) {
   }
 
   const { id } = await params;
-  const user = UserDao.getById(id);
+  const user = await UserDAO.findById(id);
   if (!user || user.did) {
     return NextResponse.json(
       { error: "User not found or already claimed" },
@@ -258,6 +257,6 @@ export async function DELETE(_req: NextRequest, { params }: Ctx) {
     );
   }
 
-  UserDao.removeById(id);
+  await UserDAO.delete(id);
   return NextResponse.json({ ok: true });
 }

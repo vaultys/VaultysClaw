@@ -1,8 +1,8 @@
 import { ChannelService } from "./channel-service";
 import { publishThreadCreated } from "./channel-event-publisher";
 import { getWSServer } from "./ws-server";
-import { getAgentByName, getAgent } from "./db";
 import { BridgeFactory } from "./bridges/bridge-factory";
+import { AgentDAO } from "@/db";
 
 /**
  * Detects @mentions in message content and creates threads with agent context
@@ -141,7 +141,7 @@ export const MessageDispatcher = {
     }
   ): Promise<void> {
     // Find agent by name
-    const agentRow = getAgentByName(agentName);
+    const agentRow = await AgentDAO.findByName(agentName);
     if (!agentRow) {
       console.warn(`[MessageDispatcher] Agent not found: ${agentName}`);
       // Optionally post error message to thread

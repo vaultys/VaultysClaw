@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getModelRegistryEntry } from "@/lib/db";
 import { getAuthContext, unauthorized } from "@/lib/auth-utils";
+import { ModelDAO } from "@/db";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -47,15 +47,15 @@ export async function POST(_req: NextRequest, { params }: Ctx) {
     if (!auth) return unauthorized();
 
     const { id } = await params;
-    const entry = getModelRegistryEntry(id);
+    const entry = await ModelDAO.findById(id);
     if (!entry)
       return NextResponse.json({ error: "Not found" }, { status: 404 });
 
     // Normalise: strip trailing slash and any trailing /v1 so both
     // 'https://api.openai.com' and 'https://api.openai.com/v1' resolve correctly.
-    const baseUrl = entry.base_url.replace(/\/+$/, "").replace(/\/v1$/, "");
-    const headers: Record<string, string> = entry.api_key_enc
-      ? { Authorization: `Bearer ${entry.api_key_enc}` }
+    const baseUrl = entry.baseUrl.replace(/\/+$/, "").replace(/\/v1$/, "");
+    const headers: Record<string, string> = entry.apiKeyEnc
+      ? { Authorization: `Bearer ${entry.apiKeyEnc}` }
       : {};
 
     // Try /v1/models (OpenAI / OpenAI-compatible — returns available model list)

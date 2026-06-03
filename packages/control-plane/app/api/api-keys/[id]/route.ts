@@ -1,21 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getDb } from "@/lib/db";
 import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
+import { getDb } from "@/lib/db";
 import type { ApiKey, ApiKeyUpdateRequest } from "@/lib/api-types";
 
 function rowToApiKey(row: Record<string, unknown>): ApiKey {
   return {
     id: row.id as string,
     name: row.name as string,
-    keyPrefix: row.key_prefix as string,
-    allowedRoutes: JSON.parse(row.allowed_routes as string),
-    realmId: (row.realm_id as string | null) ?? null,
-    isRealmAdmin: (row.is_realm_admin as number) === 1,
-    createdBy: row.created_by as string,
-    createdAt: row.created_at as number,
-    lastUsedAt: (row.last_used_at as number | null) ?? null,
-    expiresAt: (row.expires_at as number | null) ?? null,
-    isActive: (row.is_active as number) === 1,
+    keyPrefix: row.keyPrefix as string,
+    allowedRoutes: JSON.parse(row.allowedRoutes as string),
+    realmId: (row.realmId as string | null) ?? null,
+    isRealmAdmin: (row.isRealmAdmin as number) === 1,
+    createdBy: row.createdBy as string,
+    createdAt: row.createdAt as number,
+    lastUsedAt: (row.lastUsedAt as number | null) ?? null,
+    expiresAt: (row.expiresAt as number | null) ?? null,
+    isActive: (row.isActive as number) === 1,
   };
 }
 
@@ -88,7 +88,6 @@ export async function PATCH(
 
   const { id } = await params;
   const db = getDb();
-
   const existing = db.prepare("SELECT id FROM api_keys WHERE id = ?").get(id);
   if (!existing) {
     return NextResponse.json({ error: "API key not found" }, { status: 404 });
@@ -191,7 +190,6 @@ export async function DELETE(
 
   const { id } = await params;
   const db = getDb();
-
   const existing = db.prepare("SELECT id FROM api_keys WHERE id = ?").get(id);
   if (!existing) {
     return NextResponse.json({ error: "API key not found" }, { status: 404 });

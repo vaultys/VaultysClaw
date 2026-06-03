@@ -1,5 +1,5 @@
 import { randomBytes } from "crypto";
-import { getDb } from "./db";
+import { getDb } from "@/lib/db";
 
 export interface DelegationCert {
   id: string;

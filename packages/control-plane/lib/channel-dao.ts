@@ -1,6 +1,6 @@
 import { randomUUID } from "crypto";
-import { getDb } from "./db";
 import { Channel, ChannelInput } from "@vaultysclaw/shared";
+import { getDb } from "@/lib/db";
 
 export const ChannelDao = {
   create(input: ChannelInput): Channel {

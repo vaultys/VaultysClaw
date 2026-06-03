@@ -1,14 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import {
-  getAllRealms,
-  createRealm,
-  getRealmBySlug,
-  getRealmAgents,
-  getRealmUsers,
-  listWorkflows,
-  getUserRealms,
-} from "@/lib/db";
 import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
+import { RealmDAO, WorkflowDAO } from "@/db";
 
 /**
  * GET /api/realms — list realms. Admins see all; members see only their realms.
@@ -60,24 +52,26 @@ export async function GET(request: NextRequest) {
     const auth = await getAuthContext(request);
     if (!auth) return unauthorized();
 
-    const allRealms = getAllRealms();
+    const allRealms = await RealmDAO.findAll();
     const userRealmIds = auth.isGlobalAdmin
       ? null
-      : new Set(getUserRealms(auth.did).map((r) => r.realm_id));
+      : new Set((await RealmDAO.getUserRealms(auth.did)).map((r) => r.realmId));
 
-    const realmsWithCounts = allRealms
-      .filter((realm) => userRealmIds === null || userRealmIds.has(realm.id))
-      .map((realm) => {
-        const agents = getRealmAgents(realm.id);
-        const users = getRealmUsers(realm.id);
-        const workflows = listWorkflows(undefined, realm.id);
-        return {
-          ...realm,
-          agentCount: agents.length,
-          userCount: users.length,
-          workflowCount: workflows.length,
-        };
-      });
+    const realmsWithCounts = await Promise.all(
+      allRealms
+        .filter((realm) => userRealmIds === null || userRealmIds.has(realm.id))
+        .map(async (realm) => {
+          const agents = await RealmDAO.getAgents(realm.id);
+          const users = await RealmDAO.getUsers(realm.id);
+          const workflows = await WorkflowDAO.list({ realmId: realm.id });
+          return {
+            ...realm,
+            agentCount: agents.length,
+            userCount: users.length,
+            workflowCount: workflows.length,
+          };
+        })
+    );
     return NextResponse.json({ realms: realmsWithCounts });
   } catch (err) {
     console.error(err);
@@ -166,7 +160,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invalid slug" }, { status: 400 });
     }
 
-    const existing = getRealmBySlug(slug);
+    const existing = await RealmDAO.findBySlug(slug);
     if (existing) {
       return NextResponse.json(
         { error: "A realm with this slug already exists" },
@@ -174,7 +168,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const realm = createRealm({
+    const realm = await RealmDAO.create({
       name: body.name.trim(),
       slug,
       description: body.description?.trim() || undefined,

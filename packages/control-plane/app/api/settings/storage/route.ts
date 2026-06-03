@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
-import { getStorageConfig, setStorageConfig, getSetting } from "@/lib/db";
+import { SettingsDAO } from "@/db";
+import { getStorageConfig, setStorageConfig } from "@/lib/db";
 
 // GET /api/settings/storage
 /**
@@ -166,7 +167,7 @@ export async function PUT(request: NextRequest) {
       );
     }
     // secretAccessKey is only required if not already saved
-    if (!secretAccessKey && !getSetting("s3_secret_access_key_enc")) {
+    if (!secretAccessKey && !await SettingsDAO.get("s3_secret_access_key_enc")) {
       return NextResponse.json(
         {
           error:

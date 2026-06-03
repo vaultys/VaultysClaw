@@ -1,16 +1,10 @@
+import { RealmDAO, SettingsDAO, UserDAO } from "@/db";
+
 /**
  * Microsoft Entra ID (Azure AD) sync via MS Graph API.
  * Uses the OAuth2 client credentials flow — no user interaction required.
  */
 
-import {
-  getSetting,
-  setSetting,
-  createRealm,
-  getRealmBySlug,
-  addUserToRealm,
-} from "./db";
-import { UserDao } from "./user-dao";
 
 /** Sentinel value in groupRealmMap meaning "create a new realm named after this group". */
 export const CREATE_REALM_SENTINEL = "__create__";
@@ -23,18 +17,18 @@ export interface EntraConfig {
   clientSecret: string;
 }
 
-export function getEntraConfig(): EntraConfig | null {
-  const tenantId = getSetting("entra_tenant_id");
-  const clientId = getSetting("entra_client_id");
-  const clientSecret = getSetting("entra_client_secret");
+export async function getEntraConfig(): Promise<EntraConfig | null> {
+  const tenantId = await SettingsDAO.get("entra_tenant_id");
+  const clientId = await SettingsDAO.get("entra_client_id");
+  const clientSecret = await SettingsDAO.get("entra_client_secret");
   if (!tenantId || !clientId || !clientSecret) return null;
   return { tenantId, clientId, clientSecret };
 }
 
-export function saveEntraConfig(config: EntraConfig): void {
-  setSetting("entra_tenant_id", config.tenantId);
-  setSetting("entra_client_id", config.clientId);
-  setSetting("entra_client_secret", config.clientSecret);
+export async function saveEntraConfig(config: EntraConfig): Promise<void> {
+  await SettingsDAO.set("entra_tenant_id", config.tenantId);
+  await SettingsDAO.set("entra_client_id", config.clientId);
+  await SettingsDAO.set("entra_client_secret", config.clientSecret);
 }
 
 // ── MS Graph types ────────────────────────────────────────────────────────────
@@ -268,7 +262,7 @@ async function graphGetAll<T>(path: string, token: string): Promise<T[]> {
 
 /** List all groups in the tenant. */
 export async function listEntraGroups(): Promise<EntraGroup[]> {
-  const config = getEntraConfig();
+  const config = await getEntraConfig();
   if (!config) throw new Error("Entra not configured");
   const token = await getAccessToken(config);
   return graphGetAll<EntraGroup>(
@@ -281,7 +275,7 @@ export async function listEntraGroups(): Promise<EntraGroup[]> {
 export async function listGroupMembers(
   groupId: string
 ): Promise<EntraMember[]> {
-  const config = getEntraConfig();
+  const config = await getEntraConfig();
   if (!config) throw new Error("Entra not configured");
   const token = await getAccessToken(config);
   const members = await graphGetAll<EntraMember & { "@odata.type"?: string }>(
@@ -296,7 +290,7 @@ export async function listGroupMembers(
 
 /** List all users in the tenant. */
 export async function listAllEntraUsers(): Promise<EntraMember[]> {
-  const config = getEntraConfig();
+  const config = await getEntraConfig();
   if (!config) throw new Error("Entra not configured");
   const token = await getAccessToken(config);
   return graphGetAll<EntraMember>(
@@ -352,11 +346,11 @@ export async function syncEntraUsers(opts: SyncOptions): Promise<SyncResult> {
       .replace(/^-|-$/g, "");
 
     // Reuse an existing realm with the same slug to keep the operation idempotent.
-    const existing = getRealmBySlug(slug);
+    const existing = await RealmDAO.findBySlug(slug);
     if (existing) {
       resolvedRealmMap[gid] = existing.id;
     } else {
-      const realm = createRealm({ name: groupName, slug });
+      const realm = await RealmDAO.create({ name: groupName, slug });
       resolvedRealmMap[gid] = realm.id;
     }
   }
@@ -397,13 +391,13 @@ export async function syncEntraUsers(opts: SyncOptions): Promise<SyncResult> {
 
     try {
       // Check for existing user by Entra ID first, then by email
-      let existing = UserDao.getByEntraId(member.id);
-      if (!existing && email) existing = UserDao.getByEmail(email);
+      let existing = await UserDAO.findByEntraId(member.id);
+      if (!existing && email) existing = await UserDAO.findByEmail(email);
 
       if (existing) {
         // Update entra_id link if missing
-        if (!existing.entra_id) {
-          UserDao.linkEntraIdentity(
+        if (!existing.entraId) {
+          await UserDAO.linkEntraIdentity(
             existing.id,
             member.id,
             member.displayName ?? null,
@@ -411,7 +405,7 @@ export async function syncEntraUsers(opts: SyncOptions): Promise<SyncResult> {
           );
           result.updated++;
         } else {
-          UserDao.refreshEntraIdentity(
+          await UserDAO.refreshEntraIdentity(
             member.id,
             member.displayName ?? null,
             email
@@ -423,7 +417,7 @@ export async function syncEntraUsers(opts: SyncOptions): Promise<SyncResult> {
           const realmId = resolvedRealmMap[gid];
           if (realmId) {
             try {
-              addUserToRealm(existing.id, realmId);
+              await RealmDAO.addUserToRealm(existing.id, realmId);
             } catch {
               /* already member */
             }
@@ -433,7 +427,7 @@ export async function syncEntraUsers(opts: SyncOptions): Promise<SyncResult> {
       }
 
       // Create new placeholder user (did = NULL until they claim via QR)
-      const user = UserDao.createFromEntra(
+      const user = await UserDAO.createFromEntra(
         member.id,
         member.displayName ?? null,
         email
@@ -445,7 +439,7 @@ export async function syncEntraUsers(opts: SyncOptions): Promise<SyncResult> {
         const realmId = resolvedRealmMap[gid];
         if (realmId) {
           try {
-            addUserToRealm(user.id, realmId);
+            await RealmDAO.addUserToRealm(user.id, realmId);
           } catch {
             /* ignore */
           }

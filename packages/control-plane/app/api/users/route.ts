@@ -16,9 +16,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-config";
+import { GrantDAO, RealmDAO } from "@/db";
 import { UserDao } from "@/lib/user-dao";
-import { GrantDao } from "@/lib/grant-dao";
-import { getUserRealms } from "@/lib/db";
 
 /**
  * @openapi
@@ -147,38 +146,39 @@ export async function GET(request: NextRequest) {
     sortDir,
   });
 
-  const users = result.users.map((u) => {
-    const realms = getUserRealms(u.id);
+  const users = await Promise.all(result.users.map(async (u) => {
+    const realms = await RealmDAO.getUserRealms(u.id);
+    const grants = u.did
+      ? (await GrantDAO.listByUser(u.did)).map((g) => ({
+          id: g.id,
+          agentDid: g.agentDid,
+          capabilities: g.capabilities as string[],
+          grantedBy: g.grantedBy,
+          expiresAt: g.expiresAt,
+          createdAt: g.createdAt,
+        }))
+      : [];
     return {
       id: u.id,
       did: u.did,
       name: u.name ?? null,
       email: u.email ?? null,
-      isOwner: u.is_owner === 1,
-      isAdmin: u.is_admin === 1 || u.is_owner === 1,
+      isOwner: Boolean(u.is_owner),
+      isAdmin: Boolean(u.is_admin) || Boolean(u.is_owner),
       role: u.role,
       registeredAt: u.registered_at,
       entraId: u.entra_id ?? null,
       claimedAt: u.claimed_at ?? null,
       realms: realms.map((r) => ({
-        id: r.realm_id,
-        name: r.name,
-        slug: r.slug,
-        color: r.color,
-        isPrimary: Boolean(r.is_primary),
+        id: r.realm.id,
+        name: r.realm.name,
+        slug: r.realm.slug,
+        color: r.realm.color,
+        isPrimary: Boolean(r.isPrimary),
       })),
-      grants: u.did
-        ? GrantDao.listByUser(u.did).map((g) => ({
-            id: g.id,
-            agentDid: g.agent_did,
-            capabilities: JSON.parse(g.capabilities) as string[],
-            grantedBy: g.granted_by,
-            expiresAt: g.expires_at,
-            createdAt: g.created_at,
-          }))
-        : [],
+      grants,
     };
-  });
+  }));
 
   return NextResponse.json({
     users,

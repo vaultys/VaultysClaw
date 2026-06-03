@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
-import { getDb, getFileStorage } from "@/lib/db";
 import { generateFileKey } from "@/lib/file-storage";
+import { getDb } from "@/lib/db";
+import { getFileStorage } from "@/lib/file-storage-manager";
 
 // POST /api/settings/storage/migrate
 // Migrate files from SQLite BLOB storage to filesystem/S3 storage
@@ -42,17 +43,13 @@ export async function POST(request: NextRequest) {
   if (!auth.isGlobalAdmin) return forbidden();
 
   try {
-    const d = getDb();
     const storage = await getFileStorage();
+    const db = getDb();
 
     // Find all files with content BLOB but no file_path
-    const rows = d
+    const rows = db
       .prepare(
-        `
-      SELECT id, source_id, name, content FROM knowledge_files
-      WHERE content IS NOT NULL AND file_path IS NULL
-      LIMIT 100
-    `
+        "SELECT id, source_id, name, content FROM knowledge_files WHERE content IS NOT NULL AND file_path IS NULL LIMIT 100"
       )
       .all() as Array<{
       id: string;
@@ -82,12 +79,8 @@ export async function POST(request: NextRequest) {
         await storage.write(fileKey, row.content);
 
         // Update database with file_path and clear content
-        d.prepare(
-          `
-          UPDATE knowledge_files
-          SET file_path = ?, content = NULL
-          WHERE id = ?
-        `
+        db.prepare(
+          "UPDATE knowledge_files SET file_path = ?, content = NULL WHERE id = ?"
         ).run(fileKey, row.id);
 
         successCount++;

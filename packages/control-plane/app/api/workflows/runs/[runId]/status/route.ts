@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getWorkflowRun, getWorkflow } from "@/lib/db";
 import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
+import { WorkflowDAO } from "@/db";
 
 type Params = { runId: string };
 
@@ -65,7 +65,7 @@ export async function GET(
 
     const { runId } = await params;
 
-    const run = getWorkflowRun(runId);
+    const run = await WorkflowDAO.findRun(runId);
     if (!run) {
       return NextResponse.json(
         { error: "Workflow run not found" },
@@ -73,18 +73,18 @@ export async function GET(
       );
     }
 
-    const workflow = getWorkflow(run.workflow_id);
-    if (workflow?.realm_id && !auth.canAccessRealm(workflow.realm_id))
+    const workflow = await WorkflowDAO.findById(run.workflowId);
+    if (workflow?.realmId && !(await auth.canAccessRealm(workflow.realmId)))
       return forbidden();
 
     return NextResponse.json({
       success: true,
       runId: run.id,
-      workflowId: run.workflow_id,
+      workflowId: run.workflowId,
       status: run.status,
-      startedAt: run.started_at,
-      completedAt: run.completed_at,
-      results: run.results ? JSON.parse(run.results) : null,
+      startedAt: run.startedAt,
+      completedAt: run.completedAt,
+      results: run.results ? run.results : null,
     });
   } catch (err) {
     console.error("GET /api/workflows/runs/[runId]/status error:", err);

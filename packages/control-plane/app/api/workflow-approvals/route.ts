@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-config";
-import { getPendingApprovalsForUser, getAllApprovalsForUser } from "@/lib/db";
+import { WorkflowDAO } from "@/db";
 
 /**
  * GET /api/workflow-approvals[?all=1]
@@ -47,8 +47,8 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const all = searchParams.get("all") === "1";
     const approvals = all
-      ? getAllApprovalsForUser(session.user.did)
-      : getPendingApprovalsForUser(session.user.did);
+      ? await WorkflowDAO.getAllApprovalsForUser(session.user.did)
+      : await WorkflowDAO.getPendingApprovalsForUser(session.user.did);
 
     return NextResponse.json({ approvals });
   } catch (err) {

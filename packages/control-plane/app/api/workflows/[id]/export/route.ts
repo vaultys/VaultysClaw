@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getWorkflow } from "@/lib/db";
 import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
+import { WorkflowDAO } from "@/db";
 
 /**
  * @openapi
@@ -49,7 +49,7 @@ export async function GET(
   if (!auth) return unauthorized();
 
   const { id } = await params;
-  const workflow = getWorkflow(id);
+  const workflow = await WorkflowDAO.findById(id);
 
   if (!workflow) {
     return NextResponse.json(
@@ -58,13 +58,13 @@ export async function GET(
     );
   }
 
-  if (workflow.realm_id && !auth.canAccessRealm(workflow.realm_id))
+  if (workflow.realmId && !(await auth.canAccessRealm(workflow.realmId)))
     return forbidden();
 
   const exportData = {
     name: workflow.name,
     description: workflow.description,
-    definition: JSON.parse(workflow.definition),
+    definition: workflow.definition,
     exportedAt: new Date().toISOString(),
     version: "1.0",
   };

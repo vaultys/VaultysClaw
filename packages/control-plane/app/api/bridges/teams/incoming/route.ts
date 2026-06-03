@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ChannelBridgeService } from "@/lib/channel-bridge-service";
-import { ChannelBridgeDao } from "@/lib/channel-bridge-dao";
 import { ChannelService } from "@/lib/channel-service";
 import { MessageDispatcher } from "@/lib/message-dispatcher";
 import { TeamsGateway } from "@/lib/bridges/teams-gateway";
+import { ChannelBridgeDAO } from "@/db";
 
 /**
  * POST /api/bridges/teams/incoming
@@ -112,7 +112,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Find bridge by external channel ID
-    const bridge = ChannelBridgeDao.getByExternalChannelId(
+    const bridge = ChannelBridgeDAO.getByExternalChannelId(
       "teams",
       teamsChannelId
     );

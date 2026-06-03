@@ -1,17 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import {
-  getRealmById,
-  addAgentToRealm,
-  removeAgentFromRealm,
-  getAgent,
-  getRealmRouterKey,
-  getModelsByRealm,
-  setAgentLlmConfig,
-} from "@/lib/db";
 import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
 import { isLiteLLMConfigured, getLiteLLMBaseUrl } from "@/lib/litellm-client";
 import { getWSServer } from "@/lib/ws-server";
 import type { LlmConfig } from "@vaultysclaw/shared";
+import { AgentDAO, ModelDAO, RealmDAO } from "@/db";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -76,9 +68,9 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     if (!auth) return unauthorized();
 
     const { id } = await ctx.params;
-    if (!auth.canAdminRealm(id)) return forbidden();
+    if (!(await auth.canAdminRealm(id))) return forbidden();
 
-    const realm = getRealmById(id);
+    const realm = await RealmDAO.findById(id);
     if (!realm)
       return NextResponse.json({ error: "Realm not found" }, { status: 404 });
 
@@ -92,32 +84,32 @@ export async function POST(req: NextRequest, ctx: Ctx) {
         { status: 400 }
       );
 
-    const agent = getAgent(body.agentDid);
+    const agent = await AgentDAO.findByDid(body.agentDid);
     if (!agent)
       return NextResponse.json({ error: "Agent not found" }, { status: 404 });
 
-    addAgentToRealm(body.agentDid, id, body.isPrimary ?? false);
+    await AgentDAO.addToRealm(body.agentDid, id, body.isPrimary ?? false);
 
     // Auto-push LiteLLM config if the realm has a virtual key and accessible models
     let llmPushed = false;
     if (isLiteLLMConfigured()) {
       try {
-        const routerKey = getRealmRouterKey(id);
-        if (routerKey?.litellm_virtual_key) {
-          const models = getModelsByRealm(id).filter(
-            (m) => m.status === "active" && m.litellm_model_name
+        const routerKey = await RealmDAO.getRouterKey(id);
+        if (routerKey?.litellmVirtualKey) {
+          const models = (await ModelDAO.findByRealm(id)).filter(
+            (m) => m.status === "active" && m.litellmModelName
           );
           const firstModel = models[0];
-          if (firstModel?.litellm_model_name) {
+          if (firstModel?.litellmModelName) {
             const config: LlmConfig = {
               provider: "openai-compatible",
               baseUrl: getLiteLLMBaseUrl(),
-              apiKey: routerKey.litellm_virtual_key,
-              model: firstModel.litellm_model_name,
+              apiKey: routerKey.litellmVirtualKey,
+              model: firstModel.litellmModelName,
             };
-            setAgentLlmConfig(body.agentDid, config);
+            await AgentDAO.setLlmConfig(body.agentDid, config);
             const wsServer = getWSServer();
-            llmPushed = wsServer?.sendLlmConfig(body.agentDid, config) ?? false;
+            llmPushed = (await wsServer?.sendLlmConfig(body.agentDid, config)) ?? false;
           }
         }
       } catch (e) {
@@ -183,7 +175,7 @@ export async function DELETE(req: NextRequest, ctx: Ctx) {
     if (!auth) return unauthorized();
 
     const { id } = await ctx.params;
-    if (!auth.canAdminRealm(id)) return forbidden();
+    if (!(await auth.canAdminRealm(id))) return forbidden();
 
     const body = (await req.json()) as { agentDid?: string };
     if (!body.agentDid)
@@ -192,7 +184,7 @@ export async function DELETE(req: NextRequest, ctx: Ctx) {
         { status: 400 }
       );
 
-    const ok = removeAgentFromRealm(body.agentDid, id);
+    const ok = await AgentDAO.removeFromRealm(body.agentDid, id);
     if (!ok)
       return NextResponse.json(
         { error: "Cannot remove agent from the default realm" },

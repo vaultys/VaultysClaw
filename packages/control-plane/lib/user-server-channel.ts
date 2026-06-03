@@ -1,12 +1,11 @@
 /**
  * UserServerChannel — VaultysID challenger protocol for human user authentication.
  * Adapted from temp/serverChannel.ts, replacing the DAO/Redis/Prisma layer with
- * VaultysClaw's SQLite-backed CertificateDao and UserDao.
+ * VaultysClaw's Prisma-backed CertificateDAO and UserDAO.
  */
 import { Challenger, CryptoChannel, VaultysId, crypto } from "@vaultys/id";
-import { getSetting } from "./db";
-import { CertificateDao, type Certificate } from "./certificate-dao";
-import { UserDao } from "./user-dao";
+import { CertificateDAO, SettingsDAO, UserDAO, prisma } from "@/db";
+import type { Certificate } from "@prisma/client";
 
 const Buffer = crypto.Buffer;
 
@@ -31,11 +30,10 @@ const getErrorMessage = (error: unknown): string => {
 
 const handleError = async (
   error: string,
-  cert?: Certificate
+  cert?: Certificate & { metadata: string | null }
 ): Promise<Uint8Array> => {
   if (cert) {
-    CertificateDao.update(cert.id, {
-      ...cert,
+    await CertificateDAO.update(cert.id, {
       status: -2,
       metadata: JSON.stringify({
         ...JSON.parse(cert.metadata ?? "{}"),
@@ -46,15 +44,15 @@ const handleError = async (
   return new Uint8Array([0]);
 };
 
-const registerUser = (contact: VaultysId, pendingUserId?: string): boolean => {
+const registerUser = async (contact: VaultysId, pendingUserId?: string): Promise<boolean> => {
   const did = contact.toVersion(1).did;
   const publicKey = contact.id.toString("base64");
-  const existing = UserDao.getByDid(did);
+  const existing = await UserDAO.findByDid(did);
   console.log(`[registerUser] did=${did} existing=${JSON.stringify(existing)}`);
   if (existing) {
     // If this real DID already exists and was an Entra/email placeholder, mark as claimed.
-    if (!existing.claimed_at && (existing.entra_id || !existing.did)) {
-      UserDao.claimEntraUser(existing.id, did, publicKey);
+    if (!existing.claimedAt && (existing.entraId || !existing.did)) {
+      await UserDAO.claim(existing.id, did, publicKey);
     }
     console.log(`[registerUser] already registered — returning true`);
     return true;
@@ -62,26 +60,26 @@ const registerUser = (contact: VaultysId, pendingUserId?: string): boolean => {
 
   // If the cert was generated for a specific unclaimed user (Entra or email-invited), claim that record.
   if (pendingUserId) {
-    const pending = UserDao.getById(pendingUserId);
-    if (pending && !pending.claimed_at && !pending.did) {
+    const pending = await UserDAO.findById(pendingUserId);
+    if (pending && !pending.claimedAt && !pending.did) {
       console.log(
         `[registerUser] claiming unclaimed user id=${pendingUserId} → ${did}`
       );
-      UserDao.claimEntraUser(pendingUserId, did, publicKey);
+      await UserDAO.claim(pendingUserId, did, publicKey);
       return true;
     }
   }
 
-  const isOwner = !UserDao.hasAnyUser();
+  const isOwner = (await UserDAO.list({ page: 1, pageSize: 1 })).total === 0;
   console.log(`[registerUser] creating new user isOwner=${isOwner}`);
-  UserDao.create(did, publicKey, isOwner);
+  await UserDAO.create(did, publicKey, isOwner);
   console.log(`[registerUser] created successfully`);
   return true;
 };
 
-const loginUser = (contact: VaultysId): boolean => {
+const loginUser = async (contact: VaultysId): Promise<boolean> => {
   const did = contact.toVersion(1).did;
-  const user = UserDao.getByDid(did);
+  const user = await UserDAO.findByDid(did);
   console.log(`[loginUser] did=${did} found=${JSON.stringify(user)}`);
   if (!user) {
     console.warn(
@@ -91,7 +89,20 @@ const loginUser = (contact: VaultysId): boolean => {
   return user !== null;
 };
 
-const handleSuccess = (cert: Certificate, challenger: Challenger): boolean => {
+// Mutable working copy of a Certificate during the challenger protocol
+type MutableCert = {
+  id: string;
+  key: string;
+  registration: string | null;
+  connection: string | null;
+  register: number;
+  data: string;
+  status: number;
+  metadata: string | null;
+  startedAt: Date;
+};
+
+const handleSuccess = async (cert: MutableCert, challenger: Challenger): Promise<boolean> => {
   const contact = challenger.getContactId();
   const did = contact.toVersion(1).did;
   const meta = JSON.parse(cert.metadata ?? "{}") as Record<string, unknown>;
@@ -120,12 +131,12 @@ const handleSuccess = (cert: Certificate, challenger: Challenger): boolean => {
     console.log(
       `[handleSuccess] register=1 → calling registerUser (pendingUserId=${pendingUserId})`
     );
-    ok = registerUser(contact, pendingUserId);
+    ok = await registerUser(contact, pendingUserId);
   } else {
     console.log(
       `[handleSuccess] register=0 → calling loginUser (hasAnyUser at cert creation time was true)`
     );
-    ok = loginUser(contact);
+    ok = await loginUser(contact);
   }
   if (ok) {
     meta.did = did;
@@ -151,37 +162,39 @@ export const parseUserAgent = (
 };
 
 export class UserServerChannel {
-  static createRegistrationCertificate(
+  static async createRegistrationCertificate(
     metadata?: Record<string, unknown>
-  ): Certificate {
+  ): Promise<Certificate> {
     const key = crypto.randomBytes(32).toString("hex");
     const registration = registrationKey(key);
     const connection = connectionKey(key);
-    return CertificateDao.create({
+    const id = crypto.randomBytes(16).toString("hex");
+    return CertificateDAO.create({
+      id,
       key,
       registration,
       connection,
       register: 1,
       data: "",
-      status: -1,
-      metadata: metadata ? JSON.stringify(metadata) : null,
+      metadata: metadata ? JSON.stringify(metadata) : undefined,
     });
   }
 
-  static createConnectionCertificate(
+  static async createConnectionCertificate(
     metadata?: Record<string, unknown>
-  ): Certificate {
+  ): Promise<Certificate> {
     const key = crypto.randomBytes(32).toString("hex");
     const registration = registrationKey(key);
     const connection = connectionKey(key);
-    return CertificateDao.create({
+    const id = crypto.randomBytes(16).toString("hex");
+    return CertificateDAO.create({
+      id,
       key,
       registration,
       connection,
       register: 0,
       data: "",
-      status: -1,
-      metadata: metadata ? JSON.stringify(metadata) : null,
+      metadata: metadata ? JSON.stringify(metadata) : undefined,
     });
   }
 
@@ -192,7 +205,7 @@ export class UserServerChannel {
     deviceType: "BROWSER" | "BROWSER_EXTENSION" = "BROWSER"
   ): Promise<{ key: string } | undefined> {
     const { browser, os } = userAgent ? parseUserAgent(userAgent) : {};
-    const cert = UserServerChannel.createConnectionCertificate({
+    const cert = await UserServerChannel.createConnectionCertificate({
       id: browserVid,
       deviceType,
       ip,
@@ -205,11 +218,11 @@ export class UserServerChannel {
     return { key: encryptedKey };
   }
 
-  static listenBastion(
+  static async listenBastion(
     token: string
-  ): { status: number; browserDid?: string } | null {
+  ): Promise<{ status: number; browserDid?: string } | null> {
     if (!token) return null;
-    const cert = CertificateDao.getByConnection(token);
+    const cert = await CertificateDAO.findByConnection(token);
     if (!cert) return null;
     if (cert.status === 2) {
       const metadata: Record<string, unknown> = JSON.parse(
@@ -226,11 +239,14 @@ export class UserServerChannel {
   static async handleRequest(token: string, data: string): Promise<Uint8Array> {
     if (!token) return handleError("No token");
 
-    const cert = CertificateDao.getByRegistration(token);
-    if (!cert) return handleError("No certificate found");
+    const dbCert = await CertificateDAO.findByRegistration(token);
+    if (!dbCert) return handleError("No certificate found");
+
+    // Work with a mutable copy so we can track in-progress state changes
+    const cert: MutableCert = { ...dbCert };
 
     const uintkey = Buffer.from(cert.key, "hex");
-    const serverSecret = getSetting("serverSecret");
+    const serverSecret = await SettingsDAO.get("serverSecret");
     if (!serverSecret)
       return handleError("Server identity not initialized", cert);
 
@@ -269,26 +285,28 @@ export class UserServerChannel {
     }
 
     if (challenger.isComplete()) {
-      if (!handleSuccess(cert, challenger)) {
+      if (!(await handleSuccess(cert, challenger))) {
         return handleError("Failed to register or authenticate user", cert);
       }
     }
 
-    CertificateDao.update(cert.id, {
+    await CertificateDAO.update(cert.id, {
       status: cert.status,
       data: cert.data,
-      metadata: cert.metadata,
+      metadata: cert.metadata ?? undefined,
     });
     return CryptoChannel.encrypt(certificate, uintkey);
   }
 
-  static consumeCertificate(key: string): boolean {
+  static async consumeCertificate(key: string): Promise<boolean> {
     // Certificates are keyed by connection token (sha256 hash), not the raw key.
     // Look up the cert first, then delete by its connection column.
-    const cert = CertificateDao.getByKey(key);
-    if (!cert) return false;
-    const { count } = CertificateDao.consumeCertificate(cert.connection);
-    return count === 1;
+    const cert = await CertificateDAO.findByKey(key);
+    if (!cert || !cert.connection) return false;
+    const result = await prisma.certificate.deleteMany({
+      where: { connection: cert.connection, status: 2 },
+    });
+    return result.count === 1;
   }
 
   /**
@@ -302,7 +320,7 @@ export class UserServerChannel {
   static async startP2PSession(cert: Certificate): Promise<string> {
     const { PeerjsChannel } = await import("@vaultys/channel-peerjs");
 
-    const peerjsHost = getSetting("peerjs_host") || undefined;
+    const peerjsHost = await SettingsDAO.get("peerjs_host") || undefined;
     const channel = new PeerjsChannel(cert.key, "initiator", peerjsHost);
     const connectionString = channel.getConnectionString();
 
@@ -310,6 +328,9 @@ export class UserServerChannel {
     // polyfilled at server startup via lib/webrtc-polyfill.ts.
     // The API route returns immediately; the session lives in the Node.js event loop.
     (async () => {
+      // Work with a mutable copy so we can track in-progress state changes
+      const mutableCert: MutableCert = { ...cert };
+
       console.log(
         `[P2P] session started for cert.id=${cert.id} key=${cert.key.slice(0, 8)}...`
       );
@@ -319,10 +340,10 @@ export class UserServerChannel {
         await channel.start();
         console.log(`[P2P] wallet connected`);
 
-        const serverSecret = getSetting("serverSecret");
+        const serverSecret = await SettingsDAO.get("serverSecret");
         if (!serverSecret) {
           console.error(`[P2P] no serverSecret — aborting`);
-          CertificateDao.update(cert.id, { status: -2 });
+          await CertificateDAO.update(cert.id, { status: -2 });
           return;
         }
 
@@ -352,7 +373,7 @@ export class UserServerChannel {
               `[P2P] round ${round}: challenger.update() threw:`,
               updateErr
             );
-            CertificateDao.update(cert.id, { status: -2 });
+            await CertificateDAO.update(cert.id, { status: -2 });
             break;
           }
 
@@ -361,14 +382,14 @@ export class UserServerChannel {
             `[P2P] round ${round}: challenger state after update=${challenger.state}, protocol=${ctx.protocol}, service=${ctx.service}`
           );
 
-          cert.data = challenger.getCertificate().toString("base64");
-          cert.status = challenger.state;
+          mutableCert.data = challenger.getCertificate().toString("base64");
+          mutableCert.status = challenger.state;
 
           if (challenger.hasFailed()) {
             console.error(
               `[P2P] round ${round}: challenger.hasFailed() — error=${(challenger as unknown as { challenge?: { error?: string } }).challenge?.error}`
             );
-            CertificateDao.update(cert.id, { status: -2, data: cert.data });
+            await CertificateDAO.update(cert.id, { status: -2, data: mutableCert.data });
             break;
           }
 
@@ -377,7 +398,7 @@ export class UserServerChannel {
             `[P2P] round ${round}: verifyProtocol=${protocolOk} (expected protocol=p2p, service=register|auth, got protocol=${ctx.protocol}, service=${ctx.service})`
           );
           if (!protocolOk) {
-            CertificateDao.update(cert.id, { status: -2, data: cert.data });
+            await CertificateDAO.update(cert.id, { status: -2, data: mutableCert.data });
             break;
           }
 
@@ -385,14 +406,14 @@ export class UserServerChannel {
             console.log(
               `[P2P] round ${round}: protocol COMPLETE — calling handleSuccess`
             );
-            const ok = handleSuccess(cert, challenger);
+            const ok = await handleSuccess(mutableCert, challenger);
             console.log(
-              `[P2P] round ${round}: handleSuccess=${ok}, metadata=${cert.metadata}`
+              `[P2P] round ${round}: handleSuccess=${String(ok)}, metadata=${mutableCert.metadata}`
             );
-            CertificateDao.update(cert.id, {
+            await CertificateDAO.update(cert.id, {
               status: ok ? 2 : -2,
-              data: cert.data,
-              metadata: cert.metadata,
+              data: mutableCert.data,
+              metadata: mutableCert.metadata ?? undefined,
             });
             break;
           }
@@ -406,7 +427,7 @@ export class UserServerChannel {
         }
       } catch (err) {
         console.error("[P2P session error]", err);
-        CertificateDao.update(cert.id, { status: -2 });
+        await CertificateDAO.update(cert.id, { status: -2 });
       } finally {
         console.log(`[P2P] session ending for cert.id=${cert.id}`);
         await channel.close().catch(() => {});
@@ -416,13 +437,13 @@ export class UserServerChannel {
     return connectionString;
   }
 
-  static connecting(token: string): Certificate | null {
+  static async connecting(token: string): Promise<Certificate | null> {
     if (!token) return null;
-    return CertificateDao.getByKey(token);
+    return CertificateDAO.findByKey(token);
   }
 
-  static listen(token: string): Certificate | null {
+  static async listen(token: string): Promise<Certificate | null> {
     if (!token) return null;
-    return CertificateDao.getByConnection(token);
+    return CertificateDAO.findByConnection(token);
   }
 }

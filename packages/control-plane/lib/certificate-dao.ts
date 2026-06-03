@@ -1,5 +1,5 @@
-import { getDb } from "./db";
 import { randomBytes } from "crypto";
+import { getDb } from "@/lib/db";
 
 export interface Certificate {
   id: string;

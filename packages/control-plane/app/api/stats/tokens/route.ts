@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
-import { getTotalFleetTokenUsage, getDb } from "@/lib/db";
+import { AgentDAO } from "@/db";
+import { getDb } from "@/lib/db";
 
 function getFleetHistoryTotals(granularity: "day" | "month", bucket: string) {
-  const d = getDb();
-  const result = d
+  const db = getDb();
+  const result = db
     .prepare(
       `
     SELECT
@@ -60,7 +61,7 @@ export async function GET(request: NextRequest) {
   const todayBucket = now.toISOString().slice(0, 10); // YYYY-MM-DD
   const monthBucket = now.toISOString().slice(0, 7); // YYYY-MM
 
-  const allTime = getTotalFleetTokenUsage();
+  const allTime = await AgentDAO.getTotalFleetTokenUsage();
   const daily = getFleetHistoryTotals("day", todayBucket);
   const monthly = getFleetHistoryTotals("month", monthBucket);
 

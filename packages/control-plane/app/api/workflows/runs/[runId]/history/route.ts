@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getWorkflowRunHistory, getWorkflow } from "@/lib/db";
 import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
+import { WorkflowDAO } from "@/db";
 
 type Params = { runId: string };
 
@@ -102,7 +102,7 @@ export async function GET(
 
     const { runId } = await params;
 
-    const history = getWorkflowRunHistory(runId);
+    const history = await WorkflowDAO.getRunHistory(runId);
     if (!history) {
       return NextResponse.json(
         { error: "Workflow run not found" },
@@ -110,32 +110,32 @@ export async function GET(
       );
     }
 
-    const workflow = getWorkflow(history.run.workflow_id);
-    if (workflow?.realm_id && !auth.canAccessRealm(workflow.realm_id))
+    const workflow = await WorkflowDAO.findById(history.run.workflowId);
+    if (workflow?.realmId && !(await auth.canAccessRealm(workflow.realmId)))
       return forbidden();
 
     return NextResponse.json({
       success: true,
       run: {
         id: history.run.id,
-        workflowId: history.run.workflow_id,
+        workflowId: history.run.workflowId,
         status: history.run.status,
-        startedAt: history.run.started_at,
-        completedAt: history.run.completed_at,
-        results: history.run.results ? JSON.parse(history.run.results) : null,
+        startedAt: history.run.startedAt,
+        completedAt: history.run.completedAt,
+        results: history.run.results ? history.run.results : null,
       },
       steps: history.steps.map((step) => ({
         id: step.id,
-        stepId: step.step_id,
-        agentId: step.agent_id,
-        assignedUserId: step.assigned_user_id ?? null,
-        assignedUserName: step.assigned_user_name ?? null,
-        assignedUserEmail: step.assigned_user_email ?? null,
+        stepId: step.stepId,
+        agentId: step.agentId,
+        assignedUserId: step.assignedUserId ?? null,
+        assignedUserName: step.assignedUserName ?? null,
+        assignedUserEmail: step.assignedUserEmail ?? null,
         status: step.status,
-        output: step.output ? JSON.parse(step.output) : null,
+        output: step.output ? step.output : null,
         error: step.error,
-        startedAt: step.started_at,
-        completedAt: step.completed_at,
+        startedAt: step.startedAt,
+        completedAt: step.completedAt,
       })),
     });
   } catch (err) {

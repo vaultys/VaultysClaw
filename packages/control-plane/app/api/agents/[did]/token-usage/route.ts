@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAgentTokenUsageHistory } from "@/lib/db";
 import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
+import { AgentDAO } from "@/db";
 
 type Ctx = { params: Promise<{ did: string }> };
 
@@ -90,10 +90,8 @@ export async function GET(req: NextRequest, ctx: Ctx) {
     const { did } = await ctx.params;
     const agentDid = decodeURIComponent(did);
 
-    // Token usage is only accessible to owner or admin
-    if (!auth.isGlobalAdmin) return forbidden();
-
-    if (!auth.canAccessAgent(agentDid)) return forbidden();
+    // Token usage is only accessible to global admin or the agent's realm members
+    if (!auth.isGlobalAdmin && !(await auth.canAccessAgent(agentDid))) return forbidden();
     const { searchParams } = req.nextUrl;
 
     const granularity = (searchParams.get("granularity") ?? "day") as
@@ -120,10 +118,24 @@ export async function GET(req: NextRequest, ctx: Ctx) {
     const from = searchParams.get("from") ?? defaultFrom;
     const to = searchParams.get("to") ?? defaultTo;
 
-    const rows = getAgentTokenUsageHistory(agentDid, granularity, from, to);
+    const rows = await AgentDAO.getTokenUsageHistory(
+      agentDid,
+      granularity,
+      from,
+      to
+    );
 
     // Fill in missing buckets with zeros so the chart always has a complete series
-    const filled = fillBuckets(rows, granularity, from, to);
+    const filled = fillBuckets(
+      rows.map((r) => ({
+        bucket: r.bucket,
+        prompt_tokens: r.promptTokens,
+        completion_tokens: r.completionTokens,
+      })),
+      granularity,
+      from,
+      to
+    );
 
     return NextResponse.json({ granularity, from, to, data: filled });
   } catch (err) {

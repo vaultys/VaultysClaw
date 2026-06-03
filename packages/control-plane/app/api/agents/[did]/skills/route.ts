@@ -1,12 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import {
-  getAgent,
-  getAgentEffectiveSkills,
-  getRealmSkillById,
-  setAgentSkillOverride,
-} from "@/lib/db";
 import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
 import { sendSkillsConfig } from "@/lib/ws-server";
+import { AgentDAO, RealmSkillDAO, SkillOverrideDAO } from "@/db";
 
 type Ctx = { params: Promise<{ did: string }> };
 
@@ -54,13 +49,13 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
     if (!auth) return unauthorized();
 
     const { did } = await ctx.params;
-    if (!auth.canAccessAgent(did)) return forbidden();
+    if (!(await auth.canAccessAgent(did))) return forbidden();
 
-    const agent = getAgent(did);
+    const agent = await AgentDAO.findByDid(did);
     if (!agent)
       return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-    const skills = getAgentEffectiveSkills(did);
+    const skills = await SkillOverrideDAO.getEffectiveSkills(did);
     return NextResponse.json({ skills });
   } catch (err) {
     console.error(err);
@@ -134,9 +129,9 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
     if (!auth) return unauthorized();
 
     const { did } = await ctx.params;
-    if (!auth.canAdminAgent(did)) return forbidden();
+    if (!(await auth.canAdminAgent(did))) return forbidden();
 
-    const agent = getAgent(did);
+    const agent = await AgentDAO.findByDid(did);
     if (!agent)
       return NextResponse.json({ error: "Not found" }, { status: 404 });
 
@@ -157,23 +152,25 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
       );
     }
 
-    const skill = getRealmSkillById(body.realmSkillId);
+    const skill = await RealmSkillDAO.findById(body.realmSkillId);
     if (!skill) {
       return NextResponse.json({ error: "Skill not found" }, { status: 404 });
     }
-    if (skill.is_required === 1 && !body.enabled) {
+    if (skill.isRequired && !body.enabled) {
       return NextResponse.json(
         { error: "Cannot disable a required skill" },
         { status: 400 }
       );
     }
 
-    setAgentSkillOverride(did, body.realmSkillId, body.enabled);
+    await SkillOverrideDAO.set(did, body.realmSkillId, body.enabled);
 
     // Push updated skills config directly to this agent if connected
     sendSkillsConfig(did);
 
-    return NextResponse.json({ skills: getAgentEffectiveSkills(did) });
+    return NextResponse.json({
+      skills: await SkillOverrideDAO.getEffectiveSkills(did),
+    });
   } catch (err) {
     console.error(err);
     return NextResponse.json(

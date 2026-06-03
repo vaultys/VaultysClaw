@@ -46,7 +46,7 @@ export async function GET(request: NextRequest) {
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
 
-  const config = getSmtpConfig();
+  const config = await getSmtpConfig();
   if (!config) return NextResponse.json({ configured: false });
 
   return NextResponse.json({
@@ -120,13 +120,13 @@ export async function PUT(req: NextRequest) {
     );
   }
 
-  const existing = getSmtpConfig();
+  const existing = await getSmtpConfig();
   const password =
     body.password === "••••••••" && existing
       ? existing.password
       : (body.password ?? "");
 
-  saveSmtpConfig({
+  await saveSmtpConfig({
     host: body.host,
     port: body.port,
     secure: body.secure ?? false,
@@ -190,7 +190,7 @@ export async function POST(req: NextRequest) {
     from?: string;
   };
 
-  const existing = getSmtpConfig();
+  const existing = await getSmtpConfig();
 
   const config = {
     host: body.host ?? existing?.host ?? "",

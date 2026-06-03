@@ -1,12 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import {
-  getModelRegistryEntry,
-  updateModelRegistryEntry,
-  deleteModelRegistryEntry,
-  getModelRealmAccess,
-  getAllRealms,
-} from "@/lib/db";
 import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
+import { ModelDAO, RealmDAO } from "@/db";
 import {
   registerModel,
   removeModel,
@@ -52,12 +46,12 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
     if (!auth) return unauthorized();
 
     const { id } = await params;
-    const entry = getModelRegistryEntry(id);
+    const entry = await ModelDAO.findById(id);
     if (!entry)
       return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-    const realmAccess = getModelRealmAccess(id);
-    const allRealms = getAllRealms();
+    const realmAccess = await ModelDAO.getRealmAccess(id);
+    const allRealms = await RealmDAO.findAll();
 
     return NextResponse.json({
       model: {
@@ -65,20 +59,20 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
         name: entry.name,
         description: entry.description,
         provider: entry.provider,
-        modelId: entry.model_id,
-        baseUrl: entry.base_url,
-        hasApiKey: Boolean(entry.api_key_enc),
-        litellmModelName: entry.litellm_model_name,
+        modelId: entry.modelId,
+        baseUrl: entry.baseUrl,
+        hasApiKey: Boolean(entry.apiKeyEnc),
+        litellmModelName: entry.litellmModelName,
         status: entry.status,
-        metadata: JSON.parse(entry.metadata || "{}"),
-        createdAt: entry.created_at,
-        updatedAt: entry.updated_at,
+        metadata: (entry.metadata ?? {}) as Record<string, unknown>,
+        createdAt: entry.createdAt,
+        updatedAt: entry.updatedAt,
         realms: realmAccess.map((ra) => {
-          const realm = allRealms.find((r) => r.id === ra.realm_id);
+          const realm = allRealms.find((r) => r.id === ra.realmId);
           return {
-            realmId: ra.realm_id,
-            realmName: realm?.name ?? ra.realm_id,
-            grantedAt: ra.granted_at,
+            realmId: ra.realmId,
+            realmName: realm?.name ?? ra.realmId,
+            grantedAt: ra.grantedAt,
           };
         }),
       },
@@ -151,7 +145,7 @@ export async function PUT(req: NextRequest, { params }: Ctx) {
     if (!auth.isGlobalAdmin) return forbidden();
 
     const { id } = await params;
-    const entry = getModelRegistryEntry(id);
+    const entry = await ModelDAO.findById(id);
     if (!entry)
       return NextResponse.json({ error: "Not found" }, { status: 404 });
 
@@ -165,7 +159,7 @@ export async function PUT(req: NextRequest, { params }: Ctx) {
       status?: "active" | "inactive";
     };
 
-    updateModelRegistryEntry(id, {
+    await ModelDAO.update(id, {
       name: body.name?.trim(),
       description:
         body.description !== undefined
@@ -180,18 +174,19 @@ export async function PUT(req: NextRequest, { params }: Ctx) {
     });
 
     // Sync with LiteLLM if base URL or model changed
-    const updated = getModelRegistryEntry(id)!;
+    const updated = await ModelDAO.findById(id);
     if (
+      updated &&
       isLiteLLMConfigured() &&
-      updated.litellm_model_name &&
+      updated.litellmModelName &&
       (body.baseUrl || body.modelId || body.apiKey !== undefined)
     ) {
       try {
         await registerModel({
-          modelName: updated.litellm_model_name,
-          litellmModel: `openai/${updated.model_id}`,
-          apiBase: updated.base_url,
-          apiKey: updated.api_key_enc ?? undefined,
+          modelName: updated.litellmModelName,
+          litellmModel: `openai/${updated.modelId}`,
+          apiBase: updated.baseUrl,
+          apiKey: updated.apiKeyEnc ?? undefined,
         });
       } catch (e) {
         console.warn("LiteLLM sync failed (non-fatal):", e);
@@ -241,19 +236,19 @@ export async function DELETE(_req: NextRequest, { params }: Ctx) {
     if (!auth.isGlobalAdmin) return forbidden();
 
     const { id } = await params;
-    const entry = getModelRegistryEntry(id);
+    const entry = await ModelDAO.findById(id);
     if (!entry)
       return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-    if (isLiteLLMConfigured() && entry.litellm_model_name) {
+    if (isLiteLLMConfigured() && entry.litellmModelName) {
       try {
-        await removeModel(entry.litellm_model_name);
+        await removeModel(entry.litellmModelName);
       } catch (e) {
         console.warn("LiteLLM removal failed (non-fatal):", e);
       }
     }
 
-    deleteModelRegistryEntry(id);
+    await ModelDAO.delete(id);
     return NextResponse.json({ ok: true });
   } catch (err) {
     console.error(err);

@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext, unauthorized } from "@/lib/auth-utils";
-import { getUserRealms } from "@/lib/db";
-import { UserDao } from "@/lib/user-dao";
+import { RealmDAO, UserDAO } from "@/db";
 
 /**
  * GET /api/me/realms
@@ -47,16 +46,16 @@ export async function GET(req: NextRequest) {
 
     // user_realms.user_id references users.id (UUID), not users.did
     // Resolve UUID from the session DID
-    const user = UserDao.getByDid(auth.did);
+    const user = await UserDAO.findByDid(auth.did);
     const userId = user?.id ?? auth.did;
 
-    const rows = getUserRealms(userId);
+    const rows = await RealmDAO.getUserRealms(userId);
 
     const realms = rows.map((r) => ({
-      id: r.realm_id,
-      name: r.name,
-      slug: r.slug,
-      color: r.color,
+      id: r.realm.id,
+      name: r.realm.name,
+      slug: r.realm.slug,
+      color: r.realm.color,
     }));
 
     return NextResponse.json({ realms });

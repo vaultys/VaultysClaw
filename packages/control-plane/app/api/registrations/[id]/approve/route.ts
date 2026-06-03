@@ -1,13 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import {
-  getPendingRegistration,
-  addAgentToRealm,
-  getAllRealms,
-  getAgentByName,
-} from "@/lib/db";
 import { getWSServer } from "@/lib/ws-server";
 import type { AgentCapability } from "@vaultysclaw/shared";
 import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
+import { AgentDAO, PendingRegistrationDAO, RealmDAO } from "@/db";
 
 /**
  * POST /api/registrations/[id]/approve
@@ -100,7 +95,7 @@ export async function POST(
       );
     }
 
-    const registration = getPendingRegistration(id);
+    const registration = await PendingRegistrationDAO.findById(id);
     if (!registration) {
       return NextResponse.json(
         { error: "Registration not found" },
@@ -131,16 +126,16 @@ export async function POST(
       );
     }
 
-    const agentRow = getAgentByName(registration.agent_name);
+    const agentRow = await AgentDAO.findByName(registration.agentName);
 
     // Enroll agent in additional selected realms (default realm is already enrolled via ws-server)
     if (realmIds.length > 0 && agentRow?.did) {
-      const allRealms = getAllRealms();
-      const defaultRealm = allRealms.find((r) => r.is_default === 1);
+      const allRealms = await RealmDAO.findAll();
+      const defaultRealm = allRealms.find((r) => r.isDefault);
       for (const rid of realmIds) {
         if (defaultRealm && rid === defaultRealm.id) continue;
         try {
-          addAgentToRealm(agentRow.did, rid, false);
+          await AgentDAO.addToRealm(agentRow.did, rid, false);
         } catch {
           /* already member */
         }

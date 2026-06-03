@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext, unauthorized } from "@/lib/auth-utils";
-import { getAllAgents, getRealmAgents } from "@/lib/db";
 import { getWSServer } from "@/lib/ws-server";
+import { AgentDAO, RealmDAO } from "@/db";
 
 /**
  * GET /api/agents/search?q=...&realm=<realmId>
@@ -81,16 +81,16 @@ export async function GET(req: NextRequest) {
 
     if (realmId && realmId !== "default") {
       // Realm-scoped: only members of this realm
-      agentList = getRealmAgents(realmId).map((ra) => ({
-        did: ra.agent_did,
-        name: ra.agent_name,
-        capabilities: (ra as any).capabilities ?? null,
+      agentList = (await RealmDAO.getAgents(realmId)).map((ra) => ({
+        did: ra.agent.did,
+        name: ra.agent.name,
+        capabilities: ra.agent.capabilities === null ? null : JSON.stringify(ra.agent.capabilities),
       }));
     } else {
-      agentList = getAllAgents().map((a) => ({
+      agentList = (await AgentDAO.findAll()).map((a) => ({
         did: a.did,
         name: a.name,
-        capabilities: (a as any).capabilities ?? null,
+        capabilities: a.capabilities === null ? null : JSON.stringify(a.capabilities),
       }));
     }
 

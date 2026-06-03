@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getWorkflow, startWorkflowRun } from "@/lib/db";
-import { executeWorkflow } from "@/lib/workflow-executor";
+import { executeWorkflow, type WorkflowDefinition } from "@/lib/workflow-executor";
 import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
+import { WorkflowDAO } from "@/db";
 
 type Params = { id: string };
 
@@ -79,7 +79,7 @@ export async function POST(
     }
 
     // Verify workflow exists
-    const workflow = getWorkflow(id);
+    const workflow = await WorkflowDAO.findById(id);
     if (!workflow) {
       return NextResponse.json(
         { error: "Workflow not found" },
@@ -87,18 +87,25 @@ export async function POST(
       );
     }
 
-    if (workflow.realm_id && !auth.canAccessRealm(workflow.realm_id))
+    if (workflow.realmId && !(await auth.canAccessRealm(workflow.realmId)))
       return forbidden();
 
     // Start a new run
-    const runId = startWorkflowRun(id);
+    const runId = await WorkflowDAO.startRun(id);
 
     // Trigger execution asynchronously (don't await, return immediately)
-    const definition = JSON.parse(workflow.definition);
+    const definition = workflow.definition;
+    if (!definition) {
+      return NextResponse.json(
+        { error: "Workflow has no definition" },
+        { status: 400 }
+      );
+    }
+    const workflowDef = definition as unknown as WorkflowDefinition;
     // Execution-time input overrides the definition's stored input
-    const resolvedInput = input ?? definition.input;
+    const resolvedInput = input ?? workflowDef.input;
     Promise.resolve().then(() => {
-      executeWorkflow(runId, definition, resolvedInput, id).catch((err) => {
+      executeWorkflow(runId, workflowDef, resolvedInput, id).catch((err) => {
         console.error(`Workflow ${runId} execution failed:`, err);
       });
     });

@@ -1,12 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import {
-  getAllModelRegistryEntries,
-  getAllAgents,
-  getRealmUsers,
-  getDefaultRealm,
-} from "@/lib/db";
 import { getSmtpConfig } from "@/lib/smtp";
 import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
+import { AgentDAO, ModelDAO, RealmDAO } from "@/db";
 
 interface SetupStatus {
   model: boolean;
@@ -54,12 +49,12 @@ export async function GET(request: NextRequest) {
     if (!auth) return unauthorized();
     if (!auth.isGlobalAdmin) return forbidden();
 
-    const allAgents = getAllAgents();
-    const defaultRealm = getDefaultRealm();
-    const realmUsers = defaultRealm ? getRealmUsers(defaultRealm.id) : [];
+    const allAgents = await AgentDAO.findAll();
+    const defaultRealm = await RealmDAO.findDefault();
+    const realmUsers = defaultRealm ? await RealmDAO.getUsers(defaultRealm.id) : [];
 
     const status: SetupStatus = {
-      model: getAllModelRegistryEntries().length > 0,
+      model: (await ModelDAO.findAll()).length > 0,
       email: getSmtpConfig() !== null,
       users: realmUsers.length > 1, // More than just the admin
       agent: allAgents.length > 0,

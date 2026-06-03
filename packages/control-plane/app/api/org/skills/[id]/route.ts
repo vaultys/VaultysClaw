@@ -5,8 +5,8 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { getOrgSkillById, updateOrgSkill, deleteOrgSkill } from "@/lib/db";
 import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
+import { OrgSkillDAO } from "@/db";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -43,7 +43,7 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
   if (!auth) return unauthorized();
 
   const { id } = await ctx.params;
-  const skill = getOrgSkillById(id);
+  const skill = await OrgSkillDAO.findById(id);
   if (!skill) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   return NextResponse.json({ skill });
@@ -103,7 +103,7 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
   if (!auth.isGlobalAdmin) return forbidden();
 
   const { id } = await ctx.params;
-  if (!getOrgSkillById(id))
+  if (!await OrgSkillDAO.findById(id))
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const body = (await req.json()) as {
@@ -114,7 +114,7 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
     configSchema?: Record<string, unknown>;
   };
 
-  updateOrgSkill(id, {
+  await OrgSkillDAO.update(id, {
     description: body.description,
     version: body.version,
     icon: body.icon,
@@ -122,7 +122,7 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
     configSchema: body.configSchema,
   });
 
-  return NextResponse.json({ skill: getOrgSkillById(id) });
+  return NextResponse.json({ skill: await OrgSkillDAO.findById(id) });
 }
 
 /**
@@ -162,9 +162,9 @@ export async function DELETE(_req: NextRequest, ctx: Ctx) {
   if (!auth.isGlobalAdmin) return forbidden();
 
   const { id } = await ctx.params;
-  if (!getOrgSkillById(id))
+  if (!await OrgSkillDAO.findById(id))
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  deleteOrgSkill(id);
+  await OrgSkillDAO.delete(id);
   return NextResponse.json({ success: true });
 }

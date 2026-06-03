@@ -12,6 +12,18 @@ import { WebSocket, WebSocketServer, type Data as WebSocketData } from "ws";
 import pino from "pino";
 import { type AgentSender, WsSender } from "./agent-sender";
 import {
+  ActivityLogDAO,
+  AgentDAO,
+  AuthSessionDAO,
+  DelegationCertDAO,
+  IntentDAO,
+  KnowledgeDAO,
+  PendingRegistrationDAO,
+  PolicyDAO,
+  RealmDAO,
+  SkillOverrideDAO,
+} from "@/db";
+import {
   type WSMessage,
   type WSAuthChallengePayload,
   type WSAuthCompletePayload,
@@ -33,41 +45,13 @@ import {
   type LlmConfig,
   type WSSkillsConfigPayload,
   type WSChannelMessageSendPayload,
+  ResourceLimits,
 } from "@vaultysclaw/shared";
 import {
   createAuthSession,
   processChallenge,
   type PolicyMeta,
 } from "./auth-handler";
-import {
-  updateAgentLastSeen,
-  deleteExpiredAuthSessions,
-  logActivity,
-  logIntent,
-  updateIntentResult,
-  createPendingRegistration,
-  updatePendingRegistration,
-  deletePendingRegistration,
-  getPendingRegistration,
-  upsertAgent,
-  updateAgentBudget,
-  getAgent,
-  getAllAgents,
-  getAllPendingRegistrations,
-  setAgentLlmConfig,
-  enrollInDefaultRealm,
-  upsertTokenUsage,
-  getAgentRealms,
-  getRealmTokenUsage,
-  upsertRealmTokenUsage,
-  addAgentTokenUsageHistory,
-  getAgentEffectiveSkills,
-  getRealmAgents,
-  listPolicies,
-  updateKnowledgeSourceStatus,
-  getKnowledgeSource,
-} from "./db";
-import { DelegationDao } from "./delegation-dao";
 import { ChannelService } from "./channel-service";
 import { crypto } from "@vaultys/id";
 
@@ -261,8 +245,10 @@ export class AgentWSServer {
     this.setupServer();
 
     // Periodically clean up expired auth sessions
-    this.cleanupInterval = setInterval(() => {
-      const deleted = deleteExpiredAuthSessions(AUTH_TIMEOUT_MS / 1000);
+    this.cleanupInterval = setInterval(async () => {
+      const deleted = await AuthSessionDAO.deleteExpired(
+        AUTH_TIMEOUT_MS / 1000
+      );
       if (deleted > 0) {
         logger.debug({ deleted }, "Pruned expired auth sessions");
       }
@@ -282,7 +268,7 @@ export class AgentWSServer {
   }
 
   private setupServer(): void {
-    this.wss.on("connection", (ws: WebSocket) => {
+    this.wss.on("connection", async (ws: WebSocket) => {
       logger.info(
         "New WebSocket connection — awaiting register or auth_challenge"
       );
@@ -293,7 +279,7 @@ export class AgentWSServer {
       this.appendLog("ws", "info", "connected", `new TCP connection`);
 
       try {
-        const { sessionId } = createAuthSession();
+        const { sessionId } = await createAuthSession();
 
         // Set initial auth timeout
         const timer = setTimeout(() => {
@@ -517,16 +503,15 @@ export class AgentWSServer {
         // This is the secure auto-approve: the DID is derived from the
         // agent's public key proven by the certificate handshake,
         // so it cannot be spoofed by reusing another agent's name.
-        const knownAgent = getAgent(agentDid);
+        const knownAgent = await AgentDAO.findByDid(agentDid);
 
         if (knownAgent) {
           // Known agent — auto-approve with stored capabilities
           clearTimeout(pending.timer);
           this.pending.delete(pending.sender);
 
-          const storedCapabilities = JSON.parse(
-            knownAgent.capabilities
-          ) as AgentCapability[];
+          const storedCapabilities =
+            knownAgent.capabilities as AgentCapability[];
 
           // Close existing connection if agent reconnected from new socket
           const existing = this.agents.get(agentDid);
@@ -551,14 +536,14 @@ export class AgentWSServer {
           this.agents.set(agentDid, agent);
 
           // Update agent record (certificate, last_seen)
-          upsertAgent({
+          await AgentDAO.upsert({
             did: agentDid,
             name: agent.name,
             capabilities: agent.capabilities,
             certificateData: result.certificateData,
           });
 
-          logActivity("agent_reconnected", agentDid, agent.name);
+          await ActivityLogDAO.log("agent_reconnected", agentDid, agent.name);
           this.appendLog(
             pending.sender.transport,
             "info",
@@ -613,7 +598,7 @@ export class AgentWSServer {
                 { agentDid },
                 "Cert metadata mismatch — triggering silent re-auth to reissue certificate"
               );
-              const policyMeta = this.fetchActivePolicyMeta(agentDid);
+              const policyMeta = await this.fetchActivePolicyMeta(agentDid);
               this.triggerCertReissue(agent, storedCapabilities, policyMeta);
             } else {
               // Push delegation certs, LLM config, and skills config
@@ -633,7 +618,7 @@ export class AgentWSServer {
 
           // Extend timeout for admin approval
           clearTimeout(pending.timer);
-          pending.timer = setTimeout(() => {
+          pending.timer = setTimeout(async () => {
             logger.warn(
               { registrationId },
               "Registration approval timeout — closing connection"
@@ -648,18 +633,18 @@ export class AgentWSServer {
             });
             pending.sender.close();
             this.pending.delete(pending.sender);
-            deletePendingRegistration(registrationId);
+            await PendingRegistrationDAO.delete(registrationId);
           }, REGISTRATION_TIMEOUT_MS);
 
           // Persist pending registration with the capabilities the agent requested
-          createPendingRegistration(
+          await PendingRegistrationDAO.create(
             registrationId,
             pending.sessionId,
             pending.agentName ?? "unknown",
             pending.capabilities ?? []
           );
 
-          logActivity(
+          await ActivityLogDAO.log(
             "registration_requested",
             agentDid,
             pending.agentName,
@@ -737,7 +722,7 @@ export class AgentWSServer {
     }
   }
 
-  private handleResult(message: WSMessage): void {
+  private async handleResult(message: WSMessage): Promise<void> {
     try {
       const { agentId, payload } = message;
 
@@ -746,7 +731,7 @@ export class AgentWSServer {
         "Received execution result from agent"
       );
 
-      if (agentId) updateAgentLastSeen(agentId);
+      if (agentId) await AgentDAO.updateLastSeen(agentId);
 
       // Call registered callback if one exists (for workflow execution)
       if (payload.intentId && this.resultCallbacks.has(payload.intentId)) {
@@ -758,7 +743,7 @@ export class AgentWSServer {
       }
 
       // Persist result so test/observability endpoints can retrieve it
-      logActivity(
+      await ActivityLogDAO.log(
         "intent_result",
         agentId,
         agentId ? this.agents.get(agentId)?.name : undefined,
@@ -770,7 +755,7 @@ export class AgentWSServer {
       );
       if (payload.intentId) {
         try {
-          updateIntentResult(
+          await IntentDAO.updateResult(
             payload.intentId,
             payload.status === "success" ? "success" : "failed",
             payload.output,
@@ -786,7 +771,7 @@ export class AgentWSServer {
   }
 
   /** Bulk reconcile knowledge source statuses pushed by the agent on (re)connect. */
-  private handleKnowledgeStatusSync(message: WSMessage): void {
+  private async handleKnowledgeStatusSync(message: WSMessage): Promise<void> {
     try {
       const { agentId, payload } = message;
       const sources = (payload.sources ?? []) as Array<{
@@ -802,10 +787,10 @@ export class AgentWSServer {
         if (!s.sourceId || !s.status) continue;
         // Only overwrite if the CP thinks the source is still syncing — never
         // downgrade a ready/error state the CP already recorded.
-        const existing = getKnowledgeSource(s.sourceId);
+        const existing = await KnowledgeDAO.findSource(s.sourceId);
         if (!existing || existing.status !== "syncing") continue;
 
-        updateKnowledgeSourceStatus(s.sourceId, s.status, {
+        await KnowledgeDAO.updateSourceStatus(s.sourceId, s.status, {
           docCount: s.docCount,
           chunkCount: s.chunkCount,
           error: s.error ?? null,
@@ -824,7 +809,7 @@ export class AgentWSServer {
     }
   }
 
-  private handleKnowledgeSyncResult(message: WSMessage): void {
+  private async handleKnowledgeSyncResult(message: WSMessage): Promise<void> {
     try {
       const { agentId, payload } = message;
       const { sourceId, status, docsProcessed, chunksCreated, errors } =
@@ -845,7 +830,7 @@ export class AgentWSServer {
       }
 
       const errorMsg = errors?.length ? errors.join("; ") : undefined;
-      updateKnowledgeSourceStatus(sourceId, status, {
+      await KnowledgeDAO.updateSourceStatus(sourceId, status, {
         docCount: docsProcessed,
         chunkCount: chunksCreated,
         error: errorMsg ?? null,
@@ -856,19 +841,19 @@ export class AgentWSServer {
         "Knowledge sync result received — status updated"
       );
 
-      if (agentId) updateAgentLastSeen(agentId);
+      if (agentId) await AgentDAO.updateLastSeen(agentId);
     } catch (err) {
       logger.error(err, "Error handling knowledge_sync_result");
     }
   }
 
-  private handleHeartbeat(message: WSMessage): void {
+  private async handleHeartbeat(message: WSMessage): Promise<void> {
     const { agentId } = message;
 
     const agent = agentId ? this.agents.get(agentId) : undefined;
     if (agent && agentId) {
       agent.lastHeartbeat = new Date();
-      if (agentId) updateAgentLastSeen(agentId);
+      if (agentId) await AgentDAO.updateLastSeen(agentId);
 
       // Sync agent-reported config from heartbeat payload
       const hbPayload = message.payload as
@@ -914,7 +899,7 @@ export class AgentWSServer {
         }
 
         // Persist token usage to DB for the agent
-        upsertTokenUsage(
+        await AgentDAO.upsertTokenUsage(
           agentId,
           agent.tokenUsage.promptTokens,
           agent.tokenUsage.completionTokens
@@ -922,22 +907,26 @@ export class AgentWSServer {
 
         // Update realm token usage if delta is provided
         if (hbPayload.tokenUsage.sinceLastSync) {
-          const agentRealms = getAgentRealms(agentId);
+          const agentRealms = await AgentDAO.getRealms(agentId);
           const deltaPrompt = hbPayload.tokenUsage.sinceLastSync.promptTokens;
           const deltaCompletion =
             hbPayload.tokenUsage.sinceLastSync.completionTokens;
 
           // Record in daily/monthly history buckets
-          addAgentTokenUsageHistory(agentId, deltaPrompt, deltaCompletion);
+          await AgentDAO.addTokenUsageHistory(
+            agentId,
+            deltaPrompt,
+            deltaCompletion
+          );
 
           for (const realmMembership of agentRealms) {
-            const realmId = realmMembership.realm_id;
+            const realmId = realmMembership.realmId;
             // Get current realm token usage (uses snake_case fields from DB row)
-            const currentUsage = getRealmTokenUsage(realmId);
-            const currentPrompt = currentUsage?.prompt_tokens ?? 0;
-            const currentCompletion = currentUsage?.completion_tokens ?? 0;
+            const currentUsage = await RealmDAO.getTokenUsage(realmId);
+            const currentPrompt = currentUsage?.promptTokens ?? 0;
+            const currentCompletion = currentUsage?.completionTokens ?? 0;
             // Add the delta
-            upsertRealmTokenUsage(
+            await RealmDAO.upsertTokenUsage(
               realmId,
               currentPrompt + deltaPrompt,
               currentCompletion + deltaCompletion
@@ -1158,11 +1147,11 @@ export class AgentWSServer {
   }
 
   /** Send an approval/rejection response back to the agent. */
-  respondToToolApproval(
+  async respondToToolApproval(
     requestId: string,
     approved: boolean,
     reason?: string
-  ): boolean {
+  ): Promise<boolean> {
     const entry = this.pendingToolApprovals.get(requestId);
     if (!entry) {
       logger.warn({ requestId }, "No pending approval for this request");
@@ -1194,7 +1183,7 @@ export class AgentWSServer {
       { requestId, approved, agentId: entry.agentId },
       "Tool approval response sent"
     );
-    logActivity(
+    await ActivityLogDAO.log(
       approved ? "tool_approved" : "tool_rejected",
       entry.agentId,
       undefined,
@@ -1276,14 +1265,14 @@ export class AgentWSServer {
     return true;
   }
 
-  private handleDisconnect(sender: AgentSender): void {
+  private async handleDisconnect(sender: AgentSender): Promise<void> {
     // Check pending connections
     const pending = this.pending.get(sender);
     if (pending) {
       clearTimeout(pending.timer);
       // If the agent was awaiting approval, clean up the DB row
       if (pending.registrationId) {
-        deletePendingRegistration(pending.registrationId);
+        await PendingRegistrationDAO.delete(pending.registrationId);
         logger.info(
           {
             registrationId: pending.registrationId,
@@ -1311,7 +1300,7 @@ export class AgentWSServer {
     for (const [agentId, agent] of this.agents.entries()) {
       if (agent.sender === sender) {
         this.agents.delete(agentId);
-        logActivity("agent_disconnected", agentId, agent.name);
+        await ActivityLogDAO.log("agent_disconnected", agentId, agent.name);
         this.appendLog(sender.transport, "info", "disconnected", agent.name);
         this.broadcastAdminUpdate("agent_disconnected");
         logger.info({ agentId, agentName: agent.name }, "Agent disconnected");
@@ -1337,10 +1326,10 @@ export class AgentWSServer {
    * Since auth already completed before pending, the agent's DID is verified.
    * Directly promotes the connection to authenticated with admin-assigned capabilities.
    */
-  approveRegistration(
+  async approveRegistration(
     registrationId: string,
     capabilities: AgentCapability[]
-  ): boolean {
+  ): Promise<boolean> {
     // Find the pending connection with this registration ID
     let target: PendingConnection | undefined;
     for (const pending of this.pending.values()) {
@@ -1372,10 +1361,10 @@ export class AgentWSServer {
     const agentDid = target.agentDid;
 
     // Remove from pending_registrations — activity_log keeps the approval record
-    deletePendingRegistration(registrationId);
+    await PendingRegistrationDAO.delete(registrationId);
 
     // Upsert agent in DB with admin-assigned capabilities
-    upsertAgent({
+    await AgentDAO.upsert({
       did: agentDid,
       name: target.agentName ?? "unknown",
       capabilities,
@@ -1398,7 +1387,7 @@ export class AgentWSServer {
 
     this.agents.set(agentDid, agent);
 
-    logActivity(
+    await ActivityLogDAO.log(
       "registration_approved",
       agentDid,
       agent.name,
@@ -1413,7 +1402,7 @@ export class AgentWSServer {
     this.broadcastAdminUpdate("registration_approved");
 
     // Enroll agent in default realm on first approval
-    enrollInDefaultRealm("agent", agentDid);
+    await RealmDAO.enrollInDefault("agent", agentDid);
 
     // Notify agent — approved and connected
     this.sendMessage(target.sender, {
@@ -1445,16 +1434,12 @@ export class AgentWSServer {
 
     // Trigger a certificate reissue so the cert metadata reflects the admin-assigned
     // capabilities (and any active governance policy limits).
-    const policyMeta = this.fetchActivePolicyMeta(agentDid);
-    this.triggerCertReissue(
-      agent,
-      capabilities as AgentCapability[],
-      policyMeta
-    );
+    const policyMeta = await this.fetchActivePolicyMeta(agentDid);
+    await this.triggerCertReissue(agent, capabilities, policyMeta);
 
     // Push any stored LLM config now that the agent is registered and connected.
-    this.pushStoredLlmConfig(agentDid);
-    this.pushSkillsConfig(agentDid);
+    await this.pushStoredLlmConfig(agentDid);
+    await this.pushSkillsConfig(agentDid);
 
     return true;
   }
@@ -1462,10 +1447,10 @@ export class AgentWSServer {
   /**
    * Reject a pending registration. Closes the agent's connection.
    */
-  rejectRegistration(
+  async rejectRegistration(
     registrationId: string,
     reason: string = "Registration rejected"
-  ): boolean {
+  ): Promise<boolean> {
     let target: PendingConnection | undefined;
     for (const pending of this.pending.values()) {
       if (
@@ -1478,19 +1463,19 @@ export class AgentWSServer {
     }
 
     // Get registration data from DB to get agent name (needed even if agent disconnected)
-    const reg = getPendingRegistration(registrationId);
+    const reg = await PendingRegistrationDAO.findById(registrationId);
     if (!reg) {
       logger.warn({ registrationId }, "Registration not found");
       return false;
     }
 
     // Remove from pending_registrations — activity_log keeps the rejection record
-    deletePendingRegistration(registrationId);
+    await PendingRegistrationDAO.delete(registrationId);
 
-    logActivity(
+    await ActivityLogDAO.log(
       "registration_rejected",
       undefined,
-      reg.agent_name,
+      reg.agentName,
       JSON.stringify({ registrationId, reason })
     );
     this.broadcastAdminUpdate("registration_rejected");
@@ -1521,25 +1506,25 @@ export class AgentWSServer {
    * update_capabilities message so the agent re-authenticates and gets
    * a fresh certificate with the new capabilities.
    */
-  updateAgentCapabilities(
+  async updateAgentCapabilities(
     agentDid: string,
     capabilities: AgentCapability[]
-  ): boolean {
+  ): Promise<boolean> {
     // Update in DB
-    const existing = getAgent(agentDid);
+    const existing = await AgentDAO.findByDid(agentDid);
     if (!existing) {
       logger.warn({ agentDid }, "Agent not found in DB for capability update");
       return false;
     }
 
-    upsertAgent({
+    await AgentDAO.upsert({
       did: agentDid,
       name: existing.name,
       capabilities,
-      certificateData: existing.certificate_data ?? undefined,
+      certificateData: existing.certificateData ?? undefined,
     });
 
-    logActivity(
+    await ActivityLogDAO.log(
       "capabilities_updated",
       agentDid,
       existing.name,
@@ -1554,7 +1539,7 @@ export class AgentWSServer {
       connected.capabilities = capabilities;
 
       // Create a new auth session for re-auth
-      const { sessionId } = createAuthSession();
+      const { sessionId } = await createAuthSession();
 
       // Move agent back to pending for re-auth
       const timer = setTimeout(() => {
@@ -1613,12 +1598,12 @@ export class AgentWSServer {
    * certificate with correct capability metadata is issued.
    * Does NOT update the DB or emit admin broadcasts — purely an internal cert refresh.
    */
-  private triggerCertReissue(
+  private async triggerCertReissue(
     agent: ConnectedAgent,
     capabilities: AgentCapability[],
     policyMeta?: PolicyMeta
-  ): void {
-    const { sessionId } = createAuthSession();
+  ): Promise<void> {
+    const { sessionId } = await createAuthSession();
 
     const timer = setTimeout(() => {
       logger.warn(
@@ -1633,7 +1618,7 @@ export class AgentWSServer {
       sessionId,
       phase: "authenticating",
       agentName: agent.name,
-      capabilities: capabilities as string[],
+      capabilities: capabilities,
       policyMeta,
       isCertReissue: true,
       timer,
@@ -1667,17 +1652,20 @@ export class AgentWSServer {
    * Look up the most recently created (non-expired) governance policy for an agent
    * and return its metadata for cert embedding.
    */
-  private fetchActivePolicyMeta(agentDid: string): PolicyMeta | undefined {
+  private async fetchActivePolicyMeta(
+    agentDid: string
+  ): Promise<PolicyMeta | undefined> {
     try {
-      const policies = listPolicies({ agentDid, includeExpired: false });
+      const policies = await PolicyDAO.list({
+        agentDid,
+        includeExpired: false,
+      });
       if (policies.length === 0) return undefined;
       const p = policies[0];
       return {
-        resourceLimits: p.resource_limits
-          ? JSON.parse(p.resource_limits)
-          : null,
+        resourceLimits: p.resourceLimits as ResourceLimits,
         policyId: p.id,
-        policyExpiresAt: p.expires_at ?? null,
+        policyExpiresAt: p.expiresAt?.toISOString() ?? null,
       };
     } catch {
       return undefined;
@@ -1691,20 +1679,24 @@ export class AgentWSServer {
    *
    * Pass resourceLimits = null / policyId = null to clear a revoked policy.
    */
-  applyPolicy(
+  async applyPolicy(
     agentDid: string,
     capabilities: AgentCapability[],
     policyMeta?: PolicyMeta
-  ): boolean {
+  ): Promise<boolean> {
     // Always update the DB so the next reconnect picks up the correct capabilities.
-    const knownAgent = getAgent(agentDid);
+    const knownAgent = await AgentDAO.findByDid(agentDid);
     if (!knownAgent) return false;
 
-    upsertAgent({ did: agentDid, name: knownAgent.name, capabilities });
+    await AgentDAO.upsert({
+      did: agentDid,
+      name: knownAgent.name,
+      capabilities,
+    });
 
     // Sync token budget columns if resource limits changed.
     if (policyMeta?.resourceLimits !== undefined) {
-      updateAgentBudget(agentDid, {
+      await AgentDAO.updateBudget(agentDid, {
         tokenBudgetDaily: policyMeta.resourceLimits?.maxTokensPerDay ?? null,
         tokenBudgetMonthly: null,
       });
@@ -1763,13 +1755,13 @@ export class AgentWSServer {
     }
   }
 
-  sendIntentToAgent(
+  async sendIntentToAgent(
     agentId: string,
     intentId: string,
     action: string,
     params: Record<string, any>,
     userDid?: string
-  ): boolean {
+  ): Promise<boolean> {
     const agent = this.agents.get(agentId);
     if (!agent || !agent.sender.isOpen()) {
       logger.warn({ agentId }, "Agent not connected");
@@ -1794,7 +1786,7 @@ export class AgentWSServer {
       agent.sender.sendRaw(JSON.stringify(message));
       logger.info({ agentId, intentId, action }, "Intent sent to agent");
       try {
-        logIntent(intentId, agentId, action, params);
+        await IntentDAO.log(intentId, agentId, action, params);
       } catch {
         /* non-fatal */
       }
@@ -1850,19 +1842,25 @@ export class AgentWSServer {
     return true;
   }
 
-  broadcastIntentToCapability(
+  async broadcastIntentToCapability(
     capability: string,
     intentId: string,
     action: string,
     params: Record<string, any>,
     userDid?: string
-  ): string[] {
+  ): Promise<string[]> {
     const recipientIds: string[] = [];
 
     for (const [agentId, agent] of this.agents.entries()) {
       if (agent.capabilities.includes(capability)) {
         if (
-          this.sendIntentToAgent(agentId, intentId, action, params, userDid)
+          await this.sendIntentToAgent(
+            agentId,
+            intentId,
+            action,
+            params,
+            userDid
+          )
         ) {
           recipientIds.push(agentId);
         }
@@ -1897,7 +1895,7 @@ export class AgentWSServer {
   /**
    * Build and broadcast an admin state snapshot to all admin WS clients.
    */
-  broadcastAdminUpdate(event?: string): void {
+  async broadcastAdminUpdate(event?: string): Promise<void> {
     const adminWss = getAdminWSS();
     if (!adminWss || adminWss.clients.size === 0) return;
 
@@ -1905,15 +1903,15 @@ export class AgentWSServer {
       Array.from(this.agents.values()).map((a) => a.id)
     );
 
-    const dbAgents = getAllAgents();
+    const dbAgents = await AgentDAO.findAll();
     const agents = dbAgents.map((agent) => {
       const connected = this.agents.get(agent.did);
       return {
         id: agent.did,
         name: connected?.name ?? agent.name,
-        capabilities: JSON.parse(agent.capabilities),
-        registeredAt: agent.registered_at,
-        lastSeen: agent.last_seen,
+        capabilities: agent.capabilities,
+        registeredAt: agent.registeredAt,
+        lastSeen: agent.lastSeen,
         online: connectedDids.has(agent.did),
         connectedAt: connected?.connectedAt?.toISOString() ?? null,
         lastHeartbeat: connected?.lastHeartbeat?.toISOString() ?? null,
@@ -1925,7 +1923,7 @@ export class AgentWSServer {
       };
     });
 
-    const registrations = getAllPendingRegistrations().filter(
+    const registrations = (await PendingRegistrationDAO.findAll()).filter(
       (r: any) => r.status === "pending"
     );
 
@@ -1951,19 +1949,19 @@ export class AgentWSServer {
   /**
    * Push all delegation certs for a specific agent to that agent (if connected).
    */
-  pushDelegationUpdate(agentDid: string): void {
+  async pushDelegationUpdate(agentDid: string): Promise<void> {
     const agent = this.agents.get(agentDid);
     if (!agent) return;
 
-    const certs = DelegationDao.listByAgent(agentDid);
+    const certs = await DelegationCertDAO.listByAgent(agentDid);
     const delegations: DelegationCertPayload[] = certs.map((c) => ({
       id: c.id,
-      grantId: c.grant_id,
-      userDid: c.user_did,
-      agentDid: c.agent_did,
-      capabilities: JSON.parse(c.capabilities) as AgentCapability[],
+      grantId: c.grantId,
+      userDid: c.userDid,
+      agentDid: c.agentDid,
+      capabilities: c.capabilities as AgentCapability[],
       certificate: c.certificate,
-      ...(c.expires_at ? { expiresAt: c.expires_at } : {}),
+      ...(c.expiresAt ? { expiresAt: c.expiresAt.toISOString() } : {}),
     }));
 
     this.sendMessage(agent.sender, {
@@ -1995,9 +1993,12 @@ export class AgentWSServer {
    * Also persists the config in the DB so it is re-sent on next reconnect.
    * Returns true if the message was sent, false if the agent is not connected.
    */
-  sendLlmConfig(agentDid: string, config: LlmConfig | null): boolean {
+  async sendLlmConfig(
+    agentDid: string,
+    config: LlmConfig | null
+  ): Promise<boolean> {
     // Always persist to DB regardless of online status
-    setAgentLlmConfig(agentDid, config);
+    await AgentDAO.setLlmConfig(agentDid, config);
 
     const agent = this.agents.get(agentDid);
     if (!agent) return false;
@@ -2025,12 +2026,12 @@ export class AgentWSServer {
    * Re-push stored LLM config to an agent that just (re-)connected.
    * Called automatically after auth_complete for registered agents.
    */
-  private pushStoredLlmConfig(agentDid: string): void {
-    const row = getAgent(agentDid);
-    if (!row?.llm_config) return;
+  private async pushStoredLlmConfig(agentDid: string): Promise<void> {
+    const row = await AgentDAO.findByDid(agentDid);
+    if (!row?.llmConfig) return;
     try {
-      const config = JSON.parse(row.llm_config) as LlmConfig;
-      this.sendLlmConfig(agentDid, config);
+      const config = row.llmConfig as unknown as LlmConfig;
+      await this.sendLlmConfig(agentDid, config);
     } catch {
       logger.warn(
         { agentDid },
@@ -2043,11 +2044,11 @@ export class AgentWSServer {
    * Push the effective skills configuration to a specific connected agent.
    * Called on reconnect, registration approval, and when realm skills change.
    */
-  pushSkillsConfig(agentDid: string): void {
+  async pushSkillsConfig(agentDid: string): Promise<void> {
     const agent = this.agents.get(agentDid);
     if (!agent) return;
 
-    const skills = getAgentEffectiveSkills(agentDid);
+    const skills = await SkillOverrideDAO.getEffectiveSkills(agentDid);
     // Only push if there are realm-defined skills (empty = no realm config = agent uses all local skills)
     this.sendMessage(agent.sender, {
       messageId: `skills-config-${Date.now()}`,
@@ -2169,7 +2170,7 @@ export class AgentWSServer {
    * Called by the PeerJS server when an agent connects via WebRTC.
    * Initiates the same auth challenge flow as a WebSocket connection.
    */
-  acceptPeerjsConnection(sender: AgentSender): void {
+  async acceptPeerjsConnection(sender: AgentSender): Promise<void> {
     try {
       this.transportStats.peerjs.connectionsTotal++;
       this.appendLog(
@@ -2178,7 +2179,7 @@ export class AgentWSServer {
         "connected",
         "WebRTC data channel opened"
       );
-      const { sessionId } = createAuthSession();
+      const { sessionId } = await createAuthSession();
 
       const timer = setTimeout(() => {
         logger.warn({ sessionId }, "PeerJS auth timeout — closing connection");
@@ -2328,12 +2329,12 @@ export function sendSkillsConfig(agentDid: string): void {
  * Called when realm skill definitions are created, updated, or deleted.
  * Exported for use by API route handlers.
  */
-export function broadcastSkillsConfig(realmId: string): void {
+export async function broadcastSkillsConfig(realmId: string): Promise<void> {
   const wsServer = getWSServer();
   if (!wsServer) return;
 
-  const agents = getRealmAgents(realmId);
+  const agents = await RealmDAO.getAgents(realmId);
   for (const agent of agents) {
-    wsServer.pushSkillsConfig(agent.agent_did);
+    wsServer.pushSkillsConfig(agent.agentDid);
   }
 }

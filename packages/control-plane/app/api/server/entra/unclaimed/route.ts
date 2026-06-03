@@ -48,12 +48,12 @@ export async function GET(request: NextRequest) {
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
 
-  const users = UserDao.listUnclaimedEntra().map((u) => ({
+  const users = UserDao.listUnclaimedEntra().map((u: any) => ({
     id: u.id,
     name: u.name,
     email: u.email,
-    entraId: u.entra_id,
-    registeredAt: u.registered_at,
+    entraId: u.entraId,
+    registeredAt: u.registeredAt,
   }));
 
   return NextResponse.json({ users });

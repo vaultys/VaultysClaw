@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
-import { getStorageConfig, getSetting } from "@/lib/db";
 import { decryptSecret } from "@/lib/vault";
+import { SettingsDAO } from "@/db";
+import { getStorageConfig } from "@/lib/db";
 
 // POST /api/settings/storage/test
 // Body fields are optional — omit any to fall back to the saved (DB) config.
@@ -77,7 +78,7 @@ export async function POST(request: NextRequest) {
   // Secret key is never returned by GET — accept from body or decrypt from DB
   let secretAccessKey = body.secretAccessKey ?? "";
   if (!secretAccessKey) {
-    const enc = getSetting("s3_secret_access_key_enc");
+    const enc = await SettingsDAO.get("s3_secret_access_key_enc");
     if (enc) {
       try {
         secretAccessKey = await decryptSecret(enc);

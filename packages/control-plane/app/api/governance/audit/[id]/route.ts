@@ -147,12 +147,12 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
       let paramsParsed: unknown = null;
       let outputParsed: unknown = null;
       try {
-        if (row.params) paramsParsed = JSON.parse(row.params);
+        if (row.params) paramsParsed = row.params;
       } catch {
         /* raw */
       }
       try {
-        if (row.output) outputParsed = JSON.parse(row.output);
+        if (row.output) outputParsed = row.output;
       } catch {
         /* raw */
       }
@@ -244,7 +244,7 @@ function resolveCertInfo(
         capabilities = pk2Meta.capabilities;
       else if (typeof pk2Meta.capabilities === "string") {
         try {
-          capabilities = JSON.parse(pk2Meta.capabilities);
+          capabilities = pk2Meta.capabilities;
         } catch {
           /* skip */
         }

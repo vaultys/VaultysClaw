@@ -1,32 +1,18 @@
 import { getServerSession } from "next-auth";
 import { NextRequest } from "next/server";
 import { authOptions } from "./auth-config";
-import {
-  getAgentRealms,
-  getDb,
-  getUserRealms,
-  isUserInRealm,
-  isUserRealmAdmin,
-} from "./db";
 import { NextResponse } from "next/server";
 import { hashApiKey, isPublicRoute, matchRoute } from "./api-key-utils";
+import { AgentDAO, ApiKeyDAO, RealmDAO } from "@/db";
 
 export interface AuthContext {
   did: string;
   isOwner: boolean;
   isGlobalAdmin: boolean;
-  canAccessRealm(realmId: string): boolean;
-  canAdminRealm(realmId: string): boolean;
-  canAccessAgent(agentDid: string): boolean;
-  canAdminAgent(agentDid: string): boolean;
-}
-
-interface ApiKeyRow {
-  id: string;
-  allowed_routes: string;
-  realm_id: string | null;
-  is_realm_admin: number;
-  expires_at: number | null;
+  canAccessRealm(realmId: string): Promise<boolean>;
+  canAdminRealm(realmId: string): Promise<boolean>;
+  canAccessAgent(agentDid: string): Promise<boolean>;
+  canAdminAgent(agentDid: string): Promise<boolean>;
 }
 
 export async function getAuthContext(
@@ -38,35 +24,36 @@ export async function getAuthContext(
     const { did, isOwner, isAdmin } = session.user;
     const isGlobalAdmin = Boolean(isAdmin) || Boolean(isOwner);
 
+    // Precompute realm membership once per request
+    const userRealms = isGlobalAdmin ? [] : await RealmDAO.getUserRealms(did);
+    const accessibleRealmIds = new Set(userRealms.map((r) => r.realmId));
+    const adminRealmIds = new Set(
+      userRealms.filter((r) => r.isRealmAdmin).map((r) => r.realmId)
+    );
+
     return {
       did,
       isOwner: Boolean(isOwner),
       isGlobalAdmin,
 
-      canAccessRealm(realmId: string): boolean {
-        return isGlobalAdmin || isUserInRealm(did, realmId);
+      async canAccessRealm(realmId: string): Promise<boolean> {
+        return isGlobalAdmin || accessibleRealmIds.has(realmId);
       },
 
-      canAdminRealm(realmId: string): boolean {
-        return isGlobalAdmin || isUserRealmAdmin(did, realmId);
+      async canAdminRealm(realmId: string): Promise<boolean> {
+        return isGlobalAdmin || adminRealmIds.has(realmId);
       },
 
-      canAccessAgent(agentDid: string): boolean {
+      async canAccessAgent(agentDid: string): Promise<boolean> {
         if (isGlobalAdmin) return true;
-        const agentRealmIds = new Set(
-          getAgentRealms(agentDid).map((r) => r.realm_id)
-        );
-        return getUserRealms(did).some((r) => agentRealmIds.has(r.realm_id));
+        const agentRealms = await AgentDAO.getRealms(agentDid);
+        return agentRealms.some((r) => accessibleRealmIds.has(r.realmId));
       },
 
-      canAdminAgent(agentDid: string): boolean {
+      async canAdminAgent(agentDid: string): Promise<boolean> {
         if (isGlobalAdmin) return true;
-        const agentRealmIds = new Set(
-          getAgentRealms(agentDid).map((r) => r.realm_id)
-        );
-        return getUserRealms(did).some(
-          (r) => agentRealmIds.has(r.realm_id) && r.is_realm_admin === 1
-        );
+        const agentRealms = await AgentDAO.getRealms(agentDid);
+        return agentRealms.some((r) => adminRealmIds.has(r.realmId));
       },
     };
   }
@@ -86,37 +73,21 @@ export async function getAuthContext(
 
     if (rawKey) {
       const keyHash = hashApiKey(rawKey);
-      const db = getDb();
-      const row = db
-        .prepare(
-          `SELECT id, allowed_routes, realm_id, is_realm_admin, expires_at
-           FROM api_keys
-           WHERE key_hash = ? AND is_active = 1`
-        )
-        .get(keyHash) as ApiKeyRow | undefined;
+      const row = await ApiKeyDAO.findByHash(keyHash);
 
-      if (!row) return null;
+      if (!row || !row.isActive) return null;
 
       // Check expiry
-      if (row.expires_at && row.expires_at < Math.floor(Date.now() / 1000))
-        return null;
+      if (row.expiresAt && row.expiresAt < new Date()) return null;
 
       // Check route permission
-      const allowedRoutes: string[] = JSON.parse(row.allowed_routes);
-      if (!matchRoute(method, pathname, allowedRoutes)) return null;
+      if (!matchRoute(method, pathname, row.allowedRoutes as string[])) return null;
 
       // Update last_used_at (fire-and-forget — don't fail auth on write error)
-      try {
-        db.prepare("UPDATE api_keys SET last_used_at = ? WHERE id = ?").run(
-          Math.floor(Date.now() / 1000),
-          row.id
-        );
-      } catch {
-        // non-critical
-      }
+      ApiKeyDAO.updateLastUsed(row.id).catch(() => {});
 
-      const realmId = row.realm_id;
-      const isRealmAdmin = row.is_realm_admin === 1;
+      const realmId = row.realmId;
+      const isRealmAdmin = row.isRealmAdmin;
       const isGlobalKey = realmId === null;
 
       return {
@@ -124,23 +95,25 @@ export async function getAuthContext(
         isOwner: false,
         isGlobalAdmin: isGlobalKey,
 
-        canAccessRealm(id: string): boolean {
+        async canAccessRealm(id: string): Promise<boolean> {
           return isGlobalKey || id === realmId;
         },
 
-        canAdminRealm(id: string): boolean {
+        async canAdminRealm(id: string): Promise<boolean> {
           return isGlobalKey || (id === realmId && isRealmAdmin);
         },
 
-        canAccessAgent(agentDid: string): boolean {
+        async canAccessAgent(agentDid: string): Promise<boolean> {
           if (isGlobalKey) return true;
-          return getAgentRealms(agentDid).some((r) => r.realm_id === realmId);
+          const agentRealms = await AgentDAO.getRealms(agentDid);
+          return agentRealms.some((r) => r.realmId === realmId);
         },
 
-        canAdminAgent(agentDid: string): boolean {
+        async canAdminAgent(agentDid: string): Promise<boolean> {
           if (isGlobalKey) return true;
           if (!isRealmAdmin) return false;
-          return getAgentRealms(agentDid).some((r) => r.realm_id === realmId);
+          const agentRealms = await AgentDAO.getRealms(agentDid);
+          return agentRealms.some((r) => r.realmId === realmId);
         },
       };
     }

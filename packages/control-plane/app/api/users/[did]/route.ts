@@ -7,8 +7,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-config";
-import { UserDao } from "@/lib/user-dao";
-import { GrantDao } from "@/lib/grant-dao";
+import { GrantDAO, UserDAO } from "@/db";
 
 const VALID_ROLES = [
   "owner",
@@ -99,7 +98,7 @@ export async function GET(
   }
 
   const { did } = await params;
-  const user = UserDao.getByDid(did);
+  const user = await UserDAO.findByDid(did);
   if (!user) {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
@@ -108,20 +107,20 @@ export async function GET(
     did: user.did,
     name: user.name ?? null,
     email: user.email ?? null,
-    isOwner: user.is_owner === 1,
-    isAdmin: user.is_admin === 1 || user.is_owner === 1,
+    isOwner: user.isOwner,
+    isAdmin: user.isAdmin || user.isOwner,
     role: user.role ?? "member",
-    reportsTo: user.reports_to ?? null,
+    reportsTo: user.reportsTo ?? null,
     description: user.description ?? null,
-    registeredAt: user.registered_at,
+    registeredAt: user.registeredAt,
     grants: user.did
-      ? GrantDao.listByUser(user.did).map((g) => ({
+      ? (await GrantDAO.listByUser(user.did)).map((g) => ({
           id: g.id,
-          agentDid: g.agent_did,
-          capabilities: JSON.parse(g.capabilities) as string[],
-          grantedBy: g.granted_by,
-          expiresAt: g.expires_at,
-          createdAt: g.created_at,
+          agentDid: g.agentDid,
+          capabilities: g.capabilities as string[],
+          grantedBy: g.grantedBy,
+          expiresAt: g.expiresAt,
+          createdAt: g.createdAt,
         }))
       : [],
   });
@@ -168,12 +167,12 @@ export async function DELETE(
     );
   }
 
-  const user = UserDao.getByDid(did);
+  const user = await UserDAO.findByDid(did);
   if (!user) {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
 
-  UserDao.remove(did);
+  await UserDAO.delete(user.id);
   return NextResponse.json({ ok: true });
 }
 
@@ -230,7 +229,7 @@ export async function PATCH(
   }
 
   const { did } = await params;
-  const user = UserDao.getByDid(did);
+  const user = await UserDAO.findByDid(did);
   if (!user) {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
@@ -243,7 +242,7 @@ export async function PATCH(
     description?: string | null;
   };
 
-  const fields: Parameters<typeof UserDao.update>[1] = {};
+  const fields: Parameters<typeof UserDAO.update>[1] = {};
   if (typeof body.name === "string") fields.name = body.name.trim();
   if (typeof body.email === "string") fields.email = body.email.trim();
   if (typeof body.description === "string" || body.description === null) {
@@ -254,11 +253,11 @@ export async function PATCH(
     if (!VALID_ROLES.includes(body.role as ValidRole)) {
       return NextResponse.json({ error: "Invalid role" }, { status: 400 });
     }
-    if (!user.is_owner) fields.role = body.role;
+    if (!user.isOwner) fields.role = body.role;
   }
   if ("reportsTo" in body) {
     if (body.reportsTo === null || body.reportsTo === "") {
-      fields.reports_to = null;
+      fields.reportsTo = null;
     } else if (typeof body.reportsTo === "string") {
       if (body.reportsTo === did) {
         return NextResponse.json(
@@ -266,17 +265,17 @@ export async function PATCH(
           { status: 400 }
         );
       }
-      const supervisor = UserDao.getByDid(body.reportsTo);
+      const supervisor = await UserDAO.findByDid(body.reportsTo);
       if (!supervisor) {
         return NextResponse.json(
           { error: "Supervisor user not found" },
           { status: 400 }
         );
       }
-      fields.reports_to = body.reportsTo;
+      fields.reportsTo = body.reportsTo;
     }
   }
 
-  UserDao.update(user.id, fields);
+  await UserDAO.update(user.id, fields);
   return NextResponse.json({ ok: true });
 }

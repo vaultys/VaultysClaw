@@ -10,10 +10,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext, forbidden, unauthorized } from "@/lib/auth-utils";
 import { UserServerChannel } from "@/lib/user-server-channel";
-import { UserDao } from "@/lib/user-dao";
-import { getSetting } from "@/lib/db";
 import { VaultysId } from "@vaultys/id";
 import { sendMail, getSmtpConfig } from "@/lib/smtp";
+import { SettingsDAO, UserDAO } from "@/db";
 
 /**
  * @openapi
@@ -84,7 +83,7 @@ export async function POST(
     sendByEmail?: boolean;
   };
 
-  const user = UserDao.getById(id);
+  const user = await UserDAO.findById(id);
   if (!user) {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
@@ -102,19 +101,19 @@ export async function POST(
   }
 
   // Create a registration certificate
-  const cert = UserServerChannel.createRegistrationCertificate({
+  const cert = await UserServerChannel.createRegistrationCertificate({
     pendingUserId: user.id,
   });
   const connectionString = await UserServerChannel.startP2PSession(cert);
 
-  const serverSecret = getSetting("serverSecret");
+  const serverSecret = await SettingsDAO.get("serverSecret");
   let serverDid: string | null = null;
   if (serverSecret) {
     serverDid = VaultysId.fromSecret(serverSecret, "base64").did;
   }
 
   const didParam = serverDid ? `&did=${encodeURIComponent(serverDid)}` : "";
-  const walletUrl = getSetting("wallet_url") ?? "https://wallet.vaultys.net";
+  const walletUrl = await SettingsDAO.get("wallet_url") ?? "https://wallet.vaultys.net";
   const qrUrl = `${walletUrl}/#${connectionString}&protocol=p2p&service=auth${didParam}`;
 
   const sendByEmail = body.sendByEmail !== false;

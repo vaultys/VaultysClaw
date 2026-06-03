@@ -181,11 +181,11 @@ export async function GET(request: NextRequest) {
       .prepare(
         `
       SELECT COUNT(*) AS n FROM agents a
-      JOIN agent_token_usage_history h ON h.agent_did = a.did
-      WHERE a.token_budget_daily IS NOT NULL
+      JOIN agent_token_usage_history h ON h.agentDid = a.did
+      WHERE a.tokenBudgetDaily IS NOT NULL
         AND h.granularity = 'day'
         AND h.bucket = strftime('%Y-%m-%d', 'now')
-        AND (h.prompt_tokens + h.completion_tokens) > a.token_budget_daily
+        AND (h.promptTokens + h.completionTokens) > a.tokenBudgetDaily
     `
       )
       .get() as { n: number };
@@ -194,11 +194,11 @@ export async function GET(request: NextRequest) {
       .prepare(
         `
       SELECT COUNT(*) AS n FROM agents a
-      JOIN agent_token_usage_history h ON h.agent_did = a.did
-      WHERE a.token_budget_monthly IS NOT NULL
+      JOIN agent_token_usage_history h ON h.agentDid = a.did
+      WHERE a.tokenBudgetMonthly IS NOT NULL
         AND h.granularity = 'month'
         AND h.bucket = strftime('%Y-%m', 'now')
-        AND (h.prompt_tokens + h.completion_tokens) > a.token_budget_monthly
+        AND (h.promptTokens + h.completionTokens) > a.tokenBudgetMonthly
     `
       )
       .get() as { n: number };

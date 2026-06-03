@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 import { UserServerChannel } from "@/lib/user-server-channel";
-import { UserDao } from "@/lib/user-dao";
-import { getSetting } from "@/lib/db";
 import { VaultysId } from "@vaultys/id";
+import { SettingsDAO, UserDAO } from "@/db";
 
 /**
  * GET /api/user/p2p/connect
@@ -51,17 +50,18 @@ import { VaultysId } from "@vaultys/id";
  *         $ref: '#/components/responses/NotFound'
  */
 export async function GET() {
-  const shouldRegister = !UserDao.hasAnyUser();
+  const hasUsers = (await UserDAO.list({ page: 1, pageSize: 1 })).total > 0;
+  const shouldRegister = !hasUsers;
   console.log(
-    `[p2p/connect] hasAnyUser=${!shouldRegister} → cert type=${shouldRegister ? "REGISTER" : "LOGIN"}`
+    `[p2p/connect] hasAnyUser=${hasUsers} → cert type=${shouldRegister ? "REGISTER" : "LOGIN"}`
   );
   const cert = shouldRegister
-    ? UserServerChannel.createRegistrationCertificate()
-    : UserServerChannel.createConnectionCertificate();
+    ? await UserServerChannel.createRegistrationCertificate()
+    : await UserServerChannel.createConnectionCertificate();
 
   const connectionString = await UserServerChannel.startP2PSession(cert);
 
-  const serverSecret = getSetting("serverSecret");
+  const serverSecret = await SettingsDAO.get("serverSecret");
   let serverDid: string | null = null;
   if (serverSecret) {
     serverDid = VaultysId.fromSecret(serverSecret, "base64").did;

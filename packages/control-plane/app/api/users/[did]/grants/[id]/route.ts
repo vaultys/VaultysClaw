@@ -7,9 +7,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-config";
-import { GrantDao } from "@/lib/grant-dao";
-import { DelegationDao } from "@/lib/delegation-dao";
 import { getWSServer } from "@/lib/ws-server";
+import { GrantDAO } from "@/db";
 
 /**
  * @openapi
@@ -49,16 +48,15 @@ export async function DELETE(
 
   const { did, id } = await params;
 
-  const grant = GrantDao.getById(id);
-  if (!grant || grant.user_did !== did) {
+  const grant = await GrantDAO.findById(id);
+  if (!grant || grant.userDid !== did) {
     return NextResponse.json({ error: "Grant not found" }, { status: 404 });
   }
 
-  const agentDid = grant.agent_did; // null = wildcard
+  const agentDid = grant.agentDid; // null = wildcard
 
-  // Delete delegation certs for this grant (cascade handles it, but be explicit)
-  DelegationDao.deleteByGrantId(id);
-  GrantDao.delete(id);
+  // Cascade delete handles delegation certs via DB relation
+  await GrantDAO.delete(id);
 
   // Push updated (empty or reduced) delegation set to affected agent(s)
   const wsServer = getWSServer();

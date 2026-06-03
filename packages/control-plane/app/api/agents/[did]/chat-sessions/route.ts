@@ -59,7 +59,7 @@ export async function GET(
   const { did: rawDid } = await params;
   const did = decodeURIComponent(rawDid);
 
-  if (!auth.canAccessAgent(did)) return forbidden();
+  if (!(await auth.canAccessAgent(did))) return forbidden();
 
   const wsServer = getWSServer();
   if (!wsServer) {

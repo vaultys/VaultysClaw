@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext, unauthorized } from "@/lib/auth-utils";
-import { getOrgSkillByName } from "@/lib/db";
+import { OrgSkillDAO } from "@/db";
 
 /**
  * GET /api/skills/library/content?skillId=<name>
@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "skillId is required" }, { status: 400 });
   }
 
-  const skill = getOrgSkillByName(skillId);
+  const skill = await OrgSkillDAO.findByName(skillId);
   if (!skill || !skill.content) {
     return NextResponse.json(
       { error: "Skill content not found" },

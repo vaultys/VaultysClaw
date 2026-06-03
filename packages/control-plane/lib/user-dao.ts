@@ -1,4 +1,5 @@
-import { getDb } from "./db";
+import { getDb } from "@/lib/db";
+
 
 export interface User {
   id: string; // UUID — stable internal PK

@@ -15,9 +15,9 @@ import { createHash } from "crypto";
 import pino from "pino";
 import { VaultysId } from "@vaultys/id";
 import { Peer, type DataConnection, type PeerOptions } from "peerjs";
-import { getSetting } from "./db";
 import { PeerjsSender } from "./agent-sender";
 import type { AgentWSServer } from "./ws-server";
+import { SettingsDAO } from "@/db";
 
 const logger = pino({ name: "peerjs-server" });
 
@@ -80,8 +80,8 @@ export class AgentPeerjsServer {
   }
 
   /** Derive and return the control plane's stable PeerJS peer ID. */
-  static getServerPeerId(): string | null {
-    const secret = getSetting("serverSecret");
+  static async getServerPeerId(): Promise<string | null> {
+    const secret = await SettingsDAO.get("serverSecret");
     if (!secret) return null;
     try {
       const vid = VaultysId.fromSecret(secret, "base64");
@@ -92,7 +92,7 @@ export class AgentPeerjsServer {
   }
 
   async start(): Promise<string> {
-    const peerId = AgentPeerjsServer.getServerPeerId();
+    const peerId = await AgentPeerjsServer.getServerPeerId();
     if (!peerId) {
       throw new Error(
         "Server identity not initialized — call initServerIdentity() first"

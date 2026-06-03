@@ -9,9 +9,9 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { getRealmById, getCredentialById } from "@/lib/db";
 import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
 import { decryptSecret } from "@/lib/vault";
+import { CredentialDAO, RealmDAO } from "@/db";
 
 type Ctx = { params: Promise<{ id: string; credId: string }> };
 
@@ -64,14 +64,14 @@ export async function GET(req: NextRequest, ctx: Ctx) {
   if (!auth) return unauthorized();
 
   const { id: realmId, credId } = await ctx.params;
-  const realm = getRealmById(realmId);
+  const realm = await RealmDAO.findById(realmId);
   if (!realm)
     return NextResponse.json({ error: "Realm not found" }, { status: 404 });
   // Only realm admins can retrieve plaintext secrets
-  if (!auth.canAdminRealm(realmId)) return forbidden();
+  if (!(await auth.canAdminRealm(realmId))) return forbidden();
 
-  const cred = getCredentialById(credId);
-  if (!cred || cred.realm_id !== realmId) {
+  const cred = await CredentialDAO.findById(credId);
+  if (!cred || cred.realmId !== realmId) {
     return NextResponse.json(
       { error: "Credential not found" },
       { status: 404 }
@@ -79,7 +79,7 @@ export async function GET(req: NextRequest, ctx: Ctx) {
   }
 
   try {
-    const secret = await decryptSecret(cred.secret_enc);
+    const secret = await decryptSecret(cred.secretEnc);
     return NextResponse.json({
       id: cred.id,
       service: cred.service,

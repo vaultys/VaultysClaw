@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getWSServer } from "@/lib/ws-server";
 import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
-import { createPolicy, listPolicies } from "@/lib/db";
 import type { AgentCapability } from "@vaultysclaw/shared";
+import { PolicyDAO } from "@/db";
 
 /**
  * GET /api/policies
@@ -94,7 +94,7 @@ export async function GET(request: NextRequest) {
     const includeExpired = searchParams.get("includeExpired") === "true";
     const expiredOnly = searchParams.get("expiredOnly") === "true";
 
-    const policies = listPolicies({
+    const policies = await PolicyDAO.list({
       agentDid,
       realmId,
       includeExpired,
@@ -104,15 +104,15 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       policies: policies.map((p) => ({
         id: p.id,
-        agentDid: p.agent_did,
-        realmId: p.realm_id,
-        capabilities: JSON.parse(p.capabilities),
-        resourceLimits: p.resource_limits
-          ? JSON.parse(p.resource_limits)
+        agentDid: p.agentDid,
+        realmId: p.realmId,
+        capabilities: p.capabilities,
+        resourceLimits: p.resourceLimits
+          ? p.resourceLimits
           : null,
-        expiresAt: p.expires_at,
-        createdBy: p.created_by,
-        createdAt: p.created_at,
+        expiresAt: p.expiresAt,
+        createdBy: p.createdBy,
+        createdAt: p.createdAt,
       })),
     });
   } catch (error) {
@@ -224,7 +224,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const policy = createPolicy({
+    const policy = await PolicyDAO.create({
       agentDid: agentDid ?? undefined,
       realmId: realmId ?? undefined,
       capabilities,
@@ -243,7 +243,7 @@ export async function POST(request: NextRequest) {
         policyId: policy.id,
         policyExpiresAt: expiresAt ?? null,
       };
-      const applied = wsServer.applyPolicy(
+      const applied = await wsServer.applyPolicy(
         agentDid,
         capabilities as AgentCapability[],
         policyMeta
@@ -255,15 +255,15 @@ export async function POST(request: NextRequest) {
       {
         policy: {
           id: policy.id,
-          agentDid: policy.agent_did,
-          realmId: policy.realm_id,
-          capabilities: JSON.parse(policy.capabilities),
-          resourceLimits: policy.resource_limits
-            ? JSON.parse(policy.resource_limits)
+          agentDid: policy.agentDid,
+          realmId: policy.realmId,
+          capabilities: policy.capabilities,
+          resourceLimits: policy.resourceLimits
+            ? policy.resourceLimits
             : null,
-          expiresAt: policy.expires_at,
-          createdBy: policy.created_by,
-          createdAt: policy.created_at,
+          expiresAt: policy.expiresAt,
+          createdBy: policy.createdBy,
+          createdAt: policy.createdAt,
         },
         sentTo,
       },

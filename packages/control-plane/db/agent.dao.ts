@@ -302,6 +302,27 @@ export class AgentDAO {
     ]);
   }
 
+  static async getTokenBuckets(
+    agentDid: string,
+    dayBucket: string,
+    monthBucket: string
+  ): Promise<{ todayTokens: number; monthTokens: number }> {
+    const [todayRow, monthRow] = await Promise.all([
+      prisma.agentTokenUsageHistory.findUnique({
+        where: { agentDid_bucket_granularity: { agentDid, bucket: dayBucket, granularity: "day" } },
+        select: { promptTokens: true, completionTokens: true },
+      }),
+      prisma.agentTokenUsageHistory.findUnique({
+        where: { agentDid_bucket_granularity: { agentDid, bucket: monthBucket, granularity: "month" } },
+        select: { promptTokens: true, completionTokens: true },
+      }),
+    ]);
+    return {
+      todayTokens: todayRow ? todayRow.promptTokens + todayRow.completionTokens : 0,
+      monthTokens: monthRow ? monthRow.promptTokens + monthRow.completionTokens : 0,
+    };
+  }
+
   static async getTokenUsageHistory(
     agentDid: string,
     granularity: "day" | "month",

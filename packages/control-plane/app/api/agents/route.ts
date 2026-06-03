@@ -1,12 +1,7 @@
 import { NextResponse } from "next/server";
 import { getWSServer } from "@/lib/ws-server";
-import {
-  getAllAgents,
-  getAgentRealms,
-  getUserRealms,
-  queryAgents,
-} from "@/lib/db";
 import { getAuthContext, unauthorized } from "@/lib/auth-utils";
+import { AgentDAO, RealmDAO } from "@/db";
 
 /**
  * GET /api/agents
@@ -151,10 +146,8 @@ export async function GET(request?: Request) {
           ? false
           : undefined;
 
-    const result = queryAgents({
+    const result = await AgentDAO.query({
       q,
-      online,
-      onlineDids: connectedDids,
       realm,
       capabilities,
       page,
@@ -166,23 +159,41 @@ export async function GET(request?: Request) {
     // For non-admins, filter to agents in the user's realms
     const userRealmIds = auth.isGlobalAdmin
       ? null
-      : new Set(getUserRealms(auth.did).map((r) => r.realm_id));
+      : new Set((await RealmDAO.getUserRealms(auth.did)).map((r) => r.realmId));
 
-    const agents = result.agents
-      .filter((agent) => {
-        if (userRealmIds === null) return true;
-        const agentRealms = getAgentRealms(agent.did);
-        return agentRealms.some((r) => userRealmIds.has(r.realm_id));
-      })
-      .map((agent) => {
+    // Filter by realm access and online status, then enrich with runtime data
+    const filteredAgents = (
+      await Promise.all(
+        result.agents.map(async (agent) => {
+          if (userRealmIds !== null) {
+            const agentRealms = await AgentDAO.getRealms(agent.did);
+            if (!agentRealms.some((r) => userRealmIds.has(r.realmId)))
+              return null;
+          }
+          return agent;
+        })
+      )
+    ).filter((a) => a !== null);
+
+    const onlineFiltered =
+      online === undefined
+        ? filteredAgents
+        : filteredAgents.filter((agent) =>
+            online
+              ? connectedDids.has(agent.did)
+              : !connectedDids.has(agent.did)
+          );
+
+    const agents = await Promise.all(
+      onlineFiltered.map(async (agent) => {
         const connected = wsServer?.getAgent(agent.did);
-        const realms = getAgentRealms(agent.did);
+        const realms = await AgentDAO.getRealms(agent.did);
         return {
           id: agent.did,
           name: connected?.name ?? agent.name,
-          capabilities: JSON.parse(agent.capabilities),
-          registeredAt: agent.registered_at,
-          lastSeen: agent.last_seen,
+          capabilities: agent.capabilities,
+          registeredAt: agent.registeredAt,
+          lastSeen: agent.lastSeen,
           online: connectedDids.has(agent.did),
           connectedAt: connected?.connectedAt?.toISOString() ?? null,
           lastHeartbeat: connected?.lastHeartbeat?.toISOString() ?? null,
@@ -190,23 +201,25 @@ export async function GET(request?: Request) {
           tokenUsage: connected?.tokenUsage ?? null,
           transport: connected?.transport ?? null,
           realms: realms.map((r) => ({
-            id: r.realm_id,
-            name: r.name,
-            slug: r.slug,
-            color: r.color,
-            isPrimary: Boolean(r.is_primary),
+            id: r.realmId,
+            name: r.realm.name,
+            slug: r.realm.slug,
+            color: r.realm.color,
+            isPrimary: Boolean(r.isPrimary),
           })),
         };
-      });
+      })
+    );
 
     return NextResponse.json({
       agents,
-      total: userRealmIds ? agents.length : result.total,
+      total: userRealmIds !== null ? agents.length : result.total,
       page: result.page,
       pageSize: result.pageSize,
-      totalPages: userRealmIds
-        ? Math.ceil(agents.length / pageSize)
-        : result.totalPages,
+      totalPages:
+        userRealmIds !== null
+          ? Math.ceil(agents.length / pageSize)
+          : result.totalPages,
       online: agents.filter((a) => a.online).length,
     });
   } catch (error) {

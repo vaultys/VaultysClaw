@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAllPendingRegistrations } from "@/lib/db";
 import type { AgentCapability } from "@vaultysclaw/shared";
 import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
+import { PendingRegistrationDAO } from "@/db";
 
 /**
  * Available capabilities that the admin can assign to agents
@@ -87,7 +87,7 @@ export async function GET(request: NextRequest) {
     if (!auth) return unauthorized();
     if (!auth.isGlobalAdmin) return forbidden();
 
-    const registrations = getAllPendingRegistrations();
+    const registrations = await PendingRegistrationDAO.findAll();
     return NextResponse.json({
       registrations,
       availableCapabilities: AVAILABLE_CAPABILITIES,

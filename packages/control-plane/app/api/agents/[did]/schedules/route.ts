@@ -80,7 +80,7 @@ export async function POST(
   const { did } = await params;
   const agentDid = decodeURIComponent(did);
 
-  if (!auth.canAdminAgent(agentDid)) return forbidden();
+  if (!(await auth.canAdminAgent(agentDid))) return forbidden();
 
   const wsServer = getWSServer();
   if (!wsServer) {
@@ -185,7 +185,7 @@ export async function DELETE(
   const { did } = await params;
   const agentDid = decodeURIComponent(did);
 
-  if (!auth.canAdminAgent(agentDid)) return forbidden();
+  if (!(await auth.canAdminAgent(agentDid))) return forbidden();
 
   const wsServer = getWSServer();
   if (!wsServer) {

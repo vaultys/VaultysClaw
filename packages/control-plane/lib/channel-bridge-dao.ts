@@ -1,6 +1,6 @@
 import { randomUUID } from "crypto";
-import { getDb } from "./db";
 import { ChannelBridge, ChannelBridgeInput } from "@vaultysclaw/shared";
+import { getDb } from "@/lib/db";
 
 export const ChannelBridgeDao = {
   create(input: ChannelBridgeInput): ChannelBridge {
@@ -69,7 +69,6 @@ export const ChannelBridgeDao = {
     updates: Partial<Omit<ChannelBridgeInput, "channelId">>
   ): ChannelBridge {
     const db = getDb();
-
     const fields: string[] = [];
     const values: any[] = [];
 

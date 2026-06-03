@@ -9,6 +9,7 @@
  *   └── workspace/
  */
 
+import "./lib/env-preload";
 import "./lib/webrtc-polyfill";
 import { createServer } from "node:http";
 import { parse } from "node:url";
@@ -183,7 +184,7 @@ app.prepare().then(async () => {
       });
   } else {
     initializePeerjsServer(wsServer, peerjsServerUrl);
-    const peerId = AgentPeerjsServer.getServerPeerId();
+    const peerId = await AgentPeerjsServer.getServerPeerId();
     if (peerId) {
       logger.info({ peerId }, "PeerJS transport disabled.");
     }

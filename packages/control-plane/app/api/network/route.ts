@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getWSServer, initializeWSServer } from "@/lib/ws-server";
+import { SettingsDAO } from "@/db";
 import {
   AgentPeerjsServer,
   getPeerjsServer,
   initializePeerjsServer,
 } from "@/lib/peerjs-server";
-import { getSetting, setSetting } from "@/lib/db";
 import { getAuthContext, unauthorized } from "@/lib/auth-utils";
 
 /**
@@ -72,7 +72,7 @@ export async function GET(req: Request) {
   const stats = wsServer?.getNetworkStats() ?? null;
   const peerjsServer = getPeerjsServer();
   const peerId = AgentPeerjsServer.getServerPeerId();
-  const configuredServerUrl = getSetting("peerjs_server_url") ?? null;
+  const configuredServerUrl = await SettingsDAO.get("peerjs_server_url") ?? null;
 
   return NextResponse.json({
     stats,
@@ -155,7 +155,7 @@ export async function POST(req: NextRequest) {
   if (action === "stop") {
     const server = getPeerjsServer();
     if (server) server.shutdown();
-    setSetting("peerjs_enabled", "false");
+    await SettingsDAO.set("peerjs_enabled", "false");
     return NextResponse.json({ ok: true, running: false });
   }
 
@@ -176,12 +176,12 @@ export async function POST(req: NextRequest) {
     const resolvedUrl =
       serverUrl !== undefined
         ? (serverUrl ?? undefined)
-        : getSetting("peerjs_server_url") || undefined;
+        : await SettingsDAO.get("peerjs_server_url") || undefined;
 
     if (serverUrl !== undefined) {
-      setSetting("peerjs_server_url", serverUrl ?? "");
+      await SettingsDAO.set("peerjs_server_url", serverUrl ?? "");
     }
-    setSetting("peerjs_enabled", "true");
+    await SettingsDAO.set("peerjs_enabled", "true");
 
     const server = initializePeerjsServer(wsServer, resolvedUrl || undefined);
     try {

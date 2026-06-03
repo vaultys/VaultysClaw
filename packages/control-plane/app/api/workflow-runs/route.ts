@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-config";
-import { queryWorkflowRuns } from "@/lib/db";
+import { WorkflowDAO } from "@/db";
 
 /**
  * GET /api/workflow-runs
@@ -108,7 +108,7 @@ export async function GET(request: Request) {
       | "completedAt";
     const sortDir = (searchParams.get("sortDir") ?? "desc") as "asc" | "desc";
 
-    const result = queryWorkflowRuns({
+    const result = await WorkflowDAO.queryRuns({
       workflowId,
       status,
       page,

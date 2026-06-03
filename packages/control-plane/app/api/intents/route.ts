@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-config";
-import { GrantDao } from "@/lib/grant-dao";
 import { getWSServer } from "@/lib/ws-server";
-import { getIntentLog } from "@/lib/db";
+import { AgentDAO, GrantDAO, IntentDAO } from "@/db";
 
 /**
  * POST /api/intents
@@ -98,13 +97,13 @@ export async function POST(request: NextRequest) {
       const targetAgentId: string | null = agentId ?? null;
 
       // Check if user has a grant covering this agent + capability
-      const grants = GrantDao.listByUser(session.user.did);
+      const grants = await GrantDAO.listByUser(session.user.did);
       const hasGrant = grants.some((g) => {
-        const caps = JSON.parse(g.capabilities) as string[];
+        const caps = g.capabilities as string[];
         const agentMatch =
-          g.agent_did === null || g.agent_did === targetAgentId;
+          g.agentDid === null || g.agentDid === targetAgentId;
         const capMatch = caps.includes(capability);
-        const notExpired = !g.expires_at || new Date(g.expires_at) > new Date();
+        const notExpired = !g.expiresAt || new Date(g.expiresAt) > new Date();
         return agentMatch && capMatch && notExpired;
       });
 
@@ -133,7 +132,7 @@ export async function POST(request: NextRequest) {
 
     if (broadcastCapability) {
       // Broadcast to all agents with specific capability
-      sentTo = wsServer.broadcastIntentToCapability(
+      sentTo = await wsServer.broadcastIntentToCapability(
         broadcastCapability,
         intentId,
         action,
@@ -254,17 +253,17 @@ export async function GET(request: NextRequest) {
     );
     const agentDid = searchParams.get("agentDid") ?? undefined;
 
-    const rows = getIntentLog(limit, agentDid);
+    const rows = await IntentDAO.findAll(limit, agentDid);
     const intents = rows.map((r) => ({
-      intentId: r.intent_id,
-      agentDid: r.agent_did,
+      intentId: r.intentId,
+      agentDid: r.agentDid,
       action: r.action,
-      params: r.params ? JSON.parse(r.params) : {},
+      params: r.params ? r.params : {},
       status: r.status,
-      output: r.output ? JSON.parse(r.output) : null,
+      output: r.output ? r.output : null,
       error: r.error,
-      sentAt: r.sent_at,
-      completedAt: r.completed_at,
+      sentAt: r.sentAt,
+      completedAt: r.completedAt,
     }));
 
     return NextResponse.json({ intents });

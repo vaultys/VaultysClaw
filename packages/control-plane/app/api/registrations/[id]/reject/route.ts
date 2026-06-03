@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getPendingRegistration } from "@/lib/db";
 import { getWSServer } from "@/lib/ws-server";
 import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
+import { PendingRegistrationDAO } from "@/db";
 
 /**
  * POST /api/registrations/[id]/reject
@@ -73,7 +73,7 @@ export async function POST(
     const body = await request.json().catch(() => ({}));
     const reason: string = body.reason ?? "Registration rejected by admin";
 
-    const registration = getPendingRegistration(id);
+    const registration = await PendingRegistrationDAO.findById(id);
     if (!registration) {
       return NextResponse.json(
         { error: "Registration not found" },

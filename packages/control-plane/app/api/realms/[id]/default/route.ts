@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getRealmById, setDefaultRealm } from "@/lib/db";
 import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
+import { RealmDAO } from "@/db";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -47,11 +47,11 @@ export async function POST(_req: NextRequest, ctx: Ctx) {
     if (!auth.isGlobalAdmin) return forbidden();
 
     const { id } = await ctx.params;
-    const realm = getRealmById(id);
+    const realm = await RealmDAO.findById(id);
     if (!realm)
       return NextResponse.json({ error: "Realm not found" }, { status: 404 });
 
-    setDefaultRealm(id);
+    await RealmDAO.setDefault(id);
     return NextResponse.json({ ok: true });
   } catch (err) {
     console.error(err);

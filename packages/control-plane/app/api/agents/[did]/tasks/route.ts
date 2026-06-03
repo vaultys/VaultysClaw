@@ -68,7 +68,7 @@ export async function POST(
   const { did } = await params;
   const agentDid = decodeURIComponent(did);
 
-  if (!auth.canAccessAgent(agentDid)) return forbidden();
+  if (!(await auth.canAccessAgent(agentDid))) return forbidden();
 
   const wsServer = getWSServer();
   if (!wsServer) {

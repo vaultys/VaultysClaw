@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
 import { ChannelService } from "@/lib/channel-service";
-import { getRealmById } from "@/lib/db";
+import { RealmDAO } from "@/db";
 
 /**
  * GET /api/channels?realm=<id>&includeGlobal=true
@@ -66,12 +66,12 @@ export async function GET(req: NextRequest) {
     }
 
     // Verify realm exists and user can access it
-    const realm = getRealmById(realmId);
+    const realm = await RealmDAO.findById(realmId);
     if (!realm) {
       return NextResponse.json({ error: "Realm not found" }, { status: 404 });
     }
 
-    if (!auth.canAccessRealm(realmId)) {
+    if (!(await auth.canAccessRealm(realmId))) {
       return forbidden();
     }
 
@@ -179,12 +179,12 @@ export async function POST(req: NextRequest) {
 
     // If realm-scoped, verify user can access it
     if (realmId) {
-      const realm = getRealmById(realmId);
+      const realm = await RealmDAO.findById(realmId);
       if (!realm) {
         return NextResponse.json({ error: "Realm not found" }, { status: 404 });
       }
 
-      if (!auth.canAccessRealm(realmId)) {
+      if (!(await auth.canAccessRealm(realmId))) {
         return forbidden();
       }
     } else {

@@ -62,8 +62,8 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const userCert = UserServerChannel.connecting(userToken);
-  const browserCert = UserServerChannel.connecting(browserToken);
+  const userCert = await UserServerChannel.connecting(userToken);
+  const browserCert = await UserServerChannel.connecting(browserToken);
 
   if (!userCert || !browserCert) {
     return NextResponse.json({ error: "Invalid tokens" }, { status: 400 });

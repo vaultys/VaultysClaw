@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { saveWorkflow, getAllAgents, getDefaultRealm } from "@/lib/db";
 import { getWSServer } from "@/lib/ws-server";
-import type { WorkflowDefinition } from "@/lib/db";
 import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
+import { AgentDAO, RealmDAO, WorkflowDAO } from "@/db";
+import type { WorkflowDefinition } from "@/lib/workflow-executor";
 
 /**
  * POST /api/workflows/test-seed
@@ -96,7 +96,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Get connected agents
-    const dbAgents = getAllAgents();
+    const dbAgents = await AgentDAO.findAll();
     const connectedAgents = wsServer.getConnectedAgents().slice(0, 4);
 
     if (connectedAgents.length < 4) {
@@ -122,7 +122,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Get default realm
-    const defaultRealm = getDefaultRealm();
+    const defaultRealm = await RealmDAO.findDefault();
     if (!defaultRealm) {
       return NextResponse.json(
         { error: "No default realm found" },
@@ -196,7 +196,7 @@ export async function POST(request: NextRequest) {
     const definition: WorkflowDefinition = { nodes, edges };
 
     // Create the workflow
-    const workflowId = saveWorkflow(
+    const workflowId = await WorkflowDAO.create(
       "Test E2E Workflow",
       definition,
       undefined,

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-config";
-import { dismissWorkflowNotification } from "@/lib/db";
+import { WorkflowDAO } from "@/db";
 
 interface Params {
   id: string;
@@ -45,7 +45,7 @@ export async function POST(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const updated = dismissWorkflowNotification(id, session.user.did);
+    const updated = await WorkflowDAO.dismissNotification(id, session.user.did);
     if (!updated) {
       return NextResponse.json(
         { error: "Notification not found or not dismissable" },

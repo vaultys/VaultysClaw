@@ -1,9 +1,10 @@
+import { SettingsDAO } from "@/db";
+
 /**
  * SMTP email service using nodemailer.
  * Configuration is stored in the settings table.
  */
 
-import { getSetting, setSetting } from "./db";
 
 export interface SmtpConfig {
   host: string;
@@ -14,28 +15,28 @@ export interface SmtpConfig {
   from: string;
 }
 
-export function getSmtpConfig(): SmtpConfig | null {
-  const host = getSetting("smtp_host");
-  const port = getSetting("smtp_port");
-  const from = getSetting("smtp_from");
+export async function getSmtpConfig(): Promise<SmtpConfig | null> {
+  const host = await SettingsDAO.get("smtp_host");
+  const port = await SettingsDAO.get("smtp_port");
+  const from = await SettingsDAO.get("smtp_from");
   if (!host || !port || !from) return null;
   return {
     host,
     port: parseInt(port, 10),
-    secure: getSetting("smtp_secure") === "true",
-    user: getSetting("smtp_user") ?? "",
-    password: getSetting("smtp_password") ?? "",
+    secure: await SettingsDAO.get("smtp_secure") === "true",
+    user: await SettingsDAO.get("smtp_user") ?? "",
+    password: await SettingsDAO.get("smtp_password") ?? "",
     from,
   };
 }
 
-export function saveSmtpConfig(config: SmtpConfig): void {
-  setSetting("smtp_host", config.host);
-  setSetting("smtp_port", String(config.port));
-  setSetting("smtp_secure", config.secure ? "true" : "false");
-  setSetting("smtp_user", config.user);
-  setSetting("smtp_password", config.password);
-  setSetting("smtp_from", config.from);
+export async function saveSmtpConfig(config: SmtpConfig): Promise<void> {
+  await SettingsDAO.set("smtp_host", config.host);
+  await SettingsDAO.set("smtp_port", String(config.port));
+  await SettingsDAO.set("smtp_secure", config.secure ? "true" : "false");
+  await SettingsDAO.set("smtp_user", config.user);
+  await SettingsDAO.set("smtp_password", config.password);
+  await SettingsDAO.set("smtp_from", config.from);
 }
 
 export interface MailOptions {
@@ -46,7 +47,7 @@ export interface MailOptions {
 }
 
 export async function sendMail(opts: MailOptions): Promise<void> {
-  const config = getSmtpConfig();
+  const config = await getSmtpConfig();
   if (!config) throw new Error("SMTP not configured");
 
   // Dynamically import nodemailer to avoid bundling issues

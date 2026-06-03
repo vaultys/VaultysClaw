@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getRealmById, getModelsByRealm, getRealmRouterKey } from "@/lib/db";
 import { getAuthContext, unauthorized } from "@/lib/auth-utils";
+import { ModelDAO, RealmDAO } from "@/db";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -72,29 +72,29 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
     if (!auth) return unauthorized();
 
     const { id } = await params;
-    const realm = getRealmById(id);
+    const realm = await RealmDAO.findById(id);
     if (!realm)
       return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-    const models = getModelsByRealm(id).map((m) => ({
+    const models = (await ModelDAO.findByRealm(id)).map((m) => ({
       id: m.id,
       name: m.name,
       description: m.description,
       provider: m.provider,
-      modelId: m.model_id,
-      litellmModelName: m.litellm_model_name,
+      modelId: m.modelId,
+      litellmModelName: m.litellmModelName,
       status: m.status,
     }));
 
-    const routerKey = getRealmRouterKey(id);
+    const routerKey = await RealmDAO.getRouterKey(id);
 
     return NextResponse.json({
       models,
       routerKey: routerKey
         ? {
-            hasVirtualKey: Boolean(routerKey.litellm_virtual_key),
-            allowedModels: JSON.parse(routerKey.allowed_model_ids),
-            monthlyBudgetUsd: routerKey.monthly_budget_usd,
+            hasVirtualKey: Boolean(routerKey.litellmVirtualKey),
+            allowedModels: routerKey.allowedModelIds,
+            monthlyBudgetUsd: routerKey.monthlyBudgetUsd,
           }
         : null,
     });

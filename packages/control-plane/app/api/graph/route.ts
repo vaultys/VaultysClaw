@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getDb } from "@/lib/db";
 import { getWSServer } from "@/lib/ws-server";
+import { getDb } from "@/lib/db";
 import type {
   GraphNode,
   GraphEdge,
@@ -79,9 +79,9 @@ export async function GET(req: NextRequest) {
     // Full graph is global-admin only; scoped views require matching access
     if (!auth.isGlobalAdmin) {
       if (agentDid) {
-        if (!auth.canAccessAgent(agentDid)) return forbidden();
+        if (!(await auth.canAccessAgent(agentDid))) return forbidden();
       } else if (realmId) {
-        if (!auth.canAccessRealm(realmId)) return forbidden();
+        if (!(await auth.canAccessRealm(realmId))) return forbidden();
       } else {
         return forbidden();
       }
@@ -297,7 +297,7 @@ function buildGraph(filters: Filters): GraphData {
       .all() as GrantRow[];
   }
   for (const g of grants) {
-    const caps: AgentCapability[] = JSON.parse(g.capabilities);
+    const caps: AgentCapability[] = JSON.parse(g.capabilities) as AgentCapability[];
     if (g.agent_did) {
       // Ensure both endpoints exist
       if (!nodes.has(`user:${g.user_did}`)) {
@@ -390,7 +390,7 @@ function buildGraph(filters: Filters): GraphData {
   for (const d of delegations) {
     if (!nodes.has(`user:${d.user_did}`) || !nodes.has(`agent:${d.agent_did}`))
       continue;
-    const caps: AgentCapability[] = JSON.parse(d.capabilities);
+    const caps: AgentCapability[] = JSON.parse(d.capabilities) as AgentCapability[];
     edges.push({
       source: `user:${d.user_did}`,
       target: `agent:${d.agent_did}`,

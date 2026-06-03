@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-config";
-import { getWorkflowRunHistory } from "@/lib/db";
+import { WorkflowDAO } from "@/db";
 
 /**
  * GET /api/workflow-runs/[id]
@@ -55,7 +55,7 @@ export async function GET(
     }
 
     const { id } = await params;
-    const result = getWorkflowRunHistory(id);
+    const result = await WorkflowDAO.getRunHistory(id);
 
     if (!result) {
       return NextResponse.json({ error: "Run not found" }, { status: 404 });
@@ -67,7 +67,7 @@ export async function GET(
         ? {
             id: result.workflow.id,
             name: result.workflow.name,
-            definition: JSON.parse(result.workflow.definition),
+            definition: result.workflow.definition,
           }
         : null,
       steps: result.steps,

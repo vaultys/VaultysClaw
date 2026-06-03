@@ -4,7 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { getUserInvitation } from "@/lib/db";
+import { UserDAO } from "@/db";
 
 /**
  * @openapi
@@ -44,7 +44,7 @@ export async function GET(
 ) {
   const { token } = await params;
   try {
-    const invitation = getUserInvitation(token);
+    const invitation = await UserDAO.findInvitation(token);
 
     if (!invitation) {
       return NextResponse.json(
@@ -53,7 +53,7 @@ export async function GET(
       );
     }
 
-    const expiresAt = new Date(invitation.expires_at);
+    const expiresAt = new Date(invitation.expiresAt);
     if (expiresAt < new Date()) {
       return NextResponse.json(
         { error: "Invitation expired" },

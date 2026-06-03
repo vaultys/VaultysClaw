@@ -9,8 +9,8 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-config";
 import { UserServerChannel } from "@/lib/user-server-channel";
-import { getSetting } from "@/lib/db";
 import { VaultysId } from "@vaultys/id";
+import { SettingsDAO } from "@/db";
 
 /**
  * @openapi
@@ -44,10 +44,10 @@ export async function GET() {
   }
 
   // Always creates a registration cert (new user, never becomes owner unless first)
-  const cert = UserServerChannel.createRegistrationCertificate();
+  const cert = await UserServerChannel.createRegistrationCertificate();
   const connectionString = await UserServerChannel.startP2PSession(cert);
 
-  const serverSecret = getSetting("serverSecret");
+  const serverSecret = await SettingsDAO.get("serverSecret");
   let serverDid: string | null = null;
   if (serverSecret) {
     serverDid = VaultysId.fromSecret(serverSecret, "base64").did;

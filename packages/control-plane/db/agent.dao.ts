@@ -1,5 +1,12 @@
 import { prisma } from "./client";
-import type { Agent, AgentRealm, AgentTokenUsage, AgentTokenUsageHistory, AgentPeerGrant, Prisma } from "@prisma/client";
+import type {
+  Agent,
+  AgentRealm,
+  AgentTokenUsage,
+  AgentTokenUsageHistory,
+  AgentPeerGrant,
+  Prisma,
+} from "@prisma/client";
 import type { LlmConfig } from "@vaultysclaw/shared";
 
 export class AgentDAO {
@@ -48,8 +55,22 @@ export class AgentDAO {
     pageSize?: number;
     sortBy?: "name" | "lastSeen" | "registeredAt";
     sortDir?: "asc" | "desc";
-  }): Promise<{ agents: Agent[]; total: number; page: number; pageSize: number; totalPages: number }> {
-    const { q, realm, capabilities, page = 1, pageSize = 20, sortBy = "lastSeen", sortDir = "desc" } = opts;
+  }): Promise<{
+    agents: Agent[];
+    total: number;
+    page: number;
+    pageSize: number;
+    totalPages: number;
+  }> {
+    const {
+      q,
+      realm,
+      capabilities,
+      page = 1,
+      pageSize = 20,
+      sortBy = "lastSeen",
+      sortDir = "desc",
+    } = opts;
 
     const where: Prisma.AgentWhereInput = {};
 
@@ -91,31 +112,57 @@ export class AgentDAO {
         `SELECT * FROM agents a WHERE ${capConditions} ORDER BY ${sortBy === "name" ? "name" : sortBy === "registeredAt" ? "registered_at" : "last_seen"} ${sortDir.toUpperCase()} LIMIT ${pageSize} OFFSET ${offset}`,
         ...capParams
       );
-      return { agents, total, page, pageSize, totalPages: Math.ceil(total / pageSize) };
+      return {
+        agents,
+        total,
+        page,
+        pageSize,
+        totalPages: Math.ceil(total / pageSize),
+      };
     }
 
     const [total, agents] = await Promise.all([
       prisma.agent.count({ where }),
-      prisma.agent.findMany({ where, orderBy, skip: (page - 1) * pageSize, take: pageSize }),
+      prisma.agent.findMany({
+        where,
+        orderBy,
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
     ]);
 
-    return { agents, total, page, pageSize, totalPages: Math.ceil(total / pageSize) };
+    return {
+      agents,
+      total,
+      page,
+      pageSize,
+      totalPages: Math.ceil(total / pageSize),
+    };
   }
 
   static async updateLastSeen(did: string): Promise<void> {
-    await prisma.agent.update({ where: { did }, data: { lastSeen: new Date() } });
-  }
-
-  static async setLlmConfig(did: string, config: LlmConfig | null): Promise<void> {
     await prisma.agent.update({
       where: { did },
-      data: { llmConfig: config ?? Prisma.DbNull },
+      data: { lastSeen: new Date() },
+    });
+  }
+
+  static async setLlmConfig(
+    did: string,
+    config: LlmConfig | null
+  ): Promise<void> {
+    await prisma.agent.update({
+      where: { did },
+      data: { llmConfig: { ...config } },
     });
   }
 
   static async updateBudget(
     did: string,
-    budgets: { tokenBudgetDaily?: number | null; tokenBudgetMonthly?: number | null }
+    budgets: {
+      tokenBudgetDaily?: number | null;
+      tokenBudgetMonthly?: number | null;
+    }
   ): Promise<void> {
     await prisma.agent.update({ where: { did }, data: budgets });
   }
@@ -126,17 +173,48 @@ export class AgentDAO {
 
   // ─── Realm membership ───────────────────────────────────────────────────────
 
-  static async getRealms(agentDid: string): Promise<Array<AgentRealm & { realm: { id: string; name: string; slug: string; color: string; isDefault: boolean } }>> {
+  static async getRealms(
+    agentDid: string
+  ): Promise<
+    Array<
+      AgentRealm & {
+        realm: {
+          id: string;
+          name: string;
+          slug: string;
+          color: string;
+          isDefault: boolean;
+        };
+      }
+    >
+  > {
     return prisma.agentRealm.findMany({
       where: { agentDid },
-      include: { realm: { select: { id: true, name: true, slug: true, color: true, isDefault: true } } },
+      include: {
+        realm: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            color: true,
+            isDefault: true,
+          },
+        },
+      },
       orderBy: [{ isPrimary: "desc" }, { realm: { name: "asc" } }],
     }) as any;
   }
 
-  static async addToRealm(agentDid: string, realmId: string, isPrimary = false): Promise<void> {
+  static async addToRealm(
+    agentDid: string,
+    realmId: string,
+    isPrimary = false
+  ): Promise<void> {
     if (isPrimary) {
-      await prisma.agentRealm.updateMany({ where: { agentDid }, data: { isPrimary: false } });
+      await prisma.agentRealm.updateMany({
+        where: { agentDid },
+        data: { isPrimary: false },
+      });
     }
     await prisma.agentRealm.upsert({
       where: { agentDid_realmId: { agentDid, realmId } },
@@ -145,16 +223,23 @@ export class AgentDAO {
     });
   }
 
-  static async removeFromRealm(agentDid: string, realmId: string): Promise<boolean> {
+  static async removeFromRealm(
+    agentDid: string,
+    realmId: string
+  ): Promise<boolean> {
     const realm = await prisma.realm.findUnique({ where: { id: realmId } });
     if (realm?.isDefault) return false;
-    const result = await prisma.agentRealm.deleteMany({ where: { agentDid, realmId } });
+    const result = await prisma.agentRealm.deleteMany({
+      where: { agentDid, realmId },
+    });
     return result.count > 0;
   }
 
   // ─── Token usage ────────────────────────────────────────────────────────────
 
-  static async getTokenUsage(agentDid: string): Promise<AgentTokenUsage | null> {
+  static async getTokenUsage(
+    agentDid: string
+  ): Promise<AgentTokenUsage | null> {
     return prisma.agentTokenUsage.findUnique({ where: { agentDid } });
   }
 
@@ -174,7 +259,10 @@ export class AgentDAO {
     });
   }
 
-  static async getTotalFleetTokenUsage(): Promise<{ promptTokens: number; completionTokens: number }> {
+  static async getTotalFleetTokenUsage(): Promise<{
+    promptTokens: number;
+    completionTokens: number;
+  }> {
     const result = await prisma.agentTokenUsage.aggregate({
       _sum: { promptTokens: true, completionTokens: true },
     });

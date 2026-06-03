@@ -1,5 +1,10 @@
 import { prisma } from "./client";
-import type { OrgSkill, RealmSkill, AgentSkillOverride, Prisma } from "@prisma/client";
+import type {
+  OrgSkill,
+  RealmSkill,
+  AgentSkillOverride,
+  Prisma,
+} from "@prisma/client";
 import type { SkillConfig } from "@vaultysclaw/shared";
 
 export class OrgSkillDAO {
@@ -32,7 +37,7 @@ export class OrgSkillDAO {
         version: opts.version?.trim() ?? "1.0.0",
         icon: opts.icon?.trim() ?? null,
         content: opts.content ?? null,
-        configSchema: opts.configSchema ?? {},
+        configSchema: (opts.configSchema as Prisma.InputJsonValue) ?? {},
       },
     });
   }
@@ -65,11 +70,15 @@ export class OrgSkillDAO {
     const result = await prisma.orgSkill.updateMany({
       where: { id },
       data: {
-        ...(updates.description !== undefined && { description: updates.description }),
+        ...(updates.description !== undefined && {
+          description: updates.description,
+        }),
         ...(updates.version !== undefined && { version: updates.version }),
         ...(updates.icon !== undefined && { icon: updates.icon }),
         ...(updates.content !== undefined && { content: updates.content }),
-        ...(updates.configSchema !== undefined && { configSchema: updates.configSchema }),
+        ...(updates.configSchema !== undefined && {
+          configSchema: updates.configSchema as Prisma.InputJsonValue,
+        }),
       },
     });
     return result.count > 0;
@@ -94,7 +103,13 @@ export class RealmSkillDAO {
   }
 
   static async findAllWithRealms(): Promise<
-    Array<RealmSkill & { realmName: string; agentCount: number; overrideCount: number }>
+    Array<
+      RealmSkill & {
+        realmName: string;
+        agentCount: number;
+        overrideCount: number;
+      }
+    >
   > {
     const skills = await prisma.realmSkill.findMany({
       include: { realm: { select: { name: true } }, agentOverrides: true },
@@ -105,7 +120,9 @@ export class RealmSkillDAO {
       by: ["realmId"],
       _count: { agentDid: true },
     });
-    const countMap = Object.fromEntries(agentCounts.map((r) => [r.realmId, r._count.agentDid]));
+    const countMap = Object.fromEntries(
+      agentCounts.map((r) => [r.realmId, r._count.agentDid])
+    );
 
     return skills.map((s) => ({
       ...s,
@@ -133,7 +150,7 @@ export class RealmSkillDAO {
         description: skill.description ?? null,
         version: skill.version ?? null,
         isRequired: skill.isRequired ?? false,
-        config: skill.config ?? {},
+        config: (skill.config as Prisma.InputJsonValue) ?? {},
         content: skill.content ?? null,
       },
     });
@@ -153,7 +170,8 @@ export class RealmSkillDAO {
     if ("description" in updates) data.description = updates.description;
     if ("version" in updates) data.version = updates.version;
     if ("isRequired" in updates) data.isRequired = updates.isRequired;
-    if ("config" in updates) data.config = updates.config;
+    if ("config" in updates)
+      data.config = updates.config as Prisma.InputJsonValue;
     if ("content" in updates) data.content = updates.content;
     const result = await prisma.realmSkill.updateMany({ where: { id }, data });
     return result.count > 0;
@@ -170,7 +188,11 @@ export class SkillOverrideDAO {
     return prisma.agentSkillOverride.findMany({ where: { agentDid } });
   }
 
-  static async set(agentDid: string, realmSkillId: string, enabled: boolean): Promise<void> {
+  static async set(
+    agentDid: string,
+    realmSkillId: string,
+    enabled: boolean
+  ): Promise<void> {
     await prisma.agentSkillOverride.upsert({
       where: { agentDid_realmSkillId: { agentDid, realmSkillId } },
       create: { agentDid, realmSkillId, enabled },

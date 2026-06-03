@@ -17,7 +17,7 @@ export class PolicyDAO {
         agentDid: policy.agentDid ?? null,
         realmId: policy.realmId ?? null,
         capabilities: policy.capabilities,
-        resourceLimits: policy.resourceLimits ?? Prisma.DbNull,
+        resourceLimits: policy.resourceLimits as Prisma.InputJsonValue,
         expiresAt: policy.expiresAt ? new Date(policy.expiresAt) : null,
         createdBy: policy.createdBy ?? null,
       },
@@ -28,12 +28,14 @@ export class PolicyDAO {
     return prisma.policy.findUnique({ where: { id } });
   }
 
-  static async list(opts: {
-    agentDid?: string;
-    realmId?: string;
-    includeExpired?: boolean;
-    expiredOnly?: boolean;
-  } = {}): Promise<Policy[]> {
+  static async list(
+    opts: {
+      agentDid?: string;
+      realmId?: string;
+      includeExpired?: boolean;
+      expiredOnly?: boolean;
+    } = {}
+  ): Promise<Policy[]> {
     const where: Prisma.PolicyWhereInput = {};
     if (opts.agentDid !== undefined) where.agentDid = opts.agentDid;
     if (opts.realmId !== undefined) where.realmId = opts.realmId;
@@ -52,7 +54,9 @@ export class PolicyDAO {
     return result.count > 0;
   }
 
-  static async countByAgent(): Promise<Array<{ agentDid: string; count: number }>> {
+  static async countByAgent(): Promise<
+    Array<{ agentDid: string; count: number }>
+  > {
     const rows = await prisma.policy.groupBy({
       by: ["agentDid"],
       where: {

@@ -1,5 +1,11 @@
 import { prisma } from "./client";
-import type { Workflow, WorkflowRun, WorkflowStep, WorkflowApproval, Prisma } from "@prisma/client";
+import type {
+  Workflow,
+  WorkflowRun,
+  WorkflowStep,
+  WorkflowApproval,
+  Prisma,
+} from "@prisma/client";
 
 export class WorkflowDAO {
   // ─── Workflows ──────────────────────────────────────────────────────────────
@@ -20,7 +26,7 @@ export class WorkflowDAO {
         id,
         name,
         description: description ?? null,
-        definition,
+        definition: definition as Prisma.InputJsonValue,
         createdBy: createdBy ?? null,
         realmId: realmId ?? defaultRealm?.id ?? null,
       },
@@ -32,7 +38,10 @@ export class WorkflowDAO {
     return prisma.workflow.findUnique({ where: { id } });
   }
 
-  static async list(opts?: { createdBy?: string; realmId?: string }): Promise<Workflow[]> {
+  static async list(opts?: {
+    createdBy?: string;
+    realmId?: string;
+  }): Promise<Workflow[]> {
     return prisma.workflow.findMany({
       where: {
         ...(opts?.createdBy && { createdBy: opts.createdBy }),
@@ -44,9 +53,22 @@ export class WorkflowDAO {
 
   static async update(
     id: string,
-    data: { name?: string; description?: string; definition?: Record<string, unknown>; realmId?: string }
+    data: {
+      name?: string;
+      description?: string;
+      definition?: Record<string, unknown>;
+      realmId?: string;
+    }
   ): Promise<void> {
-    await prisma.workflow.update({ where: { id }, data });
+    await prisma.workflow.update({
+      where: { id },
+      data: {
+        realmId: data.realmId,
+        name: data.name,
+        description: data.description,
+        definition: data.definition as Prisma.InputJsonValue,
+      },
+    });
   }
 
   static async setSchedule(
@@ -65,7 +87,10 @@ export class WorkflowDAO {
     });
   }
 
-  static async updateScheduleRun(id: string, nextRun: string | null): Promise<void> {
+  static async updateScheduleRun(
+    id: string,
+    nextRun: string | null
+  ): Promise<void> {
     await prisma.workflow.update({
       where: { id },
       data: {
@@ -103,7 +128,12 @@ export class WorkflowDAO {
 
   static async updateRunStatus(
     runId: string,
-    status: "running" | "completed" | "failed" | "waiting_approval" | "rejected",
+    status:
+      | "running"
+      | "completed"
+      | "failed"
+      | "waiting_approval"
+      | "rejected",
     results?: Record<string, unknown>
   ): Promise<void> {
     const isTerminal = ["completed", "failed", "rejected"].includes(status);
@@ -112,7 +142,9 @@ export class WorkflowDAO {
       data: {
         status,
         completedAt: isTerminal ? new Date() : null,
-        ...(results !== undefined && { results }),
+        ...(results !== undefined && {
+          results: results as Prisma.InputJsonValue,
+        }),
       },
     });
   }
@@ -131,13 +163,22 @@ export class WorkflowDAO {
     pageSize: number;
     totalPages: number;
   }> {
-    const { workflowId, status, page = 1, pageSize = 20, sortBy = "startedAt", sortDir = "desc" } = opts;
+    const {
+      workflowId,
+      status,
+      page = 1,
+      pageSize = 20,
+      sortBy = "startedAt",
+      sortDir = "desc",
+    } = opts;
     const where: Prisma.WorkflowRunWhereInput = {
       ...(workflowId && { workflowId }),
       ...(status && { status }),
     };
     const orderBy: Prisma.WorkflowRunOrderByWithRelationInput =
-      sortBy === "completedAt" ? { completedAt: sortDir } : { startedAt: sortDir };
+      sortBy === "completedAt"
+        ? { completedAt: sortDir }
+        : { startedAt: sortDir };
 
     const [total, rows] = await Promise.all([
       prisma.workflowRun.count({ where }),
@@ -150,8 +191,17 @@ export class WorkflowDAO {
       }),
     ]);
 
-    const runs = rows.map((r) => ({ ...r, workflowName: (r as any).workflow.name }));
-    return { runs, total, page, pageSize, totalPages: Math.ceil(total / pageSize) };
+    const runs = rows.map((r) => ({
+      ...r,
+      workflowName: (r as any).workflow.name,
+    }));
+    return {
+      runs,
+      total,
+      page,
+      pageSize,
+      totalPages: Math.ceil(total / pageSize),
+    };
   }
 
   // ─── Steps ──────────────────────────────────────────────────────────────────
@@ -172,7 +222,8 @@ export class WorkflowDAO {
         stepId,
         agentId: agentId ?? null,
         status,
-        output: output !== undefined ? (output as Prisma.InputJsonValue) : undefined,
+        output:
+          output !== undefined ? (output as Prisma.InputJsonValue) : undefined,
         error: error ?? null,
       },
     });
@@ -187,10 +238,12 @@ export class WorkflowDAO {
     const data: Prisma.WorkflowStepUpdateInput = {};
     if (opts.status !== undefined) {
       data.status = opts.status;
-      if (["success", "completed", "failed"].includes(opts.status)) data.completedAt = now;
+      if (["success", "completed", "failed"].includes(opts.status))
+        data.completedAt = now;
       if (opts.status === "running") data.startedAt = now;
     }
-    if (opts.output !== undefined) data.output = opts.output as Prisma.InputJsonValue;
+    if (opts.output !== undefined)
+      data.output = opts.output as Prisma.InputJsonValue;
     if (opts.error !== undefined) data.error = opts.error;
     if (Object.keys(data).length > 0) {
       await prisma.workflowStep.update({ where: { id: stepId }, data });
@@ -207,20 +260,31 @@ export class WorkflowDAO {
   static async getRunHistory(runId: string): Promise<{
     run: WorkflowRun;
     workflow: Workflow | null;
-    steps: Array<WorkflowStep & { assignedUserId: string | null; assignedUserName: string | null; assignedUserEmail: string | null }>;
+    steps: Array<
+      WorkflowStep & {
+        assignedUserId: string | null;
+        assignedUserName: string | null;
+        assignedUserEmail: string | null;
+      }
+    >;
   } | null> {
     const run = await prisma.workflowRun.findUnique({ where: { id: runId } });
     if (!run) return null;
-    const workflow = await prisma.workflow.findUnique({ where: { id: run.workflowId } });
+    const workflow = await prisma.workflow.findUnique({
+      where: { id: run.workflowId },
+    });
     const steps = await prisma.workflowStep.findMany({
       where: { runId },
       orderBy: [{ startedAt: "asc" }],
     });
-    const approvals = await prisma.workflowApproval.findMany({ where: { runId } });
+    const approvals = await prisma.workflowApproval.findMany({
+      where: { runId },
+    });
 
     const enriched = await Promise.all(
       steps.map(async (step) => {
-        const approval = approvals.find((a) => a.stepId === step.stepId) ?? null;
+        const approval =
+          approvals.find((a) => a.stepId === step.stepId) ?? null;
         let assignedUserName: string | null = null;
         let assignedUserEmail: string | null = null;
         if (approval?.assignedUserId) {
@@ -268,14 +332,21 @@ export class WorkflowDAO {
     return id;
   }
 
-  static async getPendingApprovalsForUser(userDid: string): Promise<WorkflowApproval[]> {
+  static async getPendingApprovalsForUser(
+    userDid: string
+  ): Promise<WorkflowApproval[]> {
     return prisma.workflowApproval.findMany({
-      where: { assignedUserId: userDid, status: { in: ["pending", "notified"] } },
+      where: {
+        assignedUserId: userDid,
+        status: { in: ["pending", "notified"] },
+      },
       orderBy: { createdAt: "desc" },
     });
   }
 
-  static async getAllApprovalsForUser(userDid: string): Promise<WorkflowApproval[]> {
+  static async getAllApprovalsForUser(
+    userDid: string
+  ): Promise<WorkflowApproval[]> {
     return prisma.workflowApproval.findMany({
       where: { assignedUserId: userDid },
       orderBy: { createdAt: "desc" },
@@ -297,12 +368,20 @@ export class WorkflowDAO {
   ): Promise<boolean> {
     const result = await prisma.workflowApproval.updateMany({
       where: { id: approvalId, status: "pending" },
-      data: { status: decision, decidedAt: new Date(), decidedBy, comment: comment ?? null },
+      data: {
+        status: decision,
+        decidedAt: new Date(),
+        decidedBy,
+        comment: comment ?? null,
+      },
     });
     return result.count > 0;
   }
 
-  static async dismissNotification(approvalId: string, userDid: string): Promise<boolean> {
+  static async dismissNotification(
+    approvalId: string,
+    userDid: string
+  ): Promise<boolean> {
     const result = await prisma.workflowApproval.updateMany({
       where: { id: approvalId, assignedUserId: userDid, mode: "notification" },
       data: { status: "dismissed" },

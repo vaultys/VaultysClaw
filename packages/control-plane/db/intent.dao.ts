@@ -10,7 +10,12 @@ export class IntentDAO {
   ): Promise<void> {
     await prisma.intentLog.upsert({
       where: { intentId },
-      create: { intentId, agentDid: agentDid ?? null, action, params },
+      create: {
+        intentId,
+        agentDid: agentDid ?? null,
+        action,
+        params: params as Prisma.InputJsonValue,
+      },
       update: {},
     });
   }
@@ -25,7 +30,8 @@ export class IntentDAO {
       where: { intentId },
       data: {
         status,
-        output: output !== undefined ? (output as Prisma.InputJsonValue) : undefined,
+        output:
+          output !== undefined ? (output as Prisma.InputJsonValue) : undefined,
         error: error ?? null,
         completedAt: new Date(),
       },
@@ -73,7 +79,10 @@ export class ActivityLogDAO {
     });
   }
 
-  static async findByAgent(agentDid: string, limit = 100): Promise<ActivityLog[]> {
+  static async findByAgent(
+    agentDid: string,
+    limit = 100
+  ): Promise<ActivityLog[]> {
     return prisma.activityLog.findMany({
       where: { agentDid },
       orderBy: { createdAt: "desc" },

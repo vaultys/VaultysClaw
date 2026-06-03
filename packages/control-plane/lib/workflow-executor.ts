@@ -278,11 +278,28 @@ export async function executeStep(
       try {
         const { getWSServer } = await import("./ws-server");
         const wsServer = getWSServer();
-        const realmAgents = await WorkflowDAO["getRealmAgents"]?.(context.realmId) ?? [];
-        for (const ra of realmAgents as Array<{ agentDid: string; agent?: { capabilities: unknown } }>) {
+        const realmAgents =
+          (await (
+            WorkflowDAO as {
+              getRealmAgents?: (
+                realmId: string
+              ) => Promise<
+                Array<{ agentDid: string; agent?: { capabilities: unknown } }>
+              >;
+            }
+          ).getRealmAgents?.(context.realmId)) ?? [];
+        for (const ra of realmAgents as Array<{
+          agentDid: string;
+          agent?: { capabilities: unknown };
+        }>) {
           if (wsServer?.getAgent(ra.agentDid)) {
-            const caps: string[] = Array.isArray((ra.agent?.capabilities)) ? ra.agent!.capabilities as string[] : [];
-            if (caps.includes("social_media_posting") || caps.includes("api_call")) {
+            const caps: string[] = Array.isArray(ra.agent?.capabilities)
+              ? (ra.agent!.capabilities as string[])
+              : [];
+            if (
+              caps.includes("social_media_posting") ||
+              caps.includes("api_call")
+            ) {
               node = { ...node, data: { ...node.data, agentId: ra.agentDid } };
               break;
             }
@@ -312,7 +329,10 @@ export async function executeStep(
 
       context.stepOutputs.set(stepId, mockOutput);
       context.stepStatus.set(stepId, "success");
-      await WorkflowDAO.updateStep(stepDbId, { status: "success", output: mockOutput });
+      await WorkflowDAO.updateStep(stepDbId, {
+        status: "success",
+        output: mockOutput,
+      });
 
       logger.info({ stepId, nodeType: node.type }, "Step completed (mock)");
       return { success: true, output: mockOutput };
@@ -426,7 +446,10 @@ export async function executeStep(
           { stepId, agentId: resolvedAgentId, error: errorMsg },
           "Agent execution failed"
         );
-        await WorkflowDAO.updateStep(stepDbId, { status: "failed", error: errorMsg });
+        await WorkflowDAO.updateStep(stepDbId, {
+          status: "failed",
+          error: errorMsg,
+        });
         return { success: false, error: errorMsg };
       }
     } catch (agentError) {
@@ -435,7 +458,10 @@ export async function executeStep(
         { stepId, agentId, error: errorMsg },
         "Agent execution error"
       );
-      await WorkflowDAO.updateStep(stepDbId, { status: "failed", error: errorMsg });
+      await WorkflowDAO.updateStep(stepDbId, {
+        status: "failed",
+        error: errorMsg,
+      });
       return { success: false, error: errorMsg };
     }
   } catch (err) {
@@ -443,7 +469,10 @@ export async function executeStep(
     logger.error({ stepId, error: errorMsg }, "Step execution failed");
     const stepDbId = context.stepIds.get(stepId);
     if (stepDbId) {
-      await WorkflowDAO.updateStep(stepDbId, { status: "failed", error: errorMsg });
+      await WorkflowDAO.updateStep(stepDbId, {
+        status: "failed",
+        error: errorMsg,
+      });
     }
     return { success: false, error: errorMsg };
   }
@@ -473,7 +502,9 @@ export async function executeWorkflow(
     }
 
     // Resolve workflow name for approval records
-    const workflowRow = workflowId ? await WorkflowDAO.findById(workflowId) : undefined;
+    const workflowRow = workflowId
+      ? await WorkflowDAO.findById(workflowId)
+      : undefined;
     const workflowName = workflowRow?.name ?? "Workflow";
 
     // Initialize execution context
@@ -536,7 +567,10 @@ export async function executeWorkflow(
           // No user configured — skip this node and continue
           logger.warn({ nodeId }, "User node has no assigned user, skipping");
           context.stepStatus.set(nodeId, "success");
-          await WorkflowDAO.updateStep(stepDbId, { status: "success", output: { skipped: true, reason: "No user assigned" } });
+          await WorkflowDAO.updateStep(stepDbId, {
+            status: "success",
+            output: { skipped: true, reason: "No user assigned" },
+          });
           continue;
         }
 
@@ -571,7 +605,10 @@ export async function executeWorkflow(
         if (mode === "notification") {
           // Fire-and-forget: mark step as success and continue
           context.stepStatus.set(nodeId, "success");
-          await WorkflowDAO.updateStep(stepDbId, { status: "success", output: { notificationId: approvalId } });
+          await WorkflowDAO.updateStep(stepDbId, {
+            status: "success",
+            output: { notificationId: approvalId },
+          });
           logger.info({ nodeId, approvalId }, "Notification sent, continuing");
           continue;
         }
@@ -622,7 +659,10 @@ export async function executeWorkflow(
         await WorkflowDAO.updateRunStatus(runId, "running");
 
         if (!approved) {
-          await WorkflowDAO.updateStep(stepDbId, { status: "failed", error: "Approval rejected" });
+          await WorkflowDAO.updateStep(stepDbId, {
+            status: "failed",
+            error: "Approval rejected",
+          });
           await WorkflowDAO.updateRunStatus(runId, "rejected", {
             rejectedNode: nodeId,
             approvalId,
@@ -632,7 +672,10 @@ export async function executeWorkflow(
         }
 
         context.stepStatus.set(nodeId, "success");
-        await WorkflowDAO.updateStep(stepDbId, { status: "success", output: { approvalId, approved: true } });
+        await WorkflowDAO.updateStep(stepDbId, {
+          status: "success",
+          output: { approvalId, approved: true },
+        });
         continue;
       }
 

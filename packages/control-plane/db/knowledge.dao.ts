@@ -1,5 +1,5 @@
 import { prisma } from "./client";
-import type { KnowledgeSource, KnowledgeFile } from "@prisma/client";
+import type { KnowledgeSource, KnowledgeFile, Prisma } from "@prisma/client";
 
 export class KnowledgeDAO {
   // ─── Sources ─────────────────────────────────────────────────────────────────
@@ -13,7 +13,12 @@ export class KnowledgeDAO {
   }): Promise<KnowledgeSource> {
     const id = `ks-${crypto.randomUUID()}`;
     return prisma.knowledgeSource.create({
-      data: { id, ...data, status: "idle" },
+      data: {
+        id,
+        ...data,
+        status: "pending",
+        config: data.config as Prisma.InputJsonValue,
+      },
     });
   }
 
@@ -21,7 +26,10 @@ export class KnowledgeDAO {
     return prisma.knowledgeSource.findUnique({ where: { id } });
   }
 
-  static async listSources(opts?: { realmId?: string; agentDid?: string }): Promise<KnowledgeSource[]> {
+  static async listSources(opts?: {
+    realmId?: string;
+    agentDid?: string;
+  }): Promise<KnowledgeSource[]> {
     return prisma.knowledgeSource.findMany({
       where: {
         ...(opts?.realmId && { realmId: opts.realmId }),
@@ -41,7 +49,9 @@ export class KnowledgeDAO {
       data: {
         status,
         ...(extra?.docCount !== undefined && { docCount: extra.docCount }),
-        ...(extra?.chunkCount !== undefined && { chunkCount: extra.chunkCount }),
+        ...(extra?.chunkCount !== undefined && {
+          chunkCount: extra.chunkCount,
+        }),
         ...(status === "ready" && { lastSyncedAt: new Date() }),
         ...(extra?.error !== undefined && { error: extra.error }),
       },
@@ -61,7 +71,14 @@ export class KnowledgeDAO {
     mimeType: string,
     size: number,
     filePath: string
-  ): Promise<{ id: string; sourceId: string; name: string; mimeType: string; size: number; createdAt: Date }> {
+  ): Promise<{
+    id: string;
+    sourceId: string;
+    name: string;
+    mimeType: string;
+    size: number;
+    createdAt: Date;
+  }> {
     const id = `kf-${crypto.randomUUID()}`;
     const file = await prisma.knowledgeFile.create({
       data: { id, sourceId, name, mimeType, size, filePath, content: null },
@@ -76,7 +93,9 @@ export class KnowledgeDAO {
     };
   }
 
-  static async listFiles(sourceId: string): Promise<Array<Omit<KnowledgeFile, "content">>> {
+  static async listFiles(
+    sourceId: string
+  ): Promise<Array<Omit<KnowledgeFile, "content">>> {
     const files = await prisma.knowledgeFile.findMany({
       where: { sourceId },
       orderBy: { createdAt: "asc" },
@@ -102,7 +121,9 @@ export class KnowledgeDAO {
     return result.count > 0;
   }
 
-  static async getFilePathsForSource(sourceId: string): Promise<Array<{ id: string; filePath: string | null }>> {
+  static async getFilePathsForSource(
+    sourceId: string
+  ): Promise<Array<{ id: string; filePath: string | null }>> {
     return prisma.knowledgeFile.findMany({
       where: { sourceId },
       select: { id: true, filePath: true },

@@ -1,5 +1,10 @@
 import { prisma } from "./client";
-import type { Realm, RealmTokenUsage, RealmRouterKey, Prisma } from "@prisma/client";
+import type {
+  Realm,
+  RealmTokenUsage,
+  RealmRouterKey,
+  Prisma,
+} from "@prisma/client";
 
 export class RealmDAO {
   static async findAll(): Promise<Realm[]> {
@@ -52,7 +57,10 @@ export class RealmDAO {
       allowedCapabilities: Prisma.InputJsonValue | null;
     }>
   ): Promise<void> {
-    await prisma.realm.update({ where: { id }, data: updates });
+    await prisma.realm.update({
+      where: { id },
+      data: updates as Prisma.RealmUpdateInput,
+    });
   }
 
   static async delete(id: string): Promise<boolean> {
@@ -94,21 +102,31 @@ export class RealmDAO {
     });
   }
 
-  static async isUserInRealm(userId: string, realmId: string): Promise<boolean> {
+  static async isUserInRealm(
+    userId: string,
+    realmId: string
+  ): Promise<boolean> {
     const row = await prisma.userRealm.findUnique({
       where: { userId_realmId: { userId, realmId } },
     });
     return row !== null;
   }
 
-  static async isUserRealmAdmin(userId: string, realmId: string): Promise<boolean> {
+  static async isUserRealmAdmin(
+    userId: string,
+    realmId: string
+  ): Promise<boolean> {
     const row = await prisma.userRealm.findUnique({
       where: { userId_realmId: { userId, realmId } },
     });
     return row?.isRealmAdmin ?? false;
   }
 
-  static async setUserRealmAdmin(userId: string, realmId: string, isAdmin: boolean): Promise<boolean> {
+  static async setUserRealmAdmin(
+    userId: string,
+    realmId: string,
+    isAdmin: boolean
+  ): Promise<boolean> {
     const result = await prisma.userRealm.updateMany({
       where: { userId, realmId },
       data: { isRealmAdmin: isAdmin },
@@ -123,7 +141,10 @@ export class RealmDAO {
     isRealmAdmin = false
   ): Promise<void> {
     if (isPrimary) {
-      await prisma.userRealm.updateMany({ where: { userId }, data: { isPrimary: false } });
+      await prisma.userRealm.updateMany({
+        where: { userId },
+        data: { isPrimary: false },
+      });
     }
     await prisma.userRealm.upsert({
       where: { userId_realmId: { userId, realmId } },
@@ -132,22 +153,40 @@ export class RealmDAO {
     });
   }
 
-  static async removeUserFromRealm(userId: string, realmId: string): Promise<boolean> {
+  static async removeUserFromRealm(
+    userId: string,
+    realmId: string
+  ): Promise<boolean> {
     const realm = await prisma.realm.findUnique({ where: { id: realmId } });
     if (realm?.isDefault) return false;
-    const result = await prisma.userRealm.deleteMany({ where: { userId, realmId } });
+    const result = await prisma.userRealm.deleteMany({
+      where: { userId, realmId },
+    });
     return result.count > 0;
   }
 
   static async getUserRealms(userId: string) {
     return prisma.userRealm.findMany({
       where: { userId },
-      include: { realm: { select: { id: true, name: true, slug: true, color: true, isDefault: true } } },
+      include: {
+        realm: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            color: true,
+            isDefault: true,
+          },
+        },
+      },
       orderBy: [{ isPrimary: "desc" }, { realm: { name: "asc" } }],
     });
   }
 
-  static async enrollInDefault(type: "agent" | "user", did: string): Promise<void> {
+  static async enrollInDefault(
+    type: "agent" | "user",
+    did: string
+  ): Promise<void> {
     const realm = await RealmDAO.findDefault();
     if (!realm) return;
     if (type === "agent") {
@@ -199,9 +238,15 @@ export class RealmDAO {
         monthlyBudgetUsd: data.monthlyBudgetUsd ?? null,
       },
       update: {
-        ...(data.litellmVirtualKey !== undefined && { litellmVirtualKey: data.litellmVirtualKey }),
-        ...(data.allowedModelIds !== undefined && { allowedModelIds: data.allowedModelIds }),
-        ...(data.monthlyBudgetUsd !== undefined && { monthlyBudgetUsd: data.monthlyBudgetUsd }),
+        ...(data.litellmVirtualKey !== undefined && {
+          litellmVirtualKey: data.litellmVirtualKey,
+        }),
+        ...(data.allowedModelIds !== undefined && {
+          allowedModelIds: data.allowedModelIds,
+        }),
+        ...(data.monthlyBudgetUsd !== undefined && {
+          monthlyBudgetUsd: data.monthlyBudgetUsd,
+        }),
         updatedAt: new Date(),
       },
     });

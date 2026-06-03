@@ -1,5 +1,5 @@
 import { prisma } from "./client";
-import type { Credential } from "@prisma/client";
+import type { Credential, Prisma } from "@prisma/client";
 
 export class CredentialDAO {
   static async save(
@@ -13,8 +13,20 @@ export class CredentialDAO {
     const id = `cred-${crypto.randomUUID()}`;
     const result = await prisma.credential.upsert({
       where: { realmId_service_name: { realmId, service, name } },
-      create: { id, realmId, service, name, secretEnc, metadata: metadata ?? {}, createdBy: createdBy ?? null },
-      update: { secretEnc, metadata: metadata ?? {}, updatedAt: new Date() },
+      create: {
+        id,
+        realmId,
+        service,
+        name,
+        secretEnc,
+        metadata: (metadata as Prisma.InputJsonValue) ?? {},
+        createdBy: createdBy ?? null,
+      },
+      update: {
+        secretEnc,
+        metadata: (metadata as Prisma.InputJsonValue) ?? {},
+        updatedAt: new Date(),
+      },
     });
     return result.id;
   }
@@ -23,23 +35,52 @@ export class CredentialDAO {
     return prisma.credential.findUnique({ where: { id } });
   }
 
-  static async findByKey(realmId: string, service: string, name: string): Promise<Credential | null> {
-    return prisma.credential.findUnique({ where: { realmId_service_name: { realmId, service, name } } });
+  static async findByKey(
+    realmId: string,
+    service: string,
+    name: string
+  ): Promise<Credential | null> {
+    return prisma.credential.findUnique({
+      where: { realmId_service_name: { realmId, service, name } },
+    });
   }
 
-  static async list(realmId: string): Promise<Array<Omit<Credential, "secretEnc">>> {
+  static async list(
+    realmId: string
+  ): Promise<Array<Omit<Credential, "secretEnc">>> {
     return prisma.credential.findMany({
       where: { realmId },
       orderBy: [{ service: "asc" }, { name: "asc" }],
-      select: { id: true, realmId: true, service: true, name: true, metadata: true, createdBy: true, createdAt: true, updatedAt: true },
+      select: {
+        id: true,
+        realmId: true,
+        service: true,
+        name: true,
+        metadata: true,
+        createdBy: true,
+        createdAt: true,
+        updatedAt: true,
+      },
     }) as any;
   }
 
-  static async listByService(realmId: string, service: string): Promise<Array<Omit<Credential, "secretEnc">>> {
+  static async listByService(
+    realmId: string,
+    service: string
+  ): Promise<Array<Omit<Credential, "secretEnc">>> {
     return prisma.credential.findMany({
       where: { realmId, service },
       orderBy: { name: "asc" },
-      select: { id: true, realmId: true, service: true, name: true, metadata: true, createdBy: true, createdAt: true, updatedAt: true },
+      select: {
+        id: true,
+        realmId: true,
+        service: true,
+        name: true,
+        metadata: true,
+        createdBy: true,
+        createdAt: true,
+        updatedAt: true,
+      },
     }) as any;
   }
 
@@ -48,8 +89,14 @@ export class CredentialDAO {
     return result.count > 0;
   }
 
-  static async deleteByKey(realmId: string, service: string, name: string): Promise<boolean> {
-    const result = await prisma.credential.deleteMany({ where: { realmId, service, name } });
+  static async deleteByKey(
+    realmId: string,
+    service: string,
+    name: string
+  ): Promise<boolean> {
+    const result = await prisma.credential.deleteMany({
+      where: { realmId, service, name },
+    });
     return result.count > 0;
   }
 }

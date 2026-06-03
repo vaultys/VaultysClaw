@@ -1,5 +1,11 @@
 import { prisma } from "./client";
-import type { Channel, ChannelMember, ChannelMessage, ChannelBridge, Prisma } from "@prisma/client";
+import type {
+  Channel,
+  ChannelMember,
+  ChannelMessage,
+  ChannelBridge,
+  Prisma,
+} from "@prisma/client";
 
 export class ChannelDAO {
   static async create(data: {
@@ -33,9 +39,14 @@ export class ChannelDAO {
     return prisma.channel.findUnique({ where: { id } });
   }
 
-  static async findBySlug(slug: string, realmId?: string): Promise<Channel | null> {
+  static async findBySlug(
+    slug: string,
+    realmId?: string
+  ): Promise<Channel | null> {
     if (realmId) {
-      return prisma.channel.findUnique({ where: { realmId_slug: { realmId, slug } } });
+      return prisma.channel.findUnique({
+        where: { realmId_slug: { realmId, slug } },
+      });
     }
     return prisma.channel.findFirst({ where: { slug, realmId: null } });
   }
@@ -61,13 +72,16 @@ export class ChannelDAO {
     });
   }
 
-  static async update(id: string, data: Partial<{
-    name: string;
-    description: string | null;
-    isPublic: boolean;
-    isArchived: boolean;
-    topic: string | null;
-  }>): Promise<boolean> {
+  static async update(
+    id: string,
+    data: Partial<{
+      name: string;
+      description: string | null;
+      isPublic: boolean;
+      isArchived: boolean;
+      topic: string | null;
+    }>
+  ): Promise<boolean> {
     const result = await prisma.channel.updateMany({ where: { id }, data });
     return result.count > 0;
   }
@@ -107,14 +121,19 @@ export class ChannelMemberDAO {
     return prisma.channelMember.findMany({ where: { memberDid } });
   }
 
-  static async findMembership(channelId: string, memberDid: string): Promise<ChannelMember | null> {
+  static async findMembership(
+    channelId: string,
+    memberDid: string
+  ): Promise<ChannelMember | null> {
     return prisma.channelMember.findUnique({
       where: { channelId_memberDid: { channelId, memberDid } },
     });
   }
 
   static async remove(channelId: string, memberDid: string): Promise<boolean> {
-    const result = await prisma.channelMember.deleteMany({ where: { channelId, memberDid } });
+    const result = await prisma.channelMember.deleteMany({
+      where: { channelId, memberDid },
+    });
     return result.count > 0;
   }
 }
@@ -137,7 +156,7 @@ export class ChannelMessageDAO {
         authorType: data.authorType,
         content: data.content,
         threadId: data.threadId ?? null,
-        metadata: data.metadata ?? {},
+        metadata: (data.metadata as Prisma.InputJsonValue) ?? {},
       },
     });
   }
@@ -146,7 +165,11 @@ export class ChannelMessageDAO {
     return prisma.channelMessage.findUnique({ where: { id } });
   }
 
-  static async listByChannel(channelId: string, limit = 50, before?: string): Promise<ChannelMessage[]> {
+  static async listByChannel(
+    channelId: string,
+    limit = 50,
+    before?: string
+  ): Promise<ChannelMessage[]> {
     return prisma.channelMessage.findMany({
       where: {
         channelId,
@@ -181,8 +204,15 @@ export class ChannelMessageDAO {
     return result.count > 0;
   }
 
-  static async addReaction(id: string, emoji: string, userDid: string): Promise<void> {
-    const msg = await prisma.channelMessage.findUnique({ where: { id }, select: { reactions: true } });
+  static async addReaction(
+    id: string,
+    emoji: string,
+    userDid: string
+  ): Promise<void> {
+    const msg = await prisma.channelMessage.findUnique({
+      where: { id },
+      select: { reactions: true },
+    });
     if (!msg) return;
     const reactions = (msg.reactions as Record<string, string[]>) ?? {};
     if (!reactions[emoji]) reactions[emoji] = [];
@@ -211,7 +241,7 @@ export class ChannelBridgeDAO {
         externalChannelName: data.externalChannelName,
         externalWorkspaceId: data.externalWorkspaceId,
         syncDirection: data.syncDirection ?? "bidirectional",
-        configJson: data.configJson,
+        configJson: data.configJson as Prisma.InputJsonValue,
       },
     });
   }
@@ -224,13 +254,24 @@ export class ChannelBridgeDAO {
     return prisma.channelBridge.findUnique({ where: { id } });
   }
 
-  static async update(id: string, data: Partial<{
-    externalChannelName: string;
-    syncDirection: string;
-    isSyncEnabled: boolean;
-    configJson: Record<string, unknown>;
-  }>): Promise<boolean> {
-    const result = await prisma.channelBridge.updateMany({ where: { id }, data });
+  static async update(
+    id: string,
+    data: Partial<{
+      externalChannelName: string;
+      syncDirection: string;
+      isSyncEnabled: boolean;
+      configJson: Record<string, unknown>;
+    }>
+  ): Promise<boolean> {
+    const result = await prisma.channelBridge.updateMany({
+      where: { id },
+      data: {
+        externalChannelName: data.externalChannelName,
+        syncDirection: data.syncDirection,
+        isSyncEnabled: data.isSyncEnabled,
+        configJson: data.configJson as Prisma.InputJsonValue,
+      },
+    });
     return result.count > 0;
   }
 

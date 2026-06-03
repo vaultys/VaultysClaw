@@ -3,7 +3,6 @@
  *
  * Data directory structure:
  *   <data-dir>/
- *   ├── vaultysclaw.db
  *   ├── .env
  *   ├── .env.local
  *   ├── .vaultys/server.id
@@ -20,8 +19,10 @@ import pino from "pino";
 import dotenv from "dotenv";
 import { initializeWSServer, initializeAdminWS } from "./lib/ws-server";
 import { initializePeerjsServer, AgentPeerjsServer } from "./lib/peerjs-server";
-import { getSetting } from "./lib/db";
-import { getDb, closeDb, initServerIdentity, getFileStorage } from "./lib/db";
+import { prisma, SettingsDAO } from "./db";
+import { getFileStorage } from "./lib/file-storage-manager";
+import { VaultysId } from "@vaultys/id";
+import { OrgSkillDAO } from "./db";
 import {
   startWorkflowScheduler,
   stopWorkflowScheduler,
@@ -56,8 +57,6 @@ for (const envFile of envFiles) {
   }
 }
 
-// Expose paths via env so db.ts and other modules resolve them lazily (at call time, not import time).
-process.env.VAULTYS_DB_PATH = path.join(dataDir, "vaultysclaw.db");
 process.env.VAULTYS_ID_PATH = path.join(dataDir, ".vaultys", "server.id");
 process.env.VAULTYS_WORKSPACE_ROOT = path.join(dataDir, "workspace");
 
@@ -68,14 +67,78 @@ const wsPort = parseInt(process.env.WS_PORT || "8080", 10);
 const peerjsEnabledEnv = process.env.PEERJS_ENABLED === "true";
 const peerjsServerUrlEnv = process.env.PEERJS_SERVER_URL || undefined;
 
+async function initServerIdentity(): Promise<void> {
+  const existing = await SettingsDAO.get("serverSecret");
+  if (!existing) {
+    const vid = (await VaultysId.generateMachine()).toVersion(1);
+    const secret = vid.getSecret("base64");
+    await SettingsDAO.set("serverSecret", secret);
+  }
+}
+
+async function seedDefaults(): Promise<void> {
+  const realmCount = await prisma.realm.count();
+  if (realmCount === 0) {
+    await prisma.realm.create({
+      data: {
+        id: crypto.randomUUID(),
+        name: "Default",
+        slug: "default",
+        description: "The default realm",
+        color: "#6366f1",
+        isDefault: true,
+      },
+    });
+  }
+
+  const builtInSkills = [
+    {
+      name: "social-media",
+      description: "Post content to X (Twitter) via Playwright browser automation.",
+      version: "1.0.0",
+      icon: "📣",
+      content: "## Social Media\n\nYou have access to X (Twitter) social-media tools.",
+    },
+    {
+      name: "web-scraper",
+      description: "Scrape web pages and extract their text content.",
+      version: "1.0.0",
+      icon: "🌐",
+      content: "## Web Scraper\n\nYou can scrape public web pages using the `scrape_page` tool.",
+    },
+    {
+      name: "json-api",
+      description: "Make authenticated or anonymous JSON API calls to external HTTP endpoints.",
+      version: "1.0.0",
+      icon: "🔌",
+      content: "## JSON API\n\nYou can call external HTTP APIs using the `api_call_json` tool.",
+    },
+    {
+      name: "calculator",
+      description: "Evaluate arithmetic and algebraic expressions.",
+      version: "1.0.0",
+      icon: "🧮",
+      content: "## Calculator\n\nYou can evaluate math expressions using the `calculate` tool.",
+    },
+  ];
+
+  for (const skill of builtInSkills) {
+    await OrgSkillDAO.upsertBuiltIn(skill);
+  }
+}
+
 // Create Next.js app
 const app = next({ dev, hostname, port });
 const handle = app.getRequestHandler();
 
 app.prepare().then(async () => {
-  // Initialize SQLite database (creates tables)
-  logger.info("Initializing database");
-  getDb();
+  // Connect to PostgreSQL
+  logger.info("Connecting to database");
+  await prisma.$connect();
+
+  // Seed defaults (realm, built-in skills)
+  await seedDefaults();
+  logger.info("Database ready");
 
   // Warm up file storage (reads + decrypts config from DB)
   await getFileStorage();
@@ -104,33 +167,25 @@ app.prepare().then(async () => {
   logger.info({ wsPort }, "Initializing WebSocket server for agents");
   const wsServer = initializeWSServer(wsPort);
 
-  // Initialize PeerJS/WebRTC server — enabled by env var or DB setting.
-  const peerjsEnabledDb = getSetting("peerjs_enabled") === "true";
+  // Initialize PeerJS/WebRTC server
+  const peerjsEnabledDb = (await SettingsDAO.get("peerjs_enabled")) === "true";
   const peerjsEnabled = peerjsEnabledEnv || peerjsEnabledDb;
-  const peerjsServerUrl =
-    peerjsServerUrlEnv ?? (getSetting("peerjs_server_url") || undefined);
+  const peerjsServerUrl = peerjsServerUrlEnv ?? ((await SettingsDAO.get("peerjs_server_url")) || undefined);
   if (peerjsEnabled) {
     const peerjsServer = initializePeerjsServer(wsServer, peerjsServerUrl);
     peerjsServer
       .start()
       .then((peerId) => {
-        logger.info(
-          { peerId, serverUrl: peerjsServerUrl },
-          "PeerJS server ready — agents can connect with: --peerjs " + peerId
-        );
+        logger.info({ peerId, serverUrl: peerjsServerUrl }, "PeerJS server ready");
       })
       .catch((err) => {
         logger.error({ err }, "Failed to start PeerJS server");
       });
   } else {
-    // Initialize the singleton without starting — allows API routes to start it later.
     initializePeerjsServer(wsServer, peerjsServerUrl);
     const peerId = AgentPeerjsServer.getServerPeerId();
     if (peerId) {
-      logger.info(
-        { peerId },
-        "PeerJS transport disabled. Enable from the Network admin page or set PEERJS_ENABLED=true."
-      );
+      logger.info({ peerId }, "PeerJS transport disabled.");
     }
   }
 
@@ -146,13 +201,13 @@ app.prepare().then(async () => {
   });
 
   // Graceful shutdown
-  process.on("SIGTERM", () => {
+  process.on("SIGTERM", async () => {
     logger.info("SIGTERM received, shutting down gracefully");
     server.close(() => {
       logger.info("HTTP server closed");
     });
     wsServer.shutdown();
     stopWorkflowScheduler();
-    closeDb();
+    await prisma.$disconnect();
   });
 });

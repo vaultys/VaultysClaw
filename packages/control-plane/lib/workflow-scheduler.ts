@@ -9,11 +9,7 @@
  */
 
 import pino from "pino";
-import {
-  getDueScheduledWorkflows,
-  updateWorkflowScheduleRun,
-  startWorkflowRun,
-} from "./db";
+import { WorkflowDAO } from "../db";
 import { executeWorkflow } from "./workflow-executor";
 
 const logger = pino({ name: "workflow-scheduler" });
@@ -93,23 +89,23 @@ export function nextCronRun(expr: string, from?: Date): Date | null {
 let timer: ReturnType<typeof setInterval> | null = null;
 
 async function tick() {
-  const due = getDueScheduledWorkflows();
+  const due = await WorkflowDAO.getDueScheduled();
   if (due.length === 0) return;
 
   logger.info({ count: due.length }, "Firing scheduled workflows");
 
   for (const wf of due) {
     try {
-      const definition = JSON.parse(wf.definition);
-      const runId = startWorkflowRun(wf.id);
+      const definition = wf.definition as Record<string, unknown>;
+      const runId = await WorkflowDAO.startRun(wf.id);
 
       // Fire and forget — the executor updates run status itself
       executeWorkflow(
         runId,
-        definition,
+        definition as any,
         undefined,
         wf.id,
-        wf.realm_id ?? undefined
+        wf.realmId ?? undefined
       ).catch((err) =>
         logger.error(
           { workflowId: wf.id, runId, err },
@@ -118,8 +114,8 @@ async function tick() {
       );
 
       // Advance to next scheduled run
-      const next = wf.schedule_cron ? nextCronRun(wf.schedule_cron) : null;
-      updateWorkflowScheduleRun(wf.id, next?.toISOString() ?? null);
+      const next = wf.scheduleCron ? nextCronRun(wf.scheduleCron) : null;
+      await WorkflowDAO.updateScheduleRun(wf.id, next?.toISOString() ?? null);
 
       logger.info(
         { workflowId: wf.id, runId, nextRun: next?.toISOString() },

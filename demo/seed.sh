@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Run the demo seeder from any working directory.
-# tsx lives in the control-plane package (where better-sqlite3 also resolves).
+# tsx and Prisma client are resolved from the control-plane package.
 
 set -euo pipefail
 
@@ -14,25 +14,29 @@ if [[ ! -f "$TSX" ]]; then
   exit 1
 fi
 
-# Check for database in demo directory first (new data-folder structure), then fallback to control-plane directory
-DB=""
-if [[ -f "$DEMO_DIR/data/vaultysclaw.db" ]]; then
-  DB="$DEMO_DIR/data/vaultysclaw.db"
-elif [[ -f "$CP_DIR/data/vaultysclaw.db" ]]; then
-  DB="$CP_DIR/data/vaultysclaw.db"
+# Resolve DATABASE_URL from env or control-plane .env files.
+if [[ -z "${DATABASE_URL:-}" ]]; then
+  for env_file in "$CP_DIR/.env.local" "$CP_DIR/.env" "$DEMO_DIR/data/.env"; do
+    if [[ -f "$env_file" ]]; then
+      found=$(grep -E "^DATABASE_URL=" "$env_file" 2>/dev/null | head -1 | cut -d= -f2- | tr -d '"' || true)
+      if [[ -n "$found" ]]; then
+        export DATABASE_URL="$found"
+        break
+      fi
+    fi
+  done
 fi
 
-if [[ -z "$DB" ]] || [[ ! -f "$DB" ]]; then
-  echo "Database not found"
-  echo "Expected locations:"
-  echo "  - $DEMO_DIR/data/vaultysclaw.db (if using ./demo/setup.sh)"
-  echo "  - $CP_DIR/data/vaultysclaw.db (if using pnpm vaultysclaw:dev)"
-  echo ""
-  echo "Start the control plane at least once before seeding."
+if [[ -z "${DATABASE_URL:-}" ]]; then
+  echo "DATABASE_URL not found."
+  echo "Set it in one of:"
+  echo "  - $CP_DIR/.env.local"
+  echo "  - $CP_DIR/.env"
+  echo "or export DATABASE_URL before running this script."
   exit 1
 fi
 
-echo "Using database: $DB"
-echo "Seeding VaultysClaw demo data..."
+echo "Using DATABASE_URL from environment/.env"
+echo "Seeding VaultysClaw demo data (Prisma)..."
 cd "$CP_DIR"
 "$TSX" "$REPO_ROOT/demo/seed.ts"

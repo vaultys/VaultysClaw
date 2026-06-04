@@ -16,6 +16,7 @@ import {
   KeyRound,
   GitBranch,
   ChevronLeft,
+  MapPin,
 } from "lucide-react";
 import dynamic from "next/dynamic";
 import type { GraphNode } from "@vaultysclaw/shared";
@@ -23,6 +24,11 @@ import type { GraphNode } from "@vaultysclaw/shared";
 const RealmGraph = dynamic(() => import("@/components/graph/RealmGraph"), {
   ssr: false,
 });
+
+const LocationEditor = dynamic(
+  () => import("@/components/map/WorldMap").then((m) => m.LocationEditor),
+  { ssr: false }
+);
 
 // ---------------------------------------------------------------------------
 // Types
@@ -38,6 +44,9 @@ interface UserDetail {
   reportsTo: string | null;
   description: string | null;
   registeredAt: string;
+  locationLat: number | null;
+  locationLon: number | null;
+  locationLabel: string | null;
 }
 
 interface UserSummary {
@@ -107,11 +116,10 @@ function TabBar({
         <button
           key={tab.id}
           onClick={() => onChange(tab.id)}
-          className={`flex items-center gap-2 px-4 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
-            active === tab.id
+          className={`flex items-center gap-2 px-4 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${active === tab.id
               ? "border-primary-500 text-primary-400"
               : "border-transparent text-foreground-500 hover:text-foreground hover:border-neutral-300"
-          }`}
+            }`}
         >
           {tab.icon}
           {tab.label}
@@ -358,6 +366,30 @@ function OverviewTab({
   const [role, setRole] = useState(user.role ?? "member");
   const [reportsTo, setReportsTo] = useState<string>(user.reportsTo ?? "");
 
+  const [locationEditing, setLocationEditing] = useState(false);
+  const [location, setLocation] = useState<{ lat: number; lon: number; label: string } | null>(
+    user.locationLat != null && user.locationLon != null
+      ? { lat: user.locationLat, lon: user.locationLon, label: user.locationLabel ?? "" }
+      : null
+  );
+
+  const handleSaveLocation = useCallback(
+    async (loc: { lat: number; lon: number; label: string } | null) => {
+      const body = loc === null ? { lat: null } : { lat: loc.lat, lon: loc.lon, label: loc.label };
+      const res = await fetch(`/api/users/${encodeURIComponent(user.did)}/location`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const d = (await res.json().catch(() => null)) as { error?: string } | null;
+        throw new Error(d?.error ?? "Failed to save location");
+      }
+      setLocation(loc);
+    },
+    [user.did]
+  );
+
   const [allUsers, setAllUsers] = useState<UserSummary[]>([]);
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -372,7 +404,7 @@ function OverviewTab({
     fetch("/api/users")
       .then((r) => r.json())
       .then((d: { users: UserSummary[] }) => setAllUsers(d.users))
-      .catch(() => {});
+      .catch(() => { });
   }, []);
 
   const handleSave = async () => {
@@ -554,6 +586,41 @@ function OverviewTab({
           {saveError}
         </div>
       )}
+
+      {/* Location */}
+      <section>
+        <h2 className="text-sm font-semibold text-foreground-500 uppercase tracking-wider mb-3">
+          Location
+        </h2>
+        <div className="bg-background-200 border border-neutral-200 rounded-xl px-4 py-3 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-2 min-w-0">
+            <MapPin size={14} className="text-foreground-400 shrink-0" />
+            {location ? (
+              <span className="text-sm text-foreground truncate">
+                {location.label || "Custom location"}{" "}
+                <span className="text-foreground-400 font-mono text-xs">
+                  ({location.lat.toFixed(4)}, {location.lon.toFixed(4)})
+                </span>
+              </span>
+            ) : (
+              <span className="text-sm text-foreground-400">No location set</span>
+            )}
+          </div>
+          <button
+            onClick={() => setLocationEditing(true)}
+            className="text-xs text-primary-500 hover:text-primary-400 shrink-0 transition-colors"
+          >
+            {location ? "Edit" : "Set location"}
+          </button>
+        </div>
+        {locationEditing && (
+          <LocationEditor
+            current={location}
+            onSave={handleSaveLocation}
+            onClose={() => setLocationEditing(false)}
+          />
+        )}
+      </section>
 
       {isOwner && (
         <div className="flex justify-end pt-1">

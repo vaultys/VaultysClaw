@@ -34,6 +34,7 @@ import ChannelList from "@/components/channels/ChannelList";
 import ChannelView from "@/components/channels/ChannelView";
 import CreateChannelModal from "@/components/channels/CreateChannelModal";
 import type { MapMarker } from "@/components/map/WorldMap";
+import { useRole } from "@/hooks/useRole";
 
 const WorldMap = dynamic(
   () => import("@/components/map/WorldMap").then((m) => m.WorldMap),
@@ -176,8 +177,8 @@ function AddMemberModal({
   const available =
     type === "agent"
       ? (items as FullAgent[]).filter(
-          (a) => !a.realms?.some((r) => r.id === realm.id)
-        )
+        (a) => !a.realms?.some((r) => r.id === realm.id)
+      )
       : (items as FullUser[]);
 
   async function handleAdd() {
@@ -279,6 +280,7 @@ export default function RealmDetailPage() {
   const router = useRouter();
   const params = useParams<{ id: string }>();
   const id = params.id;
+  const { isGlobalAdmin } = useRole();
 
   const [realm, setRealm] = useState<Realm | null>(null);
   const [agents, setAgents] = useState<RealmAgent[]>([]);
@@ -302,6 +304,46 @@ export default function RealmDetailPage() {
   >("agents");
   const [mapMarkers, setMapMarkers] = useState<MapMarker[]>([]);
   const [mapLoading, setMapLoading] = useState(false);
+
+  const refreshMapMarkers = useCallback(() => {
+    setMapLoading(true);
+    fetch(`/api/map?realm=${id}`)
+      .then((r) => (r.ok ? r.json() : { markers: [] }))
+      .then((d: { markers?: MapMarker[] }) => setMapMarkers(d.markers ?? []))
+      .catch(() => { })
+      .finally(() => setMapLoading(false));
+  }, [id]);
+
+  const saveRealmMarkerLocation = useCallback(
+    async (
+      marker: MapMarker,
+      loc: { lat: number; lon: number; label: string } | null
+    ) => {
+      const body =
+        loc === null
+          ? { lat: null }
+          : { lat: loc.lat, lon: loc.lon, label: loc.label };
+      let endpoint = "";
+      if (marker.type === "agent")
+        endpoint = `/api/agents/${encodeURIComponent(marker.id)}/location`;
+      else if (marker.type === "user")
+        endpoint = `/api/users/${encodeURIComponent(marker.id)}/location`;
+      if (!endpoint) return;
+      const res = await fetch(endpoint, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const d = (await res.json().catch(() => null)) as {
+          error?: string;
+        } | null;
+        throw new Error(d?.error ?? "Failed to update location");
+      }
+      refreshMapMarkers();
+    },
+    [refreshMapMarkers]
+  );
   const [realmModels, setRealmModels] = useState<
     {
       id: string;
@@ -641,19 +683,13 @@ export default function RealmDetailPage() {
             onClick={() => {
               setTab(t);
               if (t === "map") {
-                setMapLoading(true);
-                fetch(`/api/map?realm=${id}`)
-                  .then((r) => (r.ok ? r.json() : { markers: [] }))
-                  .then((d: { markers?: MapMarker[] }) => setMapMarkers(d.markers ?? []))
-                  .catch(() => {})
-                  .finally(() => setMapLoading(false));
+                refreshMapMarkers();
               }
             }}
-            className={`px-4 py-2 text-sm font-medium capitalize transition-colors border-b-2 -mb-px ${
-              tab === t
-                ? "border-primary-500 text-primary-700 dark:text-primary-400"
-                : "border-transparent text-foreground-500 hover:text-foreground"
-            }`}
+            className={`px-4 py-2 text-sm font-medium capitalize transition-colors border-b-2 -mb-px ${tab === t
+              ? "border-primary-500 text-primary-700 dark:text-primary-400"
+              : "border-transparent text-foreground-500 hover:text-foreground"
+              }`}
           >
             {t === "agents" && `Agents (${agents.length})`}
             {t === "users" && `Users (${users.length})`}
@@ -1100,7 +1136,12 @@ export default function RealmDetailPage() {
                 </p>
               </div>
             ) : (
-              <WorldMap markers={mapMarkers} height={480} />
+              <WorldMap
+                markers={mapMarkers}
+                height={480}
+                onSaveLocation={saveRealmMarkerLocation}
+                canEditLocation={isGlobalAdmin}
+              />
             )}
           </div>
         </div>
@@ -1353,11 +1394,10 @@ function RealmSkillsTab({
                 </div>
                 <button
                   onClick={() => handleToggleRequired(skill)}
-                  className={`p-1.5 rounded-lg transition-colors text-xs ${
-                    skill.isRequired
-                      ? "text-warning-400 hover:text-foreground-500 hover:bg-background-200"
-                      : "text-foreground-500 hover:text-warning-400 hover:bg-warning-400/10"
-                  }`}
+                  className={`p-1.5 rounded-lg transition-colors text-xs ${skill.isRequired
+                    ? "text-warning-400 hover:text-foreground-500 hover:bg-background-200"
+                    : "text-foreground-500 hover:text-warning-400 hover:bg-warning-400/10"
+                    }`}
                   title={skill.isRequired ? "Make optional" : "Make required"}
                 >
                   <Lock className="w-4 h-4" />
@@ -1435,11 +1475,10 @@ function RealmConfigTab({
               <button
                 key={cap}
                 onClick={() => toggle(cap)}
-                className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors border ${
-                  caps.includes(cap)
-                    ? "bg-primary-50 dark:bg-primary-600/20 border-primary-300 dark:border-primary-500/50 text-primary-700 dark:text-primary-300"
-                    : "bg-background-200 border-neutral-200 text-foreground-500 hover:text-foreground"
-                }`}
+                className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors border ${caps.includes(cap)
+                  ? "bg-primary-50 dark:bg-primary-600/20 border-primary-300 dark:border-primary-500/50 text-primary-700 dark:text-primary-300"
+                  : "bg-background-200 border-neutral-200 text-foreground-500 hover:text-foreground"
+                  }`}
               >
                 {cap.replace(/_/g, " ")}
               </button>

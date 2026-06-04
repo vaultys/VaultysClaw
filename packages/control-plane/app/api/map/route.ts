@@ -62,13 +62,14 @@ export async function GET(req: NextRequest) {
     });
     for (const user of users) {
       if (user.locationLat == null || user.locationLon == null) continue;
+      const markerId = user.did ?? user.id;
       markers.push({
-        id: user.id,
+        id: markerId,
         type: "user",
         label: user.name ?? user.email ?? user.id,
         lat: user.locationLat,
         lon: user.locationLon,
-        meta: { email: user.email, role: user.role },
+        meta: { userId: user.id, email: user.email, role: user.role },
       });
     }
   }

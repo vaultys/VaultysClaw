@@ -727,6 +727,13 @@ export const ROUTE_REGISTRY: RouteEntry[] = [
     description: "Migrate storage backend",
   },
   {
+    path: "/api/settings/storage/location",
+    methods: ["PATCH"],
+    group: "Server",
+    subgroup: "Storage",
+    description: "Update storage location",
+  },
+  {
     path: "/api/settings/docling",
     methods: ["GET", "PUT"],
     group: "Server",
@@ -739,6 +746,13 @@ export const ROUTE_REGISTRY: RouteEntry[] = [
     group: "Server",
     subgroup: "Docling",
     description: "Test Docling connection",
+  },
+  {
+    path: "/api/settings/docling/location",
+    methods: ["PATCH"],
+    group: "Server",
+    subgroup: "Docling",
+    description: "Update Docling location",
   },
 
   // ── Network & graph ───────────────────────────────────────────────────────

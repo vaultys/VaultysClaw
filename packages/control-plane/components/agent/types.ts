@@ -22,6 +22,9 @@ export interface AgentDetail {
   tokenBudgetMonthly: number | null;
   todayTokens: number;
   monthTokens: number;
+  locationLat: number | null;
+  locationLon: number | null;
+  locationLabel: string | null;
 }
 
 export interface PolicyEntry {

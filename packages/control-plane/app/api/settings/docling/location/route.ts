@@ -1,0 +1,63 @@
+import { NextRequest, NextResponse } from "next/server";
+import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
+import { getDoclingConfig, setDoclingConfig } from "@/db/settings.dao";
+
+/**
+ * PATCH /api/settings/docling/location
+ * Update or clear Docling service location shown on infrastructure maps.
+ * Body: { lat: number, lon: number, label?: string } or { lat: null } to clear.
+ */
+export async function PATCH(request: NextRequest) {
+  const auth = await getAuthContext(request);
+  if (!auth) return unauthorized();
+  if (!auth.isGlobalAdmin) return forbidden();
+
+  const body = (await request.json().catch(() => null)) as
+    | { lat?: number | null; lon?: number | null; label?: string | null }
+    | null;
+  if (!body) {
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
+
+  const cfg = await getDoclingConfig();
+  if (!cfg) {
+    return NextResponse.json(
+      { error: "Docling is not configured" },
+      { status: 400 }
+    );
+  }
+
+  if (body.lat === null || body.lat === undefined) {
+    await setDoclingConfig({
+      url: cfg.url,
+      enabled: cfg.enabled,
+      sourceEndpoint: cfg.sourceEndpoint,
+      fileEndpoint: cfg.fileEndpoint,
+      locationLat: null,
+      locationLon: null,
+      locationLabel: null,
+    });
+    return NextResponse.json({ ok: true });
+  }
+
+  const lat = Number(body.lat);
+  const lon = Number(body.lon);
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+    return NextResponse.json(
+      { error: "lat and lon must be valid numbers" },
+      { status: 400 }
+    );
+  }
+
+  await setDoclingConfig({
+    url: cfg.url,
+    enabled: cfg.enabled,
+    sourceEndpoint: cfg.sourceEndpoint,
+    fileEndpoint: cfg.fileEndpoint,
+    locationLat: lat,
+    locationLon: lon,
+    locationLabel: body.label ?? "",
+  });
+
+  return NextResponse.json({ ok: true });
+}

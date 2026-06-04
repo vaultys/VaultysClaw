@@ -192,9 +192,9 @@ export async function GET(
           const cfg = agent.llmConfig ? agent.llmConfig : null;
           return cfg && typeof cfg === "object" && !Array.isArray(cfg)
             ? {
-                provider: String(cfg.provider ?? ""),
-                model: String(cfg.model ?? ""),
-              }
+              provider: String(cfg.provider ?? ""),
+              model: String(cfg.model ?? ""),
+            }
             : null;
         } catch {
           return null;
@@ -205,6 +205,9 @@ export async function GET(
       tokenBudgetMonthly: agent.tokenBudgetMonthly ?? null,
       todayTokens,
       monthTokens,
+      locationLat: agent.locationLat ?? null,
+      locationLon: agent.locationLon ?? null,
+      locationLabel: agent.locationLabel ?? null,
     });
   } catch (error) {
     return NextResponse.json(

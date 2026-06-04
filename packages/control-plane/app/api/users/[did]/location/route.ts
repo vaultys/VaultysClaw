@@ -21,7 +21,7 @@ export async function PATCH(
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const user = await UserDAO.findByDid(did);
+  const user = (await UserDAO.findByDid(did)) ?? (await UserDAO.findById(did));
   if (!user) {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
   }

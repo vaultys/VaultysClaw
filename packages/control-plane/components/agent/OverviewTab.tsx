@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
 import {
   Loader2,
   Activity,
@@ -12,7 +13,14 @@ import {
   Clock,
   Zap,
   CalendarDays,
+  MapPin,
 } from "lucide-react";
+import type { MapMarker } from "@/components/map/WorldMap";
+
+const LocationEditor = dynamic(
+  () => import("@/components/map/WorldMap").then((m) => m.LocationEditor),
+  { ssr: false }
+);
 import { formatDateTime, parseUTC, timeAgo } from "@vaultysclaw/shared";
 import { CAPABILITY_ICONS } from "./capability-icons";
 import { AUDIT_LABELS } from "./constants";
@@ -55,8 +63,78 @@ function TokenBar({
   );
 }
 
-export function OverviewTab({
-  agent,
+// ── Location row ──────────────────────────────────────────────────────────────
+
+function AgentLocationRow({
+  did,
+  lat,
+  lon,
+  label,
+}: {
+  did: string;
+  lat: number | null;
+  lon: number | null;
+  label: string | null;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [current, setCurrent] = useState<{ lat: number; lon: number; label: string } | null>(
+    lat != null && lon != null ? { lat, lon, label: label ?? "" } : null
+  );
+
+  const handleSave = useCallback(
+    async (loc: { lat: number; lon: number; label: string } | null) => {
+      const body = loc === null ? { lat: null } : { lat: loc.lat, lon: loc.lon, label: loc.label };
+      const res = await fetch(`/api/agents/${encodeURIComponent(did)}/location`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const d = (await res.json().catch(() => null)) as { error?: string } | null;
+        throw new Error(d?.error ?? "Failed to save location");
+      }
+      setCurrent(loc);
+    },
+    [did]
+  );
+
+  return (
+    <div className="bg-background-100 border border-neutral-200 rounded-xl p-5">
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="text-sm font-semibold text-foreground flex items-center gap-1.5">
+          <MapPin size={14} className="text-foreground-500" /> Location
+        </h2>
+        <button
+          onClick={() => setEditing(true)}
+          className="text-xs text-primary-500 hover:text-primary-400 flex items-center gap-0.5 transition-colors"
+        >
+          {current ? "Edit" : "Set location"}
+        </button>
+      </div>
+      {current ? (
+        <div className="text-sm text-foreground">
+          <span className="font-medium">{current.label || "Custom location"}</span>
+          <span className="text-foreground-400 font-mono text-xs ml-2">
+            {current.lat.toFixed(4)}, {current.lon.toFixed(4)}
+          </span>
+        </div>
+      ) : (
+        <p className="text-xs text-foreground-400">
+          No location set. Agents are auto-located on connect, or you can set one manually.
+        </p>
+      )}
+      {editing && (
+        <LocationEditor
+          current={current}
+          onSave={handleSave}
+          onClose={() => setEditing(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+export function OverviewTab({ agent,
   onTabChange,
 }: {
   agent: AgentDetail;
@@ -174,13 +252,12 @@ export function OverviewTab({
               </div>
               <div className="h-1 bg-neutral-200 rounded-full overflow-hidden">
                 <div
-                  className={`h-full rounded-full ${
-                    todayUsed / agent.tokenBudgetDaily >= 0.9
+                  className={`h-full rounded-full ${todayUsed / agent.tokenBudgetDaily >= 0.9
                       ? "bg-danger-500"
                       : todayUsed / agent.tokenBudgetDaily >= 0.7
                         ? "bg-warning-500"
                         : "bg-primary-500"
-                  }`}
+                    }`}
                   style={{
                     width: `${Math.min(100, Math.round((todayUsed / agent.tokenBudgetDaily) * 100))}%`,
                   }}
@@ -213,13 +290,12 @@ export function OverviewTab({
               </div>
               <div className="h-1 bg-neutral-200 rounded-full overflow-hidden">
                 <div
-                  className={`h-full rounded-full ${
-                    monthUsed / agent.tokenBudgetMonthly >= 0.9
+                  className={`h-full rounded-full ${monthUsed / agent.tokenBudgetMonthly >= 0.9
                       ? "bg-danger-500"
                       : monthUsed / agent.tokenBudgetMonthly >= 0.7
                         ? "bg-warning-500"
                         : "bg-primary-500"
-                  }`}
+                    }`}
                   style={{
                     width: `${Math.min(100, Math.round((monthUsed / agent.tokenBudgetMonthly) * 100))}%`,
                   }}
@@ -321,15 +397,14 @@ export function OverviewTab({
                   >
                     <div className="flex flex-col items-center flex-shrink-0 mt-0.5">
                       <div
-                        className={`w-2 h-2 rounded-full ${
-                          ev.status === "failed"
+                        className={`w-2 h-2 rounded-full ${ev.status === "failed"
                             ? "bg-danger-500"
                             : ev.status === "success"
                               ? "bg-success-500"
                               : isActivity
                                 ? "bg-primary-500"
                                 : "bg-secondary-500"
-                        }`}
+                          }`}
                       />
                       {i < recentEvents.length - 1 && (
                         <div className="w-px flex-1 bg-neutral-200 mt-1 min-h-[12px]" />
@@ -424,18 +499,18 @@ export function OverviewTab({
                       )}
                       {activePolicy.resourceLimits.maxRequestsPerHour !=
                         null && (
-                        <div className="flex justify-between text-xs">
-                          <span className="text-foreground-500">
-                            Max requests / hour
-                          </span>
-                          <span className="font-mono text-foreground">
-                            {activePolicy.resourceLimits.maxRequestsPerHour}
-                          </span>
-                        </div>
-                      )}
+                          <div className="flex justify-between text-xs">
+                            <span className="text-foreground-500">
+                              Max requests / hour
+                            </span>
+                            <span className="font-mono text-foreground">
+                              {activePolicy.resourceLimits.maxRequestsPerHour}
+                            </span>
+                          </div>
+                        )}
                       {activePolicy.resourceLimits.allowedDomains &&
                         activePolicy.resourceLimits.allowedDomains.length >
-                          0 && (
+                        0 && (
                           <div className="flex justify-between text-xs gap-4">
                             <span className="text-foreground-500 flex-shrink-0">
                               Allowed domains
@@ -453,11 +528,10 @@ export function OverviewTab({
 
               {activePolicy.expiresAt && (
                 <div
-                  className={`flex items-center gap-2 text-xs rounded-lg px-3 py-2 border ${
-                    new Date(activePolicy.expiresAt) < new Date()
+                  className={`flex items-center gap-2 text-xs rounded-lg px-3 py-2 border ${new Date(activePolicy.expiresAt) < new Date()
                       ? "bg-danger-50 border-danger-200 text-danger-600"
                       : "bg-warning-50 border-warning-200 text-warning-700"
-                  }`}
+                    }`}
                 >
                   <CalendarDays size={12} />
                   {formatDateTime(activePolicy.expiresAt)}
@@ -471,6 +545,9 @@ export function OverviewTab({
           )}
         </div>
       </div>
+
+      {/* ── Location ── */}
+      <AgentLocationRow did={agent.id} lat={agent.locationLat} lon={agent.locationLon} label={agent.locationLabel} />
     </div>
   );
 }

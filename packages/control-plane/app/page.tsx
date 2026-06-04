@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import dynamic from "next/dynamic";
@@ -346,7 +346,7 @@ function Dashboard() {
       .then((d: TokenStats | null) => {
         if (d) setDbTokenStats(d);
       })
-      .catch(() => {});
+      .catch(() => { });
 
   interface ExpiredPolicy {
     id: string;
@@ -373,7 +373,7 @@ function Dashboard() {
       .then((d: { policies?: ExpiredPolicy[] }) =>
         setExpiredPolicies(d.policies ?? [])
       )
-      .catch(() => {});
+      .catch(() => { });
   };
 
   const openRenewFromDashboard = (p: ExpiredPolicy) => {
@@ -391,7 +391,7 @@ function Dashboard() {
     try {
       const rl =
         renewingPolicy.resourceLimits &&
-        Object.keys(renewingPolicy.resourceLimits).length > 0
+          Object.keys(renewingPolicy.resourceLimits).length > 0
           ? renewingPolicy.resourceLimits
           : undefined;
       const res = await fetch("/api/policies", {
@@ -420,23 +420,66 @@ function Dashboard() {
 
   const [mapMarkers, setMapMarkers] = useState<MapMarker[]>([]);
 
-  const fetchMapMarkers = () =>
-    fetch("/api/map")
-      .then((r) => (r.ok ? r.json() : { markers: [] }))
-      .then((d: { markers?: MapMarker[] }) => setMapMarkers(d.markers ?? []))
-      .catch(() => {});
+  const fetchMapMarkers = useCallback(
+    () =>
+      fetch("/api/map")
+        .then((r) => (r.ok ? r.json() : { markers: [] }))
+        .then((d: { markers?: MapMarker[] }) => setMapMarkers(d.markers ?? []))
+        .catch(() => { }),
+    []
+  );
+
+  const saveMarkerLocation = useCallback(
+    async (
+      marker: MapMarker,
+      loc: { lat: number; lon: number; label: string } | null
+    ) => {
+      const body =
+        loc === null
+          ? { lat: null }
+          : { lat: loc.lat, lon: loc.lon, label: loc.label };
+
+      let endpoint = "";
+      if (marker.type === "agent") {
+        endpoint = `/api/agents/${encodeURIComponent(marker.id)}/location`;
+      } else if (marker.type === "user") {
+        endpoint = `/api/users/${encodeURIComponent(marker.id)}/location`;
+      } else if (marker.type === "docling") {
+        endpoint = "/api/settings/docling/location";
+      } else if (marker.type === "s3") {
+        endpoint = "/api/settings/storage/location";
+      }
+
+      if (!endpoint) return;
+
+      const res = await fetch(endpoint, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const data = (await res.json().catch(() => null)) as
+          | { error?: string }
+          | null;
+        throw new Error(data?.error ?? "Failed to update location");
+      }
+
+      await fetchMapMarkers();
+    },
+    [fetchMapMarkers]
+  );
 
   useEffect(() => {
     fetchMapMarkers();
     const id = setInterval(fetchMapMarkers, 30_000);
     return () => clearInterval(id);
-  }, []);
+  }, [fetchMapMarkers]);
 
   const fetchApprovals = () =>
     fetch("/api/workflow-approvals")
       .then((r) => r.json())
       .then((d: { approvals?: Approval[] }) => setApprovals(d.approvals ?? []))
-      .catch(() => {});
+      .catch(() => { });
 
   useEffect(() => {
     fetchApprovals();
@@ -542,11 +585,10 @@ function Dashboard() {
           </p>
         </div>
         <span
-          className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full border ${
-            wsConnected
+          className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full border ${wsConnected
               ? "bg-success-100 border-success-300 text-success-700"
               : "bg-warning-100 border-warning-300 text-warning-700"
-          }`}
+            }`}
         >
           {wsConnected ? (
             <Wifi className="w-3 h-3" />
@@ -602,22 +644,22 @@ function Dashboard() {
               const agentName = agents.find((a) => a.id === p.agentDid)?.name;
               const expiredAgo = p.expiresAt
                 ? (() => {
-                    const secs = Math.floor(
-                      (Date.now() -
-                        new Date(
-                          p.expiresAt.endsWith("Z")
-                            ? p.expiresAt
-                            : p.expiresAt + "Z"
-                        ).getTime()) /
-                        1000
-                    );
-                    if (secs < 60) return `${secs}s ago`;
-                    const mins = Math.floor(secs / 60);
-                    if (mins < 60) return `${mins}m ago`;
-                    const hrs = Math.floor(mins / 60);
-                    if (hrs < 24) return `${hrs}h ago`;
-                    return `${Math.floor(hrs / 24)}d ago`;
-                  })()
+                  const secs = Math.floor(
+                    (Date.now() -
+                      new Date(
+                        p.expiresAt.endsWith("Z")
+                          ? p.expiresAt
+                          : p.expiresAt + "Z"
+                      ).getTime()) /
+                    1000
+                  );
+                  if (secs < 60) return `${secs}s ago`;
+                  const mins = Math.floor(secs / 60);
+                  if (mins < 60) return `${mins}m ago`;
+                  const hrs = Math.floor(mins / 60);
+                  if (hrs < 24) return `${hrs}h ago`;
+                  return `${Math.floor(hrs / 24)}d ago`;
+                })()
                 : "";
               return (
                 <div
@@ -1051,7 +1093,12 @@ function Dashboard() {
               Full view
             </button>
           </div>
-          <WorldMap markers={mapMarkers} height={320} />
+          <WorldMap
+            markers={mapMarkers}
+            height={320}
+            onSaveLocation={saveMarkerLocation}
+            canEditLocation={isGlobalAdmin}
+          />
         </div>
       )}
 

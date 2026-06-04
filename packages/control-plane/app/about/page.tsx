@@ -24,28 +24,7 @@ import {
   Mail,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-
-// ── Dark-mode detection ───────────────────────────────────────────────────────
-// Observes the `dark` class on <html> so all theme-aware components re-render
-// when the user switches modes.
-
-function useDarkMode(): boolean {
-  const [isDark, setIsDark] = useState(false);
-
-  useEffect(() => {
-    const root = document.documentElement;
-    setIsDark(root.classList.contains("dark"));
-    const observer = new MutationObserver(() =>
-      setIsDark(root.classList.contains("dark"))
-    );
-    observer.observe(root, { attributes: true, attributeFilter: ["class"] });
-    return () => observer.disconnect();
-  }, []);
-
-  return isDark;
-}
-
-// ── Markdown renderer ─────────────────────────────────────────────────────────
+import { useDarkMode } from "@/hooks/useDarkMode";
 
 function MarkdownDoc({ content }: { content: string }) {
   const isDark = useDarkMode();

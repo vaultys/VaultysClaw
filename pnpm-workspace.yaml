@@ -3,8 +3,16 @@ packages:
   - "docs-site"
   - "video"
 allowBuilds:
+  '@prisma/engines': true
+  '@scarf/scarf': false
+  '@tree-sitter-grammars/tree-sitter-yaml': false
   better-sqlite3: true
+  core-js: false
+  core-js-pure: false
   esbuild: false
+  prisma: true
   sharp: true
+  tree-sitter: false
+  tree-sitter-json: false
   unrs-resolver: false
   wrtc: true

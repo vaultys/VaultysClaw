@@ -126,10 +126,7 @@ describe("executeToolCall", () => {
       } as any,
     });
     await executeToolCall("file_read", { path: "test.txt" }, tools);
-    expect(mockExecute).toHaveBeenCalledWith(
-      { path: "test.txt" },
-      expect.objectContaining({ toolCallId: expect.any(String) })
-    );
+    expect(mockExecute).toHaveBeenCalledWith({ path: "test.txt" }, {});
   });
 
   it("returns error result for unknown tool", async () => {

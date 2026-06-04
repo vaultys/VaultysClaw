@@ -151,9 +151,9 @@ export class AgentDAO {
     did: string,
     config: LlmConfig | null
   ): Promise<void> {
-    await prisma.agent.update({
+    await prisma.agent.updateMany({
       where: { did },
-      data: { llmConfig: { ...config } },
+      data: { llmConfig: config ? { ...config } : null },
     });
   }
 

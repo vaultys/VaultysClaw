@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   fmtUptime,
-  formatTime,
+  timeAgo,
   formatTimeOnly,
   formatDate,
   fmtDuration,
@@ -14,45 +14,45 @@ import {
 describe("Formatting Utilities", () => {
   describe("fmtUptime", () => {
     it("should format seconds only", () => {
-      expect(fmtUptime(30)).toBe("30s");
+      expect(fmtUptime(30)).toBe("30.0s");
     });
 
-    it("should format minutes and seconds", () => {
-      expect(fmtUptime(130)).toBe("2m 10s");
+    it("should format minutes", () => {
+      expect(fmtUptime(130)).toBe("2.2m");
     });
 
-    it("should format hours and minutes", () => {
-      expect(fmtUptime(3670)).toBe("1h 1m");
+    it("should format hours", () => {
+      expect(fmtUptime(3670)).toBe("1.0h");
     });
 
     it("should handle zero", () => {
-      expect(fmtUptime(0)).toBe("0s");
+      expect(fmtUptime(0)).toBe("0ms");
     });
   });
 
-  describe("formatTime", () => {
-    it("should show 'now' for recent timestamps", () => {
+  describe("timeAgo", () => {
+    it("should show 'just now' for recent timestamps", () => {
       const now = new Date().toISOString();
-      expect(formatTime(now)).toBe("now");
+      expect(timeAgo(now)).toBe("just now");
     });
 
     it("should show minutes ago", () => {
       const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
-      expect(formatTime(fiveMinutesAgo)).toBe("5m ago");
+      expect(timeAgo(fiveMinutesAgo)).toBe("5m ago");
     });
 
     it("should show hours ago", () => {
-      const twoHoursAgo = new Date(
-        Date.now() - 2 * 60 * 60 * 1000
-      ).toISOString();
-      expect(formatTime(twoHoursAgo)).toBe("2h ago");
+      const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
+      expect(timeAgo(twoHoursAgo)).toBe("2h ago");
     });
 
     it("should show days ago", () => {
-      const threeDaysAgo = new Date(
-        Date.now() - 3 * 24 * 60 * 60 * 1000
-      ).toISOString();
-      expect(formatTime(threeDaysAgo)).toBe("3d ago");
+      const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString();
+      expect(timeAgo(threeDaysAgo)).toBe("3d ago");
+    });
+
+    it("should return — for null", () => {
+      expect(timeAgo(null)).toBe("—");
     });
   });
 

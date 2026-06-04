@@ -22,6 +22,7 @@ import {
   type WorkflowRunRow,
   type WorkflowStepRow,
 } from "../packages/control-plane/lib/db";
+import { WorkflowDAO } from "../packages/control-plane/db";
 import {
   topologicalSort,
   evaluateCondition,
@@ -443,108 +444,60 @@ describe("Workflow Executor", () => {
   describe("executeWorkflow", () => {
     it("should execute simple linear workflow", async () => {
       const def: WorkflowDefinition = {
-        nodes: [
-          {
-            id: "step-1",
-            type: "agent",
-            data: { agentId: "@mock-agent" },
-          },
-        ],
+        nodes: [{ id: "step-1", type: "agent", data: { agentId: "@mock-agent" } }],
         edges: [],
       };
-
-      const workflowId = saveWorkflow("Simple Exec", def, undefined);
-      const runId = startWorkflowRun(workflowId);
-
+      const workflowId = await WorkflowDAO.create("Simple Exec", def as any);
+      const runId = await WorkflowDAO.startRun(workflowId);
       await executeWorkflow(runId, def);
-
-      const run = getWorkflowRun(runId);
+      const run = await WorkflowDAO.findRun(runId);
       expect(run?.status).toBe("completed");
-
-      const history = getWorkflowRunHistory(runId);
+      const history = await WorkflowDAO.getRunHistory(runId);
       expect(history.steps).toHaveLength(1);
       expect(history.steps[0].status).toBe("success");
     });
 
     it("should execute workflow without errors", async () => {
       const def: WorkflowDefinition = {
-        nodes: [
-          { id: "agent-1", type: "agent", data: { agentId: "@mock-agent" } },
-        ],
+        nodes: [{ id: "agent-1", type: "agent", data: { agentId: "@mock-agent" } }],
         edges: [],
       };
-
-      const workflowId = saveWorkflow("Simple Exec 2", def, undefined);
-      const runId = startWorkflowRun(workflowId);
-
+      const workflowId = await WorkflowDAO.create("Simple Exec 2", def as any);
+      const runId = await WorkflowDAO.startRun(workflowId);
       await executeWorkflow(runId, def);
-
-      const run = getWorkflowRun(runId);
+      const run = await WorkflowDAO.findRun(runId);
       expect(run?.status).toBe("completed");
     });
 
     it("should execute conditional branches", async () => {
       const def: WorkflowDefinition = {
         nodes: [
-          {
-            id: "agent-1",
-            type: "agent",
-            data: { agentId: "@mock-agent" },
-          },
-          {
-            id: "condition-1",
-            type: "condition",
-            data: { expression: "true" }, // Always true
-          },
-          {
-            id: "agent-2",
-            type: "agent",
-            data: { agentId: "@mock-agent" },
-          },
+          { id: "agent-1", type: "agent", data: { agentId: "@mock-agent" } },
+          { id: "condition-1", type: "condition", data: { expression: "true" } },
+          { id: "agent-2", type: "agent", data: { agentId: "@mock-agent" } },
         ],
         edges: [
           { id: "e1", source: "agent-1", target: "condition-1" },
-          {
-            id: "e2",
-            source: "condition-1",
-            target: "agent-2",
-            data: { condition: "true" },
-          },
+          { id: "e2", source: "condition-1", target: "agent-2", data: { condition: "true" } },
         ],
       };
-
-      const workflowId = saveWorkflow("Conditional", def, undefined);
-      const runId = startWorkflowRun(workflowId);
-
+      const workflowId = await WorkflowDAO.create("Conditional", def as any);
+      const runId = await WorkflowDAO.startRun(workflowId);
       await executeWorkflow(runId, def);
-
-      const history = getWorkflowRunHistory(runId);
+      const history = await WorkflowDAO.getRunHistory(runId);
       const executedSteps = history.steps.filter((s) => s.status === "success");
-
       expect(executedSteps.length).toBeGreaterThanOrEqual(2);
     });
 
     it("should handle workflow errors gracefully", async () => {
       const def: WorkflowDefinition = {
-        nodes: [
-          {
-            id: "agent-1",
-            type: "agent",
-            data: { agentId: "non-existent-agent" },
-          },
-        ],
+        nodes: [{ id: "agent-1", type: "agent", data: { agentId: "non-existent-agent" } }],
         edges: [],
       };
-
-      const workflowId = saveWorkflow("Error Handling", def, undefined);
-      const runId = startWorkflowRun(workflowId);
-
-      await executeWorkflow(runId, def).catch(() => {
-        // Expected to error
-      });
-
-      const run = getWorkflowRun(runId);
-      // Run might be completed or failed - just ensure it's not still "running"
+      const workflowId = await WorkflowDAO.create("Error Handling", def as any);
+      const runId = await WorkflowDAO.startRun(workflowId);
+      await executeWorkflow(runId, def).catch(() => {});
+      const run = await WorkflowDAO.findRun(runId);
       expect(["completed", "failed"]).toContain(run?.status);
     });
   });
@@ -557,20 +510,14 @@ describe("Workflow Executor", () => {
 describe("Workflow State Management", () => {
   it("should track execution progress", async () => {
     const def: WorkflowDefinition = {
-      nodes: [
-        { id: "step-1", type: "agent", data: { agentId: "@mock-agent" } },
-      ],
+      nodes: [{ id: "step-1", type: "agent", data: { agentId: "@mock-agent" } }],
       edges: [],
     };
-
-    const workflowId = saveWorkflow("Progress Tracking", def, undefined);
-    const runId = startWorkflowRun(workflowId);
-
+    const workflowId = await WorkflowDAO.create("Progress Tracking", def as any);
+    const runId = await WorkflowDAO.startRun(workflowId);
     await executeWorkflow(runId, def);
-
-    const history = getWorkflowRunHistory(runId);
+    const history = await WorkflowDAO.getRunHistory(runId);
     expect(history.steps.length).toBeGreaterThanOrEqual(1);
-
     const statuses = history.steps.map((s) => s.status);
     expect(statuses).toContain("success");
   });
@@ -578,24 +525,14 @@ describe("Workflow State Management", () => {
   it("should complete workflow successfully", async () => {
     const def: WorkflowDefinition = {
       nodes: [
-        {
-          id: "agent-1",
-          type: "agent",
-          data: {
-            agentId: "@mock-agent",
-            params: { prompt: "Generate test data" },
-          },
-        },
+        { id: "agent-1", type: "agent", data: { agentId: "@mock-agent", params: { prompt: "Generate test data" } } },
       ],
       edges: [],
     };
-
-    const workflowId = saveWorkflow("Simple Complete", def, undefined);
-    const runId = startWorkflowRun(workflowId);
-
+    const workflowId = await WorkflowDAO.create("Simple Complete", def as any);
+    const runId = await WorkflowDAO.startRun(workflowId);
     await executeWorkflow(runId, def);
-
-    const history = getWorkflowRunHistory(runId);
+    const history = await WorkflowDAO.getRunHistory(runId);
     expect(history.steps.length).toBeGreaterThan(0);
     expect(history.steps[0].status).toBe("success");
   });

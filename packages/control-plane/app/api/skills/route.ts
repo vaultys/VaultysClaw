@@ -118,7 +118,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(skill, { status: 201 });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
-    if (msg.includes("UNIQUE")) {
+    const code = (err as any)?.code;
+    if (msg.includes("UNIQUE") || code === "P2002") {
       return NextResponse.json(
         { error: `Skill "${name}" already exists in this realm` },
         { status: 409 }

@@ -42,6 +42,10 @@ export default defineConfig({
     environment: "node",
     testTimeout: 30000,
     hookTimeout: 30000,
+    globalSetup: ["__tests__/global-setup.ts"],
+    env: {
+      DATABASE_URL: "postgresql://test:test@localhost:5432/vaultysclaw_test",
+    },
     exclude: [
       // Docker E2E tests require the docker stack — run with: pnpm test:docker / test:litellm
       "__tests__/docker.test.ts",

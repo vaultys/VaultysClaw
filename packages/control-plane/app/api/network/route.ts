@@ -71,7 +71,7 @@ export async function GET(req: Request) {
   const wsServer = getWSServer();
   const stats = wsServer?.getNetworkStats() ?? null;
   const peerjsServer = getPeerjsServer();
-  const peerId = AgentPeerjsServer.getServerPeerId();
+  const peerId = await AgentPeerjsServer.getServerPeerId();
   const configuredServerUrl = await SettingsDAO.get("peerjs_server_url") ?? null;
 
   return NextResponse.json({

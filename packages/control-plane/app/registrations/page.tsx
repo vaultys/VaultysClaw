@@ -134,17 +134,17 @@ export default function RegistrationsPage() {
                   onClick={() => router.push(`/agents/create?regId=${reg.id}`)}
                 >
                   <p className="font-semibold text-foreground">
-                    {reg.agent_name}
+                    {reg.agentName}
                   </p>
                   <p className="text-warning-600/80 dark:text-warning-400/60 text-xs mt-0.5">
-                    Requested {timeAgo(reg.created_at)}
+                    Requested {timeAgo(reg.createdAt)}
                   </p>
                 </div>
                 <div className="flex items-center gap-3">
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      handleReject(reg.id, reg.agent_name);
+                      handleReject(reg.id, reg.agentName);
                     }}
                     disabled={rejectingId === reg.id}
                     className="flex items-center gap-1.5 px-3 py-1.5 bg-danger-100 dark:bg-danger-600/20 hover:bg-danger-200 dark:hover:bg-danger-600/30 disabled:opacity-50 disabled:cursor-not-allowed text-danger-700 dark:text-danger-400 text-xs font-medium rounded transition-colors"

@@ -69,12 +69,12 @@ import {
   getUserRealms,
   getAgentRealms,
   saveWorkflow,
-  createPolicy,
-  deletePolicy,
   type WorkflowDefinition,
 } from "../packages/control-plane/lib/db";
 import { UserDao } from "../packages/control-plane/lib/user-dao";
 import { getAuthContext } from "../packages/control-plane/lib/auth-utils";
+import { prisma } from "../packages/control-plane/db/client";
+import { PolicyDAO } from "../packages/control-plane/db";
 
 // Route handlers under test
 import { GET as agentsGET } from "../packages/control-plane/app/api/agents/route";
@@ -235,19 +235,24 @@ let testWorkflowId: string;
 // Setup / Teardown
 // ---------------------------------------------------------------------------
 
-beforeAll(() => {
+beforeAll(async () => {
   const db = getDb();
 
-  // Clean up any stale data from a previous interrupted run
+  // Clean up any stale SQLite data from a previous interrupted run
   db.prepare(`DELETE FROM user_realms WHERE user_id LIKE '%${SENTINEL}'`).run();
-  db.prepare(
-    `DELETE FROM agent_realms WHERE agent_did LIKE '%${SENTINEL}'`
-  ).run();
+  db.prepare(`DELETE FROM agent_realms WHERE agent_did LIKE '%${SENTINEL}'`).run();
   db.prepare(`DELETE FROM users WHERE did LIKE '%${SENTINEL}'`).run();
   db.prepare(`DELETE FROM agents WHERE did LIKE '%${SENTINEL}'`).run();
   db.prepare("DELETE FROM realms WHERE slug = 'test-sec-realm'").run();
 
-  // Users
+  // Clean up any stale Prisma data
+  await prisma.userRealm.deleteMany({ where: { userId: { contains: SENTINEL } } });
+  await prisma.agentRealm.deleteMany({ where: { agentDid: { contains: SENTINEL } } });
+  await prisma.user.deleteMany({ where: { did: { contains: SENTINEL } } });
+  await prisma.agent.deleteMany({ where: { did: { contains: SENTINEL } } });
+  await prisma.realm.deleteMany({ where: { slug: "test-sec-realm" } });
+
+  // ── SQLite (for DB helper tests) ────────────────────────────────────────
   UserDao.create(DID.owner, null, true);
   UserDao.create(DID.admin, null, false);
   UserDao.setAdmin(DID.admin, true);
@@ -255,44 +260,83 @@ beforeAll(() => {
   UserDao.create(DID.realmAdmin, null, false);
   UserDao.create(DID.stranger, null, false);
 
-  // Agent
   db.prepare(
     "INSERT OR IGNORE INTO agents (did, name, capabilities, registered_at) VALUES (?, ?, '[]', datetime('now'))"
   ).run(DID.agent, "Security Test Agent");
 
-  // Realm
-  const realm = createRealm({
-    name: "Security Test Realm",
-    slug: "test-sec-realm",
-  });
+  const realm = createRealm({ name: "Security Test Realm", slug: "test-sec-realm" });
   testRealmId = realm.id;
 
-  // Memberships
   addUserToRealm(DID.member, testRealmId, false, false);
-  addUserToRealm(DID.realmAdmin, testRealmId, false, true); // realm admin
+  addUserToRealm(DID.realmAdmin, testRealmId, false, true);
   addAgentToRealm(DID.agent, testRealmId);
 
-  // Workflow inside the test realm
   const def: WorkflowDefinition = { nodes: [], edges: [] };
-  testWorkflowId = saveWorkflow(
-    "Security Test Workflow",
-    def,
-    undefined,
-    testRealmId
-  );
+  testWorkflowId = saveWorkflow("Security Test Workflow", def, undefined, testRealmId);
+
+  // ── Prisma (for route handler tests) ────────────────────────────────────
+  await prisma.user.createMany({
+    data: [
+      { id: DID.owner, did: DID.owner, isOwner: true, isAdmin: true },
+      { id: DID.admin, did: DID.admin, isAdmin: true },
+      { id: DID.member, did: DID.member },
+      { id: DID.realmAdmin, did: DID.realmAdmin },
+      { id: DID.stranger, did: DID.stranger },
+    ],
+    skipDuplicates: true,
+  });
+
+  await prisma.agent.upsert({
+    where: { did: DID.agent },
+    create: { did: DID.agent, name: "Security Test Agent", capabilities: [] },
+    update: {},
+  });
+
+  await prisma.realm.upsert({
+    where: { id: testRealmId },
+    create: { id: testRealmId, name: "Security Test Realm", slug: "test-sec-realm", color: "#6366f1" },
+    update: {},
+  });
+
+  await prisma.userRealm.createMany({
+    data: [
+      { userId: DID.member, realmId: testRealmId },
+      { userId: DID.realmAdmin, realmId: testRealmId, isRealmAdmin: true },
+    ],
+    skipDuplicates: true,
+  });
+
+  await prisma.agentRealm.upsert({
+    where: { agentDid_realmId: { agentDid: DID.agent, realmId: testRealmId } },
+    create: { agentDid: DID.agent, realmId: testRealmId },
+    update: {},
+  });
+
+  await prisma.workflow.upsert({
+    where: { id: testWorkflowId },
+    create: { id: testWorkflowId, name: "Security Test Workflow", definition: def as any, realmId: testRealmId },
+    update: {},
+  });
 });
 
-afterAll(() => {
+afterAll(async () => {
   const db = getDb();
+  // SQLite cleanup
   db.prepare(`DELETE FROM policies WHERE created_by LIKE '%${SENTINEL}'`).run();
   db.prepare(`DELETE FROM policies WHERE agent_did LIKE '%${SENTINEL}'`).run();
   db.prepare(`DELETE FROM user_realms WHERE user_id LIKE '%${SENTINEL}'`).run();
-  db.prepare(
-    `DELETE FROM agent_realms WHERE agent_did LIKE '%${SENTINEL}'`
-  ).run();
+  db.prepare(`DELETE FROM agent_realms WHERE agent_did LIKE '%${SENTINEL}'`).run();
   db.prepare(`DELETE FROM users WHERE did LIKE '%${SENTINEL}'`).run();
   db.prepare(`DELETE FROM agents WHERE did LIKE '%${SENTINEL}'`).run();
   db.prepare("DELETE FROM realms WHERE slug = 'test-sec-realm'").run();
+  // Prisma cleanup
+  await prisma.policy.deleteMany({ where: { OR: [{ createdBy: { contains: SENTINEL } }, { agentDid: { contains: SENTINEL } }] } });
+  await prisma.workflow.deleteMany({ where: { realmId: testRealmId } });
+  await prisma.userRealm.deleteMany({ where: { userId: { contains: SENTINEL } } });
+  await prisma.agentRealm.deleteMany({ where: { agentDid: { contains: SENTINEL } } });
+  await prisma.user.deleteMany({ where: { did: { contains: SENTINEL } } });
+  await prisma.agent.deleteMany({ where: { did: { contains: SENTINEL } } });
+  await prisma.realm.deleteMany({ where: { slug: "test-sec-realm" } });
 });
 
 // Reset mock before each test so auth context doesn't leak between tests
@@ -684,6 +728,7 @@ describe("POST /api/realms", () => {
     const body = (res as { _body: { realm?: { id: string } } })._body;
     if (body.realm?.id) {
       getDb().prepare("DELETE FROM realms WHERE id = ?").run(body.realm.id);
+      await prisma.realm.deleteMany({ where: { id: body.realm.id } });
     }
   });
 });
@@ -887,9 +932,13 @@ describe("POST /api/realms/[id]/users", () => {
     );
     expect(status(res)).not.toBe(401);
     expect(status(res)).not.toBe(403);
+    // Clean up both SQLite and Prisma so the stranger's membership doesn't leak
     getDb()
       .prepare("DELETE FROM user_realms WHERE user_id = ? AND realm_id = ?")
       .run(DID.stranger, testRealmId);
+    await prisma.userRealm.deleteMany({
+      where: { userId: DID.stranger, realmId: testRealmId },
+    });
   });
 });
 
@@ -1250,8 +1299,8 @@ describe("GET /api/policies", () => {
 
   it("accepts agentDid query param and returns only matching policies", async () => {
     asAdmin();
-    const policy = createPolicy({
-      capabilities: ["file_access"],
+    const policy = await PolicyDAO.create({
+      capabilities: ["file_access"] as any,
       agentDid: DID.agent,
       createdBy: DID.admin,
     });
@@ -1263,7 +1312,7 @@ describe("GET /api/policies", () => {
     expectStatus(res, 200);
     const body = (res as { _body: { policies: { id: string }[] } })._body;
     expect(body.policies.some((p) => p.id === policy.id)).toBe(true);
-    deletePolicy(policy.id);
+    await PolicyDAO.delete(policy.id);
   });
 });
 
@@ -1339,7 +1388,7 @@ describe("POST /api/policies", () => {
     expect(body.policy?.id).toBeTruthy();
     expect(body.policy?.capabilities).toContain("file_access");
     expect(body.policy?.agentDid).toBe(DID.agent);
-    deletePolicy(body.policy.id);
+    await PolicyDAO.delete(body.policy.id);
   });
 
   it("creates a policy with resourceLimits and expiresAt", async () => {
@@ -1362,7 +1411,7 @@ describe("POST /api/policies", () => {
       }
     )._body;
     expect(body.policy?.resourceLimits?.maxTokensPerDay).toBe(10000);
-    deletePolicy(body.policy.id);
+    await PolicyDAO.delete(body.policy.id);
   });
 
   it("creates a realm-scoped policy without agentDid", async () => {
@@ -1377,24 +1426,24 @@ describe("POST /api/policies", () => {
     const body = (res as { _body: { policy: { id: string; realmId: string } } })
       ._body;
     expect(body.policy?.realmId).toBe(testRealmId);
-    deletePolicy(body.policy.id);
+    await PolicyDAO.delete(body.policy.id);
   });
 });
 
 describe("GET /api/policies/[id]", () => {
   let testPolicyId: string;
 
-  beforeAll(() => {
-    const p = createPolicy({
-      capabilities: ["file_access"],
+  beforeAll(async () => {
+    const p = await PolicyDAO.create({
+      capabilities: ["file_access"] as any,
       agentDid: DID.agent,
       createdBy: DID.admin,
     });
     testPolicyId = p.id;
   });
 
-  afterAll(() => {
-    deletePolicy(testPolicyId);
+  afterAll(async () => {
+    await PolicyDAO.delete(testPolicyId);
   });
 
   it("returns 401 when unauthenticated", async () => {
@@ -1491,8 +1540,8 @@ describe("DELETE /api/policies/[id]", () => {
   });
 
   it("deletes a policy and returns ok:true for a global admin", async () => {
-    const p = createPolicy({
-      capabilities: ["api_call"],
+    const p = await PolicyDAO.create({
+      capabilities: ["api_call"] as any,
       agentDid: DID.agent,
       createdBy: DID.admin,
     });

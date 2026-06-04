@@ -35,12 +35,12 @@ interface AgentsState {
 
 interface PendingRegistration {
   id: string;
-  session_id: string;
-  agent_name: string;
+  sessionId: string;
+  agentName: string;
   status: string;
-  requested_capabilities: string; // JSON array — what the agent requested
-  assigned_capabilities: string; // JSON array — what admin assigned
-  created_at: string;
+  requestedCapabilities: unknown; // already-parsed array from Prisma JSONB
+  assignedCapabilities: unknown;
+  createdAt: string;
 }
 
 interface AdminWSState {
@@ -57,6 +57,8 @@ interface AdminWSMessage {
   registrations: PendingRegistration[];
   timestamp: string;
 }
+
+export type { PendingRegistration };
 
 const RECONNECT_DELAY_MS = 2000;
 

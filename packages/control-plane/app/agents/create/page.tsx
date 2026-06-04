@@ -60,9 +60,9 @@ interface Skill {
 
 interface PendingReg {
   id: string;
-  agent_name: string;
-  requested_capabilities: string;
-  created_at: string;
+  agentName: string;
+  requestedCapabilities: unknown;
+  createdAt: string;
   status: string;
 }
 
@@ -301,7 +301,7 @@ export default function CreateAgentPage() {
     const reg = registrations.find((r) => r.id === regId);
     if (reg) {
       setPendingReg(reg as PendingReg);
-      const caps = parseJsonArray(reg.requested_capabilities);
+      const caps = parseJsonArray(reg.requestedCapabilities);
       setSelectedCaps(new Set(caps));
       setPolicyMaxTokensPerDay("");
       setPolicyMaxRequestsPerHour("");
@@ -328,13 +328,13 @@ export default function CreateAgentPage() {
         ];
         return merged.sort(
           (a, b) =>
-            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
         );
       });
       if (!pendingReg) {
         const latest = newRegs[0] as PendingReg;
         setPendingReg(latest);
-        setSelectedCaps(new Set(parseJsonArray(latest.requested_capabilities)));
+        setSelectedCaps(new Set(parseJsonArray(latest.requestedCapabilities)));
         setPolicyMaxTokensPerDay("");
         setPolicyMaxRequestsPerHour("");
         setPolicyAllowedDomains("");
@@ -471,12 +471,12 @@ export default function CreateAgentPage() {
       // Show the most recent pending registration
       const sorted = pending.sort(
         (a, b) =>
-          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
       );
       setWaitingRegs(sorted);
       const latest = sorted[0];
       setPendingReg(latest);
-      setSelectedCaps(new Set(parseJsonArray(latest.requested_capabilities)));
+      setSelectedCaps(new Set(parseJsonArray(latest.requestedCapabilities)));
       setPolicyMaxTokensPerDay("");
       setPolicyMaxRequestsPerHour("");
       setPolicyAllowedDomains("");
@@ -574,7 +574,7 @@ export default function CreateAgentPage() {
     if (!pendingReg) return;
     if (
       !confirm(
-        `Reject registration for "${pendingReg.agent_name}"? This cannot be undone.`
+        `Reject registration for "${pendingReg.agentName}"? This cannot be undone.`
       )
     )
       return;
@@ -1021,7 +1021,7 @@ export default function CreateAgentPage() {
                   </p>
                   <p className="text-xs text-foreground-500">
                     <span className="font-medium text-success-700 dark:text-success-400">
-                      {pendingReg.agent_name}
+                      {pendingReg.agentName}
                     </span>{" "}
                     is waiting for approval
                   </p>
@@ -1067,7 +1067,7 @@ export default function CreateAgentPage() {
                   key={r.id}
                   onClick={() => {
                     setPendingReg(r as PendingReg);
-                    const caps = parseJsonArray(r.requested_capabilities);
+                    const caps = parseJsonArray(r.requestedCapabilities);
                     setSelectedCaps(new Set(caps));
                     setPolicyMaxTokensPerDay("");
                     setPolicyMaxRequestsPerHour("");
@@ -1083,10 +1083,10 @@ export default function CreateAgentPage() {
                 >
                   <span className="flex items-center gap-2">
                     <Bot size={14} className="text-foreground-500" />
-                    {r.agent_name}
+                    {r.agentName}
                   </span>
                   <span className="text-xs text-foreground-500">
-                    {timeAgo(r.created_at)}
+                    {timeAgo(r.createdAt)}
                   </span>
                 </button>
               ))}
@@ -1128,7 +1128,7 @@ export default function CreateAgentPage() {
             </div>
             <div>
               <p className="text-sm font-semibold text-foreground">
-                {pendingReg.agent_name}
+                {pendingReg.agentName}
               </p>
               <p className="text-xs text-foreground-500">
                 Registration ID:{" "}
@@ -1614,12 +1614,12 @@ export default function CreateAgentPage() {
 
 // ── Utilities ─────────────────────────────────────────────────────────────────
 
-function parseJsonArray(raw: string): string[] {
-  try {
-    return JSON.parse(raw) ?? [];
-  } catch {
-    return [];
+function parseJsonArray(raw: unknown): string[] {
+  if (Array.isArray(raw)) return raw as string[];
+  if (typeof raw === "string") {
+    try { return JSON.parse(raw) ?? []; } catch { return []; }
   }
+  return [];
 }
 
 function timeAgo(iso: string): string {

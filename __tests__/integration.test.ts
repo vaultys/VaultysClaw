@@ -6,12 +6,7 @@
 
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { AgentWSServer } from "../packages/control-plane/lib/ws-server";
-import {
-  getDb,
-  closeDb,
-  initServerIdentity,
-  setAgentLlmConfig,
-} from "../packages/control-plane/lib/db";
+import { prisma } from "../packages/control-plane/db/client";
 import { MockAgent, waitFor } from "./test-utils";
 import type { LlmConfig } from "@vaultysclaw/shared";
 
@@ -31,24 +26,20 @@ describe("VaultysClaw Integration Tests", () => {
   let wsServer: AgentWSServer;
 
   beforeAll(async () => {
-    // Initialize database (creates tables)
-    const db = getDb();
-    // Clear data from previous test runs
-    db.prepare("DELETE FROM agents").run();
-    db.prepare("DELETE FROM pending_registrations").run();
-    db.prepare("DELETE FROM auth_sessions").run();
-    db.prepare("DELETE FROM activity_log").run();
-    db.prepare("DELETE FROM agent_token_usage").run();
-    // Generate server identity
-    await initServerIdentity();
-    // Start the WebSocket server
+    // Clear data from previous test runs (Prisma — WS server uses PostgreSQL)
+    await prisma.agentTokenUsage.deleteMany();
+    await prisma.activityLog.deleteMany();
+    await prisma.authSession.deleteMany();
+    await prisma.pendingRegistration.deleteMany();
+    await prisma.agent.deleteMany();
+    // serverSecret is guaranteed by global-setup.ts
     wsServer = new AgentWSServer(WS_PORT);
     await new Promise((resolve) => setTimeout(resolve, 200));
   });
 
-  afterAll(() => {
+  afterAll(async () => {
     wsServer.shutdown();
-    closeDb();
+    await prisma.$disconnect();
   });
 
   describe("VaultysId Authentication", () => {
@@ -127,7 +118,7 @@ describe("VaultysClaw Integration Tests", () => {
 
       // Send intent from control plane side
       const intentPromise = agent.waitForIntent(3000);
-      const success = wsServer.sendIntentToAgent(
+      const success = await wsServer.sendIntentToAgent(
         agent.id,
         intentId,
         "test_action",
@@ -163,7 +154,7 @@ describe("VaultysClaw Integration Tests", () => {
 
       const intentId = `broadcast-intent-${Date.now()}`;
 
-      const recipients = wsServer.broadcastIntentToCapability(
+      const recipients = await wsServer.broadcastIntentToCapability(
         "broadcast_cap",
         intentId,
         "broadcast_action",
@@ -222,9 +213,9 @@ describe("VaultysClaw Integration Tests", () => {
 
       // applyPolicy triggers update_capabilities → re-auth handshake
       const reAuthPromise = agent.reAuthAfterCapabilityUpdate();
-      const applied = wsServer.applyPolicy(
+      const applied = await wsServer.applyPolicy(
         agent.id,
-        ["test_capability", "api_call"],
+        ["test_capability", "api_call"] as any,
         policyMeta
       );
       expect(applied).toBe(true);
@@ -240,10 +231,10 @@ describe("VaultysClaw Integration Tests", () => {
       agent.close();
     });
 
-    it("should return false when applying policy to disconnected agent", () => {
-      const result = wsServer.applyPolicy(
+    it("should return false when applying policy to disconnected agent", async () => {
+      const result = await wsServer.applyPolicy(
         "did:vaultys:nonexistent",
-        ["test_capability"],
+        ["test_capability"] as any,
         { resourceLimits: null, policyId: null, policyExpiresAt: null }
       );
       expect(result).toBe(false);
@@ -273,14 +264,14 @@ describe("VaultysClaw Integration Tests", () => {
       const reAuth1 = agent1.reAuthAfterCapabilityUpdate();
       const reAuth2 = agent2.reAuthAfterCapabilityUpdate();
 
-      const applied1 = wsServer.applyPolicy(
+      const applied1 = await wsServer.applyPolicy(
         agent1.id,
-        ["cap_a", "api_call"],
+        ["cap_a", "api_call"] as any,
         policyMeta
       );
-      const applied2 = wsServer.applyPolicy(
+      const applied2 = await wsServer.applyPolicy(
         agent2.id,
-        ["cap_b", "api_call"],
+        ["cap_b", "api_call"] as any,
         policyMeta
       );
 
@@ -374,7 +365,7 @@ describe("VaultysClaw Integration Tests", () => {
       // Step 2: Receive intent
       const intentId = `e2e-intent-${Date.now()}`;
       const intentPromise = agent.waitForIntent(3000);
-      wsServer.sendIntentToAgent(agent.id, intentId, "e2e_action", {
+      await wsServer.sendIntentToAgent(agent.id, intentId, "e2e_action", {
         data: "test",
       });
       const intent = await intentPromise;
@@ -390,9 +381,9 @@ describe("VaultysClaw Integration Tests", () => {
         policyExpiresAt: null,
       };
       const reAuthPromise = agent.reAuthAfterCapabilityUpdate();
-      const applied = wsServer.applyPolicy(
+      const applied = await wsServer.applyPolicy(
         agent.id,
-        ["e2e_capability"],
+        ["e2e_capability"] as any,
         policyMeta
       );
       expect(applied).toBe(true);
@@ -432,7 +423,7 @@ describe("VaultysClaw Integration Tests", () => {
         "file_access",
         "api_call",
       ]);
-      const approved = wsServer.approveRegistration(registrationId, [
+      const approved = await wsServer.approveRegistration(registrationId, [
         "file_access",
         "api_call",
       ]);
@@ -461,7 +452,7 @@ describe("VaultysClaw Integration Tests", () => {
 
       const registrationId = await agent.register();
 
-      const rejected = wsServer.rejectRegistration(
+      const rejected = await wsServer.rejectRegistration(
         registrationId,
         "Not authorized"
       );
@@ -474,8 +465,8 @@ describe("VaultysClaw Integration Tests", () => {
       await new Promise((resolve) => setTimeout(resolve, 200));
     });
 
-    it("should return false when approving non-existent registration", () => {
-      const result = wsServer.approveRegistration("non-existent-id", [
+    it("should return false when approving non-existent registration", async () => {
+      const result = await wsServer.approveRegistration("non-existent-id", [
         "file_access",
       ]);
       expect(result).toBe(false);
@@ -496,11 +487,11 @@ describe("VaultysClaw Integration Tests", () => {
 
       // Admin updates capabilities
       const reAuthPromise = agent.reAuthAfterCapabilityUpdate();
-      const updated = wsServer.updateAgentCapabilities(agentId, [
+      const updated = await wsServer.updateAgentCapabilities(agentId, [
         "file_access",
         "api_call",
         "code_execution",
-      ]);
+      ] as any);
       expect(updated).toBe(true);
 
       await reAuthPromise;
@@ -518,10 +509,10 @@ describe("VaultysClaw Integration Tests", () => {
       agent.close();
     });
 
-    it("should return false when updating non-existent agent", () => {
-      const result = wsServer.updateAgentCapabilities(
+    it("should return false when updating non-existent agent", async () => {
+      const result = await wsServer.updateAgentCapabilities(
         "did:vaultys:nonexistent",
-        ["file_access"]
+        ["file_access"] as any
       );
       expect(result).toBe(false);
     });
@@ -543,7 +534,7 @@ describe("VaultysClaw Integration Tests", () => {
       await agent.authenticate(["test_capability"], wsServer);
 
       const configPromise = agent.waitForLlmConfig(3000);
-      const pushed = wsServer.sendLlmConfig(agent.id, TEST_LLM_CONFIG);
+      const pushed = await wsServer.sendLlmConfig(agent.id, TEST_LLM_CONFIG);
       expect(pushed).toBe(true);
 
       const msg = await configPromise;
@@ -563,7 +554,7 @@ describe("VaultysClaw Integration Tests", () => {
       await agent.authenticate(["test_capability"], wsServer);
 
       const configPromise = agent.waitForLlmConfig(3000);
-      const pushed = wsServer.sendLlmConfig(agent.id, null);
+      const pushed = await wsServer.sendLlmConfig(agent.id, null);
       expect(pushed).toBe(true);
 
       const msg = await configPromise;
@@ -576,7 +567,7 @@ describe("VaultysClaw Integration Tests", () => {
       // sendLlmConfig should return false for any DID not in the connected-agents map.
       // Use a DID that never connected rather than relying on WS close timing.
       const offlineDid = `did:vaultys:test-offline-${Date.now()}`;
-      const pushed = wsServer.sendLlmConfig(offlineDid, TEST_LLM_CONFIG);
+      const pushed = await wsServer.sendLlmConfig(offlineDid, TEST_LLM_CONFIG);
       expect(pushed).toBe(false);
     });
 
@@ -592,7 +583,7 @@ describe("VaultysClaw Integration Tests", () => {
       const vaultysId = agent1.getVaultysId();
 
       // Persist config via sendLlmConfig (agent1 is online — also delivered there)
-      wsServer.sendLlmConfig(did, TEST_LLM_CONFIG);
+      await wsServer.sendLlmConfig(did, TEST_LLM_CONFIG);
       agent1.close();
 
       // Step 2: reconnect with the same VaultysId (known DID → no approval needed)

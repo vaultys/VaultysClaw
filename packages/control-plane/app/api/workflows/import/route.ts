@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
 import { WorkflowDAO } from "@/db";
 import type { WorkflowDefinition } from "@/lib/workflow-executor";
+import { Prisma } from "@prisma/client";
 
 interface ImportPayload {
   name: string;
@@ -76,7 +77,8 @@ export async function POST(request: NextRequest) {
 
     const body = (await request.json()) as ImportPayload;
 
-    if (body.realmId && !(await auth.canAdminRealm(body.realmId))) return forbidden();
+    if (body.realmId && !(await auth.canAdminRealm(body.realmId)))
+      return forbidden();
     if (!body.realmId && !auth.isGlobalAdmin) return forbidden();
 
     // Validate required fields
@@ -98,7 +100,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const id = await WorkflowDAO.create(body.name, body.definition, undefined);
+    const id = await WorkflowDAO.create(
+      body.name,
+      body.definition as unknown as Prisma.InputJsonValue
+    );
 
     return NextResponse.json({
       success: true,

@@ -254,6 +254,15 @@ export class ChannelBridgeDAO {
     return prisma.channelBridge.findUnique({ where: { id } });
   }
 
+  static async getByExternalChannelId(
+    externalService: string,
+    externalChannelId: string
+  ): Promise<ChannelBridge | null> {
+    return prisma.channelBridge.findFirst({
+      where: { externalService, externalChannelId },
+    });
+  }
+
   static async update(
     id: string,
     data: Partial<{

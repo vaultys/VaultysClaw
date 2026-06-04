@@ -3,6 +3,7 @@ import { getWSServer } from "@/lib/ws-server";
 import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
 import { AgentDAO, RealmDAO, WorkflowDAO } from "@/db";
 import type { WorkflowDefinition } from "@/lib/workflow-executor";
+import { Prisma } from "@prisma/client";
 
 /**
  * POST /api/workflows/test-seed
@@ -198,7 +199,7 @@ export async function POST(request: NextRequest) {
     // Create the workflow
     const workflowId = await WorkflowDAO.create(
       "Test E2E Workflow",
-      definition,
+      definition as unknown as Prisma.InputJsonValue,
       undefined,
       defaultRealm.id
     );

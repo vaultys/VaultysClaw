@@ -12,7 +12,7 @@ export class WorkflowDAO {
 
   static async create(
     name: string,
-    definition: Record<string, unknown>,
+    definition: Prisma.InputJsonValue,
     createdBy?: string,
     realmId?: string,
     description?: string
@@ -26,7 +26,7 @@ export class WorkflowDAO {
         id,
         name,
         description: description ?? null,
-        definition: definition as Prisma.InputJsonValue,
+        definition: definition,
         createdBy: createdBy ?? null,
         realmId: realmId ?? defaultRealm?.id ?? null,
       },
@@ -56,7 +56,7 @@ export class WorkflowDAO {
     data: {
       name?: string;
       description?: string;
-      definition?: Record<string, unknown>;
+      definition?: Prisma.InputJsonValue;
       realmId?: string;
     }
   ): Promise<void> {
@@ -66,7 +66,7 @@ export class WorkflowDAO {
         realmId: data.realmId,
         name: data.name,
         description: data.description,
-        definition: data.definition as Prisma.InputJsonValue,
+        definition: data.definition,
       },
     });
   }

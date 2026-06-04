@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
 import { RealmDAO, WorkflowDAO } from "@/db";
 import type { WorkflowDefinition } from "@/lib/workflow-executor";
+import { Prisma } from "@prisma/client";
 
 /**
  * POST /api/workflows
@@ -94,7 +95,12 @@ export async function POST(request: NextRequest) {
       return forbidden();
     }
 
-    const id = await WorkflowDAO.create(name, definition, undefined, realmId);
+    const id = await WorkflowDAO.create(
+      name,
+      definition as unknown as Prisma.InputJsonValue,
+      undefined,
+      realmId
+    );
 
     return NextResponse.json({
       success: true,
@@ -172,7 +178,10 @@ export async function GET(request: NextRequest) {
     // Members can only query realms they belong to
     if (realmId && !(await auth.canAccessRealm(realmId))) return forbidden();
 
-    let workflows = await WorkflowDAO.list({ createdBy: createdBy ?? undefined, realmId: realmId ?? undefined });
+    let workflows = await WorkflowDAO.list({
+      createdBy: createdBy ?? undefined,
+      realmId: realmId ?? undefined,
+    });
 
     // Non-admins: filter to workflows in their realms
     if (!auth.isGlobalAdmin) {

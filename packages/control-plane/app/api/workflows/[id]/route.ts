@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
 import { WorkflowDAO } from "@/db";
 import type { WorkflowDefinition } from "@/lib/workflow-executor";
+import { Prisma } from "@prisma/client";
 
 type Params = { id: string };
 
@@ -180,7 +181,12 @@ export async function PATCH(
       );
     }
 
-    await WorkflowDAO.update(id, { name, definition: definition as Record<string, unknown> | undefined, description, realmId });
+    await WorkflowDAO.update(id, {
+      name,
+      definition: definition as unknown as Prisma.InputJsonValue,
+      description,
+      realmId,
+    });
 
     return NextResponse.json({ success: true, id });
   } catch (err) {

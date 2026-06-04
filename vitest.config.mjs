@@ -42,10 +42,12 @@ export default defineConfig({
     environment: "node",
     testTimeout: 30000,
     hookTimeout: 30000,
+    // Allow up to 30 s for the Docker container to be stopped in teardown.
+    teardownTimeout: 30000,
     globalSetup: ["__tests__/global-setup.ts"],
-    env: {
-      DATABASE_URL: "postgresql://test:test@localhost:5432/vaultysclaw_test",
-    },
+    // DATABASE_URL is NOT set here — global-setup.ts sets process.env.DATABASE_URL
+    // before workers are spawned so they inherit it automatically.  A static value
+    // here would override the dynamic URL chosen by the setup.
     exclude: [
       // Docker E2E tests require the docker stack — run with: pnpm test:docker / test:litellm
       "__tests__/docker.test.ts",

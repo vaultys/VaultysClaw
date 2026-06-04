@@ -7,23 +7,7 @@
  * Format uptime in seconds to human-readable format (e.g., "2h 30m")
  */
 export function fmtUptime(seconds: number): string {
-  if (seconds < 60) return `${seconds}s`;
-  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
-  return `${Math.floor(seconds / 3600)}h ${Math.floor((seconds % 3600) / 60)}m`;
-}
-
-/**
- * Format ISO8601 timestamp to relative time (e.g., "5m ago", "2h ago")
- */
-export function formatTime(dateString: string): string {
-  const d = new Date(dateString);
-  const now = new Date();
-  const diff = Math.floor((now.getTime() - d.getTime()) / 1000);
-  if (diff < 60) return "now";
-  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
-  if (diff < 604800) return `${Math.floor(diff / 86400)}d ago`;
-  return d.toLocaleDateString();
+  return fmtDuration(seconds * 1000);
 }
 
 /**
@@ -91,4 +75,41 @@ export function formatBytes(bytes: number): string {
  */
 export function formatNumber(num: number): string {
   return num.toLocaleString();
+}
+
+/**
+ * Parse ISO8601 timestamp to UTC Date
+ */
+export function parseUTC(iso: string): Date {
+  return new Date(iso.endsWith("Z") ? iso : iso + "Z");
+}
+
+/**
+ * Format ISO8601 timestamp to relative time (e.g., "5m ago", "2h ago"), or "—" if null
+ */
+export function timeAgo(iso: string | null): string {
+  if (!iso) return "—";
+  const seconds = Math.floor((Date.now() - parseUTC(iso).getTime()) / 1000);
+  if (seconds < 5) return "just now";
+  if (seconds < 60) return `${seconds}s ago`;
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.floor(hours / 24)}d ago`;
+}
+
+/**
+ * Format ISO8601 timestamp to human-readable date and time (e.g., "May 28, 2026, 2:30 PM"), or "—" if null
+ */
+export function formatDateTime(iso: string | null): string {
+  if (!iso) return "—";
+  const date = parseUTC(iso);
+  return date.toLocaleString("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }

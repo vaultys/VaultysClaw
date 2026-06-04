@@ -11,10 +11,10 @@ import {
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import {
-  formatTime,
   shortDid,
   getInitials,
   COMMON_EMOJIS,
+  formatTimeOnly,
 } from "@vaultysclaw/shared";
 
 interface Message {
@@ -121,7 +121,7 @@ function MessageBubble({
             </span>
           )}
           <span className="text-xs text-foreground-500">
-            {formatTime(msg.createdAt)}
+            {formatTimeOnly(msg.createdAt)}
           </span>
         </div>
 

@@ -39,14 +39,17 @@ export const skill: SkillDefinition = {
             .number()
             .optional()
             .default(300)
-            .describe("Seconds to wait for the user to log in (default 300 = 5 minutes)"),
+            .describe(
+              "Seconds to wait for the user to log in (default 300 = 5 minutes)"
+            ),
         }),
         execute: async ({ timeoutSeconds }) => {
           try {
             if (hasXSession()) {
               return {
                 success: true,
-                message: "An X session already exists. Use clear_x_session first if you want to re-authenticate.",
+                message:
+                  "An X session already exists. Use clear_x_session first if you want to re-authenticate.",
                 hasSession: true,
               };
             }
@@ -80,10 +83,7 @@ export const skill: SkillDefinition = {
           "Post a tweet to X (Twitter). Text must be 280 characters or fewer. " +
           "Requires a saved X session (run setup_x_session first).",
         inputSchema: z.object({
-          text: z
-            .string()
-            .max(280)
-            .describe("Tweet text — max 280 characters"),
+          text: z.string().max(280).describe("Tweet text — max 280 characters"),
         }),
         execute: async ({ text }) => {
           try {
@@ -106,7 +106,10 @@ export const skill: SkillDefinition = {
           } catch (err) {
             const msg = String(err);
             // Detect session expiry so caller can re-prompt setup
-            if (msg.includes("session expired") || msg.includes("re-authenticate")) {
+            if (
+              msg.includes("session expired") ||
+              msg.includes("re-authenticate")
+            ) {
               return {
                 success: false,
                 error: msg,
@@ -159,7 +162,8 @@ export const skill: SkillDefinition = {
           clearXSession();
           return {
             success: true,
-            message: "X session cleared. Run setup_x_session to re-authenticate.",
+            message:
+              "X session cleared. Run setup_x_session to re-authenticate.",
           };
         },
       }),

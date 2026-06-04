@@ -16,7 +16,14 @@ export default function WorkflowDetailPage() {
   const searchParams = useSearchParams();
   const workflowId = typeof params.id === "string" ? params.id : params.id?.[0];
   const realmFromUrl = searchParams.get("realm");
-  const { setWorkflow, clearWorkflow, setRealmId, setWorkflowInput, workflowId: storeWorkflowId, definition } = useWorkflowStore();
+  const {
+    setWorkflow,
+    clearWorkflow,
+    setRealmId,
+    setWorkflowInput,
+    workflowId: storeWorkflowId,
+    definition,
+  } = useWorkflowStore();
   const fromTemplate = searchParams.get("fromTemplate") === "1";
 
   useEffect(() => {
@@ -53,7 +60,7 @@ export default function WorkflowDetailPage() {
         data.workflow.name,
         data.workflow.description ?? "",
         data.workflow.definition,
-        data.workflow.realmId,
+        data.workflow.realmId
       );
       // Restore saved default input if present
       if (data.workflow.definition.input) {
@@ -66,19 +73,21 @@ export default function WorkflowDetailPage() {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-vc-bg">
+    <div className="flex flex-col h-screen bg-background">
       {/* Header with back button and title editor */}
-      <div className="border-b border-vc-border bg-vc-raised flex items-center justify-between">
+      <div className="border-b border-neutral-200 bg-background-200 flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Link
             href={realmFromUrl ? `/realms/${realmFromUrl}` : "/workflows"}
-            className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 font-medium text-sm px-4 py-3"
+            className="flex items-center gap-2 text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 font-medium text-sm px-4 py-3"
           >
             <ChevronLeft size={18} /> {realmFromUrl ? "Back to Realm" : "Back"}
           </Link>
           <TitleDescriptionEditor />
         </div>
-        <ImportExportButtons workflowId={workflowId !== "new" ? workflowId : undefined} />
+        <ImportExportButtons
+          workflowId={workflowId !== "new" ? workflowId : undefined}
+        />
       </div>
 
       {/* Editor and Execution Panel */}

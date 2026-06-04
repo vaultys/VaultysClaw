@@ -2,7 +2,8 @@
  * Predefined workflow templates for common use cases
  */
 
-import type { WorkflowDefinition } from "./db";
+import type { WorkflowDefinition } from "./workflow-executor";
+
 
 export interface WorkflowTemplate {
   id: string;

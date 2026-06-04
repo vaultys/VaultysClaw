@@ -1,35 +1,98 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getAuthContext, unauthorized, forbidden } from '@/lib/auth-utils';
-import { getDoclingConfig, setDoclingConfig } from '@/lib/db';
+import { NextRequest, NextResponse } from "next/server";
+import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
+import { getDoclingConfig, setDoclingConfig } from "@/lib/db";
 
 // GET /api/settings/docling
-export async function GET() {
-  const auth = await getAuthContext();
+/**
+ * @openapi
+ * /api/settings/docling:
+ *   get:
+ *     summary: Retrieve the Docling configuration settings.
+ *     tags: [Settings]
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved Docling configuration.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 url:
+ *                   type: string
+ *                 enabled:
+ *                   type: boolean
+ *                 configured:
+ *                   type: boolean
+ *                 sourceEndpoint:
+ *                   type: string
+ *                   nullable: true
+ *                 fileEndpoint:
+ *                   type: string
+ *                   nullable: true
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ */
+export async function GET(request: NextRequest) {
+  const auth = await getAuthContext(request);
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
 
   const cfg = getDoclingConfig();
   return NextResponse.json({
-    url: cfg?.url ?? '',
+    url: cfg?.url ?? "",
     enabled: cfg?.enabled ?? false,
     configured: !!cfg?.url,
     sourceEndpoint: cfg?.sourceEndpoint ?? null,
-    fileEndpoint:   cfg?.fileEndpoint   ?? null,
+    fileEndpoint: cfg?.fileEndpoint ?? null,
   });
 }
 
 // PUT /api/settings/docling
+/**
+ * @openapi
+ * /api/settings/docling:
+ *   put:
+ *     summary: Update the Docling configuration settings.
+ *     tags: [Settings]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               url:
+ *                 type: string
+ *                 description: The URL for the Docling service.
+ *               enabled:
+ *                 type: boolean
+ *                 description: Flag to enable or disable Docling.
+ *     responses:
+ *       200:
+ *         description: Docling configuration updated successfully.
+ *       400:
+ *         $ref: '#/components/responses/BadRequest'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ */
 export async function PUT(request: NextRequest) {
-  const auth = await getAuthContext();
+  const auth = await getAuthContext(request);
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
 
-  const body = await request.json() as { url?: string; enabled?: boolean };
-  const url = (body.url ?? '').trim().replace(/\/$/, '');
+  const body = (await request.json()) as { url?: string; enabled?: boolean };
+  const url = (body.url ?? "").trim().replace(/\/$/, "");
   const enabled = body.enabled ?? false;
 
   if (enabled && !url) {
-    return NextResponse.json({ error: 'URL is required when enabling Docling' }, { status: 400 });
+    return NextResponse.json(
+      { error: "URL is required when enabling Docling" },
+      { status: 400 }
+    );
   }
 
   setDoclingConfig({ url, enabled });

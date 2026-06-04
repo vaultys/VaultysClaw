@@ -42,15 +42,15 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   // Still loading session or authenticated: render full shell
   // (we show the shell skeleton even while loading to avoid layout flash)
   return (
-    <div className="flex h-screen overflow-hidden bg-vc-bg text-vc-text">
+    <div className="flex h-screen overflow-hidden bg-background text-foreground">
       <Sidebar collapsed={collapsed} onToggle={toggleSidebar} />
       <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
         <TopBar />
         <WorkflowApprovalInbox />
-        <main className="flex-1 flex flex-col overflow-y-auto bg-vc-bg">
+        <main className="flex-1 flex flex-col overflow-y-auto bg-background">
           {status === "loading" ? (
             <div className="flex items-center justify-center h-full">
-              <div className="w-7 h-7 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+              <div className="w-7 h-7 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />
             </div>
           ) : (
             children

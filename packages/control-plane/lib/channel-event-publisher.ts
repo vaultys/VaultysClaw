@@ -166,10 +166,7 @@ export function publishThreadCreated(
 /**
  * Helper to publish a member_joined event
  */
-export function publishMemberJoined(
-  channelId: string,
-  memberData: any
-): void {
+export function publishMemberJoined(channelId: string, memberData: any): void {
   eventPublisher.publish(channelId, {
     type: "member_joined",
     channelId,
@@ -180,10 +177,7 @@ export function publishMemberJoined(
 /**
  * Helper to publish a member_left event
  */
-export function publishMemberLeft(
-  channelId: string,
-  memberDid: string
-): void {
+export function publishMemberLeft(channelId: string, memberDid: string): void {
   eventPublisher.publish(channelId, {
     type: "member_left",
     channelId,

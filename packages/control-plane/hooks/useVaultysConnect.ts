@@ -13,21 +13,26 @@ const Buffer = crypto.Buffer;
 
 export type UIStep =
   | "loading"
-  | "claim-ownership"   // no users exist → show ownership claim screen
-  | "first-connect"     // users exist → normal login landing
-  | "select-security"   // choose browser-wallet security type (SOFTWARE/PASSKEY/HARDWARE)
-  | "bastion-connect"   // browser-device SRP in progress
-  | "qr-connect"        // QR code or deep-link shown, polling server
-  | "p2p-connect"       // P2P relay mode (user opts in)
+  | "claim-ownership" // no users exist → show ownership claim screen
+  | "first-connect" // users exist → normal login landing
+  | "select-security" // choose browser-wallet security type (SOFTWARE/PASSKEY/HARDWARE)
+  | "bastion-connect" // browser-device SRP in progress
+  | "qr-connect" // QR code or deep-link shown, polling server
+  | "p2p-connect" // P2P relay mode (user opts in)
   | "done";
 
-export type BastionPhase = "connect" | "waiting" | "authenticate" | "success" | "failure";
+export type BastionPhase =
+  | "connect"
+  | "waiting"
+  | "authenticate"
+  | "success"
+  | "failure";
 export type UserConnectionPhase = "connect" | "waiting" | "success" | "failure";
 export type WalletSecurityType = "SOFTWARE" | "PASSKEY" | "HARDWARE";
 
 export interface BrowserIdData {
   did: string;
-  vid: string;   // base64 public key
+  vid: string; // base64 public key
   secret: string; // base64 secret
 }
 
@@ -42,7 +47,7 @@ export interface UseVaultysConnectResult {
   bastionPhase?: BastionPhase;
   userConnectionPhase?: UserConnectionPhase;
   userConnectInfo?: UserConnectInfo;
-  p2pUrl?: string;   // full https://wallet.vaultys.net/#vaultys://peerjs?... URL for QR display
+  p2pUrl?: string; // full https://wallet.vaultys.net/#vaultys://peerjs?... URL for QR display
   startConnectionFlow: () => void;
   selectSecurityType: (type: WalletSecurityType) => void;
   startP2PMode: () => void;
@@ -68,24 +73,32 @@ function storeBrowserId(data: BrowserIdData) {
 }
 
 function connectionToken(key: string): string {
-  return crypto.hash("sha256", Buffer.from(`connecting-${key}-vaultys`)).toString("hex");
+  return crypto
+    .hash("sha256", Buffer.from(`connecting-${key}-vaultys`))
+    .toString("hex");
 }
 
-async function generateBrowserId(securityType: WalletSecurityType): Promise<BrowserIdData> {
+async function generateBrowserId(
+  securityType: WalletSecurityType
+): Promise<BrowserIdData> {
   let vaultysId: VaultysId;
   switch (securityType) {
     case "PASSKEY": {
       const attestation = (await navigator.credentials.create({
         publicKey: getPkCred(true),
       })) as PublicKeyCredential;
-      vaultysId = (await VaultysId.fido2FromAttestation(attestation)).toVersion(1);
+      vaultysId = (await VaultysId.fido2FromAttestation(attestation)).toVersion(
+        1
+      );
       break;
     }
     case "HARDWARE": {
       const attestation = (await navigator.credentials.create({
         publicKey: getPkCred(false),
       })) as PublicKeyCredential;
-      vaultysId = (await VaultysId.fido2FromAttestation(attestation)).toVersion(1);
+      vaultysId = (await VaultysId.fido2FromAttestation(attestation)).toVersion(
+        1
+      );
       break;
     }
     default:
@@ -99,8 +112,12 @@ async function generateBrowserId(securityType: WalletSecurityType): Promise<Brow
   return data;
 }
 
-function getPkCred(requireResidentKey: boolean): PublicKeyCredentialCreationOptions {
-  const safari = /^((?!chrome|android).)*applewebkit/i.test(navigator.userAgent);
+function getPkCred(
+  requireResidentKey: boolean
+): PublicKeyCredentialCreationOptions {
+  const safari = /^((?!chrome|android).)*applewebkit/i.test(
+    navigator.userAgent
+  );
   const challenge = new Uint8Array(32);
   const userId = new Uint8Array(16);
   globalThis.crypto.getRandomValues(challenge);
@@ -111,7 +128,9 @@ function getPkCred(requireResidentKey: boolean): PublicKeyCredentialCreationOpti
     user: { id: userId, name: "VaultysClaw", displayName: "VaultysClaw" },
     attestation: safari ? "none" : "direct",
     authenticatorSelection: {
-      authenticatorAttachment: requireResidentKey ? "platform" : "cross-platform",
+      authenticatorAttachment: requireResidentKey
+        ? "platform"
+        : "cross-platform",
       residentKey: requireResidentKey ? "required" : "discouraged",
       userVerification: "preferred",
     },
@@ -123,7 +142,10 @@ function getPkCred(requireResidentKey: boolean): PublicKeyCredentialCreationOpti
   };
 }
 
-async function srp(channel: BrowserChannel, vaultysId: VaultysId): Promise<void> {
+async function srp(
+  channel: BrowserChannel,
+  vaultysId: VaultysId
+): Promise<void> {
   const challenger = new Challenger(vaultysId);
   challenger.createChallenge("p2p", "auth", 0);
   const cert = challenger.getCertificate();
@@ -156,7 +178,8 @@ export function useVaultysConnect(): UseVaultysConnectResult {
   const [walletUrl, setWalletUrl] = useState("https://wallet.vaultys.net");
   const [browserVid, setBrowserVid] = useState<BrowserIdData | null>(null);
   const [bastionPhase, setBastionPhase] = useState<BastionPhase>();
-  const [userConnectionPhase, setUserConnectionPhase] = useState<UserConnectionPhase>();
+  const [userConnectionPhase, setUserConnectionPhase] =
+    useState<UserConnectionPhase>();
   const [userConnectInfo, setUserConnectInfo] = useState<UserConnectInfo>();
   const [p2pUrl, setP2PUrl] = useState<string>();
 
@@ -167,8 +190,13 @@ export function useVaultysConnect(): UseVaultysConnectResult {
         fetch("/api/user/status"),
         fetch("/api/server/settings"),
       ]);
-      const { hasUsers: hu, serverDid: sd } = (await statusRes.json()) as { hasUsers: boolean; serverDid: string | null };
-      const { walletUrl: wu } = (await settingsRes.json()) as { walletUrl: string };
+      const { hasUsers: hu, serverDid: sd } = (await statusRes.json()) as {
+        hasUsers: boolean;
+        serverDid: string | null;
+      };
+      const { walletUrl: wu } = (await settingsRes.json()) as {
+        walletUrl: string;
+      };
       setHasUsers(hu);
       setServerDid(sd);
       if (wu) setWalletUrl(wu);
@@ -189,23 +217,35 @@ export function useVaultysConnect(): UseVaultysConnectResult {
     return false;
   }, []);
 
-  const waitForBastion = useCallback(async (token: string): Promise<{ browserDid: string } | null> => {
-    for (let i = 0; i < 180; i++) {
-      const res = await fetch(`/api/user/bastion/listen/${token}`, { method: "POST" });
-      const result = (await res.json()) as { status: number; browserDid?: string };
-      if (result.status === 2 && result.browserDid) return { browserDid: result.browserDid };
-      if (result.status === -2) return null;
-      await new Promise((r) => setTimeout(r, 1000));
-    }
-    return null;
-  }, []);
+  const waitForBastion = useCallback(
+    async (token: string): Promise<{ browserDid: string } | null> => {
+      for (let i = 0; i < 180; i++) {
+        const res = await fetch(`/api/user/bastion/listen/${token}`, {
+          method: "POST",
+        });
+        const result = (await res.json()) as {
+          status: number;
+          browserDid?: string;
+        };
+        if (result.status === 2 && result.browserDid)
+          return { browserDid: result.browserDid };
+        if (result.status === -2) return null;
+        await new Promise((r) => setTimeout(r, 1000));
+      }
+      return null;
+    },
+    []
+  );
 
   const startQRConnection = useCallback(async () => {
     setUserConnectionPhase("connect");
     setUIStep("qr-connect");
 
     const connectRes = await fetch("/api/user/connect");
-    const { key, token } = (await connectRes.json()) as { key: string; token: string };
+    const { key, token } = (await connectRes.json()) as {
+      key: string;
+      token: string;
+    };
 
     const isPhone = /iPhone|Android/i.test(navigator.userAgent);
     const vaultysUrl = `vaultys://register?url=${encodeURIComponent(SERVER_URL + "/api/user/request")}&key=${key}${isPhone ? "&phone=true" : ""}`;
@@ -235,7 +275,12 @@ export function useVaultysConnect(): UseVaultysConnectResult {
     // Server opens the PeerJS channel, runs the Challenger protocol with the
     // wallet, and updates the cert in the DB. The browser just shows the QR.
     const res = await fetch("/api/user/p2p/connect");
-    const { connectionString, token, key, serverDid: sd } = (await res.json()) as {
+    const {
+      connectionString,
+      token,
+      key,
+      serverDid: sd,
+    } = (await res.json()) as {
       connectionString: string;
       token: string;
       key: string;
@@ -251,7 +296,10 @@ export function useVaultysConnect(): UseVaultysConnectResult {
     const ok = await waitForUser(token);
     if (ok) {
       setUserConnectionPhase("success");
-      const signInRes = await signIn("credentials", { token: key, redirect: false });
+      const signInRes = await signIn("credentials", {
+        token: key,
+        redirect: false,
+      });
       if (signInRes?.ok) {
         setUIStep("done");
         window.location.href = "/";
@@ -266,7 +314,9 @@ export function useVaultysConnect(): UseVaultysConnectResult {
       setBastionPhase("connect");
       setUIStep("bastion-connect");
 
-      const res = await fetch(`/api/user/bastion/connect?vid=${encodeURIComponent(vid.vid)}`);
+      const res = await fetch(
+        `/api/user/bastion/connect?vid=${encodeURIComponent(vid.vid)}`
+      );
       if (!res.ok) {
         setBastionPhase("failure");
         return;
@@ -276,13 +326,18 @@ export function useVaultysConnect(): UseVaultysConnectResult {
       setBastionPhase("waiting");
 
       const vaultysId = VaultysId.fromSecret(vid.secret, "base64").toVersion(1);
-      const rawKey = (await vaultysId.decrypt(encryptedKey)) as unknown as string;
+      const rawKey = (await vaultysId.decrypt(
+        encryptedKey
+      )) as unknown as string;
       const token = connectionToken(rawKey);
 
       setBastionPhase("authenticate");
 
       // Perform SRP auth in background
-      const channel = new BrowserChannel(`${SERVER_URL}/api/user/request`, rawKey);
+      const channel = new BrowserChannel(
+        `${SERVER_URL}/api/user/request`,
+        rawKey
+      );
       try {
         await srp(channel, vaultysId);
       } catch {
@@ -299,7 +354,7 @@ export function useVaultysConnect(): UseVaultysConnectResult {
       // Now start the user QR/connection flow
       setTimeout(() => startQRConnection(), 300);
     },
-    [waitForBastion, startQRConnection],
+    [waitForBastion, startQRConnection]
   );
 
   const startConnectionFlow = useCallback(() => {
@@ -316,7 +371,7 @@ export function useVaultysConnect(): UseVaultysConnectResult {
       setBrowserVid(vid);
       performBastionConnect(vid);
     },
-    [performBastionConnect],
+    [performBastionConnect]
   );
 
   const retry = useCallback(() => {

@@ -102,13 +102,7 @@ export interface AgentControllerRegistration {
 export interface ProtocolMessage {
   version: "1.0";
   messageId: string;
-  type:
-  | "intent"
-  | "policy_update"
-  | "heartbeat"
-  | "result"
-  | "ack"
-  | "error";
+  type: "intent" | "policy_update" | "heartbeat" | "result" | "ack" | "error";
   sender: string; // Identity ID
   receiver: string; // Identity ID
   payload: any;
@@ -360,7 +354,7 @@ export interface DelegationCertPayload {
   agentDid: string; // "*" = applies to all agents
   capabilities: AgentCapability[];
   certificate: string; // base64 signed cert (see delegation.ts)
-  expiresAt?: string;  // ISO 8601, omitted if no expiry
+  expiresAt?: string; // ISO 8601, omitted if no expiry
 }
 
 /**
@@ -396,6 +390,8 @@ export interface WSChatMessagePayload {
 export interface WSChatResponsePayload {
   conversationId: string;
   chunk?: string;
+  /** True when this chunk is part of the model's internal reasoning (<think> block). */
+  thinking?: boolean;
   done?: boolean;
   error?: string;
   /**
@@ -453,7 +449,7 @@ export interface WSToolExecutionPayload {
  */
 export interface WSChannelMessageSendPayload {
   channelId: string;
-  threadId?: string;  // If responding to a mention/thread
+  threadId?: string; // If responding to a mention/thread
   content: string;
   metadata?: Record<string, any>;
 }
@@ -525,9 +521,9 @@ export interface Realm {
   name: string;
   slug: string;
   description: string | null;
-  color: string;       // Tailwind/hex accent color e.g. "#6366f1"
+  color: string; // Tailwind/hex accent color e.g. "#6366f1"
   isDefault: boolean;
-  createdAt: string;   // ISO datetime
+  createdAt: string; // ISO datetime
 }
 
 export interface RealmMembership {
@@ -586,23 +582,23 @@ export interface GraphNode {
   id: string;
   label: string;
   type: GraphNodeType;
-  role?: UserRole;         // users only
-  color?: string;          // realm accent color or computed
-  isOnline?: boolean;      // agents only
+  role?: UserRole; // users only
+  color?: string; // realm accent color or computed
+  isOnline?: boolean; // agents only
 }
 
 export type GraphEdgeType =
-  | "realm_member"   // user/agent belongs to realm
-  | "grant"          // user grants capabilities to agent
-  | "reports_to"     // user reports to another user
-  | "delegation"     // delegation cert exists
-  | "peer";          // agent-to-agent peer grant
+  | "realm_member" // user/agent belongs to realm
+  | "grant" // user grants capabilities to agent
+  | "reports_to" // user reports to another user
+  | "delegation" // delegation cert exists
+  | "peer"; // agent-to-agent peer grant
 
 export interface GraphEdge {
   source: string;
   target: string;
   type: GraphEdgeType;
-  label?: string;          // e.g. capability names
+  label?: string; // e.g. capability names
   capabilities?: AgentCapability[];
 }
 

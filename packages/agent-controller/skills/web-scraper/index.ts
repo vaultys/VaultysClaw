@@ -28,14 +28,18 @@ function extractText(html: string): string {
 }
 
 /** Extract all <a href="..."> links. */
-function extractLinks(html: string, baseUrl: string): Array<{ text: string; href: string }> {
+function extractLinks(
+  html: string,
+  baseUrl: string
+): Array<{ text: string; href: string }> {
   const links: Array<{ text: string; href: string }> = [];
   const re = /<a[^>]+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi;
   let m: RegExpExecArray | null;
   while ((m = re.exec(html)) !== null) {
     const href = m[1];
     const text = extractText(m[2]).trim();
-    if (!href || href.startsWith("#") || href.startsWith("javascript:")) continue;
+    if (!href || href.startsWith("#") || href.startsWith("javascript:"))
+      continue;
     try {
       const abs = new URL(href, baseUrl).href;
       links.push({ text, href: abs });
@@ -74,7 +78,10 @@ export const skill: SkillDefinition = {
         }),
         execute: async ({ url, includeLinks, timeoutMs }) => {
           const controller = new AbortController();
-          const timer = setTimeout(() => controller.abort(), timeoutMs ?? DEFAULT_TIMEOUT);
+          const timer = setTimeout(
+            () => controller.abort(),
+            timeoutMs ?? DEFAULT_TIMEOUT
+          );
 
           try {
             const res = await fetch(url, {
@@ -86,18 +93,28 @@ export const skill: SkillDefinition = {
             });
 
             if (!res.ok) {
-              return { error: `HTTP ${res.status}: ${res.statusText}`, text: null, links: [] };
+              return {
+                error: `HTTP ${res.status}: ${res.statusText}`,
+                text: null,
+                links: [],
+              };
             }
 
             const contentType = res.headers.get("content-type") ?? "";
             if (!contentType.includes("text/")) {
-              return { error: `Non-text content type: ${contentType}`, text: null, links: [] };
+              return {
+                error: `Non-text content type: ${contentType}`,
+                text: null,
+                links: [],
+              };
             }
 
             const html = await res.text();
             const text = extractText(html);
             const truncated = text.length > MAX_TEXT;
-            const finalText = truncated ? text.slice(0, MAX_TEXT) + "... [truncated]" : text;
+            const finalText = truncated
+              ? text.slice(0, MAX_TEXT) + "... [truncated]"
+              : text;
 
             return {
               url,

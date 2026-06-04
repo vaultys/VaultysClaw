@@ -16,9 +16,57 @@ function stripConfig(bridge: ChannelBridge): Omit<ChannelBridge, "configJson"> {
  * Update syncDirection and/or isSyncEnabled.
  * Body: { syncDirection?, isSyncEnabled? }
  */
+/**
+ * @openapi
+ * /api/channels/{id}/bridges/{bridgeId}:
+ *   patch:
+ *     summary: Update syncDirection and/or isSyncEnabled for a bridge.
+ *     tags: [Channels]
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - name: bridgeId
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               syncDirection:
+ *                 type: string
+ *                 enum: [incoming, outgoing, bidirectional]
+ *               isSyncEnabled:
+ *                 type: boolean
+ *     responses:
+ *       200:
+ *         description: Bridge updated successfully.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 bridge:
+ *                   $ref: '#/components/schemas/ChannelBridge'
+ *       400:
+ *         $ref: '#/components/responses/BadRequest'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ *       500:
+ *         description: Failed to update bridge.
+ */
 export async function PATCH(req: NextRequest, ctx: Ctx) {
   try {
-    const auth = await getAuthContext();
+    const auth = await getAuthContext(req);
     if (!auth) return unauthorized();
 
     const { bridgeId } = await ctx.params;
@@ -36,23 +84,37 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
     let updated = bridge;
 
     if (body.syncDirection !== undefined) {
-      if (!["incoming", "outgoing", "bidirectional"].includes(body.syncDirection)) {
+      if (
+        !["incoming", "outgoing", "bidirectional"].includes(body.syncDirection)
+      ) {
         return NextResponse.json(
-          { error: "syncDirection must be 'incoming', 'outgoing', or 'bidirectional'" },
-          { status: 400 },
+          {
+            error:
+              "syncDirection must be 'incoming', 'outgoing', or 'bidirectional'",
+          },
+          { status: 400 }
         );
       }
-      updated = ChannelBridgeService.updateBridgeSyncDirection(bridgeId, body.syncDirection);
+      updated = ChannelBridgeService.updateBridgeSyncDirection(
+        bridgeId,
+        body.syncDirection
+      );
     }
 
     if (body.isSyncEnabled !== undefined) {
-      updated = ChannelBridgeService.toggleBridgeSync(bridgeId, Boolean(body.isSyncEnabled));
+      updated = ChannelBridgeService.toggleBridgeSync(
+        bridgeId,
+        Boolean(body.isSyncEnabled)
+      );
     }
 
     return NextResponse.json({ bridge: stripConfig(updated) });
   } catch (err) {
     console.error("PATCH /api/channels/[id]/bridges/[bridgeId] error:", err);
-    return NextResponse.json({ error: "Failed to update bridge" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to update bridge" },
+      { status: 500 }
+    );
   }
 }
 
@@ -60,9 +122,48 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
  * DELETE /api/channels/[id]/bridges/[bridgeId]
  * Delete a bridge.
  */
+/**
+ * @openapi
+ * /api/channels/{id}/bridges/{bridgeId}:
+ *   delete:
+ *     summary: Delete a bridge.
+ *     tags: [Channels]
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         description: Channel ID
+ *         schema:
+ *           type: string
+ *       - name: bridgeId
+ *         in: path
+ *         required: true
+ *         description: Bridge ID
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Bridge successfully deleted.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ *       500:
+ *         description: Failed to delete bridge.
+ */
 export async function DELETE(_req: NextRequest, ctx: Ctx) {
   try {
-    const auth = await getAuthContext();
+    const auth = await getAuthContext(_req);
     if (!auth) return unauthorized();
 
     const { bridgeId } = await ctx.params;
@@ -77,6 +178,9 @@ export async function DELETE(_req: NextRequest, ctx: Ctx) {
     return NextResponse.json({ success: true });
   } catch (err) {
     console.error("DELETE /api/channels/[id]/bridges/[bridgeId] error:", err);
-    return NextResponse.json({ error: "Failed to delete bridge" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to delete bridge" },
+      { status: 500 }
+    );
   }
 }

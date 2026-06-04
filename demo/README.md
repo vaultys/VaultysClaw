@@ -38,6 +38,7 @@ WS_PORT=8080
 ```
 
 This starts:
+
 - The control plane at http://localhost:3000 (data: `demo/data/`)
 - Three agents in `demo/agents/` (all pending approval)
   - research-agent (data: `demo/agents/research-agent/`)
@@ -48,11 +49,11 @@ This starts:
 
 Open http://localhost:3000 → **Registrations** panel. Approve each agent with these capabilities:
 
-| Agent | Capabilities |
-|-------|-------------|
-| research-agent | `internet_access` |
-| code-agent | `code_execution`, `file_access` |
-| report-agent | `file_access` |
+| Agent          | Capabilities                    |
+| -------------- | ------------------------------- |
+| research-agent | `internet_access`               |
+| code-agent     | `code_execution`, `file_access` |
+| report-agent   | `file_access`                   |
 
 ### 5. Record
 
@@ -67,6 +68,7 @@ Send this intent to **research-agent** in the Chat panel:
 > `Research microservices security best practices and summarize the top 5 risks.`
 
 The agent will:
+
 1. Call `search_topic` (auto-approved) → shows search results
 2. Call `fetch_and_summarize` → **pauses for your approval** (the "wow" moment)
 3. Return a signed, structured summary
@@ -76,6 +78,7 @@ Then send this to **report-agent**:
 > `Write a security risks report based on: [paste summary]. Save it as microservices-security-2026.md`
 
 The agent will:
+
 1. Call `write_report` → **pauses for your approval**
 2. Save the file to `demo/workspace/microservices-security-2026.md`
 3. Confirm the file path
@@ -112,6 +115,7 @@ demo/
 ```
 
 Each agent has its own data directory (e.g., `demo/agents/research-agent/`) containing:
+
 - `.env` — Configuration (LLM keys, capabilities, etc.)
 - `agent.db` — SQLite database for tasks, memories, etc.
 - `.vaultys/agent.id` — Agent identity file (auto-created on first run)

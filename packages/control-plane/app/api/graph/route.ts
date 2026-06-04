@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getDb } from "@/lib/db";
 import { getWSServer } from "@/lib/ws-server";
-import type { GraphNode, GraphEdge, GraphData, AgentCapability, UserRole } from "@vaultysclaw/shared";
+import { getDb } from "@/lib/db";
+import type {
+  GraphNode,
+  GraphEdge,
+  GraphData,
+  AgentCapability,
+  UserRole,
+} from "@vaultysclaw/shared";
 import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
 
 /**
@@ -12,9 +18,57 @@ import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
  *   ?user=<did>        — scope to a single user and its direct neighbours
  *   ?realm=<id>        — scope to users and agents that are members of the realm
  */
+/**
+ * @openapi
+ * /api/graph:
+ *   get:
+ *     summary: Retrieve the full relationship graph of nodes and edges.
+ *     tags: [Graph]
+ *     parameters:
+ *       - name: agent
+ *         in: query
+ *         description: Scope to a single agent and its direct neighbours.
+ *         required: false
+ *         schema:
+ *           type: string
+ *       - name: user
+ *         in: query
+ *         description: Scope to a single user and its direct neighbours.
+ *         required: false
+ *         schema:
+ *           type: string
+ *       - name: realm
+ *         in: query
+ *         description: Scope to users and agents that are members of the realm.
+ *         required: false
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved the graph data.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 nodes:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/GraphNode'
+ *                 edges:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/GraphEdge'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       500:
+ *         description: Failed to build graph.
+ */
 export async function GET(req: NextRequest) {
   try {
-    const auth = await getAuthContext();
+    const auth = await getAuthContext(req);
     if (!auth) return unauthorized();
 
     const { searchParams } = req.nextUrl;
@@ -25,9 +79,9 @@ export async function GET(req: NextRequest) {
     // Full graph is global-admin only; scoped views require matching access
     if (!auth.isGlobalAdmin) {
       if (agentDid) {
-        if (!auth.canAccessAgent(agentDid)) return forbidden();
+        if (!(await auth.canAccessAgent(agentDid))) return forbidden();
       } else if (realmId) {
-        if (!auth.canAccessRealm(realmId)) return forbidden();
+        if (!(await auth.canAccessRealm(realmId))) return forbidden();
       } else {
         return forbidden();
       }
@@ -37,7 +91,10 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(graph);
   } catch (err) {
     console.error("graph API error", err);
-    return NextResponse.json({ error: "Failed to build graph" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to build graph" },
+      { status: 500 }
+    );
   }
 }
 
@@ -52,39 +109,69 @@ interface Filters {
 function buildGraph(filters: Filters): GraphData {
   const db = getDb();
   const wsServer = getWSServer();
-  const connectedDids = new Set(wsServer?.getConnectedAgents().map((a) => a.id) ?? []);
+  const connectedDids = new Set(
+    wsServer?.getConnectedAgents().map((a) => a.id) ?? []
+  );
 
   const nodes: Map<string, GraphNode> = new Map();
   const edges: GraphEdge[] = [];
 
   // --- Users ---
-  type UserRow = { id: string; did: string; name: string | null; role: string; reports_to: string | null; is_owner: number; is_admin: number };
+  type UserRow = {
+    id: string;
+    did: string;
+    name: string | null;
+    role: string;
+    reports_to: string | null;
+    is_owner: number;
+    is_admin: number;
+  };
   let users: UserRow[];
   if (filters.userDid) {
     // Fetch: the target user + their direct children (who report to them) + their manager
-    users = db.prepare(
-      "SELECT id, did, name, role, reports_to, is_owner, is_admin FROM users " +
-      "WHERE did = ? OR reports_to = ?"
-    ).all(filters.userDid, filters.userDid) as UserRow[];
+    users = db
+      .prepare(
+        "SELECT id, did, name, role, reports_to, is_owner, is_admin FROM users " +
+          "WHERE did = ? OR reports_to = ?"
+      )
+      .all(filters.userDid, filters.userDid) as UserRow[];
   } else if (filters.agentDid) {
     // For focused agent view: fetch users that have grants or delegations to this agent
-    const userDids = db.prepare(
-      "SELECT DISTINCT user_did FROM (SELECT user_did FROM user_grants WHERE agent_did = ? UNION SELECT user_did FROM delegation_certs WHERE agent_did = ?)"
-    ).all(filters.agentDid, filters.agentDid) as Array<{ user_did: string }>;
-    users = userDids.length > 0
-      ? db.prepare("SELECT id, did, name, role, reports_to, is_owner, is_admin FROM users WHERE did IN (" + userDids.map(() => "?").join(",") + ")")
-          .all(...userDids.map(u => u.user_did)) as UserRow[]
-      : [];
+    const userDids = db
+      .prepare(
+        "SELECT DISTINCT user_did FROM (SELECT user_did FROM user_grants WHERE agent_did = ? UNION SELECT user_did FROM delegation_certs WHERE agent_did = ?)"
+      )
+      .all(filters.agentDid, filters.agentDid) as Array<{ user_did: string }>;
+    users =
+      userDids.length > 0
+        ? (db
+            .prepare(
+              "SELECT id, did, name, role, reports_to, is_owner, is_admin FROM users WHERE did IN (" +
+                userDids.map(() => "?").join(",") +
+                ")"
+            )
+            .all(...userDids.map((u) => u.user_did)) as UserRow[])
+        : [];
   } else if (filters.realmId) {
-    users = db.prepare(
-      "SELECT u.id, u.did, u.name, u.role, u.reports_to, u.is_owner, u.is_admin FROM users u " +
-      "INNER JOIN user_realms ur ON ur.user_id = u.id WHERE ur.realm_id = ?"
-    ).all(filters.realmId) as UserRow[];
+    users = db
+      .prepare(
+        "SELECT u.id, u.did, u.name, u.role, u.reports_to, u.is_owner, u.is_admin FROM users u " +
+          "INNER JOIN user_realms ur ON ur.user_id = u.id WHERE ur.realm_id = ?"
+      )
+      .all(filters.realmId) as UserRow[];
   } else {
-    users = db.prepare("SELECT id, did, name, role, reports_to, is_owner, is_admin FROM users").all() as UserRow[];
+    users = db
+      .prepare(
+        "SELECT id, did, name, role, reports_to, is_owner, is_admin FROM users"
+      )
+      .all() as UserRow[];
   }
   for (const u of users) {
-    const effectiveRole: UserRole = u.is_owner ? "owner" : u.is_admin ? "admin" : (u.role as UserRole) ?? "member";
+    const effectiveRole: UserRole = u.is_owner
+      ? "owner"
+      : u.is_admin
+        ? "admin"
+        : ((u.role as UserRole) ?? "member");
     nodes.set(`user:${u.did}`, {
       id: `user:${u.did}`,
       label: u.name || u.did.slice(0, 12),
@@ -98,21 +185,33 @@ function buildGraph(filters: Filters): GraphData {
   type AgentRow = { did: string; name: string };
   let agents: AgentRow[];
   if (filters.agentDid) {
-    agents = db.prepare("SELECT did, name FROM agents WHERE did = ?").all(filters.agentDid) as AgentRow[];
+    agents = db
+      .prepare("SELECT did, name FROM agents WHERE did = ?")
+      .all(filters.agentDid) as AgentRow[];
   } else if (filters.userDid) {
     // For focused user view: fetch agents that this user has grants or delegations to
-    const agentDids = db.prepare(
-      "SELECT DISTINCT agent_did FROM (SELECT agent_did FROM user_grants WHERE user_did = ? AND agent_did IS NOT NULL UNION SELECT agent_did FROM delegation_certs WHERE user_did = ?)"
-    ).all(filters.userDid, filters.userDid) as Array<{ agent_did: string }>;
-    agents = agentDids.length > 0 
-      ? db.prepare("SELECT did, name FROM agents WHERE did IN (" + agentDids.map(() => "?").join(",") + ")")
-          .all(...agentDids.map(a => a.agent_did)) as AgentRow[]
-      : [];
+    const agentDids = db
+      .prepare(
+        "SELECT DISTINCT agent_did FROM (SELECT agent_did FROM user_grants WHERE user_did = ? AND agent_did IS NOT NULL UNION SELECT agent_did FROM delegation_certs WHERE user_did = ?)"
+      )
+      .all(filters.userDid, filters.userDid) as Array<{ agent_did: string }>;
+    agents =
+      agentDids.length > 0
+        ? (db
+            .prepare(
+              "SELECT did, name FROM agents WHERE did IN (" +
+                agentDids.map(() => "?").join(",") +
+                ")"
+            )
+            .all(...agentDids.map((a) => a.agent_did)) as AgentRow[])
+        : [];
   } else if (filters.realmId) {
-    agents = db.prepare(
-      "SELECT a.did, a.name FROM agents a " +
-      "INNER JOIN agent_realms ar ON ar.agent_did = a.did WHERE ar.realm_id = ?"
-    ).all(filters.realmId) as AgentRow[];
+    agents = db
+      .prepare(
+        "SELECT a.did, a.name FROM agents a " +
+          "INNER JOIN agent_realms ar ON ar.agent_did = a.did WHERE ar.realm_id = ?"
+      )
+      .all(filters.realmId) as AgentRow[];
   } else {
     agents = db.prepare("SELECT did, name FROM agents").all() as AgentRow[];
   }
@@ -130,65 +229,131 @@ function buildGraph(filters: Filters): GraphData {
   for (const u of users) {
     if (u.reports_to) {
       // reports_to references users.id, so we need to look up the manager by id
-      const managerDid = db.prepare("SELECT did FROM users WHERE id = ?").get(u.reports_to) as { did: string } | undefined;
+      const managerDid = db
+        .prepare("SELECT did FROM users WHERE id = ?")
+        .get(u.reports_to) as { did: string } | undefined;
       if (managerDid) {
         // Ensure the target user node exists
         if (!nodes.has(`user:${managerDid.did}`)) {
-          const manager = db.prepare("SELECT id, did, name, role, is_owner, is_admin FROM users WHERE id = ?").get(u.reports_to) as UserRow | undefined;
+          const manager = db
+            .prepare(
+              "SELECT id, did, name, role, is_owner, is_admin FROM users WHERE id = ?"
+            )
+            .get(u.reports_to) as UserRow | undefined;
           if (manager) {
-            const mRole: UserRole = manager.is_owner ? "owner" : manager.is_admin ? "admin" : (manager.role as UserRole) ?? "member";
-            nodes.set(`user:${manager.did}`, { id: `user:${manager.did}`, label: manager.name || manager.did.slice(0, 12), type: "user", role: mRole });
+            const mRole: UserRole = manager.is_owner
+              ? "owner"
+              : manager.is_admin
+                ? "admin"
+                : ((manager.role as UserRole) ?? "member");
+            nodes.set(`user:${manager.did}`, {
+              id: `user:${manager.did}`,
+              label: manager.name || manager.did.slice(0, 12),
+              type: "user",
+              role: mRole,
+            });
           }
         }
-        edges.push({ source: `user:${u.did}`, target: `user:${managerDid.did}`, type: "reports_to" });
+        edges.push({
+          source: `user:${u.did}`,
+          target: `user:${managerDid.did}`,
+          type: "reports_to",
+        });
       }
     }
   }
 
   // --- Grant edges (user → agent) ---
-  type GrantRow = { user_did: string; agent_did: string | null; capabilities: string };
+  type GrantRow = {
+    user_did: string;
+    agent_did: string | null;
+    capabilities: string;
+  };
   let grants: GrantRow[];
   if (filters.userDid) {
-    grants = db.prepare("SELECT user_did, agent_did, capabilities FROM user_grants WHERE user_did = ?").all(filters.userDid) as GrantRow[];
+    grants = db
+      .prepare(
+        "SELECT user_did, agent_did, capabilities FROM user_grants WHERE user_did = ?"
+      )
+      .all(filters.userDid) as GrantRow[];
   } else if (filters.agentDid) {
-    grants = db.prepare(
-      "SELECT user_did, agent_did, capabilities FROM user_grants WHERE agent_did = ? OR agent_did IS NULL"
-    ).all(filters.agentDid) as GrantRow[];
+    grants = db
+      .prepare(
+        "SELECT user_did, agent_did, capabilities FROM user_grants WHERE agent_did = ? OR agent_did IS NULL"
+      )
+      .all(filters.agentDid) as GrantRow[];
   } else if (filters.realmId) {
     // Only grants where both the user and agent are realm members
-    grants = db.prepare(
-      "SELECT g.user_did, g.agent_did, g.capabilities FROM user_grants g " +
-      "INNER JOIN user_realms ur ON ur.user_id = (SELECT id FROM users WHERE did = g.user_did) AND ur.realm_id = ? " +
-      "WHERE g.agent_did IS NULL OR g.agent_did IN (SELECT agent_did FROM agent_realms WHERE realm_id = ?)"
-    ).all(filters.realmId, filters.realmId) as GrantRow[];
+    grants = db
+      .prepare(
+        "SELECT g.user_did, g.agent_did, g.capabilities FROM user_grants g " +
+          "INNER JOIN user_realms ur ON ur.user_id = (SELECT id FROM users WHERE did = g.user_did) AND ur.realm_id = ? " +
+          "WHERE g.agent_did IS NULL OR g.agent_did IN (SELECT agent_did FROM agent_realms WHERE realm_id = ?)"
+      )
+      .all(filters.realmId, filters.realmId) as GrantRow[];
   } else {
-    grants = db.prepare("SELECT user_did, agent_did, capabilities FROM user_grants").all() as GrantRow[];
+    grants = db
+      .prepare("SELECT user_did, agent_did, capabilities FROM user_grants")
+      .all() as GrantRow[];
   }
   for (const g of grants) {
-    const caps: AgentCapability[] = JSON.parse(g.capabilities);
+    const caps: AgentCapability[] = JSON.parse(g.capabilities) as AgentCapability[];
     if (g.agent_did) {
       // Ensure both endpoints exist
       if (!nodes.has(`user:${g.user_did}`)) {
         // In focused agent view: pull in the user
         if (filters.agentDid) {
-          const u = db.prepare("SELECT id, did, name, role, reports_to, is_owner, is_admin FROM users WHERE did = ?").get(g.user_did) as UserRow | undefined;
+          const u = db
+            .prepare(
+              "SELECT id, did, name, role, reports_to, is_owner, is_admin FROM users WHERE did = ?"
+            )
+            .get(g.user_did) as UserRow | undefined;
           if (u) {
-            const r: UserRole = u.is_owner ? "owner" : u.is_admin ? "admin" : (u.role as UserRole) ?? "member";
-            nodes.set(`user:${u.did}`, { id: `user:${u.did}`, label: u.name || u.did.slice(0, 12), type: "user", role: r });
+            const r: UserRole = u.is_owner
+              ? "owner"
+              : u.is_admin
+                ? "admin"
+                : ((u.role as UserRole) ?? "member");
+            nodes.set(`user:${u.did}`, {
+              id: `user:${u.did}`,
+              label: u.name || u.did.slice(0, 12),
+              type: "user",
+              role: r,
+            });
           } else continue;
         } else continue;
       }
       if (!nodes.has(`agent:${g.agent_did}`)) {
         // In focused user view: pull in the agent
-        const a = db.prepare("SELECT did, name FROM agents WHERE did = ?").get(g.agent_did) as AgentRow | undefined;
-        if (a) nodes.set(`agent:${a.did}`, { id: `agent:${a.did}`, label: a.name, type: "agent", isOnline: connectedDids.has(a.did) });
+        const a = db
+          .prepare("SELECT did, name FROM agents WHERE did = ?")
+          .get(g.agent_did) as AgentRow | undefined;
+        if (a)
+          nodes.set(`agent:${a.did}`, {
+            id: `agent:${a.did}`,
+            label: a.name,
+            type: "agent",
+            isOnline: connectedDids.has(a.did),
+          });
         else continue;
       }
-      edges.push({ source: `user:${g.user_did}`, target: `agent:${g.agent_did}`, type: "grant", label: caps.join(", "), capabilities: caps });
+      edges.push({
+        source: `user:${g.user_did}`,
+        target: `agent:${g.agent_did}`,
+        type: "grant",
+        label: caps.join(", "),
+        capabilities: caps,
+      });
     } else if (!filters.agentDid && !filters.userDid && !filters.realmId) {
       // Wildcard grant — only expand in full view to avoid flooding focused views
       for (const aDid of agentDids) {
-        edges.push({ source: `user:${g.user_did}`, target: `agent:${aDid}`, type: "grant", label: `* ${caps.join(", ")}`, capabilities: caps });
+        edges.push({
+          source: `user:${g.user_did}`,
+          target: `agent:${aDid}`,
+          type: "grant",
+          label: `* ${caps.join(", ")}`,
+          capabilities: caps,
+        });
       }
     }
   }
@@ -197,23 +362,42 @@ function buildGraph(filters: Filters): GraphData {
   type DelegRow = { user_did: string; agent_did: string; capabilities: string };
   let delegations: DelegRow[];
   if (filters.agentDid) {
-    delegations = db.prepare("SELECT user_did, agent_did, capabilities FROM delegation_certs WHERE agent_did = ?").all(filters.agentDid) as DelegRow[];
+    delegations = db
+      .prepare(
+        "SELECT user_did, agent_did, capabilities FROM delegation_certs WHERE agent_did = ?"
+      )
+      .all(filters.agentDid) as DelegRow[];
   } else if (filters.userDid) {
-    delegations = db.prepare("SELECT user_did, agent_did, capabilities FROM delegation_certs WHERE user_did = ?").all(filters.userDid) as DelegRow[];
+    delegations = db
+      .prepare(
+        "SELECT user_did, agent_did, capabilities FROM delegation_certs WHERE user_did = ?"
+      )
+      .all(filters.userDid) as DelegRow[];
   } else if (filters.realmId) {
     // Only delegations where both user and agent are realm members
-    delegations = db.prepare(
-      "SELECT d.user_did, d.agent_did, d.capabilities FROM delegation_certs d " +
-      "INNER JOIN user_realms ur ON ur.user_id = (SELECT id FROM users WHERE did = d.user_did) AND ur.realm_id = ? " +
-      "INNER JOIN agent_realms ar ON ar.agent_did = d.agent_did AND ar.realm_id = ?"
-    ).all(filters.realmId, filters.realmId) as DelegRow[];
+    delegations = db
+      .prepare(
+        "SELECT d.user_did, d.agent_did, d.capabilities FROM delegation_certs d " +
+          "INNER JOIN user_realms ur ON ur.user_id = (SELECT id FROM users WHERE did = d.user_did) AND ur.realm_id = ? " +
+          "INNER JOIN agent_realms ar ON ar.agent_did = d.agent_did AND ar.realm_id = ?"
+      )
+      .all(filters.realmId, filters.realmId) as DelegRow[];
   } else {
-    delegations = db.prepare("SELECT user_did, agent_did, capabilities FROM delegation_certs").all() as DelegRow[];
+    delegations = db
+      .prepare("SELECT user_did, agent_did, capabilities FROM delegation_certs")
+      .all() as DelegRow[];
   }
   for (const d of delegations) {
-    if (!nodes.has(`user:${d.user_did}`) || !nodes.has(`agent:${d.agent_did}`)) continue;
-    const caps: AgentCapability[] = JSON.parse(d.capabilities);
-    edges.push({ source: `user:${d.user_did}`, target: `agent:${d.agent_did}`, type: "delegation", label: caps.join(", "), capabilities: caps });
+    if (!nodes.has(`user:${d.user_did}`) || !nodes.has(`agent:${d.agent_did}`))
+      continue;
+    const caps: AgentCapability[] = JSON.parse(d.capabilities) as AgentCapability[];
+    edges.push({
+      source: `user:${d.user_did}`,
+      target: `agent:${d.agent_did}`,
+      type: "delegation",
+      label: caps.join(", "),
+      capabilities: caps,
+    });
   }
 
   // In the full view (no focus filter) drop isolated nodes — only show nodes

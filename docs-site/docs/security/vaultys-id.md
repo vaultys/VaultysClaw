@@ -14,13 +14,13 @@ Traditional enterprise systems rely on a central identity provider (IdP) — an 
 
 VaultysId eliminates the central trust anchor:
 
-| Traditional IdP | VaultysId |
-|---|---|
-| Central server that can be taken offline | No central server; identity is self-contained |
-| Session tokens that can be stolen and replayed | Non-transferable cryptographic keys |
-| Revocation requires online check | Offline verification using public keys |
-| Issuer can forge identities | Private key never leaves the owner |
-| Single compromise affects all users | Compromise of one identity is contained |
+| Traditional IdP                                | VaultysId                                     |
+| ---------------------------------------------- | --------------------------------------------- |
+| Central server that can be taken offline       | No central server; identity is self-contained |
+| Session tokens that can be stolen and replayed | Non-transferable cryptographic keys           |
+| Revocation requires online check               | Offline verification using public keys        |
+| Issuer can forge identities                    | Private key never leaves the owner            |
+| Single compromise affects all users            | Compromise of one identity is contained       |
 
 ## How it works
 
@@ -135,10 +135,10 @@ interface DelegationCertPayload {
   id: string;
   grantId: string;
   userDid: string;
-  agentDid: string;        // "*" for all agents
+  agentDid: string; // "*" for all agents
   capabilities: AgentCapability[];
-  certificate: string;     // base64, signed by control plane
-  expiresAt?: string;      // Optional expiry (ISO 8601)
+  certificate: string; // base64, signed by control plane
+  expiresAt?: string; // Optional expiry (ISO 8601)
 }
 ```
 
@@ -158,12 +158,12 @@ Agents can be granted the ability to call other agents directly (for multi-agent
 ```typescript
 interface AgentPeerGrant {
   id: string;
-  sourceDid: string;          // The calling agent
-  targetDid: string;          // The target agent
+  sourceDid: string; // The calling agent
+  targetDid: string; // The target agent
   targetName: string;
-  skillDescription: string;   // Used as an LLM tool description
+  skillDescription: string; // Used as an LLM tool description
   capabilities: string[];
-  certificate: string;        // Signed by control plane
+  certificate: string; // Signed by control plane
   expiresAt?: string;
 }
 ```
@@ -172,10 +172,10 @@ interface AgentPeerGrant {
 
 ### Where keys live
 
-| Entity | Key location |
-|---|---|
+| Entity        | Key location                                                     |
+| ------------- | ---------------------------------------------------------------- |
 | Control plane | `.vaultys/control-plane.id` (configurable via `VAULTYS_ID_PATH`) |
-| Agent | `.vaultys/agent.id` (configurable via `AGENT_VAULTYS_ID_PATH`) |
+| Agent         | `.vaultys/agent.id` (configurable via `AGENT_VAULTYS_ID_PATH`)   |
 
 ### Backup
 
@@ -197,11 +197,11 @@ Rotation tooling is on the roadmap.
 
 ## Comparison with alternatives
 
-| Mechanism | Vaultys Claw | JWT / API keys | mTLS |
-|---|---|---|---|
-| Central authority required | No | Yes (issuer) | Yes (CA) |
-| Non-repudiation | Yes | Limited | Yes |
-| Offline verification | Yes | Yes (with public key) | No |
-| Per-message integrity | Yes | No | Yes |
-| Key transfer risk | Minimal | High | Medium |
-| Setup complexity | Low | Very low | High |
+| Mechanism                  | Vaultys Claw | JWT / API keys        | mTLS     |
+| -------------------------- | ------------ | --------------------- | -------- |
+| Central authority required | No           | Yes (issuer)          | Yes (CA) |
+| Non-repudiation            | Yes          | Limited               | Yes      |
+| Offline verification       | Yes          | Yes (with public key) | No       |
+| Per-message integrity      | Yes          | No                    | Yes      |
+| Key transfer risk          | Minimal      | High                  | Medium   |
+| Setup complexity           | Low          | Very low              | High     |

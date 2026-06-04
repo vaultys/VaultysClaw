@@ -9,6 +9,7 @@ description: Manage users, invitations, and profiles. Create unclaimed users via
 ## User object
 
 Every user has a stable internal `id` (UUID). The `did` field is null for unclaimed users who have not yet activated their account by scanning a QR code with the Vaultys wallet. Unclaimed users can be created via:
+
 - **Email invitations**: Admin sends email link, user scans QR to claim
 - **Entra ID sync**: Microsoft Graph sync, user gets QR link to claim
 
@@ -97,17 +98,17 @@ GET /api/users
 
 ### Query parameters
 
-| Parameter | Type | Description |
-|---|---|---|
-| `q` | string | Search by name, email, or DID |
-| `role` | string | Filter by role (`owner`, `admin`, `manager`, `operator`, `member`) |
-| `realm` | string | Filter by realm ID or slug |
-| `isAdmin` | boolean | `true` = global admins only, `false` = non-admins only |
-| `hasAccount` | boolean | `true` = claimed users (did not null), `false` = unclaimed |
-| `page` | integer | Page number (default 1) |
-| `pageSize` | integer | Items per page (default 20, max 100) |
-| `sortBy` | string | `name`, `email`, or `registeredAt` |
-| `sortDir` | string | `asc` or `desc` |
+| Parameter    | Type    | Description                                                        |
+| ------------ | ------- | ------------------------------------------------------------------ |
+| `q`          | string  | Search by name, email, or DID                                      |
+| `role`       | string  | Filter by role (`owner`, `admin`, `manager`, `operator`, `member`) |
+| `realm`      | string  | Filter by realm ID or slug                                         |
+| `isAdmin`    | boolean | `true` = global admins only, `false` = non-admins only             |
+| `hasAccount` | boolean | `true` = claimed users (did not null), `false` = unclaimed         |
+| `page`       | integer | Page number (default 1)                                            |
+| `pageSize`   | integer | Items per page (default 20, max 100)                               |
+| `sortBy`     | string  | `name`, `email`, or `registeredAt`                                 |
+| `sortDir`    | string  | `asc` or `desc`                                                    |
 
 Use `hasAccount=false` to list only Entra-provisioned users who have not yet claimed their account (equivalent to the **Unclaimed** tab in the control-plane UI).
 
@@ -127,7 +128,13 @@ Use `hasAccount=false` to list only Entra-provisioned users who have not yet cla
       "entraId": null,
       "claimedAt": null,
       "realms": [
-        { "id": "realm_eng", "name": "Engineering", "slug": "eng", "color": "#3b82f6", "isPrimary": true }
+        {
+          "id": "realm_eng",
+          "name": "Engineering",
+          "slug": "eng",
+          "color": "#3b82f6",
+          "isPrimary": true
+        }
       ],
       "grants": []
     }
@@ -204,7 +211,13 @@ Returns 404 if the user does not exist or has already claimed their account (use
   "entraId": "aad-object-id-...",
   "claimedAt": null,
   "realms": [
-    { "id": "realm_ops", "name": "Operations", "slug": "ops", "color": "#f59e0b", "isPrimary": false }
+    {
+      "id": "realm_ops",
+      "name": "Operations",
+      "slug": "ops",
+      "color": "#f59e0b",
+      "isPrimary": false
+    }
   ]
 }
 ```
@@ -259,11 +272,11 @@ Creates a time-limited P2P registration session for an unclaimed user and option
 
 Poll `GET /api/user/listen/:token` to track the claim status:
 
-| `status` value | Meaning |
-|---|---|
-| `-1` | Session pending — wallet has not connected yet |
-| `2` | Success — user claimed their account |
-| `-2` | Failed or expired |
+| `status` value | Meaning                                        |
+| -------------- | ---------------------------------------------- |
+| `-1`           | Session pending — wallet has not connected yet |
+| `2`            | Success — user claimed their account           |
+| `-2`           | Failed or expired                              |
 
 Once status is `2`, the user's `did`, `public_key`, and `claimed_at` fields are set and they can log in normally.
 
@@ -320,6 +333,7 @@ POST /api/users/invite/email
 **Auth:** Owner only.
 
 **Request:**
+
 ```json
 {
   "email": "alice@company.com",
@@ -329,6 +343,7 @@ POST /api/users/invite/email
 ```
 
 **Response:**
+
 ```json
 {
   "token": "uuid-string",
@@ -349,6 +364,7 @@ GET /api/invitations/:token
 Returns invitation details for a user who received an email link.
 
 **Response:**
+
 ```json
 {
   "email": "alice@company.com",
@@ -358,6 +374,7 @@ Returns invitation details for a user who received an email link.
 ```
 
 **Errors:**
+
 - `404`: Token not found or expired (7+ days old)
 
 ### Generate QR from invitation
@@ -371,6 +388,7 @@ POST /api/users/invite/from-email
 Called by the invitation acceptance page to generate a QR code for wallet scanning.
 
 **Request:**
+
 ```json
 {
   "token": "uuid-string"
@@ -378,6 +396,7 @@ Called by the invitation acceptance page to generate a QR code for wallet scanni
 ```
 
 **Response:**
+
 ```json
 {
   "qrUrl": "https://wallet.vaultys.net/#...",
@@ -390,6 +409,7 @@ Called by the invitation acceptance page to generate a QR code for wallet scanni
 The `inviteToken` is used for polling the registration status via `/api/user/listen/:inviteToken`.
 
 **Errors:**
+
 - `404`: Token not found or expired
 - `500`: Failed to generate registration certificate
 
@@ -404,6 +424,7 @@ POST /api/invitations/:token/delete
 Deletes an invitation token after successful registration. Called automatically when the user completes the wallet connection.
 
 **Response:**
+
 ```json
 {
   "success": true
@@ -425,6 +446,7 @@ GET /api/users/invite
 Creates a registration certificate and P2P session. Returns a connection string for generating a QR code.
 
 **Response:**
+
 ```json
 {
   "connectionString": "...",
@@ -435,6 +457,7 @@ Creates a registration certificate and P2P session. Returns a connection string 
 ```
 
 The QR code format is:
+
 ```
 {walletUrl}/#${connectionString}&protocol=p2p&service=auth&did=${serverDid}
 ```

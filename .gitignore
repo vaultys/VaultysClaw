@@ -39,6 +39,8 @@ coverage
 # SQLite
 *.db
 *.db-journal
+*.db-shm
+*.db-wal
 
 # Logs
 logs
@@ -58,3 +60,4 @@ packages/control-plane/tsconfig.tsbuildinfo
 /packages/control-plane/data3
 /.devdata
 /demo/agents
+/.obsidian

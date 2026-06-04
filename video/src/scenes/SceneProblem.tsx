@@ -72,14 +72,48 @@ export const SceneProblem: React.FC = () => {
         {/* Three bullets — appear early, readable for 3–4 s each */}
         <div style={{ display: "flex", flexDirection: "column", gap: 32 }}>
           {PROBLEMS.map(({ frame: sf, text }, i) => {
-            const op = interpolate(frame, [sf, sf + 18], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
-            const x = interpolate(frame, [sf, sf + 22], [-40, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+            const op = interpolate(frame, [sf, sf + 18], [0, 1], {
+              extrapolateLeft: "clamp",
+              extrapolateRight: "clamp",
+            });
+            const x = interpolate(frame, [sf, sf + 22], [-40, 0], {
+              extrapolateLeft: "clamp",
+              extrapolateRight: "clamp",
+            });
             return (
-              <div key={i} style={{ display: "flex", alignItems: "center", gap: 24, opacity: op, transform: `translateX(${x}px)` }}>
-                <div style={{ width: 64, height: 64, borderRadius: 12, background: "rgba(239,68,68,0.12)", border: "1px solid rgba(239,68,68,0.25)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 50, fontWeight: 1000, color: "#ef4444" }}>
+              <div
+                key={i}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 24,
+                  opacity: op,
+                  transform: `translateX(${x}px)`,
+                }}
+              >
+                <div
+                  style={{
+                    width: 64,
+                    height: 64,
+                    borderRadius: 12,
+                    background: "rgba(239,68,68,0.12)",
+                    border: "1px solid rgba(239,68,68,0.25)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    flexShrink: 0,
+                    fontSize: 50,
+                    fontWeight: 1000,
+                    color: "#ef4444",
+                  }}
+                >
                   ✕
                 </div>
-                <div style={{ fontSize: 80, fontWeight: 600, color: BRAND.text }}>{text}</div>
+                <div
+                  style={{ fontSize: 80, fontWeight: 600, color: BRAND.text }}
+                >
+                  {text}
+                </div>
               </div>
             );
           })}

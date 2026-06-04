@@ -15,9 +15,47 @@ type Ctx = { params: Promise<{ id: string }> };
  * ID format:  act-{rowid}   → activity_log
  *             int-{intentId} → intent_log
  */
+/**
+ * @openapi
+ * /api/governance/audit/{id}:
+ *   get:
+ *     summary: Retrieve a single audit entry with full details and metadata.
+ *     tags: [Governance]
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         description: The ID of the audit entry (e.g., act-{rowid} or int-{intentId}).
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Audit entry retrieved successfully.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 entry:
+ *                   type: object
+ *                   description: The audit entry details.
+ *                 certInfo:
+ *                   type: object
+ *                   description: Certificate information for the agent.
+ *       400:
+ *         $ref: '#/components/responses/BadRequest'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ *       500:
+ *         description: Failed to fetch audit entry.
+ */
 export async function GET(_req: NextRequest, ctx: Ctx) {
   try {
-    const auth = await getAuthContext();
+    const auth = await getAuthContext(_req);
     if (!auth) return unauthorized();
     if (!auth.isGlobalAdmin) return forbidden();
 
@@ -27,29 +65,37 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
     // ── Activity entry ──────────────────────────────────────────────────────
     if (id.startsWith("act-")) {
       const rowId = parseInt(id.slice(4), 10);
-      if (isNaN(rowId)) return NextResponse.json({ error: "Invalid id" }, { status: 400 });
+      if (isNaN(rowId))
+        return NextResponse.json({ error: "Invalid id" }, { status: 400 });
 
-      const row = db.prepare(
-        "SELECT * FROM activity_log WHERE id = ?"
-      ).get(rowId) as {
-        id: number;
-        event: string;
-        agent_did: string | null;
-        agent_name: string | null;
-        details: string | null;
-        created_at: string;
-      } | undefined;
+      const row = db
+        .prepare("SELECT * FROM activity_log WHERE id = ?")
+        .get(rowId) as
+        | {
+            id: number;
+            event: string;
+            agent_did: string | null;
+            agent_name: string | null;
+            details: string | null;
+            created_at: string;
+          }
+        | undefined;
 
-      if (!row) return NextResponse.json({ error: "Not found" }, { status: 404 });
+      if (!row)
+        return NextResponse.json({ error: "Not found" }, { status: 404 });
 
       // Parse details JSON if possible
       let detailsParsed: unknown = null;
       try {
         if (row.details) detailsParsed = JSON.parse(row.details);
-      } catch { /* keep raw */ }
+      } catch {
+        /* keep raw */
+      }
 
       // Resolve agent cert info if we have a DID
-      const certInfo = row.agent_did ? resolveCertInfo(db, row.agent_did) : null;
+      const certInfo = row.agent_did
+        ? resolveCertInfo(db, row.agent_did)
+        : null;
 
       return NextResponse.json({
         entry: {
@@ -78,39 +124,55 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
     if (id.startsWith("int-")) {
       const intentId = id.slice(4);
 
-      const row = db.prepare(
-        "SELECT * FROM intent_log WHERE intent_id = ?"
-      ).get(intentId) as {
-        intent_id: string;
-        agent_did: string | null;
-        action: string;
-        params: string | null;
-        status: string;
-        output: string | null;
-        error: string | null;
-        sent_at: string;
-        completed_at: string | null;
-      } | undefined;
+      const row = db
+        .prepare("SELECT * FROM intent_log WHERE intent_id = ?")
+        .get(intentId) as
+        | {
+            intent_id: string;
+            agent_did: string | null;
+            action: string;
+            params: string | null;
+            status: string;
+            output: string | null;
+            error: string | null;
+            sent_at: string;
+            completed_at: string | null;
+          }
+        | undefined;
 
-      if (!row) return NextResponse.json({ error: "Not found" }, { status: 404 });
+      if (!row)
+        return NextResponse.json({ error: "Not found" }, { status: 404 });
 
       // Parse params / output
       let paramsParsed: unknown = null;
       let outputParsed: unknown = null;
-      try { if (row.params) paramsParsed = JSON.parse(row.params); } catch { /* raw */ }
-      try { if (row.output) outputParsed = JSON.parse(row.output); } catch { /* raw */ }
+      try {
+        if (row.params) paramsParsed = row.params;
+      } catch {
+        /* raw */
+      }
+      try {
+        if (row.output) outputParsed = row.output;
+      } catch {
+        /* raw */
+      }
 
       const durationMs =
         row.completed_at && row.sent_at
-          ? new Date(row.completed_at).getTime() - new Date(row.sent_at).getTime()
+          ? new Date(row.completed_at).getTime() -
+            new Date(row.sent_at).getTime()
           : null;
 
       // Look up agent name from agents table
       const agentRow = row.agent_did
-        ? (db.prepare("SELECT name FROM agents WHERE did = ?").get(row.agent_did) as { name: string } | undefined)
+        ? (db
+            .prepare("SELECT name FROM agents WHERE did = ?")
+            .get(row.agent_did) as { name: string } | undefined)
         : undefined;
 
-      const certInfo = row.agent_did ? resolveCertInfo(db, row.agent_did) : null;
+      const certInfo = row.agent_did
+        ? resolveCertInfo(db, row.agent_did)
+        : null;
 
       return NextResponse.json({
         entry: {
@@ -138,7 +200,10 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
     return NextResponse.json({ error: "Invalid id format" }, { status: 400 });
   } catch (err) {
     console.error(err);
-    return NextResponse.json({ error: "Failed to fetch audit entry" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to fetch audit entry" },
+      { status: 500 }
+    );
   }
 }
 
@@ -159,9 +224,9 @@ function resolveCertInfo(
   agentDid: string
 ): Record<string, unknown> | null {
   try {
-    const agentRow = db.prepare(
-      "SELECT certificate_data FROM agents WHERE did = ?"
-    ).get(agentDid) as { certificate_data: string | null } | undefined;
+    const agentRow = db
+      .prepare("SELECT certificate_data FROM agents WHERE did = ?")
+      .get(agentDid) as { certificate_data: string | null } | undefined;
 
     if (!agentRow?.certificate_data) return null;
 
@@ -175,9 +240,14 @@ function resolveCertInfo(
     // Read capabilities — handle both native array and legacy JSON string
     let capabilities: string[] | null = null;
     if (pk2Meta?.capabilities) {
-      if (Array.isArray(pk2Meta.capabilities)) capabilities = pk2Meta.capabilities;
+      if (Array.isArray(pk2Meta.capabilities))
+        capabilities = pk2Meta.capabilities;
       else if (typeof pk2Meta.capabilities === "string") {
-        try { capabilities = JSON.parse(pk2Meta.capabilities); } catch { /* skip */ }
+        try {
+          capabilities = pk2Meta.capabilities;
+        } catch {
+          /* skip */
+        }
       }
     }
 
@@ -185,11 +255,21 @@ function resolveCertInfo(
     let pk1Did: string | null = null;
     let pk2Did: string | null = null;
     try {
-      if ((cert as any).pk1) pk1Did = VaultysId.fromId(Buffer.from((cert as any).pk1 as Uint8Array)).did;
-    } catch { /* ignore */ }
+      if ((cert as any).pk1)
+        pk1Did = VaultysId.fromId(
+          Buffer.from((cert as any).pk1 as Uint8Array)
+        ).did;
+    } catch {
+      /* ignore */
+    }
     try {
-      if ((cert as any).pk2) pk2Did = VaultysId.fromId(Buffer.from((cert as any).pk2 as Uint8Array)).did;
-    } catch { /* ignore */ }
+      if ((cert as any).pk2)
+        pk2Did = VaultysId.fromId(
+          Buffer.from((cert as any).pk2 as Uint8Array)
+        ).did;
+    } catch {
+      /* ignore */
+    }
 
     const state: number | null = (cert as any).state ?? null;
 

@@ -37,12 +37,12 @@ An **intent** is the primary unit of work. It represents a signed, structured re
 
 ```typescript
 interface Intent {
-  id: string;           // Unique ID (for replay prevention)
-  agentId?: string;     // Target agent DID (or null for broadcast)
-  action: string;       // e.g. "summarise_document", "send_email"
+  id: string; // Unique ID (for replay prevention)
+  agentId?: string; // Target agent DID (or null for broadcast)
+  action: string; // e.g. "summarise_document", "send_email"
   params: Record<string, any>;
-  timestamp: string;    // ISO 8601 (for freshness checks)
-  signature: string;    // Signed by the issuer's VaultysId
+  timestamp: string; // ISO 8601 (for freshness checks)
+  signature: string; // Signed by the issuer's VaultysId
   publicKey: string;
 }
 ```
@@ -53,19 +53,19 @@ The control plane signs all intents before forwarding them to agents. Agents **r
 
 A **policy** is a governance record that grants an agent a set of capabilities and optional resource limits. Policies are created by global admins through the Governance dashboard or the REST API.
 
-What makes policies different from a simple access-control list is *how* they are delivered: the capabilities and resource limits are **embedded inside the VaultysId Challenger certificate** that both the control plane and agent co-sign during the auth handshake. The agent reads them from the signed certificate — they cannot be forged, replayed, or tampered with in transit.
+What makes policies different from a simple access-control list is _how_ they are delivered: the capabilities and resource limits are **embedded inside the VaultysId Challenger certificate** that both the control plane and agent co-sign during the auth handshake. The agent reads them from the signed certificate — they cannot be forged, replayed, or tampered with in transit.
 
 ```typescript
 // Fields embedded in ctx.metadata.pk2 of the Challenger certificate
 interface PolicyMeta {
-  capabilities: AgentCapability[];      // what the agent may do
+  capabilities: AgentCapability[]; // what the agent may do
   resourceLimits?: {
-    maxTokensPerDay?: number;           // LLM token budget (prompt + completion)
-    maxRequestsPerHour?: number;        // rolling intent rate limit
-    allowedDomains?: string[];          // advisory outbound domain list
+    maxTokensPerDay?: number; // LLM token budget (prompt + completion)
+    maxRequestsPerHour?: number; // rolling intent rate limit
+    allowedDomains?: string[]; // advisory outbound domain list
   } | null;
-  policyId?: string | null;            // back-reference to the DB record
-  policyExpiresAt?: string | null;     // ISO 8601 — agent blocks intents after this
+  policyId?: string | null; // back-reference to the DB record
+  policyExpiresAt?: string | null; // ISO 8601 — agent blocks intents after this
 }
 ```
 
@@ -77,16 +77,16 @@ See [Governance Guide](/docs/guides/governance) for a full walkthrough.
 
 A **capability** is a specific permission. The current capability set is:
 
-| Capability | Description |
-|---|---|
-| `file_access` | Read and write files within the agent's workspace |
-| `internet_access` | Make outbound HTTP requests |
-| `browser_control` | Control a headless browser |
-| `api_call` | Call external APIs |
-| `mail_send` | Send email |
-| `code_execution` | Run arbitrary code |
-| `system_command` | Execute shell commands |
-| `agent_communication` | Send requests to peer agents |
+| Capability            | Description                                       |
+| --------------------- | ------------------------------------------------- |
+| `file_access`         | Read and write files within the agent's workspace |
+| `internet_access`     | Make outbound HTTP requests                       |
+| `browser_control`     | Control a headless browser                        |
+| `api_call`            | Call external APIs                                |
+| `mail_send`           | Send email                                        |
+| `code_execution`      | Run arbitrary code                                |
+| `system_command`      | Execute shell commands                            |
+| `agent_communication` | Send requests to peer agents                      |
 
 Capabilities are granted per agent and can be revoked instantly from the control plane without restarting the agent.
 
@@ -106,13 +106,13 @@ Every realm has a human-readable name, a URL-friendly slug, and an optional colo
 
 Roles are assigned per realm:
 
-| Role | Permissions |
-|---|---|
-| `owner` | Full control of the realm including deleting it |
-| `admin` | Manage agents, users, workflows within the realm |
-| `manager` | Supervise operators; approve tool requests |
-| `operator` | Execute workflows, send intents |
-| `member` | View-only access |
+| Role       | Permissions                                      |
+| ---------- | ------------------------------------------------ |
+| `owner`    | Full control of the realm including deleting it  |
+| `admin`    | Manage agents, users, workflows within the realm |
+| `manager`  | Supervise operators; approve tool requests       |
+| `operator` | Execute workflows, send intents                  |
+| `member`   | View-only access                                 |
 
 A user can be a **global admin** which grants full access across all realms.
 
@@ -121,6 +121,7 @@ A user can be a **global admin** which grants full access across all realms.
 A **grant** is an explicit authorisation given to a user that allows them to invoke agents with specific capabilities. Non-admin users cannot send intents without a matching grant.
 
 Grants can be:
+
 - Scoped to a **specific agent** or to **all agents** (null target)
 - Scoped to one or more **capabilities**
 - Set with an optional **expiry time**

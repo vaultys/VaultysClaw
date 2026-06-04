@@ -69,6 +69,7 @@ sequenceDiagram
 ### Step 1: User receives invitation email
 
 The email contains:
+
 - Personalized greeting with their name
 - Role they will have (Member, Operator, etc.)
 - Clickable "Accept Invitation" button
@@ -148,16 +149,17 @@ Invited users who haven't completed registration appear in the **Users > Unregis
 
 ### Token lifecycle
 
-| Stage | Duration | Status |
-|-------|----------|--------|
-| Created | T+0 | Active, pending user action |
-| User claims unclaimed user | T+x | Marked as claimed (claimed_at set) |
-| User completes registration | T+y | Deleted from database |
-| After 7 days (unclaimed) | T+7d | Expired, returns 404 on access |
+| Stage                       | Duration | Status                             |
+| --------------------------- | -------- | ---------------------------------- |
+| Created                     | T+0      | Active, pending user action        |
+| User claims unclaimed user  | T+x      | Marked as claimed (claimed_at set) |
+| User completes registration | T+y      | Deleted from database              |
+| After 7 days (unclaimed)    | T+7d     | Expired, returns 404 on access     |
 
 ### Re-invitation
 
 If a user's email is invited again before they register:
+
 1. System finds existing active invitation for that email
 2. Deletes the old token
 3. Creates new unclaimed user record (or updates existing one)
@@ -173,6 +175,7 @@ If a user's email is invited again before they register:
 Owner-only endpoint.
 
 **Request:**
+
 ```json
 {
   "email": "alice@company.com",
@@ -182,6 +185,7 @@ Owner-only endpoint.
 ```
 
 **Response:**
+
 ```json
 {
   "token": "uuid-string",
@@ -190,6 +194,7 @@ Owner-only endpoint.
 ```
 
 **Possible errors:**
+
 - `403`: Not owner
 - `400`: Missing email or name
 - `500`: SMTP not configured or email send failed
@@ -203,6 +208,7 @@ Owner-only endpoint.
 Public endpoint (no authentication required).
 
 **Response:**
+
 ```json
 {
   "email": "alice@company.com",
@@ -212,6 +218,7 @@ Public endpoint (no authentication required).
 ```
 
 **Possible errors:**
+
 - `404`: Token not found or expired
 
 ---
@@ -223,6 +230,7 @@ Public endpoint (no authentication required).
 Public endpoint (no authentication required).
 
 **Request:**
+
 ```json
 {
   "token": "uuid-string"
@@ -230,6 +238,7 @@ Public endpoint (no authentication required).
 ```
 
 **Response:**
+
 ```json
 {
   "qrUrl": "https://wallet.vaultys.net/#...",
@@ -240,6 +249,7 @@ Public endpoint (no authentication required).
 ```
 
 **Possible errors:**
+
 - `404`: Token not found or expired
 - `500`: Failed to generate QR
 
@@ -252,6 +262,7 @@ Public endpoint (no authentication required).
 Public endpoint (no authentication required).
 
 **Response:**
+
 ```json
 {
   "success": true
@@ -271,12 +282,14 @@ Typically called automatically after successful registration.
 Admin-only endpoint.
 
 **Query parameters:**
+
 - `page`: Page number (default 1)
 - `pageSize`: Items per page (default 20, max 100)
 - `sortBy`: `name`, `email`, or `registeredAt`
 - `sortDir`: `asc` or `desc`
 
 **Response:**
+
 ```json
 {
   "users": [
@@ -304,6 +317,7 @@ Admin-only endpoint.
 ### 1. Capture user details upfront
 
 Always use **email invitation** rather than direct QR codes. This ensures:
+
 - Names are captured and persisted
 - Users can register from any device
 - Admin has record of who was invited
@@ -311,6 +325,7 @@ Always use **email invitation** rather than direct QR codes. This ensures:
 ### 2. Set appropriate roles
 
 Assign roles based on responsibilities:
+
 - **Member**: Read-only access, no approvals
 - **Operator**: Can execute workflows, approve tasks
 - **Manager**: Can manage agents, assign capabilities
@@ -319,6 +334,7 @@ Assign roles based on responsibilities:
 ### 3. Assign realms during invitation
 
 If using realms, assign users to appropriate realms during or after invitation. Users can:
+
 - Be assigned at sync time
 - Be edited after unclaimed creation
 - Be unaware of realms until they claim account
@@ -326,6 +342,7 @@ If using realms, assign users to appropriate realms during or after invitation. 
 ### 4. Monitor unclaimed users
 
 Regularly check **Users > Unregistered** to:
+
 - Identify pending registrations
 - Delete users who won't be joining
 - Re-invite users if links expire
@@ -333,6 +350,7 @@ Regularly check **Users > Unregistered** to:
 ### 5. Cleanup expired invitations
 
 The system automatically deletes invitation tokens 7 days after creation. For tokens that are claimed and deleted earlier:
+
 - No cleanup needed — happens automatically on success
 - You can manually delete unclaimed users if they leave
 
@@ -340,10 +358,10 @@ The system automatically deletes invitation tokens 7 days after creation. For to
 
 You can use both email invitations and Entra ID sync:
 
-| Method | Use case | Users appear | How they register |
-|--------|----------|--------------|-------------------|
-| Email | Individual additions, one-off invites | Users > Unregistered | Scan QR link from email |
-| Entra | Bulk employee provisioning | Users > Unregistered | Email with QR or direct QR |
+| Method | Use case                              | Users appear         | How they register          |
+| ------ | ------------------------------------- | -------------------- | -------------------------- |
+| Email  | Individual additions, one-off invites | Users > Unregistered | Scan QR link from email    |
+| Entra  | Bulk employee provisioning            | Users > Unregistered | Email with QR or direct QR |
 
 Both create unclaimed user records in the same place. The `entra_id` field distinguishes Entra users; email-invited users have `entra_id = NULL`.
 
@@ -361,7 +379,8 @@ Both create unclaimed user records in the same place. The `entra_id` field disti
 
 **Issue**: User gets 404 when opening email link.
 
-**Solution**: 
+**Solution**:
+
 - Check if 7+ days have passed since invitation
 - Check if user already registered (token auto-deleted)
 - Re-invite the user from **Users** page
@@ -373,6 +392,7 @@ Both create unclaimed user records in the same place. The `entra_id` field disti
 **Issue**: Clicking "Generate QR Code" shows error or spinner stuck.
 
 **Solution**:
+
 - Ensure browser allows public pages (check middleware)
 - Verify `/api/users/invite/from-email` is accessible and not blocked
 - Check browser console for network errors
@@ -385,6 +405,7 @@ Both create unclaimed user records in the same place. The `entra_id` field disti
 **Issue**: QR scans but user doesn't appear as registered.
 
 **Solution**:
+
 - Wallet must be Vaultys wallet app (not other VaultysID clients)
 - Check wallet has internet connectivity
 - Verify P2P connection succeeded in wallet

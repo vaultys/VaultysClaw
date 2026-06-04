@@ -24,7 +24,16 @@ import {
   Cpu,
   HardDrive,
   Network,
+  Key,
+  Plus,
+  Trash2,
+  Copy,
+  Globe,
+  ChevronUp,
+  Pencil,
 } from "lucide-react";
+import { ROUTE_REGISTRY } from "@/lib/route-registry";
+import type { ApiKey } from "@/lib/api-types";
 import { cn } from "@/lib/utils";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -67,7 +76,10 @@ interface DiagnosticCheck {
 function formatBytes(bytes: number): string {
   if (!Number.isFinite(bytes) || bytes <= 0) return "0 B";
   const units = ["B", "KB", "MB", "GB", "TB"];
-  const index = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+  const index = Math.min(
+    Math.floor(Math.log(bytes) / Math.log(1024)),
+    units.length - 1
+  );
   return `${(bytes / 1024 ** index).toFixed(index === 0 ? 0 : 1)} ${units[index]}`;
 }
 
@@ -106,7 +118,10 @@ function Field({
   const inputType = showToggle ? (show ? "text" : "password") : type;
   return (
     <div>
-      <label htmlFor={id} className="text-xs text-vc-subtle uppercase tracking-wider font-medium block mb-1.5">
+      <label
+        htmlFor={id}
+        className="text-xs text-foreground-400 uppercase tracking-wider font-medium block mb-1.5"
+      >
         {label}
       </label>
       <div className="relative">
@@ -117,15 +132,19 @@ function Field({
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
           disabled={disabled}
-          className="w-full bg-vc-raised border border-vc-ring rounded-lg px-3 py-2 text-sm text-vc-text placeholder:text-vc-subtle focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50 disabled:opacity-50 transition pr-9"
+          className="w-full bg-background-200 border border-neutral-300 rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-foreground-400 focus:outline-none focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500/50 disabled:opacity-50 transition pr-9"
         />
         {showToggle && (
           <button
             type="button"
             onClick={() => setShow((s) => !s)}
-            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-vc-subtle hover:text-vc-text transition"
+            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-foreground-400 hover:text-foreground transition"
           >
-            {show ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+            {show ? (
+              <EyeOff className="w-4 h-4" />
+            ) : (
+              <Eye className="w-4 h-4" />
+            )}
           </button>
         )}
       </div>
@@ -145,28 +164,41 @@ function SmtpSection() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
-  const [status, setStatus] = useState<"idle" | "saved" | "error" | "ok" | "fail">("idle");
+  const [status, setStatus] = useState<
+    "idle" | "saved" | "error" | "ok" | "fail"
+  >("idle");
   const [statusMsg, setStatusMsg] = useState("");
 
   useEffect(() => {
     fetch("/api/server/smtp")
       .then((r) => r.json())
-      .then((d: { configured?: boolean; host?: string; port?: number; secure?: boolean; user?: string; password?: string; from?: string }) => {
-        if (d.configured) {
-          setHost(d.host ?? "");
-          setPort(String(d.port ?? 587));
-          setSecure(d.secure ?? false);
-          setUser(d.user ?? "");
-          setPassword(d.password ?? "");
-          setFrom(d.from ?? "");
+      .then(
+        (d: {
+          configured?: boolean;
+          host?: string;
+          port?: number;
+          secure?: boolean;
+          user?: string;
+          password?: string;
+          from?: string;
+        }) => {
+          if (d.configured) {
+            setHost(d.host ?? "");
+            setPort(String(d.port ?? 587));
+            setSecure(d.secure ?? false);
+            setUser(d.user ?? "");
+            setPassword(d.password ?? "");
+            setFrom(d.from ?? "");
+          }
         }
-      })
-      .catch(() => { })
+      )
+      .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
 
   const flash = (s: typeof status, msg = "") => {
-    setStatus(s); setStatusMsg(msg);
+    setStatus(s);
+    setStatusMsg(msg);
     setTimeout(() => setStatus("idle"), 3500);
   };
 
@@ -177,11 +209,22 @@ function SmtpSection() {
       const r = await fetch("/api/server/smtp", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ host, port: parseInt(port, 10), secure, user, password, from }),
+        body: JSON.stringify({
+          host,
+          port: parseInt(port, 10),
+          secure,
+          user,
+          password,
+          from,
+        }),
       });
-      if (r.ok) flash("saved"); else flash("error", "Save failed");
-    } catch { flash("error", "Save failed"); }
-    finally { setSaving(false); }
+      if (r.ok) flash("saved");
+      else flash("error", "Save failed");
+    } catch {
+      flash("error", "Save failed");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const test = async () => {
@@ -190,63 +233,109 @@ function SmtpSection() {
       const r = await fetch("/api/server/smtp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ host, port: parseInt(port, 10), secure, user, password, from }),
+        body: JSON.stringify({
+          host,
+          port: parseInt(port, 10),
+          secure,
+          user,
+          password,
+          from,
+        }),
       });
-      const d = await r.json() as { ok?: boolean; error?: string };
+      const d = (await r.json()) as { ok?: boolean; error?: string };
       if (d.ok) flash("ok", "Connection successful");
       else flash("fail", d.error ?? "Test failed");
-    } catch { flash("fail", "Test failed"); }
-    finally { setTesting(false); }
+    } catch {
+      flash("fail", "Test failed");
+    } finally {
+      setTesting(false);
+    }
   };
 
   return (
-    <section className="bg-vc-surface border border-vc-border rounded-xl overflow-hidden">
-      <div className="px-5 py-4 border-b border-vc-border flex items-center gap-2">
-        <Mail className="w-4 h-4 text-vc-muted" />
-        <h2 className="text-sm font-semibold text-vc-text">SMTP / Email</h2>
-        <span className="text-xs text-vc-subtle ml-1">Used to send QR codes to users</span>
+    <section className="bg-background-100 border border-neutral-200 rounded-xl overflow-hidden">
+      <div className="px-5 py-4 border-b border-neutral-200 flex items-center gap-2">
+        <Mail className="w-4 h-4 text-foreground-500" />
+        <h2 className="text-sm font-semibold text-foreground">SMTP / Email</h2>
+        <span className="text-xs text-foreground-400 ml-1">
+          Used to send QR codes to users
+        </span>
       </div>
       <form onSubmit={save} className="p-5 space-y-4">
         {loading ? (
-          <div className="flex items-center gap-2 text-vc-muted text-sm">
+          <div className="flex items-center gap-2 text-foreground-500 text-sm">
             <Loader2 className="w-4 h-4 animate-spin" /> Loading…
           </div>
         ) : (
           <>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <Field label="SMTP Host" id="smtp-host" value={host} onChange={setHost} placeholder="smtp.example.com" />
+              <Field
+                label="SMTP Host"
+                id="smtp-host"
+                value={host}
+                onChange={setHost}
+                placeholder="smtp.example.com"
+              />
               <div className="flex gap-3">
                 <div className="flex-1">
-                  <Field label="Port" id="smtp-port" value={port} onChange={setPort} placeholder="587" />
+                  <Field
+                    label="Port"
+                    id="smtp-port"
+                    value={port}
+                    onChange={setPort}
+                    placeholder="587"
+                  />
                 </div>
                 <div className="flex flex-col gap-1 pt-1">
-                  <label className="text-xs text-vc-subtle uppercase tracking-wider font-medium">TLS</label>
+                  <label className="text-xs text-foreground-400 uppercase tracking-wider font-medium">
+                    TLS
+                  </label>
                   <button
                     type="button"
                     onClick={() => setSecure((s) => !s)}
                     className={cn(
                       "mt-1 w-11 h-6 rounded-full relative transition-colors",
-                      secure ? "bg-indigo-600" : "bg-vc-ring",
+                      secure ? "bg-primary-600" : "bg-neutral-300"
                     )}
                   >
-                    <span className={cn(
-                      "absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform",
-                      secure && "translate-x-5",
-                    )} />
+                    <span
+                      className={cn(
+                        "absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform",
+                        secure && "translate-x-5"
+                      )}
+                    />
                   </button>
                 </div>
               </div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <Field label="Username" id="smtp-user" value={user} onChange={setUser} placeholder="user@example.com" />
-              <Field label="Password" id="smtp-pass" value={password} onChange={setPassword} showToggle />
+              <Field
+                label="Username"
+                id="smtp-user"
+                value={user}
+                onChange={setUser}
+                placeholder="user@example.com"
+              />
+              <Field
+                label="Password"
+                id="smtp-pass"
+                value={password}
+                onChange={setPassword}
+                showToggle
+              />
             </div>
-            <Field label="From address" id="smtp-from" value={from} onChange={setFrom} placeholder="no-reply@example.com" />
+            <Field
+              label="From address"
+              id="smtp-from"
+              value={from}
+              onChange={setFrom}
+              placeholder="no-reply@example.com"
+            />
             <div className="flex items-center gap-3 pt-1">
               <button
                 type="submit"
                 disabled={saving}
-                className="px-4 py-1.5 text-xs font-medium rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white disabled:opacity-40 transition flex items-center gap-1.5"
+                className="px-4 py-1.5 text-xs font-medium rounded-lg bg-primary-600 hover:bg-primary-500 text-white disabled:opacity-40 transition flex items-center gap-1.5"
               >
                 {saving && <Loader2 className="w-3 h-3 animate-spin" />}
                 Save
@@ -255,14 +344,33 @@ function SmtpSection() {
                 type="button"
                 onClick={test}
                 disabled={testing || !host}
-                className="px-4 py-1.5 text-xs font-medium rounded-lg bg-vc-raised border border-vc-ring hover:border-vc-muted text-vc-text disabled:opacity-40 transition flex items-center gap-1.5"
+                className="px-4 py-1.5 text-xs font-medium rounded-lg bg-background-200 border border-neutral-300 hover:border-foreground-500 text-foreground disabled:opacity-40 transition flex items-center gap-1.5"
               >
-                {testing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />}
+                {testing ? (
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                ) : (
+                  <Send className="w-3 h-3" />
+                )}
                 Test connection
               </button>
-              {status === "saved" && <span className="text-xs text-emerald-700 dark:text-emerald-400 flex items-center gap-1"><Check className="w-3 h-3" />Saved</span>}
-              {status === "ok" && <span className="text-xs text-emerald-700 dark:text-emerald-400 flex items-center gap-1"><CheckCircle className="w-3 h-3" />{statusMsg}</span>}
-              {(status === "error" || status === "fail") && <span className="text-xs text-red-600 dark:text-red-400 flex items-center gap-1"><AlertCircle className="w-3 h-3" />{statusMsg}</span>}
+              {status === "saved" && (
+                <span className="text-xs text-success-700 flex items-center gap-1">
+                  <Check className="w-3 h-3" />
+                  Saved
+                </span>
+              )}
+              {status === "ok" && (
+                <span className="text-xs text-success-700 flex items-center gap-1">
+                  <CheckCircle className="w-3 h-3" />
+                  {statusMsg}
+                </span>
+              )}
+              {(status === "error" || status === "fail") && (
+                <span className="text-xs text-danger-600 flex items-center gap-1">
+                  <AlertCircle className="w-3 h-3" />
+                  {statusMsg}
+                </span>
+              )}
             </div>
           </>
         )}
@@ -320,15 +428,19 @@ function ServerSettingsSection() {
   };
 
   return (
-    <section className="bg-vc-surface border border-vc-border rounded-xl overflow-hidden">
-      <div className="px-5 py-4 border-b border-vc-border flex items-center gap-2">
-        <Settings2 className="w-4 h-4 text-vc-muted" />
-        <h2 className="text-sm font-semibold text-vc-text">Connection Settings</h2>
-        <span className="text-xs text-vc-subtle ml-1">Wallet and PeerJS endpoints</span>
+    <section className="bg-background-100 border border-neutral-200 rounded-xl overflow-hidden">
+      <div className="px-5 py-4 border-b border-neutral-200 flex items-center gap-2">
+        <Settings2 className="w-4 h-4 text-foreground-500" />
+        <h2 className="text-sm font-semibold text-foreground">
+          Connection Settings
+        </h2>
+        <span className="text-xs text-foreground-400 ml-1">
+          Wallet and PeerJS endpoints
+        </span>
       </div>
       <form onSubmit={save} className="p-5 space-y-4">
         {loading ? (
-          <div className="flex items-center gap-2 text-vc-muted text-sm">
+          <div className="flex items-center gap-2 text-foreground-500 text-sm">
             <Loader2 className="w-4 h-4 animate-spin" /> Loading…
           </div>
         ) : (
@@ -352,19 +464,21 @@ function ServerSettingsSection() {
               <button
                 type="submit"
                 disabled={saving}
-                className="px-4 py-1.5 text-xs font-medium rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white disabled:opacity-40 transition flex items-center gap-1.5"
+                className="px-4 py-1.5 text-xs font-medium rounded-lg bg-primary-600 hover:bg-primary-500 text-white disabled:opacity-40 transition flex items-center gap-1.5"
               >
                 {saving && <Loader2 className="w-3 h-3 animate-spin" />}
                 Save
               </button>
               {status === "saved" && (
-                <span className="text-xs text-emerald-700 dark:text-emerald-400 flex items-center gap-1">
-                  <Check className="w-3 h-3" />Saved
+                <span className="text-xs text-success-700 flex items-center gap-1">
+                  <Check className="w-3 h-3" />
+                  Saved
                 </span>
               )}
               {status === "error" && (
-                <span className="text-xs text-red-600 dark:text-red-400 flex items-center gap-1">
-                  <AlertCircle className="w-3 h-3" />{statusMsg}
+                <span className="text-xs text-danger-600 flex items-center gap-1">
+                  <AlertCircle className="w-3 h-3" />
+                  {statusMsg}
                 </span>
               )}
             </div>
@@ -377,9 +491,11 @@ function ServerSettingsSection() {
 
 // ─── Entra Setup Guide ───────────────────────────────────────────────────────
 
-const PILL = "font-mono text-xs bg-indigo-100 dark:bg-indigo-950/60 border border-indigo-300 dark:border-indigo-700/60 text-indigo-700 dark:text-indigo-300 px-1.5 py-0.5 rounded";
-const BOLD = "font-semibold text-gray-900 dark:text-vc-text";
-const LINK = "text-indigo-600 dark:text-indigo-400 hover:text-indigo-500 dark:hover:text-indigo-300 inline-flex items-center gap-0.5 underline underline-offset-2";
+const PILL =
+  "font-mono text-xs bg-primary-100 border border-primary-300 text-primary-700 px-1.5 py-0.5 rounded";
+const BOLD = "font-semibold text-foreground";
+const LINK =
+  "text-primary-600 hover:text-primary-500:text-primary-300 inline-flex items-center gap-0.5 underline underline-offset-2";
 
 const STEPS = [
   {
@@ -390,15 +506,16 @@ const STEPS = [
         Open the{" "}
         <a
           href="https://portal.azure.com/#view/Microsoft_AAD_RegisteredApps/ApplicationsListBlade"
-          target="_blank" rel="noreferrer"
+          target="_blank"
+          rel="noreferrer"
           className={LINK}
         >
           Microsoft Entra ID → App registrations
           <ExternalLink className="w-3 h-3" />
         </a>{" "}
-        blade and click <strong className={BOLD}>New registration</strong>. Give it a name
-        (e.g. <em>VaultysClaw Sync</em>), leave the redirect URI blank, and click{" "}
-        <strong className={BOLD}>Register</strong>.
+        blade and click <strong className={BOLD}>New registration</strong>. Give
+        it a name (e.g. <em>VaultysClaw Sync</em>), leave the redirect URI
+        blank, and click <strong className={BOLD}>Register</strong>.
       </>
     ),
   },
@@ -407,7 +524,8 @@ const STEPS = [
     title: "Copy the Tenant ID and Client ID",
     body: (
       <>
-        On the app&apos;s <strong className={BOLD}>Overview</strong> page you will see two GUIDs:{" "}
+        On the app&apos;s <strong className={BOLD}>Overview</strong> page you
+        will see two GUIDs:{" "}
         <span className={PILL}>Application (client) ID</span> → paste into{" "}
         <strong className={BOLD}>Client ID</strong>, and{" "}
         <span className={PILL}>Directory (tenant) ID</span> → paste into{" "}
@@ -420,12 +538,13 @@ const STEPS = [
     title: "Create a Client Secret",
     body: (
       <>
-        In the left sidebar go to <strong className={BOLD}>Certificates &amp; secrets</strong> →{" "}
+        In the left sidebar go to{" "}
+        <strong className={BOLD}>Certificates &amp; secrets</strong> →{" "}
         <strong className={BOLD}>Client secrets</strong> →{" "}
-        <strong className={BOLD}>New client secret</strong>. Choose an expiry, click{" "}
-        <strong className={BOLD}>Add</strong>, then immediately copy the{" "}
-        <strong className={BOLD}>Value</strong> column (it is only shown once) into the{" "}
-        <em>Client Secret</em> field below.
+        <strong className={BOLD}>New client secret</strong>. Choose an expiry,
+        click <strong className={BOLD}>Add</strong>, then immediately copy the{" "}
+        <strong className={BOLD}>Value</strong> column (it is only shown once)
+        into the <em>Client Secret</em> field below.
       </>
     ),
   },
@@ -436,30 +555,33 @@ const STEPS = [
       <>
         Go to <strong className={BOLD}>API permissions</strong> →{" "}
         <strong className={BOLD}>Add a permission</strong> →{" "}
-        <strong className={BOLD}>Microsoft Graph</strong>. In the panel that opens, choose{" "}
-        <strong className={BOLD}>Application permissions</strong>{" "}
-        <span className="inline-flex items-center gap-1 text-xs font-semibold bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300 border border-red-300 dark:border-red-700/60 rounded px-1.5 py-0.5">
+        <strong className={BOLD}>Microsoft Graph</strong>. In the panel that
+        opens, choose <strong className={BOLD}>Application permissions</strong>{" "}
+        <span className="inline-flex items-center gap-1 text-xs font-semibold bg-danger-100 text-danger-700 border border-danger-300 rounded px-1.5 py-0.5">
           ⚠ not Delegated
         </span>
         , then search for and add:
         <ul className="mt-2 space-y-1.5 pl-1">
           {[
-            { perm: "User.Read.All", why: "read user profiles and email addresses" },
+            {
+              perm: "User.Read.All",
+              why: "read user profiles and email addresses",
+            },
             { perm: "Group.Read.All", why: "list groups and their members" },
           ].map(({ perm, why }) => (
             <li key={perm} className="flex items-start gap-2">
               <span className={cn(PILL, "shrink-0 mt-0.5")}>{perm}</span>
-              <span className="text-gray-500 dark:text-vc-subtle">— {why}</span>
+              <span className="text-neutral-500">— {why}</span>
             </li>
           ))}
         </ul>
-        <div className="mt-3 flex items-start gap-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-300 dark:border-amber-700/50 rounded-lg px-3 py-2">
-          <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
-          <span className="text-xs text-amber-800 dark:text-amber-300 leading-relaxed">
+        <div className="mt-3 flex items-start gap-2 bg-warning-50 border border-warning-300 rounded-lg px-3 py-2">
+          <AlertCircle className="w-4 h-4 text-warning-600 shrink-0 mt-0.5" />
+          <span className="text-xs text-warning-800 leading-relaxed">
             After adding both permissions you <strong>must</strong> click{" "}
-            <strong>Grant admin consent for [your organisation]</strong> at the top of the
-            permissions list, then confirm. Without this step the app has no effective access
-            and all API calls will return 403.
+            <strong>Grant admin consent for [your organisation]</strong> at the
+            top of the permissions list, then confirm. Without this step the app
+            has no effective access and all API calls will return 403.
           </span>
         </div>
       </>
@@ -470,43 +592,46 @@ const STEPS = [
 function EntraSetupGuide() {
   const [open, setOpen] = useState(false);
   return (
-    <div className="rounded-lg border border-indigo-200 dark:border-indigo-800/40 bg-indigo-50 dark:bg-indigo-950/30 overflow-hidden">
+    <div className="rounded-lg border border-primary-200 bg-primary-50 overflow-hidden">
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="w-full flex items-center gap-2 px-4 py-3 text-left hover:bg-indigo-100/70 dark:hover:bg-indigo-950/50 transition"
+        className="w-full flex items-center gap-2 px-4 py-3 text-left hover:bg-primary-100/70:bg-primary-950/50 transition"
       >
-        <BookOpen className="w-4 h-4 text-indigo-500 dark:text-indigo-400 shrink-0" />
-        <span className="text-sm font-medium text-indigo-700 dark:text-indigo-300 flex-1">
+        <BookOpen className="w-4 h-4 text-primary-500 shrink-0" />
+        <span className="text-sm font-medium text-primary-700 flex-1">
           How to get these credentials from the Azure portal
         </span>
         <ChevronDown
           className={cn(
-            "w-4 h-4 text-indigo-500 dark:text-indigo-400 transition-transform duration-200",
-            open && "rotate-180",
+            "w-4 h-4 text-primary-500 transition-transform duration-200",
+            open && "rotate-180"
           )}
         />
       </button>
 
       {open && (
-        <div className="px-4 pb-5 pt-2 space-y-4 border-t border-indigo-200 dark:border-indigo-800/40">
+        <div className="px-4 pb-5 pt-2 space-y-4 border-t border-primary-200">
           {STEPS.map((step) => (
             <div key={step.number} className="flex gap-3">
-              <span className="w-6 h-6 rounded-full bg-indigo-200 dark:bg-indigo-600/30 border border-indigo-400 dark:border-indigo-600/50 text-indigo-700 dark:text-indigo-300 text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">
+              <span className="w-6 h-6 rounded-full bg-primary-200 border border-primary-400 text-primary-700 text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">
                 {step.number}
               </span>
-              <div className="text-sm text-gray-600 dark:text-vc-muted leading-relaxed">
-                <span className="font-semibold text-gray-800 dark:text-vc-text-2">{step.title} — </span>
+              <div className="text-sm text-neutral-600 leading-relaxed">
+                <span className="font-semibold text-neutral-800">
+                  {step.title} —{" "}
+                </span>
                 {step.body}
               </div>
             </div>
           ))}
 
-          <div className="flex items-start gap-2 pt-3 border-t border-indigo-200 dark:border-indigo-800/30">
-            <AlertCircle className="w-4 h-4 text-amber-500 dark:text-amber-400 shrink-0 mt-0.5" />
-            <p className="text-xs text-amber-700 dark:text-amber-300/80 leading-relaxed">
-              The client secret value is only visible immediately after creation. Store it securely
-              — if lost you will need to create a new one.
+          <div className="flex items-start gap-2 pt-3 border-t border-primary-200">
+            <AlertCircle className="w-4 h-4 text-warning-500 shrink-0 mt-0.5" />
+            <p className="text-xs text-warning-700 leading-relaxed">
+              The client secret value is only visible immediately after
+              creation. Store it securely — if lost you will need to create a
+              new one.
             </p>
           </div>
 
@@ -514,7 +639,7 @@ function EntraSetupGuide() {
             href="https://learn.microsoft.com/en-us/entra/identity-platform/quickstart-register-app"
             target="_blank"
             rel="noreferrer"
-            className="inline-flex items-center gap-1.5 text-xs text-indigo-600 dark:text-indigo-400 hover:text-indigo-500 dark:hover:text-indigo-300 transition"
+            className="inline-flex items-center gap-1.5 text-xs text-primary-600 hover:text-primary-500:text-primary-300 transition"
           >
             <ExternalLink className="w-3 h-3" />
             Full Microsoft documentation
@@ -527,9 +652,20 @@ function EntraSetupGuide() {
 
 // ─── Entra Sync Wizard ────────────────────────────────────────────────────────
 
-type WizardStep = "config" | "groups" | "realm-map" | "confirm" | "syncing" | "done";
+type WizardStep =
+  | "config"
+  | "groups"
+  | "realm-map"
+  | "confirm"
+  | "syncing"
+  | "done";
 
-interface SyncResult { created: number; skipped: number; updated: number; errors: string[] }
+interface SyncResult {
+  created: number;
+  skipped: number;
+  updated: number;
+  errors: string[];
+}
 
 function EntraSection() {
   // Entra config
@@ -538,9 +674,13 @@ function EntraSection() {
   const [clientSecret, setClientSecret] = useState("");
   const [configLoading, setConfigLoading] = useState(true);
   const [configSaving, setConfigSaving] = useState(false);
-  const [configStatus, setConfigStatus] = useState<"idle" | "saved" | "error">("idle");
+  const [configStatus, setConfigStatus] = useState<"idle" | "saved" | "error">(
+    "idle"
+  );
   const [checking, setChecking] = useState(false);
-  const [diagnostics, setDiagnostics] = useState<DiagnosticCheck[] | null>(null);
+  const [diagnostics, setDiagnostics] = useState<DiagnosticCheck[] | null>(
+    null
+  );
 
   // Wizard
   const [wizardOpen, setWizardOpen] = useState(false);
@@ -561,14 +701,21 @@ function EntraSection() {
   useEffect(() => {
     fetch("/api/server/entra")
       .then((r) => r.json())
-      .then((d: { configured?: boolean; tenantId?: string; clientId?: string; clientSecret?: string }) => {
-        if (d.configured) {
-          setTenantId(d.tenantId ?? "");
-          setClientId(d.clientId ?? "");
-          setClientSecret(d.clientSecret ?? "");
+      .then(
+        (d: {
+          configured?: boolean;
+          tenantId?: string;
+          clientId?: string;
+          clientSecret?: string;
+        }) => {
+          if (d.configured) {
+            setTenantId(d.tenantId ?? "");
+            setClientId(d.clientId ?? "");
+            setClientSecret(d.clientSecret ?? "");
+          }
         }
-      })
-      .catch(() => { })
+      )
+      .catch(() => {})
       .finally(() => setConfigLoading(false));
 
     loadUnclaimed();
@@ -578,8 +725,10 @@ function EntraSection() {
     setUnclaimedLoading(true);
     fetch("/api/server/entra/unclaimed")
       .then((r) => r.json())
-      .then((d: { users?: unknown[] }) => setUnclaimedCount(d.users?.length ?? 0))
-      .catch(() => { })
+      .then((d: { users?: unknown[] }) =>
+        setUnclaimedCount(d.users?.length ?? 0)
+      )
+      .catch(() => {})
       .finally(() => setUnclaimedLoading(false));
   };
 
@@ -597,9 +746,13 @@ function EntraSection() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ tenantId, clientId, clientSecret }),
       });
-      if (r.ok) flashConfig("saved"); else flashConfig("error");
-    } catch { flashConfig("error"); }
-    finally { setConfigSaving(false); }
+      if (r.ok) flashConfig("saved");
+      else flashConfig("error");
+    } catch {
+      flashConfig("error");
+    } finally {
+      setConfigSaving(false);
+    }
   };
 
   const checkConnection = async () => {
@@ -611,10 +764,22 @@ function EntraSection() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ tenantId, clientId, clientSecret }),
       });
-      const d = await r.json() as { ok?: boolean; checks?: DiagnosticCheck[]; groups?: EntraGroup[] };
+      const d = (await r.json()) as {
+        ok?: boolean;
+        checks?: DiagnosticCheck[];
+        groups?: EntraGroup[];
+      };
       setDiagnostics(d.checks ?? []);
     } catch {
-      setDiagnostics([{ id: "network", label: "Reach API endpoint", status: "fail", detail: "Network error", hint: "Could not reach the server. Check your internet connection." }]);
+      setDiagnostics([
+        {
+          id: "network",
+          label: "Reach API endpoint",
+          status: "fail",
+          detail: "Network error",
+          hint: "Could not reach the server. Check your internet connection.",
+        },
+      ]);
     } finally {
       setChecking(false);
     }
@@ -644,7 +809,12 @@ function EntraSection() {
     ]);
 
     if (groupsRes.status === "fulfilled") {
-      const d = groupsRes.value as { ok?: boolean; checks?: DiagnosticCheck[]; groups?: EntraGroup[]; error?: string };
+      const d = groupsRes.value as {
+        ok?: boolean;
+        checks?: DiagnosticCheck[];
+        groups?: EntraGroup[];
+        error?: string;
+      };
       if (d.ok) {
         setGroups(d.groups ?? []);
         // Persist diagnostic results so they're visible in the config card too
@@ -652,7 +822,12 @@ function EntraSection() {
       } else {
         if (d.checks) setDiagnostics(d.checks);
         const failedCheck = d.checks?.find((c) => c.status === "fail");
-        setGroupsError(failedCheck?.hint ?? failedCheck?.detail ?? d.error ?? "Failed to connect to Entra");
+        setGroupsError(
+          failedCheck?.hint ??
+            failedCheck?.detail ??
+            d.error ??
+            "Failed to connect to Entra"
+        );
       }
     } else {
       setGroupsError("Failed to connect to Entra");
@@ -689,12 +864,17 @@ function EntraSection() {
           groupNames,
         }),
       });
-      const result = await r.json() as SyncResult;
+      const result = (await r.json()) as SyncResult;
       setSyncResult(result);
       setWizardStep("done");
       loadUnclaimed();
     } catch {
-      setSyncResult({ created: 0, skipped: 0, updated: 0, errors: ["Sync request failed"] });
+      setSyncResult({
+        created: 0,
+        skipped: 0,
+        updated: 0,
+        errors: ["Sync request failed"],
+      });
       setWizardStep("done");
     }
   };
@@ -704,30 +884,53 @@ function EntraSection() {
   return (
     <>
       {/* Entra config card */}
-      <section className="bg-vc-surface border border-vc-border rounded-xl overflow-hidden">
-        <div className="px-5 py-4 border-b border-vc-border flex items-center gap-2">
-          <Users className="w-4 h-4 text-vc-muted" />
-          <h2 className="text-sm font-semibold text-vc-text">Microsoft Entra ID</h2>
-          <span className="text-xs text-vc-subtle ml-1">App registration credentials</span>
+      <section className="bg-background-100 border border-neutral-200 rounded-xl overflow-hidden">
+        <div className="px-5 py-4 border-b border-neutral-200 flex items-center gap-2">
+          <Users className="w-4 h-4 text-foreground-500" />
+          <h2 className="text-sm font-semibold text-foreground">
+            Microsoft Entra ID
+          </h2>
+          <span className="text-xs text-foreground-400 ml-1">
+            App registration credentials
+          </span>
         </div>
         <form onSubmit={saveConfig} className="p-5 space-y-4">
           {configLoading ? (
-            <div className="flex items-center gap-2 text-vc-muted text-sm">
+            <div className="flex items-center gap-2 text-foreground-500 text-sm">
               <Loader2 className="w-4 h-4 animate-spin" /> Loading…
             </div>
           ) : (
             <>
               <EntraSetupGuide />
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <Field label="Tenant ID" id="entra-tenant" value={tenantId} onChange={setTenantId} placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" />
-                <Field label="Client ID" id="entra-client" value={clientId} onChange={setClientId} placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" />
+                <Field
+                  label="Tenant ID"
+                  id="entra-tenant"
+                  value={tenantId}
+                  onChange={setTenantId}
+                  placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+                />
+                <Field
+                  label="Client ID"
+                  id="entra-client"
+                  value={clientId}
+                  onChange={setClientId}
+                  placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+                />
               </div>
-              <Field label="Client Secret" id="entra-secret" value={clientSecret} onChange={setClientSecret} showToggle placeholder="Your app secret value" />
+              <Field
+                label="Client Secret"
+                id="entra-secret"
+                value={clientSecret}
+                onChange={setClientSecret}
+                showToggle
+                placeholder="Your app secret value"
+              />
               <div className="flex items-center gap-3 pt-1 flex-wrap">
                 <button
                   type="submit"
                   disabled={configSaving}
-                  className="px-4 py-1.5 text-xs font-medium rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white disabled:opacity-40 transition flex items-center gap-1.5"
+                  className="px-4 py-1.5 text-xs font-medium rounded-lg bg-primary-600 hover:bg-primary-500 text-white disabled:opacity-40 transition flex items-center gap-1.5"
                 >
                   {configSaving && <Loader2 className="w-3 h-3 animate-spin" />}
                   Save
@@ -737,9 +940,13 @@ function EntraSection() {
                     type="button"
                     onClick={checkConnection}
                     disabled={checking}
-                    className="px-4 py-1.5 text-xs font-medium rounded-lg bg-vc-raised border border-vc-ring hover:border-vc-muted text-vc-text disabled:opacity-40 transition flex items-center gap-1.5"
+                    className="px-4 py-1.5 text-xs font-medium rounded-lg bg-background-200 border border-neutral-300 hover:border-foreground-500 text-foreground disabled:opacity-40 transition flex items-center gap-1.5"
                   >
-                    {checking ? <Loader2 className="w-3 h-3 animate-spin" /> : <CheckCircle className="w-3 h-3" />}
+                    {checking ? (
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                    ) : (
+                      <CheckCircle className="w-3 h-3" />
+                    )}
                     Check connection
                   </button>
                 )}
@@ -747,25 +954,39 @@ function EntraSection() {
                   <button
                     type="button"
                     onClick={openWizard}
-                    className="px-4 py-1.5 text-xs font-medium rounded-lg bg-vc-raised border border-vc-ring hover:border-indigo-500 text-vc-text transition flex items-center gap-1.5"
+                    className="px-4 py-1.5 text-xs font-medium rounded-lg bg-background-200 border border-neutral-300 hover:border-primary-500 text-foreground transition flex items-center gap-1.5"
                   >
                     <RefreshCw className="w-3 h-3" /> Sync users…
                   </button>
                 )}
-                {configStatus === "saved" && <span className="text-xs text-emerald-700 dark:text-emerald-400 flex items-center gap-1"><Check className="w-3 h-3" />Saved</span>}
-                {configStatus === "error" && <span className="text-xs text-red-600 dark:text-red-400 flex items-center gap-1"><AlertCircle className="w-3 h-3" />Save failed</span>}
+                {configStatus === "saved" && (
+                  <span className="text-xs text-success-700 flex items-center gap-1">
+                    <Check className="w-3 h-3" />
+                    Saved
+                  </span>
+                )}
+                {configStatus === "error" && (
+                  <span className="text-xs text-danger-600 flex items-center gap-1">
+                    <AlertCircle className="w-3 h-3" />
+                    Save failed
+                  </span>
+                )}
               </div>
 
-              <div className="rounded-lg border border-vc-border bg-vc-raised px-4 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div className="rounded-lg border border-neutral-200 bg-background-200 px-4 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div>
-                  <p className="text-sm font-medium text-vc-text">Pending claims</p>
-                  <p className="text-xs text-vc-muted">
-                    {unclaimedLoading ? "Checking unclaimed users…" : `${unclaimedCount} user${unclaimedCount === 1 ? "" : "s"} waiting to claim an account.`}
+                  <p className="text-sm font-medium text-foreground">
+                    Pending claims
+                  </p>
+                  <p className="text-xs text-foreground-500">
+                    {unclaimedLoading
+                      ? "Checking unclaimed users…"
+                      : `${unclaimedCount} user${unclaimedCount === 1 ? "" : "s"} waiting to claim an account.`}
                   </p>
                 </div>
                 <Link
                   href="/users"
-                  className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-vc-surface border border-vc-ring hover:border-indigo-500 text-vc-text transition"
+                  className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-background-100 border border-neutral-300 hover:border-primary-500 text-foreground transition"
                 >
                   <Users className="w-3 h-3" />
                   View users
@@ -774,28 +995,35 @@ function EntraSection() {
 
               {/* Diagnostic results */}
               {diagnostics && (
-                <div className="rounded-lg border border-vc-border overflow-hidden mt-1">
+                <div className="rounded-lg border border-neutral-200 overflow-hidden mt-1">
                   {diagnostics.map((check, i) => (
                     <div
                       key={check.id}
                       className={cn(
                         "px-4 py-3 space-y-1",
-                        i < diagnostics.length - 1 && "border-b border-vc-border",
+                        i < diagnostics.length - 1 &&
+                          "border-b border-neutral-200"
                       )}
                     >
                       <div className="flex items-center gap-2">
-                        {check.status === "ok"
-                          ? <CheckCircle className="w-4 h-4 text-emerald-500 shrink-0" />
-                          : <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />}
-                        <span className={cn(
-                          "text-sm font-medium",
-                          check.status === "ok" ? "text-emerald-700 dark:text-emerald-400" : "text-red-700 dark:text-red-400",
-                        )}>
+                        {check.status === "ok" ? (
+                          <CheckCircle className="w-4 h-4 text-success-500 shrink-0" />
+                        ) : (
+                          <AlertCircle className="w-4 h-4 text-danger-500 shrink-0" />
+                        )}
+                        <span
+                          className={cn(
+                            "text-sm font-medium",
+                            check.status === "ok"
+                              ? "text-success-700"
+                              : "text-danger-700"
+                          )}
+                        >
                           {check.label}
                         </span>
                       </div>
                       {check.status === "fail" && check.hint && (
-                        <p className="text-xs text-gray-600 dark:text-vc-muted pl-6 leading-relaxed">
+                        <p className="text-xs text-neutral-600 pl-6 leading-relaxed">
                           {check.hint}
                         </p>
                       )}
@@ -811,12 +1039,17 @@ function EntraSection() {
       {/* ── Wizard modal ── */}
       {wizardOpen && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-          <div className="bg-vc-surface border border-vc-ring rounded-2xl w-full max-w-lg shadow-2xl flex flex-col max-h-[90vh]">
+          <div className="bg-background-100 border border-neutral-300 rounded-2xl w-full max-w-lg shadow-2xl flex flex-col max-h-[90vh]">
             {/* Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-vc-border shrink-0">
-              <h2 className="text-vc-text font-semibold">Sync Entra Users</h2>
+            <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-200 shrink-0">
+              <h2 className="text-foreground font-semibold">
+                Sync Entra Users
+              </h2>
               {wizardStep !== "syncing" && (
-                <button onClick={() => setWizardOpen(false)} className="text-vc-muted hover:text-vc-text">
+                <button
+                  onClick={() => setWizardOpen(false)}
+                  className="text-foreground-500 hover:text-foreground"
+                >
                   <X className="w-4 h-4" />
                 </button>
               )}
@@ -824,46 +1057,59 @@ function EntraSection() {
 
             {/* Body */}
             <div className="overflow-y-auto flex-1 px-6 py-5">
-
               {/* Step: groups */}
               {wizardStep === "groups" && (
                 <div className="space-y-4">
-                  <p className="text-sm text-vc-muted">
-                    Select which Entra groups to import. Leave everything unselected to import all users in the tenant.
+                  <p className="text-sm text-foreground-500">
+                    Select which Entra groups to import. Leave everything
+                    unselected to import all users in the tenant.
                   </p>
                   {groupsLoading && (
-                    <div className="flex items-center gap-2 text-vc-muted text-sm py-4">
-                      <Loader2 className="w-4 h-4 animate-spin" /> Fetching groups…
+                    <div className="flex items-center gap-2 text-foreground-500 text-sm py-4">
+                      <Loader2 className="w-4 h-4 animate-spin" /> Fetching
+                      groups…
                     </div>
                   )}
                   {groupsError && (
-                    <div className="bg-red-50 dark:bg-red-950/40 border border-red-300 dark:border-red-700 rounded-lg px-4 py-3 text-sm text-red-600 dark:text-red-300 flex items-start gap-2">
-                      <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />{groupsError}
+                    <div className="bg-danger-50 border border-danger-300 rounded-lg px-4 py-3 text-sm text-danger-600 flex items-start gap-2">
+                      <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+                      {groupsError}
                     </div>
                   )}
                   {!groupsLoading && !groupsError && (
                     <div className="space-y-1.5 max-h-72 overflow-y-auto pr-1">
                       {groups.map((g) => (
-                        <label key={g.id} className={cn(
-                          "flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition",
-                          selectedGroups.has(g.id)
-                            ? "bg-indigo-100 dark:bg-indigo-600/15 border-indigo-300 dark:border-indigo-600/50"
-                            : "bg-vc-raised border-vc-ring hover:border-vc-muted",
-                        )}>
+                        <label
+                          key={g.id}
+                          className={cn(
+                            "flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition",
+                            selectedGroups.has(g.id)
+                              ? "bg-primary-100 border-primary-300"
+                              : "bg-background-200 border-neutral-300 hover:border-foreground-500"
+                          )}
+                        >
                           <input
                             type="checkbox"
                             checked={selectedGroups.has(g.id)}
                             onChange={() => toggleGroup(g.id)}
-                            className="accent-indigo-500"
+                            className="accent-primary-500"
                           />
                           <div className="min-w-0">
-                            <p className="text-sm font-medium text-vc-text">{g.displayName}</p>
-                            {g.description && <p className="text-xs text-vc-subtle truncate">{g.description}</p>}
+                            <p className="text-sm font-medium text-foreground">
+                              {g.displayName}
+                            </p>
+                            {g.description && (
+                              <p className="text-xs text-foreground-400 truncate">
+                                {g.description}
+                              </p>
+                            )}
                           </div>
                         </label>
                       ))}
                       {groups.length === 0 && (
-                        <p className="text-sm text-vc-subtle text-center py-6">No groups found in this tenant.</p>
+                        <p className="text-sm text-foreground-400 text-center py-6">
+                          No groups found in this tenant.
+                        </p>
                       )}
                     </div>
                   )}
@@ -873,11 +1119,16 @@ function EntraSection() {
               {/* Step: realm-map */}
               {wizardStep === "realm-map" && (
                 <div className="space-y-4">
-                  <p className="text-sm text-vc-muted">
-                    Do you want to map Entra groups to VaultysClaw realms? Synced users will be automatically added to the corresponding realm.
+                  <p className="text-sm text-foreground-500">
+                    Do you want to map Entra groups to VaultysClaw realms?
+                    Synced users will be automatically added to the
+                    corresponding realm.
                   </p>
                   <div className="flex gap-3">
-                    {[{ v: false, label: "No, skip" }, { v: true, label: "Yes, map groups" }].map(({ v, label }) => (
+                    {[
+                      { v: false, label: "No, skip" },
+                      { v: true, label: "Yes, map groups" },
+                    ].map(({ v, label }) => (
                       <button
                         key={String(v)}
                         type="button"
@@ -885,8 +1136,8 @@ function EntraSection() {
                         className={cn(
                           "flex-1 py-2.5 rounded-xl border text-sm font-medium transition",
                           mapGroups === v
-                            ? "bg-indigo-50 dark:bg-indigo-600/20 border-indigo-300 dark:border-indigo-600/60 text-indigo-700 dark:text-indigo-300"
-                            : "bg-vc-raised border-vc-ring text-vc-muted hover:border-vc-muted",
+                            ? "bg-primary-50 border-primary-300 text-primary-700"
+                            : "bg-background-200 border-neutral-300 text-foreground-500 hover:border-foreground-500"
                         )}
                       >
                         {label}
@@ -901,23 +1152,35 @@ function EntraSection() {
                         const selected = realmMap[gid] ?? "";
                         return (
                           <div key={gid} className="flex items-center gap-2">
-                            <span className="text-xs text-vc-text-2 shrink-0 w-36 truncate" title={g?.displayName ?? gid}>
+                            <span
+                              className="text-xs text-foreground-700 shrink-0 w-36 truncate"
+                              title={g?.displayName ?? gid}
+                            >
                               {g?.displayName ?? gid}
                             </span>
-                            <ChevronRight className="w-3 h-3 text-vc-subtle shrink-0" />
+                            <ChevronRight className="w-3 h-3 text-foreground-400 shrink-0" />
                             <select
                               value={selected}
-                              onChange={(e) => setRealmMap((m) => ({ ...m, [gid]: e.target.value }))}
-                              className="flex-1 bg-vc-raised border border-vc-ring rounded-lg px-2 py-1 text-xs text-vc-text focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                              onChange={(e) =>
+                                setRealmMap((m) => ({
+                                  ...m,
+                                  [gid]: e.target.value,
+                                }))
+                              }
+                              className="flex-1 bg-background-200 border border-neutral-300 rounded-lg px-2 py-1 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary-500"
                             >
                               <option value="">— no realm —</option>
-                              <option value="__create__">✦ Create realm from group name</option>
+                              <option value="__create__">
+                                ✦ Create realm from group name
+                              </option>
                               {realms.map((r) => (
-                                <option key={r.id} value={r.id}>{r.name}</option>
+                                <option key={r.id} value={r.id}>
+                                  {r.name}
+                                </option>
                               ))}
                             </select>
                             {selected === "__create__" && (
-                              <span className="text-[10px] font-medium bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400 border border-emerald-300 dark:border-emerald-700/50 rounded px-1.5 py-0.5 shrink-0 whitespace-nowrap">
+                              <span className="text-[10px] font-medium bg-success-100 text-success-700 border border-success-300 rounded px-1.5 py-0.5 shrink-0 whitespace-nowrap">
                                 new: {g?.displayName ?? gid}
                               </span>
                             )}
@@ -928,7 +1191,10 @@ function EntraSection() {
                   )}
 
                   {mapGroups && selectedGroups.size === 0 && (
-                    <p className="text-xs text-vc-subtle">No groups selected — all users will be imported without realm assignment.</p>
+                    <p className="text-xs text-foreground-400">
+                      No groups selected — all users will be imported without
+                      realm assignment.
+                    </p>
                   )}
                 </div>
               )}
@@ -936,40 +1202,60 @@ function EntraSection() {
               {/* Step: confirm */}
               {wizardStep === "confirm" && (
                 <div className="space-y-4">
-                  <p className="text-sm text-vc-muted">Ready to sync. Review your selection:</p>
-                  <div className="bg-vc-raised border border-vc-ring rounded-lg p-4 space-y-2 text-sm">
+                  <p className="text-sm text-foreground-500">
+                    Ready to sync. Review your selection:
+                  </p>
+                  <div className="bg-background-200 border border-neutral-300 rounded-lg p-4 space-y-2 text-sm">
                     <div className="flex justify-between">
-                      <span className="text-vc-subtle">Groups</span>
-                      <span className="text-vc-text-2">{selectedGroups.size === 0 ? "All tenant users" : `${selectedGroups.size} group(s)`}</span>
+                      <span className="text-foreground-400">Groups</span>
+                      <span className="text-foreground-700">
+                        {selectedGroups.size === 0
+                          ? "All tenant users"
+                          : `${selectedGroups.size} group(s)`}
+                      </span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-vc-subtle">Realm mapping</span>
-                      <span className="text-vc-text-2">{mapGroups ? "Enabled" : "Disabled"}</span>
+                      <span className="text-foreground-400">Realm mapping</span>
+                      <span className="text-foreground-700">
+                        {mapGroups ? "Enabled" : "Disabled"}
+                      </span>
                     </div>
-                    {mapGroups && Object.values(realmMap).some((v) => v === "__create__") && (
-                      <div className="pt-1 space-y-1 border-t border-vc-border">
-                        <p className="text-xs text-vc-subtle font-medium">New realms to be created:</p>
-                        {Array.from(selectedGroups)
-                          .filter((gid) => realmMap[gid] === "__create__")
-                          .map((gid) => {
-                            const g = groups.find((x) => x.id === gid);
-                            return (
-                              <div key={gid} className="flex items-center gap-2">
-                                <span className="text-[10px] font-medium bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400 border border-emerald-300 dark:border-emerald-700/50 rounded px-1.5 py-0.5">
-                                  {g?.displayName ?? gid}
-                                </span>
-                              </div>
-                            );
-                          })}
-                      </div>
-                    )}
-                    <div className="flex justify-between pt-1 border-t border-vc-border">
-                      <span className="text-vc-subtle">Deduplication</span>
-                      <span className="text-vc-text-2">By email address</span>
+                    {mapGroups &&
+                      Object.values(realmMap).some(
+                        (v) => v === "__create__"
+                      ) && (
+                        <div className="pt-1 space-y-1 border-t border-neutral-200">
+                          <p className="text-xs text-foreground-400 font-medium">
+                            New realms to be created:
+                          </p>
+                          {Array.from(selectedGroups)
+                            .filter((gid) => realmMap[gid] === "__create__")
+                            .map((gid) => {
+                              const g = groups.find((x) => x.id === gid);
+                              return (
+                                <div
+                                  key={gid}
+                                  className="flex items-center gap-2"
+                                >
+                                  <span className="text-[10px] font-medium bg-success-100 text-success-700 border border-success-300 rounded px-1.5 py-0.5">
+                                    {g?.displayName ?? gid}
+                                  </span>
+                                </div>
+                              );
+                            })}
+                        </div>
+                      )}
+                    <div className="flex justify-between pt-1 border-t border-neutral-200">
+                      <span className="text-foreground-400">Deduplication</span>
+                      <span className="text-foreground-700">
+                        By email address
+                      </span>
                     </div>
                   </div>
-                  <p className="text-xs text-vc-subtle">
-                    New users will be created as unclaimed accounts. They must scan a QR code with their Vaultys wallet to activate their account.
+                  <p className="text-xs text-foreground-400">
+                    New users will be created as unclaimed accounts. They must
+                    scan a QR code with their Vaultys wallet to activate their
+                    account.
                   </p>
                 </div>
               )}
@@ -977,8 +1263,10 @@ function EntraSection() {
               {/* Step: syncing */}
               {wizardStep === "syncing" && (
                 <div className="flex flex-col items-center gap-4 py-8">
-                  <Loader2 className="w-8 h-8 text-indigo-700 dark:text-indigo-400 animate-spin" />
-                  <p className="text-sm text-vc-muted">Syncing users from Entra…</p>
+                  <Loader2 className="w-8 h-8 text-primary-700 animate-spin" />
+                  <p className="text-sm text-foreground-500">
+                    Syncing users from Entra…
+                  </p>
                 </div>
               )}
 
@@ -986,25 +1274,48 @@ function EntraSection() {
               {wizardStep === "done" && syncResult && (
                 <div className="space-y-4">
                   <div className="flex items-center gap-3">
-                    <CheckCircle className="w-6 h-6 text-emerald-700 dark:text-emerald-400 shrink-0" />
-                    <p className="text-sm font-medium text-vc-text">Sync complete</p>
+                    <CheckCircle className="w-6 h-6 text-success-700 shrink-0" />
+                    <p className="text-sm font-medium text-foreground">
+                      Sync complete
+                    </p>
                   </div>
                   <div className="grid grid-cols-3 gap-3">
                     {[
-                      { label: "Created", value: syncResult.created, color: "text-emerald-700 dark:text-emerald-400" },
-                      { label: "Updated", value: syncResult.updated, color: "text-blue-700 dark:text-blue-400" },
-                      { label: "Skipped", value: syncResult.skipped, color: "text-vc-muted" },
+                      {
+                        label: "Created",
+                        value: syncResult.created,
+                        color: "text-success-700",
+                      },
+                      {
+                        label: "Updated",
+                        value: syncResult.updated,
+                        color: "text-primary-700",
+                      },
+                      {
+                        label: "Skipped",
+                        value: syncResult.skipped,
+                        color: "text-foreground-500",
+                      },
                     ].map(({ label, value, color }) => (
-                      <div key={label} className="bg-vc-raised border border-vc-ring rounded-lg p-3 text-center">
-                        <p className={cn("text-2xl font-bold", color)}>{value}</p>
-                        <p className="text-xs text-vc-subtle mt-0.5">{label}</p>
+                      <div
+                        key={label}
+                        className="bg-background-200 border border-neutral-300 rounded-lg p-3 text-center"
+                      >
+                        <p className={cn("text-2xl font-bold", color)}>
+                          {value}
+                        </p>
+                        <p className="text-xs text-foreground-400 mt-0.5">
+                          {label}
+                        </p>
                       </div>
                     ))}
                   </div>
                   {syncResult.errors.length > 0 && (
-                    <div className="bg-red-50 dark:bg-red-950/40 border border-red-300 dark:border-red-700 rounded-lg p-3 space-y-1 max-h-36 overflow-y-auto">
+                    <div className="bg-danger-50 border border-danger-300 rounded-lg p-3 space-y-1 max-h-36 overflow-y-auto">
                       {syncResult.errors.map((e, i) => (
-                        <p key={i} className="text-xs text-red-600 dark:text-red-300">{e}</p>
+                        <p key={i} className="text-xs text-danger-600">
+                          {e}
+                        </p>
                       ))}
                     </div>
                   )}
@@ -1014,28 +1325,47 @@ function EntraSection() {
 
             {/* Footer nav */}
             {wizardStep !== "syncing" && (
-              <div className="flex justify-between gap-3 px-6 py-4 border-t border-vc-border shrink-0">
+              <div className="flex justify-between gap-3 px-6 py-4 border-t border-neutral-200 shrink-0">
                 <button
                   onClick={() => {
-                    if (wizardStep === "done" || wizardStep === "groups") { setWizardOpen(false); return; }
+                    if (wizardStep === "done" || wizardStep === "groups") {
+                      setWizardOpen(false);
+                      return;
+                    }
                     if (wizardStep === "realm-map") setWizardStep("groups");
                     if (wizardStep === "confirm") setWizardStep("realm-map");
                   }}
-                  className="px-4 py-2 text-sm rounded-lg bg-vc-raised border border-vc-ring hover:border-vc-muted text-vc-text transition"
+                  className="px-4 py-2 text-sm rounded-lg bg-background-200 border border-neutral-300 hover:border-foreground-500 text-foreground transition"
                 >
-                  {wizardStep === "done" || wizardStep === "groups" ? "Close" : "Back"}
+                  {wizardStep === "done" || wizardStep === "groups"
+                    ? "Close"
+                    : "Back"}
                 </button>
                 {wizardStep !== "done" && (
                   <button
                     onClick={() => {
-                      if (wizardStep === "groups") { setWizardStep("realm-map"); return; }
-                      if (wizardStep === "realm-map") { setWizardStep("confirm"); return; }
+                      if (wizardStep === "groups") {
+                        setWizardStep("realm-map");
+                        return;
+                      }
+                      if (wizardStep === "realm-map") {
+                        setWizardStep("confirm");
+                        return;
+                      }
                       if (wizardStep === "confirm") doSync();
                     }}
                     disabled={groupsLoading || !!groupsError}
-                    className="px-4 py-2 text-sm rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white disabled:opacity-40 transition flex items-center gap-2"
+                    className="px-4 py-2 text-sm rounded-lg bg-primary-600 hover:bg-primary-500 text-white disabled:opacity-40 transition flex items-center gap-2"
                   >
-                    {wizardStep === "confirm" ? <><RefreshCw className="w-3.5 h-3.5" /> Start sync</> : <>Next <ChevronRight className="w-3.5 h-3.5" /></>}
+                    {wizardStep === "confirm" ? (
+                      <>
+                        <RefreshCw className="w-3.5 h-3.5" /> Start sync
+                      </>
+                    ) : (
+                      <>
+                        Next <ChevronRight className="w-3.5 h-3.5" />
+                      </>
+                    )}
                   </button>
                 )}
               </div>
@@ -1043,19 +1373,698 @@ function EntraSection() {
           </div>
         </div>
       )}
-
     </>
   );
 }
 
 // ─── Main page ────────────────────────────────────────────────────────────────
 
-type Tab = "overview" | "settings" | "integrations";
+// ─── API Keys Section ─────────────────────────────────────────────────────────
+
+interface RouteGroup {
+  group: string;
+  routes: { path: string; methods: string[] }[];
+}
+
+function buildRouteGroups(): RouteGroup[] {
+  const map = new Map<string, RouteGroup>();
+  for (const entry of ROUTE_REGISTRY) {
+    if (entry.isPublic) continue;
+    if (!map.has(entry.group))
+      map.set(entry.group, { group: entry.group, routes: [] });
+    map
+      .get(entry.group)!
+      .routes.push({ path: entry.path, methods: entry.methods });
+  }
+  return Array.from(map.values());
+}
+
+const ROUTE_GROUPS = buildRouteGroups();
+
+function routeKey(method: string, path: string) {
+  return `${method} ${path}`;
+}
+
+function ApiKeysSection() {
+  const [keys, setKeys] = useState<ApiKey[]>([]);
+  const [realms, setRealms] = useState<{ id: string; name: string }[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showModal, setShowModal] = useState(false);
+  const [editingKey, setEditingKey] = useState<ApiKey | null>(null);
+  const [createdKey, setCreatedKey] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+  const [confirmRevokeId, setConfirmRevokeId] = useState<string | null>(null);
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(
+    new Set(ROUTE_GROUPS.map((g) => g.group))
+  );
+
+  // Form state
+  const [formName, setFormName] = useState("");
+  const [formRealmId, setFormRealmId] = useState<string>("");
+  const [formIsRealmAdmin, setFormIsRealmAdmin] = useState(false);
+  const [formExpiry, setFormExpiry] = useState("");
+  const [formAllowed, setFormAllowed] = useState<Set<string>>(new Set());
+  const [formError, setFormError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  const fetchData = useCallback(async () => {
+    try {
+      const [keysRes, realmsRes] = await Promise.all([
+        fetch("/api/api-keys"),
+        fetch("/api/realms"),
+      ]);
+      const keysData = await keysRes.json();
+      const realmsData = await realmsRes.json();
+      setKeys(Array.isArray(keysData.apiKeys) ? keysData.apiKeys : []);
+      setRealms(Array.isArray(realmsData.realms) ? realmsData.realms : []);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  function toggleRoute(method: string, path: string) {
+    const k = routeKey(method, path);
+    setFormAllowed((prev) => {
+      const next = new Set(prev);
+      if (next.has(k)) next.delete(k);
+      else next.add(k);
+      return next;
+    });
+  }
+
+  function toggleGroupColumn(group: string, isWrite: boolean) {
+    const entries = ROUTE_GROUPS.find((g) => g.group === group)?.routes ?? [];
+    const methods = isWrite
+      ? entries.flatMap((r) =>
+          r.methods.filter((m) => m !== "GET").map((m) => routeKey(m, r.path))
+        )
+      : entries.flatMap((r) =>
+          r.methods.filter((m) => m === "GET").map((m) => routeKey(m, r.path))
+        );
+    const allSelected = methods.every((k) => formAllowed.has(k));
+    setFormAllowed((prev) => {
+      const next = new Set(prev);
+      for (const k of methods) allSelected ? next.delete(k) : next.add(k);
+      return next;
+    });
+  }
+
+  function selectAll() {
+    const all = ROUTE_GROUPS.flatMap((g) =>
+      g.routes.flatMap((r) => r.methods.map((m) => routeKey(m, r.path)))
+    );
+    setFormAllowed(new Set(all));
+  }
+
+  function clearAll() {
+    setFormAllowed(new Set());
+  }
+
+  function openModal() {
+    setEditingKey(null);
+    setFormName("");
+    setFormRealmId("");
+    setFormIsRealmAdmin(false);
+    setFormExpiry("");
+    setFormAllowed(new Set());
+    setFormError(null);
+    setShowModal(true);
+  }
+
+  function openEditModal(k: ApiKey) {
+    setEditingKey(k);
+    setFormName(k.name);
+    setFormRealmId(k.realmId ?? "");
+    setFormIsRealmAdmin(k.isRealmAdmin);
+    setFormExpiry(
+      k.expiresAt
+        ? new Date(k.expiresAt * 1000).toISOString().split("T")[0]
+        : ""
+    );
+    setFormAllowed(new Set(k.allowedRoutes));
+    setFormError(null);
+    setShowModal(true);
+  }
+
+  async function handleCreate() {
+    if (!formName.trim()) {
+      setFormError("Name is required.");
+      return;
+    }
+    if (formAllowed.size === 0) {
+      setFormError("Select at least one route.");
+      return;
+    }
+    setSubmitting(true);
+    setFormError(null);
+    try {
+      const res = await fetch("/api/api-keys", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: formName.trim(),
+          allowedRoutes: Array.from(formAllowed),
+          realmId: formRealmId || null,
+          isRealmAdmin: formIsRealmAdmin,
+          expiresAt: formExpiry
+            ? Math.floor(new Date(formExpiry).getTime() / 1000)
+            : null,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed");
+      setCreatedKey(data.key);
+      setShowModal(false);
+      fetchData();
+    } catch (e) {
+      setFormError(e instanceof Error ? e.message : "Error");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleRevoke(id: string) {
+    await fetch(`/api/api-keys/${id}`, { method: "DELETE" });
+    setConfirmRevokeId(null);
+    fetchData();
+  }
+
+  async function handleUpdate() {
+    if (!editingKey) return;
+    if (!formName.trim()) {
+      setFormError("Name is required.");
+      return;
+    }
+    if (formAllowed.size === 0) {
+      setFormError("Select at least one route.");
+      return;
+    }
+    setSubmitting(true);
+    setFormError(null);
+    try {
+      const res = await fetch(`/api/api-keys/${editingKey.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: formName.trim(),
+          allowedRoutes: Array.from(formAllowed),
+          realmId: formRealmId || null,
+          isRealmAdmin: formIsRealmAdmin,
+          expiresAt: formExpiry
+            ? Math.floor(new Date(formExpiry).getTime() / 1000)
+            : null,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed");
+      setShowModal(false);
+      setEditingKey(null);
+      fetchData();
+    } catch (e) {
+      setFormError(e instanceof Error ? e.message : "Error");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  function handleCopy() {
+    if (createdKey) {
+      navigator.clipboard.writeText(createdKey);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  }
+
+  function toggleGroup(group: string) {
+    setExpandedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(group)) next.delete(group);
+      else next.add(group);
+      return next;
+    });
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-40">
+        <Loader2 className="w-5 h-5 animate-spin text-foreground-500" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* One-time key banner */}
+      {createdKey && (
+        <div className="bg-success-50 border border-success-300 rounded-xl p-4">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex-1 min-w-0">
+              <p className="text-success-800 text-sm font-semibold mb-1">
+                API key created — copy it now, it won&apos;t be shown again.
+              </p>
+              <code className="block bg-white/50 rounded px-3 py-2 text-sm font-mono text-success-900 break-all border border-success-200">
+                {createdKey}
+              </code>
+            </div>
+            <div className="flex gap-2 shrink-0">
+              <button
+                onClick={handleCopy}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-success-700 text-white text-xs font-medium hover:bg-success-800 transition"
+              >
+                {copied ? (
+                  <Check className="w-3.5 h-3.5" />
+                ) : (
+                  <Copy className="w-3.5 h-3.5" />
+                )}
+                {copied ? "Copied!" : "Copy"}
+              </button>
+              <button
+                onClick={() => setCreatedKey(null)}
+                className="p-1.5 rounded-lg text-success-700 hover:bg-success-100:bg-success-800/40 transition"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-base font-semibold text-foreground">API Keys</h2>
+          <p className="text-xs text-foreground-500 mt-0.5">
+            Authenticate external clients via{" "}
+            <code className="bg-background-200 px-1 rounded">X-API-Key</code>{" "}
+            header
+          </p>
+        </div>
+        <button
+          onClick={openModal}
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 transition"
+        >
+          <Plus className="w-4 h-4" /> New API Key
+        </button>
+      </div>
+
+      {/* Table */}
+      <div className="bg-background-100 rounded-xl border border-neutral-200 overflow-hidden">
+        {keys.length === 0 ? (
+          <div className="text-center py-12 text-foreground-500 text-sm">
+            No API keys yet.
+          </div>
+        ) : (
+          <table className="w-full text-sm">
+            <thead className="border-b border-neutral-200">
+              <tr className="text-left text-xs text-foreground-500 uppercase tracking-wider">
+                <th className="px-4 py-3">Name</th>
+                <th className="px-4 py-3">Prefix</th>
+                <th className="px-4 py-3">Scope</th>
+                <th className="px-4 py-3">Routes</th>
+                <th className="px-4 py-3">Last used</th>
+                <th className="px-4 py-3">Expires</th>
+                <th className="px-4 py-3">Status</th>
+                <th className="px-4 py-3"></th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-neutral-200">
+              {keys.map((k) => {
+                const realm = realms.find((r) => r.id === k.realmId);
+                return (
+                  <tr
+                    key={k.id}
+                    className="hover:bg-background-200/40 transition"
+                  >
+                    <td className="px-4 py-3 font-medium text-foreground">
+                      {k.name}
+                    </td>
+                    <td className="px-4 py-3 font-mono text-foreground-700 text-xs">
+                      {k.keyPrefix}…
+                    </td>
+                    <td className="px-4 py-3 text-foreground-700">
+                      {k.realmId ? (
+                        <span className="flex items-center gap-1">
+                          {realm?.name ?? k.realmId}
+                          {k.isRealmAdmin && (
+                            <span className="text-[10px] bg-primary-100 text-primary-700 px-1.5 rounded">
+                              admin
+                            </span>
+                          )}
+                        </span>
+                      ) : (
+                        <span className="flex items-center gap-1 text-foreground-500">
+                          <Globe className="w-3 h-3" /> Global
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-foreground-700">
+                      {k.allowedRoutes.length}
+                    </td>
+                    <td className="px-4 py-3 text-foreground-500 text-xs">
+                      {k.lastUsedAt
+                        ? new Date(k.lastUsedAt * 1000).toLocaleDateString()
+                        : "Never"}
+                    </td>
+                    <td className="px-4 py-3 text-foreground-500 text-xs">
+                      {k.expiresAt
+                        ? new Date(k.expiresAt * 1000).toLocaleDateString()
+                        : "—"}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span
+                        className={cn(
+                          "px-2 py-0.5 rounded-full text-[11px] font-medium",
+                          k.isActive
+                            ? "bg-success-100 text-success-700"
+                            : "bg-neutral-100 text-neutral-500"
+                        )}
+                      >
+                        {k.isActive ? "Active" : "Revoked"}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => openEditModal(k)}
+                          title="Edit"
+                          className="p-1.5 rounded text-foreground-500 hover:text-primary hover:bg-background-200 transition"
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </button>
+                        {k.isActive &&
+                          (confirmRevokeId === k.id ? (
+                            <div className="flex items-center gap-1">
+                              <button
+                                onClick={() => handleRevoke(k.id)}
+                                className="px-2 py-1 bg-danger-600 text-white rounded text-xs hover:bg-danger-700"
+                              >
+                                Confirm
+                              </button>
+                              <button
+                                onClick={() => setConfirmRevokeId(null)}
+                                className="px-2 py-1 rounded text-xs text-foreground-500 hover:text-foreground"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => setConfirmRevokeId(k.id)}
+                              className="p-1.5 rounded text-foreground-500 hover:text-danger-500 hover:bg-danger-50:bg-danger-900/20 transition"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          ))}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {/* Create modal */}
+      {showModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-background-100 rounded-2xl border border-neutral-200 shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+            {/* Modal header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-200">
+              <h3 className="text-base font-semibold text-foreground">
+                {editingKey ? "Edit API Key" : "New API Key"}
+              </h3>
+              <button
+                onClick={() => setShowModal(false)}
+                className="p-1.5 rounded-lg text-foreground-500 hover:text-foreground hover:bg-background-200 transition"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Modal body */}
+            <div className="overflow-y-auto flex-1 px-6 py-4 space-y-5">
+              {/* Name */}
+              <div>
+                <label className="block text-xs font-medium text-foreground mb-1.5">
+                  Name <span className="text-danger-500">*</span>
+                </label>
+                <input
+                  value={formName}
+                  onChange={(e) => setFormName(e.target.value)}
+                  placeholder="e.g. CI Pipeline, External Dashboard"
+                  className="w-full px-3 py-2 rounded-lg bg-background-200 border border-neutral-300 text-sm text-foreground placeholder:text-foreground-500 focus:outline-none focus:ring-2 focus:ring-primary/50"
+                />
+              </div>
+
+              {/* Realm scope */}
+              <div>
+                <label className="block text-xs font-medium text-foreground mb-1.5">
+                  Realm scope
+                </label>
+                <select
+                  value={formRealmId}
+                  onChange={(e) => setFormRealmId(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg bg-background-200 border border-neutral-300 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                >
+                  <option value="">Global — full admin access</option>
+                  {realms.map((r) => (
+                    <option key={r.id} value={r.id}>
+                      {r.name}
+                    </option>
+                  ))}
+                </select>
+                {formRealmId && (
+                  <label className="flex items-center gap-2 mt-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formIsRealmAdmin}
+                      onChange={(e) => setFormIsRealmAdmin(e.target.checked)}
+                      className="rounded"
+                    />
+                    <span className="text-xs text-foreground">Realm admin</span>
+                  </label>
+                )}
+              </div>
+
+              {/* Expiry */}
+              <div>
+                <label className="block text-xs font-medium text-foreground mb-1.5">
+                  Expiry (optional)
+                </label>
+                <input
+                  type="date"
+                  value={formExpiry}
+                  onChange={(e) => setFormExpiry(e.target.value)}
+                  className="px-3 py-2 rounded-lg bg-background-200 border border-neutral-300 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                />
+              </div>
+
+              {/* Route permissions */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-xs font-medium text-foreground">
+                    Allowed routes <span className="text-danger-500">*</span>
+                  </label>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={selectAll}
+                      className="text-xs text-primary hover:underline"
+                    >
+                      Select all
+                    </button>
+                    <button
+                      onClick={clearAll}
+                      className="text-xs text-foreground-500 hover:text-foreground"
+                    >
+                      Clear
+                    </button>
+                  </div>
+                </div>
+                <div className="rounded-lg border border-neutral-300 overflow-hidden divide-y divide-neutral-300">
+                  {ROUTE_GROUPS.map((group) => {
+                    const isExpanded = expandedGroups.has(group.group);
+                    const readRoutes = group.routes.flatMap((r) =>
+                      r.methods
+                        .filter((m) => m === "GET")
+                        .map((m) => routeKey(m, r.path))
+                    );
+                    const writeRoutes = group.routes.flatMap((r) =>
+                      r.methods
+                        .filter((m) => m !== "GET")
+                        .map((m) => routeKey(m, r.path))
+                    );
+                    const allRead =
+                      readRoutes.length > 0 &&
+                      readRoutes.every((k) => formAllowed.has(k));
+                    const allWrite =
+                      writeRoutes.length > 0 &&
+                      writeRoutes.every((k) => formAllowed.has(k));
+                    return (
+                      <div key={group.group} className="bg-background-200">
+                        {/* Group header */}
+                        <div className="flex items-center px-3 py-2 gap-3">
+                          <button
+                            onClick={() => toggleGroup(group.group)}
+                            className="flex items-center gap-1.5 flex-1 text-left text-xs font-semibold text-foreground hover:text-primary transition"
+                          >
+                            {isExpanded ? (
+                              <ChevronUp className="w-3.5 h-3.5" />
+                            ) : (
+                              <ChevronDown className="w-3.5 h-3.5" />
+                            )}
+                            {group.group}
+                          </button>
+                          <div className="flex items-center gap-4 text-[11px] text-foreground-500">
+                            {readRoutes.length > 0 && (
+                              <label className="flex items-center gap-1.5 cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={allRead}
+                                  onChange={() =>
+                                    toggleGroupColumn(group.group, false)
+                                  }
+                                  className="rounded"
+                                />
+                                READ
+                              </label>
+                            )}
+                            {writeRoutes.length > 0 && (
+                              <label className="flex items-center gap-1.5 cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={allWrite}
+                                  onChange={() =>
+                                    toggleGroupColumn(group.group, true)
+                                  }
+                                  className="rounded"
+                                />
+                                WRITE
+                              </label>
+                            )}
+                          </div>
+                        </div>
+                        {/* Route list */}
+                        {isExpanded && (
+                          <div className="divide-y divide-neutral-200/50 bg-background-100">
+                            {group.routes.map((route) => {
+                              const reads = route.methods.filter(
+                                (m) => m === "GET"
+                              );
+                              const writes = route.methods.filter(
+                                (m) => m !== "GET"
+                              );
+                              return (
+                                <div
+                                  key={route.path}
+                                  className="flex items-center px-3 py-1.5 gap-3"
+                                >
+                                  <span className="flex-1 font-mono text-[11px] text-foreground-700 truncate">
+                                    {route.path}
+                                  </span>
+                                  <div className="flex items-center gap-4">
+                                    <div className="w-12 flex justify-center">
+                                      {reads.length > 0 && (
+                                        <input
+                                          type="checkbox"
+                                          checked={reads.every((m) =>
+                                            formAllowed.has(
+                                              routeKey(m, route.path)
+                                            )
+                                          )}
+                                          onChange={() =>
+                                            reads.forEach((m) =>
+                                              toggleRoute(m, route.path)
+                                            )
+                                          }
+                                          className="rounded"
+                                        />
+                                      )}
+                                    </div>
+                                    <div className="w-12 flex justify-center">
+                                      {writes.length > 0 && (
+                                        <input
+                                          type="checkbox"
+                                          checked={writes.every((m) =>
+                                            formAllowed.has(
+                                              routeKey(m, route.path)
+                                            )
+                                          )}
+                                          onChange={() =>
+                                            writes.forEach((m) =>
+                                              toggleRoute(m, route.path)
+                                            )
+                                          }
+                                          className="rounded"
+                                        />
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+                <p className="text-xs text-foreground-500 mt-1.5">
+                  {formAllowed.size} route(s) selected
+                </p>
+              </div>
+
+              {formError && (
+                <p className="text-danger-500 text-xs bg-danger-50 rounded-lg px-3 py-2">
+                  {formError}
+                </p>
+              )}
+            </div>
+
+            {/* Modal footer */}
+            <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-neutral-200">
+              <button
+                onClick={() => setShowModal(false)}
+                className="px-4 py-2 rounded-lg text-sm text-foreground-500 hover:text-foreground transition"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={editingKey ? handleUpdate : handleCreate}
+                disabled={submitting}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary text-white text-sm font-medium hover:bg-primary/90 disabled:opacity-60 transition"
+              >
+                {submitting ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : editingKey ? (
+                  <Check className="w-4 h-4" />
+                ) : (
+                  <Key className="w-4 h-4" />
+                )}
+                {editingKey ? "Save changes" : "Create Key"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Main Page ────────────────────────────────────────────────────────────────
+
+type Tab = "overview" | "settings" | "integrations" | "api-keys";
 
 export default function ServerPage() {
   const { data: session } = useSession();
-  const isAdmin = (session?.user as { isAdmin?: boolean; isOwner?: boolean } | undefined)?.isAdmin
-    || (session?.user as { isOwner?: boolean } | undefined)?.isOwner;
+  const isAdmin =
+    (session?.user as { isAdmin?: boolean; isOwner?: boolean } | undefined)
+      ?.isAdmin ||
+    (session?.user as { isOwner?: boolean } | undefined)?.isOwner;
 
   const [activeTab, setActiveTab] = useState<Tab>("overview");
   const [data, setData] = useState<ServerData | null>(null);
@@ -1086,16 +2095,17 @@ export default function ServerPage() {
     { id: "overview", label: "Overview", icon: Server },
     ...(isAdmin
       ? [
-        { id: "settings" as Tab, label: "Settings", icon: Settings2 },
-        { id: "integrations" as Tab, label: "Integrations", icon: Network },
-      ]
+          { id: "settings" as Tab, label: "Settings", icon: Settings2 },
+          { id: "integrations" as Tab, label: "Integrations", icon: Network },
+          { id: "api-keys" as Tab, label: "API Keys", icon: Key },
+        ]
       : []),
   ];
 
   if (loading) {
     return (
       <div className="flex items-center justify-center h-40">
-        <p className="text-vc-muted text-sm">Loading server info…</p>
+        <p className="text-foreground-500 text-sm">Loading server info…</p>
       </div>
     );
   }
@@ -1103,13 +2113,13 @@ export default function ServerPage() {
   return (
     <div className="p-6 w-full max-w-7xl mx-auto space-y-6">
       {error && (
-        <div className="bg-red-50 dark:bg-red-900/40 border border-red-300 dark:border-red-700 rounded-xl px-4 py-3 text-red-600 dark:text-red-300 text-sm">
+        <div className="bg-danger-50 border border-danger-300 rounded-xl px-4 py-3 text-danger-600 text-sm">
           {error}
         </div>
       )}
 
       {/* Tab bar */}
-      <div className="flex gap-1 bg-vc-raised border border-vc-ring rounded-xl p-1 w-fit">
+      <div className="flex gap-1 bg-background-200 border border-neutral-300 rounded-xl p-1 w-fit">
         {tabs.map(({ id, label, icon: Icon }) => (
           <button
             key={id}
@@ -1117,8 +2127,8 @@ export default function ServerPage() {
             className={cn(
               "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition",
               activeTab === id
-                ? "bg-vc-surface text-vc-text shadow-sm"
-                : "text-vc-muted hover:text-vc-text",
+                ? "bg-background-100 text-foreground shadow-sm"
+                : "text-foreground-500 hover:text-foreground"
             )}
           >
             <Icon className="w-4 h-4" />
@@ -1132,83 +2142,121 @@ export default function ServerPage() {
         <>
           {data && (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="bg-vc-surface p-5 rounded-xl border border-vc-border">
-                <div className="text-vc-muted text-xs uppercase tracking-wider mb-1">Registered Agents</div>
-                <div className="text-3xl font-bold text-vc-text">{data.stats.totalAgents}</div>
+              <div className="bg-background-100 p-5 rounded-xl border border-neutral-200">
+                <div className="text-foreground-500 text-xs uppercase tracking-wider mb-1">
+                  Registered Agents
+                </div>
+                <div className="text-3xl font-bold text-foreground">
+                  {data.stats.totalAgents}
+                </div>
               </div>
-              <div className="bg-vc-surface p-5 rounded-xl border border-vc-border">
-                <div className="text-vc-muted text-xs uppercase tracking-wider mb-1">Online Now</div>
-                <div className="text-3xl font-bold text-green-700 dark:text-green-400">{data.stats.onlineAgents}</div>
+              <div className="bg-background-100 p-5 rounded-xl border border-neutral-200">
+                <div className="text-foreground-500 text-xs uppercase tracking-wider mb-1">
+                  Online Now
+                </div>
+                <div className="text-3xl font-bold text-success-700">
+                  {data.stats.onlineAgents}
+                </div>
               </div>
-              <div className="bg-vc-surface p-5 rounded-xl border border-vc-border">
-                <div className="text-vc-muted text-xs uppercase tracking-wider mb-1">Offline</div>
-                <div className="text-3xl font-bold text-gray-500">{data.stats.offlineAgents}</div>
+              <div className="bg-background-100 p-5 rounded-xl border border-neutral-200">
+                <div className="text-foreground-500 text-xs uppercase tracking-wider mb-1">
+                  Offline
+                </div>
+                <div className="text-3xl font-bold text-neutral-500">
+                  {data.stats.offlineAgents}
+                </div>
               </div>
             </div>
           )}
 
-          <section className="bg-vc-surface rounded-xl border border-vc-border p-5">
-            <h2 className="text-sm font-semibold text-vc-text mb-4">Server VaultysID</h2>
+          <section className="bg-background-100 rounded-xl border border-neutral-200 p-5">
+            <h2 className="text-sm font-semibold text-foreground mb-4">
+              Server VaultysID
+            </h2>
             {data?.identity ? (
-              <pre className="bg-vc-raised rounded p-4 text-sm font-mono text-vc-text-2 overflow-x-auto">
+              <pre className="bg-background-200 rounded p-4 text-sm font-mono text-foreground-700 overflow-x-auto">
                 {JSON.stringify(data.identity, null, 2)}
               </pre>
             ) : (
-              <p className="text-vc-muted text-sm">Server identity not configured.</p>
+              <p className="text-foreground-500 text-sm">
+                Server identity not configured.
+              </p>
             )}
           </section>
 
           {data?.sysInfo && (
-            <section className="bg-vc-surface rounded-xl border border-vc-border overflow-hidden">
-              <div className="px-5 py-4 border-b border-vc-border flex items-center gap-2">
-                <Cpu className="w-4 h-4 text-vc-muted" />
-                <h2 className="text-sm font-semibold text-vc-text">System Info</h2>
+            <section className="bg-background-100 rounded-xl border border-neutral-200 overflow-hidden">
+              <div className="px-5 py-4 border-b border-neutral-200 flex items-center gap-2">
+                <Cpu className="w-4 h-4 text-foreground-500" />
+                <h2 className="text-sm font-semibold text-foreground">
+                  System Info
+                </h2>
               </div>
               <div className="p-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {[
                   { label: "Hostname", value: data.sysInfo.hostname },
-                  { label: "Platform", value: `${data.sysInfo.osType} ${data.sysInfo.osRelease}` },
+                  {
+                    label: "Platform",
+                    value: `${data.sysInfo.osType} ${data.sysInfo.osRelease}`,
+                  },
                   { label: "Runtime", value: data.sysInfo.platform },
                   { label: "Uptime", value: formatUptime(data.sysInfo.uptime) },
                   { label: "Version", value: data.sysInfo.version },
                   { label: "Wallet URL", value: data.walletUrl },
                 ].map(({ label, value }) => (
-                  <div key={label} className="bg-vc-raised border border-vc-ring rounded-lg p-4 min-w-0">
-                    <div className="text-vc-subtle text-xs uppercase tracking-wider mb-1">{label}</div>
-                    <div className="text-sm font-medium text-vc-text truncate" title={String(value)}>{value}</div>
+                  <div
+                    key={label}
+                    className="bg-background-200 border border-neutral-300 rounded-lg p-4 min-w-0"
+                  >
+                    <div className="text-foreground-400 text-xs uppercase tracking-wider mb-1">
+                      {label}
+                    </div>
+                    <div
+                      className="text-sm font-medium text-foreground truncate"
+                      title={String(value)}
+                    >
+                      {value}
+                    </div>
                   </div>
                 ))}
-                <div className="bg-vc-raised border border-vc-ring rounded-lg p-4 min-w-0">
-                  <div className="text-vc-subtle text-xs uppercase tracking-wider mb-1">CPU</div>
-                  <div className="text-sm font-medium text-vc-text truncate" title={data.sysInfo.cpuModel}>
+                <div className="bg-background-200 border border-neutral-300 rounded-lg p-4 min-w-0">
+                  <div className="text-foreground-400 text-xs uppercase tracking-wider mb-1">
+                    CPU
+                  </div>
+                  <div
+                    className="text-sm font-medium text-foreground truncate"
+                    title={data.sysInfo.cpuModel}
+                  >
                     {data.sysInfo.cpuCount} cores · {data.sysInfo.cpuModel}
                   </div>
                 </div>
-                <div className="bg-vc-raised border border-vc-ring rounded-lg p-4 min-w-0">
-                  <div className="text-vc-subtle text-xs uppercase tracking-wider mb-1 flex items-center gap-1">
+                <div className="bg-background-200 border border-neutral-300 rounded-lg p-4 min-w-0">
+                  <div className="text-foreground-400 text-xs uppercase tracking-wider mb-1 flex items-center gap-1">
                     <HardDrive className="w-3 h-3" /> Memory
                   </div>
-                  <div className="text-sm font-medium text-vc-text">
-                    {formatBytes(data.sysInfo.totalMem - data.sysInfo.freeMem)} / {formatBytes(data.sysInfo.totalMem)}
+                  <div className="text-sm font-medium text-foreground">
+                    {formatBytes(data.sysInfo.totalMem - data.sysInfo.freeMem)}{" "}
+                    / {formatBytes(data.sysInfo.totalMem)}
                   </div>
                 </div>
-                <div className="bg-vc-raised border border-vc-ring rounded-lg p-4 min-w-0">
-                  <div className="text-vc-subtle text-xs uppercase tracking-wider mb-1">Load Average</div>
-                  <div className="text-sm font-medium text-vc-text">
-                    {data.sysInfo.loadAvg.map((load) => load.toFixed(2)).join(" / ")}
+                <div className="bg-background-200 border border-neutral-300 rounded-lg p-4 min-w-0">
+                  <div className="text-foreground-400 text-xs uppercase tracking-wider mb-1">
+                    Load Average
+                  </div>
+                  <div className="text-sm font-medium text-foreground">
+                    {data.sysInfo.loadAvg
+                      .map((load) => load.toFixed(2))
+                      .join(" / ")}
                   </div>
                 </div>
               </div>
             </section>
           )}
-
         </>
       )}
 
       {/* ── Settings tab (admin-only) ── */}
-      {activeTab === "settings" && isAdmin && (
-        <ServerSettingsSection />
-      )}
+      {activeTab === "settings" && isAdmin && <ServerSettingsSection />}
 
       {/* ── Integrations tab (admin-only) ── */}
       {activeTab === "integrations" && isAdmin && (
@@ -1217,6 +2265,9 @@ export default function ServerPage() {
           <SmtpSection />
         </div>
       )}
+
+      {/* ── API Keys tab (admin-only) ── */}
+      {activeTab === "api-keys" && isAdmin && <ApiKeysSection />}
     </div>
   );
 }

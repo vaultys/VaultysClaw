@@ -7,6 +7,41 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 
+/**
+ * @openapi
+ * /api/invitations/{token}/delete:
+ *   post:
+ *     summary: Delete an invitation after it's been successfully claimed.
+ *     tags: [Invitations]
+ *     parameters:
+ *       - name: token
+ *         in: path
+ *         required: true
+ *         description: The token of the invitation to delete.
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Invitation successfully deleted.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *       500:
+ *         description: Failed to delete invitation.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: string
+ *                   example: Failed to delete invitation
+ */
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ token: string }> }
@@ -18,6 +53,9 @@ export async function POST(
     return NextResponse.json({ success: true });
   } catch (err) {
     console.error("Error deleting invitation:", err);
-    return NextResponse.json({ error: "Failed to delete invitation" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to delete invitation" },
+      { status: 500 }
+    );
   }
 }

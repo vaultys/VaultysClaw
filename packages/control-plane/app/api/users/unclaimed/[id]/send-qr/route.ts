@@ -10,16 +10,71 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext, forbidden, unauthorized } from "@/lib/auth-utils";
 import { UserServerChannel } from "@/lib/user-server-channel";
-import { UserDao } from "@/lib/user-dao";
-import { getSetting } from "@/lib/db";
 import { VaultysId } from "@vaultys/id";
 import { sendMail, getSmtpConfig } from "@/lib/smtp";
+import { SettingsDAO, UserDAO } from "@/db";
 
+/**
+ * @openapi
+ * /api/users/unclaimed/{id}/send-qr:
+ *   post:
+ *     summary: Send a QR code to an unclaimed user via email.
+ *     tags: [Users]
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         description: The ID of the unclaimed user.
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               sendByEmail:
+ *                 type: boolean
+ *                 description: When true, emails the QR URL to the user's email address.
+ *                 default: true
+ *     responses:
+ *       200:
+ *         description: QR code sent successfully.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 qrUrl:
+ *                   type: string
+ *                   description: The URL of the QR code.
+ *                 token:
+ *                   type: string
+ *                   description: The connection token.
+ *                 key:
+ *                   type: string
+ *                   description: The connection key.
+ *                 serverDid:
+ *                   type: string
+ *                   description: The server DID.
+ *                 emailSent:
+ *                   type: boolean
+ *                   description: Indicates if the email was sent.
+ *       400:
+ *         $ref: '#/components/responses/BadRequest'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ */
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const auth = await getAuthContext();
+  const auth = await getAuthContext(req);
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
 
@@ -28,37 +83,46 @@ export async function POST(
     sendByEmail?: boolean;
   };
 
-  const user = UserDao.getById(id);
+  const user = await UserDAO.findById(id);
   if (!user) {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
   if (user.did) {
-    return NextResponse.json({ error: "User has already claimed their account" }, { status: 400 });
+    return NextResponse.json(
+      { error: "User has already claimed their account" },
+      { status: 400 }
+    );
   }
   if (!user.email) {
-    return NextResponse.json({ error: "User has no email address" }, { status: 400 });
+    return NextResponse.json(
+      { error: "User has no email address" },
+      { status: 400 }
+    );
   }
 
   // Create a registration certificate
-  const cert = UserServerChannel.createRegistrationCertificate({
+  const cert = await UserServerChannel.createRegistrationCertificate({
     pendingUserId: user.id,
   });
   const connectionString = await UserServerChannel.startP2PSession(cert);
 
-  const serverSecret = getSetting("serverSecret");
+  const serverSecret = await SettingsDAO.get("serverSecret");
   let serverDid: string | null = null;
   if (serverSecret) {
     serverDid = VaultysId.fromSecret(serverSecret, "base64").did;
   }
 
   const didParam = serverDid ? `&did=${encodeURIComponent(serverDid)}` : "";
-  const walletUrl = getSetting("wallet_url") ?? "https://wallet.vaultys.net";
+  const walletUrl = await SettingsDAO.get("wallet_url") ?? "https://wallet.vaultys.net";
   const qrUrl = `${walletUrl}/#${connectionString}&protocol=p2p&service=auth${didParam}`;
 
   const sendByEmail = body.sendByEmail !== false;
   if (sendByEmail) {
     if (!getSmtpConfig()) {
-      return NextResponse.json({ error: "SMTP is not configured" }, { status: 400 });
+      return NextResponse.json(
+        { error: "SMTP is not configured" },
+        { status: 400 }
+      );
     }
 
     const displayName = user.name ?? user.email;
@@ -109,5 +173,9 @@ export async function POST(
 }
 
 function escapeHtml(str: string): string {
-  return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }

@@ -10,9 +10,9 @@ A **bridge** links a Vaultys Claw channel to an external messaging service. Mess
 
 Two bridge types are currently supported:
 
-| Type | Status | Direction support |
-|---|---|---|
-| **Generic webhook** | Stable | Incoming, outgoing, bidirectional |
+| Type                | Status              | Direction support                 |
+| ------------------- | ------------------- | --------------------------------- |
+| **Generic webhook** | Stable              | Incoming, outgoing, bidirectional |
 | **Microsoft Teams** | Preview (Graph API) | Incoming, outgoing, bidirectional |
 
 ---
@@ -58,15 +58,15 @@ POST /api/channels/:channelId/bridges
 }
 ```
 
-| Field | Description |
-|---|---|
-| `externalChannelId` | An identifier you choose; must be unique per `(channelId, externalService)` tuple |
-| `externalChannelName` | Human-readable label shown in the UI |
-| `externalWorkspaceId` | Logical group identifier (e.g., your CI platform name) |
-| `syncDirection` | `"incoming"`, `"outgoing"`, or `"bidirectional"` |
-| `config.webhookUrl` | Unused for `webhook` type (leave empty) |
-| `config.outgoingUrl` | URL the control plane POSTs to for outgoing messages |
-| `config.secret` | Shared secret for HMAC-SHA256 verification |
+| Field                 | Description                                                                       |
+| --------------------- | --------------------------------------------------------------------------------- |
+| `externalChannelId`   | An identifier you choose; must be unique per `(channelId, externalService)` tuple |
+| `externalChannelName` | Human-readable label shown in the UI                                              |
+| `externalWorkspaceId` | Logical group identifier (e.g., your CI platform name)                            |
+| `syncDirection`       | `"incoming"`, `"outgoing"`, or `"bidirectional"`                                  |
+| `config.webhookUrl`   | Unused for `webhook` type (leave empty)                                           |
+| `config.outgoingUrl`  | URL the control plane POSTs to for outgoing messages                              |
+| `config.secret`       | Shared secret for HMAC-SHA256 verification                                        |
 
 :::caution Keep the secret safe
 The `config` field is **never returned by the API** — once saved, retrieve the secret from wherever you stored it. If lost, delete the bridge and recreate it with a new secret.
@@ -95,11 +95,11 @@ Configure this URL in your external service's webhook settings. Every request to
 }
 ```
 
-| Field | Required | Description |
-|---|---|---|
-| `message` | Yes | The message content posted to the channel |
-| `author` | No | DID or name of the sender. Defaults to `webhook:external`. |
-| `metadata` | No | Arbitrary JSON stored as message metadata |
+| Field      | Required | Description                                                |
+| ---------- | -------- | ---------------------------------------------------------- |
+| `message`  | Yes      | The message content posted to the channel                  |
+| `author`   | No       | DID or name of the sender. Defaults to `webhook:external`. |
+| `metadata` | No       | Arbitrary JSON stored as message metadata                  |
 
 ### Outgoing payload format
 
@@ -144,14 +144,21 @@ requests.post(
 const crypto = require("crypto");
 
 const secret = "a-random-secret-at-least-32-chars";
-const body = JSON.stringify({ message: "Deploy started", author: "deploy-bot" });
-const sig = "sha256=" + crypto.createHmac("sha256", secret).update(body).digest("hex");
-
-await fetch("https://vaultysclaw.acme.com/api/bridges/webhook/<bridgeId>/incoming", {
-  method: "POST",
-  headers: { "Content-Type": "application/json", "X-Signature": sig },
-  body,
+const body = JSON.stringify({
+  message: "Deploy started",
+  author: "deploy-bot",
 });
+const sig =
+  "sha256=" + crypto.createHmac("sha256", secret).update(body).digest("hex");
+
+await fetch(
+  "https://vaultysclaw.acme.com/api/bridges/webhook/<bridgeId>/incoming",
+  {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Signature": sig },
+    body,
+  }
+);
 ```
 
 ---
@@ -203,13 +210,13 @@ POST /api/channels/:channelId/bridges
 }
 ```
 
-| Field | Description |
-|---|---|
-| `externalChannelId` | The Teams channel ID (from Teams client: `...` → **Get link to channel**) |
-| `externalWorkspaceId` | Your Azure AD tenant ID |
-| `config.accessToken` | OAuth 2.0 access token for the Microsoft Graph API |
-| `config.tenantId` | Azure AD tenant ID |
-| `config.botId` | App registration client ID of your Teams bot |
+| Field                 | Description                                                               |
+| --------------------- | ------------------------------------------------------------------------- |
+| `externalChannelId`   | The Teams channel ID (from Teams client: `...` → **Get link to channel**) |
+| `externalWorkspaceId` | Your Azure AD tenant ID                                                   |
+| `config.accessToken`  | OAuth 2.0 access token for the Microsoft Graph API                        |
+| `config.tenantId`     | Azure AD tenant ID                                                        |
+| `config.botId`        | App registration client ID of your Teams bot                              |
 
 ### Incoming Teams webhook URL
 
@@ -319,10 +326,10 @@ async fanOutMessage(channelId: string, message: MessagePayload): Promise<void> {
 
 ## Troubleshooting
 
-| Symptom | Likely cause | Fix |
-|---|---|---|
-| Incoming webhook returns `401` | Wrong or missing `X-Signature` header | Recompute HMAC over the raw body string (not re-serialised JSON) |
-| Incoming webhook returns `403` | Bridge `syncDirection` is `"outgoing"` only | Change direction to `"incoming"` or `"bidirectional"` |
-| Incoming webhook returns `403` | `isSyncEnabled` is `false` | Re-enable the bridge via PATCH |
-| Outgoing messages not delivered | `outgoingUrl` is unreachable | Check the external URL; view server logs for `[WebhookGateway] sendOutgoing failed` |
-| Teams messages not appearing | Bot not connected or access token expired | Regenerate an access token and update via PATCH + `config` field |
+| Symptom                         | Likely cause                                | Fix                                                                                 |
+| ------------------------------- | ------------------------------------------- | ----------------------------------------------------------------------------------- |
+| Incoming webhook returns `401`  | Wrong or missing `X-Signature` header       | Recompute HMAC over the raw body string (not re-serialised JSON)                    |
+| Incoming webhook returns `403`  | Bridge `syncDirection` is `"outgoing"` only | Change direction to `"incoming"` or `"bidirectional"`                               |
+| Incoming webhook returns `403`  | `isSyncEnabled` is `false`                  | Re-enable the bridge via PATCH                                                      |
+| Outgoing messages not delivered | `outgoingUrl` is unreachable                | Check the external URL; view server logs for `[WebhookGateway] sendOutgoing failed` |
+| Teams messages not appearing    | Bot not connected or access token expired   | Regenerate an access token and update via PATCH + `config` field                    |

@@ -53,10 +53,10 @@ In your app registration, go to **Certificates & secrets** → **New client secr
 
 Go to **API permissions** → **Add a permission** → **Microsoft Graph** → **Application permissions**. Add:
 
-| Permission | Why |
-|---|---|
-| `User.Read.All` | Read user profiles (name, email, UPN) |
-| `Group.Read.All` | List groups and their members |
+| Permission       | Why                                   |
+| ---------------- | ------------------------------------- |
+| `User.Read.All`  | Read user profiles (name, email, UPN) |
+| `Group.Read.All` | List groups and their members         |
 
 :::warning Application permissions, not Delegated
 You must add these as **Application** permissions (the second tab), not Delegated permissions. Delegated permissions require a signed-in user, which is incompatible with the server-to-server sync flow.
@@ -68,19 +68,19 @@ After adding both permissions, click **Grant admin consent for [your tenant]**. 
 
 In the control plane, go to **Server settings** → **Integrations** → **Microsoft Entra ID** and fill in the three fields:
 
-| Field | Where to find it |
-|---|---|
-| **Tenant ID** | Azure Portal → App registration → Overview → *Directory (tenant) ID* |
-| **Client ID** | Azure Portal → App registration → Overview → *Application (client) ID* |
-| **Client Secret** | The value you copied when creating the secret |
+| Field             | Where to find it                                                       |
+| ----------------- | ---------------------------------------------------------------------- |
+| **Tenant ID**     | Azure Portal → App registration → Overview → _Directory (tenant) ID_   |
+| **Client ID**     | Azure Portal → App registration → Overview → _Application (client) ID_ |
+| **Client Secret** | The value you copied when creating the secret                          |
 
 Click **Save**, then **Check connection**. The diagnostic panel runs three checks:
 
-| Check | What it verifies |
-|---|---|
-| Obtain access token | Credentials are correct and the app exists in the tenant |
-| Read users (`User.Read.All`) | Application permission granted and admin-consented |
-| Read groups (`Group.Read.All`) | Application permission granted and admin-consented |
+| Check                          | What it verifies                                         |
+| ------------------------------ | -------------------------------------------------------- |
+| Obtain access token            | Credentials are correct and the app exists in the tenant |
+| Read users (`User.Read.All`)   | Application permission granted and admin-consented       |
+| Read groups (`Group.Read.All`) | Application permission granted and admin-consented       |
 
 Each failing check shows an actionable hint — for example, distinguishing between a bad client secret and a missing admin consent.
 
@@ -98,10 +98,10 @@ Members who appear in multiple selected groups are deduplicated automatically.
 
 For each selected group, choose how to handle realm membership:
 
-| Option | Effect |
-|---|---|
-| *(no mapping)* | Users are imported without realm assignment |
-| Existing realm | Users are added to that realm |
+| Option                     | Effect                                                                                                                 |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| _(no mapping)_             | Users are imported without realm assignment                                                                            |
+| Existing realm             | Users are added to that realm                                                                                          |
 | **Create from group name** | A new realm is created using the group's display name as the slug; re-syncing is idempotent — the same realm is reused |
 
 ### Step 3 — Confirm and sync
@@ -134,14 +134,14 @@ Click any row in the Unclaimed tab to open the user's detail page (`/users/unreg
 
 Go to **Server settings** → **Integrations** → **Email (SMTP)** and fill in your mail server details:
 
-| Field | Example |
-|---|---|
-| Host | `smtp.example.com` |
-| Port | `587` |
-| Username | `noreply@example.com` |
-| Password | *(your SMTP password)* |
-| From address | `noreply@example.com` |
-| TLS | Enable for port 587 (STARTTLS) |
+| Field        | Example                        |
+| ------------ | ------------------------------ |
+| Host         | `smtp.example.com`             |
+| Port         | `587`                          |
+| Username     | `noreply@example.com`          |
+| Password     | _(your SMTP password)_         |
+| From address | `noreply@example.com`          |
+| TLS          | Enable for port 587 (STARTTLS) |
 
 Click **Test connection** to send a test message and verify the settings before enabling email delivery.
 
@@ -158,10 +158,10 @@ You can run the sync wizard as often as needed:
 
 ## Troubleshooting
 
-| Symptom | Likely cause | Fix |
-|---|---|---|
-| *Check connection* fails at "Obtain access token" | Wrong tenant ID, client ID, or expired secret | Re-check the values in Azure; generate a new secret if needed |
-| Token obtained but user/group check fails with 403 | Permissions not granted or no admin consent | Re-add the permission as Application type and click Grant admin consent |
-| Sync creates 0 users | Group has no direct members (nested groups are not expanded) | Add users directly to the group, or sync the nested group separately |
-| User's "Send by email" button is greyed out | SMTP not configured, or user has no email | Configure SMTP in Integrations, or check the user's email field |
-| User scans QR but nothing happens | QR session expired (4-minute timeout) | Click Show QR again to generate a fresh session |
+| Symptom                                            | Likely cause                                                 | Fix                                                                     |
+| -------------------------------------------------- | ------------------------------------------------------------ | ----------------------------------------------------------------------- |
+| _Check connection_ fails at "Obtain access token"  | Wrong tenant ID, client ID, or expired secret                | Re-check the values in Azure; generate a new secret if needed           |
+| Token obtained but user/group check fails with 403 | Permissions not granted or no admin consent                  | Re-add the permission as Application type and click Grant admin consent |
+| Sync creates 0 users                               | Group has no direct members (nested groups are not expanded) | Add users directly to the group, or sync the nested group separately    |
+| User's "Send by email" button is greyed out        | SMTP not configured, or user has no email                    | Configure SMTP in Integrations, or check the user's email field         |
+| User scans QR but nothing happens                  | QR session expired (4-minute timeout)                        | Click Show QR again to generate a fresh session                         |

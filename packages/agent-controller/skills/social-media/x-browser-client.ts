@@ -24,8 +24,7 @@ import os from "os";
 
 function getSessionPath(): string {
   const dataDir =
-    process.env.VAULTYS_DATA_DIR ||
-    path.join(os.homedir(), ".vaultysclaw");
+    process.env.VAULTYS_DATA_DIR || path.join(os.homedir(), ".vaultysclaw");
   const dir = path.join(dataDir, "skills", "social-media");
   fs.mkdirSync(dir, { recursive: true });
   return path.join(dir, "x-session.json");
@@ -57,7 +56,9 @@ export async function setupXSession(timeoutMs = 300_000): Promise<void> {
     const context = await browser.newContext();
     const page = await context.newPage();
 
-    console.log("[X-browser] Opening X login page — please log in within 5 minutes.");
+    console.log(
+      "[X-browser] Opening X login page — please log in within 5 minutes."
+    );
     await page.goto("https://x.com/login", { waitUntil: "domcontentloaded" });
 
     // Wait until the user lands on the home feed (URL becomes x.com/home)
@@ -162,8 +163,12 @@ export async function postTweet(text: string): Promise<PostResult> {
     try {
       await page.goto("https://x.com/home", { waitUntil: "domcontentloaded" });
       // The first tweet in the feed after posting is usually the one we just posted
-      const firstTweetLink = page.locator('article[data-testid="tweet"] a[href*="/status/"]').first();
-      const href = await firstTweetLink.getAttribute("href", { timeout: 5_000 });
+      const firstTweetLink = page
+        .locator('article[data-testid="tweet"] a[href*="/status/"]')
+        .first();
+      const href = await firstTweetLink.getAttribute("href", {
+        timeout: 5_000,
+      });
       if (href) tweetUrl = `https://x.com${href}`;
     } catch {
       // Non-critical — we still posted successfully

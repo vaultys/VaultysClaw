@@ -19,7 +19,10 @@ class MockNextRequest {
   body?: any;
   headers: Record<string, string>;
 
-  constructor(url: string, init?: { method?: string; body?: string; headers?: Record<string, string> }) {
+  constructor(
+    url: string,
+    init?: { method?: string; body?: string; headers?: Record<string, string> }
+  ) {
     this.url = url;
     this.method = init?.method || "GET";
     this.body = init?.body ? JSON.parse(init.body) : undefined;
@@ -32,10 +35,7 @@ class MockNextRequest {
 }
 
 // Helper to create mock request
-function createMockRequest(
-  method: string,
-  body?: any
-): MockNextRequest {
+function createMockRequest(method: string, body?: any): MockNextRequest {
   const url = "http://localhost:3000/api/workflows";
   const request = new MockNextRequest(url, {
     method,

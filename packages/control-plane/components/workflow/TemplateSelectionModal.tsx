@@ -58,27 +58,30 @@ export function TemplateSelectionModal({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-vc-surface rounded-lg shadow-xl w-full max-w-2xl max-h-screen overflow-y-auto border border-vc-border">
+      <div className="bg-background-100 rounded-lg shadow-xl w-full max-w-2xl max-h-screen overflow-y-auto border border-neutral-200">
         {/* Header */}
-        <div className="flex justify-between items-center px-6 py-4 border-b border-vc-border sticky top-0 bg-vc-surface">
-          <h2 className="text-xl font-bold text-vc-text">Workflow Templates</h2>
+        <div className="flex justify-between items-center px-6 py-4 border-b border-neutral-200 sticky top-0 bg-background-100">
+          <h2 className="text-xl font-bold text-foreground">
+            Workflow Templates
+          </h2>
           <button
             onClick={onClose}
-            className="text-vc-subtle hover:text-vc-text"
+            className="text-foreground-400 hover:text-foreground"
           >
             <X size={24} />
           </button>
         </div>
 
         {/* Category Filter */}
-        <div className="px-6 py-4 border-b border-vc-border">
+        <div className="px-6 py-4 border-b border-neutral-200">
           <div className="flex flex-wrap gap-2">
             <button
               onClick={() => setSelectedCategory(null)}
-              className={`px-3 py-1 rounded-full text-sm font-medium transition ${selectedCategory === null
-                  ? "bg-indigo-600 text-white"
-                  : "bg-vc-raised text-vc-text-2 hover:bg-vc-border"
-                }`}
+              className={`px-3 py-1 rounded-full text-sm font-medium transition ${
+                selectedCategory === null
+                  ? "bg-primary-600 text-white"
+                  : "bg-background-200 text-foreground-700 hover:bg-neutral-200"
+              }`}
             >
               All
             </button>
@@ -86,10 +89,11 @@ export function TemplateSelectionModal({
               <button
                 key={category}
                 onClick={() => setSelectedCategory(category)}
-                className={`px-3 py-1 rounded-full text-sm font-medium transition capitalize ${selectedCategory === category
-                    ? "bg-indigo-600 text-white"
-                    : "bg-vc-raised text-vc-text-2 hover:bg-vc-border"
-                  }`}
+                className={`px-3 py-1 rounded-full text-sm font-medium transition capitalize ${
+                  selectedCategory === category
+                    ? "bg-primary-600 text-white"
+                    : "bg-background-200 text-foreground-700 hover:bg-neutral-200"
+                }`}
               >
                 {category}
               </button>
@@ -100,11 +104,15 @@ export function TemplateSelectionModal({
         {/* Templates Grid */}
         <div className="px-6 py-6">
           {loading && (
-            <div className="text-center text-vc-muted">Loading templates...</div>
+            <div className="text-center text-foreground-500">
+              Loading templates...
+            </div>
           )}
 
           {!loading && filteredTemplates.length === 0 && (
-            <div className="text-center text-vc-muted">No templates found</div>
+            <div className="text-center text-foreground-500">
+              No templates found
+            </div>
           )}
 
           {!loading && filteredTemplates.length > 0 && (
@@ -116,28 +124,31 @@ export function TemplateSelectionModal({
                     onSelectTemplate(template.id);
                     onClose();
                   }}
-                  className="p-4 border border-vc-border rounded-lg hover:border-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition text-left"
+                  className="p-4 border border-neutral-200 rounded-lg hover:border-primary-500 hover:bg-primary-50:bg-primary-900/20 transition text-left"
                 >
                   <div className="flex items-start gap-3">
                     <div className="flex-1">
-                      <h3 className="font-semibold text-vc-text">
+                      <h3 className="font-semibold text-foreground">
                         {template.name}
                       </h3>
-                      <p className="text-sm text-vc-muted mt-1">
+                      <p className="text-sm text-foreground-500 mt-1">
                         {template.description}
                       </p>
                       <div className="flex items-center gap-2 mt-2 flex-wrap">
-                        <span className="px-2 py-1 bg-vc-raised text-vc-text-2 text-xs rounded capitalize">
+                        <span className="px-2 py-1 bg-background-200 text-foreground-700 text-xs rounded capitalize">
                           {template.category}
                         </span>
                         {template.suggestedCron && (
-                          <span className="px-2 py-1 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 text-xs rounded font-mono">
+                          <span className="px-2 py-1 bg-success-100 text-success-700 text-xs rounded font-mono">
                             ⏰ {template.suggestedCron}
                           </span>
                         )}
                       </div>
                     </div>
-                    <Copy size={18} className="text-vc-subtle flex-shrink-0 mt-1" />
+                    <Copy
+                      size={18}
+                      className="text-foreground-400 flex-shrink-0 mt-1"
+                    />
                   </div>
                 </button>
               ))}

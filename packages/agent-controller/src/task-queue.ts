@@ -35,7 +35,7 @@ const logger = pino({ name: "task-queue" });
 
 export type TaskExecutor = (
   action: string,
-  params: Record<string, unknown>,
+  params: Record<string, unknown>
 ) => Promise<unknown>;
 
 // ---------------------------------------------------------------------------
@@ -61,13 +61,19 @@ export interface TaskQueueOptions {
   /** Base delay for exponential backoff on retries (ms). Default 5000. */
   retryBaseDelayMs?: number;
   /** Called when a task finishes (success, failed, or dead). */
-  onTaskUpdate?: (task: { id: string; action: string; status: TaskStatus; result?: unknown; error?: string }) => void;
+  onTaskUpdate?: (task: {
+    id: string;
+    action: string;
+    status: TaskStatus;
+    result?: unknown;
+    error?: string;
+  }) => void;
 }
 
 export class TaskQueue {
   private executor: TaskExecutor;
-  private opts: Required<Omit<TaskQueueOptions, 'onTaskUpdate'>>;
-  private onTaskUpdate?: TaskQueueOptions['onTaskUpdate'];
+  private opts: Required<Omit<TaskQueueOptions, "onTaskUpdate">>;
+  private onTaskUpdate?: TaskQueueOptions["onTaskUpdate"];
   private running = 0;
   private pollTimer: ReturnType<typeof setInterval> | null = null;
   private active = false;
@@ -88,7 +94,7 @@ export class TaskQueue {
   enqueue(
     action: string,
     params: Record<string, unknown> = {},
-    opts: EnqueueOptions = {},
+    opts: EnqueueOptions = {}
   ): string {
     const id = randomUUID();
     insertTask({
@@ -120,7 +126,10 @@ export class TaskQueue {
     if (this.active) return;
     this.active = true;
     this.pollTimer = setInterval(() => this.poll(), this.opts.pollIntervalMs);
-    logger.info({ pollIntervalMs: this.opts.pollIntervalMs }, "Task queue worker started");
+    logger.info(
+      { pollIntervalMs: this.opts.pollIntervalMs },
+      "Task queue worker started"
+    );
     // Run immediately on start
     this.poll();
   }
@@ -142,20 +151,30 @@ export class TaskQueue {
       const task = getNextPendingTask();
       if (!task) break;
       this.running++;
-      this.runTask(task).finally(() => { this.running--; });
+      this.runTask(task).finally(() => {
+        this.running--;
+      });
     }
   }
 
   private async runTask(task: TaskRow): Promise<void> {
     setTaskRunning(task.id);
-    logger.info({ id: task.id, action: task.action, attempt: task.retry_count + 1 }, "Running task");
+    logger.info(
+      { id: task.id, action: task.action, attempt: task.retry_count + 1 },
+      "Running task"
+    );
 
     try {
       const params = JSON.parse(task.params) as Record<string, unknown>;
       const result = await this.executor(task.action, params);
       setTaskCompleted(task.id, result);
       logger.info({ id: task.id, action: task.action }, "Task completed");
-      this.onTaskUpdate?.({ id: task.id, action: task.action, status: "success", result });
+      this.onTaskUpdate?.({
+        id: task.id,
+        action: task.action,
+        status: "success",
+        result,
+      });
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : String(err);
       setTaskFailed(task.id, errMsg);
@@ -167,17 +186,35 @@ export class TaskQueue {
         // Exponential backoff: base * 2^attempt (capped at 10 min)
         const delay = Math.min(
           this.opts.retryBaseDelayMs * Math.pow(2, task.retry_count),
-          600_000,
+          600_000
         );
         requeueFailedTask(task.id, delay);
         logger.warn(
-          { id: task.id, action: task.action, attempt: task.retry_count + 1, retryIn: delay },
-          "Task failed — will retry",
+          {
+            id: task.id,
+            action: task.action,
+            attempt: task.retry_count + 1,
+            retryIn: delay,
+          },
+          "Task failed — will retry"
         );
-        this.onTaskUpdate?.({ id: task.id, action: task.action, status: "failed", error: errMsg });
+        this.onTaskUpdate?.({
+          id: task.id,
+          action: task.action,
+          status: "failed",
+          error: errMsg,
+        });
       } else {
-        logger.error({ id: task.id, action: task.action, error: errMsg }, "Task dead — max retries exhausted");
-        this.onTaskUpdate?.({ id: task.id, action: task.action, status: "dead", error: errMsg });
+        logger.error(
+          { id: task.id, action: task.action, error: errMsg },
+          "Task dead — max retries exhausted"
+        );
+        this.onTaskUpdate?.({
+          id: task.id,
+          action: task.action,
+          status: "dead",
+          error: errMsg,
+        });
       }
     }
   }

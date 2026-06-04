@@ -25,7 +25,9 @@ export function getDb(): Database.Database {
 
   // Resolve path lazily so VAULTYS_DB_PATH set by server.ts before app.prepare() is honoured.
   // A module-level constant would be evaluated at import time (before server.ts runs its setup).
-  const dbPath = process.env.VAULTYS_DB_PATH || path.resolve(process.cwd(), "data", "vaultysclaw.db");
+  const dbPath =
+    process.env.VAULTYS_DB_PATH ||
+    path.resolve(process.cwd(), "data", "vaultysclaw.db");
 
   // Ensure the data directory exists
   const dir = path.dirname(dbPath);
@@ -65,30 +67,44 @@ export function resetFileStorageCache(): void {
 }
 
 async function _initFileStorage(): Promise<FileStorage> {
-  const { decryptSecret } = await import('./vault');
-  const storageType = getSetting('storage_type') || 'filesystem';
+  const { decryptSecret } = await import("./vault");
+  const storageType = getSetting("storage_type") || "filesystem";
 
-  if (storageType === 's3') {
-    const region = getSetting('s3_region') ?? 'us-east-1';
-    const bucket = getSetting('s3_bucket') ?? '';
-    const endpoint = getSetting('s3_endpoint') ?? undefined;
-    const encAccessKey = getSetting('s3_access_key_id_enc');
-    const encSecretKey = getSetting('s3_secret_access_key_enc');
+  if (storageType === "s3") {
+    const region = getSetting("s3_region") ?? "us-east-1";
+    const bucket = getSetting("s3_bucket") ?? "";
+    const endpoint = getSetting("s3_endpoint") ?? undefined;
+    const encAccessKey = getSetting("s3_access_key_id_enc");
+    const encSecretKey = getSetting("s3_secret_access_key_enc");
 
     if (!bucket || !encAccessKey || !encSecretKey) {
-      console.warn('[storage] S3 selected but credentials missing — falling back to filesystem');
+      console.warn(
+        "[storage] S3 selected but credentials missing — falling back to filesystem"
+      );
     } else {
       try {
         const accessKeyId = await decryptSecret(encAccessKey);
         const secretAccessKey = await decryptSecret(encSecretKey);
-        return new S3Storage({ enabled: true, region, bucket, endpoint, accessKeyId, secretAccessKey });
+        return new S3Storage({
+          enabled: true,
+          region,
+          bucket,
+          endpoint,
+          accessKeyId,
+          secretAccessKey,
+        });
       } catch (err) {
-        console.error('[storage] Failed to decrypt S3 credentials — falling back to filesystem', err);
+        console.error(
+          "[storage] Failed to decrypt S3 credentials — falling back to filesystem",
+          err
+        );
       }
     }
   }
 
-  const dir = getSetting('storage_dir') || path.resolve(process.cwd(), 'data', 'knowledge-files');
+  const dir =
+    getSetting("storage_dir") ||
+    path.resolve(process.cwd(), "data", "knowledge-files");
   return new FilesystemStorage(dir);
 }
 
@@ -536,6 +552,23 @@ function createTables(db: Database.Database): void {
     );
     CREATE INDEX IF NOT EXISTS idx_credentials_realm ON credentials(realm_id);
     CREATE INDEX IF NOT EXISTS idx_credentials_service ON credentials(service);
+
+    CREATE TABLE IF NOT EXISTS api_keys (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      key_hash TEXT NOT NULL UNIQUE,
+      key_prefix TEXT NOT NULL,
+      allowed_routes TEXT NOT NULL DEFAULT '[]',
+      realm_id TEXT REFERENCES realms(id) ON DELETE SET NULL,
+      is_realm_admin INTEGER NOT NULL DEFAULT 0,
+      created_by TEXT NOT NULL,
+      created_at INTEGER NOT NULL DEFAULT (CAST(strftime('%s', 'now') AS INTEGER)),
+      last_used_at INTEGER,
+      expires_at INTEGER,
+      is_active INTEGER NOT NULL DEFAULT 1
+    );
+    CREATE INDEX IF NOT EXISTS idx_api_keys_hash ON api_keys(key_hash);
+    CREATE INDEX IF NOT EXISTS idx_api_keys_realm ON api_keys(realm_id);
   `);
 
   // Add content column to realm_skills for existing databases that predate this field
@@ -547,21 +580,39 @@ function createTables(db: Database.Database): void {
 
   // Add schedule columns to workflows for existing databases
   try {
-    db.prepare("ALTER TABLE workflows ADD COLUMN schedule_cron TEXT DEFAULT NULL").run();
-  } catch { /* already exists */ }
+    db.prepare(
+      "ALTER TABLE workflows ADD COLUMN schedule_cron TEXT DEFAULT NULL"
+    ).run();
+  } catch {
+    /* already exists */
+  }
   try {
-    db.prepare("ALTER TABLE workflows ADD COLUMN schedule_enabled INTEGER NOT NULL DEFAULT 0").run();
-  } catch { /* already exists */ }
+    db.prepare(
+      "ALTER TABLE workflows ADD COLUMN schedule_enabled INTEGER NOT NULL DEFAULT 0"
+    ).run();
+  } catch {
+    /* already exists */
+  }
   try {
-    db.prepare("ALTER TABLE workflows ADD COLUMN schedule_last_run TEXT DEFAULT NULL").run();
-  } catch { /* already exists */ }
+    db.prepare(
+      "ALTER TABLE workflows ADD COLUMN schedule_last_run TEXT DEFAULT NULL"
+    ).run();
+  } catch {
+    /* already exists */
+  }
   try {
-    db.prepare("ALTER TABLE workflows ADD COLUMN schedule_next_run TEXT DEFAULT NULL").run();
-  } catch { /* already exists */ }
+    db.prepare(
+      "ALTER TABLE workflows ADD COLUMN schedule_next_run TEXT DEFAULT NULL"
+    ).run();
+  } catch {
+    /* already exists */
+  }
 }
 
 function seedDefaults(db: Database.Database): void {
-  const realmCount = (db.prepare("SELECT COUNT(*) AS n FROM realms").get() as { n: number }).n;
+  const realmCount = (
+    db.prepare("SELECT COUNT(*) AS n FROM realms").get() as { n: number }
+  ).n;
   if (realmCount === 0) {
     const id = crypto.randomUUID();
     db.prepare(
@@ -571,34 +622,48 @@ function seedDefaults(db: Database.Database): void {
 
   // Seed the org skill catalog with the built-in skills that ship with the agent-controller.
   // Uses INSERT OR IGNORE so re-runs on existing DBs are safe.
-  const builtInSkills: Array<{ name: string; description: string; version: string; icon: string; content: string }> = [
+  const builtInSkills: Array<{
+    name: string;
+    description: string;
+    version: string;
+    icon: string;
+    content: string;
+  }> = [
     {
       name: "social-media",
-      description: "Post content to X (Twitter) via Playwright browser automation. Requires a one-time browser login; subsequent runs are headless.",
+      description:
+        "Post content to X (Twitter) via Playwright browser automation. Requires a one-time browser login; subsequent runs are headless.",
       version: "1.0.0",
       icon: "📣",
-      content: "## Social Media\n\nYou have access to X (Twitter) social-media tools.\n\n- Use `check_x_session` to verify setup.\n- Use `setup_x_session` for first-time authentication (opens a browser).\n- Use `post_to_x` to publish a tweet (max 280 chars, **requires approval**).\n\nTweets must be ≤280 characters. Keep them engaging and on-brand.",
+      content:
+        "## Social Media\n\nYou have access to X (Twitter) social-media tools.\n\n- Use `check_x_session` to verify setup.\n- Use `setup_x_session` for first-time authentication (opens a browser).\n- Use `post_to_x` to publish a tweet (max 280 chars, **requires approval**).\n\nTweets must be ≤280 characters. Keep them engaging and on-brand.",
     },
     {
       name: "web-scraper",
-      description: "Scrape web pages and extract their text content. Useful for research, monitoring, and content ingestion tasks.",
+      description:
+        "Scrape web pages and extract their text content. Useful for research, monitoring, and content ingestion tasks.",
       version: "1.0.0",
       icon: "🌐",
-      content: "## Web Scraper\n\nYou can scrape public web pages using the `scrape_page` tool.\n\n- Provide a valid URL.\n- Returns the page title and cleaned text content.\n- Respects robots.txt by default.",
+      content:
+        "## Web Scraper\n\nYou can scrape public web pages using the `scrape_page` tool.\n\n- Provide a valid URL.\n- Returns the page title and cleaned text content.\n- Respects robots.txt by default.",
     },
     {
       name: "json-api",
-      description: "Make authenticated or anonymous JSON API calls to external HTTP endpoints. Supports GET, POST, PUT, PATCH, DELETE.",
+      description:
+        "Make authenticated or anonymous JSON API calls to external HTTP endpoints. Supports GET, POST, PUT, PATCH, DELETE.",
       version: "1.0.0",
       icon: "🔌",
-      content: "## JSON API\n\nYou can call external HTTP APIs using the `api_call_json` tool.\n\n- Specify the URL, method, optional headers, and body.\n- The response is returned as a parsed JSON object.\n- Use for reading data from REST APIs or triggering webhooks.",
+      content:
+        "## JSON API\n\nYou can call external HTTP APIs using the `api_call_json` tool.\n\n- Specify the URL, method, optional headers, and body.\n- The response is returned as a parsed JSON object.\n- Use for reading data from REST APIs or triggering webhooks.",
     },
     {
       name: "calculator",
-      description: "Evaluate arithmetic and algebraic expressions. Useful for quick calculations inside agent workflows.",
+      description:
+        "Evaluate arithmetic and algebraic expressions. Useful for quick calculations inside agent workflows.",
       version: "1.0.0",
       icon: "🧮",
-      content: "## Calculator\n\nYou can evaluate math expressions using the `calculate` tool.\n\n- Supports standard arithmetic, parentheses, powers, and common functions (sqrt, abs, etc.).\n- Returns the numeric result.",
+      content:
+        "## Calculator\n\nYou can evaluate math expressions using the `calculate` tool.\n\n- Supports standard arithmetic, parentheses, powers, and common functions (sqrt, abs, etc.).\n- Returns the numeric result.",
     },
   ];
 
@@ -606,7 +671,15 @@ function seedDefaults(db: Database.Database): void {
     "INSERT OR IGNORE INTO org_skills (id, name, description, version, icon, content, config_schema) VALUES (?, ?, ?, ?, ?, ?, ?)"
   );
   for (const skill of builtInSkills) {
-    insert.run(crypto.randomUUID(), skill.name, skill.description, skill.version, skill.icon, skill.content, "{}");
+    insert.run(
+      crypto.randomUUID(),
+      skill.name,
+      skill.description,
+      skill.version,
+      skill.icon,
+      skill.content,
+      "{}"
+    );
   }
 }
 
@@ -622,14 +695,17 @@ function ensureServerIdentity(_db: Database.Database): void {
  */
 export async function initServerIdentity(): Promise<void> {
   const d = getDb();
-  const row = d.prepare("SELECT value FROM settings WHERE key = ?").get("serverSecret") as
-    | { value: string }
-    | undefined;
+  const row = d
+    .prepare("SELECT value FROM settings WHERE key = ?")
+    .get("serverSecret") as { value: string } | undefined;
 
   if (!row) {
     const vid = (await VaultysId.generateMachine()).toVersion(1);
     const secret = vid.getSecret("base64");
-    d.prepare("INSERT INTO settings (key, value) VALUES (?, ?)").run("serverSecret", secret);
+    d.prepare("INSERT INTO settings (key, value) VALUES (?, ?)").run(
+      "serverSecret",
+      secret
+    );
   }
 }
 
@@ -649,7 +725,10 @@ export function getSetting(key: string): string | undefined {
  */
 export function setSetting(key: string, value: string): void {
   const d = getDb();
-  d.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)").run(key, value);
+  d.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)").run(
+    key,
+    value
+  );
 }
 
 // --- Docling config ---
@@ -664,33 +743,37 @@ export interface DoclingConfig {
 }
 
 export function getDoclingConfig(): DoclingConfig | null {
-  const url = getSetting('docling_url');
+  const url = getSetting("docling_url");
   if (!url) return null;
   return {
     url,
-    enabled: getSetting('docling_enabled') === 'true',
-    sourceEndpoint: getSetting('docling_source_endpoint') || undefined,
-    fileEndpoint:   getSetting('docling_file_endpoint')   || undefined,
+    enabled: getSetting("docling_enabled") === "true",
+    sourceEndpoint: getSetting("docling_source_endpoint") || undefined,
+    fileEndpoint: getSetting("docling_file_endpoint") || undefined,
   };
 }
 
 export function setDoclingConfig(cfg: DoclingConfig): void {
-  setSetting('docling_url', cfg.url.trim().replace(/\/$/, ''));
-  setSetting('docling_enabled', cfg.enabled ? 'true' : 'false');
-  if (cfg.sourceEndpoint) setSetting('docling_source_endpoint', cfg.sourceEndpoint);
-  if (cfg.fileEndpoint)   setSetting('docling_file_endpoint',   cfg.fileEndpoint);
+  setSetting("docling_url", cfg.url.trim().replace(/\/$/, ""));
+  setSetting("docling_enabled", cfg.enabled ? "true" : "false");
+  if (cfg.sourceEndpoint)
+    setSetting("docling_source_endpoint", cfg.sourceEndpoint);
+  if (cfg.fileEndpoint) setSetting("docling_file_endpoint", cfg.fileEndpoint);
 }
 
 /** Update only the discovered API endpoints (called after a successful test) */
-export function setDoclingEndpoints(sourceEndpoint: string, fileEndpoint: string): void {
-  setSetting('docling_source_endpoint', sourceEndpoint);
-  setSetting('docling_file_endpoint',   fileEndpoint);
+export function setDoclingEndpoints(
+  sourceEndpoint: string,
+  fileEndpoint: string
+): void {
+  setSetting("docling_source_endpoint", sourceEndpoint);
+  setSetting("docling_file_endpoint", fileEndpoint);
 }
 
 // --- File storage config (DB-backed, credentials encrypted) ---
 
 export interface StorageConfig {
-  storageType: 'filesystem' | 's3';
+  storageType: "filesystem" | "s3";
   filesystemDir: string;
   s3Enabled: boolean;
   s3Region: string;
@@ -704,42 +787,63 @@ export interface StorageConfig {
 
 /** Read storage config from DB. Decrypts credentials (async because of vault). */
 export async function getStorageConfig(): Promise<StorageConfig> {
-  const { decryptSecret } = await import('./vault');
+  const { decryptSecret } = await import("./vault");
 
-  const storageType = (getSetting('storage_type') || 'filesystem') as 'filesystem' | 's3';
-  const filesystemDir = getSetting('storage_dir') || path.resolve(process.cwd(), 'data', 'knowledge-files');
-  const s3Enabled = getSetting('s3_enabled') === 'true';
-  const s3Region = getSetting('s3_region') || 'us-east-1';
-  const s3Bucket = getSetting('s3_bucket') || '';
-  const s3Endpoint = getSetting('s3_endpoint') || undefined;
+  const storageType = (getSetting("storage_type") || "filesystem") as
+    | "filesystem"
+    | "s3";
+  const filesystemDir =
+    getSetting("storage_dir") ||
+    path.resolve(process.cwd(), "data", "knowledge-files");
+  const s3Enabled = getSetting("s3_enabled") === "true";
+  const s3Region = getSetting("s3_region") || "us-east-1";
+  const s3Bucket = getSetting("s3_bucket") || "";
+  const s3Endpoint = getSetting("s3_endpoint") || undefined;
 
   let s3AccessKeyId: string | undefined;
-  const encAccessKey = getSetting('s3_access_key_id_enc');
+  const encAccessKey = getSetting("s3_access_key_id_enc");
   if (encAccessKey) {
-    try { s3AccessKeyId = await decryptSecret(encAccessKey); } catch { /* omit on error */ }
+    try {
+      s3AccessKeyId = await decryptSecret(encAccessKey);
+    } catch {
+      /* omit on error */
+    }
   }
 
-  return { storageType, filesystemDir, s3Enabled, s3Region, s3Bucket, s3Endpoint, s3AccessKeyId };
+  return {
+    storageType,
+    filesystemDir,
+    s3Enabled,
+    s3Region,
+    s3Bucket,
+    s3Endpoint,
+    s3AccessKeyId,
+  };
 }
 
 /** Persist storage config. Encrypts credentials before saving. Resets the storage singleton. */
-export async function setStorageConfig(cfg: Partial<StorageConfig> & { s3SecretAccessKey?: string }): Promise<void> {
-  const { encryptSecret } = await import('./vault');
+export async function setStorageConfig(
+  cfg: Partial<StorageConfig> & { s3SecretAccessKey?: string }
+): Promise<void> {
+  const { encryptSecret } = await import("./vault");
 
-  if (cfg.storageType !== undefined) setSetting('storage_type', cfg.storageType);
-  if (cfg.filesystemDir !== undefined) setSetting('storage_dir', cfg.filesystemDir);
-  if (cfg.s3Enabled !== undefined) setSetting('s3_enabled', cfg.s3Enabled ? 'true' : 'false');
-  if (cfg.s3Region !== undefined) setSetting('s3_region', cfg.s3Region);
-  if (cfg.s3Bucket !== undefined) setSetting('s3_bucket', cfg.s3Bucket);
-  if (cfg.s3Endpoint !== undefined) setSetting('s3_endpoint', cfg.s3Endpoint);
+  if (cfg.storageType !== undefined)
+    setSetting("storage_type", cfg.storageType);
+  if (cfg.filesystemDir !== undefined)
+    setSetting("storage_dir", cfg.filesystemDir);
+  if (cfg.s3Enabled !== undefined)
+    setSetting("s3_enabled", cfg.s3Enabled ? "true" : "false");
+  if (cfg.s3Region !== undefined) setSetting("s3_region", cfg.s3Region);
+  if (cfg.s3Bucket !== undefined) setSetting("s3_bucket", cfg.s3Bucket);
+  if (cfg.s3Endpoint !== undefined) setSetting("s3_endpoint", cfg.s3Endpoint);
 
   if (cfg.s3AccessKeyId !== undefined) {
     const enc = await encryptSecret(cfg.s3AccessKeyId);
-    setSetting('s3_access_key_id_enc', enc);
+    setSetting("s3_access_key_id_enc", enc);
   }
   if (cfg.s3SecretAccessKey !== undefined) {
     const enc = await encryptSecret(cfg.s3SecretAccessKey);
-    setSetting('s3_secret_access_key_enc', enc);
+    setSetting("s3_secret_access_key_enc", enc);
   }
 
   // Invalidate cached storage so next request uses new config
@@ -759,12 +863,17 @@ export interface AuthSessionRow {
 
 export function createAuthSession(id: string, sessionKey: string): void {
   const d = getDb();
-  d.prepare("INSERT INTO auth_sessions (id, session_key) VALUES (?, ?)").run(id, sessionKey);
+  d.prepare("INSERT INTO auth_sessions (id, session_key) VALUES (?, ?)").run(
+    id,
+    sessionKey
+  );
 }
 
 export function getAuthSession(id: string): AuthSessionRow | undefined {
   const d = getDb();
-  return d.prepare("SELECT * FROM auth_sessions WHERE id = ?").get(id) as AuthSessionRow | undefined;
+  return d.prepare("SELECT * FROM auth_sessions WHERE id = ?").get(id) as
+    | AuthSessionRow
+    | undefined;
 }
 
 export function updateAuthSession(
@@ -790,13 +899,17 @@ export function updateAuthSession(
 
   if (sets.length === 0) return;
   values.push(id);
-  d.prepare(`UPDATE auth_sessions SET ${sets.join(", ")} WHERE id = ?`).run(...values);
+  d.prepare(`UPDATE auth_sessions SET ${sets.join(", ")} WHERE id = ?`).run(
+    ...values
+  );
 }
 
 export function deleteExpiredAuthSessions(maxAgeSeconds: number): number {
   const d = getDb();
   const result = d
-    .prepare("DELETE FROM auth_sessions WHERE created_at < datetime('now', ? || ' seconds')")
+    .prepare(
+      "DELETE FROM auth_sessions WHERE created_at < datetime('now', ? || ' seconds')"
+    )
     .run(`-${maxAgeSeconds}`);
   return result.changes;
 }
@@ -824,7 +937,8 @@ export function upsertAgent(agent: {
   certificateData?: string;
 }): void {
   const d = getDb();
-  d.prepare(`
+  d.prepare(
+    `
     INSERT INTO agents (did, name, public_key, capabilities, certificate_data, last_seen)
     VALUES (?, ?, ?, ?, ?, datetime('now'))
     ON CONFLICT(did) DO UPDATE SET
@@ -833,7 +947,8 @@ export function upsertAgent(agent: {
       capabilities = excluded.capabilities,
       certificate_data = excluded.certificate_data,
       last_seen = datetime('now')
-  `).run(
+  `
+  ).run(
     agent.did,
     agent.name,
     agent.publicKey ?? null,
@@ -844,17 +959,23 @@ export function upsertAgent(agent: {
 
 export function getAgent(did: string): AgentRow | undefined {
   const d = getDb();
-  return d.prepare("SELECT * FROM agents WHERE did = ?").get(did) as AgentRow | undefined;
+  return d.prepare("SELECT * FROM agents WHERE did = ?").get(did) as
+    | AgentRow
+    | undefined;
 }
 
 export function getAgentByName(name: string): AgentRow | undefined {
   const d = getDb();
-  return d.prepare("SELECT * FROM agents WHERE LOWER(name) = LOWER(?)").get(name) as AgentRow | undefined;
+  return d
+    .prepare("SELECT * FROM agents WHERE LOWER(name) = LOWER(?)")
+    .get(name) as AgentRow | undefined;
 }
 
 export function getAllAgents(): AgentRow[] {
   const d = getDb();
-  return d.prepare("SELECT * FROM agents ORDER BY last_seen DESC").all() as AgentRow[];
+  return d
+    .prepare("SELECT * FROM agents ORDER BY last_seen DESC")
+    .all() as AgentRow[];
 }
 
 export interface AgentQueryOptions {
@@ -898,9 +1019,11 @@ export function queryAgents(opts: AgentQueryOptions = {}): AgentQueryResult {
   } = opts;
 
   const sortColumn =
-    sortBy === "name" ? "a.name" :
-      sortBy === "registeredAt" ? "a.registered_at" :
-        "a.last_seen";
+    sortBy === "name"
+      ? "a.name"
+      : sortBy === "registeredAt"
+        ? "a.registered_at"
+        : "a.last_seen";
   const dir = sortDir === "asc" ? "ASC" : "DESC";
 
   const conditions: string[] = [];
@@ -913,52 +1036,70 @@ export function queryAgents(opts: AgentQueryOptions = {}): AgentQueryResult {
   }
 
   if (realm) {
-    conditions.push("EXISTS (SELECT 1 FROM agent_realms ar JOIN realms r ON r.id = ar.realm_id WHERE ar.agent_did = a.did AND (r.id = ? OR r.slug = ?))");
+    conditions.push(
+      "EXISTS (SELECT 1 FROM agent_realms ar JOIN realms r ON r.id = ar.realm_id WHERE ar.agent_did = a.did AND (r.id = ? OR r.slug = ?))"
+    );
     params.push(realm, realm);
   }
 
   if (capabilities && capabilities.length > 0) {
     // Each selected capability must be in the agent's JSON capabilities array
-    const capConditions = capabilities.map(() =>
-      "EXISTS (SELECT 1 FROM json_each(a.capabilities) WHERE json_each.value = ?)"
+    const capConditions = capabilities.map(
+      () =>
+        "EXISTS (SELECT 1 FROM json_each(a.capabilities) WHERE json_each.value = ?)"
     );
     conditions.push(`(${capConditions.join(" AND ")})`);
     params.push(...capabilities);
   }
 
-  const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+  const where =
+    conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
 
-  const total = (d.prepare(`SELECT COUNT(*) AS count FROM agents a ${where}`).get(...params) as { count: number }).count;
+  const total = (
+    d
+      .prepare(`SELECT COUNT(*) AS count FROM agents a ${where}`)
+      .get(...params) as { count: number }
+  ).count;
 
   const offset = (page - 1) * pageSize;
-  const rows = d.prepare(
-    `SELECT a.* FROM agents a ${where} ORDER BY ${sortColumn} ${dir} LIMIT ? OFFSET ?`
-  ).all(...params, pageSize, offset) as AgentRow[];
+  const rows = d
+    .prepare(
+      `SELECT a.* FROM agents a ${where} ORDER BY ${sortColumn} ${dir} LIMIT ? OFFSET ?`
+    )
+    .all(...params, pageSize, offset) as AgentRow[];
 
   // Apply in-memory online filter (requires live WS data not available in DB)
-  const filtered = online !== undefined && onlineDids
-    ? rows.filter((r) => onlineDids.has(r.did) === online)
-    : rows;
+  const filtered =
+    online !== undefined && onlineDids
+      ? rows.filter((r) => onlineDids.has(r.did) === online)
+      : rows;
 
   return {
     agents: filtered,
     total: online !== undefined ? filtered.length : total,
     page,
     pageSize,
-    totalPages: Math.ceil((online !== undefined ? filtered.length : total) / pageSize),
+    totalPages: Math.ceil(
+      (online !== undefined ? filtered.length : total) / pageSize
+    ),
   };
 }
 
 export function updateAgentLastSeen(did: string): void {
   const d = getDb();
-  d.prepare("UPDATE agents SET last_seen = datetime('now') WHERE did = ?").run(did);
+  d.prepare("UPDATE agents SET last_seen = datetime('now') WHERE did = ?").run(
+    did
+  );
 }
 
 /**
  * Persist (or clear) the LLM config for an agent.
  * Pass null to clear — agent will fall back to its local env-var config.
  */
-export function setAgentLlmConfig(did: string, config: import("@vaultysclaw/shared").LlmConfig | null): void {
+export function setAgentLlmConfig(
+  did: string,
+  config: import("@vaultysclaw/shared").LlmConfig | null
+): void {
   const d = getDb();
   d.prepare("UPDATE agents SET llm_config = ? WHERE did = ?").run(
     config !== null ? JSON.stringify(config) : null,
@@ -975,7 +1116,9 @@ export function deleteAgent(did: string): void {
   d.prepare("DELETE FROM agents WHERE did = ?").run(did);
   d.prepare("DELETE FROM agent_peer_grants WHERE agent_did = ?").run(did);
   d.prepare("DELETE FROM agent_token_usage WHERE agent_did = ?").run(did);
-  d.prepare("DELETE FROM agent_token_usage_history WHERE agent_did = ?").run(did);
+  d.prepare("DELETE FROM agent_token_usage_history WHERE agent_did = ?").run(
+    did
+  );
   d.prepare("DELETE FROM agent_realms WHERE agent_did = ?").run(did);
   d.prepare("DELETE FROM agent_skill_overrides WHERE agent_did = ?").run(did);
 }
@@ -1005,7 +1148,7 @@ export function logActivity(
   event: string,
   agentDid?: string,
   agentName?: string,
-  details?: string,
+  details?: string
 ): void {
   const d = getDb();
   d.prepare(
@@ -1020,17 +1163,27 @@ export function getActivityLog(limit: number = 100): ActivityLogRow[] {
     .all(limit) as ActivityLogRow[];
 }
 
-export function getActivityLogByEvent(event: string, limit: number = 50): ActivityLogRow[] {
+export function getActivityLogByEvent(
+  event: string,
+  limit: number = 50
+): ActivityLogRow[] {
   const d = getDb();
   return d
-    .prepare("SELECT * FROM activity_log WHERE event = ? ORDER BY created_at DESC LIMIT ?")
+    .prepare(
+      "SELECT * FROM activity_log WHERE event = ? ORDER BY created_at DESC LIMIT ?"
+    )
     .all(event, limit) as ActivityLogRow[];
 }
 
-export function getActivityLogByAgent(agentDid: string, limit: number = 100): ActivityLogRow[] {
+export function getActivityLogByAgent(
+  agentDid: string,
+  limit: number = 100
+): ActivityLogRow[] {
   const d = getDb();
   return d
-    .prepare("SELECT * FROM activity_log WHERE agent_did = ? ORDER BY created_at DESC LIMIT ?")
+    .prepare(
+      "SELECT * FROM activity_log WHERE agent_did = ? ORDER BY created_at DESC LIMIT ?"
+    )
     .all(agentDid, limit) as ActivityLogRow[];
 }
 
@@ -1048,25 +1201,45 @@ export interface IntentLogRow {
   completed_at: string | null;
 }
 
-export function logIntent(intentId: string, agentDid: string | undefined, action: string, params: Record<string, unknown>): void {
+export function logIntent(
+  intentId: string,
+  agentDid: string | undefined,
+  action: string,
+  params: Record<string, unknown>
+): void {
   const d = getDb();
   d.prepare(
     "INSERT OR IGNORE INTO intent_log (intent_id, agent_did, action, params) VALUES (?, ?, ?, ?)"
   ).run(intentId, agentDid ?? null, action, JSON.stringify(params));
 }
 
-export function updateIntentResult(intentId: string, status: "success" | "failed", output?: unknown, error?: string): void {
+export function updateIntentResult(
+  intentId: string,
+  status: "success" | "failed",
+  output?: unknown,
+  error?: string
+): void {
   const d = getDb();
   d.prepare(
     "UPDATE intent_log SET status = ?, output = ?, error = ?, completed_at = datetime('now') WHERE intent_id = ?"
-  ).run(status, output !== undefined ? JSON.stringify(output) : null, error ?? null, intentId);
+  ).run(
+    status,
+    output !== undefined ? JSON.stringify(output) : null,
+    error ?? null,
+    intentId
+  );
 }
 
-export function getIntentLog(limit: number = 100, agentDid?: string): IntentLogRow[] {
+export function getIntentLog(
+  limit: number = 100,
+  agentDid?: string
+): IntentLogRow[] {
   const d = getDb();
   if (agentDid) {
     return d
-      .prepare("SELECT * FROM intent_log WHERE agent_did = ? ORDER BY sent_at DESC LIMIT ?")
+      .prepare(
+        "SELECT * FROM intent_log WHERE agent_did = ? ORDER BY sent_at DESC LIMIT ?"
+      )
       .all(agentDid, limit) as IntentLogRow[];
   }
   return d
@@ -1082,7 +1255,7 @@ export interface PendingRegistrationRow {
   agent_name: string;
   status: "pending" | "approved" | "rejected";
   requested_capabilities: string; // JSON array — what the agent requested
-  assigned_capabilities: string;  // JSON array — what the admin assigned
+  assigned_capabilities: string; // JSON array — what the admin assigned
   created_at: string;
 }
 
@@ -1090,7 +1263,7 @@ export function createPendingRegistration(
   id: string,
   sessionId: string,
   agentName: string,
-  requestedCapabilities: string[] = [],
+  requestedCapabilities: string[] = []
 ): void {
   const d = getDb();
   d.prepare(
@@ -1098,7 +1271,9 @@ export function createPendingRegistration(
   ).run(id, sessionId, agentName, JSON.stringify(requestedCapabilities));
 }
 
-export function getPendingRegistration(id: string): PendingRegistrationRow | undefined {
+export function getPendingRegistration(
+  id: string
+): PendingRegistrationRow | undefined {
   const d = getDb();
   return d
     .prepare("SELECT * FROM pending_registrations WHERE id = ?")
@@ -1115,7 +1290,7 @@ export function getAllPendingRegistrations(): PendingRegistrationRow[] {
 export function updatePendingRegistration(
   id: string,
   status: "approved" | "rejected",
-  capabilities?: string[],
+  capabilities?: string[]
 ): boolean {
   const d = getDb();
   const result = d
@@ -1132,7 +1307,6 @@ export function deletePendingRegistration(id: string): void {
 }
 
 // ---- Realms ----
-
 
 export interface RealmRow {
   id: string;
@@ -1162,22 +1336,30 @@ export interface PolicyRow {
 
 export function getAllRealms(): RealmRow[] {
   const d = getDb();
-  return d.prepare("SELECT * FROM realms ORDER BY is_default DESC, name ASC").all() as RealmRow[];
+  return d
+    .prepare("SELECT * FROM realms ORDER BY is_default DESC, name ASC")
+    .all() as RealmRow[];
 }
 
 export function getRealmById(id: string): RealmRow | undefined {
   const d = getDb();
-  return d.prepare("SELECT * FROM realms WHERE id = ?").get(id) as RealmRow | undefined;
+  return d.prepare("SELECT * FROM realms WHERE id = ?").get(id) as
+    | RealmRow
+    | undefined;
 }
 
 export function getRealmBySlug(slug: string): RealmRow | undefined {
   const d = getDb();
-  return d.prepare("SELECT * FROM realms WHERE slug = ?").get(slug) as RealmRow | undefined;
+  return d.prepare("SELECT * FROM realms WHERE slug = ?").get(slug) as
+    | RealmRow
+    | undefined;
 }
 
 export function getDefaultRealm(): RealmRow | undefined {
   const d = getDb();
-  return d.prepare("SELECT * FROM realms WHERE is_default = 1 LIMIT 1").get() as RealmRow | undefined;
+  return d
+    .prepare("SELECT * FROM realms WHERE is_default = 1 LIMIT 1")
+    .get() as RealmRow | undefined;
 }
 
 export function createRealm(realm: {
@@ -1190,13 +1372,32 @@ export function createRealm(realm: {
   const id = crypto.randomUUID();
   d.prepare(
     "INSERT INTO realms (id, name, slug, description, color) VALUES (?, ?, ?, ?, ?)"
-  ).run(id, realm.name, realm.slug, realm.description ?? null, realm.color ?? "#6366f1");
+  ).run(
+    id,
+    realm.name,
+    realm.slug,
+    realm.description ?? null,
+    realm.color ?? "#6366f1"
+  );
   return getRealmById(id)!;
 }
 
 export function updateRealm(
   id: string,
-  updates: Partial<Pick<RealmRow, "name" | "slug" | "description" | "color" | "llm_config" | "default_capabilities" | "token_budget_daily" | "token_budget_monthly" | "allowed_capabilities">>
+  updates: Partial<
+    Pick<
+      RealmRow,
+      | "name"
+      | "slug"
+      | "description"
+      | "color"
+      | "llm_config"
+      | "default_capabilities"
+      | "token_budget_daily"
+      | "token_budget_monthly"
+      | "allowed_capabilities"
+    >
+  >
 ): void {
   const d = getDb();
   const sets: string[] = [];
@@ -1239,38 +1440,59 @@ export interface RealmMembershipRow {
 
 export function getAgentRealms(agentDid: string): RealmMembershipRow[] {
   const d = getDb();
-  return d.prepare(`
+  return d
+    .prepare(
+      `
     SELECT r.id AS realm_id, r.name, r.slug, r.color, r.is_default,
            ar.is_primary, ar.joined_at
     FROM agent_realms ar
     JOIN realms r ON r.id = ar.realm_id
     WHERE ar.agent_did = ?
     ORDER BY ar.is_primary DESC, r.name ASC
-  `).all(agentDid) as RealmMembershipRow[];
+  `
+    )
+    .all(agentDid) as RealmMembershipRow[];
 }
 
-export function addAgentToRealm(agentDid: string, realmId: string, isPrimary = false): void {
+export function addAgentToRealm(
+  agentDid: string,
+  realmId: string,
+  isPrimary = false
+): void {
   const d = getDb();
   if (isPrimary) {
     // Clear existing primary for this agent
-    d.prepare("UPDATE agent_realms SET is_primary = 0 WHERE agent_did = ?").run(agentDid);
+    d.prepare("UPDATE agent_realms SET is_primary = 0 WHERE agent_did = ?").run(
+      agentDid
+    );
   }
   d.prepare(
     "INSERT OR REPLACE INTO agent_realms (agent_did, realm_id, is_primary) VALUES (?, ?, ?)"
   ).run(agentDid, realmId, isPrimary ? 1 : 0);
 }
 
-export function removeAgentFromRealm(agentDid: string, realmId: string): boolean {
+export function removeAgentFromRealm(
+  agentDid: string,
+  realmId: string
+): boolean {
   const d = getDb();
   const realm = getRealmById(realmId);
   if (realm?.is_default) return false; // can't leave the default realm
-  const result = d.prepare("DELETE FROM agent_realms WHERE agent_did = ? AND realm_id = ?").run(agentDid, realmId);
+  const result = d
+    .prepare("DELETE FROM agent_realms WHERE agent_did = ? AND realm_id = ?")
+    .run(agentDid, realmId);
   return result.changes > 0;
 }
 
-export function getRealmAgents(realmId: string): (RealmRow & { agent_did: string; agent_name: string; is_primary: number })[] {
+export function getRealmAgents(realmId: string): (RealmRow & {
+  agent_did: string;
+  agent_name: string;
+  is_primary: number;
+})[] {
   const d = getDb();
-  return d.prepare(`
+  return d
+    .prepare(
+      `
     SELECT a.did AS agent_did, a.name AS agent_name, a.capabilities,
            ar.is_primary, ar.joined_at,
            r.id, r.name, r.slug, r.color, r.is_default
@@ -1279,45 +1501,72 @@ export function getRealmAgents(realmId: string): (RealmRow & { agent_did: string
     JOIN realms r ON r.id = ar.realm_id
     WHERE ar.realm_id = ?
     ORDER BY ar.is_primary DESC, a.name ASC
-  `).all(realmId) as any[];
+  `
+    )
+    .all(realmId) as any[];
 }
 
 // ---- Realm membership: users ----
 
 export function getUserRealms(userId: string): RealmMembershipRow[] {
   const d = getDb();
-  return d.prepare(`
+  return d
+    .prepare(
+      `
     SELECT r.id AS realm_id, r.name, r.slug, r.color, r.is_default,
            ur.is_primary, ur.is_realm_admin, ur.joined_at
     FROM user_realms ur
     JOIN realms r ON r.id = ur.realm_id
     WHERE ur.user_id = ?
     ORDER BY ur.is_primary DESC, r.name ASC
-  `).all(userId) as RealmMembershipRow[];
+  `
+    )
+    .all(userId) as RealmMembershipRow[];
 }
 
 export function isUserInRealm(userId: string, realmId: string): boolean {
   const d = getDb();
-  const row = d.prepare("SELECT 1 FROM user_realms WHERE user_id = ? AND realm_id = ?").get(userId, realmId);
+  const row = d
+    .prepare("SELECT 1 FROM user_realms WHERE user_id = ? AND realm_id = ?")
+    .get(userId, realmId);
   return row !== undefined;
 }
 
 export function isUserRealmAdmin(userId: string, realmId: string): boolean {
   const d = getDb();
-  const row = d.prepare("SELECT is_realm_admin FROM user_realms WHERE user_id = ? AND realm_id = ?").get(userId, realmId) as { is_realm_admin: number } | undefined;
+  const row = d
+    .prepare(
+      "SELECT is_realm_admin FROM user_realms WHERE user_id = ? AND realm_id = ?"
+    )
+    .get(userId, realmId) as { is_realm_admin: number } | undefined;
   return row?.is_realm_admin === 1;
 }
 
-export function setUserRealmAdmin(userId: string, realmId: string, isAdmin: boolean): boolean {
+export function setUserRealmAdmin(
+  userId: string,
+  realmId: string,
+  isAdmin: boolean
+): boolean {
   const d = getDb();
-  const result = d.prepare("UPDATE user_realms SET is_realm_admin = ? WHERE user_id = ? AND realm_id = ?").run(isAdmin ? 1 : 0, userId, realmId);
+  const result = d
+    .prepare(
+      "UPDATE user_realms SET is_realm_admin = ? WHERE user_id = ? AND realm_id = ?"
+    )
+    .run(isAdmin ? 1 : 0, userId, realmId);
   return result.changes > 0;
 }
 
-export function addUserToRealm(userId: string, realmId: string, isPrimary = false, isRealmAdmin = false): void {
+export function addUserToRealm(
+  userId: string,
+  realmId: string,
+  isPrimary = false,
+  isRealmAdmin = false
+): void {
   const d = getDb();
   if (isPrimary) {
-    d.prepare("UPDATE user_realms SET is_primary = 0 WHERE user_id = ?").run(userId);
+    d.prepare("UPDATE user_realms SET is_primary = 0 WHERE user_id = ?").run(
+      userId
+    );
   }
   d.prepare(
     "INSERT OR REPLACE INTO user_realms (user_id, realm_id, is_primary, is_realm_admin) VALUES (?, ?, ?, ?)"
@@ -1328,25 +1577,42 @@ export function removeUserFromRealm(userId: string, realmId: string): boolean {
   const d = getDb();
   const realm = getRealmById(realmId);
   if (realm?.is_default) return false;
-  const result = d.prepare("DELETE FROM user_realms WHERE user_id = ? AND realm_id = ?").run(userId, realmId);
+  const result = d
+    .prepare("DELETE FROM user_realms WHERE user_id = ? AND realm_id = ?")
+    .run(userId, realmId);
   return result.changes > 0;
 }
 
-export function getRealmUsers(realmId: string): { user_id: string; did: string | null; name: string | null; email: string | null; is_primary: number; is_realm_admin: number; joined_at: string }[] {
+export function getRealmUsers(realmId: string): {
+  user_id: string;
+  did: string | null;
+  name: string | null;
+  email: string | null;
+  is_primary: number;
+  is_realm_admin: number;
+  joined_at: string;
+}[] {
   const d = getDb();
-  return d.prepare(`
+  return d
+    .prepare(
+      `
     SELECT u.id AS user_id, u.did, u.name, u.email, ur.is_primary, ur.is_realm_admin, ur.joined_at
     FROM user_realms ur
     JOIN users u ON u.id = ur.user_id
     WHERE ur.realm_id = ?
     ORDER BY ur.is_primary DESC, u.name ASC
-  `).all(realmId) as any[];
+  `
+    )
+    .all(realmId) as any[];
 }
 
 /** Auto-enroll an agent or user into the default realm (called after registration). */
 export function enrollInDefaultRealm(type: "agent", did: string): void;
 export function enrollInDefaultRealm(type: "user", did: string): void;
-export function enrollInDefaultRealm(type: "agent" | "user", did: string): void {
+export function enrollInDefaultRealm(
+  type: "agent" | "user",
+  did: string
+): void {
   const realm = getDefaultRealm();
   if (!realm) return;
   if (type === "agent") addAgentToRealm(did, realm.id, true);
@@ -1362,18 +1628,20 @@ export interface AgentTokenUsageRow {
   updated_at: string;
 }
 
-export function getAgentTokenUsage(agentDid: string): AgentTokenUsageRow | undefined {
+export function getAgentTokenUsage(
+  agentDid: string
+): AgentTokenUsageRow | undefined {
   const d = getDb();
-  return d.prepare(
-    "SELECT * FROM agent_token_usage WHERE agent_did = ?"
-  ).get(agentDid) as AgentTokenUsageRow | undefined;
+  return d
+    .prepare("SELECT * FROM agent_token_usage WHERE agent_did = ?")
+    .get(agentDid) as AgentTokenUsageRow | undefined;
 }
 
 export function getAllTokenUsage(): AgentTokenUsageRow[] {
   const d = getDb();
-  return d.prepare(
-    "SELECT * FROM agent_token_usage ORDER BY updated_at DESC"
-  ).all() as AgentTokenUsageRow[];
+  return d
+    .prepare("SELECT * FROM agent_token_usage ORDER BY updated_at DESC")
+    .all() as AgentTokenUsageRow[];
 }
 
 export function upsertTokenUsage(
@@ -1382,24 +1650,33 @@ export function upsertTokenUsage(
   completionTokens: number
 ): void {
   const d = getDb();
-  d.prepare(`
+  d.prepare(
+    `
     INSERT INTO agent_token_usage (agent_did, prompt_tokens, completion_tokens, updated_at)
     VALUES (?, ?, ?, datetime('now'))
     ON CONFLICT(agent_did) DO UPDATE SET
       prompt_tokens = excluded.prompt_tokens,
       completion_tokens = excluded.completion_tokens,
       updated_at = datetime('now')
-  `).run(agentDid, promptTokens, completionTokens);
+  `
+  ).run(agentDid, promptTokens, completionTokens);
 }
 
-export function getTotalFleetTokenUsage(): { promptTokens: number; completionTokens: number } {
+export function getTotalFleetTokenUsage(): {
+  promptTokens: number;
+  completionTokens: number;
+} {
   const d = getDb();
-  const result = d.prepare(`
+  const result = d
+    .prepare(
+      `
     SELECT
       COALESCE(SUM(prompt_tokens), 0) as prompt_tokens,
       COALESCE(SUM(completion_tokens), 0) as completion_tokens
     FROM agent_token_usage
-  `).get() as { prompt_tokens: number; completion_tokens: number } | undefined;
+  `
+    )
+    .get() as { prompt_tokens: number; completion_tokens: number } | undefined;
   return {
     promptTokens: result?.prompt_tokens ?? 0,
     completionTokens: result?.completion_tokens ?? 0,
@@ -1415,18 +1692,20 @@ export interface RealmTokenUsageRow {
   updated_at: string;
 }
 
-export function getRealmTokenUsage(realmId: string): RealmTokenUsageRow | undefined {
+export function getRealmTokenUsage(
+  realmId: string
+): RealmTokenUsageRow | undefined {
   const d = getDb();
-  return d.prepare(
-    "SELECT * FROM realm_token_usage WHERE realm_id = ?"
-  ).get(realmId) as RealmTokenUsageRow | undefined;
+  return d
+    .prepare("SELECT * FROM realm_token_usage WHERE realm_id = ?")
+    .get(realmId) as RealmTokenUsageRow | undefined;
 }
 
 export function getAllRealmTokenUsage(): RealmTokenUsageRow[] {
   const d = getDb();
-  return d.prepare(
-    "SELECT * FROM realm_token_usage ORDER BY updated_at DESC"
-  ).all() as RealmTokenUsageRow[];
+  return d
+    .prepare("SELECT * FROM realm_token_usage ORDER BY updated_at DESC")
+    .all() as RealmTokenUsageRow[];
 }
 
 export function upsertRealmTokenUsage(
@@ -1435,25 +1714,36 @@ export function upsertRealmTokenUsage(
   completionTokens: number
 ): void {
   const d = getDb();
-  d.prepare(`
+  d.prepare(
+    `
     INSERT INTO realm_token_usage (realm_id, prompt_tokens, completion_tokens, updated_at)
     VALUES (?, ?, ?, datetime('now'))
     ON CONFLICT(realm_id) DO UPDATE SET
       prompt_tokens = excluded.prompt_tokens,
       completion_tokens = excluded.completion_tokens,
       updated_at = datetime('now')
-  `).run(realmId, promptTokens, completionTokens);
+  `
+  ).run(realmId, promptTokens, completionTokens);
 }
 
-export function getTotalRealmTokenUsage(realmId: string): { promptTokens: number; completionTokens: number } {
+export function getTotalRealmTokenUsage(realmId: string): {
+  promptTokens: number;
+  completionTokens: number;
+} {
   const d = getDb();
-  const result = d.prepare(`
+  const result = d
+    .prepare(
+      `
     SELECT
       COALESCE(prompt_tokens, 0) as prompt_tokens,
       COALESCE(completion_tokens, 0) as completion_tokens
     FROM realm_token_usage
     WHERE realm_id = ?
-  `).get(realmId) as { prompt_tokens: number; completion_tokens: number } | undefined;
+  `
+    )
+    .get(realmId) as
+    | { prompt_tokens: number; completion_tokens: number }
+    | undefined;
   return {
     promptTokens: result?.prompt_tokens ?? 0,
     completionTokens: result?.completion_tokens ?? 0,
@@ -1480,12 +1770,12 @@ export interface AgentTokenUsageHistoryRow {
 export function addAgentTokenUsageHistory(
   agentDid: string,
   promptDelta: number,
-  completionDelta: number,
+  completionDelta: number
 ): void {
   if (promptDelta <= 0 && completionDelta <= 0) return;
   const d = getDb();
-  const dayBucket = new Date().toISOString().slice(0, 10);    // YYYY-MM-DD
-  const monthBucket = new Date().toISOString().slice(0, 7);  // YYYY-MM
+  const dayBucket = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+  const monthBucket = new Date().toISOString().slice(0, 7); // YYYY-MM
 
   const upsert = d.prepare(`
     INSERT INTO agent_token_usage_history (agent_did, bucket, granularity, prompt_tokens, completion_tokens, updated_at)
@@ -1513,14 +1803,18 @@ export function getAgentTokenUsageHistory(
   agentDid: string,
   granularity: "day" | "month",
   from: string,
-  to: string,
+  to: string
 ): AgentTokenUsageHistoryRow[] {
   const d = getDb();
-  return d.prepare(`
+  return d
+    .prepare(
+      `
     SELECT * FROM agent_token_usage_history
     WHERE agent_did = ? AND granularity = ? AND bucket >= ? AND bucket <= ?
     ORDER BY bucket ASC
-  `).all(agentDid, granularity, from, to) as AgentTokenUsageHistoryRow[];
+  `
+    )
+    .all(agentDid, granularity, from, to) as AgentTokenUsageHistoryRow[];
 }
 
 // ---------------------------------------------------------------------------
@@ -1587,7 +1881,7 @@ export function saveWorkflow(
   name: string,
   definition: WorkflowDefinition,
   createdBy?: string,
-  realmId?: string,
+  realmId?: string
 ): string {
   const d = getDb();
   const id = crypto.randomUUID();
@@ -1604,27 +1898,43 @@ export function saveWorkflow(
  */
 export function getWorkflow(id: string): WorkflowRow | undefined {
   const d = getDb();
-  return d.prepare("SELECT * FROM workflows WHERE id = ?").get(id) as WorkflowRow | undefined;
+  return d.prepare("SELECT * FROM workflows WHERE id = ?").get(id) as
+    | WorkflowRow
+    | undefined;
 }
 
 /**
  * List all workflows, optionally filtered by creator or realm
  */
-export function listWorkflows(createdBy?: string, realmId?: string): WorkflowRow[] {
+export function listWorkflows(
+  createdBy?: string,
+  realmId?: string
+): WorkflowRow[] {
   const d = getDb();
   if (createdBy && realmId) {
-    return d.prepare("SELECT * FROM workflows WHERE created_by = ? AND realm_id = ? ORDER BY created_at DESC")
+    return d
+      .prepare(
+        "SELECT * FROM workflows WHERE created_by = ? AND realm_id = ? ORDER BY created_at DESC"
+      )
       .all(createdBy, realmId) as WorkflowRow[];
   }
   if (createdBy) {
-    return d.prepare("SELECT * FROM workflows WHERE created_by = ? ORDER BY created_at DESC")
+    return d
+      .prepare(
+        "SELECT * FROM workflows WHERE created_by = ? ORDER BY created_at DESC"
+      )
       .all(createdBy) as WorkflowRow[];
   }
   if (realmId) {
-    return d.prepare("SELECT * FROM workflows WHERE realm_id = ? ORDER BY created_at DESC")
+    return d
+      .prepare(
+        "SELECT * FROM workflows WHERE realm_id = ? ORDER BY created_at DESC"
+      )
       .all(realmId) as WorkflowRow[];
   }
-  return d.prepare("SELECT * FROM workflows ORDER BY created_at DESC").all() as WorkflowRow[];
+  return d
+    .prepare("SELECT * FROM workflows ORDER BY created_at DESC")
+    .all() as WorkflowRow[];
 }
 
 /**
@@ -1635,7 +1945,7 @@ export function updateWorkflow(
   name?: string,
   definition?: WorkflowDefinition,
   description?: string,
-  realmId?: string,
+  realmId?: string
 ): void {
   const d = getDb();
   const updates: string[] = [];
@@ -1661,7 +1971,9 @@ export function updateWorkflow(
   if (updates.length > 0) {
     updates.push("updated_at = datetime('now')");
     values.push(id);
-    d.prepare(`UPDATE workflows SET ${updates.join(", ")} WHERE id = ?`).run(...values);
+    d.prepare(`UPDATE workflows SET ${updates.join(", ")} WHERE id = ?`).run(
+      ...values
+    );
   }
 }
 
@@ -1673,13 +1985,13 @@ export function setWorkflowSchedule(
   id: string,
   cron: string | null,
   enabled: boolean,
-  nextRun: string | null,
+  nextRun: string | null
 ): void {
   getDb()
     .prepare(
       `UPDATE workflows
        SET schedule_cron = ?, schedule_enabled = ?, schedule_next_run = ?, updated_at = datetime('now')
-       WHERE id = ?`,
+       WHERE id = ?`
     )
     .run(cron, enabled ? 1 : 0, nextRun, id);
 }
@@ -1687,10 +1999,13 @@ export function setWorkflowSchedule(
 /**
  * Update schedule last_run and next_run after a workflow fires.
  */
-export function updateWorkflowScheduleRun(id: string, nextRun: string | null): void {
+export function updateWorkflowScheduleRun(
+  id: string,
+  nextRun: string | null
+): void {
   getDb()
     .prepare(
-      `UPDATE workflows SET schedule_last_run = datetime('now'), schedule_next_run = ? WHERE id = ?`,
+      `UPDATE workflows SET schedule_last_run = datetime('now'), schedule_next_run = ? WHERE id = ?`
     )
     .run(nextRun, id);
 }
@@ -1705,7 +2020,7 @@ export function getDueScheduledWorkflows(): WorkflowRow[] {
        WHERE schedule_enabled = 1
          AND schedule_cron IS NOT NULL
          AND schedule_next_run IS NOT NULL
-         AND schedule_next_run <= datetime('now')`,
+         AND schedule_next_run <= datetime('now')`
     )
     .all() as WorkflowRow[];
 }
@@ -1735,7 +2050,9 @@ export function startWorkflowRun(workflowId: string): string {
  */
 export function getWorkflowRun(id: string): WorkflowRunRow | undefined {
   const d = getDb();
-  return d.prepare("SELECT * FROM workflow_runs WHERE id = ?").get(id) as WorkflowRunRow | undefined;
+  return d.prepare("SELECT * FROM workflow_runs WHERE id = ?").get(id) as
+    | WorkflowRunRow
+    | undefined;
 }
 
 /**
@@ -1743,11 +2060,13 @@ export function getWorkflowRun(id: string): WorkflowRunRow | undefined {
  */
 export function updateWorkflowRunStatus(
   runId: string,
-  status: "running" | "completed" | "failed",
-  results?: Record<string, unknown>,
+  status: "running" | "completed" | "failed" | "waiting_approval" | "rejected",
+  results?: Record<string, unknown>
 ): void {
   const d = getDb();
-  const completedAt = ["completed", "failed"].includes(status) ? "CAST(strftime('%s', 'now') AS INTEGER)" : "NULL";
+  const completedAt = ["completed", "failed", "rejected"].includes(status)
+    ? "CAST(strftime('%s', 'now') AS INTEGER)"
+    : "NULL";
   const resultsStr = results ? JSON.stringify(results) : null;
   d.prepare(
     `UPDATE workflow_runs SET status = ?, completed_at = ${completedAt}, results = ? WHERE id = ?`
@@ -1763,7 +2082,7 @@ export function recordWorkflowStep(
   agentId?: string,
   status: string = "pending",
   output?: unknown,
-  error?: string,
+  error?: string
 ): string {
   const d = getDb();
   const id = crypto.randomUUID();
@@ -1777,7 +2096,7 @@ export function recordWorkflowStep(
     agentId ?? null,
     status,
     output ? JSON.stringify(output) : null,
-    error ?? null,
+    error ?? null
   );
   return id;
 }
@@ -1789,7 +2108,7 @@ export function updateWorkflowStep(
   stepId: string,
   status?: string,
   output?: unknown,
-  error?: string,
+  error?: string
 ): void {
   const d = getDb();
   const updates: string[] = [];
@@ -1816,7 +2135,9 @@ export function updateWorkflowStep(
 
   if (updates.length > 0) {
     values.push(stepId);
-    d.prepare(`UPDATE workflow_steps SET ${updates.join(", ")} WHERE id = ?`).run(...values);
+    d.prepare(
+      `UPDATE workflow_steps SET ${updates.join(", ")} WHERE id = ?`
+    ).run(...values);
   }
 }
 
@@ -1824,11 +2145,11 @@ export function updateWorkflowStep(
  * Query workflow runs with pagination and filtering
  */
 export interface WorkflowRunQueryOptions {
-  workflowId?: string;  // Filter by workflow ID
-  status?: string;      // Filter by status
+  workflowId?: string; // Filter by workflow ID
+  status?: string; // Filter by status
   page?: number;
   pageSize?: number;
-  sortBy?: "startedAt" | "completedAt";  // Sort field
+  sortBy?: "startedAt" | "completedAt"; // Sort field
   sortDir?: "asc" | "desc";
 }
 
@@ -1840,7 +2161,9 @@ export interface WorkflowRunQueryResult {
   totalPages: number;
 }
 
-export function queryWorkflowRuns(opts: WorkflowRunQueryOptions = {}): WorkflowRunQueryResult {
+export function queryWorkflowRuns(
+  opts: WorkflowRunQueryOptions = {}
+): WorkflowRunQueryResult {
   const d = getDb();
   const {
     workflowId,
@@ -1851,7 +2174,8 @@ export function queryWorkflowRuns(opts: WorkflowRunQueryOptions = {}): WorkflowR
     sortDir = "desc",
   } = opts;
 
-  const sortColumn = sortBy === "completedAt" ? "wr.completed_at" : "wr.started_at";
+  const sortColumn =
+    sortBy === "completedAt" ? "wr.completed_at" : "wr.started_at";
   const dir = sortDir === "asc" ? "ASC" : "DESC";
 
   const conditions: string[] = [];
@@ -1867,20 +2191,27 @@ export function queryWorkflowRuns(opts: WorkflowRunQueryOptions = {}): WorkflowR
     params.push(status);
   }
 
-  const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+  const where =
+    conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
 
-  const total = (d.prepare(
-    `SELECT COUNT(*) AS count FROM workflow_runs wr ${where}`
-  ).get(...params) as { count: number }).count;
+  const total = (
+    d
+      .prepare(`SELECT COUNT(*) AS count FROM workflow_runs wr ${where}`)
+      .get(...params) as { count: number }
+  ).count;
 
   const offset = (page - 1) * pageSize;
-  const rows = d.prepare(
-    `SELECT wr.*, w.name AS workflow_name FROM workflow_runs wr
+  const rows = d
+    .prepare(
+      `SELECT wr.*, w.name AS workflow_name FROM workflow_runs wr
      JOIN workflows w ON w.id = wr.workflow_id
      ${where}
      ORDER BY ${sortColumn} ${dir}
      LIMIT ? OFFSET ?`
-  ).all(...params, pageSize, offset) as (WorkflowRunRow & { workflow_name: string })[];
+    )
+    .all(...params, pageSize, offset) as (WorkflowRunRow & {
+    workflow_name: string;
+  })[];
 
   return {
     runs: rows,
@@ -1896,9 +2227,11 @@ export function queryWorkflowRuns(opts: WorkflowRunQueryOptions = {}): WorkflowR
  */
 export function getWorkflowRunSteps(runId: string): WorkflowStepRow[] {
   const d = getDb();
-  return d.prepare(
-    "SELECT * FROM workflow_steps WHERE run_id = ? ORDER BY started_at ASC, rowid ASC"
-  ).all(runId) as WorkflowStepRow[];
+  return d
+    .prepare(
+      "SELECT * FROM workflow_steps WHERE run_id = ? ORDER BY started_at ASC, rowid ASC"
+    )
+    .all(runId) as WorkflowStepRow[];
 }
 
 /**
@@ -1910,16 +2243,27 @@ export interface WorkflowStepWithUserRow extends WorkflowStepRow {
   assigned_user_email: string | null;
 }
 
-export function getWorkflowRunHistory(
-  runId: string,
-): { run: WorkflowRunRow; workflow: WorkflowRow | null; steps: WorkflowStepWithUserRow[] } | undefined {
+export function getWorkflowRunHistory(runId: string):
+  | {
+      run: WorkflowRunRow;
+      workflow: WorkflowRow | null;
+      steps: WorkflowStepWithUserRow[];
+    }
+  | undefined {
   const d = getDb();
-  const run = d.prepare("SELECT * FROM workflow_runs WHERE id = ?").get(runId) as WorkflowRunRow | undefined;
+  const run = d
+    .prepare("SELECT * FROM workflow_runs WHERE id = ?")
+    .get(runId) as WorkflowRunRow | undefined;
   if (!run) return undefined;
 
-  const workflow = d.prepare("SELECT * FROM workflows WHERE id = ?").get(run.workflow_id) as WorkflowRow | undefined ?? null;
+  const workflow =
+    (d.prepare("SELECT * FROM workflows WHERE id = ?").get(run.workflow_id) as
+      | WorkflowRow
+      | undefined) ?? null;
 
-  const steps = d.prepare(`
+  const steps = d
+    .prepare(
+      `
     SELECT ws.*,
            wa.assigned_user_id,
            u.name  AS assigned_user_name,
@@ -1929,7 +2273,9 @@ export function getWorkflowRunHistory(
     LEFT JOIN users u ON u.did = wa.assigned_user_id
     WHERE ws.run_id = ?
     ORDER BY ws.started_at ASC, ws.rowid ASC
-  `).all(runId) as WorkflowStepWithUserRow[];
+  `
+    )
+    .all(runId) as WorkflowStepWithUserRow[];
 
   return { run, workflow, steps };
 }
@@ -1984,7 +2330,7 @@ export function createWorkflowApproval(opts: {
     opts.stepInput ?? null,
     opts.assignedUserId,
     opts.mode,
-    opts.mode === "notification" ? "notified" : "pending",
+    opts.mode === "notification" ? "notified" : "pending"
   );
   return id;
 }
@@ -1992,11 +2338,15 @@ export function createWorkflowApproval(opts: {
 /**
  * List pending approval/notification items for a user
  */
-export function getPendingApprovalsForUser(userDid: string): WorkflowApprovalRow[] {
+export function getPendingApprovalsForUser(
+  userDid: string
+): WorkflowApprovalRow[] {
   const d = getDb();
-  return d.prepare(
-    "SELECT * FROM workflow_approvals WHERE assigned_user_id = ? AND status IN ('pending','notified') ORDER BY created_at DESC"
-  ).all(userDid) as WorkflowApprovalRow[];
+  return d
+    .prepare(
+      "SELECT * FROM workflow_approvals WHERE assigned_user_id = ? AND status IN ('pending','notified') ORDER BY created_at DESC"
+    )
+    .all(userDid) as WorkflowApprovalRow[];
 }
 
 /**
@@ -2004,9 +2354,11 @@ export function getPendingApprovalsForUser(userDid: string): WorkflowApprovalRow
  */
 export function getAllApprovalsForUser(userDid: string): WorkflowApprovalRow[] {
   const d = getDb();
-  return d.prepare(
-    "SELECT * FROM workflow_approvals WHERE assigned_user_id = ? ORDER BY created_at DESC"
-  ).all(userDid) as WorkflowApprovalRow[];
+  return d
+    .prepare(
+      "SELECT * FROM workflow_approvals WHERE assigned_user_id = ? ORDER BY created_at DESC"
+    )
+    .all(userDid) as WorkflowApprovalRow[];
 }
 
 /**
@@ -2014,9 +2366,11 @@ export function getAllApprovalsForUser(userDid: string): WorkflowApprovalRow[] {
  */
 export function getApprovalsForRun(runId: string): WorkflowApprovalRow[] {
   const d = getDb();
-  return d.prepare(
-    "SELECT * FROM workflow_approvals WHERE run_id = ? ORDER BY created_at ASC"
-  ).all(runId) as WorkflowApprovalRow[];
+  return d
+    .prepare(
+      "SELECT * FROM workflow_approvals WHERE run_id = ? ORDER BY created_at ASC"
+    )
+    .all(runId) as WorkflowApprovalRow[];
 }
 
 /**
@@ -2026,26 +2380,33 @@ export function resolveWorkflowApproval(
   approvalId: string,
   decidedBy: string,
   decision: "approved" | "rejected",
-  comment?: string,
+  comment?: string
 ): boolean {
   const d = getDb();
-  const result = d.prepare(
-    `UPDATE workflow_approvals
+  const result = d
+    .prepare(
+      `UPDATE workflow_approvals
      SET status = ?, decided_at = datetime('now'), decided_by = ?, comment = ?
      WHERE id = ? AND status = 'pending'`
-  ).run(decision, decidedBy, comment ?? null, approvalId);
+    )
+    .run(decision, decidedBy, comment ?? null, approvalId);
   return (result.changes ?? 0) > 0;
 }
 
 /**
  * Dismiss a notification
  */
-export function dismissWorkflowNotification(approvalId: string, userDid: string): boolean {
+export function dismissWorkflowNotification(
+  approvalId: string,
+  userDid: string
+): boolean {
   const d = getDb();
-  const result = d.prepare(
-    `UPDATE workflow_approvals SET status = 'dismissed'
+  const result = d
+    .prepare(
+      `UPDATE workflow_approvals SET status = 'dismissed'
      WHERE id = ? AND assigned_user_id = ? AND mode = 'notification'`
-  ).run(approvalId, userDid);
+    )
+    .run(approvalId, userDid);
   return (result.changes ?? 0) > 0;
 }
 
@@ -2065,17 +2426,23 @@ export interface OrgSkillRow {
 
 export function getOrgSkills(): OrgSkillRow[] {
   const d = getDb();
-  return d.prepare("SELECT * FROM org_skills ORDER BY name ASC").all() as OrgSkillRow[];
+  return d
+    .prepare("SELECT * FROM org_skills ORDER BY name ASC")
+    .all() as OrgSkillRow[];
 }
 
 export function getOrgSkillById(id: string): OrgSkillRow | undefined {
   const d = getDb();
-  return d.prepare("SELECT * FROM org_skills WHERE id = ?").get(id) as OrgSkillRow | undefined;
+  return d.prepare("SELECT * FROM org_skills WHERE id = ?").get(id) as
+    | OrgSkillRow
+    | undefined;
 }
 
 export function getOrgSkillByName(name: string): OrgSkillRow | undefined {
   const d = getDb();
-  return d.prepare("SELECT * FROM org_skills WHERE name = ?").get(name) as OrgSkillRow | undefined;
+  return d.prepare("SELECT * FROM org_skills WHERE name = ?").get(name) as
+    | OrgSkillRow
+    | undefined;
 }
 
 export function createOrgSkill(opts: {
@@ -2098,18 +2465,25 @@ export function createOrgSkill(opts: {
     opts.version?.trim() ?? "1.0.0",
     opts.icon?.trim() ?? null,
     opts.content ?? null,
-    JSON.stringify(opts.configSchema ?? {}),
+    JSON.stringify(opts.configSchema ?? {})
   );
   return getOrgSkillById(id)!;
 }
 
 export function updateOrgSkill(
   id: string,
-  updates: { description?: string | null; version?: string; icon?: string | null; content?: string | null; configSchema?: Record<string, unknown> },
+  updates: {
+    description?: string | null;
+    version?: string;
+    icon?: string | null;
+    content?: string | null;
+    configSchema?: Record<string, unknown>;
+  }
 ): boolean {
   const d = getDb();
-  const result = d.prepare(
-    `UPDATE org_skills
+  const result = d
+    .prepare(
+      `UPDATE org_skills
      SET description = COALESCE(?, description),
          version     = COALESCE(?, version),
          icon        = ?,
@@ -2117,14 +2491,17 @@ export function updateOrgSkill(
          config_schema = COALESCE(?, config_schema),
          updated_at  = datetime('now')
      WHERE id = ?`
-  ).run(
-    updates.description !== undefined ? updates.description : null,
-    updates.version ?? null,
-    updates.icon !== undefined ? updates.icon : undefined,
-    updates.content !== undefined ? updates.content : undefined,
-    updates.configSchema !== undefined ? JSON.stringify(updates.configSchema) : null,
-    id,
-  );
+    )
+    .run(
+      updates.description !== undefined ? updates.description : null,
+      updates.version ?? null,
+      updates.icon !== undefined ? updates.icon : undefined,
+      updates.content !== undefined ? updates.content : undefined,
+      updates.configSchema !== undefined
+        ? JSON.stringify(updates.configSchema)
+        : null,
+      id
+    );
   return result.changes > 0;
 }
 
@@ -2150,14 +2527,18 @@ export interface RealmSkillRow {
 
 export function getRealmSkills(realmId: string): RealmSkillRow[] {
   const d = getDb();
-  return d.prepare(
-    "SELECT * FROM realm_skills WHERE realm_id = ? ORDER BY is_required DESC, name ASC"
-  ).all(realmId) as RealmSkillRow[];
+  return d
+    .prepare(
+      "SELECT * FROM realm_skills WHERE realm_id = ? ORDER BY is_required DESC, name ASC"
+    )
+    .all(realmId) as RealmSkillRow[];
 }
 
 export function getRealmSkillById(id: string): RealmSkillRow | undefined {
   const d = getDb();
-  return d.prepare("SELECT * FROM realm_skills WHERE id = ?").get(id) as RealmSkillRow | undefined;
+  return d.prepare("SELECT * FROM realm_skills WHERE id = ?").get(id) as
+    | RealmSkillRow
+    | undefined;
 }
 
 export function createRealmSkill(skill: {
@@ -2171,10 +2552,12 @@ export function createRealmSkill(skill: {
 }): RealmSkillRow {
   const d = getDb();
   const id = crypto.randomUUID();
-  d.prepare(`
+  d.prepare(
+    `
     INSERT INTO realm_skills (id, realm_id, name, description, version, is_required, config, content)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(
+  `
+  ).run(
     id,
     skill.realmId,
     skill.name,
@@ -2182,26 +2565,49 @@ export function createRealmSkill(skill: {
     skill.version ?? null,
     skill.isRequired ? 1 : 0,
     JSON.stringify(skill.config ?? {}),
-    skill.content ?? null,
+    skill.content ?? null
   );
   return getRealmSkillById(id)!;
 }
 
 export function updateRealmSkill(
   id: string,
-  updates: { description?: string | null; version?: string | null; isRequired?: boolean; config?: Record<string, unknown>; content?: string | null },
+  updates: {
+    description?: string | null;
+    version?: string | null;
+    isRequired?: boolean;
+    config?: Record<string, unknown>;
+    content?: string | null;
+  }
 ): boolean {
   const d = getDb();
   const parts: string[] = [];
   const vals: unknown[] = [];
-  if ("description" in updates) { parts.push("description = ?"); vals.push(updates.description ?? null); }
-  if ("version" in updates) { parts.push("version = ?"); vals.push(updates.version ?? null); }
-  if ("isRequired" in updates) { parts.push("is_required = ?"); vals.push(updates.isRequired ? 1 : 0); }
-  if ("config" in updates) { parts.push("config = ?"); vals.push(JSON.stringify(updates.config)); }
-  if ("content" in updates) { parts.push("content = ?"); vals.push(updates.content ?? null); }
+  if ("description" in updates) {
+    parts.push("description = ?");
+    vals.push(updates.description ?? null);
+  }
+  if ("version" in updates) {
+    parts.push("version = ?");
+    vals.push(updates.version ?? null);
+  }
+  if ("isRequired" in updates) {
+    parts.push("is_required = ?");
+    vals.push(updates.isRequired ? 1 : 0);
+  }
+  if ("config" in updates) {
+    parts.push("config = ?");
+    vals.push(JSON.stringify(updates.config));
+  }
+  if ("content" in updates) {
+    parts.push("content = ?");
+    vals.push(updates.content ?? null);
+  }
   if (parts.length === 0) return false;
   vals.push(id);
-  const result = d.prepare(`UPDATE realm_skills SET ${parts.join(", ")} WHERE id = ?`).run(...vals);
+  const result = d
+    .prepare(`UPDATE realm_skills SET ${parts.join(", ")} WHERE id = ?`)
+    .run(...vals);
   return result.changes > 0;
 }
 
@@ -2228,7 +2634,9 @@ export interface SkillWithRealmRow {
 
 export function getAllSkillsWithRealms(): SkillWithRealmRow[] {
   const d = getDb();
-  return d.prepare(`
+  return d
+    .prepare(
+      `
     SELECT rs.id, rs.realm_id, r.name AS realm_name, rs.name, rs.description,
            rs.version, rs.is_required, rs.config, rs.content, rs.created_at,
            (SELECT COUNT(*) FROM agent_realms ar WHERE ar.realm_id = r.id) AS agent_count,
@@ -2236,7 +2644,9 @@ export function getAllSkillsWithRealms(): SkillWithRealmRow[] {
     FROM realm_skills rs
     JOIN realms r ON r.id = rs.realm_id
     ORDER BY rs.name ASC, r.name ASC
-  `).all() as SkillWithRealmRow[];
+  `
+    )
+    .all() as SkillWithRealmRow[];
 }
 
 // ---- Agent skill overrides ----
@@ -2247,20 +2657,28 @@ export interface AgentSkillOverrideRow {
   enabled: number;
 }
 
-export function getAgentSkillOverrides(agentDid: string): AgentSkillOverrideRow[] {
+export function getAgentSkillOverrides(
+  agentDid: string
+): AgentSkillOverrideRow[] {
   const d = getDb();
-  return d.prepare(
-    "SELECT * FROM agent_skill_overrides WHERE agent_did = ?"
-  ).all(agentDid) as AgentSkillOverrideRow[];
+  return d
+    .prepare("SELECT * FROM agent_skill_overrides WHERE agent_did = ?")
+    .all(agentDid) as AgentSkillOverrideRow[];
 }
 
-export function setAgentSkillOverride(agentDid: string, realmSkillId: string, enabled: boolean): void {
+export function setAgentSkillOverride(
+  agentDid: string,
+  realmSkillId: string,
+  enabled: boolean
+): void {
   const d = getDb();
-  d.prepare(`
+  d.prepare(
+    `
     INSERT INTO agent_skill_overrides (agent_did, realm_skill_id, enabled)
     VALUES (?, ?, ?)
     ON CONFLICT(agent_did, realm_skill_id) DO UPDATE SET enabled = excluded.enabled
-  `).run(agentDid, realmSkillId, enabled ? 1 : 0);
+  `
+  ).run(agentDid, realmSkillId, enabled ? 1 : 0);
 }
 
 /**
@@ -2269,9 +2687,13 @@ export function setAgentSkillOverride(agentDid: string, realmSkillId: string, en
  * applies per-agent overrides, and returns the merged list.
  * Required skills cannot be disabled.
  */
-export function getAgentEffectiveSkills(agentDid: string): import("@vaultysclaw/shared").SkillConfig[] {
+export function getAgentEffectiveSkills(
+  agentDid: string
+): import("@vaultysclaw/shared").SkillConfig[] {
   const d = getDb();
-  const rows = d.prepare(`
+  const rows = d
+    .prepare(
+      `
     SELECT rs.id, rs.name, rs.is_required, rs.config, rs.content,
            aso.enabled AS override_enabled
     FROM agent_realms ar
@@ -2281,7 +2703,9 @@ export function getAgentEffectiveSkills(agentDid: string): import("@vaultysclaw/
     WHERE ar.agent_did = ?
     GROUP BY rs.name
     ORDER BY rs.is_required DESC, rs.name ASC
-  `).all(agentDid) as Array<{
+  `
+    )
+    .all(agentDid) as Array<{
     id: string;
     name: string;
     is_required: number;
@@ -2297,7 +2721,9 @@ export function getAgentEffectiveSkills(agentDid: string): import("@vaultysclaw/
     const isRequired = row.is_required === 1;
     const enabled = isRequired
       ? true
-      : (row.override_enabled === null ? true : row.override_enabled === 1);
+      : row.override_enabled === null
+        ? true
+        : row.override_enabled === 1;
     seen.set(row.name, {
       name: row.name,
       enabled,
@@ -2339,10 +2765,12 @@ export function createModelRegistryEntry(entry: {
   const d = getDb();
   const id = crypto.randomUUID();
   const litellmName = `${entry.provider}/${entry.name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
-  d.prepare(`
+  d.prepare(
+    `
     INSERT INTO model_registry (id, name, description, provider, model_id, base_url, api_key_enc, litellm_model_name, created_by)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(
+  `
+  ).run(
     id,
     entry.name,
     entry.description ?? null,
@@ -2351,29 +2779,41 @@ export function createModelRegistryEntry(entry: {
     entry.baseUrl,
     entry.apiKeyEnc ?? null,
     litellmName,
-    entry.createdBy ?? null,
+    entry.createdBy ?? null
   );
-  return d.prepare("SELECT * FROM model_registry WHERE id = ?").get(id) as ModelRegistryRow;
+  return d
+    .prepare("SELECT * FROM model_registry WHERE id = ?")
+    .get(id) as ModelRegistryRow;
 }
 
-export function getModelRegistryEntry(id: string): ModelRegistryRow | undefined {
+export function getModelRegistryEntry(
+  id: string
+): ModelRegistryRow | undefined {
   const d = getDb();
-  return d.prepare("SELECT * FROM model_registry WHERE id = ?").get(id) as ModelRegistryRow | undefined;
+  return d.prepare("SELECT * FROM model_registry WHERE id = ?").get(id) as
+    | ModelRegistryRow
+    | undefined;
 }
 
 export function getAllModelRegistryEntries(): ModelRegistryRow[] {
   const d = getDb();
-  return d.prepare("SELECT * FROM model_registry ORDER BY created_at DESC").all() as ModelRegistryRow[];
+  return d
+    .prepare("SELECT * FROM model_registry ORDER BY created_at DESC")
+    .all() as ModelRegistryRow[];
 }
 
 export function getModelsByRealm(realmId: string): ModelRegistryRow[] {
   const d = getDb();
-  return d.prepare(`
+  return d
+    .prepare(
+      `
     SELECT m.* FROM model_registry m
     JOIN model_realm_access mra ON mra.model_id = m.id
     WHERE mra.realm_id = ? AND m.status = 'active'
     ORDER BY m.name ASC
-  `).all(realmId) as ModelRegistryRow[];
+  `
+    )
+    .all(realmId) as ModelRegistryRow[];
 }
 
 export function updateModelRegistryEntry(
@@ -2394,18 +2834,47 @@ export function updateModelRegistryEntry(
   const sets: string[] = ["updated_at = datetime('now')"];
   const values: unknown[] = [];
 
-  if (updates.name !== undefined) { sets.push("name = ?"); values.push(updates.name); }
-  if (updates.description !== undefined) { sets.push("description = ?"); values.push(updates.description); }
-  if (updates.provider !== undefined) { sets.push("provider = ?"); values.push(updates.provider); }
-  if (updates.modelId !== undefined) { sets.push("model_id = ?"); values.push(updates.modelId); }
-  if (updates.baseUrl !== undefined) { sets.push("base_url = ?"); values.push(updates.baseUrl); }
-  if (updates.apiKeyEnc !== undefined) { sets.push("api_key_enc = ?"); values.push(updates.apiKeyEnc); }
-  if (updates.status !== undefined) { sets.push("status = ?"); values.push(updates.status); }
-  if (updates.litellmModelName !== undefined) { sets.push("litellm_model_name = ?"); values.push(updates.litellmModelName); }
-  if (updates.metadata !== undefined) { sets.push("metadata = ?"); values.push(updates.metadata); }
+  if (updates.name !== undefined) {
+    sets.push("name = ?");
+    values.push(updates.name);
+  }
+  if (updates.description !== undefined) {
+    sets.push("description = ?");
+    values.push(updates.description);
+  }
+  if (updates.provider !== undefined) {
+    sets.push("provider = ?");
+    values.push(updates.provider);
+  }
+  if (updates.modelId !== undefined) {
+    sets.push("model_id = ?");
+    values.push(updates.modelId);
+  }
+  if (updates.baseUrl !== undefined) {
+    sets.push("base_url = ?");
+    values.push(updates.baseUrl);
+  }
+  if (updates.apiKeyEnc !== undefined) {
+    sets.push("api_key_enc = ?");
+    values.push(updates.apiKeyEnc);
+  }
+  if (updates.status !== undefined) {
+    sets.push("status = ?");
+    values.push(updates.status);
+  }
+  if (updates.litellmModelName !== undefined) {
+    sets.push("litellm_model_name = ?");
+    values.push(updates.litellmModelName);
+  }
+  if (updates.metadata !== undefined) {
+    sets.push("metadata = ?");
+    values.push(updates.metadata);
+  }
 
   values.push(id);
-  d.prepare(`UPDATE model_registry SET ${sets.join(", ")} WHERE id = ?`).run(...values);
+  d.prepare(`UPDATE model_registry SET ${sets.join(", ")} WHERE id = ?`).run(
+    ...values
+  );
 }
 
 export function deleteModelRegistryEntry(id: string): void {
@@ -2415,19 +2884,29 @@ export function deleteModelRegistryEntry(id: string): void {
 
 // -- model_realm_access --
 
-export function getModelRealmAccess(modelId: string): { realm_id: string; granted_at: string }[] {
+export function getModelRealmAccess(
+  modelId: string
+): { realm_id: string; granted_at: string }[] {
   const d = getDb();
-  return d.prepare("SELECT realm_id, granted_at FROM model_realm_access WHERE model_id = ?").all(modelId) as { realm_id: string; granted_at: string }[];
+  return d
+    .prepare(
+      "SELECT realm_id, granted_at FROM model_realm_access WHERE model_id = ?"
+    )
+    .all(modelId) as { realm_id: string; granted_at: string }[];
 }
 
 export function grantModelRealmAccess(modelId: string, realmId: string): void {
   const d = getDb();
-  d.prepare("INSERT OR IGNORE INTO model_realm_access (model_id, realm_id) VALUES (?, ?)").run(modelId, realmId);
+  d.prepare(
+    "INSERT OR IGNORE INTO model_realm_access (model_id, realm_id) VALUES (?, ?)"
+  ).run(modelId, realmId);
 }
 
 export function revokeModelRealmAccess(modelId: string, realmId: string): void {
   const d = getDb();
-  d.prepare("DELETE FROM model_realm_access WHERE model_id = ? AND realm_id = ?").run(modelId, realmId);
+  d.prepare(
+    "DELETE FROM model_realm_access WHERE model_id = ? AND realm_id = ?"
+  ).run(modelId, realmId);
 }
 
 // -- realm_router_keys --
@@ -2440,35 +2919,56 @@ export interface RealmRouterKeyRow {
   updated_at: string;
 }
 
-export function getRealmRouterKey(realmId: string): RealmRouterKeyRow | undefined {
+export function getRealmRouterKey(
+  realmId: string
+): RealmRouterKeyRow | undefined {
   const d = getDb();
-  return d.prepare("SELECT * FROM realm_router_keys WHERE realm_id = ?").get(realmId) as RealmRouterKeyRow | undefined;
+  return d
+    .prepare("SELECT * FROM realm_router_keys WHERE realm_id = ?")
+    .get(realmId) as RealmRouterKeyRow | undefined;
 }
 
 export function upsertRealmRouterKey(
   realmId: string,
-  data: { litellmVirtualKey?: string; allowedModelIds?: string[]; monthlyBudgetUsd?: number | null }
+  data: {
+    litellmVirtualKey?: string;
+    allowedModelIds?: string[];
+    monthlyBudgetUsd?: number | null;
+  }
 ): void {
   const d = getDb();
   const existing = getRealmRouterKey(realmId);
   if (!existing) {
-    d.prepare(`
+    d.prepare(
+      `
       INSERT INTO realm_router_keys (realm_id, litellm_virtual_key, allowed_model_ids, monthly_budget_usd)
       VALUES (?, ?, ?, ?)
-    `).run(
+    `
+    ).run(
       realmId,
       data.litellmVirtualKey ?? null,
       JSON.stringify(data.allowedModelIds ?? []),
-      data.monthlyBudgetUsd ?? null,
+      data.monthlyBudgetUsd ?? null
     );
   } else {
     const sets: string[] = ["updated_at = datetime('now')"];
     const values: unknown[] = [];
-    if (data.litellmVirtualKey !== undefined) { sets.push("litellm_virtual_key = ?"); values.push(data.litellmVirtualKey); }
-    if (data.allowedModelIds !== undefined) { sets.push("allowed_model_ids = ?"); values.push(JSON.stringify(data.allowedModelIds)); }
-    if (data.monthlyBudgetUsd !== undefined) { sets.push("monthly_budget_usd = ?"); values.push(data.monthlyBudgetUsd); }
+    if (data.litellmVirtualKey !== undefined) {
+      sets.push("litellm_virtual_key = ?");
+      values.push(data.litellmVirtualKey);
+    }
+    if (data.allowedModelIds !== undefined) {
+      sets.push("allowed_model_ids = ?");
+      values.push(JSON.stringify(data.allowedModelIds));
+    }
+    if (data.monthlyBudgetUsd !== undefined) {
+      sets.push("monthly_budget_usd = ?");
+      values.push(data.monthlyBudgetUsd);
+    }
     values.push(realmId);
-    d.prepare(`UPDATE realm_router_keys SET ${sets.join(", ")} WHERE realm_id = ?`).run(...values);
+    d.prepare(
+      `UPDATE realm_router_keys SET ${sets.join(", ")} WHERE realm_id = ?`
+    ).run(...values);
   }
 }
 
@@ -2478,49 +2978,77 @@ export function createPolicy(policy: {
   agentDid?: string;
   realmId?: string;
   capabilities: string[];
-  resourceLimits?: { maxTokensPerDay?: number; maxRequestsPerHour?: number; allowedDomains?: string[] };
+  resourceLimits?: {
+    maxTokensPerDay?: number;
+    maxRequestsPerHour?: number;
+    allowedDomains?: string[];
+  };
   expiresAt?: string;
   createdBy?: string;
 }): PolicyRow {
   const d = getDb();
   const id = `policy-${crypto.randomUUID()}`;
-  d.prepare(`
+  d.prepare(
+    `
     INSERT INTO policies (id, agent_did, realm_id, capabilities, resource_limits, expires_at, created_by)
     VALUES (?, ?, ?, ?, ?, ?, ?)
-  `).run(
+  `
+  ).run(
     id,
     policy.agentDid ?? null,
     policy.realmId ?? null,
     JSON.stringify(policy.capabilities),
     policy.resourceLimits ? JSON.stringify(policy.resourceLimits) : null,
     policy.expiresAt ?? null,
-    policy.createdBy ?? null,
+    policy.createdBy ?? null
   );
   return d.prepare("SELECT * FROM policies WHERE id = ?").get(id) as PolicyRow;
 }
 
-export function listPolicies(opts: { agentDid?: string; realmId?: string; includeExpired?: boolean; expiredOnly?: boolean } = {}): PolicyRow[] {
+export function listPolicies(
+  opts: {
+    agentDid?: string;
+    realmId?: string;
+    includeExpired?: boolean;
+    expiredOnly?: boolean;
+  } = {}
+): PolicyRow[] {
   const d = getDb();
   const conditions: string[] = [];
   const values: unknown[] = [];
-  if (opts.agentDid !== undefined) { conditions.push("agent_did = ?"); values.push(opts.agentDid); }
-  if (opts.realmId !== undefined) { conditions.push("realm_id = ?"); values.push(opts.realmId); }
+  if (opts.agentDid !== undefined) {
+    conditions.push("agent_did = ?");
+    values.push(opts.agentDid);
+  }
+  if (opts.realmId !== undefined) {
+    conditions.push("realm_id = ?");
+    values.push(opts.realmId);
+  }
   if (opts.expiredOnly) {
     // Only rows that have a non-null expiresAt that is already in the past.
-    conditions.push("expires_at IS NOT NULL AND datetime(expires_at) <= datetime('now')");
+    conditions.push(
+      "expires_at IS NOT NULL AND datetime(expires_at) <= datetime('now')"
+    );
   } else if (!opts.includeExpired) {
     // Use datetime(expires_at) so SQLite parses ISO 8601 strings (which contain 'T'
     // and 'Z') correctly before comparing — a raw string compare would always treat
     // ISO dates as greater than datetime('now') because 'T' > ' ' in ASCII.
-    conditions.push("(expires_at IS NULL OR datetime(expires_at) > datetime('now'))");
+    conditions.push(
+      "(expires_at IS NULL OR datetime(expires_at) > datetime('now'))"
+    );
   }
-  const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
-  return d.prepare(`SELECT * FROM policies ${where} ORDER BY created_at DESC`).all(...values) as PolicyRow[];
+  const where =
+    conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+  return d
+    .prepare(`SELECT * FROM policies ${where} ORDER BY created_at DESC`)
+    .all(...values) as PolicyRow[];
 }
 
 export function getPolicy(id: string): PolicyRow | undefined {
   const d = getDb();
-  return d.prepare("SELECT * FROM policies WHERE id = ?").get(id) as PolicyRow | undefined;
+  return d.prepare("SELECT * FROM policies WHERE id = ?").get(id) as
+    | PolicyRow
+    | undefined;
 }
 
 export function deletePolicy(id: string): boolean {
@@ -2531,24 +3059,42 @@ export function deletePolicy(id: string): boolean {
 
 export function countPoliciesByAgent(): { agent_did: string; count: number }[] {
   const d = getDb();
-  return d.prepare(`
+  return d
+    .prepare(
+      `
     SELECT agent_did, COUNT(*) AS count FROM policies
     WHERE agent_did IS NOT NULL AND (expires_at IS NULL OR datetime(expires_at) > datetime('now'))
     GROUP BY agent_did
-  `).all() as { agent_did: string; count: number }[];
+  `
+    )
+    .all() as { agent_did: string; count: number }[];
 }
 
 // ── Governance: Agent budget ───────────────────────────────────────────────
 
-export function updateAgentBudget(did: string, budgets: { tokenBudgetDaily?: number | null; tokenBudgetMonthly?: number | null }): void {
+export function updateAgentBudget(
+  did: string,
+  budgets: {
+    tokenBudgetDaily?: number | null;
+    tokenBudgetMonthly?: number | null;
+  }
+): void {
   const d = getDb();
   const sets: string[] = [];
   const values: unknown[] = [];
-  if ("tokenBudgetDaily" in budgets) { sets.push("token_budget_daily = ?"); values.push(budgets.tokenBudgetDaily ?? null); }
-  if ("tokenBudgetMonthly" in budgets) { sets.push("token_budget_monthly = ?"); values.push(budgets.tokenBudgetMonthly ?? null); }
+  if ("tokenBudgetDaily" in budgets) {
+    sets.push("token_budget_daily = ?");
+    values.push(budgets.tokenBudgetDaily ?? null);
+  }
+  if ("tokenBudgetMonthly" in budgets) {
+    sets.push("token_budget_monthly = ?");
+    values.push(budgets.tokenBudgetMonthly ?? null);
+  }
   if (sets.length === 0) return;
   values.push(did);
-  d.prepare(`UPDATE agents SET ${sets.join(", ")} WHERE did = ?`).run(...values);
+  d.prepare(`UPDATE agents SET ${sets.join(", ")} WHERE did = ?`).run(
+    ...values
+  );
 }
 
 // ── User invitations ───────────────────────────────────────────────────
@@ -2563,7 +3109,12 @@ export interface UserInvitationRow {
   claimed_at: string | null;
 }
 
-export function createUserInvitation(email: string, name: string, role: string, expiresAt: string): string {
+export function createUserInvitation(
+  email: string,
+  name: string,
+  role: string,
+  expiresAt: string
+): string {
   const d = getDb();
   const token = crypto.randomUUID();
   d.prepare(
@@ -2572,19 +3123,27 @@ export function createUserInvitation(email: string, name: string, role: string, 
   return token;
 }
 
-export function getUserInvitation(token: string): UserInvitationRow | undefined {
+export function getUserInvitation(
+  token: string
+): UserInvitationRow | undefined {
   const d = getDb();
-  return d.prepare("SELECT * FROM user_invitations WHERE token = ?").get(token) as UserInvitationRow | undefined;
+  return d
+    .prepare("SELECT * FROM user_invitations WHERE token = ?")
+    .get(token) as UserInvitationRow | undefined;
 }
 
 export function claimUserInvitation(token: string): void {
   const d = getDb();
-  d.prepare("UPDATE user_invitations SET claimed_at = datetime('now') WHERE token = ?").run(token);
+  d.prepare(
+    "UPDATE user_invitations SET claimed_at = datetime('now') WHERE token = ?"
+  ).run(token);
 }
 
 export function cleanExpiredInvitations(): void {
   const d = getDb();
-  d.prepare("DELETE FROM user_invitations WHERE expires_at < datetime('now')").run();
+  d.prepare(
+    "DELETE FROM user_invitations WHERE expires_at < datetime('now')"
+  ).run();
 }
 
 // ---- Knowledge source helpers ----
@@ -2604,36 +3163,72 @@ export interface KnowledgeSourceRow {
   created_at: string;
 }
 
-export function createKnowledgeSource(source: Omit<KnowledgeSourceRow, 'id' | 'created_at'>): KnowledgeSourceRow {
+export function createKnowledgeSource(
+  source: Omit<KnowledgeSourceRow, "id" | "created_at">
+): KnowledgeSourceRow {
   const d = getDb();
   const id = `ks-${crypto.randomUUID()}`;
-  d.prepare(`
+  d.prepare(
+    `
     INSERT INTO knowledge_sources (id, realm_id, agent_did, name, source_type, config, status)
     VALUES (?, ?, ?, ?, ?, ?, 'idle')
-  `).run(id, source.realm_id, source.agent_did, source.name, source.source_type, source.config);
+  `
+  ).run(
+    id,
+    source.realm_id,
+    source.agent_did,
+    source.name,
+    source.source_type,
+    source.config
+  );
   return getKnowledgeSource(id)!;
 }
 
 export function getKnowledgeSource(id: string): KnowledgeSourceRow | undefined {
-  return getDb().prepare('SELECT * FROM knowledge_sources WHERE id = ?').get(id) as KnowledgeSourceRow | undefined;
+  return getDb()
+    .prepare("SELECT * FROM knowledge_sources WHERE id = ?")
+    .get(id) as KnowledgeSourceRow | undefined;
 }
 
-export function listKnowledgeSources(opts?: { realmId?: string; agentDid?: string }): KnowledgeSourceRow[] {
+export function listKnowledgeSources(opts?: {
+  realmId?: string;
+  agentDid?: string;
+}): KnowledgeSourceRow[] {
   const { realmId, agentDid } = opts ?? {};
   if (realmId && agentDid) {
-    return getDb().prepare('SELECT * FROM knowledge_sources WHERE realm_id = ? AND agent_did = ? ORDER BY created_at DESC').all(realmId, agentDid) as KnowledgeSourceRow[];
+    return getDb()
+      .prepare(
+        "SELECT * FROM knowledge_sources WHERE realm_id = ? AND agent_did = ? ORDER BY created_at DESC"
+      )
+      .all(realmId, agentDid) as KnowledgeSourceRow[];
   }
   if (realmId) {
-    return getDb().prepare('SELECT * FROM knowledge_sources WHERE realm_id = ? ORDER BY created_at DESC').all(realmId) as KnowledgeSourceRow[];
+    return getDb()
+      .prepare(
+        "SELECT * FROM knowledge_sources WHERE realm_id = ? ORDER BY created_at DESC"
+      )
+      .all(realmId) as KnowledgeSourceRow[];
   }
   if (agentDid) {
-    return getDb().prepare('SELECT * FROM knowledge_sources WHERE agent_did = ? ORDER BY created_at DESC').all(agentDid) as KnowledgeSourceRow[];
+    return getDb()
+      .prepare(
+        "SELECT * FROM knowledge_sources WHERE agent_did = ? ORDER BY created_at DESC"
+      )
+      .all(agentDid) as KnowledgeSourceRow[];
   }
-  return getDb().prepare('SELECT * FROM knowledge_sources ORDER BY created_at DESC').all() as KnowledgeSourceRow[];
+  return getDb()
+    .prepare("SELECT * FROM knowledge_sources ORDER BY created_at DESC")
+    .all() as KnowledgeSourceRow[];
 }
 
-export function updateKnowledgeSourceStatus(id: string, status: string, extra?: { docCount?: number; chunkCount?: number; error?: string | null }): void {
-  getDb().prepare(`
+export function updateKnowledgeSourceStatus(
+  id: string,
+  status: string,
+  extra?: { docCount?: number; chunkCount?: number; error?: string | null }
+): void {
+  getDb()
+    .prepare(
+      `
     UPDATE knowledge_sources SET
       status = ?,
       doc_count = COALESCE(?, doc_count),
@@ -2641,14 +3236,16 @@ export function updateKnowledgeSourceStatus(id: string, status: string, extra?: 
       last_synced_at = CASE WHEN ? = 'ready' THEN datetime('now') ELSE last_synced_at END,
       error = ?
     WHERE id = ?
-  `).run(
-    status,
-    extra?.docCount ?? null,
-    extra?.chunkCount ?? null,
-    status,
-    extra?.error ?? null,
-    id,
-  );
+  `
+    )
+    .run(
+      status,
+      extra?.docCount ?? null,
+      extra?.chunkCount ?? null,
+      status,
+      extra?.error ?? null,
+      id
+    );
 }
 
 export async function deleteKnowledgeSource(id: string): Promise<boolean> {
@@ -2656,7 +3253,9 @@ export async function deleteKnowledgeSource(id: string): Promise<boolean> {
   const storage = await getFileStorage();
 
   // Get all files for this source and delete from storage
-  const files = d.prepare('SELECT file_path FROM knowledge_files WHERE source_id = ?').all(id) as Array<{ file_path: string | null }>;
+  const files = d
+    .prepare("SELECT file_path FROM knowledge_files WHERE source_id = ?")
+    .all(id) as Array<{ file_path: string | null }>;
   for (const file of files) {
     if (file.file_path) {
       await storage.delete(file.file_path);
@@ -2664,7 +3263,9 @@ export async function deleteKnowledgeSource(id: string): Promise<boolean> {
   }
 
   // Delete from database (cascade deletes files)
-  const result = d.prepare('DELETE FROM knowledge_sources WHERE id = ?').run(id);
+  const result = d
+    .prepare("DELETE FROM knowledge_sources WHERE id = ?")
+    .run(id);
   return result.changes > 0;
 }
 
@@ -2693,7 +3294,7 @@ export async function createKnowledgeFile(
   sourceId: string,
   name: string,
   mimeType: string,
-  content: Buffer,
+  content: Buffer
 ): Promise<KnowledgeFileMeta> {
   const d = getDb();
   const id = `kf-${crypto.randomUUID()}`;
@@ -2704,26 +3305,39 @@ export async function createKnowledgeFile(
   await storage.write(fileKey, content);
 
   // Store metadata in database
-  d.prepare(`
+  d.prepare(
+    `
     INSERT INTO knowledge_files (id, source_id, name, mime_type, size, file_path, content)
     VALUES (?, ?, ?, ?, ?, ?, NULL)
-  `).run(id, sourceId, name, mimeType, content.length, fileKey);
+  `
+  ).run(id, sourceId, name, mimeType, content.length, fileKey);
 
-  return { id, source_id: sourceId, name, mime_type: mimeType, size: content.length, created_at: new Date().toISOString() };
+  return {
+    id,
+    source_id: sourceId,
+    name,
+    mime_type: mimeType,
+    size: content.length,
+    created_at: new Date().toISOString(),
+  };
 }
 
 /** List file metadata (no content) for a source */
 export function listKnowledgeFiles(sourceId: string): KnowledgeFileMeta[] {
   return getDb()
-    .prepare('SELECT id, source_id, name, mime_type, size, created_at FROM knowledge_files WHERE source_id = ? ORDER BY created_at ASC')
+    .prepare(
+      "SELECT id, source_id, name, mime_type, size, created_at FROM knowledge_files WHERE source_id = ? ORDER BY created_at ASC"
+    )
     .all(sourceId) as KnowledgeFileMeta[];
 }
 
 /** Get full file row including content blob */
-export async function getKnowledgeFileContent(fileId: string): Promise<KnowledgeFileRow | undefined> {
+export async function getKnowledgeFileContent(
+  fileId: string
+): Promise<KnowledgeFileRow | undefined> {
   const d = getDb();
   const row = d
-    .prepare('SELECT * FROM knowledge_files WHERE id = ?')
+    .prepare("SELECT * FROM knowledge_files WHERE id = ?")
     .get(fileId) as any;
 
   if (!row) return undefined;
@@ -2750,7 +3364,9 @@ export async function getKnowledgeFileContent(fileId: string): Promise<Knowledge
 
 export async function deleteKnowledgeFile(fileId: string): Promise<boolean> {
   const d = getDb();
-  const row = d.prepare('SELECT file_path FROM knowledge_files WHERE id = ?').get(fileId) as any;
+  const row = d
+    .prepare("SELECT file_path FROM knowledge_files WHERE id = ?")
+    .get(fileId) as any;
 
   if (!row) return false;
 
@@ -2761,22 +3377,35 @@ export async function deleteKnowledgeFile(fileId: string): Promise<boolean> {
   }
 
   // Delete from database
-  const result = d.prepare('DELETE FROM knowledge_files WHERE id = ?').run(fileId);
+  const result = d
+    .prepare("DELETE FROM knowledge_files WHERE id = ?")
+    .run(fileId);
   return result.changes > 0;
 }
 
 /** Load all files for a source as base64 attachments (used in sync WS payload) */
-export async function getKnowledgeFileAttachments(sourceId: string): Promise<Array<{
-  id: string;
-  name: string;
-  mimeType: string;
-  size: number;
-  content: string; // base64
-}>> {
+export async function getKnowledgeFileAttachments(sourceId: string): Promise<
+  Array<{
+    id: string;
+    name: string;
+    mimeType: string;
+    size: number;
+    content: string; // base64
+  }>
+> {
   const d = getDb();
   const rows = d
-    .prepare('SELECT id, name, mime_type, size, content, file_path FROM knowledge_files WHERE source_id = ? ORDER BY created_at ASC')
-    .all(sourceId) as Array<{ id: string; name: string; mime_type: string; size: number; content: Buffer | null; file_path: string | null }>;
+    .prepare(
+      "SELECT id, name, mime_type, size, content, file_path FROM knowledge_files WHERE source_id = ? ORDER BY created_at ASC"
+    )
+    .all(sourceId) as Array<{
+    id: string;
+    name: string;
+    mime_type: string;
+    size: number;
+    content: Buffer | null;
+    file_path: string | null;
+  }>;
 
   const storage = await getFileStorage();
   const result = await Promise.all(
@@ -2793,7 +3422,7 @@ export async function getKnowledgeFileAttachments(sourceId: string): Promise<Arr
         name: r.name,
         mimeType: r.mime_type,
         size: r.size,
-        content: content.toString('base64'),
+        content: content.toString("base64"),
       };
     })
   );
@@ -2836,20 +3465,30 @@ export function saveCredential(
   name: string,
   secretEncrypted: string,
   metadata?: Record<string, unknown>,
-  createdBy?: string,
+  createdBy?: string
 ): string {
   const d = getDb();
   const id = `cred-${crypto.randomUUID()}`;
   const metadataJson = JSON.stringify(metadata || {});
 
-  d.prepare(`
+  d.prepare(
+    `
     INSERT INTO credentials (id, realm_id, service, name, secret_enc, metadata, created_by, created_at, updated_at)
     VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
     ON CONFLICT(realm_id, service, name) DO UPDATE SET
       secret_enc = excluded.secret_enc,
       metadata = excluded.metadata,
       updated_at = datetime('now')
-  `).run(id, realmId, service, name, secretEncrypted, metadataJson, createdBy ?? null);
+  `
+  ).run(
+    id,
+    realmId,
+    service,
+    name,
+    secretEncrypted,
+    metadataJson,
+    createdBy ?? null
+  );
 
   return id;
 }
@@ -2858,7 +3497,9 @@ export function saveCredential(
  * Get a credential by ID (returns encrypted secret).
  */
 export function getCredentialById(id: string): CredentialRow | undefined {
-  return getDb().prepare("SELECT * FROM credentials WHERE id = ?").get(id) as CredentialRow | undefined;
+  return getDb().prepare("SELECT * FROM credentials WHERE id = ?").get(id) as
+    | CredentialRow
+    | undefined;
 }
 
 /**
@@ -2867,10 +3508,12 @@ export function getCredentialById(id: string): CredentialRow | undefined {
 export function getCredentialByKey(
   realmId: string,
   service: string,
-  name: string,
+  name: string
 ): CredentialRow | undefined {
   return getDb()
-    .prepare("SELECT * FROM credentials WHERE realm_id = ? AND service = ? AND name = ?")
+    .prepare(
+      "SELECT * FROM credentials WHERE realm_id = ? AND service = ? AND name = ?"
+    )
     .get(realmId, service, name) as CredentialRow | undefined;
 }
 
@@ -2879,24 +3522,26 @@ export function getCredentialByKey(
  */
 export function listCredentials(realmId: string): CredentialMetadata[] {
   const rows = getDb()
-    .prepare(`
+    .prepare(
+      `
       SELECT id, realm_id, service, name, metadata, created_by, created_at, updated_at
       FROM credentials
       WHERE realm_id = ?
       ORDER BY service, name
-    `)
+    `
+    )
     .all(realmId) as Array<{
-      id: string;
-      realm_id: string;
-      service: string;
-      name: string;
-      metadata: string;
-      created_by: string | null;
-      created_at: string;
-      updated_at: string;
-    }>;
+    id: string;
+    realm_id: string;
+    service: string;
+    name: string;
+    metadata: string;
+    created_by: string | null;
+    created_at: string;
+    updated_at: string;
+  }>;
 
-  return rows.map(r => ({
+  return rows.map((r) => ({
     id: r.id,
     realm_id: r.realm_id,
     service: r.service,
@@ -2911,26 +3556,31 @@ export function listCredentials(realmId: string): CredentialMetadata[] {
 /**
  * List all credentials for a service in a realm (metadata only, no secrets).
  */
-export function listCredentialsByService(realmId: string, service: string): CredentialMetadata[] {
+export function listCredentialsByService(
+  realmId: string,
+  service: string
+): CredentialMetadata[] {
   const rows = getDb()
-    .prepare(`
+    .prepare(
+      `
       SELECT id, realm_id, service, name, metadata, created_by, created_at, updated_at
       FROM credentials
       WHERE realm_id = ? AND service = ?
       ORDER BY name
-    `)
+    `
+    )
     .all(realmId, service) as Array<{
-      id: string;
-      realm_id: string;
-      service: string;
-      name: string;
-      metadata: string;
-      created_by: string | null;
-      created_at: string;
-      updated_at: string;
-    }>;
+    id: string;
+    realm_id: string;
+    service: string;
+    name: string;
+    metadata: string;
+    created_by: string | null;
+    created_at: string;
+    updated_at: string;
+  }>;
 
-  return rows.map(r => ({
+  return rows.map((r) => ({
     id: r.id,
     realm_id: r.realm_id,
     service: r.service,
@@ -2946,16 +3596,24 @@ export function listCredentialsByService(realmId: string, service: string): Cred
  * Delete a credential by ID.
  */
 export function deleteCredential(id: string): boolean {
-  const result = getDb().prepare("DELETE FROM credentials WHERE id = ?").run(id);
+  const result = getDb()
+    .prepare("DELETE FROM credentials WHERE id = ?")
+    .run(id);
   return result.changes > 0;
 }
 
 /**
  * Delete a credential by realm, service, and name.
  */
-export function deleteCredentialByKey(realmId: string, service: string, name: string): boolean {
+export function deleteCredentialByKey(
+  realmId: string,
+  service: string,
+  name: string
+): boolean {
   const result = getDb()
-    .prepare("DELETE FROM credentials WHERE realm_id = ? AND service = ? AND name = ?")
+    .prepare(
+      "DELETE FROM credentials WHERE realm_id = ? AND service = ? AND name = ?"
+    )
     .run(realmId, service, name);
   return result.changes > 0;
 }

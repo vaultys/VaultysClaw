@@ -62,7 +62,7 @@ export interface GenerateOutput {
  */
 export function parseTextToolCall(
   text: string,
-  toolNames: Set<string>,
+  toolNames: Set<string>
 ): ParsedToolCall | null {
   if (!text?.trim()) return null;
 
@@ -81,10 +81,17 @@ export function parseTextToolCall(
     return null;
   }
 
-  const toolName = (parsed.name ?? parsed.tool ?? parsed.function) as string | undefined;
-  if (!toolName || typeof toolName !== "string" || !toolNames.has(toolName)) return null;
+  const toolName = (parsed.name ?? parsed.tool ?? parsed.function) as
+    | string
+    | undefined;
+  if (!toolName || typeof toolName !== "string" || !toolNames.has(toolName))
+    return null;
 
-  const args = (parsed.parameters ?? parsed.arguments ?? parsed.args ?? parsed.input ?? {}) as Record<string, unknown>;
+  const args = (parsed.parameters ??
+    parsed.arguments ??
+    parsed.args ??
+    parsed.input ??
+    {}) as Record<string, unknown>;
 
   return { toolName, args };
 }
@@ -102,16 +109,21 @@ export function parseTextToolCall(
 export async function executeToolCall(
   toolName: string,
   args: Record<string, unknown>,
-  tools: ToolSet,
+  tools: ToolSet
 ): Promise<ToolResult> {
   const tool = tools[toolName];
   if (!tool || typeof tool.execute !== "function") {
-    logger.warn({ toolName, available: Object.keys(tools) }, "executeToolCall: unknown tool");
+    logger.warn(
+      { toolName, available: Object.keys(tools) },
+      "executeToolCall: unknown tool"
+    );
     return { tool: toolName, result: { error: `Unknown tool: ${toolName}` } };
   }
 
   try {
-    const result = await tool.execute(args, { toolCallId: `resolver-${Date.now()}` });
+    const result = tool.execute
+      ? await (tool.execute as any)(args, {})
+      : undefined;
     return { tool: toolName, result };
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -140,7 +152,7 @@ export async function executeToolCall(
  */
 export async function resolveToolResults(
   output: GenerateOutput,
-  tools: ToolSet,
+  tools: ToolSet
 ): Promise<string> {
   const steps = output.steps ?? [];
   const allToolCalls = steps.flatMap((s) => s.toolCalls ?? []);
@@ -149,21 +161,33 @@ export async function resolveToolResults(
 
   // Case 1: AI SDK executed tools and returned results
   if (allToolResults.length > 0) {
-    logger.info({ toolResultCount: allToolResults.length }, "resolveToolResults: using AI SDK tool results");
+    logger.info(
+      { toolResultCount: allToolResults.length },
+      "resolveToolResults: using AI SDK tool results"
+    );
     return JSON.stringify(
-      allToolResults.map((tr) => ({ tool: tr.toolName, result: tr.result ?? tr.output })),
+      allToolResults.map((tr) => ({
+        tool: tr.toolName,
+        result: tr.result ?? tr.output,
+      }))
     );
   }
 
   // Case 2: Tool calls present but no results (AI SDK skipped due to invalid/missing args)
   if (allToolCalls.length > 0) {
     logger.info(
-      { toolCallCount: allToolCalls.length, toolCalls: allToolCalls.map((tc) => tc.toolName) },
-      "resolveToolResults: tool calls have no results — executing with available args",
+      {
+        toolCallCount: allToolCalls.length,
+        toolCalls: allToolCalls.map((tc) => tc.toolName),
+      },
+      "resolveToolResults: tool calls have no results — executing with available args"
     );
     const results: ToolResult[] = [];
     for (const tc of allToolCalls) {
-      const args = tc.args && typeof tc.args === "object" ? (tc.args as Record<string, unknown>) : {};
+      const args =
+        tc.args && typeof tc.args === "object"
+          ? (tc.args as Record<string, unknown>)
+          : {};
       results.push(await executeToolCall(tc.toolName, args, tools));
     }
     return JSON.stringify(results);
@@ -173,7 +197,10 @@ export async function resolveToolResults(
   if (output.text) {
     const parsed = parseTextToolCall(output.text, toolNames);
     if (parsed) {
-      logger.info({ toolName: parsed.toolName, args: parsed.args }, "resolveToolResults: executing tool call from text output");
+      logger.info(
+        { toolName: parsed.toolName, args: parsed.args },
+        "resolveToolResults: executing tool call from text output"
+      );
       const result = await executeToolCall(parsed.toolName, parsed.args, tools);
       return JSON.stringify([result]);
     }

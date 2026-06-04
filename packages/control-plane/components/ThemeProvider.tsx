@@ -18,7 +18,7 @@ interface ThemeContextValue {
 
 const ThemeContext = createContext<ThemeContextValue>({
   theme: "dark",
-  setTheme: () => { },
+  setTheme: () => {},
   resolvedTheme: "dark",
 });
 

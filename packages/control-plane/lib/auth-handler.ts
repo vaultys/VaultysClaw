@@ -15,13 +15,7 @@ import { Challenger, VaultysId, crypto } from "@vaultys/id";
 import { verifyProtocol } from "@vaultysclaw/shared";
 import pino from "pino";
 import type { ResourceLimits } from "@vaultysclaw/shared";
-import {
-  getSetting,
-  createAuthSession as dbCreateAuthSession,
-  getAuthSession,
-  updateAuthSession,
-  logActivity,
-} from "./db";
+import { ActivityLogDAO, AuthSessionDAO, SettingsDAO } from "@/db";
 
 /** Extra governance data embedded alongside capabilities in the cert metadata. */
 export interface PolicyMeta {
@@ -49,8 +43,8 @@ export interface AuthResult {
 /**
  * Get the server's VaultysId from stored secret
  */
-function getServerVaultysId(): VaultysId {
-  const serverSecret = getSetting("serverSecret");
+async function getServerVaultysId(): Promise<VaultysId> {
+  const serverSecret = await SettingsDAO.get("serverSecret");
   if (!serverSecret) {
     throw new Error("Server VaultysId secret not configured");
   }
@@ -63,11 +57,11 @@ function getServerVaultysId(): VaultysId {
  *
  * Returns the session ID (no initial data — wait for agent's first message).
  */
-export function createAuthSession(): { sessionId: string } {
+export async function createAuthSession(): Promise<{ sessionId: string }> {
   const sessionId = crypto.randomBytes(16).toString("hex");
 
   // Persist empty session — will be populated on first processChallenge call
-  dbCreateAuthSession(sessionId, sessionId);
+  await AuthSessionDAO.create(sessionId, sessionId);
 
   logger.info({ sessionId }, "Auth session created");
 
@@ -90,23 +84,23 @@ export async function processChallenge(
   capabilities: string[] = [],
   policyMeta?: PolicyMeta
 ): Promise<AuthResult> {
-  const session = getAuthSession(sessionId);
+  const session = await AuthSessionDAO.findById(sessionId);
   if (!session) {
     return { done: true, success: false, error: "Session not found" };
   }
 
-  const vid = getServerVaultysId();
+  const vid = await getServerVaultysId();
 
   // Reconstruct server Challenger
   const challenger = new Challenger(vid.toVersion(1));
 
   // If we have saved certificate data from a previous exchange, restore state
-  if (session.certificate_data) {
+  if (session.certificateData) {
     try {
-      await challenger.init(Buffer.from(session.certificate_data, "base64"));
+      await challenger.init(Buffer.from(session.certificateData, "base64"));
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : String(error);
-      updateAuthSession(sessionId, { status: -2 });
+      await AuthSessionDAO.update(sessionId, { status: -2 });
       return { done: true, success: false, error: msg };
     }
   }
@@ -115,14 +109,17 @@ export async function processChallenge(
   // On the first update we embed capabilities + governance metadata as native types —
   // the Challenger library serialises the object internally, so no manual JSON.stringify.
   try {
-    const isFirstUpdate = !session.certificate_data;
+    const isFirstUpdate = !session.certificateData;
     let metadata: Record<string, unknown> | undefined;
     if (isFirstUpdate) {
       if (capabilities.length > 0 || policyMeta) {
         metadata = { capabilities };
-        if (policyMeta?.resourceLimits != null) metadata.resourceLimits = policyMeta.resourceLimits;
-        if (policyMeta?.policyId != null) metadata.policyId = policyMeta.policyId;
-        if (policyMeta?.policyExpiresAt != null) metadata.policyExpiresAt = policyMeta.policyExpiresAt;
+        if (policyMeta?.resourceLimits != null)
+          metadata.resourceLimits = policyMeta.resourceLimits;
+        if (policyMeta?.policyId != null)
+          metadata.policyId = policyMeta.policyId;
+        if (policyMeta?.policyExpiresAt != null)
+          metadata.policyExpiresAt = policyMeta.policyExpiresAt;
       }
     }
     // Cast to `any`: the library's type declaration is Record<string,string> but
@@ -132,7 +129,7 @@ export async function processChallenge(
     await challenger.update(Buffer.from(data, "base64"), metadata as any);
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : String(error);
-    updateAuthSession(sessionId, { status: -2 });
+    await AuthSessionDAO.update(sessionId, { status: -2 });
     return { done: true, success: false, error: msg };
   }
 
@@ -142,26 +139,37 @@ export async function processChallenge(
 
   // Check for failure
   if (challenger.hasFailed()) {
-    updateAuthSession(sessionId, { certificate_data: certB64, status: -2 });
+    await AuthSessionDAO.update(sessionId, {
+      certificateData: certB64,
+      status: -2,
+    });
     const err = challenger.challenge?.error ?? "Challenge failed";
-    logActivity("auth_failed", undefined, agentName, err);
+    await ActivityLogDAO.log("auth_failed", undefined, agentName, err);
     return { done: true, success: false, error: err };
   }
 
   // Verify protocol hasn't been tampered with
   if (!verifyProtocol(challenger)) {
-    updateAuthSession(sessionId, { certificate_data: certB64, status: -2 });
+    await AuthSessionDAO.update(sessionId, {
+      certificateData: certB64,
+      status: -2,
+    });
     return { done: true, success: false, error: "Protocol tampered" };
   }
-
-
 
   // If challenge is complete, authentication succeeded
   if (challenger.isComplete()) {
     const contactDid = challenger.getContactId().toVersion(1).did;
     if (!contactDid) {
-      updateAuthSession(sessionId, { certificate_data: certB64, status: -2 });
-      return { done: true, success: false, error: "No contact DID after completion" };
+      await AuthSessionDAO.update(sessionId, {
+        certificateData: certB64,
+        status: -2,
+      });
+      return {
+        done: true,
+        success: false,
+        error: "No contact DID after completion",
+      };
     }
 
     // Read capabilities + policy metadata from cert (pk2 = server-assigned).
@@ -171,7 +179,8 @@ export async function processChallenge(
     try {
       const metaCaps = context.metadata?.pk2?.capabilities;
       if (Array.isArray(metaCaps)) certCapabilities = metaCaps;
-      else if (typeof metaCaps === "string") certCapabilities = JSON.parse(metaCaps);
+      else if (typeof metaCaps === "string")
+        certCapabilities = JSON.parse(metaCaps);
     } catch {
       // fallback to passed capabilities
     }
@@ -180,19 +189,22 @@ export async function processChallenge(
     // upsert based on the approval flow (known DID → auto-connect,
     // unknown DID → pending admin approval).
 
-    updateAuthSession(sessionId, {
-      certificate_data: certB64,
+    await AuthSessionDAO.update(sessionId, {
+      certificateData: certB64,
       status: 2,
-      agent_did: contactDid,
+      agentDid: contactDid,
     });
 
-    logger.info({ sessionId, agentDid: contactDid }, "Auth completed successfully");
+    logger.info(
+      { sessionId, agentDid: contactDid },
+      "Auth completed successfully"
+    );
 
-    logActivity(
+    await ActivityLogDAO.log(
       "agent_authenticated",
       contactDid,
       agentName,
-      JSON.stringify({ capabilities: certCapabilities, sessionId }),
+      JSON.stringify({ capabilities: certCapabilities, sessionId })
     );
 
     return {
@@ -207,13 +219,16 @@ export async function processChallenge(
   }
 
   // Challenge still in progress — persist state and return next data
-  updateAuthSession(sessionId, {
-    certificate_data: certB64,
+  await AuthSessionDAO.update(sessionId, {
+    certificateData: certB64,
     status: challenger.state,
-    agent_did: undefined,
+    agentDid: undefined,
   });
 
-  logger.debug({ sessionId, state: challenger.state }, "Auth challenge in progress");
+  logger.debug(
+    { sessionId, state: challenger.state },
+    "Auth challenge in progress"
+  );
 
   return { done: false, responseData: certB64 };
 }

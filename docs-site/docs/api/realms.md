@@ -68,12 +68,12 @@ POST /api/realms
 }
 ```
 
-| Field | Type | Required | Description |
-|---|---|---|---|
-| `name` | string | Yes | Human-readable realm name |
-| `slug` | string | No | URL-friendly identifier. Auto-generated from `name` if omitted. |
-| `description` | string | No | Optional description |
-| `color` | string | No | Hex colour for dashboard display (default: `#6b7280`) |
+| Field         | Type   | Required | Description                                                     |
+| ------------- | ------ | -------- | --------------------------------------------------------------- |
+| `name`        | string | Yes      | Human-readable realm name                                       |
+| `slug`        | string | No       | URL-friendly identifier. Auto-generated from `name` if omitted. |
+| `description` | string | No       | Optional description                                            |
+| `color`       | string | No       | Hex colour for dashboard display (default: `#6b7280`)           |
 
 ### Response `201 Created`
 

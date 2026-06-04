@@ -31,10 +31,10 @@ const logger = pino({ name: "scheduler" });
 // ---------------------------------------------------------------------------
 
 interface CronFields {
-  minute: number[];    // 0-59
-  hour: number[];      // 0-23
+  minute: number[]; // 0-59
+  hour: number[]; // 0-23
   dayOfMonth: number[]; // 1-31
-  month: number[];     // 1-12
+  month: number[]; // 1-12
   dayOfWeek: number[]; // 0-6 (Sun=0)
 }
 
@@ -53,10 +53,13 @@ function parseField(field: string, lo: number, hi: number): number[] {
     if (part.includes("/")) {
       const [rangeOrStar, step] = part.split("/");
       const stepN = parseInt(step, 10);
-      const base = rangeOrStar === "*" ? range(lo, hi) : (() => {
-        const [a, b] = rangeOrStar.split("-");
-        return range(parseInt(a, 10), parseInt(b, 10));
-      })();
+      const base =
+        rangeOrStar === "*"
+          ? range(lo, hi)
+          : (() => {
+              const [a, b] = rangeOrStar.split("-");
+              return range(parseInt(a, 10), parseInt(b, 10));
+            })();
       for (let i = 0; i < base.length; i++) {
         if (i % stepN === 0) all.push(base[i]);
       }
@@ -155,7 +158,10 @@ export class Scheduler {
     // Poll immediately, then on interval
     this.tick();
     this.timer = setInterval(() => this.tick(), this.opts.pollIntervalMs);
-    logger.info({ pollIntervalMs: this.opts.pollIntervalMs }, "Scheduler started");
+    logger.info(
+      { pollIntervalMs: this.opts.pollIntervalMs },
+      "Scheduler started"
+    );
   }
 
   stop(): void {
@@ -213,9 +219,15 @@ export class Scheduler {
         createdBy: `schedule:${s.id}`,
         priority: 0,
       });
-      logger.info({ scheduleId: s.id, taskId, action: s.action }, "Scheduled task enqueued");
+      logger.info(
+        { scheduleId: s.id, taskId, action: s.action },
+        "Scheduled task enqueued"
+      );
     } catch (err) {
-      logger.error({ scheduleId: s.id, err }, "Failed to enqueue scheduled task");
+      logger.error(
+        { scheduleId: s.id, err },
+        "Failed to enqueue scheduled task"
+      );
     }
 
     // Compute next run and update DB

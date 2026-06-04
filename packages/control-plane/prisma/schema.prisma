@@ -1,0 +1,686 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── Settings ────────────────────────────────────────────────────────────────
+
+model Setting {
+  key   String @id
+  value String
+
+  @@map("settings")
+}
+
+// ─── Entra / Azure AD ────────────────────────────────────────────────────────
+
+model EntraIdentity {
+  id                String   @id
+  displayName       String?  @map("display_name")
+  mail              String?
+  userPrincipalName String?  @map("user_principal_name")
+  syncedAt          DateTime @default(now()) @map("synced_at")
+
+  users User[]
+
+  @@map("entra_identities")
+}
+
+// ─── Agents ──────────────────────────────────────────────────────────────────
+
+model Agent {
+  did                String   @id
+  name               String
+  publicKey          String?  @map("public_key")
+  capabilities       Json     @default("[]")
+  certificateData    String?  @map("certificate_data")
+  llmConfig          Json?    @map("llm_config")
+  tokenBudgetDaily   Int?     @map("token_budget_daily")
+  tokenBudgetMonthly Int?     @map("token_budget_monthly")
+  registeredAt       DateTime @default(now()) @map("registered_at")
+  lastSeen           DateTime @default(now()) @map("last_seen")
+
+  agentRealms        AgentRealm[]
+  tokenUsage         AgentTokenUsage?
+  tokenHistory       AgentTokenUsageHistory[]
+  peerGrantsSource   AgentPeerGrant[] @relation("sourcePeerGrants")
+  peerGrantsTarget   AgentPeerGrant[] @relation("targetPeerGrants")
+  skillOverrides     AgentSkillOverride[]
+  knowledgeSources   KnowledgeSource[]
+
+  @@map("agents")
+}
+
+// ─── Auth sessions ────────────────────────────────────────────────────────────
+
+model AuthSession {
+  id              String   @id
+  sessionKey      String   @map("session_key")
+  certificateData String   @default("") @map("certificate_data")
+  status          Int      @default(-1)
+  agentDid        String?  @map("agent_did")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  @@map("auth_sessions")
+}
+
+// ─── Certificates ─────────────────────────────────────────────────────────────
+
+model Certificate {
+  id           String   @id
+  key          String
+  registration String?  @unique
+  connection   String?  @unique
+  register     Int      @default(1)
+  data         String   @default("")
+  status       Int      @default(-1)
+  metadata     String?
+  startedAt    DateTime @default(now()) @map("started_at")
+
+  @@map("certificates")
+}
+
+// ─── Activity log ─────────────────────────────────────────────────────────────
+
+model ActivityLog {
+  id        Int      @id @default(autoincrement())
+  event     String
+  agentDid  String?  @map("agent_did")
+  agentName String?  @map("agent_name")
+  details   String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("activity_log")
+}
+
+// ─── Pending registrations ───────────────────────────────────────────────────
+
+model PendingRegistration {
+  id                    String   @id
+  sessionId             String   @map("session_id")
+  agentName             String   @map("agent_name")
+  status                String   @default("pending")
+  requestedCapabilities Json     @default("[]") @map("requested_capabilities")
+  assignedCapabilities  Json     @default("[]") @map("assigned_capabilities")
+  createdAt             DateTime @default(now()) @map("created_at")
+
+  @@map("pending_registrations")
+}
+
+// ─── Users ───────────────────────────────────────────────────────────────────
+
+model User {
+  id           String    @id
+  did          String?   @unique
+  publicKey    String?   @map("public_key")
+  name         String?
+  email        String?
+  isOwner      Boolean   @default(false) @map("is_owner")
+  isAdmin      Boolean   @default(false) @map("is_admin")
+  role         String    @default("member")
+  reportsTo    String?   @map("reports_to")
+  description  String?
+  entraId      String?   @map("entra_id")
+  claimedAt    DateTime? @map("claimed_at")
+  registeredAt DateTime  @default(now()) @map("registered_at")
+
+  manager        User?          @relation("reportsTo", fields: [reportsTo], references: [id], onDelete: SetNull)
+  reports        User[]         @relation("reportsTo")
+  entraIdentity  EntraIdentity? @relation(fields: [entraId], references: [id], onDelete: SetNull)
+  userRealms     UserRealm[]
+  userGrants     UserGrant[]
+
+  @@index([did])
+  @@index([entraId])
+  @@map("users")
+}
+
+// ─── User grants & delegation certs ──────────────────────────────────────────
+
+model UserGrant {
+  id           String    @id
+  userDid      String    @map("user_did")
+  agentDid     String?   @map("agent_did")
+  capabilities Json      @default("[]")
+  grantedBy    String    @map("granted_by")
+  expiresAt    DateTime? @map("expires_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+
+  user              User               @relation(fields: [userDid], references: [did], onDelete: Cascade)
+  delegationCerts   DelegationCert[]
+
+  @@map("user_grants")
+}
+
+model DelegationCert {
+  id           String    @id
+  grantId      String    @map("grant_id")
+  userDid      String    @map("user_did")
+  agentDid     String    @map("agent_did")
+  capabilities Json      @default("[]")
+  certificate  String
+  expiresAt    DateTime? @map("expires_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+
+  grant UserGrant @relation(fields: [grantId], references: [id], onDelete: Cascade)
+
+  @@map("delegation_certs")
+}
+
+// ─── Agent peer grants ────────────────────────────────────────────────────────
+
+model AgentPeerGrant {
+  id               String    @id
+  sourceDid        String    @map("source_did")
+  targetDid        String    @map("target_did")
+  targetName       String    @map("target_name")
+  skillDescription String    @map("skill_description")
+  capabilities     Json      @default("[]")
+  certificate      String    @default("")
+  expiresAt        DateTime? @map("expires_at")
+  createdAt        DateTime  @default(now()) @map("created_at")
+
+  sourceAgent Agent @relation("sourcePeerGrants", fields: [sourceDid], references: [did], onDelete: Cascade)
+  targetAgent Agent @relation("targetPeerGrants", fields: [targetDid], references: [did], onDelete: Cascade)
+
+  @@index([sourceDid])
+  @@index([targetDid])
+  @@map("agent_peer_grants")
+}
+
+// ─── Token usage ──────────────────────────────────────────────────────────────
+
+model AgentTokenUsage {
+  agentDid         String   @id @map("agent_did")
+  promptTokens     Int      @default(0) @map("prompt_tokens")
+  completionTokens Int      @default(0) @map("completion_tokens")
+  updatedAt        DateTime @default(now()) @map("updated_at")
+
+  agent Agent @relation(fields: [agentDid], references: [did], onDelete: Cascade)
+
+  @@map("agent_token_usage")
+}
+
+model AgentTokenUsageHistory {
+  agentDid         String @map("agent_did")
+  bucket           String
+  granularity      String
+  promptTokens     Int    @default(0) @map("prompt_tokens")
+  completionTokens Int    @default(0) @map("completion_tokens")
+  updatedAt        DateTime @default(now()) @map("updated_at")
+
+  agent Agent @relation(fields: [agentDid], references: [did], onDelete: Cascade)
+
+  @@id([agentDid, bucket, granularity])
+  @@index([agentDid, granularity, bucket])
+  @@map("agent_token_usage_history")
+}
+
+// ─── Realms ───────────────────────────────────────────────────────────────────
+
+model Realm {
+  id                  String    @id
+  name                String
+  slug                String    @unique
+  description         String?
+  color               String    @default("#6366f1")
+  isDefault           Boolean   @default(false) @map("is_default")
+  llmConfig           Json?     @map("llm_config")
+  defaultCapabilities Json      @default("[]") @map("default_capabilities")
+  tokenBudgetDaily    Int?      @map("token_budget_daily")
+  tokenBudgetMonthly  Int?      @map("token_budget_monthly")
+  allowedCapabilities Json?     @map("allowed_capabilities")
+  createdAt           DateTime  @default(now()) @map("created_at")
+
+  tokenUsage       RealmTokenUsage?
+  agentRealms      AgentRealm[]
+  userRealms       UserRealm[]
+  realmSkills      RealmSkill[]
+  knowledgeSources KnowledgeSource[]
+  channels         Channel[]
+  credentials      Credential[]
+  modelAccess      ModelRealmAccess[]
+  routerKey        RealmRouterKey?
+  policies         Policy[]
+  workflows        Workflow[]
+
+  @@map("realms")
+}
+
+model RealmTokenUsage {
+  realmId          String   @id @map("realm_id")
+  promptTokens     Int      @default(0) @map("prompt_tokens")
+  completionTokens Int      @default(0) @map("completion_tokens")
+  updatedAt        DateTime @default(now()) @map("updated_at")
+
+  realm Realm @relation(fields: [realmId], references: [id], onDelete: Cascade)
+
+  @@map("realm_token_usage")
+}
+
+// ─── Agent & User realm membership ───────────────────────────────────────────
+
+model AgentRealm {
+  agentDid  String   @map("agent_did")
+  realmId   String   @map("realm_id")
+  isPrimary Boolean  @default(false) @map("is_primary")
+  joinedAt  DateTime @default(now()) @map("joined_at")
+
+  agent Agent @relation(fields: [agentDid], references: [did], onDelete: Cascade)
+  realm Realm @relation(fields: [realmId], references: [id], onDelete: Cascade)
+
+  @@id([agentDid, realmId])
+  @@map("agent_realms")
+}
+
+model UserRealm {
+  userId       String   @map("user_id")
+  realmId      String   @map("realm_id")
+  isPrimary    Boolean  @default(false) @map("is_primary")
+  isRealmAdmin Boolean  @default(false) @map("is_realm_admin")
+  joinedAt     DateTime @default(now()) @map("joined_at")
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  realm Realm @relation(fields: [realmId], references: [id], onDelete: Cascade)
+
+  @@id([userId, realmId])
+  @@map("user_realms")
+}
+
+// ─── Skills ───────────────────────────────────────────────────────────────────
+
+model OrgSkill {
+  id           String   @id
+  name         String   @unique
+  description  String?
+  version      String   @default("1.0.0")
+  icon         String?
+  content      String?
+  configSchema Json     @default("{}") @map("config_schema")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@map("org_skills")
+}
+
+model RealmSkill {
+  id          String   @id
+  realmId     String   @map("realm_id")
+  name        String
+  description String?
+  version     String?
+  isRequired  Boolean  @default(false) @map("is_required")
+  config      Json     @default("{}")
+  content     String?
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  realm          Realm                @relation(fields: [realmId], references: [id], onDelete: Cascade)
+  agentOverrides AgentSkillOverride[]
+
+  @@unique([realmId, name])
+  @@map("realm_skills")
+}
+
+model AgentSkillOverride {
+  agentDid     String  @map("agent_did")
+  realmSkillId String  @map("realm_skill_id")
+  enabled      Boolean @default(true)
+
+  agent     Agent      @relation(fields: [agentDid], references: [did], onDelete: Cascade)
+  realmSkill RealmSkill @relation(fields: [realmSkillId], references: [id], onDelete: Cascade)
+
+  @@id([agentDid, realmSkillId])
+  @@map("agent_skill_overrides")
+}
+
+// ─── Model registry ───────────────────────────────────────────────────────────
+
+model ModelRegistry {
+  id                String   @id
+  name              String
+  description       String?
+  provider          String
+  modelId           String   @map("model_id")
+  baseUrl           String   @map("base_url")
+  apiKeyEnc         String?  @map("api_key_enc")
+  litellmModelName  String?  @map("litellm_model_name")
+  status            String   @default("active")
+  metadata          Json     @default("{}")
+  createdBy         String?  @map("created_by")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @default(now()) @updatedAt @map("updated_at")
+
+  realmAccess ModelRealmAccess[]
+
+  @@index([status])
+  @@map("model_registry")
+}
+
+model ModelRealmAccess {
+  modelId   String   @map("model_id")
+  realmId   String   @map("realm_id")
+  grantedAt DateTime @default(now()) @map("granted_at")
+
+  model ModelRegistry @relation(fields: [modelId], references: [id], onDelete: Cascade)
+  realm Realm         @relation(fields: [realmId], references: [id], onDelete: Cascade)
+
+  @@id([modelId, realmId])
+  @@index([realmId])
+  @@map("model_realm_access")
+}
+
+model RealmRouterKey {
+  realmId          String   @id @map("realm_id")
+  litellmVirtualKey String? @map("litellm_virtual_key")
+  allowedModelIds  Json     @default("[]") @map("allowed_model_ids")
+  monthlyBudgetUsd Float?   @map("monthly_budget_usd")
+  updatedAt        DateTime @default(now()) @map("updated_at")
+
+  realm Realm @relation(fields: [realmId], references: [id], onDelete: Cascade)
+
+  @@map("realm_router_keys")
+}
+
+// ─── Policies ─────────────────────────────────────────────────────────────────
+
+model Policy {
+  id             String    @id
+  agentDid       String?   @map("agent_did")
+  realmId        String?   @map("realm_id")
+  capabilities   Json      @default("[]")
+  resourceLimits Json?     @map("resource_limits")
+  expiresAt      DateTime? @map("expires_at")
+  createdBy      String?   @map("created_by")
+  createdAt      DateTime  @default(now()) @map("created_at")
+
+  realm Realm? @relation(fields: [realmId], references: [id], onDelete: SetNull)
+
+  @@index([agentDid])
+  @@index([realmId])
+  @@map("policies")
+}
+
+// ─── Workflows ────────────────────────────────────────────────────────────────
+
+model Workflow {
+  id              String    @id
+  name            String
+  description     String?
+  definition      Json
+  realmId         String?   @map("realm_id")
+  createdBy       String?   @map("created_by")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @default(now()) @updatedAt @map("updated_at")
+  scheduleCron    String?   @map("schedule_cron")
+  scheduleEnabled Boolean   @default(false) @map("schedule_enabled")
+  scheduleLastRun DateTime? @map("schedule_last_run")
+  scheduleNextRun DateTime? @map("schedule_next_run")
+
+  realm Realm?        @relation(fields: [realmId], references: [id], onDelete: SetNull)
+  runs  WorkflowRun[]
+
+  @@index([createdBy, createdAt(sort: Desc)])
+  @@index([realmId])
+  @@map("workflows")
+}
+
+model WorkflowRun {
+  id          String    @id
+  workflowId  String    @map("workflow_id")
+  status      String    @default("running")
+  startedAt   DateTime  @default(now()) @map("started_at")
+  completedAt DateTime? @map("completed_at")
+  results     Json?
+
+  workflow  Workflow       @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  steps     WorkflowStep[]
+  approvals WorkflowApproval[]
+
+  @@index([workflowId, startedAt(sort: Desc)])
+  @@map("workflow_runs")
+}
+
+model WorkflowStep {
+  id          String    @id
+  runId       String    @map("run_id")
+  stepId      String    @map("step_id")
+  agentId     String?   @map("agent_id")
+  status      String    @default("pending")
+  output      Json?
+  error       String?
+  startedAt   DateTime? @map("started_at")
+  completedAt DateTime? @map("completed_at")
+
+  run WorkflowRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@index([runId, stepId])
+  @@map("workflow_steps")
+}
+
+model WorkflowApproval {
+  id             String    @id
+  runId          String    @map("run_id")
+  stepId         String    @map("step_id")
+  workflowId     String    @map("workflow_id")
+  workflowName   String    @map("workflow_name")
+  nodeMessage    String?   @map("node_message")
+  stepInput      String?   @map("step_input")
+  assignedUserId String    @map("assigned_user_id")
+  mode           String    @default("approval")
+  status         String    @default("pending")
+  decidedAt      DateTime? @map("decided_at")
+  decidedBy      String?   @map("decided_by")
+  comment        String?
+  createdAt      DateTime  @default(now()) @map("created_at")
+
+  run WorkflowRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@index([assignedUserId, status])
+  @@index([runId])
+  @@map("workflow_approvals")
+}
+
+// ─── Intent log ───────────────────────────────────────────────────────────────
+
+model IntentLog {
+  intentId    String    @id @map("intent_id")
+  agentDid    String?   @map("agent_did")
+  action      String
+  params      Json?
+  status      String    @default("pending")
+  output      Json?
+  error       String?
+  sentAt      DateTime  @default(now()) @map("sent_at")
+  completedAt DateTime? @map("completed_at")
+
+  @@index([agentDid, sentAt(sort: Desc)])
+  @@index([status, sentAt(sort: Desc)])
+  @@map("intent_log")
+}
+
+// ─── User invitations ─────────────────────────────────────────────────────────
+
+model UserInvitation {
+  token     String    @id
+  email     String
+  name      String
+  role      String    @default("member")
+  createdAt DateTime  @default(now()) @map("created_at")
+  expiresAt DateTime  @map("expires_at")
+  claimedAt DateTime? @map("claimed_at")
+
+  @@index([email])
+  @@index([expiresAt])
+  @@map("user_invitations")
+}
+
+// ─── Knowledge ────────────────────────────────────────────────────────────────
+
+model KnowledgeSource {
+  id           String    @id
+  realmId      String    @map("realm_id")
+  agentDid     String    @map("agent_did")
+  name         String
+  sourceType   String    @map("source_type")
+  config       Json      @default("{}")
+  status       String    @default("idle")
+  docCount     Int       @default(0) @map("doc_count")
+  chunkCount   Int       @default(0) @map("chunk_count")
+  lastSyncedAt DateTime? @map("last_synced_at")
+  error        String?
+  createdAt    DateTime  @default(now()) @map("created_at")
+
+  realm Realm  @relation(fields: [realmId], references: [id], onDelete: Cascade)
+  agent Agent  @relation(fields: [agentDid], references: [did], onDelete: Cascade)
+  files KnowledgeFile[]
+
+  @@index([realmId])
+  @@index([agentDid])
+  @@map("knowledge_sources")
+}
+
+model KnowledgeFile {
+  id        String   @id
+  sourceId  String   @map("source_id")
+  name      String
+  mimeType  String   @default("application/octet-stream") @map("mime_type")
+  size      Int      @default(0)
+  content   Bytes?
+  filePath  String?  @map("file_path")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  source KnowledgeSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+
+  @@index([sourceId])
+  @@map("knowledge_files")
+}
+
+// ─── Channels ─────────────────────────────────────────────────────────────────
+
+model Channel {
+  id          String   @id
+  realmId     String?  @map("realm_id")
+  name        String
+  slug        String
+  description String?
+  isPublic    Boolean  @default(true) @map("is_public")
+  isArchived  Boolean  @default(false) @map("is_archived")
+  topic       String?
+  creatorDid  String   @map("creator_did")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at")
+
+  realm    Realm?          @relation(fields: [realmId], references: [id], onDelete: Cascade)
+  members  ChannelMember[]
+  messages ChannelMessage[]
+  bridges  ChannelBridge[]
+
+  @@unique([realmId, slug])
+  @@index([realmId])
+  @@index([slug])
+  @@map("channels")
+}
+
+model ChannelMember {
+  id         String   @id
+  channelId  String   @map("channel_id")
+  memberDid  String   @map("member_did")
+  memberType String   @map("member_type")
+  role       String   @default("member")
+  joinedAt   DateTime @default(now()) @map("joined_at")
+  invitedBy  String?  @map("invited_by")
+
+  channel Channel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+
+  @@unique([channelId, memberDid])
+  @@index([channelId])
+  @@index([memberDid])
+  @@map("channel_members")
+}
+
+model ChannelMessage {
+  id         String    @id
+  channelId  String    @map("channel_id")
+  threadId   String?   @map("thread_id")
+  authorDid  String    @map("author_did")
+  authorType String    @map("author_type")
+  content    String
+  metadata   Json      @default("{}")
+  reactions  Json      @default("{}")
+  editedAt   DateTime? @map("edited_at")
+  deletedAt  DateTime? @map("deleted_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  channel  Channel         @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  thread   ChannelMessage? @relation("threadMessages", fields: [threadId], references: [id])
+  replies  ChannelMessage[] @relation("threadMessages")
+
+  @@index([channelId, createdAt(sort: Desc)])
+  @@index([threadId])
+  @@index([authorDid])
+  @@map("channel_messages")
+}
+
+model ChannelBridge {
+  id                  String   @id
+  channelId           String   @map("channel_id")
+  externalService     String   @map("external_service")
+  externalChannelId   String   @map("external_channel_id")
+  externalChannelName String   @map("external_channel_name")
+  externalWorkspaceId String   @map("external_workspace_id")
+  syncDirection       String   @default("bidirectional") @map("sync_direction")
+  isSyncEnabled       Boolean  @default(true) @map("is_sync_enabled")
+  createdAt           DateTime @default(now()) @map("created_at")
+  configJson          Json     @map("config_json")
+
+  channel Channel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+
+  @@unique([channelId, externalService, externalChannelId])
+  @@index([channelId])
+  @@map("channel_bridges")
+}
+
+// ─── Credentials vault ────────────────────────────────────────────────────────
+
+model Credential {
+  id         String   @id
+  realmId    String   @map("realm_id")
+  service    String
+  name       String
+  secretEnc  String   @map("secret_enc")
+  metadata   Json     @default("{}")
+  createdBy  String?  @map("created_by")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @default(now()) @updatedAt @map("updated_at")
+
+  realm Realm @relation(fields: [realmId], references: [id], onDelete: Cascade)
+
+  @@unique([realmId, service, name])
+  @@index([realmId])
+  @@index([service])
+  @@map("credentials")
+}
+
+// ─── API keys ─────────────────────────────────────────────────────────────────
+
+model ApiKey {
+  id            String    @id
+  name          String
+  keyHash       String    @unique @map("key_hash")
+  keyPrefix     String    @map("key_prefix")
+  allowedRoutes Json      @default("[]") @map("allowed_routes")
+  realmId       String?   @map("realm_id")
+  isRealmAdmin  Boolean   @default(false) @map("is_realm_admin")
+  createdBy     String    @map("created_by")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  lastUsedAt    DateTime? @map("last_used_at")
+  expiresAt     DateTime? @map("expires_at")
+  isActive      Boolean   @default(true) @map("is_active")
+
+  @@index([keyHash])
+  @@index([realmId])
+  @@map("api_keys")
+}

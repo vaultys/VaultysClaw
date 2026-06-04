@@ -60,7 +60,7 @@ export class ConversationSummarizer {
   async summarize(
     messages: Array<{ role: "user" | "assistant"; content: string }>,
     llmConfig: LlmConfig,
-    tags: string[] = [],
+    tags: string[] = []
   ): Promise<number> {
     if (messages.length < this.opts.minMessages) return 0;
 
@@ -70,18 +70,25 @@ export class ConversationSummarizer {
       .map((m) => `${m.role.toUpperCase()}: ${m.content}`)
       .join("\n");
 
-    logger.info({ messageCount: messages.length }, "Summarizing conversation for memory extraction");
+    logger.info(
+      { messageCount: messages.length },
+      "Summarizing conversation for memory extraction"
+    );
 
     try {
       const model = buildModel(llmConfig);
       const summaryAgent = new Agent({
+        id: "memory-extractor",
         name: "memory-extractor",
         instructions: EXTRACTION_PROMPT,
         model,
       });
-      const result = await summaryAgent.generate(`Conversation:\n${transcript}`, {
-        modelSettings: { maxOutputTokens: 800 },
-      });
+      const result = await summaryAgent.generate(
+        `Conversation:\n${transcript}`,
+        {
+          modelSettings: { maxOutputTokens: 800 },
+        }
+      );
       const text = result.text ?? "";
 
       if (!text || text.trim() === "(none)") return 0;
@@ -98,7 +105,9 @@ export class ConversationSummarizer {
         if (!content) continue;
 
         const type =
-          rawType === "fact" || rawType === "procedure" || rawType === "preference"
+          rawType === "fact" ||
+          rawType === "procedure" ||
+          rawType === "preference"
             ? rawType
             : "fact";
 

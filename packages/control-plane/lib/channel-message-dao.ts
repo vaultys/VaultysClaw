@@ -1,6 +1,6 @@
 import { randomUUID } from "crypto";
-import { getDb } from "./db";
 import { ChannelMessage, ChannelMessageInput } from "@vaultysclaw/shared";
+import { getDb } from "@/lib/db";
 
 export const ChannelMessageDao = {
   create(input: ChannelMessageInput): ChannelMessage {
@@ -8,10 +8,12 @@ export const ChannelMessageDao = {
     const id = randomUUID();
     const now = new Date().toISOString();
 
-    db.prepare(`
+    db.prepare(
+      `
       INSERT INTO channel_messages (id, channel_id, thread_id, author_did, author_type, content, metadata, reactions, created_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
+    `
+    ).run(
       id,
       input.channelId,
       input.threadId ?? null,
@@ -20,28 +22,38 @@ export const ChannelMessageDao = {
       input.content,
       JSON.stringify(input.metadata),
       JSON.stringify({}),
-      now,
+      now
     );
 
-    const row = db.prepare("SELECT * FROM channel_messages WHERE id = ?").get(id) as any;
+    const row = db
+      .prepare("SELECT * FROM channel_messages WHERE id = ?")
+      .get(id) as any;
     return normalizeMessage(row);
   },
 
   getById(id: string): ChannelMessage | null {
     const db = getDb();
-    const row = db.prepare("SELECT * FROM channel_messages WHERE id = ?").get(id) as any;
+    const row = db
+      .prepare("SELECT * FROM channel_messages WHERE id = ?")
+      .get(id) as any;
     return row ? normalizeMessage(row) : null;
   },
 
-  listByChannel(channelId: string, limit: number = 50, offset: number = 0): ChannelMessage[] {
+  listByChannel(
+    channelId: string,
+    limit: number = 50,
+    offset: number = 0
+  ): ChannelMessage[] {
     const db = getDb();
     const rows = db
-      .prepare(`
+      .prepare(
+        `
         SELECT * FROM channel_messages
         WHERE channel_id = ? AND thread_id IS NULL AND deleted_at IS NULL
         ORDER BY created_at DESC
         LIMIT ? OFFSET ?
-      `)
+      `
+      )
       .all(channelId, limit, offset) as any[];
     return rows.reverse().map(normalizeMessage); // Reverse to get chronological order
   },
@@ -49,11 +61,13 @@ export const ChannelMessageDao = {
   listThread(parentMessageId: string): ChannelMessage[] {
     const db = getDb();
     const rows = db
-      .prepare(`
+      .prepare(
+        `
         SELECT * FROM channel_messages
         WHERE thread_id = ? AND deleted_at IS NULL
         ORDER BY created_at ASC
-      `)
+      `
+      )
       .all(parentMessageId) as any[];
     return rows.map(normalizeMessage);
   },
@@ -61,11 +75,13 @@ export const ChannelMessageDao = {
   listChannelAndThreads(channelId: string): ChannelMessage[] {
     const db = getDb();
     const rows = db
-      .prepare(`
+      .prepare(
+        `
         SELECT * FROM channel_messages
         WHERE channel_id = ? AND deleted_at IS NULL
         ORDER BY created_at DESC
-      `)
+      `
+      )
       .all(channelId) as any[];
     return rows.map(normalizeMessage);
   },
@@ -73,20 +89,23 @@ export const ChannelMessageDao = {
   update(id: string, content: string): ChannelMessage {
     const db = getDb();
     const now = new Date().toISOString();
-    db.prepare("UPDATE channel_messages SET content = ?, edited_at = ? WHERE id = ?").run(
-      content,
-      now,
-      id,
-    );
+    db.prepare(
+      "UPDATE channel_messages SET content = ?, edited_at = ? WHERE id = ?"
+    ).run(content, now, id);
 
-    const row = db.prepare("SELECT * FROM channel_messages WHERE id = ?").get(id) as any;
+    const row = db
+      .prepare("SELECT * FROM channel_messages WHERE id = ?")
+      .get(id) as any;
     return normalizeMessage(row);
   },
 
   softDelete(id: string): void {
     const db = getDb();
     const now = new Date().toISOString();
-    db.prepare("UPDATE channel_messages SET deleted_at = ? WHERE id = ?").run(now, id);
+    db.prepare("UPDATE channel_messages SET deleted_at = ? WHERE id = ?").run(
+      now,
+      id
+    );
   },
 
   hardDelete(id: string): void {
@@ -94,9 +113,15 @@ export const ChannelMessageDao = {
     db.prepare("DELETE FROM channel_messages WHERE id = ?").run(id);
   },
 
-  addReaction(messageId: string, emoji: string, memberDid: string): ChannelMessage {
+  addReaction(
+    messageId: string,
+    emoji: string,
+    memberDid: string
+  ): ChannelMessage {
     const db = getDb();
-    const message = db.prepare("SELECT * FROM channel_messages WHERE id = ?").get(messageId) as any;
+    const message = db
+      .prepare("SELECT * FROM channel_messages WHERE id = ?")
+      .get(messageId) as any;
 
     if (!message) {
       throw new Error(`Message ${messageId} not found`);
@@ -115,16 +140,24 @@ export const ChannelMessageDao = {
 
     db.prepare("UPDATE channel_messages SET reactions = ? WHERE id = ?").run(
       JSON.stringify(reactions),
-      messageId,
+      messageId
     );
 
-    const row = db.prepare("SELECT * FROM channel_messages WHERE id = ?").get(messageId) as any;
+    const row = db
+      .prepare("SELECT * FROM channel_messages WHERE id = ?")
+      .get(messageId) as any;
     return normalizeMessage(row);
   },
 
-  removeReaction(messageId: string, emoji: string, memberDid: string): ChannelMessage {
+  removeReaction(
+    messageId: string,
+    emoji: string,
+    memberDid: string
+  ): ChannelMessage {
     const db = getDb();
-    const message = db.prepare("SELECT * FROM channel_messages WHERE id = ?").get(messageId) as any;
+    const message = db
+      .prepare("SELECT * FROM channel_messages WHERE id = ?")
+      .get(messageId) as any;
 
     if (!message) {
       throw new Error(`Message ${messageId} not found`);
@@ -133,7 +166,9 @@ export const ChannelMessageDao = {
     const reactions = JSON.parse(message.reactions || "{}");
 
     if (reactions[emoji]) {
-      reactions[emoji] = reactions[emoji].filter((did: string) => did !== memberDid);
+      reactions[emoji] = reactions[emoji].filter(
+        (did: string) => did !== memberDid
+      );
       if (reactions[emoji].length === 0) {
         delete reactions[emoji];
       }
@@ -141,22 +176,30 @@ export const ChannelMessageDao = {
 
     db.prepare("UPDATE channel_messages SET reactions = ? WHERE id = ?").run(
       JSON.stringify(reactions),
-      messageId,
+      messageId
     );
 
-    const row = db.prepare("SELECT * FROM channel_messages WHERE id = ?").get(messageId) as any;
+    const row = db
+      .prepare("SELECT * FROM channel_messages WHERE id = ?")
+      .get(messageId) as any;
     return normalizeMessage(row);
   },
 
-  searchInChannel(channelId: string, query: string, limit: number = 50): ChannelMessage[] {
+  searchInChannel(
+    channelId: string,
+    query: string,
+    limit: number = 50
+  ): ChannelMessage[] {
     const db = getDb();
     const rows = db
-      .prepare(`
+      .prepare(
+        `
         SELECT * FROM channel_messages
         WHERE channel_id = ? AND content LIKE ? AND deleted_at IS NULL
         ORDER BY created_at DESC
         LIMIT ?
-      `)
+      `
+      )
       .all(channelId, `%${query}%`, limit) as any[];
     return rows.reverse().map(normalizeMessage);
   },
@@ -164,7 +207,9 @@ export const ChannelMessageDao = {
   getChannelMessageCount(channelId: string): number {
     const db = getDb();
     const result = db
-      .prepare("SELECT COUNT(*) AS count FROM channel_messages WHERE channel_id = ? AND deleted_at IS NULL")
+      .prepare(
+        "SELECT COUNT(*) AS count FROM channel_messages WHERE channel_id = ? AND deleted_at IS NULL"
+      )
       .get(channelId) as any;
     return result.count;
   },

@@ -20,11 +20,11 @@ interface WorkflowDefinition {
 interface WorkflowStep {
   id: string;
   name: string;
-  agentDid?: string;          // Target agent (or broadcast)
+  agentDid?: string; // Target agent (or broadcast)
   action: string;
   params: Record<string, any>;
-  dependsOn?: string[];       // Step IDs that must complete first
-  condition?: string;         // Expression evaluated before executing
+  dependsOn?: string[]; // Step IDs that must complete first
+  condition?: string; // Expression evaluated before executing
   onError?: "stop" | "continue" | "retry";
   retries?: number;
 }
@@ -107,6 +107,7 @@ curl -X POST https://vaultysclaw.acme.com/api/workflows/{id}/run \
 ```
 
 Response (202 Accepted):
+
 ```json
 {
   "runId": "run_01HZ...",
@@ -127,9 +128,9 @@ curl https://vaultysclaw.acme.com/api/workflows/{id}/runs/{runId}
   "startedAt": "2026-05-15T09:00:00Z",
   "completedAt": "2026-05-15T09:02:34Z",
   "steps": {
-    "scrape":    { "status": "completed", "durationMs": 8420 },
+    "scrape": { "status": "completed", "durationMs": 8420 },
     "summarise": { "status": "completed", "durationMs": 12300 },
-    "email":     { "status": "completed", "durationMs": 340 }
+    "email": { "status": "completed", "durationMs": 340 }
   }
 }
 ```
@@ -149,9 +150,13 @@ graph LR
 {
   "steps": [
     { "id": "scrape-papers", "action": "...", "agentDid": "..." },
-    { "id": "scrape-news",   "action": "...", "agentDid": "..." },
-    { "id": "summarise",     "dependsOn": ["scrape-papers", "scrape-news"], "agentDid": "..." },
-    { "id": "email",         "dependsOn": ["summarise"], "agentDid": "..." }
+    { "id": "scrape-news", "action": "...", "agentDid": "..." },
+    {
+      "id": "summarise",
+      "dependsOn": ["scrape-papers", "scrape-news"],
+      "agentDid": "..."
+    },
+    { "id": "email", "dependsOn": ["summarise"], "agentDid": "..." }
   ]
 }
 ```
@@ -160,22 +165,22 @@ graph LR
 
 Reference variables and previous step outputs using `{{...}}` syntax:
 
-| Expression | Resolves to |
-|---|---|
-| `{{variables.topic}}` | The workflow-level variable `topic` |
-| `{{params.format}}` | A run-time parameter passed at invocation |
-| `{{steps.scrape.output}}` | The full output of the `scrape` step |
-| `{{steps.scrape.output.papers[0].title}}` | A nested field in the step output |
+| Expression                                | Resolves to                               |
+| ----------------------------------------- | ----------------------------------------- |
+| `{{variables.topic}}`                     | The workflow-level variable `topic`       |
+| `{{params.format}}`                       | A run-time parameter passed at invocation |
+| `{{steps.scrape.output}}`                 | The full output of the `scrape` step      |
+| `{{steps.scrape.output.papers[0].title}}` | A nested field in the step output         |
 
 ## Error handling
 
 Each step can specify `onError`:
 
-| Value | Behaviour |
-|---|---|
-| `stop` (default) | Abort the entire workflow run |
-| `continue` | Mark the step as failed but continue to the next step |
-| `retry` | Retry the step up to `retries` times (default: 3) with exponential back-off |
+| Value            | Behaviour                                                                   |
+| ---------------- | --------------------------------------------------------------------------- |
+| `stop` (default) | Abort the entire workflow run                                               |
+| `continue`       | Mark the step as failed but continue to the next step                       |
+| `retry`          | Retry the step up to `retries` times (default: 3) with exponential back-off |
 
 ## Scheduled workflows
 

@@ -39,14 +39,14 @@ GET /api/tool-approvals
 }
 ```
 
-| Field | Description |
-|---|---|
-| `id` | Unique approval request ID |
-| `agentDid` | DID of the agent waiting for approval |
-| `tool` | The tool name the agent wants to invoke |
-| `context` | Full tool parameters — review these carefully before approving |
-| `requestedAt` | When the agent sent the request |
-| `expiresAt` | The agent times out if no decision is made by this time |
+| Field         | Description                                                    |
+| ------------- | -------------------------------------------------------------- |
+| `id`          | Unique approval request ID                                     |
+| `agentDid`    | DID of the agent waiting for approval                          |
+| `tool`        | The tool name the agent wants to invoke                        |
+| `context`     | Full tool parameters — review these carefully before approving |
+| `requestedAt` | When the agent sent the request                                |
+| `expiresAt`   | The agent times out if no decision is made by this time        |
 
 ## Approve a request
 
@@ -79,6 +79,7 @@ POST /api/tool-approvals/:id/reject
 ```
 
 Response:
+
 ```json
 { "success": true }
 ```
@@ -93,13 +94,14 @@ On the agent controller, mark tools as requiring approval in the agent's skill d
 // In a custom skill file
 export const dangerousTool = {
   name: "system_command",
-  requiresApproval: true,   // Triggers the approval flow
+  requiresApproval: true, // Triggers the approval flow
   description: "Execute a shell command on the agent's host",
   // ...
 };
 ```
 
 Built-in tools that default to requiring approval:
+
 - `system_command`
 - `code_execution` (when executing user-provided code)
 - `mail_send` (configurable)
@@ -109,6 +111,7 @@ Built-in tools that default to requiring approval:
 The agent waits for approval for up to `APPROVAL_TIMEOUT_MS` (default: 10 minutes). If no decision is received, the tool call is aborted and an error is returned to the caller.
 
 Configure the timeout:
+
 ```env
 APPROVAL_TIMEOUT_MS=300000   # 5 minutes
 ```

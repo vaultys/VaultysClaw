@@ -17,7 +17,10 @@ const PORT = process.env.PORT || 11435;
 const calls = [];
 
 const server = http.createServer((req, res) => {
-  if (req.method === "POST" && (req.url === "/v1/chat/completions" || req.url === "/v1/responses")) {
+  if (
+    req.method === "POST" &&
+    (req.url === "/v1/chat/completions" || req.url === "/v1/responses")
+  ) {
     let body = "";
     req.on("data", (chunk) => (body += chunk));
     req.on("end", () => {
@@ -40,7 +43,8 @@ const server = http.createServer((req, res) => {
         // Responses API — input array
         const lastInput = parsed.input?.at(-1);
         if (Array.isArray(lastInput?.content)) {
-          lastContent = lastInput.content.find((c) => c.type === "input_text")?.text ?? "";
+          lastContent =
+            lastInput.content.find((c) => c.type === "input_text")?.text ?? "";
         } else {
           lastContent = lastInput?.content ?? "";
         }

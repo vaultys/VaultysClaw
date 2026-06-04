@@ -18,7 +18,7 @@ const http = require("http");
 const PORT = process.env.PORT || 4000;
 
 const models = new Map(); // modelName -> params
-const keys = new Map();   // teamId -> virtualKey
+const keys = new Map(); // teamId -> virtualKey
 
 let keyCounter = 1000;
 
@@ -36,8 +36,11 @@ function readBody(req) {
     let data = "";
     req.on("data", (chunk) => (data += chunk));
     req.on("end", () => {
-      try { resolve(JSON.parse(data || "{}")); }
-      catch (e) { reject(e); }
+      try {
+        resolve(JSON.parse(data || "{}"));
+      } catch (e) {
+        reject(e);
+      }
     });
     req.on("error", reject);
   });
@@ -55,7 +58,9 @@ const server = http.createServer(async (req, res) => {
   if (method === "POST" && url === "/model/new") {
     const body = await readBody(req);
     if (!body.model_name || !body.litellm_params) {
-      return json(res, 400, { error: "model_name and litellm_params required" });
+      return json(res, 400, {
+        error: "model_name and litellm_params required",
+      });
     }
     models.set(body.model_name, body.litellm_params);
     return json(res, 200, { model_name: body.model_name });

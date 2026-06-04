@@ -6,8 +6,8 @@
  * No environment variables are needed.
  */
 
-import fs from 'fs';
-import path from 'path';
+import fs from "fs";
+import path from "path";
 
 export interface FileStorage {
   write(key: string, content: Buffer): Promise<void>;
@@ -41,7 +41,7 @@ export class FilesystemStorage implements FileStorage {
   }
 
   private resolve(key: string): string {
-    const normalized = path.normalize(key).replace(/^(\.\.[/\\])+/, '');
+    const normalized = path.normalize(key).replace(/^(\.\.[/\\])+/, "");
     return path.join(this.baseDir, normalized);
   }
 
@@ -76,7 +76,7 @@ export class S3Storage implements FileStorage {
 
   constructor(config: S3Config) {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { S3Client } = require('@aws-sdk/client-s3');
+    const { S3Client } = require("@aws-sdk/client-s3");
 
     this.bucket = config.bucket;
 
@@ -98,14 +98,18 @@ export class S3Storage implements FileStorage {
 
   async write(key: string, content: Buffer): Promise<void> {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { PutObjectCommand } = require('@aws-sdk/client-s3');
-    await this.s3Client.send(new PutObjectCommand({ Bucket: this.bucket, Key: key, Body: content }));
+    const { PutObjectCommand } = require("@aws-sdk/client-s3");
+    await this.s3Client.send(
+      new PutObjectCommand({ Bucket: this.bucket, Key: key, Body: content })
+    );
   }
 
   async read(key: string): Promise<Buffer> {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { GetObjectCommand } = require('@aws-sdk/client-s3');
-    const response = await this.s3Client.send(new GetObjectCommand({ Bucket: this.bucket, Key: key }));
+    const { GetObjectCommand } = require("@aws-sdk/client-s3");
+    const response = await this.s3Client.send(
+      new GetObjectCommand({ Bucket: this.bucket, Key: key })
+    );
     const chunks: Buffer[] = [];
     for await (const chunk of response.Body) {
       chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
@@ -115,18 +119,23 @@ export class S3Storage implements FileStorage {
 
   async delete(key: string): Promise<void> {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { DeleteObjectCommand } = require('@aws-sdk/client-s3');
-    await this.s3Client.send(new DeleteObjectCommand({ Bucket: this.bucket, Key: key }));
+    const { DeleteObjectCommand } = require("@aws-sdk/client-s3");
+    await this.s3Client.send(
+      new DeleteObjectCommand({ Bucket: this.bucket, Key: key })
+    );
   }
 
   async exists(key: string): Promise<boolean> {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { HeadObjectCommand } = require('@aws-sdk/client-s3');
+    const { HeadObjectCommand } = require("@aws-sdk/client-s3");
     try {
-      await this.s3Client.send(new HeadObjectCommand({ Bucket: this.bucket, Key: key }));
+      await this.s3Client.send(
+        new HeadObjectCommand({ Bucket: this.bucket, Key: key })
+      );
       return true;
     } catch (error: any) {
-      if (error.name === 'NotFound' || error.$metadata?.httpStatusCode === 404) return false;
+      if (error.name === "NotFound" || error.$metadata?.httpStatusCode === 404)
+        return false;
       throw error;
     }
   }
@@ -136,7 +145,11 @@ export class S3Storage implements FileStorage {
  * Generate a stable file key from metadata.
  * Format: sources/{sourceId}/{fileId}_{sanitisedFilename}
  */
-export function generateFileKey(sourceId: string, fileId: string, filename: string): string {
-  const clean = path.basename(filename).replace(/[^a-zA-Z0-9._-]/g, '_');
+export function generateFileKey(
+  sourceId: string,
+  fileId: string,
+  filename: string
+): string {
+  const clean = path.basename(filename).replace(/[^a-zA-Z0-9._-]/g, "_");
   return `sources/${sourceId}/${fileId}_${clean}`;
 }

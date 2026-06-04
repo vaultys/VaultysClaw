@@ -11,7 +11,15 @@
  *     GET  /api/stats/tokens    — fleet-wide token stats from DB
  */
 
-import { describe, it, expect, vi, beforeAll, afterAll, beforeEach } from "vitest";
+import {
+  describe,
+  it,
+  expect,
+  vi,
+  beforeAll,
+  afterAll,
+  beforeEach,
+} from "vitest";
 
 // ---------------------------------------------------------------------------
 // Mocks — must come before imports
@@ -21,11 +29,15 @@ vi.mock("@/lib/auth-utils", () => ({
   getAuthContext: vi.fn(),
   forbidden: () => ({
     _status: 403,
-    async json() { return { error: "Forbidden" }; },
+    async json() {
+      return { error: "Forbidden" };
+    },
   }),
   unauthorized: () => ({
     _status: 401,
-    async json() { return { error: "Not authenticated" }; },
+    async json() {
+      return { error: "Not authenticated" };
+    },
   }),
 }));
 
@@ -46,11 +58,16 @@ import {
   getAllSkillsWithRealms,
   getAgentEffectiveSkills,
 } from "../packages/control-plane/lib/db";
+import { RealmSkillDAO } from "../packages/control-plane/db";
+import { prisma } from "../packages/control-plane/db/client";
 import { getAuthContext } from "../packages/control-plane/lib/auth-utils";
 import { broadcastSkillsConfig } from "../packages/control-plane/lib/ws-server";
 import { NextRequest } from "next/server";
 
-import { GET as skillsGET, POST as skillsPOST } from "../packages/control-plane/app/api/skills/route";
+import {
+  GET as skillsGET,
+  POST as skillsPOST,
+} from "../packages/control-plane/app/api/skills/route";
 import {
   GET as skillDetailGET,
   PATCH as skillDetailPATCH,
@@ -63,7 +80,9 @@ import { GET as statsTokensGET } from "../packages/control-plane/app/api/stats/t
 // ---------------------------------------------------------------------------
 
 const mockGetAuthContext = getAuthContext as ReturnType<typeof vi.fn>;
-const mockBroadcastSkillsConfig = broadcastSkillsConfig as ReturnType<typeof vi.fn>;
+const mockBroadcastSkillsConfig = broadcastSkillsConfig as ReturnType<
+  typeof vi.fn
+>;
 
 /** Test row prefix — used to clean up after all tests */
 const T = "test:skills-routes:";
@@ -89,7 +108,10 @@ function makeRealmMemberContext(realmId: string) {
 }
 
 function req(method: string, url: string, body?: unknown): NextRequest {
-  return new NextRequest(url, body !== undefined ? { body } : undefined) as unknown as NextRequest;
+  return new NextRequest(
+    url,
+    body !== undefined ? { body } : undefined
+  ) as unknown as NextRequest;
 }
 
 function skillParams(id: string, skillId: string) {
@@ -104,43 +126,40 @@ let testRealmId: string;
 let testRealmId2: string;
 let testAgentDid: string;
 
-beforeAll(() => {
+beforeAll(async () => {
   const db = getDb();
   testRealmId = `${T}realm-1`;
   testRealmId2 = `${T}realm-2`;
   testAgentDid = `${T}agent-did-1`;
 
-  db.prepare(`
-    INSERT OR IGNORE INTO realms (id, name, slug, color, is_default)
-    VALUES (?, 'Skills Test Realm', 'skills-test-realm', '#6366f1', 0)
-  `).run(testRealmId);
+  // ── SQLite (for DB helper tests) ────────────────────────────────────────
+  db.prepare(`INSERT OR IGNORE INTO realms (id, name, slug, color, is_default) VALUES (?, 'Skills Test Realm', 'skills-test-realm', '#6366f1', 0)`).run(testRealmId);
+  db.prepare(`INSERT OR IGNORE INTO realms (id, name, slug, color, is_default) VALUES (?, 'Skills Test Realm 2', 'skills-test-realm-2', '#22c55e', 0)`).run(testRealmId2);
+  db.prepare(`INSERT OR IGNORE INTO agents (did, name, capabilities, registered_at) VALUES (?, 'test-agent', '[]', datetime('now'))`).run(testAgentDid);
+  db.prepare(`INSERT OR IGNORE INTO agent_realms (agent_did, realm_id, is_primary) VALUES (?, ?, 0)`).run(testAgentDid, testRealmId);
 
-  db.prepare(`
-    INSERT OR IGNORE INTO realms (id, name, slug, color, is_default)
-    VALUES (?, 'Skills Test Realm 2', 'skills-test-realm-2', '#22c55e', 0)
-  `).run(testRealmId2);
-
-  // Insert a test agent
-  db.prepare(`
-    INSERT OR IGNORE INTO agents (did, name, capabilities, registered_at)
-    VALUES (?, 'test-agent', '[]', datetime('now'))
-  `).run(testAgentDid);
-
-  // Enroll the agent in realm 1
-  db.prepare(`
-    INSERT OR IGNORE INTO agent_realms (agent_did, realm_id, is_primary)
-    VALUES (?, ?, 0)
-  `).run(testAgentDid, testRealmId);
+  // ── Prisma (for route handler tests) ────────────────────────────────────
+  await prisma.realm.upsert({ where: { id: testRealmId }, create: { id: testRealmId, name: "Skills Test Realm", slug: "skills-test-realm", color: "#6366f1" }, update: {} });
+  await prisma.realm.upsert({ where: { id: testRealmId2 }, create: { id: testRealmId2, name: "Skills Test Realm 2", slug: "skills-test-realm-2", color: "#22c55e" }, update: {} });
+  await prisma.agent.upsert({ where: { did: testAgentDid }, create: { did: testAgentDid, name: "test-agent", capabilities: [] }, update: {} });
+  await prisma.agentRealm.upsert({ where: { agentDid_realmId: { agentDid: testAgentDid, realmId: testRealmId } }, create: { agentDid: testAgentDid, realmId: testRealmId }, update: {} });
 });
 
-afterAll(() => {
+afterAll(async () => {
   const db = getDb();
+  // SQLite cleanup
   db.prepare("DELETE FROM agent_skill_overrides WHERE realm_skill_id IN (SELECT id FROM realm_skills WHERE realm_id LIKE ?)").run(`${T}%`);
   db.prepare("DELETE FROM realm_skills WHERE realm_id LIKE ?").run(`${T}%`);
   db.prepare("DELETE FROM realm_skills WHERE name LIKE ?").run(`${T}%`);
   db.prepare("DELETE FROM agent_realms WHERE agent_did = ?").run(testAgentDid);
   db.prepare("DELETE FROM agents WHERE did = ?").run(testAgentDid);
   db.prepare("DELETE FROM realms WHERE id LIKE ?").run(`${T}%`);
+  // Prisma cleanup
+  await prisma.agentSkillOverride.deleteMany({ where: { realmSkill: { realmId: { in: [testRealmId, testRealmId2] } } } });
+  await prisma.realmSkill.deleteMany({ where: { realmId: { in: [testRealmId, testRealmId2] } } });
+  await prisma.agentRealm.deleteMany({ where: { agentDid: testAgentDid } });
+  await prisma.agent.deleteMany({ where: { did: testAgentDid } });
+  await prisma.realm.deleteMany({ where: { id: { in: [testRealmId, testRealmId2] } } });
 });
 
 beforeEach(() => {
@@ -195,7 +214,9 @@ describe("DB: createRealmSkill", () => {
     const skill = createRealmSkill({ realmId: testRealmId, name });
 
     try {
-      expect(() => createRealmSkill({ realmId: testRealmId, name })).toThrow(/UNIQUE/);
+      expect(() => createRealmSkill({ realmId: testRealmId, name })).toThrow(
+        /UNIQUE/
+      );
     } finally {
       getDb().prepare("DELETE FROM realm_skills WHERE id = ?").run(skill.id);
     }
@@ -208,7 +229,9 @@ describe("DB: createRealmSkill", () => {
 
     expect(s1.id).not.toBe(s2.id);
 
-    getDb().prepare("DELETE FROM realm_skills WHERE id IN (?, ?)").run(s1.id, s2.id);
+    getDb()
+      .prepare("DELETE FROM realm_skills WHERE id IN (?, ?)")
+      .run(s1.id, s2.id);
   });
 });
 
@@ -276,7 +299,10 @@ describe("DB: updateRealmSkill", () => {
     updateRealmSkill(skill.id, { config: { updated: true, count: 42 } });
 
     const updated = getRealmSkillById(skill.id)!;
-    expect(JSON.parse(updated.config ?? "{}")).toEqual({ updated: true, count: 42 });
+    expect(JSON.parse(updated.config ?? "{}")).toEqual({
+      updated: true,
+      count: 42,
+    });
 
     getDb().prepare("DELETE FROM realm_skills WHERE id = ?").run(skill.id);
   });
@@ -318,7 +344,10 @@ describe("DB: updateRealmSkill", () => {
 
 describe("DB: deleteRealmSkill", () => {
   it("removes the skill so getRealmSkillById returns undefined", () => {
-    const skill = createRealmSkill({ realmId: testRealmId, name: `${T}delete-me` });
+    const skill = createRealmSkill({
+      realmId: testRealmId,
+      name: `${T}delete-me`,
+    });
     deleteRealmSkill(skill.id);
     expect(getRealmSkillById(skill.id)).toBeUndefined();
   });
@@ -341,12 +370,17 @@ describe("DB: getAllSkillsWithRealms", () => {
       expect(r2).toBeDefined();
       expect(r2!.realm_name).toBe("Skills Test Realm 2");
     } finally {
-      getDb().prepare("DELETE FROM realm_skills WHERE id IN (?, ?)").run(s1.id, s2.id);
+      getDb()
+        .prepare("DELETE FROM realm_skills WHERE id IN (?, ?)")
+        .run(s1.id, s2.id);
     }
   });
 
   it("returns agent_count and override_count columns", () => {
-    const skill = createRealmSkill({ realmId: testRealmId, name: `${T}all-counts` });
+    const skill = createRealmSkill({
+      realmId: testRealmId,
+      name: `${T}all-counts`,
+    });
 
     try {
       const rows = getAllSkillsWithRealms();
@@ -403,21 +437,24 @@ describe("GET /api/skills", () => {
   });
 
   it("returns 403 for non-global-admin", async () => {
-    mockGetAuthContext.mockResolvedValueOnce({ ...makeAdminContext(), isGlobalAdmin: false });
+    mockGetAuthContext.mockResolvedValueOnce({
+      ...makeAdminContext(),
+      isGlobalAdmin: false,
+    });
     const res = await skillsGET();
     expect(res._status).toBe(403);
   });
 
   it("returns skill rows for global admin", async () => {
-    const skill = createRealmSkill({ realmId: testRealmId, name: `${T}api-list` });
+    const skill = await RealmSkillDAO.create({ realmId: testRealmId, name: `${T}api-list` });
     try {
       const res = await skillsGET();
       expect(res._status).toBe(200);
-      const body = await res.json() as { id: string }[];
+      const body = (await res.json()) as { id: string }[];
       expect(Array.isArray(body)).toBe(true);
       expect(body.some((r) => r.id === skill.id)).toBe(true);
     } finally {
-      getDb().prepare("DELETE FROM realm_skills WHERE id = ?").run(skill.id);
+      await RealmSkillDAO.delete(skill.id);
     }
   });
 });
@@ -429,14 +466,23 @@ describe("GET /api/skills", () => {
 describe("POST /api/skills", () => {
   it("returns 401 when unauthenticated", async () => {
     mockGetAuthContext.mockResolvedValueOnce(null);
-    const r = req("POST", "http://localhost/api/skills", { realmId: testRealmId, name: "x" });
+    const r = req("POST", "http://localhost/api/skills", {
+      realmId: testRealmId,
+      name: "x",
+    });
     const res = await skillsPOST(r as any);
     expect(res._status).toBe(401);
   });
 
   it("returns 403 for non-global-admin", async () => {
-    mockGetAuthContext.mockResolvedValueOnce({ ...makeAdminContext(), isGlobalAdmin: false });
-    const r = req("POST", "http://localhost/api/skills", { realmId: testRealmId, name: "x" });
+    mockGetAuthContext.mockResolvedValueOnce({
+      ...makeAdminContext(),
+      isGlobalAdmin: false,
+    });
+    const r = req("POST", "http://localhost/api/skills", {
+      realmId: testRealmId,
+      name: "x",
+    });
     const res = await skillsPOST(r as any);
     expect(res._status).toBe(403);
   });
@@ -448,19 +494,27 @@ describe("POST /api/skills", () => {
   });
 
   it("returns 400 when name is missing", async () => {
-    const r = req("POST", "http://localhost/api/skills", { realmId: testRealmId });
+    const r = req("POST", "http://localhost/api/skills", {
+      realmId: testRealmId,
+    });
     const res = await skillsPOST(r as any);
     expect(res._status).toBe(400);
   });
 
   it("returns 400 when name is blank", async () => {
-    const r = req("POST", "http://localhost/api/skills", { realmId: testRealmId, name: "   " });
+    const r = req("POST", "http://localhost/api/skills", {
+      realmId: testRealmId,
+      name: "   ",
+    });
     const res = await skillsPOST(r as any);
     expect(res._status).toBe(400);
   });
 
   it("returns 404 when realm does not exist", async () => {
-    const r = req("POST", "http://localhost/api/skills", { realmId: "nonexistent-realm", name: "x" });
+    const r = req("POST", "http://localhost/api/skills", {
+      realmId: "nonexistent-realm",
+      name: "x",
+    });
     const res = await skillsPOST(r as any);
     expect(res._status).toBe(404);
   });
@@ -478,33 +532,41 @@ describe("POST /api/skills", () => {
     const res = await skillsPOST(r as any);
     expect(res._status).toBe(201);
 
-    const body = await res.json() as { id: string; realm_id: string; name: string; content: string | null };
+    const body = (await res.json()) as {
+      id: string;
+      realmId: string;
+      name: string;
+      content: string | null;
+    };
     expect(body.id).toBeTruthy();
-    expect(body.realm_id).toBe(testRealmId);
+    expect(body.realmId).toBe(testRealmId);
     expect(body.name).toBe(`${T}api-create`);
     expect(body.content).toBe("# API Created Skill\nInstructions here.");
 
     expect(mockBroadcastSkillsConfig).toHaveBeenCalledWith(testRealmId);
 
-    // Verify it's in the DB
-    const row = getRealmSkillById(body.id);
+    // Verify it's in the DB (Prisma)
+    const row = await RealmSkillDAO.findById(body.id);
     expect(row).toBeDefined();
 
-    getDb().prepare("DELETE FROM realm_skills WHERE id = ?").run(body.id);
+    await RealmSkillDAO.delete(body.id);
   });
 
   it("returns 409 when skill name already exists in that realm", async () => {
     const name = `${T}api-duplicate`;
-    const existing = createRealmSkill({ realmId: testRealmId, name });
+    const existing = await RealmSkillDAO.create({ realmId: testRealmId, name });
 
     try {
-      const r = req("POST", "http://localhost/api/skills", { realmId: testRealmId, name });
+      const r = req("POST", "http://localhost/api/skills", {
+        realmId: testRealmId,
+        name,
+      });
       const res = await skillsPOST(r as any);
       expect(res._status).toBe(409);
-      const body = await res.json() as { error: string };
+      const body = (await res.json()) as { error: string };
       expect(body.error).toContain(name);
     } finally {
-      getDb().prepare("DELETE FROM realm_skills WHERE id = ?").run(existing.id);
+      await RealmSkillDAO.delete(existing.id);
     }
   });
 });
@@ -518,7 +580,7 @@ describe("GET /api/realms/[id]/skills/[skillId]", () => {
     mockGetAuthContext.mockResolvedValueOnce(null);
     const res = await skillDetailGET(
       req("GET", "http://localhost/api/realms/r/skills/s") as any,
-      skillParams("r", "s"),
+      skillParams("r", "s")
     );
     expect(res._status).toBe(401);
   });
@@ -530,7 +592,7 @@ describe("GET /api/realms/[id]/skills/[skillId]", () => {
     });
     const res = await skillDetailGET(
       req("GET", "http://localhost/") as any,
-      skillParams(testRealmId, "any"),
+      skillParams(testRealmId, "any")
     );
     expect(res._status).toBe(403);
   });
@@ -538,17 +600,20 @@ describe("GET /api/realms/[id]/skills/[skillId]", () => {
   it("returns 404 for unknown skill id", async () => {
     const res = await skillDetailGET(
       req("GET", "http://localhost/") as any,
-      skillParams(testRealmId, "does-not-exist"),
+      skillParams(testRealmId, "does-not-exist")
     );
     expect(res._status).toBe(404);
   });
 
   it("returns 404 when skill belongs to a different realm", async () => {
-    const skill = createRealmSkill({ realmId: testRealmId2, name: `${T}wrong-realm-get` });
+    const skill = createRealmSkill({
+      realmId: testRealmId2,
+      name: `${T}wrong-realm-get`,
+    });
     try {
       const res = await skillDetailGET(
         req("GET", "http://localhost/") as any,
-        skillParams(testRealmId, skill.id), // wrong realm
+        skillParams(testRealmId, skill.id) // wrong realm
       );
       expect(res._status).toBe(404);
     } finally {
@@ -557,7 +622,7 @@ describe("GET /api/realms/[id]/skills/[skillId]", () => {
   });
 
   it("returns skill detail with camelCase fields", async () => {
-    const skill = createRealmSkill({
+    const skill = await RealmSkillDAO.create({
       realmId: testRealmId,
       name: `${T}get-detail`,
       description: "detail desc",
@@ -570,16 +635,21 @@ describe("GET /api/realms/[id]/skills/[skillId]", () => {
     try {
       const res = await skillDetailGET(
         req("GET", "http://localhost/") as any,
-        skillParams(testRealmId, skill.id),
+        skillParams(testRealmId, skill.id)
       );
       expect(res._status).toBe(200);
 
-      const body = await res.json() as {
+      const body = (await res.json()) as {
         skill: {
-          id: string; realmId: string; name: string; description: string;
-          version: string; isRequired: boolean; config: Record<string, unknown>;
+          id: string;
+          realmId: string;
+          name: string;
+          description: string;
+          version: string;
+          isRequired: boolean;
+          config: Record<string, unknown>;
           createdAt: string;
-        }
+        };
       };
       expect(body.skill.id).toBe(skill.id);
       expect(body.skill.realmId).toBe(testRealmId);
@@ -590,7 +660,7 @@ describe("GET /api/realms/[id]/skills/[skillId]", () => {
       expect(body.skill.config).toEqual({ x: 1 });
       expect(body.skill.createdAt).toBeTruthy();
     } finally {
-      getDb().prepare("DELETE FROM realm_skills WHERE id = ?").run(skill.id);
+      await RealmSkillDAO.delete(skill.id);
     }
   });
 });
@@ -601,11 +671,19 @@ describe("GET /api/realms/[id]/skills/[skillId]", () => {
 
 describe("PATCH /api/realms/[id]/skills/[skillId]", () => {
   it("returns 403 when user is not realm admin", async () => {
-    mockGetAuthContext.mockResolvedValueOnce(makeRealmMemberContext(testRealmId));
-    const skill = createRealmSkill({ realmId: testRealmId, name: `${T}patch-no-admin` });
+    mockGetAuthContext.mockResolvedValueOnce(
+      makeRealmMemberContext(testRealmId)
+    );
+    const skill = createRealmSkill({
+      realmId: testRealmId,
+      name: `${T}patch-no-admin`,
+    });
     try {
       const r = req("PATCH", "http://localhost/", { description: "x" });
-      const res = await skillDetailPATCH(r as any, skillParams(testRealmId, skill.id));
+      const res = await skillDetailPATCH(
+        r as any,
+        skillParams(testRealmId, skill.id)
+      );
       expect(res._status).toBe(403);
     } finally {
       getDb().prepare("DELETE FROM realm_skills WHERE id = ?").run(skill.id);
@@ -613,75 +691,65 @@ describe("PATCH /api/realms/[id]/skills/[skillId]", () => {
   });
 
   it("updates description and returns updated skill", async () => {
-    const skill = createRealmSkill({
-      realmId: testRealmId,
-      name: `${T}patch-desc`,
-      description: "old",
-    });
-
+    const skill = await RealmSkillDAO.create({ realmId: testRealmId, name: `${T}patch-desc`, description: "old" });
     try {
       const r = req("PATCH", "http://localhost/", { description: "new desc" });
       const res = await skillDetailPATCH(r as any, skillParams(testRealmId, skill.id));
       expect(res._status).toBe(200);
-
-      const body = await res.json() as { skill: { description: string } };
+      const body = (await res.json()) as { skill: { description: string } };
       expect(body.skill.description).toBe("new desc");
-
-      // Verify DB was updated
-      expect(getRealmSkillById(skill.id)!.description).toBe("new desc");
+      expect((await RealmSkillDAO.findById(skill.id))!.description).toBe("new desc");
     } finally {
-      getDb().prepare("DELETE FROM realm_skills WHERE id = ?").run(skill.id);
+      await RealmSkillDAO.delete(skill.id);
     }
   });
 
   it("updates content markdown", async () => {
-    const skill = createRealmSkill({ realmId: testRealmId, name: `${T}patch-content` });
-
+    const skill = await RealmSkillDAO.create({ realmId: testRealmId, name: `${T}patch-content` });
     try {
       const md = "# Patched\nNew instructions.";
       const r = req("PATCH", "http://localhost/", { content: md });
       const res = await skillDetailPATCH(r as any, skillParams(testRealmId, skill.id));
       expect(res._status).toBe(200);
-
-      expect(getRealmSkillById(skill.id)!.content).toBe(md);
+      expect((await RealmSkillDAO.findById(skill.id))!.content).toBe(md);
     } finally {
-      getDb().prepare("DELETE FROM realm_skills WHERE id = ?").run(skill.id);
+      await RealmSkillDAO.delete(skill.id);
     }
   });
 
   it("sets content to null when explicitly passed null", async () => {
-    const skill = createRealmSkill({
-      realmId: testRealmId,
-      name: `${T}patch-null-content`,
-      content: "some content",
-    });
-
+    const skill = await RealmSkillDAO.create({ realmId: testRealmId, name: `${T}patch-null-content`, content: "some content" });
     try {
       const r = req("PATCH", "http://localhost/", { content: null });
       await skillDetailPATCH(r as any, skillParams(testRealmId, skill.id));
-      expect(getRealmSkillById(skill.id)!.content).toBeNull();
+      expect((await RealmSkillDAO.findById(skill.id))!.content).toBeNull();
     } finally {
-      getDb().prepare("DELETE FROM realm_skills WHERE id = ?").run(skill.id);
+      await RealmSkillDAO.delete(skill.id);
     }
   });
 
   it("broadcasts skills config after update", async () => {
-    const skill = createRealmSkill({ realmId: testRealmId, name: `${T}patch-broadcast` });
-
+    const skill = await RealmSkillDAO.create({ realmId: testRealmId, name: `${T}patch-broadcast` });
     try {
       const r = req("PATCH", "http://localhost/", { version: "9.0.0" });
       await skillDetailPATCH(r as any, skillParams(testRealmId, skill.id));
       expect(mockBroadcastSkillsConfig).toHaveBeenCalledWith(testRealmId);
     } finally {
-      getDb().prepare("DELETE FROM realm_skills WHERE id = ?").run(skill.id);
+      await RealmSkillDAO.delete(skill.id);
     }
   });
 
   it("returns 404 when skill belongs to a different realm", async () => {
-    const skill = createRealmSkill({ realmId: testRealmId2, name: `${T}patch-wrong-realm` });
+    const skill = createRealmSkill({
+      realmId: testRealmId2,
+      name: `${T}patch-wrong-realm`,
+    });
     try {
       const r = req("PATCH", "http://localhost/", { description: "x" });
-      const res = await skillDetailPATCH(r as any, skillParams(testRealmId, skill.id));
+      const res = await skillDetailPATCH(
+        r as any,
+        skillParams(testRealmId, skill.id)
+      );
       expect(res._status).toBe(404);
     } finally {
       getDb().prepare("DELETE FROM realm_skills WHERE id = ?").run(skill.id);
@@ -695,12 +763,17 @@ describe("PATCH /api/realms/[id]/skills/[skillId]", () => {
 
 describe("DELETE /api/realms/[id]/skills/[skillId]", () => {
   it("returns 403 when user is not realm admin", async () => {
-    mockGetAuthContext.mockResolvedValueOnce(makeRealmMemberContext(testRealmId));
-    const skill = createRealmSkill({ realmId: testRealmId, name: `${T}delete-no-admin` });
+    mockGetAuthContext.mockResolvedValueOnce(
+      makeRealmMemberContext(testRealmId)
+    );
+    const skill = createRealmSkill({
+      realmId: testRealmId,
+      name: `${T}delete-no-admin`,
+    });
     try {
       const res = await skillDetailDELETE(
         req("DELETE", "http://localhost/") as any,
-        skillParams(testRealmId, skill.id),
+        skillParams(testRealmId, skill.id)
       );
       expect(res._status).toBe(403);
     } finally {
@@ -709,24 +782,24 @@ describe("DELETE /api/realms/[id]/skills/[skillId]", () => {
   });
 
   it("removes the skill and broadcasts config", async () => {
-    const skill = createRealmSkill({ realmId: testRealmId, name: `${T}delete-ok` });
+    const skill = await RealmSkillDAO.create({ realmId: testRealmId, name: `${T}delete-ok` });
 
     const res = await skillDetailDELETE(
       req("DELETE", "http://localhost/") as any,
-      skillParams(testRealmId, skill.id),
+      skillParams(testRealmId, skill.id)
     );
     expect(res._status).toBe(200);
-    const body = await res.json() as { ok: boolean };
+    const body = (await res.json()) as { ok: boolean };
     expect(body.ok).toBe(true);
 
-    expect(getRealmSkillById(skill.id)).toBeUndefined();
+    expect(await RealmSkillDAO.findById(skill.id)).toBeNull();
     expect(mockBroadcastSkillsConfig).toHaveBeenCalledWith(testRealmId);
   });
 
   it("returns 404 for unknown skill", async () => {
     const res = await skillDetailDELETE(
       req("DELETE", "http://localhost/") as any,
-      skillParams(testRealmId, "nonexistent-id"),
+      skillParams(testRealmId, "nonexistent-id")
     );
     expect(res._status).toBe(404);
   });
@@ -744,7 +817,10 @@ describe("GET /api/stats/tokens", () => {
   });
 
   it("returns 403 for non-global-admin", async () => {
-    mockGetAuthContext.mockResolvedValueOnce({ ...makeAdminContext(), isGlobalAdmin: false });
+    mockGetAuthContext.mockResolvedValueOnce({
+      ...makeAdminContext(),
+      isGlobalAdmin: false,
+    });
     const res = await statsTokensGET();
     expect(res._status).toBe(403);
   });
@@ -753,7 +829,7 @@ describe("GET /api/stats/tokens", () => {
     const res = await statsTokensGET();
     expect(res._status).toBe(200);
 
-    const body = await res.json() as {
+    const body = (await res.json()) as {
       allTime: { promptTokens: number; completionTokens: number };
       daily: { promptTokens: number; completionTokens: number };
       monthly: { promptTokens: number; completionTokens: number };
@@ -771,31 +847,26 @@ describe("GET /api/stats/tokens", () => {
     const db = getDb();
     const testDid = `${T}token-agent`;
 
-    // Ensure agent exists
-    db.prepare(`
-      INSERT OR IGNORE INTO agents (did, name, capabilities, registered_at)
-      VALUES (?, 'token-test-agent', '[]', datetime('now'))
-    `).run(testDid);
+    // SQLite (for history queries in the route)
+    db.prepare(`INSERT OR IGNORE INTO agents (did, name, capabilities, registered_at) VALUES (?, 'token-test-agent', '[]', datetime('now'))`).run(testDid);
+    db.prepare(`INSERT INTO agent_token_usage (agent_did, prompt_tokens, completion_tokens, updated_at) VALUES (?, 1000, 500, datetime('now')) ON CONFLICT(agent_did) DO UPDATE SET prompt_tokens = excluded.prompt_tokens, completion_tokens = excluded.completion_tokens, updated_at = datetime('now')`).run(testDid);
 
-    // Write known cumulative totals
-    db.prepare(`
-      INSERT INTO agent_token_usage (agent_did, prompt_tokens, completion_tokens, updated_at)
-      VALUES (?, 1000, 500, datetime('now'))
-      ON CONFLICT(agent_did) DO UPDATE SET
-        prompt_tokens = excluded.prompt_tokens,
-        completion_tokens = excluded.completion_tokens,
-        updated_at = datetime('now')
-    `).run(testDid);
+    // Prisma (AgentDAO.getTotalFleetTokenUsage uses Prisma)
+    await prisma.agent.upsert({ where: { did: testDid }, create: { did: testDid, name: "token-test-agent", capabilities: [] }, update: {} });
+    await prisma.agentTokenUsage.upsert({ where: { agentDid: testDid }, create: { agentDid: testDid, promptTokens: 1000, completionTokens: 500 }, update: { promptTokens: 1000, completionTokens: 500 } });
 
     try {
       const res = await statsTokensGET();
-      const body = await res.json() as { allTime: { promptTokens: number; completionTokens: number } };
-      // The all-time total should include our inserted agent's tokens
+      const body = (await res.json()) as {
+        allTime: { promptTokens: number; completionTokens: number };
+      };
       expect(body.allTime.promptTokens).toBeGreaterThanOrEqual(1000);
       expect(body.allTime.completionTokens).toBeGreaterThanOrEqual(500);
     } finally {
       db.prepare("DELETE FROM agent_token_usage WHERE agent_did = ?").run(testDid);
       db.prepare("DELETE FROM agents WHERE did = ?").run(testDid);
+      await prisma.agentTokenUsage.deleteMany({ where: { agentDid: testDid } });
+      await prisma.agent.deleteMany({ where: { did: testDid } });
     }
   });
 
@@ -805,28 +876,34 @@ describe("GET /api/stats/tokens", () => {
     const today = new Date().toISOString().slice(0, 10);
     const thisMonth = new Date().toISOString().slice(0, 7);
 
-    db.prepare(`
+    db.prepare(
+      `
       INSERT OR IGNORE INTO agents (did, name, capabilities, registered_at)
       VALUES (?, 'history-test-agent', '[]', datetime('now'))
-    `).run(testDid);
+    `
+    ).run(testDid);
 
-    db.prepare(`
+    db.prepare(
+      `
       INSERT INTO agent_token_usage_history (agent_did, bucket, granularity, prompt_tokens, completion_tokens, updated_at)
       VALUES (?, ?, 'day', 200, 100, datetime('now'))
       ON CONFLICT(agent_did, bucket, granularity) DO UPDATE SET
         prompt_tokens = prompt_tokens + 200, completion_tokens = completion_tokens + 100
-    `).run(testDid, today);
+    `
+    ).run(testDid, today);
 
-    db.prepare(`
+    db.prepare(
+      `
       INSERT INTO agent_token_usage_history (agent_did, bucket, granularity, prompt_tokens, completion_tokens, updated_at)
       VALUES (?, ?, 'month', 800, 400, datetime('now'))
       ON CONFLICT(agent_did, bucket, granularity) DO UPDATE SET
         prompt_tokens = prompt_tokens + 800, completion_tokens = completion_tokens + 400
-    `).run(testDid, thisMonth);
+    `
+    ).run(testDid, thisMonth);
 
     try {
       const res = await statsTokensGET();
-      const body = await res.json() as {
+      const body = (await res.json()) as {
         daily: { promptTokens: number; completionTokens: number };
         monthly: { promptTokens: number; completionTokens: number };
       };
@@ -835,7 +912,9 @@ describe("GET /api/stats/tokens", () => {
       expect(body.monthly.promptTokens).toBeGreaterThanOrEqual(800);
       expect(body.monthly.completionTokens).toBeGreaterThanOrEqual(400);
     } finally {
-      db.prepare("DELETE FROM agent_token_usage_history WHERE agent_did = ?").run(testDid);
+      db.prepare(
+        "DELETE FROM agent_token_usage_history WHERE agent_did = ?"
+      ).run(testDid);
       db.prepare("DELETE FROM agents WHERE did = ?").run(testDid);
     }
   });

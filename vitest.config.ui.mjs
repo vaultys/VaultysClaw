@@ -25,7 +25,9 @@ export default defineConfig({
       "@vaultysclaw/shared": resolve("packages/shared/src/index.ts"),
       // Force next/link and next/navigation to resolve from the control-plane package
       "next/link": resolve("packages/control-plane/node_modules/next/link.js"),
-      "next/navigation": resolve("packages/control-plane/node_modules/next/navigation.js"),
+      "next/navigation": resolve(
+        "packages/control-plane/node_modules/next/navigation.js"
+      ),
     },
   },
 });

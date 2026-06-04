@@ -12,7 +12,15 @@
  * in the project's node_modules and calls Next.js headers() at runtime.
  */
 
-import { describe, it, expect, vi, beforeAll, afterAll, beforeEach } from "vitest";
+import {
+  describe,
+  it,
+  expect,
+  vi,
+  beforeAll,
+  afterAll,
+  beforeEach,
+} from "vitest";
 
 // ---------------------------------------------------------------------------
 // Mocks — must be declared before any import that transitively uses them
@@ -22,8 +30,20 @@ import { describe, it, expect, vi, beforeAll, afterAll, beforeEach } from "vites
 // helpers. We replace them here so tests control what "logged-in user" looks like.
 vi.mock("@/lib/auth-utils", () => ({
   getAuthContext: vi.fn(),
-  forbidden: () => ({ _body: { error: "Forbidden" }, _status: 403, async json() { return { error: "Forbidden" }; } }),
-  unauthorized: () => ({ _body: { error: "Not authenticated" }, _status: 401, async json() { return { error: "Not authenticated" }; } }),
+  forbidden: () => ({
+    _body: { error: "Forbidden" },
+    _status: 403,
+    async json() {
+      return { error: "Forbidden" };
+    },
+  }),
+  unauthorized: () => ({
+    _body: { error: "Not authenticated" },
+    _status: 401,
+    async json() {
+      return { error: "Not authenticated" };
+    },
+  }),
 }));
 
 // next/server is aliased to __tests__/mocks/next-server.ts in vitest.config.mjs
@@ -49,26 +69,56 @@ import {
   getUserRealms,
   getAgentRealms,
   saveWorkflow,
-  createPolicy,
-  deletePolicy,
   type WorkflowDefinition,
 } from "../packages/control-plane/lib/db";
 import { UserDao } from "../packages/control-plane/lib/user-dao";
 import { getAuthContext } from "../packages/control-plane/lib/auth-utils";
+import { prisma } from "../packages/control-plane/db/client";
+import { PolicyDAO } from "../packages/control-plane/db";
 
 // Route handlers under test
 import { GET as agentsGET } from "../packages/control-plane/app/api/agents/route";
-import { GET as agentDetailGET, PATCH as agentDetailPATCH } from "../packages/control-plane/app/api/agents/[did]/route";
-import { GET as realmsGET, POST as realmsPOST } from "../packages/control-plane/app/api/realms/route";
-import { GET as realmDetailGET, PATCH as realmDetailPATCH, DELETE as realmDetailDELETE } from "../packages/control-plane/app/api/realms/[id]/route";
-import { POST as realmAgentsPOST, DELETE as realmAgentsDELETE } from "../packages/control-plane/app/api/realms/[id]/agents/route";
-import { POST as realmUsersPOST, PATCH as realmUsersPATCH, DELETE as realmUsersDELETE } from "../packages/control-plane/app/api/realms/[id]/users/route";
-import { GET as workflowsGET, POST as workflowsPOST } from "../packages/control-plane/app/api/workflows/route";
-import { GET as workflowDetailGET, PATCH as workflowDetailPATCH, DELETE as workflowDetailDELETE } from "../packages/control-plane/app/api/workflows/[id]/route";
+import {
+  GET as agentDetailGET,
+  PATCH as agentDetailPATCH,
+} from "../packages/control-plane/app/api/agents/[did]/route";
+import {
+  GET as realmsGET,
+  POST as realmsPOST,
+} from "../packages/control-plane/app/api/realms/route";
+import {
+  GET as realmDetailGET,
+  PATCH as realmDetailPATCH,
+  DELETE as realmDetailDELETE,
+} from "../packages/control-plane/app/api/realms/[id]/route";
+import {
+  POST as realmAgentsPOST,
+  DELETE as realmAgentsDELETE,
+} from "../packages/control-plane/app/api/realms/[id]/agents/route";
+import {
+  POST as realmUsersPOST,
+  PATCH as realmUsersPATCH,
+  DELETE as realmUsersDELETE,
+} from "../packages/control-plane/app/api/realms/[id]/users/route";
+import {
+  GET as workflowsGET,
+  POST as workflowsPOST,
+} from "../packages/control-plane/app/api/workflows/route";
+import {
+  GET as workflowDetailGET,
+  PATCH as workflowDetailPATCH,
+  DELETE as workflowDetailDELETE,
+} from "../packages/control-plane/app/api/workflows/[id]/route";
 import { GET as registrationsGET } from "../packages/control-plane/app/api/registrations/route";
 import { POST as approveRegistrationPOST } from "../packages/control-plane/app/api/registrations/[id]/approve/route";
-import { GET as policiesGET, POST as policiesPOST } from "../packages/control-plane/app/api/policies/route";
-import { GET as policyDetailGET, DELETE as policyDetailDELETE } from "../packages/control-plane/app/api/policies/[id]/route";
+import {
+  GET as policiesGET,
+  POST as policiesPOST,
+} from "../packages/control-plane/app/api/policies/route";
+import {
+  GET as policyDetailGET,
+  DELETE as policyDetailDELETE,
+} from "../packages/control-plane/app/api/policies/[id]/route";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -80,7 +130,10 @@ const mockGetAuthContext = getAuthContext as ReturnType<typeof vi.fn>;
  * Build an AuthContext object that mirrors the real auth-utils logic but uses
  * the DB directly — no session / next-auth dependency.
  */
-function makeAuthContext(did: string, { isOwner = false, isAdmin = false } = {}) {
+function makeAuthContext(
+  did: string,
+  { isOwner = false, isAdmin = false } = {}
+) {
   const isGlobalAdmin = isOwner || isAdmin;
   return {
     did,
@@ -94,25 +147,43 @@ function makeAuthContext(did: string, { isOwner = false, isAdmin = false } = {})
     },
     canAccessAgent(agentDid: string) {
       if (isGlobalAdmin) return true;
-      const agentRealmIds = new Set(getAgentRealms(agentDid).map((r) => r.realm_id));
+      const agentRealmIds = new Set(
+        getAgentRealms(agentDid).map((r) => r.realm_id)
+      );
       return getUserRealms(did).some((r) => agentRealmIds.has(r.realm_id));
     },
     canAdminAgent(agentDid: string) {
       if (isGlobalAdmin) return true;
-      const agentRealmIds = new Set(getAgentRealms(agentDid).map((r) => r.realm_id));
+      const agentRealmIds = new Set(
+        getAgentRealms(agentDid).map((r) => r.realm_id)
+      );
       return getUserRealms(did).some(
-        (r) => agentRealmIds.has(r.realm_id) && r.is_realm_admin === 1,
+        (r) => agentRealmIds.has(r.realm_id) && r.is_realm_admin === 1
       );
     },
   };
 }
 
-function asUnauthenticated() { mockGetAuthContext.mockResolvedValue(null); }
-function asOwner(did = DID.owner) { mockGetAuthContext.mockResolvedValue(makeAuthContext(did, { isOwner: true, isAdmin: true })); }
-function asAdmin(did = DID.admin) { mockGetAuthContext.mockResolvedValue(makeAuthContext(did, { isAdmin: true })); }
-function asMember(did = DID.member) { mockGetAuthContext.mockResolvedValue(makeAuthContext(did)); }
-function asStranger(did = DID.stranger) { mockGetAuthContext.mockResolvedValue(makeAuthContext(did)); }
-function asRealmAdmin(did = DID.realmAdmin) { mockGetAuthContext.mockResolvedValue(makeAuthContext(did)); }
+function asUnauthenticated() {
+  mockGetAuthContext.mockResolvedValue(null);
+}
+function asOwner(did = DID.owner) {
+  mockGetAuthContext.mockResolvedValue(
+    makeAuthContext(did, { isOwner: true, isAdmin: true })
+  );
+}
+function asAdmin(did = DID.admin) {
+  mockGetAuthContext.mockResolvedValue(makeAuthContext(did, { isAdmin: true }));
+}
+function asMember(did = DID.member) {
+  mockGetAuthContext.mockResolvedValue(makeAuthContext(did));
+}
+function asStranger(did = DID.stranger) {
+  mockGetAuthContext.mockResolvedValue(makeAuthContext(did));
+}
+function asRealmAdmin(did = DID.realmAdmin) {
+  mockGetAuthContext.mockResolvedValue(makeAuthContext(did));
+}
 
 /** Minimal mock that satisfies NextRequest for route handlers */
 class MockRequest {
@@ -126,7 +197,9 @@ class MockRequest {
     this._body = body ?? {};
   }
 
-  async json() { return this._body; }
+  async json() {
+    return this._body;
+  }
 }
 
 function req(url?: string, body?: unknown) {
@@ -162,17 +235,24 @@ let testWorkflowId: string;
 // Setup / Teardown
 // ---------------------------------------------------------------------------
 
-beforeAll(() => {
+beforeAll(async () => {
   const db = getDb();
 
-  // Clean up any stale data from a previous interrupted run
+  // Clean up any stale SQLite data from a previous interrupted run
   db.prepare(`DELETE FROM user_realms WHERE user_id LIKE '%${SENTINEL}'`).run();
   db.prepare(`DELETE FROM agent_realms WHERE agent_did LIKE '%${SENTINEL}'`).run();
   db.prepare(`DELETE FROM users WHERE did LIKE '%${SENTINEL}'`).run();
   db.prepare(`DELETE FROM agents WHERE did LIKE '%${SENTINEL}'`).run();
   db.prepare("DELETE FROM realms WHERE slug = 'test-sec-realm'").run();
 
-  // Users
+  // Clean up any stale Prisma data
+  await prisma.userRealm.deleteMany({ where: { userId: { contains: SENTINEL } } });
+  await prisma.agentRealm.deleteMany({ where: { agentDid: { contains: SENTINEL } } });
+  await prisma.user.deleteMany({ where: { did: { contains: SENTINEL } } });
+  await prisma.agent.deleteMany({ where: { did: { contains: SENTINEL } } });
+  await prisma.realm.deleteMany({ where: { slug: "test-sec-realm" } });
+
+  // ── SQLite (for DB helper tests) ────────────────────────────────────────
   UserDao.create(DID.owner, null, true);
   UserDao.create(DID.admin, null, false);
   UserDao.setAdmin(DID.admin, true);
@@ -180,27 +260,68 @@ beforeAll(() => {
   UserDao.create(DID.realmAdmin, null, false);
   UserDao.create(DID.stranger, null, false);
 
-  // Agent
   db.prepare(
     "INSERT OR IGNORE INTO agents (did, name, capabilities, registered_at) VALUES (?, ?, '[]', datetime('now'))"
   ).run(DID.agent, "Security Test Agent");
 
-  // Realm
   const realm = createRealm({ name: "Security Test Realm", slug: "test-sec-realm" });
   testRealmId = realm.id;
 
-  // Memberships
   addUserToRealm(DID.member, testRealmId, false, false);
-  addUserToRealm(DID.realmAdmin, testRealmId, false, true); // realm admin
+  addUserToRealm(DID.realmAdmin, testRealmId, false, true);
   addAgentToRealm(DID.agent, testRealmId);
 
-  // Workflow inside the test realm
   const def: WorkflowDefinition = { nodes: [], edges: [] };
   testWorkflowId = saveWorkflow("Security Test Workflow", def, undefined, testRealmId);
+
+  // ── Prisma (for route handler tests) ────────────────────────────────────
+  await prisma.user.createMany({
+    data: [
+      { id: DID.owner, did: DID.owner, isOwner: true, isAdmin: true },
+      { id: DID.admin, did: DID.admin, isAdmin: true },
+      { id: DID.member, did: DID.member },
+      { id: DID.realmAdmin, did: DID.realmAdmin },
+      { id: DID.stranger, did: DID.stranger },
+    ],
+    skipDuplicates: true,
+  });
+
+  await prisma.agent.upsert({
+    where: { did: DID.agent },
+    create: { did: DID.agent, name: "Security Test Agent", capabilities: [] },
+    update: {},
+  });
+
+  await prisma.realm.upsert({
+    where: { id: testRealmId },
+    create: { id: testRealmId, name: "Security Test Realm", slug: "test-sec-realm", color: "#6366f1" },
+    update: {},
+  });
+
+  await prisma.userRealm.createMany({
+    data: [
+      { userId: DID.member, realmId: testRealmId },
+      { userId: DID.realmAdmin, realmId: testRealmId, isRealmAdmin: true },
+    ],
+    skipDuplicates: true,
+  });
+
+  await prisma.agentRealm.upsert({
+    where: { agentDid_realmId: { agentDid: DID.agent, realmId: testRealmId } },
+    create: { agentDid: DID.agent, realmId: testRealmId },
+    update: {},
+  });
+
+  await prisma.workflow.upsert({
+    where: { id: testWorkflowId },
+    create: { id: testWorkflowId, name: "Security Test Workflow", definition: def as any, realmId: testRealmId },
+    update: {},
+  });
 });
 
-afterAll(() => {
+afterAll(async () => {
   const db = getDb();
+  // SQLite cleanup
   db.prepare(`DELETE FROM policies WHERE created_by LIKE '%${SENTINEL}'`).run();
   db.prepare(`DELETE FROM policies WHERE agent_did LIKE '%${SENTINEL}'`).run();
   db.prepare(`DELETE FROM user_realms WHERE user_id LIKE '%${SENTINEL}'`).run();
@@ -208,6 +329,14 @@ afterAll(() => {
   db.prepare(`DELETE FROM users WHERE did LIKE '%${SENTINEL}'`).run();
   db.prepare(`DELETE FROM agents WHERE did LIKE '%${SENTINEL}'`).run();
   db.prepare("DELETE FROM realms WHERE slug = 'test-sec-realm'").run();
+  // Prisma cleanup
+  await prisma.policy.deleteMany({ where: { OR: [{ createdBy: { contains: SENTINEL } }, { agentDid: { contains: SENTINEL } }] } });
+  await prisma.workflow.deleteMany({ where: { realmId: testRealmId } });
+  await prisma.userRealm.deleteMany({ where: { userId: { contains: SENTINEL } } });
+  await prisma.agentRealm.deleteMany({ where: { agentDid: { contains: SENTINEL } } });
+  await prisma.user.deleteMany({ where: { did: { contains: SENTINEL } } });
+  await prisma.agent.deleteMany({ where: { did: { contains: SENTINEL } } });
+  await prisma.realm.deleteMany({ where: { slug: "test-sec-realm" } });
 });
 
 // Reset mock before each test so auth context doesn't leak between tests
@@ -454,25 +583,37 @@ describe("GET /api/agents", () => {
 describe("GET /api/agents/[did]", () => {
   it("returns 401 when unauthenticated", async () => {
     asUnauthenticated();
-    const res = await agentDetailGET(req() as never, params({ did: encodeURIComponent(DID.agent) }));
+    const res = await agentDetailGET(
+      req() as never,
+      params({ did: encodeURIComponent(DID.agent) })
+    );
     expectStatus(res, 401);
   });
 
   it("returns 200 for a member of the agent's realm", async () => {
     asMember();
-    const res = await agentDetailGET(req() as never, params({ did: encodeURIComponent(DID.agent) }));
+    const res = await agentDetailGET(
+      req() as never,
+      params({ did: encodeURIComponent(DID.agent) })
+    );
     expectStatus(res, 200);
   });
 
   it("returns 403 for a stranger (not in any shared realm with the agent)", async () => {
     asStranger();
-    const res = await agentDetailGET(req() as never, params({ did: encodeURIComponent(DID.agent) }));
+    const res = await agentDetailGET(
+      req() as never,
+      params({ did: encodeURIComponent(DID.agent) })
+    );
     expectStatus(res, 403);
   });
 
   it("returns 200 for a global admin regardless of realm membership", async () => {
     asAdmin();
-    const res = await agentDetailGET(req() as never, params({ did: encodeURIComponent(DID.agent) }));
+    const res = await agentDetailGET(
+      req() as never,
+      params({ did: encodeURIComponent(DID.agent) })
+    );
     expectStatus(res, 200);
   });
 });
@@ -482,7 +623,7 @@ describe("PATCH /api/agents/[did] — capabilities", () => {
     asUnauthenticated();
     const res = await agentDetailPATCH(
       req("http://localhost", { capabilities: [] }) as never,
-      params({ did: encodeURIComponent(DID.agent) }),
+      params({ did: encodeURIComponent(DID.agent) })
     );
     expectStatus(res, 401);
   });
@@ -491,7 +632,7 @@ describe("PATCH /api/agents/[did] — capabilities", () => {
     asMember();
     const res = await agentDetailPATCH(
       req("http://localhost", { capabilities: ["file_access"] }) as never,
-      params({ did: encodeURIComponent(DID.agent) }),
+      params({ did: encodeURIComponent(DID.agent) })
     );
     expectStatus(res, 403);
   });
@@ -500,7 +641,7 @@ describe("PATCH /api/agents/[did] — capabilities", () => {
     asRealmAdmin();
     const res = await agentDetailPATCH(
       req("http://localhost", { capabilities: ["file_access"] }) as never,
-      params({ did: encodeURIComponent(DID.agent) }),
+      params({ did: encodeURIComponent(DID.agent) })
     );
     expectStatus(res, 403);
   });
@@ -509,7 +650,7 @@ describe("PATCH /api/agents/[did] — capabilities", () => {
     asAdmin();
     const res = await agentDetailPATCH(
       req("http://localhost", { capabilities: ["file_access"] }) as never,
-      params({ did: encodeURIComponent(DID.agent) }),
+      params({ did: encodeURIComponent(DID.agent) })
     );
     expect(status(res)).not.toBe(401);
     expect(status(res)).not.toBe(403);
@@ -552,32 +693,42 @@ describe("GET /api/realms", () => {
 describe("POST /api/realms", () => {
   it("returns 401 when unauthenticated", async () => {
     asUnauthenticated();
-    const res = await realmsPOST(req("http://localhost", { name: "X", slug: "x" }) as never);
+    const res = await realmsPOST(
+      req("http://localhost", { name: "X", slug: "x" }) as never
+    );
     expectStatus(res, 401);
   });
 
   it("returns 403 for a regular member", async () => {
     asMember();
-    const res = await realmsPOST(req("http://localhost", { name: "X", slug: "x" }) as never);
+    const res = await realmsPOST(
+      req("http://localhost", { name: "X", slug: "x" }) as never
+    );
     expectStatus(res, 403);
   });
 
   it("returns 403 for a realm admin (realm admin ≠ global admin)", async () => {
     asRealmAdmin();
-    const res = await realmsPOST(req("http://localhost", { name: "X", slug: "x" }) as never);
+    const res = await realmsPOST(
+      req("http://localhost", { name: "X", slug: "x" }) as never
+    );
     expectStatus(res, 403);
   });
 
   it("is accessible to a global admin", async () => {
     asAdmin();
     const res = await realmsPOST(
-      req("http://localhost", { name: "Temp Realm", slug: `tmp-realm-${Date.now()}` }) as never,
+      req("http://localhost", {
+        name: "Temp Realm",
+        slug: `tmp-realm-${Date.now()}`,
+      }) as never
     );
     expect(status(res)).not.toBe(401);
     expect(status(res)).not.toBe(403);
     const body = (res as { _body: { realm?: { id: string } } })._body;
     if (body.realm?.id) {
       getDb().prepare("DELETE FROM realms WHERE id = ?").run(body.realm.id);
+      await prisma.realm.deleteMany({ where: { id: body.realm.id } });
     }
   });
 });
@@ -587,19 +738,28 @@ describe("POST /api/realms", () => {
 describe("GET /api/realms/[id]", () => {
   it("returns 401 when unauthenticated", async () => {
     asUnauthenticated();
-    const res = await realmDetailGET(req() as never, params({ id: testRealmId }));
+    const res = await realmDetailGET(
+      req() as never,
+      params({ id: testRealmId })
+    );
     expectStatus(res, 401);
   });
 
   it("returns 200 for a member of the realm", async () => {
     asMember();
-    const res = await realmDetailGET(req() as never, params({ id: testRealmId }));
+    const res = await realmDetailGET(
+      req() as never,
+      params({ id: testRealmId })
+    );
     expectStatus(res, 200);
   });
 
   it("returns 403 for a stranger", async () => {
     asStranger();
-    const res = await realmDetailGET(req() as never, params({ id: testRealmId }));
+    const res = await realmDetailGET(
+      req() as never,
+      params({ id: testRealmId })
+    );
     expectStatus(res, 403);
   });
 });
@@ -607,25 +767,37 @@ describe("GET /api/realms/[id]", () => {
 describe("PATCH /api/realms/[id] — realm metadata", () => {
   it("returns 401 when unauthenticated", async () => {
     asUnauthenticated();
-    const res = await realmDetailPATCH(req("http://localhost", { name: "New Name" }) as never, params({ id: testRealmId }));
+    const res = await realmDetailPATCH(
+      req("http://localhost", { name: "New Name" }) as never,
+      params({ id: testRealmId })
+    );
     expectStatus(res, 401);
   });
 
   it("returns 403 for a regular member", async () => {
     asMember();
-    const res = await realmDetailPATCH(req("http://localhost", { name: "New Name" }) as never, params({ id: testRealmId }));
+    const res = await realmDetailPATCH(
+      req("http://localhost", { name: "New Name" }) as never,
+      params({ id: testRealmId })
+    );
     expectStatus(res, 403);
   });
 
   it("returns 403 for a realm admin (config is global-admin-only)", async () => {
     asRealmAdmin();
-    const res = await realmDetailPATCH(req("http://localhost", { name: "New Name" }) as never, params({ id: testRealmId }));
+    const res = await realmDetailPATCH(
+      req("http://localhost", { name: "New Name" }) as never,
+      params({ id: testRealmId })
+    );
     expectStatus(res, 403);
   });
 
   it("is accessible to a global admin", async () => {
     asAdmin();
-    const res = await realmDetailPATCH(req("http://localhost", { name: "Security Test Realm" }) as never, params({ id: testRealmId }));
+    const res = await realmDetailPATCH(
+      req("http://localhost", { name: "Security Test Realm" }) as never,
+      params({ id: testRealmId })
+    );
     expect(status(res)).not.toBe(401);
     expect(status(res)).not.toBe(403);
   });
@@ -634,19 +806,28 @@ describe("PATCH /api/realms/[id] — realm metadata", () => {
 describe("DELETE /api/realms/[id]", () => {
   it("returns 401 when unauthenticated", async () => {
     asUnauthenticated();
-    const res = await realmDetailDELETE(req() as never, params({ id: testRealmId }));
+    const res = await realmDetailDELETE(
+      req() as never,
+      params({ id: testRealmId })
+    );
     expectStatus(res, 401);
   });
 
   it("returns 403 for a realm admin", async () => {
     asRealmAdmin();
-    const res = await realmDetailDELETE(req() as never, params({ id: testRealmId }));
+    const res = await realmDetailDELETE(
+      req() as never,
+      params({ id: testRealmId })
+    );
     expectStatus(res, 403);
   });
 
   it("returns 403 for a regular member", async () => {
     asMember();
-    const res = await realmDetailDELETE(req() as never, params({ id: testRealmId }));
+    const res = await realmDetailDELETE(
+      req() as never,
+      params({ id: testRealmId })
+    );
     expectStatus(res, 403);
   });
 });
@@ -656,32 +837,47 @@ describe("DELETE /api/realms/[id]", () => {
 describe("POST /api/realms/[id]/agents", () => {
   it("returns 401 when unauthenticated", async () => {
     asUnauthenticated();
-    const res = await realmAgentsPOST(req("http://localhost", { agentDid: DID.agent }) as never, params({ id: testRealmId }));
+    const res = await realmAgentsPOST(
+      req("http://localhost", { agentDid: DID.agent }) as never,
+      params({ id: testRealmId })
+    );
     expectStatus(res, 401);
   });
 
   it("returns 403 for a regular member", async () => {
     asMember();
-    const res = await realmAgentsPOST(req("http://localhost", { agentDid: DID.agent }) as never, params({ id: testRealmId }));
+    const res = await realmAgentsPOST(
+      req("http://localhost", { agentDid: DID.agent }) as never,
+      params({ id: testRealmId })
+    );
     expectStatus(res, 403);
   });
 
   it("returns 403 for a stranger", async () => {
     asStranger();
-    const res = await realmAgentsPOST(req("http://localhost", { agentDid: DID.agent }) as never, params({ id: testRealmId }));
+    const res = await realmAgentsPOST(
+      req("http://localhost", { agentDid: DID.agent }) as never,
+      params({ id: testRealmId })
+    );
     expectStatus(res, 403);
   });
 
   it("is accessible to a realm admin", async () => {
     asRealmAdmin();
-    const res = await realmAgentsPOST(req("http://localhost", { agentDid: DID.agent }) as never, params({ id: testRealmId }));
+    const res = await realmAgentsPOST(
+      req("http://localhost", { agentDid: DID.agent }) as never,
+      params({ id: testRealmId })
+    );
     expect(status(res)).not.toBe(401);
     expect(status(res)).not.toBe(403);
   });
 
   it("is accessible to a global admin", async () => {
     asAdmin();
-    const res = await realmAgentsPOST(req("http://localhost", { agentDid: DID.agent }) as never, params({ id: testRealmId }));
+    const res = await realmAgentsPOST(
+      req("http://localhost", { agentDid: DID.agent }) as never,
+      params({ id: testRealmId })
+    );
     expect(status(res)).not.toBe(401);
     expect(status(res)).not.toBe(403);
   });
@@ -690,13 +886,19 @@ describe("POST /api/realms/[id]/agents", () => {
 describe("DELETE /api/realms/[id]/agents", () => {
   it("returns 401 when unauthenticated", async () => {
     asUnauthenticated();
-    const res = await realmAgentsDELETE(req("http://localhost", { agentDid: DID.agent }) as never, params({ id: testRealmId }));
+    const res = await realmAgentsDELETE(
+      req("http://localhost", { agentDid: DID.agent }) as never,
+      params({ id: testRealmId })
+    );
     expectStatus(res, 401);
   });
 
   it("returns 403 for a regular member", async () => {
     asMember();
-    const res = await realmAgentsDELETE(req("http://localhost", { agentDid: DID.agent }) as never, params({ id: testRealmId }));
+    const res = await realmAgentsDELETE(
+      req("http://localhost", { agentDid: DID.agent }) as never,
+      params({ id: testRealmId })
+    );
     expectStatus(res, 403);
   });
 });
@@ -706,22 +908,37 @@ describe("DELETE /api/realms/[id]/agents", () => {
 describe("POST /api/realms/[id]/users", () => {
   it("returns 401 when unauthenticated", async () => {
     asUnauthenticated();
-    const res = await realmUsersPOST(req("http://localhost", { userDid: DID.stranger }) as never, params({ id: testRealmId }));
+    const res = await realmUsersPOST(
+      req("http://localhost", { userDid: DID.stranger }) as never,
+      params({ id: testRealmId })
+    );
     expectStatus(res, 401);
   });
 
   it("returns 403 for a regular member", async () => {
     asMember();
-    const res = await realmUsersPOST(req("http://localhost", { userDid: DID.stranger }) as never, params({ id: testRealmId }));
+    const res = await realmUsersPOST(
+      req("http://localhost", { userDid: DID.stranger }) as never,
+      params({ id: testRealmId })
+    );
     expectStatus(res, 403);
   });
 
   it("is accessible to a realm admin", async () => {
     asRealmAdmin();
-    const res = await realmUsersPOST(req("http://localhost", { userDid: DID.stranger }) as never, params({ id: testRealmId }));
+    const res = await realmUsersPOST(
+      req("http://localhost", { userDid: DID.stranger }) as never,
+      params({ id: testRealmId })
+    );
     expect(status(res)).not.toBe(401);
     expect(status(res)).not.toBe(403);
-    getDb().prepare("DELETE FROM user_realms WHERE user_id = ? AND realm_id = ?").run(DID.stranger, testRealmId);
+    // Clean up both SQLite and Prisma so the stranger's membership doesn't leak
+    getDb()
+      .prepare("DELETE FROM user_realms WHERE user_id = ? AND realm_id = ?")
+      .run(DID.stranger, testRealmId);
+    await prisma.userRealm.deleteMany({
+      where: { userId: DID.stranger, realmId: testRealmId },
+    });
   });
 });
 
@@ -729,8 +946,11 @@ describe("PATCH /api/realms/[id]/users — realm admin toggle", () => {
   it("returns 401 when unauthenticated", async () => {
     asUnauthenticated();
     const res = await realmUsersPATCH(
-      req("http://localhost", { userDid: DID.member, isRealmAdmin: true }) as never,
-      params({ id: testRealmId }),
+      req("http://localhost", {
+        userDid: DID.member,
+        isRealmAdmin: true,
+      }) as never,
+      params({ id: testRealmId })
     );
     expectStatus(res, 401);
   });
@@ -738,8 +958,11 @@ describe("PATCH /api/realms/[id]/users — realm admin toggle", () => {
   it("returns 403 for a regular member", async () => {
     asMember();
     const res = await realmUsersPATCH(
-      req("http://localhost", { userDid: DID.member, isRealmAdmin: true }) as never,
-      params({ id: testRealmId }),
+      req("http://localhost", {
+        userDid: DID.member,
+        isRealmAdmin: true,
+      }) as never,
+      params({ id: testRealmId })
     );
     expectStatus(res, 403);
   });
@@ -747,8 +970,11 @@ describe("PATCH /api/realms/[id]/users — realm admin toggle", () => {
   it("is accessible to a realm admin", async () => {
     asRealmAdmin();
     const res = await realmUsersPATCH(
-      req("http://localhost", { userDid: DID.member, isRealmAdmin: false }) as never,
-      params({ id: testRealmId }),
+      req("http://localhost", {
+        userDid: DID.member,
+        isRealmAdmin: false,
+      }) as never,
+      params({ id: testRealmId })
     );
     expect(status(res)).not.toBe(401);
     expect(status(res)).not.toBe(403);
@@ -760,7 +986,7 @@ describe("DELETE /api/realms/[id]/users", () => {
     asUnauthenticated();
     const res = await realmUsersDELETE(
       req("http://localhost", { userDid: DID.member }) as never,
-      params({ id: testRealmId }),
+      params({ id: testRealmId })
     );
     expectStatus(res, 401);
   });
@@ -769,7 +995,7 @@ describe("DELETE /api/realms/[id]/users", () => {
     asMember();
     const res = await realmUsersDELETE(
       req("http://localhost", { userDid: DID.member }) as never,
-      params({ id: testRealmId }),
+      params({ id: testRealmId })
     );
     expectStatus(res, 403);
   });
@@ -780,19 +1006,25 @@ describe("DELETE /api/realms/[id]/users", () => {
 describe("GET /api/workflows", () => {
   it("returns 401 when unauthenticated", async () => {
     asUnauthenticated();
-    const res = await workflowsGET(req("http://localhost/api/workflows") as never);
+    const res = await workflowsGET(
+      req("http://localhost/api/workflows") as never
+    );
     expectStatus(res, 401);
   });
 
   it("succeeds for a global admin", async () => {
     asAdmin();
-    const res = await workflowsGET(req("http://localhost/api/workflows") as never);
+    const res = await workflowsGET(
+      req("http://localhost/api/workflows") as never
+    );
     expectStatus(res, 200);
   });
 
   it("member receives only their realm's workflows", async () => {
     asMember();
-    const res = await workflowsGET(req("http://localhost/api/workflows") as never);
+    const res = await workflowsGET(
+      req("http://localhost/api/workflows") as never
+    );
     expectStatus(res, 200);
     const body = (res as { _body: { workflows: { id: string }[] } })._body;
     const ids = body.workflows.map((w) => w.id);
@@ -801,7 +1033,9 @@ describe("GET /api/workflows", () => {
 
   it("stranger receives no workflows", async () => {
     asStranger();
-    const res = await workflowsGET(req("http://localhost/api/workflows") as never);
+    const res = await workflowsGET(
+      req("http://localhost/api/workflows") as never
+    );
     expectStatus(res, 200);
     const body = (res as { _body: { workflows: unknown[] } })._body;
     expect(body.workflows).toHaveLength(0);
@@ -812,7 +1046,11 @@ describe("POST /api/workflows", () => {
   it("returns 401 when unauthenticated", async () => {
     asUnauthenticated();
     const res = await workflowsPOST(
-      req("http://localhost", { name: "W", definition: { nodes: [], edges: [] }, realmId: testRealmId }) as never,
+      req("http://localhost", {
+        name: "W",
+        definition: { nodes: [], edges: [] },
+        realmId: testRealmId,
+      }) as never
     );
     expectStatus(res, 401);
   });
@@ -820,7 +1058,11 @@ describe("POST /api/workflows", () => {
   it("returns 403 for a regular member", async () => {
     asMember();
     const res = await workflowsPOST(
-      req("http://localhost", { name: "W", definition: { nodes: [], edges: [] }, realmId: testRealmId }) as never,
+      req("http://localhost", {
+        name: "W",
+        definition: { nodes: [], edges: [] },
+        realmId: testRealmId,
+      }) as never
     );
     expectStatus(res, 403);
   });
@@ -828,7 +1070,11 @@ describe("POST /api/workflows", () => {
   it("returns 403 for a stranger", async () => {
     asStranger();
     const res = await workflowsPOST(
-      req("http://localhost", { name: "W", definition: { nodes: [], edges: [] }, realmId: testRealmId }) as never,
+      req("http://localhost", {
+        name: "W",
+        definition: { nodes: [], edges: [] },
+        realmId: testRealmId,
+      }) as never
     );
     expectStatus(res, 403);
   });
@@ -836,23 +1082,33 @@ describe("POST /api/workflows", () => {
   it("is accessible to a realm admin", async () => {
     asRealmAdmin();
     const res = await workflowsPOST(
-      req("http://localhost", { name: "Realm Admin WF", definition: { nodes: [], edges: [] }, realmId: testRealmId }) as never,
+      req("http://localhost", {
+        name: "Realm Admin WF",
+        definition: { nodes: [], edges: [] },
+        realmId: testRealmId,
+      }) as never
     );
     expect(status(res)).not.toBe(401);
     expect(status(res)).not.toBe(403);
     const body = (res as { _body: { id?: string } })._body;
-    if (body.id) getDb().prepare("DELETE FROM workflows WHERE id = ?").run(body.id);
+    if (body.id)
+      getDb().prepare("DELETE FROM workflows WHERE id = ?").run(body.id);
   });
 
   it("is accessible to a global admin", async () => {
     asAdmin();
     const res = await workflowsPOST(
-      req("http://localhost", { name: "Admin WF", definition: { nodes: [], edges: [] }, realmId: testRealmId }) as never,
+      req("http://localhost", {
+        name: "Admin WF",
+        definition: { nodes: [], edges: [] },
+        realmId: testRealmId,
+      }) as never
     );
     expect(status(res)).not.toBe(401);
     expect(status(res)).not.toBe(403);
     const body = (res as { _body: { id?: string } })._body;
-    if (body.id) getDb().prepare("DELETE FROM workflows WHERE id = ?").run(body.id);
+    if (body.id)
+      getDb().prepare("DELETE FROM workflows WHERE id = ?").run(body.id);
   });
 });
 
@@ -861,19 +1117,28 @@ describe("POST /api/workflows", () => {
 describe("GET /api/workflows/[id]", () => {
   it("returns 401 when unauthenticated", async () => {
     asUnauthenticated();
-    const res = await workflowDetailGET(req() as never, params({ id: testWorkflowId }));
+    const res = await workflowDetailGET(
+      req() as never,
+      params({ id: testWorkflowId })
+    );
     expectStatus(res, 401);
   });
 
   it("returns 200 for a member of the workflow's realm", async () => {
     asMember();
-    const res = await workflowDetailGET(req() as never, params({ id: testWorkflowId }));
+    const res = await workflowDetailGET(
+      req() as never,
+      params({ id: testWorkflowId })
+    );
     expectStatus(res, 200);
   });
 
   it("returns 403 for a stranger", async () => {
     asStranger();
-    const res = await workflowDetailGET(req() as never, params({ id: testWorkflowId }));
+    const res = await workflowDetailGET(
+      req() as never,
+      params({ id: testWorkflowId })
+    );
     expectStatus(res, 403);
   });
 });
@@ -883,7 +1148,7 @@ describe("PATCH /api/workflows/[id]", () => {
     asUnauthenticated();
     const res = await workflowDetailPATCH(
       req("http://localhost", { name: "Updated" }) as never,
-      params({ id: testWorkflowId }),
+      params({ id: testWorkflowId })
     );
     expectStatus(res, 401);
   });
@@ -892,7 +1157,7 @@ describe("PATCH /api/workflows/[id]", () => {
     asMember();
     const res = await workflowDetailPATCH(
       req("http://localhost", { name: "Updated" }) as never,
-      params({ id: testWorkflowId }),
+      params({ id: testWorkflowId })
     );
     expectStatus(res, 403);
   });
@@ -901,7 +1166,7 @@ describe("PATCH /api/workflows/[id]", () => {
     asRealmAdmin();
     const res = await workflowDetailPATCH(
       req("http://localhost", { name: "Realm Admin Update" }) as never,
-      params({ id: testWorkflowId }),
+      params({ id: testWorkflowId })
     );
     expect(status(res)).not.toBe(401);
     expect(status(res)).not.toBe(403);
@@ -911,19 +1176,28 @@ describe("PATCH /api/workflows/[id]", () => {
 describe("DELETE /api/workflows/[id]", () => {
   it("returns 401 when unauthenticated", async () => {
     asUnauthenticated();
-    const res = await workflowDetailDELETE(req() as never, params({ id: testWorkflowId }));
+    const res = await workflowDetailDELETE(
+      req() as never,
+      params({ id: testWorkflowId })
+    );
     expectStatus(res, 401);
   });
 
   it("returns 403 for a regular member", async () => {
     asMember();
-    const res = await workflowDetailDELETE(req() as never, params({ id: testWorkflowId }));
+    const res = await workflowDetailDELETE(
+      req() as never,
+      params({ id: testWorkflowId })
+    );
     expectStatus(res, 403);
   });
 
   it("returns 403 for a stranger", async () => {
     asStranger();
-    const res = await workflowDetailDELETE(req() as never, params({ id: testWorkflowId }));
+    const res = await workflowDetailDELETE(
+      req() as never,
+      params({ id: testWorkflowId })
+    );
     expectStatus(res, 403);
   });
 });
@@ -962,7 +1236,7 @@ describe("POST /api/registrations/[id]/approve", () => {
     asUnauthenticated();
     const res = await approveRegistrationPOST(
       req("http://localhost", { capabilities: ["file_access"] }) as never,
-      params({ id: "fake-registration-id" }),
+      params({ id: "fake-registration-id" })
     );
     expectStatus(res, 401);
   });
@@ -971,7 +1245,7 @@ describe("POST /api/registrations/[id]/approve", () => {
     asMember();
     const res = await approveRegistrationPOST(
       req("http://localhost", { capabilities: ["file_access"] }) as never,
-      params({ id: "fake-registration-id" }),
+      params({ id: "fake-registration-id" })
     );
     expectStatus(res, 403);
   });
@@ -980,7 +1254,7 @@ describe("POST /api/registrations/[id]/approve", () => {
     asRealmAdmin();
     const res = await approveRegistrationPOST(
       req("http://localhost", { capabilities: ["file_access"] }) as never,
-      params({ id: "fake-registration-id" }),
+      params({ id: "fake-registration-id" })
     );
     expectStatus(res, 403);
   });
@@ -991,25 +1265,33 @@ describe("POST /api/registrations/[id]/approve", () => {
 describe("GET /api/policies", () => {
   it("returns 401 when unauthenticated", async () => {
     asUnauthenticated();
-    const res = await policiesGET(req("http://localhost/api/policies") as never);
+    const res = await policiesGET(
+      req("http://localhost/api/policies") as never
+    );
     expectStatus(res, 401);
   });
 
   it("returns 403 for a regular member", async () => {
     asMember();
-    const res = await policiesGET(req("http://localhost/api/policies") as never);
+    const res = await policiesGET(
+      req("http://localhost/api/policies") as never
+    );
     expectStatus(res, 403);
   });
 
   it("returns 403 for a realm admin", async () => {
     asRealmAdmin();
-    const res = await policiesGET(req("http://localhost/api/policies") as never);
+    const res = await policiesGET(
+      req("http://localhost/api/policies") as never
+    );
     expectStatus(res, 403);
   });
 
   it("returns 200 with policies array for a global admin", async () => {
     asAdmin();
-    const res = await policiesGET(req("http://localhost/api/policies") as never);
+    const res = await policiesGET(
+      req("http://localhost/api/policies") as never
+    );
     expectStatus(res, 200);
     const body = (res as { _body: { policies: unknown[] } })._body;
     expect(Array.isArray(body.policies)).toBe(true);
@@ -1017,18 +1299,20 @@ describe("GET /api/policies", () => {
 
   it("accepts agentDid query param and returns only matching policies", async () => {
     asAdmin();
-    const policy = createPolicy({
-      capabilities: ["file_access"],
+    const policy = await PolicyDAO.create({
+      capabilities: ["file_access"] as any,
       agentDid: DID.agent,
       createdBy: DID.admin,
     });
     const res = await policiesGET(
-      req(`http://localhost/api/policies?agentDid=${encodeURIComponent(DID.agent)}`) as never,
+      req(
+        `http://localhost/api/policies?agentDid=${encodeURIComponent(DID.agent)}`
+      ) as never
     );
     expectStatus(res, 200);
     const body = (res as { _body: { policies: { id: string }[] } })._body;
     expect(body.policies.some((p) => p.id === policy.id)).toBe(true);
-    deletePolicy(policy.id);
+    await PolicyDAO.delete(policy.id);
   });
 });
 
@@ -1036,7 +1320,10 @@ describe("POST /api/policies", () => {
   it("returns 401 when unauthenticated", async () => {
     asUnauthenticated();
     const res = await policiesPOST(
-      req("http://localhost", { capabilities: ["file_access"], agentDid: DID.agent }) as never,
+      req("http://localhost", {
+        capabilities: ["file_access"],
+        agentDid: DID.agent,
+      }) as never
     );
     expectStatus(res, 401);
   });
@@ -1044,7 +1331,10 @@ describe("POST /api/policies", () => {
   it("returns 403 for a regular member", async () => {
     asMember();
     const res = await policiesPOST(
-      req("http://localhost", { capabilities: ["file_access"], agentDid: DID.agent }) as never,
+      req("http://localhost", {
+        capabilities: ["file_access"],
+        agentDid: DID.agent,
+      }) as never
     );
     expectStatus(res, 403);
   });
@@ -1052,7 +1342,10 @@ describe("POST /api/policies", () => {
   it("returns 403 for a realm admin", async () => {
     asRealmAdmin();
     const res = await policiesPOST(
-      req("http://localhost", { capabilities: ["file_access"], agentDid: DID.agent }) as never,
+      req("http://localhost", {
+        capabilities: ["file_access"],
+        agentDid: DID.agent,
+      }) as never
     );
     expectStatus(res, 403);
   });
@@ -1060,7 +1353,10 @@ describe("POST /api/policies", () => {
   it("returns 400 when capabilities is missing or empty", async () => {
     asAdmin();
     const res = await policiesPOST(
-      req("http://localhost", { capabilities: [], agentDid: DID.agent }) as never,
+      req("http://localhost", {
+        capabilities: [],
+        agentDid: DID.agent,
+      }) as never
     );
     expectStatus(res, 400);
   });
@@ -1068,7 +1364,7 @@ describe("POST /api/policies", () => {
   it("returns 400 when capabilities is not an array", async () => {
     asAdmin();
     const res = await policiesPOST(
-      req("http://localhost", { capabilities: "file_access" }) as never,
+      req("http://localhost", { capabilities: "file_access" }) as never
     );
     expectStatus(res, 400);
   });
@@ -1079,14 +1375,20 @@ describe("POST /api/policies", () => {
       req("http://localhost", {
         capabilities: ["file_access"],
         agentDid: DID.agent,
-      }) as never,
+      }) as never
     );
     expectStatus(res, 201);
-    const body = (res as { _body: { policy: { id: string; capabilities: string[]; agentDid: string } } })._body;
+    const body = (
+      res as {
+        _body: {
+          policy: { id: string; capabilities: string[]; agentDid: string };
+        };
+      }
+    )._body;
     expect(body.policy?.id).toBeTruthy();
     expect(body.policy?.capabilities).toContain("file_access");
     expect(body.policy?.agentDid).toBe(DID.agent);
-    deletePolicy(body.policy.id);
+    await PolicyDAO.delete(body.policy.id);
   });
 
   it("creates a policy with resourceLimits and expiresAt", async () => {
@@ -1098,12 +1400,18 @@ describe("POST /api/policies", () => {
         agentDid: DID.agent,
         resourceLimits: { maxTokensPerDay: 10000, maxRequestsPerHour: 60 },
         expiresAt,
-      }) as never,
+      }) as never
     );
     expectStatus(res, 201);
-    const body = (res as { _body: { policy: { id: string; resourceLimits: Record<string, unknown> } } })._body;
+    const body = (
+      res as {
+        _body: {
+          policy: { id: string; resourceLimits: Record<string, unknown> };
+        };
+      }
+    )._body;
     expect(body.policy?.resourceLimits?.maxTokensPerDay).toBe(10000);
-    deletePolicy(body.policy.id);
+    await PolicyDAO.delete(body.policy.id);
   });
 
   it("creates a realm-scoped policy without agentDid", async () => {
@@ -1112,60 +1420,82 @@ describe("POST /api/policies", () => {
       req("http://localhost", {
         capabilities: ["file_access"],
         realmId: testRealmId,
-      }) as never,
+      }) as never
     );
     expectStatus(res, 201);
-    const body = (res as { _body: { policy: { id: string; realmId: string } } })._body;
+    const body = (res as { _body: { policy: { id: string; realmId: string } } })
+      ._body;
     expect(body.policy?.realmId).toBe(testRealmId);
-    deletePolicy(body.policy.id);
+    await PolicyDAO.delete(body.policy.id);
   });
 });
 
 describe("GET /api/policies/[id]", () => {
   let testPolicyId: string;
 
-  beforeAll(() => {
-    const p = createPolicy({
-      capabilities: ["file_access"],
+  beforeAll(async () => {
+    const p = await PolicyDAO.create({
+      capabilities: ["file_access"] as any,
       agentDid: DID.agent,
       createdBy: DID.admin,
     });
     testPolicyId = p.id;
   });
 
-  afterAll(() => {
-    deletePolicy(testPolicyId);
+  afterAll(async () => {
+    await PolicyDAO.delete(testPolicyId);
   });
 
   it("returns 401 when unauthenticated", async () => {
     asUnauthenticated();
-    const res = await policyDetailGET(req() as never, params({ id: testPolicyId }));
+    const res = await policyDetailGET(
+      req() as never,
+      params({ id: testPolicyId })
+    );
     expectStatus(res, 401);
   });
 
   it("returns 403 for a regular member", async () => {
     asMember();
-    const res = await policyDetailGET(req() as never, params({ id: testPolicyId }));
+    const res = await policyDetailGET(
+      req() as never,
+      params({ id: testPolicyId })
+    );
     expectStatus(res, 403);
   });
 
   it("returns 403 for a realm admin", async () => {
     asRealmAdmin();
-    const res = await policyDetailGET(req() as never, params({ id: testPolicyId }));
+    const res = await policyDetailGET(
+      req() as never,
+      params({ id: testPolicyId })
+    );
     expectStatus(res, 403);
   });
 
   it("returns 404 for a non-existent policy", async () => {
     asAdmin();
-    const res = await policyDetailGET(req() as never, params({ id: "non-existent-policy-id" }));
+    const res = await policyDetailGET(
+      req() as never,
+      params({ id: "non-existent-policy-id" })
+    );
     expectStatus(res, 404);
   });
 
   it("returns 200 with full policy for a global admin", async () => {
     asAdmin();
-    const res = await policyDetailGET(req() as never, params({ id: testPolicyId }));
+    const res = await policyDetailGET(
+      req() as never,
+      params({ id: testPolicyId })
+    );
     expectStatus(res, 200);
-    const body = (res as { _body: { policy: { id: string; capabilities: string[]; agentDid: string } } })._body;
+    const body = (
+      res as {
+        _body: {
+          policy: { id: string; capabilities: string[]; agentDid: string };
+        };
+      }
+    )._body;
     expect(body.policy?.id).toBe(testPolicyId);
     expect(body.policy?.capabilities).toContain("file_access");
     expect(body.policy?.agentDid).toBe(DID.agent);
@@ -1175,31 +1505,43 @@ describe("GET /api/policies/[id]", () => {
 describe("DELETE /api/policies/[id]", () => {
   it("returns 401 when unauthenticated", async () => {
     asUnauthenticated();
-    const res = await policyDetailDELETE(req() as never, params({ id: "any-policy-id" }));
+    const res = await policyDetailDELETE(
+      req() as never,
+      params({ id: "any-policy-id" })
+    );
     expectStatus(res, 401);
   });
 
   it("returns 403 for a regular member", async () => {
     asMember();
-    const res = await policyDetailDELETE(req() as never, params({ id: "any-policy-id" }));
+    const res = await policyDetailDELETE(
+      req() as never,
+      params({ id: "any-policy-id" })
+    );
     expectStatus(res, 403);
   });
 
   it("returns 403 for a realm admin", async () => {
     asRealmAdmin();
-    const res = await policyDetailDELETE(req() as never, params({ id: "any-policy-id" }));
+    const res = await policyDetailDELETE(
+      req() as never,
+      params({ id: "any-policy-id" })
+    );
     expectStatus(res, 403);
   });
 
   it("returns 404 for a non-existent policy id", async () => {
     asAdmin();
-    const res = await policyDetailDELETE(req() as never, params({ id: "non-existent-id" }));
+    const res = await policyDetailDELETE(
+      req() as never,
+      params({ id: "non-existent-id" })
+    );
     expectStatus(res, 404);
   });
 
   it("deletes a policy and returns ok:true for a global admin", async () => {
-    const p = createPolicy({
-      capabilities: ["api_call"],
+    const p = await PolicyDAO.create({
+      capabilities: ["api_call"] as any,
       agentDid: DID.agent,
       createdBy: DID.admin,
     });

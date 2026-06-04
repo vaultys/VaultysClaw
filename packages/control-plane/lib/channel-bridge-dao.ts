@@ -1,6 +1,6 @@
 import { randomUUID } from "crypto";
-import { getDb } from "./db";
 import { ChannelBridge, ChannelBridgeInput } from "@vaultysclaw/shared";
+import { getDb } from "@/lib/db";
 
 export const ChannelBridgeDao = {
   create(input: ChannelBridgeInput): ChannelBridge {
@@ -8,10 +8,12 @@ export const ChannelBridgeDao = {
     const id = randomUUID();
     const now = new Date().toISOString();
 
-    db.prepare(`
+    db.prepare(
+      `
       INSERT INTO channel_bridges (id, channel_id, external_service, external_channel_id, external_channel_name, external_workspace_id, sync_direction, is_sync_enabled, created_at, config_json)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
+    `
+    ).run(
       id,
       input.channelId,
       input.externalService,
@@ -21,23 +23,29 @@ export const ChannelBridgeDao = {
       input.syncDirection,
       input.isSyncEnabled ? 1 : 0,
       now,
-      input.configJson,
+      input.configJson
     );
 
-    const row = db.prepare("SELECT * FROM channel_bridges WHERE id = ?").get(id) as any;
+    const row = db
+      .prepare("SELECT * FROM channel_bridges WHERE id = ?")
+      .get(id) as any;
     return normalizeBridge(row);
   },
 
   getById(id: string): ChannelBridge | null {
     const db = getDb();
-    const row = db.prepare("SELECT * FROM channel_bridges WHERE id = ?").get(id) as any;
+    const row = db
+      .prepare("SELECT * FROM channel_bridges WHERE id = ?")
+      .get(id) as any;
     return row ? normalizeBridge(row) : null;
   },
 
   listByChannel(channelId: string): ChannelBridge[] {
     const db = getDb();
     const rows = db
-      .prepare("SELECT * FROM channel_bridges WHERE channel_id = ? ORDER BY created_at DESC")
+      .prepare(
+        "SELECT * FROM channel_bridges WHERE channel_id = ? ORDER BY created_at DESC"
+      )
       .all(channelId) as any[];
     return rows.map(normalizeBridge);
   },
@@ -45,20 +53,22 @@ export const ChannelBridgeDao = {
   getByChannelAndService(
     channelId: string,
     externalService: string,
-    externalChannelId: string,
+    externalChannelId: string
   ): ChannelBridge | null {
     const db = getDb();
     const row = db
       .prepare(
-        "SELECT * FROM channel_bridges WHERE channel_id = ? AND external_service = ? AND external_channel_id = ?",
+        "SELECT * FROM channel_bridges WHERE channel_id = ? AND external_service = ? AND external_channel_id = ?"
       )
       .get(channelId, externalService, externalChannelId) as any;
     return row ? normalizeBridge(row) : null;
   },
 
-  update(id: string, updates: Partial<Omit<ChannelBridgeInput, "channelId">>): ChannelBridge {
+  update(
+    id: string,
+    updates: Partial<Omit<ChannelBridgeInput, "channelId">>
+  ): ChannelBridge {
     const db = getDb();
-
     const fields: string[] = [];
     const values: any[] = [];
 
@@ -77,18 +87,26 @@ export const ChannelBridgeDao = {
 
     if (fields.length > 0) {
       values.push(id);
-      db.prepare(`UPDATE channel_bridges SET ${fields.join(", ")} WHERE id = ?`).run(...values);
+      db.prepare(
+        `UPDATE channel_bridges SET ${fields.join(", ")} WHERE id = ?`
+      ).run(...values);
     }
 
-    const updatedRow = db.prepare("SELECT * FROM channel_bridges WHERE id = ?").get(id) as any;
+    const updatedRow = db
+      .prepare("SELECT * FROM channel_bridges WHERE id = ?")
+      .get(id) as any;
     return normalizeBridge(updatedRow);
   },
 
   toggleSync(id: string, enabled: boolean): ChannelBridge {
     const db = getDb();
-    db.prepare("UPDATE channel_bridges SET is_sync_enabled = ? WHERE id = ?").run(enabled ? 1 : 0, id);
+    db.prepare(
+      "UPDATE channel_bridges SET is_sync_enabled = ? WHERE id = ?"
+    ).run(enabled ? 1 : 0, id);
 
-    const toggledRow = db.prepare("SELECT * FROM channel_bridges WHERE id = ?").get(id) as any;
+    const toggledRow = db
+      .prepare("SELECT * FROM channel_bridges WHERE id = ?")
+      .get(id) as any;
     return normalizeBridge(toggledRow);
   },
 
@@ -100,7 +118,7 @@ export const ChannelBridgeDao = {
   deleteByChannelAndService(channelId: string, externalService: string): void {
     const db = getDb();
     db.prepare(
-      "DELETE FROM channel_bridges WHERE channel_id = ? AND external_service = ?",
+      "DELETE FROM channel_bridges WHERE channel_id = ? AND external_service = ?"
     ).run(channelId, externalService);
   },
 
@@ -109,12 +127,12 @@ export const ChannelBridgeDao = {
    */
   getByExternalChannelId(
     externalService: string,
-    externalChannelId: string,
+    externalChannelId: string
   ): ChannelBridge | null {
     const db = getDb();
     const row = db
       .prepare(
-        "SELECT * FROM channel_bridges WHERE external_service = ? AND external_channel_id = ? LIMIT 1",
+        "SELECT * FROM channel_bridges WHERE external_service = ? AND external_channel_id = ? LIMIT 1"
       )
       .get(externalService, externalChannelId) as any;
     return row ? normalizeBridge(row) : null;

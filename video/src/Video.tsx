@@ -24,13 +24,32 @@ import { SceneCTA } from "./scenes/SceneCTA";
 //  CTA           1170       210   1380  buttons fr 145 → 190 = 1.5 s ✓
 
 export const VaultysClawPromo: React.FC = () => (
-  <AbsoluteFill style={{ background: "#050a12", fontFamily: "Inter, -apple-system, sans-serif" }}>
-    <Sequence from={0} durationInFrames={300}><SceneHero /></Sequence>
-    <Sequence from={240} durationInFrames={300}><SceneProblem /></Sequence>
-    <Sequence from={480} durationInFrames={300}><SceneIdentity /></Sequence>
-    <Sequence from={720} durationInFrames={350}><SceneNetwork /></Sequence>
-    <Sequence from={1020} durationInFrames={300}><SceneDataProximity /></Sequence>
-    <Sequence from={1290} durationInFrames={300}><SceneCulture /></Sequence>
-    <Sequence from={1530} durationInFrames={500}><SceneCTA /></Sequence>
+  <AbsoluteFill
+    style={{
+      background: "#050a12",
+      fontFamily: "Inter, -apple-system, sans-serif",
+    }}
+  >
+    <Sequence from={0} durationInFrames={300}>
+      <SceneHero />
+    </Sequence>
+    <Sequence from={240} durationInFrames={300}>
+      <SceneProblem />
+    </Sequence>
+    <Sequence from={480} durationInFrames={300}>
+      <SceneIdentity />
+    </Sequence>
+    <Sequence from={720} durationInFrames={350}>
+      <SceneNetwork />
+    </Sequence>
+    <Sequence from={1020} durationInFrames={300}>
+      <SceneDataProximity />
+    </Sequence>
+    <Sequence from={1290} durationInFrames={300}>
+      <SceneCulture />
+    </Sequence>
+    <Sequence from={1530} durationInFrames={500}>
+      <SceneCTA />
+    </Sequence>
   </AbsoluteFill>
 );

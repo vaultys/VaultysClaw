@@ -150,7 +150,8 @@ describe("Properties Panel Component", () => {
   describe("Condition Node Configuration", () => {
     it("should display expression editor", () => {
       // Component renders: <textarea> for expression
-      const expression = 'output.status === "success" && output.confidence > 0.8';
+      const expression =
+        'output.status === "success" && output.confidence > 0.8';
 
       expect(expression).toContain("output");
       expect(expression).toContain("status");
@@ -158,11 +159,11 @@ describe("Properties Panel Component", () => {
 
     it("should validate JavaScript expressions", () => {
       const expressions = [
-        'true',
-        'false',
-        '1 + 1 === 2',
-        'output.value > 5',
-        'arr && arr.length > 0',
+        "true",
+        "false",
+        "1 + 1 === 2",
+        "output.value > 5",
+        "arr && arr.length > 0",
       ];
 
       // All should be valid JS
@@ -208,7 +209,9 @@ describe("Properties Panel Component", () => {
 
     it("should display placeholder when no node selected", () => {
       const selectedNodeId = null;
-      const message = selectedNodeId ? "Node Properties" : "Select a node to configure";
+      const message = selectedNodeId
+        ? "Node Properties"
+        : "Select a node to configure";
 
       expect(message).toBe("Select a node to configure");
     });
@@ -376,7 +379,8 @@ describe("WorkflowEditor Component", () => {
 
     it("should show save error message on failure", () => {
       const saveStatus = "error";
-      const message = saveStatus === "error" ? "✗ Failed to save workflow" : "OK";
+      const message =
+        saveStatus === "error" ? "✗ Failed to save workflow" : "OK";
 
       expect(message).toBe("✗ Failed to save workflow");
     });
@@ -511,7 +515,7 @@ describe("WorkflowExecutionPanel Component", () => {
 
     it("should clear interval on unmount", () => {
       // Component cleanup: clearInterval(intervalRef.current)
-      let intervalId: any = setInterval(() => { }, 1000);
+      let intervalId: any = setInterval(() => {}, 1000);
       clearInterval(intervalId);
       intervalId = null;
 

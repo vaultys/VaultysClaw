@@ -55,10 +55,12 @@ cleanup() {
 
 cleanup_existing() {
   log "Checking for existing demo processes..."
-  # Kill any lingering tsx processes from demo agents (look for src/index.ts in agent-controller)
-  pkill -f "tsx.*agent-controller.*src/index.ts" 2>/dev/null || true
+  # Kill any lingering tsx processes from demo agents (cli entry point)
+  pkill -f "tsx.*agent-controller.*src/cli.ts" 2>/dev/null || true
+  pkill -f "tsx/dist/cli.mjs src/cli.ts" 2>/dev/null || true
   # Kill any lingering control plane processes (look for tsx server.ts in control-plane)
   pkill -f "tsx.*control-plane.*server.ts" 2>/dev/null || true
+  sleep 1
 }
 
 trap cleanup EXIT INT TERM

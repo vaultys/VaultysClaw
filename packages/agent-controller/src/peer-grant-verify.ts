@@ -26,7 +26,7 @@ export interface PeerGrantPayload {
  */
 export async function verifyPeerGrant(
   cert: string,
-  serverPublicKey: Buffer,
+  serverPublicKey: Buffer
 ): Promise<PeerGrantPayload | null> {
   try {
     const combined = Buffer.from(cert, "base64");
@@ -39,7 +39,11 @@ export async function verifyPeerGrant(
     const signature = combined.subarray(4 + bodyLen);
 
     const serverVid = VaultysId.fromId(serverPublicKey);
-    const valid = serverVid.verifyChallenge(Buffer.from(body), Buffer.from(signature), false);
+    const valid = serverVid.verifyChallenge(
+      Buffer.from(body),
+      Buffer.from(signature),
+      false
+    );
     if (!valid) return null;
 
     const payload = msgpackDecode(body) as PeerGrantPayload;

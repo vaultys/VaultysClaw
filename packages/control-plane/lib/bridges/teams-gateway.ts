@@ -14,9 +14,11 @@ export const TeamsGateway = {
       content: string;
       authorName: string;
       threadId?: string; // Teams reply-to ID
-    },
+    }
   ): Promise<string | null> {
-    const { workspaceId } = config as TeamsBridgeConfig & { workspaceId?: string };
+    const { workspaceId } = config as TeamsBridgeConfig & {
+      workspaceId?: string;
+    };
     const teamId = workspaceId ?? "";
 
     const url = message.threadId
@@ -43,7 +45,7 @@ export const TeamsGateway = {
 
       if (!response.ok) {
         console.error(
-          `[TeamsGateway] sendMessage failed: ${response.status} ${response.statusText}`,
+          `[TeamsGateway] sendMessage failed: ${response.status} ${response.statusText}`
         );
         return null;
       }
@@ -73,7 +75,9 @@ export const TeamsGateway = {
    * Refresh the OAuth token if it has expired.
    * Returns the updated config with a fresh access token.
    */
-  async refreshTokenIfNeeded(config: TeamsBridgeConfig): Promise<TeamsBridgeConfig> {
+  async refreshTokenIfNeeded(
+    config: TeamsBridgeConfig
+  ): Promise<TeamsBridgeConfig> {
     if (!config.expiresAt || !config.refreshToken) {
       return config;
     }
@@ -96,7 +100,7 @@ export const TeamsGateway = {
           method: "POST",
           headers: { "Content-Type": "application/x-www-form-urlencoded" },
           body: params.toString(),
-        },
+        }
       );
 
       if (!response.ok) {

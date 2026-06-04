@@ -9,11 +9,7 @@
  */
 
 import pino from "pino";
-import {
-  getDueScheduledWorkflows,
-  updateWorkflowScheduleRun,
-  startWorkflowRun,
-} from "./db";
+import { WorkflowDAO } from "../db";
 import { executeWorkflow } from "./workflow-executor";
 
 const logger = pino({ name: "workflow-scheduler" });
@@ -42,7 +38,9 @@ function parseField(field: string, lo: number, hi: number): number[] {
               const [a, b] = rng.split("-");
               return range(parseInt(a, 10), parseInt(b, 10));
             })();
-      base.forEach((v, i) => { if (i % stepN === 0) all.push(v); });
+      base.forEach((v, i) => {
+        if (i % stepN === 0) all.push(v);
+      });
     } else if (part.includes("-")) {
       const [a, b] = part.split("-");
       all.push(...range(parseInt(a, 10), parseInt(b, 10)));
@@ -57,11 +55,11 @@ export function nextCronRun(expr: string, from?: Date): Date | null {
   const parts = expr.trim().split(/\s+/);
   if (parts.length !== 5) return null;
   const fields = {
-    minute:     parseField(parts[0], 0, 59),
-    hour:       parseField(parts[1], 0, 23),
+    minute: parseField(parts[0], 0, 59),
+    hour: parseField(parts[1], 0, 23),
     dayOfMonth: parseField(parts[2], 1, 31),
-    month:      parseField(parts[3], 1, 12),
-    dayOfWeek:  parseField(parts[4], 0, 6),
+    month: parseField(parts[3], 1, 12),
+    dayOfWeek: parseField(parts[4], 0, 6),
   };
   const start = new Date(from ?? Date.now());
   start.setUTCSeconds(0, 0);
@@ -91,31 +89,43 @@ export function nextCronRun(expr: string, from?: Date): Date | null {
 let timer: ReturnType<typeof setInterval> | null = null;
 
 async function tick() {
-  const due = getDueScheduledWorkflows();
+  const due = await WorkflowDAO.getDueScheduled();
   if (due.length === 0) return;
 
   logger.info({ count: due.length }, "Firing scheduled workflows");
 
   for (const wf of due) {
     try {
-      const definition = JSON.parse(wf.definition);
-      const runId = startWorkflowRun(wf.id);
+      const definition = wf.definition as Record<string, unknown>;
+      const runId = await WorkflowDAO.startRun(wf.id);
 
       // Fire and forget — the executor updates run status itself
-      executeWorkflow(runId, definition, undefined, wf.id, wf.realm_id ?? undefined).catch((err) =>
-        logger.error({ workflowId: wf.id, runId, err }, "Scheduled workflow execution failed"),
+      executeWorkflow(
+        runId,
+        definition as any,
+        undefined,
+        wf.id,
+        wf.realmId ?? undefined
+      ).catch((err) =>
+        logger.error(
+          { workflowId: wf.id, runId, err },
+          "Scheduled workflow execution failed"
+        )
       );
 
       // Advance to next scheduled run
-      const next = wf.schedule_cron ? nextCronRun(wf.schedule_cron) : null;
-      updateWorkflowScheduleRun(wf.id, next?.toISOString() ?? null);
+      const next = wf.scheduleCron ? nextCronRun(wf.scheduleCron) : null;
+      await WorkflowDAO.updateScheduleRun(wf.id, next?.toISOString() ?? null);
 
       logger.info(
         { workflowId: wf.id, runId, nextRun: next?.toISOString() },
-        "Scheduled workflow started",
+        "Scheduled workflow started"
       );
     } catch (err) {
-      logger.error({ workflowId: wf.id, err }, "Failed to start scheduled workflow");
+      logger.error(
+        { workflowId: wf.id, err },
+        "Failed to start scheduled workflow"
+      );
     }
   }
 }
@@ -124,7 +134,9 @@ export function startWorkflowScheduler(pollIntervalMs = 60_000) {
   if (timer) return; // already running
   logger.info({ pollIntervalMs }, "Workflow scheduler started");
   tick(); // run immediately on startup
-  timer = setInterval(() => { tick().catch((e) => logger.error(e)); }, pollIntervalMs);
+  timer = setInterval(() => {
+    tick().catch((e) => logger.error(e));
+  }, pollIntervalMs);
 }
 
 export function stopWorkflowScheduler() {

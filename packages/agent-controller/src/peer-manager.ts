@@ -15,7 +15,8 @@
 // Polyfill WebRTC for Node.js (required by PeerjsChannel)
 import * as wrtc from "@roamhq/wrtc";
 (global as Record<string, unknown>).RTCPeerConnection = wrtc.RTCPeerConnection;
-(global as Record<string, unknown>).RTCSessionDescription = wrtc.RTCSessionDescription;
+(global as Record<string, unknown>).RTCSessionDescription =
+  wrtc.RTCSessionDescription;
 (global as Record<string, unknown>).RTCIceCandidate = wrtc.RTCIceCandidate;
 (global as Record<string, unknown>).getUserMedia = wrtc.getUserMedia;
 
@@ -39,10 +40,15 @@ const INVOKE_TIMEOUT_MS = 60_000;
 
 /** JSON protocol messages exchanged over the PeerJS data channel. */
 type PeerMessage =
-  | { type: "auth_round"; round: number; data: string }       // base64 cert
+  | { type: "auth_round"; round: number; data: string } // base64 cert
   | { type: "auth_complete" }
   | { type: "auth_failed"; reason: string }
-  | { type: "invoke"; requestId: string; action: string; params: Record<string, unknown> }
+  | {
+      type: "invoke";
+      requestId: string;
+      action: string;
+      params: Record<string, unknown>;
+    }
   | { type: "result"; requestId: string; output: unknown; error?: string };
 
 /** A fully-authenticated bidirectional channel to a remote agent. */
@@ -50,7 +56,14 @@ interface PeerConnection {
   remoteDid: string;
   channel: import("@vaultys/channel-peerjs").PeerjsChannel;
   /** Pending outgoing invocations waiting for a result. */
-  pending: Map<string, { resolve: (v: unknown) => void; reject: (e: Error) => void; timer: ReturnType<typeof setTimeout> }>;
+  pending: Map<
+    string,
+    {
+      resolve: (v: unknown) => void;
+      reject: (e: Error) => void;
+      timer: ReturnType<typeof setTimeout>;
+    }
+  >;
 }
 
 // ---------------------------------------------------------------------------
@@ -78,9 +91,17 @@ export class PeerManager {
   /** In-flight connect() promises (dedup concurrent connect attempts). */
   private connecting: Map<string, Promise<PeerConnection>> = new Map();
   /** Called when a remote agent invokes a skill on us. */
-  private invokeHandler: ((remoteDid: string, action: string, params: Record<string, unknown>) => Promise<unknown>) | null = null;
+  private invokeHandler:
+    | ((
+        remoteDid: string,
+        action: string,
+        params: Record<string, unknown>
+      ) => Promise<unknown>)
+    | null = null;
   /** The listener channel waiting for incoming connections. */
-  private listenerChannel: import("@vaultys/channel-peerjs").PeerjsChannel | null = null;
+  private listenerChannel:
+    | import("@vaultys/channel-peerjs").PeerjsChannel
+    | null = null;
 
   constructor(vaultysId: VaultysId) {
     this.ownVaultysId = vaultysId.toVersion(1);
@@ -102,7 +123,13 @@ export class PeerManager {
   }
 
   /** Register the function that handles incoming skill invocations. */
-  onInvoke(handler: (remoteDid: string, action: string, params: Record<string, unknown>) => Promise<unknown>): void {
+  onInvoke(
+    handler: (
+      remoteDid: string,
+      action: string,
+      params: Record<string, unknown>
+    ) => Promise<unknown>
+  ): void {
     this.invokeHandler = handler;
   }
 
@@ -114,7 +141,10 @@ export class PeerManager {
     const { PeerjsChannel } = await import("@vaultys/channel-peerjs");
     const ownPeerId = peerIdForDid(this.ownVaultysId.did);
 
-    logger.info({ ownDid: this.ownVaultysId.did, peerId: ownPeerId }, "Starting P2P listener");
+    logger.info(
+      { ownDid: this.ownVaultysId.did, peerId: ownPeerId },
+      "Starting P2P listener"
+    );
 
     // PeerjsChannel responder — listens under ownPeerId
     const listener = new PeerjsChannel(ownPeerId);
@@ -130,7 +160,11 @@ export class PeerManager {
    * Invoke a skill on a remote agent.
    * Lazy: opens a connection if none exists.
    */
-  async invoke(targetDid: string, action: string, params: Record<string, unknown> = {}): Promise<unknown> {
+  async invoke(
+    targetDid: string,
+    action: string,
+    params: Record<string, unknown> = {}
+  ): Promise<unknown> {
     logger.info({ targetDid, action }, "Invoking remote agent skill");
     const conn = await this.getOrConnect(targetDid);
 
@@ -139,28 +173,34 @@ export class PeerManager {
     return new Promise<unknown>((resolve, reject) => {
       const timer = setTimeout(() => {
         conn.pending.delete(requestId);
-        reject(new Error(`Invoke timeout for remote agent ${targetDid} action=${action}`));
+        reject(
+          new Error(
+            `Invoke timeout for remote agent ${targetDid} action=${action}`
+          )
+        );
       }, INVOKE_TIMEOUT_MS);
 
       conn.pending.set(requestId, { resolve, reject, timer });
 
       const msg: PeerMessage = { type: "invoke", requestId, action, params };
-      conn.channel.send(Buffer.from(JSON.stringify(msg))).catch((err: unknown) => {
-        conn.pending.delete(requestId);
-        clearTimeout(timer);
-        reject(err);
-      });
+      conn.channel
+        .send(Buffer.from(JSON.stringify(msg)))
+        .catch((err: unknown) => {
+          conn.pending.delete(requestId);
+          clearTimeout(timer);
+          reject(err);
+        });
     });
   }
 
   /** Close all connections and stop listening. */
   async shutdown(): Promise<void> {
     if (this.listenerChannel) {
-      await this.listenerChannel.close().catch(() => { });
+      await this.listenerChannel.close().catch(() => {});
       this.listenerChannel = null;
     }
     for (const conn of this.connections.values()) {
-      await conn.channel.close().catch(() => { });
+      await conn.channel.close().catch(() => {});
     }
     this.connections.clear();
   }
@@ -187,10 +227,16 @@ export class PeerManager {
     // Verify we have a valid peer grant before connecting
     const grant = this.findGrant(targetDid);
     if (!grant) {
-      logger.warn({ targetDid, catalogSize: this.peerCatalog.length }, "No peer grant for remote agent");
+      logger.warn(
+        { targetDid, catalogSize: this.peerCatalog.length },
+        "No peer grant for remote agent"
+      );
       throw new Error(`No peer grant for remote agent ${targetDid}`);
     }
-    logger.debug({ targetDid, grantId: grant.id }, "Found peer grant — connecting");
+    logger.debug(
+      { targetDid, grantId: grant.id },
+      "Found peer grant — connecting"
+    );
 
     const promise = this.connectToAgent(targetDid, grant);
     this.connecting.set(targetDid, promise);
@@ -207,23 +253,39 @@ export class PeerManager {
     return this.peerCatalog.find((g) => g.targetDid === targetDid);
   }
 
-  private async connectToAgent(targetDid: string, _grant: AgentPeerGrant): Promise<PeerConnection> {
+  private async connectToAgent(
+    targetDid: string,
+    _grant: AgentPeerGrant
+  ): Promise<PeerConnection> {
     const { PeerjsChannel } = await import("@vaultys/channel-peerjs");
     const targetPeerId = peerIdForDid(targetDid);
 
-    logger.info({ targetDid, targetPeerId, ownDid: this.ownVaultysId.did }, "Initiating P2P connection");
+    logger.info(
+      { targetDid, targetPeerId, ownDid: this.ownVaultysId.did },
+      "Initiating P2P connection"
+    );
 
     // Connect as initiator using the target's deterministic peer ID
     const channel = new PeerjsChannel(targetPeerId, "initiator");
 
     try {
-      await withTimeout(channel.start(), HANDSHAKE_TIMEOUT_MS, `connect to ${targetPeerId}`);
+      await withTimeout(
+        channel.start(),
+        HANDSHAKE_TIMEOUT_MS,
+        `connect to ${targetPeerId}`
+      );
     } catch (err) {
-      logger.error({ targetDid, targetPeerId, err }, "PeerJS channel.start() failed — target may not be listening");
+      logger.error(
+        { targetDid, targetPeerId, err },
+        "PeerJS channel.start() failed — target may not be listening"
+      );
       throw err;
     }
 
-    logger.info({ targetDid, targetPeerId }, "PeerJS channel connected, starting SRP auth (initiator)");
+    logger.info(
+      { targetDid, targetPeerId },
+      "PeerJS channel connected, starting SRP auth (initiator)"
+    );
 
     // Run Challenger as initiator
     const challenger = new Challenger(this.ownVaultysId);
@@ -235,21 +297,43 @@ export class PeerManager {
 
     for (let round = 0; round < 4; round++) {
       const cert = challenger.getCertificate();
-      logger.debug({ targetDid, round, certLen: cert.length }, "Sending auth_round (initiator)");
-      const msg: PeerMessage = { type: "auth_round", round, data: Buffer.from(cert).toString("base64") };
+      logger.debug(
+        { targetDid, round, certLen: cert.length },
+        "Sending auth_round (initiator)"
+      );
+      const msg: PeerMessage = {
+        type: "auth_round",
+        round,
+        data: Buffer.from(cert).toString("base64"),
+      };
       await channel.send(Buffer.from(JSON.stringify(msg)));
 
       logger.debug({ targetDid, round }, "Waiting for auth_round reply");
-      const raw = await withTimeout(channel.receive(), HANDSHAKE_TIMEOUT_MS, `auth round ${round} receive`);
-      const reply = JSON.parse(Buffer.from(raw).toString("utf-8")) as PeerMessage;
-      logger.debug({ targetDid, round, replyType: reply.type }, "Received auth reply");
+      const raw = await withTimeout(
+        channel.receive(),
+        HANDSHAKE_TIMEOUT_MS,
+        `auth round ${round} receive`
+      );
+      const reply = JSON.parse(
+        Buffer.from(raw).toString("utf-8")
+      ) as PeerMessage;
+      logger.debug(
+        { targetDid, round, replyType: reply.type },
+        "Received auth reply"
+      );
 
       if (reply.type === "auth_failed") {
-        logger.warn({ targetDid, reason: reply.reason }, "Remote agent rejected auth");
+        logger.warn(
+          { targetDid, reason: reply.reason },
+          "Remote agent rejected auth"
+        );
         throw new Error(`Remote agent rejected auth: ${reply.reason}`);
       }
       if (reply.type !== "auth_round") {
-        logger.warn({ targetDid, round, replyType: reply.type }, "Unexpected message during auth");
+        logger.warn(
+          { targetDid, round, replyType: reply.type },
+          "Unexpected message during auth"
+        );
         throw new Error("Unexpected message during auth");
       }
 
@@ -257,7 +341,10 @@ export class PeerManager {
       await challenger.update(remoteCert);
 
       if (challenger.hasFailed()) {
-        logger.warn({ targetDid, round }, "Challenger.hasFailed() after update");
+        logger.warn(
+          { targetDid, round },
+          "Challenger.hasFailed() after update"
+        );
         throw new Error("Challenger failed during auth");
       }
 
@@ -268,14 +355,33 @@ export class PeerManager {
 
         // Verify the remote agent is who we expected
         if (remoteDid !== targetDid) {
-          logger.warn({ expected: targetDid, got: remoteDid }, "Remote DID mismatch");
-          await channel.send(Buffer.from(JSON.stringify({ type: "auth_failed", reason: "DID mismatch" } satisfies PeerMessage)));
-          throw new Error(`Remote DID mismatch: expected ${targetDid} got ${remoteDid}`);
+          logger.warn(
+            { expected: targetDid, got: remoteDid },
+            "Remote DID mismatch"
+          );
+          await channel.send(
+            Buffer.from(
+              JSON.stringify({
+                type: "auth_failed",
+                reason: "DID mismatch",
+              } satisfies PeerMessage)
+            )
+          );
+          throw new Error(
+            `Remote DID mismatch: expected ${targetDid} got ${remoteDid}`
+          );
         }
 
-        await channel.send(Buffer.from(JSON.stringify({ type: "auth_complete" } satisfies PeerMessage)));
+        await channel.send(
+          Buffer.from(
+            JSON.stringify({ type: "auth_complete" } satisfies PeerMessage)
+          )
+        );
         verified = true;
-        logger.info({ targetDid, remoteDid }, "SRP auth complete (initiator) — connection established");
+        logger.info(
+          { targetDid, remoteDid },
+          "SRP auth complete (initiator) — connection established"
+        );
         break;
       }
     }
@@ -301,7 +407,9 @@ export class PeerManager {
   // ---------------------------------------------------------------------------
 
   /** Accept incoming connections in a loop. */
-  private async acceptLoop(listener: import("@vaultys/channel-peerjs").PeerjsChannel): Promise<void> {
+  private async acceptLoop(
+    listener: import("@vaultys/channel-peerjs").PeerjsChannel
+  ): Promise<void> {
     logger.info({ ownDid: this.ownVaultysId.did }, "P2P accept loop started");
     while (true) {
       try {
@@ -319,21 +427,33 @@ export class PeerManager {
     }
   }
 
-  private async handleIncoming(channel: import("@vaultys/channel-peerjs").PeerjsChannel): Promise<void> {
+  private async handleIncoming(
+    channel: import("@vaultys/channel-peerjs").PeerjsChannel
+  ): Promise<void> {
     const challenger = new Challenger(this.ownVaultysId);
     challenger.version = 1;
     // Responder does NOT call createChallenge — it waits for the initiator's first round
 
-    logger.debug({ ownDid: this.ownVaultysId.did }, "Handling incoming P2P connection (responder)");
+    logger.debug(
+      { ownDid: this.ownVaultysId.did },
+      "Handling incoming P2P connection (responder)"
+    );
 
     let remoteDid = "";
     let authenticated = false;
 
     for (let round = 0; round < 4; round++) {
       logger.debug({ round }, "Waiting for auth_round from initiator");
-      const raw = await withTimeout(channel.receive(), HANDSHAKE_TIMEOUT_MS, `incoming auth round ${round}`);
+      const raw = await withTimeout(
+        channel.receive(),
+        HANDSHAKE_TIMEOUT_MS,
+        `incoming auth round ${round}`
+      );
       const msg = JSON.parse(Buffer.from(raw).toString("utf-8")) as PeerMessage;
-      logger.debug({ round, msgType: msg.type }, "Received message from initiator");
+      logger.debug(
+        { round, msgType: msg.type },
+        "Received message from initiator"
+      );
 
       if (msg.type === "auth_complete") {
         // Initiator confirmed — but we haven't confirmed yet; auth is done
@@ -343,8 +463,18 @@ export class PeerManager {
       }
 
       if (msg.type !== "auth_round") {
-        logger.warn({ round, msgType: msg.type }, "Unexpected message type during incoming auth");
-        await channel.send(Buffer.from(JSON.stringify({ type: "auth_failed", reason: "Protocol error" } satisfies PeerMessage)));
+        logger.warn(
+          { round, msgType: msg.type },
+          "Unexpected message type during incoming auth"
+        );
+        await channel.send(
+          Buffer.from(
+            JSON.stringify({
+              type: "auth_failed",
+              reason: "Protocol error",
+            } satisfies PeerMessage)
+          )
+        );
         return;
       }
 
@@ -353,13 +483,27 @@ export class PeerManager {
 
       if (challenger.hasFailed()) {
         logger.warn({ round }, "Challenger.hasFailed() on incoming connection");
-        await channel.send(Buffer.from(JSON.stringify({ type: "auth_failed", reason: "Challenger failed" } satisfies PeerMessage)));
+        await channel.send(
+          Buffer.from(
+            JSON.stringify({
+              type: "auth_failed",
+              reason: "Challenger failed",
+            } satisfies PeerMessage)
+          )
+        );
         return;
       }
 
       const ourCert = challenger.getCertificate();
-      logger.debug({ round, certLen: ourCert.length }, "Sending auth_round reply (responder)");
-      const reply: PeerMessage = { type: "auth_round", round, data: Buffer.from(ourCert).toString("base64") };
+      logger.debug(
+        { round, certLen: ourCert.length },
+        "Sending auth_round reply (responder)"
+      );
+      const reply: PeerMessage = {
+        type: "auth_round",
+        round,
+        data: Buffer.from(ourCert).toString("base64"),
+      };
       await channel.send(Buffer.from(JSON.stringify(reply)));
 
       if (challenger.isComplete()) {
@@ -372,20 +516,43 @@ export class PeerManager {
     }
 
     if (!authenticated || !remoteDid) {
-      logger.warn({ authenticated, remoteDid }, "Auth incomplete on incoming connection");
-      await channel.send(Buffer.from(JSON.stringify({ type: "auth_failed", reason: "Auth incomplete" } satisfies PeerMessage)));
+      logger.warn(
+        { authenticated, remoteDid },
+        "Auth incomplete on incoming connection"
+      );
+      await channel.send(
+        Buffer.from(
+          JSON.stringify({
+            type: "auth_failed",
+            reason: "Auth incomplete",
+          } satisfies PeerMessage)
+        )
+      );
       return;
     }
 
     // Verify the connecting agent has a valid reverse grant (they are allowed to call us)
     const hasGrant = await this.isIncomingAuthorized(remoteDid);
     if (!hasGrant) {
-      logger.warn({ remoteDid }, "Rejecting incoming connection — no peer grant");
-      await channel.send(Buffer.from(JSON.stringify({ type: "auth_failed", reason: "Unauthorized" } satisfies PeerMessage)));
+      logger.warn(
+        { remoteDid },
+        "Rejecting incoming connection — no peer grant"
+      );
+      await channel.send(
+        Buffer.from(
+          JSON.stringify({
+            type: "auth_failed",
+            reason: "Unauthorized",
+          } satisfies PeerMessage)
+        )
+      );
       return;
     }
 
-    logger.info({ remoteDid }, "Incoming P2P connection authenticated and authorized");
+    logger.info(
+      { remoteDid },
+      "Incoming P2P connection authenticated and authorized"
+    );
 
     const conn: PeerConnection = { remoteDid, channel, pending: new Map() };
     this.connections.set(remoteDid, conn);
@@ -409,7 +576,10 @@ export class PeerManager {
       if (g.targetDid === ownDid && g.sourceDid === remoteDid) {
         // We have a grant where remoteDid can call us — verify the cert
         if (this.serverPublicKey) {
-          const payload = await verifyPeerGrant(g.certificate, this.serverPublicKey);
+          const payload = await verifyPeerGrant(
+            g.certificate,
+            this.serverPublicKey
+          );
           if (payload) return true;
         } else {
           return true; // No server key yet — allow (will be tightened once key is available)
@@ -435,7 +605,10 @@ export class PeerManager {
       try {
         raw = await conn.channel.receive();
       } catch (err) {
-        logger.info({ remoteDid: conn.remoteDid, err }, "Channel closed — ending message pipe");
+        logger.info(
+          { remoteDid: conn.remoteDid, err },
+          "Channel closed — ending message pipe"
+        );
         break; // channel closed
       }
 
@@ -466,20 +639,41 @@ export class PeerManager {
     }
   }
 
-  private async handleRemoteInvoke(conn: PeerConnection, msg: Extract<PeerMessage, { type: "invoke" }>): Promise<void> {
-    logger.info({ remoteDid: conn.remoteDid, action: msg.action, requestId: msg.requestId }, "Handling remote invoke");
+  private async handleRemoteInvoke(
+    conn: PeerConnection,
+    msg: Extract<PeerMessage, { type: "invoke" }>
+  ): Promise<void> {
+    logger.info(
+      {
+        remoteDid: conn.remoteDid,
+        action: msg.action,
+        requestId: msg.requestId,
+      },
+      "Handling remote invoke"
+    );
     let output: unknown;
     let error: string | undefined;
     try {
       if (!this.invokeHandler) throw new Error("No invoke handler registered");
       output = await this.invokeHandler(conn.remoteDid, msg.action, msg.params);
-      logger.debug({ remoteDid: conn.remoteDid, requestId: msg.requestId }, "Remote invoke succeeded");
+      logger.debug(
+        { remoteDid: conn.remoteDid, requestId: msg.requestId },
+        "Remote invoke succeeded"
+      );
     } catch (err) {
       error = err instanceof Error ? err.message : String(err);
-      logger.warn({ remoteDid: conn.remoteDid, requestId: msg.requestId, error }, "Remote invoke failed");
+      logger.warn(
+        { remoteDid: conn.remoteDid, requestId: msg.requestId, error },
+        "Remote invoke failed"
+      );
     }
-    const reply: PeerMessage = { type: "result", requestId: msg.requestId, output, error };
-    await conn.channel.send(Buffer.from(JSON.stringify(reply))).catch(() => { });
+    const reply: PeerMessage = {
+      type: "result",
+      requestId: msg.requestId,
+      output,
+      error,
+    };
+    await conn.channel.send(Buffer.from(JSON.stringify(reply))).catch(() => {});
   }
 }
 
@@ -487,12 +681,22 @@ export class PeerManager {
 // Utility
 // ---------------------------------------------------------------------------
 
-function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+function withTimeout<T>(
+  promise: Promise<T>,
+  ms: number,
+  label: string
+): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     const timer = setTimeout(() => reject(new Error(`Timeout: ${label}`)), ms);
     promise.then(
-      (v) => { clearTimeout(timer); resolve(v); },
-      (e) => { clearTimeout(timer); reject(e); },
+      (v) => {
+        clearTimeout(timer);
+        resolve(v);
+      },
+      (e) => {
+        clearTimeout(timer);
+        reject(e);
+      }
     );
   });
 }

@@ -38,9 +38,7 @@ const AGENT_INFO = {
 vi.mock("@webapp/hooks/useAgentData", () => ({
   useAgentData: vi.fn(() => ({
     info: AGENT_INFO,
-    logs: [
-      { ts: "2026-05-04T10:00:00Z", level: "info", message: "Started" },
-    ],
+    logs: [{ ts: "2026-05-04T10:00:00Z", level: "info", message: "Started" }],
     intents: [],
     sseConnected: true,
   })),
@@ -57,16 +55,32 @@ vi.mock("@webapp/hooks/useChat", () => ({
 }));
 
 // Stub fetch for SettingsPanel (/api/config/llm), ToolsPanel, MemoryPanel, TasksPanel, ApprovalsPanel
-vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
-  ok: true,
-  json: () => Promise.resolve({ none: true, tools: [], skills: [], entries: [], tasks: [], schedules: [], memories: [], approvals: [] }),
-}));
+vi.stubGlobal(
+  "fetch",
+  vi.fn().mockResolvedValue({
+    ok: true,
+    json: () =>
+      Promise.resolve({
+        none: true,
+        tools: [],
+        skills: [],
+        entries: [],
+        tasks: [],
+        schedules: [],
+        memories: [],
+        approvals: [],
+      }),
+  })
+);
 
 // Stub EventSource (used by ApprovalsBanner and TasksPanel)
-vi.stubGlobal("EventSource", class {
-  addEventListener() {}
-  close() {}
-});
+vi.stubGlobal(
+  "EventSource",
+  class {
+    addEventListener() {}
+    close() {}
+  }
+);
 
 import Dashboard from "../../packages/agent-controller/web-app/src/pages/Dashboard";
 import { useAgentData } from "../../packages/agent-controller/web-app/src/hooks/useAgentData";
@@ -96,7 +110,9 @@ describe("Dashboard", () => {
       sseConnected: false,
     });
 
-    const { container } = render(<Dashboard did="did:test" onLogout={onLogout} />);
+    const { container } = render(
+      <Dashboard did="did:test" onLogout={onLogout} />
+    );
     expect(container.querySelector(".animate-spin")).toBeInTheDocument();
   });
 
@@ -164,7 +180,15 @@ describe("Dashboard", () => {
     (vi.mocked(useAgentData) as ReturnType<typeof vi.fn>).mockReturnValue({
       info: AGENT_INFO,
       logs: [],
-      intents: [{ intentId: "i1", action: "test", params: {}, status: "pending", receivedAt: new Date().toISOString() }],
+      intents: [
+        {
+          intentId: "i1",
+          action: "test",
+          params: {},
+          status: "pending",
+          receivedAt: new Date().toISOString(),
+        },
+      ],
       sseConnected: true,
     });
 

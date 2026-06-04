@@ -8,7 +8,11 @@
 
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { getDb, closeDb } from "../packages/control-plane/lib/db";
-import { logIntent, updateIntentResult, getIntentLog } from "../packages/control-plane/lib/db";
+import {
+  logIntent,
+  updateIntentResult,
+  getIntentLog,
+} from "../packages/control-plane/lib/db";
 
 beforeAll(() => {
   // Initialize DB (creates tables including intent_log)
@@ -46,8 +50,15 @@ describe("intent_log helpers", () => {
   });
 
   it("updateIntentResult marks intent as failed with error", () => {
-    logIntent("intent-3", "did:vaultys:agent2", "run_code", { code: "exit(1)" });
-    updateIntentResult("intent-3", "failed", undefined, "Process exited with code 1");
+    logIntent("intent-3", "did:vaultys:agent2", "run_code", {
+      code: "exit(1)",
+    });
+    updateIntentResult(
+      "intent-3",
+      "failed",
+      undefined,
+      "Process exited with code 1"
+    );
     const rows = getIntentLog(10);
     const row = rows.find((r) => r.intent_id === "intent-3");
     expect(row!.status).toBe("failed");
@@ -66,8 +77,12 @@ describe("intent_log helpers", () => {
   it("getIntentLog filters by agentDid", () => {
     const agent1Rows = getIntentLog(10, "did:vaultys:agent1");
     const agent2Rows = getIntentLog(10, "did:vaultys:agent2");
-    expect(agent1Rows.every((r) => r.agent_did === "did:vaultys:agent1")).toBe(true);
-    expect(agent2Rows.every((r) => r.agent_did === "did:vaultys:agent2")).toBe(true);
+    expect(agent1Rows.every((r) => r.agent_did === "did:vaultys:agent1")).toBe(
+      true
+    );
+    expect(agent2Rows.every((r) => r.agent_did === "did:vaultys:agent2")).toBe(
+      true
+    );
     expect(agent2Rows.length).toBeGreaterThanOrEqual(1);
   });
 
@@ -82,7 +97,12 @@ describe("intent_log helpers", () => {
   it("getIntentLog respects limit parameter", () => {
     // Insert several extra records
     for (let i = 0; i < 5; i++) {
-      logIntent(`intent-limit-${i}`, "did:vaultys:limit-agent", `action-${i}`, {});
+      logIntent(
+        `intent-limit-${i}`,
+        "did:vaultys:limit-agent",
+        `action-${i}`,
+        {}
+      );
     }
     const limited = getIntentLog(3);
     expect(limited.length).toBeLessThanOrEqual(3);

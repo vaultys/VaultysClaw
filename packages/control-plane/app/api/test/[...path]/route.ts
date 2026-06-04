@@ -18,22 +18,8 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import {
-  getAllPendingRegistrations,
-  getActivityLogByEvent,
-  getAllModelRegistryEntries,
-  createModelRegistryEntry,
-  deleteModelRegistryEntry,
-  getModelRegistryEntry,
-  grantModelRealmAccess,
-  getRealmRouterKey,
-  upsertRealmRouterKey,
-  getAllRealms,
-  getAgentRealms,
-  getModelsByRealm,
-  setAgentLlmConfig,
-} from "@/lib/db";
 import { getWSServer } from "@/lib/ws-server";
+import { ActivityLogDAO, AgentDAO, ModelDAO, PendingRegistrationDAO, RealmDAO } from "@/db";
 import {
   isLiteLLMConfigured,
   getLiteLLMBaseUrl,
@@ -49,7 +35,10 @@ type RouteContext = { params: Promise<{ path: string[] }> };
 
 function guard(): NextResponse | null {
   if (!TEST_API_ENABLED) {
-    return NextResponse.json({ error: "Test API is disabled" }, { status: 404 });
+    return NextResponse.json(
+      { error: "Test API is disabled" },
+      { status: 404 }
+    );
   }
   return null;
 }
@@ -58,6 +47,29 @@ function guard(): NextResponse | null {
 // GET handlers
 // ─────────────────────────────────────────────
 
+/**
+ * @openapi
+ * /api/test/{...path}:
+ *   get:
+ *     summary: Handle various GET requests for test resources.
+ *     tags: [Test]
+ *     parameters:
+ *       - name: path
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: array
+ *           items:
+ *             type: string
+ *         style: simple
+ *         explode: false
+ *         description: The resource path segments.
+ *     responses:
+ *       200:
+ *         description: Successful response with requested data.
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ */
 export async function GET(
   _req: NextRequest,
   ctx: RouteContext
@@ -69,19 +81,19 @@ export async function GET(
   const [resource, ...rest] = path;
 
   if (resource === "registrations") {
-    return NextResponse.json(getAllPendingRegistrations());
+    return NextResponse.json(await PendingRegistrationDAO.findAll());
   }
 
   if (resource === "agents" && rest.length === 0) {
     const wsServer = getWSServer();
     const agents = wsServer
       ? wsServer.getConnectedAgents().map((a) => ({
-        id: a.id,
-        name: a.name,
-        capabilities: a.capabilities,
-        connectedAt: a.connectedAt,
-        lastHeartbeat: a.lastHeartbeat,
-      }))
+          id: a.id,
+          name: a.name,
+          capabilities: a.capabilities,
+          connectedAt: a.connectedAt,
+          lastHeartbeat: a.lastHeartbeat,
+        }))
       : [];
     return NextResponse.json(agents);
   }
@@ -89,26 +101,28 @@ export async function GET(
   // GET /api/test/agents/:id/realm-llm
   if (resource === "agents" && rest[1] === "realm-llm") {
     const agentDid = rest[0];
-    const memberships = getAgentRealms(agentDid);
-    const realms = memberships.map((m) => {
-      const routerKey = getRealmRouterKey(m.realm_id);
-      const models = getModelsByRealm(m.realm_id)
-        .filter((model) => model.status === "active" && model.litellm_model_name)
+    const memberships = await AgentDAO.getRealms(agentDid);
+    const realms = await Promise.all(memberships.map(async (m) => {
+      const routerKey = await RealmDAO.getRouterKey(m.realmId);
+      const models = (await ModelDAO.findByRealm(m.realmId))
+        .filter(
+          (model) => model.status === "active" && model.litellmModelName
+        )
         .map((model) => ({
           id: model.id,
           name: model.name,
           provider: model.provider,
-          modelId: model.model_id,
-          litellmModelName: model.litellm_model_name,
+          modelId: model.modelId,
+          litellmModelName: model.litellmModelName,
         }));
       return {
-        realmId: m.realm_id,
-        realmName: m.name,
-        isPrimary: Boolean(m.is_primary),
-        hasVirtualKey: Boolean(routerKey?.litellm_virtual_key),
+        realmId: m.realmId,
+        realmName: m.realm.name,
+        isPrimary: Boolean(m.isPrimary),
+        hasVirtualKey: Boolean(routerKey?.litellmVirtualKey),
         models,
       };
-    });
+    }));
     return NextResponse.json({
       litellmConfigured: isLiteLLMConfigured(),
       litellmBaseUrl: getLiteLLMBaseUrl(),
@@ -118,46 +132,46 @@ export async function GET(
 
   // GET /api/test/models — list all model registry entries
   if (resource === "models" && rest.length === 0) {
-    const entries = getAllModelRegistryEntries();
+    const entries = await ModelDAO.findAll();
     return NextResponse.json({
       models: entries.map((m) => ({
         id: m.id,
         name: m.name,
         provider: m.provider,
-        modelId: m.model_id,
-        baseUrl: m.base_url,
+        modelId: m.modelId,
+        baseUrl: m.baseUrl,
         status: m.status,
-        litellmModelName: m.litellm_model_name,
+        litellmModelName: m.litellmModelName,
       })),
     });
   }
 
   // GET /api/test/realms — list all realms
   if (resource === "realms") {
-    const realms = getAllRealms();
+    const realms = await RealmDAO.findAll();
     return NextResponse.json({
       realms: realms.map((r) => ({
         id: r.id,
         name: r.name,
         slug: r.slug,
-        isDefault: Boolean(r.is_default),
+        isDefault: Boolean(r.isDefault),
       })),
     });
   }
 
   if (resource === "results") {
-    const rows = getActivityLogByEvent("intent_result", 50);
+    const rows = await ActivityLogDAO.findByEvent("intent_result", 50);
     return NextResponse.json(
       rows.map((r) => {
         let parsed: Record<string, unknown> = {};
         try {
           parsed = r.details ? JSON.parse(r.details) : {};
-        } catch { }
+        } catch {}
         return {
-          agentDid: r.agent_did,
-          agentName: r.agent_name,
+          agentDid: r.agentDid,
+          agentName: r.agentName,
           ...parsed,
-          receivedAt: r.created_at,
+          receivedAt: r.createdAt,
         };
       })
     );
@@ -170,6 +184,22 @@ export async function GET(
 // POST handlers
 // ─────────────────────────────────────────────
 
+/**
+ * @openapi
+ * /api/test/{...path}:
+ *   post:
+ *     summary: Handle various POST operations for test API.
+ *     tags: [Test]
+ *     responses:
+ *       200:
+ *         description: Successful operation
+ *       400:
+ *         $ref: '#/components/responses/BadRequest'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ *       503:
+ *         description: WS server not initialised
+ */
 export async function POST(
   req: NextRequest,
   ctx: RouteContext
@@ -189,7 +219,10 @@ export async function POST(
 
     const wsServer = getWSServer();
     if (!wsServer) {
-      return NextResponse.json({ error: "WS server not initialised" }, { status: 503 });
+      return NextResponse.json(
+        { error: "WS server not initialised" },
+        { status: 503 }
+      );
     }
 
     const ok = wsServer.approveRegistration(id, capabilities as any);
@@ -205,41 +238,68 @@ export async function POST(
   // POST /api/test/agents/:id/llm-config — set agent LLM config (realm routing shortcut)
   if (resource === "agents" && rest[1] === "llm-config") {
     const agentDid = rest[0];
-    const body = await req.json().catch(() => ({})) as Record<string, unknown>;
-    if (typeof body.realmId === "string" && typeof body.realmModelId === "string") {
-      const routerKey = getRealmRouterKey(body.realmId);
-      if (!routerKey?.litellm_virtual_key) {
-        return NextResponse.json({ error: "Realm has no LiteLLM virtual key configured" }, { status: 400 });
+    const body = (await req.json().catch(() => ({}))) as Record<
+      string,
+      unknown
+    >;
+    if (
+      typeof body.realmId === "string" &&
+      typeof body.realmModelId === "string"
+    ) {
+      const routerKey = await RealmDAO.getRouterKey(body.realmId);
+      if (!routerKey?.litellmVirtualKey) {
+        return NextResponse.json(
+          { error: "Realm has no LiteLLM virtual key configured" },
+          { status: 400 }
+        );
       }
-      const realmModels = getModelsByRealm(body.realmId);
+      const realmModels = await ModelDAO.findByRealm(body.realmId);
       const model = realmModels.find((m) => m.id === body.realmModelId);
-      if (!model?.litellm_model_name) {
-        return NextResponse.json({ error: "Model not found in realm" }, { status: 404 });
+      if (!model?.litellmModelName) {
+        return NextResponse.json(
+          { error: "Model not found in realm" },
+          { status: 404 }
+        );
       }
       const config: LlmConfig = {
         provider: "openai-compatible",
         baseUrl: getLiteLLMBaseUrl(),
-        apiKey: routerKey.litellm_virtual_key,
-        model: model.litellm_model_name,
+        apiKey: routerKey.litellmVirtualKey,
+        model: model.litellmModelName,
       };
-      setAgentLlmConfig(agentDid, config);
+      await AgentDAO.setLlmConfig(agentDid, config);
       const wsServer = getWSServer();
       const pushed = wsServer?.sendLlmConfig(agentDid, config) ?? false;
       const { apiKey: _k, ...rest_ } = config;
-      return NextResponse.json({ ok: true, pushed, config: { ...rest_, apiKeySet: true } });
+      return NextResponse.json({
+        ok: true,
+        pushed,
+        config: { ...rest_, apiKeySet: true },
+      });
     }
-    return NextResponse.json({ error: "realmId and realmModelId required" }, { status: 400 });
+    return NextResponse.json(
+      { error: "realmId and realmModelId required" },
+      { status: 400 }
+    );
   }
 
   // POST /api/test/models — create a model
   if (resource === "models" && rest.length === 0) {
-    const body = await req.json().catch(() => ({})) as Record<string, unknown>;
+    const body = (await req.json().catch(() => ({}))) as Record<
+      string,
+      unknown
+    >;
     if (!body.name || !body.provider || !body.modelId || !body.baseUrl) {
-      return NextResponse.json({ error: "name, provider, modelId, baseUrl required" }, { status: 400 });
+      return NextResponse.json(
+        { error: "name, provider, modelId, baseUrl required" },
+        { status: 400 }
+      );
     }
-    const slug = (body.name as string).toLowerCase().replace(/[^a-z0-9]+/g, "-");
+    const slug = (body.name as string)
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-");
     const litellmModelName = `${body.provider}/${slug}`;
-    const entry = createModelRegistryEntry({
+    const entry = await ModelDAO.create({
       name: body.name as string,
       description: (body.description as string | undefined) ?? undefined,
       provider: body.provider as string,
@@ -258,30 +318,47 @@ export async function POST(
         console.warn("[test-api] LiteLLM registerModel failed (non-fatal):", e);
       }
     }
-    return NextResponse.json({ model: { id: entry.id, name: entry.name } }, { status: 201 });
+    return NextResponse.json(
+      { model: { id: entry.id, name: entry.name } },
+      { status: 201 }
+    );
   }
 
   // POST /api/test/models/:id/realms — grant realm access
   if (resource === "models" && rest[1] === "realms") {
     const modelId = rest[0];
-    const body = await req.json().catch(() => ({})) as { realmId?: string };
-    if (!body.realmId) return NextResponse.json({ error: "realmId required" }, { status: 400 });
-    const entry = getModelRegistryEntry(modelId);
-    if (!entry) return NextResponse.json({ error: "Model not found" }, { status: 404 });
+    const body = (await req.json().catch(() => ({}))) as { realmId?: string };
+    if (!body.realmId)
+      return NextResponse.json({ error: "realmId required" }, { status: 400 });
+    const entry = await ModelDAO.findById(modelId);
+    if (!entry)
+      return NextResponse.json({ error: "Model not found" }, { status: 404 });
 
-    grantModelRealmAccess(modelId, body.realmId);
+    await ModelDAO.grantRealmAccess(modelId, body.realmId);
 
-    if (isLiteLLMConfigured() && entry.litellm_model_name) {
+    if (isLiteLLMConfigured() && entry.litellmModelName) {
       try {
-        const existing = getRealmRouterKey(body.realmId);
-        const currentModels: string[] = existing ? JSON.parse(existing.allowed_model_ids) : [];
-        if (!currentModels.includes(entry.litellm_model_name)) {
-          const updated = [...currentModels, entry.litellm_model_name];
-          const { virtualKey } = await createRealmKey(body.realmId, updated, existing?.monthly_budget_usd ?? undefined);
-          upsertRealmRouterKey(body.realmId, { litellmVirtualKey: virtualKey, allowedModelIds: updated });
+        const existing = await RealmDAO.getRouterKey(body.realmId);
+        const currentModels: string[] = existing
+          ? (existing.allowedModelIds as string[])
+          : [];
+        if (!currentModels.includes(entry.litellmModelName)) {
+          const updated = [...currentModels, entry.litellmModelName];
+          const { virtualKey } = await createRealmKey(
+            body.realmId,
+            updated,
+            existing?.monthlyBudgetUsd ?? undefined
+          );
+          await RealmDAO.upsertRouterKey(body.realmId, {
+            litellmVirtualKey: virtualKey,
+            allowedModelIds: updated,
+          });
         }
       } catch (e) {
-        console.warn("[test-api] LiteLLM realm key update failed (non-fatal):", e);
+        console.warn(
+          "[test-api] LiteLLM realm key update failed (non-fatal):",
+          e
+        );
       }
     }
     return NextResponse.json({ ok: true });
@@ -293,21 +370,39 @@ export async function POST(
       agentId,
       action: intentAction,
       params,
-    } = body as { agentId?: string; action?: string; params?: Record<string, unknown> };
+    } = body as {
+      agentId?: string;
+      action?: string;
+      params?: Record<string, unknown>;
+    };
 
     if (!agentId || !intentAction) {
-      return NextResponse.json({ error: "agentId and action are required" }, { status: 400 });
+      return NextResponse.json(
+        { error: "agentId and action are required" },
+        { status: 400 }
+      );
     }
 
     const wsServer = getWSServer();
     if (!wsServer) {
-      return NextResponse.json({ error: "WS server not initialised" }, { status: 503 });
+      return NextResponse.json(
+        { error: "WS server not initialised" },
+        { status: 503 }
+      );
     }
 
     const intentId = `test-intent-${Date.now()}`;
-    const ok = wsServer.sendIntentToAgent(agentId, intentId, intentAction, params ?? {});
+    const ok = wsServer.sendIntentToAgent(
+      agentId,
+      intentId,
+      intentAction,
+      params ?? {}
+    );
     if (!ok) {
-      return NextResponse.json({ error: "Agent not connected" }, { status: 404 });
+      return NextResponse.json(
+        { error: "Agent not connected" },
+        { status: 404 }
+      );
     }
     return NextResponse.json({ ok: true, intentId });
   }
@@ -322,13 +417,16 @@ export async function POST(
     if (!agentId || !Array.isArray(messages) || messages.length === 0) {
       return NextResponse.json(
         { error: "agentId and messages are required" },
-        { status: 400 },
+        { status: 400 }
       );
     }
 
     const wsServer = getWSServer();
     if (!wsServer) {
-      return NextResponse.json({ error: "WS server not initialised" }, { status: 503 });
+      return NextResponse.json(
+        { error: "WS server not initialised" },
+        { status: 503 }
+      );
     }
 
     const conversationId = `test-chat-${Date.now()}`;
@@ -343,32 +441,47 @@ export async function POST(
       messages as any,
       (payload) => {
         if (payload.error) {
-          writer.write(encoder.encode(`data: ${JSON.stringify({ error: payload.error })}\n\n`));
+          writer.write(
+            encoder.encode(
+              `data: ${JSON.stringify({ error: payload.error })}\n\n`
+            )
+          );
           writer.write(encoder.encode("data: [DONE]\n\n"));
-          writer.close().catch(() => { });
+          writer.close().catch(() => {});
           return;
         }
         if (payload.chunk) {
-          writer.write(encoder.encode(`data: ${JSON.stringify({ text: payload.chunk })}\n\n`));
+          writer.write(
+            encoder.encode(
+              `data: ${JSON.stringify({ text: payload.chunk })}\n\n`
+            )
+          );
         }
         if (payload.done) {
           writer.write(encoder.encode("data: [DONE]\n\n"));
-          writer.close().catch(() => { });
+          writer.close().catch(() => {});
         }
-      },
+      }
     );
 
     if (!sent) {
-      return NextResponse.json({ error: "Agent not connected" }, { status: 404 });
+      return NextResponse.json(
+        { error: "Agent not connected" },
+        { status: 404 }
+      );
     }
 
     // Timeout safety
     const timeout = setTimeout(() => {
-      writer.write(encoder.encode(`data: ${JSON.stringify({ error: "timeout" })}\n\n`));
+      writer.write(
+        encoder.encode(`data: ${JSON.stringify({ error: "timeout" })}\n\n`)
+      );
       writer.write(encoder.encode("data: [DONE]\n\n"));
-      writer.close().catch(() => { });
+      writer.close().catch(() => {});
     }, 30_000);
-    writer.closed.then(() => clearTimeout(timeout)).catch(() => clearTimeout(timeout));
+    writer.closed
+      .then(() => clearTimeout(timeout))
+      .catch(() => clearTimeout(timeout));
 
     return new Response(readable, {
       headers: {
@@ -386,9 +499,28 @@ export async function POST(
 // DELETE handlers
 // ─────────────────────────────────────────────
 
+/**
+ * @openapi
+ * /api/test/models/{id}:
+ *   delete:
+ *     summary: Delete a model registry entry.
+ *     tags: [Test]
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         description: The ID of the model to delete.
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Model successfully deleted.
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ */
 export async function DELETE(
   _req: NextRequest,
-  ctx: RouteContext,
+  ctx: RouteContext
 ): Promise<NextResponse> {
   const g = guard();
   if (g) return g;
@@ -398,14 +530,17 @@ export async function DELETE(
 
   // DELETE /api/test/models/:id
   if (resource === "models" && id) {
-    const entry = getModelRegistryEntry(id);
-    if (!entry) return NextResponse.json({ error: "Model not found" }, { status: 404 });
-    if (isLiteLLMConfigured() && entry.litellm_model_name) {
-      try { await removeModel(entry.litellm_model_name); } catch (e) {
+    const entry = await ModelDAO.findById(id);
+    if (!entry)
+      return NextResponse.json({ error: "Model not found" }, { status: 404 });
+    if (isLiteLLMConfigured() && entry.litellmModelName) {
+      try {
+        await removeModel(entry.litellmModelName);
+      } catch (e) {
         console.warn("[test-api] LiteLLM removeModel failed (non-fatal):", e);
       }
     }
-    deleteModelRegistryEntry(id);
+    await ModelDAO.delete(id);
     return NextResponse.json({ ok: true });
   }
 

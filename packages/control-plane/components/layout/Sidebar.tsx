@@ -21,6 +21,9 @@ import {
   ShieldCheck,
   Puzzle,
   BookOpen,
+  Activity,
+  ScrollText,
+  Info,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useRole } from "@/hooks/useRole";
@@ -45,16 +48,29 @@ const NAV_GROUPS = [
       { href: "/knowledge", icon: BookOpen, label: "Knowledge", exact: false },
       { href: "/skills", icon: Puzzle, label: "Skills", exact: false },
       { href: "/graph", icon: Network, label: "Graph", exact: true },
-      { href: "/registrations", icon: Clock, label: "Registrations", exact: false },
+      {
+        href: "/registrations",
+        icon: Clock,
+        label: "Registrations",
+        exact: false,
+      },
       { href: "/users", icon: Users, label: "Users", exact: false },
-      { href: "/governance", icon: ShieldCheck, label: "Governance", exact: false },
+      {
+        href: "/governance",
+        icon: ShieldCheck,
+        label: "Governance",
+        exact: false,
+      },
+      { href: "/network", icon: Activity, label: "Network", exact: false },
       { href: "/server", icon: Server, label: "Server", exact: false },
+      { href: "/docs", icon: ScrollText, label: "API Docs", exact: true },
     ],
   },
 ] as const;
 
 const BOTTOM_ITEMS = [
   { href: "/settings", icon: Settings, label: "Settings" },
+  { href: "/about", icon: Info, label: "About" },
 ] as const;
 
 interface SidebarProps {
@@ -85,21 +101,21 @@ function NavLink({
         "group flex items-center gap-3 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors",
         collapsed ? "justify-center" : "",
         active
-          ? "bg-indigo-100 dark:bg-indigo-600/20 text-indigo-700 dark:text-indigo-400"
-          : "text-vc-muted hover:text-vc-text hover:bg-vc-raised/50"
+          ? "bg-primary-100 dark:bg-primary-600/20 text-primary-700 dark:text-primary-400"
+          : "text-foreground-500 hover:text-foreground hover:bg-background-200/50"
       )}
     >
       <div className="relative shrink-0">
         <Icon className="w-[18px] h-[18px]" />
         {badge != null && badge > 0 && (
-          <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 bg-amber-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-0.5 leading-none">
+          <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 bg-warning-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-0.5 leading-none">
             {badge > 9 ? "9+" : badge}
           </span>
         )}
       </div>
       {!collapsed && <span className="truncate flex-1">{label}</span>}
       {!collapsed && badge != null && badge > 0 && (
-        <span className="ml-auto bg-amber-500 text-white text-[10px] font-bold rounded-full px-1.5 py-0.5 leading-none">
+        <span className="ml-auto bg-warning-500 text-white text-[10px] font-bold rounded-full px-1.5 py-0.5 leading-none">
           {badge > 9 ? "9+" : badge}
         </span>
       )}
@@ -116,8 +132,10 @@ function usePendingCount() {
     const fetch_ = () =>
       fetch("/api/workflow-approvals")
         .then((r) => r.json())
-        .then((d: { approvals?: { id: string }[] }) => setCount(d.approvals?.length ?? 0))
-        .catch(() => { });
+        .then((d: { approvals?: { id: string }[] }) =>
+          setCount(d.approvals?.length ?? 0)
+        )
+        .catch(() => {});
     fetch_();
     const id = setInterval(fetch_, 15_000);
     return () => clearInterval(id);
@@ -134,22 +152,22 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
   return (
     <aside
       className={cn(
-        "relative flex flex-col h-full bg-vc-bg border-r border-vc-border/60 transition-all duration-300 shrink-0",
+        "relative flex flex-col h-full bg-background border-r border-neutral-200/60 transition-all duration-300 shrink-0",
         collapsed ? "w-[60px]" : "w-[220px]"
       )}
     >
       {/* Brand */}
       <div
         className={cn(
-          "flex items-center h-14 border-b border-vc-border/60 px-3",
+          "flex items-center h-14 border-b border-neutral-200/60 px-3",
           collapsed ? "justify-center" : "gap-2.5"
         )}
       >
-        <div className="w-7 h-7 bg-indigo-600 rounded-lg flex items-center justify-center shrink-0 shadow-lg shadow-indigo-600/20">
+        <div className="w-7 h-7 bg-primary-600 rounded-lg flex items-center justify-center shrink-0 shadow-lg shadow-primary-600/20">
           🦞
         </div>
         {!collapsed && (
-          <span className="font-semibold text-vc-text text-sm tracking-tight truncate">
+          <span className="font-semibold text-foreground text-sm tracking-tight truncate">
             VaultysClaw
           </span>
         )}
@@ -162,12 +180,12 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
           return (
             <div key={group.label ?? "__main"}>
               {group.label && !collapsed && (
-                <p className="px-2.5 mb-1 text-[10px] font-semibold uppercase tracking-widest text-vc-muted/60 select-none">
+                <p className="px-2.5 mb-1 text-[10px] font-semibold uppercase tracking-widest text-foreground-500/60 select-none">
                   {group.label}
                 </p>
               )}
               {group.label && collapsed && (
-                <div className="mx-2 my-1 border-t border-vc-border/40" />
+                <div className="mx-2 my-1 border-t border-neutral-200/40" />
               )}
               <div className="space-y-0.5">
                 {group.items.map((item) => {
@@ -193,7 +211,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
       </nav>
 
       {/* Bottom nav */}
-      <div className="py-3 px-2 border-t border-vc-border/60 space-y-0.5">
+      <div className="py-3 px-2 border-t border-neutral-200/60 space-y-0.5">
         {BOTTOM_ITEMS.map((item) => {
           const active = pathname.startsWith(item.href);
           return (
@@ -213,7 +231,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
       <button
         onClick={onToggle}
         aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-        className="absolute -right-3 top-[52px] z-10 w-6 h-6 bg-vc-surface border border-vc-ring rounded-full flex items-center justify-center text-vc-muted hover:text-vc-text hover:border-vc-muted transition-colors shadow-md"
+        className="absolute -right-3 top-[52px] z-10 w-6 h-6 bg-background-100 border border-neutral-300 rounded-full flex items-center justify-center text-foreground-500 hover:text-foreground hover:border-foreground-500 transition-colors shadow-md"
       >
         {collapsed ? (
           <ChevronRight className="w-3 h-3" />

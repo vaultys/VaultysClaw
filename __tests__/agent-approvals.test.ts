@@ -49,7 +49,9 @@ vi.mock("../packages/agent-controller/src/peer-manager", () => ({
   PeerManager: class {
     onInvoke() {}
     updatePeerCatalog() {}
-    connect() { return Promise.resolve(); }
+    connect() {
+      return Promise.resolve();
+    }
     close() {}
   },
 }));
@@ -60,13 +62,17 @@ vi.mock("../packages/agent-controller/src/scheduler", () => ({
     removeSchedule() {}
     start() {}
     stop() {}
-    getSchedules() { return []; }
+    getSchedules() {
+      return [];
+    }
   },
 }));
 
 vi.mock("../packages/agent-controller/src/task-queue", () => ({
   TaskQueue: class {
-    enqueue() { return "task-id"; }
+    enqueue() {
+      return "task-id";
+    }
     start() {}
     stop() {}
   },
@@ -75,17 +81,25 @@ vi.mock("../packages/agent-controller/src/task-queue", () => ({
 vi.mock("../packages/agent-controller/src/skills/loader", () => ({
   SkillLoader: class {
     lastRegistry = { skills: [] };
-    async load() { return this.lastRegistry; }
+    async load() {
+      return this.lastRegistry;
+    }
     watch() {}
   },
 }));
 
 vi.mock("../packages/agent-controller/src/memory/store", () => ({
   MemoryStore: class {
-    save() { return "mem-id"; }
+    save() {
+      return "mem-id";
+    }
     delete() {}
-    search() { return []; }
-    recent() { return []; }
+    search() {
+      return [];
+    }
+    recent() {
+      return [];
+    }
   },
 }));
 
@@ -111,15 +125,18 @@ vi.mock("@vaultys/id", async (importOriginal) => {
     ...mod,
     VaultysId: {
       ...mod.VaultysId,
-      generateMachine: vi.fn(async () => ({
-        did: "did:vaultys:test-machine",
-        toVersion: (_v: number) => ({
-          did: "did:vaultys:test-machine",
-          getSecret: (_enc: string) => "mock-secret",
-        }),
-        getPublicKey: () => Buffer.from("mock-public-key"),
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      } as any)),
+      generateMachine: vi.fn(
+        async () =>
+          ({
+            did: "did:vaultys:test-machine",
+            toVersion: (_v: number) => ({
+              did: "did:vaultys:test-machine",
+              getSecret: (_enc: string) => "mock-secret",
+            }),
+            getPublicKey: () => Buffer.from("mock-public-key"),
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          }) as any
+      ),
     },
   };
 });
@@ -133,57 +150,98 @@ vi.mock("@vaultys/id", async (importOriginal) => {
 
 // Helper: recreate the pendingApprovals mechanism
 class ApprovalManager extends EventEmitter {
-  private pendingApprovals = new Map<string, { resolve: (approved: boolean) => void; timer: ReturnType<typeof setTimeout> }>();
-  private _pendingApprovalsMeta: Array<{ requestId: string; toolName: string; args: Record<string, unknown>; conversationId?: string; requestedAt: string }> = [];
+  private pendingApprovals = new Map<
+    string,
+    {
+      resolve: (approved: boolean) => void;
+      timer: ReturnType<typeof setTimeout>;
+    }
+  >();
+  private _pendingApprovalsMeta: Array<{
+    requestId: string;
+    toolName: string;
+    args: Record<string, unknown>;
+    conversationId?: string;
+    requestedAt: string;
+  }> = [];
 
-  requestApproval(requestId: string, toolName: string, args: Record<string, unknown>): Promise<boolean> {
+  requestApproval(
+    requestId: string,
+    toolName: string,
+    args: Record<string, unknown>
+  ): Promise<boolean> {
     return new Promise<boolean>((resolve) => {
       const timer = setTimeout(() => {
         this.pendingApprovals.delete(requestId);
-        this._pendingApprovalsMeta = this._pendingApprovalsMeta.filter((m) => m.requestId !== requestId);
+        this._pendingApprovalsMeta = this._pendingApprovalsMeta.filter(
+          (m) => m.requestId !== requestId
+        );
         resolve(false);
       }, 200); // short timeout for tests
 
       this.pendingApprovals.set(requestId, { resolve, timer });
-      const meta = { requestId, toolName, args, requestedAt: new Date().toISOString() };
+      const meta = {
+        requestId,
+        toolName,
+        args,
+        requestedAt: new Date().toISOString(),
+      };
       this._pendingApprovalsMeta.push(meta);
       this.emit("tool_approval_request", meta);
     });
   }
 
-  getPendingApprovals() { return this._pendingApprovalsMeta; }
+  getPendingApprovals() {
+    return this._pendingApprovalsMeta;
+  }
 
   resolveApproval(requestId: string, approved: boolean) {
     const pending = this.pendingApprovals.get(requestId);
     if (!pending) throw new Error(`No pending approval with id: ${requestId}`);
     clearTimeout(pending.timer);
     this.pendingApprovals.delete(requestId);
-    this._pendingApprovalsMeta = this._pendingApprovalsMeta.filter((m) => m.requestId !== requestId);
+    this._pendingApprovalsMeta = this._pendingApprovalsMeta.filter(
+      (m) => m.requestId !== requestId
+    );
     pending.resolve(approved);
   }
 }
 
 // Helper: recreate the skill-toggle mechanism
 class SkillToggleManager {
-  private realmSkillFilter: Array<{ name: string; enabled: boolean; isRequired: boolean }> | null = null;
+  private realmSkillFilter: Array<{
+    name: string;
+    enabled: boolean;
+    isRequired: boolean;
+  }> | null = null;
   private skills = ["calc", "web-scraper", "json-api"];
 
-  setRealmFilter(filter: Array<{ name: string; enabled: boolean; isRequired: boolean }>) {
+  setRealmFilter(
+    filter: Array<{ name: string; enabled: boolean; isRequired: boolean }>
+  ) {
     this.realmSkillFilter = filter;
   }
 
   toggleSkillEnabled(skillName: string, enabled: boolean) {
-    if (!this.skills.includes(skillName)) throw new Error(`Unknown skill: ${skillName}`);
+    if (!this.skills.includes(skillName))
+      throw new Error(`Unknown skill: ${skillName}`);
     if (this.realmSkillFilter) {
       const entry = this.realmSkillFilter.find((s) => s.name === skillName);
-      if (entry?.isRequired) throw new Error(`Skill "${skillName}" is required by the realm and cannot be disabled`);
+      if (entry?.isRequired)
+        throw new Error(
+          `Skill "${skillName}" is required by the realm and cannot be disabled`
+        );
     }
     if (!this.realmSkillFilter) this.realmSkillFilter = [];
     const existing = this.realmSkillFilter.find((s) => s.name === skillName);
     if (existing) {
       existing.enabled = enabled;
     } else {
-      this.realmSkillFilter.push({ name: skillName, enabled, isRequired: false });
+      this.realmSkillFilter.push({
+        name: skillName,
+        enabled,
+        isRequired: false,
+      });
     }
   }
 
@@ -234,11 +292,15 @@ describe("Approval flow", () => {
   });
 
   it("resolveApproval throws for an unknown request ID", () => {
-    expect(() => mgr.resolveApproval("no-such-id", true)).toThrow("No pending approval");
+    expect(() => mgr.resolveApproval("no-such-id", true)).toThrow(
+      "No pending approval"
+    );
   });
 
   it("approval times out and auto-rejects", async () => {
-    const result = mgr.requestApproval("req-timeout", "shell", { command: "ls" });
+    const result = mgr.requestApproval("req-timeout", "shell", {
+      command: "ls",
+    });
     const approved = await result; // waits for the 200ms timeout
     expect(approved).toBe(false);
     expect(mgr.getPendingApprovals()).toHaveLength(0);
@@ -284,12 +346,16 @@ describe("Skill toggle", () => {
   });
 
   it("throws for an unknown skill name", () => {
-    expect(() => mgr.toggleSkillEnabled("unknown-skill", false)).toThrow("Unknown skill");
+    expect(() => mgr.toggleSkillEnabled("unknown-skill", false)).toThrow(
+      "Unknown skill"
+    );
   });
 
   it("throws when trying to disable a realm-required skill", () => {
     mgr.setRealmFilter([{ name: "calc", enabled: true, isRequired: true }]);
-    expect(() => mgr.toggleSkillEnabled("calc", false)).toThrow("required by the realm");
+    expect(() => mgr.toggleSkillEnabled("calc", false)).toThrow(
+      "required by the realm"
+    );
   });
 
   it("allows toggling a realm-managed non-required skill", () => {

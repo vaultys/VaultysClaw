@@ -38,7 +38,11 @@ vi.mock("@webapp/hooks/useChat", () => ({
 import ChatPanel from "../../packages/agent-controller/web-app/src/pages/ChatPanel";
 
 beforeEach(() => {
-  chatState = { ...defaultChat, sendMessage: mockSendMessage, clearHistory: mockClearHistory };
+  chatState = {
+    ...defaultChat,
+    sendMessage: mockSendMessage,
+    clearHistory: mockClearHistory,
+  };
   vi.clearAllMocks();
 });
 

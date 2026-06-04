@@ -7,15 +7,25 @@
  */
 
 import type { AgentCapability } from "@vaultysclaw/shared";
-import type { AgentToolDefinition, ToolRegistry, ApprovalCallback } from "./types";
-import type { MastraTool } from "@mastra/core/tools";
+import type {
+  AgentToolDefinition,
+  ToolRegistry,
+  ApprovalCallback,
+  MastraTool,
+} from "./types";
 import { shellTool } from "./shell";
 import { httpRequestTool } from "./http-request";
 import { createFileTools } from "./file-ops";
 import { codeRunnerTool } from "./code-runner";
 import { logToolUsage } from "../db";
 
-export { type AgentToolDefinition, type ToolRegistry, type ApprovalCallback, type ApprovalRequest, type ToolExecutionEvent } from "./types";
+export {
+  type AgentToolDefinition,
+  type ToolRegistry,
+  type ApprovalCallback,
+  type ApprovalRequest,
+  type ToolExecutionEvent,
+} from "./types";
 
 // ---------------------------------------------------------------------------
 // Registry implementation
@@ -58,7 +68,9 @@ export interface RegistryOptions {
 /**
  * Create a tool registry with all built-in tools + any extras.
  */
-export function createToolRegistry(options: RegistryOptions = {}): ToolRegistry {
+export function createToolRegistry(
+  options: RegistryOptions = {}
+): ToolRegistry {
   const workspaceRoot = options.workspaceRoot ?? process.cwd();
 
   const builtIn: AgentToolDefinition[] = [
@@ -86,7 +98,7 @@ export function createToolRegistry(options: RegistryOptions = {}): ToolRegistry 
 export function buildToolSet(
   registry: ToolRegistry,
   capabilities: AgentCapability[],
-  approvalCallback?: ApprovalCallback,
+  approvalCallback?: ApprovalCallback
 ): Record<string, MastraTool> {
   const defs = registry.forCapabilities(capabilities);
   const toolSet: Record<string, MastraTool> = {};
@@ -106,17 +118,42 @@ export function buildToolSet(
           });
 
           if (!approved) {
-            try { logToolUsage(def.name, args as Record<string, unknown>, false, 0); } catch { /* DB may not be initialized */ }
-            return { error: "Tool execution rejected by administrator", approved: false };
+            try {
+              logToolUsage(def.name, args as Record<string, unknown>, false, 0);
+            } catch {
+              /* DB may not be initialized */
+            }
+            return {
+              error: "Tool execution rejected by administrator",
+              approved: false,
+            };
           }
 
           const start = Date.now();
           try {
             const result = await originalTool.execute!(args, options);
-            try { logToolUsage(def.name, args as Record<string, unknown>, true, Date.now() - start); } catch { /* DB may not be initialized */ }
+            try {
+              logToolUsage(
+                def.name,
+                args as Record<string, unknown>,
+                true,
+                Date.now() - start
+              );
+            } catch {
+              /* DB may not be initialized */
+            }
             return result;
           } catch (err) {
-            try { logToolUsage(def.name, args as Record<string, unknown>, false, Date.now() - start); } catch { /* DB may not be initialized */ }
+            try {
+              logToolUsage(
+                def.name,
+                args as Record<string, unknown>,
+                false,
+                Date.now() - start
+              );
+            } catch {
+              /* DB may not be initialized */
+            }
             throw err;
           }
         },
@@ -129,10 +166,28 @@ export function buildToolSet(
           const start = Date.now();
           try {
             const result = await originalTool.execute!(args, options);
-            try { logToolUsage(def.name, args as Record<string, unknown>, true, Date.now() - start); } catch { /* DB may not be initialized */ }
+            try {
+              logToolUsage(
+                def.name,
+                args as Record<string, unknown>,
+                true,
+                Date.now() - start
+              );
+            } catch {
+              /* DB may not be initialized */
+            }
             return result;
           } catch (err) {
-            try { logToolUsage(def.name, args as Record<string, unknown>, false, Date.now() - start); } catch { /* DB may not be initialized */ }
+            try {
+              logToolUsage(
+                def.name,
+                args as Record<string, unknown>,
+                false,
+                Date.now() - start
+              );
+            } catch {
+              /* DB may not be initialized */
+            }
             throw err;
           }
         },

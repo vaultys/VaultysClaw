@@ -16,10 +16,88 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-config";
+import { GrantDAO, RealmDAO } from "@/db";
 import { UserDao } from "@/lib/user-dao";
-import { GrantDao } from "@/lib/grant-dao";
-import { getUserRealms } from "@/lib/db";
 
+/**
+ * @openapi
+ * /api/users:
+ *   get:
+ *     summary: List registered users with optional pagination and filters.
+ *     tags: [Users]
+ *     parameters:
+ *       - in: query
+ *         name: q
+ *         schema:
+ *           type: string
+ *         description: Search by name, email, or DID (case-insensitive).
+ *       - in: query
+ *         name: role
+ *         schema:
+ *           type: string
+ *           enum: [owner, admin, manager, operator, member]
+ *         description: Filter by user role.
+ *       - in: query
+ *         name: isAdmin
+ *         schema:
+ *           type: string
+ *           enum: ["true", "false"]
+ *         description: Filter by admin status.
+ *       - in: query
+ *         name: realm
+ *         schema:
+ *           type: string
+ *         description: Filter by realm id or slug.
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number.
+ *       - in: query
+ *         name: pageSize
+ *         schema:
+ *           type: integer
+ *           default: 20
+ *           maximum: 100
+ *         description: Items per page.
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [name, email, registeredAt]
+ *           default: registeredAt
+ *         description: Sort by field.
+ *       - in: query
+ *         name: sortDir
+ *         schema:
+ *           type: string
+ *           enum: [asc, desc]
+ *           default: asc
+ *         description: Sort direction.
+ *     responses:
+ *       200:
+ *         description: A list of users.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 users:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/User'
+ *                 total:
+ *                   type: integer
+ *                 page:
+ *                   type: integer
+ *                 pageSize:
+ *                   type: integer
+ *                 totalPages:
+ *                   type: integer
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ */
 export async function GET(request: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.isAdmin) {
@@ -32,43 +110,75 @@ export async function GET(request: NextRequest) {
   const realm = searchParams.get("realm") ?? undefined;
   const isAdminFilter = searchParams.get("isAdmin");
   const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10) || 1);
-  const pageSize = Math.min(100, Math.max(1, parseInt(searchParams.get("pageSize") ?? "20", 10) || 20));
-  const sortBy = (searchParams.get("sortBy") ?? "registeredAt") as "name" | "email" | "registeredAt";
+  const pageSize = Math.min(
+    100,
+    Math.max(1, parseInt(searchParams.get("pageSize") ?? "20", 10) || 20)
+  );
+  const sortBy = (searchParams.get("sortBy") ?? "registeredAt") as
+    | "name"
+    | "email"
+    | "registeredAt";
   const sortDir = (searchParams.get("sortDir") ?? "asc") as "asc" | "desc";
 
-  const isAdmin = isAdminFilter === "true" ? true : isAdminFilter === "false" ? false : undefined;
+  const isAdmin =
+    isAdminFilter === "true"
+      ? true
+      : isAdminFilter === "false"
+        ? false
+        : undefined;
   const hasAccountParam = searchParams.get("hasAccount");
-  const hasAccount = hasAccountParam === "true" ? true : hasAccountParam === "false" ? false : undefined;
+  const hasAccount =
+    hasAccountParam === "true"
+      ? true
+      : hasAccountParam === "false"
+        ? false
+        : undefined;
 
-  const result = UserDao.query({ q, role, realm, isAdmin, hasAccount, page, pageSize, sortBy, sortDir });
+  const result = UserDao.query({
+    q,
+    role,
+    realm,
+    isAdmin,
+    hasAccount,
+    page,
+    pageSize,
+    sortBy,
+    sortDir,
+  });
 
-  const users = result.users.map((u) => {
-    const realms = getUserRealms(u.id);
+  const users = await Promise.all(result.users.map(async (u) => {
+    const realms = await RealmDAO.getUserRealms(u.id);
+    const grants = u.did
+      ? (await GrantDAO.listByUser(u.did)).map((g) => ({
+          id: g.id,
+          agentDid: g.agentDid,
+          capabilities: g.capabilities as string[],
+          grantedBy: g.grantedBy,
+          expiresAt: g.expiresAt,
+          createdAt: g.createdAt,
+        }))
+      : [];
     return {
       id: u.id,
       did: u.did,
       name: u.name ?? null,
       email: u.email ?? null,
-      isOwner: u.is_owner === 1,
-      isAdmin: u.is_admin === 1 || u.is_owner === 1,
+      isOwner: Boolean(u.is_owner),
+      isAdmin: Boolean(u.is_admin) || Boolean(u.is_owner),
       role: u.role,
       registeredAt: u.registered_at,
       entraId: u.entra_id ?? null,
       claimedAt: u.claimed_at ?? null,
       realms: realms.map((r) => ({
-        id: r.realm_id, name: r.name, slug: r.slug,
-        color: r.color, isPrimary: Boolean(r.is_primary),
+        id: r.realm.id,
+        name: r.realm.name,
+        slug: r.realm.slug,
+        color: r.realm.color,
+        isPrimary: Boolean(r.isPrimary),
       })),
-      grants: u.did ? GrantDao.listByUser(u.did).map((g) => ({
-        id: g.id,
-        agentDid: g.agent_did,
-        capabilities: JSON.parse(g.capabilities) as string[],
-        grantedBy: g.granted_by,
-        expiresAt: g.expires_at,
-        createdAt: g.created_at,
-      })) : [],
+      grants,
     };
-  });
+  }));
 
   return NextResponse.json({
     users,

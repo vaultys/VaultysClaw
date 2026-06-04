@@ -8,9 +8,45 @@ type Ctx = { params: Promise<{ id: string; msgId: string }> };
  * GET /api/channels/[id]/messages/[msgId]
  * Get a specific message
  */
+/**
+ * @openapi
+ * /api/channels/{id}/messages/{msgId}:
+ *   get:
+ *     summary: Get a specific message
+ *     tags: [Channels]
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - name: msgId
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Message retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: object
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ *       500:
+ *         description: Failed to fetch message
+ */
 export async function GET(_req: NextRequest, ctx: Ctx) {
   try {
-    const auth = await getAuthContext();
+    const auth = await getAuthContext(_req);
     if (!auth) return unauthorized();
 
     const { id, msgId } = await ctx.params;
@@ -45,9 +81,59 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
  * Edit a message
  * Body: { content }
  */
+/**
+ * @openapi
+ * /api/channels/{id}/messages/{msgId}:
+ *   patch:
+ *     summary: Edit a specific message in a channel.
+ *     tags: [Channels]
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         description: The ID of the channel.
+ *         schema:
+ *           type: string
+ *       - name: msgId
+ *         in: path
+ *         required: true
+ *         description: The ID of the message.
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               content:
+ *                 type: string
+ *                 description: The new content of the message.
+ *     responses:
+ *       200:
+ *         description: Message successfully edited.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   $ref: '#/components/schemas/Message'
+ *       400:
+ *         $ref: '#/components/responses/BadRequest'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ *       500:
+ *         description: Failed to edit message.
+ */
 export async function PATCH(req: NextRequest, ctx: Ctx) {
   try {
-    const auth = await getAuthContext();
+    const auth = await getAuthContext(req);
     if (!auth) return unauthorized();
 
     const { id, msgId } = await ctx.params;
@@ -87,9 +173,42 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
  * DELETE /api/channels/[id]/messages/[msgId]
  * Delete a message (soft delete)
  */
+/**
+ * @openapi
+ * /api/channels/{id}/messages/{msgId}:
+ *   delete:
+ *     summary: Soft delete a message in a channel.
+ *     tags: [Channels]
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         description: Channel ID
+ *         schema:
+ *           type: string
+ *       - name: msgId
+ *         in: path
+ *         required: true
+ *         description: Message ID
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Message successfully deleted.
+ *       400:
+ *         $ref: '#/components/responses/BadRequest'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ *       500:
+ *         description: Failed to delete message.
+ */
 export async function DELETE(_req: NextRequest, ctx: Ctx) {
   try {
-    const auth = await getAuthContext();
+    const auth = await getAuthContext(_req);
     if (!auth) return unauthorized();
 
     const { id, msgId } = await ctx.params;

@@ -11,7 +11,9 @@ export const NextResponse = {
       _body: body,
       _status: status,
       status,
-      async json() { return body; },
+      async json() {
+        return body;
+      },
     };
   },
 };
@@ -28,5 +30,7 @@ export class NextRequest {
     this._body = init?.body ?? {};
   }
 
-  async json() { return this._body; }
+  async json() {
+    return this._body;
+  }
 }

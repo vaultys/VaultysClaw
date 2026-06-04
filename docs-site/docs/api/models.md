@@ -12,15 +12,15 @@ The Models API manages the **model registry** — the set of LLMs that Vaultys C
 
 ```typescript
 interface ModelRegistryEntry {
-  id: string;                        // UUID
-  name: string;                      // Human-readable label
+  id: string; // UUID
+  name: string; // Human-readable label
   description?: string;
-  provider: string;                  // e.g. "openai-compatible", "openai", "anthropic"
-  modelId: string;                   // Backend model identifier passed to the provider
-  baseUrl?: string;                  // Required for self-hosted / openai-compatible
+  provider: string; // e.g. "openai-compatible", "openai", "anthropic"
+  modelId: string; // Backend model identifier passed to the provider
+  baseUrl?: string; // Required for self-hosted / openai-compatible
   status: "active" | "inactive";
-  litellmModelName?: string;         // Auto-generated: "{provider}/{slug}"
-  createdAt: string;                 // ISO 8601
+  litellmModelName?: string; // Auto-generated: "{provider}/{slug}"
+  createdAt: string; // ISO 8601
 }
 ```
 
@@ -74,13 +74,13 @@ Registers a new model. If LiteLLM is configured (`LITELLM_BASE_URL` + `LITELLM_M
 }
 ```
 
-| Field | Required | Description |
-|---|---|---|
-| `name` | Yes | Display name. Used to generate `litellmModelName`. |
-| `provider` | Yes | Provider type. Use `openai-compatible` for Ollama, vLLM, Groq, LM Studio, etc. |
-| `modelId` | Yes | Model identifier as the backend provider expects it. |
-| `baseUrl` | Yes (for `openai-compatible`) | HTTP base URL of the model endpoint. Include `/v1` if required by the backend. |
-| `description` | No | Free-text description. |
+| Field         | Required                      | Description                                                                    |
+| ------------- | ----------------------------- | ------------------------------------------------------------------------------ |
+| `name`        | Yes                           | Display name. Used to generate `litellmModelName`.                             |
+| `provider`    | Yes                           | Provider type. Use `openai-compatible` for Ollama, vLLM, Groq, LM Studio, etc. |
+| `modelId`     | Yes                           | Model identifier as the backend provider expects it.                           |
+| `baseUrl`     | Yes (for `openai-compatible`) | HTTP base URL of the model endpoint. Include `/v1` if required by the backend. |
+| `description` | No                            | Free-text description.                                                         |
 
 **Response `201`**
 
@@ -170,10 +170,10 @@ Allows agents in the specified realm to use this model. If LiteLLM is configured
 }
 ```
 
-| Field | Required | Description |
-|---|---|---|
-| `realmId` | Yes | UUID of the realm. |
-| `monthlyBudgetUsd` | No | LiteLLM monthly budget cap for this realm's virtual key. |
+| Field              | Required | Description                                              |
+| ------------------ | -------- | -------------------------------------------------------- |
+| `realmId`          | Yes      | UUID of the realm.                                       |
+| `monthlyBudgetUsd` | No       | LiteLLM monthly budget cap for this realm's virtual key. |
 
 **Response `200`**
 

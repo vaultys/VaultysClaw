@@ -28,14 +28,14 @@ flowchart TD
 
 ```typescript
 interface DelegationCertPayload {
-  id: string;                       // Unique cert ID
-  grantId: string;                  // Source grant in control plane DB
-  userDid: string;                  // The user being delegated from
-  agentDid: string;                 // The agent being delegated to
-                                    // (or "*" for all agents)
-  capabilities: AgentCapability[];  // What is delegated
-  certificate: string;              // base64-encoded signature
-  expiresAt?: string;               // ISO 8601 optional expiry
+  id: string; // Unique cert ID
+  grantId: string; // Source grant in control plane DB
+  userDid: string; // The user being delegated from
+  agentDid: string; // The agent being delegated to
+  // (or "*" for all agents)
+  capabilities: AgentCapability[]; // What is delegated
+  certificate: string; // base64-encoded signature
+  expiresAt?: string; // ISO 8601 optional expiry
 }
 ```
 
@@ -132,12 +132,12 @@ The same delegation mechanism is used for **agent-to-agent** communication:
 ```typescript
 interface AgentPeerGrant {
   id: string;
-  sourceDid: string;          // Calling agent DID
-  targetDid: string;          // Target agent DID
-  targetName: string;         // Human-readable name
-  skillDescription: string;   // Used as the LLM tool description
-  capabilities: string[];     // Capabilities the source can invoke on target
-  certificate: string;        // Signed by control plane
+  sourceDid: string; // Calling agent DID
+  targetDid: string; // Target agent DID
+  targetName: string; // Human-readable name
+  skillDescription: string; // Used as the LLM tool description
+  capabilities: string[]; // Capabilities the source can invoke on target
+  certificate: string; // Signed by control plane
   expiresAt?: string;
 }
 ```
@@ -146,11 +146,11 @@ Peer grants are distributed via the `agent_peer_catalog` WebSocket message. The 
 
 ## Security properties of delegation
 
-| Property | How it is achieved |
-|---|---|
-| Unforgeable | Only the control plane's VaultysId private key can sign certificates |
-| Tamper-evident | Any modification to the certificate content breaks the signature |
-| Offline-verifiable | Agent holds the control plane's public key; no network round-trip needed |
-| Time-limited | Optional `expiresAt` field enforced by the agent |
-| Instantly revocable | Control plane pushes a removal message; agent deletes the cert |
-| Scoped | Cert specifies exact capabilities — not "everything" |
+| Property            | How it is achieved                                                       |
+| ------------------- | ------------------------------------------------------------------------ |
+| Unforgeable         | Only the control plane's VaultysId private key can sign certificates     |
+| Tamper-evident      | Any modification to the certificate content breaks the signature         |
+| Offline-verifiable  | Agent holds the control plane's public key; no network round-trip needed |
+| Time-limited        | Optional `expiresAt` field enforced by the agent                         |
+| Instantly revocable | Control plane pushes a removal message; agent deletes the cert           |
+| Scoped              | Cert specifies exact capabilities — not "everything"                     |

@@ -26,7 +26,9 @@ export const skill: SkillDefinition = {
         inputSchema: z.object({
           expression: z
             .string()
-            .describe("Math expression to evaluate (e.g. '2 + 2', 'Math.sqrt(144)', '(100 * 0.15).toFixed(2)')"),
+            .describe(
+              "Math expression to evaluate (e.g. '2 + 2', 'Math.sqrt(144)', '(100 * 0.15).toFixed(2)')"
+            ),
         }),
         execute: async ({ expression }) => {
           // Restrict to math-safe subset only
@@ -34,13 +36,20 @@ export const skill: SkillDefinition = {
           const sanitized = expression.replace(/\s/g, "");
 
           // Allow Math.* calls and numeric operations only
-          if (!/^[\d\s+\-*/%.()e,^]*$/.test(sanitized.replace(/Math\.[a-zA-Z]+\(/g, ""))) {
+          if (
+            !/^[\d\s+\-*/%.()e,^]*$/.test(
+              sanitized.replace(/Math\.[a-zA-Z]+\(/g, "")
+            )
+          ) {
             return { error: "Expression contains non-mathematical characters" };
           }
 
           try {
             // eslint-disable-next-line no-new-func
-            const fn = new Function("Math", `"use strict"; return (${expression});`);
+            const fn = new Function(
+              "Math",
+              `"use strict"; return (${expression});`
+            );
             const result = fn(Math);
             return { result: String(result), expression };
           } catch (err) {

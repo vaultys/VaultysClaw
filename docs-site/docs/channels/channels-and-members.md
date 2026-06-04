@@ -84,11 +84,11 @@ POST /api/channels/:channelId/members
 }
 ```
 
-| Field | Type | Required | Description |
-|---|---|---|---|
-| `memberDid` | string | Yes | DID of the user or agent to add |
-| `memberType` | `"user"` \| `"agent"` | Yes | Whether the DID belongs to a user or agent |
-| `role` | `"member"` \| `"moderator"` \| `"owner"` | No | Defaults to `"member"` |
+| Field        | Type                                     | Required | Description                                |
+| ------------ | ---------------------------------------- | -------- | ------------------------------------------ |
+| `memberDid`  | string                                   | Yes      | DID of the user or agent to add            |
+| `memberType` | `"user"` \| `"agent"`                    | Yes      | Whether the DID belongs to a user or agent |
+| `role`       | `"member"` \| `"moderator"` \| `"owner"` | No       | Defaults to `"member"`                     |
 
 Returns `201 Created` with the new membership record, or `409 Conflict` if the member is already in the channel.
 
@@ -110,11 +110,11 @@ Returns `200 { "success": true }`.
 
 ### Member roles
 
-| Role | Who can assign | Typical use |
-|---|---|---|
-| `owner` | Only another owner | Channel creator; full admin rights |
-| `moderator` | Owner | Senior members who need to add others or pin/delete messages |
-| `member` | Owner or moderator | Regular participant |
+| Role        | Who can assign     | Typical use                                                  |
+| ----------- | ------------------ | ------------------------------------------------------------ |
+| `owner`     | Only another owner | Channel creator; full admin rights                           |
+| `moderator` | Owner              | Senior members who need to add others or pin/delete messages |
+| `member`    | Owner or moderator | Regular participant                                          |
 
 Only an `owner` or a global admin can archive or delete the channel.
 

@@ -6,15 +6,43 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-config";
-import { UserDao } from "@/lib/user-dao";
+import { UserDAO } from "@/db";
 
+/**
+ * @openapi
+ * /api/users/me:
+ *   get:
+ *     summary: Return the current user's profile.
+ *     tags: [Users]
+ *     responses:
+ *       200:
+ *         description: Successful response with user profile.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 did:
+ *                   type: string
+ *                 name:
+ *                   type: string
+ *                   nullable: true
+ *                 isOwner:
+ *                   type: boolean
+ *                 isAdmin:
+ *                   type: boolean
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ */
 export async function GET() {
   const session = await getServerSession(authOptions);
   if (!session?.user?.did) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const user = UserDao.getByDid(session.user.did);
+  const user = await UserDAO.findByDid(session.user.did);
   if (!user) {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
@@ -22,28 +50,69 @@ export async function GET() {
   return NextResponse.json({
     did: user.did,
     name: user.name ?? null,
-    isOwner: user.is_owner === 1,
-    isAdmin: user.is_admin === 1 || user.is_owner === 1,
+    isOwner: user.isOwner,
+    isAdmin: user.isAdmin || user.isOwner,
   });
 }
 
+/**
+ * @openapi
+ * /api/users/me:
+ *   patch:
+ *     summary: Update the current user's own name.
+ *     tags: [Users]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 description: The new name for the user.
+ *                 maxLength: 128
+ *     responses:
+ *       200:
+ *         description: Successfully updated the user's name.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 ok:
+ *                   type: boolean
+ *                 name:
+ *                   type: string
+ *                   nullable: true
+ *       400:
+ *         $ref: '#/components/responses/BadRequest'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ */
 export async function PATCH(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.did) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const body = await req.json() as { name?: unknown };
+  const body = (await req.json()) as { name?: unknown };
 
   if (typeof body.name !== "string") {
-    return NextResponse.json({ error: "name must be a string" }, { status: 400 });
+    return NextResponse.json(
+      { error: "name must be a string" },
+      { status: 400 }
+    );
   }
 
   const name = body.name.trim();
   if (name.length > 128) {
-    return NextResponse.json({ error: "name must be 128 characters or fewer" }, { status: 400 });
+    return NextResponse.json(
+      { error: "name must be 128 characters or fewer" },
+      { status: 400 }
+    );
   }
 
-  UserDao.update(session.user.did, { name: name || "" });
+  await UserDAO.update(session.user.did, { name: name || "" });
   return NextResponse.json({ ok: true, name: name || null });
 }

@@ -55,7 +55,6 @@ vi.mock("@/hooks/useAdminWS", () => ({
   useAdminWS: () => wsState,
 }));
 
-
 import ChatPage from "../../packages/control-plane/app/chat/page";
 
 beforeEach(() => {
@@ -91,7 +90,9 @@ describe("Control-Plane ChatPage", () => {
     expect(options).toHaveLength(2);
     expect(options[1].textContent).toContain("Agent Alpha");
     // Offline Agent Beta should NOT appear
-    expect(options.map((o) => o.textContent).join()).not.toContain("Agent Beta");
+    expect(options.map((o) => o.textContent).join()).not.toContain(
+      "Agent Beta"
+    );
   });
 
   it("shows the input area after selecting an agent", async () => {
@@ -105,7 +106,9 @@ describe("Control-Plane ChatPage", () => {
 
   it("does not show input area when no agent is selected", () => {
     render(<ChatPage />);
-    expect(screen.queryByPlaceholderText(/type a message/i)).not.toBeInTheDocument();
+    expect(
+      screen.queryByPlaceholderText(/type a message/i)
+    ).not.toBeInTheDocument();
   });
 
   it("shows 'No agents online' when there are none", () => {
@@ -134,7 +137,7 @@ describe("Control-Plane ChatPage", () => {
     vi.mocked(fetch).mockResolvedValueOnce(
       new Response(stream, {
         headers: { "Content-Type": "text/event-stream" },
-      }),
+      })
     );
 
     render(<ChatPage />);
@@ -150,9 +153,12 @@ describe("Control-Plane ChatPage", () => {
     expect(sendBtn).toBeTruthy();
     await userEvent.click(sendBtn!);
 
-    expect(fetch).toHaveBeenCalledWith("/api/chat", expect.objectContaining({
-      method: "POST",
-    }));
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/chat",
+      expect.objectContaining({
+        method: "POST",
+      })
+    );
 
     // Verify the payload includes agentDid and messages
     const callArgs = vi.mocked(fetch).mock.calls[0];
@@ -175,7 +181,7 @@ describe("Control-Plane ChatPage", () => {
     vi.mocked(fetch).mockResolvedValueOnce(
       new Response(stream, {
         headers: { "Content-Type": "text/event-stream" },
-      }),
+      })
     );
 
     render(<ChatPage />);

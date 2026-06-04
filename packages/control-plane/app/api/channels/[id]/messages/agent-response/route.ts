@@ -9,9 +9,61 @@ type Ctx = { params: Promise<{ id: string }> };
  * Allows an agent to post a response to a channel or thread
  * Used when agents respond to mentions
  */
+/**
+ * @openapi
+ * /api/channels/{id}/messages/agent-response:
+ *   post:
+ *     summary: Post an agent response to a channel or thread.
+ *     tags: [Channels]
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         description: The ID of the channel.
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               content:
+ *                 type: string
+ *                 description: The content of the message.
+ *               threadId:
+ *                 type: string
+ *                 description: The ID of the thread (optional).
+ *               metadata:
+ *                 type: object
+ *                 additionalProperties: true
+ *                 description: Additional metadata for the message (optional).
+ *     responses:
+ *       201:
+ *         description: Message posted successfully.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: object
+ *                   description: The posted message details.
+ *       400:
+ *         $ref: '#/components/responses/BadRequest'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ *       500:
+ *         description: Failed to post message.
+ */
 export async function POST(req: NextRequest, ctx: Ctx) {
   try {
-    const auth = await getAuthContext();
+    const auth = await getAuthContext(req);
     if (!auth) return unauthorized();
 
     const { id: channelId } = await ctx.params;
@@ -23,7 +75,10 @@ export async function POST(req: NextRequest, ctx: Ctx) {
 
     // Check if caller is a member of the channel
     if (!ChannelService.isMember(channelId, auth.did)) {
-      return NextResponse.json({ error: "Caller is not a member of this channel" }, { status: 403 });
+      return NextResponse.json(
+        { error: "Caller is not a member of this channel" },
+        { status: 403 }
+      );
     }
 
     const body = (await req.json()) as {
@@ -33,7 +88,10 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     };
 
     if (!body.content?.trim()) {
-      return NextResponse.json({ error: "content is required" }, { status: 400 });
+      return NextResponse.json(
+        { error: "content is required" },
+        { status: 400 }
+      );
     }
 
     // Post agent message
@@ -48,7 +106,13 @@ export async function POST(req: NextRequest, ctx: Ctx) {
 
     return NextResponse.json({ message }, { status: 201 });
   } catch (err) {
-    console.error("POST /api/channels/[id]/messages/agent-response error:", err);
-    return NextResponse.json({ error: "Failed to post message" }, { status: 500 });
+    console.error(
+      "POST /api/channels/[id]/messages/agent-response error:",
+      err
+    );
+    return NextResponse.json(
+      { error: "Failed to post message" },
+      { status: 500 }
+    );
   }
 }

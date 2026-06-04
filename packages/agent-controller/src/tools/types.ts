@@ -6,8 +6,14 @@
  * code execution) require approval by default.
  */
 
-import type { MastraTool } from "@mastra/core/tools";
 import type { AgentCapability } from "@vaultysclaw/shared";
+
+export interface MastraTool {
+  id: string;
+  description: string;
+  inputSchema?: any;
+  execute?: (input: any, options?: any) => Promise<any>;
+}
 
 // ---------------------------------------------------------------------------
 // Tool definition

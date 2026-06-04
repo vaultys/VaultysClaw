@@ -1,27 +1,103 @@
-import { NextResponse } from "next/server";
-import { saveWorkflow, getAllAgents, getDefaultRealm } from "@/lib/db";
+import { NextRequest, NextResponse } from "next/server";
 import { getWSServer } from "@/lib/ws-server";
-import type { WorkflowDefinition } from "@/lib/db";
 import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
+import { AgentDAO, RealmDAO, WorkflowDAO } from "@/db";
+import type { WorkflowDefinition } from "@/lib/workflow-executor";
+import { Prisma } from "@prisma/client";
 
 /**
  * POST /api/workflows/test-seed
  * Create a test workflow with 4 real agents in sequence. Global admin only.
  * Requires 4 agents to be online and registered
  */
-export async function POST() {
+/**
+ * @openapi
+ * /api/workflows/test-seed:
+ *   post:
+ *     summary: Create a test workflow with 4 real agents in sequence.
+ *     tags: [Workflows]
+ *     responses:
+ *       200:
+ *         description: Successfully created a test workflow.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 workflowId:
+ *                   type: string
+ *                 name:
+ *                   type: string
+ *                 realmId:
+ *                   type: string
+ *                 agents:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       did:
+ *                         type: string
+ *                       name:
+ *                         type: string
+ *                       capability:
+ *                         type: string
+ *                 nodes:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: string
+ *                       type:
+ *                         type: string
+ *                       data:
+ *                         type: object
+ *                         properties:
+ *                           agentId:
+ *                             type: string
+ *                           action:
+ *                             type: string
+ *                           params:
+ *                             type: object
+ *                             properties:
+ *                               test:
+ *                                 type: boolean
+ *                               step:
+ *                                 type: integer
+ *                       position:
+ *                         type: object
+ *                         properties:
+ *                           x:
+ *                             type: integer
+ *                           y:
+ *                             type: integer
+ *       400:
+ *         $ref: '#/components/responses/BadRequest'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       500:
+ *         description: Internal server error.
+ */
+export async function POST(request: NextRequest) {
   try {
-    const auth = await getAuthContext();
+    const auth = await getAuthContext(request);
     if (!auth) return unauthorized();
     if (!auth.isGlobalAdmin) return forbidden();
 
     const wsServer = getWSServer();
     if (!wsServer) {
-      return NextResponse.json({ error: "WebSocket server not available" }, { status: 500 });
+      return NextResponse.json(
+        { error: "WebSocket server not available" },
+        { status: 500 }
+      );
     }
 
     // Get connected agents
-    const dbAgents = getAllAgents();
+    const dbAgents = await AgentDAO.findAll();
     const connectedAgents = wsServer.getConnectedAgents().slice(0, 4);
 
     if (connectedAgents.length < 4) {
@@ -37,7 +113,7 @@ export async function POST() {
     const connectedAgentIds = connectedAgents.map((a) => a.id);
     const agents = connectedAgentIds
       .map((did) => dbAgents.find((a) => a.did === did))
-      .filter(Boolean);
+      .filter((a): a is NonNullable<typeof a> => a != null);
 
     if (agents.length < 4) {
       return NextResponse.json(
@@ -47,9 +123,12 @@ export async function POST() {
     }
 
     // Get default realm
-    const defaultRealm = getDefaultRealm();
+    const defaultRealm = await RealmDAO.findDefault();
     if (!defaultRealm) {
-      return NextResponse.json({ error: "No default realm found" }, { status: 500 });
+      return NextResponse.json(
+        { error: "No default realm found" },
+        { status: 500 }
+      );
     }
 
     // Use the first agent's first capability, or fallback to a generic action
@@ -118,9 +197,9 @@ export async function POST() {
     const definition: WorkflowDefinition = { nodes, edges };
 
     // Create the workflow
-    const workflowId = saveWorkflow(
+    const workflowId = await WorkflowDAO.create(
       "Test E2E Workflow",
-      definition,
+      definition as unknown as Prisma.InputJsonValue,
       undefined,
       defaultRealm.id
     );
@@ -139,6 +218,9 @@ export async function POST() {
     });
   } catch (err) {
     console.error("POST /api/workflows/test-seed error:", err);
-    return NextResponse.json({ error: "Failed to create test workflow" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to create test workflow" },
+      { status: 500 }
+    );
   }
 }

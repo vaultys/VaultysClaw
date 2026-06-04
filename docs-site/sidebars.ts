@@ -88,10 +88,7 @@ const sidebars: SidebarsConfig = {
       type: "category",
       label: "WebSocket Protocol",
       collapsed: false,
-      items: [
-        "api/websocket",
-        "api/websocket-messages",
-      ],
+      items: ["api/websocket", "api/websocket-messages"],
     },
   ],
 };

@@ -22,13 +22,14 @@ export const WorkflowInputForm: React.FC<WorkflowInputFormProps> = ({
   };
 
   const firstNode = definition.nodes.length > 0 ? definition.nodes[0] : null;
-  const hasInputFields = firstNode?.data && Object.keys(firstNode.data).length > 0;
+  const hasInputFields =
+    firstNode?.data && Object.keys(firstNode.data).length > 0;
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       {/* Instructions */}
       {!hasInputFields && (
-        <p className="text-sm text-vc-muted">
+        <p className="text-sm text-foreground-500">
           This workflow doesn't require any input to start.
         </p>
       )}
@@ -36,19 +37,22 @@ export const WorkflowInputForm: React.FC<WorkflowInputFormProps> = ({
       {/* Input field */}
       {hasInputFields && (
         <div>
-          <label htmlFor="workflow-input" className="block text-sm font-medium text-vc-text mb-2">
+          <label
+            htmlFor="workflow-input"
+            className="block text-sm font-medium text-foreground mb-2"
+          >
             Input Data
           </label>
           <textarea
             id="workflow-input"
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
-            placeholder='Enter workflow input (e.g., JSON or plain text)'
-            className="w-full px-3 py-2 bg-vc-raised border border-vc-border rounded-lg text-vc-text placeholder-vc-muted focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+            placeholder="Enter workflow input (e.g., JSON or plain text)"
+            className="w-full px-3 py-2 bg-background-200 border border-neutral-200 rounded-lg text-foreground placeholder-foreground-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             rows={4}
             disabled={isLoading}
           />
-          <p className="text-xs text-vc-muted mt-1">
+          <p className="text-xs text-foreground-500 mt-1">
             {inputValue.length} characters
           </p>
         </div>
@@ -58,7 +62,7 @@ export const WorkflowInputForm: React.FC<WorkflowInputFormProps> = ({
       <button
         type="submit"
         disabled={isLoading}
-        className="w-full px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:bg-indigo-600/50 disabled:cursor-not-allowed font-medium transition"
+        className="w-full px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:bg-primary-600/50 disabled:cursor-not-allowed font-medium transition"
       >
         {isLoading ? "Starting..." : "Execute Workflow"}
       </button>

@@ -46,7 +46,10 @@ export class SkillLoader {
     const { skillsDir } = this.opts;
 
     if (!fs.existsSync(skillsDir)) {
-      logger.info({ skillsDir }, "Skills directory does not exist — no skills loaded");
+      logger.info(
+        { skillsDir },
+        "Skills directory does not exist — no skills loaded"
+      );
       this.lastRegistry = createSkillRegistry([]);
       return this.lastRegistry;
     }
@@ -59,7 +62,10 @@ export class SkillLoader {
       let skillDef: SkillDefinition | null = null;
 
       try {
-        if (entry.isFile() && (entry.name.endsWith(".js") || entry.name.endsWith(".mjs"))) {
+        if (
+          entry.isFile() &&
+          (entry.name.endsWith(".js") || entry.name.endsWith(".mjs"))
+        ) {
           skillDef = await loadSkillFromFile(fullPath);
         } else if (entry.isDirectory()) {
           // Look for index.js/index.mjs in the directory
@@ -74,10 +80,16 @@ export class SkillLoader {
 
         if (skillDef) {
           skills.push(skillDef);
-          logger.info({ name: skillDef.name, version: skillDef.version }, "Skill loaded");
+          logger.info(
+            { name: skillDef.name, version: skillDef.version },
+            "Skill loaded"
+          );
         }
       } catch (err) {
-        logger.error({ path: fullPath, err }, "Failed to load skill — skipping");
+        logger.error(
+          { path: fullPath, err },
+          "Failed to load skill — skipping"
+        );
       }
     }
 
@@ -120,13 +132,15 @@ export class SkillLoader {
 // Internal helpers
 // ---------------------------------------------------------------------------
 
-async function loadSkillFromFile(filePath: string): Promise<SkillDefinition | null> {
+async function loadSkillFromFile(
+  filePath: string
+): Promise<SkillDefinition | null> {
   // Clear require cache to support hot-reload
   try {
     const mod = await import(`${filePath}?t=${Date.now()}`);
     const skillDef: SkillDefinition | undefined =
-      mod.skill ??          // named export: export const skill = ...
-      mod.default?.skill;   // default export: export default { skill: ... }
+      mod.skill ?? // named export: export const skill = ...
+      mod.default?.skill; // default export: export default { skill: ... }
 
     if (!skillDef) {
       logger.warn({ filePath }, "Skill file has no 'skill' export — skipping");

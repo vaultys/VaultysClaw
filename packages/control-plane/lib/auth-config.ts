@@ -1,7 +1,7 @@
 import type { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { UserServerChannel } from "./user-server-channel";
-import { UserDao } from "./user-dao";
+import { UserDAO } from "@/db";
 
 declare module "next-auth" {
   interface Session {
@@ -44,11 +44,11 @@ export const authOptions: NextAuthOptions = {
         // For bastion flow, both tokens are present; verify both completed.
         const token = credentials.token;
 
-        const cert = UserServerChannel.connecting(token);
+        const cert = await UserServerChannel.connecting(token);
         if (!cert || cert.status !== 2) return null;
 
         // Consume the certificate to prevent replay
-        const consumed = UserServerChannel.consumeCertificate(token);
+        const consumed = await UserServerChannel.consumeCertificate(token);
         if (!consumed) return null;
 
         // Look up the user by parsing the certificate data to get the DID.
@@ -60,14 +60,14 @@ export const authOptions: NextAuthOptions = {
         const metadata = JSON.parse(cert.metadata ?? "{}") as { did?: string };
         if (!metadata.did) return null;
 
-        const user = UserDao.getByDid(metadata.did);
+        const user = await UserDAO.findByDid(metadata.did);
         if (!user) return null;
 
         return {
           id: user.id,
-          did: user.did,
-          isOwner: user.is_owner === 1,
-          isAdmin: user.is_owner === 1 || user.is_admin === 1,
+          did: user.did ?? null,
+          isOwner: user.isOwner,
+          isAdmin: user.isOwner || user.isAdmin,
         };
       },
     }),

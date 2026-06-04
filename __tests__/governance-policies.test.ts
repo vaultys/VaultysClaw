@@ -37,10 +37,20 @@ let REALM_ID: string;
 beforeAll(() => {
   const db = getDb();
   // Ensure agent rows exist (required for updateAgentBudget FK)
-  upsertAgent({ did: AGENT_DID, name: "GovernanceTestAgent", capabilities: ["api_call"] });
-  upsertAgent({ did: AGENT_DID_2, name: "GovernanceTestAgent2", capabilities: ["file_access"] });
+  upsertAgent({
+    did: AGENT_DID,
+    name: "GovernanceTestAgent",
+    capabilities: ["api_call"],
+  });
+  upsertAgent({
+    did: AGENT_DID_2,
+    name: "GovernanceTestAgent2",
+    capabilities: ["file_access"],
+  });
   // Ensure a realm row exists (policies.realm_id has a FK constraint)
-  const existing = db.prepare("SELECT id FROM realms WHERE slug = ?").get(REALM_SLUG) as { id: string } | undefined;
+  const existing = db
+    .prepare("SELECT id FROM realms WHERE slug = ?")
+    .get(REALM_SLUG) as { id: string } | undefined;
   if (existing) {
     REALM_ID = existing.id;
   } else {
@@ -48,7 +58,9 @@ beforeAll(() => {
     REALM_ID = realm.id;
   }
   // Clean slate
-  db.prepare("DELETE FROM policies WHERE agent_did IN (?, ?) OR realm_id = ?").run(AGENT_DID, AGENT_DID_2, REALM_ID);
+  db.prepare(
+    "DELETE FROM policies WHERE agent_did IN (?, ?) OR realm_id = ?"
+  ).run(AGENT_DID, AGENT_DID_2, REALM_ID);
 });
 
 afterAll(() => {
@@ -56,7 +68,9 @@ afterAll(() => {
 });
 
 beforeEach(() => {
-  getDb().prepare("DELETE FROM policies WHERE agent_did IN (?, ?) OR realm_id = ?").run(AGENT_DID, AGENT_DID_2, REALM_ID);
+  getDb()
+    .prepare("DELETE FROM policies WHERE agent_did IN (?, ?) OR realm_id = ?")
+    .run(AGENT_DID, AGENT_DID_2, REALM_ID);
 });
 
 // ---------------------------------------------------------------------------
@@ -100,7 +114,10 @@ describe("createPolicy", () => {
       capabilities: ["internet_access"],
       resourceLimits: limits,
     });
-    expect(JSON.parse(p.resource_limits!).allowedDomains).toEqual(["example.com", "api.github.com"]);
+    expect(JSON.parse(p.resource_limits!).allowedDomains).toEqual([
+      "example.com",
+      "api.github.com",
+    ]);
   });
 
   it("persists expiresAt when supplied", () => {
@@ -123,8 +140,14 @@ describe("createPolicy", () => {
   });
 
   it("generates a unique id for each policy", () => {
-    const p1 = createPolicy({ agentDid: AGENT_DID, capabilities: ["api_call"] });
-    const p2 = createPolicy({ agentDid: AGENT_DID, capabilities: ["api_call"] });
+    const p1 = createPolicy({
+      agentDid: AGENT_DID,
+      capabilities: ["api_call"],
+    });
+    const p2 = createPolicy({
+      agentDid: AGENT_DID,
+      capabilities: ["api_call"],
+    });
     expect(p1.id).not.toBe(p2.id);
   });
 });
@@ -135,7 +158,10 @@ describe("createPolicy", () => {
 
 describe("getPolicy", () => {
   it("retrieves a policy by id", () => {
-    const created = createPolicy({ agentDid: AGENT_DID, capabilities: ["api_call"] });
+    const created = createPolicy({
+      agentDid: AGENT_DID,
+      capabilities: ["api_call"],
+    });
     const fetched = getPolicy(created.id);
     expect(fetched).toBeDefined();
     expect(fetched!.id).toBe(created.id);
@@ -193,21 +219,33 @@ describe("listPolicies", () => {
 
   it("excludes expired policies by default", () => {
     const pastExpiry = new Date(Date.now() - 1000).toISOString(); // 1 second ago
-    const p = createPolicy({ agentDid: AGENT_DID, capabilities: ["api_call"], expiresAt: pastExpiry });
+    const p = createPolicy({
+      agentDid: AGENT_DID,
+      capabilities: ["api_call"],
+      expiresAt: pastExpiry,
+    });
     const rows = listPolicies({ agentDid: AGENT_DID });
     expect(rows.find((r) => r.id === p.id)).toBeUndefined();
   });
 
   it("includes expired policies when includeExpired=true", () => {
     const pastExpiry = new Date(Date.now() - 1000).toISOString();
-    const p = createPolicy({ agentDid: AGENT_DID, capabilities: ["api_call"], expiresAt: pastExpiry });
+    const p = createPolicy({
+      agentDid: AGENT_DID,
+      capabilities: ["api_call"],
+      expiresAt: pastExpiry,
+    });
     const rows = listPolicies({ agentDid: AGENT_DID, includeExpired: true });
     expect(rows.find((r) => r.id === p.id)).toBeDefined();
   });
 
   it("includes non-expired policies regardless of includeExpired flag", () => {
     const futureExpiry = new Date(Date.now() + 3600 * 1000).toISOString();
-    const p = createPolicy({ agentDid: AGENT_DID, capabilities: ["api_call"], expiresAt: futureExpiry });
+    const p = createPolicy({
+      agentDid: AGENT_DID,
+      capabilities: ["api_call"],
+      expiresAt: futureExpiry,
+    });
     const rows = listPolicies({ agentDid: AGENT_DID });
     expect(rows.find((r) => r.id === p.id)).toBeDefined();
   });
@@ -245,7 +283,11 @@ describe("countPoliciesByAgent", () => {
 
   it("does not count expired policies", () => {
     const pastExpiry = new Date(Date.now() - 1000).toISOString();
-    createPolicy({ agentDid: AGENT_DID, capabilities: ["api_call"], expiresAt: pastExpiry });
+    createPolicy({
+      agentDid: AGENT_DID,
+      capabilities: ["api_call"],
+      expiresAt: pastExpiry,
+    });
 
     const counts = countPoliciesByAgent();
     const row = counts.find((r) => r.agent_did === AGENT_DID);
@@ -272,14 +314,18 @@ describe("updateAgentBudget", () => {
   it("sets token_budget_daily on an existing agent", () => {
     updateAgentBudget(AGENT_DID, { tokenBudgetDaily: 10_000 });
     const db = getDb();
-    const row = db.prepare("SELECT token_budget_daily FROM agents WHERE did = ?").get(AGENT_DID) as { token_budget_daily: number | null };
+    const row = db
+      .prepare("SELECT token_budget_daily FROM agents WHERE did = ?")
+      .get(AGENT_DID) as { token_budget_daily: number | null };
     expect(row?.token_budget_daily).toBe(10_000);
   });
 
   it("sets token_budget_monthly on an existing agent", () => {
     updateAgentBudget(AGENT_DID, { tokenBudgetMonthly: 200_000 });
     const db = getDb();
-    const row = db.prepare("SELECT token_budget_monthly FROM agents WHERE did = ?").get(AGENT_DID) as { token_budget_monthly: number | null };
+    const row = db
+      .prepare("SELECT token_budget_monthly FROM agents WHERE did = ?")
+      .get(AGENT_DID) as { token_budget_monthly: number | null };
     expect(row?.token_budget_monthly).toBe(200_000);
   });
 
@@ -287,7 +333,9 @@ describe("updateAgentBudget", () => {
     updateAgentBudget(AGENT_DID, { tokenBudgetDaily: 5000 });
     updateAgentBudget(AGENT_DID, { tokenBudgetDaily: null });
     const db = getDb();
-    const row = db.prepare("SELECT token_budget_daily FROM agents WHERE did = ?").get(AGENT_DID) as { token_budget_daily: number | null };
+    const row = db
+      .prepare("SELECT token_budget_daily FROM agents WHERE did = ?")
+      .get(AGENT_DID) as { token_budget_daily: number | null };
     expect(row?.token_budget_daily).toBeNull();
   });
 
@@ -297,9 +345,19 @@ describe("updateAgentBudget", () => {
   });
 
   it("sets both daily and monthly in a single call", () => {
-    updateAgentBudget(AGENT_DID, { tokenBudgetDaily: 1000, tokenBudgetMonthly: 30_000 });
+    updateAgentBudget(AGENT_DID, {
+      tokenBudgetDaily: 1000,
+      tokenBudgetMonthly: 30_000,
+    });
     const db = getDb();
-    const row = db.prepare("SELECT token_budget_daily, token_budget_monthly FROM agents WHERE did = ?").get(AGENT_DID) as { token_budget_daily: number; token_budget_monthly: number };
+    const row = db
+      .prepare(
+        "SELECT token_budget_daily, token_budget_monthly FROM agents WHERE did = ?"
+      )
+      .get(AGENT_DID) as {
+      token_budget_daily: number;
+      token_budget_monthly: number;
+    };
     expect(row.token_budget_daily).toBe(1000);
     expect(row.token_budget_monthly).toBe(30_000);
   });

@@ -32,14 +32,17 @@ import {
 /**
  * Factory to create test agents in the database
  */
-function createTestAgent(overrides?: Partial<{
-  did: string;
-  name: string;
-  realmId: string;
-  capabilities: string[];
-  online: boolean;
-}>) {
-  const did = overrides?.did ?? `agent-${Math.random().toString(36).slice(2, 9)}`;
+function createTestAgent(
+  overrides?: Partial<{
+    did: string;
+    name: string;
+    realmId: string;
+    capabilities: string[];
+    online: boolean;
+  }>
+) {
+  const did =
+    overrides?.did ?? `agent-${Math.random().toString(36).slice(2, 9)}`;
   const agent = {
     did,
     name: overrides?.name ?? `Test Agent ${did.slice(0, 8)}`,
@@ -56,13 +59,16 @@ function createTestAgent(overrides?: Partial<{
 /**
  * Factory to create test users in the database
  */
-function createTestUser(overrides?: Partial<{
-  did: string;
-  name: string;
-  email: string;
-  realmId: string;
-}>) {
-  const did = overrides?.did ?? `did:vaultys:${Math.random().toString(36).slice(2, 9)}`;
+function createTestUser(
+  overrides?: Partial<{
+    did: string;
+    name: string;
+    email: string;
+    realmId: string;
+  }>
+) {
+  const did =
+    overrides?.did ?? `did:vaultys:${Math.random().toString(36).slice(2, 9)}`;
   const db = getDb();
   const user = {
     did,
@@ -83,11 +89,13 @@ function createTestUser(overrides?: Partial<{
 /**
  * Factory to create test workflow definitions
  */
-function createTestWorkflow(overrides?: Partial<{
-  name: string;
-  agents: string[];
-  edges?: Array<{ source: string; target: string }>;
-}>) {
+function createTestWorkflow(
+  overrides?: Partial<{
+    name: string;
+    agents: string[];
+    edges?: Array<{ source: string; target: string }>;
+  }>
+) {
   const agents = overrides?.agents ?? ["agent-1", "agent-2"];
   const edges = overrides?.edges ?? [{ source: agents[0], target: agents[1] }];
 
@@ -135,7 +143,11 @@ describe("Workflow Runs API", () => {
 
     it("should return paginated workflow runs", () => {
       const workflow = createTestWorkflow();
-      const workflowId = saveWorkflow(workflow.name, workflow.definition, undefined);
+      const workflowId = saveWorkflow(
+        workflow.name,
+        workflow.definition,
+        undefined
+      );
 
       // Create multiple runs
       Array.from({ length: 5 }, () => startWorkflowRun(workflowId));
@@ -162,13 +174,22 @@ describe("Workflow Runs API", () => {
 
     it("should filter runs by status", () => {
       const workflow = createTestWorkflow();
-      const workflowId = saveWorkflow(workflow.name, workflow.definition, undefined);
+      const workflowId = saveWorkflow(
+        workflow.name,
+        workflow.definition,
+        undefined
+      );
 
       const run1Id = startWorkflowRun(workflowId);
       const run2Id = startWorkflowRun(workflowId);
 
       // Update one run to completed
-      const stepId1 = recordWorkflowStep(run1Id, "agent-1", "agent-1", "pending");
+      const stepId1 = recordWorkflowStep(
+        run1Id,
+        "agent-1",
+        "agent-1",
+        "pending"
+      );
       updateWorkflowStep(stepId1, "completed", { result: "test" }, undefined);
 
       const runningResult = queryWorkflowRuns({ status: "running" });
@@ -177,11 +198,18 @@ describe("Workflow Runs API", () => {
 
     it("should sort runs by creation date", () => {
       const workflow = createTestWorkflow();
-      const workflowId = saveWorkflow(workflow.name, workflow.definition, undefined);
+      const workflowId = saveWorkflow(
+        workflow.name,
+        workflow.definition,
+        undefined
+      );
 
       Array.from({ length: 3 }, () => startWorkflowRun(workflowId));
 
-      const result = queryWorkflowRuns({ sortBy: "startedAt", sortDir: "desc" });
+      const result = queryWorkflowRuns({
+        sortBy: "startedAt",
+        sortDir: "desc",
+      });
       expect(result.runs.length >= 0).toBe(true);
     });
   });
@@ -189,15 +217,39 @@ describe("Workflow Runs API", () => {
   describe("GET /api/workflow-runs/[id] - Get Run Details", () => {
     it("should return single run with steps and workflow definition", () => {
       const workflow = createTestWorkflow();
-      const workflowId = saveWorkflow(workflow.name, workflow.definition, undefined);
+      const workflowId = saveWorkflow(
+        workflow.name,
+        workflow.definition,
+        undefined
+      );
       const runId = startWorkflowRun(workflowId);
 
       // Record steps for the workflow nodes
-      const step1Id = recordWorkflowStep(runId, "agent-1", "agent-1", "pending");
-      const step2Id = recordWorkflowStep(runId, "agent-2", "agent-2", "pending");
+      const step1Id = recordWorkflowStep(
+        runId,
+        "agent-1",
+        "agent-1",
+        "pending"
+      );
+      const step2Id = recordWorkflowStep(
+        runId,
+        "agent-2",
+        "agent-2",
+        "pending"
+      );
 
-      updateWorkflowStep(step1Id, "completed", { output: "result 1" }, undefined);
-      updateWorkflowStep(step2Id, "completed", { output: "result 2" }, undefined);
+      updateWorkflowStep(
+        step1Id,
+        "completed",
+        { output: "result 1" },
+        undefined
+      );
+      updateWorkflowStep(
+        step2Id,
+        "completed",
+        { output: "result 2" },
+        undefined
+      );
 
       const history = getWorkflowRunHistory(runId);
       expect(history?.run).toBeDefined();
@@ -208,7 +260,11 @@ describe("Workflow Runs API", () => {
 
     it("should track step execution states through workflow", () => {
       const workflow = createTestWorkflow();
-      const workflowId = saveWorkflow(workflow.name, workflow.definition, undefined);
+      const workflowId = saveWorkflow(
+        workflow.name,
+        workflow.definition,
+        undefined
+      );
       const runId = startWorkflowRun(workflowId);
 
       const stepId = recordWorkflowStep(runId, "agent-1", "agent-1", "pending");
@@ -256,7 +312,11 @@ describe("Workflow Execution with Mocked Agents", () => {
       edges: [{ source: testAgents[0]!.did, target: testAgents[1]!.did }],
     });
 
-    const workflowId = saveWorkflow(workflow.name, workflow.definition, undefined);
+    const workflowId = saveWorkflow(
+      workflow.name,
+      workflow.definition,
+      undefined
+    );
     const runId = startWorkflowRun(workflowId);
 
     const analyzerStepId = recordWorkflowStep(
@@ -265,7 +325,12 @@ describe("Workflow Execution with Mocked Agents", () => {
       testAgents[0]!.did,
       "pending"
     );
-    updateWorkflowStep(analyzerStepId, "completed", { analysis: "Code is well-structured" }, undefined);
+    updateWorkflowStep(
+      analyzerStepId,
+      "completed",
+      { analysis: "Code is well-structured" },
+      undefined
+    );
 
     const reviewerStepId = recordWorkflowStep(
       runId,
@@ -273,13 +338,22 @@ describe("Workflow Execution with Mocked Agents", () => {
       testAgents[1]!.did,
       "pending"
     );
-    updateWorkflowStep(reviewerStepId, "completed", { review: "approved" }, undefined);
+    updateWorkflowStep(
+      reviewerStepId,
+      "completed",
+      { review: "approved" },
+      undefined
+    );
 
     const history = getWorkflowRunHistory(runId);
-    const reviewerStep = history?.steps.find((s) => s.agent_id === testAgents[1]!.did);
+    const reviewerStep = history?.steps.find(
+      (s) => s.agent_id === testAgents[1]!.did
+    );
 
     expect(reviewerStep?.agent_id).toBe(testAgents[1]!.did);
-    expect(history?.steps.find((s) => s.agent_id === testAgents[0]!.did)?.status).toBe("completed");
+    expect(
+      history?.steps.find((s) => s.agent_id === testAgents[0]!.did)?.status
+    ).toBe("completed");
   });
 
   it("should handle workflow run with failed step", () => {
@@ -288,13 +362,32 @@ describe("Workflow Execution with Mocked Agents", () => {
       agents: [testAgents[0]!.did, testAgents[1]!.did],
     });
 
-    const workflowId = saveWorkflow(workflow.name, workflow.definition, undefined);
+    const workflowId = saveWorkflow(
+      workflow.name,
+      workflow.definition,
+      undefined
+    );
     const runId = startWorkflowRun(workflowId);
 
-    const step1Id = recordWorkflowStep(runId, testAgents[0]!.did, testAgents[0]!.did, "pending");
-    updateWorkflowStep(step1Id, "completed", { result: "analysis done" }, undefined);
+    const step1Id = recordWorkflowStep(
+      runId,
+      testAgents[0]!.did,
+      testAgents[0]!.did,
+      "pending"
+    );
+    updateWorkflowStep(
+      step1Id,
+      "completed",
+      { result: "analysis done" },
+      undefined
+    );
 
-    const step2Id = recordWorkflowStep(runId, testAgents[1]!.did, testAgents[1]!.did, "pending");
+    const step2Id = recordWorkflowStep(
+      runId,
+      testAgents[1]!.did,
+      testAgents[1]!.did,
+      "pending"
+    );
     updateWorkflowStep(step2Id, "failed", undefined, "Agent execution timeout");
 
     const history = getWorkflowRunHistory(runId);
@@ -309,7 +402,11 @@ describe("Workflow Execution with Mocked Agents", () => {
 describe("Workflow Run Status Management", () => {
   it("should track workflow run through all states", () => {
     const workflow = createTestWorkflow();
-    const workflowId = saveWorkflow(workflow.name, workflow.definition, undefined);
+    const workflowId = saveWorkflow(
+      workflow.name,
+      workflow.definition,
+      undefined
+    );
 
     const runId = startWorkflowRun(workflowId);
     let run = getWorkflowRun(runId);
@@ -328,7 +425,11 @@ describe("Workflow Run Status Management", () => {
 
   it("should support workflow run cancellation", () => {
     const workflow = createTestWorkflow();
-    const workflowId = saveWorkflow(workflow.name, workflow.definition, undefined);
+    const workflowId = saveWorkflow(
+      workflow.name,
+      workflow.definition,
+      undefined
+    );
     const runId = startWorkflowRun(workflowId);
 
     const stepId = recordWorkflowStep(runId, "agent-1", "agent-1", "pending");
@@ -378,10 +479,19 @@ describe("Real Agent-Controller with Mocked LLM", () => {
       agents: [testAgent.did],
     });
 
-    const workflowId = saveWorkflow(workflow.name, workflow.definition, undefined);
+    const workflowId = saveWorkflow(
+      workflow.name,
+      workflow.definition,
+      undefined
+    );
     const runId = startWorkflowRun(workflowId);
 
-    const stepId = recordWorkflowStep(runId, testAgent.did, testAgent.did, "pending");
+    const stepId = recordWorkflowStep(
+      runId,
+      testAgent.did,
+      testAgent.did,
+      "pending"
+    );
 
     const mockOutput = {
       thinking: "Mocked analysis",
@@ -496,18 +606,35 @@ describe("Automated Workflow Test Scenarios", () => {
       ],
     };
 
-    const workflowId = saveWorkflow("Code Review Pipeline", workflow, undefined);
+    const workflowId = saveWorkflow(
+      "Code Review Pipeline",
+      workflow,
+      undefined
+    );
     const runId = startWorkflowRun(workflowId);
 
     const steps = [
       { nodeId: "analyzer", agentId: agents[0]!.did, output: { quality: 8.5 } },
-      { nodeId: "auditor", agentId: agents[1]!.did, output: { vulnerabilities: 2 } },
+      {
+        nodeId: "auditor",
+        agentId: agents[1]!.did,
+        output: { vulnerabilities: 2 },
+      },
       { nodeId: "tester", agentId: agents[2]!.did, output: { score: 9.0 } },
-      { nodeId: "writer", agentId: agents[3]!.did, output: { report: "Complete analysis" } },
+      {
+        nodeId: "writer",
+        agentId: agents[3]!.did,
+        output: { report: "Complete analysis" },
+      },
     ];
 
     for (const step of steps) {
-      const stepId = recordWorkflowStep(runId, step.nodeId, step.agentId, "pending");
+      const stepId = recordWorkflowStep(
+        runId,
+        step.nodeId,
+        step.agentId,
+        "pending"
+      );
       updateWorkflowStep(stepId, "completed", step.output, undefined);
     }
 
@@ -521,16 +648,35 @@ describe("Automated Workflow Test Scenarios", () => {
       agents: [agents[0]!.did],
     });
 
-    const workflowId = saveWorkflow(workflow.name, workflow.definition, undefined);
+    const workflowId = saveWorkflow(
+      workflow.name,
+      workflow.definition,
+      undefined
+    );
     const runId = startWorkflowRun(workflowId);
 
     // First attempt fails
-    const step1Id = recordWorkflowStep(runId, agents[0]!.did, agents[0]!.did, "pending");
+    const step1Id = recordWorkflowStep(
+      runId,
+      agents[0]!.did,
+      agents[0]!.did,
+      "pending"
+    );
     updateWorkflowStep(step1Id, "failed", undefined, "Timeout");
 
     // Retry succeeds
-    const step2Id = recordWorkflowStep(runId, agents[0]!.did, agents[0]!.did, "pending");
-    updateWorkflowStep(step2Id, "completed", { result: "success on retry" }, undefined);
+    const step2Id = recordWorkflowStep(
+      runId,
+      agents[0]!.did,
+      agents[0]!.did,
+      "pending"
+    );
+    updateWorkflowStep(
+      step2Id,
+      "completed",
+      { result: "success on retry" },
+      undefined
+    );
 
     const history = getWorkflowRunHistory(runId);
     expect(history?.steps.length).toBeGreaterThanOrEqual(2);

@@ -28,6 +28,7 @@ Files are stored on the local filesystem with metadata tracked in the database.
 ### Configuration
 
 **Environment Variables:**
+
 ```bash
 VAULTYS_STORAGE_TYPE=filesystem      # Default
 VAULTYS_STORAGE_DIR=./data/knowledge-files
@@ -74,7 +75,7 @@ docker run -d \
 Or with Docker Compose:
 
 ```yaml
-version: '3.8'
+version: "3.8"
 
 services:
   minio:
@@ -180,6 +181,7 @@ curl http://localhost:3000/api/settings/storage \
 ```
 
 Response:
+
 ```json
 {
   "storageType": "filesystem",
@@ -267,6 +269,7 @@ sources/ks-def456/kf-003_data.csv
 ```
 
 This structure:
+
 - Prevents name collisions across sources
 - Makes file cleanup easier (delete all files for a source)
 - Is compatible with both filesystem and S3 (S3 treats `/` as hierarchy)
@@ -283,12 +286,14 @@ This allows gradual migration without downtime.
 ## Performance Notes
 
 ### Filesystem Storage
+
 - Lowest latency for local development
 - Files on the same disk as database
 - No network overhead
 - Suitable for single-machine deployments
 
 ### S3 Storage
+
 - Slightly higher latency (network round-trip)
 - Scales to unlimited storage
 - Data replicated across availability zones (AWS)
@@ -343,6 +348,7 @@ If non-zero, run the migration endpoint.
 ### S3 connection errors
 
 Verify credentials and endpoint:
+
 - AWS credentials are set in environment or IAM role
 - MinIO endpoint is reachable
 - Bucket exists and is accessible
@@ -351,6 +357,7 @@ Verify credentials and endpoint:
 ### Large file uploads slow
 
 For uploads >10MB:
+
 - Increase NextRequest timeout in server configuration
 - Consider uploading directly to S3 via presigned URLs (future enhancement)
 - Check network bandwidth between client and storage

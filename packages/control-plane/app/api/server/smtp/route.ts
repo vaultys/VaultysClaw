@@ -8,12 +8,45 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext, forbidden, unauthorized } from "@/lib/auth-utils";
 import { getSmtpConfig, saveSmtpConfig, testSmtpConnection } from "@/lib/smtp";
 
-export async function GET() {
-  const auth = await getAuthContext();
+/**
+ * @openapi
+ * /api/server/smtp:
+ *   get:
+ *     summary: Retrieve SMTP configuration with password redacted.
+ *     tags: [Server]
+ *     responses:
+ *       200:
+ *         description: SMTP configuration retrieved successfully.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 configured:
+ *                   type: boolean
+ *                 host:
+ *                   type: string
+ *                 port:
+ *                   type: integer
+ *                 secure:
+ *                   type: boolean
+ *                 user:
+ *                   type: string
+ *                 password:
+ *                   type: string
+ *                 from:
+ *                   type: string
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ */
+export async function GET(request: NextRequest) {
+  const auth = await getAuthContext(request);
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
 
-  const config = getSmtpConfig();
+  const config = await getSmtpConfig();
   if (!config) return NextResponse.json({ configured: false });
 
   return NextResponse.json({
@@ -27,8 +60,47 @@ export async function GET() {
   });
 }
 
+/**
+ * @openapi
+ * /api/server/smtp:
+ *   put:
+ *     summary: Save SMTP configuration.
+ *     tags: [Server]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               host:
+ *                 type: string
+ *               port:
+ *                 type: integer
+ *               secure:
+ *                 type: boolean
+ *               user:
+ *                 type: string
+ *               password:
+ *                 type: string
+ *               from:
+ *                 type: string
+ *             required:
+ *               - host
+ *               - port
+ *               - from
+ *     responses:
+ *       200:
+ *         description: SMTP configuration saved successfully.
+ *       400:
+ *         $ref: '#/components/responses/BadRequest'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ */
 export async function PUT(req: NextRequest) {
-  const auth = await getAuthContext();
+  const auth = await getAuthContext(req);
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
 
@@ -42,14 +114,19 @@ export async function PUT(req: NextRequest) {
   };
 
   if (!body.host || !body.port || !body.from) {
-    return NextResponse.json({ error: "host, port and from are required" }, { status: 400 });
+    return NextResponse.json(
+      { error: "host, port and from are required" },
+      { status: 400 }
+    );
   }
 
-  const existing = getSmtpConfig();
+  const existing = await getSmtpConfig();
   const password =
-    body.password === "••••••••" && existing ? existing.password : (body.password ?? "");
+    body.password === "••••••••" && existing
+      ? existing.password
+      : (body.password ?? "");
 
-  saveSmtpConfig({
+  await saveSmtpConfig({
     host: body.host,
     port: body.port,
     secure: body.secure ?? false,
@@ -61,8 +138,45 @@ export async function PUT(req: NextRequest) {
   return NextResponse.json({ ok: true });
 }
 
+/**
+ * @openapi
+ * /api/server/smtp:
+ *   post:
+ *     summary: Verify SMTP connection.
+ *     tags: [Server]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               host:
+ *                 type: string
+ *               port:
+ *                 type: integer
+ *               secure:
+ *                 type: boolean
+ *               user:
+ *                 type: string
+ *               password:
+ *                 type: string
+ *               from:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: SMTP connection verified successfully.
+ *       400:
+ *         $ref: '#/components/responses/BadRequest'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       502:
+ *         description: Connection failed.
+ */
 export async function POST(req: NextRequest) {
-  const auth = await getAuthContext();
+  const auth = await getAuthContext(req);
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
 
@@ -76,7 +190,7 @@ export async function POST(req: NextRequest) {
     from?: string;
   };
 
-  const existing = getSmtpConfig();
+  const existing = await getSmtpConfig();
 
   const config = {
     host: body.host ?? existing?.host ?? "",
@@ -100,7 +214,7 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "Connection failed" },
-      { status: 502 },
+      { status: 502 }
     );
   }
 }

@@ -52,7 +52,9 @@ describe("Workflow Templates", () => {
   it("should filter templates by category", () => {
     const analysisTemplates = getTemplates("analysis");
     expect(analysisTemplates.length).toBeGreaterThan(0);
-    expect(analysisTemplates.every((t) => t.category === "analysis")).toBe(true);
+    expect(analysisTemplates.every((t) => t.category === "analysis")).toBe(
+      true
+    );
   });
 
   it("should get unique categories", () => {
@@ -123,7 +125,7 @@ describe("Workflow Export/Import", () => {
         {
           id: "node-2",
           type: "condition",
-          data: { expression: 'output.quality > 0.8' },
+          data: { expression: "output.quality > 0.8" },
           position: { x: 300, y: 100 },
         },
       ],
@@ -144,7 +146,7 @@ describe("Workflow Export/Import", () => {
     expect(imported.nodes.length).toBe(2);
     expect(imported.edges.length).toBe(1);
     expect(imported.nodes[0].data.params.language).toBe("python");
-    expect(imported.nodes[1].data.expression).toBe('output.quality > 0.8');
+    expect(imported.nodes[1].data.expression).toBe("output.quality > 0.8");
     expect(imported.edges[0].data.label).toBe("success");
 
     deleteWorkflow(id);
@@ -227,7 +229,9 @@ describe("Template to Workflow Conversion", () => {
 
       // Verify parallel structure
       const inputNode = definition.nodes.find((n: any) => n.id === "input");
-      const parentEdges = definition.edges.filter((e: any) => e.source === "input");
+      const parentEdges = definition.edges.filter(
+        (e: any) => e.source === "input"
+      );
       expect(parentEdges.length).toBe(2);
 
       deleteWorkflow(id);

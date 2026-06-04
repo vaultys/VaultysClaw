@@ -35,12 +35,12 @@ Nothing in the knowledge base leaves the agent host unless you configure a cloud
 
 ## Prerequisites
 
-| Requirement | Where to configure |
-|---|---|
-| Agent online and LLM configured | Agent detail page → Config tab |
-| Embedding model available | Same LLM config — see [Embedding models](#embedding-models) below |
-| `knowledge_search` capability granted | Agent detail page → Knowledge tab (shortcut) or Governance tab |
-| _(Optional)_ Docling for PDF/DOCX | Settings → Integrations → Docling |
+| Requirement                           | Where to configure                                                |
+| ------------------------------------- | ----------------------------------------------------------------- |
+| Agent online and LLM configured       | Agent detail page → Config tab                                    |
+| Embedding model available             | Same LLM config — see [Embedding models](#embedding-models) below |
+| `knowledge_search` capability granted | Agent detail page → Knowledge tab (shortcut) or Governance tab    |
+| _(Optional)_ Docling for PDF/DOCX     | Settings → Integrations → Docling                                 |
 
 ---
 
@@ -71,12 +71,12 @@ Upload one or more files from your browser. Supported natively (plain text, Mark
 
 The agent processes the source in the background. The status badge cycles through:
 
-| Status | Meaning |
-|---|---|
-| `idle` | Saved but not yet synced |
-| `syncing` | Agent is actively fetching, chunking, and embedding |
-| `ready` | Indexed and searchable |
-| `error` | Sync failed — hover the badge or expand the row for the error message |
+| Status    | Meaning                                                               |
+| --------- | --------------------------------------------------------------------- |
+| `idle`    | Saved but not yet synced                                              |
+| `syncing` | Agent is actively fetching, chunking, and embedding                   |
+| `ready`   | Indexed and searchable                                                |
+| `error`   | Sync failed — hover the badge or expand the row for the error message |
 
 If the agent is **offline** when you click Sync, the request is queued and executed on the next connection.
 
@@ -173,13 +173,13 @@ Metadata and file paths are stored in the SQLite database; the binary content li
 2. Toggle **Use S3 storage** on
 3. Fill in the fields:
 
-| Field | Description |
-|---|---|
-| Region | AWS region, e.g. `us-east-1`. For MinIO, any non-empty value works. |
-| Bucket | The bucket that must already exist |
-| Endpoint | Leave blank for AWS. For MinIO: `http://minio:9000` |
-| Access Key ID | IAM access key or MinIO user |
-| Secret Access Key | Leave blank to keep the previously saved key |
+| Field             | Description                                                         |
+| ----------------- | ------------------------------------------------------------------- |
+| Region            | AWS region, e.g. `us-east-1`. For MinIO, any non-empty value works. |
+| Bucket            | The bucket that must already exist                                  |
+| Endpoint          | Leave blank for AWS. For MinIO: `http://minio:9000`                 |
+| Access Key ID     | IAM access key or MinIO user                                        |
+| Secret Access Key | Leave blank to keep the previously saved key                        |
 
 4. Click **Test connection** — the control plane sends a `HeadBucket` request and reports latency or a specific error (wrong credentials vs. bucket not found vs. access denied)
 5. Click **Save** to persist the configuration (encrypted with the server's VaultysId)
@@ -195,7 +195,7 @@ minio:
   image: minio/minio:latest
   ports:
     - "9000:9000"
-    - "9001:9001"  # console UI
+    - "9001:9001" # console UI
   environment:
     MINIO_ROOT_USER: minioadmin
     MINIO_ROOT_PASSWORD: minioadmin
@@ -273,21 +273,21 @@ Deleting removes all stored chunks and vectors for that source from the agent's 
 
 ### Knowledge sources
 
-| Method | Path | Auth | Description |
-|---|---|---|---|
-| `GET` | `/api/knowledge` | Admin | List all knowledge sources (filter by `agentDid`) |
-| `POST` | `/api/knowledge` | Admin | Create a new knowledge source |
-| `GET` | `/api/knowledge/{id}` | Admin | Get a single source with metadata |
-| `DELETE` | `/api/knowledge/{id}` | Admin | Delete a source and its indexed chunks |
-| `POST` | `/api/knowledge/{id}/sync` | Admin | Trigger a sync (dispatches `knowledge_sync` to the agent via WebSocket) |
+| Method   | Path                       | Auth  | Description                                                             |
+| -------- | -------------------------- | ----- | ----------------------------------------------------------------------- |
+| `GET`    | `/api/knowledge`           | Admin | List all knowledge sources (filter by `agentDid`)                       |
+| `POST`   | `/api/knowledge`           | Admin | Create a new knowledge source                                           |
+| `GET`    | `/api/knowledge/{id}`      | Admin | Get a single source with metadata                                       |
+| `DELETE` | `/api/knowledge/{id}`      | Admin | Delete a source and its indexed chunks                                  |
+| `POST`   | `/api/knowledge/{id}/sync` | Admin | Trigger a sync (dispatches `knowledge_sync` to the agent via WebSocket) |
 
 The sync endpoint dispatches a WebSocket `knowledge_sync` message to the agent and returns immediately; poll the source's `status` field to track progress.
 
 ### File storage configuration
 
-| Method | Path | Auth | Description |
-|---|---|---|---|
-| `GET` | `/api/settings/storage` | Global Admin | Get current storage config (type, S3 fields — secret never returned) |
-| `PUT` | `/api/settings/storage` | Global Admin | Update storage config; omit `secretAccessKey` to keep the existing one |
-| `POST` | `/api/settings/storage/test` | Global Admin | Test S3 connectivity via `HeadBucket`; returns `{ ok, latency }` or `{ ok: false, error }` |
-| `POST` | `/api/settings/storage/migrate` | Global Admin | Migrate one batch (up to 100) of legacy BLOB files to the current storage backend |
+| Method | Path                            | Auth         | Description                                                                                |
+| ------ | ------------------------------- | ------------ | ------------------------------------------------------------------------------------------ |
+| `GET`  | `/api/settings/storage`         | Global Admin | Get current storage config (type, S3 fields — secret never returned)                       |
+| `PUT`  | `/api/settings/storage`         | Global Admin | Update storage config; omit `secretAccessKey` to keep the existing one                     |
+| `POST` | `/api/settings/storage/test`    | Global Admin | Test S3 connectivity via `HeadBucket`; returns `{ ok, latency }` or `{ ok: false, error }` |
+| `POST` | `/api/settings/storage/migrate` | Global Admin | Migrate one batch (up to 100) of legacy BLOB files to the current storage backend          |

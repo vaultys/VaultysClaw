@@ -1,17 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import {
-  getRealmById,
-  addAgentToRealm,
-  removeAgentFromRealm,
-  getAgent,
-  getRealmRouterKey,
-  getModelsByRealm,
-  setAgentLlmConfig,
-} from "@/lib/db";
 import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
 import { isLiteLLMConfigured, getLiteLLMBaseUrl } from "@/lib/litellm-client";
 import { getWSServer } from "@/lib/ws-server";
 import type { LlmConfig } from "@vaultysclaw/shared";
+import { AgentDAO, ModelDAO, RealmDAO } from "@/db";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -19,45 +11,105 @@ type Ctx = { params: Promise<{ id: string }> };
  * POST /api/realms/[id]/agents — add an agent to this realm. Realm admin or global admin.
  * Body: { agentDid, isPrimary? }
  */
+/**
+ * @openapi
+ * /api/realms/{id}/agents:
+ *   post:
+ *     summary: Add an agent to a realm.
+ *     tags: [Realms]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the realm.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               agentDid:
+ *                 type: string
+ *                 description: The DID of the agent to add.
+ *               isPrimary:
+ *                 type: boolean
+ *                 description: Whether the agent is primary.
+ *             required:
+ *               - agentDid
+ *     responses:
+ *       200:
+ *         description: Agent added successfully.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 ok:
+ *                   type: boolean
+ *                 llmPushed:
+ *                   type: boolean
+ *       400:
+ *         $ref: '#/components/responses/BadRequest'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ *       500:
+ *         description: Failed to add agent to realm.
+ */
 export async function POST(req: NextRequest, ctx: Ctx) {
   try {
-    const auth = await getAuthContext();
+    const auth = await getAuthContext(req);
     if (!auth) return unauthorized();
 
     const { id } = await ctx.params;
-    if (!auth.canAdminRealm(id)) return forbidden();
+    if (!(await auth.canAdminRealm(id))) return forbidden();
 
-    const realm = getRealmById(id);
-    if (!realm) return NextResponse.json({ error: "Realm not found" }, { status: 404 });
+    const realm = await RealmDAO.findById(id);
+    if (!realm)
+      return NextResponse.json({ error: "Realm not found" }, { status: 404 });
 
-    const body = await req.json() as { agentDid?: string; isPrimary?: boolean };
-    if (!body.agentDid) return NextResponse.json({ error: "agentDid is required" }, { status: 400 });
+    const body = (await req.json()) as {
+      agentDid?: string;
+      isPrimary?: boolean;
+    };
+    if (!body.agentDid)
+      return NextResponse.json(
+        { error: "agentDid is required" },
+        { status: 400 }
+      );
 
-    const agent = getAgent(body.agentDid);
-    if (!agent) return NextResponse.json({ error: "Agent not found" }, { status: 404 });
+    const agent = await AgentDAO.findByDid(body.agentDid);
+    if (!agent)
+      return NextResponse.json({ error: "Agent not found" }, { status: 404 });
 
-    addAgentToRealm(body.agentDid, id, body.isPrimary ?? false);
+    await AgentDAO.addToRealm(body.agentDid, id, body.isPrimary ?? false);
 
     // Auto-push LiteLLM config if the realm has a virtual key and accessible models
     let llmPushed = false;
     if (isLiteLLMConfigured()) {
       try {
-        const routerKey = getRealmRouterKey(id);
-        if (routerKey?.litellm_virtual_key) {
-          const models = getModelsByRealm(id).filter(
-            (m) => m.status === "active" && m.litellm_model_name,
+        const routerKey = await RealmDAO.getRouterKey(id);
+        if (routerKey?.litellmVirtualKey) {
+          const models = (await ModelDAO.findByRealm(id)).filter(
+            (m) => m.status === "active" && m.litellmModelName
           );
           const firstModel = models[0];
-          if (firstModel?.litellm_model_name) {
+          if (firstModel?.litellmModelName) {
             const config: LlmConfig = {
               provider: "openai-compatible",
               baseUrl: getLiteLLMBaseUrl(),
-              apiKey: routerKey.litellm_virtual_key,
-              model: firstModel.litellm_model_name,
+              apiKey: routerKey.litellmVirtualKey,
+              model: firstModel.litellmModelName,
             };
-            setAgentLlmConfig(body.agentDid, config);
+            await AgentDAO.setLlmConfig(body.agentDid, config);
             const wsServer = getWSServer();
-            llmPushed = wsServer?.sendLlmConfig(body.agentDid, config) ?? false;
+            llmPushed = (await wsServer?.sendLlmConfig(body.agentDid, config)) ?? false;
           }
         }
       } catch (e) {
@@ -68,7 +120,10 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     return NextResponse.json({ ok: true, llmPushed });
   } catch (err) {
     console.error(err);
-    return NextResponse.json({ error: "Failed to add agent to realm" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to add agent to realm" },
+      { status: 500 }
+    );
   }
 }
 
@@ -76,23 +131,72 @@ export async function POST(req: NextRequest, ctx: Ctx) {
  * DELETE /api/realms/[id]/agents — remove an agent from this realm. Realm admin or global admin.
  * Body: { agentDid }
  */
+/**
+ * @openapi
+ * /api/realms/{id}/agents:
+ *   delete:
+ *     summary: Remove an agent from a realm.
+ *     tags: [Realms]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Realm ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               agentDid:
+ *                 type: string
+ *             required:
+ *               - agentDid
+ *     responses:
+ *       200:
+ *         description: Agent removed successfully.
+ *       400:
+ *         $ref: '#/components/responses/BadRequest'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ *       500:
+ *         description: Failed to remove agent from realm.
+ */
 export async function DELETE(req: NextRequest, ctx: Ctx) {
   try {
-    const auth = await getAuthContext();
+    const auth = await getAuthContext(req);
     if (!auth) return unauthorized();
 
     const { id } = await ctx.params;
-    if (!auth.canAdminRealm(id)) return forbidden();
+    if (!(await auth.canAdminRealm(id))) return forbidden();
 
-    const body = await req.json() as { agentDid?: string };
-    if (!body.agentDid) return NextResponse.json({ error: "agentDid is required" }, { status: 400 });
+    const body = (await req.json()) as { agentDid?: string };
+    if (!body.agentDid)
+      return NextResponse.json(
+        { error: "agentDid is required" },
+        { status: 400 }
+      );
 
-    const ok = removeAgentFromRealm(body.agentDid, id);
-    if (!ok) return NextResponse.json({ error: "Cannot remove agent from the default realm" }, { status: 400 });
+    const ok = await AgentDAO.removeFromRealm(body.agentDid, id);
+    if (!ok)
+      return NextResponse.json(
+        { error: "Cannot remove agent from the default realm" },
+        { status: 400 }
+      );
 
     return NextResponse.json({ ok: true });
   } catch (err) {
     console.error(err);
-    return NextResponse.json({ error: "Failed to remove agent from realm" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to remove agent from realm" },
+      { status: 500 }
+    );
   }
 }

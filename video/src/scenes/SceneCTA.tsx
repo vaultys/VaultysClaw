@@ -1,12 +1,18 @@
 import React from "react";
-import { AbsoluteFill, Img, interpolate, spring, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
+import {
+  AbsoluteFill,
+  Img,
+  interpolate,
+  spring,
+  staticFile,
+  useCurrentFrame,
+  useVideoConfig,
+} from "remotion";
 import { BRAND, MONO, useSceneOpacity, useFadeIn } from "../helpers";
 
 const TOTAL = 500;
 
-const BULLETS = [
-  "Open Source  ·  MIT License  ·  Self-hosted",
-];
+const BULLETS = ["Open Source  ·  MIT License  ·  Self-hosted"];
 
 export const SceneCTA: React.FC = () => {
   const frame = useCurrentFrame();
@@ -14,15 +20,30 @@ export const SceneCTA: React.FC = () => {
   const sceneOpacity = useSceneOpacity(TOTAL, 20, 30);
 
   // Logo mark
-  const logoScale = spring({ frame: frame - 5, fps, config: { damping: 14, stiffness: 80 } });
-  const logoOpacity = interpolate(frame, [5, 25], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const logoScale = spring({
+    frame: frame - 5,
+    fps,
+    config: { damping: 14, stiffness: 80 },
+  });
+  const logoOpacity = interpolate(frame, [5, 25], [0, 1], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
 
   // Headline words stagger
   const word = (start: number) => ({
-    opacity: interpolate(frame, [start, start + 18], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" }),
+    opacity: interpolate(frame, [start, start + 18], [0, 1], {
+      extrapolateLeft: "clamp",
+      extrapolateRight: "clamp",
+    }),
     y: interpolate(
-      spring({ frame: frame - start, fps, config: { damping: 14, stiffness: 90 } }),
-      [0, 1], [30, 0]
+      spring({
+        frame: frame - start,
+        fps,
+        config: { damping: 14, stiffness: 90 },
+      }),
+      [0, 1],
+      [30, 0]
     ),
   });
 
@@ -33,14 +54,26 @@ export const SceneCTA: React.FC = () => {
   const line2c = word(110);
 
   // Subtitle
-  const subOpacity = interpolate(frame, [120, 145], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const subOpacity = interpolate(frame, [120, 145], [0, 1], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
 
   // Buttons
-  const btn1Opacity = interpolate(frame, [145, 165], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
-  const btn2Opacity = interpolate(frame, [160, 180], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const btn1Opacity = interpolate(frame, [145, 165], [0, 1], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+  const btn2Opacity = interpolate(frame, [160, 180], [0, 1], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
 
   // URL badge
-  const urlOpacity = interpolate(frame, [175, 195], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const urlOpacity = interpolate(frame, [175, 195], [0, 1], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
 
   // Radial pulse behind logo
   const pulse = Math.sin((frame / 40) * Math.PI) * 0.5 + 0.5;
@@ -50,7 +83,8 @@ export const SceneCTA: React.FC = () => {
     <AbsoluteFill
       style={{
         opacity: sceneOpacity,
-        background: "linear-gradient(135deg, #0f172a 0%, #150d2e 60%, #0f172a 100%)",
+        background:
+          "linear-gradient(135deg, #0f172a 0%, #150d2e 60%, #0f172a 100%)",
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
@@ -69,7 +103,8 @@ export const SceneCTA: React.FC = () => {
       {/* Dot grid */}
       <AbsoluteFill
         style={{
-          backgroundImage: "radial-gradient(circle, rgba(124,58,237,0.06) 1px, transparent 1px)",
+          backgroundImage:
+            "radial-gradient(circle, rgba(124,58,237,0.06) 1px, transparent 1px)",
           backgroundSize: "44px 44px",
           pointerEvents: "none",
         }}
@@ -85,7 +120,10 @@ export const SceneCTA: React.FC = () => {
       >
         <Img
           src={staticFile("vaultys-logo.svg")}
-          style={{ height: 72, filter: "drop-shadow(0 0 24px rgba(124,58,237,0.5))" }}
+          style={{
+            height: 72,
+            filter: "drop-shadow(0 0 24px rgba(124,58,237,0.5))",
+          }}
         />
       </div>
 
@@ -116,7 +154,14 @@ export const SceneCTA: React.FC = () => {
           overflow: "hidden",
         }}
       >
-        <div style={{ display: "flex", justifyContent: "center", gap: 22, marginBottom: 10 }}>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "center",
+            gap: 22,
+            marginBottom: 10,
+          }}
+        >
           {[
             { text: "Your", style: line1a },
             { text: "culture", style: line1b },
@@ -134,7 +179,14 @@ export const SceneCTA: React.FC = () => {
             </span>
           ))}
         </div>
-        <div style={{ display: "flex", justifyContent: "center", gap: 22, flexWrap: "wrap" }}>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "center",
+            gap: 22,
+            flexWrap: "wrap",
+          }}
+        >
           {[
             { text: "deserves", style: line2a, color: BRAND.text },
             { text: "agents", style: line2b, color: "#a78bfa" },

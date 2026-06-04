@@ -1,14 +1,68 @@
 import { NextRequest, NextResponse } from "next/server";
-import { ChannelBridgeService } from "@/lib/channel-bridge-service";
-import { ChannelBridgeDao } from "@/lib/channel-bridge-dao";
 import { ChannelService } from "@/lib/channel-service";
 import { MessageDispatcher } from "@/lib/message-dispatcher";
 import { TeamsGateway } from "@/lib/bridges/teams-gateway";
+import { ChannelBridgeDAO } from "@/db";
 
 /**
  * POST /api/bridges/teams/incoming
  * Public endpoint — called by Teams Bot Framework.
  * Verifies the request (stub) and routes the message to the matching VaultysClaw channel.
+ */
+/**
+ * @openapi
+ * /api/bridges/teams/incoming:
+ *   post:
+ *     summary: Process incoming messages from Teams Bot Framework.
+ *     tags: [Bridges]
+ *     requestBody:
+ *       description: Teams Activity object.
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               text:
+ *                 type: string
+ *               from:
+ *                 type: object
+ *                 properties:
+ *                   id:
+ *                     type: string
+ *                   name:
+ *                     type: string
+ *               channelId:
+ *                 type: string
+ *               conversation:
+ *                 type: object
+ *                 properties:
+ *                   id:
+ *                     type: string
+ *               type:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Message processed successfully.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 ok:
+ *                   type: boolean
+ *                 messageId:
+ *                   type: string
+ *       400:
+ *         $ref: '#/components/responses/BadRequest'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ *       500:
+ *         description: Failed to process Teams message.
  */
 export async function POST(req: NextRequest) {
   try {
@@ -42,25 +96,43 @@ export async function POST(req: NextRequest) {
 
     const content = activity.text?.trim();
     if (!content) {
-      return NextResponse.json({ error: "message text is required" }, { status: 400 });
+      return NextResponse.json(
+        { error: "message text is required" },
+        { status: 400 }
+      );
     }
 
     const teamsChannelId = activity.channelId;
     if (!teamsChannelId) {
-      return NextResponse.json({ error: "channelId is required in activity" }, { status: 400 });
+      return NextResponse.json(
+        { error: "channelId is required in activity" },
+        { status: 400 }
+      );
     }
 
     // Find bridge by external channel ID
-    const bridge = ChannelBridgeDao.getByExternalChannelId("teams", teamsChannelId);
+    const bridge = await ChannelBridgeDAO.getByExternalChannelId(
+      "teams",
+      teamsChannelId
+    );
     if (!bridge) {
-      return NextResponse.json({ error: "No bridge found for this Teams channel" }, { status: 404 });
+      return NextResponse.json(
+        { error: "No bridge found for this Teams channel" },
+        { status: 404 }
+      );
     }
 
     if (!bridge.isSyncEnabled) {
-      return NextResponse.json({ error: "Bridge sync is disabled" }, { status: 403 });
+      return NextResponse.json(
+        { error: "Bridge sync is disabled" },
+        { status: 403 }
+      );
     }
     if (bridge.syncDirection === "outgoing") {
-      return NextResponse.json({ error: "Bridge does not accept incoming messages" }, { status: 403 });
+      return NextResponse.json(
+        { error: "Bridge does not accept incoming messages" },
+        { status: 403 }
+      );
     }
 
     const fromId = activity.from?.id ?? "teams:unknown";
@@ -93,12 +165,15 @@ export async function POST(req: NextRequest) {
         authorType: "user",
         threadId: message.threadId,
         createdAt: message.createdAt,
-      },
+      }
     );
 
     return NextResponse.json({ ok: true, messageId: message.id });
   } catch (err) {
     console.error("POST /api/bridges/teams/incoming error:", err);
-    return NextResponse.json({ error: "Failed to process Teams message" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to process Teams message" },
+      { status: 500 }
+    );
   }
 }

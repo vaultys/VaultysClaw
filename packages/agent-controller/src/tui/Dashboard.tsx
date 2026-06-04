@@ -1,21 +1,20 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Box, Text, useInput, useApp } from "ink";
 import TextInput from "ink-text-input";
+import {
+  fmtUptime,
+  getStatusColor,
+  getLogLevelColor,
+  formatTimeOnly,
+} from "@vaultysclaw/shared";
 import type { Agent, AgentInfo, LogEntry, IntentEntry } from "../agent";
 import type { LlmConfig } from "@vaultysclaw/shared";
 
 // ---- Sub-components ----
 
 function StatusBar({ info }: { info: AgentInfo }) {
-  const statusColor: Record<string, string> = {
-    connected: "green",
-    connecting: "yellow",
-    pending_approval: "cyan",
-    disconnected: "red",
-    initializing: "gray",
-  };
-  const color = statusColor[info.status] ?? "white";
-  const uptime = `${Math.floor(info.uptime / 60)}m ${info.uptime % 60}s`;
+  const color = getStatusColor(info.status);
+  const uptime = fmtUptime(info.uptime);
   const llm = info.activeLlmProvider
     ? `${info.activeLlmProvider}/${info.activeLlmModel}`
     : "none";
@@ -39,37 +38,45 @@ function StatusBar({ info }: { info: AgentInfo }) {
 }
 
 function LogPanel({ logs, height }: { logs: LogEntry[]; height: number }) {
-  const levelColor = (l: string) => l === "error" ? "red" : l === "warn" ? "yellow" : l === "debug" ? "gray" : "white";
   const visible = logs.slice(-height);
   return (
     <Box flexDirection="column" flexGrow={1} borderStyle="round" paddingX={1}>
-      <Text bold dimColor>LOGS</Text>
+      <Text bold dimColor>
+        LOGS
+      </Text>
       {visible.map((e, i) => (
-        <Text key={i} color={levelColor(e.level)} wrap="truncate">
-          <Text dimColor>{e.ts.slice(11, 19)}</Text>
-          {" "}<Text bold>[{e.level.toUpperCase()}]</Text>
-          {" "}{e.message}
+        <Text key={i} color={getLogLevelColor(e.level)} wrap="truncate">
+          <Text dimColor>{formatTimeOnly(e.ts)}</Text>{" "}
+          <Text bold>[{e.level.toUpperCase()}]</Text> {e.message}
         </Text>
       ))}
     </Box>
   );
 }
 
-function IntentPanel({ intents, height }: { intents: IntentEntry[]; height: number }) {
-  const statusColor = (s: string) => s === "success" ? "green" : s === "failed" ? "red" : "yellow";
+function IntentPanel({
+  intents,
+  height,
+}: {
+  intents: IntentEntry[];
+  height: number;
+}) {
   const visible = intents.slice(-height);
   return (
     <Box flexDirection="column" flexGrow={1} borderStyle="round" paddingX={1}>
-      <Text bold dimColor>INTENTS</Text>
+      <Text bold dimColor>
+        INTENTS
+      </Text>
       {visible.map((e, i) => (
         <Text key={i} wrap="truncate">
-          <Text color={statusColor(e.status)}>■ </Text>
-          <Text dimColor>{e.receivedAt.slice(11, 19)}</Text>
-          {" "}<Text bold>{e.action}</Text>
-          {" "}
-          {e.status === "failed"
-            ? <Text color="red">{e.error}</Text>
-            : <Text dimColor>{e.status}</Text>}
+          <Text color={getStatusColor(e.status)}>■ </Text>
+          <Text dimColor>{formatTimeOnly(e.receivedAt)}</Text>{" "}
+          <Text bold>{e.action}</Text>{" "}
+          {e.status === "failed" ? (
+            <Text color="red">{e.error}</Text>
+          ) : (
+            <Text dimColor>{e.status}</Text>
+          )}
         </Text>
       ))}
     </Box>
@@ -80,7 +87,10 @@ function CapabilityList({ caps }: { caps: string[] }) {
   return (
     <Box flexDirection="row" gap={1} flexWrap="wrap">
       {caps.map((c) => (
-        <Text key={c} backgroundColor="blue" color="white"> {c} </Text>
+        <Text key={c} backgroundColor="blue" color="white">
+          {" "}
+          {c}{" "}
+        </Text>
       ))}
     </Box>
   );
@@ -89,20 +99,47 @@ function CapabilityList({ caps }: { caps: string[] }) {
 function HelpBar({ configEditing }: { configEditing: boolean }) {
   return (
     <Box paddingX={1}>
-      <Text dimColor>q quit  </Text>
-      {!configEditing && <Text dimColor>c config  </Text>}
-      {configEditing && <Text dimColor>Esc cancel  Enter save field  Tab next  </Text>}
+      <Text dimColor>q quit </Text>
+      {!configEditing && <Text dimColor>c config </Text>}
+      {configEditing && (
+        <Text dimColor>Esc cancel Enter save field Tab next </Text>
+      )}
     </Box>
   );
 }
 
 // ---- LLM Config Editor ----
 
-type ConfigField = "provider" | "model" | "apiKey" | "baseUrl" | "systemPrompt" | "maxTokens";
-const CONFIG_FIELDS: ConfigField[] = ["provider", "model", "apiKey", "baseUrl", "systemPrompt", "maxTokens"];
-const PROVIDERS = ["openai", "anthropic", "google", "ollama", "openai-compatible"] as const;
+type ConfigField =
+  | "provider"
+  | "model"
+  | "apiKey"
+  | "baseUrl"
+  | "systemPrompt"
+  | "maxTokens";
+const CONFIG_FIELDS: ConfigField[] = [
+  "provider",
+  "model",
+  "apiKey",
+  "baseUrl",
+  "systemPrompt",
+  "maxTokens",
+];
+const PROVIDERS = [
+  "openai",
+  "anthropic",
+  "google",
+  "ollama",
+  "openai-compatible",
+] as const;
 
-function ConfigEditor({ agent, onClose }: { agent: Agent; onClose: () => void }) {
+function ConfigEditor({
+  agent,
+  onClose,
+}: {
+  agent: Agent;
+  onClose: () => void;
+}) {
   const safe = agent.getLlmConfigSafe();
   const [fields, setFields] = useState({
     provider: safe?.provider ?? "openai",
@@ -119,18 +156,35 @@ function ConfigEditor({ agent, onClose }: { agent: Agent; onClose: () => void })
   );
 
   const nextField = () => setActiveField((f) => (f + 1) % CONFIG_FIELDS.length);
-  const prevField = () => setActiveField((f) => (f - 1 + CONFIG_FIELDS.length) % CONFIG_FIELDS.length);
+  const prevField = () =>
+    setActiveField(
+      (f) => (f - 1 + CONFIG_FIELDS.length) % CONFIG_FIELDS.length
+    );
 
   useInput(async (input, key) => {
-    if (key.escape) { onClose(); return; }
-    if (key.tab) { nextField(); return; }
-    if (key.upArrow) { prevField(); return; }
-    if (key.downArrow) { nextField(); return; }
+    if (key.escape) {
+      onClose();
+      return;
+    }
+    if (key.tab) {
+      nextField();
+      return;
+    }
+    if (key.upArrow) {
+      prevField();
+      return;
+    }
+    if (key.downArrow) {
+      nextField();
+      return;
+    }
     if (key.return && !saving) {
       const fieldName = CONFIG_FIELDS[activeField];
       if (fieldName === "provider") {
         // Cycle providers on Enter
-        const idx = PROVIDERS.indexOf(fields.provider as typeof PROVIDERS[number]);
+        const idx = PROVIDERS.indexOf(
+          fields.provider as (typeof PROVIDERS)[number]
+        );
         const next = PROVIDERS[(idx + 1) % PROVIDERS.length];
         setFields((f) => ({ ...f, provider: next }));
       }
@@ -146,13 +200,21 @@ function ConfigEditor({ agent, onClose }: { agent: Agent; onClose: () => void })
           apiKey: fields.apiKey.trim() || undefined,
           baseUrl: fields.baseUrl.trim() || undefined,
           systemPrompt: fields.systemPrompt.trim() || undefined,
-          maxTokens: fields.maxTokens ? parseInt(fields.maxTokens, 10) : undefined,
+          maxTokens: fields.maxTokens
+            ? parseInt(fields.maxTokens, 10)
+            : undefined,
         };
-        if (!config.model) { setStatusMsg("Error: model is required"); setSaving(false); return; }
+        if (!config.model) {
+          setStatusMsg("Error: model is required");
+          setSaving(false);
+          return;
+        }
         await agent.updateLlmConfig(config);
         setStatusMsg("Saved ✓");
       } catch (err) {
-        setStatusMsg("Error: " + (err instanceof Error ? err.message : String(err)));
+        setStatusMsg(
+          "Error: " + (err instanceof Error ? err.message : String(err))
+        );
       } finally {
         setSaving(false);
       }
@@ -164,9 +226,18 @@ function ConfigEditor({ agent, onClose }: { agent: Agent; onClose: () => void })
       try {
         await agent.updateLlmConfig(null);
         setStatusMsg("Cleared ✓ (using env config)");
-        setFields({ provider: "openai", model: "", apiKey: "", baseUrl: "", systemPrompt: "", maxTokens: "" });
+        setFields({
+          provider: "openai",
+          model: "",
+          apiKey: "",
+          baseUrl: "",
+          systemPrompt: "",
+          maxTokens: "",
+        });
       } catch (err) {
-        setStatusMsg("Error: " + (err instanceof Error ? err.message : String(err)));
+        setStatusMsg(
+          "Error: " + (err instanceof Error ? err.message : String(err))
+        );
       } finally {
         setSaving(false);
       }
@@ -176,16 +247,22 @@ function ConfigEditor({ agent, onClose }: { agent: Agent; onClose: () => void })
 
   const fieldLabel = (f: ConfigField) => {
     const labels: Record<ConfigField, string> = {
-      provider: "Provider (Enter to cycle)", model: "Model", apiKey: "API Key (masked)",
-      baseUrl: "Base URL", systemPrompt: "System Prompt", maxTokens: "Max Tokens",
+      provider: "Provider (Enter to cycle)",
+      model: "Model",
+      apiKey: "API Key (masked)",
+      baseUrl: "Base URL",
+      systemPrompt: "System Prompt",
+      maxTokens: "Max Tokens",
     };
     return labels[f];
   };
 
   return (
     <Box flexDirection="column" borderStyle="round" paddingX={1} paddingY={0}>
-      <Text bold color="cyan">LLM Configuration Editor</Text>
-      <Text dimColor>s=save  x=clear  Tab=next field  Esc=cancel</Text>
+      <Text bold color="cyan">
+        LLM Configuration Editor
+      </Text>
+      <Text dimColor>s=save x=clear Tab=next field Esc=cancel</Text>
       <Box height={1} />
       {CONFIG_FIELDS.map((f, i) => {
         const isActive = i === activeField;
@@ -193,7 +270,8 @@ function ConfigEditor({ agent, onClose }: { agent: Agent; onClose: () => void })
         return (
           <Box key={f} flexDirection="row" gap={1} marginBottom={0}>
             <Text color={isActive ? "cyan" : "gray"} bold={isActive}>
-              {isActive ? "▶ " : "  "}{fieldLabel(f)}:
+              {isActive ? "▶ " : "  "}
+              {fieldLabel(f)}:
             </Text>
             {isActive ? (
               <TextInput
@@ -203,13 +281,29 @@ function ConfigEditor({ agent, onClose }: { agent: Agent; onClose: () => void })
                 focus={isActive}
               />
             ) : (
-              <Text>{isMasked && fields[f] ? "***" : fields[f] || (f === "provider" ? fields.provider : "")}</Text>
+              <Text>
+                {isMasked && fields[f]
+                  ? "***"
+                  : fields[f] || (f === "provider" ? fields.provider : "")}
+              </Text>
             )}
           </Box>
         );
       })}
       <Box height={1} />
-      {statusMsg ? <Text color={statusMsg.startsWith("Error") ? "red" : statusMsg.includes("✓") ? "green" : "yellow"}>{statusMsg}</Text> : null}
+      {statusMsg ? (
+        <Text
+          color={
+            statusMsg.startsWith("Error")
+              ? "red"
+              : statusMsg.includes("✓")
+                ? "green"
+                : "yellow"
+          }
+        >
+          {statusMsg}
+        </Text>
+      ) : null}
     </Box>
   );
 }
@@ -228,7 +322,14 @@ export function Dashboard({ agent }: { agent: Agent }) {
 
   useEffect(() => {
     // Listen to all agent events to trigger re-renders
-    const events = ["status_changed", "log", "heartbeat", "intent_received", "intent_result", "config_updated"];
+    const events = [
+      "status_changed",
+      "log",
+      "heartbeat",
+      "intent_received",
+      "intent_result",
+      "config_updated",
+    ];
     for (const ev of events) agent.on(ev, refresh);
     const timer = setInterval(refresh, 2000);
     return () => {
@@ -252,7 +353,13 @@ export function Dashboard({ agent }: { agent: Agent }) {
     return (
       <Box flexDirection="column" padding={0}>
         <StatusBar info={info} />
-        <ConfigEditor agent={agent} onClose={() => { setConfigEditing(false); refresh(); }} />
+        <ConfigEditor
+          agent={agent}
+          onClose={() => {
+            setConfigEditing(false);
+            refresh();
+          }}
+        />
         <HelpBar configEditing={true} />
       </Box>
     );

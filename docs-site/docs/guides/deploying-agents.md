@@ -50,6 +50,7 @@ pnpm start -F @vaultysclaw/agent-controller
 ```
 
 The agent will:
+
 1. Generate (or load) its VaultysId
 2. Connect to the control plane WebSocket
 3. Send a registration request
@@ -141,12 +142,12 @@ You can run multiple agent controllers pointing to the same control plane. Each 
 
 A typical setup might include:
 
-| Agent | LLM | Capabilities | Realm |
-|---|---|---|---|
-| `analyst` | GPT-4o | `internet_access`, `api_call` | Research |
-| `coder` | Claude Sonnet | `code_execution`, `file_access` | Engineering |
-| `mailer` | GPT-4o-mini | `mail_send` | Operations |
-| `local-llm` | Llama 3.2 (Ollama) | `file_access` | Engineering |
+| Agent       | LLM                | Capabilities                    | Realm       |
+| ----------- | ------------------ | ------------------------------- | ----------- |
+| `analyst`   | GPT-4o             | `internet_access`, `api_call`   | Research    |
+| `coder`     | Claude Sonnet      | `code_execution`, `file_access` | Engineering |
+| `mailer`    | GPT-4o-mini        | `mail_send`                     | Operations  |
+| `local-llm` | Llama 3.2 (Ollama) | `file_access`                   | Engineering |
 
 Each agent runs as a separate process, potentially on separate machines.
 

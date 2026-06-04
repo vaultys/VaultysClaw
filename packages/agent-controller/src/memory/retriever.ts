@@ -14,13 +14,74 @@ import { MemoryStore, type MemoryRow } from "./store";
 
 // Common English stop-words to skip when extracting query keywords.
 const STOP_WORDS = new Set([
-  "a", "an", "the", "and", "or", "but", "in", "on", "at", "to", "for",
-  "of", "with", "by", "from", "up", "about", "into", "is", "it", "its",
-  "as", "be", "was", "are", "were", "been", "being", "have", "has", "had",
-  "do", "does", "did", "will", "would", "could", "should", "may", "might",
-  "can", "this", "that", "these", "those", "i", "you", "he", "she", "we",
-  "they", "me", "him", "her", "us", "them", "my", "your", "his", "our",
-  "their", "what", "which", "who", "how", "when", "where", "why",
+  "a",
+  "an",
+  "the",
+  "and",
+  "or",
+  "but",
+  "in",
+  "on",
+  "at",
+  "to",
+  "for",
+  "of",
+  "with",
+  "by",
+  "from",
+  "up",
+  "about",
+  "into",
+  "is",
+  "it",
+  "its",
+  "as",
+  "be",
+  "was",
+  "are",
+  "were",
+  "been",
+  "being",
+  "have",
+  "has",
+  "had",
+  "do",
+  "does",
+  "did",
+  "will",
+  "would",
+  "could",
+  "should",
+  "may",
+  "might",
+  "can",
+  "this",
+  "that",
+  "these",
+  "those",
+  "i",
+  "you",
+  "he",
+  "she",
+  "we",
+  "they",
+  "me",
+  "him",
+  "her",
+  "us",
+  "them",
+  "my",
+  "your",
+  "his",
+  "our",
+  "their",
+  "what",
+  "which",
+  "who",
+  "how",
+  "when",
+  "where",
+  "why",
 ]);
 
 function extractKeywords(text: string): string[] {
@@ -76,9 +137,9 @@ export class MemoryRetriever {
 
     // Always add high-importance recent memories
     try {
-      const recent = this.store.recent(undefined, 20).filter(
-        (r) => r.importance >= this.opts.minImportance,
-      );
+      const recent = this.store
+        .recent(undefined, 20)
+        .filter((r) => r.importance >= this.opts.minImportance);
       for (const r of recent.slice(0, this.opts.recentLimit)) {
         if (!rows.find((x) => x.id === r.id)) rows.push(r);
       }

@@ -43,9 +43,9 @@ Returns every skill across all realms, with realm metadata and counters.
 ]
 ```
 
-| Field | Description |
-|---|---|
-| `agent_count` | Number of agents currently enrolled in this realm |
+| Field            | Description                                             |
+| ---------------- | ------------------------------------------------------- |
+| `agent_count`    | Number of agents currently enrolled in this realm       |
 | `override_count` | Number of per-agent overrides configured for this skill |
 
 ---
@@ -72,15 +72,15 @@ POST /api/skills
 }
 ```
 
-| Field | Type | Required | Description |
-|---|---|---|---|
-| `realmId` | string | Yes | ID of the realm to attach the skill to |
-| `name` | string | Yes | Unique within the realm — used to deduplicate when an agent belongs to multiple realms |
-| `description` | string | No | Human-readable summary |
-| `version` | string | No | Semver string (informational only) |
-| `isRequired` | boolean | No | Default `false`. If `true`, agents cannot opt out |
-| `config` | object | No | Arbitrary JSON metadata |
-| `content` | string | No | Markdown instructions injected into the agent system prompt |
+| Field         | Type    | Required | Description                                                                            |
+| ------------- | ------- | -------- | -------------------------------------------------------------------------------------- |
+| `realmId`     | string  | Yes      | ID of the realm to attach the skill to                                                 |
+| `name`        | string  | Yes      | Unique within the realm — used to deduplicate when an agent belongs to multiple realms |
+| `description` | string  | No       | Human-readable summary                                                                 |
+| `version`     | string  | No       | Semver string (informational only)                                                     |
+| `isRequired`  | boolean | No       | Default `false`. If `true`, agents cannot opt out                                      |
+| `config`      | object  | No       | Arbitrary JSON metadata                                                                |
+| `content`     | string  | No       | Markdown instructions injected into the agent system prompt                            |
 
 ### Response `201 Created`
 
@@ -102,11 +102,11 @@ Returns the raw DB row:
 
 ### Error responses
 
-| Status | Condition |
-|---|---|
-| `400` | `realmId` missing, `name` missing or blank |
-| `404` | Realm not found |
-| `409` | A skill with this name already exists in this realm |
+| Status | Condition                                           |
+| ------ | --------------------------------------------------- |
+| `400`  | `realmId` missing, `name` missing or blank          |
+| `404`  | Realm not found                                     |
+| `409`  | A skill with this name already exists in this realm |
 
 ---
 
@@ -139,10 +139,10 @@ Note: `config` is returned as a parsed object. The `content` field is not includ
 
 ### Error responses
 
-| Status | Condition |
-|---|---|
-| `403` | Caller is not a member of this realm |
-| `404` | Skill not found, or belongs to a different realm |
+| Status | Condition                                        |
+| ------ | ------------------------------------------------ |
+| `403`  | Caller is not a member of this realm             |
+| `404`  | Skill not found, or belongs to a different realm |
 
 ---
 
@@ -168,13 +168,13 @@ All body fields are optional — only the fields you include are updated.
 }
 ```
 
-| Field | Type | Description |
-|---|---|---|
-| `description` | string \| null | Pass `null` to clear |
-| `version` | string \| null | Pass `null` to clear |
-| `isRequired` | boolean | Flip the required flag |
-| `config` | object | Replace the entire config object |
-| `content` | string \| null | Replace instructions; pass `null` to remove content |
+| Field         | Type           | Description                                         |
+| ------------- | -------------- | --------------------------------------------------- |
+| `description` | string \| null | Pass `null` to clear                                |
+| `version`     | string \| null | Pass `null` to clear                                |
+| `isRequired`  | boolean        | Flip the required flag                              |
+| `config`      | object         | Replace the entire config object                    |
+| `content`     | string \| null | Replace instructions; pass `null` to remove content |
 
 ### Response `200 OK`
 
@@ -202,10 +202,10 @@ Removes the skill from the realm. Connected agents receive a `skills_config` bro
 
 ### Error responses
 
-| Status | Condition |
-|---|---|
-| `403` | Caller is not a realm admin |
-| `404` | Skill not found |
+| Status | Condition                   |
+| ------ | --------------------------- |
+| `403`  | Caller is not a realm admin |
+| `404`  | Skill not found             |
 
 ---
 
@@ -254,10 +254,10 @@ Fetches the `SKILL.md` file for a library skill from its GitHub repository, stri
 
 ### Query parameters
 
-| Parameter | Required | Description |
-|---|---|---|
-| `source` | Yes | GitHub `owner/repo` path, e.g. `anthropics/skills` |
-| `skillId` | Yes | Skill identifier, e.g. `frontend-design` |
+| Parameter | Required | Description                                        |
+| --------- | -------- | -------------------------------------------------- |
+| `source`  | Yes      | GitHub `owner/repo` path, e.g. `anthropics/skills` |
+| `skillId` | Yes      | Skill identifier, e.g. `frontend-design`           |
 
 The endpoint tries the following paths in order (on both `main` and `master` branches):
 
@@ -276,10 +276,10 @@ The endpoint tries the following paths in order (on both `main` and `master` bra
 
 ### Error responses
 
-| Status | Condition |
-|---|---|
-| `400` | `source` or `skillId` query parameter missing |
-| `404` | SKILL.md not found at any of the tried paths |
+| Status | Condition                                     |
+| ------ | --------------------------------------------- |
+| `400`  | `source` or `skillId` query parameter missing |
+| `404`  | SKILL.md not found at any of the tried paths  |
 
 ---
 
@@ -291,7 +291,7 @@ GET /api/stats/tokens
 
 **Auth:** Global admin only.
 
-Returns aggregated token usage across **all agents** (online and offline) sourced directly from the database. The dashboard uses this endpoint to power the *Today*, *This month*, and *All time* token metric cards, refreshing every 60 seconds.
+Returns aggregated token usage across **all agents** (online and offline) sourced directly from the database. The dashboard uses this endpoint to power the _Today_, _This month_, and _All time_ token metric cards, refreshing every 60 seconds.
 
 ### Response `200 OK`
 
@@ -312,10 +312,10 @@ Returns aggregated token usage across **all agents** (online and offline) source
 }
 ```
 
-| Field | Source table | Description |
-|---|---|---|
-| `allTime` | `agent_token_usage` | Cumulative totals per agent, summed across the fleet |
-| `daily` | `agent_token_usage_history` | Today's bucket (`YYYY-MM-DD`, granularity `day`) |
+| Field     | Source table                | Description                                          |
+| --------- | --------------------------- | ---------------------------------------------------- |
+| `allTime` | `agent_token_usage`         | Cumulative totals per agent, summed across the fleet |
+| `daily`   | `agent_token_usage_history` | Today's bucket (`YYYY-MM-DD`, granularity `day`)     |
 | `monthly` | `agent_token_usage_history` | This month's bucket (`YYYY-MM`, granularity `month`) |
 
 Token data is written by agent heartbeats. Each heartbeat includes a `sinceLastSync` delta which is added to the history buckets. `allTime` is the running cumulative total.

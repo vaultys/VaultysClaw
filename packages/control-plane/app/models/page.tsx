@@ -2,7 +2,15 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Cpu, Plus, Globe2, CheckCircle2, XCircle, Lock, Sparkles } from "lucide-react";
+import {
+  Cpu,
+  Plus,
+  Globe2,
+  CheckCircle2,
+  XCircle,
+  Lock,
+  Sparkles,
+} from "lucide-react";
 import { useRole } from "@/hooks/useRole";
 import { RegisterModelModal } from "@/components/models/RegisterModelModal";
 
@@ -19,16 +27,23 @@ interface ModelEntry {
   realmCount: number;
 }
 
-function ProviderBadge({ provider }: { provider: string }) {
+function ProviderBadge({ provider }: Readonly<{ provider: string }>) {
   const colors: Record<string, string> = {
-    openai: "bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400 border-emerald-300 dark:border-emerald-800",
-    "openai-compatible": "bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400 border-blue-300 dark:border-blue-800",
-    anthropic: "bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-400 border-orange-300 dark:border-orange-800",
-    google: "bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700 dark:text-yellow-400 border-yellow-300 dark:border-yellow-800",
-    ollama: "bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-400 border-purple-300 dark:border-purple-800",
+    openai:
+      "bg-success-100 dark:bg-success-900/40 text-success-700 dark:text-success-400 border-success-300 dark:border-success-800",
+    "openai-compatible":
+      "bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-400 border-primary-300 dark:border-primary-800",
+    anthropic:
+      "bg-warning-100 dark:bg-warning-900/40 text-warning-700 dark:text-warning-400 border-warning-300 dark:border-warning-800",
+    google:
+      "bg-warning-100 dark:bg-warning-900/40 text-warning-700 dark:text-warning-400 border-warning-300 dark:border-warning-800",
+    ollama:
+      "bg-secondary-100 dark:bg-secondary-900/40 text-secondary-700 dark:text-secondary-400 border-secondary-300 dark:border-secondary-800",
   };
   return (
-    <span className={`text-xs px-2 py-0.5 rounded-full border font-medium ${colors[provider] ?? "bg-gray-100 dark:bg-zinc-800 text-gray-600 dark:text-zinc-400 border-gray-300 dark:border-zinc-700"}`}>
+    <span
+      className={`text-xs px-2 py-0.5 rounded-full border font-medium ${colors[provider] ?? "bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 border-neutral-300 dark:border-neutral-700"}`}
+    >
       {provider}
     </span>
   );
@@ -49,14 +64,16 @@ export default function ModelsPage() {
     setLoading(true);
     try {
       const res = await fetch("/api/models");
-      const data = await res.json() as { models?: ModelEntry[] };
+      const data = (await res.json()) as { models?: ModelEntry[] };
       setModels(data.models ?? []);
     } finally {
       setLoading(false);
     }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
 
   if (isLoading || !isGlobalAdmin) return null;
 
@@ -64,18 +81,22 @@ export default function ModelsPage() {
     <div className="p-6 w-full max-w-5xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-indigo-50 dark:bg-indigo-600/20 flex items-center justify-center">
-            <Cpu className="w-5 h-5 text-indigo-700 dark:text-indigo-400" />
+          <div className="w-9 h-9 rounded-xl bg-primary-50 dark:bg-primary-600/20 flex items-center justify-center">
+            <Cpu className="w-5 h-5 text-primary-700 dark:text-primary-400" />
           </div>
           <div>
-            <h1 className="text-lg font-semibold text-vc-text">Model Registry</h1>
-            <p className="text-xs text-vc-muted">Register and route models to realms</p>
+            <h1 className="text-lg font-semibold text-foreground">
+              Model Registry
+            </h1>
+            <p className="text-xs text-foreground-500">
+              Register and route models to realms
+            </p>
           </div>
         </div>
         {isGlobalAdmin && (
           <button
             onClick={() => setShowCreate(true)}
-            className="flex items-center gap-2 px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium transition-colors"
+            className="flex items-center gap-2 px-3 py-2 rounded-xl bg-primary-600 hover:bg-primary-500 text-white text-sm font-medium transition-colors"
           >
             <Plus className="w-4 h-4" />
             Register model
@@ -83,31 +104,43 @@ export default function ModelsPage() {
         )}
       </div>
 
-      {loading ? (
-        <div className="text-sm text-vc-muted py-8 text-center">Loading…</div>
-      ) : models.length === 0 ? (
-        <div className="rounded-2xl border border-vc-border border-dashed bg-vc-surface/40 p-12 text-center">
-          <Cpu className="w-8 h-8 text-vc-subtle mx-auto mb-3" />
-          <p className="text-sm font-medium text-vc-text mb-1">No models registered</p>
-          <p className="text-xs text-vc-muted mb-4">Register an OpenAI-compatible endpoint to get started</p>
+      {loading && (
+        <div className="text-sm text-foreground-500 py-8 text-center">
+          Loading…
+        </div>
+      )}
+      {!loading && models.length === 0 && (
+        <div className="rounded-2xl border border-neutral-200 border-dashed bg-background-100/40 p-12 text-center">
+          <Cpu className="w-8 h-8 text-foreground-400 mx-auto mb-3" />
+          <p className="text-sm font-medium text-foreground mb-1">
+            No models registered
+          </p>
+          <p className="text-xs text-foreground-500 mb-4">
+            Register an OpenAI-compatible endpoint to get started
+          </p>
           {isGlobalAdmin && (
             <button
               onClick={() => setShowCreate(true)}
-              className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium transition-colors"
+              className="px-4 py-2 rounded-xl bg-primary-600 hover:bg-primary-500 text-white text-sm font-medium transition-colors"
             >
               Register first model
             </button>
           )}
         </div>
-      ) : (
-        <div className="rounded-2xl border border-vc-border bg-vc-surface overflow-hidden">
+      )}
+      {!loading && models.length > 0 && (
+        <div className="rounded-2xl border border-neutral-200 bg-background-100 overflow-hidden">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-vc-border text-vc-muted text-xs uppercase tracking-wider">
+              <tr className="border-b border-neutral-200 text-foreground-500 text-xs uppercase tracking-wider">
                 <th className="text-left px-4 py-3 font-medium">Name</th>
                 <th className="text-left px-4 py-3 font-medium">Provider</th>
-                <th className="text-left px-4 py-3 font-medium hidden md:table-cell">Model ID</th>
-                <th className="text-left px-4 py-3 font-medium hidden lg:table-cell">Realms</th>
+                <th className="text-left px-4 py-3 font-medium hidden md:table-cell">
+                  Model ID
+                </th>
+                <th className="text-left px-4 py-3 font-medium hidden lg:table-cell">
+                  Realms
+                </th>
                 <th className="text-left px-4 py-3 font-medium">Status</th>
               </tr>
             </thead>
@@ -116,31 +149,37 @@ export default function ModelsPage() {
                 <tr
                   key={m.id}
                   onClick={() => router.push(`/models/${m.id}`)}
-                  className="border-b border-vc-border/50 hover:bg-vc-raised/40 cursor-pointer transition-colors last:border-0"
+                  className="border-b border-neutral-200/50 hover:bg-background-200/40 cursor-pointer transition-colors last:border-0"
                 >
                   <td className="px-4 py-3">
-                    <div className="font-medium text-vc-text">{m.name}</div>
-                    {m.description && <div className="text-xs text-vc-muted truncate max-w-[180px]">{m.description}</div>}
+                    <div className="font-medium text-foreground">{m.name}</div>
+                    {m.description && (
+                      <div className="text-xs text-foreground-500 truncate max-w-[180px]">
+                        {m.description}
+                      </div>
+                    )}
                   </td>
                   <td className="px-4 py-3">
                     <ProviderBadge provider={m.provider} />
                   </td>
                   <td className="px-4 py-3 hidden md:table-cell">
-                    <code className="text-xs text-vc-muted font-mono truncate max-w-[180px] block">{m.modelId}</code>
+                    <code className="text-xs text-foreground-500 font-mono truncate max-w-[180px] block">
+                      {m.modelId}
+                    </code>
                   </td>
                   <td className="px-4 py-3 hidden lg:table-cell">
-                    <span className="flex items-center gap-1 text-vc-muted">
+                    <span className="flex items-center gap-1 text-foreground-500">
                       <Globe2 className="w-3.5 h-3.5" />
                       {m.realmCount}
                     </span>
                   </td>
                   <td className="px-4 py-3">
                     {m.status === "active" ? (
-                      <span className="flex items-center gap-1 text-emerald-700 dark:text-emerald-400 text-xs font-medium">
+                      <span className="flex items-center gap-1 text-success-700 dark:text-success-400 text-xs font-medium">
                         <CheckCircle2 className="w-3.5 h-3.5" /> Active
                       </span>
                     ) : (
-                      <span className="flex items-center gap-1 text-zinc-500 text-xs font-medium">
+                      <span className="flex items-center gap-1 text-neutral-500 text-xs font-medium">
                         <XCircle className="w-3.5 h-3.5" /> Inactive
                       </span>
                     )}
@@ -154,35 +193,53 @@ export default function ModelsPage() {
 
       {/* Coming soon cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="rounded-2xl border border-vc-border border-dashed bg-vc-surface/40 p-5">
+        <div className="rounded-2xl border border-neutral-200 border-dashed bg-background-100/40 p-5">
           <div className="flex items-start justify-between mb-2">
             <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-lg bg-zinc-800 flex items-center justify-center">
-                <Sparkles className="w-4 h-4 text-zinc-400" />
+              <div className="w-7 h-7 rounded-lg bg-neutral-800 flex items-center justify-center">
+                <Sparkles className="w-4 h-4 text-neutral-400" />
               </div>
-              <span className="text-sm font-medium text-vc-text">Kubernetes Deployment</span>
+              <span className="text-sm font-medium text-foreground">
+                Kubernetes Deployment
+              </span>
             </div>
-            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 border border-amber-300 dark:border-amber-800 uppercase tracking-wide">Coming soon</span>
+            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-warning-100 dark:bg-warning-900/40 text-warning-700 dark:text-warning-400 border border-warning-300 dark:border-warning-800 uppercase tracking-wide">
+              Coming soon
+            </span>
           </div>
-          <p className="text-xs text-vc-muted">Auto-provision vLLM GPU pods directly from the control plane. One-click deploy with Karpenter auto-scaling and scale-to-zero.</p>
+          <p className="text-xs text-foreground-500">
+            Auto-provision vLLM GPU pods directly from the control plane.
+            One-click deploy with Karpenter auto-scaling and scale-to-zero.
+          </p>
         </div>
 
-        <div className="rounded-2xl border border-vc-border border-dashed bg-vc-surface/40 p-5">
+        <div className="rounded-2xl border border-neutral-200 border-dashed bg-background-100/40 p-5">
           <div className="flex items-start justify-between mb-2">
             <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-lg bg-zinc-800 flex items-center justify-center">
-                <Lock className="w-4 h-4 text-zinc-400" />
+              <div className="w-7 h-7 rounded-lg bg-neutral-800 flex items-center justify-center">
+                <Lock className="w-4 h-4 text-neutral-400" />
               </div>
-              <span className="text-sm font-medium text-vc-text">Fine-Tuning Pipeline</span>
+              <span className="text-sm font-medium text-foreground">
+                Fine-Tuning Pipeline
+              </span>
             </div>
-            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 border border-amber-300 dark:border-amber-800 uppercase tracking-wide">Coming soon</span>
+            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-warning-100 dark:bg-warning-900/40 text-warning-700 dark:text-warning-400 border border-warning-300 dark:border-warning-800 uppercase tracking-wide">
+              Coming soon
+            </span>
           </div>
-          <p className="text-xs text-vc-muted">Submit Unsloth training jobs from the UI. Upload JSONL datasets, pick a base model, and track job progress — no GPU server management required.</p>
+          <p className="text-xs text-foreground-500">
+            Submit Unsloth training jobs from the UI. Upload JSONL datasets,
+            pick a base model, and track job progress — no GPU server management
+            required.
+          </p>
         </div>
       </div>
 
       {showCreate && (
-        <RegisterModelModal onClose={() => setShowCreate(false)} onCreated={load} />
+        <RegisterModelModal
+          onClose={() => setShowCreate(false)}
+          onCreated={load}
+        />
       )}
     </div>
   );

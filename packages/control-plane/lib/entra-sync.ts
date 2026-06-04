@@ -1,10 +1,10 @@
+import { RealmDAO, SettingsDAO, UserDAO } from "@/db";
+
 /**
  * Microsoft Entra ID (Azure AD) sync via MS Graph API.
  * Uses the OAuth2 client credentials flow — no user interaction required.
  */
 
-import { getSetting, setSetting, createRealm, getRealmBySlug, addUserToRealm } from "./db";
-import { UserDao } from "./user-dao";
 
 /** Sentinel value in groupRealmMap meaning "create a new realm named after this group". */
 export const CREATE_REALM_SENTINEL = "__create__";
@@ -17,18 +17,18 @@ export interface EntraConfig {
   clientSecret: string;
 }
 
-export function getEntraConfig(): EntraConfig | null {
-  const tenantId = getSetting("entra_tenant_id");
-  const clientId = getSetting("entra_client_id");
-  const clientSecret = getSetting("entra_client_secret");
+export async function getEntraConfig(): Promise<EntraConfig | null> {
+  const tenantId = await SettingsDAO.get("entra_tenant_id");
+  const clientId = await SettingsDAO.get("entra_client_id");
+  const clientSecret = await SettingsDAO.get("entra_client_secret");
   if (!tenantId || !clientId || !clientSecret) return null;
   return { tenantId, clientId, clientSecret };
 }
 
-export function saveEntraConfig(config: EntraConfig): void {
-  setSetting("entra_tenant_id", config.tenantId);
-  setSetting("entra_client_id", config.clientId);
-  setSetting("entra_client_secret", config.clientSecret);
+export async function saveEntraConfig(config: EntraConfig): Promise<void> {
+  await SettingsDAO.set("entra_tenant_id", config.tenantId);
+  await SettingsDAO.set("entra_client_id", config.clientId);
+  await SettingsDAO.set("entra_client_secret", config.clientSecret);
 }
 
 // ── MS Graph types ────────────────────────────────────────────────────────────
@@ -74,8 +74,14 @@ async function getAccessToken(config: EntraConfig): Promise<string> {
     throw new Error(`Entra token request failed (${res.status}): ${text}`);
   }
 
-  const data = (await res.json()) as { access_token: string; expires_in: number };
-  tokenCache = { token: data.access_token, expiresAt: Date.now() + data.expires_in * 1000 };
+  const data = (await res.json()) as {
+    access_token: string;
+    expires_in: number;
+  };
+  tokenCache = {
+    token: data.access_token,
+    expiresAt: Date.now() + data.expires_in * 1000,
+  };
   return tokenCache.token;
 }
 
@@ -121,11 +127,14 @@ function hintFromError(raw: string, checkId: string): string {
 
   // Token endpoint errors
   if (checkId === "token") {
-    if (raw.includes("AADSTS700016") || raw.includes("application was not found"))
+    if (
+      raw.includes("AADSTS700016") ||
+      raw.includes("application was not found")
+    )
       return "The Client ID does not match any app registration in this tenant. Double-check the Client ID and Tenant ID.";
     if (raw.includes("AADSTS7000215") || raw.includes("Invalid client secret"))
       return "The client secret is incorrect or has expired. Generate a new secret in Certificates & secrets.";
-    if (raw.includes("AADSTS90002") || raw.includes("Tenant") )
+    if (raw.includes("AADSTS90002") || raw.includes("Tenant"))
       return "The Tenant ID was not found. Make sure you copied the Directory (tenant) ID, not the domain name.";
     return `Authentication failed: ${message || raw}`;
   }
@@ -147,7 +156,9 @@ function hintFromError(raw: string, checkId: string): string {
  * Run a series of diagnostic checks against the Entra configuration and return
  * per-check results so the UI can show exactly which step fails and why.
  */
-export async function diagnoseEntraConfig(config: EntraConfig): Promise<DiagnosticCheck[]> {
+export async function diagnoseEntraConfig(
+  config: EntraConfig
+): Promise<DiagnosticCheck[]> {
   const checks: DiagnosticCheck[] = [];
 
   // ── 1. Obtain access token ─────────────────────────────────────────────────
@@ -156,7 +167,13 @@ export async function diagnoseEntraConfig(config: EntraConfig): Promise<Diagnost
     // Bypass cache so we always use the credentials provided
     tokenCache = null;
     token = await getAccessToken(config);
-    checks.push({ id: "token", label: "Obtain access token", status: "ok", detail: null, hint: null });
+    checks.push({
+      id: "token",
+      label: "Obtain access token",
+      status: "ok",
+      detail: null,
+      hint: null,
+    });
   } catch (err) {
     const raw = err instanceof Error ? err.message : String(err);
     checks.push({
@@ -170,7 +187,10 @@ export async function diagnoseEntraConfig(config: EntraConfig): Promise<Diagnost
     for (const id of ["users", "groups"] as const) {
       checks.push({
         id,
-        label: id === "users" ? "Read users (User.Read.All)" : "Read groups (Group.Read.All)",
+        label:
+          id === "users"
+            ? "Read users (User.Read.All)"
+            : "Read groups (Group.Read.All)",
         status: "fail",
         detail: "Skipped — token could not be obtained",
         hint: null,
@@ -182,7 +202,13 @@ export async function diagnoseEntraConfig(config: EntraConfig): Promise<Diagnost
   // ── 2. Read users (User.Read.All) ──────────────────────────────────────────
   try {
     await graphGet<unknown>("/users?$select=id&$top=1", token);
-    checks.push({ id: "users", label: "Read users (User.Read.All)", status: "ok", detail: null, hint: null });
+    checks.push({
+      id: "users",
+      label: "Read users (User.Read.All)",
+      status: "ok",
+      detail: null,
+      hint: null,
+    });
   } catch (err) {
     const raw = err instanceof Error ? err.message : String(err);
     checks.push({
@@ -197,7 +223,13 @@ export async function diagnoseEntraConfig(config: EntraConfig): Promise<Diagnost
   // ── 3. Read groups (Group.Read.All) ───────────────────────────────────────
   try {
     await graphGet<unknown>("/groups?$select=id&$top=1", token);
-    checks.push({ id: "groups", label: "Read groups (Group.Read.All)", status: "ok", detail: null, hint: null });
+    checks.push({
+      id: "groups",
+      label: "Read groups (Group.Read.All)",
+      status: "ok",
+      detail: null,
+      hint: null,
+    });
   } catch (err) {
     const raw = err instanceof Error ? err.message : String(err);
     checks.push({
@@ -230,38 +262,40 @@ async function graphGetAll<T>(path: string, token: string): Promise<T[]> {
 
 /** List all groups in the tenant. */
 export async function listEntraGroups(): Promise<EntraGroup[]> {
-  const config = getEntraConfig();
+  const config = await getEntraConfig();
   if (!config) throw new Error("Entra not configured");
   const token = await getAccessToken(config);
   return graphGetAll<EntraGroup>(
     "/groups?$select=id,displayName,description&$top=999",
-    token,
+    token
   );
 }
 
 /** List members of a specific group (users only). */
-export async function listGroupMembers(groupId: string): Promise<EntraMember[]> {
-  const config = getEntraConfig();
+export async function listGroupMembers(
+  groupId: string
+): Promise<EntraMember[]> {
+  const config = await getEntraConfig();
   if (!config) throw new Error("Entra not configured");
   const token = await getAccessToken(config);
   const members = await graphGetAll<EntraMember & { "@odata.type"?: string }>(
     `/groups/${groupId}/members?$select=id,displayName,mail,userPrincipalName&$top=999`,
-    token,
+    token
   );
   // Keep only user objects (not nested groups or service principals)
   return members.filter(
-    (m) => !m["@odata.type"] || m["@odata.type"] === "#microsoft.graph.user",
+    (m) => !m["@odata.type"] || m["@odata.type"] === "#microsoft.graph.user"
   );
 }
 
 /** List all users in the tenant. */
 export async function listAllEntraUsers(): Promise<EntraMember[]> {
-  const config = getEntraConfig();
+  const config = await getEntraConfig();
   if (!config) throw new Error("Entra not configured");
   const token = await getAccessToken(config);
   return graphGetAll<EntraMember>(
     "/users?$select=id,displayName,mail,userPrincipalName&$top=999",
-    token,
+    token
   );
 }
 
@@ -306,14 +340,17 @@ export async function syncEntraUsers(opts: SyncOptions): Promise<SyncResult> {
     }
 
     const groupName = opts.groupNames?.[gid] ?? gid;
-    const slug = groupName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+    const slug = groupName
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "");
 
     // Reuse an existing realm with the same slug to keep the operation idempotent.
-    const existing = getRealmBySlug(slug);
+    const existing = await RealmDAO.findBySlug(slug);
     if (existing) {
       resolvedRealmMap[gid] = existing.id;
     } else {
-      const realm = createRealm({ name: groupName, slug });
+      const realm = await RealmDAO.create({ name: groupName, slug });
       resolvedRealmMap[gid] = realm.id;
     }
   }
@@ -326,9 +363,11 @@ export async function syncEntraUsers(opts: SyncOptions): Promise<SyncResult> {
         try {
           membersByGroup.set(gid, await listGroupMembers(gid));
         } catch (err) {
-          result.errors.push(`Group ${gid}: ${err instanceof Error ? err.message : String(err)}`);
+          result.errors.push(
+            `Group ${gid}: ${err instanceof Error ? err.message : String(err)}`
+          );
         }
-      }),
+      })
     );
   } else {
     membersByGroup.set("__all__", await listAllEntraUsers());
@@ -352,42 +391,63 @@ export async function syncEntraUsers(opts: SyncOptions): Promise<SyncResult> {
 
     try {
       // Check for existing user by Entra ID first, then by email
-      let existing = UserDao.getByEntraId(member.id);
-      if (!existing && email) existing = UserDao.getByEmail(email);
+      let existing = await UserDAO.findByEntraId(member.id);
+      if (!existing && email) existing = await UserDAO.findByEmail(email);
 
       if (existing) {
         // Update entra_id link if missing
-        if (!existing.entra_id) {
-          UserDao.linkEntraIdentity(existing.id, member.id, member.displayName ?? null, email);
+        if (!existing.entraId) {
+          await UserDAO.linkEntraIdentity(
+            existing.id,
+            member.id,
+            member.displayName ?? null,
+            email
+          );
           result.updated++;
         } else {
-          UserDao.refreshEntraIdentity(member.id, member.displayName ?? null, email);
+          await UserDAO.refreshEntraIdentity(
+            member.id,
+            member.displayName ?? null,
+            email
+          );
           result.skipped++;
         }
         // Assign to realm(s)
         for (const gid of groupIds) {
           const realmId = resolvedRealmMap[gid];
           if (realmId) {
-            try { addUserToRealm(existing.id, realmId); } catch { /* already member */ }
+            try {
+              await RealmDAO.addUserToRealm(existing.id, realmId);
+            } catch {
+              /* already member */
+            }
           }
         }
         continue;
       }
 
       // Create new placeholder user (did = NULL until they claim via QR)
-      const user = UserDao.createFromEntra(member.id, member.displayName ?? null, email);
+      const user = await UserDAO.createFromEntra(
+        member.id,
+        member.displayName ?? null,
+        email
+      );
       result.created++;
 
       // Assign to realm(s)
       for (const gid of groupIds) {
         const realmId = resolvedRealmMap[gid];
         if (realmId) {
-          try { addUserToRealm(user.id, realmId); } catch { /* ignore */ }
+          try {
+            await RealmDAO.addUserToRealm(user.id, realmId);
+          } catch {
+            /* ignore */
+          }
         }
       }
     } catch (err) {
       result.errors.push(
-        `User ${member.displayName ?? member.id}: ${err instanceof Error ? err.message : String(err)}`,
+        `User ${member.displayName ?? member.id}: ${err instanceof Error ? err.message : String(err)}`
       );
     }
   }

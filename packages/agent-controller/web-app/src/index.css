@@ -1,3 +1,5 @@
+@import "./theme.css";
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -11,39 +13,29 @@ body,
 /* ── Light mode (default) ────────────────────────────────────────────────── */
 :root {
   /* Canvas */
-  --canvas:         255 255 255;
-  --canvas-subtle:  246 248 250;
+  --canvas: 255 255 255;
+  --canvas-subtle: 246 248 250;
   --canvas-overlay: 234 238 242;
   /* Border */
-  --border:         208 215 222;
-  --border-muted:   216 222 228;
+  --border: 208 215 222;
+  --border-muted: 216 222 228;
   /* Foreground */
-  --fg:             31 35 40;
-  --fg-muted:       101 109 118;
-  --fg-subtle:      110 119 129;
-  --fg-dim:         129 139 152;
+  --fg: 31 35 40;
+  --fg-muted: 101 109 118;
+  --fg-subtle: 110 119 129;
+  --fg-dim: 129 139 152;
   /* Accent */
-  --accent:         9 105 218;
-  --accent-emphasis:31 111 235;
+  --accent: 9 105 218;
+  --accent-emphasis: 31 111 235;
   /* Semantic */
-  --success:        26 127 55;
-  --success-emphasis:209 245 218;
-  --attention:      154 103 0;
-  --attention-emphasis:255 240 186;
-  --danger:         207 34 46;
-  --danger-emphasis:255 222 219;
-  --info:           5 80 174;
-  --info-emphasis:  218 238 255;
-  /* vc-* design tokens */
-  --vc-bg:     249 250 251;
-  --vc-surface:255 255 255;
-  --vc-raised: 243 244 246;
-  --vc-border: 229 231 235;
-  --vc-ring:   209 213 219;
-  --vc-text:   17 24 39;
-  --vc-text-2: 55 65 81;
-  --vc-muted:  107 114 128;
-  --vc-subtle: 156 163 175;
+  --success: 26 127 55;
+  --success-emphasis: 209 245 218;
+  --attention: 154 103 0;
+  --attention-emphasis: 255 240 186;
+  --danger: 207 34 46;
+  --danger-emphasis: 255 222 219;
+  --info: 5 80 174;
+  --info-emphasis: 218 238 255;
   color-scheme: light;
   scrollbar-width: thin;
   scrollbar-color: #d1d5db transparent;
@@ -52,47 +44,51 @@ body,
 /* ── Dark mode ───────────────────────────────────────────────────────────── */
 .dark {
   /* Canvas */
-  --canvas:         13 17 23;
-  --canvas-subtle:  22 27 34;
+  --canvas: 13 17 23;
+  --canvas-subtle: 22 27 34;
   --canvas-overlay: 33 38 45;
   /* Border */
-  --border:         48 54 61;
-  --border-muted:   33 38 45;
+  --border: 48 54 61;
+  --border-muted: 33 38 45;
   /* Foreground */
-  --fg:             201 209 217;
-  --fg-muted:       139 148 158;
-  --fg-subtle:      110 118 129;
-  --fg-dim:         72 79 88;
+  --fg: 201 209 217;
+  --fg-muted: 139 148 158;
+  --fg-subtle: 110 118 129;
+  --fg-dim: 72 79 88;
   /* Accent */
-  --accent:         88 166 255;
-  --accent-emphasis:31 111 235;
+  --accent: 88 166 255;
+  --accent-emphasis: 31 111 235;
   /* Semantic */
-  --success:        63 185 80;
-  --success-emphasis:26 71 49;
-  --attention:      227 179 65;
-  --attention-emphasis:158 106 3;
-  --danger:         248 81 73;
-  --danger-emphasis:61 20 20;
-  --info:           121 192 255;
-  --info-emphasis:  0 51 102;
-  /* vc-* design tokens */
-  --vc-bg:     3 7 18;
-  --vc-surface:17 24 39;
-  --vc-raised: 31 41 55;
-  --vc-border: 31 41 55;
-  --vc-ring:   55 65 81;
-  --vc-text:   243 244 246;
-  --vc-text-2: 209 213 219;
-  --vc-muted:  156 163 175;
-  --vc-subtle: 107 114 128;
+  --success: 63 185 80;
+  --success-emphasis: 26 71 49;
+  --attention: 227 179 65;
+  --attention-emphasis: 158 106 3;
+  --danger: 248 81 73;
+  --danger-emphasis: 61 20 20;
+  --info: 121 192 255;
+  --info-emphasis: 0 51 102;
   color-scheme: dark;
   scrollbar-color: #374151 transparent;
 }
 
 /* ── Custom scrollbar ──────────────────────────────────────────────────────── */
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 9999px; }
-.dark ::-webkit-scrollbar-thumb { background: #374151; }
-::-webkit-scrollbar-thumb:hover { background: #9ca3af; }
-.dark ::-webkit-scrollbar-thumb:hover { background: #4b5563; }
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 9999px;
+}
+.dark ::-webkit-scrollbar-thumb {
+  background: #374151;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
+}
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #4b5563;
+}

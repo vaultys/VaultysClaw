@@ -12,7 +12,8 @@
 // Polyfill WebRTC for Node.js (required by PeerjsChannel)
 import * as wrtc from "@roamhq/wrtc";
 (global as Record<string, unknown>).RTCPeerConnection = wrtc.RTCPeerConnection;
-(global as Record<string, unknown>).RTCSessionDescription = wrtc.RTCSessionDescription;
+(global as Record<string, unknown>).RTCSessionDescription =
+  wrtc.RTCSessionDescription;
 (global as Record<string, unknown>).RTCIceCandidate = wrtc.RTCIceCandidate;
 (global as Record<string, unknown>).getUserMedia = wrtc.getUserMedia;
 
@@ -25,7 +26,12 @@ const Buffer = crypto.Buffer;
 // Types
 // ---------------------------------------------------------------------------
 
-export type SessionStatus = "pending" | "success" | "unauthorized" | "failed" | "expired";
+export type SessionStatus =
+  | "pending"
+  | "success"
+  | "unauthorized"
+  | "failed"
+  | "expired";
 
 export interface AuthSession {
   sessionId: string;
@@ -98,7 +104,7 @@ function isDIDAuthorized(did: string, agentDid: string): boolean {
  */
 export async function startP2PAuthSession(
   agentVaultysId: VaultysId,
-  peerjsServer?: string | null,
+  peerjsServer?: string | null
 ): Promise<{ connectionString: string; sessionId: string }> {
   const { PeerjsChannel } = await import("@vaultys/channel-peerjs");
 
@@ -124,7 +130,9 @@ export async function startP2PAuthSession(
 
   // Run Challenger exchange in the background — returns immediately
   (async () => {
-    console.log(`[P2P auth] session ${sessionId.slice(0, 8)} started with ${agentVaultysId.did}, waiting for wallet...`);
+    console.log(
+      `[P2P auth] session ${sessionId.slice(0, 8)} started with ${agentVaultysId.did}, waiting for wallet...`
+    );
     try {
       await channel.start();
       console.log(`[P2P auth] wallet connected`);
@@ -138,7 +146,10 @@ export async function startP2PAuthSession(
         try {
           await challenger.update(walletCert);
         } catch (err) {
-          console.error(`[P2P auth] round ${round}: challenger.update() failed:`, err);
+          console.error(
+            `[P2P auth] round ${round}: challenger.update() failed:`,
+            err
+          );
           session.status = "failed";
           return;
         }
@@ -150,7 +161,9 @@ export async function startP2PAuthSession(
         }
 
         if (!verifyProtocol(challenger)) {
-          console.error(`[P2P auth] round ${round}: protocol verification failed`);
+          console.error(
+            `[P2P auth] round ${round}: protocol verification failed`
+          );
           session.status = "failed";
           return;
         }
@@ -161,14 +174,18 @@ export async function startP2PAuthSession(
           console.log(`[P2P auth] Challenger complete — wallet DID: ${did}`);
 
           if (!isDIDAuthorized(did, agentVaultysId.did)) {
-            console.warn(`[P2P auth] DID ${did} has no valid delegation for agent ${agentVaultysId.did}`);
+            console.warn(
+              `[P2P auth] DID ${did} has no valid delegation for agent ${agentVaultysId.did}`
+            );
             session.status = "unauthorized";
             return;
           }
 
           session.status = "success";
           session.did = did;
-          console.log(`[P2P auth] session ${sessionId.slice(0, 8)} authorised for ${did}`);
+          console.log(
+            `[P2P auth] session ${sessionId.slice(0, 8)} authorised for ${did}`
+          );
           return;
         }
 
@@ -185,7 +202,7 @@ export async function startP2PAuthSession(
       console.error("[P2P auth] session error:", err);
       if (session.status === "pending") session.status = "failed";
     } finally {
-      await channel.close().catch(() => { });
+      await channel.close().catch(() => {});
     }
   })();
 

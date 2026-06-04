@@ -13,16 +13,18 @@
  */
 
 import { VaultysId } from "@vaultys/id";
-import { getSetting } from "./db";
+import { SettingsDAO } from "@/db";
 
 // ---------------------------------------------------------------------------
 // Server identity helpers  (same pattern as auth-handler.ts)
 // ---------------------------------------------------------------------------
 
-function getServerVaultysId(): VaultysId {
-  const serverSecret = getSetting("serverSecret");
+async function getServerVaultysId(): Promise<VaultysId> {
+  const serverSecret = await SettingsDAO.get("serverSecret");
   if (!serverSecret) {
-    throw new Error("Server VaultysId secret not configured (run the initial setup)");
+    throw new Error(
+      "Server VaultysId secret not configured (run the initial setup)"
+    );
   }
   return VaultysId.fromSecret(serverSecret, "base64");
 }
@@ -36,7 +38,7 @@ function getServerVaultysId(): VaultysId {
  * Returns a signcrypt ciphertext (string) safe to store in the DB.
  */
 export async function encryptSecret(plaintext: string): Promise<string> {
-  const vid = getServerVaultysId();
+  const vid = await getServerVaultysId();
   // signcrypt to self: only this server can decrypt
   const encrypted = await vid.signcrypt(plaintext, [vid.id]);
   return encrypted;
@@ -47,7 +49,7 @@ export async function encryptSecret(plaintext: string): Promise<string> {
  * Throws if the ciphertext is tampered or the server secret has changed.
  */
 export async function decryptSecret(ciphertext: string): Promise<string> {
-  const vid = getServerVaultysId();
+  const vid = await getServerVaultysId();
   return await vid.decrypt(ciphertext);
 }
 

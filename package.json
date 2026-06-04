@@ -31,6 +31,8 @@
     "-- MISC --": "",
     "swagger:generate": "pnpm tsx scripts/generate-swagger-docs.ts",
     "swagger:check": "pnpm tsx scripts/generate-swagger-docs.ts --check",
+    "migrate:api-client": "jscodeshift -t scripts/migrate-fetch-to-api-client.mjs --extensions=tsx,ts --parser=tsx packages/control-plane/app",
+    "migrate:api-client:dry": "jscodeshift -t scripts/migrate-fetch-to-api-client.mjs --extensions=tsx,ts --parser=tsx --dry packages/control-plane/app",
     "clean": "turbo clean && rm -rf node_modules"
   },
   "devDependencies": {
@@ -52,6 +54,7 @@
     "react-dom": "^19.2.6",
     "turbo": "^2.9.12",
     "typescript": "^5.9.3",
+    "jscodeshift": "^17.3.0",
     "vitest": "^2.1.9",
     "ws": "^8.20.1"
   }

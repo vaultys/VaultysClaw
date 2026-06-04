@@ -86,6 +86,16 @@ Core domain types live in `src/types.ts`: `VaultysIdentity`, `AgentCapability` e
 
 **Adding an API route**: Create `packages/control-plane/app/api/<resource>/route.ts`, export `GET`/`POST`/etc. handlers, call `getDb()` for SQLite access.
 
+**Client-side HTTP calls**: Use the typed API client classes in `packages/control-plane/lib/api/`. One class per domain group — import singletons from `@/lib/api`:
+
+```typescript
+import { agentsApi, workflowsApi } from "@/lib/api";
+const { agents } = await agentsApi.list({ realm: realmId });
+const run = await workflowsApi.execute(workflowId, payload);
+```
+
+All classes extend `BaseApi` (in `lib/api/base.ts`) which throws `ApiError` on non-2xx responses. When adding a new route, also add the corresponding method to the relevant class.
+
 **Adding a tool**: Create `packages/agent-controller/src/tools/<name>.ts`, export a tool definition with Zod schema, register in `src/tools/index.ts`.
 
 **Adding a skill**: Create a package under `packages/agent-controller/skills/<name>/`, export Zod schemas + handlers. Skills auto-discovered by `src/skills/loader.ts`.

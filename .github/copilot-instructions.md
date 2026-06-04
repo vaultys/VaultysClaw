@@ -36,6 +36,18 @@ See [docs/QUICK_START.md](../docs/QUICK_START.md) for setup and [docs/DEVELOPMEN
 
 ## Adding Things
 
+**Client-side API calls** → use the typed classes in `packages/control-plane/lib/api/`:
+
+```typescript
+import { agentsApi, channelsApi } from "@/lib/api";
+
+// Each class exposes typed methods matching the route registry
+const { agents } = await agentsApi.list({ realm: realmId });
+const channel = await channelsApi.getOne(id);
+```
+
+One class per domain group (agents, channels, users, realms, workflows, models, skills, governance, knowledge, server, network, stats, chat, apiKeys, registrations, intents). All extend `BaseApi` which throws `ApiError` on non-2xx responses. Import singletons from `@/lib/api` — do not instantiate classes directly.
+
 **API route** → `packages/control-plane/app/api/<resource>/route.ts`:
 
 ```typescript

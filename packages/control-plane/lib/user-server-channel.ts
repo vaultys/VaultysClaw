@@ -4,7 +4,7 @@
  * VaultysClaw's Prisma-backed CertificateDAO and UserDAO.
  */
 import { Challenger, CryptoChannel, VaultysId, crypto } from "@vaultys/id";
-import { CertificateDAO, SettingsDAO, UserDAO, prisma } from "@/db";
+import { CertificateDAO, SettingsDAO, UserDAO } from "@/db";
 import type { Certificate } from "@prisma/client";
 
 const Buffer = crypto.Buffer;
@@ -300,13 +300,11 @@ export class UserServerChannel {
 
   static async consumeCertificate(key: string): Promise<boolean> {
     // Certificates are keyed by connection token (sha256 hash), not the raw key.
-    // Look up the cert first, then delete by its connection column.
+    // Look up the cert first, then delete it by id if it is in completed state.
     const cert = await CertificateDAO.findByKey(key);
-    if (!cert || !cert.connection) return false;
-    const result = await prisma.certificate.deleteMany({
-      where: { connection: cert.connection, status: 2 },
-    });
-    return result.count === 1;
+    if (!cert || !cert.connection || cert.status !== 2) return false;
+    await CertificateDAO.delete(cert.id);
+    return true;
   }
 
   /**

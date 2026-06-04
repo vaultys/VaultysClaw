@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
-import { setDoclingEndpoints } from "@/lib/db";
+import { setDoclingEndpoints } from "@/db/settings.dao";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -151,7 +151,7 @@ export async function POST(request: NextRequest) {
     const { sourceEndpoint, fileEndpoint } = await discoverEndpoints(rawUrl);
 
     // 3. Persist the discovered endpoints so syncs use the right paths
-    setDoclingEndpoints(sourceEndpoint, fileEndpoint);
+    await setDoclingEndpoints(sourceEndpoint, fileEndpoint);
 
     return NextResponse.json({
       ok: true,

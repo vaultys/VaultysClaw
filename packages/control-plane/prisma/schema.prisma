@@ -42,6 +42,9 @@ model Agent {
   tokenBudgetMonthly Int?     @map("token_budget_monthly")
   registeredAt       DateTime @default(now()) @map("registered_at")
   lastSeen           DateTime @default(now()) @map("last_seen")
+  locationLat        Float?   @map("location_lat")
+  locationLon        Float?   @map("location_lon")
+  locationLabel      String?  @map("location_label")
 
   agentRealms        AgentRealm[]
   tokenUsage         AgentTokenUsage?
@@ -126,6 +129,9 @@ model User {
   entraId      String?   @map("entra_id")
   claimedAt    DateTime? @map("claimed_at")
   registeredAt DateTime  @default(now()) @map("registered_at")
+  locationLat  Float?    @map("location_lat")
+  locationLon  Float?    @map("location_lon")
+  locationLabel String?  @map("location_label")
 
   manager        User?          @relation("reportsTo", fields: [reportsTo], references: [id], onDelete: SetNull)
   reports        User[]         @relation("reportsTo")

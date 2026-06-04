@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
 import { decryptSecret } from "@/lib/vault";
 import { SettingsDAO } from "@/db";
-import { getStorageConfig } from "@/lib/db";
+import { getStorageConfig } from "@/db/settings.dao";
 
 // POST /api/settings/storage/test
 // Body fields are optional — omit any to fall back to the saved (DB) config.

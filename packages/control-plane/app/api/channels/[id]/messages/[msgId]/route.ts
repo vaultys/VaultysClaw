@@ -52,16 +52,16 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
     const { id, msgId } = await ctx.params;
 
     // Verify channel access
-    const channel = ChannelService.getChannel(id);
+    const channel = await ChannelService.getChannel(id);
     if (!channel) {
       return NextResponse.json({ error: "Channel not found" }, { status: 404 });
     }
 
-    if (!ChannelService.isMember(id, auth.did)) {
+    if (!(await ChannelService.isMember(id, auth.did))) {
       return forbidden();
     }
 
-    const message = ChannelService.getMessage(msgId);
+    const message = await ChannelService.getMessage(msgId);
     if (!message || message.channelId !== id) {
       return NextResponse.json({ error: "Message not found" }, { status: 404 });
     }
@@ -138,7 +138,7 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
 
     const { id, msgId } = await ctx.params;
 
-    const message = ChannelService.getMessage(msgId);
+    const message = await ChannelService.getMessage(msgId);
     if (!message || message.channelId !== id) {
       return NextResponse.json({ error: "Message not found" }, { status: 404 });
     }
@@ -157,7 +157,7 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
       );
     }
 
-    const updated = ChannelService.editMessage(msgId, body.content.trim());
+    const updated = await ChannelService.editMessage(msgId, body.content.trim());
 
     return NextResponse.json({ message: updated });
   } catch (err) {
@@ -213,13 +213,13 @@ export async function DELETE(_req: NextRequest, ctx: Ctx) {
 
     const { id, msgId } = await ctx.params;
 
-    const message = ChannelService.getMessage(msgId);
+    const message = await ChannelService.getMessage(msgId);
     if (!message || message.channelId !== id) {
       return NextResponse.json({ error: "Message not found" }, { status: 404 });
     }
 
     // Author can delete, or moderator+ in the channel
-    const role = ChannelService.getMemberRole(id, auth.did);
+    const role = await ChannelService.getMemberRole(id, auth.did);
     const canDelete =
       message.authorDid === auth.did ||
       role === "moderator" ||
@@ -229,7 +229,7 @@ export async function DELETE(_req: NextRequest, ctx: Ctx) {
       return forbidden();
     }
 
-    ChannelService.deleteMessage(msgId);
+    await ChannelService.deleteMessage(msgId);
 
     return NextResponse.json({ success: true });
   } catch (err) {

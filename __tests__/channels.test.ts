@@ -251,8 +251,8 @@ beforeEach(() => {
 // ===========================================================================
 
 describe("ChannelService: createChannel", () => {
-  it("creates a channel and adds creator as owner member", () => {
-    const channel = ChannelService.createChannel({
+  it("creates a channel and adds creator as owner member", async () => {
+    const channel = await ChannelService.createChannel({
       name: "Test Channel",
       slug: `${S}create-basic`,
       realmId: testRealmId,
@@ -262,7 +262,7 @@ describe("ChannelService: createChannel", () => {
     try {
       expect(channel.id).toBeTruthy();
       // ChannelDao.create returns the raw DB row — verify via getChannel for normalized fields
-      const fetched = ChannelService.getChannel(channel.id);
+      const fetched = await ChannelService.getChannel(channel.id);
       expect(fetched).not.toBeNull();
       expect(fetched!.name).toBe("Test Channel");
       expect(fetched!.slug).toBe(`${S}create-basic`);
@@ -270,7 +270,7 @@ describe("ChannelService: createChannel", () => {
       expect(fetched!.isArchived).toBe(false);
 
       // Creator should be an owner member
-      const role = ChannelService.getMemberRole(channel.id, "did:test:creator");
+      const role = await ChannelService.getMemberRole(channel.id, "did:test:creator");
       expect(role).toBe("owner");
     } finally {
       getDb()
@@ -280,20 +280,20 @@ describe("ChannelService: createChannel", () => {
     }
   });
 
-  it("throws on invalid slug format", () => {
-    expect(() =>
+  it("throws on invalid slug format", async () => {
+    await expect(
       ChannelService.createChannel({
         name: "Bad Slug",
         slug: "Bad Slug!",
         realmId: testRealmId,
         creatorDid: "did:test:admin",
       })
-    ).toThrow(/slug/i);
+    ).rejects.toThrow(/slug/i);
   });
 
-  it("throws on duplicate slug within the same realm", () => {
+  it("throws on duplicate slug within the same realm", async () => {
     const slug = `${S}dup-slug`;
-    const channel = ChannelService.createChannel({
+    const channel = await ChannelService.createChannel({
       name: "First",
       slug,
       realmId: testRealmId,
@@ -301,14 +301,14 @@ describe("ChannelService: createChannel", () => {
     });
 
     try {
-      expect(() =>
+      await expect(
         ChannelService.createChannel({
           name: "Second",
           slug,
           realmId: testRealmId,
           creatorDid: "did:test:admin",
         })
-      ).toThrow(/already exists/i);
+      ).rejects.toThrow(/already exists/i);
     } finally {
       getDb()
         .prepare("DELETE FROM channel_members WHERE channel_id = ?")
@@ -319,12 +319,12 @@ describe("ChannelService: createChannel", () => {
 });
 
 describe("ChannelService: getChannel", () => {
-  it("returns null for unknown id", () => {
-    expect(ChannelService.getChannel("does-not-exist")).toBeNull();
+  it("returns null for unknown id", async () => {
+    expect(await ChannelService.getChannel("does-not-exist")).toBeNull();
   });
 
-  it("returns the channel for a known id", () => {
-    const channel = ChannelService.createChannel({
+  it("returns the channel for a known id", async () => {
+    const channel = await ChannelService.createChannel({
       name: "Get Test",
       slug: `${S}get-test`,
       realmId: testRealmId,
@@ -332,7 +332,7 @@ describe("ChannelService: getChannel", () => {
     });
 
     try {
-      const found = ChannelService.getChannel(channel.id);
+      const found = await ChannelService.getChannel(channel.id);
       expect(found).not.toBeNull();
       expect(found!.id).toBe(channel.id);
     } finally {
@@ -345,8 +345,8 @@ describe("ChannelService: getChannel", () => {
 });
 
 describe("ChannelService: postMessage", () => {
-  it("persists a message in the channel", () => {
-    const channel = ChannelService.createChannel({
+  it("persists a message in the channel", async () => {
+    const channel = await ChannelService.createChannel({
       name: "Msg Test",
       slug: `${S}msg-test`,
       realmId: testRealmId,
@@ -354,7 +354,7 @@ describe("ChannelService: postMessage", () => {
     });
 
     try {
-      const msg = ChannelService.postMessage({
+      const msg = await ChannelService.postMessage({
         channelId: channel.id,
         authorDid: "did:test:admin",
         authorType: "user",
@@ -381,7 +381,7 @@ describe("ChannelService: postMessage", () => {
     const mockWs = getWSServer();
     vi.mocked(mockWs.sendTaskToAgent).mockClear();
 
-    const channel = ChannelService.createChannel({
+    const channel = await ChannelService.createChannel({
       name: "Agent Msg",
       slug: `${S}agent-msg`,
       realmId: testRealmId,
@@ -390,7 +390,7 @@ describe("ChannelService: postMessage", () => {
 
     try {
       // Agent posts a message mentioning something
-      ChannelService.postMessage({
+      await ChannelService.postMessage({
         channelId: channel.id,
         authorDid: testAgentDid,
         authorType: "agent",
@@ -415,8 +415,8 @@ describe("ChannelService: postMessage", () => {
 });
 
 describe("ChannelService: createThreadReply", () => {
-  it("creates a reply with correct threadId set to parentMessageId", () => {
-    const channel = ChannelService.createChannel({
+  it("creates a reply with correct threadId set to parentMessageId", async () => {
+    const channel = await ChannelService.createChannel({
       name: "Thread Test",
       slug: `${S}thread-test`,
       realmId: testRealmId,
@@ -424,14 +424,14 @@ describe("ChannelService: createThreadReply", () => {
     });
 
     try {
-      const parent = ChannelService.postMessage({
+      const parent = await ChannelService.postMessage({
         channelId: channel.id,
         authorDid: "did:test:admin",
         authorType: "user",
         content: "Parent message",
       });
 
-      const reply = ChannelService.createThreadReply({
+      const reply = await ChannelService.createThreadReply({
         channelId: channel.id,
         parentMessageId: parent.id,
         authorDid: "did:test:admin",
@@ -453,8 +453,8 @@ describe("ChannelService: createThreadReply", () => {
     }
   });
 
-  it("throws if parent message not found", () => {
-    const channel = ChannelService.createChannel({
+  it("throws if parent message not found", async () => {
+    const channel = await ChannelService.createChannel({
       name: "Thread Err",
       slug: `${S}thread-err`,
       realmId: testRealmId,
@@ -462,7 +462,7 @@ describe("ChannelService: createThreadReply", () => {
     });
 
     try {
-      expect(() =>
+      await expect(
         ChannelService.createThreadReply({
           channelId: channel.id,
           parentMessageId: "nonexistent-message-id",
@@ -470,7 +470,7 @@ describe("ChannelService: createThreadReply", () => {
           authorType: "user",
           content: "Reply",
         })
-      ).toThrow(/not found/i);
+      ).rejects.toThrow(/not found/i);
     } finally {
       getDb()
         .prepare("DELETE FROM channel_members WHERE channel_id = ?")
@@ -481,8 +481,8 @@ describe("ChannelService: createThreadReply", () => {
 });
 
 describe("ChannelService: addChannelMember / removeChannelMember", () => {
-  it("adds a member successfully", () => {
-    const channel = ChannelService.createChannel({
+  it("adds a member successfully", async () => {
+    const channel = await ChannelService.createChannel({
       name: "Member Test",
       slug: `${S}member-test`,
       realmId: testRealmId,
@@ -490,7 +490,7 @@ describe("ChannelService: addChannelMember / removeChannelMember", () => {
     });
 
     try {
-      const member = ChannelService.addChannelMember({
+      const member = await ChannelService.addChannelMember({
         channelId: channel.id,
         memberDid: "did:test:new-member",
         memberType: "user",
@@ -501,7 +501,7 @@ describe("ChannelService: addChannelMember / removeChannelMember", () => {
         "did:test:new-member"
       );
       expect(member.role).toBe("member");
-      expect(ChannelService.isMember(channel.id, "did:test:new-member")).toBe(
+      expect(await ChannelService.isMember(channel.id, "did:test:new-member")).toBe(
         true
       );
     } finally {
@@ -512,8 +512,8 @@ describe("ChannelService: addChannelMember / removeChannelMember", () => {
     }
   });
 
-  it("throws on duplicate member addition", () => {
-    const channel = ChannelService.createChannel({
+  it("throws on duplicate member addition", async () => {
+    const channel = await ChannelService.createChannel({
       name: "Dup Member",
       slug: `${S}dup-member`,
       realmId: testRealmId,
@@ -521,19 +521,19 @@ describe("ChannelService: addChannelMember / removeChannelMember", () => {
     });
 
     try {
-      ChannelService.addChannelMember({
+      await ChannelService.addChannelMember({
         channelId: channel.id,
         memberDid: "did:test:dup",
         memberType: "user",
       });
 
-      expect(() =>
+      await expect(
         ChannelService.addChannelMember({
           channelId: channel.id,
           memberDid: "did:test:dup",
           memberType: "user",
         })
-      ).toThrow(/already in/i);
+      ).rejects.toThrow(/already in/i);
     } finally {
       getDb()
         .prepare("DELETE FROM channel_members WHERE channel_id = ?")
@@ -542,8 +542,8 @@ describe("ChannelService: addChannelMember / removeChannelMember", () => {
     }
   });
 
-  it("removes a member and isMember returns false", () => {
-    const channel = ChannelService.createChannel({
+  it("removes a member and isMember returns false", async () => {
+    const channel = await ChannelService.createChannel({
       name: "Remove Member",
       slug: `${S}remove-member`,
       realmId: testRealmId,
@@ -551,19 +551,19 @@ describe("ChannelService: addChannelMember / removeChannelMember", () => {
     });
 
     try {
-      ChannelService.addChannelMember({
+      await ChannelService.addChannelMember({
         channelId: channel.id,
         memberDid: "did:test:to-remove",
         memberType: "user",
       });
 
-      expect(ChannelService.isMember(channel.id, "did:test:to-remove")).toBe(
+      expect(await ChannelService.isMember(channel.id, "did:test:to-remove")).toBe(
         true
       );
 
-      ChannelService.removeChannelMember(channel.id, "did:test:to-remove");
+      await ChannelService.removeChannelMember(channel.id, "did:test:to-remove");
 
-      expect(ChannelService.isMember(channel.id, "did:test:to-remove")).toBe(
+      expect(await ChannelService.isMember(channel.id, "did:test:to-remove")).toBe(
         false
       );
     } finally {
@@ -576,8 +576,8 @@ describe("ChannelService: addChannelMember / removeChannelMember", () => {
 });
 
 describe("ChannelService: getMemberRole", () => {
-  it("returns correct role for an existing member", () => {
-    const channel = ChannelService.createChannel({
+  it("returns correct role for an existing member", async () => {
+    const channel = await ChannelService.createChannel({
       name: "Role Test",
       slug: `${S}role-test`,
       realmId: testRealmId,
@@ -585,7 +585,7 @@ describe("ChannelService: getMemberRole", () => {
     });
 
     try {
-      ChannelService.addChannelMember({
+      await ChannelService.addChannelMember({
         channelId: channel.id,
         memberDid: "did:test:moderator",
         memberType: "user",
@@ -593,10 +593,10 @@ describe("ChannelService: getMemberRole", () => {
       });
 
       expect(
-        ChannelService.getMemberRole(channel.id, "did:test:moderator")
+        await ChannelService.getMemberRole(channel.id, "did:test:moderator")
       ).toBe("moderator");
       // Creator is owner
-      expect(ChannelService.getMemberRole(channel.id, "did:test:admin")).toBe(
+      expect(await ChannelService.getMemberRole(channel.id, "did:test:admin")).toBe(
         "owner"
       );
     } finally {
@@ -607,8 +607,8 @@ describe("ChannelService: getMemberRole", () => {
     }
   });
 
-  it("returns null for a non-member", () => {
-    const channel = ChannelService.createChannel({
+  it("returns null for a non-member", async () => {
+    const channel = await ChannelService.createChannel({
       name: "Null Role",
       slug: `${S}null-role`,
       realmId: testRealmId,
@@ -617,7 +617,7 @@ describe("ChannelService: getMemberRole", () => {
 
     try {
       expect(
-        ChannelService.getMemberRole(channel.id, "did:test:outsider")
+        await ChannelService.getMemberRole(channel.id, "did:test:outsider")
       ).toBeNull();
     } finally {
       getDb()
@@ -629,8 +629,8 @@ describe("ChannelService: getMemberRole", () => {
 });
 
 describe("ChannelService: getChannelStats", () => {
-  it("returns message_count and member_count", () => {
-    const channel = ChannelService.createChannel({
+  it("returns message_count and member_count", async () => {
+    const channel = await ChannelService.createChannel({
       name: "Stats Test",
       slug: `${S}stats-test`,
       realmId: testRealmId,
@@ -639,27 +639,27 @@ describe("ChannelService: getChannelStats", () => {
 
     try {
       // Creator is already a member; add one more
-      ChannelService.addChannelMember({
+      await ChannelService.addChannelMember({
         channelId: channel.id,
         memberDid: "did:test:stats-member",
         memberType: "user",
       });
 
       // Post two messages
-      ChannelService.postMessage({
+      await ChannelService.postMessage({
         channelId: channel.id,
         authorDid: "did:test:admin",
         authorType: "user",
         content: "msg 1",
       });
-      ChannelService.postMessage({
+      await ChannelService.postMessage({
         channelId: channel.id,
         authorDid: "did:test:admin",
         authorType: "user",
         content: "msg 2",
       });
 
-      const stats = ChannelService.getChannelStats(channel.id);
+      const stats = await ChannelService.getChannelStats(channel.id);
       expect(stats.messageCount).toBe(2);
       expect(stats.memberCount).toBe(2); // creator + stats-member
     } finally {
@@ -679,13 +679,13 @@ describe("ChannelService: getChannelStats", () => {
 // ===========================================================================
 
 describe("MessageDispatcher: extractMentions", () => {
-  it("parses a single @name mention", () => {
+  it("parses a single @name mention", async () => {
     expect(MessageDispatcher.extractMentions("Hello @alice")).toEqual([
       "alice",
     ]);
   });
 
-  it("parses multiple @mentions", () => {
+  it("parses multiple @mentions", async () => {
     const mentions = MessageDispatcher.extractMentions(
       "@bob and @carol please help"
     );
@@ -694,20 +694,20 @@ describe("MessageDispatcher: extractMentions", () => {
     expect(mentions).toHaveLength(2);
   });
 
-  it("handles hyphenated names", () => {
+  it("handles hyphenated names", async () => {
     expect(MessageDispatcher.extractMentions("@my-agent do it")).toEqual([
       "my-agent",
     ]);
   });
 
-  it("returns empty array when no mentions", () => {
+  it("returns empty array when no mentions", async () => {
     expect(MessageDispatcher.extractMentions("no mentions here")).toEqual([]);
   });
 });
 
 describe("MessageDispatcher: processMessage", () => {
   it("returns early without creating a thread if no mentions", async () => {
-    const channel = ChannelService.createChannel({
+    const channel = await ChannelService.createChannel({
       name: "Dispatcher No Mention",
       slug: `${S}dispatcher-no-mention`,
       realmId: testRealmId,
@@ -715,7 +715,7 @@ describe("MessageDispatcher: processMessage", () => {
     });
 
     try {
-      const msg = ChannelService.postMessage({
+      const msg = await ChannelService.postMessage({
         channelId: channel.id,
         authorDid: "did:test:admin",
         authorType: "user",
@@ -730,7 +730,7 @@ describe("MessageDispatcher: processMessage", () => {
       );
 
       // No thread replies should have been created
-      const thread = ChannelService.getThread(msg.id);
+      const thread = await ChannelService.getThread(msg.id);
       expect(thread).toHaveLength(0);
     } finally {
       getDb()
@@ -744,7 +744,7 @@ describe("MessageDispatcher: processMessage", () => {
   });
 
   it("creates a thread reply when a known agent is @mentioned", async () => {
-    const channel = ChannelService.createChannel({
+    const channel = await ChannelService.createChannel({
       name: "Dispatcher Mention",
       slug: `${S}dispatcher-mention`,
       realmId: testRealmId,
@@ -752,7 +752,7 @@ describe("MessageDispatcher: processMessage", () => {
     });
 
     try {
-      const msg = ChannelService.postMessage({
+      const msg = await ChannelService.postMessage({
         channelId: channel.id,
         authorDid: "did:test:admin",
         authorType: "user",
@@ -767,7 +767,7 @@ describe("MessageDispatcher: processMessage", () => {
       );
 
       // A thread should have been created for the mention
-      const thread = ChannelService.getThread(msg.id);
+      const thread = await ChannelService.getThread(msg.id);
       expect(thread.length).toBeGreaterThanOrEqual(1);
     } finally {
       getDb()
@@ -782,7 +782,7 @@ describe("MessageDispatcher: processMessage", () => {
 
   it("posts an offline notice when agent is not connected", async () => {
     // ws-server mock already returns sendTaskToAgent = () => false (offline)
-    const channel = ChannelService.createChannel({
+    const channel = await ChannelService.createChannel({
       name: "Dispatcher Offline",
       slug: `${S}dispatcher-offline`,
       realmId: testRealmId,
@@ -790,7 +790,7 @@ describe("MessageDispatcher: processMessage", () => {
     });
 
     try {
-      const msg = ChannelService.postMessage({
+      const msg = await ChannelService.postMessage({
         channelId: channel.id,
         authorDid: "did:test:admin",
         authorType: "user",
@@ -805,7 +805,7 @@ describe("MessageDispatcher: processMessage", () => {
       );
 
       // Offline notice is posted directly as a thread reply on the parent message
-      const thread = ChannelService.getThread(msg.id);
+      const thread = await ChannelService.getThread(msg.id);
       const offlineNotice = thread.find(
         (m) => m.authorType === "agent" && m.content.includes("offline")
       );
@@ -850,7 +850,7 @@ describe("GET /api/channels", () => {
   });
 
   it("returns 200 with channels array for valid realm", async () => {
-    const channel = ChannelService.createChannel({
+    const channel = await ChannelService.createChannel({
       name: "List API Test",
       slug: `${S}list-api-test`,
       realmId: testRealmId,
@@ -954,7 +954,7 @@ describe("GET /api/channels/[id]", () => {
   });
 
   it("returns 200 with channel + members + stats", async () => {
-    const channel = ChannelService.createChannel({
+    const channel = await ChannelService.createChannel({
       name: "Detail Test",
       slug: `${S}detail-test`,
       realmId: testRealmId,
@@ -994,7 +994,7 @@ describe("PATCH /api/channels/[id]", () => {
   it("returns 403 if requester is not owner or admin", async () => {
     // Member context, not owner of the channel
     mockGetAuthContext.mockResolvedValueOnce(makeMemberContext());
-    const channel = ChannelService.createChannel({
+    const channel = await ChannelService.createChannel({
       name: "Patch Forbidden",
       slug: `${S}patch-forbidden`,
       realmId: testRealmId,
@@ -1016,7 +1016,7 @@ describe("PATCH /api/channels/[id]", () => {
   });
 
   it("returns 200 and updates name when called by admin", async () => {
-    const channel = ChannelService.createChannel({
+    const channel = await ChannelService.createChannel({
       name: "Old Name",
       slug: `${S}patch-name`,
       realmId: testRealmId,
@@ -1048,7 +1048,7 @@ describe("PATCH /api/channels/[id]", () => {
 describe("DELETE /api/channels/[id]", () => {
   it("returns 403 if requester is not owner or admin", async () => {
     mockGetAuthContext.mockResolvedValueOnce(makeMemberContext());
-    const channel = ChannelService.createChannel({
+    const channel = await ChannelService.createChannel({
       name: "Delete Forbidden",
       slug: `${S}delete-forbidden`,
       realmId: testRealmId,
@@ -1070,7 +1070,7 @@ describe("DELETE /api/channels/[id]", () => {
   });
 
   it("returns 200 and archives channel when called by admin", async () => {
-    const channel = ChannelService.createChannel({
+    const channel = await ChannelService.createChannel({
       name: "Archive Me",
       slug: `${S}archive-me`,
       realmId: testRealmId,
@@ -1087,7 +1087,7 @@ describe("DELETE /api/channels/[id]", () => {
     expect(body.success).toBe(true);
 
     // Verify archived in DB
-    const updated = ChannelService.getChannel(channel.id);
+    const updated = await ChannelService.getChannel(channel.id);
     expect(updated?.isArchived).toBe(true);
 
     // Cleanup
@@ -1104,7 +1104,7 @@ describe("DELETE /api/channels/[id]", () => {
 
 describe("POST /api/channels/[id]/members", () => {
   it("returns 400 if memberDid is missing", async () => {
-    const channel = ChannelService.createChannel({
+    const channel = await ChannelService.createChannel({
       name: "Members 400",
       slug: `${S}members-400`,
       realmId: testRealmId,
@@ -1127,7 +1127,7 @@ describe("POST /api/channels/[id]/members", () => {
   });
 
   it("returns 409 if member is already in channel", async () => {
-    const channel = ChannelService.createChannel({
+    const channel = await ChannelService.createChannel({
       name: "Members 409",
       slug: `${S}members-409`,
       realmId: testRealmId,
@@ -1136,7 +1136,7 @@ describe("POST /api/channels/[id]/members", () => {
 
     try {
       // Add the member first
-      ChannelService.addChannelMember({
+      await ChannelService.addChannelMember({
         channelId: channel.id,
         memberDid: "did:test:already-there",
         memberType: "user",
@@ -1159,7 +1159,7 @@ describe("POST /api/channels/[id]/members", () => {
   });
 
   it("returns 201 and adds the member successfully", async () => {
-    const channel = ChannelService.createChannel({
+    const channel = await ChannelService.createChannel({
       name: "Members 201",
       slug: `${S}members-201`,
       realmId: testRealmId,
@@ -1198,7 +1198,7 @@ describe("POST /api/channels/[id]/members", () => {
 
 describe("DELETE /api/channels/[id]/members", () => {
   it("returns 200 and removes the member", async () => {
-    const channel = ChannelService.createChannel({
+    const channel = await ChannelService.createChannel({
       name: "Remove Via API",
       slug: `${S}remove-via-api`,
       realmId: testRealmId,
@@ -1206,14 +1206,14 @@ describe("DELETE /api/channels/[id]/members", () => {
     });
 
     try {
-      ChannelService.addChannelMember({
+      await ChannelService.addChannelMember({
         channelId: channel.id,
         memberDid: "did:test:to-remove-api",
         memberType: "user",
       });
 
       expect(
-        ChannelService.isMember(channel.id, "did:test:to-remove-api")
+        await ChannelService.isMember(channel.id, "did:test:to-remove-api")
       ).toBe(true);
 
       // The route reads the DID from url.pathname.split("/").pop()
@@ -1227,7 +1227,7 @@ describe("DELETE /api/channels/[id]/members", () => {
       expect(res._status).toBe(200);
 
       expect(
-        ChannelService.isMember(channel.id, "did:test:to-remove-api")
+        await ChannelService.isMember(channel.id, "did:test:to-remove-api")
       ).toBe(false);
     } finally {
       getDb()
@@ -1245,7 +1245,7 @@ describe("DELETE /api/channels/[id]/members", () => {
 describe("GET /api/channels/[id]/messages", () => {
   it("returns 200 with messages array for a channel member", async () => {
     // Auth context with did:test:admin who is a member (owner)
-    const channel = ChannelService.createChannel({
+    const channel = await ChannelService.createChannel({
       name: "Msgs List",
       slug: `${S}msgs-list`,
       realmId: testRealmId,
@@ -1253,7 +1253,7 @@ describe("GET /api/channels/[id]/messages", () => {
     });
 
     try {
-      ChannelService.postMessage({
+      await ChannelService.postMessage({
         channelId: channel.id,
         authorDid: "did:test:admin",
         authorType: "user",
@@ -1287,7 +1287,7 @@ describe("GET /api/channels/[id]/messages", () => {
 
   it("returns 403 if requester is not a channel member", async () => {
     mockGetAuthContext.mockResolvedValueOnce(makeMemberContext()); // did:test:member, not a member of the channel
-    const channel = ChannelService.createChannel({
+    const channel = await ChannelService.createChannel({
       name: "Msgs Forbidden",
       slug: `${S}msgs-forbidden`,
       realmId: testRealmId,
@@ -1318,7 +1318,7 @@ describe("GET /api/channels/[id]/messages", () => {
 
 describe("POST /api/channels/[id]/messages", () => {
   it("returns 400 if content is empty", async () => {
-    const channel = ChannelService.createChannel({
+    const channel = await ChannelService.createChannel({
       name: "Post Msg 400",
       slug: `${S}post-msg-400`,
       realmId: testRealmId,
@@ -1340,7 +1340,7 @@ describe("POST /api/channels/[id]/messages", () => {
   });
 
   it("returns 201 and creates a message for a channel member", async () => {
-    const channel = ChannelService.createChannel({
+    const channel = await ChannelService.createChannel({
       name: "Post Msg 201",
       slug: `${S}post-msg-201`,
       realmId: testRealmId,
@@ -1385,7 +1385,7 @@ describe("POST /api/channels/[id]/messages/agent-response", () => {
       canAdminRealm: () => false,
     });
 
-    const channel = ChannelService.createChannel({
+    const channel = await ChannelService.createChannel({
       name: "Agent Resp 403",
       slug: `${S}agent-resp-403`,
       realmId: testRealmId,
@@ -1407,7 +1407,7 @@ describe("POST /api/channels/[id]/messages/agent-response", () => {
   });
 
   it("returns 201 and posts agent message when agent is a member", async () => {
-    const channel = ChannelService.createChannel({
+    const channel = await ChannelService.createChannel({
       name: "Agent Resp 201",
       slug: `${S}agent-resp-201`,
       realmId: testRealmId,
@@ -1416,7 +1416,7 @@ describe("POST /api/channels/[id]/messages/agent-response", () => {
 
     try {
       // Add the agent as a member
-      ChannelService.addChannelMember({
+      await ChannelService.addChannelMember({
         channelId: channel.id,
         memberDid: testAgentDid,
         memberType: "agent",
@@ -1531,26 +1531,26 @@ describe("WebhookGateway: verifySignature", () => {
   const body = JSON.stringify({ message: "hello" });
   const validSig = makeWebhookSignature(body, secret);
 
-  it("returns true for a correct HMAC-SHA256 signature", () => {
+  it("returns true for a correct HMAC-SHA256 signature", async () => {
     expect(WebhookGateway.verifySignature(body, secret, validSig)).toBe(true);
   });
 
-  it("returns false for a wrong signature", () => {
+  it("returns false for a wrong signature", async () => {
     expect(
       WebhookGateway.verifySignature(body, secret, "sha256=deadbeef")
     ).toBe(false);
   });
 
-  it("returns false when signatureHeader is null", () => {
+  it("returns false when signatureHeader is null", async () => {
     expect(WebhookGateway.verifySignature(body, secret, null)).toBe(false);
   });
 
-  it("returns false when signature lacks sha256= prefix", () => {
+  it("returns false when signature lacks sha256= prefix", async () => {
     const raw = createHmac("sha256", secret).update(body).digest("hex");
     expect(WebhookGateway.verifySignature(body, secret, raw)).toBe(false);
   });
 
-  it("returns false for a valid signature computed with a different secret", () => {
+  it("returns false for a valid signature computed with a different secret", async () => {
     const wrongSig = makeWebhookSignature(body, "wrong-secret");
     expect(WebhookGateway.verifySignature(body, secret, wrongSig)).toBe(false);
   });
@@ -1636,7 +1636,7 @@ describe("WebhookGateway: sendOutgoing", () => {
 
 describe("BridgeFactory: fanOutMessage", () => {
   it("calls WebhookGateway.sendOutgoing for an active outgoing webhook bridge", async () => {
-    const channel = ChannelService.createChannel({
+    const channel = await ChannelService.createChannel({
       name: "Fan-out Test",
       slug: `${S}fan-out-test`,
       realmId: testRealmId,
@@ -1644,7 +1644,7 @@ describe("BridgeFactory: fanOutMessage", () => {
     });
 
     try {
-      ChannelBridgeService.createBridge({
+      await ChannelBridgeService.createBridge({
         channelId: channel.id,
         externalService: "webhook",
         externalChannelId: "ext-ch-1",
@@ -1686,7 +1686,7 @@ describe("BridgeFactory: fanOutMessage", () => {
   });
 
   it("skips disabled bridges", async () => {
-    const channel = ChannelService.createChannel({
+    const channel = await ChannelService.createChannel({
       name: "Skip Disabled",
       slug: `${S}skip-disabled`,
       realmId: testRealmId,
@@ -1694,7 +1694,7 @@ describe("BridgeFactory: fanOutMessage", () => {
     });
 
     try {
-      const bridge = ChannelBridgeService.createBridge({
+      const bridge = await ChannelBridgeService.createBridge({
         channelId: channel.id,
         externalService: "webhook",
         externalChannelId: "ext-ch-2",
@@ -1709,7 +1709,7 @@ describe("BridgeFactory: fanOutMessage", () => {
       });
 
       // Disable it
-      ChannelBridgeService.toggleBridgeSync(bridge.id, false);
+      await ChannelBridgeService.toggleBridgeSync(bridge.id, false);
 
       const fetchSpy = vi.spyOn(globalThis, "fetch");
 
@@ -1736,7 +1736,7 @@ describe("BridgeFactory: fanOutMessage", () => {
   });
 
   it("skips incoming-only bridges", async () => {
-    const channel = ChannelService.createChannel({
+    const channel = await ChannelService.createChannel({
       name: "Skip Incoming",
       slug: `${S}skip-incoming`,
       realmId: testRealmId,
@@ -1744,7 +1744,7 @@ describe("BridgeFactory: fanOutMessage", () => {
     });
 
     try {
-      ChannelBridgeService.createBridge({
+      await ChannelBridgeService.createBridge({
         channelId: channel.id,
         externalService: "webhook",
         externalChannelId: "ext-ch-3",
@@ -1788,8 +1788,8 @@ describe("BridgeFactory: fanOutMessage", () => {
 // ===========================================================================
 
 describe("ChannelBridgeService: createBridge / listBridges / deleteBridge", () => {
-  it("creates a webhook bridge and returns it via listBridges", () => {
-    const channel = ChannelService.createChannel({
+  it("creates a webhook bridge and returns it via listBridges", async () => {
+    const channel = await ChannelService.createChannel({
       name: "Bridge CRUD",
       slug: `${S}bridge-crud`,
       realmId: testRealmId,
@@ -1797,7 +1797,7 @@ describe("ChannelBridgeService: createBridge / listBridges / deleteBridge", () =
     });
 
     try {
-      const bridge = ChannelBridgeService.createBridge({
+      const bridge = await ChannelBridgeService.createBridge({
         channelId: channel.id,
         externalService: "webhook",
         externalChannelId: "ext-list-1",
@@ -1813,12 +1813,12 @@ describe("ChannelBridgeService: createBridge / listBridges / deleteBridge", () =
       expect(bridge.id).toBeTruthy();
       expect(bridge.externalService).toBe("webhook");
 
-      const list = ChannelBridgeService.listBridges(channel.id);
+      const list = await ChannelBridgeService.listBridges(channel.id);
       expect(list.some((b) => b.id === bridge.id)).toBe(true);
 
       // Delete and verify it's gone
-      ChannelBridgeService.deleteBridge(bridge.id);
-      const afterDelete = ChannelBridgeService.listBridges(channel.id);
+      await ChannelBridgeService.deleteBridge(bridge.id);
+      const afterDelete = await ChannelBridgeService.listBridges(channel.id);
       expect(afterDelete.some((b) => b.id === bridge.id)).toBe(false);
     } finally {
       getDb()
@@ -1831,8 +1831,8 @@ describe("ChannelBridgeService: createBridge / listBridges / deleteBridge", () =
     }
   });
 
-  it("throws when creating a duplicate bridge for the same channel+service+externalChannelId", () => {
-    const channel = ChannelService.createChannel({
+  it("throws when creating a duplicate bridge for the same channel+service+externalChannelId", async () => {
+    const channel = await ChannelService.createChannel({
       name: "Bridge Dup",
       slug: `${S}bridge-dup`,
       realmId: testRealmId,
@@ -1845,7 +1845,7 @@ describe("ChannelBridgeService: createBridge / listBridges / deleteBridge", () =
         outgoingUrl: "https://out.example.com",
         secret: "s",
       };
-      ChannelBridgeService.createBridge({
+      await ChannelBridgeService.createBridge({
         channelId: channel.id,
         externalService: "webhook",
         externalChannelId: "ext-dup",
@@ -1854,7 +1854,7 @@ describe("ChannelBridgeService: createBridge / listBridges / deleteBridge", () =
         config,
       });
 
-      expect(() =>
+      await expect(
         ChannelBridgeService.createBridge({
           channelId: channel.id,
           externalService: "webhook",
@@ -1863,7 +1863,7 @@ describe("ChannelBridgeService: createBridge / listBridges / deleteBridge", () =
           externalWorkspaceId: "ws-dup",
           config,
         })
-      ).toThrow(/already exists/i);
+      ).rejects.toThrow(/already exists/i);
     } finally {
       getDb()
         .prepare("DELETE FROM channel_bridges WHERE channel_id = ?")
@@ -1875,8 +1875,8 @@ describe("ChannelBridgeService: createBridge / listBridges / deleteBridge", () =
     }
   });
 
-  it("toggleBridgeSync enables and disables a bridge", () => {
-    const channel = ChannelService.createChannel({
+  it("toggleBridgeSync enables and disables a bridge", async () => {
+    const channel = await ChannelService.createChannel({
       name: "Bridge Toggle",
       slug: `${S}bridge-toggle`,
       realmId: testRealmId,
@@ -1884,7 +1884,7 @@ describe("ChannelBridgeService: createBridge / listBridges / deleteBridge", () =
     });
 
     try {
-      const bridge = ChannelBridgeService.createBridge({
+      const bridge = await ChannelBridgeService.createBridge({
         channelId: channel.id,
         externalService: "webhook",
         externalChannelId: "ext-toggle",
@@ -1899,10 +1899,10 @@ describe("ChannelBridgeService: createBridge / listBridges / deleteBridge", () =
 
       expect(bridge.isSyncEnabled).toBe(true);
 
-      const disabled = ChannelBridgeService.toggleBridgeSync(bridge.id, false);
+      const disabled = await ChannelBridgeService.toggleBridgeSync(bridge.id, false);
       expect(disabled.isSyncEnabled).toBe(false);
 
-      const enabled = ChannelBridgeService.toggleBridgeSync(bridge.id, true);
+      const enabled = await ChannelBridgeService.toggleBridgeSync(bridge.id, true);
       expect(enabled.isSyncEnabled).toBe(true);
     } finally {
       getDb()
@@ -1939,7 +1939,7 @@ describe("GET /api/channels/[id]/bridges", () => {
   });
 
   it("returns 200 with bridges array (configJson stripped)", async () => {
-    const channel = ChannelService.createChannel({
+    const channel = await ChannelService.createChannel({
       name: "Bridges GET",
       slug: `${S}bridges-get`,
       realmId: testRealmId,
@@ -1947,7 +1947,7 @@ describe("GET /api/channels/[id]/bridges", () => {
     });
 
     try {
-      ChannelBridgeService.createBridge({
+      await ChannelBridgeService.createBridge({
         channelId: channel.id,
         externalService: "webhook",
         externalChannelId: "ext-get-1",
@@ -1998,7 +1998,7 @@ describe("POST /api/channels/[id]/bridges", () => {
   });
 
   it("returns 400 if externalService is missing", async () => {
-    const channel = ChannelService.createChannel({
+    const channel = await ChannelService.createChannel({
       name: "Bridge POST 400a",
       slug: `${S}bridge-post-400a`,
       realmId: testRealmId,
@@ -2025,7 +2025,7 @@ describe("POST /api/channels/[id]/bridges", () => {
   });
 
   it("returns 400 if config is missing", async () => {
-    const channel = ChannelService.createChannel({
+    const channel = await ChannelService.createChannel({
       name: "Bridge POST 400b",
       slug: `${S}bridge-post-400b`,
       realmId: testRealmId,
@@ -2053,7 +2053,7 @@ describe("POST /api/channels/[id]/bridges", () => {
   });
 
   it("returns 201 and creates a webhook bridge (configJson stripped)", async () => {
-    const channel = ChannelService.createChannel({
+    const channel = await ChannelService.createChannel({
       name: "Bridge POST 201",
       slug: `${S}bridge-post-201`,
       realmId: testRealmId,
@@ -2095,7 +2095,7 @@ describe("POST /api/channels/[id]/bridges", () => {
   });
 
   it("returns 409 when creating a duplicate bridge", async () => {
-    const channel = ChannelService.createChannel({
+    const channel = await ChannelService.createChannel({
       name: "Bridge POST 409",
       slug: `${S}bridge-post-409`,
       realmId: testRealmId,
@@ -2161,7 +2161,7 @@ describe("PATCH /api/channels/[id]/bridges/[bridgeId]", () => {
   });
 
   it("toggles isSyncEnabled and returns 200", async () => {
-    const channel = ChannelService.createChannel({
+    const channel = await ChannelService.createChannel({
       name: "Bridge PATCH",
       slug: `${S}bridge-patch`,
       realmId: testRealmId,
@@ -2169,7 +2169,7 @@ describe("PATCH /api/channels/[id]/bridges/[bridgeId]", () => {
     });
 
     try {
-      const bridge = ChannelBridgeService.createBridge({
+      const bridge = await ChannelBridgeService.createBridge({
         channelId: channel.id,
         externalService: "webhook",
         externalChannelId: "ext-patch",
@@ -2203,7 +2203,7 @@ describe("PATCH /api/channels/[id]/bridges/[bridgeId]", () => {
   });
 
   it("updates syncDirection and returns 200", async () => {
-    const channel = ChannelService.createChannel({
+    const channel = await ChannelService.createChannel({
       name: "Bridge PATCH Dir",
       slug: `${S}bridge-patch-dir`,
       realmId: testRealmId,
@@ -2211,7 +2211,7 @@ describe("PATCH /api/channels/[id]/bridges/[bridgeId]", () => {
     });
 
     try {
-      const bridge = ChannelBridgeService.createBridge({
+      const bridge = await ChannelBridgeService.createBridge({
         channelId: channel.id,
         externalService: "webhook",
         externalChannelId: "ext-patch-dir",
@@ -2268,7 +2268,7 @@ describe("DELETE /api/channels/[id]/bridges/[bridgeId]", () => {
   });
 
   it("returns 200 and removes the bridge", async () => {
-    const channel = ChannelService.createChannel({
+    const channel = await ChannelService.createChannel({
       name: "Bridge DELETE",
       slug: `${S}bridge-delete`,
       realmId: testRealmId,
@@ -2276,7 +2276,7 @@ describe("DELETE /api/channels/[id]/bridges/[bridgeId]", () => {
     });
 
     try {
-      const bridge = ChannelBridgeService.createBridge({
+      const bridge = await ChannelBridgeService.createBridge({
         channelId: channel.id,
         externalService: "webhook",
         externalChannelId: "ext-del",
@@ -2298,7 +2298,7 @@ describe("DELETE /api/channels/[id]/bridges/[bridgeId]", () => {
       const body = (await res.json()) as { success: boolean };
       expect(body.success).toBe(true);
 
-      expect(ChannelBridgeService.getBridge(bridge.id)).toBeNull();
+      expect(await ChannelBridgeService.getBridge(bridge.id)).toBeNull();
     } finally {
       getDb()
         .prepare("DELETE FROM channel_bridges WHERE channel_id = ?")
@@ -2333,7 +2333,7 @@ describe("POST /api/bridges/webhook/[bridgeId]/incoming", () => {
   });
 
   it("returns 401 when HMAC signature is invalid", async () => {
-    const channel = ChannelService.createChannel({
+    const channel = await ChannelService.createChannel({
       name: "Webhook Sig Fail",
       slug: `${S}webhook-sig-fail`,
       realmId: testRealmId,
@@ -2341,7 +2341,7 @@ describe("POST /api/bridges/webhook/[bridgeId]/incoming", () => {
     });
 
     try {
-      const bridge = ChannelBridgeService.createBridge({
+      const bridge = await ChannelBridgeService.createBridge({
         channelId: channel.id,
         externalService: "webhook",
         externalChannelId: "ext-sig-fail",
@@ -2377,7 +2377,7 @@ describe("POST /api/bridges/webhook/[bridgeId]/incoming", () => {
   });
 
   it("returns 403 when bridge sync direction is outgoing-only", async () => {
-    const channel = ChannelService.createChannel({
+    const channel = await ChannelService.createChannel({
       name: "Webhook Outgoing Only",
       slug: `${S}webhook-out-only`,
       realmId: testRealmId,
@@ -2385,7 +2385,7 @@ describe("POST /api/bridges/webhook/[bridgeId]/incoming", () => {
     });
 
     try {
-      const bridge = ChannelBridgeService.createBridge({
+      const bridge = await ChannelBridgeService.createBridge({
         channelId: channel.id,
         externalService: "webhook",
         externalChannelId: "ext-out-only",
@@ -2422,7 +2422,7 @@ describe("POST /api/bridges/webhook/[bridgeId]/incoming", () => {
   });
 
   it("returns 200, creates a channel message, and returns messageId on valid HMAC", async () => {
-    const channel = ChannelService.createChannel({
+    const channel = await ChannelService.createChannel({
       name: "Webhook Success",
       slug: `${S}webhook-success`,
       realmId: testRealmId,
@@ -2430,7 +2430,7 @@ describe("POST /api/bridges/webhook/[bridgeId]/incoming", () => {
     });
 
     try {
-      const bridge = ChannelBridgeService.createBridge({
+      const bridge = await ChannelBridgeService.createBridge({
         channelId: channel.id,
         externalService: "webhook",
         externalChannelId: "ext-success",
@@ -2466,7 +2466,7 @@ describe("POST /api/bridges/webhook/[bridgeId]/incoming", () => {
       expect(resBody.messageId).toBeTruthy();
 
       // Verify the message was persisted in the channel
-      const messages = ChannelService.listMessages(channel.id, 10, 0);
+      const messages = await ChannelService.listMessages(channel.id, 10, 0);
       expect(
         messages.some(
           (m) =>

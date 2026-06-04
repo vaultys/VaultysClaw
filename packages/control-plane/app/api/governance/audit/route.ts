@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
-import { getDb } from "@/lib/db";
+import { prisma } from "@/db/client";
 
 /**
  * GET /api/governance/audit
@@ -95,7 +95,6 @@ export async function GET(request: NextRequest) {
     if (!auth) return unauthorized();
     if (!auth.isGlobalAdmin) return forbidden();
 
-    const db = getDb();
     const { searchParams } = new URL(request.url);
     const limit = Math.min(
       500,
@@ -105,7 +104,6 @@ export async function GET(request: NextRequest) {
     const statusFilter = searchParams.get("status") ?? "";
     const agentDidFilter = searchParams.get("agentDid") ?? "";
 
-    
     type AuditEntry = {
       id: string;
       source: "activity" | "intent";
@@ -122,69 +120,50 @@ export async function GET(request: NextRequest) {
 
     // Activity log entries
     if (!source || source === "activity") {
-      const activityQuery = agentDidFilter
-        ? "SELECT * FROM activity_log WHERE agent_did = ? ORDER BY created_at DESC LIMIT ?"
-        : "SELECT * FROM activity_log ORDER BY created_at DESC LIMIT ?";
-      const activityParams = agentDidFilter ? [agentDidFilter, limit] : [limit];
-      const rows = db.prepare(activityQuery).all(...activityParams) as {
-        id: number;
-        event: string;
-        agent_did: string | null;
-        agent_name: string | null;
-        details: string | null;
-        created_at: string;
-      }[];
+      const activityRows = await prisma.activityLog.findMany({
+        where: agentDidFilter ? { agentDid: agentDidFilter } : undefined,
+        orderBy: { createdAt: "desc" },
+        take: limit,
+      });
 
-      for (const r of rows) {
+      for (const r of activityRows) {
         entries.push({
           id: `act-${r.id}`,
           source: "activity",
           event: r.event,
-          agentDid: r.agent_did,
-          agentName: r.agent_name,
+          agentDid: r.agentDid,
+          agentName: r.agentName,
           details: r.details,
           status: null,
           error: null,
-          timestamp: r.created_at,
+          timestamp: r.createdAt.toISOString(),
         });
       }
     }
 
     // Intent log entries
     if (!source || source === "intent") {
-      let query = "SELECT * FROM intent_log";
-      const params: unknown[] = [];
-      const conditions: string[] = [];
-      if (statusFilter)
-        conditions.push("status = ?") && params.push(statusFilter);
-      if (agentDidFilter)
-        conditions.push("agent_did = ?") && params.push(agentDidFilter);
-      if (conditions.length) query += " WHERE " + conditions.join(" AND ");
-      query += " ORDER BY sent_at DESC LIMIT ?";
-      params.push(limit);
+      const intentWhere: Record<string, unknown> = {};
+      if (statusFilter) intentWhere.status = statusFilter;
+      if (agentDidFilter) intentWhere.agentDid = agentDidFilter;
 
-      const rows = db.prepare(query).all(...params) as {
-        intent_id: string;
-        agent_did: string | null;
-        action: string;
-        status: string;
-        error: string | null;
-        params: string | null;
-        sent_at: string;
-        completed_at: string | null;
-      }[];
+      const intentRows = await prisma.intentLog.findMany({
+        where: Object.keys(intentWhere).length ? intentWhere : undefined,
+        orderBy: { sentAt: "desc" },
+        take: limit,
+      });
 
-      for (const r of rows) {
+      for (const r of intentRows) {
         entries.push({
-          id: `int-${r.intent_id}`,
+          id: `int-${r.intentId}`,
           source: "intent",
           event: r.action,
-          agentDid: r.agent_did,
+          agentDid: r.agentDid,
           agentName: null,
-          details: r.params,
+          details: r.params !== null ? JSON.stringify(r.params) : null,
           status: r.status,
           error: r.error,
-          timestamp: r.sent_at,
+          timestamp: r.sentAt.toISOString(),
         });
       }
     }

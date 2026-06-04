@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useAdminWS } from "@/hooks/useAdminWS";
 import {
   Bot,
@@ -22,8 +22,17 @@ import {
   X,
   Plus,
   BookOpen,
+  List,
+  Map,
 } from "lucide-react";
 import { useState, useEffect, useCallback, useRef } from "react";
+import dynamic from "next/dynamic";
+import type { MapMarker } from "@/components/map/WorldMap";
+
+const WorldMap = dynamic(
+  () => import("@/components/map/WorldMap").then((m) => m.WorldMap),
+  { ssr: false }
+);
 
 const CAPABILITY_ICONS: Record<string, React.ReactNode> = {
   file_access: <FolderOpen size={14} />,
@@ -95,7 +104,14 @@ const PAGE_SIZE = 20;
 
 export default function AgentsPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { connected: wsConnected, agents: wsAgents } = useAdminWS();
+
+  const [viewMode, setViewMode] = useState<"list" | "map">(
+    searchParams.get("view") === "map" ? "map" : "list"
+  );
+  const [mapMarkers, setMapMarkers] = useState<MapMarker[]>([]);
+  const [mapLoading, setMapLoading] = useState(false);
 
   const [agents, setAgents] = useState<AgentItem[]>([]);
   const [total, setTotal] = useState(0);
@@ -154,6 +170,23 @@ export default function AgentsPage() {
     },
     []
   );
+
+  // Fetch map markers whenever map view is active
+  const fetchMapMarkers = useCallback(async () => {
+    setMapLoading(true);
+    try {
+      const res = await fetch("/api/map");
+      if (!res.ok) return;
+      const data = (await res.json()) as { markers?: MapMarker[] };
+      setMapMarkers((data.markers ?? []).filter((m) => m.type === "agent"));
+    } finally {
+      setMapLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (viewMode === "map") fetchMapMarkers();
+  }, [viewMode, fetchMapMarkers]);
 
   // Re-fetch when filters/page change (debounced for q)
   useEffect(() => {
@@ -233,6 +266,29 @@ export default function AgentsPage() {
             )}
             {wsConnected ? "Live" : "Connecting…"}
           </span>
+          {/* View toggle */}
+          <div className="flex items-center bg-background-100 border border-neutral-200 rounded-lg p-0.5">
+            <button
+              onClick={() => setViewMode("list")}
+              className={`flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                viewMode === "list"
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-foreground-500 hover:text-foreground"
+              }`}
+            >
+              <List className="w-3.5 h-3.5" /> List
+            </button>
+            <button
+              onClick={() => setViewMode("map")}
+              className={`flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                viewMode === "map"
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-foreground-500 hover:text-foreground"
+              }`}
+            >
+              <Map className="w-3.5 h-3.5" /> Map
+            </button>
+          </div>
           <button
             onClick={() => router.push("/agents/create")}
             className="flex items-center gap-1.5 px-3 py-1.5 bg-primary-600 hover:bg-primary-500 text-white text-xs font-medium rounded-lg transition-colors"
@@ -373,7 +429,54 @@ export default function AgentsPage() {
         </select>
       </div>
 
+      {/* Map view */}
+      {viewMode === "map" && (
+        <div className="bg-background-100 rounded-xl border border-neutral-200 overflow-hidden">
+          <div className="px-5 py-4 border-b border-neutral-200 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Globe className="w-4 h-4 text-primary-600" />
+              <span className="text-sm font-semibold text-foreground">
+                Agent Locations
+              </span>
+              <span className="text-xs text-foreground-500 bg-background-200 rounded-full px-2 py-0.5">
+                {mapMarkers.length} located
+              </span>
+            </div>
+            <button
+              onClick={fetchMapMarkers}
+              className="text-xs text-foreground-500 hover:text-foreground"
+            >
+              Refresh
+            </button>
+          </div>
+          {mapLoading ? (
+            <div className="flex justify-center py-16">
+              <div className="w-8 h-8 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />
+            </div>
+          ) : mapMarkers.length === 0 ? (
+            <div className="px-5 py-16 text-center">
+              <Globe className="w-10 h-10 text-neutral-300 mx-auto mb-3" />
+              <p className="text-foreground-500 text-sm">
+                No agents have a location set yet.
+              </p>
+              <p className="text-foreground-400 text-xs mt-1">
+                Agents are auto-located when they connect, or you can set a location manually in each agent&apos;s settings.
+              </p>
+            </div>
+          ) : (
+            <WorldMap
+              markers={mapMarkers}
+              height={480}
+              onMarkerClick={(m) =>
+                router.push(`/agents/${encodeURIComponent(m.id)}`)
+              }
+            />
+          )}
+        </div>
+      )}
+
       {/* Table */}
+      {viewMode === "list" && (
       <div className="bg-background-100 rounded-xl border border-neutral-200 overflow-hidden">
         {loading ? (
           <div className="flex justify-center py-16">
@@ -585,6 +688,7 @@ export default function AgentsPage() {
           </>
         )}
       </div>
+      )}
     </div>
   );
 }

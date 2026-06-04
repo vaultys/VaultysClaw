@@ -81,11 +81,11 @@ export async function GET(req: NextRequest) {
       : ChannelService.getChannel(realmId);
 
     // Return realm channels and optionally global channels
-    const realmChannels = ChannelService.listChannels(realmId).filter(
+    const realmChannels = (await ChannelService.listChannels(realmId)).filter(
       (c) => c.realmId === realmId
     );
     const globalChannels = includeGlobal
-      ? ChannelService.listGlobalChannels()
+      ? await ChannelService.listGlobalChannels()
       : [];
 
     return NextResponse.json({

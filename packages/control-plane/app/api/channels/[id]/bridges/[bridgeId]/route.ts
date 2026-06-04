@@ -71,7 +71,7 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
 
     const { bridgeId } = await ctx.params;
 
-    const bridge = ChannelBridgeService.getBridge(bridgeId);
+    const bridge = await ChannelBridgeService.getBridge(bridgeId);
     if (!bridge) {
       return NextResponse.json({ error: "Bridge not found" }, { status: 404 });
     }
@@ -95,14 +95,14 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
           { status: 400 }
         );
       }
-      updated = ChannelBridgeService.updateBridgeSyncDirection(
+      updated = await ChannelBridgeService.updateBridgeSyncDirection(
         bridgeId,
         body.syncDirection
       );
     }
 
     if (body.isSyncEnabled !== undefined) {
-      updated = ChannelBridgeService.toggleBridgeSync(
+      updated = await ChannelBridgeService.toggleBridgeSync(
         bridgeId,
         Boolean(body.isSyncEnabled)
       );
@@ -168,12 +168,12 @@ export async function DELETE(_req: NextRequest, ctx: Ctx) {
 
     const { bridgeId } = await ctx.params;
 
-    const bridge = ChannelBridgeService.getBridge(bridgeId);
+    const bridge = await ChannelBridgeService.getBridge(bridgeId);
     if (!bridge) {
       return NextResponse.json({ error: "Bridge not found" }, { status: 404 });
     }
 
-    ChannelBridgeService.deleteBridge(bridgeId);
+    await ChannelBridgeService.deleteBridge(bridgeId);
 
     return NextResponse.json({ success: true });
   } catch (err) {

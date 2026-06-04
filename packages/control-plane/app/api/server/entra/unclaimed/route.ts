@@ -6,7 +6,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext, forbidden, unauthorized } from "@/lib/auth-utils";
-import { UserDao } from "@/lib/user-dao";
+import { UserDAO } from "@/db";
 
 /**
  * @openapi
@@ -38,6 +38,10 @@ import { UserDao } from "@/lib/user-dao";
  *                       registeredAt:
  *                         type: string
  *                         format: date-time
+ *                       claimedAt:
+ *                         type: string
+ *                         format: date-time
+ *                         nullable: true
  *       401:
  *         $ref: '#/components/responses/Unauthorized'
  *       403:
@@ -48,12 +52,13 @@ export async function GET(request: NextRequest) {
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
 
-  const users = UserDao.listUnclaimedEntra().map((u: any) => ({
+  const users = (await UserDAO.listUnclaimed()).map((u: any) => ({
     id: u.id,
     name: u.name,
     email: u.email,
     entraId: u.entraId,
     registeredAt: u.registeredAt,
+    claimedAt: u.claimedAt,
   }));
 
   return NextResponse.json({ users });

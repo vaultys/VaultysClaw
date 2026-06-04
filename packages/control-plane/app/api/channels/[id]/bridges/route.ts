@@ -59,12 +59,12 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
 
     const { id } = await ctx.params;
 
-    const channel = ChannelService.getChannel(id);
+    const channel = await ChannelService.getChannel(id);
     if (!channel) {
       return NextResponse.json({ error: "Channel not found" }, { status: 404 });
     }
 
-    const bridges = ChannelBridgeService.listBridges(id).map(stripConfig);
+    const bridges = (await ChannelBridgeService.listBridges(id)).map(stripConfig);
     return NextResponse.json({ bridges });
   } catch (err) {
     console.error("GET /api/channels/[id]/bridges error:", err);
@@ -169,7 +169,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
 
     const { id } = await ctx.params;
 
-    const channel = ChannelService.getChannel(id);
+    const channel = await ChannelService.getChannel(id);
     if (!channel) {
       return NextResponse.json({ error: "Channel not found" }, { status: 404 });
     }
@@ -218,7 +218,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     }
 
     try {
-      const bridge = ChannelBridgeService.createBridge({
+      const bridge = await ChannelBridgeService.createBridge({
         channelId: id,
         externalService: body.externalService,
         externalChannelId: body.externalChannelId.trim(),

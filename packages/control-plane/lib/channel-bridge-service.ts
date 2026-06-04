@@ -1,10 +1,9 @@
 import {
   ChannelBridge,
-  ChannelBridgeInput,
   TeamsBridgeConfig,
   WebhookBridgeConfig,
 } from "@vaultysclaw/shared";
-import { ChannelBridgeDao } from "./channel-bridge-dao";
+import { ChannelBridgeDAO, prisma } from "@/db";
 
 /**
  * ChannelBridgeService manages external service integrations (Teams, webhooks, etc.)
@@ -17,7 +16,7 @@ export class ChannelBridgeService {
   /**
    * Create a new bridge to an external service
    */
-  static createBridge(input: {
+  static async createBridge(input: {
     channelId: string;
     externalService: "teams" | "webhook";
     externalChannelId: string;
@@ -25,13 +24,15 @@ export class ChannelBridgeService {
     externalWorkspaceId: string;
     syncDirection?: "incoming" | "outgoing" | "bidirectional";
     config: TeamsBridgeConfig | WebhookBridgeConfig;
-  }): ChannelBridge {
+  }): Promise<ChannelBridge> {
     // Check for duplicate bridge
-    const existing = ChannelBridgeDao.getByChannelAndService(
-      input.channelId,
-      input.externalService,
-      input.externalChannelId
-    );
+    const existing = await prisma.channelBridge.findFirst({
+      where: {
+        channelId: input.channelId,
+        externalService: input.externalService,
+        externalChannelId: input.externalChannelId,
+      },
+    });
 
     if (existing) {
       throw new Error(
@@ -41,90 +42,106 @@ export class ChannelBridgeService {
 
     const encryptedConfig = this.encryptConfig(input.config);
 
-    return ChannelBridgeDao.create({
+    return (await ChannelBridgeDAO.create({
       channelId: input.channelId,
       externalService: input.externalService,
       externalChannelId: input.externalChannelId,
       externalChannelName: input.externalChannelName,
       externalWorkspaceId: input.externalWorkspaceId,
       syncDirection: input.syncDirection ?? "bidirectional",
-      isSyncEnabled: true,
       configJson: encryptedConfig,
-    });
+    })) as unknown as ChannelBridge;
   }
 
   /**
    * Get a bridge by ID
    */
-  static getBridge(bridgeId: string): ChannelBridge | null {
-    return ChannelBridgeDao.getById(bridgeId);
+  static async getBridge(bridgeId: string): Promise<ChannelBridge | null> {
+    return (await ChannelBridgeDAO.findById(bridgeId)) as unknown as ChannelBridge | null;
   }
 
   /**
    * List all bridges for a channel
    */
-  static listBridges(channelId: string): ChannelBridge[] {
-    return ChannelBridgeDao.listByChannel(channelId);
+  static async listBridges(channelId: string): Promise<ChannelBridge[]> {
+    return (await ChannelBridgeDAO.listByChannel(channelId)) as unknown as ChannelBridge[];
   }
 
   /**
    * Get a specific bridge by service
    */
-  static getBridgeByService(
+  static async getBridgeByService(
     channelId: string,
     externalService: string,
     externalChannelId: string
-  ): ChannelBridge | null {
-    return ChannelBridgeDao.getByChannelAndService(
-      channelId,
-      externalService,
-      externalChannelId
-    );
+  ): Promise<ChannelBridge | null> {
+    const bridge = await prisma.channelBridge.findFirst({
+      where: { channelId, externalService, externalChannelId },
+    });
+    return bridge as unknown as ChannelBridge | null;
   }
 
   /**
    * Update bridge sync settings
    */
-  static updateBridgeSyncDirection(
+  static async updateBridgeSyncDirection(
     bridgeId: string,
     syncDirection: "incoming" | "outgoing" | "bidirectional"
-  ): ChannelBridge {
-    return ChannelBridgeDao.update(bridgeId, { syncDirection });
+  ): Promise<ChannelBridge> {
+    await ChannelBridgeDAO.update(bridgeId, { syncDirection });
+    const bridge = await ChannelBridgeDAO.findById(bridgeId);
+    if (!bridge) {
+      throw new Error("Bridge not found");
+    }
+    return bridge as unknown as ChannelBridge;
   }
 
   /**
    * Toggle sync on/off
    */
-  static toggleBridgeSync(bridgeId: string, enabled: boolean): ChannelBridge {
-    return ChannelBridgeDao.toggleSync(bridgeId, enabled);
+  static async toggleBridgeSync(
+    bridgeId: string,
+    enabled: boolean
+  ): Promise<ChannelBridge> {
+    await ChannelBridgeDAO.update(bridgeId, { isSyncEnabled: enabled });
+    const bridge = await ChannelBridgeDAO.findById(bridgeId);
+    if (!bridge) {
+      throw new Error("Bridge not found");
+    }
+    return bridge as unknown as ChannelBridge;
   }
 
   /**
    * Update bridge configuration (e.g., new OAuth token)
    */
-  static updateBridgeConfig(
+  static async updateBridgeConfig(
     bridgeId: string,
     config: TeamsBridgeConfig | WebhookBridgeConfig
-  ): ChannelBridge {
+  ): Promise<ChannelBridge> {
     const encryptedConfig = this.encryptConfig(config);
-    return ChannelBridgeDao.update(bridgeId, { configJson: encryptedConfig });
+    await ChannelBridgeDAO.update(bridgeId, { configJson: encryptedConfig });
+    const bridge = await ChannelBridgeDAO.findById(bridgeId);
+    if (!bridge) {
+      throw new Error("Bridge not found");
+    }
+    return bridge as unknown as ChannelBridge;
   }
 
   /**
    * Delete a bridge
    */
-  static deleteBridge(bridgeId: string): void {
-    ChannelBridgeDao.delete(bridgeId);
+  static async deleteBridge(bridgeId: string): Promise<void> {
+    await ChannelBridgeDAO.delete(bridgeId);
   }
 
   /**
    * Delete all bridges of a specific service for a channel
    */
-  static deleteServiceBridges(
+  static async deleteServiceBridges(
     channelId: string,
     externalService: string
-  ): void {
-    ChannelBridgeDao.deleteByChannelAndService(channelId, externalService);
+  ): Promise<void> {
+    await prisma.channelBridge.deleteMany({ where: { channelId, externalService } });
   }
 
   /**
@@ -171,7 +188,7 @@ export class ChannelBridgeService {
     bridge: ChannelBridge
   ): TeamsBridgeConfig | WebhookBridgeConfig {
     // TODO: Implement actual decryption
-    return this.decryptConfig(bridge.configJson);
+    return this.decryptConfig(bridge.configJson as unknown as Record<string, unknown>);
   }
 
   /**
@@ -179,20 +196,20 @@ export class ChannelBridgeService {
    */
   private static encryptConfig(
     config: TeamsBridgeConfig | WebhookBridgeConfig
-  ): string {
+  ): Record<string, unknown> {
     // TODO: Implement actual encryption (e.g., using crypto.encrypt with a key)
-    // For now, just return JSON as-is
-    return JSON.stringify(config);
+    // For now, store config as-is
+    return config as unknown as Record<string, unknown>;
   }
 
   /**
    * Decrypt configuration from storage (placeholder - implement with actual decryption)
    */
   private static decryptConfig(
-    encryptedJson: string
+    configJson: Record<string, unknown>
   ): TeamsBridgeConfig | WebhookBridgeConfig {
     // TODO: Implement actual decryption
-    // For now, just parse JSON as-is
-    return JSON.parse(encryptedJson);
+    // For now, return config as-is
+    return configJson as unknown as TeamsBridgeConfig | WebhookBridgeConfig;
   }
 }

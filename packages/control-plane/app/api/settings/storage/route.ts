@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
 import { SettingsDAO } from "@/db";
-import { getStorageConfig, setStorageConfig } from "@/lib/db";
+import { getStorageConfig, setStorageConfig } from "@/db/settings.dao";
 
 // GET /api/settings/storage
 /**

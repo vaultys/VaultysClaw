@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
-import { getDoclingConfig, setDoclingConfig } from "@/lib/db";
+import { getDoclingConfig, setDoclingConfig } from "@/db/settings.dao";
 
 // GET /api/settings/docling
 /**
@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
 
-  const cfg = getDoclingConfig();
+  const cfg = await getDoclingConfig();
   return NextResponse.json({
     url: cfg?.url ?? "",
     enabled: cfg?.enabled ?? false,
@@ -95,6 +95,6 @@ export async function PUT(request: NextRequest) {
     );
   }
 
-  setDoclingConfig({ url, enabled });
+  await setDoclingConfig({ url, enabled });
   return NextResponse.json({ ok: true });
 }

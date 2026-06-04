@@ -3,8 +3,15 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
+import dynamic from "next/dynamic";
 import { useAdminWS } from "../hooks/useAdminWS";
 import { useRole } from "../hooks/useRole";
+import type { MapMarker } from "@/components/map/WorldMap";
+
+const WorldMap = dynamic(
+  () => import("@/components/map/WorldMap").then((m) => m.WorldMap),
+  { ssr: false }
+);
 import {
   Bot,
   Wifi,
@@ -410,6 +417,20 @@ function Dashboard() {
       setRenewSaving(false);
     }
   };
+
+  const [mapMarkers, setMapMarkers] = useState<MapMarker[]>([]);
+
+  const fetchMapMarkers = () =>
+    fetch("/api/map")
+      .then((r) => (r.ok ? r.json() : { markers: [] }))
+      .then((d: { markers?: MapMarker[] }) => setMapMarkers(d.markers ?? []))
+      .catch(() => {});
+
+  useEffect(() => {
+    fetchMapMarkers();
+    const id = setInterval(fetchMapMarkers, 30_000);
+    return () => clearInterval(id);
+  }, []);
 
   const fetchApprovals = () =>
     fetch("/api/workflow-approvals")
@@ -1005,6 +1026,32 @@ function Dashboard() {
               <X className="w-4 h-4" />
             </button>
           </div>
+        </div>
+      )}
+
+      {/* World map */}
+      {mapMarkers.length > 0 && (
+        <div className="bg-background-100 rounded-xl border border-neutral-200 overflow-hidden">
+          <div className="px-5 py-4 border-b border-neutral-200 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 bg-gradient-to-br from-primary-100 to-primary-200 rounded-lg flex items-center justify-center">
+                <Globe className="w-3.5 h-3.5 text-primary-600" />
+              </div>
+              <h2 className="text-sm font-semibold text-foreground">
+                Infrastructure Map
+              </h2>
+              <span className="text-xs text-foreground-500 bg-background-200 rounded-full px-2 py-0.5">
+                {mapMarkers.length} located
+              </span>
+            </div>
+            <button
+              onClick={() => router.push("/agents?view=map")}
+              className="text-xs text-primary-600 hover:underline font-medium"
+            >
+              Full view
+            </button>
+          </div>
+          <WorldMap markers={mapMarkers} height={320} />
         </div>
       )}
 

@@ -61,14 +61,14 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     if (!auth) return unauthorized();
 
     const { id } = await ctx.params;
-    const channel = ChannelService.getChannel(id);
+    const channel = await ChannelService.getChannel(id);
 
     if (!channel) {
       return NextResponse.json({ error: "Channel not found" }, { status: 404 });
     }
 
     // Check authorization: moderator+ can add members
-    const role = ChannelService.getMemberRole(id, auth.did);
+    const role = await ChannelService.getMemberRole(id, auth.did);
     if (role !== "moderator" && role !== "owner") {
       return forbidden();
     }
@@ -95,7 +95,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     }
 
     try {
-      const member = ChannelService.addChannelMember({
+      const member = await ChannelService.addChannelMember({
         channelId: id,
         memberDid: body.memberDid.trim(),
         memberType: body.memberType,
@@ -169,18 +169,18 @@ export async function DELETE(req: NextRequest, ctx: Ctx) {
       );
     }
 
-    const channel = ChannelService.getChannel(id);
+    const channel = await ChannelService.getChannel(id);
     if (!channel) {
       return NextResponse.json({ error: "Channel not found" }, { status: 404 });
     }
 
     // Check authorization: moderator+ can remove members
-    const role = ChannelService.getMemberRole(id, auth.did);
+    const role = await ChannelService.getMemberRole(id, auth.did);
     if (role !== "moderator" && role !== "owner") {
       return forbidden();
     }
 
-    ChannelService.removeChannelMember(id, memberDid);
+    await ChannelService.removeChannelMember(id, memberDid);
 
     return NextResponse.json({ success: true });
   } catch (err) {

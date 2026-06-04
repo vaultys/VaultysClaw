@@ -71,10 +71,10 @@ import {
   saveWorkflow,
   type WorkflowDefinition,
 } from "../packages/control-plane/lib/db";
-import { UserDao } from "../packages/control-plane/lib/user-dao";
+
 import { getAuthContext } from "../packages/control-plane/lib/auth-utils";
 import { prisma } from "../packages/control-plane/db/client";
-import { PolicyDAO } from "../packages/control-plane/db";
+import { PolicyDAO, UserDAO } from "../packages/control-plane/db";
 
 // Route handlers under test
 import { GET as agentsGET } from "../packages/control-plane/app/api/agents/route";
@@ -253,12 +253,12 @@ beforeAll(async () => {
   await prisma.realm.deleteMany({ where: { slug: "test-sec-realm" } });
 
   // ── SQLite (for DB helper tests) ────────────────────────────────────────
-  UserDao.create(DID.owner, null, true);
-  UserDao.create(DID.admin, null, false);
-  UserDao.setAdmin(DID.admin, true);
-  UserDao.create(DID.member, null, false);
-  UserDao.create(DID.realmAdmin, null, false);
-  UserDao.create(DID.stranger, null, false);
+  UserDAO.create(DID.owner, null, true);
+  UserDAO.create(DID.admin, null, false);
+  UserDAO.setAdmin(DID.admin, true);
+  UserDAO.create(DID.member, null, false);
+  UserDAO.create(DID.realmAdmin, null, false);
+  UserDAO.create(DID.stranger, null, false);
 
   db.prepare(
     "INSERT OR IGNORE INTO agents (did, name, capabilities, registered_at) VALUES (?, ?, '[]', datetime('now'))"

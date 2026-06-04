@@ -200,6 +200,9 @@ export async function GET(request?: Request) {
           reportedLlm: connected?.reportedLlm ?? null,
           tokenUsage: connected?.tokenUsage ?? null,
           transport: connected?.transport ?? null,
+          locationLat: agent.locationLat ?? null,
+          locationLon: agent.locationLon ?? null,
+          locationLabel: agent.locationLabel ?? null,
           realms: realms.map((r) => ({
             id: r.realmId,
             name: r.realm.name,

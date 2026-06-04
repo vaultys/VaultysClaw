@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { VaultysId } from "@vaultys/id";
-import { SettingsDAO } from "@/db";
-import { UserDao } from "@/lib/user-dao";
+import { SettingsDAO, UserDAO } from "@/db";
 
 /**
  * @openapi
@@ -32,7 +31,7 @@ import { UserDao } from "@/lib/user-dao";
  *         $ref: '#/components/responses/NotFound'
  */
 export async function GET() {
-  const hasUsers = UserDao.hasAnyUser();
+  const hasUsers = await UserDAO.hasAnyUser();
   const serverSecret = await SettingsDAO.get("serverSecret");
   let serverDid: string | null = null;
   if (serverSecret) {

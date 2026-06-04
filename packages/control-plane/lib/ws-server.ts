@@ -52,6 +52,7 @@ import {
   processChallenge,
   type PolicyMeta,
 } from "./auth-handler";
+import { geolocateIp } from "./geoip";
 import { ChannelService } from "./channel-service";
 import { crypto } from "@vaultys/id";
 
@@ -85,6 +86,8 @@ interface PendingConnection {
   agentDid?: string;
   certificateData?: string;
   capabilities?: string[];
+  /** Raw client IP captured at connection time, used for auto-geolocation. */
+  clientIp?: string;
   /** Governance metadata to embed in the certificate alongside capabilities. */
   policyMeta?: PolicyMeta;
   /** True when this re-auth was triggered solely to reissue the cert with correct metadata. */
@@ -268,10 +271,15 @@ export class AgentWSServer {
   }
 
   private setupServer(): void {
-    this.wss.on("connection", async (ws: WebSocket) => {
+    this.wss.on("connection", async (ws: WebSocket, request: import("http").IncomingMessage) => {
       logger.info(
         "New WebSocket connection — awaiting register or auth_challenge"
       );
+
+      const clientIp =
+        (request.headers["x-forwarded-for"] as string | undefined)?.split(",")[0]?.trim() ??
+        request.socket.remoteAddress ??
+        undefined;
 
       const sender = new WsSender(ws);
       this.wsSenders.set(ws, sender);
@@ -307,6 +315,7 @@ export class AgentWSServer {
           sessionId,
           phase: "awaiting_register",
           timer,
+          clientIp,
         });
 
         // Send session ID to agent — agent decides to register (new) or auth (returning)
@@ -542,6 +551,13 @@ export class AgentWSServer {
             capabilities: agent.capabilities,
             certificateData: result.certificateData,
           });
+
+          // Auto-geolocate from IP if no location stored yet
+          if (!knownAgent.locationLat && pending.clientIp) {
+            geolocateIp(pending.clientIp).then((geo) => {
+              if (geo) AgentDAO.updateLocation(agentDid, geo).catch(() => {});
+            }).catch(() => {});
+          }
 
           await ActivityLogDAO.log("agent_reconnected", agentDid, agent.name);
           this.appendLog(

@@ -2,14 +2,14 @@ import {
   Channel,
   ChannelMember,
   ChannelMessage,
-  ChannelInput,
-  ChannelMemberInput,
-  ChannelMessageInput,
   MessageMetadata,
 } from "@vaultysclaw/shared";
-import { ChannelDao } from "./channel-dao";
-import { ChannelMemberDao } from "./channel-member-dao";
-import { ChannelMessageDao } from "./channel-message-dao";
+import {
+  ChannelDAO,
+  ChannelMemberDAO,
+  ChannelMessageDAO,
+  prisma,
+} from "@/db";
 import { MessageDispatcher } from "./message-dispatcher";
 
 /**
@@ -24,7 +24,7 @@ export class ChannelService {
   /**
    * Create a new channel
    */
-  static createChannel(input: {
+  static async createChannel(input: {
     name: string;
     slug: string;
     realmId?: string; // undefined/null = global channel
@@ -32,7 +32,7 @@ export class ChannelService {
     isPublic?: boolean;
     topic?: string;
     creatorDid: string;
-  }): Channel {
+  }): Promise<Channel> {
     // Validate slug (alphanumeric, hyphens, underscores only)
     if (!/^[a-z0-9_-]+$/.test(input.slug)) {
       throw new Error(
@@ -41,59 +41,58 @@ export class ChannelService {
     }
 
     // Check for duplicate slug within realm/global scope
-    const existing = ChannelDao.getBySlug(input.slug, input.realmId);
+    const existing = await ChannelDAO.findBySlug(input.slug, input.realmId);
     if (existing) {
       throw new Error(`Channel #${input.slug} already exists in this scope`);
     }
 
-    const channel = ChannelDao.create({
+    const channel = await ChannelDAO.create({
       name: input.name,
       slug: input.slug,
-      realmId: input.realmId || null,
-      description: input.description || null,
+      realmId: input.realmId ?? undefined,
+      description: input.description ?? undefined,
       isPublic: input.isPublic ?? true,
       isArchived: false,
-      topic: input.topic || null,
+      topic: input.topic ?? undefined,
       creatorDid: input.creatorDid,
     });
 
     // Add creator as channel owner
-    ChannelMemberDao.addMember({
+    await ChannelMemberDAO.add({
       channelId: channel.id,
       memberDid: input.creatorDid,
       memberType: "user",
       role: "owner",
-      invitedBy: null,
     });
 
-    return channel;
+    return channel as unknown as Channel;
   }
 
   /**
    * Get channel by ID
    */
-  static getChannel(channelId: string): Channel | null {
-    return ChannelDao.getById(channelId);
+  static async getChannel(channelId: string): Promise<Channel | null> {
+    return (await ChannelDAO.findById(channelId)) as unknown as Channel | null;
   }
 
   /**
    * List channels in a realm (includes global channels)
    */
-  static listChannels(realmId: string): Channel[] {
-    return ChannelDao.listByRealmWithGlobal(realmId);
+  static async listChannels(realmId: string): Promise<Channel[]> {
+    return (await ChannelDAO.listByRealmWithGlobal(realmId)) as unknown as Channel[];
   }
 
   /**
    * List only global channels
    */
-  static listGlobalChannels(): Channel[] {
-    return ChannelDao.listGlobal();
+  static async listGlobalChannels(): Promise<Channel[]> {
+    return (await ChannelDAO.listGlobal()) as unknown as Channel[];
   }
 
   /**
    * Update channel metadata
    */
-  static updateChannel(
+  static async updateChannel(
     channelId: string,
     updates: {
       name?: string;
@@ -101,36 +100,41 @@ export class ChannelService {
       topic?: string;
       isPublic?: boolean;
     }
-  ): Channel {
-    return ChannelDao.update(channelId, updates);
+  ): Promise<Channel> {
+    await ChannelDAO.update(channelId, updates);
+    const channel = await ChannelDAO.findById(channelId);
+    if (!channel) {
+      throw new Error("Channel not found");
+    }
+    return channel as unknown as Channel;
   }
 
   /**
    * Archive a channel (soft delete - members can still view history)
    */
-  static archiveChannel(channelId: string): void {
-    ChannelDao.archive(channelId);
+  static async archiveChannel(channelId: string): Promise<void> {
+    await ChannelDAO.update(channelId, { isArchived: true });
   }
 
   /**
    * Permanently delete a channel (cascades to messages and members)
    */
-  static deleteChannel(channelId: string): void {
-    ChannelDao.delete(channelId);
+  static async deleteChannel(channelId: string): Promise<void> {
+    await ChannelDAO.delete(channelId);
   }
 
   /**
    * Add a member to a channel
    */
-  static addChannelMember(input: {
+  static async addChannelMember(input: {
     channelId: string;
     memberDid: string;
     memberType: "user" | "agent";
     role?: "member" | "moderator" | "owner";
     invitedBy?: string;
-  }): ChannelMember {
+  }): Promise<ChannelMember> {
     // Check member isn't already in channel
-    const existing = ChannelMemberDao.getMember(
+    const existing = await ChannelMemberDAO.findMembership(
       input.channelId,
       input.memberDid
     );
@@ -138,77 +142,85 @@ export class ChannelService {
       throw new Error(`Member ${input.memberDid} is already in this channel`);
     }
 
-    return ChannelMemberDao.addMember({
+    return (await ChannelMemberDAO.add({
       channelId: input.channelId,
       memberDid: input.memberDid,
       memberType: input.memberType,
       role: input.role ?? "member",
-      invitedBy: input.invitedBy || null,
-    });
+      invitedBy: input.invitedBy,
+    })) as unknown as ChannelMember;
   }
 
   /**
    * Remove a member from a channel
    */
-  static removeChannelMember(channelId: string, memberDid: string): void {
-    ChannelMemberDao.removeMember(channelId, memberDid);
+  static async removeChannelMember(
+    channelId: string,
+    memberDid: string
+  ): Promise<void> {
+    await ChannelMemberDAO.remove(channelId, memberDid);
   }
 
   /**
    * Get all members of a channel
    */
-  static getChannelMembers(channelId: string): ChannelMember[] {
-    return ChannelMemberDao.listByChannel(channelId);
+  static async getChannelMembers(channelId: string): Promise<ChannelMember[]> {
+    return (await ChannelMemberDAO.listByChannel(channelId)) as unknown as ChannelMember[];
   }
 
   /**
    * Check if a member is in a channel
    */
-  static isMember(channelId: string, memberDid: string): boolean {
-    const member = ChannelMemberDao.getMember(channelId, memberDid);
+  static async isMember(channelId: string, memberDid: string): Promise<boolean> {
+    const member = await ChannelMemberDAO.findMembership(channelId, memberDid);
     return member !== null;
   }
 
   /**
    * Get member role in a channel
    */
-  static getMemberRole(
+  static async getMemberRole(
     channelId: string,
     memberDid: string
-  ): "member" | "moderator" | "owner" | null {
-    const member = ChannelMemberDao.getMember(channelId, memberDid);
-    return member?.role ?? null;
+  ): Promise<"member" | "moderator" | "owner" | null> {
+    const member = await ChannelMemberDAO.findMembership(channelId, memberDid);
+    return (member?.role as "member" | "moderator" | "owner") ?? null;
   }
 
   /**
    * Update member role
    */
-  static updateMemberRole(
+  static async updateMemberRole(
     channelId: string,
     memberDid: string,
     role: "member" | "moderator" | "owner"
-  ): ChannelMember {
-    return ChannelMemberDao.updateRole(channelId, memberDid, role);
+  ): Promise<ChannelMember> {
+    await ChannelMemberDAO.updateRole(channelId, memberDid, role);
+    const member = await ChannelMemberDAO.findMembership(channelId, memberDid);
+    if (!member) {
+      throw new Error("Channel member not found");
+    }
+    return member as unknown as ChannelMember;
   }
 
   /**
    * Post a message to a channel
    */
-  static postMessage(input: {
+  static async postMessage(input: {
     channelId: string;
     authorDid: string;
     authorType: "user" | "agent";
     content: string;
     threadId?: string;
     metadata?: MessageMetadata;
-  }): ChannelMessage {
-    const message = ChannelMessageDao.create({
+  }): Promise<ChannelMessage> {
+    const message = await ChannelMessageDAO.create({
       channelId: input.channelId,
-      threadId: input.threadId ?? null,
+      threadId: input.threadId ?? undefined,
       authorDid: input.authorDid,
       authorType: input.authorType,
       content: input.content,
-      metadata: input.metadata ?? {},
+      metadata: (input.metadata as Record<string, unknown>) ?? {},
     });
 
     // Process mentions and fan out to bridges (async, fire-and-forget).
@@ -224,146 +236,160 @@ export class ChannelService {
           id: message.id,
           authorType: "user",
           threadId: message.threadId,
-          createdAt: message.createdAt,
+          createdAt: message.createdAt instanceof Date ? message.createdAt.toISOString() : message.createdAt,
         }
       ).catch((err) => console.error("MessageDispatcher error:", err));
     }
 
-    return message;
+    return message as unknown as ChannelMessage;
   }
 
   /**
    * Create a threaded message (response to a mention)
    * Returns the new message with threadId set to parentMessageId
    */
-  static createThreadReply(input: {
+  static async createThreadReply(input: {
     channelId: string;
     parentMessageId: string;
     authorDid: string;
     authorType: "user" | "agent";
     content: string;
     metadata?: MessageMetadata;
-  }): ChannelMessage {
+  }): Promise<ChannelMessage> {
     // Verify parent message exists and is in the channel
-    const parentMessage = ChannelMessageDao.getById(input.parentMessageId);
+    const parentMessage = await ChannelMessageDAO.findById(input.parentMessageId);
     if (!parentMessage || parentMessage.channelId !== input.channelId) {
       throw new Error("Parent message not found in this channel");
     }
 
-    return ChannelMessageDao.create({
+    return (await ChannelMessageDAO.create({
       channelId: input.channelId,
       threadId: input.parentMessageId,
       authorDid: input.authorDid,
       authorType: input.authorType,
       content: input.content,
-      metadata: input.metadata ?? {},
-    });
+      metadata: (input.metadata as Record<string, unknown>) ?? {},
+    })) as unknown as ChannelMessage;
   }
 
   /**
    * Get a message by ID
    */
-  static getMessage(messageId: string): ChannelMessage | null {
-    return ChannelMessageDao.getById(messageId);
+  static async getMessage(messageId: string): Promise<ChannelMessage | null> {
+    return (await ChannelMessageDAO.findById(messageId)) as unknown as ChannelMessage | null;
   }
 
   /**
    * List messages in a channel (top-level only, excludes threads)
    */
-  static listMessages(
+  static async listMessages(
     channelId: string,
     limit?: number,
-    offset?: number
-  ): ChannelMessage[] {
-    return ChannelMessageDao.listByChannel(channelId, limit, offset);
+    before?: string
+  ): Promise<ChannelMessage[]> {
+    return (await ChannelMessageDAO.listByChannel(channelId, limit, before)) as unknown as ChannelMessage[];
   }
 
   /**
    * Get all replies in a thread
    */
-  static getThread(parentMessageId: string): ChannelMessage[] {
-    return ChannelMessageDao.listThread(parentMessageId);
+  static async getThread(parentMessageId: string): Promise<ChannelMessage[]> {
+    return (await ChannelMessageDAO.listThread(parentMessageId)) as unknown as ChannelMessage[];
   }
 
   /**
    * Edit a message (updates content)
    */
-  static editMessage(messageId: string, content: string): ChannelMessage {
-    const message = ChannelMessageDao.getById(messageId);
+  static async editMessage(messageId: string, content: string): Promise<ChannelMessage> {
+    const message = await ChannelMessageDAO.findById(messageId);
     if (!message) {
       throw new Error("Message not found");
     }
 
-    return ChannelMessageDao.update(messageId, content);
+    await ChannelMessageDAO.update(messageId, content);
+    const updated = await ChannelMessageDAO.findById(messageId);
+    return updated as unknown as ChannelMessage;
   }
 
   /**
    * Soft delete a message (sets deletedAt timestamp)
    */
-  static deleteMessage(messageId: string): void {
-    ChannelMessageDao.softDelete(messageId);
+  static async deleteMessage(messageId: string): Promise<void> {
+    await ChannelMessageDAO.softDelete(messageId);
   }
 
   /**
    * Permanently delete a message
    */
-  static hardDeleteMessage(messageId: string): void {
-    ChannelMessageDao.hardDelete(messageId);
+  static async hardDeleteMessage(messageId: string): Promise<void> {
+    await prisma.channelMessage.delete({ where: { id: messageId } });
   }
 
   /**
    * Add a reaction to a message
    */
-  static addReaction(
+  static async addReaction(
     messageId: string,
     emoji: string,
     memberDid: string
-  ): ChannelMessage {
-    return ChannelMessageDao.addReaction(messageId, emoji, memberDid);
+  ): Promise<ChannelMessage> {
+    await ChannelMessageDAO.addReaction(messageId, emoji, memberDid);
+    const message = await ChannelMessageDAO.findById(messageId);
+    if (!message) {
+      throw new Error("Message not found");
+    }
+    return message as unknown as ChannelMessage;
   }
 
   /**
    * Remove a reaction from a message
    */
-  static removeReaction(
+  static async removeReaction(
     messageId: string,
     emoji: string,
     memberDid: string
-  ): ChannelMessage {
-    return ChannelMessageDao.removeReaction(messageId, emoji, memberDid);
+  ): Promise<ChannelMessage> {
+    await ChannelMessageDAO.removeReaction(messageId, emoji, memberDid);
+    const message = await ChannelMessageDAO.findById(messageId);
+    if (!message) {
+      throw new Error("Message not found");
+    }
+    return message as unknown as ChannelMessage;
   }
 
   /**
    * Search messages in a channel
    */
-  static searchMessages(
+  static async searchMessages(
     channelId: string,
     query: string,
     limit?: number
-  ): ChannelMessage[] {
-    return ChannelMessageDao.searchInChannel(channelId, query, limit);
+  ): Promise<ChannelMessage[]> {
+    return (await ChannelMessageDAO.searchInChannel(channelId, query, limit)) as unknown as ChannelMessage[];
   }
 
   /**
    * Get channel statistics
    */
-  static getChannelStats(channelId: string): {
+  static async getChannelStats(channelId: string): Promise<{
     messageCount: number;
     memberCount: number;
-  } {
-    return {
-      messageCount: ChannelMessageDao.getChannelMessageCount(channelId),
-      memberCount: ChannelMemberDao.getChannelMemberCount(channelId),
-    };
+  }> {
+    const [messageCount, memberCount] = await Promise.all([
+      ChannelMessageDAO.getChannelMessageCount(channelId),
+      ChannelMemberDAO.getChannelMemberCount(channelId),
+    ]);
+    return { messageCount, memberCount };
   }
 
   /**
    * Get all channels a member belongs to
    */
-  static getChannelsForMember(memberDid: string): Channel[] {
-    const members = ChannelMemberDao.listByMember(memberDid);
-    return members
-      .map((m) => ChannelDao.getById(m.channelId))
-      .filter((c) => c !== null) as Channel[];
+  static async getChannelsForMember(memberDid: string): Promise<Channel[]> {
+    const members = await ChannelMemberDAO.listByMember(memberDid);
+    const channels = await Promise.all(
+      members.map((m) => ChannelDAO.findById(m.channelId))
+    );
+    return channels.filter((c) => c !== null) as unknown as Channel[];
   }
 }

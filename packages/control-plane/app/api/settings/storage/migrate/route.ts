@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
 import { generateFileKey } from "@/lib/file-storage";
-import { getDb } from "@/lib/db";
+import { prisma } from "@/db/client";
 import { getFileStorage } from "@/lib/file-storage-manager";
 
 // POST /api/settings/storage/migrate
@@ -44,19 +44,21 @@ export async function POST(request: NextRequest) {
 
   try {
     const storage = await getFileStorage();
-    const db = getDb();
 
     // Find all files with content BLOB but no file_path
-    const rows = db
-      .prepare(
-        "SELECT id, source_id, name, content FROM knowledge_files WHERE content IS NOT NULL AND file_path IS NULL LIMIT 100"
-      )
-      .all() as Array<{
-      id: string;
-      source_id: string;
-      name: string;
-      content: Buffer;
-    }>;
+    const rows = await prisma.knowledgeFile.findMany({
+      where: {
+        content: { not: null },
+        filePath: null,
+      },
+      select: {
+        id: true,
+        sourceId: true,
+        name: true,
+        content: true,
+      },
+      take: 100,
+    });
 
     if (rows.length === 0) {
       return NextResponse.json({
@@ -73,15 +75,16 @@ export async function POST(request: NextRequest) {
     for (const row of rows) {
       try {
         // Generate file key
-        const fileKey = generateFileKey(row.source_id, row.id, row.name);
+        const fileKey = generateFileKey(row.sourceId, row.id, row.name);
 
         // Write to storage
-        await storage.write(fileKey, row.content);
+        await storage.write(fileKey, row.content as Buffer);
 
         // Update database with file_path and clear content
-        db.prepare(
-          "UPDATE knowledge_files SET file_path = ?, content = NULL WHERE id = ?"
-        ).run(fileKey, row.id);
+        await prisma.knowledgeFile.update({
+          where: { id: row.id },
+          data: { filePath: fileKey, content: null },
+        });
 
         successCount++;
       } catch (err) {

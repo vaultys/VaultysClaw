@@ -5,7 +5,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { getDb } from "@/lib/db";
+import { prisma } from "@/db/client";
 
 /**
  * @openapi
@@ -48,8 +48,7 @@ export async function POST(
 ) {
   const { token } = await params;
   try {
-    const db = getDb();
-    db.prepare("DELETE FROM user_invitations WHERE token = ?").run(token);
+    await prisma.userInvitation.deleteMany({ where: { token } });
     return NextResponse.json({ success: true });
   } catch (err) {
     console.error("Error deleting invitation:", err);

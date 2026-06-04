@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
-import { getDb } from "@/lib/db";
+import { prisma } from "@/db/client";
+import { AgentDAO } from "@/db";
 import { Challenger, VaultysId, crypto } from "@vaultys/id";
 
 const Buffer = crypto.Buffer;
@@ -60,7 +61,6 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
     if (!auth.isGlobalAdmin) return forbidden();
 
     const { id } = await ctx.params;
-    const db = getDb();
 
     // ── Activity entry ──────────────────────────────────────────────────────
     if (id.startsWith("act-")) {
@@ -68,18 +68,7 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
       if (isNaN(rowId))
         return NextResponse.json({ error: "Invalid id" }, { status: 400 });
 
-      const row = db
-        .prepare("SELECT * FROM activity_log WHERE id = ?")
-        .get(rowId) as
-        | {
-            id: number;
-            event: string;
-            agent_did: string | null;
-            agent_name: string | null;
-            details: string | null;
-            created_at: string;
-          }
-        | undefined;
+      const row = await prisma.activityLog.findUnique({ where: { id: rowId } });
 
       if (!row)
         return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -93,8 +82,8 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
       }
 
       // Resolve agent cert info if we have a DID
-      const certInfo = row.agent_did
-        ? resolveCertInfo(db, row.agent_did)
+      const certInfo = row.agentDid
+        ? await resolveCertInfo(row.agentDid)
         : null;
 
       return NextResponse.json({
@@ -102,17 +91,17 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
           id,
           source: "activity",
           event: row.event,
-          agentDid: row.agent_did,
-          agentName: row.agent_name,
+          agentDid: row.agentDid,
+          agentName: row.agentName,
           details: row.details,
           detailsParsed,
           status: null,
           error: null,
-          timestamp: row.created_at,
+          timestamp: row.createdAt.toISOString(),
           // activity-specific
           params: null,
           output: null,
-          sentAt: row.created_at,
+          sentAt: row.createdAt.toISOString(),
           completedAt: null,
           durationMs: null,
         },
@@ -124,54 +113,29 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
     if (id.startsWith("int-")) {
       const intentId = id.slice(4);
 
-      const row = db
-        .prepare("SELECT * FROM intent_log WHERE intent_id = ?")
-        .get(intentId) as
-        | {
-            intent_id: string;
-            agent_did: string | null;
-            action: string;
-            params: string | null;
-            status: string;
-            output: string | null;
-            error: string | null;
-            sent_at: string;
-            completed_at: string | null;
-          }
-        | undefined;
+      const row = await prisma.intentLog.findUnique({
+        where: { intentId },
+      });
 
       if (!row)
         return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-      // Parse params / output
-      let paramsParsed: unknown = null;
-      let outputParsed: unknown = null;
-      try {
-        if (row.params) paramsParsed = row.params;
-      } catch {
-        /* raw */
-      }
-      try {
-        if (row.output) outputParsed = row.output;
-      } catch {
-        /* raw */
-      }
+      // params and output are already parsed JSON from Prisma (Json type)
+      const paramsParsed: unknown = row.params ?? null;
+      const outputParsed: unknown = row.output ?? null;
 
       const durationMs =
-        row.completed_at && row.sent_at
-          ? new Date(row.completed_at).getTime() -
-            new Date(row.sent_at).getTime()
+        row.completedAt && row.sentAt
+          ? row.completedAt.getTime() - row.sentAt.getTime()
           : null;
 
       // Look up agent name from agents table
-      const agentRow = row.agent_did
-        ? (db
-            .prepare("SELECT name FROM agents WHERE did = ?")
-            .get(row.agent_did) as { name: string } | undefined)
-        : undefined;
+      const agentRecord = row.agentDid
+        ? await AgentDAO.findByDid(row.agentDid)
+        : null;
 
-      const certInfo = row.agent_did
-        ? resolveCertInfo(db, row.agent_did)
+      const certInfo = row.agentDid
+        ? await resolveCertInfo(row.agentDid)
         : null;
 
       return NextResponse.json({
@@ -179,18 +143,18 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
           id,
           source: "intent",
           event: row.action,
-          agentDid: row.agent_did,
-          agentName: agentRow?.name ?? null,
-          details: row.params,
+          agentDid: row.agentDid,
+          agentName: agentRecord?.name ?? null,
+          details: row.params !== null ? JSON.stringify(row.params) : null,
           detailsParsed: paramsParsed,
           status: row.status,
           error: row.error,
-          timestamp: row.sent_at,
+          timestamp: row.sentAt.toISOString(),
           // intent-specific
           params: paramsParsed,
           output: outputParsed,
-          sentAt: row.sent_at,
-          completedAt: row.completed_at,
+          sentAt: row.sentAt.toISOString(),
+          completedAt: row.completedAt?.toISOString() ?? null,
           durationMs,
         },
         certInfo,
@@ -219,18 +183,18 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
  *
  * Returns null if the agent has no certificate or deserialization fails.
  */
-function resolveCertInfo(
-  db: ReturnType<typeof getDb>,
+async function resolveCertInfo(
   agentDid: string
-): Record<string, unknown> | null {
+): Promise<Record<string, unknown> | null> {
   try {
-    const agentRow = db
-      .prepare("SELECT certificate_data FROM agents WHERE did = ?")
-      .get(agentDid) as { certificate_data: string | null } | undefined;
+    const agentRow = await prisma.agent.findUnique({
+      where: { did: agentDid },
+      select: { certificateData: true },
+    });
 
-    if (!agentRow?.certificate_data) return null;
+    if (!agentRow?.certificateData) return null;
 
-    const certBuf = Buffer.from(agentRow.certificate_data, "base64");
+    const certBuf = Buffer.from(agentRow.certificateData, "base64");
     const cert = Challenger.deserializeCertificate(certBuf);
     if (!cert) return null;
 
@@ -284,7 +248,7 @@ function resolveCertInfo(
       // signature verified = mutual challenge-response completed successfully
       signatureVerified: state === 2,
       // full serialized signed certificate (the signed payload)
-      signedPayload: agentRow.certificate_data,
+      signedPayload: agentRow.certificateData,
       // governance metadata
       capabilities,
       resourceLimits: pk2Meta?.resourceLimits ?? null,

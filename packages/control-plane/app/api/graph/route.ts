@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getWSServer } from "@/lib/ws-server";
-import { getDb } from "@/lib/db";
+import { prisma } from "@/db/client";
 import type {
   GraphNode,
   GraphEdge,
@@ -87,7 +87,7 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    const graph = buildGraph({ agentDid, userDid, realmId });
+    const graph = await buildGraph({ agentDid, userDid, realmId });
     return NextResponse.json(graph);
   } catch (err) {
     console.error("graph API error", err);
@@ -106,8 +106,51 @@ interface Filters {
   realmId: string | null;
 }
 
-function buildGraph(filters: Filters): GraphData {
-  const db = getDb();
+// Shape returned by prisma.user.findMany / findUnique for graph use
+type UserRecord = {
+  id: string;
+  did: string | null;
+  name: string | null;
+  role: string;
+  reportsTo: string | null;
+  isOwner: boolean;
+  isAdmin: boolean;
+};
+
+// Shape returned by prisma.agent queries
+type AgentRecord = {
+  did: string;
+  name: string;
+};
+
+function effectiveUserRole(u: UserRecord): UserRole {
+  return u.isOwner ? "owner" : u.isAdmin ? "admin" : ((u.role as UserRole) ?? "member");
+}
+
+function addUserNode(nodes: Map<string, GraphNode>, u: UserRecord): void {
+  if (!u.did) return;
+  nodes.set(`user:${u.did}`, {
+    id: `user:${u.did}`,
+    label: u.name || u.did.slice(0, 12),
+    type: "user",
+    role: effectiveUserRole(u),
+  });
+}
+
+function addAgentNode(
+  nodes: Map<string, GraphNode>,
+  a: AgentRecord,
+  connectedDids: Set<string>
+): void {
+  nodes.set(`agent:${a.did}`, {
+    id: `agent:${a.did}`,
+    label: a.name,
+    type: "agent",
+    isOnline: connectedDids.has(a.did),
+  });
+}
+
+async function buildGraph(filters: Filters): Promise<GraphData> {
   const wsServer = getWSServer();
   const connectedDids = new Set(
     wsServer?.getConnectedAgents().map((a) => a.id) ?? []
@@ -117,229 +160,196 @@ function buildGraph(filters: Filters): GraphData {
   const edges: GraphEdge[] = [];
 
   // --- Users ---
-  type UserRow = {
-    id: string;
-    did: string;
-    name: string | null;
-    role: string;
-    reports_to: string | null;
-    is_owner: number;
-    is_admin: number;
-  };
-  let users: UserRow[];
+  let users: UserRecord[];
   if (filters.userDid) {
-    // Fetch: the target user + their direct children (who report to them) + their manager
-    users = db
-      .prepare(
-        "SELECT id, did, name, role, reports_to, is_owner, is_admin FROM users " +
-          "WHERE did = ? OR reports_to = ?"
-      )
-      .all(filters.userDid, filters.userDid) as UserRow[];
+    // Fetch: the target user + their direct children (who report to them)
+    // reportsTo on User stores the manager's id (User.id), not did
+    const targetUser = await prisma.user.findUnique({
+      where: { did: filters.userDid },
+      select: { id: true, did: true, name: true, role: true, reportsTo: true, isOwner: true, isAdmin: true },
+    });
+    const children = targetUser
+      ? await prisma.user.findMany({
+          where: { reportsTo: targetUser.id },
+          select: { id: true, did: true, name: true, role: true, reportsTo: true, isOwner: true, isAdmin: true },
+        })
+      : [];
+    users = targetUser ? [targetUser, ...children] : [];
   } else if (filters.agentDid) {
     // For focused agent view: fetch users that have grants or delegations to this agent
-    const userDids = db
-      .prepare(
-        "SELECT DISTINCT user_did FROM (SELECT user_did FROM user_grants WHERE agent_did = ? UNION SELECT user_did FROM delegation_certs WHERE agent_did = ?)"
-      )
-      .all(filters.agentDid, filters.agentDid) as Array<{ user_did: string }>;
+    const [grantUsers, delegUsers] = await Promise.all([
+      prisma.userGrant.findMany({
+        where: { agentDid: filters.agentDid },
+        select: { user: { select: { id: true, did: true, name: true, role: true, reportsTo: true, isOwner: true, isAdmin: true } } },
+      }),
+      prisma.delegationCert.findMany({
+        where: { agentDid: filters.agentDid },
+        select: { userDid: true },
+      }),
+    ]);
+    const didSet = new Set<string>(grantUsers.map((g) => g.user.did).filter(Boolean) as string[]);
+    for (const d of delegUsers) didSet.add(d.userDid);
     users =
-      userDids.length > 0
-        ? (db
-            .prepare(
-              "SELECT id, did, name, role, reports_to, is_owner, is_admin FROM users WHERE did IN (" +
-                userDids.map(() => "?").join(",") +
-                ")"
-            )
-            .all(...userDids.map((u) => u.user_did)) as UserRow[])
+      didSet.size > 0
+        ? await prisma.user.findMany({
+            where: { did: { in: Array.from(didSet) } },
+            select: { id: true, did: true, name: true, role: true, reportsTo: true, isOwner: true, isAdmin: true },
+          })
         : [];
   } else if (filters.realmId) {
-    users = db
-      .prepare(
-        "SELECT u.id, u.did, u.name, u.role, u.reports_to, u.is_owner, u.is_admin FROM users u " +
-          "INNER JOIN user_realms ur ON ur.user_id = u.id WHERE ur.realm_id = ?"
-      )
-      .all(filters.realmId) as UserRow[];
+    const userRealms = await prisma.userRealm.findMany({
+      where: { realmId: filters.realmId },
+      select: {
+        user: {
+          select: { id: true, did: true, name: true, role: true, reportsTo: true, isOwner: true, isAdmin: true },
+        },
+      },
+    });
+    users = userRealms.map((ur) => ur.user);
   } else {
-    users = db
-      .prepare(
-        "SELECT id, did, name, role, reports_to, is_owner, is_admin FROM users"
-      )
-      .all() as UserRow[];
-  }
-  for (const u of users) {
-    const effectiveRole: UserRole = u.is_owner
-      ? "owner"
-      : u.is_admin
-        ? "admin"
-        : ((u.role as UserRole) ?? "member");
-    nodes.set(`user:${u.did}`, {
-      id: `user:${u.did}`,
-      label: u.name || u.did.slice(0, 12),
-      type: "user",
-      role: effectiveRole,
+    users = await prisma.user.findMany({
+      select: { id: true, did: true, name: true, role: true, reportsTo: true, isOwner: true, isAdmin: true },
     });
   }
-  const userDids = new Set(users.map((u) => u.did));
+
+  for (const u of users) {
+    addUserNode(nodes, u);
+  }
+  const userDids = new Set(users.map((u) => u.did).filter(Boolean) as string[]);
 
   // --- Agents ---
-  type AgentRow = { did: string; name: string };
-  let agents: AgentRow[];
+  let agents: AgentRecord[];
   if (filters.agentDid) {
-    agents = db
-      .prepare("SELECT did, name FROM agents WHERE did = ?")
-      .all(filters.agentDid) as AgentRow[];
+    const a = await prisma.agent.findUnique({
+      where: { did: filters.agentDid },
+      select: { did: true, name: true },
+    });
+    agents = a ? [a] : [];
   } else if (filters.userDid) {
     // For focused user view: fetch agents that this user has grants or delegations to
-    const agentDids = db
-      .prepare(
-        "SELECT DISTINCT agent_did FROM (SELECT agent_did FROM user_grants WHERE user_did = ? AND agent_did IS NOT NULL UNION SELECT agent_did FROM delegation_certs WHERE user_did = ?)"
-      )
-      .all(filters.userDid, filters.userDid) as Array<{ agent_did: string }>;
+    const [grantAgents, delegAgents] = await Promise.all([
+      prisma.userGrant.findMany({
+        where: { userDid: filters.userDid, agentDid: { not: null } },
+        select: { agentDid: true },
+      }),
+      prisma.delegationCert.findMany({
+        where: { userDid: filters.userDid },
+        select: { agentDid: true },
+      }),
+    ]);
+    const agentDidSet = new Set<string>(
+      [...grantAgents.map((g) => g.agentDid), ...delegAgents.map((d) => d.agentDid)].filter(
+        Boolean
+      ) as string[]
+    );
     agents =
-      agentDids.length > 0
-        ? (db
-            .prepare(
-              "SELECT did, name FROM agents WHERE did IN (" +
-                agentDids.map(() => "?").join(",") +
-                ")"
-            )
-            .all(...agentDids.map((a) => a.agent_did)) as AgentRow[])
+      agentDidSet.size > 0
+        ? await prisma.agent.findMany({
+            where: { did: { in: Array.from(agentDidSet) } },
+            select: { did: true, name: true },
+          })
         : [];
   } else if (filters.realmId) {
-    agents = db
-      .prepare(
-        "SELECT a.did, a.name FROM agents a " +
-          "INNER JOIN agent_realms ar ON ar.agent_did = a.did WHERE ar.realm_id = ?"
-      )
-      .all(filters.realmId) as AgentRow[];
-  } else {
-    agents = db.prepare("SELECT did, name FROM agents").all() as AgentRow[];
-  }
-  for (const a of agents) {
-    nodes.set(`agent:${a.did}`, {
-      id: `agent:${a.did}`,
-      label: a.name,
-      type: "agent",
-      isOnline: connectedDids.has(a.did),
+    const agentRealms = await prisma.agentRealm.findMany({
+      where: { realmId: filters.realmId },
+      select: { agent: { select: { did: true, name: true } } },
     });
+    agents = agentRealms.map((ar) => ar.agent);
+  } else {
+    agents = await prisma.agent.findMany({ select: { did: true, name: true } });
+  }
+
+  for (const a of agents) {
+    addAgentNode(nodes, a, connectedDids);
   }
   const agentDids = new Set(agents.map((a) => a.did));
 
   // --- reports_to edges ---
+  // reportsTo on a User stores the manager's User.id (not did).
+  // Build a lookup from User.id -> User record so we can resolve manager did efficiently.
+  const userById = new Map<string, UserRecord>(users.map((u) => [u.id, u]));
+
   for (const u of users) {
-    if (u.reports_to) {
-      // reports_to references users.id, so we need to look up the manager by id
-      const managerDid = db
-        .prepare("SELECT did FROM users WHERE id = ?")
-        .get(u.reports_to) as { did: string } | undefined;
-      if (managerDid) {
-        // Ensure the target user node exists
-        if (!nodes.has(`user:${managerDid.did}`)) {
-          const manager = db
-            .prepare(
-              "SELECT id, did, name, role, is_owner, is_admin FROM users WHERE id = ?"
-            )
-            .get(u.reports_to) as UserRow | undefined;
-          if (manager) {
-            const mRole: UserRole = manager.is_owner
-              ? "owner"
-              : manager.is_admin
-                ? "admin"
-                : ((manager.role as UserRole) ?? "member");
-            nodes.set(`user:${manager.did}`, {
-              id: `user:${manager.did}`,
-              label: manager.name || manager.did.slice(0, 12),
-              type: "user",
-              role: mRole,
-            });
-          }
-        }
-        edges.push({
-          source: `user:${u.did}`,
-          target: `user:${managerDid.did}`,
-          type: "reports_to",
-        });
+    if (!u.did || !u.reportsTo) continue;
+    let manager = userById.get(u.reportsTo);
+    if (!manager) {
+      // Manager not in our current set — fetch from DB
+      manager = await prisma.user.findUnique({
+        where: { id: u.reportsTo },
+        select: { id: true, did: true, name: true, role: true, reportsTo: true, isOwner: true, isAdmin: true },
+      }) ?? undefined;
+      if (manager) {
+        userById.set(manager.id, manager);
+        addUserNode(nodes, manager);
       }
+    }
+    if (manager?.did) {
+      edges.push({
+        source: `user:${u.did}`,
+        target: `user:${manager.did}`,
+        type: "reports_to",
+      });
     }
   }
 
   // --- Grant edges (user → agent) ---
-  type GrantRow = {
-    user_did: string;
-    agent_did: string | null;
-    capabilities: string;
-  };
-  let grants: GrantRow[];
+  let grants: Array<{ userDid: string; agentDid: string | null; capabilities: unknown }>;
   if (filters.userDid) {
-    grants = db
-      .prepare(
-        "SELECT user_did, agent_did, capabilities FROM user_grants WHERE user_did = ?"
-      )
-      .all(filters.userDid) as GrantRow[];
+    grants = await prisma.userGrant.findMany({
+      where: { userDid: filters.userDid },
+      select: { userDid: true, agentDid: true, capabilities: true },
+    });
   } else if (filters.agentDid) {
-    grants = db
-      .prepare(
-        "SELECT user_did, agent_did, capabilities FROM user_grants WHERE agent_did = ? OR agent_did IS NULL"
-      )
-      .all(filters.agentDid) as GrantRow[];
+    grants = await prisma.userGrant.findMany({
+      where: { OR: [{ agentDid: filters.agentDid }, { agentDid: null }] },
+      select: { userDid: true, agentDid: true, capabilities: true },
+    });
   } else if (filters.realmId) {
     // Only grants where both the user and agent are realm members
-    grants = db
-      .prepare(
-        "SELECT g.user_did, g.agent_did, g.capabilities FROM user_grants g " +
-          "INNER JOIN user_realms ur ON ur.user_id = (SELECT id FROM users WHERE did = g.user_did) AND ur.realm_id = ? " +
-          "WHERE g.agent_did IS NULL OR g.agent_did IN (SELECT agent_did FROM agent_realms WHERE realm_id = ?)"
-      )
-      .all(filters.realmId, filters.realmId) as GrantRow[];
+    const realmUserDids = Array.from(userDids);
+    const realmAgentDids = Array.from(agentDids);
+    grants = await prisma.userGrant.findMany({
+      where: {
+        userDid: { in: realmUserDids },
+        OR: [{ agentDid: null }, { agentDid: { in: realmAgentDids } }],
+      },
+      select: { userDid: true, agentDid: true, capabilities: true },
+    });
   } else {
-    grants = db
-      .prepare("SELECT user_did, agent_did, capabilities FROM user_grants")
-      .all() as GrantRow[];
+    grants = await prisma.userGrant.findMany({
+      select: { userDid: true, agentDid: true, capabilities: true },
+    });
   }
+
   for (const g of grants) {
-    const caps: AgentCapability[] = JSON.parse(g.capabilities) as AgentCapability[];
-    if (g.agent_did) {
+    const caps: AgentCapability[] = (g.capabilities as AgentCapability[]) ?? [];
+    if (g.agentDid) {
       // Ensure both endpoints exist
-      if (!nodes.has(`user:${g.user_did}`)) {
+      if (!nodes.has(`user:${g.userDid}`)) {
         // In focused agent view: pull in the user
         if (filters.agentDid) {
-          const u = db
-            .prepare(
-              "SELECT id, did, name, role, reports_to, is_owner, is_admin FROM users WHERE did = ?"
-            )
-            .get(g.user_did) as UserRow | undefined;
+          const u = await prisma.user.findUnique({
+            where: { did: g.userDid },
+            select: { id: true, did: true, name: true, role: true, reportsTo: true, isOwner: true, isAdmin: true },
+          });
           if (u) {
-            const r: UserRole = u.is_owner
-              ? "owner"
-              : u.is_admin
-                ? "admin"
-                : ((u.role as UserRole) ?? "member");
-            nodes.set(`user:${u.did}`, {
-              id: `user:${u.did}`,
-              label: u.name || u.did.slice(0, 12),
-              type: "user",
-              role: r,
-            });
+            addUserNode(nodes, u);
           } else continue;
         } else continue;
       }
-      if (!nodes.has(`agent:${g.agent_did}`)) {
+      if (!nodes.has(`agent:${g.agentDid}`)) {
         // In focused user view: pull in the agent
-        const a = db
-          .prepare("SELECT did, name FROM agents WHERE did = ?")
-          .get(g.agent_did) as AgentRow | undefined;
-        if (a)
-          nodes.set(`agent:${a.did}`, {
-            id: `agent:${a.did}`,
-            label: a.name,
-            type: "agent",
-            isOnline: connectedDids.has(a.did),
-          });
-        else continue;
+        const a = await prisma.agent.findUnique({
+          where: { did: g.agentDid },
+          select: { did: true, name: true },
+        });
+        if (a) {
+          addAgentNode(nodes, a, connectedDids);
+        } else continue;
       }
       edges.push({
-        source: `user:${g.user_did}`,
-        target: `agent:${g.agent_did}`,
+        source: `user:${g.userDid}`,
+        target: `agent:${g.agentDid}`,
         type: "grant",
         label: caps.join(", "),
         capabilities: caps,
@@ -348,7 +358,7 @@ function buildGraph(filters: Filters): GraphData {
       // Wildcard grant — only expand in full view to avoid flooding focused views
       for (const aDid of agentDids) {
         edges.push({
-          source: `user:${g.user_did}`,
+          source: `user:${g.userDid}`,
           target: `agent:${aDid}`,
           type: "grant",
           label: `* ${caps.join(", ")}`,
@@ -359,41 +369,39 @@ function buildGraph(filters: Filters): GraphData {
   }
 
   // --- Delegation edges ---
-  type DelegRow = { user_did: string; agent_did: string; capabilities: string };
-  let delegations: DelegRow[];
+  let delegations: Array<{ userDid: string; agentDid: string; capabilities: unknown }>;
   if (filters.agentDid) {
-    delegations = db
-      .prepare(
-        "SELECT user_did, agent_did, capabilities FROM delegation_certs WHERE agent_did = ?"
-      )
-      .all(filters.agentDid) as DelegRow[];
+    delegations = await prisma.delegationCert.findMany({
+      where: { agentDid: filters.agentDid },
+      select: { userDid: true, agentDid: true, capabilities: true },
+    });
   } else if (filters.userDid) {
-    delegations = db
-      .prepare(
-        "SELECT user_did, agent_did, capabilities FROM delegation_certs WHERE user_did = ?"
-      )
-      .all(filters.userDid) as DelegRow[];
+    delegations = await prisma.delegationCert.findMany({
+      where: { userDid: filters.userDid },
+      select: { userDid: true, agentDid: true, capabilities: true },
+    });
   } else if (filters.realmId) {
     // Only delegations where both user and agent are realm members
-    delegations = db
-      .prepare(
-        "SELECT d.user_did, d.agent_did, d.capabilities FROM delegation_certs d " +
-          "INNER JOIN user_realms ur ON ur.user_id = (SELECT id FROM users WHERE did = d.user_did) AND ur.realm_id = ? " +
-          "INNER JOIN agent_realms ar ON ar.agent_did = d.agent_did AND ar.realm_id = ?"
-      )
-      .all(filters.realmId, filters.realmId) as DelegRow[];
+    delegations = await prisma.delegationCert.findMany({
+      where: {
+        userDid: { in: Array.from(userDids) },
+        agentDid: { in: Array.from(agentDids) },
+      },
+      select: { userDid: true, agentDid: true, capabilities: true },
+    });
   } else {
-    delegations = db
-      .prepare("SELECT user_did, agent_did, capabilities FROM delegation_certs")
-      .all() as DelegRow[];
+    delegations = await prisma.delegationCert.findMany({
+      select: { userDid: true, agentDid: true, capabilities: true },
+    });
   }
+
   for (const d of delegations) {
-    if (!nodes.has(`user:${d.user_did}`) || !nodes.has(`agent:${d.agent_did}`))
+    if (!nodes.has(`user:${d.userDid}`) || !nodes.has(`agent:${d.agentDid}`))
       continue;
-    const caps: AgentCapability[] = JSON.parse(d.capabilities) as AgentCapability[];
+    const caps: AgentCapability[] = (d.capabilities as AgentCapability[]) ?? [];
     edges.push({
-      source: `user:${d.user_did}`,
-      target: `agent:${d.agent_did}`,
+      source: `user:${d.userDid}`,
+      target: `agent:${d.agentDid}`,
       type: "delegation",
       label: caps.join(", "),
       capabilities: caps,

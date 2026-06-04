@@ -136,6 +136,21 @@ export class ChannelMemberDAO {
     });
     return result.count > 0;
   }
+
+  static async updateRole(
+    channelId: string,
+    memberDid: string,
+    role: string
+  ): Promise<void> {
+    await prisma.channelMember.update({
+      where: { channelId_memberDid: { channelId, memberDid } },
+      data: { role },
+    });
+  }
+
+  static async getChannelMemberCount(channelId: string): Promise<number> {
+    return prisma.channelMember.count({ where: { channelId } });
+  }
 }
 
 export class ChannelMessageDAO {
@@ -218,6 +233,41 @@ export class ChannelMessageDAO {
     if (!reactions[emoji]) reactions[emoji] = [];
     if (!reactions[emoji].includes(userDid)) reactions[emoji].push(userDid);
     await prisma.channelMessage.update({ where: { id }, data: { reactions } });
+  }
+
+  static async removeReaction(
+    id: string,
+    emoji: string,
+    userDid: string
+  ): Promise<void> {
+    const msg = await prisma.channelMessage.findUnique({ where: { id } });
+    if (!msg) return;
+    const reactions = (
+      (msg.reactions as Array<{ emoji: string; userDid: string }>) ?? []
+    ).filter((r) => !(r.emoji === emoji && r.userDid === userDid));
+    await prisma.channelMessage.update({ where: { id }, data: { reactions } });
+  }
+
+  static async searchInChannel(
+    channelId: string,
+    query: string,
+    limit?: number
+  ): Promise<ChannelMessage[]> {
+    return prisma.channelMessage.findMany({
+      where: {
+        channelId,
+        deletedAt: null,
+        content: { contains: query, mode: "insensitive" },
+      },
+      take: limit ?? 20,
+      orderBy: { createdAt: "desc" },
+    });
+  }
+
+  static async getChannelMessageCount(channelId: string): Promise<number> {
+    return prisma.channelMessage.count({
+      where: { channelId, deletedAt: null },
+    });
   }
 }
 

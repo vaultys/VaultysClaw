@@ -21,8 +21,8 @@ import dotenv from "dotenv";
 import { initializeWSServer, initializeAdminWS } from "./lib/ws-server";
 import { initializePeerjsServer, AgentPeerjsServer } from "./lib/peerjs-server";
 import { prisma, SettingsDAO } from "./db";
+import { ServerIdentityDAO } from "./db/settings.dao";
 import { getFileStorage } from "./lib/file-storage-manager";
-import { VaultysId } from "@vaultys/id";
 import { OrgSkillDAO } from "./db";
 import {
   startWorkflowScheduler,
@@ -67,15 +67,6 @@ const port = parseInt(process.env.PORT || "3000", 10);
 const wsPort = parseInt(process.env.WS_PORT || "8080", 10);
 const peerjsEnabledEnv = process.env.PEERJS_ENABLED === "true";
 const peerjsServerUrlEnv = process.env.PEERJS_SERVER_URL || undefined;
-
-async function initServerIdentity(): Promise<void> {
-  const existing = await SettingsDAO.get("serverSecret");
-  if (!existing) {
-    const vid = (await VaultysId.generateMachine()).toVersion(1);
-    const secret = vid.getSecret("base64");
-    await SettingsDAO.set("serverSecret", secret);
-  }
-}
 
 async function seedDefaults(): Promise<void> {
   const realmCount = await prisma.realm.count();
@@ -146,7 +137,7 @@ app.prepare().then(async () => {
   logger.info("File storage initialized");
 
   // Generate server VaultysId if not present
-  await initServerIdentity();
+  await ServerIdentityDAO.ensureServerIdentity();
   logger.info("Server identity ready");
 
   // Create HTTP server for Next.js

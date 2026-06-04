@@ -108,18 +108,21 @@ export class UserDAO {
     role?: string;
     isAdmin?: boolean;
     realmId?: string;
+    hasAccount?: boolean;
     page?: number;
     pageSize?: number;
     sortBy?: "name" | "email" | "registeredAt";
     sortDir?: "asc" | "desc";
   }): Promise<{ users: User[]; total: number; page: number; pageSize: number; totalPages: number }> {
-    const { q, role, isAdmin, realmId, page = 1, pageSize = 20, sortBy = "name", sortDir = "asc" } = opts;
+    const { q, role, isAdmin, realmId, hasAccount, page = 1, pageSize = 20, sortBy = "name", sortDir = "asc" } = opts;
 
     const where: Prisma.UserWhereInput = {};
     if (q) where.OR = [{ name: { contains: q, mode: "insensitive" } }, { email: { contains: q, mode: "insensitive" } }];
     if (role) where.role = role;
     if (isAdmin !== undefined) where.isAdmin = isAdmin;
     if (realmId) where.userRealms = { some: { realmId } };
+    if (hasAccount === true) where.did = { not: null };
+    else if (hasAccount === false) where.did = null;
 
     const orderBy: Prisma.UserOrderByWithRelationInput =
       sortBy === "email" ? { email: sortDir } : sortBy === "registeredAt" ? { registeredAt: sortDir } : { name: sortDir };
@@ -129,6 +132,20 @@ export class UserDAO {
       prisma.user.findMany({ where, orderBy, skip: (page - 1) * pageSize, take: pageSize }),
     ]);
     return { users, total, page, pageSize, totalPages: Math.ceil(total / pageSize) };
+  }
+
+  static async updateLocation(
+    id: string,
+    location: { lat: number; lon: number; label: string } | null
+  ): Promise<void> {
+    await prisma.user.update({
+      where: { id },
+      data: {
+        locationLat: location?.lat ?? null,
+        locationLon: location?.lon ?? null,
+        locationLabel: location?.label ?? null,
+      },
+    });
   }
 
   static async delete(id: string): Promise<void> {
@@ -158,5 +175,27 @@ export class UserDAO {
 
   static async cleanExpiredInvitations(): Promise<void> {
     await prisma.userInvitation.deleteMany({ where: { expiresAt: { lt: new Date() } } });
+  }
+
+  static async hasAnyUser() {
+    return (await prisma.user.count()) > 0;
+  }
+
+  static async hasOwner() {
+    return (await prisma.user.count({ where: { isOwner: true } })) > 0;
+  }
+
+  static async listUnclaimed() {
+    return prisma.user.findMany({
+      where: { entraId: { not: null }, claimedAt: null, did: null },
+    });
+  }
+
+  static async setAdmin(did: string, isAdmin: boolean) {
+    await prisma.user.updateMany({ where: { did }, data: { isAdmin } });
+  }
+
+  static async removeByDid(did: string) {
+    await prisma.user.deleteMany({ where: { did } });
   }
 }

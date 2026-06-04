@@ -16,8 +16,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-config";
-import { GrantDAO, RealmDAO } from "@/db";
-import { UserDao } from "@/lib/user-dao";
+import { GrantDAO, RealmDAO, UserDAO } from "@/db";
 
 /**
  * @openapi
@@ -134,10 +133,10 @@ export async function GET(request: NextRequest) {
         ? false
         : undefined;
 
-  const result = UserDao.query({
+  const result = await UserDAO.list({
     q,
     role,
-    realm,
+    realmId: realm,
     isAdmin,
     hasAccount,
     page,
@@ -163,12 +162,12 @@ export async function GET(request: NextRequest) {
       did: u.did,
       name: u.name ?? null,
       email: u.email ?? null,
-      isOwner: Boolean(u.is_owner),
-      isAdmin: Boolean(u.is_admin) || Boolean(u.is_owner),
+      isOwner: Boolean(u.isOwner),
+      isAdmin: Boolean(u.isAdmin) || Boolean(u.isOwner),
       role: u.role,
-      registeredAt: u.registered_at,
-      entraId: u.entra_id ?? null,
-      claimedAt: u.claimed_at ?? null,
+      registeredAt: u.registeredAt,
+      entraId: u.entraId ?? null,
+      claimedAt: u.claimedAt ?? null,
       realms: realms.map((r) => ({
         id: r.realm.id,
         name: r.realm.name,

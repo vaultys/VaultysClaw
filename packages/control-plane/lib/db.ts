@@ -740,16 +740,24 @@ export interface DoclingConfig {
   sourceEndpoint?: string;
   /** Discovered from /openapi.json — e.g. '/v1/convert/file' */
   fileEndpoint?: string;
+  locationLat?: number;
+  locationLon?: number;
+  locationLabel?: string;
 }
 
 export function getDoclingConfig(): DoclingConfig | null {
   const url = getSetting("docling_url");
   if (!url) return null;
+  const latStr = getSetting("docling_location_lat");
+  const lonStr = getSetting("docling_location_lon");
   return {
     url,
     enabled: getSetting("docling_enabled") === "true",
     sourceEndpoint: getSetting("docling_source_endpoint") || undefined,
     fileEndpoint: getSetting("docling_file_endpoint") || undefined,
+    locationLat: latStr ? parseFloat(latStr) : undefined,
+    locationLon: lonStr ? parseFloat(lonStr) : undefined,
+    locationLabel: getSetting("docling_location_label") || undefined,
   };
 }
 
@@ -759,6 +767,12 @@ export function setDoclingConfig(cfg: DoclingConfig): void {
   if (cfg.sourceEndpoint)
     setSetting("docling_source_endpoint", cfg.sourceEndpoint);
   if (cfg.fileEndpoint) setSetting("docling_file_endpoint", cfg.fileEndpoint);
+  if (cfg.locationLat != null)
+    setSetting("docling_location_lat", String(cfg.locationLat));
+  if (cfg.locationLon != null)
+    setSetting("docling_location_lon", String(cfg.locationLon));
+  if (cfg.locationLabel != null)
+    setSetting("docling_location_label", cfg.locationLabel);
 }
 
 /** Update only the discovered API endpoints (called after a successful test) */
@@ -783,6 +797,9 @@ export interface StorageConfig {
   s3AccessKeyId?: string;
   /** Never returned to the client — always omitted in API responses */
   s3SecretAccessKey?: string;
+  locationLat?: number;
+  locationLon?: number;
+  locationLabel?: string;
 }
 
 /** Read storage config from DB. Decrypts credentials (async because of vault). */
@@ -810,6 +827,9 @@ export async function getStorageConfig(): Promise<StorageConfig> {
     }
   }
 
+  const latStr = getSetting("s3_location_lat");
+  const lonStr = getSetting("s3_location_lon");
+
   return {
     storageType,
     filesystemDir,
@@ -818,6 +838,9 @@ export async function getStorageConfig(): Promise<StorageConfig> {
     s3Bucket,
     s3Endpoint,
     s3AccessKeyId,
+    locationLat: latStr ? parseFloat(latStr) : undefined,
+    locationLon: lonStr ? parseFloat(lonStr) : undefined,
+    locationLabel: getSetting("s3_location_label") || undefined,
   };
 }
 
@@ -845,6 +868,13 @@ export async function setStorageConfig(
     const enc = await encryptSecret(cfg.s3SecretAccessKey);
     setSetting("s3_secret_access_key_enc", enc);
   }
+
+  if (cfg.locationLat != null)
+    setSetting("s3_location_lat", String(cfg.locationLat));
+  if (cfg.locationLon != null)
+    setSetting("s3_location_lon", String(cfg.locationLon));
+  if (cfg.locationLabel != null)
+    setSetting("s3_location_label", cfg.locationLabel);
 
   // Invalidate cached storage so next request uses new config
   resetFileStorageCache();

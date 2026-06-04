@@ -1,26 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
-import { AgentDAO } from "@/db";
-import { getDb } from "@/lib/db";
+import { prisma } from "@/db/client";
 
-function getFleetHistoryTotals(granularity: "day" | "month", bucket: string) {
-  const db = getDb();
-  const result = db
-    .prepare(
-      `
-    SELECT
-      COALESCE(SUM(prompt_tokens), 0) AS prompt_tokens,
-      COALESCE(SUM(completion_tokens), 0) AS completion_tokens
-    FROM agent_token_usage_history
-    WHERE granularity = ? AND bucket = ?
-  `
-    )
-    .get(granularity, bucket) as
-    | { prompt_tokens: number; completion_tokens: number }
-    | undefined;
+async function getFleetHistoryTotals(
+  granularity: "day" | "month",
+  bucket: string,
+) {
+  const result = await prisma.agentTokenUsageHistory.aggregate({
+    _sum: {
+      promptTokens: true,
+      completionTokens: true,
+    },
+    where: {
+      granularity,
+      bucket,
+    },
+  });
   return {
-    promptTokens: result?.prompt_tokens ?? 0,
-    completionTokens: result?.completion_tokens ?? 0,
+    promptTokens: result._sum.promptTokens ?? 0,
+    completionTokens: result._sum.completionTokens ?? 0,
   };
 }
 
@@ -61,9 +59,21 @@ export async function GET(request: NextRequest) {
   const todayBucket = now.toISOString().slice(0, 10); // YYYY-MM-DD
   const monthBucket = now.toISOString().slice(0, 7); // YYYY-MM
 
-  const allTime = await AgentDAO.getTotalFleetTokenUsage();
-  const daily = getFleetHistoryTotals("day", todayBucket);
-  const monthly = getFleetHistoryTotals("month", monthBucket);
+  const allTimeResult = await prisma.agentTokenUsage.aggregate({
+    _sum: {
+      promptTokens: true,
+      completionTokens: true,
+    },
+  });
+  const allTime = {
+    promptTokens: allTimeResult._sum.promptTokens ?? 0,
+    completionTokens: allTimeResult._sum.completionTokens ?? 0,
+  };
+
+  const [daily, monthly] = await Promise.all([
+    getFleetHistoryTotals("day", todayBucket),
+    getFleetHistoryTotals("month", monthBucket),
+  ]);
 
   return NextResponse.json({ allTime, daily, monthly });
 }

@@ -71,8 +71,8 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
 
     if (!(await auth.canAccessRealm(id))) return forbidden();
 
-    const agents = await RealmDAO.getAgents(id);
-    const users = await RealmDAO.getUsers(id);
+    const agentRows = await RealmDAO.getAgents(id);
+    const userRows = await RealmDAO.getUsers(id);
     const tokenUsage = await RealmDAO.getTokenUsage(id);
     const workflows = (await WorkflowDAO.list({ realmId: id })).map((w) => ({
       id: w.id,
@@ -80,6 +80,23 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
       description: w.description,
       createdAt: w.createdAt,
       updatedAt: w.updatedAt,
+    }));
+
+    // Map to the snake_case shape expected by the realm detail page
+    const agents = agentRows.map((ar) => ({
+      agent_did: ar.agent.did,
+      agent_name: ar.agent.name,
+      capabilities: JSON.stringify(ar.agent.capabilities ?? []),
+      is_primary: ar.isPrimary ? 1 : 0,
+      joined_at: ar.joinedAt.toISOString(),
+    }));
+
+    const users = userRows.map((ur) => ({
+      user_did: ur.user.did ?? ur.user.id,
+      name: ur.user.name,
+      email: ur.user.email,
+      is_primary: ur.isPrimary ? 1 : 0,
+      joined_at: ur.joinedAt.toISOString(),
     }));
 
     return NextResponse.json({

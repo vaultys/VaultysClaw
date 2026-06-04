@@ -24,7 +24,7 @@ export const BridgeFactory = {
     channelId: string,
     message: OutgoingMessage
   ): Promise<void> {
-    const bridges = ChannelBridgeService.listBridges(channelId);
+    const bridges = await ChannelBridgeService.listBridges(channelId);
 
     const activeBridges = bridges.filter(
       (b) => b.isSyncEnabled && b.syncDirection !== "incoming"

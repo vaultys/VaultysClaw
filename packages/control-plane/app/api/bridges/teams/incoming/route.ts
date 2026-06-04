@@ -141,7 +141,7 @@ export async function POST(req: NextRequest) {
     const threadId = activity.conversation?.id ?? undefined;
 
     // Create channel message
-    const message = ChannelService.postMessage({
+    const message = await ChannelService.postMessage({
       channelId: bridge.channelId,
       authorDid,
       authorType: "user",

@@ -9,8 +9,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-config";
 import { sendMail } from "@/lib/smtp";
-import { SettingsDAO } from "@/db";
-import { getDb } from "@/lib/db";
+import { SettingsDAO, UserDAO } from "@/db";
 
 /**
  * @openapi
@@ -80,56 +79,14 @@ export async function POST(request: NextRequest) {
     }
 
     const userRole = role ?? "member";
-    const expiresAt = new Date(
-      Date.now() + 7 * 24 * 60 * 60 * 1000
-    ).toISOString();
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
-    const db = getDb();
-
-    // Check if this email already has an active invitation
-    const existingInvitation = db
-      .prepare(
-        "SELECT token FROM user_invitations WHERE email = ? AND expires_at > datetime('now')"
-      )
-      .get(email) as { token: string } | undefined;
-
-    // Delete old invitation if it exists (will create new one)
-    if (existingInvitation) {
-      db.prepare("DELETE FROM user_invitations WHERE email = ?").run(email);
-    }
-
-    // Check if unclaimed user already exists for this email
-    const unclaimed = db
-      .prepare("SELECT id FROM users WHERE email = ? AND did IS NULL")
-      .get(email) as { id: string } | undefined;
-
-    const userId = unclaimed?.id ?? crypto.randomUUID();
-
-    // Create or update unclaimed user record
-    if (unclaimed) {
-      // Update existing unclaimed user with new name/role
-      db.prepare("UPDATE users SET name = ?, role = ? WHERE id = ?").run(
-        name,
-        userRole,
-        userId
-      );
-    } else {
-      db.prepare(
-        "INSERT INTO users (id, did, name, email, role) VALUES (?, NULL, ?, ?, ?)"
-      ).run(userId, name, email, userRole);
-    }
-
-    // Create invitation token
-    const token = crypto.randomUUID();
-    db.prepare(
-      "INSERT INTO user_invitations (token, email, name, role, expires_at) VALUES (?, ?, ?, ?, ?) " +
-        "ON CONFLICT(token) DO UPDATE SET email = excluded.email, name = excluded.name, role = excluded.role"
-    ).run(token, email, name, userRole, expiresAt);
+    const token = await UserDAO.createInvitation(email, name, userRole, expiresAt);
 
     const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
     const inviteUrl = `${baseUrl}/invite/${token}`;
 
-    const platformName = await SettingsDAO.get("platformName") || "VaultysClaw";
+    const platformName = (await SettingsDAO.get("platformName")) || "VaultysClaw";
     const html = `
       <h2>You're invited to ${platformName}</h2>
       <p>Hi ${name},</p>
@@ -150,7 +107,7 @@ export async function POST(request: NextRequest) {
       text: `You've been invited to join ${platformName} as a ${userRole}. Visit: ${inviteUrl}`,
     });
 
-    return NextResponse.json({ token, userId });
+    return NextResponse.json({ token });
   } catch (err) {
     console.error("Email invitation error:", err);
     return NextResponse.json(

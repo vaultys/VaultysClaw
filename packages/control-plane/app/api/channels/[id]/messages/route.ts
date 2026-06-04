@@ -5,7 +5,7 @@ import { ChannelService } from "@/lib/channel-service";
 type Ctx = { params: Promise<{ id: string }> };
 
 /**
- * GET /api/channels/[id]/messages?limit=50&offset=0&threadId=optional
+ * GET /api/channels/[id]/messages?limit=50&before=<cursor>&threadId=optional
  * List messages in a channel (or in a thread if threadId provided)
  */
 /**
@@ -28,13 +28,12 @@ type Ctx = { params: Promise<{ id: string }> };
  *         schema:
  *           type: integer
  *           default: 50
- *       - name: offset
+ *       - name: before
  *         in: query
  *         required: false
- *         description: Number of messages to skip
+ *         description: ISO date string or cursor ID to paginate before
  *         schema:
- *           type: integer
- *           default: 0
+ *           type: string
  *       - name: threadId
  *         in: query
  *         required: false
@@ -68,14 +67,14 @@ export async function GET(req: NextRequest, ctx: Ctx) {
     if (!auth) return unauthorized();
 
     const { id } = await ctx.params;
-    const channel = ChannelService.getChannel(id);
+    const channel = await ChannelService.getChannel(id);
 
     if (!channel) {
       return NextResponse.json({ error: "Channel not found" }, { status: 404 });
     }
 
     // Check membership
-    if (!ChannelService.isMember(id, auth.did)) {
+    if (!(await ChannelService.isMember(id, auth.did))) {
       return forbidden();
     }
 
@@ -84,14 +83,14 @@ export async function GET(req: NextRequest, ctx: Ctx) {
       parseInt(url.searchParams.get("limit") || "50"),
       100
     );
-    const offset = parseInt(url.searchParams.get("offset") || "0");
+    const before = url.searchParams.get("before") ?? undefined;
     const threadId = url.searchParams.get("threadId");
 
     let messages;
     if (threadId) {
-      messages = ChannelService.getThread(threadId);
+      messages = await ChannelService.getThread(threadId);
     } else {
-      messages = ChannelService.listMessages(id, limit, offset);
+      messages = await ChannelService.listMessages(id, limit, before);
     }
 
     return NextResponse.json({ messages });
@@ -176,14 +175,14 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     if (!auth) return unauthorized();
 
     const { id } = await ctx.params;
-    const channel = ChannelService.getChannel(id);
+    const channel = await ChannelService.getChannel(id);
 
     if (!channel) {
       return NextResponse.json({ error: "Channel not found" }, { status: 404 });
     }
 
     // Check membership
-    if (!ChannelService.isMember(id, auth.did)) {
+    if (!(await ChannelService.isMember(id, auth.did))) {
       return forbidden();
     }
 
@@ -208,7 +207,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     try {
       // postMessage internally calls MessageDispatcher.processMessage for
       // user top-level messages — no need to call it again here.
-      const message = ChannelService.postMessage({
+      const message = await ChannelService.postMessage({
         channelId: id,
         authorDid: auth.did,
         authorType: "user",

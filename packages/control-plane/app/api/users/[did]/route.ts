@@ -98,12 +98,19 @@ export async function GET(
   }
 
   const { did } = await params;
-  const user = await UserDAO.findByDid(did);
+
+  const user =
+    (await UserDAO.findByDid(did)) ?? (await UserDAO.findById(did));
   if (!user) {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
 
+  const grants = user.did
+    ? await GrantDAO.listByUser(user.did).catch(() => [])
+    : [];
+
   return NextResponse.json({
+    id: user.id,
     did: user.did,
     name: user.name ?? null,
     email: user.email ?? null,
@@ -113,16 +120,14 @@ export async function GET(
     reportsTo: user.reportsTo ?? null,
     description: user.description ?? null,
     registeredAt: user.registeredAt,
-    grants: user.did
-      ? (await GrantDAO.listByUser(user.did)).map((g) => ({
-          id: g.id,
-          agentDid: g.agentDid,
-          capabilities: g.capabilities as string[],
-          grantedBy: g.grantedBy,
-          expiresAt: g.expiresAt,
-          createdAt: g.createdAt,
-        }))
-      : [],
+    grants: (grants as Array<{ id: string; agentDid: string | null; capabilities: unknown; grantedBy: string; expiresAt: Date | null; createdAt: Date }>).map((g) => ({
+      id: g.id,
+      agentDid: g.agentDid,
+      capabilities: g.capabilities as string[],
+      grantedBy: g.grantedBy,
+      expiresAt: g.expiresAt,
+      createdAt: g.createdAt,
+    })),
   });
 }
 

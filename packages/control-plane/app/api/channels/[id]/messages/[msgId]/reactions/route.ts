@@ -70,16 +70,16 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     const { id, msgId } = await ctx.params;
 
     // Verify channel access and membership
-    const channel = ChannelService.getChannel(id);
+    const channel = await ChannelService.getChannel(id);
     if (!channel) {
       return NextResponse.json({ error: "Channel not found" }, { status: 404 });
     }
 
-    if (!ChannelService.isMember(id, auth.did)) {
+    if (!(await ChannelService.isMember(id, auth.did))) {
       return forbidden();
     }
 
-    const message = ChannelService.getMessage(msgId);
+    const message = await ChannelService.getMessage(msgId);
     if (!message || message.channelId !== id) {
       return NextResponse.json({ error: "Message not found" }, { status: 404 });
     }
@@ -94,8 +94,8 @@ export async function POST(req: NextRequest, ctx: Ctx) {
 
     try {
       const updated = isAdd
-        ? ChannelService.addReaction(msgId, body.emoji.trim(), auth.did)
-        : ChannelService.removeReaction(msgId, body.emoji.trim(), auth.did);
+        ? await ChannelService.addReaction(msgId, body.emoji.trim(), auth.did)
+        : await ChannelService.removeReaction(msgId, body.emoji.trim(), auth.did);
 
       return NextResponse.json({ message: updated });
     } catch (err: any) {

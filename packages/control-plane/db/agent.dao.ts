@@ -147,6 +147,20 @@ export class AgentDAO {
     });
   }
 
+  static async updateLocation(
+    did: string,
+    location: { lat: number; lon: number; label: string } | null
+  ): Promise<void> {
+    await prisma.agent.update({
+      where: { did },
+      data: {
+        locationLat: location?.lat ?? null,
+        locationLon: location?.lon ?? null,
+        locationLabel: location?.label ?? null,
+      },
+    });
+  }
+
   static async setLlmConfig(
     did: string,
     config: LlmConfig | null

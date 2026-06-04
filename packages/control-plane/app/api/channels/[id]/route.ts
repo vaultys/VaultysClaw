@@ -53,7 +53,7 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
     if (!auth) return unauthorized();
 
     const { id } = await ctx.params;
-    const channel = ChannelService.getChannel(id);
+    const channel = await ChannelService.getChannel(id);
 
     if (!channel) {
       return NextResponse.json({ error: "Channel not found" }, { status: 404 });
@@ -64,8 +64,8 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
       return forbidden();
     }
 
-    const members = ChannelService.getChannelMembers(id);
-    const stats = ChannelService.getChannelStats(id);
+    const members = await ChannelService.getChannelMembers(id);
+    const stats = await ChannelService.getChannelStats(id);
 
     return NextResponse.json({
       channel,
@@ -141,14 +141,14 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
     if (!auth) return unauthorized();
 
     const { id } = await ctx.params;
-    const channel = ChannelService.getChannel(id);
+    const channel = await ChannelService.getChannel(id);
 
     if (!channel) {
       return NextResponse.json({ error: "Channel not found" }, { status: 404 });
     }
 
     // Check authorization: channel owner or realm admin
-    const role = ChannelService.getMemberRole(id, auth.did);
+    const role = await ChannelService.getMemberRole(id, auth.did);
     const isChannelOwner = role === "owner";
     const isRealmAdmin = channel.realmId && await auth.canAdminRealm(channel.realmId);
     const isGlobalAdmin = !channel.realmId && auth.isGlobalAdmin;
@@ -164,7 +164,7 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
       isPublic?: boolean;
     };
 
-    const updated = ChannelService.updateChannel(id, {
+    const updated = await ChannelService.updateChannel(id, {
       name: body.name?.trim(),
       description: body.description?.trim(),
       topic: body.topic?.trim(),
@@ -216,14 +216,14 @@ export async function DELETE(req: NextRequest, ctx: Ctx) {
     if (!auth) return unauthorized();
 
     const { id } = await ctx.params;
-    const channel = ChannelService.getChannel(id);
+    const channel = await ChannelService.getChannel(id);
 
     if (!channel) {
       return NextResponse.json({ error: "Channel not found" }, { status: 404 });
     }
 
     // Check authorization: channel owner or realm admin
-    const role = ChannelService.getMemberRole(id, auth.did);
+    const role = await ChannelService.getMemberRole(id, auth.did);
     const isChannelOwner = role === "owner";
     const isRealmAdmin = channel.realmId && await auth.canAdminRealm(channel.realmId);
     const isGlobalAdmin = !channel.realmId && auth.isGlobalAdmin;
@@ -232,7 +232,7 @@ export async function DELETE(req: NextRequest, ctx: Ctx) {
       return forbidden();
     }
 
-    ChannelService.archiveChannel(id);
+    await ChannelService.archiveChannel(id);
 
     return NextResponse.json({ success: true });
   } catch (err) {

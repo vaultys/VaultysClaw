@@ -74,7 +74,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     const signatureHeader = req.headers.get("x-signature");
 
     // Look up bridge
-    const bridge = ChannelBridgeService.getBridge(bridgeId);
+    const bridge = await ChannelBridgeService.getBridge(bridgeId);
     if (!bridge) {
       return NextResponse.json({ error: "Bridge not found" }, { status: 404 });
     }
@@ -131,7 +131,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     const authorDid = parsed.author ?? "webhook:external";
 
     // Create channel message
-    const message = ChannelService.postMessage({
+    const message = await ChannelService.postMessage({
       channelId: bridge.channelId,
       authorDid,
       authorType: "user",

@@ -1,11 +1,11 @@
 import { prisma } from "./client";
+import { Prisma } from "@prisma/client";
 import type {
   Agent,
   AgentRealm,
   AgentTokenUsage,
   AgentTokenUsageHistory,
   AgentPeerGrant,
-  Prisma,
 } from "@prisma/client";
 import type { LlmConfig } from "@vaultysclaw/shared";
 
@@ -153,7 +153,7 @@ export class AgentDAO {
   ): Promise<void> {
     await prisma.agent.updateMany({
       where: { did },
-      data: { llmConfig: config ? { ...config } : null },
+      data: { llmConfig: config ? ({ ...config } as Prisma.InputJsonValue) : Prisma.JsonNull },
     });
   }
 

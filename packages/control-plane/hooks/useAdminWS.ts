@@ -41,6 +41,8 @@ interface PendingRegistration {
   requestedCapabilities: unknown; // already-parsed array from Prisma JSONB
   assignedCapabilities: unknown;
   createdAt: string;
+  connected: boolean;
+  agentDid: string | null;
 }
 
 interface AdminWSState {

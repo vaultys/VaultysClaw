@@ -54,6 +54,7 @@ vi.mock("@/lib/litellm-client", () => ({
 // ---------------------------------------------------------------------------
 
 import { getDb } from "../packages/control-plane/lib/db";
+import { prisma } from "../packages/control-plane/db/client";
 import { getAuthContext } from "../packages/control-plane/lib/auth-utils";
 import { NextRequest } from "next/server";
 
@@ -101,76 +102,52 @@ let agentDid: string;
 let testRealmId: string;
 let modelId: string;
 
-beforeAll(() => {
+beforeAll(async () => {
   const db = getDb();
   agentDid = `${T}agent-1`;
   testRealmId = `${T}realm-1`;
   modelId = `${T}model-1`;
 
-  db.prepare(
-    `
-    INSERT OR IGNORE INTO agents (did, name, capabilities)
-    VALUES (?, 'Test Agent', '[]')
-  `
-  ).run(agentDid);
+  // ── SQLite ────────────────────────────────────────────────────────────────
+  db.prepare(`INSERT OR IGNORE INTO agents (did, name, capabilities) VALUES (?, 'Test Agent', '[]')`).run(agentDid);
+  db.prepare(`INSERT OR IGNORE INTO realms (id, name, slug, color, is_default) VALUES (?, 'Test Realm', 'test-realm-llmcfg', '#6366f1', 0)`).run(testRealmId);
+  db.prepare(`INSERT OR IGNORE INTO agent_realms (agent_did, realm_id, is_primary) VALUES (?, ?, 1)`).run(agentDid, testRealmId);
+  db.prepare(`INSERT OR IGNORE INTO model_registry (id, name, description, provider, model_id, base_url, litellm_model_name, status, created_by) VALUES (?, 'Test Model', null, 'openai-compatible', 'ft-model', 'http://vllm:8080', 'openai-compatible/ft-model', 'active', 'did:test:admin')`).run(modelId);
+  db.prepare(`INSERT OR IGNORE INTO model_realm_access (model_id, realm_id) VALUES (?, ?)`).run(modelId, testRealmId);
+  db.prepare(`INSERT OR REPLACE INTO realm_router_keys (realm_id, litellm_virtual_key, allowed_model_ids, monthly_budget_usd) VALUES (?, 'sk-test-virtual-key', ?, null)`).run(testRealmId, JSON.stringify(["openai-compatible/ft-model"]));
 
-  db.prepare(
-    `
-    INSERT OR IGNORE INTO realms (id, name, slug, color, is_default)
-    VALUES (?, 'Test Realm', 'test-realm-llmcfg', '#6366f1', 0)
-  `
-  ).run(testRealmId);
-
-  db.prepare(
-    `
-    INSERT OR IGNORE INTO agent_realms (agent_did, realm_id, is_primary)
-    VALUES (?, ?, 1)
-  `
-  ).run(agentDid, testRealmId);
-
-  db.prepare(
-    `
-    INSERT OR IGNORE INTO model_registry
-      (id, name, description, provider, model_id, base_url, litellm_model_name, status, created_by)
-    VALUES (?, 'Test Model', null, 'openai-compatible', 'ft-model', 'http://vllm:8080', 'openai-compatible/ft-model', 'active', 'did:test:admin')
-  `
-  ).run(modelId);
-
-  db.prepare(
-    `
-    INSERT OR IGNORE INTO model_realm_access (model_id, realm_id)
-    VALUES (?, ?)
-  `
-  ).run(modelId, testRealmId);
-
-  db.prepare(
-    `
-    INSERT OR REPLACE INTO realm_router_keys (realm_id, litellm_virtual_key, allowed_model_ids, monthly_budget_usd)
-    VALUES (?, 'sk-test-virtual-key', ?, null)
-  `
-  ).run(testRealmId, JSON.stringify(["openai-compatible/ft-model"]));
+  // ── Prisma (for route handlers) ───────────────────────────────────────────
+  await prisma.agent.upsert({ where: { did: agentDid }, create: { did: agentDid, name: "Test Agent", capabilities: [] }, update: {} });
+  await prisma.realm.upsert({ where: { id: testRealmId }, create: { id: testRealmId, name: "Test Realm", slug: "test-realm-llmcfg", color: "#6366f1" }, update: {} });
+  await prisma.agentRealm.upsert({ where: { agentDid_realmId: { agentDid, realmId: testRealmId } }, create: { agentDid, realmId: testRealmId, isPrimary: true }, update: {} });
+  await prisma.modelRegistry.upsert({ where: { id: modelId }, create: { id: modelId, name: "Test Model", provider: "openai-compatible", modelId: "ft-model", baseUrl: "http://vllm:8080", litellmModelName: "openai-compatible/ft-model", status: "active" }, update: {} });
+  await prisma.modelRealmAccess.upsert({ where: { modelId_realmId: { modelId, realmId: testRealmId } }, create: { modelId, realmId: testRealmId }, update: {} });
+  await prisma.realmRouterKey.upsert({ where: { realmId: testRealmId }, create: { realmId: testRealmId, litellmVirtualKey: "sk-test-virtual-key", allowedModelIds: ["openai-compatible/ft-model"] }, update: {} });
 });
 
-afterAll(() => {
+afterAll(async () => {
   const db = getDb();
-  db.prepare("DELETE FROM realm_router_keys WHERE realm_id = ?").run(
-    testRealmId
-  );
-  db.prepare("DELETE FROM model_realm_access WHERE realm_id = ?").run(
-    testRealmId
-  );
+  // SQLite cleanup
+  db.prepare("DELETE FROM realm_router_keys WHERE realm_id = ?").run(testRealmId);
+  db.prepare("DELETE FROM model_realm_access WHERE realm_id = ?").run(testRealmId);
   db.prepare("DELETE FROM agent_realms WHERE agent_did = ?").run(agentDid);
   db.prepare("DELETE FROM model_registry WHERE id = ?").run(modelId);
   db.prepare("DELETE FROM realms WHERE id = ?").run(testRealmId);
   db.prepare("UPDATE agents SET llm_config = NULL WHERE did = ?").run(agentDid);
   db.prepare("DELETE FROM agents WHERE did = ?").run(agentDid);
+  // Prisma cleanup
+  await prisma.realmRouterKey.deleteMany({ where: { realmId: testRealmId } });
+  await prisma.modelRealmAccess.deleteMany({ where: { realmId: testRealmId } });
+  await prisma.agentRealm.deleteMany({ where: { agentDid } });
+  await prisma.modelRegistry.deleteMany({ where: { id: modelId } });
+  await prisma.realm.deleteMany({ where: { id: testRealmId } });
+  await prisma.agent.deleteMany({ where: { did: agentDid } });
 });
 
-beforeEach(() => {
+beforeEach(async () => {
   mockGetAuthContext.mockResolvedValue(adminContext());
-  getDb()
-    .prepare("UPDATE agents SET llm_config = NULL WHERE did = ?")
-    .run(agentDid);
+  getDb().prepare("UPDATE agents SET llm_config = NULL WHERE did = ?").run(agentDid);
+  await prisma.agent.updateMany({ where: { did: agentDid }, data: { llmConfig: null } });
 });
 
 // ---------------------------------------------------------------------------
@@ -198,16 +175,9 @@ describe("GET /api/agents/[did]/llm-config", () => {
   });
 
   it("returns config with API key masked", async () => {
-    getDb()
-      .prepare("UPDATE agents SET llm_config = ? WHERE did = ?")
-      .run(
-        JSON.stringify({
-          provider: "openai",
-          model: "gpt-4o",
-          apiKey: "sk-secret-123",
-        }),
-        agentDid
-      );
+    const cfg = { provider: "openai", model: "gpt-4o", apiKey: "sk-secret-123" };
+    getDb().prepare("UPDATE agents SET llm_config = ? WHERE did = ?").run(JSON.stringify(cfg), agentDid);
+    await prisma.agent.updateMany({ where: { did: agentDid }, data: { llmConfig: cfg } });
 
     const res = await llmConfigGET(
       req("GET", "http://localhost") as any,
@@ -310,22 +280,18 @@ describe("PUT /api/agents/[did]/llm-config (realmId + realmModelId)", () => {
   });
 
   it("returns 400 when realm has no virtual key", async () => {
-    // Use a realm that has no key
     const emptyRealmId = `${T}no-key-realm`;
     const db = getDb();
-    db.prepare(
-      "INSERT OR IGNORE INTO realms (id, name, slug, color, is_default) VALUES (?, 'NKR', 'nkr', '#000', 0)"
-    ).run(emptyRealmId);
+    db.prepare("INSERT OR IGNORE INTO realms (id, name, slug, color, is_default) VALUES (?, 'NKR', 'nkr', '#000', 0)").run(emptyRealmId);
+    await prisma.realm.upsert({ where: { id: emptyRealmId }, create: { id: emptyRealmId, name: "NKR", slug: "nkr", color: "#000" }, update: {} });
 
     try {
-      const r = req("PUT", "http://localhost", {
-        realmId: emptyRealmId,
-        realmModelId: modelId,
-      });
+      const r = req("PUT", "http://localhost", { realmId: emptyRealmId, realmModelId: modelId });
       const res = await llmConfigPUT(r as any, params(agentDid));
       expect(res._status).toBe(400);
     } finally {
       db.prepare("DELETE FROM realms WHERE id = ?").run(emptyRealmId);
+      await prisma.realm.deleteMany({ where: { id: emptyRealmId } });
     }
   });
 
@@ -345,22 +311,17 @@ describe("PUT /api/agents/[did]/llm-config (realmId + realmModelId)", () => {
 
 describe("DELETE /api/agents/[did]/llm-config", () => {
   it("clears the stored config", async () => {
-    getDb()
-      .prepare("UPDATE agents SET llm_config = ? WHERE did = ?")
-      .run(JSON.stringify({ provider: "openai", model: "gpt-4o" }), agentDid);
+    const cfg = { provider: "openai", model: "gpt-4o" };
+    getDb().prepare("UPDATE agents SET llm_config = ? WHERE did = ?").run(JSON.stringify(cfg), agentDid);
+    await prisma.agent.updateMany({ where: { did: agentDid }, data: { llmConfig: cfg } });
 
-    const res = await llmConfigDELETE(
-      req("DELETE", "http://localhost") as any,
-      params(agentDid)
-    );
+    const res = await llmConfigDELETE(req("DELETE", "http://localhost") as any, params(agentDid));
     expect(res._status).toBe(200);
     const body = (await res.json()) as { ok: boolean };
     expect(body.ok).toBe(true);
 
-    const agent = getDb()
-      .prepare("SELECT llm_config FROM agents WHERE did = ?")
-      .get(agentDid) as any;
-    expect(agent.llm_config).toBeNull();
+    const agent = await prisma.agent.findUnique({ where: { did: agentDid } });
+    expect(agent?.llmConfig).toBeNull();
   });
 });
 

@@ -77,6 +77,7 @@ vi.mock("@/lib/user-dao", () => ({
 // ---------------------------------------------------------------------------
 
 import { getDb } from "../packages/control-plane/lib/db";
+import { prisma } from "../packages/control-plane/db/client";
 import { ChannelService } from "../packages/control-plane/lib/channel-service";
 import { MessageDispatcher } from "../packages/control-plane/lib/message-dispatcher";
 import { getAuthContext } from "../packages/control-plane/lib/auth-utils";
@@ -206,73 +207,39 @@ let testRealmId: string;
 let testAgentDid: string;
 let testAgentName: string;
 
-beforeAll(() => {
+beforeAll(async () => {
   const db = getDb();
   testRealmId = `${T}realm-1`;
   testAgentDid = `${T}agent-did-1`;
-  // Agent name must be mention-safe (no colons — @mention regex only captures [\w\-])
   testAgentName = "tch-test-agent";
 
-  // Create test realm
-  db.prepare(
-    `
-    INSERT OR IGNORE INTO realms (id, name, slug, color, is_default)
-    VALUES (?, 'Channel Test Realm', 'channel-test-realm', '#6366f1', 0)
-  `
-  ).run(testRealmId);
+  // ── SQLite (ChannelService, ChannelDao use SQLite) ────────────────────────
+  db.prepare(`INSERT OR IGNORE INTO realms (id, name, slug, color, is_default) VALUES (?, 'Channel Test Realm', 'channel-test-realm', '#6366f1', 0)`).run(testRealmId);
+  db.prepare(`INSERT OR IGNORE INTO agents (did, name, capabilities, registered_at) VALUES (?, ?, '[]', datetime('now'))`).run(testAgentDid, testAgentName);
+  db.prepare(`INSERT OR IGNORE INTO users (id, did, name, registered_at) VALUES ('user-uuid-123', 'did:test:admin', 'Test Admin', datetime('now'))`).run();
+  db.prepare(`INSERT OR IGNORE INTO user_realms (user_id, realm_id, is_primary, is_realm_admin) VALUES ('user-uuid-123', ?, 0, 1)`).run(testRealmId);
 
-  // Create test agent
-  db.prepare(
-    `
-    INSERT OR IGNORE INTO agents (did, name, capabilities, registered_at)
-    VALUES (?, ?, '[]', datetime('now'))
-  `
-  ).run(testAgentDid, testAgentName);
-
-  // Create a user row so user_realms FK can reference it
-  db.prepare(
-    `
-    INSERT OR IGNORE INTO users (id, did, name, registered_at)
-    VALUES ('user-uuid-123', 'did:test:admin', 'Test Admin', datetime('now'))
-  `
-  ).run();
-
-  // Enroll that user in the test realm
-  db.prepare(
-    `
-    INSERT OR IGNORE INTO user_realms (user_id, realm_id, is_primary, is_realm_admin)
-    VALUES ('user-uuid-123', ?, 0, 1)
-  `
-  ).run(testRealmId);
+  // ── Prisma (API routes + MessageDispatcher use Prisma) ───────────────────
+  await prisma.realm.upsert({ where: { id: testRealmId }, create: { id: testRealmId, name: "Channel Test Realm", slug: "channel-test-realm", color: "#6366f1" }, update: {} });
+  await prisma.agent.upsert({ where: { did: testAgentDid }, create: { did: testAgentDid, name: testAgentName, capabilities: [] }, update: {} });
+  await prisma.user.upsert({ where: { id: "user-uuid-123" }, create: { id: "user-uuid-123", did: "did:test:admin", name: "Test Admin" }, update: {} });
+  await prisma.userRealm.upsert({ where: { userId_realmId: { userId: "user-uuid-123", realmId: testRealmId } }, create: { userId: "user-uuid-123", realmId: testRealmId, isRealmAdmin: true }, update: {} });
 });
 
-afterAll(() => {
+afterAll(async () => {
   const db = getDb();
-  // Remove channel data in dependency order
-  // Channels in this test suite live under testRealmId (which uses T prefix) and use S-prefixed slugs
-  db.prepare(
-    `
-    DELETE FROM channel_messages WHERE channel_id IN (
-      SELECT id FROM channels WHERE realm_id LIKE ? OR slug LIKE ?
-    )
-  `
-  ).run(`${T}%`, `${S}%`);
-  db.prepare(
-    `
-    DELETE FROM channel_members WHERE channel_id IN (
-      SELECT id FROM channels WHERE realm_id LIKE ? OR slug LIKE ?
-    )
-  `
-  ).run(`${T}%`, `${S}%`);
-  db.prepare("DELETE FROM channels WHERE realm_id LIKE ? OR slug LIKE ?").run(
-    `${T}%`,
-    `${S}%`
-  );
-  // Remove test support data
+  db.prepare(`DELETE FROM channel_messages WHERE channel_id IN (SELECT id FROM channels WHERE realm_id LIKE ? OR slug LIKE ?)`).run(`${T}%`, `${S}%`);
+  db.prepare(`DELETE FROM channel_members WHERE channel_id IN (SELECT id FROM channels WHERE realm_id LIKE ? OR slug LIKE ?)`).run(`${T}%`, `${S}%`);
+  db.prepare("DELETE FROM channels WHERE realm_id LIKE ? OR slug LIKE ?").run(`${T}%`, `${S}%`);
   db.prepare("DELETE FROM user_realms WHERE user_id = 'user-uuid-123'").run();
   db.prepare("DELETE FROM users WHERE id = 'user-uuid-123'").run();
   db.prepare("DELETE FROM agents WHERE did = ?").run(testAgentDid);
   db.prepare("DELETE FROM realms WHERE id LIKE ?").run(`${T}%`);
+  // Prisma cleanup
+  await prisma.userRealm.deleteMany({ where: { userId: "user-uuid-123" } });
+  await prisma.user.deleteMany({ where: { id: "user-uuid-123" } });
+  await prisma.agent.deleteMany({ where: { did: testAgentDid } });
+  await prisma.realm.deleteMany({ where: { id: { startsWith: T } } });
 });
 
 beforeEach(() => {

@@ -20,7 +20,7 @@ import {
 } from "../packages/agent-controller/src/tools/index";
 import { runIntent, streamChat } from "../packages/agent-controller/src/llm";
 import { initDb, closeDb } from "../packages/agent-controller/src/db";
-import type { LlmConfig } from "../packages/agent-controller/node_modules/@vaultysclaw/shared";
+import type { LlmConfig } from "../packages/agent-controller/node_modules/@vaultysclaw/shared/dist";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -90,9 +90,9 @@ beforeAll(async () => {
 afterAll(async () => {
   closeDb();
   if (tmpDir)
-    await fs.rm(tmpDir, { recursive: true, force: true }).catch(() => {});
+    await fs.rm(tmpDir, { recursive: true, force: true }).catch(() => { });
   if (dbDir)
-    await fs.rm(dbDir, { recursive: true, force: true }).catch(() => {});
+    await fs.rm(dbDir, { recursive: true, force: true }).catch(() => { });
 });
 
 /** Skip helper — call at start of each test */

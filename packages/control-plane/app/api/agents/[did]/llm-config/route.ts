@@ -258,7 +258,7 @@ export async function PUT(
     };
     await AgentDAO.setLlmConfig(did, config);
     const wsServer = getWSServer();
-    const pushed = wsServer?.sendLlmConfig(did, config) ?? false;
+    const pushed = wsServer ? await wsServer.sendLlmConfig(did, config) : false;
     return NextResponse.json({ ok: true, pushed, config: safeConfig(config) });
   }
 
@@ -281,7 +281,7 @@ export async function PUT(
     };
     await AgentDAO.setLlmConfig(did, config);
     const wsServer = getWSServer();
-    const pushed = wsServer?.sendLlmConfig(did, config) ?? false;
+    const pushed = wsServer ? await wsServer.sendLlmConfig(did, config) : false;
     return NextResponse.json({ ok: true, pushed, config: safeConfig(config) });
   }
 
@@ -311,7 +311,7 @@ export async function PUT(
 
   // Push to agent if currently connected
   const wsServer = getWSServer();
-  const pushed = wsServer?.sendLlmConfig(did, config) ?? false;
+  const pushed = wsServer ? await wsServer.sendLlmConfig(did, config) : false;
 
   return NextResponse.json({
     ok: true,

@@ -11,6 +11,7 @@ import {
   ChevronRight,
   X,
   Loader2,
+  Trash2,
 } from "lucide-react";
 
 function timeAgo(iso: string | null): string {
@@ -32,6 +33,56 @@ export default function RegistrationsPage() {
   const { registrations: pendingRegs, connected: wsConnected } = useAdminWS();
   const [rejectingId, setRejectingId] = useState<string | null>(null);
   const [rejectError, setRejectError] = useState<string | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkWorking, setBulkWorking] = useState(false);
+
+  const disconnectedRegs = pendingRegs.filter((r) => !r.connected);
+  const allSelected =
+    pendingRegs.length > 0 &&
+    pendingRegs.every((r) => selected.has(r.id));
+
+  function toggleAll() {
+    if (allSelected) {
+      setSelected(new Set());
+    } else {
+      setSelected(new Set(pendingRegs.map((r) => r.id)));
+    }
+  }
+
+  function toggleOne(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  async function batchReject(ids: string[], reason: string) {
+    setBulkWorking(true);
+    setRejectError(null);
+    try {
+      const res = await fetch("/api/registrations/batch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids, reason }),
+      });
+      if (!res.ok) {
+        const data = (await res.json().catch(() => ({}))) as { error?: string };
+        setRejectError(data.error ?? "Operation failed");
+      } else {
+        setSelected((prev) => {
+          const next = new Set(prev);
+          ids.forEach((id) => next.delete(id));
+          return next;
+        });
+      }
+    } catch {
+      setRejectError("Network error");
+    } finally {
+      setBulkWorking(false);
+    }
+  }
 
   async function handleReject(regId: string, agentName: string) {
     if (
@@ -57,6 +108,31 @@ export default function RegistrationsPage() {
     }
   }
 
+  async function handleClearDisconnected() {
+    if (disconnectedRegs.length === 0) return;
+    if (
+      !confirm(
+        `Remove ${disconnectedRegs.length} disconnected registration${disconnectedRegs.length !== 1 ? "s" : ""}? This cannot be undone.`
+      )
+    )
+      return;
+    await batchReject(
+      disconnectedRegs.map((r) => r.id),
+      "Cleared — agent was not connected"
+    );
+  }
+
+  async function handleBatchReject() {
+    if (selected.size === 0) return;
+    if (
+      !confirm(
+        `Reject ${selected.size} selected registration${selected.size !== 1 ? "s" : ""}? This cannot be undone.`
+      )
+    )
+      return;
+    await batchReject([...selected], "Rejected by admin");
+  }
+
   return (
     <div className="p-6 w-full max-w-7xl mx-auto space-y-6">
       {/* Back nav */}
@@ -68,7 +144,7 @@ export default function RegistrationsPage() {
       </button>
 
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
           <h1 className="text-lg font-semibold text-foreground">
             Pending Registrations
@@ -77,20 +153,52 @@ export default function RegistrationsPage() {
             Review and approve or reject agents waiting to join.
           </p>
         </div>
-        <span
-          className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full border ${
-            wsConnected
-              ? "bg-success-100 dark:bg-success-900/40 border-success-300 dark:border-success-700/50 text-success-700 dark:text-success-400"
-              : "bg-background-200 border-neutral-200 text-foreground-400"
-          }`}
-        >
-          {wsConnected ? (
-            <Wifi className="w-3 h-3" />
-          ) : (
-            <WifiOff className="w-3 h-3" />
+        <div className="flex items-center gap-2">
+          {/* Clear disconnected */}
+          {disconnectedRegs.length > 0 && (
+            <button
+              onClick={handleClearDisconnected}
+              disabled={bulkWorking}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-background-100 border border-neutral-200 hover:bg-background-200 disabled:opacity-50 text-foreground-500 hover:text-foreground text-xs font-medium rounded-lg transition-colors"
+            >
+              {bulkWorking ? (
+                <Loader2 size={12} className="animate-spin" />
+              ) : (
+                <Trash2 size={12} />
+              )}
+              Clear disconnected ({disconnectedRegs.length})
+            </button>
           )}
-          {wsConnected ? "Live" : "Connecting…"}
-        </span>
+          {/* Reject selected */}
+          {selected.size > 0 && (
+            <button
+              onClick={handleBatchReject}
+              disabled={bulkWorking}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-danger-100 dark:bg-danger-600/20 hover:bg-danger-200 dark:hover:bg-danger-600/30 disabled:opacity-50 text-danger-700 dark:text-danger-400 text-xs font-medium rounded-lg border border-danger-300 dark:border-danger-500/30 transition-colors"
+            >
+              {bulkWorking ? (
+                <Loader2 size={12} className="animate-spin" />
+              ) : (
+                <X size={12} />
+              )}
+              Reject selected ({selected.size})
+            </button>
+          )}
+          <span
+            className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full border ${
+              wsConnected
+                ? "bg-success-100 dark:bg-success-900/40 border-success-300 dark:border-success-700/50 text-success-700 dark:text-success-400"
+                : "bg-background-200 border-neutral-200 text-foreground-400"
+            }`}
+          >
+            {wsConnected ? (
+              <Wifi className="w-3 h-3" />
+            ) : (
+              <WifiOff className="w-3 h-3" />
+            )}
+            {wsConnected ? "Live" : "Connecting…"}
+          </span>
+        </div>
       </div>
 
       {/* Empty state */}
@@ -116,9 +224,17 @@ export default function RegistrationsPage() {
       {/* Registration list */}
       {pendingRegs.length > 0 && (
         <div className="bg-warning-50 dark:bg-warning-900/20 border border-warning-200 dark:border-warning-700/40 rounded-xl overflow-hidden">
-          <div className="px-5 py-4 border-b border-warning-200 dark:border-warning-700/40 flex items-center gap-2">
+          {/* List header with select-all */}
+          <div className="px-5 py-4 border-b border-warning-200 dark:border-warning-700/40 flex items-center gap-3">
+            <input
+              type="checkbox"
+              checked={allSelected}
+              onChange={toggleAll}
+              className="w-4 h-4 rounded border-neutral-300 accent-primary-500 cursor-pointer"
+              title="Select all"
+            />
             <Clock className="w-4 h-4 text-warning-600 dark:text-warning-400" />
-            <h2 className="text-sm font-semibold text-warning-700 dark:text-warning-300">
+            <h2 className="text-sm font-semibold text-warning-700 dark:text-warning-300 flex-1">
               {pendingRegs.length} agent{pendingRegs.length !== 1 ? "s" : ""}{" "}
               awaiting review
             </h2>
@@ -127,26 +243,63 @@ export default function RegistrationsPage() {
             {pendingRegs.map((reg) => (
               <div
                 key={reg.id}
-                className="px-5 py-4 flex items-center justify-between hover:bg-warning-100/50 dark:hover:bg-warning-900/10 transition-colors group"
+                className="px-5 py-4 flex items-center gap-3 hover:bg-warning-100/50 dark:hover:bg-warning-900/10 transition-colors group"
               >
+                {/* Checkbox */}
+                <input
+                  type="checkbox"
+                  checked={selected.has(reg.id)}
+                  onChange={() => toggleOne(reg.id)}
+                  onClick={(e) => e.stopPropagation()}
+                  className="w-4 h-4 rounded border-neutral-300 accent-primary-500 cursor-pointer flex-shrink-0"
+                />
+
+                {/* Main row — click to approve */}
                 <div
-                  className="flex-1 cursor-pointer"
+                  className="flex-1 cursor-pointer min-w-0"
                   onClick={() => router.push(`/agents/create?regId=${reg.id}`)}
                 >
-                  <p className="font-semibold text-foreground">
-                    {reg.agentName}
-                  </p>
-                  <p className="text-warning-600/80 dark:text-warning-400/60 text-xs mt-0.5">
-                    Requested {timeAgo(reg.createdAt)}
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="font-semibold text-foreground">
+                      {reg.agentName}
+                    </p>
+                    {/* Connected / disconnected badge */}
+                    {reg.connected ? (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-success-100 dark:bg-success-500/15 text-success-700 dark:text-success-400 border border-success-300 dark:border-success-500/30">
+                        <span className="w-1.5 h-1.5 rounded-full bg-success-500 inline-block" />
+                        Connected
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-background-200 text-foreground-400 border border-neutral-200">
+                        <span className="w-1.5 h-1.5 rounded-full bg-neutral-400 inline-block" />
+                        Disconnected
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-warning-600/80 dark:text-warning-400/60 text-xs mt-0.5 flex items-center gap-2 flex-wrap">
+                    <span>Requested {timeAgo(reg.createdAt)}</span>
+                    {reg.agentDid && (
+                      <span
+                        className="font-mono text-foreground-400 hover:text-foreground-600 cursor-copy transition-colors"
+                        title={reg.agentDid}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigator.clipboard.writeText(reg.agentDid!);
+                        }}
+                      >
+                        {reg.agentDid.slice(0, 20)}…
+                      </span>
+                    )}
                   </p>
                 </div>
+
                 <div className="flex items-center gap-3">
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
                       handleReject(reg.id, reg.agentName);
                     }}
-                    disabled={rejectingId === reg.id}
+                    disabled={rejectingId === reg.id || bulkWorking}
                     className="flex items-center gap-1.5 px-3 py-1.5 bg-danger-100 dark:bg-danger-600/20 hover:bg-danger-200 dark:hover:bg-danger-600/30 disabled:opacity-50 disabled:cursor-not-allowed text-danger-700 dark:text-danger-400 text-xs font-medium rounded transition-colors"
                   >
                     {rejectingId === reg.id ? (

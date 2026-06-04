@@ -606,6 +606,13 @@ export class AgentWSServer {
               this.pushStoredLlmConfig(agentDid);
               this.pushSkillsConfig(agentDid);
             }
+          } else {
+            // Cert reissue completed — push the latest stored config so the
+            // agent is fully up-to-date (LLM config may have been saved while
+            // the reissue handshake was in flight).
+            this.pushDelegationUpdate(agentDid);
+            this.pushStoredLlmConfig(agentDid);
+            this.pushSkillsConfig(agentDid);
           }
         } else {
           // Unknown DID, no prior approval — require admin approval
@@ -1923,9 +1930,23 @@ export class AgentWSServer {
       };
     });
 
-    const registrations = (await PendingRegistrationDAO.findAll()).filter(
+    const pendingRegs = (await PendingRegistrationDAO.findAll()).filter(
       (r: any) => r.status === "pending"
     );
+    const regMeta = new Map<string, { connected: boolean; agentDid: string | null }>();
+    for (const p of this.pending.values()) {
+      if (p.registrationId && p.phase === "awaiting_approval") {
+        regMeta.set(p.registrationId, {
+          connected: true,
+          agentDid: p.agentDid ?? null,
+        });
+      }
+    }
+    const registrations = pendingRegs.map((r: any) => ({
+      ...r,
+      connected: regMeta.get(r.id)?.connected ?? false,
+      agentDid: regMeta.get(r.id)?.agentDid ?? null,
+    }));
 
     const payload = JSON.stringify({
       type: "state_update",
@@ -1997,9 +2018,6 @@ export class AgentWSServer {
     agentDid: string,
     config: LlmConfig | null
   ): Promise<boolean> {
-    // Always persist to DB regardless of online status
-    await AgentDAO.setLlmConfig(agentDid, config);
-
     const agent = this.agents.get(agentDid);
     if (!agent) return false;
 
@@ -2019,6 +2037,10 @@ export class AgentWSServer {
       },
       config ? "LLM config pushed to agent" : "LLM config cleared for agent"
     );
+
+    // Persist so the config is re-pushed on next reconnect
+    await AgentDAO.setLlmConfig(agentDid, config);
+
     return true;
   }
 

@@ -31,6 +31,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useAdminWS } from "@/hooks/useAdminWS";
 import { agentsApi } from "@/lib/api";
+import { SkillConfig } from "@vaultysclaw/shared";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -49,13 +50,6 @@ interface Model {
   modelId: string;
   status: string;
   litellmModelName: string | null;
-}
-
-interface Skill {
-  name: string;
-  enabled: boolean;
-  isRequired: boolean;
-  config: Record<string, unknown>;
 }
 
 interface PendingReg {
@@ -242,7 +236,7 @@ export default function CreateAgentPage() {
   const [modelError, setModelError] = useState<string | null>(null);
 
   // Skills state
-  const [skills, setSkills] = useState<Skill[]>([]);
+  const [skills, setSkills] = useState<SkillConfig[]>([]);
   const [savingSkills, setSavingSkills] = useState(false);
 
   // Verify state
@@ -364,9 +358,9 @@ export default function CreateAgentPage() {
 
   useEffect(() => {
     if (step === "skills" && agentDid && skills.length === 0) {
-      fetch(`/api/agents/${encodeURIComponent(agentDid)}/skills`)
-        .then((r) => r.json())
-        .then((d: { skills?: Skill[] }) => setSkills(d.skills ?? []))
+      agentsApi
+        .getSkills(agentDid)
+        .then((d: { skills?: SkillConfig[] }) => setSkills(d.skills ?? []))
         .catch(() => {});
     }
   }, [step, agentDid, skills.length]);
@@ -618,7 +612,7 @@ export default function CreateAgentPage() {
     }
   }
 
-  async function toggleSkill(skill: Skill, realmSkillId: string) {
+  async function toggleSkill(skill: SkillConfig, realmSkillId: string) {
     if (!agentDid || skill.isRequired) return;
     const newEnabled = !skill.enabled;
     setSkills((prev) =>
@@ -626,11 +620,7 @@ export default function CreateAgentPage() {
         s.name === skill.name ? { ...s, enabled: newEnabled } : s
       )
     );
-    await fetch(`/api/agents/${encodeURIComponent(agentDid)}/skills`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ realmSkillId, enabled: newEnabled }),
-    }).catch(() => {});
+    await agentsApi.updateSkill(agentDid, realmSkillId, newEnabled);
   }
 
   // ── Derived ────────────────────────────────────────────────────────────────

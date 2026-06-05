@@ -1,6 +1,10 @@
 import { AgentSummary } from "@/lib/api-types";
 import { BaseApi } from "./base";
-import { ChatHistoryMessage, ChatSession } from "@vaultysclaw/shared";
+import {
+  ChatHistoryMessage,
+  ChatSession,
+  SkillConfig,
+} from "@vaultysclaw/shared";
 import { RealmLlmData, SafeLlmConfig } from "@/types";
 import { AgentSchedule } from "@/types/api/requests";
 
@@ -8,12 +12,6 @@ export interface Agent extends AgentSummary {
   description?: string;
   realmId?: string;
   metadata?: Record<string, unknown>;
-}
-
-export interface AgentSkillOverride {
-  skillId: string;
-  enabled: boolean;
-  config?: Record<string, unknown>;
 }
 
 export interface PeerGrant {
@@ -109,15 +107,15 @@ export class AgentsApi extends BaseApi {
 
   // Skills
   getSkills(did: string) {
-    return this.get<{ skills: AgentSkillOverride[] }>(
-      `/api/agents/${did}/skills`
-    );
+    return this.get<{ skills: SkillConfig[] }>(`/api/agents/${did}/skills`);
   }
 
-  updateSkills(did: string, skills: AgentSkillOverride[]) {
-    return this.patch<{ skills: AgentSkillOverride[] }>(
-      `/api/agents/${did}/skills`,
-      { skills }
+  updateSkill(did: string, skillId: string, enabled: boolean) {
+    return this.patch<{ skills: SkillConfig[] }>(
+      `/api/agents/${did}/skill/${skillId}`,
+      {
+        enabled,
+      }
     );
   }
 

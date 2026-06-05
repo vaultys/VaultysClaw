@@ -14,7 +14,7 @@ import {
 
 /**
  * @openapi
- * /api/agents/{did}/schedules/{id}:
+ * /api/agent/{did}/schedules/{id}:
  *   delete:
  *     summary: Delete a schedule on an agent.
  *     tags: [Agents]

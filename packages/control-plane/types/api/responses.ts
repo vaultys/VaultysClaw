@@ -15,6 +15,19 @@ export type AgentRealmInfo = {
   models: ModelRegistry[];
 };
 
+export type TokenUsageBucket = {
+  bucket: string;
+  promptTokens: number;
+  completionTokens: number;
+};
+
+export type TokenUsageHistory = {
+  granularity: "day" | "month";
+  from: string;
+  to: string;
+  data: TokenUsageBucket[];
+};
+
 export type RealmLlmData = {
   litellmConfigured: boolean;
   litellmBaseUrl: string | null;

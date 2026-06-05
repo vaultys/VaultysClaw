@@ -8,6 +8,52 @@ import { unauthorized, forbidden } from "@/lib/api-utils";
  * Reject multiple pending registrations at once. Global admin only.
  * Body: { ids: string[], reason?: string }
  */
+/**
+ * @openapi
+ * /api/registrations/batch:
+ *   post:
+ *     summary: Reject multiple pending registrations at once.
+ *     tags: [Registrations]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               ids:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *               reason:
+ *                 type: string
+ *             required:
+ *               - ids
+ *     responses:
+ *       200:
+ *         description: Registrations processed successfully.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 rejected:
+ *                   type: array
+ *                   items:
+ *                     type: string
+ *                 notFound:
+ *                   type: array
+ *                   items:
+ *                     type: string
+ *       400:
+ *         $ref: '#/components/responses/BadRequest'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       500:
+ *         description: Failed to process batch rejection.
+ */
 export async function POST(request: NextRequest) {
   try {
     const auth = await getAuthContext(request);

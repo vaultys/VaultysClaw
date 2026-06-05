@@ -16,7 +16,7 @@ type Ctx = { params: Promise<{ did: string }> };
  */
 /**
  * @openapi
- * /api/agents/{did}/token-usage:
+ * /api/agent/{did}/token-usage:
  *   get:
  *     summary: Retrieve token usage history for an agent.
  *     tags: [Agents]
@@ -56,20 +56,26 @@ type Ctx = { params: Promise<{ did: string }> };
  *           application/json:
  *             schema:
  *               type: object
+ *               required: [granularity, from, to, data]
  *               properties:
  *                 granularity:
  *                   type: string
+ *                   enum: [day, month]
  *                 from:
  *                   type: string
+ *                   format: date
  *                 to:
  *                   type: string
+ *                   format: date
  *                 data:
  *                   type: array
  *                   items:
  *                     type: object
+ *                     required: [bucket, promptTokens, completionTokens]
  *                     properties:
  *                       bucket:
  *                         type: string
+ *                         description: YYYY-MM-DD for day granularity, YYYY-MM for month granularity.
  *                       promptTokens:
  *                         type: integer
  *                       completionTokens:
@@ -78,74 +84,63 @@ type Ctx = { params: Promise<{ did: string }> };
  *         $ref: '#/components/responses/Unauthorized'
  *       403:
  *         $ref: '#/components/responses/Forbidden'
- *       404:
- *         $ref: '#/components/responses/NotFound'
- *       400:
- *         $ref: '#/components/responses/BadRequest'
  */
 export async function GET(req: NextRequest, ctx: Ctx) {
-  try {
-    const auth = await getAuthContext(req);
-    if (!auth) return unauthorized();
+  const auth = await getAuthContext(req);
+  if (!auth) return unauthorized();
 
-    const { did } = await ctx.params;
-    const agentDid = decodeURIComponent(did);
+  const { did } = await ctx.params;
+  const agentDid = decodeURIComponent(did);
 
-    // Token usage is only accessible to global admin or the agent's realm members
-    if (!auth.isGlobalAdmin && !(await auth.canAccessAgent(agentDid))) return forbidden();
-    const { searchParams } = req.nextUrl;
+  // Token usage is only accessible to global admin or the agent's realm members
+  if (!auth.isGlobalAdmin && !(await auth.canAccessAgent(agentDid)))
+    return forbidden();
+  const { searchParams } = req.nextUrl;
 
-    const granularity = (searchParams.get("granularity") ?? "day") as
-      | "day"
-      | "month";
-    const today = new Date();
+  const granularity = (searchParams.get("granularity") ?? "day") as
+    | "day"
+    | "month";
+  const today = new Date();
 
-    let defaultFrom: string;
-    if (granularity === "month") {
-      const d = new Date(today);
-      d.setMonth(d.getMonth() - 11);
-      defaultFrom = d.toISOString().slice(0, 7); // YYYY-MM
-    } else {
-      const d = new Date(today);
-      d.setDate(d.getDate() - 29);
-      defaultFrom = d.toISOString().slice(0, 10); // YYYY-MM-DD
-    }
-
-    const defaultTo =
-      granularity === "month"
-        ? today.toISOString().slice(0, 7)
-        : today.toISOString().slice(0, 10);
-
-    const from = searchParams.get("from") ?? defaultFrom;
-    const to = searchParams.get("to") ?? defaultTo;
-
-    const rows = await AgentDAO.getTokenUsageHistory(
-      agentDid,
-      granularity,
-      from,
-      to
-    );
-
-    // Fill in missing buckets with zeros so the chart always has a complete series
-    const filled = fillBuckets(
-      rows.map((r) => ({
-        bucket: r.bucket,
-        prompt_tokens: r.promptTokens,
-        completion_tokens: r.completionTokens,
-      })),
-      granularity,
-      from,
-      to
-    );
-
-    return NextResponse.json({ granularity, from, to, data: filled });
-  } catch (err) {
-    console.error(err);
-    return NextResponse.json(
-      { error: "Failed to fetch token usage" },
-      { status: 500 }
-    );
+  let defaultFrom: string;
+  if (granularity === "month") {
+    const d = new Date(today);
+    d.setMonth(d.getMonth() - 11);
+    defaultFrom = d.toISOString().slice(0, 7); // YYYY-MM
+  } else {
+    const d = new Date(today);
+    d.setDate(d.getDate() - 29);
+    defaultFrom = d.toISOString().slice(0, 10); // YYYY-MM-DD
   }
+
+  const defaultTo =
+    granularity === "month"
+      ? today.toISOString().slice(0, 7)
+      : today.toISOString().slice(0, 10);
+
+  const from = searchParams.get("from") ?? defaultFrom;
+  const to = searchParams.get("to") ?? defaultTo;
+
+  const rows = await AgentDAO.getTokenUsageHistory(
+    agentDid,
+    granularity,
+    from,
+    to
+  );
+
+  // Fill in missing buckets with zeros so the chart always has a complete series
+  const filled = fillBuckets(
+    rows.map((r) => ({
+      bucket: r.bucket,
+      prompt_tokens: r.promptTokens,
+      completion_tokens: r.completionTokens,
+    })),
+    granularity,
+    from,
+    to
+  );
+
+  return NextResponse.json({ granularity, from, to, data: filled });
 }
 
 interface BucketPoint {

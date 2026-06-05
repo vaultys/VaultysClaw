@@ -5,8 +5,12 @@ import {
   ChatSession,
   SkillConfig,
 } from "@vaultysclaw/shared";
-import { RealmLlmData, SafeLlmConfig } from "@/types";
-import { AgentSchedule, AgentTask } from "@/types/api/requests";
+import { RealmLlmData, SafeLlmConfig, TokenUsageHistory } from "@/types";
+import {
+  AgentSchedule,
+  AgentTask,
+  TokenUsageQuery,
+} from "@/types/api/requests";
 
 export interface Agent extends AgentSummary {
   description?: string;
@@ -21,13 +25,6 @@ export interface PeerGrant {
   capabilities: string[];
   createdAt: string;
   expiresAt?: string;
-}
-export interface AgentTokenUsage {
-  totalInputTokens: number;
-  totalOutputTokens: number;
-  totalTokens: number;
-  byModel: Record<string, { input: number; output: number }>;
-  period?: { from: string; to: string };
 }
 
 export class AgentsApi extends BaseApi {
@@ -49,24 +46,24 @@ export class AgentsApi extends BaseApi {
   }
 
   getOne(did: string) {
-    return this.get<Agent>(`/api/agents/${did}`);
+    return this.get<Agent>(`/api/agent/${did}`);
   }
 
   update(
     did: string,
     data: Partial<Pick<Agent, "name" | "description" | "metadata">>
   ) {
-    return this.patch<Agent>(`/api/agents/${did}`, data);
+    return this.patch<Agent>(`/api/agent/${did}`, data);
   }
 
   remove(did: string) {
-    return this.delete<void>(`/api/agents/${did}`);
+    return this.delete<void>(`/api/agent/${did}`);
   }
 
   // LLM config
   getLlmConfig(did: string) {
     return this.get<{ config: SafeLlmConfig | null }>(
-      `/api/agents/${did}/llm-config`
+      `/api/agent/${did}/llm-config`
     );
   }
 
@@ -79,40 +76,40 @@ export class AgentsApi extends BaseApi {
     }
   ) {
     return this.put<{ pushed: boolean; config: SafeLlmConfig }>(
-      `/api/agents/${did}/llm-config`,
+      `/api/agent/${did}/llm-config`,
       config
     );
   }
 
   deleteLlmConfig(did: string) {
-    return this.delete<{ pushed: boolean }>(`/api/agents/${did}/llm-config`);
+    return this.delete<{ pushed: boolean }>(`/api/agent/${did}/llm-config`);
   }
 
   getRealmLlm(did: string) {
-    return this.get<RealmLlmData>(`/api/agents/${did}/realm-llm`);
+    return this.get<RealmLlmData>(`/api/agent/${did}/realm-llm`);
   }
 
   // Chat sessions
   getChatSessions(did: string) {
     return this.get<{ sessions: ChatSession[] }>(
-      `/api/agents/${did}/chat-sessions`
+      `/api/agent/${did}/chat-sessions`
     );
   }
 
   getSessionMessages(did: string, sessionId: string) {
     return this.get<{ messages: ChatHistoryMessage[] }>(
-      `/api/agents/${did}/chat-sessions/${sessionId}`
+      `/api/agent/${did}/chat-sessions/${sessionId}`
     );
   }
 
   // Skills
   getSkills(did: string) {
-    return this.get<{ skills: SkillConfig[] }>(`/api/agents/${did}/skills`);
+    return this.get<{ skills: SkillConfig[] }>(`/api/agent/${did}/skills`);
   }
 
   updateSkill(did: string, skillId: string, enabled: boolean) {
     return this.patch<{ skills: SkillConfig[] }>(
-      `/api/agents/${did}/skill/${skillId}`,
+      `/api/agent/${did}/skill/${skillId}`,
       {
         enabled,
       }
@@ -120,51 +117,52 @@ export class AgentsApi extends BaseApi {
   }
 
   // Token usage
-  getTokenUsage(did: string, params?: { from?: string; to?: string }) {
+  getTokenUsage(did: string, params?: TokenUsageQuery) {
     const query = new URLSearchParams();
+    if (params?.granularity) query.set("granularity", params.granularity);
     if (params?.from) query.set("from", params.from);
     if (params?.to) query.set("to", params.to);
     const qs = query.toString();
-    return this.get<AgentTokenUsage>(
-      `/api/agents/${did}/token-usage${qs ? `?${qs}` : ""}`
+    return this.get<TokenUsageHistory>(
+      `/api/agent/${did}/token-usage${qs ? `?${qs}` : ""}`
     );
   }
 
   // Peers
   listPeers(did: string) {
-    return this.get<{ grants: PeerGrant[] }>(`/api/agents/${did}/peers`);
+    return this.get<{ grants: PeerGrant[] }>(`/api/agent/${did}/peers`);
   }
 
   addPeer(
     did: string,
     data: { peerDid: string; capabilities: string[]; expiresAt?: string }
   ) {
-    return this.post<PeerGrant>(`/api/agents/${did}/peers`, data);
+    return this.post<PeerGrant>(`/api/agent/${did}/peers`, data);
   }
 
   getPeer(did: string, grantId: string) {
-    return this.get<PeerGrant>(`/api/agents/${did}/peers/${grantId}`);
+    return this.get<PeerGrant>(`/api/agent/${did}/peers/${grantId}`);
   }
 
   removePeer(did: string, grantId: string) {
-    return this.delete<void>(`/api/agents/${did}/peers/${grantId}`);
+    return this.delete<void>(`/api/agent/${did}/peers/${grantId}`);
   }
 
   // Schedules
   createSchedule(did: string, data: AgentSchedule) {
-    return this.post<AgentSchedule>(`/api/agents/${did}/schedules`, data);
+    return this.post<AgentSchedule>(`/api/agent/${did}/schedules`, data);
   }
 
   deleteSchedule(did: string, scheduleId: string) {
     return this.delete<{ agentId: string; scheduleId: string }>(
-      `/api/agents/${did}/schedules/${scheduleId}`
+      `/api/agent/${did}/schedules/${scheduleId}`
     );
   }
 
   // Tasks
   sendTask(did: string, data: AgentTask) {
     return this.post<{ agentId: string; action: string }>(
-      `/api/agents/${did}/task`,
+      `/api/agent/${did}/task`,
       data
     );
   }

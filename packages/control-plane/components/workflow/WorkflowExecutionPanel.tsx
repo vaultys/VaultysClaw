@@ -54,7 +54,7 @@ export const WorkflowExecutionPanel: React.FC = () => {
 
     unknownDids.forEach(async (did) => {
       try {
-        const res = await fetch(`/api/agents/${encodeURIComponent(did)}`);
+        const res = await fetch(`/api/agent/${encodeURIComponent(did)}`);
         if (res.ok) {
           const data = (await res.json()) as { name?: string };
           if (data.name)

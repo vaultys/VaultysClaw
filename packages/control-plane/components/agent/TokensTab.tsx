@@ -12,20 +12,16 @@ import {
   Legend,
   ResponsiveContainer,
 } from "recharts";
+import { agentsApi } from "@/lib/api";
+import { TokenUsageBucket } from "@/types";
 
 type TokenGranularity = "day" | "month";
 type TokenPeriod = "7d" | "30d" | "3m" | "12m";
 
-interface TokenBucket {
-  bucket: string;
-  promptTokens: number;
-  completionTokens: number;
-}
-
 export function TokensTab({ agentId }: { agentId: string }) {
   const [granularity, setGranularity] = useState<TokenGranularity>("day");
   const [period, setPeriod] = useState<TokenPeriod>("30d");
-  const [data, setData] = useState<TokenBucket[]>([]);
+  const [data, setData] = useState<TokenUsageBucket[]>([]);
   const [loading, setLoading] = useState(false);
   const [tokenError, setTokenError] = useState<string | null>(null);
 
@@ -63,12 +59,12 @@ export function TokensTab({ agentId }: { agentId: string }) {
           g === "month"
             ? today.toISOString().slice(0, 7)
             : today.toISOString().slice(0, 10);
-        const res = await fetch(
-          `/api/agents/${encodeURIComponent(agentId)}/token-usage?granularity=${g}&from=${from}&to=${to}`
-        );
-        if (!res.ok) throw new Error("Failed to fetch token data");
-        const json = await res.json();
-        setData(json.data ?? []);
+        const { data } = await agentsApi.getTokenUsage(agentId, {
+          granularity: g,
+          from,
+          to,
+        });
+        setData(data ?? []);
       } catch (e) {
         setTokenError((e as Error).message);
       } finally {

@@ -8,6 +8,49 @@ import { UserDAO } from "@/db";
  * Set or clear the geographic location of a user. Admin-only.
  * Body: { lat: number, lon: number, label: string } or { lat: null } to clear.
  */
+/**
+ * @openapi
+ * /api/users/{did}/location:
+ *   patch:
+ *     summary: Set or clear the geographic location of a user.
+ *     tags: [Users]
+ *     parameters:
+ *       - name: did
+ *         in: path
+ *         required: true
+ *         description: The decentralized identifier of the user.
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             oneOf:
+ *               - type: object
+ *                 properties:
+ *                   lat:
+ *                     type: number
+ *                   lon:
+ *                     type: number
+ *                   label:
+ *                     type: string
+ *               - type: object
+ *                 properties:
+ *                   lat:
+ *                     type: null
+ *     responses:
+ *       200:
+ *         description: Location updated successfully.
+ *       400:
+ *         $ref: '#/components/responses/BadRequest'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ */
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ did: string }> }

@@ -1,5 +1,6 @@
+import { AgentTask } from "../../../../../types/api/requests";
 /**
- * POST   /api/agents/[did]/schedules          — Upsert a schedule on an agent
+ * POST /api/agents/[did]/task — Enqueue a task on an agent via WS
  */
 
 import { NextResponse, type NextRequest } from "next/server";
@@ -10,23 +11,21 @@ import {
   forbidden,
   unavailable,
   malformed,
-  notFound,
 } from "@/lib/api-utils";
-import { AgentSchedule } from "@/types/api/requests";
 
 /**
  * @openapi
- * /api/agents/{did}/schedules:
+ * /api/agent/{did}/task:
  *   post:
- *     summary: Upsert a schedule on an agent.
+ *     summary: Enqueue a task on an agent via WebSocket.
  *     tags: [Agents]
  *     parameters:
- *       - in: path
- *         name: did
+ *       - name: did
+ *         in: path
  *         required: true
+ *         description: The decentralized identifier of the agent.
  *         schema:
  *           type: string
- *         description: The decentralized identifier of the agent.
  *     requestBody:
  *       required: true
  *       content:
@@ -34,27 +33,16 @@ import { AgentSchedule } from "@/types/api/requests";
  *           schema:
  *             type: object
  *             properties:
- *               id:
- *                 type: string
- *               name:
- *                 type: string
- *               cron:
- *                 type: string
  *               action:
  *                 type: string
+ *                 description: The action to be performed by the agent.
  *               params:
  *                 type: object
  *                 additionalProperties: true
- *               enabled:
- *                 type: boolean
- *             required:
- *               - id
- *               - name
- *               - cron
- *               - action
+ *                 description: Additional parameters for the task.
  *     responses:
  *       200:
- *         description: Schedule successfully upserted.
+ *         description: Task successfully enqueued.
  *         content:
  *           application/json:
  *             schema:
@@ -62,7 +50,7 @@ import { AgentSchedule } from "@/types/api/requests";
  *               properties:
  *                 agentId:
  *                   type: string
- *                 scheduleId:
+ *                 action:
  *                   type: string
  *       400:
  *         $ref: '#/components/responses/BadRequest'
@@ -85,7 +73,7 @@ export async function POST(
   const { did } = await params;
   const agentDid = decodeURIComponent(did);
 
-  if (!(await auth.canAdminAgent(agentDid))) return forbidden();
+  if (!(await auth.canAccessAgent(agentDid))) return forbidden();
 
   const wsServer = getWSServer();
   if (!wsServer) {
@@ -93,33 +81,16 @@ export async function POST(
   }
 
   const body = await request.json();
-  const {
-    id,
-    name,
-    cron,
-    action,
-    params: schedParams,
-    enabled,
-  } = body as AgentSchedule;
+  const { action, params: taskParams } = body as AgentTask;
 
-  if (!id || !name || !cron || !action) {
-    return malformed("id, name, cron, and action are required strings");
+  if (!action || typeof action !== "string") {
+    return malformed("action (string) is required");
   }
 
-  const ok = wsServer.sendScheduleToAgent(agentDid, {
-    id,
-    name,
-    cron,
-    action,
-    params: schedParams ?? {},
-    enabled: enabled !== false,
-  });
+  const ok = wsServer.sendTaskToAgent(agentDid, action, taskParams ?? {});
   if (!ok) {
-    return notFound("Agent not connected");
+    return unavailable("Agent not connected");
   }
 
-  return NextResponse.json({
-    agentId: agentDid,
-    scheduleId: id,
-  });
+  return NextResponse.json({ agentId: agentDid, action });
 }

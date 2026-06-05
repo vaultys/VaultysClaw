@@ -8,6 +8,40 @@ import { setStorageConfig } from "@/db/settings.dao";
  * Update or clear object-storage location shown on infrastructure maps.
  * Body: { lat: number, lon: number, label?: string } or { lat: null } to clear.
  */
+/**
+ * @openapi
+ * /api/settings/storage/location:
+ *   patch:
+ *     summary: Update or clear object-storage location on infrastructure maps.
+ *     tags: [Settings]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               lat:
+ *                 type: number
+ *                 nullable: true
+ *               lon:
+ *                 type: number
+ *               label:
+ *                 type: string
+ *                 nullable: true
+ *             required:
+ *               - lat
+ *               - lon
+ *     responses:
+ *       200:
+ *         description: Successfully updated storage location.
+ *       400:
+ *         $ref: '#/components/responses/BadRequest'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ */
 export async function PATCH(request: NextRequest) {
   const auth = await getAuthContext(request);
   if (!auth) return unauthorized();

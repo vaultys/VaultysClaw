@@ -27,7 +27,7 @@ export const AgentNode: React.FC<NodeProps> = ({ data }) => {
       }
 
       try {
-        const res = await fetch(`/api/agents/${agentId}`);
+        const res = await fetch(`/api/agent/${agentId}`);
         if (res.ok) {
           const agent = (await res.json()) as { name: string };
           setAgentName(agent.name);

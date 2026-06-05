@@ -1,3 +1,9 @@
+export type TokenUsageQuery = {
+  granularity?: "day" | "month";
+  from?: string;
+  to?: string;
+};
+
 export type AgentSchedule = {
   id: string;
   name: string;

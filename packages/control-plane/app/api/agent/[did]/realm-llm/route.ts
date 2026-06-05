@@ -14,7 +14,7 @@ import { AgentDAO, ModelDAO, RealmDAO } from "@/db";
 
 /**
  * @openapi
- * /api/agents/{did}/realm-llm:
+ * /api/agent/{did}/realm-llm:
  *   get:
  *     summary: Get the agent's realm LiteLLM routing options.
  *     tags: [Agents]

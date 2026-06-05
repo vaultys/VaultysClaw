@@ -73,7 +73,7 @@ function safeConfig(config: LlmConfig): SafeLlmConfig {
 
 /**
  * @openapi
- * /api/agents/{did}/llm-config:
+ * /api/agent/{did}/llm-config:
  *   get:
  *     summary: Retrieve stored LLM config with masked API key.
  *     tags: [Agents]
@@ -142,7 +142,7 @@ export async function GET(
 
 /**
  * @openapi
- * /api/agents/{did}/llm-config:
+ * /api/agent/{did}/llm-config:
  *   put:
  *     summary: Set or update the LLM config for an agent.
  *     tags: [Agents]
@@ -314,7 +314,7 @@ export async function PUT(
 
 /**
  * @openapi
- * /api/agents/{did}/llm-config:
+ * /api/agent/{did}/llm-config:
  *   delete:
  *     summary: Clear LLM config for the agent.
  *     tags: [Agents]

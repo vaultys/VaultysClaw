@@ -21,6 +21,50 @@ export interface MapMarker {
  * Query params:
  *   realm – filter agents/users by realm id or slug
  */
+/**
+ * @openapi
+ * /api/map:
+ *   get:
+ *     summary: Aggregate all located entities into map markers.
+ *     tags: [Map]
+ *     parameters:
+ *       - in: query
+ *         name: realm
+ *         schema:
+ *           type: string
+ *         description: Filter agents/users by realm id or slug.
+ *     responses:
+ *       200:
+ *         description: A list of map markers.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 markers:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: string
+ *                       type:
+ *                         type: string
+ *                         enum: [agent, user, docling, s3]
+ *                       label:
+ *                         type: string
+ *                       lat:
+ *                         type: number
+ *                       lon:
+ *                         type: number
+ *                       online:
+ *                         type: boolean
+ *                       meta:
+ *                         type: object
+ *                         additionalProperties: true
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ */
 export async function GET(req: NextRequest) {
   const auth = await getAuthContext(req);
   if (!auth) return unauthorized();

@@ -5,7 +5,7 @@ import { NextResponse } from "next/server";
  */
 /**
  * @openapi
- * /api/agents/{did}/peers:
+ * /api/agent/{did}/peers:
  *   get:
  *     summary: List agent peers or peer grants.
  *     tags: [Agents]
@@ -41,7 +41,7 @@ export async function GET() {
  */
 /**
  * @openapi
- * /api/agents/{did}/peers:
+ * /api/agent/{did}/peers:
  *   post:
  *     summary: Create a peer grant for an agent.
  *     tags: [Agents]

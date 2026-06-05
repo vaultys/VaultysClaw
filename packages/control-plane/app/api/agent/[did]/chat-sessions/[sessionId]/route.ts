@@ -1,5 +1,5 @@
 /**
- * GET /api/agents/[did]/chat-sessions          — list sessions
+ * GET /api/agents/[did]/chat-sessions?session= — full history for one session
  */
 
 import { NextResponse, type NextRequest } from "next/server";
@@ -9,15 +9,21 @@ import { unauthorized, forbidden } from "@/lib/api-utils";
 
 /**
  * @openapi
- * /api/agents/{did}/chat-sessions:
+ * /api/agent/{did}/chat-sessions/{sessionId}:
  *   get:
- *     summary: Retrieve chat sessions
+ *     summary: Retrieve full history for a session.
  *     tags: [Agents]
  *     parameters:
  *       - name: did
  *         in: path
  *         required: true
  *         description: The decentralized identifier of the agent.
+ *         schema:
+ *           type: string
+ *       - name: sessionId
+ *         in: path
+ *         required: true
+ *         description: The session ID to retrieve full history.
  *         schema:
  *           type: string
  *     responses:
@@ -28,7 +34,7 @@ import { unauthorized, forbidden } from "@/lib/api-utils";
  *             schema:
  *               type: object
  *               properties:
- *                 sessions:
+ *                 messages:
  *                   type: array
  *                   items:
  *                     type: object
@@ -41,12 +47,12 @@ import { unauthorized, forbidden } from "@/lib/api-utils";
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ did: string }> }
+  { params }: { params: Promise<{ did: string; sessionId: string }> }
 ) {
   const auth = await getAuthContext(request);
   if (!auth) return unauthorized();
 
-  const { did } = await params;
+  const { did, sessionId } = await params;
 
   if (!(await auth.canAccessAgent(did))) return forbidden();
 
@@ -59,8 +65,8 @@ export async function GET(
   }
 
   try {
-    const sessions = await wsServer.getChatSessions(did);
-    return NextResponse.json({ sessions });
+    const messages = await wsServer.getChatHistory(did, sessionId);
+    return NextResponse.json({ messages });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Failed to fetch";
     return NextResponse.json({ error: msg }, { status: 503 });

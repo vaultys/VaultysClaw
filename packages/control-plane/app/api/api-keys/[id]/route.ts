@@ -116,6 +116,32 @@ export async function PATCH(
   return NextResponse.json(toApiKey(updated));
 }
 
+/**
+ * @openapi
+ * /api/api-keys/{id}:
+ *   delete:
+ *     summary: Revoke an API key
+ *     description: Permanently deletes an API key. Admin only.
+ *     tags: [API Keys]
+ *     security:
+ *       - sessionCookie: []
+ *       - apiKey: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       204:
+ *         description: Key revoked
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ */
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }

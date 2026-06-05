@@ -5,7 +5,7 @@ import { NextResponse } from "next/server";
  */
 /**
  * @openapi
- * /api/agents/{did}/peers/{grantId}:
+ * /api/agent/{did}/peers/{grantId}:
  *   get:
  *     summary: Get peer grant details
  *     tags: [Agents]
@@ -46,7 +46,7 @@ export async function GET() {
  */
 /**
  * @openapi
- * /api/agents/{did}/peers/{grantId}:
+ * /api/agent/{did}/peers/{grantId}:
  *   delete:
  *     summary: Revoke peer grant
  *     tags: [Agents]

@@ -14,6 +14,49 @@ import { AgentDAO } from "@/db";
  * Set or clear the geographic location of an agent. Admin-only.
  * Body: { lat: number, lon: number, label: string } or { lat: null } to clear.
  */
+/**
+ * @openapi
+ * /api/agent/{did}/location:
+ *   patch:
+ *     summary: Set or clear the geographic location of an agent.
+ *     tags: [Agents]
+ *     parameters:
+ *       - name: did
+ *         in: path
+ *         required: true
+ *         description: The DID of the agent.
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             oneOf:
+ *               - type: object
+ *                 properties:
+ *                   lat:
+ *                     type: number
+ *                   lon:
+ *                     type: number
+ *                   label:
+ *                     type: string
+ *               - type: object
+ *                 properties:
+ *                   lat:
+ *                     type: null
+ *     responses:
+ *       204:
+ *         description: Location updated successfully.
+ *       400:
+ *         $ref: '#/components/responses/BadRequest'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ */
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ did: string }> }

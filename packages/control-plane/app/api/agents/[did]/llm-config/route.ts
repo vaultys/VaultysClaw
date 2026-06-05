@@ -5,11 +5,17 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
+import {
+  getAuthContext,
+  unauthorized,
+  forbidden,
+  notFound,
+} from "@/lib/auth-utils";
 import { getWSServer } from "@/lib/ws-server";
 import { getLiteLLMBaseUrl } from "@/lib/litellm-client";
 import type { LlmConfig, LlmProviderType } from "@vaultysclaw/shared";
 import { AgentDAO, ModelDAO, RealmDAO } from "@/db";
+import { SafeLlmConfig } from "@/types";
 
 const VALID_PROVIDERS: LlmProviderType[] = [
   "openai",
@@ -64,10 +70,7 @@ function validateConfig(
 }
 
 /** Strip the apiKey from the response — it is write-only */
-function safeConfig(
-  config: LlmConfig
-): Omit<LlmConfig, "apiKey"> & { apiKeySet: boolean } {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+function safeConfig(config: LlmConfig): SafeLlmConfig {
   const { apiKey, ...rest } = config;
   return { ...rest, apiKeySet: Boolean(apiKey) };
 }
@@ -126,7 +129,7 @@ export async function GET(
   const { did } = await params;
   const agent = await AgentDAO.findByDid(did);
   if (!agent) {
-    return NextResponse.json({ error: "Agent not found" }, { status: 404 });
+    return notFound();
   }
 
   if (!agent.llmConfig) {
@@ -221,7 +224,7 @@ export async function PUT(
   const { did } = await params;
   const agent = await AgentDAO.findByDid(did);
   if (!agent) {
-    return NextResponse.json({ error: "Agent not found" }, { status: 404 });
+    return notFound();
   }
 
   const body = (await req.json().catch(() => null)) as Record<

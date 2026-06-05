@@ -4,7 +4,6 @@
 
 import { NextResponse } from "next/server";
 import { toPaginatedResponse, toErrorResponse } from "./api-types";
-import type { ListResponse, ErrorResponse } from "./api-types";
 
 /**
  * Return a standard paginated response

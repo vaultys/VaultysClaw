@@ -81,7 +81,8 @@ export async function getAuthContext(
       if (row.expiresAt && row.expiresAt < new Date()) return null;
 
       // Check route permission
-      if (!matchRoute(method, pathname, row.allowedRoutes as string[])) return null;
+      if (!matchRoute(method, pathname, row.allowedRoutes as string[]))
+        return null;
 
       // Update last_used_at (fire-and-forget — don't fail auth on write error)
       ApiKeyDAO.updateLastUsed(row.id).catch(() => {});
@@ -128,4 +129,12 @@ export function forbidden(): NextResponse {
 
 export function unauthorized(): NextResponse {
   return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+}
+
+export function notFound(): NextResponse {
+  return NextResponse.json({ error: "Not found" }, { status: 404 });
+}
+
+export function malformed(): NextResponse {
+  return NextResponse.json({ error: "Malformed request" }, { status: 400 });
 }

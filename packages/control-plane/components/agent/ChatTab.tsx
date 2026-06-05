@@ -11,6 +11,7 @@ import {
   XCircle,
   WifiOff,
 } from "lucide-react";
+import { agentsApi } from "@/lib/api";
 
 interface ChatMessage {
   role: "user" | "assistant";
@@ -198,16 +199,8 @@ export function ChatTab({
   }, [agentId]);
 
   const fetchSessions = useCallback(async () => {
-    try {
-      const res = await fetch(
-        `/api/agents/${encodeURIComponent(agentId)}/chat-sessions`
-      );
-      if (!res.ok) return;
-      const data = (await res.json()) as { sessions: ChatSessionMeta[] };
-      setSessions(data.sessions ?? []);
-    } catch {
-      /* non-fatal */
-    }
+    const { sessions } = await agentsApi.getChatSessions(agentId);
+    setSessions(sessions ?? []);
   }, [agentId]);
 
   useEffect(() => {
@@ -217,15 +210,12 @@ export function ChatTab({
   const loadSession = useCallback(
     async (sessionId: string) => {
       try {
-        const res = await fetch(
-          `/api/agents/${encodeURIComponent(agentId)}/chat-sessions?session=${encodeURIComponent(sessionId)}`
+        const { messages } = await agentsApi.getSessionMessages(
+          agentId,
+          sessionId
         );
-        if (!res.ok) return;
-        const data = (await res.json()) as {
-          messages: Array<{ role: string; content: string }>;
-        };
         setMessages(
-          (data.messages ?? [])
+          (messages ?? [])
             .filter((m) => m.role === "user" || m.role === "assistant")
             .map((m) => ({
               role: m.role as "user" | "assistant",

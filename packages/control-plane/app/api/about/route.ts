@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthContext, unauthorized } from "@/lib/auth-utils";
+import { getAuthContext, malformed, notFound, unauthorized } from "@/lib/auth-utils";
 import fs from "fs";
 import path from "path";
 
@@ -56,14 +56,17 @@ export async function GET(req: NextRequest) {
   if (!auth) return unauthorized();
 
   const doc = new URL(req.url).searchParams.get("doc") ?? "readme";
+  if(!doc) {
+    return malformed();
+  }
   const candidates = DOCS[doc];
   if (!candidates) {
-    return NextResponse.json({ error: "Unknown document" }, { status: 400 });
+    return notFound();
   }
 
   const content = resolveDoc(candidates);
   if (content === null) {
-    return NextResponse.json({ error: "Document not found" }, { status: 404 });
+    return notFound();
   }
 
   return NextResponse.json({ content });

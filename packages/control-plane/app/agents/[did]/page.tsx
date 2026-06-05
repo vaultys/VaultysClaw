@@ -32,6 +32,7 @@ import { AutomationTab } from "@/components/agent/AutomationTab";
 import { ApprovalsTab } from "@/components/agent/ApprovalsTab";
 import { KnowledgeTab } from "@/components/agent/KnowledgeTab";
 import type { AgentDetail } from "@/components/agent/types";
+import { agentsApi } from "@/lib/api";
 
 const AgentEnvironmentGraph = dynamic(
   () => import("@/components/graph/AgentEnvironmentGraph"),
@@ -57,21 +58,8 @@ export default function AgentDetailPage() {
   const handleDeleteAgent = async () => {
     setDeletingAgent(true);
     try {
-      const res = await fetch(`/api/agents/${encodeURIComponent(did)}`, {
-        method: "DELETE",
-      });
-      if (res.ok) {
-        router.push("/agents");
-      } else {
-        let errorMsg = "Failed to delete agent";
-        try {
-          const data = (await res.json()) as { error?: string };
-          errorMsg = data.error ?? errorMsg;
-        } catch {
-          errorMsg = `Failed to delete agent (status ${res.status})`;
-        }
-        setError(errorMsg);
-      }
+      await agentsApi.remove(did);
+      router.push("/agents");
     } catch {
       setError("Network error while deleting agent");
     } finally {

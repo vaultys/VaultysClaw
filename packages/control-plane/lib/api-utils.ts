@@ -37,3 +37,10 @@ export function malformed(error?: unknown): NextResponse {
 export function successNoContent(): NextResponse {
   return NextResponse.json(null, { status: 204 });
 }
+
+export function unavailable(error?: unknown): NextResponse {
+  return NextResponse.json(
+    { error: errorMessage("Service unavailable", error) },
+    { status: 503 }
+  );
+}

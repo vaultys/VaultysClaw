@@ -1,5 +1,6 @@
 "use client";
 
+import { agentsApi } from "@/lib/api";
 import { useState } from "react";
 
 export function AutomationTab({ agentId }: { agentId: string }) {
@@ -89,17 +90,9 @@ function ScheduleSection({ agentId }: { agentId: string }) {
       return;
     }
     setStatus(null);
-    const res = await fetch(
-      `/api/agents/${encodeURIComponent(agentId)}/schedules`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
-      }
-    );
-    const data = await res.json();
-    setStatus(res.ok ? `Schedule "${form.name}" sent` : `Error: ${data.error}`);
-    if (res.ok) setForm({ id: "", name: "", cron: "", action: "" });
+    await agentsApi.createSchedule(agentId, form);
+    setStatus(`Schedule "${form.name}" sent`);
+    setForm({ id: "", name: "", cron: "", action: "" });
   };
 
   const del = async () => {
@@ -107,14 +100,9 @@ function ScheduleSection({ agentId }: { agentId: string }) {
       setStatus("Enter schedule ID to delete");
       return;
     }
-    const res = await fetch(
-      `/api/agents/${encodeURIComponent(agentId)}/schedules?id=${encodeURIComponent(form.id)}`,
-      { method: "DELETE" }
-    );
-    const data = await res.json();
-    setStatus(
-      res.ok ? `Schedule "${form.id}" deleted` : `Error: ${data.error}`
-    );
+    await agentsApi.deleteSchedule(agentId, form.id);
+    setStatus(`Schedule "${form.id}" deleted`);
+    setForm({ id: "", name: "", cron: "", action: "" });
   };
 
   return (

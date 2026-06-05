@@ -2,6 +2,7 @@ import { AgentSummary } from "@/lib/api-types";
 import { BaseApi } from "./base";
 import { ChatHistoryMessage, ChatSession } from "@vaultysclaw/shared";
 import { RealmLlmData, SafeLlmConfig } from "@/types";
+import { AgentSchedule } from "@/types/api/requests";
 
 export interface Agent extends AgentSummary {
   description?: string;
@@ -23,15 +24,6 @@ export interface PeerGrant {
   createdAt: string;
   expiresAt?: string;
 }
-
-export interface AgentSchedule {
-  id: string;
-  agentDid: string;
-  cron: string;
-  intent: string;
-  enabled: boolean;
-}
-
 export interface AgentTokenUsage {
   totalInputTokens: number;
   totalOutputTokens: number;
@@ -161,12 +153,14 @@ export class AgentsApi extends BaseApi {
   }
 
   // Schedules
-  createSchedule(did: string, data: Omit<AgentSchedule, "id" | "agentDid">) {
+  createSchedule(did: string, data: AgentSchedule) {
     return this.post<AgentSchedule>(`/api/agents/${did}/schedules`, data);
   }
 
   deleteSchedule(did: string, scheduleId: string) {
-    return this.delete<void>(`/api/agents/${did}/schedules`, { scheduleId });
+    return this.delete<{ agentId: string; scheduleId: string }>(
+      `/api/agents/${did}/schedules/${scheduleId}`
+    );
   }
 
   // Tasks

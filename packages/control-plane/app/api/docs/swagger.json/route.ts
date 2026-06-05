@@ -31,15 +31,19 @@ export async function GET(request: NextRequest) {
 
   const apiDir = path.join(process.cwd(), "app", "api");
 
-  // Collect all route.ts files
+  // Collect all route.ts files.
+  // Escape glob special chars ([ ]) in path components — Next.js dynamic
+  // segments like [did] would otherwise be treated as character classes.
+  const escapeGlob = (p: string) => p.replace(/\[/g, "\\[").replace(/\]/g, "\\]");
+
   const files: string[] = [];
   for await (const f of glob(`${apiDir}/**/route.ts`)) {
-    files.push(f);
+    files.push(escapeGlob(f));
   }
   // Also include lib files that may have inline schemas
   const libDir = path.join(process.cwd(), "lib");
   for await (const f of glob(`${libDir}/api-types.ts`)) {
-    files.push(f);
+    files.push(escapeGlob(f));
   }
 
   const options = {

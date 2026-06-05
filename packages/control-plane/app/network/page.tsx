@@ -703,7 +703,10 @@ function TrafficChart({
             <Tooltip
               contentStyle={CHART_TOOLTIP_STYLE}
               cursor={{ fill: "var(--background-200, #1e293b)", opacity: 0.5 }}
-              formatter={(value: number) => [`${value.toFixed(3)} MB`, "Size"]}
+              formatter={(value) => [
+                `${(value as number)?.toFixed(3)} MB`,
+                "Size",
+              ]}
             />
             <Bar
               dataKey="value"
@@ -1081,7 +1084,10 @@ function ComparisonChart({
             <Tooltip
               contentStyle={CHART_TOOLTIP_STYLE}
               cursor={{ fill: "var(--background-200, #1e293b)", opacity: 0.5 }}
-              formatter={(value: number) => [`${value.toFixed(3)} MB`, "Size"]}
+              formatter={(value) => [
+                `${(value as number)?.toFixed(3)} MB`,
+                "Size",
+              ]}
             />
             <Legend
               wrapperStyle={{

@@ -80,8 +80,8 @@ export class AgentsApi extends BaseApi {
     );
   }
 
-  setLlmConfig(did: string, config: AgentLlmConfig) {
-    return this.put<AgentLlmConfig>(`/api/agents/${did}/llm-config`, config);
+  setLlmConfig(did: string, config: SafeLlmConfig) {
+    return this.put<SafeLlmConfig>(`/api/agents/${did}/llm-config`, config);
   }
 
   deleteLlmConfig(did: string) {
@@ -89,7 +89,7 @@ export class AgentsApi extends BaseApi {
   }
 
   getRealmLlm(did: string) {
-    return this.get<AgentLlmConfig>(`/api/agents/${did}/realm-llm`);
+    return this.get<SafeLlmConfig>(`/api/agents/${did}/realm-llm`);
   }
 
   // Chat sessions

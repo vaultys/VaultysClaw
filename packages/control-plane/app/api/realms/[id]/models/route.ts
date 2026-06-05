@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthContext, unauthorized } from "@/lib/auth-utils";
+import { getAuthContext } from "@/lib/auth-utils";
+import { unauthorized } from "@/lib/api-utils";
 import { ModelDAO, RealmDAO } from "@/db";
 
 type Ctx = { params: Promise<{ id: string }> };

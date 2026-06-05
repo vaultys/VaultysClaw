@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthContext, unauthorized } from "@/lib/auth-utils";
+import { getAuthContext } from "@/lib/auth-utils";
+import { unauthorized } from "@/lib/api-utils";
 import { AgentDAO, UserDAO } from "@/db";
 import { getWSServer } from "@/lib/ws-server";
 import { getDoclingConfig, getStorageConfig } from "@/db/settings.dao";

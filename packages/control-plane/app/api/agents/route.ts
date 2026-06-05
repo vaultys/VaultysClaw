@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getWSServer } from "@/lib/ws-server";
-import { getAuthContext, unauthorized } from "@/lib/auth-utils";
+import { getAuthContext } from "@/lib/auth-utils";
+import { unauthorized } from "@/lib/api-utils";
 import { AgentDAO, RealmDAO } from "@/db";
 
 /**

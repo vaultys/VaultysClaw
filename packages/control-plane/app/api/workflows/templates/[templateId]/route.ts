@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getTemplate } from "@/lib/workflow-templates";
-import { getAuthContext, unauthorized } from "@/lib/auth-utils";
+import { getAuthContext } from "@/lib/auth-utils";
+import { unauthorized } from "@/lib/api-utils";
 
 /**
  * @openapi

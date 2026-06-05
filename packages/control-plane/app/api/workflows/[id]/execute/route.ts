@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { executeWorkflow, type WorkflowDefinition } from "@/lib/workflow-executor";
-import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
+import { getAuthContext } from "@/lib/auth-utils";
+import { unauthorized, forbidden } from "@/lib/api-utils";
 import { WorkflowDAO } from "@/db";
 
 type Params = { id: string };

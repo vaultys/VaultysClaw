@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthContext, unauthorized } from "@/lib/auth-utils";
+import { getAuthContext } from "@/lib/auth-utils";
+import { unauthorized } from "@/lib/api-utils";
 import { RealmDAO, UserDAO } from "@/db";
 
 /**

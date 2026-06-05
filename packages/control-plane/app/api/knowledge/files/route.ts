@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
+import { getAuthContext } from "@/lib/auth-utils";
+import { unauthorized, forbidden } from "@/lib/api-utils";
 import { KnowledgeDAO } from "@/db";
 
 const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20 MB

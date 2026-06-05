@@ -1,7 +1,6 @@
 import { getServerSession } from "next-auth";
 import { NextRequest } from "next/server";
 import { authOptions } from "./auth-config";
-import { NextResponse } from "next/server";
 import { hashApiKey, isPublicRoute, matchRoute } from "./api-key-utils";
 import { AgentDAO, ApiKeyDAO, RealmDAO } from "@/db";
 
@@ -121,20 +120,4 @@ export async function getAuthContext(
   }
 
   return null;
-}
-
-export function forbidden(): NextResponse {
-  return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-}
-
-export function unauthorized(): NextResponse {
-  return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-}
-
-export function notFound(): NextResponse {
-  return NextResponse.json({ error: "Not found" }, { status: 404 });
-}
-
-export function malformed(): NextResponse {
-  return NextResponse.json({ error: "Malformed request" }, { status: 400 });
 }

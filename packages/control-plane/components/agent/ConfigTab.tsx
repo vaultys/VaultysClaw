@@ -1,18 +1,9 @@
 "use client";
-
 import { useState, useEffect } from "react";
-import { Loader2, Zap } from "lucide-react";
 import { type LlmProviderType } from "@vaultysclaw/shared";
 import { ConfirmModal } from "@/components/shared/ConfirmModal";
-
-interface LlmConfigDisplay {
-  provider: LlmProviderType;
-  model: string;
-  baseUrl?: string;
-  systemPrompt?: string;
-  maxTokens?: number;
-  apiKeySet: boolean;
-}
+import { agentsApi } from "@/lib/api";
+import { SafeLlmConfig } from "@/types";
 
 interface RegistryModel {
   id: string;
@@ -79,7 +70,7 @@ export function ConfigTab({
   did: string;
   reportedLlm: { provider: string; model: string } | null;
 }) {
-  const [llmConfig, setLlmConfig] = useState<LlmConfigDisplay | null>(null);
+  const [llmConfig, setLlmConfig] = useState<SafeLlmConfig | null>(null);
   const [llmLoading, setLlmLoading] = useState(true);
   const [llmEditing, setLlmEditing] = useState(false);
   const [configMode, setConfigMode] = useState<"realm" | "registry" | "manual">(
@@ -108,9 +99,7 @@ export function ConfigTab({
 
   useEffect(() => {
     Promise.all([
-      fetch(`/api/agents/${encodeURIComponent(did)}/llm-config`).then((r) =>
-        r.json()
-      ),
+      agentsApi.getLlmConfig(did).then((res) => res),
       fetch("/api/models").then((r) => r.json()),
       fetch(`/api/agents/${encodeURIComponent(did)}/realm-llm`).then((r) =>
         r.json()
@@ -118,7 +107,7 @@ export function ConfigTab({
     ])
       .then(
         ([configData, modelsData, realmData]: [
-          { config: LlmConfigDisplay | null },
+          { config: SafeLlmConfig | null },
           { models?: RegistryModel[] },
           RealmLlmData,
         ]) => {
@@ -193,17 +182,7 @@ export function ConfigTab({
     setLlmSaving(true);
     setLlmError(null);
     try {
-      const res = await fetch(
-        `/api/agents/${encodeURIComponent(did)}/llm-config`,
-        { method: "DELETE" }
-      );
-      if (res.ok) {
-        setLlmConfig(null);
-        setLlmStatus("cleared");
-        setTimeout(() => setLlmStatus("idle"), 2500);
-      } else {
-        setLlmStatus("error");
-      }
+      await agentsApi.deleteLlmConfig(did);
     } catch {
       setLlmStatus("error");
     } finally {
@@ -217,28 +196,14 @@ export function ConfigTab({
     setLlmStatus("idle");
     setLlmError(null);
     try {
-      const res = await fetch(
-        `/api/agents/${encodeURIComponent(did)}/llm-config`,
-        {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            realmId: selectedRealmId,
-            realmModelId: selectedRealmModelId,
-          }),
-        }
-      );
-      if (res.ok) {
-        const data = (await res.json()) as { config: LlmConfigDisplay };
-        setLlmConfig(data.config);
-        setLlmEditing(false);
-        setLlmStatus("saved");
-        setTimeout(() => setLlmStatus("idle"), 2500);
-      } else {
-        const data = (await res.json().catch(() => ({}))) as { error?: string };
-        setLlmError(data.error ?? "Failed to save realm routing config");
-        setLlmStatus("error");
-      }
+      const { config } = await agentsApi.setLlmConfig(did, {
+        realmId: selectedRealmId,
+        realmModelId: selectedRealmModelId,
+      });
+      setLlmConfig(config);
+      setLlmEditing(false);
+      setLlmStatus("saved");
+      setTimeout(() => setLlmStatus("idle"), 2500);
     } catch {
       setLlmStatus("error");
     } finally {
@@ -252,23 +217,14 @@ export function ConfigTab({
     setLlmStatus("idle");
     setLlmError(null);
     try {
-      const res = await fetch(
-        `/api/agents/${encodeURIComponent(did)}/llm-config`,
-        {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ registryModelId: selectedRegistryId }),
-        }
-      );
-      if (res.ok) {
-        const data = (await res.json()) as { config: LlmConfigDisplay };
-        setLlmConfig(data.config);
-        setLlmEditing(false);
-        setLlmStatus("saved");
-        setTimeout(() => setLlmStatus("idle"), 2500);
-      } else {
-        setLlmStatus("error");
-      }
+      const { config } = await agentsApi.setLlmConfig(did, {
+        registryModelId: selectedRegistryId,
+      });
+
+      setLlmConfig(config);
+      setLlmEditing(false);
+      setLlmStatus("saved");
+      setTimeout(() => setLlmStatus("idle"), 2500);
     } catch {
       setLlmStatus("error");
     } finally {
@@ -290,25 +246,12 @@ export function ConfigTab({
       if (llmForm.baseUrl) body.baseUrl = llmForm.baseUrl;
       if (llmForm.systemPrompt) body.systemPrompt = llmForm.systemPrompt;
       if (llmForm.maxTokens) body.maxTokens = parseInt(llmForm.maxTokens, 10);
-      const res = await fetch(
-        `/api/agents/${encodeURIComponent(did)}/llm-config`,
-        {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-        }
-      );
-      if (res.ok) {
-        const data = (await res.json()) as { config: LlmConfigDisplay };
-        setLlmConfig(data.config);
-        setLlmEditing(false);
-        setLlmStatus("saved");
-        setTimeout(() => setLlmStatus("idle"), 2500);
-      } else {
-        const data = (await res.json().catch(() => ({}))) as { error?: string };
-        setLlmError(data.error ?? "Failed to save LLM config");
-        setLlmStatus("error");
-      }
+      const { config } = await agentsApi.setLlmConfig(did, body);
+
+      setLlmConfig(config);
+      setLlmEditing(false);
+      setLlmStatus("saved");
+      setTimeout(() => setLlmStatus("idle"), 2500);
     } catch {
       setLlmStatus("error");
     } finally {

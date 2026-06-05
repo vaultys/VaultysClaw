@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   Bot,
@@ -10,7 +10,6 @@ import {
   Loader2,
   CheckCircle2,
   Terminal,
-  Globe2,
   Cpu,
   Zap,
   FolderOpen,
@@ -31,6 +30,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAdminWS } from "@/hooks/useAdminWS";
+import { agentsApi } from "@/lib/api";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -607,19 +607,9 @@ export default function CreateAgentPage() {
     setSavingModel(true);
     setModelError(null);
     try {
-      const res = await fetch(
-        `/api/agents/${encodeURIComponent(agentDid)}/llm-config`,
-        {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ registryModelId: selectedModel }),
-        }
-      );
-      const data = (await res.json()) as { error?: string };
-      if (!res.ok) {
-        setModelError(data.error ?? "Failed to save model configuration");
-        return;
-      }
+      await agentsApi.setLlmConfig(agentDid, {
+        registryModelId: selectedModel,
+      });
       setStep("skills");
     } catch (err) {
       setModelError("Network error while saving model");
@@ -1617,7 +1607,11 @@ export default function CreateAgentPage() {
 function parseJsonArray(raw: unknown): string[] {
   if (Array.isArray(raw)) return raw as string[];
   if (typeof raw === "string") {
-    try { return JSON.parse(raw) ?? []; } catch { return []; }
+    try {
+      return JSON.parse(raw) ?? [];
+    } catch {
+      return [];
+    }
   }
   return [];
 }

@@ -5,12 +5,8 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import {
-  getAuthContext,
-  unauthorized,
-  forbidden,
-  notFound,
-} from "@/lib/auth-utils";
+import { getAuthContext } from "@/lib/auth-utils";
+import { unauthorized, forbidden, notFound } from "@/lib/api-utils";
 import { getWSServer } from "@/lib/ws-server";
 import { getLiteLLMBaseUrl } from "@/lib/litellm-client";
 import type { LlmConfig, LlmProviderType } from "@vaultysclaw/shared";
@@ -185,9 +181,7 @@ export async function GET(
  *             schema:
  *               type: object
  *               properties:
- *                 ok:
- *                   type: boolean
- *                 pushed:
+ *                 pushed
  *                   type: boolean
  *                 config:
  *                   type: object
@@ -248,9 +242,8 @@ export async function PUT(
     const realmModels = await ModelDAO.findByRealm(body.realmId);
     const model = realmModels.find((m) => m.id === body.realmModelId);
     if (!model?.litellmModelName) {
-      return NextResponse.json(
-        { error: "Model not found in realm or not registered with LiteLLM" },
-        { status: 404 }
+      return notFound(
+        "Model not found in realm or not registered with LiteLLM"
       );
     }
     const config: LlmConfig = {
@@ -262,17 +255,14 @@ export async function PUT(
     await AgentDAO.setLlmConfig(did, config);
     const wsServer = getWSServer();
     const pushed = wsServer ? await wsServer.sendLlmConfig(did, config) : false;
-    return NextResponse.json({ ok: true, pushed, config: safeConfig(config) });
+    return NextResponse.json({ pushed, config: safeConfig(config) });
   }
 
   // Registry model shortcut — resolve full config server-side so the API key never touches the client
   if (body && typeof body.registryModelId === "string") {
     const entry = await ModelDAO.findById(body.registryModelId);
     if (!entry) {
-      return NextResponse.json(
-        { error: "Registry model not found" },
-        { status: 404 }
-      );
+      return notFound("Registry model not found");
     }
     const config: LlmConfig = {
       provider: VALID_PROVIDERS.includes(entry.provider as LlmProviderType)
@@ -285,7 +275,7 @@ export async function PUT(
     await AgentDAO.setLlmConfig(did, config);
     const wsServer = getWSServer();
     const pushed = wsServer ? await wsServer.sendLlmConfig(did, config) : false;
-    return NextResponse.json({ ok: true, pushed, config: safeConfig(config) });
+    return NextResponse.json({ pushed, config: safeConfig(config) });
   }
 
   const validation = validateConfig(body);
@@ -317,7 +307,6 @@ export async function PUT(
   const pushed = wsServer ? await wsServer.sendLlmConfig(did, config) : false;
 
   return NextResponse.json({
-    ok: true,
     pushed,
     config: safeConfig(config),
   });
@@ -344,8 +333,6 @@ export async function PUT(
  *             schema:
  *               type: object
  *               properties:
- *                 ok:
- *                   type: boolean
  *                 pushed:
  *                   type: boolean
  *       401:
@@ -366,7 +353,7 @@ export async function DELETE(
   const { did } = await params;
   const agent = await AgentDAO.findByDid(did);
   if (!agent) {
-    return NextResponse.json({ error: "Agent not found" }, { status: 404 });
+    return notFound("Agent not found");
   }
 
   await AgentDAO.setLlmConfig(did, null);
@@ -375,5 +362,5 @@ export async function DELETE(
   const wsServer = getWSServer();
   const pushed = wsServer?.sendLlmConfig(did, null) ?? false;
 
-  return NextResponse.json({ ok: true, pushed });
+  return NextResponse.json({ pushed });
 }

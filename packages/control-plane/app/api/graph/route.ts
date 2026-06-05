@@ -8,7 +8,8 @@ import type {
   AgentCapability,
   UserRole,
 } from "@vaultysclaw/shared";
-import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
+import { getAuthContext } from "@/lib/auth-utils";
+import { unauthorized, forbidden } from "@/lib/api-utils";
 
 /**
  * GET /api/graph — return the full relationship graph (nodes + edges). Global admin only.

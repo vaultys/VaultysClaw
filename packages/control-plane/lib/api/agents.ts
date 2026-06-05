@@ -80,12 +80,22 @@ export class AgentsApi extends BaseApi {
     );
   }
 
-  setLlmConfig(did: string, config: SafeLlmConfig) {
-    return this.put<SafeLlmConfig>(`/api/agents/${did}/llm-config`, config);
+  setLlmConfig(
+    did: string,
+    config: Partial<SafeLlmConfig> & {
+      registryModelId?: string;
+      realmId?: string;
+      realmModelId?: string;
+    }
+  ) {
+    return this.put<{ pushed: boolean; config: SafeLlmConfig }>(
+      `/api/agents/${did}/llm-config`,
+      config
+    );
   }
 
   deleteLlmConfig(did: string) {
-    return this.delete<void>(`/api/agents/${did}/llm-config`);
+    return this.delete<{ pushed: boolean }>(`/api/agents/${did}/llm-config`);
   }
 
   getRealmLlm(did: string) {

@@ -5,7 +5,8 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthContext, forbidden, unauthorized } from "@/lib/auth-utils";
+import { getAuthContext } from "@/lib/auth-utils";
+import { forbidden, unauthorized } from "@/lib/api-utils";
 import { getSmtpConfig, saveSmtpConfig, testSmtpConnection } from "@/lib/smtp";
 
 /**

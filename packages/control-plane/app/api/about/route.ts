@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthContext, malformed, notFound, unauthorized } from "@/lib/auth-utils";
+import { getAuthContext } from "@/lib/auth-utils";
 import fs from "fs";
 import path from "path";
+import { malformed, notFound, unauthorized } from "@/lib/api-utils";
 
 const DOCS: Record<string, string[]> = {
   readme: ["README.md", "../../README.md", "../../../README.md"],
@@ -56,17 +57,17 @@ export async function GET(req: NextRequest) {
   if (!auth) return unauthorized();
 
   const doc = new URL(req.url).searchParams.get("doc") ?? "readme";
-  if(!doc) {
-    return malformed();
+  if (!doc) {
+    return malformed("Missing 'doc' query parameter");
   }
   const candidates = DOCS[doc];
   if (!candidates) {
-    return notFound();
+    return notFound(`Document '${doc}' not found`);
   }
 
   const content = resolveDoc(candidates);
   if (content === null) {
-    return notFound();
+    return notFound(`Document '${doc}' not found`);
   }
 
   return NextResponse.json({ content });

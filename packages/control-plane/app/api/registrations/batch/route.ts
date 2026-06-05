@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getWSServer } from "@/lib/ws-server";
-import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
+import { getAuthContext } from "@/lib/auth-utils";
+import { unauthorized, forbidden } from "@/lib/api-utils";
 
 /**
  * POST /api/registrations/batch

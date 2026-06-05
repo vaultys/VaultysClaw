@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Challenger, VaultysId, crypto } from "@vaultys/id";
 import { getWSServer } from "@/lib/ws-server";
-import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
+import { getAuthContext } from "@/lib/auth-utils";
+import { unauthorized, forbidden } from "@/lib/api-utils";
 import { AgentDAO } from "@/db";
 
 const Buffer = crypto.Buffer;

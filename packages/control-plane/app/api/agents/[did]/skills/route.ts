@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthContext, unauthorized, forbidden } from "@/lib/auth-utils";
+import { getAuthContext } from "@/lib/auth-utils";
+import { unauthorized, forbidden } from "@/lib/api-utils";
 import { sendSkillsConfig } from "@/lib/ws-server";
 import { AgentDAO, RealmSkillDAO, SkillOverrideDAO } from "@/db";
 

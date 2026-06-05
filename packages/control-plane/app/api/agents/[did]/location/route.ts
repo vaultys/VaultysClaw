@@ -1,6 +1,12 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
-import { unauthorized, forbidden } from "@/lib/api-utils";
+import {
+  unauthorized,
+  forbidden,
+  malformed,
+  notFound,
+  successNoContent,
+} from "@/lib/api-utils";
 import { AgentDAO } from "@/db";
 
 /**
@@ -19,28 +25,25 @@ export async function PATCH(
   const { did } = await params;
   const body = await req.json().catch(() => null);
   if (!body) {
-    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+    return malformed();
   }
 
   const agent = await AgentDAO.findByDid(did);
   if (!agent) {
-    return NextResponse.json({ error: "Agent not found" }, { status: 404 });
+    return notFound("Agent not found");
   }
 
   if (body.lat === null || body.lat === undefined) {
     await AgentDAO.updateLocation(did, null);
   } else {
-    const lat = parseFloat(body.lat);
-    const lon = parseFloat(body.lon);
+    const lat = Number.parseFloat(body.lat);
+    const lon = Number.parseFloat(body.lon);
     const label = String(body.label ?? "");
-    if (isNaN(lat) || isNaN(lon)) {
-      return NextResponse.json(
-        { error: "lat and lon must be valid numbers" },
-        { status: 400 }
-      );
+    if (Number.isNaN(lat) || Number.isNaN(lon)) {
+      return malformed("Invalid latitude or longitude");
     }
     await AgentDAO.updateLocation(did, { lat, lon, label });
   }
 
-  return NextResponse.json({ ok: true });
+  return successNoContent();
 }

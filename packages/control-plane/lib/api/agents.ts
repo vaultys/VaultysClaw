@@ -1,7 +1,7 @@
 import { AgentSummary } from "@/lib/api-types";
 import { BaseApi } from "./base";
 import { ChatHistoryMessage, ChatSession } from "@vaultysclaw/shared";
-import { SafeLlmConfig } from "@/types";
+import { RealmLlmData, SafeLlmConfig } from "@/types";
 
 export interface Agent extends AgentSummary {
   description?: string;
@@ -99,7 +99,7 @@ export class AgentsApi extends BaseApi {
   }
 
   getRealmLlm(did: string) {
-    return this.get<SafeLlmConfig>(`/api/agents/${did}/realm-llm`);
+    return this.get<RealmLlmData>(`/api/agents/${did}/realm-llm`);
   }
 
   // Chat sessions

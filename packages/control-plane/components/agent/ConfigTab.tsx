@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { type LlmProviderType } from "@vaultysclaw/shared";
 import { ConfirmModal } from "@/components/shared/ConfirmModal";
 import { agentsApi } from "@/lib/api";
-import { SafeLlmConfig } from "@/types";
+import { RealmLlmData, SafeLlmConfig } from "@/types";
 
 interface RegistryModel {
   id: string;
@@ -29,12 +29,6 @@ interface RealmLlmRealm {
   isPrimary: boolean;
   hasVirtualKey: boolean;
   models: RealmLlmModel[];
-}
-
-interface RealmLlmData {
-  litellmConfigured: boolean;
-  litellmBaseUrl: string | undefined;
-  realms: RealmLlmRealm[];
 }
 
 const PROVIDER_OPTIONS: {
@@ -101,9 +95,7 @@ export function ConfigTab({
     Promise.all([
       agentsApi.getLlmConfig(did).then((res) => res),
       fetch("/api/models").then((r) => r.json()),
-      fetch(`/api/agents/${encodeURIComponent(did)}/realm-llm`).then((r) =>
-        r.json()
-      ),
+      agentsApi.getRealmLlm(did).then((res) => res),
     ])
       .then(
         ([configData, modelsData, realmData]: [

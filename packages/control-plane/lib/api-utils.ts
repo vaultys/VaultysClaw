@@ -33,3 +33,7 @@ export function malformed(error?: unknown): NextResponse {
     { status: 400 }
   );
 }
+
+export function successNoContent(): NextResponse {
+  return NextResponse.json(null, { status: 204 });
+}

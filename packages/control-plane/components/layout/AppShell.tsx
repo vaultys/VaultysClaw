@@ -7,8 +7,9 @@ import Sidebar from "./Sidebar";
 import TopBar from "./TopBar";
 import WorkflowApprovalInbox from "@/components/workflow/WorkflowApprovalInbox";
 
-// Pages that bypass the app shell entirely (standalone layouts)
-const STANDALONE_PATHS = ["/login", "/setup"];
+// Pages that bypass the app shell entirely (standalone layouts).
+// Auth on these routes is handled by the page itself.
+const STANDALONE_PATHS = ["/login", "/setup", "/mission-control/fullscreen"];
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const { status } = useSession();

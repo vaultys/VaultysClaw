@@ -97,7 +97,7 @@ export default function TopBar() {
             "flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-sm transition-colors",
             open
               ? "bg-background-200 text-foreground"
-              : "text-foreground-500 hover:text-foreground hover:bg-background-200/60"
+              : "text-foreground-700 hover:text-foreground hover:bg-background-200/60"
           )}
         >
           {/* Avatar */}
@@ -129,7 +129,7 @@ export default function TopBar() {
           <div className="absolute right-0 top-full mt-1.5 w-56 bg-background-100 border border-neutral-300 rounded-xl shadow-2xl shadow-black/40 z-50 overflow-hidden">
             {/* User info */}
             <div className="px-3 py-2.5 border-b border-neutral-200">
-              <p className="text-xs text-foreground-500 font-medium uppercase tracking-wider mb-0.5">
+              <p className="text-xs text-foreground-700 font-medium uppercase tracking-wider mb-0.5">
                 Signed in as
               </p>
               {profileName && (
@@ -137,14 +137,14 @@ export default function TopBar() {
                   {profileName}
                 </p>
               )}
-              <p className="text-xs text-foreground-400 font-mono truncate">
+              <p className="text-xs text-foreground-700 font-mono truncate">
                 {shortDid(did)}
               </p>
             </div>
 
             {/* Appearance */}
             <div className="px-3 py-2 border-b border-neutral-200">
-              <p className="text-xs text-foreground-400 uppercase tracking-wider mb-1.5 font-medium">
+              <p className="text-xs text-foreground-700 uppercase tracking-wider mb-1.5 font-medium">
                 Appearance
               </p>
               <div className="flex gap-1">
@@ -156,14 +156,14 @@ export default function TopBar() {
                     className={cn(
                       "flex-1 flex flex-col items-center gap-1 py-1.5 rounded-lg text-xs transition-colors border",
                       theme === value
-                        ? "bg-primary-100 border-primary-300 text-primary-700"
-                        : "border-transparent text-foreground-500 hover:text-foreground-700 hover:bg-background-200"
+                        ? "bg-primary-100 dark:bg-primary-800/25 border-primary-300 dark:border-primary-700/60 text-primary-700 dark:text-primary-800"
+                        : "border-transparent text-foreground-700 hover:text-foreground hover:bg-background-200"
                     )}
                   >
                     <Icon className="w-3.5 h-3.5" />
                     <span>{label}</span>
                     {theme === value && (
-                      <Check className="w-2.5 h-2.5 text-primary-700 absolute" />
+                      <Check className="w-2.5 h-2.5 text-primary-700 dark:text-primary-800 absolute" />
                     )}
                   </button>
                 ))}
@@ -178,7 +178,7 @@ export default function TopBar() {
               }}
               className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-foreground-700 hover:text-foreground hover:bg-background-200/60 transition-colors"
             >
-              <User className="w-4 h-4 text-foreground-400" />
+              <User className="w-4 h-4 text-foreground-700" />
               Account & Settings
             </button>
 

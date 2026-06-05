@@ -13,6 +13,7 @@ import {
 import { divIcon } from "leaflet";
 import type { DivIcon, LeafletEvent, LeafletMouseEvent } from "leaflet";
 import L from "leaflet";
+import { useTheme } from "@/components/ThemeProvider";
 import { Bot, User, Database, Server, MapPin, X, RotateCcw, Plus, Minus } from "lucide-react";
 
 export interface MapMarker {
@@ -140,19 +141,33 @@ function MapController({ center, zoom }: { center: [number, number]; zoom: numbe
   return null;
 }
 
-function MapLegendControl({ markers, renderPoints }: { markers: MapMarker[]; renderPoints: RenderPoint[] }) {
+function MapLegendControl({
+  markers,
+  renderPoints,
+  isDark,
+}: {
+  markers: MapMarker[];
+  renderPoints: RenderPoint[];
+  isDark: boolean;
+}) {
   const mapInstance = useMap();
 
   useEffect(() => {
+    // Palette switches with theme
+    const bg = isDark ? "rgba(17,24,39,0.90)" : "rgba(255,255,255,0.85)";
+    const border = isDark ? "#374151" : "#e5e7eb";
+    const textColor = isDark ? "#d1d5db" : "#374151";
+    const clusterDot = isDark ? "#6b7280" : "#9ca3af";
+
     const container = L.DomUtil.create("div");
     container.style.display = "flex";
     container.style.flexDirection = "column";
     container.style.gap = "8px";
     container.style.padding = "8px";
-    container.style.background = "rgba(255, 255, 255, 0.85)";
+    container.style.background = bg;
     container.style.backdropFilter = "blur(4px)";
     container.style.borderRadius = "8px";
-    container.style.border = "1px solid #e5e7eb";
+    container.style.border = `1px solid ${border}`;
     container.style.fontSize = "12px";
     container.style.fontFamily = "system-ui, -apple-system, sans-serif";
 
@@ -165,9 +180,9 @@ function MapLegendControl({ markers, renderPoints }: { markers: MapMarker[]; ren
       dot.style.width = "8px";
       dot.style.height = "8px";
       dot.style.borderRadius = "50%";
-      dot.style.background = "#6b7280";
+      dot.style.background = clusterDot;
       const text = L.DomUtil.create("span");
-      text.style.color = "#374151";
+      text.style.color = textColor;
       text.textContent = `Clusters: ${markers.length - renderPoints.length}`;
       clusterEl.appendChild(dot);
       clusterEl.appendChild(text);
@@ -189,7 +204,7 @@ function MapLegendControl({ markers, renderPoints }: { markers: MapMarker[]; ren
       dot.style.background = TYPE_COLOR[type];
 
       const label = L.DomUtil.create("span");
-      label.style.color = "#374151";
+      label.style.color = textColor;
       label.textContent =
         type === "s3" ? "Storage" : type === "docling" ? "Docling" : type + "s";
 
@@ -198,16 +213,17 @@ function MapLegendControl({ markers, renderPoints }: { markers: MapMarker[]; ren
       container.appendChild(itemEl);
     }
 
-    const control = L.Control.extend({
+    const ControlClass = L.Control.extend({
       onAdd: () => container,
     });
 
-    new control({ position: "bottomleft" }).addTo(mapInstance);
+    const instance = new ControlClass({ position: "bottomleft" });
+    instance.addTo(mapInstance);
 
     return () => {
-      // Clean up
+      instance.remove();
     };
-  }, [mapInstance, markers, renderPoints]);
+  }, [mapInstance, markers, renderPoints, isDark]);
 
   return null;
 }
@@ -307,6 +323,9 @@ function MapInner({
   onSaveLocation,
   canEditLocation = false,
 }: Props) {
+  const { resolvedTheme } = useTheme();
+  const isDark = resolvedTheme === "dark";
+
   const [isMounted, setIsMounted] = useState(false);
   const [tooltip, setTooltip] = useState<TooltipState | null>(null);
   const [selectedCluster, setSelectedCluster] = useState<MapCluster | null>(null);
@@ -393,8 +412,13 @@ function MapInner({
           className="rounded-l-lg"
         >
         <TileLayer
+          key={resolvedTheme}
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
-          url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+          url={
+            isDark
+              ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+              : "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+          }
           subdomains={["a", "b", "c", "d"]}
           maxZoom={MAX_MAP_ZOOM}
         />
@@ -407,7 +431,7 @@ function MapInner({
             setEditingMarker(null);
           }}
         />
-        <MapLegendControl markers={markers} renderPoints={renderPoints} />
+        <MapLegendControl markers={markers} renderPoints={renderPoints} isDark={isDark} />
 
         {renderPoints.map((point) => {
           const marker = point.kind === "marker" ? point.marker : null;
@@ -485,8 +509,8 @@ function MapInner({
         })}
         </MapContainer>
 
-        {/* Zoom controls */}
-        <div className="absolute top-2 right-2 z-10 flex items-center gap-1">
+        {/* Zoom controls — z-[1000] beats Leaflet's tile pane (z-200) and popup pane (z-700) */}
+        <div className="absolute top-2 right-2 z-[1000] flex items-center gap-1">
           <button
             onClick={zoomOut}
             className="p-1.5 bg-background-100 border border-neutral-200 rounded-lg text-foreground-500 hover:text-foreground hover:bg-background-200 transition-colors"

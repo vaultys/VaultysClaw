@@ -6,3 +6,8 @@ export type AgentSchedule = {
   params?: Record<string, unknown>;
   enabled?: boolean;
 };
+
+export type AgentTask = {
+  action?: string;
+  params?: Record<string, unknown>;
+};

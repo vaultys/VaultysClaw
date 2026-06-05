@@ -1,15 +1,21 @@
+import { AgentTask } from "./../../../../../types/api/requests";
 /**
- * POST /api/agents/[did]/tasks — Enqueue a task on an agent via WS
+ * POST /api/agents/[did]/task — Enqueue a task on an agent via WS
  */
 
 import { NextResponse, type NextRequest } from "next/server";
 import { getWSServer } from "@/lib/ws-server";
 import { getAuthContext } from "@/lib/auth-utils";
-import { unauthorized, forbidden } from "@/lib/api-utils";
+import {
+  unauthorized,
+  forbidden,
+  unavailable,
+  malformed,
+} from "@/lib/api-utils";
 
 /**
  * @openapi
- * /api/agents/{did}/tasks:
+ * /api/agents/{did}/task:
  *   post:
  *     summary: Enqueue a task on an agent via WebSocket.
  *     tags: [Agents]
@@ -42,8 +48,6 @@ import { unauthorized, forbidden } from "@/lib/api-utils";
  *             schema:
  *               type: object
  *               properties:
- *                 success:
- *                   type: boolean
  *                 agentId:
  *                   type: string
  *                 action:
@@ -73,29 +77,20 @@ export async function POST(
 
   const wsServer = getWSServer();
   if (!wsServer) {
-    return NextResponse.json(
-      { error: "WebSocket server not available" },
-      { status: 503 }
-    );
+    return unavailable("WebSocket server not available");
   }
 
   const body = await request.json();
-  const { action, params: taskParams } = body as {
-    action?: string;
-    params?: Record<string, unknown>;
-  };
+  const { action, params: taskParams } = body as AgentTask;
 
   if (!action || typeof action !== "string") {
-    return NextResponse.json(
-      { error: "action (string) is required" },
-      { status: 400 }
-    );
+    return malformed("action (string) is required");
   }
 
   const ok = wsServer.sendTaskToAgent(agentDid, action, taskParams ?? {});
   if (!ok) {
-    return NextResponse.json({ error: "Agent not connected" }, { status: 404 });
+    return unavailable("Agent not connected");
   }
 
-  return NextResponse.json({ success: true, agentId: agentDid, action });
+  return NextResponse.json({ agentId: agentDid, action });
 }

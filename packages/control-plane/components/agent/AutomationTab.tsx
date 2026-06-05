@@ -19,17 +19,11 @@ function TaskSection({ agentId }: { agentId: string }) {
   const enqueue = async () => {
     if (!action.trim()) return;
     setStatus(null);
-    const res = await fetch(
-      `/api/agents/${encodeURIComponent(agentId)}/tasks`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action }),
-      }
-    );
-    const data = await res.json();
-    setStatus(res.ok ? `Task sent: ${data.action}` : `Error: ${data.error}`);
-    if (res.ok) setAction("");
+    const { action: sentAction } = await agentsApi.sendTask(agentId, {
+      action,
+    });
+    setStatus(`Task sent: ${sentAction}`);
+    setAction("");
   };
 
   return (

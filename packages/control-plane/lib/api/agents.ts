@@ -6,7 +6,7 @@ import {
   SkillConfig,
 } from "@vaultysclaw/shared";
 import { RealmLlmData, SafeLlmConfig } from "@/types";
-import { AgentSchedule } from "@/types/api/requests";
+import { AgentSchedule, AgentTask } from "@/types/api/requests";
 
 export interface Agent extends AgentSummary {
   description?: string;
@@ -162,11 +162,11 @@ export class AgentsApi extends BaseApi {
   }
 
   // Tasks
-  sendTask(
-    did: string,
-    data: { intent: string; payload?: Record<string, unknown> }
-  ) {
-    return this.post<{ taskId: string }>(`/api/agents/${did}/tasks`, data);
+  sendTask(did: string, data: AgentTask) {
+    return this.post<{ agentId: string; action: string }>(
+      `/api/agents/${did}/task`,
+      data
+    );
   }
 }
 

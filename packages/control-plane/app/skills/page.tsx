@@ -23,19 +23,20 @@ import {
 } from "lucide-react";
 import { useRole } from "@/hooks/useRole";
 
+// Prisma / PostgreSQL returns camelCase and proper JS types.
 interface SkillEntry {
   id: string;
-  realm_id: string;
-  realm_name: string;
+  realmId: string;
+  realmName: string;
   name: string;
   description: string | null;
   version: string | null;
-  is_required: number;
-  config: string;
+  isRequired: boolean;
+  config: Record<string, unknown> | string | null;
   content: string | null;
-  created_at: string;
-  agent_count: number;
-  override_count: number;
+  createdAt: string;
+  agentCount: number;
+  overrideCount: number;
 }
 
 interface RealmOption {
@@ -267,16 +268,19 @@ function ShareToRealmModal({
   onCreated: () => void;
 }) {
   const source = group.entries[0];
-  const existingRealmIds = new Set(group.entries.map((e) => e.realm_id));
+  const existingRealmIds = new Set(group.entries.map((e) => e.realmId));
   const available = realms.filter((r) => !existingRealmIds.has(r.id));
 
   const [realmId, setRealmId] = useState(available[0]?.id ?? "");
   const [isRequired, setIsRequired] = useState(
-    (source?.is_required ?? 0) === 1
+    (source?.isRequired ?? false)
   );
   const [configText, setConfigText] = useState(() => {
     try {
-      return JSON.stringify(JSON.parse(source?.config ?? "{}"), null, 2);
+      const cfg = source?.config;
+      if (!cfg) return "{}";
+      if (typeof cfg === "string") return JSON.stringify(JSON.parse(cfg), null, 2);
+      return JSON.stringify(cfg, null, 2);
     } catch {
       return "{}";
     }
@@ -391,7 +395,7 @@ function ShareToRealmModal({
               className="flex items-center gap-1 text-xs px-1.5 py-0.5 rounded bg-background border border-neutral-200 text-foreground-500"
             >
               <Globe2 className="w-3 h-3" />
-              {e.realm_name}
+              {e.realmName}
             </span>
           ))}
         </div>
@@ -715,14 +719,17 @@ function EditSkillModal({
 }) {
   const [description, setDescription] = useState(entry.description ?? "");
   const [version, setVersion] = useState(entry.version ?? "");
-  const [isRequired, setIsRequired] = useState(entry.is_required === 1);
+  const [isRequired, setIsRequired] = useState(entry.isRequired);
   const [content, setContent] = useState(entry.content ?? "");
   const [fetching, setFetching] = useState(false);
   const [configText, setConfigText] = useState(() => {
     try {
-      return JSON.stringify(JSON.parse(entry.config), null, 2);
+      const cfg = entry.config;
+      if (!cfg) return "{}";
+      if (typeof cfg === "string") return JSON.stringify(JSON.parse(cfg), null, 2);
+      return JSON.stringify(cfg, null, 2);
     } catch {
-      return entry.config;
+      return typeof entry.config === "string" ? entry.config : "{}";
     }
   });
   const [configError, setConfigError] = useState("");
@@ -771,7 +778,7 @@ function EditSkillModal({
     setError("");
     try {
       const res = await fetch(
-        `/api/realms/${entry.realm_id}/skills/${entry.id}`,
+        `/api/realms/${entry.realmId}/skills/${entry.id}`,
         {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
@@ -810,7 +817,7 @@ function EditSkillModal({
           </span>{" "}
           in{" "}
           <span className="font-medium text-foreground">
-            {entry.realm_name}
+            {entry.realmName}
           </span>
         </p>
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -964,7 +971,7 @@ function SkillGroupCard({
                 className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-background border border-neutral-200 text-foreground-500"
               >
                 <Globe2 className="w-3 h-3" />
-                {e.realm_name}
+                {e.realmName}
               </span>
             ))}
           </div>
@@ -989,7 +996,7 @@ function SkillGroupCard({
               <div className="w-36 flex-shrink-0 pt-0.5">
                 <div className="flex items-center gap-1.5 text-xs font-medium text-foreground">
                   <Globe2 className="w-3.5 h-3.5 text-foreground-500" />
-                  {entry.realm_name}
+                  {entry.realmName}
                 </div>
               </div>
 
@@ -1006,17 +1013,17 @@ function SkillGroupCard({
                       v{entry.version}
                     </span>
                   )}
-                  {entry.is_required === 1 && (
+                  {entry.isRequired && (
                     <span className="flex items-center gap-1 text-xs px-1.5 py-0.5 rounded bg-warning-100 border border-warning-300 text-warning-700">
                       <Shield className="w-3 h-3" /> Required
                     </span>
                   )}
                   <span className="flex items-center gap-1 text-xs text-foreground-500">
                     <Users className="w-3 h-3" />
-                    {entry.agent_count} agent
-                    {entry.agent_count !== 1 ? "s" : ""}
-                    {entry.override_count > 0 &&
-                      `, ${entry.override_count} override${entry.override_count !== 1 ? "s" : ""}`}
+                    {entry.agentCount} agent
+                    {entry.agentCount !== 1 ? "s" : ""}
+                    {entry.overrideCount > 0 &&
+                      `, ${entry.overrideCount} override${entry.overrideCount !== 1 ? "s" : ""}`}
                   </span>
                   {entry.content ? (
                     <span className="text-xs px-1.5 py-0.5 rounded bg-primary-100 border border-primary-300 text-primary-700">
@@ -1031,13 +1038,20 @@ function SkillGroupCard({
               </div>
 
               {/* Config preview */}
-              {entry.config && entry.config !== "{}" && (
-                <div className="w-40 flex-shrink-0">
-                  <pre className="text-xs font-mono text-foreground-500 bg-background border border-neutral-200 rounded px-2 py-1 overflow-hidden whitespace-nowrap text-ellipsis">
-                    {entry.config}
-                  </pre>
-                </div>
-              )}
+              {(() => {
+                const cfgStr = entry.config
+                  ? typeof entry.config === "string"
+                    ? entry.config
+                    : JSON.stringify(entry.config)
+                  : null;
+                return cfgStr && cfgStr !== "{}" ? (
+                  <div className="w-40 flex-shrink-0">
+                    <pre className="text-xs font-mono text-foreground-500 bg-background border border-neutral-200 rounded px-2 py-1 overflow-hidden whitespace-nowrap text-ellipsis">
+                      {cfgStr}
+                    </pre>
+                  </div>
+                ) : null;
+              })()}
 
               {/* Actions */}
               <div className="flex items-center gap-1 flex-shrink-0">
@@ -1129,7 +1143,7 @@ export default function SkillsPage() {
   async function handleDelete(entry: SkillEntry) {
     setDeleting(true);
     try {
-      await fetch(`/api/realms/${entry.realm_id}/skills/${entry.id}`, {
+      await fetch(`/api/realms/${entry.realmId}/skills/${entry.id}`, {
         method: "DELETE",
       });
       await load();
@@ -1145,13 +1159,13 @@ export default function SkillsPage() {
     ? skills.filter(
         (s) =>
           s.name.toLowerCase().includes(search.toLowerCase()) ||
-          s.realm_name.toLowerCase().includes(search.toLowerCase())
+          s.realmName.toLowerCase().includes(search.toLowerCase())
       )
     : skills;
 
   const groups = groupByName(filtered);
   const uniqueNames = new Set(skills.map((s) => s.name)).size;
-  const realmsWithSkills = new Set(skills.map((s) => s.realm_id)).size;
+  const realmsWithSkills = new Set(skills.map((s) => s.realmId)).size;
   const sharedCount = Array.from(
     new Map(skills.map((s) => [s.name, 0])).keys()
   ).filter((name) => skills.filter((s) => s.name === name).length > 1).length;
@@ -1367,7 +1381,7 @@ export default function SkillsPage() {
                   </span>{" "}
                   will be removed from{" "}
                   <span className="font-medium text-foreground">
-                    {deleteEntry.realm_name}
+                    {deleteEntry.realmName}
                   </span>
                   . All agent overrides for this entry will be deleted and
                   agents will be notified.

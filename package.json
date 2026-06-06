@@ -28,9 +28,13 @@
     "test:packages": "turbo run test",
     "test:docker": "vitest --config vitest.config.docker.mjs --run",
     "test:litellm": "vitest --config vitest.config.litellm.mjs --run",
+    "-- DEMO --": "",
+    "demo:seed": "tsx demo/seed-demo.ts",
+    "demo:start": "tsx demo/simulator/index.ts",
+    "demo:full": "pnpm demo:seed && pnpm demo:start",
     "-- MISC --": "",
-    "swagger:generate": "pnpm tsx scripts/generate-swagger-docs.ts",
-    "swagger:check": "pnpm tsx scripts/generate-swagger-docs.ts --check",
+    "swagger:generate": "tsx scripts/generate-swagger-docs.ts",
+    "swagger:check": "tsx scripts/generate-swagger-docs.ts --check",
     "clean": "turbo clean && rm -rf node_modules"
   },
   "devDependencies": {
@@ -53,6 +57,7 @@
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
     "turbo": "^2.9.12",
+    "tsx": "^4.22.4",
     "typescript": "^5.9.3",
     "vitest": "^2.1.9",
     "ws": "^8.20.1"

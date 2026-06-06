@@ -11,18 +11,20 @@ import {
   ChevronUp,
 } from "lucide-react";
 
+// Prisma returns camelCase — the DB @map() directives only affect the column
+// names, not the JavaScript property names returned by the ORM.
 interface Approval {
   id: string;
-  run_id: string;
-  step_id: string;
-  workflow_id: string;
-  workflow_name: string;
-  node_message: string | null;
-  step_input: string | null;
-  assigned_user_id: string;
+  runId: string;
+  stepId: string;
+  workflowId: string;
+  workflowName: string;
+  nodeMessage: string | null;
+  stepInput: string | null;
+  assignedUserId: string;
   mode: "approval" | "notification";
   status: string;
-  created_at: string;
+  createdAt: string;
 }
 
 export default function WorkflowApprovalInbox() {
@@ -110,10 +112,10 @@ export default function WorkflowApprovalInbox() {
           >
             <Bell size={16} className="text-warning-600 shrink-0" />
             <span className="text-sm font-medium text-warning-900 flex-1">
-              Awaiting your approval — <strong>{approval.workflow_name}</strong>
+              Awaiting your approval — <strong>{approval.workflowName}</strong>
             </span>
             <span className="text-xs text-warning-700">
-              {new Date(approval.created_at).toLocaleString()}
+              {new Date(approval.createdAt).toLocaleString()}
             </span>
             {expanded === approval.id ? (
               <ChevronUp size={14} className="text-warning-600" />
@@ -128,34 +130,34 @@ export default function WorkflowApprovalInbox() {
               <div className="grid grid-cols-2 gap-2 text-xs text-warning-800 bg-warning-100/60 rounded-md p-3">
                 <div>
                   <span className="font-semibold">Workflow:</span>{" "}
-                  {approval.workflow_name}
+                  {approval.workflowName}
                 </div>
                 <div>
                   <span className="font-semibold">Step:</span>{" "}
-                  {approval.step_id}
+                  {approval.stepId}
                 </div>
                 <div>
                   <span className="font-semibold">Run ID:</span>{" "}
                   <span className="font-mono">
-                    {approval.run_id.slice(0, 8)}…
+                    {approval.runId?.slice(0, 8) ?? "—"}…
                   </span>
                 </div>
               </div>
 
-              {approval.node_message && (
+              {approval.nodeMessage && (
                 <div className="text-sm text-warning-900 bg-warning-100 rounded-md p-3">
                   <p className="font-semibold text-xs mb-1">Message</p>
-                  <p>{approval.node_message}</p>
+                  <p>{approval.nodeMessage}</p>
                 </div>
               )}
 
-              {approval.step_input && (
+              {approval.stepInput && (
                 <div>
                   <p className="text-xs font-semibold text-warning-800 mb-1">
                     Workflow input
                   </p>
                   <pre className="text-xs bg-background-100 text-foreground border border-neutral-200 rounded-md p-2 overflow-x-auto max-h-32">
-                    {approval.step_input}
+                    {approval.stepInput}
                   </pre>
                 </div>
               )}
@@ -207,17 +209,17 @@ export default function WorkflowApprovalInbox() {
           <Bell size={15} className="text-primary-500 shrink-0 mt-0.5" />
           <div className="flex-1 min-w-0">
             <p className="text-sm text-primary-900">
-              <strong>{notif.workflow_name}</strong> —{" "}
-              {notif.node_message || `Step ${notif.step_id} reached`}
+              <strong>{notif.workflowName}</strong> —{" "}
+              {notif.nodeMessage || `Step ${notif.stepId} reached`}
             </p>
-            {notif.step_input && (
+            {notif.stepInput && (
               <p className="text-xs text-primary-700 mt-0.5 truncate">
-                {notif.step_input.slice(0, 120)}
+                {notif.stepInput.slice(0, 120)}
               </p>
             )}
           </div>
           <span className="text-xs text-primary-600 whitespace-nowrap">
-            {new Date(notif.created_at).toLocaleString()}
+            {new Date(notif.createdAt).toLocaleString()}
           </span>
           <button
             onClick={() => handleDismiss(notif.id)}

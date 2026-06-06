@@ -53,6 +53,11 @@ pnpm-debug.log*
 # Turbo
 .turbo
 demo/.demo-pids
+demo/.demo-sim-pids
+demo/.demo-sim-containers
+demo/.env.demo
+demo/simulator/identities/
+demo/simulator/demo-config.json
 /.claude
 /docs-site/.docusaurus
 /packages/agent-controller/src/web/public

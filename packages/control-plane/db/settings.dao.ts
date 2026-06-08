@@ -114,3 +114,34 @@ export async function setStorageConfig(cfg: { storageType?: string; filesystemDi
   if (cfg.locationLabel === null) await SettingsDAO.delete("s3_location_label");
   else if (cfg.locationLabel !== undefined) await SettingsDAO.set("s3_location_label", cfg.locationLabel);
 }
+
+export async function getLiteLLMSettings(): Promise<{
+  baseUrl: string | null;
+  masterKey: string | null;
+}> {
+  const { decryptSecret } = await import("../lib/vault");
+  const baseUrl = (await SettingsDAO.get("litellm_base_url")) ?? null;
+  const enc = await SettingsDAO.get("litellm_master_key_enc");
+  let masterKey: string | null = null;
+  if (enc) { try { masterKey = await decryptSecret(enc); } catch { /* vault not ready */ } }
+  return { baseUrl, masterKey };
+}
+
+export async function setLiteLLMSettings(cfg: {
+  baseUrl?: string | null;
+  masterKey?: string | null;
+}): Promise<void> {
+  const { encryptSecret } = await import("../lib/vault");
+  if (cfg.baseUrl !== undefined) {
+    if (cfg.baseUrl) await SettingsDAO.set("litellm_base_url", cfg.baseUrl.trim().replace(/\/$/, ""));
+    else await SettingsDAO.delete("litellm_base_url");
+  }
+  if (cfg.masterKey !== undefined) {
+    if (cfg.masterKey) {
+      const enc = await encryptSecret(cfg.masterKey);
+      await SettingsDAO.set("litellm_master_key_enc", enc);
+    } else {
+      await SettingsDAO.delete("litellm_master_key_enc");
+    }
+  }
+}

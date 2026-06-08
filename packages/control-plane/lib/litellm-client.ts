@@ -4,12 +4,22 @@
  * Requires LITELLM_BASE_URL and LITELLM_MASTER_KEY env vars.
  */
 
+// In-memory overrides loaded from DB at startup (take precedence over env vars).
+// Call setLiteLLMConfig() from server.ts after reading DB settings.
+let _baseUrlOverride: string | null = null;
+let _masterKeyOverride: string | null = null;
+
+export function setLiteLLMConfig(baseUrl: string | null, masterKey: string | null): void {
+  _baseUrlOverride = baseUrl || null;
+  _masterKeyOverride = masterKey || null;
+}
+
 // Read at call time so tests can override process.env without module-reload
 function getBaseUrl(): string {
-  return process.env.LITELLM_BASE_URL ?? "";
+  return _baseUrlOverride ?? process.env.LITELLM_BASE_URL ?? "";
 }
 function getMasterKey(): string {
-  return process.env.LITELLM_MASTER_KEY ?? "";
+  return _masterKeyOverride ?? process.env.LITELLM_MASTER_KEY ?? "";
 }
 
 export function isLiteLLMConfigured(): boolean {

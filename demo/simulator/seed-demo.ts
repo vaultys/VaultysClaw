@@ -1022,15 +1022,18 @@ async function runMigrations(): Promise<void> {
     execSync("pnpm exec prisma migrate deploy", {
       cwd: controlPlaneDir,
       stdio: "pipe",
+      encoding: "utf-8",
     });
     console.log("  ✓ Migrations applied");
   } catch (err: any) {
-    const errMsg = err.stdout?.toString() || err.stderr?.toString() || String(err);
+    const stdout = typeof err.stdout === "string" ? err.stdout : err.stdout?.toString() || "";
+    const stderr = typeof err.stderr === "string" ? err.stderr : err.stderr?.toString() || "";
+    const errMsg = stdout + stderr + String(err);
     // If P3005 (schema not empty), database already has the schema — skip migrations
     if (errMsg.includes("P3005")) {
       console.log("  ℹ Database schema already exists — skipping migrations");
     } else {
-      console.error("  ✗ Migration failed:", err);
+      console.error("  ✗ Migration failed:", err.message);
       throw err;
     }
   }

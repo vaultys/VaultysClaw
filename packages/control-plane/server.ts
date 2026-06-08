@@ -21,9 +21,8 @@ import next from "next";
 import pino from "pino";
 import dotenv from "dotenv";
 import { initializeWSServer, initializeAdminWS } from "./lib/ws-server";
-import { setLiteLLMConfig } from "./lib/litellm-client";
-import { getLiteLLMSettings } from "./db/settings.dao";
 import { initializePeerjsServer, AgentPeerjsServer } from "./lib/peerjs-server";
+import { initializeLiteLLMService } from "./lib/litellm-service";
 import { prisma, SettingsDAO } from "./db";
 import { ServerIdentityDAO } from "./db/settings.dao";
 import { getFileStorage } from "./lib/file-storage-manager";
@@ -144,12 +143,9 @@ app.prepare().then(async () => {
   await ServerIdentityDAO.ensureServerIdentity();
   logger.info("Server identity ready");
 
-  // Load LiteLLM settings from DB (DB takes precedence over env vars)
-  const litellmSettings = await getLiteLLMSettings();
-  if (litellmSettings.baseUrl || litellmSettings.masterKey) {
-    setLiteLLMConfig(litellmSettings.baseUrl, litellmSettings.masterKey);
-    logger.info({ baseUrl: litellmSettings.baseUrl }, "LiteLLM config loaded from DB");
-  }
+  // Initialize LiteLLM service — loads DB config (env vars as fallback).
+  // Fully non-blocking: never prevents the server from starting.
+  initializeLiteLLMService();
 
   // Create HTTP server for Next.js
   const server = createServer(async (req, res) => {

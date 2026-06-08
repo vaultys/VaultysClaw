@@ -20,9 +20,12 @@ import {
 interface LiteLLMStatus {
   configured: boolean;
   healthy: boolean;
+  status: "unconfigured" | "connecting" | "connected" | "error";
   baseUrl: string | null;
   masterKeySet: boolean;
   source: "db" | "env";
+  lastError: string | null;
+  checkedAt: string | null;
   stats: {
     modelCount: number;
     totalSpend: number | null;
@@ -34,6 +37,7 @@ export function LiteLLMPanel() {
   const [status, setStatus] = useState<LiteLLMStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [reconnecting, setReconnecting] = useState(false);
   const [testing, setTesting] = useState(false);
   const [baseUrl, setBaseUrl] = useState("");
   const [masterKey, setMasterKey] = useState("");
@@ -100,6 +104,19 @@ export function LiteLLMPanel() {
     }
   };
 
+  const reconnect = async () => {
+    setReconnecting(true);
+    setSaveMsg(null);
+    try {
+      const res = await fetch("/api/settings/litellm", { method: "POST" });
+      const data = await res.json() as { ok?: boolean; status?: string };
+      setSaveMsg({ ok: Boolean(data.ok), text: data.ok ? "Reconnected successfully ✓" : "Could not reach proxy — check URL and master key" });
+      await load();
+    } finally {
+      setReconnecting(false);
+    }
+  };
+
   const clear = async () => {
     if (!confirm("Remove stored LiteLLM settings? The proxy will fall back to environment variables.")) return;
     await fetch("/api/settings/litellm", { method: "DELETE" });
@@ -128,21 +145,37 @@ export function LiteLLMPanel() {
           : "border-neutral-200 bg-background-100"
       }`}>
         <div className="flex items-center gap-3">
-          {status?.healthy ? (
+          {status?.status === "connected" ? (
             <CheckCircle2 className="w-5 h-5 text-success-600 dark:text-success-400 shrink-0" />
+          ) : status?.status === "connecting" ? (
+            <RefreshCw className="w-5 h-5 text-primary-500 animate-spin shrink-0" />
           ) : (
             <XCircle className="w-5 h-5 text-neutral-400 shrink-0" />
           )}
           <div>
             <p className="text-sm font-medium text-foreground">
-              {status?.healthy ? "LiteLLM proxy is reachable" : status?.configured ? "Proxy configured but not responding" : "LiteLLM not configured"}
+              {status?.status === "connected" ? "LiteLLM proxy connected"
+                : status?.status === "connecting" ? "Connecting…"
+                : status?.configured ? "Proxy configured but not responding"
+                : "LiteLLM not configured"}
             </p>
             {status?.baseUrl && (
               <p className="text-xs text-foreground-500 font-mono">{status.baseUrl}</p>
             )}
+            {status?.lastError && (
+              <p className="text-xs text-danger-600 dark:text-danger-400">{status.lastError}</p>
+            )}
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
+          {/* Reconnect when configured but not healthy */}
+          {status?.configured && status.status !== "connected" && (
+            <button onClick={reconnect} disabled={reconnecting}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-primary-600 hover:bg-primary-500 text-white transition-colors disabled:opacity-40">
+              <RefreshCw className={`w-3.5 h-3.5 ${reconnecting ? "animate-spin" : ""}`} />
+              {reconnecting ? "Reconnecting…" : "Reconnect"}
+            </button>
+          )}
           {dashboardUrl && (
             <a href={dashboardUrl} target="_blank" rel="noopener noreferrer"
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-neutral-200 bg-background text-foreground hover:bg-background-200 transition-colors">

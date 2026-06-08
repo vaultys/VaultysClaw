@@ -2,18 +2,19 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
 import { unauthorized, forbidden } from "@/lib/api-utils";
 import { getLiteLLMSettings, setLiteLLMSettings } from "@/db/settings.dao";
+import { isLiteLLMConfigured, getLiteLLMBaseUrl, listModels } from "@/lib/litellm-client";
 import {
-  setLiteLLMConfig,
-  isLiteLLMConfigured,
-  getLiteLLMBaseUrl,
-  healthCheck,
-  listModels,
-} from "@/lib/litellm-client";
+  reconnectLiteLLMService,
+  disconnectLiteLLMService,
+  getLiteLLMServiceState,
+} from "@/lib/litellm-service";
 
 /** Proxy a LiteLLM API call and return parsed JSON or null on failure. */
 async function litellmFetch<T>(path: string): Promise<T | null> {
+  if (!isLiteLLMConfigured()) return null;
   const base = getLiteLLMBaseUrl();
-  const key = process.env.LITELLM_MASTER_KEY || "";
+  const { masterKey } = await getLiteLLMSettings().catch(() => ({ masterKey: null }));
+  const key = masterKey ?? process.env.LITELLM_MASTER_KEY ?? "";
   if (!base || !key) return null;
   try {
     const res = await fetch(`${base}${path}`, {
@@ -36,52 +37,43 @@ export async function GET(req: NextRequest) {
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
 
-  const { baseUrl, masterKey } = await getLiteLLMSettings();
+  const { baseUrl, masterKey } = await getLiteLLMSettings().catch(() => ({ baseUrl: null, masterKey: null }));
+  const svcState = getLiteLLMServiceState();
 
-  // Effective values (DB takes precedence over env)
   const effectiveBaseUrl = baseUrl ?? process.env.LITELLM_BASE_URL ?? null;
   const effectiveMasterKey = masterKey ?? process.env.LITELLM_MASTER_KEY ?? null;
   const configured = Boolean(effectiveBaseUrl && effectiveMasterKey);
+  const healthy = svcState.status === "connected";
 
-  let healthy = false;
   let modelCount = 0;
   let totalSpend: number | null = null;
   let keyCount: number | null = null;
 
-  if (configured) {
-    healthy = await healthCheck();
-
-    if (healthy) {
-      // Model count
-      const models = await listModels();
-      modelCount = models.length;
-
-      // Total spend
-      const spendData = await litellmFetch<{ spend: number }>("/global/spend");
-      if (spendData?.spend != null) totalSpend = spendData.spend;
-
-      // Key count
-      const keyData = await litellmFetch<{ keys: unknown[] }>("/key/list?include_team_keys=true");
-      if (Array.isArray(keyData?.keys)) keyCount = keyData!.keys.length;
-    }
+  if (healthy) {
+    const models = await listModels().catch(() => []);
+    modelCount = models.length;
+    const spendData = await litellmFetch<{ spend: number }>("/global/spend");
+    if (spendData?.spend != null) totalSpend = spendData.spend;
+    const keyData = await litellmFetch<{ keys: unknown[] }>("/key/list?include_team_keys=true");
+    if (Array.isArray(keyData?.keys)) keyCount = keyData!.keys.length;
   }
 
   return NextResponse.json({
     configured,
     healthy,
-    // Return URL but never the master key
+    status: svcState.status,
     baseUrl: effectiveBaseUrl,
     masterKeySet: Boolean(effectiveMasterKey),
-    // Source: "db" means editable via this API; "env" means read-only from env
     source: baseUrl ? "db" : "env",
+    lastError: svcState.lastError,
+    checkedAt: svcState.checkedAt,
     stats: { modelCount, totalSpend, keyCount },
   });
 }
 
 /**
  * PUT /api/settings/litellm
- * Save LiteLLM connection settings. Accepts { baseUrl, masterKey? }.
- * masterKey is optional — omit to keep the existing key.
+ * Save LiteLLM connection settings and reconnect the service.
  */
 export async function PUT(req: NextRequest) {
   const auth = await getAuthContext(req);
@@ -89,28 +81,32 @@ export async function PUT(req: NextRequest) {
   if (!auth.isGlobalAdmin) return forbidden();
 
   const body = (await req.json()) as { baseUrl?: string; masterKey?: string };
-
-  if (!body.baseUrl && body.masterKey === undefined) {
-    return NextResponse.json({ error: "baseUrl is required" }, { status: 400 });
-  }
+  if (!body.baseUrl) return NextResponse.json({ error: "baseUrl is required" }, { status: 400 });
 
   await setLiteLLMSettings({
-    baseUrl: body.baseUrl ?? undefined,
+    baseUrl: body.baseUrl,
     masterKey: body.masterKey ?? undefined,
   });
 
-  // Update the in-process runtime cache so changes take effect immediately
-  const fresh = await getLiteLLMSettings();
-  setLiteLLMConfig(fresh.baseUrl, fresh.masterKey);
+  const { ok, status, baseUrl } = await reconnectLiteLLMService();
+  return NextResponse.json({ ok, status, baseUrl });
+}
 
-  const healthy = isLiteLLMConfigured() ? await healthCheck() : false;
+/**
+ * POST /api/settings/litellm — reconnect without changing stored config
+ */
+export async function POST(req: NextRequest) {
+  const auth = await getAuthContext(req);
+  if (!auth) return unauthorized();
+  if (!auth.isGlobalAdmin) return forbidden();
 
-  return NextResponse.json({ ok: true, healthy });
+  const { ok, status, baseUrl } = await reconnectLiteLLMService();
+  return NextResponse.json({ ok, status, baseUrl });
 }
 
 /**
  * DELETE /api/settings/litellm
- * Remove stored LiteLLM settings (falls back to env vars).
+ * Disconnect and remove stored settings (falls back to env vars on next reconnect).
  */
 export async function DELETE(req: NextRequest) {
   const auth = await getAuthContext(req);
@@ -118,7 +114,6 @@ export async function DELETE(req: NextRequest) {
   if (!auth.isGlobalAdmin) return forbidden();
 
   await setLiteLLMSettings({ baseUrl: null, masterKey: null });
-  setLiteLLMConfig(null, null);
-
+  disconnectLiteLLMService();
   return NextResponse.json({ ok: true });
 }

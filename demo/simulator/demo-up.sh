@@ -511,6 +511,11 @@ LITELLM_BASE_URL=${LITELLM_BASE_URL}
 LITELLM_MASTER_KEY=${LITELLM_MASTER_KEY}
 CPENV
 
+  # Raise file descriptor limit to prevent Watchpack EMFILE errors in dev mode.
+  # Next.js watches thousands of files; the default macOS/Linux soft limit (256–1024)
+  # is far too low. This applies only to child processes spawned from this point.
+  ulimit -n 65536 2>/dev/null || true
+
   cd "$REPO_ROOT"
   DATABASE_URL="$DATABASE_URL" \
   NEXTAUTH_SECRET="$NEXTAUTH_SECRET" \

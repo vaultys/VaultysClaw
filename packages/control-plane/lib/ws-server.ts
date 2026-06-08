@@ -540,6 +540,7 @@ export class AgentWSServer {
             connectedAt: new Date(),
             lastHeartbeat: new Date(),
             transport: pending.sender.transport,
+            dailyPriceSpent: knownAgent.dailyPriceSpent ?? undefined,
           };
 
           this.agents.set(agentDid, agent);
@@ -919,6 +920,8 @@ export class AgentWSServer {
         }
         if (hbPayload.tokenUsage.dailyPriceSpent !== undefined) {
           agent.dailyPriceSpent = hbPayload.tokenUsage.dailyPriceSpent;
+          // Persist daily price spent to DB
+          await AgentDAO.updateDailyPriceSpent(agentId, hbPayload.tokenUsage.dailyPriceSpent);
         }
 
         // Persist token usage to DB for the agent
@@ -1398,6 +1401,9 @@ export class AgentWSServer {
     clearTimeout(target.timer);
     this.pending.delete(target.sender);
 
+    // Load agent from DB to get persisted fields like dailyPriceSpent
+    const dbAgent = await AgentDAO.findByDid(agentDid);
+
     const agent: ConnectedAgent = {
       id: agentDid,
       name: target.agentName ?? "unknown",
@@ -1406,6 +1412,7 @@ export class AgentWSServer {
       connectedAt: new Date(),
       lastHeartbeat: new Date(),
       transport: target.sender.transport,
+      dailyPriceSpent: dbAgent?.dailyPriceSpent ?? undefined,
     };
 
     this.agents.set(agentDid, agent);

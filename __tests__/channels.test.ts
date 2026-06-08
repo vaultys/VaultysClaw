@@ -208,18 +208,11 @@ let testAgentDid: string;
 let testAgentName: string;
 
 beforeAll(async () => {
-  const db = getDb();
   testRealmId = `${T}realm-1`;
   testAgentDid = `${T}agent-did-1`;
   testAgentName = "tch-test-agent";
 
-  // ── SQLite (ChannelService, ChannelDao use SQLite) ────────────────────────
-  db.prepare(`INSERT OR IGNORE INTO realms (id, name, slug, color, is_default) VALUES (?, 'Channel Test Realm', 'channel-test-realm', '#6366f1', 0)`).run(testRealmId);
-  db.prepare(`INSERT OR IGNORE INTO agents (did, name, capabilities, registered_at) VALUES (?, ?, '[]', datetime('now'))`).run(testAgentDid, testAgentName);
-  db.prepare(`INSERT OR IGNORE INTO users (id, did, name, registered_at) VALUES ('user-uuid-123', 'did:test:admin', 'Test Admin', datetime('now'))`).run();
-  db.prepare(`INSERT OR IGNORE INTO user_realms (user_id, realm_id, is_primary, is_realm_admin) VALUES ('user-uuid-123', ?, 0, 1)`).run(testRealmId);
-
-  // ── Prisma (API routes + MessageDispatcher use Prisma) ───────────────────
+  // ── Prisma (ChannelService + API routes use Prisma) ──────────────────────
   await prisma.realm.upsert({ where: { id: testRealmId }, create: { id: testRealmId, name: "Channel Test Realm", slug: "channel-test-realm", color: "#6366f1" }, update: {} });
   await prisma.agent.upsert({ where: { did: testAgentDid }, create: { did: testAgentDid, name: testAgentName, capabilities: [] }, update: {} });
   await prisma.user.upsert({ where: { id: "user-uuid-123" }, create: { id: "user-uuid-123", did: "did:test:admin", name: "Test Admin" }, update: {} });
@@ -227,14 +220,6 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  const db = getDb();
-  db.prepare(`DELETE FROM channel_messages WHERE channel_id IN (SELECT id FROM channels WHERE realm_id LIKE ? OR slug LIKE ?)`).run(`${T}%`, `${S}%`);
-  db.prepare(`DELETE FROM channel_members WHERE channel_id IN (SELECT id FROM channels WHERE realm_id LIKE ? OR slug LIKE ?)`).run(`${T}%`, `${S}%`);
-  db.prepare("DELETE FROM channels WHERE realm_id LIKE ? OR slug LIKE ?").run(`${T}%`, `${S}%`);
-  db.prepare("DELETE FROM user_realms WHERE user_id = 'user-uuid-123'").run();
-  db.prepare("DELETE FROM users WHERE id = 'user-uuid-123'").run();
-  db.prepare("DELETE FROM agents WHERE did = ?").run(testAgentDid);
-  db.prepare("DELETE FROM realms WHERE id LIKE ?").run(`${T}%`);
   // Prisma cleanup
   await prisma.userRealm.deleteMany({ where: { userId: "user-uuid-123" } });
   await prisma.user.deleteMany({ where: { id: "user-uuid-123" } });

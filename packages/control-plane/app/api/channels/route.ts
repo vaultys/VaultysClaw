@@ -210,7 +210,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Create channel
-    const channel = ChannelService.createChannel({
+    const channel = await ChannelService.createChannel({
       name: body.name.trim(),
       slug,
       realmId: realmId || undefined,

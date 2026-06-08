@@ -993,19 +993,21 @@ async function seedApiKey(): Promise<void> {
   console.log("\n▶ Seeding demo API key…");
   const keyHash = crypto.createHash("sha256").update(DEMO_API_KEY).digest("hex");
   const id = makeId("apikey", "demo-simulator");
-  const existing = await prisma.apiKey.findUnique({ where: { keyHash } });
-  if (existing) { console.log("  ✓ API key already exists"); return; }
-
   const ctoDid = makeDid("exec-cto");
-  await prisma.apiKey.create({
-    data: {
+
+  await prisma.apiKey.upsert({
+    where: { keyHash },
+    create: {
       id,
       name: "Demo Simulator Key",
       keyHash,
       keyPrefix: DEMO_API_KEY.slice(0, 8),
-      allowedRoutes: [],
+      allowedRoutes: ["GET /api/workflows", "POST /api/workflows/[id]/execute"],
       isRealmAdmin: true,
       createdBy: ctoDid,
+    },
+    update: {
+      allowedRoutes: ["GET /api/workflows", "POST /api/workflows/[id]/execute"],
     },
   });
   console.log(`  ✓ API key  (prefix: ${DEMO_API_KEY.slice(0, 8)}…)`);

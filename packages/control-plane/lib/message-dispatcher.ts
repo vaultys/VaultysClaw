@@ -171,16 +171,22 @@ export const MessageDispatcher = {
         `[MessageDispatcher] Agent not connected: ${agentName} (${agentDid})`
       );
       // Post message to thread that agent is offline
-      ChannelService.createThreadReply({
-        channelId: context.channelId,
-        parentMessageId: context.threadId,
-        authorDid: agentDid,
-        authorType: "agent",
-        content: `⚠️ ${agentName} is currently offline. Your message has been saved and will be processed when they come online.`,
-        metadata: {
-          agentAction: "offline_notice",
-        },
-      });
+      try {
+        await ChannelService.createThreadReply({
+          channelId: context.channelId,
+          parentMessageId: context.threadId,
+          authorDid: agentDid,
+          authorType: "agent",
+          content: `⚠️ ${agentName} is currently offline. Your message has been saved and will be processed when they come online.`,
+          metadata: {
+            agentAction: "offline_notice",
+          },
+        });
+      } catch (err) {
+        console.error(
+          `[MessageDispatcher] Failed to create offline notice: ${err instanceof Error ? err.message : String(err)}`
+        );
+      }
     }
   },
 };

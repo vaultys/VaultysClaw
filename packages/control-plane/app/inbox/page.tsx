@@ -13,19 +13,19 @@ import {
 
 interface Approval {
   id: string;
-  run_id: string;
-  step_id: string;
-  workflow_id: string;
-  workflow_name: string;
-  node_message: string | null;
-  step_input: string | null;
-  assigned_user_id: string;
+  runId: string;
+  stepId: string;
+  workflowId: string;
+  workflowName: string;
+  nodeMessage: string | null;
+  stepInput: string | null;
+  assignedUserId: string;
   mode: "approval" | "notification";
   status: string;
-  decided_at: string | null;
-  decided_by: string | null;
+  decidedAt: string | null;
+  decidedBy: string | null;
   comment: string | null;
-  created_at: string;
+  createdAt: string;
 }
 
 export default function InboxPage() {
@@ -95,8 +95,8 @@ export default function InboxPage() {
   const displayed =
     filter === "pending"
       ? approvals.filter(
-          (a) => a.status === "pending" || a.status === "notified"
-        )
+        (a) => a.status === "pending" || a.status === "notified"
+      )
       : approvals;
 
   const pendingCount = approvals.filter(
@@ -131,11 +131,10 @@ export default function InboxPage() {
       <div className="flex gap-2 mb-5 border-b border-neutral-200">
         <button
           onClick={() => setFilter("pending")}
-          className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
-            filter === "pending"
-              ? "border-primary-500 text-primary-700 dark:text-primary-400"
-              : "border-transparent text-foreground-500 hover:text-foreground"
-          }`}
+          className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${filter === "pending"
+            ? "border-primary-500 text-primary-700 dark:text-primary-400"
+            : "border-transparent text-foreground-500 hover:text-foreground"
+            }`}
         >
           Pending
           {pendingCount > 0 && (
@@ -146,11 +145,10 @@ export default function InboxPage() {
         </button>
         <button
           onClick={() => setFilter("all")}
-          className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
-            filter === "all"
-              ? "border-primary-500 text-primary-700 dark:text-primary-400"
-              : "border-transparent text-foreground-500 hover:text-foreground"
-          }`}
+          className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${filter === "all"
+            ? "border-primary-500 text-primary-700 dark:text-primary-400"
+            : "border-transparent text-foreground-500 hover:text-foreground"
+            }`}
         >
           All
           <span className="ml-2 text-xs text-foreground-400">
@@ -256,24 +254,22 @@ function ApprovalCard({
 
   return (
     <div
-      className={`rounded-xl border bg-background-100 ${
-        isPending && !isNotification
-          ? "border-warning-300 dark:border-warning-700"
-          : isNotification && item.status === "notified"
-            ? "border-primary-300 dark:border-primary-700"
-            : "border-neutral-200"
-      }`}
+      className={`rounded-xl border bg-background-100 ${isPending && !isNotification
+        ? "border-warning-300 dark:border-warning-700"
+        : isNotification && item.status === "notified"
+          ? "border-primary-300 dark:border-primary-700"
+          : "border-neutral-200"
+        }`}
     >
       {/* Card header */}
       <div className="flex items-start gap-3 p-4">
         <div
-          className={`mt-0.5 p-1.5 rounded-lg shrink-0 ${
-            isPending && !isNotification
-              ? "bg-warning-100 dark:bg-warning-900/30"
-              : isNotification
-                ? "bg-primary-100 dark:bg-primary-900/30"
-                : "bg-background-200"
-          }`}
+          className={`mt-0.5 p-1.5 rounded-lg shrink-0 ${isPending && !isNotification
+            ? "bg-warning-100 dark:bg-warning-900/30"
+            : isNotification
+              ? "bg-primary-100 dark:bg-primary-900/30"
+              : "bg-background-200"
+            }`}
         >
           {isNotification ? (
             <Bell size={15} className="text-primary-500" />
@@ -288,27 +284,27 @@ function ApprovalCard({
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="font-semibold text-sm text-foreground">
-              {item.workflow_name}
+              {item.workflowName}
             </span>
             <StatusBadge status={item.status} mode={item.mode} />
             <span className="text-xs text-foreground-400 ml-auto whitespace-nowrap">
-              {new Date(item.created_at).toLocaleString()}
+              {new Date(item.createdAt).toLocaleString()}
             </span>
           </div>
 
-          {item.node_message && (
+          {item.nodeMessage && (
             <p className="text-sm text-foreground-700 mt-1">
-              {item.node_message}
+              {item.nodeMessage}
             </p>
           )}
 
           <div className="flex flex-wrap gap-x-4 gap-y-0.5 mt-1.5 text-xs text-foreground-500">
             <span>
-              <span className="font-medium">Step:</span> {item.step_id}
+              <span className="font-medium">Step:</span> {item.stepId}
             </span>
             <span>
               <span className="font-medium">Run:</span>{" "}
-              <span className="font-mono">{item.run_id.slice(0, 8)}…</span>
+              <span className="font-mono">{item.runId.slice(0, 8)}…</span>
             </span>
             <span>
               <span className="font-medium">Type:</span>{" "}
@@ -319,22 +315,22 @@ function ApprovalCard({
       </div>
 
       {/* Workflow input */}
-      {item.step_input && (
+      {item.stepInput && (
         <div className="px-4 pb-3">
           <p className="text-xs font-medium text-foreground-700 mb-1">
             Workflow input
           </p>
           <pre className="text-xs bg-background-200 text-foreground border border-neutral-200 rounded-lg p-3 overflow-x-auto max-h-28 whitespace-pre-wrap break-words">
-            {item.step_input}
+            {item.stepInput}
           </pre>
         </div>
       )}
 
       {/* Decision info (already decided) */}
-      {isDone && item.decided_at && (
+      {isDone && item.decidedAt && (
         <div className="px-4 pb-3 flex items-center gap-2 text-xs text-foreground-500">
           <Clock size={12} />
-          Decided {new Date(item.decided_at).toLocaleString()}
+          Decided {new Date(item.decidedAt).toLocaleString()}
           {item.comment && (
             <span className="ml-2 italic">"{item.comment}"</span>
           )}

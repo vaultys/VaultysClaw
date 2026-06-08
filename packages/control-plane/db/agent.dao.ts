@@ -377,4 +377,11 @@ export class AgentDAO {
       },
     });
   }
+
+  static async updateDailyPriceSpent(agentDid: string, priceSpent: number): Promise<Agent> {
+    return prisma.agent.update({
+      where: { did: agentDid },
+      data: { dailyPriceSpent: priceSpent },
+    });
+  }
 }

@@ -812,7 +812,7 @@ describe("DELETE /api/realms/[id]/skills/[skillId]", () => {
 describe("GET /api/stats/tokens", () => {
   it("returns 401 when unauthenticated", async () => {
     mockGetAuthContext.mockResolvedValueOnce(null);
-    const res = await statsTokensGET();
+    const res = await statsTokensGET(req("GET", "http://localhost/") as any);
     expect(res._status).toBe(401);
   });
 
@@ -821,12 +821,12 @@ describe("GET /api/stats/tokens", () => {
       ...makeAdminContext(),
       isGlobalAdmin: false,
     });
-    const res = await statsTokensGET();
+    const res = await statsTokensGET(req("GET", "http://localhost/") as any);
     expect(res._status).toBe(403);
   });
 
   it("returns allTime / daily / monthly structure with numeric values", async () => {
-    const res = await statsTokensGET();
+    const res = await statsTokensGET(req("GET", "http://localhost/") as any);
     expect(res._status).toBe(200);
 
     const body = (await res.json()) as {
@@ -856,7 +856,7 @@ describe("GET /api/stats/tokens", () => {
     await prisma.agentTokenUsage.upsert({ where: { agentDid: testDid }, create: { agentDid: testDid, promptTokens: 1000, completionTokens: 500 }, update: { promptTokens: 1000, completionTokens: 500 } });
 
     try {
-      const res = await statsTokensGET();
+      const res = await statsTokensGET(req("GET", "http://localhost/") as any);
       const body = (await res.json()) as {
         allTime: { promptTokens: number; completionTokens: number };
       };
@@ -876,6 +876,7 @@ describe("GET /api/stats/tokens", () => {
     const today = new Date().toISOString().slice(0, 10);
     const thisMonth = new Date().toISOString().slice(0, 7);
 
+    // SQLite
     db.prepare(
       `
       INSERT OR IGNORE INTO agents (did, name, capabilities, registered_at)
@@ -901,8 +902,21 @@ describe("GET /api/stats/tokens", () => {
     `
     ).run(testDid, thisMonth);
 
+    // Prisma (for route handler)
+    await prisma.agent.upsert({ where: { did: testDid }, create: { did: testDid, name: "history-test-agent", capabilities: [] }, update: {} });
+    await prisma.agentTokenUsageHistory.upsert({
+      where: { agentDid_bucket_granularity: { agentDid: testDid, bucket: today, granularity: "day" } },
+      create: { agentDid: testDid, bucket: today, granularity: "day", promptTokens: 200, completionTokens: 100 },
+      update: { promptTokens: 200, completionTokens: 100 },
+    });
+    await prisma.agentTokenUsageHistory.upsert({
+      where: { agentDid_bucket_granularity: { agentDid: testDid, bucket: thisMonth, granularity: "month" } },
+      create: { agentDid: testDid, bucket: thisMonth, granularity: "month", promptTokens: 800, completionTokens: 400 },
+      update: { promptTokens: 800, completionTokens: 400 },
+    });
+
     try {
-      const res = await statsTokensGET();
+      const res = await statsTokensGET(req("GET", "http://localhost/") as any);
       const body = (await res.json()) as {
         daily: { promptTokens: number; completionTokens: number };
         monthly: { promptTokens: number; completionTokens: number };
@@ -916,6 +930,8 @@ describe("GET /api/stats/tokens", () => {
         "DELETE FROM agent_token_usage_history WHERE agent_did = ?"
       ).run(testDid);
       db.prepare("DELETE FROM agents WHERE did = ?").run(testDid);
+      await prisma.agentTokenUsageHistory.deleteMany({ where: { agentDid: testDid } });
+      await prisma.agent.deleteMany({ where: { did: testDid } });
     }
   });
 });

@@ -68,14 +68,14 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     if (!auth) return unauthorized();
 
     const { id: channelId } = await ctx.params;
-    const channel = ChannelService.getChannel(channelId);
+    const channel = await ChannelService.getChannel(channelId);
 
     if (!channel) {
       return NextResponse.json({ error: "Channel not found" }, { status: 404 });
     }
 
     // Check if caller is a member of the channel
-    if (!ChannelService.isMember(channelId, auth.did)) {
+    if (!(await ChannelService.isMember(channelId, auth.did))) {
       return NextResponse.json(
         { error: "Caller is not a member of this channel" },
         { status: 403 }
@@ -96,7 +96,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     }
 
     // Post agent message
-    const message = ChannelService.postMessage({
+    const message = await ChannelService.postMessage({
       channelId,
       authorDid: auth.did,
       authorType: "agent",

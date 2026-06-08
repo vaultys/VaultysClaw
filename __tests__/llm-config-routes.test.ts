@@ -62,8 +62,8 @@ import {
   GET as llmConfigGET,
   PUT as llmConfigPUT,
   DELETE as llmConfigDELETE,
-} from "../packages/control-plane/app/api/agents/[did]/llm-config/route";
-import { GET as realmLlmGET } from "../packages/control-plane/app/api/agents/[did]/realm-llm/route";
+} from "../packages/control-plane/app/api/agent/[did]/llm-config/route";
+import { GET as realmLlmGET } from "../packages/control-plane/app/api/agent/[did]/realm-llm/route";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -205,10 +205,10 @@ describe("PUT /api/agents/[did]/llm-config (manual)", () => {
     const res = await llmConfigPUT(r as any, params(agentDid));
     expect(res._status).toBe(200);
     const body = (await res.json()) as {
-      ok: boolean;
+      pushed: boolean;
       config: { model: string };
     };
-    expect(body.ok).toBe(true);
+    expect(body.pushed).toBeDefined();
     expect(body.config.model).toBe("gpt-4o-mini");
   });
 
@@ -238,10 +238,10 @@ describe("PUT /api/agents/[did]/llm-config (registryModelId)", () => {
     const res = await llmConfigPUT(r as any, params(agentDid));
     expect(res._status).toBe(200);
     const body = (await res.json()) as {
-      ok: boolean;
+      pushed: boolean;
       config: { model: string };
     };
-    expect(body.ok).toBe(true);
+    expect(body.pushed).toBeDefined();
     expect(body.config.model).toBe("ft-model");
     // API key must not be in the response
     expect((body.config as any).apiKey).toBeUndefined();
@@ -269,10 +269,10 @@ describe("PUT /api/agents/[did]/llm-config (realmId + realmModelId)", () => {
     const res = await llmConfigPUT(r as any, params(agentDid));
     expect(res._status).toBe(200);
     const body = (await res.json()) as {
-      ok: boolean;
+      pushed: boolean;
       config: { model: string; apiKeySet: boolean };
     };
-    expect(body.ok).toBe(true);
+    expect(body.pushed).toBeDefined();
     // Should use the litellm_model_name, not the plain model_id
     expect(body.config.model).toBe("openai-compatible/ft-model");
     expect(body.config.apiKeySet).toBe(true);
@@ -317,8 +317,8 @@ describe("DELETE /api/agents/[did]/llm-config", () => {
 
     const res = await llmConfigDELETE(req("DELETE", "http://localhost") as any, params(agentDid));
     expect(res._status).toBe(200);
-    const body = (await res.json()) as { ok: boolean };
-    expect(body.ok).toBe(true);
+    const body = (await res.json()) as { pushed: boolean };
+    expect(body.pushed).toBeDefined();
 
     const agent = await prisma.agent.findUnique({ where: { did: agentDid } });
     expect(agent?.llmConfig).toBeNull();

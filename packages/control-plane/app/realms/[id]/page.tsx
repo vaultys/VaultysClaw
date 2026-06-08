@@ -55,19 +55,19 @@ interface Realm {
 }
 
 interface RealmAgent {
-  agent_did: string;
-  agent_name: string;
+  agentDid: string;
+  agentName: string;
   capabilities: string;
-  is_primary: number;
-  joined_at: string;
+  isPrimary: number;
+  joinedAt: string;
 }
 
 interface RealmUser {
-  user_did: string;
+  userDid: string;
   name: string | null;
   email: string | null;
-  is_primary: number;
-  joined_at: string;
+  isPrimary: number;
+  joinedAt: string;
 }
 
 interface RealmWorkflow {
@@ -177,8 +177,8 @@ function AddMemberModal({
   const available =
     type === "agent"
       ? (items as FullAgent[]).filter(
-          (a) => !a.realms?.some((r) => r.id === realm.id)
-        )
+        (a) => !a.realms?.some((r) => r.id === realm.id)
+      )
       : (items as FullUser[]);
 
   async function handleAdd() {
@@ -310,7 +310,7 @@ export default function RealmDetailPage() {
     fetch(`/api/map?realm=${id}`)
       .then((r) => (r.ok ? r.json() : { markers: [] }))
       .then((d: { markers?: MapMarker[] }) => setMapMarkers(d.markers ?? []))
-      .catch(() => {})
+      .catch(() => { })
       .finally(() => setMapLoading(false));
   }, [id]);
 
@@ -685,11 +685,10 @@ export default function RealmDetailPage() {
                 refreshMapMarkers();
               }
             }}
-            className={`px-4 py-2 text-sm font-medium capitalize transition-colors border-b-2 -mb-px ${
-              tab === t
+            className={`px-4 py-2 text-sm font-medium capitalize transition-colors border-b-2 -mb-px ${tab === t
                 ? "border-primary-500 text-primary-700 dark:text-primary-400"
                 : "border-transparent text-foreground-500 hover:text-foreground"
-            }`}
+              }`}
           >
             {t === "agents" && `Agents (${agents.length})`}
             {t === "users" && `Users (${users.length})`}
@@ -726,7 +725,7 @@ export default function RealmDetailPage() {
             <div className="bg-background-100 border border-neutral-200 rounded-2xl overflow-hidden">
               {agents.map((a, i) => (
                 <div
-                  key={a.agent_did}
+                  key={a.agentDid}
                   className={`flex items-center gap-3 px-4 py-3 ${i > 0 ? "border-t border-neutral-200/50" : ""}`}
                 >
                   <div className="w-8 h-8 rounded-lg bg-primary-50 dark:bg-primary-600/20 flex items-center justify-center shrink-0">
@@ -735,20 +734,20 @@ export default function RealmDetailPage() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-medium text-foreground truncate">
-                        {a.agent_name}
+                        {a.agentName}
                       </span>
-                      {a.is_primary === 1 && (
+                      {a.isPrimary === 1 && (
                         <span className="text-xs px-1.5 py-0.5 rounded bg-warning-50 dark:bg-warning-500/10 text-warning-700 dark:text-warning-400">
                           primary
                         </span>
                       )}
                     </div>
                     <code className="text-xs text-foreground-400 font-mono">
-                      {shortDid(a.agent_did)}
+                      {shortDid(a.agentDid)}
                     </code>
                   </div>
                   <Link
-                    href={`/agents/${a.agent_did}`}
+                    href={`/agents/${a.agentDid}`}
                     className="p-1.5 rounded-lg text-foreground-500 hover:text-primary-400 transition-colors"
                     title="View agent"
                     onClick={(e) => e.stopPropagation()}
@@ -757,7 +756,7 @@ export default function RealmDetailPage() {
                   </Link>
                   {realm.is_default !== 1 && (
                     <button
-                      onClick={() => handleRemoveAgent(a.agent_did)}
+                      onClick={() => handleRemoveAgent(a.agentDid)}
                       className="p-1.5 rounded-lg text-foreground-500 hover:text-danger-400 hover:bg-danger-400/10 transition-colors"
                       title="Remove from realm"
                     >
@@ -793,18 +792,18 @@ export default function RealmDetailPage() {
             <div className="bg-background-100 border border-neutral-200 rounded-2xl overflow-hidden">
               {users.map((u, i) => (
                 <div
-                  key={u.user_did}
+                  key={u.userDid}
                   className={`flex items-center gap-3 px-4 py-3 ${i > 0 ? "border-t border-neutral-200/50" : ""}`}
                 >
                   <div className="w-8 h-8 rounded-full bg-background-200 border border-neutral-200 flex items-center justify-center shrink-0 text-xs font-semibold text-foreground-500">
-                    {initials(u.name, u.user_did)}
+                    {initials(u.name, u.userDid)}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-medium text-foreground truncate">
-                        {u.name ?? shortDid(u.user_did)}
+                        {u.name ?? shortDid(u.userDid)}
                       </span>
-                      {u.is_primary === 1 && (
+                      {u.isPrimary === 1 && (
                         <span className="text-xs px-1.5 py-0.5 rounded bg-warning-50 dark:bg-warning-500/10 text-warning-700 dark:text-warning-400">
                           primary
                         </span>
@@ -818,7 +817,7 @@ export default function RealmDetailPage() {
                   </div>
                   {realm.is_default !== 1 && (
                     <button
-                      onClick={() => handleRemoveUser(u.user_did)}
+                      onClick={() => handleRemoveUser(u.userDid)}
                       className="p-1.5 rounded-lg text-foreground-500 hover:text-danger-400 hover:bg-danger-400/10 transition-colors"
                       title="Remove from realm"
                     >
@@ -1384,11 +1383,10 @@ function RealmSkillsTab({
                 </div>
                 <button
                   onClick={() => handleToggleRequired(skill)}
-                  className={`p-1.5 rounded-lg transition-colors text-xs ${
-                    skill.isRequired
+                  className={`p-1.5 rounded-lg transition-colors text-xs ${skill.isRequired
                       ? "text-warning-400 hover:text-foreground-500 hover:bg-background-200"
                       : "text-foreground-500 hover:text-warning-400 hover:bg-warning-400/10"
-                  }`}
+                    }`}
                   title={skill.isRequired ? "Make optional" : "Make required"}
                 >
                   <Lock className="w-4 h-4" />
@@ -1466,11 +1464,10 @@ function RealmConfigTab({
               <button
                 key={cap}
                 onClick={() => toggle(cap)}
-                className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors border ${
-                  caps.includes(cap)
+                className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors border ${caps.includes(cap)
                     ? "bg-primary-50 dark:bg-primary-600/20 border-primary-300 dark:border-primary-500/50 text-primary-700 dark:text-primary-300"
                     : "bg-background-200 border-neutral-200 text-foreground-500 hover:text-foreground"
-                }`}
+                  }`}
               >
                 {cap.replace(/_/g, " ")}
               </button>

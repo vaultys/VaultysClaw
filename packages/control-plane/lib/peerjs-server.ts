@@ -116,12 +116,19 @@ export class AgentPeerjsServer {
       const peer = new Peer(this.peerId, options);
       this.peer = peer;
 
+      // Tracks reconnect attempts after a successful initial connection.
+      let reconnectAttempts = 0;
+      const MAX_RECONNECT = 5;
+
       const timeout = setTimeout(() => {
+        peer.destroy();
+        this.peer = null;
         reject(new Error("PeerJS connection to signaling server timed out"));
       }, 15_000);
 
       peer.on("open", (id) => {
         clearTimeout(timeout);
+        reconnectAttempts = 0;
         this._running = true;
         this._startedAt = new Date();
         logger.info(
@@ -132,9 +139,16 @@ export class AgentPeerjsServer {
       });
 
       peer.on("error", (err) => {
-        clearTimeout(timeout);
         logger.error({ err: err.message }, "PeerJS peer error");
-        reject(err);
+        if (!this._running) {
+          // Startup has not completed yet — destroy the peer so the
+          // "disconnected" handler never fires and we don't spin forever.
+          clearTimeout(timeout);
+          peer.destroy();
+          this.peer = null;
+          reject(err);
+        }
+        // Post-startup errors are handled by the "disconnected" event below.
       });
 
       peer.on("connection", (conn: DataConnection) => {
@@ -142,14 +156,35 @@ export class AgentPeerjsServer {
       });
 
       peer.on("disconnected", () => {
+        // Don't reconnect if startup failed or shutdown() was called.
+        if (!this._running || !this.peer) return;
+
+        if (reconnectAttempts >= MAX_RECONNECT) {
+          logger.error(
+            { attempts: reconnectAttempts },
+            "PeerJS: max reconnect attempts reached — giving up"
+          );
+          peer.destroy();
+          this.peer = null;
+          this._running = false;
+          return;
+        }
+
+        reconnectAttempts++;
+        // Exponential back-off: 2s, 4s, 8s, 16s, 30s (capped).
+        const delayMs = Math.min(1_000 * 2 ** reconnectAttempts, 30_000);
         logger.warn(
-          "PeerJS disconnected from signaling server — attempting reconnect"
+          { attempt: reconnectAttempts, maxAttempts: MAX_RECONNECT, delayMs },
+          "PeerJS disconnected from signaling server — reconnecting with back-off"
         );
-        peer.reconnect();
+        setTimeout(() => {
+          if (this.peer) peer.reconnect();
+        }, delayMs);
       });
 
       peer.on("close", () => {
         logger.info("PeerJS peer closed");
+        this._running = false;
       });
     });
 
@@ -201,12 +236,14 @@ export class AgentPeerjsServer {
   }
 
   shutdown(): void {
+    // Set _running = false BEFORE destroy() so the "disconnected" event
+    // that fires during teardown doesn't schedule a reconnect.
+    this._running = false;
+    this._startedAt = null;
     if (this.peer) {
       this.peer.destroy();
       this.peer = null;
     }
-    this._running = false;
-    this._startedAt = null;
   }
 }
 

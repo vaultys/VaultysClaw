@@ -1039,6 +1039,104 @@ async function runMigrations(): Promise<void> {
   }
 }
 
+// ── LiteLLM model registration ───────────────────────────────────────────────
+
+interface LiteLLMModelSpec {
+  modelName: string;   // name LiteLLM exposes (what agents reference)
+  litellmModel: string; // underlying model string passed to the provider
+  apiKey?: string;
+}
+
+async function litellmFetch(baseUrl: string, masterKey: string, path: string, body: unknown): Promise<boolean> {
+  try {
+    const res = await fetch(`${baseUrl}${path}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${masterKey}`,
+      },
+      body: JSON.stringify(body),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+async function seedLiteLLM(cfg: DemoConfig): Promise<void> {
+  console.log("\n▶ Configuring LiteLLM proxy…");
+
+  const baseUrl = process.env.LITELLM_BASE_URL?.replace(/\/$/, "");
+  const masterKey = process.env.LITELLM_MASTER_KEY;
+
+  if (!baseUrl || !masterKey) {
+    console.log("  ℹ LITELLM_BASE_URL / LITELLM_MASTER_KEY not set — skipping LiteLLM registration");
+    return;
+  }
+
+  // Persist connection settings to DB so the UI picks them up
+  await setSetting("litellm_base_url", baseUrl);
+  const { encryptSecret: enc } = await import("../../packages/control-plane/lib/vault.js");
+  await setSetting("litellm_master_key_enc", await enc(masterKey));
+
+  // Health check
+  try {
+    const health = await fetch(`${baseUrl}/health/liveliness`, {
+      headers: { Authorization: `Bearer ${masterKey}` },
+      signal: AbortSignal.timeout(5000),
+    });
+    if (!health.ok) {
+      console.log("  ⚠ LiteLLM proxy is not reachable — skipping model registration");
+      return;
+    }
+  } catch {
+    console.log("  ⚠ LiteLLM proxy is not reachable — skipping model registration");
+    return;
+  }
+
+  // Resolve API keys: demo-config.json takes precedence, then env vars
+  const rawOpenai = cfg.llm?.["openai"]?.apiKey;
+  const rawAnthropic = cfg.llm?.["anthropic"]?.apiKey;
+  const openaiKey = (rawOpenai && !rawOpenai.startsWith("YOUR_")) ? rawOpenai : process.env.OPENAI_API_KEY;
+  const anthropicKey = (rawAnthropic && !rawAnthropic.startsWith("YOUR_")) ? rawAnthropic : process.env.ANTHROPIC_API_KEY;
+
+  const models: LiteLLMModelSpec[] = [
+    { modelName: "openai/gpt-4o",         litellmModel: "openai/gpt-4o",         apiKey: openaiKey },
+    { modelName: "openai/gpt-4o-mini",    litellmModel: "openai/gpt-4o-mini",    apiKey: openaiKey },
+    { modelName: "anthropic/claude-sonnet-4-5", litellmModel: "anthropic/claude-sonnet-4-5", apiKey: anthropicKey },
+  ];
+
+  // Add extra models from demo-config.json
+  for (const [provider, provCfg] of Object.entries(cfg.llm ?? {})) {
+    const apiKey = provCfg.apiKey?.startsWith("YOUR_") ? undefined : provCfg.apiKey || undefined;
+    for (const model of provCfg.models ?? []) {
+      const name = `${provider}/${model.id}`;
+      if (!models.find(m => m.modelName === name)) {
+        models.push({ modelName: name, litellmModel: name, apiKey });
+      }
+    }
+  }
+
+  let registered = 0;
+  for (const spec of models) {
+    const ok = await litellmFetch(baseUrl, masterKey, "/model/new", {
+      model_name: spec.modelName,
+      litellm_params: {
+        model: spec.litellmModel,
+        ...(spec.apiKey ? { api_key: spec.apiKey } : {}),
+      },
+    });
+    if (ok) { registered++; process.stdout.write("."); }
+    else { process.stdout.write("✗"); }
+  }
+
+  const keyless = models.filter(m => !m.apiKey).length;
+  console.log(`\n  ✓ ${registered}/${models.length} models registered in LiteLLM proxy`);
+  if (keyless > 0) {
+    console.log(`  ⚠  ${keyless} model(s) registered without API key — add keys to demo-config.json or set OPENAI_API_KEY / ANTHROPIC_API_KEY`);
+  }
+}
+
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 async function main() {
@@ -1060,6 +1158,7 @@ async function main() {
   const agentDidMap = await seedAgents(realmSlugToId, modelIdMap, skillMap);
   await seedWorkflows(realmSlugToId, agentDidMap, ownerDid, ownerUserId);
   await seedApiKey();
+  await seedLiteLLM(cfg);
 
   const userCount = await prisma.user.count();
   const agentCount = await prisma.agent.count();

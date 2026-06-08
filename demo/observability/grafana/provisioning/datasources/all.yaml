@@ -4,7 +4,7 @@ datasources:
   - name: Prometheus
     type: prometheus
     uid: prometheus
-    url: http://vc-demo-prometheus:9090
+    url: http://vc-demo-prometheus:9090   # container-name DNS on vc-demo-obs network
     isDefault: true
     jsonData:
       timeInterval: 15s
@@ -15,7 +15,7 @@ datasources:
   - name: Tempo
     type: tempo
     uid: tempo
-    url: http://vc-demo-tempo:3200
+    url: http://vc-demo-tempo:3200   # container-name DNS on vc-demo-obs network
     jsonData:
       tracesToMetricsV2:
         datasourceUid: prometheus
@@ -30,8 +30,6 @@ datasources:
         enabled: true
       search:
         hide: false
-      lokiSearch:
-        datasourceUid: ""
       traceQuery:
         timeShiftEnabled: true
         spanStartTimeShift: "1h"

@@ -1,5 +1,6 @@
 # Grafana Tempo — VaultysClaw demo
 # All-in-one single-binary mode, local filesystem storage.
+# Tested against grafana/tempo:latest (3.x).
 
 stream_over_http_enabled: true
 
@@ -14,13 +15,6 @@ distributor:
         grpc:
           endpoint: 0.0.0.0:4317
 
-ingester:
-  max_block_duration: 5m
-
-compactor:
-  compaction:
-    block_retention: 72h
-
 storage:
   trace:
     backend: local
@@ -29,14 +23,8 @@ storage:
     wal:
       path: /var/tempo/wal
 
-query_frontend:
-  search:
-    duration_slo: 5s
-    throughput_bytes_slo: 1.073741824e+09
-  trace_by_id:
-    duration_slo: 5s
-
-# Expose Prometheus metrics so Grafana service-map feature works
+# Generates service-graph + span-metrics from traces, pushed to Prometheus
+# so Grafana's Service Map panel works.
 metrics_generator:
   registry:
     external_labels:
@@ -44,10 +32,9 @@ metrics_generator:
   storage:
     path: /var/tempo/generator/wal
     remote_write:
-      - url: http://vc-demo-prometheus:9090/api/v1/write
+      - url: http://vc-demo-prometheus:9090/api/v1/write   # container-name DNS on vc-demo-obs network
 
 overrides:
   defaults:
     metrics_generator:
       processors: [service-graphs, span-metrics]
-      generate_native_histograms: both

@@ -100,7 +100,8 @@ cleanup() {
 
   # STOP Docker containers in reverse startup order so dependents shut down
   # before Postgres (prevents data corruption on hard stops).
-  for cname in "${LITELLM_CONTAINER:-}" "${DOCLING_CONTAINER:-}" "${MINIO_CONTAINER:-}" "${PG_CONTAINER:-}"; do
+  for cname in "${OBS_GRAFANA_CONTAINER:-}" "${OBS_COLLECTOR_CONTAINER:-}" "${OBS_PROMETHEUS_CONTAINER:-}" "${OBS_TEMPO_CONTAINER:-}" \
+               "${LITELLM_CONTAINER:-}" "${DOCLING_CONTAINER:-}" "${MINIO_CONTAINER:-}" "${PG_CONTAINER:-}"; do
     [[ -z "$cname" ]] && continue
     if docker inspect "$cname" &>/dev/null 2>&1; then
       docker stop "$cname" >/dev/null 2>&1 || true
@@ -235,14 +236,15 @@ LITELLM_PORT="4000"
 LITELLM_BASE_URL="http://127.0.0.1:${LITELLM_PORT}"
 LITELLM_DB="vaultysclaw_litellm"
 
-OBS_NETWORK="vc-demo-obs"
+OBS_NETWORK="vc-demo-obs"          # shared Docker bridge for all obs containers
 OBS_COLLECTOR_CONTAINER="vc-demo-otel-collector"
 OBS_TEMPO_CONTAINER="vc-demo-tempo"
 OBS_PROMETHEUS_CONTAINER="vc-demo-prometheus"
 OBS_GRAFANA_CONTAINER="vc-demo-grafana"
-OBS_COLLECTOR_PORT="4318"   # OTLP/HTTP — app sends here
-OBS_GRAFANA_PORT="3001"     # Grafana UI
-OBS_PROMETHEUS_PORT="9090"  # Prometheus UI
+OBS_COLLECTOR_PORT="4318"    # OTLP/HTTP — control plane sends here (host → container)
+OBS_TEMPO_HTTP_PORT="3200"   # Tempo query HTTP (host-mapped for debugging)
+OBS_GRAFANA_PORT="3001"      # Grafana UI
+OBS_PROMETHEUS_PORT="9090"   # Prometheus UI
 OBS_CONFIG_DIR="$DEMO_DIR/observability"
 
 NODE_ENV="development"
@@ -333,15 +335,33 @@ fi
 if ! $SKIP_OBS; then
   step "Observability"
 
-  # Shared Docker network so containers reach each other by name
-  if ! docker network inspect "$OBS_NETWORK" &>/dev/null 2>&1; then
-    log "Creating Docker network ${OBS_NETWORK}…"
-    docker network create "$OBS_NETWORK" >/dev/null
-  fi
+  # All 4 obs containers share the vc-demo-obs Docker bridge network so they
+  # can reach each other by container name (avoids host.docker.internal which
+  # resolves to IPv6 on macOS/Docker Desktop, breaking gRPC from the Collector
+  # to Tempo).  The OTel Collector still exposes ports to the host so the
+  # control plane (a host process) can send OTLP to localhost:4318.
+
+  log "Ensuring $OBS_NETWORK Docker network exists…"
+  docker network create --driver bridge "$OBS_NETWORK" >/dev/null 2>&1 || true
+
+  # Connect an existing container to the obs network if it isn't already.
+  # Works on both running and stopped containers; silently no-ops if already connected.
+  obs_connect_network() {
+    local cname="$1"
+    if ! docker inspect "$cname" \
+         --format '{{range $k, $v := .NetworkSettings.Networks}}{{$k}} {{end}}' \
+         2>/dev/null | grep -qw "$OBS_NETWORK"; then
+      log "Connecting $cname to $OBS_NETWORK network…"
+      docker network connect "$OBS_NETWORK" "$cname" 2>/dev/null || true
+    fi
+  }
 
   # ── Tempo (trace storage) ──────────────────────────────────────────────────
+  # Only the HTTP query port (3200) needs to be host-mapped — the OTLP gRPC
+  # port (4317) is internal to the obs network; only the Collector reaches it.
 
   if docker inspect "$OBS_TEMPO_CONTAINER" &>/dev/null 2>&1; then
+    obs_connect_network "$OBS_TEMPO_CONTAINER"
     if [[ "$(docker inspect -f '{{.State.Running}}' "$OBS_TEMPO_CONTAINER")" != "true" ]]; then
       log "Starting existing $OBS_TEMPO_CONTAINER"
       docker start "$OBS_TEMPO_CONTAINER" >/dev/null
@@ -349,10 +369,11 @@ if ! $SKIP_OBS; then
       log "$OBS_TEMPO_CONTAINER is already running."
     fi
   else
-    log "Creating $OBS_TEMPO_CONTAINER…"
+    log "Creating $OBS_TEMPO_CONTAINER (HTTP :${OBS_TEMPO_HTTP_PORT})…"
     docker run -d \
       --name "$OBS_TEMPO_CONTAINER" \
       --network "$OBS_NETWORK" \
+      -p "${OBS_TEMPO_HTTP_PORT}:3200" \
       -v "${OBS_CONFIG_DIR}/tempo.yaml:/etc/tempo.yaml:ro" \
       -v "vc-demo-tempo-data:/var/tempo" \
       grafana/tempo:latest \
@@ -363,6 +384,7 @@ if ! $SKIP_OBS; then
   # ── Prometheus (metric storage) ───────────────────────────────────────────
 
   if docker inspect "$OBS_PROMETHEUS_CONTAINER" &>/dev/null 2>&1; then
+    obs_connect_network "$OBS_PROMETHEUS_CONTAINER"
     if [[ "$(docker inspect -f '{{.State.Running}}' "$OBS_PROMETHEUS_CONTAINER")" != "true" ]]; then
       log "Starting existing $OBS_PROMETHEUS_CONTAINER"
       docker start "$OBS_PROMETHEUS_CONTAINER" >/dev/null
@@ -385,22 +407,32 @@ if ! $SKIP_OBS; then
   fi
 
   # ── OTel Collector (ingestion gateway) ────────────────────────────────────
-  # Stateless — always recreate if config drifted (no volume to preserve).
+  # Stateless — safe to recreate if it's not on the obs network.
+  # Exposes :4317 (gRPC) and :4318 (HTTP) to the host so the control plane
+  # can send OTLP via localhost.  Internally it reaches Tempo and Prometheus
+  # by container name over the obs network.
 
   OBS_COLLECTOR_NEEDS_CREATE=true
   if docker inspect "$OBS_COLLECTOR_CONTAINER" &>/dev/null 2>&1; then
-    if [[ "$(docker inspect -f '{{.State.Running}}' "$OBS_COLLECTOR_CONTAINER")" != "true" ]]; then
-      log "Starting existing $OBS_COLLECTOR_CONTAINER"
-      docker start "$OBS_COLLECTOR_CONTAINER" >/dev/null
-      OBS_COLLECTOR_NEEDS_CREATE=false
+    if ! docker inspect "$OBS_COLLECTOR_CONTAINER" \
+         --format '{{range $k, $v := .NetworkSettings.Networks}}{{$k}} {{end}}' \
+         2>/dev/null | grep -qw "$OBS_NETWORK"; then
+      warn "$OBS_COLLECTOR_CONTAINER is not on $OBS_NETWORK — recreating (stateless)."
+      docker rm -f "$OBS_COLLECTOR_CONTAINER" >/dev/null 2>&1 || true
+      # OBS_COLLECTOR_NEEDS_CREATE stays true
     else
-      log "$OBS_COLLECTOR_CONTAINER is already running."
       OBS_COLLECTOR_NEEDS_CREATE=false
+      if [[ "$(docker inspect -f '{{.State.Running}}' "$OBS_COLLECTOR_CONTAINER")" != "true" ]]; then
+        log "Starting existing $OBS_COLLECTOR_CONTAINER"
+        docker start "$OBS_COLLECTOR_CONTAINER" >/dev/null
+      else
+        log "$OBS_COLLECTOR_CONTAINER is already running."
+      fi
     fi
   fi
 
   if $OBS_COLLECTOR_NEEDS_CREATE; then
-    log "Creating $OBS_COLLECTOR_CONTAINER (OTLP HTTP :${OBS_COLLECTOR_PORT})…"
+    log "Creating $OBS_COLLECTOR_CONTAINER (OTLP gRPC :4317 / HTTP :${OBS_COLLECTOR_PORT} → host)…"
     docker run -d \
       --name "$OBS_COLLECTOR_CONTAINER" \
       --network "$OBS_NETWORK" \
@@ -415,6 +447,7 @@ if ! $SKIP_OBS; then
   # ── Grafana (visualisation) ────────────────────────────────────────────────
 
   if docker inspect "$OBS_GRAFANA_CONTAINER" &>/dev/null 2>&1; then
+    obs_connect_network "$OBS_GRAFANA_CONTAINER"
     if [[ "$(docker inspect -f '{{.State.Running}}' "$OBS_GRAFANA_CONTAINER")" != "true" ]]; then
       log "Starting existing $OBS_GRAFANA_CONTAINER"
       docker start "$OBS_GRAFANA_CONTAINER" >/dev/null
@@ -480,7 +513,7 @@ docker exec "$PG_CONTAINER" \
   >/dev/null 2>&1 || true   # ignore "already exists" error
 
 # =============================================================================
-# Step 6 — MinIO
+# Step 7 — MinIO
 # =============================================================================
 
 if ! $SKIP_MINIO; then
@@ -517,7 +550,7 @@ if ! $SKIP_MINIO; then
 fi
 
 # =============================================================================
-# Step 7 — Docling
+# Step 8 — Docling
 # =============================================================================
 
 if ! $SKIP_DOCLING; then
@@ -547,7 +580,7 @@ if ! $SKIP_DOCLING; then
 fi
 
 # =============================================================================
-# Step 8 — LiteLLM proxy
+# Step 9 — LiteLLM proxy
 # =============================================================================
 
 if ! $SKIP_LITELLM; then
@@ -630,7 +663,7 @@ LITELLMCFG
 fi
 
 # =============================================================================
-# Step 9 — Prisma schema push (idempotent)
+# Step 10 — Prisma schema push (idempotent)
 # =============================================================================
 step "Database schema"
 
@@ -646,7 +679,7 @@ log "Running prisma db push (DATABASE_URL=${DATABASE_URL})…"
 log "Schema is up to date."
 
 # =============================================================================
-# Step 10 — Control Plane
+# Step 11 — Control Plane
 # =============================================================================
 step "Control Plane"
 
@@ -659,6 +692,10 @@ PREV_DB_URL=$(grep '^DATABASE_URL=' "$DATA_DIR/.env" 2>/dev/null | cut -d= -f2- 
 # up until restarted — but at least the file is correct for the next start and
 # won't become a second source of truth that diverges from the DB password.
 mkdir -p "$DATA_DIR"
+OTEL_ENABLED=$( $SKIP_OBS && echo "false" || echo "true" )
+OTEL_EXPORTER_OTLP_ENDPOINT="http://localhost:${OBS_COLLECTOR_PORT}"
+OTEL_SERVICE_NAME="vaultysclaw-control-plane"
+
 cat > "$DATA_DIR/.env" <<CPENV
 # Generated by demo-up.sh — do not edit manually
 DATABASE_URL=${DATABASE_URL}
@@ -669,6 +706,9 @@ PORT=${PORT}
 WS_PORT=${WS_PORT}
 LITELLM_BASE_URL=${LITELLM_BASE_URL}
 LITELLM_MASTER_KEY=${LITELLM_MASTER_KEY}
+OTEL_ENABLED=${OTEL_ENABLED}
+OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT}
+OTEL_SERVICE_NAME=${OTEL_SERVICE_NAME}
 CPENV
 
 if curl -sf --max-time 2 "${CONTROL_PLANE_URL}/api/health" >/dev/null 2>&1; then
@@ -699,6 +739,9 @@ else
   WS_PORT="$WS_PORT" \
   LITELLM_BASE_URL="$LITELLM_BASE_URL" \
   LITELLM_MASTER_KEY="$LITELLM_MASTER_KEY" \
+  OTEL_ENABLED="$OTEL_ENABLED" \
+  OTEL_EXPORTER_OTLP_ENDPOINT="$OTEL_EXPORTER_OTLP_ENDPOINT" \
+  OTEL_SERVICE_NAME="$OTEL_SERVICE_NAME" \
   pnpm --filter @vaultysclaw/control-plane dev -- --data-dir "$DATA_DIR" \
     > "$LOG_DIR/control-plane.log" 2>&1 &
   CP_PID=$!
@@ -715,7 +758,7 @@ else
 fi
 
 # =============================================================================
-# Step 11 — Claim ownership (first-time setup)
+# Step 12 — Claim ownership (first-time setup)
 # =============================================================================
 
 owner_exists_in_db() {
@@ -765,7 +808,7 @@ else
 fi
 
 # =============================================================================
-# Step 12 — Configure MinIO and Docling via REST API
+# Step 13 — Configure MinIO and Docling via REST API
 # =============================================================================
 step "Service configuration"
 
@@ -818,7 +861,7 @@ configure_docling() {
 }
 
 # =============================================================================
-# Step 13 — Demo seed
+# Step 14 — Demo seed
 # =============================================================================
 step "Demo seed"
 
@@ -840,7 +883,7 @@ $SKIP_MINIO   || configure_storage
 $SKIP_DOCLING || configure_docling
 
 # =============================================================================
-# Step 14 — Start simulator (30 fake agents)
+# Step 15 — Start simulator (30 fake agents)
 # =============================================================================
 step "Simulator"
 
@@ -870,10 +913,13 @@ MINIO_LINE="  MinIO API:     http://127.0.0.1:${MINIO_API_PORT}   user: ${MINIO_
 MINIO_CON="  MinIO Console: http://127.0.0.1:${MINIO_CONSOLE_PORT}"
 DOCLING_LINE="  Docling:       http://127.0.0.1:${DOCLING_PORT}"
 LITELLM_LINE="  LiteLLM:       http://127.0.0.1:${LITELLM_PORT}   key: ${LITELLM_MASTER_KEY:0:16}…"
+GRAFANA_LINE="  Grafana:       http://127.0.0.1:${OBS_GRAFANA_PORT}  (traces · metrics · service map)"
+PROM_LINE="  Prometheus:    http://127.0.0.1:${OBS_PROMETHEUS_PORT}"
 
 $SKIP_MINIO   && MINIO_LINE="  MinIO:         (skipped)"  && MINIO_CON=""
 $SKIP_DOCLING && DOCLING_LINE="  Docling:       (skipped)"
 $SKIP_LITELLM && LITELLM_LINE="  LiteLLM:       (skipped)"
+$SKIP_OBS     && GRAFANA_LINE="  Grafana:       (skipped)" && PROM_LINE=""
 
 echo
 banner "╔══════════════════════════════════════════════════════════════╗"
@@ -888,6 +934,8 @@ echo   "║"
 [[ -n "$MINIO_CON"  ]] && echo "║ $MINIO_CON"
 echo   "║ $DOCLING_LINE"
 echo   "║ $LITELLM_LINE"
+echo   "║ $GRAFANA_LINE"
+[[ -n "$PROM_LINE" ]] && echo "║ $PROM_LINE"
 echo   "║"
 echo   "║  PostgreSQL:     127.0.0.1:${PG_PORT}  db: ${PG_DB}"
 echo   "║"

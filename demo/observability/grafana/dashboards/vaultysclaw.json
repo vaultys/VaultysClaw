@@ -11,15 +11,15 @@
       "id": 1,
       "type": "timeseries",
       "title": "HTTP Requests / sec",
-      "description": "Inbound request rate per route — auto-instrumented by OTel Node.js SDK",
+      "description": "Inbound request rate by HTTP method — auto-instrumented by OTel Node.js SDK (old semconv: http_server_duration_milliseconds)",
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         {
           "refId": "A",
           "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "expr": "sum by (http_route) (rate(http_server_request_duration_seconds_count{service_name=\"vaultysclaw-control-plane\"}[1m]))",
-          "legendFormat": "{{http_route}}"
+          "expr": "sum by (http_method, http_status_code) (rate(http_server_duration_milliseconds_count{service_name=\"vaultysclaw-control-plane\"}[1m]))",
+          "legendFormat": "{{http_method}} {{http_status_code}}"
         }
       ],
       "fieldConfig": {
@@ -33,23 +33,24 @@
     {
       "id": 2,
       "type": "timeseries",
-      "title": "HTTP Latency — P50 / P95 / P99 (ms)",
+      "title": "HTTP Latency — P50 / P95 / P99",
+      "description": "Values are in milliseconds (old semconv — no ×1000 conversion needed)",
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         {
           "refId": "A",
-          "expr": "histogram_quantile(0.50, sum by (le) (rate(http_server_request_duration_seconds_bucket{service_name=\"vaultysclaw-control-plane\"}[2m]))) * 1000",
+          "expr": "histogram_quantile(0.50, sum by (le) (rate(http_server_duration_milliseconds_bucket{service_name=\"vaultysclaw-control-plane\"}[2m])))",
           "legendFormat": "P50"
         },
         {
           "refId": "B",
-          "expr": "histogram_quantile(0.95, sum by (le) (rate(http_server_request_duration_seconds_bucket{service_name=\"vaultysclaw-control-plane\"}[2m]))) * 1000",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(http_server_duration_milliseconds_bucket{service_name=\"vaultysclaw-control-plane\"}[2m])))",
           "legendFormat": "P95"
         },
         {
           "refId": "C",
-          "expr": "histogram_quantile(0.99, sum by (le) (rate(http_server_request_duration_seconds_bucket{service_name=\"vaultysclaw-control-plane\"}[2m]))) * 1000",
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(http_server_duration_milliseconds_bucket{service_name=\"vaultysclaw-control-plane\"}[2m])))",
           "legendFormat": "P99"
         }
       ],
@@ -75,7 +76,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum(rate(http_server_request_duration_seconds_count{service_name=\"vaultysclaw-control-plane\"}[1m]))"
+          "expr": "sum(rate(http_server_duration_milliseconds_count{service_name=\"vaultysclaw-control-plane\"}[1m]))"
         }
       ],
       "fieldConfig": {
@@ -95,7 +96,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum(rate(http_server_request_duration_seconds_count{service_name=\"vaultysclaw-control-plane\",http_response_status_code=~\"5..\"}[5m])) or vector(0)"
+          "expr": "sum(rate(http_server_duration_milliseconds_count{service_name=\"vaultysclaw-control-plane\",http_status_code=~\"5..\"}[5m])) or vector(0)"
         }
       ],
       "fieldConfig": {
@@ -121,7 +122,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "histogram_quantile(0.99, sum by (le) (rate(http_server_request_duration_seconds_bucket{service_name=\"vaultysclaw-control-plane\"}[5m]))) * 1000"
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(http_server_duration_milliseconds_bucket{service_name=\"vaultysclaw-control-plane\"}[5m])))"
         }
       ],
       "fieldConfig": {
@@ -148,7 +149,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum(increase(http_server_request_duration_seconds_count{service_name=\"vaultysclaw-control-plane\"}[1h]))"
+          "expr": "sum(increase(http_server_duration_milliseconds_count{service_name=\"vaultysclaw-control-plane\"}[1h]))"
         }
       ],
       "fieldConfig": {
@@ -156,6 +157,61 @@
           "unit": "short",
           "decimals": 0,
           "thresholds": { "mode": "absolute", "steps": [{ "color": "purple", "value": null }] }
+        }
+      },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background" }
+    },
+    {
+      "id": 10,
+      "type": "stat",
+      "title": "Event Loop Utilisation",
+      "description": "Fraction of the Node.js event loop actively occupied (0 = idle, 1 = fully saturated)",
+      "gridPos": { "h": 4, "w": 4, "x": 16, "y": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "avg(nodejs_eventloop_utilization_ratio{service_name=\"vaultysclaw-control-plane\"})"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 0.5 },
+              { "color": "red", "value": 0.8 }
+            ]
+          }
+        }
+      },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background" }
+    },
+    {
+      "id": 11,
+      "type": "stat",
+      "title": "Heap Used",
+      "gridPos": { "h": 4, "w": 4, "x": 20, "y": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(v8js_memory_heap_used_bytes{service_name=\"vaultysclaw-control-plane\"})"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 500000000 },
+              { "color": "red", "value": 1000000000 }
+            ]
+          }
         }
       },
       "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background" }
@@ -178,14 +234,15 @@
     {
       "id": 8,
       "type": "table",
-      "title": "Slowest Endpoints (P99 over last 5 min)",
+      "title": "Slowest Requests by Method & Status (P99, last 5 min)",
+      "description": "Grouped by HTTP method and status code. http_route not available with the current OTel SDK version.",
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 22 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         {
           "refId": "A",
-          "expr": "topk(10, histogram_quantile(0.99, sum by (le, http_route, http_request_method) (rate(http_server_request_duration_seconds_bucket{service_name=\"vaultysclaw-control-plane\"}[5m]))) * 1000)",
-          "legendFormat": "{{http_request_method}} {{http_route}}",
+          "expr": "topk(10, histogram_quantile(0.99, sum by (le, http_method, http_status_code) (rate(http_server_duration_milliseconds_bucket{service_name=\"vaultysclaw-control-plane\"}[5m]))))",
+          "legendFormat": "{{http_method}} {{http_status_code}}",
           "instant": true
         }
       ],
@@ -217,8 +274,8 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (http_response_status_code) (rate(http_server_request_duration_seconds_count{service_name=\"vaultysclaw-control-plane\"}[1m]))",
-          "legendFormat": "{{http_response_status_code}}"
+          "expr": "sum by (http_status_code) (rate(http_server_duration_milliseconds_count{service_name=\"vaultysclaw-control-plane\"}[1m]))",
+          "legendFormat": "{{http_status_code}}"
         }
       ],
       "fieldConfig": {
@@ -231,6 +288,62 @@
           { "matcher": { "id": "byRegexp", "options": "^3.*" }, "properties": [{ "id": "color", "value": { "fixedColor": "#5794f2", "mode": "fixed" } }] },
           { "matcher": { "id": "byRegexp", "options": "^4.*" }, "properties": [{ "id": "color", "value": { "fixedColor": "#ff9900", "mode": "fixed" } }] },
           { "matcher": { "id": "byRegexp", "options": "^5.*" }, "properties": [{ "id": "color", "value": { "fixedColor": "#f2495c", "mode": "fixed" } }] }
+        ]
+      },
+      "options": { "tooltip": { "mode": "multi" } }
+    },
+    {
+      "id": 12,
+      "type": "timeseries",
+      "title": "Node.js Runtime",
+      "description": "Event loop utilisation and V8 heap usage over time",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 30 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "avg(nodejs_eventloop_utilization_ratio{service_name=\"vaultysclaw-control-plane\"}) * 100",
+          "legendFormat": "Event loop utilisation %"
+        },
+        {
+          "refId": "B",
+          "expr": "avg(nodejs_eventloop_delay_p99_seconds{service_name=\"vaultysclaw-control-plane\"}) * 1000",
+          "legendFormat": "P99 event loop lag (ms)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": { "lineWidth": 2, "fillOpacity": 5 }
+        }
+      },
+      "options": { "tooltip": { "mode": "multi" } }
+    },
+    {
+      "id": 13,
+      "type": "timeseries",
+      "title": "V8 Heap Memory",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 30 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(v8js_memory_heap_used_bytes{service_name=\"vaultysclaw-control-plane\"})",
+          "legendFormat": "Heap used"
+        },
+        {
+          "refId": "B",
+          "expr": "sum(v8js_memory_heap_limit_bytes{service_name=\"vaultysclaw-control-plane\"})",
+          "legendFormat": "Heap limit"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "custom": { "lineWidth": 2, "fillOpacity": 5 }
+        },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "Heap limit" }, "properties": [{ "id": "custom.lineStyle", "value": { "dash": [10, 10], "fill": "dash" } }, { "id": "color", "value": { "fixedColor": "red", "mode": "fixed" } }] }
         ]
       },
       "options": { "tooltip": { "mode": "multi" } }

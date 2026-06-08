@@ -1,11 +1,9 @@
 # OpenTelemetry Collector — VaultysClaw demo
 #
-# Receives OTLP from the control plane and agents (gRPC :4317 / HTTP :4318),
-# fans out:
-#   traces  → Tempo   (via OTLP gRPC)
-#   metrics → Prometheus (via remote-write)
-#
-# All backend addresses use Docker container names on the vc-demo-obs network.
+# Receives OTLP from the host (control plane / agents) on :4317 (gRPC) and
+# :4318 (HTTP), both port-mapped to localhost.
+# Forwards to Tempo and Prometheus using Docker container-name DNS on the
+# vc-demo-obs network (avoids host.docker.internal IPv6 issues with gRPC).
 
 receivers:
   otlp:
@@ -20,7 +18,6 @@ processors:
     timeout: 5s
     send_batch_size: 256
 
-  # Add resource attributes as metric labels
   resource:
     attributes:
       - action: insert
@@ -29,7 +26,7 @@ processors:
 
 exporters:
   otlp/tempo:
-    endpoint: vc-demo-tempo:4317
+    endpoint: vc-demo-tempo:4317    # container-name DNS on vc-demo-obs network
     tls:
       insecure: true
 
@@ -38,11 +35,10 @@ exporters:
     tls:
       insecure: true
     resource_to_telemetry_conversion:
-      enabled: true   # surface service.name etc. as prometheus labels
+      enabled: true
 
-  # Internal collector health metrics
   prometheus:
-    endpoint: 0.0.0.0:8888
+    endpoint: 0.0.0.0:8888          # internal health metrics
 
 service:
   pipelines:

@@ -95,6 +95,7 @@ import crypto from "crypto";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
+import { execSync } from "child_process";
 import { DEMO_AGENTS, DEMO_API_KEY } from "./config.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -1013,6 +1014,22 @@ async function seedApiKey(): Promise<void> {
   console.log(`  ✓ API key  (prefix: ${DEMO_API_KEY.slice(0, 8)}…)`);
 }
 
+/** Run Prisma database migrations. */
+async function runMigrations(): Promise<void> {
+  console.log("\n▶ Running Prisma migrations…");
+  try {
+    const controlPlaneDir = path.resolve(__dirname, "../../packages/control-plane");
+    execSync("pnpm exec prisma migrate deploy", {
+      cwd: controlPlaneDir,
+      stdio: "pipe",
+    });
+    console.log("  ✓ Migrations applied");
+  } catch (err) {
+    console.error("  ✗ Migration failed:", err);
+    throw err;
+  }
+}
+
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 async function main() {
@@ -1022,6 +1039,7 @@ async function main() {
 
   const cfg = loadConfig();
 
+  await runMigrations();
   await seedServerIdentity();
   const realmSlugToId = await seedRealms();
   const { ownerUserId, ownerDid, execUserIds } = await seedUsers(realmSlugToId);

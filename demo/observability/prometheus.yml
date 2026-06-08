@@ -1,0 +1,12 @@
+# Prometheus — VaultysClaw demo
+# Accepts remote-write from OTel Collector and Tempo metrics generator.
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+# Scrape the OTel Collector's own health metrics
+scrape_configs:
+  - job_name: otel-collector
+    static_configs:
+      - targets: [vc-demo-otel-collector:8888]

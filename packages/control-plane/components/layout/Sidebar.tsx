@@ -25,6 +25,7 @@ import {
   ScrollText,
   Info,
   SatelliteDish,
+  Zap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useRole } from "@/hooks/useRole";
@@ -79,6 +80,130 @@ const BOTTOM_ITEMS = [
   { href: "/settings", icon: Settings, label: "Settings" },
   { href: "/about", icon: Info, label: "About" },
 ] as const;
+
+// ─── LiteLLM status ─────────────────────────────────────────────────────────
+
+type LiteLLMStatus = "unconfigured" | "connecting" | "connected" | "error";
+
+interface LiteLLMState {
+  status: LiteLLMStatus;
+  configured: boolean;
+  baseUrl: string | null;
+  lastError: string | null;
+}
+
+function useLiteLLMStatus(isAdmin: boolean) {
+  const [state, setState] = useState<LiteLLMState | null>(null);
+
+  useEffect(() => {
+    if (!isAdmin) return;
+
+    const poll = () =>
+      fetch("/api/settings/litellm/status")
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d: LiteLLMState | null) => { if (d) setState(d); })
+        .catch(() => {});
+
+    poll();
+    const id = setInterval(poll, 60_000);
+    return () => clearInterval(id);
+  }, [isAdmin]);
+
+  return state;
+}
+
+/** Small coloured dot */
+function StatusDot({ status }: { status: LiteLLMStatus }) {
+  const cls =
+    status === "connected"
+      ? "bg-success-500"
+      : status === "connecting"
+      ? "bg-warning-400 animate-pulse"
+      : status === "error"
+      ? "bg-danger-500"
+      : "bg-neutral-400";
+  return <span className={`inline-block w-1.5 h-1.5 rounded-full shrink-0 ${cls}`} />;
+}
+
+/** Compact services health widget rendered near the sidebar bottom. */
+function ServicesHealth({
+  collapsed,
+  isAdmin,
+}: {
+  collapsed: boolean;
+  isAdmin: boolean;
+}) {
+  const litellm = useLiteLLMStatus(isAdmin);
+  if (!isAdmin || !litellm?.configured) return null;
+
+  const label =
+    litellm.status === "connected"
+      ? "Connected"
+      : litellm.status === "connecting"
+      ? "Connecting…"
+      : litellm.status === "error"
+      ? "Error"
+      : "Unconfigured";
+
+  const tooltip =
+    litellm.status === "error" && litellm.lastError
+      ? `LiteLLM: ${litellm.lastError}`
+      : `LiteLLM Proxy: ${label}`;
+
+  if (collapsed) {
+    return (
+      <div className="px-2 pb-2">
+        <Link
+          href="/models?tab=litellm"
+          title={tooltip}
+          className="flex items-center justify-center w-full py-1.5 rounded-lg hover:bg-background-200/50 transition-colors"
+        >
+          <div className="relative">
+            <Zap className="w-[18px] h-[18px] text-foreground-500" />
+            <span
+              className={`absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full border border-background ${
+                litellm.status === "connected"
+                  ? "bg-success-500"
+                  : litellm.status === "connecting"
+                  ? "bg-warning-400 animate-pulse"
+                  : "bg-danger-500"
+              }`}
+            />
+          </div>
+        </Link>
+      </div>
+    );
+  }
+
+  return (
+    <div className="px-2 pb-2">
+      <Link
+        href="/models?tab=litellm"
+        title={tooltip}
+        className="flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg hover:bg-background-200/50 transition-colors group"
+      >
+        <Zap className="w-[18px] h-[18px] text-foreground-500 shrink-0" />
+        <span className="flex-1 text-sm font-medium text-foreground-600 group-hover:text-foreground truncate">
+          LiteLLM
+        </span>
+        <span
+          className={`flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide ${
+            litellm.status === "connected"
+              ? "text-success-600 dark:text-success-400"
+              : litellm.status === "connecting"
+              ? "text-warning-600 dark:text-warning-400"
+              : "text-danger-600 dark:text-danger-400"
+          }`}
+        >
+          <StatusDot status={litellm.status} />
+          {label}
+        </span>
+      </Link>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 interface SidebarProps {
   collapsed: boolean;
@@ -216,6 +341,9 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
           );
         })}
       </nav>
+
+      {/* Services health */}
+      <ServicesHealth collapsed={collapsed} isAdmin={isGlobalAdmin} />
 
       {/* Bottom nav */}
       <div className="py-3 px-2 border-t border-neutral-200/60 space-y-0.5">

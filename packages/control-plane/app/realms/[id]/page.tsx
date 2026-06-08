@@ -34,6 +34,7 @@ import ChannelView from "@/components/channels/ChannelView";
 import CreateChannelModal from "@/components/channels/CreateChannelModal";
 import type { MapMarker } from "@/components/map/WorldMap";
 import { useRole } from "@/hooks/useRole";
+import { RealmLiteLLMKeyCard, type RealmRouterKeyData } from "@/components/realms/RealmLiteLLMKeyCard";
 
 const WorldMap = dynamic(
   () => import("@/components/map/WorldMap").then((m) => m.WorldMap),
@@ -353,11 +354,8 @@ export default function RealmDetailPage() {
       status: string;
     }[]
   >([]);
-  const [routerKey, setRouterKey] = useState<{
-    hasVirtualKey: boolean;
-    allowedModels: string[];
-    monthlyBudgetUsd: number | null;
-  } | null>(null);
+  const [routerKey, setRouterKey] = useState<RealmRouterKeyData | null>(null);
+  const [litellmConfigured, setLitellmConfigured] = useState(false);
   const [skills, setSkills] = useState<RealmSkill[]>([]);
   const [channels, setChannels] = useState<Channel[]>([]);
   const [selectedChannelId, setSelectedChannelId] = useState<string | null>(
@@ -408,10 +406,12 @@ export default function RealmDetailPage() {
     if (modelsRes.ok) {
       const modelsData = (await modelsRes.json()) as {
         models: typeof realmModels;
-        routerKey: typeof routerKey;
+        routerKey: RealmRouterKeyData | null;
+        litellmConfigured: boolean;
       };
       setRealmModels(modelsData.models ?? []);
       setRouterKey(modelsData.routerKey);
+      setLitellmConfigured(modelsData.litellmConfigured ?? false);
     }
     if (channelsRes.ok) {
       const channelsData = (await channelsRes.json()) as {
@@ -840,29 +840,14 @@ export default function RealmDetailPage() {
       {/* Models tab */}
       {tab === "models" && (
         <div className="space-y-4">
-          {/* Router key status */}
-          <div className="bg-background-100 border border-neutral-200 rounded-2xl p-4">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
-                <Cpu className="w-4 h-4 text-primary-700 dark:text-primary-400" />{" "}
-                LiteLLM Router Key
-              </h3>
-              {routerKey?.hasVirtualKey ? (
-                <span className="text-xs px-2 py-0.5 rounded-full bg-success-100 dark:bg-success-900/40 text-success-700 dark:text-success-400 border border-success-300 dark:border-success-800 font-medium">
-                  Active
-                </span>
-              ) : (
-                <span className="text-xs px-2 py-0.5 rounded-full bg-neutral-100 dark:bg-neutral-800 text-neutral-500 dark:text-neutral-400 border border-neutral-300 dark:border-neutral-700 font-medium">
-                  Not configured
-                </span>
-              )}
-            </div>
-            <p className="text-xs text-foreground-500">
-              {routerKey?.hasVirtualKey
-                ? `Agents in this realm share a virtual key scoped to ${routerKey.allowedModels.length} model${routerKey.allowedModels.length !== 1 ? "s" : ""}. The key is auto-updated when model access changes.`
-                : "No virtual key yet. Grant access to at least one model to generate a scoped routing key."}
-            </p>
-          </div>
+          {/* LiteLLM Router Key — interactive card */}
+          <RealmLiteLLMKeyCard
+            realmId={id}
+            routerKey={routerKey}
+            litellmConfigured={litellmConfigured}
+            modelCount={realmModels.length}
+            onRefresh={load}
+          />
 
           {/* Model access list */}
           {realmModels.length === 0 ? (

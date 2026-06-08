@@ -251,4 +251,10 @@ export class RealmDAO {
       },
     });
   }
+
+  static async deleteRouterKey(realmId: string): Promise<void> {
+    await prisma.realmRouterKey
+      .delete({ where: { realmId } })
+      .catch(() => {}); // ignore if not found
+  }
 }

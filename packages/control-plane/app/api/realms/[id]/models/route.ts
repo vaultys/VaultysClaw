@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
 import { unauthorized } from "@/lib/api-utils";
 import { ModelDAO, RealmDAO } from "@/db";
+import { isLiteLLMConfigured } from "@/lib/litellm-client";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -91,11 +92,14 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
 
     return NextResponse.json({
       models,
+      litellmConfigured: isLiteLLMConfigured(),
       routerKey: routerKey
         ? {
             hasVirtualKey: Boolean(routerKey.litellmVirtualKey),
+            keyPrefix: routerKey.litellmVirtualKey?.slice(0, 10) ?? null,
             allowedModels: routerKey.allowedModelIds,
             monthlyBudgetUsd: routerKey.monthlyBudgetUsd,
+            updatedAt: routerKey.updatedAt ?? null,
           }
         : null,
     });

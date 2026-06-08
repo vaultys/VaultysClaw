@@ -14,6 +14,7 @@
 #   --skip-minio       Don't start MinIO  (uses filesystem storage instead)
 #   --skip-docling     Don't start Docling
 #   --skip-litellm     Don't start LiteLLM proxy
+#   --skip-obs         Don't start the Grafana observability stack
 #   --skip-seed        Skip simulator:seed (re-use existing data)
 #   --no-simulator     Start services only; don't launch the 30-agent fleet
 #   --fresh            Wipe demo DB and Docker volumes before starting
@@ -47,6 +48,7 @@ DOCKER_CONTAINERS_FILE="$DEMO_DIR/.demo-sim-containers"
 SKIP_MINIO=false
 SKIP_DOCLING=false
 SKIP_LITELLM=false
+SKIP_OBS=false
 SKIP_SEED=false
 NO_SIMULATOR=false
 FRESH=false
@@ -56,6 +58,7 @@ for arg in "$@"; do
     --skip-minio)    SKIP_MINIO=true ;;
     --skip-docling)  SKIP_DOCLING=true ;;
     --skip-litellm)  SKIP_LITELLM=true ;;
+    --skip-obs)      SKIP_OBS=true ;;
     --skip-seed)     SKIP_SEED=true ;;
     --no-simulator)  NO_SIMULATOR=true ;;
     --fresh)         FRESH=true ;;
@@ -232,6 +235,16 @@ LITELLM_PORT="4000"
 LITELLM_BASE_URL="http://127.0.0.1:${LITELLM_PORT}"
 LITELLM_DB="vaultysclaw_litellm"
 
+OBS_NETWORK="vc-demo-obs"
+OBS_COLLECTOR_CONTAINER="vc-demo-otel-collector"
+OBS_TEMPO_CONTAINER="vc-demo-tempo"
+OBS_PROMETHEUS_CONTAINER="vc-demo-prometheus"
+OBS_GRAFANA_CONTAINER="vc-demo-grafana"
+OBS_COLLECTOR_PORT="4318"   # OTLP/HTTP — app sends here
+OBS_GRAFANA_PORT="3001"     # Grafana UI
+OBS_PROMETHEUS_PORT="9090"  # Prometheus UI
+OBS_CONFIG_DIR="$DEMO_DIR/observability"
+
 NODE_ENV="development"
 PORT="3000"
 WS_PORT="8080"
@@ -301,15 +314,137 @@ log "  LiteLLM URL       = ${LITELLM_BASE_URL}"
 if $FRESH; then
   step "Fresh wipe"
   warn "Wiping demo containers and volumes (--fresh)…"
-  docker rm -f "${PG_CONTAINER}" "${MINIO_CONTAINER}" "${DOCLING_CONTAINER}" "${LITELLM_CONTAINER}" 2>/dev/null || true
-  docker volume rm "vc-demo-pgdata" "vc-demo-miniodata" 2>/dev/null || true
+  docker rm -f "${PG_CONTAINER}" "${MINIO_CONTAINER}" "${DOCLING_CONTAINER}" "${LITELLM_CONTAINER}" \
+              "${OBS_COLLECTOR_CONTAINER}" "${OBS_TEMPO_CONTAINER}" "${OBS_PROMETHEUS_CONTAINER}" "${OBS_GRAFANA_CONTAINER}" \
+              2>/dev/null || true
+  docker volume rm "vc-demo-pgdata" "vc-demo-miniodata" \
+                   "vc-demo-tempo-data" "vc-demo-prometheus-data" "vc-demo-grafana-data" \
+                   2>/dev/null || true
+  docker network rm "$OBS_NETWORK" 2>/dev/null || true
   rm -f "$ENV_FILE"
   rm -rf "$IDENTITIES_DIR" 2>/dev/null || true
   log "Wipe complete — env and identities will be regenerated."
 fi
 
 # =============================================================================
-# Step 5 — PostgreSQL
+# Step 5 — Observability stack (Grafana LGTM — traces + metrics)
+# =============================================================================
+
+if ! $SKIP_OBS; then
+  step "Observability"
+
+  # Shared Docker network so containers reach each other by name
+  if ! docker network inspect "$OBS_NETWORK" &>/dev/null 2>&1; then
+    log "Creating Docker network ${OBS_NETWORK}…"
+    docker network create "$OBS_NETWORK" >/dev/null
+  fi
+
+  # ── Tempo (trace storage) ──────────────────────────────────────────────────
+
+  if docker inspect "$OBS_TEMPO_CONTAINER" &>/dev/null 2>&1; then
+    if [[ "$(docker inspect -f '{{.State.Running}}' "$OBS_TEMPO_CONTAINER")" != "true" ]]; then
+      log "Starting existing $OBS_TEMPO_CONTAINER"
+      docker start "$OBS_TEMPO_CONTAINER" >/dev/null
+    else
+      log "$OBS_TEMPO_CONTAINER is already running."
+    fi
+  else
+    log "Creating $OBS_TEMPO_CONTAINER…"
+    docker run -d \
+      --name "$OBS_TEMPO_CONTAINER" \
+      --network "$OBS_NETWORK" \
+      -v "${OBS_CONFIG_DIR}/tempo.yaml:/etc/tempo.yaml:ro" \
+      -v "vc-demo-tempo-data:/var/tempo" \
+      grafana/tempo:latest \
+      -config.file=/etc/tempo.yaml \
+      >/dev/null
+  fi
+
+  # ── Prometheus (metric storage) ───────────────────────────────────────────
+
+  if docker inspect "$OBS_PROMETHEUS_CONTAINER" &>/dev/null 2>&1; then
+    if [[ "$(docker inspect -f '{{.State.Running}}' "$OBS_PROMETHEUS_CONTAINER")" != "true" ]]; then
+      log "Starting existing $OBS_PROMETHEUS_CONTAINER"
+      docker start "$OBS_PROMETHEUS_CONTAINER" >/dev/null
+    else
+      log "$OBS_PROMETHEUS_CONTAINER is already running."
+    fi
+  else
+    log "Creating $OBS_PROMETHEUS_CONTAINER on port ${OBS_PROMETHEUS_PORT}…"
+    docker run -d \
+      --name "$OBS_PROMETHEUS_CONTAINER" \
+      --network "$OBS_NETWORK" \
+      -p "${OBS_PROMETHEUS_PORT}:9090" \
+      -v "${OBS_CONFIG_DIR}/prometheus.yml:/etc/prometheus/prometheus.yml:ro" \
+      -v "vc-demo-prometheus-data:/prometheus" \
+      prom/prometheus:latest \
+      --config.file=/etc/prometheus/prometheus.yml \
+      --storage.tsdb.path=/prometheus \
+      --web.enable-remote-write-receiver \
+      >/dev/null
+  fi
+
+  # ── OTel Collector (ingestion gateway) ────────────────────────────────────
+  # Stateless — always recreate if config drifted (no volume to preserve).
+
+  OBS_COLLECTOR_NEEDS_CREATE=true
+  if docker inspect "$OBS_COLLECTOR_CONTAINER" &>/dev/null 2>&1; then
+    if [[ "$(docker inspect -f '{{.State.Running}}' "$OBS_COLLECTOR_CONTAINER")" != "true" ]]; then
+      log "Starting existing $OBS_COLLECTOR_CONTAINER"
+      docker start "$OBS_COLLECTOR_CONTAINER" >/dev/null
+      OBS_COLLECTOR_NEEDS_CREATE=false
+    else
+      log "$OBS_COLLECTOR_CONTAINER is already running."
+      OBS_COLLECTOR_NEEDS_CREATE=false
+    fi
+  fi
+
+  if $OBS_COLLECTOR_NEEDS_CREATE; then
+    log "Creating $OBS_COLLECTOR_CONTAINER (OTLP HTTP :${OBS_COLLECTOR_PORT})…"
+    docker run -d \
+      --name "$OBS_COLLECTOR_CONTAINER" \
+      --network "$OBS_NETWORK" \
+      -p "4317:4317" \
+      -p "${OBS_COLLECTOR_PORT}:4318" \
+      -v "${OBS_CONFIG_DIR}/otel-collector.yaml:/etc/otel-collector.yaml:ro" \
+      otel/opentelemetry-collector-contrib:latest \
+      --config /etc/otel-collector.yaml \
+      >/dev/null
+  fi
+
+  # ── Grafana (visualisation) ────────────────────────────────────────────────
+
+  if docker inspect "$OBS_GRAFANA_CONTAINER" &>/dev/null 2>&1; then
+    if [[ "$(docker inspect -f '{{.State.Running}}' "$OBS_GRAFANA_CONTAINER")" != "true" ]]; then
+      log "Starting existing $OBS_GRAFANA_CONTAINER"
+      docker start "$OBS_GRAFANA_CONTAINER" >/dev/null
+    else
+      log "$OBS_GRAFANA_CONTAINER is already running."
+    fi
+  else
+    log "Creating $OBS_GRAFANA_CONTAINER on port ${OBS_GRAFANA_PORT}…"
+    docker run -d \
+      --name "$OBS_GRAFANA_CONTAINER" \
+      --network "$OBS_NETWORK" \
+      -p "${OBS_GRAFANA_PORT}:3000" \
+      -v "vc-demo-grafana-data:/var/lib/grafana" \
+      -v "${OBS_CONFIG_DIR}/grafana/provisioning:/etc/grafana/provisioning:ro" \
+      -v "${OBS_CONFIG_DIR}/grafana/dashboards:/etc/grafana/dashboards:ro" \
+      -e "GF_AUTH_ANONYMOUS_ENABLED=true" \
+      -e "GF_AUTH_ANONYMOUS_ORG_ROLE=Admin" \
+      -e "GF_AUTH_DISABLE_LOGIN_FORM=true" \
+      -e "GF_FEATURE_TOGGLES_ENABLE=traceqlEditor traceToMetrics" \
+      -e "GF_SERVER_ROOT_URL=http://localhost:${OBS_GRAFANA_PORT}" \
+      grafana/grafana:latest \
+      >/dev/null
+  fi
+
+  wait_http "http://127.0.0.1:${OBS_GRAFANA_PORT}/api/health" "Grafana" 60
+  log "Grafana ready → http://localhost:${OBS_GRAFANA_PORT}  (anonymous admin, no login)"
+fi
+
+# =============================================================================
+# Step 6 — PostgreSQL
 # =============================================================================
 step "PostgreSQL"
 
@@ -444,14 +579,36 @@ litellm_settings:
   redact_messages_in_exceptions: true
 LITELLMCFG
 
+  # LiteLLM is stateless (all state in Postgres), so we can safely recreate it
+  # whenever its baked-in env vars no longer match the current .env.demo values.
+  # Without this check, an existing container started with docker-start replays
+  # the old LITELLM_MASTER_KEY / DATABASE_URL and conflicts with the freshly
+  # written YAML config → startup failure.
+  LITELLM_NEEDS_CREATE=true
   if docker inspect "$LITELLM_CONTAINER" &>/dev/null 2>&1; then
-    if [[ "$(docker inspect -f '{{.State.Running}}' "$LITELLM_CONTAINER")" != "true" ]]; then
-      log "Starting existing $LITELLM_CONTAINER"
-      docker start "$LITELLM_CONTAINER" >/dev/null
+    CONTAINER_MASTER_KEY=$(docker inspect "$LITELLM_CONTAINER" \
+      --format '{{range .Config.Env}}{{println .}}{{end}}' \
+      | grep '^LITELLM_MASTER_KEY=' | cut -d= -f2- | tr -d '\r\n')
+    CONTAINER_DB_URL=$(docker inspect "$LITELLM_CONTAINER" \
+      --format '{{range .Config.Env}}{{println .}}{{end}}' \
+      | grep '^DATABASE_URL=' | cut -d= -f2- | tr -d '\r\n')
+
+    if [[ "$CONTAINER_MASTER_KEY" == "$LITELLM_MASTER_KEY" && \
+          "$CONTAINER_DB_URL"     == "$LITELLM_DB_URL"     ]]; then
+      LITELLM_NEEDS_CREATE=false
+      if [[ "$(docker inspect -f '{{.State.Running}}' "$LITELLM_CONTAINER")" != "true" ]]; then
+        log "Starting existing $LITELLM_CONTAINER (config unchanged)."
+        docker start "$LITELLM_CONTAINER" >/dev/null
+      else
+        log "$LITELLM_CONTAINER is already running with current config."
+      fi
     else
-      log "$LITELLM_CONTAINER is already running."
+      warn "LiteLLM env-var drift detected (master key or DB URL changed) — recreating container."
+      docker rm -f "$LITELLM_CONTAINER" >/dev/null 2>&1 || true
     fi
-  else
+  fi
+
+  if $LITELLM_NEEDS_CREATE; then
     if ! docker image inspect "ghcr.io/berriai/litellm:main-latest" &>/dev/null 2>&1; then
       warn "LiteLLM image not cached — first pull may take a minute."
     fi
@@ -493,13 +650,16 @@ log "Schema is up to date."
 # =============================================================================
 step "Control Plane"
 
-if curl -sf --max-time 2 "${CONTROL_PLANE_URL}/api/health" >/dev/null 2>&1; then
-  log "Control plane already running at ${CONTROL_PLANE_URL} — skipping start."
-else
-  log "Starting control plane…"
+# Capture what the env file had before we overwrite it — needed for drift detection below.
+PREV_DB_URL=$(grep '^DATABASE_URL=' "$DATA_DIR/.env" 2>/dev/null | cut -d= -f2- | tr -d '\r\n')
 
-  mkdir -p "$DATA_DIR"
-  cat > "$DATA_DIR/.env" <<CPENV
+# Always write the env file so it stays in sync with .env.demo credentials,
+# even when the control plane is already running.  If credentials changed
+# (e.g. after --fresh or .env.demo regen) the running process won't pick them
+# up until restarted — but at least the file is correct for the next start and
+# won't become a second source of truth that diverges from the DB password.
+mkdir -p "$DATA_DIR"
+cat > "$DATA_DIR/.env" <<CPENV
 # Generated by demo-up.sh — do not edit manually
 DATABASE_URL=${DATABASE_URL}
 NEXTAUTH_URL=${NEXTAUTH_URL}
@@ -510,6 +670,20 @@ WS_PORT=${WS_PORT}
 LITELLM_BASE_URL=${LITELLM_BASE_URL}
 LITELLM_MASTER_KEY=${LITELLM_MASTER_KEY}
 CPENV
+
+if curl -sf --max-time 2 "${CONTROL_PLANE_URL}/api/health" >/dev/null 2>&1; then
+  # Detect if the running process was started with different Postgres credentials
+  # (e.g. sync_postgres_password just reset the DB password to a new value).
+  # We can't hot-reload env vars into a running Node process — warn so the
+  # operator knows to restart the control plane if they see DB connection errors.
+  if [[ -n "$PREV_DB_URL" && "$PREV_DB_URL" != "$DATABASE_URL" ]]; then
+    warn "Control plane is running but its Postgres credentials have changed."
+    warn "Restart the control plane to pick up the updated DATABASE_URL."
+  else
+    log "Control plane already running at ${CONTROL_PLANE_URL} — skipping start."
+  fi
+else
+  log "Starting control plane…"
 
   # Raise file descriptor limit to prevent Watchpack EMFILE errors in dev mode.
   # Next.js watches thousands of files; the default macOS/Linux soft limit (256–1024)

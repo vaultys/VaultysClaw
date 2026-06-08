@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   Cpu,
   Plus,
@@ -52,12 +52,17 @@ function ProviderBadge({ provider }: Readonly<{ provider: string }>) {
 }
 
 type Tab = "registry" | "litellm";
+type LiteLLMStatus = "unconfigured" | "connecting" | "connected" | "error";
 
 export default function ModelsPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { isGlobalAdmin, isLoading } = useRole();
-  const [tab, setTab] = useState<Tab>("registry");
+  const [tab, setTab] = useState<Tab>(
+    searchParams.get("tab") === "litellm" ? "litellm" : "registry"
+  );
   const [models, setModels] = useState<ModelEntry[]>([]);
+  const [liteLLMStatus, setLiteLLMStatus] = useState<LiteLLMStatus | null>(null);
 
   useEffect(() => {
     if (!isLoading && !isGlobalAdmin) router.replace("/");
@@ -79,6 +84,21 @@ export default function ModelsPage() {
   useEffect(() => {
     load();
   }, [load]);
+
+  // Poll LiteLLM status for tab badge (lightweight — no external calls)
+  useEffect(() => {
+    if (!isGlobalAdmin) return;
+    const poll = () =>
+      fetch("/api/settings/litellm/status")
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d: { status?: LiteLLMStatus } | null) => {
+          if (d?.status) setLiteLLMStatus(d.status);
+        })
+        .catch(() => {});
+    poll();
+    const id = setInterval(poll, 60_000);
+    return () => clearInterval(id);
+  }, [isGlobalAdmin]);
 
   if (isLoading || !isGlobalAdmin) return null;
 
@@ -133,6 +153,17 @@ export default function ModelsPage() {
         >
           <Zap className="w-3.5 h-3.5" />
           LiteLLM Proxy
+          {liteLLMStatus && liteLLMStatus !== "unconfigured" && (
+            <span
+              className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                liteLLMStatus === "connected"
+                  ? "bg-success-500"
+                  : liteLLMStatus === "connecting"
+                  ? "bg-warning-400 animate-pulse"
+                  : "bg-danger-500"
+              }`}
+            />
+          )}
         </button>
       </div>
 

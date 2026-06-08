@@ -1,9 +1,13 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { type LlmProviderType } from "@vaultysclaw/shared";
 import { ConfirmModal } from "@/components/shared/ConfirmModal";
 import { agentsApi } from "@/lib/api";
 import { RealmLlmData, SafeLlmConfig } from "@/types";
+import { Key, RefreshCw } from "lucide-react";
+import Link from "next/link";
+
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 interface RegistryModel {
   id: string;
@@ -31,6 +35,17 @@ interface RealmLlmRealm {
   models: RealmLlmModel[];
 }
 
+interface AgentKeyInfo {
+  configured: boolean;
+  keyPrefix: string | null;
+  allowedModels: string[];
+  dailyBudget: number | null;
+  updatedAt: string | null;
+  litellmConfigured: boolean;
+}
+
+// ─── Constants ───────────────────────────────────────────────────────────────
+
 const PROVIDER_OPTIONS: {
   value: LlmProviderType;
   label: string;
@@ -57,6 +72,10 @@ const PROVIDER_COLORS: Record<string, string> = {
   ollama: "bg-secondary-100 text-secondary-700 border-secondary-300",
 };
 
+type ConfigMode = "agent-key" | "realm" | "registry" | "manual";
+
+// ─── Component ───────────────────────────────────────────────────────────────
+
 export function ConfigTab({
   did,
   reportedLlm,
@@ -64,18 +83,20 @@ export function ConfigTab({
   did: string;
   reportedLlm: { provider: string; model: string } | null;
 }) {
+  // LLM config (manually stored)
   const [llmConfig, setLlmConfig] = useState<SafeLlmConfig | null>(null);
   const [llmLoading, setLlmLoading] = useState(true);
   const [llmEditing, setLlmEditing] = useState(false);
-  const [configMode, setConfigMode] = useState<"realm" | "registry" | "manual">(
-    "realm"
-  );
+  const [configMode, setConfigMode] = useState<ConfigMode>("realm");
+
+  // Registry / realm routing helpers
   const [registryModels, setRegistryModels] = useState<RegistryModel[]>([]);
-  const [registryLoading, setRegistryLoading] = useState(false);
   const [selectedRegistryId, setSelectedRegistryId] = useState("");
   const [realmLlmData, setRealmLlmData] = useState<RealmLlmData | null>(null);
   const [selectedRealmId, setSelectedRealmId] = useState("");
   const [selectedRealmModelId, setSelectedRealmModelId] = useState("");
+
+  // Manual config form
   const [llmForm, setLlmForm] = useState({
     provider: "openai" as LlmProviderType,
     model: "",
@@ -84,64 +105,125 @@ export function ConfigTab({
     systemPrompt: "",
     maxTokens: "",
   });
+
+  // Agent LiteLLM key
+  const [agentKeyInfo, setAgentKeyInfo] = useState<AgentKeyInfo | null>(null);
+  const [keyModels, setKeyModels] = useState<string[]>([]);
+  const [keyModelInput, setKeyModelInput] = useState("");
+  const [keyBudget, setKeyBudget] = useState("");
+  const [keySaving, setKeySaving] = useState(false);
+  const [showRevokeConfirm, setShowRevokeConfirm] = useState(false);
+  const [revoking, setRevoking] = useState(false);
+
+  // Common
   const [llmSaving, setLlmSaving] = useState(false);
-  const [llmStatus, setLlmStatus] = useState<
-    "idle" | "saved" | "cleared" | "error"
-  >("idle");
+  const [llmStatus, setLlmStatus] = useState<"idle" | "saved" | "cleared" | "error">("idle");
   const [llmError, setLlmError] = useState<string | null>(null);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
 
-  useEffect(() => {
-    Promise.all([
-      agentsApi.getLlmConfig(did).then((res) => res),
-      fetch("/api/models").then((r) => r.json()),
-      agentsApi.getRealmLlm(did).then((res) => res),
-    ])
-      .then(
-        ([configData, modelsData, realmData]: [
-          { config: SafeLlmConfig | null },
-          { models?: RegistryModel[] },
-          RealmLlmData,
-        ]) => {
-          setLlmConfig(configData.config);
-          setRegistryModels(modelsData.models ?? []);
-          setRealmLlmData(realmData);
-          if (configData.config) {
-            setLlmForm({
-              provider: configData.config.provider,
-              model: configData.config.model,
-              apiKey: "",
-              baseUrl: configData.config.baseUrl ?? "",
-              systemPrompt: configData.config.systemPrompt ?? "",
-              maxTokens: configData.config.maxTokens?.toString() ?? "",
-            });
-          }
-        }
-      )
-      .catch(() => {})
-      .finally(() => setLlmLoading(false));
+  // ── Load ──────────────────────────────────────────────────────────────────
+
+  const loadAll = useCallback(async () => {
+    setLlmLoading(true);
+    try {
+      const [configData, modelsData, realmData, keyData] = await Promise.all([
+        agentsApi.getLlmConfig(did),
+        fetch("/api/models").then((r) => r.json()),
+        agentsApi.getRealmLlm(did),
+        fetch(`/api/agent/${encodeURIComponent(did)}/litellm-key`)
+          .then((r) => (r.ok ? r.json() : null))
+          .catch(() => null),
+      ]);
+
+      const cfg = (configData as { config: SafeLlmConfig | null }).config;
+      setLlmConfig(cfg);
+      setRegistryModels((modelsData as { models?: RegistryModel[] }).models ?? []);
+      setRealmLlmData(realmData as RealmLlmData);
+      setAgentKeyInfo(keyData as AgentKeyInfo | null);
+
+      if (cfg) {
+        setLlmForm({
+          provider: cfg.provider,
+          model: cfg.model,
+          apiKey: "",
+          baseUrl: cfg.baseUrl ?? "",
+          systemPrompt: cfg.systemPrompt ?? "",
+          maxTokens: cfg.maxTokens?.toString() ?? "",
+        });
+      }
+    } catch {
+      // swallow — individual pieces may not be available
+    } finally {
+      setLlmLoading(false);
+    }
   }, [did]);
 
+  useEffect(() => {
+    loadAll();
+  }, [loadAll]);
+
+  // ── Derived flags ─────────────────────────────────────────────────────────
+
+  const hasRealmRouting = Boolean(
+    realmLlmData?.litellmConfigured &&
+      realmLlmData.realms.some((r) => r.hasVirtualKey && r.models.length > 0)
+  );
+
+  const litellmConfigured = Boolean(agentKeyInfo?.litellmConfigured);
+
+  /**
+   * Active config mode:
+   *  1. No manual config + agent key configured → agent-key
+   *  2. Manual config that looks like realm routing → realm
+   *  3. Manual config that matches registry model → registry
+   *  4. Anything else with manual config → manual
+   */
+  const activeRegistryModel =
+    llmConfig?.provider === "openai-compatible"
+      ? registryModels.find((m) => m.modelId === llmConfig.model)
+      : null;
+
+  const activeRealmRoute =
+    llmConfig?.provider === "openai-compatible"
+      ? (() => {
+          for (const realm of realmLlmData?.realms ?? []) {
+            const model = realm.models.find(
+              (m) => m.litellmModelName === llmConfig.model
+            );
+            if (model) return { realm, model };
+          }
+          return null;
+        })()
+      : null;
+
+  /** True when the agent key is the effective config (no manual llmConfig overrides it). */
+  const activeIsAgentKey = Boolean(agentKeyInfo?.configured && !llmConfig);
+
+  // ── Edit flow ─────────────────────────────────────────────────────────────
+
   function openEdit() {
+    setLlmError(null);
+
+    if (activeIsAgentKey) {
+      // Editing an existing agent key
+      setKeyModels(agentKeyInfo!.allowedModels);
+      setKeyBudget(agentKeyInfo!.dailyBudget?.toString() ?? "");
+      setKeyModelInput("");
+      setConfigMode("agent-key");
+      setLlmEditing(true);
+      return;
+    }
+
     if (llmConfig?.provider === "openai-compatible") {
-      const realmWithModel = realmLlmData?.realms.find(
-        (r) =>
-          r.hasVirtualKey &&
-          r.models.some((m) => m.litellmModelName === llmConfig.model)
-      );
-      if (realmWithModel) {
-        const realmModel = realmWithModel.models.find(
-          (m) => m.litellmModelName === llmConfig.model
-        );
-        setSelectedRealmId(realmWithModel.realmId);
-        setSelectedRealmModelId(realmModel?.id ?? "");
+      if (activeRealmRoute) {
+        setSelectedRealmId(activeRealmRoute.realm.realmId);
+        setSelectedRealmModelId(activeRealmRoute.model.id);
         setConfigMode("realm");
         setLlmEditing(true);
         return;
       }
-      const match = registryModels.find((m) => m.modelId === llmConfig.model);
-      if (match) {
-        setSelectedRegistryId(match.id);
+      if (activeRegistryModel) {
+        setSelectedRegistryId(activeRegistryModel.id);
         setConfigMode("registry");
         setLlmEditing(true);
         return;
@@ -150,15 +232,18 @@ export function ConfigTab({
     } else if (llmConfig) {
       setConfigMode("manual");
     } else {
-      const hasRealmRouting = realmLlmData?.realms.some(
-        (r) => r.hasVirtualKey && r.models.length > 0
-      );
-      if (hasRealmRouting) {
-        const firstRealm = realmLlmData!.realms.find(
+      // No config at all — pick best default
+      if (litellmConfigured) {
+        setKeyModels([]);
+        setKeyBudget("");
+        setKeyModelInput("");
+        setConfigMode("agent-key");
+      } else if (hasRealmRouting) {
+        const first = realmLlmData!.realms.find(
           (r) => r.hasVirtualKey && r.models.length > 0
         )!;
-        setSelectedRealmId(firstRealm.realmId);
-        setSelectedRealmModelId(firstRealm.models[0]?.id ?? "");
+        setSelectedRealmId(first.realmId);
+        setSelectedRealmModelId(first.models[0]?.id ?? "");
         setConfigMode("realm");
       } else if (registryModels.length > 0) {
         setConfigMode("registry");
@@ -166,19 +251,74 @@ export function ConfigTab({
         setConfigMode("manual");
       }
     }
-    setRegistryLoading(false);
     setLlmEditing(true);
   }
+
+  // ── Save handlers ─────────────────────────────────────────────────────────
 
   async function clearConfig() {
     setLlmSaving(true);
     setLlmError(null);
     try {
       await agentsApi.deleteLlmConfig(did);
+      await loadAll();
+      setLlmStatus("cleared");
+      setTimeout(() => setLlmStatus("idle"), 2500);
     } catch {
       setLlmStatus("error");
     } finally {
       setLlmSaving(false);
+    }
+  }
+
+  async function saveAgentKey() {
+    setKeySaving(true);
+    setLlmError(null);
+    try {
+      // 1. Clear any manual llmConfig so the agent key takes priority
+      if (llmConfig) await agentsApi.deleteLlmConfig(did);
+
+      // 2. Provision / refresh the key
+      const body: Record<string, unknown> = {};
+      if (keyModels.length > 0) body.allowedModels = keyModels;
+      if (keyBudget) body.dailyBudget = parseFloat(keyBudget);
+
+      const res = await fetch(
+        `/api/agent/${encodeURIComponent(did)}/litellm-key`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        }
+      );
+      if (!res.ok) {
+        const d = (await res.json()) as { error?: string };
+        setLlmError(d.error ?? "Failed to provision key");
+        setLlmStatus("error");
+        return;
+      }
+
+      await loadAll();
+      setLlmEditing(false);
+      setLlmStatus("saved");
+      setTimeout(() => setLlmStatus("idle"), 2500);
+    } finally {
+      setKeySaving(false);
+    }
+  }
+
+  async function revokeAgentKey() {
+    setRevoking(true);
+    try {
+      await fetch(`/api/agent/${encodeURIComponent(did)}/litellm-key`, {
+        method: "DELETE",
+      });
+      await loadAll();
+      setShowRevokeConfirm(false);
+      setLlmStatus("cleared");
+      setTimeout(() => setLlmStatus("idle"), 2500);
+    } finally {
+      setRevoking(false);
     }
   }
 
@@ -212,7 +352,6 @@ export function ConfigTab({
       const { config } = await agentsApi.setLlmConfig(did, {
         registryModelId: selectedRegistryId,
       });
-
       setLlmConfig(config);
       setLlmEditing(false);
       setLlmStatus("saved");
@@ -239,7 +378,6 @@ export function ConfigTab({
       if (llmForm.systemPrompt) body.systemPrompt = llmForm.systemPrompt;
       if (llmForm.maxTokens) body.maxTokens = parseInt(llmForm.maxTokens, 10);
       const { config } = await agentsApi.setLlmConfig(did, body);
-
       setLlmConfig(config);
       setLlmEditing(false);
       setLlmStatus("saved");
@@ -251,34 +389,44 @@ export function ConfigTab({
     }
   }
 
+  // ── Render ────────────────────────────────────────────────────────────────
+
   const selectedProvider = PROVIDER_OPTIONS.find(
     (p) => p.value === llmForm.provider
   )!;
-  const activeRegistryModel =
-    llmConfig?.provider === "openai-compatible"
-      ? registryModels.find((m) => m.modelId === llmConfig.model)
-      : null;
-
-  const activeRealmRoute =
-    llmConfig?.provider === "openai-compatible"
-      ? (() => {
-          for (const realm of realmLlmData?.realms ?? []) {
-            const model = realm.models.find(
-              (m) => m.litellmModelName === llmConfig.model
-            );
-            if (model) return { realm, model };
-          }
-          return null;
-        })()
-      : null;
-
-  const hasRealmRouting = Boolean(
-    realmLlmData?.litellmConfigured &&
-    realmLlmData.realms.some((r) => r.hasVirtualKey && r.models.length > 0)
-  );
 
   if (llmLoading)
     return <p className="text-foreground-500 text-sm">Loading…</p>;
+
+  // Mode selector buttons config
+  const MODES: {
+    id: ConfigMode;
+    label: string;
+    disabled: boolean;
+    hint?: string;
+  }[] = [
+    {
+      id: "agent-key",
+      label: "Agent Key",
+      disabled: !litellmConfigured,
+      hint: "LiteLLM proxy not configured",
+    },
+    {
+      id: "realm",
+      label: "Realm Routing",
+      disabled: !hasRealmRouting,
+      hint: !realmLlmData?.litellmConfigured
+        ? "LiteLLM not configured"
+        : "no models in realm",
+    },
+    {
+      id: "registry",
+      label: "From Registry",
+      disabled: registryModels.length === 0,
+      hint: "no models registered",
+    },
+    { id: "manual", label: "Manual", disabled: false },
+  ];
 
   return (
     <div className="space-y-5">
@@ -296,6 +444,18 @@ export function ConfigTab({
         onCancel={() => setShowClearConfirm(false)}
       />
 
+      <ConfirmModal
+        open={showRevokeConfirm}
+        title="Revoke agent key"
+        message="The agent's LiteLLM virtual key will be removed. It will fall back to the realm key (or manual config if set)."
+        confirmLabel="Revoke key"
+        variant="danger"
+        loading={revoking}
+        onConfirm={revokeAgentKey}
+        onCancel={() => setShowRevokeConfirm(false)}
+      />
+
+      {/* Reported LLM banner */}
       {reportedLlm && (
         <div className="bg-background-200 rounded-lg border border-neutral-200 px-4 py-3">
           <div className="text-xs text-foreground-500 uppercase tracking-wider font-medium mb-1.5">
@@ -306,12 +466,14 @@ export function ConfigTab({
               {reportedLlm.provider}/{reportedLlm.model}
             </code>
             <span className="text-xs text-foreground-400">
-              reported by agent{llmConfig ? "" : " (local env config)"}
+              reported by agent
+              {!llmConfig && !activeIsAgentKey ? " (local env config)" : ""}
             </span>
           </div>
         </div>
       )}
 
+      {/* ── Main config card ── */}
       <div className="rounded-xl border border-neutral-200 bg-background-100 overflow-hidden">
         <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-200">
           <div>
@@ -324,7 +486,17 @@ export function ConfigTab({
           </div>
           {!llmEditing && (
             <div className="flex items-center gap-2">
-              {llmConfig && (
+              {/* Revoke agent key */}
+              {activeIsAgentKey && (
+                <button
+                  onClick={() => setShowRevokeConfirm(true)}
+                  className="text-xs text-danger-400 hover:text-danger-300 border border-danger-500/30 px-2.5 py-1.5 rounded-md transition-colors"
+                >
+                  Revoke key
+                </button>
+              )}
+              {/* Clear manual config */}
+              {llmConfig && !activeIsAgentKey && (
                 <button
                   onClick={() => setShowClearConfirm(true)}
                   className="text-xs text-danger-400 hover:text-danger-300 border border-danger-500/30 px-2.5 py-1.5 rounded-md transition-colors"
@@ -336,41 +508,23 @@ export function ConfigTab({
                 onClick={openEdit}
                 className="text-xs text-primary-400 hover:text-primary-300 border border-primary-500/30 px-2.5 py-1.5 rounded-md transition-colors"
               >
-                {llmConfig ? "Edit" : "Configure"}
+                {llmConfig || activeIsAgentKey ? "Edit" : "Configure"}
               </button>
             </div>
           )}
         </div>
 
+        {/* ── Edit mode ── */}
         {llmEditing ? (
           <div className="p-4 space-y-4">
+            {/* Mode selector */}
             <div className="flex rounded-lg border border-neutral-200 overflow-hidden text-sm">
-              {[
-                {
-                  id: "realm" as const,
-                  label: "Realm Routing",
-                  disabled: !hasRealmRouting,
-                  hint: !realmLlmData?.litellmConfigured
-                    ? "LiteLLM not configured"
-                    : "no models in realm",
-                },
-                {
-                  id: "registry" as const,
-                  label: "From Registry",
-                  disabled: registryModels.length === 0,
-                  hint: "no models registered",
-                },
-                {
-                  id: "manual" as const,
-                  label: "Configure manually",
-                  disabled: false,
-                  hint: "",
-                },
-              ].map(({ id, label, disabled, hint }) => (
+              {MODES.map(({ id, label, disabled, hint }) => (
                 <button
                   key={id}
                   onClick={() => !disabled && setConfigMode(id)}
                   disabled={disabled}
+                  title={disabled ? hint : undefined}
                   className={`flex-1 py-2 text-xs font-medium transition-colors ${
                     configMode === id
                       ? "bg-primary-600 text-white"
@@ -378,7 +532,6 @@ export function ConfigTab({
                         ? "bg-background text-foreground-400 cursor-not-allowed"
                         : "bg-background text-foreground-500 hover:text-foreground hover:bg-background-200"
                   }`}
-                  title={disabled ? hint : undefined}
                 >
                   {label}
                 </button>
@@ -391,15 +544,132 @@ export function ConfigTab({
               </p>
             )}
 
-            {configMode === "realm" ? (
+            {/* ── Agent Key mode ── */}
+            {configMode === "agent-key" && (
+              <div className="space-y-4">
+                <p className="text-xs text-foreground-500">
+                  Provision a virtual key scoped to this agent in the LiteLLM proxy. Any existing
+                  manual config will be cleared — the agent key becomes the effective LLM config.
+                </p>
+
+                {/* Model tags */}
+                <div>
+                  <label className="text-xs text-foreground-500 uppercase tracking-wider font-medium block mb-1.5">
+                    Allowed models{" "}
+                    <span className="normal-case text-foreground-400">
+                      (empty = inherit from realm)
+                    </span>
+                  </label>
+                  {keyModels.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 mb-2">
+                      {keyModels.map((m) => (
+                        <span
+                          key={m}
+                          className="flex items-center gap-1 text-xs bg-primary-100 text-primary-700 border border-primary-300 rounded-full px-2.5 py-0.5"
+                        >
+                          <code className="font-mono">{m}</code>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setKeyModels((prev) => prev.filter((x) => x !== m))
+                            }
+                            className="ml-0.5 hover:text-primary-500 leading-none"
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={keyModelInput}
+                      onChange={(e) => setKeyModelInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          const m = keyModelInput.trim();
+                          if (m && !keyModels.includes(m))
+                            setKeyModels((p) => [...p, m]);
+                          setKeyModelInput("");
+                        }
+                      }}
+                      placeholder="gpt-4o  or  claude-sonnet-4-5"
+                      className="flex-1 bg-background-200 border border-neutral-300 rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-foreground-400 font-mono focus:outline-none focus:ring-2 focus:ring-primary-500/50"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const m = keyModelInput.trim();
+                        if (m && !keyModels.includes(m))
+                          setKeyModels((p) => [...p, m]);
+                        setKeyModelInput("");
+                      }}
+                      disabled={!keyModelInput.trim()}
+                      className="px-3 py-2 text-sm font-medium rounded-lg border border-neutral-300 hover:bg-background-200 transition-colors disabled:opacity-40"
+                    >
+                      Add
+                    </button>
+                  </div>
+                </div>
+
+                {/* Budget */}
+                <div>
+                  <label className="text-xs text-foreground-500 uppercase tracking-wider font-medium block mb-1.5">
+                    Daily budget (USD){" "}
+                    <span className="normal-case text-foreground-400">(optional)</span>
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-foreground-500">$</span>
+                    <input
+                      type="number"
+                      min={0}
+                      step={0.01}
+                      value={keyBudget}
+                      onChange={(e) => setKeyBudget(e.target.value)}
+                      placeholder="2.50"
+                      className="w-32 bg-background-200 border border-neutral-300 rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-foreground-400 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
+                    />
+                    <span className="text-xs text-foreground-400">/ day</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => { setLlmEditing(false); setLlmStatus("idle"); }}
+                    className="text-sm text-foreground-500 hover:text-foreground px-3 py-1.5"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={saveAgentKey}
+                    disabled={keySaving}
+                    className="flex items-center gap-2 px-4 py-1.5 text-sm font-medium rounded-lg bg-primary-600 hover:bg-primary-500 text-white disabled:opacity-40 transition"
+                  >
+                    {keySaving ? (
+                      <><RefreshCw className="w-3.5 h-3.5 animate-spin" /> Provisioning…</>
+                    ) : agentKeyInfo?.configured ? (
+                      "Refresh Key"
+                    ) : (
+                      "Provision Key & Push to Agent"
+                    )}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* ── Realm Routing mode ── */}
+            {configMode === "realm" && (
               <div className="space-y-3">
                 <p className="text-xs text-foreground-500">
-                  Route this agent through your LiteLLM proxy using a
-                  realm-scoped virtual key. The API key is resolved server-side.
+                  Route this agent through your LiteLLM proxy using a realm-scoped virtual key.
+                  The API key is resolved server-side.
                 </p>
                 {(realmLlmData?.realms ?? [])
                   .filter((r) => r.hasVirtualKey && r.models.length > 0)
-                  .map((realm) => (
+                  .map((realm: RealmLlmRealm) => (
                     <div key={realm.realmId} className="space-y-1.5">
                       <div className="flex items-center gap-2 text-xs text-foreground-500 font-medium uppercase tracking-wider">
                         <span>{realm.realmName}</span>
@@ -438,7 +708,10 @@ export function ConfigTab({
                                 {model.name}
                               </span>
                               <span
-                                className={`text-xs px-1.5 py-0.5 rounded-full border font-medium ${PROVIDER_COLORS[model.provider] ?? "bg-neutral-100 text-neutral-600 border-neutral-300"}`}
+                                className={`text-xs px-1.5 py-0.5 rounded-full border font-medium ${
+                                  PROVIDER_COLORS[model.provider] ??
+                                  "bg-neutral-100 text-neutral-600 border-neutral-300"
+                                }`}
                               >
                                 {model.provider}
                               </span>
@@ -454,93 +727,82 @@ export function ConfigTab({
                 <div className="flex items-center gap-3 pt-1">
                   <button
                     type="button"
-                    onClick={() => {
-                      setLlmEditing(false);
-                      setLlmStatus("idle");
-                    }}
+                    onClick={() => { setLlmEditing(false); setLlmStatus("idle"); }}
                     className="text-sm text-foreground-500 hover:text-foreground px-3 py-1.5"
                   >
                     Cancel
                   </button>
                   <button
-                    disabled={
-                      !selectedRealmId || !selectedRealmModelId || llmSaving
-                    }
+                    disabled={!selectedRealmId || !selectedRealmModelId || llmSaving}
                     onClick={saveRealmRouting}
                     className="px-4 py-1.5 text-sm font-medium rounded-lg bg-primary-600 hover:bg-primary-500 text-white disabled:opacity-40 transition"
                   >
                     {llmSaving ? "Saving…" : "Use realm routing"}
                   </button>
-                  <a
-                    href="/models"
-                    className="text-xs text-foreground-500 hover:text-foreground ml-auto transition-colors"
-                  >
+                  <a href="/models" className="text-xs text-foreground-500 hover:text-foreground ml-auto transition-colors">
                     Manage models →
                   </a>
                 </div>
               </div>
-            ) : configMode === "registry" ? (
+            )}
+
+            {/* ── Registry mode ── */}
+            {configMode === "registry" && (
               <div className="space-y-3">
                 <p className="text-xs text-foreground-500">
-                  Select a model from the registry. Endpoint and credentials are
-                  resolved server-side.
+                  Select a model from the registry. Endpoint and credentials are resolved
+                  server-side.
                 </p>
-                {registryLoading ? (
-                  <p className="text-xs text-foreground-500 py-4 text-center">
-                    Loading registry…
-                  </p>
-                ) : (
-                  <div className="space-y-2">
-                    {registryModels
-                      .filter((m) => m.status === "active")
-                      .map((m) => (
-                        <label
-                          key={m.id}
-                          className={`flex items-center gap-3 px-3 py-3 rounded-xl border cursor-pointer transition-colors ${
-                            selectedRegistryId === m.id
-                              ? "border-primary-500 bg-primary-50"
-                              : "border-neutral-200 hover:border-neutral-300 hover:bg-background-200/50"
-                          }`}
-                        >
-                          <input
-                            type="radio"
-                            name="registry-model"
-                            value={m.id}
-                            checked={selectedRegistryId === m.id}
-                            onChange={() => setSelectedRegistryId(m.id)}
-                            className="accent-primary-600 shrink-0"
-                          />
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className="text-sm font-medium text-foreground">
-                                {m.name}
-                              </span>
-                              <span
-                                className={`text-xs px-1.5 py-0.5 rounded-full border font-medium ${PROVIDER_COLORS[m.provider] ?? "bg-neutral-100 text-neutral-600 border-neutral-300"}`}
-                              >
-                                {m.provider}
-                              </span>
-                            </div>
-                            <code className="text-xs text-foreground-400 font-mono">
-                              {m.modelId}
-                            </code>
-                            {m.description && (
-                              <p className="text-xs text-foreground-500 mt-0.5">
-                                {m.description}
-                              </p>
-                            )}
+                <div className="space-y-2">
+                  {registryModels
+                    .filter((m) => m.status === "active")
+                    .map((m) => (
+                      <label
+                        key={m.id}
+                        className={`flex items-center gap-3 px-3 py-3 rounded-xl border cursor-pointer transition-colors ${
+                          selectedRegistryId === m.id
+                            ? "border-primary-500 bg-primary-50"
+                            : "border-neutral-200 hover:border-neutral-300 hover:bg-background-200/50"
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          name="registry-model"
+                          value={m.id}
+                          checked={selectedRegistryId === m.id}
+                          onChange={() => setSelectedRegistryId(m.id)}
+                          className="accent-primary-600 shrink-0"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-sm font-medium text-foreground">
+                              {m.name}
+                            </span>
+                            <span
+                              className={`text-xs px-1.5 py-0.5 rounded-full border font-medium ${
+                                PROVIDER_COLORS[m.provider] ??
+                                "bg-neutral-100 text-neutral-600 border-neutral-300"
+                              }`}
+                            >
+                              {m.provider}
+                            </span>
                           </div>
-                        </label>
-                      ))}
-                  </div>
-                )}
+                          <code className="text-xs text-foreground-400 font-mono">
+                            {m.modelId}
+                          </code>
+                          {m.description && (
+                            <p className="text-xs text-foreground-500 mt-0.5">
+                              {m.description}
+                            </p>
+                          )}
+                        </div>
+                      </label>
+                    ))}
+                </div>
                 <div className="flex items-center gap-3 pt-1">
                   <button
                     type="button"
-                    onClick={() => {
-                      setLlmEditing(false);
-                      setLlmStatus("idle");
-                    }}
+                    onClick={() => { setLlmEditing(false); setLlmStatus("idle"); }}
                     className="text-sm text-foreground-500 hover:text-foreground px-3 py-1.5"
                   >
                     Cancel
@@ -552,15 +814,15 @@ export function ConfigTab({
                   >
                     {llmSaving ? "Saving…" : "Use this model"}
                   </button>
-                  <a
-                    href="/models"
-                    className="text-xs text-foreground-500 hover:text-foreground ml-auto transition-colors"
-                  >
+                  <a href="/models" className="text-xs text-foreground-500 hover:text-foreground ml-auto transition-colors">
                     Manage registry →
                   </a>
                 </div>
               </div>
-            ) : (
+            )}
+
+            {/* ── Manual mode ── */}
+            {configMode === "manual" && (
               <form onSubmit={saveManualConfig} className="space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
@@ -641,10 +903,7 @@ export function ConfigTab({
                         type="url"
                         value={llmForm.baseUrl}
                         onChange={(e) =>
-                          setLlmForm((f) => ({
-                            ...f,
-                            baseUrl: e.target.value,
-                          }))
+                          setLlmForm((f) => ({ ...f, baseUrl: e.target.value }))
                         }
                         placeholder={
                           llmForm.provider === "ollama"
@@ -658,19 +917,14 @@ export function ConfigTab({
                   <div>
                     <label className="text-xs text-foreground-500 uppercase tracking-wider font-medium block mb-1.5">
                       Max Tokens{" "}
-                      <span className="normal-case text-foreground-400">
-                        (optional)
-                      </span>
+                      <span className="normal-case text-foreground-400">(optional)</span>
                     </label>
                     <input
                       type="number"
                       min={1}
                       value={llmForm.maxTokens}
                       onChange={(e) =>
-                        setLlmForm((f) => ({
-                          ...f,
-                          maxTokens: e.target.value,
-                        }))
+                        setLlmForm((f) => ({ ...f, maxTokens: e.target.value }))
                       }
                       placeholder="4096"
                       className="w-full bg-background-200 border border-neutral-300 rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-foreground-400 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
@@ -688,10 +942,7 @@ export function ConfigTab({
                     rows={4}
                     value={llmForm.systemPrompt}
                     onChange={(e) =>
-                      setLlmForm((f) => ({
-                        ...f,
-                        systemPrompt: e.target.value,
-                      }))
+                      setLlmForm((f) => ({ ...f, systemPrompt: e.target.value }))
                     }
                     placeholder="You are a secure agent…"
                     className="w-full bg-background-200 border border-neutral-300 rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-foreground-400 focus:outline-none focus:ring-2 focus:ring-primary-500/50 resize-y"
@@ -700,10 +951,7 @@ export function ConfigTab({
                 <div className="flex items-center gap-3">
                   <button
                     type="button"
-                    onClick={() => {
-                      setLlmEditing(false);
-                      setLlmStatus("idle");
-                    }}
+                    onClick={() => { setLlmEditing(false); setLlmStatus("idle"); }}
                     className="text-sm text-foreground-500 hover:text-foreground px-3 py-1.5"
                   >
                     Cancel
@@ -719,7 +967,76 @@ export function ConfigTab({
               </form>
             )}
           </div>
+        ) : /* ── View mode ── */ activeIsAgentKey ? (
+          /* Agent key display */
+          <div className="divide-y divide-neutral-200">
+            <div className="flex items-center gap-3 px-4 py-3 bg-warning-50 dark:bg-warning-900/20">
+              <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-warning-100 dark:bg-warning-900/40 text-warning-700 dark:text-warning-400 border border-warning-300 dark:border-warning-700 shrink-0 flex items-center gap-1">
+                <Key className="w-3 h-3" /> Agent Key
+              </span>
+              <span className="text-sm text-foreground font-mono">
+                {agentKeyInfo!.keyPrefix}…
+              </span>
+              <Link
+                href="/models?tab=litellm"
+                className="ml-auto text-xs text-warning-600 dark:text-warning-400 hover:underline shrink-0"
+              >
+                LiteLLM proxy →
+              </Link>
+            </div>
+            {[
+              {
+                label: "Models",
+                value:
+                  agentKeyInfo!.allowedModels.length > 0 ? (
+                    <div className="flex flex-wrap gap-1">
+                      {agentKeyInfo!.allowedModels.map((m) => (
+                        <code
+                          key={m}
+                          className="text-xs font-mono bg-background-200 px-1.5 py-0.5 rounded border border-neutral-200"
+                        >
+                          {m}
+                        </code>
+                      ))}
+                    </div>
+                  ) : (
+                    <span className="text-xs text-foreground-400">
+                      inherited from realm
+                    </span>
+                  ),
+              },
+              {
+                label: "Daily budget",
+                value:
+                  agentKeyInfo!.dailyBudget != null ? (
+                    <span className="text-xs font-medium">
+                      ${agentKeyInfo!.dailyBudget.toFixed(2)} / day
+                    </span>
+                  ) : (
+                    <span className="text-xs text-foreground-400">No limit</span>
+                  ),
+              },
+              {
+                label: "Updated",
+                value: agentKeyInfo!.updatedAt ? (
+                  <span className="text-xs text-foreground-500">
+                    {new Date(agentKeyInfo!.updatedAt).toLocaleString()}
+                  </span>
+                ) : (
+                  <span className="text-xs text-foreground-400">—</span>
+                ),
+              },
+            ].map(({ label, value }) => (
+              <div key={label} className="flex items-start gap-4 px-4 py-3">
+                <div className="w-28 flex-shrink-0 text-xs text-foreground-500 uppercase pt-0.5">
+                  {label}
+                </div>
+                <div className="flex-1 text-sm text-foreground">{value}</div>
+              </div>
+            ))}
+          </div>
         ) : llmConfig ? (
+          /* Manual / realm / registry config display */
           <div className="divide-y divide-neutral-200">
             {activeRealmRoute && (
               <div className="flex items-center gap-3 px-4 py-3 bg-secondary-50">
@@ -772,9 +1089,7 @@ export function ConfigTab({
                     {
                       label: "Base URL",
                       value: (
-                        <span className="font-mono text-xs">
-                          {llmConfig.baseUrl}
-                        </span>
+                        <span className="font-mono text-xs">{llmConfig.baseUrl}</span>
                       ),
                     },
                   ]
@@ -788,12 +1103,7 @@ export function ConfigTab({
                 ),
               },
               ...(llmConfig.maxTokens
-                ? [
-                    {
-                      label: "Max Tokens",
-                      value: llmConfig.maxTokens.toString(),
-                    },
-                  ]
+                ? [{ label: "Max Tokens", value: llmConfig.maxTokens.toString() }]
                 : []),
               ...(llmConfig.systemPrompt
                 ? [
@@ -817,10 +1127,10 @@ export function ConfigTab({
             ))}
           </div>
         ) : (
+          /* No config */
           <div className="px-4 py-8 text-center">
             <p className="text-foreground-500 text-sm">
-              No remote config set. The agent uses its local environment
-              variables{" "}
+              No remote config set. The agent uses its local environment variables{" "}
               <code className="text-xs bg-background-200 px-1.5 py-0.5 rounded">
                 LLM_PROVIDER
               </code>
@@ -830,27 +1140,30 @@ export function ConfigTab({
               </code>
               , etc.
             </p>
-            {hasRealmRouting && (
+            {litellmConfigured && (
               <p className="text-xs text-foreground-500 mt-2">
-                Realm routing is available — click Configure to route via your
-                LiteLLM proxy.
+                LiteLLM is configured — click Configure to provision an agent key.
               </p>
             )}
-            {!hasRealmRouting && registryModels.length > 0 && (
+            {!litellmConfigured && hasRealmRouting && (
+              <p className="text-xs text-foreground-500 mt-2">
+                Realm routing is available — click Configure to route via your LiteLLM proxy.
+              </p>
+            )}
+            {!litellmConfigured && !hasRealmRouting && registryModels.length > 0 && (
               <p className="text-xs text-foreground-500 mt-2">
                 {registryModels.length} model
-                {registryModels.length !== 1 ? "s" : ""} available in the
-                registry — click Configure to assign one.
+                {registryModels.length !== 1 ? "s" : ""} available in the registry — click
+                Configure to assign one.
               </p>
             )}
           </div>
         )}
       </div>
 
+      {/* Status feedback */}
       {llmStatus === "saved" && (
-        <p className="text-success-600 text-xs">
-          ✓ Config saved and pushed to agent
-        </p>
+        <p className="text-success-600 text-xs">✓ Config saved and pushed to agent</p>
       )}
       {llmStatus === "cleared" && (
         <p className="text-success-600 text-xs">✓ Config cleared</p>

@@ -3,16 +3,17 @@
 # demo/demo-up.sh — VaultysClaw full demo environment
 #
 # Sandboxes ALL environment variables, creates dedicated Docker containers
-# for PostgreSQL, MinIO and Docling, then starts the control plane and the
-# 30-agent simulator.  Nothing touches your existing .env files.
+# for PostgreSQL, MinIO, Docling and LiteLLM, then starts the control plane
+# and the 30-agent simulator.  Nothing touches your existing .env files.
 #
 # Usage:
-#   chmod +x demo/demo-up.sh
-#   ./demo/demo-up.sh [flags]
+#   chmod +x demo/simulator/demo-up.sh
+#   ./demo/simulator/demo-up.sh [flags]
 #
 # Flags:
 #   --skip-minio       Don't start MinIO  (uses filesystem storage instead)
 #   --skip-docling     Don't start Docling
+#   --skip-litellm     Don't start LiteLLM proxy
 #   --skip-seed        Skip simulator:seed (re-use existing data)
 #   --no-simulator     Start services only; don't launch the 30-agent fleet
 #   --fresh            Wipe demo DB and Docker volumes before starting
@@ -45,7 +46,7 @@ DOCKER_CONTAINERS_FILE="$DEMO_DIR/.demo-sim-containers"
 
 SKIP_MINIO=false
 SKIP_DOCLING=false
-SKIP_PEERJS=false
+SKIP_LITELLM=false
 SKIP_SEED=false
 NO_SIMULATOR=false
 FRESH=false
@@ -54,7 +55,7 @@ for arg in "$@"; do
   case "$arg" in
     --skip-minio)    SKIP_MINIO=true ;;
     --skip-docling)  SKIP_DOCLING=true ;;
-    --skip-peerjs)   SKIP_PEERJS=true ;;
+    --skip-litellm)  SKIP_LITELLM=true ;;
     --skip-seed)     SKIP_SEED=true ;;
     --no-simulator)  NO_SIMULATOR=true ;;
     --fresh)         FRESH=true ;;
@@ -86,7 +87,7 @@ cleanup() {
   echo
   log "Shutting down demo environment…"
 
-  # Kill Node.js processes (control plane, simulator, peerjs agents)
+  # Kill Node.js processes (control plane, simulator)
   if [[ -f "$PIDS_FILE" ]]; then
     while IFS= read -r pid; do
       [[ -n "$pid" ]] && kill "$pid" 2>/dev/null || true
@@ -95,8 +96,7 @@ cleanup() {
   fi
 
   # STOP Docker containers (preserves volumes & data for next run).
-  # Use docker rm -f only on --fresh; here we just stop.
-  for cname in "${PG_CONTAINER:-}" "${MINIO_CONTAINER:-}" "${DOCLING_CONTAINER:-}" "${PEERJS_CONTAINER:-}"; do
+  for cname in "${PG_CONTAINER:-}" "${MINIO_CONTAINER:-}" "${DOCLING_CONTAINER:-}" "${LITELLM_CONTAINER:-}"; do
     [[ -z "$cname" ]] && continue
     if docker inspect "$cname" &>/dev/null 2>&1; then
       docker stop "$cname" >/dev/null 2>&1 || true
@@ -104,7 +104,6 @@ cleanup() {
     fi
   done
 
-  # Clean up the "newly created" tracking file (no longer needed after stop)
   rm -f "$DOCKER_CONTAINERS_FILE"
 
   log "Done. Goodbye."
@@ -148,7 +147,6 @@ wait_postgres() {
     fi
     sleep 1
   done
-  # pg_isready might not be installed — fall back to docker exec
   if docker exec "$PG_CONTAINER" pg_isready -U "$PG_USER" -q 2>/dev/null; then
     log "PostgreSQL is ready (via docker exec)."
     return 0
@@ -157,13 +155,8 @@ wait_postgres() {
 }
 
 # ── Sync PostgreSQL password ──────────────────────────────────────────────────
-# PostgreSQL ignores POSTGRES_PASSWORD on an existing data volume (it only
-# applies during initdb). On restarts after --fresh, the volume may hold a
-# password from a previous run. This function detects the mismatch and resets
-# the password via the postgres OS-user socket (trust auth, TCP not needed).
 
 sync_postgres_password() {
-  # Quick TCP auth test — if this passes the password is already correct.
   if docker exec "$PG_CONTAINER" \
        env PGPASSWORD="$PG_PASSWORD" \
        psql -h localhost -U "$PG_USER" -d "$PG_DB" -c "SELECT 1;" \
@@ -174,21 +167,17 @@ sync_postgres_password() {
   warn "PostgreSQL password mismatch (volume has an old password)."
   warn "Resetting password for user '${PG_USER}' via superuser socket…"
 
-  # The postgres OS user has implicit trust access over the Unix socket.
-  # We run ALTER USER to update the stored hash to match our current secret.
   if docker exec --user postgres "$PG_CONTAINER" \
        psql -c "ALTER USER \"${PG_USER}\" WITH PASSWORD '${PG_PASSWORD}';" \
        >/dev/null 2>&1; then
     log "Password reset ✓"
   else
-    # Fallback: try without specifying a user (connects as postgres)
     docker exec "$PG_CONTAINER" \
       psql -U postgres \
       -c "ALTER USER \"${PG_USER}\" WITH PASSWORD '${PG_PASSWORD}';" \
       >/dev/null 2>&1 || true
   fi
 
-  # Final verification
   if docker exec "$PG_CONTAINER" \
        env PGPASSWORD="$PG_PASSWORD" \
        psql -h localhost -U "$PG_USER" -d "$PG_DB" -c "SELECT 1;" \
@@ -217,12 +206,9 @@ if ! have_docker; then
 fi
 
 # =============================================================================
-# Step 2 — Fixed operational constants (never stored in .env.demo)
+# Step 2 — Fixed operational constants
 # =============================================================================
 
-# Container names and ports are fixed — not user-configurable secrets.
-# Defined here so every run uses the same values regardless of what was
-# written in an older .env.demo file.
 PG_CONTAINER="vc-demo-postgres"
 PG_HOST="127.0.0.1"
 PG_PORT="5433"
@@ -240,9 +226,9 @@ MINIO_REGION="us-east-1"
 DOCLING_CONTAINER="vc-demo-docling"
 DOCLING_PORT="5001"
 
-PEERJS_CONTAINER="vc-demo-peerjs"
-PEERJS_PORT="9002"
-PEERJS_ENABLED="true"
+LITELLM_CONTAINER="vc-demo-litellm"
+LITELLM_PORT="4000"
+LITELLM_BASE_URL="http://127.0.0.1:${LITELLM_PORT}"
 
 NODE_ENV="development"
 PORT="3000"
@@ -252,7 +238,7 @@ CONTROL_PLANE_URL="http://localhost:3000"
 CONTROL_PLANE_WS_URL="ws://localhost:8080"
 
 # =============================================================================
-# Step 3 — Generated secrets (stored in .env.demo, created once)
+# Step 3 — Generated secrets
 # =============================================================================
 step "Environment"
 
@@ -263,39 +249,33 @@ mkdir -p "$DATA_DIR" "$LOG_DIR"
 if [[ ! -f "$ENV_FILE" ]]; then
   log "Generating demo secrets → $ENV_FILE"
 
-  # Only secrets that vary per-deployment go here.
-  # Everything else is hardcoded above so the file stays minimal and
-  # old versions never cause "unbound variable" failures.
   NEXTAUTH_SECRET_GEN=$(openssl rand -base64 32)
   PG_PASSWORD_GEN=$(openssl rand -hex 16)
+  LITELLM_MASTER_KEY_GEN="sk-demo-$(openssl rand -hex 16)"
 
-  # Use printf to avoid any heredoc encoding issues with multi-byte chars
-  printf '# VaultysClaw Demo Secrets\n'                         > "$ENV_FILE"
+  printf '# VaultysClaw Demo Secrets\n'                          > "$ENV_FILE"
   printf '# Generated: %s\n' "$(date -u +"%Y-%m-%d %H:%M UTC")" >> "$ENV_FILE"
   printf '# These are the ONLY values that change per deployment.\n\n' >> "$ENV_FILE"
-  printf 'PG_PASSWORD=%s\n' "$PG_PASSWORD_GEN"                  >> "$ENV_FILE"
+  printf 'PG_PASSWORD=%s\n' "$PG_PASSWORD_GEN"                   >> "$ENV_FILE"
   printf 'DATABASE_URL=postgresql://%s:%s@127.0.0.1:%s/%s\n' \
-    "$PG_USER" "$PG_PASSWORD_GEN" "$PG_PORT" "$PG_DB"           >> "$ENV_FILE"
-  printf 'NEXTAUTH_SECRET=%s\n' "$NEXTAUTH_SECRET_GEN"          >> "$ENV_FILE"
+    "$PG_USER" "$PG_PASSWORD_GEN" "$PG_PORT" "$PG_DB"            >> "$ENV_FILE"
+  printf 'NEXTAUTH_SECRET=%s\n' "$NEXTAUTH_SECRET_GEN"           >> "$ENV_FILE"
+  printf 'LITELLM_MASTER_KEY=%s\n' "$LITELLM_MASTER_KEY_GEN"     >> "$ENV_FILE"
 
   log "Created $ENV_FILE"
 else
   log "Re-using existing $ENV_FILE"
 fi
 
-# Source secrets file — only PG_PASSWORD, DATABASE_URL, NEXTAUTH_SECRET
-# are loaded from it; everything else is already set above.
-# tr -d '\r' strips any Windows-style carriage returns that corrupt variable names.
+# Source secrets
 while IFS='=' read -r key value; do
-  # Skip blank lines and comments
   [[ -z "$key" || "$key" == \#* ]] && continue
-  # Strip any trailing \r (CRLF safety)
   key="${key%$'\r'}"
   value="${value%$'\r'}"
   export "$key"="$value"
 done < "$ENV_FILE"
 
-export DATABASE_URL NEXTAUTH_SECRET
+export DATABASE_URL NEXTAUTH_SECRET LITELLM_MASTER_KEY
 export NODE_ENV PORT WS_PORT NEXTAUTH_URL
 
 log "Environment loaded:"
@@ -303,6 +283,7 @@ log "  DATABASE_URL      = ${DATABASE_URL}"
 log "  NEXTAUTH_URL      = ${NEXTAUTH_URL}"
 log "  Control Plane URL = ${CONTROL_PLANE_URL}"
 log "  WS URL            = ${CONTROL_PLANE_WS_URL}"
+log "  LiteLLM URL       = ${LITELLM_BASE_URL}"
 
 # =============================================================================
 # Step 4 — Fresh wipe (if --fresh)
@@ -311,16 +292,15 @@ log "  WS URL            = ${CONTROL_PLANE_WS_URL}"
 if $FRESH; then
   step "Fresh wipe"
   warn "Wiping demo containers and volumes (--fresh)…"
-  docker rm -f "${PG_CONTAINER}" "${MINIO_CONTAINER}" "${DOCLING_CONTAINER}" "${PEERJS_CONTAINER}" 2>/dev/null || true
+  docker rm -f "${PG_CONTAINER}" "${MINIO_CONTAINER}" "${DOCLING_CONTAINER}" "${LITELLM_CONTAINER}" 2>/dev/null || true
   docker volume rm "vc-demo-pgdata" "vc-demo-miniodata" 2>/dev/null || true
-  # Also wipe the generated env and simulator identities so secrets are regenerated
   rm -f "$ENV_FILE"
   rm -rf "$IDENTITIES_DIR" 2>/dev/null || true
   log "Wipe complete — env and identities will be regenerated."
 fi
 
 # =============================================================================
-# Step 4 — PostgreSQL
+# Step 5 — PostgreSQL
 # =============================================================================
 step "PostgreSQL"
 
@@ -348,7 +328,7 @@ wait_postgres "127.0.0.1" "$PG_PORT" "$PG_USER" 30
 sync_postgres_password
 
 # =============================================================================
-# Step 5 — MinIO
+# Step 6 — MinIO
 # =============================================================================
 
 if ! $SKIP_MINIO; then
@@ -376,7 +356,6 @@ if ! $SKIP_MINIO; then
 
   wait_http "http://127.0.0.1:${MINIO_API_PORT}/minio/health/live" "MinIO" 30
 
-  # Create the demo bucket via MinIO mc client (bundled inside the container)
   log "Ensuring bucket '${MINIO_BUCKET}' exists…"
   docker exec "$MINIO_CONTAINER" sh -c "
     mc alias set local http://localhost:9000 '${MINIO_ROOT_USER}' '${MINIO_ROOT_PASSWORD}' --quiet 2>/dev/null || true
@@ -386,7 +365,7 @@ if ! $SKIP_MINIO; then
 fi
 
 # =============================================================================
-# Step 6 — Docling
+# Step 7 — Docling
 # =============================================================================
 
 if ! $SKIP_DOCLING; then
@@ -412,38 +391,68 @@ if ! $SKIP_DOCLING; then
       >/dev/null
   fi
 
-  # Docling takes a while to initialise — check /health with generous timeout
   wait_http "http://127.0.0.1:${DOCLING_PORT}/health" "Docling" 120
 fi
 
 # =============================================================================
-# Step 7 — PeerJS signalling server
+# Step 8 — LiteLLM proxy
 # =============================================================================
 
-if ! $SKIP_PEERJS; then
-  step "PeerJS Signalling Server"
+if ! $SKIP_LITELLM; then
+  step "LiteLLM Proxy"
 
-  if docker inspect "$PEERJS_CONTAINER" &>/dev/null 2>&1; then
-    if [[ "$(docker inspect -f '{{.State.Running}}' "$PEERJS_CONTAINER")" != "true" ]]; then
-      log "Starting existing $PEERJS_CONTAINER"
-      docker start "$PEERJS_CONTAINER" >/dev/null
+  # Write a minimal config file so LiteLLM starts cleanly.
+  # Models are registered dynamically via the control plane UI / API;
+  # the config only sets global defaults and the master key.
+  LITELLM_CONFIG_FILE="$DATA_DIR/litellm_config.yaml"
+  mkdir -p "$DATA_DIR"
+  cat > "$LITELLM_CONFIG_FILE" <<LITELLMCFG
+# LiteLLM proxy config — managed by demo-up.sh
+# Add provider API keys here or in the control plane UI.
+# Models are registered dynamically; no static model_list needed.
+general_settings:
+  master_key: "${LITELLM_MASTER_KEY}"
+  # Store spend and key data in the same Postgres as the control plane
+  database_url: "${DATABASE_URL}"
+  store_model_in_db: true
+
+litellm_settings:
+  # Drop unknown params so OpenAI-incompatible models don't error
+  drop_params: true
+  # Mask API keys in logs
+  redact_messages_in_exceptions: true
+LITELLMCFG
+
+  if docker inspect "$LITELLM_CONTAINER" &>/dev/null 2>&1; then
+    if [[ "$(docker inspect -f '{{.State.Running}}' "$LITELLM_CONTAINER")" != "true" ]]; then
+      log "Starting existing $LITELLM_CONTAINER"
+      docker start "$LITELLM_CONTAINER" >/dev/null
     else
-      log "$PEERJS_CONTAINER is already running."
+      log "$LITELLM_CONTAINER is already running."
     fi
   else
-    log "Creating $PEERJS_CONTAINER on port ${PEERJS_PORT}…"
+    if ! docker image inspect "ghcr.io/berriai/litellm:main-latest" &>/dev/null 2>&1; then
+      warn "LiteLLM image not cached — first pull may take a minute."
+    fi
+    log "Creating $LITELLM_CONTAINER on port ${LITELLM_PORT}…"
     docker run -d \
-      --name "$PEERJS_CONTAINER" \
-      -p "${PEERJS_PORT}:9000" \
-      peerjs/peerjs-server \
+      --name "$LITELLM_CONTAINER" \
+      -p "${LITELLM_PORT}:4000" \
+      -v "${LITELLM_CONFIG_FILE}:/app/config.yaml:ro" \
+      -e "LITELLM_MASTER_KEY=${LITELLM_MASTER_KEY}" \
+      -e "DATABASE_URL=${DATABASE_URL}" \
+      --add-host "host.docker.internal:host-gateway" \
+      ghcr.io/berriai/litellm:main-latest \
+      --config /app/config.yaml \
+      --port 4000 \
       >/dev/null
   fi
 
-  wait_http "http://127.0.0.1:${PEERJS_PORT}/" "PeerJS" 30
+  wait_http "http://127.0.0.1:${LITELLM_PORT}/health/liveliness" "LiteLLM" 60
 fi
 
 # =============================================================================
-# Step 8 — Prisma schema push (idempotent)
+# Step 9 — Prisma schema push (idempotent)
 # =============================================================================
 step "Database schema"
 
@@ -459,7 +468,7 @@ log "Running prisma db push (DATABASE_URL=${DATABASE_URL})…"
 log "Schema is up to date."
 
 # =============================================================================
-# Step 9 — Control Plane
+# Step 10 — Control Plane
 # =============================================================================
 step "Control Plane"
 
@@ -468,9 +477,6 @@ if curl -sf --max-time 2 "${CONTROL_PLANE_URL}/api/health" >/dev/null 2>&1; then
 else
   log "Starting control plane…"
 
-  # server.ts reads env vars from <data-dir>/.env, so write our sandboxed
-  # values there. dotenv.config() doesn't override existing process.env vars,
-  # but this ensures the values are available even if the shell export fails.
   mkdir -p "$DATA_DIR"
   cat > "$DATA_DIR/.env" <<CPENV
 # Generated by demo-up.sh — do not edit manually
@@ -480,10 +486,10 @@ NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
 NODE_ENV=${NODE_ENV}
 PORT=${PORT}
 WS_PORT=${WS_PORT}
+LITELLM_BASE_URL=${LITELLM_BASE_URL}
+LITELLM_MASTER_KEY=${LITELLM_MASTER_KEY}
 CPENV
 
-  # Start using the same pattern as demo/setup.sh — no pipe through sed
-  # so stdout goes straight to the log file without extra buffering.
   cd "$REPO_ROOT"
   DATABASE_URL="$DATABASE_URL" \
   NEXTAUTH_SECRET="$NEXTAUTH_SECRET" \
@@ -491,8 +497,8 @@ CPENV
   NODE_ENV="$NODE_ENV" \
   PORT="$PORT" \
   WS_PORT="$WS_PORT" \
-  PEERJS_ENABLED="${PEERJS_ENABLED:-false}" \
-  PEERJS_SERVER_URL="http://127.0.0.1:${PEERJS_PORT:-9002}" \
+  LITELLM_BASE_URL="$LITELLM_BASE_URL" \
+  LITELLM_MASTER_KEY="$LITELLM_MASTER_KEY" \
   pnpm --filter @vaultysclaw/control-plane dev -- --data-dir "$DATA_DIR" \
     > "$LOG_DIR/control-plane.log" 2>&1 &
   CP_PID=$!
@@ -502,7 +508,6 @@ CPENV
   log "Waiting for control plane to be ready (this takes ~20-30s on first run)…"
   wait_http "${CONTROL_PLANE_URL}/api/health" "Control Plane" 90
 
-  # Show last few log lines if still not up after 90s
   if ! curl -sf --max-time 2 "${CONTROL_PLANE_URL}/api/health" >/dev/null 2>&1; then
     warn "Control plane may not be fully ready. Last log lines:"
     tail -20 "$LOG_DIR/control-plane.log" | sed 's/^/    /'
@@ -510,11 +515,9 @@ CPENV
 fi
 
 # =============================================================================
-# Step 10 — Claim ownership (first-time setup)
+# Step 11 — Claim ownership (first-time setup)
 # =============================================================================
 
-# ── Helper: ask psql (inside the Docker container) whether an owner exists ──
-# More reliable than tsx --eval which can fail silently at startup.
 owner_exists_in_db() {
   local result
   result=$(docker exec "$PG_CONTAINER" \
@@ -524,15 +527,10 @@ owner_exists_in_db() {
   [[ "$result" == "1" || "$result" -gt 0 ]] 2>/dev/null && echo "yes" || echo "no"
 }
 
-# Decide whether to show the ownership prompt:
-#   --fresh  → DB was just wiped, definitely no owner
-#   normal   → query the DB
 NEEDS_OWNER_PROMPT=false
 if $FRESH; then
-  # Always prompt after a fresh wipe — no users exist yet
   NEEDS_OWNER_PROMPT=true
 elif [[ "$(owner_exists_in_db)" != "yes" ]]; then
-  # Normal restart but no owner in DB (first run, or DB was manually cleared)
   NEEDS_OWNER_PROMPT=true
 fi
 
@@ -555,7 +553,6 @@ if $NEEDS_OWNER_PROMPT; then
   echo
   read -r -p "  Press ENTER once you have claimed ownership → " _ignored
 
-  # Confirm ownership was registered
   if [[ "$(owner_exists_in_db)" == "yes" ]]; then
     log "Owner registered ✓ — proceeding with seed."
   else
@@ -568,7 +565,7 @@ else
 fi
 
 # =============================================================================
-# Step 11 — Configure MinIO and Docling via REST API
+# Step 12 — Configure MinIO and Docling via REST API
 # =============================================================================
 step "Service configuration"
 
@@ -576,13 +573,11 @@ API_KEY="${DEMO_API_KEY:-vc-demo-0000-0000-0000-000000000001}"
 
 configure_storage() {
   log "Configuring MinIO / S3 storage…"
-  # Build payload without variable expansion issues (use printf instead of heredoc)
   local payload
   payload=$(printf '{"storageType":"s3","s3":{"enabled":true,"region":"%s","bucket":"%s","endpoint":"http://127.0.0.1:%s","accessKeyId":"%s","secretAccessKey":"%s"}}' \
     "${MINIO_REGION:-us-east-1}" "${MINIO_BUCKET:-vc-demo-files}" "${MINIO_API_PORT:-9000}" \
     "${MINIO_ROOT_USER:-minioadmin}" "${MINIO_ROOT_PASSWORD:-minioadmin123}")
 
-  # Use -s (not -sf) and || true so a non-200 response never kills the script
   local status=""
   status=$(curl -s -o /dev/null -w "%{http_code}" \
     -X PUT "${CONTROL_PLANE_URL}/api/settings/storage" \
@@ -592,15 +587,8 @@ configure_storage() {
 
   if [[ "$status" == "200" ]]; then
     log "MinIO storage configured (bucket: ${MINIO_BUCKET:-vc-demo-files} @ port ${MINIO_API_PORT:-9000})."
-  elif [[ -z "$status" ]]; then
-    warn "Could not reach control plane to configure storage (is it running?)."
-    warn "Configure manually: Settings → Storage → S3"
-    warn "  Endpoint  : http://127.0.0.1:${MINIO_API_PORT:-9000}"
-    warn "  Bucket    : ${MINIO_BUCKET:-vc-demo-files}"
-    warn "  Access key: ${MINIO_ROOT_USER:-minioadmin}"
-    warn "  Secret    : ${MINIO_ROOT_PASSWORD:-minioadmin123}"
   else
-    warn "Storage configuration returned HTTP ${status}."
+    warn "Storage configuration returned HTTP ${status:-unreachable}."
     warn "Configure manually: Settings → Storage → S3"
     warn "  Endpoint  : http://127.0.0.1:${MINIO_API_PORT:-9000}"
     warn "  Bucket    : ${MINIO_BUCKET:-vc-demo-files}"
@@ -623,20 +611,14 @@ configure_docling() {
 
   if [[ "$status" == "200" ]]; then
     log "Docling configured (http://127.0.0.1:${DOCLING_PORT:-5001})."
-  elif [[ -z "$status" ]]; then
-    warn "Could not reach control plane to configure Docling."
-    warn "Configure manually: Settings → Docling → URL = http://127.0.0.1:${DOCLING_PORT:-5001}"
   else
-    warn "Docling configuration returned HTTP ${status}."
+    warn "Docling configuration returned HTTP ${status:-unreachable}."
     warn "Configure manually: Settings → Docling → URL = http://127.0.0.1:${DOCLING_PORT:-5001}"
   fi
 }
 
-# The API key might not exist yet (seed hasn't run) — configure after seed
-# so we defer these calls to after the seed step below.
-
 # =============================================================================
-# Step 12 — Demo seed
+# Step 13 — Demo seed
 # =============================================================================
 step "Demo seed"
 
@@ -653,12 +635,12 @@ else
   }
 fi
 
-# Now configure services (API key exists after seed)
+# Configure services after seed (API key exists after seed)
 $SKIP_MINIO   || configure_storage
 $SKIP_DOCLING || configure_docling
 
 # =============================================================================
-# Step 13 — Start simulator (30 fake agents)
+# Step 14 — Start simulator (30 fake agents)
 # =============================================================================
 step "Simulator"
 
@@ -677,60 +659,7 @@ else
   echo "$SIM_PID" >> "$PIDS_FILE"
   log "Simulator started (PID $SIM_PID) → $LOG_DIR/simulator.log"
 
-  # Give the simulator 10 s to start connecting, then show live output
   sleep 5
-fi
-
-# =============================================================================
-# Step 14 — PeerJS agents (2 real agent-controller processes via WebRTC)
-# =============================================================================
-
-if ! $SKIP_PEERJS; then
-  step "PeerJS Agents"
-
-  # Get the control plane's PeerJS peer ID from /api/server
-  SERVER_DID=""
-  PEERJS_PEER_ID=""
-  if curl -sf --max-time 5 "${CONTROL_PLANE_URL}/api/server" >/dev/null 2>&1; then
-    SERVER_DID=$(curl -s "${CONTROL_PLANE_URL}/api/server" 2>/dev/null | \
-      python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('identity',{}).get('did',''))" 2>/dev/null || true)
-  fi
-
-  if [[ -n "$SERVER_DID" ]]; then
-    # PeerJS peer ID = sha256(serverDid) hex
-    PEERJS_PEER_ID=$(echo -n "$SERVER_DID" | sha256sum | awk '{print $1}' 2>/dev/null || \
-                     python3 -c "import hashlib,sys; print(hashlib.sha256('$SERVER_DID'.encode()).hexdigest())" 2>/dev/null || true)
-    log "Server DID: ${SERVER_DID}"
-    log "PeerJS peer ID: ${PEERJS_PEER_ID}"
-
-    PEERJS_SERVER_URL_VAL="http://127.0.0.1:${PEERJS_PORT:-9002}"
-
-    for pj_agent in "peerjs-analyst" "peerjs-orchestrator"; do
-      pj_data="$DATA_DIR/peerjs-agents/$pj_agent"
-      mkdir -p "$pj_data/.vaultys"
-
-      log "Starting PeerJS agent: $pj_agent"
-      CONTROL_PLANE_PEERJS_ID="$PEERJS_PEER_ID" \
-      CONTROL_PLANE_PEERJS_SERVER="$PEERJS_SERVER_URL_VAL" \
-      AGENT_NAME="$pj_agent" \
-      VAULTYS_ID_PATH="$pj_data/.vaultys/agent.id" \
-      NODE_ENV="development" \
-      pnpm --filter @vaultysclaw/agent-controller start \
-        -- headless \
-        --name "$pj_agent" \
-        --data-dir "$pj_data" \
-        --peerjs "$PEERJS_PEER_ID" \
-        --peerjs-server "$PEERJS_SERVER_URL_VAL" \
-        > "$LOG_DIR/${pj_agent}.log" 2>&1 &
-      PJ_PID=$!
-      echo "$PJ_PID" >> "$PIDS_FILE"
-      log "$pj_agent started (PID $PJ_PID) → $LOG_DIR/${pj_agent}.log"
-      sleep 2
-    done
-  else
-    warn "Could not get server DID — skipping PeerJS agents."
-    warn "Start them manually:  pnpm agent:start -- headless --peerjs <peer-id> --peerjs-server http://127.0.0.1:${PEERJS_PORT:-9002}"
-  fi
 fi
 
 # =============================================================================
@@ -740,11 +669,11 @@ fi
 MINIO_LINE="  MinIO API:     http://127.0.0.1:${MINIO_API_PORT}   user: ${MINIO_ROOT_USER:-minioadmin}  pass: ${MINIO_ROOT_PASSWORD:-minioadmin123}"
 MINIO_CON="  MinIO Console: http://127.0.0.1:${MINIO_CONSOLE_PORT}"
 DOCLING_LINE="  Docling:       http://127.0.0.1:${DOCLING_PORT}"
-PEERJS_LINE="  PeerJS:        http://127.0.0.1:${PEERJS_PORT:-9002}"
+LITELLM_LINE="  LiteLLM:       http://127.0.0.1:${LITELLM_PORT}   key: ${LITELLM_MASTER_KEY:0:16}…"
 
 $SKIP_MINIO   && MINIO_LINE="  MinIO:         (skipped)"  && MINIO_CON=""
 $SKIP_DOCLING && DOCLING_LINE="  Docling:       (skipped)"
-$SKIP_PEERJS  && PEERJS_LINE="  PeerJS:        (skipped)"
+$SKIP_LITELLM && LITELLM_LINE="  LiteLLM:       (skipped)"
 
 echo
 banner "╔══════════════════════════════════════════════════════════════╗"
@@ -758,7 +687,7 @@ echo   "║"
 [[ -n "$MINIO_LINE" ]] && echo "║ $MINIO_LINE"
 [[ -n "$MINIO_CON"  ]] && echo "║ $MINIO_CON"
 echo   "║ $DOCLING_LINE"
-echo   "║ $PEERJS_LINE"
+echo   "║ $LITELLM_LINE"
 echo   "║"
 echo   "║  PostgreSQL:     127.0.0.1:${PG_PORT}  db: ${PG_DB}"
 echo   "║"
@@ -773,7 +702,7 @@ banner "║  Stop: Ctrl+C  — all processes & containers cleaned up      ║"
 banner "╚══════════════════════════════════════════════════════════════╝"
 echo
 
-# Tail the simulator log so we see agent activity in the terminal
+# Tail simulator log so we see agent activity in the terminal
 if ! $NO_SIMULATOR && [[ -f "$LOG_DIR/simulator.log" ]]; then
   log "Tailing simulator output (Ctrl+C to stop everything):"
   tail -f "$LOG_DIR/simulator.log" &

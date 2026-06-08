@@ -229,6 +229,7 @@ DOCLING_PORT="5001"
 LITELLM_CONTAINER="vc-demo-litellm"
 LITELLM_PORT="4000"
 LITELLM_BASE_URL="http://127.0.0.1:${LITELLM_PORT}"
+LITELLM_DB="vaultysclaw_litellm"
 
 NODE_ENV="development"
 PORT="3000"
@@ -334,6 +335,14 @@ fi
 wait_postgres "127.0.0.1" "$PG_PORT" "$PG_USER" 30
 sync_postgres_password
 
+# Ensure the dedicated LiteLLM database exists (separate from control plane DB)
+log "Ensuring LiteLLM database '${LITELLM_DB}' exists…"
+docker exec "$PG_CONTAINER" \
+  env PGPASSWORD="$PG_PASSWORD" \
+  psql -h localhost -U "$PG_USER" -d "$PG_DB" \
+  -c "CREATE DATABASE \"${LITELLM_DB}\" OWNER \"${PG_USER}\";" \
+  >/dev/null 2>&1 || true   # ignore "already exists" error
+
 # =============================================================================
 # Step 6 — MinIO
 # =============================================================================
@@ -408,9 +417,9 @@ fi
 if ! $SKIP_LITELLM; then
   step "LiteLLM Proxy"
 
-  # LiteLLM runs inside Docker — rewrite 127.0.0.1 → host.docker.internal so
-  # it can reach the Postgres instance running on the host.
-  LITELLM_DB_URL="${DATABASE_URL/127.0.0.1/host.docker.internal}"
+  # LiteLLM gets its own dedicated database so it never touches control plane data.
+  # Rewrite 127.0.0.1 → host.docker.internal so the container can reach host Postgres.
+  LITELLM_DB_URL="postgresql://${PG_USER}:${PG_PASSWORD}@host.docker.internal:${PG_PORT}/${LITELLM_DB}"
 
   # Write a minimal config file so LiteLLM starts cleanly.
   # Models are registered dynamically via the control plane UI / API;

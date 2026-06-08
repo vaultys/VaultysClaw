@@ -12,6 +12,8 @@
 
 import pino from "pino";
 import { WorkflowDAO } from "../db";
+import { trace, SpanStatusCode } from "@opentelemetry/api";
+import { workflowRunsTotal } from "./metrics";
 
 export interface WorkflowDefinition {
   nodes: Array<{
@@ -488,6 +490,15 @@ export async function executeWorkflow(
   workflowId?: string,
   realmId?: string
 ): Promise<void> {
+  const tracer = trace.getTracer("vaultysclaw-control-plane");
+  const workflowSpan = tracer.startSpan("vc.workflow.run", {
+    attributes: {
+      "workflow.run_id": runId,
+      ...(workflowId ? { "workflow.id": workflowId } : {}),
+      ...(realmId ? { "realm.id": realmId } : {}),
+    },
+  });
+
   try {
     const { nodes, edges } = parseWorkflow(definition);
 
@@ -686,9 +697,24 @@ export async function executeWorkflow(
       );
 
       // Execute step
+      const stepSpan = tracer.startSpan("vc.workflow.step", {
+        attributes: {
+          "workflow.run_id": runId,
+          "workflow.step_id": nodeId,
+          "workflow.step_type": node.type,
+          ...(node.data.agentId ? { "agent.id": node.data.agentId as string } : {}),
+          ...(node.data.action ? { "intent.action": node.data.action as string } : {}),
+        },
+      });
+
       const result = await executeStep(nodeId, node, params, context);
 
       if (!result.success) {
+        stepSpan.setStatus({ code: SpanStatusCode.ERROR, message: result.error });
+        stepSpan.end();
+        workflowSpan.setStatus({ code: SpanStatusCode.ERROR });
+        workflowSpan.end();
+        workflowRunsTotal.add(1, { status: "failed" });
         logger.error(
           { nodeId, error: result.error },
           "Step failed, workflow halted"
@@ -699,9 +725,13 @@ export async function executeWorkflow(
         });
         return;
       }
+
+      stepSpan.end();
     }
 
     // Workflow completed successfully
+    workflowSpan.end();
+    workflowRunsTotal.add(1, { status: "completed" });
     await WorkflowDAO.updateRunStatus(runId, "completed", {
       completedNodes: sorted.length,
       outputs: Object.fromEntries(context.stepOutputs),
@@ -709,6 +739,9 @@ export async function executeWorkflow(
 
     logger.info({ runId }, "Workflow completed successfully");
   } catch (err) {
+    workflowSpan.setStatus({ code: SpanStatusCode.ERROR, message: String(err) });
+    workflowSpan.end();
+    workflowRunsTotal.add(1, { status: "failed" });
     logger.error({ runId, error: String(err) }, "Workflow execution failed");
     await WorkflowDAO.updateRunStatus(runId, "failed", { error: String(err) });
   }

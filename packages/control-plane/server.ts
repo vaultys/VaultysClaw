@@ -10,6 +10,8 @@
  */
 
 import "./lib/env-preload";
+import { initOTel } from "./lib/otel";
+initOTel();
 import "./lib/webrtc-polyfill";
 import { createServer } from "node:http";
 import { parse } from "node:url";

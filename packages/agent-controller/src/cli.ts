@@ -34,6 +34,8 @@ import { fork } from "child_process";
 import path from "path";
 import os from "os";
 import fs from "fs";
+import { initOTel } from "./otel";
+initOTel();
 import { loadConfig } from "./config";
 import { Agent } from "./agent";
 

@@ -106,6 +106,30 @@ export async function createRealmKey(
   return { virtualKey: data.key };
 }
 
+/** Create or refresh an agent-scoped virtual key with optional per-day budget. */
+export async function createAgentKey(
+  agentDid: string,
+  allowedModels: string[],
+  dailyBudgetUsd?: number
+): Promise<string> {
+  const res = await litellmFetch("/key/generate", {
+    method: "POST",
+    body: JSON.stringify({
+      team_id: agentDid,
+      models: allowedModels.length > 0 ? allowedModels : ["all-team-models"],
+      ...(dailyBudgetUsd != null
+        ? { max_budget: dailyBudgetUsd, budget_duration: "1d" }
+        : {}),
+    }),
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`LiteLLM createAgentKey failed (${res.status}): ${text}`);
+  }
+  const data = (await res.json()) as { key: string };
+  return data.key;
+}
+
 /** Check if the LiteLLM proxy is reachable. */
 export async function healthCheck(): Promise<boolean> {
   try {

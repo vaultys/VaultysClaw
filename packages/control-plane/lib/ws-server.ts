@@ -53,8 +53,15 @@ import {
   type PolicyMeta,
 } from "./auth-handler";
 import { geolocateIp } from "./geoip";
+import { trace, context, propagation, SpanStatusCode } from "@opentelemetry/api";
+import { agentsConnected, llmTokens, intentsTotal } from "./metrics";
 import { ChannelService } from "./channel-service";
 import { crypto } from "@vaultys/id";
+import {
+  isLiteLLMConfigured,
+  getLiteLLMBaseUrl,
+  createAgentKey,
+} from "./litellm-client";
 
 const logger = pino();
 
@@ -544,6 +551,7 @@ export class AgentWSServer {
           };
 
           this.agents.set(agentDid, agent);
+          agentsConnected.add(1);
 
           // Update agent record (certificate, last_seen)
           await AgentDAO.upsert({
@@ -766,6 +774,21 @@ export class AgentWSServer {
         }
       }
 
+      // Record OTel span + metric for intent result
+      if (payload.intentId) {
+        const tracer = trace.getTracer("vaultysclaw-control-plane");
+        const span = tracer.startSpan("vc.intent.result", {
+          attributes: {
+            "agent.did": agentId ?? "",
+            "intent.id": payload.intentId,
+            "intent.status": payload.status ?? "unknown",
+          },
+        });
+        if (payload.status !== "success") span.setStatus({ code: SpanStatusCode.ERROR });
+        span.end();
+        intentsTotal.add(1, { status: payload.status ?? "unknown", "agent.did": agentId ?? "" });
+      }
+
       // Persist result so test/observability endpoints can retrieve it
       await ActivityLogDAO.log(
         "intent_result",
@@ -937,6 +960,15 @@ export class AgentWSServer {
           const deltaPrompt = hbPayload.tokenUsage.sinceLastSync.promptTokens;
           const deltaCompletion =
             hbPayload.tokenUsage.sinceLastSync.completionTokens;
+
+          // Emit OTel token metrics
+          const llmAttrs = {
+            "agent.did": agentId,
+            model: agent.reportedLlm?.model ?? "unknown",
+            provider: agent.reportedLlm?.provider ?? "unknown",
+          };
+          if (deltaPrompt > 0) llmTokens.add(deltaPrompt, { ...llmAttrs, token_type: "prompt" });
+          if (deltaCompletion > 0) llmTokens.add(deltaCompletion, { ...llmAttrs, token_type: "completion" });
 
           // Record in daily/monthly history buckets
           await AgentDAO.addTokenUsageHistory(
@@ -1326,6 +1358,7 @@ export class AgentWSServer {
     for (const [agentId, agent] of this.agents.entries()) {
       if (agent.sender === sender) {
         this.agents.delete(agentId);
+        agentsConnected.add(-1);
         await ActivityLogDAO.log("agent_disconnected", agentId, agent.name);
         this.appendLog(sender.transport, "info", "disconnected", agent.name);
         this.broadcastAdminUpdate("agent_disconnected");
@@ -1416,6 +1449,7 @@ export class AgentWSServer {
     };
 
     this.agents.set(agentDid, agent);
+    agentsConnected.add(1);
 
     await ActivityLogDAO.log(
       "registration_approved",
@@ -1466,6 +1500,26 @@ export class AgentWSServer {
     // capabilities (and any active governance policy limits).
     const policyMeta = await this.fetchActivePolicyMeta(agentDid);
     await this.triggerCertReissue(agent, capabilities, policyMeta);
+
+    // Auto-provision a per-agent LiteLLM virtual key if LiteLLM is configured
+    // and the agent's primary realm has a router key set up.
+    if (isLiteLLMConfigured()) {
+      try {
+        const agentRealms = await AgentDAO.getRealms(agentDid);
+        const primary = agentRealms.find((r) => r.isPrimary) ?? agentRealms[0];
+        if (primary) {
+          const routerKey = await RealmDAO.getRouterKey(primary.realmId);
+          if (routerKey?.litellmVirtualKey && routerKey.allowedModelIds) {
+            const allowedModels = routerKey.allowedModelIds as string[];
+            const virtualKey = await createAgentKey(agentDid, allowedModels);
+            await AgentDAO.updateLiteLLMKey(agentDid, virtualKey, allowedModels);
+            logger.info({ agentDid, modelCount: allowedModels.length }, "Auto-provisioned LiteLLM agent key");
+          }
+        }
+      } catch (err) {
+        logger.warn({ agentDid, err: String(err) }, "Failed to auto-provision LiteLLM agent key — skipping");
+      }
+    }
 
     // Push any stored LLM config now that the agent is registered and connected.
     await this.pushStoredLlmConfig(agentDid);
@@ -1798,33 +1852,48 @@ export class AgentWSServer {
       return false;
     }
 
-    const message: WSMessage = {
-      messageId: intentId,
-      type: "intent",
-      agentId,
-      payload: {
-        id: intentId,
-        action,
-        params,
-        timestamp: new Date().toISOString(),
-        ...(userDid ? { userDid } : {}),
-      },
-      timestamp: new Date().toISOString(),
-    };
+    const tracer = trace.getTracer("vaultysclaw-control-plane");
+    return tracer.startActiveSpan(
+      "vc.intent.dispatch",
+      { attributes: { "agent.did": agentId, "intent.id": intentId, "intent.action": action } },
+      async (span) => {
+        // Inject W3C traceparent so the agent can create a child span
+        const traceContext: Record<string, string> = {};
+        propagation.inject(context.active(), traceContext);
 
-    try {
-      agent.sender.sendRaw(JSON.stringify(message));
-      logger.info({ agentId, intentId, action }, "Intent sent to agent");
-      try {
-        await IntentDAO.log(intentId, agentId, action, params);
-      } catch {
-        /* non-fatal */
+        const message: WSMessage = {
+          messageId: intentId,
+          type: "intent",
+          agentId,
+          payload: {
+            id: intentId,
+            action,
+            params,
+            timestamp: new Date().toISOString(),
+            ...(userDid ? { userDid } : {}),
+            ...(Object.keys(traceContext).length > 0 ? { _traceContext: traceContext } : {}),
+          },
+          timestamp: new Date().toISOString(),
+        };
+
+        try {
+          agent.sender.sendRaw(JSON.stringify(message));
+          logger.info({ agentId, intentId, action }, "Intent sent to agent");
+          try {
+            await IntentDAO.log(intentId, agentId, action, params);
+          } catch {
+            /* non-fatal */
+          }
+          span.end();
+          return true;
+        } catch (error) {
+          span.setStatus({ code: SpanStatusCode.ERROR });
+          span.end();
+          logger.error(error, "Failed to send intent to agent");
+          return false;
+        }
       }
-      return true;
-    } catch (error) {
-      logger.error(error, "Failed to send intent to agent");
-      return false;
-    }
+    );
   }
 
   /**
@@ -2068,20 +2137,59 @@ export class AgentWSServer {
   }
 
   /**
-   * Re-push stored LLM config to an agent that just (re-)connected.
+   * Re-push effective LLM config to an agent that just (re-)connected.
+   * Priority:
+   *   1. Explicit llmConfig set manually by admin (stored on agent row)
+   *   2. Per-agent LiteLLM virtual key (litellmVirtualKey on agent row)
+   *   3. Realm-level LiteLLM virtual key (RealmRouterKey)
    * Called automatically after auth_complete for registered agents.
    */
   private async pushStoredLlmConfig(agentDid: string): Promise<void> {
     const row = await AgentDAO.findByDid(agentDid);
-    if (!row?.llmConfig) return;
-    try {
-      const config = row.llmConfig as unknown as LlmConfig;
-      await this.sendLlmConfig(agentDid, config);
-    } catch {
-      logger.warn(
-        { agentDid },
-        "Failed to parse stored LLM config — skipping push"
-      );
+    if (!row) return;
+
+    // Priority 1: manually configured llmConfig
+    if (row.llmConfig) {
+      try {
+        const config = row.llmConfig as unknown as LlmConfig;
+        await this.sendLlmConfig(agentDid, config);
+        return;
+      } catch {
+        logger.warn({ agentDid }, "Failed to parse stored LLM config — skipping push");
+      }
+    }
+
+    // Priority 2: per-agent LiteLLM virtual key
+    const agentKey = row.litellmVirtualKey;
+    if (agentKey && isLiteLLMConfigured()) {
+      const allowedModels = (row.litellmAllowedModels as string[]) ?? [];
+      const model = allowedModels[0] ?? "all-team-models";
+      await this.sendLlmConfig(agentDid, {
+        provider: "openai-compatible",
+        baseUrl: getLiteLLMBaseUrl(),
+        apiKey: agentKey,
+        model,
+      } as LlmConfig);
+      return;
+    }
+
+    // Priority 3: realm-level LiteLLM virtual key
+    if (isLiteLLMConfigured()) {
+      const agentRealms = await AgentDAO.getRealms(agentDid);
+      const primary = agentRealms.find((r) => r.isPrimary) ?? agentRealms[0];
+      if (primary) {
+        const routerKey = await RealmDAO.getRouterKey(primary.realmId);
+        if (routerKey?.litellmVirtualKey) {
+          const allowedModels = (routerKey.allowedModelIds as string[]) ?? [];
+          const model = allowedModels[0] ?? "all-team-models";
+          await this.sendLlmConfig(agentDid, {
+            provider: "openai-compatible",
+            baseUrl: getLiteLLMBaseUrl(),
+            apiKey: routerKey.litellmVirtualKey,
+            model,
+          } as LlmConfig);
+        }
+      }
     }
   }
 

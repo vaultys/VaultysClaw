@@ -8,6 +8,7 @@ import { createOpenAI } from "@ai-sdk/openai";
 import type { LlmConfig } from "@vaultysclaw/shared";
 import type { MastraTool } from "./tools/types";
 import pino from "pino";
+import { trace, context, propagation, SpanStatusCode } from "@opentelemetry/api";
 
 const logger = pino({ name: "llm" });
 
@@ -154,52 +155,77 @@ export async function runIntent(
     "Running intent"
   );
 
-  try {
-    const agent = new Agent({
-      id: "vaultysclaw-intent",
-      name: "vaultysclaw-intent",
-      instructions,
-      model,
-      ...(hasTools ? { tools: tools as Record<string, MastraTool> } : {}),
-    });
+  // Extract W3C traceparent injected by the control plane so this span is a child
+  const traceContext = (params as any)?._traceContext as Record<string, string> | undefined;
+  const parentCtx = traceContext
+    ? propagation.extract(context.active(), traceContext)
+    : context.active();
 
-    const result = await agent.generate(userMessage, {
-      maxSteps: 10,
-      modelSettings: config.maxTokens
-        ? { maxOutputTokens: config.maxTokens }
-        : undefined,
-    });
+  const tracer = trace.getTracer("vaultysclaw-agent");
+  const startMs = Date.now();
 
-    logger.info(
-      {
-        action,
-        steps: result.steps?.length ?? 0,
-        finishReason: result.finishReason,
-        textLength: result.text?.length ?? 0,
-      },
-      "Intent LLM response received"
-    );
+  return tracer.startActiveSpan(
+    "vc.llm.call",
+    { attributes: { "llm.model": config.model, "llm.provider": config.provider, "intent.action": action } },
+    parentCtx,
+    async (span) => {
+      try {
+        const agent = new Agent({
+          id: "vaultysclaw-intent",
+          name: "vaultysclaw-intent",
+          instructions,
+          model,
+          ...(hasTools ? { tools: tools as Record<string, MastraTool> } : {}),
+        });
 
-    // Log the actual usage object structure for debugging
-    logger.info(
-      {
-        usageRaw: result.usage,
-        keys: result.usage ? Object.keys(result.usage) : [],
-      },
-      "Debug: Usage object from runIntent"
-    );
+        const result = await agent.generate(userMessage, {
+          maxSteps: 10,
+          modelSettings: config.maxTokens
+            ? { maxOutputTokens: config.maxTokens }
+            : undefined,
+        });
 
-    const usage = result.usage as any;
-    return {
-      text: result.text ?? "",
-      usage: {
-        promptTokens: usage?.promptTokens ?? usage?.inputTokens ?? 0,
-        completionTokens: usage?.completionTokens ?? usage?.outputTokens ?? 0,
-      },
-    };
-  } catch (err) {
-    throw new LlmProviderError(config.provider, err);
-  }
+        logger.info(
+          {
+            action,
+            steps: result.steps?.length ?? 0,
+            finishReason: result.finishReason,
+            textLength: result.text?.length ?? 0,
+          },
+          "Intent LLM response received"
+        );
+
+        // Log the actual usage object structure for debugging
+        logger.info(
+          {
+            usageRaw: result.usage,
+            keys: result.usage ? Object.keys(result.usage) : [],
+          },
+          "Debug: Usage object from runIntent"
+        );
+
+        const usage = result.usage as any;
+        const promptTokens = usage?.promptTokens ?? usage?.inputTokens ?? 0;
+        const completionTokens = usage?.completionTokens ?? usage?.outputTokens ?? 0;
+
+        span.setAttributes({
+          "llm.prompt_tokens": promptTokens,
+          "llm.completion_tokens": completionTokens,
+          "llm.latency_ms": Date.now() - startMs,
+        });
+        span.end();
+
+        return {
+          text: result.text ?? "",
+          usage: { promptTokens, completionTokens },
+        };
+      } catch (err) {
+        span.setStatus({ code: SpanStatusCode.ERROR, message: String(err) });
+        span.end();
+        throw new LlmProviderError(config.provider, err);
+      }
+    }
+  );
 }
 
 /**

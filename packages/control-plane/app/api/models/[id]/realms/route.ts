@@ -4,11 +4,38 @@ import { unauthorized, forbidden } from "@/lib/api-utils";
 import { AgentDAO, ModelDAO, RealmDAO } from "@/db";
 import {
   createRealmKey,
+  createAgentKey,
   isLiteLLMConfigured,
   getLiteLLMBaseUrl,
 } from "@/lib/litellm-client";
 import { getWSServer } from "@/lib/ws-server";
 import type { LlmConfig } from "@vaultysclaw/shared";
+
+/**
+ * Refresh per-agent LiteLLM keys for agents in a realm that already have a key.
+ * Called after the realm's allowed model list changes.
+ * Non-fatal — a per-agent key failure never blocks the route response.
+ */
+async function refreshAgentKeysForRealm(
+  realmId: string,
+  updatedModels: string[]
+): Promise<void> {
+  try {
+    const agents = await RealmDAO.getAgents(realmId);
+    for (const { agentDid } of agents) {
+      const existing = await AgentDAO.getLiteLLMKey(agentDid);
+      if (!existing?.virtualKey) continue; // skip agents without a per-agent key
+      try {
+        const newKey = await createAgentKey(agentDid, updatedModels, existing.dailyBudget ?? undefined);
+        await AgentDAO.updateLiteLLMKey(agentDid, newKey, updatedModels, existing.dailyBudget ?? undefined);
+      } catch (e) {
+        console.warn(`refreshAgentKeysForRealm: failed for ${agentDid}:`, e);
+      }
+    }
+  } catch (e) {
+    console.warn("refreshAgentKeysForRealm failed (non-fatal):", e);
+  }
+}
 
 /** Push a LiteLLM-routed config to all agents currently in a realm. Non-fatal. */
 async function pushConfigToRealmAgents(
@@ -189,11 +216,8 @@ export async function POST(req: NextRequest, { params }: Ctx) {
             litellmVirtualKey: virtualKey,
             allowedModelIds: updatedModels,
           });
-          pushConfigToRealmAgents(
-            body.realmId,
-            virtualKey,
-            entry.litellmModelName
-          );
+          pushConfigToRealmAgents(body.realmId, virtualKey, entry.litellmModelName);
+          refreshAgentKeysForRealm(body.realmId, updatedModels);
         }
       } catch (e) {
         console.warn("LiteLLM realm key update failed (non-fatal):", e);
@@ -285,6 +309,7 @@ export async function DELETE(req: NextRequest, { params }: Ctx) {
             litellmVirtualKey: virtualKey,
             allowedModelIds: updatedModels,
           });
+          refreshAgentKeysForRealm(realmId, updatedModels);
         }
       } catch (e) {
         console.warn("LiteLLM realm key update failed (non-fatal):", e);

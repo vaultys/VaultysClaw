@@ -1017,16 +1017,22 @@ async function seedApiKey(): Promise<void> {
 /** Run Prisma database migrations. */
 async function runMigrations(): Promise<void> {
   console.log("\n▶ Running Prisma migrations…");
+  const controlPlaneDir = path.resolve(__dirname, "../../packages/control-plane");
   try {
-    const controlPlaneDir = path.resolve(__dirname, "../../packages/control-plane");
     execSync("pnpm exec prisma migrate deploy", {
       cwd: controlPlaneDir,
       stdio: "pipe",
     });
     console.log("  ✓ Migrations applied");
-  } catch (err) {
-    console.error("  ✗ Migration failed:", err);
-    throw err;
+  } catch (err: any) {
+    const errMsg = err.stdout?.toString() || err.stderr?.toString() || String(err);
+    // If P3005 (schema not empty), database already has the schema — skip migrations
+    if (errMsg.includes("P3005")) {
+      console.log("  ℹ Database schema already exists — skipping migrations");
+    } else {
+      console.error("  ✗ Migration failed:", err);
+      throw err;
+    }
   }
 }
 

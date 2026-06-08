@@ -95,8 +95,9 @@ cleanup() {
     rm -f "$PIDS_FILE"
   fi
 
-  # STOP Docker containers (preserves volumes & data for next run).
-  for cname in "${PG_CONTAINER:-}" "${MINIO_CONTAINER:-}" "${DOCLING_CONTAINER:-}" "${LITELLM_CONTAINER:-}"; do
+  # STOP Docker containers in reverse startup order so dependents shut down
+  # before Postgres (prevents data corruption on hard stops).
+  for cname in "${LITELLM_CONTAINER:-}" "${DOCLING_CONTAINER:-}" "${MINIO_CONTAINER:-}" "${PG_CONTAINER:-}"; do
     [[ -z "$cname" ]] && continue
     if docker inspect "$cname" &>/dev/null 2>&1; then
       docker stop "$cname" >/dev/null 2>&1 || true

@@ -408,6 +408,10 @@ fi
 if ! $SKIP_LITELLM; then
   step "LiteLLM Proxy"
 
+  # LiteLLM runs inside Docker — rewrite 127.0.0.1 → host.docker.internal so
+  # it can reach the Postgres instance running on the host.
+  LITELLM_DB_URL="${DATABASE_URL/127.0.0.1/host.docker.internal}"
+
   # Write a minimal config file so LiteLLM starts cleanly.
   # Models are registered dynamically via the control plane UI / API;
   # the config only sets global defaults and the master key.
@@ -420,7 +424,7 @@ if ! $SKIP_LITELLM; then
 general_settings:
   master_key: "${LITELLM_MASTER_KEY}"
   # Store spend and key data in the same Postgres as the control plane
-  database_url: "${DATABASE_URL}"
+  database_url: "${LITELLM_DB_URL}"
   store_model_in_db: true
 
 litellm_settings:
@@ -447,7 +451,7 @@ LITELLMCFG
       -p "${LITELLM_PORT}:4000" \
       -v "${LITELLM_CONFIG_FILE}:/app/config.yaml:ro" \
       -e "LITELLM_MASTER_KEY=${LITELLM_MASTER_KEY}" \
-      -e "DATABASE_URL=${DATABASE_URL}" \
+      -e "DATABASE_URL=${LITELLM_DB_URL}" \
       --add-host "host.docker.internal:host-gateway" \
       ghcr.io/berriai/litellm:main-latest \
       --config /app/config.yaml \

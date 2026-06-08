@@ -275,6 +275,13 @@ while IFS='=' read -r key value; do
   export "$key"="$value"
 done < "$ENV_FILE"
 
+# Migrate older .env.demo files that predate LITELLM_MASTER_KEY
+if [[ -z "${LITELLM_MASTER_KEY:-}" ]]; then
+  LITELLM_MASTER_KEY="sk-demo-$(openssl rand -hex 16)"
+  printf 'LITELLM_MASTER_KEY=%s\n' "$LITELLM_MASTER_KEY" >> "$ENV_FILE"
+  log "Added LITELLM_MASTER_KEY to $ENV_FILE"
+fi
+
 export DATABASE_URL NEXTAUTH_SECRET LITELLM_MASTER_KEY
 export NODE_ENV PORT WS_PORT NEXTAUTH_URL
 

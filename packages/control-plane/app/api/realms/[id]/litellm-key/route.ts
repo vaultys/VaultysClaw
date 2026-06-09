@@ -23,6 +23,56 @@ type Ctx = { params: Promise<{ id: string }> };
  * Provision or refresh the realm's LiteLLM router virtual key.
  * Body: { monthlyBudget?: number | null }
  */
+/**
+ * @openapi
+ * /api/realms/{id}/litellm-key:
+ *   put:
+ *     summary: Provision or refresh the realm's LiteLLM router virtual key.
+ *     tags: [Realms]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the realm.
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               monthlyBudget:
+ *                 type: number
+ *                 nullable: true
+ *     responses:
+ *       200:
+ *         description: Successfully provisioned or refreshed the LiteLLM key.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 ok:
+ *                   type: boolean
+ *                 keyPrefix:
+ *                   type: string
+ *                 allowedModels:
+ *                   type: array
+ *                   items:
+ *                     type: string
+ *                 monthlyBudget:
+ *                   type: number
+ *                   nullable: true
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ *       422:
+ *         description: LiteLLM not configured.
+ */
 export const PUT = withError(async (req: NextRequest, { params }: Ctx) => {
   const auth = await getAuthContext(req);
   if (!auth) return unauthorized();
@@ -101,6 +151,36 @@ export const PUT = withError(async (req: NextRequest, { params }: Ctx) => {
 /**
  * DELETE /api/realms/[id]/litellm-key
  * Revoke the realm's LiteLLM router key.
+ */
+/**
+ * @openapi
+ * /api/realms/{id}/litellm-key:
+ *   delete:
+ *     summary: Revoke the realm's LiteLLM router key.
+ *     tags: [Realms]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the realm.
+ *     responses:
+ *       200:
+ *         description: Successfully revoked the LiteLLM key.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 ok:
+ *                   type: boolean
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
  */
 export const DELETE = withError(async (req: NextRequest, { params }: Ctx) => {
   const auth = await getAuthContext(req);

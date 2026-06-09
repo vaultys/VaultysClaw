@@ -10,7 +10,7 @@ import { withError } from "@/lib/api/handlers/with-error";
 
 /**
  * @openapi
- * /api/agent/{did}/chat-sessions/{sessionId}:
+ * /api/agents/{did}/chat-sessions/{sessionId}:
  *   get:
  *     summary: Retrieve full history for a session.
  *     tags: [Agents]
@@ -46,30 +46,32 @@ import { withError } from "@/lib/api/handlers/with-error";
  *       503:
  *         description: Service unavailable or failed to fetch data.
  */
-export const GET = withError(async (
-  request: NextRequest,
-  { params }: { params: Promise<{ did: string; sessionId: string }> }
-) => {
-  const auth = await getAuthContext(request);
-  if (!auth) return unauthorized();
+export const GET = withError(
+  async (
+    request: NextRequest,
+    { params }: { params: Promise<{ did: string; sessionId: string }> }
+  ) => {
+    const auth = await getAuthContext(request);
+    if (!auth) return unauthorized();
 
-  const { did, sessionId } = await params;
+    const { did, sessionId } = await params;
 
-  if (!(await auth.canAccessAgent(did))) return forbidden();
+    if (!(await auth.canAccessAgent(did))) return forbidden();
 
-  const wsServer = getWSServer();
-  if (!wsServer) {
-    return NextResponse.json(
-      { error: "WebSocket server not available" },
-      { status: 503 }
-    );
+    const wsServer = getWSServer();
+    if (!wsServer) {
+      return NextResponse.json(
+        { error: "WebSocket server not available" },
+        { status: 503 }
+      );
+    }
+
+    try {
+      const messages = await wsServer.getChatHistory(did, sessionId);
+      return NextResponse.json({ messages });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Failed to fetch";
+      return NextResponse.json({ error: msg }, { status: 503 });
+    }
   }
-
-  try {
-    const messages = await wsServer.getChatHistory(did, sessionId);
-    return NextResponse.json({ messages });
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : "Failed to fetch";
-    return NextResponse.json({ error: msg }, { status: 503 });
-  }
-});
+);

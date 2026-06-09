@@ -240,10 +240,12 @@ export default function CreateAgentPage() {
     { name: string; params: Record<string, unknown> }[]
   >([]);
   const [liteLlmConfigured, setLiteLlmConfigured] = useState(false);
-  const [selectedLiteLlmModel, setSelectedLiteLlmModel] = useState<string | null>(
-    null
+  const [selectedLiteLlmModel, setSelectedLiteLlmModel] = useState<
+    string | null
+  >(null);
+  const [modelMode, setModelMode] = useState<"registry" | "litellm">(
+    "registry"
   );
-  const [modelMode, setModelMode] = useState<"registry" | "litellm">("registry");
   const [creatingLiteLlmKey, setCreatingLiteLlmKey] = useState(false);
 
   // Skills state
@@ -643,7 +645,7 @@ export default function CreateAgentPage() {
         });
       } else if (modelMode === "litellm" && selectedLiteLlmModel) {
         // Create/validate LiteLLM key for this model
-        await fetch(`/api/agent/${agentDid}/litellm-key`, {
+        await fetch(`//api/agents/${agentDid}/litellm-key`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -1454,7 +1456,10 @@ export default function CreateAgentPage() {
                           </p>
                         </div>
                         {selectedModel === m.id && (
-                          <Check size={14} className="text-primary-500 shrink-0" />
+                          <Check
+                            size={14}
+                            className="text-primary-500 shrink-0"
+                          />
                         )}
                       </button>
                     ))}

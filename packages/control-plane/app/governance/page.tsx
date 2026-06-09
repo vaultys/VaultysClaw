@@ -754,7 +754,7 @@ function PoliciesTab() {
         const budgetList: AgentBudget[] = await Promise.all(
           d.agents.slice(0, 50).map(async (a) => {
             try {
-              const r = await fetch(`/api/agent/${encodeURIComponent(a.id)}`);
+              const r = await fetch(`//api/agents/${encodeURIComponent(a.id)}`);
               if (!r.ok) return null;
               const ad = (await r.json()) as {
                 tokenBudgetDaily?: number | null;
@@ -840,7 +840,7 @@ function PoliciesTab() {
     try {
       const daily = edit.daily === "" ? null : parseInt(edit.daily);
       const monthly = edit.monthly === "" ? null : parseInt(edit.monthly);
-      await fetch(`/api/agent/${encodeURIComponent(did)}`, {
+      await fetch(`//api/agents/${encodeURIComponent(did)}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

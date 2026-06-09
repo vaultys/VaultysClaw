@@ -14,8 +14,54 @@ import { withError } from "@/lib/api/handlers/with-error";
 type Ctx = { params: Promise<{ did: string }> };
 
 /**
- * GET /api/agent/[did]/litellm-key
+ * GET //api/agents/[did]/litellm-key
  * Returns the current per-agent LiteLLM key status (key is masked).
+ */
+/**
+ * @openapi
+ * /api/agents/{did}/litellm-key:
+ *   get:
+ *     summary: Retrieve the current per-agent LiteLLM key status.
+ *     tags: [Agents]
+ *     parameters:
+ *       - name: did
+ *         in: path
+ *         required: true
+ *         description: The DID of the agent.
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: LiteLLM key status retrieved successfully.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 configured:
+ *                   type: boolean
+ *                 keyPrefix:
+ *                   type: string
+ *                   nullable: true
+ *                 allowedModels:
+ *                   type: array
+ *                   items:
+ *                     type: string
+ *                 dailyBudget:
+ *                   type: number
+ *                   nullable: true
+ *                 updatedAt:
+ *                   type: string
+ *                   format: date-time
+ *                   nullable: true
+ *                 litellmConfigured:
+ *                   type: boolean
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
  */
 export const GET = withError(async (req: NextRequest, { params }: Ctx) => {
   const auth = await getAuthContext(req);
@@ -40,11 +86,65 @@ export const GET = withError(async (req: NextRequest, { params }: Ctx) => {
 });
 
 /**
- * PUT /api/agent/[did]/litellm-key
+ * PUT //api/agents/[did]/litellm-key
  * Provision or refresh the per-agent LiteLLM virtual key.
  * Body (all optional):
  *   allowedModels?: string[]   override model list (defaults to realm's)
  *   dailyBudget?: number       USD per day (null to remove limit)
+ */
+/**
+ * @openapi
+ * /api/agents/{did}/litellm-key:
+ *   put:
+ *     summary: Provision or refresh the per-agent LiteLLM virtual key.
+ *     tags: [Agents]
+ *     parameters:
+ *       - name: did
+ *         in: path
+ *         required: true
+ *         description: The DID of the agent.
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               allowedModels:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                 description: Override model list (defaults to realm's).
+ *               dailyBudget:
+ *                 type: number
+ *                 nullable: true
+ *                 description: USD per day (null to remove limit).
+ *     responses:
+ *       200:
+ *         description: LiteLLM virtual key provisioned or refreshed successfully.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 ok:
+ *                   type: boolean
+ *                 keyPrefix:
+ *                   type: string
+ *                 allowedModels:
+ *                   type: array
+ *                   items:
+ *                     type: string
+ *                 dailyBudget:
+ *                   type: number
+ *                   nullable: true
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
  */
 export const PUT = withError(async (req: NextRequest, { params }: Ctx) => {
   const auth = await getAuthContext(req);
@@ -112,8 +212,38 @@ export const PUT = withError(async (req: NextRequest, { params }: Ctx) => {
 });
 
 /**
- * DELETE /api/agent/[did]/litellm-key
+ * DELETE //api/agents/[did]/litellm-key
  * Revoke the per-agent LiteLLM key (agent falls back to realm key or manual config).
+ */
+/**
+ * @openapi
+ * /api/agents/{did}/litellm-key:
+ *   delete:
+ *     summary: Revoke the per-agent LiteLLM key.
+ *     tags: [Agents]
+ *     parameters:
+ *       - name: did
+ *         in: path
+ *         required: true
+ *         description: The DID of the agent.
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: LiteLLM key revoked successfully.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 ok:
+ *                   type: boolean
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
  */
 export const DELETE = withError(async (req: NextRequest, { params }: Ctx) => {
   const auth = await getAuthContext(req);

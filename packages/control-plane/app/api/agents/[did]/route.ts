@@ -45,7 +45,7 @@ function vaultysIdInfo(pk: unknown) {
  */
 /**
  * @openapi
- * /api/agent/{did}:
+ * //api/agents/{did}:
  *   get:
  *     summary: Get detailed info for a single agent by DID.
  *     tags: [Agents]
@@ -117,107 +117,109 @@ function vaultysIdInfo(pk: unknown) {
  *       500:
  *         description: Failed to fetch agent.
  */
-export const GET = withError(async (
-  _request: NextRequest,
-  { params }: { params: Promise<{ did: string }> }
-) => {
-  const auth = await getAuthContext(_request);
-  if (!auth) return unauthorized();
+export const GET = withError(
+  async (
+    _request: NextRequest,
+    { params }: { params: Promise<{ did: string }> }
+  ) => {
+    const auth = await getAuthContext(_request);
+    if (!auth) return unauthorized();
 
-  const { did: rawDid } = await params;
-  const did = decodeURIComponent(rawDid);
+    const { did: rawDid } = await params;
+    const did = decodeURIComponent(rawDid);
 
-  const agent = await AgentDAO.findByDid(did);
-  if (!agent) {
-    return notFound("Agent not found");
-  }
-
-  if (!(await auth.canAccessAgent(did))) return forbidden();
-
-  const wsServer = getWSServer();
-  const connected = wsServer?.getAgent(did);
-
-  // Deserialize certificate data
-  let certificateInfo: Record<string, unknown> | null = null;
-  let agentVaultysId: Record<string, unknown> | null = null;
-
-  if (agent.certificateData) {
-    try {
-      const certBuffer = Buffer.from(agent.certificateData, "base64");
-      const cert = Challenger.deserializeCertificate(certBuffer);
-
-      certificateInfo = {
-        version: cert.version,
-        protocol: cert.protocol,
-        service: cert.service,
-        state: cert.state,
-        timestamp: cert.timestamp,
-        error: cert.error ?? null,
-        metadata: cert.metadata,
-        pk1: cert.pk1 ? cert.pk1.toString("base64") : null,
-        pk2: cert.pk2 ? cert.pk2.toString("base64") : null,
-        nonce: cert.nonce ? cert.nonce.toString("base64") : null,
-        sign1: cert.sign1 ? cert.sign1.toString("base64") : null,
-        sign2: cert.sign2 ? cert.sign2.toString("base64") : null,
-      };
-
-      // pk2 = agent (responder)
-      agentVaultysId = vaultysIdInfo(cert.pk2);
-    } catch {
-      certificateInfo = {
-        present: true,
-        dataSize: agent.certificateData.length,
-        parseError: true,
-      };
+    const agent = await AgentDAO.findByDid(did);
+    if (!agent) {
+      return notFound("Agent not found");
     }
-  }
 
-  // Today's and this month's token usage from history
-  const todayBucket = new Date().toISOString().slice(0, 10);
-  const monthBucket = new Date().toISOString().slice(0, 7);
-  const { todayTokens, monthTokens } = await AgentDAO.getTokenBuckets(
-    agent.did,
-    todayBucket,
-    monthBucket
-  );
+    if (!(await auth.canAccessAgent(did))) return forbidden();
 
-  return NextResponse.json({
-    id: agent.did,
-    name: connected?.name ?? agent.name,
-    capabilities: agent.capabilities,
-    publicKey: agent.publicKey,
-    certificateInfo,
-    agentVaultysId,
-    registeredAt: agent.registeredAt,
-    lastSeen: agent.lastSeen,
-    online: !!connected,
-    connectedAt: connected?.connectedAt?.toISOString() ?? null,
-    lastHeartbeat: connected?.lastHeartbeat?.toISOString() ?? null,
-    reportedLlm: connected?.reportedLlm ?? null,
-    transport: connected?.transport ?? null,
-    storedLlm: (() => {
+    const wsServer = getWSServer();
+    const connected = wsServer?.getAgent(did);
+
+    // Deserialize certificate data
+    let certificateInfo: Record<string, unknown> | null = null;
+    let agentVaultysId: Record<string, unknown> | null = null;
+
+    if (agent.certificateData) {
       try {
-        const cfg = agent.llmConfig ? agent.llmConfig : null;
-        return cfg && typeof cfg === "object" && !Array.isArray(cfg)
-          ? {
-              provider: String(cfg.provider ?? ""),
-              model: String(cfg.model ?? ""),
-            }
-          : null;
+        const certBuffer = Buffer.from(agent.certificateData, "base64");
+        const cert = Challenger.deserializeCertificate(certBuffer);
+
+        certificateInfo = {
+          version: cert.version,
+          protocol: cert.protocol,
+          service: cert.service,
+          state: cert.state,
+          timestamp: cert.timestamp,
+          error: cert.error ?? null,
+          metadata: cert.metadata,
+          pk1: cert.pk1 ? cert.pk1.toString("base64") : null,
+          pk2: cert.pk2 ? cert.pk2.toString("base64") : null,
+          nonce: cert.nonce ? cert.nonce.toString("base64") : null,
+          sign1: cert.sign1 ? cert.sign1.toString("base64") : null,
+          sign2: cert.sign2 ? cert.sign2.toString("base64") : null,
+        };
+
+        // pk2 = agent (responder)
+        agentVaultysId = vaultysIdInfo(cert.pk2);
       } catch {
-        return null;
+        certificateInfo = {
+          present: true,
+          dataSize: agent.certificateData.length,
+          parseError: true,
+        };
       }
-    })(),
-    tokenUsage: connected?.tokenUsage ?? null,
-    tokenBudgetDaily: agent.tokenBudgetDaily ?? null,
-    tokenBudgetMonthly: agent.tokenBudgetMonthly ?? null,
-    todayTokens,
-    monthTokens,
-    locationLat: agent.locationLat ?? null,
-    locationLon: agent.locationLon ?? null,
-    locationLabel: agent.locationLabel ?? null,
-  });
-});
+    }
+
+    // Today's and this month's token usage from history
+    const todayBucket = new Date().toISOString().slice(0, 10);
+    const monthBucket = new Date().toISOString().slice(0, 7);
+    const { todayTokens, monthTokens } = await AgentDAO.getTokenBuckets(
+      agent.did,
+      todayBucket,
+      monthBucket
+    );
+
+    return NextResponse.json({
+      id: agent.did,
+      name: connected?.name ?? agent.name,
+      capabilities: agent.capabilities,
+      publicKey: agent.publicKey,
+      certificateInfo,
+      agentVaultysId,
+      registeredAt: agent.registeredAt,
+      lastSeen: agent.lastSeen,
+      online: !!connected,
+      connectedAt: connected?.connectedAt?.toISOString() ?? null,
+      lastHeartbeat: connected?.lastHeartbeat?.toISOString() ?? null,
+      reportedLlm: connected?.reportedLlm ?? null,
+      transport: connected?.transport ?? null,
+      storedLlm: (() => {
+        try {
+          const cfg = agent.llmConfig ? agent.llmConfig : null;
+          return cfg && typeof cfg === "object" && !Array.isArray(cfg)
+            ? {
+                provider: String(cfg.provider ?? ""),
+                model: String(cfg.model ?? ""),
+              }
+            : null;
+        } catch {
+          return null;
+        }
+      })(),
+      tokenUsage: connected?.tokenUsage ?? null,
+      tokenBudgetDaily: agent.tokenBudgetDaily ?? null,
+      tokenBudgetMonthly: agent.tokenBudgetMonthly ?? null,
+      todayTokens,
+      monthTokens,
+      locationLat: agent.locationLat ?? null,
+      locationLon: agent.locationLon ?? null,
+      locationLabel: agent.locationLabel ?? null,
+    });
+  }
+);
 
 /**
  * PATCH /api/agents/[did]
@@ -225,7 +227,7 @@ export const GET = withError(async (
  */
 /**
  * @openapi
- * /api/agent/{did}:
+ * //api/agents/{did}:
  *   patch:
  *     summary: Update an agent's capabilities.
  *     tags: [Agents]
@@ -276,62 +278,64 @@ export const GET = withError(async (
  *       500:
  *         description: Failed to update capabilities.
  */
-export const PATCH = withError(async (
-  request: NextRequest,
-  { params }: { params: Promise<{ did: string }> }
-) => {
-  const auth = await getAuthContext(request);
-  if (!auth) return unauthorized();
-  if (!auth.isGlobalAdmin) return forbidden();
+export const PATCH = withError(
+  async (
+    request: NextRequest,
+    { params }: { params: Promise<{ did: string }> }
+  ) => {
+    const auth = await getAuthContext(request);
+    if (!auth) return unauthorized();
+    if (!auth.isGlobalAdmin) return forbidden();
 
-  const { did: rawDid } = await params;
-  const did = decodeURIComponent(rawDid);
+    const { did: rawDid } = await params;
+    const did = decodeURIComponent(rawDid);
 
-  const body = await request.json();
-  const { capabilities, tokenBudgetDaily, tokenBudgetMonthly } = body;
+    const body = await request.json();
+    const { capabilities, tokenBudgetDaily, tokenBudgetMonthly } = body;
 
-  if (capabilities !== undefined) {
-    if (!Array.isArray(capabilities)) {
-      return malformed("capabilities must be an array of strings");
+    if (capabilities !== undefined) {
+      if (!Array.isArray(capabilities)) {
+        return malformed("capabilities must be an array of strings");
+      }
+
+      const wsServer = getWSServer();
+      if (!wsServer) {
+        return unavailable("WebSocket server not available");
+      }
+
+      const updated = wsServer.updateAgentCapabilities(did, capabilities);
+      if (!updated) {
+        return notFound("Agent not found");
+      }
     }
 
-    const wsServer = getWSServer();
-    if (!wsServer) {
-      return unavailable("WebSocket server not available");
+    if (tokenBudgetDaily !== undefined || tokenBudgetMonthly !== undefined) {
+      const agent = await AgentDAO.findByDid(did);
+      if (!agent) {
+        return notFound("Agent not found");
+      }
+      await AgentDAO.updateBudget(did, {
+        tokenBudgetDaily:
+          tokenBudgetDaily === null
+            ? null
+            : typeof tokenBudgetDaily === "number"
+              ? tokenBudgetDaily
+              : undefined,
+        tokenBudgetMonthly:
+          tokenBudgetMonthly === null
+            ? null
+            : typeof tokenBudgetMonthly === "number"
+              ? tokenBudgetMonthly
+              : undefined,
+      });
     }
 
-    const updated = wsServer.updateAgentCapabilities(did, capabilities);
-    if (!updated) {
-      return notFound("Agent not found");
-    }
-  }
-
-  if (tokenBudgetDaily !== undefined || tokenBudgetMonthly !== undefined) {
-    const agent = await AgentDAO.findByDid(did);
-    if (!agent) {
-      return notFound("Agent not found");
-    }
-    await AgentDAO.updateBudget(did, {
-      tokenBudgetDaily:
-        tokenBudgetDaily === null
-          ? null
-          : typeof tokenBudgetDaily === "number"
-            ? tokenBudgetDaily
-            : undefined,
-      tokenBudgetMonthly:
-        tokenBudgetMonthly === null
-          ? null
-          : typeof tokenBudgetMonthly === "number"
-            ? tokenBudgetMonthly
-            : undefined,
+    const updated = await AgentDAO.findByDid(did);
+    return NextResponse.json({
+      capabilities: updated ? updated.capabilities : undefined,
     });
   }
-
-  const updated = await AgentDAO.findByDid(did);
-  return NextResponse.json({
-    capabilities: updated ? updated.capabilities : undefined,
-  });
-});
+);
 
 /**
  * DELETE /api/agents/[did]
@@ -339,7 +343,7 @@ export const PATCH = withError(async (
  */
 /**
  * @openapi
- * /api/agent/{did}:
+ * //api/agents/{did}:
  *   delete:
  *     summary: Delete an agent.
  *     tags: [Agents]
@@ -362,35 +366,37 @@ export const PATCH = withError(async (
  *       500:
  *         description: Failed to delete agent.
  */
-export const DELETE = withError(async (
-  _request: NextRequest,
-  { params }: { params: Promise<{ did: string }> }
-) => {
-  const auth = await getAuthContext(_request);
-  if (!auth) return unauthorized();
-  if (!auth.isGlobalAdmin) return forbidden();
+export const DELETE = withError(
+  async (
+    _request: NextRequest,
+    { params }: { params: Promise<{ did: string }> }
+  ) => {
+    const auth = await getAuthContext(_request);
+    if (!auth) return unauthorized();
+    if (!auth.isGlobalAdmin) return forbidden();
 
-  const { did: rawDid } = await params;
-  const did = decodeURIComponent(rawDid);
+    const { did: rawDid } = await params;
+    const did = decodeURIComponent(rawDid);
 
-  const agent = await AgentDAO.findByDid(did);
-  if (!agent) {
-    return notFound("Agent not found");
+    const agent = await AgentDAO.findByDid(did);
+    if (!agent) {
+      return notFound("Agent not found");
+    }
+
+    // Disconnect agent from WebSocket server
+    const wsServer = getWSServer();
+    if (wsServer) {
+      wsServer.disconnectAgent(did);
+    }
+
+    try {
+      await AgentDAO.delete(did);
+      console.log("Successfully deleted agent:", did);
+    } catch (deleteError) {
+      console.error("Error in deleteAgent:", deleteError);
+      throw deleteError;
+    }
+
+    return successNoContent();
   }
-
-  // Disconnect agent from WebSocket server
-  const wsServer = getWSServer();
-  if (wsServer) {
-    wsServer.disconnectAgent(did);
-  }
-
-  try {
-    await AgentDAO.delete(did);
-    console.log("Successfully deleted agent:", did);
-  } catch (deleteError) {
-    console.error("Error in deleteAgent:", deleteError);
-    throw deleteError;
-  }
-
-  return successNoContent();
-});
+);

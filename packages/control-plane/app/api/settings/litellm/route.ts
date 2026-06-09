@@ -39,6 +39,55 @@ async function litellmFetch<T>(path: string): Promise<T | null> {
  * GET /api/settings/litellm
  * Returns configuration status + live stats from the LiteLLM proxy.
  */
+/**
+ * @openapi
+ * /api/settings/litellm:
+ *   get:
+ *     summary: Retrieve LiteLLM configuration status and live stats.
+ *     tags: [Settings]
+ *     responses:
+ *       200:
+ *         description: Successful response with configuration status and stats.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 configured:
+ *                   type: boolean
+ *                 healthy:
+ *                   type: boolean
+ *                 status:
+ *                   type: string
+ *                 baseUrl:
+ *                   type: string
+ *                   nullable: true
+ *                 masterKeySet:
+ *                   type: boolean
+ *                 source:
+ *                   type: string
+ *                 lastError:
+ *                   type: string
+ *                   nullable: true
+ *                 checkedAt:
+ *                   type: string
+ *                   format: date-time
+ *                 stats:
+ *                   type: object
+ *                   properties:
+ *                     modelCount:
+ *                       type: integer
+ *                     totalSpend:
+ *                       type: number
+ *                       nullable: true
+ *                     keyCount:
+ *                       type: integer
+ *                       nullable: true
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ */
 export const GET = withError(async (req: NextRequest) => {
   const auth = await getAuthContext(req);
   if (!auth) return unauthorized();
@@ -88,6 +137,48 @@ export const GET = withError(async (req: NextRequest) => {
  * PUT /api/settings/litellm
  * Save LiteLLM connection settings and reconnect the service.
  */
+/**
+ * @openapi
+ * /api/settings/litellm:
+ *   put:
+ *     summary: Save LiteLLM connection settings and reconnect the service.
+ *     tags: [Settings]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               baseUrl:
+ *                 type: string
+ *               masterKey:
+ *                 type: string
+ *                 nullable: true
+ *             required:
+ *               - baseUrl
+ *     responses:
+ *       200:
+ *         description: Successful update and reconnection of the LiteLLM service.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 ok:
+ *                   type: boolean
+ *                 status:
+ *                   type: string
+ *                 baseUrl:
+ *                   type: string
+ *                   nullable: true
+ *       400:
+ *         $ref: '#/components/responses/BadRequest'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ */
 export const PUT = withError(async (req: NextRequest) => {
   const auth = await getAuthContext(req);
   if (!auth) return unauthorized();
@@ -108,6 +199,32 @@ export const PUT = withError(async (req: NextRequest) => {
 /**
  * POST /api/settings/litellm — reconnect without changing stored config
  */
+/**
+ * @openapi
+ * /api/settings/litellm:
+ *   post:
+ *     summary: Reconnect LiteLLM service without changing stored configuration.
+ *     tags: [Settings]
+ *     responses:
+ *       200:
+ *         description: Successful reconnection of the LiteLLM service.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 ok:
+ *                   type: boolean
+ *                 status:
+ *                   type: string
+ *                 baseUrl:
+ *                   type: string
+ *                   nullable: true
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ */
 export const POST = withError(async (req: NextRequest) => {
   const auth = await getAuthContext(req);
   if (!auth) return unauthorized();
@@ -120,6 +237,27 @@ export const POST = withError(async (req: NextRequest) => {
 /**
  * DELETE /api/settings/litellm
  * Disconnect and remove stored settings (falls back to env vars on next reconnect).
+ */
+/**
+ * @openapi
+ * /api/settings/litellm:
+ *   delete:
+ *     summary: Disconnect and remove stored LiteLLM settings.
+ *     tags: [Settings]
+ *     responses:
+ *       200:
+ *         description: Successful disconnection and removal of settings.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 ok:
+ *                   type: boolean
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
  */
 export const DELETE = withError(async (req: NextRequest) => {
   const auth = await getAuthContext(req);

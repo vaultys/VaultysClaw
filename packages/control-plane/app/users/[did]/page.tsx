@@ -17,6 +17,11 @@ import {
   GitBranch,
   ChevronLeft,
   MapPin,
+  Globe,
+  Plus,
+  X,
+  ShieldCheck,
+  Star,
 } from "lucide-react";
 import dynamic from "next/dynamic";
 import type { GraphNode } from "@vaultysclaw/shared";
@@ -56,7 +61,7 @@ interface UserSummary {
   isOwner: boolean;
 }
 
-type TabId = "overview" | "access" | "grants" | "details";
+type TabId = "overview" | "access" | "grants" | "realms" | "details";
 
 const ROLE_OPTIONS = [
   { value: "member", label: "Member" },
@@ -200,6 +205,7 @@ export default function UserEditPage() {
     { id: "overview", label: "Overview", icon: <LayoutDashboard size={15} /> },
     { id: "access", label: "Access", icon: <Shield size={15} /> },
     { id: "grants", label: "Grants", icon: <KeyRound size={15} /> },
+    { id: "realms", label: "Realms", icon: <Globe size={15} /> },
     { id: "details", label: "Details", icon: <GitBranch size={15} /> },
   ];
 
@@ -317,6 +323,9 @@ export default function UserEditPage() {
                 The owner has access to all capabilities.
               </p>
             </div>
+          )}
+          {activeTab === "realms" && (
+            <RealmsTab user={user} isOwner={isOwner} />
           )}
           {activeTab === "details" && (
             <DetailsTab
@@ -798,6 +807,290 @@ function DetailsTab({
           ))}
         </div>
       </section>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Tab: Realms
+// ---------------------------------------------------------------------------
+
+interface RealmMembership {
+  realmId: string;
+  realmName: string;
+  realmSlug: string;
+  realmColor: string;
+  isDefault: boolean;
+  isPrimary: boolean;
+  isRealmAdmin: boolean;
+  joinedAt: string;
+}
+
+interface AvailableRealm {
+  id: string;
+  name: string;
+  slug: string;
+  color: string;
+}
+
+function RealmsTab({
+  user,
+  isOwner,
+}: {
+  user: UserDetail;
+  isOwner: boolean;
+}) {
+  const router = useRouter();
+  const [memberships, setMemberships] = useState<RealmMembership[]>([]);
+  const [available, setAvailable] = useState<AvailableRealm[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [addingRealmId, setAddingRealmId] = useState("");
+  const [addAsAdmin, setAddAsAdmin] = useState(false);
+  const [addAsPrimary, setAddAsPrimary] = useState(false);
+  const [adding, setAdding] = useState(false);
+  const [addError, setAddError] = useState<string | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    const res = await fetch(`/api/users/${encodeURIComponent(user.did)}/realms`);
+    if (!res.ok) {
+      setError("Failed to load realms");
+      setLoading(false);
+      return;
+    }
+    const data = (await res.json()) as {
+      memberships: RealmMembership[];
+      available: AvailableRealm[];
+    };
+    setMemberships(data.memberships);
+    setAvailable(data.available);
+    setLoading(false);
+  }, [user.did]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const handleAdd = async () => {
+    if (!addingRealmId) return;
+    setAdding(true);
+    setAddError(null);
+    const res = await fetch(`/api/realms/${addingRealmId}/users`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        userDid: user.did,
+        isPrimary: addAsPrimary,
+        isRealmAdmin: addAsAdmin,
+      }),
+    });
+    setAdding(false);
+    if (!res.ok) {
+      const d = (await res.json().catch(() => ({}))) as { error?: string };
+      setAddError(d.error ?? "Failed to add to realm");
+    } else {
+      setAddingRealmId("");
+      setAddAsAdmin(false);
+      setAddAsPrimary(false);
+      load();
+    }
+  };
+
+  const handleRemove = async (realmId: string) => {
+    setBusy(realmId + ":remove");
+    const res = await fetch(`/api/realms/${realmId}/users`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userDid: user.did }),
+    });
+    setBusy(null);
+    if (!res.ok) {
+      const d = (await res.json().catch(() => ({}))) as { error?: string };
+      alert(d.error ?? "Failed to remove from realm");
+    } else {
+      load();
+    }
+  };
+
+  const handleToggleAdmin = async (realmId: string, current: boolean) => {
+    setBusy(realmId + ":admin");
+    const res = await fetch(`/api/realms/${realmId}/users`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userDid: user.did, isRealmAdmin: !current }),
+    });
+    setBusy(null);
+    if (!res.ok) {
+      const d = (await res.json().catch(() => ({}))) as { error?: string };
+      alert(d.error ?? "Failed to update realm admin status");
+    } else {
+      load();
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="w-6 h-6 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-base font-semibold text-foreground mb-0.5">Realm memberships</h2>
+        <p className="text-xs text-foreground-500">
+          Realms this user belongs to. Realm admins can manage agents and settings within their realm.
+        </p>
+      </div>
+
+      {error && (
+        <div className="flex items-center gap-2 text-red-500 dark:text-red-400 text-sm bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/50 rounded-xl px-4 py-2.5">
+          <AlertCircle className="w-4 h-4 shrink-0" />
+          {error}
+        </div>
+      )}
+
+      {memberships.length === 0 ? (
+        <div className="flex flex-col items-center py-10 text-foreground-500 gap-2">
+          <Globe size={32} strokeWidth={1} />
+          <p className="text-sm">Not a member of any realm yet.</p>
+        </div>
+      ) : (
+        <div className="divide-y divide-neutral-200 border border-neutral-200 rounded-xl overflow-hidden">
+          {memberships.map((m) => (
+            <div key={m.realmId} className="flex items-center gap-3 px-4 py-3 bg-background-100 hover:bg-background-200 transition-colors">
+              <div
+                className="w-3 h-3 rounded-full shrink-0"
+                style={{ backgroundColor: m.realmColor ?? "#6366f1" }}
+              />
+              <div className="flex-1 min-w-0">
+                <button
+                  onClick={() => router.push(`/realms/${m.realmId}`)}
+                  className="text-sm font-medium text-foreground hover:text-primary-400 transition-colors truncate block"
+                >
+                  {m.realmName}
+                </button>
+                <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                  {m.isDefault && (
+                    <span className="text-xs text-foreground-400">Default</span>
+                  )}
+                  {m.isPrimary && (
+                    <span className="flex items-center gap-1 text-xs text-yellow-600 dark:text-yellow-400">
+                      <Star size={10} className="fill-current" /> Primary
+                    </span>
+                  )}
+                  {m.isRealmAdmin && (
+                    <span className="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400">
+                      <ShieldCheck size={10} /> Realm admin
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {isOwner && (
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    onClick={() => handleToggleAdmin(m.realmId, m.isRealmAdmin)}
+                    disabled={busy === m.realmId + ":admin"}
+                    title={m.isRealmAdmin ? "Revoke realm admin" : "Make realm admin"}
+                    className={`flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border transition-colors disabled:opacity-50 ${
+                      m.isRealmAdmin
+                        ? "border-blue-300 text-blue-600 dark:text-blue-400 hover:border-neutral-300 hover:text-foreground-500"
+                        : "border-neutral-300 text-foreground-500 hover:border-blue-300 hover:text-blue-600 dark:hover:text-blue-400"
+                    }`}
+                  >
+                    <ShieldCheck size={12} />
+                    {m.isRealmAdmin ? "Admin" : "Set admin"}
+                  </button>
+                  {!m.isDefault && (
+                    <button
+                      onClick={() => handleRemove(m.realmId)}
+                      disabled={busy === m.realmId + ":remove"}
+                      title="Remove from realm"
+                      className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border border-neutral-300 text-foreground-500 hover:border-red-400 hover:text-red-500 transition-colors disabled:opacity-50"
+                    >
+                      <X size={12} />
+                      Remove
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {isOwner && available.length > 0 && (
+        <section>
+          <h3 className="text-sm font-semibold text-foreground-500 uppercase tracking-wider mb-3">
+            Add to realm
+          </h3>
+          <div className="bg-background-200 border border-neutral-200 rounded-xl p-4 space-y-3">
+            <select
+              value={addingRealmId}
+              onChange={(e) => setAddingRealmId(e.target.value)}
+              className="w-full bg-background-100 border border-neutral-300 text-foreground text-sm rounded-xl px-4 py-2.5 focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 transition-colors"
+            >
+              <option value="">— Select a realm —</option>
+              {available.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.name}
+                </option>
+              ))}
+            </select>
+
+            <div className="flex items-center gap-4">
+              <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={addAsAdmin}
+                  onChange={(e) => setAddAsAdmin(e.target.checked)}
+                  className="rounded border-neutral-300"
+                />
+                Realm admin
+              </label>
+              <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={addAsPrimary}
+                  onChange={(e) => setAddAsPrimary(e.target.checked)}
+                  className="rounded border-neutral-300"
+                />
+                Primary realm
+              </label>
+            </div>
+
+            {addError && (
+              <div className="flex items-center gap-2 text-red-500 text-xs">
+                <AlertCircle size={12} />
+                {addError}
+              </div>
+            )}
+
+            <div className="flex justify-end">
+              <button
+                onClick={handleAdd}
+                disabled={!addingRealmId || adding}
+                className="flex items-center gap-2 bg-primary-600 hover:bg-primary-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-medium text-sm px-4 py-2 rounded-xl transition-colors"
+              >
+                <Plus size={14} />
+                {adding ? "Adding…" : "Add to realm"}
+              </button>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {isOwner && available.length === 0 && memberships.length > 0 && (
+        <p className="text-xs text-foreground-400">
+          This user is already a member of all realms.
+        </p>
+      )}
     </div>
   );
 }

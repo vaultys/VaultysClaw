@@ -6,7 +6,7 @@ import {
   malformed,
   notFound,
   successNoContent,
-} from "@/lib/api-utils";
+} from "@/lib/api/utils/api-utils";
 import { AgentDAO } from "@/db";
 
 /**

@@ -9,7 +9,7 @@ import {
   notFound,
   unauthorized,
   unavailable,
-} from "@/lib/api-utils";
+} from "@/lib/api/utils/api-utils";
 
 /**
  * POST /api/intents

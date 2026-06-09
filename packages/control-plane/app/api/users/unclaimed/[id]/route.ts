@@ -9,7 +9,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-config";
 import { RealmDAO, UserDAO } from "@/db";
-import { forbidden, malformed, notFound } from "@/lib/api-utils";
+import { forbidden, malformed, notFound } from "@/lib/api/utils/api-utils";
 
 const VALID_ROLES = [
   "owner",

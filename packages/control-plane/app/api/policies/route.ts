@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getWSServer } from "@/lib/ws-server";
 import { getAuthContext } from "@/lib/auth-utils";
-import { unauthorized, forbidden, malformed } from "@/lib/api-utils";
+import { unauthorized, forbidden, malformed } from "@/lib/api/utils/api-utils";
 import type { AgentCapability } from "@vaultysclaw/shared";
 import { PolicyDAO } from "@/db";
 

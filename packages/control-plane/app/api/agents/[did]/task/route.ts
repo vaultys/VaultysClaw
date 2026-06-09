@@ -11,7 +11,7 @@ import {
   forbidden,
   unavailable,
   malformed,
-} from "@/lib/api-utils";
+} from "@/lib/api/utils/api-utils";
 
 /**
  * @openapi

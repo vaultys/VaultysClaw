@@ -6,7 +6,7 @@ import {
   forbidden,
   malformed,
   unavailable,
-} from "@/lib/api-utils";
+} from "@/lib/api/utils/api-utils";
 
 /**
  * POST /api/registrations/batch

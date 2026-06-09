@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
-import { unauthorized, forbidden } from "@/lib/api-utils";
+import { unauthorized, forbidden } from "@/lib/api/utils/api-utils";
 import { generateFileKey } from "@/lib/file-storage";
 import { prisma } from "@/db/client";
 import { getFileStorage } from "@/lib/file-storage-manager";

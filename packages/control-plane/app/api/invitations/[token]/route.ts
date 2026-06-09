@@ -5,7 +5,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { UserDAO } from "@/db";
-import { forbidden, notFound } from "@/lib/api-utils";
+import { forbidden, notFound } from "@/lib/api/utils/api-utils";
 
 /**
  * @openapi

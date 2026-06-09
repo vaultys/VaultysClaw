@@ -9,7 +9,11 @@ import type {
   WSToolApprovalRequestPayload,
   ChatMessageEntry,
 } from "@vaultysclaw/shared";
-import { malformed, unauthorized, unavailable } from "@/lib/api-utils";
+import {
+  malformed,
+  unauthorized,
+  unavailable,
+} from "@/lib/api/utils/api-utils";
 
 /**
  * POST /api/chat

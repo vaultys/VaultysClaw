@@ -7,7 +7,7 @@ import {
   unavailable,
   conflict,
   notFound,
-} from "@/lib/api-utils";
+} from "@/lib/api/utils/api-utils";
 import { AgentDAO, RealmDAO, WorkflowDAO } from "@/db";
 import type { WorkflowDefinition } from "@/lib/workflow-executor";
 import { Prisma } from "@prisma/client";

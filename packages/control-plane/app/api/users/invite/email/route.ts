@@ -10,7 +10,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-config";
 import { sendMail } from "@/lib/smtp";
 import { SettingsDAO, UserDAO } from "@/db";
-import { forbidden, malformed } from "@/lib/api-utils";
+import { forbidden, malformed } from "@/lib/api/utils/api-utils";
 
 /**
  * @openapi

@@ -8,7 +8,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
-import { forbidden, unauthorized } from "@/lib/api-utils";
+import { forbidden, unauthorized } from "@/lib/api/utils/api-utils";
 import { SettingsDAO } from "@/db";
 
 /**
@@ -34,8 +34,9 @@ import { SettingsDAO } from "@/db";
  */
 export async function GET(request: NextRequest) {
   return NextResponse.json({
-    walletUrl: await SettingsDAO.get("wallet_url") ?? "https://wallet.vaultys.net",
-    peerjsHost: await SettingsDAO.get("peerjs_host") ?? "",
+    walletUrl:
+      (await SettingsDAO.get("wallet_url")) ?? "https://wallet.vaultys.net",
+    peerjsHost: (await SettingsDAO.get("peerjs_host")) ?? "",
   });
 }
 

@@ -5,7 +5,7 @@ import {
   forbidden,
   notFound,
   unprocessableEntity,
-} from "@/lib/api-utils";
+} from "@/lib/api/utils/api-utils";
 import { ModelDAO, RealmDAO } from "@/db";
 import {
   createRealmKey,

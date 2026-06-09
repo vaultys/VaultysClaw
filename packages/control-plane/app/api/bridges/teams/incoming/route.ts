@@ -3,7 +3,12 @@ import { ChannelService } from "@/lib/channel-service";
 import { MessageDispatcher } from "@/lib/message-dispatcher";
 import { TeamsGateway } from "@/lib/bridges/teams-gateway";
 import { ChannelBridgeDAO } from "@/db";
-import { forbidden, malformed, notFound, unauthorized } from "@/lib/api-utils";
+import {
+  forbidden,
+  malformed,
+  notFound,
+  unauthorized,
+} from "@/lib/api/utils/api-utils";
 
 /**
  * POST /api/bridges/teams/incoming

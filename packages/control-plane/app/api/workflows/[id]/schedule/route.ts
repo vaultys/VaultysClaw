@@ -6,7 +6,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
-import { malformed, notFound, unauthorized } from "@/lib/api-utils";
+import { malformed, notFound, unauthorized } from "@/lib/api/utils/api-utils";
 import { nextCronRun } from "@/lib/workflow-scheduler";
 import { WorkflowDAO } from "@/db";
 

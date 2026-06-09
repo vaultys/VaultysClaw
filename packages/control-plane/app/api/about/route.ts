@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
 import fs from "fs";
 import path from "path";
-import { malformed, notFound, unauthorized } from "@/lib/api-utils";
+import { malformed, notFound, unauthorized } from "@/lib/api/utils/api-utils";
 
 const DOCS: Record<string, string[]> = {
   readme: ["README.md", "../../README.md", "../../../README.md"],

@@ -14,7 +14,7 @@ import {
   notFound,
   malformed,
   unavailable,
-} from "@/lib/api-utils";
+} from "@/lib/api/utils/api-utils";
 import { getWSServer } from "@/lib/ws-server";
 import { IntentDAO, RealmDAO } from "@/db";
 

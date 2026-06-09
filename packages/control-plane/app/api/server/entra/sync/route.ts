@@ -10,7 +10,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
-import { forbidden, unauthorized } from "@/lib/api-utils";
+import { forbidden, unauthorized } from "@/lib/api/utils/api-utils";
 import { syncEntraUsers } from "@/lib/entra-sync";
 
 /**

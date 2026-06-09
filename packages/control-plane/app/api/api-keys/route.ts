@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import { getAuthContext } from "@/lib/auth-utils";
-import { unauthorized, forbidden, malformed } from "@/lib/api-utils";
-import { generateApiKey } from "@/lib/api-key-utils";
+import { unauthorized, forbidden, malformed } from "@/lib/api/utils/api-utils";
+import { generateApiKey } from "@/lib/api/utils/api-key-utils";
 import { ApiKeyDAO } from "@/db";
 import type {
   ApiKey,
   ApiKeyCreateRequest,
   ApiKeyCreatedResponse,
-} from "@/lib/api-types";
+} from "@/lib/api/utils/api-types";
 
 function toApiKey(row: Awaited<ReturnType<typeof ApiKeyDAO.findById>>): ApiKey {
   if (!row) throw new Error("null row");

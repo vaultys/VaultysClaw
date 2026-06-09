@@ -11,7 +11,7 @@ import {
   unavailable,
   malformed,
   notFound,
-} from "@/lib/api-utils";
+} from "@/lib/api/utils/api-utils";
 import { AgentSchedule } from "@/types/api/requests";
 
 /**

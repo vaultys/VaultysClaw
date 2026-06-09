@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
-import { unauthorized, forbidden } from "@/lib/api-utils";
+import { unauthorized, forbidden } from "@/lib/api/utils/api-utils";
 import { prisma } from "@/db/client";
 
 async function getFleetHistoryTotals(
   granularity: "day" | "month",
-  bucket: string,
+  bucket: string
 ) {
   const result = await prisma.agentTokenUsageHistory.aggregate({
     _sum: {

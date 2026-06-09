@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
-import { forbidden, malformed, notFound, unauthorized } from "@/lib/api-utils";
+import {
+  forbidden,
+  malformed,
+  notFound,
+  unauthorized,
+} from "@/lib/api/utils/api-utils";
 import { ChannelService } from "@/lib/channel-service";
 
 type Ctx = { params: Promise<{ id: string }> };

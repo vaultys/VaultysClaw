@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
-import { unauthorized, forbidden } from "@/lib/api-utils";
+import { unauthorized, forbidden } from "@/lib/api/utils/api-utils";
 import { AgentDAO, RealmDAO } from "@/db";
 import {
   createAgentKey,
@@ -54,7 +54,10 @@ export async function PUT(req: NextRequest, { params }: Ctx) {
 
   if (!isLiteLLMConfigured()) {
     return NextResponse.json(
-      { error: "LiteLLM not configured — set LITELLM_BASE_URL and LITELLM_MASTER_KEY" },
+      {
+        error:
+          "LiteLLM not configured — set LITELLM_BASE_URL and LITELLM_MASTER_KEY",
+      },
       { status: 422 }
     );
   }
@@ -79,9 +82,10 @@ export async function PUT(req: NextRequest, { params }: Ctx) {
   }
   allowedModels ??= [];
 
-  const dailyBudget = body.dailyBudget === undefined
-    ? (await AgentDAO.getLiteLLMKey(did))?.dailyBudget ?? undefined
-    : body.dailyBudget ?? undefined;
+  const dailyBudget =
+    body.dailyBudget === undefined
+      ? ((await AgentDAO.getLiteLLMKey(did))?.dailyBudget ?? undefined)
+      : (body.dailyBudget ?? undefined);
 
   const virtualKey = await createAgentKey(did, allowedModels, dailyBudget);
   await AgentDAO.updateLiteLLMKey(did, virtualKey, allowedModels, dailyBudget);

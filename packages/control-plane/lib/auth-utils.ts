@@ -1,7 +1,11 @@
 import { getServerSession } from "next-auth";
 import { NextRequest } from "next/server";
 import { authOptions } from "./auth-config";
-import { hashApiKey, isPublicRoute, matchRoute } from "./api-key-utils";
+import {
+  hashApiKey,
+  isPublicRoute,
+  matchRoute,
+} from "./api/utils/api-key-utils";
 import { AgentDAO, ApiKeyDAO, RealmDAO } from "@/db";
 
 export interface AuthContext {

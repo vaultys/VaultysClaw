@@ -6,7 +6,7 @@ import {
   notFound,
   conflict,
   unavailable,
-} from "@/lib/api-utils";
+} from "@/lib/api/utils/api-utils";
 import { getWSServer } from "@/lib/ws-server";
 import { KnowledgeDAO, SettingsDAO } from "@/db";
 

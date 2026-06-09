@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { UserServerChannel } from "@/lib/user-server-channel";
 import { VaultysId } from "@vaultys/id";
-import { malformed } from "@/lib/api-utils";
+import { malformed } from "@/lib/api/utils/api-utils";
 
 /**
  * GET /api/user/bastion/connect

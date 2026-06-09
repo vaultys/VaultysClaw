@@ -9,7 +9,7 @@ import type {
   UserRole,
 } from "@vaultysclaw/shared";
 import { getAuthContext } from "@/lib/auth-utils";
-import { unauthorized, forbidden } from "@/lib/api-utils";
+import { unauthorized, forbidden } from "@/lib/api/utils/api-utils";
 
 /**
  * GET /api/graph — return the full relationship graph (nodes + edges). Global admin only.

@@ -4,7 +4,7 @@ import {
   type WorkflowDefinition,
 } from "@/lib/workflow-executor";
 import { getAuthContext } from "@/lib/auth-utils";
-import { unauthorized, forbidden, notFound } from "@/lib/api-utils";
+import { unauthorized, forbidden, notFound } from "@/lib/api/utils/api-utils";
 import { WorkflowDAO } from "@/db";
 
 type Params = { id: string };

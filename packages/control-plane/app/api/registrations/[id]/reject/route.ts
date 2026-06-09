@@ -7,7 +7,7 @@ import {
   notFound,
   conflict,
   unavailable,
-} from "@/lib/api-utils";
+} from "@/lib/api/utils/api-utils";
 import { PendingRegistrationDAO } from "@/db";
 
 /**

@@ -7,7 +7,11 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-config";
 import { getWSServer } from "@/lib/ws-server";
-import { malformed, unauthorized, unavailable } from "@/lib/api-utils";
+import {
+  malformed,
+  unauthorized,
+  unavailable,
+} from "@/lib/api/utils/api-utils";
 
 /**
  * @openapi

@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { broadcastSkillsConfig } from "@/lib/ws-server";
 import { getAuthContext } from "@/lib/auth-utils";
-import { unauthorized, forbidden, malformed, notFound } from "@/lib/api-utils";
+import {
+  unauthorized,
+  forbidden,
+  malformed,
+  notFound,
+} from "@/lib/api/utils/api-utils";
 import { RealmDAO, RealmSkillDAO } from "@/db";
 
 /**

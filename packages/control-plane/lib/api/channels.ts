@@ -1,4 +1,4 @@
-import { ChannelSummary } from "@/lib/api-types";
+import { ChannelSummary } from "@/lib/api/utils/api-types";
 import { BaseApi } from "./base";
 
 export interface Channel extends ChannelSummary {
@@ -44,17 +44,27 @@ export interface ChannelBridge {
 }
 
 export class ChannelsApi extends BaseApi {
-  list(params?: { realm?: string; includeGlobal?: boolean; page?: number; pageSize?: number }) {
+  list(params?: {
+    realm?: string;
+    includeGlobal?: boolean;
+    page?: number;
+    pageSize?: number;
+  }) {
     const query = new URLSearchParams();
     if (params?.realm) query.set("realm", params.realm);
     if (params?.includeGlobal) query.set("includeGlobal", "true");
     if (params?.page) query.set("page", String(params.page));
     if (params?.pageSize) query.set("pageSize", String(params.pageSize));
     const qs = query.toString();
-    return this.get<{ channels: Channel[]; total: number }>(`/api/channels${qs ? `?${qs}` : ""}`);
+    return this.get<{ channels: Channel[]; total: number }>(
+      `/api/channels${qs ? `?${qs}` : ""}`
+    );
   }
 
-  create(data: Pick<Channel, "name" | "realmId"> & Partial<Pick<Channel, "description" | "isPublic" | "type">>) {
+  create(
+    data: Pick<Channel, "name" | "realmId"> &
+      Partial<Pick<Channel, "description" | "isPublic" | "type">>
+  ) {
     return this.post<Channel>("/api/channels", data);
   }
 
@@ -62,7 +72,10 @@ export class ChannelsApi extends BaseApi {
     return this.get<Channel>(`/api/channels/${id}`);
   }
 
-  update(id: string, data: Partial<Pick<Channel, "name" | "description" | "isPublic">>) {
+  update(
+    id: string,
+    data: Partial<Pick<Channel, "name" | "description" | "isPublic">>
+  ) {
     return this.patch<Channel>(`/api/channels/${id}`, data);
   }
 
@@ -80,7 +93,10 @@ export class ChannelsApi extends BaseApi {
   }
 
   // Messages
-  listMessages(id: string, params?: { page?: number; pageSize?: number; before?: string }) {
+  listMessages(
+    id: string,
+    params?: { page?: number; pageSize?: number; before?: string }
+  ) {
     const query = new URLSearchParams();
     if (params?.page) query.set("page", String(params.page));
     if (params?.pageSize) query.set("pageSize", String(params.pageSize));
@@ -91,7 +107,11 @@ export class ChannelsApi extends BaseApi {
     );
   }
 
-  postMessage(id: string, data: Pick<ChannelMessage, "content"> & Partial<Pick<ChannelMessage, "type" | "threadId">>) {
+  postMessage(
+    id: string,
+    data: Pick<ChannelMessage, "content"> &
+      Partial<Pick<ChannelMessage, "type" | "threadId">>
+  ) {
     return this.post<ChannelMessage>(`/api/channels/${id}/messages`, data);
   }
 
@@ -99,8 +119,15 @@ export class ChannelsApi extends BaseApi {
     return this.get<ChannelMessage>(`/api/channels/${id}/messages/${msgId}`);
   }
 
-  editMessage(id: string, msgId: string, data: Pick<ChannelMessage, "content">) {
-    return this.patch<ChannelMessage>(`/api/channels/${id}/messages/${msgId}`, data);
+  editMessage(
+    id: string,
+    msgId: string,
+    data: Pick<ChannelMessage, "content">
+  ) {
+    return this.patch<ChannelMessage>(
+      `/api/channels/${id}/messages/${msgId}`,
+      data
+    );
   }
 
   deleteMessage(id: string, msgId: string) {
@@ -108,16 +135,26 @@ export class ChannelsApi extends BaseApi {
   }
 
   addReaction(id: string, msgId: string, emoji: string) {
-    return this.post<void>(`/api/channels/${id}/messages/${msgId}/reactions`, { emoji });
+    return this.post<void>(`/api/channels/${id}/messages/${msgId}/reactions`, {
+      emoji,
+    });
   }
 
-  postAgentResponse(id: string, data: { agentDid: string; content: string; threadId?: string }) {
-    return this.post<ChannelMessage>(`/api/channels/${id}/messages/agent-response`, data);
+  postAgentResponse(
+    id: string,
+    data: { agentDid: string; content: string; threadId?: string }
+  ) {
+    return this.post<ChannelMessage>(
+      `/api/channels/${id}/messages/agent-response`,
+      data
+    );
   }
 
   // Threads
   listThreads(id: string) {
-    return this.get<{ threads: ChannelThread[] }>(`/api/channels/${id}/threads`);
+    return this.get<{ threads: ChannelThread[] }>(
+      `/api/channels/${id}/threads`
+    );
   }
 
   createThread(id: string, data: { rootMessageId: string }) {
@@ -126,15 +163,24 @@ export class ChannelsApi extends BaseApi {
 
   // Bridges
   listBridges(id: string) {
-    return this.get<{ bridges: ChannelBridge[] }>(`/api/channels/${id}/bridges`);
+    return this.get<{ bridges: ChannelBridge[] }>(
+      `/api/channels/${id}/bridges`
+    );
   }
 
   createBridge(id: string, data: Pick<ChannelBridge, "type" | "config">) {
     return this.post<ChannelBridge>(`/api/channels/${id}/bridges`, data);
   }
 
-  updateBridge(id: string, bridgeId: string, data: Partial<Pick<ChannelBridge, "config" | "enabled">>) {
-    return this.patch<ChannelBridge>(`/api/channels/${id}/bridges/${bridgeId}`, data);
+  updateBridge(
+    id: string,
+    bridgeId: string,
+    data: Partial<Pick<ChannelBridge, "config" | "enabled">>
+  ) {
+    return this.patch<ChannelBridge>(
+      `/api/channels/${id}/bridges/${bridgeId}`,
+      data
+    );
   }
 
   removeBridge(id: string, bridgeId: string) {

@@ -11,7 +11,7 @@ import { authOptions } from "@/lib/auth-config";
 import { UserServerChannel } from "@/lib/user-server-channel";
 import { VaultysId } from "@vaultys/id";
 import { SettingsDAO } from "@/db";
-import { forbidden } from "@/lib/api-utils";
+import { forbidden } from "@/lib/api/utils/api-utils";
 
 /**
  * @openapi

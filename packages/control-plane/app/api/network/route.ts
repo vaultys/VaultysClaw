@@ -7,7 +7,7 @@ import {
   initializePeerjsServer,
 } from "@/lib/peerjs-server";
 import { getAuthContext } from "@/lib/auth-utils";
-import { unauthorized, unavailable } from "@/lib/api-utils";
+import { unauthorized, unavailable } from "@/lib/api/utils/api-utils";
 
 /**
  * GET /api/network

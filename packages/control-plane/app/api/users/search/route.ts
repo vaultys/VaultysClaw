@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { RealmDAO } from "@/db";
-import { malformed, notFound } from "@/lib/api-utils";
+import { malformed, notFound } from "@/lib/api/utils/api-utils";
 
 /**
  * GET /api/users/search?realm=[realmId]&q=[search query]

@@ -11,7 +11,7 @@ import { signDelegation } from "@/lib/delegation";
 import { getWSServer } from "@/lib/ws-server";
 import type { AgentCapability } from "@vaultysclaw/shared";
 import { DelegationCertDAO, GrantDAO, UserDAO } from "@/db";
-import { forbidden, malformed, notFound } from "@/lib/api-utils";
+import { forbidden, malformed, notFound } from "@/lib/api/utils/api-utils";
 
 /**
  * @openapi

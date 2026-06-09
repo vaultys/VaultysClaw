@@ -1,4 +1,4 @@
-import { AgentSummary } from "@/lib/api-types";
+import { AgentSummary } from "@/lib/api/utils/api-types";
 import { BaseApi } from "./base";
 import {
   ChatHistoryMessage,

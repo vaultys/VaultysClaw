@@ -10,7 +10,7 @@ import {
   forbidden,
   unavailable,
   notFound,
-} from "@/lib/api-utils";
+} from "@/lib/api/utils/api-utils";
 
 /**
  * @openapi

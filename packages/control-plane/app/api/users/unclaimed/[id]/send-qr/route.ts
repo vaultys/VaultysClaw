@@ -9,7 +9,12 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
-import { forbidden, malformed, notFound, unauthorized } from "@/lib/api-utils";
+import {
+  forbidden,
+  malformed,
+  notFound,
+  unauthorized,
+} from "@/lib/api/utils/api-utils";
 import { UserServerChannel } from "@/lib/user-server-channel";
 import { VaultysId } from "@vaultys/id";
 import { sendMail, getSmtpConfig } from "@/lib/smtp";

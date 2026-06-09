@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import path from "path";
 import { glob } from "fs/promises";
 import { getAuthContext } from "@/lib/auth-utils";
-import { unauthorized, forbidden } from "@/lib/api-utils";
+import { unauthorized, forbidden } from "@/lib/api/utils/api-utils";
 
 /**
  * @openapi
@@ -34,7 +34,8 @@ export async function GET(request: NextRequest) {
   // Collect all route.ts files.
   // Escape glob special chars ([ ]) in path components — Next.js dynamic
   // segments like [did] would otherwise be treated as character classes.
-  const escapeGlob = (p: string) => p.replace(/\[/g, "\\[").replace(/\]/g, "\\]");
+  const escapeGlob = (p: string) =>
+    p.replace(/\[/g, "\\[").replace(/\]/g, "\\]");
 
   const files: string[] = [];
   for await (const f of glob(`${apiDir}/**/route.ts`)) {

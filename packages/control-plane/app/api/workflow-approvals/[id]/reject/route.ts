@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-config";
 import { WorkflowDAO } from "@/db";
 
-import { notFound, unauthorized } from "@/lib/api-utils";
+import { notFound, unauthorized } from "@/lib/api/utils/api-utils";
 
 interface Params {
   id: string;

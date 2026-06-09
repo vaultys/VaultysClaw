@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
-import { malformed, unauthorized } from "@/lib/api-utils";
+import { malformed, unauthorized } from "@/lib/api/utils/api-utils";
 
 /** POST /api/models/test — test connectivity to a model endpoint and fetch available models */
 /**

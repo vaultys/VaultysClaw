@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
-import { unauthorized, forbidden } from "@/lib/api-utils";
+import { unauthorized, forbidden } from "@/lib/api/utils/api-utils";
 import { isLiteLLMConfigured, listModels } from "@/lib/litellm-client";
 
 /** GET /api/litellm/models — list available models in LiteLLM. Admin only. */

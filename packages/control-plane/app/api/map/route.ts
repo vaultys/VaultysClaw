@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
-import { unauthorized } from "@/lib/api-utils";
+import { unauthorized } from "@/lib/api/utils/api-utils";
 import { AgentDAO, UserDAO } from "@/db";
 import { getWSServer } from "@/lib/ws-server";
 import { getDoclingConfig, getStorageConfig } from "@/db/settings.dao";
@@ -122,10 +122,7 @@ export async function GET(req: NextRequest) {
   // ── Services (global admin only) ─────────────────────────────────────────────
   if (auth.isGlobalAdmin && !realmFilter) {
     const docling = await getDoclingConfig();
-    if (
-      docling?.locationLat != null &&
-      docling?.locationLon != null
-    ) {
+    if (docling?.locationLat != null && docling?.locationLon != null) {
       markers.push({
         id: "docling",
         type: "docling",
@@ -137,16 +134,11 @@ export async function GET(req: NextRequest) {
     }
 
     const storage = await getStorageConfig();
-    if (
-      storage.locationLat != null &&
-      storage.locationLon != null
-    ) {
+    if (storage.locationLat != null && storage.locationLon != null) {
       markers.push({
         id: "s3",
         type: "s3",
-        label: storage.s3Bucket
-          ? `S3: ${storage.s3Bucket}`
-          : "Object Storage",
+        label: storage.s3Bucket ? `S3: ${storage.s3Bucket}` : "Object Storage",
         lat: storage.locationLat,
         lon: storage.locationLon,
       });

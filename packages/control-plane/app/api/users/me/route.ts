@@ -7,7 +7,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-config";
 import { UserDAO } from "@/db";
-import { malformed, notFound, unauthorized } from "@/lib/api-utils";
+import { malformed, notFound, unauthorized } from "@/lib/api/utils/api-utils";
 
 /**
  * @openapi

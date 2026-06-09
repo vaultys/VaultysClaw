@@ -1,4 +1,4 @@
-import { UserSummary } from "@/lib/api-types";
+import { UserSummary } from "@/lib/api/utils/api-types";
 import { BaseApi } from "./base";
 
 export interface User extends UserSummary {
@@ -41,7 +41,9 @@ export class UsersApi extends BaseApi {
     if (params?.page) query.set("page", String(params.page));
     if (params?.pageSize) query.set("pageSize", String(params.pageSize));
     const qs = query.toString();
-    return this.get<{ users: User[]; total: number }>(`/api/users${qs ? `?${qs}` : ""}`);
+    return this.get<{ users: User[]; total: number }>(
+      `/api/users${qs ? `?${qs}` : ""}`
+    );
   }
 
   getMe() {
@@ -53,14 +55,19 @@ export class UsersApi extends BaseApi {
   }
 
   search(q: string) {
-    return this.get<{ users: User[] }>(`/api/users/search?q=${encodeURIComponent(q)}`);
+    return this.get<{ users: User[] }>(
+      `/api/users/search?q=${encodeURIComponent(q)}`
+    );
   }
 
   getOne(did: string) {
     return this.get<User>(`/api/users/${did}`);
   }
 
-  update(did: string, data: Partial<Pick<User, "name" | "avatarUrl" | "metadata">>) {
+  update(
+    did: string,
+    data: Partial<Pick<User, "name" | "avatarUrl" | "metadata">>
+  ) {
     return this.patch<User>(`/api/users/${did}`, data);
   }
 
@@ -77,7 +84,11 @@ export class UsersApi extends BaseApi {
     return this.get<{ grants: UserGrant[] }>(`/api/users/${did}/grants`);
   }
 
-  createGrant(did: string, data: Pick<UserGrant, "capability"> & Partial<Pick<UserGrant, "realmId" | "expiresAt">>) {
+  createGrant(
+    did: string,
+    data: Pick<UserGrant, "capability"> &
+      Partial<Pick<UserGrant, "realmId" | "expiresAt">>
+  ) {
     return this.post<UserGrant>(`/api/users/${did}/grants`, data);
   }
 
@@ -90,7 +101,9 @@ export class UsersApi extends BaseApi {
     return this.get<{ invitations: UserInvitation[] }>("/api/users/invite");
   }
 
-  inviteByEmail(data: Pick<UserInvitation, "email"> & Partial<Pick<UserInvitation, "role">>) {
+  inviteByEmail(
+    data: Pick<UserInvitation, "email"> & Partial<Pick<UserInvitation, "role">>
+  ) {
     return this.post<UserInvitation>("/api/users/invite/email", data);
   }
 
@@ -103,7 +116,10 @@ export class UsersApi extends BaseApi {
     return this.get<UnclaimedUser>(`/api/users/unclaimed/${id}`);
   }
 
-  updateUnclaimed(id: string, data: Partial<Pick<UnclaimedUser, "name" | "email">>) {
+  updateUnclaimed(
+    id: string,
+    data: Partial<Pick<UnclaimedUser, "name" | "email">>
+  ) {
     return this.patch<UnclaimedUser>(`/api/users/unclaimed/${id}`, data);
   }
 

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
-import { unauthorized, forbidden, malformed } from "@/lib/api-utils";
+import { unauthorized, forbidden, malformed } from "@/lib/api/utils/api-utils";
 import { decryptSecret } from "@/lib/vault";
 import { SettingsDAO } from "@/db";
 import { getStorageConfig } from "@/db/settings.dao";

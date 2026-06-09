@@ -10,7 +10,7 @@ import { UserServerChannel } from "@/lib/user-server-channel";
 import { VaultysId } from "@vaultys/id";
 import { SettingsDAO, UserDAO } from "@/db";
 import { prisma } from "@/db/client";
-import { malformed, notFound } from "@/lib/api-utils";
+import { malformed, notFound } from "@/lib/api/utils/api-utils";
 
 /**
  * @openapi

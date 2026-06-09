@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
-import { forbidden, notFound, unauthorized } from "@/lib/api-utils";
+import { forbidden, notFound, unauthorized } from "@/lib/api/utils/api-utils";
 import { ChannelBridgeService } from "@/lib/channel-bridge-service";
 import type { ChannelBridge } from "@vaultysclaw/shared";
 

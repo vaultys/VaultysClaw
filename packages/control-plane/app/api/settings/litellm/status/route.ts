@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
-import { unauthorized, forbidden } from "@/lib/api-utils";
+import { unauthorized, forbidden } from "@/lib/api/utils/api-utils";
 import { getLiteLLMServiceState } from "@/lib/litellm-service";
 
 /**
@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
 
   const state = getLiteLLMServiceState();
   return NextResponse.json({
-    status: state.status,          // "unconfigured" | "connecting" | "connected" | "error"
+    status: state.status, // "unconfigured" | "connecting" | "connected" | "error"
     configured: state.status !== "unconfigured",
     baseUrl: state.baseUrl,
     lastError: state.lastError,

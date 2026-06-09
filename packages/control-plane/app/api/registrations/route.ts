@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { AgentCapability } from "@vaultysclaw/shared";
 import { getAuthContext } from "@/lib/auth-utils";
-import { unauthorized, forbidden } from "@/lib/api-utils";
+import { unauthorized, forbidden } from "@/lib/api/utils/api-utils";
 import { PendingRegistrationDAO } from "@/db";
 
 /**

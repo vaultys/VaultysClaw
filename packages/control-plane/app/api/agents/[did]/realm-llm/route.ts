@@ -8,7 +8,7 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
-import { unauthorized, forbidden, notFound } from "@/lib/api-utils";
+import { unauthorized, forbidden, notFound } from "@/lib/api/utils/api-utils";
 import { isLiteLLMConfigured, getLiteLLMBaseUrl } from "@/lib/litellm-client";
 import { AgentDAO, ModelDAO, RealmDAO } from "@/db";
 

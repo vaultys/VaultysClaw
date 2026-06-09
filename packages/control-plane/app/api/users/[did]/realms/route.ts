@@ -7,7 +7,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-config";
 import { RealmDAO, UserDAO } from "@/db";
-import { forbidden, notFound } from "@/lib/api-utils";
+import { forbidden, notFound } from "@/lib/api/utils/api-utils";
 
 export async function GET(
   _req: NextRequest,

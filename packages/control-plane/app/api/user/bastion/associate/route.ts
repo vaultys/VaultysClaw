@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { UserServerChannel } from "@/lib/user-server-channel";
-import { malformed } from "@/lib/api-utils";
+import { malformed } from "@/lib/api/utils/api-utils";
 
 /**
  * POST /api/user/bastion/associate

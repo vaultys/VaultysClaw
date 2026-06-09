@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
-import { unauthorized, forbidden, malformed, notFound } from "@/lib/api-utils";
+import {
+  unauthorized,
+  forbidden,
+  malformed,
+  notFound,
+} from "@/lib/api/utils/api-utils";
 import { UserDAO } from "@/db";
 
 /**

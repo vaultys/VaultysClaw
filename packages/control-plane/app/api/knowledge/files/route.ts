@@ -6,7 +6,7 @@ import {
   malformed,
   notFound,
   contentTooLarge,
-} from "@/lib/api-utils";
+} from "@/lib/api/utils/api-utils";
 import { KnowledgeDAO } from "@/db";
 
 const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20 MB

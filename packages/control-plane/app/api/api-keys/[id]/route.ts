@@ -1,9 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
-import { unauthorized, forbidden, notFound, malformed } from "@/lib/api-utils";
+import {
+  unauthorized,
+  forbidden,
+  notFound,
+  malformed,
+} from "@/lib/api/utils/api-utils";
 import { ApiKeyDAO } from "@/db";
 import { prisma } from "@/db/client";
-import type { ApiKey, ApiKeyUpdateRequest } from "@/lib/api-types";
+import type { ApiKey, ApiKeyUpdateRequest } from "@/lib/api/utils/api-types";
 
 function toApiKey(
   row: NonNullable<Awaited<ReturnType<typeof ApiKeyDAO.findById>>>

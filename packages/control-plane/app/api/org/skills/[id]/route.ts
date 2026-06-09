@@ -6,7 +6,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
-import { unauthorized, forbidden, notFound } from "@/lib/api-utils";
+import { unauthorized, forbidden, notFound } from "@/lib/api/utils/api-utils";
 import { OrgSkillDAO } from "@/db";
 
 type Ctx = { params: Promise<{ id: string }> };

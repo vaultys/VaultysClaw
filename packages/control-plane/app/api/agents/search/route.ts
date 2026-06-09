@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
-import { unauthorized } from "@/lib/api-utils";
+import { unauthorized } from "@/lib/api/utils/api-utils";
 import { getWSServer } from "@/lib/ws-server";
 import { AgentDAO, RealmDAO } from "@/db";
 
@@ -85,13 +85,17 @@ export async function GET(req: NextRequest) {
       agentList = (await RealmDAO.getAgents(realmId)).map((ra) => ({
         did: ra.agent.did,
         name: ra.agent.name,
-        capabilities: ra.agent.capabilities === null ? null : JSON.stringify(ra.agent.capabilities),
+        capabilities:
+          ra.agent.capabilities === null
+            ? null
+            : JSON.stringify(ra.agent.capabilities),
       }));
     } else {
       agentList = (await AgentDAO.findAll()).map((a) => ({
         did: a.did,
         name: a.name,
-        capabilities: a.capabilities === null ? null : JSON.stringify(a.capabilities),
+        capabilities:
+          a.capabilities === null ? null : JSON.stringify(a.capabilities),
       }));
     }
 

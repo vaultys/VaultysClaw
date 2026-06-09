@@ -1,4 +1,4 @@
-import { RealmSummary } from "@/lib/api-types";
+import { RealmSummary } from "@/lib/api/utils/api-types";
 import { BaseApi } from "./base";
 
 export interface Realm extends RealmSummary {
@@ -37,10 +37,14 @@ export class RealmsApi extends BaseApi {
     if (params?.page) query.set("page", String(params.page));
     if (params?.pageSize) query.set("pageSize", String(params.pageSize));
     const qs = query.toString();
-    return this.get<{ realms: Realm[]; total: number }>(`/api/realms${qs ? `?${qs}` : ""}`);
+    return this.get<{ realms: Realm[]; total: number }>(
+      `/api/realms${qs ? `?${qs}` : ""}`
+    );
   }
 
-  create(data: Pick<Realm, "name" | "slug"> & Partial<Pick<Realm, "description">>) {
+  create(
+    data: Pick<Realm, "name" | "slug"> & Partial<Pick<Realm, "description">>
+  ) {
     return this.post<Realm>("/api/realms", data);
   }
 
@@ -48,7 +52,10 @@ export class RealmsApi extends BaseApi {
     return this.get<Realm>(`/api/realms/${id}`);
   }
 
-  update(id: string, data: Partial<Pick<Realm, "name" | "slug" | "description">>) {
+  update(
+    id: string,
+    data: Partial<Pick<Realm, "name" | "slug" | "description">>
+  ) {
     return this.patch<Realm>(`/api/realms/${id}`, data);
   }
 
@@ -90,7 +97,10 @@ export class RealmsApi extends BaseApi {
     return this.get<{ skills: RealmSkill[] }>(`/api/realms/${id}/skills`);
   }
 
-  addSkill(id: string, data: Pick<RealmSkill, "skillId"> & Partial<Pick<RealmSkill, "config">>) {
+  addSkill(
+    id: string,
+    data: Pick<RealmSkill, "skillId"> & Partial<Pick<RealmSkill, "config">>
+  ) {
     return this.post<RealmSkill>(`/api/realms/${id}/skills`, data);
   }
 
@@ -98,7 +108,11 @@ export class RealmsApi extends BaseApi {
     return this.get<RealmSkill>(`/api/realms/${id}/skills/${skillId}`);
   }
 
-  updateSkill(id: string, skillId: string, data: Partial<Pick<RealmSkill, "enabled" | "config">>) {
+  updateSkill(
+    id: string,
+    skillId: string,
+    data: Partial<Pick<RealmSkill, "enabled" | "config">>
+  ) {
     return this.patch<RealmSkill>(`/api/realms/${id}/skills/${skillId}`, data);
   }
 
@@ -113,10 +127,15 @@ export class RealmsApi extends BaseApi {
 
   // Credentials
   listCredentials(id: string) {
-    return this.get<{ credentials: RealmCredential[] }>(`/api/realms/${id}/credentials`);
+    return this.get<{ credentials: RealmCredential[] }>(
+      `/api/realms/${id}/credentials`
+    );
   }
 
-  createCredential(id: string, data: Pick<RealmCredential, "type" | "label"> & { secret: string }) {
+  createCredential(
+    id: string,
+    data: Pick<RealmCredential, "type" | "label"> & { secret: string }
+  ) {
     return this.post<RealmCredential>(`/api/realms/${id}/credentials`, data);
   }
 

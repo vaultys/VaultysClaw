@@ -4,7 +4,7 @@ import { ChannelService } from "@/lib/channel-service";
 import { MessageDispatcher } from "@/lib/message-dispatcher";
 import { WebhookGateway } from "@/lib/bridges/webhook-gateway";
 import type { WebhookBridgeConfig } from "@vaultysclaw/shared";
-import { forbidden, malformed, notFound } from "@/lib/api-utils";
+import { forbidden, malformed, notFound } from "@/lib/api/utils/api-utils";
 
 type Ctx = { params: Promise<{ bridgeId: string }> };
 

@@ -14,7 +14,7 @@ type Ctx = { params: Promise<{ did: string; skillId: string }> };
 
 /**
  * @openapi
- * /api/agent/{did}/skill/{skillId}:
+ * //api/agents/{did}/skill/{skillId}:
  *   patch:
  *     summary: Update an agent's skill override.
  *     tags: [Agents]

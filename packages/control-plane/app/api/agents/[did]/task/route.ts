@@ -16,7 +16,7 @@ import {
 
 /**
  * @openapi
- * /api/agent/{did}/task:
+ * //api/agents/{did}/task:
  *   post:
  *     summary: Enqueue a task on an agent via WebSocket.
  *     tags: [Agents]

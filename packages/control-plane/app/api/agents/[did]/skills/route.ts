@@ -18,7 +18,7 @@ type Ctx = { params: Promise<{ did: string }> };
  */
 /**
  * @openapi
- * /api/agent/{did}/skills:
+ * //api/agents/{did}/skills:
  *   get:
  *     summary: Get effective skill configuration for an agent.
  *     tags: [Agents]
@@ -71,7 +71,7 @@ export const GET = withError(async (_req: NextRequest, ctx: Ctx) => {
  */
 /**
  * @openapi
- * /api/agent/{did}/skills:
+ * //api/agents/{did}/skills:
  *   patch:
  *     summary: Update an agent's skill override.
  *     tags: [Agents]

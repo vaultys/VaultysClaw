@@ -74,7 +74,7 @@ function safeConfig(config: LlmConfig): SafeLlmConfig {
 
 /**
  * @openapi
- * /api/agent/{did}/llm-config:
+ * //api/agents/{did}/llm-config:
  *   get:
  *     summary: Retrieve stored LLM config with masked API key.
  *     tags: [Agents]
@@ -115,35 +115,37 @@ function safeConfig(config: LlmConfig): SafeLlmConfig {
  *       404:
  *         $ref: '#/components/responses/NotFound'
  */
-export const GET = withError(async (
-  _req: NextRequest,
-  { params }: { params: Promise<{ did: string }> }
-) => {
-  const auth = await getAuthContext(_req);
-  if (!auth) return unauthorized();
-  if (!auth.isGlobalAdmin) return forbidden();
+export const GET = withError(
+  async (
+    _req: NextRequest,
+    { params }: { params: Promise<{ did: string }> }
+  ) => {
+    const auth = await getAuthContext(_req);
+    if (!auth) return unauthorized();
+    if (!auth.isGlobalAdmin) return forbidden();
 
-  const { did } = await params;
-  const agent = await AgentDAO.findByDid(did);
-  if (!agent) {
-    return notFound();
-  }
+    const { did } = await params;
+    const agent = await AgentDAO.findByDid(did);
+    if (!agent) {
+      return notFound();
+    }
 
-  if (!agent.llmConfig) {
-    return NextResponse.json({ config: null });
-  }
+    if (!agent.llmConfig) {
+      return NextResponse.json({ config: null });
+    }
 
-  try {
-    const config = agent.llmConfig as unknown as LlmConfig;
-    return NextResponse.json({ config: safeConfig(config) });
-  } catch {
-    return NextResponse.json({ config: null });
+    try {
+      const config = agent.llmConfig as unknown as LlmConfig;
+      return NextResponse.json({ config: safeConfig(config) });
+    } catch {
+      return NextResponse.json({ config: null });
+    }
   }
-});
+);
 
 /**
  * @openapi
- * /api/agent/{did}/llm-config:
+ * //api/agents/{did}/llm-config:
  *   put:
  *     summary: Set or update the LLM config for an agent.
  *     tags: [Agents]
@@ -208,114 +210,120 @@ export const GET = withError(async (
  *       404:
  *         $ref: '#/components/responses/NotFound'
  */
-export const PUT = withError(async (
-  req: NextRequest,
-  { params }: { params: Promise<{ did: string }> }
-) => {
-  const auth = await getAuthContext(req);
-  if (!auth) return unauthorized();
-  if (!auth.isGlobalAdmin) return forbidden();
+export const PUT = withError(
+  async (
+    req: NextRequest,
+    { params }: { params: Promise<{ did: string }> }
+  ) => {
+    const auth = await getAuthContext(req);
+    if (!auth) return unauthorized();
+    if (!auth.isGlobalAdmin) return forbidden();
 
-  const { did } = await params;
-  const agent = await AgentDAO.findByDid(did);
-  if (!agent) {
-    return notFound();
-  }
+    const { did } = await params;
+    const agent = await AgentDAO.findByDid(did);
+    if (!agent) {
+      return notFound();
+    }
 
-  const body = (await req.json().catch(() => null)) as Record<
-    string,
-    unknown
-  > | null;
+    const body = (await req.json().catch(() => null)) as Record<
+      string,
+      unknown
+    > | null;
 
-  // Realm routing shortcut — resolve virtual key + litellm model name server-side
-  if (
-    body &&
-    typeof body.realmId === "string" &&
-    typeof body.realmModelId === "string"
-  ) {
-    const routerKey = await RealmDAO.getRouterKey(body.realmId);
-    if (!routerKey?.litellmVirtualKey) {
+    // Realm routing shortcut — resolve virtual key + litellm model name server-side
+    if (
+      body &&
+      typeof body.realmId === "string" &&
+      typeof body.realmModelId === "string"
+    ) {
+      const routerKey = await RealmDAO.getRouterKey(body.realmId);
+      if (!routerKey?.litellmVirtualKey) {
+        return NextResponse.json(
+          { error: "Realm has no LiteLLM virtual key configured" },
+          { status: 400 }
+        );
+      }
+      const realmModels = await ModelDAO.findByRealm(body.realmId);
+      const model = realmModels.find((m) => m.id === body.realmModelId);
+      if (!model?.litellmModelName) {
+        return notFound(
+          "Model not found in realm or not registered with LiteLLM"
+        );
+      }
+      const config: LlmConfig = {
+        provider: "openai-compatible",
+        baseUrl: getLiteLLMBaseUrl(),
+        apiKey: routerKey.litellmVirtualKey,
+        model: model.litellmModelName,
+      };
+      await AgentDAO.setLlmConfig(did, config);
+      const wsServer = getWSServer();
+      const pushed = wsServer
+        ? await wsServer.sendLlmConfig(did, config)
+        : false;
+      return NextResponse.json({ pushed, config: safeConfig(config) });
+    }
+
+    // Registry model shortcut — resolve full config server-side so the API key never touches the client
+    if (body && typeof body.registryModelId === "string") {
+      const entry = await ModelDAO.findById(body.registryModelId);
+      if (!entry) {
+        return notFound("Registry model not found");
+      }
+      const config: LlmConfig = {
+        provider: VALID_PROVIDERS.includes(entry.provider as LlmProviderType)
+          ? (entry.provider as LlmProviderType)
+          : "openai-compatible",
+        model: entry.modelId,
+        baseUrl: entry.baseUrl,
+        apiKey: entry.apiKeyEnc ?? undefined,
+      };
+      await AgentDAO.setLlmConfig(did, config);
+      const wsServer = getWSServer();
+      const pushed = wsServer
+        ? await wsServer.sendLlmConfig(did, config)
+        : false;
+      return NextResponse.json({ pushed, config: safeConfig(config) });
+    }
+
+    const validation = validateConfig(body);
+    if (validation.error || !validation.config) {
       return NextResponse.json(
-        { error: "Realm has no LiteLLM virtual key configured" },
+        { error: validation.error ?? "Invalid config" },
         { status: 400 }
       );
     }
-    const realmModels = await ModelDAO.findByRealm(body.realmId);
-    const model = realmModels.find((m) => m.id === body.realmModelId);
-    if (!model?.litellmModelName) {
-      return notFound(
-        "Model not found in realm or not registered with LiteLLM"
-      );
+
+    const config: LlmConfig = { ...validation.config };
+
+    // If the user omitted apiKey on an update but one was already stored, preserve it
+    if (!config.apiKey) {
+      try {
+        const existing = agent.llmConfig
+          ? (agent.llmConfig as unknown as LlmConfig)
+          : null;
+        if (existing?.apiKey) config.apiKey = existing.apiKey;
+      } catch {
+        // ignore
+      }
     }
-    const config: LlmConfig = {
-      provider: "openai-compatible",
-      baseUrl: getLiteLLMBaseUrl(),
-      apiKey: routerKey.litellmVirtualKey,
-      model: model.litellmModelName,
-    };
+
     await AgentDAO.setLlmConfig(did, config);
+
+    // Push to agent if currently connected
     const wsServer = getWSServer();
     const pushed = wsServer ? await wsServer.sendLlmConfig(did, config) : false;
-    return NextResponse.json({ pushed, config: safeConfig(config) });
+
+    return NextResponse.json({
+      pushed,
+      config: safeConfig(config),
+    });
   }
-
-  // Registry model shortcut — resolve full config server-side so the API key never touches the client
-  if (body && typeof body.registryModelId === "string") {
-    const entry = await ModelDAO.findById(body.registryModelId);
-    if (!entry) {
-      return notFound("Registry model not found");
-    }
-    const config: LlmConfig = {
-      provider: VALID_PROVIDERS.includes(entry.provider as LlmProviderType)
-        ? (entry.provider as LlmProviderType)
-        : "openai-compatible",
-      model: entry.modelId,
-      baseUrl: entry.baseUrl,
-      apiKey: entry.apiKeyEnc ?? undefined,
-    };
-    await AgentDAO.setLlmConfig(did, config);
-    const wsServer = getWSServer();
-    const pushed = wsServer ? await wsServer.sendLlmConfig(did, config) : false;
-    return NextResponse.json({ pushed, config: safeConfig(config) });
-  }
-
-  const validation = validateConfig(body);
-  if (validation.error || !validation.config) {
-    return NextResponse.json(
-      { error: validation.error ?? "Invalid config" },
-      { status: 400 }
-    );
-  }
-
-  const config: LlmConfig = { ...validation.config };
-
-  // If the user omitted apiKey on an update but one was already stored, preserve it
-  if (!config.apiKey) {
-    try {
-      const existing = agent.llmConfig
-        ? (agent.llmConfig as unknown as LlmConfig)
-        : null;
-      if (existing?.apiKey) config.apiKey = existing.apiKey;
-    } catch {
-      // ignore
-    }
-  }
-
-  await AgentDAO.setLlmConfig(did, config);
-
-  // Push to agent if currently connected
-  const wsServer = getWSServer();
-  const pushed = wsServer ? await wsServer.sendLlmConfig(did, config) : false;
-
-  return NextResponse.json({
-    pushed,
-    config: safeConfig(config),
-  });
-});
+);
 
 /**
  * @openapi
- * /api/agent/{did}/llm-config:
+ * //api/agents/{did}/llm-config:
  *   delete:
  *     summary: Clear LLM config for the agent.
  *     tags: [Agents]
@@ -343,25 +351,27 @@ export const PUT = withError(async (
  *       404:
  *         $ref: '#/components/responses/NotFound'
  */
-export const DELETE = withError(async (
-  _req: NextRequest,
-  { params }: { params: Promise<{ did: string }> }
-) => {
-  const auth = await getAuthContext(_req);
-  if (!auth) return unauthorized();
-  if (!auth.isGlobalAdmin) return forbidden();
+export const DELETE = withError(
+  async (
+    _req: NextRequest,
+    { params }: { params: Promise<{ did: string }> }
+  ) => {
+    const auth = await getAuthContext(_req);
+    if (!auth) return unauthorized();
+    if (!auth.isGlobalAdmin) return forbidden();
 
-  const { did } = await params;
-  const agent = await AgentDAO.findByDid(did);
-  if (!agent) {
-    return notFound("Agent not found");
+    const { did } = await params;
+    const agent = await AgentDAO.findByDid(did);
+    if (!agent) {
+      return notFound("Agent not found");
+    }
+
+    await AgentDAO.setLlmConfig(did, null);
+
+    // Push a "clear" message to agent if connected
+    const wsServer = getWSServer();
+    const pushed = wsServer?.sendLlmConfig(did, null) ?? false;
+
+    return NextResponse.json({ pushed });
   }
-
-  await AgentDAO.setLlmConfig(did, null);
-
-  // Push a "clear" message to agent if connected
-  const wsServer = getWSServer();
-  const pushed = wsServer?.sendLlmConfig(did, null) ?? false;
-
-  return NextResponse.json({ pushed });
-});
+);

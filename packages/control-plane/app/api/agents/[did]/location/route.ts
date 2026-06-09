@@ -17,7 +17,7 @@ import { withError } from "@/lib/api/handlers/with-error";
  */
 /**
  * @openapi
- * /api/agent/{did}/location:
+ * //api/agents/{did}/location:
  *   patch:
  *     summary: Set or clear the geographic location of an agent.
  *     tags: [Agents]
@@ -58,36 +58,38 @@ import { withError } from "@/lib/api/handlers/with-error";
  *       404:
  *         $ref: '#/components/responses/NotFound'
  */
-export const PATCH = withError(async (
-  req: NextRequest,
-  { params }: { params: Promise<{ did: string }> }
-) => {
-  const auth = await getAuthContext(req);
-  if (!auth) return unauthorized();
-  if (!auth.isGlobalAdmin) return forbidden();
+export const PATCH = withError(
+  async (
+    req: NextRequest,
+    { params }: { params: Promise<{ did: string }> }
+  ) => {
+    const auth = await getAuthContext(req);
+    if (!auth) return unauthorized();
+    if (!auth.isGlobalAdmin) return forbidden();
 
-  const { did } = await params;
-  const body = await req.json().catch(() => null);
-  if (!body) {
-    return malformed();
-  }
-
-  const agent = await AgentDAO.findByDid(did);
-  if (!agent) {
-    return notFound("Agent not found");
-  }
-
-  if (body.lat === null || body.lat === undefined) {
-    await AgentDAO.updateLocation(did, null);
-  } else {
-    const lat = Number.parseFloat(body.lat);
-    const lon = Number.parseFloat(body.lon);
-    const label = String(body.label ?? "");
-    if (Number.isNaN(lat) || Number.isNaN(lon)) {
-      return malformed("Invalid latitude or longitude");
+    const { did } = await params;
+    const body = await req.json().catch(() => null);
+    if (!body) {
+      return malformed();
     }
-    await AgentDAO.updateLocation(did, { lat, lon, label });
-  }
 
-  return successNoContent();
-});
+    const agent = await AgentDAO.findByDid(did);
+    if (!agent) {
+      return notFound("Agent not found");
+    }
+
+    if (body.lat === null || body.lat === undefined) {
+      await AgentDAO.updateLocation(did, null);
+    } else {
+      const lat = Number.parseFloat(body.lat);
+      const lon = Number.parseFloat(body.lon);
+      const label = String(body.label ?? "");
+      if (Number.isNaN(lat) || Number.isNaN(lon)) {
+        return malformed("Invalid latitude or longitude");
+      }
+      await AgentDAO.updateLocation(did, { lat, lon, label });
+    }
+
+    return successNoContent();
+  }
+);

@@ -6,7 +6,7 @@ import { withError } from "@/lib/api/handlers/with-error";
  */
 /**
  * @openapi
- * /api/agent/{did}/peers/{grantId}:
+ * //api/agents/{did}/peers/{grantId}:
  *   get:
  *     summary: Get peer grant details
  *     tags: [Agents]
@@ -47,7 +47,7 @@ export const GET = withError(async () => {
  */
 /**
  * @openapi
- * /api/agent/{did}/peers/{grantId}:
+ * //api/agents/{did}/peers/{grantId}:
  *   delete:
  *     summary: Revoke peer grant
  *     tags: [Agents]

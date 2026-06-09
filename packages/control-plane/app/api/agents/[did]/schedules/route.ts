@@ -17,7 +17,7 @@ import { withError } from "@/lib/api/handlers/with-error";
 
 /**
  * @openapi
- * /api/agent/{did}/schedules:
+ * //api/agents/{did}/schedules:
  *   post:
  *     summary: Upsert a schedule on an agent.
  *     tags: [Agents]
@@ -76,51 +76,53 @@ import { withError } from "@/lib/api/handlers/with-error";
  *       503:
  *         description: WebSocket server not available.
  */
-export const POST = withError(async (
-  request: NextRequest,
-  { params }: { params: Promise<{ did: string }> }
-) => {
-  const auth = await getAuthContext(request);
-  if (!auth) return unauthorized();
+export const POST = withError(
+  async (
+    request: NextRequest,
+    { params }: { params: Promise<{ did: string }> }
+  ) => {
+    const auth = await getAuthContext(request);
+    if (!auth) return unauthorized();
 
-  const { did } = await params;
-  const agentDid = decodeURIComponent(did);
+    const { did } = await params;
+    const agentDid = decodeURIComponent(did);
 
-  if (!(await auth.canAdminAgent(agentDid))) return forbidden();
+    if (!(await auth.canAdminAgent(agentDid))) return forbidden();
 
-  const wsServer = getWSServer();
-  if (!wsServer) {
-    return unavailable("WebSocket server not available");
+    const wsServer = getWSServer();
+    if (!wsServer) {
+      return unavailable("WebSocket server not available");
+    }
+
+    const body = await request.json();
+    const {
+      id,
+      name,
+      cron,
+      action,
+      params: schedParams,
+      enabled,
+    } = body as AgentSchedule;
+
+    if (!id || !name || !cron || !action) {
+      return malformed("id, name, cron, and action are required strings");
+    }
+
+    const ok = wsServer.sendScheduleToAgent(agentDid, {
+      id,
+      name,
+      cron,
+      action,
+      params: schedParams ?? {},
+      enabled: enabled !== false,
+    });
+    if (!ok) {
+      return notFound("Agent not connected");
+    }
+
+    return NextResponse.json({
+      agentId: agentDid,
+      scheduleId: id,
+    });
   }
-
-  const body = await request.json();
-  const {
-    id,
-    name,
-    cron,
-    action,
-    params: schedParams,
-    enabled,
-  } = body as AgentSchedule;
-
-  if (!id || !name || !cron || !action) {
-    return malformed("id, name, cron, and action are required strings");
-  }
-
-  const ok = wsServer.sendScheduleToAgent(agentDid, {
-    id,
-    name,
-    cron,
-    action,
-    params: schedParams ?? {},
-    enabled: enabled !== false,
-  });
-  if (!ok) {
-    return notFound("Agent not connected");
-  }
-
-  return NextResponse.json({
-    agentId: agentDid,
-    scheduleId: id,
-  });
-});
+);

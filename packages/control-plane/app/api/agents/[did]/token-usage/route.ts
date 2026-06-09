@@ -17,7 +17,7 @@ type Ctx = { params: Promise<{ did: string }> };
  */
 /**
  * @openapi
- * /api/agent/{did}/token-usage:
+ * //api/agents/{did}/token-usage:
  *   get:
  *     summary: Retrieve token usage history for an agent.
  *     tags: [Agents]

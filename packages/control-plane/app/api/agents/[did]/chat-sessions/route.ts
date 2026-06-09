@@ -10,7 +10,7 @@ import { withError } from "@/lib/api/handlers/with-error";
 
 /**
  * @openapi
- * /api/agent/{did}/chat-sessions:
+ * //api/agents/{did}/chat-sessions:
  *   get:
  *     summary: Retrieve chat sessions
  *     tags: [Agents]
@@ -40,30 +40,32 @@ import { withError } from "@/lib/api/handlers/with-error";
  *       503:
  *         description: Service unavailable or failed to fetch data.
  */
-export const GET = withError(async (
-  request: NextRequest,
-  { params }: { params: Promise<{ did: string }> }
-) => {
-  const auth = await getAuthContext(request);
-  if (!auth) return unauthorized();
+export const GET = withError(
+  async (
+    request: NextRequest,
+    { params }: { params: Promise<{ did: string }> }
+  ) => {
+    const auth = await getAuthContext(request);
+    if (!auth) return unauthorized();
 
-  const { did } = await params;
+    const { did } = await params;
 
-  if (!(await auth.canAccessAgent(did))) return forbidden();
+    if (!(await auth.canAccessAgent(did))) return forbidden();
 
-  const wsServer = getWSServer();
-  if (!wsServer) {
-    return NextResponse.json(
-      { error: "WebSocket server not available" },
-      { status: 503 }
-    );
+    const wsServer = getWSServer();
+    if (!wsServer) {
+      return NextResponse.json(
+        { error: "WebSocket server not available" },
+        { status: 503 }
+      );
+    }
+
+    try {
+      const sessions = await wsServer.getChatSessions(did);
+      return NextResponse.json({ sessions });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Failed to fetch";
+      return NextResponse.json({ error: msg }, { status: 503 });
+    }
   }
-
-  try {
-    const sessions = await wsServer.getChatSessions(did);
-    return NextResponse.json({ sessions });
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : "Failed to fetch";
-    return NextResponse.json({ error: msg }, { status: 503 });
-  }
-});
+);

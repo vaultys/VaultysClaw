@@ -15,7 +15,7 @@ import { withError } from "@/lib/api/handlers/with-error";
 
 /**
  * @openapi
- * /api/agent/{did}/realm-llm:
+ * //api/agents/{did}/realm-llm:
  *   get:
  *     summary: Get the agent's realm LiteLLM routing options.
  *     tags: [Agents]
@@ -73,50 +73,54 @@ import { withError } from "@/lib/api/handlers/with-error";
  *       404:
  *         $ref: '#/components/responses/NotFound'
  */
-export const GET = withError(async (
-  _req: NextRequest,
-  { params }: { params: Promise<{ did: string }> }
-) => {
-  const auth = await getAuthContext(_req);
-  if (!auth) return unauthorized();
-  if (!auth.isGlobalAdmin) return forbidden();
+export const GET = withError(
+  async (
+    _req: NextRequest,
+    { params }: { params: Promise<{ did: string }> }
+  ) => {
+    const auth = await getAuthContext(_req);
+    if (!auth) return unauthorized();
+    if (!auth.isGlobalAdmin) return forbidden();
 
-  const { did } = await params;
-  const agent = await AgentDAO.findByDid(did);
-  if (!agent) {
-    return notFound("Agent not found");
+    const { did } = await params;
+    const agent = await AgentDAO.findByDid(did);
+    if (!agent) {
+      return notFound("Agent not found");
+    }
+
+    const litellmConfigured = isLiteLLMConfigured();
+    const litellmBaseUrl = getLiteLLMBaseUrl();
+
+    const memberships = await AgentDAO.getRealms(did);
+    const realms = await Promise.all(
+      memberships.map(async (m) => {
+        const routerKey = await RealmDAO.getRouterKey(m.realmId);
+        const models = (await ModelDAO.findByRealm(m.realmId))
+          .filter(
+            (model) => model.status === "active" && model.litellmModelName
+          )
+          .map((model) => ({
+            id: model.id,
+            name: model.name,
+            provider: model.provider,
+            modelId: model.modelId,
+            litellmModelName: model.litellmModelName,
+          }));
+
+        return {
+          realmId: m.realmId,
+          realmName: m.realm.name,
+          isPrimary: Boolean(m.isPrimary),
+          hasVirtualKey: Boolean(routerKey?.litellmVirtualKey),
+          models,
+        };
+      })
+    );
+
+    return NextResponse.json({
+      litellmConfigured,
+      litellmBaseUrl,
+      realms,
+    });
   }
-
-  const litellmConfigured = isLiteLLMConfigured();
-  const litellmBaseUrl = getLiteLLMBaseUrl();
-
-  const memberships = await AgentDAO.getRealms(did);
-  const realms = await Promise.all(
-    memberships.map(async (m) => {
-      const routerKey = await RealmDAO.getRouterKey(m.realmId);
-      const models = (await ModelDAO.findByRealm(m.realmId))
-        .filter((model) => model.status === "active" && model.litellmModelName)
-        .map((model) => ({
-          id: model.id,
-          name: model.name,
-          provider: model.provider,
-          modelId: model.modelId,
-          litellmModelName: model.litellmModelName,
-        }));
-
-      return {
-        realmId: m.realmId,
-        realmName: m.realm.name,
-        isPrimary: Boolean(m.isPrimary),
-        hasVirtualKey: Boolean(routerKey?.litellmVirtualKey),
-        models,
-      };
-    })
-  );
-
-  return NextResponse.json({
-    litellmConfigured,
-    litellmBaseUrl,
-    realms,
-  });
-});
+);

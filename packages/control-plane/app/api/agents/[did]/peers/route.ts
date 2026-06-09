@@ -6,7 +6,7 @@ import { withError } from "@/lib/api/handlers/with-error";
  */
 /**
  * @openapi
- * /api/agent/{did}/peers:
+ * //api/agents/{did}/peers:
  *   get:
  *     summary: List agent peers or peer grants.
  *     tags: [Agents]
@@ -42,7 +42,7 @@ export const GET = withError(async () => {
  */
 /**
  * @openapi
- * /api/agent/{did}/peers:
+ * //api/agents/{did}/peers:
  *   post:
  *     summary: Create a peer grant for an agent.
  *     tags: [Agents]

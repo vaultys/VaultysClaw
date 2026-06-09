@@ -3,6 +3,7 @@ import { getAuthContext } from "@/lib/auth-utils";
 import fs from "fs";
 import path from "path";
 import { malformed, notFound, unauthorized } from "@/lib/api/utils/api-utils";
+import { withError } from "@/lib/api/handlers/with-error";
 
 const DOCS: Record<string, string[]> = {
   readme: ["README.md", "../../README.md", "../../../README.md"],
@@ -52,7 +53,7 @@ function resolveDoc(candidates: string[]): string | null {
  *       404:
  *         $ref: '#/components/responses/NotFound'
  */
-export async function GET(req: NextRequest) {
+export const GET = withError(async (req: NextRequest) => {
   const auth = await getAuthContext(req);
   if (!auth) return unauthorized();
 
@@ -71,4 +72,4 @@ export async function GET(req: NextRequest) {
   }
 
   return NextResponse.json({ content });
-}
+});

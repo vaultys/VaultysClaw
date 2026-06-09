@@ -10,6 +10,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-config";
 import { RealmDAO, UserDAO } from "@/db";
 import { forbidden, malformed, notFound } from "@/lib/api/utils/api-utils";
+import { withError } from "@/lib/api/handlers/with-error";
 
 const VALID_ROLES = [
   "owner",
@@ -94,7 +95,7 @@ type Ctx = { params: Promise<{ id: string }> };
  *       404:
  *         $ref: '#/components/responses/NotFound'
  */
-export async function GET(_req: NextRequest, { params }: Ctx) {
+export const GET = withError(async (_req: NextRequest, { params }: Ctx) => {
   const session = await getServerSession(authOptions);
   if (!session?.user?.isAdmin) {
     return forbidden();
@@ -130,7 +131,7 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
       isPrimary: Boolean(r.isPrimary),
     })),
   });
-}
+});
 
 /**
  * @openapi
@@ -175,7 +176,7 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
  *       404:
  *         $ref: '#/components/responses/NotFound'
  */
-export async function PATCH(req: NextRequest, { params }: Ctx) {
+export const PATCH = withError(async (req: NextRequest, { params }: Ctx) => {
   const session = await getServerSession(authOptions);
   if (!session?.user?.isAdmin) {
     return forbidden();
@@ -214,7 +215,7 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
 
   await UserDAO.update(user.id, fields);
   return NextResponse.json({ ok: true });
-}
+});
 
 /**
  * @openapi
@@ -237,7 +238,7 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
  *       404:
  *         $ref: '#/components/responses/NotFound'
  */
-export async function DELETE(_req: NextRequest, { params }: Ctx) {
+export const DELETE = withError(async (_req: NextRequest, { params }: Ctx) => {
   const session = await getServerSession(authOptions);
   if (!session?.user?.isAdmin) {
     return forbidden();
@@ -251,4 +252,4 @@ export async function DELETE(_req: NextRequest, { params }: Ctx) {
 
   await UserDAO.delete(id);
   return NextResponse.json({ ok: true });
-}
+});

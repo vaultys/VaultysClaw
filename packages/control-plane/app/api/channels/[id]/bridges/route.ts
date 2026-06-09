@@ -4,6 +4,7 @@ import { malformed, notFound, unauthorized } from "@/lib/api/utils/api-utils";
 import { ChannelBridgeService } from "@/lib/channel-bridge-service";
 import { ChannelService } from "@/lib/channel-service";
 import type {
+import { withError } from "@/lib/api/handlers/with-error";
   ChannelBridge,
   TeamsBridgeConfig,
   WebhookBridgeConfig,
@@ -53,7 +54,7 @@ function stripConfig(bridge: ChannelBridge): Omit<ChannelBridge, "configJson"> {
  *       500:
  *         description: Failed to fetch bridges.
  */
-export async function GET(_req: NextRequest, ctx: Ctx) {
+export const GET = withError(async (_req: NextRequest, ctx: Ctx) => {
   const auth = await getAuthContext(_req);
   if (!auth) return unauthorized();
 
@@ -66,7 +67,7 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
 
   const bridges = (await ChannelBridgeService.listBridges(id)).map(stripConfig);
   return NextResponse.json({ bridges });
-}
+});
 
 /**
  * POST /api/channels/[id]/bridges
@@ -155,7 +156,7 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
  *                   type: string
  *                   description: Error message.
  */
-export async function POST(req: NextRequest, ctx: Ctx) {
+export const POST = withError(async (req: NextRequest, ctx: Ctx) => {
   const auth = await getAuthContext(req);
   if (!auth) return unauthorized();
 
@@ -204,4 +205,4 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   });
 
   return NextResponse.json({ bridge: stripConfig(bridge) }, { status: 201 });
-}
+});

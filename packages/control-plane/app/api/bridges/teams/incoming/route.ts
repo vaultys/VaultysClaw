@@ -4,6 +4,7 @@ import { MessageDispatcher } from "@/lib/message-dispatcher";
 import { TeamsGateway } from "@/lib/bridges/teams-gateway";
 import { ChannelBridgeDAO } from "@/db";
 import {
+import { withError } from "@/lib/api/handlers/with-error";
   forbidden,
   malformed,
   notFound,
@@ -70,7 +71,7 @@ import {
  *       500:
  *         description: Failed to process Teams message.
  */
-export async function POST(req: NextRequest) {
+export const POST = withError(async (req: NextRequest) => {
   const body = await req.text();
   const authHeader = req.headers.get("authorization");
 
@@ -162,4 +163,4 @@ export async function POST(req: NextRequest) {
   );
 
   return NextResponse.json({ ok: true, messageId: message.id });
-}
+});

@@ -9,6 +9,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-config";
 import { UserDAO } from "@/db";
 import { forbidden, malformed } from "@/lib/api/utils/api-utils";
+import { withError } from "@/lib/api/handlers/with-error";
 
 /**
  * @openapi
@@ -43,10 +44,10 @@ import { forbidden, malformed } from "@/lib/api/utils/api-utils";
  *       404:
  *         $ref: '#/components/responses/NotFound'
  */
-export async function PATCH(
+export const PATCH = withError(async (
   req: NextRequest,
   { params }: { params: Promise<{ did: string }> }
-) {
+) => {
   const session = await getServerSession(authOptions);
   if (!session?.user?.isOwner) {
     return forbidden();
@@ -70,4 +71,4 @@ export async function PATCH(
 
   await UserDAO.update(user.id, { isAdmin: body.isAdmin });
   return NextResponse.json({ ok: true });
-}
+});

@@ -8,6 +8,7 @@ import {
   contentTooLarge,
 } from "@/lib/api/utils/api-utils";
 import { KnowledgeDAO } from "@/db";
+import { withError } from "@/lib/api/handlers/with-error";
 
 const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20 MB
 
@@ -55,7 +56,7 @@ const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20 MB
  *       404:
  *         $ref: '#/components/responses/NotFound'
  */
-export async function GET(request: NextRequest) {
+export const GET = withError(async (request: NextRequest) => {
   const auth = await getAuthContext(request);
   if (!auth) return unauthorized();
 
@@ -71,7 +72,7 @@ export async function GET(request: NextRequest) {
 
   const files = await KnowledgeDAO.listFiles(sourceId);
   return NextResponse.json({ files });
-}
+});
 
 // POST /api/knowledge/files — upload a file attached to a knowledge source
 // Body: multipart/form-data  { sourceId: string, file: File }
@@ -116,7 +117,7 @@ export async function GET(request: NextRequest) {
  *       413:
  *         description: File exceeds maximum size of 20MB.
  */
-export async function POST(request: NextRequest) {
+export const POST = withError(async (request: NextRequest) => {
   const auth = await getAuthContext(request);
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
@@ -159,4 +160,4 @@ export async function POST(request: NextRequest) {
     ""
   );
   return NextResponse.json({ file: meta }, { status: 201 });
-}
+});

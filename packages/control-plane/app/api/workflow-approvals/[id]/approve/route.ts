@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-config";
 import { WorkflowDAO } from "@/db";
 import { notFound, unauthorized } from "@/lib/api/utils/api-utils";
+import { withError } from "@/lib/api/handlers/with-error";
 
 interface Params {
   id: string;
@@ -44,10 +45,10 @@ interface Params {
  *       500:
  *         description: Failed to approve the workflow step.
  */
-export async function POST(
+export const POST = withError(async (
   request: Request,
   { params }: { params: Promise<Params> }
-) {
+) => {
   const { id } = await params;
   const session = await getServerSession(authOptions);
   if (!session?.user?.did) {
@@ -69,4 +70,4 @@ export async function POST(
   }
 
   return NextResponse.json({ success: true });
-}
+});

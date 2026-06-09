@@ -14,6 +14,7 @@ import {
 } from "@/lib/litellm-client";
 import { getWSServer } from "@/lib/ws-server";
 import type { LlmConfig } from "@vaultysclaw/shared";
+import { withError } from "@/lib/api/handlers/with-error";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -22,7 +23,7 @@ type Ctx = { params: Promise<{ id: string }> };
  * Provision or refresh the realm's LiteLLM router virtual key.
  * Body: { monthlyBudget?: number | null }
  */
-export async function PUT(req: NextRequest, { params }: Ctx) {
+export const PUT = withError(async (req: NextRequest, { params }: Ctx) => {
   const auth = await getAuthContext(req);
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
@@ -95,13 +96,13 @@ export async function PUT(req: NextRequest, { params }: Ctx) {
     allowedModels,
     monthlyBudget: monthlyBudget ?? null,
   });
-}
+});
 
 /**
  * DELETE /api/realms/[id]/litellm-key
  * Revoke the realm's LiteLLM router key.
  */
-export async function DELETE(req: NextRequest, { params }: Ctx) {
+export const DELETE = withError(async (req: NextRequest, { params }: Ctx) => {
   const auth = await getAuthContext(req);
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
@@ -111,4 +112,4 @@ export async function DELETE(req: NextRequest, { params }: Ctx) {
   await RealmDAO.deleteRouterKey(realmId);
 
   return NextResponse.json({ ok: true });
-}
+});

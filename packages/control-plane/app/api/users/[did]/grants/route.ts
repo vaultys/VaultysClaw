@@ -12,6 +12,7 @@ import { getWSServer } from "@/lib/ws-server";
 import type { AgentCapability } from "@vaultysclaw/shared";
 import { DelegationCertDAO, GrantDAO, UserDAO } from "@/db";
 import { forbidden, malformed, notFound } from "@/lib/api/utils/api-utils";
+import { withError } from "@/lib/api/handlers/with-error";
 
 /**
  * @openapi
@@ -60,10 +61,10 @@ import { forbidden, malformed, notFound } from "@/lib/api/utils/api-utils";
  *       404:
  *         $ref: '#/components/responses/NotFound'
  */
-export async function GET(
+export const GET = withError(async (
   _req: NextRequest,
   { params }: { params: Promise<{ did: string }> }
-) {
+) => {
   const session = await getServerSession(authOptions);
   if (!session?.user?.isAdmin) {
     return forbidden();
@@ -83,7 +84,7 @@ export async function GET(
   }));
 
   return NextResponse.json({ grants });
-}
+});
 
 /**
  * @openapi
@@ -152,10 +153,10 @@ export async function GET(
  *       404:
  *         $ref: '#/components/responses/NotFound'
  */
-export async function POST(
+export const POST = withError(async (
   req: NextRequest,
   { params }: { params: Promise<{ did: string }> }
-) {
+) => {
   const session = await getServerSession(authOptions);
   if (!session?.user?.isAdmin) {
     return forbidden();
@@ -231,4 +232,4 @@ export async function POST(
     },
     { status: 201 }
   );
-}
+});

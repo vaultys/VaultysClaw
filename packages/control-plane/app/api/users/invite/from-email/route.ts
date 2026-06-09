@@ -11,6 +11,7 @@ import { VaultysId } from "@vaultys/id";
 import { SettingsDAO, UserDAO } from "@/db";
 import { prisma } from "@/db/client";
 import { malformed, notFound } from "@/lib/api/utils/api-utils";
+import { withError } from "@/lib/api/handlers/with-error";
 
 /**
  * @openapi
@@ -57,7 +58,7 @@ import { malformed, notFound } from "@/lib/api/utils/api-utils";
  *       500:
  *         description: Failed to generate QR code due to server error.
  */
-export async function POST(request: NextRequest) {
+export const POST = withError(async (request: NextRequest) => {
   const { token } = (await request.json()) as { token?: string };
 
   if (!token) {
@@ -107,4 +108,4 @@ export async function POST(request: NextRequest) {
     inviteToken: cert.connection,
     serverDid,
   });
-}
+});

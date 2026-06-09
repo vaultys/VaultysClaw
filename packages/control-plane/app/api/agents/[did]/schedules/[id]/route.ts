@@ -6,6 +6,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getWSServer } from "@/lib/ws-server";
 import { getAuthContext } from "@/lib/auth-utils";
 import {
+import { withError } from "@/lib/api/handlers/with-error";
   unauthorized,
   forbidden,
   unavailable,
@@ -52,10 +53,10 @@ import {
  *       404:
  *         $ref: '#/components/responses/NotFound'
  */
-export async function DELETE(
+export const DELETE = withError(async (
   request: NextRequest,
   { params }: { params: Promise<{ did: string; id: string }> }
-) {
+) => {
   const auth = await getAuthContext(request);
   if (!auth) return unauthorized();
 
@@ -77,4 +78,4 @@ export async function DELETE(
   }
 
   return NextResponse.json({ agentId: agentDid, scheduleId });
-}
+});

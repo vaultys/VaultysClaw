@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
 import { unauthorized, forbidden, malformed } from "@/lib/api/utils/api-utils";
 import { getDoclingConfig, setDoclingConfig } from "@/db/settings.dao";
+import { withError } from "@/lib/api/handlers/with-error";
 
 // GET /api/settings/docling
 /**
@@ -35,7 +36,7 @@ import { getDoclingConfig, setDoclingConfig } from "@/db/settings.dao";
  *       403:
  *         $ref: '#/components/responses/Forbidden'
  */
-export async function GET(request: NextRequest) {
+export const GET = withError(async (request: NextRequest) => {
   const auth = await getAuthContext(request);
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
@@ -48,7 +49,7 @@ export async function GET(request: NextRequest) {
     sourceEndpoint: cfg?.sourceEndpoint ?? null,
     fileEndpoint: cfg?.fileEndpoint ?? null,
   });
-}
+});
 
 // PUT /api/settings/docling
 /**
@@ -80,7 +81,7 @@ export async function GET(request: NextRequest) {
  *       403:
  *         $ref: '#/components/responses/Forbidden'
  */
-export async function PUT(request: NextRequest) {
+export const PUT = withError(async (request: NextRequest) => {
   const auth = await getAuthContext(request);
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
@@ -95,4 +96,4 @@ export async function PUT(request: NextRequest) {
 
   await setDoclingConfig({ url, enabled });
   return NextResponse.json({ ok: true });
-}
+});

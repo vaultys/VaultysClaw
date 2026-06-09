@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
 import { unauthorized, forbidden, notFound } from "@/lib/api/utils/api-utils";
 import { KnowledgeDAO } from "@/db";
+import { withError } from "@/lib/api/handlers/with-error";
 
 // GET /api/knowledge/:id
 /**
@@ -35,10 +36,10 @@ import { KnowledgeDAO } from "@/db";
  *       404:
  *         $ref: '#/components/responses/NotFound'
  */
-export async function GET(
+export const GET = withError(async (
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
-) {
+) => {
   const auth = await getAuthContext(request);
   if (!auth) return unauthorized();
 
@@ -51,7 +52,7 @@ export async function GET(
   }
 
   return NextResponse.json({ source });
-}
+});
 
 // DELETE /api/knowledge/:id
 /**
@@ -77,10 +78,10 @@ export async function GET(
  *       404:
  *         $ref: '#/components/responses/NotFound'
  */
-export async function DELETE(
+export const DELETE = withError(async (
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
-) {
+) => {
   const auth = await getAuthContext(request);
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
@@ -91,4 +92,4 @@ export async function DELETE(
 
   await KnowledgeDAO.deleteSource(id);
   return NextResponse.json({ success: true });
-}
+});

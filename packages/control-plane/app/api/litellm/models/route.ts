@@ -2,9 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
 import { unauthorized, forbidden } from "@/lib/api/utils/api-utils";
 import { isLiteLLMConfigured, listModels } from "@/lib/litellm-client";
+import { withError } from "@/lib/api/handlers/with-error";
 
 /** GET /api/litellm/models — list available models in LiteLLM. Admin only. */
-export async function GET(request: NextRequest) {
+export const GET = withError(async (request: NextRequest) => {
   const auth = await getAuthContext(request);
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
@@ -24,4 +25,4 @@ export async function GET(request: NextRequest) {
     })),
     configured: true,
   });
-}
+});

@@ -3,6 +3,7 @@ import { getAuthContext } from "@/lib/auth-utils";
 import { unauthorized, forbidden, malformed } from "@/lib/api/utils/api-utils";
 import { registerModel, isLiteLLMConfigured } from "@/lib/litellm-client";
 import { ModelDAO } from "@/db";
+import { withError } from "@/lib/api/handlers/with-error";
 
 /** GET /api/models — list models. Admin only. */
 /**
@@ -55,7 +56,7 @@ import { ModelDAO } from "@/db";
  *       500:
  *         description: Failed to fetch models.
  */
-export async function GET(request: NextRequest) {
+export const GET = withError(async (request: NextRequest) => {
   const auth = await getAuthContext(request);
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
@@ -79,7 +80,7 @@ export async function GET(request: NextRequest) {
   );
 
   return NextResponse.json({ models });
-}
+});
 
 /** POST /api/models — register a new model. Admin only. */
 /**
@@ -132,7 +133,7 @@ export async function GET(request: NextRequest) {
  *       500:
  *         description: Internal server error.
  */
-export async function POST(req: NextRequest) {
+export const POST = withError(async (req: NextRequest) => {
   const auth = await getAuthContext(req);
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
@@ -191,4 +192,4 @@ export async function POST(req: NextRequest) {
     },
     { status: 201 }
   );
-}
+});

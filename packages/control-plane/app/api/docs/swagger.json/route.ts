@@ -3,6 +3,7 @@ import path from "path";
 import { glob } from "fs/promises";
 import { getAuthContext } from "@/lib/auth-utils";
 import { unauthorized, forbidden } from "@/lib/api/utils/api-utils";
+import { withError } from "@/lib/api/handlers/with-error";
 
 /**
  * @openapi
@@ -21,7 +22,7 @@ import { unauthorized, forbidden } from "@/lib/api/utils/api-utils";
  *             schema:
  *               type: object
  */
-export async function GET(request: NextRequest) {
+export const GET = withError(async (request: NextRequest) => {
   const auth = await getAuthContext(request);
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
@@ -181,4 +182,4 @@ export async function GET(request: NextRequest) {
 
   const spec = swaggerJsdoc(options);
   return NextResponse.json(spec);
-}
+});

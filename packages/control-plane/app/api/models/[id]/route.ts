@@ -3,6 +3,7 @@ import { getAuthContext } from "@/lib/auth-utils";
 import { unauthorized, forbidden, notFound } from "@/lib/api/utils/api-utils";
 import { ModelDAO, RealmDAO } from "@/db";
 import {
+import { withError } from "@/lib/api/handlers/with-error";
   registerModel,
   removeModel,
   isLiteLLMConfigured,
@@ -41,7 +42,7 @@ type Ctx = { params: Promise<{ id: string }> };
  *       500:
  *         description: Failed to fetch model.
  */
-export async function GET(_req: NextRequest, { params }: Ctx) {
+export const GET = withError(async (_req: NextRequest, { params }: Ctx) => {
   const auth = await getAuthContext(_req);
   if (!auth) return unauthorized();
 
@@ -76,7 +77,7 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
       }),
     },
   });
-}
+});
 
 /** PUT /api/models/[id] — update model. Admin only. */
 /**
@@ -130,7 +131,7 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
  *       500:
  *         description: Failed to update model
  */
-export async function PUT(req: NextRequest, { params }: Ctx) {
+export const PUT = withError(async (req: NextRequest, { params }: Ctx) => {
   const auth = await getAuthContext(req);
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
@@ -184,7 +185,7 @@ export async function PUT(req: NextRequest, { params }: Ctx) {
   }
 
   return NextResponse.json({ ok: true });
-}
+});
 
 /** DELETE /api/models/[id] — admin only. */
 /**
@@ -212,7 +213,7 @@ export async function PUT(req: NextRequest, { params }: Ctx) {
  *       500:
  *         description: Failed to delete model
  */
-export async function DELETE(_req: NextRequest, { params }: Ctx) {
+export const DELETE = withError(async (_req: NextRequest, { params }: Ctx) => {
   const auth = await getAuthContext(_req);
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
@@ -231,4 +232,4 @@ export async function DELETE(_req: NextRequest, { params }: Ctx) {
 
   await ModelDAO.delete(id);
   return NextResponse.json({ ok: true });
-}
+});

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { UserServerChannel } from "@/lib/user-server-channel";
+import { withError } from "@/lib/api/handlers/with-error";
 
 interface Params {
   params: Promise<{ token: string }>;
@@ -49,9 +50,9 @@ interface Params {
  *       404:
  *         $ref: '#/components/responses/NotFound'
  */
-export async function POST(_request: NextRequest, { params }: Params) {
+export const POST = withError(async (_request: NextRequest, { params }: Params) => {
   const { token } = await params;
   const result = await UserServerChannel.listenBastion(token);
   if (!result) return NextResponse.json({ status: -1 });
   return NextResponse.json(result);
-}
+});

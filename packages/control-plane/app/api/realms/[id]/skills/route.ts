@@ -8,6 +8,7 @@ import {
 } from "@/lib/api/utils/api-utils";
 import { broadcastSkillsConfig } from "@/lib/ws-server";
 import { RealmDAO, RealmSkillDAO } from "@/db";
+import { withError } from "@/lib/api/handlers/with-error";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -67,7 +68,7 @@ type Ctx = { params: Promise<{ id: string }> };
  *       500:
  *         description: Failed to fetch realm skills.
  */
-export async function GET(_req: NextRequest, ctx: Ctx) {
+export const GET = withError(async (_req: NextRequest, ctx: Ctx) => {
   const auth = await getAuthContext(_req);
   if (!auth) return unauthorized();
 
@@ -89,7 +90,7 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
   }));
 
   return NextResponse.json({ skills });
-}
+});
 
 /**
  * POST /api/realms/[id]/skills — register a skill for this realm.
@@ -149,7 +150,7 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
  *       500:
  *         description: Failed to create realm skill.
  */
-export async function POST(req: NextRequest, ctx: Ctx) {
+export const POST = withError(async (req: NextRequest, ctx: Ctx) => {
   const auth = await getAuthContext(req);
   if (!auth) return unauthorized();
 
@@ -198,4 +199,4 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     },
     { status: 201 }
   );
-}
+});

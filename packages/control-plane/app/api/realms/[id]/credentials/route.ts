@@ -16,6 +16,7 @@ import {
 } from "@/lib/api/utils/api-utils";
 import { encryptSecret } from "@/lib/vault";
 import { CredentialDAO, RealmDAO } from "@/db";
+import { withError } from "@/lib/api/handlers/with-error";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -57,7 +58,7 @@ type Ctx = { params: Promise<{ id: string }> };
  *       404:
  *         $ref: '#/components/responses/NotFound'
  */
-export async function GET(req: NextRequest, ctx: Ctx) {
+export const GET = withError(async (req: NextRequest, ctx: Ctx) => {
   const auth = await getAuthContext(req);
   if (!auth) return unauthorized();
 
@@ -72,7 +73,7 @@ export async function GET(req: NextRequest, ctx: Ctx) {
     : await CredentialDAO.list(realmId);
 
   return NextResponse.json({ credentials });
-}
+});
 
 /**
  * @openapi
@@ -125,7 +126,7 @@ export async function GET(req: NextRequest, ctx: Ctx) {
  *       404:
  *         $ref: '#/components/responses/NotFound'
  */
-export async function POST(req: NextRequest, ctx: Ctx) {
+export const POST = withError(async (req: NextRequest, ctx: Ctx) => {
   const auth = await getAuthContext(req);
   if (!auth) return unauthorized();
 
@@ -156,7 +157,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   );
 
   return NextResponse.json({ success: true, id }, { status: 201 });
-}
+});
 
 /**
  * @openapi
@@ -200,7 +201,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
  *       403:
  *         $ref: '#/components/responses/Forbidden'
  */
-export async function DELETE(req: NextRequest, ctx: Ctx) {
+export const DELETE = withError(async (req: NextRequest, ctx: Ctx) => {
   const auth = await getAuthContext(req);
   if (!auth) return unauthorized();
 
@@ -215,4 +216,4 @@ export async function DELETE(req: NextRequest, ctx: Ctx) {
 
   const deleted = await CredentialDAO.deleteByKey(realmId, service, name);
   return NextResponse.json({ success: deleted });
-}
+});

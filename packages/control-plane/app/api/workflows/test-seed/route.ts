@@ -11,6 +11,7 @@ import {
 import { AgentDAO, RealmDAO, WorkflowDAO } from "@/db";
 import type { WorkflowDefinition } from "@/lib/workflow-executor";
 import { Prisma } from "@prisma/client";
+import { withError } from "@/lib/api/handlers/with-error";
 
 /**
  * POST /api/workflows/test-seed
@@ -89,7 +90,7 @@ import { Prisma } from "@prisma/client";
  *       500:
  *         description: Internal server error.
  */
-export async function POST(request: NextRequest) {
+export const POST = withError(async (request: NextRequest) => {
   const auth = await getAuthContext(request);
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
@@ -211,4 +212,4 @@ export async function POST(request: NextRequest) {
     })),
     nodes,
   });
-}
+});

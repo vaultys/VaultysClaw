@@ -9,6 +9,7 @@ import { getAuthContext } from "@/lib/auth-utils";
 import { malformed, notFound, unauthorized } from "@/lib/api/utils/api-utils";
 import { nextCronRun } from "@/lib/workflow-scheduler";
 import { WorkflowDAO } from "@/db";
+import { withError } from "@/lib/api/handlers/with-error";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -53,7 +54,7 @@ type Ctx = { params: Promise<{ id: string }> };
  *       404:
  *         $ref: '#/components/responses/NotFound'
  */
-export async function GET(_req: NextRequest, ctx: Ctx) {
+export const GET = withError(async (_req: NextRequest, ctx: Ctx) => {
   const auth = await getAuthContext(_req);
   if (!auth) return unauthorized();
 
@@ -68,7 +69,7 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
     scheduleLastRun: wf.scheduleLastRun,
     scheduleNextRun: wf.scheduleNextRun,
   });
-}
+});
 
 /**
  * @openapi
@@ -113,7 +114,7 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
  *       404:
  *         $ref: '#/components/responses/NotFound'
  */
-export async function POST(req: NextRequest, ctx: Ctx) {
+export const POST = withError(async (req: NextRequest, ctx: Ctx) => {
   const auth = await getAuthContext(req);
   if (!auth) return unauthorized();
 
@@ -141,7 +142,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     scheduleEnabled: enabled,
     scheduleNextRun: nextRun,
   });
-}
+});
 
 /**
  * @openapi
@@ -164,7 +165,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
  *       404:
  *         $ref: '#/components/responses/NotFound'
  */
-export async function DELETE(_req: NextRequest, ctx: Ctx) {
+export const DELETE = withError(async (_req: NextRequest, ctx: Ctx) => {
   const auth = await getAuthContext(_req);
   if (!auth) return unauthorized();
 
@@ -174,4 +175,4 @@ export async function DELETE(_req: NextRequest, ctx: Ctx) {
 
   await WorkflowDAO.setSchedule(id, null, false, null);
   return NextResponse.json({ success: true });
-}
+});

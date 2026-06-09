@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
 import { unauthorized, forbidden, notFound } from "@/lib/api/utils/api-utils";
 import { WorkflowDAO } from "@/db";
+import { withError } from "@/lib/api/handlers/with-error";
 
 /**
  * @openapi
@@ -42,10 +43,10 @@ import { WorkflowDAO } from "@/db";
  *       404:
  *         $ref: '#/components/responses/NotFound'
  */
-export async function GET(
+export const GET = withError(async (
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
-) {
+) => {
   const auth = await getAuthContext(request);
   if (!auth) return unauthorized();
 
@@ -73,4 +74,4 @@ export async function GET(
       "Content-Type": "application/json",
     },
   });
-}
+});

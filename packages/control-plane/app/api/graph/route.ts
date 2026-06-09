@@ -10,6 +10,7 @@ import type {
 } from "@vaultysclaw/shared";
 import { getAuthContext } from "@/lib/auth-utils";
 import { unauthorized, forbidden } from "@/lib/api/utils/api-utils";
+import { withError } from "@/lib/api/handlers/with-error";
 
 /**
  * GET /api/graph — return the full relationship graph (nodes + edges). Global admin only.
@@ -67,7 +68,7 @@ import { unauthorized, forbidden } from "@/lib/api/utils/api-utils";
  *       500:
  *         description: Failed to build graph.
  */
-export async function GET(req: NextRequest) {
+export const GET = withError(async (req: NextRequest) => {
   const auth = await getAuthContext(req);
   if (!auth) return unauthorized();
 
@@ -89,7 +90,7 @@ export async function GET(req: NextRequest) {
 
   const graph = await buildGraph({ agentDid, userDid, realmId });
   return NextResponse.json(graph);
-}
+});
 
 // ---------------------------------------------------------------------------
 

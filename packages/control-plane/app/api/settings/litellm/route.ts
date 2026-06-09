@@ -8,6 +8,7 @@ import {
   listModels,
 } from "@/lib/litellm-client";
 import {
+import { withError } from "@/lib/api/handlers/with-error";
   reconnectLiteLLMService,
   disconnectLiteLLMService,
   getLiteLLMServiceState,
@@ -38,7 +39,7 @@ async function litellmFetch<T>(path: string): Promise<T | null> {
  * GET /api/settings/litellm
  * Returns configuration status + live stats from the LiteLLM proxy.
  */
-export async function GET(req: NextRequest) {
+export const GET = withError(async (req: NextRequest) => {
   const auth = await getAuthContext(req);
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
@@ -81,13 +82,13 @@ export async function GET(req: NextRequest) {
     checkedAt: svcState.checkedAt,
     stats: { modelCount, totalSpend, keyCount },
   });
-}
+});
 
 /**
  * PUT /api/settings/litellm
  * Save LiteLLM connection settings and reconnect the service.
  */
-export async function PUT(req: NextRequest) {
+export const PUT = withError(async (req: NextRequest) => {
   const auth = await getAuthContext(req);
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
@@ -102,25 +103,25 @@ export async function PUT(req: NextRequest) {
 
   const { ok, status, baseUrl } = await reconnectLiteLLMService();
   return NextResponse.json({ ok, status, baseUrl });
-}
+});
 
 /**
  * POST /api/settings/litellm — reconnect without changing stored config
  */
-export async function POST(req: NextRequest) {
+export const POST = withError(async (req: NextRequest) => {
   const auth = await getAuthContext(req);
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
 
   const { ok, status, baseUrl } = await reconnectLiteLLMService();
   return NextResponse.json({ ok, status, baseUrl });
-}
+});
 
 /**
  * DELETE /api/settings/litellm
  * Disconnect and remove stored settings (falls back to env vars on next reconnect).
  */
-export async function DELETE(req: NextRequest) {
+export const DELETE = withError(async (req: NextRequest) => {
   const auth = await getAuthContext(req);
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
@@ -128,4 +129,4 @@ export async function DELETE(req: NextRequest) {
   await setLiteLLMSettings({ baseUrl: null, masterKey: null });
   disconnectLiteLLMService();
   return NextResponse.json({ ok: true });
-}
+});

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getWSServer } from "@/lib/ws-server";
 import { getAuthContext } from "@/lib/auth-utils";
 import {
+import { withError } from "@/lib/api/handlers/with-error";
   unauthorized,
   forbidden,
   malformed,
@@ -59,7 +60,7 @@ import {
  *       500:
  *         description: Failed to process batch rejection.
  */
-export async function POST(request: NextRequest) {
+export const POST = withError(async (request: NextRequest) => {
   const auth = await getAuthContext(request);
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
@@ -88,4 +89,4 @@ export async function POST(request: NextRequest) {
   const notFound = results.filter((r) => !r.ok).map((r) => r.id);
 
   return NextResponse.json({ rejected, notFound });
-}
+});

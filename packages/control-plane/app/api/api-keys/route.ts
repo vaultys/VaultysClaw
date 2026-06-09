@@ -5,6 +5,7 @@ import { unauthorized, forbidden, malformed } from "@/lib/api/utils/api-utils";
 import { generateApiKey } from "@/lib/api/utils/api-key-utils";
 import { ApiKeyDAO } from "@/db";
 import type {
+import { withError } from "@/lib/api/handlers/with-error";
   ApiKey,
   ApiKeyCreateRequest,
   ApiKeyCreatedResponse,
@@ -49,14 +50,14 @@ function toApiKey(row: Awaited<ReturnType<typeof ApiKeyDAO.findById>>): ApiKey {
  *       403:
  *         $ref: '#/components/responses/Forbidden'
  */
-export async function GET(request: NextRequest) {
+export const GET = withError(async (request: NextRequest) => {
   const auth = await getAuthContext(request);
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
 
   const rows = await ApiKeyDAO.findAll();
   return NextResponse.json({ apiKeys: rows.map(toApiKey) });
-}
+});
 
 /**
  * @openapi
@@ -86,7 +87,7 @@ export async function GET(request: NextRequest) {
  *       403:
  *         $ref: '#/components/responses/Forbidden'
  */
-export async function POST(request: NextRequest) {
+export const POST = withError(async (request: NextRequest) => {
   const auth = await getAuthContext(request);
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
@@ -124,4 +125,4 @@ export async function POST(request: NextRequest) {
 
   const response: ApiKeyCreatedResponse = { apiKey: toApiKey(row), key };
   return NextResponse.json(response, { status: 201 });
-}
+});

@@ -6,6 +6,7 @@ import {
 import { getAuthContext } from "@/lib/auth-utils";
 import { unauthorized, forbidden, notFound } from "@/lib/api/utils/api-utils";
 import { WorkflowDAO } from "@/db";
+import { withError } from "@/lib/api/handlers/with-error";
 
 type Params = { id: string };
 
@@ -63,10 +64,10 @@ type Params = { id: string };
  *       500:
  *         description: Failed to start workflow execution.
  */
-export async function POST(
+export const POST = withError(async (
   request: NextRequest,
   { params }: { params: Promise<Params> }
-) {
+) => {
   const auth = await getAuthContext(request);
   if (!auth) return unauthorized();
 
@@ -113,4 +114,4 @@ export async function POST(
     workflowId: id,
     status: "running",
   });
-}
+});

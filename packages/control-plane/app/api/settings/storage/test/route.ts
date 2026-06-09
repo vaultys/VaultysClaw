@@ -4,6 +4,7 @@ import { unauthorized, forbidden, malformed } from "@/lib/api/utils/api-utils";
 import { decryptSecret } from "@/lib/vault";
 import { SettingsDAO } from "@/db";
 import { getStorageConfig } from "@/db/settings.dao";
+import { withError } from "@/lib/api/handlers/with-error";
 
 // POST /api/settings/storage/test
 // Body fields are optional — omit any to fall back to the saved (DB) config.
@@ -56,7 +57,7 @@ import { getStorageConfig } from "@/db/settings.dao";
  *       403:
  *         $ref: '#/components/responses/Forbidden'
  */
-export async function POST(request: NextRequest) {
+export const POST = withError(async (request: NextRequest) => {
   const auth = await getAuthContext(request);
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
@@ -143,4 +144,4 @@ export async function POST(request: NextRequest) {
       error: err.message ?? String(err),
     });
   }
-}
+});

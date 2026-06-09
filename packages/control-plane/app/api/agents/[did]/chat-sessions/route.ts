@@ -6,6 +6,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getWSServer } from "@/lib/ws-server";
 import { getAuthContext } from "@/lib/auth-utils";
 import { unauthorized, forbidden } from "@/lib/api/utils/api-utils";
+import { withError } from "@/lib/api/handlers/with-error";
 
 /**
  * @openapi
@@ -39,10 +40,10 @@ import { unauthorized, forbidden } from "@/lib/api/utils/api-utils";
  *       503:
  *         description: Service unavailable or failed to fetch data.
  */
-export async function GET(
+export const GET = withError(async (
   request: NextRequest,
   { params }: { params: Promise<{ did: string }> }
-) {
+) => {
   const auth = await getAuthContext(request);
   if (!auth) return unauthorized();
 
@@ -65,4 +66,4 @@ export async function GET(
     const msg = err instanceof Error ? err.message : "Failed to fetch";
     return NextResponse.json({ error: msg }, { status: 503 });
   }
-}
+});

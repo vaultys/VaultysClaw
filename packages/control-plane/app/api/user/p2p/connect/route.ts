@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { UserServerChannel } from "@/lib/user-server-channel";
 import { VaultysId } from "@vaultys/id";
 import { SettingsDAO, UserDAO } from "@/db";
+import { withError } from "@/lib/api/handlers/with-error";
 
 /**
  * GET /api/user/p2p/connect
@@ -49,7 +50,7 @@ import { SettingsDAO, UserDAO } from "@/db";
  *       404:
  *         $ref: '#/components/responses/NotFound'
  */
-export async function GET() {
+export const GET = withError(async () => {
   const hasUsers = (await UserDAO.list({ page: 1, pageSize: 1 })).total > 0;
   const shouldRegister = !hasUsers;
   console.log(
@@ -73,4 +74,4 @@ export async function GET() {
     key: cert.key,
     serverDid,
   });
-}
+});

@@ -4,6 +4,7 @@ import { getAuthContext } from "@/lib/auth-utils";
 import { unauthorized, forbidden, malformed } from "@/lib/api/utils/api-utils";
 import type { AgentCapability } from "@vaultysclaw/shared";
 import { PolicyDAO } from "@/db";
+import { withError } from "@/lib/api/handlers/with-error";
 
 /**
  * GET /api/policies
@@ -83,7 +84,7 @@ import { PolicyDAO } from "@/db";
  *       500:
  *         description: Failed to fetch policies.
  */
-export async function GET(request: NextRequest) {
+export const GET = withError(async (request: NextRequest) => {
   const auth = await getAuthContext(request);
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
@@ -113,7 +114,7 @@ export async function GET(request: NextRequest) {
       createdAt: p.createdAt,
     })),
   });
-}
+});
 
 /**
  * POST /api/policies
@@ -193,7 +194,7 @@ export async function GET(request: NextRequest) {
  *       500:
  *         description: Failed to create policy.
  */
-export async function POST(request: NextRequest) {
+export const POST = withError(async (request: NextRequest) => {
   const auth = await getAuthContext(request);
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
@@ -255,4 +256,4 @@ export async function POST(request: NextRequest) {
     },
     { status: 201 }
   );
-}
+});

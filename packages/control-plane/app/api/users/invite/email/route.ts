@@ -11,6 +11,7 @@ import { authOptions } from "@/lib/auth-config";
 import { sendMail } from "@/lib/smtp";
 import { SettingsDAO, UserDAO } from "@/db";
 import { forbidden, malformed } from "@/lib/api/utils/api-utils";
+import { withError } from "@/lib/api/handlers/with-error";
 
 /**
  * @openapi
@@ -59,7 +60,7 @@ import { forbidden, malformed } from "@/lib/api/utils/api-utils";
  *       500:
  *         description: Failed to send invitation.
  */
-export async function POST(request: NextRequest) {
+export const POST = withError(async (request: NextRequest) => {
   const session = await getServerSession(authOptions);
   if (!session?.user?.isOwner && !session?.user?.isAdmin) {
     return forbidden();
@@ -110,4 +111,4 @@ export async function POST(request: NextRequest) {
   });
 
   return NextResponse.json({ token });
-}
+});

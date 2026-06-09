@@ -12,6 +12,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
 import { forbidden, unauthorized } from "@/lib/api/utils/api-utils";
 import { syncEntraUsers } from "@/lib/entra-sync";
+import { withError } from "@/lib/api/handlers/with-error";
 
 /**
  * @openapi
@@ -51,7 +52,7 @@ import { syncEntraUsers } from "@/lib/entra-sync";
  *       502:
  *         description: Sync failed due to server error.
  */
-export async function POST(req: NextRequest) {
+export const POST = withError(async (req: NextRequest) => {
   const auth = await getAuthContext(req);
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
@@ -68,4 +69,4 @@ export async function POST(req: NextRequest) {
     groupNames: body.groupNames ?? {},
   });
   return NextResponse.json(result);
-}
+});

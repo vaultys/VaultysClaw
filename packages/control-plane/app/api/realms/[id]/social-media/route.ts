@@ -17,6 +17,7 @@ import {
 } from "@/lib/api/utils/api-utils";
 import { getWSServer } from "@/lib/ws-server";
 import { IntentDAO, RealmDAO } from "@/db";
+import { withError } from "@/lib/api/handlers/with-error";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -78,7 +79,7 @@ type Ctx = { params: Promise<{ id: string }> };
  *                 error:
  *                   type: string
  */
-export async function POST(req: NextRequest, ctx: Ctx) {
+export const POST = withError(async (req: NextRequest, ctx: Ctx) => {
   const auth = await getAuthContext(req);
   if (!auth) return unauthorized();
 
@@ -149,4 +150,4 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     agentDid: targetAgentDid,
     message: "Post dispatched to agent. Check the intent log for results.",
   });
-}
+});

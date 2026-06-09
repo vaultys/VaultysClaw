@@ -3,6 +3,7 @@ import { getAuthContext } from "@/lib/auth-utils";
 import { unauthorized } from "@/lib/api/utils/api-utils";
 import { getWSServer } from "@/lib/ws-server";
 import { AgentDAO, RealmDAO } from "@/db";
+import { withError } from "@/lib/api/handlers/with-error";
 
 /**
  * GET /api/agents/search?q=...&realm=<realmId>
@@ -64,76 +65,68 @@ import { AgentDAO, RealmDAO } from "@/db";
  *       500:
  *         description: Failed to search agents.
  */
-export async function GET(req: NextRequest) {
-  try {
-    const auth = await getAuthContext(req);
-    if (!auth) return unauthorized();
+export const GET = withError(async (req: NextRequest) => {
+  const auth = await getAuthContext(req);
+  if (!auth) return unauthorized();
 
-    const { searchParams } = new URL(req.url);
-    const query = searchParams.get("q")?.toLowerCase() ?? "";
-    const realmId = searchParams.get("realm");
+  const { searchParams } = new URL(req.url);
+  const query = searchParams.get("q")?.toLowerCase() ?? "";
+  const realmId = searchParams.get("realm");
 
-    // --- Fetch agent list ------------------------------------------------
-    let agentList: {
-      did: string;
-      name: string;
-      capabilities?: string | null;
-    }[];
+  // --- Fetch agent list ------------------------------------------------
+  let agentList: {
+    did: string;
+    name: string;
+    capabilities?: string | null;
+  }[];
 
-    if (realmId && realmId !== "default") {
-      // Realm-scoped: only members of this realm
-      agentList = (await RealmDAO.getAgents(realmId)).map((ra) => ({
-        did: ra.agent.did,
-        name: ra.agent.name,
-        capabilities:
-          ra.agent.capabilities === null
-            ? null
-            : JSON.stringify(ra.agent.capabilities),
-      }));
-    } else {
-      agentList = (await AgentDAO.findAll()).map((a) => ({
-        did: a.did,
-        name: a.name,
-        capabilities:
-          a.capabilities === null ? null : JSON.stringify(a.capabilities),
-      }));
-    }
-
-    // --- Real-time online status from WebSocket server -------------------
-    const wsServer = getWSServer();
-    const connectedDids = new Set(
-      wsServer?.getConnectedAgents().map((ca) => ca.id) ?? []
-    );
-
-    // --- Filter by query -------------------------------------------------
-    const matches = agentList.filter((a) => {
-      if (!query) return true;
-      return (
-        (a.name ?? "").toLowerCase().includes(query) ||
-        (a.did ?? "").toLowerCase().includes(query)
-      );
-    });
-
-    return NextResponse.json({
-      agents: matches.slice(0, 20).map((a) => ({
-        id: a.did, // @deprecated use `did`
-        did: a.did,
-        name: a.name,
-        capabilities: (() => {
-          try {
-            return JSON.parse(a.capabilities ?? "[]");
-          } catch {
-            return [];
-          }
-        })(),
-        online: connectedDids.has(a.did),
-      })),
-    });
-  } catch (err) {
-    console.error("GET /api/agents/search error:", err);
-    return NextResponse.json(
-      { error: "Failed to search agents" },
-      { status: 500 }
-    );
+  if (realmId && realmId !== "default") {
+    // Realm-scoped: only members of this realm
+    agentList = (await RealmDAO.getAgents(realmId)).map((ra) => ({
+      did: ra.agent.did,
+      name: ra.agent.name,
+      capabilities:
+        ra.agent.capabilities === null
+          ? null
+          : JSON.stringify(ra.agent.capabilities),
+    }));
+  } else {
+    agentList = (await AgentDAO.findAll()).map((a) => ({
+      did: a.did,
+      name: a.name,
+      capabilities:
+        a.capabilities === null ? null : JSON.stringify(a.capabilities),
+    }));
   }
-}
+
+  // --- Real-time online status from WebSocket server -------------------
+  const wsServer = getWSServer();
+  const connectedDids = new Set(
+    wsServer?.getConnectedAgents().map((ca) => ca.id) ?? []
+  );
+
+  // --- Filter by query -------------------------------------------------
+  const matches = agentList.filter((a) => {
+    if (!query) return true;
+    return (
+      (a.name ?? "").toLowerCase().includes(query) ||
+      (a.did ?? "").toLowerCase().includes(query)
+    );
+  });
+
+  return NextResponse.json({
+    agents: matches.slice(0, 20).map((a) => ({
+      id: a.did, // @deprecated use `did`
+      did: a.did,
+      name: a.name,
+      capabilities: (() => {
+        try {
+          return JSON.parse(a.capabilities ?? "[]");
+        } catch {
+          return [];
+        }
+      })(),
+      online: connectedDids.has(a.did),
+    })),
+  });
+});

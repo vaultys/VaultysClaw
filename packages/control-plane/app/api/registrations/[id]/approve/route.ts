@@ -11,6 +11,7 @@ import {
   unavailable,
 } from "@/lib/api/utils/api-utils";
 import { AgentDAO, PendingRegistrationDAO, RealmDAO } from "@/db";
+import { withError } from "@/lib/api/handlers/with-error";
 
 /**
  * POST /api/registrations/[id]/approve
@@ -80,10 +81,10 @@ import { AgentDAO, PendingRegistrationDAO, RealmDAO } from "@/db";
  *       503:
  *         description: WebSocket server not available.
  */
-export async function POST(
+export const POST = withError(async (
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
-) {
+) => {
   const auth = await getAuthContext(request);
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
@@ -137,4 +138,4 @@ export async function POST(
     capabilities,
     agentDid: agentRow?.did ?? null,
   });
-}
+});

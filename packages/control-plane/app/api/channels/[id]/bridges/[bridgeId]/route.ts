@@ -3,6 +3,7 @@ import { getAuthContext } from "@/lib/auth-utils";
 import { forbidden, notFound, unauthorized } from "@/lib/api/utils/api-utils";
 import { ChannelBridgeService } from "@/lib/channel-bridge-service";
 import type { ChannelBridge } from "@vaultysclaw/shared";
+import { withError } from "@/lib/api/handlers/with-error";
 
 type Ctx = { params: Promise<{ id: string; bridgeId: string }> };
 
@@ -65,7 +66,7 @@ function stripConfig(bridge: ChannelBridge): Omit<ChannelBridge, "configJson"> {
  *       500:
  *         description: Failed to update bridge.
  */
-export async function PATCH(req: NextRequest, ctx: Ctx) {
+export const PATCH = withError(async (req: NextRequest, ctx: Ctx) => {
   const auth = await getAuthContext(req);
   if (!auth) return unauthorized();
 
@@ -103,7 +104,7 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
   }
 
   return NextResponse.json({ bridge: stripConfig(updated) });
-}
+});
 
 /**
  * DELETE /api/channels/[id]/bridges/[bridgeId]
@@ -148,7 +149,7 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
  *       500:
  *         description: Failed to delete bridge.
  */
-export async function DELETE(_req: NextRequest, ctx: Ctx) {
+export const DELETE = withError(async (_req: NextRequest, ctx: Ctx) => {
   const auth = await getAuthContext(_req);
   if (!auth) return unauthorized();
 
@@ -162,4 +163,4 @@ export async function DELETE(_req: NextRequest, ctx: Ctx) {
   await ChannelBridgeService.deleteBridge(bridgeId);
 
   return NextResponse.json({ success: true });
-}
+});

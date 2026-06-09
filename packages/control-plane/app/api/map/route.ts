@@ -4,6 +4,7 @@ import { unauthorized } from "@/lib/api/utils/api-utils";
 import { AgentDAO, UserDAO } from "@/db";
 import { getWSServer } from "@/lib/ws-server";
 import { getDoclingConfig, getStorageConfig } from "@/db/settings.dao";
+import { withError } from "@/lib/api/handlers/with-error";
 
 export interface MapMarker {
   id: string;
@@ -65,7 +66,7 @@ export interface MapMarker {
  *       401:
  *         $ref: '#/components/responses/Unauthorized'
  */
-export async function GET(req: NextRequest) {
+export const GET = withError(async (req: NextRequest) => {
   const auth = await getAuthContext(req);
   if (!auth) return unauthorized();
 
@@ -146,4 +147,4 @@ export async function GET(req: NextRequest) {
   }
 
   return NextResponse.json({ markers });
-}
+});

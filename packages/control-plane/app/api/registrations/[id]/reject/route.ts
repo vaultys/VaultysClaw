@@ -9,6 +9,7 @@ import {
   unavailable,
 } from "@/lib/api/utils/api-utils";
 import { PendingRegistrationDAO } from "@/db";
+import { withError } from "@/lib/api/handlers/with-error";
 
 /**
  * POST /api/registrations/[id]/reject
@@ -67,10 +68,10 @@ import { PendingRegistrationDAO } from "@/db";
  *       500:
  *         description: Failed to reject registration.
  */
-export async function POST(
+export const POST = withError(async (
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
-) {
+) => {
   const auth = await getAuthContext(request);
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
@@ -99,4 +100,4 @@ export async function POST(
   }
 
   return NextResponse.json({ success: true, registrationId: id });
-}
+});

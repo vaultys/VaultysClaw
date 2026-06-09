@@ -5,6 +5,7 @@ import { join } from "path";
 import { VaultysId } from "@vaultys/id";
 import { getWSServer } from "@/lib/ws-server";
 import { AgentDAO, SettingsDAO } from "@/db";
+import { withError } from "@/lib/api/handlers/with-error";
 
 function getVersion(): string {
   try {
@@ -97,7 +98,7 @@ function getVersion(): string {
  *       500:
  *         description: Internal server error.
  */
-export async function GET() {
+export const GET = withError(async () => {
   // Server VaultysId identity
   let serverIdentity: Record<string, unknown> | null = null;
   const serverSecret = await SettingsDAO.get("serverSecret");
@@ -151,4 +152,4 @@ export async function GET() {
     walletUrl:
       (await SettingsDAO.get("wallet_url")) ?? "https://wallet.vaultys.net",
   });
-}
+});

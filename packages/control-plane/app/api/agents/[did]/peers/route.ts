@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { withError } from "@/lib/api/handlers/with-error";
 
 /**
  * GET /api/agents/[did]/peers - List agent peers/peer grants
@@ -32,9 +33,9 @@ import { NextResponse } from "next/server";
  *       404:
  *         $ref: '#/components/responses/NotFound'
  */
-export async function GET() {
+export const GET = withError(async () => {
   return NextResponse.json({ error: "Not implemented" }, { status: 501 });
-}
+});
 
 /**
  * POST /api/agents/[did]/peers - Create peer grant
@@ -67,6 +68,6 @@ export async function GET() {
  *       404:
  *         $ref: '#/components/responses/NotFound'
  */
-export async function POST() {
+export const POST = withError(async () => {
   return NextResponse.json({ error: "Not implemented" }, { status: 501 });
-}
+});

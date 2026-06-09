@@ -7,6 +7,7 @@ import {
   malformed,
 } from "@/lib/api/utils/api-utils";
 import { ChannelService } from "@/lib/channel-service";
+import { withError } from "@/lib/api/handlers/with-error";
 
 type Ctx = { params: Promise<{ id: string; msgId: string }> };
 
@@ -50,7 +51,7 @@ type Ctx = { params: Promise<{ id: string; msgId: string }> };
  *       500:
  *         description: Failed to fetch message
  */
-export async function GET(_req: NextRequest, ctx: Ctx) {
+export const GET = withError(async (_req: NextRequest, ctx: Ctx) => {
   const auth = await getAuthContext(_req);
   if (!auth) return unauthorized();
 
@@ -72,7 +73,7 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
   }
 
   return NextResponse.json({ message });
-}
+});
 
 /**
  * PATCH /api/channels/[id]/messages/[msgId]
@@ -129,7 +130,7 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
  *       500:
  *         description: Failed to edit message.
  */
-export async function PATCH(req: NextRequest, ctx: Ctx) {
+export const PATCH = withError(async (req: NextRequest, ctx: Ctx) => {
   const auth = await getAuthContext(req);
   if (!auth) return unauthorized();
 
@@ -154,7 +155,7 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
   const updated = await ChannelService.editMessage(msgId, body.content.trim());
 
   return NextResponse.json({ message: updated });
-}
+});
 
 /**
  * DELETE /api/channels/[id]/messages/[msgId]
@@ -193,7 +194,7 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
  *       500:
  *         description: Failed to delete message.
  */
-export async function DELETE(_req: NextRequest, ctx: Ctx) {
+export const DELETE = withError(async (_req: NextRequest, ctx: Ctx) => {
   const auth = await getAuthContext(_req);
   if (!auth) return unauthorized();
 
@@ -216,4 +217,4 @@ export async function DELETE(_req: NextRequest, ctx: Ctx) {
   await ChannelService.deleteMessage(msgId);
 
   return NextResponse.json({ success: true });
-}
+});

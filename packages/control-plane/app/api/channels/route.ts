@@ -8,6 +8,7 @@ import {
 } from "@/lib/api/utils/api-utils";
 import { ChannelService } from "@/lib/channel-service";
 import { RealmDAO } from "@/db";
+import { withError } from "@/lib/api/handlers/with-error";
 
 /**
  * GET /api/channels?realm=<id>&includeGlobal=true
@@ -55,7 +56,7 @@ import { RealmDAO } from "@/db";
  *       500:
  *         description: Failed to fetch channels.
  */
-export async function GET(req: NextRequest) {
+export const GET = withError(async (req: NextRequest) => {
   const auth = await getAuthContext(req);
   if (!auth) return unauthorized();
 
@@ -88,7 +89,7 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     channels: [...realmChannels, ...globalChannels],
   });
-}
+});
 
 /**
  * POST /api/channels
@@ -147,7 +148,7 @@ export async function GET(req: NextRequest) {
  *       500:
  *         description: Internal server error.
  */
-export async function POST(req: NextRequest) {
+export const POST = withError(async (req: NextRequest) => {
   const auth = await getAuthContext(req);
   if (!auth) return unauthorized();
 
@@ -203,4 +204,4 @@ export async function POST(req: NextRequest) {
   });
 
   return NextResponse.json({ channel }, { status: 201 });
-}
+});

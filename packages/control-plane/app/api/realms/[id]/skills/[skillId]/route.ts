@@ -3,6 +3,7 @@ import { getAuthContext } from "@/lib/auth-utils";
 import { unauthorized, forbidden, notFound } from "@/lib/api/utils/api-utils";
 import { broadcastSkillsConfig } from "@/lib/ws-server";
 import { RealmSkillDAO } from "@/db";
+import { withError } from "@/lib/api/handlers/with-error";
 
 type Ctx = { params: Promise<{ id: string; skillId: string }> };
 
@@ -65,7 +66,7 @@ type Ctx = { params: Promise<{ id: string; skillId: string }> };
  *       500:
  *         description: Failed to fetch skill.
  */
-export async function GET(_req: NextRequest, ctx: Ctx) {
+export const GET = withError(async (_req: NextRequest, ctx: Ctx) => {
   const auth = await getAuthContext(_req);
   if (!auth) return unauthorized();
 
@@ -89,7 +90,7 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
       createdAt: skill.createdAt,
     },
   });
-}
+});
 
 /**
  * PATCH /api/realms/[id]/skills/[skillId] — update skill metadata.
@@ -153,7 +154,7 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
  *       404:
  *         $ref: '#/components/responses/NotFound'
  */
-export async function PATCH(req: NextRequest, ctx: Ctx) {
+export const PATCH = withError(async (req: NextRequest, ctx: Ctx) => {
   const auth = await getAuthContext(req);
   if (!auth) return unauthorized();
 
@@ -200,7 +201,7 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
       createdAt: updated.createdAt,
     },
   });
-}
+});
 
 /**
  * DELETE /api/realms/[id]/skills/[skillId] — remove a skill from the realm.
@@ -245,7 +246,7 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
  *       500:
  *         description: Failed to delete skill.
  */
-export async function DELETE(_req: NextRequest, ctx: Ctx) {
+export const DELETE = withError(async (_req: NextRequest, ctx: Ctx) => {
   const auth = await getAuthContext(_req);
   if (!auth) return unauthorized();
 
@@ -261,4 +262,4 @@ export async function DELETE(_req: NextRequest, ctx: Ctx) {
   broadcastSkillsConfig(id);
 
   return NextResponse.json({ ok: true });
-}
+});

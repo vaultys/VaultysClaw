@@ -9,6 +9,7 @@ import {
 import { ApiKeyDAO } from "@/db";
 import { prisma } from "@/db/client";
 import type { ApiKey, ApiKeyUpdateRequest } from "@/lib/api/utils/api-types";
+import { withError } from "@/lib/api/handlers/with-error";
 
 function toApiKey(
   row: NonNullable<Awaited<ReturnType<typeof ApiKeyDAO.findById>>>
@@ -80,10 +81,10 @@ function toApiKey(
  *       403:
  *         $ref: '#/components/responses/Forbidden'
  */
-export async function PATCH(
+export const PATCH = withError(async (
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
-) {
+) => {
   const auth = await getAuthContext(request);
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
@@ -122,7 +123,7 @@ export async function PATCH(
 
   const updated = await prisma.apiKey.update({ where: { id }, data });
   return NextResponse.json(toApiKey(updated));
-}
+});
 
 /**
  * @openapi
@@ -150,10 +151,10 @@ export async function PATCH(
  *       403:
  *         $ref: '#/components/responses/Forbidden'
  */
-export async function DELETE(
+export const DELETE = withError(async (
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
-) {
+) => {
   const auth = await getAuthContext(request);
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
@@ -164,4 +165,4 @@ export async function DELETE(
     return notFound("API key not found");
   }
   return new NextResponse(null, { status: 204 });
-}
+});

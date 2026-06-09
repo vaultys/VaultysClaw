@@ -10,6 +10,7 @@ import { isLiteLLMConfigured, getLiteLLMBaseUrl } from "@/lib/litellm-client";
 import { getWSServer } from "@/lib/ws-server";
 import type { LlmConfig } from "@vaultysclaw/shared";
 import { AgentDAO, ModelDAO, RealmDAO } from "@/db";
+import { withError } from "@/lib/api/handlers/with-error";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -68,7 +69,7 @@ type Ctx = { params: Promise<{ id: string }> };
  *       500:
  *         description: Failed to add agent to realm.
  */
-export async function POST(req: NextRequest, ctx: Ctx) {
+export const POST = withError(async (req: NextRequest, ctx: Ctx) => {
   const auth = await getAuthContext(req);
   if (!auth) return unauthorized();
 
@@ -118,7 +119,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   }
 
   return NextResponse.json({ ok: true, llmPushed });
-}
+});
 
 /**
  * DELETE /api/realms/[id]/agents — remove an agent from this realm. Realm admin or global admin.
@@ -162,7 +163,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
  *       500:
  *         description: Failed to remove agent from realm.
  */
-export async function DELETE(req: NextRequest, ctx: Ctx) {
+export const DELETE = withError(async (req: NextRequest, ctx: Ctx) => {
   const auth = await getAuthContext(req);
   if (!auth) return unauthorized();
 
@@ -176,4 +177,4 @@ export async function DELETE(req: NextRequest, ctx: Ctx) {
   if (!ok) return malformed("Cannot remove agent from the default realm");
 
   return NextResponse.json({ ok: true });
-}
+});

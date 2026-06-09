@@ -7,6 +7,7 @@ import {
   notFound,
 } from "@/lib/api/utils/api-utils";
 import { AgentDAO, KnowledgeDAO, RealmDAO } from "@/db";
+import { withError } from "@/lib/api/handlers/with-error";
 
 // GET /api/knowledge?realmId=xxx&agentDid=xxx
 /**
@@ -45,7 +46,7 @@ import { AgentDAO, KnowledgeDAO, RealmDAO } from "@/db";
  *       403:
  *         $ref: '#/components/responses/Forbidden'
  */
-export async function GET(request: NextRequest) {
+export const GET = withError(async (request: NextRequest) => {
   const auth = await getAuthContext(request);
   if (!auth) return unauthorized();
 
@@ -59,7 +60,7 @@ export async function GET(request: NextRequest) {
 
   const sources = await KnowledgeDAO.listSources({ realmId, agentDid });
   return NextResponse.json({ sources });
-}
+});
 
 // POST /api/knowledge
 // Body: { realmId, agentDid, name, sourceType, config }
@@ -105,7 +106,7 @@ export async function GET(request: NextRequest) {
  *       404:
  *         $ref: '#/components/responses/NotFound'
  */
-export async function POST(request: NextRequest) {
+export const POST = withError(async (request: NextRequest) => {
   const auth = await getAuthContext(request);
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
@@ -140,4 +141,4 @@ export async function POST(request: NextRequest) {
   });
 
   return NextResponse.json({ source }, { status: 201 });
-}
+});

@@ -8,11 +8,12 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-config";
 import { RealmDAO, UserDAO } from "@/db";
 import { forbidden, notFound } from "@/lib/api/utils/api-utils";
+import { withError } from "@/lib/api/handlers/with-error";
 
-export async function GET(
+export const GET = withError(async (
   _req: NextRequest,
   { params }: { params: Promise<{ did: string }> }
-) {
+) => {
   const session = await getServerSession(authOptions);
   if (!session?.user?.isAdmin) {
     return forbidden();
@@ -46,4 +47,4 @@ export async function GET(
       .filter((r) => !memberRealmIds.has(r.id))
       .map((r) => ({ id: r.id, name: r.name, slug: r.slug, color: r.color })),
   });
-}
+});

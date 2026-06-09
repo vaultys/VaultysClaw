@@ -7,6 +7,7 @@ import {
   notFound,
 } from "@/lib/api/utils/api-utils";
 import { getDoclingConfig, setDoclingConfig } from "@/db/settings.dao";
+import { withError } from "@/lib/api/handlers/with-error";
 
 /**
  * PATCH /api/settings/docling/location
@@ -48,7 +49,7 @@ import { getDoclingConfig, setDoclingConfig } from "@/db/settings.dao";
  *       403:
  *         $ref: '#/components/responses/Forbidden'
  */
-export async function PATCH(request: NextRequest) {
+export const PATCH = withError(async (request: NextRequest) => {
   const auth = await getAuthContext(request);
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
@@ -97,4 +98,4 @@ export async function PATCH(request: NextRequest) {
   });
 
   return NextResponse.json({ ok: true });
-}
+});

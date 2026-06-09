@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { UserServerChannel } from "@/lib/user-server-channel";
 import { UserDAO } from "@/db";
+import { withError } from "@/lib/api/handlers/with-error";
 
 /**
  * GET /api/user/connect
@@ -44,7 +45,7 @@ import { UserDAO } from "@/db";
  *       404:
  *         $ref: '#/components/responses/NotFound'
  */
-export async function GET(request: NextRequest) {
+export const GET = withError(async (request: NextRequest) => {
   const isRegister = request.nextUrl.searchParams.get("register") === "true";
   const hasUsers = (await UserDAO.list({ page: 1, pageSize: 1 })).total > 0;
   const shouldRegister = isRegister || !hasUsers;
@@ -54,4 +55,4 @@ export async function GET(request: NextRequest) {
     : await UserServerChannel.createConnectionCertificate();
 
   return NextResponse.json({ key: cert.key, token: cert.connection });
-}
+});

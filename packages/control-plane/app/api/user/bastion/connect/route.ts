@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { UserServerChannel } from "@/lib/user-server-channel";
 import { VaultysId } from "@vaultys/id";
 import { malformed } from "@/lib/api/utils/api-utils";
+import { withError } from "@/lib/api/handlers/with-error";
 
 /**
  * GET /api/user/bastion/connect
@@ -51,7 +52,7 @@ import { malformed } from "@/lib/api/utils/api-utils";
  *       500:
  *         description: Failed to create bastion certificate.
  */
-export async function GET(request: NextRequest) {
+export const GET = withError(async (request: NextRequest) => {
   const browserVid = request.nextUrl.searchParams.get("vid");
   if (!browserVid) {
     return malformed("Browser VID not provided");
@@ -83,4 +84,4 @@ export async function GET(request: NextRequest) {
   if (!result) throw new Error("Failed to create bastion certificate");
 
   return NextResponse.json(result);
-}
+});

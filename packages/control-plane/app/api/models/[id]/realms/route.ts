@@ -15,6 +15,7 @@ import {
 } from "@/lib/litellm-client";
 import { getWSServer } from "@/lib/ws-server";
 import type { LlmConfig } from "@vaultysclaw/shared";
+import { withError } from "@/lib/api/handlers/with-error";
 
 /**
  * Refresh per-agent LiteLLM keys for agents in a realm that already have a key.
@@ -121,7 +122,7 @@ type Ctx = { params: Promise<{ id: string }> };
  *       500:
  *         description: Failed to fetch realm access.
  */
-export async function GET(_req: NextRequest, { params }: Ctx) {
+export const GET = withError(async (_req: NextRequest, { params }: Ctx) => {
   const auth = await getAuthContext(_req);
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
@@ -142,7 +143,7 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
       };
     }),
   });
-}
+});
 
 /** POST /api/models/[id]/realms — grant realm access. Body: { realmId } */
 /**
@@ -183,7 +184,7 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
  *       500:
  *         description: Failed to grant realm access.
  */
-export async function POST(req: NextRequest, { params }: Ctx) {
+export const POST = withError(async (req: NextRequest, { params }: Ctx) => {
   const auth = await getAuthContext(req);
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
@@ -229,7 +230,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   }
 
   return NextResponse.json({ ok: true });
-}
+});
 
 /** DELETE /api/models/[id]/realms/[realmId] is in a sub-route; support via query param here */
 /**
@@ -265,7 +266,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
  *       500:
  *         description: Failed to revoke realm access.
  */
-export async function DELETE(req: NextRequest, { params }: Ctx) {
+export const DELETE = withError(async (req: NextRequest, { params }: Ctx) => {
   const auth = await getAuthContext(req);
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
@@ -308,4 +309,4 @@ export async function DELETE(req: NextRequest, { params }: Ctx) {
   }
 
   return NextResponse.json({ ok: true });
-}
+});

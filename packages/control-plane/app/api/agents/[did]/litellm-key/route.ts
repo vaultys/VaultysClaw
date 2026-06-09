@@ -9,6 +9,7 @@ import {
 } from "@/lib/litellm-client";
 import { getWSServer } from "@/lib/ws-server";
 import type { LlmConfig } from "@vaultysclaw/shared";
+import { withError } from "@/lib/api/handlers/with-error";
 
 type Ctx = { params: Promise<{ did: string }> };
 
@@ -16,7 +17,7 @@ type Ctx = { params: Promise<{ did: string }> };
  * GET /api/agent/[did]/litellm-key
  * Returns the current per-agent LiteLLM key status (key is masked).
  */
-export async function GET(req: NextRequest, { params }: Ctx) {
+export const GET = withError(async (req: NextRequest, { params }: Ctx) => {
   const auth = await getAuthContext(req);
   if (!auth) return unauthorized();
 
@@ -36,7 +37,7 @@ export async function GET(req: NextRequest, { params }: Ctx) {
     updatedAt: info?.updatedAt ?? null,
     litellmConfigured: isLiteLLMConfigured(),
   });
-}
+});
 
 /**
  * PUT /api/agent/[did]/litellm-key
@@ -45,7 +46,7 @@ export async function GET(req: NextRequest, { params }: Ctx) {
  *   allowedModels?: string[]   override model list (defaults to realm's)
  *   dailyBudget?: number       USD per day (null to remove limit)
  */
-export async function PUT(req: NextRequest, { params }: Ctx) {
+export const PUT = withError(async (req: NextRequest, { params }: Ctx) => {
   const auth = await getAuthContext(req);
   if (!auth) return unauthorized();
 
@@ -108,13 +109,13 @@ export async function PUT(req: NextRequest, { params }: Ctx) {
     allowedModels,
     dailyBudget: dailyBudget ?? null,
   });
-}
+});
 
 /**
  * DELETE /api/agent/[did]/litellm-key
  * Revoke the per-agent LiteLLM key (agent falls back to realm key or manual config).
  */
-export async function DELETE(req: NextRequest, { params }: Ctx) {
+export const DELETE = withError(async (req: NextRequest, { params }: Ctx) => {
   const auth = await getAuthContext(req);
   if (!auth) return unauthorized();
 
@@ -127,4 +128,4 @@ export async function DELETE(req: NextRequest, { params }: Ctx) {
   await AgentDAO.clearLiteLLMKey(did);
 
   return NextResponse.json({ ok: true });
-}
+});

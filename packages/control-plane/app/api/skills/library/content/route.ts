@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
 import { malformed, notFound, unauthorized } from "@/lib/api/utils/api-utils";
 import { OrgSkillDAO } from "@/db";
+import { withError } from "@/lib/api/handlers/with-error";
 
 /**
  * GET /api/skills/library/content?skillId=<name>
@@ -40,7 +41,7 @@ import { OrgSkillDAO } from "@/db";
  *       404:
  *         $ref: '#/components/responses/NotFound'
  */
-export async function GET(request: NextRequest) {
+export const GET = withError(async (request: NextRequest) => {
   const auth = await getAuthContext(request);
   if (!auth) return unauthorized();
 
@@ -57,4 +58,4 @@ export async function GET(request: NextRequest) {
   }
 
   return NextResponse.json({ content: skill.content });
-}
+});

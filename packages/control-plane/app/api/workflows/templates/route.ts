@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getTemplates } from "@/lib/workflow-templates";
 import { getAuthContext } from "@/lib/auth-utils";
 import { unauthorized } from "@/lib/api/utils/api-utils";
+import { withError } from "@/lib/api/handlers/with-error";
 
 /**
  * @openapi
@@ -45,7 +46,7 @@ import { unauthorized } from "@/lib/api/utils/api-utils";
  *       401:
  *         $ref: '#/components/responses/Unauthorized'
  */
-export async function GET(request: NextRequest) {
+export const GET = withError(async (request: NextRequest) => {
   const auth = await getAuthContext(request);
   if (!auth) return unauthorized();
 
@@ -65,4 +66,4 @@ export async function GET(request: NextRequest) {
       suggestedCron: t.suggestedCron,
     })),
   });
-}
+});

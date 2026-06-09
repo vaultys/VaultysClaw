@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
 import { unauthorized, forbidden, notFound } from "@/lib/api/utils/api-utils";
 import { KnowledgeDAO } from "@/db";
+import { withError } from "@/lib/api/handlers/with-error";
 
 // DELETE /api/knowledge/files/:fileId
 /**
@@ -27,10 +28,10 @@ import { KnowledgeDAO } from "@/db";
  *       404:
  *         $ref: '#/components/responses/NotFound'
  */
-export async function DELETE(
+export const DELETE = withError(async (
   _request: NextRequest,
   { params }: { params: Promise<{ fileId: string }> }
-) {
+) => {
   const auth = await getAuthContext(_request);
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
@@ -51,4 +52,4 @@ export async function DELETE(
 
   await KnowledgeDAO.deleteFile(fileId);
   return NextResponse.json({ success: true });
-}
+});

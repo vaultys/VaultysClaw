@@ -11,6 +11,7 @@ import {
   successNoContent,
 } from "@/lib/api/utils/api-utils";
 import { AgentDAO } from "@/db";
+import { withError } from "@/lib/api/handlers/with-error";
 
 const Buffer = crypto.Buffer;
 
@@ -116,10 +117,10 @@ function vaultysIdInfo(pk: unknown) {
  *       500:
  *         description: Failed to fetch agent.
  */
-export async function GET(
+export const GET = withError(async (
   _request: NextRequest,
   { params }: { params: Promise<{ did: string }> }
-) {
+) => {
   const auth = await getAuthContext(_request);
   if (!auth) return unauthorized();
 
@@ -216,7 +217,7 @@ export async function GET(
     locationLon: agent.locationLon ?? null,
     locationLabel: agent.locationLabel ?? null,
   });
-}
+});
 
 /**
  * PATCH /api/agents/[did]
@@ -275,10 +276,10 @@ export async function GET(
  *       500:
  *         description: Failed to update capabilities.
  */
-export async function PATCH(
+export const PATCH = withError(async (
   request: NextRequest,
   { params }: { params: Promise<{ did: string }> }
-) {
+) => {
   const auth = await getAuthContext(request);
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
@@ -330,7 +331,7 @@ export async function PATCH(
   return NextResponse.json({
     capabilities: updated ? updated.capabilities : undefined,
   });
-}
+});
 
 /**
  * DELETE /api/agents/[did]
@@ -361,10 +362,10 @@ export async function PATCH(
  *       500:
  *         description: Failed to delete agent.
  */
-export async function DELETE(
+export const DELETE = withError(async (
   _request: NextRequest,
   { params }: { params: Promise<{ did: string }> }
-) {
+) => {
   const auth = await getAuthContext(_request);
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
@@ -392,4 +393,4 @@ export async function DELETE(
   }
 
   return successNoContent();
-}
+});

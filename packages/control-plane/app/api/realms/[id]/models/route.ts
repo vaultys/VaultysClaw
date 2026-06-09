@@ -3,6 +3,7 @@ import { getAuthContext } from "@/lib/auth-utils";
 import { notFound, unauthorized } from "@/lib/api/utils/api-utils";
 import { ModelDAO, RealmDAO } from "@/db";
 import { isLiteLLMConfigured } from "@/lib/litellm-client";
+import { withError } from "@/lib/api/handlers/with-error";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -68,7 +69,7 @@ type Ctx = { params: Promise<{ id: string }> };
  *       500:
  *         description: Failed to fetch realm models.
  */
-export async function GET(_req: NextRequest, { params }: Ctx) {
+export const GET = withError(async (_req: NextRequest, { params }: Ctx) => {
   const auth = await getAuthContext(_req);
   if (!auth) return unauthorized();
 
@@ -101,4 +102,4 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
         }
       : null,
   });
-}
+});

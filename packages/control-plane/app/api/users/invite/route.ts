@@ -12,6 +12,7 @@ import { UserServerChannel } from "@/lib/user-server-channel";
 import { VaultysId } from "@vaultys/id";
 import { SettingsDAO } from "@/db";
 import { forbidden } from "@/lib/api/utils/api-utils";
+import { withError } from "@/lib/api/handlers/with-error";
 
 /**
  * @openapi
@@ -38,7 +39,7 @@ import { forbidden } from "@/lib/api/utils/api-utils";
  *       403:
  *         $ref: '#/components/responses/Forbidden'
  */
-export async function GET() {
+export const GET = withError(async () => {
   const session = await getServerSession(authOptions);
   if (!session?.user?.isOwner && !session?.user?.isAdmin) {
     return forbidden();
@@ -60,4 +61,4 @@ export async function GET() {
     key: cert.key,
     serverDid,
   });
-}
+});

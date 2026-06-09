@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
 import { unauthorized, forbidden, notFound } from "@/lib/api/utils/api-utils";
 import { RealmDAO } from "@/db";
+import { withError } from "@/lib/api/handlers/with-error";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -41,7 +42,7 @@ type Ctx = { params: Promise<{ id: string }> };
  *       500:
  *         description: Failed to set default realm.
  */
-export async function POST(_req: NextRequest, ctx: Ctx) {
+export const POST = withError(async (_req: NextRequest, ctx: Ctx) => {
   const auth = await getAuthContext(_req);
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
@@ -52,4 +53,4 @@ export async function POST(_req: NextRequest, ctx: Ctx) {
 
   await RealmDAO.setDefault(id);
   return NextResponse.json({ ok: true });
-}
+});

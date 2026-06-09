@@ -7,6 +7,7 @@ import {
   notFound,
 } from "@/lib/api/utils/api-utils";
 import { UserDAO } from "@/db";
+import { withError } from "@/lib/api/handlers/with-error";
 
 /**
  * PATCH /api/users/[did]/location
@@ -56,10 +57,10 @@ import { UserDAO } from "@/db";
  *       404:
  *         $ref: '#/components/responses/NotFound'
  */
-export async function PATCH(
+export const PATCH = withError(async (
   req: NextRequest,
   { params }: { params: Promise<{ did: string }> }
-) {
+) => {
   const auth = await getAuthContext(req);
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
@@ -88,4 +89,4 @@ export async function PATCH(
   }
 
   return NextResponse.json({ ok: true });
-}
+});

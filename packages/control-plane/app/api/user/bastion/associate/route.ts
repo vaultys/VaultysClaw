@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { UserServerChannel } from "@/lib/user-server-channel";
 import { malformed } from "@/lib/api/utils/api-utils";
+import { withError } from "@/lib/api/handlers/with-error";
 
 /**
  * POST /api/user/bastion/associate
@@ -49,7 +50,7 @@ import { malformed } from "@/lib/api/utils/api-utils";
  *       400:
  *         $ref: '#/components/responses/BadRequest'
  */
-export async function POST(request: NextRequest) {
+export const POST = withError(async (request: NextRequest) => {
   const body = await request.json();
   const { userToken, browserToken } = body as {
     userToken: string;
@@ -72,4 +73,4 @@ export async function POST(request: NextRequest) {
   }
 
   return NextResponse.json({ ok: true });
-}
+});

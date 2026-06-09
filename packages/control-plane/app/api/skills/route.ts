@@ -8,6 +8,7 @@ import {
   notFound,
 } from "@/lib/api/utils/api-utils";
 import { RealmDAO, RealmSkillDAO } from "@/db";
+import { withError } from "@/lib/api/handlers/with-error";
 
 /**
  * @openapi
@@ -29,14 +30,14 @@ import { RealmDAO, RealmSkillDAO } from "@/db";
  *       403:
  *         $ref: '#/components/responses/Forbidden'
  */
-export async function GET(request: NextRequest) {
+export const GET = withError(async (request: NextRequest) => {
   const auth = await getAuthContext(request);
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
 
   const rows = await RealmSkillDAO.findAllWithRealms();
   return NextResponse.json(rows);
-}
+});
 
 /**
  * @openapi
@@ -89,7 +90,7 @@ export async function GET(request: NextRequest) {
  *       500:
  *         description: Failed to create skill.
  */
-export async function POST(request: NextRequest) {
+export const POST = withError(async (request: NextRequest) => {
   const auth = await getAuthContext(request);
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
@@ -121,4 +122,4 @@ export async function POST(request: NextRequest) {
   });
   broadcastSkillsConfig(realmId);
   return NextResponse.json(skill, { status: 201 });
-}
+});

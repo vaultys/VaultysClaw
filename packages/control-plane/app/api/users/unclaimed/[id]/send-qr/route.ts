@@ -19,6 +19,7 @@ import { UserServerChannel } from "@/lib/user-server-channel";
 import { VaultysId } from "@vaultys/id";
 import { sendMail, getSmtpConfig } from "@/lib/smtp";
 import { SettingsDAO, UserDAO } from "@/db";
+import { withError } from "@/lib/api/handlers/with-error";
 
 /**
  * @openapi
@@ -76,10 +77,10 @@ import { SettingsDAO, UserDAO } from "@/db";
  *       404:
  *         $ref: '#/components/responses/NotFound'
  */
-export async function POST(
+export const POST = withError(async (
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
-) {
+) => {
   const auth = await getAuthContext(req);
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
@@ -168,7 +169,7 @@ export async function POST(
     serverDid,
     emailSent: sendByEmail && !!user.email,
   });
-}
+});
 
 function escapeHtml(str: string): string {
   return str

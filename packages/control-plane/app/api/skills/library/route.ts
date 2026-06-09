@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
 import { unauthorized } from "@/lib/api/utils/api-utils";
 import { OrgSkillDAO } from "@/db";
+import { withError } from "@/lib/api/handlers/with-error";
 
 /**
  * GET /api/skills/library
@@ -28,7 +29,7 @@ import { OrgSkillDAO } from "@/db";
  *       401:
  *         $ref: '#/components/responses/Unauthorized'
  */
-export async function GET(request: NextRequest) {
+export const GET = withError(async (request: NextRequest) => {
   const auth = await getAuthContext(request);
   if (!auth) return unauthorized();
 
@@ -57,4 +58,4 @@ export async function GET(request: NextRequest) {
   }));
 
   return NextResponse.json(payload);
-}
+});

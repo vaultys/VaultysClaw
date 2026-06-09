@@ -7,6 +7,7 @@ import {
   conflict,
 } from "@/lib/api/utils/api-utils";
 import { RealmDAO, WorkflowDAO } from "@/db";
+import { withError } from "@/lib/api/handlers/with-error";
 
 /**
  * GET /api/realms — list realms. Admins see all; members see only their realms.
@@ -53,7 +54,7 @@ import { RealmDAO, WorkflowDAO } from "@/db";
  *       500:
  *         description: Failed to fetch realms.
  */
-export async function GET(request: NextRequest) {
+export const GET = withError(async (request: NextRequest) => {
   const auth = await getAuthContext(request);
   if (!auth) return unauthorized();
 
@@ -78,7 +79,7 @@ export async function GET(request: NextRequest) {
       })
   );
   return NextResponse.json({ realms: realmsWithCounts });
-}
+});
 
 /**
  * POST /api/realms — create a new realm. Global admin only.
@@ -132,7 +133,7 @@ export async function GET(request: NextRequest) {
  *       500:
  *         description: Failed to create realm.
  */
-export async function POST(req: NextRequest) {
+export const POST = withError(async (req: NextRequest) => {
   const auth = await getAuthContext(req);
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
@@ -170,4 +171,4 @@ export async function POST(req: NextRequest) {
   });
 
   return NextResponse.json({ realm }, { status: 201 });
-}
+});

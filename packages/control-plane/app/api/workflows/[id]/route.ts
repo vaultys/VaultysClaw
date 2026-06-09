@@ -9,6 +9,7 @@ import {
 import { WorkflowDAO } from "@/db";
 import type { WorkflowDefinition } from "@/lib/workflow-executor";
 import { Prisma } from "@prisma/client";
+import { withError } from "@/lib/api/handlers/with-error";
 
 type Params = { id: string };
 
@@ -50,10 +51,10 @@ type Params = { id: string };
  *       500:
  *         description: Failed to fetch workflow.
  */
-export async function GET(
+export const GET = withError(async (
   _request: NextRequest,
   { params }: { params: Promise<Params> }
-) {
+) => {
   const auth = await getAuthContext(_request);
   if (!auth) return unauthorized();
 
@@ -80,7 +81,7 @@ export async function GET(
       updatedAt: workflow.updatedAt,
     },
   });
-}
+});
 
 /**
  * PATCH /api/workflows/[id]
@@ -137,10 +138,10 @@ export async function GET(
  *       500:
  *         description: Failed to update workflow.
  */
-export async function PATCH(
+export const PATCH = withError(async (
   request: NextRequest,
   { params }: { params: Promise<Params> }
-) {
+) => {
   const auth = await getAuthContext(request);
   if (!auth) return unauthorized();
 
@@ -176,7 +177,7 @@ export async function PATCH(
   });
 
   return NextResponse.json({ success: true, id });
-}
+});
 
 /**
  * DELETE /api/workflows/[id]
@@ -216,10 +217,10 @@ export async function PATCH(
  *       500:
  *         description: Failed to delete workflow
  */
-export async function DELETE(
+export const DELETE = withError(async (
   _request: NextRequest,
   { params }: { params: Promise<Params> }
-) {
+) => {
   const auth = await getAuthContext(_request);
   if (!auth) return unauthorized();
 
@@ -236,4 +237,4 @@ export async function DELETE(
   await WorkflowDAO.delete(id);
 
   return NextResponse.json({ success: true, id });
-}
+});

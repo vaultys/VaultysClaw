@@ -12,6 +12,7 @@ import { getLiteLLMBaseUrl } from "@/lib/litellm-client";
 import type { LlmConfig, LlmProviderType } from "@vaultysclaw/shared";
 import { AgentDAO, ModelDAO, RealmDAO } from "@/db";
 import { SafeLlmConfig } from "@/types";
+import { withError } from "@/lib/api/handlers/with-error";
 
 const VALID_PROVIDERS: LlmProviderType[] = [
   "openai",
@@ -114,10 +115,10 @@ function safeConfig(config: LlmConfig): SafeLlmConfig {
  *       404:
  *         $ref: '#/components/responses/NotFound'
  */
-export async function GET(
+export const GET = withError(async (
   _req: NextRequest,
   { params }: { params: Promise<{ did: string }> }
-) {
+) => {
   const auth = await getAuthContext(_req);
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
@@ -138,7 +139,7 @@ export async function GET(
   } catch {
     return NextResponse.json({ config: null });
   }
-}
+});
 
 /**
  * @openapi
@@ -207,10 +208,10 @@ export async function GET(
  *       404:
  *         $ref: '#/components/responses/NotFound'
  */
-export async function PUT(
+export const PUT = withError(async (
   req: NextRequest,
   { params }: { params: Promise<{ did: string }> }
-) {
+) => {
   const auth = await getAuthContext(req);
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
@@ -310,7 +311,7 @@ export async function PUT(
     pushed,
     config: safeConfig(config),
   });
-}
+});
 
 /**
  * @openapi
@@ -342,10 +343,10 @@ export async function PUT(
  *       404:
  *         $ref: '#/components/responses/NotFound'
  */
-export async function DELETE(
+export const DELETE = withError(async (
   _req: NextRequest,
   { params }: { params: Promise<{ did: string }> }
-) {
+) => {
   const auth = await getAuthContext(_req);
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
@@ -363,4 +364,4 @@ export async function DELETE(
   const pushed = wsServer?.sendLlmConfig(did, null) ?? false;
 
   return NextResponse.json({ pushed });
-}
+});

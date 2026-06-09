@@ -13,6 +13,7 @@ import { getAuthContext } from "@/lib/auth-utils";
 import { unauthorized, forbidden, notFound } from "@/lib/api/utils/api-utils";
 import { decryptSecret } from "@/lib/vault";
 import { CredentialDAO, RealmDAO } from "@/db";
+import { withError } from "@/lib/api/handlers/with-error";
 
 type Ctx = { params: Promise<{ id: string; credId: string }> };
 
@@ -60,7 +61,7 @@ type Ctx = { params: Promise<{ id: string; credId: string }> };
  *       500:
  *         description: Failed to decrypt credential.
  */
-export async function GET(req: NextRequest, ctx: Ctx) {
+export const GET = withError(async (req: NextRequest, ctx: Ctx) => {
   const auth = await getAuthContext(req);
   if (!auth) return unauthorized();
 
@@ -86,4 +87,4 @@ export async function GET(req: NextRequest, ctx: Ctx) {
     name: cred.name,
     secret,
   });
-}
+});

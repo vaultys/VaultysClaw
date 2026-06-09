@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getTemplate } from "@/lib/workflow-templates";
 import { getAuthContext } from "@/lib/auth-utils";
 import { notFound, unauthorized } from "@/lib/api/utils/api-utils";
+import { withError } from "@/lib/api/handlers/with-error";
 
 /**
  * @openapi
@@ -34,10 +35,10 @@ import { notFound, unauthorized } from "@/lib/api/utils/api-utils";
  *       404:
  *         $ref: '#/components/responses/NotFound'
  */
-export async function GET(
+export const GET = withError(async (
   request: NextRequest,
   { params }: { params: Promise<{ templateId: string }> }
-) {
+) => {
   const auth = await getAuthContext(request);
   if (!auth) return unauthorized();
 
@@ -52,4 +53,4 @@ export async function GET(
     success: true,
     template,
   });
-}
+});

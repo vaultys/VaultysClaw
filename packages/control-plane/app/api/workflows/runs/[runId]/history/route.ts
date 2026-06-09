@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
 import { unauthorized, forbidden, notFound } from "@/lib/api/utils/api-utils";
 import { WorkflowDAO } from "@/db";
+import { withError } from "@/lib/api/handlers/with-error";
 
 type Params = { runId: string };
 
@@ -93,10 +94,10 @@ type Params = { runId: string };
  *       500:
  *         description: Internal server error.
  */
-export async function GET(
+export const GET = withError(async (
   _request: NextRequest,
   { params }: { params: Promise<Params> }
-) {
+) => {
   const auth = await getAuthContext(_request);
   if (!auth) return unauthorized();
 
@@ -135,4 +136,4 @@ export async function GET(
       completedAt: step.completedAt,
     })),
   });
-}
+});

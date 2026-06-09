@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
 import { unauthorized } from "@/lib/api/utils/api-utils";
 import { RealmDAO, UserDAO } from "@/db";
+import { withError } from "@/lib/api/handlers/with-error";
 
 /**
  * GET /api/me/realms
@@ -40,7 +41,7 @@ import { RealmDAO, UserDAO } from "@/db";
  *       500:
  *         description: Failed to fetch realms.
  */
-export async function GET(req: NextRequest) {
+export const GET = withError(async (req: NextRequest) => {
   const auth = await getAuthContext(req);
   if (!auth) return unauthorized();
 
@@ -59,4 +60,4 @@ export async function GET(req: NextRequest) {
   }));
 
   return NextResponse.json({ realms });
-}
+});

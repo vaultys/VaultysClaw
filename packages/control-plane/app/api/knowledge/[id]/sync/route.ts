@@ -9,6 +9,7 @@ import {
 } from "@/lib/api/utils/api-utils";
 import { getWSServer } from "@/lib/ws-server";
 import { KnowledgeDAO, SettingsDAO } from "@/db";
+import { withError } from "@/lib/api/handlers/with-error";
 
 // POST /api/knowledge/:id/sync
 /**
@@ -53,10 +54,10 @@ import { KnowledgeDAO, SettingsDAO } from "@/db";
  *       503:
  *         description: Service unavailable or agent offline.
  */
-export async function POST(
+export const POST = withError(async (
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
-) {
+) => {
   const auth = await getAuthContext(request);
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
@@ -143,4 +144,4 @@ export async function POST(
     status: "syncing",
     docling: !!docling,
   });
-}
+});

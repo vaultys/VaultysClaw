@@ -3,6 +3,7 @@ import { getAuthContext } from "@/lib/auth-utils";
 import { unauthorized, forbidden } from "@/lib/api/utils/api-utils";
 import { prisma } from "@/db/client";
 import { AgentDAO, PolicyDAO } from "@/db";
+import { withError } from "@/lib/api/handlers/with-error";
 
 /**
  * GET /api/governance/summary
@@ -87,7 +88,7 @@ import { AgentDAO, PolicyDAO } from "@/db";
  *       500:
  *         description: Failed to fetch governance summary.
  */
-export async function GET(request: NextRequest) {
+export const GET = withError(async (request: NextRequest) => {
   const auth = await getAuthContext(request);
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
@@ -231,4 +232,4 @@ export async function GET(request: NextRequest) {
       agentsOverMonthlyBudget,
     },
   });
-}
+});

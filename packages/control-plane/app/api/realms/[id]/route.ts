@@ -7,6 +7,7 @@ import {
   conflict,
 } from "@/lib/api/utils/api-utils";
 import { RealmDAO, WorkflowDAO } from "@/db";
+import { withError } from "@/lib/api/handlers/with-error";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -65,7 +66,7 @@ type Ctx = { params: Promise<{ id: string }> };
  *       500:
  *         description: Failed to fetch realm
  */
-export async function GET(_req: NextRequest, ctx: Ctx) {
+export const GET = withError(async (_req: NextRequest, ctx: Ctx) => {
   const auth = await getAuthContext(_req);
   if (!auth) return unauthorized();
 
@@ -114,7 +115,7 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
         }
       : null,
   });
-}
+});
 
 /**
  * PATCH /api/realms/[id] — update realm metadata or config. Global admin only.
@@ -180,7 +181,7 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
  *       404:
  *         $ref: '#/components/responses/NotFound'
  */
-export async function PATCH(req: NextRequest, ctx: Ctx) {
+export const PATCH = withError(async (req: NextRequest, ctx: Ctx) => {
   const auth = await getAuthContext(req);
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
@@ -222,7 +223,7 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
   await RealmDAO.update(id, updates);
 
   return NextResponse.json({ realm: await RealmDAO.findById(id) });
-}
+});
 
 /**
  * DELETE /api/realms/[id] — delete realm (not allowed for default realm). Global admin only.
@@ -262,7 +263,7 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
  *       500:
  *         description: Failed to delete realm.
  */
-export async function DELETE(_req: NextRequest, ctx: Ctx) {
+export const DELETE = withError(async (_req: NextRequest, ctx: Ctx) => {
   const auth = await getAuthContext(_req);
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
@@ -273,4 +274,4 @@ export async function DELETE(_req: NextRequest, ctx: Ctx) {
     return conflict("Cannot delete the default realm");
   }
   return NextResponse.json({ ok: true });
-}
+});

@@ -9,6 +9,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-config";
 import { GrantDAO, UserDAO } from "@/db";
 import { forbidden, malformed, notFound } from "@/lib/api/utils/api-utils";
+import { withError } from "@/lib/api/handlers/with-error";
 
 const VALID_ROLES = [
   "owner",
@@ -89,10 +90,10 @@ type ValidRole = (typeof VALID_ROLES)[number];
  *       404:
  *         $ref: '#/components/responses/NotFound'
  */
-export async function GET(
+export const GET = withError(async (
   _req: NextRequest,
   { params }: { params: Promise<{ did: string }> }
-) {
+) => {
   const session = await getServerSession(authOptions);
   if (!session?.user?.isAdmin) {
     return forbidden();
@@ -138,7 +139,7 @@ export async function GET(
       createdAt: g.createdAt,
     })),
   });
-}
+});
 
 /**
  * @openapi
@@ -163,10 +164,10 @@ export async function GET(
  *       404:
  *         $ref: '#/components/responses/NotFound'
  */
-export async function DELETE(
+export const DELETE = withError(async (
   _req: NextRequest,
   { params }: { params: Promise<{ did: string }> }
-) {
+) => {
   const session = await getServerSession(authOptions);
   if (!session?.user?.isOwner) {
     return forbidden();
@@ -185,7 +186,7 @@ export async function DELETE(
 
   await UserDAO.delete(user.id);
   return NextResponse.json({ ok: true });
-}
+});
 
 /**
  * @openapi
@@ -230,10 +231,10 @@ export async function DELETE(
  *       404:
  *         $ref: '#/components/responses/NotFound'
  */
-export async function PATCH(
+export const PATCH = withError(async (
   req: NextRequest,
   { params }: { params: Promise<{ did: string }> }
-) {
+) => {
   const session = await getServerSession(authOptions);
   if (!session?.user?.isOwner) {
     return forbidden();
@@ -283,4 +284,4 @@ export async function PATCH(
 
   await UserDAO.update(user.id, fields);
   return NextResponse.json({ ok: true });
-}
+});

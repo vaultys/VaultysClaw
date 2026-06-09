@@ -8,6 +8,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
 import { unauthorized, forbidden, notFound } from "@/lib/api/utils/api-utils";
 import { OrgSkillDAO } from "@/db";
+import { withError } from "@/lib/api/handlers/with-error";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -39,7 +40,7 @@ type Ctx = { params: Promise<{ id: string }> };
  *       404:
  *         $ref: '#/components/responses/NotFound'
  */
-export async function GET(_req: NextRequest, ctx: Ctx) {
+export const GET = withError(async (_req: NextRequest, ctx: Ctx) => {
   const auth = await getAuthContext(_req);
   if (!auth) return unauthorized();
 
@@ -48,7 +49,7 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
   if (!skill) return notFound("Skill not found");
 
   return NextResponse.json({ skill });
-}
+});
 
 /**
  * @openapi
@@ -98,7 +99,7 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
  *       404:
  *         $ref: '#/components/responses/NotFound'
  */
-export async function PATCH(req: NextRequest, ctx: Ctx) {
+export const PATCH = withError(async (req: NextRequest, ctx: Ctx) => {
   const auth = await getAuthContext(req);
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
@@ -123,7 +124,7 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
   });
 
   return NextResponse.json({ skill: await OrgSkillDAO.findById(id) });
-}
+});
 
 /**
  * @openapi
@@ -156,7 +157,7 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
  *       404:
  *         $ref: '#/components/responses/NotFound'
  */
-export async function DELETE(_req: NextRequest, ctx: Ctx) {
+export const DELETE = withError(async (_req: NextRequest, ctx: Ctx) => {
   const auth = await getAuthContext(_req);
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
@@ -166,4 +167,4 @@ export async function DELETE(_req: NextRequest, ctx: Ctx) {
 
   await OrgSkillDAO.delete(id);
   return NextResponse.json({ success: true });
-}
+});

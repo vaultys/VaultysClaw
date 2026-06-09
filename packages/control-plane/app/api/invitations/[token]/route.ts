@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { UserDAO } from "@/db";
 import { forbidden, notFound } from "@/lib/api/utils/api-utils";
+import { withError } from "@/lib/api/handlers/with-error";
 
 /**
  * @openapi
@@ -39,10 +40,10 @@ import { forbidden, notFound } from "@/lib/api/utils/api-utils";
  *       500:
  *         description: Failed to fetch invitation.
  */
-export async function GET(
+export const GET = withError(async (
   request: NextRequest,
   { params }: { params: Promise<{ token: string }> }
-) {
+) => {
   const { token } = await params;
   const invitation = await UserDAO.findInvitation(token);
 
@@ -60,4 +61,4 @@ export async function GET(
     name: invitation.name,
     role: invitation.role,
   });
-}
+});

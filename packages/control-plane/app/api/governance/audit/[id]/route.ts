@@ -9,6 +9,7 @@ import {
 import { prisma } from "@/db/client";
 import { AgentDAO } from "@/db";
 import { Challenger, VaultysId, crypto } from "@vaultys/id";
+import { withError } from "@/lib/api/handlers/with-error";
 
 const Buffer = crypto.Buffer;
 
@@ -60,7 +61,7 @@ type Ctx = { params: Promise<{ id: string }> };
  *       500:
  *         description: Failed to fetch audit entry.
  */
-export async function GET(_req: NextRequest, ctx: Ctx) {
+export const GET = withError(async (_req: NextRequest, ctx: Ctx) => {
   const auth = await getAuthContext(_req);
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
@@ -160,7 +161,7 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
   }
 
   return malformed("Invalid id format");
-}
+});
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 

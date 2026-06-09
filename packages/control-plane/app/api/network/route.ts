@@ -8,6 +8,7 @@ import {
 } from "@/lib/peerjs-server";
 import { getAuthContext } from "@/lib/auth-utils";
 import { unauthorized, unavailable } from "@/lib/api/utils/api-utils";
+import { withError } from "@/lib/api/handlers/with-error";
 
 /**
  * GET /api/network
@@ -59,7 +60,7 @@ import { unauthorized, unavailable } from "@/lib/api/utils/api-utils";
  *       401:
  *         $ref: '#/components/responses/Unauthorized'
  */
-export async function GET(req: Request) {
+export const GET = withError(async (req: Request) => {
   const auth = await getAuthContext(req);
   if (!auth) return unauthorized();
 
@@ -90,7 +91,7 @@ export async function GET(req: Request) {
         peerjsServer?.signalingServerUrl ?? configuredServerUrl ?? null,
     },
   });
-}
+});
 
 /**
  * POST /api/network
@@ -128,7 +129,7 @@ export async function GET(req: Request) {
  *       500:
  *         description: Failed to start PeerJS server.
  */
-export async function POST(req: NextRequest) {
+export const POST = withError(async (req: NextRequest) => {
   const auth = await getAuthContext(req);
   if (!auth || !auth.isGlobalAdmin) return unauthorized();
 
@@ -185,4 +186,4 @@ export async function POST(req: NextRequest) {
   }
 
   return NextResponse.json({ error: "Invalid action" }, { status: 400 });
-}
+});

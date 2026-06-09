@@ -10,6 +10,7 @@ import { authOptions } from "@/lib/auth-config";
 import { getWSServer } from "@/lib/ws-server";
 import { GrantDAO } from "@/db";
 import { forbidden, notFound } from "@/lib/api/utils/api-utils";
+import { withError } from "@/lib/api/handlers/with-error";
 
 /**
  * @openapi
@@ -38,10 +39,10 @@ import { forbidden, notFound } from "@/lib/api/utils/api-utils";
  *       404:
  *         $ref: '#/components/responses/NotFound'
  */
-export async function DELETE(
+export const DELETE = withError(async (
   _req: NextRequest,
   { params }: { params: Promise<{ did: string; id: string }> }
-) {
+) => {
   const session = await getServerSession(authOptions);
   if (!session?.user?.isAdmin) {
     return forbidden();
@@ -70,4 +71,4 @@ export async function DELETE(
   }
 
   return NextResponse.json({ ok: true });
-}
+});

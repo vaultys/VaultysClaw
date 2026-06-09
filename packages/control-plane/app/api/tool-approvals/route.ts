@@ -8,6 +8,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-config";
 import { getWSServer } from "@/lib/ws-server";
 import {
+import { withError } from "@/lib/api/handlers/with-error";
   malformed,
   unauthorized,
   unavailable,
@@ -36,7 +37,7 @@ import {
  *       503:
  *         description: WebSocket server not available.
  */
-export async function GET() {
+export const GET = withError(async () => {
   const session = await getServerSession(authOptions);
   if (!session?.user) {
     return unauthorized();
@@ -49,7 +50,7 @@ export async function GET() {
 
   const approvals = wsServer.getPendingToolApprovals();
   return NextResponse.json({ approvals });
-}
+});
 
 /**
  * @openapi
@@ -88,7 +89,7 @@ export async function GET() {
  *       503:
  *         description: WebSocket server not available.
  */
-export async function POST(request: NextRequest) {
+export const POST = withError(async (request: NextRequest) => {
   const session = await getServerSession(authOptions);
   if (!session?.user) {
     return unauthorized();
@@ -116,4 +117,4 @@ export async function POST(request: NextRequest) {
   }
 
   return NextResponse.json({ success: true, requestId, approved });
-}
+});

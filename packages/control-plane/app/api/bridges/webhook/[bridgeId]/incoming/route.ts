@@ -5,6 +5,7 @@ import { MessageDispatcher } from "@/lib/message-dispatcher";
 import { WebhookGateway } from "@/lib/bridges/webhook-gateway";
 import type { WebhookBridgeConfig } from "@vaultysclaw/shared";
 import { forbidden, malformed, notFound } from "@/lib/api/utils/api-utils";
+import { withError } from "@/lib/api/handlers/with-error";
 
 type Ctx = { params: Promise<{ bridgeId: string }> };
 
@@ -66,7 +67,7 @@ type Ctx = { params: Promise<{ bridgeId: string }> };
  *       500:
  *         description: Failed to process incoming webhook.
  */
-export async function POST(req: NextRequest, ctx: Ctx) {
+export const POST = withError(async (req: NextRequest, ctx: Ctx) => {
   const { bridgeId } = await ctx.params;
 
   // Read raw body as text for HMAC verification
@@ -148,4 +149,4 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   );
 
   return NextResponse.json({ ok: true, messageId: message.id });
-}
+});

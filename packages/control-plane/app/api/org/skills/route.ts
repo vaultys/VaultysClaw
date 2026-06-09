@@ -12,6 +12,7 @@ import {
   conflict,
 } from "@/lib/api/utils/api-utils";
 import { OrgSkillDAO } from "@/db";
+import { withError } from "@/lib/api/handlers/with-error";
 
 /**
  * @openapi
@@ -34,12 +35,12 @@ import { OrgSkillDAO } from "@/db";
  *       401:
  *         $ref: '#/components/responses/Unauthorized'
  */
-export async function GET(request: NextRequest) {
+export const GET = withError(async (request: NextRequest) => {
   const auth = await getAuthContext(request);
   if (!auth) return unauthorized();
 
   return NextResponse.json({ skills: await OrgSkillDAO.findAll() });
-}
+});
 
 /**
  * @openapi
@@ -110,7 +111,7 @@ export async function GET(request: NextRequest) {
  *                   type: string
  *                   description: Error message.
  */
-export async function POST(req: NextRequest) {
+export const POST = withError(async (req: NextRequest) => {
   const auth = await getAuthContext(req);
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
@@ -148,4 +149,4 @@ export async function POST(req: NextRequest) {
       { status: 500 }
     );
   }
-}
+});

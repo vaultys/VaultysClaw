@@ -4,6 +4,7 @@ import { unauthorized, forbidden, malformed } from "@/lib/api/utils/api-utils";
 import { WorkflowDAO } from "@/db";
 import type { WorkflowDefinition } from "@/lib/workflow-executor";
 import { Prisma } from "@prisma/client";
+import { withError } from "@/lib/api/handlers/with-error";
 
 interface ImportPayload {
   name: string;
@@ -71,7 +72,7 @@ interface ImportPayload {
  *                 error:
  *                   type: string
  */
-export async function POST(request: NextRequest) {
+export const POST = withError(async (request: NextRequest) => {
   const auth = await getAuthContext(request);
   if (!auth) return unauthorized();
 
@@ -104,4 +105,4 @@ export async function POST(request: NextRequest) {
     id,
     message: `Workflow "${body.name}" imported successfully`,
   });
-}
+});

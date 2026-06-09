@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
 import { unauthorized, forbidden, notFound } from "@/lib/api/utils/api-utils";
 import { ChannelService } from "@/lib/channel-service";
+import { withError } from "@/lib/api/handlers/with-error";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -47,7 +48,7 @@ type Ctx = { params: Promise<{ id: string }> };
  *       500:
  *         description: Failed to fetch channel.
  */
-export async function GET(_req: NextRequest, ctx: Ctx) {
+export const GET = withError(async (_req: NextRequest, ctx: Ctx) => {
   const auth = await getAuthContext(_req);
   if (!auth) return unauthorized();
 
@@ -71,7 +72,7 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
     members,
     stats,
   });
-}
+});
 
 /**
  * PATCH /api/channels/[id]
@@ -127,7 +128,7 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
  *       500:
  *         description: Internal server error
  */
-export async function PATCH(req: NextRequest, ctx: Ctx) {
+export const PATCH = withError(async (req: NextRequest, ctx: Ctx) => {
   const auth = await getAuthContext(req);
   if (!auth) return unauthorized();
 
@@ -164,7 +165,7 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
   });
 
   return NextResponse.json({ channel: updated });
-}
+});
 
 /**
  * DELETE /api/channels/[id]
@@ -195,7 +196,7 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
  *       404:
  *         $ref: '#/components/responses/NotFound'
  */
-export async function DELETE(req: NextRequest, ctx: Ctx) {
+export const DELETE = withError(async (req: NextRequest, ctx: Ctx) => {
   const auth = await getAuthContext(req);
   if (!auth) return unauthorized();
 
@@ -220,4 +221,4 @@ export async function DELETE(req: NextRequest, ctx: Ctx) {
   await ChannelService.archiveChannel(id);
 
   return NextResponse.json({ success: true });
-}
+});

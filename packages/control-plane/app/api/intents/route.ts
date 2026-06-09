@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth-config";
 import { getWSServer } from "@/lib/ws-server";
 import { GrantDAO, IntentDAO } from "@/db";
 import {
+import { withError } from "@/lib/api/handlers/with-error";
   forbidden,
   malformed,
   notFound,
@@ -75,7 +76,7 @@ import {
  *       500:
  *         description: Failed to send intent.
  */
-export async function POST(request: NextRequest) {
+export const POST = withError(async (request: NextRequest) => {
   const session = await getServerSession(authOptions);
   if (!session?.user) {
     return unauthorized();
@@ -164,7 +165,7 @@ export async function POST(request: NextRequest) {
     },
     { status: 202 }
   );
-}
+});
 
 /**
  * GET /api/intents
@@ -217,7 +218,7 @@ export async function POST(request: NextRequest) {
  *       500:
  *         description: Failed to fetch intents.
  */
-export async function GET(request: NextRequest) {
+export const GET = withError(async (request: NextRequest) => {
   const session = await getServerSession(authOptions);
   if (!session?.user) {
     return unauthorized();
@@ -241,4 +242,4 @@ export async function GET(request: NextRequest) {
   }));
 
   return NextResponse.json({ intents });
-}
+});

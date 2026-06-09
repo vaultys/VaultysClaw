@@ -4,6 +4,7 @@ import { unauthorized, forbidden, notFound } from "@/lib/api/utils/api-utils";
 import { getWSServer } from "@/lib/ws-server";
 import type { AgentCapability } from "@vaultysclaw/shared";
 import { PolicyDAO } from "@/db";
+import { withError } from "@/lib/api/handlers/with-error";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -64,7 +65,7 @@ type Ctx = { params: Promise<{ id: string }> };
  *       500:
  *         description: Failed to fetch policy.
  */
-export async function GET(_req: NextRequest, ctx: Ctx) {
+export const GET = withError(async (_req: NextRequest, ctx: Ctx) => {
   const auth = await getAuthContext(_req);
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
@@ -85,7 +86,7 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
       createdAt: policy.createdAt,
     },
   });
-}
+});
 
 /**
  * DELETE /api/policies/[id]
@@ -129,7 +130,7 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
  *       500:
  *         description: Failed to delete policy.
  */
-export async function DELETE(_req: NextRequest, ctx: Ctx) {
+export const DELETE = withError(async (_req: NextRequest, ctx: Ctx) => {
   const auth = await getAuthContext(_req);
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
@@ -168,4 +169,4 @@ export async function DELETE(_req: NextRequest, ctx: Ctx) {
   }
 
   return NextResponse.json({ ok: true, sentTo });
-}
+});

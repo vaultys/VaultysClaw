@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
 import { malformed, unauthorized } from "@/lib/api/utils/api-utils";
+import { withError } from "@/lib/api/handlers/with-error";
 
 /** POST /api/models/test — test connectivity to a model endpoint and fetch available models */
 /**
@@ -50,7 +51,7 @@ import { malformed, unauthorized } from "@/lib/api/utils/api-utils";
  *       500:
  *         description: Validation failed.
  */
-export async function POST(req: NextRequest) {
+export const POST = withError(async (req: NextRequest) => {
   const auth = await getAuthContext(req);
   if (!auth) return unauthorized();
 
@@ -100,4 +101,4 @@ export async function POST(req: NextRequest) {
     ok: false,
     error: "Could not verify connection to endpoint",
   });
-}
+});

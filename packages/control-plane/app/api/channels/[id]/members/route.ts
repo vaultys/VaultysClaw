@@ -7,6 +7,7 @@ import {
   malformed,
 } from "@/lib/api/utils/api-utils";
 import { ChannelService } from "@/lib/channel-service";
+import { withError } from "@/lib/api/handlers/with-error";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -61,7 +62,7 @@ type Ctx = { params: Promise<{ id: string }> };
  *       500:
  *         description: Internal server error.
  */
-export async function POST(req: NextRequest, ctx: Ctx) {
+export const POST = withError(async (req: NextRequest, ctx: Ctx) => {
   const auth = await getAuthContext(req);
   if (!auth) return unauthorized();
 
@@ -102,7 +103,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   });
 
   return NextResponse.json({ member }, { status: 201 });
-}
+});
 
 /**
  * DELETE /api/channels/[id]/members/:memberDid
@@ -141,7 +142,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
  *       500:
  *         description: Failed to remove member.
  */
-export async function DELETE(req: NextRequest, ctx: Ctx) {
+export const DELETE = withError(async (req: NextRequest, ctx: Ctx) => {
   const auth = await getAuthContext(req);
   if (!auth) return unauthorized();
 
@@ -170,4 +171,4 @@ export async function DELETE(req: NextRequest, ctx: Ctx) {
   await ChannelService.removeChannelMember(id, memberDid);
 
   return NextResponse.json({ success: true });
-}
+});

@@ -3,6 +3,7 @@ import { getSmtpConfig } from "@/lib/smtp";
 import { getAuthContext } from "@/lib/auth-utils";
 import { unauthorized, forbidden } from "@/lib/api/utils/api-utils";
 import { AgentDAO, ModelDAO, RealmDAO } from "@/db";
+import { withError } from "@/lib/api/handlers/with-error";
 
 interface SetupStatus {
   model: boolean;
@@ -44,7 +45,7 @@ interface SetupStatus {
  *       500:
  *         description: Failed to fetch setup status.
  */
-export async function GET(request: NextRequest) {
+export const GET = withError(async (request: NextRequest) => {
   const auth = await getAuthContext(request);
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
@@ -63,4 +64,4 @@ export async function GET(request: NextRequest) {
   };
 
   return NextResponse.json({ status });
-}
+});

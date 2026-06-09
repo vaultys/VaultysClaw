@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-config";
 import { WorkflowDAO } from "@/db";
 import { notFound, unauthorized } from "@/lib/api/utils/api-utils";
+import { withError } from "@/lib/api/handlers/with-error";
 
 /**
  * GET /api/workflow-runs/[id]
@@ -45,10 +46,10 @@ import { notFound, unauthorized } from "@/lib/api/utils/api-utils";
  *       500:
  *         description: Failed to fetch workflow run.
  */
-export async function GET(
+export const GET = withError(async (
   request: Request,
   { params }: { params: Promise<{ id: string }> }
-) {
+) => {
   const session = await getServerSession(authOptions);
   if (!session?.user?.did) {
     return unauthorized();
@@ -72,4 +73,4 @@ export async function GET(
       : null,
     steps: result.steps,
   });
-}
+});

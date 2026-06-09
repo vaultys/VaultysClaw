@@ -8,6 +8,7 @@ import {
 } from "@/lib/api/utils/api-utils";
 import { sendSkillsConfig } from "@/lib/ws-server";
 import { AgentDAO, RealmSkillDAO, SkillOverrideDAO } from "@/db";
+import { withError } from "@/lib/api/handlers/with-error";
 
 type Ctx = { params: Promise<{ did: string }> };
 
@@ -49,7 +50,7 @@ type Ctx = { params: Promise<{ did: string }> };
  *       500:
  *         description: Failed to fetch agent skills.
  */
-export async function GET(_req: NextRequest, ctx: Ctx) {
+export const GET = withError(async (_req: NextRequest, ctx: Ctx) => {
   const auth = await getAuthContext(_req);
   if (!auth) return unauthorized();
 
@@ -61,7 +62,7 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
 
   const skills = await SkillOverrideDAO.getEffectiveSkills(did);
   return NextResponse.json({ skills });
-}
+});
 
 /**
  * PATCH /api/agents/[did]/skills — update an agent's skill override.
@@ -120,7 +121,7 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
  *       500:
  *         description: Failed to update agent skill override.
  */
-export async function PATCH(req: NextRequest, ctx: Ctx) {
+export const PATCH = withError(async (req: NextRequest, ctx: Ctx) => {
   const auth = await getAuthContext(req);
   if (!auth) return unauthorized();
 
@@ -157,4 +158,4 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
   return NextResponse.json({
     skills: await SkillOverrideDAO.getEffectiveSkills(did),
   });
-}
+});

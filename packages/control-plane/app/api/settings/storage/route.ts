@@ -3,6 +3,7 @@ import { getAuthContext } from "@/lib/auth-utils";
 import { unauthorized, forbidden, malformed } from "@/lib/api/utils/api-utils";
 import { SettingsDAO } from "@/db";
 import { getStorageConfig, setStorageConfig } from "@/db/settings.dao";
+import { withError } from "@/lib/api/handlers/with-error";
 
 // GET /api/settings/storage
 /**
@@ -47,7 +48,7 @@ import { getStorageConfig, setStorageConfig } from "@/db/settings.dao";
  *       403:
  *         $ref: '#/components/responses/Forbidden'
  */
-export async function GET(request: NextRequest) {
+export const GET = withError(async (request: NextRequest) => {
   const auth = await getAuthContext(request);
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
@@ -67,7 +68,7 @@ export async function GET(request: NextRequest) {
       configured: !!(cfg.s3Bucket && cfg.s3AccessKeyId),
     },
   });
-}
+});
 
 // PUT /api/settings/storage
 /**
@@ -135,7 +136,7 @@ export async function GET(request: NextRequest) {
  *       403:
  *         $ref: '#/components/responses/Forbidden'
  */
-export async function PUT(request: NextRequest) {
+export const PUT = withError(async (request: NextRequest) => {
   const auth = await getAuthContext(request);
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
@@ -195,4 +196,4 @@ export async function PUT(request: NextRequest) {
       configured: !!(updated.s3Bucket && updated.s3AccessKeyId),
     },
   });
-}
+});

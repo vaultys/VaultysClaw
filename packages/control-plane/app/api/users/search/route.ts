@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { RealmDAO } from "@/db";
 import { malformed, notFound } from "@/lib/api/utils/api-utils";
+import { withError } from "@/lib/api/handlers/with-error";
 
 /**
  * GET /api/users/search?realm=[realmId]&q=[search query]
@@ -54,7 +55,7 @@ import { malformed, notFound } from "@/lib/api/utils/api-utils";
  *       500:
  *         description: Failed to search users due to server error.
  */
-export async function GET(request: Request) {
+export const GET = withError(async (request: Request) => {
   const { searchParams } = new URL(request.url);
   const realmId = searchParams.get("realm");
   const query = searchParams.get("q")?.toLowerCase() || "";
@@ -89,4 +90,4 @@ export async function GET(request: Request) {
   }));
 
   return NextResponse.json({ users });
-}
+});

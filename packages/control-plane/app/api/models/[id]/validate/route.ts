@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
 import { notFound, unauthorized } from "@/lib/api/utils/api-utils";
 import { ModelDAO } from "@/db";
+import { withError } from "@/lib/api/handlers/with-error";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -42,7 +43,7 @@ type Ctx = { params: Promise<{ id: string }> };
  *       500:
  *         description: Validation failed due to server error.
  */
-export async function POST(_req: NextRequest, { params }: Ctx) {
+export const POST = withError(async (_req: NextRequest, { params }: Ctx) => {
   const auth = await getAuthContext(_req);
   if (!auth) return unauthorized();
 
@@ -87,4 +88,4 @@ export async function POST(_req: NextRequest, { params }: Ctx) {
     signal: AbortSignal.timeout(5000),
   });
   return NextResponse.json({ ok: res.ok, models: [] });
-}
+});

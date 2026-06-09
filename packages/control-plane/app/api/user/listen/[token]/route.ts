@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { UserServerChannel } from "@/lib/user-server-channel";
+import { withError } from "@/lib/api/handlers/with-error";
 
 interface Params {
   params: Promise<{ token: string }>;
@@ -47,9 +48,9 @@ interface Params {
  *       404:
  *         $ref: '#/components/responses/NotFound'
  */
-export async function GET(_request: NextRequest, { params }: Params) {
+export const GET = withError(async (_request: NextRequest, { params }: Params) => {
   const { token } = await params;
   const cert = await UserServerChannel.listen(token);
   if (!cert) return NextResponse.json({ status: -1 });
   return NextResponse.json({ status: cert.status });
-}
+});

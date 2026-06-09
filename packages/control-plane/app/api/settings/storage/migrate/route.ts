@@ -4,6 +4,7 @@ import { unauthorized, forbidden } from "@/lib/api/utils/api-utils";
 import { generateFileKey } from "@/lib/file-storage";
 import { prisma } from "@/db/client";
 import { getFileStorage } from "@/lib/file-storage-manager";
+import { withError } from "@/lib/api/handlers/with-error";
 
 // POST /api/settings/storage/migrate
 // Migrate files from SQLite BLOB storage to filesystem/S3 storage
@@ -38,7 +39,7 @@ import { getFileStorage } from "@/lib/file-storage-manager";
  *       500:
  *         description: Migration failed due to server error.
  */
-export async function POST(request: NextRequest) {
+export const POST = withError(async (request: NextRequest) => {
   const auth = await getAuthContext(request);
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
@@ -100,4 +101,4 @@ export async function POST(request: NextRequest) {
     message: `Migrated ${successCount} file(s)${errorCount > 0 ? `, ${errorCount} error(s)` : ""}`,
     hasMore: rows.length === 100, // If we hit the limit, there may be more
   });
-}
+});

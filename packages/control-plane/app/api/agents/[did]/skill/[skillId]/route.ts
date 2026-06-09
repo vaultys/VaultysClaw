@@ -8,6 +8,7 @@ import {
 } from "@/lib/api/utils/api-utils";
 import { sendSkillsConfig } from "@/lib/ws-server";
 import { AgentDAO, RealmSkillDAO, SkillOverrideDAO } from "@/db";
+import { withError } from "@/lib/api/handlers/with-error";
 
 type Ctx = { params: Promise<{ did: string; skillId: string }> };
 
@@ -59,7 +60,7 @@ type Ctx = { params: Promise<{ did: string; skillId: string }> };
  *       500:
  *         description: Failed to update agent skill override.
  */
-export async function PATCH(req: NextRequest, ctx: Ctx) {
+export const PATCH = withError(async (req: NextRequest, ctx: Ctx) => {
   const auth = await getAuthContext(req);
   if (!auth) return unauthorized();
 
@@ -94,4 +95,4 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
   return NextResponse.json({
     skills: await SkillOverrideDAO.getEffectiveSkills(did),
   });
-}
+});

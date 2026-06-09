@@ -11,6 +11,7 @@ import { getAuthContext } from "@/lib/auth-utils";
 import { unauthorized, forbidden, notFound } from "@/lib/api/utils/api-utils";
 import { isLiteLLMConfigured, getLiteLLMBaseUrl } from "@/lib/litellm-client";
 import { AgentDAO, ModelDAO, RealmDAO } from "@/db";
+import { withError } from "@/lib/api/handlers/with-error";
 
 /**
  * @openapi
@@ -72,10 +73,10 @@ import { AgentDAO, ModelDAO, RealmDAO } from "@/db";
  *       404:
  *         $ref: '#/components/responses/NotFound'
  */
-export async function GET(
+export const GET = withError(async (
   _req: NextRequest,
   { params }: { params: Promise<{ did: string }> }
-) {
+) => {
   const auth = await getAuthContext(_req);
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
@@ -118,4 +119,4 @@ export async function GET(
     litellmBaseUrl,
     realms,
   });
-}
+});

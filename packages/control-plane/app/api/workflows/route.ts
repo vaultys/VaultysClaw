@@ -4,6 +4,7 @@ import { unauthorized, forbidden, malformed } from "@/lib/api/utils/api-utils";
 import { RealmDAO, WorkflowDAO } from "@/db";
 import type { WorkflowDefinition } from "@/lib/workflow-executor";
 import { Prisma } from "@prisma/client";
+import { withError } from "@/lib/api/handlers/with-error";
 
 /**
  * POST /api/workflows
@@ -63,7 +64,7 @@ import { Prisma } from "@prisma/client";
  *       500:
  *         description: Failed to save workflow.
  */
-export async function POST(request: NextRequest) {
+export const POST = withError(async (request: NextRequest) => {
   const auth = await getAuthContext(request);
   if (!auth) return unauthorized();
 
@@ -103,7 +104,7 @@ export async function POST(request: NextRequest) {
     description,
     realmId: realmId || "default",
   });
-}
+});
 
 /**
  * GET /api/workflows
@@ -153,7 +154,7 @@ export async function POST(request: NextRequest) {
  *       500:
  *         description: Failed to list workflows.
  */
-export async function GET(request: NextRequest) {
+export const GET = withError(async (request: NextRequest) => {
   const auth = await getAuthContext(request);
   if (!auth) return unauthorized();
 
@@ -191,4 +192,4 @@ export async function GET(request: NextRequest) {
       updatedAt: w.updatedAt,
     })),
   });
-}
+});

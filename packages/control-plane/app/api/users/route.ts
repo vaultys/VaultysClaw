@@ -18,6 +18,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-config";
 import { GrantDAO, RealmDAO, UserDAO } from "@/db";
 import { forbidden } from "@/lib/api/utils/api-utils";
+import { withError } from "@/lib/api/handlers/with-error";
 
 /**
  * @openapi
@@ -98,7 +99,7 @@ import { forbidden } from "@/lib/api/utils/api-utils";
  *       403:
  *         $ref: '#/components/responses/Forbidden'
  */
-export async function GET(request: NextRequest) {
+export const GET = withError(async (request: NextRequest) => {
   const session = await getServerSession(authOptions);
   if (!session?.user?.isAdmin) {
     return forbidden();
@@ -189,4 +190,4 @@ export async function GET(request: NextRequest) {
     pageSize: result.pageSize,
     totalPages: result.totalPages,
   });
-}
+});

@@ -10,6 +10,7 @@ import type {
   ChatMessageEntry,
 } from "@vaultysclaw/shared";
 import {
+import { withError } from "@/lib/api/handlers/with-error";
   malformed,
   unauthorized,
   unavailable,
@@ -78,7 +79,7 @@ import {
  *       500:
  *         description: Internal server error.
  */
-export async function POST(request: NextRequest) {
+export const POST = withError(async (request: NextRequest) => {
   const session = await getServerSession(authOptions);
   if (!session?.user) {
     return unauthorized();
@@ -209,4 +210,4 @@ export async function POST(request: NextRequest) {
       Connection: "keep-alive",
     },
   });
-}
+});

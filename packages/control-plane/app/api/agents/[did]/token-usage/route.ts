@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
 import { unauthorized, forbidden } from "@/lib/api/utils/api-utils";
 import { AgentDAO } from "@/db";
+import { withError } from "@/lib/api/handlers/with-error";
 
 type Ctx = { params: Promise<{ did: string }> };
 
@@ -85,7 +86,7 @@ type Ctx = { params: Promise<{ did: string }> };
  *       403:
  *         $ref: '#/components/responses/Forbidden'
  */
-export async function GET(req: NextRequest, ctx: Ctx) {
+export const GET = withError(async (req: NextRequest, ctx: Ctx) => {
   const auth = await getAuthContext(req);
   if (!auth) return unauthorized();
 
@@ -141,7 +142,7 @@ export async function GET(req: NextRequest, ctx: Ctx) {
   );
 
   return NextResponse.json({ granularity, from, to, data: filled });
-}
+});
 
 interface BucketPoint {
   bucket: string;

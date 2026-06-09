@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
 import { unauthorized, forbidden } from "@/lib/api/utils/api-utils";
 import { prisma } from "@/db/client";
+import { withError } from "@/lib/api/handlers/with-error";
 
 /**
  * GET /api/governance/audit
@@ -90,7 +91,7 @@ import { prisma } from "@/db/client";
  *       500:
  *         description: Failed to fetch audit log.
  */
-export async function GET(request: NextRequest) {
+export const GET = withError(async (request: NextRequest) => {
   const auth = await getAuthContext(request);
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
@@ -173,4 +174,4 @@ export async function GET(request: NextRequest) {
   const result = entries.slice(0, limit);
 
   return NextResponse.json({ entries: result, total: result.length });
-}
+});

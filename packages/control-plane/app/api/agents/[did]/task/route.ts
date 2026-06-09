@@ -7,6 +7,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getWSServer } from "@/lib/ws-server";
 import { getAuthContext } from "@/lib/auth-utils";
 import {
+import { withError } from "@/lib/api/handlers/with-error";
   unauthorized,
   forbidden,
   unavailable,
@@ -63,10 +64,10 @@ import {
  *       503:
  *         description: WebSocket server not available.
  */
-export async function POST(
+export const POST = withError(async (
   request: NextRequest,
   { params }: { params: Promise<{ did: string }> }
-) {
+) => {
   const auth = await getAuthContext(request);
   if (!auth) return unauthorized();
 
@@ -93,4 +94,4 @@ export async function POST(
   }
 
   return NextResponse.json({ agentId: agentDid, action });
-}
+});

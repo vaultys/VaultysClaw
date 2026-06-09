@@ -13,6 +13,7 @@ import {
   notFound,
 } from "@/lib/api/utils/api-utils";
 import { AgentSchedule } from "@/types/api/requests";
+import { withError } from "@/lib/api/handlers/with-error";
 
 /**
  * @openapi
@@ -75,10 +76,10 @@ import { AgentSchedule } from "@/types/api/requests";
  *       503:
  *         description: WebSocket server not available.
  */
-export async function POST(
+export const POST = withError(async (
   request: NextRequest,
   { params }: { params: Promise<{ did: string }> }
-) {
+) => {
   const auth = await getAuthContext(request);
   if (!auth) return unauthorized();
 
@@ -122,4 +123,4 @@ export async function POST(
     agentId: agentDid,
     scheduleId: id,
   });
-}
+});

@@ -141,8 +141,7 @@ export async function DELETE(_req: NextRequest, ctx: Ctx) {
   if (!policy) return notFound("Policy not found");
 
   const deleted = await PolicyDAO.delete(id);
-  if (!deleted)
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (!deleted) return notFound("Policy not found");
 
   // If the policy was bound to a specific agent, reissue its cert immediately
   // so the removed resource limits are no longer enforced.

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
-import { unauthorized, forbidden } from "@/lib/api-utils";
+import { unauthorized, forbidden, notFound, malformed } from "@/lib/api-utils";
 import { RealmDAO, UserDAO } from "@/db";
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -52,47 +52,34 @@ type Ctx = { params: Promise<{ id: string }> };
  *         description: Failed to add user to realm.
  */
 export async function POST(req: NextRequest, ctx: Ctx) {
-  try {
-    const auth = await getAuthContext(req);
-    if (!auth) return unauthorized();
+  const auth = await getAuthContext(req);
+  if (!auth) return unauthorized();
 
-    const { id } = await ctx.params;
-    if (!(await auth.canAdminRealm(id))) return forbidden();
+  const { id } = await ctx.params;
+  if (!(await auth.canAdminRealm(id))) return forbidden();
 
-    const realm = await RealmDAO.findById(id);
-    if (!realm)
-      return NextResponse.json({ error: "Realm not found" }, { status: 404 });
+  const realm = await RealmDAO.findById(id);
+  if (!realm) return notFound("Realm not found");
 
-    const body = (await req.json()) as {
-      userDid?: string;
-      isPrimary?: boolean;
-      isRealmAdmin?: boolean;
-    };
-    if (!body.userDid)
-      return NextResponse.json(
-        { error: "userDid is required" },
-        { status: 400 }
-      );
+  const body = (await req.json()) as {
+    userDid?: string;
+    isPrimary?: boolean;
+    isRealmAdmin?: boolean;
+  };
+  if (!body.userDid) return malformed("userDid is required");
 
-    const user =
-      await UserDAO.findByDid(body.userDid) ?? await UserDAO.findById(body.userDid);
-    if (!user)
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
+  const user =
+    (await UserDAO.findByDid(body.userDid)) ??
+    (await UserDAO.findById(body.userDid));
+  if (!user) return notFound("User not found");
 
-    await RealmDAO.addUserToRealm(
-      user.id,
-      id,
-      body.isPrimary ?? false,
-      body.isRealmAdmin ?? false
-    );
-    return NextResponse.json({ ok: true });
-  } catch (err) {
-    console.error(err);
-    return NextResponse.json(
-      { error: "Failed to add user to realm" },
-      { status: 500 }
-    );
-  }
+  await RealmDAO.addUserToRealm(
+    user.id,
+    id,
+    body.isPrimary ?? false,
+    body.isRealmAdmin ?? false
+  );
+  return NextResponse.json({ ok: true });
 }
 
 /**
@@ -143,48 +130,33 @@ export async function POST(req: NextRequest, ctx: Ctx) {
  *         description: Failed to update realm admin status.
  */
 export async function PATCH(req: NextRequest, ctx: Ctx) {
-  try {
-    const auth = await getAuthContext(req);
-    if (!auth) return unauthorized();
+  const auth = await getAuthContext(req);
+  if (!auth) return unauthorized();
 
-    const { id } = await ctx.params;
-    if (!(await auth.canAdminRealm(id))) return forbidden();
+  const { id } = await ctx.params;
+  if (!(await auth.canAdminRealm(id))) return forbidden();
 
-    const body = (await req.json()) as {
-      userDid?: string;
-      isRealmAdmin?: boolean;
-    };
-    if (!body.userDid)
-      return NextResponse.json(
-        { error: "userDid is required" },
-        { status: 400 }
-      );
-    if (typeof body.isRealmAdmin !== "boolean")
-      return NextResponse.json(
-        { error: "isRealmAdmin (boolean) is required" },
-        { status: 400 }
-      );
+  const body = (await req.json()) as {
+    userDid?: string;
+    isRealmAdmin?: boolean;
+  };
+  if (!body.userDid) return malformed("userDid is required");
+  if (typeof body.isRealmAdmin !== "boolean")
+    return malformed("isRealmAdmin (boolean) is required");
 
-    const user =
-      await UserDAO.findByDid(body.userDid) ?? await UserDAO.findById(body.userDid);
-    if (!user)
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
+  const user =
+    (await UserDAO.findByDid(body.userDid)) ??
+    (await UserDAO.findById(body.userDid));
+  if (!user) return notFound("User not found");
 
-    const changed = await RealmDAO.setUserRealmAdmin(user.id, id, body.isRealmAdmin);
-    if (!changed)
-      return NextResponse.json(
-        { error: "User is not a member of this realm" },
-        { status: 404 }
-      );
+  const changed = await RealmDAO.setUserRealmAdmin(
+    user.id,
+    id,
+    body.isRealmAdmin
+  );
+  if (!changed) return notFound("User is not a member of this realm");
 
-    return NextResponse.json({ ok: true });
-  } catch (err) {
-    console.error(err);
-    return NextResponse.json(
-      { error: "Failed to update realm admin status" },
-      { status: 500 }
-    );
-  }
+  return NextResponse.json({ ok: true });
 }
 
 /**
@@ -231,38 +203,22 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
  *         description: Failed to remove user from realm.
  */
 export async function DELETE(req: NextRequest, ctx: Ctx) {
-  try {
-    const auth = await getAuthContext(req);
-    if (!auth) return unauthorized();
+  const auth = await getAuthContext(req);
+  if (!auth) return unauthorized();
 
-    const { id } = await ctx.params;
-    if (!(await auth.canAdminRealm(id))) return forbidden();
+  const { id } = await ctx.params;
+  if (!(await auth.canAdminRealm(id))) return forbidden();
 
-    const body = (await req.json()) as { userDid?: string };
-    if (!body.userDid)
-      return NextResponse.json(
-        { error: "userDid is required" },
-        { status: 400 }
-      );
+  const body = (await req.json()) as { userDid?: string };
+  if (!body.userDid) return malformed("userDid is required");
 
-    const user =
-      await UserDAO.findByDid(body.userDid) ?? await UserDAO.findById(body.userDid);
-    if (!user)
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
+  const user =
+    (await UserDAO.findByDid(body.userDid)) ??
+    (await UserDAO.findById(body.userDid));
+  if (!user) return notFound("User not found");
 
-    const ok = await RealmDAO.removeUserFromRealm(user.id, id);
-    if (!ok)
-      return NextResponse.json(
-        { error: "Cannot remove user from the default realm" },
-        { status: 400 }
-      );
+  const ok = await RealmDAO.removeUserFromRealm(user.id, id);
+  if (!ok) return malformed("Cannot remove user from the default realm");
 
-    return NextResponse.json({ ok: true });
-  } catch (err) {
-    console.error(err);
-    return NextResponse.json(
-      { error: "Failed to remove user from realm" },
-      { status: 500 }
-    );
-  }
+  return NextResponse.json({ ok: true });
 }

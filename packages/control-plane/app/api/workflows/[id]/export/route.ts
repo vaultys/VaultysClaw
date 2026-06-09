@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
-import { unauthorized, forbidden } from "@/lib/api-utils";
+import { unauthorized, forbidden, notFound } from "@/lib/api-utils";
 import { WorkflowDAO } from "@/db";
 
 /**
@@ -53,10 +53,7 @@ export async function GET(
   const workflow = await WorkflowDAO.findById(id);
 
   if (!workflow) {
-    return NextResponse.json(
-      { success: false, error: "Workflow not found" },
-      { status: 404 }
-    );
+    return notFound("Workflow not found");
   }
 
   if (workflow.realmId && !(await auth.canAccessRealm(workflow.realmId)))

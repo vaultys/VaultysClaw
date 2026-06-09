@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
-import { unauthorized, forbidden } from "@/lib/api-utils";
+import { unauthorized, forbidden, malformed } from "@/lib/api-utils";
 import { decryptSecret } from "@/lib/vault";
 import { SettingsDAO } from "@/db";
 import { getStorageConfig } from "@/db/settings.dao";
@@ -90,13 +90,7 @@ export async function POST(request: NextRequest) {
   }
 
   if (!bucket || !accessKeyId || !secretAccessKey) {
-    return NextResponse.json(
-      {
-        ok: false,
-        error: "bucket, accessKeyId and secretAccessKey are required",
-      },
-      { status: 400 }
-    );
+    return malformed("bucket, accessKeyId and secretAccessKey are required");
   }
 
   const start = Date.now();

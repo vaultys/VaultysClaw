@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
-import { unauthorized, forbidden } from "@/lib/api-utils";
+import { forbidden, malformed, notFound, unauthorized } from "@/lib/api-utils";
 import { ChannelService } from "@/lib/channel-service";
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -63,57 +63,40 @@ type Ctx = { params: Promise<{ id: string }> };
  *         description: Failed to post message.
  */
 export async function POST(req: NextRequest, ctx: Ctx) {
-  try {
-    const auth = await getAuthContext(req);
-    if (!auth) return unauthorized();
+  const auth = await getAuthContext(req);
+  if (!auth) return unauthorized();
 
-    const { id: channelId } = await ctx.params;
-    const channel = await ChannelService.getChannel(channelId);
+  const { id: channelId } = await ctx.params;
+  const channel = await ChannelService.getChannel(channelId);
 
-    if (!channel) {
-      return NextResponse.json({ error: "Channel not found" }, { status: 404 });
-    }
-
-    // Check if caller is a member of the channel
-    if (!(await ChannelService.isMember(channelId, auth.did))) {
-      return NextResponse.json(
-        { error: "Caller is not a member of this channel" },
-        { status: 403 }
-      );
-    }
-
-    const body = (await req.json()) as {
-      content: string;
-      threadId?: string;
-      metadata?: Record<string, any>;
-    };
-
-    if (!body.content?.trim()) {
-      return NextResponse.json(
-        { error: "content is required" },
-        { status: 400 }
-      );
-    }
-
-    // Post agent message
-    const message = await ChannelService.postMessage({
-      channelId,
-      authorDid: auth.did,
-      authorType: "agent",
-      content: body.content.trim(),
-      threadId: body.threadId,
-      metadata: body.metadata,
-    });
-
-    return NextResponse.json({ message }, { status: 201 });
-  } catch (err) {
-    console.error(
-      "POST /api/channels/[id]/messages/agent-response error:",
-      err
-    );
-    return NextResponse.json(
-      { error: "Failed to post message" },
-      { status: 500 }
-    );
+  if (!channel) {
+    return notFound("Channel not found");
   }
+
+  // Check if caller is a member of the channel
+  if (!(await ChannelService.isMember(channelId, auth.did))) {
+    return forbidden();
+  }
+
+  const body = (await req.json()) as {
+    content: string;
+    threadId?: string;
+    metadata?: Record<string, any>;
+  };
+
+  if (!body.content?.trim()) {
+    return malformed("content is required");
+  }
+
+  // Post agent message
+  const message = await ChannelService.postMessage({
+    channelId,
+    authorDid: auth.did,
+    authorType: "agent",
+    content: body.content.trim(),
+    threadId: body.threadId,
+    metadata: body.metadata,
+  });
+
+  return NextResponse.json({ message }, { status: 201 });
 }

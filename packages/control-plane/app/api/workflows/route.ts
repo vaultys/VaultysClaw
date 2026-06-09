@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
-import { unauthorized, forbidden } from "@/lib/api-utils";
+import { unauthorized, forbidden, malformed } from "@/lib/api-utils";
 import { RealmDAO, WorkflowDAO } from "@/db";
 import type { WorkflowDefinition } from "@/lib/workflow-executor";
 import { Prisma } from "@prisma/client";
@@ -64,59 +64,45 @@ import { Prisma } from "@prisma/client";
  *         description: Failed to save workflow.
  */
 export async function POST(request: NextRequest) {
-  try {
-    const auth = await getAuthContext(request);
-    if (!auth) return unauthorized();
+  const auth = await getAuthContext(request);
+  if (!auth) return unauthorized();
 
-    const body = await request.json();
-    const { name, description, definition, realmId } = body as {
-      name?: string;
-      description?: string;
-      definition?: WorkflowDefinition;
-      realmId?: string;
-    };
+  const body = await request.json();
+  const { name, description, definition, realmId } = body as {
+    name?: string;
+    description?: string;
+    definition?: WorkflowDefinition;
+    realmId?: string;
+  };
 
-    if (!name || typeof name !== "string") {
-      return NextResponse.json(
-        { error: "name (string) is required" },
-        { status: 400 }
-      );
-    }
-    if (!definition || typeof definition !== "object") {
-      return NextResponse.json(
-        { error: "definition (object) is required" },
-        { status: 400 }
-      );
-    }
-
-    // If no realmId, must be global admin (no implicit realm to check admin on)
-    if (realmId) {
-      if (!(await auth.canAdminRealm(realmId))) return forbidden();
-    } else if (!auth.isGlobalAdmin) {
-      return forbidden();
-    }
-
-    const id = await WorkflowDAO.create(
-      name,
-      definition as unknown as Prisma.InputJsonValue,
-      undefined,
-      realmId
-    );
-
-    return NextResponse.json({
-      success: true,
-      id,
-      name,
-      description,
-      realmId: realmId || "default",
-    });
-  } catch (err) {
-    console.error("POST /api/workflows error:", err);
-    return NextResponse.json(
-      { error: "Failed to save workflow" },
-      { status: 500 }
-    );
+  if (!name || typeof name !== "string") {
+    return malformed("name (string) is required");
   }
+  if (!definition || typeof definition !== "object") {
+    return malformed("definition (object) is required");
+  }
+
+  // If no realmId, must be global admin (no implicit realm to check admin on)
+  if (realmId) {
+    if (!(await auth.canAdminRealm(realmId))) return forbidden();
+  } else if (!auth.isGlobalAdmin) {
+    return forbidden();
+  }
+
+  const id = await WorkflowDAO.create(
+    name,
+    definition as unknown as Prisma.InputJsonValue,
+    undefined,
+    realmId
+  );
+
+  return NextResponse.json({
+    success: true,
+    id,
+    name,
+    description,
+    realmId: realmId || "default",
+  });
 }
 
 /**
@@ -168,49 +154,41 @@ export async function POST(request: NextRequest) {
  *         description: Failed to list workflows.
  */
 export async function GET(request: NextRequest) {
-  try {
-    const auth = await getAuthContext(request);
-    if (!auth) return unauthorized();
+  const auth = await getAuthContext(request);
+  if (!auth) return unauthorized();
 
-    const { searchParams } = request.nextUrl;
-    const createdBy = searchParams.get("createdBy");
-    const realmId = searchParams.get("realmId");
+  const { searchParams } = request.nextUrl;
+  const createdBy = searchParams.get("createdBy");
+  const realmId = searchParams.get("realmId");
 
-    // Members can only query realms they belong to
-    if (realmId && !(await auth.canAccessRealm(realmId))) return forbidden();
+  // Members can only query realms they belong to
+  if (realmId && !(await auth.canAccessRealm(realmId))) return forbidden();
 
-    let workflows = await WorkflowDAO.list({
-      createdBy: createdBy ?? undefined,
-      realmId: realmId ?? undefined,
-    });
+  let workflows = await WorkflowDAO.list({
+    createdBy: createdBy ?? undefined,
+    realmId: realmId ?? undefined,
+  });
 
-    // Non-admins: filter to workflows in their realms
-    if (!auth.isGlobalAdmin) {
-      const userRealmIds = new Set(
-        (await RealmDAO.getUserRealms(auth.did)).map((r) => r.realmId)
-      );
-      workflows = workflows.filter(
-        (w) => w.realmId && userRealmIds.has(w.realmId)
-      );
-    }
-
-    return NextResponse.json({
-      success: true,
-      workflows: workflows.map((w) => ({
-        id: w.id,
-        name: w.name,
-        description: w.description,
-        realmId: w.realmId,
-        createdBy: w.createdBy,
-        createdAt: w.createdAt,
-        updatedAt: w.updatedAt,
-      })),
-    });
-  } catch (err) {
-    console.error("GET /api/workflows error:", err);
-    return NextResponse.json(
-      { error: "Failed to list workflows" },
-      { status: 500 }
+  // Non-admins: filter to workflows in their realms
+  if (!auth.isGlobalAdmin) {
+    const userRealmIds = new Set(
+      (await RealmDAO.getUserRealms(auth.did)).map((r) => r.realmId)
+    );
+    workflows = workflows.filter(
+      (w) => w.realmId && userRealmIds.has(w.realmId)
     );
   }
+
+  return NextResponse.json({
+    success: true,
+    workflows: workflows.map((w) => ({
+      id: w.id,
+      name: w.name,
+      description: w.description,
+      realmId: w.realmId,
+      createdBy: w.createdBy,
+      createdAt: w.createdAt,
+      updatedAt: w.updatedAt,
+    })),
+  });
 }

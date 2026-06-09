@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
-import { unauthorized, forbidden } from "@/lib/api-utils";
+import { unauthorized, forbidden, malformed, notFound } from "@/lib/api-utils";
 import { UserDAO } from "@/db";
 
 /**
@@ -62,12 +62,12 @@ export async function PATCH(
   const { did } = await params;
   const body = await req.json().catch(() => null);
   if (!body) {
-    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+    return malformed("Invalid JSON body");
   }
 
   const user = (await UserDAO.findByDid(did)) ?? (await UserDAO.findById(did));
   if (!user) {
-    return NextResponse.json({ error: "User not found" }, { status: 404 });
+    return notFound("User not found");
   }
 
   if (body.lat === null || body.lat === undefined) {
@@ -77,10 +77,7 @@ export async function PATCH(
     const lon = parseFloat(body.lon);
     const label = String(body.label ?? "");
     if (isNaN(lat) || isNaN(lon)) {
-      return NextResponse.json(
-        { error: "lat and lon must be valid numbers" },
-        { status: 400 }
-      );
+      return malformed("lat and lon must be valid numbers");
     }
     await UserDAO.updateLocation(user.id, { lat, lon, label });
   }

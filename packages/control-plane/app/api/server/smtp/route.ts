@@ -6,7 +6,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
-import { forbidden, unauthorized } from "@/lib/api-utils";
+import { forbidden, malformed, unauthorized } from "@/lib/api-utils";
 import { getSmtpConfig, saveSmtpConfig, testSmtpConnection } from "@/lib/smtp";
 
 /**
@@ -115,10 +115,7 @@ export async function PUT(req: NextRequest) {
   };
 
   if (!body.host || !body.port || !body.from) {
-    return NextResponse.json(
-      { error: "host, port and from are required" },
-      { status: 400 }
-    );
+    return malformed("host, port and from are required");
   }
 
   const existing = await getSmtpConfig();
@@ -206,16 +203,9 @@ export async function POST(req: NextRequest) {
   };
 
   if (!config.host || !config.port) {
-    return NextResponse.json({ error: "SMTP not configured" }, { status: 400 });
+    return malformed("host and port are required for connectivity test");
   }
 
-  try {
-    await testSmtpConnection(config);
-    return NextResponse.json({ ok: true });
-  } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Connection failed" },
-      { status: 502 }
-    );
-  }
+  await testSmtpConnection(config);
+  return NextResponse.json({ ok: true });
 }

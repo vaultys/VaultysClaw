@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
-import { unauthorized, forbidden } from "@/lib/api-utils";
+import {
+  unauthorized,
+  forbidden,
+  notFound,
+  unprocessableEntity,
+} from "@/lib/api-utils";
 import { ModelDAO, RealmDAO } from "@/db";
 import {
   createRealmKey,
@@ -25,12 +30,11 @@ export async function PUT(req: NextRequest, { params }: Ctx) {
   const { id: realmId } = await params;
 
   const realm = await RealmDAO.findById(realmId);
-  if (!realm) return NextResponse.json({ error: "Realm not found" }, { status: 404 });
+  if (!realm) return notFound("Realm not found");
 
   if (!isLiteLLMConfigured()) {
-    return NextResponse.json(
-      { error: "LiteLLM not configured — set it up in /models first" },
-      { status: 422 }
+    return unprocessableEntity(
+      "LiteLLM not configured — set it up in /models first"
     );
   }
 
@@ -48,10 +52,14 @@ export async function PUT(req: NextRequest, { params }: Ctx) {
   const existing = await RealmDAO.getRouterKey(realmId);
   const monthlyBudget =
     body.monthlyBudget !== undefined
-      ? body.monthlyBudget ?? undefined
-      : existing?.monthlyBudgetUsd ?? undefined;
+      ? (body.monthlyBudget ?? undefined)
+      : (existing?.monthlyBudgetUsd ?? undefined);
 
-  const { virtualKey } = await createRealmKey(realmId, allowedModels, monthlyBudget);
+  const { virtualKey } = await createRealmKey(
+    realmId,
+    allowedModels,
+    monthlyBudget
+  );
 
   await RealmDAO.upsertRouterKey(realmId, {
     litellmVirtualKey: virtualKey,
@@ -74,7 +82,10 @@ export async function PUT(req: NextRequest, { params }: Ctx) {
         ws?.sendLlmConfig(agentDid, config);
       }
     } catch (e) {
-      console.warn("PUT /realms/litellm-key: push to agents failed (non-fatal):", e);
+      console.warn(
+        "PUT /realms/litellm-key: push to agents failed (non-fatal):",
+        e
+      );
     }
   }
 

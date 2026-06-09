@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { UserServerChannel } from "@/lib/user-server-channel";
 import { VaultysId } from "@vaultys/id";
+import { malformed } from "@/lib/api-utils";
 
 /**
  * GET /api/user/bastion/connect
@@ -53,10 +54,7 @@ import { VaultysId } from "@vaultys/id";
 export async function GET(request: NextRequest) {
   const browserVid = request.nextUrl.searchParams.get("vid");
   if (!browserVid) {
-    return NextResponse.json(
-      { error: "Browser VID not provided" },
-      { status: 400 }
-    );
+    return malformed("Browser VID not provided");
   }
 
   const ip =
@@ -82,11 +80,7 @@ export async function GET(request: NextRequest) {
     userAgent,
     deviceType
   );
-  if (!result)
-    return NextResponse.json(
-      { error: "Failed to create bastion certificate" },
-      { status: 500 }
-    );
+  if (!result) throw new Error("Failed to create bastion certificate");
 
   return NextResponse.json(result);
 }

@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
-import { unauthorized, forbidden } from "@/lib/api-utils";
+import {
+  unauthorized,
+  forbidden,
+  notFound,
+  conflict,
+  unavailable,
+} from "@/lib/api-utils";
 import { getWSServer } from "@/lib/ws-server";
 import { KnowledgeDAO, SettingsDAO } from "@/db";
 
@@ -57,22 +63,15 @@ export async function POST(
 
   const { id } = await params;
   const source = await KnowledgeDAO.findSource(id);
-  if (!source)
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (!source) return notFound("Knowledge source not found");
 
-  if (source.status === "syncing") {
-    return NextResponse.json(
-      { error: "Sync already in progress" },
-      { status: 409 }
-    );
+  if (source.status === "snycing") {
+    return conflict("Sync already in progress");
   }
 
   const wsServer = getWSServer();
   if (!wsServer) {
-    return NextResponse.json(
-      { error: "WebSocket server not available" },
-      { status: 503 }
-    );
+    return unavailable("WebSocket server not available");
   }
 
   // Check if the agent is connected
@@ -98,13 +97,17 @@ export async function POST(
   })();
 
   // Include Docling URL if configured and enabled
-  const [doclingEnabled, doclingUrl, doclingSourceEndpoint, doclingFileEndpoint] =
-    await Promise.all([
-      SettingsDAO.get("docling_enabled"),
-      SettingsDAO.get("docling_url"),
-      SettingsDAO.get("docling_source_endpoint"),
-      SettingsDAO.get("docling_file_endpoint"),
-    ]);
+  const [
+    doclingEnabled,
+    doclingUrl,
+    doclingSourceEndpoint,
+    doclingFileEndpoint,
+  ] = await Promise.all([
+    SettingsDAO.get("docling_enabled"),
+    SettingsDAO.get("docling_url"),
+    SettingsDAO.get("docling_source_endpoint"),
+    SettingsDAO.get("docling_file_endpoint"),
+  ]);
   const docling =
     doclingEnabled === "true" && doclingUrl
       ? {
@@ -115,14 +118,13 @@ export async function POST(
       : undefined;
 
   // For 'files' sources, load file attachments (base64 encoded) to send to agent
-  let fileAttachments: Array<{ id: string; filePath: string | null }> | undefined;
+  let fileAttachments:
+    | Array<{ id: string; filePath: string | null }>
+    | undefined;
   if (source.sourceType === "files") {
     fileAttachments = await KnowledgeDAO.getFilePathsForSource(source.id);
     if (!fileAttachments || fileAttachments.length === 0) {
-      return NextResponse.json(
-        { error: "No files attached to this source — upload files first" },
-        { status: 400 }
-      );
+      return notFound("No files attached to this knowledge source");
     }
   }
 

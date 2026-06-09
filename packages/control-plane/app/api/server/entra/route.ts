@@ -6,7 +6,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
-import { forbidden, unauthorized } from "@/lib/api-utils";
+import { forbidden, malformed, unauthorized } from "@/lib/api-utils";
 import {
   getEntraConfig,
   saveEntraConfig,
@@ -103,10 +103,7 @@ export async function PUT(req: NextRequest) {
   };
 
   if (!body.tenantId || !body.clientId || !body.clientSecret) {
-    return NextResponse.json(
-      { error: "tenantId, clientId and clientSecret are required" },
-      { status: 400 }
-    );
+    return malformed("tenantId, clientId and clientSecret are required");
   }
 
   // If secret is the redacted placeholder, keep the existing one
@@ -203,9 +200,8 @@ export async function POST(req: NextRequest) {
   };
 
   if (!config.tenantId || !config.clientId || !config.clientSecret) {
-    return NextResponse.json(
-      { error: "Entra credentials are not configured" },
-      { status: 400 }
+    return malformed(
+      "tenantId, clientId and clientSecret are required for connectivity test"
     );
   }
 

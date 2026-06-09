@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
-import { unauthorized, forbidden } from "@/lib/api-utils";
+import { unauthorized, forbidden, notFound, malformed } from "@/lib/api-utils";
 import { ChannelService } from "@/lib/channel-service";
 
 type Ctx = { params: Promise<{ id: string; msgId: string }> };
@@ -64,52 +64,36 @@ type Ctx = { params: Promise<{ id: string; msgId: string }> };
  *         description: Internal server error
  */
 export async function POST(req: NextRequest, ctx: Ctx) {
-  try {
-    const auth = await getAuthContext(req);
-    if (!auth) return unauthorized();
+  const auth = await getAuthContext(req);
+  if (!auth) return unauthorized();
 
-    const { id, msgId } = await ctx.params;
+  const { id, msgId } = await ctx.params;
 
-    // Verify channel access and membership
-    const channel = await ChannelService.getChannel(id);
-    if (!channel) {
-      return NextResponse.json({ error: "Channel not found" }, { status: 404 });
-    }
-
-    if (!(await ChannelService.isMember(id, auth.did))) {
-      return forbidden();
-    }
-
-    const message = await ChannelService.getMessage(msgId);
-    if (!message || message.channelId !== id) {
-      return NextResponse.json({ error: "Message not found" }, { status: 404 });
-    }
-
-    const body = (await req.json()) as { emoji?: string; add?: boolean };
-
-    if (!body.emoji?.trim()) {
-      return NextResponse.json({ error: "emoji is required" }, { status: 400 });
-    }
-
-    const isAdd = body.add !== false;
-
-    try {
-      const updated = isAdd
-        ? await ChannelService.addReaction(msgId, body.emoji.trim(), auth.did)
-        : await ChannelService.removeReaction(msgId, body.emoji.trim(), auth.did);
-
-      return NextResponse.json({ message: updated });
-    } catch (err: any) {
-      return NextResponse.json({ error: err.message }, { status: 400 });
-    }
-  } catch (err) {
-    console.error(
-      "POST /api/channels/[id]/messages/[msgId]/reactions error:",
-      err
-    );
-    return NextResponse.json(
-      { error: "Failed to update reaction" },
-      { status: 500 }
-    );
+  // Verify channel access and membership
+  const channel = await ChannelService.getChannel(id);
+  if (!channel) {
+    return notFound("Channel not found");
   }
+
+  if (!(await ChannelService.isMember(id, auth.did))) {
+    return forbidden();
+  }
+
+  const message = await ChannelService.getMessage(msgId);
+  if (!message || message.channelId !== id) {
+    return notFound("Message not found");
+  }
+
+  const body = (await req.json()) as { emoji?: string; add?: boolean };
+
+  if (!body.emoji?.trim()) {
+    return malformed("emoji is required");
+  }
+
+  const isAdd = body.add !== false;
+  const updated = isAdd
+    ? await ChannelService.addReaction(msgId, body.emoji.trim(), auth.did)
+    : await ChannelService.removeReaction(msgId, body.emoji.trim(), auth.did);
+
+  return NextResponse.json({ message: updated });
 }

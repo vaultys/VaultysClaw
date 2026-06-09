@@ -47,14 +47,6 @@ export async function POST(
   { params }: { params: Promise<{ token: string }> }
 ) {
   const { token } = await params;
-  try {
-    await prisma.userInvitation.deleteMany({ where: { token } });
-    return NextResponse.json({ success: true });
-  } catch (err) {
-    console.error("Error deleting invitation:", err);
-    return NextResponse.json(
-      { error: "Failed to delete invitation" },
-      { status: 500 }
-    );
-  }
+  await prisma.userInvitation.deleteMany({ where: { token } });
+  return NextResponse.json({ success: true });
 }

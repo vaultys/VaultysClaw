@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
-import { unauthorized, forbidden } from "@/lib/api-utils";
+import { unauthorized, forbidden, malformed } from "@/lib/api-utils";
 import { SettingsDAO } from "@/db";
 import { getStorageConfig, setStorageConfig } from "@/db/settings.dao";
 
@@ -156,25 +156,18 @@ export async function PUT(request: NextRequest) {
   if (body.s3?.enabled) {
     const { region, bucket, accessKeyId, secretAccessKey } = body.s3;
     if (!region || !bucket) {
-      return NextResponse.json(
-        { error: "region and bucket are required when enabling S3" },
-        { status: 400 }
-      );
+      return malformed("region and bucket are required when enabling S3");
     }
     if (!accessKeyId) {
-      return NextResponse.json(
-        { error: "accessKeyId is required when enabling S3" },
-        { status: 400 }
-      );
+      return malformed("accessKeyId is required when enabling S3");
     }
     // secretAccessKey is only required if not already saved
-    if (!secretAccessKey && !await SettingsDAO.get("s3_secret_access_key_enc")) {
-      return NextResponse.json(
-        {
-          error:
-            "secretAccessKey is required when enabling S3 for the first time",
-        },
-        { status: 400 }
+    if (
+      !secretAccessKey &&
+      !(await SettingsDAO.get("s3_secret_access_key_enc"))
+    ) {
+      return malformed(
+        "secretAccessKey is required when enabling S3 for the first time"
       );
     }
   }

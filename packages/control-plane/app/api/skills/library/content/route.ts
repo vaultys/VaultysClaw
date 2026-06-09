@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
-import { unauthorized } from "@/lib/api-utils";
+import { malformed, notFound, unauthorized } from "@/lib/api-utils";
 import { OrgSkillDAO } from "@/db";
 
 /**
@@ -48,15 +48,12 @@ export async function GET(request: NextRequest) {
   const skillId = searchParams.get("skillId");
 
   if (!skillId) {
-    return NextResponse.json({ error: "skillId is required" }, { status: 400 });
+    return malformed("skillId query parameter is required");
   }
 
   const skill = await OrgSkillDAO.findByName(skillId);
   if (!skill || !skill.content) {
-    return NextResponse.json(
-      { error: "Skill content not found" },
-      { status: 404 }
-    );
+    return notFound("Skill content not found");
   }
 
   return NextResponse.json({ content: skill.content });

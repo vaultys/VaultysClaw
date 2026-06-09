@@ -62,17 +62,10 @@ export async function POST(req: NextRequest) {
     groupNames?: Record<string, string>;
   };
 
-  try {
-    const result = await syncEntraUsers({
-      groupIds: body.groupIds ?? [],
-      groupRealmMap: body.groupRealmMap ?? {},
-      groupNames: body.groupNames ?? {},
-    });
-    return NextResponse.json(result);
-  } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Sync failed" },
-      { status: 502 }
-    );
-  }
+  const result = await syncEntraUsers({
+    groupIds: body.groupIds ?? [],
+    groupRealmMap: body.groupRealmMap ?? {},
+    groupNames: body.groupNames ?? {},
+  });
+  return NextResponse.json(result);
 }

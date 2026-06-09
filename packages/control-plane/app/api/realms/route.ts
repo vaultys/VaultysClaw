@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
-import { unauthorized, forbidden } from "@/lib/api-utils";
+import { unauthorized, forbidden, malformed, conflict } from "@/lib/api-utils";
 import { RealmDAO, WorkflowDAO } from "@/db";
 
 /**
@@ -49,38 +49,30 @@ import { RealmDAO, WorkflowDAO } from "@/db";
  *         description: Failed to fetch realms.
  */
 export async function GET(request: NextRequest) {
-  try {
-    const auth = await getAuthContext(request);
-    if (!auth) return unauthorized();
+  const auth = await getAuthContext(request);
+  if (!auth) return unauthorized();
 
-    const allRealms = await RealmDAO.findAll();
-    const userRealmIds = auth.isGlobalAdmin
-      ? null
-      : new Set((await RealmDAO.getUserRealms(auth.did)).map((r) => r.realmId));
+  const allRealms = await RealmDAO.findAll();
+  const userRealmIds = auth.isGlobalAdmin
+    ? null
+    : new Set((await RealmDAO.getUserRealms(auth.did)).map((r) => r.realmId));
 
-    const realmsWithCounts = await Promise.all(
-      allRealms
-        .filter((realm) => userRealmIds === null || userRealmIds.has(realm.id))
-        .map(async (realm) => {
-          const agents = await RealmDAO.getAgents(realm.id);
-          const users = await RealmDAO.getUsers(realm.id);
-          const workflows = await WorkflowDAO.list({ realmId: realm.id });
-          return {
-            ...realm,
-            agentCount: agents.length,
-            userCount: users.length,
-            workflowCount: workflows.length,
-          };
-        })
-    );
-    return NextResponse.json({ realms: realmsWithCounts });
-  } catch (err) {
-    console.error(err);
-    return NextResponse.json(
-      { error: "Failed to fetch realms" },
-      { status: 500 }
-    );
-  }
+  const realmsWithCounts = await Promise.all(
+    allRealms
+      .filter((realm) => userRealmIds === null || userRealmIds.has(realm.id))
+      .map(async (realm) => {
+        const agents = await RealmDAO.getAgents(realm.id);
+        const users = await RealmDAO.getUsers(realm.id);
+        const workflows = await WorkflowDAO.list({ realmId: realm.id });
+        return {
+          ...realm,
+          agentCount: agents.length,
+          userCount: users.length,
+          workflowCount: workflows.length,
+        };
+      })
+  );
+  return NextResponse.json({ realms: realmsWithCounts });
 }
 
 /**
@@ -136,52 +128,41 @@ export async function GET(request: NextRequest) {
  *         description: Failed to create realm.
  */
 export async function POST(req: NextRequest) {
-  try {
-    const auth = await getAuthContext(req);
-    if (!auth) return unauthorized();
-    if (!auth.isGlobalAdmin) return forbidden();
+  const auth = await getAuthContext(req);
+  if (!auth) return unauthorized();
+  if (!auth.isGlobalAdmin) return forbidden();
 
-    const body = (await req.json()) as {
-      name?: string;
-      slug?: string;
-      description?: string;
-      color?: string;
-    };
+  const body = (await req.json()) as {
+    name?: string;
+    slug?: string;
+    description?: string;
+    color?: string;
+  };
 
-    if (!body.name?.trim()) {
-      return NextResponse.json({ error: "name is required" }, { status: 400 });
-    }
-
-    const slug = (body.slug ?? body.name)
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-|-$/g, "");
-
-    if (!slug) {
-      return NextResponse.json({ error: "Invalid slug" }, { status: 400 });
-    }
-
-    const existing = await RealmDAO.findBySlug(slug);
-    if (existing) {
-      return NextResponse.json(
-        { error: "A realm with this slug already exists" },
-        { status: 409 }
-      );
-    }
-
-    const realm = await RealmDAO.create({
-      name: body.name.trim(),
-      slug,
-      description: body.description?.trim() || undefined,
-      color: body.color ?? "#6366f1",
-    });
-
-    return NextResponse.json({ realm }, { status: 201 });
-  } catch (err) {
-    console.error(err);
-    return NextResponse.json(
-      { error: "Failed to create realm" },
-      { status: 500 }
-    );
+  if (!body.name?.trim()) {
+    return malformed("name is required");
   }
+
+  const slug = (body.slug ?? body.name)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+
+  if (!slug) {
+    return malformed("Invalid slug");
+  }
+
+  const existing = await RealmDAO.findBySlug(slug);
+  if (existing) {
+    return conflict("A realm with this slug already exists");
+  }
+
+  const realm = await RealmDAO.create({
+    name: body.name.trim(),
+    slug,
+    description: body.description?.trim() || undefined,
+    color: body.color ?? "#6366f1",
+  });
+
+  return NextResponse.json({ realm }, { status: 201 });
 }

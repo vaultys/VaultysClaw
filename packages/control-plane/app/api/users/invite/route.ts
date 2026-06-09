@@ -11,6 +11,7 @@ import { authOptions } from "@/lib/auth-config";
 import { UserServerChannel } from "@/lib/user-server-channel";
 import { VaultysId } from "@vaultys/id";
 import { SettingsDAO } from "@/db";
+import { forbidden } from "@/lib/api-utils";
 
 /**
  * @openapi
@@ -40,7 +41,7 @@ import { SettingsDAO } from "@/db";
 export async function GET() {
   const session = await getServerSession(authOptions);
   if (!session?.user?.isOwner && !session?.user?.isAdmin) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    return forbidden();
   }
 
   // Always creates a registration cert (new user, never becomes owner unless first)

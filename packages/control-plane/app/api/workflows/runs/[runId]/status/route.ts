@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
-import { unauthorized, forbidden } from "@/lib/api-utils";
+import { unauthorized, forbidden, notFound } from "@/lib/api-utils";
 import { WorkflowDAO } from "@/db";
 
 type Params = { runId: string };
@@ -60,38 +60,27 @@ export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<Params> }
 ) {
-  try {
-    const auth = await getAuthContext(_request);
-    if (!auth) return unauthorized();
+  const auth = await getAuthContext(_request);
+  if (!auth) return unauthorized();
 
-    const { runId } = await params;
+  const { runId } = await params;
 
-    const run = await WorkflowDAO.findRun(runId);
-    if (!run) {
-      return NextResponse.json(
-        { error: "Workflow run not found" },
-        { status: 404 }
-      );
-    }
-
-    const workflow = await WorkflowDAO.findById(run.workflowId);
-    if (workflow?.realmId && !(await auth.canAccessRealm(workflow.realmId)))
-      return forbidden();
-
-    return NextResponse.json({
-      success: true,
-      runId: run.id,
-      workflowId: run.workflowId,
-      status: run.status,
-      startedAt: run.startedAt,
-      completedAt: run.completedAt,
-      results: run.results ? run.results : null,
-    });
-  } catch (err) {
-    console.error("GET /api/workflows/runs/[runId]/status error:", err);
-    return NextResponse.json(
-      { error: "Failed to fetch workflow run status" },
-      { status: 500 }
-    );
+  const run = await WorkflowDAO.findRun(runId);
+  if (!run) {
+    return notFound("Workflow run not found");
   }
+
+  const workflow = await WorkflowDAO.findById(run.workflowId);
+  if (workflow?.realmId && !(await auth.canAccessRealm(workflow.realmId)))
+    return forbidden();
+
+  return NextResponse.json({
+    success: true,
+    runId: run.id,
+    workflowId: run.workflowId,
+    status: run.status,
+    startedAt: run.startedAt,
+    completedAt: run.completedAt,
+    results: run.results ? run.results : null,
+  });
 }

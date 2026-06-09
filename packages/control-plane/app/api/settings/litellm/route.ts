@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
-import { unauthorized, forbidden } from "@/lib/api-utils";
+import { unauthorized, forbidden, malformed } from "@/lib/api-utils";
 import { getLiteLLMSettings, setLiteLLMSettings } from "@/db/settings.dao";
-import { isLiteLLMConfigured, getLiteLLMBaseUrl, listModels } from "@/lib/litellm-client";
+import {
+  isLiteLLMConfigured,
+  getLiteLLMBaseUrl,
+  listModels,
+} from "@/lib/litellm-client";
 import {
   reconnectLiteLLMService,
   disconnectLiteLLMService,
@@ -13,7 +17,9 @@ import {
 async function litellmFetch<T>(path: string): Promise<T | null> {
   if (!isLiteLLMConfigured()) return null;
   const base = getLiteLLMBaseUrl();
-  const { masterKey } = await getLiteLLMSettings().catch(() => ({ masterKey: null }));
+  const { masterKey } = await getLiteLLMSettings().catch(() => ({
+    masterKey: null,
+  }));
   const key = masterKey ?? process.env.LITELLM_MASTER_KEY ?? "";
   if (!base || !key) return null;
   try {
@@ -37,11 +43,15 @@ export async function GET(req: NextRequest) {
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
 
-  const { baseUrl, masterKey } = await getLiteLLMSettings().catch(() => ({ baseUrl: null, masterKey: null }));
+  const { baseUrl, masterKey } = await getLiteLLMSettings().catch(() => ({
+    baseUrl: null,
+    masterKey: null,
+  }));
   const svcState = getLiteLLMServiceState();
 
   const effectiveBaseUrl = baseUrl ?? process.env.LITELLM_BASE_URL ?? null;
-  const effectiveMasterKey = masterKey ?? process.env.LITELLM_MASTER_KEY ?? null;
+  const effectiveMasterKey =
+    masterKey ?? process.env.LITELLM_MASTER_KEY ?? null;
   const configured = Boolean(effectiveBaseUrl && effectiveMasterKey);
   const healthy = svcState.status === "connected";
 
@@ -54,7 +64,9 @@ export async function GET(req: NextRequest) {
     modelCount = models.length;
     const spendData = await litellmFetch<{ spend: number }>("/global/spend");
     if (spendData?.spend != null) totalSpend = spendData.spend;
-    const keyData = await litellmFetch<{ keys: unknown[] }>("/key/list?include_team_keys=true");
+    const keyData = await litellmFetch<{ keys: unknown[] }>(
+      "/key/list?include_team_keys=true"
+    );
     if (Array.isArray(keyData?.keys)) keyCount = keyData!.keys.length;
   }
 
@@ -81,7 +93,7 @@ export async function PUT(req: NextRequest) {
   if (!auth.isGlobalAdmin) return forbidden();
 
   const body = (await req.json()) as { baseUrl?: string; masterKey?: string };
-  if (!body.baseUrl) return NextResponse.json({ error: "baseUrl is required" }, { status: 400 });
+  if (!body.baseUrl) return malformed("baseUrl is required");
 
   await setLiteLLMSettings({
     baseUrl: body.baseUrl,

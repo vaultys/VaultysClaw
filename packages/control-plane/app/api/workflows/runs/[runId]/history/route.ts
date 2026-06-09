@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
-import { unauthorized, forbidden } from "@/lib/api-utils";
+import { unauthorized, forbidden, notFound } from "@/lib/api-utils";
 import { WorkflowDAO } from "@/db";
 
 type Params = { runId: string };
@@ -97,53 +97,42 @@ export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<Params> }
 ) {
-  try {
-    const auth = await getAuthContext(_request);
-    if (!auth) return unauthorized();
+  const auth = await getAuthContext(_request);
+  if (!auth) return unauthorized();
 
-    const { runId } = await params;
+  const { runId } = await params;
 
-    const history = await WorkflowDAO.getRunHistory(runId);
-    if (!history) {
-      return NextResponse.json(
-        { error: "Workflow run not found" },
-        { status: 404 }
-      );
-    }
-
-    const workflow = await WorkflowDAO.findById(history.run.workflowId);
-    if (workflow?.realmId && !(await auth.canAccessRealm(workflow.realmId)))
-      return forbidden();
-
-    return NextResponse.json({
-      success: true,
-      run: {
-        id: history.run.id,
-        workflowId: history.run.workflowId,
-        status: history.run.status,
-        startedAt: history.run.startedAt,
-        completedAt: history.run.completedAt,
-        results: history.run.results ? history.run.results : null,
-      },
-      steps: history.steps.map((step) => ({
-        id: step.id,
-        stepId: step.stepId,
-        agentId: step.agentId,
-        assignedUserId: step.assignedUserId ?? null,
-        assignedUserName: step.assignedUserName ?? null,
-        assignedUserEmail: step.assignedUserEmail ?? null,
-        status: step.status,
-        output: step.output ? step.output : null,
-        error: step.error,
-        startedAt: step.startedAt,
-        completedAt: step.completedAt,
-      })),
-    });
-  } catch (err) {
-    console.error("GET /api/workflows/runs/[runId]/history error:", err);
-    return NextResponse.json(
-      { error: "Failed to fetch workflow run history" },
-      { status: 500 }
-    );
+  const history = await WorkflowDAO.getRunHistory(runId);
+  if (!history) {
+    return notFound("Workflow run not found");
   }
+
+  const workflow = await WorkflowDAO.findById(history.run.workflowId);
+  if (workflow?.realmId && !(await auth.canAccessRealm(workflow.realmId)))
+    return forbidden();
+
+  return NextResponse.json({
+    success: true,
+    run: {
+      id: history.run.id,
+      workflowId: history.run.workflowId,
+      status: history.run.status,
+      startedAt: history.run.startedAt,
+      completedAt: history.run.completedAt,
+      results: history.run.results ? history.run.results : null,
+    },
+    steps: history.steps.map((step) => ({
+      id: step.id,
+      stepId: step.stepId,
+      agentId: step.agentId,
+      assignedUserId: step.assignedUserId ?? null,
+      assignedUserName: step.assignedUserName ?? null,
+      assignedUserEmail: step.assignedUserEmail ?? null,
+      status: step.status,
+      output: step.output ? step.output : null,
+      error: step.error,
+      startedAt: step.startedAt,
+      completedAt: step.completedAt,
+    })),
+  });
 }

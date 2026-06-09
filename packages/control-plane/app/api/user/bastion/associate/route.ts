@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { UserServerChannel } from "@/lib/user-server-channel";
+import { malformed } from "@/lib/api-utils";
 
 /**
  * POST /api/user/bastion/associate
@@ -56,24 +57,18 @@ export async function POST(request: NextRequest) {
   };
 
   if (!userToken || !browserToken) {
-    return NextResponse.json(
-      { error: "userToken and browserToken are required" },
-      { status: 400 }
-    );
+    return malformed("userToken and browserToken are required");
   }
 
   const userCert = await UserServerChannel.connecting(userToken);
   const browserCert = await UserServerChannel.connecting(browserToken);
 
   if (!userCert || !browserCert) {
-    return NextResponse.json({ error: "Invalid tokens" }, { status: 400 });
+    return malformed("Invalid tokens");
   }
 
   if (userCert.status !== 2 || browserCert.status !== 2) {
-    return NextResponse.json(
-      { error: "Both certificates must be completed" },
-      { status: 400 }
-    );
+    return malformed("Both certificates must be completed");
   }
 
   return NextResponse.json({ ok: true });

@@ -5,7 +5,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
-import { unauthorized, forbidden } from "@/lib/api-utils";
+import { unauthorized, forbidden, malformed, conflict } from "@/lib/api-utils";
 import { OrgSkillDAO } from "@/db";
 
 /**
@@ -120,7 +120,7 @@ export async function POST(req: NextRequest) {
   };
 
   if (!body.name?.trim()) {
-    return NextResponse.json({ error: "name is required" }, { status: 400 });
+    return malformed("Name is required");
   }
 
   try {
@@ -136,10 +136,7 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     if (msg.includes("UNIQUE")) {
-      return NextResponse.json(
-        { error: `Skill "${body.name}" already exists in the catalog` },
-        { status: 409 }
-      );
+      return conflict(`Skill "${body.name}" already exists in the catalog`);
     }
     return NextResponse.json(
       { error: "Failed to create skill" },

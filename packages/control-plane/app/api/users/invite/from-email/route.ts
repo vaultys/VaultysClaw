@@ -10,6 +10,7 @@ import { UserServerChannel } from "@/lib/user-server-channel";
 import { VaultysId } from "@vaultys/id";
 import { SettingsDAO, UserDAO } from "@/db";
 import { prisma } from "@/db/client";
+import { malformed, notFound } from "@/lib/api-utils";
 
 /**
  * @openapi
@@ -57,66 +58,53 @@ import { prisma } from "@/db/client";
  *         description: Failed to generate QR code due to server error.
  */
 export async function POST(request: NextRequest) {
-  try {
-    const { token } = (await request.json()) as { token?: string };
+  const { token } = (await request.json()) as { token?: string };
 
-    if (!token) {
-      return NextResponse.json({ error: "Token required" }, { status: 400 });
-    }
-
-    const invitation = await UserDAO.findInvitation(token);
-    if (!invitation) {
-      return NextResponse.json(
-        { error: "Invitation not found" },
-        { status: 404 }
-      );
-    }
-
-    const expiresAt = new Date(invitation.expiresAt);
-    if (expiresAt < new Date()) {
-      return NextResponse.json(
-        { error: "Invitation expired" },
-        { status: 404 }
-      );
-    }
-
-    // Get the unclaimed user ID for this email
-    const user = await prisma.user.findFirst({
-      where: { email: invitation.email, did: null },
-      select: { id: true },
-    });
-
-    // Create registration certificate with pendingUserId in metadata
-    const cert = await UserServerChannel.createRegistrationCertificate({
-      pendingUserId: user?.id,
-      invitationToken: token,
-    });
-    const connectionString = await UserServerChannel.startP2PSession(cert);
-
-    const serverSecret = await SettingsDAO.get("serverSecret");
-    let serverDid: string | null = null;
-    if (serverSecret) {
-      serverDid = VaultysId.fromSecret(serverSecret, "base64").did;
-    }
-
-    const walletUrl = await SettingsDAO.get("walletUrl") || "https://wallet.vaultys.net";
-    const didParam = serverDid ? `&did=${encodeURIComponent(serverDid)}` : "";
-    const qrUrl = `${walletUrl}/#${connectionString}&protocol=p2p&service=auth${didParam}`;
-
-    // Mark invitation as claimed
-    await UserDAO.claimInvitation(token);
-
-    return NextResponse.json({
-      qrUrl,
-      connectionString,
-      inviteToken: cert.connection,
-      serverDid,
-    });
-  } catch (err) {
-    console.error("Email invite QR generation error:", err);
-    return NextResponse.json(
-      { error: "Failed to generate QR" },
-      { status: 500 }
-    );
+  if (!token) {
+    return malformed("Token is required");
   }
+
+  const invitation = await UserDAO.findInvitation(token);
+  if (!invitation) {
+    return notFound("Invitation not found");
+  }
+
+  const expiresAt = new Date(invitation.expiresAt);
+  if (expiresAt < new Date()) {
+    return notFound("Invitation expired");
+  }
+
+  // Get the unclaimed user ID for this email
+  const user = await prisma.user.findFirst({
+    where: { email: invitation.email, did: null },
+    select: { id: true },
+  });
+
+  // Create registration certificate with pendingUserId in metadata
+  const cert = await UserServerChannel.createRegistrationCertificate({
+    pendingUserId: user?.id,
+    invitationToken: token,
+  });
+  const connectionString = await UserServerChannel.startP2PSession(cert);
+
+  const serverSecret = await SettingsDAO.get("serverSecret");
+  let serverDid: string | null = null;
+  if (serverSecret) {
+    serverDid = VaultysId.fromSecret(serverSecret, "base64").did;
+  }
+
+  const walletUrl =
+    (await SettingsDAO.get("walletUrl")) || "https://wallet.vaultys.net";
+  const didParam = serverDid ? `&did=${encodeURIComponent(serverDid)}` : "";
+  const qrUrl = `${walletUrl}/#${connectionString}&protocol=p2p&service=auth${didParam}`;
+
+  // Mark invitation as claimed
+  await UserDAO.claimInvitation(token);
+
+  return NextResponse.json({
+    qrUrl,
+    connectionString,
+    inviteToken: cert.connection,
+    serverDid,
+  });
 }

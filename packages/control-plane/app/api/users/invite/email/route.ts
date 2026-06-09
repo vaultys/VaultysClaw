@@ -10,6 +10,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-config";
 import { sendMail } from "@/lib/smtp";
 import { SettingsDAO, UserDAO } from "@/db";
+import { forbidden, malformed } from "@/lib/api-utils";
 
 /**
  * @openapi
@@ -61,33 +62,34 @@ import { SettingsDAO, UserDAO } from "@/db";
 export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.isOwner && !session?.user?.isAdmin) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    return forbidden();
   }
 
-  try {
-    const { email, name, role } = (await request.json()) as {
-      email?: string;
-      name?: string;
-      role?: string;
-    };
+  const { email, name, role } = (await request.json()) as {
+    email?: string;
+    name?: string;
+    role?: string;
+  };
 
-    if (!email || !name) {
-      return NextResponse.json(
-        { error: "Email and name required" },
-        { status: 400 }
-      );
-    }
+  if (!email || !name) {
+    return malformed("Email and name required");
+  }
 
-    const userRole = role ?? "member";
-    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+  const userRole = role ?? "member";
+  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
-    const token = await UserDAO.createInvitation(email, name, userRole, expiresAt);
+  const token = await UserDAO.createInvitation(
+    email,
+    name,
+    userRole,
+    expiresAt
+  );
 
-    const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
-    const inviteUrl = `${baseUrl}/invite/${token}`;
+  const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
+  const inviteUrl = `${baseUrl}/invite/${token}`;
 
-    const platformName = (await SettingsDAO.get("platformName")) || "VaultysClaw";
-    const html = `
+  const platformName = (await SettingsDAO.get("platformName")) || "VaultysClaw";
+  const html = `
       <h2>You're invited to ${platformName}</h2>
       <p>Hi ${name},</p>
       <p>You've been invited to join ${platformName} as a <strong>${userRole}</strong>.</p>
@@ -100,19 +102,12 @@ export async function POST(request: NextRequest) {
       <p>This invitation expires in 7 days.</p>
     `;
 
-    await sendMail({
-      to: email,
-      subject: `Invitation to ${platformName}`,
-      html,
-      text: `You've been invited to join ${platformName} as a ${userRole}. Visit: ${inviteUrl}`,
-    });
+  await sendMail({
+    to: email,
+    subject: `Invitation to ${platformName}`,
+    html,
+    text: `You've been invited to join ${platformName} as a ${userRole}. Visit: ${inviteUrl}`,
+  });
 
-    return NextResponse.json({ token });
-  } catch (err) {
-    console.error("Email invitation error:", err);
-    return NextResponse.json(
-      { error: "Failed to send invitation" },
-      { status: 500 }
-    );
-  }
+  return NextResponse.json({ token });
 }

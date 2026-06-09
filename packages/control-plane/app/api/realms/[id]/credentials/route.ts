@@ -8,7 +8,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
-import { unauthorized, forbidden } from "@/lib/api-utils";
+import { unauthorized, forbidden, notFound, malformed } from "@/lib/api-utils";
 import { encryptSecret } from "@/lib/vault";
 import { CredentialDAO, RealmDAO } from "@/db";
 
@@ -58,8 +58,7 @@ export async function GET(req: NextRequest, ctx: Ctx) {
 
   const { id: realmId } = await ctx.params;
   const realm = await RealmDAO.findById(realmId);
-  if (!realm)
-    return NextResponse.json({ error: "Realm not found" }, { status: 404 });
+  if (!realm) return notFound("Realm not found");
   if (!(await auth.canAccessRealm(realmId))) return forbidden();
 
   const service = req.nextUrl.searchParams.get("service");
@@ -127,8 +126,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
 
   const { id: realmId } = await ctx.params;
   const realm = await RealmDAO.findById(realmId);
-  if (!realm)
-    return NextResponse.json({ error: "Realm not found" }, { status: 404 });
+  if (!realm) return notFound("Realm not found");
   if (!(await auth.canAdminRealm(realmId))) return forbidden();
 
   const body = (await req.json()) as {
@@ -139,10 +137,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   };
 
   if (!body.service || !body.name || !body.secret) {
-    return NextResponse.json(
-      { error: "service, name, and secret are required" },
-      { status: 400 }
-    );
+    return malformed("service, name, and secret are required");
   }
 
   const secretEncrypted = await encryptSecret(body.secret);
@@ -210,10 +205,7 @@ export async function DELETE(req: NextRequest, ctx: Ctx) {
   const service = req.nextUrl.searchParams.get("service");
   const name = req.nextUrl.searchParams.get("name");
   if (!service || !name) {
-    return NextResponse.json(
-      { error: "service and name query params are required" },
-      { status: 400 }
-    );
+    return malformed("service and name query params are required");
   }
 
   const deleted = await CredentialDAO.deleteByKey(realmId, service, name);

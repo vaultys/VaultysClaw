@@ -9,6 +9,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-config";
 import { RealmDAO, UserDAO } from "@/db";
+import { forbidden, malformed, notFound } from "@/lib/api-utils";
 
 const VALID_ROLES = [
   "owner",
@@ -96,17 +97,14 @@ type Ctx = { params: Promise<{ id: string }> };
 export async function GET(_req: NextRequest, { params }: Ctx) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.isAdmin) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    return forbidden();
   }
 
   const { id } = await params;
   const user = await UserDAO.findById(id);
   if (!user || user.did) {
     // Not found or already claimed — redirect callers to the normal route
-    return NextResponse.json(
-      { error: "User not found or already claimed" },
-      { status: 404 }
-    );
+    return notFound("User not found or already claimed");
   }
 
   const realms = await RealmDAO.getUserRealms(user.id);
@@ -180,16 +178,13 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
 export async function PATCH(req: NextRequest, { params }: Ctx) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.isAdmin) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    return forbidden();
   }
 
   const { id } = await params;
   const user = await UserDAO.findById(id);
   if (!user || user.did) {
-    return NextResponse.json(
-      { error: "User not found or already claimed" },
-      { status: 404 }
-    );
+    return notFound("User not found or already claimed");
   }
 
   const body = (await req.json()) as {
@@ -209,7 +204,7 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
   }
   if (typeof body.role === "string") {
     if (!VALID_ROLES.includes(body.role as ValidRole)) {
-      return NextResponse.json({ error: "Invalid role" }, { status: 400 });
+      return malformed("Invalid role");
     }
     fields.role = body.role;
   }
@@ -245,16 +240,13 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
 export async function DELETE(_req: NextRequest, { params }: Ctx) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.isAdmin) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    return forbidden();
   }
 
   const { id } = await params;
   const user = await UserDAO.findById(id);
   if (!user || user.did) {
-    return NextResponse.json(
-      { error: "User not found or already claimed" },
-      { status: 404 }
-    );
+    return notFound("User not found or already claimed");
   }
 
   await UserDAO.delete(id);

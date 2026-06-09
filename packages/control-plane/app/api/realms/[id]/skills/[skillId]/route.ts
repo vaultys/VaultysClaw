@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
-import { unauthorized, forbidden } from "@/lib/api-utils";
+import { unauthorized, forbidden, notFound } from "@/lib/api-utils";
 import { broadcastSkillsConfig } from "@/lib/ws-server";
-import { RealmDAO, RealmSkillDAO } from "@/db";
+import { RealmSkillDAO } from "@/db";
 
 type Ctx = { params: Promise<{ id: string; skillId: string }> };
 
@@ -66,37 +66,29 @@ type Ctx = { params: Promise<{ id: string; skillId: string }> };
  *         description: Failed to fetch skill.
  */
 export async function GET(_req: NextRequest, ctx: Ctx) {
-  try {
-    const auth = await getAuthContext(_req);
-    if (!auth) return unauthorized();
+  const auth = await getAuthContext(_req);
+  if (!auth) return unauthorized();
 
-    const { id, skillId } = await ctx.params;
-    if (!(await auth.canAccessRealm(id))) return forbidden();
+  const { id, skillId } = await ctx.params;
+  if (!(await auth.canAccessRealm(id))) return forbidden();
 
-    const skill = await RealmSkillDAO.findById(skillId);
-    if (!skill || skill.realmId !== id) {
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
-    }
-
-    return NextResponse.json({
-      skill: {
-        id: skill.id,
-        realmId: skill.realmId,
-        name: skill.name,
-        description: skill.description,
-        version: skill.version,
-        isRequired: skill.isRequired,
-        config: skill.config,
-        createdAt: skill.createdAt,
-      },
-    });
-  } catch (err) {
-    console.error(err);
-    return NextResponse.json(
-      { error: "Failed to fetch skill" },
-      { status: 500 }
-    );
+  const skill = await RealmSkillDAO.findById(skillId);
+  if (!skill || skill.realmId !== id) {
+    return notFound("Skill not found");
   }
+
+  return NextResponse.json({
+    skill: {
+      id: skill.id,
+      realmId: skill.realmId,
+      name: skill.name,
+      description: skill.description,
+      version: skill.version,
+      isRequired: skill.isRequired,
+      config: skill.config,
+      createdAt: skill.createdAt,
+    },
+  });
 }
 
 /**
@@ -162,60 +154,52 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
  *         $ref: '#/components/responses/NotFound'
  */
 export async function PATCH(req: NextRequest, ctx: Ctx) {
-  try {
-    const auth = await getAuthContext(req);
-    if (!auth) return unauthorized();
+  const auth = await getAuthContext(req);
+  if (!auth) return unauthorized();
 
-    const { id, skillId } = await ctx.params;
-    if (!(await auth.canAdminRealm(id))) return forbidden();
+  const { id, skillId } = await ctx.params;
+  if (!(await auth.canAdminRealm(id))) return forbidden();
 
-    const skill = await RealmSkillDAO.findById(skillId);
-    if (!skill || skill.realmId !== id) {
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
-    }
-
-    const body = (await req.json()) as {
-      description?: string | null;
-      version?: string | null;
-      isRequired?: boolean;
-      config?: Record<string, unknown>;
-      content?: string | null;
-    };
-
-    const updates: Parameters<typeof RealmSkillDAO.update>[1] = {};
-    if ("description" in body) updates.description = body.description ?? null;
-    if ("version" in body) updates.version = body.version ?? null;
-    if ("isRequired" in body) updates.isRequired = body.isRequired;
-    if ("config" in body) updates.config = body.config;
-    if ("content" in body) updates.content = body.content ?? null;
-
-    await RealmSkillDAO.update(skillId, updates);
-
-    broadcastSkillsConfig(id);
-
-    const updated = await RealmSkillDAO.findById(skillId);
-    if (!updated) {
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
-    }
-    return NextResponse.json({
-      skill: {
-        id: updated.id,
-        realmId: updated.realmId,
-        name: updated.name,
-        description: updated.description,
-        version: updated.version,
-        isRequired: updated.isRequired,
-        config: updated.config,
-        createdAt: updated.createdAt,
-      },
-    });
-  } catch (err) {
-    console.error(err);
-    return NextResponse.json(
-      { error: "Failed to update skill" },
-      { status: 500 }
-    );
+  const skill = await RealmSkillDAO.findById(skillId);
+  if (!skill || skill.realmId !== id) {
+    return notFound("Skill not found");
   }
+
+  const body = (await req.json()) as {
+    description?: string | null;
+    version?: string | null;
+    isRequired?: boolean;
+    config?: Record<string, unknown>;
+    content?: string | null;
+  };
+
+  const updates: Parameters<typeof RealmSkillDAO.update>[1] = {};
+  if ("description" in body) updates.description = body.description ?? null;
+  if ("version" in body) updates.version = body.version ?? null;
+  if ("isRequired" in body) updates.isRequired = body.isRequired;
+  if ("config" in body) updates.config = body.config;
+  if ("content" in body) updates.content = body.content ?? null;
+
+  await RealmSkillDAO.update(skillId, updates);
+
+  broadcastSkillsConfig(id);
+
+  const updated = await RealmSkillDAO.findById(skillId);
+  if (!updated) {
+    return notFound("Skill not found");
+  }
+  return NextResponse.json({
+    skill: {
+      id: updated.id,
+      realmId: updated.realmId,
+      name: updated.name,
+      description: updated.description,
+      version: updated.version,
+      isRequired: updated.isRequired,
+      config: updated.config,
+      createdAt: updated.createdAt,
+    },
+  });
 }
 
 /**
@@ -262,27 +246,19 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
  *         description: Failed to delete skill.
  */
 export async function DELETE(_req: NextRequest, ctx: Ctx) {
-  try {
-    const auth = await getAuthContext(_req);
-    if (!auth) return unauthorized();
+  const auth = await getAuthContext(_req);
+  if (!auth) return unauthorized();
 
-    const { id, skillId } = await ctx.params;
-    if (!(await auth.canAdminRealm(id))) return forbidden();
+  const { id, skillId } = await ctx.params;
+  if (!(await auth.canAdminRealm(id))) return forbidden();
 
-    const skill = await RealmSkillDAO.findById(skillId);
-    if (!skill || skill.realmId !== id) {
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
-    }
-
-    await RealmSkillDAO.delete(skillId);
-    broadcastSkillsConfig(id);
-
-    return NextResponse.json({ ok: true });
-  } catch (err) {
-    console.error(err);
-    return NextResponse.json(
-      { error: "Failed to delete skill" },
-      { status: 500 }
-    );
+  const skill = await RealmSkillDAO.findById(skillId);
+  if (!skill || skill.realmId !== id) {
+    return notFound("Skill not found");
   }
+
+  await RealmSkillDAO.delete(skillId);
+  broadcastSkillsConfig(id);
+
+  return NextResponse.json({ ok: true });
 }

@@ -83,20 +83,13 @@ const AVAILABLE_CAPABILITIES: {
  *         description: Failed to fetch registrations.
  */
 export async function GET(request: NextRequest) {
-  try {
-    const auth = await getAuthContext(request);
-    if (!auth) return unauthorized();
-    if (!auth.isGlobalAdmin) return forbidden();
+  const auth = await getAuthContext(request);
+  if (!auth) return unauthorized();
+  if (!auth.isGlobalAdmin) return forbidden();
 
-    const registrations = await PendingRegistrationDAO.findAll();
-    return NextResponse.json({
-      registrations,
-      availableCapabilities: AVAILABLE_CAPABILITIES,
-    });
-  } catch (error) {
-    return NextResponse.json(
-      { error: "Failed to fetch registrations" },
-      { status: 500 }
-    );
-  }
+  const registrations = await PendingRegistrationDAO.findAll();
+  return NextResponse.json({
+    registrations,
+    availableCapabilities: AVAILABLE_CAPABILITIES,
+  });
 }

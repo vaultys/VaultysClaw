@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
-import { unauthorized, forbidden } from "@/lib/api-utils";
+import { unauthorized, forbidden, malformed, notFound } from "@/lib/api-utils";
 import { AgentDAO, KnowledgeDAO, RealmDAO } from "@/db";
 
 // GET /api/knowledge?realmId=xxx&agentDid=xxx
@@ -115,19 +115,16 @@ export async function POST(request: NextRequest) {
   };
 
   if (!realmId || !agentDid || !name || !sourceType) {
-    return NextResponse.json(
-      { error: "Missing required fields: realmId, agentDid, name, sourceType" },
-      { status: 400 }
+    return malformed(
+      "Missing required fields: realmId, agentDid, name, sourceType"
     );
   }
 
   const realm = await RealmDAO.findById(realmId);
-  if (!realm)
-    return NextResponse.json({ error: "Realm not found" }, { status: 404 });
+  if (!realm) return notFound("Realm not found");
 
   const agent = await AgentDAO.findByDid(agentDid);
-  if (!agent)
-    return NextResponse.json({ error: "Agent not found" }, { status: 404 });
+  if (!agent) return notFound("Agent not found");
 
   const source = await KnowledgeDAO.createSource({
     realmId,

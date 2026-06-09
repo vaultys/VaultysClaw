@@ -91,94 +91,86 @@ import { prisma } from "@/db/client";
  *         description: Failed to fetch audit log.
  */
 export async function GET(request: NextRequest) {
-  try {
-    const auth = await getAuthContext(request);
-    if (!auth) return unauthorized();
-    if (!auth.isGlobalAdmin) return forbidden();
+  const auth = await getAuthContext(request);
+  if (!auth) return unauthorized();
+  if (!auth.isGlobalAdmin) return forbidden();
 
-    const { searchParams } = new URL(request.url);
-    const limit = Math.min(
-      500,
-      Math.max(1, parseInt(searchParams.get("limit") ?? "200", 10) || 200)
-    );
-    const source = searchParams.get("source") ?? "";
-    const statusFilter = searchParams.get("status") ?? "";
-    const agentDidFilter = searchParams.get("agentDid") ?? "";
+  const { searchParams } = new URL(request.url);
+  const limit = Math.min(
+    500,
+    Math.max(1, parseInt(searchParams.get("limit") ?? "200", 10) || 200)
+  );
+  const source = searchParams.get("source") ?? "";
+  const statusFilter = searchParams.get("status") ?? "";
+  const agentDidFilter = searchParams.get("agentDid") ?? "";
 
-    type AuditEntry = {
-      id: string;
-      source: "activity" | "intent";
-      event: string;
-      agentDid: string | null;
-      agentName: string | null;
-      details: string | null;
-      status: string | null;
-      error: string | null;
-      timestamp: string;
-    };
+  type AuditEntry = {
+    id: string;
+    source: "activity" | "intent";
+    event: string;
+    agentDid: string | null;
+    agentName: string | null;
+    details: string | null;
+    status: string | null;
+    error: string | null;
+    timestamp: string;
+  };
 
-    const entries: AuditEntry[] = [];
+  const entries: AuditEntry[] = [];
 
-    // Activity log entries
-    if (!source || source === "activity") {
-      const activityRows = await prisma.activityLog.findMany({
-        where: agentDidFilter ? { agentDid: agentDidFilter } : undefined,
-        orderBy: { createdAt: "desc" },
-        take: limit,
+  // Activity log entries
+  if (!source || source === "activity") {
+    const activityRows = await prisma.activityLog.findMany({
+      where: agentDidFilter ? { agentDid: agentDidFilter } : undefined,
+      orderBy: { createdAt: "desc" },
+      take: limit,
+    });
+
+    for (const r of activityRows) {
+      entries.push({
+        id: `act-${r.id}`,
+        source: "activity",
+        event: r.event,
+        agentDid: r.agentDid,
+        agentName: r.agentName,
+        details: r.details,
+        status: null,
+        error: null,
+        timestamp: r.createdAt.toISOString(),
       });
-
-      for (const r of activityRows) {
-        entries.push({
-          id: `act-${r.id}`,
-          source: "activity",
-          event: r.event,
-          agentDid: r.agentDid,
-          agentName: r.agentName,
-          details: r.details,
-          status: null,
-          error: null,
-          timestamp: r.createdAt.toISOString(),
-        });
-      }
     }
-
-    // Intent log entries
-    if (!source || source === "intent") {
-      const intentWhere: Record<string, unknown> = {};
-      if (statusFilter) intentWhere.status = statusFilter;
-      if (agentDidFilter) intentWhere.agentDid = agentDidFilter;
-
-      const intentRows = await prisma.intentLog.findMany({
-        where: Object.keys(intentWhere).length ? intentWhere : undefined,
-        orderBy: { sentAt: "desc" },
-        take: limit,
-      });
-
-      for (const r of intentRows) {
-        entries.push({
-          id: `int-${r.intentId}`,
-          source: "intent",
-          event: r.action,
-          agentDid: r.agentDid,
-          agentName: null,
-          details: r.params !== null ? JSON.stringify(r.params) : null,
-          status: r.status,
-          error: r.error,
-          timestamp: r.sentAt.toISOString(),
-        });
-      }
-    }
-
-    // Sort merged result by timestamp desc, cap at limit
-    entries.sort((a, b) => (a.timestamp > b.timestamp ? -1 : 1));
-    const result = entries.slice(0, limit);
-
-    return NextResponse.json({ entries: result, total: result.length });
-  } catch (error) {
-    console.error(error);
-    return NextResponse.json(
-      { error: "Failed to fetch audit log" },
-      { status: 500 }
-    );
   }
+
+  // Intent log entries
+  if (!source || source === "intent") {
+    const intentWhere: Record<string, unknown> = {};
+    if (statusFilter) intentWhere.status = statusFilter;
+    if (agentDidFilter) intentWhere.agentDid = agentDidFilter;
+
+    const intentRows = await prisma.intentLog.findMany({
+      where: Object.keys(intentWhere).length ? intentWhere : undefined,
+      orderBy: { sentAt: "desc" },
+      take: limit,
+    });
+
+    for (const r of intentRows) {
+      entries.push({
+        id: `int-${r.intentId}`,
+        source: "intent",
+        event: r.action,
+        agentDid: r.agentDid,
+        agentName: null,
+        details: r.params !== null ? JSON.stringify(r.params) : null,
+        status: r.status,
+        error: r.error,
+        timestamp: r.sentAt.toISOString(),
+      });
+    }
+  }
+
+  // Sort merged result by timestamp desc, cap at limit
+  entries.sort((a, b) => (a.timestamp > b.timestamp ? -1 : 1));
+  const result = entries.slice(0, limit);
+
+  return NextResponse.json({ entries: result, total: result.length });
 }

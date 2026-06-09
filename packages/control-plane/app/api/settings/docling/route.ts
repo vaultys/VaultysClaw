@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
-import { unauthorized, forbidden } from "@/lib/api-utils";
+import { unauthorized, forbidden, malformed } from "@/lib/api-utils";
 import { getDoclingConfig, setDoclingConfig } from "@/db/settings.dao";
 
 // GET /api/settings/docling
@@ -90,10 +90,7 @@ export async function PUT(request: NextRequest) {
   const enabled = body.enabled ?? false;
 
   if (enabled && !url) {
-    return NextResponse.json(
-      { error: "URL is required when enabling Docling" },
-      { status: 400 }
-    );
+    return malformed("URL is required when enabling Docling");
   }
 
   await setDoclingConfig({ url, enabled });

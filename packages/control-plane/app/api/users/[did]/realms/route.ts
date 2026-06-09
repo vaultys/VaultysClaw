@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-config";
 import { RealmDAO, UserDAO } from "@/db";
+import { forbidden, notFound } from "@/lib/api-utils";
 
 export async function GET(
   _req: NextRequest,
@@ -14,13 +15,13 @@ export async function GET(
 ) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.isAdmin) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    return forbidden();
   }
 
   const { did } = await params;
   const user = (await UserDAO.findByDid(did)) ?? (await UserDAO.findById(did));
   if (!user) {
-    return NextResponse.json({ error: "User not found" }, { status: 404 });
+    return notFound("User not found");
   }
 
   const [memberships, allRealms] = await Promise.all([

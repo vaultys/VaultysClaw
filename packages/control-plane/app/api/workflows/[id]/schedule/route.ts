@@ -6,7 +6,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
-import { unauthorized } from "@/lib/api-utils";
+import { malformed, notFound, unauthorized } from "@/lib/api-utils";
 import { nextCronRun } from "@/lib/workflow-scheduler";
 import { WorkflowDAO } from "@/db";
 
@@ -59,7 +59,7 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
 
   const { id } = await ctx.params;
   const wf = await WorkflowDAO.findById(id);
-  if (!wf) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (!wf) return notFound("Workflow not found");
 
   return NextResponse.json({
     workflowId: id,
@@ -119,7 +119,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
 
   const { id } = await ctx.params;
   const wf = await WorkflowDAO.findById(id);
-  if (!wf) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (!wf) return notFound("Workflow not found");
 
   const body = (await req.json()) as { cron?: string; enabled?: boolean };
   const cron = body.cron ?? null;
@@ -128,10 +128,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   if (cron) {
     // Validate cron has 5 fields
     if (cron.trim().split(/\s+/).length !== 5) {
-      return NextResponse.json(
-        { error: "Invalid cron expression (expected 5 fields)" },
-        { status: 400 }
-      );
+      return malformed("Invalid cron expression (expected 5 fields)");
     }
   }
 
@@ -173,7 +170,7 @@ export async function DELETE(_req: NextRequest, ctx: Ctx) {
 
   const { id } = await ctx.params;
   const wf = await WorkflowDAO.findById(id);
-  if (!wf) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (!wf) return notFound("Workflow not found");
 
   await WorkflowDAO.setSchedule(id, null, false, null);
   return NextResponse.json({ success: true });

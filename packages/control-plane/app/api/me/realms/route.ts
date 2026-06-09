@@ -41,30 +41,22 @@ import { RealmDAO, UserDAO } from "@/db";
  *         description: Failed to fetch realms.
  */
 export async function GET(req: NextRequest) {
-  try {
-    const auth = await getAuthContext(req);
-    if (!auth) return unauthorized();
+  const auth = await getAuthContext(req);
+  if (!auth) return unauthorized();
 
-    // user_realms.user_id references users.id (UUID), not users.did
-    // Resolve UUID from the session DID
-    const user = await UserDAO.findByDid(auth.did);
-    const userId = user?.id ?? auth.did;
+  // user_realms.user_id references users.id (UUID), not users.did
+  // Resolve UUID from the session DID
+  const user = await UserDAO.findByDid(auth.did);
+  const userId = user?.id ?? auth.did;
 
-    const rows = await RealmDAO.getUserRealms(userId);
+  const rows = await RealmDAO.getUserRealms(userId);
 
-    const realms = rows.map((r) => ({
-      id: r.realm.id,
-      name: r.realm.name,
-      slug: r.realm.slug,
-      color: r.realm.color,
-    }));
+  const realms = rows.map((r) => ({
+    id: r.realm.id,
+    name: r.realm.name,
+    slug: r.realm.slug,
+    color: r.realm.color,
+  }));
 
-    return NextResponse.json({ realms });
-  } catch (err) {
-    console.error("GET /api/me/realms error:", err);
-    return NextResponse.json(
-      { error: "Failed to fetch realms" },
-      { status: 500 }
-    );
-  }
+  return NextResponse.json({ realms });
 }

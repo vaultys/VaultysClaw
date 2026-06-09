@@ -8,6 +8,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-config";
 import { GrantDAO, UserDAO } from "@/db";
+import { forbidden, malformed, notFound } from "@/lib/api-utils";
 
 const VALID_ROLES = [
   "owner",
@@ -94,15 +95,14 @@ export async function GET(
 ) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.isAdmin) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    return forbidden();
   }
 
   const { did } = await params;
 
-  const user =
-    (await UserDAO.findByDid(did)) ?? (await UserDAO.findById(did));
+  const user = (await UserDAO.findByDid(did)) ?? (await UserDAO.findById(did));
   if (!user) {
-    return NextResponse.json({ error: "User not found" }, { status: 404 });
+    return notFound("User not found");
   }
 
   const grants = user.did
@@ -120,7 +120,16 @@ export async function GET(
     reportsTo: user.reportsTo ?? null,
     description: user.description ?? null,
     registeredAt: user.registeredAt,
-    grants: (grants as Array<{ id: string; agentDid: string | null; capabilities: unknown; grantedBy: string; expiresAt: Date | null; createdAt: Date }>).map((g) => ({
+    grants: (
+      grants as Array<{
+        id: string;
+        agentDid: string | null;
+        capabilities: unknown;
+        grantedBy: string;
+        expiresAt: Date | null;
+        createdAt: Date;
+      }>
+    ).map((g) => ({
       id: g.id,
       agentDid: g.agentDid,
       capabilities: g.capabilities as string[],
@@ -160,21 +169,18 @@ export async function DELETE(
 ) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.isOwner) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    return forbidden();
   }
 
   const { did } = await params;
 
   if (did === session.user.did) {
-    return NextResponse.json(
-      { error: "Cannot remove yourself" },
-      { status: 400 }
-    );
+    return forbidden("Cannot remove yourself");
   }
 
   const user = await UserDAO.findByDid(did);
   if (!user) {
-    return NextResponse.json({ error: "User not found" }, { status: 404 });
+    return notFound("User not found");
   }
 
   await UserDAO.delete(user.id);
@@ -230,13 +236,13 @@ export async function PATCH(
 ) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.isOwner) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    return forbidden();
   }
 
   const { did } = await params;
   const user = await UserDAO.findByDid(did);
   if (!user) {
-    return NextResponse.json({ error: "User not found" }, { status: 404 });
+    return notFound("User not found");
   }
 
   const body = (await req.json()) as {
@@ -256,7 +262,7 @@ export async function PATCH(
   }
   if (typeof body.role === "string") {
     if (!VALID_ROLES.includes(body.role as ValidRole)) {
-      return NextResponse.json({ error: "Invalid role" }, { status: 400 });
+      return malformed("Invalid role");
     }
     if (!user.isOwner) fields.role = body.role;
   }
@@ -265,17 +271,11 @@ export async function PATCH(
       fields.reportsTo = null;
     } else if (typeof body.reportsTo === "string") {
       if (body.reportsTo === did) {
-        return NextResponse.json(
-          { error: "User cannot report to themselves" },
-          { status: 400 }
-        );
+        return forbidden("User cannot report to themselves");
       }
       const supervisor = await UserDAO.findByDid(body.reportsTo);
       if (!supervisor) {
-        return NextResponse.json(
-          { error: "Supervisor user not found" },
-          { status: 400 }
-        );
+        return notFound("Supervisor user not found");
       }
       fields.reportsTo = body.reportsTo;
     }

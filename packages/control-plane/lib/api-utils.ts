@@ -44,3 +44,24 @@ export function unavailable(error?: unknown): NextResponse {
     { status: 503 }
   );
 }
+
+export function conflict(error?: unknown): NextResponse {
+  return NextResponse.json(
+    { error: errorMessage("Conflict", error) },
+    { status: 409 }
+  );
+}
+
+export function contentTooLarge(error?: unknown): NextResponse {
+  return NextResponse.json(
+    { error: errorMessage("Content too large", error) },
+    { status: 413 }
+  );
+}
+
+export function unprocessableEntity(error?: unknown): NextResponse {
+  return NextResponse.json(
+    { error: errorMessage("Unprocessable entity", error) },
+    { status: 422 }
+  );
+}

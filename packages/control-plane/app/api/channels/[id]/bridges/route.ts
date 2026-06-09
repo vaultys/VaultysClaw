@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
-import { unauthorized } from "@/lib/api-utils";
+import { malformed, notFound, unauthorized } from "@/lib/api-utils";
 import { ChannelBridgeService } from "@/lib/channel-bridge-service";
 import { ChannelService } from "@/lib/channel-service";
 import type {
@@ -54,26 +54,18 @@ function stripConfig(bridge: ChannelBridge): Omit<ChannelBridge, "configJson"> {
  *         description: Failed to fetch bridges.
  */
 export async function GET(_req: NextRequest, ctx: Ctx) {
-  try {
-    const auth = await getAuthContext(_req);
-    if (!auth) return unauthorized();
+  const auth = await getAuthContext(_req);
+  if (!auth) return unauthorized();
 
-    const { id } = await ctx.params;
+  const { id } = await ctx.params;
 
-    const channel = await ChannelService.getChannel(id);
-    if (!channel) {
-      return NextResponse.json({ error: "Channel not found" }, { status: 404 });
-    }
-
-    const bridges = (await ChannelBridgeService.listBridges(id)).map(stripConfig);
-    return NextResponse.json({ bridges });
-  } catch (err) {
-    console.error("GET /api/channels/[id]/bridges error:", err);
-    return NextResponse.json(
-      { error: "Failed to fetch bridges" },
-      { status: 500 }
-    );
+  const channel = await ChannelService.getChannel(id);
+  if (!channel) {
+    return notFound("Channel not found");
   }
+
+  const bridges = (await ChannelBridgeService.listBridges(id)).map(stripConfig);
+  return NextResponse.json({ bridges });
 }
 
 /**
@@ -164,85 +156,52 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
  *                   description: Error message.
  */
 export async function POST(req: NextRequest, ctx: Ctx) {
-  try {
-    const auth = await getAuthContext(req);
-    if (!auth) return unauthorized();
+  const auth = await getAuthContext(req);
+  if (!auth) return unauthorized();
 
-    const { id } = await ctx.params;
+  const { id } = await ctx.params;
 
-    const channel = await ChannelService.getChannel(id);
-    if (!channel) {
-      return NextResponse.json({ error: "Channel not found" }, { status: 404 });
-    }
-
-    const body = (await req.json()) as {
-      externalService?: "teams" | "webhook";
-      externalChannelId?: string;
-      externalChannelName?: string;
-      externalWorkspaceId?: string;
-      syncDirection?: "incoming" | "outgoing" | "bidirectional";
-      config?: TeamsBridgeConfig | WebhookBridgeConfig;
-    };
-
-    if (
-      !body.externalService ||
-      !["teams", "webhook"].includes(body.externalService)
-    ) {
-      return NextResponse.json(
-        { error: "externalService must be 'teams' or 'webhook'" },
-        { status: 400 }
-      );
-    }
-    if (!body.externalChannelId?.trim()) {
-      return NextResponse.json(
-        { error: "externalChannelId is required" },
-        { status: 400 }
-      );
-    }
-    if (!body.externalChannelName?.trim()) {
-      return NextResponse.json(
-        { error: "externalChannelName is required" },
-        { status: 400 }
-      );
-    }
-    if (!body.externalWorkspaceId?.trim()) {
-      return NextResponse.json(
-        { error: "externalWorkspaceId is required" },
-        { status: 400 }
-      );
-    }
-    if (!body.config) {
-      return NextResponse.json(
-        { error: "config is required" },
-        { status: 400 }
-      );
-    }
-
-    try {
-      const bridge = await ChannelBridgeService.createBridge({
-        channelId: id,
-        externalService: body.externalService,
-        externalChannelId: body.externalChannelId.trim(),
-        externalChannelName: body.externalChannelName.trim(),
-        externalWorkspaceId: body.externalWorkspaceId.trim(),
-        syncDirection: body.syncDirection ?? "bidirectional",
-        config: body.config,
-      });
-
-      return NextResponse.json(
-        { bridge: stripConfig(bridge) },
-        { status: 201 }
-      );
-    } catch (err: unknown) {
-      const message =
-        err instanceof Error ? err.message : "Failed to create bridge";
-      return NextResponse.json({ error: message }, { status: 409 });
-    }
-  } catch (err) {
-    console.error("POST /api/channels/[id]/bridges error:", err);
-    return NextResponse.json(
-      { error: "Failed to create bridge" },
-      { status: 500 }
-    );
+  const channel = await ChannelService.getChannel(id);
+  if (!channel) {
+    return notFound("Channel not found");
   }
+
+  const body = (await req.json()) as {
+    externalService?: "teams" | "webhook";
+    externalChannelId?: string;
+    externalChannelName?: string;
+    externalWorkspaceId?: string;
+    syncDirection?: "incoming" | "outgoing" | "bidirectional";
+    config?: TeamsBridgeConfig | WebhookBridgeConfig;
+  };
+
+  if (
+    !body.externalService ||
+    !["teams", "webhook"].includes(body.externalService)
+  ) {
+    return malformed("externalService must be 'teams' or 'webhook'");
+  }
+  if (!body.externalChannelId?.trim()) {
+    return malformed("externalChannelId is required");
+  }
+  if (!body.externalChannelName?.trim()) {
+    return malformed("externalChannelName is required");
+  }
+  if (!body.externalWorkspaceId?.trim()) {
+    return malformed("externalWorkspaceId is required");
+  }
+  if (!body.config) {
+    return malformed("config is required");
+  }
+  const bridge = await ChannelBridgeService.createBridge({
+    channelId: id,
+    externalService: body.externalService,
+    externalChannelId: body.externalChannelId.trim(),
+    externalChannelName: body.externalChannelName.trim(),
+    externalWorkspaceId: body.externalWorkspaceId.trim(),
+    syncDirection: body.syncDirection ?? "bidirectional",
+    config: body.config,
+  });
+
+  return NextResponse.json({ bridge: stripConfig(bridge) }, { status: 201 });
 }

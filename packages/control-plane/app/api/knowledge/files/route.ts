@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
-import { unauthorized, forbidden } from "@/lib/api-utils";
+import {
+  unauthorized,
+  forbidden,
+  malformed,
+  notFound,
+  contentTooLarge,
+} from "@/lib/api-utils";
 import { KnowledgeDAO } from "@/db";
 
 const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20 MB
@@ -54,12 +60,10 @@ export async function GET(request: NextRequest) {
   if (!auth) return unauthorized();
 
   const sourceId = request.nextUrl.searchParams.get("sourceId");
-  if (!sourceId)
-    return NextResponse.json({ error: "sourceId required" }, { status: 400 });
+  if (!sourceId) return malformed("sourceId required");
 
   const source = await KnowledgeDAO.findSource(sourceId);
-  if (!source)
-    return NextResponse.json({ error: "Source not found" }, { status: 404 });
+  if (!source) return notFound("Source not found");
 
   if (!auth.isGlobalAdmin && !(await auth.canAccessRealm(source.realmId))) {
     return forbidden();
@@ -131,22 +135,15 @@ export async function POST(request: NextRequest) {
   const file = formData.get("file") as File | null;
 
   if (!sourceId || !file) {
-    return NextResponse.json(
-      { error: "sourceId and file are required" },
-      { status: 400 }
-    );
+    return malformed("sourceId and file are required");
   }
 
   const source = await KnowledgeDAO.findSource(sourceId);
-  if (!source)
-    return NextResponse.json({ error: "Source not found" }, { status: 404 });
+  if (!source) return notFound("Source not found");
 
   if (file.size > MAX_FILE_SIZE) {
-    return NextResponse.json(
-      {
-        error: `File exceeds maximum size of ${MAX_FILE_SIZE / 1024 / 1024}MB`,
-      },
-      { status: 413 }
+    return contentTooLarge(
+      `File exceeds maximum size of ${MAX_FILE_SIZE / 1024 / 1024}MB`
     );
   }
 

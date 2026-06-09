@@ -11,6 +11,7 @@ import { signDelegation } from "@/lib/delegation";
 import { getWSServer } from "@/lib/ws-server";
 import type { AgentCapability } from "@vaultysclaw/shared";
 import { DelegationCertDAO, GrantDAO, UserDAO } from "@/db";
+import { forbidden, malformed, notFound } from "@/lib/api-utils";
 
 /**
  * @openapi
@@ -65,13 +66,12 @@ export async function GET(
 ) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.isAdmin) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    return forbidden();
   }
 
   const { did } = await params;
   const user = await UserDAO.findByDid(did);
-  if (!user)
-    return NextResponse.json({ error: "User not found" }, { status: 404 });
+  if (!user) return notFound("User not found");
 
   const grants = (await GrantDAO.listByUser(did)).map((g) => ({
     id: g.id,
@@ -158,13 +158,12 @@ export async function POST(
 ) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.isAdmin) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    return forbidden();
   }
 
   const { did } = await params;
   const user = await UserDAO.findByDid(did);
-  if (!user)
-    return NextResponse.json({ error: "User not found" }, { status: 404 });
+  if (!user) return notFound("User not found");
 
   const body = (await req.json()) as {
     agentDid?: string | null;
@@ -173,10 +172,7 @@ export async function POST(
   };
 
   if (!Array.isArray(body.capabilities) || body.capabilities.length === 0) {
-    return NextResponse.json(
-      { error: "capabilities must be a non-empty array" },
-      { status: 400 }
-    );
+    return malformed("capabilities must be a non-empty array");
   }
 
   const expiresAt = body.expiresAt ? new Date(body.expiresAt) : undefined;

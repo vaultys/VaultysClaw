@@ -45,28 +45,22 @@ interface SetupStatus {
  *         description: Failed to fetch setup status.
  */
 export async function GET(request: NextRequest) {
-  try {
-    const auth = await getAuthContext(request);
-    if (!auth) return unauthorized();
-    if (!auth.isGlobalAdmin) return forbidden();
+  const auth = await getAuthContext(request);
+  if (!auth) return unauthorized();
+  if (!auth.isGlobalAdmin) return forbidden();
 
-    const allAgents = await AgentDAO.findAll();
-    const defaultRealm = await RealmDAO.findDefault();
-    const realmUsers = defaultRealm ? await RealmDAO.getUsers(defaultRealm.id) : [];
+  const allAgents = await AgentDAO.findAll();
+  const defaultRealm = await RealmDAO.findDefault();
+  const realmUsers = defaultRealm
+    ? await RealmDAO.getUsers(defaultRealm.id)
+    : [];
 
-    const status: SetupStatus = {
-      model: (await ModelDAO.findAll()).length > 0,
-      email: getSmtpConfig() !== null,
-      users: realmUsers.length > 1, // More than just the admin
-      agent: allAgents.length > 0,
-    };
+  const status: SetupStatus = {
+    model: (await ModelDAO.findAll()).length > 0,
+    email: getSmtpConfig() !== null,
+    users: realmUsers.length > 1, // More than just the admin
+    agent: allAgents.length > 0,
+  };
 
-    return NextResponse.json({ status });
-  } catch (err) {
-    console.error(err);
-    return NextResponse.json(
-      { error: "Failed to fetch setup status" },
-      { status: 500 }
-    );
-  }
+  return NextResponse.json({ status });
 }

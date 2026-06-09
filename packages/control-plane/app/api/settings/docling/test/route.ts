@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
-import { unauthorized, forbidden } from "@/lib/api-utils";
+import { unauthorized, forbidden, malformed } from "@/lib/api-utils";
 import { setDoclingEndpoints } from "@/db/settings.dao";
 
 // ---------------------------------------------------------------------------
@@ -113,10 +113,7 @@ export async function POST(request: NextRequest) {
   const rawUrl = (body.url ?? "").trim().replace(/\/$/, "");
 
   if (!rawUrl) {
-    return NextResponse.json(
-      { ok: false, error: "No URL provided" },
-      { status: 400 }
-    );
+    return malformed("URL is required");
   }
 
   const start = Date.now();

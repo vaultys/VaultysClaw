@@ -2,7 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-config";
 import { getWSServer } from "@/lib/ws-server";
-import { AgentDAO, GrantDAO, IntentDAO } from "@/db";
+import { GrantDAO, IntentDAO } from "@/db";
+import {
+  forbidden,
+  malformed,
+  notFound,
+  unauthorized,
+  unavailable,
+} from "@/lib/api-utils";
 
 /**
  * POST /api/intents
@@ -69,123 +76,94 @@ import { AgentDAO, GrantDAO, IntentDAO } from "@/db";
  *         description: Failed to send intent.
  */
 export async function POST(request: NextRequest) {
-  try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const body = await request.json();
-    const { agentId, action, params, broadcastCapability } = body;
-
-    // Non-owner delegation check
-    if (!session.user.isAdmin) {
-      if (!session.user.did) {
-        return NextResponse.json(
-          { error: "Account not fully claimed" },
-          { status: 403 }
-        );
-      }
-      const capability: string = action ?? broadcastCapability;
-      if (!capability) {
-        return NextResponse.json(
-          { error: "action or broadcastCapability required" },
-          { status: 400 }
-        );
-      }
-
-      const targetAgentId: string | null = agentId ?? null;
-
-      // Check if user has a grant covering this agent + capability
-      const grants = await GrantDAO.listByUser(session.user.did);
-      const hasGrant = grants.some((g) => {
-        const caps = g.capabilities as string[];
-        const agentMatch =
-          g.agentDid === null || g.agentDid === targetAgentId;
-        const capMatch = caps.includes(capability);
-        const notExpired = !g.expiresAt || new Date(g.expiresAt) > new Date();
-        return agentMatch && capMatch && notExpired;
-      });
-
-      if (!hasGrant) {
-        return NextResponse.json(
-          { error: "No grant found for this agent/capability" },
-          { status: 403 }
-        );
-      }
-    }
-
-    const wsServer = getWSServer();
-    if (!wsServer) {
-      return NextResponse.json(
-        { error: "WebSocket server not initialized" },
-        { status: 503 }
-      );
-    }
-
-    const intentId = `intent-${Date.now()}`;
-    let sentTo: string[] = [];
-    // Pass userDid to agent for delegation verification when the caller is not the owner
-    const intentUserDid = session.user.isAdmin
-      ? undefined
-      : (session.user.did ?? undefined);
-
-    if (broadcastCapability) {
-      // Broadcast to all agents with specific capability
-      sentTo = await wsServer.broadcastIntentToCapability(
-        broadcastCapability,
-        intentId,
-        action,
-        params,
-        intentUserDid
-      );
-
-      if (sentTo.length === 0) {
-        return NextResponse.json(
-          { error: "No agents with required capability" },
-          { status: 404 }
-        );
-      }
-    } else if (agentId) {
-      // Send to specific agent
-      const success = wsServer.sendIntentToAgent(
-        agentId,
-        intentId,
-        action,
-        params,
-        intentUserDid
-      );
-
-      if (!success) {
-        return NextResponse.json(
-          { error: "Agent not found or not connected" },
-          { status: 404 }
-        );
-      }
-
-      sentTo = [agentId];
-    } else {
-      return NextResponse.json(
-        { error: "Must specify agentId or broadcastCapability" },
-        { status: 400 }
-      );
-    }
-
-    return NextResponse.json(
-      {
-        intentId,
-        action,
-        sentTo,
-        count: sentTo.length,
-      },
-      { status: 202 }
-    );
-  } catch (error) {
-    return NextResponse.json(
-      { error: "Failed to send intent" },
-      { status: 500 }
-    );
+  const session = await getServerSession(authOptions);
+  if (!session?.user) {
+    return unauthorized();
   }
+
+  const body = await request.json();
+  const { agentId, action, params, broadcastCapability } = body;
+
+  // Non-owner delegation check
+  if (!session.user.isAdmin) {
+    if (!session.user.did) {
+      return forbidden("User account does not have a DID");
+    }
+    const capability: string = action ?? broadcastCapability;
+    if (!capability) {
+      return malformed("action or broadcastCapability required");
+    }
+
+    const targetAgentId: string | null = agentId ?? null;
+
+    // Check if user has a grant covering this agent + capability
+    const grants = await GrantDAO.listByUser(session.user.did);
+    const hasGrant = grants.some((g) => {
+      const caps = g.capabilities as string[];
+      const agentMatch = g.agentDid === null || g.agentDid === targetAgentId;
+      const capMatch = caps.includes(capability);
+      const notExpired = !g.expiresAt || new Date(g.expiresAt) > new Date();
+      return agentMatch && capMatch && notExpired;
+    });
+
+    if (!hasGrant) {
+      return forbidden("No grant found for this agent/capability");
+    }
+  }
+
+  const wsServer = getWSServer();
+  if (!wsServer) {
+    return unavailable("WebSocket server not initialized");
+  }
+
+  const intentId = `intent-${Date.now()}`;
+  let sentTo: string[] = [];
+  // Pass userDid to agent for delegation verification when the caller is not the owner
+  const intentUserDid = session.user.isAdmin
+    ? undefined
+    : (session.user.did ?? undefined);
+
+  if (broadcastCapability) {
+    // Broadcast to all agents with specific capability
+    sentTo = await wsServer.broadcastIntentToCapability(
+      broadcastCapability,
+      intentId,
+      action,
+      params,
+      intentUserDid
+    );
+
+    if (sentTo.length === 0) {
+      return notFound("No agents with required capability");
+    }
+  } else if (agentId) {
+    // Send to specific agent
+    const success = wsServer.sendIntentToAgent(
+      agentId,
+      intentId,
+      action,
+      params,
+      intentUserDid
+    );
+
+    if (!success) {
+      return notFound("Agent not found or not connected");
+    }
+
+    sentTo = [agentId];
+  } else {
+    return malformed("Must specify agentId or broadcastCapability");
+  }
+
+  return NextResponse.json(
+    {
+      intentId,
+      action,
+      sentTo,
+      count: sentTo.length,
+    },
+    { status: 202 }
+  );
 }
 
 /**
@@ -240,37 +218,27 @@ export async function POST(request: NextRequest) {
  *         description: Failed to fetch intents.
  */
 export async function GET(request: NextRequest) {
-  try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const { searchParams } = new URL(request.url);
-    const limit = Math.min(
-      parseInt(searchParams.get("limit") ?? "100", 10),
-      500
-    );
-    const agentDid = searchParams.get("agentDid") ?? undefined;
-
-    const rows = await IntentDAO.findAll(limit, agentDid);
-    const intents = rows.map((r) => ({
-      intentId: r.intentId,
-      agentDid: r.agentDid,
-      action: r.action,
-      params: r.params ? r.params : {},
-      status: r.status,
-      output: r.output ? r.output : null,
-      error: r.error,
-      sentAt: r.sentAt,
-      completedAt: r.completedAt,
-    }));
-
-    return NextResponse.json({ intents });
-  } catch (error) {
-    return NextResponse.json(
-      { error: "Failed to fetch intents" },
-      { status: 500 }
-    );
+  const session = await getServerSession(authOptions);
+  if (!session?.user) {
+    return unauthorized();
   }
+
+  const { searchParams } = new URL(request.url);
+  const limit = Math.min(parseInt(searchParams.get("limit") ?? "100", 10), 500);
+  const agentDid = searchParams.get("agentDid") ?? undefined;
+
+  const rows = await IntentDAO.findAll(limit, agentDid);
+  const intents = rows.map((r) => ({
+    intentId: r.intentId,
+    agentDid: r.agentDid,
+    action: r.action,
+    params: r.params ? r.params : {},
+    status: r.status,
+    output: r.output ? r.output : null,
+    error: r.error,
+    sentAt: r.sentAt,
+    completedAt: r.completedAt,
+  }));
+
+  return NextResponse.json({ intents });
 }

@@ -7,8 +7,8 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-config";
 import { getWSServer } from "@/lib/ws-server";
-import {
 import { withError } from "@/lib/api/handlers/with-error";
+import {
   malformed,
   unauthorized,
   unavailable,

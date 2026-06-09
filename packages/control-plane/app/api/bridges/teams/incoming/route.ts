@@ -3,8 +3,8 @@ import { ChannelService } from "@/lib/channel-service";
 import { MessageDispatcher } from "@/lib/message-dispatcher";
 import { TeamsGateway } from "@/lib/bridges/teams-gateway";
 import { ChannelBridgeDAO } from "@/db";
-import {
 import { withError } from "@/lib/api/handlers/with-error";
+import {
   forbidden,
   malformed,
   notFound,

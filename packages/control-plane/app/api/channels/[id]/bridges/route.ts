@@ -3,8 +3,8 @@ import { getAuthContext } from "@/lib/auth-utils";
 import { malformed, notFound, unauthorized } from "@/lib/api/utils/api-utils";
 import { ChannelBridgeService } from "@/lib/channel-bridge-service";
 import { ChannelService } from "@/lib/channel-service";
-import type {
 import { withError } from "@/lib/api/handlers/with-error";
+import type {
   ChannelBridge,
   TeamsBridgeConfig,
   WebhookBridgeConfig,

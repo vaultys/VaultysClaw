@@ -3,8 +3,8 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-config";
 import { getWSServer } from "@/lib/ws-server";
 import { GrantDAO, IntentDAO } from "@/db";
-import {
 import { withError } from "@/lib/api/handlers/with-error";
+import {
   forbidden,
   malformed,
   notFound,

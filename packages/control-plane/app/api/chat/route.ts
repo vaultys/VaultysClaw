@@ -9,8 +9,8 @@ import type {
   WSToolApprovalRequestPayload,
   ChatMessageEntry,
 } from "@vaultysclaw/shared";
-import {
 import { withError } from "@/lib/api/handlers/with-error";
+import {
   malformed,
   unauthorized,
   unavailable,

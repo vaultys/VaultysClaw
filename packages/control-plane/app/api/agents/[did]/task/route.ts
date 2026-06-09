@@ -6,8 +6,8 @@ import { AgentTask } from "../../../../../types/api/requests";
 import { NextResponse, type NextRequest } from "next/server";
 import { getWSServer } from "@/lib/ws-server";
 import { getAuthContext } from "@/lib/auth-utils";
-import {
 import { withError } from "@/lib/api/handlers/with-error";
+import {
   unauthorized,
   forbidden,
   unavailable,
@@ -64,34 +64,36 @@ import { withError } from "@/lib/api/handlers/with-error";
  *       503:
  *         description: WebSocket server not available.
  */
-export const POST = withError(async (
-  request: NextRequest,
-  { params }: { params: Promise<{ did: string }> }
-) => {
-  const auth = await getAuthContext(request);
-  if (!auth) return unauthorized();
+export const POST = withError(
+  async (
+    request: NextRequest,
+    { params }: { params: Promise<{ did: string }> }
+  ) => {
+    const auth = await getAuthContext(request);
+    if (!auth) return unauthorized();
 
-  const { did } = await params;
-  const agentDid = decodeURIComponent(did);
+    const { did } = await params;
+    const agentDid = decodeURIComponent(did);
 
-  if (!(await auth.canAccessAgent(agentDid))) return forbidden();
+    if (!(await auth.canAccessAgent(agentDid))) return forbidden();
 
-  const wsServer = getWSServer();
-  if (!wsServer) {
-    return unavailable("WebSocket server not available");
+    const wsServer = getWSServer();
+    if (!wsServer) {
+      return unavailable("WebSocket server not available");
+    }
+
+    const body = await request.json();
+    const { action, params: taskParams } = body as AgentTask;
+
+    if (!action || typeof action !== "string") {
+      return malformed("action (string) is required");
+    }
+
+    const ok = wsServer.sendTaskToAgent(agentDid, action, taskParams ?? {});
+    if (!ok) {
+      return unavailable("Agent not connected");
+    }
+
+    return NextResponse.json({ agentId: agentDid, action });
   }
-
-  const body = await request.json();
-  const { action, params: taskParams } = body as AgentTask;
-
-  if (!action || typeof action !== "string") {
-    return malformed("action (string) is required");
-  }
-
-  const ok = wsServer.sendTaskToAgent(agentDid, action, taskParams ?? {});
-  if (!ok) {
-    return unavailable("Agent not connected");
-  }
-
-  return NextResponse.json({ agentId: agentDid, action });
-});
+);

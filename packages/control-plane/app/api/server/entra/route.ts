@@ -7,8 +7,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
 import { forbidden, malformed, unauthorized } from "@/lib/api/utils/api-utils";
-import {
 import { withError } from "@/lib/api/handlers/with-error";
+import {
   getEntraConfig,
   saveEntraConfig,
   listEntraGroups,

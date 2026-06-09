@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getWSServer } from "@/lib/ws-server";
 import { getAuthContext } from "@/lib/auth-utils";
-import {
 import { withError } from "@/lib/api/handlers/with-error";
+import {
   unauthorized,
   forbidden,
   malformed,

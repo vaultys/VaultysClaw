@@ -4,8 +4,8 @@ import { getAuthContext } from "@/lib/auth-utils";
 import { unauthorized, forbidden, malformed } from "@/lib/api/utils/api-utils";
 import { generateApiKey } from "@/lib/api/utils/api-key-utils";
 import { ApiKeyDAO } from "@/db";
-import type {
 import { withError } from "@/lib/api/handlers/with-error";
+import type {
   ApiKey,
   ApiKeyCreateRequest,
   ApiKeyCreatedResponse,

@@ -5,8 +5,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getWSServer } from "@/lib/ws-server";
 import { getAuthContext } from "@/lib/auth-utils";
-import {
 import { withError } from "@/lib/api/handlers/with-error";
+import {
   unauthorized,
   forbidden,
   unavailable,
@@ -53,29 +53,31 @@ import { withError } from "@/lib/api/handlers/with-error";
  *       404:
  *         $ref: '#/components/responses/NotFound'
  */
-export const DELETE = withError(async (
-  request: NextRequest,
-  { params }: { params: Promise<{ did: string; id: string }> }
-) => {
-  const auth = await getAuthContext(request);
-  if (!auth) return unauthorized();
+export const DELETE = withError(
+  async (
+    request: NextRequest,
+    { params }: { params: Promise<{ did: string; id: string }> }
+  ) => {
+    const auth = await getAuthContext(request);
+    if (!auth) return unauthorized();
 
-  const { did, id } = await params;
-  const agentDid = decodeURIComponent(did);
+    const { did, id } = await params;
+    const agentDid = decodeURIComponent(did);
 
-  if (!(await auth.canAdminAgent(agentDid))) return forbidden();
+    if (!(await auth.canAdminAgent(agentDid))) return forbidden();
 
-  const wsServer = getWSServer();
-  if (!wsServer) {
-    return unavailable("WebSocket server not available");
+    const wsServer = getWSServer();
+    if (!wsServer) {
+      return unavailable("WebSocket server not available");
+    }
+
+    const scheduleId = decodeURIComponent(id);
+
+    const ok = wsServer.deleteScheduleOnAgent(agentDid, scheduleId);
+    if (!ok) {
+      return notFound("Agent not connected");
+    }
+
+    return NextResponse.json({ agentId: agentDid, scheduleId });
   }
-
-  const scheduleId = decodeURIComponent(id);
-
-  const ok = wsServer.deleteScheduleOnAgent(agentDid, scheduleId);
-  if (!ok) {
-    return notFound("Agent not connected");
-  }
-
-  return NextResponse.json({ agentId: agentDid, scheduleId });
-});
+);

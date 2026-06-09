@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
 import { unauthorized, forbidden, notFound } from "@/lib/api/utils/api-utils";
 import { ModelDAO, RealmDAO } from "@/db";
-import {
 import { withError } from "@/lib/api/handlers/with-error";
+import {
   registerModel,
   removeModel,
   isLiteLLMConfigured,

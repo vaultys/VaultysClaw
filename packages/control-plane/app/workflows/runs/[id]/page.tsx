@@ -17,25 +17,25 @@ import {
 
 interface WorkflowRunStep {
   id: string;
-  run_id: string;
-  step_id: string;
-  agent_id: string | null;
+  runId: string;
+  stepId: string;
+  agentId: string | null;
   status: string;
   output: string | null;
   error: string | null;
-  started_at: string | null;
-  completed_at: string | null;
-  assigned_user_id: string | null;
-  assigned_user_name: string | null;
-  assigned_user_email: string | null;
+  startedAt: string | null;
+  completedAt: string | null;
+  assignedUserId: string | null;
+  assignedUserName: string | null;
+  assignedUserEmail: string | null;
 }
 
 interface WorkflowRun {
   id: string;
-  workflow_id: string;
+  workflowId: string;
   status: string;
-  started_at: string;
-  completed_at: string | null;
+  startedAt: string;
+  completedAt: string | null;
   results: string | null;
 }
 
@@ -236,7 +236,7 @@ export default function WorkflowRunDetailPage() {
     const def = history.workflow?.definition;
     if (def) {
       const order = topoSort(def.nodes, def.edges);
-      const stepMap = new Map(history.steps.map((s) => [s.step_id, s]));
+      const stepMap = new Map(history.steps.map((s) => [s.stepId, s]));
       const sorted: WorkflowRunStep[] = [];
       for (const nodeId of order) {
         const s = stepMap.get(nodeId);
@@ -249,8 +249,8 @@ export default function WorkflowRunDetailPage() {
       return sorted;
     }
     return [...history.steps].sort((a, b) => {
-      const at = parseTimestamp(a.started_at) ?? 0;
-      const bt = parseTimestamp(b.started_at) ?? 0;
+      const at = parseTimestamp(a.startedAt) ?? 0;
+      const bt = parseTimestamp(b.startedAt) ?? 0;
       return at - bt;
     });
   };
@@ -294,8 +294,8 @@ export default function WorkflowRunDetailPage() {
   const definition = workflow?.definition;
   const nodeMap = new Map(definition?.nodes.map((n) => [n.id, n]) ?? []);
 
-  const startedMs = parseTimestamp(run.started_at);
-  const completedMs = parseTimestamp(run.completed_at);
+  const startedMs = parseTimestamp(run.startedAt);
+  const completedMs = parseTimestamp(run.completedAt);
   const duration =
     startedMs !== null && completedMs !== null
       ? Math.round((completedMs - startedMs) / 1000)
@@ -335,20 +335,20 @@ export default function WorkflowRunDetailPage() {
               <div>
                 <p className="text-foreground-500 text-sm mb-1">Started</p>
                 <p className="text-foreground text-xs font-medium">
-                  {formatDate(run.started_at)}
+                  {formatDate(run.startedAt)}
                 </p>
                 <p className="text-foreground-400 text-xs mt-0.5">
-                  {timeAgo(run.started_at)}
+                  {timeAgo(run.startedAt)}
                 </p>
               </div>
               <div>
                 <p className="text-foreground-500 text-sm mb-1">Completed</p>
                 <p className="text-foreground text-xs font-medium">
-                  {formatDate(run.completed_at)}
+                  {formatDate(run.completedAt)}
                 </p>
-                {run.completed_at && (
+                {run.completedAt && (
                   <p className="text-foreground-400 text-xs mt-0.5">
-                    {timeAgo(run.completed_at)}
+                    {timeAgo(run.completedAt)}
                   </p>
                 )}
               </div>
@@ -381,35 +381,35 @@ export default function WorkflowRunDetailPage() {
           ) : (
             <div className="space-y-3">
               {sortedSteps.map((step, idx) => {
-                const node = nodeMap.get(step.step_id);
+                const node = nodeMap.get(step.stepId);
                 const nodeData = node?.data ?? {};
 
                 // Resolve agent display: prefer node's agentName, then agent_id from step
                 const agentDid =
                   (nodeData.agentId as string | undefined) ??
-                  step.agent_id ??
+                  step.agentId ??
                   null;
                 const agentName =
                   (nodeData.agentName as string | undefined) ?? null;
 
                 // Resolve user display: prefer DB-resolved name (from approval JOIN), then node data
                 const userDid =
-                  step.assigned_user_id ??
+                  step.assignedUserId ??
                   (nodeData.assignedUserId as string | undefined) ??
                   null;
                 const userName =
-                  step.assigned_user_name ??
+                  step.assignedUserName ??
                   (nodeData.assignedUserName as string | undefined) ??
                   null;
-                const userEmail = step.assigned_user_email ?? null;
+                const userEmail = step.assignedUserEmail ?? null;
 
                 // Node label for step title
                 const nodeLabel =
-                  (nodeData.label as string | undefined) ?? step.step_id;
+                  (nodeData.label as string | undefined) ?? step.stepId;
 
                 const isExpanded = expandedSteps.has(step.id);
-                const stepStartMs = parseTimestamp(step.started_at);
-                const stepEndMs = parseTimestamp(step.completed_at);
+                const stepStartMs = parseTimestamp(step.startedAt);
+                const stepEndMs = parseTimestamp(step.completedAt);
                 const stepDuration =
                   stepStartMs !== null && stepEndMs !== null
                     ? Math.round((stepEndMs - stepStartMs) / 1000)
@@ -453,9 +453,9 @@ export default function WorkflowRunDetailPage() {
                             </span>
                           )}
                         </div>
-                        {step.started_at && (
+                        {step.startedAt && (
                           <p className="text-xs text-foreground-400 mt-0.5">
-                            {formatDate(step.started_at)}
+                            {formatDate(step.startedAt)}
                             {stepDuration !== null && ` · ${stepDuration}s`}
                           </p>
                         )}

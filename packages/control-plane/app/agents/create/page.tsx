@@ -235,6 +235,17 @@ export default function CreateAgentPage() {
   const [savingModel, setSavingModel] = useState(false);
   const [modelError, setModelError] = useState<string | null>(null);
 
+  // LiteLLM models state
+  const [liteLlmModels, setLiteLlmModels] = useState<
+    { name: string; params: Record<string, unknown> }[]
+  >([]);
+  const [liteLlmConfigured, setLiteLlmConfigured] = useState(false);
+  const [selectedLiteLlmModel, setSelectedLiteLlmModel] = useState<string | null>(
+    null
+  );
+  const [modelMode, setModelMode] = useState<"registry" | "litellm">("registry");
+  const [creatingLiteLlmKey, setCreatingLiteLlmKey] = useState(false);
+
   // Skills state
   const [skills, setSkills] = useState<SkillConfig[]>([]);
   const [savingSkills, setSavingSkills] = useState(false);
@@ -354,7 +365,21 @@ export default function CreateAgentPage() {
         .then((d: { models?: Model[] }) => setModels(d.models ?? []))
         .catch(() => {});
     }
-  }, [step, models.length]);
+    if (step === "model" && liteLlmModels.length === 0) {
+      fetch("/api/litellm/models")
+        .then((r) => r.json())
+        .then(
+          (d: {
+            models?: { name: string; params: Record<string, unknown> }[];
+            configured?: boolean;
+          }) => {
+            setLiteLlmModels(d.models ?? []);
+            setLiteLlmConfigured(d.configured ?? false);
+          }
+        )
+        .catch(() => {});
+    }
+  }, [step, models.length, liteLlmModels.length]);
 
   useEffect(() => {
     if (step === "skills" && agentDid && skills.length === 0) {
@@ -594,19 +619,46 @@ export default function CreateAgentPage() {
   }
 
   async function saveModel() {
-    if (!agentDid || !selectedModel) {
+    if (!agentDid) {
       setStep("skills");
       return;
     }
+
+    // If no model selected, skip
+    if (modelMode === "registry" && !selectedModel) {
+      setStep("skills");
+      return;
+    }
+    if (modelMode === "litellm" && !selectedLiteLlmModel) {
+      setStep("skills");
+      return;
+    }
+
     setSavingModel(true);
     setModelError(null);
     try {
-      await agentsApi.setLlmConfig(agentDid, {
-        registryModelId: selectedModel,
-      });
+      if (modelMode === "registry" && selectedModel) {
+        await agentsApi.setLlmConfig(agentDid, {
+          registryModelId: selectedModel,
+        });
+      } else if (modelMode === "litellm" && selectedLiteLlmModel) {
+        // Create/validate LiteLLM key for this model
+        await fetch(`/api/agent/${agentDid}/litellm-key`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            allowedModels: [selectedLiteLlmModel],
+          }),
+        }).then((r) => {
+          if (!r.ok) throw new Error("Failed to create LiteLLM key");
+          return r.json();
+        });
+      }
       setStep("skills");
     } catch (err) {
-      setModelError("Network error while saving model");
+      setModelError(
+        err instanceof Error ? err.message : "Network error while saving model"
+      );
     } finally {
       setSavingModel(false);
     }
@@ -1333,49 +1385,141 @@ export default function CreateAgentPage() {
             </p>
           </div>
 
-          {models.length === 0 ? (
-            <div className="bg-background-100 border border-neutral-200 rounded-xl p-6 text-center text-sm text-foreground-500">
-              <Cpu size={20} className="mx-auto mb-2 text-foreground-400" />
-              No models registered yet. You can configure one later from the
-              Model Registry.
+          {/* Mode selector */}
+          {liteLlmConfigured && liteLlmModels.length > 0 && (
+            <div className="flex gap-2 border-b border-neutral-200">
+              <button
+                onClick={() => setModelMode("registry")}
+                className={cn(
+                  "px-4 py-2.5 text-sm font-medium border-b-2 transition-colors",
+                  modelMode === "registry"
+                    ? "border-primary-500 text-primary-600 dark:text-primary-400"
+                    : "border-transparent text-foreground-500 hover:text-foreground"
+                )}
+              >
+                Registry Models
+              </button>
+              <button
+                onClick={() => setModelMode("litellm")}
+                className={cn(
+                  "px-4 py-2.5 text-sm font-medium border-b-2 transition-colors",
+                  modelMode === "litellm"
+                    ? "border-primary-500 text-primary-600 dark:text-primary-400"
+                    : "border-transparent text-foreground-500 hover:text-foreground"
+                )}
+              >
+                LiteLLM Models
+              </button>
             </div>
-          ) : (
-            <div className="space-y-2">
-              {models
-                .filter((m) => m.status === "active")
-                .map((m) => (
-                  <button
-                    key={m.id}
-                    onClick={() => setSelectedModel(m.id)}
-                    className={cn(
-                      "w-full flex items-center gap-3 px-4 py-3 rounded-lg border text-sm text-left transition-colors",
-                      selectedModel === m.id
-                        ? "bg-primary-50 dark:bg-primary-600/15 border-primary-300 dark:border-primary-500/40"
-                        : "bg-background-100 border-neutral-200 hover:bg-background-200"
-                    )}
-                  >
-                    <Cpu
-                      size={16}
-                      className={
-                        selectedModel === m.id
-                          ? "text-primary-500"
-                          : "text-foreground-500"
-                      }
-                    />
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-foreground truncate">
-                        {m.name}
-                      </p>
-                      <p className="text-xs text-foreground-500 truncate">
-                        {m.provider} · {m.modelId}
-                      </p>
-                    </div>
-                    {selectedModel === m.id && (
-                      <Check size={14} className="text-primary-500 shrink-0" />
-                    )}
-                  </button>
-                ))}
-            </div>
+          )}
+
+          {/* Registry Models */}
+          {modelMode === "registry" && (
+            <>
+              {models.length === 0 ? (
+                <div className="bg-background-100 border border-neutral-200 rounded-xl p-6 text-center text-sm text-foreground-500">
+                  <Cpu size={20} className="mx-auto mb-2 text-foreground-400" />
+                  No models registered yet. You can configure one later from the
+                  Model Registry.
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {models
+                    .filter((m) => m.status === "active")
+                    .map((m) => (
+                      <button
+                        key={m.id}
+                        onClick={() => setSelectedModel(m.id)}
+                        className={cn(
+                          "w-full flex items-center gap-3 px-4 py-3 rounded-lg border text-sm text-left transition-colors",
+                          selectedModel === m.id
+                            ? "bg-primary-50 dark:bg-primary-600/15 border-primary-300 dark:border-primary-500/40"
+                            : "bg-background-100 border-neutral-200 hover:bg-background-200"
+                        )}
+                      >
+                        <Cpu
+                          size={16}
+                          className={
+                            selectedModel === m.id
+                              ? "text-primary-500"
+                              : "text-foreground-500"
+                          }
+                        />
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-foreground truncate">
+                            {m.name}
+                          </p>
+                          <p className="text-xs text-foreground-500 truncate">
+                            {m.provider} · {m.modelId}
+                          </p>
+                        </div>
+                        {selectedModel === m.id && (
+                          <Check size={14} className="text-primary-500 shrink-0" />
+                        )}
+                      </button>
+                    ))}
+                </div>
+              )}
+            </>
+          )}
+
+          {/* LiteLLM Models */}
+          {modelMode === "litellm" && (
+            <>
+              {!liteLlmConfigured ? (
+                <div className="bg-background-100 border border-neutral-200 rounded-xl p-6 text-center text-sm text-foreground-500">
+                  <Cpu size={20} className="mx-auto mb-2 text-foreground-400" />
+                  LiteLLM is not configured. Use registry models instead.
+                </div>
+              ) : liteLlmModels.length === 0 ? (
+                <div className="bg-background-100 border border-neutral-200 rounded-xl p-6 text-center text-sm text-foreground-500">
+                  <Cpu size={20} className="mx-auto mb-2 text-foreground-400" />
+                  No models available in LiteLLM.
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {liteLlmModels.map((m) => (
+                    <button
+                      key={m.name}
+                      onClick={() => setSelectedLiteLlmModel(m.name)}
+                      className={cn(
+                        "w-full flex items-center gap-3 px-4 py-3 rounded-lg border text-sm text-left transition-colors",
+                        selectedLiteLlmModel === m.name
+                          ? "bg-primary-50 dark:bg-primary-600/15 border-primary-300 dark:border-primary-500/40"
+                          : "bg-background-100 border-neutral-200 hover:bg-background-200"
+                      )}
+                    >
+                      <Cpu
+                        size={16}
+                        className={
+                          selectedLiteLlmModel === m.name
+                            ? "text-primary-500"
+                            : "text-foreground-500"
+                        }
+                      />
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-foreground truncate">
+                          {m.name}
+                        </p>
+                        {typeof m.params === "object" && m.params && (
+                          <p className="text-xs text-foreground-500 truncate">
+                            {Object.entries(m.params)
+                              .map(([k, v]) => `${k}: ${v}`)
+                              .join(" · ")}
+                          </p>
+                        )}
+                      </div>
+                      {selectedLiteLlmModel === m.name && (
+                        <Check
+                          size={14}
+                          className="text-primary-500 shrink-0"
+                        />
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </>
           )}
 
           {modelError && (
@@ -1401,7 +1545,10 @@ export default function CreateAgentPage() {
               ) : (
                 <ChevronRight size={15} />
               )}
-              {selectedModel ? "Apply & continue" : "Continue"}
+              {(modelMode === "registry" && selectedModel) ||
+              (modelMode === "litellm" && selectedLiteLlmModel)
+                ? "Apply & continue"
+                : "Continue"}
             </button>
           </div>
         </div>

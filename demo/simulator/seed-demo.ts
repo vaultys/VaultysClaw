@@ -291,14 +291,14 @@ async function seedUsers(realmSlugToId: Map<string, string>): Promise<{ ownerUse
     did: string,
     email: string,
     name: string,
-    extra: { isOwner?: boolean; isAdmin?: boolean; role?: string } = {},
+    extra: { isOwner?: boolean; isAdmin?: boolean; role?: string; reportsTo?: string } = {},
   ): Promise<string> {
     // Derive a stable deterministic id from the DID so re-runs are idempotent
     const id = makeId("user", did);
     await prisma.user.upsert({
       where: { id },
-      create: { id, did, email, name, isOwner: extra.isOwner ?? false, isAdmin: extra.isAdmin ?? false, role: extra.role ?? "member" },
-      update: { email, name, isOwner: extra.isOwner ?? false, isAdmin: extra.isAdmin ?? false },
+      create: { id, did, email, name, isOwner: extra.isOwner ?? false, isAdmin: extra.isAdmin ?? false, role: extra.role ?? "member", reportsTo: extra.reportsTo ?? null },
+      update: { email, name, isOwner: extra.isOwner ?? false, isAdmin: extra.isAdmin ?? false, reportsTo: extra.reportsTo ?? null },
     });
     count++;
     return id;
@@ -344,11 +344,13 @@ async function seedUsers(realmSlugToId: Map<string, string>): Promise<{ ownerUse
   }
 
   // VPs (one per realm, realm admin)
+  const vpUserIds = new Map<string, string>();
   for (const [slug, realmId] of realmSlugToId) {
     const did = makeDid(`vp-${slug}`);
     const fn = hashPick(FIRST_NAMES, `vp-${slug}-fn`);
     const ln = hashPick(LAST_NAMES, `vp-${slug}-ln`);
-    const uid = await upsert(did, `vp.${slug}@demo.vaultysclaw.io`, `${fn} ${ln} (VP)`);
+    const uid = await upsert(did, `vp.${slug}@demo.vaultysclaw.io`, `${fn} ${ln} (VP)`, { reportsTo: execUserIds[0] });
+    vpUserIds.set(slug, uid);
     await prisma.userRealm.upsert({
       where: { userId_realmId: { userId: uid, realmId } },
       create: { userId: uid, realmId, isPrimary: true, isRealmAdmin: true },
@@ -358,12 +360,16 @@ async function seedUsers(realmSlugToId: Map<string, string>): Promise<{ ownerUse
   }
 
   // Leads (3 per realm)
+  const leadUserIds = new Map<string, string[]>();
   for (const [slug, realmId] of realmSlugToId) {
+    const vpId = vpUserIds.get(slug);
+    const realmLeads: string[] = [];
     for (let i = 0; i < 3; i++) {
       const did = makeDid(`lead-${slug}-${i}`);
       const fn = hashPick(FIRST_NAMES, `lead-${slug}-${i}-fn`);
       const ln = hashPick(LAST_NAMES, `lead-${slug}-${i}-ln`);
-      const uid = await upsert(did, `lead${i}.${slug}@demo.vaultysclaw.io`, `${fn} ${ln}`);
+      const uid = await upsert(did, `lead${i}.${slug}@demo.vaultysclaw.io`, `${fn} ${ln}`, { reportsTo: vpId });
+      realmLeads.push(uid);
       await prisma.userRealm.upsert({
         where: { userId_realmId: { userId: uid, realmId } },
         create: { userId: uid, realmId, isPrimary: true, isRealmAdmin: false },
@@ -371,16 +377,20 @@ async function seedUsers(realmSlugToId: Map<string, string>): Promise<{ ownerUse
       }).catch(() => {});
       process.stdout.write(".");
     }
+    leadUserIds.set(slug, realmLeads);
   }
 
   // ICs (12 per realm)
   for (const [slug, realmId] of realmSlugToId) {
+    const realmLeads = leadUserIds.get(slug) || [];
+    const vpId = vpUserIds.get(slug);
     for (let i = 0; i < 12; i++) {
       const did = makeDid(`ic-${slug}-${i}`);
       const fn = hashPick(FIRST_NAMES, `ic-${slug}-${i}-fn`);
       const ln = hashPick(LAST_NAMES, `ic-${slug}-${i}-ln`);
       const suffix = Math.abs(parseInt(crypto.createHash("md5").update(did).digest("hex").slice(0, 4), 16) % 99);
-      const uid = await upsert(did, `${fn.toLowerCase()}.${ln.toLowerCase()}${suffix}@demo.vaultysclaw.io`, `${fn} ${ln}`);
+      const manager = realmLeads.length > 0 ? realmLeads[i % realmLeads.length] : vpId;
+      const uid = await upsert(did, `${fn.toLowerCase()}.${ln.toLowerCase()}${suffix}@demo.vaultysclaw.io`, `${fn} ${ln}`, { reportsTo: manager });
       await prisma.userRealm.upsert({
         where: { userId_realmId: { userId: uid, realmId } },
         create: { userId: uid, realmId, isPrimary: true, isRealmAdmin: false },

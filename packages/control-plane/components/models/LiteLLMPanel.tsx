@@ -15,6 +15,11 @@ import {
   Key,
   BarChart3,
   BookOpen,
+  Cpu,
+  Search,
+  X,
+  Copy,
+  Check,
 } from "lucide-react";
 
 interface LiteLLMStatus {
@@ -44,6 +49,32 @@ export function LiteLLMPanel() {
   const [showKey, setShowKey] = useState(false);
   const [saveMsg, setSaveMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
+  // Models explorer
+  const [models, setModels] = useState<{ name: string; params: Record<string, unknown> }[]>([]);
+  const [modelsLoading, setModelsLoading] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedModel, setSelectedModel] = useState<{
+    name: string;
+    params: Record<string, unknown>;
+  } | null>(null);
+  const [copiedField, setCopiedField] = useState<string | null>(null);
+
+  const loadModels = useCallback(async () => {
+    if (!status?.configured) return;
+    setModelsLoading(true);
+    try {
+      const res = await fetch("/api/litellm/models");
+      const data = (await res.json()) as {
+        models?: { name: string; params: Record<string, unknown> }[];
+      };
+      setModels(data.models ?? []);
+    } catch {
+      setModels([]);
+    } finally {
+      setModelsLoading(false);
+    }
+  }, [status?.configured]);
+
   const load = useCallback(async () => {
     setLoading(true);
     try {
@@ -57,6 +88,22 @@ export function LiteLLMPanel() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  useEffect(() => {
+    if (status?.healthy) {
+      loadModels();
+    }
+  }, [status?.healthy, loadModels]);
+
+  const filteredModels = models.filter((m) =>
+    m.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const copyToClipboard = (text: string, field: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedField(field);
+    setTimeout(() => setCopiedField(null), 2000);
+  };
 
   const save = async () => {
     setSaving(true);
@@ -320,6 +367,258 @@ export function LiteLLMPanel() {
           )}
         </div>
       </div>
+
+      {/* Models explorer */}
+      {status?.healthy && (
+        <div className="rounded-2xl border border-neutral-200 bg-background-100 overflow-hidden">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-neutral-200">
+            <div className="flex items-center gap-2">
+              <Cpu className="w-4 h-4 text-primary-500" />
+              <h3 className="text-sm font-semibold text-foreground">Available Models</h3>
+              {models.length > 0 && (
+                <span className="text-xs text-foreground-400 ml-1">
+                  ({filteredModels.length} of {models.length})
+                </span>
+              )}
+            </div>
+            <button
+              onClick={() => loadModels()}
+              disabled={modelsLoading}
+              className="p-1 rounded-lg border border-neutral-200 hover:bg-background-200 transition-colors text-foreground-500"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${modelsLoading ? "animate-spin" : ""}`} />
+            </button>
+          </div>
+
+          {modelsLoading ? (
+            <div className="px-5 py-8 text-center text-sm text-foreground-500">
+              Loading models…
+            </div>
+          ) : models.length === 0 ? (
+            <div className="px-5 py-8 text-center">
+              <Cpu className="w-8 h-8 text-foreground-400 mx-auto mb-2" />
+              <p className="text-sm text-foreground-500">No models registered in LiteLLM</p>
+            </div>
+          ) : (
+            <>
+              {/* Search bar */}
+              <div className="px-5 py-3 border-b border-neutral-200 bg-background">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-foreground-400" />
+                  <input
+                    type="text"
+                    placeholder="Search models..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full pl-9 pr-3 py-2 bg-background-100 border border-neutral-200 rounded-lg text-sm text-foreground placeholder:text-foreground-400 focus:outline-none focus:ring-2 focus:ring-primary-500/30"
+                  />
+                </div>
+              </div>
+
+              {/* Models table */}
+              <div className="overflow-x-auto">
+                {filteredModels.length === 0 ? (
+                  <div className="px-5 py-8 text-center">
+                    <p className="text-sm text-foreground-500">No models match your search</p>
+                  </div>
+                ) : (
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-neutral-200 text-foreground-500 text-xs uppercase tracking-wider bg-background-200">
+                        <th className="text-left px-5 py-3 font-medium">Model Name</th>
+                        <th className="text-left px-5 py-3 font-medium">Parameters</th>
+                        <th className="text-left px-5 py-3 font-medium">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredModels.map((m) => (
+                        <tr
+                          key={m.name}
+                          className="border-b border-neutral-200/50 hover:bg-background-200/40 transition-colors last:border-0"
+                        >
+                          <td className="px-5 py-3">
+                            <code className="text-sm font-mono text-foreground-700 dark:text-foreground-300">
+                              {m.name}
+                            </code>
+                          </td>
+                          <td className="px-5 py-3">
+                            {typeof m.params === "object" &&
+                            m.params &&
+                            Object.keys(m.params).length > 0 ? (
+                              <div className="space-y-0.5">
+                                {Object.entries(m.params)
+                                  .slice(0, 2)
+                                  .map(([key, value]) => (
+                                    <div key={key} className="text-xs text-foreground-500">
+                                      <span className="font-medium">{key}:</span>{" "}
+                                      <code className="font-mono text-foreground-400">
+                                        {String(value).substring(0, 40)}
+                                        {String(value).length > 40 ? "…" : ""}
+                                      </code>
+                                    </div>
+                                  ))}
+                                {Object.keys(m.params).length > 2 && (
+                                  <div className="text-xs text-foreground-400">
+                                    +{Object.keys(m.params).length - 2} more
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-foreground-400">—</span>
+                            )}
+                          </td>
+                          <td className="px-5 py-3">
+                            <button
+                              onClick={() => setSelectedModel(m)}
+                              className="text-xs px-3 py-1.5 rounded-lg border border-primary-300 text-primary-700 dark:text-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors font-medium"
+                            >
+                              View details
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Model details modal */}
+      {selectedModel && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-background rounded-2xl border border-neutral-200 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-200 sticky top-0 bg-background">
+              <div className="flex items-center gap-3">
+                <Cpu className="w-5 h-5 text-primary-500" />
+                <div>
+                  <h2 className="text-lg font-semibold text-foreground">
+                    {selectedModel.name}
+                  </h2>
+                  <p className="text-xs text-foreground-500">Model details</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setSelectedModel(null)}
+                className="p-1 rounded-lg hover:bg-background-200 transition-colors text-foreground-500"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="px-6 py-4 space-y-4">
+              {/* Model name */}
+              <div className="space-y-2">
+                <label className="block text-xs font-medium text-foreground-500 uppercase tracking-wide">
+                  Model Name
+                </label>
+                <div className="flex items-center gap-2">
+                  <code className="flex-1 px-3 py-2 bg-background-100 border border-neutral-200 rounded-lg text-sm font-mono text-foreground">
+                    {selectedModel.name}
+                  </code>
+                  <button
+                    onClick={() =>
+                      copyToClipboard(selectedModel.name, "model-name")
+                    }
+                    className="p-2 rounded-lg border border-neutral-200 hover:bg-background-200 transition-colors text-foreground-500"
+                    title="Copy to clipboard"
+                  >
+                    {copiedField === "model-name" ? (
+                      <Check className="w-4 h-4 text-success-500" />
+                    ) : (
+                      <Copy className="w-4 h-4" />
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {/* Parameters */}
+              {typeof selectedModel.params === "object" &&
+              selectedModel.params &&
+              Object.keys(selectedModel.params).length > 0 ? (
+                <div className="space-y-2">
+                  <label className="block text-xs font-medium text-foreground-500 uppercase tracking-wide">
+                    Parameters
+                  </label>
+                  <div className="space-y-2">
+                    {Object.entries(selectedModel.params).map(([key, value]) => (
+                      <div key={key} className="space-y-1">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-medium text-foreground-500 uppercase">
+                            {key}
+                          </span>
+                          <button
+                            onClick={() =>
+                              copyToClipboard(String(value), `param-${key}`)
+                            }
+                            className="p-1 rounded text-foreground-400 hover:text-foreground transition-colors"
+                            title="Copy value"
+                          >
+                            {copiedField === `param-${key}` ? (
+                              <Check className="w-3 h-3 text-success-500" />
+                            ) : (
+                              <Copy className="w-3 h-3" />
+                            )}
+                          </button>
+                        </div>
+                        <code className="block px-3 py-2 bg-background-100 border border-neutral-200 rounded-lg text-sm font-mono text-foreground-700 dark:text-foreground-300 break-all">
+                          {String(value)}
+                        </code>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="px-4 py-3 bg-background-100 rounded-lg text-sm text-foreground-500">
+                  No parameters available
+                </div>
+              )}
+
+              {/* JSON view */}
+              <div className="space-y-2">
+                <label className="block text-xs font-medium text-foreground-500 uppercase tracking-wide">
+                  Full JSON
+                </label>
+                <div className="flex items-center gap-2">
+                  <code className="flex-1 px-3 py-2 bg-background-100 border border-neutral-200 rounded-lg text-xs font-mono text-foreground overflow-x-auto max-h-32 overflow-y-auto">
+                    <pre>{JSON.stringify(selectedModel, null, 2)}</pre>
+                  </code>
+                  <button
+                    onClick={() =>
+                      copyToClipboard(
+                        JSON.stringify(selectedModel, null, 2),
+                        "json"
+                      )
+                    }
+                    className="p-2 rounded-lg border border-neutral-200 hover:bg-background-200 transition-colors text-foreground-500 shrink-0"
+                    title="Copy JSON"
+                  >
+                    {copiedField === "json" ? (
+                      <Check className="w-4 h-4 text-success-500" />
+                    ) : (
+                      <Copy className="w-4 h-4" />
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 py-4 border-t border-neutral-200 flex items-center gap-2">
+              <button
+                onClick={() => setSelectedModel(null)}
+                className="flex-1 px-4 py-2 rounded-lg border border-neutral-200 text-foreground hover:bg-background-200 transition-colors text-sm font-medium"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

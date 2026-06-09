@@ -31,10 +31,10 @@ interface WorkflowItem {
 
 interface WorkflowRun {
   id: string;
-  workflow_id: string;
+  workflowId: string;
   status: string;
-  started_at: string;
-  completed_at: string | null;
+  startedAt: string;
+  completedAt: string | null;
 }
 
 interface WorkflowWithRuns extends WorkflowItem {
@@ -396,8 +396,8 @@ export default function WorkflowsPage() {
                           </thead>
                           <tbody>
                             {workflow.runs.map((run) => {
-                              const startMs = parseTimestamp(run.started_at);
-                              const endMs = parseTimestamp(run.completed_at);
+                              const startMs = parseTimestamp(run.startedAt);
+                              const endMs = parseTimestamp(run.completedAt);
                               const duration =
                                 startMs !== null && endMs !== null
                                   ? Math.round((endMs - startMs) / 1000)
@@ -418,10 +418,10 @@ export default function WorkflowsPage() {
                                   </td>
                                   <td className="px-4 py-3">
                                     <div className="text-foreground text-xs">
-                                      {formatDate(run.started_at)}
+                                      {formatDate(run.startedAt)}
                                     </div>
                                     <div className="text-foreground-500 text-xs mt-0.5">
-                                      {timeAgo(run.started_at)}
+                                      {timeAgo(run.startedAt)}
                                     </div>
                                   </td>
                                   <td className="px-4 py-3 text-foreground-500 text-xs">

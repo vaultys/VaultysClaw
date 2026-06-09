@@ -409,18 +409,6 @@ async function buildGraph(filters: Filters): Promise<GraphData> {
     });
   }
 
-  // In the full view (no focus filter) drop isolated nodes — only show nodes
-  // that participate in at least one edge.
-  if (!filters.agentDid && !filters.userDid && !filters.realmId) {
-    const referenced = new Set<string>();
-    for (const e of edges) {
-      referenced.add(e.source);
-      referenced.add(e.target);
-    }
-    for (const id of nodes.keys()) {
-      if (!referenced.has(id)) nodes.delete(id);
-    }
-  }
 
   return { nodes: Array.from(nodes.values()), edges };
 }

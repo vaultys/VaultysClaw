@@ -42,17 +42,17 @@ const LocationEditor = dynamic(
 
 interface KnowledgeSource {
   id: string;
-  realm_id: string;
-  agent_did: string;
+  realmId: string;
+  agentDid: string;
   name: string;
-  source_type: string;
+  sourceType: string;
   config: string;
   status: "idle" | "syncing" | "ready" | "error";
-  doc_count: number;
-  chunk_count: number;
-  last_synced_at: string | null;
+  docCount: number;
+  chunkCount: number;
+  lastSyncedAt: string | null;
   error: string | null;
-  created_at: string;
+  createdAt: string;
 }
 
 interface AgentInfo {
@@ -1031,7 +1031,7 @@ function AgentKnowledgeCard({
 }) {
   const [expanded, setExpanded] = useState(true);
 
-  const totalChunks = sources.reduce((sum, s) => sum + (s.chunk_count ?? 0), 0);
+  const totalChunks = sources.reduce((sum, s) => sum + (s.chunkCount ?? 0), 0);
   const readyCount = sources.filter((s) => s.status === "ready").length;
   const errorCount = sources.filter((s) => s.status === "error").length;
 
@@ -1169,12 +1169,12 @@ function AgentKnowledgeCard({
                     >
                       <td className="px-4 py-2.5">
                         <div className="flex items-center gap-2">
-                          <TypeIcon type={source.source_type} />
+                          <TypeIcon type={source.sourceType} />
                           <div className="min-w-0">
                             <span className="text-xs font-medium text-foreground truncate block max-w-[180px]">
                               {source.name}
                             </span>
-                            {source.source_type === "url" &&
+                            {source.sourceType === "url" &&
                               urls.length > 0 && (
                                 <span className="text-[10px] text-foreground-400 truncate block max-w-[180px]">
                                   {urls[0]}
@@ -1189,7 +1189,7 @@ function AgentKnowledgeCard({
                       <td className="px-4 py-2.5 hidden md:table-cell">
                         <span className="flex items-center gap-1.5 text-xs text-foreground-500">
                           <Globe2 size={11} className="shrink-0" />
-                          {realmName(source.realm_id)}
+                          {realmName(source.realmId)}
                         </span>
                       </td>
                       <td className="px-4 py-2.5">
@@ -1206,14 +1206,14 @@ function AgentKnowledgeCard({
                       <td className="px-4 py-2.5 hidden sm:table-cell text-xs text-foreground-500">
                         {source.status === "ready" ? (
                           <span className="text-foreground font-medium">
-                            {fmtCount(source.chunk_count)}
+                            {fmtCount(source.chunkCount)}
                           </span>
                         ) : (
                           "—"
                         )}
                       </td>
                       <td className="px-4 py-2.5 hidden lg:table-cell text-xs text-foreground-500">
-                        {timeAgo(source.last_synced_at)}
+                        {timeAgo(source.lastSyncedAt)}
                       </td>
                     </tr>
                   );
@@ -1277,14 +1277,14 @@ export default function KnowledgeDashboardPage() {
   // Summary stats
   const totalSources = sources.length;
   const readySources = sources.filter((s) => s.status === "ready").length;
-  const totalChunks = sources.reduce((sum, s) => sum + (s.chunk_count ?? 0), 0);
+  const totalChunks = sources.reduce((sum, s) => sum + (s.chunkCount ?? 0), 0);
   const errorSources = sources.filter((s) => s.status === "error").length;
-  const agentsWithKnowledge = new Set(sources.map((s) => s.agent_did)).size;
+  const agentsWithKnowledge = new Set(sources.map((s) => s.agentDid)).size;
 
   // Agents that have at least one knowledge source, plus those that are online
   // Show all agents — those without sources show an empty state encouraging setup
   const agentsWithSources = agents.filter((a) =>
-    sources.some((s) => s.agent_did === a.did)
+    sources.some((s) => s.agentDid === a.did)
   );
 
   return (
@@ -1447,7 +1447,7 @@ export default function KnowledgeDashboardPage() {
             <AgentKnowledgeCard
               key={agent.did}
               agent={agent}
-              sources={sources.filter((s) => s.agent_did === agent.did)}
+              sources={sources.filter((s) => s.agentDid === agent.did)}
               realms={realms}
             />
           ))}

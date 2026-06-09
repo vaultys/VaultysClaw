@@ -83,21 +83,20 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
       updatedAt: w.updatedAt,
     }));
 
-    // Map to the snake_case shape expected by the realm detail page
     const agents = agentRows.map((ar) => ({
-      agent_did: ar.agent.did,
-      agent_name: ar.agent.name,
+      agentDid: ar.agent.did,
+      agentName: ar.agent.name,
       capabilities: JSON.stringify(ar.agent.capabilities ?? []),
-      is_primary: ar.isPrimary ? 1 : 0,
-      joined_at: ar.joinedAt.toISOString(),
+      isPrimary: ar.isPrimary ? 1 : 0,
+      joinedAt: ar.joinedAt.toISOString(),
     }));
 
     const users = userRows.map((ur) => ({
-      user_did: ur.user.did ?? ur.user.id,
+      userDid: ur.user.did ?? ur.user.id,
       name: ur.user.name,
       email: ur.user.email,
-      is_primary: ur.isPrimary ? 1 : 0,
-      joined_at: ur.joinedAt.toISOString(),
+      isPrimary: ur.isPrimary ? 1 : 0,
+      joinedAt: ur.joinedAt.toISOString(),
     }));
 
     return NextResponse.json({

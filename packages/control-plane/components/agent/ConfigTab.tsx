@@ -72,7 +72,7 @@ const PROVIDER_COLORS: Record<string, string> = {
   ollama: "bg-secondary-100 text-secondary-700 border-secondary-300",
 };
 
-type ConfigMode = "agent-key" | "realm" | "registry" | "manual";
+type ConfigMode = "agent-key" | "realm" | "registry" | "litellm" | "manual";
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
@@ -115,6 +115,12 @@ export function ConfigTab({
   const [showRevokeConfirm, setShowRevokeConfirm] = useState(false);
   const [revoking, setRevoking] = useState(false);
 
+  // LiteLLM models
+  const [liteLlmModels, setLiteLlmModels] = useState<
+    { name: string; params: Record<string, unknown> }[]
+  >([]);
+  const [selectedLiteLlmModel, setSelectedLiteLlmModel] = useState("");
+
   // Common
   const [llmSaving, setLlmSaving] = useState(false);
   const [llmStatus, setLlmStatus] = useState<"idle" | "saved" | "cleared" | "error">("idle");
@@ -126,13 +132,14 @@ export function ConfigTab({
   const loadAll = useCallback(async () => {
     setLlmLoading(true);
     try {
-      const [configData, modelsData, realmData, keyData] = await Promise.all([
+      const [configData, modelsData, realmData, keyData, liteLlmModelsData] = await Promise.all([
         agentsApi.getLlmConfig(did),
         fetch("/api/models").then((r) => r.json()),
         agentsApi.getRealmLlm(did),
         fetch(`/api/agent/${encodeURIComponent(did)}/litellm-key`)
           .then((r) => (r.ok ? r.json() : null))
           .catch(() => null),
+        fetch("/api/litellm/models").then((r) => r.json()),
       ]);
 
       const cfg = (configData as { config: SafeLlmConfig | null }).config;
@@ -140,6 +147,11 @@ export function ConfigTab({
       setRegistryModels((modelsData as { models?: RegistryModel[] }).models ?? []);
       setRealmLlmData(realmData as RealmLlmData);
       setAgentKeyInfo(keyData as AgentKeyInfo | null);
+      setLiteLlmModels(
+        (liteLlmModelsData as {
+          models?: { name: string; params: Record<string, unknown> }[];
+        }).models ?? []
+      );
 
       if (cfg) {
         setLlmForm({
@@ -205,8 +217,17 @@ export function ConfigTab({
     setLlmError(null);
 
     if (activeIsAgentKey) {
-      // Editing an existing agent key
-      setKeyModels(agentKeyInfo!.allowedModels);
+      // Editing an existing agent key — check if it's a LiteLLM model
+      const allowedModels = agentKeyInfo!.allowedModels;
+      if (allowedModels.length === 1 && liteLlmModels.some((m) => m.name === allowedModels[0])) {
+        // It's a single LiteLLM model
+        setSelectedLiteLlmModel(allowedModels[0]);
+        setConfigMode("litellm");
+        setLlmEditing(true);
+        return;
+      }
+      // Multi-model or custom agent key
+      setKeyModels(allowedModels);
       setKeyBudget(agentKeyInfo!.dailyBudget?.toString() ?? "");
       setKeyModelInput("");
       setConfigMode("agent-key");
@@ -245,6 +266,9 @@ export function ConfigTab({
         setSelectedRealmId(first.realmId);
         setSelectedRealmModelId(first.models[0]?.id ?? "");
         setConfigMode("realm");
+      } else if (liteLlmModels.length > 0) {
+        setSelectedLiteLlmModel(liteLlmModels[0]?.name ?? "");
+        setConfigMode("litellm");
       } else if (registryModels.length > 0) {
         setConfigMode("registry");
       } else {
@@ -363,6 +387,44 @@ export function ConfigTab({
     }
   }
 
+  async function saveLiteLlmModel() {
+    if (!selectedLiteLlmModel) return;
+    setLlmSaving(true);
+    setLlmStatus("idle");
+    setLlmError(null);
+    try {
+      // 1. Clear any manual llmConfig so the LiteLLM model takes priority
+      if (llmConfig) await agentsApi.deleteLlmConfig(did);
+
+      // 2. Create agent key with the selected model
+      const res = await fetch(
+        `/api/agent/${encodeURIComponent(did)}/litellm-key`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            allowedModels: [selectedLiteLlmModel],
+          }),
+        }
+      );
+      if (!res.ok) {
+        const d = (await res.json()) as { error?: string };
+        setLlmError(d.error ?? "Failed to set LiteLLM model");
+        setLlmStatus("error");
+        return;
+      }
+
+      await loadAll();
+      setLlmEditing(false);
+      setLlmStatus("saved");
+      setTimeout(() => setLlmStatus("idle"), 2500);
+    } catch {
+      setLlmStatus("error");
+    } finally {
+      setLlmSaving(false);
+    }
+  }
+
   async function saveManualConfig(e: React.FormEvent) {
     e.preventDefault();
     setLlmSaving(true);
@@ -418,6 +480,12 @@ export function ConfigTab({
       hint: !realmLlmData?.litellmConfigured
         ? "LiteLLM not configured"
         : "no models in realm",
+    },
+    {
+      id: "litellm",
+      label: "LiteLLM Models",
+      disabled: liteLlmModels.length === 0,
+      hint: "no models available in LiteLLM",
     },
     {
       id: "registry",
@@ -817,6 +885,70 @@ export function ConfigTab({
                   <a href="/models" className="text-xs text-foreground-500 hover:text-foreground ml-auto transition-colors">
                     Manage registry →
                   </a>
+                </div>
+              </div>
+            )}
+
+            {/* ── LiteLLM Models mode ── */}
+            {configMode === "litellm" && (
+              <div className="space-y-3">
+                <p className="text-xs text-foreground-500">
+                  Select a model from the LiteLLM service. A per-agent API key will be created
+                  automatically.
+                </p>
+                <div className="space-y-2">
+                  {liteLlmModels.map((m) => (
+                    <label
+                      key={m.name}
+                      className={`flex items-center gap-3 px-3 py-3 rounded-xl border cursor-pointer transition-colors ${
+                        selectedLiteLlmModel === m.name
+                          ? "border-primary-500 bg-primary-50"
+                          : "border-neutral-200 hover:border-neutral-300 hover:bg-background-200/50"
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="litellm-model"
+                        value={m.name}
+                        checked={selectedLiteLlmModel === m.name}
+                        onChange={() => setSelectedLiteLlmModel(m.name)}
+                        className="accent-primary-600 shrink-0"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-sm font-medium text-foreground">
+                            {m.name}
+                          </span>
+                          <span className="text-xs px-1.5 py-0.5 rounded-full border font-medium bg-primary-100 text-primary-700 border-primary-300">
+                            LiteLLM
+                          </span>
+                        </div>
+                        {typeof m.params === "object" && m.params && (
+                          <code className="text-xs text-foreground-400 font-mono">
+                            {Object.entries(m.params)
+                              .map(([k, v]) => `${k}: ${v}`)
+                              .join(" • ")}
+                          </code>
+                        )}
+                      </div>
+                    </label>
+                  ))}
+                </div>
+                <div className="flex items-center gap-3 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => { setLlmEditing(false); setLlmStatus("idle"); }}
+                    className="text-sm text-foreground-500 hover:text-foreground px-3 py-1.5"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    disabled={!selectedLiteLlmModel || llmSaving}
+                    onClick={saveLiteLlmModel}
+                    className="px-4 py-1.5 text-sm font-medium rounded-lg bg-primary-600 hover:bg-primary-500 text-white disabled:opacity-40 transition"
+                  >
+                    {llmSaving ? "Saving…" : "Use this model"}
+                  </button>
                 </div>
               </div>
             )}

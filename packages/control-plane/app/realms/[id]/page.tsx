@@ -47,10 +47,10 @@ interface Realm {
   slug: string;
   description: string | null;
   color: string;
-  is_default: number;
-  llm_config: string | null;
-  default_capabilities: string;
-  created_at: string;
+  isDefault: number;
+  llmConfig: string | null;
+  defaultCapabilities: string;
+  createdAt: string;
   tokenUsage?: { promptTokens: number; completionTokens: number } | null;
 }
 
@@ -584,7 +584,7 @@ export default function RealmDetailPage() {
                   <h1 className="text-lg font-semibold text-foreground">
                     {realm.name}
                   </h1>
-                  {realm.is_default === 1 && (
+                  {realm.isDefault === 1 && (
                     <span className="text-xs px-2 py-0.5 rounded-md bg-warning-50 dark:bg-warning-500/10 text-warning-700 dark:text-warning-400 font-medium">
                       default
                     </span>
@@ -602,7 +602,7 @@ export default function RealmDetailPage() {
                   {agents.length} agent{agents.length !== 1 ? "s" : ""} ·{" "}
                   {users.length} user{users.length !== 1 ? "s" : ""} ·{" "}
                   {workflows.length} workflow{workflows.length !== 1 ? "s" : ""}
-                  · Created {new Date(realm.created_at).toLocaleDateString()}
+                  · Created {new Date(realm.createdAt).toLocaleDateString()}
                 </p>
               </>
             )}
@@ -623,7 +623,7 @@ export default function RealmDetailPage() {
               >
                 <Pencil className="w-4 h-4" />
               </button>
-              {realm.is_default !== 1 && (
+              {realm.isDefault !== 1 && (
                 <button
                   onClick={handleSetDefault}
                   className="p-2 rounded-lg text-foreground-500 hover:text-warning-400 hover:bg-warning-400/10 transition-colors"
@@ -632,7 +632,7 @@ export default function RealmDetailPage() {
                   <Star className="w-4 h-4" />
                 </button>
               )}
-              {realm.is_default !== 1 && (
+              {realm.isDefault !== 1 && (
                 <button
                   onClick={handleDelete}
                   className="p-2 rounded-lg text-foreground-500 hover:text-danger-400 hover:bg-danger-400/10 transition-colors"
@@ -686,8 +686,8 @@ export default function RealmDetailPage() {
               }
             }}
             className={`px-4 py-2 text-sm font-medium capitalize transition-colors border-b-2 -mb-px ${tab === t
-                ? "border-primary-500 text-primary-700 dark:text-primary-400"
-                : "border-transparent text-foreground-500 hover:text-foreground"
+              ? "border-primary-500 text-primary-700 dark:text-primary-400"
+              : "border-transparent text-foreground-500 hover:text-foreground"
               }`}
           >
             {t === "agents" && `Agents (${agents.length})`}
@@ -754,7 +754,7 @@ export default function RealmDetailPage() {
                   >
                     <ChevronRight className="w-4 h-4" />
                   </Link>
-                  {realm.is_default !== 1 && (
+                  {realm.isDefault !== 1 && (
                     <button
                       onClick={() => handleRemoveAgent(a.agentDid)}
                       className="p-1.5 rounded-lg text-foreground-500 hover:text-danger-400 hover:bg-danger-400/10 transition-colors"
@@ -815,7 +815,7 @@ export default function RealmDetailPage() {
                       </p>
                     )}
                   </div>
-                  {realm.is_default !== 1 && (
+                  {realm.isDefault !== 1 && (
                     <button
                       onClick={() => handleRemoveUser(u.userDid)}
                       className="p-1.5 rounded-lg text-foreground-500 hover:text-danger-400 hover:bg-danger-400/10 transition-colors"
@@ -1384,8 +1384,8 @@ function RealmSkillsTab({
                 <button
                   onClick={() => handleToggleRequired(skill)}
                   className={`p-1.5 rounded-lg transition-colors text-xs ${skill.isRequired
-                      ? "text-warning-400 hover:text-foreground-500 hover:bg-background-200"
-                      : "text-foreground-500 hover:text-warning-400 hover:bg-warning-400/10"
+                    ? "text-warning-400 hover:text-foreground-500 hover:bg-background-200"
+                    : "text-foreground-500 hover:text-warning-400 hover:bg-warning-400/10"
                     }`}
                   title={skill.isRequired ? "Make optional" : "Make required"}
                 >
@@ -1427,7 +1427,7 @@ function RealmConfigTab({
   realm: Realm;
   onSaved: () => void;
 }) {
-  const defaultCaps: string[] = JSON.parse(realm.default_capabilities || "[]");
+  const defaultCaps: string[] = JSON.parse(realm.defaultCapabilities || "[]");
   const [caps, setCaps] = useState<string[]>(defaultCaps);
   const [saving, setSaving] = useState(false);
 
@@ -1465,8 +1465,8 @@ function RealmConfigTab({
                 key={cap}
                 onClick={() => toggle(cap)}
                 className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors border ${caps.includes(cap)
-                    ? "bg-primary-50 dark:bg-primary-600/20 border-primary-300 dark:border-primary-500/50 text-primary-700 dark:text-primary-300"
-                    : "bg-background-200 border-neutral-200 text-foreground-500 hover:text-foreground"
+                  ? "bg-primary-50 dark:bg-primary-600/20 border-primary-300 dark:border-primary-500/50 text-primary-700 dark:text-primary-300"
+                  : "bg-background-200 border-neutral-200 text-foreground-500 hover:text-foreground"
                   }`}
               >
                 {cap.replace(/_/g, " ")}

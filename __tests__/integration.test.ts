@@ -26,12 +26,17 @@ describe("VaultysClaw Integration Tests", () => {
   let wsServer: AgentWSServer;
 
   beforeAll(async () => {
-    // Clear data from previous test runs (Prisma — WS server uses PostgreSQL)
-    await prisma.agentTokenUsage.deleteMany();
-    await prisma.activityLog.deleteMany();
-    await prisma.authSession.deleteMany();
+    // Clear data from previous test runs — scope to did:vaultys: DIDs so we
+    // don't delete agents that other parallel test files created.
+    // MockAgent always produces did:vaultys: identities via VaultysId.
+    const vaultysFilter = { agentDid: { startsWith: "did:vaultys:" } };
+    await prisma.agentTokenUsage.deleteMany({ where: vaultysFilter });
+    await prisma.activityLog.deleteMany({ where: vaultysFilter });
+    await prisma.authSession.deleteMany({ where: vaultysFilter });
+    // PendingRegistration has no agentDid column; only this test creates real
+    // WS registrations, so a broad delete here is safe.
     await prisma.pendingRegistration.deleteMany();
-    await prisma.agent.deleteMany();
+    await prisma.agent.deleteMany({ where: { did: { startsWith: "did:vaultys:" } } });
     // serverSecret is guaranteed by global-setup.ts
     wsServer = new AgentWSServer(WS_PORT);
     await new Promise((resolve) => setTimeout(resolve, 200));

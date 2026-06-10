@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
-import { malformed, notFound, unauthorized } from "@/lib/api/utils/api-utils";
+import { malformed, notFound, unauthorized, conflict } from "@/lib/api/utils/api-utils";
 import { ChannelBridgeService } from "@/lib/channel-bridge-service";
 import { ChannelService } from "@/lib/channel-service";
 import { withError } from "@/lib/api/handlers/with-error";
@@ -194,6 +194,18 @@ export const POST = withError(async (req: NextRequest, ctx: Ctx) => {
   if (!body.config) {
     return malformed("config is required");
   }
+  const externalChannelId = body.externalChannelId!.trim();
+  const existingBridges = await ChannelBridgeService.listBridges(id);
+  const duplicateBridge = existingBridges.find(
+    (b) =>
+      b.externalService === body.externalService &&
+      b.externalChannelId === externalChannelId
+  );
+  if (duplicateBridge)
+    return conflict(
+      `Bridge already exists for ${body.externalService} channel ${externalChannelId}`
+    );
+
   const bridge = await ChannelBridgeService.createBridge({
     channelId: id,
     externalService: body.externalService,

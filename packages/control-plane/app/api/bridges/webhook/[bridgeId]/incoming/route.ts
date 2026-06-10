@@ -4,7 +4,7 @@ import { ChannelService } from "@/lib/channel-service";
 import { MessageDispatcher } from "@/lib/message-dispatcher";
 import { WebhookGateway } from "@/lib/bridges/webhook-gateway";
 import type { WebhookBridgeConfig } from "@vaultysclaw/shared";
-import { forbidden, malformed, notFound } from "@/lib/api/utils/api-utils";
+import { forbidden, malformed, notFound, unauthorized } from "@/lib/api/utils/api-utils";
 import { withError } from "@/lib/api/handlers/with-error";
 
 type Ctx = { params: Promise<{ bridgeId: string }> };
@@ -97,7 +97,7 @@ export const POST = withError(async (req: NextRequest, ctx: Ctx) => {
   ) as WebhookBridgeConfig;
 
   if (!WebhookGateway.verifySignature(body, config.secret, signatureHeader)) {
-    return forbidden("Invalid signature");
+    return unauthorized("Invalid signature");
   }
 
   // Parse body JSON

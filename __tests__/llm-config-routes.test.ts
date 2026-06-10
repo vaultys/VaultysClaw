@@ -62,8 +62,8 @@ import {
   GET as llmConfigGET,
   PUT as llmConfigPUT,
   DELETE as llmConfigDELETE,
-} from "../packages/control-plane/app/api/agent/[did]/llm-config/route";
-import { GET as realmLlmGET } from "../packages/control-plane/app/api/agent/[did]/realm-llm/route";
+} from "../packages/control-plane/app/api/agents/[did]/llm-config/route";
+import { GET as realmLlmGET } from "../packages/control-plane/app/api/agents/[did]/realm-llm/route";
 
 // ---------------------------------------------------------------------------
 // Helpers

@@ -81,7 +81,7 @@ import { GET as agentsGET } from "../packages/control-plane/app/api/agents/route
 import {
   GET as agentDetailGET,
   PATCH as agentDetailPATCH,
-} from "../packages/control-plane/app/api/agent/[did]/route";
+} from "../packages/control-plane/app/api/agents/[did]/route";
 import {
   GET as realmsGET,
   POST as realmsPOST,

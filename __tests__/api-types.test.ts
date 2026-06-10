@@ -3,7 +3,7 @@ import {
   toPaginatedResponse,
   toErrorResponse,
   toSuccessResponse,
-} from "../packages/control-plane/lib/api-types";
+} from "../packages/control-plane/lib/api/utils/api-types";
 
 describe("API Types", () => {
   describe("toPaginatedResponse", () => {

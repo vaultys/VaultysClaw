@@ -280,13 +280,29 @@ else
   log "Re-using existing $ENV_FILE"
 fi
 
-# Source secrets
-while IFS='=' read -r key value; do
-  [[ -z "$key" || "$key" == \#* ]] && continue
-  key="${key%$'\r'}"
-  value="${value%$'\r'}"
-  export "$key"="$value"
+# One-time migration: repair any NEXTAUTH_SECRET line written without the '=' separator
+# (a previous version of this script had `printf 'NEXTAUTH_SECRET%s\n'` instead of
+# `printf 'NEXTAUTH_SECRET=%s\n'`, which concatenated key + value into a single token).
+if grep -qE '^NEXTAUTH_SECRET[^=]' "$ENV_FILE" 2>/dev/null; then
+  warn "Repairing malformed NEXTAUTH_SECRET entry in $ENV_FILE (missing '=' separator)…"
+  malformed_line=$(grep -E '^NEXTAUTH_SECRET[^=]' "$ENV_FILE" | head -1)
+  fixed_value="${malformed_line#NEXTAUTH_SECRET}"
+  # BSD sed (macOS) requires an explicit backup extension with -i
+  sed -i.bak "s|^NEXTAUTH_SECRET[^=].*|NEXTAUTH_SECRET=${fixed_value}|" "$ENV_FILE" && rm -f "${ENV_FILE}.bak"
+  log "Repaired NEXTAUTH_SECRET entry in $ENV_FILE"
+fi
+
+# Source secrets — use %%=* / #*= so values that contain '=' (e.g. base64 padding) are
+# kept intact; the old IFS='=' read approach split on every '=' and silently dropped them.
+while IFS= read -r _line; do
+  _line="${_line%$'\r'}"
+  [[ -z "$_line" || "$_line" == \#* ]] && continue
+  _key="${_line%%=*}"
+  _value="${_line#*=}"
+  [[ -z "$_key" ]] && continue
+  export "$_key"="$_value"
 done < "$ENV_FILE"
+unset _line _key _value
 
 # Migrate older .env.demo files that predate LITELLM_MASTER_KEY
 if [[ -z "${LITELLM_MASTER_KEY:-}" ]]; then

@@ -6,6 +6,7 @@ import {
   forbidden,
   malformed,
   notFound,
+  conflict,
 } from "@/lib/api/utils/api-utils";
 import { RealmDAO, RealmSkillDAO } from "@/db";
 import { withError } from "@/lib/api/handlers/with-error";
@@ -108,6 +109,11 @@ export const POST = withError(async (request: NextRequest) => {
   const realms = await RealmDAO.findAll();
   if (!realms.find((r) => r.id === realmId)) {
     return notFound("Realm not found");
+  }
+
+  const existingSkills = await RealmSkillDAO.findAll(realmId);
+  if (existingSkills.some((s) => s.name === name.trim())) {
+    return conflict(`Skill '${name.trim()}' already exists in this realm`);
   }
 
   const skill = await RealmSkillDAO.create({

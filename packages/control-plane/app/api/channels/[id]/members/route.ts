@@ -5,6 +5,7 @@ import {
   forbidden,
   notFound,
   malformed,
+  conflict,
 } from "@/lib/api/utils/api-utils";
 import { ChannelService } from "@/lib/channel-service";
 import { withError } from "@/lib/api/handlers/with-error";
@@ -93,6 +94,9 @@ export const POST = withError(async (req: NextRequest, ctx: Ctx) => {
   if (!body.memberType || !["user", "agent"].includes(body.memberType)) {
     return malformed("memberType must be 'user' or 'agent'");
   }
+
+  const existingRole = await ChannelService.getMemberRole(id, body.memberDid.trim());
+  if (existingRole) return conflict(`Member ${body.memberDid.trim()} is already in this channel`);
 
   const member = await ChannelService.addChannelMember({
     channelId: id,

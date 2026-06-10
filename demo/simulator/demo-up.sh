@@ -146,16 +146,12 @@ wait_postgres() {
   local host="$1" port="$2" user="$3" secs="${4:-30}"
   log "Waiting for PostgreSQL at ${host}:${port}…"
   for i in $(seq 1 "$secs"); do
-    if pg_isready -h "$host" -p "$port" -U "$user" -q 2>/dev/null; then
+    if docker exec "$PG_CONTAINER" pg_isready -h localhost -p 5432 -U "$user" -q 2>/dev/null; then
       log "PostgreSQL is ready."
       return 0
     fi
     sleep 1
   done
-  if docker exec "$PG_CONTAINER" pg_isready -U "$PG_USER" -q 2>/dev/null; then
-    log "PostgreSQL is ready (via docker exec)."
-    return 0
-  fi
   warn "PostgreSQL did not respond within ${secs}s — continuing anyway."
 }
 

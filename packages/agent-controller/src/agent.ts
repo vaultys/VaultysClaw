@@ -86,6 +86,7 @@ import {
   LlmNotConfiguredError,
   LlmProviderError,
   streamChat,
+  type StepFinishEvent,
 } from "./llm";
 import {
   createToolRegistry,
@@ -102,6 +103,8 @@ import { MemoryStore, MemoryRetriever, ConversationSummarizer } from "./memory";
 import type { MastraTool } from "./tools/types";
 import { ingestSource, buildKnowledgeTool } from "./knowledge";
 import type { KnowledgeSourceConfig } from "./knowledge";
+import { parseTextToolCall, executeToolCall } from "./tool-call-resolver";
+import { verifyIntentMessage } from "./intent-verify";
 
 const Buffer = crypto.Buffer;
 
@@ -1448,7 +1451,10 @@ export class Agent extends EventEmitter {
 
     this.id = payload.agentId;
 
-    if (payload.capabilities && payload.capabilities.length > 0) {
+    if (Array.isArray(payload.capabilities)) {
+      // Trust the server's explicit list — including an empty array, which means
+      // the policy was revoked. The old check (length > 0) caused the agent to
+      // fall through to the cert and pick up stale capabilities after revocation.
       this.capabilities = payload.capabilities as AgentCapability[];
     } else if (this.authChallenger) {
       try {
@@ -1646,6 +1652,20 @@ export class Agent extends EventEmitter {
       userDid?: string;
     };
 
+    // Verify the control-plane signature before doing anything
+    if (!this.verifyIntentSignature(message)) {
+      this.log("error", `Rejected unsigned/invalid intent ${messageId} (${action})`);
+      const result: ExecutionResult = {
+        intentId: messageId,
+        status: "failed",
+        error: "Intent signature verification failed",
+        executedAt: new Date(),
+      };
+      this.sendResult(messageId, result);
+      this.sendAck(messageId, false, "Intent signature verification failed");
+      return;
+    }
+
     const entry: IntentEntry = {
       intentId: messageId,
       action,
@@ -1720,7 +1740,7 @@ export class Agent extends EventEmitter {
         this.log("info", `Delegation verified for ${userDid}`);
       }
 
-      const output = await this.executeAction(action, params);
+      const output = await this.executeAction(action, params, userDid, messageId);
 
       entry.status = "success";
       entry.output = output;
@@ -1765,7 +1785,8 @@ export class Agent extends EventEmitter {
   private async executeAction(
     action: string,
     params: Record<string, unknown>,
-    _callerDid?: string
+    _callerDid?: string,
+    intentId?: string
   ): Promise<unknown> {
     // ── Direct skill-tool invocation (no LLM needed) ──────────────────────────
     // The workflow executor sends action="call_skill_tool" when a Skill node runs.
@@ -1809,13 +1830,38 @@ export class Agent extends EventEmitter {
     const skillExtensions = this.realmSkillFilter
       ?.filter((s) => s.enabled && s.content)
       .map((s) => s.content as string);
+    const agentId = this.id;
+    const agentSend = this.send.bind(this);
+    const onStepFinish: (event: StepFinishEvent) => void = (event) => {
+      if (!event.toolCalls?.length) return;
+      for (const tc of event.toolCalls) {
+        const toolResult = event.toolResults?.find(
+          (r: any) => r.toolCallId === tc.toolCallId
+        );
+        agentSend({
+          messageId: `tool-exec-${Date.now()}`,
+          type: "tool_execution",
+          agentId,
+          payload: {
+            intentId,
+            toolName: tc.toolName,
+            args: tc.args,
+            result: toolResult?.result,
+            durationMs: 0,
+          } satisfies WSToolExecutionPayload,
+          timestamp: new Date().toISOString(),
+        });
+      }
+    };
+
     const { text, usage } = await runIntent(
       this.activeLlmConfig,
       action,
       params,
       tools,
       memoryContext,
-      skillExtensions
+      skillExtensions,
+      onStepFinish
     );
 
     // Record token usage to local DB and update counters
@@ -2312,17 +2358,93 @@ export class Agent extends EventEmitter {
       );
 
       const chunks: string[] = [];
-      let thinkBuf = "";
-      let inThinking = false;
-      for await (const rawChunk of result.textStream) {
-        const {
-          segments,
-          remaining,
-          inThinking: newInThinking,
-        } = splitThinkContent(thinkBuf + rawChunk, inThinking);
-        thinkBuf = remaining;
-        inThinking = newInThinking;
-        for (const seg of segments) {
+
+      // ── Chat-stream routing ────────────────────────────────────────────────
+      // Small local models (e.g. llama3.2 via Ollama) often output raw JSON
+      // tool-call syntax as plain text instead of using the structured API.
+      // We always buffer for ollama + openai-compatible providers so we can
+      // detect and execute such calls before anything reaches the client.
+      const provider = this.activeLlmConfig?.provider ?? "unknown";
+      const model = this.activeLlmConfig?.model ?? "unknown";
+      const toolNames = new Set(Object.keys(tools));
+      const useBufferedPath =
+        provider === "ollama" || provider === "openai-compatible";
+
+      this.log(
+        "info",
+        `[chat:stream] provider=${provider} model=${model} tools=[${[...toolNames].join(",")}] buffered=${useBufferedPath}`
+      );
+
+      if (useBufferedPath) {
+        // Buffer the full response before sending so we can post-process it.
+        const rawParts: string[] = [];
+        for await (const rawChunk of result.textStream) {
+          rawParts.push(rawChunk);
+        }
+        const fullText = rawParts.join("");
+
+        this.log(
+          "info",
+          `[chat:stream:buffered] raw_response=${JSON.stringify(fullText.slice(0, 500))}${fullText.length > 500 ? "…" : ""}`
+        );
+
+        const parsedCall = parseTextToolCall(fullText, toolNames);
+
+        this.log(
+          "info",
+          `[chat:stream:buffered] parseTextToolCall result=${parsedCall ? JSON.stringify({ toolName: parsedCall.toolName, args: parsedCall.args }) : "null"} knownTools=[${[...toolNames].join(",")}]`
+        );
+
+        let textToSend = fullText;
+
+        if (parsedCall) {
+          this.log(
+            "info",
+            `[chat:stream:buffered] executing intercepted tool call: ${parsedCall.toolName}`
+          );
+          const toolResult = await executeToolCall(
+            parsedCall.toolName,
+            parsedCall.args,
+            tools as any
+          );
+          this.log(
+            "info",
+            `[chat:stream:buffered] tool result: ${JSON.stringify(toolResult.result).slice(0, 300)}`
+          );
+          this.send({
+            messageId: `tool-exec-${Date.now()}`,
+            type: "tool_execution",
+            agentId: this.id,
+            payload: {
+              conversationId,
+              toolName: parsedCall.toolName,
+              args: parsedCall.args,
+              result: toolResult.result,
+              durationMs: 0,
+            } satisfies WSToolExecutionPayload,
+            timestamp: new Date().toISOString(),
+          });
+          textToSend =
+            typeof toolResult.result === "string"
+              ? toolResult.result
+              : JSON.stringify(toolResult.result, null, 2);
+        } else {
+          // Not a tool call — check if it looks like JSON we should warn about
+          // (model invented a tool name we don't have). Log it for diagnostics.
+          const trimmed = fullText.trim();
+          if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
+            this.log(
+              "warn",
+              `[chat:stream:buffered] response looks like JSON but no known tool matched — sending as-is. raw=${JSON.stringify(fullText.slice(0, 300))}`
+            );
+          }
+        }
+
+        const { segments, remaining } = splitThinkContent(textToSend, false);
+        const allSegs = remaining
+          ? [...segments, { text: remaining, thinking: false }]
+          : segments;
+        for (const seg of allSegs) {
           this.send({
             messageId: `chat-resp-${Date.now()}`,
             type: "chat_response",
@@ -2336,21 +2458,48 @@ export class Agent extends EventEmitter {
           });
           if (!seg.thinking) chunks.push(seg.text);
         }
-      }
-      // Flush any remaining buffered tag-prefix as a final chunk
-      if (thinkBuf) {
-        this.send({
-          messageId: `chat-resp-${Date.now()}`,
-          type: "chat_response",
-          agentId: this.id,
-          payload: {
-            conversationId,
-            chunk: thinkBuf,
-            ...(inThinking ? { thinking: true } : {}),
-          } satisfies WSChatResponsePayload,
-          timestamp: new Date().toISOString(),
-        });
-        if (!inThinking) chunks.push(thinkBuf);
+      } else {
+        // Cloud-provider path: stream chunks as they arrive.
+        let thinkBuf = "";
+        let inThinking = false;
+        for await (const rawChunk of result.textStream) {
+          const {
+            segments,
+            remaining,
+            inThinking: newInThinking,
+          } = splitThinkContent(thinkBuf + rawChunk, inThinking);
+          thinkBuf = remaining;
+          inThinking = newInThinking;
+          for (const seg of segments) {
+            this.send({
+              messageId: `chat-resp-${Date.now()}`,
+              type: "chat_response",
+              agentId: this.id,
+              payload: {
+                conversationId,
+                chunk: seg.text,
+                ...(seg.thinking ? { thinking: true } : {}),
+              } satisfies WSChatResponsePayload,
+              timestamp: new Date().toISOString(),
+            });
+            if (!seg.thinking) chunks.push(seg.text);
+          }
+        }
+        // Flush any remaining buffered tag-prefix as a final chunk
+        if (thinkBuf) {
+          this.send({
+            messageId: `chat-resp-${Date.now()}`,
+            type: "chat_response",
+            agentId: this.id,
+            payload: {
+              conversationId,
+              chunk: thinkBuf,
+              ...(inThinking ? { thinking: true } : {}),
+            } satisfies WSChatResponsePayload,
+            timestamp: new Date().toISOString(),
+          });
+          if (!inThinking) chunks.push(thinkBuf);
+        }
       }
       this.send({
         messageId: `chat-resp-${Date.now()}`,
@@ -2624,6 +2773,26 @@ export class Agent extends EventEmitter {
     } catch (err) {
       this.log("error", "Error handling agent peer catalog", err);
     }
+  }
+
+  /**
+   * Verify an intent message's ECDSA signature produced by the control plane.
+   *
+   * Wire format (same as delegation certs):
+   *   base64( 4-byte-LE-bodyLen | msgpack(body) | raw-signature )
+   *
+   * Body: { type: "intent", id, action, agentId, timestamp }
+   */
+  private verifyIntentSignature(message: WSMessage): boolean {
+    if (!this.serverPublicKey) {
+      this.log("warn", "Server public key unavailable — cannot verify intent signature");
+      return false;
+    }
+    const ok = verifyIntentMessage(message, this.serverPublicKey);
+    if (!ok) {
+      this.log("warn", `Intent signature verification failed for ${message.messageId}`);
+    }
+    return ok;
   }
 
   private async verifyUserDelegation(

@@ -504,6 +504,7 @@ model IntentLog {
   status      String    @default("pending")
   output      Json?
   error       String?
+  signature   String?   @map("signature")
   sentAt      DateTime  @default(now()) @map("sent_at")
   completedAt DateTime? @map("completed_at")
 

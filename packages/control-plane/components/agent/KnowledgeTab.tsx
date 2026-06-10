@@ -29,17 +29,17 @@ import { ConfirmModal } from "@/components/shared/ConfirmModal";
 
 interface KnowledgeSource {
   id: string;
-  realm_id: string;
-  agent_did: string;
+  realmId: string;
+  agentDid: string;
   name: string;
-  source_type: string;
+  sourceType: string;
   config: string;
   status: "idle" | "syncing" | "ready" | "error";
-  doc_count: number;
-  chunk_count: number;
-  last_synced_at: string | null;
+  docCount: number;
+  chunkCount: number;
+  lastSyncedAt: string | null;
   error: string | null;
-  created_at: string;
+  createdAt: string;
 }
 
 interface KsRealmOption {
@@ -155,11 +155,10 @@ function FileDropzone({ files, onAdd, onRemove }: FileDropzoneProps) {
         onDragLeave={() => setDragging(false)}
         onDrop={handleDrop}
         onClick={() => inputRef.current?.click()}
-        className={`flex flex-col items-center justify-center gap-2 px-4 py-8 rounded-xl border-2 border-dashed cursor-pointer transition-colors ${
-          dragging
+        className={`flex flex-col items-center justify-center gap-2 px-4 py-8 rounded-xl border-2 border-dashed cursor-pointer transition-colors ${dragging
             ? "border-primary-500 bg-primary-50"
             : "border-neutral-200 hover:border-primary-400 hover:bg-background-200/40 bg-background"
-        }`}
+          }`}
       >
         <Upload
           size={22}
@@ -190,11 +189,10 @@ function FileDropzone({ files, onAdd, onRemove }: FileDropzoneProps) {
             return (
               <li
                 key={`${f.name}-${i}`}
-                className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-xs ${
-                  oversized
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-xs ${oversized
                     ? "border-danger-300 bg-danger-50"
                     : "border-neutral-200 bg-background-200/40"
-                }`}
+                  }`}
               >
                 <File
                   size={13}
@@ -277,12 +275,12 @@ function KsSourceCard({
     text: <FileText size={16} className="text-warning-400" />,
     files: <FileType2 size={16} className="text-success-400" />,
   };
-  const typeIcon = typeIconMap[source.source_type] ?? (
+  const typeIcon = typeIconMap[source.sourceType] ?? (
     <File size={16} className="text-foreground-400" />
   );
 
   async function loadFiles() {
-    if (files !== null || source.source_type !== "files") return;
+    if (files !== null || source.sourceType !== "files") return;
     setLoadingFiles(true);
     try {
       const res = await fetch(
@@ -296,7 +294,7 @@ function KsSourceCard({
   }
 
   function handleExpand() {
-    if (!isExpanded && source.source_type === "files") {
+    if (!isExpanded && source.sourceType === "files") {
       loadFiles();
     }
     onToggleExpand();
@@ -325,12 +323,12 @@ function KsSourceCard({
             <span className="text-foreground-400">·</span>
             <Layers size={11} className="shrink-0" />
             <span>
-              {source.chunk_count > 0
-                ? `${source.chunk_count.toLocaleString()} chunks`
+              {source.chunkCount > 0
+                ? `${source.chunkCount.toLocaleString()} chunks`
                 : "No chunks yet"}
             </span>
             <span className="text-foreground-400">·</span>
-            <span>{relativeTime(source.last_synced_at)}</span>
+            <span>{relativeTime(source.lastSyncedAt)}</span>
           </div>
         </div>
 
@@ -380,7 +378,7 @@ function KsSourceCard({
             </div>
           )}
 
-          {source.source_type === "url" && Array.isArray(config.urls) && (
+          {source.sourceType === "url" && Array.isArray(config.urls) && (
             <div className="space-y-1">
               <p className="text-xs text-foreground-500 font-medium uppercase tracking-wider">
                 Indexed URLs
@@ -406,7 +404,7 @@ function KsSourceCard({
             </div>
           )}
 
-          {source.source_type === "text" && Array.isArray(config.texts) && (
+          {source.sourceType === "text" && Array.isArray(config.texts) && (
             <div className="space-y-1">
               <p className="text-xs text-foreground-500 font-medium uppercase tracking-wider">
                 Documents
@@ -428,7 +426,7 @@ function KsSourceCard({
             </div>
           )}
 
-          {source.source_type === "files" && (
+          {source.sourceType === "files" && (
             <div className="space-y-1">
               <p className="text-xs text-foreground-500 font-medium uppercase tracking-wider">
                 Uploaded Files
@@ -473,9 +471,9 @@ function KsSourceCard({
               Created:{" "}
               <span className="text-foreground">
                 {new Date(
-                  source.created_at.endsWith("Z")
-                    ? source.created_at
-                    : source.created_at + "Z"
+                  source.createdAt.endsWith("Z")
+                    ? source.createdAt
+                    : source.createdAt + "Z"
                 ).toLocaleDateString()}
               </span>
             </span>
@@ -663,25 +661,25 @@ function KsAddSourceModal({
     label: string;
     description: string;
   }[] = [
-    {
-      value: "url",
-      icon: <Globe size={18} className="text-primary-400" />,
-      label: "URL Sources",
-      description: "Fetch and index web pages or API docs",
-    },
-    {
-      value: "text",
-      icon: <FileText size={18} className="text-warning-400" />,
-      label: "Inline Text",
-      description: "Paste text directly from any source",
-    },
-    {
-      value: "files",
-      icon: <FileType2 size={18} className="text-success-400" />,
-      label: "Documents",
-      description: "Upload PDF, DOCX, TXT or Markdown files",
-    },
-  ];
+      {
+        value: "url",
+        icon: <Globe size={18} className="text-primary-400" />,
+        label: "URL Sources",
+        description: "Fetch and index web pages or API docs",
+      },
+      {
+        value: "text",
+        icon: <FileText size={18} className="text-warning-400" />,
+        label: "Inline Text",
+        description: "Paste text directly from any source",
+      },
+      {
+        value: "files",
+        icon: <FileType2 size={18} className="text-success-400" />,
+        label: "Documents",
+        description: "Upload PDF, DOCX, TXT or Markdown files",
+      },
+    ];
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
@@ -745,11 +743,10 @@ function KsAddSourceModal({
                   key={opt.value}
                   type="button"
                   onClick={() => setSourceType(opt.value)}
-                  className={`flex flex-col items-center gap-1.5 px-2 py-3 rounded-xl border text-center transition-colors ${
-                    sourceType === opt.value
+                  className={`flex flex-col items-center gap-1.5 px-2 py-3 rounded-xl border text-center transition-colors ${sourceType === opt.value
                       ? "border-primary-500 bg-primary-50"
                       : "border-neutral-200 bg-background hover:border-primary-400 hover:bg-background-200/40"
-                  }`}
+                    }`}
                 >
                   {opt.icon}
                   <span
@@ -972,7 +969,7 @@ export function KnowledgeTab({
       .then((d: { configured?: boolean; url?: string }) => {
         setDoclingConfigured(d.configured === true || Boolean(d.url));
       })
-      .catch(() => {});
+      .catch(() => { });
   }, []);
 
   useEffect(() => {
@@ -1091,9 +1088,9 @@ export function KnowledgeTab({
 
   const getRealmName = (id: string) =>
     realms.find((r) => r.id === id)?.name ?? id;
-  const totalChunks = sources.reduce((sum, s) => sum + (s.chunk_count ?? 0), 0);
+  const totalChunks = sources.reduce((sum, s) => sum + (s.chunkCount ?? 0), 0);
   const readyCount = sources.filter((s) => s.status === "ready").length;
-  const hasFileSources = sources.some((s) => s.source_type === "files");
+  const hasFileSources = sources.some((s) => s.sourceType === "files");
   const hasReadySources = readyCount > 0;
   const hasKnowledgeCapability = capabilities.includes("knowledge_search");
 
@@ -1142,11 +1139,10 @@ export function KnowledgeTab({
                     ? "Docling configured — PDF/DOCX parsing enabled"
                     : "Docling not configured — PDF/DOCX parsing unavailable"
                 }
-                className={`inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full border font-medium ${
-                  doclingConfigured
+                className={`inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full border font-medium ${doclingConfigured
                     ? "bg-success-100 text-success-700 border-success-300"
                     : "bg-warning-100 text-warning-700 border-warning-300"
-                }`}
+                  }`}
               >
                 <FileType2 size={10} />
                 {doclingConfigured ? "Docling on" : "Docling off"}
@@ -1249,7 +1245,7 @@ export function KnowledgeTab({
             <KsSourceCard
               key={source.id}
               source={source}
-              realmName={getRealmName(source.realm_id)}
+              realmName={getRealmName(source.realmId)}
               isSyncing={
                 syncingIds.has(source.id) || source.status === "syncing"
               }

@@ -8,6 +8,8 @@ import {
   ChannelDAO,
   ChannelMemberDAO,
   ChannelMessageDAO,
+  RealmDAO,
+  UserDAO,
   prisma,
 } from "@/db";
 import { MessageDispatcher } from "./message-dispatcher";
@@ -173,7 +175,16 @@ export class ChannelService {
    */
   static async isMember(channelId: string, memberDid: string): Promise<boolean> {
     const member = await ChannelMemberDAO.findMembership(channelId, memberDid);
-    return member !== null;
+    if (member !== null) return true;
+
+    // Realm members have implicit access to all channels in their realm
+    const channel = await ChannelDAO.findById(channelId);
+    if (!channel?.realmId) return false;
+
+    const user = await UserDAO.findByDid(memberDid);
+    if (!user) return false;
+
+    return RealmDAO.isUserInRealm(user.id, channel.realmId);
   }
 
   /**

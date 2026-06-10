@@ -72,7 +72,9 @@ const PROVIDER_COLORS: Record<string, string> = {
   ollama: "bg-secondary-100 text-secondary-700 border-secondary-300",
 };
 
-type ConfigMode = "agent-key" | "realm" | "registry" | "litellm" | "manual";
+type ConfigMode = "agent-key" | "realm" | "model" | "manual";
+
+type ModelSource = "litellm" | "registry";
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
@@ -95,6 +97,9 @@ export function ConfigTab({
   const [realmLlmData, setRealmLlmData] = useState<RealmLlmData | null>(null);
   const [selectedRealmId, setSelectedRealmId] = useState("");
   const [selectedRealmModelId, setSelectedRealmModelId] = useState("");
+
+  // Unified model picker
+  const [selectedSource, setSelectedSource] = useState<ModelSource>("litellm");
 
   // Manual config form
   const [llmForm, setLlmForm] = useState({
@@ -222,7 +227,8 @@ export function ConfigTab({
       if (allowedModels.length === 1 && liteLlmModels.some((m) => m.name === allowedModels[0])) {
         // It's a single LiteLLM model
         setSelectedLiteLlmModel(allowedModels[0]);
-        setConfigMode("litellm");
+        setSelectedSource("litellm");
+        setConfigMode("model");
         setLlmEditing(true);
         return;
       }
@@ -245,7 +251,8 @@ export function ConfigTab({
       }
       if (activeRegistryModel) {
         setSelectedRegistryId(activeRegistryModel.id);
-        setConfigMode("registry");
+        setSelectedSource("registry");
+        setConfigMode("model");
         setLlmEditing(true);
         return;
       }
@@ -268,9 +275,11 @@ export function ConfigTab({
         setConfigMode("realm");
       } else if (liteLlmModels.length > 0) {
         setSelectedLiteLlmModel(liteLlmModels[0]?.name ?? "");
-        setConfigMode("litellm");
+        setSelectedSource("litellm");
+        setConfigMode("model");
       } else if (registryModels.length > 0) {
-        setConfigMode("registry");
+        setSelectedSource("registry");
+        setConfigMode("model");
       } else {
         setConfigMode("manual");
       }
@@ -425,6 +434,13 @@ export function ConfigTab({
     }
   }
 
+  async function saveSelectedModel() {
+    if (selectedSource === "litellm") {
+      return saveLiteLlmModel();
+    }
+    return saveRegistryModel();
+  }
+
   async function saveManualConfig(e: React.FormEvent) {
     e.preventDefault();
     setLlmSaving(true);
@@ -460,6 +476,8 @@ export function ConfigTab({
   if (llmLoading)
     return <p className="text-foreground-500 text-sm">Loading…</p>;
 
+  const hasModels = liteLlmModels.length > 0 || registryModels.length > 0;
+
   // Mode selector buttons config
   const MODES: {
     id: ConfigMode;
@@ -482,16 +500,10 @@ export function ConfigTab({
         : "no models in realm",
     },
     {
-      id: "litellm",
-      label: "LiteLLM Models",
-      disabled: liteLlmModels.length === 0,
-      hint: "no models available in LiteLLM",
-    },
-    {
-      id: "registry",
-      label: "From Registry",
-      disabled: registryModels.length === 0,
-      hint: "no models registered",
+      id: "model",
+      label: "Models",
+      disabled: !hasModels,
+      hint: "no models available",
     },
     { id: "manual", label: "Manual", disabled: false },
   ];
@@ -814,59 +826,91 @@ export function ConfigTab({
               </div>
             )}
 
-            {/* ── Registry mode ── */}
-            {configMode === "registry" && (
+            {/* ── Unified model picker ── */}
+            {configMode === "model" && (
               <div className="space-y-3">
-                <p className="text-xs text-foreground-500">
-                  Select a model from the registry. Endpoint and credentials are resolved
-                  server-side.
-                </p>
-                <div className="space-y-2">
-                  {registryModels
-                    .filter((m) => m.status === "active")
-                    .map((m) => (
-                      <label
-                        key={m.id}
-                        className={`flex items-center gap-3 px-3 py-3 rounded-xl border cursor-pointer transition-colors ${
-                          selectedRegistryId === m.id
-                            ? "border-primary-500 bg-primary-50"
-                            : "border-neutral-200 hover:border-neutral-300 hover:bg-background-200/50"
-                        }`}
-                      >
-                        <input
-                          type="radio"
-                          name="registry-model"
-                          value={m.id}
-                          checked={selectedRegistryId === m.id}
-                          onChange={() => setSelectedRegistryId(m.id)}
-                          className="accent-primary-600 shrink-0"
-                        />
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-sm font-medium text-foreground">
-                              {m.name}
-                            </span>
-                            <span
-                              className={`text-xs px-1.5 py-0.5 rounded-full border font-medium ${
-                                PROVIDER_COLORS[m.provider] ??
-                                "bg-neutral-100 text-neutral-600 border-neutral-300"
-                              }`}
-                            >
-                              {m.provider}
-                            </span>
+                {/* Flat unified model list — LiteLLM first, then registry */}
+                {(liteLlmModels.length > 0 || registryModels.filter((m) => m.status === "active").length > 0) && (
+                  <div className="space-y-1.5">
+                      {liteLlmModels.map((m) => (
+                        <label
+                          key={`litellm:${m.name}`}
+                          className={`flex items-center gap-3 px-3 py-3 rounded-xl border cursor-pointer transition-colors ${
+                            selectedSource === "litellm" && selectedLiteLlmModel === m.name
+                              ? "border-primary-500 bg-primary-50"
+                              : "border-neutral-200 hover:border-neutral-300 hover:bg-background-200/50"
+                          }`}
+                        >
+                          <input
+                            type="radio"
+                            name="unified-model"
+                            checked={selectedSource === "litellm" && selectedLiteLlmModel === m.name}
+                            onChange={() => {
+                              setSelectedSource("litellm");
+                              setSelectedLiteLlmModel(m.name);
+                            }}
+                            className="accent-primary-600 shrink-0"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-sm font-medium text-foreground">
+                                {m.name}
+                              </span>
+                              <span className="text-[10px] text-foreground-400">via proxy</span>
+                            </div>
+                            {typeof m.params === "object" && m.params && Object.keys(m.params).length > 0 && (
+                              <code className="text-xs text-foreground-400 font-mono truncate block">
+                                {Object.entries(m.params)
+                                  .slice(0, 2)
+                                  .map(([k, v]) => `${k}: ${String(v).substring(0, 30)}`)
+                                  .join(" · ")}
+                              </code>
+                            )}
                           </div>
-                          <code className="text-xs text-foreground-400 font-mono">
-                            {m.modelId}
-                          </code>
-                          {m.description && (
-                            <p className="text-xs text-foreground-500 mt-0.5">
-                              {m.description}
-                            </p>
-                          )}
-                        </div>
-                      </label>
-                    ))}
-                </div>
+                        </label>
+                      ))}
+                      {registryModels
+                        .filter((m) => m.status === "active")
+                        .map((m) => (
+                          <label
+                            key={`registry:${m.id}`}
+                            className={`flex items-center gap-3 px-3 py-3 rounded-xl border cursor-pointer transition-colors ${
+                              selectedSource === "registry" && selectedRegistryId === m.id
+                                ? "border-primary-500 bg-primary-50"
+                                : "border-neutral-200 hover:border-neutral-300 hover:bg-background-200/50"
+                            }`}
+                          >
+                            <input
+                              type="radio"
+                              name="unified-model"
+                              checked={selectedSource === "registry" && selectedRegistryId === m.id}
+                              onChange={() => {
+                                setSelectedSource("registry");
+                                setSelectedRegistryId(m.id);
+                              }}
+                              className="accent-primary-600 shrink-0"
+                            />
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="text-sm font-medium text-foreground">
+                                  {m.name}
+                                </span>
+                                <span className="text-[10px] text-foreground-400">{m.provider}</span>
+                              </div>
+                              <code className="text-xs text-foreground-400 font-mono">
+                                {m.modelId}
+                              </code>
+                              {m.description && (
+                                <p className="text-xs text-foreground-500 mt-0.5">
+                                  {m.description}
+                                </p>
+                              )}
+                            </div>
+                          </label>
+                        ))}
+                  </div>
+                )}
+
                 <div className="flex items-center gap-3 pt-1">
                   <button
                     type="button"
@@ -876,79 +920,19 @@ export function ConfigTab({
                     Cancel
                   </button>
                   <button
-                    disabled={!selectedRegistryId || llmSaving}
-                    onClick={saveRegistryModel}
+                    disabled={
+                      (selectedSource === "litellm" && !selectedLiteLlmModel) ||
+                      (selectedSource === "registry" && !selectedRegistryId) ||
+                      llmSaving
+                    }
+                    onClick={saveSelectedModel}
                     className="px-4 py-1.5 text-sm font-medium rounded-lg bg-primary-600 hover:bg-primary-500 text-white disabled:opacity-40 transition"
                   >
                     {llmSaving ? "Saving…" : "Use this model"}
                   </button>
                   <a href="/models" className="text-xs text-foreground-500 hover:text-foreground ml-auto transition-colors">
-                    Manage registry →
+                    Manage models →
                   </a>
-                </div>
-              </div>
-            )}
-
-            {/* ── LiteLLM Models mode ── */}
-            {configMode === "litellm" && (
-              <div className="space-y-3">
-                <p className="text-xs text-foreground-500">
-                  Select a model from the LiteLLM service. A per-agent API key will be created
-                  automatically.
-                </p>
-                <div className="space-y-2">
-                  {liteLlmModels.map((m) => (
-                    <label
-                      key={m.name}
-                      className={`flex items-center gap-3 px-3 py-3 rounded-xl border cursor-pointer transition-colors ${
-                        selectedLiteLlmModel === m.name
-                          ? "border-primary-500 bg-primary-50"
-                          : "border-neutral-200 hover:border-neutral-300 hover:bg-background-200/50"
-                      }`}
-                    >
-                      <input
-                        type="radio"
-                        name="litellm-model"
-                        value={m.name}
-                        checked={selectedLiteLlmModel === m.name}
-                        onChange={() => setSelectedLiteLlmModel(m.name)}
-                        className="accent-primary-600 shrink-0"
-                      />
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-sm font-medium text-foreground">
-                            {m.name}
-                          </span>
-                          <span className="text-xs px-1.5 py-0.5 rounded-full border font-medium bg-primary-100 text-primary-700 border-primary-300">
-                            LiteLLM
-                          </span>
-                        </div>
-                        {typeof m.params === "object" && m.params && (
-                          <code className="text-xs text-foreground-400 font-mono">
-                            {Object.entries(m.params)
-                              .map(([k, v]) => `${k}: ${v}`)
-                              .join(" • ")}
-                          </code>
-                        )}
-                      </div>
-                    </label>
-                  ))}
-                </div>
-                <div className="flex items-center gap-3 pt-1">
-                  <button
-                    type="button"
-                    onClick={() => { setLlmEditing(false); setLlmStatus("idle"); }}
-                    className="text-sm text-foreground-500 hover:text-foreground px-3 py-1.5"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    disabled={!selectedLiteLlmModel || llmSaving}
-                    onClick={saveLiteLlmModel}
-                    className="px-4 py-1.5 text-sm font-medium rounded-lg bg-primary-600 hover:bg-primary-500 text-white disabled:opacity-40 transition"
-                  >
-                    {llmSaving ? "Saving…" : "Use this model"}
-                  </button>
                 </div>
               </div>
             )}

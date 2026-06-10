@@ -2,8 +2,9 @@
 
 import React, { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Cpu, Mail, Users, Bot, Check, X, ChevronRight } from "lucide-react";
+import { Mail, Users, Bot, Check, X, ChevronRight, Cpu } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
+import { RegisterModelForm } from "@/components/models/RegisterModelForm";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -14,14 +15,6 @@ const STEPS: { id: StepId; label: string; icon: React.ElementType }[] = [
   { id: "email", label: "Email", icon: Mail },
   { id: "users", label: "Users", icon: Users },
   { id: "agent", label: "Agents", icon: Bot },
-];
-
-const PROVIDERS = [
-  { value: "openai-compatible", label: "OpenAI-compatible" },
-  { value: "openai", label: "OpenAI" },
-  { value: "anthropic", label: "Anthropic" },
-  { value: "google", label: "Google" },
-  { value: "ollama", label: "Ollama" },
 ];
 
 // ─── Shared input ─────────────────────────────────────────────────────────────
@@ -52,51 +45,7 @@ function ModelStep({
   onNext: () => void;
   onSkip: () => void;
 }) {
-  const [name, setName] = useState("");
-  const [provider, setProvider] = useState("openai-compatible");
-  const [modelId, setModelId] = useState("");
-  const [baseUrl, setBaseUrl] = useState("");
-  const [apiKey, setApiKey] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
   const [added, setAdded] = useState<string[]>([]);
-
-  const handleAdd = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!name.trim() || !modelId.trim() || !baseUrl.trim()) {
-      setError("Name, Model ID, and Base URL are required");
-      return;
-    }
-    setSaving(true);
-    setError("");
-    try {
-      const res = await fetch("/api/models", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name,
-          provider,
-          modelId,
-          baseUrl,
-          apiKey: apiKey || undefined,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error ?? "Failed to register model");
-        return;
-      }
-      setAdded((a) => [...a, name]);
-      setName("");
-      setModelId("");
-      setBaseUrl("");
-      setApiKey("");
-    } catch {
-      setError("Network error");
-    } finally {
-      setSaving(false);
-    }
-  };
 
   return (
     <div className="space-y-4">
@@ -105,102 +54,31 @@ function ModelStep({
         models later.
       </p>
 
-      {added.length > 0 && (
-        <div className="flex flex-wrap gap-2">
-          {added.map((n) => (
-            <span
-              key={n}
-              className="flex items-center gap-1 text-xs bg-success-100 border border-success-300 text-success-700 px-2 py-0.5 rounded-full"
-            >
-              <Check className="w-3 h-3" />
-              {n}
-            </span>
-          ))}
-        </div>
-      )}
+      <RegisterModelForm
+        layout="grid"
+        onAdded={(name) => {
+          setAdded((a) => [...a, name]);
+        }}
+      />
 
-      <form onSubmit={handleAdd} className="space-y-3">
-        <div className="grid grid-cols-2 gap-3">
-          <Field
-            label="Name *"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="GPT-4o"
-          />
-          <div>
-            <label className="block text-xs text-foreground-500 mb-1.5">
-              Provider
-            </label>
-            <select
-              value={provider}
-              onChange={(e) => setProvider(e.target.value)}
-              className="w-full bg-background-200 border border-neutral-200 rounded-xl px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary-500/50"
-            >
-              {PROVIDERS.map((p) => (
-                <option key={p.value} value={p.value}>
-                  {p.label}
-                </option>
-              ))}
-            </select>
-          </div>
-          <Field
-            label="Model ID *"
-            value={modelId}
-            onChange={(e) => setModelId(e.target.value)}
-            placeholder="gpt-4o"
-          />
-          <Field
-            label="Base URL *"
-            value={baseUrl}
-            onChange={(e) => setBaseUrl(e.target.value)}
-            placeholder="https://api.openai.com/v1"
-          />
-          <div className="col-span-2">
-            <Field
-              label="API Key"
-              type="password"
-              value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
-              placeholder="sk-…"
-            />
-          </div>
-        </div>
-
-        {error && <p className="text-xs text-danger-500">{error}</p>}
-
-        <div className="flex items-center justify-between pt-1">
+      <div className="flex items-center justify-between pt-1">
+        <button
+          type="button"
+          onClick={onSkip}
+          className="text-sm text-foreground-500 hover:text-foreground transition-colors"
+        >
+          Skip for now
+        </button>
+        {added.length > 0 && (
           <button
             type="button"
-            onClick={onSkip}
-            className="text-sm text-foreground-500 hover:text-foreground transition-colors"
+            onClick={onNext}
+            className="px-4 py-2 text-sm border border-neutral-200 text-foreground-500 hover:text-foreground rounded-xl hover:bg-background-200 transition-colors"
           >
-            Skip for now
+            Continue →
           </button>
-          <div className="flex gap-2">
-            {added.length > 0 && (
-              <button
-                type="button"
-                onClick={onNext}
-                className="px-4 py-2 text-sm border border-neutral-200 text-foreground-500 hover:text-foreground rounded-xl hover:bg-background-200 transition-colors"
-              >
-                Continue →
-              </button>
-            )}
-            <button
-              type="submit"
-              disabled={saving}
-              className="flex items-center gap-2 px-4 py-2 bg-primary-600 hover:bg-primary-500 text-white text-sm font-medium rounded-xl disabled:opacity-50 transition-colors"
-            >
-              {saving ? (
-                <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
-              ) : (
-                <Cpu className="w-4 h-4" />
-              )}
-              {added.length > 0 ? "Add another" : "Register model"}
-            </button>
-          </div>
-        </div>
-      </form>
+        )}
+      </div>
     </div>
   );
 }

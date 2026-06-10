@@ -13,11 +13,9 @@ import {
   XCircle,
   Loader2,
   AlertTriangle,
-  Maximize2,
   Minimize2,
   ExternalLink,
   X,
-  MapPin,
   Cpu,
   Globe2,
   Shield,
@@ -117,9 +115,9 @@ export interface MissionControlCoreProps {
 }
 
 type DetailItem =
-  | { type: "agent";    id: string }
+  | { type: "agent"; id: string }
   | { type: "workflow"; id: string }
-  | { type: "intent";   id: string };
+  | { type: "intent"; id: string };
 
 /* ─── Helpers ─────────────────────────────────────────────────── */
 
@@ -332,7 +330,7 @@ export function MissionControlCore({ mode }: MissionControlCoreProps) {
         if (!res.ok) return;
         const d = await res.json();
         setMarkers(Array.isArray(d) ? d : (d.markers ?? []));
-      } catch {}
+      } catch { }
     };
     fetch_();
     const id = setInterval(fetch_, 30_000);
@@ -345,7 +343,7 @@ export function MissionControlCore({ mode }: MissionControlCoreProps) {
       try {
         const res = await fetch("/api/stats/tokens");
         if (res.ok) setTokenStats(await res.json());
-      } catch {}
+      } catch { }
     };
     fetch_();
     const id = setInterval(fetch_, 30_000);
@@ -374,8 +372,8 @@ export function MissionControlCore({ mode }: MissionControlCoreProps) {
               `…${intent.agentDid.slice(-6)}`;
             const type: FeedEventType =
               intent.status === "success" ? "intent_success"
-              : intent.status === "failed" ? "intent_failed"
-              : "intent_pending";
+                : intent.status === "failed" ? "intent_failed"
+                  : "intent_pending";
             pushFeed({ type, message: `${agentName}: ${intent.action}`, entityId: intent.intentId, entityType: "intent" });
           }
           return;
@@ -394,7 +392,7 @@ export function MissionControlCore({ mode }: MissionControlCoreProps) {
                 : "intent_pending";
           pushFeed({ type, message: `${agentName}: ${intent.action}` });
         }
-      } catch {}
+      } catch { }
     };
     fetch_();
     const id = setInterval(fetch_, 5_000);
@@ -409,7 +407,7 @@ export function MissionControlCore({ mode }: MissionControlCoreProps) {
         if (!res.ok) return;
         const data = await res.json();
         setWorkflowRuns(data.runs ?? []);
-      } catch {}
+      } catch { }
     };
     fetch_();
     const id = setInterval(fetch_, 8_000);
@@ -422,7 +420,7 @@ export function MissionControlCore({ mode }: MissionControlCoreProps) {
       try {
         const res = await fetch("/api/network");
         if (res.ok) setNetworkStats(await res.json());
-      } catch {}
+      } catch { }
     };
     fetch_();
     const id = setInterval(fetch_, 5_000);
@@ -508,7 +506,7 @@ export function MissionControlCore({ mode }: MissionControlCoreProps) {
         <div className="flex items-center gap-5 text-xs flex-wrap">
           {/* Agents online */}
           <div className="flex items-center gap-1.5">
-            <Bot size={11} className="text-foreground-600" />
+            <Bot size={15} className="text-foreground-600" />
             <span className="text-success-600 font-bold tabular-nums">
               {onlineAgents}
             </span>
@@ -622,9 +620,8 @@ export function MissionControlCore({ mode }: MissionControlCoreProps) {
               agentsState.agents.map((agent) => (
                 <div
                   key={agent.id}
-                  className={`px-4 py-2.5 border-b border-neutral-200/40 flex gap-2 cursor-pointer transition-colors hover:bg-background-200/50 ${
-                    !agent.online ? "opacity-35" : ""
-                  }`}
+                  className={`px-4 py-2.5 border-b border-neutral-200/40 flex gap-2 cursor-pointer transition-colors hover:bg-background-200/50 ${!agent.online ? "opacity-35" : ""
+                    }`}
                   onClick={() => setSelectedDetail({ type: "agent", id: agent.id })}
                 >
                   {/* Status dot with ping */}
@@ -680,9 +677,9 @@ export function MissionControlCore({ mode }: MissionControlCoreProps) {
                       <div className="text-[10px] text-foreground-600 mt-0.5">
                         {agent.dailyTokenUsage
                           ? `${fmtTokens(
-                              agent.dailyTokenUsage.promptTokens +
-                                agent.dailyTokenUsage.completionTokens
-                            )} tokens today`
+                            agent.dailyTokenUsage.promptTokens +
+                            agent.dailyTokenUsage.completionTokens
+                          )} tokens today`
                           : `hb ${timeAgo(agent.lastHeartbeat)}`}
                       </div>
                     )}
@@ -883,8 +880,8 @@ export function MissionControlCore({ mode }: MissionControlCoreProps) {
                     >
                       <div className="mt-0.5 shrink-0">
                         {intent.status === "success" ? <CheckCircle size={9} className="text-success-600" />
-                         : intent.status === "failed" ? <XCircle size={9} className="text-danger-600" />
-                         : <Loader2 size={9} className="text-warning-600 animate-spin" />}
+                          : intent.status === "failed" ? <XCircle size={9} className="text-danger-600" />
+                            : <Loader2 size={9} className="text-warning-600 animate-spin" />}
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-[10px] text-foreground truncate">{intent.action}</p>
@@ -915,9 +912,8 @@ export function MissionControlCore({ mode }: MissionControlCoreProps) {
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success-600 opacity-75" />
                 )}
                 <span
-                  className={`relative inline-flex rounded-full h-1.5 w-1.5 ${
-                    wsConnected ? "bg-success-600" : "bg-foreground-200/40"
-                  }`}
+                  className={`relative inline-flex rounded-full h-1.5 w-1.5 ${wsConnected ? "bg-success-600" : "bg-foreground-200/40"
+                    }`}
                 />
               </span>
             }
@@ -933,9 +929,8 @@ export function MissionControlCore({ mode }: MissionControlCoreProps) {
               feed.map((event, i) => (
                 <div
                   key={event.id}
-                  className={`px-4 py-2.5 border-b border-neutral-200/50 flex gap-2 ${
-                    i === 0 ? "bg-background-200/40 animate-fade-in" : ""
-                  } ${event.entityId ? "cursor-pointer hover:bg-background-200/30 transition-colors" : ""}`}
+                  className={`px-4 py-2.5 border-b border-neutral-200/50 flex gap-2 ${i === 0 ? "bg-background-200/40 animate-fade-in" : ""
+                    } ${event.entityId ? "cursor-pointer hover:bg-background-200/30 transition-colors" : ""}`}
                   style={{ opacity: Math.max(0.15, 1 - i * 0.013) }}
                   onClick={event.entityId && event.entityType
                     ? () => setSelectedDetail({ type: event.entityType!, id: event.entityId! })
@@ -1148,12 +1143,11 @@ function DetailModal({
                   </div>
                 ) : runSteps && runSteps.length > 0 ? (
                   runSteps.map((step, idx) => (
-                    <div key={step.id} className={`rounded-lg border px-3 py-2 text-[11px] ${
-                      step.status === "failed" ? "border-danger-500/40 bg-danger-500/5" :
+                    <div key={step.id} className={`rounded-lg border px-3 py-2 text-[11px] ${step.status === "failed" ? "border-danger-500/40 bg-danger-500/5" :
                       step.status === "success" || step.status === "completed" ? "border-success-500/30 bg-success-500/5" :
-                      step.status === "running" ? "border-primary-500/40 bg-primary-500/5" :
-                      "border-neutral-200/40 bg-background-100/30"
-                    }`}>
+                        step.status === "running" ? "border-primary-500/40 bg-primary-500/5" :
+                          "border-neutral-200/40 bg-background-100/30"
+                      }`}>
                       <div className="flex items-center gap-2">
                         {stepIcon(step.status)}
                         <span className="font-medium text-foreground flex-1 truncate">{step.stepId}</span>
@@ -1281,20 +1275,20 @@ function Row({ icon, label, children }: { icon: React.ReactNode; label: string; 
 function StatTile({
   value, label, color = "text-foreground", pct = 0,
 }: { value: string; label: string; color?: string; pct?: number }) {
-  const r = 20;
+  const r = 38;
   const circ = 2 * Math.PI * r;
   const fill = Math.min(1, Math.max(0, pct)) * circ;
   return (
     <div className="flex flex-col items-center gap-1">
-      <div className="relative flex items-center justify-center w-14 h-14">
+      <div className="relative flex items-center justify-center w-32 h-32">
         {/* Gauge ring */}
-        <svg className="absolute inset-0 w-full h-full" viewBox="0 0 56 56" style={{ transform: "rotate(-90deg)" }}>
+        <svg className="absolute inset-0 w-full h-full" viewBox="0 0 80 80" style={{ transform: "rotate(-90deg)" }}>
           {/* Track */}
-          <circle cx="28" cy="28" r={r} fill="none" strokeWidth="3.5" className="stroke-background-200" />
+          <circle cx="40" cy="40" r={r} fill="none" strokeWidth="3.5" className="stroke-background-200" />
           {/* Fill */}
           {fill > 0 && (
             <circle
-              cx="28" cy="28" r={r} fill="none" strokeWidth="3.5"
+              cx="40" cy="40" r={r} fill="none" strokeWidth="3.5"
               stroke="currentColor" className={color}
               strokeLinecap="round"
               strokeDasharray={`${fill} ${circ}`}
@@ -1302,9 +1296,13 @@ function StatTile({
           )}
         </svg>
         {/* Number */}
-        <span className={`relative z-10 text-sm font-bold tabular-nums leading-none ${color}`}>{value}</span>
+        <div className="flex flex-col items-center gap-2">
+          <span className={`relative z-10 text-sm font-bold tabular-nums leading-none ${color}`}>{value}</span>
+          <span className="text-[9px] text-foreground-500 uppercase tracking-wider">{label}</span>
+        </div>
+
       </div>
-      <span className="text-[9px] text-foreground-500 uppercase tracking-wider">{label}</span>
+
     </div>
   );
 }

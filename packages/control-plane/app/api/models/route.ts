@@ -153,6 +153,7 @@ export async function POST(req: NextRequest) {
       modelId?: string;
       baseUrl?: string;
       apiKey?: string;
+      skipLiteLLM?: boolean;
     };
 
     if (!body.name?.trim())
@@ -183,15 +184,17 @@ export async function POST(req: NextRequest) {
       createdBy: auth.did,
     });
 
-    // Register with LiteLLM if configured
-    if (isLiteLLMConfigured() && entry.litellmModelName) {
+    // Register with LiteLLM if available and not opted out
+    let litellmRegistered = false;
+    if (!body.skipLiteLLM && isLiteLLMConfigured() && entry.litellmModelName) {
       try {
         await registerModel({
           modelName: entry.litellmModelName,
-          litellmModel: `openai/${entry.modelId}`,
+          litellmModel: entry.modelId,
           apiBase: entry.baseUrl,
           apiKey: body.apiKey?.trim() || undefined,
         });
+        litellmRegistered = true;
       } catch (litellmErr) {
         console.warn("LiteLLM registration failed (non-fatal):", litellmErr);
       }
@@ -207,6 +210,7 @@ export async function POST(req: NextRequest) {
           modelId: entry.modelId,
           baseUrl: entry.baseUrl,
           litellmModelName: entry.litellmModelName,
+          litellmRegistered,
           status: entry.status,
           createdAt: entry.createdAt,
         },

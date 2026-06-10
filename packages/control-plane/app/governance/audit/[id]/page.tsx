@@ -23,6 +23,9 @@ import {
   Terminal,
   Zap,
   Link2,
+  Copy,
+  Check as CheckIcon,
+  Wrench,
 } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -43,6 +46,17 @@ interface AuditDetail {
   sentAt: string;
   completedAt: string | null;
   durationMs: number | null;
+  intentSignature: string | null;
+}
+
+interface ToolExecutionDetails {
+  intentId?: string;
+  conversationId?: string;
+  toolName?: string;
+  args?: Record<string, unknown>;
+  result?: unknown;
+  error?: string;
+  durationMs?: number;
 }
 
 interface CertInfo {
@@ -52,6 +66,7 @@ interface CertInfo {
   error: string | null;
   pk1Did: string | null;
   pk2Did: string | null;
+  pk1Bytes: string | null;
   signatureVerified: boolean;
   signedPayload: string | null;
   capabilities: string[] | null;
@@ -144,6 +159,118 @@ function JsonBlock({ value, label }: { value: unknown; label: string }) {
   );
 }
 
+function CopyButton({ text, label }: { text: string; label?: string }) {
+  const [copied, setCopied] = useState(false);
+  const copy = async () => {
+    await navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+  return (
+    <button
+      onClick={copy}
+      title={label ?? "Copy to clipboard"}
+      className="inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded border border-neutral-300 dark:border-neutral-600 text-foreground-500 hover:text-foreground hover:bg-background-200 transition-colors"
+    >
+      {copied ? (
+        <><CheckIcon size={11} className="text-success-500" /> Copied</>
+      ) : (
+        <><Copy size={11} /> Copy</>
+      )}
+    </button>
+  );
+}
+
+/** Structured display for tool_execution activity log entries */
+function ToolExecutionPanel({ details }: { details: ToolExecutionDetails }) {
+  const hasArgs = details.args && Object.keys(details.args).length > 0;
+  const hasResult = details.result !== undefined && details.result !== null;
+  const hasError = !!details.error;
+
+  return (
+    <div className="space-y-3">
+      {/* Tool name + duration */}
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <div className="flex items-center gap-2">
+          <div className="p-1.5 rounded bg-secondary-100 dark:bg-secondary-500/10 border border-secondary-300 dark:border-secondary-500/20 text-secondary-600 dark:text-secondary-400">
+            <Wrench size={14} />
+          </div>
+          <span className="text-sm font-semibold text-foreground font-mono">
+            {details.toolName ?? "unknown tool"}
+          </span>
+        </div>
+        {details.durationMs !== undefined && details.durationMs > 0 && (
+          <span className="flex items-center gap-1 text-xs text-foreground-400">
+            <Clock size={11} /> {details.durationMs}ms
+          </span>
+        )}
+      </div>
+
+      {/* Origin: intentId or conversationId */}
+      {(details.intentId || details.conversationId) && (
+        <div className="flex flex-wrap gap-2 text-[11px]">
+          {details.intentId && (
+            <span className="bg-primary-100 dark:bg-primary-500/10 border border-primary-300 dark:border-primary-500/20 text-primary-700 dark:text-primary-400 px-2 py-0.5 rounded font-mono">
+              intent: {details.intentId}
+            </span>
+          )}
+          {details.conversationId && (
+            <span className="bg-background-200 border border-neutral-300 text-foreground-500 px-2 py-0.5 rounded font-mono">
+              chat: {details.conversationId}
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* Args */}
+      {hasArgs && (
+        <div className="space-y-1.5">
+          <p className="text-xs text-foreground-400 uppercase tracking-wider">Arguments</p>
+          <div className="bg-background border border-neutral-200 rounded-lg divide-y divide-neutral-100 dark:divide-neutral-700 text-xs">
+            {Object.entries(details.args!).map(([k, v]) => (
+              <div key={k} className="flex gap-3 px-3 py-2 min-h-0">
+                <span className="font-mono text-foreground-500 shrink-0 w-32 truncate">{k}</span>
+                <span className="font-mono text-foreground break-all">
+                  {typeof v === "string"
+                    ? v
+                    : JSON.stringify(v)}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      {!hasArgs && (
+        <p className="text-xs text-foreground-400 italic">No arguments</p>
+      )}
+
+      {/* Result */}
+      {hasResult && !hasError && (
+        <div className="space-y-1.5">
+          <p className="text-xs text-foreground-400 uppercase tracking-wider">Result</p>
+          {typeof details.result === "string" ? (
+            <pre className="bg-background border border-neutral-200 rounded-lg p-3 text-xs font-mono text-foreground-700 overflow-x-auto whitespace-pre-wrap break-all max-h-48">
+              {details.result}
+            </pre>
+          ) : (
+            <pre className="bg-background border border-neutral-200 rounded-lg p-3 text-xs font-mono text-foreground-700 overflow-x-auto whitespace-pre-wrap break-all max-h-48">
+              {JSON.stringify(details.result, null, 2)}
+            </pre>
+          )}
+        </div>
+      )}
+
+      {/* Error */}
+      {hasError && (
+        <div className="flex items-start gap-2 bg-danger-500/10 border border-danger-500/20 rounded-lg px-3 py-2 text-xs text-danger-600 dark:text-danger-400">
+          <AlertTriangle size={13} className="shrink-0 mt-0.5" />
+          <span className="font-mono break-all">{details.error}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function AuditDetailPage() {
@@ -155,6 +282,11 @@ export default function AuditDetailPage() {
   const [certInfo, setCertInfo] = useState<CertInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Client-side intent signature verification
+  type SigState = "idle" | "verifying" | "valid" | "invalid" | "no_key";
+  const [sigState, setSigState] = useState<SigState>("idle");
+  const [sigHash, setSigHash] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -177,6 +309,72 @@ export default function AuditDetailPage() {
       }
     })();
   }, [id]);
+
+  // Run browser-side signature verification once entry + certInfo are available
+  useEffect(() => {
+    if (!entry || entry.source !== "intent" || !entry.intentSignature) return;
+    setSigState("verifying");
+
+    (async () => {
+      try {
+        const tokenB64 = entry.intentSignature!;
+
+        // ── Compute SHA-256 fingerprint (display only) ──────────────────────
+        const rawBytes = Uint8Array.from(atob(tokenB64), (c) => c.charCodeAt(0));
+        const hashBuf = await crypto.subtle.digest("SHA-256", rawBytes);
+        const hashHex = Array.from(new Uint8Array(hashBuf))
+          .map((b) => b.toString(16).padStart(2, "0"))
+          .join("");
+        setSigHash(hashHex);
+
+        // ── Verify ECDSA signature ──────────────────────────────────────────
+        const pk1Bytes = certInfo?.pk1Bytes;
+        if (!pk1Bytes) {
+          setSigState("no_key");
+          return;
+        }
+
+        // Parse wire format: 4-byte LE bodyLen | msgpack(body) | raw-sig
+        const combined = rawBytes;
+        if (combined.length < 5) { setSigState("invalid"); return; }
+        const bodyLen =
+          combined[0] |
+          (combined[1] << 8) |
+          (combined[2] << 16) |
+          (combined[3] << 24);
+        if (combined.length < 4 + bodyLen) { setSigState("invalid"); return; }
+        const body = combined.slice(4, 4 + bodyLen);
+        const sig = combined.slice(4 + bodyLen);
+        if (sig.length === 0) { setSigState("invalid"); return; }
+
+        // Decode body and cross-check fields
+        const { decode: msgpackDecode } = await import("@msgpack/msgpack");
+        const payload = msgpackDecode(body) as Record<string, unknown>;
+        const intentId = entry.id.startsWith("int-") ? entry.id.slice(4) : entry.id;
+        if (
+          payload.type !== "intent" ||
+          payload.id !== intentId ||
+          payload.agentId !== entry.agentDid
+        ) {
+          setSigState("invalid");
+          return;
+        }
+
+        // Cryptographic verification via @vaultys/id browser bundle
+        const { VaultysId, crypto: vid_crypto } = await import("@vaultys/id");
+        const pk1Buf = vid_crypto.Buffer.from(pk1Bytes, "base64");
+        const vid = VaultysId.fromId(pk1Buf);
+        const ok = await vid.verifyChallenge(
+          vid_crypto.Buffer.from(body),
+          vid_crypto.Buffer.from(sig),
+          false
+        );
+        setSigState(ok ? "valid" : "invalid");
+      } catch {
+        setSigState("invalid");
+      }
+    })();
+  }, [entry?.intentSignature, certInfo?.pk1Bytes]);
 
   if (loading) {
     return (
@@ -341,11 +539,16 @@ export default function AuditDetailPage() {
             </div>
           )}
 
-          {/* Params / details */}
+          {/* Structured tool_execution display */}
+          {isActivity && entry.event === "tool_execution" && entry.detailsParsed !== null && (
+            <ToolExecutionPanel details={entry.detailsParsed as ToolExecutionDetails} />
+          )}
+
+          {/* Params / details (generic) */}
           {entry.params !== null && (
             <JsonBlock value={entry.params} label="Intent params" />
           )}
-          {entry.detailsParsed !== null && isActivity && (
+          {entry.detailsParsed !== null && isActivity && entry.event !== "tool_execution" && (
             <JsonBlock value={entry.detailsParsed} label="Event details" />
           )}
           {entry.detailsParsed === null && entry.details && (
@@ -362,7 +565,7 @@ export default function AuditDetailPage() {
             <JsonBlock value={entry.output} label="Output" />
           )}
 
-          {!entry.params && !entry.details && !entry.output && (
+          {!entry.params && !entry.details && !entry.output && entry.event !== "tool_execution" && (
             <p className="text-xs text-foreground-400 italic">
               No payload data recorded for this event.
             </p>
@@ -603,6 +806,57 @@ export default function AuditDetailPage() {
                   label="Raw certificate metadata"
                 />
               )}
+            </div>
+          )}
+
+          {/* ── Intent signature ─────────────────────────────────────────── */}
+          {!isActivity && (
+            <div className="pt-2 border-t border-neutral-200">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <p className="text-xs text-foreground-500 uppercase tracking-wider flex items-center gap-1.5">
+                  <Key size={11} /> Intent signature
+                </p>
+
+                {/* Verification badge */}
+                {entry.intentSignature && (
+                  <>
+                    {sigState === "verifying" && (
+                      <span className="flex items-center gap-1 text-[11px] text-foreground-400">
+                        <Loader2 size={11} className="animate-spin" /> Verifying…
+                      </span>
+                    )}
+                    {sigState === "valid" && (
+                      <span className="flex items-center gap-1 text-[11px] font-medium text-success-600 dark:text-success-400">
+                        <CheckCircle2 size={12} /> Verified by browser
+                      </span>
+                    )}
+                    {sigState === "invalid" && (
+                      <span className="flex items-center gap-1 text-[11px] font-medium text-danger-600 dark:text-danger-400">
+                        <XCircle size={12} /> Invalid
+                      </span>
+                    )}
+                    {sigState === "no_key" && (
+                      <span className="flex items-center gap-1 text-[11px] text-foreground-400">
+                        <AlertTriangle size={11} /> No key to verify
+                      </span>
+                    )}
+                  </>
+                )}
+              </div>
+
+              {/* Hash or absent notice */}
+              {sigHash ? (
+                <div className="mt-1.5 flex items-center gap-2">
+                  <code className="text-[11px] font-mono text-foreground-600 dark:text-foreground-400 tracking-wide break-all">
+                    {sigHash}
+                  </code>
+                  <CopyButton text={sigHash} label="Copy hash" />
+                </div>
+              ) : !entry.intentSignature ? (
+                <p className="mt-1 text-[11px] text-foreground-400 italic">
+                  Not signed — dispatched before signing was enabled.
+                </p>
+              ) : null}
             </div>
           )}
         </div>

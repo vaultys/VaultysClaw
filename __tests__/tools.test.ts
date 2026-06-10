@@ -597,7 +597,7 @@ describe("HTTP request tool — extended", () => {
       },
       {} as any
     );
-    expect(result.body).toContain("... [body truncated]");
+    expect(result.body).toContain("... [truncated]");
   });
 
   it("should return an error body for non-AbortError network failures", async () => {

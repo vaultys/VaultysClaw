@@ -6,7 +6,8 @@ export class IntentDAO {
     intentId: string,
     agentDid: string | undefined,
     action: string,
-    params: Record<string, unknown>
+    params: Record<string, unknown>,
+    signature?: string | null
   ): Promise<void> {
     await prisma.intentLog.upsert({
       where: { intentId },
@@ -15,6 +16,7 @@ export class IntentDAO {
         agentDid: agentDid ?? null,
         action,
         params: params as Prisma.InputJsonValue,
+        signature: signature ?? null,
       },
       update: {},
     });

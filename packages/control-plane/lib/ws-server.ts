@@ -57,6 +57,7 @@ import { trace, context, propagation, SpanStatusCode } from "@opentelemetry/api"
 import { agentsConnected, llmTokens, intentsTotal } from "./metrics";
 import { ChannelService } from "./channel-service";
 import { crypto } from "@vaultys/id";
+import { signIntent } from "./intent-signing";
 import {
   isLiteLLMConfigured,
   getLiteLLMBaseUrl,
@@ -384,11 +385,24 @@ export class AgentWSServer {
           pendingConn.phase === "awaiting_register"
         ) {
           this.handleRegisterRequest(pendingConn, message);
+          return;
         } else if (
           message.type === "auth_challenge" &&
           pendingConn.phase === "authenticating"
         ) {
           this.handleAuthChallenge(pendingConn, message);
+          return;
+        } else if (pendingConn.isCertReissue) {
+          // During a cert reissue the agent is still fully authenticated — only
+          // its certificate is being refreshed. Non-auth messages (e.g.
+          // knowledge_status_sync sent immediately after auth_complete) arrive
+          // while the reissue pending entry is set up. Route them through the
+          // normal authenticated handler below rather than rejecting them.
+          logger.debug(
+            { type: message.type },
+            "Non-auth message during cert reissue — routing to authenticated handler"
+          );
+          // fall through to authenticated handler
         } else {
           logger.warn(
             { type: message.type, phase: pendingConn.phase },
@@ -400,8 +414,8 @@ export class AgentWSServer {
             payload: { error: "Unexpected message in current phase" },
             timestamp: new Date().toISOString(),
           });
+          return;
         }
-        return;
       }
 
       // Authenticated messages
@@ -1174,7 +1188,29 @@ export class AgentWSServer {
       if (cb) cb({ ...payload, agentId });
     }
 
-    logger.info({ agentId, tool: payload.toolName }, "Tool execution reported");
+    // Persist to activity log (fire-and-forget)
+    const agent = this.agents.get(agentId);
+    ActivityLogDAO.log(
+      "tool_execution",
+      agentId,
+      agent?.name,
+      JSON.stringify({
+        intentId: payload.intentId,
+        conversationId: payload.conversationId,
+        toolName: payload.toolName,
+        args: payload.args,
+        result: payload.result,
+        error: payload.error,
+        durationMs: payload.durationMs,
+      })
+    ).catch((err) =>
+      logger.warn({ err }, "Failed to persist tool_execution to activity log")
+    );
+
+    logger.info(
+      { agentId, tool: payload.toolName, intentId: payload.intentId },
+      "Tool execution reported"
+    );
   }
 
   /** Get all pending tool approval requests (for admin UI). */
@@ -1861,6 +1897,8 @@ export class AgentWSServer {
         const traceContext: Record<string, string> = {};
         propagation.inject(context.active(), traceContext);
 
+        const signature = await signIntent(intentId, action, agentId);
+
         const message: WSMessage = {
           messageId: intentId,
           type: "intent",
@@ -1874,13 +1912,14 @@ export class AgentWSServer {
             ...(Object.keys(traceContext).length > 0 ? { _traceContext: traceContext } : {}),
           },
           timestamp: new Date().toISOString(),
+          ...(signature ? { signature } : {}),
         };
 
         try {
           agent.sender.sendRaw(JSON.stringify(message));
           logger.info({ agentId, intentId, action }, "Intent sent to agent");
           try {
-            await IntentDAO.log(intentId, agentId, action, params);
+            await IntentDAO.log(intentId, agentId, action, params, signature);
           } catch {
             /* non-fatal */
           }

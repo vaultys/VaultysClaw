@@ -157,6 +157,8 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
           sentAt: row.sentAt.toISOString(),
           completedAt: row.completedAt?.toISOString() ?? null,
           durationMs,
+          // cryptographic signature from control plane (base64 wire token)
+          intentSignature: row.signature ?? null,
         },
         certInfo,
       });
@@ -238,6 +240,14 @@ async function resolveCertInfo(
 
     const state: number | null = (cert as any).state ?? null;
 
+    // Export raw pk1 bytes as base64 so the browser can run VaultysId.fromId()
+    // for client-side intent signature verification (DID is a hash — not reversible).
+    let pk1Bytes: string | null = null;
+    try {
+      if ((cert as any).pk1)
+        pk1Bytes = Buffer.from((cert as any).pk1 as Uint8Array).toString("base64");
+    } catch { /* ignore */ }
+
     return {
       protocol: (cert as any).protocol ?? null,
       state,
@@ -246,6 +256,8 @@ async function resolveCertInfo(
       // DIDs derived from the certificate public keys
       pk1Did,
       pk2Did,
+      // raw pk1 public key bytes (base64) — used by browser for intent signature verification
+      pk1Bytes,
       // signature verified = mutual challenge-response completed successfully
       signatureVerified: state === 2,
       // full serialized signed certificate (the signed payload)

@@ -113,8 +113,9 @@ Return a concise, structured result after executing tools. Never reveal sensitiv
 Never deviate from the requested action scope.`;
 
 const DEFAULT_CHAT_PROMPT = `You are VaultysClaw Agent, a helpful and secure AI assistant.
-Answer the user's questions thoughtfully and concisely.
-When the user asks you to perform an action, use the available tools to accomplish it.
+Respond to the user's messages thoughtfully and concisely in plain natural language.
+For questions, greetings, or simple conversational messages, always reply in plain text — never output raw JSON.
+Only use the available tools when the user explicitly requests a concrete action such as reading a file, running code, or fetching data.
 Never reveal API keys, secrets, or other sensitive configuration data.`;
 
 /**
@@ -126,7 +127,8 @@ export async function runIntent(
   params: Record<string, unknown>,
   tools?: Record<string, MastraTool>,
   memoryContext?: string,
-  skillExtensions?: string[]
+  skillExtensions?: string[],
+  onStepFinish?: (event: StepFinishEvent) => void | Promise<void>
 ): Promise<{
   text: string;
   usage: { promptTokens: number; completionTokens: number };
@@ -183,6 +185,28 @@ export async function runIntent(
           modelSettings: config.maxTokens
             ? { maxOutputTokens: config.maxTokens }
             : undefined,
+          ...(onStepFinish
+            ? {
+                onStepFinish: async (step: any) => {
+                  const event: StepFinishEvent = {
+                    text: step.text,
+                    finishReason: step.finishReason,
+                    // Mastra wraps tool calls as ToolCallChunk: { type, payload: { toolName, toolCallId, args } }
+                    // Fall back to flat fields for forward-compat.
+                    toolCalls: step.toolCalls?.map((tc: any) => ({
+                      toolCallId: tc.payload?.toolCallId ?? tc.toolCallId,
+                      toolName: tc.payload?.toolName ?? tc.toolName,
+                      args: tc.payload?.args ?? tc.args ?? {},
+                    })),
+                    toolResults: step.toolResults?.map((tr: any) => ({
+                      toolCallId: tr.payload?.toolCallId ?? tr.toolCallId,
+                      result: tr.payload?.result ?? tr.result,
+                    })),
+                  };
+                  await onStepFinish(event);
+                },
+              }
+            : {}),
         });
 
         logger.info(
@@ -316,14 +340,16 @@ export function streamChat(
             const event: StepFinishEvent = {
               text: step.text,
               finishReason: step.finishReason,
+              // Mastra wraps tool calls as ToolCallChunk: { type, payload: { toolName, toolCallId, args } }
+              // Fall back to flat fields for forward-compat.
               toolCalls: step.toolCalls?.map((tc: any) => ({
-                toolCallId: tc.toolCallId,
-                toolName: tc.toolName,
-                args: tc.args ?? {},
+                toolCallId: tc.payload?.toolCallId ?? tc.toolCallId,
+                toolName: tc.payload?.toolName ?? tc.toolName,
+                args: tc.payload?.args ?? tc.args ?? {},
               })),
               toolResults: step.toolResults?.map((tr: any) => ({
-                toolCallId: tr.toolCallId,
-                result: tr.result,
+                toolCallId: tr.payload?.toolCallId ?? tr.toolCallId,
+                result: tr.payload?.result ?? tr.result,
               })),
             };
             await onStepFinish(event);

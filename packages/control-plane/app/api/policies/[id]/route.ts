@@ -157,17 +157,14 @@ export async function DELETE(_req: NextRequest, ctx: Ctx) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
 
     // If the policy was bound to a specific agent, reissue its cert immediately
-    // so the removed resource limits are no longer enforced.
+    // with an empty capability set. The previous code mistakenly re-sent the
+    // policy's own capabilities here, leaving the agent with full access even
+    // after revocation. Revoking a policy means revoking what it granted.
     const sentTo: string[] = [];
     if (policy.agentDid) {
       const wsServer = getWSServer();
       if (wsServer) {
-        // Use the capabilities stored on the policy (what it granted) but clear
-        // all governance metadata — policyId null signals "no active policy".
-        const capabilities = (
-          Array.isArray(policy.capabilities) ? policy.capabilities : []
-        ) as AgentCapability[];
-        const applied = await wsServer.applyPolicy(policy.agentDid, capabilities, {
+        const applied = await wsServer.applyPolicy(policy.agentDid, [], {
           resourceLimits: null,
           policyId: null,
           policyExpiresAt: null,

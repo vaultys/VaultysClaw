@@ -432,6 +432,8 @@ export interface WSToolApprovalResponsePayload {
  */
 export interface WSToolExecutionPayload {
   conversationId?: string;
+  /** Set when the tool call originates from an intent execution (not a chat). */
+  intentId?: string;
   toolName: string;
   args: Record<string, unknown>;
   result?: unknown;

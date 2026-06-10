@@ -10,6 +10,11 @@ export default defineConfig({
     alias: {
       // Control-plane path alias — mirrors tsconfig paths used in the package
       "@": resolve(__dirname, "packages/control-plane"),
+      // @msgpack/msgpack is a dep of both packages but not hoisted to root
+      "@msgpack/msgpack": resolve(
+        __dirname,
+        "node_modules/.pnpm/@msgpack+msgpack@3.1.3/node_modules/@msgpack/msgpack"
+      ),
       // The AI SDK is a dep of agent-controller only, not the root workspace.
       // Alias it here so tests in __tests__/ can import and mock it.
       ai: resolve(__dirname, "packages/agent-controller/node_modules/ai"),

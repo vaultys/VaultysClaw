@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
-import { unauthorized, forbidden } from "@/lib/api-utils";
+import { unauthorized, forbidden, notFound } from "@/lib/api/utils/api-utils";
 import { ModelDAO, RealmDAO } from "@/db";
+import { withError } from "@/lib/api/handlers/with-error";
 import {
   registerModel,
   removeModel,
@@ -41,51 +42,42 @@ type Ctx = { params: Promise<{ id: string }> };
  *       500:
  *         description: Failed to fetch model.
  */
-export async function GET(_req: NextRequest, { params }: Ctx) {
-  try {
-    const auth = await getAuthContext(_req);
-    if (!auth) return unauthorized();
+export const GET = withError(async (_req: NextRequest, { params }: Ctx) => {
+  const auth = await getAuthContext(_req);
+  if (!auth) return unauthorized();
 
-    const { id } = await params;
-    const entry = await ModelDAO.findById(id);
-    if (!entry)
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
+  const { id } = await params;
+  const entry = await ModelDAO.findById(id);
+  if (!entry) return notFound("Model not found");
 
-    const realmAccess = await ModelDAO.getRealmAccess(id);
-    const allRealms = await RealmDAO.findAll();
+  const realmAccess = await ModelDAO.getRealmAccess(id);
+  const allRealms = await RealmDAO.findAll();
 
-    return NextResponse.json({
-      model: {
-        id: entry.id,
-        name: entry.name,
-        description: entry.description,
-        provider: entry.provider,
-        modelId: entry.modelId,
-        baseUrl: entry.baseUrl,
-        hasApiKey: Boolean(entry.apiKeyEnc),
-        litellmModelName: entry.litellmModelName,
-        status: entry.status,
-        metadata: (entry.metadata ?? {}) as Record<string, unknown>,
-        createdAt: entry.createdAt,
-        updatedAt: entry.updatedAt,
-        realms: realmAccess.map((ra) => {
-          const realm = allRealms.find((r) => r.id === ra.realmId);
-          return {
-            realmId: ra.realmId,
-            realmName: realm?.name ?? ra.realmId,
-            grantedAt: ra.grantedAt,
-          };
-        }),
-      },
-    });
-  } catch (err) {
-    console.error(err);
-    return NextResponse.json(
-      { error: "Failed to fetch model" },
-      { status: 500 }
-    );
-  }
-}
+  return NextResponse.json({
+    model: {
+      id: entry.id,
+      name: entry.name,
+      description: entry.description,
+      provider: entry.provider,
+      modelId: entry.modelId,
+      baseUrl: entry.baseUrl,
+      hasApiKey: Boolean(entry.apiKeyEnc),
+      litellmModelName: entry.litellmModelName,
+      status: entry.status,
+      metadata: (entry.metadata ?? {}) as Record<string, unknown>,
+      createdAt: entry.createdAt,
+      updatedAt: entry.updatedAt,
+      realms: realmAccess.map((ra) => {
+        const realm = allRealms.find((r) => r.id === ra.realmId);
+        return {
+          realmId: ra.realmId,
+          realmName: realm?.name ?? ra.realmId,
+          grantedAt: ra.grantedAt,
+        };
+      }),
+    },
+  });
+});
 
 /** PUT /api/models/[id] — update model. Admin only. */
 /**
@@ -139,70 +131,61 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
  *       500:
  *         description: Failed to update model
  */
-export async function PUT(req: NextRequest, { params }: Ctx) {
-  try {
-    const auth = await getAuthContext(req);
-    if (!auth) return unauthorized();
-    if (!auth.isGlobalAdmin) return forbidden();
+export const PUT = withError(async (req: NextRequest, { params }: Ctx) => {
+  const auth = await getAuthContext(req);
+  if (!auth) return unauthorized();
+  if (!auth.isGlobalAdmin) return forbidden();
 
-    const { id } = await params;
-    const entry = await ModelDAO.findById(id);
-    if (!entry)
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
+  const { id } = await params;
+  const entry = await ModelDAO.findById(id);
+  if (!entry) return notFound("Model not found");
 
-    const body = (await req.json()) as {
-      name?: string;
-      description?: string | null;
-      provider?: string;
-      modelId?: string;
-      baseUrl?: string;
-      apiKey?: string | null;
-      status?: "active" | "inactive";
-    };
+  const body = (await req.json()) as {
+    name?: string;
+    description?: string | null;
+    provider?: string;
+    modelId?: string;
+    baseUrl?: string;
+    apiKey?: string | null;
+    status?: "active" | "inactive";
+  };
 
-    await ModelDAO.update(id, {
-      name: body.name?.trim(),
-      description:
-        body.description !== undefined
-          ? body.description?.trim() || null
-          : undefined,
-      provider: body.provider?.trim(),
-      modelId: body.modelId?.trim(),
-      baseUrl: body.baseUrl?.trim(),
-      apiKeyEnc:
-        body.apiKey !== undefined ? body.apiKey?.trim() || null : undefined,
-      status: body.status,
-    });
+  await ModelDAO.update(id, {
+    name: body.name?.trim(),
+    description:
+      body.description !== undefined
+        ? body.description?.trim() || null
+        : undefined,
+    provider: body.provider?.trim(),
+    modelId: body.modelId?.trim(),
+    baseUrl: body.baseUrl?.trim(),
+    apiKeyEnc:
+      body.apiKey !== undefined ? body.apiKey?.trim() || null : undefined,
+    status: body.status,
+  });
 
-    // Sync with LiteLLM if base URL or model changed
-    const updated = await ModelDAO.findById(id);
-    if (
-      updated &&
-      isLiteLLMConfigured() &&
-      updated.litellmModelName &&
-      (body.baseUrl || body.modelId || body.apiKey !== undefined)
-    ) {
-      try {
-        await registerModel({
-          modelName: updated.litellmModelName,
-          litellmModel: `openai/${updated.modelId}`,
-          apiBase: updated.baseUrl,
-          apiKey: updated.apiKeyEnc ?? undefined,
-        });
-      } catch (e) {
-        console.warn("LiteLLM sync failed (non-fatal):", e);
-      }
+  // Sync with LiteLLM if base URL or model changed
+  const updated = await ModelDAO.findById(id);
+  if (
+    updated &&
+    isLiteLLMConfigured() &&
+    updated.litellmModelName &&
+    (body.baseUrl || body.modelId || body.apiKey !== undefined)
+  ) {
+    try {
+      await registerModel({
+        modelName: updated.litellmModelName,
+        litellmModel: `openai/${updated.modelId}`,
+        apiBase: updated.baseUrl,
+        apiKey: updated.apiKeyEnc ?? undefined,
+      });
+    } catch (e) {
+      console.warn("LiteLLM sync failed (non-fatal):", e);
     }
-
-    return NextResponse.json({ ok: true });
-  } catch (err) {
-    console.error(err);
-    return NextResponse.json(
-      { error: "Failed to update model" },
-      { status: 500 }
-    );
   }
-}
+
+  return NextResponse.json({ ok: true });
+});
 
 /** DELETE /api/models/[id] — admin only. */
 /**
@@ -230,32 +213,23 @@ export async function PUT(req: NextRequest, { params }: Ctx) {
  *       500:
  *         description: Failed to delete model
  */
-export async function DELETE(_req: NextRequest, { params }: Ctx) {
-  try {
-    const auth = await getAuthContext(_req);
-    if (!auth) return unauthorized();
-    if (!auth.isGlobalAdmin) return forbidden();
+export const DELETE = withError(async (_req: NextRequest, { params }: Ctx) => {
+  const auth = await getAuthContext(_req);
+  if (!auth) return unauthorized();
+  if (!auth.isGlobalAdmin) return forbidden();
 
-    const { id } = await params;
-    const entry = await ModelDAO.findById(id);
-    if (!entry)
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
+  const { id } = await params;
+  const entry = await ModelDAO.findById(id);
+  if (!entry) return notFound("Model not found");
 
-    if (isLiteLLMConfigured() && entry.litellmModelName) {
-      try {
-        await removeModel(entry.litellmModelName);
-      } catch (e) {
-        console.warn("LiteLLM removal failed (non-fatal):", e);
-      }
+  if (isLiteLLMConfigured() && entry.litellmModelName) {
+    try {
+      await removeModel(entry.litellmModelName);
+    } catch (e) {
+      console.warn("LiteLLM removal failed (non-fatal):", e);
     }
-
-    await ModelDAO.delete(id);
-    return NextResponse.json({ ok: true });
-  } catch (err) {
-    console.error(err);
-    return NextResponse.json(
-      { error: "Failed to delete model" },
-      { status: 500 }
-    );
   }
-}
+
+  await ModelDAO.delete(id);
+  return NextResponse.json({ ok: true });
+});

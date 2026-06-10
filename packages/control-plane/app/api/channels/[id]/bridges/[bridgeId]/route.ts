@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
-import { unauthorized } from "@/lib/api-utils";
+import { forbidden, notFound, unauthorized } from "@/lib/api/utils/api-utils";
 import { ChannelBridgeService } from "@/lib/channel-bridge-service";
 import type { ChannelBridge } from "@vaultysclaw/shared";
+import { withError } from "@/lib/api/handlers/with-error";
 
 type Ctx = { params: Promise<{ id: string; bridgeId: string }> };
 
@@ -65,59 +66,45 @@ function stripConfig(bridge: ChannelBridge): Omit<ChannelBridge, "configJson"> {
  *       500:
  *         description: Failed to update bridge.
  */
-export async function PATCH(req: NextRequest, ctx: Ctx) {
-  try {
-    const auth = await getAuthContext(req);
-    if (!auth) return unauthorized();
+export const PATCH = withError(async (req: NextRequest, ctx: Ctx) => {
+  const auth = await getAuthContext(req);
+  if (!auth) return unauthorized();
 
-    const { bridgeId } = await ctx.params;
+  const { bridgeId } = await ctx.params;
 
-    const bridge = await ChannelBridgeService.getBridge(bridgeId);
-    if (!bridge) {
-      return NextResponse.json({ error: "Bridge not found" }, { status: 404 });
+  const bridge = await ChannelBridgeService.getBridge(bridgeId);
+  if (!bridge) {
+    return notFound("Bridge not found");
+  }
+
+  const body = (await req.json()) as {
+    syncDirection?: "incoming" | "outgoing" | "bidirectional";
+    isSyncEnabled?: boolean;
+  };
+
+  let updated = bridge;
+
+  if (body.syncDirection !== undefined) {
+    if (
+      !["incoming", "outgoing", "bidirectional"].includes(body.syncDirection)
+    ) {
+      return forbidden("Invalid syncDirection value");
     }
-
-    const body = (await req.json()) as {
-      syncDirection?: "incoming" | "outgoing" | "bidirectional";
-      isSyncEnabled?: boolean;
-    };
-
-    let updated = bridge;
-
-    if (body.syncDirection !== undefined) {
-      if (
-        !["incoming", "outgoing", "bidirectional"].includes(body.syncDirection)
-      ) {
-        return NextResponse.json(
-          {
-            error:
-              "syncDirection must be 'incoming', 'outgoing', or 'bidirectional'",
-          },
-          { status: 400 }
-        );
-      }
-      updated = await ChannelBridgeService.updateBridgeSyncDirection(
-        bridgeId,
-        body.syncDirection
-      );
-    }
-
-    if (body.isSyncEnabled !== undefined) {
-      updated = await ChannelBridgeService.toggleBridgeSync(
-        bridgeId,
-        Boolean(body.isSyncEnabled)
-      );
-    }
-
-    return NextResponse.json({ bridge: stripConfig(updated) });
-  } catch (err) {
-    console.error("PATCH /api/channels/[id]/bridges/[bridgeId] error:", err);
-    return NextResponse.json(
-      { error: "Failed to update bridge" },
-      { status: 500 }
+    updated = await ChannelBridgeService.updateBridgeSyncDirection(
+      bridgeId,
+      body.syncDirection
     );
   }
-}
+
+  if (body.isSyncEnabled !== undefined) {
+    updated = await ChannelBridgeService.toggleBridgeSync(
+      bridgeId,
+      Boolean(body.isSyncEnabled)
+    );
+  }
+
+  return NextResponse.json({ bridge: stripConfig(updated) });
+});
 
 /**
  * DELETE /api/channels/[id]/bridges/[bridgeId]
@@ -162,26 +149,18 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
  *       500:
  *         description: Failed to delete bridge.
  */
-export async function DELETE(_req: NextRequest, ctx: Ctx) {
-  try {
-    const auth = await getAuthContext(_req);
-    if (!auth) return unauthorized();
+export const DELETE = withError(async (_req: NextRequest, ctx: Ctx) => {
+  const auth = await getAuthContext(_req);
+  if (!auth) return unauthorized();
 
-    const { bridgeId } = await ctx.params;
+  const { bridgeId } = await ctx.params;
 
-    const bridge = await ChannelBridgeService.getBridge(bridgeId);
-    if (!bridge) {
-      return NextResponse.json({ error: "Bridge not found" }, { status: 404 });
-    }
-
-    await ChannelBridgeService.deleteBridge(bridgeId);
-
-    return NextResponse.json({ success: true });
-  } catch (err) {
-    console.error("DELETE /api/channels/[id]/bridges/[bridgeId] error:", err);
-    return NextResponse.json(
-      { error: "Failed to delete bridge" },
-      { status: 500 }
-    );
+  const bridge = await ChannelBridgeService.getBridge(bridgeId);
+  if (!bridge) {
+    return notFound("Bridge not found");
   }
-}
+
+  await ChannelBridgeService.deleteBridge(bridgeId);
+
+  return NextResponse.json({ success: true });
+});

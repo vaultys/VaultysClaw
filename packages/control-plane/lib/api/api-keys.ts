@@ -3,7 +3,7 @@ import {
   ApiKeyCreateRequest,
   ApiKeyCreatedResponse,
   ApiKeyUpdateRequest,
-} from "@/lib/api-types";
+} from "@/lib/api/utils/api-types";
 import { BaseApi } from "./base";
 
 export class ApiKeysApi extends BaseApi {

@@ -5,6 +5,8 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { UserDAO } from "@/db";
+import { forbidden, notFound } from "@/lib/api/utils/api-utils";
+import { withError } from "@/lib/api/handlers/with-error";
 
 /**
  * @openapi
@@ -38,39 +40,25 @@ import { UserDAO } from "@/db";
  *       500:
  *         description: Failed to fetch invitation.
  */
-export async function GET(
+export const GET = withError(async (
   request: NextRequest,
   { params }: { params: Promise<{ token: string }> }
-) {
+) => {
   const { token } = await params;
-  try {
-    const invitation = await UserDAO.findInvitation(token);
+  const invitation = await UserDAO.findInvitation(token);
 
-    if (!invitation) {
-      return NextResponse.json(
-        { error: "Invitation not found" },
-        { status: 404 }
-      );
-    }
-
-    const expiresAt = new Date(invitation.expiresAt);
-    if (expiresAt < new Date()) {
-      return NextResponse.json(
-        { error: "Invitation expired" },
-        { status: 404 }
-      );
-    }
-
-    return NextResponse.json({
-      email: invitation.email,
-      name: invitation.name,
-      role: invitation.role,
-    });
-  } catch (err) {
-    console.error(err);
-    return NextResponse.json(
-      { error: "Failed to fetch invitation" },
-      { status: 500 }
-    );
+  if (!invitation) {
+    return notFound("Invitation not found");
   }
-}
+
+  const expiresAt = new Date(invitation.expiresAt);
+  if (expiresAt < new Date()) {
+    return forbidden("Invitation expired");
+  }
+
+  return NextResponse.json({
+    email: invitation.email,
+    name: invitation.name,
+    role: invitation.role,
+  });
+});

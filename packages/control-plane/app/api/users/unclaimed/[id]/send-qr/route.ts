@@ -9,11 +9,17 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
-import { forbidden, unauthorized } from "@/lib/api-utils";
+import {
+  forbidden,
+  malformed,
+  notFound,
+  unauthorized,
+} from "@/lib/api/utils/api-utils";
 import { UserServerChannel } from "@/lib/user-server-channel";
 import { VaultysId } from "@vaultys/id";
 import { sendMail, getSmtpConfig } from "@/lib/smtp";
 import { SettingsDAO, UserDAO } from "@/db";
+import { withError } from "@/lib/api/handlers/with-error";
 
 /**
  * @openapi
@@ -71,10 +77,10 @@ import { SettingsDAO, UserDAO } from "@/db";
  *       404:
  *         $ref: '#/components/responses/NotFound'
  */
-export async function POST(
+export const POST = withError(async (
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
-) {
+) => {
   const auth = await getAuthContext(req);
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
@@ -86,19 +92,13 @@ export async function POST(
 
   const user = await UserDAO.findById(id);
   if (!user) {
-    return NextResponse.json({ error: "User not found" }, { status: 404 });
+    return notFound("User not found");
   }
   if (user.did) {
-    return NextResponse.json(
-      { error: "User has already claimed their account" },
-      { status: 400 }
-    );
+    return forbidden("User has already claimed their account");
   }
   if (!user.email) {
-    return NextResponse.json(
-      { error: "User has no email address" },
-      { status: 400 }
-    );
+    return notFound("User has no email address");
   }
 
   // Create a registration certificate
@@ -114,16 +114,14 @@ export async function POST(
   }
 
   const didParam = serverDid ? `&did=${encodeURIComponent(serverDid)}` : "";
-  const walletUrl = await SettingsDAO.get("wallet_url") ?? "https://wallet.vaultys.net";
+  const walletUrl =
+    (await SettingsDAO.get("wallet_url")) ?? "https://wallet.vaultys.net";
   const qrUrl = `${walletUrl}/#${connectionString}&protocol=p2p&service=auth${didParam}`;
 
   const sendByEmail = body.sendByEmail !== false;
   if (sendByEmail) {
     if (!getSmtpConfig()) {
-      return NextResponse.json(
-        { error: "SMTP is not configured" },
-        { status: 400 }
-      );
+      return malformed("SMTP is not configured");
     }
 
     const displayName = user.name ?? user.email;
@@ -171,7 +169,7 @@ export async function POST(
     serverDid,
     emailSent: sendByEmail && !!user.email,
   });
-}
+});
 
 function escapeHtml(str: string): string {
   return str

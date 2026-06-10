@@ -1,4 +1,4 @@
-import { WorkflowSummary } from "@/lib/api-types";
+import { WorkflowSummary } from "@/lib/api/utils/api-types";
 import { BaseApi } from "./base";
 
 export interface Workflow extends WorkflowSummary {
@@ -60,10 +60,15 @@ export class WorkflowsApi extends BaseApi {
     if (params?.page) query.set("page", String(params.page));
     if (params?.pageSize) query.set("pageSize", String(params.pageSize));
     const qs = query.toString();
-    return this.get<{ workflows: Workflow[]; total: number }>(`/api/workflows${qs ? `?${qs}` : ""}`);
+    return this.get<{ workflows: Workflow[]; total: number }>(
+      `/api/workflows${qs ? `?${qs}` : ""}`
+    );
   }
 
-  create(data: Pick<Workflow, "name" | "realmId"> & Partial<Omit<Workflow, "id" | "createdAt" | "updatedAt">>) {
+  create(
+    data: Pick<Workflow, "name" | "realmId"> &
+      Partial<Omit<Workflow, "id" | "createdAt" | "updatedAt">>
+  ) {
     return this.post<Workflow>("/api/workflows", data);
   }
 
@@ -71,7 +76,12 @@ export class WorkflowsApi extends BaseApi {
     return this.get<Workflow>(`/api/workflows/${id}`);
   }
 
-  update(id: string, data: Partial<Pick<Workflow, "name" | "description" | "nodes" | "enabled" | "variables">>) {
+  update(
+    id: string,
+    data: Partial<
+      Pick<Workflow, "name" | "description" | "nodes" | "enabled" | "variables">
+    >
+  ) {
     return this.patch<Workflow>(`/api/workflows/${id}`, data);
   }
 
@@ -80,7 +90,10 @@ export class WorkflowsApi extends BaseApi {
   }
 
   execute(id: string, payload?: Record<string, unknown>) {
-    return this.post<{ runId: string }>(`/api/workflows/${id}/execute`, payload);
+    return this.post<{ runId: string }>(
+      `/api/workflows/${id}/execute`,
+      payload
+    );
   }
 
   export(id: string) {
@@ -106,7 +119,9 @@ export class WorkflowsApi extends BaseApi {
 
   // Templates
   listTemplates() {
-    return this.get<{ templates: WorkflowTemplate[] }>("/api/workflows/templates");
+    return this.get<{ templates: WorkflowTemplate[] }>(
+      "/api/workflows/templates"
+    );
   }
 
   getTemplate(templateId: string) {
@@ -118,14 +133,21 @@ export class WorkflowsApi extends BaseApi {
   }
 
   // Runs (list + get)
-  listRuns(params?: { workflowId?: string; status?: WorkflowRun["status"]; page?: number; pageSize?: number }) {
+  listRuns(params?: {
+    workflowId?: string;
+    status?: WorkflowRun["status"];
+    page?: number;
+    pageSize?: number;
+  }) {
     const query = new URLSearchParams();
     if (params?.workflowId) query.set("workflowId", params.workflowId);
     if (params?.status) query.set("status", params.status);
     if (params?.page) query.set("page", String(params.page));
     if (params?.pageSize) query.set("pageSize", String(params.pageSize));
     const qs = query.toString();
-    return this.get<{ runs: WorkflowRun[]; total: number }>(`/api/workflow-runs${qs ? `?${qs}` : ""}`);
+    return this.get<{ runs: WorkflowRun[]; total: number }>(
+      `/api/workflow-runs${qs ? `?${qs}` : ""}`
+    );
   }
 
   getRun(id: string) {
@@ -133,13 +155,15 @@ export class WorkflowsApi extends BaseApi {
   }
 
   getRunStatus(runId: string) {
-    return this.get<Pick<WorkflowRun, "id" | "status" | "startedAt" | "completedAt" | "error">>(
-      `/api/workflows/runs/${runId}/status`
-    );
+    return this.get<
+      Pick<WorkflowRun, "id" | "status" | "startedAt" | "completedAt" | "error">
+    >(`/api/workflows/runs/${runId}/status`);
   }
 
   getRunHistory(runId: string) {
-    return this.get<{ steps: WorkflowRunStep[] }>(`/api/workflows/runs/${runId}/history`);
+    return this.get<{ steps: WorkflowRunStep[] }>(
+      `/api/workflows/runs/${runId}/history`
+    );
   }
 }
 

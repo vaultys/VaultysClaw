@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getWSServer } from "@/lib/ws-server";
 import { getAuthContext } from "@/lib/auth-utils";
-import { unauthorized, forbidden } from "@/lib/api-utils";
+import { unauthorized, forbidden, malformed } from "@/lib/api/utils/api-utils";
 import type { AgentCapability } from "@vaultysclaw/shared";
 import { PolicyDAO } from "@/db";
+import { withError } from "@/lib/api/handlers/with-error";
 
 /**
  * GET /api/policies
@@ -83,46 +84,37 @@ import { PolicyDAO } from "@/db";
  *       500:
  *         description: Failed to fetch policies.
  */
-export async function GET(request: NextRequest) {
-  try {
-    const auth = await getAuthContext(request);
-    if (!auth) return unauthorized();
-    if (!auth.isGlobalAdmin) return forbidden();
+export const GET = withError(async (request: NextRequest) => {
+  const auth = await getAuthContext(request);
+  if (!auth) return unauthorized();
+  if (!auth.isGlobalAdmin) return forbidden();
 
-    const { searchParams } = new URL(request.url);
-    const agentDid = searchParams.get("agentDid") ?? undefined;
-    const realmId = searchParams.get("realmId") ?? undefined;
-    const includeExpired = searchParams.get("includeExpired") === "true";
-    const expiredOnly = searchParams.get("expiredOnly") === "true";
+  const { searchParams } = new URL(request.url);
+  const agentDid = searchParams.get("agentDid") ?? undefined;
+  const realmId = searchParams.get("realmId") ?? undefined;
+  const includeExpired = searchParams.get("includeExpired") === "true";
+  const expiredOnly = searchParams.get("expiredOnly") === "true";
 
-    const policies = await PolicyDAO.list({
-      agentDid,
-      realmId,
-      includeExpired,
-      expiredOnly,
-    });
+  const policies = await PolicyDAO.list({
+    agentDid,
+    realmId,
+    includeExpired,
+    expiredOnly,
+  });
 
-    return NextResponse.json({
-      policies: policies.map((p) => ({
-        id: p.id,
-        agentDid: p.agentDid,
-        realmId: p.realmId,
-        capabilities: p.capabilities,
-        resourceLimits: p.resourceLimits
-          ? p.resourceLimits
-          : null,
-        expiresAt: p.expiresAt,
-        createdBy: p.createdBy,
-        createdAt: p.createdAt,
-      })),
-    });
-  } catch (error) {
-    return NextResponse.json(
-      { error: "Failed to fetch policies" },
-      { status: 500 }
-    );
-  }
-}
+  return NextResponse.json({
+    policies: policies.map((p) => ({
+      id: p.id,
+      agentDid: p.agentDid,
+      realmId: p.realmId,
+      capabilities: p.capabilities,
+      resourceLimits: p.resourceLimits ? p.resourceLimits : null,
+      expiresAt: p.expiresAt,
+      createdBy: p.createdBy,
+      createdAt: p.createdAt,
+    })),
+  });
+});
 
 /**
  * POST /api/policies
@@ -202,78 +194,66 @@ export async function GET(request: NextRequest) {
  *       500:
  *         description: Failed to create policy.
  */
-export async function POST(request: NextRequest) {
-  try {
-    const auth = await getAuthContext(request);
-    if (!auth) return unauthorized();
-    if (!auth.isGlobalAdmin) return forbidden();
+export const POST = withError(async (request: NextRequest) => {
+  const auth = await getAuthContext(request);
+  if (!auth) return unauthorized();
+  if (!auth.isGlobalAdmin) return forbidden();
 
-    const body = await request.json();
-    const {
-      agentDid,
-      realmId,
-      capabilities,
-      resourceLimits,
-      expiresAt,
-      broadcast,
-    } = body;
+  const body = await request.json();
+  const {
+    agentDid,
+    realmId,
+    capabilities,
+    resourceLimits,
+    expiresAt,
+    broadcast,
+  } = body;
 
-    if (!Array.isArray(capabilities) || capabilities.length === 0) {
-      return NextResponse.json(
-        { error: "capabilities must be a non-empty array" },
-        { status: 400 }
-      );
-    }
-
-    const policy = await PolicyDAO.create({
-      agentDid: agentDid ?? undefined,
-      realmId: realmId ?? undefined,
-      capabilities,
-      resourceLimits: resourceLimits ?? undefined,
-      expiresAt: expiresAt ?? undefined,
-      createdBy: auth.did,
-    });
-
-    // Apply via cert reissue so capabilities + limits are enforced immediately.
-    const wsServer = getWSServer();
-    const sentTo: string[] = [];
-
-    if (wsServer && agentDid) {
-      const policyMeta = {
-        resourceLimits: resourceLimits ?? null,
-        policyId: policy.id,
-        policyExpiresAt: expiresAt ?? null,
-      };
-      const applied = await wsServer.applyPolicy(
-        agentDid,
-        capabilities as AgentCapability[],
-        policyMeta
-      );
-      if (applied) sentTo.push(agentDid);
-    }
-
-    return NextResponse.json(
-      {
-        policy: {
-          id: policy.id,
-          agentDid: policy.agentDid,
-          realmId: policy.realmId,
-          capabilities: policy.capabilities,
-          resourceLimits: policy.resourceLimits
-            ? policy.resourceLimits
-            : null,
-          expiresAt: policy.expiresAt,
-          createdBy: policy.createdBy,
-          createdAt: policy.createdAt,
-        },
-        sentTo,
-      },
-      { status: 201 }
-    );
-  } catch (error) {
-    return NextResponse.json(
-      { error: "Failed to create policy" },
-      { status: 500 }
-    );
+  if (!Array.isArray(capabilities) || capabilities.length === 0) {
+    return malformed("Capabilities must be a non-empty array");
   }
-}
+
+  const policy = await PolicyDAO.create({
+    agentDid: agentDid ?? undefined,
+    realmId: realmId ?? undefined,
+    capabilities,
+    resourceLimits: resourceLimits ?? undefined,
+    expiresAt: expiresAt ?? undefined,
+    createdBy: auth.did,
+  });
+
+  // Apply via cert reissue so capabilities + limits are enforced immediately.
+  const wsServer = getWSServer();
+  const sentTo: string[] = [];
+
+  if (wsServer && agentDid) {
+    const policyMeta = {
+      resourceLimits: resourceLimits ?? null,
+      policyId: policy.id,
+      policyExpiresAt: expiresAt ?? null,
+    };
+    const applied = await wsServer.applyPolicy(
+      agentDid,
+      capabilities as AgentCapability[],
+      policyMeta
+    );
+    if (applied) sentTo.push(agentDid);
+  }
+
+  return NextResponse.json(
+    {
+      policy: {
+        id: policy.id,
+        agentDid: policy.agentDid,
+        realmId: policy.realmId,
+        capabilities: policy.capabilities,
+        resourceLimits: policy.resourceLimits ? policy.resourceLimits : null,
+        expiresAt: policy.expiresAt,
+        createdBy: policy.createdBy,
+        createdAt: policy.createdAt,
+      },
+      sentTo,
+    },
+    { status: 201 }
+  );
+});

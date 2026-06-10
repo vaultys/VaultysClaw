@@ -33,7 +33,7 @@ import {
   Pencil,
 } from "lucide-react";
 import { ROUTE_REGISTRY } from "@/lib/route-registry";
-import type { ApiKey } from "@/lib/api-types";
+import type { ApiKey } from "@/lib/api/utils/api-types";
 import { cn } from "@/lib/utils";
 
 // ─── Types ────────────────────────────────────────────────────────────────────

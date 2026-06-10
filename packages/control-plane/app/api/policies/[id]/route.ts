@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
-import { unauthorized, forbidden } from "@/lib/api-utils";
+import { unauthorized, forbidden, notFound } from "@/lib/api/utils/api-utils";
 import { getWSServer } from "@/lib/ws-server";
-import type { AgentCapability } from "@vaultysclaw/shared";
+
 import { PolicyDAO } from "@/db";
+import { withError } from "@/lib/api/handlers/with-error";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -64,38 +65,28 @@ type Ctx = { params: Promise<{ id: string }> };
  *       500:
  *         description: Failed to fetch policy.
  */
-export async function GET(_req: NextRequest, ctx: Ctx) {
-  try {
-    const auth = await getAuthContext(_req);
-    if (!auth) return unauthorized();
-    if (!auth.isGlobalAdmin) return forbidden();
+export const GET = withError(async (_req: NextRequest, ctx: Ctx) => {
+  const auth = await getAuthContext(_req);
+  if (!auth) return unauthorized();
+  if (!auth.isGlobalAdmin) return forbidden();
 
-    const { id } = await ctx.params;
-    const policy = await PolicyDAO.findById(id);
-    if (!policy)
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
+  const { id } = await ctx.params;
+  const policy = await PolicyDAO.findById(id);
+  if (!policy) return notFound("Policy not found");
 
-    return NextResponse.json({
-      policy: {
-        id: policy.id,
-        agentDid: policy.agentDid,
-        realmId: policy.realmId,
-        capabilities: policy.capabilities,
-        resourceLimits: policy.resourceLimits
-          ? policy.resourceLimits
-          : null,
-        expiresAt: policy.expiresAt,
-        createdBy: policy.createdBy,
-        createdAt: policy.createdAt,
-      },
-    });
-  } catch {
-    return NextResponse.json(
-      { error: "Failed to fetch policy" },
-      { status: 500 }
-    );
-  }
-}
+  return NextResponse.json({
+    policy: {
+      id: policy.id,
+      agentDid: policy.agentDid,
+      realmId: policy.realmId,
+      capabilities: policy.capabilities,
+      resourceLimits: policy.resourceLimits ? policy.resourceLimits : null,
+      expiresAt: policy.expiresAt,
+      createdBy: policy.createdBy,
+      createdAt: policy.createdAt,
+    },
+  });
+});
 
 /**
  * DELETE /api/policies/[id]
@@ -139,45 +130,40 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
  *       500:
  *         description: Failed to delete policy.
  */
-export async function DELETE(_req: NextRequest, ctx: Ctx) {
-  try {
-    const auth = await getAuthContext(_req);
-    if (!auth) return unauthorized();
-    if (!auth.isGlobalAdmin) return forbidden();
+export const DELETE = withError(async (_req: NextRequest, ctx: Ctx) => {
+  const auth = await getAuthContext(_req);
+  if (!auth) return unauthorized();
+  if (!auth.isGlobalAdmin) return forbidden();
 
-    const { id } = await ctx.params;
+  const { id } = await ctx.params;
 
-    // Fetch before deleting so we know which agent / capabilities to reissue
-    const policy = await PolicyDAO.findById(id);
-    if (!policy)
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
+  // Fetch before deleting so we know which agent / capabilities to reissue
+  const policy = await PolicyDAO.findById(id);
+  if (!policy) return notFound("Policy not found");
 
-    const deleted = await PolicyDAO.delete(id);
-    if (!deleted)
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
+  const deleted = await PolicyDAO.delete(id);
+  if (!deleted) return notFound("Policy not found");
 
-    // If the policy was bound to a specific agent, reissue its cert immediately
-    // with an empty capability set. The previous code mistakenly re-sent the
-    // policy's own capabilities here, leaving the agent with full access even
-    // after revocation. Revoking a policy means revoking what it granted.
-    const sentTo: string[] = [];
-    if (policy.agentDid) {
-      const wsServer = getWSServer();
-      if (wsServer) {
-        const applied = await wsServer.applyPolicy(policy.agentDid, [], {
+  // If the policy was bound to a specific agent, reissue its cert immediately
+  // with an empty capability set. The previous code mistakenly re-sent the
+  // policy's own capabilities here, leaving the agent with full access even
+  // after revocation. Revoking a policy means revoking what it granted.
+  const sentTo: string[] = [];
+  if (policy.agentDid) {
+    const wsServer = getWSServer();
+    if (wsServer) {
+      const applied = await wsServer.applyPolicy(
+        policy.agentDid,
+        [],
+        {
           resourceLimits: null,
           policyId: null,
           policyExpiresAt: null,
-        });
-        if (applied) sentTo.push(policy.agentDid);
-      }
+        }
+      );
+      if (applied) sentTo.push(policy.agentDid);
     }
-
-    return NextResponse.json({ ok: true, sentTo });
-  } catch {
-    return NextResponse.json(
-      { error: "Failed to delete policy" },
-      { status: 500 }
-    );
   }
-}
+
+  return NextResponse.json({ ok: true, sentTo });
+});

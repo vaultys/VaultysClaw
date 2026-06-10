@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { VaultysId } from "@vaultys/id";
 import { SettingsDAO, UserDAO } from "@/db";
+import { withError } from "@/lib/api/handlers/with-error";
 
 /**
  * @openapi
@@ -30,7 +31,7 @@ import { SettingsDAO, UserDAO } from "@/db";
  *       404:
  *         $ref: '#/components/responses/NotFound'
  */
-export async function GET() {
+export const GET = withError(async () => {
   const hasUsers = await UserDAO.hasAnyUser();
   const serverSecret = await SettingsDAO.get("serverSecret");
   let serverDid: string | null = null;
@@ -38,4 +39,4 @@ export async function GET() {
     serverDid = VaultysId.fromSecret(serverSecret, "base64").did;
   }
   return NextResponse.json({ hasUsers, serverDid });
-}
+});

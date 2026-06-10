@@ -9,7 +9,8 @@ import type {
   UserRole,
 } from "@vaultysclaw/shared";
 import { getAuthContext } from "@/lib/auth-utils";
-import { unauthorized, forbidden } from "@/lib/api-utils";
+import { unauthorized, forbidden } from "@/lib/api/utils/api-utils";
+import { withError } from "@/lib/api/handlers/with-error";
 
 /**
  * GET /api/graph — return the full relationship graph (nodes + edges). Global admin only.
@@ -67,37 +68,29 @@ import { unauthorized, forbidden } from "@/lib/api-utils";
  *       500:
  *         description: Failed to build graph.
  */
-export async function GET(req: NextRequest) {
-  try {
-    const auth = await getAuthContext(req);
-    if (!auth) return unauthorized();
+export const GET = withError(async (req: NextRequest) => {
+  const auth = await getAuthContext(req);
+  if (!auth) return unauthorized();
 
-    const { searchParams } = req.nextUrl;
-    const agentDid = searchParams.get("agent");
-    const userDid = searchParams.get("user");
-    const realmId = searchParams.get("realm");
+  const { searchParams } = req.nextUrl;
+  const agentDid = searchParams.get("agent");
+  const userDid = searchParams.get("user");
+  const realmId = searchParams.get("realm");
 
-    // Full graph is global-admin only; scoped views require matching access
-    if (!auth.isGlobalAdmin) {
-      if (agentDid) {
-        if (!(await auth.canAccessAgent(agentDid))) return forbidden();
-      } else if (realmId) {
-        if (!(await auth.canAccessRealm(realmId))) return forbidden();
-      } else {
-        return forbidden();
-      }
+  // Full graph is global-admin only; scoped views require matching access
+  if (!auth.isGlobalAdmin) {
+    if (agentDid) {
+      if (!(await auth.canAccessAgent(agentDid))) return forbidden();
+    } else if (realmId) {
+      if (!(await auth.canAccessRealm(realmId))) return forbidden();
+    } else {
+      return forbidden();
     }
-
-    const graph = await buildGraph({ agentDid, userDid, realmId });
-    return NextResponse.json(graph);
-  } catch (err) {
-    console.error("graph API error", err);
-    return NextResponse.json(
-      { error: "Failed to build graph" },
-      { status: 500 }
-    );
   }
-}
+
+  const graph = await buildGraph({ agentDid, userDid, realmId });
+  return NextResponse.json(graph);
+});
 
 // ---------------------------------------------------------------------------
 
@@ -125,7 +118,11 @@ type AgentRecord = {
 };
 
 function effectiveUserRole(u: UserRecord): UserRole {
-  return u.isOwner ? "owner" : u.isAdmin ? "admin" : ((u.role as UserRole) ?? "member");
+  return u.isOwner
+    ? "owner"
+    : u.isAdmin
+      ? "admin"
+      : ((u.role as UserRole) ?? "member");
 }
 
 function addUserNode(nodes: Map<string, GraphNode>, u: UserRecord): void {
@@ -167,12 +164,28 @@ async function buildGraph(filters: Filters): Promise<GraphData> {
     // reportsTo on User stores the manager's id (User.id), not did
     const targetUser = await prisma.user.findUnique({
       where: { did: filters.userDid },
-      select: { id: true, did: true, name: true, role: true, reportsTo: true, isOwner: true, isAdmin: true },
+      select: {
+        id: true,
+        did: true,
+        name: true,
+        role: true,
+        reportsTo: true,
+        isOwner: true,
+        isAdmin: true,
+      },
     });
     const children = targetUser
       ? await prisma.user.findMany({
           where: { reportsTo: targetUser.id },
-          select: { id: true, did: true, name: true, role: true, reportsTo: true, isOwner: true, isAdmin: true },
+          select: {
+            id: true,
+            did: true,
+            name: true,
+            role: true,
+            reportsTo: true,
+            isOwner: true,
+            isAdmin: true,
+          },
         })
       : [];
     users = targetUser ? [targetUser, ...children] : [];
@@ -181,20 +194,42 @@ async function buildGraph(filters: Filters): Promise<GraphData> {
     const [grantUsers, delegUsers] = await Promise.all([
       prisma.userGrant.findMany({
         where: { agentDid: filters.agentDid },
-        select: { user: { select: { id: true, did: true, name: true, role: true, reportsTo: true, isOwner: true, isAdmin: true } } },
+        select: {
+          user: {
+            select: {
+              id: true,
+              did: true,
+              name: true,
+              role: true,
+              reportsTo: true,
+              isOwner: true,
+              isAdmin: true,
+            },
+          },
+        },
       }),
       prisma.delegationCert.findMany({
         where: { agentDid: filters.agentDid },
         select: { userDid: true },
       }),
     ]);
-    const didSet = new Set<string>(grantUsers.map((g) => g.user.did).filter(Boolean) as string[]);
+    const didSet = new Set<string>(
+      grantUsers.map((g) => g.user.did).filter(Boolean) as string[]
+    );
     for (const d of delegUsers) didSet.add(d.userDid);
     users =
       didSet.size > 0
         ? await prisma.user.findMany({
             where: { did: { in: Array.from(didSet) } },
-            select: { id: true, did: true, name: true, role: true, reportsTo: true, isOwner: true, isAdmin: true },
+            select: {
+              id: true,
+              did: true,
+              name: true,
+              role: true,
+              reportsTo: true,
+              isOwner: true,
+              isAdmin: true,
+            },
           })
         : [];
   } else if (filters.realmId) {
@@ -202,14 +237,30 @@ async function buildGraph(filters: Filters): Promise<GraphData> {
       where: { realmId: filters.realmId },
       select: {
         user: {
-          select: { id: true, did: true, name: true, role: true, reportsTo: true, isOwner: true, isAdmin: true },
+          select: {
+            id: true,
+            did: true,
+            name: true,
+            role: true,
+            reportsTo: true,
+            isOwner: true,
+            isAdmin: true,
+          },
         },
       },
     });
     users = userRealms.map((ur) => ur.user);
   } else {
     users = await prisma.user.findMany({
-      select: { id: true, did: true, name: true, role: true, reportsTo: true, isOwner: true, isAdmin: true },
+      select: {
+        id: true,
+        did: true,
+        name: true,
+        role: true,
+        reportsTo: true,
+        isOwner: true,
+        isAdmin: true,
+      },
     });
   }
 
@@ -239,9 +290,10 @@ async function buildGraph(filters: Filters): Promise<GraphData> {
       }),
     ]);
     const agentDidSet = new Set<string>(
-      [...grantAgents.map((g) => g.agentDid), ...delegAgents.map((d) => d.agentDid)].filter(
-        Boolean
-      ) as string[]
+      [
+        ...grantAgents.map((g) => g.agentDid),
+        ...delegAgents.map((d) => d.agentDid),
+      ].filter(Boolean) as string[]
     );
     agents =
       agentDidSet.size > 0
@@ -275,10 +327,19 @@ async function buildGraph(filters: Filters): Promise<GraphData> {
     let manager = userById.get(u.reportsTo);
     if (!manager) {
       // Manager not in our current set — fetch from DB
-      manager = await prisma.user.findUnique({
-        where: { id: u.reportsTo },
-        select: { id: true, did: true, name: true, role: true, reportsTo: true, isOwner: true, isAdmin: true },
-      }) ?? undefined;
+      manager =
+        (await prisma.user.findUnique({
+          where: { id: u.reportsTo },
+          select: {
+            id: true,
+            did: true,
+            name: true,
+            role: true,
+            reportsTo: true,
+            isOwner: true,
+            isAdmin: true,
+          },
+        })) ?? undefined;
       if (manager) {
         userById.set(manager.id, manager);
         addUserNode(nodes, manager);
@@ -294,7 +355,11 @@ async function buildGraph(filters: Filters): Promise<GraphData> {
   }
 
   // --- Grant edges (user → agent) ---
-  let grants: Array<{ userDid: string; agentDid: string | null; capabilities: unknown }>;
+  let grants: Array<{
+    userDid: string;
+    agentDid: string | null;
+    capabilities: unknown;
+  }>;
   if (filters.userDid) {
     grants = await prisma.userGrant.findMany({
       where: { userDid: filters.userDid },
@@ -331,7 +396,15 @@ async function buildGraph(filters: Filters): Promise<GraphData> {
         if (filters.agentDid) {
           const u = await prisma.user.findUnique({
             where: { did: g.userDid },
-            select: { id: true, did: true, name: true, role: true, reportsTo: true, isOwner: true, isAdmin: true },
+            select: {
+              id: true,
+              did: true,
+              name: true,
+              role: true,
+              reportsTo: true,
+              isOwner: true,
+              isAdmin: true,
+            },
           });
           if (u) {
             addUserNode(nodes, u);
@@ -370,7 +443,11 @@ async function buildGraph(filters: Filters): Promise<GraphData> {
   }
 
   // --- Delegation edges ---
-  let delegations: Array<{ userDid: string; agentDid: string; capabilities: unknown }>;
+  let delegations: Array<{
+    userDid: string;
+    agentDid: string;
+    capabilities: unknown;
+  }>;
   if (filters.agentDid) {
     delegations = await prisma.delegationCert.findMany({
       where: { agentDid: filters.agentDid },
@@ -408,7 +485,6 @@ async function buildGraph(filters: Filters): Promise<GraphData> {
       capabilities: caps,
     });
   }
-
 
   return { nodes: Array.from(nodes.values()), edges };
 }

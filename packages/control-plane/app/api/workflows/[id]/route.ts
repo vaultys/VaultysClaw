@@ -1,9 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
-import { unauthorized, forbidden } from "@/lib/api-utils";
+import {
+  unauthorized,
+  forbidden,
+  notFound,
+  malformed,
+} from "@/lib/api/utils/api-utils";
 import { WorkflowDAO } from "@/db";
 import type { WorkflowDefinition } from "@/lib/workflow-executor";
 import { Prisma } from "@prisma/client";
+import { withError } from "@/lib/api/handlers/with-error";
 
 type Params = { id: string };
 
@@ -45,48 +51,37 @@ type Params = { id: string };
  *       500:
  *         description: Failed to fetch workflow.
  */
-export async function GET(
+export const GET = withError(async (
   _request: NextRequest,
   { params }: { params: Promise<Params> }
-) {
-  try {
-    const auth = await getAuthContext(_request);
-    if (!auth) return unauthorized();
+) => {
+  const auth = await getAuthContext(_request);
+  if (!auth) return unauthorized();
 
-    const { id } = await params;
-    const workflow = await WorkflowDAO.findById(id);
+  const { id } = await params;
+  const workflow = await WorkflowDAO.findById(id);
 
-    if (!workflow) {
-      return NextResponse.json(
-        { error: "Workflow not found" },
-        { status: 404 }
-      );
-    }
-
-    if (workflow.realmId && !(await auth.canAccessRealm(workflow.realmId)))
-      return forbidden();
-
-    return NextResponse.json({
-      success: true,
-      workflow: {
-        id: workflow.id,
-        name: workflow.name,
-        description: workflow.description,
-        definition: workflow.definition,
-        realmId: workflow.realmId,
-        createdBy: workflow.createdBy,
-        createdAt: workflow.createdAt,
-        updatedAt: workflow.updatedAt,
-      },
-    });
-  } catch (err) {
-    console.error("GET /api/workflows/[id] error:", err);
-    return NextResponse.json(
-      { error: "Failed to fetch workflow" },
-      { status: 500 }
-    );
+  if (!workflow) {
+    return notFound("Workflow not found");
   }
-}
+
+  if (workflow.realmId && !(await auth.canAccessRealm(workflow.realmId)))
+    return forbidden();
+
+  return NextResponse.json({
+    success: true,
+    workflow: {
+      id: workflow.id,
+      name: workflow.name,
+      description: workflow.description,
+      definition: workflow.definition,
+      realmId: workflow.realmId,
+      createdBy: workflow.createdBy,
+      createdAt: workflow.createdAt,
+      updatedAt: workflow.updatedAt,
+    },
+  });
+});
 
 /**
  * PATCH /api/workflows/[id]
@@ -143,61 +138,46 @@ export async function GET(
  *       500:
  *         description: Failed to update workflow.
  */
-export async function PATCH(
+export const PATCH = withError(async (
   request: NextRequest,
   { params }: { params: Promise<Params> }
-) {
-  try {
-    const auth = await getAuthContext(request);
-    if (!auth) return unauthorized();
+) => {
+  const auth = await getAuthContext(request);
+  if (!auth) return unauthorized();
 
-    const { id } = await params;
-    const workflow = await WorkflowDAO.findById(id);
-    if (!workflow) {
-      return NextResponse.json(
-        { error: "Workflow not found" },
-        { status: 404 }
-      );
-    }
+  const { id } = await params;
+  const workflow = await WorkflowDAO.findById(id);
+  if (!workflow) {
+    return notFound("Workflow not found");
+  }
 
-    if (workflow.realmId && !(await auth.canAdminRealm(workflow.realmId)))
-      return forbidden();
-    if (!workflow.realmId && !auth.isGlobalAdmin) return forbidden();
+  if (workflow.realmId && !(await auth.canAdminRealm(workflow.realmId)))
+    return forbidden();
+  if (!workflow.realmId && !auth.isGlobalAdmin) return forbidden();
 
-    const body = await request.json();
-    const { name, definition, description, realmId } = body as {
-      name?: string;
-      definition?: WorkflowDefinition;
-      description?: string;
-      realmId?: string;
-    };
+  const body = await request.json();
+  const { name, definition, description, realmId } = body as {
+    name?: string;
+    definition?: WorkflowDefinition;
+    description?: string;
+    realmId?: string;
+  };
 
-    if (!name && !definition && !description && !realmId) {
-      return NextResponse.json(
-        {
-          error:
-            "At least one of name, definition, description, or realmId is required",
-        },
-        { status: 400 }
-      );
-    }
-
-    await WorkflowDAO.update(id, {
-      name,
-      definition: definition as unknown as Prisma.InputJsonValue,
-      description,
-      realmId,
-    });
-
-    return NextResponse.json({ success: true, id });
-  } catch (err) {
-    console.error("PATCH /api/workflows/[id] error:", err);
-    return NextResponse.json(
-      { error: "Failed to update workflow" },
-      { status: 500 }
+  if (!name && !definition && !description && !realmId) {
+    return malformed(
+      "At least one of name, definition, description, or realmId is required"
     );
   }
-}
+
+  await WorkflowDAO.update(id, {
+    name,
+    definition: definition as unknown as Prisma.InputJsonValue,
+    description,
+    realmId,
+  });
+
+  return NextResponse.json({ success: true, id });
+});
 
 /**
  * DELETE /api/workflows/[id]
@@ -237,35 +217,24 @@ export async function PATCH(
  *       500:
  *         description: Failed to delete workflow
  */
-export async function DELETE(
+export const DELETE = withError(async (
   _request: NextRequest,
   { params }: { params: Promise<Params> }
-) {
-  try {
-    const auth = await getAuthContext(_request);
-    if (!auth) return unauthorized();
+) => {
+  const auth = await getAuthContext(_request);
+  if (!auth) return unauthorized();
 
-    const { id } = await params;
-    const workflow = await WorkflowDAO.findById(id);
-    if (!workflow) {
-      return NextResponse.json(
-        { error: "Workflow not found" },
-        { status: 404 }
-      );
-    }
-
-    if (workflow.realmId && !(await auth.canAdminRealm(workflow.realmId)))
-      return forbidden();
-    if (!workflow.realmId && !auth.isGlobalAdmin) return forbidden();
-
-    await WorkflowDAO.delete(id);
-
-    return NextResponse.json({ success: true, id });
-  } catch (err) {
-    console.error("DELETE /api/workflows/[id] error:", err);
-    return NextResponse.json(
-      { error: "Failed to delete workflow" },
-      { status: 500 }
-    );
+  const { id } = await params;
+  const workflow = await WorkflowDAO.findById(id);
+  if (!workflow) {
+    return notFound("Workflow not found");
   }
-}
+
+  if (workflow.realmId && !(await auth.canAdminRealm(workflow.realmId)))
+    return forbidden();
+  if (!workflow.realmId && !auth.isGlobalAdmin) return forbidden();
+
+  await WorkflowDAO.delete(id);
+
+  return NextResponse.json({ success: true, id });
+});

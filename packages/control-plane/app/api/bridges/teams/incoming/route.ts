@@ -3,6 +3,13 @@ import { ChannelService } from "@/lib/channel-service";
 import { MessageDispatcher } from "@/lib/message-dispatcher";
 import { TeamsGateway } from "@/lib/bridges/teams-gateway";
 import { ChannelBridgeDAO } from "@/db";
+import { withError } from "@/lib/api/handlers/with-error";
+import {
+  forbidden,
+  malformed,
+  notFound,
+  unauthorized,
+} from "@/lib/api/utils/api-utils";
 
 /**
  * POST /api/bridges/teams/incoming
@@ -64,116 +71,96 @@ import { ChannelBridgeDAO } from "@/db";
  *       500:
  *         description: Failed to process Teams message.
  */
-export async function POST(req: NextRequest) {
+export const POST = withError(async (req: NextRequest) => {
+  const body = await req.text();
+  const authHeader = req.headers.get("authorization");
+
+  // Verify Teams Bot Framework request (stub — always true for now)
+  if (!TeamsGateway.verifyTeamsRequest(body, authHeader)) {
+    return unauthorized();
+  }
+
+  // Parse Teams Activity object
+  let activity: {
+    text?: string;
+    from?: { id?: string; name?: string };
+    channelId?: string; // Teams channel identifier (not VaultysClaw channel)
+    conversation?: { id?: string };
+    type?: string;
+  };
+
   try {
-    const body = await req.text();
-    const authHeader = req.headers.get("authorization");
+    activity = JSON.parse(body) as typeof activity;
+  } catch {
+    return malformed("Invalid JSON body");
+  }
 
-    // Verify Teams Bot Framework request (stub — always true for now)
-    if (!TeamsGateway.verifyTeamsRequest(body, authHeader)) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+  // Only handle message activities
+  if (activity.type && activity.type !== "message") {
+    return NextResponse.json({ ok: true, skipped: true });
+  }
 
-    // Parse Teams Activity object
-    let activity: {
-      text?: string;
-      from?: { id?: string; name?: string };
-      channelId?: string; // Teams channel identifier (not VaultysClaw channel)
-      conversation?: { id?: string };
-      type?: string;
-    };
+  const content = activity.text?.trim();
+  if (!content) {
+    return malformed("message text is required");
+  }
 
-    try {
-      activity = JSON.parse(body) as typeof activity;
-    } catch {
-      return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
-    }
+  const teamsChannelId = activity.channelId;
+  if (!teamsChannelId) {
+    return malformed("channelId is required in activity");
+  }
 
-    // Only handle message activities
-    if (activity.type && activity.type !== "message") {
-      return NextResponse.json({ ok: true, skipped: true });
-    }
+  // Find bridge by external channel ID
+  const bridge = await ChannelBridgeDAO.getByExternalChannelId(
+    "teams",
+    teamsChannelId
+  );
+  if (!bridge) {
+    return notFound("No bridge found for this Teams channel");
+  }
 
-    const content = activity.text?.trim();
-    if (!content) {
-      return NextResponse.json(
-        { error: "message text is required" },
-        { status: 400 }
-      );
-    }
-
-    const teamsChannelId = activity.channelId;
-    if (!teamsChannelId) {
-      return NextResponse.json(
-        { error: "channelId is required in activity" },
-        { status: 400 }
-      );
-    }
-
-    // Find bridge by external channel ID
-    const bridge = await ChannelBridgeDAO.getByExternalChannelId(
-      "teams",
-      teamsChannelId
-    );
-    if (!bridge) {
-      return NextResponse.json(
-        { error: "No bridge found for this Teams channel" },
-        { status: 404 }
-      );
-    }
-
-    if (!bridge.isSyncEnabled) {
-      return NextResponse.json(
-        { error: "Bridge sync is disabled" },
-        { status: 403 }
-      );
-    }
-    if (bridge.syncDirection === "outgoing") {
-      return NextResponse.json(
-        { error: "Bridge does not accept incoming messages" },
-        { status: 403 }
-      );
-    }
-
-    const fromId = activity.from?.id ?? "teams:unknown";
-    const fromName = activity.from?.name ?? "Teams User";
-    const authorDid = `teams:${fromId}`;
-    const threadId = activity.conversation?.id ?? undefined;
-
-    // Create channel message
-    const message = await ChannelService.postMessage({
-      channelId: bridge.channelId,
-      authorDid,
-      authorType: "user",
-      content,
-      ...(threadId ? { threadId } : {}),
-      metadata: {
-        agentAction: "teams_incoming",
-        attachments: [],
-        mentions: [`teams:${fromName}`],
-      },
-    });
-
-    // Dispatch @mentions if any
-    await MessageDispatcher.processMessage(
-      bridge.channelId,
-      message.id,
-      authorDid,
-      content,
-      {
-        id: message.id,
-        authorType: "user",
-        threadId: message.threadId,
-        createdAt: message.createdAt,
-      }
-    );
-
-    return NextResponse.json({ ok: true, messageId: message.id });
-  } catch (err) {
-    console.error("POST /api/bridges/teams/incoming error:", err);
+  if (!bridge.isSyncEnabled) {
     return NextResponse.json(
-      { error: "Failed to process Teams message" },
-      { status: 500 }
+      { error: "Bridge sync is disabled" },
+      { status: 403 }
     );
   }
-}
+  if (bridge.syncDirection === "outgoing") {
+    return forbidden("Bridge is configured for outgoing messages only");
+  }
+
+  const fromId = activity.from?.id ?? "teams:unknown";
+  const fromName = activity.from?.name ?? "Teams User";
+  const authorDid = `teams:${fromId}`;
+  const threadId = activity.conversation?.id ?? undefined;
+
+  // Create channel message
+  const message = await ChannelService.postMessage({
+    channelId: bridge.channelId,
+    authorDid,
+    authorType: "user",
+    content,
+    ...(threadId ? { threadId } : {}),
+    metadata: {
+      agentAction: "teams_incoming",
+      attachments: [],
+      mentions: [`teams:${fromName}`],
+    },
+  });
+
+  // Dispatch @mentions if any
+  await MessageDispatcher.processMessage(
+    bridge.channelId,
+    message.id,
+    authorDid,
+    content,
+    {
+      id: message.id,
+      authorType: "user",
+      threadId: message.threadId,
+      createdAt: message.createdAt,
+    }
+  );
+
+  return NextResponse.json({ ok: true, messageId: message.id });
+});

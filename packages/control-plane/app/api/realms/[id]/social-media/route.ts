@@ -8,9 +8,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import { getAuthContext } from "@/lib/auth-utils";
-import { unauthorized, forbidden } from "@/lib/api-utils";
+import {
+  unauthorized,
+  forbidden,
+  notFound,
+  malformed,
+  unavailable,
+} from "@/lib/api/utils/api-utils";
 import { getWSServer } from "@/lib/ws-server";
-import { AgentDAO, IntentDAO, RealmDAO } from "@/db";
+import { IntentDAO, RealmDAO } from "@/db";
+import { withError } from "@/lib/api/handlers/with-error";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -72,33 +79,26 @@ type Ctx = { params: Promise<{ id: string }> };
  *                 error:
  *                   type: string
  */
-export async function POST(req: NextRequest, ctx: Ctx) {
+export const POST = withError(async (req: NextRequest, ctx: Ctx) => {
   const auth = await getAuthContext(req);
   if (!auth) return unauthorized();
 
   const { id: realmId } = await ctx.params;
   const realm = await RealmDAO.findById(realmId);
-  if (!realm)
-    return NextResponse.json({ error: "Realm not found" }, { status: 404 });
+  if (!realm) return notFound("Realm not found");
   if (!(await auth.canAccessRealm(realmId))) return forbidden();
 
   const body = (await req.json()) as { text?: string };
   if (!body.text || body.text.trim().length === 0) {
-    return NextResponse.json({ error: "text is required" }, { status: 400 });
+    return malformed("text is required");
   }
   if (body.text.trim().length > 280) {
-    return NextResponse.json(
-      { error: "text exceeds 280 characters" },
-      { status: 400 }
-    );
+    return malformed("text exceeds 280 characters");
   }
 
   const wsServer = getWSServer();
   if (!wsServer) {
-    return NextResponse.json(
-      { error: "WebSocket server unavailable" },
-      { status: 503 }
-    );
+    return unavailable("WebSocket server unavailable");
   }
 
   // Find the first online agent in this realm that has the social_media_posting capability
@@ -119,20 +119,18 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   }
 
   if (!targetAgentDid) {
-    return NextResponse.json(
-      {
-        error:
-          "No online agent with social_media_posting capability found in this realm. " +
-          "Ensure an agent is running and has the social-media skill enabled.",
-      },
-      { status: 503 }
+    return unavailable(
+      "No online agent with social_media_posting capability found in this realm. " +
+        "Ensure an agent is running and has the social-media skill enabled."
     );
   }
 
   const intentId = `intent-x-post-${crypto.randomUUID()}`;
 
   // Log intent before sending
-  await IntentDAO.log(intentId, targetAgentDid, "post_to_x", { text: body.text });
+  await IntentDAO.log(intentId, targetAgentDid, "post_to_x", {
+    text: body.text,
+  });
 
   const sent = wsServer.sendIntentToAgent(
     targetAgentDid,
@@ -143,10 +141,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   );
 
   if (!sent) {
-    return NextResponse.json(
-      { error: "Failed to dispatch intent to agent" },
-      { status: 503 }
-    );
+    return unavailable("Failed to send intent to agent");
   }
 
   return NextResponse.json({
@@ -155,4 +150,4 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     agentDid: targetAgentDid,
     message: "Post dispatched to agent. Check the intent log for results.",
   });
-}
+});

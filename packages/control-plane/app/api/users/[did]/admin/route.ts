@@ -8,6 +8,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-config";
 import { UserDAO } from "@/db";
+import { forbidden, malformed } from "@/lib/api/utils/api-utils";
+import { withError } from "@/lib/api/handlers/with-error";
 
 /**
  * @openapi
@@ -42,13 +44,13 @@ import { UserDAO } from "@/db";
  *       404:
  *         $ref: '#/components/responses/NotFound'
  */
-export async function PATCH(
+export const PATCH = withError(async (
   req: NextRequest,
   { params }: { params: Promise<{ did: string }> }
-) {
+) => {
   const session = await getServerSession(authOptions);
   if (!session?.user?.isOwner) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    return forbidden();
   }
 
   const { did } = await params;
@@ -59,20 +61,14 @@ export async function PATCH(
   }
 
   if (user.isOwner) {
-    return NextResponse.json(
-      { error: "Cannot change the owner's admin status" },
-      { status: 400 }
-    );
+    return forbidden("Cannot change the owner's admin status");
   }
 
   const body = (await req.json()) as { isAdmin: boolean };
   if (typeof body.isAdmin !== "boolean") {
-    return NextResponse.json(
-      { error: "isAdmin must be a boolean" },
-      { status: 400 }
-    );
+    return malformed("isAdmin must be a boolean");
   }
 
   await UserDAO.update(user.id, { isAdmin: body.isAdmin });
   return NextResponse.json({ ok: true });
-}
+});

@@ -7,6 +7,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-config";
 import { UserDAO } from "@/db";
+import { malformed, notFound, unauthorized } from "@/lib/api/utils/api-utils";
+import { withError } from "@/lib/api/handlers/with-error";
 
 /**
  * @openapi
@@ -36,15 +38,15 @@ import { UserDAO } from "@/db";
  *       404:
  *         $ref: '#/components/responses/NotFound'
  */
-export async function GET() {
+export const GET = withError(async () => {
   const session = await getServerSession(authOptions);
   if (!session?.user?.did) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return unauthorized();
   }
 
   const user = await UserDAO.findByDid(session.user.did);
   if (!user) {
-    return NextResponse.json({ error: "User not found" }, { status: 404 });
+    return notFound("User not found");
   }
 
   return NextResponse.json({
@@ -53,7 +55,7 @@ export async function GET() {
     isOwner: user.isOwner,
     isAdmin: user.isAdmin || user.isOwner,
   });
-}
+});
 
 /**
  * @openapi
@@ -90,29 +92,23 @@ export async function GET() {
  *       401:
  *         $ref: '#/components/responses/Unauthorized'
  */
-export async function PATCH(req: NextRequest) {
+export const PATCH = withError(async (req: NextRequest) => {
   const session = await getServerSession(authOptions);
   if (!session?.user?.did) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return unauthorized();
   }
 
   const body = (await req.json()) as { name?: unknown };
 
   if (typeof body.name !== "string") {
-    return NextResponse.json(
-      { error: "name must be a string" },
-      { status: 400 }
-    );
+    return malformed("name must be a string");
   }
 
   const name = body.name.trim();
   if (name.length > 128) {
-    return NextResponse.json(
-      { error: "name must be 128 characters or fewer" },
-      { status: 400 }
-    );
+    return malformed("name must be 128 characters or fewer");
   }
 
   await UserDAO.update(session.user.did, { name: name || "" });
   return NextResponse.json({ ok: true, name: name || null });
-}
+});

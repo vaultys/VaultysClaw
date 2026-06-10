@@ -3,6 +3,9 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-config";
 import { WorkflowDAO } from "@/db";
 
+import { notFound, unauthorized } from "@/lib/api/utils/api-utils";
+import { withError } from "@/lib/api/handlers/with-error";
+
 interface Params {
   id: string;
 }
@@ -43,37 +46,29 @@ interface Params {
  *       500:
  *         description: Failed to reject the workflow step.
  */
-export async function POST(
+export const POST = withError(async (
   request: Request,
   { params }: { params: Promise<Params> }
-) {
-  try {
-    const { id } = await params;
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.did) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const body = (await request.json().catch(() => ({}))) as {
-      comment?: string;
-    };
-
-    const updated = await WorkflowDAO.resolveApproval(
-      id,
-      session.user.did,
-      "rejected",
-      body.comment
-    );
-    if (!updated) {
-      return NextResponse.json(
-        { error: "Approval not found or already decided" },
-        { status: 404 }
-      );
-    }
-
-    return NextResponse.json({ success: true });
-  } catch (err) {
-    console.error("POST /api/workflow-approvals/[id]/reject error:", err);
-    return NextResponse.json({ error: "Failed to reject" }, { status: 500 });
+) => {
+  const { id } = await params;
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.did) {
+    return unauthorized();
   }
-}
+
+  const body = (await request.json().catch(() => ({}))) as {
+    comment?: string;
+  };
+
+  const updated = await WorkflowDAO.resolveApproval(
+    id,
+    session.user.did,
+    "rejected",
+    body.comment
+  );
+  if (!updated) {
+    return notFound("Approval not found or already decided");
+  }
+
+  return NextResponse.json({ success: true });
+});

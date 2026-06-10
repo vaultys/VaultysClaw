@@ -17,6 +17,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-config";
 import { GrantDAO, RealmDAO, UserDAO } from "@/db";
+import { forbidden } from "@/lib/api/utils/api-utils";
+import { withError } from "@/lib/api/handlers/with-error";
 
 /**
  * @openapi
@@ -97,10 +99,10 @@ import { GrantDAO, RealmDAO, UserDAO } from "@/db";
  *       403:
  *         $ref: '#/components/responses/Forbidden'
  */
-export async function GET(request: NextRequest) {
+export const GET = withError(async (request: NextRequest) => {
   const session = await getServerSession(authOptions);
   if (!session?.user?.isAdmin) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    return forbidden();
   }
 
   const { searchParams } = new URL(request.url);
@@ -145,39 +147,41 @@ export async function GET(request: NextRequest) {
     sortDir,
   });
 
-  const users = await Promise.all(result.users.map(async (u) => {
-    const realms = await RealmDAO.getUserRealms(u.id);
-    const grants = u.did
-      ? (await GrantDAO.listByUser(u.did)).map((g) => ({
-          id: g.id,
-          agentDid: g.agentDid,
-          capabilities: g.capabilities as string[],
-          grantedBy: g.grantedBy,
-          expiresAt: g.expiresAt,
-          createdAt: g.createdAt,
-        }))
-      : [];
-    return {
-      id: u.id,
-      did: u.did,
-      name: u.name ?? null,
-      email: u.email ?? null,
-      isOwner: Boolean(u.isOwner),
-      isAdmin: Boolean(u.isAdmin) || Boolean(u.isOwner),
-      role: u.role,
-      registeredAt: u.registeredAt,
-      entraId: u.entraId ?? null,
-      claimedAt: u.claimedAt ?? null,
-      realms: realms.map((r) => ({
-        id: r.realm.id,
-        name: r.realm.name,
-        slug: r.realm.slug,
-        color: r.realm.color,
-        isPrimary: Boolean(r.isPrimary),
-      })),
-      grants,
-    };
-  }));
+  const users = await Promise.all(
+    result.users.map(async (u) => {
+      const realms = await RealmDAO.getUserRealms(u.id);
+      const grants = u.did
+        ? (await GrantDAO.listByUser(u.did)).map((g) => ({
+            id: g.id,
+            agentDid: g.agentDid,
+            capabilities: g.capabilities as string[],
+            grantedBy: g.grantedBy,
+            expiresAt: g.expiresAt,
+            createdAt: g.createdAt,
+          }))
+        : [];
+      return {
+        id: u.id,
+        did: u.did,
+        name: u.name ?? null,
+        email: u.email ?? null,
+        isOwner: Boolean(u.isOwner),
+        isAdmin: Boolean(u.isAdmin) || Boolean(u.isOwner),
+        role: u.role,
+        registeredAt: u.registeredAt,
+        entraId: u.entraId ?? null,
+        claimedAt: u.claimedAt ?? null,
+        realms: realms.map((r) => ({
+          id: r.realm.id,
+          name: r.realm.name,
+          slug: r.realm.slug,
+          color: r.realm.color,
+          isPrimary: Boolean(r.isPrimary),
+        })),
+        grants,
+      };
+    })
+  );
 
   return NextResponse.json({
     users,
@@ -186,4 +190,4 @@ export async function GET(request: NextRequest) {
     pageSize: result.pageSize,
     totalPages: result.totalPages,
   });
-}
+});

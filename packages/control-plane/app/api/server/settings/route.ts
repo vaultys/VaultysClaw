@@ -8,8 +8,9 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
-import { forbidden, unauthorized } from "@/lib/api-utils";
+import { forbidden, unauthorized } from "@/lib/api/utils/api-utils";
 import { SettingsDAO } from "@/db";
+import { withError } from "@/lib/api/handlers/with-error";
 
 /**
  * @openapi
@@ -32,12 +33,13 @@ import { SettingsDAO } from "@/db";
  *                   type: string
  *                   example: ""
  */
-export async function GET(request: NextRequest) {
+export const GET = withError(async (request: NextRequest) => {
   return NextResponse.json({
-    walletUrl: await SettingsDAO.get("wallet_url") ?? "https://wallet.vaultys.net",
-    peerjsHost: await SettingsDAO.get("peerjs_host") ?? "",
+    walletUrl:
+      (await SettingsDAO.get("wallet_url")) ?? "https://wallet.vaultys.net",
+    peerjsHost: (await SettingsDAO.get("peerjs_host")) ?? "",
   });
-}
+});
 
 /**
  * @openapi
@@ -64,7 +66,7 @@ export async function GET(request: NextRequest) {
  *       403:
  *         $ref: '#/components/responses/Forbidden'
  */
-export async function PUT(req: NextRequest) {
+export const PUT = withError(async (req: NextRequest) => {
   const auth = await getAuthContext(req);
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
@@ -82,4 +84,4 @@ export async function PUT(req: NextRequest) {
   }
 
   return NextResponse.json({ ok: true });
-}
+});

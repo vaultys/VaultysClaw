@@ -9,6 +9,8 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-config";
 import { getWSServer } from "@/lib/ws-server";
 import { GrantDAO } from "@/db";
+import { forbidden, notFound } from "@/lib/api/utils/api-utils";
+import { withError } from "@/lib/api/handlers/with-error";
 
 /**
  * @openapi
@@ -37,20 +39,20 @@ import { GrantDAO } from "@/db";
  *       404:
  *         $ref: '#/components/responses/NotFound'
  */
-export async function DELETE(
+export const DELETE = withError(async (
   _req: NextRequest,
   { params }: { params: Promise<{ did: string; id: string }> }
-) {
+) => {
   const session = await getServerSession(authOptions);
   if (!session?.user?.isAdmin) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    return forbidden();
   }
 
   const { did, id } = await params;
 
   const grant = await GrantDAO.findById(id);
   if (!grant || grant.userDid !== did) {
-    return NextResponse.json({ error: "Grant not found" }, { status: 404 });
+    return notFound("Grant not found");
   }
 
   const agentDid = grant.agentDid; // null = wildcard
@@ -69,4 +71,4 @@ export async function DELETE(
   }
 
   return NextResponse.json({ ok: true });
-}
+});

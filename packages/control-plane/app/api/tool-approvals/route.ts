@@ -7,6 +7,12 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-config";
 import { getWSServer } from "@/lib/ws-server";
+import { withError } from "@/lib/api/handlers/with-error";
+import {
+  malformed,
+  unauthorized,
+  unavailable,
+} from "@/lib/api/utils/api-utils";
 
 /**
  * @openapi
@@ -31,23 +37,20 @@ import { getWSServer } from "@/lib/ws-server";
  *       503:
  *         description: WebSocket server not available.
  */
-export async function GET() {
+export const GET = withError(async () => {
   const session = await getServerSession(authOptions);
   if (!session?.user) {
-    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+    return unauthorized();
   }
 
   const wsServer = getWSServer();
   if (!wsServer) {
-    return NextResponse.json(
-      { error: "WebSocket server not available" },
-      { status: 503 }
-    );
+    return unavailable("WebSocket server not available");
   }
 
   const approvals = wsServer.getPendingToolApprovals();
   return NextResponse.json({ approvals });
-}
+});
 
 /**
  * @openapi
@@ -86,18 +89,15 @@ export async function GET() {
  *       503:
  *         description: WebSocket server not available.
  */
-export async function POST(request: NextRequest) {
+export const POST = withError(async (request: NextRequest) => {
   const session = await getServerSession(authOptions);
   if (!session?.user) {
-    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+    return unauthorized();
   }
 
   const wsServer = getWSServer();
   if (!wsServer) {
-    return NextResponse.json(
-      { error: "WebSocket server not available" },
-      { status: 503 }
-    );
+    return unavailable("WebSocket server not available");
   }
 
   const body = await request.json();
@@ -108,19 +108,13 @@ export async function POST(request: NextRequest) {
   };
 
   if (!requestId || typeof approved !== "boolean") {
-    return NextResponse.json(
-      { error: "requestId (string) and approved (boolean) are required" },
-      { status: 400 }
-    );
+    return malformed("requestId (string) and approved (boolean) are required");
   }
 
   const ok = wsServer.respondToToolApproval(requestId, approved, reason);
   if (!ok) {
-    return NextResponse.json(
-      { error: "Approval request not found or agent disconnected" },
-      { status: 404 }
-    );
+    return unavailable("Failed to process approval response");
   }
 
   return NextResponse.json({ success: true, requestId, approved });
-}
+});

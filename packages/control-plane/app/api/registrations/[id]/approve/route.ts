@@ -2,8 +2,16 @@ import { NextRequest, NextResponse } from "next/server";
 import { getWSServer } from "@/lib/ws-server";
 import type { AgentCapability } from "@vaultysclaw/shared";
 import { getAuthContext } from "@/lib/auth-utils";
-import { unauthorized, forbidden } from "@/lib/api-utils";
+import {
+  unauthorized,
+  forbidden,
+  malformed,
+  notFound,
+  conflict,
+  unavailable,
+} from "@/lib/api/utils/api-utils";
 import { AgentDAO, PendingRegistrationDAO, RealmDAO } from "@/db";
+import { withError } from "@/lib/api/handlers/with-error";
 
 /**
  * POST /api/registrations/[id]/approve
@@ -73,85 +81,61 @@ import { AgentDAO, PendingRegistrationDAO, RealmDAO } from "@/db";
  *       503:
  *         description: WebSocket server not available.
  */
-export async function POST(
+export const POST = withError(async (
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const auth = await getAuthContext(request);
-    if (!auth) return unauthorized();
-    if (!auth.isGlobalAdmin) return forbidden();
+) => {
+  const auth = await getAuthContext(request);
+  if (!auth) return unauthorized();
+  if (!auth.isGlobalAdmin) return forbidden();
 
-    const { id } = await params;
-    const body = await request.json();
-    const capabilities: AgentCapability[] = body.capabilities;
-    const realmIds: string[] = Array.isArray(body.realmIds)
-      ? body.realmIds
-      : [];
+  const { id } = await params;
+  const body = await request.json();
+  const capabilities: AgentCapability[] = body.capabilities;
+  const realmIds: string[] = Array.isArray(body.realmIds) ? body.realmIds : [];
 
-    if (!Array.isArray(capabilities) || capabilities.length === 0) {
-      return NextResponse.json(
-        { error: "At least one capability must be assigned" },
-        { status: 400 }
-      );
-    }
+  if (!Array.isArray(capabilities) || capabilities.length === 0) {
+    return malformed("At least one capability must be assigned");
+  }
 
-    const registration = await PendingRegistrationDAO.findById(id);
-    if (!registration) {
-      return NextResponse.json(
-        { error: "Registration not found" },
-        { status: 404 }
-      );
-    }
+  const registration = await PendingRegistrationDAO.findById(id);
+  if (!registration) {
+    return notFound("Registration not found");
+  }
 
-    if (registration.status !== "pending") {
-      return NextResponse.json(
-        { error: `Registration already ${registration.status}` },
-        { status: 409 }
-      );
-    }
+  if (registration.status !== "pending") {
+    return conflict(`Registration already ${registration.status}`);
+  }
 
-    const wsServer = getWSServer();
-    if (!wsServer) {
-      return NextResponse.json(
-        { error: "WebSocket server not available" },
-        { status: 503 }
-      );
-    }
+  const wsServer = getWSServer();
+  if (!wsServer) {
+    return unavailable("WebSocket server not available");
+  }
 
-    const success = wsServer.approveRegistration(id, capabilities);
-    if (!success) {
-      return NextResponse.json(
-        { error: "Agent connection no longer available" },
-        { status: 410 }
-      );
-    }
+  const success = wsServer.approveRegistration(id, capabilities);
+  if (!success) {
+    return unavailable("Failed to approve registration");
+  }
 
-    const agentRow = await AgentDAO.findByName(registration.agentName);
+  const agentRow = await AgentDAO.findByName(registration.agentName);
 
-    // Enroll agent in additional selected realms (default realm is already enrolled via ws-server)
-    if (realmIds.length > 0 && agentRow?.did) {
-      const allRealms = await RealmDAO.findAll();
-      const defaultRealm = allRealms.find((r) => r.isDefault);
-      for (const rid of realmIds) {
-        if (defaultRealm && rid === defaultRealm.id) continue;
-        try {
-          await AgentDAO.addToRealm(agentRow.did, rid, false);
-        } catch {
-          /* already member */
-        }
+  // Enroll agent in additional selected realms (default realm is already enrolled via ws-server)
+  if (realmIds.length > 0 && agentRow?.did) {
+    const allRealms = await RealmDAO.findAll();
+    const defaultRealm = allRealms.find((r) => r.isDefault);
+    for (const rid of realmIds) {
+      if (defaultRealm && rid === defaultRealm.id) continue;
+      try {
+        await AgentDAO.addToRealm(agentRow.did, rid, false);
+      } catch {
+        /* already member */
       }
     }
-    return NextResponse.json({
-      success: true,
-      registrationId: id,
-      capabilities,
-      agentDid: agentRow?.did ?? null,
-    });
-  } catch (error) {
-    return NextResponse.json(
-      { error: "Failed to approve registration" },
-      { status: 500 }
-    );
   }
-}
+  return NextResponse.json({
+    success: true,
+    registrationId: id,
+    capabilities,
+    agentDid: agentRow?.did ?? null,
+  });
+});

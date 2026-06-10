@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
-import { unauthorized, forbidden } from "@/lib/api-utils";
+import { unauthorized, forbidden, malformed } from "@/lib/api/utils/api-utils";
 import { setStorageConfig } from "@/db/settings.dao";
+import { withError } from "@/lib/api/handlers/with-error";
 
 /**
  * PATCH /api/settings/storage/location
@@ -42,16 +43,18 @@ import { setStorageConfig } from "@/db/settings.dao";
  *       403:
  *         $ref: '#/components/responses/Forbidden'
  */
-export async function PATCH(request: NextRequest) {
+export const PATCH = withError(async (request: NextRequest) => {
   const auth = await getAuthContext(request);
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
 
-  const body = (await request.json().catch(() => null)) as
-    | { lat?: number | null; lon?: number | null; label?: string | null }
-    | null;
+  const body = (await request.json().catch(() => null)) as {
+    lat?: number | null;
+    lon?: number | null;
+    label?: string | null;
+  } | null;
   if (!body) {
-    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+    return malformed("Invalid JSON body");
   }
 
   if (body.lat === null || body.lat === undefined) {
@@ -66,10 +69,7 @@ export async function PATCH(request: NextRequest) {
   const lat = Number(body.lat);
   const lon = Number(body.lon);
   if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
-    return NextResponse.json(
-      { error: "lat and lon must be valid numbers" },
-      { status: 400 }
-    );
+    return malformed("lat and lon must be valid numbers");
   }
 
   await setStorageConfig({
@@ -79,4 +79,4 @@ export async function PATCH(request: NextRequest) {
   });
 
   return NextResponse.json({ ok: true });
-}
+});

@@ -1,11 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
-import { unauthorized, forbidden } from "@/lib/api-utils";
+import {
+  unauthorized,
+  forbidden,
+  notFound,
+  malformed,
+} from "@/lib/api/utils/api-utils";
 import { ApiKeyDAO } from "@/db";
 import { prisma } from "@/db/client";
-import type { ApiKey, ApiKeyUpdateRequest } from "@/lib/api-types";
+import type { ApiKey, ApiKeyUpdateRequest } from "@/lib/api/utils/api-types";
+import { withError } from "@/lib/api/handlers/with-error";
 
-function toApiKey(row: NonNullable<Awaited<ReturnType<typeof ApiKeyDAO.findById>>>): ApiKey {
+function toApiKey(
+  row: NonNullable<Awaited<ReturnType<typeof ApiKeyDAO.findById>>>
+): ApiKey {
   return {
     id: row.id,
     name: row.name,
@@ -15,8 +23,12 @@ function toApiKey(row: NonNullable<Awaited<ReturnType<typeof ApiKeyDAO.findById>
     isRealmAdmin: row.isRealmAdmin,
     createdBy: row.createdBy,
     createdAt: Math.floor(row.createdAt.getTime() / 1000),
-    lastUsedAt: row.lastUsedAt ? Math.floor(row.lastUsedAt.getTime() / 1000) : null,
-    expiresAt: row.expiresAt ? Math.floor(row.expiresAt.getTime() / 1000) : null,
+    lastUsedAt: row.lastUsedAt
+      ? Math.floor(row.lastUsedAt.getTime() / 1000)
+      : null,
+    expiresAt: row.expiresAt
+      ? Math.floor(row.expiresAt.getTime() / 1000)
+      : null,
     isActive: row.isActive,
   };
 }
@@ -69,10 +81,10 @@ function toApiKey(row: NonNullable<Awaited<ReturnType<typeof ApiKeyDAO.findById>
  *       403:
  *         $ref: '#/components/responses/Forbidden'
  */
-export async function PATCH(
+export const PATCH = withError(async (
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
-) {
+) => {
   const auth = await getAuthContext(request);
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
@@ -80,7 +92,7 @@ export async function PATCH(
   const { id } = await params;
   const existing = await ApiKeyDAO.findById(id);
   if (!existing) {
-    return NextResponse.json({ error: "API key not found" }, { status: 404 });
+    return notFound("API key not found");
   }
 
   const body = (await request.json()) as ApiKeyUpdateRequest;
@@ -88,16 +100,13 @@ export async function PATCH(
 
   if (body.name !== undefined) {
     if (!body.name.trim()) {
-      return NextResponse.json({ error: "name cannot be empty" }, { status: 400 });
+      return malformed("name cannot be empty");
     }
     data.name = body.name.trim();
   }
   if (body.allowedRoutes !== undefined) {
     if (!Array.isArray(body.allowedRoutes) || body.allowedRoutes.length === 0) {
-      return NextResponse.json(
-        { error: "allowedRoutes must be a non-empty array" },
-        { status: 400 }
-      );
+      return malformed("allowedRoutes must be a non-empty array");
     }
     data.allowedRoutes = body.allowedRoutes;
   }
@@ -109,12 +118,12 @@ export async function PATCH(
   if (body.isActive !== undefined) data.isActive = body.isActive;
 
   if (Object.keys(data).length === 0) {
-    return NextResponse.json({ error: "No fields to update" }, { status: 400 });
+    return malformed("No fields to update");
   }
 
   const updated = await prisma.apiKey.update({ where: { id }, data });
   return NextResponse.json(toApiKey(updated));
-}
+});
 
 /**
  * @openapi
@@ -142,10 +151,10 @@ export async function PATCH(
  *       403:
  *         $ref: '#/components/responses/Forbidden'
  */
-export async function DELETE(
+export const DELETE = withError(async (
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
-) {
+) => {
   const auth = await getAuthContext(request);
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
@@ -153,7 +162,7 @@ export async function DELETE(
   const { id } = await params;
   const deleted = await ApiKeyDAO.delete(id);
   if (!deleted) {
-    return NextResponse.json({ error: "API key not found" }, { status: 404 });
+    return notFound("API key not found");
   }
   return new NextResponse(null, { status: 204 });
-}
+});

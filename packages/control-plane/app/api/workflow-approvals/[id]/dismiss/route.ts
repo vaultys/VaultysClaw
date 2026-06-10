@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-config";
 import { WorkflowDAO } from "@/db";
+import { notFound, unauthorized } from "@/lib/api/utils/api-utils";
+import { withError } from "@/lib/api/handlers/with-error";
 
 interface Params {
   id: string;
@@ -34,28 +36,20 @@ interface Params {
  *       500:
  *         description: Failed to dismiss the notification.
  */
-export async function POST(
+export const POST = withError(async (
   _request: Request,
   { params }: { params: Promise<Params> }
-) {
-  try {
-    const { id } = await params;
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.did) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const updated = await WorkflowDAO.dismissNotification(id, session.user.did);
-    if (!updated) {
-      return NextResponse.json(
-        { error: "Notification not found or not dismissable" },
-        { status: 404 }
-      );
-    }
-
-    return NextResponse.json({ success: true });
-  } catch (err) {
-    console.error("POST /api/workflow-approvals/[id]/dismiss error:", err);
-    return NextResponse.json({ error: "Failed to dismiss" }, { status: 500 });
+) => {
+  const { id } = await params;
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.did) {
+    return unauthorized();
   }
-}
+
+  const updated = await WorkflowDAO.dismissNotification(id, session.user.did);
+  if (!updated) {
+    return notFound("Notification not found or not dismissable");
+  }
+
+  return NextResponse.json({ success: true });
+});

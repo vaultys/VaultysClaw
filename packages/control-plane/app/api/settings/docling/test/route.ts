@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
-import { unauthorized, forbidden } from "@/lib/api-utils";
+import { unauthorized, forbidden, malformed } from "@/lib/api/utils/api-utils";
 import { setDoclingEndpoints } from "@/db/settings.dao";
+import { withError } from "@/lib/api/handlers/with-error";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -104,7 +105,7 @@ async function discoverEndpoints(baseUrl: string): Promise<{
  *       403:
  *         $ref: '#/components/responses/Forbidden'
  */
-export async function POST(request: NextRequest) {
+export const POST = withError(async (request: NextRequest) => {
   const auth = await getAuthContext(request);
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
@@ -113,10 +114,7 @@ export async function POST(request: NextRequest) {
   const rawUrl = (body.url ?? "").trim().replace(/\/$/, "");
 
   if (!rawUrl) {
-    return NextResponse.json(
-      { ok: false, error: "No URL provided" },
-      { status: 400 }
-    );
+    return malformed("URL is required");
   }
 
   const start = Date.now();
@@ -166,4 +164,4 @@ export async function POST(request: NextRequest) {
     const msg = err instanceof Error ? err.message : String(err);
     return NextResponse.json({ ok: false, error: msg, latency });
   }
-}
+});

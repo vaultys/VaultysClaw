@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { withError } from "@/lib/api/handlers/with-error";
 
 /**
  * Health check endpoint for load balancers and deployment tools.
@@ -35,7 +36,7 @@ import { NextResponse } from "next/server";
  *                   type: string
  *                   format: date-time
  */
-export async function GET() {
+export const GET = withError(async () => {
   return NextResponse.json(
     {
       status: "ok",
@@ -43,4 +44,4 @@ export async function GET() {
     },
     { status: 200 }
   );
-}
+});

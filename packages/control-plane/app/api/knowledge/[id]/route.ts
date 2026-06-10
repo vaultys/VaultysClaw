@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
-import { unauthorized, forbidden } from "@/lib/api-utils";
+import { unauthorized, forbidden, notFound } from "@/lib/api/utils/api-utils";
 import { KnowledgeDAO } from "@/db";
+import { withError } from "@/lib/api/handlers/with-error";
 
 // GET /api/knowledge/:id
 /**
@@ -35,24 +36,23 @@ import { KnowledgeDAO } from "@/db";
  *       404:
  *         $ref: '#/components/responses/NotFound'
  */
-export async function GET(
+export const GET = withError(async (
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
-) {
+) => {
   const auth = await getAuthContext(request);
   if (!auth) return unauthorized();
 
   const { id } = await params;
   const source = await KnowledgeDAO.findSource(id);
-  if (!source)
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (!source) return notFound("Knowledge source not found");
 
   if (!auth.isGlobalAdmin && !(await auth.canAccessRealm(source.realmId))) {
     return forbidden();
   }
 
   return NextResponse.json({ source });
-}
+});
 
 // DELETE /api/knowledge/:id
 /**
@@ -78,19 +78,18 @@ export async function GET(
  *       404:
  *         $ref: '#/components/responses/NotFound'
  */
-export async function DELETE(
+export const DELETE = withError(async (
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
-) {
+) => {
   const auth = await getAuthContext(request);
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
 
   const { id } = await params;
   const source = await KnowledgeDAO.findSource(id);
-  if (!source)
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (!source) return notFound("Knowledge source not found");
 
   await KnowledgeDAO.deleteSource(id);
   return NextResponse.json({ success: true });
-}
+});

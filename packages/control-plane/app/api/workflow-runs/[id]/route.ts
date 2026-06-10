@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-config";
 import { WorkflowDAO } from "@/db";
+import { notFound, unauthorized } from "@/lib/api/utils/api-utils";
+import { withError } from "@/lib/api/handlers/with-error";
 
 /**
  * GET /api/workflow-runs/[id]
@@ -44,39 +46,31 @@ import { WorkflowDAO } from "@/db";
  *       500:
  *         description: Failed to fetch workflow run.
  */
-export async function GET(
+export const GET = withError(async (
   request: Request,
   { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.did) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const { id } = await params;
-    const result = await WorkflowDAO.getRunHistory(id);
-
-    if (!result) {
-      return NextResponse.json({ error: "Run not found" }, { status: 404 });
-    }
-
-    return NextResponse.json({
-      run: result.run,
-      workflow: result.workflow
-        ? {
-            id: result.workflow.id,
-            name: result.workflow.name,
-            definition: result.workflow.definition,
-          }
-        : null,
-      steps: result.steps,
-    });
-  } catch (error) {
-    console.error("Failed to fetch workflow run:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch workflow run" },
-      { status: 500 }
-    );
+) => {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.did) {
+    return unauthorized();
   }
-}
+
+  const { id } = await params;
+  const result = await WorkflowDAO.getRunHistory(id);
+
+  if (!result) {
+    return notFound("Run not found");
+  }
+
+  return NextResponse.json({
+    run: result.run,
+    workflow: result.workflow
+      ? {
+          id: result.workflow.id,
+          name: result.workflow.name,
+          definition: result.workflow.definition,
+        }
+      : null,
+    steps: result.steps,
+  });
+});

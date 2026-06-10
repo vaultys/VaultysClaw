@@ -49,9 +49,8 @@ function getExportedMethods(content: string): string[] {
 
 /** Return true if the file already has @openapi JSDoc for the given method */
 function hasOpenApiAnnotation(content: string, method: string): boolean {
-  // Look for a JSDoc block with @openapi above the method export
   const pattern = new RegExp(
-    `/\\*\\*[\\s\\S]*?@openapi[\\s\\S]*?\\*/[\\s\\n]*export\\s+(async\\s+)?function\\s+${method}`
+    `/\\*\\*[\\s\\S]*?@openapi[\\s\\S]*?\\*/[\\s\\n]*export\\s+(async\\s+)?(?:function\\s+${method}|const\\s+${method}\\s*=)`
   );
   return pattern.test(content);
 }

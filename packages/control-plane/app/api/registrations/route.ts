@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { AgentCapability } from "@vaultysclaw/shared";
 import { getAuthContext } from "@/lib/auth-utils";
-import { unauthorized, forbidden } from "@/lib/api-utils";
+import { unauthorized, forbidden } from "@/lib/api/utils/api-utils";
 import { PendingRegistrationDAO } from "@/db";
+import { withError } from "@/lib/api/handlers/with-error";
 
 /**
  * Available capabilities that the admin can assign to agents
@@ -82,21 +83,14 @@ const AVAILABLE_CAPABILITIES: {
  *       500:
  *         description: Failed to fetch registrations.
  */
-export async function GET(request: NextRequest) {
-  try {
-    const auth = await getAuthContext(request);
-    if (!auth) return unauthorized();
-    if (!auth.isGlobalAdmin) return forbidden();
+export const GET = withError(async (request: NextRequest) => {
+  const auth = await getAuthContext(request);
+  if (!auth) return unauthorized();
+  if (!auth.isGlobalAdmin) return forbidden();
 
-    const registrations = await PendingRegistrationDAO.findAll();
-    return NextResponse.json({
-      registrations,
-      availableCapabilities: AVAILABLE_CAPABILITIES,
-    });
-  } catch (error) {
-    return NextResponse.json(
-      { error: "Failed to fetch registrations" },
-      { status: 500 }
-    );
-  }
-}
+  const registrations = await PendingRegistrationDAO.findAll();
+  return NextResponse.json({
+    registrations,
+    availableCapabilities: AVAILABLE_CAPABILITIES,
+  });
+});

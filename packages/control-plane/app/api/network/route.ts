@@ -7,7 +7,8 @@ import {
   initializePeerjsServer,
 } from "@/lib/peerjs-server";
 import { getAuthContext } from "@/lib/auth-utils";
-import { unauthorized } from "@/lib/api-utils";
+import { unauthorized, unavailable } from "@/lib/api/utils/api-utils";
+import { withError } from "@/lib/api/handlers/with-error";
 
 /**
  * GET /api/network
@@ -59,7 +60,7 @@ import { unauthorized } from "@/lib/api-utils";
  *       401:
  *         $ref: '#/components/responses/Unauthorized'
  */
-export async function GET(req: Request) {
+export const GET = withError(async (req: Request) => {
   const auth = await getAuthContext(req);
   if (!auth) return unauthorized();
 
@@ -73,7 +74,8 @@ export async function GET(req: Request) {
   const stats = wsServer?.getNetworkStats() ?? null;
   const peerjsServer = getPeerjsServer();
   const peerId = await AgentPeerjsServer.getServerPeerId();
-  const configuredServerUrl = await SettingsDAO.get("peerjs_server_url") ?? null;
+  const configuredServerUrl =
+    (await SettingsDAO.get("peerjs_server_url")) ?? null;
 
   return NextResponse.json({
     stats,
@@ -89,7 +91,7 @@ export async function GET(req: Request) {
         peerjsServer?.signalingServerUrl ?? configuredServerUrl ?? null,
     },
   });
-}
+});
 
 /**
  * POST /api/network
@@ -127,7 +129,7 @@ export async function GET(req: Request) {
  *       500:
  *         description: Failed to start PeerJS server.
  */
-export async function POST(req: NextRequest) {
+export const POST = withError(async (req: NextRequest) => {
   const auth = await getAuthContext(req);
   if (!auth || !auth.isGlobalAdmin) return unauthorized();
 
@@ -141,10 +143,7 @@ export async function POST(req: NextRequest) {
   if (action === "restart-ws") {
     const wsServer = getWSServer();
     if (!wsServer) {
-      return NextResponse.json(
-        { error: "WebSocket server not initialized" },
-        { status: 503 }
-      );
+      return unavailable("WebSocket server not initialized");
     }
     const port = wsServer.wsPort;
     wsServer.shutdown();
@@ -168,16 +167,13 @@ export async function POST(req: NextRequest) {
 
     const wsServer = getWSServer();
     if (!wsServer) {
-      return NextResponse.json(
-        { error: "WebSocket server not initialized" },
-        { status: 503 }
-      );
+      return unavailable("WebSocket server not initialized");
     }
 
     const resolvedUrl =
       serverUrl !== undefined
         ? (serverUrl ?? undefined)
-        : await SettingsDAO.get("peerjs_server_url") || undefined;
+        : (await SettingsDAO.get("peerjs_server_url")) || undefined;
 
     if (serverUrl !== undefined) {
       await SettingsDAO.set("peerjs_server_url", serverUrl ?? "");
@@ -185,21 +181,9 @@ export async function POST(req: NextRequest) {
     await SettingsDAO.set("peerjs_enabled", "true");
 
     const server = initializePeerjsServer(wsServer, resolvedUrl || undefined);
-    try {
-      const peerId = await server.start();
-      return NextResponse.json({ ok: true, running: true, peerId });
-    } catch (err) {
-      return NextResponse.json(
-        {
-          error:
-            err instanceof Error
-              ? err.message
-              : "Failed to start PeerJS server",
-        },
-        { status: 500 }
-      );
-    }
+    const peerId = await server.start();
+    return NextResponse.json({ ok: true, running: true, peerId });
   }
 
   return NextResponse.json({ error: "Invalid action" }, { status: 400 });
-}
+});

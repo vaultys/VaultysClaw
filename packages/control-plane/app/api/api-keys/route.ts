@@ -1,15 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import { getAuthContext } from "@/lib/auth-utils";
-import { unauthorized, forbidden } from "@/lib/api-utils";
-import { generateApiKey } from "@/lib/api-key-utils";
+import { unauthorized, forbidden, malformed } from "@/lib/api/utils/api-utils";
+import { generateApiKey } from "@/lib/api/utils/api-key-utils";
 import { ApiKeyDAO } from "@/db";
-import { prisma } from "@/db/client";
+import { withError } from "@/lib/api/handlers/with-error";
 import type {
   ApiKey,
   ApiKeyCreateRequest,
   ApiKeyCreatedResponse,
-} from "@/lib/api-types";
+} from "@/lib/api/utils/api-types";
 
 function toApiKey(row: Awaited<ReturnType<typeof ApiKeyDAO.findById>>): ApiKey {
   if (!row) throw new Error("null row");
@@ -22,8 +22,12 @@ function toApiKey(row: Awaited<ReturnType<typeof ApiKeyDAO.findById>>): ApiKey {
     isRealmAdmin: row.isRealmAdmin,
     createdBy: row.createdBy,
     createdAt: Math.floor(row.createdAt.getTime() / 1000),
-    lastUsedAt: row.lastUsedAt ? Math.floor(row.lastUsedAt.getTime() / 1000) : null,
-    expiresAt: row.expiresAt ? Math.floor(row.expiresAt.getTime() / 1000) : null,
+    lastUsedAt: row.lastUsedAt
+      ? Math.floor(row.lastUsedAt.getTime() / 1000)
+      : null,
+    expiresAt: row.expiresAt
+      ? Math.floor(row.expiresAt.getTime() / 1000)
+      : null,
     isActive: row.isActive,
   };
 }
@@ -46,14 +50,14 @@ function toApiKey(row: Awaited<ReturnType<typeof ApiKeyDAO.findById>>): ApiKey {
  *       403:
  *         $ref: '#/components/responses/Forbidden'
  */
-export async function GET(request: NextRequest) {
+export const GET = withError(async (request: NextRequest) => {
   const auth = await getAuthContext(request);
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
 
   const rows = await ApiKeyDAO.findAll();
   return NextResponse.json({ apiKeys: rows.map(toApiKey) });
-}
+});
 
 /**
  * @openapi
@@ -83,22 +87,25 @@ export async function GET(request: NextRequest) {
  *       403:
  *         $ref: '#/components/responses/Forbidden'
  */
-export async function POST(request: NextRequest) {
+export const POST = withError(async (request: NextRequest) => {
   const auth = await getAuthContext(request);
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
 
   const body = (await request.json()) as ApiKeyCreateRequest;
-  const { name, allowedRoutes, realmId = null, isRealmAdmin = false, expiresAt = null } = body;
+  const {
+    name,
+    allowedRoutes,
+    realmId = null,
+    isRealmAdmin = false,
+    expiresAt = null,
+  } = body;
 
   if (!name?.trim()) {
-    return NextResponse.json({ error: "name is required" }, { status: 400 });
+    return malformed("name is required");
   }
   if (!Array.isArray(allowedRoutes) || allowedRoutes.length === 0) {
-    return NextResponse.json(
-      { error: "allowedRoutes must be a non-empty array" },
-      { status: 400 }
-    );
+    return malformed("allowedRoutes must be a non-empty array");
   }
 
   const { key, hash, prefix } = generateApiKey();
@@ -118,4 +125,4 @@ export async function POST(request: NextRequest) {
 
   const response: ApiKeyCreatedResponse = { apiKey: toApiKey(row), key };
   return NextResponse.json(response, { status: 201 });
-}
+});

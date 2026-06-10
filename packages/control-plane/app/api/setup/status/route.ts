@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSmtpConfig } from "@/lib/smtp";
 import { getAuthContext } from "@/lib/auth-utils";
-import { unauthorized, forbidden } from "@/lib/api-utils";
+import { unauthorized, forbidden } from "@/lib/api/utils/api-utils";
 import { AgentDAO, ModelDAO, RealmDAO } from "@/db";
+import { withError } from "@/lib/api/handlers/with-error";
 
 interface SetupStatus {
   model: boolean;
@@ -44,29 +45,23 @@ interface SetupStatus {
  *       500:
  *         description: Failed to fetch setup status.
  */
-export async function GET(request: NextRequest) {
-  try {
-    const auth = await getAuthContext(request);
-    if (!auth) return unauthorized();
-    if (!auth.isGlobalAdmin) return forbidden();
+export const GET = withError(async (request: NextRequest) => {
+  const auth = await getAuthContext(request);
+  if (!auth) return unauthorized();
+  if (!auth.isGlobalAdmin) return forbidden();
 
-    const allAgents = await AgentDAO.findAll();
-    const defaultRealm = await RealmDAO.findDefault();
-    const realmUsers = defaultRealm ? await RealmDAO.getUsers(defaultRealm.id) : [];
+  const allAgents = await AgentDAO.findAll();
+  const defaultRealm = await RealmDAO.findDefault();
+  const realmUsers = defaultRealm
+    ? await RealmDAO.getUsers(defaultRealm.id)
+    : [];
 
-    const status: SetupStatus = {
-      model: (await ModelDAO.findAll()).length > 0,
-      email: getSmtpConfig() !== null,
-      users: realmUsers.length > 1, // More than just the admin
-      agent: allAgents.length > 0,
-    };
+  const status: SetupStatus = {
+    model: (await ModelDAO.findAll()).length > 0,
+    email: getSmtpConfig() !== null,
+    users: realmUsers.length > 1, // More than just the admin
+    agent: allAgents.length > 0,
+  };
 
-    return NextResponse.json({ status });
-  } catch (err) {
-    console.error(err);
-    return NextResponse.json(
-      { error: "Failed to fetch setup status" },
-      { status: 500 }
-    );
-  }
-}
+  return NextResponse.json({ status });
+});

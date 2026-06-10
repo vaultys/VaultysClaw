@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
-import { unauthorized, forbidden } from "@/lib/api-utils";
+import { unauthorized, forbidden } from "@/lib/api/utils/api-utils";
 import { prisma } from "@/db/client";
+import { withError } from "@/lib/api/handlers/with-error";
 
 async function getFleetHistoryTotals(
   granularity: "day" | "month",
-  bucket: string,
+  bucket: string
 ) {
   const result = await prisma.agentTokenUsageHistory.aggregate({
     _sum: {
@@ -51,7 +52,7 @@ async function getFleetHistoryTotals(
  *       403:
  *         $ref: '#/components/responses/Forbidden'
  */
-export async function GET(request: NextRequest) {
+export const GET = withError(async (request: NextRequest) => {
   const auth = await getAuthContext(request);
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
@@ -77,4 +78,4 @@ export async function GET(request: NextRequest) {
   ]);
 
   return NextResponse.json({ allTime, daily, monthly });
-}
+});

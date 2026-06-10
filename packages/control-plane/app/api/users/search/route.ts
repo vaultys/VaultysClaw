@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { RealmDAO } from "@/db";
+import { malformed, notFound } from "@/lib/api/utils/api-utils";
+import { withError } from "@/lib/api/handlers/with-error";
 
 /**
  * GET /api/users/search?realm=[realmId]&q=[search query]
@@ -53,50 +55,39 @@ import { RealmDAO } from "@/db";
  *       500:
  *         description: Failed to search users due to server error.
  */
-export async function GET(request: Request) {
-  try {
-    const { searchParams } = new URL(request.url);
-    const realmId = searchParams.get("realm");
-    const query = searchParams.get("q")?.toLowerCase() || "";
+export const GET = withError(async (request: Request) => {
+  const { searchParams } = new URL(request.url);
+  const realmId = searchParams.get("realm");
+  const query = searchParams.get("q")?.toLowerCase() || "";
 
-    if (!realmId) {
-      return NextResponse.json(
-        { error: "Missing realm parameter" },
-        { status: 400 }
-      );
-    }
-
-    // Verify realm exists
-    const realm = await RealmDAO.findById(realmId);
-    if (!realm) {
-      return NextResponse.json({ error: "Realm not found" }, { status: 404 });
-    }
-
-    const realmUsers = await RealmDAO.getUsers(realmId);
-
-    // Filter by search query (name or email)
-    const filtered = realmUsers.filter((row) => {
-      if (!query) return true;
-      const name = (row.user.name || "").toLowerCase();
-      const email = (row.user.email || "").toLowerCase();
-      return name.includes(query) || email.includes(query);
-    });
-
-    const users = filtered.map((row) => ({
-      // Use the DID as the canonical id — it matches session.user.did used by
-      // the workflow-approvals inbox query. Fall back to userId for legacy accounts.
-      id: row.user.did ?? row.userId,
-      name: row.user.name || "Unknown",
-      email: row.user.email || "No email",
-      joinedAt: row.joinedAt,
-    }));
-
-    return NextResponse.json({ users });
-  } catch (error) {
-    console.error("Failed to search users:", error);
-    return NextResponse.json(
-      { error: "Failed to search users" },
-      { status: 500 }
-    );
+  if (!realmId) {
+    return malformed("Missing realm parameter");
   }
-}
+
+  // Verify realm exists
+  const realm = await RealmDAO.findById(realmId);
+  if (!realm) {
+    return notFound("Realm not found");
+  }
+
+  const realmUsers = await RealmDAO.getUsers(realmId);
+
+  // Filter by search query (name or email)
+  const filtered = realmUsers.filter((row) => {
+    if (!query) return true;
+    const name = (row.user.name || "").toLowerCase();
+    const email = (row.user.email || "").toLowerCase();
+    return name.includes(query) || email.includes(query);
+  });
+
+  const users = filtered.map((row) => ({
+    // Use the DID as the canonical id — it matches session.user.did used by
+    // the workflow-approvals inbox query. Fall back to userId for legacy accounts.
+    id: row.user.did ?? row.userId,
+    name: row.user.name || "Unknown",
+    email: row.user.email || "No email",
+    joinedAt: row.joinedAt,
+  }));
+
+  return NextResponse.json({ users });
+});

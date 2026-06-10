@@ -10,9 +10,10 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
-import { unauthorized, forbidden } from "@/lib/api-utils";
+import { unauthorized, forbidden, notFound } from "@/lib/api/utils/api-utils";
 import { decryptSecret } from "@/lib/vault";
 import { CredentialDAO, RealmDAO } from "@/db";
+import { withError } from "@/lib/api/handlers/with-error";
 
 type Ctx = { params: Promise<{ id: string; credId: string }> };
 
@@ -60,14 +61,14 @@ type Ctx = { params: Promise<{ id: string; credId: string }> };
  *       500:
  *         description: Failed to decrypt credential.
  */
-export async function GET(req: NextRequest, ctx: Ctx) {
+export const GET = withError(async (req: NextRequest, ctx: Ctx) => {
   const auth = await getAuthContext(req);
   if (!auth) return unauthorized();
 
   const { id: realmId, credId } = await ctx.params;
   const realm = await RealmDAO.findById(realmId);
-  if (!realm)
-    return NextResponse.json({ error: "Realm not found" }, { status: 404 });
+  if (!realm) return notFound("Realm not found");
+
   // Only realm admins can retrieve plaintext secrets
   if (!(await auth.canAdminRealm(realmId))) return forbidden();
 
@@ -79,18 +80,11 @@ export async function GET(req: NextRequest, ctx: Ctx) {
     );
   }
 
-  try {
-    const secret = await decryptSecret(cred.secretEnc);
-    return NextResponse.json({
-      id: cred.id,
-      service: cred.service,
-      name: cred.name,
-      secret,
-    });
-  } catch {
-    return NextResponse.json(
-      { error: "Failed to decrypt credential" },
-      { status: 500 }
-    );
-  }
-}
+  const secret = await decryptSecret(cred.secretEnc);
+  return NextResponse.json({
+    id: cred.id,
+    service: cred.service,
+    name: cred.name,
+    secret,
+  });
+});

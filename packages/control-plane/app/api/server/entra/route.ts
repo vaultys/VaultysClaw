@@ -6,7 +6,8 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
-import { forbidden, unauthorized } from "@/lib/api-utils";
+import { forbidden, malformed, unauthorized } from "@/lib/api/utils/api-utils";
+import { withError } from "@/lib/api/handlers/with-error";
 import {
   getEntraConfig,
   saveEntraConfig,
@@ -42,7 +43,7 @@ import {
  *       403:
  *         $ref: '#/components/responses/Forbidden'
  */
-export async function GET(request: NextRequest) {
+export const GET = withError(async (request: NextRequest) => {
   const auth = await getAuthContext(request);
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
@@ -56,7 +57,7 @@ export async function GET(request: NextRequest) {
     clientId: config.clientId,
     clientSecret: "••••••••",
   });
-}
+});
 
 /**
  * @openapi
@@ -91,7 +92,7 @@ export async function GET(request: NextRequest) {
  *       403:
  *         $ref: '#/components/responses/Forbidden'
  */
-export async function PUT(req: NextRequest) {
+export const PUT = withError(async (req: NextRequest) => {
   const auth = await getAuthContext(req);
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
@@ -103,10 +104,7 @@ export async function PUT(req: NextRequest) {
   };
 
   if (!body.tenantId || !body.clientId || !body.clientSecret) {
-    return NextResponse.json(
-      { error: "tenantId, clientId and clientSecret are required" },
-      { status: 400 }
-    );
+    return malformed("tenantId, clientId and clientSecret are required");
   }
 
   // If secret is the redacted placeholder, keep the existing one
@@ -122,7 +120,7 @@ export async function PUT(req: NextRequest) {
     clientSecret: secret,
   });
   return NextResponse.json({ ok: true });
-}
+});
 
 /**
  * @openapi
@@ -180,7 +178,7 @@ export async function PUT(req: NextRequest) {
  *       403:
  *         $ref: '#/components/responses/Forbidden'
  */
-export async function POST(req: NextRequest) {
+export const POST = withError(async (req: NextRequest) => {
   const auth = await getAuthContext(req);
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
@@ -203,9 +201,8 @@ export async function POST(req: NextRequest) {
   };
 
   if (!config.tenantId || !config.clientId || !config.clientSecret) {
-    return NextResponse.json(
-      { error: "Entra credentials are not configured" },
-      { status: 400 }
+    return malformed(
+      "tenantId, clientId and clientSecret are required for connectivity test"
     );
   }
 
@@ -231,4 +228,4 @@ export async function POST(req: NextRequest) {
       { status: 200 }
     );
   }
-}
+});

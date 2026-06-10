@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
-import { unauthorized, forbidden } from "@/lib/api-utils";
+import {
+  unauthorized,
+  forbidden,
+  malformed,
+  notFound,
+} from "@/lib/api/utils/api-utils";
 import { AgentDAO, KnowledgeDAO, RealmDAO } from "@/db";
+import { withError } from "@/lib/api/handlers/with-error";
 
 // GET /api/knowledge?realmId=xxx&agentDid=xxx
 /**
@@ -40,7 +46,7 @@ import { AgentDAO, KnowledgeDAO, RealmDAO } from "@/db";
  *       403:
  *         $ref: '#/components/responses/Forbidden'
  */
-export async function GET(request: NextRequest) {
+export const GET = withError(async (request: NextRequest) => {
   const auth = await getAuthContext(request);
   if (!auth) return unauthorized();
 
@@ -54,7 +60,7 @@ export async function GET(request: NextRequest) {
 
   const sources = await KnowledgeDAO.listSources({ realmId, agentDid });
   return NextResponse.json({ sources });
-}
+});
 
 // POST /api/knowledge
 // Body: { realmId, agentDid, name, sourceType, config }
@@ -100,7 +106,7 @@ export async function GET(request: NextRequest) {
  *       404:
  *         $ref: '#/components/responses/NotFound'
  */
-export async function POST(request: NextRequest) {
+export const POST = withError(async (request: NextRequest) => {
   const auth = await getAuthContext(request);
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
@@ -115,19 +121,16 @@ export async function POST(request: NextRequest) {
   };
 
   if (!realmId || !agentDid || !name || !sourceType) {
-    return NextResponse.json(
-      { error: "Missing required fields: realmId, agentDid, name, sourceType" },
-      { status: 400 }
+    return malformed(
+      "Missing required fields: realmId, agentDid, name, sourceType"
     );
   }
 
   const realm = await RealmDAO.findById(realmId);
-  if (!realm)
-    return NextResponse.json({ error: "Realm not found" }, { status: 404 });
+  if (!realm) return notFound("Realm not found");
 
   const agent = await AgentDAO.findByDid(agentDid);
-  if (!agent)
-    return NextResponse.json({ error: "Agent not found" }, { status: 404 });
+  if (!agent) return notFound("Agent not found");
 
   const source = await KnowledgeDAO.createSource({
     realmId,
@@ -138,4 +141,4 @@ export async function POST(request: NextRequest) {
   });
 
   return NextResponse.json({ source }, { status: 201 });
-}
+});

@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
-import { unauthorized } from "@/lib/api-utils";
+import { notFound, unauthorized } from "@/lib/api/utils/api-utils";
 import { ModelDAO, RealmDAO } from "@/db";
 import { isLiteLLMConfigured } from "@/lib/litellm-client";
+import { withError } from "@/lib/api/handlers/with-error";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -68,46 +69,37 @@ type Ctx = { params: Promise<{ id: string }> };
  *       500:
  *         description: Failed to fetch realm models.
  */
-export async function GET(_req: NextRequest, { params }: Ctx) {
-  try {
-    const auth = await getAuthContext(_req);
-    if (!auth) return unauthorized();
+export const GET = withError(async (_req: NextRequest, { params }: Ctx) => {
+  const auth = await getAuthContext(_req);
+  if (!auth) return unauthorized();
 
-    const { id } = await params;
-    const realm = await RealmDAO.findById(id);
-    if (!realm)
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
+  const { id } = await params;
+  const realm = await RealmDAO.findById(id);
+  if (!realm) return notFound("Realm not found");
 
-    const models = (await ModelDAO.findByRealm(id)).map((m) => ({
-      id: m.id,
-      name: m.name,
-      description: m.description,
-      provider: m.provider,
-      modelId: m.modelId,
-      litellmModelName: m.litellmModelName,
-      status: m.status,
-    }));
+  const models = (await ModelDAO.findByRealm(id)).map((m) => ({
+    id: m.id,
+    name: m.name,
+    description: m.description,
+    provider: m.provider,
+    modelId: m.modelId,
+    litellmModelName: m.litellmModelName,
+    status: m.status,
+  }));
 
-    const routerKey = await RealmDAO.getRouterKey(id);
+  const routerKey = await RealmDAO.getRouterKey(id);
 
-    return NextResponse.json({
-      models,
-      litellmConfigured: isLiteLLMConfigured(),
-      routerKey: routerKey
-        ? {
-            hasVirtualKey: Boolean(routerKey.litellmVirtualKey),
-            keyPrefix: routerKey.litellmVirtualKey?.slice(0, 10) ?? null,
-            allowedModels: routerKey.allowedModelIds,
-            monthlyBudgetUsd: routerKey.monthlyBudgetUsd,
-            updatedAt: routerKey.updatedAt ?? null,
-          }
-        : null,
-    });
-  } catch (err) {
-    console.error(err);
-    return NextResponse.json(
-      { error: "Failed to fetch realm models" },
-      { status: 500 }
-    );
-  }
-}
+  return NextResponse.json({
+    models,
+    litellmConfigured: isLiteLLMConfigured(),
+    routerKey: routerKey
+      ? {
+          hasVirtualKey: Boolean(routerKey.litellmVirtualKey),
+          keyPrefix: routerKey.litellmVirtualKey?.slice(0, 10) ?? null,
+          allowedModels: routerKey.allowedModelIds,
+          monthlyBudgetUsd: routerKey.monthlyBudgetUsd,
+          updatedAt: routerKey.updatedAt ?? null,
+        }
+      : null,
+  });
+});

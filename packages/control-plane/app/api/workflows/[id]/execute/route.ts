@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { executeWorkflow, type WorkflowDefinition } from "@/lib/workflow-executor";
+import {
+  executeWorkflow,
+  type WorkflowDefinition,
+} from "@/lib/workflow-executor";
 import { getAuthContext } from "@/lib/auth-utils";
-import { unauthorized, forbidden } from "@/lib/api-utils";
+import { unauthorized, forbidden, notFound } from "@/lib/api/utils/api-utils";
 import { WorkflowDAO } from "@/db";
+import { withError } from "@/lib/api/handlers/with-error";
 
 type Params = { id: string };
 
@@ -60,68 +64,54 @@ type Params = { id: string };
  *       500:
  *         description: Failed to start workflow execution.
  */
-export async function POST(
+export const POST = withError(async (
   request: NextRequest,
   { params }: { params: Promise<Params> }
-) {
+) => {
+  const auth = await getAuthContext(request);
+  if (!auth) return unauthorized();
+
+  const { id } = await params;
+
+  // Parse optional input
+  let input: string | undefined;
   try {
-    const auth = await getAuthContext(request);
-    if (!auth) return unauthorized();
-
-    const { id } = await params;
-
-    // Parse optional input
-    let input: string | undefined;
-    try {
-      const body = await request.json();
-      input = body?.input;
-    } catch {
-      // No body is fine
-    }
-
-    // Verify workflow exists
-    const workflow = await WorkflowDAO.findById(id);
-    if (!workflow) {
-      return NextResponse.json(
-        { error: "Workflow not found" },
-        { status: 404 }
-      );
-    }
-
-    if (workflow.realmId && !(await auth.canAccessRealm(workflow.realmId)))
-      return forbidden();
-
-    // Start a new run
-    const runId = await WorkflowDAO.startRun(id);
-
-    // Trigger execution asynchronously (don't await, return immediately)
-    const definition = workflow.definition;
-    if (!definition) {
-      return NextResponse.json(
-        { error: "Workflow has no definition" },
-        { status: 400 }
-      );
-    }
-    const workflowDef = definition as unknown as WorkflowDefinition;
-    // Execution-time input overrides the definition's stored input
-    const resolvedInput = input ?? workflowDef.input;
-    Promise.resolve().then(() => {
-      executeWorkflow(runId, workflowDef, resolvedInput, id).catch((err) => {
-        console.error(`Workflow ${runId} execution failed:`, err);
-      });
-    });
-
-    return NextResponse.json({
-      success: true,
-      runId,
-      workflowId: id,
-      status: "running",
-    });
-  } catch (err) {
-    console.error("POST /api/workflows/[id]/execute error:", err);
-    return NextResponse.json(
-      { error: "Failed to start workflow execution" },
-      { status: 500 }
-    );
+    const body = await request.json();
+    input = body?.input;
+  } catch {
+    // No body is fine
   }
-}
+
+  // Verify workflow exists
+  const workflow = await WorkflowDAO.findById(id);
+  if (!workflow) {
+    return notFound("Workflow not found");
+  }
+
+  if (workflow.realmId && !(await auth.canAccessRealm(workflow.realmId)))
+    return forbidden();
+
+  // Start a new run
+  const runId = await WorkflowDAO.startRun(id);
+
+  // Trigger execution asynchronously (don't await, return immediately)
+  const definition = workflow.definition;
+  if (!definition) {
+    return notFound("Workflow has no definition");
+  }
+  const workflowDef = definition as unknown as WorkflowDefinition;
+  // Execution-time input overrides the definition's stored input
+  const resolvedInput = input ?? workflowDef.input;
+  Promise.resolve().then(() => {
+    executeWorkflow(runId, workflowDef, resolvedInput, id).catch((err) => {
+      console.error(`Workflow ${runId} execution failed:`, err);
+    });
+  });
+
+  return NextResponse.json({
+    success: true,
+    runId,
+    workflowId: id,
+    status: "running",
+  });
+});

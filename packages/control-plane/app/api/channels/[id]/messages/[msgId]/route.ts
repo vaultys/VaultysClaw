@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
-import { unauthorized, forbidden } from "@/lib/api-utils";
+import {
+  unauthorized,
+  forbidden,
+  notFound,
+  malformed,
+} from "@/lib/api/utils/api-utils";
 import { ChannelService } from "@/lib/channel-service";
+import { withError } from "@/lib/api/handlers/with-error";
 
 type Ctx = { params: Promise<{ id: string; msgId: string }> };
 
@@ -45,37 +51,29 @@ type Ctx = { params: Promise<{ id: string; msgId: string }> };
  *       500:
  *         description: Failed to fetch message
  */
-export async function GET(_req: NextRequest, ctx: Ctx) {
-  try {
-    const auth = await getAuthContext(_req);
-    if (!auth) return unauthorized();
+export const GET = withError(async (_req: NextRequest, ctx: Ctx) => {
+  const auth = await getAuthContext(_req);
+  if (!auth) return unauthorized();
 
-    const { id, msgId } = await ctx.params;
+  const { id, msgId } = await ctx.params;
 
-    // Verify channel access
-    const channel = await ChannelService.getChannel(id);
-    if (!channel) {
-      return NextResponse.json({ error: "Channel not found" }, { status: 404 });
-    }
-
-    if (!(await ChannelService.isMember(id, auth.did))) {
-      return forbidden();
-    }
-
-    const message = await ChannelService.getMessage(msgId);
-    if (!message || message.channelId !== id) {
-      return NextResponse.json({ error: "Message not found" }, { status: 404 });
-    }
-
-    return NextResponse.json({ message });
-  } catch (err) {
-    console.error("GET /api/channels/[id]/messages/[msgId] error:", err);
-    return NextResponse.json(
-      { error: "Failed to fetch message" },
-      { status: 500 }
-    );
+  // Verify channel access
+  const channel = await ChannelService.getChannel(id);
+  if (!channel) {
+    return notFound("Channel not found");
   }
-}
+
+  if (!(await ChannelService.isMember(id, auth.did))) {
+    return forbidden();
+  }
+
+  const message = await ChannelService.getMessage(msgId);
+  if (!message || message.channelId !== id) {
+    return notFound("Message not found");
+  }
+
+  return NextResponse.json({ message });
+});
 
 /**
  * PATCH /api/channels/[id]/messages/[msgId]
@@ -132,43 +130,32 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
  *       500:
  *         description: Failed to edit message.
  */
-export async function PATCH(req: NextRequest, ctx: Ctx) {
-  try {
-    const auth = await getAuthContext(req);
-    if (!auth) return unauthorized();
+export const PATCH = withError(async (req: NextRequest, ctx: Ctx) => {
+  const auth = await getAuthContext(req);
+  if (!auth) return unauthorized();
 
-    const { id, msgId } = await ctx.params;
+  const { id, msgId } = await ctx.params;
 
-    const message = await ChannelService.getMessage(msgId);
-    if (!message || message.channelId !== id) {
-      return NextResponse.json({ error: "Message not found" }, { status: 404 });
-    }
-
-    // Only the author can edit their message
-    if (message.authorDid !== auth.did) {
-      return forbidden();
-    }
-
-    const body = (await req.json()) as { content?: string };
-
-    if (!body.content?.trim()) {
-      return NextResponse.json(
-        { error: "content is required" },
-        { status: 400 }
-      );
-    }
-
-    const updated = await ChannelService.editMessage(msgId, body.content.trim());
-
-    return NextResponse.json({ message: updated });
-  } catch (err) {
-    console.error("PATCH /api/channels/[id]/messages/[msgId] error:", err);
-    return NextResponse.json(
-      { error: "Failed to edit message" },
-      { status: 500 }
-    );
+  const message = await ChannelService.getMessage(msgId);
+  if (!message || message.channelId !== id) {
+    return notFound("Message not found");
   }
-}
+
+  // Only the author can edit their message
+  if (message.authorDid !== auth.did) {
+    return forbidden();
+  }
+
+  const body = (await req.json()) as { content?: string };
+
+  if (!body.content?.trim()) {
+    return malformed("content is required");
+  }
+
+  const updated = await ChannelService.editMessage(msgId, body.content.trim());
+
+  return NextResponse.json({ message: updated });
+});
 
 /**
  * DELETE /api/channels/[id]/messages/[msgId]
@@ -207,37 +194,27 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
  *       500:
  *         description: Failed to delete message.
  */
-export async function DELETE(_req: NextRequest, ctx: Ctx) {
-  try {
-    const auth = await getAuthContext(_req);
-    if (!auth) return unauthorized();
+export const DELETE = withError(async (_req: NextRequest, ctx: Ctx) => {
+  const auth = await getAuthContext(_req);
+  if (!auth) return unauthorized();
 
-    const { id, msgId } = await ctx.params;
+  const { id, msgId } = await ctx.params;
 
-    const message = await ChannelService.getMessage(msgId);
-    if (!message || message.channelId !== id) {
-      return NextResponse.json({ error: "Message not found" }, { status: 404 });
-    }
-
-    // Author can delete, or moderator+ in the channel
-    const role = await ChannelService.getMemberRole(id, auth.did);
-    const canDelete =
-      message.authorDid === auth.did ||
-      role === "moderator" ||
-      role === "owner";
-
-    if (!canDelete) {
-      return forbidden();
-    }
-
-    await ChannelService.deleteMessage(msgId);
-
-    return NextResponse.json({ success: true });
-  } catch (err) {
-    console.error("DELETE /api/channels/[id]/messages/[msgId] error:", err);
-    return NextResponse.json(
-      { error: "Failed to delete message" },
-      { status: 500 }
-    );
+  const message = await ChannelService.getMessage(msgId);
+  if (!message || message.channelId !== id) {
+    return notFound("Message not found");
   }
-}
+
+  // Author can delete, or moderator+ in the channel
+  const role = await ChannelService.getMemberRole(id, auth.did);
+  const canDelete =
+    message.authorDid === auth.did || role === "moderator" || role === "owner";
+
+  if (!canDelete) {
+    return forbidden();
+  }
+
+  await ChannelService.deleteMessage(msgId);
+
+  return NextResponse.json({ success: true });
+});

@@ -28,6 +28,7 @@ import {
   createRealmKey,
 } from "@/lib/litellm-client";
 import type { LlmConfig } from "@vaultysclaw/shared";
+import { withError } from "@/lib/api/handlers/with-error";
 
 const TEST_API_ENABLED = process.env.ENABLE_TEST_API === "true";
 
@@ -70,10 +71,10 @@ function guard(): NextResponse | null {
  *       404:
  *         $ref: '#/components/responses/NotFound'
  */
-export async function GET(
+export const GET = withError(async (
   _req: NextRequest,
   ctx: RouteContext
-): Promise<NextResponse> {
+) => {
   const g = guard();
   if (g) return g;
 
@@ -178,7 +179,7 @@ export async function GET(
   }
 
   return NextResponse.json({ error: "Not found" }, { status: 404 });
-}
+});
 
 // ─────────────────────────────────────────────
 // POST handlers
@@ -200,10 +201,10 @@ export async function GET(
  *       503:
  *         description: WS server not initialised
  */
-export async function POST(
+export const POST = withError(async (
   req: NextRequest,
   ctx: RouteContext
-): Promise<NextResponse> {
+) => {
   const g = guard();
   if (g) return g;
 
@@ -493,7 +494,7 @@ export async function POST(
   }
 
   return NextResponse.json({ error: "Not found" }, { status: 404 });
-}
+});
 
 // ─────────────────────────────────────────────
 // DELETE handlers
@@ -518,10 +519,10 @@ export async function POST(
  *       404:
  *         $ref: '#/components/responses/NotFound'
  */
-export async function DELETE(
+export const DELETE = withError(async (
   _req: NextRequest,
   ctx: RouteContext
-): Promise<NextResponse> {
+) => {
   const g = guard();
   if (g) return g;
 
@@ -545,4 +546,4 @@ export async function DELETE(
   }
 
   return NextResponse.json({ error: "Not found" }, { status: 404 });
-}
+});

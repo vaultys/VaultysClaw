@@ -6,8 +6,9 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
-import { forbidden, unauthorized } from "@/lib/api-utils";
+import { forbidden, unauthorized } from "@/lib/api/utils/api-utils";
 import { UserDAO } from "@/db";
+import { withError } from "@/lib/api/handlers/with-error";
 
 /**
  * @openapi
@@ -48,7 +49,7 @@ import { UserDAO } from "@/db";
  *       403:
  *         $ref: '#/components/responses/Forbidden'
  */
-export async function GET(request: NextRequest) {
+export const GET = withError(async (request: NextRequest) => {
   const auth = await getAuthContext(request);
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
@@ -63,4 +64,4 @@ export async function GET(request: NextRequest) {
   }));
 
   return NextResponse.json({ users });
-}
+});

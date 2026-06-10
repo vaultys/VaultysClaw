@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
-import { unauthorized, forbidden } from "@/lib/api-utils";
+import { unauthorized, forbidden, notFound } from "@/lib/api/utils/api-utils";
 import { WorkflowDAO } from "@/db";
+import { withError } from "@/lib/api/handlers/with-error";
 
 /**
  * @openapi
@@ -42,10 +43,10 @@ import { WorkflowDAO } from "@/db";
  *       404:
  *         $ref: '#/components/responses/NotFound'
  */
-export async function GET(
+export const GET = withError(async (
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
-) {
+) => {
   const auth = await getAuthContext(request);
   if (!auth) return unauthorized();
 
@@ -53,10 +54,7 @@ export async function GET(
   const workflow = await WorkflowDAO.findById(id);
 
   if (!workflow) {
-    return NextResponse.json(
-      { success: false, error: "Workflow not found" },
-      { status: 404 }
-    );
+    return notFound("Workflow not found");
   }
 
   if (workflow.realmId && !(await auth.canAccessRealm(workflow.realmId)))
@@ -76,4 +74,4 @@ export async function GET(
       "Content-Type": "application/json",
     },
   });
-}
+});

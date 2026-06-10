@@ -1,8 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { broadcastSkillsConfig } from "@/lib/ws-server";
 import { getAuthContext } from "@/lib/auth-utils";
-import { unauthorized, forbidden } from "@/lib/api-utils";
+import {
+  unauthorized,
+  forbidden,
+  malformed,
+  notFound,
+} from "@/lib/api/utils/api-utils";
 import { RealmDAO, RealmSkillDAO } from "@/db";
+import { withError } from "@/lib/api/handlers/with-error";
 
 /**
  * @openapi
@@ -24,14 +30,14 @@ import { RealmDAO, RealmSkillDAO } from "@/db";
  *       403:
  *         $ref: '#/components/responses/Forbidden'
  */
-export async function GET(request: NextRequest) {
+export const GET = withError(async (request: NextRequest) => {
   const auth = await getAuthContext(request);
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
 
   const rows = await RealmSkillDAO.findAllWithRealms();
   return NextResponse.json(rows);
-}
+});
 
 /**
  * @openapi
@@ -84,7 +90,7 @@ export async function GET(request: NextRequest) {
  *       500:
  *         description: Failed to create skill.
  */
-export async function POST(request: NextRequest) {
+export const POST = withError(async (request: NextRequest) => {
   const auth = await getAuthContext(request);
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
@@ -93,42 +99,27 @@ export async function POST(request: NextRequest) {
   const { realmId, name, description, version, isRequired, config } = body;
 
   if (!realmId || typeof realmId !== "string") {
-    return NextResponse.json({ error: "realmId is required" }, { status: 400 });
+    return malformed("realmId is required and must be a string");
   }
   if (!name || typeof name !== "string" || !name.trim()) {
-    return NextResponse.json({ error: "name is required" }, { status: 400 });
+    return malformed("name is required and must be a non-empty string");
   }
 
   const realms = await RealmDAO.findAll();
   if (!realms.find((r) => r.id === realmId)) {
-    return NextResponse.json({ error: "Realm not found" }, { status: 404 });
+    return notFound("Realm not found");
   }
 
-  try {
-    const skill = await RealmSkillDAO.create({
-      realmId,
-      name: name.trim(),
-      description: description?.trim() || undefined,
-      version: version?.trim() || undefined,
-      isRequired: isRequired === true,
-      config: config && typeof config === "object" ? config : {},
-      content:
-        typeof body.content === "string" ? body.content || null : undefined,
-    });
-    broadcastSkillsConfig(realmId);
-    return NextResponse.json(skill, { status: 201 });
-  } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : String(err);
-    const code = (err as any)?.code;
-    if (msg.includes("UNIQUE") || code === "P2002") {
-      return NextResponse.json(
-        { error: `Skill "${name}" already exists in this realm` },
-        { status: 409 }
-      );
-    }
-    return NextResponse.json(
-      { error: "Failed to create skill" },
-      { status: 500 }
-    );
-  }
-}
+  const skill = await RealmSkillDAO.create({
+    realmId,
+    name: name.trim(),
+    description: description?.trim() || undefined,
+    version: version?.trim() || undefined,
+    isRequired: isRequired === true,
+    config: config && typeof config === "object" ? config : {},
+    content:
+      typeof body.content === "string" ? body.content || null : undefined,
+  });
+  broadcastSkillsConfig(realmId);
+  return NextResponse.json(skill, { status: 201 });
+});

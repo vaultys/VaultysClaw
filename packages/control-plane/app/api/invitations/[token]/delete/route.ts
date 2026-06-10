@@ -6,6 +6,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/db/client";
+import { withError } from "@/lib/api/handlers/with-error";
 
 /**
  * @openapi
@@ -42,19 +43,11 @@ import { prisma } from "@/db/client";
  *                   type: string
  *                   example: Failed to delete invitation
  */
-export async function POST(
+export const POST = withError(async (
   request: NextRequest,
   { params }: { params: Promise<{ token: string }> }
-) {
+) => {
   const { token } = await params;
-  try {
-    await prisma.userInvitation.deleteMany({ where: { token } });
-    return NextResponse.json({ success: true });
-  } catch (err) {
-    console.error("Error deleting invitation:", err);
-    return NextResponse.json(
-      { error: "Failed to delete invitation" },
-      { status: 500 }
-    );
-  }
-}
+  await prisma.userInvitation.deleteMany({ where: { token } });
+  return NextResponse.json({ success: true });
+});

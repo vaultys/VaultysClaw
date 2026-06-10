@@ -1,8 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getWSServer } from "@/lib/ws-server";
 import { getAuthContext } from "@/lib/auth-utils";
-import { unauthorized, forbidden } from "@/lib/api-utils";
+import {
+  unauthorized,
+  forbidden,
+  notFound,
+  conflict,
+  unavailable,
+} from "@/lib/api/utils/api-utils";
 import { PendingRegistrationDAO } from "@/db";
+import { withError } from "@/lib/api/handlers/with-error";
 
 /**
  * POST /api/registrations/[id]/reject
@@ -61,55 +68,36 @@ import { PendingRegistrationDAO } from "@/db";
  *       500:
  *         description: Failed to reject registration.
  */
-export async function POST(
+export const POST = withError(async (
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const auth = await getAuthContext(request);
-    if (!auth) return unauthorized();
-    if (!auth.isGlobalAdmin) return forbidden();
+) => {
+  const auth = await getAuthContext(request);
+  if (!auth) return unauthorized();
+  if (!auth.isGlobalAdmin) return forbidden();
 
-    const { id } = await params;
-    const body = await request.json().catch(() => ({}));
-    const reason: string = body.reason ?? "Registration rejected by admin";
+  const { id } = await params;
+  const body = await request.json().catch(() => ({}));
+  const reason: string = body.reason ?? "Registration rejected by admin";
 
-    const registration = await PendingRegistrationDAO.findById(id);
-    if (!registration) {
-      return NextResponse.json(
-        { error: "Registration not found" },
-        { status: 404 }
-      );
-    }
-
-    if (registration.status !== "pending") {
-      return NextResponse.json(
-        { error: `Registration already ${registration.status}` },
-        { status: 409 }
-      );
-    }
-
-    const wsServer = getWSServer();
-    if (!wsServer) {
-      return NextResponse.json(
-        { error: "WebSocket server not available" },
-        { status: 503 }
-      );
-    }
-
-    const success = wsServer.rejectRegistration(id, reason);
-    if (!success) {
-      return NextResponse.json(
-        { error: "Agent connection no longer available" },
-        { status: 410 }
-      );
-    }
-
-    return NextResponse.json({ success: true, registrationId: id });
-  } catch (error) {
-    return NextResponse.json(
-      { error: "Failed to reject registration" },
-      { status: 500 }
-    );
+  const registration = await PendingRegistrationDAO.findById(id);
+  if (!registration) {
+    return notFound("Registration not found");
   }
-}
+
+  if (registration.status !== "pending") {
+    return conflict(`Registration already ${registration.status}`);
+  }
+
+  const wsServer = getWSServer();
+  if (!wsServer) {
+    return unavailable("WebSocket server not available");
+  }
+
+  const success = wsServer.rejectRegistration(id, reason);
+  if (!success) {
+    return unavailable("Agent connection no longer available");
+  }
+
+  return NextResponse.json({ success: true, registrationId: id });
+});

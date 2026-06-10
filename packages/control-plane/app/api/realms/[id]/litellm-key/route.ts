@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
-import { unauthorized, forbidden } from "@/lib/api-utils";
+import {
+  unauthorized,
+  forbidden,
+  notFound,
+  unprocessableEntity,
+} from "@/lib/api/utils/api-utils";
 import { ModelDAO, RealmDAO } from "@/db";
 import {
   createRealmKey,
@@ -9,6 +14,7 @@ import {
 } from "@/lib/litellm-client";
 import { getWSServer } from "@/lib/ws-server";
 import type { LlmConfig } from "@vaultysclaw/shared";
+import { withError } from "@/lib/api/handlers/with-error";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -17,7 +23,57 @@ type Ctx = { params: Promise<{ id: string }> };
  * Provision or refresh the realm's LiteLLM router virtual key.
  * Body: { monthlyBudget?: number | null }
  */
-export async function PUT(req: NextRequest, { params }: Ctx) {
+/**
+ * @openapi
+ * /api/realms/{id}/litellm-key:
+ *   put:
+ *     summary: Provision or refresh the realm's LiteLLM router virtual key.
+ *     tags: [Realms]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the realm.
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               monthlyBudget:
+ *                 type: number
+ *                 nullable: true
+ *     responses:
+ *       200:
+ *         description: Successfully provisioned or refreshed the LiteLLM key.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 ok:
+ *                   type: boolean
+ *                 keyPrefix:
+ *                   type: string
+ *                 allowedModels:
+ *                   type: array
+ *                   items:
+ *                     type: string
+ *                 monthlyBudget:
+ *                   type: number
+ *                   nullable: true
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ *       422:
+ *         description: LiteLLM not configured.
+ */
+export const PUT = withError(async (req: NextRequest, { params }: Ctx) => {
   const auth = await getAuthContext(req);
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
@@ -25,12 +81,11 @@ export async function PUT(req: NextRequest, { params }: Ctx) {
   const { id: realmId } = await params;
 
   const realm = await RealmDAO.findById(realmId);
-  if (!realm) return NextResponse.json({ error: "Realm not found" }, { status: 404 });
+  if (!realm) return notFound("Realm not found");
 
   if (!isLiteLLMConfigured()) {
-    return NextResponse.json(
-      { error: "LiteLLM not configured — set it up in /models first" },
-      { status: 422 }
+    return unprocessableEntity(
+      "LiteLLM not configured — set it up in /models first"
     );
   }
 
@@ -48,10 +103,14 @@ export async function PUT(req: NextRequest, { params }: Ctx) {
   const existing = await RealmDAO.getRouterKey(realmId);
   const monthlyBudget =
     body.monthlyBudget !== undefined
-      ? body.monthlyBudget ?? undefined
-      : existing?.monthlyBudgetUsd ?? undefined;
+      ? (body.monthlyBudget ?? undefined)
+      : (existing?.monthlyBudgetUsd ?? undefined);
 
-  const { virtualKey } = await createRealmKey(realmId, allowedModels, monthlyBudget);
+  const { virtualKey } = await createRealmKey(
+    realmId,
+    allowedModels,
+    monthlyBudget
+  );
 
   await RealmDAO.upsertRouterKey(realmId, {
     litellmVirtualKey: virtualKey,
@@ -74,7 +133,10 @@ export async function PUT(req: NextRequest, { params }: Ctx) {
         ws?.sendLlmConfig(agentDid, config);
       }
     } catch (e) {
-      console.warn("PUT /realms/litellm-key: push to agents failed (non-fatal):", e);
+      console.warn(
+        "PUT /realms/litellm-key: push to agents failed (non-fatal):",
+        e
+      );
     }
   }
 
@@ -84,13 +146,43 @@ export async function PUT(req: NextRequest, { params }: Ctx) {
     allowedModels,
     monthlyBudget: monthlyBudget ?? null,
   });
-}
+});
 
 /**
  * DELETE /api/realms/[id]/litellm-key
  * Revoke the realm's LiteLLM router key.
  */
-export async function DELETE(req: NextRequest, { params }: Ctx) {
+/**
+ * @openapi
+ * /api/realms/{id}/litellm-key:
+ *   delete:
+ *     summary: Revoke the realm's LiteLLM router key.
+ *     tags: [Realms]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the realm.
+ *     responses:
+ *       200:
+ *         description: Successfully revoked the LiteLLM key.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 ok:
+ *                   type: boolean
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ */
+export const DELETE = withError(async (req: NextRequest, { params }: Ctx) => {
   const auth = await getAuthContext(req);
   if (!auth) return unauthorized();
   if (!auth.isGlobalAdmin) return forbidden();
@@ -100,4 +192,4 @@ export async function DELETE(req: NextRequest, { params }: Ctx) {
   await RealmDAO.deleteRouterKey(realmId);
 
   return NextResponse.json({ ok: true });
-}
+});

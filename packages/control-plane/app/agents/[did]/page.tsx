@@ -69,7 +69,7 @@ export default function AgentDetailPage() {
 
   const fetchAgent = useCallback(async () => {
     try {
-      const res = await fetch(`/api/agent/${encodeURIComponent(did)}`);
+      const res = await fetch(`//api/agents/${encodeURIComponent(did)}`);
       if (res.status === 404) {
         setError("Agent not found");
         return;

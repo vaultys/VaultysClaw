@@ -776,8 +776,9 @@ fi
 owner_exists_in_db() {
   local result
   result=$(docker exec "$PG_CONTAINER" \
-    psql -U "$PG_USER" -d "$PG_DB" -t -c \
-    "SELECT COUNT(*) FROM users WHERE is_owner = true;" \
+    env PGPASSWORD="$PG_PASSWORD" \
+    psql -h localhost -U "$PG_USER" -d "$PG_DB" -t -c \
+    'SELECT COUNT(*) FROM "User" WHERE "isOwner" = true;' \
     2>/dev/null | tr -d ' \n')
   [[ "$result" == "1" || "$result" -gt 0 ]] 2>/dev/null && echo "yes" || echo "no"
 }

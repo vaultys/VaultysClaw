@@ -17,6 +17,7 @@ import { StoragePanel } from "@/components/integrations/storage-panel";
 import { DoclingPanel } from "@/components/integrations/docling-panel";
 import { ServerInfoPanel } from "@/components/integrations/server-info-panel";
 import { EntraPanel } from "@/components/integrations/entra-panel";
+import { OidcPanel } from "@/components/integrations/oidc-panel";
 import { cn } from "@/lib/utils";
 
 type Tab = "communication" | "storage" | "ai" | "identity" | "observability";
@@ -103,7 +104,10 @@ export default function IntegrationsPage() {
 
         {/* Identity Tab */}
         {activeTab === "identity" && (
-          <EntraPanel />
+          <>
+            <OidcPanel />
+            <EntraPanel />
+          </>
         )}
 
         {/* Observability Tab */}

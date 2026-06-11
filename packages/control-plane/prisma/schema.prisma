@@ -48,6 +48,18 @@ model EntraIdentity {
   users User[]
 }
 
+// ─── OIDC / Generic SSO ───────────────────────────────────────────────────────
+
+model OidcIdentity {
+  sub      String   @id     // OIDC subject claim (globally unique per issuer)
+  issuer   String           // Issuer URL
+  email    String?
+  name     String?
+  syncedAt DateTime @default(now())
+
+  users User[]
+}
+
 // ─── Agents ──────────────────────────────────────────────────────────────────
 
 model Agent {
@@ -141,6 +153,7 @@ model User {
   reportsTo     String?
   description   String?
   entraId       String?
+  oidcId        String?
   claimedAt     DateTime?
   registeredAt  DateTime  @default(now())
   locationLat   Float?
@@ -150,11 +163,13 @@ model User {
   manager       User?          @relation("reportsTo", fields: [reportsTo], references: [id], onDelete: SetNull)
   reports       User[]         @relation("reportsTo")
   entraIdentity EntraIdentity? @relation(fields: [entraId], references: [id], onDelete: SetNull)
+  oidcIdentity  OidcIdentity?  @relation(fields: [oidcId], references: [sub], onDelete: SetNull)
   userRealms    UserRealm[]
   userGrants    UserGrant[]
 
   @@index([did])
   @@index([entraId])
+  @@index([oidcId])
 }
 
 // ─── User grants & delegation certs ──────────────────────────────────────────

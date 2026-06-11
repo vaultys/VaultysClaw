@@ -354,12 +354,75 @@ export class UserServerChannel {
 
         // P2P Challenger exchange:
         //   round 0: wallet sends challenge cert → server updates → server sends back
-        //   round 1: wallet sends final cert → server updates → protocol complete
+        //   round 1+: some wallet versions close the channel after round 0 (1-round
+        //             exchange). PeerJS does not signal closure, so channel.receive()
+        //             hangs forever. We race against a 5-second timeout; if it fires
+        //             and challenger.state === 1 (wallet identity verified in round 0),
+        //             we treat the exchange as complete.
         for (let round = 0; round < 4; round++) {
           console.log(
             `[P2P] round ${round}: waiting for wallet cert (challenger.state=${challenger.state})`
           );
-          const walletCert = await channel.receive();
+
+          let walletCert: Uint8Array;
+          try {
+            walletCert = await (round === 0
+              ? channel.receive()
+              : Promise.race([
+                  channel.receive(),
+                  new Promise<never>((_, reject) =>
+                    setTimeout(
+                      () => reject(new Error("p2p-round-timeout")),
+                      5_000
+                    )
+                  ),
+                ]));
+          } catch (receiveErr) {
+            const isTimeout =
+              receiveErr instanceof Error &&
+              receiveErr.message === "p2p-round-timeout";
+            if (isTimeout && challenger.state === 1 && verifyProtocol(challenger)) {
+              // Wallet completed a 1-round exchange (e.g. PQC wallet) — identity
+              // verified in round 0. getContactId() requires isComplete() so we use
+              // getContactDid() (which only checks hisKey, set at STEP1) and
+              // reconstruct a VaultysId directly from the raw hisKey buffer.
+              console.log(
+                `[P2P] round ${round}: wallet closed after 1-round exchange (state=1)`
+              );
+              const contactDid = challenger.getContactDid();
+              const hisKeyRaw = (challenger as unknown as { hisKey: Buffer }).hisKey;
+              if (!contactDid || !hisKeyRaw) {
+                console.error(
+                  `[P2P] round ${round}: missing contactDid/hisKey at state=1`
+                );
+                await CertificateDAO.update(cert.id, { status: -2 });
+              } else {
+                const contact = VaultysId.fromId(hisKeyRaw);
+                const meta = JSON.parse(mutableCert.metadata ?? "{}") as Record<string, unknown>;
+                const pendingUserId = meta.pendingUserId as string | undefined;
+                const ok = await (mutableCert.register === 1
+                  ? registerUser(contact, pendingUserId)
+                  : loginUser(contact));
+                console.log(
+                  `[P2P] round ${round}: 1-round result=${String(ok)} did=${contactDid}`
+                );
+                mutableCert.metadata = JSON.stringify({ ...meta, did: contactDid });
+                await CertificateDAO.update(cert.id, {
+                  status: ok ? 2 : -2,
+                  data: mutableCert.data,
+                  metadata: mutableCert.metadata,
+                });
+              }
+            } else {
+              console.error(
+                `[P2P] round ${round}: receive failed (isTimeout=${isTimeout}):`,
+                receiveErr
+              );
+              await CertificateDAO.update(cert.id, { status: -2 });
+            }
+            break;
+          }
+
           console.log(
             `[P2P] round ${round}: received ${walletCert.length} bytes`
           );

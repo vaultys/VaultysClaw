@@ -164,6 +164,49 @@ body {
   animation: packetFlow 1.8s ease-in-out infinite;
 }
 
+/* ── vc-* semantic utilities ──────────────────────────────── */
+@layer utilities {
+  /* Page & surface backgrounds */
+  .vc-bg-canvas   { @apply bg-background-50; }
+  .vc-bg-surface  { @apply bg-background-100; }
+  .vc-bg-elevated { @apply bg-background-200; }
+
+  /* Login page gradient — adapts between light and dark via CSS vars */
+  .vc-login-bg {
+    background-image: linear-gradient(
+      135deg,
+      rgb(var(--background-100)) 0%,
+      rgb(var(--primary-100)) 50%,
+      rgb(var(--background-50)) 100%
+    );
+  }
+
+  /* Text */
+  .vc-text        { @apply text-foreground-900; }
+  .vc-text-muted  { @apply text-foreground-500; }
+  .vc-text-subtle { @apply text-foreground-400; }
+  .vc-text-brand  { @apply text-primary-600; }
+
+  /* Borders */
+  .vc-border       { @apply border-neutral-200; }
+  .vc-border-brand { @apply border-primary-500/60; }
+
+  /* Floating card / node — glass-style that works on both light and dark gradients */
+  .vc-node-card {
+    background-color: rgb(var(--background-100) / 0.75);
+    border: 1px solid rgb(var(--neutral-200) / 0.6);
+    backdrop-filter: blur(8px);
+  }
+
+  /* Status: success */
+  .vc-bg-success-subtle { @apply bg-success-100/50; }
+  .vc-border-success    { @apply border-success-300/50; }
+  .vc-text-success      { @apply text-success-700; }
+
+  /* Modal overlay */
+  .vc-overlay { @apply bg-foreground-950/60 backdrop-blur-sm; }
+}
+
 /* ── ReactFlow login overrides ────────────────────────────── */
 .rf-login .react-flow__pane {
   cursor: default;

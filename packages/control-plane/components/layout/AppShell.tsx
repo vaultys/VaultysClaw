@@ -11,6 +11,10 @@ import WorkflowApprovalInbox from "@/components/workflow/WorkflowApprovalInbox";
 // Auth on these routes is handled by the page itself.
 const STANDALONE_PATHS = ["/login", "/setup", "/mission-control/fullscreen"];
 
+// Pages that show only the TopBar (no sidebar). Used for full-screen flows
+// that still need the global nav context (e.g. VaultysId claim after OIDC login).
+const TOPBAR_ONLY_PATHS = ["/claim"];
+
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const { status } = useSession();
   const pathname = usePathname();
@@ -33,6 +37,18 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   // Standalone pages (login): render children only
   if (STANDALONE_PATHS.includes(pathname)) {
     return <>{children}</>;
+  }
+
+  // Top-bar-only pages (claim): render TopBar + full-height content, no sidebar
+  if (TOPBAR_ONLY_PATHS.includes(pathname)) {
+    return (
+      <div className="flex flex-col h-screen overflow-hidden bg-background text-foreground">
+        <TopBar />
+        <main className="flex-1 flex flex-col overflow-y-auto bg-background">
+          {children}
+        </main>
+      </div>
+    );
   }
 
   // Unauthenticated on non-login pages (landing page at /): render children only

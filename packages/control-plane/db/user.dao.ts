@@ -36,6 +36,41 @@ export class UserDAO {
     });
   }
 
+  static async findByOidcId(sub: string): Promise<User | null> {
+    return prisma.user.findFirst({ where: { oidcId: sub } });
+  }
+
+  static async createFromOidc(
+    sub: string,
+    issuer: string,
+    name: string | null,
+    email: string | null
+  ): Promise<User> {
+    await prisma.oidcIdentity.upsert({
+      where: { sub },
+      create: { sub, issuer, name, email },
+      update: { name, email, syncedAt: new Date() },
+    });
+    const id = crypto.randomUUID();
+    return prisma.user.create({
+      data: { id, name, email, oidcId: sub },
+    });
+  }
+
+  static async syncOidcProfile(
+    userId: string,
+    name: string | null,
+    email: string | null
+  ): Promise<User> {
+    return prisma.user.update({
+      where: { id: userId },
+      data: {
+        ...(name !== null ? { name } : {}),
+        ...(email !== null ? { email } : {}),
+      },
+    });
+  }
+
   static async createFromEntra(
     entraObjectId: string,
     displayName: string | null,

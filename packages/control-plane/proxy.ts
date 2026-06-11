@@ -9,12 +9,24 @@ import type { NextRequestWithAuth } from "next-auth/middleware";
 export default withAuth(
   function proxy(request: NextRequestWithAuth) {
     const { pathname } = request.nextUrl;
+    const token = request.nextauth.token;
 
     // Authenticated user visiting /login → redirect to callbackUrl or home
-    if (pathname.startsWith("/login") && request.nextauth.token) {
+    if (pathname.startsWith("/login") && token) {
       const callbackUrl =
         request.nextUrl.searchParams.get("callbackUrl") ?? "/";
       return NextResponse.redirect(new URL(callbackUrl, request.url));
+    }
+
+    // Authenticated OIDC user without a DID must claim their VaultysId first.
+    if (
+      token &&
+      !token.did &&
+      pathname !== "/claim" &&
+      !pathname.startsWith("/api/") &&
+      !pathname.startsWith("/_next/")
+    ) {
+      return NextResponse.redirect(new URL("/claim", request.url));
     }
 
     return NextResponse.next();
@@ -36,8 +48,10 @@ export default withAuth(
           "/api/invitations",
           "/api/users/invite/email",
           "/api/users/invite/from-email",
+          "/api/vaultys/",
           "/login",
           "/invite/",
+          "/claim",
           "/",
         ];
 

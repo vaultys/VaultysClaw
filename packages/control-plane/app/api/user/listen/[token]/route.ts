@@ -51,6 +51,10 @@ interface Params {
 export const GET = withError(async (_request: NextRequest, { params }: Params) => {
   const { token } = await params;
   const cert = await UserServerChannel.listen(token);
-  if (!cert) return NextResponse.json({ status: -1 });
+  if (!cert) {
+    console.log(`[listen] token=${token} → cert NOT FOUND`);
+    return NextResponse.json({ status: -1 });
+  }
+  console.log(`[listen] token=${token} → cert.id=${cert.id} cert.status=${cert.status}`);
   return NextResponse.json({ status: cert.status });
 });

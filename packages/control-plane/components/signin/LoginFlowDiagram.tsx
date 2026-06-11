@@ -26,7 +26,7 @@ const H: React.CSSProperties = {
 // ─── Identity node ────────────────────────────────────────────────────────────
 
 const IdentityNode: React.FC<NodeProps> = () => (
-  <div className="bg-white/5 border border-white/15 rounded-2xl px-5 py-4 w-[280px] backdrop-blur-sm">
+  <div className="vc-node-card rounded-2xl px-5 py-4 w-[280px]">
     <Handle type="source" position={Position.Bottom} style={H} />
     <div className="flex items-center gap-3">
       <div className="w-10 h-10 bg-primary-500/10 border border-primary-400/30 rounded-xl flex items-center justify-center shrink-0">
@@ -34,12 +34,12 @@ const IdentityNode: React.FC<NodeProps> = () => (
       </div>
       <div>
         <div className="flex items-center gap-2">
-          <p className="text-sm font-semibold text-white">VaultysID Identity</p>
-          <span className="text-[10px] font-bold bg-secondary-900/60 text-secondary-300 border border-secondary-700/50 px-1.5 py-0.5 rounded-full">
+          <p className="text-sm font-semibold vc-text">VaultysID Identity</p>
+          <span className="text-[10px] font-bold bg-primary-100/60 vc-text-brand border border-primary-300/50 px-1.5 py-0.5 rounded-full">
             PQC
           </span>
         </div>
-        <p className="text-xs text-white/40">
+        <p className="text-xs vc-text-subtle">
           Self-sovereign · Hardware-backed
         </p>
       </div>
@@ -77,10 +77,10 @@ const ControlPlaneNode: React.FC<NodeProps> = () => (
         <Shield className="w-5 h-5 text-white" />
       </div>
       <div>
-        <p className="text-sm font-semibold text-white">
+        <p className="text-sm font-semibold vc-text">
           VaultysClaw Control Plane
         </p>
-        <p className="text-[11px] text-white/40">
+        <p className="text-[11px] vc-text-subtle">
           Policy enforcement · Audit trail · Intent routing
         </p>
       </div>
@@ -114,18 +114,18 @@ interface AgentData {
 }
 
 const AgentNode: React.FC<NodeProps<AgentData>> = ({ data }) => (
-  <div className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 w-[140px] flex flex-col items-center gap-2 backdrop-blur-sm">
+  <div className="vc-node-card rounded-xl px-4 py-3 w-[140px] flex flex-col items-center gap-2">
     <Handle type="target" position={Position.Top} style={H} />
     <div className="relative">
-      <div className="w-9 h-9 bg-white/5 border border-white/10 rounded-lg flex items-center justify-center">
-        <Bot className="w-4 h-4 text-white/40" />
+      <div className="w-9 h-9 bg-background-200/60 border border-neutral-200/60 rounded-lg flex items-center justify-center">
+        <Bot className="w-4 h-4 vc-text-subtle" />
       </div>
       <span
         className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-success-500 rounded-full animate-pulse"
         style={{ animationDelay: `${data.delay}s` }}
       />
     </div>
-    <p className="text-xs text-white/40 font-medium">{data.label}</p>
+    <p className="text-xs vc-text-subtle font-medium">{data.label}</p>
   </div>
 );
 
@@ -138,11 +138,14 @@ const NODE_TYPES = {
 };
 
 const LABEL_STYLE: React.CSSProperties = {
-  fill: "#a5b4fc",
+  fill: "rgb(var(--primary-700))",
   fontSize: 10,
   fontFamily: "monospace",
 };
-const LABEL_BG: React.CSSProperties = { fill: "#1e1b4b", fillOpacity: 0.9 };
+const LABEL_BG: React.CSSProperties = {
+  fill: "rgb(var(--primary-100))",
+  fillOpacity: 0.9,
+};
 const EDGE_STYLE: React.CSSProperties = { stroke: "primary", strokeWidth: 1.5 };
 
 const EDGES: Edge[] = [
@@ -272,11 +275,11 @@ export default function LoginFlowDiagram() {
       </ReactFlow>
 
       {showModal && (
-        <div className="absolute inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+        <div className="absolute inset-0 z-50 flex items-center justify-center p-4 vc-overlay">
           <div className="relative animate-fade-in-up">
             <button
               onClick={() => setShowModal(false)}
-              className="absolute -top-3 -right-3 z-10 w-8 h-8 rounded-full bg-neutral-800 border border-neutral-700 flex items-center justify-center text-neutral-400 hover:text-white hover:bg-neutral-700 transition-colors shadow-lg"
+              className="absolute -top-3 -right-3 z-10 w-8 h-8 rounded-full vc-bg-elevated border vc-border vc-text-muted hover:text-foreground-900 hover:bg-background-300 transition-colors shadow-lg"
             >
               <X className="w-4 h-4" />
             </button>

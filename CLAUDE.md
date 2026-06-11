@@ -18,8 +18,17 @@ VaultysClaw is a decentralized AI agent orchestration platform. A central **cont
 # Development
 pnpm install
 pnpm dev                     # Start all packages (control plane + agent)
-pnpm dev -F @vaultysclaw/control-plane
-pnpm dev -F @vaultysclaw/agent-controller
+pnpm vaultysclaw:dev         # Control plane only (preferred alias)
+pnpm agent:dev               # Agent controller only (headless)
+pnpm agent:web               # Agent controller with web UI (port 3002)
+pnpm agent:tui               # Agent controller with Ink TUI
+
+# Demo / Simulator
+pnpm simulator:up            # Full demo stack: PostgreSQL + MinIO + Docling + LiteLLM + Grafana + 30 agents
+pnpm simulator:seed          # Seed DB (8 realms, 200+ users, 30 agents, 15 workflows) — idempotent
+pnpm simulator:start         # Connect 30 simulated agents (control plane must be running)
+pnpm simulator:full          # seed + start
+./demo/setup.sh              # Minimal demo: 3 real agents for recording / quick exploration
 
 # Build
 pnpm build                   # All packages via Turborepo
@@ -63,7 +72,7 @@ Agents connect to the control plane via WebSocket on port 8080. All messages fol
 - **`lib/message-dispatcher.ts`** — Routes intents to connected agents
 - **`app/api/`** — Next.js App Router REST handlers organized by domain (agents, workflows, governance, realms, users, models, skills, channels, etc.)
 
-**Database**: SQLite at `.devdata/vaultysclaw.db`. Key tables: `agents`, `intents`, `intent_log`, `workflows`, `workflow_runs`, `realms`, `users`, `policies`, `capabilities`, `models`, `skills`, `channels`, `approvals`.
+**Database**: SQLite at `.devdata/vaultysclaw.db` (dev) or PostgreSQL via Prisma (demo/production — see `packages/control-plane/prisma/`). Key tables: `agents`, `intents`, `intent_log`, `workflows`, `workflow_runs`, `realms`, `users`, `policies`, `capabilities`, `models`, `skills`, `channels`, `approvals`.
 
 **Auth**: Passwordless QR-code login via VaultysId (no passwords). `next-auth` with a custom provider in `lib/auth-config.ts`.
 
@@ -71,7 +80,7 @@ Agents connect to the control plane via WebSocket on port 8080. All messages fol
 
 - **`src/agent.ts`** — `AgentController` (EventEmitter): WebSocket client, auth challenge/response, task queue, scheduler, peer manager, memory store
 - **`src/cli.ts`** — CLI entry point; modes: `headless` | `tui` (Ink terminal) | `web` (Vite SPA on port 3002)
-- **`src/llm.ts`** — LLM invocation via Vercel AI SDK; supports OpenAI, Anthropic, Google, Ollama, OpenAI-compatible endpoints
+- **`src/llm.ts`** — LLM invocation via Mastra (@mastra/core) + @ai-sdk/openai + ollama-ai-provider-v2; supports OpenAI, Anthropic, Google, Ollama
 - **`src/tools/`** — Built-in tools: file ops, shell, code runner, HTTP requests, remote-agent calls
 - **`src/skills/`** — Plugin-based skill loading (npm packages or local dirs); enabled per-realm in UI
 - **`src/memory/`** — Semantic memory: SQLite persistence, vector-based retrieval, LLM summarization

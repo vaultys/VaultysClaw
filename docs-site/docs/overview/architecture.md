@@ -82,7 +82,7 @@ graph TD
 
 ## Control plane
 
-The control plane runs as a **Next.js 14+ application** and serves two concerns simultaneously:
+The control plane runs as a **Next.js 16 application** and serves two concerns simultaneously:
 
 ### REST API (`/api/**`)
 
@@ -206,7 +206,12 @@ sequenceDiagram
 
 ## Database schema
 
-Vaultys Claw uses **SQLite** (via `better-sqlite3`) for zero-ops local deployments. Migrating to PostgreSQL for high-availability production deployments is on the roadmap.
+Vaultys Claw supports two database backends selected via the `DATABASE_URL` environment variable:
+
+| Backend | When to use |
+|---------|-------------|
+| **SQLite** (default) | Single-node development. Zero ops, zero config. Data stored at `.devdata/vaultysclaw.db`. |
+| **PostgreSQL** | Production and the full demo/simulator stack. Provisioned automatically by `demo/simulator/demo-up.sh`. Managed via Prisma migrations. |
 
 Key tables:
 
@@ -249,17 +254,17 @@ Key tables:
 | Layer              | Technology                                                  |
 | ------------------ | ----------------------------------------------------------- |
 | Monorepo           | pnpm workspaces + Turborepo                                 |
-| Control plane HTTP | Next.js 14+                                                 |
-| Authentication     | NextAuth.js                                                 |
-| Database           | SQLite / better-sqlite3                                     |
-| File storage       | Filesystem (default) · S3 via @aws-sdk/client-s3 (optional) |
-| WebSocket          | ws 8.x                                                      |
-| Agent HTTP         | Express.js                                                  |
-| Identity           | @vaultys/id 3.x                                             |
-| Frontend           | React 19, Tailwind CSS                                      |
-| LLM SDKs           | openai, @anthropic-ai/sdk, @google/generative-ai, ollama    |
-| LLM proxy          | LiteLLM (optional, self-hosted)                             |
-| Language           | TypeScript 5.x throughout                                   |
+| Control plane HTTP | Next.js 16                                                              |
+| Authentication     | NextAuth.js                                                             |
+| Database           | SQLite / better-sqlite3 (dev) · PostgreSQL via Prisma (full stack/demo) |
+| File storage       | Filesystem (default) · S3 via @aws-sdk/client-s3 (optional)            |
+| WebSocket          | ws 8.x                                                                  |
+| Agent HTTP         | Built-in HTTP server (health checks · web UI on port 3002)              |
+| Identity           | @vaultys/id 3.x                                                         |
+| Frontend           | React 19, Tailwind CSS                                                  |
+| LLM orchestration  | Mastra (@mastra/core) + @ai-sdk/openai, ollama-ai-provider-v2           |
+| LLM proxy          | LiteLLM (optional, self-hosted)                                         |
+| Language           | TypeScript 5.x throughout                                               |
 
 ## Deployment topologies
 

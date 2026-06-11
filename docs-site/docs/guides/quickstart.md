@@ -32,26 +32,27 @@ pnpm install
 Copy the example environment files:
 
 ```bash
-# Control plane
+# Control plane (Next.js reads .env and .env.local)
 cp packages/control-plane/.env.example packages/control-plane/.env.local
 
 # Agent controller
-cp packages/agent-controller/.env.example packages/agent-controller/.env.local
+cp packages/agent-controller/.env.example packages/agent-controller/.env
 ```
 
 Open `packages/control-plane/.env.local` and at minimum set:
 
 ```env
 NEXTAUTH_SECRET=your-random-secret-here
+# Generate a strong value with: openssl rand -base64 32
 ```
 
-Open `packages/agent-controller/.env.local` and set your LLM provider:
+Open `packages/agent-controller/.env` and set your LLM provider:
 
 ```env
+AGENT_NAME=my-agent
 LLM_PROVIDER=openai
 LLM_MODEL=gpt-4o
 LLM_API_KEY=sk-...
-AGENT_CAPABILITIES=api_call,file_access
 ```
 
 :::tip Using Ollama (no API key required)?
@@ -71,10 +72,10 @@ Open two terminals:
 **Terminal 1 — Control plane:**
 
 ```bash
-pnpm dev -F @vaultysclaw/control-plane
+pnpm vaultysclaw:dev
 ```
 
-You should see:
+You should see output like:
 
 ```
 ✓ Control plane ready on http://localhost:3000
@@ -84,10 +85,10 @@ You should see:
 **Terminal 2 — Agent controller:**
 
 ```bash
-pnpm dev -F @vaultysclaw/agent-controller
+pnpm agent:dev
 ```
 
-You should see:
+You should see output like:
 
 ```
 ✓ VaultysId loaded: did:vaultys:z6Mkf...
@@ -134,6 +135,7 @@ Open [http://localhost:3000/chat](http://localhost:3000/chat), select your agent
 
 ## Next steps
 
+- [Demo & simulator setup](/docs/guides/dev-setup-demo) — spin up 30 agents with realistic data in one command
 - [Configuration reference](/docs/guides/configuration) — all environment variables explained
 - [Deploying to production](/docs/guides/deployment) — TLS, reverse proxy, and scaling
 - [Creating workflows](/docs/guides/workflows) — automate multi-step agent tasks

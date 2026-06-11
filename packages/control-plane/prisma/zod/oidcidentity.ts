@@ -1,4 +1,5 @@
 import * as z from "zod"
+import { CompleteUser, RelatedUserModel } from "./index"
 
 export const OidcIdentityModel = z.object({
   sub: z.string(),

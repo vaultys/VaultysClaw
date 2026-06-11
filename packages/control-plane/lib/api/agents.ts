@@ -33,21 +33,23 @@ export interface PeerGrant {
 }
 
 export class AgentsApi extends BaseApi {
-  list(params?: { page?: number; pageSize?: number; realm?: string }) {
-    const query = new URLSearchParams();
-    if (params?.page) query.set("page", String(params.page));
-    if (params?.pageSize) query.set("pageSize", String(params.pageSize));
-    if (params?.realm) query.set("realm", params.realm);
-    const qs = query.toString();
-    return this.get<{ agents: Agent[]; total?: number }>(
-      `/api/agents${qs ? `?${qs}` : ""}`
-    );
+  async list(params?: {
+    page?: number;
+    pageSize?: number;
+    realm?: string;
+    q?: string;
+    online?: "true" | "false";
+    capabilities?: string;
+    sortBy?: "name" | "lastSeen" | "registeredAt";
+    sortDir?: "asc" | "desc";
+  }) {
+    return unwrap(await apiClient.agents.list({ query: params ?? {} }));
   }
 
-  search(q: string, params?: { realm?: string }) {
-    const query = new URLSearchParams({ q });
-    if (params?.realm) query.set("realm", params.realm);
-    return this.get<{ agents: Agent[] }>(`/api/agents/search?${query}`);
+  async search(q: string, params?: { realm?: string }) {
+    return unwrap(
+      await apiClient.agents.search({ query: { q, ...params } })
+    );
   }
 
   // ── Contract-backed methods (lib/contracts/agents.contract.ts) ──────────

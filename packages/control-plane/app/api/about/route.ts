@@ -1,9 +1,9 @@
-import { NextRequest, NextResponse } from "next/server";
-import { getAuthContext } from "@/lib/auth-utils";
 import fs from "fs";
 import path from "path";
-import { malformed, notFound, unauthorized } from "@/lib/api/utils/api-utils";
-import { withError } from "@/lib/api/handlers/with-error";
+import { APIException } from "@/lib/api/utils/api-utils";
+import { aboutContract } from "@/lib/contracts";
+import { createNextRoute } from "@/lib/api/ts-rest/next-route";
+import { getAuthContext } from "@/lib/auth-utils";
 
 const DOCS: Record<string, string[]> = {
   readme: ["README.md", "../../README.md", "../../../README.md"],
@@ -24,52 +24,23 @@ function resolveDoc(candidates: string[]): string | null {
   return null;
 }
 
-/**
- * @openapi
- * /api/about:
- *   get:
- *     summary: Retrieve documentation content.
- *     tags: [About]
- *     parameters:
- *       - in: query
- *         name: doc
- *         schema:
- *           type: string
- *         description: The document to retrieve (e.g., 'readme', 'zerotrust').
- *     responses:
- *       200:
- *         description: Successful response with the document content.
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 content:
- *                   type: string
- *       400:
- *         $ref: '#/components/responses/BadRequest'
- *       401:
- *         $ref: '#/components/responses/Unauthorized'
- *       404:
- *         $ref: '#/components/responses/NotFound'
- */
-export const GET = withError(async (req: NextRequest) => {
-  const auth = await getAuthContext(req);
-  if (!auth) return unauthorized();
+const handlers = createNextRoute(aboutContract, {
+  get: async ({ query, request }) => {
+    await getAuthContext(request);
 
-  const doc = new URL(req.url).searchParams.get("doc") ?? "readme";
-  if (!doc) {
-    return malformed("Missing 'doc' query parameter");
-  }
-  const candidates = DOCS[doc];
-  if (!candidates) {
-    return notFound(`Document '${doc}' not found`);
-  }
+    const doc = query.doc ?? "readme";
+    const candidates = DOCS[doc];
+    if (!candidates) {
+      throw new APIException("NOT_FOUND", `Document '${doc}' not found`);
+    }
 
-  const content = resolveDoc(candidates);
-  if (content === null) {
-    return notFound(`Document '${doc}' not found`);
-  }
+    const content = resolveDoc(candidates);
+    if (content === null) {
+      throw new APIException("NOT_FOUND", `Document '${doc}' not found`);
+    }
 
-  return NextResponse.json({ content });
+    return { status: 200, body: { content } };
+  },
 });
+
+export const GET = handlers.GET!;

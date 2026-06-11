@@ -1,11 +1,8 @@
-import { FileContent } from "@/types";
-import { BaseApi } from "./base";
+import { apiClient, unwrap } from "./ts-rest/client";
 
-export class AboutApi extends BaseApi {
-  getDoc(name: string) {
-    return this.get<FileContent>(
-      `/api/about?doc=${encodeURIComponent(name)}`
-    );
+export class AboutApi {
+  async getDoc(name: string) {
+    return unwrap(await apiClient.about.get({ query: { doc: name } }));
   }
 }
 

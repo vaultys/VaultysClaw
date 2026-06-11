@@ -1,132 +1,72 @@
-import { NextRequest, NextResponse } from "next/server";
-import { getAuthContext } from "@/lib/auth-utils";
-import { unauthorized } from "@/lib/api/utils/api-utils";
 import { getWSServer } from "@/lib/ws-server";
+import { getAuthContext } from "@/lib/auth-utils";
 import { AgentDAO, RealmDAO } from "@/db";
-import { withError } from "@/lib/api/handlers/with-error";
+import { agentsContract } from "@/lib/contracts";
+import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 
-/**
- * GET /api/agents/search?q=...&realm=<realmId>
- *
- * Search for agents by name or DID.
- * When `realm` is provided, only agents in that realm are returned.
- * Each agent is enriched with a real-time `online` field sourced from
- * the WebSocket server's in-memory connection map.
- */
-/**
- * @openapi
- * /api/agents/search:
- *   get:
- *     summary: Search for agents by name or DID.
- *     tags: [Agents]
- *     parameters:
- *       - in: query
- *         name: q
- *         schema:
- *           type: string
- *         description: Query string to search agents by name or DID.
- *       - in: query
- *         name: realm
- *         schema:
- *           type: string
- *         description: Realm ID to filter agents within a specific realm.
- *     responses:
- *       200:
- *         description: A list of agents matching the search criteria.
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 agents:
- *                   type: array
- *                   items:
- *                     type: object
- *                     properties:
- *                       id:
- *                         type: string
- *                         description: Deprecated, use `did`.
- *                       did:
- *                         type: string
- *                         description: The DID of the agent.
- *                       name:
- *                         type: string
- *                         description: The name of the agent.
- *                       capabilities:
- *                         type: array
- *                         items:
- *                           type: string
- *                         description: The capabilities of the agent.
- *                       online:
- *                         type: boolean
- *                         description: Real-time online status of the agent.
- *       401:
- *         $ref: '#/components/responses/Unauthorized'
- *       500:
- *         description: Failed to search agents.
- */
-export const GET = withError(async (req: NextRequest) => {
-  const auth = await getAuthContext(req);
-  if (!auth) return unauthorized();
+const handlers = createNextRoute(agentsContract, {
+  search: async ({ query, request }) => {
+    await getAuthContext(request);
 
-  const { searchParams } = new URL(req.url);
-  const query = searchParams.get("q")?.toLowerCase() ?? "";
-  const realmId = searchParams.get("realm");
+    const q = query.q?.toLowerCase() ?? "";
+    const realmId = query.realm;
 
-  // --- Fetch agent list ------------------------------------------------
-  let agentList: {
-    did: string;
-    name: string;
-    capabilities?: string | null;
-  }[];
+    let agentList: {
+      did: string;
+      name: string;
+      capabilities?: string | null;
+    }[];
 
-  if (realmId && realmId !== "default") {
-    // Realm-scoped: only members of this realm
-    agentList = (await RealmDAO.getAgents(realmId)).map((ra) => ({
-      did: ra.agent.did,
-      name: ra.agent.name,
-      capabilities:
-        ra.agent.capabilities === null
-          ? null
-          : JSON.stringify(ra.agent.capabilities),
-    }));
-  } else {
-    agentList = (await AgentDAO.findAll()).map((a) => ({
-      did: a.did,
-      name: a.name,
-      capabilities:
-        a.capabilities === null ? null : JSON.stringify(a.capabilities),
-    }));
-  }
+    if (realmId && realmId !== "default") {
+      agentList = (await RealmDAO.getAgents(realmId)).map((ra) => ({
+        did: ra.agent.did,
+        name: ra.agent.name,
+        capabilities:
+          ra.agent.capabilities === null
+            ? null
+            : JSON.stringify(ra.agent.capabilities),
+      }));
+    } else {
+      agentList = (await AgentDAO.findAll()).map((a) => ({
+        did: a.did,
+        name: a.name,
+        capabilities:
+          a.capabilities === null ? null : JSON.stringify(a.capabilities),
+      }));
+    }
 
-  // --- Real-time online status from WebSocket server -------------------
-  const wsServer = getWSServer();
-  const connectedDids = new Set(
-    wsServer?.getConnectedAgents().map((ca) => ca.id) ?? []
-  );
-
-  // --- Filter by query -------------------------------------------------
-  const matches = agentList.filter((a) => {
-    if (!query) return true;
-    return (
-      (a.name ?? "").toLowerCase().includes(query) ||
-      (a.did ?? "").toLowerCase().includes(query)
+    const wsServer = getWSServer();
+    const connectedDids = new Set(
+      wsServer?.getConnectedAgents().map((ca) => ca.id) ?? []
     );
-  });
 
-  return NextResponse.json({
-    agents: matches.slice(0, 20).map((a) => ({
-      id: a.did, // @deprecated use `did`
-      did: a.did,
-      name: a.name,
-      capabilities: (() => {
-        try {
-          return JSON.parse(a.capabilities ?? "[]");
-        } catch {
-          return [];
-        }
-      })(),
-      online: connectedDids.has(a.did),
-    })),
-  });
+    const matches = agentList.filter((a) => {
+      if (!q) return true;
+      return (
+        (a.name ?? "").toLowerCase().includes(q) ||
+        (a.did ?? "").toLowerCase().includes(q)
+      );
+    });
+
+    return {
+      status: 200,
+      body: {
+        agents: matches.slice(0, 20).map((a) => ({
+          id: a.did,
+          did: a.did,
+          name: a.name,
+          capabilities: (() => {
+            try {
+              return JSON.parse(a.capabilities ?? "[]");
+            } catch {
+              return [];
+            }
+          })(),
+          online: connectedDids.has(a.did),
+        })),
+      },
+    };
+  },
 });
+
+export const GET = handlers.GET!;

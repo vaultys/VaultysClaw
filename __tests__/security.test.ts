@@ -575,8 +575,8 @@ describe("GET /api/agents", () => {
     asMember();
     const res = await agentsGET(req() as never, {});
     expectStatus(res, 200);
-    const body = (res as { _body: { agents: unknown[] } })._body;
-    const agentIds = (body.agents as { id: string }[]).map((a) => a.id);
+    const body = (res as { _body: { items: unknown[] } })._body;
+    const agentIds = (body.items as { id: string }[]).map((a) => a.id);
     expect(agentIds).toContain(DID.agent);
     expect(agentIds).not.toContain("did:vaultys:some-other-agent");
   });

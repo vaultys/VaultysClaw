@@ -302,9 +302,22 @@ function Dashboard() {
     connected: wsConnected,
   } = useAdminWS();
 
-  const agents = agentsState.agents;
-  const total = agentsState.total;
-  const onlineCount = agentsState.online;
+  // For non-admins, fetch realm-scoped agent list via REST (WS broadcasts all agents)
+  interface RealmAgent { id: string; name?: string; online: boolean; dailyPriceSpent?: number | null }
+  const [realmAgents, setRealmAgents] = useState<RealmAgent[] | null>(null);
+  useEffect(() => {
+    if (isGlobalAdmin) return;
+    fetch("/api/agents/search")
+      .then((r) => (r.ok ? r.json() : { agents: [] }))
+      .then((d: { agents?: RealmAgent[] }) => setRealmAgents(d.agents ?? []))
+      .catch(() => setRealmAgents([]));
+  }, [isGlobalAdmin]);
+
+  const agents = isGlobalAdmin ? agentsState.agents : (realmAgents ?? []);
+  const total = isGlobalAdmin ? agentsState.total : (realmAgents?.length ?? 0);
+  const onlineCount = isGlobalAdmin
+    ? agentsState.online
+    : (realmAgents?.filter((a) => a.online).length ?? 0);
 
   // ── Setup banner ────────────────────────────────────────────────────────────
   const [setupBanner, setSetupBanner] = useState<{

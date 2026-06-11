@@ -40,9 +40,24 @@ export class IntentDAO {
     });
   }
 
-  static async findAll(limit = 100, agentDid?: string): Promise<IntentLog[]> {
+  static async findAll(
+    limit = 100,
+    agentDid?: string,
+    /** When set, only return intents sent to one of these agent DIDs. */
+    allowedAgentDids?: Set<string>
+  ): Promise<IntentLog[]> {
+    if (allowedAgentDids !== undefined && allowedAgentDids.size === 0)
+      return []; // user has no accessible agents
+    const where: Prisma.IntentLogWhereInput = {};
+    if (agentDid) {
+      // Single-agent filter: only return if it's in the allowed set (when set)
+      if (allowedAgentDids && !allowedAgentDids.has(agentDid)) return [];
+      where.agentDid = agentDid;
+    } else if (allowedAgentDids) {
+      where.agentDid = { in: Array.from(allowedAgentDids) };
+    }
     return prisma.intentLog.findMany({
-      where: agentDid ? { agentDid } : undefined,
+      where,
       orderBy: { sentAt: "desc" },
       take: limit,
     });

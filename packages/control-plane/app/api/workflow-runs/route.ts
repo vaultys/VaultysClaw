@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth-config";
-import { WorkflowDAO } from "@/db";
+import { WorkflowDAO, RealmDAO } from "@/db";
+import { getAuthContext } from "@/lib/auth-utils";
 import { unauthorized } from "@/lib/api/utils/api-utils";
 import { withError } from "@/lib/api/handlers/with-error";
 
@@ -88,10 +87,8 @@ import { withError } from "@/lib/api/handlers/with-error";
  *         description: Failed to fetch workflow runs.
  */
 export const GET = withError(async (request: Request) => {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.did) {
-    return unauthorized();
-  }
+  const auth = await getAuthContext(request as any);
+  if (!auth) return unauthorized();
 
   const { searchParams } = new URL(request.url);
   const workflowId = searchParams.get("workflowId") ?? undefined;
@@ -106,6 +103,10 @@ export const GET = withError(async (request: Request) => {
     | "completedAt";
   const sortDir = (searchParams.get("sortDir") ?? "desc") as "asc" | "desc";
 
+  const realmIds = auth.isGlobalAdmin
+    ? undefined
+    : new Set((await RealmDAO.getUserRealms(auth.did)).map((r) => r.realmId));
+
   const result = await WorkflowDAO.queryRuns({
     workflowId,
     status,
@@ -113,6 +114,7 @@ export const GET = withError(async (request: Request) => {
     pageSize,
     sortBy,
     sortDir,
+    realmIds,
   });
 
   return NextResponse.json({

@@ -156,6 +156,8 @@ export class WorkflowDAO {
     pageSize?: number;
     sortBy?: "startedAt" | "completedAt";
     sortDir?: "asc" | "desc";
+    /** When set, only return runs whose workflow belongs to one of these realms. */
+    realmIds?: Set<string>;
   }): Promise<{
     runs: (WorkflowRun & { workflowName: string })[];
     total: number;
@@ -170,11 +172,21 @@ export class WorkflowDAO {
       pageSize = 20,
       sortBy = "startedAt",
       sortDir = "desc",
+      realmIds,
     } = opts;
+
     const where: Prisma.WorkflowRunWhereInput = {
       ...(workflowId && { workflowId }),
       ...(status && { status }),
     };
+
+    if (realmIds !== undefined) {
+      if (realmIds.size === 0) {
+        where.workflowId = { in: [] }; // user has no realms → no runs
+      } else {
+        where.workflow = { realmId: { in: Array.from(realmIds) } };
+      }
+    }
     const orderBy: Prisma.WorkflowRunOrderByWithRelationInput =
       sortBy === "completedAt"
         ? { completedAt: sortDir }

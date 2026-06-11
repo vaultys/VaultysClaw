@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { RegisterModelForm } from "@/components/models/RegisterModelForm";
+import { useRole } from "@/hooks/useRole";
 
 // ─── LocalStorage helpers ─────────────────────────────────────────────────────
 
@@ -952,10 +953,19 @@ function Sidebar({
 
 export default function SetupPage() {
   const router = useRouter();
+  const { isGlobalAdmin, isLoading: roleLoading } = useRole();
   const [loading, setLoading] = useState(true);
   const [currentIdx, setCurrentIdx] = useState(0);
   const [completedSteps, setCompletedSteps] = useState<Set<StepId>>(new Set());
   const [done, setDone] = useState(false);
+
+  useEffect(() => {
+    if (roleLoading) return;
+    if (!isGlobalAdmin) {
+      router.replace("/");
+      return;
+    }
+  }, [isGlobalAdmin, roleLoading, router]);
 
   useEffect(() => {
     if (localStorage.getItem(LS_DONE)) {
@@ -1062,7 +1072,7 @@ export default function SetupPage() {
   /** Save progress and return to dashboard — banner will reappear */
   const finishLater = () => router.push("/");
 
-  if (loading) return null;
+  if (roleLoading || !isGlobalAdmin || loading) return null;
 
   return (
     <div className="min-h-screen flex bg-gradient-to-br from-primary-50/70 via-background to-secondary-50/40">

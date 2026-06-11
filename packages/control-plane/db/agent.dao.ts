@@ -87,19 +87,32 @@ export class AgentDAO {
       where.name = { contains: search, mode: "insensitive" };
     }
 
+    // Build realm conditions as an AND list so they can safely compose.
+    const realmConditions: Prisma.AgentWhereInput[] = [];
+
     // Explicit realm slug/id filter from the query string
     if (realm) {
-      where.agentRealms = {
-        some: { realm: { OR: [{ id: realm }, { slug: realm }] } },
-      };
+      realmConditions.push({
+        agentRealms: { some: { realm: { OR: [{ id: realm }, { slug: realm }] } } },
+      });
     }
 
-    // Authorization: restrict to agents the current user can see
-    if (realmIds && realmIds.size > 0) {
-      const realmFilter = { some: { realmId: { in: Array.from(realmIds) } } };
-      where.agentRealms = where.agentRealms
-        ? { ...where.agentRealms, ...realmFilter }
-        : realmFilter;
+    // Authorization: restrict to agents the current user can see.
+    // realmIds === undefined  → global admin, no restriction.
+    // realmIds.size === 0     → user has no realms, must see nothing.
+    // realmIds.size > 0       → user can only see agents in those realms.
+    if (realmIds !== undefined) {
+      if (realmIds.size === 0) {
+        where.did = { in: [] }; // short-circuit: no agents visible
+      } else {
+        realmConditions.push({
+          agentRealms: { some: { realmId: { in: Array.from(realmIds) } } },
+        });
+      }
+    }
+
+    if (realmConditions.length > 0) {
+      where.AND = realmConditions;
     }
 
     if (capabilities && capabilities.length > 0) {
@@ -298,20 +311,20 @@ export class AgentDAO {
 
     await prisma.$transaction([
       prisma.$executeRaw`
-        INSERT INTO agent_token_usage_history (agent_did, bucket, granularity, prompt_tokens, completion_tokens, updated_at)
+        INSERT INTO "AgentTokenUsageHistory" ("agentDid", "bucket", "granularity", "promptTokens", "completionTokens", "updatedAt")
         VALUES (${agentDid}, ${dayBucket}, 'day', ${promptDelta}, ${completionDelta}, NOW())
-        ON CONFLICT (agent_did, bucket, granularity) DO UPDATE SET
-          prompt_tokens = agent_token_usage_history.prompt_tokens + ${promptDelta},
-          completion_tokens = agent_token_usage_history.completion_tokens + ${completionDelta},
-          updated_at = NOW()
+        ON CONFLICT ("agentDid", "bucket", "granularity") DO UPDATE SET
+          "promptTokens" = "AgentTokenUsageHistory"."promptTokens" + ${promptDelta},
+          "completionTokens" = "AgentTokenUsageHistory"."completionTokens" + ${completionDelta},
+          "updatedAt" = NOW()
       `,
       prisma.$executeRaw`
-        INSERT INTO agent_token_usage_history (agent_did, bucket, granularity, prompt_tokens, completion_tokens, updated_at)
+        INSERT INTO "AgentTokenUsageHistory" ("agentDid", "bucket", "granularity", "promptTokens", "completionTokens", "updatedAt")
         VALUES (${agentDid}, ${monthBucket}, 'month', ${promptDelta}, ${completionDelta}, NOW())
-        ON CONFLICT (agent_did, bucket, granularity) DO UPDATE SET
-          prompt_tokens = agent_token_usage_history.prompt_tokens + ${promptDelta},
-          completion_tokens = agent_token_usage_history.completion_tokens + ${completionDelta},
-          updated_at = NOW()
+        ON CONFLICT ("agentDid", "bucket", "granularity") DO UPDATE SET
+          "promptTokens" = "AgentTokenUsageHistory"."promptTokens" + ${promptDelta},
+          "completionTokens" = "AgentTokenUsageHistory"."completionTokens" + ${completionDelta},
+          "updatedAt" = NOW()
       `,
     ]);
   }

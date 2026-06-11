@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-config";
 import { getWSServer } from "@/lib/ws-server";
-import { GrantDAO, IntentDAO } from "@/db";
+import { GrantDAO, IntentDAO, RealmDAO } from "@/db";
+import { getAuthContext } from "@/lib/auth-utils";
 import { withError } from "@/lib/api/handlers/with-error";
 import {
   forbidden,
@@ -219,16 +220,27 @@ export const POST = withError(async (request: NextRequest) => {
  *         description: Failed to fetch intents.
  */
 export const GET = withError(async (request: NextRequest) => {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) {
-    return unauthorized();
-  }
+  const auth = await getAuthContext(request);
+  if (!auth) return unauthorized();
 
   const { searchParams } = new URL(request.url);
   const limit = Math.min(parseInt(searchParams.get("limit") ?? "100", 10), 500);
   const agentDid = searchParams.get("agentDid") ?? undefined;
 
-  const rows = await IntentDAO.findAll(limit, agentDid);
+  let allowedAgentDids: Set<string> | undefined;
+  if (!auth.isGlobalAdmin) {
+    const userRealms = await RealmDAO.getUserRealms(auth.did);
+    if (userRealms.length === 0) {
+      allowedAgentDids = new Set(); // no realms → no agents → no intents
+    } else {
+      const perRealm = await Promise.all(
+        userRealms.map((r) => RealmDAO.getAgents(r.realmId))
+      );
+      allowedAgentDids = new Set(perRealm.flat().map((ra) => ra.agent.did));
+    }
+  }
+
+  const rows = await IntentDAO.findAll(limit, agentDid, allowedAgentDids);
   const intents = rows.map((r) => ({
     intentId: r.intentId,
     agentDid: r.agentDid,

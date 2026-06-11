@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
 import { unauthorized } from "@/lib/api/utils/api-utils";
-import { AgentDAO, UserDAO } from "@/db";
+import { AgentDAO, RealmDAO, UserDAO } from "@/db";
 import { getWSServer } from "@/lib/ws-server";
 import { getDoclingConfig, getStorageConfig } from "@/db/settings.dao";
 import { withError } from "@/lib/api/handlers/with-error";
@@ -81,14 +81,20 @@ export const GET = withError(async (req: NextRequest) => {
     wsServer?.getConnectedAgents().map((a) => a.id) ?? []
   );
 
+  let realmIds: Set<string> | undefined;
+  if (!auth.isGlobalAdmin) {
+    const userRealms = await RealmDAO.getUserRealms(auth.did);
+    realmIds = new Set(userRealms.map((r) => r.realmId));
+  }
+
   const { agents } = await AgentDAO.query({
     realm: realmFilter,
+    realmIds,
     pageSize: 1000,
   });
 
   for (const agent of agents) {
     if (agent.locationLat == null || agent.locationLon == null) continue;
-    // Non-admins only see agents in their realms (already filtered by AgentDAO.query)
     markers.push({
       id: agent.did,
       type: "agent",
@@ -100,8 +106,8 @@ export const GET = withError(async (req: NextRequest) => {
     });
   }
 
-  // ── Users ────────────────────────────────────────────────────────────────────
-  if (auth.isGlobalAdmin || !realmFilter) {
+  // ── Users (admins see all; regular users see only co-members of their realms) ─
+  if (auth.isGlobalAdmin) {
     const { users } = await UserDAO.list({
       realmId: realmFilter,
       pageSize: 1000,
@@ -117,6 +123,25 @@ export const GET = withError(async (req: NextRequest) => {
         lon: user.locationLon,
         meta: { userId: user.id, email: user.email, role: user.role },
       });
+    }
+  } else if (realmIds && realmIds.size > 0) {
+    const seen = new Set<string>();
+    for (const rid of realmIds) {
+      const { users: realmUsers } = await UserDAO.list({ realmId: rid, pageSize: 1000 });
+      for (const user of realmUsers) {
+        if (seen.has(user.id)) continue;
+        seen.add(user.id);
+        if (user.locationLat == null || user.locationLon == null) continue;
+        const markerId = user.did ?? user.id;
+        markers.push({
+          id: markerId,
+          type: "user",
+          label: user.name ?? user.email ?? user.id,
+          lat: user.locationLat,
+          lon: user.locationLon,
+          meta: { userId: user.id, email: user.email, role: user.role },
+        });
+      }
     }
   }
 

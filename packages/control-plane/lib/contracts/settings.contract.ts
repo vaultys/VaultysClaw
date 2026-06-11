@@ -126,6 +126,33 @@ export const settingsContract = c.router({
     body: LocationBody,
     responses: { 200: c.type<void>(), ...commonErrorResponses },
   },
+
+  getOtel: {
+    method: "GET",
+    path: "/api/settings/otel",
+    summary: "Retrieve OpenTelemetry configuration and status",
+    responses: { 200: c.type<Record<string, unknown>>(), ...commonErrorResponses },
+  },
+
+  saveOtel: {
+    method: "PUT",
+    path: "/api/settings/otel",
+    summary: "Save OpenTelemetry configuration",
+    body: z.object({
+      enabled: z.boolean(),
+      baseUrl: z.string().optional(),
+      serviceName: z.string().optional(),
+    }),
+    responses: { 200: c.type<Record<string, unknown>>(), ...commonErrorResponses },
+  },
+
+  testOtel: {
+    method: "POST",
+    path: "/api/settings/otel/test",
+    summary: "Test OpenTelemetry connectivity",
+    body: z.object({ baseUrl: z.string() }).optional(),
+    responses: { 200: c.type<Record<string, unknown>>(), ...commonErrorResponses },
+  },
 });
 
 export const setupContract = c.router({

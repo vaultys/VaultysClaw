@@ -56,6 +56,7 @@ vi.mock("@/lib/litellm-client", () => ({
 import { getDb } from "../packages/control-plane/lib/db";
 import { prisma } from "../packages/control-plane/db/client";
 import { getAuthContext } from "../packages/control-plane/lib/auth-utils";
+import { APIException } from "../packages/control-plane/lib/api/utils/api-utils";
 import { NextRequest } from "next/server";
 
 import {
@@ -156,7 +157,7 @@ beforeEach(async () => {
 
 describe("GET /api/agents/[did]/llm-config", () => {
   it("returns 401 when unauthenticated", async () => {
-    mockGetAuthContext.mockResolvedValueOnce(null);
+    mockGetAuthContext.mockRejectedValueOnce(new APIException("UNAUTHORIZED"));
     const res = await llmConfigGET(
       req("GET", "http://localhost") as any,
       params(agentDid)
@@ -331,7 +332,7 @@ describe("DELETE /api/agents/[did]/llm-config", () => {
 
 describe("GET /api/agents/[did]/realm-llm", () => {
   it("returns 401 when unauthenticated", async () => {
-    mockGetAuthContext.mockResolvedValueOnce(null);
+    mockGetAuthContext.mockRejectedValueOnce(new APIException("UNAUTHORIZED"));
     const res = await realmLlmGET(
       req("GET", "http://localhost") as any,
       params(agentDid)

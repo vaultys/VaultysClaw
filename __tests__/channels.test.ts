@@ -81,6 +81,7 @@ import { prisma } from "../packages/control-plane/db/client";
 import { ChannelService } from "../packages/control-plane/lib/channel-service";
 import { MessageDispatcher } from "../packages/control-plane/lib/message-dispatcher";
 import { getAuthContext } from "../packages/control-plane/lib/auth-utils";
+import { APIException } from "../packages/control-plane/lib/api/utils/api-utils";
 import { getWSServer } from "../packages/control-plane/lib/ws-server";
 import { NextRequest } from "next/server";
 
@@ -1446,7 +1447,7 @@ describe("POST /api/channels/[id]/messages/agent-response", () => {
 
 describe("GET /api/agents/search", () => {
   it("returns 401 when unauthenticated", async () => {
-    mockGetAuthContext.mockResolvedValueOnce(null);
+    mockGetAuthContext.mockRejectedValueOnce(new APIException("UNAUTHORIZED"));
     const r = req("GET", "http://localhost/api/agents/search?q=test");
     const res = await agentSearchGET(r as any);
     expect(res._status).toBe(401);

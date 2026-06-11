@@ -11,8 +11,54 @@
 
 import { createTool } from "@mastra/core/tools";
 import { z } from "zod";
+import { isIP } from "net";
+import { promises as dns } from "dns";
 import type { AgentToolDefinition } from "./types";
 import { htmlToText } from "./html-cleaner";
+
+const PRIVATE_IPV4 = [
+  /^127\./,
+  /^10\./,
+  /^172\.(1[6-9]|2[0-9]|3[0-1])\./,
+  /^192\.168\./,
+  /^169\.254\./,
+  /^0\./,
+  /^100\.(6[4-9]|[7-9]\d|1[0-1]\d|12[0-7])\./,
+  /^::1$/,
+  /^fc[0-9a-f]{2}:/i,
+  /^fd[0-9a-f]{2}:/i,
+  /^fe80:/i,
+];
+
+function isPrivateAddress(addr: string): boolean {
+  return PRIVATE_IPV4.some((r) => r.test(addr));
+}
+
+async function assertNotSSRF(rawUrl: string): Promise<void> {
+  const parsed = new URL(rawUrl);
+  if (!["http:", "https:"].includes(parsed.protocol)) {
+    throw new Error(`URL scheme not allowed: ${parsed.protocol}`);
+  }
+  const hostname = parsed.hostname;
+  if (isIP(hostname)) {
+    if (isPrivateAddress(hostname)) {
+      throw new Error("Requests to private/internal IP addresses are not allowed");
+    }
+    return;
+  }
+  let records: { address: string }[];
+  try {
+    records = await dns.lookup(hostname, { all: true });
+  } catch {
+    // DNS lookup failure means the request will fail on its own; don't block.
+    return;
+  }
+  for (const { address } of records) {
+    if (isPrivateAddress(address)) {
+      throw new Error(`Hostname ${hostname} resolves to a private address`);
+    }
+  }
+}
 
 // Raw HTML fetch limit — generous before cleaning since HTML is very noisy
 const MAX_HTML_FETCH_BYTES = 1024 * 1024; // 1 MB
@@ -66,6 +112,17 @@ export const httpRequestTool: AgentToolDefinition = {
         ),
     }),
     execute: async ({ url, method, headers, body, timeoutMs, raw_html }) => {
+      try {
+        await assertNotSSRF(url);
+      } catch (err) {
+        return {
+          status: 0,
+          statusText: "Blocked",
+          headers: {},
+          body: String(err),
+        };
+      }
+
       const controller = new AbortController();
       const timer = setTimeout(
         () => controller.abort(),

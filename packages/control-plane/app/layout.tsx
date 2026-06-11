@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import "leaflet/dist/leaflet.css";
+import "ol/ol.css";
 import SessionProviderWrapper from "@/components/SessionProviderWrapper";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import AppShell from "@/components/layout/AppShell";

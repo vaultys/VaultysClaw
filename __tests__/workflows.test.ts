@@ -354,7 +354,7 @@ describe("Workflow Executor", () => {
 
       const result1 = evaluateCondition("true", context);
       const result2 = evaluateCondition("false", context);
-      const result3 = evaluateCondition("1 + 1 === 2", context);
+      const result3 = evaluateCondition("1 + 1 == 2", context);
 
       expect(result1).toBe(true);
       expect(result2).toBe(false);

@@ -94,7 +94,7 @@ function makeHandler(
   return async (request, context) => {
     try {
       // 1. Path params — Next decodes nothing for us; match prior behaviour.
-      const rawParams = (await context.params) ?? {};
+      const rawParams = (await context?.params) ?? {};
       const decodedParams: Record<string, string> = {};
       for (const [key, value] of Object.entries(rawParams)) {
         decodedParams[key] = decodeURIComponent(value);

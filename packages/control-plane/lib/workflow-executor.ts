@@ -11,6 +11,8 @@
  */
 
 import pino from "pino";
+import { Parser } from "expr-eval";
+import type { Value as ExprValue } from "expr-eval";
 import { WorkflowDAO } from "../db";
 import { trace, SpanStatusCode } from "@opentelemetry/api";
 import { workflowRunsTotal } from "./metrics";
@@ -138,18 +140,28 @@ export function getDependencyNodes(
   return edges.filter((e) => e.target === nodeId);
 }
 
+const exprParser = new Parser({
+  operators: {
+    logical: true,
+    comparison: true,
+    // disable dangerous operators
+    in: false,
+    assignment: false,
+  },
+});
+
 /**
- * Evaluate a condition expression in the context of step outputs
- * Simple implementation: supports basic JS expressions
+ * Evaluate a condition expression in the context of step outputs.
+ * Uses expr-eval (no JS eval / new Function) — supports arithmetic,
+ * comparison, and logical operators only.
  */
 export function evaluateCondition(
   expression: string,
   context: Record<string, unknown>
 ): boolean {
   try {
-    // Safe eval using Function constructor with limited scope
-    const fn = new Function(...Object.keys(context), `return ${expression}`);
-    return Boolean(fn(...Object.values(context)));
+    const expr = exprParser.parse(expression);
+    return Boolean(expr.evaluate(context as unknown as ExprValue));
   } catch (err) {
     logger.error(
       { expression, error: String(err) },

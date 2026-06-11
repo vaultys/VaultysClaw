@@ -561,19 +561,19 @@ function status(res: unknown): number {
 describe("GET /api/agents", () => {
   it("returns 401 when unauthenticated", async () => {
     asUnauthenticated();
-    const res = await agentsGET();
+    const res = await agentsGET(req() as never, {});
     expectStatus(res, 401);
   });
 
   it("succeeds (200) for a global admin", async () => {
     asAdmin();
-    const res = await agentsGET();
+    const res = await agentsGET(req() as never, {});
     expectStatus(res, 200);
   });
 
   it("succeeds (200) for a member — returns only realm-scoped agents", async () => {
     asMember();
-    const res = await agentsGET();
+    const res = await agentsGET(req() as never, {});
     expectStatus(res, 200);
     const body = (res as { _body: { agents: unknown[] } })._body;
     const agentIds = (body.agents as { id: string }[]).map((a) => a.id);

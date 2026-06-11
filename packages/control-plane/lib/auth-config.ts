@@ -82,11 +82,26 @@ export const authOptions: NextAuthOptions = {
       return token;
     },
     async session({ session, token }) {
+      // Re-fetch roles from DB on every request so revocations take effect
+      // immediately without waiting for JWT expiry (up to 30 days by default).
+      if (token.did) {
+        try {
+          const freshUser = await UserDAO.findByDid(token.did);
+          if (freshUser) {
+            session.user = {
+              did: token.did,
+              isOwner: freshUser.isOwner,
+              isAdmin: freshUser.isOwner || freshUser.isAdmin,
+            };
+            return session;
+          }
+        } catch {
+          // Fall through to JWT claims on transient DB errors
+        }
+      }
       session.user = {
         did: token.did,
         isOwner: token.isOwner,
-        // Fallback for sessions minted before isAdmin was introduced:
-        // owners are always admins, so derive from isOwner if missing.
         isAdmin: token.isAdmin ?? token.isOwner,
       };
       return session;

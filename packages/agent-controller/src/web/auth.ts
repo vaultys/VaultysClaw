@@ -76,7 +76,6 @@ const verifyProtocol = (challenger: Challenger): boolean => {
 function isDIDAuthorized(did: string, agentDid: string): boolean {
   const now = new Date();
   for (const d of getAllDelegations()) {
-    console.log(d.user_did, did, agentDid, d.agent_did);
     if (d.user_did !== did) continue;
     if (d.expires_at && new Date(d.expires_at) < now) continue;
     if (d.agent_did === agentDid || d.agent_did === "*") return true;

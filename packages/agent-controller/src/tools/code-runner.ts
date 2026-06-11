@@ -1,22 +1,21 @@
 /**
  * Code execution tool — maps to the "code_execution" capability.
  *
- * Runs JavaScript code in a Node.js `vm` sandbox with:
- *   - Timeout protection (default 10s)
- *   - No access to `require`, `process`, `fs`, or other Node globals
- *   - Console output capture
- *   - Memory-limited context
+ * Runs JavaScript code in an isolated V8 Isolate via `isolated-vm`.
+ * Each call gets a fresh Isolate, so there is no shared state between
+ * runs and no access to Node.js internals regardless of prototype tricks.
  *
  * Requires approval by default.
  */
 
 import { createTool } from "@mastra/core/tools";
 import { z } from "zod";
-import vm from "vm";
+import ivm from "isolated-vm";
 import type { AgentToolDefinition } from "./types";
 
 const DEFAULT_TIMEOUT_MS = 10_000;
 const MAX_OUTPUT_LENGTH = 64 * 1024;
+const ISOLATE_MEMORY_MB = 32;
 
 export const codeRunnerTool: AgentToolDefinition = {
   name: "code_run",
@@ -38,50 +37,41 @@ export const codeRunnerTool: AgentToolDefinition = {
     }),
     execute: async ({ code, timeoutMs }) => {
       const logs: string[] = [];
-      const sandbox = {
-        console: {
-          log: (...args: unknown[]) => logs.push(args.map(String).join(" ")),
-          warn: (...args: unknown[]) =>
-            logs.push("[warn] " + args.map(String).join(" ")),
-          error: (...args: unknown[]) =>
-            logs.push("[error] " + args.map(String).join(" ")),
-        },
-        JSON,
-        Math,
-        Date,
-        Array,
-        Object,
-        String,
-        Number,
-        Boolean,
-        RegExp,
-        Map,
-        Set,
-        parseInt,
-        parseFloat,
-        isNaN,
-        isFinite,
-        encodeURIComponent,
-        decodeURIComponent,
-        encodeURI,
-        decodeURI,
-        // Explicitly blocked
-        require: undefined,
-        process: undefined,
-        globalThis: undefined,
-        global: undefined,
-      };
+      const timeout = timeoutMs ?? DEFAULT_TIMEOUT_MS;
 
-      const context = vm.createContext(sandbox);
-
+      const isolate = new ivm.Isolate({ memoryLimit: ISOLATE_MEMORY_MB });
       try {
-        const result = vm.runInContext(code, context, {
-          timeout: timeoutMs ?? DEFAULT_TIMEOUT_MS,
-          displayErrors: true,
-        });
+        const context = await isolate.createContext();
+
+        // Bridge console methods back to Node.js.
+        // evalClosure substitutes $0/$1/$2 with References, and applySync
+        // calls the Node.js function synchronously from within the isolate.
+        await context.evalClosure(
+          `globalThis.console = {
+            log:   (...a) => $0.applySync(undefined, a),
+            warn:  (...a) => $1.applySync(undefined, a),
+            error: (...a) => $2.applySync(undefined, a),
+          };`,
+          [
+            new ivm.Reference((...args: unknown[]) =>
+              logs.push(args.map(String).join(" "))
+            ),
+            new ivm.Reference((...args: unknown[]) =>
+              logs.push("[warn] " + args.map(String).join(" "))
+            ),
+            new ivm.Reference((...args: unknown[]) =>
+              logs.push("[error] " + args.map(String).join(" "))
+            ),
+          ],
+          { timeout }
+        );
+
+        const script = await isolate.compileScript(code);
+        const result = await script.run(context, { timeout, copy: true });
 
         const output = logs.join("\n");
-        const resultStr = result !== undefined ? String(result) : undefined;
+        const resultStr =
+          result !== undefined && result !== null ? String(result) : undefined;
 
         return {
           result: resultStr
@@ -101,6 +91,8 @@ export const codeRunnerTool: AgentToolDefinition = {
           output: output || null,
           result: null,
         };
+      } finally {
+        isolate.dispose();
       }
     },
   }),

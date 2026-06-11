@@ -108,8 +108,9 @@ export class AgentDAO {
       );
       const total = Number(countResult[0].count);
       const offset = (page - 1) * pageSize;
+      const safeSortDir = sortDir === "asc" ? "ASC" : "DESC";
       const agents = await prisma.$queryRawUnsafe<Agent[]>(
-        `SELECT * FROM agents a WHERE ${capConditions} ORDER BY ${sortBy === "name" ? "name" : sortBy === "registeredAt" ? "registered_at" : "last_seen"} ${sortDir.toUpperCase()} LIMIT ${pageSize} OFFSET ${offset}`,
+        `SELECT * FROM agents a WHERE ${capConditions} ORDER BY ${sortBy === "name" ? "name" : sortBy === "registeredAt" ? "registered_at" : "last_seen"} ${safeSortDir} LIMIT ${pageSize} OFFSET ${offset}`,
         ...capParams
       );
       return {

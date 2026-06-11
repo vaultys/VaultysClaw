@@ -8,6 +8,7 @@ import type {
   AgentPeerGrant,
 } from "@prisma/client";
 import type { LlmConfig } from "@vaultysclaw/shared";
+import { AgentWithRealms } from "./types";
 
 export class AgentDAO {
   // ─── CRUD ───────────────────────────────────────────────────────────────────
@@ -22,7 +23,7 @@ export class AgentDAO {
     const data = {
       name: agent.name,
       publicKey: agent.publicKey ?? null,
-      capabilities: agent.capabilities as Prisma.InputJsonValue,
+      capabilities: agent.capabilities ,
       certificateData: agent.certificateData ?? null,
       lastSeen: new Date(),
     };
@@ -48,7 +49,7 @@ export class AgentDAO {
   }
 
   static async query(opts: {
-    q?: string;
+    search?: string;
     realm?: string;
     capabilities?: string[];
     page?: number;
@@ -56,14 +57,14 @@ export class AgentDAO {
     sortBy?: "name" | "lastSeen" | "registeredAt";
     sortDir?: "asc" | "desc";
   }): Promise<{
-    agents: Agent[];
+    agents: AgentWithRealms[];
     total: number;
     page: number;
     pageSize: number;
     totalPages: number;
   }> {
     const {
-      q,
+      search,
       realm,
       capabilities,
       page = 1,
@@ -74,61 +75,35 @@ export class AgentDAO {
 
     const where: Prisma.AgentWhereInput = {};
 
-    if (q) {
-      where.name = { contains: q, mode: "insensitive" };
+    if (search) {
+      where.name = { contains: search, mode: "insensitive" };
     }
 
     if (realm) {
       where.agentRealms = {
         some: {
+          
           realm: { OR: [{ id: realm }, { slug: realm }] },
         },
       };
     }
 
-    // For capabilities array filtering: use raw query in PostgreSQL JSONB
-    // We apply it as a post-filter if needed, or via raw query
-    const orderBy: Prisma.AgentOrderByWithRelationInput =
-      sortBy === "name"
-        ? { name: sortDir }
-        : sortBy === "registeredAt"
-          ? { registeredAt: sortDir }
-          : { lastSeen: sortDir };
-
-    if (capabilities && capabilities.length > 0) {
-      // Use raw for JSONB capability filtering
-      const capConditions = capabilities
-        .map((_, i) => `capabilities @> $${i + 1}::jsonb`)
-        .join(" AND ");
-      const capParams = capabilities.map((c) => JSON.stringify([c]));
-
-      const countResult = await prisma.$queryRawUnsafe<[{ count: bigint }]>(
-        `SELECT COUNT(*)::bigint as count FROM agents a WHERE ${capConditions}`,
-        ...capParams
-      );
-      const total = Number(countResult[0].count);
-      const offset = (page - 1) * pageSize;
-      const safeSortDir = sortDir === "asc" ? "ASC" : "DESC";
-      const agents = await prisma.$queryRawUnsafe<Agent[]>(
-        `SELECT * FROM agents a WHERE ${capConditions} ORDER BY ${sortBy === "name" ? "name" : sortBy === "registeredAt" ? "registered_at" : "last_seen"} ${safeSortDir} LIMIT ${pageSize} OFFSET ${offset}`,
-        ...capParams
-      );
-      return {
-        agents,
-        total,
-        page,
-        pageSize,
-        totalPages: Math.ceil(total / pageSize),
+    if(capabilities && capabilities.length > 0) {
+      where.capabilities = {
+        hasSome: capabilities,
       };
     }
-
+   
     const [total, agents] = await Promise.all([
       prisma.agent.count({ where }),
       prisma.agent.findMany({
         where,
-        orderBy,
+        orderBy: { [sortBy]: sortDir },
         skip: (page - 1) * pageSize,
         take: pageSize,
+        include: {
+          agentRealms: true,
+        }
       }),
     ]);
 

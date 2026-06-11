@@ -1,48 +1,48 @@
 import { c } from "./contract";
-import { agentsContract } from "./agents.contract";
+import { agentsContract } from "./agents/agents.contract";
 import { apiKeysContract, chatContract } from "./api-keys.contract";
 import { bridgesContract, channelsContract } from "./channels.contract";
 import { governanceContract } from "./governance.contract";
 import { intentsContract } from "./intents.contract";
 import { knowledgeContract } from "./knowledge.contract";
 import {
-  aboutContract,
-  statsContract,
-  userStatusContract,
+    aboutContract,
+    statsContract,
+    userStatusContract,
 } from "./misc.contract";
 import { litellmContract, modelsContract } from "./models.contract";
 import {
-  graphContract,
-  healthContract,
-  mapContract,
-  networkContract,
+    graphContract,
+    healthContract,
+    mapContract,
+    networkContract,
 } from "./network.contract";
 import { policiesContract } from "./policies.contract";
 import { realmsContract } from "./realms.contract";
 import {
-  registrationsContract,
-  toolApprovalsContract,
+    registrationsContract,
+    toolApprovalsContract,
 } from "./registrations.contract";
 import { serverContract } from "./server.contract";
 import { setupContract, settingsContract } from "./settings.contract";
 import { orgSkillsContract, skillsContract } from "./skills.contract";
 import { userAuthContract } from "./user-auth.contract";
 import {
-  invitationsContract,
-  meContract,
-  usersContract,
+    invitationsContract,
+    meContract,
+    usersContract,
 } from "./users.contract";
 import {
-  workflowApprovalsContract,
-  workflowRunsContract,
-  workflowsContract,
+    workflowApprovalsContract,
+    workflowRunsContract,
+    workflowsContract,
 } from "./workflows.contract";
 
 export { c } from "./contract";
 export * from "./common";
 
-export type * from "./agents.contract";
-export * from "./agents.contract";
+export type * from "./agents/agents.contract";
+export * from "./agents/agents.contract";
 export * from "./api-keys.contract";
 export * from "./channels.contract";
 export * from "./governance.contract";

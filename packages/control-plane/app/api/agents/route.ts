@@ -41,7 +41,7 @@ const handlers = createNextRoute(agentsContract, {
           : undefined;
 
     const result = await AgentDAO.query({
-      q,
+      search: q,
       realm,
       capabilities,
       page,
@@ -110,7 +110,7 @@ const handlers = createNextRoute(agentsContract, {
     return {
       status: 200,
       body: {
-        agents,
+        items: agents,
         total: userRealmIds !== null ? agents.length : result.total,
         page: result.page,
         pageSize: result.pageSize,

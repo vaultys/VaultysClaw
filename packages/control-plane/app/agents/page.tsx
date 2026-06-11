@@ -28,6 +28,8 @@ import {
 import { useState, useEffect, useCallback, useRef } from "react";
 import dynamic from "next/dynamic";
 import type { MapMarker } from "@/components/map/WorldMap";
+import { apiClient } from "@/lib/api/ts-rest/client";
+import { ListAgentsQuery } from "@/lib/contracts/agents/agents.types";
 
 const WorldMap = dynamic(
   () => import("@/components/map/WorldMap").then((m) => m.WorldMap),
@@ -137,27 +139,12 @@ export default function AgentsPage() {
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const fetchAgents = useCallback(
-    async (params: {
-      q: string;
-      online: string;
-      capabilities: string[];
-      page: number;
-      sortBy: string;
-      sortDir: string;
-    }) => {
+    async (query: ListAgentsQuery) => {
       setLoading(true);
       try {
-        const sp = new URLSearchParams({
-          page: String(params.page),
-          pageSize: String(PAGE_SIZE),
-          sortBy: params.sortBy,
-          sortDir: params.sortDir,
-        });
-        if (params.q) sp.set("q", params.q);
-        if (params.online) sp.set("online", params.online);
-        if (params.capabilities.length > 0)
-          sp.set("capabilities", params.capabilities.join(","));
-        const res = await fetch(`/api/agents?${sp}`);
+        const res = await apiClient.agents.list({
+          query
+        })
         if (!res.ok) return;
         const data = (await res.json()) as ApiResponse;
         setAgents(data.agents);
@@ -166,6 +153,7 @@ export default function AgentsPage() {
         setOnlineCount(data.online);
       } finally {
         setLoading(false);
+
       }
     },
     []

@@ -105,7 +105,7 @@ export function SponsorsCard() {
         <div className="flex items-center gap-2 shrink-0">
           <a
             href="mailto:sponsor@vaultys.com"
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-background-200 border border-neutral-200 text-foreground-500 hover:text-foreground hover:border-warning-400:border-warning-500/50 transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-background-200 border border-neutral-200 text-foreground-500 hover:text-foreground hover:border-warning-400 dark:hover:border-warning-500/50 transition-colors"
           >
             <Mail size={12} />
             sponsor@vaultys.com
@@ -114,7 +114,7 @@ export function SponsorsCard() {
             href={constants.git.GITHUB_SPONSORS_URL}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-warning-500 hover:bg-warning-400:bg-warning-600 text-white transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-warning-500 hover:bg-warning-400 dark:hover:bg-warning-600 text-white transition-colors"
           >
             <Sparkles size={12} />
             Become a sponsor

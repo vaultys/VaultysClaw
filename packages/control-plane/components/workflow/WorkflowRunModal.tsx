@@ -454,14 +454,14 @@ export const WorkflowRunModal: React.FC<WorkflowRunModalProps> = ({
                     <div className="flex gap-2">
                       <button
                         onClick={handleCopyResults}
-                        className="flex items-center gap-1 px-2 py-1 text-xs text-primary-600 hover:bg-primary-50:bg-primary-900/20 rounded"
+                        className="flex items-center gap-1 px-2 py-1 text-xs text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded"
                       >
                         <Copy size={14} />
                         {copied ? "Copied" : "Copy"}
                       </button>
                       <button
                         onClick={handleDownloadResults}
-                        className="flex items-center gap-1 px-2 py-1 text-xs text-primary-600 hover:bg-primary-50:bg-primary-900/20 rounded"
+                        className="flex items-center gap-1 px-2 py-1 text-xs text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded"
                       >
                         <Download size={14} />
                         Download
@@ -658,7 +658,7 @@ export const WorkflowRunModal: React.FC<WorkflowRunModalProps> = ({
                 <>
                   <Link
                     href={`/workflows/runs/${execution.runId}`}
-                    className="px-3 py-2 text-sm text-primary-600 hover:bg-primary-50:bg-primary-900/20 rounded font-medium"
+                    className="px-3 py-2 text-sm text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded font-medium"
                   >
                     View Full Details
                   </Link>

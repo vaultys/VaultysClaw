@@ -185,7 +185,7 @@ export default function TopBar() {
             {/* Sign out */}
             <button
               onClick={() => signOut({ callbackUrl: "/login" })}
-              className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-danger-500 hover:text-danger-600:text-danger-300 hover:bg-danger-50:bg-danger-900/20 transition-colors border-t border-neutral-200"
+              className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-danger-500 hover:text-danger-600 dark:hover:text-danger-300 hover:bg-danger-50 dark:hover:bg-danger-900/20 transition-colors border-t border-neutral-200"
             >
               <LogOut className="w-4 h-4" />
               Sign out

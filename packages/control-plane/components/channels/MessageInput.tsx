@@ -2,9 +2,11 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { Send, Loader2 } from "lucide-react";
+import { shortDid } from "@vaultysclaw/shared";
 
 interface Member {
   memberDid: string;
+  memberName?: string | null;
   memberType: "user" | "agent";
   role: string;
 }
@@ -36,9 +38,6 @@ export default function MessageInput({
   const [mentionStart, setMentionStart] = useState<number>(-1);
   const [selectedSuggestion, setSelectedSuggestion] = useState(0);
 
-  // Resolved name map: did → display name
-  const [nameMap, setNameMap] = useState<Record<string, string>>({});
-
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // ── Auto-resize textarea ──────────────────────────────────────────────────────
@@ -50,71 +49,15 @@ export default function MessageInput({
     }
   }, [content]);
 
-  // ── Resolve display names for all member types ────────────────────────────────
-  useEffect(() => {
-    if (members.length === 0) return;
-
-    const combined: Record<string, string> = {};
-
-    const agentMembers = members.filter((m) => m.memberType === "agent");
-    const userMembers = members.filter((m) => m.memberType === "user");
-
-    const promises: Promise<void>[] = [];
-
-    // Agent names — search API returns "id" (= DID), not "did"
-    if (agentMembers.length > 0) {
-      promises.push(
-        fetch("/api/agents/search?q=")
-          .then((r) => r.json())
-          .then((d: { agents?: { id: string; name: string }[] }) => {
-            for (const a of d.agents ?? []) combined[a.id] = a.name;
-          })
-          .catch(() => {
-            /* ignore */
-          })
-      );
-    }
-
-    // User names (admin-only; graceful fallback)
-    if (userMembers.length > 0) {
-      promises.push(
-        fetch("/api/users?pageSize=100")
-          .then(async (r) => {
-            if (!r.ok) return;
-            const d = (await r.json()) as {
-              users?: {
-                did: string;
-                name: string | null;
-                email: string | null;
-              }[];
-            };
-            for (const u of d.users ?? []) {
-              combined[u.did] = u.name ?? u.email ?? u.did.slice(-8);
-            }
-          })
-          .catch(() => {
-            /* ignore */
-          })
-      );
-    }
-
-    Promise.all(promises).then(() =>
-      setNameMap((prev) => ({ ...prev, ...combined }))
-    );
-  }, [members]);
-
   // ── Build suggestion list matching the current @query ─────────────────────────
+  // Display names are resolved server-side (memberName); fall back to short DID.
   const updateSuggestions = useCallback(
     (query: string) => {
       const q = query.toLowerCase();
       const results: Suggestion[] = [];
 
       for (const m of members) {
-        const name =
-          nameMap[m.memberDid] ??
-          (m.memberType === "agent"
-            ? `agent-${m.memberDid.slice(-6)}`
-            : `user-${m.memberDid.slice(-6)}`);
+        const name = m.memberName ?? shortDid(m.memberDid);
 
         if (
           q === "" ||
@@ -128,7 +71,7 @@ export default function MessageInput({
       setSuggestions(results.slice(0, 6));
       setSelectedSuggestion(0);
     },
-    [members, nameMap]
+    [members]
   );
 
   // ── Detect @mention trigger as user types ─────────────────────────────────────

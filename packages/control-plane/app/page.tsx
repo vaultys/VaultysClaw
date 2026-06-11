@@ -233,10 +233,10 @@ function LandingPage() {
           {LANDING_FEATURES.map(({ icon: Icon, title, description }, i) => (
             <div
               key={title}
-              className="flex gap-4 bg-background-100 border border-neutral-200 rounded-2xl p-6 hover:border-primary-300:border-primary-700 hover:shadow-lg hover:shadow-primary-500/10 hover:-translate-y-1 transition-all duration-300 group animate-fade-in-up"
+              className="flex gap-4 bg-background-100 border border-neutral-200 rounded-2xl p-6 hover:border-primary-300 dark:hover:border-primary-700 hover:shadow-lg hover:shadow-primary-500/10 hover:-translate-y-1 transition-all duration-300 group animate-fade-in-up"
               style={{ animationDelay: `${200 + i * 100}ms` }}
             >
-              <div className="w-10 h-10 bg-primary-100 border border-primary-200 rounded-xl flex items-center justify-center shrink-0 group-hover:scale-110 group-hover:bg-primary-200:bg-primary-800/60 transition-all duration-300">
+              <div className="w-10 h-10 bg-primary-100 border border-primary-200 rounded-xl flex items-center justify-center shrink-0 group-hover:scale-110 group-hover:bg-primary-200 dark:group-hover:bg-primary-800/60 transition-all duration-300">
                 <Icon className="w-5 h-5 text-primary-600" />
               </div>
               <div>
@@ -616,7 +616,7 @@ function Dashboard() {
       {isGlobalAdmin && pendingRegs.length > 0 && (
         <button
           onClick={() => router.push("/registrations")}
-          className="w-full flex items-center justify-between gap-3 bg-gradient-to-r from-warning-50 to-warning-50 border border-warning-300 rounded-lg px-4 py-3 text-warning-700 text-sm hover:bg-warning-100/50:bg-warning-900/30 transition-colors group"
+          className="w-full flex items-center justify-between gap-3 bg-gradient-to-r from-warning-50 to-warning-50 border border-warning-300 rounded-lg px-4 py-3 text-warning-700 text-sm hover:bg-warning-100/50 dark:hover:bg-warning-900/30 transition-colors group"
         >
           <div className="flex items-center gap-2">
             <Clock className="w-4 h-4 shrink-0" />
@@ -688,7 +688,7 @@ function Dashboard() {
                   </div>
                   <button
                     onClick={() => openRenewFromDashboard(p)}
-                    className="flex-shrink-0 flex items-center gap-1 text-xs font-medium text-danger-700 hover:text-primary-600:text-primary-400 border border-danger-300 hover:border-primary-400:border-primary-500/50 px-2.5 py-1 rounded-md transition-colors"
+                    className="flex-shrink-0 flex items-center gap-1 text-xs font-medium text-danger-700 hover:text-primary-600 dark:hover:text-primary-400 border border-danger-300 hover:border-primary-400 dark:hover:border-primary-500/50 px-2.5 py-1 rounded-md transition-colors"
                   >
                     <RotateCcw className="w-3 h-3" /> Renew
                   </button>
@@ -767,7 +767,7 @@ function Dashboard() {
                         key={days}
                         type="button"
                         onClick={() => setRenewExpiry(val)}
-                        className="text-[11px] px-2 py-0.5 rounded-md border border-neutral-200 text-foreground-500 hover:text-primary-600:text-primary-400 hover:border-primary-400 transition-colors"
+                        className="text-[11px] px-2 py-0.5 rounded-md border border-neutral-200 text-foreground-500 hover:text-primary-600 dark:hover:text-primary-400 hover:border-primary-400 transition-colors"
                       >
                         +{days}d
                       </button>
@@ -803,7 +803,7 @@ function Dashboard() {
       {total === 0 && (
         <button
           onClick={() => router.push("/agents")}
-          className="w-full flex items-center justify-between gap-3 bg-gradient-to-r from-primary-50 to-primary-50 border border-primary-300 rounded-lg px-4 py-3 text-primary-700 text-sm hover:bg-primary-100/50:bg-primary-900/30 transition-colors group"
+          className="w-full flex items-center justify-between gap-3 bg-gradient-to-r from-primary-50 to-primary-50 border border-primary-300 rounded-lg px-4 py-3 text-primary-700 text-sm hover:bg-primary-100/50 dark:hover:bg-primary-900/30 transition-colors group"
         >
           <div className="flex items-center gap-2">
             <Bot className="w-4 h-4 shrink-0" />
@@ -817,7 +817,7 @@ function Dashboard() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <button
           onClick={() => router.push("/agents")}
-          className="relative bg-background-100 rounded-lg border border-neutral-200 p-5 text-left hover:border-primary-400:border-primary-600 transition-all duration-300 group overflow-hidden"
+          className="relative bg-background-100 rounded-lg border border-neutral-200 p-5 text-left hover:border-primary-400 dark:hover:border-primary-600 transition-all duration-300 group overflow-hidden"
         >
           <div className="absolute inset-0 bg-gradient-to-br from-primary-500/5 to-primary-600/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
           <div className="relative z-10">
@@ -839,7 +839,7 @@ function Dashboard() {
 
         <button
           onClick={() => router.push("/agents")}
-          className="relative bg-background-100 rounded-lg border border-neutral-200 p-5 text-left hover:border-success-400:border-success-600 transition-all duration-300 group overflow-hidden"
+          className="relative bg-background-100 rounded-lg border border-neutral-200 p-5 text-left hover:border-success-400 dark:hover:border-success-600 transition-all duration-300 group overflow-hidden"
         >
           <div className="absolute inset-0 bg-gradient-to-br from-success-500/5 to-success-600/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
           <div className="relative z-10">
@@ -862,7 +862,7 @@ function Dashboard() {
 
         <button
           onClick={() => router.push("/inbox")}
-          className="relative bg-background-100 rounded-lg border border-neutral-200 p-5 text-left hover:border-warning-400:border-warning-600 transition-all duration-300 group overflow-hidden"
+          className="relative bg-background-100 rounded-lg border border-neutral-200 p-5 text-left hover:border-warning-400 dark:hover:border-warning-600 transition-all duration-300 group overflow-hidden"
         >
           <div className="absolute inset-0 bg-gradient-to-br from-warning-500/5 to-warning-600/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
           <div className="relative z-10">
@@ -1116,7 +1116,7 @@ function Dashboard() {
             <button
               onClick={dismissSetupBanner}
               title="Dismiss permanently"
-              className="p-1.5 text-primary-400 hover:text-primary-700:text-primary-200 rounded-lg hover:bg-primary-100:bg-primary-900/40 transition-colors"
+              className="p-1.5 text-primary-400 hover:text-primary-700 dark:hover:text-primary-200 rounded-lg hover:bg-primary-100 dark:hover:bg-primary-900/40 transition-colors"
             >
               <X className="w-4 h-4" />
             </button>

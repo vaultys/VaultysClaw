@@ -27,7 +27,7 @@ export function MarkdownDoc({ content }: Readonly<{ content: string }>) {
         "prose-p:text-foreground-500 prose-p:leading-7",
         "prose-strong:text-foreground prose-li:text-foreground-500",
         // Links
-        "prose-a:text-primary-500:text-primary-400 prose-a:no-underline hover:prose-a:underline prose-a:font-normal",
+        "prose-a:text-primary-500 dark:prose-a:text-primary-400 prose-a:no-underline hover:prose-a:underline prose-a:font-normal",
         // Inline code — suppress typography backtick decoration; styling is in component below
         "prose-code:before:content-none prose-code:after:content-none",
         "prose-pre:bg-transparent prose-pre:p-0 prose-pre:m-0",

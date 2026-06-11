@@ -95,10 +95,8 @@ import {
   PATCH as channelDetailPATCH,
   DELETE as channelDetailDELETE,
 } from "../packages/control-plane/app/api/channels/[id]/route";
-import {
-  POST as membersPOST,
-  DELETE as membersDELETE,
-} from "../packages/control-plane/app/api/channels/[id]/members/route";
+import { POST as membersPOST } from "../packages/control-plane/app/api/channels/[id]/members/route";
+import { DELETE as membersDELETE } from "../packages/control-plane/app/api/channels/[id]/members/[memberDid]/route";
 import {
   GET as messagesGET,
   POST as messagesPOST,
@@ -1178,11 +1176,10 @@ describe("POST /api/channels/[id]/members", () => {
 });
 
 // ===========================================================================
-// API: DELETE /api/channels/[id]/members
-// (memberDid is read from the URL path — URL ends with /<memberDid>)
+// API: DELETE /api/channels/[id]/members/[memberDid]
 // ===========================================================================
 
-describe("DELETE /api/channels/[id]/members", () => {
+describe("DELETE /api/channels/[id]/members/[memberDid]", () => {
   it("returns 200 and removes the member", async () => {
     const channel = await ChannelService.createChannel({
       name: "Remove Via API",
@@ -1202,19 +1199,38 @@ describe("DELETE /api/channels/[id]/members", () => {
         await ChannelService.isMember(channel.id, "did:test:to-remove-api")
       ).toBe(true);
 
-      // The route reads the DID from url.pathname.split("/").pop()
       const res = await membersDELETE(
         req(
           "DELETE",
           `http://localhost/api/channels/${channel.id}/members/did:test:to-remove-api`
         ) as any,
-        channelParams(channel.id)
+        {
+          params: Promise.resolve({
+            id: channel.id,
+            memberDid: "did:test:to-remove-api",
+          }),
+        } as any
       );
       expect(res._status).toBe(200);
 
       expect(
         await ChannelService.isMember(channel.id, "did:test:to-remove-api")
       ).toBe(false);
+
+      // Idempotent: removing a member that no longer exists still succeeds
+      const res2 = await membersDELETE(
+        req(
+          "DELETE",
+          `http://localhost/api/channels/${channel.id}/members/did:test:to-remove-api`
+        ) as any,
+        {
+          params: Promise.resolve({
+            id: channel.id,
+            memberDid: "did:test:to-remove-api",
+          }),
+        } as any
+      );
+      expect(res2._status).toBe(200);
     } finally {
       getDb()
         .prepare("DELETE FROM channel_members WHERE channel_id = ?")

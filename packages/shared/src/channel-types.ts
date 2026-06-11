@@ -31,12 +31,16 @@ export interface ChannelMember {
   channelId: string;
   memberDid: string; // User or Agent DID
   memberType: "user" | "agent";
+  memberName?: string | null; // Display name resolved server-side (not persisted)
   role: "member" | "moderator" | "owner";
   joinedAt: string; // ISO 8601
   invitedBy: string | null;
 }
 
-export type ChannelMemberInput = Omit<ChannelMember, "id" | "joinedAt">;
+export type ChannelMemberInput = Omit<
+  ChannelMember,
+  "id" | "joinedAt" | "memberName"
+>;
 
 /**
  * Message attachment metadata
@@ -66,6 +70,7 @@ export interface ChannelMessage {
   threadId: string | null; // Parent message ID (null = top-level message)
   authorDid: string;
   authorType: "user" | "agent";
+  authorName?: string | null; // Display name resolved server-side (not persisted)
   content: string;
   metadata: MessageMetadata;
   reactions: Record<string, string[]>; // { "👍": ["did1", "did2"] }
@@ -76,7 +81,7 @@ export interface ChannelMessage {
 
 export type ChannelMessageInput = Omit<
   ChannelMessage,
-  "id" | "reactions" | "editedAt" | "deletedAt" | "createdAt"
+  "id" | "reactions" | "editedAt" | "deletedAt" | "createdAt" | "authorName"
 >;
 
 /**

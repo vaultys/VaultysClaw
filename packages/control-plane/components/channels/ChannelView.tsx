@@ -14,6 +14,7 @@ interface Message {
   channelId: string;
   threadId: string | null;
   authorDid: string;
+  authorName?: string | null;
   authorType: "user" | "agent";
   content: string;
   metadata: Record<string, any>;
@@ -40,6 +41,7 @@ interface Member {
   id: string;
   channelId: string;
   memberDid: string;
+  memberName?: string | null;
   memberType: "user" | "agent";
   role: "member" | "moderator" | "owner";
   joinedAt: string;

@@ -8,6 +8,7 @@ interface ChannelMember {
   id: string;
   channelId: string;
   memberDid: string;
+  memberName?: string | null;
   memberType: "user" | "agent";
   role: "member" | "moderator" | "owner";
   joinedAt: string;
@@ -40,11 +41,6 @@ export default function MemberList({ channelId }: MemberListProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Name resolution maps (built once on mount)
-  const [agentNameMap, setAgentNameMap] = useState<Record<string, string>>({});
-  const [userNameMap, setUserNameMap] = useState<
-    Record<string, { name: string | null; email: string | null }>
-  >({});
   const [usersAccessible, setUsersAccessible] = useState(true);
 
   // Add-member form
@@ -82,21 +78,8 @@ export default function MemberList({ channelId }: MemberListProps) {
     fetchMembers();
   }, [fetchMembers]);
 
-  // ── Build name maps ───────────────────────────────────────────────────────────
+  // ── Users list for the add-member search (admin-only — graceful fallback) ───
   useEffect(() => {
-    // Agents (open to all) — search API returns "id" (= DID), not "did"
-    fetch("/api/agents/search?q=")
-      .then((r) => r.json())
-      .then((d: { agents?: { id: string; name: string }[] }) => {
-        const map: Record<string, string> = {};
-        for (const a of d.agents ?? []) map[a.id] = a.name;
-        setAgentNameMap(map);
-      })
-      .catch(() => {
-        /* ignore */
-      });
-
-    // Users (admin-only — graceful fallback)
     fetch("/api/users?pageSize=100")
       .then(async (r) => {
         if (!r.ok) {
@@ -104,38 +87,21 @@ export default function MemberList({ channelId }: MemberListProps) {
           return;
         }
         const d = (await r.json()) as { users?: UserRecord[] };
-        const users = d.users ?? [];
-        setAllUsers(users);
-        const map: Record<
-          string,
-          { name: string | null; email: string | null }
-        > = {};
-        for (const u of users) map[u.did] = { name: u.name, email: u.email };
-        setUserNameMap(map);
+        setAllUsers(d.users ?? []);
       })
       .catch(() => setUsersAccessible(false));
   }, []);
 
-  // ── Resolve display name for a member ────────────────────────────────────────
+  // ── Resolve display name for a member (resolved server-side) ────────────────
   function resolveName(member: ChannelMember): {
     primary: string;
     secondary: string;
   } {
-    if (member.memberType === "agent") {
-      const name = agentNameMap[member.memberDid];
-      return {
-        primary: name ?? shortDid(member.memberDid),
-        secondary: name ? shortDid(member.memberDid) : "",
-      };
-    }
-    const info = userNameMap[member.memberDid];
-    if (info) {
-      const primary = info.name ?? info.email ?? shortDid(member.memberDid);
-      const secondary =
-        info.name && info.email ? info.email : shortDid(member.memberDid);
-      return { primary, secondary };
-    }
-    return { primary: shortDid(member.memberDid), secondary: "" };
+    const name = member.memberName;
+    return {
+      primary: name ?? shortDid(member.memberDid),
+      secondary: name ? shortDid(member.memberDid) : "",
+    };
   }
 
   // ── Agent search (debounced) ──────────────────────────────────────────────────
@@ -556,7 +522,7 @@ export default function MemberList({ channelId }: MemberListProps) {
                   {/* Remove button */}
                   <button
                     onClick={() => handleRemoveMember(member, primary)}
-                    className="opacity-0 group-hover:opacity-100 transition p-1.5 hover:bg-danger-100:bg-danger-900/30 text-foreground-500 hover:text-danger-600:text-danger-400 rounded-lg flex-shrink-0"
+                    className="opacity-0 group-hover:opacity-100 transition p-1.5 hover:bg-danger-100 dark:hover:bg-danger-900/30 text-foreground-500 hover:text-danger-600 dark:hover:text-danger-400 rounded-lg flex-shrink-0"
                     title={`Remove ${primary}`}
                   >
                     <UserMinus size={14} />

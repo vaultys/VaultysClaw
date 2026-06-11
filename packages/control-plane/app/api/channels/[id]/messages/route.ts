@@ -96,7 +96,9 @@ export const GET = withError(async (req: NextRequest, ctx: Ctx) => {
     messages = await ChannelService.listMessages(id, limit, before);
   }
 
-  return NextResponse.json({ messages });
+  return NextResponse.json({
+    messages: await ChannelService.withAuthorNames(messages),
+  });
 });
 
 /**
@@ -207,5 +209,6 @@ export const POST = withError(async (req: NextRequest, ctx: Ctx) => {
     metadata: body.metadata,
   });
 
-  return NextResponse.json({ message }, { status: 201 });
+  const [enriched] = await ChannelService.withAuthorNames([message]);
+  return NextResponse.json({ message: enriched }, { status: 201 });
 });

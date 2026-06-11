@@ -68,14 +68,14 @@ export const POST = withError(async (req: NextRequest, ctx: Ctx) => {
   if (!auth) return unauthorized();
 
   const { id } = await ctx.params;
-  const channel = ChannelService.getChannel(id);
+  const channel = await ChannelService.getChannel(id);
 
   if (!channel) {
     return notFound("Channel not found");
   }
 
   // Check membership
-  if (!ChannelService.isMember(id, auth.did)) {
+  if (!(await ChannelService.isMember(id, auth.did))) {
     return forbidden();
   }
 
@@ -98,7 +98,7 @@ export const POST = withError(async (req: NextRequest, ctx: Ctx) => {
     return malformed("content is required");
   }
 
-  const message = ChannelService.createThreadReply({
+  const message = await ChannelService.createThreadReply({
     channelId: id,
     parentMessageId: body.parentMessageId.trim(),
     authorDid: auth.did,
@@ -107,7 +107,8 @@ export const POST = withError(async (req: NextRequest, ctx: Ctx) => {
     metadata: body.metadata,
   });
 
-  return NextResponse.json({ message }, { status: 201 });
+  const [enriched] = await ChannelService.withAuthorNames([message]);
+  return NextResponse.json({ message: enriched }, { status: 201 });
 });
 
 /**
@@ -159,14 +160,14 @@ export const GET = withError(async (req: NextRequest, ctx: Ctx) => {
   if (!auth) return unauthorized();
 
   const { id } = await ctx.params;
-  const channel = ChannelService.getChannel(id);
+  const channel = await ChannelService.getChannel(id);
 
   if (!channel) {
     return notFound("Channel not found");
   }
 
   // Check membership
-  if (!ChannelService.isMember(id, auth.did)) {
+  if (!(await ChannelService.isMember(id, auth.did))) {
     return forbidden();
   }
 
@@ -177,7 +178,9 @@ export const GET = withError(async (req: NextRequest, ctx: Ctx) => {
     return malformed("parentMessageId query parameter is required");
   }
 
-  const messages = ChannelService.getThread(parentMessageId);
+  const messages = await ChannelService.getThread(parentMessageId);
 
-  return NextResponse.json({ messages });
+  return NextResponse.json({
+    messages: await ChannelService.withAuthorNames(messages),
+  });
 });

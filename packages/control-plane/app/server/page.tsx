@@ -495,7 +495,7 @@ const PILL =
   "font-mono text-xs bg-primary-100 border border-primary-300 text-primary-700 px-1.5 py-0.5 rounded";
 const BOLD = "font-semibold text-foreground";
 const LINK =
-  "text-primary-600 hover:text-primary-500:text-primary-300 inline-flex items-center gap-0.5 underline underline-offset-2";
+  "text-primary-600 hover:text-primary-500 dark:hover:text-primary-300 inline-flex items-center gap-0.5 underline underline-offset-2";
 
 const STEPS = [
   {
@@ -596,7 +596,7 @@ function EntraSetupGuide() {
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="w-full flex items-center gap-2 px-4 py-3 text-left hover:bg-primary-100/70:bg-primary-950/50 transition"
+        className="w-full flex items-center gap-2 px-4 py-3 text-left hover:bg-primary-100/70 dark:hover:bg-primary-950/50 transition"
       >
         <BookOpen className="w-4 h-4 text-primary-500 shrink-0" />
         <span className="text-sm font-medium text-primary-700 flex-1">
@@ -639,7 +639,7 @@ function EntraSetupGuide() {
             href="https://learn.microsoft.com/en-us/entra/identity-platform/quickstart-register-app"
             target="_blank"
             rel="noreferrer"
-            className="inline-flex items-center gap-1.5 text-xs text-primary-600 hover:text-primary-500:text-primary-300 transition"
+            className="inline-flex items-center gap-1.5 text-xs text-primary-600 hover:text-primary-500 dark:hover:text-primary-300 transition"
           >
             <ExternalLink className="w-3 h-3" />
             Full Microsoft documentation
@@ -1644,7 +1644,7 @@ function ApiKeysSection() {
               </button>
               <button
                 onClick={() => setCreatedKey(null)}
-                className="p-1.5 rounded-lg text-success-700 hover:bg-success-100:bg-success-800/40 transition"
+                className="p-1.5 rounded-lg text-success-700 hover:bg-success-100 dark:hover:bg-success-800/40 transition"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -1774,7 +1774,7 @@ function ApiKeysSection() {
                           ) : (
                             <button
                               onClick={() => setConfirmRevokeId(k.id)}
-                              className="p-1.5 rounded text-foreground-500 hover:text-danger-500 hover:bg-danger-50:bg-danger-900/20 transition"
+                              className="p-1.5 rounded text-foreground-500 hover:text-danger-500 hover:bg-danger-50 dark:hover:bg-danger-900/20 transition"
                             >
                               <Trash2 className="w-4 h-4" />
                             </button>

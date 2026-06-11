@@ -63,7 +63,7 @@ export const MessageDispatcher = {
   ): Promise<void> {
     const mentions = this.extractMentions(content);
 
-    const channel = ChannelService.getChannel(channelId);
+    const channel = await ChannelService.getChannel(channelId);
     if (!channel) {
       throw new Error(`Channel ${channelId} not found`);
     }
@@ -140,8 +140,13 @@ export const MessageDispatcher = {
       context: Record<string, any>;
     }
   ): Promise<void> {
-    // Find agent by name
-    const agentRow = await AgentDAO.findByName(agentName);
+    // Find agent by name. Mentions are slug-safe (spaces replaced with
+    // dashes on insert), so also try the de-slugged variant.
+    const agentRow =
+      (await AgentDAO.findByName(agentName)) ??
+      (agentName.includes("-")
+        ? await AgentDAO.findByName(agentName.replace(/-/g, " "))
+        : null);
     if (!agentRow) {
       console.warn(`[MessageDispatcher] Agent not found: ${agentName}`);
       // Optionally post error message to thread

@@ -24,6 +24,69 @@ import { MessageDispatcher } from "./message-dispatcher";
  */
 export class ChannelService {
   /**
+   * Resolve display names for a set of DIDs (agents and users).
+   * Returns a map did → display name; DIDs without a known name are omitted.
+   * Agent names take precedence over user names on collision.
+   */
+  static async resolveDisplayNames(
+    dids: string[]
+  ): Promise<Record<string, string>> {
+    const unique = [...new Set(dids)].filter(Boolean);
+    if (unique.length === 0) return {};
+
+    const [agents, users] = await Promise.all([
+      prisma.agent.findMany({
+        where: { did: { in: unique } },
+        select: { did: true, name: true },
+      }),
+      prisma.user.findMany({
+        where: { did: { in: unique } },
+        select: { did: true, name: true, email: true },
+      }),
+    ]);
+
+    const map: Record<string, string> = {};
+    for (const u of users) {
+      const name = u.name ?? u.email;
+      if (u.did && name) map[u.did] = name;
+    }
+    for (const a of agents) {
+      if (a.name) map[a.did] = a.name;
+    }
+    return map;
+  }
+
+  /**
+   * Attach resolved author display names to messages
+   */
+  static async withAuthorNames(
+    messages: ChannelMessage[]
+  ): Promise<ChannelMessage[]> {
+    const nameMap = await this.resolveDisplayNames(
+      messages.map((m) => m.authorDid)
+    );
+    return messages.map((m) => ({
+      ...m,
+      authorName: nameMap[m.authorDid] ?? null,
+    }));
+  }
+
+  /**
+   * Attach resolved member display names to channel members
+   */
+  static async withMemberNames(
+    members: ChannelMember[]
+  ): Promise<ChannelMember[]> {
+    const nameMap = await this.resolveDisplayNames(
+      members.map((m) => m.memberDid)
+    );
+    return members.map((m) => ({
+      ...m,
+      memberName: nameMap[m.memberDid] ?? null,
+    }));
+  }
+
+  /**
    * Create a new channel
    */
   static async createChannel(input: {

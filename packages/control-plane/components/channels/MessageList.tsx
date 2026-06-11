@@ -22,6 +22,7 @@ interface Message {
   channelId: string;
   threadId: string | null;
   authorDid: string;
+  authorName?: string | null;
   authorType: "user" | "agent";
   content: string;
   metadata: Record<string, any>;
@@ -44,21 +45,19 @@ interface MessageListProps {
 function MessageBubble({
   msg,
   channelId,
-  nameMap,
   onAddReaction,
   onDeleteMessage,
   isThread = false,
 }: {
   msg: Message;
   channelId: string;
-  nameMap: Record<string, string>;
   onAddReaction: (id: string, emoji: string) => void;
   onDeleteMessage: (id: string) => void;
   isThread?: boolean;
 }) {
   const [emojiOpen, setEmojiOpen] = useState(false);
 
-  const displayName = nameMap[msg.authorDid] ?? shortDid(msg.authorDid);
+  const displayName = msg.authorName ?? shortDid(msg.authorDid);
   const initials = getInitials(displayName);
   const isAgent = msg.authorType === "agent";
 
@@ -126,9 +125,9 @@ function MessageBubble({
         </div>
 
         <div
-          className={`prose prose-sm max-w-none text-foreground mt-0.5 break-words ${
+          className={`prose prose-sm dark:prose-invert max-w-none text-foreground mt-0.5 break-words ${
             isThread ? "text-sm" : ""
-          } [&_p]:my-0.5 [&_ul]:my-1 [&_ol]:my-1 [&_pre]:bg-background-200 [&_pre]:rounded [&_pre]:p-2 [&_code]:text-primary-600&_code]:text-primary-400 [&_code]:bg-background-200 [&_code]:px-1 [&_code]:rounded [&_a]:text-primary-500 [&_a]:underline`}
+          } prose-headings:text-foreground prose-strong:text-foreground [&_p]:my-0.5 [&_ul]:my-1 [&_ol]:my-1 [&_pre]:bg-background-200 [&_pre]:rounded [&_pre]:p-2 [&_code]:text-primary-600 dark:[&_code]:text-primary-400 [&_code]:bg-background-200 [&_code]:px-1 [&_code]:rounded [&_a]:text-primary-500 [&_a]:underline`}
         >
           <ReactMarkdown>{msg.content}</ReactMarkdown>
         </div>
@@ -182,7 +181,7 @@ function MessageBubble({
         </div>
         <button
           onClick={handleDelete}
-          className="p-1 hover:bg-background-200 rounded text-foreground-700 hover:text-danger-600:text-danger-400 transition"
+          className="p-1 hover:bg-background-200 rounded text-foreground-700 hover:text-danger-600 dark:hover:text-danger-400 transition"
           title="Delete"
         >
           <Trash2 size={14} />
@@ -197,13 +196,11 @@ function MessageBubble({
 function ThreadView({
   channelId,
   parentId,
-  nameMap,
   onAddReaction,
   onDeleteMessage,
 }: {
   channelId: string;
   parentId: string;
-  nameMap: Record<string, string>;
   onAddReaction: (id: string, emoji: string) => void;
   onDeleteMessage: (id: string) => void;
 }) {
@@ -245,7 +242,6 @@ function ThreadView({
           key={reply.id}
           msg={reply}
           channelId={channelId}
-          nameMap={nameMap}
           onAddReaction={onAddReaction}
           onDeleteMessage={onDeleteMessage}
           isThread
@@ -261,14 +257,12 @@ function MessageWithThread({
   msg,
   channelId,
   threadCount,
-  nameMap,
   onAddReaction,
   onDeleteMessage,
 }: {
   msg: Message;
   channelId: string;
   threadCount: number;
-  nameMap: Record<string, string>;
   onAddReaction: (id: string, emoji: string) => void;
   onDeleteMessage: (id: string) => void;
 }) {
@@ -283,7 +277,6 @@ function MessageWithThread({
       <MessageBubble
         msg={msg}
         channelId={channelId}
-        nameMap={nameMap}
         onAddReaction={onAddReaction}
         onDeleteMessage={onDeleteMessage}
       />
@@ -291,7 +284,7 @@ function MessageWithThread({
       {threadCount > 0 && (
         <button
           onClick={() => setExpanded(!expanded)}
-          className="ml-14 mt-1 flex items-center gap-1.5 text-xs text-primary-500 hover:text-primary-700:text-primary-300 transition"
+          className="ml-14 mt-1 flex items-center gap-1.5 text-xs text-primary-500 hover:text-primary-700 dark:hover:text-primary-300 transition"
         >
           {expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
           <MessageSquare size={12} />
@@ -305,7 +298,6 @@ function MessageWithThread({
         <ThreadView
           channelId={channelId}
           parentId={msg.id}
-          nameMap={nameMap}
           onAddReaction={onAddReaction}
           onDeleteMessage={onDeleteMessage}
         />
@@ -327,50 +319,6 @@ export default function MessageList({
   const containerRef = useRef<HTMLDivElement>(null);
   const isAtBottom = useRef(true);
   const [threadCounts, setThreadCounts] = useState<Record<string, number>>({});
-
-  // ── Name resolution ─────────────────────────────────────────────────────────
-  const [nameMap, setNameMap] = useState<Record<string, string>>({});
-
-  useEffect(
-    () => {
-      const combined: Record<string, string> = {};
-
-      const p1 = fetch("/api/agents/search?q=")
-        .then((r) => r.json())
-        .then((d: { agents?: { id: string; name: string }[] }) => {
-          // Search API returns "id" (= DID), not "did"
-          for (const a of d.agents ?? []) {
-            if (a.id && a.name) combined[a.id] = a.name;
-          }
-        })
-        .catch(() => {
-          /* ignore */
-        });
-
-      const p2 = fetch("/api/users?pageSize=100")
-        .then(async (r) => {
-          if (!r.ok) return; // non-admin: graceful fallback
-          const d = (await r.json()) as {
-            users?: {
-              did: string;
-              name: string | null;
-              email: string | null;
-            }[];
-          };
-          for (const u of d.users ?? []) {
-            combined[u.did] = u.name ?? u.email ?? shortDid(u.did);
-          }
-        })
-        .catch(() => {
-          /* ignore */
-        });
-
-      Promise.all([p1, p2]).then(() => setNameMap(combined));
-    },
-    [
-      /* fetch once per channel mount */
-    ]
-  );
 
   // ── Scroll behaviour ────────────────────────────────────────────────────────
   const handleScroll = () => {
@@ -439,7 +387,6 @@ export default function MessageList({
             msg={msg}
             channelId={channelId}
             threadCount={threadCounts[msg.id] ?? 0}
-            nameMap={nameMap}
             onAddReaction={onAddReaction}
             onDeleteMessage={onDeleteMessage}
           />

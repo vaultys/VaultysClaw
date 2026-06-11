@@ -106,73 +106,8 @@ export const POST = withError(async (req: NextRequest, ctx: Ctx) => {
     invitedBy: body.invitedBy || auth.did,
   });
 
-  return NextResponse.json({ member }, { status: 201 });
+  const [enriched] = await ChannelService.withMemberNames([member]);
+  return NextResponse.json({ member: enriched }, { status: 201 });
 });
 
-/**
- * DELETE /api/channels/[id]/members/:memberDid
- * Remove a member from a channel
- */
-/**
- * @openapi
- * /api/channels/{id}/members/{memberDid}:
- *   delete:
- *     summary: Remove a member from a channel.
- *     tags: [Channels]
- *     parameters:
- *       - name: id
- *         in: path
- *         required: true
- *         description: The ID of the channel.
- *         schema:
- *           type: string
- *       - name: memberDid
- *         in: path
- *         required: true
- *         description: The DID of the member to remove.
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: Member removed successfully.
- *       400:
- *         $ref: '#/components/responses/BadRequest'
- *       401:
- *         $ref: '#/components/responses/Unauthorized'
- *       403:
- *         $ref: '#/components/responses/Forbidden'
- *       404:
- *         $ref: '#/components/responses/NotFound'
- *       500:
- *         description: Failed to remove member.
- */
-export const DELETE = withError(async (req: NextRequest, ctx: Ctx) => {
-  const auth = await getAuthContext(req);
-  if (!auth) return unauthorized();
-
-  const { id } = await ctx.params;
-  const url = new URL(req.url);
-  const memberDid = url.pathname.split("/").pop();
-
-  if (!memberDid) {
-    return NextResponse.json(
-      { error: "memberDid is required" },
-      { status: 400 }
-    );
-  }
-
-  const channel = await ChannelService.getChannel(id);
-  if (!channel) {
-    return notFound("Channel not found");
-  }
-
-  // Check authorization: moderator+ can remove members
-  const role = await ChannelService.getMemberRole(id, auth.did);
-  if (role !== "moderator" && role !== "owner") {
-    return forbidden();
-  }
-
-  await ChannelService.removeChannelMember(id, memberDid);
-
-  return NextResponse.json({ success: true });
-});
+// DELETE /api/channels/[id]/members/[memberDid] lives in ./[memberDid]/route.ts

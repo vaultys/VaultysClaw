@@ -69,7 +69,7 @@ export const GET = withError(async (_req: NextRequest, ctx: Ctx) => {
 
   return NextResponse.json({
     channel,
-    members,
+    members: await ChannelService.withMemberNames(members),
     stats,
   });
 });

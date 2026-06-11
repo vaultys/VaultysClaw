@@ -188,6 +188,7 @@ export class ChannelMessageDAO {
     return prisma.channelMessage.findMany({
       where: {
         channelId,
+        threadId: null, // top-level only; replies are fetched via listThread
         deletedAt: null,
         ...(before && { createdAt: { lt: new Date(before) } }),
       },

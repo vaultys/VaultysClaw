@@ -1,5 +1,4 @@
 "use client";
-
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useAdminWS } from "../../../hooks/useAdminWS";
@@ -32,7 +31,7 @@ import { AutomationTab } from "@/components/agent/AutomationTab";
 import { ApprovalsTab } from "@/components/agent/ApprovalsTab";
 import { KnowledgeTab } from "@/components/agent/KnowledgeTab";
 import type { AgentDetail } from "@/components/agent/types";
-import { agentsApi } from "@/lib/api";
+import { agentContractClient } from "@/lib/api/ts-rest/client";
 
 const AgentEnvironmentGraph = dynamic(
   () => import("@/components/graph/AgentEnvironmentGraph"),
@@ -58,7 +57,12 @@ export default function AgentDetailPage() {
   const handleDeleteAgent = async () => {
     setDeletingAgent(true);
     try {
-      await agentsApi.remove(did);
+      await agentContractClient.deleteAgent({
+        params: {
+          did,
+        },
+      });
+
       router.push("/agents");
     } catch {
       setError("Network error while deleting agent");

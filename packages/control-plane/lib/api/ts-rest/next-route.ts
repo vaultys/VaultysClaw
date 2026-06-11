@@ -33,6 +33,26 @@ import { resolveApiError } from "@/lib/api/utils/api-utils";
  * The implementation is type-checked against the contract: its arguments are
  * inferred from the route's schemas (`ServerInferRequest`) and its return
  * value must be one of the declared responses (`ServerInferResponses`).
+ *
+ * The implementation is **partial**: a contract may span many paths (one
+ * router for a whole domain), while Next's file-based routing has one
+ * `route.ts` per path. Each file implements only the routes that live at its
+ * path; `createNextRoute` wires up exactly those, keyed by HTTP method. Because
+ * a single file's routes all share one path, their methods are unique — a
+ * collision (two implemented routes with the same method) means the
+ * implementation mixes paths and throws at module load.
+ *
+ * ```ts
+ * // app/api/agents/[did]/route.ts — only the :did-level routes
+ * const handlers = createNextRoute(agentsContract, {
+ *   getAgent: async ({ params }) => ({ status: 200, body: … }),
+ *   updateAgent: async ({ params, body }) => ({ status: 200, body: … }),
+ *   deleteAgent: async ({ params }) => ({ status: 204, body: undefined }),
+ * });
+ * export const GET = handlers.GET!;
+ * export const PATCH = handlers.PATCH!;
+ * export const DELETE = handlers.DELETE!;
+ * ```
  */
 
 type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
@@ -48,9 +68,12 @@ export type RouteImplementation<T extends AppRoute> = (
   args: ServerInferRequest<T> & { request: NextRequest }
 ) => Promise<ServerInferResponses<T>>;
 
-/** Implementation map: one handler per route key in the contract. */
+/**
+ * Implementation map for a contract. Every key is **optional** — a route.ts
+ * implements only the routes that live at its path (see `createNextRoute`).
+ */
 export type RouterImplementation<T extends AppRouter> = {
-  [K in keyof T]: T[K] extends AppRoute ? RouteImplementation<T[K]> : never;
+  [K in keyof T]?: T[K] extends AppRoute ? RouteImplementation<T[K]> : never;
 };
 
 function badRequest(error: z.ZodError): NextResponse {
@@ -144,8 +167,19 @@ export function createNextRoute<T extends AppRouter>(
 ): Partial<Record<HttpMethod, NextRouteHandler>> {
   const handlers: Partial<Record<HttpMethod, NextRouteHandler>> = {};
 
-  for (const key of Object.keys(router)) {
-    const route = router[key] as AppRoute;
+  // Iterate the *implementation* keys (a subset of the router) so a single
+  // route.ts wires up only the routes that live at its path.
+  for (const key of Object.keys(implementation)) {
+    const route = router[key] as AppRoute | undefined;
+    if (!route) {
+      throw new Error(`createNextRoute: no contract route named "${key}"`);
+    }
+    if (handlers[route.method]) {
+      throw new Error(
+        `createNextRoute: duplicate ${route.method} handler ("${key}") — ` +
+          `a single route.ts must implement routes for one path only`
+      );
+    }
     const impl = implementation[
       key as keyof RouterImplementation<T>
     ] as unknown as RouteImplementation<AppRoute>;

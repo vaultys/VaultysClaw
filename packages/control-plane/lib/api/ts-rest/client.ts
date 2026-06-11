@@ -1,18 +1,34 @@
 import { initClient, type InitClientReturn } from "@ts-rest/core";
-import { agentDetailContract } from "@/lib/contracts";
+import { appContract } from "@/lib/contracts";
 import { ApiError } from "../base";
 
-/**
- * ts-rest client bound to the agent contract.
- *
- * `initClient` infers fully typed methods from the same contract the server
- * implements, so request bodies and return values can never drift from the
- * API. A relative `baseUrl` keeps calls same-origin in the browser.
- */
-export const agentContractClient = initClient(agentDetailContract, {
+/** Shared client options — relative baseUrl keeps calls same-origin in the browser. */
+const clientOptions = {
   baseUrl: "",
-  baseHeaders: {},
-});
+  baseHeaders: {} as Record<string, string>,
+};
+
+/**
+ * Aggregate ts-rest client covering **every** domain contract.
+ *
+ * `initClient(appContract, …)` infers a fully typed method for each route from
+ * the same contracts the server implements, so request bodies and return
+ * values can never drift from the API. Access is namespaced by domain:
+ *
+ * ```ts
+ * const res = await apiClient.workflows.getOne({ params: { id } });
+ * const { agents } = unwrap(await apiClient.agents.list({ query: {} }));
+ * ```
+ *
+ * Each call resolves to a non-throwing `{ status, body }` union — pass it
+ * through {@link unwrap} for `BaseApi`-style throw-on-error behaviour.
+ */
+export const apiClient = initClient(appContract, clientOptions);
+
+export type ApiClient = InitClientReturn<
+  typeof appContract,
+  typeof clientOptions
+>;
 
 /** ts-rest responses are a `{ status, body }` union keyed by status code. */
 type TsRestResult = { status: number; body: unknown };
@@ -41,8 +57,3 @@ export function unwrap<R extends TsRestResult>(
     body.details
   );
 }
-
-export type AgentContractClient = InitClientReturn<
-  typeof agentDetailContract,
-  { baseUrl: string; baseHeaders: Record<string, string> }
->;

@@ -31,7 +31,7 @@ import { AutomationTab } from "@/components/agent/AutomationTab";
 import { ApprovalsTab } from "@/components/agent/ApprovalsTab";
 import { KnowledgeTab } from "@/components/agent/KnowledgeTab";
 import type { AgentDetail } from "@/components/agent/types";
-import { agentContractClient } from "@/lib/api/ts-rest/client";
+import { apiClient } from "@/lib/api/ts-rest/client";
 
 const AgentEnvironmentGraph = dynamic(
   () => import("@/components/graph/AgentEnvironmentGraph"),
@@ -57,7 +57,7 @@ export default function AgentDetailPage() {
   const handleDeleteAgent = async () => {
     setDeletingAgent(true);
     try {
-      await agentContractClient.deleteAgent({
+      await apiClient.agents.deleteAgent({
         params: {
           did,
         },

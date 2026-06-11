@@ -4,7 +4,7 @@ import { getAuthContext } from "@/lib/auth-utils";
 import { AgentDAO } from "@/db";
 import type { AgentCapability } from "@vaultysclaw/shared";
 import { APIException } from "@/lib/api/utils/api-utils";
-import { agentDetailContract } from "@/lib/contracts";
+import { agentsContract } from "@/lib/contracts";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 
 const Buffer = crypto.Buffer;
@@ -34,14 +34,15 @@ function vaultysIdInfo(pk: unknown): Record<string, unknown> | null {
 }
 
 /**
- * Routes for /api/agents/:did, implemented against `agentDetailContract`.
+ * Routes for /api/agents/:did — the `:did`-level slice of `agentsContract`.
  *
  * The contract (lib/contracts/agents.contract.ts) is the single source of
  * truth for request/response shapes; `createNextRoute` validates inputs and
- * type-checks every `{ status, body }` returned below against it. The matching
- * OpenAPI/Swagger doc can be generated from the same contract.
+ * type-checks every `{ status, body }` returned below against it. This file
+ * implements only the routes that live at this path (getAgent/updateAgent/
+ * deleteAgent); the contract's other routes are served by their own route.ts.
  */
-const handlers = createNextRoute(agentDetailContract, {
+const handlers = createNextRoute(agentsContract, {
   // ── GET /api/agents/:did ────────────────────────────────────────────────
   getAgent: async ({ params, request }) => {
     const auth = await getAuthContext(request);

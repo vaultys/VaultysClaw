@@ -2,7 +2,11 @@ import { z } from "zod";
 import { c } from "./contract";
 import { commonErrorResponses } from "./common";
 import type { Agent } from "@prisma/client";
-import type { ChatHistoryMessage, ChatSession, SkillConfig } from "@vaultysclaw/shared";
+import type {
+  ChatHistoryMessage,
+  ChatSession,
+  SkillConfig,
+} from "@vaultysclaw/shared";
 import type { RealmLlmData, SafeLlmConfig, TokenUsageHistory } from "@/types";
 
 // ────────────────────────────────────────────────────────────
@@ -70,11 +74,20 @@ export const UpdateAgentResponseSchema = z.object({
 
 const DidParams = z.object({ did: z.string().min(1, "did is required") });
 
+const AgentSummarySchema = z.object({
+  id: z.string(),
+  did: z.string(),
+  name: z.string(),
+  capabilities: z.array(z.string()),
+  online: z.boolean().optional(),
+});
+
 // ────────────────────────────────────────────────────────────
-// /api/agents/:did — detail / mutate / delete (implemented route)
+// Unified Agents contract — collection, single-agent detail/mutate/delete,
+// and all sub-resources, in one router.
 // ────────────────────────────────────────────────────────────
 
-export const agentDetailContract = c.router({
+export const agentsContract = c.router({
   getAgent: {
     method: "GET",
     path: "/api/agents/:did",
@@ -100,21 +113,7 @@ export const agentDetailContract = c.router({
     body: c.noBody(),
     responses: { 204: c.noBody(), ...commonErrorResponses },
   },
-});
 
-// ────────────────────────────────────────────────────────────
-// /api/agents (collection) + sub-resources
-// ────────────────────────────────────────────────────────────
-
-const AgentSummarySchema = z.object({
-  id: z.string(),
-  did: z.string(),
-  name: z.string(),
-  capabilities: z.array(z.string()),
-  online: z.boolean().optional(),
-});
-
-export const agentsContract = c.router({
   list: {
     method: "GET",
     path: "/api/agents",

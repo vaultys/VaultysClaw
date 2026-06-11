@@ -1,11 +1,15 @@
 import { c } from "./contract";
-import { agentDetailContract, agentsContract } from "./agents.contract";
+import { agentsContract } from "./agents.contract";
 import { apiKeysContract, chatContract } from "./api-keys.contract";
 import { bridgesContract, channelsContract } from "./channels.contract";
 import { governanceContract } from "./governance.contract";
 import { intentsContract } from "./intents.contract";
 import { knowledgeContract } from "./knowledge.contract";
-import { aboutContract, statsContract, userStatusContract } from "./misc.contract";
+import {
+  aboutContract,
+  statsContract,
+  userStatusContract,
+} from "./misc.contract";
 import { litellmContract, modelsContract } from "./models.contract";
 import {
   graphContract,
@@ -37,6 +41,7 @@ import {
 export { c } from "./contract";
 export * from "./common";
 
+export type * from "./agents.contract";
 export * from "./agents.contract";
 export * from "./api-keys.contract";
 export * from "./channels.contract";
@@ -63,7 +68,6 @@ export * from "./workflows.contract";
  */
 export const appContract = c.router({
   about: aboutContract,
-  agentDetail: agentDetailContract,
   agents: agentsContract,
   apiKeys: apiKeysContract,
   bridges: bridgesContract,

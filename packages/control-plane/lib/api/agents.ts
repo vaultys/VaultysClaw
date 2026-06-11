@@ -11,7 +11,7 @@ import {
   AgentTask,
   TokenUsageQuery,
 } from "@/types/api/requests";
-import { agentContractClient, unwrap } from "./ts-rest/client";
+import { apiClient, unwrap } from "./ts-rest/client";
 import type {
   AgentDetail,
   UpdateAgentBody,
@@ -55,17 +55,17 @@ export class AgentsApi extends BaseApi {
   // server implements, so they cannot drift from the actual API.
 
   async getOne(did: string): Promise<AgentDetail> {
-    return unwrap(await agentContractClient.getAgent({ params: { did } }));
+    return unwrap(await apiClient.agents.getAgent({ params: { did } }));
   }
 
   async update(did: string, data: UpdateAgentBody) {
     return unwrap(
-      await agentContractClient.updateAgent({ params: { did }, body: data })
+      await apiClient.agents.updateAgent({ params: { did }, body: data })
     );
   }
 
   async remove(did: string): Promise<void> {
-    unwrap(await agentContractClient.deleteAgent({ params: { did } }));
+    unwrap(await apiClient.agents.deleteAgent({ params: { did } }));
   }
 
   // LLM config

@@ -111,6 +111,120 @@ All classes extend `BaseApi` (in `lib/api/base.ts`) which throws `ApiError` on n
 
 **WebSocket messages**: Add new message types to `packages/shared/src/channel-types.ts`, handle in `lib/ws-server.ts` (control plane) and `src/agent.ts` (agent).
 
+## API Design & Implementation (ts-rest Pattern)
+
+All **new** control-plane REST APIs should follow the ts-rest + APIException pattern. This guarantees:
+- **Single source of truth**: contracts in code (Zod schemas) → type-safe on both client & server
+- **Consistent error handling**: `APIException` thrown by helpers like `getAuthContext()`, caught by middleware
+- **Zero drift**: client types inferred from the same contract the server validates against
+
+### Structure
+
+**1. Contract** (`lib/contracts/<domain>.contract.ts`)
+- Zod schemas for request/response bodies per status code
+- ts-rest router with path params, query, method, responses
+- Example: `lib/contracts/agents.contract.ts` — GET /api/agents/:did, PATCH capabilities, DELETE
+
+```typescript
+export const AgentDetailSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  // ... all fields
+});
+
+export const agentDetailContract = c.router({
+  getAgent: {
+    method: "GET",
+    path: "/api/agents/:did",
+    pathParams: z.object({ did: z.string() }),
+    responses: {
+      200: AgentDetailSchema,
+      400: ErrorSchema,
+      401: ErrorSchema,
+      403: ErrorSchema,
+      404: ErrorSchema,
+    },
+  },
+  // ... updateAgent, deleteAgent, etc.
+});
+```
+
+**2. Route Handler** (`app/api/<resource>/[param]/route.ts`)
+- Use `createNextRoute(contract, implementation)` to wrap all handlers
+- Throw `APIException("CODE", message)` for errors; middleware handles conversion to HTTP status
+- Return `{ status, body }` for success (type-checked against contract responses)
+- Example: `app/api/agents/[did]/route.ts`
+
+```typescript
+const handlers = createNextRoute(agentDetailContract, {
+  getAgent: async ({ params, request }) => {
+    const auth = await getAuthContext(request); // Throws APIException("UNAUTHORIZED")
+    const agent = await AgentDAO.findByDid(params.did);
+    if (!agent) throw new APIException("NOT_FOUND", "Agent not found");
+    if (!(await auth.canAccessAgent(params.did))) throw new APIException("FORBIDDEN");
+    
+    return {
+      status: 200,
+      body: { /* fully typed against contract */ }
+    };
+  },
+});
+
+export const GET = handlers.GET!;
+export const PATCH = handlers.PATCH!;
+export const DELETE = handlers.DELETE!;
+```
+
+**3. Client** (`lib/api/<domain>.ts`)
+- Use `agentContractClient` (from `lib/api/ts-rest/client.ts`) to call routes
+- Call `unwrap()` to convert ts-rest's `{ status, body }` union to throwing on non-2xx
+- Argument & return types flow from the contract → zero chance of drift
+
+```typescript
+async getOne(did: string): Promise<AgentDetail> {
+  return unwrap(await agentContractClient.getAgent({ params: { did } }));
+}
+```
+
+**4. Types** (UI components, etc.)
+- Import from contract: `import type { AgentDetail } from "@/lib/contracts"`
+- No duplicate interface definitions → contract is the source of truth
+
+### Error Handling
+
+**`APIException`** (in `lib/api/utils/api-utils.ts`)
+- Thrown by helpers (`getAuthContext()`) and route handlers
+- Maps code (e.g. `"UNAUTHORIZED"`) → HTTP status (e.g. `401`) via `HttpCodes` enum
+- Both `withError` (legacy) and `createNextRoute` (new) catch & convert to canonical error body
+
+```typescript
+// In a helper
+if (!auth) throw new APIException("UNAUTHORIZED");
+
+// In a route handler
+if (!hasPermission) throw new APIException("FORBIDDEN");
+if (!found) throw new APIException("NOT_FOUND", "Agent not found");
+
+// In createNextRoute middleware → 401/403/404 with { error, code }
+```
+
+### Files to Know
+
+- **Contracts**: `lib/contracts/` (index.ts, contract.ts, common.ts, agents.contract.ts)
+- **Middleware**: `lib/api/ts-rest/next-route.ts`, `lib/api/handlers/with-error.ts`
+- **Client**: `lib/api/ts-rest/client.ts`
+- **Errors**: `lib/api/utils/api-utils.ts` (APIException, resolveApiError)
+- **Auth**: `lib/auth-utils.ts` (getAuthContext throws APIException)
+- **Example route**: `app/api/agents/[did]/route.ts` — GET/PATCH/DELETE agents
+
+### Extending to a New Domain
+
+1. Create `lib/contracts/<domain>.contract.ts` with Zod schemas + router
+2. Create `app/api/<resource>/[param]/route.ts` using `createNextRoute()`
+3. Add methods to `lib/api/<domain>.ts` using `agentContractClient`
+4. Import types from the contract in UI components
+5. Tests: mock `getAuthContext` to throw `new APIException("UNAUTHORIZED")` for 401 cases
+
 ## Testing
 
 Tests live in `__tests__/` at the repo root and use Vitest. They test integration paths (API routes, tool execution, workflow logic). Test files import from packages directly using the `@vaultysclaw/shared` path alias.
@@ -120,6 +234,33 @@ Multiple vitest configs for different test scopes:
 - `vitest.config.mjs` — default (no Docker)
 - `vitest.config.docker.mjs` — requires running Docker stack
 - `vitest.config.litellm.mjs` — requires LiteLLM proxy (`docker-compose.litellm.yml`)
+
+### Testing ts-rest Routes
+
+Routes using `createNextRoute()` and `APIException` are tested by mocking `getAuthContext` to:
+- **Return a valid context** for happy-path tests: `mockGetAuthContext.mockResolvedValue(makeAuthContext(...))`
+- **Throw `APIException("UNAUTHORIZED")`** for 401 tests: `mockGetAuthContext.mockRejectedValue(new APIException("UNAUTHORIZED"))`
+- **Return a context with missing permissions** for 403 tests: `mockGetAuthContext.mockResolvedValue({ did: "...", isGlobalAdmin: false, ... })`
+
+Example from `__tests__/security.test.ts`:
+
+```typescript
+import { APIException } from "@/lib/api/utils/api-utils";
+import { GET } from "@/app/api/agents/[did]/route";
+
+function asUnauthenticated() {
+  mockGetAuthContext.mockRejectedValue(new APIException("UNAUTHORIZED"));
+}
+
+it("returns 401 when unauthenticated", async () => {
+  asUnauthenticated();
+  const res = await GET(req("/api/agents/did123"), params({ did: "did123" }));
+  expect(res._status).toBe(401);
+  expect(res._body.code).toBe("UNAUTHORIZED");
+});
+```
+
+The error body shape is always `{ error: string; code: string; }`, enforced by `resolveApiError()` in the middleware.
 
 ## Environment
 

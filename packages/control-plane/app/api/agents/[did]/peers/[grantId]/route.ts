@@ -1,79 +1,16 @@
-import { NextResponse } from "next/server";
-import { withError } from "@/lib/api/handlers/with-error";
+import { agentsContract } from "@/lib/contracts";
+import { createNextRoute } from "@/lib/api/ts-rest/next-route";
+import { APIException } from "@/lib/api/utils/api-utils";
 
-/**
- * GET /api/agents/[did]/peers/[grantId] - Get peer grant details
- */
-/**
- * @openapi
- * //api/agents/{did}/peers/{grantId}:
- *   get:
- *     summary: Get peer grant details
- *     tags: [Agents]
- *     parameters:
- *       - name: did
- *         in: path
- *         required: true
- *         schema:
- *           type: string
- *       - name: grantId
- *         in: path
- *         required: true
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: Successful response
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 error:
- *                   type: string
- *       401:
- *         $ref: '#/components/responses/Unauthorized'
- *       403:
- *         $ref: '#/components/responses/Forbidden'
- *       404:
- *         $ref: '#/components/responses/NotFound'
- */
-export const GET = withError(async () => {
-  return NextResponse.json({ error: "Not implemented" }, { status: 501 });
+const handlers = createNextRoute(agentsContract, {
+  getPeer: async () => {
+    throw new APIException("UNAVAILABLE", "Not implemented");
+  },
+
+  deletePeer: async () => {
+    throw new APIException("UNAVAILABLE", "Not implemented");
+  },
 });
 
-/**
- * DELETE /api/agents/[did]/peers/[grantId] - Revoke peer grant
- */
-/**
- * @openapi
- * //api/agents/{did}/peers/{grantId}:
- *   delete:
- *     summary: Revoke peer grant
- *     tags: [Agents]
- *     parameters:
- *       - name: did
- *         in: path
- *         required: true
- *         description: The DID of the agent.
- *         schema:
- *           type: string
- *       - name: grantId
- *         in: path
- *         required: true
- *         description: The ID of the peer grant.
- *         schema:
- *           type: string
- *     responses:
- *       204:
- *         description: Peer grant successfully revoked.
- *       401:
- *         $ref: '#/components/responses/Unauthorized'
- *       403:
- *         $ref: '#/components/responses/Forbidden'
- *       404:
- *         $ref: '#/components/responses/NotFound'
- */
-export const DELETE = withError(async () => {
-  return NextResponse.json({ error: "Not implemented" }, { status: 501 });
-});
+export const GET = handlers.GET!;
+export const DELETE = handlers.DELETE!;

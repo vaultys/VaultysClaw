@@ -1,95 +1,31 @@
-import { NextRequest } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
-import {
-  unauthorized,
-  forbidden,
-  malformed,
-  notFound,
-  successNoContent,
-} from "@/lib/api/utils/api-utils";
+import { APIException } from "@/lib/api/utils/api-utils";
 import { AgentDAO } from "@/db";
-import { withError } from "@/lib/api/handlers/with-error";
+import { agentsContract } from "@/lib/contracts";
+import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 
-/**
- * PATCH /api/agents/[did]/location
- * Set or clear the geographic location of an agent. Admin-only.
- * Body: { lat: number, lon: number, label: string } or { lat: null } to clear.
- */
-/**
- * @openapi
- * //api/agents/{did}/location:
- *   patch:
- *     summary: Set or clear the geographic location of an agent.
- *     tags: [Agents]
- *     parameters:
- *       - name: did
- *         in: path
- *         required: true
- *         description: The DID of the agent.
- *         schema:
- *           type: string
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             oneOf:
- *               - type: object
- *                 properties:
- *                   lat:
- *                     type: number
- *                   lon:
- *                     type: number
- *                   label:
- *                     type: string
- *               - type: object
- *                 properties:
- *                   lat:
- *                     type: null
- *     responses:
- *       204:
- *         description: Location updated successfully.
- *       400:
- *         $ref: '#/components/responses/BadRequest'
- *       401:
- *         $ref: '#/components/responses/Unauthorized'
- *       403:
- *         $ref: '#/components/responses/Forbidden'
- *       404:
- *         $ref: '#/components/responses/NotFound'
- */
-export const PATCH = withError(
-  async (
-    req: NextRequest,
-    { params }: { params: Promise<{ did: string }> }
-  ) => {
-    const auth = await getAuthContext(req);
-    if (!auth) return unauthorized();
-    if (!auth.isGlobalAdmin) return forbidden();
+const handlers = createNextRoute(agentsContract, {
+  setLocation: async ({ params, body, request }) => {
+    const auth = await getAuthContext(request);
+    if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");
 
-    const { did } = await params;
-    const body = await req.json().catch(() => null);
-    if (!body) {
-      return malformed();
-    }
-
+    const { did } = params;
     const agent = await AgentDAO.findByDid(did);
-    if (!agent) {
-      return notFound("Agent not found");
-    }
+    if (!agent) throw new APIException("NOT_FOUND", "Agent not found");
 
     if (body.lat === null || body.lat === undefined) {
       await AgentDAO.updateLocation(did, null);
     } else {
-      const lat = Number.parseFloat(body.lat);
-      const lon = Number.parseFloat(body.lon);
+      const lat = Number(body.lat);
+      const lon = Number(body.lon);
       const label = String(body.label ?? "");
-      if (Number.isNaN(lat) || Number.isNaN(lon)) {
-        return malformed("Invalid latitude or longitude");
-      }
+      if (Number.isNaN(lat) || Number.isNaN(lon))
+        throw new APIException("MALFORMED", "Invalid latitude or longitude");
       await AgentDAO.updateLocation(did, { lat, lon, label });
     }
 
-    return successNoContent();
-  }
-);
+    return { status: 204, body: undefined };
+  },
+});
+
+export const PATCH = handlers.PATCH!;

@@ -1,7 +1,10 @@
 import { z } from "zod";
+import { AgentModel } from "@/prisma/zod/agent";
+import { AgentRealmModel } from "@/prisma/zod/agentrealm";
+import { RealmModel } from "@/prisma/zod/realm";
 
 // ─────────────────────────────────────────────
-// Shared primitives
+// Primitives
 // ─────────────────────────────────────────────
 
 export const LlmDescriptorSchema = z.object({
@@ -16,33 +19,72 @@ export const TokenUsageSchema = z.object({
 });
 
 // ─────────────────────────────────────────────
-// Agent
+// Building blocks (never exposed as API response directly)
 // ─────────────────────────────────────────────
 
-export const AgentDetailSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  capabilities: z.array(z.string()),
-  publicKey: z.string().nullable(),
-  certificateInfo: z.record(z.string(), z.unknown()).nullable(),
-  agentVaultysId: z.record(z.string(), z.unknown()).nullable(),
-  registeredAt: z.string(),
-  lastSeen: z.string(),
-  online: z.boolean(),
-  connectedAt: z.string().nullable(),
-  lastHeartbeat: z.string().nullable(),
-  reportedLlm: LlmDescriptorSchema.nullable(),
-  storedLlm: LlmDescriptorSchema.nullable(),
-  transport: z.enum(["ws", "peerjs"]).nullable(),
-  tokenUsage: TokenUsageSchema.nullable(),
-  tokenBudgetDaily: z.number().nullable(),
-  tokenBudgetMonthly: z.number().nullable(),
-  todayTokens: z.number(),
-  monthTokens: z.number(),
+/**
+ * Fields present on every agent API response.
+ * Picks non-sensitive columns from AgentModel; dates overridden to ISO string
+ * since JSON serialization always converts Date → string.
+ */
+const AgentBaseSchema = AgentModel.pick({
+  name: true,
+  capabilities: true,
+}).extend({
+  id: z.string(),           // Prisma column is 'did', exposed as 'id'
+  registeredAt: z.string(), // Date → ISO string
+  lastSeen: z.string(),     // Date → ISO string
+  // nullish() → nullable(): API never returns undefined, only null
   locationLat: z.number().nullable(),
   locationLon: z.number().nullable(),
   locationLabel: z.string().nullable(),
 });
+
+/**
+ * Live WebSocket state — mirrors the `ConnectedAgent` interface in ws-server.ts.
+ * All fields nullable because offline agents have no live state.
+ */
+const ConnectedAgentLiveSchema = z.object({
+  online: z.boolean(),
+  connectedAt: z.string().nullable(),
+  lastHeartbeat: z.string().nullable(),
+  reportedLlm: LlmDescriptorSchema.nullable(),
+  tokenUsage: TokenUsageSchema.nullable(),
+  transport: z.enum(["ws", "peerjs"]).nullable(),
+});
+
+// ─────────────────────────────────────────────
+// Agent response schemas (composed from building blocks)
+// ─────────────────────────────────────────────
+
+/** Realm info attached to each agent — picks from RealmModel + isPrimary from AgentRealmModel. */
+export const RealmSummarySchema = RealmModel.pick({
+  id: true,
+  name: true,
+  slug: true,
+  color: true,
+}).merge(AgentRealmModel.pick({ isPrimary: true }));
+
+/** Shape returned by GET /api/agents (list endpoint). */
+export const AgentListItemSchema = AgentBaseSchema
+  .merge(ConnectedAgentLiveSchema)
+  .extend({
+    realms: z.array(RealmSummarySchema),
+  });
+
+/** Shape returned by GET /api/agents/:did (detail endpoint). */
+export const AgentDetailSchema = AgentBaseSchema
+  .merge(ConnectedAgentLiveSchema)
+  .extend({
+    publicKey: z.string().nullable(),
+    tokenBudgetDaily: z.number().nullable(),
+    tokenBudgetMonthly: z.number().nullable(),
+    certificateInfo: z.record(z.string(), z.unknown()).nullable(),
+    agentVaultysId: z.record(z.string(), z.unknown()).nullable(),
+    storedLlm: LlmDescriptorSchema.nullable(),
+    todayTokens: z.number(),
+    monthTokens: z.number(),
+  });
 
 export const AgentSummarySchema = z.object({
   id: z.string(),
@@ -50,33 +92,6 @@ export const AgentSummarySchema = z.object({
   name: z.string(),
   capabilities: z.array(z.string()),
   online: z.boolean().optional(),
-});
-
-export const RealmSummarySchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  slug: z.string(),
-  color: z.string(),
-  isPrimary: z.boolean(),
-});
-
-/** Full item shape returned by GET /api/agents (list endpoint). */
-export const AgentListItemSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  capabilities: z.array(z.string()),
-  registeredAt: z.string(),
-  lastSeen: z.string(),
-  online: z.boolean(),
-  connectedAt: z.string().nullable(),
-  lastHeartbeat: z.string().nullable(),
-  reportedLlm: LlmDescriptorSchema.nullable(),
-  tokenUsage: TokenUsageSchema.nullable(),
-  transport: z.enum(["ws", "peerjs"]).nullable(),
-  locationLat: z.number().nullable(),
-  locationLon: z.number().nullable(),
-  locationLabel: z.string().nullable(),
-  realms: z.array(RealmSummarySchema),
 });
 
 // ─────────────────────────────────────────────

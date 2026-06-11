@@ -1,5 +1,4 @@
 import * as z from "zod"
-import * as imports from "../null"
 
 export const UserInvitationModel = z.object({
   token: z.string(),

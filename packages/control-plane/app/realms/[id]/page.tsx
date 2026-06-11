@@ -438,7 +438,7 @@ export default function RealmDetailPage() {
       };
       clearWorkflowStore();
       setWorkflowStore("", data.template.name, "", data.template.definition);
-      router.push(`/workflows/new?fromTemplate=1&realm=${id}`);
+      router.push(`/workflows/new/edit?fromTemplate=1&realm=${id}`);
     } catch (err) {
       console.error("Failed to load template:", err);
       alert("Failed to load template");
@@ -963,7 +963,7 @@ export default function RealmDetailPage() {
               <LayoutTemplate className="w-4 h-4" /> From Template
             </button>
             <Link
-              href={`/workflows/new?realm=${id}`}
+              href={`/workflows/new/edit?realm=${id}`}
               className="flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-xl bg-primary-600 hover:bg-primary-500 text-white font-medium transition-colors"
             >
               <Plus className="w-4 h-4" /> New Workflow
@@ -984,7 +984,7 @@ export default function RealmDetailPage() {
                 </button>
                 <span className="text-foreground-400 text-sm">or</span>
                 <Link
-                  href={`/workflows/new?realm=${id}`}
+                  href={`/workflows/new/edit?realm=${id}`}
                   className="text-primary-700 dark:text-primary-400 hover:text-primary-300 text-sm underline"
                 >
                   Create blank workflow

@@ -7,13 +7,9 @@ import {
   Plus,
   Trash2,
   ChevronRight,
-  ChevronDown,
-  ChevronUp,
-  Activity,
-  CheckCircle2,
-  AlertCircle,
-  Clock,
+  Search,
   Play,
+  GitBranch,
 } from "lucide-react";
 import { useWorkflowStore } from "@/components/workflow/store";
 import { TemplateSelectionModal } from "@/components/workflow/TemplateSelectionModal";
@@ -29,98 +25,12 @@ interface WorkflowItem {
   updatedAt: string;
 }
 
-interface WorkflowRun {
-  id: string;
-  workflowId: string;
-  status: string;
-  startedAt: string;
-  completedAt: string | null;
-}
-
-interface WorkflowWithRuns extends WorkflowItem {
-  runs?: WorkflowRun[];
-  runsExpanded?: boolean;
-  loadingRuns?: boolean;
-}
-
-function parseTimestamp(val: unknown): number | null {
-  if (val === null || val === undefined || val === "" || val === false)
-    return null;
-  if (typeof val === "number") return val > 0 ? val * 1000 : null;
-  if (typeof val === "string") {
-    if (!val.trim()) return null;
-    if (/^\d+$/.test(val)) {
-      const n = parseInt(val, 10);
-      return n > 0 ? n * 1000 : null;
-    }
-    let s = val.replace(" ", "T");
-    if (!s.endsWith("Z") && !s.includes("+") && !/[+-]\d{2}:\d{2}$/.test(s))
-      s += "Z";
-    const t = new Date(s).getTime();
-    return isNaN(t) ? null : t;
-  }
-  return null;
-}
-
-function formatDate(val: unknown): string {
-  const ms = parseTimestamp(val);
-  if (ms === null) return "—";
-  const date = new Date(ms);
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  const hours = String(date.getHours()).padStart(2, "0");
-  const minutes = String(date.getMinutes()).padStart(2, "0");
-  const seconds = String(date.getSeconds()).padStart(2, "0");
-  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
-}
-
-function timeAgo(val: unknown): string {
-  const ms = parseTimestamp(val);
-  if (ms === null) return "—";
-  const seconds = Math.floor((Date.now() - ms) / 1000);
-  if (seconds < 5) return "just now";
-  if (seconds < 60) return `${seconds}s ago`;
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  return `${Math.floor(hours / 24)}d ago`;
-}
-
-function getStatusIcon(status: string) {
-  switch (status) {
-    case "completed":
-      return <CheckCircle2 size={16} className="text-success-500" />;
-    case "failed":
-      return <AlertCircle size={16} className="text-danger-500" />;
-    case "running":
-      return <Activity size={16} className="text-primary-500 animate-pulse" />;
-    default:
-      return <Clock size={16} className="text-foreground-500" />;
-  }
-}
-
-function getStatusBadge(status: string) {
-  const baseClass =
-    "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium";
-  switch (status) {
-    case "completed":
-      return `${baseClass} bg-success-100 dark:bg-success-900/40 text-success-700 dark:text-success-400`;
-    case "failed":
-      return `${baseClass} bg-danger-100 dark:bg-danger-900/40 text-danger-700 dark:text-danger-400`;
-    case "running":
-      return `${baseClass} bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-400`;
-    default:
-      return `${baseClass} bg-background-200 text-foreground-400`;
-  }
-}
-
 export default function WorkflowsPage() {
   const router = useRouter();
-  const [workflows, setWorkflows] = useState<WorkflowWithRuns[]>([]);
+  const [workflows, setWorkflows] = useState<WorkflowItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
   const [showTemplateModal, setShowTemplateModal] = useState(false);
   const [executingWorkflow, setExecutingWorkflow] = useState<{
     id: string;
@@ -141,78 +51,24 @@ export default function WorkflowsPage() {
       const res = await fetch("/api/workflows");
       if (!res.ok) throw new Error("Failed to fetch workflows");
       const data = (await res.json()) as { workflows: WorkflowItem[] };
-      setWorkflows(
-        data.workflows.map((w) => ({
-          ...w,
-          runsExpanded: false,
-          runs: [],
-          loadingRuns: false,
-        }))
-      );
+      setWorkflows(data.workflows);
     } catch (err) {
-      console.error("Failed to fetch workflows:", err);
       setError(String(err));
     } finally {
       setLoading(false);
     }
   };
 
-  const toggleRuns = async (workflowId: string) => {
-    setWorkflows((prev) =>
-      prev.map((w) => {
-        if (w.id !== workflowId) return w;
-        if (w.runsExpanded) {
-          return { ...w, runsExpanded: false };
-        }
-        // Load runs if not already loaded
-        if (w.runs && w.runs.length > 0) {
-          return { ...w, runsExpanded: true };
-        }
-        // Fetch runs
-        fetchRunsForWorkflow(workflowId);
-        return { ...w, runsExpanded: true, loadingRuns: true };
-      })
-    );
-  };
-
-  const fetchRunsForWorkflow = async (workflowId: string) => {
-    try {
-      const res = await fetch(
-        `/api/workflow-runs?workflowId=${workflowId}&pageSize=100&sortBy=startedAt&sortDir=desc`
-      );
-      if (!res.ok) return;
-      const data = (await res.json()) as { runs: WorkflowRun[] };
-      setWorkflows((prev) =>
-        prev.map((w) =>
-          w.id === workflowId
-            ? { ...w, runs: data.runs, loadingRuns: false }
-            : w
-        )
-      );
-    } catch (err) {
-      console.error("Failed to fetch runs:", err);
-      setWorkflows((prev) =>
-        prev.map((w) =>
-          w.id === workflowId ? { ...w, loadingRuns: false } : w
-        )
-      );
-    }
-  };
-
-  const handleDeleteWorkflow = async (id: string) => {
+  const handleDeleteWorkflow = async (id: string, e: React.MouseEvent) => {
+    e.preventDefault();
     if (!confirm("Delete this workflow?")) return;
     try {
       const res = await fetch(`/api/workflows/${id}`, { method: "DELETE" });
       if (!res.ok) throw new Error("Failed to delete workflow");
       setWorkflows((w) => w.filter((wf) => wf.id !== id));
-    } catch (err) {
-      console.error("Failed to delete workflow:", err);
+    } catch {
       alert("Failed to delete workflow");
     }
-  };
-
-  const handleCreateWorkflow = () => {
-    clearWorkflow();
   };
 
   const handleSelectTemplate = async (templateId: string, realmId?: string) => {
@@ -222,21 +78,20 @@ export default function WorkflowsPage() {
       const data = (await res.json()) as {
         template: { definition: any; name: string };
       };
-
       clearWorkflow();
       setWorkflow("", data.template.name, "", data.template.definition);
       const params = new URLSearchParams({ fromTemplate: "1" });
       if (realmId) params.set("realm", realmId);
-      router.push(`/workflows/new?${params.toString()}`);
-    } catch (error) {
-      console.error("Failed to load template:", error);
+      router.push(`/workflows/new/edit?${params.toString()}`);
+    } catch {
       alert("Failed to load template");
     }
   };
 
-  const handleExecuteWorkflow = async (workflowId: string) => {
+  const handleExecuteWorkflow = async (id: string, e: React.MouseEvent) => {
+    e.preventDefault();
     try {
-      const res = await fetch(`/api/workflows/${workflowId}`);
+      const res = await fetch(`/api/workflows/${id}`);
       if (!res.ok) throw new Error("Failed to load workflow");
       const data = (await res.json()) as {
         workflow: {
@@ -247,18 +102,26 @@ export default function WorkflowsPage() {
         };
       };
       setExecutingWorkflow(data.workflow);
-    } catch (error) {
-      console.error("Failed to load workflow:", error);
+    } catch {
       alert("Failed to load workflow");
     }
   };
+
+  const filteredWorkflows = workflows.filter((w) => {
+    if (!search) return true;
+    const q = search.toLowerCase();
+    return (
+      w.name.toLowerCase().includes(q) ||
+      (w.description ?? "").toLowerCase().includes(q)
+    );
+  });
 
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
       <div className="bg-background-100 border-b border-neutral-200">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex justify-between items-center gap-4">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <div className="flex justify-between items-center gap-4 flex-wrap">
             <div>
               <h1 className="text-3xl font-bold text-foreground">Workflows</h1>
               <p className="text-foreground-500 mt-1">
@@ -273,19 +136,31 @@ export default function WorkflowsPage() {
                 <Plus size={18} /> From Template
               </button>
               <Link
-                href="/workflows/new"
-                onClick={handleCreateWorkflow}
+                href="/workflows/new/edit"
+                onClick={clearWorkflow}
                 className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 font-medium"
               >
                 <Plus size={18} /> New Workflow
               </Link>
             </div>
           </div>
+
+          {/* Search */}
+          <div className="mt-4 relative max-w-md">
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-foreground-400" />
+            <input
+              type="text"
+              placeholder="Search workflows…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full pl-9 pr-4 py-2 bg-background border border-neutral-200 rounded-lg text-sm text-foreground placeholder:text-foreground-400 focus:outline-none focus:ring-2 focus:ring-primary-500"
+            />
+          </div>
         </div>
       </div>
 
       {/* Content */}
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {loading && (
           <div className="flex justify-center py-16">
             <div className="w-8 h-8 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />
@@ -299,13 +174,14 @@ export default function WorkflowsPage() {
         )}
 
         {!loading && workflows.length === 0 && (
-          <div className="text-center">
+          <div className="text-center py-16">
+            <GitBranch className="w-12 h-12 text-foreground-300 mx-auto mb-4" />
             <p className="text-foreground-500 mb-4">
               No workflows yet. Create your first one!
             </p>
             <Link
-              href="/workflows/new"
-              onClick={handleCreateWorkflow}
+              href="/workflows/new/edit"
+              onClick={clearWorkflow}
               className="inline-flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
             >
               <Plus size={18} /> Create Workflow
@@ -313,141 +189,62 @@ export default function WorkflowsPage() {
           </div>
         )}
 
-        {!loading && workflows.length > 0 && (
-          <div className="space-y-4">
-            {workflows.map((workflow) => (
+        {!loading && workflows.length > 0 && filteredWorkflows.length === 0 && (
+          <div className="text-center py-16">
+            <p className="text-foreground-500">No workflows match "{search}"</p>
+          </div>
+        )}
+
+        {!loading && filteredWorkflows.length > 0 && (
+          <div className="space-y-2">
+            {filteredWorkflows.map((workflow) => (
               <div
                 key={workflow.id}
-                className="bg-background-100 rounded-lg border border-neutral-200 overflow-hidden"
+                onClick={() => router.push(`/workflows/${workflow.id}`)}
+                className="group bg-background-100 rounded-lg border border-neutral-200 hover:border-primary-300 dark:hover:border-primary-700 hover:shadow-sm transition overflow-hidden cursor-pointer"
               >
-                {/* Workflow header */}
-                <div className="px-6 py-4 flex items-center justify-between border-b border-neutral-200 hover:bg-background-200/30 transition">
-                  <button
-                    onClick={() => toggleRuns(workflow.id)}
-                    className="flex-1 flex items-center justify-between text-left"
-                  >
-                    <div className="flex-1">
-                      <h3 className="text-lg font-semibold text-foreground">
-                        {workflow.name}
-                      </h3>
-                      {workflow.description && (
-                        <p className="text-foreground-500 text-sm mt-1">
-                          {workflow.description}
-                        </p>
-                      )}
-                      <p className="text-xs text-foreground-400 mt-2">
-                        Updated{" "}
-                        {new Date(workflow.updatedAt).toLocaleDateString()}
+                <div className="px-5 py-4 flex items-center justify-between gap-4">
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-base font-semibold text-foreground group-hover:text-primary-600 dark:group-hover:text-primary-400 transition truncate">
+                      {workflow.name}
+                    </h3>
+                    {workflow.description && (
+                      <p className="text-foreground-500 text-sm mt-0.5 truncate">
+                        {workflow.description}
                       </p>
-                    </div>
-                    <div className="ml-4">
-                      {workflow.runsExpanded ? (
-                        <ChevronUp className="text-foreground-500" />
-                      ) : (
-                        <ChevronDown className="text-foreground-500" />
-                      )}
-                    </div>
-                  </button>
+                    )}
+                    <p className="text-xs text-foreground-400 mt-1.5">
+                      Updated {new Date(workflow.updatedAt).toLocaleDateString()}
+                    </p>
+                  </div>
 
-                  <div className="flex gap-2 ml-4">
+                  <div className="flex items-center gap-1 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
                     <button
-                      onClick={() => handleExecuteWorkflow(workflow.id)}
-                      className="flex items-center gap-1 px-3 py-2 text-sm font-medium text-success-600 dark:text-success-400 hover:bg-success-50 dark:hover:bg-success-900/20 rounded"
+                      onClick={(e) => handleExecuteWorkflow(workflow.id, e)}
+                      className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-success-600 dark:text-success-400 hover:bg-success-50 dark:hover:bg-success-900/20 rounded"
                       title="Execute workflow"
                     >
-                      <Play size={16} />
-                      Execute
+                      <Play size={14} /> Execute
                     </button>
                     <Link
-                      href={`/workflows/${workflow.id}`}
-                      className="flex items-center gap-1 px-3 py-2 text-sm font-medium text-primary-600 dark:text-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded"
+                      href={`/workflows/${workflow.id}/edit`}
+                      className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-foreground-500 hover:text-foreground hover:bg-background-200 rounded"
                     >
                       Edit
-                      <ChevronRight size={16} />
                     </Link>
                     <button
-                      onClick={() => handleDeleteWorkflow(workflow.id)}
-                      className="p-2 text-danger-600 dark:text-danger-400 hover:bg-danger-50 dark:hover:bg-danger-900/20 rounded"
+                      onClick={(e) => handleDeleteWorkflow(workflow.id, e)}
+                      className="p-1.5 text-foreground-400 hover:text-danger-600 dark:hover:text-danger-400 hover:bg-danger-50 dark:hover:bg-danger-900/20 rounded"
                       title="Delete workflow"
                     >
-                      <Trash2 size={16} />
+                      <Trash2 size={14} />
                     </button>
+                    <ChevronRight
+                      size={16}
+                      className="text-foreground-300 group-hover:text-foreground-500 transition ml-1"
+                    />
                   </div>
                 </div>
-
-                {/* Runs section */}
-                {workflow.runsExpanded && (
-                  <div className="border-t border-neutral-200">
-                    {workflow.loadingRuns ? (
-                      <div className="flex justify-center py-8">
-                        <div className="w-6 h-6 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />
-                      </div>
-                    ) : workflow.runs && workflow.runs.length > 0 ? (
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-sm">
-                          <thead>
-                            <tr className="border-b border-neutral-200 text-left text-xs font-medium text-foreground-400 uppercase tracking-wider bg-background-200/50">
-                              <th className="px-4 py-3">Status</th>
-                              <th className="px-4 py-3">Run ID</th>
-                              <th className="px-4 py-3">Started</th>
-                              <th className="px-4 py-3">Duration</th>
-                              <th className="px-4 py-3">Actions</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {workflow.runs.map((run) => {
-                              const startMs = parseTimestamp(run.startedAt);
-                              const endMs = parseTimestamp(run.completedAt);
-                              const duration =
-                                startMs !== null && endMs !== null
-                                  ? Math.round((endMs - startMs) / 1000)
-                                  : null;
-                              return (
-                                <tr
-                                  key={run.id}
-                                  className="border-b border-neutral-200/50 hover:bg-background-200/30 transition"
-                                >
-                                  <td className="px-4 py-3">
-                                    <div className={getStatusBadge(run.status)}>
-                                      {getStatusIcon(run.status)}
-                                      {run.status}
-                                    </div>
-                                  </td>
-                                  <td className="px-4 py-3 text-foreground-500 font-mono text-xs">
-                                    {run.id.slice(0, 8)}…
-                                  </td>
-                                  <td className="px-4 py-3">
-                                    <div className="text-foreground text-xs">
-                                      {formatDate(run.startedAt)}
-                                    </div>
-                                    <div className="text-foreground-500 text-xs mt-0.5">
-                                      {timeAgo(run.startedAt)}
-                                    </div>
-                                  </td>
-                                  <td className="px-4 py-3 text-foreground-500 text-xs">
-                                    {duration !== null ? `${duration}s` : "—"}
-                                  </td>
-                                  <td className="px-4 py-3">
-                                    <Link
-                                      href={`/workflows/runs/${run.id}`}
-                                      className="text-primary-700 dark:text-primary-400 hover:text-primary-400 text-sm font-medium"
-                                    >
-                                      View
-                                    </Link>
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
-                    ) : (
-                      <div className="px-4 py-8 text-center text-foreground-500 text-sm">
-                        No runs yet for this workflow
-                      </div>
-                    )}
-                  </div>
-                )}
               </div>
             ))}
           </div>
@@ -473,7 +270,7 @@ export default function WorkflowsPage() {
         />
       )}
 
-      {/* Bottom Action Bar for Import/Export */}
+      {/* Import/Export */}
       <div className="fixed bottom-6 right-6">
         <ImportExportButtons onImportComplete={fetchWorkflows} />
       </div>

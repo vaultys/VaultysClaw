@@ -31,6 +31,7 @@ import { nodeTypes } from "./nodes";
 import { PropertiesPanel } from "./PropertiesPanel";
 import { useWorkflowStore } from "./store";
 import type { WorkflowDefinition } from "@/lib/db";
+import { needsLayout, computeLayout } from "@/lib/workflow-layout";
 
 interface WorkflowEditorProps {
   initialDefinition?: WorkflowDefinition;
@@ -57,12 +58,19 @@ export const WorkflowEditor: React.FC<WorkflowEditorProps> = ({
   const activeDefinition = initialDefinition || definition;
 
   const [nodes, setNodes, onNodesChange] = useNodesState(
-    ((activeDefinition?.nodes ?? []) as any[]).map((n: any) => ({
-      id: n.id,
-      type: n.type || "agent",
-      data: n.data || {},
-      position: n.position ?? { x: 0, y: 0 },
-    })) as any
+    (() => {
+      const raw = ((activeDefinition?.nodes ?? []) as any[]).map((n: any) => ({
+        id: n.id,
+        type: n.type || "agent",
+        data: n.data || {},
+        position: n.position ?? { x: 0, y: 0 },
+      }));
+      const rawEdges = (activeDefinition?.edges ?? []).map((e: any) => ({
+        source: e.source,
+        target: e.target,
+      }));
+      return (needsLayout(raw) ? computeLayout(raw, rawEdges) : raw) as any;
+    })()
   );
 
   const [edges, setEdges, onEdgesChange] = useEdgesState(
@@ -85,12 +93,19 @@ export const WorkflowEditor: React.FC<WorkflowEditorProps> = ({
   // When template definition changes (from store), update React Flow canvas
   React.useEffect(() => {
     if (activeDefinition && activeDefinition.nodes.length > 0) {
-      const newNodes = (activeDefinition.nodes as any[]).map((n: any) => ({
+      const rawNodes = (activeDefinition.nodes as any[]).map((n: any) => ({
         id: n.id,
         type: n.type || "agent",
         data: n.data || {},
         position: n.position ?? { x: 0, y: 0 },
       }));
+      const rawEdges = (activeDefinition.edges || []).map((e: any) => ({
+        source: e.source,
+        target: e.target,
+      }));
+      const newNodes = needsLayout(rawNodes)
+        ? computeLayout(rawNodes, rawEdges)
+        : rawNodes;
       const newEdges = (activeDefinition.edges || []).map((e: any) => ({
         id: e.id,
         source: e.source,

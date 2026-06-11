@@ -9,6 +9,7 @@ import {
   isZodType,
 } from "@ts-rest/core";
 import type { z } from "zod";
+import { resolveApiError } from "@/lib/api/utils/api-utils";
 
 /**
  * ts-rest → Next.js App Router adapter.
@@ -114,7 +115,9 @@ function makeHandler(
         params,
         query,
         body,
-        headers: Object.fromEntries(request.headers.entries()),
+        headers: request.headers
+          ? Object.fromEntries(request.headers.entries())
+          : {},
         request,
       } as ServerInferRequest<AppRoute> & { request: NextRequest });
 
@@ -124,11 +127,13 @@ function makeHandler(
       }
       return NextResponse.json(result.body, { status: result.status });
     } catch (error) {
-      console.error(`[${route.method} ${route.path}]`, error);
-      return NextResponse.json(
-        { error: "Internal Server Error", code: "INTERNAL_ERROR" },
-        { status: 500 }
-      );
+      // Implementations (and helpers like getAuthContext) signal failures by
+      // throwing APIException; anything else is masked as a 500.
+      const { status, body, unexpected } = resolveApiError(error);
+      if (unexpected) {
+        console.error(`[${route.method} ${route.path}]`, error);
+      }
+      return NextResponse.json(body, { status });
     }
   };
 }

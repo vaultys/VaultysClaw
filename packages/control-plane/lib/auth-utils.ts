@@ -7,6 +7,7 @@ import {
   matchRoute,
 } from "./api/utils/api-key-utils";
 import { AgentDAO, ApiKeyDAO, RealmDAO } from "@/db";
+import { APIException } from "./api/utils/api-utils";
 
 export interface AuthContext {
   did: string;
@@ -18,9 +19,16 @@ export interface AuthContext {
   canAdminAgent(agentDid: string): Promise<boolean>;
 }
 
+/**
+ * Resolve the auth context for a request, trying a NextAuth session first and
+ * then an API key. Throws {@link APIException} with `UNAUTHORIZED` when neither
+ * yields a valid identity — error handlers (`withError` / `createNextRoute`)
+ * convert that into a 401, so route handlers can use the returned context
+ * directly without a null check.
+ */
 export async function getAuthContext(
   request?: Request | NextRequest
-): Promise<AuthContext | null> {
+): Promise<AuthContext> {
   // 1. Try NextAuth session first (unchanged behaviour)
   const session = await getServerSession(authOptions);
   if (session?.user?.did) {
@@ -68,7 +76,9 @@ export async function getAuthContext(
     const pathname = url.pathname;
 
     // Skip auth check for public routes
-    if (isPublicRoute(method, pathname)) return null;
+    if (isPublicRoute(method, pathname)) {
+      throw new APIException("UNAUTHORIZED");
+    }
 
     const rawKey =
       (request.headers.get("x-api-key") ?? "") ||
@@ -78,14 +88,17 @@ export async function getAuthContext(
       const keyHash = hashApiKey(rawKey);
       const row = await ApiKeyDAO.findByHash(keyHash);
 
-      if (!row || !row.isActive) return null;
+      if (!row || !row.isActive) throw new APIException("UNAUTHORIZED");
 
       // Check expiry
-      if (row.expiresAt && row.expiresAt < new Date()) return null;
+      if (row.expiresAt && row.expiresAt < new Date()) {
+        throw new APIException("UNAUTHORIZED", "API key expired");
+      }
 
       // Check route permission
-      if (!matchRoute(method, pathname, row.allowedRoutes as string[]))
-        return null;
+      if (!matchRoute(method, pathname, row.allowedRoutes as string[])) {
+        throw new APIException("FORBIDDEN", "API key not permitted for this route");
+      }
 
       // Update last_used_at (fire-and-forget — don't fail auth on write error)
       ApiKeyDAO.updateLastUsed(row.id).catch(() => {});
@@ -123,5 +136,5 @@ export async function getAuthContext(
     }
   }
 
-  return null;
+  throw new APIException("UNAUTHORIZED");
 }

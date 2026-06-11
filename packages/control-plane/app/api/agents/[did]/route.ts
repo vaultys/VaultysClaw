@@ -3,6 +3,7 @@ import { getWSServer } from "@/lib/ws-server";
 import { getAuthContext } from "@/lib/auth-utils";
 import { AgentDAO } from "@/db";
 import type { AgentCapability } from "@vaultysclaw/shared";
+import { APIException } from "@/lib/api/utils/api-utils";
 import { agentDetailContract } from "@/lib/contracts";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 
@@ -44,25 +45,16 @@ const handlers = createNextRoute(agentDetailContract, {
   // ── GET /api/agents/:did ────────────────────────────────────────────────
   getAgent: async ({ params, request }) => {
     const auth = await getAuthContext(request);
-    if (!auth) {
-      return {
-        status: 401,
-        body: { error: "Not authenticated", code: "UNAUTHORIZED" },
-      };
-    }
 
     const { did } = params;
 
     const agent = await AgentDAO.findByDid(did);
     if (!agent) {
-      return {
-        status: 404,
-        body: { error: "Agent not found", code: "NOT_FOUND" },
-      };
+      throw new APIException("NOT_FOUND", "Agent not found");
     }
 
     if (!(await auth.canAccessAgent(did))) {
-      return { status: 403, body: { error: "Forbidden", code: "FORBIDDEN" } };
+      throw new APIException("FORBIDDEN");
     }
 
     const wsServer = getWSServer();
@@ -172,14 +164,8 @@ const handlers = createNextRoute(agentDetailContract, {
   // ── PATCH /api/agents/:did ──────────────────────────────────────────────
   updateAgent: async ({ params, body, request }) => {
     const auth = await getAuthContext(request);
-    if (!auth) {
-      return {
-        status: 401,
-        body: { error: "Not authenticated", code: "UNAUTHORIZED" },
-      };
-    }
     if (!auth.isGlobalAdmin) {
-      return { status: 403, body: { error: "Forbidden", code: "FORBIDDEN" } };
+      throw new APIException("FORBIDDEN");
     }
 
     const { did } = params;
@@ -188,13 +174,7 @@ const handlers = createNextRoute(agentDetailContract, {
     if (capabilities !== undefined) {
       const wsServer = getWSServer();
       if (!wsServer) {
-        return {
-          status: 503,
-          body: {
-            error: "WebSocket server not available",
-            code: "UNAVAILABLE",
-          },
-        };
+        throw new APIException("UNAVAILABLE", "WebSocket server not available");
       }
 
       const updated = wsServer.updateAgentCapabilities(
@@ -202,20 +182,14 @@ const handlers = createNextRoute(agentDetailContract, {
         capabilities as AgentCapability[]
       );
       if (!updated) {
-        return {
-          status: 404,
-          body: { error: "Agent not found", code: "NOT_FOUND" },
-        };
+        throw new APIException("NOT_FOUND", "Agent not found");
       }
     }
 
     if (tokenBudgetDaily !== undefined || tokenBudgetMonthly !== undefined) {
       const agent = await AgentDAO.findByDid(did);
       if (!agent) {
-        return {
-          status: 404,
-          body: { error: "Agent not found", code: "NOT_FOUND" },
-        };
+        throw new APIException("NOT_FOUND", "Agent not found");
       }
       await AgentDAO.updateBudget(did, {
         ...(tokenBudgetDaily !== undefined ? { tokenBudgetDaily } : {}),
@@ -239,24 +213,15 @@ const handlers = createNextRoute(agentDetailContract, {
   // ── DELETE /api/agents/:did ─────────────────────────────────────────────
   deleteAgent: async ({ params, request }) => {
     const auth = await getAuthContext(request);
-    if (!auth) {
-      return {
-        status: 401,
-        body: { error: "Not authenticated", code: "UNAUTHORIZED" },
-      };
-    }
     if (!auth.isGlobalAdmin) {
-      return { status: 403, body: { error: "Forbidden", code: "FORBIDDEN" } };
+      throw new APIException("FORBIDDEN");
     }
 
     const { did } = params;
 
     const agent = await AgentDAO.findByDid(did);
     if (!agent) {
-      return {
-        status: 404,
-        body: { error: "Agent not found", code: "NOT_FOUND" },
-      };
+      throw new APIException("NOT_FOUND", "Agent not found");
     }
 
     // Disconnect agent from WebSocket server first.

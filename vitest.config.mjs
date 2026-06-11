@@ -25,8 +25,11 @@ export default defineConfig({
         __dirname,
         "packages/agent-controller/node_modules/@mastra/core/dist/agent/index.js"
       ),
-      // zod is a transitive dep of ai — alias so tool modules can import it
-      zod: resolve(__dirname, "node_modules/.pnpm/zod@4.3.6/node_modules/zod"),
+      // Force a single zod instance across the workspace (so `instanceof`
+      // checks in ts-rest / ai tool modules resolve consistently). Points at
+      // the hoisted copy so it tracks whatever version pnpm resolves rather
+      // than a pinned .pnpm path that breaks when the version changes.
+      zod: resolve(__dirname, "node_modules/zod"),
       // Ollama provider — used by live integration tests
       "ollama-ai-provider-v2": resolve(
         __dirname,

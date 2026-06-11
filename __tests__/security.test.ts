@@ -73,6 +73,7 @@ import {
 } from "../packages/control-plane/lib/db";
 
 import { getAuthContext } from "../packages/control-plane/lib/auth-utils";
+import { APIException } from "../packages/control-plane/lib/api/utils/api-utils";
 import { prisma } from "../packages/control-plane/db/client";
 import { PolicyDAO, UserDAO } from "../packages/control-plane/db";
 
@@ -165,7 +166,9 @@ function makeAuthContext(
 }
 
 function asUnauthenticated() {
-  mockGetAuthContext.mockResolvedValue(null);
+  // getAuthContext now throws APIException("UNAUTHORIZED") instead of returning
+  // null; both error handlers (withError / createNextRoute) map that to a 401.
+  mockGetAuthContext.mockRejectedValue(new APIException("UNAUTHORIZED"));
 }
 function asOwner(did = DID.owner) {
   mockGetAuthContext.mockResolvedValue(

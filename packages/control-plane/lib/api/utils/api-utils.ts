@@ -88,3 +88,37 @@ export class APIException extends Error {
     this.message = message || HttpCodes[code].toString();
   }
 }
+
+/** Canonical error payload returned by every route. */
+export interface ApiErrorBody {
+  error: string;
+  code: string;
+}
+
+/**
+ * Map a thrown value to an HTTP status + body. Shared by both error handlers:
+ * the legacy `withError` wrapper and the ts-rest `createNextRoute` adapter.
+ *
+ * An {@link APIException} becomes its declared status (via {@link HttpCodes})
+ * with a machine-readable `code`; anything else is masked as a 500 so internal
+ * details never leak to clients.
+ */
+export function resolveApiError(error: unknown): {
+  status: number;
+  body: ApiErrorBody;
+  /** True for unexpected errors the caller should log. */
+  unexpected: boolean;
+} {
+  if (error instanceof APIException) {
+    return {
+      status: HttpCodes[error.code],
+      body: { error: error.message, code: error.code },
+      unexpected: false,
+    };
+  }
+  return {
+    status: 500,
+    body: { error: "Internal Server Error", code: "INTERNAL_ERROR" },
+    unexpected: true,
+  };
+}

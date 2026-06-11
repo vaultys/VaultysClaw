@@ -43,6 +43,8 @@ export * from "./common";
 
 export type * from "./agents/agents.contract";
 export * from "./agents/agents.contract";
+export * from "./agents/agents.schemas";
+export * from "./agents/agents.types";
 export * from "./api-keys.contract";
 export * from "./channels.contract";
 export * from "./governance.contract";

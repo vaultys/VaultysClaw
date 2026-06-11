@@ -52,6 +52,33 @@ export const AgentSummarySchema = z.object({
   online: z.boolean().optional(),
 });
 
+export const RealmSummarySchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  slug: z.string(),
+  color: z.string(),
+  isPrimary: z.boolean(),
+});
+
+/** Full item shape returned by GET /api/agents (list endpoint). */
+export const AgentListItemSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  capabilities: z.array(z.string()),
+  registeredAt: z.string(),
+  lastSeen: z.string(),
+  online: z.boolean(),
+  connectedAt: z.string().nullable(),
+  lastHeartbeat: z.string().nullable(),
+  reportedLlm: LlmDescriptorSchema.nullable(),
+  tokenUsage: TokenUsageSchema.nullable(),
+  transport: z.enum(["ws", "peerjs"]).nullable(),
+  locationLat: z.number().nullable(),
+  locationLon: z.number().nullable(),
+  locationLabel: z.string().nullable(),
+  realms: z.array(RealmSummarySchema),
+});
+
 // ─────────────────────────────────────────────
 // Params
 // ─────────────────────────────────────────────
@@ -73,6 +100,11 @@ export const DidPeerParamsSchema = z.object({
 export const DidScheduleParamsSchema = z.object({
   did: z.string(),
   id: z.string(),
+});
+
+export const DidSessionParamsSchema = z.object({
+  did: z.string(),
+  sessionId: z.string(),
 });
 
 // ─────────────────────────────────────────────
@@ -169,4 +201,22 @@ export const SendTaskResponseSchema = z.object({
 export const CreateScheduleResponseSchema = z.object({
   agentId: z.string(),
   scheduleId: z.string(),
+});
+
+export const LitellmKeyStatusSchema = z.object({
+  configured: z.boolean(),
+  keyPrefix: z.string().nullable(),
+  allowedModels: z.array(z.string()),
+  dailyBudget: z.number().nullable(),
+  updatedAt: z.string().nullable(),
+  litellmConfigured: z.boolean(),
+});
+
+export const SafeLlmConfigSchema = z.object({
+  provider: z.string(),
+  model: z.string(),
+  baseUrl: z.string().optional(),
+  systemPrompt: z.string().optional(),
+  maxTokens: z.number().optional(),
+  apiKeySet: z.boolean(),
 });

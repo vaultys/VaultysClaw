@@ -10,7 +10,7 @@ const handlers = createNextRoute(agentsContract, {
 
     const {
       q,
-      online: onlineFilter,
+      online: onlineParam,
       realm,
       capabilities: capStr,
       page: rawPage,
@@ -19,27 +19,25 @@ const handlers = createNextRoute(agentsContract, {
       sortDir = "desc",
     } = query;
 
-    const capabilities = capStr
-      ? capStr
-          .split(",")
-          .map((c) => c.trim())
-          .filter(Boolean)
-      : undefined;
     const page = Math.max(1, rawPage ?? 1);
     const pageSize = Math.min(100, Math.max(1, rawPageSize ?? 20));
+    const capabilities = capStr
+      ? capStr.split(",").map((c) => c.trim()).filter(Boolean)
+      : undefined;
+    const onlineFilter =
+      onlineParam === "true" ? true : onlineParam === "false" ? false : undefined;
 
     const wsServer = getWSServer();
     const connectedDids = new Set(
       wsServer?.getConnectedAgents().map((a) => a.id) ?? []
     );
 
-    const online =
-      onlineFilter === "true"
-        ? true
-        : onlineFilter === "false"
-          ? false
-          : undefined;
+    // One query for user realm access (skipped for global admins)
+    const userRealmIds = auth.isGlobalAdmin
+      ? undefined
+      : new Set((await RealmDAO.getUserRealms(auth.did)).map((r) => r.realmId));
 
+    // Single DB call — realm & online filters applied inside the DAO
     const result = await AgentDAO.query({
       search: q,
       realm,
@@ -48,77 +46,52 @@ const handlers = createNextRoute(agentsContract, {
       pageSize,
       sortBy,
       sortDir,
+      realmIds: userRealmIds,
+      onlineFilter,
+      onlineDids: connectedDids,
     });
 
-    const userRealmIds = auth.isGlobalAdmin
-      ? null
-      : new Set((await RealmDAO.getUserRealms(auth.did)).map((r) => r.realmId));
-
-    const filteredAgents = (
-      await Promise.all(
-        result.agents.map(async (agent) => {
-          if (userRealmIds !== null) {
-            const agentRealms = await AgentDAO.getRealms(agent.did);
-            if (!agentRealms.some((r) => userRealmIds.has(r.realmId)))
-              return null;
-          }
-          return agent;
-        })
-      )
-    ).filter((a) => a !== null);
-
-    const onlineFiltered =
-      online === undefined
-        ? filteredAgents
-        : filteredAgents.filter((agent) =>
-            online
-              ? connectedDids.has(agent.did)
-              : !connectedDids.has(agent.did)
-          );
-
-    const agents = await Promise.all(
-      onlineFiltered.map(async (agent) => {
-        const connected = wsServer?.getAgent(agent.did);
-        const realms = await AgentDAO.getRealms(agent.did);
-        return {
-          ...agent,
-          id: agent.did,
-          name: connected?.name ?? agent.name,
-          capabilities: agent.capabilities,
-          registeredAt: agent.registeredAt,
-          lastSeen: agent.lastSeen,
-          online: connectedDids.has(agent.did),
-          connectedAt: connected?.connectedAt?.toISOString() ?? null,
-          lastHeartbeat: connected?.lastHeartbeat?.toISOString() ?? null,
-          reportedLlm: connected?.reportedLlm ?? null,
-          tokenUsage: connected?.tokenUsage ?? null,
-          transport: connected?.transport ?? null,
-          locationLat: agent.locationLat ?? null,
-          locationLon: agent.locationLon ?? null,
-          locationLabel: agent.locationLabel ?? null,
-          realms: realms.map((r) => ({
-            id: r.realmId,
-            name: r.realm.name,
-            slug: r.realm.slug,
-            color: r.realm.color,
-            isPrimary: Boolean(r.isPrimary),
-          })),
-        };
-      })
-    );
+    // Enrich with live WS state — no extra DB calls needed (realms already included)
+    const items = result.agents.map((agent) => {
+      const connected = wsServer?.getAgent(agent.did);
+      return {
+        id: agent.did,
+        name: connected?.name ?? agent.name,
+        capabilities: agent.capabilities,
+        registeredAt: agent.registeredAt instanceof Date
+          ? agent.registeredAt.toISOString()
+          : String(agent.registeredAt),
+        lastSeen: agent.lastSeen instanceof Date
+          ? agent.lastSeen.toISOString()
+          : String(agent.lastSeen),
+        online: connectedDids.has(agent.did),
+        connectedAt: connected?.connectedAt?.toISOString() ?? null,
+        lastHeartbeat: connected?.lastHeartbeat?.toISOString() ?? null,
+        reportedLlm: (connected?.reportedLlm as { provider: string; model: string } | null | undefined) ?? null,
+        tokenUsage: (connected?.tokenUsage as { promptTokens: number; completionTokens: number; totalTokens: number } | null | undefined) ?? null,
+        transport: ((connected?.transport ?? null) as "ws" | "peerjs" | null),
+        locationLat: agent.locationLat ?? null,
+        locationLon: agent.locationLon ?? null,
+        locationLabel: agent.locationLabel ?? null,
+        realms: agent.agentRealms.map((ar) => ({
+          id: ar.realm.id,
+          name: ar.realm.name,
+          slug: ar.realm.slug,
+          color: ar.realm.color,
+          isPrimary: ar.isPrimary,
+        })),
+      };
+    });
 
     return {
       status: 200,
       body: {
-        items: agents,
-        total: userRealmIds !== null ? agents.length : result.total,
+        items,
+        total: result.total,
         page: result.page,
         pageSize: result.pageSize,
-        totalPages:
-          userRealmIds !== null
-            ? Math.ceil(agents.length / pageSize)
-            : result.totalPages,
-        online: agents.filter((a) => a.online).length,
+        totalPages: result.totalPages,
+        online: items.filter((a) => a.online).length,
       },
     };
   },

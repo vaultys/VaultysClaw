@@ -1,26 +1,30 @@
 import { z } from "zod";
 import {
-    AgentDetailSchema,
-    AgentSummarySchema,
-    ListAgentsQuerySchema,
-    TokenUsageQuerySchema,
-    SearchAgentsQuerySchema,
-    UpdateAgentBodySchema,
-    UpdateAgentResponseSchema,
-    SendTaskBodySchema,
-    SendTaskResponseSchema,
-    CreateScheduleBodySchema,
-    CreateScheduleResponseSchema,
+  AgentDetailSchema,
+  AgentListItemSchema,
+  AgentSummarySchema,
+  CreateScheduleBodySchema,
+  CreateScheduleResponseSchema,
+  ListAgentsQuerySchema,
+  LitellmKeyStatusSchema,
+  RealmSummarySchema,
+  SafeLlmConfigSchema,
+  SearchAgentsQuerySchema,
+  SendTaskBodySchema,
+  SendTaskResponseSchema,
+  TokenUsageQuerySchema,
+  UpdateAgentBodySchema,
+  UpdateAgentResponseSchema,
 } from "./agents.schemas";
-import { commonPaginatedResponseSchema } from "../common";
-import { AgentModelWithRealms } from "@/db/types";
 
 // ─────────────────────────────────────────────
-// Agent
+// Agent shapes
 // ─────────────────────────────────────────────
 
 export type AgentDetail = z.infer<typeof AgentDetailSchema>;
 export type AgentSummary = z.infer<typeof AgentSummarySchema>;
+export type AgentListItem = z.infer<typeof AgentListItemSchema>;
+export type RealmSummary = z.infer<typeof RealmSummarySchema>;
 
 // ─────────────────────────────────────────────
 // Queries
@@ -44,5 +48,6 @@ export type CreateScheduleBody = z.infer<typeof CreateScheduleBodySchema>;
 
 export type UpdateAgentResponse = z.infer<typeof UpdateAgentResponseSchema>;
 export type SendTaskResponse = z.infer<typeof SendTaskResponseSchema>;
-export type CreateScheduleResponse = z.infer<typeof CreateScheduleResponseSchema>
-export const agentPaginatedResponseSchema = commonPaginatedResponseSchema(AgentModelWithRealms);
+export type CreateScheduleResponse = z.infer<typeof CreateScheduleResponseSchema>;
+export type LitellmKeyStatus = z.infer<typeof LitellmKeyStatusSchema>;
+export type SafeLlmConfig = z.infer<typeof SafeLlmConfigSchema>;

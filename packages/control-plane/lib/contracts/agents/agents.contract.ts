@@ -1,31 +1,39 @@
-import { commonPaginatedResponseSchema } from './../common';
+import { z } from "zod";
+import { commonPaginatedResponseSchema, commonErrorResponses } from "./../common";
 import { c } from "../contract";
-import { commonErrorResponses } from "../common";
 
 import {
-  AgentDetailSchema, DidParamsSchema,
-  DidSkillParamsSchema,
+  AgentDetailSchema,
+  AgentListItemSchema,
+  AgentSummarySchema,
+  CreatePeerBodySchema,
+  CreateScheduleBodySchema,
+  CreateScheduleResponseSchema,
+  DidParamsSchema,
+  DidPeerParamsSchema,
   DidScheduleParamsSchema,
+  DidSessionParamsSchema,
+  DidSkillParamsSchema,
+  LitellmKeyStatusSchema,
   ListAgentsQuerySchema,
+  PutLiteLlmKeyBodySchema,
+  SafeLlmConfigSchema,
   SearchAgentsQuerySchema,
+  SendTaskBodySchema,
+  SendTaskResponseSchema,
+  SetLocationBodySchema,
+  SetLlmConfigBodySchema,
   TokenUsageQuerySchema,
   UpdateAgentBodySchema,
   UpdateAgentResponseSchema,
-  SendTaskBodySchema,
-  SendTaskResponseSchema,
-  CreateScheduleBodySchema,
-  CreateScheduleResponseSchema,
   UpdateSkillBodySchema,
   UpdateSkillOverrideBodySchema,
-  CreatePeerBodySchema,
-  SetLocationBodySchema,
-  SetLlmConfigBodySchema,
-  PutLiteLlmKeyBodySchema,
-  AgentSummarySchema,
 } from "./agents.schemas";
-import { AgentSummary } from "./agents.types";
+import type { AgentSummary } from "./agents.types";
 
 export const agentsContract = c.router({
+  // ─── Agent CRUD ─────────────────────────────────────────────────────────────
+
   getAgent: {
     method: "GET",
     path: "/api/agents/:did",
@@ -58,12 +66,14 @@ export const agentsContract = c.router({
     },
   },
 
+  // ─── List / Search ───────────────────────────────────────────────────────────
+
   list: {
     method: "GET",
     path: "/api/agents",
     query: ListAgentsQuerySchema,
     responses: {
-      200: commonPaginatedResponseSchema(AgentSummarySchema),
+      200: commonPaginatedResponseSchema(AgentListItemSchema).extend({ online: z.number() }),
       ...commonErrorResponses,
     },
   },
@@ -77,6 +87,8 @@ export const agentsContract = c.router({
       ...commonErrorResponses,
     },
   },
+
+  // ─── Task / Schedule ─────────────────────────────────────────────────────────
 
   sendTask: {
     method: "POST",
@@ -104,11 +116,14 @@ export const agentsContract = c.router({
     method: "DELETE",
     path: "/api/agents/:did/schedules/:id",
     pathParams: DidScheduleParamsSchema,
+    body: c.noBody(),
     responses: {
       200: c.type<{ agentId: string; scheduleId: string }>(),
       ...commonErrorResponses,
     },
   },
+
+  // ─── Token usage ─────────────────────────────────────────────────────────────
 
   tokenUsage: {
     method: "GET",
@@ -117,6 +132,29 @@ export const agentsContract = c.router({
     query: TokenUsageQuerySchema,
     responses: {
       200: c.type<any>(),
+      ...commonErrorResponses,
+    },
+  },
+
+  // ─── Skills ──────────────────────────────────────────────────────────────────
+
+  getSkills: {
+    method: "GET",
+    path: "/api/agents/:did/skills",
+    pathParams: DidParamsSchema,
+    responses: {
+      200: c.type<{ skills: any[] }>(),
+      ...commonErrorResponses,
+    },
+  },
+
+  updateSkillOverride: {
+    method: "PATCH",
+    path: "/api/agents/:did/skills",
+    pathParams: DidParamsSchema,
+    body: UpdateSkillOverrideBodySchema,
+    responses: {
+      200: c.type<{ skills: any[] }>(),
       ...commonErrorResponses,
     },
   },
@@ -132,11 +170,12 @@ export const agentsContract = c.router({
     },
   },
 
-  updateSkillOverride: {
-    method: "PATCH",
-    path: "/api/agents/:did/skills",
+  // ─── Peers ───────────────────────────────────────────────────────────────────
+
+  listPeers: {
+    method: "GET",
+    path: "/api/agents/:did/peers",
     pathParams: DidParamsSchema,
-    body: UpdateSkillOverrideBodySchema,
     responses: {
       200: c.type<any>(),
       ...commonErrorResponses,
@@ -154,6 +193,29 @@ export const agentsContract = c.router({
     },
   },
 
+  getPeer: {
+    method: "GET",
+    path: "/api/agents/:did/peers/:grantId",
+    pathParams: DidPeerParamsSchema,
+    responses: {
+      200: c.type<any>(),
+      ...commonErrorResponses,
+    },
+  },
+
+  deletePeer: {
+    method: "DELETE",
+    path: "/api/agents/:did/peers/:grantId",
+    pathParams: DidPeerParamsSchema,
+    body: c.noBody(),
+    responses: {
+      200: c.type<any>(),
+      ...commonErrorResponses,
+    },
+  },
+
+  // ─── Location ────────────────────────────────────────────────────────────────
+
   setLocation: {
     method: "PATCH",
     path: "/api/agents/:did/location",
@@ -165,24 +227,104 @@ export const agentsContract = c.router({
     },
   },
 
+  // ─── LLM config ──────────────────────────────────────────────────────────────
+
+  getLlmConfig: {
+    method: "GET",
+    path: "/api/agents/:did/llm-config",
+    pathParams: DidParamsSchema,
+    responses: {
+      200: c.type<{ config: any | null }>(),
+      ...commonErrorResponses,
+    },
+  },
+
   setLlmConfig: {
     method: "PUT",
     path: "/api/agents/:did/llm-config",
     pathParams: DidParamsSchema,
     body: SetLlmConfigBodySchema,
     responses: {
-      200: c.type<any>(),
+      200: c.type<{ pushed: boolean; config: any }>(),
       ...commonErrorResponses,
     },
   },
 
-  putLiteLlmKey: {
+  deleteLlmConfig: {
+    method: "DELETE",
+    path: "/api/agents/:did/llm-config",
+    pathParams: DidParamsSchema,
+    body: c.noBody(),
+    responses: {
+      200: c.type<{ pushed: boolean }>(),
+      ...commonErrorResponses,
+    },
+  },
+
+  // ─── LiteLLM key ─────────────────────────────────────────────────────────────
+
+  getLitellmKey: {
+    method: "GET",
+    path: "/api/agents/:did/litellm-key",
+    pathParams: DidParamsSchema,
+    responses: {
+      200: LitellmKeyStatusSchema,
+      ...commonErrorResponses,
+    },
+  },
+
+  putLitellmKey: {
     method: "PUT",
     path: "/api/agents/:did/litellm-key",
     pathParams: DidParamsSchema,
     body: PutLiteLlmKeyBodySchema,
     responses: {
+      200: c.type<{ ok: boolean; keyPrefix: string; allowedModels: string[]; dailyBudget: number | null }>(),
+      ...commonErrorResponses,
+    },
+  },
+
+  deleteLitellmKey: {
+    method: "DELETE",
+    path: "/api/agents/:did/litellm-key",
+    pathParams: DidParamsSchema,
+    body: c.noBody(),
+    responses: {
+      200: c.type<{ ok: boolean }>(),
+      ...commonErrorResponses,
+    },
+  },
+
+  // ─── Realm LLM ───────────────────────────────────────────────────────────────
+
+  getRealmLlm: {
+    method: "GET",
+    path: "/api/agents/:did/realm-llm",
+    pathParams: DidParamsSchema,
+    responses: {
       200: c.type<any>(),
+      ...commonErrorResponses,
+    },
+  },
+
+  // ─── Chat sessions ───────────────────────────────────────────────────────────
+
+  getChatSessions: {
+    method: "GET",
+    path: "/api/agents/:did/chat-sessions",
+    pathParams: DidParamsSchema,
+    responses: {
+      200: c.type<{ sessions: any[] }>(),
+      ...commonErrorResponses,
+    },
+  },
+
+  getSessionMessages: {
+    method: "GET",
+    path: "/api/agents/:did/chat-sessions/:sessionId",
+    pathParams: DidSessionParamsSchema,
+    responses: {
+      200: c.type<{ messages: any[] }>(),
       ...commonErrorResponses,
     },
   },

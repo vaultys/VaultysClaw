@@ -56,6 +56,11 @@ export class AgentDAO {
     pageSize?: number;
     sortBy?: "name" | "lastSeen" | "registeredAt";
     sortDir?: "asc" | "desc";
+    /** When set, only return agents that belong to at least one of these realm IDs. */
+    realmIds?: Set<string>;
+    /** When set, filter by online status using connected agent DIDs from the WS server. */
+    onlineFilter?: boolean;
+    onlineDids?: Set<string>;
   }): Promise<{
     agents: AgentWithRealms[];
     total: number;
@@ -71,6 +76,9 @@ export class AgentDAO {
       pageSize = 20,
       sortBy = "lastSeen",
       sortDir = "desc",
+      realmIds,
+      onlineFilter,
+      onlineDids,
     } = opts;
 
     const where: Prisma.AgentWhereInput = {};
@@ -79,21 +87,39 @@ export class AgentDAO {
       where.name = { contains: search, mode: "insensitive" };
     }
 
+    // Explicit realm slug/id filter from the query string
     if (realm) {
       where.agentRealms = {
-        some: {
-          
-          realm: { OR: [{ id: realm }, { slug: realm }] },
-        },
+        some: { realm: { OR: [{ id: realm }, { slug: realm }] } },
       };
     }
 
-    if(capabilities && capabilities.length > 0) {
-      where.capabilities = {
-        hasSome: capabilities,
-      };
+    // Authorization: restrict to agents the current user can see
+    if (realmIds && realmIds.size > 0) {
+      const realmFilter = { some: { realmId: { in: Array.from(realmIds) } } };
+      where.agentRealms = where.agentRealms
+        ? { ...where.agentRealms, ...realmFilter }
+        : realmFilter;
     }
-   
+
+    if (capabilities && capabilities.length > 0) {
+      where.capabilities = { hasSome: capabilities };
+    }
+
+    // Online filter is evaluated against live WS state passed from the route
+    if (onlineFilter !== undefined && onlineDids !== undefined) {
+      const dids = Array.from(onlineDids);
+      where.did = onlineFilter ? { in: dids } : { notIn: dids };
+    }
+
+    const realmInclude = {
+      include: {
+        realm: {
+          select: { id: true, name: true, slug: true, color: true, isDefault: true },
+        },
+      },
+    } as const;
+
     const [total, agents] = await Promise.all([
       prisma.agent.count({ where }),
       prisma.agent.findMany({
@@ -101,14 +127,12 @@ export class AgentDAO {
         orderBy: { [sortBy]: sortDir },
         skip: (page - 1) * pageSize,
         take: pageSize,
-        include: {
-          agentRealms: true,
-        }
+        include: { agentRealms: realmInclude },
       }),
     ]);
 
     return {
-      agents,
+      agents: agents as AgentWithRealms[],
       total,
       page,
       pageSize,

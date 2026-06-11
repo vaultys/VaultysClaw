@@ -4,9 +4,19 @@ export type AgentWithRealms = Prisma.AgentGetPayload<{
   include: {
     agentRealms: {
       include: {
-        realm: true;
+        realm: {
+          select: {
+            id: true;
+            name: true;
+            slug: true;
+            color: true;
+            isDefault: true;
+          };
+        };
       };
     };
   };
 }>;
+
+export type AgentModelWithRealms = AgentWithRealms;
 

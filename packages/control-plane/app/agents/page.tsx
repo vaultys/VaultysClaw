@@ -28,8 +28,8 @@ import {
 import { useState, useEffect, useCallback, useRef } from "react";
 import dynamic from "next/dynamic";
 import type { MapMarker } from "@/components/map/WorldMap";
-import { apiClient } from "@/lib/api/ts-rest/client";
-import { ListAgentsQuery } from "@/lib/contracts/agents/agents.types";
+import { apiClient, unwrap } from "@/lib/api/ts-rest/client";
+import type { AgentListItem, ListAgentsQuery } from "@/lib/contracts/agents/agents.types";
 
 const WorldMap = dynamic(
   () => import("@/components/map/WorldMap").then((m) => m.WorldMap),
@@ -72,36 +72,6 @@ function timeAgo(iso: string | null): string {
   return `${Math.floor(hours / 24)}d ago`;
 }
 
-interface AgentItem {
-  id: string;
-  name: string;
-  capabilities: string[];
-  registeredAt: string;
-  lastSeen: string;
-  online: boolean;
-  connectedAt: string | null;
-  lastHeartbeat: string | null;
-  realms?: {
-    id: string;
-    name: string;
-    slug: string;
-    color: string;
-    isPrimary: boolean;
-  }[];
-  reportedLlm?: { provider: string; model: string } | null;
-  tokenUsage?: { promptTokens: number; completionTokens: number } | null;
-  transport?: "ws" | "peerjs" | null;
-}
-
-interface ApiResponse {
-  agents: AgentItem[];
-  total: number;
-  page: number;
-  pageSize: number;
-  totalPages: number;
-  online: number;
-}
-
 const PAGE_SIZE = 20;
 
 export default function AgentsPage() {
@@ -115,7 +85,7 @@ export default function AgentsPage() {
   const [mapMarkers, setMapMarkers] = useState<MapMarker[]>([]);
   const [mapLoading, setMapLoading] = useState(false);
 
-  const [agents, setAgents] = useState<AgentItem[]>([]);
+  const [agents, setAgents] = useState<AgentListItem[]>([]);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [onlineCount, setOnlineCount] = useState(0);
@@ -142,18 +112,15 @@ export default function AgentsPage() {
     async (query: ListAgentsQuery) => {
       setLoading(true);
       try {
-        const res = await apiClient.agents.list({
-          query
-        })
-        if (!res.ok) return;
-        const data = (await res.json()) as ApiResponse;
-        setAgents(data.agents);
+        const data = await unwrap(await apiClient.agents.list({ query }));
+        setAgents(data.items);
         setTotal(data.total);
         setTotalPages(data.totalPages);
         setOnlineCount(data.online);
+      } catch {
+        // ignore fetch errors
       } finally {
         setLoading(false);
-
       }
     },
     []
@@ -183,8 +150,8 @@ export default function AgentsPage() {
       () => {
         fetchAgents({
           q,
-          online: onlineFilter,
-          capabilities: selectedCapabilities,
+          online: onlineFilter || undefined,
+          capabilities: selectedCapabilities.length > 0 ? selectedCapabilities.join(",") : undefined,
           page,
           sortBy,
           sortDir,
@@ -206,8 +173,8 @@ export default function AgentsPage() {
   useEffect(() => {
     fetchAgents({
       q,
-      online: onlineFilter,
-      capabilities: selectedCapabilities,
+      online: onlineFilter || undefined,
+      capabilities: selectedCapabilities.length > 0 ? selectedCapabilities.join(",") : undefined,
       page,
       sortBy,
       sortDir,

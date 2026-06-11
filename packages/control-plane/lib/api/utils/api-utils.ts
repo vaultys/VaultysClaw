@@ -65,3 +65,26 @@ export function unprocessableEntity(error?: unknown): NextResponse {
     { status: 422 }
   );
 }
+
+export enum HttpCodes {
+  FORBIDDEN = 403,
+  UNAUTHORIZED = 401,
+  NOT_FOUND = 404,
+  MALFORMED = 400,
+  NO_CONTENT = 204,
+  UNAVAILABLE = 503,
+  CONFLICT = 409,
+  CONTENT_TOO_LARGE = 413,
+  UNPROCESSABLE_ENTITY = 422,
+}
+
+export type HttpCode = keyof typeof HttpCodes;
+export class APIException extends Error {
+  code: HttpCode;
+  message: string;
+  constructor(code: HttpCode, message?: string) {
+    super(message);
+    this.code = code;
+    this.message = message || HttpCodes[code].toString();
+  }
+}

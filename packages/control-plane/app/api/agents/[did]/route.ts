@@ -1,24 +1,17 @@
-import { NextRequest, NextResponse } from "next/server";
 import { Challenger, VaultysId, crypto } from "@vaultys/id";
 import { getWSServer } from "@/lib/ws-server";
 import { getAuthContext } from "@/lib/auth-utils";
-import {
-  unauthorized,
-  forbidden,
-  notFound,
-  malformed,
-  unavailable,
-  successNoContent,
-} from "@/lib/api/utils/api-utils";
 import { AgentDAO } from "@/db";
-import { withError } from "@/lib/api/handlers/with-error";
+import type { AgentCapability } from "@vaultysclaw/shared";
+import { agentDetailContract } from "@/lib/contracts";
+import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 
 const Buffer = crypto.Buffer;
 
 /**
- * Extract displayable VaultysId info from a public key buffer
+ * Extract displayable VaultysId info from a public key buffer.
  */
-function vaultysIdInfo(pk: unknown) {
+function vaultysIdInfo(pk: unknown): Record<string, unknown> | null {
   if (!pk) return null;
   try {
     const vid = VaultysId.fromId(pk as Buffer).toVersion(1);
@@ -40,105 +33,42 @@ function vaultysIdInfo(pk: unknown) {
 }
 
 /**
- * GET /api/agents/[did]
- * Get detailed info for a single agent by DID. Requires auth and realm membership.
+ * Routes for /api/agents/:did, implemented against `agentDetailContract`.
+ *
+ * The contract (lib/contracts/agents.contract.ts) is the single source of
+ * truth for request/response shapes; `createNextRoute` validates inputs and
+ * type-checks every `{ status, body }` returned below against it. The matching
+ * OpenAPI/Swagger doc can be generated from the same contract.
  */
-/**
- * @openapi
- * //api/agents/{did}:
- *   get:
- *     summary: Get detailed info for a single agent by DID.
- *     tags: [Agents]
- *     parameters:
- *       - name: did
- *         in: path
- *         required: true
- *         description: The DID of the agent.
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: Detailed information about the agent.
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 id:
- *                   type: string
- *                 name:
- *                   type: string
- *                 capabilities:
- *                   type: array
- *                   items:
- *                     type: string
- *                 publicKey:
- *                   type: string
- *                 certificateInfo:
- *                   type: object
- *                 agentVaultysId:
- *                   type: object
- *                 registeredAt:
- *                   type: string
- *                   format: date-time
- *                 lastSeen:
- *                   type: string
- *                   format: date-time
- *                 online:
- *                   type: boolean
- *                 connectedAt:
- *                   type: string
- *                   format: date-time
- *                 lastHeartbeat:
- *                   type: string
- *                   format: date-time
- *                 reportedLlm:
- *                   type: string
- *                 transport:
- *                   type: string
- *                 storedLlm:
- *                   type: object
- *                 tokenUsage:
- *                   type: object
- *                 tokenBudgetDaily:
- *                   type: integer
- *                 tokenBudgetMonthly:
- *                   type: integer
- *                 todayTokens:
- *                   type: integer
- *                 monthTokens:
- *                   type: integer
- *       401:
- *         $ref: '#/components/responses/Unauthorized'
- *       403:
- *         $ref: '#/components/responses/Forbidden'
- *       404:
- *         $ref: '#/components/responses/NotFound'
- *       500:
- *         description: Failed to fetch agent.
- */
-export const GET = withError(
-  async (
-    _request: NextRequest,
-    { params }: { params: Promise<{ did: string }> }
-  ) => {
-    const auth = await getAuthContext(_request);
-    if (!auth) return unauthorized();
+const handlers = createNextRoute(agentDetailContract, {
+  // ── GET /api/agents/:did ────────────────────────────────────────────────
+  getAgent: async ({ params, request }) => {
+    const auth = await getAuthContext(request);
+    if (!auth) {
+      return {
+        status: 401,
+        body: { error: "Not authenticated", code: "UNAUTHORIZED" },
+      };
+    }
 
-    const { did: rawDid } = await params;
-    const did = decodeURIComponent(rawDid);
+    const { did } = params;
 
     const agent = await AgentDAO.findByDid(did);
     if (!agent) {
-      return notFound("Agent not found");
+      return {
+        status: 404,
+        body: { error: "Agent not found", code: "NOT_FOUND" },
+      };
     }
 
-    if (!(await auth.canAccessAgent(did))) return forbidden();
+    if (!(await auth.canAccessAgent(did))) {
+      return { status: 403, body: { error: "Forbidden", code: "FORBIDDEN" } };
+    }
 
     const wsServer = getWSServer();
     const connected = wsServer?.getAgent(did);
 
-    // Deserialize certificate data
+    // Deserialize certificate data.
     let certificateInfo: Record<string, unknown> | null = null;
     let agentVaultysId: Record<string, unknown> | null = null;
 
@@ -173,7 +103,7 @@ export const GET = withError(
       }
     }
 
-    // Today's and this month's token usage from history
+    // Today's and this month's token usage from history.
     const todayBucket = new Date().toISOString().slice(0, 10);
     const monthBucket = new Date().toISOString().slice(0, 7);
     const { todayTokens, monthTokens } = await AgentDAO.getTokenBuckets(
@@ -182,221 +112,163 @@ export const GET = withError(
       monthBucket
     );
 
-    return NextResponse.json({
-      id: agent.did,
-      name: connected?.name ?? agent.name,
-      capabilities: agent.capabilities,
-      publicKey: agent.publicKey,
-      certificateInfo,
-      agentVaultysId,
-      registeredAt: agent.registeredAt,
-      lastSeen: agent.lastSeen,
-      online: !!connected,
-      connectedAt: connected?.connectedAt?.toISOString() ?? null,
-      lastHeartbeat: connected?.lastHeartbeat?.toISOString() ?? null,
-      reportedLlm: connected?.reportedLlm ?? null,
-      transport: connected?.transport ?? null,
-      storedLlm: (() => {
-        try {
-          const cfg = agent.llmConfig ? agent.llmConfig : null;
-          return cfg && typeof cfg === "object" && !Array.isArray(cfg)
-            ? {
-                provider: String(cfg.provider ?? ""),
-                model: String(cfg.model ?? ""),
-              }
-            : null;
-        } catch {
-          return null;
+    const cfg = agent.llmConfig;
+    const storedLlm =
+      cfg && typeof cfg === "object" && !Array.isArray(cfg)
+        ? {
+            provider: String((cfg as Record<string, unknown>).provider ?? ""),
+            model: String((cfg as Record<string, unknown>).model ?? ""),
+          }
+        : null;
+
+    const transport = connected?.transport;
+
+    // The WS server reports prompt/completion only; derive the total so the
+    // response satisfies the contract's TokenUsageSchema.
+    const liveUsage = connected?.tokenUsage ?? null;
+    const tokenUsage = liveUsage
+      ? {
+          promptTokens: liveUsage.promptTokens,
+          completionTokens: liveUsage.completionTokens,
+          totalTokens: ("totalTokens" in liveUsage &&
+          typeof liveUsage.totalTokens === "number"
+            ? liveUsage.totalTokens
+            : liveUsage.promptTokens + liveUsage.completionTokens) as number,
         }
-      })(),
-      tokenUsage: connected?.tokenUsage ?? null,
-      tokenBudgetDaily: agent.tokenBudgetDaily ?? null,
-      tokenBudgetMonthly: agent.tokenBudgetMonthly ?? null,
-      todayTokens,
-      monthTokens,
-      locationLat: agent.locationLat ?? null,
-      locationLon: agent.locationLon ?? null,
-      locationLabel: agent.locationLabel ?? null,
-    });
-  }
-);
+      : null;
 
-/**
- * PATCH /api/agents/[did]
- * Update an agent's capabilities. Global admin only.
- */
-/**
- * @openapi
- * //api/agents/{did}:
- *   patch:
- *     summary: Update an agent's capabilities.
- *     tags: [Agents]
- *     parameters:
- *       - name: did
- *         in: path
- *         required: true
- *         description: The DID of the agent to update.
- *         schema:
- *           type: string
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               capabilities:
- *                 type: array
- *                 items:
- *                   type: string
- *               tokenBudgetDaily:
- *                 type: number
- *                 nullable: true
- *               tokenBudgetMonthly:
- *                 type: number
- *                 nullable: true
- *     responses:
- *       200:
- *         description: Agent capabilities updated successfully.
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 capabilities:
- *                   type: array
- *                   items:
- *                     type: string
- *       400:
- *         $ref: '#/components/responses/BadRequest'
- *       401:
- *         $ref: '#/components/responses/Unauthorized'
- *       403:
- *         $ref: '#/components/responses/Forbidden'
- *       404:
- *         $ref: '#/components/responses/NotFound'
- *       500:
- *         description: Failed to update capabilities.
- */
-export const PATCH = withError(
-  async (
-    request: NextRequest,
-    { params }: { params: Promise<{ did: string }> }
-  ) => {
+    return {
+      status: 200,
+      body: {
+        id: agent.did,
+        name: connected?.name ?? agent.name,
+        capabilities: Array.isArray(agent.capabilities)
+          ? (agent.capabilities as string[])
+          : [],
+        publicKey: agent.publicKey ?? null,
+        certificateInfo,
+        agentVaultysId,
+        registeredAt: agent.registeredAt.toISOString(),
+        lastSeen: agent.lastSeen.toISOString(),
+        online: !!connected,
+        connectedAt: connected?.connectedAt?.toISOString() ?? null,
+        lastHeartbeat: connected?.lastHeartbeat?.toISOString() ?? null,
+        reportedLlm: connected?.reportedLlm ?? null,
+        transport:
+          transport === "ws" || transport === "peerjs" ? transport : null,
+        storedLlm,
+        tokenUsage,
+        tokenBudgetDaily: agent.tokenBudgetDaily ?? null,
+        tokenBudgetMonthly: agent.tokenBudgetMonthly ?? null,
+        todayTokens,
+        monthTokens,
+        locationLat: agent.locationLat ?? null,
+        locationLon: agent.locationLon ?? null,
+        locationLabel: agent.locationLabel ?? null,
+      },
+    };
+  },
+
+  // ── PATCH /api/agents/:did ──────────────────────────────────────────────
+  updateAgent: async ({ params, body, request }) => {
     const auth = await getAuthContext(request);
-    if (!auth) return unauthorized();
-    if (!auth.isGlobalAdmin) return forbidden();
+    if (!auth) {
+      return {
+        status: 401,
+        body: { error: "Not authenticated", code: "UNAUTHORIZED" },
+      };
+    }
+    if (!auth.isGlobalAdmin) {
+      return { status: 403, body: { error: "Forbidden", code: "FORBIDDEN" } };
+    }
 
-    const { did: rawDid } = await params;
-    const did = decodeURIComponent(rawDid);
-
-    const body = await request.json();
+    const { did } = params;
     const { capabilities, tokenBudgetDaily, tokenBudgetMonthly } = body;
 
     if (capabilities !== undefined) {
-      if (!Array.isArray(capabilities)) {
-        return malformed("capabilities must be an array of strings");
-      }
-
       const wsServer = getWSServer();
       if (!wsServer) {
-        return unavailable("WebSocket server not available");
+        return {
+          status: 503,
+          body: {
+            error: "WebSocket server not available",
+            code: "UNAVAILABLE",
+          },
+        };
       }
 
-      const updated = wsServer.updateAgentCapabilities(did, capabilities);
+      const updated = wsServer.updateAgentCapabilities(
+        did,
+        capabilities as AgentCapability[]
+      );
       if (!updated) {
-        return notFound("Agent not found");
+        return {
+          status: 404,
+          body: { error: "Agent not found", code: "NOT_FOUND" },
+        };
       }
     }
 
     if (tokenBudgetDaily !== undefined || tokenBudgetMonthly !== undefined) {
       const agent = await AgentDAO.findByDid(did);
       if (!agent) {
-        return notFound("Agent not found");
+        return {
+          status: 404,
+          body: { error: "Agent not found", code: "NOT_FOUND" },
+        };
       }
       await AgentDAO.updateBudget(did, {
-        tokenBudgetDaily:
-          tokenBudgetDaily === null
-            ? null
-            : typeof tokenBudgetDaily === "number"
-              ? tokenBudgetDaily
-              : undefined,
-        tokenBudgetMonthly:
-          tokenBudgetMonthly === null
-            ? null
-            : typeof tokenBudgetMonthly === "number"
-              ? tokenBudgetMonthly
-              : undefined,
+        ...(tokenBudgetDaily !== undefined ? { tokenBudgetDaily } : {}),
+        ...(tokenBudgetMonthly !== undefined ? { tokenBudgetMonthly } : {}),
       });
     }
 
     const updated = await AgentDAO.findByDid(did);
-    return NextResponse.json({
-      capabilities: updated ? updated.capabilities : undefined,
-    });
-  }
-);
+    return {
+      status: 200,
+      body: {
+        capabilities: updated
+          ? Array.isArray(updated.capabilities)
+            ? (updated.capabilities as string[])
+            : []
+          : null,
+      },
+    };
+  },
 
-/**
- * DELETE /api/agents/[did]
- * Delete an agent. Global admin only.
- */
-/**
- * @openapi
- * //api/agents/{did}:
- *   delete:
- *     summary: Delete an agent.
- *     tags: [Agents]
- *     parameters:
- *       - name: did
- *         in: path
- *         required: true
- *         description: The DID of the agent to delete.
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: Agent successfully deleted.
- *       401:
- *         $ref: '#/components/responses/Unauthorized'
- *       403:
- *         $ref: '#/components/responses/Forbidden'
- *       404:
- *         $ref: '#/components/responses/NotFound'
- *       500:
- *         description: Failed to delete agent.
- */
-export const DELETE = withError(
-  async (
-    _request: NextRequest,
-    { params }: { params: Promise<{ did: string }> }
-  ) => {
-    const auth = await getAuthContext(_request);
-    if (!auth) return unauthorized();
-    if (!auth.isGlobalAdmin) return forbidden();
+  // ── DELETE /api/agents/:did ─────────────────────────────────────────────
+  deleteAgent: async ({ params, request }) => {
+    const auth = await getAuthContext(request);
+    if (!auth) {
+      return {
+        status: 401,
+        body: { error: "Not authenticated", code: "UNAUTHORIZED" },
+      };
+    }
+    if (!auth.isGlobalAdmin) {
+      return { status: 403, body: { error: "Forbidden", code: "FORBIDDEN" } };
+    }
 
-    const { did: rawDid } = await params;
-    const did = decodeURIComponent(rawDid);
+    const { did } = params;
 
     const agent = await AgentDAO.findByDid(did);
     if (!agent) {
-      return notFound("Agent not found");
+      return {
+        status: 404,
+        body: { error: "Agent not found", code: "NOT_FOUND" },
+      };
     }
 
-    // Disconnect agent from WebSocket server
-    const wsServer = getWSServer();
-    if (wsServer) {
-      wsServer.disconnectAgent(did);
-    }
+    // Disconnect agent from WebSocket server first.
+    getWSServer()?.disconnectAgent(did);
 
-    try {
-      await AgentDAO.delete(did);
-      console.log("Successfully deleted agent:", did);
-    } catch (deleteError) {
-      console.error("Error in deleteAgent:", deleteError);
-      throw deleteError;
-    }
+    await AgentDAO.delete(did);
+    console.log("Successfully deleted agent:", did);
 
-    return successNoContent();
-  }
-);
+    return { status: 204, body: undefined };
+  },
+});
+
+export const GET = handlers.GET!;
+export const PATCH = handlers.PATCH!;
+export const DELETE = handlers.DELETE!;

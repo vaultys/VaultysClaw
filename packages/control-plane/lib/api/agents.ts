@@ -11,6 +11,11 @@ import {
   AgentTask,
   TokenUsageQuery,
 } from "@/types/api/requests";
+import { agentContractClient, unwrap } from "./ts-rest/client";
+import type {
+  AgentDetail,
+  UpdateAgentBody,
+} from "@/lib/contracts";
 
 export interface Agent extends AgentSummary {
   description?: string;
@@ -45,19 +50,22 @@ export class AgentsApi extends BaseApi {
     return this.get<{ agents: Agent[] }>(`/api/agents/search?${query}`);
   }
 
-  getOne(did: string) {
-    return this.get<Agent>(`/api/agents/${did}`);
+  // ── Contract-backed methods (lib/contracts/agents.contract.ts) ──────────
+  // Argument and return types below are inferred from the ts-rest contract the
+  // server implements, so they cannot drift from the actual API.
+
+  async getOne(did: string): Promise<AgentDetail> {
+    return unwrap(await agentContractClient.getAgent({ params: { did } }));
   }
 
-  update(
-    did: string,
-    data: Partial<Pick<Agent, "name" | "description" | "metadata">>
-  ) {
-    return this.patch<Agent>(`/api/agents/${did}`, data);
+  async update(did: string, data: UpdateAgentBody) {
+    return unwrap(
+      await agentContractClient.updateAgent({ params: { did }, body: data })
+    );
   }
 
-  remove(did: string) {
-    return this.delete<void>(`/api/agents/${did}`);
+  async remove(did: string): Promise<void> {
+    unwrap(await agentContractClient.deleteAgent({ params: { did } }));
   }
 
   // LLM config

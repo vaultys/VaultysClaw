@@ -26,6 +26,7 @@
     "@prisma/client": "^7.8.0",
     "@roamhq/wrtc": "^0.10.0",
     "@tailwindcss/typography": "^0.5.19",
+    "@ts-rest/core": "^3.52.1",
     "@types/react-syntax-highlighter": "^15.5.13",
     "@types/swagger-jsdoc": "^6.0.4",
     "@types/swagger-ui-react": "^5.18.0",
@@ -62,6 +63,7 @@
     "tailwindcss": "^3.4.19",
     "three": "^0.184.0",
     "ws": "^8.20.1",
+    "zod": "^3.25.76",
     "zustand": "^4.5.7"
   },
   "devDependencies": {

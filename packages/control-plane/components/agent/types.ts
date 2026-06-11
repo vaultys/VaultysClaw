@@ -1,31 +1,7 @@
-export interface AgentDetail {
-  id: string;
-  name: string;
-  capabilities: string[];
-  publicKey: string | null;
-  certificateInfo: Record<string, unknown> | null;
-  agentVaultysId: Record<string, unknown> | null;
-  registeredAt: string;
-  lastSeen: string;
-  online: boolean;
-  connectedAt: string | null;
-  lastHeartbeat: string | null;
-  reportedLlm: { provider: string; model: string } | null;
-  storedLlm: { provider: string; model: string } | null;
-  transport?: "ws" | "peerjs" | null;
-  tokenUsage: {
-    promptTokens: number;
-    completionTokens: number;
-    totalTokens: number;
-  } | null;
-  tokenBudgetDaily: number | null;
-  tokenBudgetMonthly: number | null;
-  todayTokens: number;
-  monthTokens: number;
-  locationLat: number | null;
-  locationLon: number | null;
-  locationLabel: string | null;
-}
+// `AgentDetail` is derived from the ts-rest contract (the same schema the
+// `GET /api/agents/:did` route validates against), keeping the UI type in lock
+// step with the API response.
+export type { AgentDetail } from "@/lib/contracts";
 
 export interface PolicyEntry {
   id: string;

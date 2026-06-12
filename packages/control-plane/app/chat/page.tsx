@@ -9,7 +9,6 @@ import {
   Trash2,
   Loader2,
   WifiOff,
-  Settings,
   CheckCircle2,
   XCircle,
 } from "lucide-react";
@@ -218,8 +217,8 @@ export default function ChatPage() {
         >
           <option value="">Select an agent…</option>
           {onlineAgents.map((a) => (
-            <option key={a.id} value={a.id}>
-              {a.name} ({shortDid(a.id)})
+            <option key={a.did} value={a.did}>
+              {a.name} ({shortDid(a.did)})
             </option>
           ))}
         </select>

@@ -577,7 +577,7 @@ export function OverviewTab({
 
       {/* ── Location ── */}
       <AgentLocationRow
-        did={agent.id}
+        did={agent.did}
         lat={agent.locationLat}
         lon={agent.locationLon}
         label={agent.locationLabel}

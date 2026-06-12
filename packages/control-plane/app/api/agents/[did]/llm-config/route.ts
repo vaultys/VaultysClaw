@@ -4,7 +4,6 @@ import { getWSServer } from "@/lib/ws-server";
 import { getLiteLLMBaseUrl } from "@/lib/litellm-client";
 import type { LlmConfig, LlmProviderType } from "@vaultysclaw/shared";
 import { AgentDAO, ModelDAO, RealmDAO } from "@/db";
-import type { SafeLlmConfig } from "@/types";
 import { agentsContract } from "@/lib/contracts";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 
@@ -31,7 +30,10 @@ function validateConfig(
   if (body.baseUrl !== undefined && typeof body.baseUrl !== "string") {
     return { error: "baseUrl must be a string" };
   }
-  if (body.systemPrompt !== undefined && typeof body.systemPrompt !== "string") {
+  if (
+    body.systemPrompt !== undefined &&
+    typeof body.systemPrompt !== "string"
+  ) {
     return { error: "systemPrompt must be a string" };
   }
   if (
@@ -54,7 +56,9 @@ function validateConfig(
   };
 }
 
-function safeConfig(config: LlmConfig): SafeLlmConfig {
+function safeConfig(
+  config: LlmConfig
+): Omit<LlmConfig, "apiKey"> & { apiKeySet: boolean } {
   const { apiKey, ...rest } = config;
   return { ...rest, apiKeySet: Boolean(apiKey) };
 }
@@ -93,11 +97,17 @@ const handlers = createNextRoute(agentsContract, {
     ) {
       const routerKey = await RealmDAO.getRouterKey(body.realmId as string);
       if (!routerKey?.litellmVirtualKey)
-        throw new APIException("MALFORMED", "Realm has no LiteLLM virtual key configured");
+        throw new APIException(
+          "MALFORMED",
+          "Realm has no LiteLLM virtual key configured"
+        );
       const realmModels = await ModelDAO.findByRealm(body.realmId as string);
       const model = realmModels.find((m) => m.id === body.realmModelId);
       if (!model?.litellmModelName)
-        throw new APIException("NOT_FOUND", "Model not found in realm or not registered with LiteLLM");
+        throw new APIException(
+          "NOT_FOUND",
+          "Model not found in realm or not registered with LiteLLM"
+        );
       const config: LlmConfig = {
         provider: "openai-compatible",
         baseUrl: getLiteLLMBaseUrl(),
@@ -105,14 +115,17 @@ const handlers = createNextRoute(agentsContract, {
         model: model.litellmModelName,
       };
       await AgentDAO.setLlmConfig(did, config);
-      const pushed = getWSServer() ? await getWSServer()!.sendLlmConfig(did, config) : false;
+      const pushed = getWSServer()
+        ? await getWSServer()!.sendLlmConfig(did, config)
+        : false;
       return { status: 200, body: { pushed, config: safeConfig(config) } };
     }
 
     // Registry model shortcut
     if (typeof body.registryModelId === "string") {
       const entry = await ModelDAO.findById(body.registryModelId as string);
-      if (!entry) throw new APIException("NOT_FOUND", "Registry model not found");
+      if (!entry)
+        throw new APIException("NOT_FOUND", "Registry model not found");
       const config: LlmConfig = {
         provider: VALID_PROVIDERS.includes(entry.provider as LlmProviderType)
           ? (entry.provider as LlmProviderType)
@@ -122,7 +135,9 @@ const handlers = createNextRoute(agentsContract, {
         apiKey: entry.apiKeyEnc ?? undefined,
       };
       await AgentDAO.setLlmConfig(did, config);
-      const pushed = getWSServer() ? await getWSServer()!.sendLlmConfig(did, config) : false;
+      const pushed = getWSServer()
+        ? await getWSServer()!.sendLlmConfig(did, config)
+        : false;
       return { status: 200, body: { pushed, config: safeConfig(config) } };
     }
 

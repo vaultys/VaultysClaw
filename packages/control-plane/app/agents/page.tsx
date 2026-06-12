@@ -29,7 +29,7 @@ import dynamic from "next/dynamic";
 import type { MapMarker } from "@/components/map/WorldMap";
 import { apiClient, unwrap } from "@/lib/api/ts-rest/client";
 import { AgentInfo, ListAgentsQuery } from "@/lib/contracts";
-import { timeAgo } from "@vaultysclaw/shared";
+import { shortDid, timeAgo } from "@vaultysclaw/shared";
 
 const WorldMap = dynamic(
   () => import("@/components/map/WorldMap").then((m) => m.WorldMap),
@@ -51,10 +51,7 @@ const AVAILABLE_CAPABILITIES = Object.keys(CAPABILITY_ICONS) as Array<
   keyof typeof CAPABILITY_ICONS
 >;
 
-function shortDid(did: string): string {
-  if (did.length <= 24) return did;
-  return `did:…${did.slice(-8)}`;
-}
+
 
 const PAGE_SIZE = 20;
 

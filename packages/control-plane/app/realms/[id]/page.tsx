@@ -38,6 +38,8 @@ import {
   RealmLiteLLMKeyCard,
   type RealmRouterKeyData,
 } from "@/components/realms/RealmLiteLLMKeyCard";
+import { apiClient, unwrap } from "@/lib/api/ts-rest/client";
+import { AgentInfo } from "@/lib/contracts";
 
 const WorldMap = dynamic(
   () => import("@/components/map/WorldMap").then((m) => m.WorldMap),
@@ -158,7 +160,8 @@ function AddMemberModal({
   onClose: () => void;
   onAdded: () => void;
 }) {
-  const [items, setItems] = useState<(FullAgent | FullUser)[]>([]);
+  const [items, setItems] = useState<FullUser[]>([]);
+  const [agents, setAgents] = useState<AgentInfo[]>([]);
   const [selected, setSelected] = useState<string>("");
   const [isPrimary, setIsPrimary] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -166,9 +169,10 @@ function AddMemberModal({
 
   useEffect(() => {
     if (type === "agent") {
-      fetch("/api/agents")
-        .then((r) => r.json())
-        .then((d) => setItems(d.agents ?? []));
+      apiClient.agents
+        .list()
+        .then((r) => unwrap(r))
+        .then((d) => setAgents(d.items));
     } else {
       fetch("/api/users")
         .then((r) => r.json())
@@ -179,8 +183,8 @@ function AddMemberModal({
   // Filter out already-members (agents already have realm array)
   const available =
     type === "agent"
-      ? (items as FullAgent[]).filter(
-          (a) => !a.realms?.some((r) => r.id === realm.id)
+      ? agents.filter(
+          (a) => !a.agentRealms?.some((r) => r.realmId === realm.id)
         )
       : (items as FullUser[]);
 
@@ -228,11 +232,11 @@ function AddMemberModal({
               {available.map((item) => {
                 const id =
                   type === "agent"
-                    ? (item as FullAgent).id
+                    ? (item as AgentInfo).did
                     : (item as FullUser).did;
                 const label =
                   type === "agent"
-                    ? (item as FullAgent).name
+                    ? (item as AgentInfo).name
                     : ((item as FullUser).name ??
                       shortDid((item as FullUser).did));
                 return (

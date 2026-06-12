@@ -15,6 +15,8 @@ import {
 import { QRCodeSVG } from "qrcode.react";
 import { RegisterModelForm } from "@/components/models/RegisterModelForm";
 import { useRole } from "@/hooks/useRole";
+import { apiClient, unwrap } from "@/lib/api/ts-rest/client";
+import { AgentInfo } from "@/lib/contracts";
 
 // ─── LocalStorage helpers ─────────────────────────────────────────────────────
 
@@ -671,24 +673,20 @@ function UsersStep({ onNext }: { onNext: () => void }) {
   );
 }
 
-// ─── Step 4 — Agents ──────────────────────────────────────────────────────────
-
-interface AgentEntry {
-  id: string;
-  name: string;
-  online: boolean;
-  capabilities: string[];
-}
-
 function AgentStep({ onNext }: { onNext: () => void }) {
   const router = useRouter();
-  const [agents, setAgents] = useState<AgentEntry[]>([]);
+  const [agents, setAgents] = useState<AgentInfo[]>([]);
   const [fetching, setFetching] = useState(true);
 
   useEffect(() => {
-    fetch("/api/agents?pageSize=20")
-      .then((r) => r.json())
-      .then((d: { agents?: AgentEntry[] }) => setAgents(d.agents ?? []))
+    apiClient.agents
+      .list({
+        query: {
+          pageSize: 20,
+        },
+      })
+      .then((r) => unwrap(r))
+      .then((page) => setAgents(page.items ?? []))
       .catch(() => {})
       .finally(() => setFetching(false));
   }, []);
@@ -708,7 +706,7 @@ function AgentStep({ onNext }: { onNext: () => void }) {
         <div className="space-y-2">
           {agents.map((a) => (
             <div
-              key={a.id}
+              key={a.did}
               className="flex items-center gap-3 px-4 py-3 bg-background-200 border border-neutral-200 rounded-xl"
             >
               <div className="w-8 h-8 rounded-lg bg-background-100 border border-neutral-200 flex items-center justify-center shrink-0">

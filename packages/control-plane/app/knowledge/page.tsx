@@ -21,7 +21,6 @@ import {
   Cpu,
   Pencil,
   Save,
-  RotateCcw,
   Wifi,
   X,
   HardDrive,
@@ -32,6 +31,8 @@ import {
 } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useRole } from "@/hooks/useRole";
+import { apiClient, unwrap } from "@/lib/api/ts-rest/client";
+import { AgentInfo } from "@/lib/contracts";
 
 const LocationEditor = dynamic(
   () => import("@/components/map/WorldMap").then((m) => m.LocationEditor),
@@ -53,12 +54,6 @@ interface KnowledgeSource {
   lastSyncedAt: string | null;
   error: string | null;
   createdAt: string;
-}
-
-interface AgentInfo {
-  did: string;
-  name: string;
-  online: boolean;
 }
 
 interface RealmInfo {
@@ -113,7 +108,11 @@ function DoclingConfigPanel() {
     error?: string;
   } | null>(null);
   const [locationEditing, setLocationEditing] = useState(false);
-  const [location, setLocation] = useState<{ lat: number; lon: number; label: string } | null>(null);
+  const [location, setLocation] = useState<{
+    lat: number;
+    lon: number;
+    label: string;
+  } | null>(null);
 
   useEffect(() => {
     fetch("/api/settings/docling")
@@ -123,10 +122,14 @@ function DoclingConfigPanel() {
         setDraftUrl(d.url ?? "");
         setDraftEnabled(d.enabled ?? false);
         if (d.locationLat != null && d.locationLon != null) {
-          setLocation({ lat: d.locationLat, lon: d.locationLon, label: d.locationLabel ?? "" });
+          setLocation({
+            lat: d.locationLat,
+            lon: d.locationLon,
+            label: d.locationLabel ?? "",
+          });
         }
       })
-      .catch(() => { });
+      .catch(() => {});
   }, []);
 
   function startEdit() {
@@ -169,15 +172,22 @@ function DoclingConfigPanel() {
     }
   }
 
-  async function handleSaveDoclingLocation(loc: { lat: number; lon: number; label: string } | null) {
-    const body = loc === null ? { lat: null } : { lat: loc.lat, lon: loc.lon, label: loc.label };
+  async function handleSaveDoclingLocation(
+    loc: { lat: number; lon: number; label: string } | null
+  ) {
+    const body =
+      loc === null
+        ? { lat: null }
+        : { lat: loc.lat, lon: loc.lon, label: loc.label };
     const res = await fetch("/api/settings/docling/location", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
     if (!res.ok) {
-      const d = (await res.json().catch(() => null)) as { error?: string } | null;
+      const d = (await res.json().catch(() => null)) as {
+        error?: string;
+      } | null;
       throw new Error(d?.error ?? "Failed to save location");
     }
     setLocation(loc);
@@ -228,14 +238,16 @@ function DoclingConfigPanel() {
 
   return (
     <div
-      className={`rounded-xl border bg-background-100 overflow-hidden transition-colors ${cfg.enabled ? "border-primary-300" : "border-neutral-200"
-        }`}
+      className={`rounded-xl border bg-background-100 overflow-hidden transition-colors ${
+        cfg.enabled ? "border-primary-300" : "border-neutral-200"
+      }`}
     >
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-3">
         <div
-          className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${cfg.enabled ? "bg-primary-100" : "bg-neutral-100"
-            }`}
+          className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+            cfg.enabled ? "bg-primary-100" : "bg-neutral-100"
+          }`}
         >
           <Cpu
             className={`w-4 h-4 ${cfg.enabled ? "text-primary-600" : "text-foreground-500"}`}
@@ -276,7 +288,10 @@ function DoclingConfigPanel() {
           <div className="ml-auto flex items-center gap-1.5">
             <MapPin size={11} className="shrink-0" />
             {location ? (
-              <span className="truncate">{location.label || `${location.lat.toFixed(2)}, ${location.lon.toFixed(2)}`}</span>
+              <span className="truncate">
+                {location.label ||
+                  `${location.lat.toFixed(2)}, ${location.lon.toFixed(2)}`}
+              </span>
             ) : (
               <span className="italic text-foreground-400">No location</span>
             )}
@@ -294,7 +309,10 @@ function DoclingConfigPanel() {
           <div className="ml-auto flex items-center gap-1.5">
             <MapPin size={11} className="shrink-0" />
             {location ? (
-              <span className="truncate">{location.label || `${location.lat.toFixed(2)}, ${location.lon.toFixed(2)}`}</span>
+              <span className="truncate">
+                {location.label ||
+                  `${location.lat.toFixed(2)}, ${location.lon.toFixed(2)}`}
+              </span>
             ) : (
               <span className="italic text-foreground-400">No location</span>
             )}
@@ -351,10 +369,11 @@ function DoclingConfigPanel() {
             {/* Test result */}
             {testResult && (
               <div
-                className={`flex items-start gap-2 p-2.5 rounded-lg text-xs ${testStatus === "ok"
-                  ? "bg-success-50 border border-success-200 text-success-700"
-                  : "bg-danger-50 border border-danger-200 text-danger-700"
-                  }`}
+                className={`flex items-start gap-2 p-2.5 rounded-lg text-xs ${
+                  testStatus === "ok"
+                    ? "bg-success-50 border border-success-200 text-success-700"
+                    : "bg-danger-50 border border-danger-200 text-danger-700"
+                }`}
               >
                 {testStatus === "ok" ? (
                   <CheckCircle2 size={13} className="shrink-0 mt-0.5" />
@@ -396,12 +415,14 @@ function DoclingConfigPanel() {
             <button
               type="button"
               onClick={() => setDraftEnabled((v) => !v)}
-              className={`relative inline-flex h-5 w-9 shrink-0 rounded-full border-2 border-transparent transition-colors focus:outline-none ${draftEnabled ? "bg-primary-600" : "bg-neutral-300"
-                }`}
+              className={`relative inline-flex h-5 w-9 shrink-0 rounded-full border-2 border-transparent transition-colors focus:outline-none ${
+                draftEnabled ? "bg-primary-600" : "bg-neutral-300"
+              }`}
             >
               <span
-                className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow transform transition-transform ${draftEnabled ? "translate-x-4" : "translate-x-0"
-                  }`}
+                className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow transform transition-transform ${
+                  draftEnabled ? "translate-x-4" : "translate-x-0"
+                }`}
               />
             </button>
           </div>
@@ -484,17 +505,28 @@ function StorageConfigPanel() {
     hasMore: boolean;
   } | null>(null);
   const [locationEditing, setLocationEditing] = useState(false);
-  const [storageLocation, setStorageLocation] = useState<{ lat: number; lon: number; label: string } | null>(null);
+  const [storageLocation, setStorageLocation] = useState<{
+    lat: number;
+    lon: number;
+    label: string;
+  } | null>(null);
 
-  async function handleSaveStorageLocation(loc: { lat: number; lon: number; label: string } | null) {
-    const body = loc === null ? { lat: null } : { lat: loc.lat, lon: loc.lon, label: loc.label };
+  async function handleSaveStorageLocation(
+    loc: { lat: number; lon: number; label: string } | null
+  ) {
+    const body =
+      loc === null
+        ? { lat: null }
+        : { lat: loc.lat, lon: loc.lon, label: loc.label };
     const res = await fetch("/api/settings/storage/location", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
     if (!res.ok) {
-      const d = (await res.json().catch(() => null)) as { error?: string } | null;
+      const d = (await res.json().catch(() => null)) as {
+        error?: string;
+      } | null;
       throw new Error(d?.error ?? "Failed to save location");
     }
     setStorageLocation(loc);
@@ -504,7 +536,7 @@ function StorageConfigPanel() {
     fetch("/api/settings/storage")
       .then((r) => r.json())
       .then((d: StorageState) => setCfg(d))
-      .catch(() => { });
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -639,14 +671,16 @@ function StorageConfigPanel() {
 
   return (
     <div
-      className={`rounded-xl border bg-background-100 overflow-hidden transition-colors ${isS3Active ? "border-primary-300" : "border-neutral-200"
-        }`}
+      className={`rounded-xl border bg-background-100 overflow-hidden transition-colors ${
+        isS3Active ? "border-primary-300" : "border-neutral-200"
+      }`}
     >
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-3">
         <div
-          className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${isS3Active ? "bg-primary-100" : "bg-neutral-100"
-            }`}
+          className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+            isS3Active ? "bg-primary-100" : "bg-neutral-100"
+          }`}
         >
           <HardDrive
             className={`w-4 h-4 ${isS3Active ? "text-primary-600" : "text-foreground-500"}`}
@@ -697,7 +731,10 @@ function StorageConfigPanel() {
           <div className="ml-auto flex items-center gap-1.5">
             <MapPin size={11} className="shrink-0" />
             {storageLocation ? (
-              <span className="truncate">{storageLocation.label || `${storageLocation.lat.toFixed(2)}, ${storageLocation.lon.toFixed(2)}`}</span>
+              <span className="truncate">
+                {storageLocation.label ||
+                  `${storageLocation.lat.toFixed(2)}, ${storageLocation.lon.toFixed(2)}`}
+              </span>
             ) : (
               <span className="italic text-foreground-400">No location</span>
             )}
@@ -849,10 +886,11 @@ function StorageConfigPanel() {
                 </button>
                 {testResult && (
                   <div
-                    className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs ${testResult.ok
-                      ? "bg-success-50 border border-success-200 text-success-700"
-                      : "bg-danger-50 border border-danger-200 text-danger-700"
-                      }`}
+                    className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs ${
+                      testResult.ok
+                        ? "bg-success-50 border border-success-200 text-success-700"
+                        : "bg-danger-50 border border-danger-200 text-danger-700"
+                    }`}
                   >
                     {testResult.ok ? (
                       <CheckCircle2 size={13} className="shrink-0" />
@@ -922,14 +960,15 @@ function StorageConfigPanel() {
           </div>
           {migrateResult && (
             <div
-              className={`flex items-center gap-2 p-2.5 rounded-lg text-xs ${migrateResult.errorCount > 0
-                ? "bg-warning-50 border border-warning-200 text-warning-700"
-                : "bg-success-50 border border-success-200 text-success-700"
-                }`}
+              className={`flex items-center gap-2 p-2.5 rounded-lg text-xs ${
+                migrateResult.errorCount > 0
+                  ? "bg-warning-50 border border-warning-200 text-warning-700"
+                  : "bg-success-50 border border-success-200 text-success-700"
+              }`}
             >
               <CheckCircle2 size={13} className="shrink-0" />
               {migrateResult.migratedCount === 0 &&
-                migrateResult.errorCount === 0
+              migrateResult.errorCount === 0
                 ? "No files to migrate"
                 : `Migrated ${migrateResult.migratedCount} file(s)${migrateResult.errorCount > 0 ? `, ${migrateResult.errorCount} error(s)` : ""}`}
               {migrateResult.hasMore && " — run again for more"}
@@ -1174,15 +1213,12 @@ function AgentKnowledgeCard({
                             <span className="text-xs font-medium text-foreground truncate block max-w-[180px]">
                               {source.name}
                             </span>
-                            {source.sourceType === "url" &&
-                              urls.length > 0 && (
-                                <span className="text-[10px] text-foreground-400 truncate block max-w-[180px]">
-                                  {urls[0]}
-                                  {urls.length > 1
-                                    ? ` +${urls.length - 1}`
-                                    : ""}
-                                </span>
-                              )}
+                            {source.sourceType === "url" && urls.length > 0 && (
+                              <span className="text-[10px] text-foreground-400 truncate block max-w-[180px]">
+                                {urls[0]}
+                                {urls.length > 1 ? ` +${urls.length - 1}` : ""}
+                              </span>
+                            )}
                           </div>
                         </div>
                       </td>
@@ -1247,14 +1283,14 @@ export default function KnowledgeDashboardPage() {
     try {
       const [ksRes, agRes, rlRes] = await Promise.all([
         fetch("/api/knowledge"),
-        fetch("/api/agents"),
+        apiClient.agents.list(),
         fetch("/api/realms"),
       ]);
       const ksData = (await ksRes.json()) as { sources?: KnowledgeSource[] };
-      const agData = (await agRes.json()) as { agents?: AgentInfo[] };
+      const agData = unwrap(agRes);
       const rlData = (await rlRes.json()) as { realms?: RealmInfo[] };
       setSources(ksData.sources ?? []);
-      setAgents(agData.agents ?? []);
+      setAgents(agData.items);
       setRealms(rlData.realms ?? []);
     } finally {
       setLoading(false);

@@ -30,6 +30,14 @@ import {
   Gauge,
   BookOpen,
 } from "lucide-react";
+import { apiClient, unwrap } from "@/lib/api/ts-rest/client";
+import { AgentInfo } from "@/lib/contracts";
+import {
+  formatCompactNumber,
+  formatDateTime,
+  shortDid,
+  timeAgo,
+} from "@vaultysclaw/shared";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -124,61 +132,6 @@ const HIGH_RISK_CAPS = new Set([
   "code_execution",
   "browser_control",
 ]);
-
-// ── Helpers ──────────────────────────────────────────────────────────────────
-
-function shortDid(did: string) {
-  if (did.length <= 20) return did;
-  return `${did.slice(0, 10)}…${did.slice(-6)}`;
-}
-
-function parseUTC(iso: string): Date {
-  return new Date(iso.endsWith("Z") ? iso : iso + "Z");
-}
-
-function timeAgo(iso: string | null): string {
-  if (!iso) return "—";
-  const seconds = Math.floor((Date.now() - parseUTC(iso).getTime()) / 1000);
-  if (seconds < 60) return `${seconds}s ago`;
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  return `${Math.floor(hours / 24)}d ago`;
-}
-
-function formatDate(iso: string | null): string {
-  if (!iso) return "—";
-  const date = parseUTC(iso);
-  return date.toLocaleString("en-US", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    timeZoneName: "short",
-  });
-}
-
-function formatExpiry(iso: string | null): string {
-  if (!iso) return "Never";
-  const date = parseUTC(iso);
-  return date.toLocaleString("en-US", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
-function fmtNum(n: number): string {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
-  return String(n);
-}
-
-// ── Stat card ─────────────────────────────────────────────────────────────────
 
 function StatCard({
   icon,
@@ -692,9 +645,7 @@ function RenewPolicyModal({
 
 function PoliciesTab() {
   const [policies, setPolicies] = useState<Policy[]>([]);
-  const [agents, setAgents] = useState<
-    { id: string; name: string; capabilities: string[] }[]
-  >([]);
+  const [agents, setAgents] = useState<AgentInfo[]>([]);
   const [budgets, setBudgets] = useState<AgentBudget[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
@@ -727,57 +678,46 @@ function PoliciesTab() {
     try {
       const [polRes, agentRes] = await Promise.all([
         fetch("/api/policies?includeExpired=false"),
-        fetch("/api/agents?pageSize=100"),
+        apiClient.agents.list({
+          query: {
+            pageSize: 100,
+          },
+        }),
       ]);
       if (polRes.ok) {
         const d = (await polRes.json()) as { policies: Policy[] };
         setPolicies(d.policies);
       }
-      if (agentRes.ok) {
-        const d = (await agentRes.json()) as {
-          agents: {
-            id: string;
-            name: string;
-            capabilities: string[];
-            tokenUsage?: { promptTokens: number; completionTokens: number };
-          }[];
-        };
-        setAgents(
-          d.agents.map((a) => ({
-            id: a.id,
-            name: a.name,
-            capabilities: a.capabilities,
-          }))
-        );
 
-        // Fetch budgets from agent details
-        const budgetList: AgentBudget[] = await Promise.all(
-          d.agents.slice(0, 50).map(async (a) => {
-            try {
-              const r = await fetch(`//api/agents/${encodeURIComponent(a.id)}`);
-              if (!r.ok) return null;
-              const ad = (await r.json()) as {
-                tokenBudgetDaily?: number | null;
-                tokenBudgetMonthly?: number | null;
-                todayTokens?: number;
-                monthTokens?: number;
-              };
-              return {
-                did: a.id,
-                name: a.name,
-                capabilities: a.capabilities,
-                tokenBudgetDaily: ad.tokenBudgetDaily ?? null,
-                tokenBudgetMonthly: ad.tokenBudgetMonthly ?? null,
-                todayTokens: ad.todayTokens ?? 0,
-                monthTokens: ad.monthTokens ?? 0,
-              } as AgentBudget;
-            } catch {
-              return null;
-            }
-          })
-        ).then((r) => r.filter(Boolean) as AgentBudget[]);
-        setBudgets(budgetList);
-      }
+      setAgents(unwrap(agentRes).items);
+
+      // Fetch budgets from agent details
+      const budgetList: AgentBudget[] = await Promise.all(
+        d.agents.slice(0, 50).map(async (a) => {
+          try {
+            const r = await fetch(`//api/agents/${encodeURIComponent(a.id)}`);
+            if (!r.ok) return null;
+            const ad = (await r.json()) as {
+              tokenBudgetDaily?: number | null;
+              tokenBudgetMonthly?: number | null;
+              todayTokens?: number;
+              monthTokens?: number;
+            };
+            return {
+              did: a.id,
+              name: a.name,
+              capabilities: a.capabilities,
+              tokenBudgetDaily: ad.tokenBudgetDaily ?? null,
+              tokenBudgetMonthly: ad.tokenBudgetMonthly ?? null,
+              todayTokens: ad.todayTokens ?? 0,
+              monthTokens: ad.monthTokens ?? 0,
+            } as AgentBudget;
+          } catch {
+            return null;
+          }
+        })
+      ).then((r) => r.filter(Boolean) as AgentBudget[]);
+      setBudgets(budgetList);
     } finally {
       setLoading(false);
     }
@@ -891,8 +831,8 @@ function PoliciesTab() {
             >
               <option value="">Select agent…</option>
               {agents.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.name} ({shortDid(a.id)})
+                <option key={a.did} value={a.did}>
+                  {a.name} ({shortDid(a.did)})
                 </option>
               ))}
             </select>
@@ -1017,7 +957,9 @@ function PoliciesTab() {
             </thead>
             <tbody className="divide-y divide-neutral-200">
               {policies.map((p) => {
-                const agentName = agents.find((a) => a.id === p.agentDid)?.name;
+                const agentName = agents.find(
+                  (a) => a.did === p.agentDid
+                )?.name;
                 return (
                   <tr
                     key={p.id}
@@ -1049,7 +991,7 @@ function PoliciesTab() {
                       {p.resourceLimits ? (
                         <span>
                           {p.resourceLimits.maxTokensPerDay
-                            ? `${fmtNum(p.resourceLimits.maxTokensPerDay)} tok/d`
+                            ? `${formatCompactNumber(p.resourceLimits.maxTokensPerDay)} tok/d`
                             : ""}
                           {p.resourceLimits.maxRequestsPerHour
                             ? ` · ${p.resourceLimits.maxRequestsPerHour} req/h`
@@ -1060,7 +1002,7 @@ function PoliciesTab() {
                       )}
                     </td>
                     <td className="px-4 py-2.5 text-xs text-foreground-500">
-                      {formatExpiry(p.expiresAt)}
+                      {formatDateTime(p.expiresAt)}
                     </td>
                     <td className="px-4 py-2.5 text-xs text-foreground-500">
                       {timeAgo(p.createdAt)}
@@ -1097,7 +1039,7 @@ function PoliciesTab() {
       </div>
 
       {/* Uncovered agents */}
-      {agents.filter((a) => !coveredDids.has(a.id)).length > 0 && (
+      {agents.filter((a) => !coveredDids.has(a.did)).length > 0 && (
         <div className="bg-warning-50 border border-warning-200 rounded-xl overflow-hidden">
           <div className="px-4 py-3 border-b border-warning-500/20">
             <h3 className="text-sm font-semibold text-warning-700 flex items-center gap-2">
@@ -1106,10 +1048,10 @@ function PoliciesTab() {
           </div>
           <div className="divide-y divide-warning-500/10">
             {agents
-              .filter((a) => !coveredDids.has(a.id))
+              .filter((a) => !coveredDids.has(a.did))
               .map((a) => (
                 <div
-                  key={a.id}
+                  key={a.did}
                   className="px-4 py-2.5 flex items-center justify-between"
                 >
                   <div>
@@ -1117,7 +1059,7 @@ function PoliciesTab() {
                       {a.name}
                     </p>
                     <p className="text-xs font-mono text-foreground-500">
-                      {shortDid(a.id)}
+                      {shortDid(a.did)}
                     </p>
                   </div>
                   <div className="flex flex-wrap gap-1 justify-end">

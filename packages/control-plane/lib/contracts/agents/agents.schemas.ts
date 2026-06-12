@@ -5,7 +5,7 @@ import { z } from "zod";
 // ─────────────────────────────────────────────
 
 export const ListAgentsQuerySchema = z.object({
-  q: z.string().optional(),
+  search: z.string().optional(),
   online: z.enum(["true", "false"]).optional(),
   realm: z.string().optional(),
   capabilities: z.string().optional(),

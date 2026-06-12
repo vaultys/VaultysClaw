@@ -70,7 +70,7 @@ export default function AgentsPage() {
   const [loading, setLoading] = useState(true);
 
   // Filters
-  const [q, setQ] = useState("");
+  const [search, setSearch] = useState("");
   const [onlineFilter, setOnlineFilter] = useState<"" | "true" | "false">("");
   const [selectedCapabilities, setSelectedCapabilities] = useState<string[]>(
     []
@@ -124,7 +124,7 @@ export default function AgentsPage() {
     debounceRef.current = setTimeout(
       () => {
         fetchAgents({
-          q,
+          search,
           online: onlineFilter || undefined,
           capabilities:
             selectedCapabilities.length > 0
@@ -135,10 +135,10 @@ export default function AgentsPage() {
           sortDir,
         });
       },
-      q ? 300 : 0
+      search ? 300 : 0
     );
   }, [
-    q,
+    search,
     onlineFilter,
     selectedCapabilities,
     page,
@@ -150,7 +150,7 @@ export default function AgentsPage() {
   // Refresh when WS fires an update (agents connect/disconnect)
   useEffect(() => {
     fetchAgents({
-      q,
+      search,
       online: onlineFilter || undefined,
       capabilities:
         selectedCapabilities.length > 0
@@ -237,9 +237,9 @@ export default function AgentsPage() {
       {/* Filters bar */}
       <div className="flex flex-wrap items-center gap-3">
         <SearchBar
-          value={q}
+          value={search}
           onChange={(v) => {
-            setQ(v);
+            setSearch(v);
             setPage(1);
           }}
           placeholder="Search by name"
@@ -403,14 +403,14 @@ export default function AgentsPage() {
             <div className="px-5 py-16 text-center">
               <Bot className="w-10 h-10 text-neutral-300 mx-auto mb-3" />
               <p className="text-foreground-500 mb-1">
-                {q || onlineFilter
+                {search || onlineFilter
                   ? "No agents match your filters"
                   : "No agents registered yet"}
               </p>
-              {(q || onlineFilter) && (
+              {(search || onlineFilter) && (
                 <button
                   onClick={() => {
-                    setQ("");
+                    setSearch("");
                     setOnlineFilter("");
                     setPage(1);
                   }}

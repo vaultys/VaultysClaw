@@ -9,7 +9,7 @@ const handlers = createNextRoute(agentsContract, {
     const auth = await getAuthContext(request);
 
     const {
-      q,
+      search,
       online: onlineParam,
       realm,
       capabilities: capStr,
@@ -46,7 +46,7 @@ const handlers = createNextRoute(agentsContract, {
 
     // Single DB call — realm & online filters applied inside the DAO
     const result = await AgentDAO.query({
-      search: q,
+      search,
       realm,
       capabilities,
       page,

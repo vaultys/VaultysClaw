@@ -229,12 +229,11 @@ export const GET = withError(async (request: NextRequest) => {
 
   let allowedAgentDids: Set<string> | undefined;
   if (!auth.isGlobalAdmin) {
-    const userRealms = await RealmDAO.getUserRealms(auth.did);
-    if (userRealms.length === 0) {
+    if (auth.realmIds.size === 0) {
       allowedAgentDids = new Set(); // no realms → no agents → no intents
     } else {
       const perRealm = await Promise.all(
-        userRealms.map((r) => RealmDAO.getAgents(r.realmId))
+        [...auth.realmIds].map((id) => RealmDAO.getAgents(id))
       );
       allowedAgentDids = new Set(perRealm.flat().map((ra) => ra.agent.did));
     }

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { WorkflowDAO, RealmDAO } from "@/db";
+import { WorkflowDAO } from "@/db";
 import { getAuthContext } from "@/lib/auth-utils";
 import { unauthorized } from "@/lib/api/utils/api-utils";
 import { withError } from "@/lib/api/handlers/with-error";
@@ -103,9 +103,7 @@ export const GET = withError(async (request: Request) => {
     | "completedAt";
   const sortDir = (searchParams.get("sortDir") ?? "desc") as "asc" | "desc";
 
-  const realmIds = auth.isGlobalAdmin
-    ? undefined
-    : new Set((await RealmDAO.getUserRealms(auth.did)).map((r) => r.realmId));
+  const realmIds = auth.isGlobalAdmin ? undefined : auth.realmIds;
 
   const result = await WorkflowDAO.queryRuns({
     workflowId,

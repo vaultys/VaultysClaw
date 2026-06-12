@@ -81,11 +81,7 @@ export const GET = withError(async (req: NextRequest) => {
     wsServer?.getConnectedAgents().map((a) => a.id) ?? []
   );
 
-  let realmIds: Set<string> | undefined;
-  if (!auth.isGlobalAdmin) {
-    const userRealms = await RealmDAO.getUserRealms(auth.did);
-    realmIds = new Set(userRealms.map((r) => r.realmId));
-  }
+  const realmIds = auth.isGlobalAdmin ? undefined : auth.realmIds;
 
   const { agents } = await AgentDAO.query({
     realm: realmFilter,

@@ -1,6 +1,6 @@
 import { getWSServer } from "@/lib/ws-server";
 import { getAuthContext } from "@/lib/auth-utils";
-import { AgentDAO, RealmDAO } from "@/db";
+import { AgentDAO } from "@/db";
 import { agentsContract } from "@/lib/contracts";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 
@@ -39,10 +39,7 @@ const handlers = createNextRoute(agentsContract, {
       wsServer?.getConnectedAgents().map((a) => a.id) ?? []
     );
 
-    // One query for user realm access (skipped for global admins)
-    const userRealmIds = auth.isGlobalAdmin
-      ? undefined
-      : new Set((await RealmDAO.getUserRealms(auth.did)).map((r) => r.realmId));
+    const userRealmIds = auth.isGlobalAdmin ? undefined : auth.realmIds;
 
     // Single DB call — realm & online filters applied inside the DAO
     const result = await AgentDAO.query({

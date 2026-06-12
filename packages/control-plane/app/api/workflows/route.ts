@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
 import { unauthorized, forbidden, malformed } from "@/lib/api/utils/api-utils";
-import { RealmDAO, WorkflowDAO } from "@/db";
+import { WorkflowDAO } from "@/db";
 import type { WorkflowDefinition } from "@/lib/workflow-executor";
 import { Prisma } from "@prisma/client";
 import { withError } from "@/lib/api/handlers/with-error";
@@ -172,11 +172,8 @@ export const GET = withError(async (request: NextRequest) => {
 
   // Non-admins: filter to workflows in their realms
   if (!auth.isGlobalAdmin) {
-    const userRealmIds = new Set(
-      (await RealmDAO.getUserRealms(auth.did)).map((r) => r.realmId)
-    );
     workflows = workflows.filter(
-      (w) => w.realmId && userRealmIds.has(w.realmId)
+      (w) => w.realmId && auth.realmIds.has(w.realmId)
     );
   }
 

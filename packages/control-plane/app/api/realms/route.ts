@@ -59,13 +59,16 @@ export const GET = withError(async (request: NextRequest) => {
   if (!auth) return unauthorized();
 
   const allRealms = await RealmDAO.findAll();
-  const userRealmIds = auth.isGlobalAdmin
-    ? null
-    : new Set((await RealmDAO.getUserRealms(auth.did)).map((r) => r.realmId));
+
+  // Filter by realm membership using the auth context's precomputed set
+  // (which correctly uses the DB userId, not the VaultysID DID string).
+  const visibleRealms = auth.isGlobalAdmin
+    ? allRealms
+    : await Promise.all(allRealms.map((r) => auth.canAccessRealm(r.id).then((ok) => (ok ? r : null))))
+        .then((rs) => rs.filter((r): r is NonNullable<typeof r> => r !== null));
 
   const realmsWithCounts = await Promise.all(
-    allRealms
-      .filter((realm) => userRealmIds === null || userRealmIds.has(realm.id))
+    visibleRealms
       .map(async (realm) => {
         const agents = await RealmDAO.getAgents(realm.id);
         const users = await RealmDAO.getUsers(realm.id);

@@ -2,7 +2,7 @@ import { Prisma } from "@prisma/client";
 import { ListAgentsQuerySchema } from "./agents.schemas";
 import z from "zod";
 import { VaultysCertificate } from "@/types";
-import { VaultysIDInfo } from "@vaultysclaw/shared";
+import { LlmConfig, VaultysIDInfo } from "@vaultysclaw/shared";
 
 // ─────────────────────────────────────────────
 // Types
@@ -60,3 +60,5 @@ export type AgentInfo = AgentWithInfo & {
 };
 
 export type ListAgentsQuery = z.infer<typeof ListAgentsQuerySchema>;
+
+export type SafeLlmConfig = Omit<LlmConfig, "apiKey"> & { apiKeySet: boolean };

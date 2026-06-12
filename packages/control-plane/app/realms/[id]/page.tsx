@@ -170,7 +170,7 @@ function AddMemberModal({
   useEffect(() => {
     if (type === "agent") {
       agentsClient
-        .list()
+        .search()
         .then((r) => unwrap(r))
         .then((d) => setAgents(d.items));
     } else {

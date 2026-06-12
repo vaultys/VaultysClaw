@@ -3,9 +3,11 @@ import { useState, useEffect, useCallback } from "react";
 import { type LlmProviderType } from "@vaultysclaw/shared";
 import { ConfirmModal } from "@/components/shared/ConfirmModal";
 import { agentsClient, unwrap } from "@/lib/api/ts-rest/client";
-import { RealmLlmData, SafeLlmConfig } from "@/types";
+
 import { Key, RefreshCw } from "lucide-react";
 import Link from "next/link";
+import { SafeLlmConfig } from "@/lib/contracts";
+import { RealmLlmData } from "@/types/api/responses";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -128,7 +130,9 @@ export function ConfigTab({
 
   // Common
   const [llmSaving, setLlmSaving] = useState(false);
-  const [llmStatus, setLlmStatus] = useState<"idle" | "saved" | "cleared" | "error">("idle");
+  const [llmStatus, setLlmStatus] = useState<
+    "idle" | "saved" | "cleared" | "error"
+  >("idle");
   const [llmError, setLlmError] = useState<string | null>(null);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
 
@@ -137,25 +141,30 @@ export function ConfigTab({
   const loadAll = useCallback(async () => {
     setLlmLoading(true);
     try {
-      const [configData, modelsData, realmData, keyData, liteLlmModelsData] = await Promise.all([
-        agentsClient.getLlmConfig({ params: { did } }).then(unwrap),
-        fetch("/api/models").then((r) => r.json()),
-        agentsClient.getRealmLlm({ params: { did } }).then(unwrap),
-        fetch(`/api/agents/${encodeURIComponent(did)}/litellm-key`)
-          .then((r) => (r.ok ? r.json() : null))
-          .catch(() => null),
-        fetch("/api/litellm/models").then((r) => r.json()),
-      ]);
+      const [configData, modelsData, realmData, keyData, liteLlmModelsData] =
+        await Promise.all([
+          agentsClient.getLlmConfig({ params: { did } }).then(unwrap),
+          fetch("/api/models").then((r) => r.json()),
+          agentsClient.getRealmLlm({ params: { did } }).then(unwrap),
+          fetch(`/api/agents/${encodeURIComponent(did)}/litellm-key`)
+            .then((r) => (r.ok ? r.json() : null))
+            .catch(() => null),
+          fetch("/api/litellm/models").then((r) => r.json()),
+        ]);
 
       const cfg = (configData as { config: SafeLlmConfig | null }).config;
       setLlmConfig(cfg);
-      setRegistryModels((modelsData as { models?: RegistryModel[] }).models ?? []);
+      setRegistryModels(
+        (modelsData as { models?: RegistryModel[] }).models ?? []
+      );
       setRealmLlmData(realmData as RealmLlmData);
       setAgentKeyInfo(keyData as AgentKeyInfo | null);
       setLiteLlmModels(
-        (liteLlmModelsData as {
-          models?: { name: string; params: Record<string, unknown> }[];
-        }).models ?? []
+        (
+          liteLlmModelsData as {
+            models?: { name: string; params: Record<string, unknown> }[];
+          }
+        ).models ?? []
       );
 
       if (cfg) {
@@ -183,7 +192,7 @@ export function ConfigTab({
 
   const hasRealmRouting = Boolean(
     realmLlmData?.litellmConfigured &&
-      realmLlmData.realms.some((r) => r.hasVirtualKey && r.models.length > 0)
+    realmLlmData.realms.some((r) => r.hasVirtualKey && r.models.length > 0)
   );
 
   const litellmConfigured = Boolean(agentKeyInfo?.litellmConfigured);
@@ -224,7 +233,10 @@ export function ConfigTab({
     if (activeIsAgentKey) {
       // Editing an existing agent key — check if it's a LiteLLM model
       const allowedModels = agentKeyInfo!.allowedModels;
-      if (allowedModels.length === 1 && liteLlmModels.some((m) => m.name === allowedModels[0])) {
+      if (
+        allowedModels.length === 1 &&
+        liteLlmModels.some((m) => m.name === allowedModels[0])
+      ) {
         // It's a single LiteLLM model
         setSelectedLiteLlmModel(allowedModels[0]);
         setSelectedSource("litellm");
@@ -309,7 +321,8 @@ export function ConfigTab({
     setLlmError(null);
     try {
       // 1. Clear any manual llmConfig so the agent key takes priority
-      if (llmConfig) unwrap(await agentsClient.deleteLlmConfig({ params: { did } }));
+      if (llmConfig)
+        unwrap(await agentsClient.deleteLlmConfig({ params: { did } }));
 
       // 2. Provision / refresh the key
       const body: Record<string, unknown> = {};
@@ -364,7 +377,10 @@ export function ConfigTab({
       const { config } = unwrap(
         await agentsClient.setLlmConfig({
           params: { did },
-          body: { realmId: selectedRealmId, realmModelId: selectedRealmModelId },
+          body: {
+            realmId: selectedRealmId,
+            realmModelId: selectedRealmModelId,
+          },
         })
       );
       setLlmConfig(config);
@@ -408,7 +424,8 @@ export function ConfigTab({
     setLlmError(null);
     try {
       // 1. Clear any manual llmConfig so the LiteLLM model takes priority
-      if (llmConfig) unwrap(await agentsClient.deleteLlmConfig({ params: { did } }));
+      if (llmConfig)
+        unwrap(await agentsClient.deleteLlmConfig({ params: { did } }));
 
       // 2. Create agent key with the selected model
       const res = await fetch(
@@ -530,7 +547,6 @@ export function ConfigTab({
         }}
         onCancel={() => setShowClearConfirm(false)}
       />
-
       <ConfirmModal
         open={showRevokeConfirm}
         title="Revoke agent key"
@@ -541,7 +557,6 @@ export function ConfigTab({
         onConfirm={revokeAgentKey}
         onCancel={() => setShowRevokeConfirm(false)}
       />
-
       {/* Reported LLM banner */}
       {reportedLlm && (
         <div className="bg-background-200 rounded-lg border border-neutral-200 px-4 py-3">
@@ -559,7 +574,6 @@ export function ConfigTab({
           </div>
         </div>
       )}
-
       {/* ── Main config card ── */}
       <div className="rounded-xl border border-neutral-200 bg-background-100 overflow-hidden">
         <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-200">
@@ -635,8 +649,9 @@ export function ConfigTab({
             {configMode === "agent-key" && (
               <div className="space-y-4">
                 <p className="text-xs text-foreground-500">
-                  Provision a virtual key scoped to this agent in the LiteLLM proxy. Any existing
-                  manual config will be cleared — the agent key becomes the effective LLM config.
+                  Provision a virtual key scoped to this agent in the LiteLLM
+                  proxy. Any existing manual config will be cleared — the agent
+                  key becomes the effective LLM config.
                 </p>
 
                 {/* Model tags */}
@@ -658,7 +673,9 @@ export function ConfigTab({
                           <button
                             type="button"
                             onClick={() =>
-                              setKeyModels((prev) => prev.filter((x) => x !== m))
+                              setKeyModels((prev) =>
+                                prev.filter((x) => x !== m)
+                              )
                             }
                             className="ml-0.5 hover:text-primary-500 leading-none"
                           >
@@ -705,7 +722,9 @@ export function ConfigTab({
                 <div>
                   <label className="text-xs text-foreground-500 uppercase tracking-wider font-medium block mb-1.5">
                     Daily budget (USD){" "}
-                    <span className="normal-case text-foreground-400">(optional)</span>
+                    <span className="normal-case text-foreground-400">
+                      (optional)
+                    </span>
                   </label>
                   <div className="flex items-center gap-2">
                     <span className="text-sm text-foreground-500">$</span>
@@ -725,7 +744,10 @@ export function ConfigTab({
                 <div className="flex items-center gap-3 pt-1">
                   <button
                     type="button"
-                    onClick={() => { setLlmEditing(false); setLlmStatus("idle"); }}
+                    onClick={() => {
+                      setLlmEditing(false);
+                      setLlmStatus("idle");
+                    }}
                     className="text-sm text-foreground-500 hover:text-foreground px-3 py-1.5"
                   >
                     Cancel
@@ -736,7 +758,10 @@ export function ConfigTab({
                     className="flex items-center gap-2 px-4 py-1.5 text-sm font-medium rounded-lg bg-primary-600 hover:bg-primary-500 text-white disabled:opacity-40 transition"
                   >
                     {keySaving ? (
-                      <><RefreshCw className="w-3.5 h-3.5 animate-spin" /> Provisioning…</>
+                      <>
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />{" "}
+                        Provisioning…
+                      </>
                     ) : agentKeyInfo?.configured ? (
                       "Refresh Key"
                     ) : (
@@ -751,8 +776,8 @@ export function ConfigTab({
             {configMode === "realm" && (
               <div className="space-y-3">
                 <p className="text-xs text-foreground-500">
-                  Route this agent through your LiteLLM proxy using a realm-scoped virtual key.
-                  The API key is resolved server-side.
+                  Route this agent through your LiteLLM proxy using a
+                  realm-scoped virtual key. The API key is resolved server-side.
                 </p>
                 {(realmLlmData?.realms ?? [])
                   .filter((r) => r.hasVirtualKey && r.models.length > 0)
@@ -814,19 +839,27 @@ export function ConfigTab({
                 <div className="flex items-center gap-3 pt-1">
                   <button
                     type="button"
-                    onClick={() => { setLlmEditing(false); setLlmStatus("idle"); }}
+                    onClick={() => {
+                      setLlmEditing(false);
+                      setLlmStatus("idle");
+                    }}
                     className="text-sm text-foreground-500 hover:text-foreground px-3 py-1.5"
                   >
                     Cancel
                   </button>
                   <button
-                    disabled={!selectedRealmId || !selectedRealmModelId || llmSaving}
+                    disabled={
+                      !selectedRealmId || !selectedRealmModelId || llmSaving
+                    }
                     onClick={saveRealmRouting}
                     className="px-4 py-1.5 text-sm font-medium rounded-lg bg-primary-600 hover:bg-primary-500 text-white disabled:opacity-40 transition"
                   >
                     {llmSaving ? "Saving…" : "Use realm routing"}
                   </button>
-                  <a href="/models" className="text-xs text-foreground-500 hover:text-foreground ml-auto transition-colors">
+                  <a
+                    href="/models"
+                    className="text-xs text-foreground-500 hover:text-foreground ml-auto transition-colors"
+                  >
                     Manage models →
                   </a>
                 </div>
@@ -837,13 +870,66 @@ export function ConfigTab({
             {configMode === "model" && (
               <div className="space-y-3">
                 {/* Flat unified model list — LiteLLM first, then registry */}
-                {(liteLlmModels.length > 0 || registryModels.filter((m) => m.status === "active").length > 0) && (
+                {(liteLlmModels.length > 0 ||
+                  registryModels.filter((m) => m.status === "active").length >
+                    0) && (
                   <div className="space-y-1.5">
-                      {liteLlmModels.map((m) => (
+                    {liteLlmModels.map((m) => (
+                      <label
+                        key={`litellm:${m.name}`}
+                        className={`flex items-center gap-3 px-3 py-3 rounded-xl border cursor-pointer transition-colors ${
+                          selectedSource === "litellm" &&
+                          selectedLiteLlmModel === m.name
+                            ? "border-primary-500 bg-primary-50"
+                            : "border-neutral-200 hover:border-neutral-300 hover:bg-background-200/50"
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          name="unified-model"
+                          checked={
+                            selectedSource === "litellm" &&
+                            selectedLiteLlmModel === m.name
+                          }
+                          onChange={() => {
+                            setSelectedSource("litellm");
+                            setSelectedLiteLlmModel(m.name);
+                          }}
+                          className="accent-primary-600 shrink-0"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-sm font-medium text-foreground">
+                              {m.name}
+                            </span>
+                            <span className="text-[10px] text-foreground-400">
+                              via proxy
+                            </span>
+                          </div>
+                          {typeof m.params === "object" &&
+                            m.params &&
+                            Object.keys(m.params).length > 0 && (
+                              <code className="text-xs text-foreground-400 font-mono truncate block">
+                                {Object.entries(m.params)
+                                  .slice(0, 2)
+                                  .map(
+                                    ([k, v]) =>
+                                      `${k}: ${String(v).substring(0, 30)}`
+                                  )
+                                  .join(" · ")}
+                              </code>
+                            )}
+                        </div>
+                      </label>
+                    ))}
+                    {registryModels
+                      .filter((m) => m.status === "active")
+                      .map((m) => (
                         <label
-                          key={`litellm:${m.name}`}
+                          key={`registry:${m.id}`}
                           className={`flex items-center gap-3 px-3 py-3 rounded-xl border cursor-pointer transition-colors ${
-                            selectedSource === "litellm" && selectedLiteLlmModel === m.name
+                            selectedSource === "registry" &&
+                            selectedRegistryId === m.id
                               ? "border-primary-500 bg-primary-50"
                               : "border-neutral-200 hover:border-neutral-300 hover:bg-background-200/50"
                           }`}
@@ -851,10 +937,13 @@ export function ConfigTab({
                           <input
                             type="radio"
                             name="unified-model"
-                            checked={selectedSource === "litellm" && selectedLiteLlmModel === m.name}
+                            checked={
+                              selectedSource === "registry" &&
+                              selectedRegistryId === m.id
+                            }
                             onChange={() => {
-                              setSelectedSource("litellm");
-                              setSelectedLiteLlmModel(m.name);
+                              setSelectedSource("registry");
+                              setSelectedRegistryId(m.id);
                             }}
                             className="accent-primary-600 shrink-0"
                           />
@@ -863,65 +952,31 @@ export function ConfigTab({
                               <span className="text-sm font-medium text-foreground">
                                 {m.name}
                               </span>
-                              <span className="text-[10px] text-foreground-400">via proxy</span>
+                              <span className="text-[10px] text-foreground-400">
+                                {m.provider}
+                              </span>
                             </div>
-                            {typeof m.params === "object" && m.params && Object.keys(m.params).length > 0 && (
-                              <code className="text-xs text-foreground-400 font-mono truncate block">
-                                {Object.entries(m.params)
-                                  .slice(0, 2)
-                                  .map(([k, v]) => `${k}: ${String(v).substring(0, 30)}`)
-                                  .join(" · ")}
-                              </code>
+                            <code className="text-xs text-foreground-400 font-mono">
+                              {m.modelId}
+                            </code>
+                            {m.description && (
+                              <p className="text-xs text-foreground-500 mt-0.5">
+                                {m.description}
+                              </p>
                             )}
                           </div>
                         </label>
                       ))}
-                      {registryModels
-                        .filter((m) => m.status === "active")
-                        .map((m) => (
-                          <label
-                            key={`registry:${m.id}`}
-                            className={`flex items-center gap-3 px-3 py-3 rounded-xl border cursor-pointer transition-colors ${
-                              selectedSource === "registry" && selectedRegistryId === m.id
-                                ? "border-primary-500 bg-primary-50"
-                                : "border-neutral-200 hover:border-neutral-300 hover:bg-background-200/50"
-                            }`}
-                          >
-                            <input
-                              type="radio"
-                              name="unified-model"
-                              checked={selectedSource === "registry" && selectedRegistryId === m.id}
-                              onChange={() => {
-                                setSelectedSource("registry");
-                                setSelectedRegistryId(m.id);
-                              }}
-                              className="accent-primary-600 shrink-0"
-                            />
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <span className="text-sm font-medium text-foreground">
-                                  {m.name}
-                                </span>
-                                <span className="text-[10px] text-foreground-400">{m.provider}</span>
-                              </div>
-                              <code className="text-xs text-foreground-400 font-mono">
-                                {m.modelId}
-                              </code>
-                              {m.description && (
-                                <p className="text-xs text-foreground-500 mt-0.5">
-                                  {m.description}
-                                </p>
-                              )}
-                            </div>
-                          </label>
-                        ))}
                   </div>
                 )}
 
                 <div className="flex items-center gap-3 pt-1">
                   <button
                     type="button"
-                    onClick={() => { setLlmEditing(false); setLlmStatus("idle"); }}
+                    onClick={() => {
+                      setLlmEditing(false);
+                      setLlmStatus("idle");
+                    }}
                     className="text-sm text-foreground-500 hover:text-foreground px-3 py-1.5"
                   >
                     Cancel
@@ -937,7 +992,10 @@ export function ConfigTab({
                   >
                     {llmSaving ? "Saving…" : "Use this model"}
                   </button>
-                  <a href="/models" className="text-xs text-foreground-500 hover:text-foreground ml-auto transition-colors">
+                  <a
+                    href="/models"
+                    className="text-xs text-foreground-500 hover:text-foreground ml-auto transition-colors"
+                  >
                     Manage models →
                   </a>
                 </div>
@@ -1040,7 +1098,9 @@ export function ConfigTab({
                   <div>
                     <label className="text-xs text-foreground-500 uppercase tracking-wider font-medium block mb-1.5">
                       Max Tokens{" "}
-                      <span className="normal-case text-foreground-400">(optional)</span>
+                      <span className="normal-case text-foreground-400">
+                        (optional)
+                      </span>
                     </label>
                     <input
                       type="number"
@@ -1065,7 +1125,10 @@ export function ConfigTab({
                     rows={4}
                     value={llmForm.systemPrompt}
                     onChange={(e) =>
-                      setLlmForm((f) => ({ ...f, systemPrompt: e.target.value }))
+                      setLlmForm((f) => ({
+                        ...f,
+                        systemPrompt: e.target.value,
+                      }))
                     }
                     placeholder="You are a secure agent…"
                     className="w-full bg-background-200 border border-neutral-300 rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-foreground-400 focus:outline-none focus:ring-2 focus:ring-primary-500/50 resize-y"
@@ -1074,7 +1137,10 @@ export function ConfigTab({
                 <div className="flex items-center gap-3">
                   <button
                     type="button"
-                    onClick={() => { setLlmEditing(false); setLlmStatus("idle"); }}
+                    onClick={() => {
+                      setLlmEditing(false);
+                      setLlmStatus("idle");
+                    }}
                     className="text-sm text-foreground-500 hover:text-foreground px-3 py-1.5"
                   >
                     Cancel
@@ -1136,7 +1202,9 @@ export function ConfigTab({
                       ${agentKeyInfo!.dailyBudget.toFixed(2)} / day
                     </span>
                   ) : (
-                    <span className="text-xs text-foreground-400">No limit</span>
+                    <span className="text-xs text-foreground-400">
+                      No limit
+                    </span>
                   ),
               },
               {
@@ -1212,7 +1280,9 @@ export function ConfigTab({
                     {
                       label: "Base URL",
                       value: (
-                        <span className="font-mono text-xs">{llmConfig.baseUrl}</span>
+                        <span className="font-mono text-xs">
+                          {llmConfig.baseUrl}
+                        </span>
                       ),
                     },
                   ]
@@ -1226,7 +1296,12 @@ export function ConfigTab({
                 ),
               },
               ...(llmConfig.maxTokens
-                ? [{ label: "Max Tokens", value: llmConfig.maxTokens.toString() }]
+                ? [
+                    {
+                      label: "Max Tokens",
+                      value: llmConfig.maxTokens.toString(),
+                    },
+                  ]
                 : []),
               ...(llmConfig.systemPrompt
                 ? [
@@ -1253,7 +1328,8 @@ export function ConfigTab({
           /* No config */
           <div className="px-4 py-8 text-center">
             <p className="text-foreground-500 text-sm">
-              No remote config set. The agent uses its local environment variables{" "}
+              No remote config set. The agent uses its local environment
+              variables{" "}
               <code className="text-xs bg-background-200 px-1.5 py-0.5 rounded">
                 LLM_PROVIDER
               </code>
@@ -1265,28 +1341,33 @@ export function ConfigTab({
             </p>
             {litellmConfigured && (
               <p className="text-xs text-foreground-500 mt-2">
-                LiteLLM is configured — click Configure to provision an agent key.
+                LiteLLM is configured — click Configure to provision an agent
+                key.
               </p>
             )}
             {!litellmConfigured && hasRealmRouting && (
               <p className="text-xs text-foreground-500 mt-2">
-                Realm routing is available — click Configure to route via your LiteLLM proxy.
+                Realm routing is available — click Configure to route via your
+                LiteLLM proxy.
               </p>
             )}
-            {!litellmConfigured && !hasRealmRouting && registryModels.length > 0 && (
-              <p className="text-xs text-foreground-500 mt-2">
-                {registryModels.length} model
-                {registryModels.length !== 1 ? "s" : ""} available in the registry — click
-                Configure to assign one.
-              </p>
-            )}
+            {!litellmConfigured &&
+              !hasRealmRouting &&
+              registryModels.length > 0 && (
+                <p className="text-xs text-foreground-500 mt-2">
+                  {registryModels.length} model
+                  {registryModels.length !== 1 ? "s" : ""} available in the
+                  registry — click Configure to assign one.
+                </p>
+              )}
           </div>
         )}
       </div>
-
       {/* Status feedback */}
       {llmStatus === "saved" && (
-        <p className="text-success-600 text-xs">✓ Config saved and pushed to agent</p>
+        <p className="text-success-600 text-xs">
+          ✓ Config saved and pushed to agent
+        </p>
       )}
       {llmStatus === "cleared" && (
         <p className="text-success-600 text-xs">✓ Config cleared</p>

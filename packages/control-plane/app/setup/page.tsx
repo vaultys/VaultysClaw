@@ -680,7 +680,7 @@ function AgentStep({ onNext }: { onNext: () => void }) {
 
   useEffect(() => {
     agentsClient
-      .list({
+      .search({
         query: {
           pageSize: 20,
         },

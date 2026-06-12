@@ -11,6 +11,8 @@ import { APIException } from "./api/utils/api-utils";
 
 export interface AuthContext {
   did: string;
+  /** Precomputed set of realm IDs the user can access. Empty for global admins (use isGlobalAdmin instead). */
+  realmIds: Set<string>;
   isOwner: boolean;
   isGlobalAdmin: boolean;
   canAccessRealm(realmId: string): Promise<boolean>;
@@ -32,11 +34,13 @@ export async function getAuthContext(
   // 1. Try NextAuth session first (unchanged behaviour)
   const session = await getServerSession(authOptions);
   if (session?.user?.did) {
-    const { did, isOwner, isAdmin } = session.user;
+    const { did, userId, isOwner, isAdmin } = session.user;
     const isGlobalAdmin = Boolean(isAdmin) || Boolean(isOwner);
 
-    // Precompute realm membership once per request
-    const userRealms = isGlobalAdmin ? [] : await RealmDAO.getUserRealms(did);
+    // Precompute realm membership once per request.
+    // getUserRealms expects the DB UUID (userId), not the VaultysID DID string.
+    const userRealms =
+      isGlobalAdmin ? [] : await RealmDAO.getUserRealms(userId ?? did);
     const accessibleRealmIds = new Set(userRealms.map((r) => r.realmId));
     const adminRealmIds = new Set(
       userRealms.filter((r) => r.isRealmAdmin).map((r) => r.realmId)
@@ -44,6 +48,7 @@ export async function getAuthContext(
 
     return {
       did,
+      realmIds: accessibleRealmIds,
       isOwner: Boolean(isOwner),
       isGlobalAdmin,
 
@@ -109,6 +114,7 @@ export async function getAuthContext(
 
       return {
         did: `apikey:${row.id}`,
+        realmIds: new Set<string>(),
         isOwner: false,
         isGlobalAdmin: isGlobalKey,
 

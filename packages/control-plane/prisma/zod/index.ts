@@ -1,5 +1,6 @@
 export * from "./setting"
 export * from "./entraidentity"
+export * from "./oidcidentity"
 export * from "./agent"
 export * from "./authsession"
 export * from "./certificate"

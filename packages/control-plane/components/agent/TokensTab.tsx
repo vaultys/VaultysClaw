@@ -12,7 +12,7 @@ import {
   Legend,
   ResponsiveContainer,
 } from "recharts";
-import { agentsApi } from "@/lib/api";
+import { agentsClient, unwrap } from "@/lib/api/ts-rest/client";
 import { TokenUsageBucket } from "@/types";
 
 type TokenGranularity = "day" | "month";
@@ -59,11 +59,12 @@ export function TokensTab({ agentId }: { agentId: string }) {
           g === "month"
             ? today.toISOString().slice(0, 7)
             : today.toISOString().slice(0, 10);
-        const { data } = await agentsApi.getTokenUsage(agentId, {
-          granularity: g,
-          from,
-          to,
-        });
+        const { data } = unwrap(
+          await agentsClient.tokenUsage({
+            params: { did: agentId },
+            query: { granularity: g, from, to },
+          })
+        );
         setData(data ?? []);
       } catch (e) {
         setTokenError((e as Error).message);

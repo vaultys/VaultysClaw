@@ -94,7 +94,7 @@ export default function AgentDetailPage() {
 
   useEffect(() => {
     if (liveAgent && agent) {
-      setAgent((prev) =>
+      setAgent((prev: { reportedLlm: any }) =>
         prev
           ? {
               ...prev,

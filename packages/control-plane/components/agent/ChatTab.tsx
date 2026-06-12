@@ -11,7 +11,7 @@ import {
   XCircle,
   WifiOff,
 } from "lucide-react";
-import { agentsApi } from "@/lib/api";
+import { agentsClient, unwrap } from "@/lib/api/ts-rest/client";
 
 interface ChatMessage {
   role: "user" | "assistant";
@@ -199,7 +199,9 @@ export function ChatTab({
   }, [agentId]);
 
   const fetchSessions = useCallback(async () => {
-    const { sessions } = await agentsApi.getChatSessions(agentId);
+    const { sessions } = unwrap(
+      await agentsClient.getChatSessions({ params: { did: agentId } })
+    );
     setSessions(sessions ?? []);
   }, [agentId]);
 
@@ -210,9 +212,10 @@ export function ChatTab({
   const loadSession = useCallback(
     async (sessionId: string) => {
       try {
-        const { messages } = await agentsApi.getSessionMessages(
-          agentId,
-          sessionId
+        const { messages } = unwrap(
+          await agentsClient.getSessionMessages({
+            params: { did: agentId, sessionId },
+          })
         );
         setMessages(
           (messages ?? [])

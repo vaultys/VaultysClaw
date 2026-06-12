@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { type LlmProviderType } from "@vaultysclaw/shared";
 import { ConfirmModal } from "@/components/shared/ConfirmModal";
-import { agentsApi } from "@/lib/api";
+import { agentsClient, unwrap } from "@/lib/api/ts-rest/client";
 import { RealmLlmData, SafeLlmConfig } from "@/types";
 import { Key, RefreshCw } from "lucide-react";
 import Link from "next/link";
@@ -138,9 +138,9 @@ export function ConfigTab({
     setLlmLoading(true);
     try {
       const [configData, modelsData, realmData, keyData, liteLlmModelsData] = await Promise.all([
-        agentsApi.getLlmConfig(did),
+        agentsClient.getLlmConfig({ params: { did } }).then(unwrap),
         fetch("/api/models").then((r) => r.json()),
-        agentsApi.getRealmLlm(did),
+        agentsClient.getRealmLlm({ params: { did } }).then(unwrap),
         fetch(`/api/agents/${encodeURIComponent(did)}/litellm-key`)
           .then((r) => (r.ok ? r.json() : null))
           .catch(() => null),
@@ -293,7 +293,7 @@ export function ConfigTab({
     setLlmSaving(true);
     setLlmError(null);
     try {
-      await agentsApi.deleteLlmConfig(did);
+      unwrap(await agentsClient.deleteLlmConfig({ params: { did } }));
       await loadAll();
       setLlmStatus("cleared");
       setTimeout(() => setLlmStatus("idle"), 2500);
@@ -309,7 +309,7 @@ export function ConfigTab({
     setLlmError(null);
     try {
       // 1. Clear any manual llmConfig so the agent key takes priority
-      if (llmConfig) await agentsApi.deleteLlmConfig(did);
+      if (llmConfig) unwrap(await agentsClient.deleteLlmConfig({ params: { did } }));
 
       // 2. Provision / refresh the key
       const body: Record<string, unknown> = {};
@@ -361,10 +361,12 @@ export function ConfigTab({
     setLlmStatus("idle");
     setLlmError(null);
     try {
-      const { config } = await agentsApi.setLlmConfig(did, {
-        realmId: selectedRealmId,
-        realmModelId: selectedRealmModelId,
-      });
+      const { config } = unwrap(
+        await agentsClient.setLlmConfig({
+          params: { did },
+          body: { realmId: selectedRealmId, realmModelId: selectedRealmModelId },
+        })
+      );
       setLlmConfig(config);
       setLlmEditing(false);
       setLlmStatus("saved");
@@ -382,9 +384,12 @@ export function ConfigTab({
     setLlmStatus("idle");
     setLlmError(null);
     try {
-      const { config } = await agentsApi.setLlmConfig(did, {
-        registryModelId: selectedRegistryId,
-      });
+      const { config } = unwrap(
+        await agentsClient.setLlmConfig({
+          params: { did },
+          body: { registryModelId: selectedRegistryId },
+        })
+      );
       setLlmConfig(config);
       setLlmEditing(false);
       setLlmStatus("saved");
@@ -403,7 +408,7 @@ export function ConfigTab({
     setLlmError(null);
     try {
       // 1. Clear any manual llmConfig so the LiteLLM model takes priority
-      if (llmConfig) await agentsApi.deleteLlmConfig(did);
+      if (llmConfig) unwrap(await agentsClient.deleteLlmConfig({ params: { did } }));
 
       // 2. Create agent key with the selected model
       const res = await fetch(
@@ -455,7 +460,9 @@ export function ConfigTab({
       if (llmForm.baseUrl) body.baseUrl = llmForm.baseUrl;
       if (llmForm.systemPrompt) body.systemPrompt = llmForm.systemPrompt;
       if (llmForm.maxTokens) body.maxTokens = parseInt(llmForm.maxTokens, 10);
-      const { config } = await agentsApi.setLlmConfig(did, body);
+      const { config } = unwrap(
+        await agentsClient.setLlmConfig({ params: { did }, body })
+      );
       setLlmConfig(config);
       setLlmEditing(false);
       setLlmStatus("saved");

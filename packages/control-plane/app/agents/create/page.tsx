@@ -30,7 +30,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAdminWS } from "@/hooks/useAdminWS";
-import { agentsApi } from "@/lib/api";
+import { agentsClient, unwrap } from "@/lib/api/ts-rest/client";
 import { SkillConfig } from "@vaultysclaw/shared";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -385,9 +385,10 @@ export default function CreateAgentPage() {
 
   useEffect(() => {
     if (step === "skills" && agentDid && skills.length === 0) {
-      agentsApi
-        .getSkills(agentDid)
-        .then((d: { skills?: SkillConfig[] }) => setSkills(d.skills ?? []))
+      agentsClient
+        .getSkills({ params: { did: agentDid } })
+        .then(unwrap)
+        .then((d) => setSkills((d.skills as SkillConfig[] | undefined) ?? []))
         .catch(() => {});
     }
   }, [step, agentDid, skills.length]);
@@ -640,9 +641,12 @@ export default function CreateAgentPage() {
     setModelError(null);
     try {
       if (modelMode === "registry" && selectedModel) {
-        await agentsApi.setLlmConfig(agentDid, {
-          registryModelId: selectedModel,
-        });
+        unwrap(
+          await agentsClient.setLlmConfig({
+            params: { did: agentDid },
+            body: { registryModelId: selectedModel },
+          })
+        );
       } else if (modelMode === "litellm" && selectedLiteLlmModel) {
         // Create/validate LiteLLM key for this model
         await fetch(`//api/agents/${agentDid}/litellm-key`, {
@@ -674,7 +678,12 @@ export default function CreateAgentPage() {
         s.name === skill.name ? { ...s, enabled: newEnabled } : s
       )
     );
-    await agentsApi.updateSkill(agentDid, realmSkillId, newEnabled);
+    unwrap(
+      await agentsClient.updateSkillOverride({
+        params: { did: agentDid },
+        body: { realmSkillId, enabled: newEnabled },
+      })
+    );
   }
 
   // ── Derived ────────────────────────────────────────────────────────────────

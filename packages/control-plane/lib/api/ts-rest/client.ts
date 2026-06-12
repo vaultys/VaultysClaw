@@ -34,7 +34,6 @@ import {
   workflowRunsContract,
   workflowsContract,
 } from "@/lib/contracts";
-import { ApiError } from "../base";
 
 /** Shared client options — relative baseUrl keeps calls same-origin in the browser. */
 const clientOptions = {
@@ -93,11 +92,26 @@ export const workflowApprovalsClient = initClient(
   workflowApprovalsContract,
   clientOptions
 );
-export const workflowRunsClient = initClient(workflowRunsContract, clientOptions);
+export const workflowRunsClient = initClient(
+  workflowRunsContract,
+  clientOptions
+);
 export const workflowsClient = initClient(workflowsContract, clientOptions);
 
 /** ts-rest responses are a `{ status, body }` union keyed by status code. */
 type TsRestResult = { status: number; body: unknown };
+
+export class ApiError extends Error {
+  constructor(
+    public status: number,
+    public code: string,
+    message: string,
+    public details?: Record<string, unknown>
+  ) {
+    super(message);
+    this.name = "ApiError";
+  }
+}
 
 /**
  * Bridge ts-rest's non-throwing `{ status, body }` result to the rest of the

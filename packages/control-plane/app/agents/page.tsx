@@ -26,7 +26,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import dynamic from "next/dynamic";
 import type { MapMarker } from "@/components/map/WorldMap";
 import { SearchBar } from "@/components/shared";
-import { apiClient, unwrap } from "@/lib/api/ts-rest/client";
+import { agentsClient, unwrap } from "@/lib/api/ts-rest/client";
 import { AgentInfo, ListAgentsQuery } from "@/lib/contracts";
 import { shortDid, timeAgo } from "@vaultysclaw/shared";
 
@@ -89,7 +89,7 @@ export default function AgentsPage() {
   const fetchAgents = useCallback(async (query: ListAgentsQuery) => {
     setLoading(true);
     try {
-      const data = unwrap(await apiClient.agents.list({ query }));
+      const data = unwrap(await agentsClient.list({ query }));
       setAgents(data.items);
       setTotal(data.total);
       setTotalPages(data.totalPages);

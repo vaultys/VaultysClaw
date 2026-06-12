@@ -31,7 +31,7 @@ import {
 } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useRole } from "@/hooks/useRole";
-import { apiClient, unwrap } from "@/lib/api/ts-rest/client";
+import { agentsClient, unwrap } from "@/lib/api/ts-rest/client";
 import { AgentInfo } from "@/lib/contracts";
 
 const LocationEditor = dynamic(
@@ -1283,7 +1283,7 @@ export default function KnowledgeDashboardPage() {
     try {
       const [ksRes, agRes, rlRes] = await Promise.all([
         fetch("/api/knowledge"),
-        apiClient.agents.list(),
+        agentsClient.list(),
         fetch("/api/realms"),
       ]);
       const ksData = (await ksRes.json()) as { sources?: KnowledgeSource[] };

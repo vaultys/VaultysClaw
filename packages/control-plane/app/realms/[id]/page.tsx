@@ -38,7 +38,7 @@ import {
   RealmLiteLLMKeyCard,
   type RealmRouterKeyData,
 } from "@/components/realms/RealmLiteLLMKeyCard";
-import { apiClient, unwrap } from "@/lib/api/ts-rest/client";
+import { agentsClient, unwrap } from "@/lib/api/ts-rest/client";
 import { AgentInfo } from "@/lib/contracts";
 
 const WorldMap = dynamic(
@@ -169,7 +169,7 @@ function AddMemberModal({
 
   useEffect(() => {
     if (type === "agent") {
-      apiClient.agents
+      agentsClient
         .list()
         .then((r) => unwrap(r))
         .then((d) => setAgents(d.items));

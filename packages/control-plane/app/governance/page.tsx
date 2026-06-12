@@ -30,7 +30,7 @@ import {
   Gauge,
   BookOpen,
 } from "lucide-react";
-import { apiClient, unwrap } from "@/lib/api/ts-rest/client";
+import { agentsClient, unwrap } from "@/lib/api/ts-rest/client";
 import { AgentInfo } from "@/lib/contracts";
 import {
   formatCompactNumber,
@@ -678,7 +678,7 @@ function PoliciesTab() {
     try {
       const [polRes, agentRes] = await Promise.all([
         fetch("/api/policies?includeExpired=false"),
-        apiClient.agents.list({
+        agentsClient.list({
           query: {
             pageSize: 100,
           },

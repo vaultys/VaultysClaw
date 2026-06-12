@@ -1,5 +1,39 @@
-import { initClient, type InitClientReturn } from "@ts-rest/core";
-import { appContract } from "@/lib/contracts";
+import { initClient } from "@ts-rest/core";
+import {
+  aboutContract,
+  agentsContract,
+  apiKeysContract,
+  bridgesContract,
+  channelsContract,
+  chatContract,
+  governanceContract,
+  graphContract,
+  healthContract,
+  intentsContract,
+  invitationsContract,
+  knowledgeContract,
+  litellmContract,
+  mapContract,
+  meContract,
+  modelsContract,
+  networkContract,
+  orgSkillsContract,
+  policiesContract,
+  realmsContract,
+  registrationsContract,
+  serverContract,
+  settingsContract,
+  setupContract,
+  skillsContract,
+  statsContract,
+  toolApprovalsContract,
+  userAuthContract,
+  userStatusContract,
+  usersContract,
+  workflowApprovalsContract,
+  workflowRunsContract,
+  workflowsContract,
+} from "@/lib/contracts";
 import { ApiError } from "../base";
 
 /** Shared client options — relative baseUrl keeps calls same-origin in the browser. */
@@ -9,26 +43,58 @@ const clientOptions = {
 };
 
 /**
- * Aggregate ts-rest client covering **every** domain contract.
+ * Per-contract ts-rest clients. One client per domain contract keeps TypeScript
+ * inference fast: the language server resolves one small type instead of the
+ * entire appContract union (~30 routers merged).
  *
- * `initClient(appContract, …)` infers a fully typed method for each route from
- * the same contracts the server implements, so request bodies and return
- * values can never drift from the API. Access is namespaced by domain:
- *
+ * Usage:
  * ```ts
- * const res = await apiClient.workflows.getOne({ params: { id } });
- * const { agents } = unwrap(await apiClient.agents.list({ query: {} }));
+ * import { agentsClient, workflowsClient } from "@/lib/api/ts-rest/client";
+ * const { items } = unwrap(await agentsClient.list({ query: {} }));
  * ```
- *
- * Each call resolves to a non-throwing `{ status, body }` union — pass it
- * through {@link unwrap} for `BaseApi`-style throw-on-error behaviour.
  */
-export const apiClient = initClient(appContract, clientOptions);
-
-export type ApiClient = InitClientReturn<
-  typeof appContract,
-  typeof clientOptions
->;
+export const aboutClient = initClient(aboutContract, clientOptions);
+export const agentsClient = initClient(agentsContract, clientOptions);
+export const apiKeysClient = initClient(apiKeysContract, clientOptions);
+export const bridgesClient = initClient(bridgesContract, clientOptions);
+export const channelsClient = initClient(channelsContract, clientOptions);
+export const chatClient = initClient(chatContract, clientOptions);
+export const governanceClient = initClient(governanceContract, clientOptions);
+export const graphClient = initClient(graphContract, clientOptions);
+export const healthClient = initClient(healthContract, clientOptions);
+export const intentsClient = initClient(intentsContract, clientOptions);
+export const invitationsClient = initClient(invitationsContract, clientOptions);
+export const knowledgeClient = initClient(knowledgeContract, clientOptions);
+export const litellmClient = initClient(litellmContract, clientOptions);
+export const mapClient = initClient(mapContract, clientOptions);
+export const meClient = initClient(meContract, clientOptions);
+export const modelsClient = initClient(modelsContract, clientOptions);
+export const networkClient = initClient(networkContract, clientOptions);
+export const orgSkillsClient = initClient(orgSkillsContract, clientOptions);
+export const policiesClient = initClient(policiesContract, clientOptions);
+export const realmsClient = initClient(realmsContract, clientOptions);
+export const registrationsClient = initClient(
+  registrationsContract,
+  clientOptions
+);
+export const serverClient = initClient(serverContract, clientOptions);
+export const settingsClient = initClient(settingsContract, clientOptions);
+export const setupClient = initClient(setupContract, clientOptions);
+export const skillsClient = initClient(skillsContract, clientOptions);
+export const statsClient = initClient(statsContract, clientOptions);
+export const toolApprovalsClient = initClient(
+  toolApprovalsContract,
+  clientOptions
+);
+export const userAuthClient = initClient(userAuthContract, clientOptions);
+export const userStatusClient = initClient(userStatusContract, clientOptions);
+export const usersClient = initClient(usersContract, clientOptions);
+export const workflowApprovalsClient = initClient(
+  workflowApprovalsContract,
+  clientOptions
+);
+export const workflowRunsClient = initClient(workflowRunsContract, clientOptions);
+export const workflowsClient = initClient(workflowsContract, clientOptions);
 
 /** ts-rest responses are a `{ status, body }` union keyed by status code. */
 type TsRestResult = { status: number; body: unknown };
@@ -36,8 +102,7 @@ type TsRestResult = { status: number; body: unknown };
 /**
  * Bridge ts-rest's non-throwing `{ status, body }` result to the rest of the
  * codebase, which expects `BaseApi`-style behaviour: return the body on a 2xx,
- * throw `ApiError` otherwise. This lets contract-backed methods be dropped into
- * the existing API client classes without changing any callers.
+ * throw `ApiError` otherwise.
  */
 export function unwrap<R extends TsRestResult>(
   result: R

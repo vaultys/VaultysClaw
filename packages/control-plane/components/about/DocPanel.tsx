@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import { Loader2, AlertTriangle } from "lucide-react";
 import { MarkdownDoc } from "@/components/shared/md/MarkdownDoc";
-import { apiClient, unwrap } from "@/lib/api/ts-rest/client";
+import { aboutClient, unwrap } from "@/lib/api/ts-rest/client";
 
 export function DocPanel() {
   const [content, setContent] = useState<string | null>(null);
@@ -10,7 +10,7 @@ export function DocPanel() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    apiClient.about
+    aboutClient
       .get({
         query: { doc: "zerotrust" },
       })

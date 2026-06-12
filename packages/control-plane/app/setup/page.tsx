@@ -15,7 +15,7 @@ import {
 import { QRCodeSVG } from "qrcode.react";
 import { RegisterModelForm } from "@/components/models/RegisterModelForm";
 import { useRole } from "@/hooks/useRole";
-import { apiClient, unwrap } from "@/lib/api/ts-rest/client";
+import { agentsClient, unwrap } from "@/lib/api/ts-rest/client";
 import { AgentInfo } from "@/lib/contracts";
 
 // ─── LocalStorage helpers ─────────────────────────────────────────────────────
@@ -679,7 +679,7 @@ function AgentStep({ onNext }: { onNext: () => void }) {
   const [fetching, setFetching] = useState(true);
 
   useEffect(() => {
-    apiClient.agents
+    agentsClient
       .list({
         query: {
           pageSize: 20,

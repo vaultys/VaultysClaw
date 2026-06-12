@@ -4,6 +4,7 @@
   "description": "Control plane for VaultysClaw - manage policies, agents, and AI orchestration",
   "scripts": {
     "postinstall": "prisma generate",
+    "prisma:generate": "prisma generate && sed -i \"/import \\* as imports from \\\"..\\\/null\\\"/d\" prisma/zod/*.ts",
     "dev": "tsx watch --exclude 'data*/**' --exclude '.next/**' server.ts",
     "build": "tsc && next build",
     "start": "node dist/server.js",

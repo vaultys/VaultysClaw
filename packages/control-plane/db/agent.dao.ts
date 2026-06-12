@@ -8,7 +8,7 @@ import type {
   AgentPeerGrant,
 } from "@prisma/client";
 import type { LlmConfig } from "@vaultysclaw/shared";
-import { AgentWithRealms } from "./types";
+import { AgentWithInfo } from "./types";
 
 export class AgentDAO {
   // ─── CRUD ───────────────────────────────────────────────────────────────────
@@ -62,7 +62,7 @@ export class AgentDAO {
     onlineFilter?: boolean;
     onlineDids?: Set<string>;
   }): Promise<{
-    agents: AgentWithRealms[];
+    agents: AgentWithInfo[];
     total: number;
     page: number;
     pageSize: number;
@@ -140,12 +140,12 @@ export class AgentDAO {
         orderBy: { [sortBy]: sortDir },
         skip: (page - 1) * pageSize,
         take: pageSize,
-        include: { agentRealms: realmInclude },
+        include: { agentRealms: realmInclude, tokenUsage: { select: { promptTokens: true, completionTokens: true, updatedAt: true } } },
       }),
     ]);
 
     return {
-      agents: agents as AgentWithRealms[],
+      agents,
       total,
       page,
       pageSize,

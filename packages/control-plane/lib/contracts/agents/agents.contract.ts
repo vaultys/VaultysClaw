@@ -1,33 +1,22 @@
-import { z } from "zod";
-import { commonPaginatedResponseSchema, commonErrorResponses } from "./../common";
+import { commonErrorResponses, PaginatedResponse } from "./../common";
 import { c } from "../contract";
 
 import {
-  AgentDetailSchema,
-  AgentListItemSchema,
   CreatePeerBodySchema,
   CreateScheduleBodySchema,
-  CreateScheduleResponseSchema,
-  DidParamsSchema,
-  DidPeerParamsSchema,
-  DidScheduleParamsSchema,
-  DidSessionParamsSchema,
-  DidSkillParamsSchema,
-  LitellmKeyStatusSchema,
   ListAgentsQuerySchema,
   PutLiteLlmKeyBodySchema,
   SearchAgentsQuerySchema,
   SendTaskBodySchema,
-  SendTaskResponseSchema,
   SetLocationBodySchema,
   SetLlmConfigBodySchema,
   TokenUsageQuerySchema,
   UpdateAgentBodySchema,
-  UpdateAgentResponseSchema,
   UpdateSkillBodySchema,
   UpdateSkillOverrideBodySchema,
 } from "./agents.schemas";
-import type { AgentSummary } from "./agents.types";
+import z from "zod";
+import { AgentInfo } from "./agents.types";
 
 export const agentsContract = c.router({
   // ─── Agent CRUD ─────────────────────────────────────────────────────────────
@@ -35,9 +24,9 @@ export const agentsContract = c.router({
   getAgent: {
     method: "GET",
     path: "/api/agents/:did",
-    pathParams: DidParamsSchema,
+    pathParams: z.object({ did: z.string() }),
     responses: {
-      200: AgentDetailSchema,
+      200: c.type<any>(), // TODO: c.type<AgentDetail>(),
       ...commonErrorResponses,
     },
   },
@@ -45,10 +34,10 @@ export const agentsContract = c.router({
   updateAgent: {
     method: "PATCH",
     path: "/api/agents/:did",
-    pathParams: DidParamsSchema,
+    pathParams: z.object({ did: z.string() }),
     body: UpdateAgentBodySchema,
     responses: {
-      200: UpdateAgentResponseSchema,
+      200: c.type<any>(), // TODO: c.type<UpdateAgentResponse>(),
       ...commonErrorResponses,
     },
   },
@@ -56,7 +45,7 @@ export const agentsContract = c.router({
   deleteAgent: {
     method: "DELETE",
     path: "/api/agents/:did",
-    pathParams: DidParamsSchema,
+    pathParams: z.object({ did: z.string() }),
     body: c.noBody(),
     responses: {
       204: c.noBody(),
@@ -71,7 +60,7 @@ export const agentsContract = c.router({
     path: "/api/agents",
     query: ListAgentsQuerySchema,
     responses: {
-      200: commonPaginatedResponseSchema(AgentListItemSchema).extend({ online: z.number() }),
+      200: c.type<PaginatedResponse<AgentInfo>>(),
       ...commonErrorResponses,
     },
   },
@@ -81,7 +70,7 @@ export const agentsContract = c.router({
     path: "/api/agents/search",
     query: SearchAgentsQuerySchema,
     responses: {
-      200: c.type<{ agents: AgentSummary[] }>(),
+      200: c.type<{ agents: AgentInfo[] }>(),
       ...commonErrorResponses,
     },
   },
@@ -91,10 +80,10 @@ export const agentsContract = c.router({
   sendTask: {
     method: "POST",
     path: "/api/agents/:did/task",
-    pathParams: DidParamsSchema,
+    pathParams: z.object({ did: z.string() }),
     body: SendTaskBodySchema,
     responses: {
-      200: SendTaskResponseSchema,
+      200: c.type<any>(), // TODO: c.type<SendTaskResponse>(),
       ...commonErrorResponses,
     },
   },
@@ -102,10 +91,10 @@ export const agentsContract = c.router({
   createSchedule: {
     method: "POST",
     path: "/api/agents/:did/schedules",
-    pathParams: DidParamsSchema,
+    pathParams: z.object({ did: z.string() }),
     body: CreateScheduleBodySchema,
     responses: {
-      200: CreateScheduleResponseSchema,
+      200: c.type<any>(), // TODO: c.type<CreateScheduleResponse>(),
       ...commonErrorResponses,
     },
   },
@@ -113,7 +102,7 @@ export const agentsContract = c.router({
   deleteSchedule: {
     method: "DELETE",
     path: "/api/agents/:did/schedules/:id",
-    pathParams: DidScheduleParamsSchema,
+    pathParams: z.object({ did: z.string(), id: z.string() }),
     body: c.noBody(),
     responses: {
       200: c.type<{ agentId: string; scheduleId: string }>(),
@@ -126,7 +115,7 @@ export const agentsContract = c.router({
   tokenUsage: {
     method: "GET",
     path: "/api/agents/:did/token-usage",
-    pathParams: DidParamsSchema,
+    pathParams: z.object({ did: z.string() }),
     query: TokenUsageQuerySchema,
     responses: {
       200: c.type<any>(),
@@ -139,7 +128,7 @@ export const agentsContract = c.router({
   getSkills: {
     method: "GET",
     path: "/api/agents/:did/skills",
-    pathParams: DidParamsSchema,
+    pathParams: z.object({ did: z.string() }),
     responses: {
       200: c.type<{ skills: any[] }>(),
       ...commonErrorResponses,
@@ -149,7 +138,7 @@ export const agentsContract = c.router({
   updateSkillOverride: {
     method: "PATCH",
     path: "/api/agents/:did/skills",
-    pathParams: DidParamsSchema,
+    pathParams: z.object({ did: z.string() }),
     body: UpdateSkillOverrideBodySchema,
     responses: {
       200: c.type<{ skills: any[] }>(),
@@ -160,7 +149,7 @@ export const agentsContract = c.router({
   updateSkill: {
     method: "PATCH",
     path: "/api/agents/:did/skill/:skillId",
-    pathParams: DidSkillParamsSchema,
+    pathParams: z.object({ did: z.string(), skillId: z.string() }),
     body: UpdateSkillBodySchema,
     responses: {
       200: c.type<any>(),
@@ -173,7 +162,7 @@ export const agentsContract = c.router({
   listPeers: {
     method: "GET",
     path: "/api/agents/:did/peers",
-    pathParams: DidParamsSchema,
+    pathParams: z.object({ did: z.string() }),
     responses: {
       200: c.type<any>(),
       ...commonErrorResponses,
@@ -183,7 +172,7 @@ export const agentsContract = c.router({
   createPeer: {
     method: "POST",
     path: "/api/agents/:did/peers",
-    pathParams: DidParamsSchema,
+    pathParams: z.object({ did: z.string() }),
     body: CreatePeerBodySchema,
     responses: {
       201: c.type<any>(),
@@ -194,7 +183,7 @@ export const agentsContract = c.router({
   getPeer: {
     method: "GET",
     path: "/api/agents/:did/peers/:grantId",
-    pathParams: DidPeerParamsSchema,
+    pathParams: z.object({ did: z.string(), grantId: z.string() }),
     responses: {
       200: c.type<any>(),
       ...commonErrorResponses,
@@ -204,7 +193,7 @@ export const agentsContract = c.router({
   deletePeer: {
     method: "DELETE",
     path: "/api/agents/:did/peers/:grantId",
-    pathParams: DidPeerParamsSchema,
+    pathParams: z.object({ did: z.string(), grantId: z.string() }),
     body: c.noBody(),
     responses: {
       200: c.type<any>(),
@@ -217,7 +206,7 @@ export const agentsContract = c.router({
   setLocation: {
     method: "PATCH",
     path: "/api/agents/:did/location",
-    pathParams: DidParamsSchema,
+    pathParams: z.object({ did: z.string() }),
     body: SetLocationBodySchema,
     responses: {
       204: c.noBody(),
@@ -230,7 +219,7 @@ export const agentsContract = c.router({
   getLlmConfig: {
     method: "GET",
     path: "/api/agents/:did/llm-config",
-    pathParams: DidParamsSchema,
+    pathParams: z.object({ did: z.string() }),
     responses: {
       200: c.type<{ config: any | null }>(),
       ...commonErrorResponses,
@@ -240,7 +229,7 @@ export const agentsContract = c.router({
   setLlmConfig: {
     method: "PUT",
     path: "/api/agents/:did/llm-config",
-    pathParams: DidParamsSchema,
+    pathParams: z.object({ did: z.string() }),
     body: SetLlmConfigBodySchema,
     responses: {
       200: c.type<{ pushed: boolean; config: any }>(),
@@ -251,7 +240,7 @@ export const agentsContract = c.router({
   deleteLlmConfig: {
     method: "DELETE",
     path: "/api/agents/:did/llm-config",
-    pathParams: DidParamsSchema,
+    pathParams: z.object({ did: z.string() }),
     body: c.noBody(),
     responses: {
       200: c.type<{ pushed: boolean }>(),
@@ -264,9 +253,9 @@ export const agentsContract = c.router({
   getLitellmKey: {
     method: "GET",
     path: "/api/agents/:did/litellm-key",
-    pathParams: DidParamsSchema,
+    pathParams: z.object({ did: z.string() }),
     responses: {
-      200: LitellmKeyStatusSchema,
+      200: c.type<any>(), // TODO: c.type<LitellmKeyStatus>(),
       ...commonErrorResponses,
     },
   },
@@ -274,10 +263,15 @@ export const agentsContract = c.router({
   putLitellmKey: {
     method: "PUT",
     path: "/api/agents/:did/litellm-key",
-    pathParams: DidParamsSchema,
+    pathParams: z.object({ did: z.string() }),
     body: PutLiteLlmKeyBodySchema,
     responses: {
-      200: c.type<{ ok: boolean; keyPrefix: string; allowedModels: string[]; dailyBudget: number | null }>(),
+      200: c.type<{
+        ok: boolean;
+        keyPrefix: string;
+        allowedModels: string[];
+        dailyBudget: number | null;
+      }>(),
       ...commonErrorResponses,
     },
   },
@@ -285,7 +279,7 @@ export const agentsContract = c.router({
   deleteLitellmKey: {
     method: "DELETE",
     path: "/api/agents/:did/litellm-key",
-    pathParams: DidParamsSchema,
+    pathParams: z.object({ did: z.string() }),
     body: c.noBody(),
     responses: {
       200: c.type<{ ok: boolean }>(),
@@ -298,7 +292,7 @@ export const agentsContract = c.router({
   getRealmLlm: {
     method: "GET",
     path: "/api/agents/:did/realm-llm",
-    pathParams: DidParamsSchema,
+    pathParams: z.object({ did: z.string() }),
     responses: {
       200: c.type<any>(),
       ...commonErrorResponses,
@@ -310,7 +304,7 @@ export const agentsContract = c.router({
   getChatSessions: {
     method: "GET",
     path: "/api/agents/:did/chat-sessions",
-    pathParams: DidParamsSchema,
+    pathParams: z.object({ did: z.string() }),
     responses: {
       200: c.type<{ sessions: any[] }>(),
       ...commonErrorResponses,
@@ -320,7 +314,7 @@ export const agentsContract = c.router({
   getSessionMessages: {
     method: "GET",
     path: "/api/agents/:did/chat-sessions/:sessionId",
-    pathParams: DidSessionParamsSchema,
+    pathParams: z.object({ did: z.string(), sessionId: z.string() }),
     responses: {
       200: c.type<{ messages: any[] }>(),
       ...commonErrorResponses,

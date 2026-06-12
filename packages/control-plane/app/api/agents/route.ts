@@ -22,10 +22,17 @@ const handlers = createNextRoute(agentsContract, {
     const page = Math.max(1, rawPage ?? 1);
     const pageSize = Math.min(100, Math.max(1, rawPageSize ?? 20));
     const capabilities = capStr
-      ? capStr.split(",").map((c) => c.trim()).filter(Boolean)
+      ? capStr
+          .split(",")
+          .map((c) => c.trim())
+          .filter(Boolean)
       : undefined;
     const onlineFilter =
-      onlineParam === "true" ? true : onlineParam === "false" ? false : undefined;
+      onlineParam === "true"
+        ? true
+        : onlineParam === "false"
+          ? false
+          : undefined;
 
     const wsServer = getWSServer();
     const connectedDids = new Set(
@@ -55,31 +62,16 @@ const handlers = createNextRoute(agentsContract, {
     const items = result.agents.map((agent) => {
       const connected = wsServer?.getAgent(agent.did);
       return {
-        id: agent.did,
-        name: connected?.name ?? agent.name,
-        capabilities: agent.capabilities,
-        registeredAt: agent.registeredAt instanceof Date
-          ? agent.registeredAt.toISOString()
-          : String(agent.registeredAt),
-        lastSeen: agent.lastSeen instanceof Date
-          ? agent.lastSeen.toISOString()
-          : String(agent.lastSeen),
+        ...agent,
         online: connectedDids.has(agent.did),
-        connectedAt: connected?.connectedAt?.toISOString() ?? null,
-        lastHeartbeat: connected?.lastHeartbeat?.toISOString() ?? null,
-        reportedLlm: (connected?.reportedLlm as { provider: string; model: string } | null | undefined) ?? null,
-        tokenUsage: (connected?.tokenUsage as { promptTokens: number; completionTokens: number; totalTokens: number } | null | undefined) ?? null,
-        transport: ((connected?.transport ?? null) as "ws" | "peerjs" | null),
-        locationLat: agent.locationLat ?? null,
-        locationLon: agent.locationLon ?? null,
-        locationLabel: agent.locationLabel ?? null,
-        realms: agent.agentRealms.map((ar) => ({
-          id: ar.realm.id,
-          name: ar.realm.name,
-          slug: ar.realm.slug,
-          color: ar.realm.color,
-          isPrimary: ar.isPrimary,
-        })),
+        connectedAt: connected?.connectedAt,
+        lastHeartbeat: connected?.lastHeartbeat,
+        reportedLlm:
+          (connected?.reportedLlm as
+            | { provider: string; model: string }
+            | null
+            | undefined) ?? null,
+        transport: (connected?.transport ?? null) as "ws" | "peerjs" | null,
       };
     });
 
@@ -91,7 +83,6 @@ const handlers = createNextRoute(agentsContract, {
         page: result.page,
         pageSize: result.pageSize,
         totalPages: result.totalPages,
-        online: items.filter((a) => a.online).length,
       },
     };
   },

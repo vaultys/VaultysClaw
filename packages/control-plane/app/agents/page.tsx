@@ -1,5 +1,4 @@
 "use client";
-
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAdminWS } from "@/hooks/useAdminWS";
 import {
@@ -29,7 +28,8 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import dynamic from "next/dynamic";
 import type { MapMarker } from "@/components/map/WorldMap";
 import { apiClient, unwrap } from "@/lib/api/ts-rest/client";
-import type { AgentListItem, ListAgentsQuery } from "@/lib/contracts/agents/agents.types";
+import { AgentInfo, ListAgentsQuery } from "@/lib/contracts";
+import { timeAgo } from "@vaultysclaw/shared";
 
 const WorldMap = dynamic(
   () => import("@/components/map/WorldMap").then((m) => m.WorldMap),
@@ -56,22 +56,6 @@ function shortDid(did: string): string {
   return `did:…${did.slice(-8)}`;
 }
 
-function parseUTC(iso: string): Date {
-  return new Date(iso.endsWith("Z") ? iso : iso + "Z");
-}
-
-function timeAgo(iso: string | null): string {
-  if (!iso) return "—";
-  const seconds = Math.floor((Date.now() - parseUTC(iso).getTime()) / 1000);
-  if (seconds < 5) return "just now";
-  if (seconds < 60) return `${seconds}s ago`;
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  return `${Math.floor(hours / 24)}d ago`;
-}
-
 const PAGE_SIZE = 20;
 
 export default function AgentsPage() {
@@ -85,7 +69,7 @@ export default function AgentsPage() {
   const [mapMarkers, setMapMarkers] = useState<MapMarker[]>([]);
   const [mapLoading, setMapLoading] = useState(false);
 
-  const [agents, setAgents] = useState<AgentListItem[]>([]);
+  const [agents, setAgents] = useState<AgentInfo[]>([]);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [onlineCount, setOnlineCount] = useState(0);
@@ -108,23 +92,20 @@ export default function AgentsPage() {
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const fetchAgents = useCallback(
-    async (query: ListAgentsQuery) => {
-      setLoading(true);
-      try {
-        const data = await unwrap(await apiClient.agents.list({ query }));
-        setAgents(data.items);
-        setTotal(data.total);
-        setTotalPages(data.totalPages);
-        setOnlineCount(data.online);
-      } catch {
-        // ignore fetch errors
-      } finally {
-        setLoading(false);
-      }
-    },
-    []
-  );
+  const fetchAgents = useCallback(async (query: ListAgentsQuery) => {
+    setLoading(true);
+    try {
+      const data = unwrap(await apiClient.agents.list({ query }));
+      setAgents(data.items);
+      setTotal(data.total);
+      setTotalPages(data.totalPages);
+      setOnlineCount(data.items.filter((a) => a.online).length);
+    } catch {
+      // ignore fetch errors
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   // Fetch map markers whenever map view is active
   const fetchMapMarkers = useCallback(async () => {
@@ -151,7 +132,10 @@ export default function AgentsPage() {
         fetchAgents({
           q,
           online: onlineFilter || undefined,
-          capabilities: selectedCapabilities.length > 0 ? selectedCapabilities.join(",") : undefined,
+          capabilities:
+            selectedCapabilities.length > 0
+              ? selectedCapabilities.join(",")
+              : undefined,
           page,
           sortBy,
           sortDir,
@@ -174,7 +158,10 @@ export default function AgentsPage() {
     fetchAgents({
       q,
       online: onlineFilter || undefined,
-      capabilities: selectedCapabilities.length > 0 ? selectedCapabilities.join(",") : undefined,
+      capabilities:
+        selectedCapabilities.length > 0
+          ? selectedCapabilities.join(",")
+          : undefined,
       page,
       sortBy,
       sortDir,
@@ -415,7 +402,8 @@ export default function AgentsPage() {
                 No agents have a location set yet.
               </p>
               <p className="text-foreground-400 text-xs mt-1">
-                Agents are auto-located when they connect, or you can set a location manually in each agent&apos;s settings.
+                Agents are auto-located when they connect, or you can set a
+                location manually in each agent&apos;s settings.
               </p>
             </div>
           ) : (
@@ -432,217 +420,220 @@ export default function AgentsPage() {
 
       {/* Table */}
       {viewMode === "list" && (
-      <div className="bg-background-100 rounded-xl border border-neutral-200 overflow-hidden">
-        {loading ? (
-          <div className="flex justify-center py-16">
-            <div className="w-8 h-8 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />
-          </div>
-        ) : agents.length === 0 ? (
-          <div className="px-5 py-16 text-center">
-            <Bot className="w-10 h-10 text-neutral-300 mx-auto mb-3" />
-            <p className="text-foreground-500 mb-1">
-              {q || onlineFilter
-                ? "No agents match your filters"
-                : "No agents registered yet"}
-            </p>
-            {(q || onlineFilter) && (
-              <button
-                onClick={() => {
-                  setQ("");
-                  setOnlineFilter("");
-                  setPage(1);
-                }}
-                className="text-primary-500 text-sm mt-1 hover:underline"
-              >
-                Clear filters
-              </button>
-            )}
-          </div>
-        ) : (
-          <>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-neutral-200 text-left text-xs font-medium text-foreground-400 uppercase tracking-wider">
-                    <th className="px-5 py-3">Status</th>
-                    <th
-                      className="px-5 py-3 cursor-pointer select-none hover:text-foreground"
-                      onClick={() => handleSort("name")}
-                    >
-                      Name
-                      <SortIndicator col="name" />
-                    </th>
-                    <th className="px-5 py-3">DID</th>
-                    <th className="px-5 py-3">Capabilities</th>
-                    <th className="px-5 py-3">Tokens</th>
-                    <th
-                      className="px-5 py-3 cursor-pointer select-none hover:text-foreground"
-                      onClick={() => handleSort("lastSeen")}
-                    >
-                      Last Seen
-                      <SortIndicator col="lastSeen" />
-                    </th>
-                    <th
-                      className="px-5 py-3 cursor-pointer select-none hover:text-foreground"
-                      onClick={() => handleSort("registeredAt")}
-                    >
-                      Registered
-                      <SortIndicator col="registeredAt" />
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-neutral-200">
-                  {agents.map((agent) => (
-                    <tr
-                      key={agent.id}
-                      className="hover:bg-background-200/40 transition-colors cursor-pointer"
-                      onClick={() =>
-                        router.push(`/agents/${encodeURIComponent(agent.id)}`)
-                      }
-                    >
-                      <td className="px-5 py-3.5">
-                        <div className="flex flex-col gap-1">
-                          {agent.online ? (
-                            <span className="flex items-center gap-1.5 text-success-600 text-xs">
-                              <CircleDot className="w-3.5 h-3.5" /> Online
+        <div className="bg-background-100 rounded-xl border border-neutral-200 overflow-hidden">
+          {loading ? (
+            <div className="flex justify-center py-16">
+              <div className="w-8 h-8 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />
+            </div>
+          ) : agents.length === 0 ? (
+            <div className="px-5 py-16 text-center">
+              <Bot className="w-10 h-10 text-neutral-300 mx-auto mb-3" />
+              <p className="text-foreground-500 mb-1">
+                {q || onlineFilter
+                  ? "No agents match your filters"
+                  : "No agents registered yet"}
+              </p>
+              {(q || onlineFilter) && (
+                <button
+                  onClick={() => {
+                    setQ("");
+                    setOnlineFilter("");
+                    setPage(1);
+                  }}
+                  className="text-primary-500 text-sm mt-1 hover:underline"
+                >
+                  Clear filters
+                </button>
+              )}
+            </div>
+          ) : (
+            <>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-neutral-200 text-left text-xs font-medium text-foreground-400 uppercase tracking-wider">
+                      <th className="px-5 py-3">Status</th>
+                      <th
+                        className="px-5 py-3 cursor-pointer select-none hover:text-foreground"
+                        onClick={() => handleSort("name")}
+                      >
+                        Name
+                        <SortIndicator col="name" />
+                      </th>
+                      <th className="px-5 py-3">DID</th>
+                      <th className="px-5 py-3">Capabilities</th>
+                      <th className="px-5 py-3">Tokens</th>
+                      <th
+                        className="px-5 py-3 cursor-pointer select-none hover:text-foreground"
+                        onClick={() => handleSort("lastSeen")}
+                      >
+                        Last Seen
+                        <SortIndicator col="lastSeen" />
+                      </th>
+                      <th
+                        className="px-5 py-3 cursor-pointer select-none hover:text-foreground"
+                        onClick={() => handleSort("registeredAt")}
+                      >
+                        Registered
+                        <SortIndicator col="registeredAt" />
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-neutral-200">
+                    {agents.map((agent) => (
+                      <tr
+                        key={agent.did}
+                        className="hover:bg-background-200/40 transition-colors cursor-pointer"
+                        onClick={() =>
+                          router.push(
+                            `/agents/${encodeURIComponent(agent.did)}`
+                          )
+                        }
+                      >
+                        <td className="px-5 py-3.5">
+                          <div className="flex flex-col gap-1">
+                            {agent.online ? (
+                              <span className="flex items-center gap-1.5 text-success-600 text-xs">
+                                <CircleDot className="w-3.5 h-3.5" /> Online
+                              </span>
+                            ) : (
+                              <span className="flex items-center gap-1.5 text-foreground-400 text-xs">
+                                <Circle className="w-3.5 h-3.5" /> Offline
+                              </span>
+                            )}
+                            {agent.online && agent.transport && (
+                              <span
+                                className={`inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded font-medium border ${
+                                  agent.transport === "peerjs"
+                                    ? "bg-secondary-100 text-secondary-700 border-secondary-300"
+                                    : "bg-primary-100 text-primary-700 border-primary-300"
+                                }`}
+                              >
+                                {agent.transport === "peerjs"
+                                  ? "WebRTC"
+                                  : "WebSocket"}
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-5 py-3.5 font-medium text-foreground">
+                          <div className="flex flex-col gap-1">
+                            <span>{agent.name}</span>
+                            {agent.agentRealms &&
+                              agent.agentRealms.length > 0 && (
+                                <div className="flex flex-wrap gap-1">
+                                  {agent.agentRealms.map((r) => (
+                                    <span
+                                      key={r.realmId}
+                                      className="inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded-md font-normal"
+                                      style={{
+                                        backgroundColor: r.realm.color + "22",
+                                        color: r.realm.color,
+                                        border: `1px solid ${r.realm.color}44`,
+                                      }}
+                                    >
+                                      {r.realm.name}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                          </div>
+                        </td>
+                        <td className="px-5 py-3.5 text-foreground-500 font-mono text-xs">
+                          <span title={agent.did}>{shortDid(agent.did)}</span>
+                        </td>
+                        <td className="px-5 py-3.5">
+                          <div className="flex flex-wrap gap-1">
+                            {agent.capabilities.map((cap) => (
+                              <span
+                                key={cap}
+                                className="relative group bg-background-200 border border-neutral-300 p-1 rounded text-foreground-700 flex items-center justify-center"
+                              >
+                                {CAPABILITY_ICONS[cap] ?? <Zap size={14} />}
+                                <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-1 text-[10px] text-white bg-neutral-900 rounded whitespace-nowrap opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity z-10">
+                                  {cap.replace(/_/g, " ")}
+                                </span>
+                              </span>
+                            ))}
+                          </div>
+                        </td>
+                        <td className="px-5 py-3.5 text-foreground-500 text-xs">
+                          {agent.tokenUsage ? (
+                            <span
+                              title={`Prompt: ${agent.tokenUsage.promptTokens.toLocaleString()}, Completion: ${agent.tokenUsage.completionTokens.toLocaleString()}`}
+                            >
+                              {(
+                                agent.tokenUsage.promptTokens +
+                                agent.tokenUsage.completionTokens
+                              ).toLocaleString()}
                             </span>
                           ) : (
-                            <span className="flex items-center gap-1.5 text-foreground-400 text-xs">
-                              <Circle className="w-3.5 h-3.5" /> Offline
-                            </span>
+                            <span className="text-foreground-400">—</span>
                           )}
-                          {agent.online && agent.transport && (
-                            <span
-                              className={`inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded font-medium border ${
-                                agent.transport === "peerjs"
-                                  ? "bg-secondary-100 text-secondary-700 border-secondary-300"
-                                  : "bg-primary-100 text-primary-700 border-primary-300"
-                              }`}
-                            >
-                              {agent.transport === "peerjs"
-                                ? "WebRTC"
-                                : "WebSocket"}
-                            </span>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-5 py-3.5 font-medium text-foreground">
-                        <div className="flex flex-col gap-1">
-                          <span>{agent.name}</span>
-                          {agent.realms && agent.realms.length > 0 && (
-                            <div className="flex flex-wrap gap-1">
-                              {agent.realms.map((r) => (
-                                <span
-                                  key={r.id}
-                                  className="inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded-md font-normal"
-                                  style={{
-                                    backgroundColor: r.color + "22",
-                                    color: r.color,
-                                    border: `1px solid ${r.color}44`,
-                                  }}
-                                >
-                                  {r.name}
-                                </span>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-5 py-3.5 text-foreground-500 font-mono text-xs">
-                        <span title={agent.id}>{shortDid(agent.id)}</span>
-                      </td>
-                      <td className="px-5 py-3.5">
-                        <div className="flex flex-wrap gap-1">
-                          {agent.capabilities.map((cap) => (
-                            <span
-                              key={cap}
-                              className="relative group bg-background-200 border border-neutral-300 p-1 rounded text-foreground-700 flex items-center justify-center"
-                            >
-                              {CAPABILITY_ICONS[cap] ?? <Zap size={14} />}
-                              <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-1 text-[10px] text-white bg-neutral-900 rounded whitespace-nowrap opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity z-10">
-                                {cap.replace(/_/g, " ")}
-                              </span>
-                            </span>
-                          ))}
-                        </div>
-                      </td>
-                      <td className="px-5 py-3.5 text-foreground-500 text-xs">
-                        {agent.tokenUsage ? (
-                          <span
-                            title={`Prompt: ${agent.tokenUsage.promptTokens.toLocaleString()}, Completion: ${agent.tokenUsage.completionTokens.toLocaleString()}`}
-                          >
-                            {(
-                              agent.tokenUsage.promptTokens +
-                              agent.tokenUsage.completionTokens
-                            ).toLocaleString()}
-                          </span>
-                        ) : (
-                          <span className="text-foreground-400">—</span>
-                        )}
-                      </td>
-                      <td className="px-5 py-3.5 text-foreground-500 text-xs">
-                        {agent.online
-                          ? timeAgo(agent.lastHeartbeat)
-                          : timeAgo(agent.lastSeen)}
-                      </td>
-                      <td className="px-5 py-3.5 text-foreground-500 text-xs">
-                        {timeAgo(agent.registeredAt)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Pagination */}
-            <div className="flex items-center justify-between px-5 py-3 border-t border-neutral-200">
-              <p className="text-xs text-foreground-400">
-                {total === 0
-                  ? "0 results"
-                  : `${(page - 1) * PAGE_SIZE + 1}–${Math.min(page * PAGE_SIZE, total)} of ${total}`}
-              </p>
-              <div className="flex items-center gap-1">
-                <button
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  disabled={page === 1}
-                  className="p-1.5 rounded-lg text-foreground-500 hover:text-foreground hover:bg-background-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                </button>
-                {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => {
-                  // Show pages around current
-                  const half = 3;
-                  let start = Math.max(1, page - half);
-                  const end = Math.min(totalPages, start + 6);
-                  start = Math.max(1, end - 6);
-                  return start + i;
-                })
-                  .filter((p) => p >= 1 && p <= totalPages)
-                  .map((p) => (
-                    <button
-                      key={p}
-                      onClick={() => setPage(p)}
-                      className={`min-w-[28px] h-7 rounded-lg text-xs font-medium transition-colors ${
-                        p === page
-                          ? "bg-primary-600 text-white"
-                          : "text-foreground-500 hover:text-foreground hover:bg-background-200"
-                      }`}
-                    >
-                      {p}
-                    </button>
-                  ))}
-                <button
-                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                  disabled={page === totalPages}
-                  className="p-1.5 rounded-lg text-foreground-500 hover:text-foreground hover:bg-background-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                >
-                  <ChevronRight className="w-4 h-4" />
-                </button>
+                        </td>
+                        <td className="px-5 py-3.5 text-foreground-500 text-xs">
+                          {agent.online
+                            ? timeAgo(agent.lastHeartbeat?.toString() ?? null)
+                            : timeAgo(agent.lastSeen?.toString() ?? null)}
+                        </td>
+                        <td className="px-5 py-3.5 text-foreground-500 text-xs">
+                          {timeAgo(agent.registeredAt?.toString() ?? null)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-            </div>
-          </>
-        )}
-      </div>
+
+              {/* Pagination */}
+              <div className="flex items-center justify-between px-5 py-3 border-t border-neutral-200">
+                <p className="text-xs text-foreground-400">
+                  {total === 0
+                    ? "0 results"
+                    : `${(page - 1) * PAGE_SIZE + 1}–${Math.min(page * PAGE_SIZE, total)} of ${total}`}
+                </p>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    disabled={page === 1}
+                    className="p-1.5 rounded-lg text-foreground-500 hover:text-foreground hover:bg-background-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+                  {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => {
+                    // Show pages around current
+                    const half = 3;
+                    let start = Math.max(1, page - half);
+                    const end = Math.min(totalPages, start + 6);
+                    start = Math.max(1, end - 6);
+                    return start + i;
+                  })
+                    .filter((p) => p >= 1 && p <= totalPages)
+                    .map((p) => (
+                      <button
+                        key={p}
+                        onClick={() => setPage(p)}
+                        className={`min-w-[28px] h-7 rounded-lg text-xs font-medium transition-colors ${
+                          p === page
+                            ? "bg-primary-600 text-white"
+                            : "text-foreground-500 hover:text-foreground hover:bg-background-200"
+                        }`}
+                      >
+                        {p}
+                      </button>
+                    ))}
+                  <button
+                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={page === totalPages}
+                    className="p-1.5 rounded-lg text-foreground-500 hover:text-foreground hover:bg-background-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
       )}
     </div>
   );

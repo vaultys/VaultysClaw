@@ -30,11 +30,10 @@ export const commonErrorResponses = {
   503: ErrorSchema,
 } as const;
 
-export const commonPaginatedResponseSchema = <T extends z.ZodTypeAny>(itemSchema: T) =>
-  z.object({
-    items: z.array(itemSchema),
-    total: z.number(),
-    page: z.number(),
-    pageSize: z.number(),
-    totalPages: z.number(),
-  });
+export type PaginatedResponse<T> = {
+  items: T[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+};

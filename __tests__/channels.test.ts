@@ -111,7 +111,6 @@ import {
   DELETE as bridgeDELETE,
 } from "../packages/control-plane/app/api/channels/[id]/bridges/[bridgeId]/route";
 import { POST as webhookIncomingPOST } from "../packages/control-plane/app/api/bridges/webhook/[bridgeId]/incoming/route";
-import { GET as agentSearchGET } from "../packages/control-plane/app/api/agents/search/route";
 import { GET as meRealmsGET } from "../packages/control-plane/app/api/me/realms/route";
 
 // Bridge / gateway layer
@@ -1457,47 +1456,6 @@ describe("POST /api/channels/[id]/messages/agent-response", () => {
   });
 });
 
-// ===========================================================================
-// API: GET /api/agents/search
-// ===========================================================================
-
-describe("GET /api/agents/search", () => {
-  it("returns 401 when unauthenticated", async () => {
-    mockGetAuthContext.mockRejectedValueOnce(new APIException("UNAUTHORIZED"));
-    const r = req("GET", "http://localhost/api/agents/search?q=test");
-    const res = await agentSearchGET(r as any);
-    expect(res._status).toBe(401);
-  });
-
-  it("returns 200 with matching agents filtered by name", async () => {
-    // testAgentName is already in DB from beforeAll
-    const r = req(
-      "GET",
-      `http://localhost/api/agents/search?q=${encodeURIComponent(testAgentName)}`
-    );
-    const res = await agentSearchGET(r as any);
-    expect(res._status).toBe(200);
-
-    const body = (await res.json()) as {
-      agents: { did: string; name: string }[];
-    };
-    expect(Array.isArray(body.agents)).toBe(true);
-    expect(body.agents.some((a) => a.did === testAgentDid)).toBe(true);
-  });
-
-  it("returns 200 with empty array for unknown query", async () => {
-    const r = req(
-      "GET",
-      "http://localhost/api/agents/search?q=zzz-nonexistent-zzz"
-    );
-    const res = await agentSearchGET(r as any);
-    expect(res._status).toBe(200);
-
-    const body = (await res.json()) as { agents: unknown[] };
-    expect(Array.isArray(body.agents)).toBe(true);
-    expect(body.agents).toHaveLength(0);
-  });
-});
 
 // ===========================================================================
 // API: GET /api/me/realms

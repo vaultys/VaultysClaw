@@ -3,10 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
-import dynamic from "next/dynamic";
 import { useAdminWS } from "../hooks/useAdminWS";
 import { useRole } from "../hooks/useRole";
-import type { MapMarker } from "@/components/map/WorldMap";
 import {
   Bot,
   Wifi,
@@ -16,16 +14,7 @@ import {
   Zap,
   Lock,
   ChevronRight,
-  CircleDot,
-  FolderOpen,
   Globe,
-  Monitor,
-  Plug,
-  Mail,
-  Code,
-  Terminal,
-  TrendingUp,
-  DollarSign,
   Bell,
   CheckCircle,
   XCircle,
@@ -33,41 +22,29 @@ import {
   Inbox,
   ShieldAlert,
   RotateCcw,
+  Play,
+  MessageSquare,
+  GitBranch,
+  Users,
+  BookOpen,
+  Network,
+  Activity,
+  Layers,
+  ArrowRight,
+  CheckCheck,
+  Cpu,
+  Mail,
+  UserX,
 } from "lucide-react";
 import { agentsClient, unwrap } from "@/lib/api/ts-rest/client";
 import { AgentInfo } from "@/lib/contracts";
 
-const WorldMap = dynamic(
-  () => import("@/components/map/WorldMap").then((m) => m.WorldMap),
-  { ssr: false }
-);
-
-/* ─── Capability icon map ────────────────────────────────────── */
-
-const CAPABILITY_ICONS: Record<string, React.ReactNode> = {
-  file_access: <FolderOpen size={14} />,
-  internet_access: <Globe size={14} />,
-  browser_control: <Monitor size={14} />,
-  api_call: <Plug size={14} />,
-  mail_send: <Mail size={14} />,
-  code_execution: <Code size={14} />,
-  system_command: <Terminal size={14} />,
-};
-
 /* ─── Helpers ────────────────────────────────────────────────── */
 
-/** Shorten a DID for display: did:vaultys:abcdef1234... → did:…ef1234 */
-function shortDid(did: string): string {
-  if (did.length <= 24) return did;
-  return `did:…${did.slice(-8)}`;
-}
-
-/** Ensure SQLite datetime strings (UTC without Z) are parsed correctly */
 function parseUTC(iso: string): Date {
   return new Date(iso.endsWith("Z") ? iso : iso + "Z");
 }
 
-/** Format an ISO date string as a relative "time ago" label */
 function timeAgo(iso: string | null): string {
   if (!iso) return "—";
   const seconds = Math.floor((Date.now() - parseUTC(iso).getTime()) / 1000);
@@ -78,6 +55,14 @@ function timeAgo(iso: string | null): string {
   const hours = Math.floor(minutes / 60);
   if (hours < 24) return `${hours}h ago`;
   return `${Math.floor(hours / 24)}d ago`;
+}
+
+function greeting(name: string | null | undefined): string {
+  const hour = new Date().getHours();
+  const first = name?.split(" ")[0] ?? "there";
+  if (hour < 12) return `Good morning, ${first}`;
+  if (hour < 18) return `Good afternoon, ${first}`;
+  return `Good evening, ${first}`;
 }
 
 /* ─── Landing page (unauthenticated) ─────────────────────────── */
@@ -136,7 +121,6 @@ function LandingPage() {
 
       {/* Hero */}
       <section className="relative border-b border-neutral-200/60 overflow-hidden">
-        {/* Aurora background */}
         <div className="absolute inset-0 bg-gradient-to-b from-primary-50/80 via-background to-background pointer-events-none" />
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[900px] h-[500px] bg-primary-400/10 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute top-24 left-1/3 w-[320px] h-[320px] bg-secondary-400/10 rounded-full blur-3xl pointer-events-none" />
@@ -144,13 +128,11 @@ function LandingPage() {
         <div className="mesh-overlay absolute inset-0 opacity-40 pointer-events-none" />
 
         <div className="relative z-10 max-w-4xl mx-auto px-6 pt-20 pb-20 text-center">
-          {/* Badge */}
           <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-primary-100 border border-primary-200 rounded-full text-primary-600 text-xs font-medium mb-6 animate-fade-in-up">
             <span className="w-1.5 h-1.5 bg-primary-500 rounded-full animate-pulse" />
             Powered by VaultysID · Decentralized · Trustless
           </div>
 
-          {/* Headline */}
           <h1
             className="text-5xl md:text-6xl font-bold leading-tight mb-5 text-foreground animate-fade-in-up"
             style={{ animationDelay: "100ms" }}
@@ -161,7 +143,6 @@ function LandingPage() {
             </span>
           </h1>
 
-          {/* Subtitle */}
           <p
             className="text-foreground-500 text-lg max-w-2xl mx-auto leading-relaxed mb-10 animate-fade-in-up"
             style={{ animationDelay: "200ms" }}
@@ -170,7 +151,6 @@ function LandingPage() {
             Full audit trail, hardware-backed identities, zero trust required.
           </p>
 
-          {/* CTAs */}
           <div
             className="flex flex-col sm:flex-row gap-3 justify-center animate-fade-in-up"
             style={{ animationDelay: "300ms" }}
@@ -295,8 +275,234 @@ interface Approval {
   created_at: string;
 }
 
+interface WorkflowRun {
+  id: string;
+  workflowId: string;
+  workflowName?: string;
+  status: "running" | "completed" | "failed" | "pending";
+  startedAt: string;
+  completedAt?: string | null;
+}
+
+interface ExpiredPolicy {
+  id: string;
+  agentDid: string | null;
+  capabilities: string[];
+  resourceLimits: {
+    maxTokensPerDay?: number;
+    maxRequestsPerHour?: number;
+  } | null;
+  expiresAt: string | null;
+  createdAt: string;
+}
+
+/* ─── Quick Action button ─────────────────────────────────────── */
+
+function QuickAction({
+  icon: Icon,
+  label,
+  description,
+  onClick,
+  accent = "primary",
+  badge,
+}: {
+  icon: React.ElementType;
+  label: string;
+  description: string;
+  onClick: () => void;
+  accent?: "primary" | "success" | "warning" | "secondary";
+  badge?: number;
+}) {
+  const colors = {
+    primary: "bg-primary-100 text-primary-600 border-primary-200 group-hover:bg-primary-200",
+    success: "bg-success-100 text-success-600 border-success-200 group-hover:bg-success-200",
+    warning: "bg-warning-100 text-warning-600 border-warning-200 group-hover:bg-warning-200",
+    secondary: "bg-secondary-100 text-secondary-600 border-secondary-200 group-hover:bg-secondary-200",
+  };
+
+  return (
+    <button
+      onClick={onClick}
+      className="relative flex items-start gap-3 p-4 bg-background-100 border border-neutral-200 rounded-xl text-left hover:border-primary-300 dark:hover:border-primary-700 hover:shadow-sm transition-all duration-200 group w-full"
+    >
+      <div
+        className={`w-9 h-9 rounded-lg border flex items-center justify-center shrink-0 transition-colors duration-200 ${colors[accent]}`}
+      >
+        <Icon className="w-4 h-4" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-semibold text-foreground leading-tight">{label}</p>
+        <p className="text-xs text-foreground-400 mt-0.5 leading-tight">{description}</p>
+      </div>
+      {badge !== undefined && badge > 0 && (
+        <span className="absolute top-2 right-2 inline-flex items-center justify-center min-w-[18px] h-[18px] text-[10px] font-bold text-white bg-warning-500 rounded-full px-1">
+          {badge}
+        </span>
+      )}
+      <ArrowRight className="w-3.5 h-3.5 text-foreground-300 group-hover:text-primary-500 shrink-0 mt-0.5 transition-colors duration-200" />
+    </button>
+  );
+}
+
+/* ─── Agent pill ──────────────────────────────────────────────── */
+
+function AgentPill({ agent, onClick }: { agent: AgentInfo; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className="flex items-center gap-2.5 px-3 py-2 bg-background-100 border border-neutral-200 rounded-lg hover:border-primary-300 dark:hover:border-primary-700 hover:bg-background-200 transition-all duration-200 w-full text-left group"
+    >
+      <span
+        className={`w-2 h-2 rounded-full shrink-0 ${agent.online ? "bg-success-500" : "bg-neutral-300"}`}
+      />
+      <span className="text-sm text-foreground font-medium truncate flex-1">
+        {agent.name}
+      </span>
+      {agent.online && (
+        <span className="text-[10px] text-success-600 font-medium shrink-0">online</span>
+      )}
+      <ChevronRight className="w-3 h-3 text-foreground-300 group-hover:text-primary-500 shrink-0 transition-colors" />
+    </button>
+  );
+}
+
+/* ─── Run status badge ───────────────────────────────────────── */
+
+function RunStatusBadge({ status }: { status: string }) {
+  const map: Record<string, { cls: string; label: string }> = {
+    running: { cls: "bg-primary-100 text-primary-700", label: "Running" },
+    completed: { cls: "bg-success-100 text-success-700", label: "Done" },
+    failed: { cls: "bg-danger-100 text-danger-700", label: "Failed" },
+    pending: { cls: "bg-warning-100 text-warning-700", label: "Pending" },
+  };
+  const { cls, label } = map[status] ?? { cls: "bg-background-200 text-foreground-500", label: status };
+  return (
+    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${cls}`}>
+      {label}
+    </span>
+  );
+}
+
+/* ─── No-realm gate screen ────────────────────────────────────── */
+
+interface AdminContact {
+  name: string | null;
+  email: string | null;
+}
+
+function NoRealmScreen() {
+  const [admins, setAdmins] = useState<AdminContact[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/admins")
+      .then((r) => (r.ok ? r.json() : { admins: [] }))
+      .then((d: { admins?: AdminContact[] }) => setAdmins(d.admins ?? []))
+      .catch(() => { })
+      .finally(() => setLoading(false));
+  }, []);
+
+  return (
+    <div className="flex items-center justify-center min-h-[calc(100vh-8rem)] p-6">
+      <div className="w-full max-w-3xl text-center space-y-6">
+        {/* Icon */}
+        <div className="flex justify-center">
+          <div className="w-16 h-16 rounded-2xl bg-warning-100 border border-warning-200 flex items-center justify-center">
+            <UserX className="w-8 h-8 text-warning-600" />
+          </div>
+        </div>
+
+        {/* Heading */}
+        <div className="space-y-2">
+          <h1 className="text-xl font-bold text-foreground">
+            You're not part of a workspace yet
+          </h1>
+          <p className="text-foreground-500 text-sm leading-relaxed">
+            Your account exists but hasn't been assigned to any realm. An
+            administrator needs to add you to a workspace before you can use
+            VaultysClaw.
+          </p>
+        </div>
+
+        {/* Admin contacts */}
+        <div className="bg-background-100 border border-neutral-200 rounded-xl overflow-hidden text-left">
+          <div className="px-4 py-3 border-b border-neutral-200 bg-background-200/50">
+            <p className="text-xs font-semibold text-foreground-500 uppercase tracking-widest">
+              Contact an administrator
+            </p>
+          </div>
+
+          {loading ? (
+            <div className="px-4 py-6 flex justify-center">
+              <div className="w-5 h-5 border-2 border-neutral-200 border-t-primary-500 rounded-full animate-spin" />
+            </div>
+          ) : admins.length === 0 ? (
+            <div className="px-4 py-6 text-center">
+              <p className="text-sm text-foreground-400">
+                No administrators found. Please contact your IT team directly.
+              </p>
+            </div>
+          ) : (
+            <div className="divide-y divide-neutral-100">
+              {admins.map((admin, i) => (
+                <div key={i} className="flex items-center gap-3 px-4 py-3">
+                  <div className="w-8 h-8 rounded-full bg-primary-100 border border-primary-200 flex items-center justify-center shrink-0 text-primary-600 font-semibold text-sm">
+                    {admin.name
+                      ? admin.name
+                        .split(" ")
+                        .map((p) => p[0])
+                        .join("")
+                        .slice(0, 2)
+                        .toUpperCase()
+                      : "?"}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-foreground truncate">
+                      {admin.name ?? "Administrator"}
+                    </p>
+                    {admin.email && (
+                      <p className="text-xs text-foreground-400 truncate">
+                        {admin.email}
+                      </p>
+                    )}
+                  </div>
+                  {admin.email && (
+                    <a
+                      href={`mailto:${admin.email}?subject=VaultysClaw%20workspace%20access`}
+                      className="shrink-0 flex items-center gap-1 text-xs font-medium text-primary-600 hover:text-primary-500 border border-primary-200 hover:border-primary-400 px-2.5 py-1 rounded-lg transition-colors"
+                    >
+                      <Mail className="w-3 h-3" /> Email
+                    </a>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <p className="text-xs text-foreground-400">
+          Once an administrator adds you to a workspace, sign out and sign back
+          in to pick up the new access.
+        </p>
+
+        <div className="flex flex-col items-center gap-2">
+          <button
+            onClick={() => import("next-auth/react").then((m) => m.signOut())}
+            className="text-sm font-medium text-primary-600 hover:underline"
+          >
+            Sign out &amp; sign back in
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Dashboard component ─────────────────────────────────────── */
+
 function Dashboard() {
   const router = useRouter();
+  const { data: session } = useSession();
   const { isGlobalAdmin } = useRole();
   const {
     agents: agentsState,
@@ -304,14 +510,34 @@ function Dashboard() {
     connected: wsConnected,
   } = useAdminWS();
 
+  // null = loading, [] = loaded but empty (no realms)
+  const [userRealmCount, setUserRealmCount] = useState<number | null>(null);
+
   const [realmAgents, setRealmAgents] = useState<AgentInfo[] | null>(null);
   useEffect(() => {
-    if (isGlobalAdmin) return;
-    agentsClient
-      .search()
-      .then((r) => unwrap(r))
-      .then((page) => setRealmAgents(page.items ?? []))
-      .catch(() => setRealmAgents([]));
+    if (isGlobalAdmin) {
+      setUserRealmCount(1); // admins have implicit access everywhere
+      return;
+    }
+    // Check realm membership and fetch agents in parallel
+    Promise.all([
+      fetch("/api/realms")
+        .then((r) => (r.ok ? r.json() : { realms: [] }))
+        .then((d: { realms?: unknown[] }) => d.realms?.length ?? 0),
+      agentsClient
+        .search()
+        .then((r) => unwrap(r))
+        .then((page) => page.items ?? [])
+        .catch(() => [] as AgentInfo[]),
+    ])
+      .then(([count, items]) => {
+        setUserRealmCount(count);
+        setRealmAgents(items);
+      })
+      .catch(() => {
+        setUserRealmCount(0);
+        setRealmAgents([]);
+      });
   }, [isGlobalAdmin]);
 
   const agents = isGlobalAdmin ? agentsState.agents : (realmAgents ?? []);
@@ -320,10 +546,8 @@ function Dashboard() {
     ? agentsState.online
     : (realmAgents?.filter((a) => a.online).length ?? 0);
 
-  // ── Setup banner ────────────────────────────────────────────────────────────
-  const [setupBanner, setSetupBanner] = useState<{
-    completedCount: number;
-  } | null>(null);
+  // ── Setup banner ─────────────────────────────────────────────
+  const [setupBanner, setSetupBanner] = useState<{ completedCount: number } | null>(null);
 
   useEffect(() => {
     if (!isGlobalAdmin) return;
@@ -343,40 +567,26 @@ function Dashboard() {
     setSetupBanner(null);
   };
 
+  // ── Approvals ─────────────────────────────────────────────────
   const [approvals, setApprovals] = useState<Approval[]>([]);
   const [acting, setActing] = useState<string | null>(null);
   const [comment, setComment] = useState<Record<string, string>>({});
 
-  interface TokenStats {
-    allTime: { promptTokens: number; completionTokens: number };
-    daily: { promptTokens: number; completionTokens: number };
-    monthly: { promptTokens: number; completionTokens: number };
-  }
-  const [dbTokenStats, setDbTokenStats] = useState<TokenStats | null>(null);
+  const fetchApprovals = () =>
+    fetch("/api/workflow-approvals")
+      .then((r) => r.json())
+      .then((d: { approvals?: Approval[] }) => setApprovals(d.approvals ?? []))
+      .catch(() => { });
 
-  const fetchTokenStats = () =>
-    fetch("/api/stats/tokens")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d: TokenStats | null) => {
-        if (d) setDbTokenStats(d);
-      })
-      .catch(() => {});
+  useEffect(() => {
+    fetchApprovals();
+    const id = setInterval(fetchApprovals, 15_000);
+    return () => clearInterval(id);
+  }, []);
 
-  interface ExpiredPolicy {
-    id: string;
-    agentDid: string | null;
-    capabilities: string[];
-    resourceLimits: {
-      maxTokensPerDay?: number;
-      maxRequestsPerHour?: number;
-    } | null;
-    expiresAt: string | null;
-    createdAt: string;
-  }
+  // ── Expired policies ──────────────────────────────────────────
   const [expiredPolicies, setExpiredPolicies] = useState<ExpiredPolicy[]>([]);
-  const [renewingPolicy, setRenewingPolicy] = useState<ExpiredPolicy | null>(
-    null
-  );
+  const [renewingPolicy, setRenewingPolicy] = useState<ExpiredPolicy | null>(null);
   const [renewExpiry, setRenewExpiry] = useState("");
   const [renewSaving, setRenewSaving] = useState(false);
 
@@ -384,11 +594,16 @@ function Dashboard() {
     if (!isGlobalAdmin) return;
     fetch("/api/policies?expiredOnly=true")
       .then((r) => (r.ok ? r.json() : { policies: [] }))
-      .then((d: { policies?: ExpiredPolicy[] }) =>
-        setExpiredPolicies(d.policies ?? [])
-      )
-      .catch(() => {});
+      .then((d: { policies?: ExpiredPolicy[] }) => setExpiredPolicies(d.policies ?? []))
+      .catch(() => { });
   };
+
+  useEffect(() => {
+    fetchExpiredPolicies();
+    const id = setInterval(fetchExpiredPolicies, 60_000);
+    return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isGlobalAdmin]);
 
   const openRenewFromDashboard = (p: ExpiredPolicy) => {
     const pad = (n: number) => String(n).padStart(2, "0");
@@ -405,7 +620,7 @@ function Dashboard() {
     try {
       const rl =
         renewingPolicy.resourceLimits &&
-        Object.keys(renewingPolicy.resourceLimits).length > 0
+          Object.keys(renewingPolicy.resourceLimits).length > 0
           ? renewingPolicy.resourceLimits
           : undefined;
       const res = await fetch("/api/policies", {
@@ -415,9 +630,7 @@ function Dashboard() {
           agentDid: renewingPolicy.agentDid,
           capabilities: renewingPolicy.capabilities,
           resourceLimits: rl,
-          expiresAt: renewExpiry
-            ? new Date(renewExpiry).toISOString()
-            : undefined,
+          expiresAt: renewExpiry ? new Date(renewExpiry).toISOString() : undefined,
         }),
       });
       if (res.ok) {
@@ -432,88 +645,23 @@ function Dashboard() {
     }
   };
 
-  const [mapMarkers, setMapMarkers] = useState<MapMarker[]>([]);
+  // ── Recent workflow runs ──────────────────────────────────────
+  const [recentRuns, setRecentRuns] = useState<WorkflowRun[]>([]);
 
-  const fetchMapMarkers = useCallback(
-    () =>
-      fetch("/api/map")
-        .then((r) => (r.ok ? r.json() : { markers: [] }))
-        .then((d: { markers?: MapMarker[] }) => setMapMarkers(d.markers ?? []))
-        .catch(() => {}),
-    []
-  );
-
-  const saveMarkerLocation = useCallback(
-    async (
-      marker: MapMarker,
-      loc: { lat: number; lon: number; label: string } | null
-    ) => {
-      const body =
-        loc === null
-          ? { lat: null }
-          : { lat: loc.lat, lon: loc.lon, label: loc.label };
-
-      let endpoint = "";
-      if (marker.type === "agent") {
-        endpoint = `/api/agents/${encodeURIComponent(marker.id)}/location`;
-      } else if (marker.type === "user") {
-        endpoint = `/api/users/${encodeURIComponent(marker.id)}/location`;
-      } else if (marker.type === "docling") {
-        endpoint = "/api/settings/docling/location";
-      } else if (marker.type === "s3") {
-        endpoint = "/api/settings/storage/location";
-      }
-
-      if (!endpoint) return;
-
-      const res = await fetch(endpoint, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      if (!res.ok) {
-        const data = (await res.json().catch(() => null)) as {
-          error?: string;
-        } | null;
-        throw new Error(data?.error ?? "Failed to update location");
-      }
-
-      await fetchMapMarkers();
-    },
-    [fetchMapMarkers]
-  );
-
-  useEffect(() => {
-    fetchMapMarkers();
-    const id = setInterval(fetchMapMarkers, 30_000);
-    return () => clearInterval(id);
-  }, [fetchMapMarkers]);
-
-  const fetchApprovals = () =>
-    fetch("/api/workflow-approvals")
-      .then((r) => r.json())
-      .then((d: { approvals?: Approval[] }) => setApprovals(d.approvals ?? []))
-      .catch(() => {});
-
-  useEffect(() => {
-    fetchApprovals();
-    const id = setInterval(fetchApprovals, 15_000);
-    return () => clearInterval(id);
+  const fetchRecentRuns = useCallback(() => {
+    fetch("/api/workflow-runs?pageSize=6&sortDir=desc")
+      .then((r) => (r.ok ? r.json() : { items: [] }))
+      .then((d: { runs?: WorkflowRun[] }) => setRecentRuns(d.runs ?? []))
+      .catch(() => { });
   }, []);
 
   useEffect(() => {
-    fetchExpiredPolicies();
-    const id = setInterval(fetchExpiredPolicies, 60_000);
+    fetchRecentRuns();
+    const id = setInterval(fetchRecentRuns, 20_000);
     return () => clearInterval(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isGlobalAdmin]);
+  }, [fetchRecentRuns]);
 
-  useEffect(() => {
-    fetchTokenStats();
-    const id = setInterval(fetchTokenStats, 60_000);
-    return () => clearInterval(id);
-  }, []);
-
+  // ── Actions ───────────────────────────────────────────────────
   const handleApprove = async (id: string) => {
     setActing(id);
     await fetch(`/api/workflow-approvals/${id}/approve`, {
@@ -550,190 +698,521 @@ function Dashboard() {
     (a) => a.mode === "notification" && a.status === "notified"
   );
 
-  // Calculate fleet-wide token metrics — prefer DB (all agents) over WS state (online only)
+  const queueCount = pendingApprovals.length + (isGlobalAdmin ? pendingRegs.length : 0);
   const onlineAgents = agents.filter((a) => a.online);
-  const wsMetrics = onlineAgents.reduce(
-    (acc, agent) => {
-      acc.dailyPrice += agent.dailyPriceSpent ?? 0;
-      return acc;
-    },
-    { dailyPrice: 0 }
-  );
-  const tokenMetrics = {
-    totalPrompt: dbTokenStats?.allTime.promptTokens ?? 0,
-    totalCompletion: dbTokenStats?.allTime.completionTokens ?? 0,
-    dailyPrompt: dbTokenStats?.daily.promptTokens ?? 0,
-    dailyCompletion: dbTokenStats?.daily.completionTokens ?? 0,
-    monthlyPrompt: dbTokenStats?.monthly.promptTokens ?? 0,
-    monthlyCompletion: dbTokenStats?.monthly.completionTokens ?? 0,
-    dailyPrice: wsMetrics.dailyPrice,
-  };
 
-  const totalTokensDaily =
-    tokenMetrics.dailyPrompt + tokenMetrics.dailyCompletion;
-  const totalTokensMonthly =
-    tokenMetrics.monthlyPrompt + tokenMetrics.monthlyCompletion;
-  const avgCostPerAgent =
-    onlineCount > 0 ? (tokenMetrics.dailyPrice / onlineCount).toFixed(4) : "0";
+  /* ─── render ─────────────────────────────────────────────────── */
 
-  // Calculate projected token usage for the current month
-  const today = new Date();
-  const daysIntoMonth = today.getDate();
-  const daysInMonth = new Date(
-    today.getFullYear(),
-    today.getMonth() + 1,
-    0
-  ).getDate();
-  const daysRemaining = daysInMonth - daysIntoMonth;
-  // Projection: what we've used so far + today's daily rate × remaining days
-  const projectedMonthlyTokens =
-    totalTokensMonthly + totalTokensDaily * daysRemaining;
-
-  // Projected monthly cost — use daily price rate extrapolated over remaining days
-  const costPerToken =
-    totalTokensDaily > 0 ? tokenMetrics.dailyPrice / totalTokensDaily : 0;
-  const projectedMonthlyCost =
-    totalTokensMonthly * costPerToken + tokenMetrics.dailyPrice * daysRemaining;
+  // Non-admin with no realm membership → show contact screen
+  if (!isGlobalAdmin && userRealmCount === 0) {
+    return <NoRealmScreen />;
+  }
 
   return (
-    <div className="p-6 w-full max-w-7xl mx-auto space-y-6">
-      {/* Page title */}
-      <div className="flex items-center justify-between">
+    <div className="p-6 w-full max-w-7xl mx-auto space-y-5">
+
+      {/* ── Header ─────────────────────────────────────────────── */}
+      <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
+          <h1 className="text-2xl font-bold text-foreground">
+            {greeting(session?.user?.name)}
+          </h1>
           <p className="text-foreground-400 text-sm mt-1">
-            Overview of your agents, workflows, and pending actions
+            {new Date().toLocaleDateString("en-US", {
+              weekday: "long",
+              month: "long",
+              day: "numeric",
+            })}
+            {total > 0 && (
+              <span className="ml-2 text-foreground-500">
+                · {onlineCount}/{total} agent{total !== 1 ? "s" : ""} online
+              </span>
+            )}
+            {queueCount > 0 && (
+              <span className="ml-2 text-warning-600 font-medium">
+                · {queueCount} item{queueCount !== 1 ? "s" : ""} need{queueCount === 1 ? "s" : ""} your attention
+              </span>
+            )}
           </p>
         </div>
         <span
-          className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full border ${
-            wsConnected
-              ? "bg-success-100 border-success-300 text-success-700"
-              : "bg-warning-100 border-warning-300 text-warning-700"
-          }`}
+          className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full border shrink-0 ${wsConnected
+            ? "bg-success-100 border-success-300 text-success-700"
+            : "bg-warning-100 border-warning-300 text-warning-700"
+            }`}
         >
-          {wsConnected ? (
-            <Wifi className="w-3 h-3" />
-          ) : (
-            <WifiOff className="w-3 h-3" />
-          )}
+          {wsConnected ? <Wifi className="w-3 h-3" /> : <WifiOff className="w-3 h-3" />}
           {wsConnected ? "Live" : "Connecting…"}
         </span>
       </div>
 
-      {/* Alerts */}
-      {!wsConnected && (
-        <div className="flex items-center gap-2 bg-warning-50 border border-warning-300 rounded-lg px-4 py-3 text-warning-700 text-sm">
-          <WifiOff className="w-4 h-4 shrink-0" />
-          WebSocket connection is being restored. Some metrics may be stale.
-        </div>
-      )}
+      {/* ── Alert banners ──────────────────────────────────────── */}
+      {(!wsConnected ||
+        (isGlobalAdmin && pendingRegs.length > 0) ||
+        (isGlobalAdmin && expiredPolicies.length > 0) ||
+        setupBanner) && (
+          <div className="space-y-2">
+            {!wsConnected && (
+              <div className="flex items-center gap-2 bg-warning-50 border border-warning-300 rounded-lg px-4 py-2.5 text-warning-700 text-sm">
+                <WifiOff className="w-4 h-4 shrink-0" />
+                WebSocket connection is being restored. Some data may be stale.
+              </div>
+            )}
 
-      {isGlobalAdmin && pendingRegs.length > 0 && (
-        <button
-          onClick={() => router.push("/registrations")}
-          className="w-full flex items-center justify-between gap-3 bg-gradient-to-r from-warning-50 to-warning-50 border border-warning-300 rounded-lg px-4 py-3 text-warning-700 text-sm hover:bg-warning-100/50 dark:hover:bg-warning-900/30 transition-colors group"
-        >
-          <div className="flex items-center gap-2">
-            <Clock className="w-4 h-4 shrink-0" />
-            <span>
-              <strong>{pendingRegs.length}</strong> agent registration
-              {pendingRegs.length !== 1 ? "s" : ""} pending approval
-            </span>
-          </div>
-          <ChevronRight className="w-4 h-4 shrink-0 group-hover:translate-x-0.5 transition-transform" />
-        </button>
-      )}
+            {isGlobalAdmin && pendingRegs.length > 0 && (
+              <button
+                onClick={() => router.push("/registrations")}
+                className="w-full flex items-center justify-between gap-3 bg-warning-50 border border-warning-300 rounded-lg px-4 py-2.5 text-warning-700 text-sm hover:bg-warning-100/50 transition-colors group"
+              >
+                <div className="flex items-center gap-2">
+                  <Clock className="w-4 h-4 shrink-0" />
+                  <strong>{pendingRegs.length}</strong> agent registration
+                  {pendingRegs.length !== 1 ? "s" : ""} pending approval
+                </div>
+                <ChevronRight className="w-4 h-4 shrink-0 group-hover:translate-x-0.5 transition-transform" />
+              </button>
+            )}
 
-      {/* Expired policies alert — global admin only */}
-      {isGlobalAdmin && expiredPolicies.length > 0 && (
-        <div className="bg-danger-50 border border-danger-300 rounded-lg overflow-hidden">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-danger-200">
-            <span className="flex items-center gap-2 text-danger-700 text-sm font-medium">
-              <ShieldAlert className="w-4 h-4 shrink-0" />
-              {expiredPolicies.length} expired polic
-              {expiredPolicies.length === 1 ? "y" : "ies"} — agents are locked
-            </span>
-            <button
-              onClick={() => router.push("/governance")}
-              className="text-xs text-danger-600 hover:underline flex items-center gap-1"
-            >
-              View all <ChevronRight className="w-3 h-3" />
-            </button>
-          </div>
-          <div className="divide-y divide-danger-200/60">
-            {expiredPolicies.slice(0, 5).map((p) => {
-              const agentName = agents.find((a) => a.did === p.agentDid)?.name;
-              const expiredAgo = p.expiresAt
-                ? (() => {
-                    const secs = Math.floor(
-                      (Date.now() -
-                        new Date(
-                          p.expiresAt.endsWith("Z")
-                            ? p.expiresAt
-                            : p.expiresAt + "Z"
-                        ).getTime()) /
-                        1000
-                    );
-                    if (secs < 60) return `${secs}s ago`;
-                    const mins = Math.floor(secs / 60);
-                    if (mins < 60) return `${mins}m ago`;
-                    const hrs = Math.floor(mins / 60);
-                    if (hrs < 24) return `${hrs}h ago`;
-                    return `${Math.floor(hrs / 24)}d ago`;
-                  })()
-                : "";
-              return (
-                <div
-                  key={p.id}
-                  className="flex items-center justify-between gap-3 px-4 py-2.5"
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="min-w-0">
-                      <p className="text-xs font-medium text-danger-800 truncate">
-                        {agentName ??
-                          (p.agentDid
-                            ? `${p.agentDid.slice(0, 24)}…`
-                            : "Global")}
-                      </p>
-                      <p className="text-[11px] text-danger-600/70">
-                        Expired {expiredAgo} · {p.capabilities.length} cap
-                        {p.capabilities.length !== 1 ? "s" : ""}
-                      </p>
-                    </div>
-                  </div>
+            {isGlobalAdmin && expiredPolicies.length > 0 && (
+              <div className="bg-danger-50 border border-danger-300 rounded-lg overflow-hidden">
+                <div className="flex items-center justify-between px-4 py-2.5 border-b border-danger-200">
+                  <span className="flex items-center gap-2 text-danger-700 text-sm font-medium">
+                    <ShieldAlert className="w-4 h-4 shrink-0" />
+                    {expiredPolicies.length} expired polic
+                    {expiredPolicies.length === 1 ? "y" : "ies"} — agents are locked
+                  </span>
                   <button
-                    onClick={() => openRenewFromDashboard(p)}
-                    className="flex-shrink-0 flex items-center gap-1 text-xs font-medium text-danger-700 hover:text-primary-600 dark:hover:text-primary-400 border border-danger-300 hover:border-primary-400 dark:hover:border-primary-500/50 px-2.5 py-1 rounded-md transition-colors"
+                    onClick={() => router.push("/governance")}
+                    className="text-xs text-danger-600 hover:underline flex items-center gap-1"
                   >
-                    <RotateCcw className="w-3 h-3" /> Renew
+                    View all <ChevronRight className="w-3 h-3" />
                   </button>
                 </div>
-              );
-            })}
-            {expiredPolicies.length > 5 && (
-              <p className="px-4 py-2 text-xs text-danger-600/70">
-                +{expiredPolicies.length - 5} more —{" "}
-                <button
+                <div className="divide-y divide-danger-200/60">
+                  {expiredPolicies.slice(0, 3).map((p) => {
+                    const agentName = agents.find((a) => a.did === p.agentDid)?.name;
+                    return (
+                      <div key={p.id} className="flex items-center justify-between gap-3 px-4 py-2">
+                        <p className="text-xs text-danger-800 truncate">
+                          {agentName ?? (p.agentDid ? `${p.agentDid.slice(0, 24)}…` : "Global")}
+                          <span className="text-danger-500 ml-1.5">· {p.capabilities.length} cap{p.capabilities.length !== 1 ? "s" : ""}</span>
+                        </p>
+                        <button
+                          onClick={() => openRenewFromDashboard(p)}
+                          className="flex-shrink-0 flex items-center gap-1 text-xs font-medium text-danger-700 hover:text-primary-600 border border-danger-300 hover:border-primary-400 px-2 py-0.5 rounded transition-colors"
+                        >
+                          <RotateCcw className="w-3 h-3" /> Renew
+                        </button>
+                      </div>
+                    );
+                  })}
+                  {expiredPolicies.length > 3 && (
+                    <p className="px-4 py-1.5 text-xs text-danger-600/70">
+                      +{expiredPolicies.length - 3} more —{" "}
+                      <button
+                        onClick={() => router.push("/governance")}
+                        className="underline hover:no-underline"
+                      >
+                        view in Governance
+                      </button>
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {setupBanner && (
+              <div className="flex items-center justify-between gap-4 bg-gradient-to-r from-primary-50 to-secondary-50 border border-primary-200 rounded-xl px-4 py-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-8 h-8 bg-primary-600 rounded-lg flex items-center justify-center shrink-0 shadow shadow-primary-600/30">
+                    <Shield className="w-4 h-4 text-white" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-primary-700">
+                      {setupBanner.completedCount > 0
+                        ? `Setup in progress — ${setupBanner.completedCount} of 4 steps done`
+                        : "Finish setting up VaultysClaw"}
+                    </p>
+                    <p className="text-xs text-primary-600/60 truncate">
+                      Configure LLM models, email, users, and your first agent.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    onClick={() => router.push("/setup")}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-primary-600 hover:bg-primary-500 text-white text-sm font-medium rounded-lg transition-colors"
+                  >
+                    {setupBanner.completedCount > 0 ? "Continue" : "Start setup"}
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={dismissSetupBanner}
+                    className="p-1.5 text-primary-400 hover:text-primary-700 rounded-lg hover:bg-primary-100 transition-colors"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+      {/* ── Main 3-column grid ─────────────────────────────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+
+        {/* ── Left: Quick Actions ─────────────────────────────── */}
+        <div className="space-y-3">
+          <h2 className="text-xs font-semibold text-foreground-400 uppercase tracking-widest px-0.5">
+            Quick Actions
+          </h2>
+          <div className="space-y-2">
+            <QuickAction
+              icon={Play}
+              label="Run a Workflow"
+              description="Trigger an existing automation"
+              onClick={() => router.push("/workflows")}
+              accent="primary"
+            />
+            <QuickAction
+              icon={MessageSquare}
+              label="Chat with an Agent"
+              description="Send a task or question directly"
+              onClick={() => router.push("/agents")}
+              accent="secondary"
+            />
+            <QuickAction
+              icon={GitBranch}
+              label="New Workflow"
+              description="Design a new automation"
+              onClick={() => router.push("/workflows")}
+              accent="primary"
+            />
+            <QuickAction
+              icon={Inbox}
+              label="My Inbox"
+              description="Approvals and notifications"
+              onClick={() => router.push("/inbox")}
+              accent="warning"
+              badge={pendingApprovals.length + notifications.length}
+            />
+            <QuickAction
+              icon={BookOpen}
+              label="Knowledge Base"
+              description="Browse documents and memory"
+              onClick={() => router.push("/knowledge")}
+              accent="secondary"
+            />
+            {isGlobalAdmin && (
+              <>
+                <QuickAction
+                  icon={Users}
+                  label="Manage Users"
+                  description="Invite or configure team members"
+                  onClick={() => router.push("/users")}
+                  accent="primary"
+                />
+                <QuickAction
+                  icon={Shield}
+                  label="Governance"
+                  description="Policies, budgets, delegation"
                   onClick={() => router.push("/governance")}
-                  className="underline hover:no-underline"
-                >
-                  view in Governance
-                </button>
-              </p>
+                  accent="success"
+                  badge={expiredPolicies.length}
+                />
+                <QuickAction
+                  icon={Activity}
+                  label="Mission Control"
+                  description="Fleet-wide metrics and spend"
+                  onClick={() => router.push("/mission-control")}
+                  accent="secondary"
+                />
+              </>
+            )}
+          </div>
+
+          {/* ── Agent Pulse ─────────────────────────────────────── */}
+          {agents.length > 0 && (
+            <>
+              <h2 className="text-xs font-semibold text-foreground-400 uppercase tracking-widest px-0.5 pt-2">
+                Agent Pulse
+              </h2>
+              <div className="space-y-1.5">
+                {agents.slice(0, 6).map((agent, i) => (
+                  <AgentPill
+                    key={agent.did || i}
+                    agent={agent}
+                    onClick={() =>
+                      router.push(`/agents/${encodeURIComponent(agent.did)}`)
+                    }
+                  />
+                ))}
+                {agents.length > 6 && (
+                  <button
+                    onClick={() => router.push("/agents")}
+                    className="w-full text-xs text-primary-600 hover:underline py-1 text-center"
+                  >
+                    +{agents.length - 6} more agents
+                  </button>
+                )}
+              </div>
+            </>
+          )}
+
+          {total === 0 && (
+            <button
+              onClick={() => router.push("/agents")}
+              className="w-full flex items-center justify-between gap-3 bg-primary-50 border border-primary-300 rounded-lg px-4 py-3 text-primary-700 text-sm hover:bg-primary-100/50 transition-colors group mt-2"
+            >
+              <div className="flex items-center gap-2">
+                <Bot className="w-4 h-4 shrink-0" />
+                <span>Register your first agent</span>
+              </div>
+              <ChevronRight className="w-4 h-4 shrink-0 group-hover:translate-x-0.5 transition-transform" />
+            </button>
+          )}
+        </div>
+
+        {/* ── Center: My Queue ────────────────────────────────── */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xs font-semibold text-foreground-400 uppercase tracking-widest px-0.5">
+              My Queue
+            </h2>
+            {(pendingApprovals.length > 0 || notifications.length > 0) && (
+              <button
+                onClick={() => router.push("/inbox")}
+                className="text-xs text-primary-600 hover:underline"
+              >
+                View all
+              </button>
+            )}
+          </div>
+
+          {/* Pending approvals */}
+          <div className="bg-background-100 border border-neutral-200 rounded-xl overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-200 bg-gradient-to-r from-warning-50/60 to-transparent">
+              <div className="flex items-center gap-2">
+                <Inbox className="w-4 h-4 text-warning-600" />
+                <span className="text-sm font-semibold text-foreground">Pending Approvals</span>
+                {pendingApprovals.length > 0 && (
+                  <span className="inline-flex items-center justify-center w-5 h-5 text-[10px] font-bold text-warning-700 bg-warning-100 rounded-full">
+                    {pendingApprovals.length}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {pendingApprovals.length === 0 ? (
+              <div className="px-4 py-8 flex flex-col items-center gap-2 text-center">
+                <CheckCheck className="w-7 h-7 text-success-400 opacity-60" />
+                <p className="text-sm text-foreground-400">You're all caught up</p>
+              </div>
+            ) : (
+              <div className="divide-y divide-neutral-100 max-h-[360px] overflow-y-auto">
+                {pendingApprovals.map((item) => (
+                  <div key={item.id} className="p-4 space-y-2.5">
+                    <div>
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="font-semibold text-sm text-foreground leading-tight">
+                          {item.workflow_name}
+                        </p>
+                        <span className="text-[10px] text-foreground-400 whitespace-nowrap">
+                          {timeAgo(item.created_at)}
+                        </span>
+                      </div>
+                      {item.node_message && (
+                        <p className="text-xs text-foreground-600 mt-1 leading-relaxed">
+                          {item.node_message}
+                        </p>
+                      )}
+                      <p className="text-[11px] text-foreground-400 mt-0.5">
+                        Step: {item.step_id}
+                      </p>
+                    </div>
+
+                    {item.step_input && (
+                      <pre className="text-[11px] bg-background-200 text-foreground border border-neutral-200 rounded-lg p-2 overflow-x-auto max-h-16 whitespace-pre-wrap break-words">
+                        {item.step_input.slice(0, 160)}
+                        {item.step_input.length > 160 ? "…" : ""}
+                      </pre>
+                    )}
+
+                    <div className="space-y-2">
+                      <textarea
+                        rows={1}
+                        value={comment[item.id] || ""}
+                        onChange={(e) =>
+                          setComment((c) => ({ ...c, [item.id]: e.target.value }))
+                        }
+                        placeholder="Comment (optional)…"
+                        className="w-full text-xs bg-background-200 text-foreground border border-neutral-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-warning-400 resize-none"
+                      />
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleApprove(item.id)}
+                          disabled={acting === item.id}
+                          className="flex items-center gap-1 px-3 py-1.5 bg-success-600 text-white text-xs rounded-lg hover:bg-success-700 disabled:opacity-50 font-medium transition-colors"
+                        >
+                          <CheckCircle size={12} /> Approve
+                        </button>
+                        <button
+                          onClick={() => handleReject(item.id)}
+                          disabled={acting === item.id}
+                          className="flex items-center gap-1 px-3 py-1.5 bg-danger-600 text-white text-xs rounded-lg hover:bg-danger-700 disabled:opacity-50 font-medium transition-colors"
+                        >
+                          <XCircle size={12} /> Reject
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Notifications */}
+          <div className="bg-background-100 border border-neutral-200 rounded-xl overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-200 bg-gradient-to-r from-primary-50/40 to-transparent">
+              <div className="flex items-center gap-2">
+                <Bell className="w-4 h-4 text-primary-500" />
+                <span className="text-sm font-semibold text-foreground">Notifications</span>
+                {notifications.length > 0 && (
+                  <span className="inline-flex items-center justify-center w-5 h-5 text-[10px] font-bold text-primary-700 bg-primary-100 rounded-full">
+                    {notifications.length}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {notifications.length === 0 ? (
+              <div className="px-4 py-6 flex flex-col items-center gap-2 text-center">
+                <Bell className="w-6 h-6 text-foreground-200" />
+                <p className="text-xs text-foreground-400">No new notifications</p>
+              </div>
+            ) : (
+              <div className="divide-y divide-neutral-100 max-h-[280px] overflow-y-auto">
+                {notifications.map((item) => (
+                  <div key={item.id} className="flex items-start gap-3 px-4 py-3">
+                    <Bell size={13} className="text-primary-400 shrink-0 mt-0.5" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-foreground leading-tight">
+                        {item.workflow_name}
+                      </p>
+                      {item.node_message && (
+                        <p className="text-xs text-foreground-600 mt-0.5">
+                          {item.node_message}
+                        </p>
+                      )}
+                      <p className="text-[10px] text-foreground-400 mt-0.5">
+                        {timeAgo(item.created_at)} · {item.step_id}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => handleDismiss(item.id)}
+                      disabled={acting === item.id}
+                      className="p-1 hover:bg-background-200 rounded text-foreground-400 hover:text-foreground disabled:opacity-50 shrink-0 transition-colors"
+                      title="Dismiss"
+                    >
+                      <X size={13} />
+                    </button>
+                  </div>
+                ))}
+              </div>
             )}
           </div>
         </div>
-      )}
 
-      {/* Renew policy modal (from dashboard) */}
+        {/* ── Right: Activity + Navigation ─────────────────────── */}
+        <div className="space-y-3">
+          <h2 className="text-xs font-semibold text-foreground-400 uppercase tracking-widest px-0.5">
+            Recent Runs
+          </h2>
+
+          <div className="bg-background-100 border border-neutral-200 rounded-xl overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-200">
+              <div className="flex items-center gap-2">
+                <Layers className="w-4 h-4 text-foreground-400" />
+                <span className="text-sm font-semibold text-foreground">Workflow Runs</span>
+              </div>
+              <button
+                onClick={() => router.push("/workflows")}
+                className="text-xs text-primary-600 hover:underline"
+              >
+                View all
+              </button>
+            </div>
+
+            {recentRuns.length === 0 ? (
+              <div className="px-4 py-8 flex flex-col items-center gap-2 text-center">
+                <Layers className="w-6 h-6 text-foreground-200" />
+                <p className="text-xs text-foreground-400">No workflow runs yet</p>
+                <button
+                  onClick={() => router.push("/workflows")}
+                  className="text-xs text-primary-600 hover:underline mt-1"
+                >
+                  Start your first workflow →
+                </button>
+              </div>
+            ) : (
+              <div className="divide-y divide-neutral-100">
+                {recentRuns.map((run) => (
+                  <button
+                    key={run.id}
+                    onClick={() => router.push(`/workflows/runs/${run.id}`)}
+                    className="flex items-center gap-3 px-4 py-3 w-full text-left hover:bg-background-200 transition-colors group"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-foreground font-medium truncate leading-tight">
+                        {run.workflowName ?? run.workflowId}
+                      </p>
+                      <p className="text-[10px] text-foreground-400 mt-0.5">
+                        {timeAgo(run.startedAt)}
+                      </p>
+                    </div>
+                    <RunStatusBadge status={run.status} />
+                    <ChevronRight className="w-3 h-3 text-foreground-300 group-hover:text-primary-500 shrink-0 transition-colors" />
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* ── Explore ───────────────────────────────────────────── */}
+          <h2 className="text-xs font-semibold text-foreground-400 uppercase tracking-widest px-0.5 pt-2">
+            Explore
+          </h2>
+          <div className="grid grid-cols-2 gap-2">
+            {[
+              { icon: Bot, label: "Agents", path: "/agents" },
+              { icon: GitBranch, label: "Workflows", path: "/workflows" },
+              { icon: Cpu, label: "Models", path: "/models" },
+              { icon: Layers, label: "Skills", path: "/skills" },
+              { icon: Globe, label: "Realms", path: "/realms" },
+              { icon: Network, label: "Graph", path: "/graph" },
+            ].map(({ icon: Icon, label, path }) => (
+              <button
+                key={path}
+                onClick={() => router.push(path)}
+                className="flex items-center gap-2 px-3 py-2.5 bg-background-100 border border-neutral-200 rounded-lg hover:border-primary-300 dark:hover:border-primary-700 hover:bg-background-200 transition-all duration-200 group text-left"
+              >
+                <Icon className="w-4 h-4 text-foreground-400 group-hover:text-primary-500 transition-colors shrink-0" />
+                <span className="text-sm text-foreground-600 group-hover:text-foreground font-medium transition-colors">
+                  {label}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* ── Renew policy modal ─────────────────────────────────── */}
       {renewingPolicy && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
           <div className="bg-background-100 border border-neutral-200 rounded-2xl shadow-2xl w-full max-w-sm">
             <div className="flex items-center justify-between px-5 py-4 border-b border-neutral-200">
               <span className="flex items-center gap-2 text-sm font-semibold text-foreground">
-                <RotateCcw className="w-4 h-4 text-primary-500" /> Renew expired
-                policy
+                <RotateCcw className="w-4 h-4 text-primary-500" /> Renew expired policy
               </span>
               <button
                 onClick={() => setRenewingPolicy(null)}
@@ -743,10 +1222,9 @@ function Dashboard() {
               </button>
             </div>
             <div className="px-5 py-4 space-y-4">
-              <div className="bg-background-200 border border-neutral-200 rounded-xl p-3 space-y-1.5">
+              <div className="bg-background-200 border border-neutral-200 rounded-xl p-3 space-y-1">
                 <p className="text-xs font-medium text-foreground">
-                  {agents.find((a) => a.did === renewingPolicy.agentDid)
-                    ?.name ??
+                  {agents.find((a) => a.did === renewingPolicy.agentDid)?.name ??
                     renewingPolicy.agentDid?.slice(0, 30) ??
                     "Global"}
                 </p>
@@ -784,7 +1262,7 @@ function Dashboard() {
                         key={days}
                         type="button"
                         onClick={() => setRenewExpiry(val)}
-                        className="text-[11px] px-2 py-0.5 rounded-md border border-neutral-200 text-foreground-500 hover:text-primary-600 dark:hover:text-primary-400 hover:border-primary-400 transition-colors"
+                        className="text-[11px] px-2 py-0.5 rounded-md border border-neutral-200 text-foreground-500 hover:text-primary-600 hover:border-primary-400 transition-colors"
                       >
                         +{days}d
                       </button>
@@ -816,539 +1294,6 @@ function Dashboard() {
           </div>
         </div>
       )}
-
-      {total === 0 && (
-        <button
-          onClick={() => router.push("/agents")}
-          className="w-full flex items-center justify-between gap-3 bg-gradient-to-r from-primary-50 to-primary-50 border border-primary-300 rounded-lg px-4 py-3 text-primary-700 text-sm hover:bg-primary-100/50 dark:hover:bg-primary-900/30 transition-colors group"
-        >
-          <div className="flex items-center gap-2">
-            <Bot className="w-4 h-4 shrink-0" />
-            <span>Get started by registering your first agent</span>
-          </div>
-          <ChevronRight className="w-4 h-4 shrink-0 group-hover:translate-x-0.5 transition-transform" />
-        </button>
-      )}
-
-      {/* Stat cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <button
-          onClick={() => router.push("/agents")}
-          className="relative bg-background-100 rounded-lg border border-neutral-200 p-5 text-left hover:border-primary-400 dark:hover:border-primary-600 transition-all duration-300 group overflow-hidden"
-        >
-          <div className="absolute inset-0 bg-gradient-to-br from-primary-500/5 to-primary-600/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-          <div className="relative z-10">
-            <div className="flex items-center gap-2 mb-3">
-              <div className="w-8 h-8 bg-gradient-to-br from-primary-100 to-primary-200 rounded-lg flex items-center justify-center">
-                <Bot className="w-4 h-4 text-primary-600" />
-              </div>
-              <p className="text-foreground-500 text-xs font-semibold uppercase tracking-widest">
-                Agents
-              </p>
-            </div>
-            <p className="text-4xl font-bold text-foreground mb-1">{total}</p>
-            <p className="text-xs text-foreground-400 flex items-center gap-1">
-              <span className="inline-block w-2 h-2 rounded-full bg-success-500" />
-              {onlineCount} online
-            </p>
-          </div>
-        </button>
-
-        <button
-          onClick={() => router.push("/agents")}
-          className="relative bg-background-100 rounded-lg border border-neutral-200 p-5 text-left hover:border-success-400 dark:hover:border-success-600 transition-all duration-300 group overflow-hidden"
-        >
-          <div className="absolute inset-0 bg-gradient-to-br from-success-500/5 to-success-600/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-          <div className="relative z-10">
-            <div className="flex items-center gap-2 mb-3">
-              <div className="w-8 h-8 bg-gradient-to-br from-success-100 to-success-200 rounded-lg flex items-center justify-center">
-                <CircleDot className="w-4 h-4 text-success-600" />
-              </div>
-              <p className="text-foreground-500 text-xs font-semibold uppercase tracking-widest">
-                Status
-              </p>
-            </div>
-            <p className="text-4xl font-bold text-success-600 mb-1">
-              {onlineCount}/{total}
-            </p>
-            <p className="text-xs text-foreground-400">
-              {total - onlineCount} offline
-            </p>
-          </div>
-        </button>
-
-        <button
-          onClick={() => router.push("/inbox")}
-          className="relative bg-background-100 rounded-lg border border-neutral-200 p-5 text-left hover:border-warning-400 dark:hover:border-warning-600 transition-all duration-300 group overflow-hidden"
-        >
-          <div className="absolute inset-0 bg-gradient-to-br from-warning-500/5 to-warning-600/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-          <div className="relative z-10">
-            <div className="flex items-center gap-2 mb-3">
-              <div className="w-8 h-8 bg-gradient-to-br from-warning-100 to-warning-200 rounded-lg flex items-center justify-center">
-                <Inbox className="w-4 h-4 text-warning-600" />
-              </div>
-              <p className="text-foreground-500 text-xs font-semibold uppercase tracking-widest">
-                Approvals
-              </p>
-            </div>
-            <p className="text-4xl font-bold text-warning-600 mb-1">
-              {pendingApprovals.length}
-            </p>
-            <p className="text-xs text-foreground-400">
-              awaiting your decision
-            </p>
-          </div>
-        </button>
-
-        {isGlobalAdmin && (
-          <div className="relative bg-background-100 rounded-lg border border-neutral-200 p-5 overflow-hidden">
-            <div className="relative z-10">
-              <div className="flex items-center gap-2 mb-3">
-                <div className="w-8 h-8 bg-gradient-to-br from-danger-100 to-danger-200 rounded-lg flex items-center justify-center">
-                  <DollarSign className="w-4 h-4 text-danger-600" />
-                </div>
-                <p className="text-foreground-500 text-xs font-semibold uppercase tracking-widest">
-                  Today
-                </p>
-              </div>
-              <p className="text-4xl font-bold text-danger-600 mb-1">
-                ${tokenMetrics.dailyPrice.toFixed(2)}
-              </p>
-              <p className="text-xs text-foreground-400">
-                {totalTokensDaily.toLocaleString()} tokens
-              </p>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Token metrics */}
-      {isGlobalAdmin && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* ── Daily Usage ── */}
-          <div className="bg-background-100 rounded-lg border border-neutral-200 p-5 transition-colors">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 bg-gradient-to-br from-primary-100 to-primary-200 rounded-lg flex items-center justify-center">
-                  <TrendingUp className="w-4 h-4 text-primary-600" />
-                </div>
-                <h3 className="text-sm font-semibold text-foreground">
-                  Daily Usage
-                </h3>
-              </div>
-              <span className="text-xs text-foreground-500">today</span>
-            </div>
-
-            {/* Combined split bar */}
-            <div className="flex items-center gap-3">
-              <div className="flex-1 h-4 bg-background-200 rounded-full overflow-hidden flex">
-                {totalTokensDaily > 0 ? (
-                  <>
-                    {/* Input segment */}
-                    <div
-                      className="h-full bg-primary-500 transition-all duration-500"
-                      style={{
-                        width: `${(tokenMetrics.dailyPrompt / totalTokensDaily) * 100}%`,
-                      }}
-                    />
-                    {/* Output segment */}
-                    <div
-                      className="h-full bg-secondary-400 transition-all duration-500"
-                      style={{
-                        width: `${(tokenMetrics.dailyCompletion / totalTokensDaily) * 100}%`,
-                      }}
-                    />
-                  </>
-                ) : (
-                  <div className="h-full w-full bg-background-200" />
-                )}
-              </div>
-              <span className="text-sm font-bold text-foreground tabular-nums shrink-0 min-w-[6rem] text-right">
-                {totalTokensDaily.toLocaleString()}
-              </span>
-            </div>
-
-            {/* Legend */}
-            <div className="flex items-center gap-4 mt-2 mb-3">
-              <div className="flex items-center gap-1.5">
-                <div className="w-2.5 h-2.5 rounded-sm bg-primary-500" />
-                <span className="text-xs text-foreground-500">
-                  Input&nbsp;
-                  <span className="text-foreground font-medium">
-                    {tokenMetrics.dailyPrompt.toLocaleString()}
-                  </span>
-                </span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <div className="w-2.5 h-2.5 rounded-sm bg-secondary-400" />
-                <span className="text-xs text-foreground-500">
-                  Output&nbsp;
-                  <span className="text-foreground font-medium">
-                    {tokenMetrics.dailyCompletion.toLocaleString()}
-                  </span>
-                </span>
-              </div>
-            </div>
-
-            {/* Cost footer */}
-            <div className="pt-3 border-t border-neutral-200 flex items-center justify-between">
-              <span className="text-xs text-foreground-500">Cost today</span>
-              <span className="text-sm font-bold text-primary-600">
-                ${tokenMetrics.dailyPrice.toFixed(4)}
-              </span>
-            </div>
-            <div className="mt-1.5 flex items-center justify-between">
-              <span className="text-xs text-foreground-500">Avg per agent</span>
-              <span className="text-xs text-foreground-600">
-                ${avgCostPerAgent}
-              </span>
-            </div>
-          </div>
-
-          {/* ── Monthly Usage ── */}
-          <div className="bg-background-100 rounded-lg border border-neutral-200 p-5 transition-colors">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 bg-gradient-to-br from-secondary-100 to-secondary-200 rounded-lg flex items-center justify-center">
-                  <TrendingUp className="w-4 h-4 text-secondary-600" />
-                </div>
-                <h3 className="text-sm font-semibold text-foreground">
-                  Monthly Usage
-                </h3>
-              </div>
-              <span className="text-xs text-foreground-500">
-                day {daysIntoMonth}/{daysInMonth}
-              </span>
-            </div>
-
-            {/* Actual — split bar */}
-            <div className="flex items-center gap-3">
-              <div className="flex-1 h-4 bg-background-200 rounded-full overflow-hidden flex relative">
-                {totalTokensMonthly > 0 ? (
-                  <>
-                    <div
-                      className="h-full bg-primary-500 transition-all duration-500"
-                      style={{
-                        width: `${(tokenMetrics.monthlyPrompt / Math.max(1, projectedMonthlyTokens)) * 100}%`,
-                      }}
-                    />
-                    <div
-                      className="h-full bg-secondary-400 transition-all duration-500"
-                      style={{
-                        width: `${(tokenMetrics.monthlyCompletion / Math.max(1, projectedMonthlyTokens)) * 100}%`,
-                      }}
-                    />
-                  </>
-                ) : (
-                  <div className="h-full w-full bg-background-200" />
-                )}
-                {/* Projected marker — vertical tick at 100% of projected */}
-                <div
-                  className="absolute top-0 bottom-0 w-0.5 bg-foreground-300/60"
-                  style={{ right: 0 }}
-                  title="Projected end of month"
-                />
-              </div>
-              <span className="text-sm font-bold text-foreground tabular-nums shrink-0 min-w-[6rem] text-right">
-                {totalTokensMonthly.toLocaleString()}
-              </span>
-            </div>
-
-            {/* Legend */}
-            <div className="flex items-center gap-4 mt-2 mb-3">
-              <div className="flex items-center gap-1.5">
-                <div className="w-2.5 h-2.5 rounded-sm bg-primary-500" />
-                <span className="text-xs text-foreground-500">
-                  Input&nbsp;
-                  <span className="text-foreground font-medium">
-                    {tokenMetrics.monthlyPrompt.toLocaleString()}
-                  </span>
-                </span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <div className="w-2.5 h-2.5 rounded-sm bg-secondary-400" />
-                <span className="text-xs text-foreground-500">
-                  Output&nbsp;
-                  <span className="text-foreground font-medium">
-                    {tokenMetrics.monthlyCompletion.toLocaleString()}
-                  </span>
-                </span>
-              </div>
-            </div>
-
-            {/* Projected row — tokens + cost side by side */}
-            <div className="pt-3 border-t border-neutral-200 space-y-1.5">
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-foreground-500">
-                  Cost this month
-                </span>
-                <span className="text-sm font-bold text-secondary-600">
-                  $
-                  {(projectedMonthlyTokens > 0 && costPerToken > 0
-                    ? totalTokensMonthly * costPerToken
-                    : 0
-                  ).toFixed(2)}
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1">
-                  <span className="text-xs text-foreground-500">
-                    Projected total
-                  </span>
-                  <span className="text-[10px] text-foreground-400">
-                    (end of month)
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-semibold text-secondary-500">
-                    {projectedMonthlyTokens.toLocaleString()} tok
-                  </span>
-                  {costPerToken > 0 && (
-                    <span className="text-xs font-semibold text-warning-600">
-                      ~${projectedMonthlyCost.toFixed(2)}
-                    </span>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── Setup banner ──────────────────────────────────────────────────── */}
-      {setupBanner && (
-        <div className="flex items-center justify-between gap-4 bg-gradient-to-r from-primary-50 to-secondary-50 border border-primary-200 rounded-xl px-4 py-3.5">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="w-9 h-9 bg-primary-600 rounded-xl flex items-center justify-center shrink-0 shadow shadow-primary-600/30">
-              <Shield className="w-4.5 h-4.5 text-white" />
-            </div>
-            <div className="min-w-0">
-              <p className="text-sm font-semibold text-primary-700">
-                {setupBanner.completedCount > 0
-                  ? `Setup in progress — ${setupBanner.completedCount} of 4 steps done`
-                  : "Finish setting up VaultysClaw"}
-              </p>
-              <p className="text-xs text-primary-600/60 truncate">
-                {setupBanner.completedCount > 0
-                  ? "Pick up where you left off — models, email, users and agents."
-                  : "Configure LLM models, email, users, and your first agent."}
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <button
-              onClick={() => router.push("/setup")}
-              className="flex items-center gap-1.5 px-4 py-2 bg-primary-600 hover:bg-primary-500 text-white text-sm font-medium rounded-lg transition-colors shadow shadow-primary-600/20"
-            >
-              {setupBanner.completedCount > 0 ? "Continue" : "Start setup"}
-              <ChevronRight className="w-3.5 h-3.5" />
-            </button>
-            <button
-              onClick={dismissSetupBanner}
-              title="Dismiss permanently"
-              className="p-1.5 text-primary-400 hover:text-primary-700 dark:hover:text-primary-200 rounded-lg hover:bg-primary-100 dark:hover:bg-primary-900/40 transition-colors"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* World map */}
-      {mapMarkers.length > 0 && (
-        <div className="bg-background-100 rounded-xl border border-neutral-200 overflow-hidden">
-          <div className="px-5 py-4 border-b border-neutral-200 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="w-7 h-7 bg-gradient-to-br from-primary-100 to-primary-200 rounded-lg flex items-center justify-center">
-                <Globe className="w-3.5 h-3.5 text-primary-600" />
-              </div>
-              <h2 className="text-sm font-semibold text-foreground">
-                Infrastructure Map
-              </h2>
-              <span className="text-xs text-foreground-500 bg-background-200 rounded-full px-2 py-0.5">
-                {mapMarkers.length} located
-              </span>
-            </div>
-            <button
-              onClick={() => router.push("/agents?view=map")}
-              className="text-xs text-primary-600 hover:underline font-medium"
-            >
-              Full view
-            </button>
-          </div>
-          <WorldMap
-            markers={mapMarkers}
-            height={320}
-            onSaveLocation={saveMarkerLocation}
-            canEditLocation={isGlobalAdmin}
-          />
-        </div>
-      )}
-
-      {/* Inbox section */}
-      <div className="grid lg:grid-cols-2 gap-6">
-        {/* Pending approvals */}
-        <div className="bg-background-100 rounded-xl border border-neutral-200 overflow-hidden">
-          <div className="px-5 py-4 border-b border-neutral-200 flex items-center justify-between bg-gradient-to-r from-warning-50/50 to-warning-50/50">
-            <div className="flex items-center gap-2">
-              <Inbox className="w-4 h-4 text-warning-600" />
-              <h2 className="text-sm font-semibold text-foreground">
-                Pending Approvals
-              </h2>
-              {pendingApprovals.length > 0 && (
-                <span className="inline-flex items-center justify-center w-5 h-5 text-xs font-semibold text-warning-700 bg-warning-100 rounded-full">
-                  {pendingApprovals.length}
-                </span>
-              )}
-            </div>
-            <button
-              onClick={() => router.push("/inbox")}
-              className="text-xs text-warning-600 hover:underline font-medium"
-            >
-              View all
-            </button>
-          </div>
-
-          {pendingApprovals.length === 0 ? (
-            <div className="px-5 py-10 text-center">
-              <CheckCircle className="w-8 h-8 text-success-700 mx-auto mb-2 opacity-50" />
-              <p className="text-foreground-500 text-sm">
-                No pending approvals
-              </p>
-            </div>
-          ) : (
-            <div className="divide-y divide-neutral-200 max-h-[420px] overflow-y-auto">
-              {pendingApprovals.map((item) => (
-                <div key={item.id} className="p-4 space-y-3">
-                  <div>
-                    <div className="flex items-start justify-between gap-2">
-                      <p className="font-semibold text-sm text-foreground">
-                        {item.workflow_name}
-                      </p>
-                      <span className="text-[10px] text-foreground-400 whitespace-nowrap">
-                        {new Date(item.created_at).toLocaleString()}
-                      </span>
-                    </div>
-                    {item.node_message && (
-                      <p className="text-sm text-foreground-700 mt-0.5">
-                        {item.node_message}
-                      </p>
-                    )}
-                    <p className="text-xs text-foreground-500 mt-0.5">
-                      Step: {item.step_id}
-                    </p>
-                  </div>
-
-                  {item.step_input && (
-                    <pre className="text-xs bg-background-200 text-foreground border border-neutral-200 rounded-lg p-2 overflow-x-auto max-h-20 whitespace-pre-wrap break-words">
-                      {item.step_input.slice(0, 200)}
-                      {item.step_input.length > 200 ? "…" : ""}
-                    </pre>
-                  )}
-
-                  <div className="space-y-2">
-                    <textarea
-                      rows={1}
-                      value={comment[item.id] || ""}
-                      onChange={(e) =>
-                        setComment((c) => ({ ...c, [item.id]: e.target.value }))
-                      }
-                      placeholder="Comment (optional)…"
-                      className="w-full text-xs bg-background-200 text-foreground border border-neutral-200 rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-warning-400 resize-none"
-                    />
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => handleApprove(item.id)}
-                        disabled={acting === item.id}
-                        className="flex items-center gap-1 px-3 py-1.5 bg-success-600 text-white text-xs rounded-lg hover:bg-success-700 disabled:opacity-50 font-medium"
-                      >
-                        <CheckCircle size={12} /> Approve
-                      </button>
-                      <button
-                        onClick={() => handleReject(item.id)}
-                        disabled={acting === item.id}
-                        className="flex items-center gap-1 px-3 py-1.5 bg-danger-600 text-white text-xs rounded-lg hover:bg-danger-700 disabled:opacity-50 font-medium"
-                      >
-                        <XCircle size={12} /> Reject
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Recent notifications */}
-        <div className="bg-background-100 rounded-xl border border-neutral-200 overflow-hidden">
-          <div className="px-5 py-4 border-b border-neutral-200 flex items-center justify-between bg-gradient-to-r from-primary-50/50 to-primary-50/50">
-            <div className="flex items-center gap-2">
-              <Bell className="w-4 h-4 text-primary-500" />
-              <h2 className="text-sm font-semibold text-foreground">
-                Notifications
-              </h2>
-              {notifications.length > 0 && (
-                <span className="inline-flex items-center justify-center w-5 h-5 text-xs font-semibold text-primary-700 bg-primary-100 rounded-full">
-                  {notifications.length}
-                </span>
-              )}
-            </div>
-            <button
-              onClick={() => router.push("/inbox")}
-              className="text-xs text-primary-500 hover:underline font-medium"
-            >
-              View all
-            </button>
-          </div>
-
-          {notifications.length === 0 ? (
-            <div className="px-5 py-10 text-center">
-              <Bell className="w-8 h-8 text-neutral-300 mx-auto mb-2 opacity-30" />
-              <p className="text-foreground-500 text-sm">
-                No new notifications
-              </p>
-            </div>
-          ) : (
-            <div className="divide-y divide-neutral-200 max-h-[420px] overflow-y-auto">
-              {notifications.map((item) => (
-                <div key={item.id} className="flex items-start gap-3 px-5 py-4">
-                  <Bell
-                    size={14}
-                    className="text-primary-500 shrink-0 mt-0.5"
-                  />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-foreground">
-                      {item.workflow_name}
-                    </p>
-                    {item.node_message && (
-                      <p className="text-sm text-foreground-700 mt-0.5">
-                        {item.node_message}
-                      </p>
-                    )}
-                    {item.step_input && (
-                      <p className="text-xs text-foreground-500 mt-0.5 truncate">
-                        {item.step_input.slice(0, 100)}
-                      </p>
-                    )}
-                    <p className="text-[11px] text-foreground-400 mt-1">
-                      {new Date(item.created_at).toLocaleString()} · Step:{" "}
-                      {item.step_id}
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => handleDismiss(item.id)}
-                    disabled={acting === item.id}
-                    className="p-1 hover:bg-background-200 rounded text-foreground-500 hover:text-foreground disabled:opacity-50 shrink-0"
-                    title="Dismiss"
-                  >
-                    <X size={14} />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
     </div>
   );
 }
@@ -1359,7 +1304,7 @@ export default function Home() {
   const { status } = useSession();
 
   if (status === "unauthenticated") return <LandingPage />;
-  if (status === "loading") return null; // AppShell shows the spinner
+  if (status === "loading") return null;
 
   return <Dashboard />;
 }

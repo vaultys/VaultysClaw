@@ -136,29 +136,35 @@ function makeAuthContext(
   { isOwner = false, isAdmin = false } = {}
 ) {
   const isGlobalAdmin = isOwner || isAdmin;
+  const userRealms = isGlobalAdmin ? [] : getUserRealms(did);
+  const userRealmIds = new Set(userRealms.map((r) => r.realm_id));
+  const adminRealmIds = new Set(
+    userRealms.filter((r) => r.is_realm_admin === 1).map((r) => r.realm_id)
+  );
   return {
     did,
     isOwner,
     isGlobalAdmin,
-    canAccessRealm(realmId: string) {
-      return isGlobalAdmin || isUserInRealm(did, realmId);
+    realmIds: userRealmIds,
+    async canAccessRealm(realmId: string) {
+      return isGlobalAdmin || userRealmIds.has(realmId);
     },
-    canAdminRealm(realmId: string) {
-      return isGlobalAdmin || isUserRealmAdmin(did, realmId);
+    async canAdminRealm(realmId: string) {
+      return isGlobalAdmin || adminRealmIds.has(realmId);
     },
-    canAccessAgent(agentDid: string) {
+    async canAccessAgent(agentDid: string) {
       if (isGlobalAdmin) return true;
       const agentRealmIds = new Set(
         getAgentRealms(agentDid).map((r) => r.realm_id)
       );
-      return getUserRealms(did).some((r) => agentRealmIds.has(r.realm_id));
+      return userRealms.some((r) => agentRealmIds.has(r.realm_id));
     },
-    canAdminAgent(agentDid: string) {
+    async canAdminAgent(agentDid: string) {
       if (isGlobalAdmin) return true;
       const agentRealmIds = new Set(
         getAgentRealms(agentDid).map((r) => r.realm_id)
       );
-      return getUserRealms(did).some(
+      return userRealms.some(
         (r) => agentRealmIds.has(r.realm_id) && r.is_realm_admin === 1
       );
     },
@@ -183,10 +189,11 @@ function asMember(did = DID.member) {
     did,
     isOwner: false,
     isGlobalAdmin: false,
-    canAccessRealm: (realmId: string) => realmId === testRealmId,
-    canAdminRealm: () => false,
-    canAccessAgent: (agentDid: string) => agentDid === DID.agent,
-    canAdminAgent: () => false,
+    realmIds: new Set([testRealmId]),
+    canAccessRealm: async (realmId: string) => realmId === testRealmId,
+    canAdminRealm: async () => false,
+    canAccessAgent: async (agentDid: string) => agentDid === DID.agent,
+    canAdminAgent: async () => false,
   });
 }
 function asStranger(did = DID.stranger) {
@@ -194,10 +201,11 @@ function asStranger(did = DID.stranger) {
     did,
     isOwner: false,
     isGlobalAdmin: false,
-    canAccessRealm: () => false,
-    canAdminRealm: () => false,
-    canAccessAgent: () => false,
-    canAdminAgent: () => false,
+    realmIds: new Set<string>(),
+    canAccessRealm: async () => false,
+    canAdminRealm: async () => false,
+    canAccessAgent: async () => false,
+    canAdminAgent: async () => false,
   });
 }
 function asRealmAdmin(did = DID.realmAdmin) {
@@ -205,10 +213,11 @@ function asRealmAdmin(did = DID.realmAdmin) {
     did,
     isOwner: false,
     isGlobalAdmin: false,
-    canAccessRealm: (realmId: string) => realmId === testRealmId,
-    canAdminRealm: (realmId: string) => realmId === testRealmId,
-    canAccessAgent: (agentDid: string) => agentDid === DID.agent,
-    canAdminAgent: (agentDid: string) => agentDid === DID.agent,
+    realmIds: new Set([testRealmId]),
+    canAccessRealm: async (realmId: string) => realmId === testRealmId,
+    canAdminRealm: async (realmId: string) => realmId === testRealmId,
+    canAccessAgent: async (agentDid: string) => agentDid === DID.agent,
+    canAdminAgent: async (agentDid: string) => agentDid === DID.agent,
   });
 }
 
@@ -455,24 +464,24 @@ describe("AuthContext — global admin", () => {
     expect(ctx.isOwner).toBe(false);
   });
 
-  it("canAccessRealm any realm", () => {
+  it("canAccessRealm any realm", async () => {
     const ctx = makeAuthContext(DID.admin, { isAdmin: true });
-    expect(ctx.canAccessRealm(testRealmId)).toBe(true);
+    expect(await ctx.canAccessRealm(testRealmId)).toBe(true);
   });
 
-  it("canAdminRealm any realm", () => {
+  it("canAdminRealm any realm", async () => {
     const ctx = makeAuthContext(DID.admin, { isAdmin: true });
-    expect(ctx.canAdminRealm(testRealmId)).toBe(true);
+    expect(await ctx.canAdminRealm(testRealmId)).toBe(true);
   });
 
-  it("canAccessAgent any agent", () => {
+  it("canAccessAgent any agent", async () => {
     const ctx = makeAuthContext(DID.admin, { isAdmin: true });
-    expect(ctx.canAccessAgent(DID.agent)).toBe(true);
+    expect(await ctx.canAccessAgent(DID.agent)).toBe(true);
   });
 
-  it("canAdminAgent any agent", () => {
+  it("canAdminAgent any agent", async () => {
     const ctx = makeAuthContext(DID.admin, { isAdmin: true });
-    expect(ctx.canAdminAgent(DID.agent)).toBe(true);
+    expect(await ctx.canAdminAgent(DID.agent)).toBe(true);
   });
 });
 
@@ -532,19 +541,19 @@ describe.skip("AuthContext — realm admin", () => {
 });
 
 describe("AuthContext — stranger (authenticated, no realm membership)", () => {
-  it("canAccessRealm returns false", () => {
+  it("canAccessRealm returns false", async () => {
     const ctx = makeAuthContext(DID.stranger);
-    expect(ctx.canAccessRealm(testRealmId)).toBe(false);
+    expect(await ctx.canAccessRealm(testRealmId)).toBe(false);
   });
 
-  it("canAdminRealm returns false", () => {
+  it("canAdminRealm returns false", async () => {
     const ctx = makeAuthContext(DID.stranger);
-    expect(ctx.canAdminRealm(testRealmId)).toBe(false);
+    expect(await ctx.canAdminRealm(testRealmId)).toBe(false);
   });
 
-  it("canAccessAgent returns false", () => {
+  it("canAccessAgent returns false", async () => {
     const ctx = makeAuthContext(DID.stranger);
-    expect(ctx.canAccessAgent(DID.agent)).toBe(false);
+    expect(await ctx.canAccessAgent(DID.agent)).toBe(false);
   });
 });
 
@@ -576,9 +585,9 @@ describe("GET /api/agents", () => {
     const res = await agentsGET(req() as never, {});
     expectStatus(res, 200);
     const body = (res as { _body: { items: unknown[] } })._body;
-    const agentIds = (body.items as { id: string }[]).map((a) => a.id);
-    expect(agentIds).toContain(DID.agent);
-    expect(agentIds).not.toContain("did:vaultys:some-other-agent");
+    const agentDids = (body.items as { did: string }[]).map((a) => a.did);
+    expect(agentDids).toContain(DID.agent);
+    expect(agentDids).not.toContain("did:vaultys:some-other-agent");
   });
 });
 

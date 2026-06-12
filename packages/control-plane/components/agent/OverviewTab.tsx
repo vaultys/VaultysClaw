@@ -88,7 +88,7 @@ function AgentLocationRow({
           ? { lat: null }
           : { lat: loc.lat, lon: loc.lon, label: loc.label };
       const res = await fetch(
-        `/api/agent/${encodeURIComponent(did)}/location`,
+        `/api/agents/${encodeURIComponent(did)}/location`,
         {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },

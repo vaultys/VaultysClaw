@@ -141,7 +141,7 @@ export function ConfigTab({
         agentsApi.getLlmConfig(did),
         fetch("/api/models").then((r) => r.json()),
         agentsApi.getRealmLlm(did),
-        fetch(`/api/agent/${encodeURIComponent(did)}/litellm-key`)
+        fetch(`/api/agents/${encodeURIComponent(did)}/litellm-key`)
           .then((r) => (r.ok ? r.json() : null))
           .catch(() => null),
         fetch("/api/litellm/models").then((r) => r.json()),
@@ -317,7 +317,7 @@ export function ConfigTab({
       if (keyBudget) body.dailyBudget = parseFloat(keyBudget);
 
       const res = await fetch(
-        `/api/agent/${encodeURIComponent(did)}/litellm-key`,
+        `/api/agents/${encodeURIComponent(did)}/litellm-key`,
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
@@ -343,7 +343,7 @@ export function ConfigTab({
   async function revokeAgentKey() {
     setRevoking(true);
     try {
-      await fetch(`/api/agent/${encodeURIComponent(did)}/litellm-key`, {
+      await fetch(`/api/agents/${encodeURIComponent(did)}/litellm-key`, {
         method: "DELETE",
       });
       await loadAll();
@@ -407,7 +407,7 @@ export function ConfigTab({
 
       // 2. Create agent key with the selected model
       const res = await fetch(
-        `/api/agent/${encodeURIComponent(did)}/litellm-key`,
+        `/api/agents/${encodeURIComponent(did)}/litellm-key`,
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },

@@ -9,7 +9,7 @@ import {
     aboutContract,
     statsContract,
     userStatusContract,
-} from "./misc.contract";
+} from "./misc/misc.contract";
 import { litellmContract, modelsContract } from "./models.contract";
 import {
     graphContract,
@@ -50,7 +50,9 @@ export * from "./channels.contract";
 export * from "./governance.contract";
 export * from "./intents.contract";
 export * from "./knowledge.contract";
-export * from "./misc.contract";
+export * from "./misc/misc.contract";
+export * from "./misc/misc.schemas";
+export * from "./misc/misc.types";
 export * from "./models.contract";
 export * from "./network.contract";
 export * from "./policies.contract";

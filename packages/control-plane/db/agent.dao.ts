@@ -1,3 +1,4 @@
+import { AgentWithInfo } from "@/lib/contracts";
 import { prisma } from "./client";
 import { Prisma } from "@prisma/client";
 import type {
@@ -8,7 +9,6 @@ import type {
   AgentPeerGrant,
 } from "@prisma/client";
 import type { LlmConfig } from "@vaultysclaw/shared";
-import { AgentWithInfo } from "./types";
 
 export class AgentDAO {
   // ─── CRUD ───────────────────────────────────────────────────────────────────
@@ -23,7 +23,7 @@ export class AgentDAO {
     const data = {
       name: agent.name,
       publicKey: agent.publicKey ?? null,
-      capabilities: agent.capabilities ,
+      capabilities: agent.capabilities,
       certificateData: agent.certificateData ?? null,
       lastSeen: new Date(),
     };
@@ -34,8 +34,46 @@ export class AgentDAO {
     });
   }
 
-  static async findByDid(did: string): Promise<Agent | null> {
-    return prisma.agent.findUnique({ where: { did } });
+  static async findByDid(did: string): Promise<AgentWithInfo | null> {
+    return prisma.agent.findUnique({
+      where: { did },
+      include: {
+        tokenHistory: {
+          where: {
+            OR: [
+              {
+                granularity: "day",
+                bucket: new Date().toISOString().slice(0, 10),
+              },
+              {
+                granularity: "month",
+                bucket: new Date().toISOString().slice(0, 7),
+              },
+            ],
+          },
+        },
+        agentRealms: {
+          include: {
+            realm: {
+              select: {
+                id: true,
+                name: true,
+                slug: true,
+                color: true,
+                isDefault: true,
+              },
+            },
+          },
+        },
+        tokenUsage: {
+          select: {
+            promptTokens: true,
+            completionTokens: true,
+            updatedAt: true,
+          },
+        },
+      },
+    });
   }
 
   static async findByName(name: string): Promise<Agent | null> {
@@ -93,7 +131,9 @@ export class AgentDAO {
     // Explicit realm slug/id filter from the query string
     if (realm) {
       realmConditions.push({
-        agentRealms: { some: { realm: { OR: [{ id: realm }, { slug: realm }] } } },
+        agentRealms: {
+          some: { realm: { OR: [{ id: realm }, { slug: realm }] } },
+        },
       });
     }
 
@@ -128,7 +168,13 @@ export class AgentDAO {
     const realmInclude = {
       include: {
         realm: {
-          select: { id: true, name: true, slug: true, color: true, isDefault: true },
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            color: true,
+            isDefault: true,
+          },
         },
       },
     } as const;
@@ -140,7 +186,30 @@ export class AgentDAO {
         orderBy: { [sortBy]: sortDir },
         skip: (page - 1) * pageSize,
         take: pageSize,
-        include: { agentRealms: realmInclude, tokenUsage: { select: { promptTokens: true, completionTokens: true, updatedAt: true } } },
+        include: {
+          tokenHistory: {
+            where: {
+              OR: [
+                {
+                  granularity: "day",
+                  bucket: new Date().toISOString().slice(0, 10),
+                },
+                {
+                  granularity: "month",
+                  bucket: new Date().toISOString().slice(0, 7),
+                },
+              ],
+            },
+          },
+          agentRealms: realmInclude,
+          tokenUsage: {
+            select: {
+              promptTokens: true,
+              completionTokens: true,
+              updatedAt: true,
+            },
+          },
+        },
       }),
     ]);
 
@@ -180,7 +249,11 @@ export class AgentDAO {
   ): Promise<void> {
     await prisma.agent.updateMany({
       where: { did },
-      data: { llmConfig: config ? ({ ...config } as Prisma.InputJsonValue) : Prisma.JsonNull },
+      data: {
+        llmConfig: config
+          ? ({ ...config } as Prisma.InputJsonValue)
+          : Prisma.JsonNull,
+      },
     });
   }
 
@@ -200,9 +273,7 @@ export class AgentDAO {
 
   // ─── Realm membership ───────────────────────────────────────────────────────
 
-  static async getRealms(
-    agentDid: string
-  ): Promise<
+  static async getRealms(agentDid: string): Promise<
     Array<
       AgentRealm & {
         realm: {
@@ -336,17 +407,33 @@ export class AgentDAO {
   ): Promise<{ todayTokens: number; monthTokens: number }> {
     const [todayRow, monthRow] = await Promise.all([
       prisma.agentTokenUsageHistory.findUnique({
-        where: { agentDid_bucket_granularity: { agentDid, bucket: dayBucket, granularity: "day" } },
+        where: {
+          agentDid_bucket_granularity: {
+            agentDid,
+            bucket: dayBucket,
+            granularity: "day",
+          },
+        },
         select: { promptTokens: true, completionTokens: true },
       }),
       prisma.agentTokenUsageHistory.findUnique({
-        where: { agentDid_bucket_granularity: { agentDid, bucket: monthBucket, granularity: "month" } },
+        where: {
+          agentDid_bucket_granularity: {
+            agentDid,
+            bucket: monthBucket,
+            granularity: "month",
+          },
+        },
         select: { promptTokens: true, completionTokens: true },
       }),
     ]);
     return {
-      todayTokens: todayRow ? todayRow.promptTokens + todayRow.completionTokens : 0,
-      monthTokens: monthRow ? monthRow.promptTokens + monthRow.completionTokens : 0,
+      todayTokens: todayRow
+        ? todayRow.promptTokens + todayRow.completionTokens
+        : 0,
+      monthTokens: monthRow
+        ? monthRow.promptTokens + monthRow.completionTokens
+        : 0,
     };
   }
 
@@ -391,7 +478,10 @@ export class AgentDAO {
     });
   }
 
-  static async updateDailyPriceSpent(agentDid: string, priceSpent: number): Promise<Agent> {
+  static async updateDailyPriceSpent(
+    agentDid: string,
+    priceSpent: number
+  ): Promise<Agent> {
     return prisma.agent.update({
       where: { did: agentDid },
       data: { dailyPriceSpent: priceSpent },

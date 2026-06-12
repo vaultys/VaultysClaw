@@ -25,7 +25,7 @@ export const agentsContract = c.router({
     path: "/api/agents/:did",
     pathParams: z.object({ did: z.string() }),
     responses: {
-      200: c.type<any>(), // TODO: c.type<AgentDetail>(),
+      200: c.type<AgentInfo>(),
       ...commonErrorResponses,
     },
   },

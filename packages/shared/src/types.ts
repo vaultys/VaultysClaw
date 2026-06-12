@@ -693,3 +693,10 @@ export interface AgentPeerGrant {
 export interface WSAgentPeerCatalogPayload {
   peers: AgentPeerGrant[];
 }
+
+export interface VaultysIDInfo {
+  did: string;
+  fingerprint: string;
+  version: number;
+  type: string;
+}

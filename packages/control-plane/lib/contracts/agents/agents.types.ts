@@ -1,6 +1,8 @@
 import { Prisma } from "@prisma/client";
 import { ListAgentsQuerySchema } from "./agents.schemas";
 import z from "zod";
+import { VaultysCertificate } from "@/types";
+import { VaultysIDInfo } from "@vaultysclaw/shared";
 
 // ─────────────────────────────────────────────
 // Types
@@ -16,8 +18,13 @@ export type AgentWithInfo = Prisma.AgentGetPayload<{
     locationLat: true;
     locationLon: true;
     locationLabel: true;
+    tokenBudgetDaily: true;
+    tokenBudgetMonthly: true;
+    publicKey: true;
+    llmConfig: true;
   };
   include: {
+    tokenHistory: true;
     agentRealms: {
       include: {
         realm: {
@@ -47,6 +54,9 @@ export type AgentInfo = AgentWithInfo & {
   lastHeartbeat: Date | null;
   reportedLlm: { provider: string; model: string } | null;
   transport: "ws" | "peerjs" | null;
+} & {
+  certificateInfo?: VaultysCertificate | null;
+  agentVaultysId?: VaultysIDInfo | null;
 };
 
 export type ListAgentsQuery = z.infer<typeof ListAgentsQuerySchema>;

@@ -332,7 +332,7 @@ export default function RealmDetailPage() {
           : { lat: loc.lat, lon: loc.lon, label: loc.label };
       let endpoint = "";
       if (marker.type === "agent")
-        endpoint = `//api/agents/${encodeURIComponent(marker.id)}/location`;
+        endpoint = `/api/agents/${encodeURIComponent(marker.id)}/location`;
       else if (marker.type === "user")
         endpoint = `/api/users/${encodeURIComponent(marker.id)}/location`;
       if (!endpoint) return;

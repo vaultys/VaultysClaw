@@ -1,1 +1,1 @@
-export * from "./api/responses";
+export * from "./vaultys";

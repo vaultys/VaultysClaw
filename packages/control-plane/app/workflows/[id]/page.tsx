@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import {
@@ -22,6 +22,7 @@ import {
 import { WorkflowViewer } from "@/components/workflow/WorkflowViewer";
 import { WorkflowRunModal } from "@/components/workflow/WorkflowRunModal";
 import type { WorkflowDefinition } from "@/lib/db";
+import { agentsClient, unwrap } from "@/lib/api/ts-rest/client";
 
 interface WorkflowData {
   id: string;
@@ -170,7 +171,14 @@ function statusBadgeClass(status: string): string {
   }
 }
 
-const STATUS_OPTIONS = ["all", "completed", "running", "failed", "waiting_approval", "rejected"];
+const STATUS_OPTIONS = [
+  "all",
+  "completed",
+  "running",
+  "failed",
+  "waiting_approval",
+  "rejected",
+];
 
 export default function WorkflowDetailPage() {
   const params = useParams();
@@ -234,14 +242,16 @@ export default function WorkflowDetailPage() {
       setLoading(true);
       const res = await fetch(`/api/workflows/${id}`);
       if (!res.ok) {
-        setError(res.status === 404 ? "Workflow not found" : "Failed to load workflow");
+        setError(
+          res.status === 404 ? "Workflow not found" : "Failed to load workflow"
+        );
         return;
       }
       const data = (await res.json()) as { workflow: WorkflowData };
       setWorkflow(data.workflow);
       if (data.workflow.realmId) {
         fetch(`/api/realms/${data.workflow.realmId}`)
-          .then((r) => r.ok ? r.json() : null)
+          .then((r) => (r.ok ? r.json() : null))
           .then((d: any) => d?.realm?.name && setRealmName(d.realm.name))
           .catch(() => {});
       }
@@ -252,16 +262,22 @@ export default function WorkflowDetailPage() {
     }
   };
 
-  const resolveAgentName = useCallback(async (did: string) => {
-    if (!did || agentNames[did]) return;
-    try {
-      const res = await fetch(`/api/agents/${did}`);
-      if (res.ok) {
-        const data = (await res.json()) as { name?: string };
-        if (data.name) setAgentNames((prev) => ({ ...prev, [did]: data.name! }));
-      }
-    } catch {}
-  }, [agentNames]);
+  const resolveAgentName = useCallback(
+    async (did: string) => {
+      if (!did || agentNames[did]) return;
+      try {
+        const agent = unwrap(
+          await agentsClient.getAgent({
+            params: {
+              did,
+            },
+          })
+        );
+        setAgentNames((prev) => ({ ...prev, [did]: agent.name! }));
+      } catch {}
+    },
+    [agentNames]
+  );
 
   const fetchRuns = async (id: string) => {
     try {
@@ -301,7 +317,8 @@ export default function WorkflowDetailPage() {
   };
 
   const filteredRuns = runs.filter((r) => {
-    const matchesStatus = runStatusFilter === "all" || r.status === runStatusFilter;
+    const matchesStatus =
+      runStatusFilter === "all" || r.status === runStatusFilter;
     const matchesSearch =
       !runSearch ||
       r.id.toLowerCase().includes(runSearch.toLowerCase()) ||
@@ -354,7 +371,10 @@ export default function WorkflowDetailPage() {
             <p className="text-foreground font-medium mb-2">
               {error ?? "Workflow not found"}
             </p>
-            <Link href="/workflows" className="text-primary-500 hover:text-primary-400">
+            <Link
+              href="/workflows"
+              className="text-primary-500 hover:text-primary-400"
+            >
               Return to workflows
             </Link>
           </div>
@@ -416,9 +436,12 @@ export default function WorkflowDetailPage() {
           <div className="lg:col-span-2 bg-background-100 rounded-xl border border-neutral-200 overflow-hidden">
             <div className="px-4 py-3 border-b border-neutral-200 flex items-center gap-2">
               <GitBranch size={15} className="text-foreground-400" />
-              <span className="text-sm font-medium text-foreground">Workflow Graph</span>
+              <span className="text-sm font-medium text-foreground">
+                Workflow Graph
+              </span>
               <span className="ml-auto text-xs text-foreground-400">
-                {nodeCount} node{nodeCount !== 1 ? "s" : ""} · {edgeCount} edge{edgeCount !== 1 ? "s" : ""}
+                {nodeCount} node{nodeCount !== 1 ? "s" : ""} · {edgeCount} edge
+                {edgeCount !== 1 ? "s" : ""}
               </span>
             </div>
             {nodeCount === 0 ? (
@@ -437,17 +460,29 @@ export default function WorkflowDetailPage() {
             <h3 className="text-sm font-semibold text-foreground">Details</h3>
             <div className="space-y-3 text-sm">
               <div>
-                <p className="text-foreground-400 text-xs uppercase tracking-wide mb-1">Created</p>
-                <p className="text-foreground">{formatDate(workflow.createdAt)}</p>
+                <p className="text-foreground-400 text-xs uppercase tracking-wide mb-1">
+                  Created
+                </p>
+                <p className="text-foreground">
+                  {formatDate(workflow.createdAt)}
+                </p>
               </div>
               <div>
-                <p className="text-foreground-400 text-xs uppercase tracking-wide mb-1">Last updated</p>
-                <p className="text-foreground">{formatDate(workflow.updatedAt)}</p>
-                <p className="text-foreground-500 text-xs mt-0.5">{timeAgo(workflow.updatedAt)}</p>
+                <p className="text-foreground-400 text-xs uppercase tracking-wide mb-1">
+                  Last updated
+                </p>
+                <p className="text-foreground">
+                  {formatDate(workflow.updatedAt)}
+                </p>
+                <p className="text-foreground-500 text-xs mt-0.5">
+                  {timeAgo(workflow.updatedAt)}
+                </p>
               </div>
               {workflow.realmId && (
                 <div>
-                  <p className="text-foreground-400 text-xs uppercase tracking-wide mb-1">Realm</p>
+                  <p className="text-foreground-400 text-xs uppercase tracking-wide mb-1">
+                    Realm
+                  </p>
                   <Link
                     href={`/realms/${workflow.realmId}`}
                     className="text-primary-500 hover:text-primary-400 text-xs font-medium"
@@ -457,13 +492,19 @@ export default function WorkflowDetailPage() {
                 </div>
               )}
               <div>
-                <p className="text-foreground-400 text-xs uppercase tracking-wide mb-1">Total runs</p>
+                <p className="text-foreground-400 text-xs uppercase tracking-wide mb-1">
+                  Total runs
+                </p>
                 <p className="text-foreground font-medium">{runs.length}</p>
               </div>
               {runs.length > 0 && (
                 <div>
-                  <p className="text-foreground-400 text-xs uppercase tracking-wide mb-1">Last run</p>
-                  <p className="text-foreground text-xs">{timeAgo(runs[0]?.startedAt)}</p>
+                  <p className="text-foreground-400 text-xs uppercase tracking-wide mb-1">
+                    Last run
+                  </p>
+                  <p className="text-foreground text-xs">
+                    {timeAgo(runs[0]?.startedAt)}
+                  </p>
                 </div>
               )}
             </div>
@@ -475,8 +516,12 @@ export default function WorkflowDetailPage() {
           <div className="bg-background-100 rounded-xl border border-primary-200 dark:border-primary-800 overflow-hidden">
             <div className="px-4 py-3 border-b border-neutral-200 bg-primary-50 dark:bg-primary-950/20 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <span className="text-sm font-semibold text-foreground">Run Details</span>
-                <span className="font-mono text-xs text-foreground-400">{selectedRunId.slice(0, 8)}…</span>
+                <span className="text-sm font-semibold text-foreground">
+                  Run Details
+                </span>
+                <span className="font-mono text-xs text-foreground-400">
+                  {selectedRunId.slice(0, 8)}…
+                </span>
               </div>
               <div className="flex items-center gap-2">
                 <Link
@@ -503,24 +548,40 @@ export default function WorkflowDetailPage() {
                 {/* Run summary */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4 pb-4 border-b border-neutral-200">
                   <div>
-                    <p className="text-foreground-400 text-xs uppercase tracking-wide mb-1">Status</p>
+                    <p className="text-foreground-400 text-xs uppercase tracking-wide mb-1">
+                      Status
+                    </p>
                     <div className={statusBadgeClass(runDetail.run.status)}>
                       {getStatusIcon(runDetail.run.status)}
                       {runDetail.run.status}
                     </div>
                   </div>
                   <div>
-                    <p className="text-foreground-400 text-xs uppercase tracking-wide mb-1">Started</p>
-                    <p className="text-foreground text-xs">{formatDate(runDetail.run.startedAt)}</p>
-                    <p className="text-foreground-400 text-xs mt-0.5">{timeAgo(runDetail.run.startedAt)}</p>
+                    <p className="text-foreground-400 text-xs uppercase tracking-wide mb-1">
+                      Started
+                    </p>
+                    <p className="text-foreground text-xs">
+                      {formatDate(runDetail.run.startedAt)}
+                    </p>
+                    <p className="text-foreground-400 text-xs mt-0.5">
+                      {timeAgo(runDetail.run.startedAt)}
+                    </p>
                   </div>
                   <div>
-                    <p className="text-foreground-400 text-xs uppercase tracking-wide mb-1">Completed</p>
-                    <p className="text-foreground text-xs">{formatDate(runDetail.run.completedAt)}</p>
+                    <p className="text-foreground-400 text-xs uppercase tracking-wide mb-1">
+                      Completed
+                    </p>
+                    <p className="text-foreground text-xs">
+                      {formatDate(runDetail.run.completedAt)}
+                    </p>
                   </div>
                   <div>
-                    <p className="text-foreground-400 text-xs uppercase tracking-wide mb-1">Steps</p>
-                    <p className="text-foreground font-medium text-sm">{runDetail.steps.length}</p>
+                    <p className="text-foreground-400 text-xs uppercase tracking-wide mb-1">
+                      Steps
+                    </p>
+                    <p className="text-foreground font-medium text-sm">
+                      {runDetail.steps.length}
+                    </p>
                   </div>
                 </div>
 
@@ -528,12 +589,18 @@ export default function WorkflowDetailPage() {
                 <div className="space-y-2">
                   {getSortedSteps(runDetail).map((step, idx) => {
                     const def = runDetail.workflow?.definition;
-                    const nodeMap = new Map(def?.nodes.map((n) => [n.id, n]) ?? []);
+                    const nodeMap = new Map(
+                      def?.nodes.map((n) => [n.id, n]) ?? []
+                    );
                     const node = nodeMap.get(step.stepId);
                     const nodeData = node?.data ?? {};
                     const agentDid =
-                      (nodeData.agentId as string | undefined) ?? step.agentId ?? null;
-                    const agentName = agentDid ? (agentNames[agentDid] ?? null) : null;
+                      (nodeData.agentId as string | undefined) ??
+                      step.agentId ??
+                      null;
+                    const agentName = agentDid
+                      ? (agentNames[agentDid] ?? null)
+                      : null;
                     const userDid =
                       step.assignedUserId ??
                       (nodeData.assignedUserId as string | undefined) ??
@@ -565,11 +632,19 @@ export default function WorkflowDetailPage() {
                           <span className="flex-shrink-0 w-5 h-5 rounded-full bg-background-200 border border-neutral-200 text-foreground-500 text-xs font-bold flex items-center justify-center">
                             {idx + 1}
                           </span>
-                          <div className="flex-shrink-0">{getStatusIcon(step.status)}</div>
+                          <div className="flex-shrink-0">
+                            {getStatusIcon(step.status)}
+                          </div>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 flex-wrap">
-                              <span className="text-sm font-medium text-foreground">{nodeLabel}</span>
-                              <span className={statusBadgeClass(step.status).replace("px-2.5 py-1", "px-2 py-0.5")}>
+                              <span className="text-sm font-medium text-foreground">
+                                {nodeLabel}
+                              </span>
+                              <span
+                                className={statusBadgeClass(
+                                  step.status
+                                ).replace("px-2.5 py-1", "px-2 py-0.5")}
+                              >
                                 {step.status}
                               </span>
                               {agentName && (
@@ -592,9 +667,15 @@ export default function WorkflowDetailPage() {
                           </div>
                           <div className="flex-shrink-0">
                             {isExpanded ? (
-                              <ChevronUp size={16} className="text-foreground-500" />
+                              <ChevronUp
+                                size={16}
+                                className="text-foreground-500"
+                              />
                             ) : (
-                              <ChevronDown size={16} className="text-foreground-500" />
+                              <ChevronDown
+                                size={16}
+                                className="text-foreground-500"
+                              />
                             )}
                           </div>
                         </button>
@@ -608,9 +689,13 @@ export default function WorkflowDetailPage() {
                                 </div>
                                 <div className="ml-4">
                                   {agentName && (
-                                    <p className="text-foreground text-xs font-medium">{agentName}</p>
+                                    <p className="text-foreground text-xs font-medium">
+                                      {agentName}
+                                    </p>
                                   )}
-                                  <p className="text-foreground-500 font-mono text-xs break-all">{agentDid}</p>
+                                  <p className="text-foreground-500 font-mono text-xs break-all">
+                                    {agentDid}
+                                  </p>
                                 </div>
                               </div>
                             )}
@@ -621,37 +706,56 @@ export default function WorkflowDetailPage() {
                                 </div>
                                 <div className="ml-4">
                                   {userName && (
-                                    <p className="text-foreground text-xs font-medium">{userName}</p>
+                                    <p className="text-foreground text-xs font-medium">
+                                      {userName}
+                                    </p>
                                   )}
                                   {userEmail && (
-                                    <p className="text-foreground-400 text-xs">{userEmail}</p>
+                                    <p className="text-foreground-400 text-xs">
+                                      {userEmail}
+                                    </p>
                                   )}
-                                  <p className="text-foreground-500 font-mono text-xs break-all mt-0.5">{userDid}</p>
+                                  <p className="text-foreground-500 font-mono text-xs break-all mt-0.5">
+                                    {userDid}
+                                  </p>
                                 </div>
                               </div>
                             )}
-                            {step.output && (() => {
-                              let parsed: unknown;
-                              try { parsed = JSON.parse(step.output); } catch { parsed = step.output; }
-                              return (
-                                <div>
-                                  <p className="text-xs text-foreground-500 mb-1.5">Output</p>
-                                  <pre className="bg-background-100 rounded p-2.5 text-foreground text-xs font-mono overflow-auto max-h-40 border border-neutral-200">
-                                    {typeof parsed === "string" ? parsed : JSON.stringify(parsed, null, 2)}
-                                  </pre>
-                                </div>
-                              );
-                            })()}
+                            {step.output &&
+                              (() => {
+                                let parsed: unknown;
+                                try {
+                                  parsed = JSON.parse(step.output);
+                                } catch {
+                                  parsed = step.output;
+                                }
+                                return (
+                                  <div>
+                                    <p className="text-xs text-foreground-500 mb-1.5">
+                                      Output
+                                    </p>
+                                    <pre className="bg-background-100 rounded p-2.5 text-foreground text-xs font-mono overflow-auto max-h-40 border border-neutral-200">
+                                      {typeof parsed === "string"
+                                        ? parsed
+                                        : JSON.stringify(parsed, null, 2)}
+                                    </pre>
+                                  </div>
+                                );
+                              })()}
                             {step.error && (
                               <div>
-                                <p className="text-xs text-danger-600 dark:text-danger-400 mb-1.5">Error</p>
+                                <p className="text-xs text-danger-600 dark:text-danger-400 mb-1.5">
+                                  Error
+                                </p>
                                 <pre className="bg-danger-50 dark:bg-danger-950/30 rounded p-2.5 text-danger-700 dark:text-danger-300 text-xs font-mono overflow-auto max-h-40 border border-danger-200 dark:border-danger-900/50">
                                   {step.error}
                                 </pre>
                               </div>
                             )}
                             {!step.output && !step.error && (
-                              <p className="text-foreground-500 text-xs">No output recorded</p>
+                              <p className="text-foreground-500 text-xs">
+                                No output recorded
+                              </p>
                             )}
                           </div>
                         )}
@@ -661,18 +765,27 @@ export default function WorkflowDetailPage() {
                 </div>
 
                 {/* Results */}
-                {runDetail.run.results && (() => {
-                  let parsed: unknown;
-                  try { parsed = JSON.parse(runDetail.run.results); } catch { parsed = runDetail.run.results; }
-                  return (
-                    <div className="mt-4 pt-4 border-t border-neutral-200">
-                      <p className="text-sm font-semibold text-foreground mb-2">Results</p>
-                      <pre className="bg-background rounded p-3 text-foreground text-xs font-mono overflow-auto max-h-40 border border-neutral-200">
-                        {typeof parsed === "string" ? parsed : JSON.stringify(parsed, null, 2)}
-                      </pre>
-                    </div>
-                  );
-                })()}
+                {runDetail.run.results &&
+                  (() => {
+                    let parsed: unknown;
+                    try {
+                      parsed = JSON.parse(runDetail.run.results);
+                    } catch {
+                      parsed = runDetail.run.results;
+                    }
+                    return (
+                      <div className="mt-4 pt-4 border-t border-neutral-200">
+                        <p className="text-sm font-semibold text-foreground mb-2">
+                          Results
+                        </p>
+                        <pre className="bg-background rounded p-3 text-foreground text-xs font-mono overflow-auto max-h-40 border border-neutral-200">
+                          {typeof parsed === "string"
+                            ? parsed
+                            : JSON.stringify(parsed, null, 2)}
+                        </pre>
+                      </div>
+                    );
+                  })()}
               </div>
             ) : null}
           </div>
@@ -682,7 +795,12 @@ export default function WorkflowDetailPage() {
         <div className="bg-background-100 rounded-xl border border-neutral-200 overflow-hidden">
           <div className="px-4 py-3 border-b border-neutral-200 flex items-center justify-between gap-3 flex-wrap">
             <h2 className="text-sm font-semibold text-foreground">
-              Runs{runs.length > 0 && <span className="ml-1.5 text-foreground-400 font-normal">({runs.length})</span>}
+              Runs
+              {runs.length > 0 && (
+                <span className="ml-1.5 text-foreground-400 font-normal">
+                  ({runs.length})
+                </span>
+              )}
             </h2>
             <div className="flex items-center gap-2 flex-wrap">
               {/* Status filter */}
@@ -699,7 +817,10 @@ export default function WorkflowDetailPage() {
               </select>
               {/* Search */}
               <div className="relative">
-                <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-foreground-400" />
+                <Search
+                  size={14}
+                  className="absolute left-2.5 top-1/2 -translate-y-1/2 text-foreground-400"
+                />
                 <input
                   type="text"
                   placeholder="Search runs…"
@@ -723,7 +844,9 @@ export default function WorkflowDetailPage() {
             </div>
           ) : filteredRuns.length === 0 ? (
             <div className="px-4 py-10 text-center text-foreground-500 text-sm">
-              {runs.length === 0 ? "No runs yet for this workflow" : "No runs match the current filter"}
+              {runs.length === 0
+                ? "No runs yet for this workflow"
+                : "No runs match the current filter"}
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -752,10 +875,11 @@ export default function WorkflowDetailPage() {
                         onClick={() =>
                           setSelectedRunId(isSelected ? null : run.id)
                         }
-                        className={`border-b border-neutral-200/50 cursor-pointer transition ${isSelected
+                        className={`border-b border-neutral-200/50 cursor-pointer transition ${
+                          isSelected
                             ? "bg-primary-50 dark:bg-primary-950/20"
                             : "hover:bg-background-200/30"
-                          }`}
+                        }`}
                       >
                         <td className="px-4 py-3">
                           <div className={statusBadgeClass(run.status)}>

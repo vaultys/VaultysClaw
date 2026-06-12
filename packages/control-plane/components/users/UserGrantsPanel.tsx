@@ -1,5 +1,6 @@
 "use client";
-
+import { agentsClient, unwrap } from "@/lib/api/ts-rest/client";
+import { AgentInfo } from "@/lib/contracts";
 import { useState, useEffect, useCallback } from "react";
 
 const CAPABILITIES = [
@@ -11,11 +12,6 @@ const CAPABILITIES = [
   { id: "code_execution", label: "Code Execution" },
   { id: "system_command", label: "System Command" },
 ] as const;
-
-interface Agent {
-  id: string;
-  name: string;
-}
 
 interface Grant {
   id: string;
@@ -31,7 +27,7 @@ interface UserGrantsPanelProps {
 }
 
 export default function UserGrantsPanel({ userDid }: UserGrantsPanelProps) {
-  const [agents, setAgents] = useState<Agent[]>([]);
+  const [agents, setAgents] = useState<AgentInfo[]>([]);
   const [grants, setGrants] = useState<Grant[]>([]);
   const [selectedAgent, setSelectedAgent] = useState<string>("*");
   const [selectedCaps, setSelectedCaps] = useState<string[]>([]);
@@ -39,9 +35,8 @@ export default function UserGrantsPanel({ userDid }: UserGrantsPanelProps) {
   const [revoking, setRevoking] = useState<string | null>(null);
 
   const loadAgents = useCallback(async () => {
-    const res = await fetch("/api/agents");
-    const data = (await res.json()) as { agents: Agent[] };
-    setAgents(data.agents ?? []);
+    const agents = unwrap(await agentsClient.search()).items;
+    setAgents(agents ?? []);
   }, []);
 
   const loadGrants = useCallback(async () => {
@@ -163,7 +158,7 @@ export default function UserGrantsPanel({ userDid }: UserGrantsPanelProps) {
           >
             <option value="*">All agents</option>
             {agents.map((a) => (
-              <option key={a.id} value={a.id}>
+              <option key={a.did} value={a.did}>
                 {a.name}
               </option>
             ))}

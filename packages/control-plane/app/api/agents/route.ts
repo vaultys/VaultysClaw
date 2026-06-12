@@ -64,8 +64,8 @@ const handlers = createNextRoute(agentsContract, {
       return {
         ...agent,
         online: connectedDids.has(agent.did),
-        connectedAt: connected?.connectedAt,
-        lastHeartbeat: connected?.lastHeartbeat,
+        connectedAt: connected?.connectedAt ?? null,
+        lastHeartbeat: connected?.lastHeartbeat ?? null,
         reportedLlm:
           (connected?.reportedLlm as
             | { provider: string; model: string }

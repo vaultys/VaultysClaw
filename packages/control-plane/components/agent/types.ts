@@ -1,7 +1,6 @@
 // `AgentDetail` is derived from the ts-rest contract (the same schema the
 // `GET /api/agents/:did` route validates against), keeping the UI type in lock
 // step with the API response.
-export type { AgentDetail } from "@/lib/contracts";
 
 export interface PolicyEntry {
   id: string;

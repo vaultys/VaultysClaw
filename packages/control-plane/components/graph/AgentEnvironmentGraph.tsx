@@ -13,7 +13,7 @@
  * see what the agent is allowed to do and how it is connected.
  */
 
-import { useEffect, useState, useMemo, useCallback } from "react";
+import { useEffect, useState, useMemo } from "react";
 import ReactFlow, {
   Node,
   Edge,
@@ -40,6 +40,8 @@ import {
   AlertTriangle,
   Loader2,
 } from "lucide-react";
+import { agentsClient, unwrap } from "@/lib/api/ts-rest/client";
+import { AgentInfo } from "@/lib/contracts";
 
 // ── Shared palette ─────────────────────────────────────────────────────────────
 // Background is always the design-system surface so the graph adapts to light
@@ -465,12 +467,6 @@ function makeEdge(
 
 // ── Data fetching ──────────────────────────────────────────────────────────────
 
-interface AgentSummary {
-  id: string;
-  name: string;
-  online: boolean;
-}
-
 interface Policy {
   id: string;
   capabilities: string[];
@@ -491,7 +487,7 @@ interface KnowledgeSource {
 }
 
 interface GraphData {
-  agents: AgentSummary[];
+  agents: AgentInfo[];
   policies: Policy[];
   knowledge: KnowledgeSource[];
 }
@@ -514,7 +510,6 @@ interface AgentEnvironmentGraphProps {
   transport: "ws" | "peerjs" | null | undefined;
   online: boolean;
   reportedLlm: { provider: string; model: string } | null;
-  storedLlm: { provider: string; model: string } | null;
   capabilities: string[];
 }
 
@@ -524,7 +519,6 @@ export default function AgentEnvironmentGraph({
   transport,
   online,
   reportedLlm,
-  storedLlm,
   capabilities,
 }: AgentEnvironmentGraphProps) {
   const [data, setData] = useState<GraphData | null>(null);
@@ -535,13 +529,10 @@ export default function AgentEnvironmentGraph({
     (async () => {
       try {
         const [agentsRes, policiesRes, knowledgeRes] = await Promise.all([
-          fetch("/api/agents"),
+          agentsClient.search(),
           fetch(`/api/policies?agentDid=${encodeURIComponent(agentId)}`),
           fetch(`/api/knowledge?agentDid=${encodeURIComponent(agentId)}`),
         ]);
-        const agentsJson = agentsRes.ok
-          ? await agentsRes.json()
-          : { agents: [] };
         const policiesJson = policiesRes.ok
           ? await policiesRes.json()
           : { policies: [] };
@@ -549,8 +540,8 @@ export default function AgentEnvironmentGraph({
           ? await knowledgeRes.json()
           : { sources: [] };
         setData({
-          agents: (agentsJson.agents ?? []).filter(
-            (a: AgentSummary) => a.id !== agentId
+          agents: (unwrap(agentsRes).items ?? []).filter(
+            (a) => a.did !== agentId
           ),
           policies: policiesJson.policies ?? [],
           knowledge: knowledgeJson.sources ?? [],
@@ -648,7 +639,7 @@ export default function AgentEnvironmentGraph({
     const allowedDomains = data.policies
       .flatMap((p) => p.resourceLimits?.allowedDomains ?? [])
       .filter(Boolean);
-    const llm = reportedLlm ?? storedLlm;
+    const llm = reportedLlm;
 
     // ── Peers: only show when agent_communication is granted ─────────────────
     const hasAgentComm = hasCap("agent_communication");
@@ -672,7 +663,7 @@ export default function AgentEnvironmentGraph({
     // ── Peers (left column) ───────────────────────────────────────────────────
     sortedPeers.forEach((peer, i) => {
       addNode({
-        id: `peer-${peer.id}`,
+        id: `peer-${peer.did}`,
         type: "env",
         position: { x: PEER_COL_X, y: TOP_PAD + i * ROW_GAP },
         data: {
@@ -700,9 +691,9 @@ export default function AgentEnvironmentGraph({
     // Peer edges (drawn after agent so pos["agent"] is set)
     sortedPeers.forEach((peer) => {
       edgeH(
-        `e-peer-${peer.id}`,
+        `e-peer-${peer.did}`,
         "agent",
-        `peer-${peer.id}`,
+        `peer-${peer.did}`,
         "",
         peer.online ? EDGE_COLORS.peer : "#9ca3af",
         { animated: peer.online, dashed: false }
@@ -887,16 +878,7 @@ export default function AgentEnvironmentGraph({
     }
 
     return { nodes, edges };
-  }, [
-    data,
-    agentId,
-    agentName,
-    transport,
-    online,
-    reportedLlm,
-    storedLlm,
-    capabilities,
-  ]);
+  }, [data, agentId, agentName, transport, online, reportedLlm, capabilities]);
 
   if (loading) {
     return (

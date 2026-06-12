@@ -1,37 +1,18 @@
-import { Challenger, VaultysId, crypto } from "@vaultys/id";
+import { Challenger, crypto } from "@vaultys/id";
 import { getWSServer } from "@/lib/ws-server";
 import { getAuthContext } from "@/lib/auth-utils";
 import { AgentDAO } from "@/db";
-import type { AgentCapability } from "@vaultysclaw/shared";
+import {
+  VaultysIDInfo,
+  vaultysIdInfo,
+  type AgentCapability,
+} from "@vaultysclaw/shared";
 import { APIException } from "@/lib/api/utils/api-utils";
 import { agentsContract } from "@/lib/contracts";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
+import { VaultysCertificate } from "@/types";
 
 const Buffer = crypto.Buffer;
-
-/**
- * Extract displayable VaultysId info from a public key buffer.
- */
-function vaultysIdInfo(pk: unknown): Record<string, unknown> | null {
-  if (!pk) return null;
-  try {
-    const vid = VaultysId.fromId(pk as Buffer).toVersion(1);
-    return {
-      did: vid.did,
-      fingerprint: vid.fingerprint,
-      version: vid.version,
-      type: vid.isMachine()
-        ? "machine"
-        : vid.isPerson()
-          ? "person"
-          : vid.isHardware()
-            ? "hardware"
-            : "unknown",
-    };
-  } catch {
-    return null;
-  }
-}
 
 /**
  * Routes for /api/agents/:did — the `:did`-level slice of `agentsContract`.
@@ -62,8 +43,8 @@ const handlers = createNextRoute(agentsContract, {
     const connected = wsServer?.getAgent(did);
 
     // Deserialize certificate data.
-    let certificateInfo: Record<string, unknown> | null = null;
-    let agentVaultysId: Record<string, unknown> | null = null;
+    let certificateInfo: VaultysCertificate | null = null;
+    let agentVaultysId: VaultysIDInfo | null = null;
 
     if (agent.certificateData) {
       try {
@@ -89,75 +70,23 @@ const handlers = createNextRoute(agentsContract, {
         agentVaultysId = vaultysIdInfo(cert.pk2);
       } catch {
         certificateInfo = {
-          present: true,
           dataSize: agent.certificateData.length,
           parseError: true,
         };
       }
     }
 
-    // Today's and this month's token usage from history.
-    const todayBucket = new Date().toISOString().slice(0, 10);
-    const monthBucket = new Date().toISOString().slice(0, 7);
-    const { todayTokens, monthTokens } = await AgentDAO.getTokenBuckets(
-      agent.did,
-      todayBucket,
-      monthBucket
-    );
-
-    const cfg = agent.llmConfig;
-    const storedLlm =
-      cfg && typeof cfg === "object" && !Array.isArray(cfg)
-        ? {
-            provider: String((cfg as Record<string, unknown>).provider ?? ""),
-            model: String((cfg as Record<string, unknown>).model ?? ""),
-          }
-        : null;
-
-    const transport = connected?.transport;
-
-    // The WS server reports prompt/completion only; derive the total so the
-    // response satisfies the contract's TokenUsageSchema.
-    const liveUsage = connected?.tokenUsage ?? null;
-    const tokenUsage = liveUsage
-      ? {
-          promptTokens: liveUsage.promptTokens,
-          completionTokens: liveUsage.completionTokens,
-          totalTokens: ("totalTokens" in liveUsage &&
-          typeof liveUsage.totalTokens === "number"
-            ? liveUsage.totalTokens
-            : liveUsage.promptTokens + liveUsage.completionTokens) as number,
-        }
-      : null;
-
     return {
       status: 200,
       body: {
-        id: agent.did,
-        name: connected?.name ?? agent.name,
-        capabilities: Array.isArray(agent.capabilities)
-          ? (agent.capabilities as string[])
-          : [],
-        publicKey: agent.publicKey ?? null,
+        ...agent,
         certificateInfo,
         agentVaultysId,
-        registeredAt: agent.registeredAt.toISOString(),
-        lastSeen: agent.lastSeen.toISOString(),
         online: !!connected,
-        connectedAt: connected?.connectedAt?.toISOString() ?? null,
-        lastHeartbeat: connected?.lastHeartbeat?.toISOString() ?? null,
+        connectedAt: connected?.connectedAt ?? null,
+        lastHeartbeat: connected?.lastHeartbeat ?? null,
         reportedLlm: connected?.reportedLlm ?? null,
-        transport:
-          transport === "ws" || transport === "peerjs" ? transport : null,
-        storedLlm,
-        tokenUsage,
-        tokenBudgetDaily: agent.tokenBudgetDaily ?? null,
-        tokenBudgetMonthly: agent.tokenBudgetMonthly ?? null,
-        todayTokens,
-        monthTokens,
-        locationLat: agent.locationLat ?? null,
-        locationLon: agent.locationLon ?? null,
-        locationLabel: agent.locationLabel ?? null,
+        transport: connected ? connected.transport : null,
       },
     };
   },

@@ -3,11 +3,21 @@
  * Shared across agent-controller web/TUI and control-plane UI.
  */
 
+import { crypto, VaultysId } from "@vaultys/id";
+import { VaultysIDInfo } from "../types";
+
 /**
  * Format uptime in seconds to human-readable format (e.g., "2h 30m")
  */
 export function fmtUptime(seconds: number): string {
   return fmtDuration(seconds * 1000);
+}
+
+export function daysFromNow(days: number): string {
+  const d = new Date(Date.now() + days * 86_400_000);
+  // datetime-local expects "YYYY-MM-DDTHH:MM" in local time
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
 /**
@@ -118,4 +128,28 @@ export function formatDateTime(iso: string | null): string {
     hour: "2-digit",
     minute: "2-digit",
   });
+}
+
+/**
+ * Extract displayable VaultysId info from a public key buffer.
+ */
+export function vaultysIdInfo(pk: unknown): VaultysIDInfo | null {
+  if (!pk) return null;
+  try {
+    const vid = VaultysId.fromId(pk as crypto.Buffer).toVersion(1);
+    return {
+      did: vid.did,
+      fingerprint: vid.fingerprint,
+      version: vid.version,
+      type: vid.isMachine()
+        ? "machine"
+        : vid.isPerson()
+          ? "person"
+          : vid.isHardware()
+            ? "hardware"
+            : "unknown",
+    };
+  } catch {
+    return null;
+  }
 }

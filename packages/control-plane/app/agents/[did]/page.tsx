@@ -30,8 +30,8 @@ import { GovernanceTab } from "@/components/agent/GovernanceTab";
 import { AutomationTab } from "@/components/agent/AutomationTab";
 import { ApprovalsTab } from "@/components/agent/ApprovalsTab";
 import { KnowledgeTab } from "@/components/agent/KnowledgeTab";
-import type { AgentDetail } from "@/components/agent/types";
-import { agentsClient } from "@/lib/api/ts-rest/client";
+import { agentsClient, unwrap } from "@/lib/api/ts-rest/client";
+import { AgentInfo } from "@/lib/contracts";
 
 const AgentEnvironmentGraph = dynamic(
   () => import("@/components/graph/AgentEnvironmentGraph"),
@@ -44,7 +44,7 @@ export default function AgentDetailPage() {
   const did = decodeURIComponent(params.did as string);
 
   const [activeTab, setActiveTab] = useState<string>("overview");
-  const [agent, setAgent] = useState<AgentDetail | null>(null);
+  const [agent, setAgent] = useState<AgentInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [pendingApprovals, setPendingApprovals] = useState(0);
@@ -52,7 +52,7 @@ export default function AgentDetailPage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const { agents: agentsState, lastEvent } = useAdminWS();
-  const liveAgent = agentsState.agents.find((a) => a.id === did);
+  const liveAgent = agentsState.agents.find((a) => a.did === did);
 
   const handleDeleteAgent = async () => {
     setDeletingAgent(true);
@@ -73,13 +73,8 @@ export default function AgentDetailPage() {
 
   const fetchAgent = useCallback(async () => {
     try {
-      const res = await fetch(`/api/agents/${encodeURIComponent(did)}`);
-      if (res.status === 404) {
-        setError("Agent not found");
-        return;
-      }
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      setAgent(await res.json());
+      const agent = unwrap(await agentsClient.getAgent({ params: { did } }));
+      setAgent(agent);
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to fetch agent");
@@ -94,7 +89,7 @@ export default function AgentDetailPage() {
 
   useEffect(() => {
     if (liveAgent && agent) {
-      setAgent((prev: { reportedLlm: any }) =>
+      setAgent((prev) =>
         prev
           ? {
               ...prev,
@@ -104,7 +99,7 @@ export default function AgentDetailPage() {
               lastSeen: liveAgent.lastSeen,
               capabilities: liveAgent.capabilities,
               name: liveAgent.name,
-              reportedLlm: liveAgent.reportedLlm ?? prev.reportedLlm,
+              reportedLlm: liveAgent.reportedLlm,
             }
           : prev
       );
@@ -233,9 +228,9 @@ export default function AgentDetailPage() {
                   {agent.transport === "peerjs" ? "WebRTC" : "WebSocket"}
                 </span>
               )}
-              {(agent.reportedLlm ?? agent.storedLlm) &&
+              {agent.reportedLlm &&
                 (() => {
-                  const llm = agent.reportedLlm ?? agent.storedLlm!;
+                  const llm = agent.reportedLlm!;
                   return (
                     <span className="inline-flex items-center gap-1.5 text-xs font-medium text-foreground-500 bg-background-200 border border-neutral-300 rounded-full px-2.5 py-0.5">
                       <Zap size={11} className="text-warning-500" />
@@ -249,7 +244,7 @@ export default function AgentDetailPage() {
                 })()}
             </div>
             <p className="text-xs font-mono text-foreground-500 mt-0.5 truncate">
-              {agent.id}
+              {agent.did}
             </p>
           </div>
 
@@ -259,12 +254,12 @@ export default function AgentDetailPage() {
                 Last seen
               </div>
               <div className="text-sm text-foreground">
-                {timeAgo(agent.lastSeen)}
+                {timeAgo(agent.lastSeen.toString())}
               </div>
             </div>
-            {(agent.reportedLlm ?? agent.storedLlm) &&
+            {agent.reportedLlm &&
               (() => {
-                const llm = agent.reportedLlm ?? agent.storedLlm!;
+                const llm = agent.reportedLlm!;
                 return (
                   <div>
                     <div className="text-xs text-foreground-500 uppercase">
@@ -322,19 +317,19 @@ export default function AgentDetailPage() {
           )}
           {activeTab === "chat" && (
             <ChatTab
-              agentId={agent.id}
+              agentId={agent.did}
               agentName={agent.name}
               online={agent.online}
             />
           )}
-          {activeTab === "tokens" && <TokensTab agentId={agent.id} />}
+          {activeTab === "tokens" && <TokensTab agentId={agent.did} />}
           {activeTab === "config" && (
             <ConfigTab did={did} reportedLlm={agent.reportedLlm} />
           )}
           {activeTab === "governance" && (
             <GovernanceTab did={did} agentCapabilities={agent.capabilities} />
           )}
-          {activeTab === "automation" && <AutomationTab agentId={agent.id} />}
+          {activeTab === "automation" && <AutomationTab agentId={agent.did} />}
           {activeTab === "approvals" && (
             <ApprovalsTab onCountChange={setPendingApprovals} />
           )}
@@ -348,12 +343,11 @@ export default function AgentDetailPage() {
           )}
           {activeTab === "graph" && (
             <AgentEnvironmentGraph
-              agentId={agent.id}
+              agentId={agent.did}
               agentName={agent.name}
               transport={agent.transport}
               online={agent.online}
               reportedLlm={agent.reportedLlm}
-              storedLlm={agent.storedLlm}
               capabilities={agent.capabilities}
             />
           )}

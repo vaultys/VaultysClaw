@@ -17,7 +17,8 @@ import {
 import { formatDateTime, parseUTC, timeAgo } from "@vaultysclaw/shared";
 import { CAPABILITY_ICONS } from "./capability-icons";
 import { AUDIT_LABELS } from "./constants";
-import type { AgentDetail, PolicyEntry, AuditEntry } from "./types";
+import type { PolicyEntry, AuditEntry } from "./types";
+import { AgentInfo } from "@/lib/contracts";
 
 const LocationEditor = dynamic(
   () => import("@/components/map/WorldMap").then((m) => m.LocationEditor),
@@ -149,7 +150,7 @@ export function OverviewTab({
   agent,
   onTabChange,
 }: {
-  agent: AgentDetail;
+  agent: AgentInfo;
   onTabChange: (tab: string) => void;
 }) {
   const [recentEvents, setRecentEvents] = useState<AuditEntry[]>([]);
@@ -168,9 +169,9 @@ export function OverviewTab({
       try {
         const [auditRes, policyRes] = await Promise.all([
           fetch(
-            `/api/governance/audit?agentDid=${encodeURIComponent(agent.id)}&limit=50`
+            `/api/governance/audit?agentDid=${encodeURIComponent(agent.did)}&limit=50`
           ),
-          fetch(`/api/policies?agentDid=${encodeURIComponent(agent.id)}`),
+          fetch(`/api/policies?agentDid=${encodeURIComponent(agent.did)}`),
         ]);
         if (auditRes.ok) {
           const data = await auditRes.json();
@@ -192,16 +193,28 @@ export function OverviewTab({
         setEventsLoading(false);
       }
     })();
-  }, [agent.id]);
+  }, [agent.did]);
+  const todayUsageToken = agent.tokenHistory.find(
+    (th) => th.granularity === "day"
+  );
+  const monthUsageToken = agent.tokenHistory.find(
+    (th) => th.granularity === "month"
+  );
+  const todayUsed = todayUsageToken
+    ? todayUsageToken.completionTokens + todayUsageToken.promptTokens
+    : 0;
 
-  const todayUsed = agent.tokenUsage?.totalTokens ?? agent.todayTokens;
-  const monthUsed = agent.monthTokens;
+  const monthUsed = monthUsageToken
+    ? monthUsageToken.completionTokens + monthUsageToken.promptTokens
+    : 0;
 
   function sessionUptime() {
     if (!agent.online || !agent.connectedAt) return null;
-    const secs = Math.floor(
-      (Date.now() - parseUTC(agent.connectedAt).getTime()) / 1000
-    );
+    const secs = agent.connectedAt
+      ? Math.floor(
+          (Date.now() - parseUTC(agent.connectedAt.toString()).getTime()) / 1000
+        )
+      : -1;
     if (secs < 60) return `${secs}s`;
     if (secs < 3600) return `${Math.floor(secs / 60)}m`;
     const h = Math.floor(secs / 3600),
@@ -231,7 +244,7 @@ export function OverviewTab({
             <>
               <div className="text-2xl font-bold text-foreground">{uptime}</div>
               <div className="text-xs text-foreground-400 mt-0.5">
-                since {timeAgo(agent.connectedAt)}
+                since {timeAgo(agent.connectedAt?.toString() ?? null)}
               </div>
             </>
           ) : (
@@ -240,7 +253,7 @@ export function OverviewTab({
                 Offline
               </div>
               <div className="text-xs text-foreground-400 mt-0.5">
-                last seen {timeAgo(agent.lastSeen)}
+                last seen {timeAgo(agent.lastSeen?.toString() ?? null)}
               </div>
             </>
           )}
@@ -252,7 +265,7 @@ export function OverviewTab({
             Tokens today
           </div>
           <div className="text-2xl font-bold text-foreground">
-            {todayUsed.toLocaleString()}
+            {todayUsed.toString()}
           </div>
           {agent.tokenBudgetDaily && (
             <div className="mt-2">

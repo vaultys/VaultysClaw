@@ -33,8 +33,10 @@ import {
 import { agentsClient, unwrap } from "@/lib/api/ts-rest/client";
 import { AgentInfo } from "@/lib/contracts";
 import {
+  daysFromNow,
   formatCompactNumber,
   formatDateTime,
+  parseUTC,
   shortDid,
   timeAgo,
 } from "@vaultysclaw/shared";
@@ -78,16 +80,6 @@ interface Policy {
   expiresAt: string | null;
   createdBy: string | null;
   createdAt: string;
-}
-
-interface AgentBudget {
-  did: string;
-  name: string;
-  capabilities: string[];
-  tokenBudgetDaily: number | null;
-  tokenBudgetMonthly: number | null;
-  todayTokens: number;
-  monthTokens: number;
 }
 
 interface AuditEntry {
@@ -208,7 +200,7 @@ function BudgetBar({
       <div className="flex justify-between text-xs text-foreground-500">
         <span>{label}</span>
         <span>
-          {fmtNum(used)} / {fmtNum(budget)} ({pct}%)
+          {formatCompactNumber(used)} / {formatCompactNumber(budget)} ({pct}%)
         </span>
       </div>
       <div className="h-1.5 bg-background-200 rounded-full overflow-hidden">
@@ -421,12 +413,6 @@ function OverviewTab({
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 /** Return a datetime-local string N days from now (local time). */
-function daysFromNow(days: number): string {
-  const d = new Date(Date.now() + days * 86_400_000);
-  // datetime-local expects "YYYY-MM-DDTHH:MM" in local time
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
 
 /** Given an original expiry, suggest the same duration from now (min 1 day). */
 function suggestRenewalExpiry(originalExpiresAt: string | null): string {
@@ -546,7 +532,7 @@ function RenewPolicyModal({
                   <span className="text-xs text-foreground-400">Limits</span>
                   <span className="text-xs text-foreground-500">
                     {policy.resourceLimits.maxTokensPerDay
-                      ? `${fmtNum(policy.resourceLimits.maxTokensPerDay)} tok/d`
+                      ? `${formatCompactNumber(policy.resourceLimits.maxTokensPerDay)} tok/d`
                       : ""}
                     {policy.resourceLimits.maxTokensPerDay &&
                     policy.resourceLimits.maxRequestsPerHour
@@ -646,7 +632,6 @@ function RenewPolicyModal({
 function PoliciesTab() {
   const [policies, setPolicies] = useState<Policy[]>([]);
   const [agents, setAgents] = useState<AgentInfo[]>([]);
-  const [budgets, setBudgets] = useState<AgentBudget[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [revoking, setRevoking] = useState<string | null>(null);
@@ -688,36 +673,8 @@ function PoliciesTab() {
         const d = (await polRes.json()) as { policies: Policy[] };
         setPolicies(d.policies);
       }
-
-      setAgents(unwrap(agentRes).items);
-
-      // Fetch budgets from agent details
-      const budgetList: AgentBudget[] = await Promise.all(
-        d.agents.slice(0, 50).map(async (a) => {
-          try {
-            const r = await fetch(`//api/agents/${encodeURIComponent(a.id)}`);
-            if (!r.ok) return null;
-            const ad = (await r.json()) as {
-              tokenBudgetDaily?: number | null;
-              tokenBudgetMonthly?: number | null;
-              todayTokens?: number;
-              monthTokens?: number;
-            };
-            return {
-              did: a.id,
-              name: a.name,
-              capabilities: a.capabilities,
-              tokenBudgetDaily: ad.tokenBudgetDaily ?? null,
-              tokenBudgetMonthly: ad.tokenBudgetMonthly ?? null,
-              todayTokens: ad.todayTokens ?? 0,
-              monthTokens: ad.monthTokens ?? 0,
-            } as AgentBudget;
-          } catch {
-            return null;
-          }
-        })
-      ).then((r) => r.filter(Boolean) as AgentBudget[]);
-      setBudgets(budgetList);
+      const agents = unwrap(agentRes).items;
+      setAgents(agents);
     } finally {
       setLoading(false);
     }
@@ -780,7 +737,7 @@ function PoliciesTab() {
     try {
       const daily = edit.daily === "" ? null : parseInt(edit.daily);
       const monthly = edit.monthly === "" ? null : parseInt(edit.monthly);
-      await fetch(`//api/agents/${encodeURIComponent(did)}`, {
+      await fetch(`/api/agents/${encodeURIComponent(did)}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -1077,7 +1034,7 @@ function PoliciesTab() {
       {renewPolicy && (
         <RenewPolicyModal
           policy={renewPolicy}
-          agentName={agents.find((a) => a.id === renewPolicy.agentDid)?.name}
+          agentName={agents.find((a) => a.did === renewPolicy.agentDid)?.name}
           onClose={() => setRenewPolicy(null)}
           onRenewed={fetchAll}
         />
@@ -1091,33 +1048,47 @@ function PoliciesTab() {
             agent
           </h3>
         </div>
-        {budgets.length === 0 ? (
+        {agents.length === 0 ? (
           <div className="px-4 py-8 text-center text-foreground-500 text-sm">
             No agents found.
           </div>
         ) : (
           <div className="divide-y divide-neutral-200">
-            {budgets.map((b) => {
-              const edit = budgetEdits[b.did];
+            {agents.map((a) => {
+              const edit = budgetEdits[a.did];
+              const todayTokenUsage = a.tokenHistory.find(
+                (h) => h.granularity === "day"
+              );
+              const todayTokens = todayTokenUsage
+                ? todayTokenUsage.completionTokens +
+                  todayTokenUsage.promptTokens
+                : 0;
+              const monthTokenUsage = a.tokenHistory.find(
+                (h) => h.granularity === "month"
+              );
+              const monthTokens = monthTokenUsage
+                ? monthTokenUsage.completionTokens +
+                  monthTokenUsage.promptTokens
+                : 0;
               const dailyVal =
                 edit?.daily ??
-                (b.tokenBudgetDaily !== null ? String(b.tokenBudgetDaily) : "");
+                (a.tokenBudgetDaily !== null ? String(a.tokenBudgetDaily) : "");
               const monthlyVal =
                 edit?.monthly ??
-                (b.tokenBudgetMonthly !== null
-                  ? String(b.tokenBudgetMonthly)
+                (a.tokenBudgetMonthly !== null
+                  ? String(a.tokenBudgetMonthly)
                   : "");
               const dirty = edit !== undefined;
 
               return (
-                <div key={b.did} className="px-4 py-3 space-y-2">
+                <div key={a.did} className="px-4 py-3 space-y-2">
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm font-medium text-foreground">
-                        {b.name}
+                        {a.name}
                       </p>
                       <p className="text-xs font-mono text-foreground-500">
-                        {shortDid(b.did)}
+                        {shortDid(a.did)}
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
@@ -1132,9 +1103,9 @@ function PoliciesTab() {
                           onChange={(e) =>
                             setBudgetEdits((prev) => ({
                               ...prev,
-                              [b.did]: {
+                              [a.did]: {
                                 daily: e.target.value,
-                                monthly: prev[b.did]?.monthly ?? monthlyVal,
+                                monthly: prev[a.did]?.monthly ?? monthlyVal,
                               },
                             }))
                           }
@@ -1152,8 +1123,8 @@ function PoliciesTab() {
                           onChange={(e) =>
                             setBudgetEdits((prev) => ({
                               ...prev,
-                              [b.did]: {
-                                daily: prev[b.did]?.daily ?? dailyVal,
+                              [a.did]: {
+                                daily: prev[a.did]?.daily ?? dailyVal,
                                 monthly: e.target.value,
                               },
                             }))
@@ -1163,26 +1134,26 @@ function PoliciesTab() {
                       </div>
                       {dirty && (
                         <button
-                          onClick={() => handleSaveBudget(b.did)}
-                          disabled={savingBudget === b.did}
+                          onClick={() => handleSaveBudget(a.did)}
+                          disabled={savingBudget === a.did}
                           className="px-2.5 py-1 text-xs bg-primary-600 text-white rounded-md hover:bg-primary-500 disabled:opacity-40 transition-colors"
                         >
-                          {savingBudget === b.did ? "Saving…" : "Save"}
+                          {savingBudget === a.did ? "Saving…" : "Save"}
                         </button>
                       )}
                     </div>
                   </div>
-                  {b.tokenBudgetDaily !== null && b.todayTokens > 0 && (
+                  {a.tokenBudgetDaily !== null && todayTokens > 0 && (
                     <BudgetBar
-                      used={b.todayTokens}
-                      budget={b.tokenBudgetDaily}
+                      used={todayTokens}
+                      budget={a.tokenBudgetDaily}
                       label="Today"
                     />
                   )}
-                  {b.tokenBudgetMonthly !== null && b.monthTokens > 0 && (
+                  {a.tokenBudgetMonthly !== null && monthTokens > 0 && (
                     <BudgetBar
-                      used={b.monthTokens}
-                      budget={b.tokenBudgetMonthly}
+                      used={monthTokens}
+                      budget={a.tokenBudgetMonthly}
                       label="This month"
                     />
                   )}

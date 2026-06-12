@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { useWorkflowStore } from "./store";
 import { ChevronDown, X } from "lucide-react";
+import { agentsClient, unwrap } from "@/lib/api/ts-rest/client";
 
 interface ExecutionStatus {
   runId: string;
@@ -53,16 +54,15 @@ export const WorkflowExecutionPanel: React.FC = () => {
     if (unknownDids.length === 0) return;
 
     unknownDids.forEach(async (did) => {
-      try {
-        const res = await fetch(`/api/agents/${encodeURIComponent(did)}`);
-        if (res.ok) {
-          const data = (await res.json()) as { name?: string };
-          if (data.name)
-            setAgentNames((prev) => ({ ...prev, [did]: data.name! }));
-        }
-      } catch {
-        // ignore
-      }
+      const agent = unwrap(
+        await agentsClient.getAgent({
+          params: {
+            did,
+          },
+        })
+      );
+
+      setAgentNames((prev) => ({ ...prev, [did]: agent.name }));
     });
   }, [steps]);
 

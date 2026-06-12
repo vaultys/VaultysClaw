@@ -1283,7 +1283,7 @@ export default function KnowledgeDashboardPage() {
     try {
       const [ksRes, agRes, rlRes] = await Promise.all([
         fetch("/api/knowledge"),
-        agentsClient.list(),
+        agentsClient.search(),
         fetch("/api/realms"),
       ]);
       const ksData = (await ksRes.json()) as { sources?: KnowledgeSource[] };

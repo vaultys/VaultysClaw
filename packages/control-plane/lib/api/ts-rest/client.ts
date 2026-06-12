@@ -49,7 +49,7 @@ const clientOptions = {
  * Usage:
  * ```ts
  * import { agentsClient, workflowsClient } from "@/lib/api/ts-rest/client";
- * const { items } = unwrap(await agentsClient.list({ query: {} }));
+ * const { items } = unwrap(await agentsClient.search({ query: {} }));
  * ```
  */
 export const aboutClient = initClient(aboutContract, clientOptions);

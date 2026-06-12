@@ -3,6 +3,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { Loader2, UserMinus, Plus, Bot, User, Search, X } from "lucide-react";
 import { shortDid, getInitials } from "@vaultysclaw/shared";
+import { agentsClient, unwrap } from "@/lib/api/ts-rest/client";
+import { AgentInfo } from "@/lib/contracts";
 
 interface ChannelMember {
   id: string;
@@ -13,11 +15,6 @@ interface ChannelMember {
   role: "member" | "moderator" | "owner";
   joinedAt: string;
   invitedBy: string | null;
-}
-
-interface AgentRecord {
-  did: string;
-  name: string;
 }
 
 interface UserRecord {
@@ -47,7 +44,7 @@ export default function MemberList({ channelId }: MemberListProps) {
   const [showAddForm, setShowAddForm] = useState(false);
   const [addType, setAddType] = useState<"agent" | "user">("agent");
   const [searchQuery, setSearchQuery] = useState("");
-  const [agentResults, setAgentResults] = useState<AgentRecord[]>([]);
+  const [agentResults, setAgentResults] = useState<AgentInfo[]>([]);
   const [userResults, setUserResults] = useState<UserRecord[]>([]);
   const [allUsers, setAllUsers] = useState<UserRecord[]>([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -118,18 +115,11 @@ export default function MemberList({ channelId }: MemberListProps) {
     const t = setTimeout(async () => {
       setIsSearching(true);
       try {
-        const res = await fetch(
-          `/api/agents/search?q=${encodeURIComponent(searchQuery)}`
-        );
-        if (res.ok) {
-          // Search API returns "id" (= DID); normalise to "did" for consistency
-          const data = (await res.json()) as {
-            agents: { id: string; name: string }[];
-          };
-          setAgentResults(
-            data.agents.map((a) => ({ did: a.id, name: a.name }))
-          );
-        }
+        const agents = unwrap(
+          await agentsClient.search({ query: { search: searchQuery } })
+        ).items;
+
+        setAgentResults(agents);
       } catch {
         /* ignore */
       } finally {
@@ -343,12 +333,11 @@ export default function MemberList({ channelId }: MemberListProps) {
                   </button>
                 )}
               </div>
-
               {/* Suggestions */}
               {!selectedDid && suggestions.length > 0 && (
                 <div className="absolute top-full left-0 right-0 mt-1 bg-background-100 border border-neutral-200 rounded-lg shadow-xl z-20 overflow-hidden max-h-52 overflow-y-auto">
-                  {(suggestions as (AgentRecord | UserRecord)[]).map((item) => {
-                    const agentItem = item as AgentRecord;
+                  {(suggestions as (AgentInfo | UserRecord)[]).map((item) => {
+                    const agentItem = item as AgentInfo;
                     const userItem = item as UserRecord;
                     const did = item.did;
                     const label =
@@ -447,14 +436,12 @@ export default function MemberList({ channelId }: MemberListProps) {
           </button>
         </div>
       )}
-
       {/* ── Error banners ────────────────────────────────────────────────────── */}
       {(error || removeError) && (
         <div className="mx-3 mt-3 p-2 bg-danger-50 border border-danger-200 text-danger-700 text-xs rounded-lg">
           {error ?? removeError}
         </div>
       )}
-
       {/* ── Member list ──────────────────────────────────────────────────────── */}
       <div className="flex-1 overflow-y-auto">
         {members.length === 0 ? (

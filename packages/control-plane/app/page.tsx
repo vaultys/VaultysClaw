@@ -7,11 +7,6 @@ import dynamic from "next/dynamic";
 import { useAdminWS } from "../hooks/useAdminWS";
 import { useRole } from "../hooks/useRole";
 import type { MapMarker } from "@/components/map/WorldMap";
-
-const WorldMap = dynamic(
-  () => import("@/components/map/WorldMap").then((m) => m.WorldMap),
-  { ssr: false }
-);
 import {
   Bot,
   Wifi,
@@ -39,6 +34,13 @@ import {
   ShieldAlert,
   RotateCcw,
 } from "lucide-react";
+import { agentsClient, unwrap } from "@/lib/api/ts-rest/client";
+import { AgentInfo } from "@/lib/contracts";
+
+const WorldMap = dynamic(
+  () => import("@/components/map/WorldMap").then((m) => m.WorldMap),
+  { ssr: false }
+);
 
 /* ─── Capability icon map ────────────────────────────────────── */
 
@@ -302,14 +304,13 @@ function Dashboard() {
     connected: wsConnected,
   } = useAdminWS();
 
-  // For non-admins, fetch realm-scoped agent list via REST (WS broadcasts all agents)
-  interface RealmAgent { id: string; name?: string; online: boolean; dailyPriceSpent?: number | null }
-  const [realmAgents, setRealmAgents] = useState<RealmAgent[] | null>(null);
+  const [realmAgents, setRealmAgents] = useState<AgentInfo[] | null>(null);
   useEffect(() => {
     if (isGlobalAdmin) return;
-    fetch("/api/agents/search")
-      .then((r) => (r.ok ? r.json() : { agents: [] }))
-      .then((d: { agents?: RealmAgent[] }) => setRealmAgents(d.agents ?? []))
+    agentsClient
+      .search()
+      .then((r) => unwrap(r))
+      .then((page) => setRealmAgents(page.items ?? []))
       .catch(() => setRealmAgents([]));
   }, [isGlobalAdmin]);
 
@@ -359,7 +360,7 @@ function Dashboard() {
       .then((d: TokenStats | null) => {
         if (d) setDbTokenStats(d);
       })
-      .catch(() => { });
+      .catch(() => {});
 
   interface ExpiredPolicy {
     id: string;
@@ -386,7 +387,7 @@ function Dashboard() {
       .then((d: { policies?: ExpiredPolicy[] }) =>
         setExpiredPolicies(d.policies ?? [])
       )
-      .catch(() => { });
+      .catch(() => {});
   };
 
   const openRenewFromDashboard = (p: ExpiredPolicy) => {
@@ -404,7 +405,7 @@ function Dashboard() {
     try {
       const rl =
         renewingPolicy.resourceLimits &&
-          Object.keys(renewingPolicy.resourceLimits).length > 0
+        Object.keys(renewingPolicy.resourceLimits).length > 0
           ? renewingPolicy.resourceLimits
           : undefined;
       const res = await fetch("/api/policies", {
@@ -438,7 +439,7 @@ function Dashboard() {
       fetch("/api/map")
         .then((r) => (r.ok ? r.json() : { markers: [] }))
         .then((d: { markers?: MapMarker[] }) => setMapMarkers(d.markers ?? []))
-        .catch(() => { }),
+        .catch(() => {}),
     []
   );
 
@@ -471,9 +472,9 @@ function Dashboard() {
         body: JSON.stringify(body),
       });
       if (!res.ok) {
-        const data = (await res.json().catch(() => null)) as
-          | { error?: string }
-          | null;
+        const data = (await res.json().catch(() => null)) as {
+          error?: string;
+        } | null;
         throw new Error(data?.error ?? "Failed to update location");
       }
 
@@ -492,7 +493,7 @@ function Dashboard() {
     fetch("/api/workflow-approvals")
       .then((r) => r.json())
       .then((d: { approvals?: Approval[] }) => setApprovals(d.approvals ?? []))
-      .catch(() => { });
+      .catch(() => {});
 
   useEffect(() => {
     fetchApprovals();
@@ -585,7 +586,8 @@ function Dashboard() {
   ).getDate();
   const daysRemaining = daysInMonth - daysIntoMonth;
   // Projection: what we've used so far + today's daily rate × remaining days
-  const projectedMonthlyTokens = totalTokensMonthly + totalTokensDaily * daysRemaining;
+  const projectedMonthlyTokens =
+    totalTokensMonthly + totalTokensDaily * daysRemaining;
 
   // Projected monthly cost — use daily price rate extrapolated over remaining days
   const costPerToken =
@@ -604,10 +606,11 @@ function Dashboard() {
           </p>
         </div>
         <span
-          className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full border ${wsConnected
+          className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full border ${
+            wsConnected
               ? "bg-success-100 border-success-300 text-success-700"
               : "bg-warning-100 border-warning-300 text-warning-700"
-            }`}
+          }`}
         >
           {wsConnected ? (
             <Wifi className="w-3 h-3" />
@@ -660,25 +663,25 @@ function Dashboard() {
           </div>
           <div className="divide-y divide-danger-200/60">
             {expiredPolicies.slice(0, 5).map((p) => {
-              const agentName = agents.find((a) => a.id === p.agentDid)?.name;
+              const agentName = agents.find((a) => a.did === p.agentDid)?.name;
               const expiredAgo = p.expiresAt
                 ? (() => {
-                  const secs = Math.floor(
-                    (Date.now() -
-                      new Date(
-                        p.expiresAt.endsWith("Z")
-                          ? p.expiresAt
-                          : p.expiresAt + "Z"
-                      ).getTime()) /
-                    1000
-                  );
-                  if (secs < 60) return `${secs}s ago`;
-                  const mins = Math.floor(secs / 60);
-                  if (mins < 60) return `${mins}m ago`;
-                  const hrs = Math.floor(mins / 60);
-                  if (hrs < 24) return `${hrs}h ago`;
-                  return `${Math.floor(hrs / 24)}d ago`;
-                })()
+                    const secs = Math.floor(
+                      (Date.now() -
+                        new Date(
+                          p.expiresAt.endsWith("Z")
+                            ? p.expiresAt
+                            : p.expiresAt + "Z"
+                        ).getTime()) /
+                        1000
+                    );
+                    if (secs < 60) return `${secs}s ago`;
+                    const mins = Math.floor(secs / 60);
+                    if (mins < 60) return `${mins}m ago`;
+                    const hrs = Math.floor(mins / 60);
+                    if (hrs < 24) return `${hrs}h ago`;
+                    return `${Math.floor(hrs / 24)}d ago`;
+                  })()
                 : "";
               return (
                 <div
@@ -742,7 +745,8 @@ function Dashboard() {
             <div className="px-5 py-4 space-y-4">
               <div className="bg-background-200 border border-neutral-200 rounded-xl p-3 space-y-1.5">
                 <p className="text-xs font-medium text-foreground">
-                  {agents.find((a) => a.id === renewingPolicy.agentDid)?.name ??
+                  {agents.find((a) => a.did === renewingPolicy.agentDid)
+                    ?.name ??
                     renewingPolicy.agentDid?.slice(0, 30) ??
                     "Global"}
                 </p>
@@ -928,7 +932,9 @@ function Dashboard() {
                 <div className="w-8 h-8 bg-gradient-to-br from-primary-100 to-primary-200 rounded-lg flex items-center justify-center">
                   <TrendingUp className="w-4 h-4 text-primary-600" />
                 </div>
-                <h3 className="text-sm font-semibold text-foreground">Daily Usage</h3>
+                <h3 className="text-sm font-semibold text-foreground">
+                  Daily Usage
+                </h3>
               </div>
               <span className="text-xs text-foreground-500">today</span>
             </div>
@@ -993,7 +999,9 @@ function Dashboard() {
             </div>
             <div className="mt-1.5 flex items-center justify-between">
               <span className="text-xs text-foreground-500">Avg per agent</span>
-              <span className="text-xs text-foreground-600">${avgCostPerAgent}</span>
+              <span className="text-xs text-foreground-600">
+                ${avgCostPerAgent}
+              </span>
             </div>
           </div>
 
@@ -1004,7 +1012,9 @@ function Dashboard() {
                 <div className="w-8 h-8 bg-gradient-to-br from-secondary-100 to-secondary-200 rounded-lg flex items-center justify-center">
                   <TrendingUp className="w-4 h-4 text-secondary-600" />
                 </div>
-                <h3 className="text-sm font-semibold text-foreground">Monthly Usage</h3>
+                <h3 className="text-sm font-semibold text-foreground">
+                  Monthly Usage
+                </h3>
               </div>
               <span className="text-xs text-foreground-500">
                 day {daysIntoMonth}/{daysInMonth}
@@ -1069,18 +1079,25 @@ function Dashboard() {
             {/* Projected row — tokens + cost side by side */}
             <div className="pt-3 border-t border-neutral-200 space-y-1.5">
               <div className="flex items-center justify-between">
-                <span className="text-xs text-foreground-500">Cost this month</span>
+                <span className="text-xs text-foreground-500">
+                  Cost this month
+                </span>
                 <span className="text-sm font-bold text-secondary-600">
-                  ${(projectedMonthlyTokens > 0 && costPerToken > 0
-                      ? totalTokensMonthly * costPerToken
-                      : 0
-                    ).toFixed(2)}
+                  $
+                  {(projectedMonthlyTokens > 0 && costPerToken > 0
+                    ? totalTokensMonthly * costPerToken
+                    : 0
+                  ).toFixed(2)}
                 </span>
               </div>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1">
-                  <span className="text-xs text-foreground-500">Projected total</span>
-                  <span className="text-[10px] text-foreground-400">(end of month)</span>
+                  <span className="text-xs text-foreground-500">
+                    Projected total
+                  </span>
+                  <span className="text-[10px] text-foreground-400">
+                    (end of month)
+                  </span>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-semibold text-secondary-500">

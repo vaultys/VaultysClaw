@@ -1,27 +1,17 @@
 "use client";
-
 import React, { useState, useEffect, useRef } from "react";
 import {
   X,
-  Bot,
   Search,
   FileText,
   ArrowRight,
   Copy,
   Check,
-  Wrench,
   Calendar,
-  Clock,
 } from "lucide-react";
 import { useWorkflowStore } from "./store";
-import type { WorkflowNode } from "@/lib/workflow-executor";
-
-interface Agent {
-  id: string;
-  name: string;
-  capabilities: string[];
-  online: boolean;
-}
+import { agentsClient, unwrap } from "@/lib/api/ts-rest/client";
+import { AgentInfo } from "@/lib/contracts";
 
 interface User {
   id: string;
@@ -371,8 +361,8 @@ const SkillNodeProperties: React.FC<{
   node: any;
   nodes: any[];
   edges: WorkflowEdge[];
-  agents: Agent[];
-  filteredAgents: Agent[];
+  agents: AgentInfo[];
+  filteredAgents: AgentInfo[];
   searchQuery: string;
   setSearchQuery: (q: string) => void;
   loading: boolean;
@@ -479,7 +469,7 @@ const SkillNodeProperties: React.FC<{
         <select
           value={(node.data.agentId as string | undefined) ?? ""}
           onChange={(e) => {
-            const selected = agents.find((a) => a.id === e.target.value);
+            const selected = agents.find((a) => a.did === e.target.value);
             setNodes(
               nodes.map((n: any) =>
                 n.id === selectedNodeId
@@ -504,7 +494,7 @@ const SkillNodeProperties: React.FC<{
             <option disabled>No agents found</option>
           ) : (
             filteredAgents.map((a) => (
-              <option key={a.id} value={a.id}>
+              <option key={a.did} value={a.did}>
                 {a.name}
                 {a.online ? " 🟢" : " 🔴"}
               </option>
@@ -560,8 +550,8 @@ export const PropertiesPanel: React.FC<{
   const setSelectedNode = useWorkflowStore((s) => s.setSelectedNode);
   const workflowRealmId = useWorkflowStore((s) => s.workflowRealmId);
 
-  const [agents, setAgents] = useState<Agent[]>([]);
-  const [filteredAgents, setFilteredAgents] = useState<Agent[]>([]);
+  const [agents, setAgents] = useState<AgentInfo[]>([]);
+  const [filteredAgents, setFilteredAgents] = useState<AgentInfo[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -577,11 +567,13 @@ export const PropertiesPanel: React.FC<{
       if (!workflowRealmId || workflowRealmId === "default") return;
       setLoading(true);
       try {
-        const res = await fetch(`/api/agents/search?realm=${workflowRealmId}`);
-        if (!res.ok) throw new Error("Failed to fetch agents");
-        const data = (await res.json()) as { agents: Agent[] };
-        setAgents(data.agents);
-        setFilteredAgents(data.agents);
+        const agents = unwrap(
+          await agentsClient.search({
+            query: { realm: workflowRealmId },
+          })
+        ).items;
+        setAgents(agents);
+        setFilteredAgents(agents);
         setSearchQuery("");
       } catch (err) {
         console.error("Failed to fetch agents:", err);
@@ -800,7 +792,7 @@ export const PropertiesPanel: React.FC<{
                 value={node.data.agentId || ""}
                 onChange={(e) => {
                   const selectedAgent = agents.find(
-                    (a) => a.id === e.target.value
+                    (a) => a.did === e.target.value
                   );
                   setNodes(
                     nodes.map((n) =>
@@ -826,7 +818,7 @@ export const PropertiesPanel: React.FC<{
                   <option disabled>No agents found</option>
                 ) : (
                   filteredAgents.map((agent) => (
-                    <option key={agent.id} value={agent.id}>
+                    <option key={agent.did} value={agent.did}>
                       {agent.name}
                       {agent.online ? " 🟢" : " 🔴"}
                     </option>

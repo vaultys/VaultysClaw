@@ -89,7 +89,7 @@ export default function AgentsPage() {
   const fetchAgents = useCallback(async (query: ListAgentsQuery) => {
     setLoading(true);
     try {
-      const data = unwrap(await agentsClient.list({ query }));
+      const data = unwrap(await agentsClient.search({ query }));
       setAgents(data.items);
       setTotal(data.total);
       setTotalPages(data.totalPages);

@@ -1,34 +1,10 @@
 "use client";
 
+import { AgentInfo } from "@/lib/contracts";
 import { useState, useEffect, useRef, useCallback } from "react";
 
-interface AgentRealm {
-  id: string;
-  name: string;
-  slug: string;
-  color: string;
-  isPrimary: boolean;
-}
-
-interface Agent {
-  id: string;
-  name: string;
-  capabilities: string[];
-  registeredAt: string;
-  lastSeen: string;
-  online: boolean;
-  connectedAt: string | null;
-  lastHeartbeat: string | null;
-  realms?: AgentRealm[];
-  reportedLlm?: { provider: string; model: string } | null;
-  tokenUsage?: { promptTokens: number; completionTokens: number } | null;
-  dailyTokenUsage?: { promptTokens: number; completionTokens: number } | null;
-  monthlyTokenUsage?: { promptTokens: number; completionTokens: number } | null;
-  dailyPriceSpent?: number | null;
-}
-
 interface AgentsState {
-  agents: Agent[];
+  agents: AgentInfo[];
   total: number;
   online: number;
 }

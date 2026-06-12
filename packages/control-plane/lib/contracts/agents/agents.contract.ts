@@ -6,7 +6,6 @@ import {
   CreateScheduleBodySchema,
   ListAgentsQuerySchema,
   PutLiteLlmKeyBodySchema,
-  SearchAgentsQuerySchema,
   SendTaskBodySchema,
   SetLocationBodySchema,
   SetLlmConfigBodySchema,
@@ -55,22 +54,12 @@ export const agentsContract = c.router({
 
   // ─── List / Search ───────────────────────────────────────────────────────────
 
-  list: {
+  search: {
     method: "GET",
     path: "/api/agents",
     query: ListAgentsQuerySchema,
     responses: {
       200: c.type<PaginatedResponse<AgentInfo>>(),
-      ...commonErrorResponses,
-    },
-  },
-
-  search: {
-    method: "GET",
-    path: "/api/agents/search",
-    query: SearchAgentsQuerySchema,
-    responses: {
-      200: c.type<{ agents: AgentInfo[] }>(),
       ...commonErrorResponses,
     },
   },

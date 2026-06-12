@@ -678,7 +678,7 @@ function PoliciesTab() {
     try {
       const [polRes, agentRes] = await Promise.all([
         fetch("/api/policies?includeExpired=false"),
-        agentsClient.list({
+        agentsClient.search({
           query: {
             pageSize: 100,
           },

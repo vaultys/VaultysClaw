@@ -26,7 +26,6 @@ export interface RouteEntry {
 }
 
 export const ROUTE_REGISTRY: RouteEntry[] = [
-
   // ── System ─────────────────────────────────────────────────────────────
   {
     path: "/api/about",
@@ -156,13 +155,6 @@ export const ROUTE_REGISTRY: RouteEntry[] = [
     subgroup: "Agent details",
     description: "Retrieve token usage history for an agent",
   },
-  {
-    path: "/api/agents/search",
-    methods: ["GET"],
-    group: "Agents",
-    description: "Search for agents by name or DID",
-  },
-
   // ── Registrations ──────────────────────────────────────────────────────
   {
     path: "/api/registrations",
@@ -327,7 +319,8 @@ export const ROUTE_REGISTRY: RouteEntry[] = [
     path: "/api/channels",
     methods: ["GET", "POST"],
     group: "Channels",
-    description: "List channels in a realm, optionally including global channels",
+    description:
+      "List channels in a realm, optionally including global channels",
   },
   {
     path: "/api/channels/[id]",
@@ -612,7 +605,8 @@ export const ROUTE_REGISTRY: RouteEntry[] = [
     path: "/api/models/test",
     methods: ["POST"],
     group: "Models",
-    description: "Test connectivity to a model endpoint and fetch available models",
+    description:
+      "Test connectivity to a model endpoint and fetch available models",
   },
 
   // ── Skills ─────────────────────────────────────────────────────────────
@@ -648,7 +642,8 @@ export const ROUTE_REGISTRY: RouteEntry[] = [
     methods: ["GET"],
     group: "Skills",
     subgroup: "Library",
-    description: "Retrieve markdown instructions for an organization skill by name",
+    description:
+      "Retrieve markdown instructions for an organization skill by name",
   },
 
   // ── Governance ─────────────────────────────────────────────────────────
@@ -808,14 +803,16 @@ export const ROUTE_REGISTRY: RouteEntry[] = [
     methods: ["PATCH"],
     group: "Server",
     subgroup: "Storage",
-    description: "Update or clear object-storage location on infrastructure maps",
+    description:
+      "Update or clear object-storage location on infrastructure maps",
   },
   {
     path: "/api/settings/storage/migrate",
     methods: ["POST"],
     group: "Server",
     subgroup: "Storage",
-    description: "Migrate files from SQLite BLOB storage to filesystem/S3 storage",
+    description:
+      "Migrate files from SQLite BLOB storage to filesystem/S3 storage",
   },
   {
     path: "/api/settings/storage/test",

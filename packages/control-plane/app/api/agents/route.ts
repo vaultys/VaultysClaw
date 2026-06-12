@@ -5,7 +5,7 @@ import { agentsContract } from "@/lib/contracts";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 
 const handlers = createNextRoute(agentsContract, {
-  list: async ({ query, request }) => {
+  search: async ({ query, request }) => {
     const auth = await getAuthContext(request);
 
     const {

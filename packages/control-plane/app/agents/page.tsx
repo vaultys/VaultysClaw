@@ -17,8 +17,6 @@ import {
   Code,
   Terminal,
   Zap,
-  Search,
-  X,
   Plus,
   BookOpen,
   List,
@@ -27,6 +25,7 @@ import {
 import { useState, useEffect, useCallback, useRef } from "react";
 import dynamic from "next/dynamic";
 import type { MapMarker } from "@/components/map/WorldMap";
+import { SearchBar } from "@/components/shared";
 import { apiClient, unwrap } from "@/lib/api/ts-rest/client";
 import { AgentInfo, ListAgentsQuery } from "@/lib/contracts";
 import { shortDid, timeAgo } from "@vaultysclaw/shared";
@@ -50,8 +49,6 @@ const CAPABILITY_ICONS: Record<string, React.ReactNode> = {
 const AVAILABLE_CAPABILITIES = Object.keys(CAPABILITY_ICONS) as Array<
   keyof typeof CAPABILITY_ICONS
 >;
-
-
 
 const PAGE_SIZE = 20;
 
@@ -239,34 +236,14 @@ export default function AgentsPage() {
 
       {/* Filters bar */}
       <div className="flex flex-wrap items-center gap-3">
-        {/* Search */}
-        <div className="relative flex-1 min-w-[200px] max-w-sm">
-          <Search
-            size={14}
-            className="absolute left-3 top-2.5 text-foreground-400"
-          />
-          <input
-            type="text"
-            value={q}
-            onChange={(e) => {
-              setQ(e.target.value);
-              setPage(1);
-            }}
-            placeholder="Search name or capability…"
-            className="w-full pl-9 pr-8 py-2 bg-background-100 text-foreground border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-          />
-          {q && (
-            <button
-              onClick={() => {
-                setQ("");
-                setPage(1);
-              }}
-              className="absolute right-2.5 top-2.5 text-foreground-400 hover:text-foreground"
-            >
-              <X size={14} />
-            </button>
-          )}
-        </div>
+        <SearchBar
+          value={q}
+          onChange={(v) => {
+            setQ(v);
+            setPage(1);
+          }}
+          placeholder="Search by name"
+        />
 
         {/* Online filter */}
         <select

@@ -10,7 +10,7 @@
  */
 
 // Polyfill WebRTC for Node.js (required by PeerjsChannel)
-import * as wrtc from "@roamhq/wrtc";
+import wrtc from "@roamhq/wrtc";
 (global as Record<string, unknown>).RTCPeerConnection = wrtc.RTCPeerConnection;
 (global as Record<string, unknown>).RTCSessionDescription =
   wrtc.RTCSessionDescription;

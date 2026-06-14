@@ -56,6 +56,7 @@ const sidebars: SidebarsConfig = {
         "guides/governance",
         "guides/entra-sync",
         "guides/user-invitations",
+        "guides/custom-agent-runtime",
       ],
     },
   ],

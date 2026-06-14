@@ -77,3 +77,9 @@ export const PutLiteLlmKeyBodySchema = z.object({
   allowedModels: z.array(z.string()).optional(),
   dailyBudget: z.number().nullable().optional(),
 });
+
+export const RunIntentBodySchema = z.object({
+  action: z.string(),
+  params: z.record(z.string(), z.unknown()).optional(),
+  timeoutMs: z.number().min(1000).max(120_000).optional(),
+});

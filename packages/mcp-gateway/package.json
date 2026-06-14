@@ -1,0 +1,27 @@
+{
+  "name": "@vaultysclaw/mcp-gateway",
+  "version": "0.0.1",
+  "description": "MCP gateway — a VaultysClaw agent that exposes peer agents as MCP tools for Claude Code",
+  "type": "module",
+  "bin": {
+    "vaultysclaw-mcp": "./dist/index.js"
+  },
+  "scripts": {
+    "dev": "tsx src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.13.0",
+    "@roamhq/wrtc": "^0.10.0",
+    "@vaultysclaw/agent-runtime": "workspace:*",
+    "@vaultysclaw/shared": "workspace:*",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.19.19",
+    "tsx": "^4.22.4",
+    "typescript": "^5.9.3"
+  }
+}

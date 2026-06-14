@@ -1,7 +1,14 @@
 /**
- * Agent — EventEmitter-based agent controller class.
+ * AgentController — full-featured agent with LLM, tools, skills, memory, scheduling.
  *
- * Emitted events:
+ * Extends BaseAgentRuntime (protocol layer) with:
+ *   - LLM execution via Mastra
+ *   - Tool registry (built-in tools + skill plugins)
+ *   - Memory store (semantic retrieval, conversation summarization)
+ *   - Task queue & scheduler
+ *   - Knowledge source ingestion
+ *
+ * Emitted events (from BaseAgentRuntime):
  *   status_changed  { status: AgentStatus }
  *   log             { level: 'info'|'warn'|'error'|'debug', message: string, data?: unknown }
  *   heartbeat       { uptime: number }
@@ -10,20 +17,16 @@
  *   config_updated  { source: 'remote'|'env'; provider?: string; model?: string }
  */
 
-import EventEmitter from "events";
-import fs from "fs";
 import path from "path";
-import { WebSocket } from "ws";
+import { VaultysId, crypto } from "@vaultys/id";
 import { decode as msgpackDecode } from "@msgpack/msgpack";
-
-// WebRTC polyfills required by PeerJS in Node.js (same as peer-manager.ts)
-import * as wrtc from "@roamhq/wrtc";
-(global as Record<string, unknown>).RTCPeerConnection = wrtc.RTCPeerConnection;
-(global as Record<string, unknown>).RTCSessionDescription =
-  wrtc.RTCSessionDescription;
-(global as Record<string, unknown>).RTCIceCandidate = wrtc.RTCIceCandidate;
-(global as Record<string, unknown>).getUserMedia = wrtc.getUserMedia;
-import { Challenger, VaultysId, crypto } from "@vaultys/id";
+import {
+  BaseAgentRuntime,
+  type AgentStatus,
+  type AgentInfo as _BaseAgentInfo,
+  type LogEntry,
+  type IntentEntry,
+} from "@vaultysclaw/agent-runtime";
 import {
   initDb,
   storeCertificate,
@@ -53,16 +56,9 @@ import {
 } from "./db";
 import {
   type WSMessage,
-  type WSAuthChallengePayload,
   type WSAuthCompletePayload,
-  type WSAuthFailedPayload,
-  type WSRegistrationPendingPayload,
-  type WSRegistrationApprovedPayload,
-  type WSRegistrationRejectedPayload,
-  type WSUpdateCapabilitiesPayload,
   type WSDelegationUpdatePayload,
   type WSLlmConfigPayload,
-  type WSChatMessagePayload,
   type WSChatResponsePayload,
   type WSToolApprovalRequestPayload,
   type WSToolApprovalResponsePayload,
@@ -71,15 +67,14 @@ import {
   type WSChatSessionsResponsePayload,
   type WSGetChatHistoryPayload,
   type WSChatHistoryResponsePayload,
-  type ExecutionResult,
   type AgentCapability,
   type LlmConfig,
-  type WSAgentPeerCatalogPayload,
   type AgentPeerGrant,
   type WSSkillsConfigPayload,
   type SkillConfig,
-  type ResourceLimits,
+  type ChatMessageEntry,
 } from "@vaultysclaw/shared";
+import { Challenger } from "@vaultys/id";
 import { type AgentControllerConfig } from "./config";
 import {
   runIntent,
@@ -95,7 +90,6 @@ import {
   type ApprovalRequest,
 } from "./tools";
 import { buildRemoteAgentTools } from "./tools/remote-agent-tools";
-import { PeerManager } from "./peer-manager";
 import { SkillLoader, type SkillRegistry } from "./skills";
 import { TaskQueue } from "./task-queue";
 import { Scheduler } from "./scheduler";
@@ -104,7 +98,6 @@ import type { MastraTool } from "./tools/types";
 import { ingestSource, buildKnowledgeTool } from "./knowledge";
 import type { KnowledgeSourceConfig } from "./knowledge";
 import { parseTextToolCall, executeToolCall } from "./tool-call-resolver";
-import { verifyIntentMessage } from "./intent-verify";
 
 const Buffer = crypto.Buffer;
 
@@ -203,59 +196,12 @@ function serializeZodSchema(schema: any): Record<string, unknown> | undefined {
   return undefined;
 }
 
-// ---- Types ----
-
-export type AgentStatus =
-  | "initializing"
-  | "connecting"
-  | "pending_approval"
-  | "connected"
-  | "disconnected";
-
-export interface LogEntry {
-  ts: string;
-  level: "info" | "warn" | "error" | "debug";
-  message: string;
-  data?: unknown;
-}
-
-export interface IntentEntry {
-  intentId: string;
-  action: string;
-  params: Record<string, unknown>;
-  status: "pending" | "success" | "failed";
-  output?: unknown;
-  error?: string;
-  receivedAt: string;
-  completedAt?: string;
-}
-
-export interface AgentInfo {
-  id: string;
-  name: string;
-  version: string;
-  status: AgentStatus;
-  capabilities: AgentCapability[];
-  uptime: number;
-  lastHeartbeat: string | null;
+// Re-export types for backward compat
+export type { AgentStatus, LogEntry, IntentEntry };
+// Extended AgentInfo with LLM fields for agent-controller
+export interface AgentInfo extends _BaseAgentInfo {
   activeLlmProvider?: string;
   activeLlmModel?: string;
-  recentLogs: LogEntry[];
-  recentIntents: IntentEntry[];
-}
-
-// ---- Ring buffer ----
-
-class RingBuffer<T> {
-  private buf: T[] = [];
-  constructor(private readonly max: number) {}
-  push(item: T): void {
-    this.buf.push(item);
-    if (this.buf.length > this.max) this.buf.shift();
-  }
-  toArray(): T[] {
-    return [...this.buf];
-  }
 }
 
 // ---- Think-content splitter ----
@@ -304,39 +250,7 @@ function splitThinkContent(
 
 // ---- Agent class ----
 
-export class Agent extends EventEmitter {
-  private config: AgentControllerConfig;
-
-  // Identity
-  private vaultysId: VaultysId | null = null;
-
-  // Connection
-  private ws: WebSocket | null = null;
-  /** Active PeerJS DataConnection (when connecting via WebRTC instead of WebSocket). */
-  private peerjsConn: import("peerjs").DataConnection | null = null;
-  /** Underlying PeerJS Peer instance (kept for cleanup on reconnect). */
-  private peerjsPeer: import("peerjs").Peer | null = null;
-  private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
-  private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
-  private stopped = false;
-  /** Consecutive failed connection attempts — drives exponential backoff. */
-  private reconnectAttempts = 0;
-
-  // Status
-  private _status: AgentStatus = "initializing";
-  private id: string = "";
-  private capabilities: AgentCapability[] = [];
-  private startedAt = Date.now();
-  private lastHeartbeat: Date | null = null;
-
-  // Auth handshake state
-  private authChallenger: Challenger | null = null;
-  private authSessionId: string | null = null;
-  private reAuthPending = false;
-
-  // Server key (extracted after first auth for delegation verification)
-  private serverPublicKey: Buffer | null = null;
-
+export class Agent extends BaseAgentRuntime {
   // LLM
   private activeLlmConfig: LlmConfig | null = null;
 
@@ -365,47 +279,46 @@ export class Agent extends EventEmitter {
   private taskQueue: TaskQueue | null = null;
   private scheduler: Scheduler | null = null;
 
-  // Peer-to-peer agent communication
-  private peerManager: PeerManager | null = null;
-  private peerCatalog: AgentPeerGrant[] = [];
-  private _peerListenerStarted = false;
-
   // Memory system
   private memoryStore = new MemoryStore();
   private memoryRetriever = new MemoryRetriever(this.memoryStore);
   private memorySummarizer: ConversationSummarizer | null = null;
 
-  // Ring buffers
-  private logBuffer = new RingBuffer<LogEntry>(200);
-  private intentBuffer = new RingBuffer<IntentEntry>(100);
+  /**
+   * Optional override for chat handling. When set, called instead of the built-in
+   * LLM path. The returned string is sent back as a single chat_response chunk.
+   */
+  chatHandler?: (
+    messages: ChatMessageEntry[],
+    conversationId: string
+  ) => Promise<string>;
 
-  // Token usage tracking
-  private _tokenUsageSinceLastSync = { promptTokens: 0, completionTokens: 0 };
-  private _tokenUsageTotal = { promptTokens: 0, completionTokens: 0 };
-
-  // Active policy enforcement (populated from cert metadata or update_capabilities)
-  private resourceLimits: ResourceLimits | null = null;
-  private policyId: string | null = null;
-  private policyExpiresAt: string | null = null;
-  /** Rolling hourly request counter for maxRequestsPerHour enforcement. */
-  private _requestsThisHour = { count: 0, hourStart: 0 };
+  /**
+   * Optional override for intent/peer-invoke handling. When set, called from
+   * executeIntent instead of the LLM path. Covers all transport sources:
+   * WebSocket intents from the control plane AND WebRTC peer invocations.
+   */
+  intentHandler?: (
+    action: string,
+    params: Record<string, unknown>,
+    callerDid?: string,
+    intentId?: string
+  ) => Promise<unknown>;
 
   constructor(config: AgentControllerConfig) {
-    super();
-    this.config = config;
-    this.capabilities = config.requestedCapabilities;
+    super(config);
     // Initial tool registry (no skill tools yet — will be updated after skills load)
     this.toolRegistry = createToolRegistry({
       workspaceRoot: config.workspaceRoot ?? process.cwd(),
     });
   }
 
-  // ---- Public API ----
+  // ---- Override start to add DB init, skills, task queue ----
 
-  async start(): Promise<void> {
+  override async start(): Promise<void> {
     this.log("info", `Initializing agent "${this.config.name}"`);
 
-    this.vaultysId = await this.loadOrCreateIdentity(this.config.vaultysIdPath);
+    this.vaultysId = await this.initVaultysId(this.config.vaultysIdPath);
     this.log("info", `VaultysId identity ready`, { did: this.vaultysId.did });
 
     // Database is stored in the parent directory of .vaultys/
@@ -420,9 +333,10 @@ export class Agent extends EventEmitter {
     this.initTaskQueue();
 
     // Initialize peer manager for agent-to-agent communication
+    const { PeerManager } = await import("@vaultysclaw/agent-runtime");
     this.peerManager = new PeerManager(this.vaultysId);
     this.peerManager.onInvoke(async (remoteDid, action, params) => {
-      return this.executeAction(action, params, remoteDid);
+      return this.executeIntent(action, params, remoteDid);
     });
     // Restore peer catalog from local DB (populated on next auth_complete)
     const storedGrants = getAllPeerGrants();
@@ -443,57 +357,955 @@ export class Agent extends EventEmitter {
     this.connect();
   }
 
-  stop(): void {
-    this.stopped = true;
-    if (this.reconnectTimer) {
-      clearTimeout(this.reconnectTimer);
-      this.reconnectTimer = null;
-    }
-    if (this.heartbeatTimer) {
-      clearInterval(this.heartbeatTimer);
-      this.heartbeatTimer = null;
-    }
-    if (this.ws) {
-      this.ws.close();
-      this.ws = null;
-    }
-    if (this.peerjsConn) {
-      this.peerjsConn.close();
-      this.peerjsConn = null;
-    }
-    if (this.peerjsPeer) {
-      this.peerjsPeer.destroy();
-      this.peerjsPeer = null;
-    }
+  // ---- Override stop to add task queue / scheduler cleanup ----
+
+  override stop(): void {
     this.taskQueue?.stop();
     this.scheduler?.stop();
     this.skillLoader?.stopWatch();
-    this.peerManager?.shutdown().catch(() => {});
-    this.setStatus("disconnected");
+    super.stop();
   }
 
-  getInfo(): AgentInfo {
+  // ---- Implement abstract methods ----
+
+  async executeIntent(
+    action: string,
+    params: Record<string, unknown>,
+    callerDid?: string,
+    intentId?: string
+  ): Promise<unknown> {
+    // ── Direct skill-tool invocation (no LLM needed) ──────────────────────────
+    if (action === "call_skill_tool") {
+      const {
+        skillName,
+        toolName,
+        params: toolParams,
+      } = params as {
+        skillName?: string;
+        toolName?: string;
+        params?: Record<string, unknown>;
+      };
+      if (!toolName) return { error: "call_skill_tool requires 'toolName'" };
+      const def = this.toolRegistry.get(toolName);
+      if (!def) return { error: `Tool '${toolName}' not found in registry` };
+      if (!def.tool.execute)
+        return { error: `Tool '${toolName}' has no execute function` };
+      try {
+        this.log(
+          "info",
+          `Executing skill tool directly: ${skillName ?? ""}/${toolName}`
+        );
+        const result = await def.tool.execute(
+          (toolParams ?? {}) as any,
+          {} as any
+        );
+        return { success: true, result, toolName, skillName };
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        this.log("error", `Skill tool '${toolName}' failed: ${msg}`);
+        return { error: msg, toolName, skillName };
+      }
+    }
+
+    if (this.intentHandler) {
+      return this.intentHandler(action, params, callerDid, intentId);
+    }
+
+    if (!this.activeLlmConfig) throw new LlmNotConfiguredError();
+    const tools = this.buildAgentToolSet();
+    const queryText = `${action} ${JSON.stringify(params)}`;
+    const memoryContext = this.memoryRetriever.retrieve(queryText) || undefined;
+    const skillExtensions = this.realmSkillFilter
+      ?.filter((s) => s.enabled && s.content)
+      .map((s) => s.content as string);
+    const agentId = this.id;
+    const agentSend = this.send.bind(this);
+    const onStepFinish: (event: StepFinishEvent) => void = (event) => {
+      if (!event.toolCalls?.length) return;
+      for (const tc of event.toolCalls) {
+        const toolResult = event.toolResults?.find(
+          (r: any) => r.toolCallId === tc.toolCallId
+        );
+        agentSend({
+          messageId: `tool-exec-${Date.now()}`,
+          type: "tool_execution",
+          agentId,
+          payload: {
+            intentId,
+            toolName: tc.toolName,
+            args: tc.args,
+            result: toolResult?.result,
+            durationMs: 0,
+          } satisfies WSToolExecutionPayload,
+          timestamp: new Date().toISOString(),
+        });
+      }
+    };
+
+    const { text, usage } = await runIntent(
+      this.activeLlmConfig,
+      action,
+      params,
+      tools,
+      memoryContext,
+      skillExtensions,
+      onStepFinish
+    );
+
+    // Record token usage to local DB and update counters
+    if (usage) {
+      this.emit("log", {
+        level: "info",
+        message: "Recording token usage from intent",
+        data: {
+          usage,
+          provider: this.activeLlmConfig.provider,
+          model: this.activeLlmConfig.model,
+        },
+      });
+      recordTokenUsage(
+        usage.promptTokens,
+        usage.completionTokens,
+        this.activeLlmConfig.provider,
+        this.activeLlmConfig.model
+      );
+      this._tokenUsageSinceLastSync.promptTokens += usage.promptTokens;
+      this._tokenUsageSinceLastSync.completionTokens += usage.completionTokens;
+      this._tokenUsageTotal.promptTokens += usage.promptTokens;
+      this._tokenUsageTotal.completionTokens += usage.completionTokens;
+    }
+
+    return { text, usage };
+  }
+
+  async executeChat(
+    messages: ChatMessageEntry[],
+    conversationId: string,
+    sendChunk: (
+      chunk: string,
+      done?: boolean,
+      isError?: boolean,
+      errorCode?: "llm_unavailable" | "llm_error" | "agent_offline"
+    ) => void
+  ): Promise<void> {
+    // Persist session + only new incoming messages (avoid duplicating history on each turn)
+    const title =
+      messages.find((m) => m.role === "user")?.content.slice(0, 80) ?? null;
+    try {
+      upsertChatSession(conversationId, title, "control_plane");
+      const existingCount = getChatMessages(conversationId).length;
+      const newMessages = messages.slice(existingCount);
+      if (newMessages.length > 0) {
+        appendChatMessages(
+          conversationId,
+          newMessages.map((m) => ({ role: m.role, content: m.content }))
+        );
+      }
+    } catch {
+      /* non-fatal */
+    }
+
+    if (this.chatHandler) {
+      try {
+        const text = await this.chatHandler(messages, conversationId);
+        try {
+          appendChatMessages(conversationId, [
+            { role: "assistant", content: text },
+          ]);
+        } catch {
+          /* non-fatal */
+        }
+        sendChunk(text, true);
+      } catch (err) {
+        const errMsg = err instanceof Error ? err.message : String(err);
+        sendChunk(errMsg, true, true);
+      }
+      return;
+    }
+
+    if (!this.activeLlmConfig) {
+      sendChunk("LLM not configured", true, true);
+      return;
+    }
+
+    try {
+      // Retrieve relevant memories for context
+      const lastUserMsg =
+        [...messages].reverse().find((m) => m.role === "user")?.content ?? "";
+      const memoryContext = lastUserMsg
+        ? this.memoryRetriever.retrieve(lastUserMsg)
+        : undefined;
+
+      const tools = this.buildAgentToolSet(conversationId);
+
+      // Detect @mentions in the last user message and inject routing hints
+      const peerHints: string[] = [];
+      if (this.peerCatalog.length > 0) {
+        const mentionMatches = [...lastUserMsg.matchAll(/@([\w\-]+)/g)];
+        for (const [, mention] of mentionMatches) {
+          const normalised = mention.toLowerCase().replace(/[^a-z0-9]/g, "");
+          const grant = this.peerCatalog.find(
+            (g) =>
+              g.targetName.toLowerCase().replace(/[^a-z0-9]/g, "") ===
+              normalised
+          );
+          if (grant) {
+            const toolName = `ask_agent_${grant.targetName
+              .toLowerCase()
+              .replace(/[^a-z0-9]+/g, "_")
+              .replace(/^_+|_+$/g, "")
+              .slice(0, 40)}`;
+            peerHints.push(
+              `The user mentioned @${mention} in their message. ` +
+                `You MUST use the \`${toolName}\` tool to forward the user's request to that agent and relay its response. ` +
+                `Do NOT answer on behalf of @${mention} yourself — delegate via the tool.`
+            );
+            this.log(
+              "info",
+              `@mention detected: @${mention} → tool ${toolName}`
+            );
+          }
+        }
+      }
+
+      const skillExtensions =
+        this.realmSkillFilter
+          ?.filter((s) => s.enabled && s.content)
+          .map((s) => s.content as string) ?? [];
+
+      const result = streamChat(
+        this.activeLlmConfig,
+        messages,
+        tools,
+        (event) => {
+          // Report tool executions to control plane for real-time UI
+          if (event.toolCalls && event.toolCalls.length > 0) {
+            for (const tc of event.toolCalls) {
+              const toolResult = event.toolResults?.find(
+                (r: any) => r.toolCallId === tc.toolCallId
+              );
+              this.send({
+                messageId: `tool-exec-${Date.now()}`,
+                type: "tool_execution",
+                agentId: this.id,
+                payload: {
+                  conversationId,
+                  toolName: tc.toolName,
+                  args: tc.args,
+                  result: toolResult?.result,
+                  durationMs: 0,
+                } satisfies WSToolExecutionPayload,
+                timestamp: new Date().toISOString(),
+              });
+            }
+          }
+        },
+        memoryContext,
+        [...skillExtensions, ...peerHints]
+      );
+
+      const chunks: string[] = [];
+
+      const provider = this.activeLlmConfig?.provider ?? "unknown";
+      const model = this.activeLlmConfig?.model ?? "unknown";
+      const toolNames = new Set(Object.keys(tools));
+      const useBufferedPath =
+        provider === "ollama" || provider === "openai-compatible";
+
+      this.log(
+        "info",
+        `[chat:stream] provider=${provider} model=${model} tools=[${[...toolNames].join(",")}] buffered=${useBufferedPath}`
+      );
+
+      if (useBufferedPath) {
+        // Buffer the full response before sending so we can post-process it.
+        const rawParts: string[] = [];
+        for await (const rawChunk of result.textStream) {
+          rawParts.push(rawChunk);
+        }
+        const fullText = rawParts.join("");
+
+        this.log(
+          "info",
+          `[chat:stream:buffered] raw_response=${JSON.stringify(fullText.slice(0, 500))}${fullText.length > 500 ? "…" : ""}`
+        );
+
+        const parsedCall = parseTextToolCall(fullText, toolNames);
+
+        this.log(
+          "info",
+          `[chat:stream:buffered] parseTextToolCall result=${parsedCall ? JSON.stringify({ toolName: parsedCall.toolName, args: parsedCall.args }) : "null"} knownTools=[${[...toolNames].join(",")}]`
+        );
+
+        let textToSend = fullText;
+
+        if (parsedCall) {
+          this.log(
+            "info",
+            `[chat:stream:buffered] executing intercepted tool call: ${parsedCall.toolName}`
+          );
+          const toolResult = await executeToolCall(
+            parsedCall.toolName,
+            parsedCall.args,
+            tools as any
+          );
+          this.log(
+            "info",
+            `[chat:stream:buffered] tool result: ${JSON.stringify(toolResult.result).slice(0, 300)}`
+          );
+          this.send({
+            messageId: `tool-exec-${Date.now()}`,
+            type: "tool_execution",
+            agentId: this.id,
+            payload: {
+              conversationId,
+              toolName: parsedCall.toolName,
+              args: parsedCall.args,
+              result: toolResult.result,
+              durationMs: 0,
+            } satisfies WSToolExecutionPayload,
+            timestamp: new Date().toISOString(),
+          });
+          textToSend =
+            typeof toolResult.result === "string"
+              ? toolResult.result
+              : JSON.stringify(toolResult.result, null, 2);
+        } else {
+          const trimmed = fullText.trim();
+          if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
+            this.log(
+              "warn",
+              `[chat:stream:buffered] response looks like JSON but no known tool matched — sending as-is. raw=${JSON.stringify(fullText.slice(0, 300))}`
+            );
+          }
+        }
+
+        const { segments, remaining } = splitThinkContent(textToSend, false);
+        const allSegs = remaining
+          ? [...segments, { text: remaining, thinking: false }]
+          : segments;
+        for (const seg of allSegs) {
+          this.send({
+            messageId: `chat-resp-${Date.now()}`,
+            type: "chat_response",
+            agentId: this.id,
+            payload: {
+              conversationId,
+              chunk: seg.text,
+              ...(seg.thinking ? { thinking: true } : {}),
+            } satisfies WSChatResponsePayload,
+            timestamp: new Date().toISOString(),
+          });
+          if (!seg.thinking) chunks.push(seg.text);
+        }
+      } else {
+        // Cloud-provider path: stream chunks as they arrive.
+        let thinkBuf = "";
+        let inThinking = false;
+        for await (const rawChunk of result.textStream) {
+          const {
+            segments,
+            remaining,
+            inThinking: newInThinking,
+          } = splitThinkContent(thinkBuf + rawChunk, inThinking);
+          thinkBuf = remaining;
+          inThinking = newInThinking;
+          for (const seg of segments) {
+            this.send({
+              messageId: `chat-resp-${Date.now()}`,
+              type: "chat_response",
+              agentId: this.id,
+              payload: {
+                conversationId,
+                chunk: seg.text,
+                ...(seg.thinking ? { thinking: true } : {}),
+              } satisfies WSChatResponsePayload,
+              timestamp: new Date().toISOString(),
+            });
+            if (!seg.thinking) chunks.push(seg.text);
+          }
+        }
+        // Flush any remaining buffered tag-prefix as a final chunk
+        if (thinkBuf) {
+          this.send({
+            messageId: `chat-resp-${Date.now()}`,
+            type: "chat_response",
+            agentId: this.id,
+            payload: {
+              conversationId,
+              chunk: thinkBuf,
+              ...(inThinking ? { thinking: true } : {}),
+            } satisfies WSChatResponsePayload,
+            timestamp: new Date().toISOString(),
+          });
+          if (!inThinking) chunks.push(thinkBuf);
+        }
+      }
+
+      // Send "done" signal
+      sendChunk("", true);
+
+      // Record token usage from streaming
+      try {
+        const usage = await result.usage;
+        if (usage && this.activeLlmConfig) {
+          this.emit("log", {
+            level: "info",
+            message: "Recording token usage from chat stream",
+            data: {
+              usage,
+              provider: this.activeLlmConfig.provider,
+              model: this.activeLlmConfig.model,
+            },
+          });
+          recordTokenUsage(
+            usage.promptTokens,
+            usage.completionTokens,
+            this.activeLlmConfig.provider,
+            this.activeLlmConfig.model
+          );
+          this._tokenUsageSinceLastSync.promptTokens += usage.promptTokens;
+          this._tokenUsageSinceLastSync.completionTokens +=
+            usage.completionTokens;
+          this._tokenUsageTotal.promptTokens += usage.promptTokens;
+          this._tokenUsageTotal.completionTokens += usage.completionTokens;
+        } else {
+          this.emit("log", {
+            level: "warn",
+            message: "No usage data from chat stream",
+            data: { usage, hasConfig: !!this.activeLlmConfig },
+          });
+        }
+      } catch (e) {
+        this.emit("log", {
+          level: "warn",
+          message: "Failed to record token usage from stream",
+          data: { error: String(e) },
+        });
+      }
+
+      // Persist assistant response
+      try {
+        appendChatMessages(conversationId, [
+          { role: "assistant", content: chunks.join("") },
+        ]);
+      } catch {
+        /* non-fatal */
+      }
+
+      // Async post-processing: summarize the conversation to extract memories
+      if (this.activeLlmConfig && messages.length >= 4) {
+        const assistantResponse = chunks.join("");
+        const fullHistory = [
+          ...messages,
+          { role: "assistant" as const, content: assistantResponse },
+        ];
+        const config = this.activeLlmConfig;
+        setImmediate(() => {
+          if (!this.memorySummarizer) {
+            this.memorySummarizer = new ConversationSummarizer(
+              this.memoryStore
+            );
+          }
+          this.memorySummarizer
+            .summarize(fullHistory, config, [`conversation:${conversationId}`])
+            .catch((err) =>
+              this.log("warn", "Memory summarization failed", err)
+            );
+        });
+      }
+    } catch (err) {
+      const errorCode = classifyLlmError(err);
+      const errMsg =
+        errorCode === "llm_unavailable"
+          ? `LLM provider not reachable (${this.activeLlmConfig?.baseUrl ?? this.activeLlmConfig?.provider ?? "unknown"}). Check the agent's LLM configuration.`
+          : err instanceof Error
+            ? err.message
+            : String(err);
+      this.log(
+        "error",
+        `Chat ${conversationId} failed [${errorCode}]: ${errMsg}`
+      );
+      sendChunk(errMsg, true, true, errorCode);
+    }
+  }
+
+  // ---- Override hooks ----
+
+  protected override getDailyTokenUsageForBudget(): {
+    promptTokens: number;
+    completionTokens: number;
+  } {
+    return getDailyTokenUsage() ?? { promptTokens: 0, completionTokens: 0 };
+  }
+
+  protected override async onAuthComplete(
+    payload: WSAuthCompletePayload
+  ): Promise<void> {
+    // Store the certificate
+    if (this.vaultysId) {
+      try {
+        // Extract server public key from the certificate stored by base class auth logic
+        const latestCert = getDb()
+          .query(
+            "SELECT certificate_data FROM certificates ORDER BY id DESC LIMIT 1"
+          )
+          .get() as { certificate_data: string } | undefined;
+        if (latestCert?.certificate_data) {
+          const certBuf = Buffer.from(latestCert.certificate_data, "base64");
+          const deserialized = Challenger.deserializeCertificate(certBuf);
+          if (deserialized?.pk1) {
+            const pk = Buffer.from(
+              deserialized.pk1 as Uint8Array
+            ) as unknown as Buffer;
+            this.serverPublicKey = pk;
+            this.peerManager?.setServerPublicKey(
+              deserialized.pk1 as Uint8Array
+            );
+          }
+        }
+      } catch (err) {
+        this.log(
+          "warn",
+          "Could not extract server public key from certificate",
+          err
+        );
+      }
+    }
+
+    // Push current knowledge source statuses so the control-plane can reconcile
+    try {
+      const sources = listKnowledgeSources();
+      if (sources.length > 0) {
+        this.send({
+          messageId: `ks-status-${Date.now()}`,
+          type: "knowledge_status_sync",
+          agentId: this.id,
+          payload: {
+            sources: sources.map((s) => ({
+              sourceId: s.id,
+              status: s.status,
+              docCount: s.doc_count,
+              chunkCount: s.chunk_count,
+              error: s.error ?? null,
+            })),
+          },
+          timestamp: new Date().toISOString(),
+        });
+      }
+    } catch (err) {
+      this.log("warn", "Could not push knowledge status on connect", err);
+    }
+  }
+
+  protected override async onDelegationUpdate(
+    payload: WSDelegationUpdatePayload
+  ): Promise<void> {
+    const delegations = payload.delegations ?? [];
+
+    if (delegations.length === 0) {
+      clearAllDelegations();
+      this.log("info", "All delegations cleared");
+      return;
+    }
+
+    for (const d of delegations) {
+      storeDelegation({
+        id: d.id,
+        grant_id: d.grantId,
+        user_did: d.userDid,
+        agent_did: d.agentDid,
+        capabilities: JSON.stringify(d.capabilities),
+        certificate: d.certificate,
+        expires_at: d.expiresAt ?? null,
+      });
+    }
+    this.log(
+      "info",
+      `Delegation update: ${delegations.length} cert(s) stored`
+    );
+  }
+
+  protected override async onPeerCatalogUpdated(
+    peers: AgentPeerGrant[]
+  ): Promise<void> {
+    // Persist to local DB (replaces previous catalog for this agent)
+    const ownDid = this.vaultysId?.did ?? this.id;
+    storePeerGrants(
+      ownDid,
+      peers.map((p) => ({
+        id: p.id,
+        source_did: p.sourceDid,
+        target_did: p.targetDid,
+        target_name: p.targetName,
+        skill_description: p.skillDescription,
+        capabilities: JSON.stringify(p.capabilities),
+        certificate: p.certificate,
+        expires_at: p.expiresAt ?? null,
+        created_at: new Date().toISOString(),
+      }))
+    );
+  }
+
+  protected override async onLlmConfig(
+    payload: WSLlmConfigPayload
+  ): Promise<void> {
+    // Encrypt apiKey and persist; then refresh runtime config asynchronously
+    this.persistEncryptedLlmConfig(payload.config)
+      .then(() => this.refreshActiveLlmConfig())
+      .catch((err) => {
+        this.log("error", "Failed to persist remote LLM config", err);
+      });
+    if (payload.config === null) {
+      this.log(
+        "info",
+        "Remote LLM config cleared — falling back to env config"
+      );
+    } else {
+      this.log(
+        "info",
+        `Remote LLM config received: ${payload.config.provider}/${payload.config.model}`
+      );
+    }
+  }
+
+  protected override async onSkillsConfig(
+    payload: WSSkillsConfigPayload
+  ): Promise<void> {
+    this.realmSkillFilter = payload.skills.length > 0 ? payload.skills : null;
+
+    // Rebuild tool registry with updated filter
+    if (this.skillLoader) {
+      this.rebuildToolRegistry(this.skillLoader.lastRegistry);
+    }
+
+    const enabled = (this.realmSkillFilter ?? [])
+      .filter((s) => s.enabled)
+      .map((s) => s.name);
+    const disabled = (this.realmSkillFilter ?? [])
+      .filter((s) => !s.enabled)
+      .map((s) => s.name);
+    this.log(
+      "info",
+      `Realm skills config received: ${enabled.length} enabled, ${disabled.length} disabled`
+    );
+  }
+
+  protected override async handleGetChatSessions(
+    message: WSMessage
+  ): Promise<void> {
+    const payload = (message.payload ?? {}) as WSGetChatSessionsPayload;
+    const limit = payload.limit ?? 50;
+    try {
+      const rows = listChatSessions(limit);
+      const sessions: WSChatSessionsResponsePayload["sessions"] = rows.map(
+        (r) => ({
+          id: r.id,
+          title: r.title,
+          source: r.source,
+          createdAt: r.created_at,
+          updatedAt: r.updated_at,
+          messageCount: (r.message_count as number | undefined) ?? 0,
+        })
+      );
+      this.send({
+        messageId: `chat-sessions-${Date.now()}`,
+        type: "chat_sessions_response",
+        agentId: this.id,
+        payload: { sessions } satisfies WSChatSessionsResponsePayload,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (err) {
+      this.log("warn", "Failed to list chat sessions", err);
+    }
+  }
+
+  protected override async handleGetChatHistory(
+    message: WSMessage
+  ): Promise<void> {
+    const payload = message.payload as WSGetChatHistoryPayload;
+    const { sessionId } = payload;
+    try {
+      const rows = getChatMessages(sessionId);
+      const messages: WSChatHistoryResponsePayload["messages"] = rows.map(
+        (r) => ({
+          id: r.id,
+          role: r.role,
+          content: r.content,
+          toolCalls: r.tool_calls ? JSON.parse(r.tool_calls) : undefined,
+          createdAt: r.created_at,
+        })
+      );
+      this.send({
+        messageId: `chat-history-${Date.now()}`,
+        type: "chat_history_response",
+        agentId: this.id,
+        payload: {
+          sessionId,
+          messages,
+        } satisfies WSChatHistoryResponsePayload,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (err) {
+      this.log("warn", "Failed to get chat history", err);
+    }
+  }
+
+  protected override async handleToolApprovalResponse(
+    message: WSMessage
+  ): Promise<void> {
+    const payload = message.payload as WSToolApprovalResponsePayload;
+    const pending = this.pendingApprovals.get(payload.requestId);
+    if (!pending) {
+      this.log(
+        "warn",
+        `Received approval response for unknown request: ${payload.requestId}`
+      );
+      return;
+    }
+
+    clearTimeout(pending.timer);
+    this.pendingApprovals.delete(payload.requestId);
+    this._pendingApprovalsMeta = this._pendingApprovalsMeta.filter(
+      (m) => m.requestId !== payload.requestId
+    );
+
+    this.log(
+      "info",
+      `Tool approval ${payload.approved ? "granted" : "rejected"}: ${payload.requestId}${payload.reason ? ` (${payload.reason})` : ""}`
+    );
+    pending.resolve(payload.approved);
+  }
+
+  protected override async handleTaskEnqueue(
+    message: WSMessage
+  ): Promise<void> {
+    if (!this.taskQueue) return;
+
+    const p =
+      message.payload as import("@vaultysclaw/shared").WSTaskEnqueuePayload;
+    const taskId = this.taskQueue.enqueue(p.action, p.params ?? {}, {
+      priority: p.priority,
+      scheduledAt: p.scheduledAt,
+      maxRetries: p.maxRetries,
+      createdBy: p.createdBy,
+    });
+
+    this.log("info", `Task enqueued via WS: ${taskId} (${p.action})`);
+
+    this.send({
+      messageId: `task-ack-${Date.now()}`,
+      type: "task_status",
+      payload: {
+        taskId,
+        status: "pending",
+        action: p.action,
+        retryCount: 0,
+      } satisfies import("@vaultysclaw/shared").WSTaskStatusPayload,
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  protected override async handleScheduleUpdate(
+    message: WSMessage
+  ): Promise<void> {
+    if (!this.scheduler) return;
+
+    const p =
+      message.payload as import("@vaultysclaw/shared").WSScheduleUpdatePayload;
+    this.scheduler.addSchedule({
+      id: p.id,
+      name: p.name,
+      cron: p.cron,
+      action: p.action,
+      params: p.params,
+      enabled: p.enabled,
+    });
+    this.log("info", `Schedule updated: ${p.id} (${p.cron} → ${p.action})`);
+  }
+
+  protected override async handleScheduleDelete(
+    message: WSMessage
+  ): Promise<void> {
+    if (!this.scheduler) return;
+
+    const p =
+      message.payload as import("@vaultysclaw/shared").WSScheduleDeletePayload;
+    this.scheduler.removeSchedule(p.id);
+    this.log("info", `Schedule deleted: ${p.id}`);
+  }
+
+  protected override async handleKnowledgeSync(
+    message: WSMessage
+  ): Promise<void> {
+    const { messageId, payload } = message;
+    const {
+      sourceId,
+      sourceName,
+      sourceType,
+      config,
+      docling,
+      fileAttachments,
+    } = payload as {
+      sourceId: string;
+      sourceName: string;
+      sourceType: string;
+      config: KnowledgeSourceConfig;
+      docling?: {
+        url: string;
+        sourceEndpoint?: string;
+        fileEndpoint?: string;
+      };
+      fileAttachments?: Array<{
+        id: string;
+        name: string;
+        mimeType: string;
+        size: number;
+        content: string;
+      }>;
+    };
+
+    this.log(
+      "info",
+      `Knowledge sync requested for source "${sourceName}" (${sourceId})`
+    );
+
+    if (!this.activeLlmConfig) {
+      this.send({
+        type: "result",
+        messageId,
+        payload: { status: "failed", error: "LLM not configured" },
+        timestamp: new Date().toISOString(),
+      });
+      return;
+    }
+
+    // Immediate ACK so the control plane knows the sync started
+    this.send({
+      messageId: `intent-ack-${Date.now()}`,
+      type: "intent_ack",
+      agentId: this.id,
+      payload: { status: "started", sourceId },
+      timestamp: new Date().toISOString(),
+    });
+
+    // Run ingestion (non-blocking — reports status back to control-plane when done)
+    ingestSource(
+      sourceId,
+      sourceName,
+      sourceType,
+      config,
+      this.activeLlmConfig,
+      docling,
+      fileAttachments
+    )
+      .then((result) => {
+        this.log(
+          "info",
+          `Knowledge sync complete: ${result.docsProcessed} docs, ${result.chunksCreated} chunks`
+        );
+        const status =
+          result.docsProcessed === 0 && result.errors.length > 0
+            ? "error"
+            : "ready";
+        this.send({
+          messageId: `ks-result-${Date.now()}`,
+          type: "knowledge_sync_result",
+          agentId: this.id,
+          payload: {
+            sourceId,
+            status,
+            docsProcessed: result.docsProcessed,
+            chunksCreated: result.chunksCreated,
+            errors: result.errors,
+          },
+          timestamp: new Date().toISOString(),
+        });
+      })
+      .catch((err) => {
+        const errMsg = err instanceof Error ? err.message : String(err);
+        this.log("error", `Knowledge sync failed: ${errMsg}`);
+        this.send({
+          messageId: `ks-result-${Date.now()}`,
+          type: "knowledge_sync_result",
+          agentId: this.id,
+          payload: {
+            sourceId,
+            status: "error",
+            docsProcessed: 0,
+            chunksCreated: 0,
+            errors: [errMsg],
+          },
+          timestamp: new Date().toISOString(),
+        });
+      });
+  }
+
+  // ---- Override verifyUserDelegation to use local DB ----
+
+  protected override async verifyUserDelegation(
+    userDid: string,
+    capability: string
+  ): Promise<boolean> {
+    if (!this.serverPublicKey) {
+      this.log(
+        "warn",
+        "Server public key not available — cannot verify delegation"
+      );
+      return false;
+    }
+
+    const rows = getAllDelegations().filter((r) => r.user_did === userDid);
+
+    for (const row of rows) {
+      if (row.expires_at && new Date(row.expires_at) < new Date()) continue;
+      try {
+        const combined = Buffer.from(row.certificate, "base64");
+        if (combined.length < 5) continue;
+        const bodyLen = combined.readUInt32LE(0);
+        if (combined.length < 4 + bodyLen) continue;
+        const body = combined.subarray(4, 4 + bodyLen);
+        const signature = combined.subarray(4 + bodyLen);
+
+        const { VaultysId: VId } = await import("@vaultys/id");
+        const serverVid = VId.fromId(this.serverPublicKey);
+        const valid = serverVid.verifyChallenge(
+          Buffer.from(body),
+          Buffer.from(signature),
+          false
+        );
+        if (!valid) continue;
+
+        const p = msgpackDecode(body) as {
+          type: string;
+          userDid: string;
+          agentDid: string;
+          capabilities: string[];
+          expiresAt?: number;
+        };
+        if (p.type !== "delegation") continue;
+        if (p.expiresAt && p.expiresAt < Date.now()) continue;
+        if (p.agentDid !== this.id && p.agentDid !== "*") continue;
+        if (!p.capabilities.includes(capability)) continue;
+        return true;
+      } catch {
+        continue;
+      }
+    }
+    return false;
+  }
+
+  // ---- Public API (additional methods beyond base class) ----
+
+  override getInfo(): AgentInfo & {
+    activeLlmProvider?: string;
+    activeLlmModel?: string;
+  } {
     return {
-      id: this.id,
-      name: this.config.name,
-      version: "0.0.1",
-      status: this._status,
-      capabilities: this.capabilities,
-      uptime: Math.floor((Date.now() - this.startedAt) / 1000),
-      lastHeartbeat: this.lastHeartbeat?.toISOString() ?? null,
+      ...super.getInfo(),
       activeLlmProvider: this.activeLlmConfig?.provider,
       activeLlmModel: this.activeLlmConfig?.model,
-      recentLogs: this.logBuffer.toArray(),
-      recentIntents: this.intentBuffer.toArray(),
     };
-  }
-
-  /**
-   * Returns the agent's DID (stable identifier derived from its VaultysId).
-   * Falls back to the control-plane-assigned id if VaultysId is not yet loaded.
-   */
-  getDid(): string {
-    return this.vaultysId?.toVersion(1).did ?? this.id;
   }
 
   /** Exposes the agent's VaultysId instance for P2P auth sessions. */
@@ -503,13 +1315,12 @@ export class Agent extends EventEmitter {
 
   /** Returns the configured PeerJS relay server URL, or null for the public default.
    *  DB value (set by control plane) takes priority over the env/config value. */
-  getPeerjsServer(): string | null {
+  override getPeerjsServerUrl(): string | null {
     return getPeerjsServer() ?? this.config.peerjsServer ?? null;
   }
 
   /**
    * Returns the active LLM config with the apiKey masked for safe display.
-   * The returned apiKey is either undefined (not set) or '***' (set but hidden).
    */
   getLlmConfigSafe():
     | (Omit<LlmConfig, "apiKey"> & { apiKey?: string; hasApiKey: boolean })
@@ -686,7 +1497,6 @@ export class Agent extends EventEmitter {
     );
     if (!skill) throw new Error(`Unknown skill: ${skillName}`);
 
-    // Realm-managed skills are controlled by the control plane, not locally.
     if (this.realmSkillFilter) {
       const entry = this.realmSkillFilter.find((s) => s.name === skillName);
       if (entry?.isRequired)
@@ -695,7 +1505,6 @@ export class Agent extends EventEmitter {
         );
     }
 
-    // Update or create a local filter entry
     if (!this.realmSkillFilter) this.realmSkillFilter = [];
     const existing = this.realmSkillFilter.find((s) => s.name === skillName);
     if (existing) {
@@ -765,7 +1574,6 @@ export class Agent extends EventEmitter {
 
   /**
    * Invoke a single tool by name with the given args.
-   * Used by the web dashboard for direct tool testing.
    */
   async invokeTool(
     toolName: string,
@@ -791,14 +1599,12 @@ export class Agent extends EventEmitter {
   }
 
   /**
-   * Update the LLM config from the dashboard (local edit). The API key is
-   * encrypted at rest using the agent's VaultysId before writing to SQLite.
-   * Pass null to clear the stored config and fall back to env-var values.
+   * Update the LLM config from the dashboard (local edit).
    */
   async updateLlmConfig(config: LlmConfig | null): Promise<void> {
     await this.persistEncryptedLlmConfig(config);
     const loaded = config ? await this.loadDecryptedLlmConfig() : null;
-    this.activeLlmConfig = loaded ?? this.config.llmConfig;
+    this.activeLlmConfig = loaded ?? (this.config as AgentControllerConfig).llmConfig;
     if (this.activeLlmConfig) {
       this.emit("config_updated", {
         source: "local",
@@ -814,29 +1620,16 @@ export class Agent extends EventEmitter {
     );
   }
 
+  /** Effective skill filter: skill name → enabled. null means no realm filter. */
+  getRealmSkillFilter(): SkillConfig[] | null {
+    return this.realmSkillFilter;
+  }
+
   // ---- Private helpers ----
 
-  private setStatus(s: AgentStatus): void {
-    if (this._status === s) return;
-    this._status = s;
-    this.emit("status_changed", { status: s });
-  }
-
-  private log(level: LogEntry["level"], message: string, data?: unknown): void {
-    const entry: LogEntry = {
-      ts: new Date().toISOString(),
-      level,
-      message,
-      data,
-    };
-    this.logBuffer.push(entry);
-    this.emit("log", entry);
-  }
-
   private async refreshActiveLlmConfig(): Promise<void> {
-    // Prefer encrypted remote config; fall back to plaintext remote, then env vars.
     const remote = (await this.loadDecryptedLlmConfig()) ?? getLlmConfig();
-    this.activeLlmConfig = remote ?? this.config.llmConfig;
+    this.activeLlmConfig = remote ?? (this.config as AgentControllerConfig).llmConfig;
     if (this.activeLlmConfig) {
       const source = remote ? "remote" : "env";
       this.log(
@@ -853,20 +1646,15 @@ export class Agent extends EventEmitter {
     }
   }
 
-  /**
-   * Encrypt the apiKey field and persist the config blob.
-   * Other fields are stored in plaintext. Pass null to clear.
-   */
   private async persistEncryptedLlmConfig(
     config: LlmConfig | null
   ): Promise<void> {
     if (config === null) {
-      setLlmConfig(null); // clears both llm_config and llm_config_encrypted
+      setLlmConfig(null);
       return;
     }
     const { apiKey, ...rest } = config;
     if (apiKey && this.vaultysId) {
-      // Encrypt the apiKey for this agent's VaultysId only
       const encryptedApiKey = await VaultysId.encrypt(apiKey, [
         this.vaultysId.id,
       ]);
@@ -877,17 +1665,11 @@ export class Agent extends EventEmitter {
       });
       setEncryptedLlmConfigBlob(blob);
     } else {
-      // No apiKey to encrypt — store plaintext blob so loadDecryptedLlmConfig can read it
       setEncryptedLlmConfigBlob(JSON.stringify({ ...rest }));
     }
-    // Also update the plaintext slot (apiKey omitted) so getLlmConfig() still works
     setLlmConfig({ ...rest, apiKey: undefined });
   }
 
-  /**
-   * Load and decrypt the persisted LLM config.
-   * Returns null if no encrypted blob exists or decryption fails.
-   */
   private async loadDecryptedLlmConfig(): Promise<LlmConfig | null> {
     const raw = getEncryptedLlmConfigBlob();
     if (!raw) return null;
@@ -910,1125 +1692,14 @@ export class Agent extends EventEmitter {
     }
   }
 
-  private async loadOrCreateIdentity(identityPath: string): Promise<VaultysId> {
-    const dir = path.dirname(identityPath);
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-
-    if (fs.existsSync(identityPath)) {
-      this.log(
-        "info",
-        `Loading existing VaultysId identity from ${identityPath}`
-      );
-      const secret = fs.readFileSync(identityPath, "utf-8").trim();
-      return VaultysId.fromSecret(secret, "base64").toVersion(1);
-    }
-
-    this.log("info", `Creating new VaultysId identity at ${identityPath}`);
-    const vid = await VaultysId.generateMachine();
-    fs.writeFileSync(
-      identityPath,
-      vid.toVersion(1).getSecret("base64"),
-      "utf-8"
-    );
-    return vid.toVersion(1);
-  }
-
-  // ---- Transport connection ----
-
-  private connect(): void {
-    if (this.stopped) return;
-    if (this.config.peerjsControlPlaneId) {
-      this.connectViaPeerjs();
-    } else {
-      this.connectViaWs();
-    }
-  }
-
-  /**
-   * Schedule a reconnect attempt with exponential backoff + ±20 % jitter.
-   * Delay starts at 2 s and doubles each attempt, capped at 60 s.
-   * Resets to 0 after a successful authentication.
-   */
-  private scheduleReconnect(): void {
-    if (this.stopped) return;
-    if (this.reconnectTimer) {
-      clearTimeout(this.reconnectTimer);
-      this.reconnectTimer = null;
-    }
-    const base = Math.min(2_000 * 2 ** this.reconnectAttempts, 60_000);
-    const jitter = base * 0.2 * (Math.random() * 2 - 1);
-    const delay = Math.round(base + jitter);
-    this.reconnectAttempts++;
-    this.log(
-      "info",
-      `Reconnecting in ${(delay / 1000).toFixed(1)}s (attempt ${this.reconnectAttempts})`
-    );
-    this.reconnectTimer = setTimeout(() => this.connect(), delay);
-  }
-
-  private resetReconnectBackoff(): void {
-    this.reconnectAttempts = 0;
-  }
-
-  private connectViaPeerjs(): void {
-    if (this.stopped) return;
-
-    const controlPlanePeerId = this.config.peerjsControlPlaneId!;
-    this.log(
-      "info",
-      `Connecting to control plane via PeerJS: peer=${controlPlanePeerId}`
-    );
-    this.setStatus("connecting");
-
-    this.authChallenger = null;
-    this.authSessionId = null;
-    this.reAuthPending = false;
-
-    // Destroy old peer before creating a new one
-    if (this.peerjsPeer) {
-      this.peerjsPeer.destroy();
-      this.peerjsPeer = null;
-    }
-    this.peerjsConn = null;
-
-    // Parse optional custom signaling server
-    const serverUrl = this.config.peerjsServerUrl;
-    const peerOptions: import("peerjs").PeerOptions = serverUrl
-      ? (() => {
-          try {
-            const parsed = new URL(serverUrl);
-            return {
-              host: parsed.hostname,
-              port: parsed.port
-                ? parseInt(parsed.port, 10)
-                : parsed.protocol === "https:"
-                  ? 443
-                  : 80,
-              path: parsed.pathname || "/",
-              secure: parsed.protocol === "https:",
-              debug: 1,
-            };
-          } catch {
-            return { host: serverUrl, secure: true, debug: 1 };
-          }
-        })()
-      : { host: "0.peerjs.com", port: 443, path: "/", secure: true, debug: 1 };
-
-    // Import peerjs dynamically to avoid issues at module load time before polyfills
-    import("peerjs")
-      .then(({ Peer }) => {
-        if (this.stopped) return;
-
-        const peer = new Peer(peerOptions);
-        this.peerjsPeer = peer;
-
-        peer.on("open", () => {
-          if (this.stopped) {
-            peer.destroy();
-            return;
-          }
-          // Guard: a newer peer may have been created while this one was reconnecting.
-          if (this.peerjsPeer !== peer) {
-            peer.destroy();
-            return;
-          }
-          this.log(
-            "info",
-            `PeerJS peer ready (id=${peer.id}) — connecting to control plane`
-          );
-
-          const conn = peer.connect(controlPlanePeerId, { reliable: true });
-          this.peerjsConn = conn;
-
-          conn.on("open", () => {
-            this.log(
-              "info",
-              "PeerJS DataConnection open — awaiting auth challenge"
-            );
-          });
-
-          conn.on("data", (raw: unknown) => {
-            const data = typeof raw === "string" ? raw : JSON.stringify(raw);
-            this.handleMessage(data);
-          });
-
-          conn.on("error", (err) => {
-            if (this.stopped) return;
-            if (this.peerjsConn !== conn) return; // stale
-            this.log("error", "PeerJS connection error", err);
-            // close event may not fire after a DataChannel error — schedule directly
-            this.peerjsConn = null;
-            if (this.heartbeatTimer) {
-              clearInterval(this.heartbeatTimer);
-              this.heartbeatTimer = null;
-            }
-            this.setStatus("disconnected");
-            this.scheduleReconnect();
-          });
-
-          conn.on("close", () => {
-            if (this.stopped) return;
-            if (this.peerjsConn !== conn) return; // stale connection
-            this.log("warn", "PeerJS connection closed");
-            this.setStatus("disconnected");
-            if (this.heartbeatTimer) {
-              clearInterval(this.heartbeatTimer);
-              this.heartbeatTimer = null;
-            }
-            this.peerjsConn = null;
-            this.scheduleReconnect();
-          });
-        });
-
-        peer.on("error", (err) => {
-          if (this.stopped) return;
-          if (this.peerjsPeer !== peer) return; // stale peer
-          this.log("error", "PeerJS peer error", err);
-          // Null out before destroy() for the same recursion reason as "disconnected".
-          this.peerjsPeer = null;
-          this.peerjsConn = null;
-          if (this.heartbeatTimer) {
-            clearInterval(this.heartbeatTimer);
-            this.heartbeatTimer = null;
-          }
-          peer.destroy();
-          this.setStatus("disconnected");
-          this.scheduleReconnect();
-        });
-
-        peer.on("disconnected", () => {
-          if (this.stopped) return;
-          if (this.peerjsPeer !== peer) return; // stale peer — ignore
-          // Don't use peer.reconnect(): if it fails silently, peerjs destroys the peer
-          // with no error event, the event loop drains, and the process exits quietly.
-          // Instead, destroy this peer and let our backoff loop create a fresh one.
-          //
-          // IMPORTANT: null out peerjsPeer BEFORE calling peer.destroy().
-          // peer.destroy() → disconnect() emits "disconnected" synchronously, which
-          // re-enters this handler. If peerjsPeer is still set at that point the guard
-          // passes and scheduleReconnect() fires twice, double-incrementing the backoff.
-          this.log(
-            "warn",
-            "PeerJS signaling server disconnected — scheduling reconnect"
-          );
-          this.peerjsPeer = null;
-          this.peerjsConn = null;
-          if (this.heartbeatTimer) {
-            clearInterval(this.heartbeatTimer);
-            this.heartbeatTimer = null;
-          }
-          peer.destroy(); // recursive "disconnected" now hits the stale-peer guard → no-op
-          this.setStatus("disconnected");
-          this.scheduleReconnect();
-        });
-      })
-      .catch((err) => {
-        this.log("error", "Failed to load peerjs module", err);
-        if (!this.stopped) this.scheduleReconnect();
-      });
-  }
-
-  // ---- WebSocket connection ----
-
-  private connectViaWs(): void {
-    if (this.stopped) return;
-
-    const wsUrl = this.config.controlPlaneWsUrl;
-    this.log("info", `Connecting to control plane: ${wsUrl}`);
-    this.setStatus("connecting");
-
-    this.authChallenger = null;
-    this.authSessionId = null;
-    this.reAuthPending = false;
-
-    let ws: WebSocket;
-    try {
-      // Capture socket reference locally so the onclose closure can detect if it
-      // belongs to a stale socket that has been superseded by a newer connect() call.
-      // When the server closes the OLD socket after the new one authenticates
-      // ("replacing old connection"), that close event must not trigger yet another
-      // reconnect — this.ws already points to the new socket at that point.
-      ws = new WebSocket(wsUrl);
-    } catch (err) {
-      this.log("error", "Failed to create WebSocket (invalid URL?)", err);
-      this.setStatus("disconnected");
-      this.scheduleReconnect();
-      return;
-    }
-    this.ws = ws;
-
-    ws.onopen = () => {
-      this.log("info", "Connected to control plane — awaiting auth challenge");
-    };
-
-    ws.onmessage = (event) => {
-      this.handleMessage(event.data as string);
-    };
-
-    ws.onerror = (error) => {
-      this.log("error", "WebSocket error", error);
-    };
-
-    ws.onclose = () => {
-      if (this.stopped) return;
-      // Guard: if this.ws has already moved to a newer socket, this close event
-      // is from a superseded connection (e.g., the server closed our old socket
-      // when a newer connection authenticated). Ignore it — the active socket is fine.
-      if (this.ws !== ws) return;
-      this.log("warn", "Disconnected from control plane");
-      this.setStatus("disconnected");
-      if (this.heartbeatTimer) {
-        clearInterval(this.heartbeatTimer);
-        this.heartbeatTimer = null;
-      }
-      this.scheduleReconnect();
-    };
-  }
-
-  private send(message: WSMessage): void {
-    const data = JSON.stringify(message);
-
-    if (this.peerjsConn) {
-      if (!this.peerjsConn.open) {
-        this.log("error", "PeerJS connection not open — cannot send message");
-        return;
-      }
-      try {
-        this.peerjsConn.send(data);
-      } catch (err) {
-        this.log("error", "Failed to send PeerJS message", err);
-      }
-      return;
-    }
-
-    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
-      this.log("error", "WebSocket not open — cannot send message");
-      return;
-    }
-    try {
-      this.ws.send(data);
-    } catch (err) {
-      this.log("error", "Failed to send message", err);
-    }
-  }
-
-  private sendHeartbeat(): void {
-    // Calculate price spent based on token usage and pricing
-    const calculatePrice = (): number => {
-      if (!this.activeLlmConfig) return 0;
-      const dailyUsage = getDailyTokenUsage();
-      const inputPricePerToken =
-        (this.activeLlmConfig.pricePerMillionInputTokens ?? 0) / 1_000_000;
-      const outputPricePerToken =
-        (this.activeLlmConfig.pricePerMillionOutputTokens ?? 0) / 1_000_000;
-      return (
-        dailyUsage.promptTokens * inputPricePerToken +
-        dailyUsage.completionTokens * outputPricePerToken
-      );
-    };
-
-    const dailyUsage = getDailyTokenUsage();
-    const monthlyUsage = getMonthlyTokenUsage();
-
-    const msg: WSMessage = {
-      messageId: `heartbeat-${Date.now()}`,
-      type: "heartbeat",
-      agentId: this.id,
-      payload: {
-        uptime: process.uptime(),
-        memory: process.memoryUsage(),
-        activeLlm: this.activeLlmConfig
-          ? {
-              provider: this.activeLlmConfig.provider,
-              model: this.activeLlmConfig.model,
-            }
-          : undefined,
-        name: this.config.name,
-        tokenUsage: {
-          total: this._tokenUsageTotal,
-          sinceLastSync: this._tokenUsageSinceLastSync,
-          daily: dailyUsage,
-          monthly: monthlyUsage,
-          dailyPriceSpent: calculatePrice(),
-        },
-      },
-      timestamp: new Date().toISOString(),
-    };
-    this.send(msg);
-    this.lastHeartbeat = new Date();
-
-    // Reset the sync counter for next heartbeat
-    this._tokenUsageSinceLastSync = { promptTokens: 0, completionTokens: 0 };
-
-    this.emit("heartbeat", { uptime: process.uptime() });
-  }
-
-  private sendResult(intentId: string, result: ExecutionResult): void {
-    this.send({
-      messageId: `result-${Date.now()}`,
-      type: "result",
-      agentId: this.id,
-      payload: result,
-      timestamp: new Date().toISOString(),
-    });
-  }
-
-  private sendAck(messageId: string, success: boolean, reason?: string): void {
-    this.send({
-      messageId: `ack-${Date.now()}`,
-      type: "intent_ack",
-      agentId: this.id,
-      payload: { messageId, success, reason },
-      timestamp: new Date().toISOString(),
-    });
-  }
-
-  // ---- Message routing ----
-
-  private handleMessage(data: string): void {
-    try {
-      const message: WSMessage = JSON.parse(data);
-      switch (message.type) {
-        case "auth_challenge":
-          this.handleAuthChallenge(message);
-          break;
-        case "auth_complete":
-          this.handleAuthComplete(message).catch((e) =>
-            this.log("error", "handleAuthComplete error", e)
-          );
-          break;
-        case "auth_failed":
-          this.handleAuthFailed(message);
-          break;
-        case "registration_pending":
-          this.handleRegistrationPending(message);
-          break;
-        case "registration_approved":
-          this.handleRegistrationApproved(message);
-          break;
-        case "registration_rejected":
-          this.handleRegistrationRejected(message);
-          break;
-        case "update_capabilities":
-          this.handleUpdateCapabilities(message);
-          break;
-        case "delegation_update":
-          this.handleDelegationUpdate(message);
-          break;
-        case "agent_peer_catalog":
-          this.handleAgentPeerCatalog(message);
-          break;
-        case "llm_config":
-          this.handleLlmConfig(message);
-          break;
-        case "skills_config":
-          this.handleSkillsConfig(message);
-          break;
-        case "tool_approval_response":
-          this.handleToolApprovalResponse(message);
-          break;
-        case "task_enqueue":
-          this.handleTaskEnqueue(message);
-          break;
-        case "schedule_update":
-          this.handleScheduleUpdate(message);
-          break;
-        case "schedule_delete":
-          this.handleScheduleDelete(message);
-          break;
-        case "intent":
-          if (this._status !== "connected") {
-            this.log("warn", "Received intent before auth — ignoring");
-            return;
-          }
-          this.handleIntent(message);
-          break;
-        case "chat_message":
-          if (this._status !== "connected") {
-            this.log("warn", "Received chat_message before auth — ignoring");
-            return;
-          }
-          this.handleChatMessage(message);
-          break;
-        case "get_chat_sessions":
-          this.handleGetChatSessions(message);
-          break;
-        case "get_chat_history":
-          this.handleGetChatHistory(message);
-          break;
-        case "policy_update":
-          if (this._status !== "connected") {
-            this.log("warn", "Received policy before auth — ignoring");
-            return;
-          }
-          this.handlePolicyUpdate(message);
-          break;
-        case "knowledge_sync":
-          this.handleKnowledgeSync(message).catch((e) =>
-            this.log("error", "handleKnowledgeSync error", e)
-          );
-          break;
-        case "pong":
-          break;
-        case "error":
-          this.log("error", "Error from control plane", message.payload);
-          break;
-        default:
-          this.log("warn", `Unknown message type: ${message.type}`);
-      }
-    } catch (err) {
-      this.log("error", "Error handling message", err);
-    }
-  }
-
-  // ---- Auth ----
-
-  private async handleAuthChallenge(message: WSMessage): Promise<void> {
-    const payload = message.payload as WSAuthChallengePayload;
-    if (!this.vaultysId) return;
-
-    try {
-      if (!this.authChallenger && !payload.data && this.reAuthPending) {
-        this.authSessionId = payload.sessionId;
-        this.reAuthPending = false;
-        this.startAuthHandshake();
-      } else if (!this.authChallenger && !payload.data && !this.authSessionId) {
-        this.authSessionId = payload.sessionId;
-        this.send({
-          messageId: `register-${Date.now()}`,
-          type: "register",
-          payload: { name: this.config.name, version: "0.0.1" },
-          timestamp: new Date().toISOString(),
-        });
-        this.log("info", "Sent registration request");
-      } else if (!this.authChallenger && !payload.data && this.authSessionId) {
-        this.authSessionId = payload.sessionId;
-        this.startAuthHandshake();
-      } else if (this.authChallenger) {
-        const serverCert = Buffer.from(payload.data, "base64");
-        await this.authChallenger.update(serverCert);
-        const cert = this.authChallenger.getCertificate();
-        this.send({
-          messageId: `auth-${Date.now()}`,
-          type: "auth_challenge",
-          payload: {
-            sessionId: this.authSessionId,
-            data: Buffer.from(cert).toString("base64"),
-            name: this.config.name,
-            capabilities: this.capabilities,
-          },
-          timestamp: new Date().toISOString(),
-        });
-      }
-    } catch (err) {
-      this.log("error", "Error in auth challenge", err);
-      this.authChallenger = null;
-      this.authSessionId = null;
-    }
-  }
-
-  private startAuthHandshake(): void {
-    if (!this.vaultysId) return;
-    this.authChallenger = new Challenger(this.vaultysId.toVersion(1));
-    this.authChallenger.createChallenge("p2p", "auth");
-    const cert = this.authChallenger.getCertificate();
-    this.send({
-      messageId: `auth-${Date.now()}`,
-      type: "auth_challenge",
-      payload: {
-        sessionId: this.authSessionId,
-        data: Buffer.from(cert).toString("base64"),
-        name: this.config.name,
-        capabilities: this.capabilities,
-      },
-      timestamp: new Date().toISOString(),
-    });
-    this.log("debug", "Sent initial auth challenge");
-  }
-
-  private async handleAuthComplete(message: WSMessage): Promise<void> {
-    const payload = message.payload as WSAuthCompletePayload;
-
-    this.id = payload.agentId;
-
-    if (Array.isArray(payload.capabilities)) {
-      // Trust the server's explicit list — including an empty array, which means
-      // the policy was revoked. The old check (length > 0) caused the agent to
-      // fall through to the cert and pick up stale capabilities after revocation.
-      this.capabilities = payload.capabilities as AgentCapability[];
-    } else if (this.authChallenger) {
-      try {
-        const ctx = this.authChallenger.getContext();
-        const metaCaps = ctx.metadata?.pk2?.capabilities;
-        // Handle both native array (new certs) and legacy JSON-stringified string
-        if (Array.isArray(metaCaps))
-          this.capabilities = metaCaps as AgentCapability[];
-        else if (typeof metaCaps === "string")
-          this.capabilities = JSON.parse(metaCaps);
-      } catch {
-        /* keep existing */
-      }
-    }
-
-    // Read policy governance metadata from cert (native types — no JSON.parse needed)
-    if (this.authChallenger) {
-      try {
-        const ctx = this.authChallenger.getContext();
-        const pk2 = ctx.metadata?.pk2;
-        if (pk2) {
-          this.resourceLimits =
-            (pk2.resourceLimits as ResourceLimits | null | undefined) ?? null;
-          this.policyId = (pk2.policyId as string | null | undefined) ?? null;
-          this.policyExpiresAt =
-            (pk2.policyExpiresAt as string | null | undefined) ?? null;
-          if (this.resourceLimits || this.policyId) {
-            this.log(
-              "info",
-              `Policy applied from cert — id: ${this.policyId ?? "none"}, limits: ${JSON.stringify(this.resourceLimits)}`
-            );
-          }
-        }
-      } catch {
-        /* keep existing limits */
-      }
-    }
-
-    if (this.authChallenger) {
-      try {
-        const cert = this.authChallenger.getCertificate();
-        storeCertificate(
-          Buffer.from(cert).toString("base64"),
-          this.capabilities as string[],
-          payload.did
-        );
-      } catch (err) {
-        this.log("warn", "Failed to store certificate", err);
-      }
-    }
-
-    this.authChallenger = null;
-    this.authSessionId = null;
-    this.reAuthPending = false;
-
-    this.resetReconnectBackoff();
-    this.setStatus("connected");
-    this.log(
-      "info",
-      `Auth complete — agent id: ${this.id}, did: ${payload.did}`
-    );
-
-    // Extract server public key from the certificate so peer grant certs can be verified offline.
-    // The server's key is in pk1 of the completed Challenger certificate context.
-    if (!this.serverPublicKey) {
-      try {
-        const latestCert = getDb()
-          .query(
-            "SELECT certificate_data FROM certificates ORDER BY id DESC LIMIT 1"
-          )
-          .get() as { certificate_data: string } | undefined;
-        if (latestCert?.certificate_data) {
-          const certBuf = Buffer.from(latestCert.certificate_data, "base64");
-          const deserialized = Challenger.deserializeCertificate(certBuf);
-          if (deserialized?.pk1) {
-            const pk = Buffer.from(
-              deserialized.pk1 as Uint8Array
-            ) as unknown as Buffer;
-            this.serverPublicKey = pk;
-            this.peerManager?.setServerPublicKey(
-              deserialized.pk1 as Uint8Array
-            );
-          }
-        }
-      } catch (err) {
-        this.log(
-          "warn",
-          "Could not extract server public key from certificate",
-          err
-        );
-      }
-    }
-
-    // Start P2P listener (idempotent — only starts once)
-    if (this.peerManager && !this._peerListenerStarted) {
-      this._peerListenerStarted = true;
-      this.peerManager.startListening().catch((err) => {
-        this.log("warn", "Failed to start P2P listener", err);
-      });
-    }
-
-    if (this.heartbeatTimer) clearInterval(this.heartbeatTimer);
-    this.heartbeatTimer = setInterval(() => {
-      // Send heartbeat over whichever transport is currently open.
-      const wsOpen = this.ws?.readyState === WebSocket.OPEN;
-      const pjOpen = !!this.peerjsConn?.open;
-      if (wsOpen || pjOpen) this.sendHeartbeat();
-    }, 30000);
-
-    // Push current knowledge source statuses so the control-plane can reconcile
-    // any sources stuck in 'syncing' (e.g. after a server restart mid-sync).
-    try {
-      const sources = listKnowledgeSources();
-      if (sources.length > 0) {
-        this.send({
-          messageId: `ks-status-${Date.now()}`,
-          type: "knowledge_status_sync",
-          agentId: this.id,
-          payload: {
-            sources: sources.map((s) => ({
-              sourceId: s.id,
-              status: s.status,
-              docCount: s.doc_count,
-              chunkCount: s.chunk_count,
-              error: s.error ?? null,
-            })),
-          },
-          timestamp: new Date().toISOString(),
-        });
-      }
-    } catch (err) {
-      this.log("warn", "Could not push knowledge status on connect", err);
-    }
-  }
-
-  private handleAuthFailed(message: WSMessage): void {
-    const payload = message.payload as WSAuthFailedPayload;
-    this.log("error", `Auth failed: ${payload.reason}`);
-    this.authChallenger = null;
-    this.authSessionId = null;
-    this.reAuthPending = false;
-  }
-
-  private handleRegistrationPending(message: WSMessage): void {
-    const payload = message.payload as WSRegistrationPendingPayload;
-    this.setStatus("pending_approval");
-    this.log(
-      "info",
-      `Registration pending (id: ${payload.registrationId}): ${payload.message}`
-    );
-  }
-
-  private handleRegistrationApproved(message: WSMessage): void {
-    const payload = message.payload as WSRegistrationApprovedPayload;
-    this.capabilities = payload.capabilities as AgentCapability[];
-    this.log(
-      "info",
-      `Registration approved — capabilities: ${payload.capabilities.join(", ")}`
-    );
-  }
-
-  private handleRegistrationRejected(message: WSMessage): void {
-    const payload = message.payload as WSRegistrationRejectedPayload;
-    this.log("error", `Registration rejected: ${payload.reason}`);
-  }
-
-  private handleUpdateCapabilities(message: WSMessage): void {
-    const payload = message.payload as WSUpdateCapabilitiesPayload;
-    this.capabilities = payload.capabilities as AgentCapability[];
-
-    // Store incoming policy metadata so it is available after the re-auth cert is issued
-    if (payload.resourceLimits !== undefined)
-      this.resourceLimits = payload.resourceLimits ?? null;
-    if (payload.policyId !== undefined)
-      this.policyId = payload.policyId ?? null;
-    if (payload.policyExpiresAt !== undefined)
-      this.policyExpiresAt = payload.policyExpiresAt ?? null;
-
-    this.authChallenger = null;
-    this.authSessionId = null;
-    this.reAuthPending = true;
-    this.log(
-      "info",
-      `Capabilities updated: ${payload.capabilities.join(", ")} — re-auth pending`
-    );
-  }
-
-  // ---- Intent handling ----
-
-  private async handleIntent(message: WSMessage): Promise<void> {
-    const { messageId, payload } = message;
-    const { action, params, userDid } = payload as {
-      action: string;
-      params: Record<string, unknown>;
-      userDid?: string;
-    };
-
-    // Verify the control-plane signature before doing anything
-    if (!this.verifyIntentSignature(message)) {
-      this.log("error", `Rejected unsigned/invalid intent ${messageId} (${action})`);
-      const result: ExecutionResult = {
-        intentId: messageId,
-        status: "failed",
-        error: "Intent signature verification failed",
-        executedAt: new Date(),
-      };
-      this.sendResult(messageId, result);
-      this.sendAck(messageId, false, "Intent signature verification failed");
-      return;
-    }
-
-    const entry: IntentEntry = {
-      intentId: messageId,
-      action,
-      params,
-      status: "pending",
-      receivedAt: new Date().toISOString(),
-    };
-    this.intentBuffer.push(entry);
-    this.emit("intent_received", { intentId: messageId, action, params });
-
-    try {
-      this.log("info", `Intent received: ${action} (${messageId})`);
-
-      // "agent" is the legacy name for "agent_communication"
-      const effectiveAction =
-        action === "agent" ? "agent_communication" : action;
-      if (!this.capabilities.includes(effectiveAction as AgentCapability)) {
-        throw new Error(`Capability '${action}' not granted`);
-      }
-
-      // ---- Policy enforcement ----
-
-      // 1. Reject if the governing policy has expired
-      if (this.policyExpiresAt) {
-        const expiry = new Date(this.policyExpiresAt).getTime();
-        if (!isNaN(expiry) && Date.now() > expiry) {
-          throw new Error(
-            `Policy '${this.policyId ?? "unknown"}' has expired — action blocked`
-          );
-        }
-      }
-
-      // 2. Reject if the daily token budget is exhausted
-      if (this.resourceLimits?.maxTokensPerDay != null) {
-        const daily = getDailyTokenUsage();
-        const usedToday =
-          (daily?.promptTokens ?? 0) + (daily?.completionTokens ?? 0);
-        if (usedToday >= this.resourceLimits.maxTokensPerDay) {
-          throw new Error(
-            `Daily token budget exhausted (used ${usedToday} / limit ${this.resourceLimits.maxTokensPerDay})`
-          );
-        }
-      }
-
-      // 3. Reject if the hourly request rate is exceeded
-      if (this.resourceLimits?.maxRequestsPerHour != null) {
-        const now = Date.now();
-        const hourMs = 60 * 60 * 1000;
-        if (now - this._requestsThisHour.hourStart > hourMs) {
-          // Roll over to a fresh window
-          this._requestsThisHour = { count: 0, hourStart: now };
-        }
-        if (
-          this._requestsThisHour.count >= this.resourceLimits.maxRequestsPerHour
-        ) {
-          const resetIn = Math.ceil(
-            (this._requestsThisHour.hourStart + hourMs - now) / 1000
-          );
-          throw new Error(
-            `Hourly request limit reached (${this.resourceLimits.maxRequestsPerHour} req/h) — resets in ${resetIn}s`
-          );
-        }
-        this._requestsThisHour.count++;
-      }
-
-      if (userDid) {
-        const ok = await this.verifyUserDelegation(userDid, effectiveAction);
-        if (!ok)
-          throw new Error(
-            `User '${userDid}' has no valid delegation for '${action}'`
-          );
-        this.log("info", `Delegation verified for ${userDid}`);
-      }
-
-      const output = await this.executeAction(action, params, userDid, messageId);
-
-      entry.status = "success";
-      entry.output = output;
-      entry.completedAt = new Date().toISOString();
-
-      const result: ExecutionResult = {
-        intentId: messageId,
-        status: "success",
-        output,
-        executedAt: new Date(),
-      };
-      this.sendResult(messageId, result);
-      this.sendAck(messageId, true);
-      this.emit("intent_result", {
-        intentId: messageId,
-        status: "success",
-        output,
-      });
-    } catch (error) {
-      const errMsg = error instanceof Error ? error.message : String(error);
-      entry.status = "failed";
-      entry.error = errMsg;
-      entry.completedAt = new Date().toISOString();
-
-      const result: ExecutionResult = {
-        intentId: messageId,
-        status: "failed",
-        error: errMsg,
-        executedAt: new Date(),
-      };
-      this.sendResult(messageId, result);
-      this.sendAck(messageId, false, errMsg);
-      this.emit("intent_result", {
-        intentId: messageId,
-        status: "failed",
-        error: errMsg,
-      });
-      this.log("error", `Intent ${messageId} failed: ${errMsg}`);
-    }
-  }
-
-  private async executeAction(
-    action: string,
-    params: Record<string, unknown>,
-    _callerDid?: string,
-    intentId?: string
-  ): Promise<unknown> {
-    // ── Direct skill-tool invocation (no LLM needed) ──────────────────────────
-    // The workflow executor sends action="call_skill_tool" when a Skill node runs.
-    // We look up the tool by name in the registry and execute it directly.
-    if (action === "call_skill_tool") {
-      const {
-        skillName,
-        toolName,
-        params: toolParams,
-      } = params as {
-        skillName?: string;
-        toolName?: string;
-        params?: Record<string, unknown>;
-      };
-      if (!toolName) return { error: "call_skill_tool requires 'toolName'" };
-      const def = this.toolRegistry.get(toolName);
-      if (!def) return { error: `Tool '${toolName}' not found in registry` };
-      if (!def.tool.execute)
-        return { error: `Tool '${toolName}' has no execute function` };
-      try {
-        this.log(
-          "info",
-          `Executing skill tool directly: ${skillName ?? ""}/${toolName}`
-        );
-        const result = await def.tool.execute(
-          (toolParams ?? {}) as any,
-          {} as any
-        );
-        return { success: true, result, toolName, skillName };
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        this.log("error", `Skill tool '${toolName}' failed: ${msg}`);
-        return { error: msg, toolName, skillName };
-      }
-    }
-
-    if (!this.activeLlmConfig) throw new LlmNotConfiguredError();
-    const tools = this.buildAgentToolSet();
-    const queryText = `${action} ${JSON.stringify(params)}`;
-    const memoryContext = this.memoryRetriever.retrieve(queryText) || undefined;
-    const skillExtensions = this.realmSkillFilter
-      ?.filter((s) => s.enabled && s.content)
-      .map((s) => s.content as string);
-    const agentId = this.id;
-    const agentSend = this.send.bind(this);
-    const onStepFinish: (event: StepFinishEvent) => void = (event) => {
-      if (!event.toolCalls?.length) return;
-      for (const tc of event.toolCalls) {
-        const toolResult = event.toolResults?.find(
-          (r: any) => r.toolCallId === tc.toolCallId
-        );
-        agentSend({
-          messageId: `tool-exec-${Date.now()}`,
-          type: "tool_execution",
-          agentId,
-          payload: {
-            intentId,
-            toolName: tc.toolName,
-            args: tc.args,
-            result: toolResult?.result,
-            durationMs: 0,
-          } satisfies WSToolExecutionPayload,
-          timestamp: new Date().toISOString(),
-        });
-      }
-    };
-
-    const { text, usage } = await runIntent(
-      this.activeLlmConfig,
-      action,
-      params,
-      tools,
-      memoryContext,
-      skillExtensions,
-      onStepFinish
-    );
-
-    // Record token usage to local DB and update counters
-    if (usage) {
-      this.emit("log", {
-        level: "info",
-        message: "Recording token usage from intent",
-        data: {
-          usage,
-          provider: this.activeLlmConfig.provider,
-          model: this.activeLlmConfig.model,
-        },
-      });
-      recordTokenUsage(
-        usage.promptTokens,
-        usage.completionTokens,
-        this.activeLlmConfig.provider,
-        this.activeLlmConfig.model
-      );
-      this._tokenUsageSinceLastSync.promptTokens += usage.promptTokens;
-      this._tokenUsageSinceLastSync.completionTokens += usage.completionTokens;
-      this._tokenUsageTotal.promptTokens += usage.promptTokens;
-      this._tokenUsageTotal.completionTokens += usage.completionTokens;
-    }
-
-    return { text, usage };
-  }
-
-  // ---- Tool system ----
-
-  /**
-   * Build a Mastra tool map filtered by the agent's granted capabilities.
-   * When no capabilities are assigned (local/standalone mode), all tools are available.
-   * Tools requiring approval will send a WS request and wait for admin response.
-   */
-  private buildAgentToolSet(
-    conversationId?: string
-  ): Record<string, MastraTool> {
-    // If no capabilities assigned (standalone mode), grant all tools
-    const caps =
-      this.capabilities.length > 0
-        ? this.capabilities
-        : this.toolRegistry.tools.map((t) => t.capability);
-
-    const ts = buildToolSet(
-      this.toolRegistry,
-      caps as AgentCapability[],
-      (request) => {
-        return this.requestToolApproval(request, conversationId);
-      }
-    );
-
-    // Append remote agent tools from the peer catalog directly to the tool map
-    if (this.peerCatalog.length > 0 && this.peerManager) {
-      const remoteTools = buildRemoteAgentTools(
-        this.peerCatalog,
-        this.peerManager
-      );
-      for (const def of remoteTools) {
-        ts[def.name] = def.tool as MastraTool;
-      }
-    }
-
-    this.log(
-      "debug",
-      `buildAgentToolSet: caps=${JSON.stringify([...new Set(caps)])}, tools=${Object.keys(ts).join(",")}`
-    );
-    return ts;
-  }
-
-  /**
-   * Send a tool approval request to the control plane and wait for the response.
-   */
-  private requestToolApproval(
-    request: ApprovalRequest,
-    conversationId?: string
-  ): Promise<boolean> {
-    return new Promise<boolean>((resolve) => {
-      const timeoutMs =
-        this.config.approvalTimeoutMs ?? Agent.DEFAULT_APPROVAL_TIMEOUT_MS;
-      // Set up timeout — auto-reject after timeoutMs
-      const timer = setTimeout(() => {
-        this.pendingApprovals.delete(request.requestId);
-        this._pendingApprovalsMeta = this._pendingApprovalsMeta.filter(
-          (m) => m.requestId !== request.requestId
-        );
-        this.log(
-          "warn",
-          `Tool approval timed out: ${request.toolName} (${request.requestId})`
-        );
-        resolve(false);
-      }, timeoutMs);
-
-      this.pendingApprovals.set(request.requestId, { resolve, timer });
-
-      const meta = {
-        requestId: request.requestId,
-        toolName: request.toolName,
-        args: request.args,
-        conversationId,
-        requestedAt: new Date().toISOString(),
-      };
-      this._pendingApprovalsMeta.push(meta);
-      this.emit("tool_approval_request", meta);
-
-      // Send approval request to control plane
-      this.send({
-        messageId: request.requestId,
-        type: "tool_approval_request",
-        agentId: this.id,
-        payload: {
-          requestId: request.requestId,
-          conversationId,
-          toolName: request.toolName,
-          args: request.args,
-          agentId: this.id,
-        } satisfies WSToolApprovalRequestPayload,
-        timestamp: new Date().toISOString(),
-      });
-
-      this.log(
-        "info",
-        `Tool approval requested: ${request.toolName} (${request.requestId})`
-      );
-    });
-  }
-
-  /**
-   * Handle an approval response from the control plane.
-   */
-  private handleToolApprovalResponse(message: WSMessage): void {
-    const payload = message.payload as WSToolApprovalResponsePayload;
-    const pending = this.pendingApprovals.get(payload.requestId);
-    if (!pending) {
-      this.log(
-        "warn",
-        `Received approval response for unknown request: ${payload.requestId}`
-      );
-      return;
-    }
-
-    clearTimeout(pending.timer);
-    this.pendingApprovals.delete(payload.requestId);
-    this._pendingApprovalsMeta = this._pendingApprovalsMeta.filter(
-      (m) => m.requestId !== payload.requestId
-    );
-
-    this.log(
-      "info",
-      `Tool approval ${payload.approved ? "granted" : "rejected"}: ${payload.requestId}${payload.reason ? ` (${payload.reason})` : ""}`
-    );
-    pending.resolve(payload.approved);
-  }
-
-  // ---- Skill system ----
-
-  /**
-   * Load skills from the configured skills directory and rebuild the tool registry.
-   * Called once on start and whenever skills are hot-reloaded.
-   */
   private async loadSkills(): Promise<void> {
     const defaultSkillsDir = path.join(
       process.env.HOME ?? process.cwd(),
       ".vaultysclaw",
       "skills"
     );
-    const skillsDir = this.config.skillsDir ?? defaultSkillsDir;
+    const skillsDir =
+      (this.config as AgentControllerConfig).skillsDir ?? defaultSkillsDir;
 
     this.skillLoader = new SkillLoader({ skillsDir });
     const skillRegistry = await this.skillLoader.load();
@@ -2039,7 +1710,7 @@ export class Agent extends EventEmitter {
       `Skills loaded: ${skillRegistry.skills.map((s) => s.name).join(", ") || "(none)"}`
     );
 
-    if (this.config.watchSkills) {
+    if ((this.config as AgentControllerConfig).watchSkills) {
       this.skillLoader.startWatch((newRegistry) => {
         this.rebuildToolRegistry(newRegistry);
         this.log(
@@ -2050,7 +1721,6 @@ export class Agent extends EventEmitter {
     }
   }
 
-  /** Rebuild the tool registry from built-in tools + skill tools, applying realm skill filter. */
   private rebuildToolRegistry(skillRegistry: SkillRegistry): void {
     let extraTools = skillRegistry.getAllTools();
 
@@ -2058,17 +1728,14 @@ export class Agent extends EventEmitter {
       const filterMap = new Map(
         this.realmSkillFilter.map((s) => [s.name, s.enabled])
       );
-      // Filter at skill level — collect tools only from enabled skills
       extraTools = skillRegistry.skills
         .filter((skill) => {
           const enabled = filterMap.get(skill.name);
-          // Skill not referenced in filter → treat as enabled (not realm-managed)
           return enabled !== false;
         })
         .flatMap((skill) => skill.tools);
     }
 
-    // Add knowledge_search tool — requires 'knowledge_search' capability to be granted
     const knowledgeTool = buildKnowledgeTool(() => this.activeLlmConfig);
     const knowledgeToolDef: import("./tools/types").AgentToolDefinition = {
       capability:
@@ -2084,17 +1751,13 @@ export class Agent extends EventEmitter {
     });
   }
 
-  // ---- Task queue & scheduler ----
-
   private initTaskQueue(): void {
-    // The executor runs `executeAction` which already uses the tool registry
     this.taskQueue = new TaskQueue(
       async (action, params) => {
-        // Special handling for channel mentions — process and post response
         if (action === "channel_mention") {
           return this.handleChannelMentionTask(params as any);
         }
-        return this.executeAction(action, params);
+        return this.executeIntent(action, params);
       },
       {
         onTaskUpdate: (task) => {
@@ -2112,60 +1775,6 @@ export class Agent extends EventEmitter {
     this.scheduler.start(this.taskQueue);
     this.log("info", "Task queue and scheduler started");
   }
-
-  private handleTaskEnqueue(message: WSMessage): void {
-    if (!this.taskQueue) return;
-
-    const p =
-      message.payload as import("@vaultysclaw/shared").WSTaskEnqueuePayload;
-    const taskId = this.taskQueue.enqueue(p.action, p.params ?? {}, {
-      priority: p.priority,
-      scheduledAt: p.scheduledAt,
-      maxRetries: p.maxRetries,
-      createdBy: p.createdBy,
-    });
-
-    this.log("info", `Task enqueued via WS: ${taskId} (${p.action})`);
-
-    this.send({
-      messageId: `task-ack-${Date.now()}`,
-      type: "task_status",
-      payload: {
-        taskId,
-        status: "pending",
-        action: p.action,
-        retryCount: 0,
-      } satisfies import("@vaultysclaw/shared").WSTaskStatusPayload,
-      timestamp: new Date().toISOString(),
-    });
-  }
-
-  private handleScheduleUpdate(message: WSMessage): void {
-    if (!this.scheduler) return;
-
-    const p =
-      message.payload as import("@vaultysclaw/shared").WSScheduleUpdatePayload;
-    this.scheduler.addSchedule({
-      id: p.id,
-      name: p.name,
-      cron: p.cron,
-      action: p.action,
-      params: p.params,
-      enabled: p.enabled,
-    });
-    this.log("info", `Schedule updated: ${p.id} (${p.cron} → ${p.action})`);
-  }
-
-  private handleScheduleDelete(message: WSMessage): void {
-    if (!this.scheduler) return;
-
-    const p =
-      message.payload as import("@vaultysclaw/shared").WSScheduleDeletePayload;
-    this.scheduler.removeSchedule(p.id);
-    this.log("info", `Schedule deleted: ${p.id}`);
-  }
-
-  // ---- Channel mention handling ----
 
   private async handleChannelMentionTask(params: {
     channelId: string;
@@ -2189,19 +1798,16 @@ export class Agent extends EventEmitter {
         `Channel mention received: @${agentName} in ${channelId} thread ${threadId}`
       );
 
-      // Use executeAction to generate an LLM-based response to the mention
-      const response = await this.executeAction(
+      const response = await this.executeIntent(
         `Respond to channel mention: ${userMessage}`,
         { channelId, userDid, userMessage }
       );
 
-      // Extract text from response
       const responseText =
         typeof response === "string"
           ? response
           : ((response as any).text ?? JSON.stringify(response));
 
-      // Post response to channel via WebSocket
       this.send({
         messageId: `channel-msg-${Date.now()}`,
         type: "channel_message_send",
@@ -2236,734 +1842,89 @@ export class Agent extends EventEmitter {
     }
   }
 
-  // ---- Chat (streaming via WS) ----
+  private buildAgentToolSet(
+    conversationId?: string
+  ): Record<string, MastraTool> {
+    const caps =
+      this.capabilities.length > 0
+        ? this.capabilities
+        : this.toolRegistry.tools.map((t) => t.capability);
 
-  private async handleChatMessage(message: WSMessage): Promise<void> {
-    const payload = message.payload as WSChatMessagePayload;
-    const { conversationId, messages } = payload;
-
-    this.log(
-      "info",
-      `Chat request ${conversationId} (${messages.length} messages)`
+    const ts = buildToolSet(
+      this.toolRegistry,
+      caps as AgentCapability[],
+      (request) => {
+        return this.requestToolApproval(request, conversationId);
+      }
     );
 
-    // Persist session + only new incoming messages (avoid duplicating history on each turn)
-    const title =
-      messages.find((m) => m.role === "user")?.content.slice(0, 80) ?? null;
-    try {
-      upsertChatSession(conversationId, title, "control_plane");
-      const existingCount = getChatMessages(conversationId).length;
-      const newMessages = messages.slice(existingCount);
-      if (newMessages.length > 0) {
-        appendChatMessages(
-          conversationId,
-          newMessages.map((m) => ({ role: m.role, content: m.content }))
-        );
+    if (this.peerCatalog.length > 0 && this.peerManager) {
+      const remoteTools = buildRemoteAgentTools(
+        this.peerCatalog,
+        this.peerManager
+      );
+      for (const def of remoteTools) {
+        ts[def.name] = def.tool as MastraTool;
       }
-    } catch {
-      /* non-fatal */
     }
 
-    if (!this.activeLlmConfig) {
-      this.send({
-        messageId: `chat-resp-${Date.now()}`,
-        type: "chat_response",
-        agentId: this.id,
-        payload: {
-          conversationId,
-          error: "LLM not configured",
-          done: true,
-        } satisfies WSChatResponsePayload,
-        timestamp: new Date().toISOString(),
-      });
-      return;
-    }
-
-    try {
-      // Retrieve relevant memories for context
-      const lastUserMsg =
-        [...messages].reverse().find((m) => m.role === "user")?.content ?? "";
-      const memoryContext = lastUserMsg
-        ? this.memoryRetriever.retrieve(lastUserMsg)
-        : undefined;
-
-      const tools = this.buildAgentToolSet(conversationId);
-
-      // Detect @mentions in the last user message and inject routing hints so the
-      // LLM knows to use the correct ask_agent_<name> tool — without this, smaller
-      // models often ignore the tool entirely and just reply in plain text.
-      const peerHints: string[] = [];
-      if (this.peerCatalog.length > 0) {
-        const mentionMatches = [...lastUserMsg.matchAll(/@([\w\-]+)/g)];
-        for (const [, mention] of mentionMatches) {
-          const normalised = mention.toLowerCase().replace(/[^a-z0-9]/g, "");
-          const grant = this.peerCatalog.find(
-            (g) =>
-              g.targetName.toLowerCase().replace(/[^a-z0-9]/g, "") ===
-              normalised
-          );
-          if (grant) {
-            const toolName = `ask_agent_${grant.targetName
-              .toLowerCase()
-              .replace(/[^a-z0-9]+/g, "_")
-              .replace(/^_+|_+$/g, "")
-              .slice(0, 40)}`;
-            peerHints.push(
-              `The user mentioned @${mention} in their message. ` +
-                `You MUST use the \`${toolName}\` tool to forward the user's request to that agent and relay its response. ` +
-                `Do NOT answer on behalf of @${mention} yourself — delegate via the tool.`
-            );
-            this.log(
-              "info",
-              `@mention detected: @${mention} → tool ${toolName}`
-            );
-          }
-        }
-      }
-
-      const skillExtensions =
-        this.realmSkillFilter
-          ?.filter((s) => s.enabled && s.content)
-          .map((s) => s.content as string) ?? [];
-
-      const result = streamChat(
-        this.activeLlmConfig,
-        messages,
-        tools,
-        (event) => {
-          // Report tool executions to control plane for real-time UI
-          if (event.toolCalls && event.toolCalls.length > 0) {
-            for (const tc of event.toolCalls) {
-              const toolResult = event.toolResults?.find(
-                (r: any) => r.toolCallId === tc.toolCallId
-              );
-              this.send({
-                messageId: `tool-exec-${Date.now()}`,
-                type: "tool_execution",
-                agentId: this.id,
-                payload: {
-                  conversationId,
-                  toolName: tc.toolName,
-                  args: tc.args,
-                  result: toolResult?.result,
-                  durationMs: 0,
-                } satisfies WSToolExecutionPayload,
-                timestamp: new Date().toISOString(),
-              });
-            }
-          }
-        },
-        memoryContext,
-        [...skillExtensions, ...peerHints]
-      );
-
-      const chunks: string[] = [];
-
-      // ── Chat-stream routing ────────────────────────────────────────────────
-      // Small local models (e.g. llama3.2 via Ollama) often output raw JSON
-      // tool-call syntax as plain text instead of using the structured API.
-      // We always buffer for ollama + openai-compatible providers so we can
-      // detect and execute such calls before anything reaches the client.
-      const provider = this.activeLlmConfig?.provider ?? "unknown";
-      const model = this.activeLlmConfig?.model ?? "unknown";
-      const toolNames = new Set(Object.keys(tools));
-      const useBufferedPath =
-        provider === "ollama" || provider === "openai-compatible";
-
-      this.log(
-        "info",
-        `[chat:stream] provider=${provider} model=${model} tools=[${[...toolNames].join(",")}] buffered=${useBufferedPath}`
-      );
-
-      if (useBufferedPath) {
-        // Buffer the full response before sending so we can post-process it.
-        const rawParts: string[] = [];
-        for await (const rawChunk of result.textStream) {
-          rawParts.push(rawChunk);
-        }
-        const fullText = rawParts.join("");
-
-        this.log(
-          "info",
-          `[chat:stream:buffered] raw_response=${JSON.stringify(fullText.slice(0, 500))}${fullText.length > 500 ? "…" : ""}`
-        );
-
-        const parsedCall = parseTextToolCall(fullText, toolNames);
-
-        this.log(
-          "info",
-          `[chat:stream:buffered] parseTextToolCall result=${parsedCall ? JSON.stringify({ toolName: parsedCall.toolName, args: parsedCall.args }) : "null"} knownTools=[${[...toolNames].join(",")}]`
-        );
-
-        let textToSend = fullText;
-
-        if (parsedCall) {
-          this.log(
-            "info",
-            `[chat:stream:buffered] executing intercepted tool call: ${parsedCall.toolName}`
-          );
-          const toolResult = await executeToolCall(
-            parsedCall.toolName,
-            parsedCall.args,
-            tools as any
-          );
-          this.log(
-            "info",
-            `[chat:stream:buffered] tool result: ${JSON.stringify(toolResult.result).slice(0, 300)}`
-          );
-          this.send({
-            messageId: `tool-exec-${Date.now()}`,
-            type: "tool_execution",
-            agentId: this.id,
-            payload: {
-              conversationId,
-              toolName: parsedCall.toolName,
-              args: parsedCall.args,
-              result: toolResult.result,
-              durationMs: 0,
-            } satisfies WSToolExecutionPayload,
-            timestamp: new Date().toISOString(),
-          });
-          textToSend =
-            typeof toolResult.result === "string"
-              ? toolResult.result
-              : JSON.stringify(toolResult.result, null, 2);
-        } else {
-          // Not a tool call — check if it looks like JSON we should warn about
-          // (model invented a tool name we don't have). Log it for diagnostics.
-          const trimmed = fullText.trim();
-          if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
-            this.log(
-              "warn",
-              `[chat:stream:buffered] response looks like JSON but no known tool matched — sending as-is. raw=${JSON.stringify(fullText.slice(0, 300))}`
-            );
-          }
-        }
-
-        const { segments, remaining } = splitThinkContent(textToSend, false);
-        const allSegs = remaining
-          ? [...segments, { text: remaining, thinking: false }]
-          : segments;
-        for (const seg of allSegs) {
-          this.send({
-            messageId: `chat-resp-${Date.now()}`,
-            type: "chat_response",
-            agentId: this.id,
-            payload: {
-              conversationId,
-              chunk: seg.text,
-              ...(seg.thinking ? { thinking: true } : {}),
-            } satisfies WSChatResponsePayload,
-            timestamp: new Date().toISOString(),
-          });
-          if (!seg.thinking) chunks.push(seg.text);
-        }
-      } else {
-        // Cloud-provider path: stream chunks as they arrive.
-        let thinkBuf = "";
-        let inThinking = false;
-        for await (const rawChunk of result.textStream) {
-          const {
-            segments,
-            remaining,
-            inThinking: newInThinking,
-          } = splitThinkContent(thinkBuf + rawChunk, inThinking);
-          thinkBuf = remaining;
-          inThinking = newInThinking;
-          for (const seg of segments) {
-            this.send({
-              messageId: `chat-resp-${Date.now()}`,
-              type: "chat_response",
-              agentId: this.id,
-              payload: {
-                conversationId,
-                chunk: seg.text,
-                ...(seg.thinking ? { thinking: true } : {}),
-              } satisfies WSChatResponsePayload,
-              timestamp: new Date().toISOString(),
-            });
-            if (!seg.thinking) chunks.push(seg.text);
-          }
-        }
-        // Flush any remaining buffered tag-prefix as a final chunk
-        if (thinkBuf) {
-          this.send({
-            messageId: `chat-resp-${Date.now()}`,
-            type: "chat_response",
-            agentId: this.id,
-            payload: {
-              conversationId,
-              chunk: thinkBuf,
-              ...(inThinking ? { thinking: true } : {}),
-            } satisfies WSChatResponsePayload,
-            timestamp: new Date().toISOString(),
-          });
-          if (!inThinking) chunks.push(thinkBuf);
-        }
-      }
-      this.send({
-        messageId: `chat-resp-${Date.now()}`,
-        type: "chat_response",
-        agentId: this.id,
-        payload: { conversationId, done: true } satisfies WSChatResponsePayload,
-        timestamp: new Date().toISOString(),
-      });
-
-      // Record token usage from streaming
-      try {
-        const usage = await result.usage;
-        if (usage && this.activeLlmConfig) {
-          this.emit("log", {
-            level: "info",
-            message: "Recording token usage from chat stream",
-            data: {
-              usage,
-              provider: this.activeLlmConfig.provider,
-              model: this.activeLlmConfig.model,
-            },
-          });
-          recordTokenUsage(
-            usage.promptTokens,
-            usage.completionTokens,
-            this.activeLlmConfig.provider,
-            this.activeLlmConfig.model
-          );
-          this._tokenUsageSinceLastSync.promptTokens += usage.promptTokens;
-          this._tokenUsageSinceLastSync.completionTokens +=
-            usage.completionTokens;
-          this._tokenUsageTotal.promptTokens += usage.promptTokens;
-          this._tokenUsageTotal.completionTokens += usage.completionTokens;
-        } else {
-          this.emit("log", {
-            level: "warn",
-            message: "No usage data from chat stream",
-            data: { usage, hasConfig: !!this.activeLlmConfig },
-          });
-        }
-      } catch (e) {
-        this.emit("log", {
-          level: "warn",
-          message: "Failed to record token usage from stream",
-          data: { error: String(e) },
-        });
-      }
-
-      // Persist assistant response
-      try {
-        appendChatMessages(conversationId, [
-          { role: "assistant", content: chunks.join("") },
-        ]);
-      } catch {
-        /* non-fatal */
-      }
-
-      // Async post-processing: summarize the conversation to extract memories
-      if (this.activeLlmConfig && messages.length >= 4) {
-        const assistantResponse = chunks.join("");
-        const fullHistory = [
-          ...messages,
-          { role: "assistant" as const, content: assistantResponse },
-        ];
-        const config = this.activeLlmConfig;
-        setImmediate(() => {
-          if (!this.memorySummarizer) {
-            this.memorySummarizer = new ConversationSummarizer(
-              this.memoryStore
-            );
-          }
-          this.memorySummarizer
-            .summarize(fullHistory, config, [`conversation:${conversationId}`])
-            .catch((err) =>
-              this.log("warn", "Memory summarization failed", err)
-            );
-        });
-      }
-    } catch (err) {
-      const errorCode = classifyLlmError(err);
-      const errMsg =
-        errorCode === "llm_unavailable"
-          ? `LLM provider not reachable (${this.activeLlmConfig?.baseUrl ?? this.activeLlmConfig?.provider ?? "unknown"}). Check the agent's LLM configuration.`
-          : err instanceof Error
-            ? err.message
-            : String(err);
-      this.log(
-        "error",
-        `Chat ${conversationId} failed [${errorCode}]: ${errMsg}`
-      );
-      this.send({
-        messageId: `chat-resp-${Date.now()}`,
-        type: "chat_response",
-        agentId: this.id,
-        payload: {
-          conversationId,
-          error: errMsg,
-          errorCode,
-          done: true,
-        } satisfies WSChatResponsePayload,
-        timestamp: new Date().toISOString(),
-      });
-    }
-  }
-
-  // ---- Chat session queries (from control plane) ----
-
-  private handleGetChatSessions(message: WSMessage): void {
-    const payload = (message.payload ?? {}) as WSGetChatSessionsPayload;
-    const limit = payload.limit ?? 50;
-    try {
-      const rows = listChatSessions(limit);
-      const sessions: WSChatSessionsResponsePayload["sessions"] = rows.map(
-        (r) => ({
-          id: r.id,
-          title: r.title,
-          source: r.source,
-          createdAt: r.created_at,
-          updatedAt: r.updated_at,
-          messageCount: (r.message_count as number | undefined) ?? 0,
-        })
-      );
-      this.send({
-        messageId: `chat-sessions-${Date.now()}`,
-        type: "chat_sessions_response",
-        agentId: this.id,
-        payload: { sessions } satisfies WSChatSessionsResponsePayload,
-        timestamp: new Date().toISOString(),
-      });
-    } catch (err) {
-      this.log("warn", "Failed to list chat sessions", err);
-    }
-  }
-
-  private handleGetChatHistory(message: WSMessage): void {
-    const payload = message.payload as WSGetChatHistoryPayload;
-    const { sessionId } = payload;
-    try {
-      const rows = getChatMessages(sessionId);
-      const messages: WSChatHistoryResponsePayload["messages"] = rows.map(
-        (r) => ({
-          id: r.id,
-          role: r.role,
-          content: r.content,
-          toolCalls: r.tool_calls ? JSON.parse(r.tool_calls) : undefined,
-          createdAt: r.created_at,
-        })
-      );
-      this.send({
-        messageId: `chat-history-${Date.now()}`,
-        type: "chat_history_response",
-        agentId: this.id,
-        payload: { sessionId, messages } satisfies WSChatHistoryResponsePayload,
-        timestamp: new Date().toISOString(),
-      });
-    } catch (err) {
-      this.log("warn", "Failed to get chat history", err);
-    }
-  }
-
-  // ---- LLM config ----
-
-  private handleLlmConfig(message: WSMessage): void {
-    const payload = message.payload as WSLlmConfigPayload;
-    // Encrypt apiKey and persist; then refresh runtime config asynchronously
-    this.persistEncryptedLlmConfig(payload.config)
-      .then(() => this.refreshActiveLlmConfig())
-      .catch((err) => {
-        this.log("error", "Failed to persist remote LLM config", err);
-      });
-    if (payload.config === null) {
-      this.log(
-        "info",
-        "Remote LLM config cleared — falling back to env config"
-      );
-    } else {
-      this.log(
-        "info",
-        `Remote LLM config received: ${payload.config.provider}/${payload.config.model}`
-      );
-    }
-  }
-
-  // ---- Realm skills config ----
-
-  private handleSkillsConfig(message: WSMessage): void {
-    const payload = message.payload as WSSkillsConfigPayload;
-    this.realmSkillFilter = payload.skills.length > 0 ? payload.skills : null;
-
-    // Rebuild tool registry with updated filter
-    if (this.skillLoader) {
-      this.rebuildToolRegistry(this.skillLoader.lastRegistry);
-    }
-
-    const enabled = (this.realmSkillFilter ?? [])
-      .filter((s) => s.enabled)
-      .map((s) => s.name);
-    const disabled = (this.realmSkillFilter ?? [])
-      .filter((s) => !s.enabled)
-      .map((s) => s.name);
     this.log(
-      "info",
-      `Realm skills config received: ${enabled.length} enabled, ${disabled.length} disabled`
+      "debug",
+      `buildAgentToolSet: caps=${JSON.stringify([...new Set(caps)])}, tools=${Object.keys(ts).join(",")}`
     );
+    return ts;
   }
 
-  /** Effective skill filter: skill name → enabled. null means no realm filter. */
-  getRealmSkillFilter(): SkillConfig[] | null {
-    return this.realmSkillFilter;
-  }
-
-  // ---- Delegations ----
-
-  private handleDelegationUpdate(message: WSMessage): void {
-    try {
-      const payload = message.payload as WSDelegationUpdatePayload;
-      const delegations = payload.delegations ?? [];
-
-      if (delegations.length === 0) {
-        clearAllDelegations();
-        this.log("info", "All delegations cleared");
-        return;
-      }
-
-      for (const d of delegations) {
-        storeDelegation({
-          id: d.id,
-          grant_id: d.grantId,
-          user_did: d.userDid,
-          agent_did: d.agentDid,
-          capabilities: JSON.stringify(d.capabilities),
-          certificate: d.certificate,
-          expires_at: d.expiresAt ?? null,
-        });
-      }
-      this.log(
-        "info",
-        `Delegation update: ${delegations.length} cert(s) stored`
-      );
-    } catch (err) {
-      this.log("error", "Error handling delegation update", err);
-    }
-  }
-
-  private handleAgentPeerCatalog(message: WSMessage): void {
-    try {
-      const payload = message.payload as WSAgentPeerCatalogPayload;
-      const peers = payload.peers ?? [];
-
-      // Persist to local DB (replaces previous catalog for this agent)
-      const ownDid = this.vaultysId?.did ?? this.id;
-      storePeerGrants(
-        ownDid,
-        peers.map((p) => ({
-          id: p.id,
-          source_did: p.sourceDid,
-          target_did: p.targetDid,
-          target_name: p.targetName,
-          skill_description: p.skillDescription,
-          capabilities: JSON.stringify(p.capabilities),
-          certificate: p.certificate,
-          expires_at: p.expiresAt ?? null,
-          created_at: new Date().toISOString(),
-        }))
-      );
-
-      this.peerCatalog = peers;
-      this.peerManager?.updatePeerCatalog(peers);
-
-      this.log("info", `Peer catalog updated: ${peers.length} peer grant(s)`);
-    } catch (err) {
-      this.log("error", "Error handling agent peer catalog", err);
-    }
-  }
-
-  /**
-   * Verify an intent message's ECDSA signature produced by the control plane.
-   *
-   * Wire format (same as delegation certs):
-   *   base64( 4-byte-LE-bodyLen | msgpack(body) | raw-signature )
-   *
-   * Body: { type: "intent", id, action, agentId, timestamp }
-   */
-  private verifyIntentSignature(message: WSMessage): boolean {
-    if (!this.serverPublicKey) {
-      this.log("warn", "Server public key unavailable — cannot verify intent signature");
-      return false;
-    }
-    const ok = verifyIntentMessage(message, this.serverPublicKey);
-    if (!ok) {
-      this.log("warn", `Intent signature verification failed for ${message.messageId}`);
-    }
-    return ok;
-  }
-
-  private async verifyUserDelegation(
-    userDid: string,
-    capability: string
+  private requestToolApproval(
+    request: ApprovalRequest,
+    conversationId?: string
   ): Promise<boolean> {
-    if (!this.serverPublicKey) {
-      this.log(
-        "warn",
-        "Server public key not available — cannot verify delegation"
-      );
-      return false;
-    }
-
-    const rows = getAllDelegations().filter((r) => r.user_did === userDid);
-
-    for (const row of rows) {
-      if (row.expires_at && new Date(row.expires_at) < new Date()) continue;
-      try {
-        const combined = Buffer.from(row.certificate, "base64");
-        if (combined.length < 5) continue;
-        const bodyLen = combined.readUInt32LE(0);
-        if (combined.length < 4 + bodyLen) continue;
-        const body = combined.subarray(4, 4 + bodyLen);
-        const signature = combined.subarray(4 + bodyLen);
-
-        const serverVid = VaultysId.fromId(this.serverPublicKey);
-        const valid = serverVid.verifyChallenge(
-          Buffer.from(body),
-          Buffer.from(signature),
-          false
+    return new Promise<boolean>((resolve) => {
+      const timeoutMs =
+        (this.config as AgentControllerConfig).approvalTimeoutMs ??
+        Agent.DEFAULT_APPROVAL_TIMEOUT_MS;
+      const timer = setTimeout(() => {
+        this.pendingApprovals.delete(request.requestId);
+        this._pendingApprovalsMeta = this._pendingApprovalsMeta.filter(
+          (m) => m.requestId !== request.requestId
         );
-        if (!valid) continue;
+        this.log(
+          "warn",
+          `Tool approval timed out: ${request.toolName} (${request.requestId})`
+        );
+        resolve(false);
+      }, timeoutMs);
 
-        const p = msgpackDecode(body) as {
-          type: string;
-          userDid: string;
-          agentDid: string;
-          capabilities: string[];
-          expiresAt?: number;
-        };
-        if (p.type !== "delegation") continue;
-        if (p.expiresAt && p.expiresAt < Date.now()) continue;
-        if (p.agentDid !== this.id && p.agentDid !== "*") continue;
-        if (!p.capabilities.includes(capability)) continue;
-        return true;
-      } catch {
-        continue;
-      }
-    }
-    return false;
-  }
+      this.pendingApprovals.set(request.requestId, { resolve, timer });
 
-  // ---- Policy ----
+      const meta = {
+        requestId: request.requestId,
+        toolName: request.toolName,
+        args: request.args,
+        conversationId,
+        requestedAt: new Date().toISOString(),
+      };
+      this._pendingApprovalsMeta.push(meta);
+      this.emit("tool_approval_request", meta);
 
-  /**
-   * @deprecated The `policy_update` message is superseded by the cert-reissue path
-   * (`update_capabilities` → re-auth). Policy metadata (resourceLimits, policyId,
-   * policyExpiresAt) is now embedded in the Challenger certificate and read in
-   * handleAuthComplete / handleUpdateCapabilities. This handler is kept as a
-   * no-op for backward compatibility with older control-plane builds.
-   */
-  private handlePolicyUpdate(message: WSMessage): void {
-    const { messageId } = message;
-    this.log(
-      "warn",
-      "Received deprecated policy_update message — policies are now enforced via cert reissue"
-    );
-    this.sendAck(messageId, true);
-  }
-
-  // ---- Knowledge sync ----
-
-  private async handleKnowledgeSync(message: WSMessage): Promise<void> {
-    const { messageId, payload } = message;
-    const {
-      sourceId,
-      sourceName,
-      sourceType,
-      config,
-      docling,
-      fileAttachments,
-    } = payload as {
-      sourceId: string;
-      sourceName: string;
-      sourceType: string;
-      config: KnowledgeSourceConfig;
-      docling?: { url: string; sourceEndpoint?: string; fileEndpoint?: string };
-      fileAttachments?: Array<{
-        id: string;
-        name: string;
-        mimeType: string;
-        size: number;
-        content: string;
-      }>;
-    };
-
-    this.log(
-      "info",
-      `Knowledge sync requested for source "${sourceName}" (${sourceId})`
-    );
-
-    if (!this.activeLlmConfig) {
       this.send({
-        type: "result",
-        messageId,
-        payload: { status: "failed", error: "LLM not configured" },
+        messageId: request.requestId,
+        type: "tool_approval_request",
+        agentId: this.id,
+        payload: {
+          requestId: request.requestId,
+          conversationId,
+          toolName: request.toolName,
+          args: request.args,
+          agentId: this.id,
+        } satisfies WSToolApprovalRequestPayload,
         timestamp: new Date().toISOString(),
       });
-      return;
-    }
 
-    // Immediate ACK so the control plane knows the sync started
-    this.send({
-      messageId: `intent-ack-${Date.now()}`,
-      type: "intent_ack",
-      agentId: this.id,
-      payload: { status: "started", sourceId },
-      timestamp: new Date().toISOString(),
+      this.log(
+        "info",
+        `Tool approval requested: ${request.toolName} (${request.requestId})`
+      );
     });
-
-    // Run ingestion (non-blocking — reports status back to control-plane when done)
-    ingestSource(
-      sourceId,
-      sourceName,
-      sourceType,
-      config,
-      this.activeLlmConfig,
-      docling,
-      fileAttachments
-    )
-      .then((result) => {
-        this.log(
-          "info",
-          `Knowledge sync complete: ${result.docsProcessed} docs, ${result.chunksCreated} chunks`
-        );
-        // Mark as error if every document failed (docsProcessed=0 with errors)
-        const status =
-          result.docsProcessed === 0 && result.errors.length > 0
-            ? "error"
-            : "ready";
-        this.send({
-          messageId: `ks-result-${Date.now()}`,
-          type: "knowledge_sync_result",
-          agentId: this.id,
-          payload: {
-            sourceId,
-            status,
-            docsProcessed: result.docsProcessed,
-            chunksCreated: result.chunksCreated,
-            errors: result.errors,
-          },
-          timestamp: new Date().toISOString(),
-        });
-      })
-      .catch((err) => {
-        const errMsg = err instanceof Error ? err.message : String(err);
-        this.log("error", `Knowledge sync failed: ${errMsg}`);
-        this.send({
-          messageId: `ks-result-${Date.now()}`,
-          type: "knowledge_sync_result",
-          agentId: this.id,
-          payload: {
-            sourceId,
-            status: "error",
-            docsProcessed: 0,
-            chunksCreated: 0,
-            errors: [errMsg],
-          },
-          timestamp: new Date().toISOString(),
-        });
-      });
   }
 }

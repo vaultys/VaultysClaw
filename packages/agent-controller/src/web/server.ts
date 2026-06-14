@@ -274,7 +274,7 @@ export function startWebServer({ port, agent }: WebServerOptions): http.Server {
       if (!vid)
         return jsonResponse(res, 503, { error: "Agent identity not ready" });
       try {
-        const result = await startP2PAuthSession(vid, agent.getPeerjsServer());
+        const result = await startP2PAuthSession(vid, agent.getPeerjsServerUrl());
         const agentDid = agent.getDid();
         const qrUrl = `https://wallet.vaultys.net/#${result.connectionString}&protocol=p2p&service=auth&did=${encodeURIComponent(agentDid)}`;
         return jsonResponse(res, 200, { ...result, qrUrl, agentDid });

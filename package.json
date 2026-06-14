@@ -12,6 +12,8 @@
     "agent:web": "pnpm --filter @vaultysclaw/agent-controller dev:web",
     "agent:tui": "pnpm --filter @vaultysclaw/agent-controller dev:tui",
     "agent:spawn": "pnpm --filter @vaultysclaw/agent-controller spawn",
+    "mcp:dev": "pnpm --filter @vaultysclaw/mcp-gateway dev",
+    "mcp:build": "pnpm --filter @vaultysclaw/mcp-gateway build",
     "dev": "turbo run dev",
     "-- BUILD --": "",
     "build": "turbo run build",

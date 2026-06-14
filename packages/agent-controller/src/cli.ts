@@ -30,6 +30,7 @@
  *   --help, -h                 Show this help message
  */
 
+import "./polyfill";
 import { fork } from "child_process";
 import path from "path";
 import os from "os";

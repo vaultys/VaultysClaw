@@ -6,6 +6,7 @@ import {
   CreateScheduleBodySchema,
   ListAgentsQuerySchema,
   PutLiteLlmKeyBodySchema,
+  RunIntentBodySchema,
   SendTaskBodySchema,
   SetLocationBodySchema,
   SetLlmConfigBodySchema,
@@ -73,6 +74,23 @@ export const agentsContract = c.router({
     body: SendTaskBodySchema,
     responses: {
       200: c.type<any>(), // TODO: c.type<SendTaskResponse>(),
+      ...commonErrorResponses,
+    },
+  },
+
+  runIntent: {
+    method: "POST",
+    path: "/api/agents/:did/run",
+    pathParams: z.object({ did: z.string() }),
+    body: RunIntentBodySchema,
+    responses: {
+      200: c.type<{
+        intentId: string;
+        status: "success" | "failed";
+        output: unknown;
+        error: string | null;
+        executedAt: string;
+      }>(),
       ...commonErrorResponses,
     },
   },

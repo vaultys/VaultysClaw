@@ -36,6 +36,7 @@
     "@roamhq/wrtc": "^0.10.0",
     "@vaultys/channel-peerjs": "^2.4.3",
     "@vaultys/id": "3.0.0-beta6",
+    "@vaultysclaw/agent-runtime": "workspace:*",
     "@vaultysclaw/shared": "workspace:*",
     "ai": "^6.0.169",
     "axios": "^1.7.7",

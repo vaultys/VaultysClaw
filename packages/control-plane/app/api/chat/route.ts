@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-config";
 import { getWSServer } from "@/lib/ws-server";
+// getAuthContext imported dynamically below for API key fallback
 import { crypto } from "@vaultys/id";
 import { GrantDAO } from "@/db";
 import type {
@@ -80,9 +81,21 @@ import {
  *         description: Internal server error.
  */
 export const POST = withError(async (request: NextRequest) => {
+  // Support both NextAuth sessions and API key authentication
   const session = await getServerSession(authOptions);
-  if (!session?.user) {
-    return unauthorized();
+  let isAdmin = false;
+  let callerDid: string | undefined;
+
+  if (session?.user) {
+    isAdmin = Boolean(session.user.isAdmin);
+    callerDid = session.user.did ?? undefined;
+  } else {
+    // Try API key auth via getAuthContext
+    const { getAuthContext } = await import("@/lib/auth-utils");
+    const auth = await getAuthContext(request).catch(() => null);
+    if (!auth) return unauthorized();
+    isAdmin = auth.isGlobalAdmin;
+    callerDid = auth.did;
   }
 
   const body = await request.json();
@@ -109,11 +122,11 @@ export const POST = withError(async (request: NextRequest) => {
   }
 
   // Permission check: non-admins need at least one grant for this agent
-  if (!session.user.isAdmin) {
-    if (!session.user.did) {
+  if (!isAdmin) {
+    if (!callerDid) {
       return malformed("User DID is required for non-admin users");
     }
-    const grants = await GrantDAO.listByUser(session.user.did);
+    const grants = await GrantDAO.listByUser(callerDid);
     const hasGrant = grants.some((g) => {
       const agentMatch = g.agentDid === null || g.agentDid === agentDid;
       const notExpired = !g.expiresAt || new Date(g.expiresAt) > new Date();

@@ -6,11 +6,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 VaultysClaw is a decentralized AI agent orchestration platform. A central **control plane** (Next.js + WebSocket server) manages lightweight **agent controllers** that connect via WebSocket, execute LLM-driven intents using tools, and maintain cryptographic identity via [VaultysId](https://github.com/vaultys/id).
 
-**Monorepo**: pnpm workspaces + Turborepo. Three main packages:
+**Monorepo**: pnpm workspaces + Turborepo. Four main packages:
 
 - `packages/shared` — types, security utils, channel protocol definitions
 - `packages/control-plane` — Next.js App Router dashboard + WebSocket server (port 3000 / WS 8080)
 - `packages/agent-controller` — agent runtime CLI, tools, skills, memory
+- `packages/mcp-gateway` — MCP server that exposes VaultysClaw agents as tools for Claude Code and other MCP clients
 
 ## Commands
 
@@ -22,6 +23,8 @@ pnpm vaultysclaw:dev         # Control plane only (preferred alias)
 pnpm agent:dev               # Agent controller only (headless)
 pnpm agent:web               # Agent controller with web UI (port 3002)
 pnpm agent:tui               # Agent controller with Ink TUI
+pnpm mcp:dev                 # MCP gateway (stdio, reads VC_CONTROL_PLANE_URL + VC_API_KEY)
+pnpm mcp:build               # Build MCP gateway to dist/
 
 # Demo / Simulator
 pnpm simulator:up            # Full demo stack: PostgreSQL + MinIO + Docling + LiteLLM + Grafana + 30 agents

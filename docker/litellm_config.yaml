@@ -1,0 +1,10 @@
+# LiteLLM proxy config for VaultysClaw all-in-one stack.
+# master_key and database_url are read from environment variables
+# (LITELLM_MASTER_KEY and DATABASE_URL) set in docker-compose.yml.
+# Models are registered dynamically via the control plane UI.
+general_settings:
+  store_model_in_db: true
+
+litellm_settings:
+  drop_params: true
+  redact_messages_in_exceptions: true

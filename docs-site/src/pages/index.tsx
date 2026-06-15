@@ -758,6 +758,93 @@ function ThreePillarsSection() {
 }
 
 /* ────────────────────────────────────────────────────────────
+   Anthropic Zero Trust teaser
+   ──────────────────────────────────────────────────────────── */
+function AnthropicScoreTeaser() {
+  return (
+    <section
+      style={{ padding: "0 0 0", background: "var(--ifm-background-surface-color)" }}
+    >
+      <div className="container" style={{ paddingBottom: "0" }}>
+        <Link
+          to="/zero-trust-score"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            flexWrap: "wrap",
+            gap: "16px",
+            background: "linear-gradient(135deg, rgba(59,130,246,0.08) 0%, rgba(16,185,129,0.08) 100%)",
+            border: "1px solid rgba(59,130,246,0.2)",
+            borderRadius: "14px",
+            padding: "22px 28px",
+            textDecoration: "none",
+            transition: "border-color 0.15s",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+            <div
+              style={{
+                width: 44,
+                height: 44,
+                borderRadius: 10,
+                background: "rgba(59,130,246,0.12)",
+                border: "1px solid rgba(59,130,246,0.25)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flexShrink: 0,
+              }}
+            >
+              <ShieldCheck size={22} strokeWidth={1.8} style={{ color: "#3b82f6" }} />
+            </div>
+            <div>
+              <div
+                style={{
+                  fontSize: "0.72rem",
+                  fontWeight: 700,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.1em",
+                  color: "#3b82f6",
+                  marginBottom: 4,
+                }}
+              >
+                Anthropic Zero Trust AI Agents Framework · May 2026
+              </div>
+              <div
+                style={{
+                  fontWeight: 700,
+                  fontSize: "0.95rem",
+                  color: "var(--ifm-color-emphasis-900)",
+                }}
+              >
+                VaultysClaw covers{" "}
+                <span style={{ color: "#3fb950" }}>7 domains fully</span>,{" "}
+                <span style={{ color: "#f59e0b" }}>4 partially</span>, and{" "}
+                <span style={{ color: "#3b82f6" }}>1 on the roadmap</span> — unmatched coverage among open-source agent platforms.
+              </div>
+            </div>
+          </div>
+          <div
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              color: "#3b82f6",
+              fontSize: "0.85rem",
+              fontWeight: 700,
+              whiteSpace: "nowrap",
+            }}
+          >
+            See the full breakdown <ChevronRight size={16} strokeWidth={2.5} />
+          </div>
+        </Link>
+      </div>
+    </section>
+  );
+}
+
+/* ────────────────────────────────────────────────────────────
    Feature cards
    ──────────────────────────────────────────────────────────── */
 const FEATURES: {
@@ -1956,14 +2043,13 @@ export default function Home(): React.ReactElement {
     >
       <Hero />
       <ThreePillarsSection />
-      <EnterpriseSection />
+      <AnthropicScoreTeaser />
       <ManifestoSection />
       <FeaturesSection />
       <ArchitectureSection />
       <DashboardMockup />
       <SecuritySection />
       <CodeExampleSection />
-      <QuotesSection />
       <TCOSection />
       <CTASection />
     </Layout>

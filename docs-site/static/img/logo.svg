@@ -1,16 +1,41 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" fill="none">
+<svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg" fill="none">
   <defs>
-    <linearGradient id="grad" x1="0" y1="0" x2="40" y2="40" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#3b82f6"/>
+    <linearGradient id="shield-grad" x1="0" y1="0" x2="40" y2="40" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#1d4ed8"/>
       <stop offset="100%" stop-color="#7c3aed"/>
     </linearGradient>
   </defs>
-  <!-- Hexagon claw shape -->
-  <polygon points="20,2 36,11 36,29 20,38 4,29 4,11" fill="url(#grad)" opacity="0.15" stroke="url(#grad)" stroke-width="1.5"/>
-  <polygon points="20,7 32,14 32,27 20,34 8,27 8,14" fill="none" stroke="url(#grad)" stroke-width="1" opacity="0.4"/>
-  <!-- Claw marks -->
-  <line x1="14" y1="12" x2="20" y2="28" stroke="url(#grad)" stroke-width="2" stroke-linecap="round"/>
-  <line x1="20" y1="10" x2="20" y2="28" stroke="url(#grad)" stroke-width="2" stroke-linecap="round"/>
-  <line x1="26" y1="12" x2="20" y2="28" stroke="url(#grad)" stroke-width="2" stroke-linecap="round"/>
-  <circle cx="20" cy="28" r="2.5" fill="url(#grad)"/>
+
+  <!-- Antenna stem -->
+  <line x1="20" y1="1.5" x2="20" y2="5.5" stroke="#1d4ed8" stroke-width="1.5" stroke-linecap="round"/>
+  <!-- Antenna ball -->
+  <circle cx="20" cy="1.5" r="1.5" fill="#3b82f6"/>
+
+  <!-- Shield body -->
+  <path d="M20,5.5 L33.5,11 L33.5,23.5 C33.5,31.5 27.5,36.5 20,39 C12.5,36.5 6.5,31.5 6.5,23.5 L6.5,11 Z"
+        fill="url(#shield-grad)"/>
+
+  <!-- Inner shield border (subtle highlight) -->
+  <path d="M20,8.5 L31,13 L31,22.5 C31,28.5 26.5,33 20,35.5 C13.5,33 9,28.5 9,22.5 L9,13 Z"
+        stroke="rgba(255,255,255,0.18)" stroke-width="0.8"/>
+
+  <!-- Left eye — white sclera -->
+  <circle cx="15" cy="19" r="3.5" fill="white" opacity="0.95"/>
+  <!-- Left pupil -->
+  <circle cx="15" cy="19" r="2" fill="#1d4ed8"/>
+  <!-- Left pupil highlight -->
+  <circle cx="15.9" cy="18.1" r="0.75" fill="white"/>
+
+  <!-- Right eye — white sclera -->
+  <circle cx="25" cy="19" r="3.5" fill="white" opacity="0.95"/>
+  <!-- Right pupil -->
+  <circle cx="25" cy="19" r="2" fill="#1d4ed8"/>
+  <!-- Right pupil highlight -->
+  <circle cx="25.9" cy="18.1" r="0.75" fill="white"/>
+
+  <!-- Mouth bar -->
+  <rect x="13.5" y="26" width="13" height="2.5" rx="1.25" fill="white" opacity="0.85"/>
+  <!-- Mouth segment dividers -->
+  <line x1="17.8" y1="26" x2="17.8" y2="28.5" stroke="rgba(59,130,246,0.45)" stroke-width="0.8"/>
+  <line x1="22.2" y1="26" x2="22.2" y2="28.5" stroke="rgba(59,130,246,0.45)" stroke-width="0.8"/>
 </svg>

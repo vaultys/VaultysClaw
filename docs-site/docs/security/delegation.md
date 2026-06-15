@@ -6,7 +6,7 @@ description: How users grant capabilities to agents via cryptographically-verifi
 
 # Delegation
 
-Delegation is the mechanism by which a human user authorises an agent to act on their behalf with specific capabilities. Vaultys Claw implements delegation through cryptographically-signed certificates — so agents can verify authorisation **without** a live query to the control plane.
+Delegation is the mechanism by which a human user authorises an agent to act on their behalf with specific capabilities. VaultysClaw implements delegation through cryptographically-signed certificates — so agents can verify authorisation **without** a live query to the control plane.
 
 ## The delegation model
 

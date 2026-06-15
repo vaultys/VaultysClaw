@@ -1,12 +1,12 @@
 ---
 sidebar_position: 1
 title: Channel Architecture
-description: How Vaultys Claw uses persistent, named channels to coordinate agents, users, and external services.
+description: How VaultysClaw uses persistent, named channels to coordinate agents, users, and external services.
 ---
 
 # Channel Architecture
 
-Vaultys Claw organises all communication — between users, between users and agents, and between agents — through **persistent named channels**. This replaces the previous point-to-point WebRTC model with an asynchronous pub/sub layer that scales to enterprise deployments and integrates naturally with external platforms like Microsoft Teams.
+VaultysClaw organises all communication — between users, between users and agents, and between agents — through **persistent named channels**. This replaces the previous point-to-point WebRTC model with an asynchronous pub/sub layer that scales to enterprise deployments and integrates naturally with external platforms like Microsoft Teams.
 
 ## Why channels?
 

@@ -1,12 +1,12 @@
 ---
 sidebar_position: 2
 title: Security Model
-description: A comprehensive overview of Vaultys Claw's threat model and security controls.
+description: A comprehensive overview of VaultysClaw's threat model and security controls.
 ---
 
 # Security Model
 
-Vaultys Claw is designed with a **zero-trust** security posture. No component trusts another by default — all trust is established through cryptographic proof.
+VaultysClaw is designed with a **zero-trust** security posture. No component trusts another by default — all trust is established through cryptographic proof.
 
 ## Threat model
 
@@ -148,7 +148,7 @@ In production, pipe Pino output to your SIEM (Splunk, Elastic, Datadog) for cent
 
 ## Compliance considerations
 
-Vaultys Claw's design is well-suited for environments requiring:
+VaultysClaw's design is well-suited for environments requiring:
 
 - **SOC 2** — audit trail, access control, least privilege
 - **ISO 27001** — asset management (agent registry), access control, cryptography controls

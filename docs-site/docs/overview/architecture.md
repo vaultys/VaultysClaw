@@ -1,12 +1,12 @@
 ---
 sidebar_position: 1
 title: Architecture
-description: A deep dive into how Vaultys Claw is structured and how its components communicate.
+description: A deep dive into how VaultysClaw is structured and how its components communicate.
 ---
 
 # Architecture
 
-Vaultys Claw is designed as a **hub-and-spoke** system. A central control plane acts as the hub; any number of agent controllers are the spokes. The connection is always outbound from the agent, which means agents can run behind strict firewalls with no inbound ports exposed.
+VaultysClaw is designed as a **hub-and-spoke** system. A central control plane acts as the hub; any number of agent controllers are the spokes. The connection is always outbound from the agent, which means agents can run behind strict firewalls with no inbound ports exposed.
 
 ## Component overview
 
@@ -206,7 +206,7 @@ sequenceDiagram
 
 ## Database schema
 
-Vaultys Claw supports two database backends selected via the `DATABASE_URL` environment variable:
+VaultysClaw supports two database backends selected via the `DATABASE_URL` environment variable:
 
 | Backend | When to use |
 |---------|-------------|

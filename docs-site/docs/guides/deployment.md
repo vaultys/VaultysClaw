@@ -1,12 +1,12 @@
 ---
 sidebar_position: 4
 title: Production Deployment
-description: Deploy Vaultys Claw to production with TLS, reverse proxy, and monitoring.
+description: Deploy VaultysClaw to production with TLS, reverse proxy, and monitoring.
 ---
 
 # Production Deployment
 
-This guide covers hardening and deploying Vaultys Claw for production use.
+This guide covers hardening and deploying VaultysClaw for production use.
 
 ## Architecture overview
 
@@ -114,7 +114,7 @@ vaultysclaw.acme.com {
 ```ini
 # /etc/systemd/system/vaultysclaw-control-plane.service
 [Unit]
-Description=Vaultys Claw Control Plane
+Description=VaultysClaw Control Plane
 After=network.target
 
 [Service]

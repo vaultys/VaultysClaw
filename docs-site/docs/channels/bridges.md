@@ -6,7 +6,7 @@ description: Connect channels to Microsoft Teams and custom webhooks for bidirec
 
 # External Bridges
 
-A **bridge** links a Vaultys Claw channel to an external messaging service. Messages flow in the configured direction: `incoming` (external → channel), `outgoing` (channel → external), or `bidirectional`.
+A **bridge** links a VaultysClaw channel to an external messaging service. Messages flow in the configured direction: `incoming` (external → channel), `outgoing` (channel → external), or `bidirectional`.
 
 Two bridge types are currently supported:
 
@@ -169,7 +169,7 @@ await fetch(
 The Teams bridge is in preview. Bot Framework JWT verification and full OAuth token refresh are flagged as TODOs in the current codebase. It is suitable for testing but not production use without those additions.
 :::
 
-The Teams bridge integrates with the **Microsoft Teams Graph API** to relay messages bidirectionally between a Vaultys Claw channel and a Teams channel.
+The Teams bridge integrates with the **Microsoft Teams Graph API** to relay messages bidirectionally between a VaultysClaw channel and a Teams channel.
 
 ### Architecture
 
@@ -177,7 +177,7 @@ The Teams bridge integrates with the **Microsoft Teams Graph API** to relay mess
 sequenceDiagram
   participant TC as Teams Channel
   participant BF as Bot Framework Webhook
-  participant VC as Vaultys Claw
+  participant VC as VaultysClaw
   participant A as Agent
 
   TC->>BF: User posts in Teams

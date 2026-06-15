@@ -67,7 +67,7 @@ For production Linux deployments, run the agent as a systemd service:
 ```ini
 # /etc/systemd/system/vaultys-agent.service
 [Unit]
-Description=Vaultys Claw Agent Controller
+Description=VaultysClaw Agent Controller
 After=network.target
 Wants=network-online.target
 

@@ -179,7 +179,7 @@ export default function ArchitectureDiagram() {
           display: "block",
           background: "#0d1117",
         }}
-        aria-label="Vaultys Claw architecture: Control Plane with three connected Agent Controllers"
+        aria-label="VaultysClaw architecture: Control Plane with three connected Agent Controllers"
       >
         <defs>
           {/* dot-grid background */}

@@ -302,7 +302,7 @@ await fetch(
 POST /api/bridges/teams/incoming
 ```
 
-This endpoint is called by the Microsoft Teams Bot Framework when a user posts in a Teams channel linked to Vaultys Claw. It looks up the bridge by `channelId` from the Teams event payload and creates a message in the corresponding Vaultys Claw channel.
+This endpoint is called by the Microsoft Teams Bot Framework when a user posts in a Teams channel linked to VaultysClaw. It looks up the bridge by `channelId` from the Teams event payload and creates a message in the corresponding VaultysClaw channel.
 
 :::note Bot Framework authentication
 JWT verification of the Bot Framework `Authorization` header is marked as a TODO in the current preview implementation. Do not expose this endpoint publicly without adding that verification.

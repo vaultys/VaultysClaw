@@ -6,7 +6,7 @@ description: REST API for the model registry — register LLMs, manage realm acc
 
 # Models API
 
-The Models API manages the **model registry** — the set of LLMs that Vaultys Claw knows about and can route agent traffic through. All endpoints require admin authentication.
+The Models API manages the **model registry** — the set of LLMs that VaultysClaw knows about and can route agent traffic through. All endpoints require admin authentication.
 
 ## Data model
 

@@ -1,12 +1,12 @@
 ---
 sidebar_position: 2
 title: Core Concepts
-description: The fundamental building blocks of Vaultys Claw.
+description: The fundamental building blocks of VaultysClaw.
 ---
 
 # Core Concepts
 
-This page explains the key abstractions that underpin Vaultys Claw. Understanding these will help you make better architectural decisions when deploying agents in your organisation.
+This page explains the key abstractions that underpin VaultysClaw. Understanding these will help you make better architectural decisions when deploying agents in your organisation.
 
 ## VaultysId
 

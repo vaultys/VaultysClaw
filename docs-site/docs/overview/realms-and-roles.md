@@ -1,12 +1,12 @@
 ---
 sidebar_position: 3
 title: Realms & Roles
-description: Multi-tenant isolation and role-based access control in Vaultys Claw.
+description: Multi-tenant isolation and role-based access control in VaultysClaw.
 ---
 
 # Realms & Roles
 
-Vaultys Claw is built for organisations where multiple teams share the same infrastructure but must maintain strict boundaries between their agents, workflows, and data.
+VaultysClaw is built for organisations where multiple teams share the same infrastructure but must maintain strict boundaries between their agents, workflows, and data.
 
 ## Realms
 
@@ -109,7 +109,7 @@ Global admins bypass capability grant checks. For all other roles, both a realm 
 
 ## Default realm
 
-Every Vaultys Claw installation has a **default realm** created on first boot. Agents that register without specifying a realm are placed in the default realm. You can rename and re-colour it, but it cannot be deleted.
+Every VaultysClaw installation has a **default realm** created on first boot. Agents that register without specifying a realm are placed in the default realm. You can rename and re-colour it, but it cannot be deleted.
 
 ## Agent membership
 

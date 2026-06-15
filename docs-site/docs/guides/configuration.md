@@ -1,12 +1,12 @@
 ---
 sidebar_position: 2
 title: Configuration
-description: Complete reference for all environment variables in Vaultys Claw.
+description: Complete reference for all environment variables in VaultysClaw.
 ---
 
 # Configuration Reference
 
-Vaultys Claw is configured entirely through environment variables. Both the control plane and agent controller read from `.env.local` (development) or process environment variables (production / Docker).
+VaultysClaw is configured entirely through environment variables. Both the control plane and agent controller read from `.env.local` (development) or process environment variables (production / Docker).
 
 ## Control plane
 
@@ -141,7 +141,7 @@ LLM_MODEL=gemini-2.0-flash
 LLM_API_KEY=AI...
 
 # Ollama (local, no key)
-# Use the bare host — Vaultys Claw appends /v1 automatically
+# Use the bare host — VaultysClaw appends /v1 automatically
 LLM_PROVIDER=ollama
 LLM_MODEL=llama3.2
 LLM_BASE_URL=http://localhost:11434

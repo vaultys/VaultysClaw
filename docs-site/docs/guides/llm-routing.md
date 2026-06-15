@@ -6,7 +6,7 @@ description: Route agents through a LiteLLM proxy for centralized model manageme
 
 # LLM Routing with LiteLLM
 
-Vaultys Claw integrates with [LiteLLM Proxy](https://docs.litellm.ai/docs/proxy/quick_start) to provide **centralized LLM management**: register models once, assign them to realms, and let the control plane push the right configuration — including scoped virtual keys — to each agent automatically.
+VaultysClaw integrates with [LiteLLM Proxy](https://docs.litellm.ai/docs/proxy/quick_start) to provide **centralized LLM management**: register models once, assign them to realms, and let the control plane push the right configuration — including scoped virtual keys — to each agent automatically.
 
 ## Why use it
 

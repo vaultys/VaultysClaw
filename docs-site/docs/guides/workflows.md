@@ -1,7 +1,7 @@
 ---
 sidebar_position: 5
 title: Workflows
-description: Automate multi-step agent tasks with Vaultys Claw workflows.
+description: Automate multi-step agent tasks with VaultysClaw workflows.
 ---
 
 # Workflows
@@ -200,7 +200,7 @@ This runs the workflow at 08:00 every weekday (Paris time).
 
 ## Workflow templates
 
-Vaultys Claw ships with a library of workflow templates for common patterns:
+VaultysClaw ships with a library of workflow templates for common patterns:
 
 - **Document summarisation pipeline** — ingest → chunk → summarise → deliver
 - **Multi-agent research** — parallel scraping → synthesis → report

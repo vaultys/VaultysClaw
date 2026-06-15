@@ -1,12 +1,12 @@
 ---
 sidebar_position: 1
 title: VaultysId
-description: The decentralised identity backbone that makes Vaultys Claw's security model possible.
+description: The decentralised identity backbone that makes VaultysClaw's security model possible.
 ---
 
 # VaultysId — Decentralised Identity
 
-VaultysId is the cryptographic identity layer that underpins all security in Vaultys Claw. Every participant in the system — the control plane, each agent controller, and every human user — has a VaultysId: a self-sovereign, non-transferable identity backed by a cryptographic key pair.
+VaultysId is the cryptographic identity layer that underpins all security in VaultysClaw. Every participant in the system — the control plane, each agent controller, and every human user — has a VaultysId: a self-sovereign, non-transferable identity backed by a cryptographic key pair.
 
 ## Why decentralised identity?
 
@@ -197,7 +197,7 @@ Rotation tooling is on the roadmap.
 
 ## Comparison with alternatives
 
-| Mechanism                  | Vaultys Claw | JWT / API keys        | mTLS     |
+| Mechanism                  | VaultysClaw | JWT / API keys        | mTLS     |
 | -------------------------- | ------------ | --------------------- | -------- |
 | Central authority required | No           | Yes (issuer)          | Yes (CA) |
 | Non-repudiation            | Yes          | Limited               | Yes      |

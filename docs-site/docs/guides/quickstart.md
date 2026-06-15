@@ -1,7 +1,7 @@
 ---
 sidebar_position: 1
 title: Quick Start
-description: Get Vaultys Claw running in under five minutes.
+description: Get VaultysClaw running in under five minutes.
 ---
 
 # Quick Start
@@ -114,7 +114,7 @@ curl -X POST http://localhost:3000/api/intents \
   -H "Cookie: <your-session-cookie>" \
   -d '{
     "action": "echo",
-    "params": { "message": "Hello from Vaultys Claw!" }
+    "params": { "message": "Hello from VaultysClaw!" }
   }'
 ```
 

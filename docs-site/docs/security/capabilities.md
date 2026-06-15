@@ -6,7 +6,7 @@ description: Fine-grained permission control for agent actions.
 
 # Capabilities
 
-Capabilities are the core mechanism by which Vaultys Claw enforces the **principle of least privilege**. An agent can only perform actions for which it has been explicitly granted a capability.
+Capabilities are the core mechanism by which VaultysClaw enforces the **principle of least privilege**. An agent can only perform actions for which it has been explicitly granted a capability.
 
 ## Available capabilities
 

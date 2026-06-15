@@ -6,7 +6,7 @@ description: How to use the Governance dashboard to manage policies, resource li
 
 # AI Governance
 
-Vaultys Claw provides a built-in governance layer that lets you control **what** agents can do, **how much** they can consume, and **when** their permissions expire — all enforced cryptographically inside the agent's identity certificate.
+VaultysClaw provides a built-in governance layer that lets you control **what** agents can do, **how much** they can consume, and **when** their permissions expire — all enforced cryptographically inside the agent's identity certificate.
 
 ---
 

@@ -25,7 +25,7 @@ function ComparisonHero() {
         >
           <div className="hero-badge">
             <CheckCircle2 size={12} strokeWidth={2.5} />
-            Why Vaultys Claw
+            Why VaultysClaw
           </div>
           <h1 className="hero-title">
             The fundamental differences
@@ -37,7 +37,7 @@ function ComparisonHero() {
             style={{ maxWidth: "680px", margin: "0 auto 40px" }}
           >
             Most AI orchestration platforms treat agents as stateless cloud
-            tools. Vaultys Claw is built on completely different principles —
+            tools. VaultysClaw is built on completely different principles —
             decentralized identity, cryptographic security, true autonomy, and
             agents that live where your data does.
           </p>
@@ -127,7 +127,7 @@ function ComparisonBlock({
 
       {/* Two panels */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr" }}>
-        {/* Vaultys Claw panel */}
+        {/* VaultysClaw panel */}
         <div
           style={{
             padding: "28px 32px",
@@ -157,7 +157,7 @@ function ComparisonBlock({
                 color: accentColor,
               }}
             >
-              ✦ Vaultys Claw
+              ✦ VaultysClaw
             </span>
             <p
               style={{
@@ -1870,7 +1870,7 @@ function OpenClawBridge() {
             style={{ maxWidth: "660px", margin: "0 auto" }}
           >
             OpenClaw proved that agents should be local-first, developer-owned,
-            and free of cloud lock-in. Vaultys Claw takes that same foundation
+            and free of cloud lock-in. VaultysClaw takes that same foundation
             and adds the security and governance layer that enterprise
             deployments cannot skip.
           </p>
@@ -2056,7 +2056,7 @@ function OpenClawBridge() {
             />
           </div>
 
-          {/* Vaultys Claw side */}
+          {/* VaultysClaw side */}
           <div
             style={{
               padding: "40px",
@@ -2097,7 +2097,7 @@ function OpenClawBridge() {
                     backgroundClip: "text",
                   }}
                 >
-                  Vaultys Claw
+                  VaultysClaw
                 </div>
                 <div
                   style={{
@@ -2205,7 +2205,7 @@ const COMPETITORS: {
   highlight: boolean;
   dna?: boolean;
 }[] = [
-  { name: "Vaultys Claw", note: "This project", highlight: true },
+  { name: "VaultysClaw", note: "This project", highlight: true },
   { name: "Prisme.ai", note: "Enterprise low-code", highlight: false },
   { name: "LangGraph", note: "Python framework", highlight: false },
   { name: "CrewAI", note: "Multi-agent", highlight: false },
@@ -2671,7 +2671,7 @@ function FeatureMatrix() {
         >
           Moltis is a single-binary personal tool — outside the scope of this
           enterprise comparison. OpenClaw is included above as the direct
-          ancestor of Vaultys Claw.
+          ancestor of VaultysClaw.
         </p>
       </div>
     </section>
@@ -2743,8 +2743,8 @@ function FinalCTA() {
 export default function ComparisonPage() {
   return (
     <Layout
-      title="Comparison | Vaultys Claw"
-      description="How Vaultys Claw compares to traditional AI agent orchestration platforms."
+      title="Comparison | VaultysClaw"
+      description="How VaultysClaw compares to traditional AI agent orchestration platforms."
     >
       <ComparisonHero />
 

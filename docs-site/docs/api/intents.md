@@ -116,7 +116,7 @@ Full intent history with results is currently in development. This endpoint retu
 
 ## Action naming conventions
 
-Actions are arbitrary strings — Vaultys Claw does not enforce a naming scheme. By convention, use `snake_case` verbs:
+Actions are arbitrary strings — VaultysClaw does not enforce a naming scheme. By convention, use `snake_case` verbs:
 
 | Example action       | Description                                                 |
 | -------------------- | ----------------------------------------------------------- |

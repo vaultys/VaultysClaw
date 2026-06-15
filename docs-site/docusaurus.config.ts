@@ -3,7 +3,7 @@ import type { Config } from "@docusaurus/types";
 import type * as Preset from "@docusaurus/preset-classic";
 
 const config: Config = {
-  title: "Vaultys Claw",
+  title: "VaultysClaw",
   tagline: "Decentralised AI Agent Orchestration — Secured by VaultysId",
   favicon: "img/favicon.ico",
 
@@ -56,15 +56,15 @@ const config: Config = {
     announcementBar: {
       id: "beta",
       content:
-        'Vaultys Claw is currently in <strong>public alpha</strong>. Star us on <a href="https://github.com/vaultys/vaultysclaw" target="_blank">GitHub</a> and help shape the roadmap.',
+        'VaultysClaw is currently in <strong>public alpha</strong>. Star us on <a href="https://github.com/vaultys/vaultysclaw" target="_blank">GitHub</a> and help shape the roadmap.',
       backgroundColor: "#1e40af",
       textColor: "#e0e7ff",
       isCloseable: true,
     },
     navbar: {
-      title: "Vaultys Claw",
+      title: "VaultysClaw",
       logo: {
-        alt: "Vaultys Claw Logo",
+        alt: "VaultysClaw Logo",
         src: "img/logo.svg",
         srcDark: "img/logo-dark.svg",
       },

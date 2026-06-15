@@ -1,18 +1,18 @@
 ---
 sidebar_position: 1
 title: Introduction
-description: What is Vaultys Claw, and why should your organisation care?
+description: What is VaultysClaw, and why should your organisation care?
 ---
 
-# Vaultys Claw
+# VaultysClaw
 
-**Vaultys Claw** is an open-source, enterprise-grade platform for deploying, orchestrating, and governing AI agents across your organisation. It provides a central control plane that coordinates any number of distributed agent controllers — each capable of using different LLM providers — while enforcing security policies through cryptographically-verified decentralised identity.
+**VaultysClaw** is an open-source, enterprise-grade platform for deploying, orchestrating, and governing AI agents across your organisation. It provides a central control plane that coordinates any number of distributed agent controllers — each capable of using different LLM providers — while enforcing security policies through cryptographically-verified decentralised identity.
 
-## Why Vaultys Claw?
+## Why VaultysClaw?
 
 Running AI agents at enterprise scale introduces problems that most frameworks ignore:
 
-| Problem                         | How Vaultys Claw solves it                                                                        |
+| Problem                         | How VaultysClaw solves it                                                                        |
 | ------------------------------- | ------------------------------------------------------------------------------------------------- |
 | **Who authorised this action?** | Every intent is signed by the issuer's VaultysId key — tamper-evident, non-repudiable             |
 | **Can I trust this agent?**     | Agents carry non-transferable DID identities; impersonation is cryptographically impossible       |
@@ -38,7 +38,7 @@ Agent Controller (Node.js)
 
 ## Key concepts
 
-- **VaultysId** — The decentralised identity system at the heart of Vaultys Claw. Every participant (user, control plane, agent) has a cryptographic key pair. All messages are signed and verified using these keys. See [VaultysId Security](/docs/security/vaultys-id).
+- **VaultysId** — The decentralised identity system at the heart of VaultysClaw. Every participant (user, control plane, agent) has a cryptographic key pair. All messages are signed and verified using these keys. See [VaultysId Security](/docs/security/vaultys-id).
 
 - **Agent** — A process running the agent controller package. It connects outbound to the control plane WebSocket hub, receives signed intents, and executes them within its granted capabilities.
 

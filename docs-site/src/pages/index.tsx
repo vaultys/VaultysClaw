@@ -40,22 +40,60 @@ function Hero() {
           <div className="col col--7">
             <div className="hero-badge">
               <Sparkles size={12} strokeWidth={2.5} />
-              Enterprise AI Orchestration
+              VaultysId · Agent Identity · Open Source
             </div>
 
             <h1 className="hero-title">
-              Give your company
+              Your agents' identity.
               <br />
-              <span className="gradient-text">a soul.</span>
+              <span className="gradient-text">Secure. Sovereign. Yours.</span>
             </h1>
 
             <p className="hero-subtitle">
-              Your culture, your processes, your values — deployed as
-              professional AI agents that work the way <em>you</em> do. Vaultys
-              Claw gives every agent a unique, non-transferable identity so
-              they're truly yours: accountable, trustworthy, and deeply embedded
-              in how your organisation thinks.
+              VaultysClaw gives every agent a cryptographic identity powered by
+              VaultysId — a fully decentralised, non-transferable identity
+              standard. Zero Trust security, complete data sovereignty, and
+              predictable flat-rate pricing. No agent traffic ever transits our
+              servers. Your security is not our business model.
             </p>
+
+            <div
+              style={{
+                display: "flex",
+                gap: "20px",
+                marginBottom: "28px",
+                flexWrap: "wrap",
+              }}
+            >
+              {[
+                { color: "#3b82f6", label: "Zero Trust" },
+                { color: "#10b981", label: "Sovereign hosting" },
+                { color: "#f59e0b", label: "No vendor lock-in" },
+              ].map(({ color, label }) => (
+                <div
+                  key={label}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    fontSize: "0.82rem",
+                    fontWeight: 600,
+                    color: "var(--ifm-color-emphasis-700)",
+                  }}
+                >
+                  <div
+                    style={{
+                      width: 8,
+                      height: 8,
+                      borderRadius: "50%",
+                      background: color,
+                      flexShrink: 0,
+                    }}
+                  />
+                  {label}
+                </div>
+              ))}
+            </div>
 
             <div className="hero-cta-group">
               <Link className="btn-primary" to="/docs/guides/quickstart">
@@ -239,7 +277,7 @@ function ManifestoSection() {
       <div className="container">
         <div className="row" style={{ alignItems: "center", gap: 0 }}>
           <div className="col col--6">
-            <p className="section-label">Why Vaultys Claw</p>
+            <p className="section-label">Why VaultysClaw</p>
             <h2 className="section-title">
               Not a generic assistant.
               <br />
@@ -251,7 +289,7 @@ function ManifestoSection() {
               no accountability when things go wrong.
             </p>
             <p className="section-subtitle" style={{ marginBottom: "36px" }}>
-              Vaultys Claw is different. Every agent carries a{" "}
+              VaultysClaw is different. Every agent carries a{" "}
               <strong>unique, non-transferable identity</strong> — a
               cryptographic fingerprint that is yours, governed by your
               policies, and auditable to any action it ever took. You're not
@@ -558,6 +596,168 @@ function AgentProfileCard() {
 }
 
 /* ────────────────────────────────────────────────────────────
+   Three Pillars
+   ──────────────────────────────────────────────────────────── */
+const PILLARS = [
+  {
+    Icon: ShieldCheck,
+    color: "#3b82f6",
+    bg: "rgba(59,130,246,0.1)",
+    border: "rgba(59,130,246,0.25)",
+    label: "Security",
+    headline: "Zero Trust.\nPost-quantum ready.",
+    bullets: [
+      "Every intent cryptographically signed end-to-end",
+      "Post-quantum cryptography — ahead of NIST 2026 mandates",
+      "Built on Anthropic's responsible AI safety framework",
+      "Decentralised VaultysId — no central authority to call or fail",
+    ],
+  },
+  {
+    Icon: Globe,
+    color: "#10b981",
+    bg: "rgba(16,185,129,0.1)",
+    border: "rgba(16,185,129,0.25)",
+    label: "Sovereignty",
+    headline: "Your data.\nNo vendor control.",
+    bullets: [
+      "Runs fully inside your perimeter — on-premises or private cloud",
+      "Zero inter-agent traffic ever transits our servers",
+      "Open standard + MIT license — no lock-in, ever",
+      "Air-gap support for the highest-security environments",
+    ],
+  },
+  {
+    Icon: Zap,
+    color: "#f59e0b",
+    bg: "rgba(245,158,11,0.1)",
+    border: "rgba(245,158,11,0.25)",
+    label: "Performance",
+    headline: "Distributed.\nCost-predictable.",
+    bullets: [
+      "Decentralised architecture — agents communicate directly",
+      "Flat-rate per agent tier, not per API call or token",
+      "Up to 20× lower TCO vs. self-deploying SPIRE",
+      "No egress fees, no bandwidth surcharges",
+    ],
+  },
+];
+
+function ThreePillarsSection() {
+  return (
+    <section
+      style={{ padding: "80px 0", background: "var(--ifm-background-surface-color)" }}
+    >
+      <div className="container">
+        <div style={{ textAlign: "center", marginBottom: "52px" }}>
+          <p className="section-label">The platform</p>
+          <h2 className="section-title">Three pillars. No compromise.</h2>
+          <p
+            className="section-subtitle"
+            style={{ margin: "0 auto", textAlign: "center" }}
+          >
+            The only managed agent identity platform that delivers Zero Trust
+            security, full data sovereignty, and a predictable cost structure —
+            simultaneously.
+          </p>
+        </div>
+        <div className="row">
+          {PILLARS.map(({ Icon, color, bg, border, label, headline, bullets }) => (
+            <div key={label} className="col col--4" style={{ marginBottom: "24px" }}>
+              <div
+                style={{
+                  background: "var(--ifm-card-background-color)",
+                  border: `1px solid ${border}`,
+                  borderRadius: "16px",
+                  padding: "32px 28px",
+                  height: "100%",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "20px",
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
+                  <div
+                    style={{
+                      width: 48,
+                      height: 48,
+                      borderRadius: "12px",
+                      background: bg,
+                      border: `1px solid ${border}`,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      flexShrink: 0,
+                    }}
+                  >
+                    <Icon size={24} strokeWidth={1.8} style={{ color }} />
+                  </div>
+                  <span
+                    style={{
+                      fontSize: "0.72rem",
+                      fontWeight: 800,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.12em",
+                      color,
+                    }}
+                  >
+                    {label}
+                  </span>
+                </div>
+                <h3
+                  style={{
+                    fontSize: "1.15rem",
+                    fontWeight: 800,
+                    lineHeight: 1.35,
+                    color: "var(--ifm-color-emphasis-900)",
+                    margin: 0,
+                    whiteSpace: "pre-line",
+                  }}
+                >
+                  {headline}
+                </h3>
+                <ul
+                  style={{
+                    listStyle: "none",
+                    padding: 0,
+                    margin: 0,
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "10px",
+                  }}
+                >
+                  {bullets.map((b) => (
+                    <li
+                      key={b}
+                      style={{ display: "flex", gap: "10px", alignItems: "flex-start" }}
+                    >
+                      <CheckCircle2
+                        size={15}
+                        strokeWidth={2.5}
+                        style={{ color, flexShrink: 0, marginTop: "2px" }}
+                      />
+                      <span
+                        style={{
+                          fontSize: "0.88rem",
+                          color: "var(--ifm-color-emphasis-700)",
+                          lineHeight: 1.55,
+                        }}
+                      >
+                        {b}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ────────────────────────────────────────────────────────────
    Feature cards
    ──────────────────────────────────────────────────────────── */
 const FEATURES: {
@@ -804,7 +1004,7 @@ function DashboardMockup() {
             <div className="mockup-sidebar">
               <div className="mockup-sidebar-logo">
                 <div className="logo-dot" />
-                Vaultys Claw
+                VaultysClaw
               </div>
               {NAV_ITEMS.map(({ Icon, label, active }) => (
                 <div
@@ -1359,6 +1559,320 @@ function QuotesSection() {
 }
 
 /* ────────────────────────────────────────────────────────────
+   TCO Comparison
+   ──────────────────────────────────────────────────────────── */
+/* Annual pricing rows: recurring cost per year (steady-state).
+   SPIRE shown as amortized annual (total 3yr / 3) since it has no true
+   recurring licence — the real cost is engineering time. */
+const PRICING_ROWS: {
+  vendor: string;
+  note: string;
+  isVC: boolean;
+  a200: string;  s200?: string;
+  a1000: string; s1000?: string;
+  a5000: string; s5000?: string;
+}[] = [
+  {
+    vendor: "Okta Agent Identity", note: "~€4/agent/month, recurring licence only",
+    isVC: false,
+    a200: "€9,600",    s200:  "+ €30k setup",
+    a1000: "€48,000",  s1000: "+ €80k setup",
+    a5000: "€240,000", s5000: "+ €150k setup",
+  },
+  {
+    vendor: "Microsoft Entra WI", note: "~€2–3/agent/month + full M365/Azure stack required",
+    isVC: false,
+    a200: "€5,760",    s200:  "M365 stack req.",
+    a1000: "€28,800",  s1000: "M365 stack req.",
+    a5000: "€144,000", s5000: "M365 stack req.",
+  },
+  {
+    vendor: "SPIRE (open source)", note: "recurring maintenance only (0.5 FTE)",
+    isVC: false,
+    a200: "€65,000",    s200:  "+ €150–200k setup",
+    a1000: "€75,000",   s1000: "+ €150–200k setup",
+    a5000: "€80,000",   s5000: "+ €150–200k setup",
+  },
+  {
+    vendor: "Orchestration tools", note: "Mastra Enterprise, CrewAI Enterprise — flat enterprise licence + consumption billing · no agent identity layer",
+    isVC: false,
+    a200: "from €60k/yr",  s200:  "+ CPU/egress/tokens",
+    a1000: "from €80k/yr", s1000: "+ CPU/egress/tokens",
+    a5000: "custom",        s5000: "+ CPU/egress/tokens",
+  },
+  {
+    vendor: "VaultysClaw", note: "sponsor & commercial tiers · price lock guaranteed",
+    isVC: true,
+    a200: "", a1000: "", a5000: "",
+  },
+];
+
+const FEATURE_ROWS: {
+  feature: string;
+  okta: string;
+  entra: string;
+  spire: string;
+  orch: string;
+  vc: string;
+  vcGood: boolean;
+}[] = [
+  { feature: "Agent orchestration",       okta: "✗",            entra: "✗",               spire: "✗",             orch: "✓",              vc: "✓",               vcGood: true  },
+  { feature: "Cryptographic identity",    okta: "✓",            entra: "✓",               spire: "✓",             orch: "✗",              vc: "✓",               vcGood: true  },
+  { feature: "Architecture",              okta: "Centralised",  entra: "Centralised",     spire: "Decentralised", orch: "Cloud-hosted",   vc: "Decentralised",   vcGood: true  },
+  { feature: "Managed service",           okta: "✓",            entra: "✓",               spire: "✗",             orch: "✓",              vc: "✓",               vcGood: true  },
+  { feature: "Open source",               okta: "✗",            entra: "✗",               spire: "✓",             orch: "Partial",        vc: "✓",               vcGood: true  },
+  { feature: "Vendor lock-in",            okta: "High",         entra: "Total (Azure)",   spire: "None",          orch: "Medium",         vc: "None",            vcGood: true  },
+  { feature: "Air-gap / on-premises",     okta: "✗",            entra: "Partial",         spire: "✓",             orch: "✗",              vc: "✓",               vcGood: true  },
+  { feature: "Pricing grows with traffic",okta: "✓",            entra: "✓",               spire: "✗",             orch: "✓",              vc: "✗",               vcGood: true  },
+  { feature: "Agent traffic via vendor",  okta: "✓",            entra: "✓",               spire: "✗",             orch: "✓",              vc: "✗",               vcGood: true  },
+];
+
+const thCell: React.CSSProperties = {
+  padding: "10px 20px",
+  fontSize: "0.7rem",
+  fontWeight: 700,
+  textTransform: "uppercase",
+  letterSpacing: "0.07em",
+  color: "var(--ifm-color-emphasis-500)",
+  borderBottom: "1px solid var(--ifm-color-emphasis-200)",
+  whiteSpace: "nowrap",
+  textAlign: "center",
+};
+
+function TCOSection() {
+  return (
+    <section
+      style={{ padding: "80px 0", background: "var(--ifm-background-surface-color)" }}
+    >
+      <div className="container">
+        <div style={{ textAlign: "center", marginBottom: "52px" }}>
+          <p className="section-label">Market comparison</p>
+          <h2 className="section-title">How the alternatives stack up</h2>
+          <p
+            className="section-subtitle"
+            style={{ margin: "0 auto", textAlign: "center", maxWidth: "640px" }}
+          >
+            Six major vendors launched agent identity products in 2026. All
+            centralised. All proprietary. All with costs that grow with your
+            fleet.
+          </p>
+        </div>
+
+        {/* ── Pricing table ── */}
+        <div
+          style={{
+            background: "var(--ifm-card-background-color)",
+            border: "1px solid var(--ifm-color-emphasis-200)",
+            borderRadius: "16px",
+            overflow: "hidden",
+            marginBottom: "28px",
+          }}
+        >
+          <div
+            style={{
+              padding: "16px 28px",
+              borderBottom: "1px solid var(--ifm-color-emphasis-200)",
+              background: "var(--ifm-background-surface-color)",
+            }}
+          >
+            <span style={{ fontWeight: 800, fontSize: "0.95rem", color: "var(--ifm-color-emphasis-900)" }}>
+              Annual pricing by fleet size
+            </span>
+          </div>
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", minWidth: "520px" }}>
+              <thead>
+                <tr>
+                  <th style={{ ...thCell, textAlign: "left", width: "34%" }}>Solution</th>
+                  <th style={thCell}>200 agents / yr</th>
+                  <th style={thCell}>1,000 agents / yr</th>
+                  <th style={thCell}>5,000 agents / yr</th>
+                </tr>
+              </thead>
+              <tbody>
+                {PRICING_ROWS.map(({ vendor, note, isVC, a200, s200, a1000, s1000, a5000, s5000 }) => (
+                  <tr
+                    key={vendor}
+                    style={{
+                      borderBottom: "1px solid var(--ifm-color-emphasis-100)",
+                      background: isVC ? "rgba(59,130,246,0.04)" : undefined,
+                    }}
+                  >
+                    <td style={{ padding: "14px 20px" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                        {isVC && <ShieldCheck size={14} style={{ color: "#3b82f6", flexShrink: 0 }} />}
+                        <span
+                          style={{
+                            fontWeight: 600,
+                            fontSize: "0.88rem",
+                            color: isVC ? "#3b82f6" : "var(--ifm-color-emphasis-900)",
+                          }}
+                        >
+                          {vendor}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: "0.7rem", color: "var(--ifm-color-emphasis-500)", marginTop: "2px", paddingLeft: isVC ? "22px" : "0" }}>
+                        {note}
+                      </div>
+                    </td>
+                    {isVC ? (
+                      <>
+                        <td colSpan={2} style={{ padding: "14px 20px", textAlign: "center" }}>
+                          <span style={{ fontSize: "0.78rem", color: "var(--ifm-color-emphasis-500)", fontStyle: "italic" }}>
+                            pricing on request
+                          </span>
+                        </td>
+                        <td style={{ padding: "14px 20px", textAlign: "center" }}>
+                          <a
+                            href="mailto:contact@vaultys.com"
+                            style={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: "5px",
+                              background: "#3b82f6",
+                              color: "#fff",
+                              borderRadius: "6px",
+                              padding: "6px 14px",
+                              fontSize: "0.78rem",
+                              fontWeight: 700,
+                              textDecoration: "none",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            Contact us <ArrowRight size={12} strokeWidth={2.5} />
+                          </a>
+                        </td>
+                      </>
+                    ) : (
+                      ([
+                        [a200, s200],
+                        [a1000, s1000],
+                        [a5000, s5000],
+                      ] as [string, string | undefined][]).map(([val, setup], i) => (
+                        <td
+                          key={i}
+                          style={{
+                            padding: "14px 20px",
+                            textAlign: "center",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          <div style={{ fontFamily: "JetBrains Mono, monospace", fontSize: "0.85rem", color: "var(--ifm-color-emphasis-800)" }}>
+                            {val}
+                          </div>
+                          {setup && (
+                            <div style={{ fontSize: "0.68rem", color: "var(--ifm-color-emphasis-400)", marginTop: "2px" }}>
+                              {setup}
+                            </div>
+                          )}
+                        </td>
+                      ))
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* ── Feature comparison table ── */}
+        <div
+          style={{
+            background: "var(--ifm-card-background-color)",
+            border: "1px solid var(--ifm-color-emphasis-200)",
+            borderRadius: "16px",
+            overflow: "hidden",
+            marginBottom: "28px",
+          }}
+        >
+          <div
+            style={{
+              padding: "16px 28px",
+              borderBottom: "1px solid var(--ifm-color-emphasis-200)",
+              background: "var(--ifm-background-surface-color)",
+            }}
+          >
+            <span style={{ fontWeight: 800, fontSize: "0.95rem", color: "var(--ifm-color-emphasis-900)" }}>
+              Feature comparison
+            </span>
+          </div>
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", minWidth: "520px" }}>
+              <thead>
+                <tr>
+                  <th style={{ ...thCell, textAlign: "left", width: "24%" }}>Feature</th>
+                  <th style={thCell}>Okta</th>
+                  <th style={thCell}>Entra WI</th>
+                  <th style={thCell}>SPIRE</th>
+                  <th style={thCell}>Orchestration†</th>
+                  <th style={{ ...thCell, color: "#3b82f6" }}>VaultysClaw</th>
+                </tr>
+              </thead>
+              <tbody>
+                {FEATURE_ROWS.map(({ feature, okta, entra, spire, orch, vc, vcGood }) => {
+                  const cellStyle = (val: string): React.CSSProperties => ({
+                    padding: "12px 16px",
+                    textAlign: "center",
+                    fontSize: val === "✓" || val === "✗" ? "1rem" : "0.8rem",
+                    color: val === "✓" ? "#3fb950" : val === "✗" ? "var(--ifm-color-emphasis-300)" : "var(--ifm-color-emphasis-700)",
+                    fontWeight: val === "✓" || val === "✗" ? 700 : 500,
+                    whiteSpace: "nowrap",
+                  });
+                  const vcIsCheck = vc === "✓";
+                  const vcIsX = vc === "✗";
+                  return (
+                    <tr
+                      key={feature}
+                      style={{ borderBottom: "1px solid var(--ifm-color-emphasis-100)" }}
+                    >
+                      <td style={{ padding: "12px 20px", fontSize: "0.85rem", fontWeight: 600, color: "var(--ifm-color-emphasis-800)" }}>
+                        {feature}
+                      </td>
+                      {[okta, entra, spire, orch].map((val, i) => (
+                        <td key={i} style={cellStyle(val)}>{val}</td>
+                      ))}
+                      <td
+                        style={{
+                          padding: "12px 16px",
+                          textAlign: "center",
+                          fontSize: vcIsCheck || vcIsX ? "1rem" : "0.8rem",
+                          fontWeight: 700,
+                          color: vcIsCheck ? "#3fb950" : vcIsX ? "var(--ifm-color-emphasis-300)" : vcGood ? "#3b82f6" : "var(--ifm-color-emphasis-700)",
+                          background: "rgba(59,130,246,0.04)",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {vc}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* ── Footnote ── */}
+        <p
+          style={{
+            margin: 0,
+            fontSize: "0.75rem",
+            color: "var(--ifm-color-emphasis-500)",
+            lineHeight: 1.6,
+          }}
+        >
+          Okta ~€4/agent/month recurring licence, integration billed separately ·
+          Microsoft Entra WI ~€2–3/agent/month, requires full M365/Azure stack ·
+          SPIRE: €0 licence, recurring cost is ops/maintenance (0.5 FTE); one-time engineering setup €150k–200k not included in annual figures ·
+          † Orchestration tools (Mastra Enterprise, CrewAI Enterprise): flat enterprise licence + consumption billing on CPU/egress/tokens; no cryptographic agent identity layer ·
+          VaultysClaw: flat-rate per agent tier, price lock guaranteed for early sponsors.
+        </p>
+      </div>
+    </section>
+  );
+}
+
+/* ────────────────────────────────────────────────────────────
    CTA
    ──────────────────────────────────────────────────────────── */
 function CTASection() {
@@ -1385,21 +1899,22 @@ function CTASection() {
             marginBottom: "16px",
           }}
         >
-          Your culture deserves agents
+          The open standard for agent identity.
           <br />
-          that carry it faithfully.
+          Delivered as a product.
         </h2>
         <p
           style={{
             fontSize: "1.05rem",
             color: "#94a3b8",
-            maxWidth: "520px",
+            maxWidth: "560px",
             margin: "0 auto 36px",
             lineHeight: "1.7",
           }}
         >
-          Deploy in under five minutes. On your infrastructure. With your
-          policies. No vendor lock-in, no data leaving your perimeter.
+          Zero Trust security. Full data sovereignty. Predictable flat-rate
+          pricing. Deploy in under five minutes — on your infrastructure, with
+          your policies.
         </p>
         <div
           style={{
@@ -1437,9 +1952,10 @@ export default function Home(): React.ReactElement {
   return (
     <Layout
       title={`${siteConfig.title} — Give your company a soul`}
-      description="Deploy AI agents that carry your culture, your policies, and your values. Vaultys Claw is enterprise AI orchestration secured by VaultysId decentralised identity."
+      description="Deploy AI agents that carry your culture, your policies, and your values. VaultysClaw is enterprise AI orchestration secured by VaultysId decentralised identity."
     >
       <Hero />
+      <ThreePillarsSection />
       <EnterpriseSection />
       <ManifestoSection />
       <FeaturesSection />
@@ -1448,6 +1964,7 @@ export default function Home(): React.ReactElement {
       <SecuritySection />
       <CodeExampleSection />
       <QuotesSection />
+      <TCOSection />
       <CTASection />
     </Layout>
   );

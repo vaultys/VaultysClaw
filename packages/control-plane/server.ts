@@ -1,12 +1,5 @@
 /**
  * Custom Next.js server that runs both HTTP and WebSocket servers
- *
- * Data directory structure:
- *   <data-dir>/
- *   ├── .env
- *   ├── .env.local
- *   ├── .vaultys/server.id
- *   └── workspace/
  */
 
 import "./lib/env-preload";
@@ -61,8 +54,6 @@ for (const envFile of envFiles) {
   }
 }
 
-process.env.VAULTYS_ID_PATH = path.join(dataDir, ".vaultys", "server.id");
-process.env.VAULTYS_WORKSPACE_ROOT = path.join(dataDir, "workspace");
 
 const dev = process.env.NODE_ENV !== "production";
 const hostname = process.env.HOSTNAME || "localhost";

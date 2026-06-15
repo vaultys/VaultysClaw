@@ -9,7 +9,7 @@ import { WorkflowExecutionPanel } from "@/components/workflow/WorkflowExecutionP
 import { ImportExportButtons } from "@/components/workflow/ImportExportButtons";
 import { TitleDescriptionEditor } from "@/components/workflow/TitleDescriptionEditor";
 import { useWorkflowStore } from "@/components/workflow/store";
-import type { WorkflowDefinition } from "@/lib/db";
+import type { WorkflowDefinition } from "@/lib/workflow-types";
 
 export default function WorkflowEditPage() {
   const params = useParams();

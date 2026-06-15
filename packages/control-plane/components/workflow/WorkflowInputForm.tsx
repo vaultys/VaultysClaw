@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import type { WorkflowDefinition } from "@/lib/db";
+import type { WorkflowDefinition } from "@/lib/workflow-types";
 
 interface WorkflowInputFormProps {
   definition: WorkflowDefinition;

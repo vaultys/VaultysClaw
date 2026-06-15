@@ -10,7 +10,7 @@ import ReactFlow, {
 } from "reactflow";
 import "reactflow/dist/style.css";
 import { nodeTypes } from "./nodes";
-import type { WorkflowDefinition } from "@/lib/db";
+import type { WorkflowDefinition } from "@/lib/workflow-types";
 import { needsLayout, computeLayout } from "@/lib/workflow-layout";
 
 interface WorkflowViewerProps {

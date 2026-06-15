@@ -12,7 +12,7 @@ import {
   Download,
   Copy,
 } from "lucide-react";
-import type { WorkflowDefinition } from "@/lib/db";
+import type { WorkflowDefinition } from "@/lib/workflow-types";
 import { WorkflowInputForm } from "./WorkflowInputForm";
 
 interface WorkflowRunModalProps {

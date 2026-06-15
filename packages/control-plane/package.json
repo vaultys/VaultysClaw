@@ -36,7 +36,6 @@
     "@vaultys/id": "3.0.0-beta6",
     "@vaultysclaw/shared": "workspace:*",
     "axios": "^1.16.1",
-    "better-sqlite3": "^12.10.0",
     "dotenv": "^16.6.1",
     "expr-eval": "^2.0.2",
     "geoip-lite": "^2.0.2",
@@ -69,7 +68,6 @@
     "zustand": "^4.5.7"
   },
   "devDependencies": {
-    "@types/better-sqlite3": "^7.6.13",
     "@types/expr-eval": "^1.1.2",
     "@types/geoip-lite": "^1.4.4",
     "@types/node": "^22.19.19",

@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { WorkflowDefinition } from "@/lib/db";
+import type { WorkflowDefinition } from "@/lib/workflow-types";
 
 export interface WorkflowState {
   // Current workflow being edited

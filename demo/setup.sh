@@ -202,11 +202,10 @@ configure_services() {
   $SKIP_DOCLING && skip_docling_flag="--skip-docling"
 
   # Run the configure script from the control-plane package directory so all
-  # node_modules (aws-sdk, better-sqlite3, pg, @vaultys/id) resolve correctly.
+  # node_modules (aws-sdk, pg, @vaultys/id) resolve correctly.
   (
     cd "$CP_DIR"
     DATABASE_URL="$db_url" \
-    VAULTYS_DB_PATH="$CP_DATA_DIR/vaultysclaw.db" \
     pnpm exec tsx "$DEMO_DIR/configure-services.ts" \
       --minio-endpoint "http://localhost:${MINIO_PORT_API}" \
       --minio-bucket   "$MINIO_BUCKET" \
@@ -300,7 +299,6 @@ if curl -sf "$CONTROL_PLANE_URL/api/health" >/dev/null 2>&1; then
 else
   log "Starting control plane (data: $CP_DATA_DIR)..."
   cd "$REPO_ROOT"
-  VAULTYS_DB_PATH="$CP_DATA_DIR/vaultysclaw.db" \
   pnpm --filter @vaultysclaw/control-plane dev -- --data-dir "$CP_DATA_DIR" \
     > "$LOG_DIR/control-plane.log" 2>&1 &
   echo $! >> "$PIDS_FILE"

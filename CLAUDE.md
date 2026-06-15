@@ -68,14 +68,13 @@ Agents connect to the control plane via WebSocket on port 8080. All messages fol
 
 ### Control Plane (`packages/control-plane`)
 
-- **`server.ts`** — Entry point: initializes SQLite, starts HTTP (port 3000) + WS (port 8080) servers, launches workflow scheduler
-- **`lib/db.ts`** — Singleton SQLite instance (WAL mode, foreign keys on); all table schemas defined here
+- **`server.ts`** — Entry point: starts HTTP (port 3000) + WS (port 8080) servers, runs Prisma migrations seed, launches workflow scheduler
 - **`lib/ws-server.ts`** — WebSocket server handling agent connections, heartbeats, intent routing, admin WebSocket on `/ws/admin`
 - **`lib/workflow-executor.ts`** — Sequential/parallel node execution, approval steps, variable interpolation
 - **`lib/message-dispatcher.ts`** — Routes intents to connected agents
 - **`app/api/`** — Next.js App Router REST handlers organized by domain (agents, workflows, governance, realms, users, models, skills, channels, etc.)
 
-**Database**: SQLite at `.devdata/vaultysclaw.db` (dev) or PostgreSQL via Prisma (demo/production — see `packages/control-plane/prisma/`). Key tables: `agents`, `intents`, `intent_log`, `workflows`, `workflow_runs`, `realms`, `users`, `policies`, `capabilities`, `models`, `skills`, `channels`, `approvals`.
+**Database**: PostgreSQL via Prisma (see `packages/control-plane/prisma/`). All DAOs are in `db/` and use the Prisma client (`db/client.ts`). Key tables: `agents`, `intent_log`, `workflows`, `workflow_runs`, `realms`, `users`, `policies`, `model_registry`, `org_skills`, `channels`, `settings`.
 
 **Auth**: Passwordless QR-code login via VaultysId (no passwords). `next-auth` with a custom provider in `lib/auth-config.ts`.
 
@@ -96,7 +95,7 @@ Core domain types live in `src/types.ts`: `VaultysIdentity`, `AgentCapability` e
 
 ## Key Patterns
 
-**Adding an API route**: Create `packages/control-plane/app/api/<resource>/route.ts`, export `GET`/`POST`/etc. handlers, call `getDb()` for SQLite access.
+**Adding an API route**: Create `packages/control-plane/app/api/<resource>/route.ts`, export `GET`/`POST`/etc. handlers, use the appropriate DAO from `db/` (Prisma-based).
 
 **Client-side HTTP calls**: Use the typed API client classes in `packages/control-plane/lib/api/`. One class per domain group — import singletons from `@/lib/api`:
 
@@ -271,10 +270,11 @@ Control plane reads from `.env` in `packages/control-plane/`. Agent reads from `
 
 | Variable                    | Package          | Purpose                                    |
 | --------------------------- | ---------------- | ------------------------------------------ |
+| `DATABASE_URL`              | control-plane    | PostgreSQL connection string (Prisma)      |
 | `PORT` / `WS_PORT`          | control-plane    | HTTP + WebSocket ports (default 3000/8080) |
-| `VAULTYS_ID_PATH`           | both             | Path to VaultysId identity file            |
 | `NEXTAUTH_SECRET`           | control-plane    | NextAuth session secret                    |
 | `LITELLM_BASE_URL`          | control-plane    | LiteLLM proxy URL                          |
 | `AGENT_NAME`                | agent-controller | Agent display name                         |
 | `CONTROL_PLANE_URL`         | agent-controller | Control plane base URL                     |
 | `LLM_MODEL` / `LLM_API_KEY` | agent-controller | LLM provider config                        |
+| `VAULTYS_ID_PATH`           | agent-controller | Path to agent VaultysId identity file      |

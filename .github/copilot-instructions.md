@@ -28,11 +28,12 @@ See [docs/QUICK_START.md](../docs/QUICK_START.md) for setup and [docs/DEVELOPMEN
 
 ## Key Architecture Decisions
 
-- **No ORM**: Raw SQL via `better-sqlite3`. Schema created on startup in `packages/control-plane/lib/db.ts` (`createTables()`). No migration files — schema changes go directly in `createTables()`.
+- **ORM**: Prisma with PostgreSQL. All DAOs live in `packages/control-plane/db/` and use the Prisma client (`db/client.ts`). Schema in `prisma/schema.prisma`, migrations in `prisma/migrations/`. Never use raw SQL in route handlers — use the appropriate DAO.
 - **Auth**: Passwordless (VaultysId ECDSA challenge-response) via NextAuth. Each route handler calls `getAuthContext()` from `@/lib/auth-utils` — no middleware file.
 - **WebSocket protocol**: All messages are typed envelopes from `packages/shared/src/channel-types.ts`. Critical messages (policies, intents) carry ECDSA signatures verified before processing.
 - **`@/*` alias**: Only works in `packages/control-plane` (Next.js). Agent-controller uses relative imports.
 - **Skills are pre-compiled JS**: Skills discovered at runtime must be `.js`/`.mjs` files, not `.ts`.
+- **Agent-controller SQLite**: The agent-controller keeps its own local SQLite (`agent.db`) for identity, sessions, and memory — this is separate from the control plane's PostgreSQL.
 
 ## Adding Things
 
@@ -54,7 +55,7 @@ One class per domain group (agents, channels, users, realms, workflows, models, 
 export async function GET(request: NextRequest) {
   const auth = await getAuthContext(request);   // ← always pass request (API key auth)
   if (!auth) return unauthorized();
-  // query via getDb() — no ORM
+  // query via the appropriate DAO from @/db (Prisma-based)
   return NextResponse.json({ success: true, data: ... });
 }
 ```
@@ -64,7 +65,7 @@ After creating a route:
 1. **Register in route registry**: add an entry to `packages/control-plane/lib/route-registry.ts` (`ROUTE_REGISTRY`)
 2. **Add Swagger JSDoc**: annotate each handler with `@openapi` (or run `pnpm tsx scripts/generate-swagger-docs.ts`)
 
-**API Key** → managed in the "API Keys" tab at `/server`. Keys use `X-API-Key` header or `Authorization: Bearer`. Schema in `api_keys` table in `lib/db.ts`. Types in `lib/api-types.ts` (`ApiKey`, `ApiKeyCreateRequest`).
+**API Key** → managed in the "API Keys" tab at `/server`. Keys use `X-API-Key` header or `Authorization: Bearer`. Managed via `ApiKeyDAO` in `db/api-key.dao.ts`.
 
 **Tool** → `packages/agent-controller/src/tools/<name>.ts`, export `AgentToolDefinition`, register in `src/tools/index.ts`.
 
@@ -88,7 +89,6 @@ After creating a route:
 
 ## Common Pitfalls
 
-- **Delete SQLite carefully**: WAL mode produces `.db-wal` + `.db-shm` sidecar files; delete all three together.
 - **Never edit `dist/` or `.next/`** — generated output only.
 - **Monorepo imports**: Use `@vaultysclaw/shared` for cross-package imports; never use relative paths across package boundaries.
 - **Build order matters**: `shared` must be built before `control-plane` or `agent-controller`. `pnpm build` handles this via Turborepo `"dependsOn": ["^build"]`.

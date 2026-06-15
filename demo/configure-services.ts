@@ -9,7 +9,7 @@
  * the module resolution path:
  *
  *   cd packages/control-plane
- *   DATABASE_URL=... VAULTYS_DB_PATH=... \
+ *   DATABASE_URL=... \
  *     tsx ../../demo/configure-services.ts \
  *       --minio-endpoint http://localhost:9000 \
  *       --minio-bucket   demo-files            \
@@ -19,7 +19,6 @@
  */
 
 import { VaultysId } from "@vaultys/id";
-import Database from "better-sqlite3";
 import { S3Client, CreateBucketCommand, HeadBucketCommand } from "@aws-sdk/client-s3";
 import pg from "pg";
 
@@ -44,52 +43,49 @@ const skipMinio     = process.argv.includes("--skip-minio");
 
 // ── Validate env ──────────────────────────────────────────────────────────────
 
-const DATABASE_URL   = process.env.DATABASE_URL;
-const VAULTYS_DB_PATH = process.env.VAULTYS_DB_PATH;
+const DATABASE_URL = process.env.DATABASE_URL;
 
 if (!DATABASE_URL) {
   console.error("[configure-services] DATABASE_URL is not set.");
   process.exit(1);
 }
-if (!VAULTYS_DB_PATH) {
-  console.error("[configure-services] VAULTYS_DB_PATH is not set.");
-  process.exit(1);
-}
 
-// ── SQLite helpers (mirrors lib/db.ts but without the singleton state) ────────
+// ── PostgreSQL helpers ────────────────────────────────────────────────────────
 
-function openDb(): Database.Database {
-  const db = new Database(VAULTYS_DB_PATH!);
-  db.pragma("journal_mode = WAL");
-  db.pragma("foreign_keys = ON");
-  return db;
-}
-
-function setSetting(db: Database.Database, key: string, value: string): void {
-  db.prepare(
-    "INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)"
-  ).run(key, value);
-}
-
-// ── Encryption (mirrors lib/vault.ts) ─────────────────────────────────────────
-
-async function getServerSecret(): Promise<string> {
+async function withClient<T>(fn: (client: pg.Client) => Promise<T>): Promise<T> {
   const client = new pg.Client({ connectionString: DATABASE_URL });
   await client.connect();
   try {
-    const res = await client.query<{ value: string }>(
-      "SELECT value FROM settings WHERE key = 'serverSecret'"
-    );
-    const secret = res.rows[0]?.value;
-    if (!secret) throw new Error("serverSecret not found in PostgreSQL settings");
-    return secret;
+    return await fn(client);
   } finally {
     await client.end();
   }
 }
 
+async function getSetting(key: string): Promise<string | null> {
+  return withClient(async (client) => {
+    const res = await client.query<{ value: string }>(
+      'SELECT value FROM settings WHERE key = $1',
+      [key]
+    );
+    return res.rows[0]?.value ?? null;
+  });
+}
+
+async function setSetting(key: string, value: string): Promise<void> {
+  await withClient(async (client) => {
+    await client.query(
+      'INSERT INTO settings (key, value) VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value',
+      [key, value]
+    );
+  });
+}
+
+// ── Encryption ────────────────────────────────────────────────────────────────
+
 async function encryptWithServerVid(plaintext: string): Promise<string> {
-  const secret = await getServerSecret();
+  const secret = await getSetting("serverSecret");
+  if (!secret) throw new Error("serverSecret not found in PostgreSQL settings");
   const vid = VaultysId.fromSecret(secret, "base64").toVersion(1);
   return await vid.signcrypt(plaintext, [vid.id]);
 }
@@ -120,28 +116,28 @@ async function ensureMinIoBucket(): Promise<void> {
   console.log(`[configure-services] Bucket "${minioBucket}" created.`);
 }
 
-// ── Write settings to SQLite ──────────────────────────────────────────────────
+// ── Write settings to PostgreSQL ──────────────────────────────────────────────
 
-async function configureMinioStorage(db: Database.Database): Promise<void> {
+async function configureMinioStorage(): Promise<void> {
   console.log("[configure-services] Writing MinIO / S3 storage settings…");
 
   const encAccessKey = await encryptWithServerVid(minioUser);
   const encSecretKey = await encryptWithServerVid(minioPass);
 
-  setSetting(db, "storage_type",            "s3");
-  setSetting(db, "s3_region",               "us-east-1");
-  setSetting(db, "s3_bucket",               minioBucket);
-  setSetting(db, "s3_endpoint",             minioEndpoint);
-  setSetting(db, "s3_access_key_id_enc",    encAccessKey);
-  setSetting(db, "s3_secret_access_key_enc", encSecretKey);
+  await setSetting("storage_type",             "s3");
+  await setSetting("s3_region",                "us-east-1");
+  await setSetting("s3_bucket",                minioBucket);
+  await setSetting("s3_endpoint",              minioEndpoint);
+  await setSetting("s3_access_key_id_enc",     encAccessKey);
+  await setSetting("s3_secret_access_key_enc", encSecretKey);
 
   console.log("[configure-services] S3 storage settings saved.");
 }
 
-function configureDocling(db: Database.Database): void {
+async function configureDocling(): Promise<void> {
   console.log(`[configure-services] Writing Docling settings (${doclingUrl})…`);
-  setSetting(db, "docling_url",     doclingUrl);
-  setSetting(db, "docling_enabled", "true");
+  await setSetting("docling_url",     doclingUrl);
+  await setSetting("docling_enabled", "true");
   console.log("[configure-services] Docling settings saved.");
 }
 
@@ -155,24 +151,21 @@ async function main(): Promise<void> {
       console.warn(`[configure-services] MinIO bucket setup failed: ${(err as Error).message}`);
       console.warn("[configure-services] You can configure storage manually in Settings > Storage.");
     }
+
+    try {
+      await configureMinioStorage();
+    } catch (err) {
+      console.warn(`[configure-services] S3 settings write failed: ${(err as Error).message}`);
+      console.warn("[configure-services] Configure storage manually in Settings > Storage.");
+    }
   }
 
-  const db = openDb();
-  try {
-    if (!skipMinio) {
-      try {
-        await configureMinioStorage(db);
-      } catch (err) {
-        console.warn(`[configure-services] S3 settings write failed: ${(err as Error).message}`);
-        console.warn("[configure-services] Configure storage manually in Settings > Storage.");
-      }
+  if (!skipDocling) {
+    try {
+      await configureDocling();
+    } catch (err) {
+      console.warn(`[configure-services] Docling settings write failed: ${(err as Error).message}`);
     }
-
-    if (!skipDocling) {
-      configureDocling(db);
-    }
-  } finally {
-    db.close();
   }
 
   console.log("[configure-services] Done.");

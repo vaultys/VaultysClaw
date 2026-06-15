@@ -15,7 +15,7 @@ import { useWorkflowStore } from "@/components/workflow/store";
 import { TemplateSelectionModal } from "@/components/workflow/TemplateSelectionModal";
 import { ImportExportButtons } from "@/components/workflow/ImportExportButtons";
 import { WorkflowRunModal } from "@/components/workflow/WorkflowRunModal";
-import type { WorkflowDefinition } from "@/lib/db";
+import type { WorkflowDefinition } from "@/lib/workflow-types";
 
 interface WorkflowItem {
   id: string;

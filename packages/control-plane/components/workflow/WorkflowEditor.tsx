@@ -30,7 +30,7 @@ import {
 import { nodeTypes } from "./nodes";
 import { PropertiesPanel } from "./PropertiesPanel";
 import { useWorkflowStore } from "./store";
-import type { WorkflowDefinition } from "@/lib/db";
+import type { WorkflowDefinition } from "@/lib/workflow-types";
 import { needsLayout, computeLayout } from "@/lib/workflow-layout";
 
 interface WorkflowEditorProps {

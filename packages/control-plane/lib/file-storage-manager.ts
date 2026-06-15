@@ -1,6 +1,5 @@
 /**
  * File storage factory that reads config from the database via SettingsDAO.
- * This replaces the getFileStorage / resetFileStorageCache functions from lib/db.ts.
  */
 
 import path from "path";

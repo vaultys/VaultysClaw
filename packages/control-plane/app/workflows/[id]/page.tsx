@@ -21,7 +21,7 @@ import {
 } from "lucide-react";
 import { WorkflowViewer } from "@/components/workflow/WorkflowViewer";
 import { WorkflowRunModal } from "@/components/workflow/WorkflowRunModal";
-import type { WorkflowDefinition } from "@/lib/db";
+import type { WorkflowDefinition } from "@/lib/workflow-types";
 import { agentsClient, unwrap } from "@/lib/api/ts-rest/client";
 
 interface WorkflowData {

@@ -101,6 +101,9 @@ Three principles. Built in from day one:
 
 ## Quick Demo
 
+[vaultysclaw.webm](https://github.com/user-attachments/assets/c6147c1b-1e68-4e0b-a94b-00f1f922ed84)
+
+
 ```bash
 # One command. Full stack boots.
 pnpm dev

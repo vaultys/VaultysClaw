@@ -51,12 +51,12 @@ import "./polyfill.js";
 import path from "path";
 import os from "os";
 import fs from "fs";
-import { spawn } from "child_process";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
+  CreateMessageResultSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 import type { AgentPeerGrant, ChatMessageEntry } from "@vaultysclaw/shared";
@@ -117,125 +117,6 @@ const ChatSchema = z.object({
   message: z.string(),
 });
 
-// ── Persistent Claude session per conversation ────────────────────────────────
-//
-// One `claude -p --input-format stream-json` process stays alive per conversation.
-// New user messages are written to its stdin as JSON lines; responses arrive on
-// stdout as stream-json events.  Sessions are reaped after 30 min of inactivity.
-
-const SESSION_TTL_MS = 30 * 60_000;
-
-interface ClaudeSession {
-  proc: ReturnType<typeof spawn>;
-  lineBuf: string;
-  processedCount: number;   // total messages from control plane seen so far
-  lastActive: number;
-  pending: {
-    chunks: string[];
-    resolve: (text: string) => void;
-    reject: (err: Error) => void;
-    timer: ReturnType<typeof setTimeout>;
-  } | null;
-}
-
-const sessions = new Map<string, ClaudeSession>();
-
-function spawnSession(): ClaudeSession {
-  const proc = spawn(
-    "claude",
-    [
-      "-p",
-      "--input-format", "stream-json",
-      "--output-format", "stream-json",
-      "--verbose",
-      "--dangerously-skip-permissions",
-    ],
-    {
-      stdio: ["pipe", "pipe", "pipe"],
-      env: { ...process.env, VC_GATEWAY_BYPASS: "1" },
-    }
-  );
-
-  const session: ClaudeSession = {
-    proc,
-    lineBuf: "",
-    processedCount: 0,
-    lastActive: Date.now(),
-    pending: null,
-  };
-
-  proc.stdout.on("data", (chunk: Buffer) => {
-    session.lineBuf += chunk.toString();
-    const lines = session.lineBuf.split("\n");
-    session.lineBuf = lines.pop() ?? "";
-    for (const line of lines) {
-      const trimmed = line.trim();
-      if (!trimmed || !session.pending) continue;
-      try {
-        const ev = JSON.parse(trimmed);
-        if (ev.type === "assistant" && Array.isArray(ev.message?.content)) {
-          for (const block of ev.message.content) {
-            if (block.type === "text" && block.text) session.pending.chunks.push(block.text);
-          }
-        }
-        if (ev.type === "result") {
-          const { resolve, timer, chunks } = session.pending;
-          session.pending = null;
-          clearTimeout(timer);
-          resolve(chunks.join(""));
-        }
-      } catch { /* ignore non-JSON lines */ }
-    }
-  });
-
-  proc.on("close", () => {
-    if (session.pending) {
-      clearTimeout(session.pending.timer);
-      session.pending.reject(new Error("Claude session exited unexpectedly"));
-      session.pending = null;
-    }
-  });
-
-  return session;
-}
-
-function getSession(conversationId: string): ClaudeSession {
-  // Reap stale sessions
-  const now = Date.now();
-  for (const [id, s] of sessions) {
-    if (now - s.lastActive > SESSION_TTL_MS) {
-      s.proc.stdin?.end();
-      sessions.delete(id);
-      log(`[INFO] Session ${id} reaped (idle)`);
-    }
-  }
-
-  let session = sessions.get(conversationId);
-  if (!session || session.proc.exitCode !== null) {
-    session = spawnSession();
-    sessions.set(conversationId, session);
-    log(`[INFO] Session started for conversation ${conversationId}`);
-  }
-  return session;
-}
-
-function sendToSession(session: ClaudeSession, text: string): Promise<string> {
-  return new Promise((resolve, reject) => {
-    if (session.pending) {
-      reject(new Error("Session busy — previous response not yet complete"));
-      return;
-    }
-    const timer = setTimeout(() => {
-      if (session.pending) {
-        session.pending.reject(new Error("Claude response timed out after 2 minutes"));
-        session.pending = null;
-      }
-    }, 120_000);
-    session.pending = { chunks: [], resolve, reject, timer };
-    session.lastActive = Date.now();
-    session.proc.stdin!.write(JSON.stringify({ type: "user", message: text }) + "\n");
-  });
-}
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 
@@ -375,23 +256,39 @@ async function main() {
     log(`Control plane: ${config.controlPlaneUrl} / ${config.controlPlaneWsUrl} (WebSocket)`);
   }
 
-  // ── Single handler — works regardless of transport (WebSocket or WebRTC) ──
+  // ── MCP sampling — ask Claude Desktop to do the LLM call with its own auth ──
   //
-  // Both chat and intent ultimately spawn a headless `claude -p` session.
+  // The MCP `sampling/createMessage` request lets a server delegate LLM inference
+  // to the host client (Claude Desktop).  No subprocess, no credential management.
+  // Claude Desktop will use the same model and auth as the current session.
 
-  async function handleViaClaudeCLI(messages: ChatMessageEntry[], id: string): Promise<string> {
-    const session = getSession(id);
-    // Only send messages the session hasn't seen yet; skip assistant turns
-    // (Claude tracks those internally in the persistent process)
-    const newMessages = messages.slice(session.processedCount).filter((m) => m.role === "user");
-    session.processedCount = messages.length;
+  async function handleViaSampling(messages: ChatMessageEntry[], id: string): Promise<string> {
+    log(`[INFO] Sampling request for conversation ${id} (${messages.length} messages)`);
 
-    if (newMessages.length === 0) return "(no new message)";
+    const samplingMessages = messages
+      .filter((m) => m.role === "user" || m.role === "assistant")
+      .map((m) => ({
+        role: m.role as "user" | "assistant",
+        content: { type: "text" as const, text: m.content },
+      }));
 
-    log(`[INFO] Sending ${newMessages.length} new message(s) to session ${id}`);
-    let last = "";
-    for (const m of newMessages) last = await sendToSession(session, m.content);
-    return last;
+    if (samplingMessages.length === 0) return "(no messages)";
+
+    const result = await server.request(
+      {
+        method: "sampling/createMessage",
+        params: {
+          messages: samplingMessages,
+          maxTokens: 8096,
+        },
+      },
+      CreateMessageResultSchema
+    );
+
+    log(`[INFO] Sampling response for ${id}: model=${result.model}, stopReason=${result.stopReason}`);
+
+    if (result.content.type === "text") return result.content.text;
+    return "(non-text response)";
   }
 
   class McpGatewayAgent extends BaseAgentRuntime {
@@ -406,8 +303,7 @@ async function main() {
         typeof params.message === "string" ? params.message :
         typeof params.text === "string" ? params.text :
         `${action} ${JSON.stringify(params)}`;
-      const messages: ChatMessageEntry[] = [{ role: "user", content: prompt }];
-      return handleViaClaudeCLI(messages, intentId ?? `intent-${Date.now()}`);
+      return handleViaSampling([{ role: "user", content: prompt }], intentId ?? `intent-${Date.now()}`);
     }
 
     async executeChat(
@@ -415,7 +311,7 @@ async function main() {
       conversationId: string,
       sendChunk: (chunk: string, done?: boolean) => void
     ): Promise<void> {
-      const text = await handleViaClaudeCLI(messages, conversationId);
+      const text = await handleViaSampling(messages, conversationId);
       sendChunk(text, true);
     }
   }

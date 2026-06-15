@@ -12,8 +12,13 @@ function createPrismaClient(): PrismaClient {
   return new PrismaClient({ adapter } as any);
 }
 
-export const prisma = globalForPrisma.prisma ?? createPrismaClient();
-
-if (process.env.NODE_ENV !== "production") {
-  globalForPrisma.prisma = prisma;
-}
+// Lazy singleton: DATABASE_URL is read at first use, not at import time.
+// This ensures env files loaded after module init (e.g. via --data-dir) are honoured.
+export const prisma: PrismaClient = new Proxy({} as PrismaClient, {
+  get(_, prop) {
+    if (!globalForPrisma.prisma) {
+      globalForPrisma.prisma = createPrismaClient();
+    }
+    return (globalForPrisma.prisma as any)[prop as string];
+  },
+});

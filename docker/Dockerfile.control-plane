@@ -2,10 +2,11 @@ FROM node:22-slim
 
 WORKDIR /app
 
-# System deps for native modules (better-sqlite3, @vaultys/id)
+# System deps for native modules (@vaultys/id, pg)
 RUN apt-get update && apt-get install -y python3 make g++ curl && rm -rf /var/lib/apt/lists/*
 
-RUN npm install -g pnpm@10 --quiet
+# node-pre-gyp is required by wrtc (used by @vaultys/id) during install
+RUN npm install -g pnpm@10 node-pre-gyp --quiet
 
 # Copy only the manifests we need (shared + control-plane) to keep layer cache tight.
 # The workspace root manifest is needed for pnpm to recognise the monorepo layout.
@@ -14,6 +15,9 @@ COPY packages/shared/package.json         packages/shared/
 COPY packages/control-plane/package.json  packages/control-plane/
 # Stub the other workspace packages so pnpm workspace resolution doesn't fail
 RUN mkdir -p packages/agent-controller && echo '{"name":"@vaultysclaw/agent-controller","version":"0.0.1"}' > packages/agent-controller/package.json
+
+# Copy Prisma schema before install so postinstall (prisma generate) can find it
+COPY packages/control-plane/prisma/ packages/control-plane/prisma/
 
 # Install only the packages needed for shared + control-plane
 RUN pnpm install --filter @vaultysclaw/shared --filter @vaultysclaw/control-plane
@@ -27,6 +31,12 @@ RUN pnpm --filter @vaultysclaw/shared build
 
 WORKDIR /app/packages/control-plane
 
+# TCP probe: wait for postgres to be reachable before starting the app.
+# Avoids P1001 races where the postgres healthcheck passes on loopback
+# but the bridge-network socket isn't ready for other containers yet.
+COPY docker/wait-for-db.sh /usr/local/bin/wait-for-db
+RUN chmod +x /usr/local/bin/wait-for-db
+
 EXPOSE 3000 8080
 
-CMD ["node_modules/.bin/tsx", "server.ts"]
+CMD ["wait-for-db", "node_modules/.bin/tsx", "server.ts"]

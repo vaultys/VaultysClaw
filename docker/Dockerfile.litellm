@@ -1,0 +1,10 @@
+FROM ghcr.io/berriai/litellm:main-latest
+
+# Install netcat for TCP probing in the entrypoint script.
+# Wolfi uses apk (Alpine-compatible package format).
+RUN apk add --no-cache netcat-openbsd 2>/dev/null || true
+
+COPY docker/litellm-entrypoint.sh /litellm-entrypoint.sh
+RUN chmod +x /litellm-entrypoint.sh
+
+ENTRYPOINT ["/litellm-entrypoint.sh"]

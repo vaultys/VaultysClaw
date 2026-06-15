@@ -1,0 +1,182 @@
+# VaultysClaw — all-in-one stack
+#
+# Starts: PostgreSQL · Prisma Studio · MinIO · Docling · LiteLLM · Control Plane
+#
+# Quick start:
+#   cp .env.compose.example .env.compose   # then fill NEXTAUTH_SECRET + LITELLM_MASTER_KEY
+#   docker compose --env-file .env.compose up --build
+#
+# Or with generated defaults (dev/demo only — insecure secrets):
+#   docker compose up --build
+#
+# Services:
+#   Control Plane   → http://localhost:3000   WS → ws://localhost:8080
+#   Prisma Studio   → http://localhost:5555
+#   MinIO API       → http://localhost:9000
+#   MinIO Console   → http://localhost:9001   (minioadmin / minioadmin123)
+#   Docling         → http://localhost:5001
+#   LiteLLM         → http://localhost:4000
+#   PostgreSQL      → localhost:5432
+
+services:
+  # ── PostgreSQL ────────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: vaultys
+      POSTGRES_PASSWORD: ${PG_PASSWORD:-vaultys_dev_secret}
+      POSTGRES_DB: vaultysclaw
+    ports:
+      - "${PG_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./docker/postgres-init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    healthcheck:
+      # Use -h 127.0.0.1 to force TCP (not unix socket) — ensures remote containers
+      # can actually connect before the healthcheck reports healthy.
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U vaultys -d vaultysclaw"]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+      start_period: 15s
+
+  # ── Prisma Studio ─────────────────────────────────────────────────────────
+  prisma-studio:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.control-plane
+    ports:
+      - "5555:5555"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://vaultys:${PG_PASSWORD:-vaultys_dev_secret}@postgres:5432/vaultysclaw
+    # Prisma 7 removed --hostname; Studio listens on 0.0.0.0 by default in server mode.
+    command:
+      - pnpm
+      - exec
+      - prisma
+      - studio
+      - --port
+      - "5555"
+      - --browser
+      - none
+    restart: unless-stopped
+
+  # ── MinIO ─────────────────────────────────────────────────────────────────
+  minio:
+    image: minio/minio
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin123}
+    volumes:
+      - miniodata:/data
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Creates the default bucket on first start
+  minio-init:
+    image: minio/minio
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin123}
+    entrypoint: >
+      /bin/sh -c "
+        mc alias set local http://minio:9000 $$MINIO_ROOT_USER $$MINIO_ROOT_PASSWORD --quiet &&
+        mc mb --ignore-existing local/vc-files &&
+        echo 'Bucket vc-files ready.'
+      "
+    restart: "no"
+
+  # ── Docling ───────────────────────────────────────────────────────────────
+  docling:
+    image: quay.io/docling-project/docling-serve
+    ports:
+      - "5001:5001"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:5001/health"]
+      interval: 10s
+      timeout: 10s
+      retries: 12
+      start_period: 60s
+
+  # ── LiteLLM proxy ─────────────────────────────────────────────────────────
+  litellm:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.litellm
+    ports:
+      - "4000:4000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY:-sk-demo-insecure-changeme}
+      DATABASE_URL: postgresql://vaultys:${PG_PASSWORD:-vaultys_dev_secret}@postgres:5432/vaultysclaw_litellm
+    volumes:
+      - ./docker/litellm_config.yaml:/app/config.yaml:ro
+    command: ["--config", "/app/config.yaml", "--port", "4000"]
+    # LiteLLM can fail on first start if postgres init hasn't finished yet; let Docker restart it.
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:4000/health/liveliness"]
+      interval: 10s
+      timeout: 10s
+      retries: 20
+      start_period: 60s
+
+  # ── Control Plane ─────────────────────────────────────────────────────────
+  control-plane:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.control-plane
+    ports:
+      - "3000:3000"
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      litellm:
+        condition: service_started
+      minio:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://vaultys:${PG_PASSWORD:-vaultys_dev_secret}@postgres:5432/vaultysclaw
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-insecure-dev-secret-change-me}
+      NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
+      NODE_ENV: development
+      PORT: "3000"
+      WS_PORT: "8080"
+      LITELLM_BASE_URL: http://litellm:4000
+      LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY:-sk-demo-insecure-changeme}
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:3000/api/health || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 30
+      start_period: 60s
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  miniodata:
+
+# Disable IPv6 on the default bridge network: Docker DNS can return both A and
+# AAAA records; if a container's resolver prefers IPv6 but the bridge doesn't
+# have end-to-end IPv6 routing, every TCP connect to another service fails with
+# P1001 / ConnectError before the IPv4 fallback is attempted.
+networks:
+  default:
+    driver: bridge
+    enable_ipv6: false

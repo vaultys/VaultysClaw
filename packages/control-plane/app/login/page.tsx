@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import LoginFlowDiagram from "@/components/signin/LoginFlowDiagram";
 import OidcLoginButton from "@/components/signin/OidcLoginButton";
 import ThemeToggle from "@/components/signin/ThemeToggle";

@@ -37,6 +37,10 @@ WORKDIR /app/packages/control-plane
 COPY docker/wait-for-db.sh /usr/local/bin/wait-for-db
 RUN chmod +x /usr/local/bin/wait-for-db
 
+# Build Next.js for production (no DATABASE_URL needed at build time)
+ENV NODE_ENV=production
+RUN pnpm exec next build
+
 EXPOSE 3000 8080
 
-CMD ["wait-for-db", "sh", "-c", "pnpm exec prisma migrate deploy && node_modules/.bin/tsx server.ts"]
+CMD ["wait-for-db", "sh", "-c", "pnpm exec prisma migrate deploy && pnpm exec tsx server.ts"]

@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import type { WorkflowDefinition } from "../packages/control-plane/lib/db";
+import type { WorkflowDefinition } from "../packages/control-plane/lib/workflow-types";
 
 describe("Workflow Store (Zustand)", () => {
   it("should initialize with default state", () => {

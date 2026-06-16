@@ -11,19 +11,10 @@
 
 import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
 import { AgentWSServer } from "../packages/control-plane/lib/ws-server";
-import {
-  getDb,
-  closeDb,
-  initServerIdentity,
-  saveWorkflow,
-  startWorkflowRun,
-  recordWorkflowStep,
-  updateWorkflowStep,
-  getWorkflowRunHistory,
-  upsertAgent,
-  addUserToRealm,
-  type WorkflowDefinition,
-} from "../packages/control-plane/lib/db";
+import type { WorkflowDefinition } from "../packages/control-plane/lib/workflow-types";
+import { WorkflowDAO } from "../packages/control-plane/db";
+import { prisma } from "../packages/control-plane/db/client";
+import { ServerIdentityDAO } from "../packages/control-plane/db/settings.dao";
 import {
   executeWorkflow,
   topologicalSort,
@@ -73,33 +64,18 @@ describe("Workflow Execution with Real Agents", () => {
   ];
 
   beforeAll(async () => {
-    const db = getDb();
-
     // Clean up only data belonging to this test suite (name-scoped)
-    // so concurrent test files' workflow_runs/workflows are not affected.
     for (const name of WF_NAMES) {
-      const rows = db
-        .prepare("SELECT id FROM workflows WHERE name = ?")
-        .all(name) as { id: string }[];
-      for (const row of rows) {
-        db.prepare("DELETE FROM workflow_runs WHERE workflow_id = ?").run(
-          row.id
-        );
+      const workflows = await prisma.workflow.findMany({ where: { name } });
+      for (const wf of workflows) {
+        await prisma.workflowRun.deleteMany({ where: { workflowId: wf.id } });
       }
-      db.prepare("DELETE FROM workflows WHERE name = ?").run(name);
+      await prisma.workflow.deleteMany({ where: { name } });
     }
-    for (const name of AGENT_NAMES) {
-      db.prepare("DELETE FROM agents WHERE name = ?").run(name);
-    }
-    db.prepare(
-      "DELETE FROM pending_registrations WHERE agent_name IN (" +
-        AGENT_NAMES.map(() => "?").join(",") +
-        ")"
-    ).run(...AGENT_NAMES);
-    db.prepare("DELETE FROM auth_sessions").run();
+    await prisma.agent.deleteMany({ where: { name: { in: AGENT_NAMES } } });
 
     // Generate server identity
-    await initServerIdentity();
+    await ServerIdentityDAO.ensureServerIdentity();
 
     // Start WebSocket server
     wsServer = new AgentWSServer(WS_PORT);
@@ -108,9 +84,6 @@ describe("Workflow Execution with Real Agents", () => {
 
   afterAll(() => {
     wsServer.shutdown();
-    // Do NOT call closeDb() — each vitest worker manages its own connection;
-    // closing here would corrupt the shared DB handle for other test files
-    // running in the same worker thread.
   });
 
   // =========================================================================
@@ -176,12 +149,8 @@ describe("Workflow Execution with Real Agents", () => {
         ],
       };
 
-      const workflowId = saveWorkflow(
-        "Sequential Workflow",
-        workflow,
-        undefined
-      );
-      const runId = startWorkflowRun(workflowId);
+      const workflowId = await WorkflowDAO.create("Sequential Workflow", workflow as any);
+      const runId = await WorkflowDAO.startRun(workflowId);
 
       // Step 1: Send intent to analyzer
       const analyzerIntentPromise = analyzerAgent.waitForIntent(5000);
@@ -211,18 +180,8 @@ describe("Workflow Execution with Real Agents", () => {
       );
 
       // Record analyzer step completion
-      const analyzerStepId = recordWorkflowStep(
-        runId,
-        analyzerAgent.id,
-        analyzerAgent.id,
-        "pending"
-      );
-      updateWorkflowStep(
-        analyzerStepId,
-        "completed",
-        analyzerResult,
-        undefined
-      );
+      const analyzerStepId = await WorkflowDAO.recordStep(runId, analyzerAgent.id, analyzerAgent.id, "pending");
+      await WorkflowDAO.updateStep(analyzerStepId, { status: "completed", output: analyzerResult });
 
       // Step 2: Send intent to reviewer (with analyzer results)
       const reviewerIntentPromise = reviewerAgent.waitForIntent(5000);
@@ -250,23 +209,13 @@ describe("Workflow Execution with Real Agents", () => {
       );
 
       // Record reviewer step completion
-      const reviewerStepId = recordWorkflowStep(
-        runId,
-        reviewerAgent.id,
-        reviewerAgent.id,
-        "pending"
-      );
-      updateWorkflowStep(
-        reviewerStepId,
-        "completed",
-        reviewerResult,
-        undefined
-      );
+      const reviewerStepId = await WorkflowDAO.recordStep(runId, reviewerAgent.id, reviewerAgent.id, "pending");
+      await WorkflowDAO.updateStep(reviewerStepId, { status: "completed", output: reviewerResult });
 
       // Verify workflow completion
-      const history = getWorkflowRunHistory(runId);
-      expect(history.steps.length).toBe(2);
-      expect(history.steps.every((s) => s.status === "completed")).toBe(true);
+      const history = await WorkflowDAO.getRunHistory(runId);
+      expect(history!.steps.length).toBe(2);
+      expect(history!.steps.every((s) => s.status === "completed")).toBe(true);
 
       analyzerAgent.close();
       reviewerAgent.close();
@@ -344,8 +293,8 @@ describe("Workflow Execution with Real Agents", () => {
         ],
       };
 
-      const workflowId = saveWorkflow("Parallel Workflow", workflow, undefined);
-      const runId = startWorkflowRun(workflowId);
+      const workflowId = await WorkflowDAO.create("Parallel Workflow", workflow as any);
+      const runId = await WorkflowDAO.startRun(workflowId);
 
       // Execute agent1
       const intent1 = agent1.waitForIntent(5000);
@@ -357,13 +306,8 @@ describe("Workflow Execution with Real Agents", () => {
       await agent1.sendResult(`${runId}-p1`, "success", {
         result: "data1 processed",
       });
-      const step1 = recordWorkflowStep(runId, agent1.id, agent1.id, "pending");
-      updateWorkflowStep(
-        step1,
-        "completed",
-        { result: "data1 processed" },
-        undefined
-      );
+      const step1 = await WorkflowDAO.recordStep(runId, agent1.id, agent1.id, "pending");
+      await WorkflowDAO.updateStep(step1, { status: "completed", output: { result: "data1 processed" } });
 
       // Execute agent2
       const intent2 = agent2.waitForIntent(5000);
@@ -375,13 +319,8 @@ describe("Workflow Execution with Real Agents", () => {
       await agent2.sendResult(`${runId}-p2`, "success", {
         result: "data2 processed",
       });
-      const step2 = recordWorkflowStep(runId, agent2.id, agent2.id, "pending");
-      updateWorkflowStep(
-        step2,
-        "completed",
-        { result: "data2 processed" },
-        undefined
-      );
+      const step2 = await WorkflowDAO.recordStep(runId, agent2.id, agent2.id, "pending");
+      await WorkflowDAO.updateStep(step2, { status: "completed", output: { result: "data2 processed" } });
 
       // Execute merger
       const intentMerge = mergerAgent.waitForIntent(5000);
@@ -398,23 +337,13 @@ describe("Workflow Execution with Real Agents", () => {
       await mergerAgent.sendResult(`${runId}-merge`, "success", {
         merged: "combined results",
       });
-      const stepMerge = recordWorkflowStep(
-        runId,
-        mergerAgent.id,
-        mergerAgent.id,
-        "pending"
-      );
-      updateWorkflowStep(
-        stepMerge,
-        "completed",
-        { merged: "combined results" },
-        undefined
-      );
+      const stepMerge = await WorkflowDAO.recordStep(runId, mergerAgent.id, mergerAgent.id, "pending");
+      await WorkflowDAO.updateStep(stepMerge, { status: "completed", output: { merged: "combined results" } });
 
       // Verify completion
-      const history = getWorkflowRunHistory(runId);
-      expect(history.steps.length).toBe(3);
-      expect(history.steps.every((s) => s.status === "completed")).toBe(true);
+      const history = await WorkflowDAO.getRunHistory(runId);
+      expect(history!.steps.length).toBe(3);
+      expect(history!.steps.every((s) => s.status === "completed")).toBe(true);
 
       agent1.close();
       agent2.close();
@@ -469,8 +398,8 @@ describe("Workflow Execution with Real Agents", () => {
         edges: [{ id: "fail-dep", source: agent1.id, target: agent2.id }],
       };
 
-      const workflowId = saveWorkflow("Error Workflow", workflow, undefined);
-      const runId = startWorkflowRun(workflowId);
+      const workflowId = await WorkflowDAO.create("Error Workflow", workflow as any);
+      const runId = await WorkflowDAO.startRun(workflowId);
 
       // Agent 1 fails
       const intent1 = agent1.waitForIntent(5000);
@@ -486,12 +415,12 @@ describe("Workflow Execution with Real Agents", () => {
         "Execution timeout"
       );
 
-      const step1 = recordWorkflowStep(runId, agent1.id, agent1.id, "pending");
-      updateWorkflowStep(step1, "failed", undefined, "Execution timeout");
+      const step1 = await WorkflowDAO.recordStep(runId, agent1.id, agent1.id, "pending");
+      await WorkflowDAO.updateStep(step1, { status: "failed", error: "Execution timeout" });
 
       // Verify failure is tracked
-      const history = getWorkflowRunHistory(runId);
-      expect(history.steps.some((s) => s.status === "failed")).toBe(true);
+      const history = await WorkflowDAO.getRunHistory(runId);
+      expect(history!.steps.some((s) => s.status === "failed")).toBe(true);
 
       agent1.close();
       agent2.close();
@@ -538,8 +467,8 @@ describe("Workflow Execution with Real Agents", () => {
         })),
       };
 
-      const workflowId = saveWorkflow("Complex Workflow", workflow, undefined);
-      const runId = startWorkflowRun(workflowId);
+      const workflowId = await WorkflowDAO.create("Complex Workflow", workflow as any);
+      const runId = await WorkflowDAO.startRun(workflowId);
 
       // Execute each agent in sequence
       for (let i = 0; i < agents.length; i++) {
@@ -562,19 +491,14 @@ describe("Workflow Execution with Real Agents", () => {
           output: `Stage ${i + 1} completed`,
         });
 
-        const stepId = recordWorkflowStep(runId, agent.id, agent.id, "pending");
-        updateWorkflowStep(
-          stepId,
-          "completed",
-          { stage: i + 1, output: `Stage ${i + 1} completed` },
-          undefined
-        );
+        const stepId = await WorkflowDAO.recordStep(runId, agent.id, agent.id, "pending");
+        await WorkflowDAO.updateStep(stepId, { status: "completed", output: { stage: i + 1, output: `Stage ${i + 1} completed` } });
       }
 
       // Verify all stages completed
-      const history = getWorkflowRunHistory(runId);
-      expect(history.steps.length).toBe(4);
-      expect(history.steps.every((s) => s.status === "completed")).toBe(true);
+      const history = await WorkflowDAO.getRunHistory(runId);
+      expect(history!.steps.length).toBe(4);
+      expect(history!.steps.every((s) => s.status === "completed")).toBe(true);
 
       agents.forEach((a) => a.close());
     });
@@ -743,11 +667,11 @@ describe("Workflow Execution with Real Agents", () => {
         edges: [{ id: "e2", source: agents[2]!.id, target: agents[3]!.id }],
       };
 
-      const wf1Id = saveWorkflow("Concurrent WF 1", workflow1, undefined);
-      const wf2Id = saveWorkflow("Concurrent WF 2", workflow2, undefined);
+      const wf1Id = await WorkflowDAO.create("Concurrent WF 1", workflow1 as any);
+      const wf2Id = await WorkflowDAO.create("Concurrent WF 2", workflow2 as any);
 
-      const run1Id = startWorkflowRun(wf1Id);
-      const run2Id = startWorkflowRun(wf2Id);
+      const run1Id = await WorkflowDAO.startRun(wf1Id);
+      const run2Id = await WorkflowDAO.startRun(wf2Id);
 
       // Execute both workflows concurrently
       const executeWorkflow1 = (async () => {
@@ -790,17 +714,17 @@ describe("Workflow Execution with Real Agents", () => {
         [run2Id, [agents[2]!.id, agents[3]!.id]],
       ] as const) {
         for (const agentId of agentIds) {
-          const stepId = recordWorkflowStep(runId, agentId, agentId, "pending");
-          updateWorkflowStep(stepId, "completed", { wf: runId }, undefined);
+          const stepId = await WorkflowDAO.recordStep(runId, agentId, agentId, "pending");
+          await WorkflowDAO.updateStep(stepId, { status: "completed", output: { wf: runId } });
         }
       }
 
       // Both should complete
-      const history1 = getWorkflowRunHistory(run1Id);
-      const history2 = getWorkflowRunHistory(run2Id);
+      const history1 = await WorkflowDAO.getRunHistory(run1Id);
+      const history2 = await WorkflowDAO.getRunHistory(run2Id);
 
-      expect(history1.steps.every((s) => s.status === "completed")).toBe(true);
-      expect(history2.steps.every((s) => s.status === "completed")).toBe(true);
+      expect(history1!.steps.every((s) => s.status === "completed")).toBe(true);
+      expect(history2!.steps.every((s) => s.status === "completed")).toBe(true);
 
       agents.forEach((a) => a.close());
     });

@@ -58,24 +58,11 @@ vi.mock("@/lib/workflow-executor", () => ({ executeWorkflow: vi.fn() }));
 // Imports
 // ---------------------------------------------------------------------------
 
-import {
-  getDb,
-  createRealm,
-  addUserToRealm,
-  addAgentToRealm,
-  isUserInRealm,
-  isUserRealmAdmin,
-  setUserRealmAdmin,
-  getUserRealms,
-  getAgentRealms,
-  saveWorkflow,
-  type WorkflowDefinition,
-} from "../packages/control-plane/lib/db";
-
+import type { WorkflowDefinition } from "../packages/control-plane/lib/workflow-types";
 import { getAuthContext } from "../packages/control-plane/lib/auth-utils";
 import { APIException } from "../packages/control-plane/lib/api/utils/api-utils";
 import { prisma } from "../packages/control-plane/db/client";
-import { PolicyDAO, UserDAO } from "../packages/control-plane/db";
+import { PolicyDAO } from "../packages/control-plane/db";
 
 // Route handlers under test
 import { GET as agentsGET } from "../packages/control-plane/app/api/agents/route";
@@ -129,44 +116,41 @@ const mockGetAuthContext = getAuthContext as ReturnType<typeof vi.fn>;
 
 /**
  * Build an AuthContext object that mirrors the real auth-utils logic but uses
- * the DB directly — no session / next-auth dependency.
+ * Prisma directly — no session / next-auth dependency.
  */
 function makeAuthContext(
   did: string,
   { isOwner = false, isAdmin = false } = {}
 ) {
   const isGlobalAdmin = isOwner || isAdmin;
-  const userRealms = isGlobalAdmin ? [] : getUserRealms(did);
-  const userRealmIds = new Set(userRealms.map((r) => r.realm_id));
-  const adminRealmIds = new Set(
-    userRealms.filter((r) => r.is_realm_admin === 1).map((r) => r.realm_id)
-  );
   return {
     did,
     isOwner,
     isGlobalAdmin,
-    realmIds: userRealmIds,
+    realmIds: new Set<string>(),
     async canAccessRealm(realmId: string) {
-      return isGlobalAdmin || userRealmIds.has(realmId);
+      if (isGlobalAdmin) return true;
+      const membership = await prisma.userRealm.findFirst({ where: { userId: did, realmId } });
+      return membership !== null;
     },
     async canAdminRealm(realmId: string) {
-      return isGlobalAdmin || adminRealmIds.has(realmId);
+      if (isGlobalAdmin) return true;
+      const membership = await prisma.userRealm.findFirst({ where: { userId: did, realmId } });
+      return membership?.isRealmAdmin === true;
     },
     async canAccessAgent(agentDid: string) {
       if (isGlobalAdmin) return true;
-      const agentRealmIds = new Set(
-        getAgentRealms(agentDid).map((r) => r.realm_id)
-      );
-      return userRealms.some((r) => agentRealmIds.has(r.realm_id));
+      const agentRealms = await prisma.agentRealm.findMany({ where: { agentDid } });
+      const agentRealmIds = new Set(agentRealms.map((r) => r.realmId));
+      const userMemberships = await prisma.userRealm.findMany({ where: { userId: did } });
+      return userMemberships.some((r) => agentRealmIds.has(r.realmId));
     },
     async canAdminAgent(agentDid: string) {
       if (isGlobalAdmin) return true;
-      const agentRealmIds = new Set(
-        getAgentRealms(agentDid).map((r) => r.realm_id)
-      );
-      return userRealms.some(
-        (r) => agentRealmIds.has(r.realm_id) && r.is_realm_admin === 1
-      );
+      const agentRealms = await prisma.agentRealm.findMany({ where: { agentDid } });
+      const agentRealmIds = new Set(agentRealms.map((r) => r.realmId));
+      const userMemberships = await prisma.userRealm.findMany({ where: { userId: did } });
+      return userMemberships.some((r) => agentRealmIds.has(r.realmId) && r.isRealmAdmin === true);
     },
   };
 }
@@ -740,7 +724,6 @@ describe("POST /api/realms", () => {
     expect(status(res)).not.toBe(403);
     const body = (res as { _body: { realm?: { id: string } } })._body;
     if (body.realm?.id) {
-      getDb().prepare("DELETE FROM realms WHERE id = ?").run(body.realm.id);
       await prisma.realm.deleteMany({ where: { id: body.realm.id } });
     }
   });
@@ -945,10 +928,7 @@ describe("POST /api/realms/[id]/users", () => {
     );
     expect(status(res)).not.toBe(401);
     expect(status(res)).not.toBe(403);
-    // Clean up both SQLite and Prisma so the stranger's membership doesn't leak
-    getDb()
-      .prepare("DELETE FROM user_realms WHERE user_id = ? AND realm_id = ?")
-      .run(DID.stranger, testRealmId);
+    // Clean up so the stranger's membership doesn't leak
     await prisma.userRealm.deleteMany({
       where: { userId: DID.stranger, realmId: testRealmId },
     });
@@ -1104,8 +1084,7 @@ describe("POST /api/workflows", () => {
     expect(status(res)).not.toBe(401);
     expect(status(res)).not.toBe(403);
     const body = (res as { _body: { id?: string } })._body;
-    if (body.id)
-      getDb().prepare("DELETE FROM workflows WHERE id = ?").run(body.id);
+    if (body.id) await prisma.workflow.deleteMany({ where: { id: body.id } });
   });
 
   it("is accessible to a global admin", async () => {
@@ -1120,8 +1099,7 @@ describe("POST /api/workflows", () => {
     expect(status(res)).not.toBe(401);
     expect(status(res)).not.toBe(403);
     const body = (res as { _body: { id?: string } })._body;
-    if (body.id)
-      getDb().prepare("DELETE FROM workflows WHERE id = ?").run(body.id);
+    if (body.id) await prisma.workflow.deleteMany({ where: { id: body.id } });
   });
 });
 

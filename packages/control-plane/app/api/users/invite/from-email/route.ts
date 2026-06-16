@@ -9,7 +9,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { UserServerChannel } from "@/lib/user-server-channel";
 import { VaultysId } from "@vaultys/id";
 import { SettingsDAO, UserDAO } from "@/db";
-import { prisma } from "@/db/client";
 import { malformed, notFound } from "@/lib/api/utils/api-utils";
 import { withError } from "@/lib/api/handlers/with-error";
 
@@ -75,15 +74,9 @@ export const POST = withError(async (request: NextRequest) => {
     return notFound("Invitation expired");
   }
 
-  // Get the unclaimed user ID for this email
-  const user = await prisma.user.findFirst({
-    where: { email: invitation.email, did: null },
-    select: { id: true },
-  });
-
   // Create registration certificate with pendingUserId in metadata
   const cert = await UserServerChannel.createRegistrationCertificate({
-    pendingUserId: user?.id,
+    pendingUserId: invitation.userId ?? undefined,
     invitationToken: token,
   });
   const connectionString = await UserServerChannel.startP2PSession(cert);

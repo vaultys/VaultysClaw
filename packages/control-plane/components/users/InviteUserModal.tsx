@@ -2,24 +2,9 @@
 
 import { useState, useCallback } from "react";
 import { QRCodeSVG } from "qrcode.react";
-import {
-  Mail,
-  QrCode,
-  Check,
-  Loader2,
-  AlertCircle,
-  ChevronLeft,
-} from "lucide-react";
+import { Check, Loader2, AlertCircle, Mail, QrCode } from "lucide-react";
 
-type Tab = "method" | "email" | "qr";
-type Phase = "idle" | "loading" | "qr" | "success" | "failure";
-
-interface InviteResult {
-  connectionString: string;
-  token: string;
-  key: string;
-  serverDid: string | null;
-}
+type Phase = "form" | "sending" | "sent" | "qr-loading" | "qr" | "qr-success" | "qr-failure";
 
 interface InviteUserModalProps {
   onClose: () => void;
@@ -30,119 +15,100 @@ export default function InviteUserModal({
   onClose,
   onSuccess,
 }: InviteUserModalProps) {
-  const [tab, setTab] = useState<Tab>("method");
-  const [phase, setPhase] = useState<Phase>("idle");
-  const [qrUrl, setQrUrl] = useState<string>("");
-  const [emailForm, setEmailForm] = useState({
-    email: "",
-    name: "",
-    role: "member",
-  });
-  const [emailSending, setEmailSending] = useState(false);
-  const [emailMsg, setEmailMsg] = useState<{
-    type: "ok" | "fail";
-    text: string;
-  } | null>(null);
+  const [phase, setPhase] = useState<Phase>("form");
+  const [form, setForm] = useState({ email: "", name: "", role: "member" });
+  const [error, setError] = useState<string | null>(null);
+  const [qrUrl, setQrUrl] = useState("");
 
-  // Email invitation flow
-  const sendEmailInvite = useCallback(
+  const canSubmit = form.email.trim() !== "" && form.name.trim() !== "";
+
+  const sendEmail = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault();
-      if (!emailForm.email || !emailForm.name) return;
-      setEmailSending(true);
-      setEmailMsg(null);
+      if (!canSubmit) return;
+      setPhase("sending");
+      setError(null);
       try {
         const res = await fetch("/api/users/invite/email", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(emailForm),
+          body: JSON.stringify(form),
         });
         if (res.ok) {
-          setEmailMsg({
-            type: "ok",
-            text: `Invitation sent to ${emailForm.email}`,
-          });
-          setEmailForm({ email: "", name: "", role: "member" });
-          setTimeout(() => {
-            onSuccess();
-            onClose();
-          }, 1500);
+          setPhase("sent");
+          onSuccess();
         } else {
-          setEmailMsg({ type: "fail", text: "Failed to send invitation" });
+          const d = (await res.json()) as { error?: string };
+          setError(d.error ?? "Failed to send invitation");
+          setPhase("form");
         }
       } catch {
-        setEmailMsg({ type: "fail", text: "Network error" });
-      } finally {
-        setEmailSending(false);
+        setError("Network error");
+        setPhase("form");
       }
     },
-    [emailForm, onSuccess, onClose]
+    [form, canSubmit, onSuccess]
   );
 
-  // QR code flow
-  const generateQR = useCallback(async () => {
-    setPhase("loading");
+  const showQR = useCallback(async () => {
+    if (!canSubmit) return;
+    setPhase("qr-loading");
+    setError(null);
     try {
-      const [inviteRes, settingsRes] = await Promise.all([
-        fetch("/api/users/invite"),
-        fetch("/api/server/settings"),
-      ]);
-      if (!inviteRes.ok) throw new Error("Failed to create invite");
+      // Create invitation and unclaimed user without sending email
+      const invRes = await fetch("/api/users/invite/email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...form, skipEmail: true }),
+      });
+      if (!invRes.ok) {
+        const d = (await invRes.json()) as { error?: string };
+        setError(d.error ?? "Failed to create invitation");
+        setPhase("form");
+        return;
+      }
+      const { token } = (await invRes.json()) as { token: string };
 
-      const data = (await inviteRes.json()) as InviteResult;
-      const { walletUrl } = (await settingsRes.json()) as { walletUrl: string };
-      const base = walletUrl ?? "https://wallet.vaultys.net";
-      const didParam = data.serverDid
-        ? `&did=${encodeURIComponent(data.serverDid)}`
-        : "";
-      const url = `${base}/#${data.connectionString}&protocol=p2p&service=auth${didParam}`;
+      // Generate QR from the invitation token
+      const qrRes = await fetch("/api/users/invite/from-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token }),
+      });
+      if (!qrRes.ok) {
+        setError("Failed to generate QR code");
+        setPhase("form");
+        return;
+      }
+      const { qrUrl: url, inviteToken } = (await qrRes.json()) as {
+        qrUrl: string;
+        inviteToken: string;
+      };
       setQrUrl(url);
       setPhase("qr");
+      onSuccess();
 
-      // Poll until done
+      // Poll for wallet connection
       for (let i = 0; i < 180; i++) {
         await new Promise((r) => setTimeout(r, 1500));
-        const r = await fetch(`/api/user/listen/${data.token}`);
-        const { status } = (await r.json()) as { status: number };
-        if (status === 2) {
-          setPhase("success");
-          onSuccess();
-          return;
-        }
-        if (status === -2) {
-          setPhase("failure");
-          return;
-        }
+        const pr = await fetch(`/api/user/listen/${inviteToken}`);
+        const { status } = (await pr.json()) as { status: number };
+        if (status === 2) { setPhase("qr-success"); return; }
+        if (status === -2) { setPhase("qr-failure"); return; }
       }
-      setPhase("failure");
+      setPhase("qr-failure");
     } catch {
-      setPhase("failure");
+      setError("Network error");
+      setPhase("form");
     }
-  }, [onSuccess]);
+  }, [form, canSubmit, onSuccess]);
 
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
       <div className="bg-background-100 border border-neutral-300 rounded-2xl p-8 w-full max-w-sm shadow-2xl">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
-          {tab !== "method" && (
-            <button
-              onClick={() => {
-                setTab("method");
-                setPhase("idle");
-                setEmailMsg(null);
-              }}
-              className="flex items-center gap-1 text-foreground-500 hover:text-foreground transition-colors"
-            >
-              <ChevronLeft size={18} />
-              <span className="text-sm">Back</span>
-            </button>
-          )}
-          {tab === "method" && (
-            <h2 className="text-foreground font-semibold text-lg flex-1">
-              Invite User
-            </h2>
-          )}
+          <h2 className="text-foreground font-semibold text-lg">Invite User</h2>
           <button
             onClick={onClose}
             className="text-foreground-500 hover:text-foreground transition-colors"
@@ -151,46 +117,9 @@ export default function InviteUserModal({
           </button>
         </div>
 
-        {/* Method selection */}
-        {tab === "method" && phase === "idle" && (
-          <div className="space-y-3">
-            <p className="text-foreground-500 text-sm mb-4">
-              Choose how to invite the user
-            </p>
-            <button
-              onClick={() => setTab("email")}
-              className="w-full flex items-center gap-3 p-4 border border-neutral-200 rounded-xl hover:bg-background-200 transition-colors text-left"
-            >
-              <Mail className="w-5 h-5 text-primary-600 flex-shrink-0" />
-              <div>
-                <p className="text-sm font-medium text-foreground">
-                  Send Email Invite
-                </p>
-                <p className="text-xs text-foreground-500">
-                  User gets a link to scan QR
-                </p>
-              </div>
-            </button>
-            <button
-              onClick={() => setTab("qr")}
-              className="w-full flex items-center gap-3 p-4 border border-neutral-200 rounded-xl hover:bg-background-200 transition-colors text-left"
-            >
-              <QrCode className="w-5 h-5 text-primary-600 flex-shrink-0" />
-              <div>
-                <p className="text-sm font-medium text-foreground">
-                  Show QR Code
-                </p>
-                <p className="text-xs text-foreground-500">
-                  User scans immediately
-                </p>
-              </div>
-            </button>
-          </div>
-        )}
-
-        {/* Email tab */}
-        {tab === "email" && (
-          <form onSubmit={sendEmailInvite} className="space-y-4">
+        {/* Form */}
+        {(phase === "form" || phase === "sending") && (
+          <form onSubmit={sendEmail} className="space-y-4">
             <div className="space-y-3">
               <div>
                 <label className="block text-xs text-foreground-500 mb-1.5">
@@ -198,13 +127,12 @@ export default function InviteUserModal({
                 </label>
                 <input
                   type="email"
-                  value={emailForm.email}
-                  onChange={(e) =>
-                    setEmailForm({ ...emailForm, email: e.target.value })
-                  }
+                  value={form.email}
+                  onChange={(e) => setForm({ ...form, email: e.target.value })}
                   placeholder="user@example.com"
                   className="w-full bg-background-200 border border-neutral-200 rounded-xl px-3 py-2 text-sm text-foreground placeholder:text-foreground-400 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
                   required
+                  autoFocus
                 />
               </div>
               <div>
@@ -213,11 +141,9 @@ export default function InviteUserModal({
                 </label>
                 <input
                   type="text"
-                  value={emailForm.name}
-                  onChange={(e) =>
-                    setEmailForm({ ...emailForm, name: e.target.value })
-                  }
-                  placeholder="John Doe"
+                  value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  placeholder="Jane Smith"
                   className="w-full bg-background-200 border border-neutral-200 rounded-xl px-3 py-2 text-sm text-foreground placeholder:text-foreground-400 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
                   required
                 />
@@ -227,10 +153,8 @@ export default function InviteUserModal({
                   Role
                 </label>
                 <select
-                  value={emailForm.role}
-                  onChange={(e) =>
-                    setEmailForm({ ...emailForm, role: e.target.value })
-                  }
+                  value={form.role}
+                  onChange={(e) => setForm({ ...form, role: e.target.value })}
                   className="w-full bg-background-200 border border-neutral-200 rounded-xl px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary-500/50"
                 >
                   <option value="member">Member</option>
@@ -241,100 +165,109 @@ export default function InviteUserModal({
               </div>
             </div>
 
-            {emailMsg && (
-              <p
-                className={`text-xs px-3 py-2 rounded-xl border ${
-                  emailMsg.type === "ok"
-                    ? "bg-success-50 border-success-300 text-success-700"
-                    : "bg-danger-50 border-danger-300 text-danger-600"
-                }`}
-              >
-                {emailMsg.text}
+            {error && (
+              <p className="text-xs px-3 py-2 rounded-xl border bg-danger-50 border-danger-300 text-danger-600">
+                {error}
               </p>
             )}
 
-            <button
-              type="submit"
-              disabled={emailSending || !emailForm.email || !emailForm.name}
-              className="w-full px-4 py-2.5 bg-primary-600 hover:bg-primary-500 text-white text-sm font-medium rounded-xl disabled:opacity-40 transition-colors"
-            >
-              {emailSending ? "Sending…" : "Send Invitation"}
-            </button>
+            <div className="flex gap-2 pt-1">
+              <button
+                type="submit"
+                disabled={phase === "sending" || !canSubmit}
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-primary-600 hover:bg-primary-500 text-white text-sm font-medium rounded-xl disabled:opacity-40 transition-colors"
+              >
+                {phase === "sending" ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Mail className="w-4 h-4" />
+                )}
+                Send Email
+              </button>
+              <button
+                type="button"
+                disabled={phase === "sending" || !canSubmit}
+                onClick={showQR}
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-background-200 hover:bg-background-300 border border-neutral-200 text-foreground text-sm font-medium rounded-xl disabled:opacity-40 transition-colors"
+              >
+                <QrCode className="w-4 h-4" />
+                Show QR
+              </button>
+            </div>
           </form>
         )}
 
-        {/* QR tab */}
-        {tab === "qr" && (
-          <>
-            {phase === "idle" && (
-              <>
-                <p className="text-foreground-500 text-sm mb-6">
-                  Generate a one-time QR code. The new user scans it with their
-                  Vaultys wallet to register.
-                </p>
-                <button
-                  onClick={generateQR}
-                  className="w-full bg-primary-600 hover:bg-primary-500 text-white font-medium py-2.5 rounded-xl transition-colors"
-                >
-                  Generate Invite QR
-                </button>
-              </>
-            )}
+        {/* Email sent */}
+        {phase === "sent" && (
+          <div className="flex flex-col items-center gap-3 py-4 text-center">
+            <div className="w-12 h-12 rounded-full bg-success-100 flex items-center justify-center">
+              <Check className="w-6 h-6 text-success-600" />
+            </div>
+            <p className="text-foreground font-medium">Invitation sent!</p>
+            <p className="text-foreground-500 text-sm">{form.email}</p>
+            <button
+              onClick={onClose}
+              className="text-primary-700 hover:text-primary-300 text-sm transition-colors mt-1"
+            >
+              Close
+            </button>
+          </div>
+        )}
 
-            {phase === "loading" && (
-              <div className="flex flex-col items-center gap-4 py-4">
-                <Loader2 className="w-8 h-8 text-primary-500 animate-spin" />
-                <p className="text-foreground-500 text-sm">
-                  Creating secure channel…
-                </p>
-              </div>
-            )}
+        {/* QR loading */}
+        {phase === "qr-loading" && (
+          <div className="flex flex-col items-center gap-4 py-4">
+            <Loader2 className="w-8 h-8 text-primary-500 animate-spin" />
+            <p className="text-foreground-500 text-sm">Creating secure channel…</p>
+          </div>
+        )}
 
-            {phase === "qr" && (
-              <div className="flex flex-col items-center gap-4">
-                <p className="text-foreground-500 text-sm text-center">
-                  Ask the new user to scan this QR with their Vaultys wallet.
-                </p>
-                <div className="bg-white p-3 rounded-xl">
-                  <QRCodeSVG value={qrUrl} size={200} />
-                </div>
-                <p className="text-foreground-400 text-xs text-center">
-                  Waiting for wallet connection…
-                </p>
-                <div className="w-6 h-6 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />
-              </div>
-            )}
+        {/* QR display */}
+        {phase === "qr" && (
+          <div className="flex flex-col items-center gap-4">
+            <p className="text-foreground-500 text-sm text-center">
+              Ask {form.name || "the user"} to scan this QR with their Vaultys wallet.
+            </p>
+            <div className="bg-white p-3 rounded-xl">
+              <QRCodeSVG value={qrUrl} size={200} />
+            </div>
+            <p className="text-foreground-400 text-xs text-center">
+              Waiting for wallet connection…
+            </p>
+            <div className="w-6 h-6 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />
+          </div>
+        )}
 
-            {phase === "success" && (
-              <div className="flex flex-col items-center gap-3 py-4 text-center">
-                <div className="w-12 h-12 rounded-full bg-success-100 flex items-center justify-center">
-                  <Check className="w-6 h-6 text-success-600" />
-                </div>
-                <p className="text-foreground font-medium">User registered!</p>
-                <button
-                  onClick={onClose}
-                  className="text-primary-700 hover:text-primary-300 text-sm transition-colors"
-                >
-                  Close
-                </button>
-              </div>
-            )}
+        {/* QR success */}
+        {phase === "qr-success" && (
+          <div className="flex flex-col items-center gap-3 py-4 text-center">
+            <div className="w-12 h-12 rounded-full bg-success-100 flex items-center justify-center">
+              <Check className="w-6 h-6 text-success-600" />
+            </div>
+            <p className="text-foreground font-medium">User registered!</p>
+            <button
+              onClick={onClose}
+              className="text-primary-700 hover:text-primary-300 text-sm transition-colors"
+            >
+              Close
+            </button>
+          </div>
+        )}
 
-            {phase === "failure" && (
-              <div className="flex flex-col items-center gap-3 py-4 text-center">
-                <AlertCircle className="w-6 h-6 text-danger-600" />
-                <p className="text-danger-600 font-medium">
-                  Registration failed or timed out.
-                </p>
-                <button
-                  onClick={() => setPhase("idle")}
-                  className="text-primary-700 hover:text-primary-300 text-sm transition-colors"
-                >
-                  Try again
-                </button>
-              </div>
-            )}
-          </>
+        {/* QR failure */}
+        {phase === "qr-failure" && (
+          <div className="flex flex-col items-center gap-3 py-4 text-center">
+            <AlertCircle className="w-6 h-6 text-danger-600" />
+            <p className="text-danger-600 font-medium">
+              Registration failed or timed out.
+            </p>
+            <button
+              onClick={() => { setPhase("form"); setError(null); }}
+              className="text-primary-700 hover:text-primary-300 text-sm transition-colors"
+            >
+              Try again
+            </button>
+          </div>
         )}
       </div>
     </div>

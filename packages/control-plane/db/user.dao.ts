@@ -189,15 +189,36 @@ export class UserDAO {
 
   // ─── Invitations ────────────────────────────────────────────────────────────
 
+  /**
+   * Upsert an unclaimed user for the given email, delete any prior pending
+   * invitations for that address, then create a fresh invitation linked to
+   * that user.  Returns both the new token and the unclaimed user id.
+   */
   static async createInvitation(
     email: string,
     name: string,
     role: string,
     expiresAt: Date
-  ): Promise<string> {
+  ): Promise<{ token: string; userId: string }> {
+    // Reuse an existing unclaimed user or create one
+    let user = await prisma.user.findFirst({ where: { email, did: null } });
+    if (!user) {
+      user = await UserDAO.createUnclaimed({ name, email, role });
+    } else {
+      // Keep name/role in sync with whatever the admin typed
+      await prisma.user.update({ where: { id: user.id }, data: { name, role } });
+    }
+
+    // Delete any previous pending (unclaimed) invitations for this email
+    await prisma.userInvitation.deleteMany({
+      where: { email, claimedAt: null },
+    });
+
     const token = crypto.randomUUID();
-    await prisma.userInvitation.create({ data: { token, email, name, role, expiresAt } });
-    return token;
+    await prisma.userInvitation.create({
+      data: { token, email, name, role, expiresAt, userId: user.id },
+    });
+    return { token, userId: user.id };
   }
 
   static async findInvitation(token: string): Promise<UserInvitation | null> {
@@ -222,7 +243,7 @@ export class UserDAO {
 
   static async listUnclaimed() {
     return prisma.user.findMany({
-      where: { entraId: { not: null }, claimedAt: null, did: null },
+      where: { did: null },
     });
   }
 

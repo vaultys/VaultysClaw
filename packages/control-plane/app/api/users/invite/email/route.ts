@@ -66,10 +66,11 @@ export const POST = withError(async (request: NextRequest) => {
     return forbidden();
   }
 
-  const { email, name, role } = (await request.json()) as {
+  const { email, name, role, skipEmail } = (await request.json()) as {
     email?: string;
     name?: string;
     role?: string;
+    skipEmail?: boolean;
   };
 
   if (!email || !name) {
@@ -79,36 +80,38 @@ export const POST = withError(async (request: NextRequest) => {
   const userRole = role ?? "member";
   const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
-  const token = await UserDAO.createInvitation(
+  const { token, userId } = await UserDAO.createInvitation(
     email,
     name,
     userRole,
     expiresAt
   );
 
-  const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
-  const inviteUrl = `${baseUrl}/invite/${token}`;
+  if (!skipEmail) {
+    const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
+    const inviteUrl = `${baseUrl}/invite/${token}`;
 
-  const platformName = (await SettingsDAO.get("platformName")) || "VaultysClaw";
-  const html = `
-      <h2>You're invited to ${platformName}</h2>
-      <p>Hi ${name},</p>
-      <p>You've been invited to join ${platformName} as a <strong>${userRole}</strong>.</p>
-      <p>
-        <a href="${inviteUrl}" style="display: inline-block; padding: 10px 20px; background-color: #4f46e5; color: white; text-decoration: none; border-radius: 6px;">
-          Accept Invitation
-        </a>
-      </p>
-      <p>Or paste this link in your browser: ${inviteUrl}</p>
-      <p>This invitation expires in 7 days.</p>
-    `;
+    const platformName = (await SettingsDAO.get("platformName")) || "VaultysClaw";
+    const html = `
+        <h2>You're invited to ${platformName}</h2>
+        <p>Hi ${name},</p>
+        <p>You've been invited to join ${platformName} as a <strong>${userRole}</strong>.</p>
+        <p>
+          <a href="${inviteUrl}" style="display: inline-block; padding: 10px 20px; background-color: #4f46e5; color: white; text-decoration: none; border-radius: 6px;">
+            Accept Invitation
+          </a>
+        </p>
+        <p>Or paste this link in your browser: ${inviteUrl}</p>
+        <p>This invitation expires in 7 days.</p>
+      `;
 
-  await sendMail({
-    to: email,
-    subject: `Invitation to ${platformName}`,
-    html,
-    text: `You've been invited to join ${platformName} as a ${userRole}. Visit: ${inviteUrl}`,
-  });
+    await sendMail({
+      to: email,
+      subject: `Invitation to ${platformName}`,
+      html,
+      text: `You've been invited to join ${platformName} as a ${userRole}. Visit: ${inviteUrl}`,
+    });
+  }
 
-  return NextResponse.json({ token });
+  return NextResponse.json({ token, userId });
 });

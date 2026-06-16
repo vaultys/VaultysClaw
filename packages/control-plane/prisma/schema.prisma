@@ -160,12 +160,13 @@ model User {
   locationLon   Float?
   locationLabel String?
 
-  manager       User?          @relation("reportsTo", fields: [reportsTo], references: [id], onDelete: SetNull)
-  reports       User[]         @relation("reportsTo")
-  entraIdentity EntraIdentity? @relation(fields: [entraId], references: [id], onDelete: SetNull)
-  oidcIdentity  OidcIdentity?  @relation(fields: [oidcId], references: [sub], onDelete: SetNull)
-  userRealms    UserRealm[]
-  userGrants    UserGrant[]
+  manager         User?            @relation("reportsTo", fields: [reportsTo], references: [id], onDelete: SetNull)
+  reports         User[]           @relation("reportsTo")
+  entraIdentity   EntraIdentity?   @relation(fields: [entraId], references: [id], onDelete: SetNull)
+  oidcIdentity    OidcIdentity?    @relation(fields: [oidcId], references: [sub], onDelete: SetNull)
+  userRealms      UserRealm[]
+  userGrants      UserGrant[]
+  invitations     UserInvitation[]
 
   @@index([did])
   @@index([entraId])
@@ -518,9 +519,13 @@ model UserInvitation {
   createdAt DateTime  @default(now())
   expiresAt DateTime
   claimedAt DateTime?
+  userId    String?
+
+  user      User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([email])
   @@index([expiresAt])
+  @@index([userId])
 }
 
 // ─── Knowledge ────────────────────────────────────────────────────────────────

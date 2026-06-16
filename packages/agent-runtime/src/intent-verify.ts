@@ -37,6 +37,7 @@ export function verifyIntentMessage(
   message: WSMessage,
   serverPublicKey: Buffer
 ): boolean {
+  console.log("boom");
   if (!message.signature) return false;
 
   try {
@@ -49,7 +50,9 @@ export function verifyIntentMessage(
     const body = combined.subarray(4, 4 + bodyLen);
     const sig = combined.subarray(4 + bodyLen);
 
+
     const serverVid = VaultysId.fromId(serverPublicKey);
+    console.log("Verifying intent signature with server public key:", serverVid.did);
     const valid = serverVid.verifyChallenge(
       Buf.from(body),
       Buf.from(sig),

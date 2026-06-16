@@ -29,7 +29,6 @@ import {
 } from "@vaultysclaw/agent-runtime";
 import {
   initDb,
-  storeCertificate,
   storeDelegation,
   clearAllDelegations,
   getAllDelegations,
@@ -74,7 +73,6 @@ import {
   type SkillConfig,
   type ChatMessageEntry,
 } from "@vaultysclaw/shared";
-import { Challenger } from "@vaultys/id";
 import { type AgentControllerConfig } from "./config";
 import {
   runIntent,
@@ -842,37 +840,6 @@ export class Agent extends BaseAgentRuntime {
   protected override async onAuthComplete(
     payload: WSAuthCompletePayload
   ): Promise<void> {
-    // Store the certificate
-    if (this.vaultysId) {
-      try {
-        // Extract server public key from the certificate stored by base class auth logic
-        const latestCert = getDb()
-          .query(
-            "SELECT certificate_data FROM certificates ORDER BY id DESC LIMIT 1"
-          )
-          .get() as { certificate_data: string } | undefined;
-        if (latestCert?.certificate_data) {
-          const certBuf = Buffer.from(latestCert.certificate_data, "base64");
-          const deserialized = Challenger.deserializeCertificate(certBuf);
-          if (deserialized?.pk1) {
-            const pk = Buffer.from(
-              deserialized.pk1 as Uint8Array
-            ) as unknown as Buffer;
-            this.serverPublicKey = pk;
-            this.peerManager?.setServerPublicKey(
-              deserialized.pk1 as Uint8Array
-            );
-          }
-        }
-      } catch (err) {
-        this.log(
-          "warn",
-          "Could not extract server public key from certificate",
-          err
-        );
-      }
-    }
-
     // Push current knowledge source statuses so the control-plane can reconcile
     try {
       const sources = listKnowledgeSources();

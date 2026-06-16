@@ -20,7 +20,6 @@ import fs from "fs";
 import path from "path";
 import { createRequire } from "module";
 import { WebSocket } from "ws";
-import { decode as msgpackDecode } from "@msgpack/msgpack";
 
 // peerjs is CJS — ESM dynamic import() puts Peer inside mod["module.exports"],
 // not as a named export. Load via createRequire so destructuring works and the
@@ -103,7 +102,7 @@ export interface AgentInfo {
 
 class RingBuffer<T> {
   private buf: T[] = [];
-  constructor(private readonly max: number) {}
+  constructor(private readonly max: number) { }
   push(item: T): void {
     this.buf.push(item);
     if (this.buf.length > this.max) this.buf.shift();
@@ -206,37 +205,37 @@ export abstract class BaseAgentRuntime extends EventEmitter {
 
   protected async onAuthComplete(
     _payload: WSAuthCompletePayload
-  ): Promise<void> {}
+  ): Promise<void> { }
 
   protected async onDelegationUpdate(
     _payload: WSDelegationUpdatePayload
-  ): Promise<void> {}
+  ): Promise<void> { }
 
   protected async onPeerCatalogUpdated(
     _grants: AgentPeerGrant[]
-  ): Promise<void> {}
+  ): Promise<void> { }
 
-  protected async onLlmConfig(_config: WSLlmConfigPayload): Promise<void> {}
+  protected async onLlmConfig(_config: WSLlmConfigPayload): Promise<void> { }
 
   protected async onSkillsConfig(
     _payload: WSSkillsConfigPayload
-  ): Promise<void> {}
+  ): Promise<void> { }
 
-  protected async onKnowledgeSources(_sources: unknown[]): Promise<void> {}
+  protected async onKnowledgeSources(_sources: unknown[]): Promise<void> { }
 
-  protected async handleGetChatSessions(_msg: WSMessage): Promise<void> {}
+  protected async handleGetChatSessions(_msg: WSMessage): Promise<void> { }
 
-  protected async handleGetChatHistory(_msg: WSMessage): Promise<void> {}
+  protected async handleGetChatHistory(_msg: WSMessage): Promise<void> { }
 
-  protected async handleToolApprovalResponse(_msg: WSMessage): Promise<void> {}
+  protected async handleToolApprovalResponse(_msg: WSMessage): Promise<void> { }
 
-  protected async handleTaskEnqueue(_msg: WSMessage): Promise<void> {}
+  protected async handleTaskEnqueue(_msg: WSMessage): Promise<void> { }
 
-  protected async handleScheduleUpdate(_msg: WSMessage): Promise<void> {}
+  protected async handleScheduleUpdate(_msg: WSMessage): Promise<void> { }
 
-  protected async handleScheduleDelete(_msg: WSMessage): Promise<void> {}
+  protected async handleScheduleDelete(_msg: WSMessage): Promise<void> { }
 
-  protected async handleKnowledgeSync(_msg: WSMessage): Promise<void> {}
+  protected async handleKnowledgeSync(_msg: WSMessage): Promise<void> { }
 
   // ---- Public API ----
 
@@ -277,7 +276,7 @@ export abstract class BaseAgentRuntime extends EventEmitter {
       this.peerjsPeer.destroy();
       this.peerjsPeer = null;
     }
-    this.peerManager?.shutdown().catch(() => {});
+    this.peerManager?.shutdown().catch(() => { });
     this.setStatus("disconnected");
   }
 
@@ -441,23 +440,23 @@ export abstract class BaseAgentRuntime extends EventEmitter {
     const serverUrl = this.config.peerjsServerUrl;
     const peerOptions: import("peerjs").PeerOptions = serverUrl
       ? (() => {
-          try {
-            const parsed = new URL(serverUrl);
-            return {
-              host: parsed.hostname,
-              port: parsed.port
-                ? parseInt(parsed.port, 10)
-                : parsed.protocol === "https:"
-                  ? 443
-                  : 80,
-              path: parsed.pathname || "/",
-              secure: parsed.protocol === "https:",
-              debug: 1,
-            };
-          } catch {
-            return { host: serverUrl, secure: true, debug: 1 };
-          }
-        })()
+        try {
+          const parsed = new URL(serverUrl);
+          return {
+            host: parsed.hostname,
+            port: parsed.port
+              ? parseInt(parsed.port, 10)
+              : parsed.protocol === "https:"
+                ? 443
+                : 80,
+            path: parsed.pathname || "/",
+            secure: parsed.protocol === "https:",
+            debug: 1,
+          };
+        } catch {
+          return { host: serverUrl, secure: true, debug: 1 };
+        }
+      })()
       : { host: "0.peerjs.com", port: 443, path: "/", secure: true, debug: 1 };
 
     // peerjs is required at module load (after polyfills) — construct directly.
@@ -925,6 +924,25 @@ export abstract class BaseAgentRuntime extends EventEmitter {
         }
       } catch {
         /* keep existing limits */
+      }
+    }
+
+    // Extract server public key from the completed cert before clearing the challenger.
+    // In the Challenger protocol the agent is the initiator (pk1 = agent key, pk2 = server key).
+    // We need pk2 — the server's (responder's) key — for intent signature verification.
+    if (this.authChallenger) {
+      try {
+        const certBuf = this.authChallenger.getCertificate();
+        const deserialized = Challenger.deserializeCertificate(certBuf);
+        if (deserialized?.pk2) {
+          const normalizedKey = Buffer.from(
+            VaultysId.fromId(deserialized.pk2).toVersion(1).id
+          ) as unknown as Buffer;
+          this.serverPublicKey = normalizedKey;
+          this.peerManager?.setServerPublicKey(normalizedKey as unknown as Uint8Array);
+        }
+      } catch {
+        /* non-fatal — verification will warn on first intent */
       }
     }
 

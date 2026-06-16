@@ -103,6 +103,7 @@ const CAPABILITY_ICONS: Record<string, React.ReactNode> = {
   api_call: <Plug size={13} />,
   mail_send: <Mail size={13} />,
   code_execution: <Code size={13} />,
+  agent_communication: <Bot size={13} />,
   system_command: <Terminal size={13} />,
   knowledge_search: <BookOpen size={13} />,
 };
@@ -165,11 +166,10 @@ function CapPill({ cap, risky }: { cap: string; risky?: boolean }) {
   return (
     <span
       className={`inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded border font-normal
- ${
-   risky
-     ? "bg-danger-50 text-danger-600 border-danger-200"
-     : "bg-background-200 text-foreground-400 border-neutral-200"
- }`}
+ ${risky
+          ? "bg-danger-50 text-danger-600 border-danger-200"
+          : "bg-background-200 text-foreground-400 border-neutral-200"
+        }`}
     >
       {CAPABILITY_ICONS[cap] ?? <Zap size={11} />}
       {cap.replace(/_/g, " ")}
@@ -234,13 +234,13 @@ function OverviewTab({
   const { agents, intents, approvals, policies, budgets } = summary;
   const posture =
     agents.uncovered === 0 &&
-    agents.highRisk === 0 &&
-    budgets.agentsOverDailyBudget === 0 &&
-    intents.successRate >= 90
+      agents.highRisk === 0 &&
+      budgets.agentsOverDailyBudget === 0 &&
+      intents.successRate >= 90
       ? "ok"
       : agents.highRisk > 0 ||
-          budgets.agentsOverDailyBudget > 0 ||
-          intents.successRate < 70
+        budgets.agentsOverDailyBudget > 0 ||
+        intents.successRate < 70
         ? "danger"
         : "warn";
 
@@ -262,13 +262,12 @@ function OverviewTab({
       {/* Posture banner */}
       <div
         className={`flex items-center gap-3 rounded-xl border p-4
- ${
-   posture === "ok"
-     ? "bg-success-50 border-success-500/30 text-success-700"
-     : posture === "warn"
-       ? "bg-warning-50 border-warning-200 text-warning-700"
-       : "bg-danger-50 border-danger-200 text-danger-600"
- }`}
+ ${posture === "ok"
+            ? "bg-success-50 border-success-500/30 text-success-700"
+            : posture === "warn"
+              ? "bg-warning-50 border-warning-200 text-warning-700"
+              : "bg-danger-50 border-danger-200 text-danger-600"
+          }`}
       >
         <PostureIcon className="w-5 h-5 shrink-0" />
         <div>
@@ -344,26 +343,26 @@ function OverviewTab({
       {/* Budget alerts */}
       {(budgets.agentsOverDailyBudget > 0 ||
         budgets.agentsOverMonthlyBudget > 0) && (
-        <div className="bg-danger-50 border border-danger-200 rounded-xl p-4 space-y-1">
-          <p className="text-danger-600 font-semibold text-sm flex items-center gap-2">
-            <Gauge className="w-4 h-4" /> Budget violations
-          </p>
-          {budgets.agentsOverDailyBudget > 0 && (
-            <p className="text-xs text-danger-700">
-              {budgets.agentsOverDailyBudget} agent
-              {budgets.agentsOverDailyBudget !== 1 ? "s" : ""} exceeded daily
-              token budget
+          <div className="bg-danger-50 border border-danger-200 rounded-xl p-4 space-y-1">
+            <p className="text-danger-600 font-semibold text-sm flex items-center gap-2">
+              <Gauge className="w-4 h-4" /> Budget violations
             </p>
-          )}
-          {budgets.agentsOverMonthlyBudget > 0 && (
-            <p className="text-xs text-danger-700">
-              {budgets.agentsOverMonthlyBudget} agent
-              {budgets.agentsOverMonthlyBudget !== 1 ? "s" : ""} exceeded
-              monthly token budget
-            </p>
-          )}
-        </div>
-      )}
+            {budgets.agentsOverDailyBudget > 0 && (
+              <p className="text-xs text-danger-700">
+                {budgets.agentsOverDailyBudget} agent
+                {budgets.agentsOverDailyBudget !== 1 ? "s" : ""} exceeded daily
+                token budget
+              </p>
+            )}
+            {budgets.agentsOverMonthlyBudget > 0 && (
+              <p className="text-xs text-danger-700">
+                {budgets.agentsOverMonthlyBudget} agent
+                {budgets.agentsOverMonthlyBudget !== 1 ? "s" : ""} exceeded
+                monthly token budget
+              </p>
+            )}
+          </div>
+        )}
 
       {/* High-risk agents */}
       {agents.highRiskList.length > 0 && (
@@ -535,7 +534,7 @@ function RenewPolicyModal({
                       ? `${formatCompactNumber(policy.resourceLimits.maxTokensPerDay)} tok/d`
                       : ""}
                     {policy.resourceLimits.maxTokensPerDay &&
-                    policy.resourceLimits.maxRequestsPerHour
+                      policy.resourceLimits.maxRequestsPerHour
                       ? " · "
                       : ""}
                     {policy.resourceLimits.maxRequestsPerHour
@@ -1061,14 +1060,14 @@ function PoliciesTab() {
               );
               const todayTokens = todayTokenUsage
                 ? todayTokenUsage.completionTokens +
-                  todayTokenUsage.promptTokens
+                todayTokenUsage.promptTokens
                 : 0;
               const monthTokenUsage = a.tokenHistory.find(
                 (h) => h.granularity === "month"
               );
               const monthTokens = monthTokenUsage
                 ? monthTokenUsage.completionTokens +
-                  monthTokenUsage.promptTokens
+                monthTokenUsage.promptTokens
                 : 0;
               const dailyVal =
                 edit?.daily ??
@@ -1320,12 +1319,11 @@ function AuditTab() {
                           `/governance/audit/${encodeURIComponent(entry.id)}`
                         )
                       }
-                      className={`cursor-pointer hover:bg-background-200 transition-colors group ${
-                        entry.status === "failed" ||
+                      className={`cursor-pointer hover:bg-background-200 transition-colors group ${entry.status === "failed" ||
                         entry.event === "auth_failed"
-                          ? "bg-danger-500/5 hover:bg-danger-500/10"
-                          : ""
-                      }`}
+                        ? "bg-danger-500/5 hover:bg-danger-500/10"
+                        : ""
+                        }`}
                     >
                       <td className="px-4 py-2.5">
                         {sourceBadge(entry.source)}
@@ -1466,11 +1464,10 @@ export default function GovernancePage() {
             key={t.id}
             onClick={() => setTab(t.id)}
             className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium border-b-2 transition-colors -mb-px
- ${
-   tab === t.id
-     ? "border-primary-500 text-primary-700"
-     : "border-transparent text-foreground-500 hover:text-foreground"
- }`}
+ ${tab === t.id
+                ? "border-primary-500 text-primary-700"
+                : "border-transparent text-foreground-500 hover:text-foreground"
+              }`}
           >
             {t.icon}
             {t.label}

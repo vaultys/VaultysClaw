@@ -11,9 +11,9 @@ interface Realm {
   slug: string;
   description: string | null;
   color: string;
-  is_default: number;
+  isDefault: number;
   default_capabilities: string;
-  created_at: string;
+  createdAt: string;
   agentCount?: number;
   userCount?: number;
   workflowCount?: number;
@@ -280,7 +280,7 @@ export default function RealmsPage() {
                       <span className="font-semibold text-foreground text-sm">
                         {realm.name}
                       </span>
-                      {realm.is_default === 1 && (
+                      {realm.isDefault === 1 && (
                         <span className="text-xs px-1.5 py-0.5 rounded-md bg-warning-50 dark:bg-warning-500/10 text-warning-700 dark:text-warning-400 font-medium">
                           default
                         </span>
@@ -316,7 +316,7 @@ export default function RealmsPage() {
               </div>
 
               <p className="text-foreground-400 text-xs">
-                Created {new Date(realm.created_at).toLocaleDateString()}
+                Created {new Date(realm.createdAt).toLocaleDateString()}
               </p>
 
               {/* Actions */}
@@ -325,7 +325,7 @@ export default function RealmsPage() {
                   className="flex gap-1 mt-3 pt-3 border-t border-neutral-200/50"
                   onClick={(e) => e.stopPropagation()}
                 >
-                  {realm.is_default !== 1 && (
+                  {realm.isDefault !== 1 && (
                     <button
                       onClick={() => handleSetDefault(realm.id)}
                       title="Set as default"
@@ -334,7 +334,7 @@ export default function RealmsPage() {
                       <Star className="w-4 h-4" />
                     </button>
                   )}
-                  {realm.is_default !== 1 && (
+                  {realm.isDefault !== 1 && (
                     <button
                       onClick={() => handleDelete(realm.id)}
                       disabled={deletingId === realm.id}
@@ -344,7 +344,7 @@ export default function RealmsPage() {
                       <Trash2 className="w-4 h-4" />
                     </button>
                   )}
-                  {realm.is_default === 1 && (
+                  {realm.isDefault === 1 && (
                     <span className="ml-auto text-xs text-foreground-400 italic py-1.5">
                       Default realm — cannot delete
                     </span>

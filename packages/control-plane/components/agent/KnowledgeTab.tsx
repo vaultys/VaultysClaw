@@ -50,7 +50,7 @@ interface KsRealmOption {
 interface KnowledgeFile {
   id: string;
   name: string;
-  mime_type: string;
+  mimeType: string;
   size: number;
 }
 
@@ -156,8 +156,8 @@ function FileDropzone({ files, onAdd, onRemove }: FileDropzoneProps) {
         onDrop={handleDrop}
         onClick={() => inputRef.current?.click()}
         className={`flex flex-col items-center justify-center gap-2 px-4 py-8 rounded-xl border-2 border-dashed cursor-pointer transition-colors ${dragging
-            ? "border-primary-500 bg-primary-50"
-            : "border-neutral-200 hover:border-primary-400 hover:bg-background-200/40 bg-background"
+          ? "border-primary-500 bg-primary-50"
+          : "border-neutral-200 hover:border-primary-400 hover:bg-background-200/40 bg-background"
           }`}
       >
         <Upload
@@ -190,8 +190,8 @@ function FileDropzone({ files, onAdd, onRemove }: FileDropzoneProps) {
               <li
                 key={`${f.name}-${i}`}
                 className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-xs ${oversized
-                    ? "border-danger-300 bg-danger-50"
-                    : "border-neutral-200 bg-background-200/40"
+                  ? "border-danger-300 bg-danger-50"
+                  : "border-neutral-200 bg-background-200/40"
                   }`}
               >
                 <File
@@ -442,7 +442,7 @@ function KsSourceCard({
                       key={f.id}
                       className="flex items-center gap-2 text-xs text-foreground"
                     >
-                      {mimeIcon(f.mime_type)}
+                      {mimeIcon(f.mimeType)}
                       <span className="flex-1 truncate">{f.name}</span>
                       <span className="text-foreground-500 shrink-0">
                         {formatBytes(f.size)}
@@ -744,8 +744,8 @@ function KsAddSourceModal({
                   type="button"
                   onClick={() => setSourceType(opt.value)}
                   className={`flex flex-col items-center gap-1.5 px-2 py-3 rounded-xl border text-center transition-colors ${sourceType === opt.value
-                      ? "border-primary-500 bg-primary-50"
-                      : "border-neutral-200 bg-background hover:border-primary-400 hover:bg-background-200/40"
+                    ? "border-primary-500 bg-primary-50"
+                    : "border-neutral-200 bg-background hover:border-primary-400 hover:bg-background-200/40"
                     }`}
                 >
                   {opt.icon}
@@ -1140,8 +1140,8 @@ export function KnowledgeTab({
                     : "Docling not configured — PDF/DOCX parsing unavailable"
                 }
                 className={`inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full border font-medium ${doclingConfigured
-                    ? "bg-success-100 text-success-700 border-success-300"
-                    : "bg-warning-100 text-warning-700 border-warning-300"
+                  ? "bg-success-100 text-success-700 border-success-300"
+                  : "bg-warning-100 text-warning-700 border-warning-300"
                   }`}
               >
                 <FileType2 size={10} />

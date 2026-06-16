@@ -27,6 +27,7 @@ import {
   MessageSquare,
   X,
   Radio,
+  BookOpen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAdminWS } from "@/hooks/useAdminWS";
@@ -40,7 +41,7 @@ interface Realm {
   name: string;
   slug: string;
   color: string;
-  is_default: number;
+  isDefault: number;
 }
 
 interface Model {
@@ -116,6 +117,7 @@ const ALL_CAPABILITIES = [
   { id: "code_execution", label: "Code Execution" },
   { id: "system_command", label: "System Command" },
   { id: "agent_communication", label: "Agent Communication" },
+  { id: "knowledge_search", label: "Knowledge Search" },
 ] as const;
 
 const CAPABILITY_ICONS: Record<string, React.ReactNode> = {
@@ -127,6 +129,7 @@ const CAPABILITY_ICONS: Record<string, React.ReactNode> = {
   code_execution: <Code size={13} />,
   system_command: <Terminal size={13} />,
   agent_communication: <Bot size={13} />,
+  knowledge_search: <BookOpen size={13} />,
 };
 
 // ── Sub-components ─────────────────────────────────────────────────────────────
@@ -275,13 +278,13 @@ export default function CreateAgentPage() {
       .then((d: { realms?: Realm[] }) => {
         const list = d.realms ?? [];
         setRealms(list);
-        const def = list.find((r) => r.is_default);
+        const def = list.find((r) => r.isDefault);
         if (def) {
           setSelectedLaunchRealm(def.id);
           setSelectedRealms(new Set([def.id]));
         }
       })
-      .catch(() => {});
+      .catch(() => { });
 
     fetch("/api/network")
       .then((r) => r.json())
@@ -298,7 +301,7 @@ export default function CreateAgentPage() {
           setPeerjsServerUrl(d.peerjs?.serverUrl ?? null);
         }
       )
-      .catch(() => {});
+      .catch(() => { });
   }, []);
 
   // ── Load registration from regId query param ─────────────────────────────
@@ -365,7 +368,7 @@ export default function CreateAgentPage() {
       fetch("/api/models")
         .then((r) => r.json())
         .then((d: { models?: Model[] }) => setModels(d.models ?? []))
-        .catch(() => {});
+        .catch(() => { });
     }
     if (step === "model" && liteLlmModels.length === 0) {
       fetch("/api/litellm/models")
@@ -379,7 +382,7 @@ export default function CreateAgentPage() {
             setLiteLlmConfigured(d.configured ?? false);
           }
         )
-        .catch(() => {});
+        .catch(() => { });
     }
   }, [step, models.length, liteLlmModels.length]);
 
@@ -389,7 +392,7 @@ export default function CreateAgentPage() {
         .getSkills({ params: { did: agentDid } })
         .then(unwrap)
         .then((d) => setSkills((d.skills as SkillConfig[] | undefined) ?? []))
-        .catch(() => {});
+        .catch(() => { });
     }
   }, [step, agentDid, skills.length]);
 
@@ -693,9 +696,9 @@ export default function CreateAgentPage() {
   const connArg =
     connMethod === "peerjs" && peerjsId
       ? [
-          `--peerjs ${peerjsId}`,
-          ...(peerjsServerUrl ? [`--peerjs-server ${peerjsServerUrl}`] : []),
-        ]
+        `--peerjs ${peerjsId}`,
+        ...(peerjsServerUrl ? [`--peerjs-server ${peerjsServerUrl}`] : []),
+      ]
       : [`--ws ${wsUrl}`];
   const cliCommand = [
     runnerPrefix,
@@ -751,11 +754,10 @@ export default function CreateAgentPage() {
               <button
                 type="button"
                 onClick={() => setConnMethod("ws")}
-                className={`flex flex-col items-start gap-1.5 px-4 py-3 rounded-xl border text-left transition-colors ${
-                  connMethod === "ws"
-                    ? "bg-primary-50 dark:bg-primary-500/10 border-primary-400 dark:border-primary-500/50"
-                    : "bg-background-100 border-neutral-200 hover:bg-background-200"
-                }`}
+                className={`flex flex-col items-start gap-1.5 px-4 py-3 rounded-xl border text-left transition-colors ${connMethod === "ws"
+                  ? "bg-primary-50 dark:bg-primary-500/10 border-primary-400 dark:border-primary-500/50"
+                  : "bg-background-100 border-neutral-200 hover:bg-background-200"
+                  }`}
               >
                 <span className="flex items-center gap-2">
                   <Wifi
@@ -782,11 +784,10 @@ export default function CreateAgentPage() {
               <button
                 type="button"
                 onClick={() => setConnMethod("peerjs")}
-                className={`flex flex-col items-start gap-1.5 px-4 py-3 rounded-xl border text-left transition-colors ${
-                  connMethod === "peerjs"
-                    ? "bg-secondary-50 dark:bg-secondary-500/10 border-secondary-400 dark:border-secondary-500/50"
-                    : "bg-background-100 border-neutral-200 hover:bg-background-200"
-                }`}
+                className={`flex flex-col items-start gap-1.5 px-4 py-3 rounded-xl border text-left transition-colors ${connMethod === "peerjs"
+                  ? "bg-secondary-50 dark:bg-secondary-500/10 border-secondary-400 dark:border-secondary-500/50"
+                  : "bg-background-100 border-neutral-200 hover:bg-background-200"
+                  }`}
               >
                 <span className="flex items-center gap-2">
                   <Radio
@@ -916,7 +917,7 @@ export default function CreateAgentPage() {
                 {realms.map((r) => (
                   <option key={r.id} value={r.id}>
                     {r.name}
-                    {r.is_default ? " (default)" : ""}
+                    {r.isDefault ? " (default)" : ""}
                   </option>
                 ))}
               </select>
@@ -1200,11 +1201,10 @@ export default function CreateAgentPage() {
                         return next;
                       })
                     }
-                    className={`px-3 py-1.5 rounded-md text-sm border transition-colors flex items-center gap-1.5 ${
-                      checked
-                        ? "bg-primary-100 dark:bg-primary-900/40 border-primary-500 text-primary-700 dark:text-primary-300"
-                        : "bg-background-100 border-neutral-300 text-foreground-500 hover:border-foreground-500"
-                    }`}
+                    className={`px-3 py-1.5 rounded-md text-sm border transition-colors flex items-center gap-1.5 ${checked
+                      ? "bg-primary-100 dark:bg-primary-900/40 border-primary-500 text-primary-700 dark:text-primary-300"
+                      : "bg-background-100 border-neutral-300 text-foreground-500 hover:border-foreground-500"
+                      }`}
                   >
                     {CAPABILITY_ICONS[cap.id] ?? <Zap size={13} />}
                     {cap.label}
@@ -1323,7 +1323,7 @@ export default function CreateAgentPage() {
                         }
                       >
                         {r.name}
-                        {r.is_default ? (
+                        {r.isDefault ? (
                           <span className="ml-1.5 text-xs text-foreground-400">
                             (default)
                           </span>
@@ -1560,7 +1560,7 @@ export default function CreateAgentPage() {
                 <ChevronRight size={15} />
               )}
               {(modelMode === "registry" && selectedModel) ||
-              (modelMode === "litellm" && selectedLiteLlmModel)
+                (modelMode === "litellm" && selectedLiteLlmModel)
                 ? "Apply & continue"
                 : "Continue"}
             </button>
@@ -1770,7 +1770,7 @@ function parseJsonArray(raw: unknown): string[] {
 function timeAgo(iso: string): string {
   const s = Math.floor(
     (Date.now() - new Date(iso.endsWith("Z") ? iso : iso + "Z").getTime()) /
-      1000
+    1000
   );
   if (s < 60) return `${s}s ago`;
   if (s < 3600) return `${Math.floor(s / 60)}m ago`;

@@ -264,15 +264,15 @@ function LandingPage() {
 
 interface Approval {
   id: string;
-  run_id: string;
-  step_id: string;
-  workflow_id: string;
-  workflow_name: string;
-  node_message: string | null;
-  step_input: string | null;
+  runId: string;
+  stepId: string;
+  workflowId: string;
+  workflowName: string;
+  nodeMessage: string | null;
+  stepInput: string | null;
   mode: "approval" | "notification";
   status: string;
-  created_at: string;
+  createdAt: string;
 }
 
 interface WorkflowRun {
@@ -1015,26 +1015,26 @@ function Dashboard() {
                     <div>
                       <div className="flex items-start justify-between gap-2">
                         <p className="font-semibold text-sm text-foreground leading-tight">
-                          {item.workflow_name}
+                          {item.workflowName}
                         </p>
                         <span className="text-[10px] text-foreground-400 whitespace-nowrap">
-                          {timeAgo(item.created_at)}
+                          {timeAgo(item.createdAt)}
                         </span>
                       </div>
-                      {item.node_message && (
+                      {item.nodeMessage && (
                         <p className="text-xs text-foreground-600 mt-1 leading-relaxed">
-                          {item.node_message}
+                          {item.nodeMessage}
                         </p>
                       )}
                       <p className="text-[11px] text-foreground-400 mt-0.5">
-                        Step: {item.step_id}
+                        Step: {item.stepId}
                       </p>
                     </div>
 
-                    {item.step_input && (
+                    {item.stepInput && (
                       <pre className="text-[11px] bg-background-200 text-foreground border border-neutral-200 rounded-lg p-2 overflow-x-auto max-h-16 whitespace-pre-wrap break-words">
-                        {item.step_input.slice(0, 160)}
-                        {item.step_input.length > 160 ? "…" : ""}
+                        {item.stepInput.slice(0, 160)}
+                        {item.stepInput.length > 160 ? "…" : ""}
                       </pre>
                     )}
 
@@ -1097,15 +1097,15 @@ function Dashboard() {
                     <Bell size={13} className="text-primary-400 shrink-0 mt-0.5" />
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-foreground leading-tight">
-                        {item.workflow_name}
+                        {item.workflowName}
                       </p>
-                      {item.node_message && (
+                      {item.nodeMessage && (
                         <p className="text-xs text-foreground-600 mt-0.5">
-                          {item.node_message}
+                          {item.nodeMessage}
                         </p>
                       )}
                       <p className="text-[10px] text-foreground-400 mt-0.5">
-                        {timeAgo(item.created_at)} · {item.step_id}
+                        {timeAgo(item.createdAt)} · {item.stepId}
                       </p>
                     </div>
                     <button

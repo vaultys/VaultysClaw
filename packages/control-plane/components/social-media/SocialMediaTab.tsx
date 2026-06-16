@@ -45,8 +45,8 @@ interface Credential {
   service: string;
   name: string;
   metadata: Record<string, unknown>;
-  created_at: string;
-  updated_at: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 interface SocialMediaTabProps {
@@ -292,7 +292,7 @@ export function SocialMediaTab({ realmId }: SocialMediaTabProps) {
                 </p>
                 <p className="text-xs text-foreground-500">
                   Password stored encrypted · Last updated{" "}
-                  {new Date(xCred?.updated_at ?? "").toLocaleDateString()}
+                  {new Date(xCred?.updatedAt ?? "").toLocaleDateString()}
                 </p>
               </div>
               <button
@@ -441,11 +441,10 @@ export function SocialMediaTab({ realmId }: SocialMediaTabProps) {
                 key={expr}
                 type="button"
                 onClick={() => setCronExpr(expr)}
-                className={`px-3 py-1 text-xs rounded-lg border transition-colors ${
-                  cronExpr === expr
+                className={`px-3 py-1 text-xs rounded-lg border transition-colors ${cronExpr === expr
                     ? "bg-primary-50 border-primary-300 text-primary-700"
                     : "bg-background-200 border-neutral-200 text-foreground-500 hover:text-foreground"
-                }`}
+                  }`}
               >
                 {label}
               </button>

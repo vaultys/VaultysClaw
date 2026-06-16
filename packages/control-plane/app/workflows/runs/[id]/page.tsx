@@ -384,7 +384,7 @@ export default function WorkflowRunDetailPage() {
                 const node = nodeMap.get(step.stepId);
                 const nodeData = node?.data ?? {};
 
-                // Resolve agent display: prefer node's agentName, then agent_id from step
+                // Resolve agent display: prefer node's agentName, then agentId from step
                 const agentDid =
                   (nodeData.agentId as string | undefined) ??
                   step.agentId ??

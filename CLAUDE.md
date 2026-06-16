@@ -122,32 +122,38 @@ All **new** control-plane REST APIs should follow the ts-rest + APIException pat
 
 ### Structure
 
-**1. Contract** (`lib/contracts/<domain>.contract.ts`)
-- Zod schemas for request/response bodies per status code
-- ts-rest router with path params, query, method, responses
-- Example: `lib/contracts/agents.contract.ts` — GET /api/agents/:did, PATCH capabilities, DELETE
+**1. Contract** — a `lib/contracts/<domain>/` **folder** with the contract split across **three files**. Always separate schemas, types, and the router; never inline them into a single `.contract.ts`. Use `lib/contracts/agents/` as the canonical reference.
+
+- **`<domain>.schemas.ts`** — only Zod schemas (query, body, and response schemas). No `z.infer`, no router. Group with section comments (`// ── Queries`, `// ── Bodies`, `// ── Responses`).
+- **`<domain>.types.ts`** — only TypeScript types: `z.infer<typeof XSchema>` derived from the schemas, plus Prisma-derived (`Prisma.XGetPayload`) and composed types. Imports schemas from `./<domain>.schemas`.
+- **`<domain>.contract.ts`** — only the ts-rest `c.router({...})`. Imports schemas from `./<domain>.schemas` and types from `./<domain>.types`. Use `c.type<MyType>()` for responses backed by a TS type and the Zod schema directly for responses backed by a schema.
+
+For a trivial domain the `.schemas.ts` / `.types.ts` files may be short, but still create all three — consistency over brevity.
+
+Then register the new folder in `lib/contracts/index.ts`: import the router, add the three `export *` lines (contract / schemas / types), and add the router to the `appContract` aggregate.
+
+Example — `lib/contracts/agents/` — GET /api/agents/:did, PATCH capabilities, DELETE:
 
 ```typescript
-export const AgentDetailSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  // ... all fields
-});
+// agents.schemas.ts
+export const UpdateAgentBodySchema = z.object({ capabilities: z.array(z.string()).optional() });
 
-export const agentDetailContract = c.router({
+// agents.types.ts
+import { UpdateAgentBodySchema } from "./agents.schemas";
+export type AgentInfo = Prisma.AgentGetPayload<{ /* ... */ }> & { online: boolean };
+export type UpdateAgentBody = z.infer<typeof UpdateAgentBodySchema>;
+
+// agents.contract.ts
+import { UpdateAgentBodySchema } from "./agents.schemas";
+import { AgentInfo } from "./agents.types";
+export const agentsContract = c.router({
   getAgent: {
     method: "GET",
     path: "/api/agents/:did",
     pathParams: z.object({ did: z.string() }),
-    responses: {
-      200: AgentDetailSchema,
-      400: ErrorSchema,
-      401: ErrorSchema,
-      403: ErrorSchema,
-      404: ErrorSchema,
-    },
+    responses: { 200: c.type<AgentInfo>(), ...commonErrorResponses },
   },
-  // ... updateAgent, deleteAgent, etc.
+  // ... updateAgent (body: UpdateAgentBodySchema), deleteAgent, etc.
 });
 ```
 
@@ -212,7 +218,7 @@ if (!found) throw new APIException("NOT_FOUND", "Agent not found");
 
 ### Files to Know
 
-- **Contracts**: `lib/contracts/` (index.ts, contract.ts, common.ts, agents.contract.ts)
+- **Contracts**: `lib/contracts/` (index.ts, contract.ts, common.ts) — per-domain folders split into `<domain>.schemas.ts` / `<domain>.types.ts` / `<domain>.contract.ts`; see `lib/contracts/agents/`
 - **Middleware**: `lib/api/ts-rest/next-route.ts`, `lib/api/handlers/with-error.ts`
 - **Client**: `lib/api/ts-rest/client.ts`
 - **Errors**: `lib/api/utils/api-utils.ts` (APIException, resolveApiError)
@@ -221,11 +227,12 @@ if (!found) throw new APIException("NOT_FOUND", "Agent not found");
 
 ### Extending to a New Domain
 
-1. Create `lib/contracts/<domain>.contract.ts` with Zod schemas + router
-2. Create `app/api/<resource>/[param]/route.ts` using `createNextRoute()`
-3. Add methods to `lib/api/<domain>.ts` using `agentContractClient`
-4. Import types from the contract in UI components
-5. Tests: mock `getAuthContext` to throw `new APIException("UNAUTHORIZED")` for 401 cases
+1. Create the `lib/contracts/<domain>/` folder with the three files (`<domain>.schemas.ts`, `<domain>.types.ts`, `<domain>.contract.ts`)
+2. Register it in `lib/contracts/index.ts` (import router, add the three `export *` lines, add to `appContract`)
+3. Create `app/api/<resource>/[param]/route.ts` using `createNextRoute()`
+4. Add methods to `lib/api/<domain>.ts` using `agentContractClient`
+5. Import types from the contract in UI components
+6. Tests: mock `getAuthContext` to throw `new APIException("UNAUTHORIZED")` for 401 cases
 
 ## Testing
 

@@ -27,6 +27,7 @@ import { serverContract } from "./server.contract";
 import { setupContract, settingsContract } from "./settings.contract";
 import { orgSkillsContract, skillsContract } from "./skills.contract";
 import { userAuthContract } from "./user-auth.contract";
+import { wellKnownContract } from "./well-known/well-known.contract";
 import {
     invitationsContract,
     meContract,
@@ -63,6 +64,10 @@ export * from "./settings.contract";
 export * from "./skills.contract";
 export * from "./user-auth.contract";
 export * from "./users.contract";
+export type * from "./well-known/well-known.contract";
+export * from "./well-known/well-known.contract";
+export * from "./well-known/well-known.schemas";
+export * from "./well-known/well-known.types";
 export * from "./workflows.contract";
 
 /**
@@ -101,6 +106,7 @@ export const appContract = c.router({
   userAuth: userAuthContract,
   userStatus: userStatusContract,
   users: usersContract,
+  wellKnown: wellKnownContract,
   workflows: workflowsContract,
   workflowRuns: workflowRunsContract,
   workflowApprovals: workflowApprovalsContract,

@@ -39,4 +39,4 @@ RUN chmod +x /usr/local/bin/wait-for-db
 
 EXPOSE 3000 8080
 
-CMD ["wait-for-db", "node_modules/.bin/tsx", "server.ts"]
+CMD ["wait-for-db", "sh", "-c", "pnpm exec prisma migrate deploy && node_modules/.bin/tsx server.ts"]

@@ -171,12 +171,3 @@ services:
 volumes:
   pgdata:
   miniodata:
-
-# Disable IPv6 on the default bridge network: Docker DNS can return both A and
-# AAAA records; if a container's resolver prefers IPv6 but the bridge doesn't
-# have end-to-end IPv6 routing, every TCP connect to another service fails with
-# P1001 / ConnectError before the IPv4 fallback is attempted.
-networks:
-  default:
-    driver: bridge
-    enable_ipv6: false

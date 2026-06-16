@@ -261,7 +261,7 @@ beforeAll(async () => {
   await prisma.agentRealm.deleteMany({ where: { agentDid: { contains: SENTINEL } } });
   await prisma.user.deleteMany({ where: { did: { contains: SENTINEL } } });
   await prisma.agent.deleteMany({ where: { did: { contains: SENTINEL } } });
-  await prisma.realm.deleteMany({ where: { slug: "test-sec-realm" } });
+  await prisma.realm.deleteMany({ where: { slug: { contains: "test-sec-realm" } } });
 
   // ── Prisma setup (control plane uses Prisma exclusively, no SQLite) ────────
   await prisma.user.createMany({
@@ -275,13 +275,16 @@ beforeAll(async () => {
     skipDuplicates: true,
   });
 
-  // Create realm via Prisma
+  // Create realm via Prisma — use a unique slug to avoid constraint violations
+  // when tests run in parallel workers against the same DB.
+  const realmSlug = `test-sec-realm-${SENTINEL}`;
   testRealmId = `realm-sec-001-${crypto.randomUUID()}`;
+  await prisma.realm.deleteMany({ where: { slug: realmSlug } });
   await prisma.realm.create({
     data: {
       id: testRealmId,
       name: "Security Test Realm",
-      slug: "test-sec-realm",
+      slug: realmSlug,
       color: "#6366f1",
     },
   });
@@ -333,7 +336,7 @@ afterAll(async () => {
   await prisma.agentRealm.deleteMany({ where: { agentDid: { contains: SENTINEL } } });
   await prisma.user.deleteMany({ where: { did: { contains: SENTINEL } } });
   await prisma.agent.deleteMany({ where: { did: { contains: SENTINEL } } });
-  await prisma.realm.deleteMany({ where: { slug: "test-sec-realm" } });
+  await prisma.realm.deleteMany({ where: { slug: { contains: "test-sec-realm" } } });
 });
 
 // Reset mock before each test so auth context doesn't leak between tests

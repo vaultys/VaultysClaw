@@ -4,19 +4,25 @@
  * without spinning up a real Next.js server.
  */
 
-export const NextResponse = {
-  json(body: unknown, init?: { status?: number }) {
-    const status = init?.status ?? 200;
-    return {
-      _body: body,
-      _status: status,
-      status,
-      async json() {
-        return body;
-      },
-    };
-  },
-};
+export class NextResponse {
+  _body: unknown;
+  _status: number;
+  status: number;
+
+  constructor(body: unknown, init?: { status?: number }) {
+    this._body = body;
+    this._status = init?.status ?? 200;
+    this.status = this._status;
+  }
+
+  async json() {
+    return this._body;
+  }
+
+  static json(body: unknown, init?: { status?: number }) {
+    return new NextResponse(body, init);
+  }
+}
 
 // Re-export NextRequest as a no-op class so imports don't break
 export class NextRequest {

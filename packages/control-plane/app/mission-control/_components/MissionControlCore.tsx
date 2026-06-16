@@ -617,7 +617,7 @@ export function MissionControlCore({ mode }: MissionControlCoreProps) {
           {/* Agent list */}
           <div className="flex-1 overflow-y-auto">
             {agentsState.agents.length === 0 ? (
-              <div className="px-3 py-6 text-center text-foreground-600 text-[11px]">
+              <div key="empty" className="px-3 py-6 text-center text-foreground-600 text-[11px]">
                 No agents registered
               </div>
             ) : (
@@ -1023,7 +1023,7 @@ export function MissionControlCore({ mode }: MissionControlCoreProps) {
           {/* Scrolling feed */}
           <div className="flex-1 overflow-y-auto">
             {feed.length === 0 ? (
-              <div className="px-3 py-6 text-center text-foreground-600 text-[11px]">
+              <div key="empty" className="px-3 py-6 text-center text-foreground-600 text-[11px]">
                 Waiting for activity…
               </div>
             ) : (

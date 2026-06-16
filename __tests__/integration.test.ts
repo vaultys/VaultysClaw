@@ -36,7 +36,11 @@ describe("VaultysClaw Integration Tests", () => {
     // PendingRegistration has no agentDid column; only this test creates real
     // WS registrations, so a broad delete here is safe.
     await prisma.pendingRegistration.deleteMany();
-    await prisma.agent.deleteMany({ where: { did: { startsWith: "did:vaultys:" } } });
+    // Only delete agents whose DID matches the real VaultysId format:
+    // "did:vaultys:" + exactly 40 hex chars. Fake fixture DIDs used by other
+    // test files (e.g. "did:vaultys:agent-sec-001") are left untouched so
+    // parallel test workers don't clobber each other's data.
+    await prisma.$executeRaw`DELETE FROM "Agent" WHERE did ~ '^did:vaultys:[0-9a-f]{40}$'`;
     // serverSecret is guaranteed by global-setup.ts
     wsServer = new AgentWSServer(WS_PORT);
     await new Promise((resolve) => setTimeout(resolve, 200));

@@ -43,6 +43,16 @@ export default defineConfig({
       // next/server uses Next.js CJS internals that vi.mock() can't intercept.
       // Alias it to a lightweight stub so route-handler tests can inspect responses.
       "next/server": resolve(__dirname, "__tests__/mocks/next-server.ts"),
+      // next/headers uses Next.js AsyncLocalStorage that requires a request context.
+      // Alias it to a no-op stub so tests run outside Next.js don't throw.
+      "next/headers": resolve(__dirname, "__tests__/mocks/next-headers.ts"),
+      // next-auth is only installed in packages/control-plane/node_modules, not
+      // at the workspace root. Alias it so vi.mock("next-auth") in test files
+      // resolves to the same module that auth-utils.ts imports.
+      "next-auth": resolve(
+        __dirname,
+        "packages/control-plane/node_modules/next-auth/index.js"
+      ),
     },
   },
   test: {
@@ -50,6 +60,14 @@ export default defineConfig({
     environment: "node",
     testTimeout: 30000,
     hookTimeout: 30000,
+    server: {
+      deps: {
+        // Force Vite to transform these packages so that aliases (next/headers,
+        // next/server) intercept their internal require() calls, and vi.mock()
+        // can match their module IDs even when they live in a nested node_modules.
+        inline: ["next-auth"],
+      },
+    },
     // Allow up to 30 s for the Docker container to be stopped in teardown.
     teardownTimeout: 30000,
     globalSetup: ["__tests__/global-setup.ts"],

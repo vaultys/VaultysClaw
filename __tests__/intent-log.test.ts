@@ -7,104 +7,95 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { getDb, closeDb } from "../packages/control-plane/lib/db";
-import {
-  logIntent,
-  updateIntentResult,
-  getIntentLog,
-} from "../packages/control-plane/lib/db";
+import { prisma } from "../packages/control-plane/db/client";
+import { IntentDAO } from "../packages/control-plane/db";
 
-beforeAll(() => {
-  // Initialize DB (creates tables including intent_log)
-  const db = getDb();
-  db.prepare("DELETE FROM intent_log").run();
+beforeAll(async () => {
+  // Clean slate
+  await prisma.intentLog.deleteMany({});
 });
 
-afterAll(() => {
-  closeDb();
+afterAll(async () => {
+  // Prisma manages its own connection pool — no explicit close needed
 });
 
 describe("intent_log helpers", () => {
-  it("logIntent inserts a record with status=pending", () => {
-    logIntent("intent-1", "did:vaultys:agent1", "summarize", { text: "hello" });
-    const rows = getIntentLog(10);
+  it("logIntent inserts a record with status=pending", async () => {
+    await IntentDAO.log("intent-1", "did:vaultys:agent1", "summarize", { text: "hello" });
+    const rows = await IntentDAO.findAll(10);
     expect(rows.length).toBeGreaterThanOrEqual(1);
-    const row = rows.find((r) => r.intent_id === "intent-1");
+    const row = rows.find((r) => r.intentId === "intent-1");
     expect(row).toBeDefined();
     expect(row!.status).toBe("pending");
     expect(row!.action).toBe("summarize");
-    expect(row!.agent_did).toBe("did:vaultys:agent1");
-    expect(JSON.parse(row!.params!)).toEqual({ text: "hello" });
-    expect(row!.completed_at).toBeNull();
+    expect(row!.agentDid).toBe("did:vaultys:agent1");
+    expect((row!.params as { text: string }).text).toBe("hello");
+    expect(row!.completedAt).toBeNull();
   });
 
-  it("updateIntentResult marks intent as success", () => {
-    logIntent("intent-2", "did:vaultys:agent1", "translate", {});
-    updateIntentResult("intent-2", "success", { translated: "bonjour" });
-    const rows = getIntentLog(10);
-    const row = rows.find((r) => r.intent_id === "intent-2");
+  it("updateIntentResult marks intent as success", async () => {
+    await IntentDAO.log("intent-2", "did:vaultys:agent1", "translate", {});
+    await IntentDAO.updateResult("intent-2", "success", { translated: "bonjour" });
+    const rows = await IntentDAO.findAll(10);
+    const row = rows.find((r) => r.intentId === "intent-2");
     expect(row!.status).toBe("success");
-    expect(JSON.parse(row!.output!)).toEqual({ translated: "bonjour" });
-    expect(row!.completed_at).not.toBeNull();
+    expect((row!.output as { translated: string }).translated).toBe("bonjour");
+    expect(row!.completedAt).not.toBeNull();
     expect(row!.error).toBeNull();
   });
 
-  it("updateIntentResult marks intent as failed with error", () => {
-    logIntent("intent-3", "did:vaultys:agent2", "run_code", {
+  it("updateIntentResult marks intent as failed with error", async () => {
+    await IntentDAO.log("intent-3", "did:vaultys:agent2", "run_code", {
       code: "exit(1)",
     });
-    updateIntentResult(
+    await IntentDAO.updateResult(
       "intent-3",
       "failed",
       undefined,
       "Process exited with code 1"
     );
-    const rows = getIntentLog(10);
-    const row = rows.find((r) => r.intent_id === "intent-3");
+    const rows = await IntentDAO.findAll(10);
+    const row = rows.find((r) => r.intentId === "intent-3");
     expect(row!.status).toBe("failed");
     expect(row!.error).toBe("Process exited with code 1");
     expect(row!.output).toBeNull();
   });
 
-  it("getIntentLog returns all inserted records", () => {
-    const rows = getIntentLog(10);
-    const ids = rows.map((r) => r.intent_id);
+  it("getIntentLog returns all inserted records", async () => {
+    const rows = await IntentDAO.findAll(10);
+    const ids = rows.map((r) => r.intentId);
     expect(ids).toContain("intent-1");
     expect(ids).toContain("intent-2");
     expect(ids).toContain("intent-3");
   });
 
-  it("getIntentLog filters by agentDid", () => {
-    const agent1Rows = getIntentLog(10, "did:vaultys:agent1");
-    const agent2Rows = getIntentLog(10, "did:vaultys:agent2");
-    expect(agent1Rows.every((r) => r.agent_did === "did:vaultys:agent1")).toBe(
-      true
-    );
-    expect(agent2Rows.every((r) => r.agent_did === "did:vaultys:agent2")).toBe(
-      true
-    );
+  it("getIntentLog filters by agentDid", async () => {
+    const agent1Rows = await IntentDAO.findAll(10, "did:vaultys:agent1");
+    const agent2Rows = await IntentDAO.findAll(10, "did:vaultys:agent2");
+    expect(agent1Rows.every((r) => r.agentDid === "did:vaultys:agent1")).toBe(true);
+    expect(agent2Rows.every((r) => r.agentDid === "did:vaultys:agent2")).toBe(true);
     expect(agent2Rows.length).toBeGreaterThanOrEqual(1);
   });
 
-  it("logIntent with duplicate intent_id is a no-op (INSERT OR IGNORE)", () => {
-    logIntent("intent-dup", "did:vaultys:agent1", "dedup", {});
-    logIntent("intent-dup", "did:vaultys:agent1", "dedup-different-action", {});
-    const rows = getIntentLog(50).filter((r) => r.intent_id === "intent-dup");
+  it("logIntent with duplicate intent_id is a no-op (upsert with empty update)", async () => {
+    await IntentDAO.log("intent-dup", "did:vaultys:agent1", "dedup", {});
+    await IntentDAO.log("intent-dup", "did:vaultys:agent1", "dedup-different-action", {});
+    const rows = (await IntentDAO.findAll(50)).filter((r) => r.intentId === "intent-dup");
     expect(rows).toHaveLength(1);
     expect(rows[0].action).toBe("dedup");
   });
 
-  it("getIntentLog respects limit parameter", () => {
+  it("getIntentLog respects limit parameter", async () => {
     // Insert several extra records
     for (let i = 0; i < 5; i++) {
-      logIntent(
+      await IntentDAO.log(
         `intent-limit-${i}`,
         "did:vaultys:limit-agent",
         `action-${i}`,
         {}
       );
     }
-    const limited = getIntentLog(3);
+    const limited = await IntentDAO.findAll(3);
     expect(limited.length).toBeLessThanOrEqual(3);
   });
 });

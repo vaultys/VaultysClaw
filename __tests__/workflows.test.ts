@@ -7,21 +7,7 @@
  */
 
 import { describe, it, expect, beforeEach } from "vitest";
-import {
-  saveWorkflow,
-  getWorkflow,
-  listWorkflows,
-  updateWorkflow,
-  deleteWorkflow,
-  startWorkflowRun,
-  getWorkflowRun,
-  recordWorkflowStep,
-  updateWorkflowStep,
-  getWorkflowRunHistory,
-  type WorkflowDefinition,
-  type WorkflowRunRow,
-  type WorkflowStepRow,
-} from "../packages/control-plane/lib/db";
+import type { WorkflowDefinition } from "../packages/control-plane/lib/workflow-types";
 import { WorkflowDAO } from "../packages/control-plane/db";
 import {
   topologicalSort,
@@ -38,8 +24,8 @@ import {
 // ---------------------------------------------------------------------------
 
 describe("Workflow Database Operations", () => {
-  describe("saveWorkflow", () => {
-    it("should create a new workflow and return an ID", () => {
+  describe("WorkflowDAO.create", () => {
+    it("should create a new workflow and return an ID", async () => {
       const definition: WorkflowDefinition = {
         nodes: [
           {
@@ -51,14 +37,14 @@ describe("Workflow Database Operations", () => {
         edges: [],
       };
 
-      const id = saveWorkflow("Test Workflow", definition, undefined);
+      const id = await WorkflowDAO.create("Test Workflow", definition as any);
 
       expect(id).toBeDefined();
       expect(typeof id).toBe("string");
       expect(id.length).toBeGreaterThan(0);
     });
 
-    it("should persist workflow definition as JSON", () => {
+    it("should persist workflow definition", async () => {
       const definition: WorkflowDefinition = {
         nodes: [
           {
@@ -81,89 +67,88 @@ describe("Workflow Database Operations", () => {
         ],
       };
 
-      const id = saveWorkflow("Complex Workflow", definition, undefined);
-      const saved = getWorkflow(id);
+      const id = await WorkflowDAO.create("Complex Workflow", definition as any);
+      const saved = await WorkflowDAO.findById(id);
 
       expect(saved).toBeDefined();
       expect(saved?.name).toBe("Complex Workflow");
       expect(saved?.definition).toBeDefined();
-      const parsed = JSON.parse(saved!.definition);
-      expect(parsed.nodes).toHaveLength(2);
-      expect(parsed.edges).toHaveLength(1);
+      const def = saved!.definition as any;
+      expect(def.nodes).toHaveLength(2);
+      expect(def.edges).toHaveLength(1);
     });
 
-    it("should include timestamps", () => {
+    it("should include timestamps", async () => {
       const definition: WorkflowDefinition = {
         nodes: [],
         edges: [],
       };
 
-      const id = saveWorkflow("Timestamped Workflow", definition, undefined);
-      const workflow = getWorkflow(id);
+      const id = await WorkflowDAO.create("Timestamped Workflow", definition as any);
+      const workflow = await WorkflowDAO.findById(id);
 
-      expect(workflow?.created_at).toBeDefined();
-      expect(workflow?.updated_at).toBeDefined();
+      expect(workflow?.createdAt).toBeDefined();
+      expect(workflow?.updatedAt).toBeDefined();
     });
   });
 
-  describe("getWorkflow", () => {
-    it("should return falsy value for non-existent workflow", () => {
-      const workflow = getWorkflow("non-existent-id");
-      expect(!workflow).toBe(true);
+  describe("WorkflowDAO.findById", () => {
+    it("should return null for non-existent workflow", async () => {
+      const workflow = await WorkflowDAO.findById("non-existent-id");
+      expect(workflow).toBeNull();
     });
 
-    it("should retrieve saved workflow by ID", () => {
+    it("should retrieve saved workflow by ID", async () => {
       const definition: WorkflowDefinition = {
         nodes: [{ id: "n1", type: "agent", data: {} }],
         edges: [],
       };
-      const id = saveWorkflow("Retrievable Workflow", definition, undefined);
-      const workflow = getWorkflow(id);
+      const id = await WorkflowDAO.create("Retrievable Workflow", definition as any);
+      const workflow = await WorkflowDAO.findById(id);
 
       expect(workflow?.id).toBe(id);
       expect(workflow?.name).toBe("Retrievable Workflow");
     });
   });
 
-  describe("listWorkflows", () => {
-    beforeEach(() => {
-      // Clean up and prepare
+  describe("WorkflowDAO.list", () => {
+    beforeEach(async () => {
       const def: WorkflowDefinition = { nodes: [], edges: [] };
-      saveWorkflow("Workflow 1", def, undefined);
-      saveWorkflow("Workflow 2", def, undefined);
-      saveWorkflow("Workflow 3", def, undefined);
+      await WorkflowDAO.create("Workflow 1", def as any);
+      await WorkflowDAO.create("Workflow 2", def as any);
+      await WorkflowDAO.create("Workflow 3", def as any);
     });
 
-    it("should list all workflows", () => {
-      const workflows = listWorkflows();
+    it("should list all workflows", async () => {
+      const workflows = await WorkflowDAO.list();
       expect(workflows.length).toBeGreaterThanOrEqual(3);
     });
 
-    it("should include workflow metadata", () => {
-      const workflows = listWorkflows();
+    it("should include workflow metadata", async () => {
+      const workflows = await WorkflowDAO.list();
       expect(workflows[0].id).toBeDefined();
       expect(workflows[0].name).toBeDefined();
-      expect(workflows[0].created_at).toBeDefined();
+      expect(workflows[0].createdAt).toBeDefined();
     });
   });
 
-  describe("updateWorkflow", () => {
-    it("should update workflow name", () => {
+  describe("WorkflowDAO.update", () => {
+    it("should update workflow name", async () => {
       const def: WorkflowDefinition = { nodes: [], edges: [] };
-      const id = saveWorkflow("Original Name", def, undefined);
+      const id = await WorkflowDAO.create("Original Name", def as any);
 
-      updateWorkflow(id, "Updated Name", undefined);
-      const updated = getWorkflow(id);
+      await WorkflowDAO.update(id, { name: "Updated Name" });
+      const updated = await WorkflowDAO.findById(id);
 
       expect(updated?.name).toBe("Updated Name");
     });
 
-    it("should update workflow definition", () => {
+    it("should update workflow definition", async () => {
       const originalDef: WorkflowDefinition = {
         nodes: [{ id: "n1", type: "agent", data: {} }],
         edges: [],
       };
-      const id = saveWorkflow("To Update", originalDef, undefined);
+      const id = await WorkflowDAO.create("To Update", originalDef as any);
 
       const newDef: WorkflowDefinition = {
         nodes: [
@@ -173,95 +158,90 @@ describe("Workflow Database Operations", () => {
         edges: [{ id: "e1", source: "n1", target: "n2" }],
       };
 
-      updateWorkflow(id, undefined, newDef);
-      const updated = getWorkflow(id);
-      const parsed = JSON.parse(updated!.definition);
+      await WorkflowDAO.update(id, { definition: newDef as any });
+      const updated = await WorkflowDAO.findById(id);
+      const def = updated!.definition as any;
 
-      expect(parsed.nodes).toHaveLength(2);
-      expect(parsed.edges).toHaveLength(1);
+      expect(def.nodes).toHaveLength(2);
+      expect(def.edges).toHaveLength(1);
     });
 
-    it("should update only provided fields", () => {
+    it("should update only provided fields", async () => {
       const def: WorkflowDefinition = { nodes: [], edges: [] };
-      const id = saveWorkflow("Partial Update", def, undefined);
-      const originalDef = JSON.parse(getWorkflow(id)!.definition);
+      const id = await WorkflowDAO.create("Partial Update", def as any);
+      const original = await WorkflowDAO.findById(id);
+      const originalDef = original!.definition as any;
 
-      updateWorkflow(id, "New Name", undefined);
-      const updated = getWorkflow(id);
-      const updatedDef = JSON.parse(updated!.definition);
+      await WorkflowDAO.update(id, { name: "New Name" });
+      const updated = await WorkflowDAO.findById(id);
+      const updatedDef = updated!.definition as any;
 
       expect(updated?.name).toBe("New Name");
       expect(updatedDef.nodes).toEqual(originalDef.nodes);
     });
   });
 
-  describe("deleteWorkflow", () => {
-    it("should delete workflow and associated runs", () => {
+  describe("WorkflowDAO.delete", () => {
+    it("should delete workflow so findById returns null", async () => {
       const def: WorkflowDefinition = { nodes: [], edges: [] };
-      const id = saveWorkflow("To Delete", def, undefined);
+      const id = await WorkflowDAO.create("To Delete", def as any);
 
-      deleteWorkflow(id);
-      const deleted = getWorkflow(id);
+      await WorkflowDAO.delete(id);
+      const deleted = await WorkflowDAO.findById(id);
 
-      expect(deleted).toBeFalsy(); // Returns null or undefined
+      expect(deleted).toBeNull();
     });
   });
 
   describe("Workflow Execution (Runs & Steps)", () => {
-    it("should create a workflow run", () => {
+    it("should create a workflow run", async () => {
       const def: WorkflowDefinition = { nodes: [], edges: [] };
-      const workflowId = saveWorkflow("Executable", def, undefined);
-      const runId = startWorkflowRun(workflowId);
+      const workflowId = await WorkflowDAO.create("Executable", def as any);
+      const runId = await WorkflowDAO.startRun(workflowId);
 
       expect(runId).toBeDefined();
       expect(typeof runId).toBe("string");
     });
 
-    it("should retrieve workflow run", () => {
+    it("should retrieve workflow run", async () => {
       const def: WorkflowDefinition = { nodes: [], edges: [] };
-      const workflowId = saveWorkflow("Executable 2", def, undefined);
-      const runId = startWorkflowRun(workflowId);
+      const workflowId = await WorkflowDAO.create("Executable 2", def as any);
+      const runId = await WorkflowDAO.startRun(workflowId);
 
-      const run = getWorkflowRun(runId);
+      const run = await WorkflowDAO.findRun(runId);
 
       expect(run?.id).toBe(runId);
-      expect(run?.workflow_id).toBe(workflowId);
+      expect(run?.workflowId).toBe(workflowId);
       expect(run?.status).toBe("running");
     });
 
-    it("should record workflow steps", () => {
+    it("should record workflow steps", async () => {
       const def: WorkflowDefinition = { nodes: [], edges: [] };
-      const workflowId = saveWorkflow("With Steps", def, undefined);
-      const runId = startWorkflowRun(workflowId);
+      const workflowId = await WorkflowDAO.create("With Steps", def as any);
+      const runId = await WorkflowDAO.startRun(workflowId);
 
-      recordWorkflowStep(runId, "step-1", "@mock-agent", "pending");
-      recordWorkflowStep(runId, "step-2", "@mock-agent", "pending");
+      await WorkflowDAO.recordStep(runId, "step-1", "@mock-agent", "pending");
+      await WorkflowDAO.recordStep(runId, "step-2", "@mock-agent", "pending");
 
-      const history = getWorkflowRunHistory(runId);
+      const history = await WorkflowDAO.getRunHistory(runId);
 
       expect(history).toBeDefined();
-      expect(history.steps).toHaveLength(2);
-      expect(history.steps[0].step_id).toBe("step-1");
+      expect(history!.steps).toHaveLength(2);
+      expect(history!.steps[0].stepId).toBe("step-1");
     });
 
-    it("should update step status and output", () => {
+    it("should update step status and output", async () => {
       const def: WorkflowDefinition = { nodes: [], edges: [] };
-      const workflowId = saveWorkflow("Step Update", def, undefined);
-      const runId = startWorkflowRun(workflowId);
+      const workflowId = await WorkflowDAO.create("Step Update", def as any);
+      const runId = await WorkflowDAO.startRun(workflowId);
 
-      const dbId = recordWorkflowStep(
-        runId,
-        "step-1",
-        "@mock-agent",
-        "pending"
-      );
-      updateWorkflowStep(dbId, "success", { result: "test" }, undefined);
+      const dbId = await WorkflowDAO.recordStep(runId, "step-1", "@mock-agent", "pending");
+      await WorkflowDAO.updateStep(dbId, { status: "success", output: { result: "test" } });
 
-      const history = getWorkflowRunHistory(runId);
-      const step = history.steps[0];
+      const history = await WorkflowDAO.getRunHistory(runId);
+      const step = history!.steps[0];
 
       expect(step.status).toBe("success");
-      // Output is either JSON string or object depending on storage
       expect(step.output).toBeDefined();
     });
   });

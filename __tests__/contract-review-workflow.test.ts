@@ -17,22 +17,10 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import {
-  getDb,
-  initServerIdentity,
-  saveWorkflow,
-  startWorkflowRun,
-  recordWorkflowStep,
-  updateWorkflowStep,
-  getWorkflowRunHistory,
-  upsertAgent,
-  addAgentToRealm,
-  createPolicy,
-  listPolicies,
-  getAgentTokenUsage,
-  createRealm,
-  type WorkflowDefinition,
-} from "../packages/control-plane/lib/db";
+import type { WorkflowDefinition } from "../packages/control-plane/lib/workflow-types";
+import { WorkflowDAO, PolicyDAO, RealmDAO, AgentDAO } from "../packages/control-plane/db";
+import { prisma } from "../packages/control-plane/db/client";
+import { ServerIdentityDAO } from "../packages/control-plane/db/settings.dao";
 import { AgentWSServer } from "../packages/control-plane/lib/ws-server";
 import { MockAgent, waitFor } from "./test-utils";
 
@@ -75,44 +63,30 @@ describe("Contract Review & Approval Pipeline Workflow", () => {
   let archiveAgent: MockAgent;
 
   beforeAll(async () => {
-    const db = getDb();
-
     // Clean up test data
     for (const name of WORKFLOW_NAMES) {
-      const rows = db
-        .prepare("SELECT id FROM workflows WHERE name = ?")
-        .all(name) as { id: string }[];
-      for (const row of rows) {
-        db.prepare("DELETE FROM workflow_runs WHERE workflow_id = ?").run(
-          row.id
-        );
+      const workflows = await prisma.workflow.findMany({ where: { name } });
+      for (const wf of workflows) {
+        await prisma.workflowRun.deleteMany({ where: { workflowId: wf.id } });
       }
-      db.prepare("DELETE FROM workflows WHERE name = ?").run(name);
+      await prisma.workflow.deleteMany({ where: { name } });
     }
-    for (const name of AGENT_NAMES) {
-      db.prepare("DELETE FROM agents WHERE name = ?").run(name);
-    }
+    await prisma.agent.deleteMany({ where: { name: { in: AGENT_NAMES } } });
 
     // Clean up realm if it exists (by slug)
-    const existingRealm = db
-      .prepare("SELECT id FROM realms WHERE slug = ?")
-      .get(testRealmSlug) as { id: string } | undefined;
+    const existingRealm = await prisma.realm.findFirst({ where: { slug: testRealmSlug } });
     if (existingRealm) {
-      db.prepare("DELETE FROM agent_realms WHERE realm_id = ?").run(
-        existingRealm.id
-      );
-      db.prepare("DELETE FROM user_realms WHERE realm_id = ?").run(
-        existingRealm.id
-      );
-      db.prepare("DELETE FROM realms WHERE id = ?").run(existingRealm.id);
+      await prisma.agentRealm.deleteMany({ where: { realmId: existingRealm.id } });
+      await prisma.userRealm.deleteMany({ where: { realmId: existingRealm.id } });
+      await prisma.realm.delete({ where: { id: existingRealm.id } });
     }
 
-    await initServerIdentity();
+    await ServerIdentityDAO.ensureServerIdentity();
     wsServer = new AgentWSServer(WS_PORT);
     await new Promise((resolve) => setTimeout(resolve, 200));
 
     // Create realm for legal team
-    const createdRealm = createRealm({
+    const createdRealm = await RealmDAO.create({
       name: testRealmName,
       slug: testRealmSlug,
       description: "Legal operations and contract management",
@@ -123,18 +97,9 @@ describe("Contract Review & Approval Pipeline Workflow", () => {
     testRealmId = createdRealm.id;
 
     // Create test agents
-    documentAnalyzer = new MockAgent(
-      `ws://localhost:${WS_PORT}`,
-      "Document Analyzer"
-    );
-    complianceChecker = new MockAgent(
-      `ws://localhost:${WS_PORT}`,
-      "Compliance Checker"
-    );
-    legalReviewer = new MockAgent(
-      `ws://localhost:${WS_PORT}`,
-      "Legal Reviewer"
-    );
+    documentAnalyzer = new MockAgent(`ws://localhost:${WS_PORT}`, "Document Analyzer");
+    complianceChecker = new MockAgent(`ws://localhost:${WS_PORT}`, "Compliance Checker");
+    legalReviewer = new MockAgent(`ws://localhost:${WS_PORT}`, "Legal Reviewer");
     archiveAgent = new MockAgent(`ws://localhost:${WS_PORT}`, "Archive Agent");
 
     // Connect and authenticate all agents
@@ -149,20 +114,18 @@ describe("Contract Review & Approval Pipeline Workflow", () => {
     await archiveAgent.authenticate(["store", "archive"], wsServer);
 
     // Upsert agents in database and add to realm
-    const agents = [
-      documentAnalyzer,
-      complianceChecker,
-      legalReviewer,
-      archiveAgent,
-    ];
-    for (const agent of agents) {
-      upsertAgent({
-        did: agent.id,
-        name: agent.name,
-        capabilities: [],
-        online: true,
+    const agentsList = [documentAnalyzer, complianceChecker, legalReviewer, archiveAgent];
+    for (const agent of agentsList) {
+      await prisma.agent.upsert({
+        where: { did: agent.id },
+        create: { did: agent.id, name: agent.name, capabilities: [] },
+        update: {},
       });
-      addAgentToRealm(agent.id, testRealmId, false);
+      await prisma.agentRealm.upsert({
+        where: { agentDid_realmId: { agentDid: agent.id, realmId: testRealmId } },
+        create: { agentDid: agent.id, realmId: testRealmId },
+        update: {},
+      });
     }
   });
 
@@ -258,12 +221,8 @@ describe("Contract Review & Approval Pipeline Workflow", () => {
         ],
       };
 
-      const workflowId = saveWorkflow(
-        "Contract Review Pipeline",
-        workflow,
-        testRealmId
-      );
-      const runId = startWorkflowRun(workflowId);
+      const workflowId = await WorkflowDAO.create("Contract Review Pipeline", workflow as any, undefined, testRealmId);
+      const runId = await WorkflowDAO.startRun(workflowId);
 
       // Step 1: Document Analyzer extracts key terms
       const analyzerIntentPromise = documentAnalyzer.waitForIntent(5000);
@@ -295,18 +254,8 @@ describe("Contract Review & Approval Pipeline Workflow", () => {
         extractedTerms
       );
 
-      const analyzerStepId = recordWorkflowStep(
-        runId,
-        documentAnalyzer.id,
-        documentAnalyzer.id,
-        "pending"
-      );
-      updateWorkflowStep(
-        analyzerStepId,
-        "completed",
-        extractedTerms,
-        undefined
-      );
+      const analyzerStepId = await WorkflowDAO.recordStep(runId, documentAnalyzer.id, documentAnalyzer.id, "pending");
+      await WorkflowDAO.updateStep(analyzerStepId, { status: "completed", output: extractedTerms });
 
       // Step 2: Compliance Checker validates against policies
       const checkerIntentPromise = complianceChecker.waitForIntent(5000);
@@ -341,18 +290,8 @@ describe("Contract Review & Approval Pipeline Workflow", () => {
         complianceResult
       );
 
-      const checkerStepId = recordWorkflowStep(
-        runId,
-        complianceChecker.id,
-        complianceChecker.id,
-        "pending"
-      );
-      updateWorkflowStep(
-        checkerStepId,
-        "completed",
-        complianceResult,
-        undefined
-      );
+      const checkerStepId = await WorkflowDAO.recordStep(runId, complianceChecker.id, complianceChecker.id, "pending");
+      await WorkflowDAO.updateStep(checkerStepId, { status: "completed", output: complianceResult });
 
       // Step 3: Legal Reviewer approves
       const reviewerIntentPromise = legalReviewer.waitForIntent(5000);
@@ -384,13 +323,8 @@ describe("Contract Review & Approval Pipeline Workflow", () => {
         reviewResult
       );
 
-      const reviewerStepId = recordWorkflowStep(
-        runId,
-        legalReviewer.id,
-        legalReviewer.id,
-        "pending"
-      );
-      updateWorkflowStep(reviewerStepId, "completed", reviewResult, undefined);
+      const reviewerStepId = await WorkflowDAO.recordStep(runId, legalReviewer.id, legalReviewer.id, "pending");
+      await WorkflowDAO.updateStep(reviewerStepId, { status: "completed", output: reviewResult });
 
       // Step 4: Archive Agent stores contract
       const archiveIntentPromise = archiveAgent.waitForIntent(5000);
@@ -420,31 +354,16 @@ describe("Contract Review & Approval Pipeline Workflow", () => {
         archiveResult
       );
 
-      const archiveStepId = recordWorkflowStep(
-        runId,
-        archiveAgent.id,
-        archiveAgent.id,
-        "pending"
-      );
-      updateWorkflowStep(archiveStepId, "completed", archiveResult, undefined);
+      const archiveStepId = await WorkflowDAO.recordStep(runId, archiveAgent.id, archiveAgent.id, "pending");
+      await WorkflowDAO.updateStep(archiveStepId, { status: "completed", output: archiveResult });
 
       // Verify full workflow completion
-      const history = getWorkflowRunHistory(runId);
-      expect(history.steps.length).toBe(4);
-      expect(history.steps.every((s) => s.status === "completed")).toBe(true);
+      const history = await WorkflowDAO.getRunHistory(runId);
+      expect(history!.steps.length).toBe(4);
+      expect(history!.steps.every((s) => s.status === "completed")).toBe(true);
 
-      // Parse outputs (they may be stored as JSON strings)
-      const step0Output =
-        typeof history.steps[0].output === "string"
-          ? JSON.parse(history.steps[0].output)
-          : history.steps[0].output;
-      const step1Output =
-        typeof history.steps[1].output === "string"
-          ? JSON.parse(history.steps[1].output)
-          : history.steps[1].output;
-
-      expect(step0Output).toEqual(extractedTerms);
-      expect(step1Output.status).toBe("compliant");
+      expect(history!.steps[0].output).toEqual(extractedTerms);
+      expect((history!.steps[1].output as any).status).toBe("compliant");
     });
   });
 
@@ -454,20 +373,13 @@ describe("Contract Review & Approval Pipeline Workflow", () => {
 
   describe("Token Budget Tracking", () => {
     it("should track token usage for expensive document analysis operations", async () => {
-      const db = getDb();
-
       // Set up token budget for analyzer agent (10,000 tokens/day)
-      db.prepare("UPDATE agents SET token_budget_daily = ? WHERE did = ?").run(
-        10000,
-        documentAnalyzer.id
-      );
+      await AgentDAO.updateBudget(documentAnalyzer.id, { tokenBudgetDaily: 10000 });
 
       // Verify agent has a budget set
-      const agent = db
-        .prepare("SELECT token_budget_daily FROM agents WHERE did = ?")
-        .get(documentAnalyzer.id) as { token_budget_daily: number } | undefined;
+      const agent = await prisma.agent.findUnique({ where: { did: documentAnalyzer.id } });
       expect(agent).toBeDefined();
-      expect(agent?.token_budget_daily).toBe(10000);
+      expect(agent?.tokenBudgetDaily).toBe(10000);
 
       const workflow: WorkflowDefinition = {
         nodes: [
@@ -485,12 +397,8 @@ describe("Contract Review & Approval Pipeline Workflow", () => {
         edges: [],
       };
 
-      const workflowId = saveWorkflow(
-        "Token Budget Test",
-        workflow,
-        testRealmId
-      );
-      const runId = startWorkflowRun(workflowId);
+      const workflowId = await WorkflowDAO.create("Token Budget Test", workflow as any, undefined, testRealmId);
+      const runId = await WorkflowDAO.startRun(workflowId);
 
       // Simulate document analysis (uses ~3000 tokens)
       const intentPromise = documentAnalyzer.waitForIntent(5000);
@@ -511,24 +419,13 @@ describe("Contract Review & Approval Pipeline Workflow", () => {
       const result = { terms: "extracted", token_cost: 3000 };
       await documentAnalyzer.sendResult(`${runId}-analyze`, "success", result);
 
-      const stepId = recordWorkflowStep(
-        runId,
-        documentAnalyzer.id,
-        documentAnalyzer.id,
-        "pending"
-      );
-      updateWorkflowStep(
-        stepId,
-        "completed",
-        result,
-        undefined,
-        3000 // Token cost
-      );
+      const stepId = await WorkflowDAO.recordStep(runId, documentAnalyzer.id, documentAnalyzer.id, "pending");
+      await WorkflowDAO.updateStep(stepId, { status: "completed", output: result });
 
-      // Verify workflow step was recorded with token cost
-      const history = getWorkflowRunHistory(runId);
-      expect(history.steps.length).toBe(1);
-      expect(history.steps[0].status).toBe("completed");
+      // Verify workflow step was recorded
+      const history = await WorkflowDAO.getRunHistory(runId);
+      expect(history!.steps.length).toBe(1);
+      expect(history!.steps[0].status).toBe("completed");
     });
   });
 
@@ -538,7 +435,7 @@ describe("Contract Review & Approval Pipeline Workflow", () => {
 
   describe("Compliance Policy Management", () => {
     it("should create and enforce governance policies", async () => {
-      const policyRow = createPolicy({
+      const policyRow = await PolicyDAO.create({
         realmId: testRealmId,
         capabilities: ["review", "approve"],
         resourceLimits: {
@@ -548,7 +445,7 @@ describe("Contract Review & Approval Pipeline Workflow", () => {
 
       expect(policyRow.id).toBeDefined();
 
-      const policies = listPolicies({ realmId: testRealmId });
+      const policies = await PolicyDAO.list({ realmId: testRealmId });
       expect(policies.length).toBeGreaterThan(0);
 
       const policy = policies.find((p) => p.id === policyRow.id);
@@ -594,12 +491,8 @@ describe("Contract Review & Approval Pipeline Workflow", () => {
         ],
       };
 
-      const workflowId = saveWorkflow(
-        "High-Value Contract Review",
-        workflow,
-        testRealmId
-      );
-      const runId = startWorkflowRun(workflowId);
+      const workflowId = await WorkflowDAO.create("High-Value Contract Review", workflow as any, undefined, testRealmId);
+      const runId = await WorkflowDAO.startRun(workflowId);
 
       const analyzerIntentPromise = documentAnalyzer.waitForIntent(5000);
       wsServer.sendIntentToAgent(
@@ -624,20 +517,12 @@ describe("Contract Review & Approval Pipeline Workflow", () => {
         "success",
         scoreResult
       );
-      const scoreStepId = recordWorkflowStep(
-        runId,
-        documentAnalyzer.id,
-        documentAnalyzer.id,
-        "pending"
-      );
-      updateWorkflowStep(scoreStepId, "completed", scoreResult, undefined);
+      const scoreStepId = await WorkflowDAO.recordStep(runId, documentAnalyzer.id, documentAnalyzer.id, "pending");
+      await WorkflowDAO.updateStep(scoreStepId, { status: "completed", output: scoreResult });
 
       // Verify routing decision would be made (setup for conditional feature)
-      const history = getWorkflowRunHistory(runId);
-      const stepOutput =
-        typeof history.steps[0].output === "string"
-          ? JSON.parse(history.steps[0].output)
-          : history.steps[0].output;
+      const history = await WorkflowDAO.getRunHistory(runId);
+      const stepOutput = history!.steps[0].output as any;
       expect(stepOutput.requires_high_approval).toBe(true);
       expect(stepOutput.contract_value).toBeGreaterThan(100000);
     });
@@ -665,12 +550,8 @@ describe("Contract Review & Approval Pipeline Workflow", () => {
         edges: [],
       };
 
-      const workflowId = saveWorkflow(
-        "Contract with Compliance Issues",
-        workflow,
-        testRealmId
-      );
-      const runId = startWorkflowRun(workflowId);
+      const workflowId = await WorkflowDAO.create("Contract with Compliance Issues", workflow as any, undefined, testRealmId);
+      const runId = await WorkflowDAO.startRun(workflowId);
 
       const checkerIntentPromise = complianceChecker.waitForIntent(5000);
       wsServer.sendIntentToAgent(
@@ -700,26 +581,13 @@ describe("Contract Review & Approval Pipeline Workflow", () => {
         errorResult
       );
 
-      const stepId = recordWorkflowStep(
-        runId,
-        complianceChecker.id,
-        complianceChecker.id,
-        "pending"
-      );
-      updateWorkflowStep(
-        stepId,
-        "failed",
-        errorResult,
-        "Compliance check failed"
-      );
+      const stepId = await WorkflowDAO.recordStep(runId, complianceChecker.id, complianceChecker.id, "pending");
+      await WorkflowDAO.updateStep(stepId, { status: "failed", output: errorResult, error: "Compliance check failed" });
 
       // Verify error was recorded
-      const history = getWorkflowRunHistory(runId);
-      expect(history.steps[0].status).toBe("failed");
-      const errorOutput =
-        typeof history.steps[0].output === "string"
-          ? JSON.parse(history.steps[0].output)
-          : history.steps[0].output;
+      const history = await WorkflowDAO.getRunHistory(runId);
+      expect(history!.steps[0].status).toBe("failed");
+      const errorOutput = history!.steps[0].output as any;
       expect(errorOutput.requires_escalation).toBe(true);
     });
   });
@@ -757,20 +625,18 @@ describe("Contract Review & Approval Pipeline Workflow", () => {
         edges: [{ id: "e1", source: "analyzer-sa", target: "checker-sa" }],
       };
 
-      const templateId = saveWorkflow(
+      const templateId = await WorkflowDAO.create(
         "Service Agreement Template",
-        serviceAgreementWorkflow,
+        serviceAgreementWorkflow as any,
+        undefined,
         testRealmId
       );
       expect(templateId).toBeDefined();
 
       // Verify template can be queried
-      const db = getDb();
-      const template = db
-        .prepare("SELECT * FROM workflows WHERE id = ?")
-        .get(templateId) as any;
+      const template = await WorkflowDAO.findById(templateId);
       expect(template).toBeDefined();
-      expect(template.name).toBe("Service Agreement Template");
+      expect(template!.name).toBe("Service Agreement Template");
     });
   });
 });

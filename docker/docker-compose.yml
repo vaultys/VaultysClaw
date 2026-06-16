@@ -2,12 +2,12 @@
 #
 # Starts: PostgreSQL · Prisma Studio · MinIO · Docling · LiteLLM · Control Plane
 #
-# Quick start:
+# Quick start (from repo root):
 #   cp .env.compose.example .env.compose   # then fill NEXTAUTH_SECRET + LITELLM_MASTER_KEY
-#   docker compose --env-file .env.compose up --build
+#   docker compose -f docker/docker-compose.yml --env-file .env.compose up --build
 #
 # Or with generated defaults (dev/demo only — insecure secrets):
-#   docker compose up --build
+#   docker compose -f docker/docker-compose.yml up --build
 #
 # Services:
 #   Control Plane   → http://localhost:3000   WS → ws://localhost:8080
@@ -30,7 +30,7 @@ services:
       - "${PG_PORT:-5432}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
-      - ./docker/postgres-init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+      - ./postgres-init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
     healthcheck:
       # Use -h 127.0.0.1 to force TCP (not unix socket) — ensures remote containers
       # can actually connect before the healthcheck reports healthy.
@@ -43,7 +43,7 @@ services:
   # ── Prisma Studio ─────────────────────────────────────────────────────────
   prisma-studio:
     build:
-      context: .
+      context: ..
       dockerfile: docker/Dockerfile.control-plane
     ports:
       - "5555:5555"
@@ -114,7 +114,7 @@ services:
   # ── LiteLLM proxy ─────────────────────────────────────────────────────────
   litellm:
     build:
-      context: .
+      context: ..
       dockerfile: docker/Dockerfile.litellm
     ports:
       - "4000:4000"
@@ -125,7 +125,7 @@ services:
       LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY:-sk-demo-insecure-changeme}
       DATABASE_URL: postgresql://vaultys:${PG_PASSWORD:-vaultys_dev_secret}@postgres:5432/vaultysclaw_litellm
     volumes:
-      - ./docker/litellm_config.yaml:/app/config.yaml:ro
+      - ./litellm_config.yaml:/app/config.yaml:ro
     command: ["--config", "/app/config.yaml", "--port", "4000"]
     # LiteLLM can fail on first start if postgres init hasn't finished yet; let Docker restart it.
     restart: unless-stopped
@@ -139,7 +139,7 @@ services:
   # ── Control Plane ─────────────────────────────────────────────────────────
   control-plane:
     build:
-      context: .
+      context: ..
       dockerfile: docker/Dockerfile.control-plane
     ports:
       - "3000:3000"
@@ -155,7 +155,7 @@ services:
       DATABASE_URL: postgresql://vaultys:${PG_PASSWORD:-vaultys_dev_secret}@postgres:5432/vaultysclaw
       NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-insecure-dev-secret-change-me}
       NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
-      NODE_ENV: development
+      NODE_ENV: production
       PORT: "3000"
       WS_PORT: "8080"
       LITELLM_BASE_URL: http://litellm:4000

@@ -99,6 +99,9 @@ export const POST = withError(async (request: NextRequest) => {
     qrUrl,
     connectionString,
     inviteToken: cert.connection,
+    // Raw cert key — enables the dev "connect without app" flow where the browser
+    // performs the SRP itself. Same key the wallet would receive via the QR.
+    key: cert.key,
     serverDid,
   });
 });

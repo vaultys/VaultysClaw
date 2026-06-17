@@ -160,6 +160,8 @@ services:
       WS_PORT: "8080"
       LITELLM_BASE_URL: http://litellm:4000
       LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY:-sk-demo-insecure-changeme}
+      # Dev-only: enables the "connect without the app" browser login option.
+      VC_DEV_LOGIN: ${VC_DEV_LOGIN:-false}
     healthcheck:
       test: ["CMD-SHELL", "curl -sf http://localhost:3000/api/health || exit 1"]
       interval: 10s

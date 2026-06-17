@@ -9,7 +9,12 @@ import WorkflowApprovalInbox from "@/components/workflow/WorkflowApprovalInbox";
 
 // Pages that bypass the app shell entirely (standalone layouts).
 // Auth on these routes is handled by the page itself.
-const STANDALONE_PATHS = ["/login", "/setup", "/mission-control/fullscreen"];
+const STANDALONE_PATHS = [
+  "/login",
+  "/setup",
+  "/quick-start",
+  "/mission-control/fullscreen",
+];
 
 // Pages that show only the TopBar (no sidebar). Used for full-screen flows
 // that still need the global nav context (e.g. VaultysId claim after OIDC login).

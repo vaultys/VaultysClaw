@@ -17,7 +17,7 @@ jobs:
           key: ${{ secrets.SERVER_SSH_KEY }}
           script: |
             cd /VaultysClaw
-            git pull https://${{ secrets.GITHUB_TOKEN }}@github.com/vaultys/vaultysclaw.git
+            git pull https://${{ secrets.TOKEN }}@github.com/vaultys/vaultysclaw.git
             cd docker
             docker compose down
             docker compose up --build -d

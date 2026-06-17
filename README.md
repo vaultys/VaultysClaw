@@ -220,6 +220,28 @@ Each agent:
 
 ## Getting Started
 
+### Fastest way — one command 🚀
+
+The `quick-start.sh` script bootstraps everything for you: it checks the required
+tools (**docker, node, npm, openssl**) and offers to install any that are missing,
+generates `packages/control-plane/.env` (with a fresh `NEXTAUTH_SECRET`), installs
+dependencies, then builds and starts the full Docker stack.
+
+```bash
+git clone https://github.com/vaultys/VaultysClaw.git
+cd VaultysClaw
+./quick-start.sh          # add --yes to accept every prompt non-interactively
+```
+
+When the control plane is up, it opens **http://localhost:3000/quick-start** — a
+guided page that walks you through your **first login without the VaultysID app**
+(developer mode, software security). This is the fastest path to try the platform.
+
+> ⚠️ The quick-start login is **less secure and meant for local testing only** —
+> never use it in production. It is enabled by the `VC_DEV_LOGIN=true` flag.
+
+### Manual setup
+
 **Requirements**: Node.js 18+, pnpm 10+
 
 ```bash
@@ -350,6 +372,22 @@ Visit **http://localhost:3000** and scan the QR code to set up your first identi
 ---
 
 ## Quick Start
+
+### Option A — one command (recommended) 🚀
+
+```bash
+git clone https://github.com/vaultys/VaultysClaw.git
+cd VaultysClaw
+./quick-start.sh
+```
+
+`quick-start.sh` checks/installs dependencies (docker, node, npm, openssl), writes
+`packages/control-plane/.env`, installs the workspace, builds and starts the full
+Docker stack, then opens **http://localhost:3000/quick-start** — a guided page for
+your first login **without the VaultysID app** (developer mode, for local testing
+only). Pass `--yes` to skip all prompts.
+
+### Option B — manual (`pnpm dev`)
 
 **Requirements**: Node.js 18+, pnpm 10+
 

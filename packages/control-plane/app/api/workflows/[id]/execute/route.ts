@@ -7,6 +7,7 @@ import { getAuthContext } from "@/lib/auth-utils";
 import { unauthorized, forbidden, notFound } from "@/lib/api/utils/api-utils";
 import { WorkflowDAO } from "@/db";
 import { withError } from "@/lib/api/handlers/with-error";
+import { inngest, isInngestEngine } from "@/lib/inngest/client";
 
 type Params = { id: string };
 
@@ -102,11 +103,27 @@ export const POST = withError(async (
   const workflowDef = definition as unknown as WorkflowDefinition;
   // Execution-time input overrides the definition's stored input
   const resolvedInput = input ?? workflowDef.input;
-  Promise.resolve().then(() => {
-    executeWorkflow(runId, workflowDef, resolvedInput, id).catch((err) => {
-      console.error(`Workflow ${runId} execution failed:`, err);
+
+  if (isInngestEngine()) {
+    // Durable engine (P1): hand the run off to Inngest. The run-workflow function
+    // owns the DAG walk, retries, approval waits, and crash recovery.
+    await inngest.send({
+      name: "workflow/run.requested",
+      data: {
+        runId,
+        workflowId: id,
+        input: resolvedInput,
+        realmId: workflow.realmId ?? undefined,
+      },
     });
-  });
+  } else {
+    // Legacy in-process executor (fire-and-forget).
+    Promise.resolve().then(() => {
+      executeWorkflow(runId, workflowDef, resolvedInput, id).catch((err) => {
+        console.error(`Workflow ${runId} execution failed:`, err);
+      });
+    });
+  }
 
   return NextResponse.json({
     success: true,

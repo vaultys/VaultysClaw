@@ -18,6 +18,13 @@ export default defineConfig({
       // The AI SDK is a dep of agent-controller only, not the root workspace.
       // Alias it here so tests in __tests__/ can import and mock it.
       ai: resolve(__dirname, "packages/agent-controller/node_modules/ai"),
+      // @inngest/test + inngest are deps of control-plane only. Alias so tests
+      // in __tests__/ resolve the same instances the control-plane code uses.
+      "@inngest/test": resolve(
+        __dirname,
+        "packages/control-plane/node_modules/@inngest/test"
+      ),
+      inngest: resolve(__dirname, "packages/control-plane/node_modules/inngest"),
       // Mastra is a dep of agent-controller only — agent/tools subpaths resolve
       // transitively via packages/agent-controller/node_modules. The base alias
       // is needed so vi.mock("@mastra/core/agent") works in llm.test.ts.

@@ -14,6 +14,7 @@
 #   --skip-minio       Don't start MinIO  (uses filesystem storage instead)
 #   --skip-docling     Don't start Docling
 #   --skip-litellm     Don't start LiteLLM proxy
+#   --skip-inngest     Don't start Inngest (uses legacy in-process workflow engine)
 #   --skip-obs         Don't start the Grafana observability stack
 #   --skip-seed        Skip simulator:seed (re-use existing data)
 #   --no-simulator     Start services only; don't launch the 30-agent fleet
@@ -48,6 +49,7 @@ DOCKER_CONTAINERS_FILE="$DEMO_DIR/.demo-sim-containers"
 SKIP_MINIO=false
 SKIP_DOCLING=false
 SKIP_LITELLM=false
+SKIP_INNGEST=false
 SKIP_OBS=false
 SKIP_SEED=false
 NO_SIMULATOR=false
@@ -58,6 +60,7 @@ for arg in "$@"; do
     --skip-minio)    SKIP_MINIO=true ;;
     --skip-docling)  SKIP_DOCLING=true ;;
     --skip-litellm)  SKIP_LITELLM=true ;;
+    --skip-inngest)  SKIP_INNGEST=true ;;
     --skip-obs)      SKIP_OBS=true ;;
     --skip-seed)     SKIP_SEED=true ;;
     --no-simulator)  NO_SIMULATOR=true ;;
@@ -101,7 +104,7 @@ cleanup() {
   # STOP Docker containers in reverse startup order so dependents shut down
   # before Postgres (prevents data corruption on hard stops).
   for cname in "${OBS_GRAFANA_CONTAINER:-}" "${OBS_COLLECTOR_CONTAINER:-}" "${OBS_PROMETHEUS_CONTAINER:-}" "${OBS_TEMPO_CONTAINER:-}" \
-               "${LITELLM_CONTAINER:-}" "${DOCLING_CONTAINER:-}" "${MINIO_CONTAINER:-}" "${PG_CONTAINER:-}"; do
+               "${INNGEST_CONTAINER:-}" "${LITELLM_CONTAINER:-}" "${DOCLING_CONTAINER:-}" "${MINIO_CONTAINER:-}" "${PG_CONTAINER:-}"; do
     [[ -z "$cname" ]] && continue
     if docker inspect "$cname" &>/dev/null 2>&1; then
       docker stop "$cname" >/dev/null 2>&1 || true
@@ -232,6 +235,11 @@ LITELLM_PORT="4000"
 LITELLM_BASE_URL="http://127.0.0.1:${LITELLM_PORT}"
 LITELLM_DB="vaultysclaw_litellm"
 
+INNGEST_CONTAINER="vc-demo-inngest"
+INNGEST_PORT="8288"
+INNGEST_DEV_URL="http://127.0.0.1:${INNGEST_PORT}"   # control plane (host) → Inngest
+WORKFLOW_ENGINE=$( $SKIP_INNGEST && echo "" || echo "inngest" )
+
 OBS_NETWORK="vc-demo-obs"          # shared Docker bridge for all obs containers
 OBS_COLLECTOR_CONTAINER="vc-demo-otel-collector"
 OBS_TEMPO_CONTAINER="vc-demo-tempo"
@@ -328,7 +336,7 @@ log "  LiteLLM URL       = ${LITELLM_BASE_URL}"
 if $FRESH; then
   step "Fresh wipe"
   warn "Wiping demo containers and volumes (--fresh)…"
-  docker rm -f "${PG_CONTAINER}" "${MINIO_CONTAINER}" "${DOCLING_CONTAINER}" "${LITELLM_CONTAINER}" \
+  docker rm -f "${PG_CONTAINER}" "${MINIO_CONTAINER}" "${DOCLING_CONTAINER}" "${LITELLM_CONTAINER}" "${INNGEST_CONTAINER}" \
               "${OBS_COLLECTOR_CONTAINER}" "${OBS_TEMPO_CONTAINER}" "${OBS_PROMETHEUS_CONTAINER}" "${OBS_GRAFANA_CONTAINER}" \
               2>/dev/null || true
   docker volume rm "vc-demo-pgdata" "vc-demo-miniodata" \
@@ -691,6 +699,35 @@ log "Running prisma db push (DATABASE_URL=${DATABASE_URL})…"
 log "Schema is up to date."
 
 # =============================================================================
+# Step 10b — Inngest (durable workflow engine)
+# =============================================================================
+# Stateless Dev Server: in-memory queue + state. It discovers the control plane's
+# /api/inngest endpoint (the control plane runs as a host process, reached via
+# host.docker.internal) and serves a dashboard at :8288. Started before the
+# control plane — it polls until the endpoint responds, so order doesn't matter.
+
+if ! $SKIP_INNGEST; then
+  step "Inngest"
+
+  if docker inspect "$INNGEST_CONTAINER" &>/dev/null 2>&1; then
+    # Stateless — recreate to ensure the discovery URL/flags are current.
+    docker rm -f "$INNGEST_CONTAINER" >/dev/null 2>&1 || true
+  fi
+
+  log "Creating $INNGEST_CONTAINER (dashboard :${INNGEST_PORT})…"
+  docker run -d \
+    --name "$INNGEST_CONTAINER" \
+    -p "${INNGEST_PORT}:8288" \
+    -e "INNGEST_DEV=1" \
+    --add-host "host.docker.internal:host-gateway" \
+    inngest/inngest:latest \
+    inngest dev -u "http://host.docker.internal:${PORT}/api/inngest" \
+    >/dev/null
+
+  wait_http "http://127.0.0.1:${INNGEST_PORT}/" "Inngest Dev Server" 30
+fi
+
+# =============================================================================
 # Step 11 — Control Plane
 # =============================================================================
 step "Control Plane"
@@ -721,6 +758,8 @@ LITELLM_MASTER_KEY=${LITELLM_MASTER_KEY}
 OTEL_ENABLED=${OTEL_ENABLED}
 OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT}
 OTEL_SERVICE_NAME=${OTEL_SERVICE_NAME}
+WORKFLOW_ENGINE=${WORKFLOW_ENGINE}
+INNGEST_DEV=${INNGEST_DEV_URL}
 CPENV
 
 if curl -sf --max-time 2 "${CONTROL_PLANE_URL}/api/health" >/dev/null 2>&1; then
@@ -754,6 +793,8 @@ else
   OTEL_ENABLED="$OTEL_ENABLED" \
   OTEL_EXPORTER_OTLP_ENDPOINT="$OTEL_EXPORTER_OTLP_ENDPOINT" \
   OTEL_SERVICE_NAME="$OTEL_SERVICE_NAME" \
+  WORKFLOW_ENGINE="$WORKFLOW_ENGINE" \
+  INNGEST_DEV="$INNGEST_DEV_URL" \
   pnpm --filter @vaultysclaw/control-plane dev -- --data-dir "$DATA_DIR" \
     > "$LOG_DIR/control-plane.log" 2>&1 &
   CP_PID=$!
@@ -926,12 +967,14 @@ MINIO_LINE="  MinIO API:     http://127.0.0.1:${MINIO_API_PORT}   user: ${MINIO_
 MINIO_CON="  MinIO Console: http://127.0.0.1:${MINIO_CONSOLE_PORT}"
 DOCLING_LINE="  Docling:       http://127.0.0.1:${DOCLING_PORT}"
 LITELLM_LINE="  LiteLLM:       http://127.0.0.1:${LITELLM_PORT}   key: ${LITELLM_MASTER_KEY:0:16}…"
+INNGEST_LINE="  Inngest:       http://127.0.0.1:${INNGEST_PORT}   (durable workflow engine · runs · replay)"
 GRAFANA_LINE="  Grafana:       http://127.0.0.1:${OBS_GRAFANA_PORT}  (traces · metrics · service map)"
 PROM_LINE="  Prometheus:    http://127.0.0.1:${OBS_PROMETHEUS_PORT}"
 
 $SKIP_MINIO   && MINIO_LINE="  MinIO:         (skipped)"  && MINIO_CON=""
 $SKIP_DOCLING && DOCLING_LINE="  Docling:       (skipped)"
 $SKIP_LITELLM && LITELLM_LINE="  LiteLLM:       (skipped)"
+$SKIP_INNGEST && INNGEST_LINE="  Inngest:       (skipped — legacy in-process workflow engine)"
 $SKIP_OBS     && GRAFANA_LINE="  Grafana:       (skipped)" && PROM_LINE=""
 
 echo
@@ -947,6 +990,7 @@ echo   "║"
 [[ -n "$MINIO_CON"  ]] && echo "║ $MINIO_CON"
 echo   "║ $DOCLING_LINE"
 echo   "║ $LITELLM_LINE"
+echo   "║ $INNGEST_LINE"
 echo   "║ $GRAFANA_LINE"
 [[ -n "$PROM_LINE" ]] && echo "║ $PROM_LINE"
 echo   "║"

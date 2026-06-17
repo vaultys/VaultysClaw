@@ -5,6 +5,7 @@ import { WorkflowDAO } from "@/db";
 
 import { notFound, unauthorized } from "@/lib/api/utils/api-utils";
 import { withError } from "@/lib/api/handlers/with-error";
+import { emitApprovalResolved } from "@/lib/inngest/emit-approval";
 
 interface Params {
   id: string;
@@ -69,6 +70,9 @@ export const POST = withError(async (
   if (!updated) {
     return notFound("Approval not found or already decided");
   }
+
+  // Wake the durable workflow waiting on this approval (Inngest engine only).
+  await emitApprovalResolved(id, "rejected", session.user.did, body.comment);
 
   return NextResponse.json({ success: true });
 });

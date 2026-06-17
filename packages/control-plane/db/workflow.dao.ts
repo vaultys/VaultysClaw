@@ -365,6 +365,10 @@ export class WorkflowDAO {
     });
   }
 
+  static async findApproval(id: string): Promise<WorkflowApproval | null> {
+    return prisma.workflowApproval.findUnique({ where: { id } });
+  }
+
   static async getApprovalsForRun(runId: string): Promise<WorkflowApproval[]> {
     return prisma.workflowApproval.findMany({
       where: { runId },

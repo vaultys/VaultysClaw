@@ -4,7 +4,7 @@
   "description": "Control plane for VaultysClaw - manage policies, agents, and AI orchestration",
   "scripts": {
     "postinstall": "prisma generate",
-    "prisma:generate": "prisma generate && sed -i \"/import \\* as imports from \\\"..\\\/null\\\"/d\" prisma/zod/*.ts",
+    "prisma:generate": "prisma generate && sed -i \"/import \\* as imports from \\\"..\\/null\\\"/d\" prisma/zod/*.ts",
     "dev": "tsx watch --exclude 'data*/**' --exclude '.next/**' server.ts",
     "build": "tsc && next build",
     "start": "node dist/server.js",
@@ -39,6 +39,7 @@
     "dotenv": "^16.6.1",
     "expr-eval": "^2.0.2",
     "geoip-lite": "^2.0.2",
+    "inngest": "^4.5.1",
     "lucide-react": "^1.14.0",
     "next": "^16.2.6",
     "next-auth": "^4.24.14",
@@ -68,6 +69,7 @@
     "zustand": "^4.5.7"
   },
   "devDependencies": {
+    "@inngest/test": "^1.0.0",
     "@types/expr-eval": "^1.1.2",
     "@types/geoip-lite": "^1.4.4",
     "@types/node": "^22.19.19",

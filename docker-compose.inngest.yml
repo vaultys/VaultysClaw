@@ -1,0 +1,24 @@
+# Inngest Dev Server for the P1 durable-workflow spike.
+#
+# Dev: this single container is the local Inngest server. It auto-discovers the
+# control-plane functions at the serve endpoint below and gives you a dashboard
+# at http://localhost:8288 (runs, steps, retries, event stream, manual replay).
+#
+# Prod (self-hosted) uses the SAME inngest/inngest binary backed by Postgres + Redis
+# (INNGEST_POSTGRES_URI / INNGEST_REDIS_URI) instead of the in-memory dev store.
+#
+# Usage:
+#   docker compose -f docker-compose.inngest.yml up
+#   # then run the control plane with the Inngest engine selected:
+#   WORKFLOW_ENGINE=inngest INNGEST_DEV=1 pnpm vaultysclaw:dev
+
+services:
+  inngest:
+    image: inngest/inngest:latest
+    command: "inngest dev -u http://host.docker.internal:3000/api/inngest"
+    ports:
+      - "8288:8288" # dashboard + event API
+    environment:
+      - INNGEST_DEV=1
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

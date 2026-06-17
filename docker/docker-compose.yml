@@ -16,6 +16,7 @@
 #   MinIO Console   → http://localhost:9001   (minioadmin / minioadmin123)
 #   Docling         → http://localhost:5001
 #   LiteLLM         → http://localhost:4000
+#   Inngest         → http://localhost:8288   (durable workflow engine + dashboard)
 #   PostgreSQL      → localhost:5432
 
 services:
@@ -136,6 +137,22 @@ services:
       retries: 20
       start_period: 60s
 
+  # ── Inngest (durable workflow engine) ──────────────────────────────────────
+  # Dev Server: in-memory queue + state store, auto-discovers the control plane's
+  # /api/inngest endpoint and serves a dashboard at :8288. For production, run the
+  # same binary backed by Postgres + Redis instead (INNGEST_POSTGRES_URI / _REDIS_URI).
+  inngest:
+    image: inngest/inngest:latest
+    command: ["inngest", "dev", "-u", "http://control-plane:3000/api/inngest"]
+    ports:
+      - "8288:8288"
+    environment:
+      INNGEST_DEV: "1"
+    depends_on:
+      control-plane:
+        condition: service_started
+    restart: unless-stopped
+
   # ── Control Plane ─────────────────────────────────────────────────────────
   control-plane:
     build:
@@ -160,6 +177,10 @@ services:
       WS_PORT: "8080"
       LITELLM_BASE_URL: http://litellm:4000
       LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY:-sk-demo-insecure-changeme}
+      # Durable workflow engine (P1). Set WORKFLOW_ENGINE= (empty) to use the
+      # legacy in-process executor instead.
+      WORKFLOW_ENGINE: ${WORKFLOW_ENGINE-inngest}
+      INNGEST_DEV: "http://inngest:8288"
     healthcheck:
       test: ["CMD-SHELL", "curl -sf http://localhost:3000/api/health || exit 1"]
       interval: 10s

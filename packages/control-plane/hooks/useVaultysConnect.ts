@@ -1,9 +1,18 @@
 "use client";
 
 import { BrowserChannel } from "@vaultys/channel-browser";
-import { Challenger, VaultysId, crypto } from "@vaultys/id";
+import { VaultysId, crypto } from "@vaultys/id";
 import { signIn } from "next-auth/react";
 import { useCallback, useEffect, useState } from "react";
+import {
+  SERVER_URL,
+  generateBrowserId,
+  getStoredBrowserId,
+  runBrowserDirectConnect,
+  srp,
+  type BrowserIdData,
+  type WalletSecurityType,
+} from "@/lib/browser-connect";
 
 const Buffer = crypto.Buffer;
 
@@ -28,13 +37,10 @@ export type BastionPhase =
   | "success"
   | "failure";
 export type UserConnectionPhase = "connect" | "waiting" | "success" | "failure";
-export type WalletSecurityType = "SOFTWARE" | "PASSKEY" | "HARDWARE";
 
-export interface BrowserIdData {
-  did: string;
-  vid: string; // base64 public key
-  secret: string; // base64 secret
-}
+// Re-exported from lib/browser-connect for backwards compatibility — these used
+// to be defined here and are imported across the signin components.
+export type { WalletSecurityType, BrowserIdData };
 
 export interface UserConnectInfo {
   key: string;
@@ -48,9 +54,12 @@ export interface UseVaultysConnectResult {
   userConnectionPhase?: UserConnectionPhase;
   userConnectInfo?: UserConnectInfo;
   p2pUrl?: string; // full https://wallet.vaultys.net/#vaultys://peerjs?... URL for QR display
+  devLogin: boolean; // whether the "connect without app" dev option is enabled
+  devConnecting: boolean; // browser-direct SRP in progress
   startConnectionFlow: () => void;
   selectSecurityType: (type: WalletSecurityType) => void;
   startP2PMode: () => void;
+  connectWithoutApp: (securityType: WalletSecurityType) => void;
   retry: () => void;
   hasUsers: boolean;
 }
@@ -59,112 +68,10 @@ export interface UseVaultysConnectResult {
 // Helpers
 // ---------------------------------------------------------------------------
 
-const BROWSER_ID_KEY = "vaultysclaw:browserVid";
-const SERVER_URL = typeof window !== "undefined" ? window.location.origin : "";
-
-function getStoredBrowserId(): BrowserIdData | null {
-  if (typeof localStorage === "undefined") return null;
-  const raw = localStorage.getItem(BROWSER_ID_KEY);
-  return raw ? (JSON.parse(raw) as BrowserIdData) : null;
-}
-
-function storeBrowserId(data: BrowserIdData) {
-  localStorage.setItem(BROWSER_ID_KEY, JSON.stringify(data));
-}
-
 function connectionToken(key: string): string {
   return crypto
     .hash("sha256", Buffer.from(`connecting-${key}-vaultys`))
     .toString("hex");
-}
-
-async function generateBrowserId(
-  securityType: WalletSecurityType
-): Promise<BrowserIdData> {
-  let vaultysId: VaultysId;
-  switch (securityType) {
-    case "PASSKEY": {
-      const attestation = (await navigator.credentials.create({
-        publicKey: getPkCred(true),
-      })) as PublicKeyCredential;
-      vaultysId = (await VaultysId.fido2FromAttestation(attestation)).toVersion(
-        1
-      );
-      break;
-    }
-    case "HARDWARE": {
-      const attestation = (await navigator.credentials.create({
-        publicKey: getPkCred(false),
-      })) as PublicKeyCredential;
-      vaultysId = (await VaultysId.fido2FromAttestation(attestation)).toVersion(
-        1
-      );
-      break;
-    }
-    default:
-      vaultysId = (await VaultysId.generateMachine()).toVersion(1);
-  }
-  const did = vaultysId.did;
-  const vid = Buffer.from(vaultysId.id).toString("base64");
-  const secret = vaultysId.getSecret("base64");
-  const data = { did, vid, secret };
-  storeBrowserId(data);
-  return data;
-}
-
-function getPkCred(
-  requireResidentKey: boolean
-): PublicKeyCredentialCreationOptions {
-  const safari = /^((?!chrome|android).)*applewebkit/i.test(
-    navigator.userAgent
-  );
-  const challenge = new Uint8Array(32);
-  const userId = new Uint8Array(16);
-  globalThis.crypto.getRandomValues(challenge);
-  globalThis.crypto.getRandomValues(userId);
-  return {
-    challenge,
-    rp: { name: "VaultysClaw" },
-    user: { id: userId, name: "VaultysClaw", displayName: "VaultysClaw" },
-    attestation: safari ? "none" : "direct",
-    authenticatorSelection: {
-      authenticatorAttachment: requireResidentKey
-        ? "platform"
-        : "cross-platform",
-      residentKey: requireResidentKey ? "required" : "discouraged",
-      userVerification: "preferred",
-    },
-    pubKeyCredParams: [
-      { type: "public-key", alg: -7 },
-      { type: "public-key", alg: -8 },
-      { type: "public-key", alg: -257 },
-    ],
-  };
-}
-
-async function srp(
-  channel: BrowserChannel,
-  vaultysId: VaultysId
-): Promise<void> {
-  const challenger = new Challenger(vaultysId);
-  challenger.createChallenge("p2p", "auth", 0);
-  const cert = challenger.getCertificate();
-  if (!cert) {
-    channel.close();
-    throw new Error("Failed to create challenge");
-  }
-  channel.send(cert);
-  const serverCert = await channel.receive();
-  const contact = Challenger.deserializeCertificate(serverCert).pk2;
-  if (!contact) throw new Error("Server did not send pk2");
-  await challenger.update(serverCert);
-  if (challenger.isComplete()) {
-    const finalCert = challenger.getCertificate();
-    if (!finalCert) throw new Error("No final certificate");
-    channel.send(finalCert);
-  } else {
-    throw new Error("Challenge not complete after two rounds");
-  }
 }
 
 // ---------------------------------------------------------------------------
@@ -182,6 +89,8 @@ export function useVaultysConnect(): UseVaultysConnectResult {
     useState<UserConnectionPhase>();
   const [userConnectInfo, setUserConnectInfo] = useState<UserConnectInfo>();
   const [p2pUrl, setP2PUrl] = useState<string>();
+  const [devLogin, setDevLogin] = useState(false);
+  const [devConnecting, setDevConnecting] = useState(false);
 
   // Load initial state
   useEffect(() => {
@@ -194,12 +103,14 @@ export function useVaultysConnect(): UseVaultysConnectResult {
         hasUsers: boolean;
         serverDid: string | null;
       };
-      const { walletUrl: wu } = (await settingsRes.json()) as {
+      const { walletUrl: wu, devLogin: dl } = (await settingsRes.json()) as {
         walletUrl: string;
+        devLogin?: boolean;
       };
       setHasUsers(hu);
       setServerDid(sd);
       if (wu) setWalletUrl(wu);
+      setDevLogin(!!dl);
       const storedVid = getStoredBrowserId();
       setBrowserVid(storedVid);
       setUIStep(hu ? "first-connect" : "claim-ownership");
@@ -374,6 +285,31 @@ export function useVaultysConnect(): UseVaultysConnectResult {
     [performBastionConnect]
   );
 
+  // Dev login — the browser performs the user SRP itself with a second stored
+  // identity, instead of showing a QR for the mobile VaultysID app. The cert
+  // `key` was already obtained at the qr-connect step (userConnectInfo.key), and
+  // startQRConnection's waitForUser poll is still running, so it will pick up the
+  // completed certificate and finish the sign-in.
+  const connectWithoutApp = useCallback(
+    async (securityType: WalletSecurityType) => {
+      const key = userConnectInfo?.key;
+      if (!key) return;
+      setDevConnecting(true);
+      try {
+        await runBrowserDirectConnect({
+          key,
+          service: hasUsers ? "auth" : "register",
+          securityType,
+        });
+      } catch {
+        // SRP errors surface through the running waitForUser poll → failure phase.
+      } finally {
+        setDevConnecting(false);
+      }
+    },
+    [userConnectInfo, hasUsers]
+  );
+
   const retry = useCallback(() => {
     setUserConnectionPhase(undefined);
     setBastionPhase(undefined);
@@ -388,9 +324,12 @@ export function useVaultysConnect(): UseVaultysConnectResult {
     userConnectionPhase,
     userConnectInfo,
     p2pUrl,
+    devLogin,
+    devConnecting,
     startConnectionFlow,
     selectSecurityType,
     startP2PMode,
+    connectWithoutApp,
     retry,
     hasUsers,
   };

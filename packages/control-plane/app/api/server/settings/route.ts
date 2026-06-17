@@ -38,6 +38,10 @@ export const GET = withError(async (request: NextRequest) => {
     walletUrl:
       (await SettingsDAO.get("wallet_url")) ?? "https://wallet.vaultys.net",
     peerjsHost: (await SettingsDAO.get("peerjs_host")) ?? "",
+    // Dev-only: lets the browser authenticate itself with a locally stored
+    // identity (no mobile VaultysID app). Gated behind an env flag because it
+    // weakens security — anyone with browser access can sign in.
+    devLogin: process.env.VC_DEV_LOGIN === "true",
   });
 });
 

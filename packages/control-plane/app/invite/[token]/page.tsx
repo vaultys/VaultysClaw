@@ -6,10 +6,13 @@ import {
   Check,
   Loader2,
   AlertCircle,
-  ChevronRight,
   Shield,
 } from "lucide-react";
-import { QRCodeSVG } from "qrcode.react";
+import QRCodeScreen from "@/components/signin/QRCodeScreen";
+import {
+  runBrowserDirectConnect,
+  type WalletSecurityType,
+} from "@/lib/browser-connect";
 
 type InvitePhase =
   | "loading"
@@ -35,7 +38,9 @@ export default function InvitePage() {
   const [details, setDetails] = useState<InviteDetails | null>(null);
   const [error, setError] = useState("");
   const [qrUrl, setQrUrl] = useState("");
-  const [waitingCount, setWaitingCount] = useState(0);
+  const [certKey, setCertKey] = useState("");
+  const [devLogin, setDevLogin] = useState(false);
+  const [devConnecting, setDevConnecting] = useState(false);
 
   // Fetch invitation details
   useEffect(() => {
@@ -58,6 +63,14 @@ export default function InvitePage() {
     load();
   }, [token]);
 
+  // Load dev-login availability
+  useEffect(() => {
+    fetch("/api/server/settings")
+      .then((r) => r.json())
+      .then((s: { devLogin?: boolean }) => setDevLogin(!!s.devLogin))
+      .catch(() => {});
+  }, []);
+
   const generateQR = useCallback(async () => {
     if (!token) return;
     setPhase("qr-loading");
@@ -72,9 +85,11 @@ export default function InvitePage() {
         qrUrl: string;
         connectionString: string;
         inviteToken: string;
+        key: string;
         serverDid?: string;
       };
       setQrUrl(data.qrUrl);
+      setCertKey(data.key);
       setPhase("qr");
 
       // Poll for connection using the returned invite token
@@ -95,7 +110,6 @@ export default function InvitePage() {
           setError("Connection failed");
           return;
         }
-        setWaitingCount((n) => n + 1);
       }
       setPhase("error");
       setError("Connection timed out");
@@ -104,6 +118,25 @@ export default function InvitePage() {
       setError((err as Error).message);
     }
   }, [token]);
+
+  const connectWithoutApp = useCallback(
+    async (securityType: WalletSecurityType) => {
+      if (!certKey) return;
+      setDevConnecting(true);
+      try {
+        await runBrowserDirectConnect({
+          key: certKey,
+          service: "register",
+          securityType,
+        });
+      } catch {
+        // Errors surface via the running listen poll → error phase.
+      } finally {
+        setDevConnecting(false);
+      }
+    },
+    [certKey]
+  );
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-50/70 via-background to-secondary-50/40 p-4">
@@ -221,18 +254,20 @@ export default function InvitePage() {
 
         {/* QR Code */}
         {phase === "qr" && details && (
-          <div className="bg-background-100 border border-neutral-200 rounded-2xl p-8 shadow-sm text-center space-y-4">
-            <h2 className="text-lg font-bold text-foreground">Scan QR Code</h2>
-            <p className="text-foreground-500 text-sm">
-              Open your Vaultys Wallet and scan this code
-            </p>
-            <div className="bg-white p-4 rounded-2xl shadow-lg flex justify-center">
-              <QRCodeSVG value={qrUrl} size={200} />
-            </div>
-            <div className="flex items-center justify-center gap-2 text-foreground-400 text-xs animate-pulse">
-              <div className="w-3 h-3 rounded-full bg-primary-500" />
-              Waiting for wallet connection…
-            </div>
+          <div className="bg-background-100 border border-neutral-200 rounded-2xl p-8 shadow-sm">
+            <QRCodeScreen
+              qrUrl={qrUrl}
+              phase="waiting"
+              title="Scan QR Code"
+              subtitle="Open your Vaultys Wallet and scan this code"
+              devEnabled={devLogin}
+              devConnecting={devConnecting}
+              onConnectWithoutApp={connectWithoutApp}
+              onRetry={() => {
+                setPhase("info");
+                setError("");
+              }}
+            />
           </div>
         )}
 

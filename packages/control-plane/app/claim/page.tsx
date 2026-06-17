@@ -9,7 +9,11 @@ import {
   AlertCircle,
   Shield,
 } from "lucide-react";
-import { QRCodeSVG } from "qrcode.react";
+import QRCodeScreen from "@/components/signin/QRCodeScreen";
+import {
+  runBrowserDirectConnect,
+  type WalletSecurityType,
+} from "@/lib/browser-connect";
 
 type ClaimPhase = "loading" | "ready" | "qr-loading" | "qr" | "success" | "error";
 
@@ -20,6 +24,9 @@ export default function ClaimPage() {
   const [phase, setPhase] = useState<ClaimPhase>("loading");
   const [error, setError] = useState("");
   const [qrUrl, setQrUrl] = useState("");
+  const [certKey, setCertKey] = useState("");
+  const [devLogin, setDevLogin] = useState(false);
+  const [devConnecting, setDevConnecting] = useState(false);
 
   useEffect(() => {
     if (status === "loading") return;
@@ -35,6 +42,14 @@ export default function ClaimPage() {
     setPhase("ready");
   }, [status, session, router]);
 
+  // Load dev-login availability
+  useEffect(() => {
+    fetch("/api/server/settings")
+      .then((r) => r.json())
+      .then((s: { devLogin?: boolean }) => setDevLogin(!!s.devLogin))
+      .catch(() => {});
+  }, []);
+
   const generateQR = useCallback(async () => {
     setPhase("qr-loading");
     try {
@@ -46,11 +61,13 @@ export default function ClaimPage() {
       const data = (await res.json()) as {
         qrUrl: string;
         inviteToken: string;
+        key: string;
       };
       setQrUrl(data.qrUrl);
+      setCertKey(data.key);
       setPhase("qr");
 
-      // Poll until the wallet completes the VaultysId registration
+      // Poll until the wallet (or browser-direct dev flow) completes registration
       for (let i = 0; i < 180; i++) {
         await new Promise((r) => setTimeout(r, 1500));
         const r = await fetch(`/api/user/listen/${data.inviteToken}`);
@@ -74,6 +91,25 @@ export default function ClaimPage() {
       setError((err as Error).message);
     }
   }, [update]);
+
+  const connectWithoutApp = useCallback(
+    async (securityType: WalletSecurityType) => {
+      if (!certKey) return;
+      setDevConnecting(true);
+      try {
+        await runBrowserDirectConnect({
+          key: certKey,
+          service: "register",
+          securityType,
+        });
+      } catch {
+        // Errors surface via the running listen poll → error phase.
+      } finally {
+        setDevConnecting(false);
+      }
+    },
+    [certKey]
+  );
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-50/70 via-background to-secondary-50/40 p-4">
@@ -172,18 +208,20 @@ export default function ClaimPage() {
 
         {/* QR Code */}
         {phase === "qr" && (
-          <div className="bg-background-100 border border-neutral-200 rounded-2xl p-8 shadow-sm text-center space-y-4">
-            <h2 className="text-lg font-bold text-foreground">Scan QR Code</h2>
-            <p className="text-foreground-500 text-sm">
-              Open your Vaultys Wallet and scan this code
-            </p>
-            <div className="bg-white p-4 rounded-2xl shadow-lg flex justify-center">
-              <QRCodeSVG value={qrUrl} size={200} />
-            </div>
-            <div className="flex items-center justify-center gap-2 text-foreground-400 text-xs animate-pulse">
-              <div className="w-3 h-3 rounded-full bg-primary-500" />
-              Waiting for wallet connection…
-            </div>
+          <div className="bg-background-100 border border-neutral-200 rounded-2xl p-8 shadow-sm">
+            <QRCodeScreen
+              qrUrl={qrUrl}
+              phase="waiting"
+              title="Scan QR Code"
+              subtitle="Open your Vaultys Wallet and scan this code"
+              devEnabled={devLogin}
+              devConnecting={devConnecting}
+              onConnectWithoutApp={connectWithoutApp}
+              onRetry={() => {
+                setPhase("ready");
+                setError("");
+              }}
+            />
           </div>
         )}
 

@@ -19,9 +19,12 @@ function ConnectCard() {
     userConnectionPhase,
     userConnectInfo,
     p2pUrl,
+    devLogin,
+    devConnecting,
     startConnectionFlow,
     selectSecurityType,
     startP2PMode,
+    connectWithoutApp,
     retry,
     hasUsers,
   } = useVaultysConnect();
@@ -45,12 +48,25 @@ function ConnectCard() {
         <BastionConnect bastionPhase={bastionPhase} />
       )}
 
-      {(uiStep === "qr-connect" || uiStep === "p2p-connect") && (
+      {uiStep === "qr-connect" && (
         <QRCodeScreen
-          connectInfo={userConnectInfo}
+          qrUrl={userConnectInfo?.url}
           phase={userConnectionPhase}
-          p2pUrl={uiStep === "p2p-connect" ? p2pUrl : undefined}
+          devEnabled={devLogin}
+          devConnecting={devConnecting}
+          onConnectWithoutApp={connectWithoutApp}
           onSwitchP2P={startP2PMode}
+          onRetry={retry}
+        />
+      )}
+
+      {uiStep === "p2p-connect" && (
+        <QRCodeScreen
+          qrUrl={p2pUrl}
+          phase={userConnectionPhase}
+          title="P2P Connection"
+          subtitle="Scan with your VaultysID wallet to connect directly"
+          showCopy={false}
           onRetry={retry}
         />
       )}

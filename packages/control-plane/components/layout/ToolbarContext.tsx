@@ -1,0 +1,121 @@
+"use client";
+
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  type DependencyList,
+  type ReactNode,
+} from "react";
+
+/**
+ * A single action rendered on the right side of the page toolbar.
+ *
+ * - `button` — a clickable button (primary or default style).
+ * - `tabs`   — a segmented control to switch between views (e.g. list / map).
+ * - `badge`  — a non-interactive status pill (e.g. a "Live" indicator).
+ */
+export type ToolbarAction =
+  | {
+      kind: "button";
+      id: string;
+      label: string;
+      icon?: ReactNode;
+      onClick: () => void;
+      variant?: "primary" | "default";
+      disabled?: boolean;
+    }
+  | {
+      kind: "tabs";
+      id: string;
+      value: string;
+      onChange: (value: string) => void;
+      options: { value: string; label: string; icon?: ReactNode }[];
+    }
+  | {
+      kind: "badge";
+      id: string;
+      label: string;
+      icon?: ReactNode;
+      tone?: "success" | "neutral" | "warning" | "danger";
+    };
+
+export interface ToolbarConfig {
+  /** Page title shown on the left of the toolbar. */
+  title: string;
+  /** Optional subtitle / description shown under the title. */
+  description?: ReactNode;
+  /** Actions rendered on the right, in order. */
+  actions?: ToolbarAction[];
+}
+
+interface ToolbarContextValue {
+  config: ToolbarConfig | null;
+  setConfig: (config: ToolbarConfig | null) => void;
+}
+
+const ToolbarContext = createContext<ToolbarContextValue>({
+  config: null,
+  setConfig: () => {},
+});
+
+export function ToolbarProvider({ children }: { children: ReactNode }) {
+  const [config, setConfig] = useState<ToolbarConfig | null>(null);
+  return (
+    <ToolbarContext.Provider value={{ config, setConfig }}>
+      {children}
+    </ToolbarContext.Provider>
+  );
+}
+
+/** Internal: read the current toolbar config (used by the shell to render it). */
+export function useToolbarState() {
+  return useContext(ToolbarContext);
+}
+
+/**
+ * Configure the page toolbar from a page component.
+ *
+ * Call this once in your page with the toolbar config and a dependency list of
+ * everything the config closes over (title, counts, view state, handlers …).
+ * The toolbar is cleared automatically when the page unmounts.
+ *
+ * @example
+ * useToolbar(
+ *   {
+ *     title: "Agents",
+ *     description: `${total} registered · ${online} online`,
+ *     actions: [
+ *       { kind: "badge", id: "live", label: "Live", tone: "success" },
+ *       {
+ *         kind: "tabs",
+ *         id: "view",
+ *         value: viewMode,
+ *         onChange: setViewMode,
+ *         options: [
+ *           { value: "list", label: "List", icon: <List size={14} /> },
+ *           { value: "map", label: "Map", icon: <Map size={14} /> },
+ *         ],
+ *       },
+ *       {
+ *         kind: "button",
+ *         id: "create",
+ *         label: "Create agent",
+ *         icon: <Plus size={14} />,
+ *         variant: "primary",
+ *         onClick: () => router.push("/agents/create"),
+ *       },
+ *     ],
+ *   },
+ *   [total, online, viewMode],
+ * );
+ */
+export function useToolbar(config: ToolbarConfig, deps: DependencyList) {
+  const { setConfig } = useToolbarState();
+  useEffect(() => {
+    setConfig(config);
+    return () => setConfig(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, deps);
+}

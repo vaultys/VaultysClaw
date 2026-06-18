@@ -113,6 +113,39 @@ All classes extend `BaseApi` (in `lib/api/base.ts`) which throws `ApiError` on n
 
 **WebSocket messages**: Add new message types to `packages/shared/src/channel-types.ts`, handle in `lib/ws-server.ts` (control plane) and `src/agent.ts` (agent).
 
+**Page toolbar (header)**: Pages do **not** render their own page-level header. Instead, configure the shared toolbar rendered by the app shell (below the `TopBar`) via the `useToolbar` hook from `@/components/layout/ToolbarContext`. The shell wraps everything in `ToolbarProvider` and renders `<Toolbar />` (`components/layout/Toolbar.tsx`); a page that doesn't call `useToolbar` shows no toolbar.
+
+```typescript
+import { useToolbar } from "@/components/layout/ToolbarContext";
+
+useToolbar(
+  {
+    title: "Agents",
+    description: `${total} registered · ${online} online`,
+    actions: [
+      // Non-interactive status pill (tone: success | neutral | warning | danger)
+      { kind: "badge", id: "live", label: "Live", tone: "success", icon: <Wifi className="w-3 h-3" /> },
+      // Segmented view switcher
+      {
+        kind: "tabs",
+        id: "view",
+        value: viewMode,
+        onChange: (v) => setViewMode(v as "list" | "map"),
+        options: [
+          { value: "list", label: "List", icon: <List className="w-3.5 h-3.5" /> },
+          { value: "map", label: "Map", icon: <Map className="w-3.5 h-3.5" /> },
+        ],
+      },
+      // Button (variant: "primary" | "default")
+      { kind: "button", id: "create", label: "Create agent", variant: "primary", icon: <Plus className="w-3.5 h-3.5" />, onClick: () => router.push("/agents/create") },
+    ],
+  },
+  [total, online, wsConnected, viewMode, router] // deps: everything the config closes over
+);
+```
+
+The hook clears the toolbar on unmount. Pass a dependency list of every value the config reads so the toolbar stays in sync. To add a new action type, extend the `ToolbarAction` union in `ToolbarContext.tsx` and render it in `Toolbar.tsx`.
+
 ## API Design & Implementation (ts-rest Pattern)
 
 All **new** control-plane REST APIs should follow the ts-rest + APIException pattern. This guarantees:

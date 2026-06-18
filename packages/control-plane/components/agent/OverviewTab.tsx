@@ -17,8 +17,12 @@ import { CAPABILITY_ICONS } from "./capability-icons";
 import { AUDIT_LABELS } from "./constants";
 import { TokenBar } from "./TokenBar";
 import { AgentLocationRow } from "./AgentLocationRow";
-import type { PolicyEntry, AuditEntry } from "./types";
-import { AgentInfo } from "@/lib/contracts";
+import {
+  governanceClient,
+  policiesClient,
+  unwrap,
+} from "@/lib/api/ts-rest/client";
+import { AgentInfo, type PolicyEntry, type AuditEntry } from "@/lib/contracts";
 
 export function OverviewTab({
   agent,
@@ -41,15 +45,18 @@ export function OverviewTab({
   useEffect(() => {
     (async () => {
       try {
-        const [auditRes, policyRes] = await Promise.all([
-          fetch(
-            `/api/governance/audit?agentDid=${encodeURIComponent(agent.did)}&limit=50`
-          ),
-          fetch(`/api/policies?agentDid=${encodeURIComponent(agent.did)}`),
+        const [audit, policyData] = await Promise.all([
+          governanceClient
+            .audit({ query: { agentDid: agent.did, limit: 50 } })
+            .then(unwrap)
+            .catch(() => null),
+          policiesClient
+            .list({ query: { agentDid: agent.did } })
+            .then(unwrap)
+            .catch(() => null),
         ]);
-        if (auditRes.ok) {
-          const data = await auditRes.json();
-          const entries: AuditEntry[] = data.entries ?? [];
+        if (audit) {
+          const entries: AuditEntry[] = audit.entries;
           setRecentEvents(entries.slice(0, 8));
           const intents = entries.filter((e) => e.source === "intent");
           setIntentStats({
@@ -58,9 +65,8 @@ export function OverviewTab({
             pending: intents.filter((e) => e.status === "pending").length,
           });
         }
-        if (policyRes.ok) {
-          const data = await policyRes.json();
-          const policies: PolicyEntry[] = data.policies ?? [];
+        if (policyData) {
+          const policies: PolicyEntry[] = policyData.policies;
           setActivePolicy(policies[0] ?? null);
         }
       } finally {

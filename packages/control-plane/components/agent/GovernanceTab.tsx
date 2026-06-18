@@ -24,7 +24,7 @@ import {
 import { formatDateTime, parseUTC, timeAgo } from "@vaultysclaw/shared";
 import { CAPABILITY_ICONS } from "./capability-icons";
 import { ALL_CAPABILITIES, AUDIT_LABELS } from "./constants";
-import type { PolicyEntry, AuditEntry } from "./types";
+import type { PolicyEntry, AuditEntry } from "@/lib/contracts";
 
 const EMPTY_LIMITS = {
   maxTokensPerDay: "",

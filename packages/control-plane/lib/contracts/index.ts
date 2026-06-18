@@ -2,7 +2,7 @@ import { c } from "./contract";
 import { agentsContract } from "./agents/agents.contract";
 import { apiKeysContract, chatContract } from "./api-keys.contract";
 import { bridgesContract, channelsContract } from "./channels.contract";
-import { governanceContract } from "./governance.contract";
+import { governanceContract } from "./governance/governance.contract";
 import { intentsContract } from "./intents.contract";
 import { knowledgeContract } from "./knowledge.contract";
 import {
@@ -17,7 +17,7 @@ import {
     mapContract,
     networkContract,
 } from "./network.contract";
-import { policiesContract } from "./policies.contract";
+import { policiesContract } from "./policies/policies.contract";
 import { realmsContract } from "./realms.contract";
 import {
     registrationsContract,
@@ -48,7 +48,10 @@ export * from "./agents/agents.schemas";
 export * from "./agents/agents.types";
 export * from "./api-keys.contract";
 export * from "./channels.contract";
-export * from "./governance.contract";
+export type * from "./governance/governance.contract";
+export * from "./governance/governance.contract";
+export * from "./governance/governance.schemas";
+export * from "./governance/governance.types";
 export * from "./intents.contract";
 export * from "./knowledge.contract";
 export * from "./misc/misc.contract";
@@ -56,7 +59,10 @@ export * from "./misc/misc.schemas";
 export * from "./misc/misc.types";
 export * from "./models.contract";
 export * from "./network.contract";
-export * from "./policies.contract";
+export type * from "./policies/policies.contract";
+export * from "./policies/policies.contract";
+export * from "./policies/policies.schemas";
+export * from "./policies/policies.types";
 export * from "./realms.contract";
 export * from "./registrations.contract";
 export * from "./server.contract";

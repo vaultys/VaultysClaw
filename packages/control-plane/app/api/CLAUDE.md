@@ -68,6 +68,8 @@ export const PATCH = handlers.PATCH!;
 export const DELETE = handlers.DELETE!;
 ```
 
+**Database access goes through DAOs, never `prisma` directly.** Route handlers call DAO methods from `db/` (`AgentDAO`, `PolicyDAO`, `IntentDAO`, `ActivityLogDAO`, …) — the DAOs own all `prisma` queries. If a handler needs a query/filter a DAO doesn't expose yet, add a method (or extend an existing one) on the DAO rather than importing `prisma` into the route. This keeps query logic reusable and testable in one place.
+
 ## Client
 
 `lib/api/<domain>.ts` — use the contract client from `lib/api/ts-rest/client.ts`, call `unwrap()` to throw on non-2xx:

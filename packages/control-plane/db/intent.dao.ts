@@ -44,7 +44,9 @@ export class IntentDAO {
     limit = 100,
     agentDid?: string,
     /** When set, only return intents sent to one of these agent DIDs. */
-    allowedAgentDids?: Set<string>
+    allowedAgentDids?: Set<string>,
+    /** Optional status filter (e.g. "success" | "failed" | "pending"). */
+    status?: string
   ): Promise<IntentLog[]> {
     if (allowedAgentDids !== undefined && allowedAgentDids.size === 0)
       return []; // user has no accessible agents
@@ -56,6 +58,7 @@ export class IntentDAO {
     } else if (allowedAgentDids) {
       where.agentDid = { in: Array.from(allowedAgentDids) };
     }
+    if (status) where.status = status;
     return prisma.intentLog.findMany({
       where,
       orderBy: { sentAt: "desc" },

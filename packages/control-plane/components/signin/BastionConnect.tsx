@@ -42,15 +42,15 @@ export default function BastionConnect({ bastionPhase }: BastionConnectProps) {
       <div
         className={`w-16 h-16 rounded-full flex items-center justify-center ${
           isError
-            ? "bg-danger-100 dark:bg-danger-900/40"
+            ? "bg-danger-100"
             : isDone
-              ? "bg-success-100 dark:bg-success-900/40"
-              : "bg-primary-100 dark:bg-primary-900/40"
+              ? "bg-success-100"
+              : "bg-primary-100"
         }`}
       >
         {isError ? (
           <svg
-            className="w-8 h-8 text-danger-500 dark:text-danger-400"
+            className="w-8 h-8 text-danger-500"
             fill="none"
             stroke="currentColor"
             strokeWidth={2}
@@ -64,7 +64,7 @@ export default function BastionConnect({ bastionPhase }: BastionConnectProps) {
           </svg>
         ) : isDone ? (
           <svg
-            className="w-8 h-8 text-success-600 dark:text-success-400"
+            className="w-8 h-8 text-success-600"
             fill="none"
             stroke="currentColor"
             strokeWidth={2}

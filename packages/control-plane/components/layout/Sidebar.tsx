@@ -108,7 +108,7 @@ function NavLink({
         "group flex items-center gap-3 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors",
         collapsed ? "justify-center" : "",
         active
-          ? "bg-primary-100 dark:bg-primary-700/25 text-primary-700 dark:text-primary-800"
+          ? "bg-primary-100 text-primary-700"
           : "text-foreground-600 hover:text-foreground hover:bg-background-200/50"
       )}
     >

@@ -576,7 +576,7 @@ function RenewPolicyModal({
                   key={d}
                   type="button"
                   onClick={() => setNewExpiry(daysFromNow(d))}
-                  className="text-[11px] px-2 py-0.5 rounded-md border border-neutral-200 text-foreground-500 hover:text-primary-600 dark:hover:text-primary-400 hover:border-primary-400 dark:hover:border-primary-500 transition-colors"
+                  className="text-[11px] px-2 py-0.5 rounded-md border border-neutral-200 text-foreground-500 hover:text-primary-600 hover:border-primary-400 transition-colors"
                 >
                   +{d}d
                 </button>

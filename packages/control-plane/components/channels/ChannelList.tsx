@@ -47,7 +47,7 @@ export default function ChannelList({
       {/* Realm Channels */}
       {realmChannels.length > 0 && (
         <div className="px-4 mb-4">
-          <h3 className="text-xs font-semibold text-neutral-600 dark:text-neutral-400 uppercase tracking-wider mb-2">
+          <h3 className="text-xs font-semibold text-neutral-600 uppercase tracking-wider mb-2">
             Channels
           </h3>
           <div className="space-y-1">
@@ -59,7 +59,7 @@ export default function ChannelList({
       {/* Global Channels */}
       {globalChannels.length > 0 && (
         <div className="px-4">
-          <h3 className="text-xs font-semibold text-neutral-600 dark:text-neutral-400 uppercase tracking-wider mb-2">
+          <h3 className="text-xs font-semibold text-neutral-600 uppercase tracking-wider mb-2">
             Organization
           </h3>
           <div className="space-y-1">

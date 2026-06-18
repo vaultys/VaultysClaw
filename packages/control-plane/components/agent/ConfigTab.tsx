@@ -1159,8 +1159,8 @@ export function ConfigTab({
         ) : /* ── View mode ── */ activeIsAgentKey ? (
           /* Agent key display */
           <div className="divide-y divide-neutral-200">
-            <div className="flex items-center gap-3 px-4 py-3 bg-warning-50 dark:bg-warning-900/20">
-              <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-warning-100 dark:bg-warning-900/40 text-warning-700 dark:text-warning-400 border border-warning-300 dark:border-warning-700 shrink-0 flex items-center gap-1">
+            <div className="flex items-center gap-3 px-4 py-3 bg-warning-50">
+              <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-warning-100 text-warning-700 border border-warning-300 shrink-0 flex items-center gap-1">
                 <Key className="w-3 h-3" /> Agent Key
               </span>
               <span className="text-sm text-foreground font-mono">
@@ -1168,7 +1168,7 @@ export function ConfigTab({
               </span>
               <Link
                 href="/models?tab=litellm"
-                className="ml-auto text-xs text-warning-600 dark:text-warning-400 hover:underline shrink-0"
+                className="ml-auto text-xs text-warning-600 hover:underline shrink-0"
               >
                 LiteLLM proxy →
               </Link>

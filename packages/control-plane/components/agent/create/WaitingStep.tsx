@@ -37,7 +37,7 @@ export function WaitingStep({
           className={cn(
             "flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full border",
             wsConnected
-              ? "bg-success-100 dark:bg-success-900/40 border-success-300 dark:border-success-700/50 text-success-700 dark:text-success-400"
+              ? "bg-success-100 border-success-300 text-success-700"
               : "bg-background-200 border-neutral-200 text-foreground-400"
           )}
         >
@@ -47,17 +47,17 @@ export function WaitingStep({
       </div>
 
       {pendingReg ? (
-        <div className="bg-success-50 dark:bg-success-500/10 border-2 border-success-400 dark:border-success-500/50 rounded-xl p-5 space-y-3">
+        <div className="bg-success-50 border-2 border-success-400 rounded-xl p-5 space-y-3">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-success-100 dark:bg-success-500/20 border border-success-300 dark:border-success-500/30 flex items-center justify-center">
-              <Bot size={18} className="text-success-600 dark:text-success-400" />
+            <div className="w-10 h-10 rounded-full bg-success-100 border border-success-300 flex items-center justify-center">
+              <Bot size={18} className="text-success-600" />
             </div>
             <div>
               <p className="text-sm font-semibold text-foreground">
                 Agent connected!
               </p>
               <p className="text-xs text-foreground-500">
-                <span className="font-medium text-success-700 dark:text-success-400">
+                <span className="font-medium text-success-700">
                   {pendingReg.agentName}
                 </span>{" "}
                 is waiting for approval
@@ -74,7 +74,7 @@ export function WaitingStep({
       ) : (
         <div className="bg-background-100 border border-neutral-200 rounded-xl p-8 flex flex-col items-center gap-4">
           <div className="relative">
-            <div className="w-16 h-16 rounded-full border-2 border-primary-300 dark:border-primary-600 flex items-center justify-center">
+            <div className="w-16 h-16 rounded-full border-2 border-primary-300 flex items-center justify-center">
               <Bot size={28} className="text-primary-400" />
             </div>
             <span className="absolute -top-1 -right-1 flex h-4 w-4">
@@ -106,7 +106,7 @@ export function WaitingStep({
               className={cn(
                 "w-full flex items-center justify-between px-4 py-3 rounded-lg border text-sm transition-colors text-left",
                 pendingReg?.id === r.id
-                  ? "bg-primary-50 dark:bg-primary-600/15 border-primary-300 dark:border-primary-500/40 text-foreground"
+                  ? "bg-primary-50 border-primary-300 text-foreground"
                   : "bg-background-100 border-neutral-200 hover:bg-background-200 text-foreground"
               )}
             >

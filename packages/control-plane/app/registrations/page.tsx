@@ -174,7 +174,7 @@ export default function RegistrationsPage() {
             <button
               onClick={handleBatchReject}
               disabled={bulkWorking}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-danger-100 dark:bg-danger-600/20 hover:bg-danger-200 dark:hover:bg-danger-600/30 disabled:opacity-50 text-danger-700 dark:text-danger-400 text-xs font-medium rounded-lg border border-danger-300 dark:border-danger-500/30 transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-danger-100 hover:bg-danger-200 disabled:opacity-50 text-danger-700 text-xs font-medium rounded-lg border border-danger-300 transition-colors"
             >
               {bulkWorking ? (
                 <Loader2 size={12} className="animate-spin" />
@@ -187,7 +187,7 @@ export default function RegistrationsPage() {
           <span
             className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full border ${
               wsConnected
-                ? "bg-success-100 dark:bg-success-900/40 border-success-300 dark:border-success-700/50 text-success-700 dark:text-success-400"
+                ? "bg-success-100 border-success-300 text-success-700"
                 : "bg-background-200 border-neutral-200 text-foreground-400"
             }`}
           >
@@ -216,16 +216,16 @@ export default function RegistrationsPage() {
 
       {/* Error display */}
       {rejectError && (
-        <div className="flex items-center gap-2 bg-danger-50 dark:bg-danger-500/10 border border-danger-300 dark:border-danger-500/20 rounded-lg px-4 py-3 text-sm text-danger-600 dark:text-danger-400">
+        <div className="flex items-center gap-2 bg-danger-50 border border-danger-300 rounded-lg px-4 py-3 text-sm text-danger-600">
           {rejectError}
         </div>
       )}
 
       {/* Registration list */}
       {pendingRegs.length > 0 && (
-        <div className="bg-warning-50 dark:bg-warning-900/20 border border-warning-200 dark:border-warning-700/40 rounded-xl overflow-hidden">
+        <div className="bg-warning-50 border border-warning-200 rounded-xl overflow-hidden">
           {/* List header with select-all */}
-          <div className="px-5 py-4 border-b border-warning-200 dark:border-warning-700/40 flex items-center gap-3">
+          <div className="px-5 py-4 border-b border-warning-200 flex items-center gap-3">
             <input
               type="checkbox"
               checked={allSelected}
@@ -233,17 +233,17 @@ export default function RegistrationsPage() {
               className="w-4 h-4 rounded border-neutral-300 accent-primary-500 cursor-pointer"
               title="Select all"
             />
-            <Clock className="w-4 h-4 text-warning-600 dark:text-warning-400" />
-            <h2 className="text-sm font-semibold text-warning-700 dark:text-warning-300 flex-1">
+            <Clock className="w-4 h-4 text-warning-600" />
+            <h2 className="text-sm font-semibold text-warning-700 flex-1">
               {pendingRegs.length} agent{pendingRegs.length !== 1 ? "s" : ""}{" "}
               awaiting review
             </h2>
           </div>
-          <div className="divide-y divide-warning-200 dark:divide-warning-700/30">
+          <div className="divide-y divide-warning-200">
             {pendingRegs.map((reg) => (
               <div
                 key={reg.id}
-                className="px-5 py-4 flex items-center gap-3 hover:bg-warning-100/50 dark:hover:bg-warning-900/10 transition-colors group"
+                className="px-5 py-4 flex items-center gap-3 hover:bg-warning-100/50 transition-colors group"
               >
                 {/* Checkbox */}
                 <input
@@ -265,7 +265,7 @@ export default function RegistrationsPage() {
                     </p>
                     {/* Connected / disconnected badge */}
                     {reg.connected ? (
-                      <span className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-success-100 dark:bg-success-500/15 text-success-700 dark:text-success-400 border border-success-300 dark:border-success-500/30">
+                      <span className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-success-100 text-success-700 border border-success-300">
                         <span className="w-1.5 h-1.5 rounded-full bg-success-500 inline-block" />
                         Connected
                       </span>
@@ -276,7 +276,7 @@ export default function RegistrationsPage() {
                       </span>
                     )}
                   </div>
-                  <p className="text-warning-600/80 dark:text-warning-400/60 text-xs mt-0.5 flex items-center gap-2 flex-wrap">
+                  <p className="text-warning-600/80 text-xs mt-0.5 flex items-center gap-2 flex-wrap">
                     <span>Requested {timeAgo(reg.createdAt)}</span>
                     {reg.agentDid && (
                       <span
@@ -300,7 +300,7 @@ export default function RegistrationsPage() {
                       handleReject(reg.id, reg.agentName);
                     }}
                     disabled={rejectingId === reg.id || bulkWorking}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-danger-100 dark:bg-danger-600/20 hover:bg-danger-200 dark:hover:bg-danger-600/30 disabled:opacity-50 disabled:cursor-not-allowed text-danger-700 dark:text-danger-400 text-xs font-medium rounded transition-colors"
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-danger-100 hover:bg-danger-200 disabled:opacity-50 disabled:cursor-not-allowed text-danger-700 text-xs font-medium rounded transition-colors"
                   >
                     {rejectingId === reg.id ? (
                       <Loader2 size={12} className="animate-spin" />

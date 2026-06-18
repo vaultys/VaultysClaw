@@ -25,36 +25,36 @@ const UNIT = NODE_W + H_GAP;
 const ROLE_STYLE: Record<string, { bg: string; border: string; text: string }> =
   {
     owner: {
-      bg: "bg-warning-900/30 dark:bg-warning-900/30",
-      border: "border-warning-600 dark:border-warning-700",
-      text: "text-warning-700 dark:text-warning-400",
+      bg: "bg-warning-900/30",
+      border: "border-warning-600",
+      text: "text-warning-700",
     },
     admin: {
-      bg: "bg-primary-900/30 dark:bg-primary-900/30",
-      border: "border-primary-600 dark:border-primary-700",
-      text: "text-primary-700 dark:text-primary-400",
+      bg: "bg-primary-900/30",
+      border: "border-primary-600",
+      text: "text-primary-700",
     },
     manager: {
-      bg: "bg-primary-900/30 dark:bg-primary-900/30",
-      border: "border-primary-600 dark:border-primary-700",
-      text: "text-primary-700 dark:text-primary-400",
+      bg: "bg-primary-900/30",
+      border: "border-primary-600",
+      text: "text-primary-700",
     },
     operator: {
-      bg: "bg-success-900/30 dark:bg-success-900/30",
-      border: "border-success-600 dark:border-success-700",
-      text: "text-success-700 dark:text-success-400",
+      bg: "bg-success-900/30",
+      border: "border-success-600",
+      text: "text-success-700",
     },
     member: {
-      bg: "bg-neutral-900/30 dark:bg-neutral-900/30",
-      border: "border-neutral-600 dark:border-neutral-700",
-      text: "text-neutral-700 dark:text-neutral-400",
+      bg: "bg-neutral-900/30",
+      border: "border-neutral-600",
+      text: "text-neutral-700",
     },
   };
 
 const AGENT_STYLE = {
-  bg: "bg-secondary-900/30 dark:bg-secondary-900/30",
-  border: "border-secondary-600 dark:border-secondary-700",
-  text: "text-secondary-700 dark:text-secondary-400",
+  bg: "bg-secondary-900/30",
+  border: "border-secondary-600",
+  text: "text-secondary-700",
 };
 
 function roleStyle(role?: string) {

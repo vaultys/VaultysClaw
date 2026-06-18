@@ -85,7 +85,7 @@ export default function WorkflowEditPage() {
         <div className="flex items-center gap-4">
           <Link
             href={backHref}
-            className="flex items-center gap-2 text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 font-medium text-sm px-4 py-3"
+            className="flex items-center gap-2 text-primary-600 hover:text-primary-700 font-medium text-sm px-4 py-3"
           >
             <ChevronLeft size={18} /> {backLabel}
           </Link>

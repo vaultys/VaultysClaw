@@ -106,7 +106,7 @@ export function ModelStep({ agentDid, onDone }: ModelStepProps) {
             className={cn(
               "px-4 py-2.5 text-sm font-medium border-b-2 transition-colors",
               modelMode === "registry"
-                ? "border-primary-500 text-primary-600 dark:text-primary-400"
+                ? "border-primary-500 text-primary-600"
                 : "border-transparent text-foreground-500 hover:text-foreground"
             )}
           >
@@ -117,7 +117,7 @@ export function ModelStep({ agentDid, onDone }: ModelStepProps) {
             className={cn(
               "px-4 py-2.5 text-sm font-medium border-b-2 transition-colors",
               modelMode === "litellm"
-                ? "border-primary-500 text-primary-600 dark:text-primary-400"
+                ? "border-primary-500 text-primary-600"
                 : "border-transparent text-foreground-500 hover:text-foreground"
             )}
           >
@@ -146,7 +146,7 @@ export function ModelStep({ agentDid, onDone }: ModelStepProps) {
                     className={cn(
                       "w-full flex items-center gap-3 px-4 py-3 rounded-lg border text-sm text-left transition-colors",
                       selectedModel === m.id
-                        ? "bg-primary-50 dark:bg-primary-600/15 border-primary-300 dark:border-primary-500/40"
+                        ? "bg-primary-50 border-primary-300"
                         : "bg-background-100 border-neutral-200 hover:bg-background-200"
                     )}
                   >
@@ -198,7 +198,7 @@ export function ModelStep({ agentDid, onDone }: ModelStepProps) {
                   className={cn(
                     "w-full flex items-center gap-3 px-4 py-3 rounded-lg border text-sm text-left transition-colors",
                     selectedLiteLlmModel === m.name
-                      ? "bg-primary-50 dark:bg-primary-600/15 border-primary-300 dark:border-primary-500/40"
+                      ? "bg-primary-50 border-primary-300"
                       : "bg-background-100 border-neutral-200 hover:bg-background-200"
                   )}
                 >
@@ -233,7 +233,7 @@ export function ModelStep({ agentDid, onDone }: ModelStepProps) {
       )}
 
       {modelError && (
-        <div className="rounded-lg border border-danger-300 dark:border-danger-700/40 bg-danger-50 dark:bg-danger-900/20 p-3 text-sm text-danger-600 dark:text-danger-400">
+        <div className="rounded-lg border border-danger-300 bg-danger-50 p-3 text-sm text-danger-600">
           <p className="font-medium">Error: {modelError}</p>
         </div>
       )}

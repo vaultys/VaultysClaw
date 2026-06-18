@@ -186,14 +186,14 @@ export function LiteLLMPanel() {
       {/* Status banner */}
       <div className={`rounded-2xl border p-4 flex items-center justify-between gap-4 ${
         status?.healthy
-          ? "border-success-300 dark:border-success-800 bg-success-50 dark:bg-success-900/20"
+          ? "border-success-300 bg-success-50"
           : status?.configured
-          ? "border-warning-300 dark:border-warning-800 bg-warning-50 dark:bg-warning-900/20"
+          ? "border-warning-300 bg-warning-50"
           : "border-neutral-200 bg-background-100"
       }`}>
         <div className="flex items-center gap-3">
           {status?.status === "connected" ? (
-            <CheckCircle2 className="w-5 h-5 text-success-600 dark:text-success-400 shrink-0" />
+            <CheckCircle2 className="w-5 h-5 text-success-600 shrink-0" />
           ) : status?.status === "connecting" ? (
             <RefreshCw className="w-5 h-5 text-primary-500 animate-spin shrink-0" />
           ) : (
@@ -210,7 +210,7 @@ export function LiteLLMPanel() {
               <p className="text-xs text-foreground-500 font-mono">{status.baseUrl}</p>
             )}
             {status?.lastError && (
-              <p className="text-xs text-danger-600 dark:text-danger-400">{status.lastError}</p>
+              <p className="text-xs text-danger-600">{status.lastError}</p>
             )}
           </div>
         </div>
@@ -285,7 +285,7 @@ export function LiteLLMPanel() {
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-semibold text-foreground">Connection settings</h3>
           {isEnvOnly && (
-            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-400 border border-primary-300 dark:border-primary-800 uppercase tracking-wide">
+            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-primary-100 text-primary-700 border border-primary-300 uppercase tracking-wide">
               From env vars
             </span>
           )}
@@ -312,7 +312,7 @@ export function LiteLLMPanel() {
 
           <div>
             <label className="block text-xs font-medium text-foreground-500 mb-1">
-              Master key {status?.masterKeySet && !masterKey && <span className="text-success-600 dark:text-success-400">(set — leave blank to keep)</span>}
+              Master key {status?.masterKeySet && !masterKey && <span className="text-success-600">(set — leave blank to keep)</span>}
             </label>
             <div className="relative">
               <input
@@ -334,7 +334,7 @@ export function LiteLLMPanel() {
         </div>
 
         {saveMsg && (
-          <p className={`text-xs px-3 py-2 rounded-xl ${saveMsg.ok ? "bg-success-50 dark:bg-success-900/20 text-success-700 dark:text-success-400" : "bg-danger-50 dark:bg-danger-900/20 text-danger-700 dark:text-danger-400"}`}>
+          <p className={`text-xs px-3 py-2 rounded-xl ${saveMsg.ok ? "bg-success-50 text-success-700" : "bg-danger-50 text-danger-700"}`}>
             {saveMsg.text}
           </p>
         )}
@@ -359,7 +359,7 @@ export function LiteLLMPanel() {
           {status?.source === "db" && (
             <button
               onClick={clear}
-              className="ml-auto flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium text-danger-600 dark:text-danger-400 hover:bg-danger-50 dark:hover:bg-danger-900/20 transition-colors"
+              className="ml-auto flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium text-danger-600 hover:bg-danger-50 transition-colors"
             >
               <Trash2 className="w-4 h-4" />
               Clear
@@ -437,7 +437,7 @@ export function LiteLLMPanel() {
                           className="border-b border-neutral-200/50 hover:bg-background-200/40 transition-colors last:border-0"
                         >
                           <td className="px-5 py-3">
-                            <code className="text-sm font-mono text-foreground-700 dark:text-foreground-300">
+                            <code className="text-sm font-mono text-foreground-700">
                               {m.name}
                             </code>
                           </td>
@@ -470,7 +470,7 @@ export function LiteLLMPanel() {
                           <td className="px-5 py-3">
                             <button
                               onClick={() => setSelectedModel(m)}
-                              className="text-xs px-3 py-1.5 rounded-lg border border-primary-300 text-primary-700 dark:text-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors font-medium"
+                              className="text-xs px-3 py-1.5 rounded-lg border border-primary-300 text-primary-700 hover:bg-primary-50 transition-colors font-medium"
                             >
                               View details
                             </button>
@@ -565,7 +565,7 @@ export function LiteLLMPanel() {
                             )}
                           </button>
                         </div>
-                        <code className="block px-3 py-2 bg-background-100 border border-neutral-200 rounded-lg text-sm font-mono text-foreground-700 dark:text-foreground-300 break-all">
+                        <code className="block px-3 py-2 bg-background-100 border border-neutral-200 rounded-lg text-sm font-mono text-foreground-700 break-all">
                           {String(value)}
                         </code>
                       </div>

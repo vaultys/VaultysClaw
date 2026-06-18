@@ -422,7 +422,7 @@ function PeerjsPanel({
         className={cn(
           "rounded-xl border p-5 space-y-4",
           data.running
-            ? "bg-secondary-50/60 dark:bg-secondary-500/5 border-secondary-300 dark:border-secondary-500/30"
+            ? "bg-secondary-50/60 border-secondary-300"
             : "bg-background-100 border-neutral-200"
         )}
       >
@@ -432,7 +432,7 @@ function PeerjsPanel({
             className={cn(
               "w-9 h-9 rounded-lg flex items-center justify-center border",
               data.running
-                ? "bg-secondary-100 dark:bg-secondary-500/20 border-secondary-300 dark:border-secondary-500/30"
+                ? "bg-secondary-100 border-secondary-300"
                 : "bg-background-200 border-neutral-200"
             )}
           >
@@ -440,7 +440,7 @@ function PeerjsPanel({
               size={18}
               className={
                 data.running
-                  ? "text-secondary-600 dark:text-secondary-400"
+                  ? "text-secondary-600"
                   : "text-foreground-500"
               }
             />
@@ -454,7 +454,7 @@ function PeerjsPanel({
                 className={cn(
                   "text-[10px] font-medium px-2 py-0.5 rounded-full border",
                   data.running
-                    ? "bg-secondary-100 dark:bg-secondary-500/15 text-secondary-700 dark:text-secondary-400 border-secondary-300 dark:border-secondary-500/30"
+                    ? "bg-secondary-100 text-secondary-700 border-secondary-300"
                     : "bg-background-200 text-foreground-500 border-neutral-200"
                 )}
               >
@@ -487,7 +487,7 @@ function PeerjsPanel({
                 <button
                   onClick={() => handle("restart-peerjs")}
                   disabled={acting}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-background-200 border border-neutral-200 text-warning-600 dark:text-warning-400 hover:border-warning-400 dark:hover:border-warning-500 hover:text-warning-700 dark:hover:text-warning-300 disabled:opacity-50 transition-colors"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-background-200 border border-neutral-200 text-warning-600 hover:border-warning-400 hover:text-warning-700 disabled:opacity-50 transition-colors"
                 >
                   {acting && actingAction === "restart-peerjs" ? (
                     <Loader2 size={12} className="animate-spin" />
@@ -499,7 +499,7 @@ function PeerjsPanel({
                 <button
                   onClick={() => handle("stop")}
                   disabled={acting}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-danger-100 dark:bg-danger-500/15 text-danger-700 dark:text-danger-400 border border-danger-300 dark:border-danger-500/30 hover:bg-danger-200 dark:hover:bg-danger-500/25 disabled:opacity-50 transition-colors"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-danger-100 text-danger-700 border border-danger-300 hover:bg-danger-200 disabled:opacity-50 transition-colors"
                 >
                   {acting && actingAction === "stop" ? (
                     <Loader2 size={12} className="animate-spin" />
@@ -560,7 +560,7 @@ function PeerjsPanel({
               </p>
             )}
             {data.running && (
-              <p className="text-xs text-warning-600 dark:text-warning-400">
+              <p className="text-xs text-warning-600">
                 Stop and restart to apply a new URL.
               </p>
             )}
@@ -597,7 +597,7 @@ function PeerjsPanel({
         )}
 
         {error && (
-          <div className="flex items-center gap-2 bg-danger-50 dark:bg-danger-500/10 border border-danger-300 dark:border-danger-500/20 rounded-lg px-3 py-2 text-xs text-danger-600 dark:text-danger-400">
+          <div className="flex items-center gap-2 bg-danger-50 border border-danger-300 rounded-lg px-3 py-2 text-xs text-danger-600">
             <AlertTriangle size={12} className="shrink-0" />
             {error}
           </div>
@@ -1149,25 +1149,25 @@ function WsTab({
     <div className="space-y-5">
       {/* Success banner */}
       {successBanner && (
-        <div className="flex items-center gap-2 bg-success-50 dark:bg-success-500/10 border border-success-300 dark:border-success-500/20 rounded-xl px-4 py-3 text-sm text-success-700 dark:text-success-400">
+        <div className="flex items-center gap-2 bg-success-50 border border-success-300 rounded-xl px-4 py-3 text-sm text-success-700">
           <Check size={14} className="shrink-0" />
           WebSocket server restarted successfully.
         </div>
       )}
 
       {/* Status card */}
-      <div className="rounded-xl border bg-primary-50/60 dark:bg-primary-500/5 border-primary-300 dark:border-primary-500/30 p-5">
+      <div className="rounded-xl border bg-primary-50/60 border-primary-300 p-5">
         <div className="flex items-center gap-3 mb-4">
-          <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-primary-100 dark:bg-primary-500/20 border border-primary-300 dark:border-primary-500/30">
+          <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-primary-100 border border-primary-300">
             <Wifi
               size={18}
-              className="text-primary-600 dark:text-primary-400"
+              className="text-primary-600"
             />
           </div>
           <div className="flex-1">
             <div className="flex items-center gap-2">
               <span className="font-semibold text-foreground">WebSocket</span>
-              <span className="text-[10px] font-medium px-2 py-0.5 rounded-full border bg-primary-100 dark:bg-primary-500/15 text-primary-700 dark:text-primary-400 border-primary-300 dark:border-primary-500/30">
+              <span className="text-[10px] font-medium px-2 py-0.5 rounded-full border bg-primary-100 text-primary-700 border-primary-300">
                 Always on
               </span>
             </div>
@@ -1178,7 +1178,7 @@ function WsTab({
           <button
             onClick={handleRestart}
             disabled={restarting}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-background-200 border border-neutral-200 text-warning-600 dark:text-warning-400 hover:border-warning-400 dark:hover:border-warning-500 hover:text-warning-700 dark:hover:text-warning-300 disabled:opacity-50 transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-background-200 border border-neutral-200 text-warning-600 hover:border-warning-400 hover:text-warning-700 disabled:opacity-50 transition-colors"
           >
             {restarting ? (
               <Loader2 size={12} className="animate-spin" />
@@ -1472,18 +1472,18 @@ function PeerjsSetupGuide({ configuredUrl }: { configuredUrl: string | null }) {
                 <CodeBlock code={DOCKER_NGINX} language="nginx" />
               </div>
 
-              <div className="bg-primary-50 dark:bg-primary-500/10 border border-primary-200 dark:border-primary-500/20 rounded-lg px-4 py-3 space-y-1.5">
-                <p className="text-xs font-semibold text-primary-700 dark:text-primary-400">
+              <div className="bg-primary-50 border border-primary-200 rounded-lg px-4 py-3 space-y-1.5">
+                <p className="text-xs font-semibold text-primary-700">
                   4. Point this control plane at your server
                 </p>
-                <p className="text-xs text-primary-700/80 dark:text-primary-400/70">
+                <p className="text-xs text-primary-700/80">
                   Open the configuration panel above (⚙) and set the signaling
                   server URL to:
                 </p>
-                <code className="block text-xs font-mono bg-primary-100 dark:bg-primary-500/15 border border-primary-200 dark:border-primary-500/20 rounded px-3 py-1.5 text-primary-800 dark:text-primary-300">
+                <code className="block text-xs font-mono bg-primary-100 border border-primary-200 rounded px-3 py-1.5 text-primary-800">
                   {internalUrl}
                 </code>
-                <p className="text-xs text-primary-700/70 dark:text-primary-400/60">
+                <p className="text-xs text-primary-700/70">
                   If you added a reverse proxy with TLS, use the{" "}
                   <code className="font-mono">https://</code> URL instead. Then
                   click Start.
@@ -1528,19 +1528,19 @@ function PeerjsSetupGuide({ configuredUrl }: { configuredUrl: string | null }) {
                 <CodeBlock code={K8S_INGRESS} language="yaml" />
               </div>
 
-              <div className="bg-primary-50 dark:bg-primary-500/10 border border-primary-200 dark:border-primary-500/20 rounded-lg px-4 py-3 space-y-1.5">
-                <p className="text-xs font-semibold text-primary-700 dark:text-primary-400">
+              <div className="bg-primary-50 border border-primary-200 rounded-lg px-4 py-3 space-y-1.5">
+                <p className="text-xs font-semibold text-primary-700">
                   4. Point this control plane at your server
                 </p>
-                <p className="text-xs text-primary-700/80 dark:text-primary-400/70">
+                <p className="text-xs text-primary-700/80">
                   Open the configuration panel above (⚙) and set the signaling
                   server URL. Use the internal cluster DNS if running in the
                   same cluster:
                 </p>
-                <code className="block text-xs font-mono bg-primary-100 dark:bg-primary-500/15 border border-primary-200 dark:border-primary-500/20 rounded px-3 py-1.5 text-primary-800 dark:text-primary-300">
+                <code className="block text-xs font-mono bg-primary-100 border border-primary-200 rounded px-3 py-1.5 text-primary-800">
                   {internalUrl}
                 </code>
-                <p className="text-xs text-primary-700/70 dark:text-primary-400/60">
+                <p className="text-xs text-primary-700/70">
                   Or use your Ingress hostname (e.g.{" "}
                   <code className="font-mono">
                     https://peerjs.your-domain.com
@@ -1580,7 +1580,7 @@ function PeerjsTab({
 
       {/* Not running banner */}
       {!running && (
-        <div className="flex items-center gap-2.5 bg-warning-50 dark:bg-warning-500/10 border border-warning-300 dark:border-warning-500/20 rounded-xl px-4 py-3 text-sm text-warning-700 dark:text-warning-400">
+        <div className="flex items-center gap-2.5 bg-warning-50 border border-warning-300 rounded-xl px-4 py-3 text-sm text-warning-700">
           <AlertTriangle size={15} className="shrink-0" />
           PeerJS relay is not running. Start it above to accept WebRTC agent
           connections.
@@ -1766,7 +1766,7 @@ export default function NetworkPage() {
           <Loader2 size={28} className="animate-spin text-primary-400" />
         </div>
       ) : error ? (
-        <div className="flex items-center gap-2 bg-danger-50 dark:bg-danger-500/10 border border-danger-300 dark:border-danger-500/20 rounded-xl px-4 py-3 text-sm text-danger-600 dark:text-danger-400">
+        <div className="flex items-center gap-2 bg-danger-50 border border-danger-300 rounded-xl px-4 py-3 text-sm text-danger-600">
           <AlertTriangle size={14} />
           {error}
         </div>
@@ -1781,7 +1781,7 @@ export default function NetworkPage() {
                 className={cn(
                   "flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors",
                   tab === id
-                    ? "border-primary-500 text-primary-500 dark:text-primary-400"
+                    ? "border-primary-500 text-primary-500"
                     : "border-transparent text-foreground-500 hover:text-foreground"
                 )}
               >

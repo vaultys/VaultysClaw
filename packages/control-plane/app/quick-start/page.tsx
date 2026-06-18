@@ -60,7 +60,7 @@ export default function QuickStartPage() {
               faster to set up.
             </p>
 
-            <div className="flex items-start gap-3 bg-warning-50 dark:bg-warning-900/20 border border-warning-200 dark:border-warning-800 rounded-xl p-4">
+            <div className="flex items-start gap-3 bg-warning-50 border border-warning-200 rounded-xl p-4">
               <ShieldAlert className="w-5 h-5 text-warning-600 shrink-0 mt-0.5" />
               <p className="text-sm text-foreground-600">
                 Anyone with access to this browser can sign in with this method.

@@ -75,7 +75,7 @@ export function SkillsStep({ agentDid, onContinue }: SkillsStepProps) {
                   {skill.name}
                 </p>
                 {skill.isRequired && (
-                  <span className="text-[10px] bg-warning-100 dark:bg-warning-500/15 text-warning-700 dark:text-warning-400 border border-warning-300 dark:border-warning-500/30 px-1.5 py-0.5 rounded font-medium">
+                  <span className="text-[10px] bg-warning-100 text-warning-700 border border-warning-300 px-1.5 py-0.5 rounded font-medium">
                     Required
                   </span>
                 )}

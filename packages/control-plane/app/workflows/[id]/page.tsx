@@ -157,15 +157,15 @@ function statusBadgeClass(status: string): string {
     "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium";
   switch (status) {
     case "completed":
-      return `${base} bg-success-100 dark:bg-success-900/40 text-success-700 dark:text-success-400`;
+      return `${base} bg-success-100 text-success-700`;
     case "failed":
-      return `${base} bg-danger-100 dark:bg-danger-900/40 text-danger-700 dark:text-danger-400`;
+      return `${base} bg-danger-100 text-danger-700`;
     case "rejected":
-      return `${base} bg-warning-100 dark:bg-warning-900/40 text-warning-700 dark:text-warning-400`;
+      return `${base} bg-warning-100 text-warning-700`;
     case "running":
-      return `${base} bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-400`;
+      return `${base} bg-primary-100 text-primary-700`;
     case "waiting_approval":
-      return `${base} bg-warning-100 dark:bg-warning-900/40 text-warning-700 dark:text-warning-400`;
+      return `${base} bg-warning-100 text-warning-700`;
     default:
       return `${base} bg-background-200 text-foreground-400`;
   }
@@ -414,7 +414,7 @@ export default function WorkflowDetailPage() {
             <div className="flex items-center gap-2 flex-shrink-0">
               <button
                 onClick={() => setExecutingWorkflow(true)}
-                className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-success-600 dark:text-success-400 hover:bg-success-50 dark:hover:bg-success-900/20 rounded-lg border border-success-200 dark:border-success-800"
+                className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-success-600 hover:bg-success-50 rounded-lg border border-success-200"
               >
                 <Play size={15} /> Execute
               </button>
@@ -513,8 +513,8 @@ export default function WorkflowDetailPage() {
 
         {/* Selected run detail panel */}
         {selectedRunId && (
-          <div className="bg-background-100 rounded-xl border border-primary-200 dark:border-primary-800 overflow-hidden">
-            <div className="px-4 py-3 border-b border-neutral-200 bg-primary-50 dark:bg-primary-950/20 flex items-center justify-between">
+          <div className="bg-background-100 rounded-xl border border-primary-200 overflow-hidden">
+            <div className="px-4 py-3 border-b border-neutral-200 bg-primary-50 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span className="text-sm font-semibold text-foreground">
                   Run Details
@@ -744,10 +744,10 @@ export default function WorkflowDetailPage() {
                               })()}
                             {step.error && (
                               <div>
-                                <p className="text-xs text-danger-600 dark:text-danger-400 mb-1.5">
+                                <p className="text-xs text-danger-600 mb-1.5">
                                   Error
                                 </p>
-                                <pre className="bg-danger-50 dark:bg-danger-950/30 rounded p-2.5 text-danger-700 dark:text-danger-300 text-xs font-mono overflow-auto max-h-40 border border-danger-200 dark:border-danger-900/50">
+                                <pre className="bg-danger-50 rounded p-2.5 text-danger-700 text-xs font-mono overflow-auto max-h-40 border border-danger-200">
                                   {step.error}
                                 </pre>
                               </div>
@@ -877,7 +877,7 @@ export default function WorkflowDetailPage() {
                         }
                         className={`border-b border-neutral-200/50 cursor-pointer transition ${
                           isSelected
-                            ? "bg-primary-50 dark:bg-primary-950/20"
+                            ? "bg-primary-50"
                             : "hover:bg-background-200/30"
                         }`}
                       >

@@ -76,8 +76,8 @@ export function ApproveStep({
 
       {/* Agent identity card */}
       <div className="bg-background-100 border border-neutral-200 rounded-xl p-4 flex items-center gap-3">
-        <div className="w-10 h-10 rounded-full bg-primary-100 dark:bg-primary-600/20 border border-primary-300 dark:border-primary-500/30 flex items-center justify-center shrink-0">
-          <Bot size={18} className="text-primary-600 dark:text-primary-400" />
+        <div className="w-10 h-10 rounded-full bg-primary-100 border border-primary-300 flex items-center justify-center shrink-0">
+          <Bot size={18} className="text-primary-600" />
         </div>
         <div>
           <p className="text-sm font-semibold text-foreground">
@@ -112,7 +112,7 @@ export function ApproveStep({
                 }
                 className={`px-3 py-1.5 rounded-md text-sm border transition-colors flex items-center gap-1.5 ${
                   checked
-                    ? "bg-primary-100 dark:bg-primary-900/40 border-primary-500 text-primary-700 dark:text-primary-300"
+                    ? "bg-primary-100 border-primary-500 text-primary-700"
                     : "bg-background-100 border-neutral-300 text-foreground-500 hover:border-foreground-500"
                 }`}
               >
@@ -123,7 +123,7 @@ export function ApproveStep({
           })}
         </div>
         {selectedCaps.size === 0 && (
-          <p className="text-xs text-warning-600 dark:text-warning-400 flex items-center gap-1.5">
+          <p className="text-xs text-warning-600 flex items-center gap-1.5">
             <AlertTriangle size={12} /> At least one capability is required
           </p>
         )}
@@ -213,7 +213,7 @@ export function ApproveStep({
                   className={cn(
                     "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg border text-sm text-left transition-colors",
                     checked
-                      ? "bg-background-100 border-primary-300 dark:border-primary-500/40"
+                      ? "bg-background-100 border-primary-300"
                       : "bg-background-100 border-neutral-200 hover:bg-background-200"
                   )}
                 >
@@ -242,7 +242,7 @@ export function ApproveStep({
       )}
 
       {approveError && (
-        <div className="flex items-center gap-2 bg-danger-50 dark:bg-danger-500/10 border border-danger-300 dark:border-danger-500/20 rounded-lg px-4 py-3 text-sm text-danger-600 dark:text-danger-400">
+        <div className="flex items-center gap-2 bg-danger-50 border border-danger-300 rounded-lg px-4 py-3 text-sm text-danger-600">
           <AlertTriangle size={14} />
           {approveError}
         </div>
@@ -259,7 +259,7 @@ export function ApproveStep({
           <button
             onClick={onReject}
             disabled={approving || rejecting}
-            className="flex items-center gap-2 px-5 py-2.5 bg-danger-100 dark:bg-danger-600/20 hover:bg-danger-200 dark:hover:bg-danger-600/30 disabled:opacity-50 disabled:cursor-not-allowed text-danger-700 dark:text-danger-400 text-sm font-medium rounded-lg transition-colors"
+            className="flex items-center gap-2 px-5 py-2.5 bg-danger-100 hover:bg-danger-200 disabled:opacity-50 disabled:cursor-not-allowed text-danger-700 text-sm font-medium rounded-lg transition-colors"
           >
             {rejecting ? (
               <Loader2 size={15} className="animate-spin" />

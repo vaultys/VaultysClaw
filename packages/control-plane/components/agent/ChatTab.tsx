@@ -476,7 +476,7 @@ export function ChatTab({
               className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
             >
               <div
-                className={`max-w-[75%] rounded-xl px-4 py-2.5 text-sm leading-relaxed prose prose-sm dark:prose-invert max-w-none ${
+                className={`max-w-[75%] rounded-xl px-4 py-2.5 text-sm leading-relaxed prose prose-sm max-w-none ${
                   msg.role === "user"
                     ? "bg-primary-600/25 text-foreground rounded-br-sm prose-headings:text-foreground prose-p:m-0 prose-ul:m-0 prose-ol:m-0 prose-li:m-0 prose-code:text-foreground prose-code:bg-primary-950/30 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-pre:bg-primary-950/30 prose-pre:border prose-pre:border-primary-500/20 prose-pre:text-primary-100"
                     : "bg-background-200 border border-neutral-200 text-foreground rounded-bl-sm prose-headings:text-foreground prose-p:m-0 prose-ul:m-0 prose-ol:m-0 prose-li:m-0 prose-code:text-foreground prose-code:bg-background prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-pre:bg-background prose-pre:border prose-pre:border-neutral-200 prose-pre:text-foreground"

@@ -25,10 +25,10 @@ export default function ToolbarSteps({ steps }: { steps: ToolbarStepsConfig }) {
             title={clickable ? `Back to ${s.label}` : undefined}
             className={cn(
               "flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-colors whitespace-nowrap",
-              clickable && "cursor-pointer hover:bg-primary-200 dark:hover:bg-primary-600/30",
+              clickable && "cursor-pointer hover:bg-primary-200",
               !clickable && "cursor-default",
               i < current
-                ? "bg-primary-100 dark:bg-primary-600/20 text-primary-600 dark:text-primary-400"
+                ? "bg-primary-100 text-primary-600"
                 : i === current
                   ? "bg-primary-600 text-white"
                   : "bg-background-200 text-foreground-400 border border-neutral-200"
@@ -48,7 +48,7 @@ export default function ToolbarSteps({ steps }: { steps: ToolbarStepsConfig }) {
               className={cn(
                 "w-5 h-px mx-1",
                 i < current
-                  ? "bg-primary-300 dark:bg-primary-700"
+                  ? "bg-primary-300"
                   : "bg-neutral-200"
               )}
             />

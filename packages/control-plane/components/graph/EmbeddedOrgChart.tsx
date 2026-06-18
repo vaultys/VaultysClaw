@@ -71,7 +71,7 @@ export default function EmbeddedOrgChart({
   if (error) {
     return (
       <div
-        className="flex items-center justify-center rounded-xl border border-neutral-200 bg-background-100 text-danger-600 dark:text-danger-400"
+        className="flex items-center justify-center rounded-xl border border-neutral-200 bg-background-100 text-danger-600"
         style={{ height }}
       >
         Failed to load org chart: {error}

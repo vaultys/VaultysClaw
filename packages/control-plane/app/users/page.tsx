@@ -619,8 +619,8 @@ function RegisteredTable({
           >
             <td className="px-5 py-3.5">
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-primary-100 dark:bg-primary-900/40 border border-primary-200 dark:border-primary-700/50 flex items-center justify-center shrink-0">
-                  <span className="text-xs font-bold text-primary-600 dark:text-primary-400">
+                <div className="w-8 h-8 rounded-full bg-primary-100 border border-primary-200 flex items-center justify-center shrink-0">
+                  <span className="text-xs font-bold text-primary-600">
                     {initials(u)}
                   </span>
                 </div>
@@ -660,11 +660,11 @@ function RegisteredTable({
             </td>
             <td className="px-5 py-3.5">
               {u.isOwner ? (
-                <span className="px-2 py-0.5 bg-warning-100 dark:bg-warning-900/40 text-warning-700 dark:text-warning-400 border border-warning-300 dark:border-warning-800 rounded-full text-xs font-medium">
+                <span className="px-2 py-0.5 bg-warning-100 text-warning-700 border border-warning-300 rounded-full text-xs font-medium">
                   Owner
                 </span>
               ) : u.isAdmin ? (
-                <span className="px-2 py-0.5 bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-400 border border-primary-300 dark:border-primary-800 rounded-full text-xs font-medium">
+                <span className="px-2 py-0.5 bg-primary-100 text-primary-700 border border-primary-300 rounded-full text-xs font-medium">
                   Admin
                 </span>
               ) : (
@@ -745,8 +745,8 @@ function UnclaimedTable({
           >
             <td className="px-5 py-3.5">
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-warning-100 dark:bg-warning-900/30 border border-warning-300 dark:border-warning-700/50 flex items-center justify-center shrink-0">
-                  <span className="text-xs font-bold text-warning-600 dark:text-warning-400">
+                <div className="w-8 h-8 rounded-full bg-warning-100 border border-warning-300 flex items-center justify-center shrink-0">
+                  <span className="text-xs font-bold text-warning-600">
                     {initials(u)}
                   </span>
                 </div>
@@ -764,7 +764,7 @@ function UnclaimedTable({
             </td>
             <td className="px-5 py-3.5">
               {u.entraId ? (
-                <span className="px-2 py-0.5 bg-primary-50 dark:bg-primary-950/30 text-primary-600 dark:text-primary-400 border border-primary-200 dark:border-primary-800/50 rounded-full text-xs font-medium">
+                <span className="px-2 py-0.5 bg-primary-50 text-primary-600 border border-primary-200 rounded-full text-xs font-medium">
                   Entra ID
                 </span>
               ) : (

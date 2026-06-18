@@ -99,7 +99,7 @@ export default function ToolbarSearch({
                     onClick={opt.onToggle}
                     className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-sm text-left transition-colors ${
                       opt.active
-                        ? "text-primary-700 bg-primary-50 dark:bg-primary-900/20"
+                        ? "text-primary-700 bg-primary-50"
                         : "text-foreground-700 hover:bg-background-200"
                     }`}
                   >

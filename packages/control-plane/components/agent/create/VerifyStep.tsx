@@ -142,7 +142,7 @@ export function VerifyStep({ agentDid, onFinish }: VerifyStepProps) {
           )}
         </div>
         {verifyError ? (
-          <div className="px-4 py-4 text-sm text-danger-600 dark:text-danger-400 flex items-center gap-2">
+          <div className="px-4 py-4 text-sm text-danger-600 flex items-center gap-2">
             <AlertTriangle size={14} />
             {verifyError}
           </div>
@@ -161,12 +161,12 @@ export function VerifyStep({ agentDid, onFinish }: VerifyStepProps) {
       </div>
 
       {verifyDone && (
-        <div className="flex items-center gap-3 bg-success-50 dark:bg-success-500/10 border border-success-300 dark:border-success-500/30 rounded-xl px-4 py-3">
+        <div className="flex items-center gap-3 bg-success-50 border border-success-300 rounded-xl px-4 py-3">
           <CheckCircle2
             size={16}
-            className="text-success-600 dark:text-success-400 shrink-0"
+            className="text-success-600 shrink-0"
           />
-          <p className="text-sm text-success-700 dark:text-success-300 font-medium">
+          <p className="text-sm text-success-700 font-medium">
             Agent is live and responding correctly.
           </p>
         </div>

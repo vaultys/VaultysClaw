@@ -118,7 +118,7 @@ export function LaunchStep({
             onClick={() => setConnMethod("ws")}
             className={`flex flex-col items-start gap-1.5 px-4 py-3 rounded-xl border text-left transition-colors ${
               connMethod === "ws"
-                ? "bg-primary-50 dark:bg-primary-500/10 border-primary-400 dark:border-primary-500/50"
+                ? "bg-primary-50 border-primary-400"
                 : "bg-background-100 border-neutral-200 hover:bg-background-200"
             }`}
           >
@@ -127,12 +127,12 @@ export function LaunchStep({
                 size={15}
                 className={
                   connMethod === "ws"
-                    ? "text-primary-600 dark:text-primary-400"
+                    ? "text-primary-600"
                     : "text-foreground-500"
                 }
               />
               <span
-                className={`text-sm font-medium ${connMethod === "ws" ? "text-primary-700 dark:text-primary-300" : "text-foreground"}`}
+                className={`text-sm font-medium ${connMethod === "ws" ? "text-primary-700" : "text-foreground"}`}
               >
                 WebSocket
               </span>
@@ -149,7 +149,7 @@ export function LaunchStep({
             onClick={() => setConnMethod("peerjs")}
             className={`flex flex-col items-start gap-1.5 px-4 py-3 rounded-xl border text-left transition-colors ${
               connMethod === "peerjs"
-                ? "bg-secondary-50 dark:bg-secondary-500/10 border-secondary-400 dark:border-secondary-500/50"
+                ? "bg-secondary-50 border-secondary-400"
                 : "bg-background-100 border-neutral-200 hover:bg-background-200"
             }`}
           >
@@ -158,12 +158,12 @@ export function LaunchStep({
                 size={15}
                 className={
                   connMethod === "peerjs"
-                    ? "text-secondary-600 dark:text-secondary-400"
+                    ? "text-secondary-600"
                     : "text-foreground-500"
                 }
               />
               <span
-                className={`text-sm font-medium ${connMethod === "peerjs" ? "text-secondary-700 dark:text-secondary-300" : "text-foreground"}`}
+                className={`text-sm font-medium ${connMethod === "peerjs" ? "text-secondary-700" : "text-foreground"}`}
               >
                 WebRTC / PeerJS
               </span>
@@ -206,7 +206,7 @@ export function LaunchStep({
                   <CopyButton text={peerjsId} />
                 </div>
                 {!peerjsEnabled && (
-                  <div className="flex items-center gap-2 bg-warning-50 dark:bg-warning-500/10 border border-warning-300 dark:border-warning-500/30 rounded-lg px-3 py-2 text-xs text-warning-700 dark:text-warning-400">
+                  <div className="flex items-center gap-2 bg-warning-50 border border-warning-300 rounded-lg px-3 py-2 text-xs text-warning-700">
                     <AlertTriangle size={12} className="shrink-0" />
                     PeerJS is not running.{" "}
                     <a href="/network" className="underline underline-offset-2">
@@ -245,7 +245,7 @@ export function LaunchStep({
             "w-full px-3 py-2 bg-background-100 border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary-500",
             agentName.trim()
               ? "border-neutral-200"
-              : "border-warning-400 dark:border-warning-500/60"
+              : "border-warning-400"
           )}
         />
         <p className="text-xs text-foreground-400">
@@ -322,11 +322,11 @@ export function LaunchStep({
       </div>
 
       {/* How it works */}
-      <div className="bg-primary-50 dark:bg-primary-600/10 border border-primary-200 dark:border-primary-500/20 rounded-xl p-4 text-sm space-y-2">
-        <p className="font-medium text-primary-700 dark:text-primary-300 flex items-center gap-2">
+      <div className="bg-primary-50 border border-primary-200 rounded-xl p-4 text-sm space-y-2">
+        <p className="font-medium text-primary-700 flex items-center gap-2">
           <Zap size={14} /> How it works
         </p>
-        <ol className="list-decimal list-inside space-y-1 text-primary-700/80 dark:text-primary-400/80 text-xs">
+        <ol className="list-decimal list-inside space-y-1 text-primary-700/80 text-xs">
           {connMethod === "peerjs" ? (
             <>
               <li>

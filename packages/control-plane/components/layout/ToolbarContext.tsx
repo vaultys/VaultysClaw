@@ -23,7 +23,7 @@ export type ToolbarAction =
       label: string;
       icon?: ReactNode;
       onClick: () => void;
-      variant?: "primary" | "default";
+      variant?: "primary" | "default" | "danger";
       disabled?: boolean;
     }
   | {

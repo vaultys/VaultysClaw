@@ -50,14 +50,17 @@ function ActionItem({ action }: { action: ToolbarAction }) {
   }
 
   // button
+  const VARIANT_CLASSES = {
+    primary: "bg-primary-600 hover:bg-primary-500 text-white",
+    danger: "border border-danger-300 text-danger-600 hover:bg-danger-500/10",
+    default: "bg-background-100 border border-neutral-200 text-foreground hover:bg-background-200",
+  } as const;
   return (
     <button
       onClick={action.onClick}
       disabled={action.disabled}
       className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-        action.variant === "primary"
-          ? "bg-primary-600 hover:bg-primary-500 text-white"
-          : "bg-background-100 border border-neutral-200 text-foreground hover:bg-background-200"
+        VARIANT_CLASSES[action.variant ?? "default"]
       }`}
     >
       {action.icon}

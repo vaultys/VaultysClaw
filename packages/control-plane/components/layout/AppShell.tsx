@@ -1,7 +1,7 @@
 "use client";
 
 import { useSession } from "next-auth/react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import Sidebar from "./Sidebar";
 import TopBar from "./TopBar";
@@ -24,6 +24,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const { status } = useSession();
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
+  const router = useRouter();
 
   // Read sidebar preference from localStorage after mount
   useEffect(() => {
@@ -58,7 +59,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   // Unauthenticated on non-login pages (landing page at /): render children only
   if (status === "unauthenticated") {
-    return <>{children}</>;
+    return router.replace("/login?redirect=" + encodeURIComponent(pathname));
   }
 
   // Still loading session or authenticated: render full shell

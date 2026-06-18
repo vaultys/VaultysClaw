@@ -35,14 +35,16 @@ export function VerifyStep({ agentDid, onFinish }: VerifyStepProps) {
 
     (async () => {
       try {
-        const res = await fetch("/api/chat", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            agentDid,
-            messages: [{ role: "user", content: VERIFY_PROMPT }],
-          }),
-        });
+        const res = await fetch(
+          `/api/agents/${encodeURIComponent(agentDid)}/chat-sessions`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              messages: [{ role: "user", content: VERIFY_PROMPT }],
+            }),
+          }
+        );
         if (!res.ok || !res.body) {
           setVerifyError(`Agent responded with HTTP ${res.status}`);
           setVerifyDone(true);

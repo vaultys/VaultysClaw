@@ -2,168 +2,17 @@
 
 import { useState, useCallback, useEffect, useRef } from "react";
 import ReactMarkdown from "react-markdown";
+import { Bot, Send, Trash2, Loader2 } from "lucide-react";
+import type { ChatSession } from "@vaultysclaw/shared";
 import {
-  Bot,
-  Send,
-  Trash2,
-  Loader2,
-  CheckCircle2,
-  XCircle,
-  WifiOff,
-} from "lucide-react";
-import { agentsClient, unwrap } from "@/lib/api/ts-rest/client";
-
-interface ChatMessage {
-  role: "user" | "assistant";
-  content: string;
-  thinkingContent?: string;
-}
-
-interface PendingApproval {
-  requestId: string;
-  toolName: string;
-  args: Record<string, unknown>;
-  status: "pending" | "submitting" | "approved" | "rejected";
-}
-
-interface ChatSessionMeta {
-  id: string;
-  title: string | null;
-  source: string;
-  createdAt: string;
-  updatedAt: string;
-  messageCount: number;
-}
-
-function ThinkingBlock({
-  content,
-  isStreaming,
-}: {
-  content: string;
-  isStreaming: boolean;
-}) {
-  return (
-    <details className="mb-2 text-xs border border-neutral-200/50 rounded-lg overflow-hidden">
-      <summary className="px-3 py-1.5 cursor-pointer select-none flex items-center gap-1.5 bg-background-100/50 hover:bg-background-100 transition-colors list-none text-foreground-500">
-        {isStreaming ? (
-          <span className="animate-pulse">Thinking…</span>
-        ) : (
-          <span>View reasoning</span>
-        )}
-      </summary>
-      <pre className="whitespace-pre-wrap font-mono text-xs text-foreground-500 bg-background-100 p-3 m-0 leading-relaxed">
-        {content}
-      </pre>
-    </details>
-  );
-}
-
-function ToolApprovalCard({
-  approval,
-  onRespond,
-}: {
-  approval: PendingApproval;
-  onRespond: (approved: boolean) => Promise<void>;
-}) {
-  const isDone =
-    approval.status === "approved" || approval.status === "rejected";
-  const isSubmitting = approval.status === "submitting";
-  return (
-    <div className="mx-auto max-w-[75%] rounded-xl border border-warning-500/30 bg-warning-950/20 p-3 text-sm">
-      <p className="text-xs font-medium text-warning-400 mb-2">
-        Tool approval required:{" "}
-        <span className="font-mono">{approval.toolName}</span>
-      </p>
-      <details className="mb-3">
-        <summary className="cursor-pointer text-xs text-foreground-500 hover:text-foreground select-none list-none">
-          View arguments
-        </summary>
-        <pre className="mt-1 text-xs font-mono bg-background border border-neutral-200 rounded p-2 overflow-x-auto text-foreground whitespace-pre-wrap">
-          {JSON.stringify(approval.args, null, 2)}
-        </pre>
-      </details>
-      {isDone ? (
-        <span
-          className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ${
-            approval.status === "approved"
-              ? "bg-success-950/40 text-success-400 border border-success-500/30"
-              : "bg-danger-950/40 text-danger-400 border border-danger-500/30"
-          }`}
-        >
-          {approval.status === "approved" ? (
-            <CheckCircle2 size={11} />
-          ) : (
-            <XCircle size={11} />
-          )}
-          {approval.status === "approved" ? "Approved" : "Rejected"}
-        </span>
-      ) : (
-        <div className="flex gap-2">
-          <button
-            disabled={isSubmitting}
-            onClick={() => onRespond(true)}
-            className="flex items-center gap-1 px-3 py-1 text-xs rounded-lg bg-success-600 text-white hover:bg-success-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            {isSubmitting ? (
-              <Loader2 size={11} className="animate-spin" />
-            ) : (
-              <CheckCircle2 size={11} />
-            )}
-            Approve
-          </button>
-          <button
-            disabled={isSubmitting}
-            onClick={() => onRespond(false)}
-            className="flex items-center gap-1 px-3 py-1 text-xs rounded-lg bg-danger-700 text-white hover:bg-danger-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            {isSubmitting ? (
-              <Loader2 size={11} className="animate-spin" />
-            ) : (
-              <XCircle size={11} />
-            )}
-            Reject
-          </button>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function AgentChatErrorBanner({
-  message,
-  code,
-}: {
-  message: string;
-  code: string | null;
-}) {
-  if (code === "llm_unavailable") {
-    return (
-      <div className="flex items-start gap-2 bg-warning-50 border border-warning-300 text-warning-700 rounded-lg px-3 py-2.5 text-xs">
-        <WifiOff size={13} className="mt-0.5 shrink-0" />
-        <div className="min-w-0">
-          <p className="font-medium">LLM provider unreachable</p>
-          <p className="text-warning-600/80 mt-0.5 break-words">{message}</p>
-          <p className="text-warning-600/60 mt-1">
-            Update the LLM config in the <strong>Settings</strong> tab.
-          </p>
-        </div>
-      </div>
-    );
-  }
-  if (code === "agent_offline") {
-    return (
-      <div className="flex items-center gap-2 bg-danger-50 border border-danger-200 text-danger-700 rounded-lg px-3 py-2 text-xs">
-        <WifiOff size={13} className="shrink-0" />
-        <span>Agent disconnected — waiting to reconnect</span>
-      </div>
-    );
-  }
-  return (
-    <div className="text-center text-xs text-danger-700 bg-danger-50 border border-danger-200 rounded-lg px-4 py-2">
-      {message}
-    </div>
-  );
-}
+  agentsClient,
+  toolApprovalsClient,
+  unwrap,
+} from "@/lib/api/ts-rest/client";
+import { ThinkingBlock } from "./ThinkingBlock";
+import { ToolApprovalCard } from "./ToolApprovalCard";
+import { AgentChatErrorBanner } from "./AgentChatErrorBanner";
+import type { ChatMessage, PendingApproval } from "./chat-types";
 
 export function ChatTab({
   agentId,
@@ -180,7 +29,7 @@ export function ChatTab({
   const [error, setError] = useState<string | null>(null);
   const [errorCode, setErrorCode] = useState<string | null>(null);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
-  const [sessions, setSessions] = useState<ChatSessionMeta[]>([]);
+  const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [pendingApprovals, setPendingApprovals] = useState<PendingApproval[]>(
     []
   );
@@ -250,16 +99,18 @@ export function ChatTab({
       abortRef.current = controller;
 
       try {
-        const res = await fetch("/api/chat", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            agentDid: agentId,
-            messages: updatedMessages,
-            sessionId: activeSessionId ?? undefined,
-          }),
-          signal: controller.signal,
-        });
+        const res = await fetch(
+          `/api/agents/${encodeURIComponent(agentId)}/chat-sessions`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              messages: updatedMessages,
+              sessionId: activeSessionId ?? undefined,
+            }),
+            signal: controller.signal,
+          }
+        );
 
         if (!res.ok) {
           const errBody = (await res
@@ -609,12 +460,11 @@ export function ChatTab({
                   )
                 );
                 try {
-                  const res = await fetch("/api/tool-approvals", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ requestId: a.requestId, approved }),
-                  });
-                  if (!res.ok) throw new Error("Request failed");
+                  unwrap(
+                    await toolApprovalsClient.respond({
+                      body: { requestId: a.requestId, approved },
+                    })
+                  );
                   setPendingApprovals((prev) =>
                     prev.map((x) =>
                       x.requestId === a.requestId

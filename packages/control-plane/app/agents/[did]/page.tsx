@@ -30,7 +30,11 @@ import { GovernanceTab } from "@/components/agent/GovernanceTab";
 import { AutomationTab } from "@/components/agent/AutomationTab";
 import { ApprovalsTab } from "@/components/agent/ApprovalsTab";
 import { KnowledgeTab } from "@/components/agent/KnowledgeTab";
-import { agentsClient, unwrap } from "@/lib/api/ts-rest/client";
+import {
+  agentsClient,
+  toolApprovalsClient,
+  unwrap,
+} from "@/lib/api/ts-rest/client";
 import { AgentInfo } from "@/lib/contracts";
 
 const AgentEnvironmentGraph = dynamic(
@@ -117,10 +121,12 @@ export default function AgentDetailPage() {
 
   useEffect(() => {
     const refresh = async () => {
-      const res = await fetch("/api/tool-approvals")
-        .then((r) => r.json())
-        .catch(() => ({ approvals: [] }));
-      setPendingApprovals((res.approvals ?? []).length);
+      try {
+        const { approvals } = unwrap(await toolApprovalsClient.list());
+        setPendingApprovals(approvals.length);
+      } catch {
+        setPendingApprovals(0);
+      }
     };
     refresh();
     const iv = setInterval(refresh, 5000);

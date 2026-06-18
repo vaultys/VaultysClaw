@@ -7,6 +7,7 @@ import {
   ListAgentsQuerySchema,
   PutLiteLlmKeyBodySchema,
   RunIntentBodySchema,
+  SendChatMessageBodySchema,
   SendTaskBodySchema,
   SetLocationBodySchema,
   SetLlmConfigBodySchema,
@@ -315,6 +316,23 @@ export const agentsContract = c.router({
     pathParams: z.object({ did: z.string() }),
     responses: {
       200: c.type<{ sessions: ChatSession[] }>(),
+      ...commonErrorResponses,
+    },
+  },
+
+  sendChatMessage: {
+    method: "POST",
+    path: "/api/agents/:did/chat-sessions",
+    pathParams: z.object({ did: z.string() }),
+    summary: "Stream a chat response from a connected agent (text/event-stream)",
+    body: SendChatMessageBodySchema,
+    // Response is a Server-Sent Events stream, not JSON — consumed with a raw
+    // fetch + ReadableStream reader (the ts-rest client buffers the body).
+    responses: {
+      200: c.otherResponse({
+        contentType: "text/event-stream",
+        body: c.type<string>(),
+      }),
       ...commonErrorResponses,
     },
   },

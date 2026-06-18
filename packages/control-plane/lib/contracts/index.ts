@@ -1,6 +1,6 @@
 import { c } from "./contract";
 import { agentsContract } from "./agents/agents.contract";
-import { apiKeysContract, chatContract } from "./api-keys.contract";
+import { apiKeysContract } from "./api-keys.contract";
 import { bridgesContract, channelsContract } from "./channels.contract";
 import { governanceContract } from "./governance/governance.contract";
 import { intentsContract } from "./intents.contract";
@@ -87,7 +87,6 @@ export const appContract = c.router({
   apiKeys: apiKeysContract,
   bridges: bridgesContract,
   channels: channelsContract,
-  chat: chatContract,
   governance: governanceContract,
   graph: graphContract,
   health: healthContract,

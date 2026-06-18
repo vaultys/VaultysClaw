@@ -41,7 +41,7 @@ const handlers = createNextRoute(agentsContract, {
 
     const dailyBudget =
       body.dailyBudget === undefined
-        ? ((await AgentDAO.getLiteLLMKey(did))?.dailyBudget ?? undefined)
+        ? ((await agent.litellmDailyBudget) ?? undefined)
         : (body.dailyBudget ?? undefined);
 
     const virtualKey = await createAgentKey(did, allowedModels, dailyBudget);

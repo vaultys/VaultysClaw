@@ -1,6 +1,7 @@
 # app/api — REST API Routes
 
 All **new** REST APIs follow the ts-rest + APIException pattern:
+
 - **Single source of truth**: Zod schemas in contracts → type-safe on both client & server
 - **Consistent error handling**: `APIException` thrown by helpers, caught by middleware
 - **Zero drift**: client types inferred from the same contract the server validates against
@@ -26,7 +27,9 @@ export const AgentListResponseSchema = z.object({ agents: z.array(...) });
 
 ```typescript
 import { UpdateAgentBodySchema } from "./agents.schemas";
-export type AgentInfo = Prisma.AgentGetPayload<{ /* ... */ }> & { online: boolean };
+export type AgentInfo = Prisma.AgentGetPayload<{
+  /* ... */
+}> & { online: boolean };
 export type UpdateAgentBody = z.infer<typeof UpdateAgentBodySchema>;
 ```
 
@@ -58,8 +61,14 @@ const handlers = createNextRoute(agentDetailContract, {
     const auth = await getAuthContext(request); // throws APIException("UNAUTHORIZED")
     const agent = await AgentDAO.findByDid(params.did);
     if (!agent) throw new APIException("NOT_FOUND", "Agent not found");
-    if (!(await auth.canAccessAgent(params.did))) throw new APIException("FORBIDDEN");
-    return { status: 200, body: { /* typed against contract */ } };
+    if (!(await auth.canAccessAgent(params.did)))
+      throw new APIException("FORBIDDEN");
+    return {
+      status: 200,
+      body: {
+        /* typed against contract */
+      },
+    };
   },
 });
 
@@ -82,13 +91,15 @@ async getOne(did: string): Promise<AgentDetail> {
 
 Import types from the contract in UI components: `import type { AgentDetail } from "@/lib/contracts"`.
 
+**Streaming (SSE) endpoints are the exception.** Routes that return `text/event-stream` (e.g. `POST /api/agents/[did]/chat-sessions`) still declare a contract (body typed; response as `c.otherResponse({ contentType: "text/event-stream", ... })`) for request typing and docs, but they are consumed with a raw `fetch` + `ReadableStream` reader — the ts-rest client buffers the whole body and cannot stream incrementally, and `createNextRoute` serializes a single `{ status, body }` rather than a stream, so such routes stay on `withError`. Don't "migrate" a streaming endpoint to the ts-rest client.
+
 ## Error Handling
 
 `APIException` (in `lib/api/utils/api-utils.ts`) maps code → HTTP status via `HttpCodes` enum:
 
 ```typescript
 throw new APIException("UNAUTHORIZED"); // → 401
-throw new APIException("FORBIDDEN");    // → 403
+throw new APIException("FORBIDDEN"); // → 403
 throw new APIException("NOT_FOUND", "Agent not found"); // → 404
 ```
 

@@ -83,3 +83,15 @@ export const RunIntentBodySchema = z.object({
   params: z.record(z.string(), z.unknown()).optional(),
   timeoutMs: z.number().min(1000).max(120_000).optional(),
 });
+
+export const SendChatMessageBodySchema = z.object({
+  messages: z
+    .array(
+      z.object({
+        role: z.enum(["user", "assistant"]),
+        content: z.string(),
+      })
+    )
+    .min(1),
+  sessionId: z.string().optional(),
+});

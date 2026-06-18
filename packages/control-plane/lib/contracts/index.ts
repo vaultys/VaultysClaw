@@ -10,7 +10,7 @@ import {
     statsContract,
     userStatusContract,
 } from "./misc/misc.contract";
-import { litellmContract, modelsContract } from "./models.contract";
+import { litellmContract, modelsContract } from "./models/models.contract";
 import {
     graphContract,
     healthContract,
@@ -57,7 +57,10 @@ export * from "./knowledge.contract";
 export * from "./misc/misc.contract";
 export * from "./misc/misc.schemas";
 export * from "./misc/misc.types";
-export * from "./models.contract";
+export type * from "./models/models.contract";
+export * from "./models/models.contract";
+export * from "./models/models.schemas";
+export * from "./models/models.types";
 export * from "./network.contract";
 export type * from "./policies/policies.contract";
 export * from "./policies/policies.contract";

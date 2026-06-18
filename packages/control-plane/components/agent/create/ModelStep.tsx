@@ -3,7 +3,12 @@
 import { useEffect, useState } from "react";
 import { Check, ChevronRight, Loader2, Cpu } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { agentsClient, modelsClient, unwrap } from "@/lib/api/ts-rest/client";
+import {
+  agentsClient,
+  litellmClient,
+  modelsClient,
+  unwrap,
+} from "@/lib/api/ts-rest/client";
 import type { Model, LiteLlmModel } from "./constants";
 
 interface ModelStepProps {
@@ -35,11 +40,12 @@ export function ModelStep({ agentDid, onDone }: ModelStepProps) {
       .then((res) => setModels(unwrap(res).models))
       .catch(() => {});
 
-    fetch("/api/litellm/models")
-      .then((r) => r.json())
-      .then((d: { models?: LiteLlmModel[]; configured?: boolean }) => {
-        setLiteLlmModels(d.models ?? []);
-        setLiteLlmConfigured(d.configured ?? false);
+    litellmClient
+      .models()
+      .then((res) => {
+        const { models, configured } = unwrap(res);
+        setLiteLlmModels(models);
+        setLiteLlmConfigured(configured);
       })
       .catch(() => {});
   }, []);

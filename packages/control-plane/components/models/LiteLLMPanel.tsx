@@ -21,6 +21,7 @@ import {
   Copy,
   Check,
 } from "lucide-react";
+import { litellmClient, unwrap } from "@/lib/api/ts-rest/client";
 
 interface LiteLLMStatus {
   configured: boolean;
@@ -63,11 +64,8 @@ export function LiteLLMPanel() {
     if (!status?.configured) return;
     setModelsLoading(true);
     try {
-      const res = await fetch("/api/litellm/models");
-      const data = (await res.json()) as {
-        models?: { name: string; params: Record<string, unknown> }[];
-      };
-      setModels(data.models ?? []);
+      const { models } = unwrap(await litellmClient.models());
+      setModels(models);
     } catch {
       setModels([]);
     } finally {

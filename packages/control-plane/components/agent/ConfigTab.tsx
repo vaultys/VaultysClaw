@@ -2,7 +2,12 @@
 import { useState, useEffect, useCallback } from "react";
 import { type LlmProviderType } from "@vaultysclaw/shared";
 import { ConfirmModal } from "@/components/shared/ConfirmModal";
-import { agentsClient, modelsClient, unwrap } from "@/lib/api/ts-rest/client";
+import {
+  agentsClient,
+  litellmClient,
+  modelsClient,
+  unwrap,
+} from "@/lib/api/ts-rest/client";
 
 import { Key, RefreshCw } from "lucide-react";
 import Link from "next/link";
@@ -150,7 +155,7 @@ export function ConfigTab({
           agentsClient.getLlmConfig({ params: { did } }).then(unwrap),
           modelsClient.list().then(unwrap),
           agentsClient.getRealmLlm({ params: { did } }).then(unwrap),
-          fetch("/api/litellm/models").then((r) => r.json()),
+          litellmClient.models().then(unwrap),
         ]);
 
       const cfg = (configData as { config: SafeLlmConfig | null }).config;

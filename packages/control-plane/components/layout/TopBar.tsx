@@ -1,34 +1,22 @@
 "use client";
 
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useSession, signOut } from "next-auth/react";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, Fragment } from "react";
 import {
   LogOut,
   Sun,
   Moon,
   Monitor,
   ChevronDown,
+  ChevronRight,
   User,
   Check,
 } from "lucide-react";
 import { useTheme, type Theme } from "@/components/ThemeProvider";
+import { useBreadcrumbsState } from "./BreadcrumbContext";
 import { cn } from "@/lib/utils";
-
-const PAGE_TITLES: Record<string, string> = {
-  "/": "Dashboard",
-  "/users": "Users",
-  "/agents": "Agents",
-  "/registrations": "Pending Registrations",
-  "/server": "Server",
-  "/settings": "Settings",
-};
-
-function getTitle(pathname: string): string {
-  if (PAGE_TITLES[pathname]) return PAGE_TITLES[pathname];
-  if (pathname.startsWith("/agents/")) return "Agent Details";
-  return "VaultysClaw";
-}
 
 function shortDid(did: string): string {
   if (did.length <= 20) return did;
@@ -46,10 +34,10 @@ const THEME_OPTIONS: {
 ];
 
 export default function TopBar() {
-  const pathname = usePathname();
   const router = useRouter();
   const { data: session } = useSession();
   const { theme, setTheme } = useTheme();
+  const { breadcrumbs } = useBreadcrumbsState();
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const [profileName, setProfileName] = useState<string | null>(null);
@@ -84,10 +72,38 @@ export default function TopBar() {
 
   return (
     <header className="flex items-center justify-between h-14 px-4 bg-background border-b border-neutral-200/60 shrink-0">
-      {/* Page title */}
-      <h1 className="text-sm font-semibold text-foreground">
-        {getTitle(pathname)}
-      </h1>
+      {/* Breadcrumbs */}
+      <nav className="flex items-center gap-1.5 text-sm min-w-0">
+        {breadcrumbs.map((crumb, i) => {
+          const isLast = i === breadcrumbs.length - 1;
+          return (
+            <Fragment key={i}>
+              {i > 0 && (
+                <ChevronRight className="w-3.5 h-3.5 text-foreground-400 shrink-0" />
+              )}
+              {crumb.href && !isLast ? (
+                <Link
+                  href={crumb.href}
+                  className="text-foreground-500 hover:text-foreground transition-colors truncate"
+                >
+                  {crumb.label}
+                </Link>
+              ) : (
+                <span
+                  className={cn(
+                    "truncate",
+                    isLast
+                      ? "font-semibold text-foreground"
+                      : "text-foreground-500"
+                  )}
+                >
+                  {crumb.label}
+                </span>
+              )}
+            </Fragment>
+          );
+        })}
+      </nav>
 
       {/* Right: user menu */}
       <div ref={menuRef} className="relative">

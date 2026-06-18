@@ -2,6 +2,7 @@
 
 import { useToolbarState, type ToolbarAction } from "./ToolbarContext";
 import ToolbarSearch from "./ToolbarSearch";
+import ToolbarSteps from "./ToolbarSteps";
 
 const BADGE_TONES: Record<
   NonNullable<Extract<ToolbarAction, { kind: "badge" }>["tone"]>,
@@ -86,8 +87,13 @@ export default function Toolbar() {
         )}
       </div>
 
-      {/* Center: advanced search (or a spacer to keep actions right-aligned) */}
-      {config.search ? (
+      {/* Center: step indicator or advanced search (or a spacer to keep
+          actions right-aligned). Steps take precedence over search. */}
+      {config.steps ? (
+        <div className="flex-1 flex justify-center">
+          <ToolbarSteps steps={config.steps} />
+        </div>
+      ) : config.search ? (
         <div className="flex-1 flex justify-center">
           <ToolbarSearch search={config.search} />
         </div>

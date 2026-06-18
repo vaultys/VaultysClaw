@@ -7,10 +7,17 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CP_DIR="$REPO_ROOT/packages/control-plane"
 DEMO_DIR="$REPO_ROOT/demo"
-TSX="$CP_DIR/node_modules/.bin/tsx"
+# pnpm may hoist the tsx bin to the workspace root, so check both locations.
+TSX=""
+for candidate in "$CP_DIR/node_modules/.bin/tsx" "$REPO_ROOT/node_modules/.bin/tsx"; do
+  if [[ -x "$candidate" ]]; then
+    TSX="$candidate"
+    break
+  fi
+done
 
-if [[ ! -f "$TSX" ]]; then
-  echo "tsx not found at $TSX — run 'pnpm install' first."
+if [[ -z "$TSX" ]]; then
+  echo "tsx not found in control-plane or workspace root node_modules — run 'pnpm install' first."
   exit 1
 fi
 

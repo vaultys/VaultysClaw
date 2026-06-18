@@ -146,6 +146,63 @@ useToolbar(
 
 The hook clears the toolbar on unmount. Pass a dependency list of every value the config reads so the toolbar stays in sync. To add a new action type, extend the `ToolbarAction` union in `ToolbarContext.tsx` and render it in `Toolbar.tsx`.
 
+The toolbar **center** region renders one of (in precedence order): a `steps` wizard indicator, the `search` bar, or nothing. For a multi-step flow, pass `steps` (rendered by `components/layout/ToolbarSteps.tsx`):
+
+```typescript
+useToolbar(
+  { title: "Create agent", steps: { current: STEP_INDEX[step], steps: STEPS } },
+  [step] // STEPS = [{ id, label }, …]; current is the zero-based active index
+);
+```
+
+**TopBar breadcrumbs**: The `TopBar` no longer derives a page title — it renders breadcrumbs from `BreadcrumbContext`. Pages set them with the `useBreadcrumbs` hook (from `@/components/layout/BreadcrumbContext`); the shell wraps everything in `BreadcrumbProvider`. The last segment renders as the bold current page; earlier segments with an `href` are links. Pages that don't call `useBreadcrumbs` show an empty TopBar nav.
+
+```typescript
+import { useBreadcrumbs } from "@/components/layout/BreadcrumbContext";
+
+useBreadcrumbs(
+  [{ label: "Agents", href: "/agents" }, { label: "New agent" }],
+  [] // deps — same rules as useToolbar
+);
+```
+
+**Advanced search bar** (Odoo-style): add a `search` field to the toolbar config to render a centered search input with removable filter chips and an expandable filter panel (rendered by `components/layout/ToolbarSearch.tsx`). This replaces per-page search/filter bars — don't render your own. The config is fully controlled by the page:
+
+```typescript
+useToolbar(
+  {
+    title: "Agents",
+    search: {
+      value: search,
+      onChange: (v) => { setSearch(v); setPage(1); },
+      placeholder: "Search agents…",
+      // Active filters shown as removable pills inside the input
+      chips: selectedCapabilities.map((cap) => ({
+        id: `cap-${cap}`,
+        label: cap.replace(/_/g, " "),
+        onRemove: () => toggleCapability(cap),
+      })),
+      // Columns of the expandable panel (Filters / Group by / Sort …)
+      filterGroups: [
+        {
+          id: "status",
+          label: "Status",
+          icon: <Filter className="w-3.5 h-3.5 text-primary-600" />,
+          options: [
+            { id: "online", label: "Online", active: onlineFilter === "true", onToggle: () => setOnlineFilter(onlineFilter === "true" ? "" : "true") },
+          ],
+          onClear: onlineFilter ? () => setOnlineFilter("") : undefined,
+        },
+        // … more groups (capabilities multi-select, sort single-select, etc.)
+      ],
+    },
+  },
+  [search, onlineFilter, selectedCapabilities /* + everything the config reads */]
+);
+```
+
+Each `filterGroups[].options[]` is `{ id, label, icon?, active, onToggle }` — the page owns selection semantics (single vs multi-select is just how `onToggle` mutates state); active options render a checkmark. Surface active filters as `chips` so users can remove them without opening the panel.
+
 ## API Design & Implementation (ts-rest Pattern)
 
 All **new** control-plane REST APIs should follow the ts-rest + APIException pattern. This guarantees:

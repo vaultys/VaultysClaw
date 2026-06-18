@@ -81,6 +81,26 @@ export interface ToolbarSearchConfig {
   filterGroups?: ToolbarFilterGroup[];
 }
 
+/** A single step in the toolbar step indicator. */
+export interface ToolbarStep {
+  id: string;
+  label: string;
+}
+
+/**
+ * A wizard-style step indicator rendered in the center of the toolbar (e.g. the
+ * create-agent flow). `current` is the zero-based index of the active step.
+ */
+export interface ToolbarStepsConfig {
+  current: number;
+  steps: ToolbarStep[];
+  /**
+   * When set, completed steps (index < current) become clickable to navigate
+   * back. Receives the zero-based index of the clicked step.
+   */
+  onStepClick?: (index: number) => void;
+}
+
 export interface ToolbarConfig {
   /** Page title shown on the left of the toolbar. */
   title: string;
@@ -88,6 +108,11 @@ export interface ToolbarConfig {
   description?: ReactNode;
   /** Optional advanced search bar rendered in the center of the toolbar. */
   search?: ToolbarSearchConfig;
+  /**
+   * Optional step indicator rendered in the center of the toolbar. Takes
+   * precedence over `search` when both are set.
+   */
+  steps?: ToolbarStepsConfig;
   /** Actions rendered on the right, in order. */
   actions?: ToolbarAction[];
 }

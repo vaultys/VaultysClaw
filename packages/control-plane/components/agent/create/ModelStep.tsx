@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Check, ChevronRight, Loader2, Cpu } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { agentsClient, unwrap } from "@/lib/api/ts-rest/client";
+import { agentsClient, modelsClient, unwrap } from "@/lib/api/ts-rest/client";
 import type { Model, LiteLlmModel } from "./constants";
 
 interface ModelStepProps {
@@ -30,9 +30,9 @@ export function ModelStep({ agentDid, onDone }: ModelStepProps) {
 
   // Load registry + LiteLLM models on mount
   useEffect(() => {
-    fetch("/api/models")
-      .then((r) => r.json())
-      .then((d: { models?: Model[] }) => setModels(d.models ?? []))
+    modelsClient
+      .list()
+      .then((res) => setModels(unwrap(res).models))
       .catch(() => {});
 
     fetch("/api/litellm/models")

@@ -2,11 +2,11 @@
 import { useState, useEffect, useCallback } from "react";
 import { type LlmProviderType } from "@vaultysclaw/shared";
 import { ConfirmModal } from "@/components/shared/ConfirmModal";
-import { agentsClient, unwrap } from "@/lib/api/ts-rest/client";
+import { agentsClient, modelsClient, unwrap } from "@/lib/api/ts-rest/client";
 
 import { Key, RefreshCw } from "lucide-react";
 import Link from "next/link";
-import { SafeLlmConfig } from "@/lib/contracts";
+import { SafeLlmConfig, type AgentInfo } from "@/lib/contracts";
 import { RealmLlmData } from "@/types/api/responses";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -81,12 +81,16 @@ type ModelSource = "litellm" | "registry";
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export function ConfigTab({
-  did,
-  reportedLlm,
+  agent,
+  onChanged,
 }: {
-  did: string;
-  reportedLlm: { provider: string; model: string } | null;
+  agent: AgentInfo;
+  /** Ask the parent to refetch the agent after a key mutation. */
+  onChanged?: () => void | Promise<void>;
 }) {
+  const did = agent.did;
+  const reportedLlm = agent.reportedLlm;
+
   // LLM config (manually stored)
   const [llmConfig, setLlmConfig] = useState<SafeLlmConfig | null>(null);
   const [llmLoading, setLlmLoading] = useState(true);
@@ -113,8 +117,8 @@ export function ConfigTab({
     maxTokens: "",
   });
 
-  // Agent LiteLLM key
-  const [agentKeyInfo, setAgentKeyInfo] = useState<AgentKeyInfo | null>(null);
+  // Agent LiteLLM key form state (the key itself is derived from `agent`)
+  const [litellmConfigured, setLitellmConfigured] = useState(false);
   const [keyModels, setKeyModels] = useState<string[]>([]);
   const [keyModelInput, setKeyModelInput] = useState("");
   const [keyBudget, setKeyBudget] = useState("");
@@ -141,31 +145,24 @@ export function ConfigTab({
   const loadAll = useCallback(async () => {
     setLlmLoading(true);
     try {
-      const [configData, modelsData, realmData, keyData, liteLlmModelsData] =
+      const [configData, modelsData, realmData, liteLlmModelsData] =
         await Promise.all([
           agentsClient.getLlmConfig({ params: { did } }).then(unwrap),
-          fetch("/api/models").then((r) => r.json()),
+          modelsClient.list().then(unwrap),
           agentsClient.getRealmLlm({ params: { did } }).then(unwrap),
-          fetch(`/api/agents/${encodeURIComponent(did)}/litellm-key`)
-            .then((r) => (r.ok ? r.json() : null))
-            .catch(() => null),
           fetch("/api/litellm/models").then((r) => r.json()),
         ]);
 
       const cfg = (configData as { config: SafeLlmConfig | null }).config;
       setLlmConfig(cfg);
-      setRegistryModels(
-        (modelsData as { models?: RegistryModel[] }).models ?? []
-      );
+      setRegistryModels(modelsData.models);
       setRealmLlmData(realmData as RealmLlmData);
-      setAgentKeyInfo(keyData as AgentKeyInfo | null);
-      setLiteLlmModels(
-        (
-          liteLlmModelsData as {
-            models?: { name: string; params: Record<string, unknown> }[];
-          }
-        ).models ?? []
-      );
+      const liteLlm = liteLlmModelsData as {
+        models?: { name: string; params: Record<string, unknown> }[];
+        configured?: boolean;
+      };
+      setLiteLlmModels(liteLlm.models ?? []);
+      setLitellmConfigured(Boolean(liteLlm.configured));
 
       if (cfg) {
         setLlmForm({
@@ -195,7 +192,22 @@ export function ConfigTab({
     realmLlmData.realms.some((r) => r.hasVirtualKey && r.models.length > 0)
   );
 
-  const litellmConfigured = Boolean(agentKeyInfo?.litellmConfigured);
+  // The agent's LiteLLM virtual key is part of the agent record (returned by
+  // GET /api/agents/:did) — derive the key info instead of refetching it.
+  const agentKeyInfo: AgentKeyInfo = {
+    configured: Boolean(agent.litellmVirtualKey),
+    keyPrefix: agent.litellmVirtualKey
+      ? agent.litellmVirtualKey.slice(0, 8)
+      : null,
+    allowedModels: Array.isArray(agent.litellmAllowedModels)
+      ? (agent.litellmAllowedModels as string[])
+      : [],
+    dailyBudget: agent.litellmDailyBudget,
+    updatedAt: agent.litellmKeyUpdatedAt
+      ? new Date(agent.litellmKeyUpdatedAt).toISOString()
+      : null,
+    litellmConfigured,
+  };
 
   /**
    * Active config mode:
@@ -325,29 +337,20 @@ export function ConfigTab({
         unwrap(await agentsClient.deleteLlmConfig({ params: { did } }));
 
       // 2. Provision / refresh the key
-      const body: Record<string, unknown> = {};
+      const body: { allowedModels?: string[]; dailyBudget?: number } = {};
       if (keyModels.length > 0) body.allowedModels = keyModels;
       if (keyBudget) body.dailyBudget = parseFloat(keyBudget);
 
-      const res = await fetch(
-        `/api/agents/${encodeURIComponent(did)}/litellm-key`,
-        {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-        }
-      );
-      if (!res.ok) {
-        const d = (await res.json()) as { error?: string };
-        setLlmError(d.error ?? "Failed to provision key");
-        setLlmStatus("error");
-        return;
-      }
+      unwrap(await agentsClient.putLitellmKey({ params: { did }, body }));
 
-      await loadAll();
+      // Refresh local config + the agent (the key lives on the agent record)
+      await Promise.all([loadAll(), onChanged?.()]);
       setLlmEditing(false);
       setLlmStatus("saved");
       setTimeout(() => setLlmStatus("idle"), 2500);
+    } catch (e) {
+      setLlmError(e instanceof Error ? e.message : "Failed to provision key");
+      setLlmStatus("error");
     } finally {
       setKeySaving(false);
     }
@@ -356,10 +359,8 @@ export function ConfigTab({
   async function revokeAgentKey() {
     setRevoking(true);
     try {
-      await fetch(`/api/agents/${encodeURIComponent(did)}/litellm-key`, {
-        method: "DELETE",
-      });
-      await loadAll();
+      unwrap(await agentsClient.deleteLitellmKey({ params: { did } }));
+      await Promise.all([loadAll(), onChanged?.()]);
       setShowRevokeConfirm(false);
       setLlmStatus("cleared");
       setTimeout(() => setLlmStatus("idle"), 2500);
@@ -428,28 +429,19 @@ export function ConfigTab({
         unwrap(await agentsClient.deleteLlmConfig({ params: { did } }));
 
       // 2. Create agent key with the selected model
-      const res = await fetch(
-        `/api/agents/${encodeURIComponent(did)}/litellm-key`,
-        {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            allowedModels: [selectedLiteLlmModel],
-          }),
-        }
+      unwrap(
+        await agentsClient.putLitellmKey({
+          params: { did },
+          body: { allowedModels: [selectedLiteLlmModel] },
+        })
       );
-      if (!res.ok) {
-        const d = (await res.json()) as { error?: string };
-        setLlmError(d.error ?? "Failed to set LiteLLM model");
-        setLlmStatus("error");
-        return;
-      }
 
-      await loadAll();
+      await Promise.all([loadAll(), onChanged?.()]);
       setLlmEditing(false);
       setLlmStatus("saved");
       setTimeout(() => setLlmStatus("idle"), 2500);
-    } catch {
+    } catch (e) {
+      setLlmError(e instanceof Error ? e.message : "Failed to set LiteLLM model");
       setLlmStatus("error");
     } finally {
       setLlmSaving(false);

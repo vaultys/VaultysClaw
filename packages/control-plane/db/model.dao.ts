@@ -1,5 +1,11 @@
 import { prisma } from "./client";
-import type { ModelRegistry, ModelRealmAccess, RealmRouterKey, Prisma } from "@prisma/client";
+import type {
+  ModelRegistry,
+  ModelRealmAccess,
+  RealmRouterKey,
+  Prisma,
+} from "@prisma/client";
+import type { ModelWithRealmAccess } from "@/lib/contracts";
 
 export class ModelDAO {
   static async create(entry: {
@@ -32,8 +38,31 @@ export class ModelDAO {
     return prisma.modelRegistry.findUnique({ where: { id } });
   }
 
-  static async findAll(): Promise<ModelRegistry[]> {
-    return prisma.modelRegistry.findMany({ orderBy: { createdAt: "desc" } });
+  /**
+   * List every model registry entry with its realm-access rows joined in — a
+   * single query that returns exactly what the models API needs (the
+   * `apiKeyEnc` secret is excluded by the `select`). The select must stay in
+   * sync with the `ModelWithRealmAccess` type in `models.contract.ts`.
+   */
+  static async findAll(): Promise<ModelWithRealmAccess[]> {
+    return prisma.modelRegistry.findMany({
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        provider: true,
+        modelId: true,
+        baseUrl: true,
+        litellmModelName: true,
+        status: true,
+        metadata: true,
+        createdBy: true,
+        createdAt: true,
+        updatedAt: true,
+        realmAccess: true,
+      },
+    });
   }
 
   static async findByRealm(realmId: string): Promise<ModelRegistry[]> {
@@ -73,7 +102,10 @@ export class ModelDAO {
     return prisma.modelRealmAccess.findMany({ where: { modelId } });
   }
 
-  static async grantRealmAccess(modelId: string, realmId: string): Promise<void> {
+  static async grantRealmAccess(
+    modelId: string,
+    realmId: string
+  ): Promise<void> {
     await prisma.modelRealmAccess.upsert({
       where: { modelId_realmId: { modelId, realmId } },
       create: { modelId, realmId },
@@ -81,7 +113,10 @@ export class ModelDAO {
     });
   }
 
-  static async revokeRealmAccess(modelId: string, realmId: string): Promise<void> {
+  static async revokeRealmAccess(
+    modelId: string,
+    realmId: string
+  ): Promise<void> {
     await prisma.modelRealmAccess.deleteMany({ where: { modelId, realmId } });
   }
 }

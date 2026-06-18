@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { Check, Cpu, RefreshCw, CheckCircle2, XCircle, X } from "lucide-react";
+import { ApiError, modelsClient, unwrap } from "@/lib/api/ts-rest/client";
+import type { ModelWithRealmAccess } from "@/lib/contracts";
 
 const PROVIDERS = [
   {
@@ -31,13 +33,7 @@ const PROVIDERS = [
   },
 ];
 
-interface ExistingModel {
-  id: string;
-  name: string;
-  provider: string;
-  modelId: string;
-  status: "active" | "inactive";
-}
+type ExistingModel = ModelWithRealmAccess;
 
 interface RegisterModelFormProps {
   /** Called after a model is successfully registered */
@@ -84,9 +80,8 @@ export function RegisterModelForm({
     if (!showExistingModels) return;
     setExistingLoading(true);
     try {
-      const res = await fetch("/api/models");
-      const data = (await res.json()) as { models?: ExistingModel[] };
-      setExistingModels(data.models ?? []);
+      const { models } = unwrap(await modelsClient.list());
+      setExistingModels(models);
     } finally {
       setExistingLoading(false);
     }
@@ -152,23 +147,18 @@ export function RegisterModelForm({
     setSaving(true);
     setFormMsg(null);
     try {
-      const res = await fetch("/api/models", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: name.trim(),
-          description: description.trim() || undefined,
-          provider,
-          modelId: modelId.trim(),
-          baseUrl: baseUrl.trim(),
-          apiKey: apiKey.trim() || undefined,
-        }),
-      });
-      const data = (await res.json()) as { error?: string };
-      if (!res.ok) {
-        setFormMsg({ ok: false, text: data.error ?? "Failed to register model" });
-        return;
-      }
+      unwrap(
+        await modelsClient.create({
+          body: {
+            name: name.trim(),
+            description: description.trim() || undefined,
+            provider,
+            modelId: modelId.trim(),
+            baseUrl: baseUrl.trim(),
+            apiKey: apiKey.trim() || undefined,
+          },
+        })
+      );
       const registeredName = name.trim();
       onAdded?.(registeredName);
       setName("");
@@ -179,8 +169,14 @@ export function RegisterModelForm({
       setFormMsg({ ok: true, text: `"${registeredName}" registered` });
       setTimeout(() => setFormMsg(null), 2500);
       await loadExisting();
-    } catch {
-      setFormMsg({ ok: false, text: "Network error" });
+    } catch (err) {
+      setFormMsg({
+        ok: false,
+        text:
+          err instanceof ApiError
+            ? err.message
+            : "Network error",
+      });
     } finally {
       setSaving(false);
     }

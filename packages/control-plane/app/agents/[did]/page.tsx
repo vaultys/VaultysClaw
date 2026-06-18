@@ -286,7 +286,7 @@ export default function AgentDetailPage() {
           )}
           {activeTab === "tokens" && <TokensTab agentId={agent.did} />}
           {activeTab === "config" && (
-            <ConfigTab did={did} reportedLlm={agent.reportedLlm} />
+            <ConfigTab agent={agent} onChanged={fetchAgent} />
           )}
           {activeTab === "governance" && (
             <GovernanceTab did={did} agentCapabilities={agent.capabilities} />

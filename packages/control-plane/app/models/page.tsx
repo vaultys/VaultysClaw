@@ -15,19 +15,10 @@ import {
 import { useRole } from "@/hooks/useRole";
 import { RegisterModelModal } from "@/components/models/RegisterModelModal";
 import { LiteLLMPanel } from "@/components/models/LiteLLMPanel";
+import { modelsClient, unwrap } from "@/lib/api/ts-rest/client";
+import type { ModelWithRealmAccess } from "@/lib/contracts";
 
-interface ModelEntry {
-  id: string;
-  name: string;
-  description: string | null;
-  provider: string;
-  modelId: string;
-  baseUrl: string;
-  litellmModelName: string | null;
-  status: "active" | "inactive";
-  createdAt: string;
-  realmCount: number;
-}
+type ModelEntry = ModelWithRealmAccess;
 
 function ProviderBadge({ provider }: Readonly<{ provider: string }>) {
   const colors: Record<string, string> = {
@@ -67,9 +58,8 @@ export default function ModelsPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/models");
-      const data = (await res.json()) as { models?: ModelEntry[] };
-      setModels(data.models ?? []);
+      const { models } = unwrap(await modelsClient.list());
+      setModels(models);
     } finally {
       setLoading(false);
     }
@@ -177,7 +167,7 @@ export default function ModelsPage() {
                     <td className="px-4 py-3 hidden lg:table-cell">
                       <span className="flex items-center gap-1 text-foreground-500">
                         <Globe2 className="w-3.5 h-3.5" />
-                        {m.realmCount}
+                        {m.realmAccess.length}
                       </span>
                     </td>
                     <td className="px-4 py-3">

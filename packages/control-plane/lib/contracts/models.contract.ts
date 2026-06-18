@@ -1,9 +1,38 @@
 import { z } from "zod";
 import { c } from "./contract";
 import { commonErrorResponses } from "./common";
-import type { ModelRegistry } from "@prisma/client";
+import type { ModelRegistry, Prisma } from "@prisma/client";
 
 const IdParam = z.object({ id: z.string().min(1) });
+
+/**
+ * A model registry entry with its realm-access rows joined in — everything the
+ * models list UI needs in a single query (the `apiKeyEnc` secret is excluded by
+ * the `select`). Mirrors the `AgentWithInfo` pattern; the matching query lives
+ * in `ModelDAO.findAll`. Consumers derive the realm count from `realmAccess.length`.
+ */
+export type ModelWithRealmAccess = Prisma.ModelRegistryGetPayload<{
+  select: {
+    id: true;
+    name: true;
+    description: true;
+    provider: true;
+    modelId: true;
+    baseUrl: true;
+    litellmModelName: true;
+    status: true;
+    metadata: true;
+    createdBy: true;
+    createdAt: true;
+    updatedAt: true;
+    realmAccess: true;
+  };
+}>;
+
+/** Response of `POST /api/models` — the created entry (sans secret) + LiteLLM status. */
+export type CreatedModel = Omit<ModelRegistry, "apiKeyEnc"> & {
+  litellmRegistered: boolean;
+};
 
 export const modelsContract = c.router({
   list: {
@@ -11,7 +40,7 @@ export const modelsContract = c.router({
     path: "/api/models",
     summary: "List all model registry entries",
     responses: {
-      200: c.type<{ models: Array<ModelRegistry & { realmCount: number }> }>(),
+      200: c.type<{ models: ModelWithRealmAccess[] }>(),
       ...commonErrorResponses,
     },
   },
@@ -27,8 +56,12 @@ export const modelsContract = c.router({
       modelId: z.string(),
       baseUrl: z.string(),
       apiKey: z.string().optional(),
+      skipLiteLLM: z.boolean().optional(),
     }),
-    responses: { 201: c.type<{ model: ModelRegistry }>(), ...commonErrorResponses },
+    responses: {
+      201: c.type<{ model: CreatedModel }>(),
+      ...commonErrorResponses,
+    },
   },
 
   test: {
@@ -52,7 +85,10 @@ export const modelsContract = c.router({
     path: "/api/models/:id",
     pathParams: IdParam,
     summary: "Retrieve a model by its ID",
-    responses: { 200: c.type<{ model: ModelRegistry }>(), ...commonErrorResponses },
+    responses: {
+      200: c.type<{ model: ModelRegistry }>(),
+      ...commonErrorResponses,
+    },
   },
 
   update: {
@@ -99,7 +135,11 @@ export const modelsContract = c.router({
     summary: "List realms with access to a specific model",
     responses: {
       200: c.type<{
-        realms: Array<{ realmId: string; realmName: string; grantedAt: string }>;
+        realms: Array<{
+          realmId: string;
+          realmName: string;
+          grantedAt: string;
+        }>;
       }>(),
       ...commonErrorResponses,
     },

@@ -6,12 +6,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 VaultysClaw is a decentralized AI agent orchestration platform. A central **control plane** (Next.js + WebSocket server) manages lightweight **agent controllers** that connect via WebSocket, execute LLM-driven intents using tools, and maintain cryptographic identity via [VaultysId](https://github.com/vaultys/id).
 
-**Monorepo**: pnpm workspaces + Turborepo. Four main packages:
+**Monorepo**: pnpm workspaces + Turborepo. Five main packages:
 
-- `packages/shared` — types, security utils, channel protocol definitions
-- `packages/control-plane` — Next.js App Router dashboard + WebSocket server (port 3000 / WS 8080)
-- `packages/agent-controller` — agent runtime CLI, tools, skills, memory
-- `packages/mcp-gateway` — MCP server that exposes VaultysClaw agents as tools for Claude Code and other MCP clients
+| Package | Description | CLAUDE.md |
+|---|---|---|
+| `packages/shared` | Types, security utils, channel protocol definitions | [→](packages/shared/CLAUDE.md) |
+| `packages/control-plane` | Next.js App Router dashboard + WebSocket server (port 3000 / WS 8080) | [→](packages/control-plane/CLAUDE.md) |
+| `packages/control-plane/app/api` | REST API routes (ts-rest pattern) | [→](packages/control-plane/app/api/CLAUDE.md) |
+| `packages/agent-controller` | Agent runtime CLI, tools, skills, memory | [→](packages/agent-controller/CLAUDE.md) |
+| `packages/mcp-gateway` | MCP server exposing VaultysClaw agents as tools | [→](packages/mcp-gateway/CLAUDE.md) |
 
 ## Commands
 
@@ -42,9 +45,7 @@ pnpm test                    # Run all tests (Vitest, no watch)
 pnpm test:ui                 # Vitest interactive UI
 pnpm test:docker             # Docker integration tests
 pnpm test:litellm            # LiteLLM integration tests
-
-# Single test file
-pnpm vitest run __tests__/channels.test.ts
+pnpm vitest run __tests__/channels.test.ts  # Single test file
 
 # Code quality
 pnpm lint
@@ -52,9 +53,7 @@ pnpm type-check
 pnpm format
 ```
 
-## Architecture
-
-### Communication Protocol
+## Communication Protocol
 
 Agents connect to the control plane via WebSocket on port 8080. All messages follow a typed envelope defined in `packages/shared/src/channel-types.ts`. Critical messages (policies, intents) carry ECDSA signatures verified against the sender's VaultysId public key.
 
@@ -66,263 +65,18 @@ Agents connect to the control plane via WebSocket on port 8080. All messages fol
 4. Agent executes via LLM + tools → sends `result` back
 5. Policies distributed as `policy_update` messages; agents verify signatures before storing
 
-### Control Plane (`packages/control-plane`)
+## Environment Variables
 
-- **`server.ts`** — Entry point: starts HTTP (port 3000) + WS (port 8080) servers, runs Prisma migrations seed, launches workflow scheduler
-- **`lib/ws-server.ts`** — WebSocket server handling agent connections, heartbeats, intent routing, admin WebSocket on `/ws/admin`
-- **`lib/workflow-executor.ts`** — Sequential/parallel node execution, approval steps, variable interpolation
-- **`lib/message-dispatcher.ts`** — Routes intents to connected agents
-- **`app/api/`** — Next.js App Router REST handlers organized by domain (agents, workflows, governance, realms, users, models, skills, channels, etc.)
-
-**Database**: PostgreSQL via Prisma (see `packages/control-plane/prisma/`). All DAOs are in `db/` and use the Prisma client (`db/client.ts`). Key tables: `agents`, `intent_log`, `workflows`, `workflow_runs`, `realms`, `users`, `policies`, `model_registry`, `org_skills`, `channels`, `settings`.
-
-**Auth**: Passwordless QR-code login via VaultysId (no passwords). `next-auth` with a custom provider in `lib/auth-config.ts`.
-
-### Agent Controller (`packages/agent-controller`)
-
-- **`src/agent.ts`** — `AgentController` (EventEmitter): WebSocket client, auth challenge/response, task queue, scheduler, peer manager, memory store
-- **`src/cli.ts`** — CLI entry point; modes: `headless` | `tui` (Ink terminal) | `web` (Vite SPA on port 3002)
-- **`src/llm.ts`** — LLM invocation via Mastra (@mastra/core) + @ai-sdk/openai + ollama-ai-provider-v2; supports OpenAI, Anthropic, Google, Ollama
-- **`src/tools/`** — Built-in tools: file ops, shell, code runner, HTTP requests, remote-agent calls
-- **`src/skills/`** — Plugin-based skill loading (npm packages or local dirs); enabled per-realm in UI
-- **`src/memory/`** — Semantic memory: SQLite persistence, vector-based retrieval, LLM summarization
-
-**Agent SQLite** (`agent.db`): delegation certs, peer grants, LLM config, token usage, chat sessions, task history.
-
-### Shared (`packages/shared`)
-
-Core domain types live in `src/types.ts`: `VaultysIdentity`, `AgentCapability` enum, `ResourceLimits`, `AgentPolicy`, `SignedIntent`, `ExecutionResult`. Import via path alias `@vaultysclaw/shared`.
-
-## Key Patterns
-
-**Adding an API route**: Create `packages/control-plane/app/api/<resource>/route.ts`, export `GET`/`POST`/etc. handlers, use the appropriate DAO from `db/` (Prisma-based).
-
-**Client-side HTTP calls**: Use the typed API client classes in `packages/control-plane/lib/api/`. One class per domain group — import singletons from `@/lib/api`:
-
-```typescript
-import { agentsApi, workflowsApi } from "@/lib/api";
-const { agents } = await agentsApi.list({ realm: realmId });
-const run = await workflowsApi.execute(workflowId, payload);
-```
-
-All classes extend `BaseApi` (in `lib/api/base.ts`) which throws `ApiError` on non-2xx responses. When adding a new route, also add the corresponding method to the relevant class.
-
-**Adding a tool**: Create `packages/agent-controller/src/tools/<name>.ts`, export a tool definition with Zod schema, register in `src/tools/index.ts`.
-
-**Adding a skill**: Create a package under `packages/agent-controller/skills/<name>/`, export Zod schemas + handlers. Skills auto-discovered by `src/skills/loader.ts`.
-
-**WebSocket messages**: Add new message types to `packages/shared/src/channel-types.ts`, handle in `lib/ws-server.ts` (control plane) and `src/agent.ts` (agent).
-
-**Page toolbar (header)**: Pages do **not** render their own page-level header. Instead, configure the shared toolbar rendered by the app shell (below the `TopBar`) via the `useToolbar` hook from `@/components/layout/ToolbarContext`. The shell wraps everything in `ToolbarProvider` and renders `<Toolbar />` (`components/layout/Toolbar.tsx`); a page that doesn't call `useToolbar` shows no toolbar.
-
-```typescript
-import { useToolbar } from "@/components/layout/ToolbarContext";
-
-useToolbar(
-  {
-    title: "Agents",
-    description: `${total} registered · ${online} online`,
-    actions: [
-      // Non-interactive status pill (tone: success | neutral | warning | danger)
-      { kind: "badge", id: "live", label: "Live", tone: "success", icon: <Wifi className="w-3 h-3" /> },
-      // Segmented view switcher
-      {
-        kind: "tabs",
-        id: "view",
-        value: viewMode,
-        onChange: (v) => setViewMode(v as "list" | "map"),
-        options: [
-          { value: "list", label: "List", icon: <List className="w-3.5 h-3.5" /> },
-          { value: "map", label: "Map", icon: <Map className="w-3.5 h-3.5" /> },
-        ],
-      },
-      // Button (variant: "primary" | "default")
-      { kind: "button", id: "create", label: "Create agent", variant: "primary", icon: <Plus className="w-3.5 h-3.5" />, onClick: () => router.push("/agents/create") },
-    ],
-  },
-  [total, online, wsConnected, viewMode, router] // deps: everything the config closes over
-);
-```
-
-The hook clears the toolbar on unmount. Pass a dependency list of every value the config reads so the toolbar stays in sync. To add a new action type, extend the `ToolbarAction` union in `ToolbarContext.tsx` and render it in `Toolbar.tsx`.
-
-The toolbar **center** region renders one of (in precedence order): a `steps` wizard indicator, the `search` bar, or nothing. For a multi-step flow, pass `steps` (rendered by `components/layout/ToolbarSteps.tsx`):
-
-```typescript
-useToolbar(
-  { title: "Create agent", steps: { current: STEP_INDEX[step], steps: STEPS } },
-  [step] // STEPS = [{ id, label }, …]; current is the zero-based active index
-);
-```
-
-**TopBar breadcrumbs**: The `TopBar` no longer derives a page title — it renders breadcrumbs from `BreadcrumbContext`. Pages set them with the `useBreadcrumbs` hook (from `@/components/layout/BreadcrumbContext`); the shell wraps everything in `BreadcrumbProvider`. The last segment renders as the bold current page; earlier segments with an `href` are links. Pages that don't call `useBreadcrumbs` show an empty TopBar nav.
-
-```typescript
-import { useBreadcrumbs } from "@/components/layout/BreadcrumbContext";
-
-useBreadcrumbs(
-  [{ label: "Agents", href: "/agents" }, { label: "New agent" }],
-  [] // deps — same rules as useToolbar
-);
-```
-
-**Advanced search bar** (Odoo-style): add a `search` field to the toolbar config to render a centered search input with removable filter chips and an expandable filter panel (rendered by `components/layout/ToolbarSearch.tsx`). This replaces per-page search/filter bars — don't render your own. The config is fully controlled by the page:
-
-```typescript
-useToolbar(
-  {
-    title: "Agents",
-    search: {
-      value: search,
-      onChange: (v) => { setSearch(v); setPage(1); },
-      placeholder: "Search agents…",
-      // Active filters shown as removable pills inside the input
-      chips: selectedCapabilities.map((cap) => ({
-        id: `cap-${cap}`,
-        label: cap.replace(/_/g, " "),
-        onRemove: () => toggleCapability(cap),
-      })),
-      // Columns of the expandable panel (Filters / Group by / Sort …)
-      filterGroups: [
-        {
-          id: "status",
-          label: "Status",
-          icon: <Filter className="w-3.5 h-3.5 text-primary-600" />,
-          options: [
-            { id: "online", label: "Online", active: onlineFilter === "true", onToggle: () => setOnlineFilter(onlineFilter === "true" ? "" : "true") },
-          ],
-          onClear: onlineFilter ? () => setOnlineFilter("") : undefined,
-        },
-        // … more groups (capabilities multi-select, sort single-select, etc.)
-      ],
-    },
-  },
-  [search, onlineFilter, selectedCapabilities /* + everything the config reads */]
-);
-```
-
-Each `filterGroups[].options[]` is `{ id, label, icon?, active, onToggle }` — the page owns selection semantics (single vs multi-select is just how `onToggle` mutates state); active options render a checkmark. Surface active filters as `chips` so users can remove them without opening the panel.
-
-## API Design & Implementation (ts-rest Pattern)
-
-All **new** control-plane REST APIs should follow the ts-rest + APIException pattern. This guarantees:
-- **Single source of truth**: contracts in code (Zod schemas) → type-safe on both client & server
-- **Consistent error handling**: `APIException` thrown by helpers like `getAuthContext()`, caught by middleware
-- **Zero drift**: client types inferred from the same contract the server validates against
-
-### Structure
-
-**1. Contract** — a `lib/contracts/<domain>/` **folder** with the contract split across **three files**. Always separate schemas, types, and the router; never inline them into a single `.contract.ts`. Use `lib/contracts/agents/` as the canonical reference.
-
-- **`<domain>.schemas.ts`** — only Zod schemas (query, body, and response schemas). No `z.infer`, no router. Group with section comments (`// ── Queries`, `// ── Bodies`, `// ── Responses`).
-- **`<domain>.types.ts`** — only TypeScript types: `z.infer<typeof XSchema>` derived from the schemas, plus Prisma-derived (`Prisma.XGetPayload`) and composed types. Imports schemas from `./<domain>.schemas`.
-- **`<domain>.contract.ts`** — only the ts-rest `c.router({...})`. Imports schemas from `./<domain>.schemas` and types from `./<domain>.types`. Use `c.type<MyType>()` for responses backed by a TS type and the Zod schema directly for responses backed by a schema.
-
-For a trivial domain the `.schemas.ts` / `.types.ts` files may be short, but still create all three — consistency over brevity.
-
-Then register the new folder in `lib/contracts/index.ts`: import the router, add the three `export *` lines (contract / schemas / types), and add the router to the `appContract` aggregate.
-
-Example — `lib/contracts/agents/` — GET /api/agents/:did, PATCH capabilities, DELETE:
-
-```typescript
-// agents.schemas.ts
-export const UpdateAgentBodySchema = z.object({ capabilities: z.array(z.string()).optional() });
-
-// agents.types.ts
-import { UpdateAgentBodySchema } from "./agents.schemas";
-export type AgentInfo = Prisma.AgentGetPayload<{ /* ... */ }> & { online: boolean };
-export type UpdateAgentBody = z.infer<typeof UpdateAgentBodySchema>;
-
-// agents.contract.ts
-import { UpdateAgentBodySchema } from "./agents.schemas";
-import { AgentInfo } from "./agents.types";
-export const agentsContract = c.router({
-  getAgent: {
-    method: "GET",
-    path: "/api/agents/:did",
-    pathParams: z.object({ did: z.string() }),
-    responses: { 200: c.type<AgentInfo>(), ...commonErrorResponses },
-  },
-  // ... updateAgent (body: UpdateAgentBodySchema), deleteAgent, etc.
-});
-```
-
-**2. Route Handler** (`app/api/<resource>/[param]/route.ts`)
-- Use `createNextRoute(contract, implementation)` to wrap all handlers
-- Throw `APIException("CODE", message)` for errors; middleware handles conversion to HTTP status
-- Return `{ status, body }` for success (type-checked against contract responses)
-- Example: `app/api/agents/[did]/route.ts`
-
-```typescript
-const handlers = createNextRoute(agentDetailContract, {
-  getAgent: async ({ params, request }) => {
-    const auth = await getAuthContext(request); // Throws APIException("UNAUTHORIZED")
-    const agent = await AgentDAO.findByDid(params.did);
-    if (!agent) throw new APIException("NOT_FOUND", "Agent not found");
-    if (!(await auth.canAccessAgent(params.did))) throw new APIException("FORBIDDEN");
-    
-    return {
-      status: 200,
-      body: { /* fully typed against contract */ }
-    };
-  },
-});
-
-export const GET = handlers.GET!;
-export const PATCH = handlers.PATCH!;
-export const DELETE = handlers.DELETE!;
-```
-
-**3. Client** (`lib/api/<domain>.ts`)
-- Use `agentContractClient` (from `lib/api/ts-rest/client.ts`) to call routes
-- Call `unwrap()` to convert ts-rest's `{ status, body }` union to throwing on non-2xx
-- Argument & return types flow from the contract → zero chance of drift
-
-```typescript
-async getOne(did: string): Promise<AgentDetail> {
-  return unwrap(await agentContractClient.getAgent({ params: { did } }));
-}
-```
-
-**4. Types** (UI components, etc.)
-- Import from contract: `import type { AgentDetail } from "@/lib/contracts"`
-- No duplicate interface definitions → contract is the source of truth
-
-### Error Handling
-
-**`APIException`** (in `lib/api/utils/api-utils.ts`)
-- Thrown by helpers (`getAuthContext()`) and route handlers
-- Maps code (e.g. `"UNAUTHORIZED"`) → HTTP status (e.g. `401`) via `HttpCodes` enum
-- Both `withError` (legacy) and `createNextRoute` (new) catch & convert to canonical error body
-
-```typescript
-// In a helper
-if (!auth) throw new APIException("UNAUTHORIZED");
-
-// In a route handler
-if (!hasPermission) throw new APIException("FORBIDDEN");
-if (!found) throw new APIException("NOT_FOUND", "Agent not found");
-
-// In createNextRoute middleware → 401/403/404 with { error, code }
-```
-
-### Files to Know
-
-- **Contracts**: `lib/contracts/` (index.ts, contract.ts, common.ts) — per-domain folders split into `<domain>.schemas.ts` / `<domain>.types.ts` / `<domain>.contract.ts`; see `lib/contracts/agents/`
-- **Middleware**: `lib/api/ts-rest/next-route.ts`, `lib/api/handlers/with-error.ts`
-- **Client**: `lib/api/ts-rest/client.ts`
-- **Errors**: `lib/api/utils/api-utils.ts` (APIException, resolveApiError)
-- **Auth**: `lib/auth-utils.ts` (getAuthContext throws APIException)
-- **Example route**: `app/api/agents/[did]/route.ts` — GET/PATCH/DELETE agents
-
-### Extending to a New Domain
-
-1. Create the `lib/contracts/<domain>/` folder with the three files (`<domain>.schemas.ts`, `<domain>.types.ts`, `<domain>.contract.ts`)
-2. Register it in `lib/contracts/index.ts` (import router, add the three `export *` lines, add to `appContract`)
-3. Create `app/api/<resource>/[param]/route.ts` using `createNextRoute()`
-4. Add methods to `lib/api/<domain>.ts` using `agentContractClient`
-5. Import types from the contract in UI components
-6. Tests: mock `getAuthContext` to throw `new APIException("UNAUTHORIZED")` for 401 cases
+| Variable | Package | Purpose |
+|---|---|---|
+| `DATABASE_URL` | control-plane | PostgreSQL connection string (Prisma) |
+| `PORT` / `WS_PORT` | control-plane | HTTP + WebSocket ports (default 3000/8080) |
+| `NEXTAUTH_SECRET` | control-plane | NextAuth session secret |
+| `LITELLM_BASE_URL` | control-plane | LiteLLM proxy URL |
+| `AGENT_NAME` | agent-controller | Agent display name |
+| `CONTROL_PLANE_URL` | agent-controller | Control plane base URL |
+| `LLM_MODEL` / `LLM_API_KEY` | agent-controller | LLM provider config |
+| `VAULTYS_ID_PATH` | agent-controller | Path to agent VaultysId identity file |
 
 ## Testing
 
@@ -333,45 +87,3 @@ Multiple vitest configs for different test scopes:
 - `vitest.config.mjs` — default (no Docker)
 - `vitest.config.docker.mjs` — requires running Docker stack
 - `vitest.config.litellm.mjs` — requires LiteLLM proxy (`docker-compose.litellm.yml`)
-
-### Testing ts-rest Routes
-
-Routes using `createNextRoute()` and `APIException` are tested by mocking `getAuthContext` to:
-- **Return a valid context** for happy-path tests: `mockGetAuthContext.mockResolvedValue(makeAuthContext(...))`
-- **Throw `APIException("UNAUTHORIZED")`** for 401 tests: `mockGetAuthContext.mockRejectedValue(new APIException("UNAUTHORIZED"))`
-- **Return a context with missing permissions** for 403 tests: `mockGetAuthContext.mockResolvedValue({ did: "...", isGlobalAdmin: false, ... })`
-
-Example from `__tests__/security.test.ts`:
-
-```typescript
-import { APIException } from "@/lib/api/utils/api-utils";
-import { GET } from "@/app/api/agents/[did]/route";
-
-function asUnauthenticated() {
-  mockGetAuthContext.mockRejectedValue(new APIException("UNAUTHORIZED"));
-}
-
-it("returns 401 when unauthenticated", async () => {
-  asUnauthenticated();
-  const res = await GET(req("/api/agents/did123"), params({ did: "did123" }));
-  expect(res._status).toBe(401);
-  expect(res._body.code).toBe("UNAUTHORIZED");
-});
-```
-
-The error body shape is always `{ error: string; code: string; }`, enforced by `resolveApiError()` in the middleware.
-
-## Environment
-
-Control plane reads from `.env` in `packages/control-plane/`. Agent reads from `.env` in `packages/agent-controller/` or environment variables. Key variables:
-
-| Variable                    | Package          | Purpose                                    |
-| --------------------------- | ---------------- | ------------------------------------------ |
-| `DATABASE_URL`              | control-plane    | PostgreSQL connection string (Prisma)      |
-| `PORT` / `WS_PORT`          | control-plane    | HTTP + WebSocket ports (default 3000/8080) |
-| `NEXTAUTH_SECRET`           | control-plane    | NextAuth session secret                    |
-| `LITELLM_BASE_URL`          | control-plane    | LiteLLM proxy URL                          |
-| `AGENT_NAME`                | agent-controller | Agent display name                         |
-| `CONTROL_PLANE_URL`         | agent-controller | Control plane base URL                     |
-| `LLM_MODEL` / `LLM_API_KEY` | agent-controller | LLM provider config                        |
-| `VAULTYS_ID_PATH`           | agent-controller | Path to agent VaultysId identity file      |

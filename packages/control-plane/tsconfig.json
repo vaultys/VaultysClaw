@@ -32,8 +32,7 @@
     "app/.well-known/**/*.ts",
     "**/*.ts",
     "**/*.tsx",
-    ".next/types/**/*.ts",
-    ".next/dev/types/**/*.ts"
+    ".next/"
   ],
   "exclude": ["node_modules", ".next/dev"]
 }

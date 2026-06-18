@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import {
   Check,
   ChevronRight,
@@ -15,42 +16,62 @@ import { CopyButton } from "@/components/shared";
 import { PKG_RUNNERS, type PkgRunner, type Realm } from "./constants";
 
 interface LaunchStepProps {
-  connMethod: "ws" | "peerjs";
-  setConnMethod: (m: "ws" | "peerjs") => void;
-  wsUrl: string;
-  setWsUrl: (v: string) => void;
-  peerjsId: string | null;
-  peerjsEnabled: boolean;
-  peerjsServerUrl: string | null;
-  agentName: string;
-  setAgentName: (v: string) => void;
   realms: Realm[];
-  selectedLaunchRealm: string;
-  setSelectedLaunchRealm: (id: string) => void;
+  /** Set the realm the agent will be enrolled in during approval. */
   setSelectedRealms: (s: Set<string>) => void;
-  pkgRunner: PkgRunner;
-  setPkgRunner: (r: PkgRunner) => void;
   onContinue: () => void;
 }
 
 export function LaunchStep({
-  connMethod,
-  setConnMethod,
-  wsUrl,
-  setWsUrl,
-  peerjsId,
-  peerjsEnabled,
-  peerjsServerUrl,
-  agentName,
-  setAgentName,
   realms,
-  selectedLaunchRealm,
-  setSelectedLaunchRealm,
   setSelectedRealms,
-  pkgRunner,
-  setPkgRunner,
   onContinue,
 }: LaunchStepProps) {
+  const [connMethod, setConnMethod] = useState<"ws" | "peerjs">("ws");
+  const [agentName, setAgentName] = useState("");
+  const [wsUrl, setWsUrl] = useState("");
+  const [pkgRunner, setPkgRunner] = useState<PkgRunner>("npx");
+  const [selectedLaunchRealm, setSelectedLaunchRealm] = useState<string>("");
+
+  // PeerJS connection info (fetched from the control plane)
+  const [peerjsId, setPeerjsId] = useState<string | null>(null);
+  const [peerjsEnabled, setPeerjsEnabled] = useState(false);
+  const [peerjsServerUrl, setPeerjsServerUrl] = useState<string | null>(null);
+
+  // Default the WS URL from the current origin + fetch PeerJS network info
+  useEffect(() => {
+    const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
+    setWsUrl(`${proto}//${window.location.hostname}:8080`);
+
+    fetch("/api/network")
+      .then((r) => r.json())
+      .then(
+        (d: {
+          peerjs?: {
+            peerId?: string;
+            running?: boolean;
+            serverUrl?: string | null;
+          };
+        }) => {
+          if (d.peerjs?.peerId) setPeerjsId(d.peerjs.peerId);
+          setPeerjsEnabled(d.peerjs?.running ?? false);
+          setPeerjsServerUrl(d.peerjs?.serverUrl ?? null);
+        }
+      )
+      .catch(() => {});
+  }, []);
+
+  // Default the target realm to the realm marked default, once realms load
+  useEffect(() => {
+    if (selectedLaunchRealm) return;
+    const def = realms.find((r) => r.isDefault);
+    if (def) {
+      setSelectedLaunchRealm(def.id);
+      setSelectedRealms(new Set([def.id]));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [realms]);
+
   const runnerPrefix = PKG_RUNNERS.find((r) => r.id === pkgRunner)!.prefix;
   const nameArg = agentName.trim();
   const connArg =

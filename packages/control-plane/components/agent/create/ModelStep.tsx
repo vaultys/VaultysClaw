@@ -1,43 +1,90 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { Check, ChevronRight, Loader2, Cpu } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { agentsClient, unwrap } from "@/lib/api/ts-rest/client";
 import type { Model, LiteLlmModel } from "./constants";
 
 interface ModelStepProps {
-  models: Model[];
-  selectedModel: string | null;
-  setSelectedModel: (id: string) => void;
-  liteLlmModels: LiteLlmModel[];
-  liteLlmConfigured: boolean;
-  selectedLiteLlmModel: string | null;
-  setSelectedLiteLlmModel: (name: string) => void;
-  modelMode: "registry" | "litellm";
-  setModelMode: (m: "registry" | "litellm") => void;
-  savingModel: boolean;
-  modelError: string | null;
-  onSave: () => void;
-  onSkip: () => void;
+  /** DID of the just-approved agent, or null if approval was skipped. */
+  agentDid: string | null;
+  /** Advance to the next step. */
+  onDone: () => void;
 }
 
-export function ModelStep({
-  models,
-  selectedModel,
-  setSelectedModel,
-  liteLlmModels,
-  liteLlmConfigured,
-  selectedLiteLlmModel,
-  setSelectedLiteLlmModel,
-  modelMode,
-  setModelMode,
-  savingModel,
-  modelError,
-  onSave,
-  onSkip,
-}: ModelStepProps) {
+export function ModelStep({ agentDid, onDone }: ModelStepProps) {
+  const [models, setModels] = useState<Model[]>([]);
+  const [selectedModel, setSelectedModel] = useState<string | null>(null);
+  const [savingModel, setSavingModel] = useState(false);
+  const [modelError, setModelError] = useState<string | null>(null);
+
+  const [liteLlmModels, setLiteLlmModels] = useState<LiteLlmModel[]>([]);
+  const [liteLlmConfigured, setLiteLlmConfigured] = useState(false);
+  const [selectedLiteLlmModel, setSelectedLiteLlmModel] = useState<
+    string | null
+  >(null);
+  const [modelMode, setModelMode] = useState<"registry" | "litellm">(
+    "registry"
+  );
+
+  // Load registry + LiteLLM models on mount
+  useEffect(() => {
+    fetch("/api/models")
+      .then((r) => r.json())
+      .then((d: { models?: Model[] }) => setModels(d.models ?? []))
+      .catch(() => {});
+
+    fetch("/api/litellm/models")
+      .then((r) => r.json())
+      .then((d: { models?: LiteLlmModel[]; configured?: boolean }) => {
+        setLiteLlmModels(d.models ?? []);
+        setLiteLlmConfigured(d.configured ?? false);
+      })
+      .catch(() => {});
+  }, []);
+
   const hasSelection =
     (modelMode === "registry" && selectedModel) ||
     (modelMode === "litellm" && selectedLiteLlmModel);
+
+  async function saveModel() {
+    // Nothing to persist (approval skipped or no selection) — just continue
+    if (!agentDid || !hasSelection) {
+      onDone();
+      return;
+    }
+
+    setSavingModel(true);
+    setModelError(null);
+    try {
+      if (modelMode === "registry" && selectedModel) {
+        unwrap(
+          await agentsClient.setLlmConfig({
+            params: { did: agentDid },
+            body: { registryModelId: selectedModel },
+          })
+        );
+      } else if (modelMode === "litellm" && selectedLiteLlmModel) {
+        // Create/validate LiteLLM key for this model
+        await fetch(`/api/agents/${agentDid}/litellm-key`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ allowedModels: [selectedLiteLlmModel] }),
+        }).then((r) => {
+          if (!r.ok) throw new Error("Failed to create LiteLLM key");
+          return r.json();
+        });
+      }
+      onDone();
+    } catch (err) {
+      setModelError(
+        err instanceof Error ? err.message : "Network error while saving model"
+      );
+    } finally {
+      setSavingModel(false);
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -193,13 +240,13 @@ export function ModelStep({
 
       <div className="flex items-center justify-between">
         <button
-          onClick={onSkip}
+          onClick={onDone}
           className="text-sm text-foreground-500 hover:text-foreground transition-colors"
         >
           Skip for now
         </button>
         <button
-          onClick={onSave}
+          onClick={saveModel}
           disabled={savingModel}
           className="flex items-center gap-2 px-5 py-2.5 bg-primary-600 hover:bg-primary-500 disabled:opacity-50 text-white text-sm font-medium rounded-lg transition-colors"
         >

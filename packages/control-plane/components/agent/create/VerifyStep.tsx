@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Bot,
   Loader2,
@@ -11,21 +11,90 @@ import {
 } from "lucide-react";
 
 interface VerifyStepProps {
-  verifyText: string;
-  verifyDone: boolean;
-  verifyError: string | null;
-  onRetry: () => void;
+  agentDid: string | null;
   onFinish: () => void;
 }
 
-export function VerifyStep({
-  verifyText,
-  verifyDone,
-  verifyError,
-  onRetry,
-  onFinish,
-}: VerifyStepProps) {
+const VERIFY_PROMPT = "List all the tools and skills you currently have access to.";
+
+export function VerifyStep({ agentDid, onFinish }: VerifyStepProps) {
+  const [verifyText, setVerifyText] = useState("");
+  const [verifyDone, setVerifyDone] = useState(false);
+  const [verifyError, setVerifyError] = useState<string | null>(null);
+  const [attempt, setAttempt] = useState(0);
   const verifyRef = useRef<HTMLPreElement>(null);
+
+  // Run the verification prompt on mount and whenever Retry bumps `attempt`
+  useEffect(() => {
+    if (!agentDid) return;
+
+    let cancelled = false;
+    setVerifyText("");
+    setVerifyDone(false);
+    setVerifyError(null);
+
+    (async () => {
+      try {
+        const res = await fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            agentDid,
+            messages: [{ role: "user", content: VERIFY_PROMPT }],
+          }),
+        });
+        if (!res.ok || !res.body) {
+          setVerifyError(`Agent responded with HTTP ${res.status}`);
+          setVerifyDone(true);
+          return;
+        }
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buf = "";
+        while (!cancelled) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buf += decoder.decode(value, { stream: true });
+          const lines = buf.split("\n");
+          buf = lines.pop() ?? "";
+          for (const line of lines) {
+            if (!line.startsWith("data:")) continue;
+            const payload = line.slice(5).trim();
+            if (payload === "[DONE]") {
+              setVerifyDone(true);
+              return;
+            }
+            try {
+              const parsed = JSON.parse(payload) as {
+                text?: string;
+                error?: string;
+              };
+              if (parsed.error) {
+                setVerifyError(parsed.error);
+                setVerifyDone(true);
+                return;
+              }
+              if (parsed.text) setVerifyText((t) => t + parsed.text);
+            } catch {
+              /* skip malformed */
+            }
+          }
+        }
+        if (!cancelled) setVerifyDone(true);
+      } catch (e) {
+        if (!cancelled) {
+          setVerifyError(
+            e instanceof Error ? e.message : "Failed to reach agent"
+          );
+          setVerifyDone(true);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [agentDid, attempt]);
 
   // Keep the streamed response scrolled to the bottom
   useEffect(() => {
@@ -52,10 +121,7 @@ export function VerifyStep({
           size={14}
           className="text-foreground-500 shrink-0 mt-0.5"
         />
-        <p className="text-sm text-foreground italic">
-          &ldquo;List all the tools and skills you currently have access
-          to.&rdquo;
-        </p>
+        <p className="text-sm text-foreground italic">&ldquo;{VERIFY_PROMPT}&rdquo;</p>
       </div>
 
       {/* Response area */}
@@ -108,7 +174,7 @@ export function VerifyStep({
 
       <div className="flex items-center justify-between">
         <button
-          onClick={onRetry}
+          onClick={() => setAttempt((a) => a + 1)}
           className="text-sm text-foreground-500 hover:text-foreground transition-colors"
         >
           Retry

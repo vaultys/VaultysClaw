@@ -1,22 +1,51 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { ChevronRight, Zap, ToggleLeft, ToggleRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SkillConfig } from "@vaultysclaw/shared";
+import { agentsClient, unwrap } from "@/lib/api/ts-rest/client";
 
 interface SkillsStepProps {
-  skills: SkillConfig[];
-  savingSkills: boolean;
-  onToggleSkill: (skill: SkillConfig, realmSkillId: string) => void;
+  agentDid: string | null;
   onContinue: () => void;
 }
 
-export function SkillsStep({
-  skills,
-  savingSkills,
-  onToggleSkill,
-  onContinue,
-}: SkillsStepProps) {
+export function SkillsStep({ agentDid, onContinue }: SkillsStepProps) {
+  const [skills, setSkills] = useState<SkillConfig[]>([]);
+  const [savingSkills, setSavingSkills] = useState(false);
+
+  // Load this agent's realm skills on mount
+  useEffect(() => {
+    if (!agentDid) return;
+    agentsClient
+      .getSkills({ params: { did: agentDid } })
+      .then(unwrap)
+      .then((d) => setSkills((d.skills as SkillConfig[] | undefined) ?? []))
+      .catch(() => {});
+  }, [agentDid]);
+
+  async function toggleSkill(skill: SkillConfig, realmSkillId: string) {
+    if (!agentDid || skill.isRequired) return;
+    const newEnabled = !skill.enabled;
+    setSkills((prev) =>
+      prev.map((s) =>
+        s.name === skill.name ? { ...s, enabled: newEnabled } : s
+      )
+    );
+    setSavingSkills(true);
+    try {
+      unwrap(
+        await agentsClient.updateSkillOverride({
+          params: { did: agentDid },
+          body: { realmSkillId, enabled: newEnabled },
+        })
+      );
+    } finally {
+      setSavingSkills(false);
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div>
@@ -53,7 +82,7 @@ export function SkillsStep({
               </div>
               <button
                 disabled={skill.isRequired || savingSkills}
-                onClick={() => onToggleSkill(skill, skill.name)}
+                onClick={() => toggleSkill(skill, skill.name)}
                 className={cn(
                   "transition-colors",
                   skill.isRequired

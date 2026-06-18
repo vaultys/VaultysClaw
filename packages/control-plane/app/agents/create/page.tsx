@@ -5,18 +5,13 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useAdminWS } from "@/hooks/useAdminWS";
 import { useToolbar } from "@/components/layout/ToolbarContext";
 import { useBreadcrumbs } from "@/components/layout/BreadcrumbContext";
-import { agentsClient, unwrap } from "@/lib/api/ts-rest/client";
-import { SkillConfig } from "@vaultysclaw/shared";
 import {
   STEPS,
   STEP_INDEX,
   parseJsonArray,
   type WizardStep,
-  type PkgRunner,
   type Realm,
-  type Model,
   type PendingReg,
-  type LiteLlmModel,
 } from "@/components/agent/create/constants";
 import { LaunchStep } from "@/components/agent/create/LaunchStep";
 import { WaitingStep } from "@/components/agent/create/WaitingStep";
@@ -32,17 +27,10 @@ export default function CreateAgentPage() {
   const regId = searchParams.get("regId");
 
   const [step, setStep] = useState<WizardStep>(regId ? "approve" : "launch");
-  const [agentName, setAgentName] = useState("");
-  const [wsUrl, setWsUrl] = useState("");
-  const [connMethod, setConnMethod] = useState<"ws" | "peerjs">("ws");
-  const [peerjsId, setPeerjsId] = useState<string | null>(null);
-  const [peerjsEnabled, setPeerjsEnabled] = useState(false);
-  const [peerjsServerUrl, setPeerjsServerUrl] = useState<string | null>(null);
-  const [pkgRunner, setPkgRunner] = useState<PkgRunner>("npx");
   const [realms, setRealms] = useState<Realm[]>([]);
-  const [selectedLaunchRealm, setSelectedLaunchRealm] = useState<string>("");
 
-  // Approval state
+  // Approval state — shared between selectRegistration, the approve handler,
+  // and the ApproveStep form.
   const [pendingReg, setPendingReg] = useState<PendingReg | null>(null);
   const [selectedCaps, setSelectedCaps] = useState<Set<string>>(new Set());
   const [selectedRealms, setSelectedRealms] = useState<Set<string>>(new Set());
@@ -56,33 +44,8 @@ export default function CreateAgentPage() {
   const [policyAllowedDomains, setPolicyAllowedDomains] = useState("");
   const [policyExpiresAt, setPolicyExpiresAt] = useState("");
 
-  // Post-approval state
+  // Set once the agent is approved — drives the model/skills/verify steps.
   const [agentDid, setAgentDid] = useState<string | null>(null);
-
-  // Model state
-  const [models, setModels] = useState<Model[]>([]);
-  const [selectedModel, setSelectedModel] = useState<string | null>(null);
-  const [savingModel, setSavingModel] = useState(false);
-  const [modelError, setModelError] = useState<string | null>(null);
-
-  // LiteLLM models state
-  const [liteLlmModels, setLiteLlmModels] = useState<LiteLlmModel[]>([]);
-  const [liteLlmConfigured, setLiteLlmConfigured] = useState(false);
-  const [selectedLiteLlmModel, setSelectedLiteLlmModel] = useState<
-    string | null
-  >(null);
-  const [modelMode, setModelMode] = useState<"registry" | "litellm">(
-    "registry"
-  );
-
-  // Skills state
-  const [skills, setSkills] = useState<SkillConfig[]>([]);
-  const [savingSkills] = useState(false);
-
-  // Verify state
-  const [verifyText, setVerifyText] = useState("");
-  const [verifyDone, setVerifyDone] = useState(false);
-  const [verifyError, setVerifyError] = useState<string | null>(null);
 
   // Track registrations seen before entering waiting step so we can highlight new ones
   const prevRegIds = useRef<Set<string>>(new Set());
@@ -105,41 +68,17 @@ export default function CreateAgentPage() {
     resetPolicyFields();
   };
 
-  // ── Initial data load ──────────────────────────────────────────────────────
+  // ── Initial data load (realms — shared by Launch + Approve) ─────────────────
 
   useEffect(() => {
-    // Compute default WS URL from current page origin
-    const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
-    setWsUrl(`${proto}//${window.location.hostname}:8080`);
-
     fetch("/api/realms")
       .then((r) => r.json())
       .then((d: { realms?: Realm[] }) => {
         const list = d.realms ?? [];
         setRealms(list);
         const def = list.find((r) => r.isDefault);
-        if (def) {
-          setSelectedLaunchRealm(def.id);
-          setSelectedRealms(new Set([def.id]));
-        }
+        if (def) setSelectedRealms(new Set([def.id]));
       })
-      .catch(() => {});
-
-    fetch("/api/network")
-      .then((r) => r.json())
-      .then(
-        (d: {
-          peerjs?: {
-            peerId?: string;
-            running?: boolean;
-            serverUrl?: string | null;
-          };
-        }) => {
-          if (d.peerjs?.peerId) setPeerjsId(d.peerjs.peerId);
-          setPeerjsEnabled(d.peerjs?.running ?? false);
-          setPeerjsServerUrl(d.peerjs?.serverUrl ?? null);
-        }
-      )
       .catch(() => {});
   }, []);
 
@@ -148,10 +87,7 @@ export default function CreateAgentPage() {
   useEffect(() => {
     if (!regId || pendingReg) return;
     const reg = registrations.find((r) => r.id === regId);
-    if (reg) {
-      selectRegistration(reg as PendingReg);
-      // Realm selection will use the default (already set in initial load)
-    }
+    if (reg) selectRegistration(reg as PendingReg);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [regId, registrations, pendingReg]);
 
@@ -175,121 +111,10 @@ export default function CreateAgentPage() {
             new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
         );
       });
-      if (!pendingReg) {
-        selectRegistration(newRegs[0] as PendingReg);
-      }
+      if (!pendingReg) selectRegistration(newRegs[0] as PendingReg);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [registrations, step, pendingReg]);
-
-  // ── Load models & skills when reaching those steps ─────────────────────────
-
-  useEffect(() => {
-    if (step === "model" && models.length === 0) {
-      fetch("/api/models")
-        .then((r) => r.json())
-        .then((d: { models?: Model[] }) => setModels(d.models ?? []))
-        .catch(() => {});
-    }
-    if (step === "model" && liteLlmModels.length === 0) {
-      fetch("/api/litellm/models")
-        .then((r) => r.json())
-        .then((d: { models?: LiteLlmModel[]; configured?: boolean }) => {
-          setLiteLlmModels(d.models ?? []);
-          setLiteLlmConfigured(d.configured ?? false);
-        })
-        .catch(() => {});
-    }
-  }, [step, models.length, liteLlmModels.length]);
-
-  useEffect(() => {
-    if (step === "skills" && agentDid && skills.length === 0) {
-      agentsClient
-        .getSkills({ params: { did: agentDid } })
-        .then(unwrap)
-        .then((d) => setSkills((d.skills as SkillConfig[] | undefined) ?? []))
-        .catch(() => {});
-    }
-  }, [step, agentDid, skills.length]);
-
-  // ── Auto-verify on entering verify step ───────────────────────────────────
-
-  useEffect(() => {
-    if (step !== "verify" || !agentDid || verifyText || verifyDone) return;
-
-    let cancelled = false;
-    setVerifyText("");
-    setVerifyDone(false);
-    setVerifyError(null);
-
-    (async () => {
-      try {
-        const res = await fetch("/api/chat", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            agentDid,
-            messages: [
-              {
-                role: "user",
-                content:
-                  "List all the tools and skills you currently have access to.",
-              },
-            ],
-          }),
-        });
-        if (!res.ok || !res.body) {
-          setVerifyError(`Agent responded with HTTP ${res.status}`);
-          setVerifyDone(true);
-          return;
-        }
-        const reader = res.body.getReader();
-        const decoder = new TextDecoder();
-        let buf = "";
-        while (!cancelled) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          buf += decoder.decode(value, { stream: true });
-          const lines = buf.split("\n");
-          buf = lines.pop() ?? "";
-          for (const line of lines) {
-            if (!line.startsWith("data:")) continue;
-            const payload = line.slice(5).trim();
-            if (payload === "[DONE]") {
-              setVerifyDone(true);
-              return;
-            }
-            try {
-              const parsed = JSON.parse(payload) as {
-                text?: string;
-                error?: string;
-              };
-              if (parsed.error) {
-                setVerifyError(parsed.error);
-                setVerifyDone(true);
-                return;
-              }
-              if (parsed.text) setVerifyText((t) => t + parsed.text);
-            } catch {
-              /* skip malformed */
-            }
-          }
-        }
-        if (!cancelled) setVerifyDone(true);
-      } catch (e) {
-        if (!cancelled) {
-          setVerifyError(
-            e instanceof Error ? e.message : "Failed to reach agent"
-          );
-          setVerifyDone(true);
-        }
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [step, agentDid]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Handlers ──────────────────────────────────────────────────────────────
 
@@ -434,71 +259,6 @@ export default function CreateAgentPage() {
     }
   }
 
-  async function saveModel() {
-    if (!agentDid) {
-      setStep("skills");
-      return;
-    }
-
-    // If no model selected, skip
-    if (modelMode === "registry" && !selectedModel) {
-      setStep("skills");
-      return;
-    }
-    if (modelMode === "litellm" && !selectedLiteLlmModel) {
-      setStep("skills");
-      return;
-    }
-
-    setSavingModel(true);
-    setModelError(null);
-    try {
-      if (modelMode === "registry" && selectedModel) {
-        unwrap(
-          await agentsClient.setLlmConfig({
-            params: { did: agentDid },
-            body: { registryModelId: selectedModel },
-          })
-        );
-      } else if (modelMode === "litellm" && selectedLiteLlmModel) {
-        // Create/validate LiteLLM key for this model
-        await fetch(`/api/agents/${agentDid}/litellm-key`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            allowedModels: [selectedLiteLlmModel],
-          }),
-        }).then((r) => {
-          if (!r.ok) throw new Error("Failed to create LiteLLM key");
-          return r.json();
-        });
-      }
-      setStep("skills");
-    } catch (err) {
-      setModelError(
-        err instanceof Error ? err.message : "Network error while saving model"
-      );
-    } finally {
-      setSavingModel(false);
-    }
-  }
-
-  async function toggleSkill(skill: SkillConfig, realmSkillId: string) {
-    if (!agentDid || skill.isRequired) return;
-    const newEnabled = !skill.enabled;
-    setSkills((prev) =>
-      prev.map((s) =>
-        s.name === skill.name ? { ...s, enabled: newEnabled } : s
-      )
-    );
-    unwrap(
-      await agentsClient.updateSkillOverride({
-        params: { did: agentDid },
-        body: { realmSkillId, enabled: newEnabled },
-      })
-    );
-  }
-
   // ── TopBar breadcrumbs + toolbar (title + step indicator) ───────────────────
 
   useBreadcrumbs(
@@ -524,21 +284,8 @@ export default function CreateAgentPage() {
     <div className="p-6 w-full max-w-7xl mx-auto">
       {step === "launch" && (
         <LaunchStep
-          connMethod={connMethod}
-          setConnMethod={setConnMethod}
-          wsUrl={wsUrl}
-          setWsUrl={setWsUrl}
-          peerjsId={peerjsId}
-          peerjsEnabled={peerjsEnabled}
-          peerjsServerUrl={peerjsServerUrl}
-          agentName={agentName}
-          setAgentName={setAgentName}
           realms={realms}
-          selectedLaunchRealm={selectedLaunchRealm}
-          setSelectedLaunchRealm={setSelectedLaunchRealm}
           setSelectedRealms={setSelectedRealms}
-          pkgRunner={pkgRunner}
-          setPkgRunner={setPkgRunner}
           onContinue={startWaiting}
         />
       )}
@@ -583,42 +330,16 @@ export default function CreateAgentPage() {
       )}
 
       {step === "model" && (
-        <ModelStep
-          models={models}
-          selectedModel={selectedModel}
-          setSelectedModel={setSelectedModel}
-          liteLlmModels={liteLlmModels}
-          liteLlmConfigured={liteLlmConfigured}
-          selectedLiteLlmModel={selectedLiteLlmModel}
-          setSelectedLiteLlmModel={setSelectedLiteLlmModel}
-          modelMode={modelMode}
-          setModelMode={setModelMode}
-          savingModel={savingModel}
-          modelError={modelError}
-          onSave={saveModel}
-          onSkip={() => setStep("skills")}
-        />
+        <ModelStep agentDid={agentDid} onDone={() => setStep("skills")} />
       )}
 
       {step === "skills" && (
-        <SkillsStep
-          skills={skills}
-          savingSkills={savingSkills}
-          onToggleSkill={toggleSkill}
-          onContinue={() => setStep("verify")}
-        />
+        <SkillsStep agentDid={agentDid} onContinue={() => setStep("verify")} />
       )}
 
       {step === "verify" && (
         <VerifyStep
-          verifyText={verifyText}
-          verifyDone={verifyDone}
-          verifyError={verifyError}
-          onRetry={() => {
-            setVerifyText("");
-            setVerifyDone(false);
-            setVerifyError(null);
-          }}
+          agentDid={agentDid}
           onFinish={() =>
             agentDid
               ? router.push(`/agents/${encodeURIComponent(agentDid)}`)

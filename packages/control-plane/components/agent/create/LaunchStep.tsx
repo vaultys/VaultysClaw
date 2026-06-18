@@ -19,7 +19,8 @@ interface LaunchStepProps {
   realms: Realm[];
   /** Set the realm the agent will be enrolled in during approval. */
   setSelectedRealms: (s: Set<string>) => void;
-  onContinue: () => void;
+  /** Proceed to the waiting step with the entered agent name. */
+  onContinue: (agentName: string) => void;
 }
 
 export function LaunchStep({
@@ -243,9 +244,7 @@ export function LaunchStep({
           placeholder="e.g. researcher"
           className={cn(
             "w-full px-3 py-2 bg-background-100 border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary-500",
-            agentName.trim()
-              ? "border-neutral-200"
-              : "border-warning-400"
+            agentName.trim() ? "border-neutral-200" : "border-warning-400"
           )}
         />
         <p className="text-xs text-foreground-400">
@@ -330,8 +329,8 @@ export function LaunchStep({
           {connMethod === "peerjs" ? (
             <>
               <li>
-                The CLI starts, creates a local identity, and connects via WebRTC
-                using the peer ID above
+                The CLI starts, creates a local identity, and connects via
+                WebRTC using the peer ID above
               </li>
               <li>
                 A PeerJS signaling server brokers the connection — no port
@@ -342,7 +341,9 @@ export function LaunchStep({
                 pending queue
               </li>
               <li>You approve it here — assigning capabilities and a realm</li>
-              <li>The agent becomes active and starts accepting instructions</li>
+              <li>
+                The agent becomes active and starts accepting instructions
+              </li>
             </>
           ) : (
             <>
@@ -355,7 +356,9 @@ export function LaunchStep({
                 pending queue
               </li>
               <li>You approve it here — assigning capabilities and a realm</li>
-              <li>The agent becomes active and starts accepting instructions</li>
+              <li>
+                The agent becomes active and starts accepting instructions
+              </li>
             </>
           )}
         </ol>
@@ -363,7 +366,7 @@ export function LaunchStep({
 
       <div className="flex justify-end">
         <button
-          onClick={onContinue}
+          onClick={() => onContinue(agentName.trim())}
           disabled={!agentName.trim()}
           title={!agentName.trim() ? "Enter an agent name first" : undefined}
           className="flex items-center gap-2 px-5 py-2.5 bg-primary-600 hover:bg-primary-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors"

@@ -7,6 +7,8 @@ import type { PendingReg } from "./constants";
 
 interface WaitingStepProps {
   wsConnected: boolean;
+  /** Agent name entered in the launch step — only this agent is awaited. */
+  expectedName: string;
   pendingReg: PendingReg | null;
   waitingRegs: PendingReg[];
   onSelectReg: (reg: PendingReg) => void;
@@ -16,6 +18,7 @@ interface WaitingStepProps {
 
 export function WaitingStep({
   wsConnected,
+  expectedName,
   pendingReg,
   waitingRegs,
   onSelectReg,
@@ -30,7 +33,13 @@ export function WaitingStep({
             Waiting for agent connection
           </h2>
           <p className="text-sm text-foreground-500">
-            Listening for incoming registration requests in real time.
+            Listening for a registration from{" "}
+            {expectedName ? (
+              <span className="font-medium text-foreground">{expectedName}</span>
+            ) : (
+              "your agent"
+            )}{" "}
+            in real time.
           </p>
         </div>
         <span
@@ -83,11 +92,18 @@ export function WaitingStep({
             </span>
           </div>
           <p className="text-sm text-foreground-500 text-center">
-            Waiting for an agent to call home…
+            Waiting for{" "}
+            {expectedName ? (
+              <span className="font-medium text-foreground">{expectedName}</span>
+            ) : (
+              "an agent"
+            )}{" "}
+            to call home…
             <br />
             <span className="text-xs text-foreground-400">
-              Make sure the CLI is running and points to the correct WebSocket
-              URL.
+              Make sure the CLI is running with{" "}
+              <code className="font-mono">--name {expectedName || "<name>"}</code>{" "}
+              and points to the correct WebSocket URL.
             </span>
           </p>
         </div>

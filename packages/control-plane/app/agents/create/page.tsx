@@ -47,10 +47,19 @@ export default function CreateAgentPage() {
   // Set once the agent is approved — drives the model/skills/verify steps.
   const [agentDid, setAgentDid] = useState<string | null>(null);
 
+  // Name entered in the Launch step (the agent is launched with `--name <this>`).
+  // Used to only surface registrations matching the agent the user just launched.
+  const [launchedName, setLaunchedName] = useState("");
+
   // Track registrations seen before entering waiting step so we can highlight new ones
   const prevRegIds = useRef<Set<string>>(new Set());
   // Merged set of all pending registrations (REST + WS) shown in the waiting step
   const [waitingRegs, setWaitingRegs] = useState<PendingReg[]>([]);
+
+  // Only registrations matching the launched agent name are candidates for
+  // approval (when launched via the wizard; the regId deep-link bypasses this).
+  const matchesLaunch = (r: PendingReg) =>
+    !launchedName || r.agentName === launchedName;
 
   // ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -96,7 +105,10 @@ export default function CreateAgentPage() {
   useEffect(() => {
     if (step !== "waiting") return;
     const newRegs = registrations.filter(
-      (r) => !prevRegIds.current.has(r.id) && r.status === "pending"
+      (r) =>
+        !prevRegIds.current.has(r.id) &&
+        r.status === "pending" &&
+        matchesLaunch(r as PendingReg)
     );
     if (newRegs.length > 0) {
       // Merge new WS-delivered regs into the waiting list
@@ -114,13 +126,14 @@ export default function CreateAgentPage() {
       if (!pendingReg) selectRegistration(newRegs[0] as PendingReg);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [registrations, step, pendingReg]);
+  }, [registrations, step, pendingReg, launchedName]);
 
   // ── Handlers ──────────────────────────────────────────────────────────────
 
-  async function startWaiting() {
+  async function startWaiting(agentName: string) {
     // Snapshot WS-known IDs so genuinely new arrivals can be detected via the effect below
     prevRegIds.current = new Set(registrations.map((r) => r.id));
+    setLaunchedName(agentName);
     setPendingReg(null);
     setStep("waiting");
 
@@ -131,7 +144,7 @@ export default function CreateAgentPage() {
       if (!res.ok) return;
       const data = (await res.json()) as { registrations?: PendingReg[] };
       const pending = (data.registrations ?? []).filter(
-        (r) => r.status === "pending"
+        (r) => r.status === "pending" && r.agentName === agentName
       );
       if (pending.length === 0) return;
       // Show the most recent pending registration
@@ -293,6 +306,7 @@ export default function CreateAgentPage() {
       {step === "waiting" && (
         <WaitingStep
           wsConnected={wsConnected}
+          expectedName={launchedName}
           pendingReg={pendingReg}
           waitingRegs={waitingRegs}
           onSelectReg={selectRegistration}

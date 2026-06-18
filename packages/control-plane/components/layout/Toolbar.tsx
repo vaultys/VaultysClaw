@@ -1,6 +1,7 @@
 "use client";
 
 import { useToolbarState, type ToolbarAction } from "./ToolbarContext";
+import ToolbarSearch from "./ToolbarSearch";
 
 const BADGE_TONES: Record<
   NonNullable<Extract<ToolbarAction, { kind: "badge" }>["tone"]>,
@@ -73,8 +74,8 @@ export default function Toolbar() {
   if (!config) return null;
 
   return (
-    <div className="flex items-center justify-between gap-3 px-6 py-3 bg-background border-b border-neutral-200/60 shrink-0">
-      <div className="min-w-0">
+    <div className="flex items-center gap-4 px-6 py-3 bg-background border-b border-neutral-200/60 shrink-0">
+      <div className="min-w-0 shrink-0">
         <h1 className="text-lg font-semibold text-foreground truncate">
           {config.title}
         </h1>
@@ -84,6 +85,16 @@ export default function Toolbar() {
           </p>
         )}
       </div>
+
+      {/* Center: advanced search (or a spacer to keep actions right-aligned) */}
+      {config.search ? (
+        <div className="flex-1 flex justify-center">
+          <ToolbarSearch search={config.search} />
+        </div>
+      ) : (
+        <div className="flex-1" />
+      )}
+
       {config.actions && config.actions.length > 0 && (
         <div className="flex items-center gap-3 shrink-0">
           {config.actions.map((action) => (

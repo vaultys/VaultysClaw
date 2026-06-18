@@ -41,11 +41,53 @@ export type ToolbarAction =
       tone?: "success" | "neutral" | "warning" | "danger";
     };
 
+/** A removable pill shown inside the search bar for an active filter. */
+export interface ToolbarSearchChip {
+  id: string;
+  label: ReactNode;
+  onRemove: () => void;
+}
+
+/** A single selectable option inside a filter group (a column of the panel). */
+export interface ToolbarFilterOption {
+  id: string;
+  label: ReactNode;
+  icon?: ReactNode;
+  active: boolean;
+  onToggle: () => void;
+}
+
+/** A column of related filter/group-by options in the advanced search panel. */
+export interface ToolbarFilterGroup {
+  id: string;
+  label: string;
+  icon?: ReactNode;
+  options: ToolbarFilterOption[];
+  /** Optional "clear" action rendered at the bottom of the column. */
+  onClear?: () => void;
+}
+
+/**
+ * Odoo-style advanced search bar: a text input prefixed with removable filter
+ * chips, plus an expandable panel of filter groups (columns).
+ */
+export interface ToolbarSearchConfig {
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+  /** Active filters shown as removable chips left of the input. */
+  chips?: ToolbarSearchChip[];
+  /** Columns rendered inside the expandable filter panel. */
+  filterGroups?: ToolbarFilterGroup[];
+}
+
 export interface ToolbarConfig {
   /** Page title shown on the left of the toolbar. */
   title: string;
   /** Optional subtitle / description shown under the title. */
   description?: ReactNode;
+  /** Optional advanced search bar rendered in the center of the toolbar. */
+  search?: ToolbarSearchConfig;
   /** Actions rendered on the right, in order. */
   actions?: ToolbarAction[];
 }

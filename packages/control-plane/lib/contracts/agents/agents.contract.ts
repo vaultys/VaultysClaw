@@ -17,6 +17,7 @@ import {
 } from "./agents.schemas";
 import z from "zod";
 import { AgentInfo } from "./agents.types";
+import { ChatHistoryMessage, ChatSession } from "@vaultysclaw/shared";
 
 export const agentsContract = c.router({
   // ─── Agent CRUD ─────────────────────────────────────────────────────────────
@@ -313,7 +314,7 @@ export const agentsContract = c.router({
     path: "/api/agents/:did/chat-sessions",
     pathParams: z.object({ did: z.string() }),
     responses: {
-      200: c.type<{ sessions: any[] }>(),
+      200: c.type<{ sessions: ChatSession[] }>(),
       ...commonErrorResponses,
     },
   },
@@ -323,7 +324,7 @@ export const agentsContract = c.router({
     path: "/api/agents/:did/chat-sessions/:sessionId",
     pathParams: z.object({ did: z.string(), sessionId: z.string() }),
     responses: {
-      200: c.type<{ messages: any[] }>(),
+      200: c.type<{ messages: ChatHistoryMessage[] }>(),
       ...commonErrorResponses,
     },
   },

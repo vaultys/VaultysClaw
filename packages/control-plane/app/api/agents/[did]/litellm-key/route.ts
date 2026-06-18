@@ -12,31 +12,6 @@ import { agentsContract } from "@/lib/contracts";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 
 const handlers = createNextRoute(agentsContract, {
-  getLitellmKey: async ({ params, request }) => {
-    const auth = await getAuthContext(request);
-    const { did } = params;
-
-    if (!auth.isGlobalAdmin && !auth.canAdminAgent(did))
-      throw new APIException("FORBIDDEN");
-
-    const agent = await AgentDAO.findByDid(did);
-    if (!agent) throw new APIException("NOT_FOUND");
-
-    const info = await AgentDAO.getLiteLLMKey(did);
-
-    return {
-      status: 200,
-      body: {
-        configured: Boolean(info?.virtualKey),
-        keyPrefix: info?.virtualKey?.slice(0, 8) ?? null,
-        allowedModels: info?.allowedModels ?? [],
-        dailyBudget: info?.dailyBudget ?? null,
-        updatedAt: info?.updatedAt ? (info.updatedAt instanceof Date ? info.updatedAt.toISOString() : String(info.updatedAt)) : null,
-        litellmConfigured: isLiteLLMConfigured(),
-      },
-    };
-  },
-
   putLitellmKey: async ({ params, body, request }) => {
     const auth = await getAuthContext(request);
     const { did } = params;
@@ -70,7 +45,12 @@ const handlers = createNextRoute(agentsContract, {
         : (body.dailyBudget ?? undefined);
 
     const virtualKey = await createAgentKey(did, allowedModels, dailyBudget);
-    await AgentDAO.updateLiteLLMKey(did, virtualKey, allowedModels, dailyBudget);
+    await AgentDAO.updateLiteLLMKey(
+      did,
+      virtualKey,
+      allowedModels,
+      dailyBudget
+    );
 
     if (allowedModels.length > 0) {
       const config: LlmConfig = {

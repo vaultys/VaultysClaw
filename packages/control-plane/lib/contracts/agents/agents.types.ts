@@ -22,6 +22,10 @@ export type AgentWithInfo = Prisma.AgentGetPayload<{
     tokenBudgetMonthly: true;
     publicKey: true;
     llmConfig: true;
+    litellmAllowedModels: true;
+    litellmDailyBudget: true;
+    litellmKeyUpdatedAt: true;
+    litellmVirtualKey: true;
   };
   include: {
     tokenHistory: true;

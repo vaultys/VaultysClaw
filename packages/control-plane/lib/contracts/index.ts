@@ -4,7 +4,7 @@ import { apiKeysContract } from "./api-keys.contract";
 import { bridgesContract, channelsContract } from "./channels.contract";
 import { governanceContract } from "./governance/governance.contract";
 import { intentsContract } from "./intents.contract";
-import { knowledgeContract } from "./knowledge.contract";
+import { knowledgeContract } from "./knowledge/knowledge.contract";
 import {
   aboutContract,
   statsContract,
@@ -53,7 +53,10 @@ export * from "./governance/governance.contract";
 export * from "./governance/governance.schemas";
 export * from "./governance/governance.types";
 export * from "./intents.contract";
-export * from "./knowledge.contract";
+export type * from "./knowledge/knowledge.contract";
+export * from "./knowledge/knowledge.contract";
+export * from "./knowledge/knowledge.schemas";
+export * from "./knowledge/knowledge.types";
 export * from "./misc/misc.contract";
 export * from "./misc/misc.schemas";
 export * from "./misc/misc.types";

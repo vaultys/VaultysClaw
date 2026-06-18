@@ -40,7 +40,12 @@ import {
   AlertTriangle,
   Loader2,
 } from "lucide-react";
-import { agentsClient, policiesClient, unwrap } from "@/lib/api/ts-rest/client";
+import {
+  agentsClient,
+  knowledgeClient,
+  policiesClient,
+  unwrap,
+} from "@/lib/api/ts-rest/client";
 import { AgentInfo } from "@/lib/contracts";
 
 // ── Shared palette ─────────────────────────────────────────────────────────────
@@ -531,17 +536,15 @@ export default function AgentEnvironmentGraph({
         const [agentsRes, policiesRes, knowledgeRes] = await Promise.all([
           agentsClient.search(),
           policiesClient.list({ query: { agentDid: agentId } }),
-          fetch(`/api/knowledge?agentDid=${encodeURIComponent(agentId)}`),
+          knowledgeClient.list({ query: { agentDid: agentId } }),
         ]);
-        const knowledgeJson = knowledgeRes.ok
-          ? await knowledgeRes.json()
-          : { sources: [] };
         setData({
           agents: (unwrap(agentsRes).items ?? []).filter(
             (a) => a.did !== agentId
           ),
           policies: unwrap(policiesRes).policies,
-          knowledge: knowledgeJson.sources ?? [],
+          knowledge: unwrap(knowledgeRes)
+            .sources as unknown as KnowledgeSource[],
         });
       } catch (e) {
         setErr(e instanceof Error ? e.message : "Failed to load graph data");

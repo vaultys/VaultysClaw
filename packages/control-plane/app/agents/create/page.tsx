@@ -13,6 +13,7 @@ import {
   type Realm,
   type PendingReg,
 } from "@/components/agent/create/constants";
+import { policiesClient, unwrap } from "@/lib/api/ts-rest/client";
 import { LaunchStep } from "@/components/agent/create/LaunchStep";
 import { WaitingStep } from "@/components/agent/create/WaitingStep";
 import { ApproveStep } from "@/components/agent/create/ApproveStep";
@@ -205,30 +206,22 @@ export default function CreateAgentPage() {
               .filter(Boolean);
           }
 
-          const policyBody: Record<string, unknown> = {
-            agentDid: newAgentDid,
-            capabilities: Array.from(selectedCaps),
-            resourceLimits:
-              Object.keys(resourceLimits).length > 0
-                ? resourceLimits
-                : undefined,
-            expiresAt:
-              policyExpiresAt !== ""
-                ? new Date(policyExpiresAt).toISOString()
-                : undefined,
-          };
-
-          const policyRes = await fetch("/api/policies", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(policyBody),
-          });
-          if (!policyRes.ok) {
-            console.error(
-              "Failed to create initial policy",
-              await policyRes.json().catch(() => ({}))
-            );
-          }
+          unwrap(
+            await policiesClient.create({
+              body: {
+                agentDid: newAgentDid,
+                capabilities: Array.from(selectedCaps),
+                resourceLimits:
+                  Object.keys(resourceLimits).length > 0
+                    ? resourceLimits
+                    : undefined,
+                expiresAt:
+                  policyExpiresAt !== ""
+                    ? new Date(policyExpiresAt).toISOString()
+                    : undefined,
+              },
+            })
+          );
         } catch (policyError) {
           console.error("Error creating initial policy:", policyError);
         }

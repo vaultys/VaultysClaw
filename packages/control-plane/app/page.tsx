@@ -36,7 +36,7 @@ import {
   Mail,
   UserX,
 } from "lucide-react";
-import { agentsClient, unwrap } from "@/lib/api/ts-rest/client";
+import { agentsClient, policiesClient, unwrap } from "@/lib/api/ts-rest/client";
 import { AgentInfo } from "@/lib/contracts";
 
 /* ─── Helpers ────────────────────────────────────────────────── */
@@ -592,9 +592,9 @@ function Dashboard() {
 
   const fetchExpiredPolicies = () => {
     if (!isGlobalAdmin) return;
-    fetch("/api/policies?expiredOnly=true")
-      .then((r) => (r.ok ? r.json() : { policies: [] }))
-      .then((d: { policies?: ExpiredPolicy[] }) => setExpiredPolicies(d.policies ?? []))
+    policiesClient
+      .list({ query: { expiredOnly: true } })
+      .then((r) => setExpiredPolicies(unwrap(r).policies))
       .catch(() => { });
   };
 
@@ -623,23 +623,21 @@ function Dashboard() {
           Object.keys(renewingPolicy.resourceLimits).length > 0
           ? renewingPolicy.resourceLimits
           : undefined;
-      const res = await fetch("/api/policies", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          agentDid: renewingPolicy.agentDid,
-          capabilities: renewingPolicy.capabilities,
-          resourceLimits: rl,
-          expiresAt: renewExpiry ? new Date(renewExpiry).toISOString() : undefined,
-        }),
-      });
-      if (res.ok) {
-        await fetch(`/api/policies/${encodeURIComponent(renewingPolicy.id)}`, {
-          method: "DELETE",
-        });
-        setRenewingPolicy(null);
-        fetchExpiredPolicies();
-      }
+      unwrap(
+        await policiesClient.create({
+          body: {
+            agentDid: renewingPolicy.agentDid ?? undefined,
+            capabilities: renewingPolicy.capabilities,
+            resourceLimits: rl as Record<string, unknown> | undefined,
+            expiresAt: renewExpiry
+              ? new Date(renewExpiry).toISOString()
+              : undefined,
+          },
+        })
+      );
+      await policiesClient.remove({ params: { id: renewingPolicy.id } });
+      setRenewingPolicy(null);
+      fetchExpiredPolicies();
     } finally {
       setRenewSaving(false);
     }

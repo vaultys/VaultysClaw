@@ -30,7 +30,12 @@ import {
   Gauge,
   BookOpen,
 } from "lucide-react";
-import { agentsClient, unwrap } from "@/lib/api/ts-rest/client";
+import {
+  agentsClient,
+  governanceClient,
+  policiesClient,
+  unwrap,
+} from "@/lib/api/ts-rest/client";
 import { AgentInfo } from "@/lib/contracts";
 import {
   daysFromNow,
@@ -453,30 +458,28 @@ function RenewPolicyModal({
           ? policy.resourceLimits
           : undefined;
 
-      const res = await fetch("/api/policies", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          agentDid: policy.agentDid,
-          realmId: policy.realmId,
-          capabilities: policy.capabilities,
-          resourceLimits,
-          expiresAt: newExpiry ? new Date(newExpiry).toISOString() : undefined,
-        }),
-      });
-
-      if (!res.ok) {
-        const d = (await res.json()) as { error?: string };
-        setError(d.error ?? "Failed to create renewed policy");
-        return;
-      }
+      unwrap(
+        await policiesClient.create({
+          body: {
+            agentDid: policy.agentDid ?? undefined,
+            realmId: policy.realmId ?? undefined,
+            capabilities: policy.capabilities,
+            resourceLimits: resourceLimits as Record<string, unknown> | undefined,
+            expiresAt: newExpiry
+              ? new Date(newExpiry).toISOString()
+              : undefined,
+          },
+        })
+      );
 
       if (revokeOriginal) {
-        await fetch(`/api/policies/${policy.id}`, { method: "DELETE" });
+        await policiesClient.remove({ params: { id: policy.id } });
       }
 
       onRenewed();
       onClose();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to create renewed policy");
     } finally {
       setSaving(false);
     }
@@ -661,17 +664,14 @@ function PoliciesTab() {
     setLoading(true);
     try {
       const [polRes, agentRes] = await Promise.all([
-        fetch("/api/policies?includeExpired=false"),
+        policiesClient.list({ query: { includeExpired: false } }),
         agentsClient.search({
           query: {
             pageSize: 100,
           },
         }),
       ]);
-      if (polRes.ok) {
-        const d = (await polRes.json()) as { policies: Policy[] };
-        setPolicies(d.policies);
-      }
+      setPolicies(unwrap(polRes).policies);
       const agents = unwrap(agentRes).items;
       setAgents(agents);
     } finally {
@@ -693,19 +693,21 @@ function PoliciesTab() {
       if (form.maxRequestsPerHour)
         resourceLimits.maxRequestsPerHour = parseInt(form.maxRequestsPerHour);
 
-      await fetch("/api/policies", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          agentDid: form.agentDid,
-          capabilities: form.capabilities,
-          resourceLimits:
-            Object.keys(resourceLimits).length > 0 ? resourceLimits : undefined,
-          expiresAt: form.expiresAt
-            ? new Date(form.expiresAt).toISOString()
-            : undefined,
-        }),
-      });
+      unwrap(
+        await policiesClient.create({
+          body: {
+            agentDid: form.agentDid,
+            capabilities: form.capabilities,
+            resourceLimits:
+              Object.keys(resourceLimits).length > 0
+                ? resourceLimits
+                : undefined,
+            expiresAt: form.expiresAt
+              ? new Date(form.expiresAt).toISOString()
+              : undefined,
+          },
+        })
+      );
       setForm({
         agentDid: "",
         capabilities: [],
@@ -722,7 +724,7 @@ function PoliciesTab() {
   const handleRevoke = async (id: string) => {
     setRevoking(id);
     try {
-      await fetch(`/api/policies/${id}`, { method: "DELETE" });
+      await policiesClient.remove({ params: { id } });
       await fetchAll();
     } finally {
       setRevoking(null);
@@ -1195,13 +1197,18 @@ function AuditTab() {
   const fetchEntries = useCallback(async () => {
     setLoading(true);
     try {
-      const sp = new URLSearchParams({ limit: "300" });
-      if (sourceFilter) sp.set("source", sourceFilter);
-      if (statusFilter) sp.set("status", statusFilter);
-      const res = await fetch(`/api/governance/audit?${sp}`);
-      if (!res.ok) return;
-      const data = (await res.json()) as { entries: AuditEntry[] };
-      setEntries(data.entries ?? []);
+      const { entries } = unwrap(
+        await governanceClient.audit({
+          query: {
+            limit: 300,
+            ...(sourceFilter ? { source: sourceFilter } : {}),
+            ...(statusFilter ? { status: statusFilter } : {}),
+          },
+        })
+      );
+      setEntries(entries);
+    } catch {
+      // keep previous entries on failure
     } finally {
       setLoading(false);
     }

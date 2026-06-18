@@ -6,22 +6,22 @@ import { governanceContract } from "./governance/governance.contract";
 import { intentsContract } from "./intents.contract";
 import { knowledgeContract } from "./knowledge.contract";
 import {
-    aboutContract,
-    statsContract,
-    userStatusContract,
+  aboutContract,
+  statsContract,
+  userStatusContract,
 } from "./misc/misc.contract";
 import { litellmContract, modelsContract } from "./models/models.contract";
 import {
-    graphContract,
-    healthContract,
-    mapContract,
-    networkContract,
+  graphContract,
+  healthContract,
+  mapContract,
+  networkContract,
 } from "./network.contract";
 import { policiesContract } from "./policies/policies.contract";
 import { realmsContract } from "./realms.contract";
 import {
-    registrationsContract,
-    toolApprovalsContract,
+  registrationsContract,
+  toolApprovalsContract,
 } from "./registrations.contract";
 import { serverContract } from "./server.contract";
 import { setupContract, settingsContract } from "./settings.contract";
@@ -29,14 +29,14 @@ import { orgSkillsContract, skillsContract } from "./skills.contract";
 import { userAuthContract } from "./user-auth.contract";
 import { wellKnownContract } from "./well-known/well-known.contract";
 import {
-    invitationsContract,
-    meContract,
-    usersContract,
+  invitationsContract,
+  meContract,
+  usersContract,
 } from "./users.contract";
 import {
-    workflowApprovalsContract,
-    workflowRunsContract,
-    workflowsContract,
+  workflowApprovalsContract,
+  workflowRunsContract,
+  workflowsContract,
 } from "./workflows.contract";
 
 export { c } from "./contract";

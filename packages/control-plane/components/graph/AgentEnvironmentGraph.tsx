@@ -40,7 +40,7 @@ import {
   AlertTriangle,
   Loader2,
 } from "lucide-react";
-import { agentsClient, unwrap } from "@/lib/api/ts-rest/client";
+import { agentsClient, policiesClient, unwrap } from "@/lib/api/ts-rest/client";
 import { AgentInfo } from "@/lib/contracts";
 
 // ── Shared palette ─────────────────────────────────────────────────────────────
@@ -530,12 +530,9 @@ export default function AgentEnvironmentGraph({
       try {
         const [agentsRes, policiesRes, knowledgeRes] = await Promise.all([
           agentsClient.search(),
-          fetch(`/api/policies?agentDid=${encodeURIComponent(agentId)}`),
+          policiesClient.list({ query: { agentDid: agentId } }),
           fetch(`/api/knowledge?agentDid=${encodeURIComponent(agentId)}`),
         ]);
-        const policiesJson = policiesRes.ok
-          ? await policiesRes.json()
-          : { policies: [] };
         const knowledgeJson = knowledgeRes.ok
           ? await knowledgeRes.json()
           : { sources: [] };
@@ -543,7 +540,7 @@ export default function AgentEnvironmentGraph({
           agents: (unwrap(agentsRes).items ?? []).filter(
             (a) => a.did !== agentId
           ),
-          policies: policiesJson.policies ?? [],
+          policies: unwrap(policiesRes).policies,
           knowledge: knowledgeJson.sources ?? [],
         });
       } catch (e) {

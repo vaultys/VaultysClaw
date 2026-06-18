@@ -25,6 +25,11 @@ import { formatDateTime, parseUTC, timeAgo } from "@vaultysclaw/shared";
 import { CAPABILITY_ICONS } from "./capability-icons";
 import { ALL_CAPABILITIES, AUDIT_LABELS } from "./constants";
 import type { PolicyEntry, AuditEntry } from "@/lib/contracts";
+import {
+  governanceClient,
+  policiesClient,
+  unwrap,
+} from "@/lib/api/ts-rest/client";
 
 const EMPTY_LIMITS = {
   maxTokensPerDay: "",
@@ -85,30 +90,25 @@ export function GovernanceTab({
         Object.keys(renewTarget.resourceLimits).length > 0
           ? renewTarget.resourceLimits
           : undefined;
-      const res = await fetch("/api/policies", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          agentDid: renewTarget.agentDid,
-          capabilities: renewTarget.capabilities,
-          resourceLimits: rl,
-          expiresAt: renewExpiry
-            ? new Date(renewExpiry).toISOString()
-            : undefined,
-        }),
-      });
-      if (!res.ok) {
-        const d = (await res.json().catch(() => ({}))) as { error?: string };
-        setRenewError(d.error ?? `HTTP ${res.status}`);
-        return;
-      }
+      unwrap(
+        await policiesClient.create({
+          body: {
+            agentDid: renewTarget.agentDid ?? undefined,
+            capabilities: renewTarget.capabilities,
+            resourceLimits: rl as Record<string, unknown> | undefined,
+            expiresAt: renewExpiry
+              ? new Date(renewExpiry).toISOString()
+              : undefined,
+          },
+        })
+      );
       if (renewRevokeOriginal) {
-        await fetch(`/api/policies/${encodeURIComponent(renewTarget.id)}`, {
-          method: "DELETE",
-        });
+        await policiesClient.remove({ params: { id: renewTarget.id } });
       }
       setRenewTarget(null);
       await fetchPolicies();
+    } catch (e) {
+      setRenewError(e instanceof Error ? e.message : "Failed to renew policy");
     } finally {
       setRenewSaving(false);
     }
@@ -128,15 +128,20 @@ export function GovernanceTab({
   const fetchAudit = useCallback(async () => {
     setAuditLoading(true);
     try {
-      const params = new URLSearchParams({ agentDid: did, limit: "200" });
-      if (auditSourceFilter) params.set("source", auditSourceFilter);
-      if (auditStatusFilter) params.set("status", auditStatusFilter);
-      const res = await fetch(`/api/governance/audit?${params.toString()}`);
-      if (res.ok) {
-        const data = await res.json();
-        setAuditEntries(data.entries ?? []);
-        setAuditPage(0);
-      }
+      const { entries } = unwrap(
+        await governanceClient.audit({
+          query: {
+            agentDid: did,
+            limit: 200,
+            ...(auditSourceFilter ? { source: auditSourceFilter } : {}),
+            ...(auditStatusFilter ? { status: auditStatusFilter } : {}),
+          },
+        })
+      );
+      setAuditEntries(entries);
+      setAuditPage(0);
+    } catch {
+      // keep previous entries on failure
     } finally {
       setAuditLoading(false);
     }
@@ -148,13 +153,12 @@ export function GovernanceTab({
 
   const fetchPolicies = useCallback(async () => {
     try {
-      const res = await fetch(
-        `/api/policies?agentDid=${encodeURIComponent(did)}`
+      const { policies } = unwrap(
+        await policiesClient.list({ query: { agentDid: did } })
       );
-      if (res.ok) {
-        const data = await res.json();
-        setPolicies(data.policies ?? []);
-      }
+      setPolicies(policies);
+    } catch {
+      // keep previous policies on failure
     } finally {
       setLoadingPolicies(false);
     }
@@ -193,23 +197,22 @@ export function GovernanceTab({
           .map((d) => d.trim())
           .filter(Boolean);
       }
-      const body: Record<string, unknown> = {
-        agentDid: did,
-        capabilities: formCaps,
-        resourceLimits:
-          Object.keys(resourceLimits).length > 0 ? resourceLimits : undefined,
-        expiresAt:
-          formExpiry !== "" ? new Date(formExpiry).toISOString() : undefined,
-      };
-      const res = await fetch("/api/policies", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error ?? `HTTP ${res.status}`);
-      }
+      unwrap(
+        await policiesClient.create({
+          body: {
+            agentDid: did,
+            capabilities: formCaps,
+            resourceLimits:
+              Object.keys(resourceLimits).length > 0
+                ? resourceLimits
+                : undefined,
+            expiresAt:
+              formExpiry !== ""
+                ? new Date(formExpiry).toISOString()
+                : undefined,
+          },
+        })
+      );
       setShowForm(false);
       await fetchPolicies();
     } catch (e) {
@@ -222,9 +225,7 @@ export function GovernanceTab({
   const revokePolicy = async (id: string) => {
     setRevoking(id);
     try {
-      await fetch(`/api/policies/${encodeURIComponent(id)}`, {
-        method: "DELETE",
-      });
+      await policiesClient.remove({ params: { id } });
       await fetchPolicies();
     } finally {
       setRevoking(null);

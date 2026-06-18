@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import { timeAgo } from "@vaultysclaw/shared";
 import { ConfirmModal } from "@/components/shared/ConfirmModal";
+import { policiesClient, unwrap } from "@/lib/api/ts-rest/client";
 
 interface KnowledgeSource {
   id: string;
@@ -1026,19 +1027,10 @@ export function KnowledgeTab({
   async function handleGrantKnowledgeSearch() {
     setGranting(true);
     try {
-      const policiesRes = await fetch(
-        `/api/policies?agentDid=${encodeURIComponent(did)}`
+      const { policies } = unwrap(
+        await policiesClient.list({ query: { agentDid: did } })
       );
-      const policiesData = (await policiesRes.json()) as {
-        policies?: Array<{
-          id: string;
-          capabilities: string[];
-          resourceLimits: Record<string, unknown> | null;
-          expiresAt: string | null;
-          createdAt: string;
-        }>;
-      };
-      const activePolicies = (policiesData.policies ?? [])
+      const activePolicies = policies
         .filter((p) => !p.expiresAt || new Date(p.expiresAt) > new Date())
         .sort(
           (a, b) =>
@@ -1054,26 +1046,20 @@ export function KnowledgeTab({
         : [...baseCaps, "knowledge_search"];
 
       if (latestPolicy) {
-        await fetch(`/api/policies/${encodeURIComponent(latestPolicy.id)}`, {
-          method: "DELETE",
-        });
+        await policiesClient.remove({ params: { id: latestPolicy.id } });
       }
 
-      const createRes = await fetch("/api/policies", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          agentDid: did,
-          capabilities: newCaps,
-          resourceLimits: latestPolicy?.resourceLimits ?? undefined,
-        }),
-      });
-      if (!createRes.ok) {
-        const err = (await createRes.json().catch(() => ({}))) as {
-          error?: string;
-        };
-        throw new Error(err.error ?? `HTTP ${createRes.status}`);
-      }
+      unwrap(
+        await policiesClient.create({
+          body: {
+            agentDid: did,
+            capabilities: newCaps,
+            resourceLimits:
+              (latestPolicy?.resourceLimits as Record<string, unknown> | null) ??
+              undefined,
+          },
+        })
+      );
 
       showToast("knowledge_search granted — new policy applied");
     } catch (err) {

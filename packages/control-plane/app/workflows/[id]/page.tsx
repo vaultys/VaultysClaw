@@ -21,6 +21,8 @@ import {
 } from "lucide-react";
 import { WorkflowViewer } from "@/components/workflow/WorkflowViewer";
 import { WorkflowRunModal } from "@/components/workflow/WorkflowRunModal";
+import { useToolbar } from "@/components/layout/ToolbarContext";
+import { useBreadcrumbs } from "@/components/layout/BreadcrumbContext";
 import type { WorkflowDefinition } from "@/lib/workflow-types";
 import {
   agentsClient,
@@ -357,6 +359,46 @@ export default function WorkflowDetailPage() {
     });
   };
 
+  const nodeCount = workflow?.definition?.nodes?.length ?? 0;
+  const edgeCount = workflow?.definition?.edges?.length ?? 0;
+
+  useBreadcrumbs(
+    [
+      { label: "Workflows", href: "/workflows" },
+      { label: workflow?.name ?? "Workflow" },
+    ],
+    [workflow?.name]
+  );
+
+  useToolbar(
+    {
+      title: workflow?.name ?? "Workflow",
+      description: workflow?.description ?? undefined,
+      actions: [
+        {
+          kind: "button",
+          id: "execute",
+          label: "Execute",
+          variant: "success",
+          icon: <Play className="w-3.5 h-3.5" />,
+          disabled: !workflow,
+          onClick: () => setExecutingWorkflow(true),
+        },
+        {
+          kind: "button",
+          id: "edit",
+          label: "Edit",
+          variant: "primary",
+          icon: <Edit2 className="w-3.5 h-3.5" />,
+          disabled: !workflow,
+          onClick: () =>
+            workflow && router.push(`/workflows/${workflow.id}/edit`),
+        },
+      ],
+    },
+    [workflow?.id, workflow?.name, workflow?.description, router]
+  );
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -392,52 +434,8 @@ export default function WorkflowDetailPage() {
     );
   }
 
-  const nodeCount = workflow.definition?.nodes?.length ?? 0;
-  const edgeCount = workflow.definition?.edges?.length ?? 0;
-
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <div className="bg-background-100 border-b border-neutral-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-4 min-w-0">
-              <Link
-                href="/workflows"
-                className="flex-shrink-0 flex items-center gap-1.5 text-foreground-500 hover:text-foreground text-sm font-medium"
-              >
-                <ChevronLeft size={16} /> Workflows
-              </Link>
-              <div className="w-px h-4 bg-neutral-300 flex-shrink-0" />
-              <div className="min-w-0">
-                <h1 className="text-xl font-bold text-foreground truncate">
-                  {workflow.name}
-                </h1>
-                {workflow.description && (
-                  <p className="text-foreground-500 text-sm truncate mt-0.5">
-                    {workflow.description}
-                  </p>
-                )}
-              </div>
-            </div>
-            <div className="flex items-center gap-2 flex-shrink-0">
-              <button
-                onClick={() => setExecutingWorkflow(true)}
-                className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-success-600 hover:bg-success-50 rounded-lg border border-success-200"
-              >
-                <Play size={15} /> Execute
-              </button>
-              <Link
-                href={`/workflows/${workflow.id}/edit`}
-                className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg"
-              >
-                <Edit2 size={15} /> Edit Workflow
-              </Link>
-            </div>
-          </div>
-        </div>
-      </div>
-
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
         {/* Workflow overview */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">

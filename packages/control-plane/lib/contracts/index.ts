@@ -18,7 +18,7 @@ import {
   networkContract,
 } from "./network.contract";
 import { policiesContract } from "./policies/policies.contract";
-import { realmsContract } from "./realms.contract";
+import { realmsContract } from "./realms/realms.contract";
 import {
   registrationsContract,
   toolApprovalsContract,
@@ -69,7 +69,10 @@ export type * from "./policies/policies.contract";
 export * from "./policies/policies.contract";
 export * from "./policies/policies.schemas";
 export * from "./policies/policies.types";
-export * from "./realms.contract";
+export type * from "./realms/realms.contract";
+export * from "./realms/realms.contract";
+export * from "./realms/realms.schemas";
+export * from "./realms/realms.types";
 export * from "./registrations.contract";
 export * from "./server.contract";
 export * from "./settings.contract";

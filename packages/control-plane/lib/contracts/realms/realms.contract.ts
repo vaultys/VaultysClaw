@@ -1,7 +1,29 @@
 import { z } from "zod";
-import { c } from "./contract";
-import { commonErrorResponses } from "./common";
-import type { Agent, Realm, RealmSkill, User, Workflow } from "@prisma/client";
+import { c } from "../contract";
+import { commonErrorResponses } from "../common";
+import type { Realm, RealmSkill } from "@prisma/client";
+import {
+  AddRealmAgentBodySchema,
+  AddRealmUserBodySchema,
+  CreateRealmBodySchema,
+  CreateRealmSkillBodySchema,
+  DeleteCredentialQuerySchema,
+  ListCredentialsQuerySchema,
+  PutRealmLitellmKeyBodySchema,
+  RemoveRealmAgentBodySchema,
+  RemoveRealmUserBodySchema,
+  SaveCredentialBodySchema,
+  SocialMediaBodySchema,
+  UpdateRealmBodySchema,
+  UpdateRealmSkillBodySchema,
+  UpdateRealmUserBodySchema,
+} from "./realms.schemas";
+import type {
+  RealmCredentialsResponse,
+  RealmDetail,
+  RealmModelsResponse,
+  RealmWithCounts,
+} from "./realms.types";
 
 const IdParam = z.object({ id: z.string().min(1) });
 
@@ -11,15 +33,7 @@ export const realmsContract = c.router({
     path: "/api/realms",
     summary: "List realms with counts of agents, users, and workflows",
     responses: {
-      200: c.type<{
-        realms: Array<
-          Pick<Realm, "id" | "name" | "slug" | "description" | "color"> & {
-            agentCount: number;
-            userCount: number;
-            workflowCount: number;
-          }
-        >;
-      }>(),
+      200: c.type<{ realms: RealmWithCounts[] }>(),
       ...commonErrorResponses,
     },
   },
@@ -28,12 +42,7 @@ export const realmsContract = c.router({
     method: "POST",
     path: "/api/realms",
     summary: "Create a new realm",
-    body: z.object({
-      name: z.string(),
-      slug: z.string().optional(),
-      description: z.string().optional(),
-      color: z.string().optional(),
-    }),
+    body: CreateRealmBodySchema,
     responses: { 201: c.type<{ realm: Realm }>(), ...commonErrorResponses },
   },
 
@@ -43,13 +52,7 @@ export const realmsContract = c.router({
     pathParams: IdParam,
     summary: "Retrieve details of a specific realm",
     responses: {
-      200: c.type<{
-        realm: Realm;
-        agents: Agent[];
-        users: User[];
-        workflows: Workflow[];
-        tokenUsage: { promptTokens: number; completionTokens: number } | null;
-      }>(),
+      200: c.type<RealmDetail>(),
       ...commonErrorResponses,
     },
   },
@@ -59,16 +62,7 @@ export const realmsContract = c.router({
     path: "/api/realms/:id",
     pathParams: IdParam,
     summary: "Update realm metadata or config",
-    body: z.object({
-      name: z.string().optional(),
-      description: z.string().optional(),
-      color: z.string().optional(),
-      llmConfig: z.record(z.string(), z.unknown()).nullable().optional(),
-      defaultCapabilities: z.array(z.string()).optional(),
-      tokenBudgetDaily: z.number().nullable().optional(),
-      tokenBudgetMonthly: z.number().nullable().optional(),
-      allowedCapabilities: z.array(z.string()).nullable().optional(),
-    }),
+    body: UpdateRealmBodySchema,
     responses: { 200: c.type<Realm>(), ...commonErrorResponses },
   },
 
@@ -85,11 +79,7 @@ export const realmsContract = c.router({
     path: "/api/realms/:id/users",
     pathParams: IdParam,
     summary: "Add a user to a realm",
-    body: z.object({
-      userDid: z.string(),
-      isPrimary: z.boolean().optional(),
-      isRealmAdmin: z.boolean().optional(),
-    }),
+    body: AddRealmUserBodySchema,
     responses: { 200: c.type<void>(), ...commonErrorResponses },
   },
 
@@ -98,7 +88,7 @@ export const realmsContract = c.router({
     path: "/api/realms/:id/users",
     pathParams: IdParam,
     summary: "Update a user's realm admin status",
-    body: z.object({ userDid: z.string(), isRealmAdmin: z.boolean() }),
+    body: UpdateRealmUserBodySchema,
     responses: { 200: c.type<void>(), ...commonErrorResponses },
   },
 
@@ -107,7 +97,7 @@ export const realmsContract = c.router({
     path: "/api/realms/:id/users",
     pathParams: IdParam,
     summary: "Remove a user from the specified realm",
-    body: z.object({ userDid: z.string() }),
+    body: RemoveRealmUserBodySchema,
     responses: { 200: c.type<void>(), ...commonErrorResponses },
   },
 
@@ -116,7 +106,7 @@ export const realmsContract = c.router({
     path: "/api/realms/:id/social-media",
     pathParams: IdParam,
     summary: "Dispatch a social media post intent to an online agent",
-    body: z.object({ text: z.string().max(280) }),
+    body: SocialMediaBodySchema,
     responses: {
       200: z.object({
         success: z.boolean(),
@@ -144,13 +134,7 @@ export const realmsContract = c.router({
     path: "/api/realms/:id/skills",
     pathParams: IdParam,
     summary: "Register a skill for a realm",
-    body: z.object({
-      name: z.string(),
-      description: z.string().optional(),
-      version: z.string().optional(),
-      isRequired: z.boolean().optional(),
-      config: z.record(z.string(), z.unknown()).optional(),
-    }),
+    body: CreateRealmSkillBodySchema,
     responses: { 201: c.type<{ skill: RealmSkill }>(), ...commonErrorResponses },
   },
 
@@ -167,13 +151,7 @@ export const realmsContract = c.router({
     path: "/api/realms/:id/skills/:skillId",
     pathParams: z.object({ id: z.string(), skillId: z.string() }),
     summary: "Update skill metadata",
-    body: z.object({
-      description: z.string().nullable().optional(),
-      version: z.string().nullable().optional(),
-      isRequired: z.boolean().optional(),
-      config: z.record(z.string(), z.unknown()).optional(),
-      content: z.string().nullable().optional(),
-    }),
+    body: UpdateRealmSkillBodySchema,
     responses: { 200: c.type<{ skill: RealmSkill }>(), ...commonErrorResponses },
   },
 
@@ -191,14 +169,7 @@ export const realmsContract = c.router({
     pathParams: IdParam,
     summary: "List models available to a realm along with router key info",
     responses: {
-      200: c.type<{
-        models: Array<Record<string, unknown>>;
-        routerKey: {
-          hasVirtualKey: boolean;
-          allowedModels: string[];
-          monthlyBudgetUsd: number;
-        } | null;
-      }>(),
+      200: c.type<RealmModelsResponse>(),
       ...commonErrorResponses,
     },
   },
@@ -208,7 +179,7 @@ export const realmsContract = c.router({
     path: "/api/realms/:id/litellm-key",
     pathParams: IdParam,
     summary: "Provision or refresh the realm's LiteLLM router virtual key",
-    body: z.object({ monthlyBudget: z.number().nullable().optional() }),
+    body: PutRealmLitellmKeyBodySchema,
     responses: {
       200: z.object({
         ok: z.boolean(),
@@ -243,9 +214,9 @@ export const realmsContract = c.router({
     path: "/api/realms/:id/credentials",
     pathParams: IdParam,
     summary: "List credential metadata for a realm",
-    query: z.object({ service: z.string().optional() }),
+    query: ListCredentialsQuerySchema,
     responses: {
-      200: c.type<{ credentials: Array<Record<string, unknown>> }>(),
+      200: c.type<RealmCredentialsResponse>(),
       ...commonErrorResponses,
     },
   },
@@ -255,12 +226,7 @@ export const realmsContract = c.router({
     path: "/api/realms/:id/credentials",
     pathParams: IdParam,
     summary: "Save or update a credential for a realm",
-    body: z.object({
-      service: z.string(),
-      name: z.string(),
-      secret: z.string(),
-      metadata: z.record(z.string(), z.unknown()).optional(),
-    }),
+    body: SaveCredentialBodySchema,
     responses: {
       201: z.object({ success: z.boolean(), id: z.string() }),
       ...commonErrorResponses,
@@ -272,7 +238,7 @@ export const realmsContract = c.router({
     path: "/api/realms/:id/credentials",
     pathParams: IdParam,
     summary: "Remove a credential from a realm",
-    query: z.object({ service: z.string(), name: z.string() }),
+    query: DeleteCredentialQuerySchema,
     responses: {
       200: z.object({ success: z.boolean() }),
       ...commonErrorResponses,
@@ -300,7 +266,7 @@ export const realmsContract = c.router({
     path: "/api/realms/:id/agents",
     pathParams: IdParam,
     summary: "Add an agent to a realm",
-    body: z.object({ agentDid: z.string(), isPrimary: z.boolean().optional() }),
+    body: AddRealmAgentBodySchema,
     responses: {
       200: z.object({ ok: z.boolean(), llmPushed: z.boolean() }),
       ...commonErrorResponses,
@@ -312,7 +278,7 @@ export const realmsContract = c.router({
     path: "/api/realms/:id/agents",
     pathParams: IdParam,
     summary: "Remove an agent from a realm",
-    body: z.object({ agentDid: z.string() }),
+    body: RemoveRealmAgentBodySchema,
     responses: { 200: c.type<void>(), ...commonErrorResponses },
   },
 });

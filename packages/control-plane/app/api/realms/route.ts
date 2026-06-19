@@ -1,177 +1,69 @@
-import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
-import {
-  unauthorized,
-  forbidden,
-  malformed,
-  conflict,
-} from "@/lib/api/utils/api-utils";
+import { APIException } from "@/lib/api/utils/api-utils";
 import { RealmDAO, WorkflowDAO } from "@/db";
-import { withError } from "@/lib/api/handlers/with-error";
+import { realmsContract } from "@/lib/contracts";
+import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 
 /**
- * GET /api/realms — list realms. Admins see all; members see only their realms.
+ * Routes for /api/realms — the collection-level slice of `realmsContract`.
+ *
+ * The contract (lib/contracts/realms.contract.ts) is the single source of
+ * truth for request/response shapes; `createNextRoute` validates inputs and
+ * type-checks every `{ status, body }` returned below against it.
  */
-/**
- * @openapi
- * /api/realms:
- *   get:
- *     summary: List realms with counts of agents, users, and workflows.
- *     tags: [Realms]
- *     responses:
- *       200:
- *         description: A list of realms with associated counts.
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 realms:
- *                   type: array
- *                   items:
- *                     type: object
- *                     properties:
- *                       id:
- *                         type: string
- *                       name:
- *                         type: string
- *                       slug:
- *                         type: string
- *                       description:
- *                         type: string
- *                       color:
- *                         type: string
- *                       agentCount:
- *                         type: integer
- *                       userCount:
- *                         type: integer
- *                       workflowCount:
- *                         type: integer
- *       401:
- *         $ref: '#/components/responses/Unauthorized'
- *       403:
- *         $ref: '#/components/responses/Forbidden'
- *       500:
- *         description: Failed to fetch realms.
- */
-export const GET = withError(async (request: NextRequest) => {
-  const auth = await getAuthContext(request);
-  if (!auth) return unauthorized();
+const handlers = createNextRoute(realmsContract, {
+  // ── GET /api/realms — list realms with member/workflow counts ────────────
+  list: async ({ request }) => {
+    const auth = await getAuthContext(request);
 
-  const allRealms = await RealmDAO.findAll();
+    const allRealms = await RealmDAO.findAll();
 
-  // Filter by realm membership using the auth context's precomputed set
-  // (which correctly uses the DB userId, not the VaultysID DID string).
-  const visibleRealms = auth.isGlobalAdmin
-    ? allRealms
-    : await Promise.all(allRealms.map((r) => auth.canAccessRealm(r.id).then((ok) => (ok ? r : null))))
-        .then((rs) => rs.filter((r): r is NonNullable<typeof r> => r !== null));
+    // Filter by realm membership using the auth context's precomputed set
+    // (which correctly uses the DB userId, not the VaultysID DID string).
+    const visibleRealms = auth.isGlobalAdmin
+      ? allRealms
+      : (
+          await Promise.all(
+            allRealms.map((r) =>
+              auth.canAccessRealm(r.id).then((ok) => (ok ? r : null))
+            )
+          )
+        ).filter((r): r is NonNullable<typeof r> => r !== null);
 
-  const realmsWithCounts = await Promise.all(
-    visibleRealms
-      .map(async (realm) => {
-        const agents = await RealmDAO.getAgents(realm.id);
-        const users = await RealmDAO.getUsers(realm.id);
-        const workflows = await WorkflowDAO.list({ realmId: realm.id });
-        return {
-          ...realm,
-          agentCount: agents.length,
-          userCount: users.length,
-          workflowCount: workflows.length,
-        };
-      })
-  );
-  return NextResponse.json({ realms: realmsWithCounts });
+    return { status: 200, body: { realms: visibleRealms } };
+  },
+
+  // ── POST /api/realms — create a new realm (global admin only) ─────────────
+  create: async ({ body, request }) => {
+    const auth = await getAuthContext(request);
+    if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");
+
+    if (!body.name.trim())
+      throw new APIException("MALFORMED", "name is required");
+
+    const slug = (body.slug ?? body.name)
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "");
+    if (!slug) throw new APIException("MALFORMED", "Invalid slug");
+
+    const existing = await RealmDAO.findBySlug(slug);
+    if (existing)
+      throw new APIException(
+        "CONFLICT",
+        "A realm with this slug already exists"
+      );
+
+    const realm = await RealmDAO.create({
+      name: body.name.trim(),
+      slug,
+      description: body.description?.trim() || undefined,
+      color: body.color,
+    });
+
+    return { status: 201, body: { realm } };
+  },
 });
 
-/**
- * POST /api/realms — create a new realm. Global admin only.
- * Body: { name, slug, description?, color? }
- */
-/**
- * @openapi
- * /api/realms:
- *   post:
- *     summary: Create a new realm.
- *     tags: [Realms]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               name:
- *                 type: string
- *                 description: The name of the realm.
- *               slug:
- *                 type: string
- *                 description: The slug for the realm.
- *               description:
- *                 type: string
- *                 description: A brief description of the realm.
- *               color:
- *                 type: string
- *                 description: The color associated with the realm.
- *             required:
- *               - name
- *     responses:
- *       201:
- *         description: Realm created successfully.
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 realm:
- *                   $ref: '#/components/schemas/Realm'
- *       400:
- *         $ref: '#/components/responses/BadRequest'
- *       401:
- *         $ref: '#/components/responses/Unauthorized'
- *       403:
- *         $ref: '#/components/responses/Forbidden'
- *       409:
- *         description: A realm with this slug already exists.
- *       500:
- *         description: Failed to create realm.
- */
-export const POST = withError(async (req: NextRequest) => {
-  const auth = await getAuthContext(req);
-  if (!auth) return unauthorized();
-  if (!auth.isGlobalAdmin) return forbidden();
-
-  const body = (await req.json()) as {
-    name?: string;
-    slug?: string;
-    description?: string;
-    color?: string;
-  };
-
-  if (!body.name?.trim()) {
-    return malformed("name is required");
-  }
-
-  const slug = (body.slug ?? body.name)
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "");
-
-  if (!slug) {
-    return malformed("Invalid slug");
-  }
-
-  const existing = await RealmDAO.findBySlug(slug);
-  if (existing) {
-    return conflict("A realm with this slug already exists");
-  }
-
-  const realm = await RealmDAO.create({
-    name: body.name.trim(),
-    slug,
-    description: body.description?.trim() || undefined,
-    color: body.color ?? "#6366f1",
-  });
-
-  return NextResponse.json({ realm }, { status: 201 });
-});
+export const GET = handlers.GET!;
+export const POST = handlers.POST!;

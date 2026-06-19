@@ -69,12 +69,20 @@ export const POST = withError(async (request: NextRequest) => {
   if (!auth) return unauthorized();
 
   const body = await request.json();
-  const { name, description, definition, realmId } = body as {
+  const {
+    name,
+    description,
+    definition,
+    realmId: rawRealmId,
+  } = body as {
     name?: string;
     description?: string;
     definition?: WorkflowDefinition;
     realmId?: string;
   };
+  // "default" is a client-side sentinel meaning "no explicit realm" — let the
+  // DAO resolve the actual default realm instead of treating it as a realm id.
+  const realmId = rawRealmId === "default" ? undefined : rawRealmId;
 
   if (!name || typeof name !== "string") {
     return malformed("name (string) is required");

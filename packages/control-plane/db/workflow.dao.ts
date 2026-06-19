@@ -18,7 +18,10 @@ export class WorkflowDAO {
     description?: string
   ): Promise<string> {
     const id = crypto.randomUUID();
-    const defaultRealm = realmId
+    // "default" is a client-side sentinel meaning "no explicit realm".
+    const explicitRealmId =
+      realmId && realmId !== "default" ? realmId : undefined;
+    const defaultRealm = explicitRealmId
       ? null
       : await prisma.realm.findFirst({ where: { isDefault: true } });
     await prisma.workflow.create({
@@ -28,7 +31,7 @@ export class WorkflowDAO {
         description: description ?? null,
         definition: definition,
         createdBy: createdBy ?? null,
-        realmId: realmId ?? defaultRealm?.id ?? null,
+        realmId: explicitRealmId ?? defaultRealm?.id ?? null,
       },
     });
     return id;
@@ -60,10 +63,19 @@ export class WorkflowDAO {
       realmId?: string;
     }
   ): Promise<void> {
+    // "default" is a client-side sentinel meaning the default realm; resolve it
+    // to the real realm id (or leave the field unchanged if none exists).
+    let realmId = data.realmId;
+    if (realmId === "default") {
+      const defaultRealm = await prisma.realm.findFirst({
+        where: { isDefault: true },
+      });
+      realmId = defaultRealm?.id;
+    }
     await prisma.workflow.update({
       where: { id },
       data: {
-        realmId: data.realmId,
+        realmId,
         name: data.name,
         description: data.description,
         definition: data.definition,

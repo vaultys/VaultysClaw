@@ -38,7 +38,7 @@ import {
   RealmLiteLLMKeyCard,
   type RealmRouterKeyData,
 } from "@/components/realms/RealmLiteLLMKeyCard";
-import { agentsClient, unwrap } from "@/lib/api/ts-rest/client";
+import { agentsClient, workflowsClient, unwrap } from "@/lib/api/ts-rest/client";
 import { AgentInfo } from "@/lib/contracts";
 
 const WorldMap = dynamic(
@@ -435,13 +435,12 @@ export default function RealmDetailPage() {
 
   async function handleSelectTemplate(templateId: string) {
     try {
-      const res = await fetch(`/api/workflows/templates/${templateId}`);
-      if (!res.ok) throw new Error("Failed to load template");
-      const data = (await res.json()) as {
-        template: { definition: any; name: string };
-      };
+      const data = unwrap(
+        await workflowsClient.getTemplate({ params: { templateId } })
+      );
+      const template = data.template as { definition: any; name: string };
       clearWorkflowStore();
-      setWorkflowStore("", data.template.name, "", data.template.definition);
+      setWorkflowStore("", template.name, "", template.definition);
       router.push(`/workflows/new/edit?fromTemplate=1&realm=${id}`);
     } catch (err) {
       console.error("Failed to load template:", err);

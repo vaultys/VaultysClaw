@@ -10,6 +10,7 @@ import {
   GitBranch,
   RefreshCcw,
 } from "lucide-react";
+import { workflowApprovalsClient, unwrap } from "@/lib/api/ts-rest/client";
 
 interface Approval {
   id: string;
@@ -37,10 +38,10 @@ export default function InboxPage() {
 
   const fetchApprovals = useCallback(async () => {
     try {
-      const res = await fetch("/api/workflow-approvals?all=1");
-      if (!res.ok) return;
-      const data = (await res.json()) as { approvals: Approval[] };
-      setApprovals(data.approvals);
+      const data = unwrap(
+        await workflowApprovalsClient.list({ query: { all: "1" } }),
+      );
+      setApprovals(data.approvals as unknown as Approval[]);
     } catch {
       // silently ignore
     } finally {
@@ -57,10 +58,9 @@ export default function InboxPage() {
   const handleApprove = async (id: string) => {
     setActing(id);
     try {
-      await fetch(`/api/workflow-approvals/${id}/approve`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ comment: comment[id] || undefined }),
+      await workflowApprovalsClient.approve({
+        params: { id },
+        body: { comment: comment[id] || undefined },
       });
       await fetchApprovals();
     } finally {
@@ -71,10 +71,9 @@ export default function InboxPage() {
   const handleReject = async (id: string) => {
     setActing(id);
     try {
-      await fetch(`/api/workflow-approvals/${id}/reject`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ comment: comment[id] || undefined }),
+      await workflowApprovalsClient.reject({
+        params: { id },
+        body: { comment: comment[id] || undefined },
       });
       await fetchApprovals();
     } finally {
@@ -85,7 +84,7 @@ export default function InboxPage() {
   const handleDismiss = async (id: string) => {
     setActing(id);
     try {
-      await fetch(`/api/workflow-approvals/${id}/dismiss`, { method: "POST" });
+      await workflowApprovalsClient.dismiss({ params: { id } });
       await fetchApprovals();
     } finally {
       setActing(null);

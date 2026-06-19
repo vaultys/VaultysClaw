@@ -32,6 +32,7 @@ import { PropertiesPanel } from "./PropertiesPanel";
 import { useWorkflowStore } from "./store";
 import type { WorkflowDefinition } from "@/lib/workflow-types";
 import { needsLayout, computeLayout } from "@/lib/workflow-layout";
+import { workflowsClient, unwrap } from "@/lib/api/ts-rest/client";
 
 interface WorkflowEditorProps {
   initialDefinition?: WorkflowDefinition;
@@ -212,29 +213,27 @@ export const WorkflowEditor: React.FC<WorkflowEditorProps> = ({
 
       if (workflowId) {
         // Update existing workflow
-        const res = await fetch(`/api/workflows/${workflowId}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            name: workflowName,
-            definition: newDefinition,
-            realmId: workflowRealmId,
+        unwrap(
+          await workflowsClient.update({
+            params: { id: workflowId },
+            body: {
+              name: workflowName,
+              definition: newDefinition as unknown as Record<string, unknown>,
+              realmId: workflowRealmId,
+            },
           }),
-        });
-        if (!res.ok) throw new Error("Failed to update workflow");
+        );
       } else {
         // Create new workflow
-        const res = await fetch("/api/workflows", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            name: workflowName,
-            definition: newDefinition,
-            realmId: workflowRealmId,
+        const data = unwrap(
+          await workflowsClient.create({
+            body: {
+              name: workflowName,
+              definition: newDefinition as unknown as Record<string, unknown>,
+              realmId: workflowRealmId,
+            },
           }),
-        });
-        if (!res.ok) throw new Error("Failed to create workflow");
-        const data = (await res.json()) as { id: string };
+        );
         // Update store with new workflow ID
         setWorkflow(data.id, workflowName, "", newDefinition, workflowRealmId);
       }
@@ -267,14 +266,14 @@ export const WorkflowEditor: React.FC<WorkflowEditorProps> = ({
   };
 
   const runExecution = async (input: string) => {
+    if (!workflowId) return;
     try {
-      const res = await fetch(`/api/workflows/${workflowId}/execute`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ input: input || undefined }),
-      });
-      if (!res.ok) throw new Error("Failed to start execution");
-      const data = (await res.json()) as { runId: string };
+      const data = unwrap(
+        await workflowsClient.execute({
+          params: { id: workflowId },
+          body: { input: input || undefined },
+        }),
+      );
       startExecution(data.runId);
     } catch (err) {
       console.error("Failed to execute workflow:", err);

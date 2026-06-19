@@ -1,20 +1,43 @@
 import { z } from "zod";
-import { c } from "./contract";
-import { commonErrorResponses } from "./common";
-import type { Workflow, WorkflowRun, WorkflowStep } from "@prisma/client";
-
-/** Workflow node graph — opaque JSON validated by the executor, not here. */
-const WorkflowDefinition = z.record(z.string(), z.unknown());
+import { c } from "../contract";
+import { commonErrorResponses } from "../common";
+import {
+  ListWorkflowsQuerySchema,
+  ListTemplatesQuerySchema,
+  ListWorkflowRunsQuerySchema,
+  ListApprovalsQuerySchema,
+  CreateWorkflowBodySchema,
+  UpdateWorkflowBodySchema,
+  ImportWorkflowBodySchema,
+  ExecuteWorkflowBodySchema,
+  SetScheduleBodySchema,
+  ApprovalCommentBodySchema,
+} from "./workflows.schemas";
+import type {
+  WorkflowSummary,
+  WorkflowDetail,
+  WorkflowExport,
+  WorkflowScheduleConfig,
+  SetScheduleResponse,
+  WorkflowRunStatus,
+  WorkflowRunHistory,
+  WorkflowRunListResponse,
+  WorkflowRunDetail,
+  WorkflowApprovalListResponse,
+} from "./workflows.types";
 
 const IdParam = z.object({ id: z.string().min(1) });
+const RunIdParam = z.object({ runId: z.string().min(1) });
+const TemplateIdParam = z.object({ templateId: z.string().min(1) });
 
 export const workflowsContract = c.router({
   list: {
     method: "GET",
     path: "/api/workflows",
     summary: "List workflows visible to the user",
+    query: ListWorkflowsQuerySchema,
     responses: {
-      200: c.type<{ success: boolean; workflows: Workflow[] }>(),
+      200: c.type<{ success: boolean; workflows: WorkflowSummary[] }>(),
       ...commonErrorResponses,
     },
   },
@@ -23,12 +46,7 @@ export const workflowsContract = c.router({
     method: "POST",
     path: "/api/workflows",
     summary: "Save a new workflow",
-    body: z.object({
-      name: z.string(),
-      description: z.string().optional(),
-      definition: WorkflowDefinition,
-      realmId: z.string().optional(),
-    }),
+    body: CreateWorkflowBodySchema,
     responses: {
       200: c.type<{
         success: boolean;
@@ -45,14 +63,13 @@ export const workflowsContract = c.router({
     method: "POST",
     path: "/api/workflows/import",
     summary: "Import a new workflow definition",
-    body: z.object({
-      name: z.string(),
-      description: z.string().optional(),
-      definition: WorkflowDefinition,
-      realmId: z.string().optional(),
-    }),
+    body: ImportWorkflowBodySchema,
     responses: {
-      200: z.object({ success: z.boolean(), id: z.string(), message: z.string() }),
+      200: z.object({
+        success: z.boolean(),
+        id: z.string(),
+        message: z.string(),
+      }),
       ...commonErrorResponses,
     },
   },
@@ -61,9 +78,12 @@ export const workflowsContract = c.router({
     method: "GET",
     path: "/api/workflows/templates",
     summary: "Retrieve workflow templates",
-    query: z.object({ category: z.string().optional() }),
+    query: ListTemplatesQuerySchema,
     responses: {
-      200: c.type<{ success: boolean; templates: Array<Record<string, unknown>> }>(),
+      200: c.type<{
+        success: boolean;
+        templates: Array<Record<string, unknown>>;
+      }>(),
       ...commonErrorResponses,
     },
   },
@@ -71,7 +91,7 @@ export const workflowsContract = c.router({
   getTemplate: {
     method: "GET",
     path: "/api/workflows/templates/:templateId",
-    pathParams: z.object({ templateId: z.string() }),
+    pathParams: TemplateIdParam,
     summary: "Retrieve a workflow template by ID",
     responses: {
       200: c.type<{ success: boolean; template: Record<string, unknown> }>(),
@@ -82,18 +102,10 @@ export const workflowsContract = c.router({
   runStatus: {
     method: "GET",
     path: "/api/workflows/runs/:runId/status",
-    pathParams: z.object({ runId: z.string() }),
+    pathParams: RunIdParam,
     summary: "Get the status of a workflow run",
     responses: {
-      200: c.type<{
-        success: boolean;
-        runId: string;
-        workflowId: string;
-        status: string;
-        startedAt: string;
-        completedAt: string | null;
-        results: Record<string, unknown> | null;
-      }>(),
+      200: c.type<WorkflowRunStatus>(),
       ...commonErrorResponses,
     },
   },
@@ -101,10 +113,10 @@ export const workflowsContract = c.router({
   runHistory: {
     method: "GET",
     path: "/api/workflows/runs/:runId/history",
-    pathParams: z.object({ runId: z.string() }),
+    pathParams: RunIdParam,
     summary: "Get complete execution history of a workflow run",
     responses: {
-      200: c.type<{ success: boolean; run: WorkflowRun; steps: WorkflowStep[] }>(),
+      200: c.type<WorkflowRunHistory>(),
       ...commonErrorResponses,
     },
   },
@@ -115,7 +127,7 @@ export const workflowsContract = c.router({
     pathParams: IdParam,
     summary: "Fetch a single workflow by ID",
     responses: {
-      200: c.type<{ success: boolean; workflow: Workflow }>(),
+      200: c.type<{ success: boolean; workflow: WorkflowDetail }>(),
       ...commonErrorResponses,
     },
   },
@@ -125,12 +137,7 @@ export const workflowsContract = c.router({
     path: "/api/workflows/:id",
     pathParams: IdParam,
     summary: "Update a workflow",
-    body: z.object({
-      name: z.string().optional(),
-      definition: WorkflowDefinition.optional(),
-      description: z.string().optional(),
-      realmId: z.string().optional(),
-    }),
+    body: UpdateWorkflowBodySchema,
     responses: {
       200: z.object({ success: z.boolean(), id: z.string() }),
       ...commonErrorResponses,
@@ -154,13 +161,7 @@ export const workflowsContract = c.router({
     pathParams: IdParam,
     summary: "Retrieve the current schedule configuration for a workflow",
     responses: {
-      200: z.object({
-        workflowId: z.string(),
-        scheduleCron: z.string().nullable(),
-        scheduleEnabled: z.boolean(),
-        scheduleLastRun: z.string().nullable(),
-        scheduleNextRun: z.string().nullable(),
-      }),
+      200: c.type<WorkflowScheduleConfig>(),
       ...commonErrorResponses,
     },
   },
@@ -170,17 +171,9 @@ export const workflowsContract = c.router({
     path: "/api/workflows/:id/schedule",
     pathParams: IdParam,
     summary: "Set or update the cron schedule for a workflow",
-    body: z.object({
-      cron: z.string().optional(),
-      enabled: z.boolean().optional(),
-    }),
+    body: SetScheduleBodySchema,
     responses: {
-      200: z.object({
-        success: z.boolean(),
-        scheduleCron: z.string(),
-        scheduleEnabled: z.boolean(),
-        scheduleNextRun: z.string(),
-      }),
+      200: c.type<SetScheduleResponse>(),
       ...commonErrorResponses,
     },
   },
@@ -190,7 +183,10 @@ export const workflowsContract = c.router({
     path: "/api/workflows/:id/schedule",
     pathParams: IdParam,
     summary: "Disable or clear the workflow schedule",
-    responses: { 200: c.type<void>(), ...commonErrorResponses },
+    responses: {
+      200: z.object({ success: z.boolean() }),
+      ...commonErrorResponses,
+    },
   },
 
   export: {
@@ -199,13 +195,7 @@ export const workflowsContract = c.router({
     pathParams: IdParam,
     summary: "Export a workflow by ID",
     responses: {
-      200: c.type<{
-        name: string;
-        description: string;
-        definition: Record<string, unknown>;
-        exportedAt: string;
-        version: string;
-      }>(),
+      200: c.type<WorkflowExport>(),
       ...commonErrorResponses,
     },
   },
@@ -215,7 +205,7 @@ export const workflowsContract = c.router({
     path: "/api/workflows/:id/execute",
     pathParams: IdParam,
     summary: "Start a new workflow run",
-    body: z.object({ input: z.string().optional() }),
+    body: ExecuteWorkflowBodySchema,
     responses: {
       200: z.object({
         success: z.boolean(),
@@ -231,39 +221,22 @@ export const workflowsContract = c.router({
 export const workflowRunsContract = c.router({
   list: {
     method: "GET",
-    path: "/api/workflow-runs",
+    path: "/api/workflows/runs",
     summary: "List workflow runs with optional pagination and filters",
-    query: z.object({
-      workflowId: z.string().optional(),
-      status: z.enum(["running", "completed", "failed"]).optional(),
-      page: z.coerce.number().optional(),
-      pageSize: z.coerce.number().optional(),
-      sortBy: z.enum(["startedAt", "completedAt"]).optional(),
-      sortDir: z.enum(["asc", "desc"]).optional(),
-    }),
+    query: ListWorkflowRunsQuerySchema,
     responses: {
-      200: c.type<{
-        runs: WorkflowRun[];
-        total: number;
-        page: number;
-        pageSize: number;
-        totalPages: number;
-      }>(),
+      200: c.type<WorkflowRunListResponse>(),
       ...commonErrorResponses,
     },
   },
 
   getOne: {
     method: "GET",
-    path: "/api/workflow-runs/:id",
-    pathParams: IdParam,
+    path: "/api/workflows/runs/:runId",
+    pathParams: RunIdParam,
     summary: "Get a specific workflow run with its history and steps",
     responses: {
-      200: c.type<{
-        run: WorkflowRun;
-        workflow: Workflow | null;
-        steps: WorkflowStep[];
-      }>(),
+      200: c.type<WorkflowRunDetail>(),
       ...commonErrorResponses,
     },
   },
@@ -272,39 +245,48 @@ export const workflowRunsContract = c.router({
 export const workflowApprovalsContract = c.router({
   list: {
     method: "GET",
-    path: "/api/workflow-approvals",
+    path: "/api/workflows/approvals",
     summary: "Retrieve approval items for the logged-in user",
-    query: z.object({ all: z.string().optional() }),
+    query: ListApprovalsQuerySchema,
     responses: {
-      200: c.type<{ approvals: Array<Record<string, unknown>> }>(),
+      200: c.type<WorkflowApprovalListResponse>(),
       ...commonErrorResponses,
     },
   },
 
   approve: {
     method: "POST",
-    path: "/api/workflow-approvals/:id/approve",
+    path: "/api/workflows/approvals/:id/approve",
     pathParams: IdParam,
     summary: "Approve a pending workflow step",
-    body: z.object({ comment: z.string().optional() }),
-    responses: { 200: c.type<void>(), ...commonErrorResponses },
+    body: ApprovalCommentBodySchema,
+    responses: {
+      200: z.object({ success: z.boolean() }),
+      ...commonErrorResponses,
+    },
   },
 
   reject: {
     method: "POST",
-    path: "/api/workflow-approvals/:id/reject",
+    path: "/api/workflows/approvals/:id/reject",
     pathParams: IdParam,
     summary: "Reject a pending workflow step",
-    body: z.object({ comment: z.string().optional() }),
-    responses: { 200: c.type<void>(), ...commonErrorResponses },
+    body: ApprovalCommentBodySchema,
+    responses: {
+      200: z.object({ success: z.boolean() }),
+      ...commonErrorResponses,
+    },
   },
 
   dismiss: {
     method: "POST",
-    path: "/api/workflow-approvals/:id/dismiss",
+    path: "/api/workflows/approvals/:id/dismiss",
     pathParams: IdParam,
     summary: "Dismiss a workflow notification",
     body: c.noBody(),
-    responses: { 200: c.type<void>(), ...commonErrorResponses },
+    responses: {
+      200: z.object({ success: z.boolean() }),
+      ...commonErrorResponses,
+    },
   },
 });

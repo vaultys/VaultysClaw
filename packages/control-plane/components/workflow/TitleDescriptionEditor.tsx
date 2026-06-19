@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { Edit2, Check, X } from "lucide-react";
 import { useWorkflowStore } from "./store";
+import { workflowsClient, unwrap } from "@/lib/api/ts-rest/client";
 
 export const TitleDescriptionEditor: React.FC = () => {
   const {
@@ -23,17 +24,17 @@ export const TitleDescriptionEditor: React.FC = () => {
     try {
       if (workflowId && workflowId !== "new") {
         // Update existing workflow
-        const res = await fetch(`/api/workflows/${workflowId}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            name: editName,
-            description: editDescription,
-            definition,
-            realmId: workflowRealmId,
+        unwrap(
+          await workflowsClient.update({
+            params: { id: workflowId },
+            body: {
+              name: editName,
+              description: editDescription,
+              definition: definition as unknown as Record<string, unknown>,
+              realmId: workflowRealmId,
+            },
           }),
-        });
-        if (!res.ok) throw new Error("Failed to update workflow");
+        );
       }
       setWorkflow(
         workflowId || "temp",

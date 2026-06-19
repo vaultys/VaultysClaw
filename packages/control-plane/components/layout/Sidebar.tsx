@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useRole } from "@/hooks/useRole";
+import { workflowApprovalsClient, unwrap } from "@/lib/api/ts-rest/client";
 
 const NAV_GROUPS = [
   {
@@ -137,11 +138,9 @@ function usePendingCount() {
   useEffect(() => {
     if (status !== "authenticated") return;
     const fetch_ = () =>
-      fetch("/api/workflow-approvals")
-        .then((r) => r.json())
-        .then((d: { approvals?: { id: string }[] }) =>
-          setCount(d.approvals?.length ?? 0)
-        )
+      workflowApprovalsClient
+        .list({ query: {} })
+        .then((res) => setCount(unwrap(res).approvals.length))
         .catch(() => {});
     fetch_();
     const id = setInterval(fetch_, 15_000);

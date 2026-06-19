@@ -1,5 +1,6 @@
 import React, { useRef } from "react";
 import { Download, Upload } from "lucide-react";
+import { workflowsClient, unwrap } from "@/lib/api/ts-rest/client";
 
 interface ImportExportButtonsProps {
   workflowId?: string;
@@ -19,18 +20,17 @@ export function ImportExportButtons({
     }
 
     try {
-      const response = await fetch(`/api/workflows/${workflowId}/export`);
-      if (!response.ok) throw new Error("Export failed");
+      const data = unwrap(
+        await workflowsClient.export({ params: { id: workflowId } }),
+      );
 
-      const blob = await response.blob();
+      const blob = new Blob([JSON.stringify(data, null, 2)], {
+        type: "application/json",
+      });
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download =
-        response.headers
-          .get("content-disposition")
-          ?.split("filename=")[1]
-          ?.replace(/"/g, "") || "workflow.json";
+      a.download = `workflow-${data.name.replace(/\s+/g, "-")}.json`;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
@@ -55,22 +55,15 @@ export function ImportExportButtons({
       const text = await file.text();
       const data = JSON.parse(text);
 
-      const response = await fetch("/api/workflows/import", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: data.name || file.name.replace(".json", ""),
-          description: data.description,
-          definition: data.definition,
+      const result = unwrap(
+        await workflowsClient.import({
+          body: {
+            name: data.name || file.name.replace(".json", ""),
+            description: data.description,
+            definition: data.definition,
+          },
         }),
-      });
-
-      if (!response.ok) throw new Error("Import failed");
-
-      const result = (await response.json()) as {
-        success: boolean;
-        message: string;
-      };
+      );
       alert(result.message || "Workflow imported successfully");
       onImportComplete?.();
     } catch (error) {

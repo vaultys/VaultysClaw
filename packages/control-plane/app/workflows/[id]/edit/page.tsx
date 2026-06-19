@@ -9,6 +9,7 @@ import { WorkflowExecutionPanel } from "@/components/workflow/WorkflowExecutionP
 import { ImportExportButtons } from "@/components/workflow/ImportExportButtons";
 import { TitleDescriptionEditor } from "@/components/workflow/TitleDescriptionEditor";
 import { useWorkflowStore } from "@/components/workflow/store";
+import { workflowsClient, unwrap } from "@/lib/api/ts-rest/client";
 import type { WorkflowDefinition } from "@/lib/workflow-types";
 
 export default function WorkflowEditPage() {
@@ -40,26 +41,17 @@ export default function WorkflowEditPage() {
 
   const fetchWorkflow = async (id: string) => {
     try {
-      const res = await fetch(`/api/workflows/${id}`);
-      if (!res.ok) throw new Error("Failed to fetch workflow");
-      const data = (await res.json()) as {
-        workflow: {
-          id: string;
-          name: string;
-          description: string | null;
-          definition: WorkflowDefinition;
-          realmId?: string;
-        };
-      };
+      const data = unwrap(await workflowsClient.getOne({ params: { id } }));
+      const definition = data.workflow.definition as unknown as WorkflowDefinition;
       setWorkflow(
         data.workflow.id,
         data.workflow.name,
         data.workflow.description ?? "",
-        data.workflow.definition,
-        data.workflow.realmId
+        definition,
+        data.workflow.realmId ?? undefined
       );
-      if (data.workflow.definition.input) {
-        setWorkflowInput(data.workflow.definition.input);
+      if (definition.input) {
+        setWorkflowInput(definition.input);
       }
     } catch (err) {
       console.error("Failed to fetch workflow:", err);

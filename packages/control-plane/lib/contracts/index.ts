@@ -37,7 +37,7 @@ import {
   workflowApprovalsContract,
   workflowRunsContract,
   workflowsContract,
-} from "./workflows.contract";
+} from "./workflows/workflows.contract";
 
 export { c } from "./contract";
 export * from "./common";
@@ -80,7 +80,10 @@ export type * from "./well-known/well-known.contract";
 export * from "./well-known/well-known.contract";
 export * from "./well-known/well-known.schemas";
 export * from "./well-known/well-known.types";
-export * from "./workflows.contract";
+export type * from "./workflows/workflows.contract";
+export * from "./workflows/workflows.contract";
+export * from "./workflows/workflows.schemas";
+export * from "./workflows/workflows.types";
 
 /**
  * Aggregate contract — every domain router under a namespaced key. Useful for a

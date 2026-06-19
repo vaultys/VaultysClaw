@@ -22,7 +22,12 @@ import {
 import { WorkflowViewer } from "@/components/workflow/WorkflowViewer";
 import { WorkflowRunModal } from "@/components/workflow/WorkflowRunModal";
 import type { WorkflowDefinition } from "@/lib/workflow-types";
-import { agentsClient, unwrap } from "@/lib/api/ts-rest/client";
+import {
+  agentsClient,
+  workflowsClient,
+  workflowRunsClient,
+  unwrap,
+} from "@/lib/api/ts-rest/client";
 
 interface WorkflowData {
   id: string;
@@ -240,14 +245,14 @@ export default function WorkflowDetailPage() {
   const fetchWorkflow = async (id: string) => {
     try {
       setLoading(true);
-      const res = await fetch(`/api/workflows/${id}`);
-      if (!res.ok) {
+      const res = await workflowsClient.getOne({ params: { id } });
+      if (res.status !== 200) {
         setError(
           res.status === 404 ? "Workflow not found" : "Failed to load workflow"
         );
         return;
       }
-      const data = (await res.json()) as { workflow: WorkflowData };
+      const data = res.body as unknown as { workflow: WorkflowData };
       setWorkflow(data.workflow);
       if (data.workflow.realmId) {
         fetch(`/api/realms/${data.workflow.realmId}`)
@@ -282,12 +287,16 @@ export default function WorkflowDetailPage() {
   const fetchRuns = async (id: string) => {
     try {
       setRunsLoading(true);
-      const res = await fetch(
-        `/api/workflow-runs?workflowId=${id}&pageSize=100&sortBy=startedAt&sortDir=desc`
-      );
-      if (!res.ok) return;
-      const data = (await res.json()) as { runs: WorkflowRun[] };
-      setRuns(data.runs);
+      const res = await workflowRunsClient.list({
+        query: {
+          workflowId: id,
+          pageSize: 100,
+          sortBy: "startedAt",
+          sortDir: "desc",
+        },
+      });
+      if (res.status !== 200) return;
+      setRuns(res.body.runs as unknown as WorkflowRun[]);
     } catch {
       /* ignore */
     } finally {
@@ -298,9 +307,9 @@ export default function WorkflowDetailPage() {
   const fetchRunDetail = async (runId: string) => {
     try {
       setRunDetailLoading(true);
-      const res = await fetch(`/api/workflow-runs/${runId}`);
-      if (!res.ok) return;
-      setRunDetail((await res.json()) as RunDetail);
+      const res = await workflowRunsClient.getOne({ params: { runId } });
+      if (res.status !== 200) return;
+      setRunDetail(res.body as unknown as RunDetail);
     } catch {
       /* ignore */
     } finally {

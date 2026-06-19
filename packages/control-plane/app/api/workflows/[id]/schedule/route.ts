@@ -1,178 +1,76 @@
-/**
- * GET  /api/workflows/[id]/schedule  — get current schedule config
- * POST /api/workflows/[id]/schedule  — set or update cron schedule
- * DELETE /api/workflows/[id]/schedule — disable / clear schedule
- */
-
-import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
-import { malformed, notFound, unauthorized } from "@/lib/api/utils/api-utils";
+import { APIException } from "@/lib/api/utils/api-utils";
 import { nextCronRun } from "@/lib/workflow-scheduler";
 import { WorkflowDAO } from "@/db";
-import { withError } from "@/lib/api/handlers/with-error";
-
-type Ctx = { params: Promise<{ id: string }> };
-
-/**
- * @openapi
- * /api/workflows/{id}/schedule:
- *   get:
- *     summary: Retrieve the current schedule configuration for a workflow.
- *     tags: [Workflows]
- *     parameters:
- *       - name: id
- *         in: path
- *         required: true
- *         description: The ID of the workflow.
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: The current schedule configuration.
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 workflowId:
- *                   type: string
- *                 scheduleCron:
- *                   type: string
- *                   nullable: true
- *                 scheduleEnabled:
- *                   type: boolean
- *                 scheduleLastRun:
- *                   type: string
- *                   format: date-time
- *                   nullable: true
- *                 scheduleNextRun:
- *                   type: string
- *                   format: date-time
- *                   nullable: true
- *       401:
- *         $ref: '#/components/responses/Unauthorized'
- *       404:
- *         $ref: '#/components/responses/NotFound'
- */
-export const GET = withError(async (_req: NextRequest, ctx: Ctx) => {
-  const auth = await getAuthContext(_req);
-  if (!auth) return unauthorized();
-
-  const { id } = await ctx.params;
-  const wf = await WorkflowDAO.findById(id);
-  if (!wf) return notFound("Workflow not found");
-
-  return NextResponse.json({
-    workflowId: id,
-    scheduleCron: wf.scheduleCron,
-    scheduleEnabled: Boolean(wf.scheduleEnabled),
-    scheduleLastRun: wf.scheduleLastRun,
-    scheduleNextRun: wf.scheduleNextRun,
-  });
-});
+import { workflowsContract } from "@/lib/contracts";
+import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 
 /**
- * @openapi
- * /api/workflows/{id}/schedule:
- *   post:
- *     summary: Set or update the cron schedule for a workflow.
- *     tags: [Workflows]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               cron:
- *                 type: string
- *                 description: Cron expression to schedule the workflow.
- *               enabled:
- *                 type: boolean
- *                 description: Whether the schedule is enabled.
- *     responses:
- *       200:
- *         description: Schedule updated successfully.
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                 scheduleCron:
- *                   type: string
- *                 scheduleEnabled:
- *                   type: boolean
- *                 scheduleNextRun:
- *                   type: string
- *                   format: date-time
- *       400:
- *         $ref: '#/components/responses/BadRequest'
- *       401:
- *         $ref: '#/components/responses/Unauthorized'
- *       404:
- *         $ref: '#/components/responses/NotFound'
+ * Routes for /api/workflows/:id/schedule — get / set / clear a cron schedule.
  */
-export const POST = withError(async (req: NextRequest, ctx: Ctx) => {
-  const auth = await getAuthContext(req);
-  if (!auth) return unauthorized();
+const handlers = createNextRoute(workflowsContract, {
+  // ── GET ─────────────────────────────────────────────────────────────────
+  getSchedule: async ({ params, request }) => {
+    await getAuthContext(request);
 
-  const { id } = await ctx.params;
-  const wf = await WorkflowDAO.findById(id);
-  if (!wf) return notFound("Workflow not found");
+    const wf = await WorkflowDAO.findById(params.id);
+    if (!wf) throw new APIException("NOT_FOUND", "Workflow not found");
 
-  const body = (await req.json()) as { cron?: string; enabled?: boolean };
-  const cron = body.cron ?? null;
-  const enabled = body.enabled !== false; // default true when setting
+    return {
+      status: 200,
+      body: {
+        workflowId: params.id,
+        scheduleCron: wf.scheduleCron,
+        scheduleEnabled: Boolean(wf.scheduleEnabled),
+        scheduleLastRun: wf.scheduleLastRun,
+        scheduleNextRun: wf.scheduleNextRun,
+      },
+    };
+  },
 
-  if (cron) {
-    // Validate cron has 5 fields
-    if (cron.trim().split(/\s+/).length !== 5) {
-      return malformed("Invalid cron expression (expected 5 fields)");
+  // ── POST ────────────────────────────────────────────────────────────────
+  setSchedule: async ({ params, body, request }) => {
+    await getAuthContext(request);
+
+    const wf = await WorkflowDAO.findById(params.id);
+    if (!wf) throw new APIException("NOT_FOUND", "Workflow not found");
+
+    const cron = body.cron ?? null;
+    const enabled = body.enabled !== false; // default true when setting
+
+    if (cron && cron.trim().split(/\s+/).length !== 5) {
+      throw new APIException(
+        "MALFORMED",
+        "Invalid cron expression (expected 5 fields)"
+      );
     }
-  }
 
-  const nextRun = cron ? (nextCronRun(cron)?.toISOString() ?? null) : null;
-  await WorkflowDAO.setSchedule(id, cron, enabled, nextRun);
+    const nextRun = cron ? (nextCronRun(cron)?.toISOString() ?? null) : null;
+    await WorkflowDAO.setSchedule(params.id, cron, enabled, nextRun);
 
-  return NextResponse.json({
-    success: true,
-    scheduleCron: cron,
-    scheduleEnabled: enabled,
-    scheduleNextRun: nextRun,
-  });
+    return {
+      status: 200,
+      body: {
+        success: true,
+        scheduleCron: cron,
+        scheduleEnabled: enabled,
+        scheduleNextRun: nextRun,
+      },
+    };
+  },
+
+  // ── DELETE ──────────────────────────────────────────────────────────────
+  clearSchedule: async ({ params, request }) => {
+    await getAuthContext(request);
+
+    const wf = await WorkflowDAO.findById(params.id);
+    if (!wf) throw new APIException("NOT_FOUND", "Workflow not found");
+
+    await WorkflowDAO.setSchedule(params.id, null, false, null);
+    return { status: 200, body: { success: true } };
+  },
 });
 
-/**
- * @openapi
- * /api/workflows/{id}/schedule:
- *   delete:
- *     summary: Disable or clear the workflow schedule.
- *     tags: [Workflows]
- *     parameters:
- *       - name: id
- *         in: path
- *         required: true
- *         description: The ID of the workflow.
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: Schedule successfully disabled or cleared.
- *       401:
- *         $ref: '#/components/responses/Unauthorized'
- *       404:
- *         $ref: '#/components/responses/NotFound'
- */
-export const DELETE = withError(async (_req: NextRequest, ctx: Ctx) => {
-  const auth = await getAuthContext(_req);
-  if (!auth) return unauthorized();
-
-  const { id } = await ctx.params;
-  const wf = await WorkflowDAO.findById(id);
-  if (!wf) return notFound("Workflow not found");
-
-  await WorkflowDAO.setSchedule(id, null, false, null);
-  return NextResponse.json({ success: true });
-});
+export const GET = handlers.GET!;
+export const POST = handlers.POST!;
+export const DELETE = handlers.DELETE!;

@@ -1,56 +1,27 @@
-import { NextRequest, NextResponse } from "next/server";
 import { getTemplate } from "@/lib/workflow-templates";
 import { getAuthContext } from "@/lib/auth-utils";
-import { notFound, unauthorized } from "@/lib/api/utils/api-utils";
-import { withError } from "@/lib/api/handlers/with-error";
+import { APIException } from "@/lib/api/utils/api-utils";
+import { workflowsContract } from "@/lib/contracts";
+import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 
 /**
- * @openapi
- * /api/workflows/templates/{templateId}:
- *   get:
- *     summary: Retrieve a workflow template by ID.
- *     tags: [Workflows]
- *     parameters:
- *       - name: templateId
- *         in: path
- *         required: true
- *         description: The ID of the workflow template.
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: Successfully retrieved the workflow template.
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                 template:
- *                   type: object
- *                   additionalProperties: true
- *       401:
- *         $ref: '#/components/responses/Unauthorized'
- *       404:
- *         $ref: '#/components/responses/NotFound'
+ * Route for GET /api/workflows/templates/:templateId — fetch one template.
  */
-export const GET = withError(async (
-  request: NextRequest,
-  { params }: { params: Promise<{ templateId: string }> }
-) => {
-  const auth = await getAuthContext(request);
-  if (!auth) return unauthorized();
+const handlers = createNextRoute(workflowsContract, {
+  getTemplate: async ({ params, request }) => {
+    await getAuthContext(request);
 
-  const { templateId } = await params;
-  const template = getTemplate(templateId);
+    const template = getTemplate(params.templateId);
+    if (!template) throw new APIException("NOT_FOUND", "Template not found");
 
-  if (!template) {
-    return notFound("Template not found");
-  }
-
-  return NextResponse.json({
-    success: true,
-    template,
-  });
+    return {
+      status: 200,
+      body: {
+        success: true,
+        template: template as unknown as Record<string, unknown>,
+      },
+    };
+  },
 });
+
+export const GET = handlers.GET!;

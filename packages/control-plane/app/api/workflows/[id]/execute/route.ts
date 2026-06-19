@@ -1,117 +1,57 @@
-import { NextRequest, NextResponse } from "next/server";
 import {
   executeWorkflow,
   type WorkflowDefinition,
 } from "@/lib/workflow-executor";
 import { getAuthContext } from "@/lib/auth-utils";
-import { unauthorized, forbidden, notFound } from "@/lib/api/utils/api-utils";
+import { APIException } from "@/lib/api/utils/api-utils";
 import { WorkflowDAO } from "@/db";
-import { withError } from "@/lib/api/handlers/with-error";
-
-type Params = { id: string };
+import { workflowsContract } from "@/lib/contracts";
+import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 
 /**
- * POST /api/workflows/[id]/execute
- * Start a new workflow run. Requires realm membership for the workflow's realm.
- * Body: { input?: string } — optional input for the first node
+ * Route for POST /api/workflows/:id/execute — starts a new workflow run.
  */
-/**
- * @openapi
- * /api/workflows/{id}/execute:
- *   post:
- *     summary: Start a new workflow run.
- *     tags: [Workflows]
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *         description: The ID of the workflow to execute.
- *     requestBody:
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               input:
- *                 type: string
- *                 description: Optional input for the first node.
- *     responses:
- *       200:
- *         description: Workflow execution started successfully.
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                 runId:
- *                   type: string
- *                 workflowId:
- *                   type: string
- *                 status:
- *                   type: string
- *       400:
- *         $ref: '#/components/responses/BadRequest'
- *       401:
- *         $ref: '#/components/responses/Unauthorized'
- *       403:
- *         $ref: '#/components/responses/Forbidden'
- *       404:
- *         $ref: '#/components/responses/NotFound'
- *       500:
- *         description: Failed to start workflow execution.
- */
-export const POST = withError(async (
-  request: NextRequest,
-  { params }: { params: Promise<Params> }
-) => {
-  const auth = await getAuthContext(request);
-  if (!auth) return unauthorized();
+const handlers = createNextRoute(workflowsContract, {
+  execute: async ({ params, body, request }) => {
+    const auth = await getAuthContext(request);
 
-  const { id } = await params;
+    const { id } = params;
 
-  // Parse optional input
-  let input: string | undefined;
-  try {
-    const body = await request.json();
-    input = body?.input;
-  } catch {
-    // No body is fine
-  }
+    // Verify workflow exists
+    const workflow = await WorkflowDAO.findById(id);
+    if (!workflow) throw new APIException("NOT_FOUND", "Workflow not found");
 
-  // Verify workflow exists
-  const workflow = await WorkflowDAO.findById(id);
-  if (!workflow) {
-    return notFound("Workflow not found");
-  }
+    if (workflow.realmId && !(await auth.canAccessRealm(workflow.realmId)))
+      throw new APIException("FORBIDDEN");
 
-  if (workflow.realmId && !(await auth.canAccessRealm(workflow.realmId)))
-    return forbidden();
+    const definition = workflow.definition;
+    if (!definition)
+      throw new APIException("NOT_FOUND", "Workflow has no definition");
 
-  // Start a new run
-  const runId = await WorkflowDAO.startRun(id);
+    // Start a new run
+    const runId = await WorkflowDAO.startRun(id);
 
-  // Trigger execution asynchronously (don't await, return immediately)
-  const definition = workflow.definition;
-  if (!definition) {
-    return notFound("Workflow has no definition");
-  }
-  const workflowDef = definition as unknown as WorkflowDefinition;
-  // Execution-time input overrides the definition's stored input
-  const resolvedInput = input ?? workflowDef.input;
-  Promise.resolve().then(() => {
-    executeWorkflow(runId, workflowDef, resolvedInput, id).catch((err) => {
-      console.error(`Workflow ${runId} execution failed:`, err);
+    const workflowDef = definition as unknown as WorkflowDefinition;
+    // Execution-time input overrides the definition's stored input
+    const resolvedInput = body.input ?? workflowDef.input;
+
+    // Trigger execution asynchronously (don't await, return immediately)
+    Promise.resolve().then(() => {
+      executeWorkflow(runId, workflowDef, resolvedInput, id).catch((err) => {
+        console.error(`Workflow ${runId} execution failed:`, err);
+      });
     });
-  });
 
-  return NextResponse.json({
-    success: true,
-    runId,
-    workflowId: id,
-    status: "running",
-  });
+    return {
+      status: 200,
+      body: {
+        success: true,
+        runId,
+        workflowId: id,
+        status: "running",
+      },
+    };
+  },
 });
+
+export const POST = handlers.POST!;

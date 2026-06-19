@@ -10,6 +10,7 @@ import {
   ChevronDown,
   ChevronUp,
 } from "lucide-react";
+import { workflowApprovalsClient, unwrap } from "@/lib/api/ts-rest/client";
 
 // Prisma returns camelCase — the DB @map() directives only affect the column
 // names, not the JavaScript property names returned by the ORM.
@@ -37,10 +38,8 @@ export default function WorkflowApprovalInbox() {
   const fetchApprovals = useCallback(async () => {
     if (status !== "authenticated") return;
     try {
-      const res = await fetch("/api/workflow-approvals");
-      if (!res.ok) return;
-      const data = (await res.json()) as { approvals: Approval[] };
-      setApprovals(data.approvals);
+      const data = unwrap(await workflowApprovalsClient.list({ query: {} }));
+      setApprovals(data.approvals as unknown as Approval[]);
     } catch {
       // silently ignore polling errors
     }
@@ -56,10 +55,9 @@ export default function WorkflowApprovalInbox() {
   const handleApprove = async (id: string) => {
     setActing(id);
     try {
-      await fetch(`/api/workflow-approvals/${id}/approve`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ comment: comment[id] || undefined }),
+      await workflowApprovalsClient.approve({
+        params: { id },
+        body: { comment: comment[id] || undefined },
       });
       await fetchApprovals();
     } finally {
@@ -70,10 +68,9 @@ export default function WorkflowApprovalInbox() {
   const handleReject = async (id: string) => {
     setActing(id);
     try {
-      await fetch(`/api/workflow-approvals/${id}/reject`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ comment: comment[id] || undefined }),
+      await workflowApprovalsClient.reject({
+        params: { id },
+        body: { comment: comment[id] || undefined },
       });
       await fetchApprovals();
     } finally {
@@ -84,7 +81,7 @@ export default function WorkflowApprovalInbox() {
   const handleDismiss = async (id: string) => {
     setActing(id);
     try {
-      await fetch(`/api/workflow-approvals/${id}/dismiss`, { method: "POST" });
+      await workflowApprovalsClient.dismiss({ params: { id } });
       await fetchApprovals();
     } finally {
       setActing(null);

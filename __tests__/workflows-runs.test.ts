@@ -89,7 +89,7 @@ function createTestWorkflow(
 // ============================================================================
 
 describe("Workflow Runs API", () => {
-  describe("GET /api/workflow-runs - List Workflow Runs", () => {
+  describe("GET /api/workflows/runs - List Workflow Runs", () => {
     it("should return workflow runs (may include previous runs)", async () => {
       const result = await WorkflowDAO.queryRuns({});
       expect(result.runs).toBeDefined();
@@ -150,7 +150,7 @@ describe("Workflow Runs API", () => {
     });
   });
 
-  describe("GET /api/workflow-runs/[id] - Get Run Details", () => {
+  describe("GET /api/workflows/runs/[runId] - Get Run Details", () => {
     it("should return single run with steps and workflow definition", async () => {
       const workflow = createTestWorkflow();
       const workflowId = await WorkflowDAO.create(workflow.name, workflow.definition as any);

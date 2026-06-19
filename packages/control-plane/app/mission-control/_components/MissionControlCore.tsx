@@ -27,6 +27,7 @@ import { useRole } from "@/hooks/useRole";
 import type { MapMarker } from "@/components/map/WorldMap";
 import { formatCompactNumber, shortDid } from "@vaultysclaw/shared";
 import { AgentInfo } from "@/lib/contracts";
+import { workflowRunsClient, unwrap } from "@/lib/api/ts-rest/client";
 
 const WorldMap = dynamic(
   () => import("@/components/map/WorldMap").then((m) => m.WorldMap),
@@ -405,10 +406,12 @@ export function MissionControlCore({ mode }: MissionControlCoreProps) {
   useEffect(() => {
     const fetch_ = async () => {
       try {
-        const res = await fetch("/api/workflow-runs?pageSize=10&sortDir=desc");
-        if (!res.ok) return;
-        const data = await res.json();
-        setWorkflowRuns(data.runs ?? []);
+        const data = unwrap(
+          await workflowRunsClient.list({
+            query: { pageSize: 10, sortDir: "desc" },
+          }),
+        );
+        setWorkflowRuns((data.runs ?? []) as unknown as WorkflowRun[]);
       } catch {}
     };
     fetch_();
@@ -1110,9 +1113,9 @@ function DetailModal({
   useEffect(() => {
     if (item.type !== "workflow") return;
     setStepsLoading(true);
-    fetch(`/api/workflow-runs/${item.id}`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data) => setRunSteps(data?.steps ?? []))
+    workflowRunsClient
+      .getOne({ params: { runId: item.id } })
+      .then((r) => setRunSteps(unwrap(r).steps as unknown as WorkflowStep[]))
       .catch(() => setRunSteps([]))
       .finally(() => setStepsLoading(false));
   }, [item]);

@@ -14,6 +14,7 @@ import {
   Bot,
   User,
 } from "lucide-react";
+import { workflowRunsClient } from "@/lib/api/ts-rest/client";
 
 interface WorkflowRunStep {
   id: string;
@@ -206,9 +207,10 @@ export default function WorkflowRunDetailPage() {
   const [expandedSteps, setExpandedSteps] = useState<Set<string>>(new Set());
 
   useEffect(() => {
-    fetch(`/api/workflow-runs/${runId}`)
-      .then(async (res) => {
-        if (!res.ok) {
+    workflowRunsClient
+      .getOne({ params: { runId } })
+      .then((res) => {
+        if (res.status !== 200) {
           setError(
             res.status === 404
               ? "Workflow run not found"
@@ -216,7 +218,7 @@ export default function WorkflowRunDetailPage() {
           );
           return;
         }
-        setHistory((await res.json()) as RunHistory);
+        setHistory(res.body as unknown as RunHistory);
       })
       .catch(() => setError("Failed to load workflow run"))
       .finally(() => setLoading(false));

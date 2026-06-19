@@ -9,19 +9,13 @@ import { useBreadcrumbs } from "@/components/layout/BreadcrumbContext";
 import { useWorkflowStore } from "@/components/workflow/store";
 import { TemplateSelectionModal } from "@/components/workflow/TemplateSelectionModal";
 import { WorkflowRunModal } from "@/components/workflow/WorkflowRunModal";
+import { workflowsClient, unwrap } from "@/lib/api/ts-rest/client";
+import type { WorkflowSummary } from "@/lib/contracts";
 import type { WorkflowDefinition } from "@/lib/workflow-types";
-
-interface WorkflowItem {
-  id: string;
-  name: string;
-  description: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
 
 export default function WorkflowsPage() {
   const router = useRouter();
-  const [workflows, setWorkflows] = useState<WorkflowItem[]>([]);
+  const [workflows, setWorkflows] = useState<WorkflowSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
@@ -49,17 +43,15 @@ export default function WorkflowsPage() {
     if (!file) return;
     try {
       const data = JSON.parse(await file.text());
-      const res = await fetch("/api/workflows/import", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: data.name || file.name.replace(".json", ""),
-          description: data.description,
-          definition: data.definition,
+      const result = unwrap(
+        await workflowsClient.import({
+          body: {
+            name: data.name || file.name.replace(".json", ""),
+            description: data.description,
+            definition: data.definition,
+          },
         }),
-      });
-      if (!res.ok) throw new Error("Import failed");
-      const result = (await res.json()) as { message?: string };
+      );
       alert(result.message || "Workflow imported successfully");
       fetchWorkflows();
     } catch (err) {
@@ -72,9 +64,7 @@ export default function WorkflowsPage() {
   const fetchWorkflows = async () => {
     try {
       setLoading(true);
-      const res = await fetch("/api/workflows");
-      if (!res.ok) throw new Error("Failed to fetch workflows");
-      const data = (await res.json()) as { workflows: WorkflowItem[] };
+      const data = unwrap(await workflowsClient.list({ query: {} }));
       setWorkflows(data.workflows);
     } catch (err) {
       setError(String(err));
@@ -87,8 +77,7 @@ export default function WorkflowsPage() {
     e.preventDefault();
     if (!confirm("Delete this workflow?")) return;
     try {
-      const res = await fetch(`/api/workflows/${id}`, { method: "DELETE" });
-      if (!res.ok) throw new Error("Failed to delete workflow");
+      unwrap(await workflowsClient.remove({ params: { id } }));
       setWorkflows((w) => w.filter((wf) => wf.id !== id));
     } catch {
       alert("Failed to delete workflow");
@@ -97,13 +86,17 @@ export default function WorkflowsPage() {
 
   const handleSelectTemplate = async (templateId: string, realmId?: string) => {
     try {
-      const res = await fetch(`/api/workflows/templates/${templateId}`);
-      if (!res.ok) throw new Error("Failed to load template");
-      const data = (await res.json()) as {
-        template: { definition: any; name: string };
-      };
+      const data = unwrap(
+        await workflowsClient.getTemplate({ params: { templateId } }),
+      );
+      const template = data.template as { definition: unknown; name: string };
       clearWorkflow();
-      setWorkflow("", data.template.name, "", data.template.definition);
+      setWorkflow(
+        "",
+        template.name,
+        "",
+        template.definition as WorkflowDefinition,
+      );
       const params = new URLSearchParams({ fromTemplate: "1" });
       if (realmId) params.set("realm", realmId);
       router.push(`/workflows/new/edit?${params.toString()}`);
@@ -115,17 +108,13 @@ export default function WorkflowsPage() {
   const handleExecuteWorkflow = async (id: string, e: React.MouseEvent) => {
     e.preventDefault();
     try {
-      const res = await fetch(`/api/workflows/${id}`);
-      if (!res.ok) throw new Error("Failed to load workflow");
-      const data = (await res.json()) as {
-        workflow: {
-          id: string;
-          name: string;
-          description: string | null;
-          definition: WorkflowDefinition;
-        };
-      };
-      setExecutingWorkflow(data.workflow);
+      const data = unwrap(await workflowsClient.getOne({ params: { id } }));
+      setExecutingWorkflow({
+        id: data.workflow.id,
+        name: data.workflow.name,
+        description: data.workflow.description,
+        definition: data.workflow.definition as unknown as WorkflowDefinition,
+      });
     } catch {
       alert("Failed to load workflow");
     }

@@ -7,7 +7,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { MoreHorizontal } from "lucide-react";
+import { MoreHorizontal, Pencil } from "lucide-react";
 import { useToolbarState, type ToolbarAction } from "./ToolbarContext";
 import ToolbarSearch from "./ToolbarSearch";
 import ToolbarSteps from "./ToolbarSteps";
@@ -40,6 +40,7 @@ const BUTTON_VARIANT_CLASSES = {
   danger: "border border-danger-300 text-danger-600 hover:bg-danger-500/10",
   default:
     "bg-background-100 border border-neutral-200 text-foreground hover:bg-background-200",
+  success: "bg-success-600 hover:bg-success-500 text-white",
 } as const;
 
 /**
@@ -224,7 +225,7 @@ function ToolbarActions({
         prev.compact === next.compact &&
         sameIds(prev.overflowIds, next.overflowIds)
           ? prev
-          : next,
+          : next
       );
 
     const gaps = ACTION_GAP * (n - 1);
@@ -240,7 +241,7 @@ function ToolbarActions({
     const iconTotal =
       actions.reduce(
         (s, a) => s + (isButton(a) ? iconW(a.id) : fullW(a.id)),
-        0,
+        0
       ) + gaps;
     if (iconTotal <= available) {
       update({ compact: true, overflowIds: [] });
@@ -270,7 +271,7 @@ function ToolbarActions({
   const visible = actions.filter((a) => !overflowSet.has(a.id));
   const overflowItems = actions.filter(
     (a): a is Extract<ToolbarAction, { kind: "button" }> =>
-      a.kind === "button" && overflowSet.has(a.id),
+      a.kind === "button" && overflowSet.has(a.id)
   );
 
   return (
@@ -316,6 +317,78 @@ function ToolbarActions({
 }
 
 /**
+ * An inline-editable page title. Renders as a heading with a hover-revealed
+ * pencil; clicking it swaps in a text input that commits on Enter/blur and
+ * cancels on Escape.
+ */
+function EditableTitle({
+  value,
+  onChange,
+  placeholder,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (editing) {
+      inputRef.current?.focus();
+      inputRef.current?.select();
+    }
+  }, [editing]);
+
+  const commit = () => {
+    const next = draft.trim();
+    if (next && next !== value) onChange(next);
+    else setDraft(value);
+    setEditing(false);
+  };
+
+  const cancel = () => {
+    setDraft(value);
+    setEditing(false);
+  };
+
+  if (editing) {
+    return (
+      <input
+        ref={inputRef}
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") commit();
+          else if (e.key === "Escape") cancel();
+        }}
+        placeholder={placeholder}
+        className="text-lg font-semibold text-foreground bg-background-100 border border-primary-400 rounded-md px-1.5 py-0.5 -my-0.5 -mx-1.5 outline-none focus:ring-1 focus:ring-primary-400 min-w-0 w-full"
+      />
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        setDraft(value);
+        setEditing(true);
+      }}
+      title="Rename"
+      className="group/title flex items-center gap-1.5 min-w-0 max-w-full rounded-md px-1.5 py-0.5 -mx-1.5 hover:bg-background-200 transition-colors"
+    >
+      <span className="text-lg font-semibold text-foreground truncate">
+        {value || placeholder}
+      </span>
+      <Pencil className="w-3.5 h-3.5 shrink-0 text-foreground-400 opacity-0 group-hover/title:opacity-100 transition-opacity" />
+    </button>
+  );
+}
+
+/**
  * Renders the page toolbar configured via `useToolbar`. Mounted once by the
  * app shell, below the TopBar. Renders nothing when no page has set a config.
  */
@@ -335,8 +408,7 @@ export default function Toolbar() {
       const titleWidth = titleRef.current?.offsetWidth ?? 0;
       const centerReserve = hasCenter ? CENTER_RESERVE : 0;
       // Two gaps: title↔center and center↔actions.
-      const avail =
-        innerWidth - titleWidth - centerReserve - REGION_GAP * 2;
+      const avail = innerWidth - titleWidth - centerReserve - REGION_GAP * 2;
       setAvailable(Math.max(0, avail));
     };
     measure();
@@ -352,10 +424,18 @@ export default function Toolbar() {
       ref={outerRef}
       className="flex items-center gap-4 px-6 py-3 bg-background border-b border-neutral-200/60 shrink-0"
     >
-      <div ref={titleRef} className="min-w-0 shrink-0">
-        <h1 className="text-lg font-semibold text-foreground truncate">
-          {config.title}
-        </h1>
+      <div ref={titleRef} className="min-w-0 shrink-0 max-w-[40%]">
+        {config.onTitleChange ? (
+          <EditableTitle
+            value={config.title}
+            onChange={config.onTitleChange}
+            placeholder={config.titlePlaceholder}
+          />
+        ) : (
+          <h1 className="text-lg font-semibold text-foreground truncate">
+            {config.title}
+          </h1>
+        )}
         {config.description && (
           <p className="text-foreground-500 text-sm mt-0.5 truncate">
             {config.description}

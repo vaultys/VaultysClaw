@@ -22,17 +22,7 @@ const handlers = createNextRoute(workflowsContract, {
     return {
       status: 200,
       body: {
-        success: true,
-        workflow: {
-          id: workflow.id,
-          name: workflow.name,
-          description: workflow.description,
-          definition: workflow.definition,
-          realmId: workflow.realmId,
-          createdBy: workflow.createdBy,
-          createdAt: workflow.createdAt,
-          updatedAt: workflow.updatedAt,
-        },
+        workflow,
       },
     };
   },
@@ -58,14 +48,14 @@ const handlers = createNextRoute(workflowsContract, {
       );
     }
 
-    await WorkflowDAO.update(params.id, {
+    const updatedWorkflow = await WorkflowDAO.update(params.id, {
       name,
       definition: definition as unknown as Prisma.InputJsonValue,
       description,
       realmId,
     });
 
-    return { status: 200, body: { success: true, id: params.id } };
+    return { status: 200, body: { workflow: updatedWorkflow } };
   },
 
   // ── DELETE /api/workflows/:id ───────────────────────────────────────────
@@ -80,9 +70,9 @@ const handlers = createNextRoute(workflowsContract, {
     if (!workflow.realmId && !auth.isGlobalAdmin)
       throw new APIException("FORBIDDEN");
 
-    await WorkflowDAO.delete(params.id);
+    const deletedWorkflow = await WorkflowDAO.delete(params.id);
 
-    return { status: 200, body: { success: true, id: params.id } };
+    return { status: 200, body: { workflow: deletedWorkflow } };
   },
 });
 

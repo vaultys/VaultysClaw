@@ -34,16 +34,7 @@ const handlers = createNextRoute(workflowsContract, {
     return {
       status: 200,
       body: {
-        success: true,
-        workflows: workflows.map((w) => ({
-          id: w.id,
-          name: w.name,
-          description: w.description,
-          realmId: w.realmId,
-          createdBy: w.createdBy,
-          createdAt: w.createdAt,
-          updatedAt: w.updatedAt,
-        })),
+        workflows: workflows,
       },
     };
   },
@@ -59,26 +50,27 @@ const handlers = createNextRoute(workflowsContract, {
 
     // If no realmId, must be global admin (no implicit realm to check admin on)
     if (realmId) {
-      if (!(await auth.canAdminRealm(realmId))) throw new APIException("FORBIDDEN");
+      if (!(await auth.canAdminRealm(realmId)))
+        throw new APIException("FORBIDDEN");
     } else if (!auth.isGlobalAdmin) {
       throw new APIException("FORBIDDEN");
     }
 
-    const id = await WorkflowDAO.create(
+    const workflow = await WorkflowDAO.create(
       name,
       definition as unknown as Prisma.InputJsonValue,
       undefined,
       realmId
     );
 
+    if (!workflow) {
+      throw new APIException("INTERNAL_ERROR", "Failed to create workflow");
+    }
+
     return {
       status: 200,
       body: {
-        success: true,
-        id,
-        name,
-        description,
-        realmId: realmId || "default",
+        workflow,
       },
     };
   },

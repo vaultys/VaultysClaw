@@ -21,10 +21,13 @@ const handlers = createNextRoute(workflowsContract, {
     // Validate definition structure
     const definition = body.definition as unknown as WorkflowDefinition;
     if (!Array.isArray(definition.nodes) || !Array.isArray(definition.edges)) {
-      throw new APIException("MALFORMED", "Invalid workflow definition structure");
+      throw new APIException(
+        "MALFORMED",
+        "Invalid workflow definition structure"
+      );
     }
 
-    const id = await WorkflowDAO.create(
+    const workflow = await WorkflowDAO.create(
       body.name,
       body.definition as unknown as Prisma.InputJsonValue
     );
@@ -32,9 +35,7 @@ const handlers = createNextRoute(workflowsContract, {
     return {
       status: 200,
       body: {
-        success: true,
-        id,
-        message: `Workflow "${body.name}" imported successfully`,
+        workflow,
       },
     };
   },

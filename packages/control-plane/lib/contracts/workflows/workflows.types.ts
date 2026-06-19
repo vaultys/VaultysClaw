@@ -38,23 +38,6 @@ export type ApprovalCommentBody = z.infer<typeof ApprovalCommentBodySchema>;
 // Response types (Prisma-derived)
 // ─────────────────────────────────────────────
 
-/** Lightweight workflow row returned by the list endpoint. */
-export type WorkflowSummary = Pick<
-  Workflow,
-  | "id"
-  | "name"
-  | "description"
-  | "realmId"
-  | "createdBy"
-  | "createdAt"
-  | "updatedAt"
->;
-
-/** A single workflow, including its node graph definition. */
-export type WorkflowDetail = WorkflowSummary & {
-  definition: Prisma.JsonValue;
-};
-
 /** A workflow run with its workflow's display name joined in. */
 export type WorkflowRunWithName = WorkflowRun & { workflowName: string };
 

@@ -221,7 +221,7 @@ export const WorkflowEditor: React.FC<WorkflowEditorProps> = ({
               definition: newDefinition as unknown as Record<string, unknown>,
               realmId: workflowRealmId,
             },
-          }),
+          })
         );
       } else {
         // Create new workflow
@@ -232,10 +232,16 @@ export const WorkflowEditor: React.FC<WorkflowEditorProps> = ({
               definition: newDefinition as unknown as Record<string, unknown>,
               realmId: workflowRealmId,
             },
-          }),
+          })
         );
         // Update store with new workflow ID
-        setWorkflow(data.id, workflowName, "", newDefinition, workflowRealmId);
+        setWorkflow(
+          data.workflow.id,
+          workflowName,
+          data.workflow.description ?? "",
+          data.workflow.definition as unknown as WorkflowDefinition,
+          data.workflow.realmId ?? "default"
+        );
       }
 
       setSaveStatus("success");
@@ -272,7 +278,7 @@ export const WorkflowEditor: React.FC<WorkflowEditorProps> = ({
         await workflowsClient.execute({
           params: { id: workflowId },
           body: { input: input || undefined },
-        }),
+        })
       );
       startExecution(data.runId);
     } catch (err) {

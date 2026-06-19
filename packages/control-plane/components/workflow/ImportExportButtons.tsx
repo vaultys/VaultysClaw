@@ -21,7 +21,7 @@ export function ImportExportButtons({
 
     try {
       const data = unwrap(
-        await workflowsClient.export({ params: { id: workflowId } }),
+        await workflowsClient.export({ params: { id: workflowId } })
       );
 
       const blob = new Blob([JSON.stringify(data, null, 2)], {
@@ -55,16 +55,14 @@ export function ImportExportButtons({
       const text = await file.text();
       const data = JSON.parse(text);
 
-      const result = unwrap(
-        await workflowsClient.import({
-          body: {
-            name: data.name || file.name.replace(".json", ""),
-            description: data.description,
-            definition: data.definition,
-          },
-        }),
-      );
-      alert(result.message || "Workflow imported successfully");
+      await workflowsClient.import({
+        body: {
+          name: data.name || file.name.replace(".json", ""),
+          description: data.description,
+          definition: data.definition,
+        },
+      });
+
       onImportComplete?.();
     } catch (error) {
       console.error("Import failed:", error);

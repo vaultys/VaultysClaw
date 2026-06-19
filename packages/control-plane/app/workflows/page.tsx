@@ -3,19 +3,26 @@
 import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Plus, Trash2, ChevronRight, Play, GitBranch, Upload } from "lucide-react";
+import {
+  Plus,
+  Trash2,
+  ChevronRight,
+  Play,
+  GitBranch,
+  Upload,
+} from "lucide-react";
 import { useToolbar } from "@/components/layout/ToolbarContext";
 import { useBreadcrumbs } from "@/components/layout/BreadcrumbContext";
 import { useWorkflowStore } from "@/components/workflow/store";
 import { TemplateSelectionModal } from "@/components/workflow/TemplateSelectionModal";
 import { WorkflowRunModal } from "@/components/workflow/WorkflowRunModal";
 import { workflowsClient, unwrap } from "@/lib/api/ts-rest/client";
-import type { WorkflowSummary } from "@/lib/contracts";
 import type { WorkflowDefinition } from "@/lib/workflow-types";
+import { Workflow } from "@prisma/client";
 
 export default function WorkflowsPage() {
   const router = useRouter();
-  const [workflows, setWorkflows] = useState<WorkflowSummary[]>([]);
+  const [workflows, setWorkflows] = useState<Workflow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
@@ -37,7 +44,7 @@ export default function WorkflowsPage() {
   }, []);
 
   const handleImportFile = async (
-    event: React.ChangeEvent<HTMLInputElement>,
+    event: React.ChangeEvent<HTMLInputElement>
   ) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -50,10 +57,9 @@ export default function WorkflowsPage() {
             description: data.description,
             definition: data.definition,
           },
-        }),
+        })
       );
-      alert(result.message || "Workflow imported successfully");
-      fetchWorkflows();
+      setWorkflows((w) => [...w, result.workflow]);
     } catch (err) {
       alert("Failed to import workflow: " + String(err));
     } finally {
@@ -87,7 +93,7 @@ export default function WorkflowsPage() {
   const handleSelectTemplate = async (templateId: string, realmId?: string) => {
     try {
       const data = unwrap(
-        await workflowsClient.getTemplate({ params: { templateId } }),
+        await workflowsClient.getTemplate({ params: { templateId } })
       );
       const template = data.template as { definition: unknown; name: string };
       clearWorkflow();
@@ -95,7 +101,7 @@ export default function WorkflowsPage() {
         "",
         template.name,
         "",
-        template.definition as WorkflowDefinition,
+        template.definition as WorkflowDefinition
       );
       const params = new URLSearchParams({ fromTemplate: "1" });
       if (realmId) params.set("realm", realmId);
@@ -166,7 +172,7 @@ export default function WorkflowsPage() {
         },
       ],
     },
-    [search, clearWorkflow, router],
+    [search, clearWorkflow, router]
   );
 
   return (
@@ -226,11 +232,15 @@ export default function WorkflowsPage() {
                       </p>
                     )}
                     <p className="text-xs text-foreground-400 mt-1.5">
-                      Updated {new Date(workflow.updatedAt).toLocaleDateString()}
+                      Updated{" "}
+                      {new Date(workflow.updatedAt).toLocaleDateString()}
                     </p>
                   </div>
 
-                  <div className="flex items-center gap-1 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+                  <div
+                    className="flex items-center gap-1 flex-shrink-0"
+                    onClick={(e) => e.stopPropagation()}
+                  >
                     <button
                       onClick={(e) => handleExecuteWorkflow(workflow.id, e)}
                       className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-success-600 hover:bg-success-50 rounded"

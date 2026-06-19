@@ -14,8 +14,6 @@ import {
   ApprovalCommentBodySchema,
 } from "./workflows.schemas";
 import type {
-  WorkflowSummary,
-  WorkflowDetail,
   WorkflowExport,
   WorkflowScheduleConfig,
   SetScheduleResponse,
@@ -25,6 +23,7 @@ import type {
   WorkflowRunDetail,
   WorkflowApprovalListResponse,
 } from "./workflows.types";
+import { Workflow } from "@prisma/client";
 
 const IdParam = z.object({ id: z.string().min(1) });
 const RunIdParam = z.object({ runId: z.string().min(1) });
@@ -37,7 +36,7 @@ export const workflowsContract = c.router({
     summary: "List workflows visible to the user",
     query: ListWorkflowsQuerySchema,
     responses: {
-      200: c.type<{ success: boolean; workflows: WorkflowSummary[] }>(),
+      200: c.type<{ workflows: Workflow[] }>(),
       ...commonErrorResponses,
     },
   },
@@ -48,13 +47,7 @@ export const workflowsContract = c.router({
     summary: "Save a new workflow",
     body: CreateWorkflowBodySchema,
     responses: {
-      200: c.type<{
-        success: boolean;
-        id: string;
-        name: string;
-        description?: string;
-        realmId?: string;
-      }>(),
+      200: c.type<{ workflow: Workflow }>(),
       ...commonErrorResponses,
     },
   },
@@ -65,11 +58,7 @@ export const workflowsContract = c.router({
     summary: "Import a new workflow definition",
     body: ImportWorkflowBodySchema,
     responses: {
-      200: z.object({
-        success: z.boolean(),
-        id: z.string(),
-        message: z.string(),
-      }),
+      200: c.type<{ workflow: Workflow }>(),
       ...commonErrorResponses,
     },
   },
@@ -81,7 +70,6 @@ export const workflowsContract = c.router({
     query: ListTemplatesQuerySchema,
     responses: {
       200: c.type<{
-        success: boolean;
         templates: Array<Record<string, unknown>>;
       }>(),
       ...commonErrorResponses,
@@ -94,7 +82,7 @@ export const workflowsContract = c.router({
     pathParams: TemplateIdParam,
     summary: "Retrieve a workflow template by ID",
     responses: {
-      200: c.type<{ success: boolean; template: Record<string, unknown> }>(),
+      200: c.type<{ template: Record<string, unknown> }>(),
       ...commonErrorResponses,
     },
   },
@@ -127,7 +115,7 @@ export const workflowsContract = c.router({
     pathParams: IdParam,
     summary: "Fetch a single workflow by ID",
     responses: {
-      200: c.type<{ success: boolean; workflow: WorkflowDetail }>(),
+      200: c.type<{ workflow: Workflow }>(),
       ...commonErrorResponses,
     },
   },
@@ -139,7 +127,7 @@ export const workflowsContract = c.router({
     summary: "Update a workflow",
     body: UpdateWorkflowBodySchema,
     responses: {
-      200: z.object({ success: z.boolean(), id: z.string() }),
+      200: c.type<{ workflow: Workflow }>(),
       ...commonErrorResponses,
     },
   },
@@ -150,7 +138,7 @@ export const workflowsContract = c.router({
     pathParams: IdParam,
     summary: "Delete a workflow",
     responses: {
-      200: z.object({ success: z.boolean(), id: z.string() }),
+      200: c.type<{ workflow: Workflow }>(),
       ...commonErrorResponses,
     },
   },

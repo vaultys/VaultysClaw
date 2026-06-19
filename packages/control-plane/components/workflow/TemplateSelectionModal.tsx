@@ -124,7 +124,7 @@ export function TemplateSelectionModal({
                     onSelectTemplate(template.id);
                     onClose();
                   }}
-                  className="p-4 border border-neutral-200 rounded-lg hover:border-primary-500 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition text-left"
+                  className="p-4 border border-neutral-200 rounded-lg hover:border-primary-500 hover:bg-primary-50 transition text-left"
                 >
                   <div className="flex items-start gap-3">
                     <div className="flex-1">

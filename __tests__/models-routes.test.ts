@@ -66,6 +66,7 @@ vi.mock("@/lib/litellm-client", () => ({
 import { prisma } from "../packages/control-plane/db/client";
 import { ModelDAO } from "../packages/control-plane/db";
 import { getAuthContext } from "../packages/control-plane/lib/auth-utils";
+import { APIException } from "../packages/control-plane/lib/api/utils/api-utils";
 import {
   isLiteLLMConfigured,
   registerModel,
@@ -154,8 +155,8 @@ beforeEach(() => {
 
 describe("GET /api/models", () => {
   it("returns 401 when unauthenticated", async () => {
-    mockGetAuthContext.mockResolvedValueOnce(null);
-    const res = await modelsGET();
+    mockGetAuthContext.mockRejectedValueOnce(new APIException("UNAUTHORIZED"));
+    const res = await modelsGET(req("GET", "http://localhost/api/models") as any);
     expect(res._status).toBe(401);
   });
 
@@ -163,7 +164,7 @@ describe("GET /api/models", () => {
     const id = `${T}get-list-1`;
     await prisma.modelRegistry.upsert({ where: { id }, create: { id, name: "Test Model", provider: "ollama", modelId: "llama3:8b", baseUrl: "http://localhost:11434", status: "active" }, update: {} });
     try {
-      const res = await modelsGET();
+      const res = await modelsGET(req("GET", "http://localhost/api/models") as any);
       expect(res._status).toBe(200);
       const body = (await res.json()) as { models: { id: string }[] };
       expect(body.models.some((m) => m.id === id)).toBe(true);

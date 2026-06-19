@@ -170,7 +170,7 @@ function CopyButton({ text, label }: { text: string; label?: string }) {
     <button
       onClick={copy}
       title={label ?? "Copy to clipboard"}
-      className="inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded border border-neutral-300 dark:border-neutral-600 text-foreground-500 hover:text-foreground hover:bg-background-200 transition-colors"
+      className="inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded border border-neutral-300 text-foreground-500 hover:text-foreground hover:bg-background-200 transition-colors"
     >
       {copied ? (
         <><CheckIcon size={11} className="text-success-500" /> Copied</>
@@ -192,7 +192,7 @@ function ToolExecutionPanel({ details }: { details: ToolExecutionDetails }) {
       {/* Tool name + duration */}
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-2">
-          <div className="p-1.5 rounded bg-secondary-100 dark:bg-secondary-500/10 border border-secondary-300 dark:border-secondary-500/20 text-secondary-600 dark:text-secondary-400">
+          <div className="p-1.5 rounded bg-secondary-100 border border-secondary-300 text-secondary-600">
             <Wrench size={14} />
           </div>
           <span className="text-sm font-semibold text-foreground font-mono">
@@ -210,7 +210,7 @@ function ToolExecutionPanel({ details }: { details: ToolExecutionDetails }) {
       {(details.intentId || details.conversationId) && (
         <div className="flex flex-wrap gap-2 text-[11px]">
           {details.intentId && (
-            <span className="bg-primary-100 dark:bg-primary-500/10 border border-primary-300 dark:border-primary-500/20 text-primary-700 dark:text-primary-400 px-2 py-0.5 rounded font-mono">
+            <span className="bg-primary-100 border border-primary-300 text-primary-700 px-2 py-0.5 rounded font-mono">
               intent: {details.intentId}
             </span>
           )}
@@ -226,7 +226,7 @@ function ToolExecutionPanel({ details }: { details: ToolExecutionDetails }) {
       {hasArgs && (
         <div className="space-y-1.5">
           <p className="text-xs text-foreground-400 uppercase tracking-wider">Arguments</p>
-          <div className="bg-background border border-neutral-200 rounded-lg divide-y divide-neutral-100 dark:divide-neutral-700 text-xs">
+          <div className="bg-background border border-neutral-200 rounded-lg divide-y divide-neutral-100 text-xs">
             {Object.entries(details.args!).map(([k, v]) => (
               <div key={k} className="flex gap-3 px-3 py-2 min-h-0">
                 <span className="font-mono text-foreground-500 shrink-0 w-32 truncate">{k}</span>
@@ -262,7 +262,7 @@ function ToolExecutionPanel({ details }: { details: ToolExecutionDetails }) {
 
       {/* Error */}
       {hasError && (
-        <div className="flex items-start gap-2 bg-danger-500/10 border border-danger-500/20 rounded-lg px-3 py-2 text-xs text-danger-600 dark:text-danger-400">
+        <div className="flex items-start gap-2 bg-danger-500/10 border border-danger-500/20 rounded-lg px-3 py-2 text-xs text-danger-600">
           <AlertTriangle size={13} className="shrink-0 mt-0.5" />
           <span className="font-mono break-all">{details.error}</span>
         </div>
@@ -393,7 +393,7 @@ export default function AuditDetailPage() {
         >
           <ChevronLeft size={16} /> Back
         </button>
-        <div className="bg-danger-500/10 border border-danger-500/20 rounded-lg px-4 py-3 text-danger-600 dark:text-danger-400 text-sm">
+        <div className="bg-danger-500/10 border border-danger-500/20 rounded-lg px-4 py-3 text-danger-600 text-sm">
           {error ?? "Entry not found"}
         </div>
       </div>
@@ -423,8 +423,8 @@ export default function AuditDetailPage() {
           <div
             className={`p-2.5 rounded-lg border flex-shrink-0 ${
               isActivity
-                ? "bg-primary-100 dark:bg-primary-500/10 border-primary-300 dark:border-primary-500/20 text-primary-600 dark:text-primary-400"
-                : "bg-secondary-100 dark:bg-secondary-500/10 border-secondary-300 dark:border-secondary-500/20 text-secondary-600 dark:text-secondary-400"
+                ? "bg-primary-100 border-primary-300 text-primary-600"
+                : "bg-secondary-100 border-secondary-300 text-secondary-600"
             }`}
           >
             {isActivity ? <Activity size={18} /> : <FileText size={18} />}
@@ -438,27 +438,27 @@ export default function AuditDetailPage() {
               <span
                 className={`text-[10px] px-1.5 py-0.5 rounded font-medium border ${
                   isActivity
-                    ? "bg-primary-100 dark:bg-primary-500/15 text-primary-700 dark:text-primary-400 border-primary-300 dark:border-primary-500/25"
-                    : "bg-secondary-100 dark:bg-secondary-500/15 text-secondary-700 dark:text-secondary-400 border-secondary-300 dark:border-secondary-500/25"
+                    ? "bg-primary-100 text-primary-700 border-primary-300"
+                    : "bg-secondary-100 text-secondary-700 border-secondary-300"
                 }`}
               >
                 {entry.source}
               </span>
               {/* Status badge */}
               {entry.status === "success" && (
-                <span className="flex items-center gap-1 text-xs text-success-700 dark:text-success-400">
+                <span className="flex items-center gap-1 text-xs text-success-700">
                   <CheckCircle2 size={12} /> success
                 </span>
               )}
               {entry.status === "failed" && (
-                <span className="flex items-center gap-1 text-xs text-danger-600 dark:text-danger-400">
+                <span className="flex items-center gap-1 text-xs text-danger-600">
                   <XCircle size={12} /> failed
                 </span>
               )}
               {entry.status &&
                 entry.status !== "success" &&
                 entry.status !== "failed" && (
-                  <span className="flex items-center gap-1 text-xs text-warning-600 dark:text-warning-400">
+                  <span className="flex items-center gap-1 text-xs text-warning-600">
                     <Clock size={12} /> {entry.status}
                   </span>
                 )}
@@ -501,7 +501,7 @@ export default function AuditDetailPage() {
 
       {/* Error banner */}
       {entry.error && (
-        <div className="flex items-start gap-2 bg-danger-500/10 border border-danger-500/20 rounded-xl px-4 py-3 text-sm text-danger-600 dark:text-danger-400">
+        <div className="flex items-start gap-2 bg-danger-500/10 border border-danger-500/20 rounded-xl px-4 py-3 text-sm text-danger-600">
           <AlertTriangle size={15} className="flex-shrink-0 mt-0.5" />
           <span className="font-mono text-xs break-all">{entry.error}</span>
         </div>
@@ -596,10 +596,10 @@ export default function AuditDetailPage() {
                       <span
                         className={`font-semibold ${
                           certInfo.state === 2
-                            ? "text-success-600 dark:text-success-400"
+                            ? "text-success-600"
                             : certInfo.state !== null && certInfo.state < 0
-                              ? "text-danger-600 dark:text-danger-400"
-                              : "text-warning-600 dark:text-warning-400"
+                              ? "text-danger-600"
+                              : "text-warning-600"
                         }`}
                       >
                         {certInfo.state !== null
@@ -632,31 +632,31 @@ export default function AuditDetailPage() {
 
               {/* Signature verification status */}
               {certInfo.signatureVerified ? (
-                <div className="flex items-center gap-2.5 bg-success-50 dark:bg-success-500/10 border border-success-300 dark:border-success-500/30 rounded-lg px-4 py-3">
+                <div className="flex items-center gap-2.5 bg-success-50 border border-success-300 rounded-lg px-4 py-3">
                   <CheckCircle2
                     size={16}
-                    className="text-success-600 dark:text-success-400 shrink-0"
+                    className="text-success-600 shrink-0"
                   />
                   <div>
-                    <p className="text-sm font-semibold text-success-700 dark:text-success-400">
+                    <p className="text-sm font-semibold text-success-700">
                       Signature verified
                     </p>
-                    <p className="text-xs text-success-600/80 dark:text-success-500/80">
+                    <p className="text-xs text-success-600/80">
                       Mutual challenge-response completed — both parties signed
                     </p>
                   </div>
                 </div>
               ) : (
-                <div className="flex items-center gap-2.5 bg-warning-50 dark:bg-warning-500/10 border border-warning-300 dark:border-warning-500/30 rounded-lg px-4 py-3">
+                <div className="flex items-center gap-2.5 bg-warning-50 border border-warning-300 rounded-lg px-4 py-3">
                   <AlertTriangle
                     size={16}
-                    className="text-warning-600 dark:text-warning-400 shrink-0"
+                    className="text-warning-600 shrink-0"
                   />
                   <div>
-                    <p className="text-sm font-semibold text-warning-700 dark:text-warning-400">
+                    <p className="text-sm font-semibold text-warning-700">
                       Signature not verified
                     </p>
-                    <p className="text-xs text-warning-600/80 dark:text-warning-500/80">
+                    <p className="text-xs text-warning-600/80">
                       Handshake incomplete or failed
                     </p>
                   </div>
@@ -708,7 +708,7 @@ export default function AuditDetailPage() {
                     {certInfo.capabilities.map((cap) => (
                       <span
                         key={cap}
-                        className="flex items-center gap-1 bg-primary-100 dark:bg-primary-900/40 border border-primary-300 dark:border-primary-700/40 text-primary-700 dark:text-primary-300 px-2 py-0.5 rounded text-xs"
+                        className="flex items-center gap-1 bg-primary-100 border border-primary-300 text-primary-700 px-2 py-0.5 rounded text-xs"
                       >
                         {CAPABILITY_ICONS[cap] ?? <Zap size={11} />}
                         {cap.replace(/_/g, " ")}
@@ -779,7 +779,7 @@ export default function AuditDetailPage() {
                         <span
                           className={`font-mono text-[11px] ${
                             new Date(certInfo.policyExpiresAt) < new Date()
-                              ? "text-danger-600 dark:text-danger-400"
+                              ? "text-danger-600"
                               : "text-foreground"
                           }`}
                         >
@@ -793,7 +793,7 @@ export default function AuditDetailPage() {
 
               {/* Cert error */}
               {certInfo.error && (
-                <div className="flex items-center gap-2 text-xs text-warning-600 dark:text-warning-400 bg-warning-50 dark:bg-warning-500/10 border border-warning-200 dark:border-warning-500/20 rounded-lg px-3 py-2">
+                <div className="flex items-center gap-2 text-xs text-warning-600 bg-warning-50 border border-warning-200 rounded-lg px-3 py-2">
                   <AlertTriangle size={12} />
                   <span>Cert error: {certInfo.error}</span>
                 </div>
@@ -826,12 +826,12 @@ export default function AuditDetailPage() {
                       </span>
                     )}
                     {sigState === "valid" && (
-                      <span className="flex items-center gap-1 text-[11px] font-medium text-success-600 dark:text-success-400">
+                      <span className="flex items-center gap-1 text-[11px] font-medium text-success-600">
                         <CheckCircle2 size={12} /> Verified by browser
                       </span>
                     )}
                     {sigState === "invalid" && (
-                      <span className="flex items-center gap-1 text-[11px] font-medium text-danger-600 dark:text-danger-400">
+                      <span className="flex items-center gap-1 text-[11px] font-medium text-danger-600">
                         <XCircle size={12} /> Invalid
                       </span>
                     )}
@@ -847,7 +847,7 @@ export default function AuditDetailPage() {
               {/* Hash or absent notice */}
               {sigHash ? (
                 <div className="mt-1.5 flex items-center gap-2">
-                  <code className="text-[11px] font-mono text-foreground-600 dark:text-foreground-400 tracking-wide break-all">
+                  <code className="text-[11px] font-mono text-foreground-600 tracking-wide break-all">
                     {sigHash}
                   </code>
                   <CopyButton text={sigHash} label="Copy hash" />

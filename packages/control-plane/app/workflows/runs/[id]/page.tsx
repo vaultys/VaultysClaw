@@ -163,15 +163,15 @@ function getStatusBadge(status: string) {
     "inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium";
   switch (status) {
     case "completed":
-      return `${base} bg-success-100 dark:bg-success-900/40 text-success-700 dark:text-success-400`;
+      return `${base} bg-success-100 text-success-700`;
     case "failed":
-      return `${base} bg-danger-100 dark:bg-danger-900/40 text-danger-700 dark:text-danger-400`;
+      return `${base} bg-danger-100 text-danger-700`;
     case "rejected":
-      return `${base} bg-warning-100 dark:bg-warning-900/40 text-warning-700 dark:text-warning-400`;
+      return `${base} bg-warning-100 text-warning-700`;
     case "running":
-      return `${base} bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-400`;
+      return `${base} bg-primary-100 text-primary-700`;
     case "waiting_approval":
-      return `${base} bg-warning-100 dark:bg-warning-900/40 text-warning-700 dark:text-warning-400`;
+      return `${base} bg-warning-100 text-warning-700`;
     default:
       return `${base} bg-background-200 text-foreground-400`;
   }
@@ -182,15 +182,15 @@ function getStepPill(status: string) {
     "inline-flex items-center px-2 py-0.5 rounded text-xs font-medium";
   switch (status) {
     case "completed":
-      return `${base} bg-success-100 dark:bg-success-900/40 text-success-700 dark:text-success-400`;
+      return `${base} bg-success-100 text-success-700`;
     case "failed":
-      return `${base} bg-danger-100 dark:bg-danger-900/40 text-danger-700 dark:text-danger-400`;
+      return `${base} bg-danger-100 text-danger-700`;
     case "rejected":
-      return `${base} bg-warning-100 dark:bg-warning-900/40 text-warning-700 dark:text-warning-400`;
+      return `${base} bg-warning-100 text-warning-700`;
     case "running":
-      return `${base} bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-400`;
+      return `${base} bg-primary-100 text-primary-700`;
     case "waiting_approval":
-      return `${base} bg-warning-100 dark:bg-warning-900/40 text-warning-700 dark:text-warning-400`;
+      return `${base} bg-warning-100 text-warning-700`;
     default:
       return `${base} bg-background-200 text-foreground-400`;
   }
@@ -548,10 +548,10 @@ export default function WorkflowRunDetailPage() {
                         {/* Error */}
                         {step.error && (
                           <div>
-                            <p className="text-sm text-danger-600 dark:text-danger-400 mb-2">
+                            <p className="text-sm text-danger-600 mb-2">
                               Error
                             </p>
-                            <pre className="bg-danger-50 dark:bg-danger-950/30 rounded p-3 text-danger-700 dark:text-danger-300 text-xs font-mono overflow-auto max-h-48 border border-danger-200 dark:border-danger-900/50">
+                            <pre className="bg-danger-50 rounded p-3 text-danger-700 text-xs font-mono overflow-auto max-h-48 border border-danger-200">
                               {step.error}
                             </pre>
                           </div>

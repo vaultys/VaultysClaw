@@ -93,7 +93,7 @@ function TabBar({
           onClick={() => onChange(tab.id)}
           className={`flex items-center gap-2 px-4 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
             active === tab.id
-              ? "border-primary-500 text-primary-500 dark:text-primary-400"
+              ? "border-primary-500 text-primary-500"
               : "border-transparent text-foreground-500 hover:text-foreground hover:border-neutral-300"
           }`}
         >
@@ -369,8 +369,8 @@ export default function UnregisteredUserPage() {
 
         {/* Header card */}
         <div className="bg-background-100 border border-neutral-200 rounded-xl px-5 py-4 flex items-center gap-4 flex-wrap">
-          <div className="flex-shrink-0 w-11 h-11 rounded-full bg-warning-100 dark:bg-warning-900/30 border border-warning-300 dark:border-warning-700/50 flex items-center justify-center">
-            <span className="text-base font-bold text-warning-600 dark:text-warning-400">
+          <div className="flex-shrink-0 w-11 h-11 rounded-full bg-warning-100 border border-warning-300 flex items-center justify-center">
+            <span className="text-base font-bold text-warning-600">
               {initials(user)}
             </span>
           </div>
@@ -384,11 +384,11 @@ export default function UnregisteredUserPage() {
                   </span>
                 )}
               </h1>
-              <span className="px-2 py-0.5 bg-warning-100 dark:bg-warning-900/30 text-warning-700 dark:text-warning-400 border border-warning-300 dark:border-warning-700/50 rounded-full text-xs font-medium">
+              <span className="px-2 py-0.5 bg-warning-100 text-warning-700 border border-warning-300 rounded-full text-xs font-medium">
                 Unclaimed
               </span>
               {user.entraId && (
-                <span className="px-2 py-0.5 bg-primary-50 dark:bg-primary-950/30 text-primary-600 dark:text-primary-400 border border-primary-200 dark:border-primary-800/50 rounded-full text-xs font-medium">
+                <span className="px-2 py-0.5 bg-primary-50 text-primary-600 border border-primary-200 rounded-full text-xs font-medium">
                   Entra ID
                 </span>
               )}
@@ -615,7 +615,7 @@ function OverviewTab({
               <div className="w-28 flex-shrink-0 text-xs text-foreground-500 uppercase pt-0.5">
                 Status
               </div>
-              <div className="flex-1 text-sm text-warning-600 dark:text-warning-400">
+              <div className="flex-1 text-sm text-warning-600">
                 Waiting for account claim via QR code
               </div>
             </div>
@@ -632,7 +632,7 @@ function OverviewTab({
       )}
 
       {saveError && (
-        <div className="flex items-center gap-2 text-danger-500 dark:text-danger-400 text-sm bg-danger-50 dark:bg-danger-900/20 border border-danger-200 dark:border-danger-800/50 rounded-xl px-4 py-2.5">
+        <div className="flex items-center gap-2 text-danger-500 text-sm bg-danger-50 border border-danger-200 rounded-xl px-4 py-2.5">
           <AlertCircle className="w-4 h-4 shrink-0" />
           {saveError}
         </div>
@@ -688,7 +688,7 @@ function RealmsTab({ realms }: { realms: UserRealm[] }) {
               {r.slug}
             </span>
             {r.isPrimary && (
-              <span className="px-1.5 py-0.5 bg-primary-100 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400 rounded text-xs">
+              <span className="px-1.5 py-0.5 bg-primary-100 text-primary-600 rounded text-xs">
                 Primary
               </span>
             )}
@@ -714,8 +714,8 @@ function DangerZone({ id, userName }: { id: string; userName: string | null }) {
   };
 
   return (
-    <div className="mt-6 bg-background-100 border border-danger-200 dark:border-danger-900/50 rounded-2xl p-6">
-      <h2 className="text-sm font-semibold text-danger-600 dark:text-danger-400 mb-1">
+    <div className="mt-6 bg-background-100 border border-danger-200 rounded-2xl p-6">
+      <h2 className="text-sm font-semibold text-danger-600 mb-1">
         Danger zone
       </h2>
       <p className="text-foreground-500 text-sm mb-4">

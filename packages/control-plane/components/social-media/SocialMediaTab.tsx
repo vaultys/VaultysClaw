@@ -297,7 +297,7 @@ export function SocialMediaTab({ realmId }: SocialMediaTabProps) {
               </div>
               <button
                 onClick={deleteXCredential}
-                className="p-1.5 rounded-lg text-danger-500 hover:bg-danger-50 dark:hover:bg-danger-900/20 transition-colors"
+                className="p-1.5 rounded-lg text-danger-500 hover:bg-danger-50 transition-colors"
                 title="Delete credentials"
               >
                 <Trash2 className="w-4 h-4" />

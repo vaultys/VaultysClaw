@@ -168,7 +168,7 @@ export default function WorkflowsPage() {
         )}
 
         {error && (
-          <div className="bg-danger-50 dark:bg-danger-900/20 border border-danger-200 dark:border-danger-800 text-danger-600 dark:text-danger-400 px-4 py-3 rounded-lg">
+          <div className="bg-danger-50 border border-danger-200 text-danger-600 px-4 py-3 rounded-lg">
             {error}
           </div>
         )}
@@ -201,11 +201,11 @@ export default function WorkflowsPage() {
               <div
                 key={workflow.id}
                 onClick={() => router.push(`/workflows/${workflow.id}`)}
-                className="group bg-background-100 rounded-lg border border-neutral-200 hover:border-primary-300 dark:hover:border-primary-700 hover:shadow-sm transition overflow-hidden cursor-pointer"
+                className="group bg-background-100 rounded-lg border border-neutral-200 hover:border-primary-300 hover:shadow-sm transition overflow-hidden cursor-pointer"
               >
                 <div className="px-5 py-4 flex items-center justify-between gap-4">
                   <div className="flex-1 min-w-0">
-                    <h3 className="text-base font-semibold text-foreground group-hover:text-primary-600 dark:group-hover:text-primary-400 transition truncate">
+                    <h3 className="text-base font-semibold text-foreground group-hover:text-primary-600 transition truncate">
                       {workflow.name}
                     </h3>
                     {workflow.description && (
@@ -221,7 +221,7 @@ export default function WorkflowsPage() {
                   <div className="flex items-center gap-1 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
                     <button
                       onClick={(e) => handleExecuteWorkflow(workflow.id, e)}
-                      className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-success-600 dark:text-success-400 hover:bg-success-50 dark:hover:bg-success-900/20 rounded"
+                      className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-success-600 hover:bg-success-50 rounded"
                       title="Execute workflow"
                     >
                       <Play size={14} /> Execute
@@ -234,7 +234,7 @@ export default function WorkflowsPage() {
                     </Link>
                     <button
                       onClick={(e) => handleDeleteWorkflow(workflow.id, e)}
-                      className="p-1.5 text-foreground-400 hover:text-danger-600 dark:hover:text-danger-400 hover:bg-danger-50 dark:hover:bg-danger-900/20 rounded"
+                      className="p-1.5 text-foreground-400 hover:text-danger-600 hover:bg-danger-50 rounded"
                       title="Delete workflow"
                     >
                       <Trash2 size={14} />

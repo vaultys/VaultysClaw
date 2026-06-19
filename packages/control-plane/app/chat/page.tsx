@@ -12,6 +12,7 @@ import {
   CheckCircle2,
   XCircle,
 } from "lucide-react";
+import { toolApprovalsClient } from "@/lib/api/ts-rest/client";
 
 interface ChatMessage {
   role: "user" | "assistant";
@@ -68,15 +69,15 @@ export default function ChatPage() {
       abortRef.current = controller;
 
       try {
-        const res = await fetch("/api/chat", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            agentDid: selectedAgent,
-            messages: updatedMessages,
-          }),
-          signal: controller.signal,
-        });
+        const res = await fetch(
+          `/api/agents/${encodeURIComponent(selectedAgent)}/chat-sessions`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ messages: updatedMessages }),
+            signal: controller.signal,
+          }
+        );
 
         if (!res.ok) {
           const errBody = (await res
@@ -390,12 +391,10 @@ export default function ChatPage() {
                 )
               );
               try {
-                const res = await fetch("/api/tool-approvals", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ requestId: a.requestId, approved }),
+                const result = await toolApprovalsClient.respond({
+                  body: { requestId: a.requestId, approved },
                 });
-                if (!res.ok) throw new Error("Request failed");
+                if (result.status !== 200) throw new Error("Request failed");
                 setPendingApprovals((prev) =>
                   prev.map((x) =>
                     x.requestId === a.requestId

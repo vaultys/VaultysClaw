@@ -1,120 +1,46 @@
-/**
- * GET  /api/tool-approvals          — List pending tool approval requests
- * POST /api/tool-approvals          — Respond to a tool approval request
- */
-
-import { NextResponse, type NextRequest } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth-config";
+import { getAuthContext } from "@/lib/auth-utils";
 import { getWSServer } from "@/lib/ws-server";
-import { withError } from "@/lib/api/handlers/with-error";
-import {
-  malformed,
-  unauthorized,
-  unavailable,
-} from "@/lib/api/utils/api-utils";
+import { APIException } from "@/lib/api/utils/api-utils";
+import { toolApprovalsContract } from "@/lib/contracts";
+import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 
 /**
- * @openapi
- * /api/tool-approvals:
- *   get:
- *     summary: List pending tool approval requests.
- *     tags: [Tool Approvals]
- *     responses:
- *       200:
- *         description: A list of pending tool approval requests.
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 approvals:
- *                   type: array
- *                   items:
- *                     type: object
- *       401:
- *         $ref: '#/components/responses/Unauthorized'
- *       503:
- *         description: WebSocket server not available.
+ * Routes for /api/tool-approvals — `toolApprovalsContract` (list + respond).
+ * Any authenticated user may list/respond; the WebSocket server holds the
+ * pending-approval state. The contract is the single source of truth.
  */
-export const GET = withError(async () => {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) {
-    return unauthorized();
-  }
+const handlers = createNextRoute(toolApprovalsContract, {
+  list: async ({ request }) => {
+    await getAuthContext(request); // throws APIException("UNAUTHORIZED")
 
-  const wsServer = getWSServer();
-  if (!wsServer) {
-    return unavailable("WebSocket server not available");
-  }
+    const wsServer = getWSServer();
+    if (!wsServer)
+      throw new APIException("UNAVAILABLE", "WebSocket server not available");
 
-  const approvals = wsServer.getPendingToolApprovals();
-  return NextResponse.json({ approvals });
+    const approvals = wsServer.getPendingToolApprovals() as unknown as Array<
+      Record<string, unknown>
+    >;
+    return { status: 200, body: { approvals } };
+  },
+
+  respond: async ({ body, request }) => {
+    await getAuthContext(request);
+
+    const wsServer = getWSServer();
+    if (!wsServer)
+      throw new APIException("UNAVAILABLE", "WebSocket server not available");
+
+    const ok = wsServer.respondToToolApproval(
+      body.requestId,
+      body.approved,
+      body.reason
+    );
+    if (!ok)
+      throw new APIException("UNAVAILABLE", "Failed to process approval response");
+
+    return { status: 200, body: undefined };
+  },
 });
 
-/**
- * @openapi
- * /api/tool-approvals:
- *   post:
- *     summary: Respond to a tool approval request.
- *     tags: [Tool Approvals]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               requestId:
- *                 type: string
- *                 description: The ID of the approval request.
- *               approved:
- *                 type: boolean
- *                 description: Approval status.
- *               reason:
- *                 type: string
- *                 description: Optional reason for approval or rejection.
- *             required:
- *               - requestId
- *               - approved
- *     responses:
- *       200:
- *         description: Approval response processed successfully.
- *       400:
- *         $ref: '#/components/responses/BadRequest'
- *       401:
- *         $ref: '#/components/responses/Unauthorized'
- *       404:
- *         $ref: '#/components/responses/NotFound'
- *       503:
- *         description: WebSocket server not available.
- */
-export const POST = withError(async (request: NextRequest) => {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) {
-    return unauthorized();
-  }
-
-  const wsServer = getWSServer();
-  if (!wsServer) {
-    return unavailable("WebSocket server not available");
-  }
-
-  const body = await request.json();
-  const { requestId, approved, reason } = body as {
-    requestId?: string;
-    approved?: boolean;
-    reason?: string;
-  };
-
-  if (!requestId || typeof approved !== "boolean") {
-    return malformed("requestId (string) and approved (boolean) are required");
-  }
-
-  const ok = wsServer.respondToToolApproval(requestId, approved, reason);
-  if (!ok) {
-    return unavailable("Failed to process approval response");
-  }
-
-  return NextResponse.json({ success: true, requestId, approved });
-});
+export const GET = handlers.GET!;
+export const POST = handlers.POST!;

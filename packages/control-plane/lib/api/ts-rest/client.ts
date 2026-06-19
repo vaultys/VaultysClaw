@@ -5,7 +5,6 @@ import {
   apiKeysContract,
   bridgesContract,
   channelsContract,
-  chatContract,
   governanceContract,
   graphContract,
   healthContract,
@@ -57,7 +56,6 @@ export const agentsClient = initClient(agentsContract, clientOptions);
 export const apiKeysClient = initClient(apiKeysContract, clientOptions);
 export const bridgesClient = initClient(bridgesContract, clientOptions);
 export const channelsClient = initClient(channelsContract, clientOptions);
-export const chatClient = initClient(chatContract, clientOptions);
 export const governanceClient = initClient(governanceContract, clientOptions);
 export const graphClient = initClient(graphContract, clientOptions);
 export const healthClient = initClient(healthContract, clientOptions);

@@ -35,7 +35,7 @@ services:
     healthcheck:
       # Use -h 127.0.0.1 to force TCP (not unix socket) — ensures remote containers
       # can actually connect before the healthcheck reports healthy.
-      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U vaultys -d vaultysclaw"]
+      test: [ "CMD-SHELL", "pg_isready -h 127.0.0.1 -U vaultys -d vaultysclaw" ]
       interval: 5s
       timeout: 5s
       retries: 15
@@ -78,7 +78,7 @@ services:
       - miniodata:/data
     command: server /data --console-address ":9001"
     healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:9000/minio/health/live"]
+      test: [ "CMD-SHELL", "curl -sf http://localhost:9000/minio/health/live" ]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -106,7 +106,7 @@ services:
     ports:
       - "5001:5001"
     healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:5001/health"]
+      test: [ "CMD-SHELL", "curl -sf http://localhost:5001/health" ]
       interval: 10s
       timeout: 10s
       retries: 12
@@ -127,11 +127,11 @@ services:
       DATABASE_URL: postgresql://vaultys:${PG_PASSWORD:-vaultys_dev_secret}@postgres:5432/vaultysclaw_litellm
     volumes:
       - ./litellm_config.yaml:/app/config.yaml:ro
-    command: ["--config", "/app/config.yaml", "--port", "4000"]
+    command: [ "--config", "/app/config.yaml", "--port", "4000" ]
     # LiteLLM can fail on first start if postgres init hasn't finished yet; let Docker restart it.
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:4000/health/liveliness"]
+      test: [ "CMD-SHELL", "curl -sf http://localhost:4000/health/liveliness" ]
       interval: 10s
       timeout: 10s
       retries: 20
@@ -143,7 +143,7 @@ services:
   # same binary backed by Postgres + Redis instead (INNGEST_POSTGRES_URI / _REDIS_URI).
   inngest:
     image: inngest/inngest:latest
-    command: ["inngest", "dev", "-u", "http://control-plane:3000/api/inngest"]
+    command: [ "inngest", "dev", "-u", "http://control-plane:3000/api/inngest" ]
     ports:
       - "8288:8288"
     environment:
@@ -177,12 +177,14 @@ services:
       WS_PORT: "8080"
       LITELLM_BASE_URL: http://litellm:4000
       LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY:-sk-demo-insecure-changeme}
+      # Dev-only: enables the "connect without the app" browser login option.
+      VC_DEV_LOGIN: ${VC_DEV_LOGIN:-false}
       # Durable workflow engine (P1). Set WORKFLOW_ENGINE= (empty) to use the
       # legacy in-process executor instead.
       WORKFLOW_ENGINE: ${WORKFLOW_ENGINE-inngest}
       INNGEST_DEV: "http://inngest:8288"
     healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:3000/api/health || exit 1"]
+      test: [ "CMD-SHELL", "curl -sf http://localhost:3000/api/health || exit 1" ]
       interval: 10s
       timeout: 10s
       retries: 30

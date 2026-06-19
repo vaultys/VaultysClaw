@@ -257,7 +257,7 @@ function AddMemberModal({
             Set as primary realm for this {type}
           </label>
           {error && (
-            <p className="text-danger-600 dark:text-danger-400 text-sm">
+            <p className="text-danger-600 text-sm">
               {error}
             </p>
           )}
@@ -592,7 +592,7 @@ export default function RealmDetailPage() {
                     {realm.name}
                   </h1>
                   {realm.isDefault === 1 && (
-                    <span className="text-xs px-2 py-0.5 rounded-md bg-warning-50 dark:bg-warning-500/10 text-warning-700 dark:text-warning-400 font-medium">
+                    <span className="text-xs px-2 py-0.5 rounded-md bg-warning-50 text-warning-700 font-medium">
                       default
                     </span>
                   )}
@@ -657,13 +657,13 @@ export default function RealmDetailPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div className="bg-background-100 border border-neutral-200 rounded-2xl p-5">
           <p className="text-xs text-foreground-400 mb-2">Input Tokens</p>
-          <p className="text-2xl font-bold text-primary-700 dark:text-primary-400">
+          <p className="text-2xl font-bold text-primary-700">
             {(tokenUsage?.promptTokens ?? 0).toLocaleString()}
           </p>
         </div>
         <div className="bg-background-100 border border-neutral-200 rounded-2xl p-5">
           <p className="text-xs text-foreground-400 mb-2">Output Tokens</p>
-          <p className="text-2xl font-bold text-primary-700 dark:text-primary-400">
+          <p className="text-2xl font-bold text-primary-700">
             {(tokenUsage?.completionTokens ?? 0).toLocaleString()}
           </p>
         </div>
@@ -694,7 +694,7 @@ export default function RealmDetailPage() {
             }}
             className={`px-4 py-2 text-sm font-medium capitalize transition-colors border-b-2 -mb-px ${
               tab === t
-                ? "border-primary-500 text-primary-700 dark:text-primary-400"
+                ? "border-primary-500 text-primary-700"
                 : "border-transparent text-foreground-500 hover:text-foreground"
             }`}
           >
@@ -736,8 +736,8 @@ export default function RealmDetailPage() {
                   key={a.agentDid}
                   className={`flex items-center gap-3 px-4 py-3 ${i > 0 ? "border-t border-neutral-200/50" : ""}`}
                 >
-                  <div className="w-8 h-8 rounded-lg bg-primary-50 dark:bg-primary-600/20 flex items-center justify-center shrink-0">
-                    <Bot className="w-4 h-4 text-primary-700 dark:text-primary-400" />
+                  <div className="w-8 h-8 rounded-lg bg-primary-50 flex items-center justify-center shrink-0">
+                    <Bot className="w-4 h-4 text-primary-700" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
@@ -745,7 +745,7 @@ export default function RealmDetailPage() {
                         {a.agentName}
                       </span>
                       {a.isPrimary === 1 && (
-                        <span className="text-xs px-1.5 py-0.5 rounded bg-warning-50 dark:bg-warning-500/10 text-warning-700 dark:text-warning-400">
+                        <span className="text-xs px-1.5 py-0.5 rounded bg-warning-50 text-warning-700">
                           primary
                         </span>
                       )}
@@ -812,7 +812,7 @@ export default function RealmDetailPage() {
                         {u.name ?? shortDid(u.userDid)}
                       </span>
                       {u.isPrimary === 1 && (
-                        <span className="text-xs px-1.5 py-0.5 rounded bg-warning-50 dark:bg-warning-500/10 text-warning-700 dark:text-warning-400">
+                        <span className="text-xs px-1.5 py-0.5 rounded bg-warning-50 text-warning-700">
                           primary
                         </span>
                       )}
@@ -868,7 +868,7 @@ export default function RealmDetailPage() {
               </p>
               <a
                 href="/models"
-                className="flex items-center gap-1.5 text-xs text-primary-700 dark:text-primary-400 hover:text-primary-300 transition-colors"
+                className="flex items-center gap-1.5 text-xs text-primary-700 hover:text-primary-300 transition-colors"
               >
                 <ExternalLink className="w-3.5 h-3.5" /> Go to Model Registry
               </a>
@@ -880,8 +880,8 @@ export default function RealmDetailPage() {
                   key={m.id}
                   className={`flex items-center gap-3 px-4 py-3 ${i > 0 ? "border-t border-neutral-200/50" : ""}`}
                 >
-                  <div className="w-8 h-8 rounded-lg bg-primary-50 dark:bg-primary-600/20 flex items-center justify-center shrink-0">
-                    <Cpu className="w-4 h-4 text-primary-700 dark:text-primary-400" />
+                  <div className="w-8 h-8 rounded-lg bg-primary-50 flex items-center justify-center shrink-0">
+                    <Cpu className="w-4 h-4 text-primary-700" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
@@ -945,7 +945,7 @@ export default function RealmDetailPage() {
                 Per-realm spend caps and RPM limits — enforced automatically by
                 LiteLLM virtual keys.
               </p>
-              <span className="text-[10px] font-semibold px-2.5 py-1 rounded-full bg-warning-100 dark:bg-warning-900/40 text-warning-700 dark:text-warning-400 border border-warning-300 dark:border-warning-800 uppercase tracking-wide">
+              <span className="text-[10px] font-semibold px-2.5 py-1 rounded-full bg-warning-100 text-warning-700 border border-warning-300 uppercase tracking-wide">
                 Coming soon
               </span>
             </div>
@@ -989,7 +989,7 @@ export default function RealmDetailPage() {
                 <span className="text-foreground-400 text-sm">or</span>
                 <Link
                   href={`/workflows/new/edit?realm=${id}`}
-                  className="text-primary-700 dark:text-primary-400 hover:text-primary-300 text-sm underline"
+                  className="text-primary-700 hover:text-primary-300 text-sm underline"
                 >
                   Create blank workflow
                 </Link>
@@ -1058,7 +1058,7 @@ export default function RealmDetailPage() {
                   </p>
                   <button
                     onClick={() => setShowCreateChannel(true)}
-                    className="text-xs text-primary-700 dark:text-primary-400 hover:underline"
+                    className="text-xs text-primary-700 hover:underline"
                   >
                     Create one
                   </button>
@@ -1311,11 +1311,11 @@ function RealmSkillsTab({
               onChange={(e) => setAddRequired(e.target.checked)}
               className="accent-primary-600"
             />
-            <Lock className="w-3.5 h-3.5 text-warning-700 dark:text-warning-400" />
+            <Lock className="w-3.5 h-3.5 text-warning-700" />
             Required — agents cannot disable this skill
           </label>
           {error && (
-            <p className="text-danger-600 dark:text-danger-400 text-sm flex items-center gap-1">
+            <p className="text-danger-600 text-sm flex items-center gap-1">
               <AlertCircle className="w-4 h-4" />
               {error}
             </p>
@@ -1374,7 +1374,7 @@ function RealmSkillsTab({
                       </span>
                     )}
                     {skill.isRequired ? (
-                      <span className="text-xs px-1.5 py-0.5 rounded bg-warning-50 dark:bg-warning-500/10 text-warning-700 dark:text-warning-400 flex items-center gap-1">
+                      <span className="text-xs px-1.5 py-0.5 rounded bg-warning-50 text-warning-700 flex items-center gap-1">
                         <Lock className="w-3 h-3" /> required
                       </span>
                     ) : (
@@ -1475,7 +1475,7 @@ function RealmConfigTab({
                 onClick={() => toggle(cap)}
                 className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors border ${
                   caps.includes(cap)
-                    ? "bg-primary-50 dark:bg-primary-600/20 border-primary-300 dark:border-primary-500/50 text-primary-700 dark:text-primary-300"
+                    ? "bg-primary-50 border-primary-300 text-primary-700"
                     : "bg-background-200 border-neutral-200 text-foreground-500 hover:text-foreground"
                 }`}
               >

@@ -224,7 +224,7 @@ export default function WorkflowApprovalInbox() {
           <button
             onClick={() => handleDismiss(notif.id)}
             disabled={acting === notif.id}
-            className="p-1 hover:bg-primary-100 dark:hover:bg-primary-900/40 rounded"
+            className="p-1 hover:bg-primary-100 rounded"
             title="Dismiss"
           >
             <X size={14} className="text-primary-500" />

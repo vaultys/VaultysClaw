@@ -507,30 +507,6 @@ export class AgentDAO {
     });
   }
 
-  static async getLiteLLMKey(agentDid: string): Promise<{
-    virtualKey: string | null;
-    allowedModels: string[];
-    dailyBudget: number | null;
-    updatedAt: Date | null;
-  } | null> {
-    const row = await prisma.agent.findUnique({
-      where: { did: agentDid },
-      select: {
-        litellmVirtualKey: true,
-        litellmAllowedModels: true,
-        litellmDailyBudget: true,
-        litellmKeyUpdatedAt: true,
-      },
-    });
-    if (!row) return null;
-    return {
-      virtualKey: row.litellmVirtualKey,
-      allowedModels: (row.litellmAllowedModels as string[]) ?? [],
-      dailyBudget: row.litellmDailyBudget,
-      updatedAt: row.litellmKeyUpdatedAt,
-    };
-  }
-
   static async clearLiteLLMKey(agentDid: string): Promise<void> {
     await prisma.agent.update({
       where: { did: agentDid },

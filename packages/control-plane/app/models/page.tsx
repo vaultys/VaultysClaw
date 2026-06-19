@@ -15,36 +15,27 @@ import {
 import { useRole } from "@/hooks/useRole";
 import { RegisterModelModal } from "@/components/models/RegisterModelModal";
 import { LiteLLMPanel } from "@/components/models/LiteLLMPanel";
+import { modelsClient, unwrap } from "@/lib/api/ts-rest/client";
+import type { ModelWithRealmAccess } from "@/lib/contracts";
 
-interface ModelEntry {
-  id: string;
-  name: string;
-  description: string | null;
-  provider: string;
-  modelId: string;
-  baseUrl: string;
-  litellmModelName: string | null;
-  status: "active" | "inactive";
-  createdAt: string;
-  realmCount: number;
-}
+type ModelEntry = ModelWithRealmAccess;
 
 function ProviderBadge({ provider }: Readonly<{ provider: string }>) {
   const colors: Record<string, string> = {
     openai:
-      "bg-success-100 dark:bg-success-900/40 text-success-700 dark:text-success-400 border-success-300 dark:border-success-800",
+      "bg-success-100 text-success-700 border-success-300",
     "openai-compatible":
-      "bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-400 border-primary-300 dark:border-primary-800",
+      "bg-primary-100 text-primary-700 border-primary-300",
     anthropic:
-      "bg-warning-100 dark:bg-warning-900/40 text-warning-700 dark:text-warning-400 border-warning-300 dark:border-warning-800",
+      "bg-warning-100 text-warning-700 border-warning-300",
     google:
-      "bg-warning-100 dark:bg-warning-900/40 text-warning-700 dark:text-warning-400 border-warning-300 dark:border-warning-800",
+      "bg-warning-100 text-warning-700 border-warning-300",
     ollama:
-      "bg-secondary-100 dark:bg-secondary-900/40 text-secondary-700 dark:text-secondary-400 border-secondary-300 dark:border-secondary-800",
+      "bg-secondary-100 text-secondary-700 border-secondary-300",
   };
   return (
     <span
-      className={`text-xs px-2 py-0.5 rounded-full border font-medium ${colors[provider] ?? "bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 border-neutral-300 dark:border-neutral-700"}`}
+      className={`text-xs px-2 py-0.5 rounded-full border font-medium ${colors[provider] ?? "bg-neutral-100 text-neutral-600 border-neutral-300"}`}
     >
       {provider}
     </span>
@@ -67,9 +58,8 @@ export default function ModelsPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/models");
-      const data = (await res.json()) as { models?: ModelEntry[] };
-      setModels(data.models ?? []);
+      const { models } = unwrap(await modelsClient.list());
+      setModels(models);
     } finally {
       setLoading(false);
     }
@@ -86,8 +76,8 @@ export default function ModelsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-primary-50 dark:bg-primary-600/20 flex items-center justify-center">
-            <Cpu className="w-5 h-5 text-primary-700 dark:text-primary-400" />
+          <div className="w-9 h-9 rounded-xl bg-primary-50 flex items-center justify-center">
+            <Cpu className="w-5 h-5 text-primary-700" />
           </div>
           <div>
             <h1 className="text-lg font-semibold text-foreground">
@@ -177,12 +167,12 @@ export default function ModelsPage() {
                     <td className="px-4 py-3 hidden lg:table-cell">
                       <span className="flex items-center gap-1 text-foreground-500">
                         <Globe2 className="w-3.5 h-3.5" />
-                        {m.realmCount}
+                        {m.realmAccess.length}
                       </span>
                     </td>
                     <td className="px-4 py-3">
                       {m.status === "active" ? (
-                        <span className="flex items-center gap-1 text-success-700 dark:text-success-400 text-xs font-medium">
+                        <span className="flex items-center gap-1 text-success-700 text-xs font-medium">
                           <CheckCircle2 className="w-3.5 h-3.5" /> Active
                         </span>
                       ) : (
@@ -210,7 +200,7 @@ export default function ModelsPage() {
                   Kubernetes Deployment
                 </span>
               </div>
-              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-warning-100 dark:bg-warning-900/40 text-warning-700 dark:text-warning-400 border border-warning-300 dark:border-warning-800 uppercase tracking-wide">
+              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-warning-100 text-warning-700 border border-warning-300 uppercase tracking-wide">
                 Coming soon
               </span>
             </div>
@@ -230,7 +220,7 @@ export default function ModelsPage() {
                   Fine-Tuning Pipeline
                 </span>
               </div>
-              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-warning-100 dark:bg-warning-900/40 text-warning-700 dark:text-warning-400 border border-warning-300 dark:border-warning-800 uppercase tracking-wide">
+              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-warning-100 text-warning-700 border border-warning-300 uppercase tracking-wide">
                 Coming soon
               </span>
             </div>

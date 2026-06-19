@@ -1,27 +1,27 @@
 import { c } from "./contract";
 import { agentsContract } from "./agents/agents.contract";
-import { apiKeysContract, chatContract } from "./api-keys.contract";
+import { apiKeysContract } from "./api-keys.contract";
 import { bridgesContract, channelsContract } from "./channels.contract";
-import { governanceContract } from "./governance.contract";
+import { governanceContract } from "./governance/governance.contract";
 import { intentsContract } from "./intents.contract";
-import { knowledgeContract } from "./knowledge.contract";
+import { knowledgeContract } from "./knowledge/knowledge.contract";
 import {
-    aboutContract,
-    statsContract,
-    userStatusContract,
+  aboutContract,
+  statsContract,
+  userStatusContract,
 } from "./misc/misc.contract";
-import { litellmContract, modelsContract } from "./models.contract";
+import { litellmContract, modelsContract } from "./models/models.contract";
 import {
-    graphContract,
-    healthContract,
-    mapContract,
-    networkContract,
+  graphContract,
+  healthContract,
+  mapContract,
+  networkContract,
 } from "./network.contract";
-import { policiesContract } from "./policies.contract";
+import { policiesContract } from "./policies/policies.contract";
 import { realmsContract } from "./realms.contract";
 import {
-    registrationsContract,
-    toolApprovalsContract,
+  registrationsContract,
+  toolApprovalsContract,
 } from "./registrations.contract";
 import { serverContract } from "./server.contract";
 import { setupContract, settingsContract } from "./settings.contract";
@@ -29,14 +29,14 @@ import { orgSkillsContract, skillsContract } from "./skills.contract";
 import { userAuthContract } from "./user-auth.contract";
 import { wellKnownContract } from "./well-known/well-known.contract";
 import {
-    invitationsContract,
-    meContract,
-    usersContract,
+  invitationsContract,
+  meContract,
+  usersContract,
 } from "./users.contract";
 import {
-    workflowApprovalsContract,
-    workflowRunsContract,
-    workflowsContract,
+  workflowApprovalsContract,
+  workflowRunsContract,
+  workflowsContract,
 } from "./workflows.contract";
 
 export { c } from "./contract";
@@ -48,15 +48,27 @@ export * from "./agents/agents.schemas";
 export * from "./agents/agents.types";
 export * from "./api-keys.contract";
 export * from "./channels.contract";
-export * from "./governance.contract";
+export type * from "./governance/governance.contract";
+export * from "./governance/governance.contract";
+export * from "./governance/governance.schemas";
+export * from "./governance/governance.types";
 export * from "./intents.contract";
-export * from "./knowledge.contract";
+export type * from "./knowledge/knowledge.contract";
+export * from "./knowledge/knowledge.contract";
+export * from "./knowledge/knowledge.schemas";
+export * from "./knowledge/knowledge.types";
 export * from "./misc/misc.contract";
 export * from "./misc/misc.schemas";
 export * from "./misc/misc.types";
-export * from "./models.contract";
+export type * from "./models/models.contract";
+export * from "./models/models.contract";
+export * from "./models/models.schemas";
+export * from "./models/models.types";
 export * from "./network.contract";
-export * from "./policies.contract";
+export type * from "./policies/policies.contract";
+export * from "./policies/policies.contract";
+export * from "./policies/policies.schemas";
+export * from "./policies/policies.types";
 export * from "./realms.contract";
 export * from "./registrations.contract";
 export * from "./server.contract";
@@ -81,7 +93,6 @@ export const appContract = c.router({
   apiKeys: apiKeysContract,
   bridges: bridgesContract,
   channels: channelsContract,
-  chat: chatContract,
   governance: governanceContract,
   graph: graphContract,
   health: healthContract,

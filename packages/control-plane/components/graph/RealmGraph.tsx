@@ -161,7 +161,7 @@ export default function RealmGraph({
   if (error) {
     return (
       <div
-        className="flex items-center justify-center rounded-xl border border-neutral-200 text-danger-600 dark:text-danger-400"
+        className="flex items-center justify-center rounded-xl border border-neutral-200 text-danger-600"
         style={{ height }}
       >
         Failed to load graph: {error}
@@ -195,7 +195,7 @@ export default function RealmGraph({
               title={opt.tip}
               className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
                 view === opt.id
-                  ? "bg-primary-100 dark:bg-primary-600/20 text-primary-700 dark:text-primary-400 border border-primary-200 dark:border-primary-500/40"
+                  ? "bg-primary-100 text-primary-700 border border-primary-200"
                   : "text-foreground-500 hover:text-foreground hover:bg-background-200 border border-transparent"
               }`}
             >

@@ -5,7 +5,8 @@ import { UserDAO } from "@/db";
 import { withError } from "@/lib/api/handlers/with-error";
 
 /**
- * GET /api/admins
+ * GET /api/users/admins
+ * List global admins (name + email only)
  * Returns basic contact info (name + email) for global admins.
  * Accessible to any authenticated user — used to show the "contact admin"
  * screen to users who are not yet assigned to a realm.

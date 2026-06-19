@@ -13,35 +13,6 @@
   <a href="ZERO_TRUST_COMPLIANCE.md"><img src="https://img.shields.io/badge/Zero%20Trust-Compliant-blue?style=for-the-badge" alt="Zero Trust Compliant"></a>
 </p>
 
-## 💛 Sponsors
-
-> **VaultysClaw is actively looking for sponsors.**  
-> We are building the missing security layer for enterprise AI — and we want you to help shape it.
-
-Sponsoring gives your organisation a direct line into the core team and meaningful influence over where the platform goes next.
-
-### What sponsors get
-
-| Tier         | Benefits                                                                                                       |
-| ------------ | -------------------------------------------------------------------------------------------------------------- |
-| **Bronze**   | Logo in README & About page · GitHub Sponsors badge                                                            |
-| **Silver**   | Everything above · Private Discord channel with core devs · Early access to releases                           |
-| **Gold**     | Everything above · Roadmap vote · PoC fast-track (we prototype your use-case first) · Co-marketing opportunity |
-| **Platinum** | Everything above · Dedicated support SLA · Architecture review sessions · Custom integration guidance          |
-
-### Why sponsor?
-
-- **Direct roadmap influence** — your production requirements become milestones, not backlog items
-- **Fast-track PoCs** — need a specific integration or compliance feature? Gold+ sponsors get it built first
-- **Private dev channel** — real-time access to the team; no ticket queue, no waiting
-- **Logo placement** — README, control-plane About page, release notes, and future website
-- **Compliance head-start** — we brief sponsors on upcoming security changes before public release
-
-📧 **Get in touch**: [sponsor@vaultys.com](mailto:sponsor@vaultys.com)  
-💛 **GitHub Sponsors**: [github.com/sponsors/vaultys](https://github.com/sponsors/vaultys)
-
----
-
 ## The Problem
 
 Enterprises are deploying AI agents but have **no idea what they're doing**:
@@ -220,6 +191,28 @@ Each agent:
 
 ## Getting Started
 
+### Fastest way — one command 🚀
+
+The `quick-start.sh` script bootstraps everything for you: it checks the required
+tools (**docker, node, npm, openssl**) and offers to install any that are missing,
+generates `packages/control-plane/.env` (with a fresh `NEXTAUTH_SECRET`), installs
+dependencies, then builds and starts the full Docker stack.
+
+```bash
+git clone https://github.com/vaultys/VaultysClaw.git
+cd VaultysClaw
+./quick-start.sh          # add --yes to accept every prompt non-interactively
+```
+
+When the control plane is up, it opens **http://localhost:3000/quick-start** — a
+guided page that walks you through your **first login without the VaultysID app**
+(developer mode, software security). This is the fastest path to try the platform.
+
+> ⚠️ The quick-start login is **less secure and meant for local testing only** —
+> never use it in production. It is enabled by the `VC_DEV_LOGIN=true` flag.
+
+### Manual setup
+
 **Requirements**: Node.js 18+, pnpm 10+
 
 ```bash
@@ -350,6 +343,22 @@ Visit **http://localhost:3000** and scan the QR code to set up your first identi
 ---
 
 ## Quick Start
+
+### Option A — one command (recommended) 🚀
+
+```bash
+git clone https://github.com/vaultys/VaultysClaw.git
+cd VaultysClaw
+./quick-start.sh
+```
+
+`quick-start.sh` checks/installs dependencies (docker, node, npm, openssl), writes
+`packages/control-plane/.env`, installs the workspace, builds and starts the full
+Docker stack, then opens **http://localhost:3000/quick-start** — a guided page for
+your first login **without the VaultysID app** (developer mode, for local testing
+only). Pass `--yes` to skip all prompts.
+
+### Option B — manual (`pnpm dev`)
 
 **Requirements**: Node.js 18+, pnpm 10+
 
@@ -797,6 +806,35 @@ Enterprise hardening, SaaS option, community growth.
 - Add tests for new functionality
 - Update types and documentation
 - Target feature branches, not `main`
+
+---
+
+## 💛 Sponsors
+
+> **VaultysClaw is actively looking for sponsors.**  
+> We are building the missing security layer for enterprise AI — and we want you to help shape it.
+
+Sponsoring gives your organisation a direct line into the core team and meaningful influence over where the platform goes next.
+
+### What sponsors get
+
+| Tier         | Benefits                                                                                                       |
+| ------------ | -------------------------------------------------------------------------------------------------------------- |
+| **Bronze**   | Logo in README & About page · GitHub Sponsors badge                                                            |
+| **Silver**   | Everything above · Private Discord channel with core devs · Early access to releases                           |
+| **Gold**     | Everything above · Roadmap vote · PoC fast-track (we prototype your use-case first) · Co-marketing opportunity |
+| **Platinum** | Everything above · Dedicated support SLA · Architecture review sessions · Custom integration guidance          |
+
+### Why sponsor?
+
+- **Direct roadmap influence** — your production requirements become milestones, not backlog items
+- **Fast-track PoCs** — need a specific integration or compliance feature? Gold+ sponsors get it built first
+- **Private dev channel** — real-time access to the team; no ticket queue, no waiting
+- **Logo placement** — README, control-plane About page, release notes, and future website
+- **Compliance head-start** — we brief sponsors on upcoming security changes before public release
+
+📧 **Get in touch**: [sponsor@vaultys.com](mailto:sponsor@vaultys.com)  
+💛 **GitHub Sponsors**: [github.com/sponsors/vaultys](https://github.com/sponsors/vaultys)
 
 ---
 

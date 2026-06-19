@@ -28,23 +28,25 @@ async function refreshAgentKeysForRealm(
 ): Promise<void> {
   try {
     const agents = await RealmDAO.getAgents(realmId);
-    for (const { agentDid } of agents) {
-      const existing = await AgentDAO.getLiteLLMKey(agentDid);
-      if (!existing?.virtualKey) continue; // skip agents without a per-agent key
+    for (const agent of agents) {
+      if (!agent?.agent.litellmVirtualKey) continue; // skip agents without a per-agent key
       try {
         const newKey = await createAgentKey(
-          agentDid,
+          agent.agentDid,
           updatedModels,
-          existing.dailyBudget ?? undefined
+          agent.agent.litellmDailyBudget ?? undefined
         );
         await AgentDAO.updateLiteLLMKey(
-          agentDid,
+          agent.agentDid,
           newKey,
           updatedModels,
-          existing.dailyBudget ?? undefined
+          agent.agent.litellmDailyBudget ?? undefined
         );
       } catch (e) {
-        console.warn(`refreshAgentKeysForRealm: failed for ${agentDid}:`, e);
+        console.warn(
+          `refreshAgentKeysForRealm: failed for ${agent.agentDid}:`,
+          e
+        );
       }
     }
   } catch (e) {

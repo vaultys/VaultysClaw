@@ -125,9 +125,9 @@ function MessageBubble({
         </div>
 
         <div
-          className={`prose prose-sm dark:prose-invert max-w-none text-foreground mt-0.5 break-words ${
+          className={`prose prose-sm max-w-none text-foreground mt-0.5 break-words ${
             isThread ? "text-sm" : ""
-          } prose-headings:text-foreground prose-strong:text-foreground [&_p]:my-0.5 [&_ul]:my-1 [&_ol]:my-1 [&_pre]:bg-background-200 [&_pre]:rounded [&_pre]:p-2 [&_code]:text-primary-600 dark:[&_code]:text-primary-400 [&_code]:bg-background-200 [&_code]:px-1 [&_code]:rounded [&_a]:text-primary-500 [&_a]:underline`}
+          } prose-headings:text-foreground prose-strong:text-foreground [&_p]:my-0.5 [&_ul]:my-1 [&_ol]:my-1 [&_pre]:bg-background-200 [&_pre]:rounded [&_pre]:p-2 [&_code]:text-primary-600 [&_code]:bg-background-200 [&_code]:px-1 [&_code]:rounded [&_a]:text-primary-500 [&_a]:underline`}
         >
           <ReactMarkdown>{msg.content}</ReactMarkdown>
         </div>
@@ -181,7 +181,7 @@ function MessageBubble({
         </div>
         <button
           onClick={handleDelete}
-          className="p-1 hover:bg-background-200 rounded text-foreground-700 hover:text-danger-600 dark:hover:text-danger-400 transition"
+          className="p-1 hover:bg-background-200 rounded text-foreground-700 hover:text-danger-600 transition"
           title="Delete"
         >
           <Trash2 size={14} />
@@ -284,7 +284,7 @@ function MessageWithThread({
       {threadCount > 0 && (
         <button
           onClick={() => setExpanded(!expanded)}
-          className="ml-14 mt-1 flex items-center gap-1.5 text-xs text-primary-500 hover:text-primary-700 dark:hover:text-primary-300 transition"
+          className="ml-14 mt-1 flex items-center gap-1.5 text-xs text-primary-500 hover:text-primary-700 transition"
         >
           {expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
           <MessageSquare size={12} />

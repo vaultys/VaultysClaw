@@ -39,8 +39,9 @@ export async function getAuthContext(
 
     // Precompute realm membership once per request.
     // getUserRealms expects the DB UUID (userId), not the VaultysID DID string.
-    const userRealms =
-      isGlobalAdmin ? [] : await RealmDAO.getUserRealms(userId ?? did);
+    const userRealms = isGlobalAdmin
+      ? []
+      : await RealmDAO.getUserRealms(userId ?? did);
     const accessibleRealmIds = new Set(userRealms.map((r) => r.realmId));
     const adminRealmIds = new Set(
       userRealms.filter((r) => r.isRealmAdmin).map((r) => r.realmId)
@@ -102,7 +103,10 @@ export async function getAuthContext(
 
       // Check route permission
       if (!matchRoute(method, pathname, row.allowedRoutes as string[])) {
-        throw new APIException("FORBIDDEN", "API key not permitted for this route");
+        throw new APIException(
+          "FORBIDDEN",
+          "API key not permitted for this route"
+        );
       }
 
       // Update last_used_at (fire-and-forget — don't fail auth on write error)

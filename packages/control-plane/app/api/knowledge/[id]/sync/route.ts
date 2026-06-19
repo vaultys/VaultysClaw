@@ -1,147 +1,103 @@
-import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
-import {
-  unauthorized,
-  forbidden,
-  notFound,
-  conflict,
-  unavailable,
-} from "@/lib/api/utils/api-utils";
+import { APIException } from "@/lib/api/utils/api-utils";
 import { getWSServer } from "@/lib/ws-server";
 import { KnowledgeDAO, SettingsDAO } from "@/db";
-import { withError } from "@/lib/api/handlers/with-error";
+import { knowledgeContract } from "@/lib/contracts";
+import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 
-// POST /api/knowledge/:id/sync
-/**
- * @openapi
- * /api/knowledge/{id}/sync:
- *   post:
- *     summary: Initiate a sync for a knowledge source.
- *     tags: [Knowledge]
- *     parameters:
- *       - name: id
- *         in: path
- *         required: true
- *         description: The ID of the knowledge source to sync.
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: Sync initiated successfully.
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                 messageId:
- *                   type: string
- *                 status:
- *                   type: string
- *                 docling:
- *                   type: boolean
- *       400:
- *         $ref: '#/components/responses/BadRequest'
- *       401:
- *         $ref: '#/components/responses/Unauthorized'
- *       403:
- *         $ref: '#/components/responses/Forbidden'
- *       404:
- *         $ref: '#/components/responses/NotFound'
- *       409:
- *         description: Sync already in progress.
- *       503:
- *         description: Service unavailable or agent offline.
- */
-export const POST = withError(async (
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) => {
-  const auth = await getAuthContext(request);
-  if (!auth) return unauthorized();
-  if (!auth.isGlobalAdmin) return forbidden();
+const handlers = createNextRoute(knowledgeContract, {
+  // ── POST /api/knowledge/:id/sync ──────────────────────────────────────────
+  sync: async ({ params, request }) => {
+    const auth = await getAuthContext(request);
+    if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");
 
-  const { id } = await params;
-  const source = await KnowledgeDAO.findSource(id);
-  if (!source) return notFound("Knowledge source not found");
+    const source = await KnowledgeDAO.findSource(params.id);
+    if (!source) throw new APIException("NOT_FOUND", "Knowledge source not found");
 
-  if (source.status === "snycing") {
-    return conflict("Sync already in progress");
-  }
-
-  const wsServer = getWSServer();
-  if (!wsServer) {
-    return unavailable("WebSocket server not available");
-  }
-
-  // Check if the agent is connected
-  const isOnline = wsServer.isAgentOnline(source.agentDid);
-  if (!isOnline) {
-    return NextResponse.json(
-      { error: "Agent is offline — cannot trigger sync" },
-      { status: 503 }
-    );
-  }
-
-  // Mark as syncing in the control plane DB
-  await KnowledgeDAO.updateSourceStatus(id, "syncing");
-
-  // Dispatch WebSocket message to agent
-  const messageId = `ks-sync-${Date.now()}`;
-  const config = (() => {
-    try {
-      return source.config;
-    } catch {
-      return {};
+    if (source.status === "snycing") {
+      throw new APIException("CONFLICT", "Sync already in progress");
     }
-  })();
 
-  // Include Docling URL if configured and enabled
-  const [
-    doclingEnabled,
-    doclingUrl,
-    doclingSourceEndpoint,
-    doclingFileEndpoint,
-  ] = await Promise.all([
-    SettingsDAO.get("docling_enabled"),
-    SettingsDAO.get("docling_url"),
-    SettingsDAO.get("docling_source_endpoint"),
-    SettingsDAO.get("docling_file_endpoint"),
-  ]);
-  const docling =
-    doclingEnabled === "true" && doclingUrl
-      ? {
-          url: doclingUrl,
-          sourceEndpoint: doclingSourceEndpoint,
-          fileEndpoint: doclingFileEndpoint,
-        }
-      : undefined;
-
-  // For 'files' sources, load file attachments (base64 encoded) to send to agent
-  let fileAttachments:
-    | Array<{ id: string; filePath: string | null }>
-    | undefined;
-  if (source.sourceType === "files") {
-    fileAttachments = await KnowledgeDAO.getFilePathsForSource(source.id);
-    if (!fileAttachments || fileAttachments.length === 0) {
-      return notFound("No files attached to this knowledge source");
+    const wsServer = getWSServer();
+    if (!wsServer) {
+      throw new APIException("UNAVAILABLE", "WebSocket server not available");
     }
-  }
 
-  wsServer.sendKnowledgeSync(source.agentDid, messageId, {
-    sourceId: source.id,
-    sourceName: source.name,
-    sourceType: source.sourceType,
-    config: config as Record<string, unknown>,
-    docling,
-    fileAttachments: fileAttachments as any,
-  });
+    // Check if the agent is connected
+    if (!wsServer.isAgentOnline(source.agentDid)) {
+      throw new APIException(
+        "UNAVAILABLE",
+        "Agent is offline — cannot trigger sync"
+      );
+    }
 
-  return NextResponse.json({
-    success: true,
-    messageId,
-    status: "syncing",
-    docling: !!docling,
-  });
+    // Mark as syncing in the control plane DB
+    await KnowledgeDAO.updateSourceStatus(params.id, "syncing");
+
+    // Dispatch WebSocket message to agent
+    const messageId = `ks-sync-${Date.now()}`;
+    const config = (() => {
+      try {
+        return source.config;
+      } catch {
+        return {};
+      }
+    })();
+
+    // Include Docling URL if configured and enabled
+    const [
+      doclingEnabled,
+      doclingUrl,
+      doclingSourceEndpoint,
+      doclingFileEndpoint,
+    ] = await Promise.all([
+      SettingsDAO.get("docling_enabled"),
+      SettingsDAO.get("docling_url"),
+      SettingsDAO.get("docling_source_endpoint"),
+      SettingsDAO.get("docling_file_endpoint"),
+    ]);
+    const docling =
+      doclingEnabled === "true" && doclingUrl
+        ? {
+            url: doclingUrl,
+            sourceEndpoint: doclingSourceEndpoint,
+            fileEndpoint: doclingFileEndpoint,
+          }
+        : undefined;
+
+    // For 'files' sources, load file attachments to send to agent
+    let fileAttachments:
+      | Array<{ id: string; filePath: string | null }>
+      | undefined;
+    if (source.sourceType === "files") {
+      fileAttachments = await KnowledgeDAO.getFilePathsForSource(source.id);
+      if (!fileAttachments || fileAttachments.length === 0) {
+        throw new APIException(
+          "NOT_FOUND",
+          "No files attached to this knowledge source"
+        );
+      }
+    }
+
+    wsServer.sendKnowledgeSync(source.agentDid, messageId, {
+      sourceId: source.id,
+      sourceName: source.name,
+      sourceType: source.sourceType,
+      config: config as Record<string, unknown>,
+      docling,
+      fileAttachments: fileAttachments as any,
+    });
+
+    return {
+      status: 200,
+      body: {
+        success: true,
+        messageId,
+        status: "syncing",
+        docling: !!docling,
+      },
+    };
+  },
 });
+
+export const POST = handlers.POST!;

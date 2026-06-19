@@ -1080,7 +1080,7 @@ export default function AccountPage() {
                   className={cn(
                     "relative flex flex-col items-center gap-2.5 p-4 rounded-xl border transition-all text-center",
                     theme === value
-                      ? "bg-primary-100 dark:bg-primary-600/15 border-primary-300 dark:border-primary-600/50 text-primary-700 dark:text-primary-300"
+                      ? "bg-primary-100 border-primary-300 text-primary-700"
                       : "bg-background-200/50 border-neutral-300/50 text-foreground-500 hover:border-foreground-500 hover:text-foreground-700"
                   )}
                 >

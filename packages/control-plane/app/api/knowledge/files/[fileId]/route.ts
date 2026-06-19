@@ -1,55 +1,31 @@
-import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
-import { unauthorized, forbidden, notFound } from "@/lib/api/utils/api-utils";
+import { APIException } from "@/lib/api/utils/api-utils";
 import { KnowledgeDAO } from "@/db";
-import { withError } from "@/lib/api/handlers/with-error";
+import { knowledgeContract } from "@/lib/contracts";
+import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 
-// DELETE /api/knowledge/files/:fileId
-/**
- * @openapi
- * /api/knowledge/files/{fileId}:
- *   delete:
- *     summary: Delete a knowledge file by ID.
- *     tags: [Knowledge]
- *     parameters:
- *       - name: fileId
- *         in: path
- *         required: true
- *         description: The ID of the knowledge file to delete.
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: Knowledge file successfully deleted.
- *       401:
- *         $ref: '#/components/responses/Unauthorized'
- *       403:
- *         $ref: '#/components/responses/Forbidden'
- *       404:
- *         $ref: '#/components/responses/NotFound'
- */
-export const DELETE = withError(async (
-  _request: NextRequest,
-  { params }: { params: Promise<{ fileId: string }> }
-) => {
-  const auth = await getAuthContext(_request);
-  if (!auth) return unauthorized();
-  if (!auth.isGlobalAdmin) return forbidden();
+const handlers = createNextRoute(knowledgeContract, {
+  // ── DELETE /api/knowledge/files/:fileId ───────────────────────────────────
+  deleteFile: async ({ params, request }) => {
+    const auth = await getAuthContext(request);
+    if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");
 
-  const { fileId } = await params;
-  const file = await KnowledgeDAO.findFile(fileId);
-  if (!file) return notFound("File not found");
+    const file = await KnowledgeDAO.findFile(params.fileId);
+    if (!file) throw new APIException("NOT_FOUND", "File not found");
 
-  // Verify the parent source exists (for logging context)
-  const source = await KnowledgeDAO.findSource(file.sourceId);
-  if (
-    source &&
-    !auth.isGlobalAdmin &&
-    !(await auth.canAccessRealm(source.realmId))
-  ) {
-    return forbidden();
-  }
+    // Verify access against the parent source's realm.
+    const source = await KnowledgeDAO.findSource(file.sourceId);
+    if (
+      source &&
+      !auth.isGlobalAdmin &&
+      !(await auth.canAccessRealm(source.realmId))
+    ) {
+      throw new APIException("FORBIDDEN");
+    }
 
-  await KnowledgeDAO.deleteFile(fileId);
-  return NextResponse.json({ success: true });
+    await KnowledgeDAO.deleteFile(params.fileId);
+    return { status: 200, body: undefined };
+  },
 });
+
+export const DELETE = handlers.DELETE!;

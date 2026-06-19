@@ -189,8 +189,8 @@ export function RealmLiteLLMKeyCard({
             {msg && (
               <p className={`text-xs px-3 py-2 rounded-xl ${
                 msg.ok
-                  ? "bg-success-50 dark:bg-success-900/20 text-success-700 dark:text-success-400"
-                  : "bg-danger-50 dark:bg-danger-900/20 text-danger-700 dark:text-danger-400"
+                  ? "bg-success-50 text-success-700"
+                  : "bg-danger-50 text-danger-700"
               }`}>
                 {msg.text}
               </p>
@@ -230,15 +230,15 @@ export function RealmLiteLLMKeyCard({
         ) : routerKey?.hasVirtualKey ? (
           /* Key details */
           <div className="divide-y divide-neutral-200">
-            <div className="flex items-center gap-3 px-4 py-3 bg-success-50 dark:bg-success-900/20">
-              <CheckCircle2 className="w-4 h-4 text-success-600 dark:text-success-400 shrink-0" />
+            <div className="flex items-center gap-3 px-4 py-3 bg-success-50">
+              <CheckCircle2 className="w-4 h-4 text-success-600 shrink-0" />
               <span className="text-sm font-medium text-foreground">Active</span>
               <code className="text-xs font-mono text-foreground-500 ml-1">
                 {routerKey.keyPrefix}…
               </code>
               <Link
                 href="/models?tab=litellm"
-                className="ml-auto text-xs text-success-600 dark:text-success-400 hover:underline shrink-0"
+                className="ml-auto text-xs text-success-600 hover:underline shrink-0"
               >
                 LiteLLM proxy →
               </Link>
@@ -322,8 +322,8 @@ export function RealmLiteLLMKeyCard({
         {msg && !editing && (
           <div className={`px-4 py-2 text-xs border-t border-neutral-200 ${
             msg.ok
-              ? "text-success-600 bg-success-50 dark:bg-success-900/20"
-              : "text-danger-600 bg-danger-50 dark:bg-danger-900/20"
+              ? "text-success-600 bg-success-50"
+              : "text-danger-600 bg-danger-50"
           }`}>
             {msg.text}
           </div>

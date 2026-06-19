@@ -2,30 +2,34 @@
 
 import { useState, useCallback, useEffect } from "react";
 import { ShieldCheck } from "lucide-react";
+import { toolApprovalsClient, unwrap } from "@/lib/api/ts-rest/client";
+
+type ToolApproval = {
+  requestId: string;
+  toolName: string;
+  args: Record<string, unknown>;
+  reason: string;
+  agentName?: string;
+  createdAt: number;
+};
 
 export function ApprovalsTab({
   onCountChange,
 }: Readonly<{
   onCountChange: (n: number) => void;
 }>) {
-  const [approvals, setApprovals] = useState<
-    Array<{
-      requestId: string;
-      toolName: string;
-      args: Record<string, unknown>;
-      reason: string;
-      agentName?: string;
-      createdAt: number;
-    }>
-  >([]);
+  const [approvals, setApprovals] = useState<ToolApproval[]>([]);
 
   const refresh = useCallback(async () => {
-    const res = await fetch("/api/tool-approvals")
-      .then((r) => r.json())
-      .catch(() => ({ approvals: [] }));
-    const list = res.approvals ?? [];
-    setApprovals(list);
-    onCountChange(list.length);
+    try {
+      const { approvals } = unwrap(await toolApprovalsClient.list());
+      const list = approvals as ToolApproval[];
+      setApprovals(list);
+      onCountChange(list.length);
+    } catch {
+      setApprovals([]);
+      onCountChange(0);
+    }
   }, [onCountChange]);
 
   useEffect(() => {
@@ -35,11 +39,7 @@ export function ApprovalsTab({
   }, [refresh]);
 
   const respond = async (requestId: string, approved: boolean) => {
-    await fetch("/api/tool-approvals", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ requestId, approved }),
-    });
+    await toolApprovalsClient.respond({ body: { requestId, approved } });
     refresh();
   };
 

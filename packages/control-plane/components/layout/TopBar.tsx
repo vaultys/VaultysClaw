@@ -1,34 +1,22 @@
 "use client";
 
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useSession, signOut } from "next-auth/react";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, Fragment } from "react";
 import {
   LogOut,
   Sun,
   Moon,
   Monitor,
   ChevronDown,
+  ChevronRight,
   User,
   Check,
 } from "lucide-react";
 import { useTheme, type Theme } from "@/components/ThemeProvider";
+import { useBreadcrumbsState } from "./BreadcrumbContext";
 import { cn } from "@/lib/utils";
-
-const PAGE_TITLES: Record<string, string> = {
-  "/": "Dashboard",
-  "/users": "Users",
-  "/agents": "Agents",
-  "/registrations": "Pending Registrations",
-  "/server": "Server",
-  "/settings": "Settings",
-};
-
-function getTitle(pathname: string): string {
-  if (PAGE_TITLES[pathname]) return PAGE_TITLES[pathname];
-  if (pathname.startsWith("/agents/")) return "Agent Details";
-  return "VaultysClaw";
-}
 
 function shortDid(did: string): string {
   if (did.length <= 20) return did;
@@ -46,10 +34,10 @@ const THEME_OPTIONS: {
 ];
 
 export default function TopBar() {
-  const pathname = usePathname();
   const router = useRouter();
   const { data: session } = useSession();
   const { theme, setTheme } = useTheme();
+  const { breadcrumbs } = useBreadcrumbsState();
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const [profileName, setProfileName] = useState<string | null>(null);
@@ -84,10 +72,38 @@ export default function TopBar() {
 
   return (
     <header className="flex items-center justify-between h-14 px-4 bg-background border-b border-neutral-200/60 shrink-0">
-      {/* Page title */}
-      <h1 className="text-sm font-semibold text-foreground">
-        {getTitle(pathname)}
-      </h1>
+      {/* Breadcrumbs */}
+      <nav className="flex items-center gap-1.5 text-sm min-w-0">
+        {breadcrumbs.map((crumb, i) => {
+          const isLast = i === breadcrumbs.length - 1;
+          return (
+            <Fragment key={i}>
+              {i > 0 && (
+                <ChevronRight className="w-3.5 h-3.5 text-foreground-400 shrink-0" />
+              )}
+              {crumb.href && !isLast ? (
+                <Link
+                  href={crumb.href}
+                  className="text-foreground-500 hover:text-foreground transition-colors truncate"
+                >
+                  {crumb.label}
+                </Link>
+              ) : (
+                <span
+                  className={cn(
+                    "truncate",
+                    isLast
+                      ? "font-semibold text-foreground"
+                      : "text-foreground-500"
+                  )}
+                >
+                  {crumb.label}
+                </span>
+              )}
+            </Fragment>
+          );
+        })}
+      </nav>
 
       {/* Right: user menu */}
       <div ref={menuRef} className="relative">
@@ -156,14 +172,14 @@ export default function TopBar() {
                     className={cn(
                       "flex-1 flex flex-col items-center gap-1 py-1.5 rounded-lg text-xs transition-colors border",
                       theme === value
-                        ? "bg-primary-100 dark:bg-primary-800/25 border-primary-300 dark:border-primary-700/60 text-primary-700 dark:text-primary-800"
+                        ? "bg-primary-100 border-primary-300 text-primary-700"
                         : "border-transparent text-foreground-700 hover:text-foreground hover:bg-background-200"
                     )}
                   >
                     <Icon className="w-3.5 h-3.5" />
                     <span>{label}</span>
                     {theme === value && (
-                      <Check className="w-2.5 h-2.5 text-primary-700 dark:text-primary-800 absolute" />
+                      <Check className="w-2.5 h-2.5 text-primary-700 absolute" />
                     )}
                   </button>
                 ))}
@@ -185,7 +201,7 @@ export default function TopBar() {
             {/* Sign out */}
             <button
               onClick={() => signOut({ callbackUrl: "/login" })}
-              className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-danger-500 hover:text-danger-600 dark:hover:text-danger-300 hover:bg-danger-50 dark:hover:bg-danger-900/20 transition-colors border-t border-neutral-200"
+              className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-danger-500 hover:text-danger-600 hover:bg-danger-50 transition-colors border-t border-neutral-200"
             >
               <LogOut className="w-4 h-4" />
               Sign out

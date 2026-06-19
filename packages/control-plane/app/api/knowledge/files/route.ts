@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
 import {
+  APIException,
   unauthorized,
   forbidden,
   malformed,
@@ -9,114 +10,36 @@ import {
 } from "@/lib/api/utils/api-utils";
 import { KnowledgeDAO } from "@/db";
 import { withError } from "@/lib/api/handlers/with-error";
+import { knowledgeContract } from "@/lib/contracts";
+import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 
 const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20 MB
 
-// GET /api/knowledge/files?sourceId=xxx — list file metadata (no content)
-/**
- * @openapi
- * /api/knowledge/files:
- *   get:
- *     summary: List file metadata for a knowledge source.
- *     tags: [Knowledge]
- *     parameters:
- *       - in: query
- *         name: sourceId
- *         required: true
- *         schema:
- *           type: string
- *         description: The ID of the knowledge source.
- *     responses:
- *       200:
- *         description: A list of file metadata.
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 files:
- *                   type: array
- *                   items:
- *                     type: object
- *                     properties:
- *                       id:
- *                         type: string
- *                       name:
- *                         type: string
- *                       mimeType:
- *                         type: string
- *                       size:
- *                         type: integer
- *       400:
- *         $ref: '#/components/responses/BadRequest'
- *       401:
- *         $ref: '#/components/responses/Unauthorized'
- *       403:
- *         $ref: '#/components/responses/Forbidden'
- *       404:
- *         $ref: '#/components/responses/NotFound'
- */
-export const GET = withError(async (request: NextRequest) => {
-  const auth = await getAuthContext(request);
-  if (!auth) return unauthorized();
+// ── GET /api/knowledge/files?sourceId= — list file metadata (no content) ─────
+const handlers = createNextRoute(knowledgeContract, {
+  listFiles: async ({ query, request }) => {
+    const auth = await getAuthContext(request);
 
-  const sourceId = request.nextUrl.searchParams.get("sourceId");
-  if (!sourceId) return malformed("sourceId required");
+    const source = await KnowledgeDAO.findSource(query.sourceId);
+    if (!source) throw new APIException("NOT_FOUND", "Source not found");
 
-  const source = await KnowledgeDAO.findSource(sourceId);
-  if (!source) return notFound("Source not found");
+    if (!auth.isGlobalAdmin && !(await auth.canAccessRealm(source.realmId))) {
+      throw new APIException("FORBIDDEN");
+    }
 
-  if (!auth.isGlobalAdmin && !(await auth.canAccessRealm(source.realmId))) {
-    return forbidden();
-  }
-
-  const files = await KnowledgeDAO.listFiles(sourceId);
-  return NextResponse.json({ files });
+    const files = await KnowledgeDAO.listFiles(query.sourceId);
+    return { status: 200, body: { files } };
+  },
 });
 
-// POST /api/knowledge/files — upload a file attached to a knowledge source
-// Body: multipart/form-data  { sourceId: string, file: File }
-/**
- * @openapi
- * /api/knowledge/files:
- *   post:
- *     summary: Upload a file attached to a knowledge source.
- *     tags: [Knowledge]
- *     requestBody:
- *       required: true
- *       content:
- *         multipart/form-data:
- *           schema:
- *             type: object
- *             properties:
- *               sourceId:
- *                 type: string
- *                 description: The ID of the knowledge source.
- *               file:
- *                 type: string
- *                 format: binary
- *                 description: The file to upload.
- *     responses:
- *       201:
- *         description: File uploaded successfully.
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 file:
- *                   $ref: '#/components/schemas/KnowledgeFile'
- *       400:
- *         $ref: '#/components/responses/BadRequest'
- *       401:
- *         $ref: '#/components/responses/Unauthorized'
- *       403:
- *         $ref: '#/components/responses/Forbidden'
- *       404:
- *         $ref: '#/components/responses/NotFound'
- *       413:
- *         description: File exceeds maximum size of 20MB.
- */
+export const GET = handlers.GET!;
+
+// POST /api/knowledge/files — upload a file attached to a knowledge source.
+// Body: multipart/form-data { sourceId: string, file: File }.
+//
+// Multipart uploads don't fit the ts-rest/createNextRoute JSON model (it parses
+// `request.json()`), so this stays a raw `withError` handler reading the
+// FormData directly — the same exception the API guide carves out for streaming.
 export const POST = withError(async (request: NextRequest) => {
   const auth = await getAuthContext(request);
   if (!auth) return unauthorized();

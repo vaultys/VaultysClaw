@@ -62,23 +62,3 @@ export const apiKeysContract = c.router({
     responses: { 204: c.noBody(), ...commonErrorResponses },
   },
 });
-
-export const chatContract = c.router({
-  send: {
-    method: "POST",
-    path: "/api/chat",
-    summary: "Stream a chat response from a connected agent (text/event-stream)",
-    body: z.object({
-      agentDid: z.string(),
-      messages: z.array(
-        z.object({ role: z.enum(["user", "assistant"]), content: z.string() })
-      ),
-      sessionId: z.string().optional(),
-    }),
-    // Response is a Server-Sent Events stream, not JSON — typed as a raw string.
-    responses: {
-      200: c.otherResponse({ contentType: "text/event-stream", body: c.type<string>() }),
-      ...commonErrorResponses,
-    },
-  },
-});

@@ -111,7 +111,7 @@ export default function InboxPage() {
           <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
             <Bell
               size={22}
-              className="text-primary-700 dark:text-primary-400"
+              className="text-primary-700"
             />
             Inbox
           </h1>
@@ -132,7 +132,7 @@ export default function InboxPage() {
         <button
           onClick={() => setFilter("pending")}
           className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${filter === "pending"
-            ? "border-primary-500 text-primary-700 dark:text-primary-400"
+            ? "border-primary-500 text-primary-700"
             : "border-transparent text-foreground-500 hover:text-foreground"
             }`}
         >
@@ -146,7 +146,7 @@ export default function InboxPage() {
         <button
           onClick={() => setFilter("all")}
           className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${filter === "all"
-            ? "border-primary-500 text-primary-700 dark:text-primary-400"
+            ? "border-primary-500 text-primary-700"
             : "border-transparent text-foreground-500 hover:text-foreground"
             }`}
         >
@@ -196,22 +196,22 @@ function StatusBadge({ status, mode }: { status: string; mode: string }) {
     pending: {
       label: "Pending",
       className:
-        "bg-warning-100 text-warning-700 dark:bg-warning-900/40 dark:text-warning-300",
+        "bg-warning-100 text-warning-700",
     },
     notified: {
       label: "Notified",
       className:
-        "bg-primary-100 text-primary-700 dark:bg-primary-900/40 dark:text-primary-300",
+        "bg-primary-100 text-primary-700",
     },
     approved: {
       label: "Approved",
       className:
-        "bg-success-100 text-success-700 dark:bg-success-900/40 dark:text-success-300",
+        "bg-success-100 text-success-700",
     },
     rejected: {
       label: "Rejected",
       className:
-        "bg-danger-100 text-danger-700 dark:bg-danger-900/40 dark:text-danger-300",
+        "bg-danger-100 text-danger-700",
     },
     dismissed: {
       label: "Dismissed",
@@ -255,9 +255,9 @@ function ApprovalCard({
   return (
     <div
       className={`rounded-xl border bg-background-100 ${isPending && !isNotification
-        ? "border-warning-300 dark:border-warning-700"
+        ? "border-warning-300"
         : isNotification && item.status === "notified"
-          ? "border-primary-300 dark:border-primary-700"
+          ? "border-primary-300"
           : "border-neutral-200"
         }`}
     >
@@ -265,9 +265,9 @@ function ApprovalCard({
       <div className="flex items-start gap-3 p-4">
         <div
           className={`mt-0.5 p-1.5 rounded-lg shrink-0 ${isPending && !isNotification
-            ? "bg-warning-100 dark:bg-warning-900/30"
+            ? "bg-warning-100"
             : isNotification
-              ? "bg-primary-100 dark:bg-primary-900/30"
+              ? "bg-primary-100"
               : "bg-background-200"
             }`}
         >
@@ -276,7 +276,7 @@ function ApprovalCard({
           ) : (
             <GitBranch
               size={15}
-              className="text-warning-600 dark:text-warning-400"
+              className="text-warning-600"
             />
           )}
         </div>

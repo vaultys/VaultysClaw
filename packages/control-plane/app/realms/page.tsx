@@ -151,7 +151,7 @@ function CreateRealmModal({
             </div>
           </div>
           {error && (
-            <p className="text-danger-600 dark:text-danger-400 text-sm">
+            <p className="text-danger-600 text-sm">
               {error}
             </p>
           )}
@@ -281,7 +281,7 @@ export default function RealmsPage() {
                         {realm.name}
                       </span>
                       {realm.isDefault === 1 && (
-                        <span className="text-xs px-1.5 py-0.5 rounded-md bg-warning-50 dark:bg-warning-500/10 text-warning-700 dark:text-warning-400 font-medium">
+                        <span className="text-xs px-1.5 py-0.5 rounded-md bg-warning-50 text-warning-700 font-medium">
                           default
                         </span>
                       )}

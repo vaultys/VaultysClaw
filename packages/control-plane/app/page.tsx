@@ -36,7 +36,7 @@ import {
   Mail,
   UserX,
 } from "lucide-react";
-import { agentsClient, unwrap } from "@/lib/api/ts-rest/client";
+import { agentsClient, policiesClient, unwrap } from "@/lib/api/ts-rest/client";
 import { AgentInfo } from "@/lib/contracts";
 
 /* ─── Helpers ────────────────────────────────────────────────── */
@@ -215,10 +215,10 @@ function LandingPage() {
           {LANDING_FEATURES.map(({ icon: Icon, title, description }, i) => (
             <div
               key={title}
-              className="flex gap-4 bg-background-100 border border-neutral-200 rounded-2xl p-6 hover:border-primary-300 dark:hover:border-primary-700 hover:shadow-lg hover:shadow-primary-500/10 hover:-translate-y-1 transition-all duration-300 group animate-fade-in-up"
+              className="flex gap-4 bg-background-100 border border-neutral-200 rounded-2xl p-6 hover:border-primary-300 hover:shadow-lg hover:shadow-primary-500/10 hover:-translate-y-1 transition-all duration-300 group animate-fade-in-up"
               style={{ animationDelay: `${200 + i * 100}ms` }}
             >
-              <div className="w-10 h-10 bg-primary-100 border border-primary-200 rounded-xl flex items-center justify-center shrink-0 group-hover:scale-110 group-hover:bg-primary-200 dark:group-hover:bg-primary-800/60 transition-all duration-300">
+              <div className="w-10 h-10 bg-primary-100 border border-primary-200 rounded-xl flex items-center justify-center shrink-0 group-hover:scale-110 group-hover:bg-primary-200 transition-all duration-300">
                 <Icon className="w-5 h-5 text-primary-600" />
               </div>
               <div>
@@ -323,7 +323,7 @@ function QuickAction({
   return (
     <button
       onClick={onClick}
-      className="relative flex items-start gap-3 p-4 bg-background-100 border border-neutral-200 rounded-xl text-left hover:border-primary-300 dark:hover:border-primary-700 hover:shadow-sm transition-all duration-200 group w-full"
+      className="relative flex items-start gap-3 p-4 bg-background-100 border border-neutral-200 rounded-xl text-left hover:border-primary-300 hover:shadow-sm transition-all duration-200 group w-full"
     >
       <div
         className={`w-9 h-9 rounded-lg border flex items-center justify-center shrink-0 transition-colors duration-200 ${colors[accent]}`}
@@ -350,7 +350,7 @@ function AgentPill({ agent, onClick }: { agent: AgentInfo; onClick: () => void }
   return (
     <button
       onClick={onClick}
-      className="flex items-center gap-2.5 px-3 py-2 bg-background-100 border border-neutral-200 rounded-lg hover:border-primary-300 dark:hover:border-primary-700 hover:bg-background-200 transition-all duration-200 w-full text-left group"
+      className="flex items-center gap-2.5 px-3 py-2 bg-background-100 border border-neutral-200 rounded-lg hover:border-primary-300 hover:bg-background-200 transition-all duration-200 w-full text-left group"
     >
       <span
         className={`w-2 h-2 rounded-full shrink-0 ${agent.online ? "bg-success-500" : "bg-neutral-300"}`}
@@ -592,9 +592,9 @@ function Dashboard() {
 
   const fetchExpiredPolicies = () => {
     if (!isGlobalAdmin) return;
-    fetch("/api/policies?expiredOnly=true")
-      .then((r) => (r.ok ? r.json() : { policies: [] }))
-      .then((d: { policies?: ExpiredPolicy[] }) => setExpiredPolicies(d.policies ?? []))
+    policiesClient
+      .list({ query: { expiredOnly: true } })
+      .then((r) => setExpiredPolicies(unwrap(r).policies))
       .catch(() => { });
   };
 
@@ -623,23 +623,21 @@ function Dashboard() {
           Object.keys(renewingPolicy.resourceLimits).length > 0
           ? renewingPolicy.resourceLimits
           : undefined;
-      const res = await fetch("/api/policies", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          agentDid: renewingPolicy.agentDid,
-          capabilities: renewingPolicy.capabilities,
-          resourceLimits: rl,
-          expiresAt: renewExpiry ? new Date(renewExpiry).toISOString() : undefined,
-        }),
-      });
-      if (res.ok) {
-        await fetch(`/api/policies/${encodeURIComponent(renewingPolicy.id)}`, {
-          method: "DELETE",
-        });
-        setRenewingPolicy(null);
-        fetchExpiredPolicies();
-      }
+      unwrap(
+        await policiesClient.create({
+          body: {
+            agentDid: renewingPolicy.agentDid ?? undefined,
+            capabilities: renewingPolicy.capabilities,
+            resourceLimits: rl as Record<string, unknown> | undefined,
+            expiresAt: renewExpiry
+              ? new Date(renewExpiry).toISOString()
+              : undefined,
+          },
+        })
+      );
+      await policiesClient.remove({ params: { id: renewingPolicy.id } });
+      setRenewingPolicy(null);
+      fetchExpiredPolicies();
     } finally {
       setRenewSaving(false);
     }
@@ -1194,7 +1192,7 @@ function Dashboard() {
               <button
                 key={path}
                 onClick={() => router.push(path)}
-                className="flex items-center gap-2 px-3 py-2.5 bg-background-100 border border-neutral-200 rounded-lg hover:border-primary-300 dark:hover:border-primary-700 hover:bg-background-200 transition-all duration-200 group text-left"
+                className="flex items-center gap-2 px-3 py-2.5 bg-background-100 border border-neutral-200 rounded-lg hover:border-primary-300 hover:bg-background-200 transition-all duration-200 group text-left"
               >
                 <Icon className="w-4 h-4 text-foreground-400 group-hover:text-primary-500 transition-colors shrink-0" />
                 <span className="text-sm text-foreground-600 group-hover:text-foreground font-medium transition-colors">

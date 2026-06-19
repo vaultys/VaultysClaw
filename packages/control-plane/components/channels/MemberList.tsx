@@ -509,7 +509,7 @@ export default function MemberList({ channelId }: MemberListProps) {
                   {/* Remove button */}
                   <button
                     onClick={() => handleRemoveMember(member, primary)}
-                    className="opacity-0 group-hover:opacity-100 transition p-1.5 hover:bg-danger-100 dark:hover:bg-danger-900/30 text-foreground-500 hover:text-danger-600 dark:hover:text-danger-400 rounded-lg flex-shrink-0"
+                    className="opacity-0 group-hover:opacity-100 transition p-1.5 hover:bg-danger-100 text-foreground-500 hover:text-danger-600 rounded-lg flex-shrink-0"
                     title={`Remove ${primary}`}
                   >
                     <UserMinus size={14} />

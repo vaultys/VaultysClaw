@@ -31,7 +31,7 @@ import {
 } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useRole } from "@/hooks/useRole";
-import { agentsClient, unwrap } from "@/lib/api/ts-rest/client";
+import { agentsClient, knowledgeClient, unwrap } from "@/lib/api/ts-rest/client";
 import { AgentInfo } from "@/lib/contracts";
 
 const LocationEditor = dynamic(
@@ -1282,14 +1282,13 @@ export default function KnowledgeDashboardPage() {
     setLoading(true);
     try {
       const [ksRes, agRes, rlRes] = await Promise.all([
-        fetch("/api/knowledge"),
+        knowledgeClient.list(),
         agentsClient.search(),
         fetch("/api/realms"),
       ]);
-      const ksData = (await ksRes.json()) as { sources?: KnowledgeSource[] };
       const agData = unwrap(agRes);
       const rlData = (await rlRes.json()) as { realms?: RealmInfo[] };
-      setSources(ksData.sources ?? []);
+      setSources(unwrap(ksRes).sources as unknown as KnowledgeSource[]);
       setAgents(agData.items);
       setRealms(rlData.realms ?? []);
     } finally {

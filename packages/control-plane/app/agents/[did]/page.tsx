@@ -5,7 +5,6 @@ import { useAdminWS } from "../../../hooks/useAdminWS";
 import { timeAgo } from "@vaultysclaw/shared";
 import dynamic from "next/dynamic";
 import {
-  Bot,
   Trash2,
   Loader2,
   MessageSquare,
@@ -13,7 +12,6 @@ import {
   Clock,
   ShieldCheck,
   LayoutDashboard,
-  ChevronLeft,
   Zap,
   AlertTriangle,
   Activity,
@@ -22,6 +20,8 @@ import {
 } from "lucide-react";
 import { Tab, Tabs } from "@/components/shared/Tabs";
 import { ConfirmModal } from "@/components/shared/ConfirmModal";
+import { useToolbar, type ToolbarAction } from "@/components/layout/ToolbarContext";
+import { useBreadcrumbs } from "@/components/layout/BreadcrumbContext";
 import { OverviewTab } from "@/components/agent/OverviewTab";
 import { ChatTab } from "@/components/agent/ChatTab";
 import { TokensTab } from "@/components/agent/TokensTab";
@@ -30,7 +30,11 @@ import { GovernanceTab } from "@/components/agent/GovernanceTab";
 import { AutomationTab } from "@/components/agent/AutomationTab";
 import { ApprovalsTab } from "@/components/agent/ApprovalsTab";
 import { KnowledgeTab } from "@/components/agent/KnowledgeTab";
-import { agentsClient, unwrap } from "@/lib/api/ts-rest/client";
+import {
+  agentsClient,
+  toolApprovalsClient,
+  unwrap,
+} from "@/lib/api/ts-rest/client";
 import { AgentInfo } from "@/lib/contracts";
 
 const AgentEnvironmentGraph = dynamic(
@@ -117,15 +121,92 @@ export default function AgentDetailPage() {
 
   useEffect(() => {
     const refresh = async () => {
-      const res = await fetch("/api/tool-approvals")
-        .then((r) => r.json())
-        .catch(() => ({ approvals: [] }));
-      setPendingApprovals((res.approvals ?? []).length);
+      try {
+        const { approvals } = unwrap(await toolApprovalsClient.list());
+        setPendingApprovals(approvals.length);
+      } catch {
+        setPendingApprovals(0);
+      }
     };
     refresh();
     const iv = setInterval(refresh, 5000);
     return () => clearInterval(iv);
   }, []);
+
+  // ── TopBar breadcrumbs + toolbar (identity, status, stats, delete) ──────────
+
+  useBreadcrumbs(
+    [{ label: "Agents", href: "/agents" }, { label: agent?.name ?? "Agent" }],
+    [agent?.name]
+  );
+
+  const toolbarActions: ToolbarAction[] = [];
+  if (agent) {
+    toolbarActions.push({
+      kind: "badge",
+      id: "status",
+      label: agent.online ? "Online" : "Offline",
+      tone: agent.online ? "success" : "neutral",
+    });
+    if (agent.online && agent.transport) {
+      toolbarActions.push({
+        kind: "badge",
+        id: "transport",
+        label: agent.transport === "peerjs" ? "WebRTC" : "WebSocket",
+        tone: "neutral",
+      });
+    }
+    if (agent.reportedLlm) {
+      toolbarActions.push({
+        kind: "badge",
+        id: "llm",
+        label: `${agent.reportedLlm.provider} / ${agent.reportedLlm.model}`,
+        icon: <Zap size={11} className="text-warning-500" />,
+        tone: "neutral",
+      });
+    }
+    toolbarActions.push(
+      {
+        kind: "badge",
+        id: "lastseen",
+        label: `Last seen ${timeAgo(agent.lastSeen.toString())}`,
+        icon: <Clock size={11} />,
+        tone: "neutral",
+      },
+      {
+        kind: "badge",
+        id: "caps",
+        label: `${agent.capabilities.length} capabilities`,
+        tone: "neutral",
+      },
+      {
+        kind: "button",
+        id: "delete",
+        label: "Delete",
+        variant: "danger",
+        icon: deletingAgent ? (
+          <Loader2 size={14} className="animate-spin" />
+        ) : (
+          <Trash2 size={14} />
+        ),
+        onClick: () => setShowDeleteConfirm(true),
+        disabled: deletingAgent,
+      }
+    );
+  }
+
+  useToolbar(
+    {
+      title: agent?.name ?? "Agent",
+      description: agent ? (
+        <span className="font-mono">{agent.did}</span>
+      ) : (
+        did
+      ),
+      actions: toolbarActions,
+    },
+    [agent, deletingAgent, did]
+  );
 
   if (loading) {
     return (
@@ -138,12 +219,6 @@ export default function AgentDetailPage() {
   if (error || !agent) {
     return (
       <div className="p-6 max-w-5xl mx-auto">
-        <button
-          onClick={() => router.push("/agents")}
-          className="text-primary-400 hover:text-primary-300 mb-6 inline-block text-sm"
-        >
-          ← Back to Agents list
-        </button>
         <div className="bg-danger-50 border border-danger-300 rounded-lg px-4 py-3 text-danger-600">
           {error ?? "Agent not found"}
         </div>
@@ -186,119 +261,6 @@ export default function AgentDetailPage() {
         onCancel={() => setShowDeleteConfirm(false)}
       />
 
-      {/* ── Page header ── */}
-      <div className="mb-4">
-        <button
-          onClick={() => router.push("/agents")}
-          className="inline-flex items-center gap-1.5 text-sm text-foreground-500 hover:text-foreground mb-3 transition-colors"
-        >
-          <ChevronLeft size={15} />
-          Back to Agents List
-        </button>
-
-        <div className="bg-background-100 border border-neutral-200 rounded-xl px-5 py-4 flex items-center gap-4">
-          <div className="flex-shrink-0 w-11 h-11 rounded-full bg-primary-600/20 border border-primary-500/30 flex items-center justify-center">
-            <Bot size={22} className="text-primary-400" />
-          </div>
-
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-3 flex-wrap">
-              <h1 className="text-xl font-bold text-foreground">
-                {agent.name}
-              </h1>
-              {agent.online ? (
-                <span className="inline-flex items-center gap-1.5 text-xs font-medium text-success-700 bg-success-100 border border-success-300 rounded-full px-2.5 py-0.5">
-                  <span className="w-1.5 h-1.5 bg-success-500 rounded-full animate-pulse" />
-                  Online
-                </span>
-              ) : (
-                <span className="inline-flex items-center gap-1.5 text-xs font-medium text-foreground-500 bg-background-200 border border-neutral-300 rounded-full px-2.5 py-0.5">
-                  <span className="w-1.5 h-1.5 bg-neutral-300 rounded-full" />
-                  Offline
-                </span>
-              )}
-              {agent.online && agent.transport && (
-                <span
-                  className={`inline-flex items-center gap-1.5 text-xs font-medium rounded-full px-2.5 py-0.5 border ${
-                    agent.transport === "peerjs"
-                      ? "text-secondary-700 bg-secondary-100 border-secondary-300"
-                      : "text-primary-700 bg-primary-100 border-primary-300"
-                  }`}
-                >
-                  {agent.transport === "peerjs" ? "WebRTC" : "WebSocket"}
-                </span>
-              )}
-              {agent.reportedLlm &&
-                (() => {
-                  const llm = agent.reportedLlm!;
-                  return (
-                    <span className="inline-flex items-center gap-1.5 text-xs font-medium text-foreground-500 bg-background-200 border border-neutral-300 rounded-full px-2.5 py-0.5">
-                      <Zap size={11} className="text-warning-500" />
-                      <span className="text-foreground-700">
-                        {llm.provider}
-                      </span>
-                      <span className="text-foreground-400">/</span>
-                      <span className="font-mono">{llm.model}</span>
-                    </span>
-                  );
-                })()}
-            </div>
-            <p className="text-xs font-mono text-foreground-500 mt-0.5 truncate">
-              {agent.did}
-            </p>
-          </div>
-
-          <div className="hidden sm:flex gap-6 text-right flex-shrink-0">
-            <div>
-              <div className="text-xs text-foreground-500 uppercase">
-                Last seen
-              </div>
-              <div className="text-sm text-foreground">
-                {timeAgo(agent.lastSeen.toString())}
-              </div>
-            </div>
-            {agent.reportedLlm &&
-              (() => {
-                const llm = agent.reportedLlm!;
-                return (
-                  <div>
-                    <div className="text-xs text-foreground-500 uppercase">
-                      LLM
-                    </div>
-                    <div className="text-sm text-foreground font-mono">
-                      {llm.model}
-                    </div>
-                    <div className="text-[10px] text-foreground-400">
-                      {llm.provider}
-                    </div>
-                  </div>
-                );
-              })()}
-            <div>
-              <div className="text-xs text-foreground-500 uppercase">
-                Capabilities
-              </div>
-              <div className="text-sm text-foreground">
-                {agent.capabilities.length}
-              </div>
-            </div>
-            <button
-              onClick={() => setShowDeleteConfirm(true)}
-              disabled={deletingAgent}
-              className="ml-4 px-3 py-2 rounded-lg border border-danger-300 text-danger-600 hover:bg-danger-500/10 transition-colors disabled:opacity-50 flex items-center gap-2 text-sm font-medium"
-              title="Delete agent"
-            >
-              {deletingAgent ? (
-                <Loader2 size={14} className="animate-spin" />
-              ) : (
-                <Trash2 size={14} />
-              )}
-              Delete
-            </button>
-          </div>
-        </div>
-      </div>
-
       {/* ── Tabbed content ── */}
       <div
         className={`border border-neutral-200 rounded-xl overflow-hidden bg-background-100 ${activeTab === "chat" ? "flex flex-col flex-1 min-h-0" : ""}`}
@@ -324,7 +286,7 @@ export default function AgentDetailPage() {
           )}
           {activeTab === "tokens" && <TokensTab agentId={agent.did} />}
           {activeTab === "config" && (
-            <ConfigTab did={did} reportedLlm={agent.reportedLlm} />
+            <ConfigTab agent={agent} onChanged={fetchAgent} />
           )}
           {activeTab === "governance" && (
             <GovernanceTab did={did} agentCapabilities={agent.capabilities} />

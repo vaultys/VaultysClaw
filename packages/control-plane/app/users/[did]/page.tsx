@@ -239,12 +239,12 @@ export default function UserEditPage() {
                 )}
               </h1>
               {user.isOwner && (
-                <span className="px-2 py-0.5 bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700 dark:text-yellow-400 border border-yellow-300 dark:border-yellow-800 rounded-full text-xs font-medium">
+                <span className="px-2 py-0.5 bg-yellow-100 text-yellow-700 border border-yellow-300 rounded-full text-xs font-medium">
                   Owner
                 </span>
               )}
               {user.isAdmin && !user.isOwner && (
-                <span className="px-2 py-0.5 bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400 border border-blue-300 dark:border-blue-800 rounded-full text-xs font-medium">
+                <span className="px-2 py-0.5 bg-blue-100 text-blue-700 border border-blue-300 rounded-full text-xs font-medium">
                   Admin
                 </span>
               )}
@@ -590,7 +590,7 @@ function OverviewTab({
       </section>
 
       {saveError && (
-        <div className="flex items-center gap-2 text-red-500 dark:text-red-400 text-sm bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/50 rounded-xl px-4 py-2.5">
+        <div className="flex items-center gap-2 text-red-500 text-sm bg-red-50 border border-red-200 rounded-xl px-4 py-2.5">
           <AlertCircle className="w-4 h-4 shrink-0" />
           {saveError}
         </div>
@@ -707,7 +707,7 @@ function AccessTab({
       </div>
 
       {adminError && (
-        <div className="flex items-center gap-2 text-red-500 dark:text-red-400 text-sm bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/50 rounded-xl px-4 py-2.5">
+        <div className="flex items-center gap-2 text-red-500 text-sm bg-red-50 border border-red-200 rounded-xl px-4 py-2.5">
           <AlertCircle className="w-4 h-4 shrink-0" />
           {adminError}
         </div>
@@ -949,7 +949,7 @@ function RealmsTab({
       </div>
 
       {error && (
-        <div className="flex items-center gap-2 text-red-500 dark:text-red-400 text-sm bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/50 rounded-xl px-4 py-2.5">
+        <div className="flex items-center gap-2 text-red-500 text-sm bg-red-50 border border-red-200 rounded-xl px-4 py-2.5">
           <AlertCircle className="w-4 h-4 shrink-0" />
           {error}
         </div>
@@ -980,12 +980,12 @@ function RealmsTab({
                     <span className="text-xs text-foreground-400">Default</span>
                   )}
                   {m.isPrimary && (
-                    <span className="flex items-center gap-1 text-xs text-yellow-600 dark:text-yellow-400">
+                    <span className="flex items-center gap-1 text-xs text-yellow-600">
                       <Star size={10} className="fill-current" /> Primary
                     </span>
                   )}
                   {m.isRealmAdmin && (
-                    <span className="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400">
+                    <span className="flex items-center gap-1 text-xs text-blue-600">
                       <ShieldCheck size={10} /> Realm admin
                     </span>
                   )}
@@ -1000,8 +1000,8 @@ function RealmsTab({
                     title={m.isRealmAdmin ? "Revoke realm admin" : "Make realm admin"}
                     className={`flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border transition-colors disabled:opacity-50 ${
                       m.isRealmAdmin
-                        ? "border-blue-300 text-blue-600 dark:text-blue-400 hover:border-neutral-300 hover:text-foreground-500"
-                        : "border-neutral-300 text-foreground-500 hover:border-blue-300 hover:text-blue-600 dark:hover:text-blue-400"
+                        ? "border-blue-300 text-blue-600 hover:border-neutral-300 hover:text-foreground-500"
+                        : "border-neutral-300 text-foreground-500 hover:border-blue-300 hover:text-blue-600"
                     }`}
                   >
                     <ShieldCheck size={12} />
@@ -1122,8 +1122,8 @@ function DangerZone({
   };
 
   return (
-    <div className="mt-6 bg-background-100 border border-red-200 dark:border-red-900/50 rounded-2xl p-6">
-      <h2 className="text-sm font-semibold text-red-600 dark:text-red-400 mb-1">
+    <div className="mt-6 bg-background-100 border border-red-200 rounded-2xl p-6">
+      <h2 className="text-sm font-semibold text-red-600 mb-1">
         Danger zone
       </h2>
       <p className="text-foreground-500 text-sm mb-4">

@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { Upload, File, X } from "lucide-react";
-import { formatBytes } from "./utils";
+import { formatBytes } from "@vaultysclaw/shared";
 
 interface FileDropzoneProps {
   files: File[];
@@ -35,10 +35,11 @@ export function FileDropzone({ files, onAdd, onRemove }: FileDropzoneProps) {
         onDragLeave={() => setDragging(false)}
         onDrop={handleDrop}
         onClick={() => inputRef.current?.click()}
-        className={`flex flex-col items-center justify-center gap-2 px-4 py-8 rounded-xl border-2 border-dashed cursor-pointer transition-colors ${dragging
-          ? "border-primary-500 bg-primary-50"
-          : "border-neutral-200 hover:border-primary-400 hover:bg-background-200/40 bg-background"
-          }`}
+        className={`flex flex-col items-center justify-center gap-2 px-4 py-8 rounded-xl border-2 border-dashed cursor-pointer transition-colors ${
+          dragging
+            ? "border-primary-500 bg-primary-50"
+            : "border-neutral-200 hover:border-primary-400 hover:bg-background-200/40 bg-background"
+        }`}
       >
         <Upload
           size={22}
@@ -69,10 +70,11 @@ export function FileDropzone({ files, onAdd, onRemove }: FileDropzoneProps) {
             return (
               <li
                 key={`${f.name}-${i}`}
-                className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-xs ${oversized
-                  ? "border-danger-300 bg-danger-50"
-                  : "border-neutral-200 bg-background-200/40"
-                  }`}
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-xs ${
+                  oversized
+                    ? "border-danger-300 bg-danger-50"
+                    : "border-neutral-200 bg-background-200/40"
+                }`}
               >
                 <File
                   size={13}

@@ -15,8 +15,11 @@ import {
 } from "lucide-react";
 import { knowledgeClient, unwrap } from "@/lib/api/ts-rest/client";
 import { KsStatusBadge } from "./KsStatusBadge";
-import { mimeIcon, formatBytes, relativeTime } from "./utils";
-import type { KnowledgeSource, KnowledgeFile } from "./types";
+import { mimeIcon } from "./utils";
+import type { KnowledgeFile } from "./types";
+import { KnowledgeSource } from "@prisma/client";
+import { JsonObject } from "@prisma/client/runtime/client";
+import { formatBytes, timeAgo } from "@vaultysclaw/shared";
 
 interface KsSourceCardProps {
   source: KnowledgeSource;
@@ -43,13 +46,7 @@ export function KsSourceCard({
 }: KsSourceCardProps) {
   const [files, setFiles] = useState<KnowledgeFile[] | null>(null);
   const [loadingFiles, setLoadingFiles] = useState(false);
-
-  let config: Record<string, unknown> = {};
-  try {
-    config = JSON.parse(source.config);
-  } catch {
-    /**/
-  }
+  const config = source.config as JsonObject;
 
   const typeIconMap: Record<string, React.ReactNode> = {
     url: <Globe size={16} className="text-primary-400" />,
@@ -110,7 +107,7 @@ export function KsSourceCard({
                 : "No chunks yet"}
             </span>
             <span className="text-foreground-400">·</span>
-            <span>{relativeTime(source.lastSyncedAt)}</span>
+            <span>{timeAgo(source.lastSyncedAt?.toString() ?? "")}</span>
           </div>
         </div>
 
@@ -252,16 +249,11 @@ export function KsSourceCard({
             <span>
               Created:{" "}
               <span className="text-foreground">
-                {new Date(
-                  source.createdAt.endsWith("Z")
-                    ? source.createdAt
-                    : source.createdAt + "Z"
-                ).toLocaleDateString()}
+                {new Date(source.createdAt).toLocaleDateString()}
               </span>
             </span>
             <span>
-              ID:{" "}
-              <span className="text-foreground font-mono">{source.id}</span>
+              ID: <span className="text-foreground font-mono">{source.id}</span>
             </span>
           </div>
         </div>

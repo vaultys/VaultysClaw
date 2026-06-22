@@ -1,104 +1,53 @@
-import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
-import { malformed, unauthorized } from "@/lib/api/utils/api-utils";
-import { withError } from "@/lib/api/handlers/with-error";
+import { APIException } from "@/lib/api/utils/api-utils";
+import { modelsContract } from "@/lib/contracts";
+import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 
-/** POST /api/models/test — test connectivity to a model endpoint and fetch available models */
-/**
- * @openapi
- * /api/models/test:
- *   post:
- *     summary: Test connectivity to a model endpoint and fetch available models.
- *     tags: [Models]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               provider:
- *                 type: string
- *               modelId:
- *                 type: string
- *               baseUrl:
- *                 type: string
- *               apiKey:
- *                 type: string
- *                 nullable: true
- *             required:
- *               - provider
- *               - modelId
- *               - baseUrl
- *     responses:
- *       200:
- *         description: Successful response with available models.
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 ok:
- *                   type: boolean
- *                 models:
- *                   type: array
- *                   items:
- *                     type: string
- *       400:
- *         $ref: '#/components/responses/BadRequest'
- *       401:
- *         $ref: '#/components/responses/Unauthorized'
- *       500:
- *         description: Validation failed.
- */
-export const POST = withError(async (req: NextRequest) => {
-  const auth = await getAuthContext(req);
-  if (!auth) return unauthorized();
+const handlers = createNextRoute(modelsContract, {
+  // ── POST /api/models/test — probe an endpoint and list its models ─────────
+  test: async ({ body, request }) => {
+    await getAuthContext(request);
 
-  const body = (await req.json()) as {
-    provider: string;
-    modelId: string;
-    baseUrl: string;
-    apiKey?: string;
-  };
+    if (!body.baseUrl.trim())
+      throw new APIException("MALFORMED", "Base URL is required");
 
-  const { baseUrl, apiKey } = body;
+    const url = body.baseUrl.replace(/\/$/, "");
+    const apiKey = body.apiKey ?? undefined;
 
-  if (!baseUrl?.trim()) {
-    return malformed("Base URL is required");
-  }
-
-  const url = baseUrl.replace(/\/$/, "");
-
-  // Try /v1/models first (vLLM / OpenAI-compatible)
-  try {
-    const res = await fetch(`${url}/v1/models`, {
-      headers: apiKey ? { Authorization: `Bearer ${apiKey}` } : {},
-      signal: AbortSignal.timeout(5000),
-    });
-    if (res.ok) {
-      const data = (await res.json()) as { data?: { id: string }[] };
-      const models = data.data?.map((m) => m.id) ?? [];
-      return NextResponse.json({ ok: true, models });
+    // Try /v1/models first (vLLM / OpenAI-compatible)
+    try {
+      const res = await fetch(`${url}/v1/models`, {
+        headers: apiKey ? { Authorization: `Bearer ${apiKey}` } : {},
+        signal: AbortSignal.timeout(5000),
+      });
+      if (res.ok) {
+        const data = (await res.json()) as { data?: { id: string }[] };
+        const models = data.data?.map((m) => m.id) ?? [];
+        return { status: 200, body: { ok: true, models } };
+      }
+    } catch {
+      // fall through to /health check
     }
-  } catch {
-    // fall through to /health check
-  }
 
-  // Fallback: /health
-  try {
-    const res = await fetch(`${url}/health`, {
-      signal: AbortSignal.timeout(5000),
-    });
-    if (res.ok) {
-      return NextResponse.json({ ok: true, models: [] });
+    // Fallback: /health
+    try {
+      const res = await fetch(`${url}/health`, {
+        signal: AbortSignal.timeout(5000),
+      });
+      if (res.ok) return { status: 200, body: { ok: true, models: [] } };
+    } catch {
+      // fall through
     }
-  } catch {
-    // fall through
-  }
 
-  return NextResponse.json({
-    ok: false,
-    error: "Could not verify connection to endpoint",
-  });
+    return {
+      status: 200,
+      body: {
+        ok: false,
+        models: [],
+        error: "Could not verify connection to endpoint",
+      },
+    };
+  },
 });
+
+export const POST = handlers.POST!;

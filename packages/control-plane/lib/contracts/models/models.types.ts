@@ -18,7 +18,7 @@ import {
  * the `select`). Mirrors the `AgentWithInfo` pattern; the matching query lives
  * in `ModelDAO.findAll`. Consumers derive the realm count from `realmAccess.length`.
  */
-export type ModelWithRealmAccess = Prisma.ModelRegistryGetPayload<{
+export type SafeModel = Prisma.ModelRegistryGetPayload<{
   select: {
     id: true;
     name: true;
@@ -32,9 +32,13 @@ export type ModelWithRealmAccess = Prisma.ModelRegistryGetPayload<{
     createdBy: true;
     createdAt: true;
     updatedAt: true;
-    realmAccess: true;
+    realmAccess: {
+      include: {
+        realm: true;
+      };
+    };
   };
-}>;
+}> & { hasApiKey: boolean };
 
 /** Response of `POST /api/models` — the created entry (sans secret) + LiteLLM status. */
 export type CreatedModel = Omit<ModelRegistry, "apiKeyEnc"> & {

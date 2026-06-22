@@ -1,11 +1,6 @@
 import { prisma } from "./client";
-import type {
-  ModelRegistry,
-  ModelRealmAccess,
-  RealmRouterKey,
-  Prisma,
-} from "@prisma/client";
-import type { ModelWithRealmAccess } from "@/lib/contracts";
+import type { ModelRegistry, Prisma } from "@prisma/client";
+import type { SafeModel } from "@/lib/contracts";
 
 export class ModelDAO {
   static async create(entry: {
@@ -34,8 +29,39 @@ export class ModelDAO {
     });
   }
 
-  static async findById(id: string): Promise<ModelRegistry | null> {
-    return prisma.modelRegistry.findUnique({ where: { id } });
+  static async findById(id: string): Promise<SafeModel | null> {
+    const model = await prisma.modelRegistry.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        provider: true,
+        modelId: true,
+        baseUrl: true,
+        litellmModelName: true,
+        status: true,
+        metadata: true,
+        createdBy: true,
+        createdAt: true,
+        updatedAt: true,
+        apiKeyEnc: true,
+        realmAccess: {
+          include: {
+            realm: true,
+          },
+        },
+      },
+    });
+    if (!model) return null;
+    const { apiKeyEnc, ...rest } = model;
+    return { ...rest, hasApiKey: !!apiKeyEnc };
+  }
+
+  static async findByIdUnsafe(id: string): Promise<ModelRegistry | null> {
+    return prisma.modelRegistry.findUnique({
+      where: { id },
+    });
   }
 
   /**
@@ -44,8 +70,8 @@ export class ModelDAO {
    * `apiKeyEnc` secret is excluded by the `select`). The select must stay in
    * sync with the `ModelWithRealmAccess` type in `models.contract.ts`.
    */
-  static async findAll(): Promise<ModelWithRealmAccess[]> {
-    return prisma.modelRegistry.findMany({
+  static async findAll(): Promise<SafeModel[]> {
+    const models = await prisma.modelRegistry.findMany({
       orderBy: { createdAt: "desc" },
       select: {
         id: true,
@@ -60,8 +86,17 @@ export class ModelDAO {
         createdBy: true,
         createdAt: true,
         updatedAt: true,
-        realmAccess: true,
+        apiKeyEnc: true,
+        realmAccess: {
+          include: {
+            realm: true,
+          },
+        },
       },
+    });
+    return models.map((model) => {
+      const { apiKeyEnc, ...rest } = model;
+      return { ...rest, hasApiKey: !!apiKeyEnc };
     });
   }
 
@@ -88,20 +123,15 @@ export class ModelDAO {
       litellmModelName: string | null;
       metadata: Prisma.InputJsonValue;
     }>
-  ): Promise<void> {
-    await prisma.modelRegistry.update({ where: { id }, data: updates });
+  ): Promise<ModelRegistry> {
+    return await prisma.modelRegistry.update({ where: { id }, data: updates });
   }
 
-  static async delete(id: string): Promise<void> {
-    await prisma.modelRegistry.delete({ where: { id } });
+  static async delete(id: string): Promise<ModelRegistry> {
+    return await prisma.modelRegistry.delete({ where: { id } });
   }
 
   // ─── Realm access ────────────────────────────────────────────────────────────
-
-  static async getRealmAccess(modelId: string): Promise<ModelRealmAccess[]> {
-    return prisma.modelRealmAccess.findMany({ where: { modelId } });
-  }
-
   static async grantRealmAccess(
     modelId: string,
     realmId: string

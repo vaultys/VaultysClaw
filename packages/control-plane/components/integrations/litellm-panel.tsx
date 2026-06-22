@@ -9,22 +9,8 @@ import {
   IntegrationHeader,
   IntegrationModal,
 } from "./shared";
-
-interface LiteLLMStatus {
-  configured: boolean;
-  healthy: boolean;
-  status: "connected" | "connecting" | "error" | "unconfigured";
-  baseUrl: string | null;
-  masterKeySet: boolean;
-  source: "db" | "env";
-  lastError: string | null;
-  checkedAt: string | null;
-  stats?: {
-    modelCount: number;
-    totalSpend: number;
-    keyCount: number;
-  };
-}
+import { settingsClient, unwrap } from "@/lib/api/ts-rest/client";
+import type { LiteLLMStatus } from "@/lib/contracts";
 
 export function LiteLLMPanel() {
   const [status, setStatus] = useState<LiteLLMStatus | null>(null);
@@ -41,8 +27,7 @@ export function LiteLLMPanel() {
 
   const loadStatus = async () => {
     try {
-      const r = await fetch("/api/settings/litellm");
-      const data = (await r.json()) as LiteLLMStatus;
+      const data = unwrap(await settingsClient.getLitellm());
 
       // Service is configured in DB/env but the in-memory state hasn't connected yet
       // (e.g. first load after server restart). Trigger a reconnect automatically.
@@ -52,12 +37,11 @@ export function LiteLLMPanel() {
         setLoading(false);
         setReconnecting(true);
         try {
-          await fetch("/api/settings/litellm", { method: "POST" });
+          await settingsClient.reconnectLitellm();
         } catch { /* ignore */ }
         setReconnecting(false);
         // Reload to get the real post-reconnect state
-        const r2 = await fetch("/api/settings/litellm");
-        const data2 = (await r2.json()) as LiteLLMStatus;
+        const data2 = unwrap(await settingsClient.getLitellm());
         setStatus(data2);
         setBaseUrl(data2.baseUrl ?? "");
         return;
@@ -70,6 +54,7 @@ export function LiteLLMPanel() {
         configured: false, healthy: false, status: "unconfigured",
         baseUrl: null, masterKeySet: false, source: "db",
         lastError: null, checkedAt: null,
+        stats: { modelCount: 0, totalSpend: null, keyCount: null },
       });
     } finally {
       setLoading(false);
@@ -79,16 +64,14 @@ export function LiteLLMPanel() {
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      const r = await fetch("/api/settings/litellm", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ baseUrl, masterKey: masterKey || null }),
-      });
-      if (r.ok) {
-        setIsModalOpen(false);
-        setMasterKey("");
-        await loadStatus();
-      }
+      unwrap(
+        await settingsClient.saveLitellm({
+          body: { baseUrl, masterKey: masterKey || null },
+        })
+      );
+      setIsModalOpen(false);
+      setMasterKey("");
+      await loadStatus();
     } catch {
       // error handled by user feedback
     } finally {

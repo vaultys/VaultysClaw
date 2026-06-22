@@ -13,20 +13,15 @@ import {
   MapPin,
 } from "lucide-react";
 import dynamic from "next/dynamic";
+import { settingsClient, unwrap } from "@/lib/api/ts-rest/client";
+import type { DoclingConfig, DoclingTestResult } from "@/lib/contracts";
 
 const LocationEditor = dynamic(
   () => import("@/components/map/WorldMap").then((m) => m.LocationEditor),
   { ssr: false }
 );
 
-interface DoclingState {
-  url: string;
-  enabled: boolean;
-  configured: boolean;
-  locationLat?: number;
-  locationLon?: number;
-  locationLabel?: string;
-}
+type DoclingState = Pick<DoclingConfig, "url" | "enabled" | "configured">;
 
 type TestStatus = "idle" | "testing" | "ok" | "error";
 
@@ -41,11 +36,7 @@ export function DoclingConfigPanel() {
   const [draftEnabled, setDraftEnabled] = useState(false);
   const [saving, setSaving] = useState(false);
   const [testStatus, setTestStatus] = useState<TestStatus>("idle");
-  const [testResult, setTestResult] = useState<{
-    latency?: number;
-    version?: string;
-    error?: string;
-  } | null>(null);
+  const [testResult, setTestResult] = useState<DoclingTestResult | null>(null);
   const [locationEditing, setLocationEditing] = useState(false);
   const [location, setLocation] = useState<{
     lat: number;
@@ -54,10 +45,11 @@ export function DoclingConfigPanel() {
   } | null>(null);
 
   useEffect(() => {
-    fetch("/api/settings/docling")
-      .then((r) => r.json())
-      .then((d: DoclingState) => {
-        setCfg(d);
+    settingsClient
+      .getDocling()
+      .then((res) => {
+        const d = unwrap(res);
+        setCfg({ url: d.url, enabled: d.enabled, configured: d.configured });
         setDraftUrl(d.url ?? "");
         setDraftEnabled(d.enabled ?? false);
         if (d.locationLat != null && d.locationLon != null) {
@@ -90,22 +82,15 @@ export function DoclingConfigPanel() {
     setTestStatus("testing");
     setTestResult(null);
     try {
-      const res = await fetch("/api/settings/docling/test", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: draftUrl.trim() }),
-      });
-      const data = (await res.json()) as {
-        ok: boolean;
-        latency?: number;
-        version?: string;
-        error?: string;
-      };
+      const data = unwrap(
+        await settingsClient.testDocling({ body: { url: draftUrl.trim() } })
+      );
       setTestStatus(data.ok ? "ok" : "error");
       setTestResult(data);
     } catch (err) {
       setTestStatus("error");
       setTestResult({
+        ok: false,
         error: err instanceof Error ? err.message : "Network error",
       });
     }
@@ -118,27 +103,15 @@ export function DoclingConfigPanel() {
       loc === null
         ? { lat: null }
         : { lat: loc.lat, lon: loc.lon, label: loc.label };
-    const res = await fetch("/api/settings/docling/location", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    if (!res.ok) {
-      const d = (await res.json().catch(() => null)) as {
-        error?: string;
-      } | null;
-      throw new Error(d?.error ?? "Failed to save location");
-    }
+    unwrap(await settingsClient.doclingLocation({ body }));
     setLocation(loc);
   }
 
   async function handleSave() {
     setSaving(true);
     try {
-      await fetch("/api/settings/docling", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: draftUrl.trim(), enabled: draftEnabled }),
+      await settingsClient.updateDocling({
+        body: { url: draftUrl.trim(), enabled: draftEnabled },
       });
       const next = {
         url: draftUrl.trim(),

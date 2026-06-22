@@ -9,15 +9,11 @@ import {
   IntegrationHeader,
   IntegrationModal,
 } from "./shared";
-
-interface DoclingStatus {
-  enabled: boolean;
-  url: string;
-  connected?: boolean;
-}
+import { settingsClient, unwrap } from "@/lib/api/ts-rest/client";
+import type { DoclingConfig } from "@/lib/contracts";
 
 export function DoclingPanel() {
-  const [status, setStatus] = useState<DoclingStatus | null>(null);
+  const [status, setStatus] = useState<DoclingConfig | null>(null);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [url, setUrl] = useState("");
@@ -32,13 +28,12 @@ export function DoclingPanel() {
 
   const loadStatus = async () => {
     try {
-      const r = await fetch("/api/settings/docling");
-      const data = (await r.json()) as DoclingStatus;
+      const data = unwrap(await settingsClient.getDocling());
       setStatus(data);
       setUrl(data.url || "");
       setEnabled(data.enabled);
     } catch {
-      setStatus({ enabled: false, url: "" });
+      setStatus(null);
     } finally {
       setLoading(false);
     }
@@ -47,15 +42,9 @@ export function DoclingPanel() {
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      const r = await fetch("/api/settings/docling", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url, enabled }),
-      });
-      if (r.ok) {
-        setIsModalOpen(false);
-        await loadStatus();
-      }
+      unwrap(await settingsClient.updateDocling({ body: { url, enabled } }));
+      setIsModalOpen(false);
+      await loadStatus();
     } catch {
       // error handled
     } finally {
@@ -67,12 +56,7 @@ export function DoclingPanel() {
     setIsTesting(true);
     setTestResult(null);
     try {
-      const r = await fetch("/api/settings/docling/test", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url }),
-      });
-      const data = (await r.json()) as { ok?: boolean; version?: string; error?: string };
+      const data = unwrap(await settingsClient.testDocling({ body: { url } }));
       setTestResult(data.ok ? `✓ Connected (v${data.version || "unknown"})` : `✗ ${data.error || "Connection failed"}`);
     } catch (e) {
       setTestResult(`✗ ${e instanceof Error ? e.message : "Connection failed"}`);

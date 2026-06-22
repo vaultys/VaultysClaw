@@ -24,7 +24,10 @@ import {
   toolApprovalsContract,
 } from "./registrations.contract";
 import { serverContract } from "./server.contract";
-import { setupContract, settingsContract } from "./settings.contract";
+import {
+  setupContract,
+  settingsContract,
+} from "./settings/settings.contract";
 import { orgSkillsContract, skillsContract } from "./skills.contract";
 import { userAuthContract } from "./user-auth.contract";
 import { wellKnownContract } from "./well-known/well-known.contract";
@@ -75,7 +78,10 @@ export * from "./realms/realms.schemas";
 export * from "./realms/realms.types";
 export * from "./registrations.contract";
 export * from "./server.contract";
-export * from "./settings.contract";
+export type * from "./settings/settings.contract";
+export * from "./settings/settings.contract";
+export * from "./settings/settings.schemas";
+export * from "./settings/settings.types";
 export * from "./skills.contract";
 export * from "./user-auth.contract";
 export * from "./users.contract";

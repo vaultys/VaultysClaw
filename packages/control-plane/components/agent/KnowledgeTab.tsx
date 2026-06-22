@@ -16,6 +16,7 @@ import { ConfirmModal } from "@/components/shared/ConfirmModal";
 import {
   knowledgeClient,
   policiesClient,
+  settingsClient,
   unwrap,
 } from "@/lib/api/ts-rest/client";
 import { KsSourceCard } from "./knowledge/KsSourceCard";
@@ -72,9 +73,10 @@ export function KnowledgeTab({
   }, [load]);
 
   useEffect(() => {
-    fetch("/api/settings/docling")
-      .then((r) => r.json())
-      .then((d: { configured?: boolean; url?: string }) => {
+    settingsClient
+      .getDocling()
+      .then((res) => {
+        const d = unwrap(res);
         setDoclingConfigured(d.configured === true || Boolean(d.url));
       })
       .catch(() => {});

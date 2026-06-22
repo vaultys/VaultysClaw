@@ -21,23 +21,8 @@ import {
   Copy,
   Check,
 } from "lucide-react";
-import { litellmClient, unwrap } from "@/lib/api/ts-rest/client";
-
-interface LiteLLMStatus {
-  configured: boolean;
-  healthy: boolean;
-  status: "unconfigured" | "connecting" | "connected" | "error";
-  baseUrl: string | null;
-  masterKeySet: boolean;
-  source: "db" | "env";
-  lastError: string | null;
-  checkedAt: string | null;
-  stats: {
-    modelCount: number;
-    totalSpend: number | null;
-    keyCount: number | null;
-  };
-}
+import { litellmClient, settingsClient, unwrap } from "@/lib/api/ts-rest/client";
+import type { LiteLLMStatus } from "@/lib/contracts";
 
 export function LiteLLMPanel() {
   const [status, setStatus] = useState<LiteLLMStatus | null>(null);
@@ -76,8 +61,7 @@ export function LiteLLMPanel() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/settings/litellm");
-      const data = (await res.json()) as LiteLLMStatus;
+      const data = unwrap(await settingsClient.getLitellm());
       setStatus(data);
       if (data.baseUrl) setBaseUrl(data.baseUrl);
     } finally {
@@ -107,23 +91,22 @@ export function LiteLLMPanel() {
     setSaving(true);
     setSaveMsg(null);
     try {
-      const body: Record<string, string> = { baseUrl };
-      if (masterKey) body.masterKey = masterKey;
-      const res = await fetch("/api/settings/litellm", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
+      const data = unwrap(
+        await settingsClient.saveLitellm({
+          body: { baseUrl, masterKey: masterKey || null },
+        })
+      );
+      const healthy = data.status === "connected";
+      setSaveMsg({
+        ok: true,
+        text: healthy
+          ? "Saved — proxy is healthy ✓"
+          : "Saved — proxy did not respond (check URL)",
       });
-      const data = await res.json() as { ok?: boolean; healthy?: boolean; error?: string };
-      if (data.ok) {
-        setSaveMsg({ ok: true, text: data.healthy ? "Saved — proxy is healthy ✓" : "Saved — proxy did not respond (check URL)" });
-        setMasterKey("");
-        await load();
-      } else {
-        setSaveMsg({ ok: false, text: data.error ?? "Save failed" });
-      }
+      setMasterKey("");
+      await load();
     } catch (e) {
-      setSaveMsg({ ok: false, text: String(e) });
+      setSaveMsg({ ok: false, text: e instanceof Error ? e.message : String(e) });
     } finally {
       setSaving(false);
     }
@@ -134,16 +117,24 @@ export function LiteLLMPanel() {
     setSaveMsg(null);
     try {
       // Save first if URL changed, then reload
-      const body: Record<string, string> = { baseUrl };
-      if (masterKey) body.masterKey = masterKey;
-      const res = await fetch("/api/settings/litellm", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
+      const data = unwrap(
+        await settingsClient.saveLitellm({
+          body: { baseUrl, masterKey: masterKey || null },
+        })
+      );
+      const healthy = data.status === "connected";
+      setSaveMsg({
+        ok: healthy,
+        text: healthy
+          ? "Connection successful ✓"
+          : "Could not reach proxy — check URL and master key",
       });
-      const data = await res.json() as { ok?: boolean; healthy?: boolean };
-      setSaveMsg({ ok: Boolean(data.healthy), text: data.healthy ? "Connection successful ✓" : "Could not reach proxy — check URL and master key" });
-      if (data.ok) { setMasterKey(""); await load(); }
+      if (data.ok) {
+        setMasterKey("");
+        await load();
+      }
+    } catch (e) {
+      setSaveMsg({ ok: false, text: e instanceof Error ? e.message : String(e) });
     } finally {
       setTesting(false);
     }
@@ -153,10 +144,16 @@ export function LiteLLMPanel() {
     setReconnecting(true);
     setSaveMsg(null);
     try {
-      const res = await fetch("/api/settings/litellm", { method: "POST" });
-      const data = await res.json() as { ok?: boolean; status?: string };
-      setSaveMsg({ ok: Boolean(data.ok), text: data.ok ? "Reconnected successfully ✓" : "Could not reach proxy — check URL and master key" });
+      const data = unwrap(await settingsClient.reconnectLitellm());
+      setSaveMsg({
+        ok: data.ok,
+        text: data.ok
+          ? "Reconnected successfully ✓"
+          : "Could not reach proxy — check URL and master key",
+      });
       await load();
+    } catch (e) {
+      setSaveMsg({ ok: false, text: e instanceof Error ? e.message : String(e) });
     } finally {
       setReconnecting(false);
     }
@@ -164,7 +161,7 @@ export function LiteLLMPanel() {
 
   const clear = async () => {
     if (!confirm("Remove stored LiteLLM settings? The proxy will fall back to environment variables.")) return;
-    await fetch("/api/settings/litellm", { method: "DELETE" });
+    await settingsClient.disconnectLitellm();
     setBaseUrl("");
     setMasterKey("");
     await load();

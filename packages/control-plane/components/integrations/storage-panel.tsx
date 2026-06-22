@@ -9,22 +9,11 @@ import {
   IntegrationHeader,
   IntegrationModal,
 } from "./shared";
-
-interface StorageStatus {
-  storageType: "filesystem" | "s3";
-  filesystem?: { directory: string };
-  s3?: {
-    enabled: boolean;
-    region: string;
-    bucket: string;
-    endpoint: string;
-    accessKeyId: string;
-    configured: boolean;
-  };
-}
+import { settingsClient, unwrap } from "@/lib/api/ts-rest/client";
+import type { StorageConfig } from "@/lib/contracts";
 
 export function StoragePanel() {
-  const [status, setStatus] = useState<StorageStatus | null>(null);
+  const [status, setStatus] = useState<StorageConfig | null>(null);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [storageType, setStorageType] = useState<"filesystem" | "s3">("filesystem");
@@ -41,8 +30,7 @@ export function StoragePanel() {
 
   const loadStatus = async () => {
     try {
-      const r = await fetch("/api/settings/storage");
-      const data = (await r.json()) as StorageStatus;
+      const data = unwrap(await settingsClient.getStorage());
       setStatus(data);
       setStorageType(data.storageType);
       if (data.s3) {
@@ -52,7 +40,7 @@ export function StoragePanel() {
         setAccessKey(data.s3.accessKeyId || "");
       }
     } catch {
-      setStatus({ storageType: "filesystem" });
+      setStatus(null);
     } finally {
       setLoading(false);
     }
@@ -61,19 +49,26 @@ export function StoragePanel() {
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      const body: Record<string, unknown> = { storageType };
-      if (storageType === "s3") {
-        body.s3 = { bucket, endpoint, region, accessKeyId: accessKey, secretAccessKey: secretKey };
-      }
-      const r = await fetch("/api/settings/storage", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      if (r.ok) {
-        setIsModalOpen(false);
-        await loadStatus();
-      }
+      unwrap(
+        await settingsClient.updateStorage({
+          body: {
+            storageType,
+            ...(storageType === "s3"
+              ? {
+                  s3: {
+                    bucket,
+                    endpoint,
+                    region,
+                    accessKeyId: accessKey,
+                    secretAccessKey: secretKey,
+                  },
+                }
+              : {}),
+          },
+        })
+      );
+      setIsModalOpen(false);
+      await loadStatus();
     } catch {
       // error handled by user feedback
     } finally {

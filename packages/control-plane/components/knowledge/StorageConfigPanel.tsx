@@ -16,27 +16,20 @@ import {
   MapPin,
 } from "lucide-react";
 import dynamic from "next/dynamic";
+import { settingsClient, unwrap } from "@/lib/api/ts-rest/client";
+import type {
+  StorageConfig,
+  StorageTestResult,
+  StorageMigrateResult,
+} from "@/lib/contracts";
 
 const LocationEditor = dynamic(
   () => import("@/components/map/WorldMap").then((m) => m.LocationEditor),
   { ssr: false }
 );
 
-interface StorageState {
-  storageType: string;
-  filesystem: { directory: string };
-  s3: {
-    enabled: boolean;
-    configured: boolean;
-    region: string;
-    bucket: string;
-    endpoint: string | null;
-    accessKeyId: string;
-  };
-}
-
 export function StorageConfigPanel() {
-  const [cfg, setCfg] = useState<StorageState | null>(null);
+  const [cfg, setCfg] = useState<StorageConfig | null>(null);
   const [editing, setEditing] = useState(false);
   const [draftEnabled, setDraftEnabled] = useState(false);
   const [draftRegion, setDraftRegion] = useState("us-east-1");
@@ -48,17 +41,10 @@ export function StorageConfigPanel() {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [testing, setTesting] = useState(false);
-  const [testResult, setTestResult] = useState<{
-    ok: boolean;
-    latency?: number;
-    error?: string;
-  } | null>(null);
+  const [testResult, setTestResult] = useState<StorageTestResult | null>(null);
   const [migrating, setMigrating] = useState(false);
-  const [migrateResult, setMigrateResult] = useState<{
-    migratedCount: number;
-    errorCount: number;
-    hasMore: boolean;
-  } | null>(null);
+  const [migrateResult, setMigrateResult] =
+    useState<StorageMigrateResult | null>(null);
   const [locationEditing, setLocationEditing] = useState(false);
   const [storageLocation, setStorageLocation] = useState<{
     lat: number;
@@ -73,24 +59,24 @@ export function StorageConfigPanel() {
       loc === null
         ? { lat: null }
         : { lat: loc.lat, lon: loc.lon, label: loc.label };
-    const res = await fetch("/api/settings/storage/location", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    if (!res.ok) {
-      const d = (await res.json().catch(() => null)) as {
-        error?: string;
-      } | null;
-      throw new Error(d?.error ?? "Failed to save location");
-    }
+    unwrap(await settingsClient.storageLocation({ body }));
     setStorageLocation(loc);
   }
 
   const loadCfg = useCallback(() => {
-    fetch("/api/settings/storage")
-      .then((r) => r.json())
-      .then((d: StorageState) => setCfg(d))
+    settingsClient
+      .getStorage()
+      .then((res) => {
+        const d = unwrap(res);
+        setCfg(d);
+        if (d.locationLat != null && d.locationLon != null) {
+          setStorageLocation({
+            lat: d.locationLat,
+            lon: d.locationLon,
+            label: d.locationLabel ?? "",
+          });
+        }
+      })
       .catch(() => {});
   }, []);
 
@@ -124,19 +110,18 @@ export function StorageConfigPanel() {
     setTesting(true);
     setTestResult(null);
     try {
-      const res = await fetch("/api/settings/storage/test", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          region: draftRegion.trim(),
-          bucket: draftBucket.trim(),
-          endpoint: draftEndpoint.trim() || undefined,
-          accessKeyId: draftAccessKeyId.trim(),
-          ...(draftSecretKey ? { secretAccessKey: draftSecretKey } : {}),
-        }),
-      });
       setTestResult(
-        (await res.json()) as { ok: boolean; latency?: number; error?: string }
+        unwrap(
+          await settingsClient.testStorage({
+            body: {
+              region: draftRegion.trim(),
+              bucket: draftBucket.trim(),
+              endpoint: draftEndpoint.trim() || undefined,
+              accessKeyId: draftAccessKeyId.trim(),
+              ...(draftSecretKey ? { secretAccessKey: draftSecretKey } : {}),
+            },
+          })
+        )
       );
     } catch {
       setTestResult({ ok: false, error: "Network error" });
@@ -149,31 +134,25 @@ export function StorageConfigPanel() {
     setSaving(true);
     setSaveError(null);
     try {
-      const body: Record<string, unknown> = {
-        storageType: draftEnabled ? "s3" : "filesystem",
-        s3: {
-          enabled: draftEnabled,
-          region: draftRegion.trim(),
-          bucket: draftBucket.trim(),
-          endpoint: draftEndpoint.trim() || undefined,
-          accessKeyId: draftAccessKeyId.trim(),
-          ...(draftSecretKey ? { secretAccessKey: draftSecretKey } : {}),
-        },
-      };
-      const res = await fetch("/api/settings/storage", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      if (res.ok) {
-        loadCfg();
-        setEditing(false);
-      } else {
-        const err = (await res.json()) as { error?: string };
-        setSaveError(err.error ?? "Save failed");
-      }
-    } catch {
-      setSaveError("Network error");
+      unwrap(
+        await settingsClient.updateStorage({
+          body: {
+            storageType: draftEnabled ? "s3" : "filesystem",
+            s3: {
+              enabled: draftEnabled,
+              region: draftRegion.trim(),
+              bucket: draftBucket.trim(),
+              endpoint: draftEndpoint.trim() || undefined,
+              accessKeyId: draftAccessKeyId.trim(),
+              ...(draftSecretKey ? { secretAccessKey: draftSecretKey } : {}),
+            },
+          },
+        })
+      );
+      loadCfg();
+      setEditing(false);
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : "Save failed");
     } finally {
       setSaving(false);
     }
@@ -183,18 +162,15 @@ export function StorageConfigPanel() {
     setMigrating(true);
     setMigrateResult(null);
     try {
-      const res = await fetch("/api/settings/storage/migrate", {
-        method: "POST",
-      });
-      setMigrateResult(
-        (await res.json()) as {
-          migratedCount: number;
-          errorCount: number;
-          hasMore: boolean;
-        }
-      );
+      setMigrateResult(unwrap(await settingsClient.migrateStorage()));
     } catch {
-      setMigrateResult({ migratedCount: 0, errorCount: 1, hasMore: false });
+      setMigrateResult({
+        success: false,
+        migratedCount: 0,
+        errorCount: 1,
+        message: "Migration failed",
+        hasMore: false,
+      });
     } finally {
       setMigrating(false);
     }
@@ -516,16 +492,16 @@ export function StorageConfigPanel() {
           {migrateResult && (
             <div
               className={`flex items-center gap-2 p-2.5 rounded-lg text-xs ${
-                migrateResult.errorCount > 0
+                (migrateResult.errorCount ?? 0) > 0
                   ? "bg-warning-50 border border-warning-200 text-warning-700"
                   : "bg-success-50 border border-success-200 text-success-700"
               }`}
             >
               <CheckCircle2 size={13} className="shrink-0" />
               {migrateResult.migratedCount === 0 &&
-              migrateResult.errorCount === 0
+              (migrateResult.errorCount ?? 0) === 0
                 ? "No files to migrate"
-                : `Migrated ${migrateResult.migratedCount} file(s)${migrateResult.errorCount > 0 ? `, ${migrateResult.errorCount} error(s)` : ""}`}
+                : `Migrated ${migrateResult.migratedCount} file(s)${(migrateResult.errorCount ?? 0) > 0 ? `, ${migrateResult.errorCount} error(s)` : ""}`}
               {migrateResult.hasMore && " — run again for more"}
             </div>
           )}

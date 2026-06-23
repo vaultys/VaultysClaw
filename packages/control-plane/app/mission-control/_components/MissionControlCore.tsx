@@ -1174,7 +1174,7 @@ function DetailModal({
                         {agent.name}
                       </p>
                       <p className="text-[10px] text-foreground-500 font-mono truncate">
-                        {agent.id}
+                        {agent.did}
                       </p>
                     </div>
                   </div>
@@ -1261,7 +1261,7 @@ function DetailModal({
                   <button
                     onClick={() => {
                       onClose();
-                      router.push(`/agents/${encodeURIComponent(agent.id)}`);
+                      router.push(`/agents/${encodeURIComponent(agent.did)}`);
                     }}
                     className="flex items-center gap-1.5 text-[11px] text-primary-600 hover:text-primary-700 font-medium transition-colors"
                   >

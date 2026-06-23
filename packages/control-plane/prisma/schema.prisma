@@ -18,7 +18,7 @@ generator zod {
   // useDecimalJs          = false // (default) represent the prisma Decimal type using as a JS number
   useDecimalJs = true // represent the prisma Decimal type using Decimal.js (as Prisma does)
 
-  imports = null // (default) will import the referenced file in generated schemas to be used via imports.someExportedVariable
+  // imports = "./path" // omit entirely; passing `null` makes zod-prisma emit a broken `import * as imports from "../null"` in every file
 
   // https://www.prisma.io/docs/concepts/components/prisma-client/working-with-fields/working-with-json-fields#filtering-by-null-values
   prismaJsonNullability = true // (default) uses prisma's scheme for JSON field nullability

@@ -9,25 +9,6 @@ import { LlmConfig, VaultysIDInfo } from "@vaultysclaw/shared";
 // ─────────────────────────────────────────────
 
 export type AgentWithInfo = Prisma.AgentGetPayload<{
-  select: {
-    id: true;
-    did: true;
-    name: true;
-    capabilities: true;
-    registeredAt: true;
-    lastSeen: true;
-    locationLat: true;
-    locationLon: true;
-    locationLabel: true;
-    tokenBudgetDaily: true;
-    tokenBudgetMonthly: true;
-    publicKey: true;
-    llmConfig: true;
-    litellmAllowedModels: true;
-    litellmDailyBudget: true;
-    litellmKeyUpdatedAt: true;
-    litellmVirtualKey: true;
-  };
   include: {
     tokenHistory: true;
     agentRealms: {

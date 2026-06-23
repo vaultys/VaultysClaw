@@ -1,8 +1,18 @@
 import { defineConfig } from "vitest/config";
 import { fileURLToPath } from "url";
+import { createRequire } from "module";
 import { dirname, resolve } from "path";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+
+// pnpm does NOT hoist these deps to the workspace-root node_modules — they only
+// exist under each package's node_modules (symlinked into the .pnpm store).
+// Resolve them from the package that actually declares the dependency so the
+// alias targets survive version bumps and don't assume a hoisted layout.
+const requireFrom = (pkg) =>
+  createRequire(resolve(__dirname, "packages", pkg, "package.json"));
+const fromAgentController = requireFrom("agent-controller");
+const fromControlPlane = requireFrom("control-plane");
 
 export default defineConfig({
   resolve: {
@@ -10,11 +20,11 @@ export default defineConfig({
     alias: {
       // Control-plane path alias — mirrors tsconfig paths used in the package
       "@": resolve(__dirname, "packages/control-plane"),
-      // @msgpack/msgpack — pnpm hoists it to the workspace root node_modules.
-      "@msgpack/msgpack": resolve(__dirname, "node_modules/@msgpack/msgpack"),
-      // The AI SDK — hoisted to the workspace root. Alias it here so tests in
+      // @msgpack/msgpack — declared by control-plane (and agent-runtime).
+      "@msgpack/msgpack": fromControlPlane.resolve("@msgpack/msgpack"),
+      // The AI SDK — declared by agent-controller. Alias it here so tests in
       // __tests__/ can import and mock it.
-      ai: resolve(__dirname, "node_modules/ai"),
+      ai: fromAgentController.resolve("ai"),
       // @inngest/test + inngest are deps of control-plane only. Alias so tests
       // in __tests__/ resolve the same instances the control-plane code uses.
       "@inngest/test": resolve(
@@ -22,21 +32,17 @@ export default defineConfig({
         "packages/control-plane/node_modules/@inngest/test"
       ),
       inngest: resolve(__dirname, "packages/control-plane/node_modules/inngest"),
-      // Mastra — hoisted to the workspace root. The base alias is needed so
+      // Mastra — declared by agent-controller. The alias is needed so
       // vi.mock("@mastra/core/agent") works in llm.test.ts.
-      "@mastra/core/agent": resolve(
-        __dirname,
-        "node_modules/@mastra/core/dist/agent/index.js"
-      ),
+      "@mastra/core/agent": fromAgentController.resolve("@mastra/core/agent"),
       // Force a single zod instance across the workspace (so `instanceof`
       // checks in ts-rest / ai tool modules resolve consistently). Points at
       // the hoisted copy so it tracks whatever version pnpm resolves rather
       // than a pinned .pnpm path that breaks when the version changes.
       zod: resolve(__dirname, "node_modules/zod"),
-      // Ollama provider — hoisted to the workspace root; used by live integration tests
-      "ollama-ai-provider-v2": resolve(
-        __dirname,
-        "node_modules/ollama-ai-provider-v2"
+      // Ollama provider — declared by agent-controller; used by live integration tests
+      "ollama-ai-provider-v2": fromAgentController.resolve(
+        "ollama-ai-provider-v2"
       ),
       // bun:sqlite is a Bun built-in — shim it with better-sqlite3 for Node/Vitest
       "bun:sqlite": resolve(
@@ -49,9 +55,9 @@ export default defineConfig({
       // next/headers uses Next.js AsyncLocalStorage that requires a request context.
       // Alias it to a no-op stub so tests run outside Next.js don't throw.
       "next/headers": resolve(__dirname, "__tests__/mocks/next-headers.ts"),
-      // next-auth — hoisted to the workspace root. Alias it so vi.mock("next-auth")
+      // next-auth — declared by control-plane. Alias it so vi.mock("next-auth")
       // in test files resolves to the same module that auth-utils.ts imports.
-      "next-auth": resolve(__dirname, "node_modules/next-auth/index.js"),
+      "next-auth": fromControlPlane.resolve("next-auth"),
     },
   },
   test: {

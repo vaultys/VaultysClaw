@@ -108,7 +108,12 @@ describe("emitApprovalResolved", () => {
 // ─────────────────────────────────────────────────────────────────────────────
 describe("POST /api/workflows/[id]/execute — engine branching", () => {
   const req = (body: unknown = {}) =>
-    ({ json: async () => body }) as unknown as Request;
+    ({
+      // createNextRoute parses request.url for query params, so it must be valid
+      url: "http://localhost/api/workflows/wf-1/execute",
+      headers: new Headers(),
+      json: async () => body,
+    }) as unknown as Request;
   const params = Promise.resolve({ id: "wf-1" });
 
   beforeEach(() => {

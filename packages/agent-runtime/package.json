@@ -1,6 +1,6 @@
 {
   "name": "@vaultysclaw/agent-runtime",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Generic agent protocol runtime — WebSocket/WebRTC connection, auth, intent routing",
   "type": "module",
   "main": "dist/index.js",
@@ -13,7 +13,14 @@
       "default": "./dist/index.js"
     }
   },
-  "scripts": { "build": "tsc", "type-check": "tsc --noEmit" },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": { "build": "tsc && node ../../scripts/fix-esm-extensions.mjs dist", "type-check": "tsc --noEmit" },
   "dependencies": {
     "@msgpack/msgpack": "^3.1.3",
     "@vaultys/channel-peerjs": "^2.4.3",

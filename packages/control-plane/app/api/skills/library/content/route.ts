@@ -1,61 +1,22 @@
-import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
-import { malformed, notFound, unauthorized } from "@/lib/api/utils/api-utils";
+import { APIException } from "@/lib/api/utils/api-utils";
 import { OrgSkillDAO } from "@/db";
-import { withError } from "@/lib/api/handlers/with-error";
+import { skillsContract } from "@/lib/contracts";
+import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 
-/**
- * GET /api/skills/library/content?skillId=<name>
- *
- * Returns the markdown instructions (content) for an org skill by name.
- * Used by the EditSkillModal to pre-fill the instructions textarea.
- */
-/**
- * @openapi
- * /api/skills/library/content:
- *   get:
- *     summary: Retrieve markdown instructions for an organization skill by name.
- *     tags: [Skills]
- *     parameters:
- *       - in: query
- *         name: skillId
- *         required: true
- *         schema:
- *           type: string
- *         description: The name of the skill to retrieve content for.
- *     responses:
- *       200:
- *         description: Successfully retrieved skill content.
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 content:
- *                   type: string
- *                   description: The markdown content of the skill.
- *       400:
- *         $ref: '#/components/responses/BadRequest'
- *       401:
- *         $ref: '#/components/responses/Unauthorized'
- *       404:
- *         $ref: '#/components/responses/NotFound'
- */
-export const GET = withError(async (request: NextRequest) => {
-  const auth = await getAuthContext(request);
-  if (!auth) return unauthorized();
+const handlers = createNextRoute(skillsContract, {
+  // ── GET /api/skills/library/content?skillId=<name> ────────────────────────
+  // Returns the markdown instructions for an org skill, keyed by its name.
+  libraryContent: async ({ query, request }) => {
+    await getAuthContext(request);
 
-  const { searchParams } = new URL(request.url);
-  const skillId = searchParams.get("skillId");
+    const skill = await OrgSkillDAO.findByName(query.skillId);
+    if (!skill || !skill.content) {
+      throw new APIException("NOT_FOUND", "Skill content not found");
+    }
 
-  if (!skillId) {
-    return malformed("skillId query parameter is required");
-  }
-
-  const skill = await OrgSkillDAO.findByName(skillId);
-  if (!skill || !skill.content) {
-    return notFound("Skill content not found");
-  }
-
-  return NextResponse.json({ content: skill.content });
+    return { status: 200, body: { content: skill.content } };
+  },
 });
+
+export const GET = handlers.GET!;

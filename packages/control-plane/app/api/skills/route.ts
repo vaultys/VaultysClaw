@@ -1,131 +1,52 @@
-import { NextRequest, NextResponse } from "next/server";
-import { broadcastSkillsConfig } from "@/lib/ws-server";
 import { getAuthContext } from "@/lib/auth-utils";
-import {
-  unauthorized,
-  forbidden,
-  malformed,
-  notFound,
-  conflict,
-} from "@/lib/api/utils/api-utils";
+import { APIException } from "@/lib/api/utils/api-utils";
+import { broadcastSkillsConfig } from "@/lib/ws-server";
 import { RealmDAO, RealmSkillDAO } from "@/db";
-import { withError } from "@/lib/api/handlers/with-error";
+import { skillsContract } from "@/lib/contracts";
+import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 
-/**
- * @openapi
- * /api/skills:
- *   get:
- *     summary: Retrieve all skills with their associated realms.
- *     tags: [Skills]
- *     responses:
- *       200:
- *         description: A list of skills with realms.
- *         content:
- *           application/json:
- *             schema:
- *               type: array
- *               items:
- *                 $ref: '#/components/schemas/Skill'
- *       401:
- *         $ref: '#/components/responses/Unauthorized'
- *       403:
- *         $ref: '#/components/responses/Forbidden'
- */
-export const GET = withError(async (request: NextRequest) => {
-  const auth = await getAuthContext(request);
-  if (!auth) return unauthorized();
-  if (!auth.isGlobalAdmin) return forbidden();
+const handlers = createNextRoute(skillsContract, {
+  // ── GET /api/skills — every realm skill, enriched with realm + usage info ─
+  list: async ({ request }) => {
+    const auth = await getAuthContext(request);
+    if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");
 
-  const rows = await RealmSkillDAO.findAllWithRealms();
-  return NextResponse.json(rows);
+    const rows = await RealmSkillDAO.findAllWithRealms();
+    return { status: 200, body: rows };
+  },
+
+  // ── POST /api/skills — register a skill in a realm ────────────────────────
+  create: async ({ body, request }) => {
+    const auth = await getAuthContext(request);
+    if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");
+
+    const name = body.name.trim();
+    if (!name) throw new APIException("MALFORMED", "name must not be empty");
+
+    const realm = await RealmDAO.findById(body.realmId);
+    if (!realm) throw new APIException("NOT_FOUND", "Realm not found");
+
+    const existing = await RealmSkillDAO.findAll(body.realmId);
+    if (existing.some((s) => s.name === name)) {
+      throw new APIException(
+        "CONFLICT",
+        `Skill '${name}' already exists in this realm`
+      );
+    }
+
+    const skill = await RealmSkillDAO.create({
+      realmId: body.realmId,
+      name,
+      description: body.description?.trim() || undefined,
+      version: body.version?.trim() || undefined,
+      isRequired: body.isRequired === true,
+      config: body.config ?? {},
+      content: body.content ?? undefined,
+    });
+    broadcastSkillsConfig(body.realmId);
+    return { status: 201, body: skill };
+  },
 });
 
-/**
- * @openapi
- * /api/skills:
- *   post:
- *     summary: Create a new skill in a specified realm.
- *     tags: [Skills]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               realmId:
- *                 type: string
- *                 description: The ID of the realm.
- *               name:
- *                 type: string
- *                 description: The name of the skill.
- *               description:
- *                 type: string
- *                 description: The description of the skill.
- *               version:
- *                 type: string
- *                 description: The version of the skill.
- *               isRequired:
- *                 type: boolean
- *                 description: Whether the skill is required.
- *               config:
- *                 type: object
- *                 description: Configuration for the skill.
- *     responses:
- *       201:
- *         description: Skill created successfully.
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Skill'
- *       400:
- *         $ref: '#/components/responses/BadRequest'
- *       401:
- *         $ref: '#/components/responses/Unauthorized'
- *       403:
- *         $ref: '#/components/responses/Forbidden'
- *       404:
- *         $ref: '#/components/responses/NotFound'
- *       409:
- *         description: Skill already exists in this realm.
- *       500:
- *         description: Failed to create skill.
- */
-export const POST = withError(async (request: NextRequest) => {
-  const auth = await getAuthContext(request);
-  if (!auth) return unauthorized();
-  if (!auth.isGlobalAdmin) return forbidden();
-
-  const body = await request.json();
-  const { realmId, name, description, version, isRequired, config } = body;
-
-  if (!realmId || typeof realmId !== "string") {
-    return malformed("realmId is required and must be a string");
-  }
-  if (!name || typeof name !== "string" || !name.trim()) {
-    return malformed("name is required and must be a non-empty string");
-  }
-
-  const realms = await RealmDAO.findAll();
-  if (!realms.find((r) => r.id === realmId)) {
-    return notFound("Realm not found");
-  }
-
-  const existingSkills = await RealmSkillDAO.findAll(realmId);
-  if (existingSkills.some((s) => s.name === name.trim())) {
-    return conflict(`Skill '${name.trim()}' already exists in this realm`);
-  }
-
-  const skill = await RealmSkillDAO.create({
-    realmId,
-    name: name.trim(),
-    description: description?.trim() || undefined,
-    version: version?.trim() || undefined,
-    isRequired: isRequired === true,
-    config: config && typeof config === "object" ? config : {},
-    content:
-      typeof body.content === "string" ? body.content || null : undefined,
-  });
-  broadcastSkillsConfig(realmId);
-  return NextResponse.json(skill, { status: 201 });
-});
+export const GET = handlers.GET!;
+export const POST = handlers.POST!;

@@ -52,6 +52,7 @@ vi.mock("@/lib/ws-server", () => ({
 import { RealmSkillDAO, SkillOverrideDAO } from "../packages/control-plane/db";
 import { prisma } from "../packages/control-plane/db/client";
 import { getAuthContext } from "../packages/control-plane/lib/auth-utils";
+import { APIException } from "../packages/control-plane/lib/api/utils/api-utils";
 import { broadcastSkillsConfig } from "../packages/control-plane/lib/ws-server";
 import { NextRequest } from "next/server";
 
@@ -402,8 +403,8 @@ describe("DB: getAgentEffectiveSkills", () => {
 
 describe("GET /api/skills", () => {
   it("returns 401 when unauthenticated", async () => {
-    mockGetAuthContext.mockResolvedValueOnce(null);
-    const res = await skillsGET();
+    mockGetAuthContext.mockRejectedValueOnce(new APIException("UNAUTHORIZED"));
+    const res = await skillsGET(req("GET", "http://localhost/api/skills") as any);
     expect(res._status).toBe(401);
   });
 
@@ -412,14 +413,14 @@ describe("GET /api/skills", () => {
       ...makeAdminContext(),
       isGlobalAdmin: false,
     });
-    const res = await skillsGET();
+    const res = await skillsGET(req("GET", "http://localhost/api/skills") as any);
     expect(res._status).toBe(403);
   });
 
   it("returns skill rows for global admin", async () => {
     const skill = await RealmSkillDAO.create({ realmId: testRealmId, name: `${T}api-list` });
     try {
-      const res = await skillsGET();
+      const res = await skillsGET(req("GET", "http://localhost/api/skills") as any);
       expect(res._status).toBe(200);
       const body = (await res.json()) as { id: string }[];
       expect(Array.isArray(body)).toBe(true);
@@ -436,7 +437,7 @@ describe("GET /api/skills", () => {
 
 describe("POST /api/skills", () => {
   it("returns 401 when unauthenticated", async () => {
-    mockGetAuthContext.mockResolvedValueOnce(null);
+    mockGetAuthContext.mockRejectedValueOnce(new APIException("UNAUTHORIZED"));
     const r = req("POST", "http://localhost/api/skills", {
       realmId: testRealmId,
       name: "x",
@@ -548,7 +549,7 @@ describe("POST /api/skills", () => {
 
 describe("GET /api/realms/[id]/skills/[skillId]", () => {
   it("returns 401 when unauthenticated", async () => {
-    mockGetAuthContext.mockResolvedValueOnce(null);
+    mockGetAuthContext.mockRejectedValueOnce(new APIException("UNAUTHORIZED"));
     const res = await skillDetailGET(
       req("GET", "http://localhost/api/realms/r/skills/s") as any,
       skillParams("r", "s")

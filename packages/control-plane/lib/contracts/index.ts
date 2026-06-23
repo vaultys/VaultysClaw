@@ -28,7 +28,7 @@ import {
   setupContract,
   settingsContract,
 } from "./settings/settings.contract";
-import { orgSkillsContract, skillsContract } from "./skills.contract";
+import { orgSkillsContract, skillsContract } from "./skills/skills.contract";
 import { userAuthContract } from "./user-auth.contract";
 import { wellKnownContract } from "./well-known/well-known.contract";
 import {
@@ -82,7 +82,10 @@ export type * from "./settings/settings.contract";
 export * from "./settings/settings.contract";
 export * from "./settings/settings.schemas";
 export * from "./settings/settings.types";
-export * from "./skills.contract";
+export type * from "./skills/skills.contract";
+export * from "./skills/skills.contract";
+export * from "./skills/skills.schemas";
+export * from "./skills/skills.types";
 export * from "./user-auth.contract";
 export * from "./users.contract";
 export type * from "./well-known/well-known.contract";

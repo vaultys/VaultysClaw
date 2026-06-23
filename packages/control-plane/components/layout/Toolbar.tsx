@@ -68,26 +68,8 @@ function ActionItem({
     );
   }
 
-  if (action.kind === "tabs") {
-    return (
-      <div className="flex items-center bg-background-100 border border-neutral-200 rounded-lg p-0.5">
-        {action.options.map((opt) => (
-          <button
-            key={opt.value}
-            onClick={() => action.onChange(opt.value)}
-            className={`flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors whitespace-nowrap ${
-              action.value === opt.value
-                ? "bg-background text-foreground shadow-sm"
-                : "text-foreground-500 hover:text-foreground"
-            }`}
-          >
-            {opt.icon}
-            {opt.label}
-          </button>
-        ))}
-      </div>
-    );
-  }
+  // Tabs are rendered separately in the bottom tab strip, never here.
+  if (action.kind === "tabs") return null;
 
   // button
   const iconOnly = compact && !!action.icon;
@@ -113,6 +95,42 @@ function ActionItem({
       {button}
       <Tooltip label={action.label} />
     </span>
+  );
+}
+
+/**
+ * Renders the page's `tabs` actions as a prominent underline-style tab strip,
+ * aligned to the bottom-left of the toolbar. Sits flush with the toolbar's
+ * bottom border so the active tab's underline reads as a real tab.
+ */
+function ToolbarTabRow({
+  tabs,
+}: {
+  tabs: Extract<ToolbarAction, { kind: "tabs" }>[];
+}) {
+  return (
+    <div className="flex items-center gap-1 px-6 -mb-px overflow-x-auto">
+      {tabs.flatMap((action) =>
+        action.options.map((opt) => {
+          const active = action.value === opt.value;
+          return (
+            <button
+              key={`${action.id}-${opt.value}`}
+              onClick={() => action.onChange(opt.value)}
+              aria-current={active ? "page" : undefined}
+              className={`flex items-center gap-1.5 px-3.5 py-2.5 -mb-px border-b-2 text-sm font-medium whitespace-nowrap transition-colors ${
+                active
+                  ? "border-primary-600 text-primary-700"
+                  : "border-transparent text-foreground-500 hover:text-foreground hover:border-neutral-300"
+              }`}
+            >
+              {opt.icon}
+              {opt.label}
+            </button>
+          );
+        })
+      )}
+    </div>
   );
 }
 
@@ -419,47 +437,61 @@ export default function Toolbar() {
 
   if (!config) return null;
 
+  const tabActions = (config.actions ?? []).filter(
+    (a): a is Extract<ToolbarAction, { kind: "tabs" }> => a.kind === "tabs"
+  );
+  const otherActions = (config.actions ?? []).filter((a) => a.kind !== "tabs");
+
   return (
     <div
       ref={outerRef}
-      className="flex items-center gap-4 px-6 py-3 bg-background border-b border-neutral-200/60 shrink-0"
+      className="flex flex-col bg-background border-b border-neutral-200/60 shrink-0"
     >
-      <div ref={titleRef} className="min-w-0 shrink-0 max-w-[40%]">
-        {config.onTitleChange ? (
-          <EditableTitle
-            value={config.title}
-            onChange={config.onTitleChange}
-            placeholder={config.titlePlaceholder}
-          />
+      <div
+        className={`flex items-center gap-4 px-6 pt-3 ${
+          tabActions.length > 0 ? "pb-2" : "pb-3"
+        }`}
+      >
+        <div ref={titleRef} className="min-w-0 shrink-0 max-w-[40%]">
+          {config.onTitleChange ? (
+            <EditableTitle
+              value={config.title}
+              onChange={config.onTitleChange}
+              placeholder={config.titlePlaceholder}
+            />
+          ) : (
+            <h1 className="text-lg font-semibold text-foreground truncate">
+              {config.title}
+            </h1>
+          )}
+          {config.description && (
+            <p className="text-foreground-500 text-sm mt-0.5 truncate">
+              {config.description}
+            </p>
+          )}
+        </div>
+
+        {/* Center: step indicator or advanced search (or a spacer to keep
+            actions right-aligned). Steps take precedence over search. */}
+        {config.steps ? (
+          <div className="flex-1 flex justify-center">
+            <ToolbarSteps steps={config.steps} />
+          </div>
+        ) : config.search ? (
+          <div className="flex-1 flex justify-center">
+            <ToolbarSearch search={config.search} />
+          </div>
         ) : (
-          <h1 className="text-lg font-semibold text-foreground truncate">
-            {config.title}
-          </h1>
+          <div className="flex-1" />
         )}
-        {config.description && (
-          <p className="text-foreground-500 text-sm mt-0.5 truncate">
-            {config.description}
-          </p>
+
+        {otherActions.length > 0 && (
+          <ToolbarActions actions={otherActions} available={available} />
         )}
       </div>
 
-      {/* Center: step indicator or advanced search (or a spacer to keep
-          actions right-aligned). Steps take precedence over search. */}
-      {config.steps ? (
-        <div className="flex-1 flex justify-center">
-          <ToolbarSteps steps={config.steps} />
-        </div>
-      ) : config.search ? (
-        <div className="flex-1 flex justify-center">
-          <ToolbarSearch search={config.search} />
-        </div>
-      ) : (
-        <div className="flex-1" />
-      )}
-
-      {config.actions && config.actions.length > 0 && (
-        <ToolbarActions actions={config.actions} available={available} />
-      )}
+      {/* Page-level tabs: a prominent underline strip on the bottom-left. */}
+      {tabActions.length > 0 && <ToolbarTabRow tabs={tabActions} />}
     </div>
   );
 }

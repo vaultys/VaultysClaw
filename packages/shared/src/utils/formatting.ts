@@ -28,10 +28,11 @@ export function formatTimeOnly(dateString: string): string {
 }
 
 /**
- * Format ISO8601 timestamp to readable date (e.g., "May 28, 2026")
+ * Format ISO8601 timestamp to readable date (e.g., "May 28, 2026").
+ * Naive timestamps (no trailing "Z") are treated as UTC via {@link parseUTC}.
  */
 export function formatDate(dateString: string): string {
-  return new Date(dateString).toLocaleDateString();
+  return parseUTC(dateString).toLocaleDateString();
 }
 
 /**

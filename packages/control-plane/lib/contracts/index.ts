@@ -35,7 +35,7 @@ import {
   invitationsContract,
   meContract,
   usersContract,
-} from "./users.contract";
+} from "./users/users.contract";
 import {
   workflowApprovalsContract,
   workflowRunsContract,
@@ -94,7 +94,10 @@ export * from "./skills/skills.contract";
 export * from "./skills/skills.schemas";
 export * from "./skills/skills.types";
 export * from "./user-auth.contract";
-export * from "./users.contract";
+export type * from "./users/users.contract";
+export * from "./users/users.contract";
+export * from "./users/users.schemas";
+export * from "./users/users.types";
 export type * from "./well-known/well-known.contract";
 export * from "./well-known/well-known.contract";
 export * from "./well-known/well-known.schemas";

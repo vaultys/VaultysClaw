@@ -1,64 +1,47 @@
 /**
  * GET /api/users/invite
  * Create a registration certificate for a new (non-owner) user.
- * Returns connection info so the admin can show a QR code.
- * Owner or admin.
+ * Returns connection info so the admin can show a QR code. Owner or admin.
  */
 
-import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-config";
 import { UserServerChannel } from "@/lib/user-server-channel";
 import { VaultysId } from "@vaultys/id";
 import { SettingsDAO } from "@/db";
-import { forbidden } from "@/lib/api/utils/api-utils";
-import { withError } from "@/lib/api/handlers/with-error";
+import { APIException } from "@/lib/api/utils/api-utils";
+import { usersContract } from "@/lib/contracts";
+import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 
-/**
- * @openapi
- * /api/users/invite:
- *   get:
- *     summary: Create a registration certificate for a new user.
- *     tags: [Users]
- *     responses:
- *       200:
- *         description: Connection info for QR code display.
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 connectionString:
- *                   type: string
- *                 token:
- *                   type: string
- *                 key:
- *                   type: string
- *                 serverDid:
- *                   type: string
- *       403:
- *         $ref: '#/components/responses/Forbidden'
- */
-export const GET = withError(async () => {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.isOwner && !session?.user?.isAdmin) {
-    return forbidden();
-  }
+const handlers = createNextRoute(usersContract, {
+  invite: async () => {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.isOwner && !session?.user?.isAdmin) {
+      throw new APIException("FORBIDDEN");
+    }
 
-  // Always creates a registration cert (new user, never becomes owner unless first)
-  const cert = await UserServerChannel.createRegistrationCertificate();
-  const connectionString = await UserServerChannel.startP2PSession(cert);
+    // Always creates a registration cert (new user, never becomes owner)
+    const cert = await UserServerChannel.createRegistrationCertificate();
+    const connectionString = await UserServerChannel.startP2PSession(cert);
+    if (!cert.connection) {
+      throw new APIException("INTERNAL_ERROR", "Failed to start invite session");
+    }
 
-  const serverSecret = await SettingsDAO.get("serverSecret");
-  let serverDid: string | null = null;
-  if (serverSecret) {
-    serverDid = VaultysId.fromSecret(serverSecret, "base64").did;
-  }
+    const serverSecret = await SettingsDAO.get("serverSecret");
+    const serverDid = serverSecret
+      ? VaultysId.fromSecret(serverSecret, "base64").did
+      : null;
 
-  return NextResponse.json({
-    connectionString,
-    token: cert.connection,
-    key: cert.key,
-    serverDid,
-  });
+    return {
+      status: 200,
+      body: {
+        connectionString,
+        token: cert.connection,
+        key: cert.key,
+        serverDid,
+      },
+    };
+  },
 });
+
+export const GET = handlers.GET!;

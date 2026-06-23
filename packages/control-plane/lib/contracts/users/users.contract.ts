@@ -1,43 +1,38 @@
 import { z } from "zod";
-import { c } from "./contract";
-import { commonErrorResponses } from "./common";
-import type { User } from "@prisma/client";
-
-const DidParam = z.object({ did: z.string().min(1) });
-const RoleEnum = z.enum(["owner", "admin", "manager", "operator", "member"]);
-
-const UserGrantSchema = z.object({
-  id: z.string(),
-  agentDid: z.string(),
-  capabilities: z.array(z.string()),
-  grantedBy: z.string(),
-  expiresAt: z.string().nullable().optional(),
-  createdAt: z.string(),
-});
+import { c } from "../contract";
+import { commonErrorResponses } from "../common";
+import {
+  DidParamSchema,
+  IdParamSchema,
+  DidGrantParamSchema,
+  TokenParamSchema,
+  UserGrantSchema,
+  ListUsersQuerySchema,
+  SearchUsersQuerySchema,
+  UpdateMeBodySchema,
+  InviteEmailBodySchema,
+  InviteFromEmailBodySchema,
+  UpdateUserBodySchema,
+  SendUnclaimedQrBodySchema,
+  SetUserLocationBodySchema,
+  CreateGrantBodySchema,
+  SetAdminBodySchema,
+} from "./users.schemas";
+import type {
+  UnclaimedUserDetail,
+  UserDetail,
+  UserListResponse,
+  UserRealmsResponse,
+} from "./users.types";
 
 export const usersContract = c.router({
   list: {
     method: "GET",
     path: "/api/users",
-    summary: "List registered users with optional pagination and filters",
-    query: z.object({
-      q: z.string().optional(),
-      role: RoleEnum.optional(),
-      isAdmin: z.enum(["true", "false"]).optional(),
-      realm: z.string().optional(),
-      page: z.coerce.number().optional(),
-      pageSize: z.coerce.number().optional(),
-      sortBy: z.enum(["name", "email", "registeredAt"]).optional(),
-      sortDir: z.enum(["asc", "desc"]).optional(),
-    }),
+    summary: "List users with optional pagination and filters",
+    query: ListUsersQuerySchema,
     responses: {
-      200: c.type<{
-        users: User[];
-        total: number;
-        page: number;
-        pageSize: number;
-        totalPages: number;
-      }>(),
+      200: c.type<UserListResponse>(),
       ...commonErrorResponses,
     },
   },
@@ -61,7 +56,7 @@ export const usersContract = c.router({
     method: "PATCH",
     path: "/api/users/me",
     summary: "Update the current user's own name",
-    body: z.object({ name: z.string().max(128) }),
+    body: UpdateMeBodySchema,
     responses: {
       200: z.object({ ok: z.boolean(), name: z.string().nullable() }),
       ...commonErrorResponses,
@@ -72,10 +67,15 @@ export const usersContract = c.router({
     method: "GET",
     path: "/api/users/search",
     summary: "List users in a realm with optional search by name/email",
-    query: z.object({ realm: z.string(), q: z.string().optional() }),
+    query: SearchUsersQuerySchema,
     responses: {
       200: c.type<{
-        users: Array<{ id: string; name: string; email: string; joinedAt: string }>;
+        users: Array<{
+          id: string;
+          name: string;
+          email: string;
+          joinedAt: string;
+        }>;
       }>(),
       ...commonErrorResponses,
     },
@@ -90,7 +90,7 @@ export const usersContract = c.router({
         connectionString: z.string(),
         token: z.string(),
         key: z.string(),
-        serverDid: z.string(),
+        serverDid: z.string().nullable(),
       }),
       ...commonErrorResponses,
     },
@@ -100,7 +100,7 @@ export const usersContract = c.router({
     method: "POST",
     path: "/api/users/invite/from-email",
     summary: "Generate QR code from an email invitation token",
-    body: z.object({ token: z.string() }),
+    body: InviteFromEmailBodySchema,
     responses: {
       200: z.object({
         qrUrl: z.string(),
@@ -116,11 +116,7 @@ export const usersContract = c.router({
     method: "POST",
     path: "/api/users/invite/email",
     summary: "Send an email invitation to a new user",
-    body: z.object({
-      email: z.string().email(),
-      name: z.string(),
-      role: z.string().optional(),
-    }),
+    body: InviteEmailBodySchema,
     responses: {
       200: z.object({ token: z.string(), userId: z.string() }),
       ...commonErrorResponses,
@@ -130,30 +126,27 @@ export const usersContract = c.router({
   getUnclaimed: {
     method: "GET",
     path: "/api/users/unclaimed/:id",
-    pathParams: z.object({ id: z.string() }),
+    pathParams: IdParamSchema,
     summary: "Get an unclaimed Entra user by internal ID",
-    responses: { 200: c.type<Record<string, unknown>>(), ...commonErrorResponses },
+    responses: {
+      200: c.type<UnclaimedUserDetail>(),
+      ...commonErrorResponses,
+    },
   },
 
   updateUnclaimed: {
     method: "PATCH",
     path: "/api/users/unclaimed/:id",
-    pathParams: z.object({ id: z.string() }),
+    pathParams: IdParamSchema,
     summary: "Update profile fields of an unclaimed user",
-    body: z.object({
-      name: z.string().optional(),
-      email: z.string().optional(),
-      role: RoleEnum.optional(),
-      reportsTo: z.string().nullable().optional(),
-      description: z.string().nullable().optional(),
-    }),
+    body: UpdateUserBodySchema,
     responses: { 200: c.type<void>(), ...commonErrorResponses },
   },
 
   removeUnclaimed: {
     method: "DELETE",
     path: "/api/users/unclaimed/:id",
-    pathParams: z.object({ id: z.string() }),
+    pathParams: IdParamSchema,
     summary: "Remove an unclaimed user by internal ID",
     responses: { 200: c.type<void>(), ...commonErrorResponses },
   },
@@ -161,9 +154,9 @@ export const usersContract = c.router({
   sendUnclaimedQr: {
     method: "POST",
     path: "/api/users/unclaimed/:id/send-qr",
-    pathParams: z.object({ id: z.string() }),
+    pathParams: IdParamSchema,
     summary: "Send a QR code to an unclaimed user via email",
-    body: z.object({ sendByEmail: z.boolean().optional() }),
+    body: SendUnclaimedQrBodySchema,
     responses: {
       200: z.object({
         qrUrl: z.string(),
@@ -179,15 +172,10 @@ export const usersContract = c.router({
   getOne: {
     method: "GET",
     path: "/api/users/:did",
-    pathParams: DidParam,
+    pathParams: DidParamSchema,
     summary: "Get a single user by DID",
     responses: {
-      200: c.type<
-        Pick<
-          User,
-          "did" | "name" | "email" | "isOwner" | "isAdmin" | "role" | "reportsTo" | "description"
-        > & { registeredAt: string; grants: Array<z.infer<typeof UserGrantSchema>> }
-      >(),
+      200: c.type<UserDetail>(),
       ...commonErrorResponses,
     },
   },
@@ -195,22 +183,16 @@ export const usersContract = c.router({
   update: {
     method: "PATCH",
     path: "/api/users/:did",
-    pathParams: DidParam,
+    pathParams: DidParamSchema,
     summary: "Update a user's profile fields",
-    body: z.object({
-      name: z.string().optional(),
-      email: z.string().optional(),
-      role: RoleEnum.optional(),
-      reportsTo: z.string().nullable().optional(),
-      description: z.string().nullable().optional(),
-    }),
+    body: UpdateUserBodySchema,
     responses: { 200: c.type<void>(), ...commonErrorResponses },
   },
 
   remove: {
     method: "DELETE",
     path: "/api/users/:did",
-    pathParams: DidParam,
+    pathParams: DidParamSchema,
     summary: "Remove a user and all their grants (owner-only)",
     responses: { 200: c.type<void>(), ...commonErrorResponses },
   },
@@ -218,13 +200,10 @@ export const usersContract = c.router({
   realms: {
     method: "GET",
     path: "/api/users/:did/realms",
-    pathParams: DidParam,
+    pathParams: DidParamSchema,
     summary: "List realms the user belongs to and all available realms",
     responses: {
-      200: c.type<{
-        memberships: Array<Record<string, unknown>>;
-        available: Array<{ id: string; name: string; slug: string; color: string }>;
-      }>(),
+      200: c.type<UserRealmsResponse>(),
       ...commonErrorResponses,
     },
   },
@@ -232,20 +211,16 @@ export const usersContract = c.router({
   setLocation: {
     method: "PATCH",
     path: "/api/users/:did/location",
-    pathParams: DidParam,
+    pathParams: DidParamSchema,
     summary: "Set or clear the geographic location of a user",
-    body: z.object({
-      lat: z.number().nullable().optional(),
-      lon: z.number().optional(),
-      label: z.string().optional(),
-    }),
+    body: SetUserLocationBodySchema,
     responses: { 200: c.type<void>(), ...commonErrorResponses },
   },
 
   listGrants: {
     method: "GET",
     path: "/api/users/:did/grants",
-    pathParams: DidParam,
+    pathParams: DidParamSchema,
     summary: "List grants for a user",
     responses: {
       200: z.object({ grants: z.array(UserGrantSchema) }),
@@ -256,13 +231,9 @@ export const usersContract = c.router({
   createGrant: {
     method: "POST",
     path: "/api/users/:did/grants",
-    pathParams: DidParam,
+    pathParams: DidParamSchema,
     summary: "Create a grant and sign delegation certificate for a user",
-    body: z.object({
-      agentDid: z.string().nullable().optional(),
-      capabilities: z.array(z.string()),
-      expiresAt: z.string().optional(),
-    }),
+    body: CreateGrantBodySchema,
     responses: {
       201: z.object({ grant: UserGrantSchema }),
       ...commonErrorResponses,
@@ -272,7 +243,7 @@ export const usersContract = c.router({
   revokeGrant: {
     method: "DELETE",
     path: "/api/users/:did/grants/:id",
-    pathParams: z.object({ did: z.string(), id: z.string() }),
+    pathParams: DidGrantParamSchema,
     summary: "Revoke a delegation grant",
     responses: { 200: c.type<void>(), ...commonErrorResponses },
   },
@@ -280,9 +251,9 @@ export const usersContract = c.router({
   setAdmin: {
     method: "PATCH",
     path: "/api/users/:did/admin",
-    pathParams: DidParam,
+    pathParams: DidParamSchema,
     summary: "Promote or demote a user to/from admin",
-    body: z.object({ isAdmin: z.boolean() }),
+    body: SetAdminBodySchema,
     responses: { 200: c.type<void>(), ...commonErrorResponses },
   },
 });
@@ -294,7 +265,12 @@ export const meContract = c.router({
     summary: "Get realms the current user belongs to",
     responses: {
       200: c.type<{
-        realms: Array<{ id: string; name: string; slug: string; color: string }>;
+        realms: Array<{
+          id: string;
+          name: string;
+          slug: string;
+          color: string;
+        }>;
       }>(),
       ...commonErrorResponses,
     },
@@ -305,7 +281,7 @@ export const invitationsContract = c.router({
   get: {
     method: "GET",
     path: "/api/invitations/:token",
-    pathParams: z.object({ token: z.string() }),
+    pathParams: TokenParamSchema,
     summary: "Retrieve invitation details using a token",
     responses: {
       200: z.object({ email: z.string(), name: z.string(), role: z.string() }),
@@ -316,7 +292,7 @@ export const invitationsContract = c.router({
   delete: {
     method: "POST",
     path: "/api/invitations/:token/delete",
-    pathParams: z.object({ token: z.string() }),
+    pathParams: TokenParamSchema,
     summary: "Delete an invitation after it's been successfully claimed",
     body: c.noBody(),
     responses: {

@@ -153,7 +153,18 @@ export class UserDAO {
 
     const where: Prisma.UserWhereInput = {};
     if (q) where.OR = [{ name: { contains: q, mode: "insensitive" } }, { email: { contains: q, mode: "insensitive" } }];
-    if (role) where.role = role;
+    // Owner/admin are stored as boolean flags, not in the `role` column, and the
+    // displayed role badge is derived from them — so filter to match the badge.
+    if (role === "owner") {
+      where.isOwner = true;
+    } else if (role === "admin") {
+      where.isAdmin = true;
+      where.isOwner = false;
+    } else if (role) {
+      where.role = role;
+      where.isOwner = false;
+      where.isAdmin = false;
+    }
     if (isAdmin !== undefined) where.isAdmin = isAdmin;
     if (realmId) where.userRealms = { some: { realmId } };
     if (hasAccount === true) where.did = { not: null };

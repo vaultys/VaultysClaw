@@ -2,37 +2,8 @@ import { z } from "zod";
 import { c } from "./contract";
 import { commonErrorResponses } from "./common";
 
-export const networkContract = c.router({
-  get: {
-    method: "GET",
-    path: "/api/network",
-    summary: "Retrieve live transport stats and server state",
-    responses: {
-      200: c.type<{
-        stats: Record<string, unknown> | null;
-        logs: { ws: string[]; peerjs: string[] };
-        peerjs: {
-          peerId: string | null;
-          running: boolean;
-          startedAt: string | null;
-          serverUrl: string | null;
-        };
-      }>(),
-      ...commonErrorResponses,
-    },
-  },
-
-  control: {
-    method: "POST",
-    path: "/api/network",
-    summary: "Control WS and PeerJS servers at runtime",
-    body: z.object({
-      action: z.enum(["start", "stop", "restart-ws", "restart-peerjs"]),
-      serverUrl: z.string().nullable().optional(),
-    }),
-    responses: { 200: c.type<void>(), ...commonErrorResponses },
-  },
-});
+// `networkContract` now lives in `./network/` (folder pattern). Map and health
+// stay here as small standalone routers.
 
 export const mapContract = c.router({
   get: {

@@ -136,7 +136,7 @@ Three principles, built in from day one:
 ┌───────────────────────────────────────────────────────────┐
 │              VaultysClaw Control Plane (Next.js)          │
 │   Dashboard • Workflow Editor • Policy Engine • Audit     │
-│            SQLite • WebSocket Server (port 8080)          │
+│             PGSQL • WebSocket Server (port 8080)          │
 └──────────────────────────────┬────────────────────────────┘
                                │  (Signed Intents + Policies)
                     ┌──────────┼──────────┐

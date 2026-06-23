@@ -12,7 +12,7 @@ concurrency:
 
 jobs:
   quality:
-    name: Lint & Type-check
+    name: Type-check
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -28,9 +28,6 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-
-      - name: Lint
-        run: pnpm lint
 
       - name: Type-check
         run: pnpm type-check

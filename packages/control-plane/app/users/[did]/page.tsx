@@ -20,11 +20,7 @@ import { useBreadcrumbs } from "@/components/layout/BreadcrumbContext";
 import { usersClient, unwrap, ApiError } from "@/lib/api/ts-rest/client";
 import type { UserDetail } from "@/lib/contracts";
 import UserGrantsPanel from "@/components/users/UserGrantsPanel";
-import {
-  UserTabBar,
-  type UserTab,
-  type UserTabId,
-} from "@/components/users/detail/UserTabBar";
+import { type UserTabId } from "@/components/users/detail/UserTabBar";
 import { UserOverviewTab } from "@/components/users/detail/UserOverviewTab";
 import { UserAccessTab } from "@/components/users/detail/UserAccessTab";
 import { UserDetailsTab } from "@/components/users/detail/UserDetailsTab";
@@ -90,6 +86,23 @@ export default function UserEditPage() {
   const toolbarActions: ToolbarAction[] = [];
   if (user) {
     toolbarActions.push({
+      kind: "tabs",
+      id: "section",
+      value: activeTab,
+      onChange: (v) => setActiveTab(v as UserTabId),
+      options: [
+        {
+          value: "overview",
+          label: "Overview",
+          icon: <LayoutDashboard size={15} />,
+        },
+        { value: "access", label: "Access", icon: <Shield size={15} /> },
+        { value: "grants", label: "Grants", icon: <KeyRound size={15} /> },
+        { value: "realms", label: "Realms", icon: <Globe size={15} /> },
+        { value: "details", label: "Details", icon: <GitBranch size={15} /> },
+      ],
+    });
+    toolbarActions.push({
       kind: "badge",
       id: "role",
       label: user.isOwner ? "Owner" : user.isAdmin ? "Admin" : user.role,
@@ -125,7 +138,7 @@ export default function UserEditPage() {
       ),
       actions: toolbarActions,
     },
-    [user, isOwner, removing, did, handleRemove]
+    [user, isOwner, removing, did, handleRemove, activeTab]
   );
 
   if (loading) {
@@ -150,22 +163,12 @@ export default function UserEditPage() {
     );
   }
 
-  const tabs: UserTab[] = [
-    { id: "overview", label: "Overview", icon: <LayoutDashboard size={15} /> },
-    { id: "access", label: "Access", icon: <Shield size={15} /> },
-    { id: "grants", label: "Grants", icon: <KeyRound size={15} /> },
-    { id: "realms", label: "Realms", icon: <Globe size={15} /> },
-    { id: "details", label: "Details", icon: <GitBranch size={15} /> },
-  ];
-
   const patchUser = (patch: Partial<UserDetail>) =>
     setUser((u) => (u ? { ...u, ...patch } : u));
 
   return (
     <div className="p-6 w-full max-w-7xl mx-auto">
       <div className="border border-neutral-200 rounded-xl overflow-hidden bg-background-100">
-        <UserTabBar tabs={tabs} active={activeTab} onChange={setActiveTab} />
-
         <div className="p-6">
           {activeTab === "overview" && (
             <UserOverviewTab

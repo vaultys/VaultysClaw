@@ -20,6 +20,16 @@ export default defineConfig({
     alias: {
       // Control-plane path alias — mirrors tsconfig paths used in the package
       "@": resolve(__dirname, "packages/control-plane"),
+      // Workspace packages consumed by name in tests/source. Their package.json
+      // points main/exports at dist/, which is gitignored and not built in CI,
+      // so vite would fail with "Failed to resolve entry". The `tsx` exports
+      // condition only applies under the tsx dev runner, not vitest. Alias them
+      // to their TS source so tests run from source (CI parity with local).
+      "@vaultysclaw/shared": resolve(__dirname, "packages/shared/src/index.ts"),
+      "@vaultysclaw/agent-runtime": resolve(
+        __dirname,
+        "packages/agent-runtime/src/index.ts"
+      ),
       // @msgpack/msgpack — declared by control-plane (and agent-runtime).
       "@msgpack/msgpack": fromControlPlane.resolve("@msgpack/msgpack"),
       // The AI SDK — declared by agent-controller. Alias it here so tests in

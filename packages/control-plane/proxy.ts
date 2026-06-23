@@ -75,7 +75,7 @@ export default withAuth(
 // Configure which paths should be processed by this middleware
 export const config = {
   matcher: [
-    // Run middleware on all paths except static files and images
-    "/((?!_next/static|_next/image|favicon.ico|.+\\.(?:png|jpg|jpeg|gif|svg|webp|ico)).*)",
+    // Run middleware on all paths except static files, images, and media
+    "/((?!_next/static|_next/image|favicon.ico|.+\\.(?:png|jpg|jpeg|gif|svg|webp|ico|mp4|webm|ogg|mov|mp3|wav)).*)",
   ],
 };

@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { CopyButton } from "@/components/shared";
+import { networkClient, unwrap } from "@/lib/api/ts-rest/client";
 import { PKG_RUNNERS, type PkgRunner, type Realm } from "./constants";
 
 interface LaunchStepProps {
@@ -44,21 +45,14 @@ export function LaunchStep({
     const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
     setWsUrl(`${proto}//${window.location.hostname}:8080`);
 
-    fetch("/api/network")
-      .then((r) => r.json())
-      .then(
-        (d: {
-          peerjs?: {
-            peerId?: string;
-            running?: boolean;
-            serverUrl?: string | null;
-          };
-        }) => {
-          if (d.peerjs?.peerId) setPeerjsId(d.peerjs.peerId);
-          setPeerjsEnabled(d.peerjs?.running ?? false);
-          setPeerjsServerUrl(d.peerjs?.serverUrl ?? null);
-        }
-      )
+    networkClient
+      .get({ query: {} })
+      .then((res) => {
+        const { peerjs } = unwrap(res);
+        if (peerjs.peerId) setPeerjsId(peerjs.peerId);
+        setPeerjsEnabled(peerjs.running);
+        setPeerjsServerUrl(peerjs.serverUrl);
+      })
       .catch(() => {});
   }, []);
 

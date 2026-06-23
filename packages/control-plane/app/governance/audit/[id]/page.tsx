@@ -2,379 +2,69 @@
 
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
-import {
-  ChevronLeft,
-  Activity,
-  Bot,
-  Clock,
-  CheckCircle2,
-  XCircle,
-  ShieldCheck,
-  Key,
-  FileText,
-  AlertTriangle,
-  Loader2,
-  FolderOpen,
-  Globe,
-  Monitor,
-  Plug,
-  Mail,
-  Code,
-  Terminal,
-  Zap,
-  Link2,
-  Copy,
-  Check as CheckIcon,
-  Wrench,
-} from "lucide-react";
-
-// ── Types ─────────────────────────────────────────────────────────────────────
-
-interface AuditDetail {
-  id: string;
-  source: "activity" | "intent";
-  event: string;
-  agentDid: string | null;
-  agentName: string | null;
-  details: string | null;
-  detailsParsed: unknown;
-  status: string | null;
-  error: string | null;
-  timestamp: string;
-  params: unknown;
-  output: unknown;
-  sentAt: string;
-  completedAt: string | null;
-  durationMs: number | null;
-  intentSignature: string | null;
-}
-
-interface ToolExecutionDetails {
-  intentId?: string;
-  conversationId?: string;
-  toolName?: string;
-  args?: Record<string, unknown>;
-  result?: unknown;
-  error?: string;
-  durationMs?: number;
-}
-
-interface CertInfo {
-  protocol: string | null;
-  state: number | null;
-  certTimestamp: number | null;
-  error: string | null;
-  pk1Did: string | null;
-  pk2Did: string | null;
-  pk1Bytes: string | null;
-  signatureVerified: boolean;
-  signedPayload: string | null;
-  capabilities: string[] | null;
-  resourceLimits: {
-    maxTokensPerDay?: number;
-    maxRequestsPerHour?: number;
-    allowedDomains?: string[];
-  } | null;
-  policyId: string | null;
-  policyExpiresAt: string | null;
-  rawMetadata: unknown;
-}
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-const CAPABILITY_ICONS: Record<string, React.ReactNode> = {
-  file_access: <FolderOpen size={13} />,
-  internet_access: <Globe size={13} />,
-  browser_control: <Monitor size={13} />,
-  api_call: <Plug size={13} />,
-  mail_send: <Mail size={13} />,
-  code_execution: <Code size={13} />,
-  system_command: <Terminal size={13} />,
-};
-
-const CERT_STATE_LABELS: Record<number, string> = {
-  0: "Initial",
-  1: "Challenge sent",
-  2: "Complete ✓",
-  [-1]: "Failed ✗",
-  [-2]: "Error ✗",
-};
-
-const ACTIVITY_LABELS: Record<string, string> = {
-  agent_reconnected: "Agent reconnected",
-  agent_authenticated: "Agent authenticated",
-  registration_requested: "Registration requested",
-  registration_approved: "Registration approved",
-  registration_rejected: "Registration rejected",
-  agent_disconnected: "Agent disconnected",
-  capabilities_updated: "Capabilities updated",
-  auth_failed: "Auth failed",
-  user_authenticated: "User authenticated",
-};
-
-function parseUTC(iso: string): Date {
-  return new Date(iso.endsWith("Z") ? iso : iso + "Z");
-}
-
-function formatDate(iso: string | null): string {
-  if (!iso) return "—";
-  return parseUTC(iso).toLocaleString(undefined, {
-    year: "numeric",
-    month: "short",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-  });
-}
-
-function shortDid(did: string) {
-  const parts = did.split(":");
-  const key = parts[parts.length - 1];
-  return key.length > 20 ? `${key.slice(0, 10)}…${key.slice(-6)}` : did;
-}
-
-function JsonBlock({ value, label }: { value: unknown; label: string }) {
-  const [collapsed, setCollapsed] = useState(false);
-  const json = JSON.stringify(value, null, 2);
-  return (
-    <div className="space-y-1.5">
-      <button
-        onClick={() => setCollapsed(!collapsed)}
-        className="flex items-center gap-1.5 text-xs text-foreground-500 hover:text-foreground transition-colors"
-      >
-        <span
-          className={`transition-transform ${collapsed ? "-rotate-90" : ""}`}
-        >
-          ▾
-        </span>
-        {label}
-      </button>
-      {!collapsed && (
-        <pre className="bg-background border border-neutral-200 rounded-lg p-4 text-xs font-mono text-foreground-700 overflow-x-auto whitespace-pre-wrap break-all leading-relaxed">
-          {json}
-        </pre>
-      )}
-    </div>
-  );
-}
-
-function CopyButton({ text, label }: { text: string; label?: string }) {
-  const [copied, setCopied] = useState(false);
-  const copy = async () => {
-    await navigator.clipboard.writeText(text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-  return (
-    <button
-      onClick={copy}
-      title={label ?? "Copy to clipboard"}
-      className="inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded border border-neutral-300 text-foreground-500 hover:text-foreground hover:bg-background-200 transition-colors"
-    >
-      {copied ? (
-        <><CheckIcon size={11} className="text-success-500" /> Copied</>
-      ) : (
-        <><Copy size={11} /> Copy</>
-      )}
-    </button>
-  );
-}
-
-/** Structured display for tool_execution activity log entries */
-function ToolExecutionPanel({ details }: { details: ToolExecutionDetails }) {
-  const hasArgs = details.args && Object.keys(details.args).length > 0;
-  const hasResult = details.result !== undefined && details.result !== null;
-  const hasError = !!details.error;
-
-  return (
-    <div className="space-y-3">
-      {/* Tool name + duration */}
-      <div className="flex items-center justify-between flex-wrap gap-2">
-        <div className="flex items-center gap-2">
-          <div className="p-1.5 rounded bg-secondary-100 border border-secondary-300 text-secondary-600">
-            <Wrench size={14} />
-          </div>
-          <span className="text-sm font-semibold text-foreground font-mono">
-            {details.toolName ?? "unknown tool"}
-          </span>
-        </div>
-        {details.durationMs !== undefined && details.durationMs > 0 && (
-          <span className="flex items-center gap-1 text-xs text-foreground-400">
-            <Clock size={11} /> {details.durationMs}ms
-          </span>
-        )}
-      </div>
-
-      {/* Origin: intentId or conversationId */}
-      {(details.intentId || details.conversationId) && (
-        <div className="flex flex-wrap gap-2 text-[11px]">
-          {details.intentId && (
-            <span className="bg-primary-100 border border-primary-300 text-primary-700 px-2 py-0.5 rounded font-mono">
-              intent: {details.intentId}
-            </span>
-          )}
-          {details.conversationId && (
-            <span className="bg-background-200 border border-neutral-300 text-foreground-500 px-2 py-0.5 rounded font-mono">
-              chat: {details.conversationId}
-            </span>
-          )}
-        </div>
-      )}
-
-      {/* Args */}
-      {hasArgs && (
-        <div className="space-y-1.5">
-          <p className="text-xs text-foreground-400 uppercase tracking-wider">Arguments</p>
-          <div className="bg-background border border-neutral-200 rounded-lg divide-y divide-neutral-100 text-xs">
-            {Object.entries(details.args!).map(([k, v]) => (
-              <div key={k} className="flex gap-3 px-3 py-2 min-h-0">
-                <span className="font-mono text-foreground-500 shrink-0 w-32 truncate">{k}</span>
-                <span className="font-mono text-foreground break-all">
-                  {typeof v === "string"
-                    ? v
-                    : JSON.stringify(v)}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-      {!hasArgs && (
-        <p className="text-xs text-foreground-400 italic">No arguments</p>
-      )}
-
-      {/* Result */}
-      {hasResult && !hasError && (
-        <div className="space-y-1.5">
-          <p className="text-xs text-foreground-400 uppercase tracking-wider">Result</p>
-          {typeof details.result === "string" ? (
-            <pre className="bg-background border border-neutral-200 rounded-lg p-3 text-xs font-mono text-foreground-700 overflow-x-auto whitespace-pre-wrap break-all max-h-48">
-              {details.result}
-            </pre>
-          ) : (
-            <pre className="bg-background border border-neutral-200 rounded-lg p-3 text-xs font-mono text-foreground-700 overflow-x-auto whitespace-pre-wrap break-all max-h-48">
-              {JSON.stringify(details.result, null, 2)}
-            </pre>
-          )}
-        </div>
-      )}
-
-      {/* Error */}
-      {hasError && (
-        <div className="flex items-start gap-2 bg-danger-500/10 border border-danger-500/20 rounded-lg px-3 py-2 text-xs text-danger-600">
-          <AlertTriangle size={13} className="shrink-0 mt-0.5" />
-          <span className="font-mono break-all">{details.error}</span>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ── Page ──────────────────────────────────────────────────────────────────────
+import { ChevronLeft, Loader2 } from "lucide-react";
+import { governanceClient, unwrap, ApiError } from "@/lib/api/ts-rest/client";
+import type { AuditEntryDetail, AuditCertInfo } from "@/lib/contracts";
+import { useToolbar } from "@/components/layout/ToolbarContext";
+import { useBreadcrumbs } from "@/components/layout/BreadcrumbContext";
+import { AuditEntryHeader } from "@/components/governance/AuditEntryHeader";
+import { AuditPayloadPanel } from "@/components/governance/AuditPayloadPanel";
+import { AuditCertificatePanel } from "@/components/governance/AuditCertificatePanel";
+import { useIntentSignatureVerification } from "@/components/governance/useIntentSignatureVerification";
 
 export default function AuditDetailPage() {
   const params = useParams();
   const router = useRouter();
   const id = decodeURIComponent(params.id as string);
 
-  const [entry, setEntry] = useState<AuditDetail | null>(null);
-  const [certInfo, setCertInfo] = useState<CertInfo | null>(null);
+  const [entry, setEntry] = useState<AuditEntryDetail | null>(null);
+  const [certInfo, setCertInfo] = useState<AuditCertInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Client-side intent signature verification
-  type SigState = "idle" | "verifying" | "valid" | "invalid" | "no_key";
-  const [sigState, setSigState] = useState<SigState>("idle");
-  const [sigHash, setSigHash] = useState<string | null>(null);
+  const { sigState, sigHash } = useIntentSignatureVerification(entry, certInfo);
+
+  useBreadcrumbs(
+    [{ label: "Governance", href: "/governance" }, { label: "Audit entry" }],
+    []
+  );
+
+  useToolbar(
+    {
+      title: "Audit entry",
+      description: id,
+      actions: [
+        {
+          kind: "button",
+          id: "back",
+          label: "Audit Log",
+          icon: <ChevronLeft className="w-3.5 h-3.5" />,
+          onClick: () => router.push("/governance"),
+        },
+      ],
+    },
+    [id, router]
+  );
 
   useEffect(() => {
     (async () => {
       try {
-        const res = await fetch(
-          `/api/governance/audit/${encodeURIComponent(id)}`
+        const data = unwrap(
+          await governanceClient.auditEntry({ params: { id } })
         );
-        if (res.status === 404) {
-          setError("Entry not found");
-          return;
-        }
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = await res.json();
         setEntry(data.entry);
         setCertInfo(data.certInfo ?? null);
       } catch (e) {
-        setError(e instanceof Error ? e.message : "Failed to load");
+        if (e instanceof ApiError && e.status === 404) {
+          setError("Entry not found");
+        } else {
+          setError(e instanceof Error ? e.message : "Failed to load");
+        }
       } finally {
         setLoading(false);
       }
     })();
   }, [id]);
-
-  // Run browser-side signature verification once entry + certInfo are available
-  useEffect(() => {
-    if (!entry || entry.source !== "intent" || !entry.intentSignature) return;
-    setSigState("verifying");
-
-    (async () => {
-      try {
-        const tokenB64 = entry.intentSignature!;
-
-        // ── Compute SHA-256 fingerprint (display only) ──────────────────────
-        const rawBytes = Uint8Array.from(atob(tokenB64), (c) => c.charCodeAt(0));
-        const hashBuf = await crypto.subtle.digest("SHA-256", rawBytes);
-        const hashHex = Array.from(new Uint8Array(hashBuf))
-          .map((b) => b.toString(16).padStart(2, "0"))
-          .join("");
-        setSigHash(hashHex);
-
-        // ── Verify ECDSA signature ──────────────────────────────────────────
-        const pk1Bytes = certInfo?.pk1Bytes;
-        if (!pk1Bytes) {
-          setSigState("no_key");
-          return;
-        }
-
-        // Parse wire format: 4-byte LE bodyLen | msgpack(body) | raw-sig
-        const combined = rawBytes;
-        if (combined.length < 5) { setSigState("invalid"); return; }
-        const bodyLen =
-          combined[0] |
-          (combined[1] << 8) |
-          (combined[2] << 16) |
-          (combined[3] << 24);
-        if (combined.length < 4 + bodyLen) { setSigState("invalid"); return; }
-        const body = combined.slice(4, 4 + bodyLen);
-        const sig = combined.slice(4 + bodyLen);
-        if (sig.length === 0) { setSigState("invalid"); return; }
-
-        // Decode body and cross-check fields
-        const { decode: msgpackDecode } = await import("@msgpack/msgpack");
-        const payload = msgpackDecode(body) as Record<string, unknown>;
-        const intentId = entry.id.startsWith("int-") ? entry.id.slice(4) : entry.id;
-        if (
-          payload.type !== "intent" ||
-          payload.id !== intentId ||
-          payload.agentId !== entry.agentDid
-        ) {
-          setSigState("invalid");
-          return;
-        }
-
-        // Cryptographic verification via @vaultys/id browser bundle
-        const { VaultysId, crypto: vid_crypto } = await import("@vaultys/id");
-        const pk1Buf = vid_crypto.Buffer.from(pk1Bytes, "base64");
-        const vid = VaultysId.fromId(pk1Buf);
-        const ok = await vid.verifyChallenge(
-          vid_crypto.Buffer.from(body),
-          vid_crypto.Buffer.from(sig),
-          false
-        );
-        setSigState(ok ? "valid" : "invalid");
-      } catch {
-        setSigState("invalid");
-      }
-    })();
-  }, [entry?.intentSignature, certInfo?.pk1Bytes]);
 
   if (loading) {
     return (
@@ -400,466 +90,23 @@ export default function AuditDetailPage() {
     );
   }
 
-  const isActivity = entry.source === "activity";
-  const isAuth = [
-    "agent_authenticated",
-    "auth_failed",
-    "registration_approved",
-  ].includes(entry.event);
-
   return (
     <div className="p-6 w-full max-w-7xl mx-auto space-y-6">
-      {/* Back */}
-      <button
-        onClick={() => router.push("/governance?tab=audit")}
-        className="flex items-center gap-1.5 text-sm text-primary-500 hover:text-primary-400 transition-colors"
-      >
-        <ChevronLeft size={16} /> Audit Log
-      </button>
-
-      {/* Header card */}
-      <div className="bg-background-100 border border-neutral-200 rounded-xl p-5">
-        <div className="flex items-start gap-4">
-          <div
-            className={`p-2.5 rounded-lg border flex-shrink-0 ${
-              isActivity
-                ? "bg-primary-100 border-primary-300 text-primary-600"
-                : "bg-secondary-100 border-secondary-300 text-secondary-600"
-            }`}
-          >
-            {isActivity ? <Activity size={18} /> : <FileText size={18} />}
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap mb-1">
-              <h1 className="text-base font-semibold text-foreground">
-                {ACTIVITY_LABELS[entry.event] ?? entry.event.replace(/_/g, " ")}
-              </h1>
-              {/* Source badge */}
-              <span
-                className={`text-[10px] px-1.5 py-0.5 rounded font-medium border ${
-                  isActivity
-                    ? "bg-primary-100 text-primary-700 border-primary-300"
-                    : "bg-secondary-100 text-secondary-700 border-secondary-300"
-                }`}
-              >
-                {entry.source}
-              </span>
-              {/* Status badge */}
-              {entry.status === "success" && (
-                <span className="flex items-center gap-1 text-xs text-success-700">
-                  <CheckCircle2 size={12} /> success
-                </span>
-              )}
-              {entry.status === "failed" && (
-                <span className="flex items-center gap-1 text-xs text-danger-600">
-                  <XCircle size={12} /> failed
-                </span>
-              )}
-              {entry.status &&
-                entry.status !== "success" &&
-                entry.status !== "failed" && (
-                  <span className="flex items-center gap-1 text-xs text-warning-600">
-                    <Clock size={12} /> {entry.status}
-                  </span>
-                )}
-            </div>
-
-            {/* Meta row */}
-            <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-foreground-500">
-              <span className="flex items-center gap-1">
-                <Clock size={11} /> {formatDate(entry.timestamp)}
-              </span>
-              {entry.agentDid && (
-                <span
-                  className="flex items-center gap-1 cursor-pointer hover:text-primary-500 transition-colors"
-                  title={entry.agentDid}
-                  onClick={() =>
-                    router.push(
-                      `/agents/${encodeURIComponent(entry.agentDid!)}`
-                    )
-                  }
-                >
-                  <Bot size={11} />
-                  {entry.agentName ?? shortDid(entry.agentDid)}
-                  <Link2 size={10} className="opacity-60" />
-                </span>
-              )}
-              {entry.durationMs !== null && (
-                <span className="flex items-center gap-1">
-                  <Clock size={11} /> {entry.durationMs}ms
-                </span>
-              )}
-            </div>
-
-            {/* Entry ID */}
-            <p className="text-[10px] font-mono text-foreground-400 mt-1.5">
-              {entry.id}
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* Error banner */}
-      {entry.error && (
-        <div className="flex items-start gap-2 bg-danger-500/10 border border-danger-500/20 rounded-xl px-4 py-3 text-sm text-danger-600">
-          <AlertTriangle size={15} className="flex-shrink-0 mt-0.5" />
-          <span className="font-mono text-xs break-all">{entry.error}</span>
-        </div>
-      )}
+      <AuditEntryHeader
+        entry={entry}
+        onOpenAgent={(did) =>
+          router.push(`/agents/${encodeURIComponent(did)}`)
+        }
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* ── Payload ─────────────────────────────────────────────────────── */}
-        <div className="bg-background-100 border border-neutral-200 rounded-xl p-5 space-y-4">
-          <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
-            <FileText size={14} className="text-foreground-500" /> Payload
-          </h2>
-
-          {/* Intent timing */}
-          {!isActivity && (
-            <div className="grid grid-cols-2 gap-2 text-xs">
-              {[
-                { label: "Sent at", value: formatDate(entry.sentAt) },
-                {
-                  label: "Completed at",
-                  value: entry.completedAt
-                    ? formatDate(entry.completedAt)
-                    : "—",
-                },
-              ].map(({ label, value }) => (
-                <div
-                  key={label}
-                  className="bg-background-200 border border-neutral-200 rounded-lg px-3 py-2"
-                >
-                  <div className="text-foreground-400 uppercase text-[10px] mb-0.5">
-                    {label}
-                  </div>
-                  <div className="text-foreground">{value}</div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Structured tool_execution display */}
-          {isActivity && entry.event === "tool_execution" && entry.detailsParsed !== null && (
-            <ToolExecutionPanel details={entry.detailsParsed as ToolExecutionDetails} />
-          )}
-
-          {/* Params / details (generic) */}
-          {entry.params !== null && (
-            <JsonBlock value={entry.params} label="Intent params" />
-          )}
-          {entry.detailsParsed !== null && isActivity && entry.event !== "tool_execution" && (
-            <JsonBlock value={entry.detailsParsed} label="Event details" />
-          )}
-          {entry.detailsParsed === null && entry.details && (
-            <div>
-              <p className="text-xs text-foreground-500 mb-1.5">Raw details</p>
-              <pre className="bg-background border border-neutral-200 rounded-lg p-3 text-xs font-mono text-foreground-700 overflow-x-auto whitespace-pre-wrap break-all">
-                {entry.details}
-              </pre>
-            </div>
-          )}
-
-          {/* Output */}
-          {entry.output !== null && (
-            <JsonBlock value={entry.output} label="Output" />
-          )}
-
-          {!entry.params && !entry.details && !entry.output && entry.event !== "tool_execution" && (
-            <p className="text-xs text-foreground-400 italic">
-              No payload data recorded for this event.
-            </p>
-          )}
-        </div>
-
-        {/* ── Certificate & crypto verification ────────────────────────────── */}
-        <div className="bg-background-100 border border-neutral-200 rounded-xl p-5 space-y-4">
-          <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
-            <ShieldCheck size={14} className="text-foreground-500" />{" "}
-            Certificate & Cryptographic State
-          </h2>
-
-          {!certInfo ? (
-            <div className="text-xs text-foreground-400 italic py-4 text-center">
-              {entry.agentDid
-                ? "No certificate on file for this agent yet."
-                : "No agent DID associated with this entry."}
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {/* Cert state summary */}
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                {[
-                  {
-                    label: "Protocol state",
-                    value: (
-                      <span
-                        className={`font-semibold ${
-                          certInfo.state === 2
-                            ? "text-success-600"
-                            : certInfo.state !== null && certInfo.state < 0
-                              ? "text-danger-600"
-                              : "text-warning-600"
-                        }`}
-                      >
-                        {certInfo.state !== null
-                          ? (CERT_STATE_LABELS[certInfo.state] ??
-                            `State ${certInfo.state}`)
-                          : "—"}
-                      </span>
-                    ),
-                  },
-                  {
-                    label: "Protocol",
-                    value: (
-                      <span className="font-mono">
-                        {certInfo.protocol ?? "—"}
-                      </span>
-                    ),
-                  },
-                ].map(({ label, value }) => (
-                  <div
-                    key={label}
-                    className="bg-background-200 border border-neutral-200 rounded-lg px-3 py-2"
-                  >
-                    <div className="text-foreground-400 uppercase text-[10px] mb-0.5">
-                      {label}
-                    </div>
-                    <div className="text-foreground">{value}</div>
-                  </div>
-                ))}
-              </div>
-
-              {/* Signature verification status */}
-              {certInfo.signatureVerified ? (
-                <div className="flex items-center gap-2.5 bg-success-50 border border-success-300 rounded-lg px-4 py-3">
-                  <CheckCircle2
-                    size={16}
-                    className="text-success-600 shrink-0"
-                  />
-                  <div>
-                    <p className="text-sm font-semibold text-success-700">
-                      Signature verified
-                    </p>
-                    <p className="text-xs text-success-600/80">
-                      Mutual challenge-response completed — both parties signed
-                    </p>
-                  </div>
-                </div>
-              ) : (
-                <div className="flex items-center gap-2.5 bg-warning-50 border border-warning-300 rounded-lg px-4 py-3">
-                  <AlertTriangle
-                    size={16}
-                    className="text-warning-600 shrink-0"
-                  />
-                  <div>
-                    <p className="text-sm font-semibold text-warning-700">
-                      Signature not verified
-                    </p>
-                    <p className="text-xs text-warning-600/80">
-                      Handshake incomplete or failed
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {/* DIDs */}
-              <div className="space-y-2">
-                <p className="text-xs text-foreground-500 uppercase tracking-wider flex items-center gap-1.5">
-                  <Key size={11} /> Signing parties
-                </p>
-                {[
-                  { label: "pk1 — Control plane", did: certInfo.pk1Did },
-                  { label: "pk2 — Agent", did: certInfo.pk2Did },
-                ].map(({ label, did }) => (
-                  <div
-                    key={label}
-                    className="bg-background-200 border border-neutral-200 rounded-lg px-3 py-2 text-xs space-y-0.5"
-                  >
-                    <div className="text-foreground-400 uppercase text-[10px]">
-                      {label}
-                    </div>
-                    <code className="font-mono text-foreground-700 text-[11px] break-all">
-                      {did ?? "—"}
-                    </code>
-                  </div>
-                ))}
-              </div>
-
-              {/* Signed payload */}
-              {certInfo.signedPayload && (
-                <div className="space-y-1.5">
-                  <p className="text-xs text-foreground-500 uppercase tracking-wider flex items-center gap-1.5">
-                    <Key size={11} /> Signed payload
-                  </p>
-                  <pre className="bg-background border border-neutral-200 rounded-lg p-3 text-[11px] font-mono text-foreground-700 overflow-x-auto whitespace-pre-wrap break-all leading-relaxed max-h-40">
-                    {certInfo.signedPayload}
-                  </pre>
-                </div>
-              )}
-
-              {/* Capabilities in cert */}
-              {certInfo.capabilities && certInfo.capabilities.length > 0 && (
-                <div className="space-y-2">
-                  <p className="text-xs text-foreground-500 uppercase tracking-wider">
-                    Capabilities in certificate
-                  </p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {certInfo.capabilities.map((cap) => (
-                      <span
-                        key={cap}
-                        className="flex items-center gap-1 bg-primary-100 border border-primary-300 text-primary-700 px-2 py-0.5 rounded text-xs"
-                      >
-                        {CAPABILITY_ICONS[cap] ?? <Zap size={11} />}
-                        {cap.replace(/_/g, " ")}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Resource limits in cert */}
-              {certInfo.resourceLimits && (
-                <div className="space-y-2">
-                  <p className="text-xs text-foreground-500 uppercase tracking-wider">
-                    Resource limits in certificate
-                  </p>
-                  <div className="bg-background-200 border border-neutral-200 rounded-lg divide-y divide-neutral-200 text-xs">
-                    {certInfo.resourceLimits.maxTokensPerDay != null && (
-                      <div className="flex justify-between px-3 py-2">
-                        <span className="text-foreground-500">
-                          Max tokens/day
-                        </span>
-                        <span className="font-mono text-foreground">
-                          {certInfo.resourceLimits.maxTokensPerDay.toLocaleString()}
-                        </span>
-                      </div>
-                    )}
-                    {certInfo.resourceLimits.maxRequestsPerHour != null && (
-                      <div className="flex justify-between px-3 py-2">
-                        <span className="text-foreground-500">
-                          Max requests/hour
-                        </span>
-                        <span className="font-mono text-foreground">
-                          {certInfo.resourceLimits.maxRequestsPerHour}
-                        </span>
-                      </div>
-                    )}
-                    {certInfo.resourceLimits.allowedDomains &&
-                      certInfo.resourceLimits.allowedDomains.length > 0 && (
-                        <div className="flex justify-between px-3 py-2 gap-4">
-                          <span className="text-foreground-500 shrink-0">
-                            Allowed domains
-                          </span>
-                          <span className="font-mono text-foreground text-right break-all">
-                            {certInfo.resourceLimits.allowedDomains.join(", ")}
-                          </span>
-                        </div>
-                      )}
-                  </div>
-                </div>
-              )}
-
-              {/* Policy reference */}
-              {certInfo.policyId && (
-                <div className="space-y-2">
-                  <p className="text-xs text-foreground-500 uppercase tracking-wider">
-                    Policy reference
-                  </p>
-                  <div className="bg-background-200 border border-neutral-200 rounded-lg divide-y divide-neutral-200 text-xs">
-                    <div className="flex justify-between px-3 py-2">
-                      <span className="text-foreground-500">Policy ID</span>
-                      <code className="font-mono text-foreground text-[11px]">
-                        {certInfo.policyId}
-                      </code>
-                    </div>
-                    {certInfo.policyExpiresAt && (
-                      <div className="flex justify-between px-3 py-2">
-                        <span className="text-foreground-500">Expires at</span>
-                        <span
-                          className={`font-mono text-[11px] ${
-                            new Date(certInfo.policyExpiresAt) < new Date()
-                              ? "text-danger-600"
-                              : "text-foreground"
-                          }`}
-                        >
-                          {formatDate(certInfo.policyExpiresAt)}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Cert error */}
-              {certInfo.error && (
-                <div className="flex items-center gap-2 text-xs text-warning-600 bg-warning-50 border border-warning-200 rounded-lg px-3 py-2">
-                  <AlertTriangle size={12} />
-                  <span>Cert error: {certInfo.error}</span>
-                </div>
-              )}
-
-              {/* Raw metadata (collapsible) */}
-              {certInfo.rawMetadata !== null && (
-                <JsonBlock
-                  value={certInfo.rawMetadata}
-                  label="Raw certificate metadata"
-                />
-              )}
-            </div>
-          )}
-
-          {/* ── Intent signature ─────────────────────────────────────────── */}
-          {!isActivity && (
-            <div className="pt-2 border-t border-neutral-200">
-              <div className="flex items-center justify-between gap-2 flex-wrap">
-                <p className="text-xs text-foreground-500 uppercase tracking-wider flex items-center gap-1.5">
-                  <Key size={11} /> Intent signature
-                </p>
-
-                {/* Verification badge */}
-                {entry.intentSignature && (
-                  <>
-                    {sigState === "verifying" && (
-                      <span className="flex items-center gap-1 text-[11px] text-foreground-400">
-                        <Loader2 size={11} className="animate-spin" /> Verifying…
-                      </span>
-                    )}
-                    {sigState === "valid" && (
-                      <span className="flex items-center gap-1 text-[11px] font-medium text-success-600">
-                        <CheckCircle2 size={12} /> Verified by browser
-                      </span>
-                    )}
-                    {sigState === "invalid" && (
-                      <span className="flex items-center gap-1 text-[11px] font-medium text-danger-600">
-                        <XCircle size={12} /> Invalid
-                      </span>
-                    )}
-                    {sigState === "no_key" && (
-                      <span className="flex items-center gap-1 text-[11px] text-foreground-400">
-                        <AlertTriangle size={11} /> No key to verify
-                      </span>
-                    )}
-                  </>
-                )}
-              </div>
-
-              {/* Hash or absent notice */}
-              {sigHash ? (
-                <div className="mt-1.5 flex items-center gap-2">
-                  <code className="text-[11px] font-mono text-foreground-600 tracking-wide break-all">
-                    {sigHash}
-                  </code>
-                  <CopyButton text={sigHash} label="Copy hash" />
-                </div>
-              ) : !entry.intentSignature ? (
-                <p className="mt-1 text-[11px] text-foreground-400 italic">
-                  Not signed — dispatched before signing was enabled.
-                </p>
-              ) : null}
-            </div>
-          )}
-        </div>
+        <AuditPayloadPanel entry={entry} />
+        <AuditCertificatePanel
+          entry={entry}
+          certInfo={certInfo}
+          sigState={sigState}
+          sigHash={sigHash}
+        />
       </div>
     </div>
   );

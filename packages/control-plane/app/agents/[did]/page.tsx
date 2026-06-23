@@ -18,7 +18,6 @@ import {
   BookOpen,
   TrendingUp,
 } from "lucide-react";
-import { Tab, Tabs } from "@/components/shared/Tabs";
 import { ConfirmModal } from "@/components/shared/ConfirmModal";
 import { useToolbar, type ToolbarAction } from "@/components/layout/ToolbarContext";
 import { useBreadcrumbs } from "@/components/layout/BreadcrumbContext";
@@ -143,6 +142,41 @@ export default function AgentDetailPage() {
   const toolbarActions: ToolbarAction[] = [];
   if (agent) {
     toolbarActions.push({
+      kind: "tabs",
+      id: "section",
+      value: activeTab,
+      onChange: setActiveTab,
+      options: [
+        {
+          value: "overview",
+          label: "Overview",
+          icon: <LayoutDashboard size={15} />,
+        },
+        { value: "chat", label: "Chat", icon: <MessageSquare size={15} /> },
+        { value: "tokens", label: "Tokens", icon: <TrendingUp size={15} /> },
+        { value: "config", label: "Config", icon: <Settings2 size={15} /> },
+        {
+          value: "governance",
+          label: "Governance",
+          icon: <ShieldCheck size={15} />,
+        },
+        { value: "automation", label: "Automation", icon: <Clock size={15} /> },
+        {
+          value: "approvals",
+          label: "Approvals",
+          icon: <AlertTriangle size={15} />,
+          badge:
+            pendingApprovals > 0 ? (
+              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-danger-100 text-danger-700 border border-danger-300 leading-none">
+                {pendingApprovals}
+              </span>
+            ) : undefined,
+        },
+        { value: "knowledge", label: "Knowledge", icon: <BookOpen size={15} /> },
+        { value: "graph", label: "Graph", icon: <Activity size={15} /> },
+      ],
+    });
+    toolbarActions.push({
       kind: "badge",
       id: "status",
       label: agent.online ? "Online" : "Offline",
@@ -205,7 +239,7 @@ export default function AgentDetailPage() {
       ),
       actions: toolbarActions,
     },
-    [agent, deletingAgent, did]
+    [agent, deletingAgent, did, activeTab, pendingApprovals]
   );
 
   if (loading) {
@@ -225,23 +259,6 @@ export default function AgentDetailPage() {
       </div>
     );
   }
-
-  const tabs: Tab[] = [
-    { id: "overview", label: "Overview", icon: <LayoutDashboard size={15} /> },
-    { id: "chat", label: "Chat", icon: <MessageSquare size={15} /> },
-    { id: "tokens", label: "Tokens", icon: <TrendingUp size={15} /> },
-    { id: "config", label: "Config", icon: <Settings2 size={15} /> },
-    { id: "governance", label: "Governance", icon: <ShieldCheck size={15} /> },
-    { id: "automation", label: "Automation", icon: <Clock size={15} /> },
-    {
-      id: "approvals",
-      label: "Approvals",
-      icon: <AlertTriangle size={15} />,
-      badge: pendingApprovals,
-    },
-    { id: "knowledge", label: "Knowledge", icon: <BookOpen size={15} /> },
-    { id: "graph", label: "Graph", icon: <Activity size={15} /> },
-  ];
 
   return (
     <div
@@ -265,8 +282,6 @@ export default function AgentDetailPage() {
       <div
         className={`border border-neutral-200 rounded-xl overflow-hidden bg-background-100 ${activeTab === "chat" ? "flex flex-col flex-1 min-h-0" : ""}`}
       >
-        <Tabs tabs={tabs} active={activeTab} onChange={setActiveTab} />
-
         <div
           className={
             activeTab === "chat"

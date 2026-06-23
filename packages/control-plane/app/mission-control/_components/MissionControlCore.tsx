@@ -26,8 +26,12 @@ import { useAdminWS } from "@/hooks/useAdminWS";
 import { useRole } from "@/hooks/useRole";
 import type { MapMarker } from "@/components/map/WorldMap";
 import { formatCompactNumber, shortDid } from "@vaultysclaw/shared";
-import { AgentInfo } from "@/lib/contracts";
-import { workflowRunsClient, unwrap } from "@/lib/api/ts-rest/client";
+import { AgentInfo, NetworkResponse } from "@/lib/contracts";
+import {
+  networkClient,
+  workflowRunsClient,
+  unwrap,
+} from "@/lib/api/ts-rest/client";
 
 const WorldMap = dynamic(
   () => import("@/components/map/WorldMap").then((m) => m.WorldMap),
@@ -63,22 +67,6 @@ interface WorkflowStep {
   error: string | null;
   startedAt: string | null;
   completedAt: string | null;
-}
-
-interface NetworkTransport {
-  messagesIn: number;
-  messagesOut: number;
-  bytesIn: number;
-  bytesOut: number;
-  connectionsTotal: number;
-  activeAgents: number;
-}
-
-interface NetworkStats {
-  stats: {
-    ws: NetworkTransport;
-    peerjs: NetworkTransport;
-  } | null;
 }
 
 interface WorkflowRun {
@@ -201,7 +189,9 @@ export function MissionControlCore({ mode }: MissionControlCoreProps) {
   const [clock, setClock] = useState("");
   const [mapHeight, setMapHeight] = useState(200);
   const [selectedDetail, setSelectedDetail] = useState<DetailItem | null>(null);
-  const [networkStats, setNetworkStats] = useState<NetworkStats | null>(null);
+  const [networkStats, setNetworkStats] = useState<NetworkResponse | null>(
+    null
+  );
   const isFirstAgentUpdate = useRef(true);
   const [markers, setMarkers] = useState<MapMarker[]>([]);
   const [tokenStats, setTokenStats] = useState<TokenStats | null>(null);
@@ -412,7 +402,7 @@ export function MissionControlCore({ mode }: MissionControlCoreProps) {
           }),
         );
         setWorkflowRuns((data.runs ?? []) as unknown as WorkflowRun[]);
-      } catch {}
+      } catch { }
     };
     fetch_();
     const id = setInterval(fetch_, 8_000);
@@ -423,8 +413,7 @@ export function MissionControlCore({ mode }: MissionControlCoreProps) {
   useEffect(() => {
     const fetch_ = async () => {
       try {
-        const res = await fetch("/api/network");
-        if (res.ok) setNetworkStats(await res.json());
+        setNetworkStats(unwrap(await networkClient.get({ query: {} })));
       } catch { }
     };
     fetch_();

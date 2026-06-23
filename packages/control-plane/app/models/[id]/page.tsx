@@ -80,6 +80,26 @@ export default function ModelDetailPage() {
       actions: model
         ? [
             {
+              kind: "tabs" as const,
+              id: "section",
+              value: tab,
+              onChange: (v: string) => setTab(v as TabId),
+              options: TABS.map((t) => {
+                const Icon = t.icon;
+                const comingSoon = "comingSoon" in t && t.comingSoon;
+                return {
+                  value: t.id,
+                  label: t.label,
+                  icon: <Icon className="w-3.5 h-3.5" />,
+                  badge: comingSoon ? (
+                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-warning-100 text-warning-700 border border-warning-300 uppercase tracking-wide leading-none">
+                      Soon
+                    </span>
+                  ) : undefined,
+                };
+              }),
+            },
+            {
               kind: "badge",
               id: "status",
               label: model.status === "active" ? "Active" : "Inactive",
@@ -107,7 +127,7 @@ export default function ModelDetailPage() {
           ]
         : [],
     },
-    [model?.name, model?.description, model?.status, isGlobalAdmin, deleting]
+    [model?.name, model?.description, model?.status, isGlobalAdmin, deleting, tab]
   );
 
   if (loading)
@@ -119,33 +139,6 @@ export default function ModelDetailPage() {
 
   return (
     <div className="p-6 w-full max-w-7xl mx-auto space-y-5">
-      {/* Tabs */}
-      <div className="flex border-b border-neutral-200 gap-1">
-        {TABS.map((tab_) => {
-          const { id: tabId, label, icon: Icon } = tab_;
-          const comingSoon = "comingSoon" in tab_ && tab_.comingSoon;
-          return (
-            <button
-              key={tabId}
-              onClick={() => setTab(tabId)}
-              className={`flex items-center gap-1.5 px-3 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px ${
-                tab === tabId
-                  ? "border-primary-500 text-primary-700"
-                  : "border-transparent text-foreground-500 hover:text-foreground"
-              }`}
-            >
-              <Icon className="w-3.5 h-3.5" />
-              {label}
-              {comingSoon && (
-                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-warning-100 text-warning-700 border border-warning-300 uppercase tracking-wide leading-none">
-                  Soon
-                </span>
-              )}
-            </button>
-          );
-        })}
-      </div>
-
       {tab === "overview" && (
         <OverviewTab model={model} onSaved={load} isAdmin={isGlobalAdmin} />
       )}

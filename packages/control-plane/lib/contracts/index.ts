@@ -12,11 +12,8 @@ import {
 } from "./misc/misc.contract";
 import { litellmContract, modelsContract } from "./models/models.contract";
 import { graphContract } from "./graph/graph.contract";
-import {
-  healthContract,
-  mapContract,
-  networkContract,
-} from "./network.contract";
+import { healthContract, mapContract } from "./network.contract";
+import { networkContract } from "./network/network.contract";
 import { policiesContract } from "./policies/policies.contract";
 import { realmsContract } from "./realms/realms.contract";
 import {
@@ -72,6 +69,10 @@ export * from "./models/models.contract";
 export * from "./models/models.schemas";
 export * from "./models/models.types";
 export * from "./network.contract";
+export type * from "./network/network.contract";
+export * from "./network/network.contract";
+export * from "./network/network.schemas";
+export * from "./network/network.types";
 export type * from "./policies/policies.contract";
 export * from "./policies/policies.contract";
 export * from "./policies/policies.schemas";

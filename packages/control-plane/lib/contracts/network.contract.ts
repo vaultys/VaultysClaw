@@ -57,26 +57,6 @@ export const mapContract = c.router({
   },
 });
 
-export const graphContract = c.router({
-  get: {
-    method: "GET",
-    path: "/api/graph",
-    summary: "Retrieve the full relationship graph of nodes and edges",
-    query: z.object({
-      agent: z.string().optional(),
-      user: z.string().optional(),
-      realm: z.string().optional(),
-    }),
-    responses: {
-      200: c.type<{
-        nodes: Array<Record<string, unknown>>;
-        edges: Array<Record<string, unknown>>;
-      }>(),
-      ...commonErrorResponses,
-    },
-  },
-});
-
 export const healthContract = c.router({
   get: {
     method: "GET",

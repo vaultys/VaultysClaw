@@ -11,8 +11,8 @@ import {
   userStatusContract,
 } from "./misc/misc.contract";
 import { litellmContract, modelsContract } from "./models/models.contract";
+import { graphContract } from "./graph/graph.contract";
 import {
-  graphContract,
   healthContract,
   mapContract,
   networkContract,
@@ -55,6 +55,10 @@ export type * from "./governance/governance.contract";
 export * from "./governance/governance.contract";
 export * from "./governance/governance.schemas";
 export * from "./governance/governance.types";
+export type * from "./graph/graph.contract";
+export * from "./graph/graph.contract";
+export * from "./graph/graph.schemas";
+export * from "./graph/graph.types";
 export * from "./intents.contract";
 export type * from "./knowledge/knowledge.contract";
 export * from "./knowledge/knowledge.contract";

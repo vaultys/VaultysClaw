@@ -1,4 +1,3 @@
-import { NextRequest, NextResponse } from "next/server";
 import { getWSServer } from "@/lib/ws-server";
 import { prisma } from "@/db/client";
 import type {
@@ -9,8 +8,9 @@ import type {
   UserRole,
 } from "@vaultysclaw/shared";
 import { getAuthContext } from "@/lib/auth-utils";
-import { unauthorized, forbidden } from "@/lib/api/utils/api-utils";
-import { withError } from "@/lib/api/handlers/with-error";
+import { APIException } from "@/lib/api/utils/api-utils";
+import { graphContract } from "@/lib/contracts";
+import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 
 /**
  * GET /api/graph — return the full relationship graph (nodes + edges). Global admin only.
@@ -68,29 +68,34 @@ import { withError } from "@/lib/api/handlers/with-error";
  *       500:
  *         description: Failed to build graph.
  */
-export const GET = withError(async (req: NextRequest) => {
-  const auth = await getAuthContext(req);
-  if (!auth) return unauthorized();
+const handlers = createNextRoute(graphContract, {
+  // ── GET /api/graph?agent=&user=&realm= ────────────────────────────────────
+  get: async ({ query, request }) => {
+    const auth = await getAuthContext(request);
 
-  const { searchParams } = req.nextUrl;
-  const agentDid = searchParams.get("agent");
-  const userDid = searchParams.get("user");
-  const realmId = searchParams.get("realm");
+    const agentDid = query.agent ?? null;
+    const userDid = query.user ?? null;
+    const realmId = query.realm ?? null;
 
-  // Full graph is global-admin only; scoped views require matching access
-  if (!auth.isGlobalAdmin) {
-    if (agentDid) {
-      if (!(await auth.canAccessAgent(agentDid))) return forbidden();
-    } else if (realmId) {
-      if (!(await auth.canAccessRealm(realmId))) return forbidden();
-    } else {
-      return forbidden();
+    // Full graph is global-admin only; scoped views require matching access
+    if (!auth.isGlobalAdmin) {
+      if (agentDid) {
+        if (!(await auth.canAccessAgent(agentDid)))
+          throw new APIException("FORBIDDEN");
+      } else if (realmId) {
+        if (!(await auth.canAccessRealm(realmId)))
+          throw new APIException("FORBIDDEN");
+      } else {
+        throw new APIException("FORBIDDEN");
+      }
     }
-  }
 
-  const graph = await buildGraph({ agentDid, userDid, realmId });
-  return NextResponse.json(graph);
+    const graph = await buildGraph({ agentDid, userDid, realmId });
+    return { status: 200, body: graph };
+  },
 });
+
+export const GET = handlers.GET!;
 
 // ---------------------------------------------------------------------------
 

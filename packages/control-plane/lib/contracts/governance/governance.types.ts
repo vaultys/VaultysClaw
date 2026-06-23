@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { AuditQuerySchema } from "./governance.schemas";
+import type { PolicyResourceLimits } from "../policies/policies.types";
 
 // ── Query types
 export type AuditQuery = z.infer<typeof AuditQuerySchema>;
@@ -25,7 +26,7 @@ export interface GovernanceSummary {
     approved: number;
     rejected: number;
     pending: number;
-    approvalRate: number;
+    approvalRate: number | null;
   };
   policies: { active: number; expired: number };
   budgets: { agentsOverDailyBudget: number; agentsOverMonthlyBudget: number };
@@ -49,8 +50,61 @@ export interface AuditResponse {
   total: number;
 }
 
-/** A single audit entry with full details + certificate metadata. */
+/**
+ * A single audit entry expanded with its full payload and parsed details
+ * (GET /api/governance/audit/:id → `entry`). Activity entries omit the
+ * intent-only `intentSignature` field.
+ */
 export interface AuditEntryDetail {
-  entry: Record<string, unknown>;
-  certInfo: Record<string, unknown>;
+  id: string;
+  source: "activity" | "intent";
+  event: string;
+  agentDid: string | null;
+  agentName: string | null;
+  details: string | null;
+  detailsParsed: unknown;
+  status: string | null;
+  error: string | null;
+  timestamp: string;
+  params: unknown;
+  output: unknown;
+  sentAt: string;
+  completedAt: string | null;
+  durationMs: number | null;
+  intentSignature?: string | null;
+}
+
+/** Certificate + cryptographic state derived from an agent's stored cert. */
+export interface AuditCertInfo {
+  protocol: string | null;
+  state: number | null;
+  certTimestamp: number | null;
+  error: string | null;
+  pk1Did: string | null;
+  pk2Did: string | null;
+  pk1Bytes: string | null;
+  signatureVerified: boolean;
+  signedPayload: string | null;
+  capabilities: string[] | null;
+  resourceLimits: PolicyResourceLimits | null;
+  policyId: string | null;
+  policyExpiresAt: string | null;
+  rawMetadata: unknown;
+}
+
+/** Full response for GET /api/governance/audit/:id. */
+export interface AuditEntryDetailResponse {
+  entry: AuditEntryDetail;
+  certInfo: AuditCertInfo | null;
+}
+
+/** Structured payload recorded for `tool_execution` activity entries. */
+export interface ToolExecutionDetails {
+  intentId?: string;
+  conversationId?: string;
+  toolName?: string;
+  args?: Record<string, unknown>;
+  result?: unknown;
+  error?: string;
+  durationMs?: number;
 }

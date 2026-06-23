@@ -4,7 +4,7 @@ import { AuditQuerySchema, AuditEntryParamsSchema } from "./governance.schemas";
 import type {
   GovernanceSummary,
   AuditResponse,
-  AuditEntryDetail,
+  AuditEntryDetailResponse,
 } from "./governance.types";
 
 export const governanceContract = c.router({
@@ -35,7 +35,7 @@ export const governanceContract = c.router({
     pathParams: AuditEntryParamsSchema,
     summary: "Retrieve a single audit entry with full details and metadata",
     responses: {
-      200: c.type<AuditEntryDetail>(),
+      200: c.type<AuditEntryDetailResponse>(),
       ...commonErrorResponses,
     },
   },

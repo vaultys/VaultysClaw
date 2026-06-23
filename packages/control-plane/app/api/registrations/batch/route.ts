@@ -1,92 +1,39 @@
-import { NextRequest, NextResponse } from "next/server";
 import { getWSServer } from "@/lib/ws-server";
 import { getAuthContext } from "@/lib/auth-utils";
-import { withError } from "@/lib/api/handlers/with-error";
-import {
-  unauthorized,
-  forbidden,
-  malformed,
-  unavailable,
-} from "@/lib/api/utils/api-utils";
+import { APIException } from "@/lib/api/utils/api-utils";
+import { registrationsContract } from "@/lib/contracts";
+import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 
-/**
- * POST /api/registrations/batch
- * Reject multiple pending registrations at once. Global admin only.
- * Body: { ids: string[], reason?: string }
- */
-/**
- * @openapi
- * /api/registrations/batch:
- *   post:
- *     summary: Reject multiple pending registrations at once.
- *     tags: [Registrations]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               ids:
- *                 type: array
- *                 items:
- *                   type: string
- *               reason:
- *                 type: string
- *             required:
- *               - ids
- *     responses:
- *       200:
- *         description: Registrations processed successfully.
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 rejected:
- *                   type: array
- *                   items:
- *                     type: string
- *                 notFound:
- *                   type: array
- *                   items:
- *                     type: string
- *       400:
- *         $ref: '#/components/responses/BadRequest'
- *       401:
- *         $ref: '#/components/responses/Unauthorized'
- *       403:
- *         $ref: '#/components/responses/Forbidden'
- *       500:
- *         description: Failed to process batch rejection.
- */
-export const POST = withError(async (request: NextRequest) => {
-  const auth = await getAuthContext(request);
-  if (!auth) return unauthorized();
-  if (!auth.isGlobalAdmin) return forbidden();
+const handlers = createNextRoute(registrationsContract, {
+  // ── POST /api/registrations/batch — reject many at once ───────────────────
+  batchReject: async ({ body, request }) => {
+    const auth = await getAuthContext(request);
+    if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");
 
-  const body = await request.json().catch(() => ({}));
-  const ids: string[] = Array.isArray(body.ids) ? body.ids : [];
-  const reason: string = body.reason ?? "Rejected by admin";
+    const ids = body.ids;
+    const reason = body.reason ?? "Rejected by admin";
+    if (ids.length === 0) throw new APIException("MALFORMED", "No ids provided");
 
-  if (ids.length === 0) {
-    return malformed("No ids provided");
-  }
+    const wsServer = getWSServer();
+    if (!wsServer) {
+      throw new APIException("UNAVAILABLE", "WebSocket server not available");
+    }
 
-  const wsServer = getWSServer();
-  if (!wsServer) {
-    return unavailable("WebSocket server not available");
-  }
+    const results = await Promise.all(
+      ids.map(async (id) => ({
+        id,
+        ok: await wsServer.rejectRegistration(id, reason),
+      }))
+    );
 
-  const results = await Promise.all(
-    ids.map(async (id) => {
-      const ok = await wsServer.rejectRegistration(id, reason);
-      return { id, ok };
-    })
-  );
-
-  const rejected = results.filter((r) => r.ok).map((r) => r.id);
-  const notFound = results.filter((r) => !r.ok).map((r) => r.id);
-
-  return NextResponse.json({ rejected, notFound });
+    return {
+      status: 200,
+      body: {
+        rejected: results.filter((r) => r.ok).map((r) => r.id),
+        notFound: results.filter((r) => !r.ok).map((r) => r.id),
+      },
+    };
+  },
 });
+
+export const POST = handlers.POST!;

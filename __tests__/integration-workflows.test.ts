@@ -149,7 +149,7 @@ describe("Workflow Execution with Real Agents", () => {
         ],
       };
 
-      const workflowId = await WorkflowDAO.create("Sequential Workflow", workflow as any);
+      const workflowId = (await WorkflowDAO.create("Sequential Workflow", workflow as any)).id;
       const runId = await WorkflowDAO.startRun(workflowId);
 
       // Step 1: Send intent to analyzer
@@ -293,7 +293,7 @@ describe("Workflow Execution with Real Agents", () => {
         ],
       };
 
-      const workflowId = await WorkflowDAO.create("Parallel Workflow", workflow as any);
+      const workflowId = (await WorkflowDAO.create("Parallel Workflow", workflow as any)).id;
       const runId = await WorkflowDAO.startRun(workflowId);
 
       // Execute agent1
@@ -398,7 +398,7 @@ describe("Workflow Execution with Real Agents", () => {
         edges: [{ id: "fail-dep", source: agent1.id, target: agent2.id }],
       };
 
-      const workflowId = await WorkflowDAO.create("Error Workflow", workflow as any);
+      const workflowId = (await WorkflowDAO.create("Error Workflow", workflow as any)).id;
       const runId = await WorkflowDAO.startRun(workflowId);
 
       // Agent 1 fails
@@ -467,7 +467,7 @@ describe("Workflow Execution with Real Agents", () => {
         })),
       };
 
-      const workflowId = await WorkflowDAO.create("Complex Workflow", workflow as any);
+      const workflowId = (await WorkflowDAO.create("Complex Workflow", workflow as any)).id;
       const runId = await WorkflowDAO.startRun(workflowId);
 
       // Execute each agent in sequence
@@ -667,8 +667,8 @@ describe("Workflow Execution with Real Agents", () => {
         edges: [{ id: "e2", source: agents[2]!.id, target: agents[3]!.id }],
       };
 
-      const wf1Id = await WorkflowDAO.create("Concurrent WF 1", workflow1 as any);
-      const wf2Id = await WorkflowDAO.create("Concurrent WF 2", workflow2 as any);
+      const wf1Id = (await WorkflowDAO.create("Concurrent WF 1", workflow1 as any)).id;
+      const wf2Id = (await WorkflowDAO.create("Concurrent WF 2", workflow2 as any)).id;
 
       const run1Id = await WorkflowDAO.startRun(wf1Id);
       const run2Id = await WorkflowDAO.startRun(wf2Id);

@@ -221,7 +221,7 @@ describe("Contract Review & Approval Pipeline Workflow", () => {
         ],
       };
 
-      const workflowId = await WorkflowDAO.create("Contract Review Pipeline", workflow as any, undefined, testRealmId);
+      const workflowId = (await WorkflowDAO.create("Contract Review Pipeline", workflow as any, undefined, testRealmId)).id;
       const runId = await WorkflowDAO.startRun(workflowId);
 
       // Step 1: Document Analyzer extracts key terms
@@ -397,7 +397,7 @@ describe("Contract Review & Approval Pipeline Workflow", () => {
         edges: [],
       };
 
-      const workflowId = await WorkflowDAO.create("Token Budget Test", workflow as any, undefined, testRealmId);
+      const workflowId = (await WorkflowDAO.create("Token Budget Test", workflow as any, undefined, testRealmId)).id;
       const runId = await WorkflowDAO.startRun(workflowId);
 
       // Simulate document analysis (uses ~3000 tokens)
@@ -491,7 +491,7 @@ describe("Contract Review & Approval Pipeline Workflow", () => {
         ],
       };
 
-      const workflowId = await WorkflowDAO.create("High-Value Contract Review", workflow as any, undefined, testRealmId);
+      const workflowId = (await WorkflowDAO.create("High-Value Contract Review", workflow as any, undefined, testRealmId)).id;
       const runId = await WorkflowDAO.startRun(workflowId);
 
       const analyzerIntentPromise = documentAnalyzer.waitForIntent(5000);
@@ -550,7 +550,7 @@ describe("Contract Review & Approval Pipeline Workflow", () => {
         edges: [],
       };
 
-      const workflowId = await WorkflowDAO.create("Contract with Compliance Issues", workflow as any, undefined, testRealmId);
+      const workflowId = (await WorkflowDAO.create("Contract with Compliance Issues", workflow as any, undefined, testRealmId)).id;
       const runId = await WorkflowDAO.startRun(workflowId);
 
       const checkerIntentPromise = complianceChecker.waitForIntent(5000);
@@ -625,12 +625,14 @@ describe("Contract Review & Approval Pipeline Workflow", () => {
         edges: [{ id: "e1", source: "analyzer-sa", target: "checker-sa" }],
       };
 
-      const templateId = await WorkflowDAO.create(
-        "Service Agreement Template",
-        serviceAgreementWorkflow as any,
-        undefined,
-        testRealmId
-      );
+      const templateId = (
+        await WorkflowDAO.create(
+          "Service Agreement Template",
+          serviceAgreementWorkflow as any,
+          undefined,
+          testRealmId
+        )
+      ).id;
       expect(templateId).toBeDefined();
 
       // Verify template can be queried

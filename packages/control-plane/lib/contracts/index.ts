@@ -22,7 +22,7 @@ import { realmsContract } from "./realms/realms.contract";
 import {
   registrationsContract,
   toolApprovalsContract,
-} from "./registrations.contract";
+} from "./registrations/registrations.contract";
 import { serverContract } from "./server.contract";
 import {
   setupContract,
@@ -35,7 +35,7 @@ import {
   invitationsContract,
   meContract,
   usersContract,
-} from "./users.contract";
+} from "./users/users.contract";
 import {
   workflowApprovalsContract,
   workflowRunsContract,
@@ -80,7 +80,10 @@ export type * from "./realms/realms.contract";
 export * from "./realms/realms.contract";
 export * from "./realms/realms.schemas";
 export * from "./realms/realms.types";
-export * from "./registrations.contract";
+export type * from "./registrations/registrations.contract";
+export * from "./registrations/registrations.contract";
+export * from "./registrations/registrations.schemas";
+export * from "./registrations/registrations.types";
 export * from "./server.contract";
 export type * from "./settings/settings.contract";
 export * from "./settings/settings.contract";
@@ -91,7 +94,10 @@ export * from "./skills/skills.contract";
 export * from "./skills/skills.schemas";
 export * from "./skills/skills.types";
 export * from "./user-auth.contract";
-export * from "./users.contract";
+export type * from "./users/users.contract";
+export * from "./users/users.contract";
+export * from "./users/users.schemas";
+export * from "./users/users.types";
 export type * from "./well-known/well-known.contract";
 export * from "./well-known/well-known.contract";
 export * from "./well-known/well-known.schemas";

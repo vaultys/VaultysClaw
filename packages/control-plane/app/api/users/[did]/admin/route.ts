@@ -1,74 +1,30 @@
 /**
- * PATCH /api/users/[did]/admin
- * Promote or demote a user to/from admin. Owner-only.
- * The owner cannot demote themselves.
+ * PATCH /api/users/[did]/admin — promote or demote a user to/from admin.
+ * Owner only.
  */
 
-import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-config";
 import { UserDAO } from "@/db";
-import { forbidden, malformed } from "@/lib/api/utils/api-utils";
-import { withError } from "@/lib/api/handlers/with-error";
+import { APIException } from "@/lib/api/utils/api-utils";
+import { usersContract } from "@/lib/contracts";
+import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 
-/**
- * @openapi
- * /api/users/{did}/admin:
- *   patch:
- *     summary: Promote or demote a user to/from admin.
- *     tags: [Users]
- *     parameters:
- *       - in: path
- *         name: did
- *         required: true
- *         schema:
- *           type: string
- *         description: The decentralized identifier of the user.
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               isAdmin:
- *                 type: boolean
- *                 description: Whether the user should be an admin.
- *     responses:
- *       200:
- *         description: User admin status updated successfully.
- *       400:
- *         $ref: '#/components/responses/BadRequest'
- *       403:
- *         $ref: '#/components/responses/Forbidden'
- *       404:
- *         $ref: '#/components/responses/NotFound'
- */
-export const PATCH = withError(async (
-  req: NextRequest,
-  { params }: { params: Promise<{ did: string }> }
-) => {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.isOwner) {
-    return forbidden();
-  }
+const handlers = createNextRoute(usersContract, {
+  setAdmin: async ({ params, body }) => {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.isOwner) throw new APIException("FORBIDDEN");
 
-  const { did } = await params;
+    const user = await UserDAO.findByDid(params.did);
+    if (!user) throw new APIException("NOT_FOUND", "User not found");
 
-  const user = await UserDAO.findByDid(did);
-  if (!user) {
-    return NextResponse.json({ error: "User not found" }, { status: 404 });
-  }
+    if (user.isOwner) {
+      throw new APIException("FORBIDDEN", "Cannot change the owner's admin status");
+    }
 
-  if (user.isOwner) {
-    return forbidden("Cannot change the owner's admin status");
-  }
-
-  const body = (await req.json()) as { isAdmin: boolean };
-  if (typeof body.isAdmin !== "boolean") {
-    return malformed("isAdmin must be a boolean");
-  }
-
-  await UserDAO.update(user.id, { isAdmin: body.isAdmin });
-  return NextResponse.json({ ok: true });
+    await UserDAO.update(user.id, { isAdmin: body.isAdmin });
+    return { status: 200, body: undefined };
+  },
 });
+
+export const PATCH = handlers.PATCH!;

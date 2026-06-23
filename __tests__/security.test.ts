@@ -662,19 +662,19 @@ describe("PATCH /api/agents/[did] — capabilities", () => {
 describe("GET /api/realms", () => {
   it("returns 401 when unauthenticated", async () => {
     asUnauthenticated();
-    const res = await realmsGET();
+    const res = await realmsGET(req("http://localhost/api/realms") as never);
     expectStatus(res, 401);
   });
 
   it("succeeds for a global admin", async () => {
     asAdmin();
-    const res = await realmsGET();
+    const res = await realmsGET(req("http://localhost/api/realms") as never);
     expectStatus(res, 200);
   });
 
   it("succeeds for a member — returns only their realms", async () => {
     asMember();
-    const res = await realmsGET();
+    const res = await realmsGET(req("http://localhost/api/realms") as never);
     expectStatus(res, 200);
     const body = (res as { _body: { realms: { id: string }[] } })._body;
     const ids = body.realms.map((r) => r.id);
@@ -683,7 +683,7 @@ describe("GET /api/realms", () => {
 
   it("returns empty list for a stranger (no realms)", async () => {
     asStranger();
-    const res = await realmsGET();
+    const res = await realmsGET(req("http://localhost/api/realms") as never);
     expectStatus(res, 200);
     const body = (res as { _body: { realms: unknown[] } })._body;
     expect(body.realms).toHaveLength(0);
@@ -1201,25 +1201,33 @@ describe("DELETE /api/workflows/[id]", () => {
 describe("GET /api/registrations", () => {
   it("returns 401 when unauthenticated", async () => {
     asUnauthenticated();
-    const res = await registrationsGET();
+    const res = await registrationsGET(
+      req("http://localhost/api/registrations") as never
+    );
     expectStatus(res, 401);
   });
 
   it("returns 403 for a regular member", async () => {
     asMember();
-    const res = await registrationsGET();
+    const res = await registrationsGET(
+      req("http://localhost/api/registrations") as never
+    );
     expectStatus(res, 403);
   });
 
   it("returns 403 for a realm admin", async () => {
     asRealmAdmin();
-    const res = await registrationsGET();
+    const res = await registrationsGET(
+      req("http://localhost/api/registrations") as never
+    );
     expectStatus(res, 403);
   });
 
   it("is accessible to a global admin", async () => {
     asAdmin();
-    const res = await registrationsGET();
+    const res = await registrationsGET(
+      req("http://localhost/api/registrations") as never
+    );
     expect(status(res)).not.toBe(401);
     expect(status(res)).not.toBe(403);
   });

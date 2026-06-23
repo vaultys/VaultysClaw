@@ -1,18 +1,11 @@
-import { NextRequest, NextResponse } from "next/server";
-import type { AgentCapability } from "@vaultysclaw/shared";
 import { getAuthContext } from "@/lib/auth-utils";
-import { unauthorized, forbidden } from "@/lib/api/utils/api-utils";
+import { APIException } from "@/lib/api/utils/api-utils";
 import { PendingRegistrationDAO } from "@/db";
-import { withError } from "@/lib/api/handlers/with-error";
+import { registrationsContract, type CapabilityOption } from "@/lib/contracts";
+import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 
-/**
- * Available capabilities that the admin can assign to agents
- */
-const AVAILABLE_CAPABILITIES: {
-  id: AgentCapability;
-  label: string;
-  description: string;
-}[] = [
+/** Capabilities the admin can assign to agents at approval time. */
+const AVAILABLE_CAPABILITIES: CapabilityOption[] = [
   {
     id: "file_access",
     label: "File Access",
@@ -42,55 +35,18 @@ const AVAILABLE_CAPABILITIES: {
   },
 ];
 
-/**
- * GET /api/registrations
- * List all pending registrations + available capabilities. Global admin only.
- */
-/**
- * @openapi
- * /api/registrations:
- *   get:
- *     summary: List all pending registrations and available capabilities.
- *     tags: [Registrations]
- *     responses:
- *       200:
- *         description: A list of pending registrations and available capabilities.
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 registrations:
- *                   type: array
- *                   items:
- *                     type: object
- *                     additionalProperties: true
- *                 availableCapabilities:
- *                   type: array
- *                   items:
- *                     type: object
- *                     properties:
- *                       id:
- *                         type: string
- *                       label:
- *                         type: string
- *                       description:
- *                         type: string
- *       401:
- *         $ref: '#/components/responses/Unauthorized'
- *       403:
- *         $ref: '#/components/responses/Forbidden'
- *       500:
- *         description: Failed to fetch registrations.
- */
-export const GET = withError(async (request: NextRequest) => {
-  const auth = await getAuthContext(request);
-  if (!auth) return unauthorized();
-  if (!auth.isGlobalAdmin) return forbidden();
+const handlers = createNextRoute(registrationsContract, {
+  // ── GET /api/registrations — pending registrations + assignable caps ───────
+  list: async ({ request }) => {
+    const auth = await getAuthContext(request);
+    if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");
 
-  const registrations = await PendingRegistrationDAO.findAll();
-  return NextResponse.json({
-    registrations,
-    availableCapabilities: AVAILABLE_CAPABILITIES,
-  });
+    const registrations = await PendingRegistrationDAO.findAll();
+    return {
+      status: 200,
+      body: { registrations, availableCapabilities: AVAILABLE_CAPABILITIES },
+    };
+  },
 });
+
+export const GET = handlers.GET!;

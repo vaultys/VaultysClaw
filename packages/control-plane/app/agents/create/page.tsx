@@ -13,7 +13,12 @@ import {
   type Realm,
   type PendingReg,
 } from "@/components/agent/create/constants";
-import { policiesClient, unwrap } from "@/lib/api/ts-rest/client";
+import {
+  policiesClient,
+  registrationsClient,
+  unwrap,
+  ApiError,
+} from "@/lib/api/ts-rest/client";
 import { LaunchStep } from "@/components/agent/create/LaunchStep";
 import { WaitingStep } from "@/components/agent/create/WaitingStep";
 import { ApproveStep } from "@/components/agent/create/ApproveStep";
@@ -141,10 +146,8 @@ export default function CreateAgentPage() {
     // REST-fetch current pending registrations — the WS state may not have delivered them yet
     // (or they existed before the user clicked this button and were filtered by prevRegIds).
     try {
-      const res = await fetch("/api/registrations");
-      if (!res.ok) return;
-      const data = (await res.json()) as { registrations?: PendingReg[] };
-      const pending = (data.registrations ?? []).filter(
+      const data = unwrap(await registrationsClient.list());
+      const pending = (data.registrations as unknown as PendingReg[]).filter(
         (r) => r.status === "pending" && r.agentName === agentName
       );
       if (pending.length === 0) return;
@@ -170,21 +173,17 @@ export default function CreateAgentPage() {
     setApproving(true);
     setApproveError(null);
     try {
-      const res = await fetch(`/api/registrations/${pendingReg.id}/approve`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          capabilities: Array.from(selectedCaps),
-          realmIds: Array.from(selectedRealms),
-        }),
-      });
-      const data = (await res.json()) as {
-        success?: boolean;
-        agentDid?: string;
-        error?: string;
-      };
-      if (!res.ok || !data.success) {
-        setApproveError(data.error ?? "Approval failed");
+      const data = unwrap(
+        await registrationsClient.approve({
+          params: { id: pendingReg.id },
+          body: {
+            capabilities: Array.from(selectedCaps),
+            realmIds: Array.from(selectedRealms),
+          },
+        })
+      );
+      if (!data.success) {
+        setApproveError("Approval failed");
         return;
       }
 
@@ -229,8 +228,8 @@ export default function CreateAgentPage() {
 
       setAgentDid(newAgentDid);
       setStep("model");
-    } catch {
-      setApproveError("Network error");
+    } catch (err) {
+      setApproveError(err instanceof ApiError ? err.message : "Network error");
     } finally {
       setApproving(false);
     }
@@ -247,19 +246,15 @@ export default function CreateAgentPage() {
     setRejecting(true);
     setApproveError(null);
     try {
-      const res = await fetch(`/api/registrations/${pendingReg.id}/reject`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ reason: "Rejected by admin" }),
-      });
-      if (!res.ok) {
-        const data = (await res.json().catch(() => ({}))) as { error?: string };
-        setApproveError(data.error ?? "Rejection failed");
-        return;
-      }
+      unwrap(
+        await registrationsClient.reject({
+          params: { id: pendingReg.id },
+          body: { reason: "Rejected by admin" },
+        })
+      );
       router.back();
-    } catch {
-      setApproveError("Network error");
+    } catch (err) {
+      setApproveError(err instanceof ApiError ? err.message : "Network error");
     } finally {
       setRejecting(false);
     }

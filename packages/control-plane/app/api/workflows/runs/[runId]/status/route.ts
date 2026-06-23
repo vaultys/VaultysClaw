@@ -1,87 +1,36 @@
-import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
-import { unauthorized, forbidden, notFound } from "@/lib/api/utils/api-utils";
+import { APIException } from "@/lib/api/utils/api-utils";
 import { WorkflowDAO } from "@/db";
-import { withError } from "@/lib/api/handlers/with-error";
-
-type Params = { runId: string };
+import { workflowsContract } from "@/lib/contracts";
+import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 
 /**
- * GET /api/workflows/runs/[runId]/status
- * Get the status of a workflow run. Requires auth and realm membership.
+ * Route for GET /api/workflows/runs/:runId/status — current run status.
  */
-/**
- * @openapi
- * /api/workflows/runs/{runId}/status:
- *   get:
- *     summary: Get the status of a workflow run.
- *     tags: [Workflows]
- *     parameters:
- *       - name: runId
- *         in: path
- *         required: true
- *         description: The ID of the workflow run.
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: Successfully retrieved workflow run status.
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                 runId:
- *                   type: string
- *                 workflowId:
- *                   type: string
- *                 status:
- *                   type: string
- *                 startedAt:
- *                   type: string
- *                   format: date-time
- *                 completedAt:
- *                   type: string
- *                   format: date-time
- *                 results:
- *                   type: object
- *                   nullable: true
- *       401:
- *         $ref: '#/components/responses/Unauthorized'
- *       403:
- *         $ref: '#/components/responses/Forbidden'
- *       404:
- *         $ref: '#/components/responses/NotFound'
- *       500:
- *         description: Failed to fetch workflow run status.
- */
-export const GET = withError(async (
-  _request: NextRequest,
-  { params }: { params: Promise<Params> }
-) => {
-  const auth = await getAuthContext(_request);
-  if (!auth) return unauthorized();
+const handlers = createNextRoute(workflowsContract, {
+  runStatus: async ({ params, request }) => {
+    const auth = await getAuthContext(request);
 
-  const { runId } = await params;
+    const run = await WorkflowDAO.findRun(params.runId);
+    if (!run) throw new APIException("NOT_FOUND", "Workflow run not found");
 
-  const run = await WorkflowDAO.findRun(runId);
-  if (!run) {
-    return notFound("Workflow run not found");
-  }
+    const workflow = await WorkflowDAO.findById(run.workflowId);
+    if (workflow?.realmId && !(await auth.canAccessRealm(workflow.realmId)))
+      throw new APIException("FORBIDDEN");
 
-  const workflow = await WorkflowDAO.findById(run.workflowId);
-  if (workflow?.realmId && !(await auth.canAccessRealm(workflow.realmId)))
-    return forbidden();
-
-  return NextResponse.json({
-    success: true,
-    runId: run.id,
-    workflowId: run.workflowId,
-    status: run.status,
-    startedAt: run.startedAt,
-    completedAt: run.completedAt,
-    results: run.results ? run.results : null,
-  });
+    return {
+      status: 200,
+      body: {
+        success: true,
+        runId: run.id,
+        workflowId: run.workflowId,
+        status: run.status,
+        startedAt: run.startedAt,
+        completedAt: run.completedAt,
+        results: run.results ?? null,
+      },
+    };
+  },
 });
+
+export const GET = handlers.GET!;

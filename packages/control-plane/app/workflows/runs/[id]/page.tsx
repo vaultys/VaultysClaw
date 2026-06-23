@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   Activity,
@@ -13,7 +13,11 @@ import {
   ChevronUp,
   Bot,
   User,
+  GitBranch,
 } from "lucide-react";
+import { workflowRunsClient } from "@/lib/api/ts-rest/client";
+import { useToolbar } from "@/components/layout/ToolbarContext";
+import { useBreadcrumbs } from "@/components/layout/BreadcrumbContext";
 
 interface WorkflowRunStep {
   id: string;
@@ -196,8 +200,25 @@ function getStepPill(status: string) {
   }
 }
 
+function statusTone(
+  status: string
+): "success" | "neutral" | "warning" | "danger" {
+  switch (status) {
+    case "completed":
+      return "success";
+    case "failed":
+      return "danger";
+    case "rejected":
+    case "waiting_approval":
+      return "warning";
+    default:
+      return "neutral";
+  }
+}
+
 export default function WorkflowRunDetailPage() {
   const params = useParams();
+  const router = useRouter();
   const runId = params.id as string;
 
   const [history, setHistory] = useState<RunHistory | null>(null);
@@ -206,9 +227,10 @@ export default function WorkflowRunDetailPage() {
   const [expandedSteps, setExpandedSteps] = useState<Set<string>>(new Set());
 
   useEffect(() => {
-    fetch(`/api/workflow-runs/${runId}`)
-      .then(async (res) => {
-        if (!res.ok) {
+    workflowRunsClient
+      .getOne({ params: { runId } })
+      .then((res) => {
+        if (res.status !== 200) {
           setError(
             res.status === 404
               ? "Workflow run not found"
@@ -216,7 +238,7 @@ export default function WorkflowRunDetailPage() {
           );
           return;
         }
-        setHistory((await res.json()) as RunHistory);
+        setHistory(res.body as unknown as RunHistory);
       })
       .catch(() => setError("Failed to load workflow run"))
       .finally(() => setLoading(false));
@@ -254,6 +276,52 @@ export default function WorkflowRunDetailPage() {
       return at - bt;
     });
   };
+
+  const runWorkflowId = history?.run.workflowId;
+  const runWorkflowName = history?.workflow?.name;
+
+  useBreadcrumbs(
+    [
+      { label: "Workflows", href: "/workflows" },
+      ...(runWorkflowId
+        ? [{ label: runWorkflowName ?? "Workflow", href: `/workflows/${runWorkflowId}` }]
+        : []),
+      { label: `Run ${runId.slice(0, 8)}…` },
+    ],
+    [runWorkflowId, runWorkflowName, runId]
+  );
+
+  useToolbar(
+    {
+      title: runWorkflowName ?? "Workflow Run",
+      description: `Run ${runId.slice(0, 8)}…`,
+      actions: [
+        ...(history
+          ? [
+              {
+                kind: "badge" as const,
+                id: "status",
+                label: history.run.status.replace("_", " "),
+                tone: statusTone(history.run.status),
+              },
+            ]
+          : []),
+        ...(runWorkflowId
+          ? [
+              {
+                kind: "button" as const,
+                id: "view-workflow",
+                label: "View workflow",
+                variant: "primary" as const,
+                icon: <GitBranch className="w-3.5 h-3.5" />,
+                onClick: () => router.push(`/workflows/${runWorkflowId}`),
+              },
+            ]
+          : []),
+      ],
+    },
+    [runWorkflowId, runWorkflowName, runId, history?.run.status, router]
+  );
 
   if (loading) {
     return (
@@ -306,25 +374,13 @@ export default function WorkflowRunDetailPage() {
   return (
     <div className="min-h-screen bg-background">
       <div className="max-w-4xl mx-auto p-6 space-y-6">
-        {/* Header */}
+        {/* Run summary */}
         <div>
-          <Link
-            href="/workflows"
-            className="inline-flex items-center gap-2 text-primary-500 hover:text-primary-400 mb-4"
-          >
-            <ChevronLeft size={18} /> Back to Workflows
-          </Link>
-
           <div className="bg-background-100 rounded-xl border border-neutral-200 p-6">
-            <div className="flex items-start justify-between gap-4 mb-4">
-              <div>
-                <h1 className="text-2xl font-bold text-foreground mb-1">
-                  {workflow?.name ?? "Workflow Run"}
-                </h1>
-                <p className="text-foreground-500 font-mono text-xs">
-                  {run.id}
-                </p>
-              </div>
+            <div className="flex items-center justify-between gap-4 mb-4">
+              <p className="text-foreground-500 font-mono text-xs break-all">
+                {run.id}
+              </p>
               <div className={getStatusBadge(run.status)}>
                 {getStatusIcon(run.status)}
                 {run.status}

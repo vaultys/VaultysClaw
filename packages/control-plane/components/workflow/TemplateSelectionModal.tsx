@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { X, Copy } from "lucide-react";
+import { workflowsClient, unwrap } from "@/lib/api/ts-rest/client";
 
 interface Template {
   id: string;
@@ -35,13 +36,12 @@ export function TemplateSelectionModal({
   const fetchTemplates = async () => {
     try {
       setLoading(true);
-      const res = await fetch("/api/workflows/templates");
-      if (!res.ok) throw new Error("Failed to fetch templates");
-      const data = (await res.json()) as { templates: Template[] };
-      setTemplates(data.templates);
+      const data = unwrap(await workflowsClient.listTemplates({ query: {} }));
+      const templates = data.templates as unknown as Template[];
+      setTemplates(templates);
 
       // Extract unique categories
-      const cats = Array.from(new Set(data.templates.map((t) => t.category)));
+      const cats = Array.from(new Set(templates.map((t) => t.category)));
       setCategories(cats);
     } catch (error) {
       console.error("Failed to fetch templates:", error);

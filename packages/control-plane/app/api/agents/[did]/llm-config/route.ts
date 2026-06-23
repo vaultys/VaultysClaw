@@ -123,7 +123,9 @@ const handlers = createNextRoute(agentsContract, {
 
     // Registry model shortcut
     if (typeof body.registryModelId === "string") {
-      const entry = await ModelDAO.findById(body.registryModelId as string);
+      const entry = await ModelDAO.findByIdUnsafe(
+        body.registryModelId as string
+      );
       if (!entry)
         throw new APIException("NOT_FOUND", "Registry model not found");
       const config: LlmConfig = {

@@ -1,61 +1,37 @@
-import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
-import { unauthorized } from "@/lib/api/utils/api-utils";
 import { OrgSkillDAO } from "@/db";
-import { withError } from "@/lib/api/handlers/with-error";
+import { skillsContract } from "@/lib/contracts";
+import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 
-/**
- * GET /api/skills/library
- *
- * Returns the organisation's skill catalog.
- * Consumed by the BrowseLibraryModal in the skills page — the response is
- * mapped to the LibrarySkill shape expected by that component.
- */
-/**
- * @openapi
- * /api/skills/library:
- *   get:
- *     summary: Retrieve the organisation's skill catalog.
- *     tags: [Skills]
- *     responses:
- *       200:
- *         description: A list of skills in the organisation's catalog.
- *         content:
- *           application/json:
- *             schema:
- *               type: array
- *               items:
- *                 $ref: '#/components/schemas/LibrarySkill'
- *       401:
- *         $ref: '#/components/responses/Unauthorized'
- */
-export const GET = withError(async (request: NextRequest) => {
-  const auth = await getAuthContext(request);
-  if (!auth) return unauthorized();
+const handlers = createNextRoute(skillsContract, {
+  // ── GET /api/skills/library — the org catalog, mapped to LibrarySkill DTOs ─
+  library: async ({ request }) => {
+    await getAuthContext(request);
 
-  const skills = await OrgSkillDAO.findAll();
+    const skills = await OrgSkillDAO.findAll();
+    const payload = skills.map((s) => ({
+      id: s.id,
+      name: s.name,
+      description: s.description ?? "",
+      source: "built-in",
+      skillId: s.name,
+      installs: 0,
+      githubStars: 0,
+      repoUrl: "",
+      standalone: false,
+      icon: s.icon ?? null,
+      version: s.version,
+      content: s.content ?? null,
+      contentType: {
+        hasInstructions: Boolean(s.content),
+        hasScripts: false,
+        hasReferences: false,
+        hasAssets: false,
+      },
+    }));
 
-  // Map to the LibrarySkill interface used by the frontend modal
-  const payload = skills.map((s) => ({
-    id: s.id,
-    name: s.name,
-    description: s.description ?? "",
-    source: "built-in",
-    skillId: s.name,
-    installs: 0,
-    githubStars: 0,
-    repoUrl: "",
-    standalone: false,
-    icon: s.icon ?? null,
-    version: s.version,
-    content: s.content ?? null,
-    contentType: {
-      hasInstructions: Boolean(s.content),
-      hasScripts: false,
-      hasReferences: false,
-      hasAssets: false,
-    },
-  }));
-
-  return NextResponse.json(payload);
+    return { status: 200, body: payload };
+  },
 });
+
+export const GET = handlers.GET!;

@@ -1,33 +1,28 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   Plus,
   Trash2,
   ChevronRight,
-  Search,
   Play,
   GitBranch,
+  Upload,
 } from "lucide-react";
+import { useToolbar } from "@/components/layout/ToolbarContext";
+import { useBreadcrumbs } from "@/components/layout/BreadcrumbContext";
 import { useWorkflowStore } from "@/components/workflow/store";
 import { TemplateSelectionModal } from "@/components/workflow/TemplateSelectionModal";
-import { ImportExportButtons } from "@/components/workflow/ImportExportButtons";
 import { WorkflowRunModal } from "@/components/workflow/WorkflowRunModal";
+import { workflowsClient, unwrap } from "@/lib/api/ts-rest/client";
 import type { WorkflowDefinition } from "@/lib/workflow-types";
-
-interface WorkflowItem {
-  id: string;
-  name: string;
-  description: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
+import { Workflow } from "@prisma/client";
 
 export default function WorkflowsPage() {
   const router = useRouter();
-  const [workflows, setWorkflows] = useState<WorkflowItem[]>([]);
+  const [workflows, setWorkflows] = useState<Workflow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
@@ -40,17 +35,42 @@ export default function WorkflowsPage() {
   } | null>(null);
   const clearWorkflow = useWorkflowStore((s) => s.clearWorkflow);
   const setWorkflow = useWorkflowStore((s) => s.setWorkflow);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useBreadcrumbs([{ label: "Workflows" }], []);
 
   useEffect(() => {
     fetchWorkflows();
   }, []);
 
+  const handleImportFile = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    try {
+      const data = JSON.parse(await file.text());
+      const result = unwrap(
+        await workflowsClient.import({
+          body: {
+            name: data.name || file.name.replace(".json", ""),
+            description: data.description,
+            definition: data.definition,
+          },
+        })
+      );
+      setWorkflows((w) => [...w, result.workflow]);
+    } catch (err) {
+      alert("Failed to import workflow: " + String(err));
+    } finally {
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
   const fetchWorkflows = async () => {
     try {
       setLoading(true);
-      const res = await fetch("/api/workflows");
-      if (!res.ok) throw new Error("Failed to fetch workflows");
-      const data = (await res.json()) as { workflows: WorkflowItem[] };
+      const data = unwrap(await workflowsClient.list({ query: {} }));
       setWorkflows(data.workflows);
     } catch (err) {
       setError(String(err));
@@ -63,8 +83,7 @@ export default function WorkflowsPage() {
     e.preventDefault();
     if (!confirm("Delete this workflow?")) return;
     try {
-      const res = await fetch(`/api/workflows/${id}`, { method: "DELETE" });
-      if (!res.ok) throw new Error("Failed to delete workflow");
+      unwrap(await workflowsClient.remove({ params: { id } }));
       setWorkflows((w) => w.filter((wf) => wf.id !== id));
     } catch {
       alert("Failed to delete workflow");
@@ -73,13 +92,17 @@ export default function WorkflowsPage() {
 
   const handleSelectTemplate = async (templateId: string, realmId?: string) => {
     try {
-      const res = await fetch(`/api/workflows/templates/${templateId}`);
-      if (!res.ok) throw new Error("Failed to load template");
-      const data = (await res.json()) as {
-        template: { definition: any; name: string };
-      };
+      const data = unwrap(
+        await workflowsClient.getTemplate({ params: { templateId } })
+      );
+      const template = data.template as { definition: unknown; name: string };
       clearWorkflow();
-      setWorkflow("", data.template.name, "", data.template.definition);
+      setWorkflow(
+        "",
+        template.name,
+        "",
+        template.definition as WorkflowDefinition
+      );
       const params = new URLSearchParams({ fromTemplate: "1" });
       if (realmId) params.set("realm", realmId);
       router.push(`/workflows/new/edit?${params.toString()}`);
@@ -91,17 +114,13 @@ export default function WorkflowsPage() {
   const handleExecuteWorkflow = async (id: string, e: React.MouseEvent) => {
     e.preventDefault();
     try {
-      const res = await fetch(`/api/workflows/${id}`);
-      if (!res.ok) throw new Error("Failed to load workflow");
-      const data = (await res.json()) as {
-        workflow: {
-          id: string;
-          name: string;
-          description: string | null;
-          definition: WorkflowDefinition;
-        };
-      };
-      setExecutingWorkflow(data.workflow);
+      const data = unwrap(await workflowsClient.getOne({ params: { id } }));
+      setExecutingWorkflow({
+        id: data.workflow.id,
+        name: data.workflow.name,
+        description: data.workflow.description,
+        definition: data.workflow.definition as unknown as WorkflowDefinition,
+      });
     } catch {
       alert("Failed to load workflow");
     }
@@ -116,49 +135,48 @@ export default function WorkflowsPage() {
     );
   });
 
+  useToolbar(
+    {
+      title: "Workflows",
+      description: "Create and manage AI agent orchestration workflows",
+      search: {
+        value: search,
+        onChange: setSearch,
+        placeholder: "Search workflows…",
+      },
+      actions: [
+        {
+          kind: "button",
+          id: "import",
+          label: "Import",
+          icon: <Upload className="w-3.5 h-3.5" />,
+          onClick: () => fileInputRef.current?.click(),
+        },
+        {
+          kind: "button",
+          id: "from-template",
+          label: "From Template",
+          icon: <Plus className="w-3.5 h-3.5" />,
+          onClick: () => setShowTemplateModal(true),
+        },
+        {
+          kind: "button",
+          id: "new-workflow",
+          label: "New Workflow",
+          variant: "primary",
+          icon: <Plus className="w-3.5 h-3.5" />,
+          onClick: () => {
+            clearWorkflow();
+            router.push("/workflows/new/edit");
+          },
+        },
+      ],
+    },
+    [search, clearWorkflow, router]
+  );
+
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <div className="bg-background-100 border-b border-neutral-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex justify-between items-center gap-4 flex-wrap">
-            <div>
-              <h1 className="text-3xl font-bold text-foreground">Workflows</h1>
-              <p className="text-foreground-500 mt-1">
-                Create and manage AI agent orchestration workflows
-              </p>
-            </div>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setShowTemplateModal(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-secondary-600 text-white rounded-lg hover:bg-secondary-700 font-medium"
-              >
-                <Plus size={18} /> From Template
-              </button>
-              <Link
-                href="/workflows/new/edit"
-                onClick={clearWorkflow}
-                className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 font-medium"
-              >
-                <Plus size={18} /> New Workflow
-              </Link>
-            </div>
-          </div>
-
-          {/* Search */}
-          <div className="mt-4 relative max-w-md">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-foreground-400" />
-            <input
-              type="text"
-              placeholder="Search workflows…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 bg-background border border-neutral-200 rounded-lg text-sm text-foreground placeholder:text-foreground-400 focus:outline-none focus:ring-2 focus:ring-primary-500"
-            />
-          </div>
-        </div>
-      </div>
-
       {/* Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {loading && (
@@ -214,11 +232,15 @@ export default function WorkflowsPage() {
                       </p>
                     )}
                     <p className="text-xs text-foreground-400 mt-1.5">
-                      Updated {new Date(workflow.updatedAt).toLocaleDateString()}
+                      Updated{" "}
+                      {new Date(workflow.updatedAt).toLocaleDateString()}
                     </p>
                   </div>
 
-                  <div className="flex items-center gap-1 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+                  <div
+                    className="flex items-center gap-1 flex-shrink-0"
+                    onClick={(e) => e.stopPropagation()}
+                  >
                     <button
                       onClick={(e) => handleExecuteWorkflow(workflow.id, e)}
                       className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-success-600 hover:bg-success-50 rounded"
@@ -270,10 +292,15 @@ export default function WorkflowsPage() {
         />
       )}
 
-      {/* Import/Export */}
-      <div className="fixed bottom-6 right-6">
-        <ImportExportButtons onImportComplete={fetchWorkflows} />
-      </div>
+      {/* Hidden file input for the toolbar "Import" action */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".json"
+        onChange={handleImportFile}
+        className="hidden"
+        aria-label="Import workflow file"
+      />
     </div>
   );
 }

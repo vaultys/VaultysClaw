@@ -16,11 +16,13 @@ import { ConfirmModal } from "@/components/shared/ConfirmModal";
 import {
   knowledgeClient,
   policiesClient,
+  settingsClient,
   unwrap,
 } from "@/lib/api/ts-rest/client";
 import { KsSourceCard } from "./knowledge/KsSourceCard";
 import { KsAddSourceModal } from "./knowledge/KsAddSourceModal";
-import type { KnowledgeSource, KsRealmOption } from "./knowledge/types";
+import type { KsRealmOption } from "./knowledge/types";
+import { KnowledgeSource } from "@prisma/client";
 
 export function KnowledgeTab({
   did,
@@ -59,7 +61,7 @@ export function KnowledgeTab({
         fetch("/api/realms"),
       ]);
       const rlData = (await rlRes.json()) as { realms?: KsRealmOption[] };
-      setSources(unwrap(ksRes).sources as unknown as KnowledgeSource[]);
+      setSources(unwrap(ksRes).sources);
       setRealms(rlData.realms ?? []);
     } finally {
       setLoading(false);
@@ -71,12 +73,13 @@ export function KnowledgeTab({
   }, [load]);
 
   useEffect(() => {
-    fetch("/api/settings/docling")
-      .then((r) => r.json())
-      .then((d: { configured?: boolean; url?: string }) => {
+    settingsClient
+      .getDocling()
+      .then((res) => {
+        const d = unwrap(res);
         setDoclingConfigured(d.configured === true || Boolean(d.url));
       })
-      .catch(() => { });
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -154,8 +157,10 @@ export function KnowledgeTab({
             agentDid: did,
             capabilities: newCaps,
             resourceLimits:
-              (latestPolicy?.resourceLimits as Record<string, unknown> | null) ??
-              undefined,
+              (latestPolicy?.resourceLimits as Record<
+                string,
+                unknown
+              > | null) ?? undefined,
           },
         })
       );
@@ -224,10 +229,11 @@ export function KnowledgeTab({
                     ? "Docling configured — PDF/DOCX parsing enabled"
                     : "Docling not configured — PDF/DOCX parsing unavailable"
                 }
-                className={`inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full border font-medium ${doclingConfigured
-                  ? "bg-success-100 text-success-700 border-success-300"
-                  : "bg-warning-100 text-warning-700 border-warning-300"
-                  }`}
+                className={`inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full border font-medium ${
+                  doclingConfigured
+                    ? "bg-success-100 text-success-700 border-success-300"
+                    : "bg-warning-100 text-warning-700 border-warning-300"
+                }`}
               >
                 <FileType2 size={10} />
                 {doclingConfigured ? "Docling on" : "Docling off"}

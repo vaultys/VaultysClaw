@@ -23,7 +23,7 @@ export type ToolbarAction =
       label: string;
       icon?: ReactNode;
       onClick: () => void;
-      variant?: "primary" | "default" | "danger";
+      variant?: "primary" | "default" | "danger" | "success";
       disabled?: boolean;
     }
   | {
@@ -104,6 +104,13 @@ export interface ToolbarStepsConfig {
 export interface ToolbarConfig {
   /** Page title shown on the left of the toolbar. */
   title: string;
+  /**
+   * When set, the title becomes inline-editable: clicking it (or its pencil
+   * affordance) turns it into a text input. Receives the committed value.
+   */
+  onTitleChange?: (value: string) => void;
+  /** Placeholder shown while editing an empty title. */
+  titlePlaceholder?: string;
   /** Optional subtitle / description shown under the title. */
   description?: ReactNode;
   /** Optional advanced search bar rendered in the center of the toolbar. */

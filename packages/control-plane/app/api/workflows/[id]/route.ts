@@ -1,240 +1,81 @@
-import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
-import {
-  unauthorized,
-  forbidden,
-  notFound,
-  malformed,
-} from "@/lib/api/utils/api-utils";
+import { APIException } from "@/lib/api/utils/api-utils";
 import { WorkflowDAO } from "@/db";
-import type { WorkflowDefinition } from "@/lib/workflow-executor";
 import { Prisma } from "@prisma/client";
-import { withError } from "@/lib/api/handlers/with-error";
-
-type Params = { id: string };
+import { workflowsContract } from "@/lib/contracts";
+import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 
 /**
- * GET /api/workflows/[id]
- * Fetch a single workflow. Requires auth and realm membership.
+ * Routes for /api/workflows/:id — the item-level slice of `workflowsContract`.
  */
-/**
- * @openapi
- * /api/workflows/{id}:
- *   get:
- *     summary: Fetch a single workflow by ID.
- *     tags: [Workflows]
- *     parameters:
- *       - name: id
- *         in: path
- *         required: true
- *         description: The ID of the workflow to fetch.
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: Successfully fetched the workflow.
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                 workflow:
- *                   $ref: '#/components/schemas/Workflow'
- *       401:
- *         $ref: '#/components/responses/Unauthorized'
- *       403:
- *         $ref: '#/components/responses/Forbidden'
- *       404:
- *         $ref: '#/components/responses/NotFound'
- *       500:
- *         description: Failed to fetch workflow.
- */
-export const GET = withError(async (
-  _request: NextRequest,
-  { params }: { params: Promise<Params> }
-) => {
-  const auth = await getAuthContext(_request);
-  if (!auth) return unauthorized();
+const handlers = createNextRoute(workflowsContract, {
+  // ── GET /api/workflows/:id ──────────────────────────────────────────────
+  getOne: async ({ params, request }) => {
+    const auth = await getAuthContext(request);
 
-  const { id } = await params;
-  const workflow = await WorkflowDAO.findById(id);
+    const workflow = await WorkflowDAO.findById(params.id);
+    if (!workflow) throw new APIException("NOT_FOUND", "Workflow not found");
 
-  if (!workflow) {
-    return notFound("Workflow not found");
-  }
+    if (workflow.realmId && !(await auth.canAccessRealm(workflow.realmId)))
+      throw new APIException("FORBIDDEN");
 
-  if (workflow.realmId && !(await auth.canAccessRealm(workflow.realmId)))
-    return forbidden();
+    return {
+      status: 200,
+      body: {
+        workflow,
+      },
+    };
+  },
 
-  return NextResponse.json({
-    success: true,
-    workflow: {
-      id: workflow.id,
-      name: workflow.name,
-      description: workflow.description,
-      definition: workflow.definition,
-      realmId: workflow.realmId,
-      createdBy: workflow.createdBy,
-      createdAt: workflow.createdAt,
-      updatedAt: workflow.updatedAt,
-    },
-  });
+  // ── PATCH /api/workflows/:id ────────────────────────────────────────────
+  update: async ({ params, body, request }) => {
+    const auth = await getAuthContext(request);
+
+    const workflow = await WorkflowDAO.findById(params.id);
+    if (!workflow) throw new APIException("NOT_FOUND", "Workflow not found");
+
+    if (workflow.realmId && !(await auth.canAdminRealm(workflow.realmId)))
+      throw new APIException("FORBIDDEN");
+    if (!workflow.realmId && !auth.isGlobalAdmin)
+      throw new APIException("FORBIDDEN");
+
+    const { name, definition, description, realmId } = body;
+
+    if (!name && !definition && !description && !realmId) {
+      throw new APIException(
+        "MALFORMED",
+        "At least one of name, definition, description, or realmId is required"
+      );
+    }
+
+    const updatedWorkflow = await WorkflowDAO.update(params.id, {
+      name,
+      definition: definition as unknown as Prisma.InputJsonValue,
+      description,
+      realmId,
+    });
+
+    return { status: 200, body: { workflow: updatedWorkflow } };
+  },
+
+  // ── DELETE /api/workflows/:id ───────────────────────────────────────────
+  remove: async ({ params, request }) => {
+    const auth = await getAuthContext(request);
+
+    const workflow = await WorkflowDAO.findById(params.id);
+    if (!workflow) throw new APIException("NOT_FOUND", "Workflow not found");
+
+    if (workflow.realmId && !(await auth.canAdminRealm(workflow.realmId)))
+      throw new APIException("FORBIDDEN");
+    if (!workflow.realmId && !auth.isGlobalAdmin)
+      throw new APIException("FORBIDDEN");
+
+    const deletedWorkflow = await WorkflowDAO.delete(params.id);
+
+    return { status: 200, body: { workflow: deletedWorkflow } };
+  },
 });
 
-/**
- * PATCH /api/workflows/[id]
- * Update a workflow. Requires realm admin or global admin.
- */
-/**
- * @openapi
- * /api/workflows/{id}:
- *   patch:
- *     summary: Update a workflow.
- *     tags: [Workflows]
- *     parameters:
- *       - name: id
- *         in: path
- *         required: true
- *         description: The ID of the workflow to update.
- *         schema:
- *           type: string
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               name:
- *                 type: string
- *               definition:
- *                 $ref: '#/components/schemas/WorkflowDefinition'
- *               description:
- *                 type: string
- *               realmId:
- *                 type: string
- *     responses:
- *       200:
- *         description: Workflow updated successfully.
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                 id:
- *                   type: string
- *       400:
- *         $ref: '#/components/responses/BadRequest'
- *       401:
- *         $ref: '#/components/responses/Unauthorized'
- *       403:
- *         $ref: '#/components/responses/Forbidden'
- *       404:
- *         $ref: '#/components/responses/NotFound'
- *       500:
- *         description: Failed to update workflow.
- */
-export const PATCH = withError(async (
-  request: NextRequest,
-  { params }: { params: Promise<Params> }
-) => {
-  const auth = await getAuthContext(request);
-  if (!auth) return unauthorized();
-
-  const { id } = await params;
-  const workflow = await WorkflowDAO.findById(id);
-  if (!workflow) {
-    return notFound("Workflow not found");
-  }
-
-  if (workflow.realmId && !(await auth.canAdminRealm(workflow.realmId)))
-    return forbidden();
-  if (!workflow.realmId && !auth.isGlobalAdmin) return forbidden();
-
-  const body = await request.json();
-  const { name, definition, description, realmId } = body as {
-    name?: string;
-    definition?: WorkflowDefinition;
-    description?: string;
-    realmId?: string;
-  };
-
-  if (!name && !definition && !description && !realmId) {
-    return malformed(
-      "At least one of name, definition, description, or realmId is required"
-    );
-  }
-
-  await WorkflowDAO.update(id, {
-    name,
-    definition: definition as unknown as Prisma.InputJsonValue,
-    description,
-    realmId,
-  });
-
-  return NextResponse.json({ success: true, id });
-});
-
-/**
- * DELETE /api/workflows/[id]
- * Delete a workflow. Requires realm admin or global admin.
- */
-/**
- * @openapi
- * /api/workflows/{id}:
- *   delete:
- *     summary: Delete a workflow
- *     tags: [Workflows]
- *     parameters:
- *       - name: id
- *         in: path
- *         required: true
- *         description: The ID of the workflow to delete
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: Workflow successfully deleted
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                 id:
- *                   type: string
- *       401:
- *         $ref: '#/components/responses/Unauthorized'
- *       403:
- *         $ref: '#/components/responses/Forbidden'
- *       404:
- *         $ref: '#/components/responses/NotFound'
- *       500:
- *         description: Failed to delete workflow
- */
-export const DELETE = withError(async (
-  _request: NextRequest,
-  { params }: { params: Promise<Params> }
-) => {
-  const auth = await getAuthContext(_request);
-  if (!auth) return unauthorized();
-
-  const { id } = await params;
-  const workflow = await WorkflowDAO.findById(id);
-  if (!workflow) {
-    return notFound("Workflow not found");
-  }
-
-  if (workflow.realmId && !(await auth.canAdminRealm(workflow.realmId)))
-    return forbidden();
-  if (!workflow.realmId && !auth.isGlobalAdmin) return forbidden();
-
-  await WorkflowDAO.delete(id);
-
-  return NextResponse.json({ success: true, id });
-});
+export const GET = handlers.GET!;
+export const PATCH = handlers.PATCH!;
+export const DELETE = handlers.DELETE!;

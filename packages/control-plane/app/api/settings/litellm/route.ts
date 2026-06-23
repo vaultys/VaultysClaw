@@ -1,13 +1,13 @@
-import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
-import { unauthorized, forbidden, malformed } from "@/lib/api/utils/api-utils";
+import { APIException } from "@/lib/api/utils/api-utils";
 import { getLiteLLMSettings, setLiteLLMSettings } from "@/db/settings.dao";
 import {
   isLiteLLMConfigured,
   getLiteLLMBaseUrl,
   listModels,
 } from "@/lib/litellm-client";
-import { withError } from "@/lib/api/handlers/with-error";
+import { settingsContract } from "@/lib/contracts";
+import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 import {
   reconnectLiteLLMService,
   disconnectLiteLLMService,
@@ -35,236 +35,90 @@ async function litellmFetch<T>(path: string): Promise<T | null> {
   }
 }
 
-/**
- * GET /api/settings/litellm
- * Returns configuration status + live stats from the LiteLLM proxy.
- */
-/**
- * @openapi
- * /api/settings/litellm:
- *   get:
- *     summary: Retrieve LiteLLM configuration status and live stats.
- *     tags: [Settings]
- *     responses:
- *       200:
- *         description: Successful response with configuration status and stats.
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 configured:
- *                   type: boolean
- *                 healthy:
- *                   type: boolean
- *                 status:
- *                   type: string
- *                 baseUrl:
- *                   type: string
- *                   nullable: true
- *                 masterKeySet:
- *                   type: boolean
- *                 source:
- *                   type: string
- *                 lastError:
- *                   type: string
- *                   nullable: true
- *                 checkedAt:
- *                   type: string
- *                   format: date-time
- *                 stats:
- *                   type: object
- *                   properties:
- *                     modelCount:
- *                       type: integer
- *                     totalSpend:
- *                       type: number
- *                       nullable: true
- *                     keyCount:
- *                       type: integer
- *                       nullable: true
- *       401:
- *         $ref: '#/components/responses/Unauthorized'
- *       403:
- *         $ref: '#/components/responses/Forbidden'
- */
-export const GET = withError(async (req: NextRequest) => {
-  const auth = await getAuthContext(req);
-  if (!auth) return unauthorized();
-  if (!auth.isGlobalAdmin) return forbidden();
+const handlers = createNextRoute(settingsContract, {
+  // ── GET /api/settings/litellm ─────────────────────────────────────────────
+  getLitellm: async ({ request }) => {
+    const auth = await getAuthContext(request);
+    if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");
 
-  const { baseUrl, masterKey } = await getLiteLLMSettings().catch(() => ({
-    baseUrl: null,
-    masterKey: null,
-  }));
-  const svcState = getLiteLLMServiceState();
+    const { baseUrl, masterKey } = await getLiteLLMSettings().catch(() => ({
+      baseUrl: null,
+      masterKey: null,
+    }));
+    const svcState = getLiteLLMServiceState();
 
-  const effectiveBaseUrl = baseUrl ?? process.env.LITELLM_BASE_URL ?? null;
-  const effectiveMasterKey =
-    masterKey ?? process.env.LITELLM_MASTER_KEY ?? null;
-  const configured = Boolean(effectiveBaseUrl && effectiveMasterKey);
-  const healthy = svcState.status === "connected";
+    const effectiveBaseUrl = baseUrl ?? process.env.LITELLM_BASE_URL ?? null;
+    const effectiveMasterKey =
+      masterKey ?? process.env.LITELLM_MASTER_KEY ?? null;
+    const configured = Boolean(effectiveBaseUrl && effectiveMasterKey);
+    const healthy = svcState.status === "connected";
 
-  let modelCount = 0;
-  let totalSpend: number | null = null;
-  let keyCount: number | null = null;
+    let modelCount = 0;
+    let totalSpend: number | null = null;
+    let keyCount: number | null = null;
 
-  if (healthy) {
-    const models = await listModels().catch(() => []);
-    modelCount = models.length;
-    const spendData = await litellmFetch<{ spend: number }>("/global/spend");
-    if (spendData?.spend != null) totalSpend = spendData.spend;
-    const keyData = await litellmFetch<{ keys: unknown[] }>(
-      "/key/list?include_team_keys=true"
-    );
-    if (Array.isArray(keyData?.keys)) keyCount = keyData!.keys.length;
-  }
+    if (healthy) {
+      const models = await listModels().catch(() => []);
+      modelCount = models.length;
+      const spendData = await litellmFetch<{ spend: number }>("/global/spend");
+      if (spendData?.spend != null) totalSpend = spendData.spend;
+      const keyData = await litellmFetch<{ keys: unknown[] }>(
+        "/key/list?include_team_keys=true"
+      );
+      if (Array.isArray(keyData?.keys)) keyCount = keyData!.keys.length;
+    }
 
-  return NextResponse.json({
-    configured,
-    healthy,
-    status: svcState.status,
-    baseUrl: effectiveBaseUrl,
-    masterKeySet: Boolean(effectiveMasterKey),
-    source: baseUrl ? "db" : "env",
-    lastError: svcState.lastError,
-    checkedAt: svcState.checkedAt,
-    stats: { modelCount, totalSpend, keyCount },
-  });
+    return {
+      status: 200,
+      body: {
+        configured,
+        healthy,
+        status: svcState.status,
+        baseUrl: effectiveBaseUrl,
+        masterKeySet: Boolean(effectiveMasterKey),
+        source: baseUrl ? ("db" as const) : ("env" as const),
+        lastError: svcState.lastError,
+        checkedAt: svcState.checkedAt?.toISOString() ?? null,
+        stats: { modelCount, totalSpend, keyCount },
+      },
+    };
+  },
+
+  // ── PUT /api/settings/litellm ─────────────────────────────────────────────
+  saveLitellm: async ({ body, request }) => {
+    const auth = await getAuthContext(request);
+    if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");
+
+    await setLiteLLMSettings({
+      baseUrl: body.baseUrl,
+      masterKey: body.masterKey ?? undefined,
+    });
+
+    const { ok, status, baseUrl } = await reconnectLiteLLMService();
+    return { status: 200, body: { ok, status, baseUrl } };
+  },
+
+  // ── POST /api/settings/litellm — reconnect without changing config ────────
+  reconnectLitellm: async ({ request }) => {
+    const auth = await getAuthContext(request);
+    if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");
+
+    const { ok, status, baseUrl } = await reconnectLiteLLMService();
+    return { status: 200, body: { ok, status, baseUrl } };
+  },
+
+  // ── DELETE /api/settings/litellm ──────────────────────────────────────────
+  disconnectLitellm: async ({ request }) => {
+    const auth = await getAuthContext(request);
+    if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");
+
+    await setLiteLLMSettings({ baseUrl: null, masterKey: null });
+    disconnectLiteLLMService();
+    return { status: 200, body: { ok: true } };
+  },
 });
 
-/**
- * PUT /api/settings/litellm
- * Save LiteLLM connection settings and reconnect the service.
- */
-/**
- * @openapi
- * /api/settings/litellm:
- *   put:
- *     summary: Save LiteLLM connection settings and reconnect the service.
- *     tags: [Settings]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               baseUrl:
- *                 type: string
- *               masterKey:
- *                 type: string
- *                 nullable: true
- *             required:
- *               - baseUrl
- *     responses:
- *       200:
- *         description: Successful update and reconnection of the LiteLLM service.
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 ok:
- *                   type: boolean
- *                 status:
- *                   type: string
- *                 baseUrl:
- *                   type: string
- *                   nullable: true
- *       400:
- *         $ref: '#/components/responses/BadRequest'
- *       401:
- *         $ref: '#/components/responses/Unauthorized'
- *       403:
- *         $ref: '#/components/responses/Forbidden'
- */
-export const PUT = withError(async (req: NextRequest) => {
-  const auth = await getAuthContext(req);
-  if (!auth) return unauthorized();
-  if (!auth.isGlobalAdmin) return forbidden();
-
-  const body = (await req.json()) as { baseUrl?: string; masterKey?: string };
-  if (!body.baseUrl) return malformed("baseUrl is required");
-
-  await setLiteLLMSettings({
-    baseUrl: body.baseUrl,
-    masterKey: body.masterKey ?? undefined,
-  });
-
-  const { ok, status, baseUrl } = await reconnectLiteLLMService();
-  return NextResponse.json({ ok, status, baseUrl });
-});
-
-/**
- * POST /api/settings/litellm — reconnect without changing stored config
- */
-/**
- * @openapi
- * /api/settings/litellm:
- *   post:
- *     summary: Reconnect LiteLLM service without changing stored configuration.
- *     tags: [Settings]
- *     responses:
- *       200:
- *         description: Successful reconnection of the LiteLLM service.
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 ok:
- *                   type: boolean
- *                 status:
- *                   type: string
- *                 baseUrl:
- *                   type: string
- *                   nullable: true
- *       401:
- *         $ref: '#/components/responses/Unauthorized'
- *       403:
- *         $ref: '#/components/responses/Forbidden'
- */
-export const POST = withError(async (req: NextRequest) => {
-  const auth = await getAuthContext(req);
-  if (!auth) return unauthorized();
-  if (!auth.isGlobalAdmin) return forbidden();
-
-  const { ok, status, baseUrl } = await reconnectLiteLLMService();
-  return NextResponse.json({ ok, status, baseUrl });
-});
-
-/**
- * DELETE /api/settings/litellm
- * Disconnect and remove stored settings (falls back to env vars on next reconnect).
- */
-/**
- * @openapi
- * /api/settings/litellm:
- *   delete:
- *     summary: Disconnect and remove stored LiteLLM settings.
- *     tags: [Settings]
- *     responses:
- *       200:
- *         description: Successful disconnection and removal of settings.
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 ok:
- *                   type: boolean
- *       401:
- *         $ref: '#/components/responses/Unauthorized'
- *       403:
- *         $ref: '#/components/responses/Forbidden'
- */
-export const DELETE = withError(async (req: NextRequest) => {
-  const auth = await getAuthContext(req);
-  if (!auth) return unauthorized();
-  if (!auth.isGlobalAdmin) return forbidden();
-
-  await setLiteLLMSettings({ baseUrl: null, masterKey: null });
-  disconnectLiteLLMService();
-  return NextResponse.json({ ok: true });
-});
+export const GET = handlers.GET!;
+export const PUT = handlers.PUT!;
+export const POST = handlers.POST!;
+export const DELETE = handlers.DELETE!;

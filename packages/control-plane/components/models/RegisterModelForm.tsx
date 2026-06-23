@@ -3,13 +3,16 @@
 import { useState, useEffect, useCallback } from "react";
 import { Check, Cpu, RefreshCw, CheckCircle2, XCircle, X } from "lucide-react";
 import { ApiError, modelsClient, unwrap } from "@/lib/api/ts-rest/client";
-import type { ModelWithRealmAccess } from "@/lib/contracts";
+import type { SafeModel } from "@/lib/contracts";
 
 const PROVIDERS = [
   {
     value: "openai-compatible",
     label: "OpenAI-compatible / vLLM",
-    defaults: { baseUrl: "http://localhost:8000", modelId: "meta-llama/Llama-3-8B-Instruct" },
+    defaults: {
+      baseUrl: "http://localhost:8000",
+      modelId: "meta-llama/Llama-3-8B-Instruct",
+    },
   },
   {
     value: "openai",
@@ -19,12 +22,18 @@ const PROVIDERS = [
   {
     value: "anthropic",
     label: "Anthropic",
-    defaults: { baseUrl: "https://api.anthropic.com", modelId: "claude-opus-4-7" },
+    defaults: {
+      baseUrl: "https://api.anthropic.com",
+      modelId: "claude-opus-4-7",
+    },
   },
   {
     value: "google",
     label: "Google",
-    defaults: { baseUrl: "https://generativelanguage.googleapis.com/v1beta", modelId: "gemini-2.0-flash" },
+    defaults: {
+      baseUrl: "https://generativelanguage.googleapis.com/v1beta",
+      modelId: "gemini-2.0-flash",
+    },
   },
   {
     value: "ollama",
@@ -33,7 +42,7 @@ const PROVIDERS = [
   },
 ];
 
-type ExistingModel = ModelWithRealmAccess;
+type ExistingModel = SafeModel;
 
 interface RegisterModelFormProps {
   /** Called after a model is successfully registered */
@@ -72,7 +81,9 @@ export function RegisterModelForm({
   // Form state
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
-  const [formMsg, setFormMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [formMsg, setFormMsg] = useState<{ ok: boolean; text: string } | null>(
+    null
+  );
   const [availableModels, setAvailableModels] = useState<string[]>([]);
   const [showModelList, setShowModelList] = useState(false);
 
@@ -113,17 +124,19 @@ export function RegisterModelForm({
     setAvailableModels([]);
     setShowModelList(false);
     try {
-      const res = await fetch("/api/models/test", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ provider, modelId, baseUrl, apiKey: apiKey || undefined }),
-      });
-      const data = (await res.json()) as { ok?: boolean; error?: string; models?: string[] };
+      const data = unwrap(
+        await modelsClient.test({
+          body: { provider, modelId, baseUrl, apiKey: apiKey || undefined },
+        })
+      );
       if (data.ok) {
-        if (data.models && data.models.length > 0) {
+        if (data.models.length > 0) {
           setAvailableModels(data.models);
           setShowModelList(true);
-          setFormMsg({ ok: true, text: `Connection successful — ${data.models.length} model${data.models.length !== 1 ? "s" : ""} found` });
+          setFormMsg({
+            ok: true,
+            text: `Connection successful — ${data.models.length} model${data.models.length !== 1 ? "s" : ""} found`,
+          });
         } else {
           setFormMsg({ ok: true, text: "Connection successful" });
           setTimeout(() => setFormMsg(null), 2500);
@@ -140,9 +153,18 @@ export function RegisterModelForm({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) { setFormMsg({ ok: false, text: "Name is required" }); return; }
-    if (!modelId.trim()) { setFormMsg({ ok: false, text: "Model ID is required" }); return; }
-    if (!baseUrl.trim()) { setFormMsg({ ok: false, text: "Base URL is required" }); return; }
+    if (!name.trim()) {
+      setFormMsg({ ok: false, text: "Name is required" });
+      return;
+    }
+    if (!modelId.trim()) {
+      setFormMsg({ ok: false, text: "Model ID is required" });
+      return;
+    }
+    if (!baseUrl.trim()) {
+      setFormMsg({ ok: false, text: "Base URL is required" });
+      return;
+    }
 
     setSaving(true);
     setFormMsg(null);
@@ -172,10 +194,7 @@ export function RegisterModelForm({
     } catch (err) {
       setFormMsg({
         ok: false,
-        text:
-          err instanceof ApiError
-            ? err.message
-            : "Network error",
+        text: err instanceof ApiError ? err.message : "Network error",
       });
     } finally {
       setSaving(false);
@@ -185,17 +204,19 @@ export function RegisterModelForm({
   const testExisting = async (id: string) => {
     setTestResults((r) => ({ ...r, [id]: "testing" }));
     try {
-      const res = await fetch(`/api/models/${id}/validate`, { method: "POST" });
-      const data = (await res.json()) as { ok: boolean; error?: string };
+      const data = unwrap(await modelsClient.validate({ params: { id } }));
       setTestResults((r) => ({ ...r, [id]: data }));
     } catch {
-      setTestResults((r) => ({ ...r, [id]: { ok: false, error: "Network error" } }));
+      setTestResults((r) => ({
+        ...r,
+        [id]: { ok: false, error: "Network error" },
+      }));
     }
   };
 
   const deleteExisting = async (id: string) => {
     if (!confirm("Remove this model?")) return;
-    await fetch(`/api/models/${id}`, { method: "DELETE" });
+    unwrap(await modelsClient.remove({ params: { id } }));
     await loadExisting();
   };
 
@@ -221,31 +242,45 @@ export function RegisterModelForm({
                   className="flex items-center gap-3 px-4 py-3 bg-background-200 border border-neutral-200 rounded-xl"
                 >
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-foreground truncate">{m.name}</p>
-                    <code className="text-xs text-foreground-500 font-mono truncate block">{m.modelId}</code>
+                    <p className="text-sm font-medium text-foreground truncate">
+                      {m.name}
+                    </p>
+                    <code className="text-xs text-foreground-500 font-mono truncate block">
+                      {m.modelId}
+                    </code>
                   </div>
-                  <span className={`text-xs px-2 py-0.5 rounded-full border font-medium shrink-0 ${
-                    m.provider === "openai" ? "bg-success-100 text-success-700 border-success-300"
-                    : m.provider === "openai-compatible" ? "bg-primary-100 text-primary-700 border-primary-300"
-                    : m.provider === "anthropic" ? "bg-warning-100 text-warning-700 border-warning-300"
-                    : m.provider === "google" ? "bg-warning-100 text-warning-700 border-warning-300"
-                    : "bg-secondary-100 text-secondary-700 border-secondary-300"
-                  }`}>
+                  <span
+                    className={`text-xs px-2 py-0.5 rounded-full border font-medium shrink-0 ${
+                      m.provider === "openai"
+                        ? "bg-success-100 text-success-700 border-success-300"
+                        : m.provider === "openai-compatible"
+                          ? "bg-primary-100 text-primary-700 border-primary-300"
+                          : m.provider === "anthropic"
+                            ? "bg-warning-100 text-warning-700 border-warning-300"
+                            : m.provider === "google"
+                              ? "bg-warning-100 text-warning-700 border-warning-300"
+                              : "bg-secondary-100 text-secondary-700 border-secondary-300"
+                    }`}
+                  >
                     {m.provider}
                   </span>
-                  {result !== undefined && result !== "testing" && (
-                    result.ok
-                      ? <CheckCircle2 className="w-4 h-4 text-success-500 shrink-0" />
-                      : <XCircle className="w-4 h-4 text-danger-500 shrink-0" />
-                  )}
+                  {result !== undefined &&
+                    result !== "testing" &&
+                    (result.ok ? (
+                      <CheckCircle2 className="w-4 h-4 text-success-500 shrink-0" />
+                    ) : (
+                      <XCircle className="w-4 h-4 text-danger-500 shrink-0" />
+                    ))}
                   <button
                     onClick={() => testExisting(m.id)}
                     disabled={isTesting}
                     className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border border-neutral-200 text-foreground-500 hover:text-foreground hover:bg-background-100 transition-colors disabled:opacity-50 shrink-0"
                   >
-                    {isTesting
-                      ? <div className="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin" />
-                      : <RefreshCw className="w-3 h-3" />}
+                    {isTesting ? (
+                      <div className="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <RefreshCw className="w-3 h-3" />
+                    )}
                     Test
                   </button>
                   <button
@@ -261,7 +296,9 @@ export function RegisterModelForm({
           ) : (
             <div className="rounded-xl border border-neutral-200 border-dashed bg-background-200/40 py-5 text-center">
               <Cpu className="w-6 h-6 text-foreground-400 mx-auto mb-1" />
-              <p className="text-sm text-foreground-500">No models registered yet</p>
+              <p className="text-sm text-foreground-500">
+                No models registered yet
+              </p>
             </div>
           )}
         </div>
@@ -269,10 +306,14 @@ export function RegisterModelForm({
 
       {/* Registration form */}
       <form onSubmit={handleSubmit} className="space-y-3">
-        <div className={`grid ${layout === "grid" ? "grid-cols-2" : "grid-cols-1"} gap-3`}>
+        <div
+          className={`grid ${layout === "grid" ? "grid-cols-2" : "grid-cols-1"} gap-3`}
+        >
           {/* Name */}
           <div>
-            <label className="block text-xs text-foreground-500 mb-1.5">Name *</label>
+            <label className="block text-xs text-foreground-500 mb-1.5">
+              Name *
+            </label>
             <input
               autoFocus={!showExistingModels || existingModels.length === 0}
               value={name}
@@ -284,24 +325,34 @@ export function RegisterModelForm({
 
           {/* Provider */}
           <div>
-            <label className="block text-xs text-foreground-500 mb-1.5">Provider</label>
+            <label className="block text-xs text-foreground-500 mb-1.5">
+              Provider
+            </label>
             <select
               value={provider}
               onChange={(e) => handleProviderChange(e.target.value)}
               className={inputCls}
             >
               {PROVIDERS.map((p) => (
-                <option key={p.value} value={p.value}>{p.label}</option>
+                <option key={p.value} value={p.value}>
+                  {p.label}
+                </option>
               ))}
             </select>
           </div>
 
           {/* Base URL */}
           <div>
-            <label className="block text-xs text-foreground-500 mb-1.5">Base URL *</label>
+            <label className="block text-xs text-foreground-500 mb-1.5">
+              Base URL *
+            </label>
             <input
               value={baseUrl}
-              onChange={(e) => { setBaseUrl(e.target.value); setAvailableModels([]); setShowModelList(false); }}
+              onChange={(e) => {
+                setBaseUrl(e.target.value);
+                setAvailableModels([]);
+                setShowModelList(false);
+              }}
               placeholder="https://api.openai.com/v1"
               className={inputCls}
             />
@@ -309,7 +360,9 @@ export function RegisterModelForm({
 
           {/* Model ID */}
           <div>
-            <label className="block text-xs text-foreground-500 mb-1.5">Model ID *</label>
+            <label className="block text-xs text-foreground-500 mb-1.5">
+              Model ID *
+            </label>
             <input
               value={modelId}
               onChange={(e) => setModelId(e.target.value)}
@@ -336,7 +389,8 @@ export function RegisterModelForm({
           {showDescription && (
             <div className={layout === "grid" ? "col-span-2" : ""}>
               <label className="block text-xs text-foreground-500 mb-1.5">
-                Description <span className="text-foreground-400">(optional)</span>
+                Description{" "}
+                <span className="text-foreground-400">(optional)</span>
               </label>
               <input
                 value={description}
@@ -359,7 +413,10 @@ export function RegisterModelForm({
                 <button
                   key={m}
                   type="button"
-                  onClick={() => { setModelId(m); setShowModelList(false); }}
+                  onClick={() => {
+                    setModelId(m);
+                    setShowModelList(false);
+                  }}
                   className={`w-full text-left text-xs px-3 py-2 rounded-lg border transition-colors truncate ${
                     modelId === m
                       ? "bg-primary-50 border-primary-400 text-primary-800"
@@ -376,11 +433,13 @@ export function RegisterModelForm({
 
         {/* Status message */}
         {formMsg && (
-          <p className={`text-xs px-3 py-2 rounded-xl border ${
-            formMsg.ok
-              ? "bg-success-50 border-success-300 text-success-700"
-              : "bg-danger-50 border-danger-300 text-danger-600"
-          }`}>
+          <p
+            className={`text-xs px-3 py-2 rounded-xl border ${
+              formMsg.ok
+                ? "bg-success-50 border-success-300 text-success-700"
+                : "bg-danger-50 border-danger-300 text-danger-600"
+            }`}
+          >
             {formMsg.ok && <Check className="w-3 h-3 inline mr-1" />}
             {formMsg.text}
           </p>
@@ -394,9 +453,11 @@ export function RegisterModelForm({
             disabled={testing || !baseUrl.trim() || !modelId.trim()}
             className="flex items-center gap-1.5 px-3 py-2 text-sm border border-neutral-200 text-foreground-500 hover:text-foreground hover:bg-background-200 rounded-xl disabled:opacity-40 transition-colors"
           >
-            {testing
-              ? <div className="w-3.5 h-3.5 border border-current border-t-transparent rounded-full animate-spin" />
-              : <RefreshCw className="w-3.5 h-3.5" />}
+            {testing ? (
+              <div className="w-3.5 h-3.5 border border-current border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <RefreshCw className="w-3.5 h-3.5" />
+            )}
             {testing ? "Testing…" : "Test"}
           </button>
 
@@ -405,9 +466,11 @@ export function RegisterModelForm({
             disabled={saving}
             className="flex items-center gap-2 px-4 py-2 bg-primary-600 hover:bg-primary-500 text-white text-sm font-medium rounded-xl disabled:opacity-50 transition-colors"
           >
-            {saving
-              ? <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
-              : <Cpu className="w-4 h-4" />}
+            {saving ? (
+              <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+            ) : (
+              <Cpu className="w-4 h-4" />
+            )}
             {saving ? "Registering…" : "Register"}
           </button>
 
@@ -417,7 +480,9 @@ export function RegisterModelForm({
               onClick={onClose}
               className="ml-auto text-sm text-foreground-500 hover:text-foreground transition-colors"
             >
-              {showExistingModels && existingModels.length > 0 ? "Done" : "Cancel"}
+              {showExistingModels && existingModels.length > 0
+                ? "Done"
+                : "Cancel"}
             </button>
           )}
         </div>

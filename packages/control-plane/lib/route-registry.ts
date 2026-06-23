@@ -191,19 +191,19 @@ export const ROUTE_REGISTRY: RouteEntry[] = [
 
   // ── Workflows ──────────────────────────────────────────────────────────
   {
-    path: "/api/workflow-approvals",
+    path: "/api/workflows/approvals",
     methods: ["GET"],
     group: "Workflows",
     description: "Retrieve approval items for the logged-in user",
   },
   {
-    path: "/api/workflow-runs",
+    path: "/api/workflows/runs",
     methods: ["GET"],
     group: "Workflows",
     description: "List workflow runs with optional pagination and filters",
   },
   {
-    path: "/api/workflow-runs/[id]",
+    path: "/api/workflows/runs/[runId]",
     methods: ["GET"],
     group: "Workflows",
     description: "Get a specific workflow run with its history and steps",
@@ -282,19 +282,19 @@ export const ROUTE_REGISTRY: RouteEntry[] = [
 
   // ── Workflow Approvals ─────────────────────────────────────────────────
   {
-    path: "/api/workflow-approvals/[id]/approve",
+    path: "/api/workflows/approvals/[id]/approve",
     methods: ["POST"],
     group: "Workflow Approvals",
     description: "Approve a pending workflow step",
   },
   {
-    path: "/api/workflow-approvals/[id]/dismiss",
+    path: "/api/workflows/approvals/[id]/dismiss",
     methods: ["POST"],
     group: "Workflow Approvals",
     description: "Dismiss a workflow notification",
   },
   {
-    path: "/api/workflow-approvals/[id]/reject",
+    path: "/api/workflows/approvals/[id]/reject",
     methods: ["POST"],
     group: "Workflow Approvals",
     description: "Reject a pending workflow step",

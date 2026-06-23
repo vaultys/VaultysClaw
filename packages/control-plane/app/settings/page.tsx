@@ -236,8 +236,8 @@ const ROUTE_GROUPS: RouteGroup[] = [
       { label: "List / create workflows", path: "/api/workflows", methods: ["GET", "POST"] },
       { label: "Workflow detail", path: "/api/workflows/[id]", methods: ["GET", "PATCH", "DELETE"] },
       { label: "Execute workflow", path: "/api/workflows/[id]/execute", methods: ["POST"] },
-      { label: "Workflow runs", path: "/api/workflow-runs", methods: ["GET"] },
-      { label: "Workflow approvals", path: "/api/workflow-approvals", methods: ["GET", "POST"] },
+      { label: "Workflow runs", path: "/api/workflows/runs", methods: ["GET"] },
+      { label: "Workflow approvals", path: "/api/workflows/approvals", methods: ["GET", "POST"] },
     ],
   },
   {

@@ -10,7 +10,7 @@ import {
   Calendar,
 } from "lucide-react";
 import { useWorkflowStore } from "./store";
-import { agentsClient, unwrap } from "@/lib/api/ts-rest/client";
+import { agentsClient, workflowsClient, unwrap } from "@/lib/api/ts-rest/client";
 import { AgentInfo } from "@/lib/contracts";
 
 interface User {
@@ -176,13 +176,15 @@ const SchedulePanel: React.FC<{ workflowId: string | null }> = ({
   useEffect(() => {
     if (!workflowId || workflowId === "default") return;
     setLoading(true);
-    fetch(`/api/workflows/${workflowId}/schedule`)
-      .then((r) => r.json())
-      .then((d: any) => {
+    workflowsClient
+      .getSchedule({ params: { id: workflowId } })
+      .then((res) => {
+        if (res.status !== 200) return;
+        const d = res.body;
         setCron(d.scheduleCron ?? "");
         setEnabled(Boolean(d.scheduleEnabled));
-        setNextRun(d.scheduleNextRun ?? null);
-        setLastRun(d.scheduleLastRun ?? null);
+        setNextRun(d.scheduleNextRun ? String(d.scheduleNextRun) : null);
+        setLastRun(d.scheduleLastRun ? String(d.scheduleLastRun) : null);
         // If current cron doesn't match any preset, switch to custom mode
         const isPreset = CRON_PRESETS.some(
           (p) => p.value === d.scheduleCron && p.value !== ""
@@ -197,13 +199,12 @@ const SchedulePanel: React.FC<{ workflowId: string | null }> = ({
     if (!workflowId) return;
     setSaving(true);
     try {
-      const res = await fetch(`/api/workflows/${workflowId}/schedule`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ cron: cron || null, enabled }),
-      });
-      const d = (await res.json()) as any;
-      if (!res.ok) throw new Error(d.error || "Failed");
+      const d = unwrap(
+        await workflowsClient.setSchedule({
+          params: { id: workflowId },
+          body: { cron: cron || undefined, enabled },
+        }),
+      );
       setNextRun(d.scheduleNextRun ?? null);
       setStatus("saved");
       setTimeout(() => setStatus("idle"), 2000);
@@ -219,9 +220,7 @@ const SchedulePanel: React.FC<{ workflowId: string | null }> = ({
     if (!workflowId) return;
     setSaving(true);
     try {
-      await fetch(`/api/workflows/${workflowId}/schedule`, {
-        method: "DELETE",
-      });
+      await workflowsClient.clearSchedule({ params: { id: workflowId } });
       setCron("");
       setEnabled(false);
       setNextRun(null);

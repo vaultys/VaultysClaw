@@ -1,5 +1,5 @@
+import { KnowledgeSource } from "@prisma/client";
 import { Clock, Loader2, CheckCircle2, XCircle } from "lucide-react";
-import type { KnowledgeSource } from "./types";
 
 export function KsStatusBadge({
   status,
@@ -28,7 +28,7 @@ export function KsStatusBadge({
       cls: "bg-danger-100 text-danger-700 border-danger-300",
     },
   };
-  const { icon, label, cls } = map[status] ?? map.idle;
+  const { icon, label, cls } = map[status as keyof typeof map] ?? map.idle;
   return (
     <span
       className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border font-medium ${cls}`}

@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import type { WorkflowDefinition } from "@/lib/workflow-types";
 import { WorkflowInputForm } from "./WorkflowInputForm";
+import { workflowsClient, unwrap } from "@/lib/api/ts-rest/client";
 
 interface WorkflowRunModalProps {
   workflowId: string;
@@ -129,14 +130,12 @@ export const WorkflowRunModal: React.FC<WorkflowRunModalProps> = ({
   // Handle input form submission
   const handleStartExecution = async (input: string) => {
     try {
-      const res = await fetch(`/api/workflows/${workflowId}/execute`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ input: input || undefined }),
-      });
-
-      if (!res.ok) throw new Error("Failed to start workflow");
-      const data = (await res.json()) as { runId: string };
+      const data = unwrap(
+        await workflowsClient.execute({
+          params: { id: workflowId },
+          body: { input: input || undefined },
+        }),
+      );
 
       setExecution({
         runId: data.runId,
@@ -158,22 +157,23 @@ export const WorkflowRunModal: React.FC<WorkflowRunModalProps> = ({
   // Poll for execution status
   useEffect(() => {
     if (execution.status !== "running" || !execution.runId) return;
+    const runId = execution.runId;
 
     const pollInterval = setInterval(async () => {
       try {
         // Fetch status
-        const statusRes = await fetch(
-          `/api/workflows/runs/${execution.runId}/status`
-        );
-        if (!statusRes.ok) return;
-        const statusData = (await statusRes.json()) as { status: string };
+        const statusRes = await workflowsClient.runStatus({
+          params: { runId },
+        });
+        if (statusRes.status !== 200) return;
+        const statusData = statusRes.body;
 
         // Fetch history
-        const historyRes = await fetch(
-          `/api/workflows/runs/${execution.runId}/history`
-        );
-        if (!historyRes.ok) return;
-        const historyData = (await historyRes.json()) as {
+        const historyRes = await workflowsClient.runHistory({
+          params: { runId },
+        });
+        if (historyRes.status !== 200) return;
+        const historyData = historyRes.body as unknown as {
           steps: StepInfo[];
           run: { status: string; results: string | null };
         };

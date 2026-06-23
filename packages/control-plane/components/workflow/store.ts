@@ -34,6 +34,8 @@ export interface WorkflowState {
   clearWorkflow: () => void;
   setRealmId: (realmId: string) => void;
   setWorkflowInput: (input: string) => void;
+  setWorkflowName: (name: string) => void;
+  setWorkflowDescription: (description: string) => void;
 
   // Execution actions
   startExecution: (runId: string) => void;
@@ -79,6 +81,11 @@ export const useWorkflowStore = create<WorkflowState>((set) => ({
   setRealmId: (realmId) => set({ workflowRealmId: realmId }),
 
   setWorkflowInput: (input) => set({ workflowInput: input }),
+
+  setWorkflowName: (name) => set({ workflowName: name }),
+
+  setWorkflowDescription: (description) =>
+    set({ workflowDescription: description }),
 
   clearWorkflow: () =>
     set({

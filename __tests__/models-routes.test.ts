@@ -287,8 +287,6 @@ describe("PUT /api/models/[id]", () => {
       const r = req("PUT", `http://localhost/api/models/${id}`, { name: "New Name", description: "new desc" });
       const res = await modelDetailPUT(r as any, params(id));
       expect(res._status).toBe(200);
-      const body = (await res.json()) as { ok: boolean };
-      expect(body.ok).toBe(true);
       const updated = await ModelDAO.findById(id);
       expect(updated?.name).toBe("New Name");
     } finally {

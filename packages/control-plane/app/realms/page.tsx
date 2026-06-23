@@ -4,20 +4,12 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Globe2, Plus, Star, Trash2, Users, Bot, GitFork } from "lucide-react";
 import { useRole } from "@/hooks/useRole";
+import { useToolbar } from "@/components/layout/ToolbarContext";
+import { useBreadcrumbs } from "@/components/layout/BreadcrumbContext";
+import { realmsClient, unwrap, ApiError } from "@/lib/api/ts-rest/client";
+import type { RealmWithCounts } from "@/lib/contracts";
 
-interface Realm {
-  id: string;
-  name: string;
-  slug: string;
-  description: string | null;
-  color: string;
-  isDefault: number;
-  default_capabilities: string;
-  createdAt: string;
-  agentCount?: number;
-  userCount?: number;
-  workflowCount?: number;
-}
+type Realm = RealmWithCounts;
 
 const PRESET_COLORS = [
   "#6366f1",
@@ -63,26 +55,22 @@ function CreateRealmModal({
     setSaving(true);
     setError("");
     try {
-      const res = await fetch("/api/realms", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: name.trim(),
-          slug,
-          description: description.trim(),
-          color,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error ?? "Failed to create realm");
-        setSaving(false);
-        return;
-      }
+      unwrap(
+        await realmsClient.create({
+          body: {
+            name: name.trim(),
+            slug,
+            description: description.trim(),
+            color,
+          },
+        })
+      );
       onCreated();
       onClose();
-    } catch {
-      setError("Network error");
+    } catch (err) {
+      setError(
+        err instanceof ApiError ? err.message : "Failed to create realm"
+      );
       setSaving(false);
     }
   }
@@ -150,11 +138,7 @@ function CreateRealmModal({
               />
             </div>
           </div>
-          {error && (
-            <p className="text-danger-600 text-sm">
-              {error}
-            </p>
-          )}
+          {error && <p className="text-danger-600 text-sm">{error}</p>}
           <div className="flex gap-3 pt-1">
             <button
               type="button"
@@ -180,15 +164,14 @@ function CreateRealmModal({
 export default function RealmsPage() {
   const router = useRouter();
   const { isGlobalAdmin } = useRole();
-  const [realms, setRealms] = useState<Realm[]>([]);
+  const [realms, setRealms] = useState<RealmWithCounts[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    const res = await fetch("/api/realms");
-    const data = (await res.json()) as { realms: Realm[] };
-    setRealms(data.realms ?? []);
+    const { realms } = unwrap(await realmsClient.list());
+    setRealms(realms);
     setLoading(false);
   }, []);
 
@@ -197,7 +180,7 @@ export default function RealmsPage() {
   }, [load]);
 
   async function handleSetDefault(id: string) {
-    await fetch(`/api/realms/${id}/default`, { method: "POST" });
+    unwrap(await realmsClient.setDefault({ params: { id } }));
     load();
   }
 
@@ -209,34 +192,37 @@ export default function RealmsPage() {
     )
       return;
     setDeletingId(id);
-    await fetch(`/api/realms/${id}`, { method: "DELETE" });
+    unwrap(await realmsClient.remove({ params: { id } }));
     setDeletingId(null);
     load();
   }
 
+  useBreadcrumbs([{ label: "Realms" }], []);
+
+  useToolbar(
+    {
+      title: "Realms",
+      description: loading
+        ? "Loading…"
+        : `${realms.length} realm${realms.length !== 1 ? "s" : ""}`,
+      actions: isGlobalAdmin
+        ? [
+            {
+              kind: "button",
+              id: "create",
+              label: "New Realm",
+              variant: "primary",
+              icon: <Plus className="w-3.5 h-3.5" />,
+              onClick: () => setShowCreate(true),
+            },
+          ]
+        : [],
+    },
+    [loading, realms.length, isGlobalAdmin]
+  );
+
   return (
     <div className="p-6 w-full max-w-7xl mx-auto space-y-5">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-lg font-semibold text-foreground">Realms</h1>
-          <p className="text-foreground-500 text-sm mt-0.5">
-            {loading
-              ? "Loading…"
-              : `${realms.length} realm${realms.length !== 1 ? "s" : ""}`}
-          </p>
-        </div>
-        {isGlobalAdmin && (
-          <button
-            onClick={() => setShowCreate(true)}
-            className="flex items-center gap-2 bg-primary-600 hover:bg-primary-500 text-white font-medium px-4 py-2 rounded-xl text-sm transition-colors"
-          >
-            <Plus className="w-4 h-4" />
-            New Realm
-          </button>
-        )}
-      </div>
-
       {/* Realm cards grid */}
       {loading ? (
         <div className="flex justify-center py-16">
@@ -280,7 +266,7 @@ export default function RealmsPage() {
                       <span className="font-semibold text-foreground text-sm">
                         {realm.name}
                       </span>
-                      {realm.isDefault === 1 && (
+                      {realm.isDefault && (
                         <span className="text-xs px-1.5 py-0.5 rounded-md bg-warning-50 text-warning-700 font-medium">
                           default
                         </span>
@@ -303,15 +289,15 @@ export default function RealmsPage() {
               <div className="flex items-center gap-3 mb-3">
                 <span className="flex items-center gap-1.5 text-xs text-foreground-500">
                   <Bot className="w-3.5 h-3.5" />
-                  {realm.agentCount ?? 0}
+                  {realm._count?.agentRealms ?? 0}
                 </span>
                 <span className="flex items-center gap-1.5 text-xs text-foreground-500">
                   <Users className="w-3.5 h-3.5" />
-                  {realm.userCount ?? 0}
+                  {realm._count?.userRealms ?? 0}
                 </span>
                 <span className="flex items-center gap-1.5 text-xs text-foreground-500">
                   <GitFork className="w-3.5 h-3.5" />
-                  {realm.workflowCount ?? 0}
+                  {realm._count?.workflows ?? 0}
                 </span>
               </div>
 
@@ -325,7 +311,7 @@ export default function RealmsPage() {
                   className="flex gap-1 mt-3 pt-3 border-t border-neutral-200/50"
                   onClick={(e) => e.stopPropagation()}
                 >
-                  {realm.isDefault !== 1 && (
+                  {!realm.isDefault && (
                     <button
                       onClick={() => handleSetDefault(realm.id)}
                       title="Set as default"
@@ -334,7 +320,7 @@ export default function RealmsPage() {
                       <Star className="w-4 h-4" />
                     </button>
                   )}
-                  {realm.isDefault !== 1 && (
+                  {!realm.isDefault && (
                     <button
                       onClick={() => handleDelete(realm.id)}
                       disabled={deletingId === realm.id}
@@ -344,7 +330,7 @@ export default function RealmsPage() {
                       <Trash2 className="w-4 h-4" />
                     </button>
                   )}
-                  {realm.isDefault === 1 && (
+                  {realm.isDefault && (
                     <span className="ml-auto text-xs text-foreground-400 italic py-1.5">
                       Default realm — cannot delete
                     </span>

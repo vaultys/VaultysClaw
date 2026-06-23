@@ -1,192 +1,80 @@
-import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
-import { unauthorized, forbidden, malformed } from "@/lib/api/utils/api-utils";
+import { APIException } from "@/lib/api/utils/api-utils";
 import { WorkflowDAO } from "@/db";
-import type { WorkflowDefinition } from "@/lib/workflow-executor";
 import { Prisma } from "@prisma/client";
-import { withError } from "@/lib/api/handlers/with-error";
+import { workflowsContract } from "@/lib/contracts";
+import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 
 /**
- * POST /api/workflows
- * Save a new workflow. Requires realm admin or global admin for the target realm.
+ * Routes for /api/workflows — the collection-level slice of `workflowsContract`.
  */
-/**
- * @openapi
- * /api/workflows:
- *   post:
- *     summary: Save a new workflow.
- *     tags: [Workflows]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               name:
- *                 type: string
- *                 description: The name of the workflow.
- *               description:
- *                 type: string
- *                 description: A brief description of the workflow.
- *               definition:
- *                 $ref: '#/components/schemas/WorkflowDefinition'
- *               realmId:
- *                 type: string
- *                 description: The ID of the realm.
- *             required:
- *               - name
- *               - definition
- *     responses:
- *       200:
- *         description: Workflow saved successfully.
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                 id:
- *                   type: string
- *                 name:
- *                   type: string
- *                 description:
- *                   type: string
- *                 realmId:
- *                   type: string
- *       400:
- *         $ref: '#/components/responses/BadRequest'
- *       401:
- *         $ref: '#/components/responses/Unauthorized'
- *       403:
- *         $ref: '#/components/responses/Forbidden'
- *       500:
- *         description: Failed to save workflow.
- */
-export const POST = withError(async (request: NextRequest) => {
-  const auth = await getAuthContext(request);
-  if (!auth) return unauthorized();
+const handlers = createNextRoute(workflowsContract, {
+  // ── GET /api/workflows ──────────────────────────────────────────────────
+  list: async ({ query, request }) => {
+    const auth = await getAuthContext(request);
 
-  const body = await request.json();
-  const { name, description, definition, realmId } = body as {
-    name?: string;
-    description?: string;
-    definition?: WorkflowDefinition;
-    realmId?: string;
-  };
+    const { createdBy, realmId } = query;
 
-  if (!name || typeof name !== "string") {
-    return malformed("name (string) is required");
-  }
-  if (!definition || typeof definition !== "object") {
-    return malformed("definition (object) is required");
-  }
+    // Members can only query realms they belong to
+    if (realmId && !(await auth.canAccessRealm(realmId)))
+      throw new APIException("FORBIDDEN");
 
-  // If no realmId, must be global admin (no implicit realm to check admin on)
-  if (realmId) {
-    if (!(await auth.canAdminRealm(realmId))) return forbidden();
-  } else if (!auth.isGlobalAdmin) {
-    return forbidden();
-  }
+    let workflows = await WorkflowDAO.list({
+      createdBy: createdBy ?? undefined,
+      realmId: realmId ?? undefined,
+    });
 
-  const id = await WorkflowDAO.create(
-    name,
-    definition as unknown as Prisma.InputJsonValue,
-    undefined,
-    realmId
-  );
+    // Non-admins: filter to workflows in their realms
+    if (!auth.isGlobalAdmin) {
+      workflows = workflows.filter(
+        (w) => w.realmId && auth.realmIds.has(w.realmId)
+      );
+    }
 
-  return NextResponse.json({
-    success: true,
-    id,
-    name,
-    description,
-    realmId: realmId || "default",
-  });
-});
+    return {
+      status: 200,
+      body: {
+        workflows: workflows,
+      },
+    };
+  },
 
-/**
- * GET /api/workflows
- * List workflows. Admins see all; members see only workflows in their realms.
- */
-/**
- * @openapi
- * /api/workflows:
- *   get:
- *     summary: List workflows visible to the user.
- *     tags: [Workflows]
- *     responses:
- *       200:
- *         description: A list of workflows.
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                 workflows:
- *                   type: array
- *                   items:
- *                     type: object
- *                     properties:
- *                       id:
- *                         type: string
- *                       name:
- *                         type: string
- *                       description:
- *                         type: string
- *                       realmId:
- *                         type: string
- *                       createdBy:
- *                         type: string
- *                       createdAt:
- *                         type: string
- *                         format: date-time
- *                       updatedAt:
- *                         type: string
- *                         format: date-time
- *       401:
- *         $ref: '#/components/responses/Unauthorized'
- *       403:
- *         $ref: '#/components/responses/Forbidden'
- *       500:
- *         description: Failed to list workflows.
- */
-export const GET = withError(async (request: NextRequest) => {
-  const auth = await getAuthContext(request);
-  if (!auth) return unauthorized();
+  // ── POST /api/workflows ─────────────────────────────────────────────────
+  create: async ({ body, request }) => {
+    const auth = await getAuthContext(request);
 
-  const { searchParams } = request.nextUrl;
-  const createdBy = searchParams.get("createdBy");
-  const realmId = searchParams.get("realmId");
+    const { name, description, definition } = body;
+    // "default" is a client-side sentinel meaning "no explicit realm" — let the
+    // DAO resolve the actual default realm instead of treating it as a realm id.
+    const realmId = body.realmId === "default" ? undefined : body.realmId;
 
-  // Members can only query realms they belong to
-  if (realmId && !(await auth.canAccessRealm(realmId))) return forbidden();
+    // If no realmId, must be global admin (no implicit realm to check admin on)
+    if (realmId) {
+      if (!(await auth.canAdminRealm(realmId)))
+        throw new APIException("FORBIDDEN");
+    } else if (!auth.isGlobalAdmin) {
+      throw new APIException("FORBIDDEN");
+    }
 
-  let workflows = await WorkflowDAO.list({
-    createdBy: createdBy ?? undefined,
-    realmId: realmId ?? undefined,
-  });
-
-  // Non-admins: filter to workflows in their realms
-  if (!auth.isGlobalAdmin) {
-    workflows = workflows.filter(
-      (w) => w.realmId && auth.realmIds.has(w.realmId)
+    const workflow = await WorkflowDAO.create(
+      name,
+      definition as unknown as Prisma.InputJsonValue,
+      undefined,
+      realmId
     );
-  }
 
-  return NextResponse.json({
-    success: true,
-    workflows: workflows.map((w) => ({
-      id: w.id,
-      name: w.name,
-      description: w.description,
-      realmId: w.realmId,
-      createdBy: w.createdBy,
-      createdAt: w.createdAt,
-      updatedAt: w.updatedAt,
-    })),
-  });
+    if (!workflow) {
+      throw new APIException("INTERNAL_ERROR", "Failed to create workflow");
+    }
+
+    return {
+      status: 200,
+      body: {
+        workflow,
+      },
+    };
+  },
 });
+
+export const GET = handlers.GET!;
+export const POST = handlers.POST!;

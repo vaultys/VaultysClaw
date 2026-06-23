@@ -76,6 +76,7 @@ export enum HttpCodes {
   CONFLICT = 409,
   CONTENT_TOO_LARGE = 413,
   UNPROCESSABLE_ENTITY = 422,
+  INTERNAL_ERROR = 500,
 }
 
 export type HttpCode = keyof typeof HttpCodes;

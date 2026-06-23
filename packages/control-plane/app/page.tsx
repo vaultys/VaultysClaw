@@ -36,7 +36,13 @@ import {
   Mail,
   UserX,
 } from "lucide-react";
-import { agentsClient, policiesClient, unwrap } from "@/lib/api/ts-rest/client";
+import {
+  agentsClient,
+  policiesClient,
+  workflowApprovalsClient,
+  workflowRunsClient,
+  unwrap,
+} from "@/lib/api/ts-rest/client";
 import { AgentInfo } from "@/lib/contracts";
 
 /* ─── Helpers ────────────────────────────────────────────────── */
@@ -573,9 +579,9 @@ function Dashboard() {
   const [comment, setComment] = useState<Record<string, string>>({});
 
   const fetchApprovals = () =>
-    fetch("/api/workflow-approvals")
-      .then((r) => r.json())
-      .then((d: { approvals?: Approval[] }) => setApprovals(d.approvals ?? []))
+    workflowApprovalsClient
+      .list({ query: {} })
+      .then((r) => setApprovals(unwrap(r).approvals as unknown as Approval[]))
       .catch(() => { });
 
   useEffect(() => {
@@ -647,9 +653,9 @@ function Dashboard() {
   const [recentRuns, setRecentRuns] = useState<WorkflowRun[]>([]);
 
   const fetchRecentRuns = useCallback(() => {
-    fetch("/api/workflow-runs?pageSize=6&sortDir=desc")
-      .then((r) => (r.ok ? r.json() : { items: [] }))
-      .then((d: { runs?: WorkflowRun[] }) => setRecentRuns(d.runs ?? []))
+    workflowRunsClient
+      .list({ query: { pageSize: 6, sortDir: "desc" } })
+      .then((r) => setRecentRuns(unwrap(r).runs as unknown as WorkflowRun[]))
       .catch(() => { });
   }, []);
 
@@ -662,10 +668,9 @@ function Dashboard() {
   // ── Actions ───────────────────────────────────────────────────
   const handleApprove = async (id: string) => {
     setActing(id);
-    await fetch(`/api/workflow-approvals/${id}/approve`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ comment: comment[id] || undefined }),
+    await workflowApprovalsClient.approve({
+      params: { id },
+      body: { comment: comment[id] || undefined },
     });
     await fetchApprovals();
     setActing(null);
@@ -673,10 +678,9 @@ function Dashboard() {
 
   const handleReject = async (id: string) => {
     setActing(id);
-    await fetch(`/api/workflow-approvals/${id}/reject`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ comment: comment[id] || undefined }),
+    await workflowApprovalsClient.reject({
+      params: { id },
+      body: { comment: comment[id] || undefined },
     });
     await fetchApprovals();
     setActing(null);
@@ -684,7 +688,7 @@ function Dashboard() {
 
   const handleDismiss = async (id: string) => {
     setActing(id);
-    await fetch(`/api/workflow-approvals/${id}/dismiss`, { method: "POST" });
+    await workflowApprovalsClient.dismiss({ params: { id } });
     await fetchApprovals();
     setActing(null);
   };

@@ -1,6 +1,5 @@
 import { c } from "../contract";
 import { commonErrorResponses } from "../common";
-import type { ModelRegistry } from "@prisma/client";
 import {
   ModelIdParamSchema,
   CreateModelBodySchema,
@@ -10,7 +9,8 @@ import {
   RevokeRealmQuerySchema,
   ModelConnectivitySchema,
 } from "./models.schemas";
-import type { ModelWithRealmAccess, CreatedModel } from "./models.types";
+import type { SafeModel, CreatedModel } from "./models.types";
+import { ModelRegistry } from "@prisma/client";
 
 export const modelsContract = c.router({
   list: {
@@ -18,7 +18,7 @@ export const modelsContract = c.router({
     path: "/api/models",
     summary: "List all model registry entries",
     responses: {
-      200: c.type<{ models: ModelWithRealmAccess[] }>(),
+      200: c.type<{ models: SafeModel[] }>(),
       ...commonErrorResponses,
     },
   },
@@ -51,7 +51,7 @@ export const modelsContract = c.router({
     pathParams: ModelIdParamSchema,
     summary: "Retrieve a model by its ID",
     responses: {
-      200: c.type<{ model: ModelRegistry }>(),
+      200: c.type<{ model: SafeModel }>(),
       ...commonErrorResponses,
     },
   },
@@ -62,7 +62,10 @@ export const modelsContract = c.router({
     pathParams: ModelIdParamSchema,
     summary: "Update a model entry (admin only)",
     body: UpdateModelBodySchema,
-    responses: { 200: c.type<void>(), ...commonErrorResponses },
+    responses: {
+      200: c.type<{ model: ModelRegistry }>(),
+      ...commonErrorResponses,
+    },
   },
 
   remove: {
@@ -70,7 +73,10 @@ export const modelsContract = c.router({
     path: "/api/models/:id",
     pathParams: ModelIdParamSchema,
     summary: "Delete a model by ID (admin only)",
-    responses: { 200: c.type<void>(), ...commonErrorResponses },
+    responses: {
+      200: c.type<{ model: ModelRegistry }>(),
+      ...commonErrorResponses,
+    },
   },
 
   validate: {
@@ -81,23 +87,6 @@ export const modelsContract = c.router({
     body: c.noBody(),
     responses: {
       200: ModelConnectivitySchema,
-      ...commonErrorResponses,
-    },
-  },
-
-  listRealms: {
-    method: "GET",
-    path: "/api/models/:id/realms",
-    pathParams: ModelIdParamSchema,
-    summary: "List realms with access to a specific model",
-    responses: {
-      200: c.type<{
-        realms: Array<{
-          realmId: string;
-          realmName: string;
-          grantedAt: string;
-        }>;
-      }>(),
       ...commonErrorResponses,
     },
   },

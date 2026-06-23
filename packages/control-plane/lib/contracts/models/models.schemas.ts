@@ -40,4 +40,5 @@ export const RevokeRealmQuerySchema = z.object({ realmId: z.string() });
 export const ModelConnectivitySchema = z.object({
   ok: z.boolean(),
   models: z.array(z.string()),
+  error: z.string().optional(),
 });

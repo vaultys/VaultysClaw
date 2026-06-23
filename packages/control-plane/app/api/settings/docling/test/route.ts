@@ -1,8 +1,8 @@
-import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
-import { unauthorized, forbidden, malformed } from "@/lib/api/utils/api-utils";
+import { APIException } from "@/lib/api/utils/api-utils";
 import { setDoclingEndpoints } from "@/db/settings.dao";
-import { withError } from "@/lib/api/handlers/with-error";
+import { settingsContract } from "@/lib/contracts";
+import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -62,106 +62,62 @@ async function discoverEndpoints(baseUrl: string): Promise<{
 // Route handler
 // ---------------------------------------------------------------------------
 
-// POST /api/settings/docling/test
-// Body: { url: string }
-/**
- * @openapi
- * /api/settings/docling/test:
- *   post:
- *     summary: Test and discover Docling endpoints.
- *     tags: [Settings]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               url:
- *                 type: string
- *                 description: The base URL to test and discover endpoints from.
- *     responses:
- *       200:
- *         description: Successfully discovered endpoints.
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 ok:
- *                   type: boolean
- *                 latency:
- *                   type: integer
- *                 version:
- *                   type: string
- *                 sourceEndpoint:
- *                   type: string
- *                 fileEndpoint:
- *                   type: string
- *       400:
- *         $ref: '#/components/responses/BadRequest'
- *       401:
- *         $ref: '#/components/responses/Unauthorized'
- *       403:
- *         $ref: '#/components/responses/Forbidden'
- */
-export const POST = withError(async (request: NextRequest) => {
-  const auth = await getAuthContext(request);
-  if (!auth) return unauthorized();
-  if (!auth.isGlobalAdmin) return forbidden();
+const handlers = createNextRoute(settingsContract, {
+  testDocling: async ({ body, request }) => {
+    const auth = await getAuthContext(request);
+    if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");
 
-  const body = (await request.json()) as { url?: string };
-  const rawUrl = (body.url ?? "").trim().replace(/\/$/, "");
+    const rawUrl = (body.url ?? "").trim().replace(/\/$/, "");
+    if (!rawUrl) throw new APIException("MALFORMED", "URL is required");
 
-  if (!rawUrl) {
-    return malformed("URL is required");
-  }
-
-  const start = Date.now();
-  try {
-    // 1. Health check
-    const healthRes = await fetch(`${rawUrl}/health`, {
-      signal: AbortSignal.timeout(5_000),
-      headers: { Accept: "application/json" },
-    });
-
-    const latency = Date.now() - start;
-
-    if (!healthRes.ok) {
-      return NextResponse.json({
-        ok: false,
-        error: `Health check returned HTTP ${healthRes.status}`,
-        latency,
-      });
-    }
-
-    let version: string | undefined;
+    const start = Date.now();
     try {
-      const data = (await healthRes.json()) as {
-        version?: string;
-        docling_version?: string;
+      // 1. Health check
+      const healthRes = await fetch(`${rawUrl}/health`, {
+        signal: AbortSignal.timeout(5_000),
+        headers: { Accept: "application/json" },
+      });
+
+      const latency = Date.now() - start;
+
+      if (!healthRes.ok) {
+        return {
+          status: 200,
+          body: {
+            ok: false,
+            error: `Health check returned HTTP ${healthRes.status}`,
+            latency,
+          },
+        };
+      }
+
+      let version: string | undefined;
+      try {
+        const data = (await healthRes.json()) as {
+          version?: string;
+          docling_version?: string;
+        };
+        version = data.version ?? data.docling_version;
+      } catch {
+        /* non-JSON health response — fine */
+      }
+
+      // 2. Discover real API endpoints from OpenAPI spec
+      const { sourceEndpoint, fileEndpoint } = await discoverEndpoints(rawUrl);
+
+      // 3. Persist the discovered endpoints so syncs use the right paths
+      await setDoclingEndpoints(sourceEndpoint, fileEndpoint);
+
+      return {
+        status: 200,
+        body: { ok: true, latency, version, sourceEndpoint, fileEndpoint },
       };
-      version = data.version ?? data.docling_version;
-    } catch {
-      /* non-JSON health response — fine */
+    } catch (err) {
+      const latency = Date.now() - start;
+      const msg = err instanceof Error ? err.message : String(err);
+      return { status: 200, body: { ok: false, error: msg, latency } };
     }
-
-    // 2. Discover real API endpoints from OpenAPI spec
-    const { sourceEndpoint, fileEndpoint } = await discoverEndpoints(rawUrl);
-
-    // 3. Persist the discovered endpoints so syncs use the right paths
-    await setDoclingEndpoints(sourceEndpoint, fileEndpoint);
-
-    return NextResponse.json({
-      ok: true,
-      latency,
-      version,
-      sourceEndpoint,
-      fileEndpoint,
-    });
-  } catch (err) {
-    const latency = Date.now() - start;
-    const msg = err instanceof Error ? err.message : String(err);
-    return NextResponse.json({ ok: false, error: msg, latency });
-  }
+  },
 });
+
+export const POST = handlers.POST!;

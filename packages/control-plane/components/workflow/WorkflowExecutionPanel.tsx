@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { useWorkflowStore } from "./store";
 import { ChevronDown, X } from "lucide-react";
-import { agentsClient, unwrap } from "@/lib/api/ts-rest/client";
+import { agentsClient, workflowsClient, unwrap } from "@/lib/api/ts-rest/client";
 
 interface ExecutionStatus {
   runId: string;
@@ -72,18 +72,19 @@ export const WorkflowExecutionPanel: React.FC = () => {
     // Poll for execution status
     const pollInterval = setInterval(async () => {
       try {
-        const res = await fetch(`/api/workflows/runs/${executionRunId}/status`);
-        if (!res.ok) return;
-        const data = (await res.json()) as { success: boolean; status: string };
+        const statusRes = await workflowsClient.runStatus({
+          params: { runId: executionRunId },
+        });
+        if (statusRes.status !== 200) return;
+        const data = statusRes.body;
         setExecutionStatus(data as any);
 
         // Fetch execution history
-        const historyRes = await fetch(
-          `/api/workflows/runs/${executionRunId}/history`
-        );
-        if (!historyRes.ok) return;
-        const historyData = (await historyRes.json()) as { steps: StepInfo[] };
-        setSteps(historyData.steps);
+        const historyRes = await workflowsClient.runHistory({
+          params: { runId: executionRunId },
+        });
+        if (historyRes.status !== 200) return;
+        setSteps(historyRes.body.steps as unknown as StepInfo[]);
 
         // Check if execution is complete
         if (["completed", "failed"].includes(data.status)) {

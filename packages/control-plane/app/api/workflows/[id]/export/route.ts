@@ -1,77 +1,33 @@
-import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
-import { unauthorized, forbidden, notFound } from "@/lib/api/utils/api-utils";
+import { APIException } from "@/lib/api/utils/api-utils";
 import { WorkflowDAO } from "@/db";
-import { withError } from "@/lib/api/handlers/with-error";
+import { workflowsContract } from "@/lib/contracts";
+import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 
 /**
- * @openapi
- * /api/workflows/{id}/export:
- *   get:
- *     summary: Export a workflow by ID.
- *     tags: [Workflows]
- *     parameters:
- *       - name: id
- *         in: path
- *         required: true
- *         description: The ID of the workflow to export.
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: Workflow export data.
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 name:
- *                   type: string
- *                 description:
- *                   type: string
- *                 definition:
- *                   type: object
- *                 exportedAt:
- *                   type: string
- *                   format: date-time
- *                 version:
- *                   type: string
- *       401:
- *         $ref: '#/components/responses/Unauthorized'
- *       403:
- *         $ref: '#/components/responses/Forbidden'
- *       404:
- *         $ref: '#/components/responses/NotFound'
+ * Route for GET /api/workflows/:id/export — returns a workflow's portable JSON.
  */
-export const GET = withError(async (
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) => {
-  const auth = await getAuthContext(request);
-  if (!auth) return unauthorized();
+const handlers = createNextRoute(workflowsContract, {
+  export: async ({ params, request }) => {
+    const auth = await getAuthContext(request);
 
-  const { id } = await params;
-  const workflow = await WorkflowDAO.findById(id);
+    const workflow = await WorkflowDAO.findById(params.id);
+    if (!workflow) throw new APIException("NOT_FOUND", "Workflow not found");
 
-  if (!workflow) {
-    return notFound("Workflow not found");
-  }
+    if (workflow.realmId && !(await auth.canAccessRealm(workflow.realmId)))
+      throw new APIException("FORBIDDEN");
 
-  if (workflow.realmId && !(await auth.canAccessRealm(workflow.realmId)))
-    return forbidden();
-
-  const exportData = {
-    name: workflow.name,
-    description: workflow.description,
-    definition: workflow.definition,
-    exportedAt: new Date().toISOString(),
-    version: "1.0",
-  };
-
-  return NextResponse.json(exportData, {
-    headers: {
-      "Content-Disposition": `attachment; filename="workflow-${workflow.name.replace(/\s+/g, "-")}.json"`,
-      "Content-Type": "application/json",
-    },
-  });
+    return {
+      status: 200,
+      body: {
+        name: workflow.name,
+        description: workflow.description,
+        definition: workflow.definition,
+        exportedAt: new Date().toISOString(),
+        version: "1.0",
+      },
+    };
+  },
 });
+
+export const GET = handlers.GET!;

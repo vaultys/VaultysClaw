@@ -9,26 +9,11 @@ import {
   IntegrationHeader,
   IntegrationModal,
 } from "./shared";
-
-interface OTelStatus {
-  enabled: boolean;
-  baseUrl: string;
-  serviceName: string;
-  connected?: boolean;
-  exportCount?: number;
-  lastTrace?: string;
-  fromEnv?: { enabled: boolean; baseUrl: boolean; serviceName: boolean };
-}
-
-interface TestResult {
-  connected: boolean;
-  latency?: number;
-  statusCode?: number;
-  error?: string;
-}
+import { settingsClient, unwrap } from "@/lib/api/ts-rest/client";
+import type { OtelConfig, OtelTestResult } from "@/lib/contracts";
 
 export function OpenTelemetryPanel() {
-  const [status, setStatus] = useState<OTelStatus | null>(null);
+  const [status, setStatus] = useState<OtelConfig | null>(null);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [enabled, setEnabled] = useState(false);
@@ -36,7 +21,7 @@ export function OpenTelemetryPanel() {
   const [serviceName, setServiceName] = useState("vaultysclaw-control-plane");
   const [isSaving, setIsSaving] = useState(false);
   const [testing, setTesting] = useState(false);
-  const [testResult, setTestResult] = useState<TestResult | null>(null);
+  const [testResult, setTestResult] = useState<OtelTestResult | null>(null);
 
   useEffect(() => {
     loadStatus();
@@ -44,8 +29,7 @@ export function OpenTelemetryPanel() {
 
   const loadStatus = async () => {
     try {
-      const r = await fetch("/api/settings/otel");
-      const data = (await r.json()) as OTelStatus;
+      const data = unwrap(await settingsClient.getOtel());
       setStatus(data);
       setEnabled(data.enabled);
       setBaseUrl(data.baseUrl || "");
@@ -56,24 +40,27 @@ export function OpenTelemetryPanel() {
         testConnection(data.baseUrl, data);
       }
     } catch {
-      setStatus({ enabled: false, baseUrl: "", serviceName: "vaultysclaw-control-plane" });
+      setStatus({
+        enabled: false,
+        baseUrl: "",
+        serviceName: "vaultysclaw-control-plane",
+        connected: false,
+        fromEnv: { enabled: false, baseUrl: false, serviceName: false },
+      });
     } finally {
       setLoading(false);
     }
   };
 
-  const testConnection = async (url?: string, currentStatus?: OTelStatus) => {
+  const testConnection = async (url?: string, currentStatus?: OtelConfig) => {
     const testUrl = url ?? baseUrl ?? status?.baseUrl;
     if (!testUrl) return;
     setTesting(true);
     setTestResult(null);
     try {
-      const r = await fetch("/api/settings/otel", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ baseUrl: testUrl }),
-      });
-      const result = (await r.json()) as TestResult;
+      const result = unwrap(
+        await settingsClient.testOtel({ body: { baseUrl: testUrl } })
+      );
       setTestResult(result);
       if (currentStatus) {
         setStatus({ ...currentStatus, connected: result.connected });
@@ -90,15 +77,13 @@ export function OpenTelemetryPanel() {
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      const r = await fetch("/api/settings/otel", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ enabled, baseUrl, serviceName }),
-      });
-      if (r.ok) {
-        setIsModalOpen(false);
-        await loadStatus();
-      }
+      unwrap(
+        await settingsClient.saveOtel({
+          body: { enabled, baseUrl, serviceName },
+        })
+      );
+      setIsModalOpen(false);
+      await loadStatus();
     } catch {
       // error handled by user feedback
     } finally {
@@ -151,10 +136,6 @@ export function OpenTelemetryPanel() {
                       ? `OTLP reachable${testResult.latency ? ` (${testResult.latency}ms)` : ""}`
                       : (testResult.error ?? `HTTP ${testResult.statusCode ?? "error"}`)}
                   </div>
-                )}
-
-                {status?.exportCount !== undefined && status.enabled && (
-                  <p className="text-xs text-foreground-500">{status.exportCount} traces exported</p>
                 )}
               </div>
 

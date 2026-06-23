@@ -1,277 +1,72 @@
-import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
-import {
-  unauthorized,
-  forbidden,
-  notFound,
-  conflict,
-} from "@/lib/api/utils/api-utils";
-import { RealmDAO, WorkflowDAO } from "@/db";
-import { withError } from "@/lib/api/handlers/with-error";
-
-type Ctx = { params: Promise<{ id: string }> };
+import { APIException } from "@/lib/api/utils/api-utils";
+import { RealmDAO } from "@/db";
+import { realmsContract } from "@/lib/contracts";
+import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 
 /**
- * GET /api/realms/[id] — realm detail. Requires auth and realm membership.
+ * Routes for /api/realms/:id — the realm-detail slice of `realmsContract`.
+ *
+ * The contract (lib/contracts/realms/realms.contract.ts) is the single source
+ * of truth for request/response shapes; `createNextRoute` validates inputs and
+ * type-checks every `{ status, body }` returned below against it.
  */
-/**
- * @openapi
- * /api/realms/{id}:
- *   get:
- *     summary: Retrieve details of a specific realm.
- *     tags: [Realms]
- *     parameters:
- *       - name: id
- *         in: path
- *         required: true
- *         description: The ID of the realm to retrieve.
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: A JSON object containing realm details.
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 realm:
- *                   $ref: '#/components/schemas/Realm'
- *                 agents:
- *                   type: array
- *                   items:
- *                     $ref: '#/components/schemas/Agent'
- *                 users:
- *                   type: array
- *                   items:
- *                     $ref: '#/components/schemas/User'
- *                 workflows:
- *                   type: array
- *                   items:
- *                     $ref: '#/components/schemas/Workflow'
- *                 tokenUsage:
- *                   type: object
- *                   nullable: true
- *                   properties:
- *                     promptTokens:
- *                       type: integer
- *                     completionTokens:
- *                       type: integer
- *       401:
- *         $ref: '#/components/responses/Unauthorized'
- *       403:
- *         $ref: '#/components/responses/Forbidden'
- *       404:
- *         $ref: '#/components/responses/NotFound'
- *       500:
- *         description: Failed to fetch realm
- */
-export const GET = withError(async (_req: NextRequest, ctx: Ctx) => {
-  const auth = await getAuthContext(_req);
-  if (!auth) return unauthorized();
+const handlers = createNextRoute(realmsContract, {
+  // ── GET /api/realms/:id — full realm detail (single query) ────────────────
+  getOne: async ({ params, request }) => {
+    const auth = await getAuthContext(request);
 
-  const { id } = await ctx.params;
-  const realm = await RealmDAO.findById(id);
-  if (!realm) return notFound("Realm not found");
+    const realm = await RealmDAO.getDetail(params.id);
+    if (!realm) throw new APIException("NOT_FOUND", "Realm not found");
 
-  if (!(await auth.canAccessRealm(id))) return forbidden();
+    if (!(await auth.canAccessRealm(params.id)))
+      throw new APIException("FORBIDDEN");
 
-  const agentRows = await RealmDAO.getAgents(id);
-  const userRows = await RealmDAO.getUsers(id);
-  const tokenUsage = await RealmDAO.getTokenUsage(id);
-  const workflows = (await WorkflowDAO.list({ realmId: id })).map((w) => ({
-    id: w.id,
-    name: w.name,
-    description: w.description,
-    createdAt: w.createdAt,
-    updatedAt: w.updatedAt,
-  }));
+    return { status: 200, body: realm };
+  },
 
-  const agents = agentRows.map((ar) => ({
-    agentDid: ar.agent.did,
-    agentName: ar.agent.name,
-    capabilities: JSON.stringify(ar.agent.capabilities ?? []),
-    isPrimary: ar.isPrimary ? 1 : 0,
-    joinedAt: ar.joinedAt.toISOString(),
-  }));
+  // ── PATCH /api/realms/:id — update metadata or config (global admin) ──────
+  update: async ({ params, body, request }) => {
+    const auth = await getAuthContext(request);
+    if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");
 
-  const users = userRows.map((ur) => ({
-    userDid: ur.user.did ?? ur.user.id,
-    name: ur.user.name,
-    email: ur.user.email,
-    isPrimary: ur.isPrimary ? 1 : 0,
-    joinedAt: ur.joinedAt.toISOString(),
-  }));
+    const existing = await RealmDAO.findById(params.id);
+    if (!existing) throw new APIException("NOT_FOUND", "Realm not found");
 
-  return NextResponse.json({
-    realm,
-    agents,
-    users,
-    workflows,
-    tokenUsage: tokenUsage
-      ? {
-          promptTokens: tokenUsage.promptTokens,
-          completionTokens: tokenUsage.completionTokens,
-        }
-      : null,
-  });
+    const updates: Parameters<typeof RealmDAO.update>[1] = {};
+    if (body.name !== undefined) updates.name = body.name.trim();
+    if (body.description !== undefined) updates.description = body.description;
+    if (body.color !== undefined) updates.color = body.color;
+    if ("llmConfig" in body)
+      updates.llmConfig = (body.llmConfig as any) ?? null;
+    if (body.defaultCapabilities !== undefined)
+      updates.defaultCapabilities = body.defaultCapabilities;
+    if ("tokenBudgetDaily" in body)
+      updates.tokenBudgetDaily = body.tokenBudgetDaily ?? null;
+    if ("tokenBudgetMonthly" in body)
+      updates.tokenBudgetMonthly = body.tokenBudgetMonthly ?? null;
+    if ("allowedCapabilities" in body)
+      updates.allowedCapabilities = body.allowedCapabilities ?? null;
+
+    await RealmDAO.update(params.id, updates);
+    const realm = await RealmDAO.findById(params.id);
+
+    return { status: 200, body: realm! };
+  },
+
+  // ── DELETE /api/realms/:id — delete a realm (not the default one) ─────────
+  remove: async ({ params, request }) => {
+    const auth = await getAuthContext(request);
+    if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");
+
+    const ok = await RealmDAO.delete(params.id);
+    if (!ok)
+      throw new APIException("CONFLICT", "Cannot delete the default realm");
+
+    return { status: 200, body: { ok: true } };
+  },
 });
 
-/**
- * PATCH /api/realms/[id] — update realm metadata or config. Global admin only.
- * Body: { name?, description?, color?, llmConfig?, defaultCapabilities? }
- */
-/**
- * @openapi
- * /api/realms/{id}:
- *   patch:
- *     summary: Update realm metadata or config.
- *     tags: [Realms]
- *     parameters:
- *       - name: id
- *         in: path
- *         required: true
- *         description: The ID of the realm to update.
- *         schema:
- *           type: string
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               name:
- *                 type: string
- *               description:
- *                 type: string
- *               color:
- *                 type: string
- *               llmConfig:
- *                 type: object
- *                 nullable: true
- *               defaultCapabilities:
- *                 type: array
- *                 items:
- *                   type: string
- *               tokenBudgetDaily:
- *                 type: integer
- *                 nullable: true
- *               tokenBudgetMonthly:
- *                 type: integer
- *                 nullable: true
- *               allowedCapabilities:
- *                 type: array
- *                 items:
- *                   type: string
- *                 nullable: true
- *     responses:
- *       200:
- *         description: Realm updated successfully.
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Realm'
- *       400:
- *         $ref: '#/components/responses/BadRequest'
- *       401:
- *         $ref: '#/components/responses/Unauthorized'
- *       403:
- *         $ref: '#/components/responses/Forbidden'
- *       404:
- *         $ref: '#/components/responses/NotFound'
- */
-export const PATCH = withError(async (req: NextRequest, ctx: Ctx) => {
-  const auth = await getAuthContext(req);
-  if (!auth) return unauthorized();
-  if (!auth.isGlobalAdmin) return forbidden();
-
-  const { id } = await ctx.params;
-  const realm = await RealmDAO.findById(id);
-  if (!realm) return notFound("Realm not found");
-
-  const body = (await req.json()) as {
-    name?: string;
-    description?: string;
-    color?: string;
-    llmConfig?: object | null;
-    defaultCapabilities?: string[];
-    tokenBudgetDaily?: number | null;
-    tokenBudgetMonthly?: number | null;
-    allowedCapabilities?: string[] | null;
-  };
-
-  const updates: Parameters<typeof RealmDAO.update>[1] = {};
-  if (body.name !== undefined) updates.name = body.name.trim();
-  if (body.description !== undefined) updates.description = body.description;
-  if (body.color !== undefined) updates.color = body.color;
-  if ("llmConfig" in body)
-    updates.llmConfig = body.llmConfig !== null ? body.llmConfig : null;
-  if (body.defaultCapabilities !== undefined)
-    updates.defaultCapabilities = body.defaultCapabilities;
-  if ("tokenBudgetDaily" in body)
-    updates.tokenBudgetDaily = body.tokenBudgetDaily ?? null;
-  if ("tokenBudgetMonthly" in body)
-    updates.tokenBudgetMonthly = body.tokenBudgetMonthly ?? null;
-  if ("allowedCapabilities" in body)
-    updates.allowedCapabilities =
-      body.allowedCapabilities !== null &&
-      body.allowedCapabilities !== undefined
-        ? body.allowedCapabilities
-        : null;
-
-  await RealmDAO.update(id, updates);
-
-  return NextResponse.json({ realm: await RealmDAO.findById(id) });
-});
-
-/**
- * DELETE /api/realms/[id] — delete realm (not allowed for default realm). Global admin only.
- */
-/**
- * @openapi
- * /api/realms/{id}:
- *   delete:
- *     summary: Delete a realm (not allowed for default realm).
- *     tags: [Realms]
- *     parameters:
- *       - name: id
- *         in: path
- *         required: true
- *         description: The ID of the realm to delete.
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: Realm successfully deleted.
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 ok:
- *                   type: boolean
- *                   example: true
- *       400:
- *         $ref: '#/components/responses/BadRequest'
- *       401:
- *         $ref: '#/components/responses/Unauthorized'
- *       403:
- *         $ref: '#/components/responses/Forbidden'
- *       404:
- *         $ref: '#/components/responses/NotFound'
- *       500:
- *         description: Failed to delete realm.
- */
-export const DELETE = withError(async (_req: NextRequest, ctx: Ctx) => {
-  const auth = await getAuthContext(_req);
-  if (!auth) return unauthorized();
-  if (!auth.isGlobalAdmin) return forbidden();
-
-  const { id } = await ctx.params;
-  const ok = await RealmDAO.delete(id);
-  if (!ok) {
-    return conflict("Cannot delete the default realm");
-  }
-  return NextResponse.json({ ok: true });
-});
+export const GET = handlers.GET!;
+export const PATCH = handlers.PATCH!;
+export const DELETE = handlers.DELETE!;

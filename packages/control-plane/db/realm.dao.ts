@@ -1,3 +1,4 @@
+import { RealmDetail, RealmWithCounts } from "@/lib/contracts";
 import { prisma } from "./client";
 import type {
   Realm,
@@ -7,14 +8,45 @@ import type {
 } from "@prisma/client";
 
 export class RealmDAO {
-  static async findAll(): Promise<Realm[]> {
+  static async findAll(): Promise<RealmWithCounts[]> {
     return prisma.realm.findMany({
       orderBy: [{ isDefault: "desc" }, { name: "asc" }],
+      include: {
+        _count: {
+          select: {
+            agentRealms: true,
+            userRealms: true,
+            workflows: true,
+          },
+        },
+      },
     });
   }
 
   static async findById(id: string): Promise<Realm | null> {
     return prisma.realm.findUnique({ where: { id } });
+  }
+
+  /**
+   * Full realm detail (members, workflows, token usage) in a single query —
+   * the payload backing GET /api/realms/:id (see `RealmDetail`).
+   */
+  static async getDetail(id: string): Promise<RealmDetail | null> {
+    return prisma.realm.findUnique({
+      where: { id },
+      include: {
+        agentRealms: {
+          include: { agent: true, realm: true },
+          orderBy: [{ isPrimary: "desc" }, { agent: { name: "asc" } }],
+        },
+        userRealms: {
+          include: { user: true, realm: true },
+          orderBy: [{ isPrimary: "desc" }, { user: { name: "asc" } }],
+        },
+        workflows: true,
+        tokenUsage: true,
+      },
+    });
   }
 
   static async findBySlug(slug: string): Promise<Realm | null> {
@@ -253,8 +285,6 @@ export class RealmDAO {
   }
 
   static async deleteRouterKey(realmId: string): Promise<void> {
-    await prisma.realmRouterKey
-      .delete({ where: { realmId } })
-      .catch(() => {}); // ignore if not found
+    await prisma.realmRouterKey.delete({ where: { realmId } }).catch(() => {}); // ignore if not found
   }
 }

@@ -11,21 +11,24 @@ import {
   userStatusContract,
 } from "./misc/misc.contract";
 import { litellmContract, modelsContract } from "./models/models.contract";
+import { graphContract } from "./graph/graph.contract";
 import {
-  graphContract,
   healthContract,
   mapContract,
   networkContract,
 } from "./network.contract";
 import { policiesContract } from "./policies/policies.contract";
-import { realmsContract } from "./realms.contract";
+import { realmsContract } from "./realms/realms.contract";
 import {
   registrationsContract,
   toolApprovalsContract,
 } from "./registrations.contract";
 import { serverContract } from "./server.contract";
-import { setupContract, settingsContract } from "./settings.contract";
-import { orgSkillsContract, skillsContract } from "./skills.contract";
+import {
+  setupContract,
+  settingsContract,
+} from "./settings/settings.contract";
+import { orgSkillsContract, skillsContract } from "./skills/skills.contract";
 import { userAuthContract } from "./user-auth.contract";
 import { wellKnownContract } from "./well-known/well-known.contract";
 import {
@@ -37,7 +40,7 @@ import {
   workflowApprovalsContract,
   workflowRunsContract,
   workflowsContract,
-} from "./workflows.contract";
+} from "./workflows/workflows.contract";
 
 export { c } from "./contract";
 export * from "./common";
@@ -52,6 +55,10 @@ export type * from "./governance/governance.contract";
 export * from "./governance/governance.contract";
 export * from "./governance/governance.schemas";
 export * from "./governance/governance.types";
+export type * from "./graph/graph.contract";
+export * from "./graph/graph.contract";
+export * from "./graph/graph.schemas";
+export * from "./graph/graph.types";
 export * from "./intents.contract";
 export type * from "./knowledge/knowledge.contract";
 export * from "./knowledge/knowledge.contract";
@@ -69,18 +76,30 @@ export type * from "./policies/policies.contract";
 export * from "./policies/policies.contract";
 export * from "./policies/policies.schemas";
 export * from "./policies/policies.types";
-export * from "./realms.contract";
+export type * from "./realms/realms.contract";
+export * from "./realms/realms.contract";
+export * from "./realms/realms.schemas";
+export * from "./realms/realms.types";
 export * from "./registrations.contract";
 export * from "./server.contract";
-export * from "./settings.contract";
-export * from "./skills.contract";
+export type * from "./settings/settings.contract";
+export * from "./settings/settings.contract";
+export * from "./settings/settings.schemas";
+export * from "./settings/settings.types";
+export type * from "./skills/skills.contract";
+export * from "./skills/skills.contract";
+export * from "./skills/skills.schemas";
+export * from "./skills/skills.types";
 export * from "./user-auth.contract";
 export * from "./users.contract";
 export type * from "./well-known/well-known.contract";
 export * from "./well-known/well-known.contract";
 export * from "./well-known/well-known.schemas";
 export * from "./well-known/well-known.types";
-export * from "./workflows.contract";
+export type * from "./workflows/workflows.contract";
+export * from "./workflows/workflows.contract";
+export * from "./workflows/workflows.schemas";
+export * from "./workflows/workflows.types";
 
 /**
  * Aggregate contract — every domain router under a namespaced key. Useful for a

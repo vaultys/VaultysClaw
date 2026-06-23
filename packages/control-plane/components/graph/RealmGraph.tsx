@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import type { GraphData, GraphNode } from "@vaultysclaw/shared";
+import { graphClient, unwrap, ApiError } from "@/lib/api/ts-rest/client";
 
 // All views are code-split to avoid loading Three.js everywhere
 const Force3DView = dynamic(() => import("./views/Force3DView"), {
@@ -28,9 +29,15 @@ interface Props {
   hideViewSwitcher?: boolean;
   /** If provided, show focused view in org-chart mode for this user */
   currentUserId?: string;
+  /** Controlled view mode — when set, the parent owns view state (e.g. toolbar tabs) */
+  view?: GraphViewMode;
+  /** Called when the view mode changes (from the built-in switcher) */
+  onViewChange?: (view: GraphViewMode) => void;
+  /** Called after the graph data loads, with node/edge counts */
+  onStats?: (stats: { nodes: number; edges: number }) => void;
 }
 
-const VIEW_OPTIONS: {
+export const VIEW_OPTIONS: {
   id: GraphViewMode;
   label: string;
   icon: React.ReactNode;
@@ -124,24 +131,44 @@ export default function RealmGraph({
   defaultView = "force3d",
   hideViewSwitcher = false,
   currentUserId,
+  view: controlledView,
+  onViewChange,
+  onStats,
 }: Props) {
-  const [view, setView] = useState<GraphViewMode>(defaultView);
+  const [internalView, setInternalView] = useState<GraphViewMode>(defaultView);
+  const view = controlledView ?? internalView;
   const [data, setData] = useState<GraphData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  function changeView(next: GraphViewMode) {
+    onViewChange?.(next);
+    if (controlledView === undefined) setInternalView(next);
+  }
+
   useEffect(() => {
     setLoading(true);
     setError(null);
-    fetch(`/api/graph${query}`)
-      .then((r) => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        return r.json();
+    // Parse the legacy query-string prop (e.g. "?realm=abc") into typed params.
+    const sp = new URLSearchParams(query.replace(/^\?/, ""));
+    graphClient
+      .get({
+        query: {
+          agent: sp.get("agent") ?? undefined,
+          user: sp.get("user") ?? undefined,
+          realm: sp.get("realm") ?? undefined,
+        },
       })
-      .then((d: GraphData) => setData(d))
-      .catch((err) => setError(err.message))
+      .then((res) => {
+        const d = unwrap(res);
+        setData(d);
+        onStats?.({ nodes: d.nodes.length, edges: d.edges.length });
+      })
+      .catch((err) =>
+        setError(err instanceof ApiError ? err.message : "Failed to load graph")
+      )
       .finally(() => setLoading(false));
-  }, [query]);
+  }, [query, onStats]);
 
   // Derived content height (subtract switcher bar if shown)
   const switcherH = hideViewSwitcher ? 0 : 44;
@@ -191,7 +218,7 @@ export default function RealmGraph({
           {VIEW_OPTIONS.map((opt) => (
             <button
               key={opt.id}
-              onClick={() => setView(opt.id)}
+              onClick={() => changeView(opt.id)}
               title={opt.tip}
               className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
                 view === opt.id

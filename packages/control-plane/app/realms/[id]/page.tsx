@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
 import {
   Globe2,
-  ArrowLeft,
   Bot,
   Users,
   Trash2,
@@ -26,6 +25,8 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
+import { useToolbar } from "@/components/layout/ToolbarContext";
+import { useBreadcrumbs } from "@/components/layout/BreadcrumbContext";
 import { useWorkflowStore } from "@/components/workflow/store";
 import { TemplateSelectionModal } from "@/components/workflow/TemplateSelectionModal";
 import EmbeddedOrgChart from "@/components/graph/EmbeddedOrgChart";
@@ -38,50 +39,19 @@ import {
   RealmLiteLLMKeyCard,
   type RealmRouterKeyData,
 } from "@/components/realms/RealmLiteLLMKeyCard";
-import { agentsClient, unwrap } from "@/lib/api/ts-rest/client";
-import { AgentInfo } from "@/lib/contracts";
+import {
+  agentsClient,
+  workflowsClient,
+  realmsClient,
+  unwrap,
+  ApiError,
+} from "@/lib/api/ts-rest/client";
+import { AgentInfo, RealmDetail } from "@/lib/contracts";
 
 const WorldMap = dynamic(
   () => import("@/components/map/WorldMap").then((m) => m.WorldMap),
   { ssr: false }
 );
-
-interface Realm {
-  id: string;
-  name: string;
-  slug: string;
-  description: string | null;
-  color: string;
-  isDefault: number;
-  llmConfig: string | null;
-  defaultCapabilities: string;
-  createdAt: string;
-  tokenUsage?: { promptTokens: number; completionTokens: number } | null;
-}
-
-interface RealmAgent {
-  agentDid: string;
-  agentName: string;
-  capabilities: string;
-  isPrimary: number;
-  joinedAt: string;
-}
-
-interface RealmUser {
-  userDid: string;
-  name: string | null;
-  email: string | null;
-  isPrimary: number;
-  joinedAt: string;
-}
-
-interface RealmWorkflow {
-  id: string;
-  name: string;
-  description: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
 
 interface RealmSkill {
   id: string;
@@ -155,7 +125,7 @@ function AddMemberModal({
   onClose,
   onAdded,
 }: {
-  realm: Realm;
+  realm: RealmDetail;
   type: "agent" | "user";
   onClose: () => void;
   onAdded: () => void;
@@ -256,11 +226,7 @@ function AddMemberModal({
             />
             Set as primary realm for this {type}
           </label>
-          {error && (
-            <p className="text-danger-600 text-sm">
-              {error}
-            </p>
-          )}
+          {error && <p className="text-danger-600 text-sm">{error}</p>}
           <div className="flex gap-3 pt-1">
             <button
               onClick={onClose}
@@ -289,14 +255,12 @@ export default function RealmDetailPage() {
   const id = params.id;
   const { isGlobalAdmin } = useRole();
 
-  const [realm, setRealm] = useState<Realm | null>(null);
-  const [agents, setAgents] = useState<RealmAgent[]>([]);
-  const [users, setUsers] = useState<RealmUser[]>([]);
-  const [workflows, setWorkflows] = useState<RealmWorkflow[]>([]);
-  const [tokenUsage, setTokenUsage] = useState<{
-    promptTokens: number;
-    completionTokens: number;
-  } | null>(null);
+  const [realm, setRealm] = useState<RealmDetail | null>(null);
+  // Members, workflows and token usage all live on the single RealmDetail payload.
+  const agents = realm?.agentRealms ?? [];
+  const users = realm?.userRealms ?? [];
+  const workflows = realm?.workflows ?? [];
+  const tokenUsage = realm?.tokenUsage ?? null;
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<
     | "agents"
@@ -385,7 +349,7 @@ export default function RealmDetailPage() {
 
   const load = useCallback(async () => {
     const [realmRes, skillsRes, modelsRes, channelsRes] = await Promise.all([
-      fetch(`/api/realms/${id}`),
+      realmsClient.getOne({ params: { id } }),
       fetch(`/api/realms/${id}/skills`),
       fetch(`/api/realms/${id}/models`),
       fetch(`/api/channels?realm=${id}`),
@@ -394,18 +358,7 @@ export default function RealmDetailPage() {
       router.replace("/realms");
       return;
     }
-    const data = (await realmRes.json()) as {
-      realm: Realm;
-      agents: RealmAgent[];
-      users: RealmUser[];
-      workflows: RealmWorkflow[];
-      tokenUsage?: { promptTokens: number; completionTokens: number } | null;
-    };
-    setRealm(data.realm);
-    setAgents(data.agents);
-    setUsers(data.users);
-    setWorkflows(data.workflows ?? []);
-    setTokenUsage(data.tokenUsage ?? null);
+    setRealm(unwrap(realmRes));
     if (skillsRes.ok) {
       const skillsData = (await skillsRes.json()) as { skills: RealmSkill[] };
       setSkills(skillsData.skills ?? []);
@@ -435,13 +388,12 @@ export default function RealmDetailPage() {
 
   async function handleSelectTemplate(templateId: string) {
     try {
-      const res = await fetch(`/api/workflows/templates/${templateId}`);
-      if (!res.ok) throw new Error("Failed to load template");
-      const data = (await res.json()) as {
-        template: { definition: any; name: string };
-      };
+      const data = unwrap(
+        await workflowsClient.getTemplate({ params: { templateId } })
+      );
+      const template = data.template as { definition: any; name: string };
       clearWorkflowStore();
-      setWorkflowStore("", data.template.name, "", data.template.definition);
+      setWorkflowStore("", template.name, "", template.definition);
       router.push(`/workflows/new/edit?fromTemplate=1&realm=${id}`);
     } catch (err) {
       console.error("Failed to load template:", err);
@@ -459,14 +411,9 @@ export default function RealmDetailPage() {
 
   async function saveEdit() {
     setSaving(true);
-    await fetch(`/api/realms/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name: editName,
-        description: editDesc,
-        color: editColor,
-      }),
+    await realmsClient.update({
+      params: { id },
+      body: { name: editName, description: editDesc, color: editColor },
     });
     setSaving(false);
     setEditing(false);
@@ -494,15 +441,88 @@ export default function RealmDetailPage() {
   }
 
   async function handleSetDefault() {
-    await fetch(`/api/realms/${id}/default`, { method: "POST" });
+    await realmsClient.setDefault({ params: { id } });
     load();
   }
 
   async function handleDelete() {
     if (!confirm("Delete this realm? This cannot be undone.")) return;
-    await fetch(`/api/realms/${id}`, { method: "DELETE" });
+    await realmsClient.remove({ params: { id } });
     router.push("/realms");
   }
+
+  useBreadcrumbs(
+    [{ label: "Realms", href: "/realms" }, { label: realm?.name ?? "Realm" }],
+    [realm?.name]
+  );
+
+  useToolbar(
+    {
+      title: realm?.name ?? "Realm",
+      description: realm ? (
+        <span className="flex items-center gap-2 flex-wrap">
+          <code className="font-mono text-foreground-400">{realm.slug}</code>
+          {realm.description && (
+            <span className="text-foreground-500">· {realm.description}</span>
+          )}
+          <span className="text-foreground-400">
+            · {agents.length} agent{agents.length !== 1 ? "s" : ""} ·{" "}
+            {users.length} user{users.length !== 1 ? "s" : ""} ·{" "}
+            {workflows.length} workflow{workflows.length !== 1 ? "s" : ""} ·{" "}
+            {(tokenUsage?.promptTokens ?? 0).toLocaleString()} in /{" "}
+            {(tokenUsage?.completionTokens ?? 0).toLocaleString()} out tokens
+          </span>
+        </span>
+      ) : (
+        "Loading…"
+      ),
+      actions: realm
+        ? [
+            {
+              kind: "button",
+              id: "graph",
+              label: "Graph",
+              icon: <Network className="w-3.5 h-3.5" />,
+              onClick: () => router.push(`/realms/${id}/graph`),
+            },
+            {
+              kind: "button",
+              id: "edit",
+              label: "Edit",
+              icon: <Pencil className="w-3.5 h-3.5" />,
+              onClick: startEdit,
+            },
+            {
+              kind: "button",
+              id: "default",
+              label: realm.isDefault ? "Default" : "Set default",
+              icon: <Star className="w-3.5 h-3.5" />,
+              variant: realm.isDefault ? "success" : "default",
+              disabled: realm.isDefault,
+              onClick: handleSetDefault,
+            },
+            {
+              kind: "button",
+              id: "delete",
+              label: "Delete",
+              icon: <Trash2 className="w-3.5 h-3.5" />,
+              variant: "danger",
+              disabled: realm.isDefault,
+              onClick: handleDelete,
+            },
+          ]
+        : [],
+    },
+    [
+      realm,
+      agents.length,
+      users.length,
+      workflows.length,
+      tokenUsage,
+      id,
+      router,
+    ]
+  );
 
   if (loading) {
     return (
@@ -516,142 +536,68 @@ export default function RealmDetailPage() {
 
   return (
     <div className="p-6 w-full max-w-7xl mx-auto space-y-5">
-      {/* Back */}
-      <Link
-        href="/realms"
-        className="inline-flex items-center gap-1.5 text-foreground-500 hover:text-foreground text-sm transition-colors"
-      >
-        <ArrowLeft className="w-4 h-4" />
-        Realms
-      </Link>
-
-      {/* Header card */}
-      <div className="bg-background-100 border border-neutral-200 rounded-2xl overflow-hidden">
-        <div className="h-1.5" style={{ backgroundColor: realm.color }} />
-        <div className="p-5 flex items-start gap-4">
-          <div
-            className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0"
-            style={{
-              backgroundColor: realm.color + "22",
-              border: `1px solid ${realm.color}44`,
-            }}
-          >
-            <Globe2 className="w-6 h-6" style={{ color: realm.color }} />
-          </div>
-          <div className="flex-1 min-w-0">
-            {editing ? (
-              <div className="space-y-2">
-                <input
-                  value={editName}
-                  onChange={(e) => setEditName(e.target.value)}
-                  className="bg-background border border-neutral-200 rounded-lg px-3 py-1.5 text-sm text-foreground w-full max-w-xs focus:outline-none focus:ring-2 focus:ring-primary-500"
-                />
-                <textarea
-                  value={editDesc}
-                  onChange={(e) => setEditDesc(e.target.value)}
-                  rows={2}
-                  className="bg-background border border-neutral-200 rounded-lg px-3 py-1.5 text-sm text-foreground w-full focus:outline-none focus:ring-2 focus:ring-primary-500 resize-none"
-                  placeholder="Description"
-                />
-                <div className="flex gap-1.5 flex-wrap">
-                  {PRESET_COLORS.map((c) => (
-                    <button
-                      key={c}
-                      onClick={() => setEditColor(c)}
-                      className="w-6 h-6 rounded-full border-2 transition-transform hover:scale-110"
-                      style={{
-                        backgroundColor: c,
-                        borderColor: editColor === c ? "white" : "transparent",
-                        boxShadow: editColor === c ? `0 0 0 2px ${c}` : "none",
-                      }}
-                    />
-                  ))}
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={saveEdit}
-                    disabled={saving}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary-600 hover:bg-primary-500 text-white text-xs font-medium transition-colors disabled:opacity-50"
-                  >
-                    <Check className="w-3.5 h-3.5" />
-                    {saving ? "Saving…" : "Save"}
-                  </button>
-                  <button
-                    onClick={() => setEditing(false)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-neutral-200 text-foreground-500 hover:text-foreground text-xs transition-colors"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <>
-                <div className="flex items-center gap-2 flex-wrap">
-                  <h1 className="text-lg font-semibold text-foreground">
-                    {realm.name}
-                  </h1>
-                  {realm.isDefault === 1 && (
-                    <span className="text-xs px-2 py-0.5 rounded-md bg-warning-50 text-warning-700 font-medium">
-                      default
-                    </span>
-                  )}
-                  <code className="text-xs text-foreground-400 font-mono bg-background-200 px-1.5 py-0.5 rounded">
-                    {realm.slug}
-                  </code>
-                </div>
-                {realm.description && (
-                  <p className="text-foreground-500 text-sm mt-1">
-                    {realm.description}
-                  </p>
-                )}
-                <p className="text-foreground-400 text-xs mt-1.5">
-                  {agents.length} agent{agents.length !== 1 ? "s" : ""} ·{" "}
-                  {users.length} user{users.length !== 1 ? "s" : ""} ·{" "}
-                  {workflows.length} workflow{workflows.length !== 1 ? "s" : ""}
-                  · Created {new Date(realm.createdAt).toLocaleDateString()}
-                </p>
-              </>
-            )}
-          </div>
-          {!editing && (
-            <div className="flex items-center gap-1 shrink-0">
-              <Link
-                href={`/realms/${id}/graph`}
-                className="p-2 rounded-lg text-foreground-500 hover:text-primary-400 hover:bg-primary-400/10 transition-colors"
-                title="View relationship graph"
-              >
-                <Network className="w-4 h-4" />
-              </Link>
-              <button
-                onClick={startEdit}
-                className="p-2 rounded-lg text-foreground-500 hover:text-foreground hover:bg-background-200 transition-colors"
-                title="Edit realm"
-              >
-                <Pencil className="w-4 h-4" />
-              </button>
-              {realm.isDefault !== 1 && (
-                <button
-                  onClick={handleSetDefault}
-                  className="p-2 rounded-lg text-foreground-500 hover:text-warning-400 hover:bg-warning-400/10 transition-colors"
-                  title="Set as default realm"
-                >
-                  <Star className="w-4 h-4" />
-                </button>
-              )}
-              {realm.isDefault !== 1 && (
-                <button
-                  onClick={handleDelete}
-                  className="p-2 rounded-lg text-foreground-500 hover:text-danger-400 hover:bg-danger-400/10 transition-colors"
-                  title="Delete realm"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              )}
+      {/* Inline edit panel */}
+      {editing && (
+        <div className="bg-background-100 border border-neutral-200 rounded-2xl overflow-hidden">
+          <div className="h-1.5" style={{ backgroundColor: editColor }} />
+          <div className="p-5 flex items-start gap-4">
+            <div
+              className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0"
+              style={{
+                backgroundColor: editColor + "22",
+                border: `1px solid ${editColor}44`,
+              }}
+            >
+              <Globe2 className="w-6 h-6" style={{ color: editColor }} />
             </div>
-          )}
+            <div className="flex-1 min-w-0 space-y-2">
+              <input
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                className="bg-background border border-neutral-200 rounded-lg px-3 py-1.5 text-sm text-foreground w-full max-w-xs focus:outline-none focus:ring-2 focus:ring-primary-500"
+              />
+              <textarea
+                value={editDesc}
+                onChange={(e) => setEditDesc(e.target.value)}
+                rows={2}
+                className="bg-background border border-neutral-200 rounded-lg px-3 py-1.5 text-sm text-foreground w-full focus:outline-none focus:ring-2 focus:ring-primary-500 resize-none"
+                placeholder="Description"
+              />
+              <div className="flex gap-1.5 flex-wrap">
+                {PRESET_COLORS.map((c) => (
+                  <button
+                    key={c}
+                    onClick={() => setEditColor(c)}
+                    className="w-6 h-6 rounded-full border-2 transition-transform hover:scale-110"
+                    style={{
+                      backgroundColor: c,
+                      borderColor: editColor === c ? "white" : "transparent",
+                      boxShadow: editColor === c ? `0 0 0 2px ${c}` : "none",
+                    }}
+                  />
+                ))}
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={saveEdit}
+                  disabled={saving}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary-600 hover:bg-primary-500 text-white text-xs font-medium transition-colors disabled:opacity-50"
+                >
+                  <Check className="w-3.5 h-3.5" />
+                  {saving ? "Saving…" : "Save"}
+                </button>
+                <button
+                  onClick={() => setEditing(false)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-neutral-200 text-foreground-500 hover:text-foreground text-xs transition-colors"
+                >
+                  <X className="w-3.5 h-3.5" />
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Token metrics — always shown */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -742,9 +688,9 @@ export default function RealmDetailPage() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-medium text-foreground truncate">
-                        {a.agentName}
+                        {a.agent.name}
                       </span>
-                      {a.isPrimary === 1 && (
+                      {a.isPrimary && (
                         <span className="text-xs px-1.5 py-0.5 rounded bg-warning-50 text-warning-700">
                           primary
                         </span>
@@ -762,7 +708,7 @@ export default function RealmDetailPage() {
                   >
                     <ChevronRight className="w-4 h-4" />
                   </Link>
-                  {realm.isDefault !== 1 && (
+                  {!realm.isDefault && (
                     <button
                       onClick={() => handleRemoveAgent(a.agentDid)}
                       className="p-1.5 rounded-lg text-foreground-500 hover:text-danger-400 hover:bg-danger-400/10 transition-colors"
@@ -798,42 +744,45 @@ export default function RealmDetailPage() {
             </div>
           ) : (
             <div className="bg-background-100 border border-neutral-200 rounded-2xl overflow-hidden">
-              {users.map((u, i) => (
-                <div
-                  key={u.userDid}
-                  className={`flex items-center gap-3 px-4 py-3 ${i > 0 ? "border-t border-neutral-200/50" : ""}`}
-                >
-                  <div className="w-8 h-8 rounded-full bg-background-200 border border-neutral-200 flex items-center justify-center shrink-0 text-xs font-semibold text-foreground-500">
-                    {initials(u.name, u.userDid)}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium text-foreground truncate">
-                        {u.name ?? shortDid(u.userDid)}
-                      </span>
-                      {u.isPrimary === 1 && (
-                        <span className="text-xs px-1.5 py-0.5 rounded bg-warning-50 text-warning-700">
-                          primary
+              {users.map((u, i) => {
+                const userDid = u.user.did ?? u.user.id;
+                return (
+                  <div
+                    key={userDid}
+                    className={`flex items-center gap-3 px-4 py-3 ${i > 0 ? "border-t border-neutral-200/50" : ""}`}
+                  >
+                    <div className="w-8 h-8 rounded-full bg-background-200 border border-neutral-200 flex items-center justify-center shrink-0 text-xs font-semibold text-foreground-500">
+                      {initials(u.user.name, userDid)}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium text-foreground truncate">
+                          {u.user.name ?? shortDid(userDid)}
                         </span>
+                        {u.isPrimary && (
+                          <span className="text-xs px-1.5 py-0.5 rounded bg-warning-50 text-warning-700">
+                            primary
+                          </span>
+                        )}
+                      </div>
+                      {u.user.email && (
+                        <p className="text-xs text-foreground-400 truncate">
+                          {u.user.email}
+                        </p>
                       )}
                     </div>
-                    {u.email && (
-                      <p className="text-xs text-foreground-400 truncate">
-                        {u.email}
-                      </p>
+                    {!realm.isDefault && (
+                      <button
+                        onClick={() => handleRemoveUser(userDid)}
+                        className="p-1.5 rounded-lg text-foreground-500 hover:text-danger-400 hover:bg-danger-400/10 transition-colors"
+                        title="Remove from realm"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
                     )}
                   </div>
-                  {realm.isDefault !== 1 && (
-                    <button
-                      onClick={() => handleRemoveUser(u.userDid)}
-                      className="p-1.5 rounded-lg text-foreground-500 hover:text-danger-400 hover:bg-danger-400/10 transition-colors"
-                      title="Remove from realm"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  )}
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
@@ -1433,10 +1382,13 @@ function RealmConfigTab({
   realm,
   onSaved,
 }: {
-  realm: Realm;
+  realm: RealmDetail;
   onSaved: () => void;
 }) {
-  const defaultCaps: string[] = JSON.parse(realm.defaultCapabilities || "[]");
+  // defaultCapabilities is a Prisma Json column → already a parsed JS array.
+  const defaultCaps: string[] = Array.isArray(realm.defaultCapabilities)
+    ? (realm.defaultCapabilities as string[])
+    : [];
   const [caps, setCaps] = useState<string[]>(defaultCaps);
   const [saving, setSaving] = useState(false);
 
@@ -1448,10 +1400,9 @@ function RealmConfigTab({
 
   async function save() {
     setSaving(true);
-    await fetch(`/api/realms/${realm.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ defaultCapabilities: caps }),
+    await realmsClient.update({
+      params: { id: realm.id },
+      body: { defaultCapabilities: caps },
     });
     setSaving(false);
     onSaved();

@@ -16,22 +16,24 @@ export class WorkflowDAO {
     createdBy?: string,
     realmId?: string,
     description?: string
-  ): Promise<string> {
+  ): Promise<Workflow> {
     const id = crypto.randomUUID();
-    const defaultRealm = realmId
+    // "default" is a client-side sentinel meaning "no explicit realm".
+    const explicitRealmId =
+      realmId && realmId !== "default" ? realmId : undefined;
+    const defaultRealm = explicitRealmId
       ? null
       : await prisma.realm.findFirst({ where: { isDefault: true } });
-    await prisma.workflow.create({
+    return await prisma.workflow.create({
       data: {
         id,
         name,
         description: description ?? null,
         definition: definition,
         createdBy: createdBy ?? null,
-        realmId: realmId ?? defaultRealm?.id ?? null,
+        realmId: explicitRealmId ?? defaultRealm?.id ?? null,
       },
     });
-    return id;
   }
 
   static async findById(id: string): Promise<Workflow | null> {
@@ -59,11 +61,20 @@ export class WorkflowDAO {
       definition?: Prisma.InputJsonValue;
       realmId?: string;
     }
-  ): Promise<void> {
-    await prisma.workflow.update({
+  ): Promise<Workflow> {
+    // "default" is a client-side sentinel meaning the default realm; resolve it
+    // to the real realm id (or leave the field unchanged if none exists).
+    let realmId = data.realmId;
+    if (realmId === "default") {
+      const defaultRealm = await prisma.realm.findFirst({
+        where: { isDefault: true },
+      });
+      realmId = defaultRealm?.id;
+    }
+    return await prisma.workflow.update({
       where: { id },
       data: {
-        realmId: data.realmId,
+        realmId,
         name: data.name,
         description: data.description,
         definition: data.definition,
@@ -110,8 +121,8 @@ export class WorkflowDAO {
     });
   }
 
-  static async delete(id: string): Promise<void> {
-    await prisma.workflow.delete({ where: { id } });
+  static async delete(id: string): Promise<Workflow> {
+    return prisma.workflow.delete({ where: { id } });
   }
 
   // ─── Runs ───────────────────────────────────────────────────────────────────

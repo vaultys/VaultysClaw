@@ -253,7 +253,7 @@ export default function WorkflowDetailPage() {
         fetch(`/api/realms/${data.workflow.realmId}`)
           .then((r) => (r.ok ? r.json() : null))
           .then((d: any) => d?.realm?.name && setRealmName(d.realm.name))
-          .catch(() => {});
+          .catch(() => { });
       }
     } catch {
       setError("Failed to load workflow");
@@ -274,7 +274,7 @@ export default function WorkflowDetailPage() {
           })
         );
         setAgentNames((prev) => ({ ...prev, [did]: agent.name! }));
-      } catch {}
+      } catch { }
     },
     [agentNames]
   );
@@ -875,11 +875,10 @@ export default function WorkflowDetailPage() {
                         onClick={() =>
                           setSelectedRunId(isSelected ? null : run.id)
                         }
-                        className={`border-b border-neutral-200/50 cursor-pointer transition ${
-                          isSelected
+                        className={`border-b border-neutral-200/50 cursor-pointer transition ${isSelected
                             ? "bg-primary-50"
                             : "hover:bg-background-200/30"
-                        }`}
+                          }`}
                       >
                         <td className="px-4 py-3">
                           <div className={statusBadgeClass(run.status)}>

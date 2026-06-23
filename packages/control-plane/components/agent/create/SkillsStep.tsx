@@ -25,8 +25,8 @@ export function SkillsStep({ agentDid, onContinue }: SkillsStepProps) {
       .catch(() => {});
   }, [agentDid]);
 
-  async function toggleSkill(skill: SkillConfig, realmSkillId: string) {
-    if (!agentDid || skill.isRequired) return;
+  async function toggleSkill(skill: SkillConfig, realmSkillId?: string) {
+    if (!agentDid || skill.isRequired || !realmSkillId) return;
     const newEnabled = !skill.enabled;
     setSkills((prev) =>
       prev.map((s) =>
@@ -82,7 +82,7 @@ export function SkillsStep({ agentDid, onContinue }: SkillsStepProps) {
               </div>
               <button
                 disabled={skill.isRequired || savingSkills}
-                onClick={() => toggleSkill(skill, skill.name)}
+                onClick={() => toggleSkill(skill, skill.realmSkillId)}
                 className={cn(
                   "transition-colors",
                   skill.isRequired

@@ -323,7 +323,7 @@ export function MissionControlCore({ mode }: MissionControlCoreProps) {
         if (!res.ok) return;
         const d = await res.json();
         setMarkers(Array.isArray(d) ? d : (d.markers ?? []));
-      } catch {}
+      } catch { }
     };
     fetch_();
     const id = setInterval(fetch_, 30_000);
@@ -336,7 +336,7 @@ export function MissionControlCore({ mode }: MissionControlCoreProps) {
       try {
         const res = await fetch("/api/stats/tokens");
         if (res.ok) setTokenStats(await res.json());
-      } catch {}
+      } catch { }
     };
     fetch_();
     const id = setInterval(fetch_, 30_000);
@@ -394,7 +394,7 @@ export function MissionControlCore({ mode }: MissionControlCoreProps) {
                 : "intent_pending";
           pushFeed({ type, message: `${agentName}: ${intent.action}` });
         }
-      } catch {}
+      } catch { }
     };
     fetch_();
     const id = setInterval(fetch_, 5_000);
@@ -409,7 +409,7 @@ export function MissionControlCore({ mode }: MissionControlCoreProps) {
         if (!res.ok) return;
         const data = await res.json();
         setWorkflowRuns(data.runs ?? []);
-      } catch {}
+      } catch { }
     };
     fetch_();
     const id = setInterval(fetch_, 8_000);
@@ -422,7 +422,7 @@ export function MissionControlCore({ mode }: MissionControlCoreProps) {
       try {
         const res = await fetch("/api/network");
         if (res.ok) setNetworkStats(await res.json());
-      } catch {}
+      } catch { }
     };
     fetch_();
     const id = setInterval(fetch_, 5_000);
@@ -624,9 +624,8 @@ export function MissionControlCore({ mode }: MissionControlCoreProps) {
               agentsState.agents.map((agent) => (
                 <div
                   key={agent.did}
-                  className={`px-4 py-2.5 border-b border-neutral-200/40 flex gap-2 cursor-pointer transition-colors hover:bg-background-200/50 ${
-                    !agent.online ? "opacity-35" : ""
-                  }`}
+                  className={`px-4 py-2.5 border-b border-neutral-200/40 flex gap-2 cursor-pointer transition-colors hover:bg-background-200/50 ${!agent.online ? "opacity-35" : ""
+                    }`}
                   onClick={() =>
                     setSelectedDetail({ type: "agent", id: agent.did })
                   }
@@ -684,13 +683,13 @@ export function MissionControlCore({ mode }: MissionControlCoreProps) {
                       <div className="text-[10px] text-foreground-600 mt-0.5">
                         {agent.tokenHistory
                           ? `${formatCompactNumber(
-                              (agent.tokenHistory.find(
-                                (th) => th.granularity === "day"
-                              )?.promptTokens ?? 0) +
-                                (agent.tokenHistory.find(
-                                  (th) => th.granularity === "day"
-                                )?.completionTokens ?? 0)
-                            )} tokens today`
+                            (agent.tokenHistory.find(
+                              (th) => th.granularity === "day"
+                            )?.promptTokens ?? 0) +
+                            (agent.tokenHistory.find(
+                              (th) => th.granularity === "day"
+                            )?.completionTokens ?? 0)
+                          )} tokens today`
                           : `hb ${timeAgo(agent.lastHeartbeat)}`}
                       </div>
                     )}
@@ -1012,9 +1011,8 @@ export function MissionControlCore({ mode }: MissionControlCoreProps) {
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success-600 opacity-75" />
                 )}
                 <span
-                  className={`relative inline-flex rounded-full h-1.5 w-1.5 ${
-                    wsConnected ? "bg-success-600" : "bg-foreground-200/40"
-                  }`}
+                  className={`relative inline-flex rounded-full h-1.5 w-1.5 ${wsConnected ? "bg-success-600" : "bg-foreground-200/40"
+                    }`}
                 />
               </span>
             }
@@ -1030,17 +1028,16 @@ export function MissionControlCore({ mode }: MissionControlCoreProps) {
               feed.map((event, i) => (
                 <div
                   key={event.id}
-                  className={`px-4 py-2.5 border-b border-neutral-200/50 flex gap-2 ${
-                    i === 0 ? "bg-background-200/40 animate-fade-in" : ""
-                  } ${event.entityId ? "cursor-pointer hover:bg-background-200/30 transition-colors" : ""}`}
+                  className={`px-4 py-2.5 border-b border-neutral-200/50 flex gap-2 ${i === 0 ? "bg-background-200/40 animate-fade-in" : ""
+                    } ${event.entityId ? "cursor-pointer hover:bg-background-200/30 transition-colors" : ""}`}
                   style={{ opacity: Math.max(0.15, 1 - i * 0.013) }}
                   onClick={
                     event.entityId && event.entityType
                       ? () =>
-                          setSelectedDetail({
-                            type: event.entityType!,
-                            id: event.entityId!,
-                          })
+                        setSelectedDetail({
+                          type: event.entityType!,
+                          id: event.entityId!,
+                        })
                       : undefined
                   }
                 >
@@ -1174,7 +1171,7 @@ function DetailModal({
                         {agent.name}
                       </p>
                       <p className="text-[10px] text-foreground-500 font-mono truncate">
-                        {shortDid(agent.did)}
+                        {agent.id}
                       </p>
                     </div>
                   </div>
@@ -1261,7 +1258,7 @@ function DetailModal({
                   <button
                     onClick={() => {
                       onClose();
-                      router.push(`/agents/${encodeURIComponent(agent.did)}`);
+                      router.push(`/agents/${encodeURIComponent(agent.id)}`);
                     }}
                     className="flex items-center gap-1.5 text-[11px] text-primary-600 hover:text-primary-700 font-medium transition-colors"
                   >
@@ -1338,16 +1335,15 @@ function DetailModal({
                     runSteps.map((step, idx) => (
                       <div
                         key={step.id}
-                        className={`rounded-lg border px-3 py-2 text-[11px] ${
-                          step.status === "failed"
-                            ? "border-danger-500/40 bg-danger-500/5"
-                            : step.status === "success" ||
-                                step.status === "completed"
-                              ? "border-success-500/30 bg-success-500/5"
-                              : step.status === "running"
-                                ? "border-primary-500/40 bg-primary-500/5"
-                                : "border-neutral-200/40 bg-background-100/30"
-                        }`}
+                        className={`rounded-lg border px-3 py-2 text-[11px] ${step.status === "failed"
+                          ? "border-danger-500/40 bg-danger-500/5"
+                          : step.status === "success" ||
+                            step.status === "completed"
+                            ? "border-success-500/30 bg-success-500/5"
+                            : step.status === "running"
+                              ? "border-primary-500/40 bg-primary-500/5"
+                              : "border-neutral-200/40 bg-background-100/30"
+                          }`}
                       >
                         <div className="flex items-center gap-2">
                           {stepIcon(step.status)}

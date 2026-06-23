@@ -10,6 +10,7 @@ import { LlmConfig, VaultysIDInfo } from "@vaultysclaw/shared";
 
 export type AgentWithInfo = Prisma.AgentGetPayload<{
   select: {
+    id: true;
     did: true;
     name: true;
     capabilities: true;

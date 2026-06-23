@@ -569,6 +569,8 @@ export interface SkillConfig {
   config: Record<string, unknown>;
   /** Markdown instructions injected into the agent's system prompt when the skill is enabled. */
   content?: string;
+  /** Underlying RealmSkill row id — used by admin UIs to toggle the per-agent override. */
+  realmSkillId?: string;
 }
 
 /** Pushed by control plane to configure which skills the agent should activate. */

@@ -4,11 +4,30 @@ import React, { useEffect, useState } from "react";
 import { Handle, Position, type NodeProps } from "reactflow";
 import { Bot, GitBranch, Zap, Clock, Code, User, Wrench } from "lucide-react";
 import { useWorkflowStore } from "./store";
-import { agentsClient, unwrap } from "@/lib/api/ts-rest/client";
+import { agentsClient, usersClient, unwrap } from "@/lib/api/ts-rest/client";
 
 // Base styles for all nodes
 const baseNodeStyle =
   "px-4 py-3 rounded-lg border-2 min-w-[150px] shadow-md transition-all cursor-pointer";
+
+// Module-level cache of user id → display name, shared across all UserNodes so
+// the users list is only fetched once per page.
+let usersNamePromise: Promise<Map<string, string>> | null = null;
+function resolveUserName(id: string): Promise<string | null> {
+  if (!usersNamePromise) {
+    usersNamePromise = usersClient
+      .list({ query: { pageSize: 1000 } })
+      .then((res) => {
+        const map = new Map<string, string>();
+        for (const u of unwrap(res).users) {
+          if (u.name) map.set(u.id, u.name);
+        }
+        return map;
+      })
+      .catch(() => new Map<string, string>());
+  }
+  return usersNamePromise.then((map) => map.get(id) ?? null);
+}
 
 /**
  * Agent Node — execute an agent with params
@@ -28,7 +47,9 @@ export const AgentNode: React.FC<NodeProps> = ({ data }) => {
       }
 
       try {
-        const agent = unwrap(await agentsClient.getAgent(agentId));
+        const agent = unwrap(
+          await agentsClient.getAgent({ params: { did: agentId } })
+        );
         setAgentName(agent.name);
       } catch (err) {
         console.error("Failed to fetch agent name:", err);
@@ -258,6 +279,31 @@ export const UserNode: React.FC<NodeProps> = ({ data }) => {
   const isSelectedInStore = selectedNode === data.id;
   const mode = (data as any).mode || "approval"; // approval or notification
 
+  const assignedUserId = (data as any).assignedUserId as string | undefined;
+  const storedName = (data as any).assignedUserName as string | undefined;
+  const [resolvedName, setResolvedName] = useState<string | null>(null);
+
+  // Resolve the display name from the assigned user id when it wasn't stored
+  // on the node (e.g. imported / templated workflows that only carry the id).
+  useEffect(() => {
+    if (storedName || !assignedUserId) {
+      setResolvedName(null);
+      return;
+    }
+    let active = true;
+    resolveUserName(assignedUserId).then((name) => {
+      if (active) setResolvedName(name);
+    });
+    return () => {
+      active = false;
+    };
+  }, [assignedUserId, storedName]);
+
+  const displayName =
+    storedName ||
+    resolvedName ||
+    (assignedUserId ? `…${assignedUserId.slice(-8)}` : null);
+
   return (
     <div
       className={`${baseNodeStyle} ${
@@ -273,11 +319,8 @@ export const UserNode: React.FC<NodeProps> = ({ data }) => {
       <p className="text-xs text-neutral-700 font-medium">
         {mode === "approval" ? "⏳ Awaits approval" : "📢 Notification"}
       </p>
-      {((data as any).assignedUserName || (data as any).assignedUserId) && (
-        <p className="text-xs text-neutral-600 mt-1 truncate">
-          {(data as any).assignedUserName ||
-            `…${((data as any).assignedUserId as string).slice(-8)}`}
-        </p>
+      {displayName && (
+        <p className="text-xs text-neutral-600 mt-1 truncate">{displayName}</p>
       )}
       <Handle type="target" position={Position.Left} />
       <Handle type="source" position={Position.Right} />

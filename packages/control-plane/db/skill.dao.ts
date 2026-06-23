@@ -224,6 +224,7 @@ export class SkillOverrideDAO {
         isRequired: row.isRequired,
         config: (row.config as Record<string, unknown>) ?? {},
         content: row.content ?? undefined,
+        realmSkillId: row.id,
       });
     }
     return Array.from(seen.values());

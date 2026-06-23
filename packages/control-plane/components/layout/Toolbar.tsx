@@ -126,6 +126,7 @@ function ToolbarTabRow({
             >
               {opt.icon}
               {opt.label}
+              {opt.badge}
             </button>
           );
         })

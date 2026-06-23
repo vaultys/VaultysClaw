@@ -31,7 +31,13 @@ export type ToolbarAction =
       id: string;
       value: string;
       onChange: (value: string) => void;
-      options: { value: string; label: string; icon?: ReactNode }[];
+      options: {
+        value: string;
+        label: string;
+        icon?: ReactNode;
+        /** Optional trailing adornment (e.g. a count or "Soon" pill). */
+        badge?: ReactNode;
+      }[];
     }
   | {
       kind: "badge";

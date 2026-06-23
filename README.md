@@ -133,18 +133,18 @@ Three principles, built in from day one:
 ## Architecture at a glance
 
 ```
-┌─────────────────────────────────────────────────────────┐
+┌───────────────────────────────────────────────────────────┐
 │              VaultysClaw Control Plane (Next.js)          │
 │   Dashboard • Workflow Editor • Policy Engine • Audit     │
 │            SQLite • WebSocket Server (port 8080)          │
-└────────────────┬────────────────────────────────────────┘
-                 │  (Signed Intents + Policies)
-      ┌──────────┼──────────┐
-      ▼          ▼          ▼
-  ┌────────┐ ┌────────┐ ┌────────┐
-  │ Agent  │ │ Agent  │ │ Agent  │   ← Lightweight. Any LLM.
-  │  #1    │ │  #2    │ │  #N    │     Cryptographic ID. 30+ tools.
-  └────────┘ └────────┘ └────────┘
+└──────────────────────────────┬────────────────────────────┘
+                               │  (Signed Intents + Policies)
+                    ┌──────────┼──────────┐
+                    ▼          ▼          ▼
+                ┌────────┐ ┌────────┐ ┌────────┐
+                │ Agent  │ │ Agent  │ │ Agent  │   ← Lightweight. Any LLM.
+                │  #1    │ │  #2    │ │  #N    │     Cryptographic ID. 30+ tools.
+                └────────┘ └────────┘ └────────┘
 ```
 
 Each agent holds a unique VaultysId, connects to the control plane over WebSocket, receives signed policy updates and intents, reports actions back for the audit trail, and can delegate tasks to peer agents.

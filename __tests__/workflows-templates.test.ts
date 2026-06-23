@@ -96,8 +96,7 @@ describe("Workflow Export/Import", () => {
       edges: [],
     };
 
-    const id = await WorkflowDAO.create("Export Test", def as any);
-    const workflow = await WorkflowDAO.findById(id);
+    const workflow = await WorkflowDAO.create("Export Test", def as any);
 
     expect(workflow).toBeDefined();
     expect(workflow?.name).toBe("Export Test");
@@ -106,7 +105,7 @@ describe("Workflow Export/Import", () => {
     expect(definition.nodes[0].id).toBe("test-1");
     expect(definition.nodes[0].data.params.key).toBe("value");
 
-    await WorkflowDAO.delete(id);
+    await WorkflowDAO.delete(workflow.id);
   });
 
   it("should preserve workflow definition structure through export", async () => {
@@ -135,8 +134,7 @@ describe("Workflow Export/Import", () => {
       ],
     };
 
-    const id = await WorkflowDAO.create("Complex Export", def as any);
-    const workflow = await WorkflowDAO.findById(id);
+    const workflow = await WorkflowDAO.create("Complex Export", def as any);
     const imported = workflow?.definition as any;
 
     expect(imported.nodes.length).toBe(2);
@@ -145,7 +143,7 @@ describe("Workflow Export/Import", () => {
     expect(imported.nodes[1].data.expression).toBe("output.quality > 0.8");
     expect(imported.edges[0].data.label).toBe("success");
 
-    await WorkflowDAO.delete(id);
+    await WorkflowDAO.delete(workflow.id);
   });
 
   it("should handle workflows with empty parameters", async () => {
@@ -160,14 +158,13 @@ describe("Workflow Export/Import", () => {
       edges: [],
     };
 
-    const id = await WorkflowDAO.create("Minimal Workflow", def as any);
-    const workflow = await WorkflowDAO.findById(id);
+    const workflow = await WorkflowDAO.create("Minimal Workflow", def as any);
     const imported = workflow?.definition as any;
 
     expect(imported.nodes[0].data.agentId).toBe("@mock-agent");
     expect(imported.nodes[0].data.params).toBeUndefined();
 
-    await WorkflowDAO.delete(id);
+    await WorkflowDAO.delete(workflow.id);
   });
 
   it("should validate imported workflow before saving", () => {
@@ -192,11 +189,10 @@ describe("Template to Workflow Conversion", () => {
     expect(template).toBeDefined();
 
     if (template) {
-      const id = await WorkflowDAO.create(
+      const workflow = await WorkflowDAO.create(
         `Workflow from ${template.name}`,
         template.definition as any
       );
-      const workflow = await WorkflowDAO.findById(id);
 
       expect(workflow).toBeDefined();
       expect(workflow?.name).toContain(template.name);
@@ -205,7 +201,7 @@ describe("Template to Workflow Conversion", () => {
       expect(definition.nodes.length).toBe(template.definition.nodes.length);
       expect(definition.edges.length).toBe(template.definition.edges.length);
 
-      await WorkflowDAO.delete(id);
+      await WorkflowDAO.delete(workflow.id);
     }
   });
 
@@ -214,8 +210,10 @@ describe("Template to Workflow Conversion", () => {
     expect(template).toBeDefined();
 
     if (template) {
-      const id = await WorkflowDAO.create(template.name, template.definition as any);
-      const workflow = await WorkflowDAO.findById(id);
+      const workflow = await WorkflowDAO.create(
+        template.name,
+        template.definition as any
+      );
       const definition = workflow?.definition as any;
 
       // Verify all nodes are present
@@ -228,7 +226,7 @@ describe("Template to Workflow Conversion", () => {
       );
       expect(parentEdges.length).toBe(2);
 
-      await WorkflowDAO.delete(id);
+      await WorkflowDAO.delete(workflow.id);
     }
   });
 });

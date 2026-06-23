@@ -157,7 +157,7 @@ const exprParser = new Parser({
  */
 export function evaluateCondition(
   expression: string,
-  context: Record<string, unknown>
+  context: Map<string, unknown>
 ): boolean {
   try {
     const expr = exprParser.parse(expression);
@@ -714,15 +714,22 @@ export async function executeWorkflow(
           "workflow.run_id": runId,
           "workflow.step_id": nodeId,
           "workflow.step_type": node.type,
-          ...(node.data.agentId ? { "agent.id": node.data.agentId as string } : {}),
-          ...(node.data.action ? { "intent.action": node.data.action as string } : {}),
+          ...(node.data.agentId
+            ? { "agent.id": node.data.agentId as string }
+            : {}),
+          ...(node.data.action
+            ? { "intent.action": node.data.action as string }
+            : {}),
         },
       });
 
       const result = await executeStep(nodeId, node, params, context);
 
       if (!result.success) {
-        stepSpan.setStatus({ code: SpanStatusCode.ERROR, message: result.error });
+        stepSpan.setStatus({
+          code: SpanStatusCode.ERROR,
+          message: result.error,
+        });
         stepSpan.end();
         workflowSpan.setStatus({ code: SpanStatusCode.ERROR });
         workflowSpan.end();
@@ -751,7 +758,10 @@ export async function executeWorkflow(
 
     logger.info({ runId }, "Workflow completed successfully");
   } catch (err) {
-    workflowSpan.setStatus({ code: SpanStatusCode.ERROR, message: String(err) });
+    workflowSpan.setStatus({
+      code: SpanStatusCode.ERROR,
+      message: String(err),
+    });
     workflowSpan.end();
     workflowRunsTotal.add(1, { status: "failed" });
     logger.error({ runId, error: String(err) }, "Workflow execution failed");

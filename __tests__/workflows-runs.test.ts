@@ -99,10 +99,14 @@ describe("Workflow Runs API", () => {
 
     it("should return paginated workflow runs", async () => {
       const workflow = createTestWorkflow();
-      const workflowId = await WorkflowDAO.create(workflow.name, workflow.definition as any);
+      const createdWorkflow = await WorkflowDAO.create(
+        workflow.name,
+        workflow.definition as any
+      );
 
       // Create multiple runs
-      for (let i = 0; i < 5; i++) await WorkflowDAO.startRun(workflowId);
+      for (let i = 0; i < 5; i++)
+        await WorkflowDAO.startRun(createdWorkflow.id);
 
       const result = await WorkflowDAO.queryRuns({ pageSize: 2, page: 1 });
       expect(result.runs.length).toBeGreaterThan(0);
@@ -113,27 +117,48 @@ describe("Workflow Runs API", () => {
       const workflow1 = createTestWorkflow({ name: "Workflow 1" });
       const workflow2 = createTestWorkflow({ name: "Workflow 2" });
 
-      const id1 = await WorkflowDAO.create(workflow1.name, workflow1.definition as any);
-      const id2 = await WorkflowDAO.create(workflow2.name, workflow2.definition as any);
+      const createdWorkflow1 = await WorkflowDAO.create(
+        workflow1.name,
+        workflow1.definition as any
+      );
+      const createdWorkflow2 = await WorkflowDAO.create(
+        workflow2.name,
+        workflow2.definition as any
+      );
 
-      await WorkflowDAO.startRun(id1);
-      await WorkflowDAO.startRun(id1);
-      await WorkflowDAO.startRun(id2);
+      await WorkflowDAO.startRun(createdWorkflow1.id);
+      await WorkflowDAO.startRun(createdWorkflow1.id);
+      await WorkflowDAO.startRun(createdWorkflow2.id);
 
-      const result = await WorkflowDAO.queryRuns({ workflowId: id1 });
-      expect(result.runs.every((r) => r.workflowId === id1)).toBe(true);
+      const result = await WorkflowDAO.queryRuns({
+        workflowId: createdWorkflow1.id,
+      });
+      expect(
+        result.runs.every((r) => r.workflowId === createdWorkflow1.id)
+      ).toBe(true);
     });
 
     it("should filter runs by status", async () => {
       const workflow = createTestWorkflow();
-      const workflowId = await WorkflowDAO.create(workflow.name, workflow.definition as any);
+      const createdWorkflow = await WorkflowDAO.create(
+        workflow.name,
+        workflow.definition as any
+      );
 
-      const run1Id = await WorkflowDAO.startRun(workflowId);
-      await WorkflowDAO.startRun(workflowId);
+      const run1Id = await WorkflowDAO.startRun(createdWorkflow.id);
+      await WorkflowDAO.startRun(createdWorkflow.id);
 
       // Record a step for run1
-      const stepId1 = await WorkflowDAO.recordStep(run1Id, "agent-1", "agent-1", "pending");
-      await WorkflowDAO.updateStep(stepId1, { status: "completed", output: { result: "test" } });
+      const stepId1 = await WorkflowDAO.recordStep(
+        run1Id,
+        "agent-1",
+        "agent-1",
+        "pending"
+      );
+      await WorkflowDAO.updateStep(stepId1, {
+        status: "completed",
+        output: { result: "test" },
+      });
 
       const runningResult = await WorkflowDAO.queryRuns({ status: "running" });
       expect(runningResult.runs.length >= 0).toBe(true);
@@ -141,11 +166,18 @@ describe("Workflow Runs API", () => {
 
     it("should sort runs by creation date", async () => {
       const workflow = createTestWorkflow();
-      const workflowId = await WorkflowDAO.create(workflow.name, workflow.definition as any);
+      const createdWorkflow = await WorkflowDAO.create(
+        workflow.name,
+        workflow.definition as any
+      );
 
-      for (let i = 0; i < 3; i++) await WorkflowDAO.startRun(workflowId);
+      for (let i = 0; i < 3; i++)
+        await WorkflowDAO.startRun(createdWorkflow.id);
 
-      const result = await WorkflowDAO.queryRuns({ sortBy: "startedAt", sortDir: "desc" });
+      const result = await WorkflowDAO.queryRuns({
+        sortBy: "startedAt",
+        sortDir: "desc",
+      });
       expect(result.runs.length >= 0).toBe(true);
     });
   });
@@ -153,14 +185,33 @@ describe("Workflow Runs API", () => {
   describe("GET /api/workflows/runs/[runId] - Get Run Details", () => {
     it("should return single run with steps and workflow definition", async () => {
       const workflow = createTestWorkflow();
-      const workflowId = await WorkflowDAO.create(workflow.name, workflow.definition as any);
-      const runId = await WorkflowDAO.startRun(workflowId);
+      const createdWorkflow = await WorkflowDAO.create(
+        workflow.name,
+        workflow.definition as any
+      );
+      const runId = await WorkflowDAO.startRun(createdWorkflow.id);
 
-      const step1Id = await WorkflowDAO.recordStep(runId, "agent-1", "agent-1", "pending");
-      const step2Id = await WorkflowDAO.recordStep(runId, "agent-2", "agent-2", "pending");
+      const step1Id = await WorkflowDAO.recordStep(
+        runId,
+        "agent-1",
+        "agent-1",
+        "pending"
+      );
+      const step2Id = await WorkflowDAO.recordStep(
+        runId,
+        "agent-2",
+        "agent-2",
+        "pending"
+      );
 
-      await WorkflowDAO.updateStep(step1Id, { status: "completed", output: { output: "result 1" } });
-      await WorkflowDAO.updateStep(step2Id, { status: "completed", output: { output: "result 2" } });
+      await WorkflowDAO.updateStep(step1Id, {
+        status: "completed",
+        output: { output: "result 1" },
+      });
+      await WorkflowDAO.updateStep(step2Id, {
+        status: "completed",
+        output: { output: "result 2" },
+      });
 
       const history = await WorkflowDAO.getRunHistory(runId);
       expect(history?.run).toBeDefined();
@@ -171,12 +222,23 @@ describe("Workflow Runs API", () => {
 
     it("should track step execution states through workflow", async () => {
       const workflow = createTestWorkflow();
-      const workflowId = await WorkflowDAO.create(workflow.name, workflow.definition as any);
-      const runId = await WorkflowDAO.startRun(workflowId);
+      const createdWorkflow = await WorkflowDAO.create(
+        workflow.name,
+        workflow.definition as any
+      );
+      const runId = await WorkflowDAO.startRun(createdWorkflow.id);
 
-      const stepId = await WorkflowDAO.recordStep(runId, "agent-1", "agent-1", "pending");
+      const stepId = await WorkflowDAO.recordStep(
+        runId,
+        "agent-1",
+        "agent-1",
+        "pending"
+      );
       await WorkflowDAO.updateStep(stepId, { status: "running" });
-      await WorkflowDAO.updateStep(stepId, { status: "completed", output: { result: "test" } });
+      await WorkflowDAO.updateStep(stepId, {
+        status: "completed",
+        output: { result: "test" },
+      });
 
       const history = await WorkflowDAO.getRunHistory(runId);
       const step = history?.steps.find((s) => s.stepId === "agent-1");
@@ -194,9 +256,18 @@ describe("Workflow Execution with Mocked Agents", () => {
 
   beforeEach(async () => {
     testAgents = await Promise.all([
-      createTestAgent({ name: "Code Analyzer", capabilities: ["analyze", "read"] }),
-      createTestAgent({ name: "Code Reviewer", capabilities: ["review", "write"] }),
-      createTestAgent({ name: "Report Writer", capabilities: ["write", "document"] }),
+      createTestAgent({
+        name: "Code Analyzer",
+        capabilities: ["analyze", "read"],
+      }),
+      createTestAgent({
+        name: "Code Reviewer",
+        capabilities: ["review", "write"],
+      }),
+      createTestAgent({
+        name: "Report Writer",
+        capabilities: ["write", "document"],
+      }),
     ]);
   });
 
@@ -207,20 +278,43 @@ describe("Workflow Execution with Mocked Agents", () => {
       edges: [{ source: testAgents[0]!.did, target: testAgents[1]!.did }],
     });
 
-    const workflowId = await WorkflowDAO.create(workflow.name, workflow.definition as any);
-    const runId = await WorkflowDAO.startRun(workflowId);
+    const createdWorkflow = await WorkflowDAO.create(
+      workflow.name,
+      workflow.definition as any
+    );
+    const runId = await WorkflowDAO.startRun(createdWorkflow.id);
 
-    const analyzerStepId = await WorkflowDAO.recordStep(runId, testAgents[0]!.did, testAgents[0]!.did, "pending");
-    await WorkflowDAO.updateStep(analyzerStepId, { status: "completed", output: { analysis: "Code is well-structured" } });
+    const analyzerStepId = await WorkflowDAO.recordStep(
+      runId,
+      testAgents[0]!.did,
+      testAgents[0]!.did,
+      "pending"
+    );
+    await WorkflowDAO.updateStep(analyzerStepId, {
+      status: "completed",
+      output: { analysis: "Code is well-structured" },
+    });
 
-    const reviewerStepId = await WorkflowDAO.recordStep(runId, testAgents[1]!.did, testAgents[1]!.did, "pending");
-    await WorkflowDAO.updateStep(reviewerStepId, { status: "completed", output: { review: "approved" } });
+    const reviewerStepId = await WorkflowDAO.recordStep(
+      runId,
+      testAgents[1]!.did,
+      testAgents[1]!.did,
+      "pending"
+    );
+    await WorkflowDAO.updateStep(reviewerStepId, {
+      status: "completed",
+      output: { review: "approved" },
+    });
 
     const history = await WorkflowDAO.getRunHistory(runId);
-    const reviewerStep = history?.steps.find((s) => s.agentId === testAgents[1]!.did);
+    const reviewerStep = history?.steps.find(
+      (s) => s.agentId === testAgents[1]!.did
+    );
 
     expect(reviewerStep?.agentId).toBe(testAgents[1]!.did);
-    expect(history?.steps.find((s) => s.agentId === testAgents[0]!.did)?.status).toBe("completed");
+    expect(
+      history?.steps.find((s) => s.agentId === testAgents[0]!.did)?.status
+    ).toBe("completed");
   });
 
   it("should handle workflow run with failed step", async () => {
@@ -229,14 +323,33 @@ describe("Workflow Execution with Mocked Agents", () => {
       agents: [testAgents[0]!.did, testAgents[1]!.did],
     });
 
-    const workflowId = await WorkflowDAO.create(workflow.name, workflow.definition as any);
-    const runId = await WorkflowDAO.startRun(workflowId);
+    const createdWorkflow = await WorkflowDAO.create(
+      workflow.name,
+      workflow.definition as any
+    );
+    const runId = await WorkflowDAO.startRun(createdWorkflow.id);
 
-    const step1Id = await WorkflowDAO.recordStep(runId, testAgents[0]!.did, testAgents[0]!.did, "pending");
-    await WorkflowDAO.updateStep(step1Id, { status: "completed", output: { result: "analysis done" } });
+    const step1Id = await WorkflowDAO.recordStep(
+      runId,
+      testAgents[0]!.did,
+      testAgents[0]!.did,
+      "pending"
+    );
+    await WorkflowDAO.updateStep(step1Id, {
+      status: "completed",
+      output: { result: "analysis done" },
+    });
 
-    const step2Id = await WorkflowDAO.recordStep(runId, testAgents[1]!.did, testAgents[1]!.did, "pending");
-    await WorkflowDAO.updateStep(step2Id, { status: "failed", error: "Agent execution timeout" });
+    const step2Id = await WorkflowDAO.recordStep(
+      runId,
+      testAgents[1]!.did,
+      testAgents[1]!.did,
+      "pending"
+    );
+    await WorkflowDAO.updateStep(step2Id, {
+      status: "failed",
+      error: "Agent execution timeout",
+    });
 
     const history = await WorkflowDAO.getRunHistory(runId);
     expect(history?.steps.some((s) => s.status === "failed")).toBe(true);
@@ -250,18 +363,37 @@ describe("Workflow Execution with Mocked Agents", () => {
 describe("Workflow Run Status Management", () => {
   it("should track workflow run through all states", async () => {
     const workflow = createTestWorkflow();
-    const workflowId = await WorkflowDAO.create(workflow.name, workflow.definition as any);
+    const createdWorkflow = await WorkflowDAO.create(
+      workflow.name,
+      workflow.definition as any
+    );
 
-    const runId = await WorkflowDAO.startRun(workflowId);
+    const runId = await WorkflowDAO.startRun(createdWorkflow.id);
     let run = await WorkflowDAO.findRun(runId);
     expect(run?.status).toBe("running");
 
-    const step1Id = await WorkflowDAO.recordStep(runId, "agent-1", "agent-1", "pending");
+    const step1Id = await WorkflowDAO.recordStep(
+      runId,
+      "agent-1",
+      "agent-1",
+      "pending"
+    );
     await WorkflowDAO.updateStep(step1Id, { status: "running" });
-    await WorkflowDAO.updateStep(step1Id, { status: "completed", output: { result: "result 1" } });
+    await WorkflowDAO.updateStep(step1Id, {
+      status: "completed",
+      output: { result: "result 1" },
+    });
 
-    const step2Id = await WorkflowDAO.recordStep(runId, "agent-2", "agent-2", "pending");
-    await WorkflowDAO.updateStep(step2Id, { status: "completed", output: { result: "result 2" } });
+    const step2Id = await WorkflowDAO.recordStep(
+      runId,
+      "agent-2",
+      "agent-2",
+      "pending"
+    );
+    await WorkflowDAO.updateStep(step2Id, {
+      status: "completed",
+      output: { result: "result 2" },
+    });
 
     run = await WorkflowDAO.findRun(runId);
     expect(run?.id).toBe(runId);
@@ -269,10 +401,18 @@ describe("Workflow Run Status Management", () => {
 
   it("should support workflow run cancellation", async () => {
     const workflow = createTestWorkflow();
-    const workflowId = await WorkflowDAO.create(workflow.name, workflow.definition as any);
-    const runId = await WorkflowDAO.startRun(workflowId);
+    const createdWorkflow = await WorkflowDAO.create(
+      workflow.name,
+      workflow.definition as any
+    );
+    const runId = await WorkflowDAO.startRun(createdWorkflow.id);
 
-    const stepId = await WorkflowDAO.recordStep(runId, "agent-1", "agent-1", "pending");
+    const stepId = await WorkflowDAO.recordStep(
+      runId,
+      "agent-1",
+      "agent-1",
+      "pending"
+    );
     await WorkflowDAO.updateStep(stepId, { status: "cancelled" });
 
     const history = await WorkflowDAO.getRunHistory(runId);
@@ -310,17 +450,27 @@ describe("Real Agent-Controller with Mocked LLM", () => {
     expect(testAgent).toBeDefined();
     expect(testAgent.name).toBe("Test Agent");
 
-    const agent = await prisma.agent.findUnique({ where: { did: testAgent.did } });
+    const agent = await prisma.agent.findUnique({
+      where: { did: testAgent.did },
+    });
     expect(agent).toBeDefined();
   });
 
   it("should execute agent with mocked LLM response", async () => {
     const workflow = createTestWorkflow({ agents: [testAgent.did] });
 
-    const workflowId = await WorkflowDAO.create(workflow.name, workflow.definition as any);
-    const runId = await WorkflowDAO.startRun(workflowId);
+    const createdWorkflow = await WorkflowDAO.create(
+      workflow.name,
+      workflow.definition as any
+    );
+    const runId = await WorkflowDAO.startRun(createdWorkflow.id);
 
-    const stepId = await WorkflowDAO.recordStep(runId, testAgent.did, testAgent.did, "pending");
+    const stepId = await WorkflowDAO.recordStep(
+      runId,
+      testAgent.did,
+      testAgent.did,
+      "pending"
+    );
 
     const mockOutput = {
       thinking: "Mocked analysis",
@@ -328,7 +478,10 @@ describe("Real Agent-Controller with Mocked LLM", () => {
       confidence: 0.95,
     };
 
-    await WorkflowDAO.updateStep(stepId, { status: "completed", output: mockOutput });
+    await WorkflowDAO.updateStep(stepId, {
+      status: "completed",
+      output: mockOutput,
+    });
 
     const history = await WorkflowDAO.getRunHistory(runId);
     const step = history?.steps[0];
@@ -347,20 +500,69 @@ describe("Automated Workflow Test Scenarios", () => {
 
   beforeEach(async () => {
     agents = await Promise.all([
-      createTestAgent({ name: "Code Analyzer", capabilities: ["analyze", "read"] }),
-      createTestAgent({ name: "Security Auditor", capabilities: ["audit", "read", "security"] }),
-      createTestAgent({ name: "Performance Tester", capabilities: ["test", "performance"] }),
-      createTestAgent({ name: "Report Generator", capabilities: ["write", "document"] }),
+      createTestAgent({
+        name: "Code Analyzer",
+        capabilities: ["analyze", "read"],
+      }),
+      createTestAgent({
+        name: "Security Auditor",
+        capabilities: ["audit", "read", "security"],
+      }),
+      createTestAgent({
+        name: "Performance Tester",
+        capabilities: ["test", "performance"],
+      }),
+      createTestAgent({
+        name: "Report Generator",
+        capabilities: ["write", "document"],
+      }),
     ]);
   });
 
   it("should run complete code review workflow", async () => {
     const workflow: WorkflowDefinition = {
       nodes: [
-        { id: "analyzer", type: "agent", data: { agentId: agents[0]!.did, params: { task: "Analyze code quality" } }, position: { x: 0, y: 0 } },
-        { id: "auditor", type: "agent", data: { agentId: agents[1]!.did, params: { input: "${analyzer}", task: "Security audit" } }, position: { x: 200, y: 0 } },
-        { id: "tester", type: "agent", data: { agentId: agents[2]!.did, params: { input: "${analyzer}", task: "Performance test" } }, position: { x: 200, y: 100 } },
-        { id: "writer", type: "agent", data: { agentId: agents[3]!.did, params: { analysis: "${analyzer}", security: "${auditor}", performance: "${tester}", task: "Generate report" } }, position: { x: 400, y: 50 } },
+        {
+          id: "analyzer",
+          type: "agent",
+          data: {
+            agentId: agents[0]!.did,
+            params: { task: "Analyze code quality" },
+          },
+          position: { x: 0, y: 0 },
+        },
+        {
+          id: "auditor",
+          type: "agent",
+          data: {
+            agentId: agents[1]!.did,
+            params: { input: "${analyzer}", task: "Security audit" },
+          },
+          position: { x: 200, y: 0 },
+        },
+        {
+          id: "tester",
+          type: "agent",
+          data: {
+            agentId: agents[2]!.did,
+            params: { input: "${analyzer}", task: "Performance test" },
+          },
+          position: { x: 200, y: 100 },
+        },
+        {
+          id: "writer",
+          type: "agent",
+          data: {
+            agentId: agents[3]!.did,
+            params: {
+              analysis: "${analyzer}",
+              security: "${auditor}",
+              performance: "${tester}",
+              task: "Generate report",
+            },
+          },
+          position: { x: 400, y: 50 },
+        },
       ],
       edges: [
         { id: "1", source: "analyzer", target: "auditor" },
@@ -370,19 +572,38 @@ describe("Automated Workflow Test Scenarios", () => {
       ],
     };
 
-    const workflowId = await WorkflowDAO.create("Code Review Pipeline", workflow as any);
-    const runId = await WorkflowDAO.startRun(workflowId);
+    const createdWorkflow = await WorkflowDAO.create(
+      "Code Review Pipeline",
+      workflow as any
+    );
+    const runId = await WorkflowDAO.startRun(createdWorkflow.id);
 
     const steps = [
       { nodeId: "analyzer", agentId: agents[0]!.did, output: { quality: 8.5 } },
-      { nodeId: "auditor", agentId: agents[1]!.did, output: { vulnerabilities: 2 } },
+      {
+        nodeId: "auditor",
+        agentId: agents[1]!.did,
+        output: { vulnerabilities: 2 },
+      },
       { nodeId: "tester", agentId: agents[2]!.did, output: { score: 9.0 } },
-      { nodeId: "writer", agentId: agents[3]!.did, output: { report: "Complete analysis" } },
+      {
+        nodeId: "writer",
+        agentId: agents[3]!.did,
+        output: { report: "Complete analysis" },
+      },
     ];
 
     for (const step of steps) {
-      const stepId = await WorkflowDAO.recordStep(runId, step.nodeId, step.agentId, "pending");
-      await WorkflowDAO.updateStep(stepId, { status: "completed", output: step.output });
+      const stepId = await WorkflowDAO.recordStep(
+        runId,
+        step.nodeId,
+        step.agentId,
+        "pending"
+      );
+      await WorkflowDAO.updateStep(stepId, {
+        status: "completed",
+        output: step.output,
+      });
     }
 
     const history = await WorkflowDAO.getRunHistory(runId);
@@ -393,16 +614,35 @@ describe("Automated Workflow Test Scenarios", () => {
   it("should handle workflow with retry logic", async () => {
     const workflow = createTestWorkflow({ agents: [agents[0]!.did] });
 
-    const workflowId = await WorkflowDAO.create(workflow.name, workflow.definition as any);
-    const runId = await WorkflowDAO.startRun(workflowId);
+    const createdWorkflow = await WorkflowDAO.create(
+      workflow.name,
+      workflow.definition as any
+    );
+    const runId = await WorkflowDAO.startRun(createdWorkflow.id);
 
     // First attempt fails
-    const step1Id = await WorkflowDAO.recordStep(runId, agents[0]!.did, agents[0]!.did, "pending");
-    await WorkflowDAO.updateStep(step1Id, { status: "failed", error: "Timeout" });
+    const step1Id = await WorkflowDAO.recordStep(
+      runId,
+      agents[0]!.did,
+      agents[0]!.did,
+      "pending"
+    );
+    await WorkflowDAO.updateStep(step1Id, {
+      status: "failed",
+      error: "Timeout",
+    });
 
     // Retry succeeds
-    const step2Id = await WorkflowDAO.recordStep(runId, agents[0]!.did, agents[0]!.did, "pending");
-    await WorkflowDAO.updateStep(step2Id, { status: "completed", output: { result: "success on retry" } });
+    const step2Id = await WorkflowDAO.recordStep(
+      runId,
+      agents[0]!.did,
+      agents[0]!.did,
+      "pending"
+    );
+    await WorkflowDAO.updateStep(step2Id, {
+      status: "completed",
+      output: { result: "success on retry" },
+    });
 
     const history = await WorkflowDAO.getRunHistory(runId);
     expect(history?.steps.length).toBeGreaterThanOrEqual(2);

@@ -66,13 +66,14 @@ describe("Workflow API Routes", () => {
         edges: [],
       };
 
-      const id = await WorkflowDAO.create("API Created Workflow", definition as any);
+      const created = await WorkflowDAO.create(
+        "API Created Workflow",
+        definition as any
+      );
 
-      expect(id).toBeDefined();
-      expect(typeof id).toBe("string");
+      expect(created).toBeDefined();
 
-      const saved = await WorkflowDAO.findById(id);
-      expect(saved?.name).toBe("API Created Workflow");
+      expect(created?.name).toBe("API Created Workflow");
     });
 
     it("should store workflow definition as object", async () => {
@@ -90,8 +91,10 @@ describe("Workflow API Routes", () => {
         edges: [],
       };
 
-      const id = await WorkflowDAO.create("JSON Storage Test", definition as any);
-      const saved = await WorkflowDAO.findById(id);
+      const saved = await WorkflowDAO.create(
+        "JSON Storage Test",
+        definition as any
+      );
 
       const def = saved!.definition as any;
       expect(def.nodes[0].data.agentId).toBe("code-analyst");
@@ -102,17 +105,12 @@ describe("Workflow API Routes", () => {
   describe("GET /api/workflows - List Workflows", () => {
     it("should list all workflows with metadata", async () => {
       const def: WorkflowDefinition = { nodes: [], edges: [] };
-      const id1 = await WorkflowDAO.create("List Test 1", def as any);
-      const id2 = await WorkflowDAO.create("List Test 2", def as any);
+      const workflow1 = await WorkflowDAO.create("List Test 1", def as any);
+      const workflow2 = await WorkflowDAO.create("List Test 2", def as any);
 
-      const workflow1 = await WorkflowDAO.findById(id1);
-      const workflow2 = await WorkflowDAO.findById(id2);
-
-      expect(workflow1?.id).toBe(id1);
       expect(workflow1?.name).toBe("List Test 1");
       expect(workflow1?.createdAt).toBeDefined();
 
-      expect(workflow2?.id).toBe(id2);
       expect(workflow2?.name).toBe("List Test 2");
     });
   });
@@ -137,10 +135,11 @@ describe("Workflow API Routes", () => {
         edges: [],
       };
 
-      const id = await WorkflowDAO.create("Fetch Test", definition as any);
-      const workflow = await WorkflowDAO.findById(id);
+      const workflow = await WorkflowDAO.create(
+        "Fetch Test",
+        definition as any
+      );
 
-      expect(workflow?.id).toBe(id);
       expect(workflow?.name).toBe("Fetch Test");
 
       const def = workflow!.definition as any;
@@ -150,8 +149,7 @@ describe("Workflow API Routes", () => {
 
     it("should include all metadata fields", async () => {
       const def: WorkflowDefinition = { nodes: [], edges: [] };
-      const id = await WorkflowDAO.create("Metadata Test", def as any);
-      const workflow = await WorkflowDAO.findById(id);
+      const workflow = await WorkflowDAO.create("Metadata Test", def as any);
 
       expect(workflow).toHaveProperty("id");
       expect(workflow).toHaveProperty("name");
@@ -170,13 +168,16 @@ describe("Workflow API Routes", () => {
         edges: [],
       };
 
-      const id = await WorkflowDAO.create("Partial Update Test", originalDef as any);
-      const originalWorkflow = await WorkflowDAO.findById(id);
+      const workflow = await WorkflowDAO.create(
+        "Partial Update Test",
+        originalDef as any
+      );
+      const originalWorkflow = await WorkflowDAO.findById(workflow.id);
 
       // Update only name
-      await WorkflowDAO.update(id, { name: "New Name Only" });
+      await WorkflowDAO.update(workflow.id, { name: "New Name Only" });
 
-      const updated = await WorkflowDAO.findById(id);
+      const updated = await WorkflowDAO.findById(workflow.id);
       expect(updated?.name).toBe("New Name Only");
       const updatedDef = updated!.definition as any;
       expect(updatedDef.nodes).toHaveLength(1); // definition unchanged
@@ -184,11 +185,11 @@ describe("Workflow API Routes", () => {
 
     it("should allow updating just the name", async () => {
       const def: WorkflowDefinition = { nodes: [], edges: [] };
-      const id = await WorkflowDAO.create("Name Update", def as any);
+      const workflow = await WorkflowDAO.create("Name Update", def as any);
 
-      await WorkflowDAO.update(id, { name: "Updated Name" });
-      const workflow = await WorkflowDAO.findById(id);
-      expect(workflow?.name).toBe("Updated Name");
+      await WorkflowDAO.update(workflow.id, { name: "Updated Name" });
+      const updatedWorkflow = await WorkflowDAO.findById(workflow.id);
+      expect(updatedWorkflow?.name).toBe("Updated Name");
     });
 
     it("should allow updating just the definition", async () => {
@@ -197,17 +198,23 @@ describe("Workflow API Routes", () => {
         edges: [],
       };
 
-      const id = await WorkflowDAO.create("Def Update", originalDef as any);
+      const workflow = await WorkflowDAO.create(
+        "Def Update",
+        originalDef as any
+      );
 
       const newDef: WorkflowDefinition = {
-        nodes: [{ id: "n1", type: "agent", data: {} }, { id: "n2", type: "delay", data: { duration: 3 } }],
+        nodes: [
+          { id: "n1", type: "agent", data: {} },
+          { id: "n2", type: "delay", data: { duration: 3 } },
+        ],
         edges: [{ id: "e1", source: "n1", target: "n2" }],
       };
 
-      await WorkflowDAO.update(id, { definition: newDef as any });
-      const workflow = await WorkflowDAO.findById(id);
-      expect(workflow?.name).toBe("Def Update"); // Name preserved
-      const def = workflow!.definition as any;
+      await WorkflowDAO.update(workflow.id, { definition: newDef as any });
+      const updatedWorkflow = await WorkflowDAO.findById(workflow.id);
+      expect(updatedWorkflow?.name).toBe("Def Update"); // Name preserved
+      const def = updatedWorkflow!.definition as any;
       expect(def.nodes).toHaveLength(2);
     });
   });
@@ -215,22 +222,24 @@ describe("Workflow API Routes", () => {
   describe("DELETE /api/workflows/[id] - Delete Workflow", () => {
     it("should delete workflow by ID", async () => {
       const def: WorkflowDefinition = { nodes: [], edges: [] };
-      const id = await WorkflowDAO.create("To Delete", def as any);
+      const workflow = await WorkflowDAO.create("To Delete", def as any);
 
-      await WorkflowDAO.delete(id);
-      const deleted = await WorkflowDAO.findById(id);
+      const deleted = await WorkflowDAO.delete(workflow.id);
 
-      expect(deleted).toBeNull();
+      expect(deleted.id).toBe(workflow.id);
     });
 
     it("should cascade delete associated runs", async () => {
       const def: WorkflowDefinition = { nodes: [], edges: [] };
-      const workflowId = await WorkflowDAO.create("Cascade Delete Test", def as any);
-      await WorkflowDAO.startRun(workflowId);
+      const workflow = await WorkflowDAO.create(
+        "Cascade Delete Test",
+        def as any
+      );
+      await WorkflowDAO.startRun(workflow.id);
 
-      await WorkflowDAO.delete(workflowId);
+      await WorkflowDAO.delete(workflow.id);
 
-      const deletedWorkflow = await WorkflowDAO.findById(workflowId);
+      const deletedWorkflow = await WorkflowDAO.findById(workflow.id);
       expect(deletedWorkflow).toBeNull();
     });
   });
@@ -248,8 +257,8 @@ describe("Workflow API Routes", () => {
         edges: [],
       };
 
-      const workflowId = await WorkflowDAO.create("Execute Test", def as any);
-      const runId = await WorkflowDAO.startRun(workflowId);
+      const workflow = await WorkflowDAO.create("Execute Test", def as any);
+      const runId = await WorkflowDAO.startRun(workflow.id);
 
       expect(runId).toBeDefined();
       expect(typeof runId).toBe("string");
@@ -262,8 +271,8 @@ describe("Workflow API Routes", () => {
 
     it("should return run with initial status", async () => {
       const def: WorkflowDefinition = { nodes: [], edges: [] };
-      const workflowId = await WorkflowDAO.create("Status Test", def as any);
-      const runId = await WorkflowDAO.startRun(workflowId);
+      const workflow = await WorkflowDAO.create("Status Test", def as any);
+      const runId = await WorkflowDAO.startRun(workflow.id);
 
       const run = await WorkflowDAO.findRun(runId);
       expect(run?.status).toBe("running");
@@ -273,8 +282,8 @@ describe("Workflow API Routes", () => {
   describe("GET /api/workflows/runs/[runId]/status - Check Execution Status", () => {
     it("should return run status", async () => {
       const def: WorkflowDefinition = { nodes: [], edges: [] };
-      const workflowId = await WorkflowDAO.create("Run Status Test", def as any);
-      const runId = await WorkflowDAO.startRun(workflowId);
+      const workflow = await WorkflowDAO.create("Run Status Test", def as any);
+      const runId = await WorkflowDAO.startRun(workflow.id);
 
       const run = await WorkflowDAO.findRun(runId);
       expect(run?.status).toBe("running");
@@ -290,8 +299,8 @@ describe("Workflow API Routes", () => {
         edges: [],
       };
 
-      const workflowId = await WorkflowDAO.create("History Test", def as any);
-      const runId = await WorkflowDAO.startRun(workflowId);
+      const workflow = await WorkflowDAO.create("History Test", def as any);
+      const runId = await WorkflowDAO.startRun(workflow.id);
 
       expect(runId).toBeDefined();
 
@@ -304,19 +313,22 @@ describe("Workflow API Routes", () => {
 describe("API Response Shapes", () => {
   it("should format workflow list response correctly", async () => {
     const def: WorkflowDefinition = { nodes: [], edges: [] };
-    const id = await WorkflowDAO.create("Response Shape Test", def as any);
-    const workflow = await WorkflowDAO.findById(id);
+    const workflow = await WorkflowDAO.create(
+      "Response Shape Test",
+      def as any
+    );
+    const workflowDetails = await WorkflowDAO.findById(workflow.id);
 
     const responseShape = {
       success: true,
       workflows: [
         {
-          id: workflow?.id,
-          name: workflow?.name,
-          description: workflow?.description,
-          createdBy: workflow?.createdBy,
-          createdAt: workflow?.createdAt,
-          updatedAt: workflow?.updatedAt,
+          id: workflowDetails?.id,
+          name: workflowDetails?.name,
+          description: workflowDetails?.description,
+          createdBy: workflowDetails?.createdBy,
+          createdAt: workflowDetails?.createdAt,
+          updatedAt: workflowDetails?.updatedAt,
         },
       ],
     };
@@ -331,8 +343,10 @@ describe("API Response Shapes", () => {
       edges: [],
     };
 
-    const id = await WorkflowDAO.create("Single Response Test", definition as any);
-    const workflow = await WorkflowDAO.findById(id);
+    const workflow = await WorkflowDAO.create(
+      "Single Response Test",
+      definition as any
+    );
 
     const def = workflow!.definition as any;
     const responseShape = {
@@ -353,13 +367,13 @@ describe("API Response Shapes", () => {
 
   it("should format execution response correctly", async () => {
     const def: WorkflowDefinition = { nodes: [], edges: [] };
-    const workflowId = await WorkflowDAO.create("Exec Response Test", def as any);
-    const runId = await WorkflowDAO.startRun(workflowId);
+    const workflow = await WorkflowDAO.create("Exec Response Test", def as any);
+    const runId = await WorkflowDAO.startRun(workflow.id);
 
     const responseShape = {
       success: true,
       runId,
-      workflowId,
+      workflowId: workflow.id,
       status: "running",
     };
 

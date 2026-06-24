@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
+import { docsClient, unwrap } from "@/lib/api/ts-rest/client";
 import "swagger-ui-react/swagger-ui.css";
 
 // Dynamically import SwaggerUI to avoid SSR issues
@@ -33,12 +34,9 @@ export default function ApiDocsPage() {
       return;
     }
 
-    fetch("/api/docs/swagger.json")
-      .then((r) => {
-        if (!r.ok) throw new Error(`Failed to load spec: ${r.status}`);
-        return r.json();
-      })
-      .then((data) => setSpec(data))
+    docsClient
+      .swagger()
+      .then((r) => setSpec(unwrap(r)))
       .catch((e: Error) => setError(e.message))
       .finally(() => setLoading(false));
   }, [status, isAdmin, router]);

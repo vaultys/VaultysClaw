@@ -1,9 +1,9 @@
-import { NextRequest, NextResponse } from "next/server";
 import path from "path";
 import { glob } from "fs/promises";
 import { getAuthContext } from "@/lib/auth-utils";
-import { unauthorized, forbidden } from "@/lib/api/utils/api-utils";
-import { withError } from "@/lib/api/handlers/with-error";
+import { APIException } from "@/lib/api/utils/api-utils";
+import { createNextRoute } from "@/lib/api/ts-rest/next-route";
+import { docsContract } from "@/lib/contracts";
 
 /**
  * @openapi
@@ -22,13 +22,13 @@ import { withError } from "@/lib/api/handlers/with-error";
  *             schema:
  *               type: object
  */
-export const GET = withError(async (request: NextRequest) => {
-  const auth = await getAuthContext(request);
-  if (!auth) return unauthorized();
-  if (!auth.isGlobalAdmin) return forbidden();
+const handlers = createNextRoute(docsContract, {
+  swagger: async ({ request }) => {
+    const auth = await getAuthContext(request);
+    if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");
 
-  // Dynamic import to avoid bundling swagger-jsdoc in the client bundle
-  const swaggerJsdoc = (await import("swagger-jsdoc")).default;
+    // Dynamic import to avoid bundling swagger-jsdoc in the client bundle
+    const swaggerJsdoc = (await import("swagger-jsdoc")).default;
 
   const apiDir = path.join(process.cwd(), "app", "api");
 
@@ -180,6 +180,9 @@ export const GET = withError(async (request: NextRequest) => {
     apis: files,
   };
 
-  const spec = swaggerJsdoc(options);
-  return NextResponse.json(spec);
+    const spec = swaggerJsdoc(options) as Record<string, unknown>;
+    return { status: 200, body: spec };
+  },
 });
+
+export const GET = handlers.GET!;

@@ -44,6 +44,7 @@ import {
   workflowsClient,
   realmsClient,
   channelsClient,
+  mapClient,
   unwrap,
   ApiError,
 } from "@/lib/api/ts-rest/client";
@@ -266,9 +267,9 @@ export default function RealmDetailPage() {
 
   const refreshMapMarkers = useCallback(() => {
     setMapLoading(true);
-    fetch(`/api/map?realm=${id}`)
-      .then((r) => (r.ok ? r.json() : { markers: [] }))
-      .then((d: { markers?: MapMarker[] }) => setMapMarkers(d.markers ?? []))
+    mapClient
+      .get({ query: { realm: id } })
+      .then((r) => setMapMarkers(r.status === 200 ? r.body.markers : []))
       .catch(() => {})
       .finally(() => setMapLoading(false));
   }, [id]);

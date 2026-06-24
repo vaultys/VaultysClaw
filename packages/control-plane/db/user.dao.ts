@@ -240,6 +240,10 @@ export class UserDAO {
     await prisma.userInvitation.update({ where: { token }, data: { claimedAt: new Date() } });
   }
 
+  static async deleteInvitation(token: string): Promise<void> {
+    await prisma.userInvitation.deleteMany({ where: { token } });
+  }
+
   static async cleanExpiredInvitations(): Promise<void> {
     await prisma.userInvitation.deleteMany({ where: { expiresAt: { lt: new Date() } } });
   }

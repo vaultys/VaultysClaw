@@ -1,29 +1,36 @@
 import { c } from "./contract";
 import { agentsContract } from "./agents/agents.contract";
-import { apiKeysContract } from "./api-keys.contract";
-import { bridgesContract, channelsContract } from "./channels.contract";
+import { apiKeysContract } from "./api-keys/api-keys.contract";
+import {
+  bridgesContract,
+  channelsContract,
+} from "./channels/channels.contract";
 import { governanceContract } from "./governance/governance.contract";
-import { intentsContract } from "./intents.contract";
+import { intentsContract } from "./intents/intents.contract";
 import { knowledgeContract } from "./knowledge/knowledge.contract";
 import {
   aboutContract,
+  docsContract,
   statsContract,
   userStatusContract,
 } from "./misc/misc.contract";
 import { litellmContract, modelsContract } from "./models/models.contract";
 import { graphContract } from "./graph/graph.contract";
-import { healthContract, mapContract } from "./network.contract";
-import { networkContract } from "./network/network.contract";
+import {
+  healthContract,
+  mapContract,
+  networkContract,
+} from "./network/network.contract";
 import { policiesContract } from "./policies/policies.contract";
 import { realmsContract } from "./realms/realms.contract";
 import {
   registrationsContract,
   toolApprovalsContract,
 } from "./registrations/registrations.contract";
-import { serverContract } from "./server.contract";
+import { serverContract } from "./server/server.contract";
 import { setupContract, settingsContract } from "./settings/settings.contract";
 import { orgSkillsContract, skillsContract } from "./skills/skills.contract";
-import { userAuthContract } from "./user-auth.contract";
+import { userAuthContract } from "./user-auth/user-auth.contract";
 import { wellKnownContract } from "./well-known/well-known.contract";
 import { invitationsContract, usersContract } from "./users/users.contract";
 import {
@@ -39,8 +46,14 @@ export type * from "./agents/agents.contract";
 export * from "./agents/agents.contract";
 export * from "./agents/agents.schemas";
 export * from "./agents/agents.types";
-export * from "./api-keys.contract";
-export * from "./channels.contract";
+export type * from "./api-keys/api-keys.contract";
+export * from "./api-keys/api-keys.contract";
+export * from "./api-keys/api-keys.schemas";
+export * from "./api-keys/api-keys.types";
+export type * from "./channels/channels.contract";
+export * from "./channels/channels.contract";
+export * from "./channels/channels.schemas";
+export * from "./channels/channels.types";
 export type * from "./governance/governance.contract";
 export * from "./governance/governance.contract";
 export * from "./governance/governance.schemas";
@@ -49,7 +62,10 @@ export type * from "./graph/graph.contract";
 export * from "./graph/graph.contract";
 export * from "./graph/graph.schemas";
 export * from "./graph/graph.types";
-export * from "./intents.contract";
+export type * from "./intents/intents.contract";
+export * from "./intents/intents.contract";
+export * from "./intents/intents.schemas";
+export * from "./intents/intents.types";
 export type * from "./knowledge/knowledge.contract";
 export * from "./knowledge/knowledge.contract";
 export * from "./knowledge/knowledge.schemas";
@@ -61,7 +77,6 @@ export type * from "./models/models.contract";
 export * from "./models/models.contract";
 export * from "./models/models.schemas";
 export * from "./models/models.types";
-export * from "./network.contract";
 export type * from "./network/network.contract";
 export * from "./network/network.contract";
 export * from "./network/network.schemas";
@@ -78,7 +93,10 @@ export type * from "./registrations/registrations.contract";
 export * from "./registrations/registrations.contract";
 export * from "./registrations/registrations.schemas";
 export * from "./registrations/registrations.types";
-export * from "./server.contract";
+export type * from "./server/server.contract";
+export * from "./server/server.contract";
+export * from "./server/server.schemas";
+export * from "./server/server.types";
 export type * from "./settings/settings.contract";
 export * from "./settings/settings.contract";
 export * from "./settings/settings.schemas";
@@ -87,7 +105,10 @@ export type * from "./skills/skills.contract";
 export * from "./skills/skills.contract";
 export * from "./skills/skills.schemas";
 export * from "./skills/skills.types";
-export * from "./user-auth.contract";
+export type * from "./user-auth/user-auth.contract";
+export * from "./user-auth/user-auth.contract";
+export * from "./user-auth/user-auth.schemas";
+export * from "./user-auth/user-auth.types";
 export type * from "./users/users.contract";
 export * from "./users/users.contract";
 export * from "./users/users.schemas";
@@ -112,6 +133,7 @@ export const appContract = c.router({
   apiKeys: apiKeysContract,
   bridges: bridgesContract,
   channels: channelsContract,
+  docs: docsContract,
   governance: governanceContract,
   graph: graphContract,
   health: healthContract,

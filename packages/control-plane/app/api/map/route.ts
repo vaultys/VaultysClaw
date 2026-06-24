@@ -1,12 +1,11 @@
-import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
-import { unauthorized } from "@/lib/api/utils/api-utils";
-import { AgentDAO, RealmDAO, UserDAO } from "@/db";
+import { AgentDAO, UserDAO } from "@/db";
 import { getWSServer } from "@/lib/ws-server";
 import { getDoclingConfig, getStorageConfig } from "@/db/settings.dao";
-import { withError } from "@/lib/api/handlers/with-error";
+import { createNextRoute } from "@/lib/api/ts-rest/next-route";
+import { mapContract } from "@/lib/contracts";
 
-export interface MapMarker {
+interface MapMarker {
   id: string;
   type: "agent" | "user" | "docling" | "s3";
   label: string;
@@ -17,120 +16,53 @@ export interface MapMarker {
 }
 
 /**
- * GET /api/map
- * Aggregate all located entities (agents, users, services) into map markers.
- * Query params:
- *   realm – filter agents/users by realm id or slug
+ * GET /api/map — aggregate all located entities (agents, users, services)
+ * into map markers. Query: `realm` filters agents/users by realm id or slug.
  */
-/**
- * @openapi
- * /api/map:
- *   get:
- *     summary: Aggregate all located entities into map markers.
- *     tags: [Map]
- *     parameters:
- *       - in: query
- *         name: realm
- *         schema:
- *           type: string
- *         description: Filter agents/users by realm id or slug.
- *     responses:
- *       200:
- *         description: A list of map markers.
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 markers:
- *                   type: array
- *                   items:
- *                     type: object
- *                     properties:
- *                       id:
- *                         type: string
- *                       type:
- *                         type: string
- *                         enum: [agent, user, docling, s3]
- *                       label:
- *                         type: string
- *                       lat:
- *                         type: number
- *                       lon:
- *                         type: number
- *                       online:
- *                         type: boolean
- *                       meta:
- *                         type: object
- *                         additionalProperties: true
- *       401:
- *         $ref: '#/components/responses/Unauthorized'
- */
-export const GET = withError(async (req: NextRequest) => {
-  const auth = await getAuthContext(req);
-  if (!auth) return unauthorized();
+const handlers = createNextRoute(mapContract, {
+  get: async ({ query, request }) => {
+    const auth = await getAuthContext(request);
 
-  const { searchParams } = new URL(req.url);
-  const realmFilter = searchParams.get("realm") || undefined;
+    const realmFilter = query.realm || undefined;
+    const markers: MapMarker[] = [];
 
-  const markers: MapMarker[] = [];
+    // ── Agents ────────────────────────────────────────────────────────────
+    const wsServer = getWSServer();
+    const onlineDids = new Set(
+      wsServer?.getConnectedAgents().map((a) => a.id) ?? []
+    );
 
-  // ── Agents ──────────────────────────────────────────────────────────────────
-  const wsServer = getWSServer();
-  const onlineDids = new Set(
-    wsServer?.getConnectedAgents().map((a) => a.id) ?? []
-  );
+    const realmIds = auth.isGlobalAdmin ? undefined : auth.realmIds;
 
-  const realmIds = auth.isGlobalAdmin ? undefined : auth.realmIds;
-
-  const { agents } = await AgentDAO.query({
-    realm: realmFilter,
-    realmIds,
-    pageSize: 1000,
-  });
-
-  for (const agent of agents) {
-    if (agent.locationLat == null || agent.locationLon == null) continue;
-    markers.push({
-      id: agent.did,
-      type: "agent",
-      label: agent.name,
-      lat: agent.locationLat,
-      lon: agent.locationLon,
-      online: onlineDids.has(agent.did),
-      meta: { did: agent.did },
-    });
-  }
-
-  // ── Users (admins see all; regular users see only co-members of their realms) ─
-  if (auth.isGlobalAdmin) {
-    const { users } = await UserDAO.list({
-      realmId: realmFilter,
+    const { agents } = await AgentDAO.query({
+      realm: realmFilter,
+      realmIds,
       pageSize: 1000,
     });
-    for (const user of users) {
-      if (user.locationLat == null || user.locationLon == null) continue;
-      const markerId = user.did ?? user.id;
+
+    for (const agent of agents) {
+      if (agent.locationLat == null || agent.locationLon == null) continue;
       markers.push({
-        id: markerId,
-        type: "user",
-        label: user.name ?? user.email ?? user.id,
-        lat: user.locationLat,
-        lon: user.locationLon,
-        meta: { userId: user.id, email: user.email, role: user.role },
+        id: agent.did,
+        type: "agent",
+        label: agent.name,
+        lat: agent.locationLat,
+        lon: agent.locationLon,
+        online: onlineDids.has(agent.did),
+        meta: { did: agent.did },
       });
     }
-  } else if (realmIds && realmIds.size > 0) {
-    const seen = new Set<string>();
-    for (const rid of realmIds) {
-      const { users: realmUsers } = await UserDAO.list({ realmId: rid, pageSize: 1000 });
-      for (const user of realmUsers) {
-        if (seen.has(user.id)) continue;
-        seen.add(user.id);
+
+    // ── Users (admins see all; others see co-members of their realms) ───────
+    if (auth.isGlobalAdmin) {
+      const { users } = await UserDAO.list({
+        realmId: realmFilter,
+        pageSize: 1000,
+      });
+      for (const user of users) {
         if (user.locationLat == null || user.locationLon == null) continue;
-        const markerId = user.did ?? user.id;
         markers.push({
-          id: markerId,
+          id: user.did ?? user.id,
           type: "user",
           label: user.name ?? user.email ?? user.id,
           lat: user.locationLat,
@@ -138,34 +70,59 @@ export const GET = withError(async (req: NextRequest) => {
           meta: { userId: user.id, email: user.email, role: user.role },
         });
       }
+    } else if (realmIds && realmIds.size > 0) {
+      const seen = new Set<string>();
+      for (const rid of realmIds) {
+        const { users: realmUsers } = await UserDAO.list({
+          realmId: rid,
+          pageSize: 1000,
+        });
+        for (const user of realmUsers) {
+          if (seen.has(user.id)) continue;
+          seen.add(user.id);
+          if (user.locationLat == null || user.locationLon == null) continue;
+          markers.push({
+            id: user.did ?? user.id,
+            type: "user",
+            label: user.name ?? user.email ?? user.id,
+            lat: user.locationLat,
+            lon: user.locationLon,
+            meta: { userId: user.id, email: user.email, role: user.role },
+          });
+        }
+      }
     }
-  }
 
-  // ── Services (global admin only) ─────────────────────────────────────────────
-  if (auth.isGlobalAdmin && !realmFilter) {
-    const docling = await getDoclingConfig();
-    if (docling?.locationLat != null && docling?.locationLon != null) {
-      markers.push({
-        id: "docling",
-        type: "docling",
-        label: `Docling (${docling.url})`,
-        lat: docling.locationLat,
-        lon: docling.locationLon,
-        online: docling.enabled,
-      });
+    // ── Services (global admin only) ────────────────────────────────────────
+    if (auth.isGlobalAdmin && !realmFilter) {
+      const docling = await getDoclingConfig();
+      if (docling?.locationLat != null && docling?.locationLon != null) {
+        markers.push({
+          id: "docling",
+          type: "docling",
+          label: `Docling (${docling.url})`,
+          lat: docling.locationLat,
+          lon: docling.locationLon,
+          online: docling.enabled,
+        });
+      }
+
+      const storage = await getStorageConfig();
+      if (storage.locationLat != null && storage.locationLon != null) {
+        markers.push({
+          id: "s3",
+          type: "s3",
+          label: storage.s3Bucket
+            ? `S3: ${storage.s3Bucket}`
+            : "Object Storage",
+          lat: storage.locationLat,
+          lon: storage.locationLon,
+        });
+      }
     }
 
-    const storage = await getStorageConfig();
-    if (storage.locationLat != null && storage.locationLon != null) {
-      markers.push({
-        id: "s3",
-        type: "s3",
-        label: storage.s3Bucket ? `S3: ${storage.s3Bucket}` : "Object Storage",
-        lat: storage.locationLat,
-        lon: storage.locationLon,
-      });
-    }
-  }
-
-  return NextResponse.json({ markers });
+    return { status: 200, body: { markers } };
+  },
 });
+
+export const GET = handlers.GET!;

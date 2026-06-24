@@ -30,6 +30,8 @@ import { AgentInfo, NetworkResponse } from "@/lib/contracts";
 import {
   networkClient,
   workflowRunsClient,
+  mapClient,
+  intentsClient,
   unwrap,
 } from "@/lib/api/ts-rest/client";
 
@@ -310,10 +312,8 @@ export function MissionControlCore({ mode }: MissionControlCoreProps) {
   useEffect(() => {
     const fetch_ = async () => {
       try {
-        const res = await fetch("/api/map");
-        if (!res.ok) return;
-        const d = await res.json();
-        setMarkers(Array.isArray(d) ? d : (d.markers ?? []));
+        const { markers } = unwrap(await mapClient.get({ query: {} }));
+        setMarkers(markers);
       } catch {}
     };
     fetch_();
@@ -338,10 +338,9 @@ export function MissionControlCore({ mode }: MissionControlCoreProps) {
   useEffect(() => {
     const fetch_ = async () => {
       try {
-        const res = await fetch("/api/intents?limit=20");
-        if (!res.ok) return;
-        const data = await res.json();
-        const intents: Intent[] = data.intents ?? [];
+        const intents = unwrap(
+          await intentsClient.list({ query: { limit: 20 } })
+        ).intents as Intent[];
         setRecentIntents(intents.slice(0, 8));
 
         if (!intentsInitialized.current) {

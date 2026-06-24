@@ -84,7 +84,7 @@ export const orgSkillsContract = c.router({
     pathParams: OrgSkillIdParamSchema,
     summary: "Update an organization skill",
     body: UpdateOrgSkillBodySchema,
-    responses: { 200: c.type<OrgSkill>(), ...commonErrorResponses },
+    responses: { 200: c.type<{ skill: OrgSkill }>(), ...commonErrorResponses },
   },
 
   remove: {

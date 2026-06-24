@@ -41,10 +41,13 @@ export type RealmDetail = Prisma.RealmGetPayload<{
 /** Models available to a realm plus its LiteLLM router key info. */
 export type RealmModelsResponse = {
   models: Array<Record<string, unknown>>;
+  litellmConfigured: boolean;
   routerKey: {
     hasVirtualKey: boolean;
+    keyPrefix: string | null;
     allowedModels: string[];
-    monthlyBudgetUsd: number;
+    monthlyBudgetUsd: number | null;
+    updatedAt: string | null;
   } | null;
 };
 

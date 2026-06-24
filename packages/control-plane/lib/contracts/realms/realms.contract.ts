@@ -93,7 +93,10 @@ export const realmsContract = c.router({
     pathParams: IdParam,
     summary: "Add a user to a realm",
     body: AddRealmUserBodySchema,
-    responses: { 200: c.type<void>(), ...commonErrorResponses },
+    responses: {
+      200: z.object({ ok: z.boolean() }),
+      ...commonErrorResponses,
+    },
   },
 
   updateUser: {
@@ -102,7 +105,10 @@ export const realmsContract = c.router({
     pathParams: IdParam,
     summary: "Update a user's realm admin status",
     body: UpdateRealmUserBodySchema,
-    responses: { 200: c.type<void>(), ...commonErrorResponses },
+    responses: {
+      200: z.object({ ok: z.boolean() }),
+      ...commonErrorResponses,
+    },
   },
 
   removeUser: {
@@ -111,7 +117,10 @@ export const realmsContract = c.router({
     pathParams: IdParam,
     summary: "Remove a user from the specified realm",
     body: RemoveRealmUserBodySchema,
-    responses: { 200: c.type<void>(), ...commonErrorResponses },
+    responses: {
+      200: z.object({ ok: z.boolean() }),
+      ...commonErrorResponses,
+    },
   },
 
   socialMedia: {
@@ -301,6 +310,9 @@ export const realmsContract = c.router({
     pathParams: IdParam,
     summary: "Remove an agent from a realm",
     body: RemoveRealmAgentBodySchema,
-    responses: { 200: c.type<void>(), ...commonErrorResponses },
+    responses: {
+      200: z.object({ ok: z.boolean() }),
+      ...commonErrorResponses,
+    },
   },
 });

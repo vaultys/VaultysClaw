@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Key, RefreshCw, Trash2, Pencil, ExternalLink, CheckCircle2 } from "lucide-react";
 import Link from "next/link";
 import { ConfirmModal } from "@/components/shared/ConfirmModal";
+import { realmsClient, unwrap } from "@/lib/api/ts-rest/client";
 
 export interface RealmRouterKeyData {
   hasVirtualKey: boolean;
@@ -46,25 +47,24 @@ export function RealmLiteLLMKeyCard({
     setSaving(true);
     setMsg(null);
     try {
-      const body: Record<string, unknown> = {};
-      if (budgetInput !== "") body.monthlyBudget = budgetInput ? parseFloat(budgetInput) : null;
+      const body: { monthlyBudget?: number | null } = {};
+      if (budgetInput !== "")
+        body.monthlyBudget = budgetInput ? parseFloat(budgetInput) : null;
 
-      const res = await fetch(`/api/realms/${realmId}/litellm-key`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
+      const data = unwrap(
+        await realmsClient.putLitellmKey({ params: { id: realmId }, body })
+      );
+      setMsg({
+        ok: true,
+        text: `Key provisioned for ${data.allowedModels?.length ?? 0} model(s) ✓`,
       });
-      const data = (await res.json()) as { error?: string; allowedModels?: string[] };
-      if (res.ok) {
-        setMsg({
-          ok: true,
-          text: `Key provisioned for ${data.allowedModels?.length ?? 0} model(s) ✓`,
-        });
-        setEditing(false);
-        onRefresh();
-      } else {
-        setMsg({ ok: false, text: data.error ?? "Failed to provision key" });
-      }
+      setEditing(false);
+      onRefresh();
+    } catch (e) {
+      setMsg({
+        ok: false,
+        text: e instanceof Error ? e.message : "Failed to provision key",
+      });
     } finally {
       setSaving(false);
     }
@@ -73,7 +73,7 @@ export function RealmLiteLLMKeyCard({
   const revoke = async () => {
     setRevoking(true);
     try {
-      await fetch(`/api/realms/${realmId}/litellm-key`, { method: "DELETE" });
+      await realmsClient.deleteLitellmKey({ params: { id: realmId } });
       setShowRevoke(false);
       setMsg({ ok: true, text: "Router key revoked" });
       onRefresh();

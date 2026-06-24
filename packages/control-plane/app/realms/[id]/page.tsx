@@ -340,7 +340,7 @@ export default function RealmDetailPage() {
     const [realmRes, skillsRes, modelsRes, channelsRes] = await Promise.all([
       realmsClient.getOne({ params: { id } }),
       fetch(`/api/realms/${id}/skills`),
-      fetch(`/api/realms/${id}/models`),
+      realmsClient.listModels({ params: { id } }),
       channelsClient.list({ query: { realm: id } }),
     ]);
     if (realmRes.status === 404) {
@@ -352,8 +352,8 @@ export default function RealmDetailPage() {
       const skillsData = (await skillsRes.json()) as { skills: RealmSkill[] };
       setSkills(skillsData.skills ?? []);
     }
-    if (modelsRes.ok) {
-      const modelsData = (await modelsRes.json()) as {
+    if (modelsRes.status === 200) {
+      const modelsData = modelsRes.body as unknown as {
         models: typeof realmModels;
         routerKey: RealmRouterKeyData | null;
         litellmConfigured: boolean;
@@ -408,21 +408,13 @@ export default function RealmDetailPage() {
 
   async function handleRemoveAgent(did: string) {
     if (!confirm("Remove agent from this realm?")) return;
-    await fetch(`/api/realms/${id}/agents`, {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ agentDid: did }),
-    });
+    await realmsClient.removeAgent({ params: { id }, body: { agentDid: did } });
     load();
   }
 
   async function handleRemoveUser(did: string) {
     if (!confirm("Remove user from this realm?")) return;
-    await fetch(`/api/realms/${id}/users`, {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userDid: did }),
-    });
+    await realmsClient.removeUser({ params: { id }, body: { userDid: did } });
     load();
   }
 

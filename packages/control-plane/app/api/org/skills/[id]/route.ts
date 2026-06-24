@@ -4,167 +4,54 @@
  * DELETE /api/org/skills/[id]   — remove from catalog (global admin only)
  */
 
-import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
-import { unauthorized, forbidden, notFound } from "@/lib/api/utils/api-utils";
+import { APIException } from "@/lib/api/utils/api-utils";
 import { OrgSkillDAO } from "@/db";
-import { withError } from "@/lib/api/handlers/with-error";
+import { createNextRoute } from "@/lib/api/ts-rest/next-route";
+import { orgSkillsContract } from "@/lib/contracts";
 
-type Ctx = { params: Promise<{ id: string }> };
+const handlers = createNextRoute(orgSkillsContract, {
+  // ── GET /api/org/skills/:id ───────────────────────────────────────────────
+  getOne: async ({ params, request }) => {
+    await getAuthContext(request);
+    const skill = await OrgSkillDAO.findById(params.id);
+    if (!skill) throw new APIException("NOT_FOUND", "Skill not found");
+    return { status: 200, body: { skill } };
+  },
 
-/**
- * @openapi
- * /api/org/skills/{id}:
- *   get:
- *     summary: Retrieve a specific organization skill by ID.
- *     tags: [OrgSkills]
- *     parameters:
- *       - name: id
- *         in: path
- *         required: true
- *         description: The ID of the organization skill.
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: A skill object.
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 skill:
- *                   $ref: '#/components/schemas/OrgSkill'
- *       401:
- *         $ref: '#/components/responses/Unauthorized'
- *       404:
- *         $ref: '#/components/responses/NotFound'
- */
-export const GET = withError(async (_req: NextRequest, ctx: Ctx) => {
-  const auth = await getAuthContext(_req);
-  if (!auth) return unauthorized();
+  // ── PATCH /api/org/skills/:id ─────────────────────────────────────────────
+  update: async ({ params, body, request }) => {
+    const auth = await getAuthContext(request);
+    if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");
 
-  const { id } = await ctx.params;
-  const skill = await OrgSkillDAO.findById(id);
-  if (!skill) return notFound("Skill not found");
+    if (!(await OrgSkillDAO.findById(params.id)))
+      throw new APIException("NOT_FOUND", "Skill not found");
 
-  return NextResponse.json({ skill });
+    await OrgSkillDAO.update(params.id, {
+      description: body.description,
+      version: body.version,
+      icon: body.icon,
+      content: body.content,
+      configSchema: body.configSchema,
+    });
+
+    const skill = await OrgSkillDAO.findById(params.id);
+    return { status: 200, body: { skill: skill! } };
+  },
+
+  // ── DELETE /api/org/skills/:id ────────────────────────────────────────────
+  remove: async ({ params, request }) => {
+    const auth = await getAuthContext(request);
+    if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");
+
+    if (!(await OrgSkillDAO.findById(params.id)))
+      throw new APIException("NOT_FOUND", "Skill not found");
+
+    await OrgSkillDAO.delete(params.id);
+    return { status: 200, body: { success: true } };
+  },
 });
 
-/**
- * @openapi
- * /api/org/skills/{id}:
- *   patch:
- *     summary: Update an organization skill.
- *     tags: [OrgSkills]
- *     parameters:
- *       - name: id
- *         in: path
- *         required: true
- *         description: The ID of the organization skill to update.
- *         schema:
- *           type: string
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               description:
- *                 type: string
- *                 nullable: true
- *               version:
- *                 type: string
- *               icon:
- *                 type: string
- *                 nullable: true
- *               content:
- *                 type: string
- *                 nullable: true
- *               configSchema:
- *                 type: object
- *                 additionalProperties: true
- *     responses:
- *       200:
- *         description: Skill updated successfully.
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/OrgSkill'
- *       401:
- *         $ref: '#/components/responses/Unauthorized'
- *       403:
- *         $ref: '#/components/responses/Forbidden'
- *       404:
- *         $ref: '#/components/responses/NotFound'
- */
-export const PATCH = withError(async (req: NextRequest, ctx: Ctx) => {
-  const auth = await getAuthContext(req);
-  if (!auth) return unauthorized();
-  if (!auth.isGlobalAdmin) return forbidden();
-
-  const { id } = await ctx.params;
-  if (!(await OrgSkillDAO.findById(id))) return notFound("Skill not found");
-
-  const body = (await req.json()) as {
-    description?: string | null;
-    version?: string;
-    icon?: string | null;
-    content?: string | null;
-    configSchema?: Record<string, unknown>;
-  };
-
-  await OrgSkillDAO.update(id, {
-    description: body.description,
-    version: body.version,
-    icon: body.icon,
-    content: body.content,
-    configSchema: body.configSchema,
-  });
-
-  return NextResponse.json({ skill: await OrgSkillDAO.findById(id) });
-});
-
-/**
- * @openapi
- * /api/org/skills/{id}:
- *   delete:
- *     summary: Remove an organization skill from the catalog.
- *     tags: [OrgSkills]
- *     parameters:
- *       - name: id
- *         in: path
- *         required: true
- *         description: The ID of the organization skill to delete.
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: Skill successfully deleted.
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *       401:
- *         $ref: '#/components/responses/Unauthorized'
- *       403:
- *         $ref: '#/components/responses/Forbidden'
- *       404:
- *         $ref: '#/components/responses/NotFound'
- */
-export const DELETE = withError(async (_req: NextRequest, ctx: Ctx) => {
-  const auth = await getAuthContext(_req);
-  if (!auth) return unauthorized();
-  if (!auth.isGlobalAdmin) return forbidden();
-
-  const { id } = await ctx.params;
-  if (!(await OrgSkillDAO.findById(id))) return notFound("Skill not found");
-
-  await OrgSkillDAO.delete(id);
-  return NextResponse.json({ success: true });
-});
+export const GET = handlers.GET!;
+export const PATCH = handlers.PATCH!;
+export const DELETE = handlers.DELETE!;

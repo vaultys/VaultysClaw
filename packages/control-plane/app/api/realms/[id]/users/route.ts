@@ -1,230 +1,78 @@
-import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
-import {
-  unauthorized,
-  forbidden,
-  notFound,
-  malformed,
-} from "@/lib/api/utils/api-utils";
+import { APIException } from "@/lib/api/utils/api-utils";
 import { RealmDAO, UserDAO } from "@/db";
-import { withError } from "@/lib/api/handlers/with-error";
+import { createNextRoute } from "@/lib/api/ts-rest/next-route";
+import { realmsContract } from "@/lib/contracts";
 
-type Ctx = { params: Promise<{ id: string }> };
-
-/**
- * POST /api/realms/[id]/users — add a user to this realm. Realm admin or global admin.
- * Body: { userDid, isPrimary?, isRealmAdmin? }
- */
-/**
- * @openapi
- * /api/realms/{id}/users:
- *   post:
- *     summary: Add a user to a realm.
- *     tags: [Realms]
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *         description: The realm ID
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               userDid:
- *                 type: string
- *               isPrimary:
- *                 type: boolean
- *               isRealmAdmin:
- *                 type: boolean
- *             required:
- *               - userDid
- *     responses:
- *       200:
- *         description: User added to realm successfully.
- *       400:
- *         $ref: '#/components/responses/BadRequest'
- *       401:
- *         $ref: '#/components/responses/Unauthorized'
- *       403:
- *         $ref: '#/components/responses/Forbidden'
- *       404:
- *         $ref: '#/components/responses/NotFound'
- *       500:
- *         description: Failed to add user to realm.
- */
-export const POST = withError(async (req: NextRequest, ctx: Ctx) => {
-  const auth = await getAuthContext(req);
-  if (!auth) return unauthorized();
-
-  const { id } = await ctx.params;
-  if (!(await auth.canAdminRealm(id))) return forbidden();
-
-  const realm = await RealmDAO.findById(id);
-  if (!realm) return notFound("Realm not found");
-
-  const body = (await req.json()) as {
-    userDid?: string;
-    isPrimary?: boolean;
-    isRealmAdmin?: boolean;
-  };
-  if (!body.userDid) return malformed("userDid is required");
-
-  const user =
-    (await UserDAO.findByDid(body.userDid)) ??
-    (await UserDAO.findById(body.userDid));
-  if (!user) return notFound("User not found");
-
-  await RealmDAO.addUserToRealm(
-    user.id,
-    id,
-    body.isPrimary ?? false,
-    body.isRealmAdmin ?? false
+/** Resolve a user by DID or internal id. */
+async function findUser(didOrId: string) {
+  return (
+    (await UserDAO.findByDid(didOrId)) ?? (await UserDAO.findById(didOrId))
   );
-  return NextResponse.json({ ok: true });
+}
+
+const handlers = createNextRoute(realmsContract, {
+  // ── POST /api/realms/:id/users ────────────────────────────────────────────
+  addUser: async ({ params, body, request }) => {
+    const auth = await getAuthContext(request);
+    if (!(await auth.canAdminRealm(params.id)))
+      throw new APIException("FORBIDDEN");
+
+    const realm = await RealmDAO.findById(params.id);
+    if (!realm) throw new APIException("NOT_FOUND", "Realm not found");
+
+    const user = await findUser(body.userDid);
+    if (!user) throw new APIException("NOT_FOUND", "User not found");
+
+    await RealmDAO.addUserToRealm(
+      user.id,
+      params.id,
+      body.isPrimary ?? false,
+      body.isRealmAdmin ?? false
+    );
+    return { status: 200, body: { ok: true } };
+  },
+
+  // ── PATCH /api/realms/:id/users ───────────────────────────────────────────
+  updateUser: async ({ params, body, request }) => {
+    const auth = await getAuthContext(request);
+    if (!(await auth.canAdminRealm(params.id)))
+      throw new APIException("FORBIDDEN");
+
+    const user = await findUser(body.userDid);
+    if (!user) throw new APIException("NOT_FOUND", "User not found");
+
+    const changed = await RealmDAO.setUserRealmAdmin(
+      user.id,
+      params.id,
+      body.isRealmAdmin
+    );
+    if (!changed)
+      throw new APIException("NOT_FOUND", "User is not a member of this realm");
+
+    return { status: 200, body: { ok: true } };
+  },
+
+  // ── DELETE /api/realms/:id/users ──────────────────────────────────────────
+  removeUser: async ({ params, body, request }) => {
+    const auth = await getAuthContext(request);
+    if (!(await auth.canAdminRealm(params.id)))
+      throw new APIException("FORBIDDEN");
+
+    const user = await findUser(body.userDid);
+    if (!user) throw new APIException("NOT_FOUND", "User not found");
+
+    const ok = await RealmDAO.removeUserFromRealm(user.id, params.id);
+    if (!ok)
+      throw new APIException(
+        "MALFORMED",
+        "Cannot remove user from the default realm"
+      );
+
+    return { status: 200, body: { ok: true } };
+  },
 });
 
-/**
- * PATCH /api/realms/[id]/users — update a user's realm admin status. Realm admin or global admin.
- * Body: { userDid, isRealmAdmin }
- */
-/**
- * @openapi
- * /api/realms/{id}/users:
- *   patch:
- *     summary: Update a user's realm admin status.
- *     tags: [Realms]
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *         description: Realm ID
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               userDid:
- *                 type: string
- *                 description: User DID
- *               isRealmAdmin:
- *                 type: boolean
- *                 description: Realm admin status
- *             required:
- *               - userDid
- *               - isRealmAdmin
- *     responses:
- *       200:
- *         description: Successfully updated realm admin status.
- *       400:
- *         $ref: '#/components/responses/BadRequest'
- *       401:
- *         $ref: '#/components/responses/Unauthorized'
- *       403:
- *         $ref: '#/components/responses/Forbidden'
- *       404:
- *         $ref: '#/components/responses/NotFound'
- *       500:
- *         description: Failed to update realm admin status.
- */
-export const PATCH = withError(async (req: NextRequest, ctx: Ctx) => {
-  const auth = await getAuthContext(req);
-  if (!auth) return unauthorized();
-
-  const { id } = await ctx.params;
-  if (!(await auth.canAdminRealm(id))) return forbidden();
-
-  const body = (await req.json()) as {
-    userDid?: string;
-    isRealmAdmin?: boolean;
-  };
-  if (!body.userDid) return malformed("userDid is required");
-  if (typeof body.isRealmAdmin !== "boolean")
-    return malformed("isRealmAdmin (boolean) is required");
-
-  const user =
-    (await UserDAO.findByDid(body.userDid)) ??
-    (await UserDAO.findById(body.userDid));
-  if (!user) return notFound("User not found");
-
-  const changed = await RealmDAO.setUserRealmAdmin(
-    user.id,
-    id,
-    body.isRealmAdmin
-  );
-  if (!changed) return notFound("User is not a member of this realm");
-
-  return NextResponse.json({ ok: true });
-});
-
-/**
- * DELETE /api/realms/[id]/users — remove a user from this realm. Realm admin or global admin.
- * Body: { userDid }
- */
-/**
- * @openapi
- * /api/realms/{id}/users:
- *   delete:
- *     summary: Remove a user from the specified realm.
- *     tags: [Realms]
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *         description: The ID of the realm.
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               userDid:
- *                 type: string
- *                 description: The DID of the user to remove.
- *             required:
- *               - userDid
- *     responses:
- *       200:
- *         description: User successfully removed from the realm.
- *       400:
- *         $ref: '#/components/responses/BadRequest'
- *       401:
- *         $ref: '#/components/responses/Unauthorized'
- *       403:
- *         $ref: '#/components/responses/Forbidden'
- *       404:
- *         $ref: '#/components/responses/NotFound'
- *       500:
- *         description: Failed to remove user from realm.
- */
-export const DELETE = withError(async (req: NextRequest, ctx: Ctx) => {
-  const auth = await getAuthContext(req);
-  if (!auth) return unauthorized();
-
-  const { id } = await ctx.params;
-  if (!(await auth.canAdminRealm(id))) return forbidden();
-
-  const body = (await req.json()) as { userDid?: string };
-  if (!body.userDid) return malformed("userDid is required");
-
-  const user =
-    (await UserDAO.findByDid(body.userDid)) ??
-    (await UserDAO.findById(body.userDid));
-  if (!user) return notFound("User not found");
-
-  const ok = await RealmDAO.removeUserFromRealm(user.id, id);
-  if (!ok) return malformed("Cannot remove user from the default realm");
-
-  return NextResponse.json({ ok: true });
-});
+export const POST = handlers.POST!;
+export const PATCH = handlers.PATCH!;
+export const DELETE = handlers.DELETE!;

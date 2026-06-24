@@ -20,12 +20,10 @@ import {
 } from "./users.schemas";
 import type {
   MeProfile,
-  MeRealmMembership,
   UnclaimedUserDetail,
   UpdateMeResponse,
   UserDetail,
   UserListResponse,
-  UserRealmsResponse,
 } from "./users.types";
 
 export const usersContract = c.router({
@@ -57,16 +55,6 @@ export const usersContract = c.router({
     body: UpdateMeBodySchema,
     responses: {
       200: c.type<UpdateMeResponse>(),
-      ...commonErrorResponses,
-    },
-  },
-
-  meRealms: {
-    method: "GET",
-    path: "/api/users/me/realms",
-    summary: "List the current user's realm memberships",
-    responses: {
-      200: c.type<{ memberships: MeRealmMembership[] }>(),
       ...commonErrorResponses,
     },
   },
@@ -205,17 +193,6 @@ export const usersContract = c.router({
     responses: { 200: c.type<void>(), ...commonErrorResponses },
   },
 
-  realms: {
-    method: "GET",
-    path: "/api/users/:did/realms",
-    pathParams: DidParamSchema,
-    summary: "List realms the user belongs to and all available realms",
-    responses: {
-      200: c.type<UserRealmsResponse>(),
-      ...commonErrorResponses,
-    },
-  },
-
   setLocation: {
     method: "PATCH",
     path: "/api/users/:did/location",
@@ -263,25 +240,6 @@ export const usersContract = c.router({
     summary: "Promote or demote a user to/from admin",
     body: SetAdminBodySchema,
     responses: { 200: c.type<void>(), ...commonErrorResponses },
-  },
-});
-
-export const meContract = c.router({
-  realms: {
-    method: "GET",
-    path: "/api/me/realms",
-    summary: "Get realms the current user belongs to",
-    responses: {
-      200: c.type<{
-        realms: Array<{
-          id: string;
-          name: string;
-          slug: string;
-          color: string;
-        }>;
-      }>(),
-      ...commonErrorResponses,
-    },
   },
 });
 

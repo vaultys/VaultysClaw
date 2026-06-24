@@ -32,6 +32,7 @@ const handlers = createNextRoute(usersContract, {
     return {
       status: 200,
       body: {
+        id: user.id,
         did: user.did,
         name: user.name ?? null,
         email: user.email ?? null,

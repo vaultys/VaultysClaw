@@ -52,3 +52,9 @@ export type RealmModelsResponse = {
 export type RealmCredentialsResponse = {
   credentials: Array<Record<string, unknown>>;
 };
+
+export type UserRealmWithRealm = Prisma.UserRealmGetPayload<{
+  include: {
+    realm: true;
+  };
+}>;

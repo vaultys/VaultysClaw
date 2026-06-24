@@ -9,6 +9,7 @@ import {
   CreateRealmSkillBodySchema,
   DeleteCredentialQuerySchema,
   ListCredentialsQuerySchema,
+  ListRealmsQuerySchema,
   PutRealmLitellmKeyBodySchema,
   RemoveRealmAgentBodySchema,
   RemoveRealmUserBodySchema,
@@ -23,6 +24,7 @@ import type {
   RealmDetail,
   RealmModelsResponse,
   RealmWithCounts,
+  UserRealmWithRealm,
 } from "./realms.types";
 
 const IdParam = z.object({ id: z.string().min(1) });
@@ -32,6 +34,7 @@ export const realmsContract = c.router({
     method: "GET",
     path: "/api/realms",
     summary: "List realms with counts of agents, users, and workflows",
+    query: ListRealmsQuerySchema,
     responses: {
       200: c.type<{ realms: RealmWithCounts[] }>(),
       ...commonErrorResponses,
@@ -44,6 +47,16 @@ export const realmsContract = c.router({
     summary: "Create a new realm",
     body: CreateRealmBodySchema,
     responses: { 201: c.type<{ realm: Realm }>(), ...commonErrorResponses },
+  },
+
+  listMyRealms: {
+    method: "GET",
+    path: "/api/realms/me",
+    summary: "List realms shared with the current user",
+    responses: {
+      200: c.type<{ userRealms: UserRealmWithRealm[] }>(),
+      ...commonErrorResponses,
+    },
   },
 
   getOne: {
@@ -135,7 +148,10 @@ export const realmsContract = c.router({
     pathParams: IdParam,
     summary: "Register a skill for a realm",
     body: CreateRealmSkillBodySchema,
-    responses: { 201: c.type<{ skill: RealmSkill }>(), ...commonErrorResponses },
+    responses: {
+      201: c.type<{ skill: RealmSkill }>(),
+      ...commonErrorResponses,
+    },
   },
 
   getSkill: {
@@ -143,7 +159,10 @@ export const realmsContract = c.router({
     path: "/api/realms/:id/skills/:skillId",
     pathParams: z.object({ id: z.string(), skillId: z.string() }),
     summary: "Retrieve skill details by skill ID",
-    responses: { 200: c.type<{ skill: RealmSkill }>(), ...commonErrorResponses },
+    responses: {
+      200: c.type<{ skill: RealmSkill }>(),
+      ...commonErrorResponses,
+    },
   },
 
   updateSkill: {
@@ -152,7 +171,10 @@ export const realmsContract = c.router({
     pathParams: z.object({ id: z.string(), skillId: z.string() }),
     summary: "Update skill metadata",
     body: UpdateRealmSkillBodySchema,
-    responses: { 200: c.type<{ skill: RealmSkill }>(), ...commonErrorResponses },
+    responses: {
+      200: c.type<{ skill: RealmSkill }>(),
+      ...commonErrorResponses,
+    },
   },
 
   deleteSkill: {

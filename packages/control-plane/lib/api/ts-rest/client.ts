@@ -13,7 +13,6 @@ import {
   knowledgeContract,
   litellmContract,
   mapContract,
-  meContract,
   modelsContract,
   networkContract,
   orgSkillsContract,
@@ -64,7 +63,6 @@ export const invitationsClient = initClient(invitationsContract, clientOptions);
 export const knowledgeClient = initClient(knowledgeContract, clientOptions);
 export const litellmClient = initClient(litellmContract, clientOptions);
 export const mapClient = initClient(mapContract, clientOptions);
-export const meClient = initClient(meContract, clientOptions);
 export const modelsClient = initClient(modelsContract, clientOptions);
 export const networkClient = initClient(networkContract, clientOptions);
 export const orgSkillsClient = initClient(orgSkillsContract, clientOptions);

@@ -470,12 +470,6 @@ export const ROUTE_REGISTRY: RouteEntry[] = [
     isPublic: true,
   },
   {
-    path: "/api/users/me",
-    methods: ["GET", "PATCH"],
-    group: "Users",
-    description: "Return the current user's profile",
-  },
-  {
     path: "/api/users/search",
     methods: ["GET"],
     group: "Users",

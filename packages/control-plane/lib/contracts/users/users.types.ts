@@ -7,6 +7,7 @@ import {
   InviteEmailBodySchema,
   CreateGrantBodySchema,
 } from "./users.schemas";
+import { UserRealmWithRealm } from "../realms/realms.types";
 
 // Prisma User row is the single source of truth for persisted user fields.
 export type { User };
@@ -36,33 +37,12 @@ export type MeProfile = Pick<
   claimedAt: string | null;
 };
 
-/** A realm membership of the current user, as returned by `GET /api/users/me/realms`. */
-export interface MeRealmMembership {
-  realmId: string;
-  realmName: string;
-  realmSlug: string;
-  realmColor: string | null;
-  isDefault: boolean;
-  isPrimary: boolean;
-  isRealmAdmin: boolean;
-  joinedAt: string;
-}
-
 /** Response of `PATCH /api/users/me` — the updated editable fields. */
 export interface UpdateMeResponse {
   ok: boolean;
   name: string | null;
   email: string | null;
   description: string | null;
-}
-
-/** A realm membership summary attached to a user in list/detail responses. */
-export interface UserRealmSummary {
-  id: string;
-  name: string;
-  slug: string;
-  color: string;
-  isPrimary: boolean;
 }
 
 /** A user row as returned by `GET /api/users` — Prisma fields plus realm memberships. */
@@ -72,7 +52,7 @@ export type UserListItem = Pick<
 > & {
   claimedAt: string | null;
   registeredAt: string;
-  realms: UserRealmSummary[];
+  realms: UserRealmWithRealm[];
 };
 
 export interface UserListResponse {
@@ -86,6 +66,7 @@ export interface UserListResponse {
 /** A single user as returned by `GET /api/users/:did`. */
 export type UserDetail = Pick<
   User,
+  | "id"
   | "did"
   | "name"
   | "email"
@@ -98,23 +79,6 @@ export type UserDetail = Pick<
   | "locationLon"
   | "locationLabel"
 > & { registeredAt: string };
-
-/** A user's membership in a single realm, as returned by `GET /api/users/:did/realms`. */
-export interface UserRealmMembership {
-  realmId: string;
-  realmName: string;
-  realmSlug: string;
-  realmColor: string;
-  isDefault: boolean;
-  isPrimary: boolean;
-  isRealmAdmin: boolean;
-  joinedAt: string;
-}
-
-export interface UserRealmsResponse {
-  memberships: UserRealmMembership[];
-  available: Array<{ id: string; name: string; slug: string; color: string }>;
-}
 
 /** An unclaimed (Entra-provisioned, no DID yet) user as returned by `GET /api/users/unclaimed/:id`. */
 export type UnclaimedUserDetail = Pick<
@@ -132,7 +96,7 @@ export type UnclaimedUserDetail = Pick<
 > & {
   registeredAt: string;
   claimedAt: string | null;
-  realms: UserRealmSummary[];
+  realms: UserRealmWithRealm[];
 };
 
 export type ListUsersQuery = z.infer<typeof ListUsersQuerySchema>;

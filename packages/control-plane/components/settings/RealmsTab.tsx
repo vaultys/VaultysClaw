@@ -1,9 +1,9 @@
 import { Globe2 } from "lucide-react";
 import { formatDate } from "@vaultysclaw/shared";
-import type { MeRealmMembership } from "@/lib/contracts";
+import type { UserRealmWithRealm } from "@/lib/contracts";
 import { SectionHeader } from "./primitives";
 
-export function RealmsTab({ realms }: { realms: MeRealmMembership[] }) {
+export function RealmsTab({ realms }: { realms: UserRealmWithRealm[] }) {
   return (
     <section className="bg-background-100 border border-neutral-200 rounded-xl overflow-hidden">
       <SectionHeader icon={Globe2} title="Realm Memberships" />
@@ -19,18 +19,18 @@ export function RealmsTab({ realms }: { realms: MeRealmMembership[] }) {
               className="px-5 py-3 flex items-center justify-between gap-3"
             >
               <div className="flex items-center gap-2.5 min-w-0">
-                {r.realmColor && (
+                {r.realm.color && (
                   <span
                     className="w-2.5 h-2.5 rounded-full shrink-0"
-                    style={{ backgroundColor: r.realmColor }}
+                    style={{ backgroundColor: r.realm.color }}
                   />
                 )}
                 <div className="min-w-0">
                   <p className="text-sm font-medium text-foreground truncate">
-                    {r.realmName}
+                    {r.realm.name}
                   </p>
                   <p className="text-xs text-foreground-400">
-                    /{r.realmSlug} · joined {formatDate(r.joinedAt)}
+                    /{r.realm.slug} · joined {formatDate(r.joinedAt.toString())}
                   </p>
                 </div>
               </div>
@@ -45,7 +45,7 @@ export function RealmsTab({ realms }: { realms: MeRealmMembership[] }) {
                     Admin
                   </span>
                 )}
-                {r.isDefault && (
+                {r.realm.isDefault && (
                   <span className="px-2 py-0.5 bg-background-200 text-foreground-500 border border-neutral-300 rounded-full text-[10px] font-medium">
                     Default
                   </span>

@@ -1,6 +1,6 @@
 import { getAuthContext } from "@/lib/auth-utils";
 import { APIException } from "@/lib/api/utils/api-utils";
-import { RealmDAO, WorkflowDAO } from "@/db";
+import { RealmDAO } from "@/db";
 import { realmsContract } from "@/lib/contracts";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 
@@ -13,10 +13,10 @@ import { createNextRoute } from "@/lib/api/ts-rest/next-route";
  */
 const handlers = createNextRoute(realmsContract, {
   // ── GET /api/realms — list realms with member/workflow counts ────────────
-  list: async ({ request }) => {
+  list: async ({ request, query }) => {
     const auth = await getAuthContext(request);
 
-    const allRealms = await RealmDAO.findAll();
+    const allRealms = await RealmDAO.findAll(query.userId);
 
     // Filter by realm membership using the auth context's precomputed set
     // (which correctly uses the DB userId, not the VaultysID DID string).

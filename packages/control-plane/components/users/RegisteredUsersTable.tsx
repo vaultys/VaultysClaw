@@ -91,15 +91,15 @@ export function RegisteredUsersTable({
                     <div className="flex flex-wrap gap-1 mt-0.5">
                       {u.realms.map((r) => (
                         <span
-                          key={r.id}
+                          key={r.realmId}
                           className="inline-flex items-center text-xs px-1.5 py-0.5 rounded-md"
                           style={{
-                            backgroundColor: r.color + "22",
-                            color: r.color,
-                            border: `1px solid ${r.color}44`,
+                            backgroundColor: r.realm.color + "22",
+                            color: r.realm.color,
+                            border: `1px solid ${r.realm.color}44`,
                           }}
                         >
-                          {r.name}
+                          {r.realm.name}
                         </span>
                       ))}
                     </div>

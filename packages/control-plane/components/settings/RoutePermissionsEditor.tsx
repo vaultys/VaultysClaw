@@ -19,42 +19,108 @@ const ROUTE_GROUPS: RouteGroup[] = [
   {
     name: "Agents",
     routes: [
-      { label: "List / create agents", path: "/api/agents", methods: ["GET", "POST"] },
-      { label: "Agent detail", path: "/api/agents/[did]", methods: ["GET", "PATCH", "DELETE"] },
-      { label: "Run intent on agent", path: "/api/agents/[did]/run", methods: ["POST"] },
-      { label: "Agent task queue", path: "/api/agents/[did]/task", methods: ["GET", "POST"] },
-      { label: "Agent skills", path: "/api/agents/[did]/skills", methods: ["GET", "POST"] },
-      { label: "Agent token usage", path: "/api/agents/[did]/token-usage", methods: ["GET"] },
-      { label: "Agent schedules", path: "/api/agents/[did]/schedules", methods: ["GET", "POST"] },
+      {
+        label: "List / create agents",
+        path: "/api/agents",
+        methods: ["GET", "POST"],
+      },
+      {
+        label: "Agent detail",
+        path: "/api/agents/[did]",
+        methods: ["GET", "PATCH", "DELETE"],
+      },
+      {
+        label: "Run intent on agent",
+        path: "/api/agents/[did]/run",
+        methods: ["POST"],
+      },
+      {
+        label: "Agent task queue",
+        path: "/api/agents/[did]/task",
+        methods: ["GET", "POST"],
+      },
+      {
+        label: "Agent skills",
+        path: "/api/agents/[did]/skills",
+        methods: ["GET", "POST"],
+      },
+      {
+        label: "Agent token usage",
+        path: "/api/agents/[did]/token-usage",
+        methods: ["GET"],
+      },
+      {
+        label: "Agent schedules",
+        path: "/api/agents/[did]/schedules",
+        methods: ["GET", "POST"],
+      },
     ],
   },
   {
     name: "Workflows",
     routes: [
-      { label: "List / create workflows", path: "/api/workflows", methods: ["GET", "POST"] },
-      { label: "Workflow detail", path: "/api/workflows/[id]", methods: ["GET", "PATCH", "DELETE"] },
-      { label: "Execute workflow", path: "/api/workflows/[id]/execute", methods: ["POST"] },
+      {
+        label: "List / create workflows",
+        path: "/api/workflows",
+        methods: ["GET", "POST"],
+      },
+      {
+        label: "Workflow detail",
+        path: "/api/workflows/[id]",
+        methods: ["GET", "PATCH", "DELETE"],
+      },
+      {
+        label: "Execute workflow",
+        path: "/api/workflows/[id]/execute",
+        methods: ["POST"],
+      },
       { label: "Workflow runs", path: "/api/workflows/runs", methods: ["GET"] },
-      { label: "Workflow approvals", path: "/api/workflows/approvals", methods: ["GET", "POST"] },
+      {
+        label: "Workflow approvals",
+        path: "/api/workflows/approvals",
+        methods: ["GET", "POST"],
+      },
     ],
   },
   {
     name: "Channels",
     routes: [
-      { label: "List / create channels", path: "/api/channels", methods: ["GET", "POST"] },
-      { label: "Channel detail", path: "/api/channels/[id]", methods: ["GET", "PATCH", "DELETE"] },
-      { label: "Channel messages", path: "/api/channels/[id]/messages", methods: ["GET", "POST"] },
-      { label: "Channel members", path: "/api/channels/[id]/members", methods: ["GET", "POST", "DELETE"] },
+      {
+        label: "List / create channels",
+        path: "/api/channels",
+        methods: ["GET", "POST"],
+      },
+      {
+        label: "Channel detail",
+        path: "/api/channels/[id]",
+        methods: ["GET", "PATCH", "DELETE"],
+      },
+      {
+        label: "Channel messages",
+        path: "/api/channels/[id]/messages",
+        methods: ["GET", "POST"],
+      },
+      {
+        label: "Channel members",
+        path: "/api/channels/[id]/members",
+        methods: ["GET", "POST", "DELETE"],
+      },
     ],
   },
   {
     name: "Intents",
-    routes: [{ label: "List intents", path: "/api/intents", methods: ["GET", "POST"] }],
+    routes: [
+      { label: "List intents", path: "/api/intents", methods: ["GET", "POST"] },
+    ],
   },
   {
     name: "Governance",
     routes: [
-      { label: "Governance summary", path: "/api/governance/summary", methods: ["GET"] },
+      {
+        label: "Governance summary",
+        path: "/api/governance/summary",
+        methods: ["GET"],
+      },
       { label: "Audit log", path: "/api/governance/audit", methods: ["GET"] },
     ],
   },
@@ -62,22 +128,42 @@ const ROUTE_GROUPS: RouteGroup[] = [
     name: "Users",
     routes: [
       { label: "List users", path: "/api/users", methods: ["GET"] },
-      { label: "User detail", path: "/api/users/[did]", methods: ["GET", "PATCH", "DELETE"] },
-      { label: "My profile", path: "/api/users/me", methods: ["GET", "PATCH"] },
+      {
+        label: "User detail",
+        path: "/api/users/[did]",
+        methods: ["GET", "PATCH", "DELETE"],
+      },
     ],
   },
   {
     name: "Models & Knowledge",
     routes: [
       { label: "Models", path: "/api/models", methods: ["GET", "POST"] },
-      { label: "Model detail", path: "/api/models/[id]", methods: ["GET", "PATCH", "DELETE"] },
-      { label: "Knowledge bases", path: "/api/knowledge", methods: ["GET", "POST"] },
-      { label: "Knowledge detail", path: "/api/knowledge/[id]", methods: ["GET", "PATCH", "DELETE"] },
+      {
+        label: "Model detail",
+        path: "/api/models/[id]",
+        methods: ["GET", "PATCH", "DELETE"],
+      },
+      {
+        label: "Knowledge bases",
+        path: "/api/knowledge",
+        methods: ["GET", "POST"],
+      },
+      {
+        label: "Knowledge detail",
+        path: "/api/knowledge/[id]",
+        methods: ["GET", "PATCH", "DELETE"],
+      },
     ],
   },
 ];
 
-const FULL_ACCESS_ENTRIES: string[] = ["GET *", "POST *", "PATCH *", "DELETE *"];
+const FULL_ACCESS_ENTRIES: string[] = [
+  "GET *",
+  "POST *",
+  "PATCH *",
+  "DELETE *",
+];
 
 export function isFullAccess(routes: string[]) {
   return (
@@ -116,7 +202,9 @@ export function RoutePermissionsEditor({
 
   const toggle = (entry: string) => {
     onChange(
-      value.includes(entry) ? value.filter((e) => e !== entry) : [...value, entry]
+      value.includes(entry)
+        ? value.filter((e) => e !== entry)
+        : [...value, entry]
     );
   };
 
@@ -208,7 +296,8 @@ export function RoutePermissionsEditor({
                               "px-1.5 py-0.5 text-[10px] font-mono font-semibold rounded border transition",
                               active
                                 ? methodColorActive(m)
-                                : methodColor(m) + " opacity-40 hover:opacity-80"
+                                : methodColor(m) +
+                                    " opacity-40 hover:opacity-80"
                             )}
                           >
                             {m}

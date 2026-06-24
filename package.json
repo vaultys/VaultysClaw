@@ -39,6 +39,7 @@
     "swagger:generate": "tsx scripts/generate-swagger-docs.ts",
     "swagger:generate:missing": "tsx scripts/generate-swagger-docs-missing.ts",
     "swagger:check": "tsx scripts/generate-swagger-docs.ts --check",
+    "ts-rest:track": "tsx scripts/track-ts-rest-migration.ts",
     "clean": "turbo clean && rm -rf node_modules"
   },
   "devDependencies": {

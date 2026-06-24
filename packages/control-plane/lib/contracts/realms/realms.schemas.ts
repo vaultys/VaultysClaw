@@ -13,6 +13,10 @@ export const DeleteCredentialQuerySchema = z.object({
   name: z.string(),
 });
 
+export const ListRealmsQuerySchema = z.object({
+  userId: z.string().optional(),
+});
+
 // ─────────────────────────────────────────────
 // Bodies
 // ─────────────────────────────────────────────

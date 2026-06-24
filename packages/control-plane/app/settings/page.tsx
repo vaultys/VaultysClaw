@@ -3,8 +3,8 @@
 import { useSession } from "next-auth/react";
 import { useState, useEffect } from "react";
 import { Sun, Shield, Key, User, Globe2 } from "lucide-react";
-import { usersClient, unwrap } from "@/lib/api/ts-rest/client";
-import type { MeProfile, MeRealmMembership } from "@/lib/contracts";
+import { usersClient, unwrap, realmsClient } from "@/lib/api/ts-rest/client";
+import type { MeProfile, UserRealmWithRealm } from "@/lib/contracts";
 import { useToolbar } from "@/components/layout/ToolbarContext";
 import { useBreadcrumbs } from "@/components/layout/BreadcrumbContext";
 import { ProfileTab } from "@/components/settings/ProfileTab";
@@ -32,16 +32,16 @@ export default function AccountPage() {
   const { data: session } = useSession();
 
   const [profile, setProfile] = useState<MeProfile | null>(null);
-  const [realms, setRealms] = useState<MeRealmMembership[]>([]);
+  const [realms, setRealms] = useState<UserRealmWithRealm[]>([]);
   const [profileLoading, setProfileLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<Tab>("profile");
 
   useEffect(() => {
     if (!session?.user) return;
-    Promise.all([usersClient.me(), usersClient.meRealms()])
+    Promise.all([usersClient.me(), realmsClient.listMyRealms()])
       .then(([meRes, realmsRes]) => {
         setProfile(unwrap(meRes));
-        setRealms(unwrap(realmsRes).memberships);
+        setRealms(unwrap(realmsRes).userRealms);
       })
       .catch(() => {})
       .finally(() => setProfileLoading(false));

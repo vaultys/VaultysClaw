@@ -47,13 +47,7 @@ const handlers = createNextRoute(usersContract, {
         registeredAt: user.registeredAt.toISOString(),
         entraId: user.entraId ?? null,
         claimedAt: user.claimedAt ? user.claimedAt.toISOString() : null,
-        realms: realms.map((r) => ({
-          id: r.realmId,
-          name: r.realm.name,
-          slug: r.realm.slug,
-          color: r.realm.color,
-          isPrimary: Boolean(r.isPrimary),
-        })),
+        realms,
       },
     };
   },

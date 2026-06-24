@@ -21,18 +21,11 @@ import {
   toolApprovalsContract,
 } from "./registrations/registrations.contract";
 import { serverContract } from "./server.contract";
-import {
-  setupContract,
-  settingsContract,
-} from "./settings/settings.contract";
+import { setupContract, settingsContract } from "./settings/settings.contract";
 import { orgSkillsContract, skillsContract } from "./skills/skills.contract";
 import { userAuthContract } from "./user-auth.contract";
 import { wellKnownContract } from "./well-known/well-known.contract";
-import {
-  invitationsContract,
-  meContract,
-  usersContract,
-} from "./users/users.contract";
+import { invitationsContract, usersContract } from "./users/users.contract";
 import {
   workflowApprovalsContract,
   workflowRunsContract,
@@ -127,7 +120,6 @@ export const appContract = c.router({
   knowledge: knowledgeContract,
   litellm: litellmContract,
   map: mapContract,
-  me: meContract,
   models: modelsContract,
   network: networkContract,
   orgSkills: orgSkillsContract,

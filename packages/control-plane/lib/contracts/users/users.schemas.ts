@@ -46,7 +46,11 @@ export const SearchUsersQuerySchema = z.object({
 });
 
 // ── Bodies
-export const UpdateMeBodySchema = z.object({ name: z.string().max(128) });
+export const UpdateMeBodySchema = z.object({
+  name: z.string().max(128).optional(),
+  email: z.string().max(256).nullable().optional(),
+  description: z.string().max(500).nullable().optional(),
+});
 
 export const InviteEmailBodySchema = z.object({
   email: z.string().email(),

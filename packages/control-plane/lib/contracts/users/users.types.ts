@@ -13,6 +13,49 @@ export type { User };
 
 export type UserGrant = z.infer<typeof UserGrantSchema>;
 
+/**
+ * The current user's own profile, as returned by `GET /api/users/me`. Reuses
+ * the Prisma `User` row for stable fields; `isAdmin` is computed (stored
+ * `isAdmin` OR `isOwner`) and the date fields are serialized to ISO strings.
+ */
+export type MeProfile = Pick<
+  User,
+  | "id"
+  | "did"
+  | "publicKey"
+  | "name"
+  | "email"
+  | "description"
+  | "role"
+  | "isOwner"
+  | "entraId"
+  | "locationLabel"
+> & {
+  isAdmin: boolean;
+  registeredAt: string;
+  claimedAt: string | null;
+};
+
+/** A realm membership of the current user, as returned by `GET /api/users/me/realms`. */
+export interface MeRealmMembership {
+  realmId: string;
+  realmName: string;
+  realmSlug: string;
+  realmColor: string | null;
+  isDefault: boolean;
+  isPrimary: boolean;
+  isRealmAdmin: boolean;
+  joinedAt: string;
+}
+
+/** Response of `PATCH /api/users/me` — the updated editable fields. */
+export interface UpdateMeResponse {
+  ok: boolean;
+  name: string | null;
+  email: string | null;
+  description: string | null;
+}
+
 /** A realm membership summary attached to a user in list/detail responses. */
 export interface UserRealmSummary {
   id: string;

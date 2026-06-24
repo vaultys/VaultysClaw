@@ -90,14 +90,14 @@ class MockRequest {
   method: string;
   nextUrl: { searchParams: URLSearchParams };
   private _body: unknown;
-  headers: { get: () => null };
+  headers: Headers;
 
   constructor(url = "http://localhost/api/api-keys", body?: unknown, method = "GET") {
     this.url = url;
     this.method = method;
     this.nextUrl = { searchParams: new URL(url).searchParams };
     this._body = body ?? {};
-    this.headers = { get: () => null };
+    this.headers = new Headers();
   }
 
   async json() {
@@ -114,7 +114,7 @@ function params(p: Record<string, string>) {
 }
 
 function expectStatus(r: unknown, status: number) {
-  expect((r as { _status: number })._status).toBe(status);
+  expect((r as { status: number }).status).toBe(status);
 }
 
 const SENTINEL = "apikeys-test-001";
@@ -186,7 +186,9 @@ describe("GET /api/api-keys", () => {
 describe("POST /api/api-keys", () => {
   it("returns 401 when unauthenticated", async () => {
     asUnauthenticated();
-    const res = await createKey(req("http://localhost/api/api-keys", {}, "POST"));
+    // Body must be valid: createNextRoute validates the body before the handler
+    // (and thus before the auth check) runs.
+    const res = await createKey(req("http://localhost/api/api-keys", { name: `${SENTINEL}-unauth`, allowedRoutes: ["GET /api/agents"] }, "POST"));
     expectStatus(res, 401);
   });
 

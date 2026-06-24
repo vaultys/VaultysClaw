@@ -1,7 +1,9 @@
 import { z } from "zod";
 import { c } from "./contract";
 import { commonErrorResponses } from "./common";
-import type { ApiKey as PrismaApiKey } from "@prisma/client";
+// API keys are serialized with unix-second timestamps (not the Prisma `Date`
+// fields), so the route's own `ApiKey` shape is the source of truth here.
+import type { ApiKey } from "@/lib/api/utils/api-types";
 
 const IdParam = z.object({ id: z.string().min(1) });
 
@@ -28,7 +30,7 @@ export const apiKeysContract = c.router({
     path: "/api/api-keys",
     summary: "List API keys (without the raw key hash). Admin only",
     responses: {
-      200: c.type<{ apiKeys: PrismaApiKey[] }>(),
+      200: c.type<{ apiKeys: ApiKey[] }>(),
       ...commonErrorResponses,
     },
   },
@@ -39,7 +41,7 @@ export const apiKeysContract = c.router({
     summary: "Create an API key — returns the raw key exactly once",
     body: ApiKeyCreateRequest,
     responses: {
-      201: c.type<{ apiKey: PrismaApiKey; key: string }>(),
+      201: c.type<{ apiKey: ApiKey; key: string }>(),
       ...commonErrorResponses,
     },
   },
@@ -50,7 +52,7 @@ export const apiKeysContract = c.router({
     pathParams: IdParam,
     summary: "Update an API key (admin only)",
     body: ApiKeyUpdateRequest,
-    responses: { 200: c.type<{ apiKey: PrismaApiKey }>(), ...commonErrorResponses },
+    responses: { 200: c.type<ApiKey>(), ...commonErrorResponses },
   },
 
   remove: {

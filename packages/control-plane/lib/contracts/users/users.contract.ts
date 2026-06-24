@@ -19,7 +19,10 @@ import {
   SetAdminBodySchema,
 } from "./users.schemas";
 import type {
+  MeProfile,
+  MeRealmMembership,
   UnclaimedUserDetail,
+  UpdateMeResponse,
   UserDetail,
   UserListResponse,
   UserRealmsResponse,
@@ -42,12 +45,7 @@ export const usersContract = c.router({
     path: "/api/users/me",
     summary: "Return the current user's profile",
     responses: {
-      200: z.object({
-        did: z.string(),
-        name: z.string().nullable(),
-        isOwner: z.boolean(),
-        isAdmin: z.boolean(),
-      }),
+      200: c.type<MeProfile>(),
       ...commonErrorResponses,
     },
   },
@@ -55,10 +53,20 @@ export const usersContract = c.router({
   updateMe: {
     method: "PATCH",
     path: "/api/users/me",
-    summary: "Update the current user's own name",
+    summary: "Update the current user's own editable fields",
     body: UpdateMeBodySchema,
     responses: {
-      200: z.object({ ok: z.boolean(), name: z.string().nullable() }),
+      200: c.type<UpdateMeResponse>(),
+      ...commonErrorResponses,
+    },
+  },
+
+  meRealms: {
+    method: "GET",
+    path: "/api/users/me/realms",
+    summary: "List the current user's realm memberships",
+    responses: {
+      200: c.type<{ memberships: MeRealmMembership[] }>(),
       ...commonErrorResponses,
     },
   },

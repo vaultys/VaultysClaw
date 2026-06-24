@@ -1,21 +1,13 @@
-import { z } from "zod";
-import { c } from "./contract";
-import { commonErrorResponses } from "./common";
-
-const SmtpConfig = z.object({
-  host: z.string(),
-  port: z.number(),
-  secure: z.boolean().optional(),
-  user: z.string().optional(),
-  password: z.string().optional(),
-  from: z.string(),
-});
-
-const EntraConfig = z.object({
-  tenantId: z.string(),
-  clientId: z.string(),
-  clientSecret: z.string(),
-});
+import { c } from "../contract";
+import { commonErrorResponses } from "../common";
+import {
+  EntraConfigSchema,
+  EntraSyncBodySchema,
+  SaveServerSettingsBodySchema,
+  ServerSettingsResponseSchema,
+  SmtpConfigSchema,
+} from "./server.schemas";
+import { EntraUnclaimedResponse, ServerInfoResponse } from "./server.types";
 
 export const serverContract = c.router({
   get: {
@@ -23,12 +15,7 @@ export const serverContract = c.router({
     path: "/api/server",
     summary: "Retrieve server identity, status, and system info",
     responses: {
-      200: c.type<{
-        identity: Record<string, unknown> | null;
-        stats: { totalAgents: number; onlineAgents: number; offlineAgents: number };
-        sysInfo: Record<string, unknown>;
-        walletUrl: string;
-      }>(),
+      200: c.type<ServerInfoResponse>(),
       ...commonErrorResponses,
     },
   },
@@ -37,14 +24,17 @@ export const serverContract = c.router({
     method: "GET",
     path: "/api/server/smtp",
     summary: "Retrieve SMTP configuration with password redacted",
-    responses: { 200: c.type<Record<string, unknown>>(), ...commonErrorResponses },
+    responses: {
+      200: c.type<Record<string, unknown>>(),
+      ...commonErrorResponses,
+    },
   },
 
   saveSmtp: {
     method: "PUT",
     path: "/api/server/smtp",
     summary: "Save SMTP configuration",
-    body: SmtpConfig,
+    body: SmtpConfigSchema,
     responses: { 200: c.type<void>(), ...commonErrorResponses },
   },
 
@@ -52,7 +42,7 @@ export const serverContract = c.router({
     method: "POST",
     path: "/api/server/smtp",
     summary: "Verify SMTP connection",
-    body: SmtpConfig.partial(),
+    body: SmtpConfigSchema.partial(),
     responses: { 200: c.type<void>(), ...commonErrorResponses },
   },
 
@@ -61,7 +51,7 @@ export const serverContract = c.router({
     path: "/api/server/settings",
     summary: "Retrieve server connection settings",
     responses: {
-      200: z.object({ walletUrl: z.string(), peerjsHost: z.string() }),
+      200: ServerSettingsResponseSchema,
       ...commonErrorResponses,
     },
   },
@@ -70,10 +60,7 @@ export const serverContract = c.router({
     method: "PUT",
     path: "/api/server/settings",
     summary: "Save connection settings",
-    body: z.object({
-      walletUrl: z.string().optional(),
-      peerjsHost: z.string().optional(),
-    }),
+    body: SaveServerSettingsBodySchema,
     responses: { 200: c.type<void>(), ...commonErrorResponses },
   },
 
@@ -81,14 +68,17 @@ export const serverContract = c.router({
     method: "GET",
     path: "/api/server/entra",
     summary: "Retrieve the Entra configuration with secrets redacted",
-    responses: { 200: c.type<Record<string, unknown>>(), ...commonErrorResponses },
+    responses: {
+      200: c.type<Record<string, unknown>>(),
+      ...commonErrorResponses,
+    },
   },
 
   saveEntra: {
     method: "PUT",
     path: "/api/server/entra",
     summary: "Save Entra configuration",
-    body: EntraConfig,
+    body: EntraConfigSchema,
     responses: { 200: c.type<void>(), ...commonErrorResponses },
   },
 
@@ -96,8 +86,11 @@ export const serverContract = c.router({
     method: "POST",
     path: "/api/server/entra",
     summary: "Test connectivity and list Entra groups",
-    body: EntraConfig.partial(),
-    responses: { 200: c.type<Record<string, unknown>>(), ...commonErrorResponses },
+    body: EntraConfigSchema.partial(),
+    responses: {
+      200: c.type<Record<string, unknown>>(),
+      ...commonErrorResponses,
+    },
   },
 
   entraUnclaimed: {
@@ -105,7 +98,7 @@ export const serverContract = c.router({
     path: "/api/server/entra/unclaimed",
     summary: "List unclaimed Entra-provisioned users",
     responses: {
-      200: c.type<{ users: Array<Record<string, unknown>> }>(),
+      200: c.type<EntraUnclaimedResponse>(),
       ...commonErrorResponses,
     },
   },
@@ -114,10 +107,10 @@ export const serverContract = c.router({
     method: "POST",
     path: "/api/server/entra/sync",
     summary: "Trigger a user sync from Microsoft Entra ID",
-    body: z.object({
-      groupIds: z.array(z.string()).optional(),
-      groupRealmMap: z.record(z.string(), z.string()).optional(),
-    }),
-    responses: { 200: c.type<Record<string, unknown>>(), ...commonErrorResponses },
+    body: EntraSyncBodySchema,
+    responses: {
+      200: c.type<Record<string, unknown>>(),
+      ...commonErrorResponses,
+    },
   },
 });

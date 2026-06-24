@@ -1,6 +1,17 @@
-import { z } from "zod";
-import { c } from "./contract";
-import { commonErrorResponses } from "./common";
+import { c } from "../contract";
+import { commonErrorResponses } from "../common";
+import {
+  BastionAssociateBodySchema,
+  BastionAssociateResponseSchema,
+  BastionConnectQuerySchema,
+  BastionConnectResponseSchema,
+  BastionListenResponseSchema,
+  ConnectQuerySchema,
+  ConnectResponseSchema,
+  ListenResponseSchema,
+  P2pConnectResponseSchema,
+  UserAuthTokenParamSchema,
+} from "./user-auth.schemas";
 
 /**
  * VaultysID connection / registration / bastion certificate flows.
@@ -10,12 +21,15 @@ export const userAuthContract = c.router({
   request: {
     method: "POST",
     path: "/api/user/request/:token",
-    pathParams: z.object({ token: z.string() }),
+    pathParams: UserAuthTokenParamSchema,
     summary: "Handle a round of the VaultysID Challenger protocol",
     // Raw base64 certificate bytes; the handler reads them via request.text().
     body: c.type<string>(),
     responses: {
-      200: c.otherResponse({ contentType: "text/plain", body: c.type<string>() }),
+      200: c.otherResponse({
+        contentType: "text/plain",
+        body: c.type<string>(),
+      }),
       ...commonErrorResponses,
     },
   },
@@ -25,12 +39,7 @@ export const userAuthContract = c.router({
     path: "/api/user/p2p/connect",
     summary: "Opens a server-side PeerJS channel for user connection",
     responses: {
-      200: z.object({
-        connectionString: z.string(),
-        token: z.string(),
-        key: z.string(),
-        serverDid: z.string().nullable(),
-      }),
+      200: P2pConnectResponseSchema,
       ...commonErrorResponses,
     },
   },
@@ -38,18 +47,18 @@ export const userAuthContract = c.router({
   listen: {
     method: "GET",
     path: "/api/user/listen/:token",
-    pathParams: z.object({ token: z.string() }),
+    pathParams: UserAuthTokenParamSchema,
     summary: "Poll the status of a connection/registration certificate",
-    responses: { 200: z.object({ status: z.number() }), ...commonErrorResponses },
+    responses: { 200: ListenResponseSchema, ...commonErrorResponses },
   },
 
   connect: {
     method: "GET",
     path: "/api/user/connect",
     summary: "Creates a new certificate for the connection flow",
-    query: z.object({ register: z.coerce.boolean().optional() }),
+    query: ConnectQuerySchema,
     responses: {
-      200: z.object({ key: z.string(), token: z.string() }),
+      200: ConnectResponseSchema,
       ...commonErrorResponses,
     },
   },
@@ -58,21 +67,18 @@ export const userAuthContract = c.router({
     method: "GET",
     path: "/api/user/bastion/connect",
     summary: "Initiates the bastion connection flow",
-    query: z.object({
-      vid: z.string(),
-      type: z.enum(["extension", "browser"]).optional(),
-    }),
-    responses: { 200: z.object({ key: z.string() }), ...commonErrorResponses },
+    query: BastionConnectQuerySchema,
+    responses: { 200: BastionConnectResponseSchema, ...commonErrorResponses },
   },
 
   bastionListen: {
     method: "POST",
     path: "/api/user/bastion/listen/:token",
-    pathParams: z.object({ token: z.string() }),
+    pathParams: UserAuthTokenParamSchema,
     summary: "Poll bastion connection authentication status",
     body: c.noBody(),
     responses: {
-      200: z.object({ status: z.number(), browserDid: z.string().optional() }),
+      200: BastionListenResponseSchema,
       ...commonErrorResponses,
     },
   },
@@ -81,7 +87,7 @@ export const userAuthContract = c.router({
     method: "POST",
     path: "/api/user/bastion/associate",
     summary: "Associate a user certificate with a browser device certificate",
-    body: z.object({ userToken: z.string(), browserToken: z.string() }),
-    responses: { 200: z.object({ ok: z.boolean() }), ...commonErrorResponses },
+    body: BastionAssociateBodySchema,
+    responses: { 200: BastionAssociateResponseSchema, ...commonErrorResponses },
   },
 });

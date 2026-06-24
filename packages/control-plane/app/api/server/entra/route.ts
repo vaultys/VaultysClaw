@@ -4,228 +4,100 @@
  * POST /api/server/entra  — test connectivity (list groups)
  */
 
-import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
-import { forbidden, malformed, unauthorized } from "@/lib/api/utils/api-utils";
-import { withError } from "@/lib/api/handlers/with-error";
+import { APIException } from "@/lib/api/utils/api-utils";
 import {
   getEntraConfig,
   saveEntraConfig,
   listEntraGroups,
   diagnoseEntraConfig,
 } from "@/lib/entra-sync";
+import { createNextRoute } from "@/lib/api/ts-rest/next-route";
+import { serverContract } from "@/lib/contracts";
 
-/**
- * @openapi
- * /api/server/entra:
- *   get:
- *     summary: Retrieve the Entra configuration with secrets redacted.
- *     tags: [Server]
- *     responses:
- *       200:
- *         description: Successfully retrieved Entra configuration.
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 configured:
- *                   type: boolean
- *                 tenantId:
- *                   type: string
- *                 clientId:
- *                   type: string
- *                 clientSecret:
- *                   type: string
- *                   example: "••••••••"
- *       401:
- *         $ref: '#/components/responses/Unauthorized'
- *       403:
- *         $ref: '#/components/responses/Forbidden'
- */
-export const GET = withError(async (request: NextRequest) => {
-  const auth = await getAuthContext(request);
-  if (!auth) return unauthorized();
-  if (!auth.isGlobalAdmin) return forbidden();
+const handlers = createNextRoute(serverContract, {
+  // ── GET /api/server/entra ─────────────────────────────────────────────────
+  getEntra: async ({ request }) => {
+    const auth = await getAuthContext(request);
+    if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");
 
-  const config = await getEntraConfig();
-  if (!config) return NextResponse.json({ configured: false });
+    const config = await getEntraConfig();
+    if (!config) return { status: 200, body: { configured: false } };
 
-  return NextResponse.json({
-    configured: true,
-    tenantId: config.tenantId,
-    clientId: config.clientId,
-    clientSecret: "••••••••",
-  });
-});
-
-/**
- * @openapi
- * /api/server/entra:
- *   put:
- *     summary: Save Entra configuration.
- *     tags: [Server]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               tenantId:
- *                 type: string
- *               clientId:
- *                 type: string
- *               clientSecret:
- *                 type: string
- *             required:
- *               - tenantId
- *               - clientId
- *               - clientSecret
- *     responses:
- *       200:
- *         description: Configuration saved successfully.
- *       400:
- *         $ref: '#/components/responses/BadRequest'
- *       401:
- *         $ref: '#/components/responses/Unauthorized'
- *       403:
- *         $ref: '#/components/responses/Forbidden'
- */
-export const PUT = withError(async (req: NextRequest) => {
-  const auth = await getAuthContext(req);
-  if (!auth) return unauthorized();
-  if (!auth.isGlobalAdmin) return forbidden();
-
-  const body = (await req.json()) as {
-    tenantId?: string;
-    clientId?: string;
-    clientSecret?: string;
-  };
-
-  if (!body.tenantId || !body.clientId || !body.clientSecret) {
-    return malformed("tenantId, clientId and clientSecret are required");
-  }
-
-  // If secret is the redacted placeholder, keep the existing one
-  const existing = await getEntraConfig();
-  const secret =
-    body.clientSecret === "••••••••" && existing
-      ? existing.clientSecret
-      : body.clientSecret;
-
-  await saveEntraConfig({
-    tenantId: body.tenantId,
-    clientId: body.clientId,
-    clientSecret: secret,
-  });
-  return NextResponse.json({ ok: true });
-});
-
-/**
- * @openapi
- * /api/server/entra:
- *   post:
- *     summary: Test connectivity and list Entra groups.
- *     tags: [Server]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               tenantId:
- *                 type: string
- *               clientId:
- *                 type: string
- *               clientSecret:
- *                 type: string
- *     responses:
- *       200:
- *         description: Connectivity test results and group list.
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 ok:
- *                   type: boolean
- *                 checks:
- *                   type: array
- *                   items:
- *                     type: object
- *                     properties:
- *                       status:
- *                         type: string
- *                       message:
- *                         type: string
- *                 groups:
- *                   type: array
- *                   items:
- *                     type: object
- *                     properties:
- *                       id:
- *                         type: string
- *                       name:
- *                         type: string
- *                 error:
- *                   type: string
- *       400:
- *         $ref: '#/components/responses/BadRequest'
- *       401:
- *         $ref: '#/components/responses/Unauthorized'
- *       403:
- *         $ref: '#/components/responses/Forbidden'
- */
-export const POST = withError(async (req: NextRequest) => {
-  const auth = await getAuthContext(req);
-  if (!auth) return unauthorized();
-  if (!auth.isGlobalAdmin) return forbidden();
-
-  // Accept an inline config (unsaved) so the UI can test before saving
-  const body = (await req.json().catch(() => ({}))) as {
-    tenantId?: string;
-    clientId?: string;
-    clientSecret?: string;
-  };
-
-  const saved = await getEntraConfig();
-  const config = {
-    tenantId: body.tenantId ?? saved?.tenantId ?? "",
-    clientId: body.clientId ?? saved?.clientId ?? "",
-    clientSecret:
-      body.clientSecret && body.clientSecret !== "••••••••"
-        ? body.clientSecret
-        : (saved?.clientSecret ?? ""),
-  };
-
-  if (!config.tenantId || !config.clientId || !config.clientSecret) {
-    return malformed(
-      "tenantId, clientId and clientSecret are required for connectivity test"
-    );
-  }
-
-  // Always run diagnostics first
-  const checks = await diagnoseEntraConfig(config);
-  const allOk = checks.every((c) => c.status === "ok");
-
-  if (!allOk) {
-    return NextResponse.json({ ok: false, checks }, { status: 200 });
-  }
-
-  // All checks passed — also return the group list so the wizard can use it
-  try {
-    const groups = await listEntraGroups();
-    return NextResponse.json({ ok: true, checks, groups });
-  } catch (err) {
-    return NextResponse.json(
-      {
-        ok: false,
-        checks,
-        error: err instanceof Error ? err.message : "Failed to list groups",
+    return {
+      status: 200,
+      body: {
+        configured: true,
+        tenantId: config.tenantId,
+        clientId: config.clientId,
+        clientSecret: "••••••••",
       },
-      { status: 200 }
-    );
-  }
+    };
+  },
+
+  // ── PUT /api/server/entra ─────────────────────────────────────────────────
+  saveEntra: async ({ body, request }) => {
+    const auth = await getAuthContext(request);
+    if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");
+
+    // If secret is the redacted placeholder, keep the existing one
+    const existing = await getEntraConfig();
+    const secret =
+      body.clientSecret === "••••••••" && existing
+        ? existing.clientSecret
+        : body.clientSecret;
+
+    await saveEntraConfig({
+      tenantId: body.tenantId,
+      clientId: body.clientId,
+      clientSecret: secret,
+    });
+    return { status: 200, body: { ok: true } };
+  },
+
+  // ── POST /api/server/entra ────────────────────────────────────────────────
+  testEntra: async ({ body, request }) => {
+    const auth = await getAuthContext(request);
+    if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");
+
+    // Accept an inline (unsaved) config so the UI can test before saving
+    const saved = await getEntraConfig();
+    const config = {
+      tenantId: body.tenantId ?? saved?.tenantId ?? "",
+      clientId: body.clientId ?? saved?.clientId ?? "",
+      clientSecret:
+        body.clientSecret && body.clientSecret !== "••••••••"
+          ? body.clientSecret
+          : (saved?.clientSecret ?? ""),
+    };
+
+    if (!config.tenantId || !config.clientId || !config.clientSecret)
+      throw new APIException(
+        "MALFORMED",
+        "tenantId, clientId and clientSecret are required for connectivity test"
+      );
+
+    const checks = await diagnoseEntraConfig(config);
+    const allOk = checks.every((c) => c.status === "ok");
+    if (!allOk) return { status: 200, body: { ok: false, checks } };
+
+    // All checks passed — also return the group list for the wizard
+    try {
+      const groups = await listEntraGroups();
+      return { status: 200, body: { ok: true, checks, groups } };
+    } catch (err) {
+      return {
+        status: 200,
+        body: {
+          ok: false,
+          checks,
+          error: err instanceof Error ? err.message : "Failed to list groups",
+        },
+      };
+    }
+  },
 });
+
+export const GET = handlers.GET!;
+export const PUT = handlers.PUT!;
+export const POST = handlers.POST!;

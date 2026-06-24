@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Mail, Send, Loader2, Check, AlertCircle } from "lucide-react";
 import { Field, StatusBadge, IntegrationPanel, IntegrationHeader } from "./shared";
+import { serverClient, unwrap } from "@/lib/api/ts-rest/client";
 
 export function SmtpPanel() {
   const [host, setHost] = useState("");
@@ -18,10 +19,10 @@ export function SmtpPanel() {
   const [statusMsg, setStatusMsg] = useState("");
 
   useEffect(() => {
-    fetch("/api/server/smtp")
-      .then((r) => r.json())
-      .then(
-        (d: {
+    serverClient
+      .getSmtp()
+      .then((res) => {
+        const d = unwrap(res) as {
           configured?: boolean;
           host?: string;
           port?: number;
@@ -29,17 +30,17 @@ export function SmtpPanel() {
           user?: string;
           password?: string;
           from?: string;
-        }) => {
-          if (d.configured) {
-            setHost(d.host ?? "");
-            setPort(String(d.port ?? 587));
-            setSecure(d.secure ?? false);
-            setUser(d.user ?? "");
-            setPassword(d.password ?? "");
-            setFrom(d.from ?? "");
-          }
+        };
+        if (d.configured) {
+          setHost(d.host ?? "");
+          setPort(String(d.port ?? 587));
+          setSecure(d.secure ?? false);
+          setUser(d.user ?? "");
+          setPassword(d.password ?? "");
+          setFrom(d.from ?? "");
         }
-      )
+      })
+      .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
 
@@ -53,12 +54,12 @@ export function SmtpPanel() {
     e.preventDefault();
     setSaving(true);
     try {
-      const r = await fetch("/api/server/smtp", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ host, port: parseInt(port, 10), secure, user, password, from }),
-      });
-      flash(r.ok ? "saved" : "error", r.ok ? "" : "Save failed");
+      unwrap(
+        await serverClient.saveSmtp({
+          body: { host, port: parseInt(port, 10), secure, user, password, from },
+        })
+      );
+      flash("saved");
     } catch {
       flash("error", "Save failed");
     } finally {
@@ -69,15 +70,14 @@ export function SmtpPanel() {
   const test = async () => {
     setTesting(true);
     try {
-      const r = await fetch("/api/server/smtp", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ host, port: parseInt(port, 10), secure, user, password, from }),
-      });
-      const d = (await r.json()) as { ok?: boolean; error?: string };
-      flash(d.ok ? "ok" : "fail", d.error ?? (d.ok ? "Connection successful" : "Test failed"));
-    } catch {
-      flash("fail", "Test failed");
+      unwrap(
+        await serverClient.verifySmtp({
+          body: { host, port: parseInt(port, 10), secure, user, password, from },
+        })
+      );
+      flash("ok", "Connection successful");
+    } catch (e) {
+      flash("fail", e instanceof Error ? e.message : "Test failed");
     } finally {
       setTesting(false);
     }

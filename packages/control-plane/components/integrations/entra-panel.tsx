@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { Field, StatusBadge, IntegrationPanel, IntegrationHeader } from "./shared";
 import { cn } from "@/lib/utils";
+import { serverClient, unwrap } from "@/lib/api/ts-rest/client";
 
 interface EntraGroup {
   id: string;
@@ -154,20 +155,27 @@ export function EntraPanel() {
   const [syncResult, setSyncResult] = useState<SyncResult | null>(null);
 
   useEffect(() => {
-    fetch("/api/server/entra")
-      .then((r) => r.json())
-      .then((d: { configured?: boolean; tenantId?: string; clientId?: string; clientSecret?: string }) => {
+    serverClient
+      .getEntra()
+      .then((res) => {
+        const d = unwrap(res) as {
+          configured?: boolean;
+          tenantId?: string;
+          clientId?: string;
+          clientSecret?: string;
+        };
         if (d.configured) {
           setTenantId(d.tenantId ?? "");
           setClientId(d.clientId ?? "");
           setClientSecret(d.clientSecret ?? "");
         }
       })
+      .catch(() => {})
       .finally(() => setLoading(false));
 
-    fetch("/api/server/entra/unclaimed")
-      .then((r) => r.json())
-      .then((d: { users?: unknown[] }) => setUnclaimedCount(d.users?.length ?? 0))
+    serverClient
+      .entraUnclaimed()
+      .then((res) => setUnclaimedCount(unwrap(res).users?.length ?? 0))
       .catch(() => {});
   }, []);
 
@@ -175,12 +183,12 @@ export function EntraPanel() {
     e.preventDefault();
     setSaving(true);
     try {
-      const r = await fetch("/api/server/entra", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tenantId, clientId, clientSecret }),
-      });
-      setSaveStatus(r.ok ? "saved" : "error");
+      unwrap(
+        await serverClient.saveEntra({
+          body: { tenantId, clientId, clientSecret },
+        })
+      );
+      setSaveStatus("saved");
       setTimeout(() => setSaveStatus("idle"), 3000);
     } catch {
       setSaveStatus("error");
@@ -194,12 +202,11 @@ export function EntraPanel() {
     setChecking(true);
     setDiagnostics(null);
     try {
-      const r = await fetch("/api/server/entra", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tenantId, clientId, clientSecret }),
-      });
-      const d = (await r.json()) as { checks?: DiagnosticCheck[] };
+      const d = unwrap(
+        await serverClient.testEntra({
+          body: { tenantId, clientId, clientSecret },
+        })
+      ) as { checks?: DiagnosticCheck[] };
       setDiagnostics(d.checks ?? []);
     } catch {
       setDiagnostics([{ id: "network", label: "Reach API endpoint", status: "fail", detail: "Network error", hint: "Could not reach the server." }]);
@@ -219,16 +226,19 @@ export function EntraPanel() {
     setGroupsLoading(true);
 
     const [groupsRes, realmsRes] = await Promise.allSettled([
-      fetch("/api/server/entra", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tenantId, clientId, clientSecret }),
-      }).then((r) => r.json()),
+      serverClient.testEntra({
+        body: { tenantId, clientId, clientSecret },
+      }),
       fetch("/api/realms").then((r) => r.json()),
     ]);
 
-    if (groupsRes.status === "fulfilled") {
-      const d = groupsRes.value as { ok?: boolean; checks?: DiagnosticCheck[]; groups?: EntraGroup[]; error?: string };
+    if (groupsRes.status === "fulfilled" && groupsRes.value.status === 200) {
+      const d = groupsRes.value.body as {
+        ok?: boolean;
+        checks?: DiagnosticCheck[];
+        groups?: EntraGroup[];
+        error?: string;
+      };
       if (d.ok) {
         setGroups(d.groups ?? []);
         if (d.checks) setDiagnostics(d.checks);
@@ -254,16 +264,20 @@ export function EntraPanel() {
     const groupNames: Record<string, string> = {};
     for (const g of groups) groupNames[g.id] = g.displayName;
     try {
-      const r = await fetch("/api/server/entra/sync", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ groupIds: Array.from(selectedGroups), groupRealmMap: mapGroups ? realmMap : {}, groupNames }),
-      });
-      setSyncResult((await r.json()) as SyncResult);
+      const result = unwrap(
+        await serverClient.entraSync({
+          body: {
+            groupIds: Array.from(selectedGroups),
+            groupRealmMap: mapGroups ? realmMap : {},
+            groupNames,
+          },
+        })
+      );
+      setSyncResult(result as unknown as SyncResult);
       setWizardStep("done");
-      fetch("/api/server/entra/unclaimed")
-        .then((r) => r.json())
-        .then((d: { users?: unknown[] }) => setUnclaimedCount(d.users?.length ?? 0))
+      serverClient
+        .entraUnclaimed()
+        .then((res) => setUnclaimedCount(unwrap(res).users?.length ?? 0))
         .catch(() => {});
     } catch {
       setSyncResult({ created: 0, skipped: 0, updated: 0, errors: ["Sync request failed"] });

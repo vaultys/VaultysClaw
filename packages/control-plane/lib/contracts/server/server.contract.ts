@@ -3,6 +3,10 @@ import { commonErrorResponses } from "../common";
 import {
   EntraConfigSchema,
   EntraSyncBodySchema,
+  NotImplementedResponseSchema,
+  OidcSaveBodySchema,
+  OidcTestBodySchema,
+  OkResponseSchema,
   SaveServerSettingsBodySchema,
   ServerSettingsResponseSchema,
   SmtpConfigSchema,
@@ -35,7 +39,7 @@ export const serverContract = c.router({
     path: "/api/server/smtp",
     summary: "Save SMTP configuration",
     body: SmtpConfigSchema,
-    responses: { 200: c.type<void>(), ...commonErrorResponses },
+    responses: { 200: OkResponseSchema, ...commonErrorResponses },
   },
 
   verifySmtp: {
@@ -43,7 +47,7 @@ export const serverContract = c.router({
     path: "/api/server/smtp",
     summary: "Verify SMTP connection",
     body: SmtpConfigSchema.partial(),
-    responses: { 200: c.type<void>(), ...commonErrorResponses },
+    responses: { 200: OkResponseSchema, ...commonErrorResponses },
   },
 
   getSettings: {
@@ -61,7 +65,7 @@ export const serverContract = c.router({
     path: "/api/server/settings",
     summary: "Save connection settings",
     body: SaveServerSettingsBodySchema,
-    responses: { 200: c.type<void>(), ...commonErrorResponses },
+    responses: { 200: OkResponseSchema, ...commonErrorResponses },
   },
 
   getEntra: {
@@ -79,7 +83,7 @@ export const serverContract = c.router({
     path: "/api/server/entra",
     summary: "Save Entra configuration",
     body: EntraConfigSchema,
-    responses: { 200: c.type<void>(), ...commonErrorResponses },
+    responses: { 200: OkResponseSchema, ...commonErrorResponses },
   },
 
   testEntra: {
@@ -112,5 +116,53 @@ export const serverContract = c.router({
       200: c.type<Record<string, unknown>>(),
       ...commonErrorResponses,
     },
+  },
+
+  entraSendQr: {
+    method: "POST",
+    path: "/api/server/entra/send-qr",
+    summary: "Send a QR code to an Entra ID user (not implemented)",
+    body: c.type<Record<string, unknown>>(),
+    responses: {
+      501: NotImplementedResponseSchema,
+      ...commonErrorResponses,
+    },
+  },
+
+  getOidc: {
+    method: "GET",
+    path: "/api/server/oidc",
+    summary: "Retrieve the OIDC configuration with secrets redacted",
+    responses: {
+      200: c.type<Record<string, unknown>>(),
+      ...commonErrorResponses,
+    },
+  },
+
+  saveOidc: {
+    method: "PUT",
+    path: "/api/server/oidc",
+    summary: "Save OIDC configuration",
+    body: OidcSaveBodySchema,
+    responses: { 200: OkResponseSchema, ...commonErrorResponses },
+  },
+
+  testOidc: {
+    method: "POST",
+    path: "/api/server/oidc",
+    summary: "Test the OIDC connection by validating the issuer's well-known config",
+    body: OidcTestBodySchema,
+    responses: {
+      200: c.type<Record<string, unknown>>(),
+      ...commonErrorResponses,
+    },
+  },
+
+  removeOidc: {
+    method: "DELETE",
+    path: "/api/server/oidc",
+    summary: "Remove the OIDC configuration",
+    body: c.noBody(),
+    responses: { 200: OkResponseSchema, ...commonErrorResponses },
   },
 });

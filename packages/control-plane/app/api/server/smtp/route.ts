@@ -4,209 +4,87 @@
  * POST /api/server/smtp  — verify SMTP connection
  */
 
-import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
-import { forbidden, malformed, unauthorized } from "@/lib/api/utils/api-utils";
+import { APIException } from "@/lib/api/utils/api-utils";
 import { getSmtpConfig, saveSmtpConfig, testSmtpConnection } from "@/lib/smtp";
-import { withError } from "@/lib/api/handlers/with-error";
+import { createNextRoute } from "@/lib/api/ts-rest/next-route";
+import { serverContract } from "@/lib/contracts";
 
-/**
- * @openapi
- * /api/server/smtp:
- *   get:
- *     summary: Retrieve SMTP configuration with password redacted.
- *     tags: [Server]
- *     responses:
- *       200:
- *         description: SMTP configuration retrieved successfully.
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 configured:
- *                   type: boolean
- *                 host:
- *                   type: string
- *                 port:
- *                   type: integer
- *                 secure:
- *                   type: boolean
- *                 user:
- *                   type: string
- *                 password:
- *                   type: string
- *                 from:
- *                   type: string
- *       401:
- *         $ref: '#/components/responses/Unauthorized'
- *       403:
- *         $ref: '#/components/responses/Forbidden'
- */
-export const GET = withError(async (request: NextRequest) => {
-  const auth = await getAuthContext(request);
-  if (!auth) return unauthorized();
-  if (!auth.isGlobalAdmin) return forbidden();
+const handlers = createNextRoute(serverContract, {
+  // ── GET /api/server/smtp ──────────────────────────────────────────────────
+  getSmtp: async ({ request }) => {
+    const auth = await getAuthContext(request);
+    if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");
 
-  const config = await getSmtpConfig();
-  if (!config) return NextResponse.json({ configured: false });
+    const config = await getSmtpConfig();
+    if (!config) return { status: 200, body: { configured: false } };
 
-  return NextResponse.json({
-    configured: true,
-    host: config.host,
-    port: config.port,
-    secure: config.secure,
-    user: config.user,
-    password: "••••••••",
-    from: config.from,
-  });
+    return {
+      status: 200,
+      body: {
+        configured: true,
+        host: config.host,
+        port: config.port,
+        secure: config.secure,
+        user: config.user,
+        password: "••••••••",
+        from: config.from,
+      },
+    };
+  },
+
+  // ── PUT /api/server/smtp ──────────────────────────────────────────────────
+  saveSmtp: async ({ body, request }) => {
+    const auth = await getAuthContext(request);
+    if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");
+
+    const existing = await getSmtpConfig();
+    const password =
+      body.password === "••••••••" && existing
+        ? existing.password
+        : (body.password ?? "");
+
+    await saveSmtpConfig({
+      host: body.host,
+      port: body.port,
+      secure: body.secure ?? false,
+      user: body.user ?? "",
+      password,
+      from: body.from,
+    });
+
+    return { status: 200, body: { ok: true } };
+  },
+
+  // ── POST /api/server/smtp ─────────────────────────────────────────────────
+  verifySmtp: async ({ body, request }) => {
+    const auth = await getAuthContext(request);
+    if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");
+
+    const existing = await getSmtpConfig();
+    const config = {
+      host: body.host ?? existing?.host ?? "",
+      port: body.port ?? existing?.port ?? 587,
+      secure: body.secure ?? existing?.secure ?? false,
+      user: body.user ?? existing?.user ?? "",
+      password:
+        body.password === "••••••••" || !body.password
+          ? (existing?.password ?? "")
+          : body.password,
+      from: body.from ?? existing?.from ?? "",
+    };
+
+    if (!config.host || !config.port)
+      throw new APIException(
+        "MALFORMED",
+        "host and port are required for connectivity test"
+      );
+
+    await testSmtpConnection(config);
+    return { status: 200, body: { ok: true } };
+  },
 });
 
-/**
- * @openapi
- * /api/server/smtp:
- *   put:
- *     summary: Save SMTP configuration.
- *     tags: [Server]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               host:
- *                 type: string
- *               port:
- *                 type: integer
- *               secure:
- *                 type: boolean
- *               user:
- *                 type: string
- *               password:
- *                 type: string
- *               from:
- *                 type: string
- *             required:
- *               - host
- *               - port
- *               - from
- *     responses:
- *       200:
- *         description: SMTP configuration saved successfully.
- *       400:
- *         $ref: '#/components/responses/BadRequest'
- *       401:
- *         $ref: '#/components/responses/Unauthorized'
- *       403:
- *         $ref: '#/components/responses/Forbidden'
- */
-export const PUT = withError(async (req: NextRequest) => {
-  const auth = await getAuthContext(req);
-  if (!auth) return unauthorized();
-  if (!auth.isGlobalAdmin) return forbidden();
-
-  const body = (await req.json()) as {
-    host?: string;
-    port?: number;
-    secure?: boolean;
-    user?: string;
-    password?: string;
-    from?: string;
-  };
-
-  if (!body.host || !body.port || !body.from) {
-    return malformed("host, port and from are required");
-  }
-
-  const existing = await getSmtpConfig();
-  const password =
-    body.password === "••••••••" && existing
-      ? existing.password
-      : (body.password ?? "");
-
-  await saveSmtpConfig({
-    host: body.host,
-    port: body.port,
-    secure: body.secure ?? false,
-    user: body.user ?? "",
-    password,
-    from: body.from,
-  });
-
-  return NextResponse.json({ ok: true });
-});
-
-/**
- * @openapi
- * /api/server/smtp:
- *   post:
- *     summary: Verify SMTP connection.
- *     tags: [Server]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               host:
- *                 type: string
- *               port:
- *                 type: integer
- *               secure:
- *                 type: boolean
- *               user:
- *                 type: string
- *               password:
- *                 type: string
- *               from:
- *                 type: string
- *     responses:
- *       200:
- *         description: SMTP connection verified successfully.
- *       400:
- *         $ref: '#/components/responses/BadRequest'
- *       401:
- *         $ref: '#/components/responses/Unauthorized'
- *       403:
- *         $ref: '#/components/responses/Forbidden'
- *       502:
- *         description: Connection failed.
- */
-export const POST = withError(async (req: NextRequest) => {
-  const auth = await getAuthContext(req);
-  if (!auth) return unauthorized();
-  if (!auth.isGlobalAdmin) return forbidden();
-
-  // Accept an inline config for testing before saving
-  const body = (await req.json()) as {
-    host?: string;
-    port?: number;
-    secure?: boolean;
-    user?: string;
-    password?: string;
-    from?: string;
-  };
-
-  const existing = await getSmtpConfig();
-
-  const config = {
-    host: body.host ?? existing?.host ?? "",
-    port: body.port ?? existing?.port ?? 587,
-    secure: body.secure ?? existing?.secure ?? false,
-    user: body.user ?? existing?.user ?? "",
-    password:
-      body.password === "••••••••" || !body.password
-        ? (existing?.password ?? "")
-        : body.password,
-    from: body.from ?? existing?.from ?? "",
-  };
-
-  if (!config.host || !config.port) {
-    return malformed("host and port are required for connectivity test");
-  }
-
-  await testSmtpConnection(config);
-  return NextResponse.json({ ok: true });
-});
+export const GET = handlers.GET!;
+export const PUT = handlers.PUT!;
+export const POST = handlers.POST!;

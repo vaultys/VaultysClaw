@@ -1,19 +1,16 @@
-import { NextResponse } from "next/server";
-import { withError } from "@/lib/api/handlers/with-error";
+/**
+ * POST /api/server/entra/send-qr — send a QR code to an Entra ID user.
+ * Not implemented yet.
+ */
 
-/**
- * POST /api/server/entra/send-qr - Send QR code to Entra ID user
- */
-/**
- * @openapi
- * /api/server/entra/send-qr:
- *   post:
- *     summary: Send QR code to Entra ID user.
- *     tags: [Server]
- *     responses:
- *       501:
- *         description: Not implemented.
- */
-export const POST = withError(async () => {
-  return NextResponse.json({ error: "Not implemented" }, { status: 501 });
+import { createNextRoute } from "@/lib/api/ts-rest/next-route";
+import { serverContract } from "@/lib/contracts";
+
+const handlers = createNextRoute(serverContract, {
+  entraSendQr: async () => ({
+    status: 501,
+    body: { error: "Not implemented" },
+  }),
 });
+
+export const POST = handlers.POST!;

@@ -1,42 +1,18 @@
-import { NextResponse } from "next/server";
 import { VaultysId } from "@vaultys/id";
 import { SettingsDAO, UserDAO } from "@/db";
-import { withError } from "@/lib/api/handlers/with-error";
+import { createNextRoute } from "@/lib/api/ts-rest/next-route";
+import { userStatusContract } from "@/lib/contracts";
 
-/**
- * @openapi
- * /api/user/status:
- *   get:
- *     summary: Retrieve the user status and server DID.
- *     tags: [User]
- *     responses:
- *       200:
- *         description: Successful response with user status and server DID.
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 hasUsers:
- *                   type: boolean
- *                   description: Indicates if there are any users.
- *                 serverDid:
- *                   type: string
- *                   nullable: true
- *                   description: The server DID if available.
- *       401:
- *         $ref: '#/components/responses/Unauthorized'
- *       403:
- *         $ref: '#/components/responses/Forbidden'
- *       404:
- *         $ref: '#/components/responses/NotFound'
- */
-export const GET = withError(async () => {
-  const hasUsers = await UserDAO.hasAnyUser();
-  const serverSecret = await SettingsDAO.get("serverSecret");
-  let serverDid: string | null = null;
-  if (serverSecret) {
-    serverDid = VaultysId.fromSecret(serverSecret, "base64").did;
-  }
-  return NextResponse.json({ hasUsers, serverDid });
+/** GET /api/user/status — whether any user exists + the server DID. Public. */
+const handlers = createNextRoute(userStatusContract, {
+  status: async () => {
+    const hasUsers = await UserDAO.hasAnyUser();
+    const serverSecret = await SettingsDAO.get("serverSecret");
+    const serverDid = serverSecret
+      ? VaultysId.fromSecret(serverSecret, "base64").did
+      : null;
+    return { status: 200, body: { hasUsers, serverDid } };
+  },
 });
+
+export const GET = handlers.GET!;

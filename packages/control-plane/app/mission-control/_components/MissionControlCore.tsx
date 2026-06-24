@@ -32,6 +32,7 @@ import {
   workflowRunsClient,
   mapClient,
   intentsClient,
+  statsClient,
   unwrap,
 } from "@/lib/api/ts-rest/client";
 
@@ -325,8 +326,7 @@ export function MissionControlCore({ mode }: MissionControlCoreProps) {
   useEffect(() => {
     const fetch_ = async () => {
       try {
-        const res = await fetch("/api/stats/tokens");
-        if (res.ok) setTokenStats(await res.json());
+        setTokenStats(unwrap(await statsClient.tokens()) as unknown as TokenStats);
       } catch {}
     };
     fetch_();

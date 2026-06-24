@@ -15,7 +15,7 @@ import {
 import { QRCodeSVG } from "qrcode.react";
 import { RegisterModelForm } from "@/components/models/RegisterModelForm";
 import { useRole } from "@/hooks/useRole";
-import { agentsClient, unwrap } from "@/lib/api/ts-rest/client";
+import { agentsClient, setupClient, unwrap } from "@/lib/api/ts-rest/client";
 import { AgentInfo } from "@/lib/contracts";
 
 // ─── LocalStorage helpers ─────────────────────────────────────────────────────
@@ -979,15 +979,7 @@ export default function SetupPage() {
       } | null = null;
       try {
         // Fetch actual setup status from backend
-        const res = await fetch("/api/setup/status");
-        const data = (await res.json()) as {
-          status?: {
-            model: boolean;
-            email: boolean;
-            users: boolean;
-            agent: boolean;
-          };
-        };
+        const data = unwrap(await setupClient.status());
         if (data.status) {
           backendStatus = data.status;
           const completed: StepId[] = [];
@@ -1036,10 +1028,9 @@ export default function SetupPage() {
   const advance = async () => {
     try {
       // Check if the current step is actually complete on the backend
-      const res = await fetch("/api/setup/status");
-      const data = (await res.json()) as { status?: Record<string, boolean> };
+      const data = unwrap(await setupClient.status());
       // Use optional chaining to safely check if step is complete
-      if (!data.status?.[currentStep]) {
+      if (!(data.status as Record<string, boolean>)[currentStep]) {
         // Step not actually complete yet, don't advance
         return;
       }

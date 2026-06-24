@@ -1,77 +1,41 @@
-import { NextResponse } from "next/server";
 import { UserServerChannel } from "@/lib/user-server-channel";
 import { VaultysId } from "@vaultys/id";
 import { SettingsDAO, UserDAO } from "@/db";
-import { withError } from "@/lib/api/handlers/with-error";
+import { createNextRoute } from "@/lib/api/ts-rest/next-route";
+import { userAuthContract } from "@/lib/contracts";
 
 /**
- * GET /api/user/p2p/connect
- *
- * Opens a server-side PeerJS channel, runs the full Challenger auth when the
- * wallet connects, and updates the certificate in the DB on completion.
- *
- * Returns:
- *   - connectionString: PeerJS vaultys://peerjs?... URI (embedded in QR)
- *   - token: connection token (sha256 hash) — browser polls /api/user/listen/[token]
- *   - key: raw cert key — browser passes to next-auth signIn as credentials.token
- *   - serverDid: server VaultysID DID — appended to the QR URL
+ * GET /api/user/p2p/connect — open a server-side PeerJS channel, run the full
+ * Challenger auth when the wallet connects, and update the cert on completion.
  */
-/**
- * @openapi
- * /api/user/p2p/connect:
- *   get:
- *     summary: Opens a server-side PeerJS channel for user connection.
- *     tags: [User]
- *     responses:
- *       200:
- *         description: Connection details for PeerJS channel.
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 connectionString:
- *                   type: string
- *                   description: PeerJS vaultys://peerjs?... URI embedded in QR.
- *                 token:
- *                   type: string
- *                   description: Connection token (sha256 hash).
- *                 key:
- *                   type: string
- *                   description: Raw cert key for next-auth signIn.
- *                 serverDid:
- *                   type: string
- *                   nullable: true
- *                   description: Server VaultysID DID appended to the QR URL.
- *       401:
- *         $ref: '#/components/responses/Unauthorized'
- *       403:
- *         $ref: '#/components/responses/Forbidden'
- *       404:
- *         $ref: '#/components/responses/NotFound'
- */
-export const GET = withError(async () => {
-  const hasUsers = (await UserDAO.list({ page: 1, pageSize: 1 })).total > 0;
-  const shouldRegister = !hasUsers;
-  console.log(
-    `[p2p/connect] hasAnyUser=${hasUsers} → cert type=${shouldRegister ? "REGISTER" : "LOGIN"}`
-  );
-  const cert = shouldRegister
-    ? await UserServerChannel.createRegistrationCertificate()
-    : await UserServerChannel.createConnectionCertificate();
+const handlers = createNextRoute(userAuthContract, {
+  p2pConnect: async () => {
+    const hasUsers = (await UserDAO.list({ page: 1, pageSize: 1 })).total > 0;
+    const shouldRegister = !hasUsers;
+    console.log(
+      `[p2p/connect] hasAnyUser=${hasUsers} → cert type=${shouldRegister ? "REGISTER" : "LOGIN"}`
+    );
+    const cert = shouldRegister
+      ? await UserServerChannel.createRegistrationCertificate()
+      : await UserServerChannel.createConnectionCertificate();
 
-  const connectionString = await UserServerChannel.startP2PSession(cert);
+    const connectionString = await UserServerChannel.startP2PSession(cert);
 
-  const serverSecret = await SettingsDAO.get("serverSecret");
-  let serverDid: string | null = null;
-  if (serverSecret) {
-    serverDid = VaultysId.fromSecret(serverSecret, "base64").did;
-  }
+    const serverSecret = await SettingsDAO.get("serverSecret");
+    const serverDid = serverSecret
+      ? VaultysId.fromSecret(serverSecret, "base64").did
+      : null;
 
-  return NextResponse.json({
-    connectionString,
-    token: cert.connection,
-    key: cert.key,
-    serverDid,
-  });
+    return {
+      status: 200,
+      body: {
+        connectionString,
+        token: cert.connection!,
+        key: cert.key,
+        serverDid,
+      },
+    };
+  },
 });
+
+export const GET = handlers.GET!;

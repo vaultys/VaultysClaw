@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { X, Loader2 } from "lucide-react";
+import { channelsClient, realmsClient, unwrap } from "@/lib/api/ts-rest/client";
 
 interface Realm {
   id: string;
@@ -35,14 +36,12 @@ export default function CreateChannelModal({
     const fetchRealms = async () => {
       try {
         setIsLoadingRealms(true);
-        const response = await fetch("/api/me/realms");
-        if (response.ok) {
-          const data = (await response.json()) as { realms: Realm[] };
-          setRealms(data.realms);
-          // Auto-select first realm only if no preSelectedRealmId was provided
-          if (!preSelectedRealmId && data.realms.length > 0) {
-            setSelectedRealmId(data.realms[0].id);
-          }
+        const { userRealms } = unwrap(await realmsClient.listMyRealms());
+        const realms = userRealms.map((ur) => ur.realm);
+        setRealms(realms);
+        // Auto-select first realm only if no preSelectedRealmId was provided
+        if (!preSelectedRealmId && realms.length > 0) {
+          setSelectedRealmId(realms[0].id);
         }
       } catch (err) {
         console.error("Failed to fetch realms:", err);
@@ -72,25 +71,18 @@ export default function CreateChannelModal({
         .replace(/[^a-z0-9]+/g, "-")
         .replace(/^-|-$/g, "");
 
-      const response = await fetch("/api/channels", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: name.trim(),
-          slug,
-          realmId: selectedRealmId || undefined, // undefined = global channel
-          description: description.trim() || undefined,
-          isPublic,
-        }),
-      });
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || "Failed to create channel");
-      }
-
-      const data = await response.json();
-      onChannelCreated(data.channel);
+      const { channel } = unwrap(
+        await channelsClient.create({
+          body: {
+            name: name.trim(),
+            slug,
+            realmId: selectedRealmId || undefined, // undefined = global channel
+            description: description.trim() || undefined,
+            isPublic,
+          },
+        })
+      );
+      onChannelCreated(channel);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create channel");
     } finally {

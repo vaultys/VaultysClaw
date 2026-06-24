@@ -875,7 +875,7 @@ describe("MessageDispatcher: processMessage", () => {
 
 describe("GET /api/channels", () => {
   it("returns 401 when unauthenticated", async () => {
-    mockGetAuthContext.mockResolvedValueOnce(null);
+    mockGetAuthContext.mockRejectedValueOnce(new APIException("UNAUTHORIZED"));
     const r = req("GET", `http://localhost/api/channels?realm=${testRealmId}`);
     const res = await channelsGET(r as any);
     expect(res._status).toBe(401);
@@ -932,7 +932,7 @@ describe("GET /api/channels", () => {
 
 describe("POST /api/channels", () => {
   it("returns 401 when unauthenticated", async () => {
-    mockGetAuthContext.mockResolvedValueOnce(null);
+    mockGetAuthContext.mockRejectedValueOnce(new APIException("UNAUTHORIZED"));
     const r = req("POST", "http://localhost/api/channels", {
       name: "Test",
       realmId: testRealmId,
@@ -1995,7 +1995,7 @@ describe("ChannelBridgeService: createBridge / listBridges / deleteBridge", () =
 
 describe("GET /api/channels/[id]/bridges", () => {
   it("returns 401 when unauthenticated", async () => {
-    mockGetAuthContext.mockResolvedValueOnce(null);
+    mockGetAuthContext.mockRejectedValueOnce(new APIException("UNAUTHORIZED"));
     const res = await bridgesGET(
       req("GET", "http://localhost/") as any,
       channelParams("any-id")
@@ -2064,9 +2064,17 @@ describe("GET /api/channels/[id]/bridges", () => {
 
 describe("POST /api/channels/[id]/bridges", () => {
   it("returns 401 when unauthenticated", async () => {
-    mockGetAuthContext.mockResolvedValueOnce(null);
+    mockGetAuthContext.mockRejectedValueOnce(new APIException("UNAUTHORIZED"));
+    // Body must pass contract validation so the handler (and thus the auth
+    // check) actually runs — createNextRoute validates the body first.
     const res = await bridgesPOST(
-      req("POST", "http://localhost/", {}) as any,
+      req("POST", "http://localhost/", {
+        externalService: "webhook",
+        externalChannelId: "c",
+        externalChannelName: "n",
+        externalWorkspaceId: "w",
+        config: { webhookUrl: "", outgoingUrl: "https://x.com", secret: "s" },
+      }) as any,
       channelParams("any-id")
     );
     expect(res._status).toBe(401);
@@ -2227,7 +2235,7 @@ describe("POST /api/channels/[id]/bridges", () => {
 
 describe("PATCH /api/channels/[id]/bridges/[bridgeId]", () => {
   it("returns 401 when unauthenticated", async () => {
-    mockGetAuthContext.mockResolvedValueOnce(null);
+    mockGetAuthContext.mockRejectedValueOnce(new APIException("UNAUTHORIZED"));
     const res = await bridgePATCH(
       req("PATCH", "http://localhost/", {}) as any,
       bridgeParams("ch", "br")
@@ -2338,7 +2346,7 @@ describe("PATCH /api/channels/[id]/bridges/[bridgeId]", () => {
 
 describe("DELETE /api/channels/[id]/bridges/[bridgeId]", () => {
   it("returns 401 when unauthenticated", async () => {
-    mockGetAuthContext.mockResolvedValueOnce(null);
+    mockGetAuthContext.mockRejectedValueOnce(new APIException("UNAUTHORIZED"));
     const res = await bridgeDELETE(
       req("DELETE", "http://localhost/") as any,
       bridgeParams("ch", "br")

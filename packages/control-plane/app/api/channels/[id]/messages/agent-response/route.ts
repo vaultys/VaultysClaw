@@ -1,108 +1,33 @@
-import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
-import {
-  forbidden,
-  malformed,
-  notFound,
-  unauthorized,
-} from "@/lib/api/utils/api-utils";
+import { APIException } from "@/lib/api/utils/api-utils";
 import { ChannelService } from "@/lib/channel-service";
-import { withError } from "@/lib/api/handlers/with-error";
+import { createNextRoute } from "@/lib/api/ts-rest/next-route";
+import { channelsContract } from "@/lib/contracts";
 
-type Ctx = { params: Promise<{ id: string }> };
+const handlers = createNextRoute(channelsContract, {
+  // ── POST /api/channels/:id/messages/agent-response ────────────────────────
+  postAgentResponse: async ({ params, body, request }) => {
+    const auth = await getAuthContext(request);
 
-/**
- * POST /api/channels/[id]/messages/agent-response
- * Allows an agent to post a response to a channel or thread
- * Used when agents respond to mentions
- */
-/**
- * @openapi
- * /api/channels/{id}/messages/agent-response:
- *   post:
- *     summary: Post an agent response to a channel or thread.
- *     tags: [Channels]
- *     parameters:
- *       - name: id
- *         in: path
- *         required: true
- *         description: The ID of the channel.
- *         schema:
- *           type: string
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               content:
- *                 type: string
- *                 description: The content of the message.
- *               threadId:
- *                 type: string
- *                 description: The ID of the thread (optional).
- *               metadata:
- *                 type: object
- *                 additionalProperties: true
- *                 description: Additional metadata for the message (optional).
- *     responses:
- *       201:
- *         description: Message posted successfully.
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: object
- *                   description: The posted message details.
- *       400:
- *         $ref: '#/components/responses/BadRequest'
- *       401:
- *         $ref: '#/components/responses/Unauthorized'
- *       403:
- *         $ref: '#/components/responses/Forbidden'
- *       404:
- *         $ref: '#/components/responses/NotFound'
- *       500:
- *         description: Failed to post message.
- */
-export const POST = withError(async (req: NextRequest, ctx: Ctx) => {
-  const auth = await getAuthContext(req);
-  if (!auth) return unauthorized();
+    const channel = await ChannelService.getChannel(params.id);
+    if (!channel) throw new APIException("NOT_FOUND", "Channel not found");
+    if (!(await ChannelService.isMember(params.id, auth.did)))
+      throw new APIException("FORBIDDEN");
 
-  const { id: channelId } = await ctx.params;
-  const channel = await ChannelService.getChannel(channelId);
+    if (!body.content?.trim())
+      throw new APIException("MALFORMED", "content is required");
 
-  if (!channel) {
-    return notFound("Channel not found");
-  }
+    const message = await ChannelService.postMessage({
+      channelId: params.id,
+      authorDid: auth.did,
+      authorType: "agent",
+      content: body.content.trim(),
+      threadId: body.threadId,
+      metadata: body.metadata,
+    });
 
-  // Check if caller is a member of the channel
-  if (!(await ChannelService.isMember(channelId, auth.did))) {
-    return forbidden();
-  }
-
-  const body = (await req.json()) as {
-    content: string;
-    threadId?: string;
-    metadata?: Record<string, any>;
-  };
-
-  if (!body.content?.trim()) {
-    return malformed("content is required");
-  }
-
-  // Post agent message
-  const message = await ChannelService.postMessage({
-    channelId,
-    authorDid: auth.did,
-    authorType: "agent",
-    content: body.content.trim(),
-    threadId: body.threadId,
-    metadata: body.metadata,
-  });
-
-  return NextResponse.json({ message }, { status: 201 });
+    return { status: 201, body: { message } };
+  },
 });
+
+export const POST = handlers.POST!;

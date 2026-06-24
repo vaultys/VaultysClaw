@@ -1,9 +1,20 @@
 import { z } from "zod";
 import { c } from "./contract";
 import { commonErrorResponses } from "./common";
-import type { Channel, ChannelBridge, ChannelMember, ChannelMessage } from "@prisma/client";
+import type {
+  Channel,
+  ChannelBridge,
+  ChannelMember,
+  ChannelMessage,
+} from "@vaultysclaw/shared";
 
 const IdParam = z.object({ id: z.string().min(1) });
+
+/**
+ * A bridge as returned to clients — the encrypted `configJson` (OAuth tokens,
+ * webhook secrets) is stripped server-side before serialization.
+ */
+export type ChannelBridgePublic = Omit<ChannelBridge, "configJson">;
 
 const MessageMetadata = z
   .object({
@@ -75,7 +86,10 @@ export const channelsContract = c.router({
     path: "/api/channels/:id",
     pathParams: IdParam,
     summary: "Archive a channel (soft delete)",
-    responses: { 200: c.type<void>(), ...commonErrorResponses },
+    responses: {
+      200: z.object({ success: z.boolean() }),
+      ...commonErrorResponses,
+    },
   },
 
   listMessages: {
@@ -139,7 +153,10 @@ export const channelsContract = c.router({
     path: "/api/channels/:id/messages/:msgId",
     pathParams: z.object({ id: z.string(), msgId: z.string() }),
     summary: "Soft delete a message in a channel",
-    responses: { 200: c.type<void>(), ...commonErrorResponses },
+    responses: {
+      200: z.object({ success: z.boolean() }),
+      ...commonErrorResponses,
+    },
   },
 
   react: {
@@ -148,7 +165,10 @@ export const channelsContract = c.router({
     pathParams: z.object({ id: z.string(), msgId: z.string() }),
     summary: "Add or remove a reaction to a message",
     body: z.object({ emoji: z.string(), add: z.boolean() }),
-    responses: { 200: c.type<{ message: string }>(), ...commonErrorResponses },
+    responses: {
+      200: c.type<{ message: ChannelMessage }>(),
+      ...commonErrorResponses,
+    },
   },
 
   listThread: {
@@ -170,7 +190,10 @@ export const channelsContract = c.router({
       content: z.string(),
       metadata: MessageMetadata,
     }),
-    responses: { 201: c.type<void>(), ...commonErrorResponses },
+    responses: {
+      201: c.type<{ message: ChannelMessage }>(),
+      ...commonErrorResponses,
+    },
   },
 
   addMember: {
@@ -184,7 +207,10 @@ export const channelsContract = c.router({
       role: z.enum(["member", "moderator", "owner"]).optional(),
       invitedBy: z.string().optional(),
     }),
-    responses: { 201: c.type<void>(), ...commonErrorResponses },
+    responses: {
+      201: c.type<{ member: ChannelMember }>(),
+      ...commonErrorResponses,
+    },
   },
 
   removeMember: {
@@ -192,7 +218,10 @@ export const channelsContract = c.router({
     path: "/api/channels/:id/members/:memberDid",
     pathParams: z.object({ id: z.string(), memberDid: z.string() }),
     summary: "Remove a member from a channel",
-    responses: { 200: c.type<void>(), ...commonErrorResponses },
+    responses: {
+      200: z.object({ success: z.boolean() }),
+      ...commonErrorResponses,
+    },
   },
 
   listBridges: {
@@ -200,7 +229,10 @@ export const channelsContract = c.router({
     path: "/api/channels/:id/bridges",
     pathParams: IdParam,
     summary: "List all bridges for a channel",
-    responses: { 200: c.type<{ bridges: ChannelBridge[] }>(), ...commonErrorResponses },
+    responses: {
+      200: c.type<{ bridges: ChannelBridgePublic[] }>(),
+      ...commonErrorResponses,
+    },
   },
 
   createBridge: {
@@ -217,7 +249,7 @@ export const channelsContract = c.router({
       config: z.record(z.string(), z.unknown()).optional(),
     }),
     responses: {
-      201: c.type<{ bridge: Record<string, unknown> }>(),
+      201: c.type<{ bridge: ChannelBridgePublic }>(),
       ...commonErrorResponses,
     },
   },
@@ -231,7 +263,10 @@ export const channelsContract = c.router({
       syncDirection: z.enum(["incoming", "outgoing", "bidirectional"]).optional(),
       isSyncEnabled: z.boolean().optional(),
     }),
-    responses: { 200: c.type<{ bridge: ChannelBridge }>(), ...commonErrorResponses },
+    responses: {
+      200: c.type<{ bridge: ChannelBridgePublic }>(),
+      ...commonErrorResponses,
+    },
   },
 
   deleteBridge: {

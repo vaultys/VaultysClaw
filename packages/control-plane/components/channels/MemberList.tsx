@@ -2,20 +2,13 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { Loader2, UserMinus, Plus, Bot, User, Search, X } from "lucide-react";
-import { shortDid, getInitials } from "@vaultysclaw/shared";
-import { agentsClient, unwrap } from "@/lib/api/ts-rest/client";
+import {
+  shortDid,
+  getInitials,
+  type ChannelMember,
+} from "@vaultysclaw/shared";
+import { agentsClient, channelsClient, unwrap } from "@/lib/api/ts-rest/client";
 import { AgentInfo } from "@/lib/contracts";
-
-interface ChannelMember {
-  id: string;
-  channelId: string;
-  memberDid: string;
-  memberName?: string | null;
-  memberType: "user" | "agent";
-  role: "member" | "moderator" | "owner";
-  joinedAt: string;
-  invitedBy: string | null;
-}
 
 interface UserRecord {
   did: string;
@@ -59,10 +52,10 @@ export default function MemberList({ channelId }: MemberListProps) {
   const fetchMembers = useCallback(async () => {
     try {
       setIsLoading(true);
-      const res = await fetch(`/api/channels/${channelId}`);
-      if (!res.ok) throw new Error("Failed to fetch members");
-      const data = (await res.json()) as { members: ChannelMember[] };
-      setMembers(data.members);
+      const { members } = unwrap(
+        await channelsClient.getOne({ params: { id: channelId } })
+      );
+      setMembers(members);
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to fetch members");
@@ -166,17 +159,13 @@ export default function MemberList({ channelId }: MemberListProps) {
     setAddError(null);
 
     try {
-      const res = await fetch(`/api/channels/${channelId}/members`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ memberDid: selectedDid, memberType: addType }),
-      });
-      if (!res.ok) {
-        const d = (await res.json()) as { error?: string };
-        throw new Error(d.error ?? "Failed to add member");
-      }
-      const d = (await res.json()) as { member: ChannelMember };
-      setMembers((prev) => [...prev, d.member]);
+      const { member } = unwrap(
+        await channelsClient.addMember({
+          params: { id: channelId },
+          body: { memberDid: selectedDid, memberType: addType },
+        })
+      );
+      setMembers((prev) => [...prev, member]);
       resetForm();
     } catch (err) {
       setAddError(err instanceof Error ? err.message : "Failed to add member");
@@ -204,14 +193,11 @@ export default function MemberList({ channelId }: MemberListProps) {
 
     try {
       setRemoveError(null);
-      const res = await fetch(
-        `/api/channels/${channelId}/members/${member.memberDid}`,
-        { method: "DELETE" }
+      unwrap(
+        await channelsClient.removeMember({
+          params: { id: channelId, memberDid: member.memberDid },
+        })
       );
-      if (!res.ok) {
-        const d = (await res.json()) as { error?: string };
-        throw new Error(d.error ?? "Failed to remove member");
-      }
       setMembers((prev) =>
         prev.filter((m) => m.memberDid !== member.memberDid)
       );

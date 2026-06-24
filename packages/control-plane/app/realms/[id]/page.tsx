@@ -43,10 +43,12 @@ import {
   agentsClient,
   workflowsClient,
   realmsClient,
+  channelsClient,
   unwrap,
   ApiError,
 } from "@/lib/api/ts-rest/client";
 import { AgentInfo, RealmDetail } from "@/lib/contracts";
+import type { Channel } from "@vaultysclaw/shared";
 
 const WorldMap = dynamic(
   () => import("@/components/map/WorldMap").then((m) => m.WorldMap),
@@ -73,20 +75,6 @@ interface FullUser {
   did: string;
   name: string | null;
   email: string | null;
-}
-
-interface Channel {
-  id: string;
-  realmId: string | null;
-  name: string;
-  slug: string;
-  description: string | null;
-  isPublic: boolean;
-  isArchived: boolean;
-  topic: string | null;
-  creatorDid: string;
-  createdAt: string;
-  updatedAt: string;
 }
 
 const PRESET_COLORS = [
@@ -352,7 +340,7 @@ export default function RealmDetailPage() {
       realmsClient.getOne({ params: { id } }),
       fetch(`/api/realms/${id}/skills`),
       fetch(`/api/realms/${id}/models`),
-      fetch(`/api/channels?realm=${id}`),
+      channelsClient.list({ query: { realm: id } }),
     ]);
     if (realmRes.status === 404) {
       router.replace("/realms");
@@ -373,11 +361,8 @@ export default function RealmDetailPage() {
       setRouterKey(modelsData.routerKey);
       setLitellmConfigured(modelsData.litellmConfigured ?? false);
     }
-    if (channelsRes.ok) {
-      const channelsData = (await channelsRes.json()) as {
-        channels: Channel[];
-      };
-      setChannels(channelsData.channels ?? []);
+    if (channelsRes.status === 200) {
+      setChannels(channelsRes.body.channels ?? []);
     }
     setLoading(false);
   }, [id, router]);

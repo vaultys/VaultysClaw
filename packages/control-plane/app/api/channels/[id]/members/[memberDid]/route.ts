@@ -1,67 +1,31 @@
-import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
-import { unauthorized, forbidden, notFound } from "@/lib/api/utils/api-utils";
+import { APIException } from "@/lib/api/utils/api-utils";
 import { ChannelService } from "@/lib/channel-service";
-import { withError } from "@/lib/api/handlers/with-error";
+import { createNextRoute } from "@/lib/api/ts-rest/next-route";
+import { channelsContract } from "@/lib/contracts";
 
-type Ctx = { params: Promise<{ id: string; memberDid: string }> };
+const handlers = createNextRoute(channelsContract, {
+  // ── DELETE /api/channels/:id/members/:memberDid ───────────────────────────
+  removeMember: async ({ params, request }) => {
+    const auth = await getAuthContext(request);
 
-/**
- * DELETE /api/channels/[id]/members/[memberDid]
- * Remove a member from a channel
- */
-/**
- * @openapi
- * /api/channels/{id}/members/{memberDid}:
- *   delete:
- *     summary: Remove a member from a channel.
- *     tags: [Channels]
- *     parameters:
- *       - name: id
- *         in: path
- *         required: true
- *         description: The ID of the channel.
- *         schema:
- *           type: string
- *       - name: memberDid
- *         in: path
- *         required: true
- *         description: The DID of the member to remove.
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: Member removed successfully.
- *       401:
- *         $ref: '#/components/responses/Unauthorized'
- *       403:
- *         $ref: '#/components/responses/Forbidden'
- *       404:
- *         $ref: '#/components/responses/NotFound'
- *       500:
- *         description: Failed to remove member.
- */
-export const DELETE = withError(async (req: NextRequest, ctx: Ctx) => {
-  const auth = await getAuthContext(req);
-  if (!auth) return unauthorized();
+    // createNextRoute already decodes path params.
+    const memberDid = params.memberDid;
 
-  const { id, memberDid: rawMemberDid } = await ctx.params;
-  const memberDid = decodeURIComponent(rawMemberDid);
+    const channel = await ChannelService.getChannel(params.id);
+    if (!channel) throw new APIException("NOT_FOUND", "Channel not found");
 
-  const channel = await ChannelService.getChannel(id);
-  if (!channel) {
-    return notFound("Channel not found");
-  }
+    // Only moderator+ can remove members
+    const role = await ChannelService.getMemberRole(params.id, auth.did);
+    if (role !== "moderator" && role !== "owner")
+      throw new APIException("FORBIDDEN");
 
-  // Check authorization: moderator+ can remove members
-  const role = await ChannelService.getMemberRole(id, auth.did);
-  if (role !== "moderator" && role !== "owner") {
-    return forbidden();
-  }
+    // Idempotent: succeeds even if the membership (or the agent itself)
+    // no longer exists, so stale members can always be cleaned up.
+    await ChannelService.removeChannelMember(params.id, memberDid);
 
-  // Idempotent: succeeds even if the membership (or the agent itself)
-  // no longer exists, so stale members can always be cleaned up.
-  await ChannelService.removeChannelMember(id, memberDid);
-
-  return NextResponse.json({ success: true });
+    return { status: 200, body: { success: true } };
+  },
 });
+
+export const DELETE = handlers.DELETE!;

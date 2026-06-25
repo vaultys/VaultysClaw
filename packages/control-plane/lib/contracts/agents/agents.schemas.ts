@@ -94,4 +94,6 @@ export const SendChatMessageBodySchema = z.object({
     )
     .min(1),
   sessionId: z.string().optional(),
+  /** Stream the response token-by-token (bypasses the buffered tool-call path). */
+  stream: z.boolean().optional(),
 });

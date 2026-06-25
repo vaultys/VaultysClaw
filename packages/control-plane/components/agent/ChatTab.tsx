@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef } from "react";
 import ReactMarkdown from "react-markdown";
-import { Bot, Send, Trash2, Loader2 } from "lucide-react";
+import { Bot, Send, Trash2, Loader2, Zap } from "lucide-react";
 import type { ChatSession } from "@vaultysclaw/shared";
 import {
   agentsClient,
@@ -33,8 +33,23 @@ export function ChatTab({
   const [pendingApprovals, setPendingApprovals] = useState<PendingApproval[]>(
     []
   );
+  // Token-by-token streaming toggle, persisted across sessions.
+  const [streamingEnabled, setStreamingEnabled] = useState(true);
   const abortRef = useRef<AbortController | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const stored = localStorage.getItem("vc.chat.streaming");
+    if (stored !== null) setStreamingEnabled(stored === "true");
+  }, []);
+
+  const toggleStreaming = useCallback(() => {
+    setStreamingEnabled((prev) => {
+      const next = !prev;
+      localStorage.setItem("vc.chat.streaming", String(next));
+      return next;
+    });
+  }, []);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -107,6 +122,7 @@ export function ChatTab({
             body: JSON.stringify({
               messages: updatedMessages,
               sessionId: activeSessionId ?? undefined,
+              stream: streamingEnabled,
             }),
             signal: controller.signal,
           }
@@ -216,7 +232,15 @@ export function ChatTab({
         fetchSessions().catch(() => {});
       }
     },
-    [messages, agentId, activeSessionId, isStreaming, online, fetchSessions]
+    [
+      messages,
+      agentId,
+      activeSessionId,
+      isStreaming,
+      online,
+      fetchSessions,
+      streamingEnabled,
+    ]
   );
 
   const startNew = () => {
@@ -299,15 +323,36 @@ export function ChatTab({
               </span>
             )}
           </p>
-          {messages.length > 0 && (
+          <div className="flex items-center gap-3">
             <button
-              onClick={startNew}
-              className="flex items-center gap-1.5 text-xs text-foreground-500 hover:text-danger-400 transition-colors"
+              onClick={toggleStreaming}
+              title={
+                streamingEnabled
+                  ? "Token-by-token streaming on — click to disable"
+                  : "Token-by-token streaming off — click to enable"
+              }
+              className={`flex items-center gap-1.5 text-xs transition-colors ${
+                streamingEnabled
+                  ? "text-primary-400 hover:text-primary-300"
+                  : "text-foreground-500 hover:text-foreground"
+              }`}
             >
-              <Trash2 size={13} />
-              Clear
+              <Zap
+                size={13}
+                fill={streamingEnabled ? "currentColor" : "none"}
+              />
+              Streaming
             </button>
-          )}
+            {messages.length > 0 && (
+              <button
+                onClick={startNew}
+                className="flex items-center gap-1.5 text-xs text-foreground-500 hover:text-danger-400 transition-colors"
+              >
+                <Trash2 size={13} />
+                Clear
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Messages */}

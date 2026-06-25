@@ -484,7 +484,8 @@ export class Agent extends BaseAgentRuntime {
       done?: boolean,
       isError?: boolean,
       errorCode?: "llm_unavailable" | "llm_error" | "agent_offline"
-    ) => void
+    ) => void,
+    opts?: { stream?: boolean }
   ): Promise<void> {
     // Persist session + only new incoming messages (avoid duplicating history on each turn)
     const title =
@@ -607,8 +608,14 @@ export class Agent extends BaseAgentRuntime {
       const provider = this.activeLlmConfig?.provider ?? "unknown";
       const model = this.activeLlmConfig?.model ?? "unknown";
       const toolNames = new Set(Object.keys(tools));
+      // Streaming is opt-in per-conversation (toggle in the chat UI) or via the
+      // agent's LLM config flag. When on, skip the text-buffer tool-call workaround.
+      const streamingRequested =
+        opts?.stream === true ||
+        this.activeLlmConfig?.disableStreamingBuffer === true;
       const useBufferedPath =
-        provider === "ollama" || provider === "openai-compatible";
+        (provider === "ollama" || provider === "openai-compatible") &&
+        !streamingRequested;
 
       this.log(
         "info",

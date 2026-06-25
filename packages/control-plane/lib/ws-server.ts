@@ -1947,7 +1947,8 @@ export class AgentWSServer {
     conversationId: string,
     messages: ChatMessageEntry[],
     onChunk: (payload: WSChatResponsePayload) => void,
-    onApprovalRequest?: (payload: WSToolApprovalRequestPayload) => void
+    onApprovalRequest?: (payload: WSToolApprovalRequestPayload) => void,
+    opts?: { stream?: boolean }
   ): boolean {
     const agent = this.agents.get(agentDid);
     if (!agent || !agent.sender.isOpen()) {
@@ -1969,7 +1970,11 @@ export class AgentWSServer {
       messageId: `chat-${Date.now()}`,
       type: "chat_message",
       agentId: agentDid,
-      payload: { conversationId, messages } satisfies WSChatMessagePayload,
+      payload: {
+        conversationId,
+        messages,
+        ...(opts?.stream ? { stream: true } : {}),
+      } satisfies WSChatMessagePayload,
       timestamp: new Date().toISOString(),
     });
 

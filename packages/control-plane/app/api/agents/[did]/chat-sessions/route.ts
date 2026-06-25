@@ -89,9 +89,10 @@ export const POST = withError(
     }
 
     const body = await request.json();
-    const { messages, sessionId } = body as {
+    const { messages, sessionId, stream } = body as {
       messages?: ChatMessageEntry[];
       sessionId?: string;
+      stream?: boolean;
     };
 
     if (!Array.isArray(messages) || messages.length === 0) {
@@ -182,7 +183,8 @@ export const POST = withError(
             `event: tool_approval\ndata: ${JSON.stringify(approval)}\n\n`
           )
         );
-      }
+      },
+      { stream: stream === true }
     );
 
     if (!sent) {

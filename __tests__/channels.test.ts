@@ -188,11 +188,12 @@ function req(method: string, url: string, body?: unknown): NextRequest {
  * minimal fake that satisfies exactly what the route handler needs.
  */
 function webhookReq(url: string, bodyStr: string, sig: string): NextRequest {
+  const headers = new Headers();
+  headers.set("x-signature", sig);
   return {
+    url,
     text: async () => bodyStr,
-    headers: {
-      get: (h: string) => (h.toLowerCase() === "x-signature" ? sig : null),
-    },
+    headers,
   } as unknown as NextRequest;
 }
 

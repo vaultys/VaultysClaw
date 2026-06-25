@@ -10,7 +10,6 @@ import { intentsContract } from "./intents/intents.contract";
 import { knowledgeContract } from "./knowledge/knowledge.contract";
 import {
   aboutContract,
-  docsContract,
   statsContract,
   userStatusContract,
 } from "./misc/misc.contract";
@@ -133,7 +132,6 @@ export const appContract = c.router({
   apiKeys: apiKeysContract,
   bridges: bridgesContract,
   channels: channelsContract,
-  docs: docsContract,
   governance: governanceContract,
   graph: graphContract,
   health: healthContract,

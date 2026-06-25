@@ -8,6 +8,7 @@ import {
   Zap,
   Users,
   Activity,
+  Key,
 } from "lucide-react";
 import { SmtpPanel } from "@/components/integrations/smtp-panel";
 import { PeerjsPanel } from "@/components/integrations/peerjs-panel";
@@ -18,10 +19,17 @@ import { DoclingPanel } from "@/components/integrations/docling-panel";
 import { ServerInfoPanel } from "@/components/integrations/server-info-panel";
 import { EntraPanel } from "@/components/integrations/entra-panel";
 import { OidcPanel } from "@/components/integrations/oidc-panel";
+import { ApiKeysPanel } from "@/components/integrations/api-keys-panel";
 import { useToolbar } from "@/components/layout/ToolbarContext";
 import { useBreadcrumbs } from "@/components/layout/BreadcrumbContext";
 
-type Tab = "communication" | "storage" | "ai" | "identity" | "observability";
+type Tab =
+  | "communication"
+  | "storage"
+  | "ai"
+  | "identity"
+  | "observability"
+  | "api-keys";
 
 const TABS: { id: Tab; label: string; icon: React.ElementType }[] = [
   { id: "communication", label: "Communication", icon: MessageSquare },
@@ -29,6 +37,7 @@ const TABS: { id: Tab; label: string; icon: React.ElementType }[] = [
   { id: "ai", label: "AI & Models", icon: Zap },
   { id: "identity", label: "Identity", icon: Users },
   { id: "observability", label: "Observability", icon: Activity },
+  { id: "api-keys", label: "API Keys", icon: Key },
 ];
 
 export default function IntegrationsPage() {
@@ -103,6 +112,7 @@ export default function IntegrationsPage() {
           <ServerInfoPanel />
         </>
       )}
+      {activeTab === "api-keys" && <ApiKeysPanel />}
     </div>
   );
 }

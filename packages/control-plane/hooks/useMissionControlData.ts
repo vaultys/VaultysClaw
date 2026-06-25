@@ -21,7 +21,7 @@ import {
   type FeedEvent,
   type Intent,
   type WorkflowRun,
-} from "./types";
+} from "../components/mission-control/types";
 
 interface PendingRegistration {
   agentName: string;
@@ -186,7 +186,9 @@ export function useMissionControlData(
         if (!intentsInitialized.current) {
           intentsInitialized.current = true;
           // Seed older intents (5+) as seen without emitting events
-          intents.slice(5).forEach((i) => seenIntentIds.current.add(i.intentId));
+          intents
+            .slice(5)
+            .forEach((i) => seenIntentIds.current.add(i.intentId));
           // Show the most recent 5 as historical feed entries (oldest first)
           for (const intent of [...intents.slice(0, 5)].reverse()) {
             seenIntentIds.current.add(intent.intentId);

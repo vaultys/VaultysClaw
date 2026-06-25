@@ -1,4 +1,4 @@
-import { MissionControlCore } from "../_components/MissionControlCore";
+import { MissionControlCore } from "../../../components/mission-control/MissionControlCore";
 
 /**
  * Standalone fullscreen Mission Control — rendered without AppShell

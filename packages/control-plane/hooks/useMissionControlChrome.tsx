@@ -16,7 +16,7 @@ import {
   useToolbar,
   type ToolbarAction,
 } from "@/components/layout/ToolbarContext";
-import type { FleetMetrics } from "./metrics";
+import type { FleetMetrics } from "../components/mission-control/metrics";
 
 /**
  * Wires Mission Control into the shared TopBar breadcrumb and page toolbar

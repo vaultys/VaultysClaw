@@ -14,8 +14,8 @@ import { IntentsPanel } from "./IntentsPanel";
 import { WorkflowRunsPanel } from "./WorkflowRunsPanel";
 import { computeFleetMetrics } from "./metrics";
 import type { DetailItem } from "./types";
-import { useMissionControlChrome } from "./useMissionControlChrome";
-import { useMissionControlData } from "./useMissionControlData";
+import { useMissionControlChrome } from "../../hooks/useMissionControlChrome";
+import { useMissionControlData } from "../../hooks/useMissionControlData";
 
 const WorldMap = dynamic(
   () => import("@/components/map/WorldMap").then((m) => m.WorldMap),

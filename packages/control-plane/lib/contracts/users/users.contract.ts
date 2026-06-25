@@ -102,7 +102,43 @@ export const usersContract = c.router({
         qrUrl: z.string(),
         connectionString: z.string(),
         inviteToken: z.string(),
-        serverDid: z.string(),
+        key: z.string(),
+        serverDid: z.string().nullable(),
+      }),
+      ...commonErrorResponses,
+    },
+  },
+
+  claim: {
+    method: "POST",
+    path: "/api/users/claim",
+    summary:
+      "Generate a VaultysId registration QR for an authenticated OIDC user",
+    body: c.noBody(),
+    responses: {
+      200: z.object({
+        qrUrl: z.string(),
+        connectionString: z.string(),
+        inviteToken: z.string(),
+        key: z.string(),
+        serverDid: z.string().nullable(),
+      }),
+      ...commonErrorResponses,
+    },
+  },
+
+  admins: {
+    method: "GET",
+    path: "/api/users/admins",
+    summary: "List global admins (name + email only)",
+    responses: {
+      200: z.object({
+        admins: z.array(
+          z.object({
+            name: z.string().nullable(),
+            email: z.string().nullable(),
+          })
+        ),
       }),
       ...commonErrorResponses,
     },
@@ -230,7 +266,10 @@ export const usersContract = c.router({
     path: "/api/users/:did/grants/:id",
     pathParams: DidGrantParamSchema,
     summary: "Revoke a delegation grant",
-    responses: { 200: c.type<void>(), ...commonErrorResponses },
+    responses: {
+      200: z.object({ ok: z.boolean() }),
+      ...commonErrorResponses,
+    },
   },
 
   setAdmin: {

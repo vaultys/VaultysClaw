@@ -20,7 +20,7 @@ export const RoleEnum = z.enum([
 
 export const UserGrantSchema = z.object({
   id: z.string(),
-  agentDid: z.string(),
+  agentDid: z.string().nullable(),
   capabilities: z.array(z.string()),
   grantedBy: z.string(),
   expiresAt: z.string().nullable().optional(),

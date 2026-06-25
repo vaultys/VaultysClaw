@@ -13,6 +13,13 @@ import {
   runBrowserDirectConnect,
   type WalletSecurityType,
 } from "@/lib/browser-connect";
+import {
+  invitationsClient,
+  serverClient,
+  usersClient,
+  userAuthClient,
+  unwrap,
+} from "@/lib/api/ts-rest/client";
 
 type InvitePhase =
   | "loading"
@@ -46,14 +53,13 @@ export default function InvitePage() {
   useEffect(() => {
     const load = async () => {
       try {
-        const res = await fetch(`/api/invitations/${token}`);
+        const res = await invitationsClient.get({ params: { token } });
         if (res.status === 404) {
           setPhase("expired");
           return;
         }
-        if (!res.ok) throw new Error("Failed to load invitation");
-        const data = (await res.json()) as InviteDetails;
-        setDetails(data);
+        if (res.status !== 200) throw new Error("Failed to load invitation");
+        setDetails(res.body as InviteDetails);
         setPhase("info");
       } catch (err) {
         setError((err as Error).message);
@@ -65,9 +71,9 @@ export default function InvitePage() {
 
   // Load dev-login availability
   useEffect(() => {
-    fetch("/api/server/settings")
-      .then((r) => r.json())
-      .then((s: { devLogin?: boolean }) => setDevLogin(!!s.devLogin))
+    serverClient
+      .getSettings()
+      .then((res) => setDevLogin(!!unwrap(res).devLogin))
       .catch(() => {});
   }, []);
 
@@ -75,19 +81,9 @@ export default function InvitePage() {
     if (!token) return;
     setPhase("qr-loading");
     try {
-      const res = await fetch("/api/users/invite/from-email", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token }),
-      });
-      if (!res.ok) throw new Error("Failed to generate QR");
-      const data = (await res.json()) as {
-        qrUrl: string;
-        connectionString: string;
-        inviteToken: string;
-        key: string;
-        serverDid?: string;
-      };
+      const data = unwrap(
+        await usersClient.inviteFromEmail({ body: { token } })
+      );
       setQrUrl(data.qrUrl);
       setCertKey(data.key);
       setPhase("qr");
@@ -95,13 +91,14 @@ export default function InvitePage() {
       // Poll for connection using the returned invite token
       for (let i = 0; i < 180; i++) {
         await new Promise((r) => setTimeout(r, 1500));
-        const r = await fetch(`/api/user/listen/${data.inviteToken}`);
-        const { status: s } = (await r.json()) as { status: number };
+        const { status: s } = unwrap(
+          await userAuthClient.listen({ params: { token: data.inviteToken } })
+        );
         if (s === 2) {
           // Delete the invitation after successful connection
-          await fetch(`/api/invitations/${token}/delete`, {
-            method: "POST",
-          }).catch(() => {});
+          await invitationsClient
+            .delete({ params: { token } })
+            .catch(() => {});
           setPhase("success");
           return;
         }

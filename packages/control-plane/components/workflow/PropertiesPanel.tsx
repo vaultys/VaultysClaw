@@ -10,7 +10,12 @@ import {
   Calendar,
 } from "lucide-react";
 import { useWorkflowStore } from "./store";
-import { agentsClient, workflowsClient, unwrap } from "@/lib/api/ts-rest/client";
+import {
+  agentsClient,
+  usersClient,
+  workflowsClient,
+  unwrap,
+} from "@/lib/api/ts-rest/client";
 import { AgentInfo } from "@/lib/contracts";
 
 interface User {
@@ -608,11 +613,11 @@ export const PropertiesPanel: React.FC<{
       if (!workflowRealmId || workflowRealmId === "default") return;
       setUserLoading(true);
       try {
-        const res = await fetch(`/api/users/search?realm=${workflowRealmId}`);
-        if (!res.ok) throw new Error("Failed to fetch users");
-        const data = (await res.json()) as { users: User[] };
-        setUsers(data.users);
-        setFilteredUsers(data.users);
+        const { users } = unwrap(
+          await usersClient.search({ query: { realm: workflowRealmId } })
+        );
+        setUsers(users);
+        setFilteredUsers(users);
         setUserSearchQuery("");
       } catch (err) {
         console.error("Failed to fetch users:", err);

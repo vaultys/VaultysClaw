@@ -3,6 +3,7 @@
 import { useState, useCallback } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { Check, Loader2, AlertCircle, Mail, QrCode } from "lucide-react";
+import { usersClient, userAuthClient, unwrap } from "@/lib/api/ts-rest/client";
 
 type Phase = "form" | "sending" | "sent" | "qr-loading" | "qr" | "qr-success" | "qr-failure";
 
@@ -70,20 +71,19 @@ export default function InviteUserModal({
       const { token } = (await invRes.json()) as { token: string };
 
       // Generate QR from the invitation token
-      const qrRes = await fetch("/api/users/invite/from-email", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token }),
-      });
-      if (!qrRes.ok) {
+      let url: string;
+      let inviteToken: string;
+      try {
+        const data = unwrap(
+          await usersClient.inviteFromEmail({ body: { token } })
+        );
+        url = data.qrUrl;
+        inviteToken = data.inviteToken;
+      } catch {
         setError("Failed to generate QR code");
         setPhase("form");
         return;
       }
-      const { qrUrl: url, inviteToken } = (await qrRes.json()) as {
-        qrUrl: string;
-        inviteToken: string;
-      };
       setQrUrl(url);
       setPhase("qr");
       onSuccess();
@@ -91,8 +91,9 @@ export default function InviteUserModal({
       // Poll for wallet connection
       for (let i = 0; i < 180; i++) {
         await new Promise((r) => setTimeout(r, 1500));
-        const pr = await fetch(`/api/user/listen/${inviteToken}`);
-        const { status } = (await pr.json()) as { status: number };
+        const { status } = unwrap(
+          await userAuthClient.listen({ params: { token: inviteToken } })
+        );
         if (status === 2) { setPhase("qr-success"); return; }
         if (status === -2) { setPhase("qr-failure"); return; }
       }

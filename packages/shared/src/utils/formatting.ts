@@ -56,6 +56,26 @@ export function fmtDuration(ms: number): string {
 }
 
 /**
+ * Format the elapsed time between two instants (defaulting `end` to now).
+ * Accepts ISO strings or Date objects; naive strings are treated as UTC.
+ */
+export function durationBetween(
+  start: Date | string,
+  end: Date | string | null
+): string {
+  const s = start instanceof Date ? start : parseUTC(start);
+  const e = end ? (end instanceof Date ? end : parseUTC(end)) : new Date();
+  return fmtDuration(e.getTime() - s.getTime());
+}
+
+/**
+ * Format a number as a USD cost (e.g. 1.5 → "$1.50")
+ */
+export function formatCost(n: number, fractionDigits = 2): string {
+  return `$${n.toFixed(fractionDigits)}`;
+}
+
+/**
  * Extract initials from a name (e.g., "John Doe" → "JD")
  */
 export function getInitials(name: string): string {

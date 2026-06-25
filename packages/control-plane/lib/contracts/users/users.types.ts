@@ -103,3 +103,8 @@ export type ListUsersQuery = z.infer<typeof ListUsersQuerySchema>;
 export type UpdateUserBody = z.infer<typeof UpdateUserBodySchema>;
 export type InviteEmailBody = z.infer<typeof InviteEmailBodySchema>;
 export type CreateGrantBody = z.infer<typeof CreateGrantBodySchema>;
+export type Invitation = {
+  email: string;
+  name: string;
+  role: string;
+};

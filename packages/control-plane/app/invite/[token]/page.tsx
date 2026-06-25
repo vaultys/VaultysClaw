@@ -1,13 +1,8 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
-import {
-  Check,
-  Loader2,
-  AlertCircle,
-  Shield,
-} from "lucide-react";
+import { Check, Loader2, AlertCircle, Shield } from "lucide-react";
 import QRCodeScreen from "@/components/signin/QRCodeScreen";
 import {
   runBrowserDirectConnect,
@@ -20,6 +15,7 @@ import {
   userAuthClient,
   unwrap,
 } from "@/lib/api/ts-rest/client";
+import { Invitation } from "@/lib/contracts";
 
 type InvitePhase =
   | "loading"
@@ -30,19 +26,13 @@ type InvitePhase =
   | "error"
   | "expired";
 
-interface InviteDetails {
-  email: string;
-  name: string;
-  role: string;
-}
-
 export default function InvitePage() {
   const params = useParams();
   const router = useRouter();
   const token = params.token as string;
 
   const [phase, setPhase] = useState<InvitePhase>("loading");
-  const [details, setDetails] = useState<InviteDetails | null>(null);
+  const [details, setDetails] = useState<Invitation | null>(null);
   const [error, setError] = useState("");
   const [qrUrl, setQrUrl] = useState("");
   const [certKey, setCertKey] = useState("");
@@ -53,13 +43,14 @@ export default function InvitePage() {
   useEffect(() => {
     const load = async () => {
       try {
-        const res = await invitationsClient.get({ params: { token } });
-        if (res.status === 404) {
+        const invitation = unwrap(
+          await invitationsClient.get({ params: { token } })
+        );
+        if (!invitation) {
           setPhase("expired");
           return;
         }
-        if (res.status !== 200) throw new Error("Failed to load invitation");
-        setDetails(res.body as InviteDetails);
+        setDetails(invitation);
         setPhase("info");
       } catch (err) {
         setError((err as Error).message);
@@ -96,9 +87,7 @@ export default function InvitePage() {
         );
         if (s === 2) {
           // Delete the invitation after successful connection
-          await invitationsClient
-            .delete({ params: { token } })
-            .catch(() => {});
+          await invitationsClient.delete({ params: { token } }).catch(() => {});
           setPhase("success");
           return;
         }

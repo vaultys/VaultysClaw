@@ -1,10 +1,4 @@
 /**
- * Core types for VaultysClaw agent orchestration platform
- */
-
-import type { ChannelEvent } from "./channel-types";
-
-/**
  * Non-transferable identity bound to a specific instance
  */
 export interface VaultysIdentity {
@@ -371,6 +365,7 @@ export interface WSDelegationUpdatePayload {
 export interface ChatMessageEntry {
   role: "user" | "assistant";
   content: string;
+  thinkingContent?: string;
 }
 
 /**

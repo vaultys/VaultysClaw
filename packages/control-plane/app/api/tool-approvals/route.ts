@@ -17,9 +17,7 @@ const handlers = createNextRoute(toolApprovalsContract, {
     if (!wsServer)
       throw new APIException("UNAVAILABLE", "WebSocket server not available");
 
-    const approvals = wsServer.getPendingToolApprovals() as unknown as Array<
-      Record<string, unknown>
-    >;
+    const approvals = wsServer.getPendingToolApprovals();
     return { status: 200, body: { approvals } };
   },
 
@@ -36,7 +34,10 @@ const handlers = createNextRoute(toolApprovalsContract, {
       body.reason
     );
     if (!ok)
-      throw new APIException("UNAVAILABLE", "Failed to process approval response");
+      throw new APIException(
+        "UNAVAILABLE",
+        "Failed to process approval response"
+      );
 
     return { status: 200, body: undefined };
   },

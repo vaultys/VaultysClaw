@@ -1,7 +1,7 @@
 import { getAuthContext } from "@/lib/auth-utils";
 import { APIException } from "@/lib/api/utils/api-utils";
 import { AgentDAO } from "@/db";
-import { agentsContract } from "@/lib/contracts";
+import { agentsContract, BucketPoint } from "@/lib/contracts";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 
 const handlers = createNextRoute(agentsContract, {
@@ -34,7 +34,12 @@ const handlers = createNextRoute(agentsContract, {
     const from = query.from ?? defaultFrom;
     const to = query.to ?? defaultTo;
 
-    const rows = await AgentDAO.getTokenUsageHistory(agentDid, granularity, from, to);
+    const rows = await AgentDAO.getTokenUsageHistory(
+      agentDid,
+      granularity,
+      from,
+      to
+    );
 
     const data = fillBuckets(
       rows.map((r) => ({
@@ -52,12 +57,6 @@ const handlers = createNextRoute(agentsContract, {
 });
 
 export const GET = handlers.GET!;
-
-interface BucketPoint {
-  bucket: string;
-  promptTokens: number;
-  completionTokens: number;
-}
 
 function fillBuckets(
   rows: { bucket: string; prompt_tokens: number; completion_tokens: number }[],

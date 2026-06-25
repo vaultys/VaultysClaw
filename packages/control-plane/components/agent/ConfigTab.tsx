@@ -11,36 +11,8 @@ import {
 
 import { Key, RefreshCw } from "lucide-react";
 import Link from "next/link";
-import { SafeLlmConfig, type AgentInfo } from "@/lib/contracts";
+import { SafeLlmConfig, SafeModel, type AgentInfo } from "@/lib/contracts";
 import { RealmLlmData } from "@/types/api/responses";
-
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-interface RegistryModel {
-  id: string;
-  name: string;
-  description: string | null;
-  provider: string;
-  modelId: string;
-  status: string;
-  litellmModelName: string | null;
-}
-
-interface RealmLlmModel {
-  id: string;
-  name: string;
-  provider: string;
-  modelId: string;
-  litellmModelName: string | null;
-}
-
-interface RealmLlmRealm {
-  realmId: string;
-  realmName: string;
-  isPrimary: boolean;
-  hasVirtualKey: boolean;
-  models: RealmLlmModel[];
-}
 
 interface AgentKeyInfo {
   configured: boolean;
@@ -103,7 +75,7 @@ export function ConfigTab({
   const [configMode, setConfigMode] = useState<ConfigMode>("realm");
 
   // Registry / realm routing helpers
-  const [registryModels, setRegistryModels] = useState<RegistryModel[]>([]);
+  const [registryModels, setRegistryModels] = useState<SafeModel[]>([]);
   const [selectedRegistryId, setSelectedRegistryId] = useState("");
   const [realmLlmData, setRealmLlmData] = useState<RealmLlmData | null>(null);
   const [selectedRealmId, setSelectedRealmId] = useState("");
@@ -446,7 +418,9 @@ export function ConfigTab({
       setLlmStatus("saved");
       setTimeout(() => setLlmStatus("idle"), 2500);
     } catch (e) {
-      setLlmError(e instanceof Error ? e.message : "Failed to set LiteLLM model");
+      setLlmError(
+        e instanceof Error ? e.message : "Failed to set LiteLLM model"
+      );
       setLlmStatus("error");
     } finally {
       setLlmSaving(false);
@@ -778,7 +752,7 @@ export function ConfigTab({
                 </p>
                 {(realmLlmData?.realms ?? [])
                   .filter((r) => r.hasVirtualKey && r.models.length > 0)
-                  .map((realm: RealmLlmRealm) => (
+                  .map((realm) => (
                     <div key={realm.realmId} className="space-y-1.5">
                       <div className="flex items-center gap-2 text-xs text-foreground-500 font-medium uppercase tracking-wider">
                         <span>{realm.realmName}</span>

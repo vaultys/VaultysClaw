@@ -3,6 +3,7 @@
 import { useCallback, useState } from "react";
 import dynamic from "next/dynamic";
 import { MapPin } from "lucide-react";
+import { agentsClient, unwrap } from "@/lib/api/ts-rest/client";
 
 const LocationEditor = dynamic(
   () => import("@/components/map/WorldMap").then((m) => m.LocationEditor),
@@ -35,20 +36,7 @@ export function AgentLocationRow({
         loc === null
           ? { lat: null }
           : { lat: loc.lat, lon: loc.lon, label: loc.label };
-      const res = await fetch(
-        `/api/agents/${encodeURIComponent(did)}/location`,
-        {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-        }
-      );
-      if (!res.ok) {
-        const d = (await res.json().catch(() => null)) as {
-          error?: string;
-        } | null;
-        throw new Error(d?.error ?? "Failed to save location");
-      }
+      unwrap(await agentsClient.setLocation({ params: { did }, body }));
       setCurrent(loc);
     },
     [did]

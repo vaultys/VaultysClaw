@@ -35,6 +35,7 @@ import {
 import { ROUTE_REGISTRY } from "@/lib/route-registry";
 import type { ApiKey } from "@/lib/api/utils/api-types";
 import { cn } from "@/lib/utils";
+import { formatBytes, formatDate, formatUptime } from "@vaultysclaw/shared";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -69,28 +70,6 @@ interface DiagnosticCheck {
   status: "ok" | "fail";
   detail: string | null;
   hint: string | null;
-}
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function formatBytes(bytes: number): string {
-  if (!Number.isFinite(bytes) || bytes <= 0) return "0 B";
-  const units = ["B", "KB", "MB", "GB", "TB"];
-  const index = Math.min(
-    Math.floor(Math.log(bytes) / Math.log(1024)),
-    units.length - 1
-  );
-  return `${(bytes / 1024 ** index).toFixed(index === 0 ? 0 : 1)} ${units[index]}`;
-}
-
-function formatUptime(seconds: number): string {
-  if (!Number.isFinite(seconds) || seconds <= 0) return "0m";
-  const days = Math.floor(seconds / 86400);
-  const hours = Math.floor((seconds % 86400) / 3600);
-  const minutes = Math.floor((seconds % 3600) / 60);
-  if (days > 0) return `${days}d ${hours}h`;
-  if (hours > 0) return `${hours}h ${minutes}m`;
-  return `${minutes}m`;
 }
 
 // ─── Sub-components ───────────────────────────────────────────────────────────

@@ -8,8 +8,7 @@ import { useToolbar } from "@/components/layout/ToolbarContext";
 import { useBreadcrumbs } from "@/components/layout/BreadcrumbContext";
 import { realmsClient, unwrap, ApiError } from "@/lib/api/ts-rest/client";
 import type { RealmWithCounts } from "@/lib/contracts";
-
-type Realm = RealmWithCounts;
+import { slugify } from "@vaultysclaw/shared";
 
 const PRESET_COLORS = [
   "#6366f1",
@@ -23,13 +22,6 @@ const PRESET_COLORS = [
   "#3b82f6",
   "#06b6d4",
 ];
-
-function slugify(s: string) {
-  return s
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "");
-}
 
 function CreateRealmModal({
   onClose,

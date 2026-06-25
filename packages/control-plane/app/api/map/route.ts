@@ -3,17 +3,7 @@ import { AgentDAO, UserDAO } from "@/db";
 import { getWSServer } from "@/lib/ws-server";
 import { getDoclingConfig, getStorageConfig } from "@/db/settings.dao";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
-import { mapContract } from "@/lib/contracts";
-
-interface MapMarker {
-  id: string;
-  type: "agent" | "user" | "docling" | "s3";
-  label: string;
-  lat: number;
-  lon: number;
-  online?: boolean;
-  meta?: Record<string, unknown>;
-}
+import { mapContract, MapMarker } from "@/lib/contracts";
 
 /**
  * GET /api/map — aggregate all located entities (agents, users, services)

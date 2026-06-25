@@ -12,7 +12,11 @@ import ReactFlow, {
   Position,
 } from "reactflow";
 import "reactflow/dist/style.css";
-import type { GraphData, GraphNode } from "@vaultysclaw/shared";
+import {
+  getInitials,
+  type GraphData,
+  type GraphNode,
+} from "@vaultysclaw/shared";
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
@@ -60,18 +64,6 @@ const AGENT_STYLE = {
 function roleStyle(role?: string) {
   return ROLE_STYLE[role ?? "member"] ?? ROLE_STYLE.member;
 }
-
-function initials(label: string): string {
-  return (
-    label
-      .split(/\s+/)
-      .map((w) => w[0] ?? "")
-      .join("")
-      .toUpperCase()
-      .slice(0, 2) || "?"
-  );
-}
-
 function truncate(s: string, max: number) {
   return s.length > max ? s.slice(0, max - 1) + "…" : s;
 }
@@ -117,7 +109,7 @@ const AgentUserNode: React.FC<NodeProps<NodeData>> = ({ data, selected }) => {
         <div
           className={`w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0 ${bgColor}`}
         >
-          {initials(data.label)}
+          {getInitials(data.label)}
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-xs font-semibold text-foreground truncate">

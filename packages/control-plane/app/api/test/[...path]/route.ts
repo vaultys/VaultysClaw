@@ -19,7 +19,13 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getWSServer } from "@/lib/ws-server";
-import { ActivityLogDAO, AgentDAO, ModelDAO, PendingRegistrationDAO, RealmDAO } from "@/db";
+import {
+  ActivityLogDAO,
+  AgentDAO,
+  ModelDAO,
+  PendingRegistrationDAO,
+  RealmDAO,
+} from "@/db";
 import {
   isLiteLLMConfigured,
   getLiteLLMBaseUrl,
@@ -71,10 +77,7 @@ function guard(): NextResponse | null {
  *       404:
  *         $ref: '#/components/responses/NotFound'
  */
-export const GET = withError(async (
-  _req: NextRequest,
-  ctx: RouteContext
-) => {
+export const GET = withError(async (_req: NextRequest, ctx: RouteContext) => {
   const g = guard();
   if (g) return g;
 
@@ -103,27 +106,29 @@ export const GET = withError(async (
   if (resource === "agents" && rest[1] === "realm-llm") {
     const agentDid = rest[0];
     const memberships = await AgentDAO.getRealms(agentDid);
-    const realms = await Promise.all(memberships.map(async (m) => {
-      const routerKey = await RealmDAO.getRouterKey(m.realmId);
-      const models = (await ModelDAO.findByRealm(m.realmId))
-        .filter(
-          (model) => model.status === "active" && model.litellmModelName
-        )
-        .map((model) => ({
-          id: model.id,
-          name: model.name,
-          provider: model.provider,
-          modelId: model.modelId,
-          litellmModelName: model.litellmModelName,
-        }));
-      return {
-        realmId: m.realmId,
-        realmName: m.realm.name,
-        isPrimary: Boolean(m.isPrimary),
-        hasVirtualKey: Boolean(routerKey?.litellmVirtualKey),
-        models,
-      };
-    }));
+    const realms = await Promise.all(
+      memberships.map(async (m) => {
+        const routerKey = await RealmDAO.getRouterKey(m.realmId);
+        const models = (await ModelDAO.findByRealm(m.realmId))
+          .filter(
+            (model) => model.status === "active" && model.litellmModelName
+          )
+          .map((model) => ({
+            id: model.id,
+            name: model.name,
+            provider: model.provider,
+            modelId: model.modelId,
+            litellmModelName: model.litellmModelName,
+          }));
+        return {
+          realmId: m.realmId,
+          realmName: m.realm.name,
+          isPrimary: Boolean(m.isPrimary),
+          hasVirtualKey: Boolean(routerKey?.litellmVirtualKey),
+          models,
+        };
+      })
+    );
     return NextResponse.json({
       litellmConfigured: isLiteLLMConfigured(),
       litellmBaseUrl: getLiteLLMBaseUrl(),
@@ -201,10 +206,7 @@ export const GET = withError(async (
  *       503:
  *         description: WS server not initialised
  */
-export const POST = withError(async (
-  req: NextRequest,
-  ctx: RouteContext
-) => {
+export const POST = withError(async (req: NextRequest, ctx: RouteContext) => {
   const g = guard();
   if (g) return g;
 
@@ -519,31 +521,30 @@ export const POST = withError(async (
  *       404:
  *         $ref: '#/components/responses/NotFound'
  */
-export const DELETE = withError(async (
-  _req: NextRequest,
-  ctx: RouteContext
-) => {
-  const g = guard();
-  if (g) return g;
+export const DELETE = withError(
+  async (_req: NextRequest, ctx: RouteContext) => {
+    const g = guard();
+    if (g) return g;
 
-  const { path } = await ctx.params;
-  const [resource, id] = path;
+    const { path } = await ctx.params;
+    const [resource, id] = path;
 
-  // DELETE /api/test/models/:id
-  if (resource === "models" && id) {
-    const entry = await ModelDAO.findById(id);
-    if (!entry)
-      return NextResponse.json({ error: "Model not found" }, { status: 404 });
-    if (isLiteLLMConfigured() && entry.litellmModelName) {
-      try {
-        await removeModel(entry.litellmModelName);
-      } catch (e) {
-        console.warn("[test-api] LiteLLM removeModel failed (non-fatal):", e);
+    // DELETE /api/test/models/:id
+    if (resource === "models" && id) {
+      const entry = await ModelDAO.findById(id);
+      if (!entry)
+        return NextResponse.json({ error: "Model not found" }, { status: 404 });
+      if (isLiteLLMConfigured() && entry.litellmModelName) {
+        try {
+          await removeModel(entry.litellmModelName);
+        } catch (e) {
+          console.warn("[test-api] LiteLLM removeModel failed (non-fatal):", e);
+        }
       }
+      await ModelDAO.delete(id);
+      return NextResponse.json({ ok: true });
     }
-    await ModelDAO.delete(id);
-    return NextResponse.json({ ok: true });
-  }
 
-  return NextResponse.json({ error: "Not found" }, { status: 404 });
-});
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+);

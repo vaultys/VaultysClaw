@@ -2,10 +2,11 @@ import { getWSServer } from "@/lib/ws-server";
 import { getAuthContext } from "@/lib/auth-utils";
 import { APIException } from "@/lib/api/utils/api-utils";
 import { AgentDAO, RealmDAO, WorkflowDAO } from "@/db";
-import type { WorkflowDefinition } from "@/lib/workflow-executor";
+
 import { Prisma } from "@prisma/client";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 import { workflowsContract } from "@/lib/contracts";
+import { WorkflowDefinition } from "@/lib/workflow-types";
 
 /**
  * POST /api/workflows/test-seed
@@ -56,7 +57,11 @@ const handlers = createNextRoute(workflowsContract, {
     const nodes = connectedAgentIds.map((did, i) => ({
       id: `agent${i + 1}`,
       type: "agent",
-      data: { agentId: did, action: capabilities[i], params: { test: true, step: i + 1 } },
+      data: {
+        agentId: did,
+        action: capabilities[i],
+        params: { test: true, step: i + 1 },
+      },
       position: { x: 100 + i * 200, y: 100 },
     }));
     const edges = [

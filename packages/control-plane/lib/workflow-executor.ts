@@ -16,22 +16,7 @@ import type { Value as ExprValue } from "expr-eval";
 import { WorkflowDAO } from "../db";
 import { trace, SpanStatusCode } from "@opentelemetry/api";
 import { workflowRunsTotal } from "./metrics";
-
-export interface WorkflowDefinition {
-  nodes: Array<{
-    id: string;
-    type: string;
-    data: Record<string, unknown>;
-    position?: { x: number; y: number };
-  }>;
-  edges: Array<{
-    id: string;
-    source: string;
-    target: string;
-    data?: Record<string, unknown>;
-  }>;
-  input?: string;
-}
+import { WorkflowDefinition } from "./workflow-types";
 
 const logger = pino({ name: "workflow-executor" });
 

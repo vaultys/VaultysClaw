@@ -19,6 +19,7 @@ import {
   SetAdminBodySchema,
 } from "./users.schemas";
 import type {
+  Invitation,
   MeProfile,
   UnclaimedUserDetail,
   UpdateMeResponse,
@@ -289,7 +290,7 @@ export const invitationsContract = c.router({
     pathParams: TokenParamSchema,
     summary: "Retrieve invitation details using a token",
     responses: {
-      200: z.object({ email: z.string(), name: z.string(), role: z.string() }),
+      200: c.type<Invitation>(),
       ...commonErrorResponses,
     },
   },

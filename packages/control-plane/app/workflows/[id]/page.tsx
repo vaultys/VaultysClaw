@@ -1,5 +1,4 @@
 "use client";
-
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
@@ -23,92 +22,17 @@ import { WorkflowViewer } from "@/components/workflow/WorkflowViewer";
 import { WorkflowRunModal } from "@/components/workflow/WorkflowRunModal";
 import { useToolbar } from "@/components/layout/ToolbarContext";
 import { useBreadcrumbs } from "@/components/layout/BreadcrumbContext";
-import type { WorkflowDefinition } from "@/lib/workflow-types";
 import {
   agentsClient,
   workflowsClient,
   workflowRunsClient,
   unwrap,
+  realmsClient,
 } from "@/lib/api/ts-rest/client";
-
-interface WorkflowData {
-  id: string;
-  name: string;
-  description: string | null;
-  definition: WorkflowDefinition;
-  realmId?: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-interface WorkflowRun {
-  id: string;
-  workflowId: string;
-  status: string;
-  startedAt: string;
-  completedAt: string | null;
-  results?: string | null;
-}
-
-interface WorkflowRunStep {
-  id: string;
-  runId: string;
-  stepId: string;
-  agentId: string | null;
-  status: string;
-  output: string | null;
-  error: string | null;
-  startedAt: string | null;
-  completedAt: string | null;
-  assignedUserId: string | null;
-  assignedUserName: string | null;
-  assignedUserEmail: string | null;
-}
-
-interface RunDetail {
-  run: WorkflowRun;
-  workflow: { id: string; name: string; definition: WorkflowDefinition } | null;
-  steps: WorkflowRunStep[];
-}
-
-function parseTimestamp(val: unknown): number | null {
-  if (val === null || val === undefined || val === "" || val === false)
-    return null;
-  if (typeof val === "number") return val > 0 ? val * 1000 : null;
-  if (typeof val === "string") {
-    if (!val.trim()) return null;
-    if (/^\d+$/.test(val)) {
-      const n = parseInt(val, 10);
-      return n > 0 ? n * 1000 : null;
-    }
-    let s = val.replace(" ", "T");
-    if (!s.endsWith("Z") && !s.includes("+") && !/[+-]\d{2}:\d{2}$/.test(s))
-      s += "Z";
-    const t = new Date(s).getTime();
-    return isNaN(t) ? null : t;
-  }
-  return null;
-}
-
-function formatDate(val: unknown): string {
-  const ms = parseTimestamp(val);
-  if (ms === null) return "—";
-  const date = new Date(ms);
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")} ${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}:${String(date.getSeconds()).padStart(2, "0")}`;
-}
-
-function timeAgo(val: unknown): string {
-  const ms = parseTimestamp(val);
-  if (ms === null) return "—";
-  const seconds = Math.floor((Date.now() - ms) / 1000);
-  if (seconds < 5) return "just now";
-  if (seconds < 60) return `${seconds}s ago`;
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  return `${Math.floor(hours / 24)}d ago`;
-}
+import { WorkflowRunDetail, WorkflowRunWithName } from "@/lib/contracts";
+import { Workflow, WorkflowStep } from "@prisma/client";
+import { WorkflowDefinition } from "@/lib/workflow-types";
+import { formatDateTime, timeAgo } from "@vaultysclaw/shared";
 
 function topoSort(
   nodes: Array<{ id: string }>,
@@ -192,17 +116,17 @@ export default function WorkflowDetailPage() {
   const router = useRouter();
   const workflowId = typeof params.id === "string" ? params.id : params.id?.[0];
 
-  const [workflow, setWorkflow] = useState<WorkflowData | null>(null);
+  const [workflow, setWorkflow] = useState<Workflow | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [runs, setRuns] = useState<WorkflowRun[]>([]);
+  const [runs, setRuns] = useState<WorkflowRunWithName[]>([]);
   const [runsLoading, setRunsLoading] = useState(false);
   const [runSearch, setRunSearch] = useState("");
   const [runStatusFilter, setRunStatusFilter] = useState("all");
 
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
-  const [runDetail, setRunDetail] = useState<RunDetail | null>(null);
+  const [runDetail, setRunDetail] = useState<WorkflowRunDetail | null>(null);
   const [runDetailLoading, setRunDetailLoading] = useState(false);
   const [expandedSteps, setExpandedSteps] = useState<Set<string>>(new Set());
 
@@ -237,8 +161,10 @@ export default function WorkflowDetailPage() {
     for (const step of runDetail.steps) {
       if (step.agentId) dids.add(step.agentId);
     }
-    for (const node of runDetail.workflow?.definition?.nodes ?? []) {
-      const did = (node.data as any)?.agentId;
+    for (const node of (
+      runDetail.workflow?.definition as unknown as WorkflowDefinition
+    )?.nodes ?? []) {
+      const did = node.data?.agentId as string | undefined;
       if (did) dids.add(did);
     }
     dids.forEach((did) => resolveAgentName(did));
@@ -247,19 +173,15 @@ export default function WorkflowDetailPage() {
   const fetchWorkflow = async (id: string) => {
     try {
       setLoading(true);
-      const res = await workflowsClient.getOne({ params: { id } });
-      if (res.status !== 200) {
-        setError(
-          res.status === 404 ? "Workflow not found" : "Failed to load workflow"
-        );
-        return;
-      }
-      const data = res.body as unknown as { workflow: WorkflowData };
-      setWorkflow(data.workflow);
-      if (data.workflow.realmId) {
-        fetch(`/api/realms/${data.workflow.realmId}`)
-          .then((r) => (r.ok ? r.json() : null))
-          .then((d: any) => d?.realm?.name && setRealmName(d.realm.name))
+      const workflow = unwrap(
+        await workflowsClient.getOne({ params: { id } })
+      ).workflow;
+      setWorkflow(workflow);
+      if (workflow.realmId) {
+        realmsClient
+          .getOne({ params: { id: workflow.realmId } })
+          .then((r) => unwrap(r))
+          .then((realm) => setRealmName(realm.name))
           .catch(() => {});
       }
     } catch {
@@ -298,7 +220,7 @@ export default function WorkflowDetailPage() {
         },
       });
       if (res.status !== 200) return;
-      setRuns(res.body.runs as unknown as WorkflowRun[]);
+      setRuns(res.body.runs);
     } catch {
       /* ignore */
     } finally {
@@ -309,9 +231,10 @@ export default function WorkflowDetailPage() {
   const fetchRunDetail = async (runId: string) => {
     try {
       setRunDetailLoading(true);
-      const res = await workflowRunsClient.getOne({ params: { runId } });
-      if (res.status !== 200) return;
-      setRunDetail(res.body as unknown as RunDetail);
+      const workflowRunDetail = unwrap(
+        await workflowRunsClient.getOne({ params: { runId } })
+      );
+      setRunDetail(workflowRunDetail);
     } catch {
       /* ignore */
     } finally {
@@ -337,12 +260,17 @@ export default function WorkflowDetailPage() {
     return matchesStatus && matchesSearch;
   });
 
-  const getSortedSteps = (detail: RunDetail): WorkflowRunStep[] => {
-    const def = detail.workflow?.definition;
+  const getSortedSteps = (detail: WorkflowRunDetail): WorkflowStep[] => {
+    const def = detail.workflow?.definition as
+      | {
+          nodes: Array<{ id: string }>;
+          edges: Array<{ source: string; target: string }>;
+        }
+      | undefined;
     if (def) {
       const order = topoSort(def.nodes, def.edges);
       const stepMap = new Map(detail.steps.map((s) => [s.stepId, s]));
-      const sorted: WorkflowRunStep[] = [];
+      const sorted: WorkflowStep[] = [];
       for (const nodeId of order) {
         const s = stepMap.get(nodeId);
         if (s) sorted.push(s);
@@ -353,14 +281,16 @@ export default function WorkflowDetailPage() {
       return sorted;
     }
     return [...detail.steps].sort((a, b) => {
-      const at = parseTimestamp(a.startedAt) ?? 0;
-      const bt = parseTimestamp(b.startedAt) ?? 0;
+      const at = a.startedAt?.getTime() ?? 0;
+      const bt = b.startedAt?.getTime() ?? 0;
       return at - bt;
     });
   };
 
-  const nodeCount = workflow?.definition?.nodes?.length ?? 0;
-  const edgeCount = workflow?.definition?.edges?.length ?? 0;
+  const nodeCount =
+    (workflow?.definition as unknown as WorkflowDefinition)?.nodes?.length ?? 0;
+  const edgeCount =
+    (workflow?.definition as unknown as WorkflowDefinition)?.edges?.length ?? 0;
 
   useBreadcrumbs(
     [
@@ -457,7 +387,11 @@ export default function WorkflowDetailPage() {
               </div>
             ) : (
               <div className="h-72">
-                <WorkflowViewer definition={workflow.definition} />
+                <WorkflowViewer
+                  definition={
+                    workflow.definition as unknown as WorkflowDefinition
+                  }
+                />
               </div>
             )}
           </div>
@@ -471,7 +405,7 @@ export default function WorkflowDetailPage() {
                   Created
                 </p>
                 <p className="text-foreground">
-                  {formatDate(workflow.createdAt)}
+                  {formatDateTime(workflow.createdAt)}
                 </p>
               </div>
               <div>
@@ -479,7 +413,7 @@ export default function WorkflowDetailPage() {
                   Last updated
                 </p>
                 <p className="text-foreground">
-                  {formatDate(workflow.updatedAt)}
+                  {formatDateTime(workflow.updatedAt)}
                 </p>
                 <p className="text-foreground-500 text-xs mt-0.5">
                   {timeAgo(workflow.updatedAt)}
@@ -568,7 +502,7 @@ export default function WorkflowDetailPage() {
                       Started
                     </p>
                     <p className="text-foreground text-xs">
-                      {formatDate(runDetail.run.startedAt)}
+                      {formatDateTime(runDetail.run.startedAt)}
                     </p>
                     <p className="text-foreground-400 text-xs mt-0.5">
                       {timeAgo(runDetail.run.startedAt)}
@@ -579,7 +513,7 @@ export default function WorkflowDetailPage() {
                       Completed
                     </p>
                     <p className="text-foreground text-xs">
-                      {formatDate(runDetail.run.completedAt)}
+                      {formatDateTime(runDetail.run.completedAt)}
                     </p>
                   </div>
                   <div>
@@ -597,7 +531,15 @@ export default function WorkflowDetailPage() {
                   {getSortedSteps(runDetail).map((step, idx) => {
                     const def = runDetail.workflow?.definition;
                     const nodeMap = new Map(
-                      def?.nodes.map((n) => [n.id, n]) ?? []
+                      (
+                        def as {
+                          nodes: Array<{
+                            id: string;
+                            data?: Record<string, unknown>;
+                          }>;
+                          edges: Array<{ source: string; target: string }>;
+                        }
+                      )?.nodes.map((n) => [n.id, n]) ?? []
                     );
                     const node = nodeMap.get(step.stepId);
                     const nodeData = node?.data ?? {};
@@ -609,19 +551,15 @@ export default function WorkflowDetailPage() {
                       ? (agentNames[agentDid] ?? null)
                       : null;
                     const userDid =
-                      step.assignedUserId ??
-                      (nodeData.assignedUserId as string | undefined) ??
-                      null;
+                      (nodeData.assignedUserId as string | undefined) ?? null;
                     const userName =
-                      step.assignedUserName ??
-                      (nodeData.assignedUserName as string | undefined) ??
-                      null;
-                    const userEmail = step.assignedUserEmail ?? null;
+                      (nodeData.assignedUserName as string | undefined) ?? null;
+                    const userEmail = null;
                     const nodeLabel =
                       (nodeData.label as string | undefined) ?? step.stepId;
                     const isExpanded = expandedSteps.has(step.id);
-                    const stepStartMs = parseTimestamp(step.startedAt);
-                    const stepEndMs = parseTimestamp(step.completedAt);
+                    const stepStartMs = step.startedAt?.getTime() ?? null;
+                    const stepEndMs = step.completedAt?.getTime() ?? null;
                     const stepDuration =
                       stepStartMs !== null && stepEndMs !== null
                         ? Math.round((stepEndMs - stepStartMs) / 1000)
@@ -667,7 +605,7 @@ export default function WorkflowDetailPage() {
                             </div>
                             {step.startedAt && (
                               <p className="text-xs text-foreground-400 mt-0.5">
-                                {formatDate(step.startedAt)}
+                                {formatDateTime(step.startedAt)}
                                 {stepDuration !== null && ` · ${stepDuration}s`}
                               </p>
                             )}
@@ -730,21 +668,15 @@ export default function WorkflowDetailPage() {
                             )}
                             {step.output &&
                               (() => {
-                                let parsed: unknown;
-                                try {
-                                  parsed = JSON.parse(step.output);
-                                } catch {
-                                  parsed = step.output;
-                                }
                                 return (
                                   <div>
                                     <p className="text-xs text-foreground-500 mb-1.5">
                                       Output
                                     </p>
                                     <pre className="bg-background-100 rounded p-2.5 text-foreground text-xs font-mono overflow-auto max-h-40 border border-neutral-200">
-                                      {typeof parsed === "string"
-                                        ? parsed
-                                        : JSON.stringify(parsed, null, 2)}
+                                      {typeof step.output === "string"
+                                        ? step.output
+                                        : JSON.stringify(step.output, null, 2)}
                                     </pre>
                                   </div>
                                 );
@@ -774,21 +706,15 @@ export default function WorkflowDetailPage() {
                 {/* Results */}
                 {runDetail.run.results &&
                   (() => {
-                    let parsed: unknown;
-                    try {
-                      parsed = JSON.parse(runDetail.run.results);
-                    } catch {
-                      parsed = runDetail.run.results;
-                    }
                     return (
                       <div className="mt-4 pt-4 border-t border-neutral-200">
                         <p className="text-sm font-semibold text-foreground mb-2">
                           Results
                         </p>
                         <pre className="bg-background rounded p-3 text-foreground text-xs font-mono overflow-auto max-h-40 border border-neutral-200">
-                          {typeof parsed === "string"
-                            ? parsed
-                            : JSON.stringify(parsed, null, 2)}
+                          {typeof runDetail.run.results === "string"
+                            ? runDetail.run.results
+                            : JSON.stringify(runDetail.run.results, null, 2)}
                         </pre>
                       </div>
                     );
@@ -868,8 +794,8 @@ export default function WorkflowDetailPage() {
                 </thead>
                 <tbody>
                   {filteredRuns.map((run) => {
-                    const startMs = parseTimestamp(run.startedAt);
-                    const endMs = parseTimestamp(run.completedAt);
+                    const startMs = run.startedAt?.getTime() ?? null;
+                    const endMs = run.completedAt?.getTime() ?? null;
                     const duration =
                       startMs !== null && endMs !== null
                         ? Math.round((endMs - startMs) / 1000)
@@ -899,7 +825,7 @@ export default function WorkflowDetailPage() {
                         </td>
                         <td className="px-4 py-3">
                           <div className="text-foreground text-xs">
-                            {formatDate(run.startedAt)}
+                            {formatDateTime(run.startedAt)}
                           </div>
                           <div className="text-foreground-500 text-xs mt-0.5">
                             {timeAgo(run.startedAt)}
@@ -924,7 +850,7 @@ export default function WorkflowDetailPage() {
           workflowId={workflow.id}
           workflowName={workflow.name}
           workflowDescription={workflow.description}
-          definition={workflow.definition}
+          definition={workflow.definition as unknown as WorkflowDefinition}
           isOpen={executingWorkflow}
           onClose={() => {
             setExecutingWorkflow(false);

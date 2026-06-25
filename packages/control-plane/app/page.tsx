@@ -43,33 +43,13 @@ import {
   workflowRunsClient,
   unwrap,
 } from "@/lib/api/ts-rest/client";
-import { AgentInfo } from "@/lib/contracts";
-
-/* ─── Helpers ────────────────────────────────────────────────── */
-
-function parseUTC(iso: string): Date {
-  return new Date(iso.endsWith("Z") ? iso : iso + "Z");
-}
-
-function timeAgo(iso: string | null): string {
-  if (!iso) return "—";
-  const seconds = Math.floor((Date.now() - parseUTC(iso).getTime()) / 1000);
-  if (seconds < 5) return "just now";
-  if (seconds < 60) return `${seconds}s ago`;
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  return `${Math.floor(hours / 24)}d ago`;
-}
-
-function greeting(name: string | null | undefined): string {
-  const hour = new Date().getHours();
-  const first = name?.split(" ")[0] ?? "there";
-  if (hour < 12) return `Good morning, ${first}`;
-  if (hour < 18) return `Good afternoon, ${first}`;
-  return `Good evening, ${first}`;
-}
+import {
+  AgentInfo,
+  PolicyEntry,
+  WorkflowApprovalItem,
+  WorkflowRunWithName,
+} from "@/lib/contracts";
+import { greeting, timeAgo } from "@vaultysclaw/shared";
 
 /* ─── Landing page (unauthenticated) ─────────────────────────── */
 
@@ -266,42 +246,6 @@ function LandingPage() {
   );
 }
 
-/* ─── Dashboard (authenticated) ──────────────────────────────── */
-
-interface Approval {
-  id: string;
-  runId: string;
-  stepId: string;
-  workflowId: string;
-  workflowName: string;
-  nodeMessage: string | null;
-  stepInput: string | null;
-  mode: "approval" | "notification";
-  status: string;
-  createdAt: string;
-}
-
-interface WorkflowRun {
-  id: string;
-  workflowId: string;
-  workflowName?: string;
-  status: "running" | "completed" | "failed" | "pending";
-  startedAt: string;
-  completedAt?: string | null;
-}
-
-interface ExpiredPolicy {
-  id: string;
-  agentDid: string | null;
-  capabilities: string[];
-  resourceLimits: {
-    maxTokensPerDay?: number;
-    maxRequestsPerHour?: number;
-  } | null;
-  expiresAt: string | null;
-  createdAt: string;
-}
-
 /* ─── Quick Action button ─────────────────────────────────────── */
 
 function QuickAction({
@@ -320,10 +264,14 @@ function QuickAction({
   badge?: number;
 }) {
   const colors = {
-    primary: "bg-primary-100 text-primary-600 border-primary-200 group-hover:bg-primary-200",
-    success: "bg-success-100 text-success-600 border-success-200 group-hover:bg-success-200",
-    warning: "bg-warning-100 text-warning-600 border-warning-200 group-hover:bg-warning-200",
-    secondary: "bg-secondary-100 text-secondary-600 border-secondary-200 group-hover:bg-secondary-200",
+    primary:
+      "bg-primary-100 text-primary-600 border-primary-200 group-hover:bg-primary-200",
+    success:
+      "bg-success-100 text-success-600 border-success-200 group-hover:bg-success-200",
+    warning:
+      "bg-warning-100 text-warning-600 border-warning-200 group-hover:bg-warning-200",
+    secondary:
+      "bg-secondary-100 text-secondary-600 border-secondary-200 group-hover:bg-secondary-200",
   };
 
   return (
@@ -337,8 +285,12 @@ function QuickAction({
         <Icon className="w-4 h-4" />
       </div>
       <div className="min-w-0 flex-1">
-        <p className="text-sm font-semibold text-foreground leading-tight">{label}</p>
-        <p className="text-xs text-foreground-400 mt-0.5 leading-tight">{description}</p>
+        <p className="text-sm font-semibold text-foreground leading-tight">
+          {label}
+        </p>
+        <p className="text-xs text-foreground-400 mt-0.5 leading-tight">
+          {description}
+        </p>
       </div>
       {badge !== undefined && badge > 0 && (
         <span className="absolute top-2 right-2 inline-flex items-center justify-center min-w-[18px] h-[18px] text-[10px] font-bold text-white bg-warning-500 rounded-full px-1">
@@ -352,7 +304,13 @@ function QuickAction({
 
 /* ─── Agent pill ──────────────────────────────────────────────── */
 
-function AgentPill({ agent, onClick }: { agent: AgentInfo; onClick: () => void }) {
+function AgentPill({
+  agent,
+  onClick,
+}: {
+  agent: AgentInfo;
+  onClick: () => void;
+}) {
   return (
     <button
       onClick={onClick}
@@ -365,7 +323,9 @@ function AgentPill({ agent, onClick }: { agent: AgentInfo; onClick: () => void }
         {agent.name}
       </span>
       {agent.online && (
-        <span className="text-[10px] text-success-600 font-medium shrink-0">online</span>
+        <span className="text-[10px] text-success-600 font-medium shrink-0">
+          online
+        </span>
       )}
       <ChevronRight className="w-3 h-3 text-foreground-300 group-hover:text-primary-500 shrink-0 transition-colors" />
     </button>
@@ -381,9 +341,14 @@ function RunStatusBadge({ status }: { status: string }) {
     failed: { cls: "bg-danger-100 text-danger-700", label: "Failed" },
     pending: { cls: "bg-warning-100 text-warning-700", label: "Pending" },
   };
-  const { cls, label } = map[status] ?? { cls: "bg-background-200 text-foreground-500", label: status };
+  const { cls, label } = map[status] ?? {
+    cls: "bg-background-200 text-foreground-500",
+    label: status,
+  };
   return (
-    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${cls}`}>
+    <span
+      className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${cls}`}
+    >
       {label}
     </span>
   );
@@ -404,7 +369,7 @@ function NoRealmScreen() {
     fetch("/api/admins")
       .then((r) => (r.ok ? r.json() : { admins: [] }))
       .then((d: { admins?: AdminContact[] }) => setAdmins(d.admins ?? []))
-      .catch(() => { })
+      .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
 
@@ -455,11 +420,11 @@ function NoRealmScreen() {
                   <div className="w-8 h-8 rounded-full bg-primary-100 border border-primary-200 flex items-center justify-center shrink-0 text-primary-600 font-semibold text-sm">
                     {admin.name
                       ? admin.name
-                        .split(" ")
-                        .map((p) => p[0])
-                        .join("")
-                        .slice(0, 2)
-                        .toUpperCase()
+                          .split(" ")
+                          .map((p) => p[0])
+                          .join("")
+                          .slice(0, 2)
+                          .toUpperCase()
                       : "?"}
                   </div>
                   <div className="flex-1 min-w-0">
@@ -553,7 +518,9 @@ function Dashboard() {
     : (realmAgents?.filter((a) => a.online).length ?? 0);
 
   // ── Setup banner ─────────────────────────────────────────────
-  const [setupBanner, setSetupBanner] = useState<{ completedCount: number } | null>(null);
+  const [setupBanner, setSetupBanner] = useState<{
+    completedCount: number;
+  } | null>(null);
 
   useEffect(() => {
     if (!isGlobalAdmin) return;
@@ -574,15 +541,15 @@ function Dashboard() {
   };
 
   // ── Approvals ─────────────────────────────────────────────────
-  const [approvals, setApprovals] = useState<Approval[]>([]);
+  const [approvals, setApprovals] = useState<WorkflowApprovalItem[]>([]);
   const [acting, setActing] = useState<string | null>(null);
   const [comment, setComment] = useState<Record<string, string>>({});
 
   const fetchApprovals = () =>
     workflowApprovalsClient
       .list({ query: {} })
-      .then((r) => setApprovals(unwrap(r).approvals as unknown as Approval[]))
-      .catch(() => { });
+      .then((r) => setApprovals(unwrap(r).approvals))
+      .catch(() => {});
 
   useEffect(() => {
     fetchApprovals();
@@ -591,8 +558,10 @@ function Dashboard() {
   }, []);
 
   // ── Expired policies ──────────────────────────────────────────
-  const [expiredPolicies, setExpiredPolicies] = useState<ExpiredPolicy[]>([]);
-  const [renewingPolicy, setRenewingPolicy] = useState<ExpiredPolicy | null>(null);
+  const [expiredPolicies, setExpiredPolicies] = useState<PolicyEntry[]>([]);
+  const [renewingPolicy, setRenewingPolicy] = useState<PolicyEntry | null>(
+    null
+  );
   const [renewExpiry, setRenewExpiry] = useState("");
   const [renewSaving, setRenewSaving] = useState(false);
 
@@ -601,7 +570,7 @@ function Dashboard() {
     policiesClient
       .list({ query: { expiredOnly: true } })
       .then((r) => setExpiredPolicies(unwrap(r).policies))
-      .catch(() => { });
+      .catch(() => {});
   };
 
   useEffect(() => {
@@ -611,7 +580,7 @@ function Dashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isGlobalAdmin]);
 
-  const openRenewFromDashboard = (p: ExpiredPolicy) => {
+  const openRenewFromDashboard = (p: PolicyEntry) => {
     const pad = (n: number) => String(n).padStart(2, "0");
     const d = new Date(Date.now() + 30 * 86_400_000);
     setRenewExpiry(
@@ -626,7 +595,7 @@ function Dashboard() {
     try {
       const rl =
         renewingPolicy.resourceLimits &&
-          Object.keys(renewingPolicy.resourceLimits).length > 0
+        Object.keys(renewingPolicy.resourceLimits).length > 0
           ? renewingPolicy.resourceLimits
           : undefined;
       unwrap(
@@ -650,13 +619,13 @@ function Dashboard() {
   };
 
   // ── Recent workflow runs ──────────────────────────────────────
-  const [recentRuns, setRecentRuns] = useState<WorkflowRun[]>([]);
+  const [recentRuns, setRecentRuns] = useState<WorkflowRunWithName[]>([]);
 
   const fetchRecentRuns = useCallback(() => {
     workflowRunsClient
       .list({ query: { pageSize: 6, sortDir: "desc" } })
-      .then((r) => setRecentRuns(unwrap(r).runs as unknown as WorkflowRun[]))
-      .catch(() => { });
+      .then((r) => setRecentRuns(unwrap(r).runs))
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -700,7 +669,8 @@ function Dashboard() {
     (a) => a.mode === "notification" && a.status === "notified"
   );
 
-  const queueCount = pendingApprovals.length + (isGlobalAdmin ? pendingRegs.length : 0);
+  const queueCount =
+    pendingApprovals.length + (isGlobalAdmin ? pendingRegs.length : 0);
   const onlineAgents = agents.filter((a) => a.online);
 
   /* ─── render ─────────────────────────────────────────────────── */
@@ -712,7 +682,6 @@ function Dashboard() {
 
   return (
     <div className="p-6 w-full max-w-7xl mx-auto space-y-5">
-
       {/* ── Header ─────────────────────────────────────────────── */}
       <div className="flex items-start justify-between gap-4">
         <div>
@@ -732,18 +701,24 @@ function Dashboard() {
             )}
             {queueCount > 0 && (
               <span className="ml-2 text-warning-600 font-medium">
-                · {queueCount} item{queueCount !== 1 ? "s" : ""} need{queueCount === 1 ? "s" : ""} your attention
+                · {queueCount} item{queueCount !== 1 ? "s" : ""} need
+                {queueCount === 1 ? "s" : ""} your attention
               </span>
             )}
           </p>
         </div>
         <span
-          className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full border shrink-0 ${wsConnected
-            ? "bg-success-100 border-success-300 text-success-700"
-            : "bg-warning-100 border-warning-300 text-warning-700"
-            }`}
+          className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full border shrink-0 ${
+            wsConnected
+              ? "bg-success-100 border-success-300 text-success-700"
+              : "bg-warning-100 border-warning-300 text-warning-700"
+          }`}
         >
-          {wsConnected ? <Wifi className="w-3 h-3" /> : <WifiOff className="w-3 h-3" />}
+          {wsConnected ? (
+            <Wifi className="w-3 h-3" />
+          ) : (
+            <WifiOff className="w-3 h-3" />
+          )}
           {wsConnected ? "Live" : "Connecting…"}
         </span>
       </div>
@@ -753,116 +728,127 @@ function Dashboard() {
         (isGlobalAdmin && pendingRegs.length > 0) ||
         (isGlobalAdmin && expiredPolicies.length > 0) ||
         setupBanner) && (
-          <div className="space-y-2">
-            {!wsConnected && (
-              <div className="flex items-center gap-2 bg-warning-50 border border-warning-300 rounded-lg px-4 py-2.5 text-warning-700 text-sm">
-                <WifiOff className="w-4 h-4 shrink-0" />
-                WebSocket connection is being restored. Some data may be stale.
+        <div className="space-y-2">
+          {!wsConnected && (
+            <div className="flex items-center gap-2 bg-warning-50 border border-warning-300 rounded-lg px-4 py-2.5 text-warning-700 text-sm">
+              <WifiOff className="w-4 h-4 shrink-0" />
+              WebSocket connection is being restored. Some data may be stale.
+            </div>
+          )}
+
+          {isGlobalAdmin && pendingRegs.length > 0 && (
+            <button
+              onClick={() => router.push("/registrations")}
+              className="w-full flex items-center justify-between gap-3 bg-warning-50 border border-warning-300 rounded-lg px-4 py-2.5 text-warning-700 text-sm hover:bg-warning-100/50 transition-colors group"
+            >
+              <div className="flex items-center gap-2">
+                <Clock className="w-4 h-4 shrink-0" />
+                <strong>{pendingRegs.length}</strong> agent registration
+                {pendingRegs.length !== 1 ? "s" : ""} pending approval
               </div>
-            )}
+              <ChevronRight className="w-4 h-4 shrink-0 group-hover:translate-x-0.5 transition-transform" />
+            </button>
+          )}
 
-            {isGlobalAdmin && pendingRegs.length > 0 && (
-              <button
-                onClick={() => router.push("/registrations")}
-                className="w-full flex items-center justify-between gap-3 bg-warning-50 border border-warning-300 rounded-lg px-4 py-2.5 text-warning-700 text-sm hover:bg-warning-100/50 transition-colors group"
-              >
-                <div className="flex items-center gap-2">
-                  <Clock className="w-4 h-4 shrink-0" />
-                  <strong>{pendingRegs.length}</strong> agent registration
-                  {pendingRegs.length !== 1 ? "s" : ""} pending approval
-                </div>
-                <ChevronRight className="w-4 h-4 shrink-0 group-hover:translate-x-0.5 transition-transform" />
-              </button>
-            )}
-
-            {isGlobalAdmin && expiredPolicies.length > 0 && (
-              <div className="bg-danger-50 border border-danger-300 rounded-lg overflow-hidden">
-                <div className="flex items-center justify-between px-4 py-2.5 border-b border-danger-200">
-                  <span className="flex items-center gap-2 text-danger-700 text-sm font-medium">
-                    <ShieldAlert className="w-4 h-4 shrink-0" />
-                    {expiredPolicies.length} expired polic
-                    {expiredPolicies.length === 1 ? "y" : "ies"} — agents are locked
-                  </span>
-                  <button
-                    onClick={() => router.push("/governance")}
-                    className="text-xs text-danger-600 hover:underline flex items-center gap-1"
-                  >
-                    View all <ChevronRight className="w-3 h-3" />
-                  </button>
-                </div>
-                <div className="divide-y divide-danger-200/60">
-                  {expiredPolicies.slice(0, 3).map((p) => {
-                    const agentName = agents.find((a) => a.did === p.agentDid)?.name;
-                    return (
-                      <div key={p.id} className="flex items-center justify-between gap-3 px-4 py-2">
-                        <p className="text-xs text-danger-800 truncate">
-                          {agentName ?? (p.agentDid ? `${p.agentDid.slice(0, 24)}…` : "Global")}
-                          <span className="text-danger-500 ml-1.5">· {p.capabilities.length} cap{p.capabilities.length !== 1 ? "s" : ""}</span>
-                        </p>
-                        <button
-                          onClick={() => openRenewFromDashboard(p)}
-                          className="flex-shrink-0 flex items-center gap-1 text-xs font-medium text-danger-700 hover:text-primary-600 border border-danger-300 hover:border-primary-400 px-2 py-0.5 rounded transition-colors"
-                        >
-                          <RotateCcw className="w-3 h-3" /> Renew
-                        </button>
-                      </div>
-                    );
-                  })}
-                  {expiredPolicies.length > 3 && (
-                    <p className="px-4 py-1.5 text-xs text-danger-600/70">
-                      +{expiredPolicies.length - 3} more —{" "}
+          {isGlobalAdmin && expiredPolicies.length > 0 && (
+            <div className="bg-danger-50 border border-danger-300 rounded-lg overflow-hidden">
+              <div className="flex items-center justify-between px-4 py-2.5 border-b border-danger-200">
+                <span className="flex items-center gap-2 text-danger-700 text-sm font-medium">
+                  <ShieldAlert className="w-4 h-4 shrink-0" />
+                  {expiredPolicies.length} expired polic
+                  {expiredPolicies.length === 1 ? "y" : "ies"} — agents are
+                  locked
+                </span>
+                <button
+                  onClick={() => router.push("/governance")}
+                  className="text-xs text-danger-600 hover:underline flex items-center gap-1"
+                >
+                  View all <ChevronRight className="w-3 h-3" />
+                </button>
+              </div>
+              <div className="divide-y divide-danger-200/60">
+                {expiredPolicies.slice(0, 3).map((p) => {
+                  const agentName = agents.find(
+                    (a) => a.did === p.agentDid
+                  )?.name;
+                  return (
+                    <div
+                      key={p.id}
+                      className="flex items-center justify-between gap-3 px-4 py-2"
+                    >
+                      <p className="text-xs text-danger-800 truncate">
+                        {agentName ??
+                          (p.agentDid
+                            ? `${p.agentDid.slice(0, 24)}…`
+                            : "Global")}
+                        <span className="text-danger-500 ml-1.5">
+                          · {p.capabilities.length} cap
+                          {p.capabilities.length !== 1 ? "s" : ""}
+                        </span>
+                      </p>
                       <button
-                        onClick={() => router.push("/governance")}
-                        className="underline hover:no-underline"
+                        onClick={() => openRenewFromDashboard(p)}
+                        className="flex-shrink-0 flex items-center gap-1 text-xs font-medium text-danger-700 hover:text-primary-600 border border-danger-300 hover:border-primary-400 px-2 py-0.5 rounded transition-colors"
                       >
-                        view in Governance
+                        <RotateCcw className="w-3 h-3" /> Renew
                       </button>
-                    </p>
-                  )}
-                </div>
+                    </div>
+                  );
+                })}
+                {expiredPolicies.length > 3 && (
+                  <p className="px-4 py-1.5 text-xs text-danger-600/70">
+                    +{expiredPolicies.length - 3} more —{" "}
+                    <button
+                      onClick={() => router.push("/governance")}
+                      className="underline hover:no-underline"
+                    >
+                      view in Governance
+                    </button>
+                  </p>
+                )}
               </div>
-            )}
+            </div>
+          )}
 
-            {setupBanner && (
-              <div className="flex items-center justify-between gap-4 bg-gradient-to-r from-primary-50 to-secondary-50 border border-primary-200 rounded-xl px-4 py-3">
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-8 h-8 bg-primary-600 rounded-lg flex items-center justify-center shrink-0 shadow shadow-primary-600/30">
-                    <Shield className="w-4 h-4 text-white" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-primary-700">
-                      {setupBanner.completedCount > 0
-                        ? `Setup in progress — ${setupBanner.completedCount} of 4 steps done`
-                        : "Finish setting up VaultysClaw"}
-                    </p>
-                    <p className="text-xs text-primary-600/60 truncate">
-                      Configure LLM models, email, users, and your first agent.
-                    </p>
-                  </div>
+          {setupBanner && (
+            <div className="flex items-center justify-between gap-4 bg-gradient-to-r from-primary-50 to-secondary-50 border border-primary-200 rounded-xl px-4 py-3">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-8 h-8 bg-primary-600 rounded-lg flex items-center justify-center shrink-0 shadow shadow-primary-600/30">
+                  <Shield className="w-4 h-4 text-white" />
                 </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  <button
-                    onClick={() => router.push("/setup")}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-primary-600 hover:bg-primary-500 text-white text-sm font-medium rounded-lg transition-colors"
-                  >
-                    {setupBanner.completedCount > 0 ? "Continue" : "Start setup"}
-                    <ChevronRight className="w-3.5 h-3.5" />
-                  </button>
-                  <button
-                    onClick={dismissSetupBanner}
-                    className="p-1.5 text-primary-400 hover:text-primary-700 rounded-lg hover:bg-primary-100 transition-colors"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-primary-700">
+                    {setupBanner.completedCount > 0
+                      ? `Setup in progress — ${setupBanner.completedCount} of 4 steps done`
+                      : "Finish setting up VaultysClaw"}
+                  </p>
+                  <p className="text-xs text-primary-600/60 truncate">
+                    Configure LLM models, email, users, and your first agent.
+                  </p>
                 </div>
               </div>
-            )}
-          </div>
-        )}
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  onClick={() => router.push("/setup")}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-primary-600 hover:bg-primary-500 text-white text-sm font-medium rounded-lg transition-colors"
+                >
+                  {setupBanner.completedCount > 0 ? "Continue" : "Start setup"}
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  onClick={dismissSetupBanner}
+                  className="p-1.5 text-primary-400 hover:text-primary-700 rounded-lg hover:bg-primary-100 transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ── Main 3-column grid ─────────────────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-
         {/* ── Left: Quick Actions ─────────────────────────────── */}
         <div className="space-y-3">
           <h2 className="text-xs font-semibold text-foreground-400 uppercase tracking-widest px-0.5">
@@ -996,7 +982,9 @@ function Dashboard() {
             <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-200 bg-gradient-to-r from-warning-50/60 to-transparent">
               <div className="flex items-center gap-2">
                 <Inbox className="w-4 h-4 text-warning-600" />
-                <span className="text-sm font-semibold text-foreground">Pending Approvals</span>
+                <span className="text-sm font-semibold text-foreground">
+                  Pending Approvals
+                </span>
                 {pendingApprovals.length > 0 && (
                   <span className="inline-flex items-center justify-center w-5 h-5 text-[10px] font-bold text-warning-700 bg-warning-100 rounded-full">
                     {pendingApprovals.length}
@@ -1008,7 +996,9 @@ function Dashboard() {
             {pendingApprovals.length === 0 ? (
               <div className="px-4 py-8 flex flex-col items-center gap-2 text-center">
                 <CheckCheck className="w-7 h-7 text-success-400 opacity-60" />
-                <p className="text-sm text-foreground-400">You're all caught up</p>
+                <p className="text-sm text-foreground-400">
+                  You're all caught up
+                </p>
               </div>
             ) : (
               <div className="divide-y divide-neutral-100 max-h-[360px] overflow-y-auto">
@@ -1020,7 +1010,7 @@ function Dashboard() {
                           {item.workflowName}
                         </p>
                         <span className="text-[10px] text-foreground-400 whitespace-nowrap">
-                          {timeAgo(item.createdAt)}
+                          {timeAgo(item.createdAt.toString())}
                         </span>
                       </div>
                       {item.nodeMessage && (
@@ -1045,7 +1035,10 @@ function Dashboard() {
                         rows={1}
                         value={comment[item.id] || ""}
                         onChange={(e) =>
-                          setComment((c) => ({ ...c, [item.id]: e.target.value }))
+                          setComment((c) => ({
+                            ...c,
+                            [item.id]: e.target.value,
+                          }))
                         }
                         placeholder="Comment (optional)…"
                         className="w-full text-xs bg-background-200 text-foreground border border-neutral-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-warning-400 resize-none"
@@ -1078,7 +1071,9 @@ function Dashboard() {
             <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-200 bg-gradient-to-r from-primary-50/40 to-transparent">
               <div className="flex items-center gap-2">
                 <Bell className="w-4 h-4 text-primary-500" />
-                <span className="text-sm font-semibold text-foreground">Notifications</span>
+                <span className="text-sm font-semibold text-foreground">
+                  Notifications
+                </span>
                 {notifications.length > 0 && (
                   <span className="inline-flex items-center justify-center w-5 h-5 text-[10px] font-bold text-primary-700 bg-primary-100 rounded-full">
                     {notifications.length}
@@ -1090,13 +1085,21 @@ function Dashboard() {
             {notifications.length === 0 ? (
               <div className="px-4 py-6 flex flex-col items-center gap-2 text-center">
                 <Bell className="w-6 h-6 text-foreground-200" />
-                <p className="text-xs text-foreground-400">No new notifications</p>
+                <p className="text-xs text-foreground-400">
+                  No new notifications
+                </p>
               </div>
             ) : (
               <div className="divide-y divide-neutral-100 max-h-[280px] overflow-y-auto">
                 {notifications.map((item) => (
-                  <div key={item.id} className="flex items-start gap-3 px-4 py-3">
-                    <Bell size={13} className="text-primary-400 shrink-0 mt-0.5" />
+                  <div
+                    key={item.id}
+                    className="flex items-start gap-3 px-4 py-3"
+                  >
+                    <Bell
+                      size={13}
+                      className="text-primary-400 shrink-0 mt-0.5"
+                    />
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-foreground leading-tight">
                         {item.workflowName}
@@ -1107,7 +1110,7 @@ function Dashboard() {
                         </p>
                       )}
                       <p className="text-[10px] text-foreground-400 mt-0.5">
-                        {timeAgo(item.createdAt)} · {item.stepId}
+                        {timeAgo(item.createdAt.toString())} · {item.stepId}
                       </p>
                     </div>
                     <button
@@ -1135,7 +1138,9 @@ function Dashboard() {
             <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-200">
               <div className="flex items-center gap-2">
                 <Layers className="w-4 h-4 text-foreground-400" />
-                <span className="text-sm font-semibold text-foreground">Workflow Runs</span>
+                <span className="text-sm font-semibold text-foreground">
+                  Workflow Runs
+                </span>
               </div>
               <button
                 onClick={() => router.push("/workflows")}
@@ -1148,7 +1153,9 @@ function Dashboard() {
             {recentRuns.length === 0 ? (
               <div className="px-4 py-8 flex flex-col items-center gap-2 text-center">
                 <Layers className="w-6 h-6 text-foreground-200" />
-                <p className="text-xs text-foreground-400">No workflow runs yet</p>
+                <p className="text-xs text-foreground-400">
+                  No workflow runs yet
+                </p>
                 <button
                   onClick={() => router.push("/workflows")}
                   className="text-xs text-primary-600 hover:underline mt-1"
@@ -1169,7 +1176,7 @@ function Dashboard() {
                         {run.workflowName ?? run.workflowId}
                       </p>
                       <p className="text-[10px] text-foreground-400 mt-0.5">
-                        {timeAgo(run.startedAt)}
+                        {timeAgo(run.startedAt.toString())}
                       </p>
                     </div>
                     <RunStatusBadge status={run.status} />
@@ -1214,7 +1221,8 @@ function Dashboard() {
           <div className="bg-background-100 border border-neutral-200 rounded-2xl shadow-2xl w-full max-w-sm">
             <div className="flex items-center justify-between px-5 py-4 border-b border-neutral-200">
               <span className="flex items-center gap-2 text-sm font-semibold text-foreground">
-                <RotateCcw className="w-4 h-4 text-primary-500" /> Renew expired policy
+                <RotateCcw className="w-4 h-4 text-primary-500" /> Renew expired
+                policy
               </span>
               <button
                 onClick={() => setRenewingPolicy(null)}
@@ -1226,7 +1234,8 @@ function Dashboard() {
             <div className="px-5 py-4 space-y-4">
               <div className="bg-background-200 border border-neutral-200 rounded-xl p-3 space-y-1">
                 <p className="text-xs font-medium text-foreground">
-                  {agents.find((a) => a.did === renewingPolicy.agentDid)?.name ??
+                  {agents.find((a) => a.did === renewingPolicy.agentDid)
+                    ?.name ??
                     renewingPolicy.agentDid?.slice(0, 30) ??
                     "Global"}
                 </p>

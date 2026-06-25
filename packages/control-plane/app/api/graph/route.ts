@@ -9,7 +9,12 @@ import type {
 } from "@vaultysclaw/shared";
 import { getAuthContext } from "@/lib/auth-utils";
 import { APIException } from "@/lib/api/utils/api-utils";
-import { graphContract } from "@/lib/contracts";
+import {
+  AgentRecord,
+  Filters,
+  graphContract,
+  UserRecord,
+} from "@/lib/contracts";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 
 /**
@@ -98,29 +103,6 @@ const handlers = createNextRoute(graphContract, {
 export const GET = handlers.GET!;
 
 // ---------------------------------------------------------------------------
-
-interface Filters {
-  agentDid: string | null;
-  userDid: string | null;
-  realmId: string | null;
-}
-
-// Shape returned by prisma.user.findMany / findUnique for graph use
-type UserRecord = {
-  id: string;
-  did: string | null;
-  name: string | null;
-  role: string;
-  reportsTo: string | null;
-  isOwner: boolean;
-  isAdmin: boolean;
-};
-
-// Shape returned by prisma.agent queries
-type AgentRecord = {
-  did: string;
-  name: string;
-};
 
 function effectiveUserRole(u: UserRecord): UserRole {
   return u.isOwner

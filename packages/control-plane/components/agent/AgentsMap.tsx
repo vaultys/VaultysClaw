@@ -4,8 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { Globe } from "lucide-react";
-import type { MapMarker } from "@/components/map/WorldMap";
 import { mapClient, unwrap } from "@/lib/api/ts-rest/client";
+import { MapMarker } from "@/lib/contracts";
 
 const WorldMap = dynamic(
   () => import("@/components/map/WorldMap").then((m) => m.WorldMap),

@@ -53,7 +53,12 @@ import {
   type PolicyMeta,
 } from "./auth-handler";
 import { geolocateIp } from "./geoip";
-import { trace, context, propagation, SpanStatusCode } from "@opentelemetry/api";
+import {
+  trace,
+  context,
+  propagation,
+  SpanStatusCode,
+} from "@opentelemetry/api";
 import { agentsConnected, llmTokens, intentsTotal } from "./metrics";
 import { ChannelService } from "./channel-service";
 import { crypto } from "@vaultys/id";
@@ -84,6 +89,12 @@ type PendingPhase =
   | "awaiting_register"
   | "awaiting_approval"
   | "authenticating";
+
+export type ToolApproval = WSToolApprovalRequestPayload & {
+  agentId: string;
+  agentName?: string;
+  createdAt: number;
+};
 
 interface PendingConnection {
   sender: AgentSender;
@@ -279,86 +290,91 @@ export class AgentWSServer {
   }
 
   private setupServer(): void {
-    this.wss.on("connection", async (ws: WebSocket, request: import("http").IncomingMessage) => {
-      logger.info(
-        "New WebSocket connection — awaiting register or auth_challenge"
-      );
+    this.wss.on(
+      "connection",
+      async (ws: WebSocket, request: import("http").IncomingMessage) => {
+        logger.info(
+          "New WebSocket connection — awaiting register or auth_challenge"
+        );
 
-      const clientIp =
-        (request.headers["x-forwarded-for"] as string | undefined)?.split(",")[0]?.trim() ??
-        request.socket.remoteAddress ??
-        undefined;
+        const clientIp =
+          (request.headers["x-forwarded-for"] as string | undefined)
+            ?.split(",")[0]
+            ?.trim() ??
+          request.socket.remoteAddress ??
+          undefined;
 
-      const sender = new WsSender(ws);
-      this.wsSenders.set(ws, sender);
-      this.transportStats.ws.connectionsTotal++;
-      this.appendLog("ws", "info", "connected", `new TCP connection`);
+        const sender = new WsSender(ws);
+        this.wsSenders.set(ws, sender);
+        this.transportStats.ws.connectionsTotal++;
+        this.appendLog("ws", "info", "connected", `new TCP connection`);
 
-      try {
-        const { sessionId } = await createAuthSession();
+        try {
+          const { sessionId } = await createAuthSession();
 
-        // Set initial auth timeout
-        const timer = setTimeout(() => {
-          logger.warn({ sessionId }, "Auth timeout — closing connection");
+          // Set initial auth timeout
+          const timer = setTimeout(() => {
+            logger.warn({ sessionId }, "Auth timeout — closing connection");
+            this.appendLog(
+              "ws",
+              "warn",
+              "auth_timeout",
+              `session ${sessionId.slice(0, 8)}`
+            );
+            this.sendMessage(sender, {
+              messageId: `auth-fail-${Date.now()}`,
+              type: "auth_failed",
+              payload: {
+                reason: "Authentication timeout",
+              } satisfies WSAuthFailedPayload,
+              timestamp: new Date().toISOString(),
+            });
+            sender.close();
+            this.pending.delete(sender);
+          }, AUTH_TIMEOUT_MS);
+
+          this.pending.set(sender, {
+            sender,
+            sessionId,
+            phase: "awaiting_register",
+            timer,
+            clientIp,
+          });
+
+          // Send session ID to agent — agent decides to register (new) or auth (returning)
           this.appendLog(
             "ws",
-            "warn",
-            "auth_timeout",
+            "info",
+            "auth_challenge_sent",
             `session ${sessionId.slice(0, 8)}`
           );
           this.sendMessage(sender, {
-            messageId: `auth-fail-${Date.now()}`,
-            type: "auth_failed",
-            payload: {
-              reason: "Authentication timeout",
-            } satisfies WSAuthFailedPayload,
+            messageId: `auth-${Date.now()}`,
+            type: "auth_challenge",
+            payload: { sessionId, data: "" } satisfies WSAuthChallengePayload,
             timestamp: new Date().toISOString(),
           });
+        } catch (error) {
+          logger.error(error, "Failed to start auth session");
           sender.close();
-          this.pending.delete(sender);
-        }, AUTH_TIMEOUT_MS);
+          this.wsSenders.delete(ws);
+          return;
+        }
 
-        this.pending.set(sender, {
-          sender,
-          sessionId,
-          phase: "awaiting_register",
-          timer,
-          clientIp,
+        ws.on("message", (data: WebSocketData) => {
+          this.handleMessage(sender, data as string);
         });
 
-        // Send session ID to agent — agent decides to register (new) or auth (returning)
-        this.appendLog(
-          "ws",
-          "info",
-          "auth_challenge_sent",
-          `session ${sessionId.slice(0, 8)}`
-        );
-        this.sendMessage(sender, {
-          messageId: `auth-${Date.now()}`,
-          type: "auth_challenge",
-          payload: { sessionId, data: "" } satisfies WSAuthChallengePayload,
-          timestamp: new Date().toISOString(),
+        ws.on("close", () => {
+          this.handleDisconnect(sender);
+          this.wsSenders.delete(ws);
         });
-      } catch (error) {
-        logger.error(error, "Failed to start auth session");
-        sender.close();
-        this.wsSenders.delete(ws);
-        return;
+
+        ws.on("error", (error: Error) => {
+          logger.error(error, "WebSocket error");
+        });
       }
-
-      ws.on("message", (data: WebSocketData) => {
-        this.handleMessage(sender, data as string);
-      });
-
-      ws.on("close", () => {
-        this.handleDisconnect(sender);
-        this.wsSenders.delete(ws);
-      });
-
-      ws.on("error", (error: Error) => {
-        logger.error(error, "WebSocket error");
-      });
-    });
+    );
   }
 
   private handleMessage(
@@ -577,9 +593,11 @@ export class AgentWSServer {
 
           // Auto-geolocate from IP if no location stored yet
           if (!knownAgent.locationLat && pending.clientIp) {
-            geolocateIp(pending.clientIp).then((geo) => {
-              if (geo) AgentDAO.updateLocation(agentDid, geo).catch(() => {});
-            }).catch(() => {});
+            geolocateIp(pending.clientIp)
+              .then((geo) => {
+                if (geo) AgentDAO.updateLocation(agentDid, geo).catch(() => {});
+              })
+              .catch(() => {});
           }
 
           await ActivityLogDAO.log("agent_reconnected", agentDid, agent.name);
@@ -798,9 +816,13 @@ export class AgentWSServer {
             "intent.status": payload.status ?? "unknown",
           },
         });
-        if (payload.status !== "success") span.setStatus({ code: SpanStatusCode.ERROR });
+        if (payload.status !== "success")
+          span.setStatus({ code: SpanStatusCode.ERROR });
         span.end();
-        intentsTotal.add(1, { status: payload.status ?? "unknown", "agent.did": agentId ?? "" });
+        intentsTotal.add(1, {
+          status: payload.status ?? "unknown",
+          "agent.did": agentId ?? "",
+        });
       }
 
       // Persist result so test/observability endpoints can retrieve it
@@ -958,7 +980,10 @@ export class AgentWSServer {
         if (hbPayload.tokenUsage.dailyPriceSpent !== undefined) {
           agent.dailyPriceSpent = hbPayload.tokenUsage.dailyPriceSpent;
           // Persist daily price spent to DB
-          await AgentDAO.updateDailyPriceSpent(agentId, hbPayload.tokenUsage.dailyPriceSpent);
+          await AgentDAO.updateDailyPriceSpent(
+            agentId,
+            hbPayload.tokenUsage.dailyPriceSpent
+          );
         }
 
         // Persist token usage to DB for the agent
@@ -981,8 +1006,13 @@ export class AgentWSServer {
             model: agent.reportedLlm?.model ?? "unknown",
             provider: agent.reportedLlm?.provider ?? "unknown",
           };
-          if (deltaPrompt > 0) llmTokens.add(deltaPrompt, { ...llmAttrs, token_type: "prompt" });
-          if (deltaCompletion > 0) llmTokens.add(deltaCompletion, { ...llmAttrs, token_type: "completion" });
+          if (deltaPrompt > 0)
+            llmTokens.add(deltaPrompt, { ...llmAttrs, token_type: "prompt" });
+          if (deltaCompletion > 0)
+            llmTokens.add(deltaCompletion, {
+              ...llmAttrs,
+              token_type: "completion",
+            });
 
           // Record in daily/monthly history buckets
           await AgentDAO.addTokenUsageHistory(
@@ -1214,20 +1244,9 @@ export class AgentWSServer {
   }
 
   /** Get all pending tool approval requests (for admin UI). */
-  getPendingToolApprovals(): Array<
-    WSToolApprovalRequestPayload & {
-      agentId: string;
-      agentName?: string;
-      createdAt: number;
-    }
-  > {
-    const result: Array<
-      WSToolApprovalRequestPayload & {
-        agentId: string;
-        agentName?: string;
-        createdAt: number;
-      }
-    > = [];
+  getPendingToolApprovals(): ToolApproval[] {
+    const result: ToolApproval[] = [];
+
     for (const [, entry] of this.pendingToolApprovals) {
       const agent = this.agents.get(entry.agentId);
       result.push({
@@ -1548,12 +1567,22 @@ export class AgentWSServer {
           if (routerKey?.litellmVirtualKey && routerKey.allowedModelIds) {
             const allowedModels = routerKey.allowedModelIds as string[];
             const virtualKey = await createAgentKey(agentDid, allowedModels);
-            await AgentDAO.updateLiteLLMKey(agentDid, virtualKey, allowedModels);
-            logger.info({ agentDid, modelCount: allowedModels.length }, "Auto-provisioned LiteLLM agent key");
+            await AgentDAO.updateLiteLLMKey(
+              agentDid,
+              virtualKey,
+              allowedModels
+            );
+            logger.info(
+              { agentDid, modelCount: allowedModels.length },
+              "Auto-provisioned LiteLLM agent key"
+            );
           }
         }
       } catch (err) {
-        logger.warn({ agentDid, err: String(err) }, "Failed to auto-provision LiteLLM agent key — skipping");
+        logger.warn(
+          { agentDid, err: String(err) },
+          "Failed to auto-provision LiteLLM agent key — skipping"
+        );
       }
     }
 
@@ -1891,7 +1920,13 @@ export class AgentWSServer {
     const tracer = trace.getTracer("vaultysclaw-control-plane");
     return tracer.startActiveSpan(
       "vc.intent.dispatch",
-      { attributes: { "agent.did": agentId, "intent.id": intentId, "intent.action": action } },
+      {
+        attributes: {
+          "agent.did": agentId,
+          "intent.id": intentId,
+          "intent.action": action,
+        },
+      },
       async (span) => {
         // Inject W3C traceparent so the agent can create a child span
         const traceContext: Record<string, string> = {};
@@ -1909,7 +1944,9 @@ export class AgentWSServer {
             params,
             timestamp: new Date().toISOString(),
             ...(userDid ? { userDid } : {}),
-            ...(Object.keys(traceContext).length > 0 ? { _traceContext: traceContext } : {}),
+            ...(Object.keys(traceContext).length > 0
+              ? { _traceContext: traceContext }
+              : {}),
           },
           timestamp: new Date().toISOString(),
           ...(signature ? { signature } : {}),
@@ -2064,7 +2101,10 @@ export class AgentWSServer {
     const pendingRegs = (await PendingRegistrationDAO.findAll()).filter(
       (r: any) => r.status === "pending"
     );
-    const regMeta = new Map<string, { connected: boolean; agentDid: string | null }>();
+    const regMeta = new Map<
+      string,
+      { connected: boolean; agentDid: string | null }
+    >();
     for (const p of this.pending.values()) {
       if (p.registrationId && p.phase === "awaiting_approval") {
         regMeta.set(p.registrationId, {
@@ -2194,7 +2234,10 @@ export class AgentWSServer {
         await this.sendLlmConfig(agentDid, config);
         return;
       } catch {
-        logger.warn({ agentDid }, "Failed to parse stored LLM config — skipping push");
+        logger.warn(
+          { agentDid },
+          "Failed to parse stored LLM config — skipping push"
+        );
       }
     }
 

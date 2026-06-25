@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Plus, Settings, MessageSquare, Users, Search } from "lucide-react";
+import { Plus, Settings, MessageSquare, Search } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAdminWS } from "@/hooks/useAdminWS";
 import type { Channel } from "@vaultysclaw/shared";

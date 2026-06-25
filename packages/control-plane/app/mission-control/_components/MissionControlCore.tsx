@@ -24,9 +24,8 @@ import {
 } from "lucide-react";
 import { useAdminWS } from "@/hooks/useAdminWS";
 import { useRole } from "@/hooks/useRole";
-import type { MapMarker } from "@/components/map/WorldMap";
 import { formatCompactNumber, shortDid } from "@vaultysclaw/shared";
-import { AgentInfo, NetworkResponse } from "@/lib/contracts";
+import { AgentInfo, MapMarker, NetworkResponse } from "@/lib/contracts";
 import {
   networkClient,
   workflowRunsClient,
@@ -326,7 +325,9 @@ export function MissionControlCore({ mode }: MissionControlCoreProps) {
   useEffect(() => {
     const fetch_ = async () => {
       try {
-        setTokenStats(unwrap(await statsClient.tokens()) as unknown as TokenStats);
+        setTokenStats(
+          unwrap(await statsClient.tokens()) as unknown as TokenStats
+        );
       } catch {}
     };
     fetch_();
@@ -398,7 +399,7 @@ export function MissionControlCore({ mode }: MissionControlCoreProps) {
         const data = unwrap(
           await workflowRunsClient.list({
             query: { pageSize: 10, sortDir: "desc" },
-          }),
+          })
         );
         setWorkflowRuns((data.runs ?? []) as unknown as WorkflowRun[]);
       } catch {}
@@ -608,7 +609,10 @@ export function MissionControlCore({ mode }: MissionControlCoreProps) {
           {/* Agent list */}
           <div className="flex-1 overflow-y-auto">
             {agentsState.agents.length === 0 ? (
-              <div key="empty" className="px-3 py-6 text-center text-foreground-600 text-[11px]">
+              <div
+                key="empty"
+                className="px-3 py-6 text-center text-foreground-600 text-[11px]"
+              >
                 No agents registered
               </div>
             ) : (
@@ -1014,7 +1018,10 @@ export function MissionControlCore({ mode }: MissionControlCoreProps) {
           {/* Scrolling feed */}
           <div className="flex-1 overflow-y-auto">
             {feed.length === 0 ? (
-              <div key="empty" className="px-3 py-6 text-center text-foreground-600 text-[11px]">
+              <div
+                key="empty"
+                className="px-3 py-6 text-center text-foreground-600 text-[11px]"
+              >
                 Waiting for activity…
               </div>
             ) : (

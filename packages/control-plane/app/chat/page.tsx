@@ -13,31 +13,15 @@ import {
   XCircle,
 } from "lucide-react";
 import { toolApprovalsClient } from "@/lib/api/ts-rest/client";
-
-interface ChatMessage {
-  role: "user" | "assistant";
-  content: string;
-  thinkingContent?: string;
-}
-
-interface PendingApproval {
-  requestId: string;
-  toolName: string;
-  args: Record<string, unknown>;
-  status: "pending" | "submitting" | "approved" | "rejected";
-}
-
-function shortDid(did: string): string {
-  if (did.length <= 24) return did;
-  return `did:…${did.slice(-8)}`;
-}
+import { ChatMessageEntry, shortDid } from "@vaultysclaw/shared";
+import { PendingApproval } from "@/components/agent/chat-types";
 
 export default function ChatPage() {
   const { agents: agentsState, connected: wsConnected } = useAdminWS();
   const onlineAgents = agentsState.agents.filter((a) => a.online);
 
   const [selectedAgent, setSelectedAgent] = useState<string>("");
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [messages, setMessages] = useState<ChatMessageEntry[]>([]);
   const [input, setInput] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -57,7 +41,7 @@ export default function ChatPage() {
     async (text: string) => {
       if (!text.trim() || !selectedAgent || isStreaming) return;
 
-      const userMsg: ChatMessage = { role: "user", content: text.trim() };
+      const userMsg: ChatMessageEntry = { role: "user", content: text.trim() };
       const updatedMessages = [...messages, userMsg];
       setMessages(updatedMessages);
       setInput("");

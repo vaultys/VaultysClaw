@@ -3,15 +3,7 @@
 import { useState, useCallback, useEffect } from "react";
 import { ShieldCheck } from "lucide-react";
 import { toolApprovalsClient, unwrap } from "@/lib/api/ts-rest/client";
-
-type ToolApproval = {
-  requestId: string;
-  toolName: string;
-  args: Record<string, unknown>;
-  reason: string;
-  agentName?: string;
-  createdAt: number;
-};
+import { ToolApproval } from "@/lib/ws-server";
 
 export function ApprovalsTab({
   onCountChange,
@@ -100,7 +92,7 @@ export function ApprovalsTab({
                   </button>
                 </div>
               </div>
-              <p className="mt-1.5 text-xs text-foreground-500">{a.reason}</p>
+
               <pre className="mt-2 text-xs font-mono text-foreground-700 bg-background-100 border border-neutral-200 rounded p-2 overflow-x-auto">
                 {JSON.stringify(a.args, null, 2)}
               </pre>

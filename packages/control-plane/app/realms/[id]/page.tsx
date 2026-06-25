@@ -33,7 +33,6 @@ import EmbeddedOrgChart from "@/components/graph/EmbeddedOrgChart";
 import ChannelList from "@/components/channels/ChannelList";
 import ChannelView from "@/components/channels/ChannelView";
 import CreateChannelModal from "@/components/channels/CreateChannelModal";
-import type { MapMarker } from "@/components/map/WorldMap";
 import { useRole } from "@/hooks/useRole";
 import {
   RealmLiteLLMKeyCard,
@@ -45,38 +44,23 @@ import {
   realmsClient,
   channelsClient,
   mapClient,
+  usersClient,
   unwrap,
   ApiError,
 } from "@/lib/api/ts-rest/client";
-import { AgentInfo, RealmDetail } from "@/lib/contracts";
-import type { Channel } from "@vaultysclaw/shared";
+import {
+  AgentInfo,
+  MapMarker,
+  RealmDetail,
+  RealmSkill,
+  UserListItem,
+} from "@/lib/contracts";
+import { getInitials, shortDid, type Channel } from "@vaultysclaw/shared";
 
 const WorldMap = dynamic(
   () => import("@/components/map/WorldMap").then((m) => m.WorldMap),
   { ssr: false }
 );
-
-interface RealmSkill {
-  id: string;
-  realmId: string;
-  name: string;
-  description: string | null;
-  version: string | null;
-  isRequired: boolean;
-  config: Record<string, unknown>;
-  createdAt: string;
-}
-
-interface FullAgent {
-  id: string;
-  name: string;
-  realms: { id: string }[];
-}
-interface FullUser {
-  did: string;
-  name: string | null;
-  email: string | null;
-}
 
 const PRESET_COLORS = [
   "#6366f1",
@@ -91,22 +75,6 @@ const PRESET_COLORS = [
   "#06b6d4",
 ];
 
-function shortDid(did: string | null | undefined) {
-  if (!did) return "—";
-  return did.length > 24 ? `${did.slice(0, 12)}…${did.slice(-6)}` : did;
-}
-
-function initials(name: string | null, fallback: string) {
-  if (name)
-    return name
-      .split(" ")
-      .map((w) => w[0])
-      .join("")
-      .toUpperCase()
-      .slice(0, 2);
-  return fallback.slice(-2).toUpperCase();
-}
-
 // ---- Add member modal ----
 function AddMemberModal({
   realm,
@@ -119,7 +87,7 @@ function AddMemberModal({
   onClose: () => void;
   onAdded: () => void;
 }) {
-  const [items, setItems] = useState<FullUser[]>([]);
+  const [users, setUsers] = useState<UserListItem[]>([]);
   const [agents, setAgents] = useState<AgentInfo[]>([]);
   const [selected, setSelected] = useState<string>("");
   const [isPrimary, setIsPrimary] = useState(false);
@@ -133,9 +101,10 @@ function AddMemberModal({
         .then((r) => unwrap(r))
         .then((d) => setAgents(d.items));
     } else {
-      fetch("/api/users")
-        .then((r) => r.json())
-        .then((d) => setItems(d.users ?? []));
+      usersClient
+        .list({ query: { page: 1, pageSize: 1000 } })
+        .then((r) => unwrap(r))
+        .then((d) => setUsers(d.users ?? []));
     }
   }, [type]);
 
@@ -145,25 +114,30 @@ function AddMemberModal({
       ? agents.filter(
           (a) => !a.agentRealms?.some((r) => r.realmId === realm.id)
         )
-      : (items as FullUser[]);
+      : users;
 
   async function handleAdd() {
     if (!selected) return;
     setSaving(true);
     setError("");
-    const url = `/api/realms/${realm.id}/${type === "agent" ? "agents" : "users"}`;
-    const body =
-      type === "agent"
-        ? { agentDid: selected, isPrimary }
-        : { userDid: selected, isPrimary };
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    if (!res.ok) {
-      const d = await res.json();
-      setError(d.error ?? "Failed");
+    try {
+      if (type === "agent") {
+        unwrap(
+          await realmsClient.addAgent({
+            params: { id: realm.id },
+            body: { agentDid: selected, isPrimary },
+          })
+        );
+      } else {
+        unwrap(
+          await realmsClient.addUser({
+            params: { id: realm.id },
+            body: { userDid: selected, isPrimary },
+          })
+        );
+      }
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : "Failed");
       setSaving(false);
       return;
     }
@@ -192,14 +166,14 @@ function AddMemberModal({
                 const id =
                   type === "agent"
                     ? (item as AgentInfo).did
-                    : (item as FullUser).did;
+                    : (item as UserListItem).did;
                 const label =
                   type === "agent"
                     ? (item as AgentInfo).name
-                    : ((item as FullUser).name ??
-                      shortDid((item as FullUser).did));
+                    : ((item as UserListItem).name ??
+                      shortDid((item as UserListItem).did ?? ""));
                 return (
-                  <option key={id} value={id}>
+                  <option key={id} value={id ?? ""}>
                     {label}
                   </option>
                 );
@@ -283,23 +257,15 @@ export default function RealmDetailPage() {
         loc === null
           ? { lat: null }
           : { lat: loc.lat, lon: loc.lon, label: loc.label };
-      let endpoint = "";
       if (marker.type === "agent")
-        endpoint = `/api/agents/${encodeURIComponent(marker.id)}/location`;
+        unwrap(
+          await agentsClient.setLocation({ params: { did: marker.id }, body })
+        );
       else if (marker.type === "user")
-        endpoint = `/api/users/${encodeURIComponent(marker.id)}/location`;
-      if (!endpoint) return;
-      const res = await fetch(endpoint, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      if (!res.ok) {
-        const d = (await res.json().catch(() => null)) as {
-          error?: string;
-        } | null;
-        throw new Error(d?.error ?? "Failed to update location");
-      }
+        unwrap(
+          await usersClient.setLocation({ params: { did: marker.id }, body })
+        );
+      else return;
       refreshMapMarkers();
     },
     [refreshMapMarkers]
@@ -339,7 +305,7 @@ export default function RealmDetailPage() {
   const load = useCallback(async () => {
     const [realmRes, skillsRes, modelsRes, channelsRes] = await Promise.all([
       realmsClient.getOne({ params: { id } }),
-      fetch(`/api/realms/${id}/skills`),
+      realmsClient.listSkills({ params: { id } }),
       realmsClient.listModels({ params: { id } }),
       channelsClient.list({ query: { realm: id } }),
     ]);
@@ -348,10 +314,7 @@ export default function RealmDetailPage() {
       return;
     }
     setRealm(unwrap(realmRes));
-    if (skillsRes.ok) {
-      const skillsData = (await skillsRes.json()) as { skills: RealmSkill[] };
-      setSkills(skillsData.skills ?? []);
-    }
+    setSkills(unwrap(skillsRes).skills ?? []);
     if (modelsRes.status === 200) {
       const modelsData = modelsRes.body as unknown as {
         models: typeof realmModels;
@@ -730,7 +693,7 @@ export default function RealmDetailPage() {
                     className={`flex items-center gap-3 px-4 py-3 ${i > 0 ? "border-t border-neutral-200/50" : ""}`}
                   >
                     <div className="w-8 h-8 rounded-full bg-background-200 border border-neutral-200 flex items-center justify-center shrink-0 text-xs font-semibold text-foreground-500">
-                      {initials(u.user.name, userDid)}
+                      {getInitials(u.user.name ?? shortDid(userDid))}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">

@@ -1,3 +1,5 @@
+import { ChatMessageEntry } from "@vaultysclaw/shared";
+
 export interface LogEntry {
   ts: string;
   level: "info" | "warn" | "error" | "debug";
@@ -60,11 +62,6 @@ export interface SchemaField {
   options?: SchemaField[];
 }
 
-export interface ChatMessage {
-  role: "user" | "assistant";
-  content: string;
-}
-
 // Tool call event emitted by the agent during chat streaming
 export interface ToolCallEvent {
   toolCallId: string;
@@ -75,7 +72,7 @@ export interface ToolCallEvent {
 
 // A chat "item" is either a message or an inline tool call
 export type ChatItem =
-  | { kind: "message"; msg: ChatMessage }
+  | { kind: "message"; msg: ChatMessageEntry }
   | { kind: "tool_call"; event: ToolCallEvent };
 
 export interface ChatSession {

@@ -3,12 +3,7 @@
 import { useState, useEffect } from "react";
 import { X, Loader2 } from "lucide-react";
 import { channelsClient, realmsClient, unwrap } from "@/lib/api/ts-rest/client";
-
-interface Realm {
-  id: string;
-  name: string;
-  slug: string;
-}
+import { Realm } from "@prisma/client";
 
 interface CreateChannelModalProps {
   onClose: () => void;

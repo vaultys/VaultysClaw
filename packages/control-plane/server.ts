@@ -24,6 +24,10 @@ import {
   startWorkflowScheduler,
   stopWorkflowScheduler,
 } from "./lib/workflow-scheduler";
+import {
+  startRemoteControl,
+  stopRemoteControl,
+} from "./lib/remote-control";
 
 const logger = pino();
 
@@ -183,6 +187,12 @@ app.prepare().then(async () => {
   initializeAdminWS(server);
   logger.info("Admin WebSocket ready on /ws/admin");
 
+  // Start remote-control connectors (Telegram) if configured. Depends on the
+  // WS server being initialized above so it can route chats to agents.
+  startRemoteControl().catch((err) => {
+    logger.error({ err }, "Failed to start remote-control connectors");
+  });
+
   // Start servers
   server.listen(port, (err?: Error) => {
     if (err) throw err;
@@ -198,6 +208,7 @@ app.prepare().then(async () => {
     });
     wsServer.shutdown();
     stopWorkflowScheduler();
+    await stopRemoteControl();
     await prisma.$disconnect();
   });
 });

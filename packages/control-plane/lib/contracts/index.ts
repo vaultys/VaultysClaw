@@ -22,6 +22,7 @@ import {
   networkContract,
 } from "./network/network.contract";
 import { policiesContract } from "./policies/policies.contract";
+import { remoteControlContract } from "./remote-control/remote-control.contract";
 import { realmsContract } from "./realms/realms.contract";
 import {
   registrationsContract,
@@ -89,6 +90,10 @@ export type * from "./realms/realms.contract";
 export * from "./realms/realms.contract";
 export * from "./realms/realms.schemas";
 export * from "./realms/realms.types";
+
+export * from "./remote-control/remote-control.contract";
+export * from "./remote-control/remote-control.schemas";
+export * from "./remote-control/remote-control.types";
 export type * from "./registrations/registrations.contract";
 export * from "./registrations/registrations.contract";
 export * from "./registrations/registrations.schemas";
@@ -147,6 +152,7 @@ export const appContract = c.router({
   orgSkills: orgSkillsContract,
   policies: policiesContract,
   realms: realmsContract,
+  remoteControl: remoteControlContract,
   registrations: registrationsContract,
   server: serverContract,
   settings: settingsContract,

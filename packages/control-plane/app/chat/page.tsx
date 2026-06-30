@@ -28,13 +28,14 @@ interface PendingApproval {
 }
 
 function shortDid(did: string): string {
+  if (!did) return "unknown";
   if (did.length <= 24) return did;
   return `did:…${did.slice(-8)}`;
 }
 
 export default function ChatPage() {
   const { agents: agentsState, connected: wsConnected } = useAdminWS();
-  const onlineAgents = agentsState.agents.filter((a) => a.online);
+  const onlineAgents = agentsState.agents.filter((a) => a.online && a.did);
 
   const [selectedAgent, setSelectedAgent] = useState<string>("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);

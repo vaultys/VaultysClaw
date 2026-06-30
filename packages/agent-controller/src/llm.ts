@@ -104,6 +104,33 @@ export function buildModel(config: LlmConfig): any {
   }
 }
 
+/**
+ * Build provider-specific reasoning/thinking options for a model that supports
+ * it. The AI SDK forwards `providerOptions[provider]` as extra request fields,
+ * so models without reasoning support simply ignore these.
+ */
+function buildReasoningProviderOptions(
+  config: LlmConfig
+): Record<string, Record<string, unknown>> | undefined {
+  switch (config.provider) {
+    case "anthropic":
+      return {
+        anthropic: { thinking: { type: "enabled", budgetTokens: 4000 } },
+      };
+    case "google":
+      return {
+        google: { thinkingConfig: { includeThoughts: true } },
+      };
+    case "openai":
+      return { openai: { reasoningEffort: "medium" } };
+    case "openai-compatible":
+      // LiteLLM-style passthrough: many gateways accept `reasoning_effort`.
+      return { openai: { reasoningEffort: "medium" } };
+    default:
+      return undefined;
+  }
+}
+
 const DEFAULT_SYSTEM_PROMPT = `You are VaultysClaw Agent, a secure AI agent controller.
 You receive structured tasks (action + parameters) from the VaultysClaw control plane.
 Execute the requested action faithfully using the tools available to you.
@@ -273,7 +300,8 @@ export function streamChat(
   tools?: Record<string, MastraTool>,
   onStepFinish?: (event: StepFinishEvent) => void | Promise<void>,
   memoryContext?: string,
-  skillExtensions?: string[]
+  skillExtensions?: string[],
+  opts?: { thinking?: boolean }
 ): {
   textStream: AsyncIterable<string>;
   usage: Promise<{ promptTokens: number; completionTokens: number }>;
@@ -304,8 +332,23 @@ export function streamChat(
     ...(hasTools ? { tools: tools as Record<string, MastraTool> } : {}),
   });
 
-  // Accumulate token usage from all steps
-  let totalPromptTokens = 0;
+  // When reasoning is requested, forward a provider-appropriate "thinking"
+  // setting. Only models that support reasoning will act on it; others ignore it.
+  const reasoningProviderOptions = opts?.thinking
+    ? buildReasoningProviderOptions(config)
+    : undefined;
+  if (opts?.thinking) {
+    logger.info(
+      { provider: config.provider, model: config.model },
+      "Reasoning requested for chat stream"
+    );
+  }
+
+  // Track token usage across all steps.
+  // Prompt tokens are NOT additive: each step re-sends the full context, so
+  // we take the max (= largest context window used). Completion tokens ARE
+  // additive since each step generates new output.
+  let maxPromptTokens = 0;
   let totalCompletionTokens = 0;
 
   // Track when stream is fully consumed so we know tokens are accumulated
@@ -317,9 +360,15 @@ export function streamChat(
 
   const streamPromise = agent.stream(messages as any, {
     maxSteps: 10,
-    modelSettings: config.maxTokens
-      ? { maxOutputTokens: config.maxTokens }
-      : undefined,
+    modelSettings:
+      config.maxTokens || reasoningProviderOptions
+        ? {
+            ...(config.maxTokens ? { maxOutputTokens: config.maxTokens } : {}),
+            ...(reasoningProviderOptions
+              ? { providerOptions: reasoningProviderOptions }
+              : {}),
+          }
+        : undefined,
     ...(onStepFinish
       ? {
           onStepFinish: async (step: any) => {
@@ -334,7 +383,7 @@ export function streamChat(
                 "Step tokens captured"
               );
             }
-            totalPromptTokens += promptTokens;
+            if (promptTokens > maxPromptTokens) maxPromptTokens = promptTokens;
             totalCompletionTokens += completionTokens;
 
             const event: StepFinishEvent = {
@@ -389,11 +438,11 @@ export function streamChat(
     },
     usage: streamDonePromise.then(() => {
       logger.info(
-        { totalPromptTokens, totalCompletionTokens },
+        { maxPromptTokens, totalCompletionTokens },
         "Final token usage from stream"
       );
       return {
-        promptTokens: totalPromptTokens,
+        promptTokens: maxPromptTokens,
         completionTokens: totalCompletionTokens,
       };
     }),

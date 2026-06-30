@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef } from "react";
 import ReactMarkdown from "react-markdown";
-import { Bot, Send, Trash2, Loader2, Zap } from "lucide-react";
+import { Bot, Send, Trash2, Loader2, Zap, Brain } from "lucide-react";
 import type { ChatSession } from "@vaultysclaw/shared";
 import {
   agentsClient,
@@ -35,18 +35,30 @@ export function ChatTab({
   );
   // Token-by-token streaming toggle, persisted across sessions.
   const [streamingEnabled, setStreamingEnabled] = useState(true);
+  // Show/hide the model's reasoning blocks, persisted across sessions.
+  const [showThinking, setShowThinking] = useState(true);
   const abortRef = useRef<AbortController | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const stored = localStorage.getItem("vc.chat.streaming");
     if (stored !== null) setStreamingEnabled(stored === "true");
+    const storedThinking = localStorage.getItem("vc.chat.showThinking");
+    if (storedThinking !== null) setShowThinking(storedThinking === "true");
   }, []);
 
   const toggleStreaming = useCallback(() => {
     setStreamingEnabled((prev) => {
       const next = !prev;
       localStorage.setItem("vc.chat.streaming", String(next));
+      return next;
+    });
+  }, []);
+
+  const toggleThinking = useCallback(() => {
+    setShowThinking((prev) => {
+      const next = !prev;
+      localStorage.setItem("vc.chat.showThinking", String(next));
       return next;
     });
   }, []);
@@ -123,6 +135,7 @@ export function ChatTab({
               messages: updatedMessages,
               sessionId: activeSessionId ?? undefined,
               stream: streamingEnabled,
+              thinking: showThinking,
             }),
             signal: controller.signal,
           }
@@ -240,6 +253,7 @@ export function ChatTab({
       online,
       fetchSessions,
       streamingEnabled,
+      showThinking,
     ]
   );
 
@@ -343,6 +357,22 @@ export function ChatTab({
               />
               Streaming
             </button>
+            <button
+              onClick={toggleThinking}
+              title={
+                showThinking
+                  ? "Reasoning shown — click to hide"
+                  : "Reasoning hidden — click to show"
+              }
+              className={`flex items-center gap-1.5 text-xs transition-colors ${
+                showThinking
+                  ? "text-primary-400 hover:text-primary-300"
+                  : "text-foreground-500 hover:text-foreground"
+              }`}
+            >
+              <Brain size={13} fill={showThinking ? "currentColor" : "none"} />
+              Thinking
+            </button>
             {messages.length > 0 && (
               <button
                 onClick={startNew}
@@ -378,7 +408,7 @@ export function ChatTab({
                     : "bg-background-200 border border-neutral-200 text-foreground rounded-bl-sm prose-headings:text-foreground prose-p:m-0 prose-ul:m-0 prose-ol:m-0 prose-li:m-0 prose-code:text-foreground prose-code:bg-background prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-pre:bg-background prose-pre:border prose-pre:border-neutral-200 prose-pre:text-foreground"
                 }`}
               >
-                {msg.role === "assistant" && msg.thinkingContent && (
+                {msg.role === "assistant" && msg.thinkingContent && showThinking && (
                   <ThinkingBlock
                     content={msg.thinkingContent}
                     isStreaming={isStreaming && i === messages.length - 1}

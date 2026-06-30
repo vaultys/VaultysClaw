@@ -388,6 +388,12 @@ export interface WSChatMessagePayload {
    * Requires a provider with native function calling (e.g. LiteLLM / cloud).
    */
   stream?: boolean;
+  /**
+   * When true, ask the model to expose its reasoning. Forwarded to the provider
+   * as a reasoning/thinking request (only effective on models that support it).
+   * Toggled per-conversation from the chat UI.
+   */
+  thinking?: boolean;
 }
 
 /**

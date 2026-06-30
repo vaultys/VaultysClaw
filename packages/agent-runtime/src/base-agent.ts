@@ -192,7 +192,7 @@ export abstract class BaseAgentRuntime extends EventEmitter {
       isError?: boolean,
       errorCode?: ChatErrorCode
     ) => void,
-    opts?: { stream?: boolean }
+    opts?: { stream?: boolean; thinking?: boolean }
   ): Promise<void>;
 
   // ---- Protected hooks (subclass can override) ----
@@ -1189,7 +1189,7 @@ export abstract class BaseAgentRuntime extends EventEmitter {
 
   private handleChatMessageProtocol(message: WSMessage): void {
     const payload = message.payload as WSChatMessagePayload;
-    const { conversationId, messages, stream } = payload;
+    const { conversationId, messages, stream, thinking } = payload;
 
     this.log(
       "info",
@@ -1238,7 +1238,7 @@ export abstract class BaseAgentRuntime extends EventEmitter {
       }
     };
 
-    this.executeChat(messages, conversationId, sendChunk, { stream }).catch((err) => {
+    this.executeChat(messages, conversationId, sendChunk, { stream, thinking }).catch((err) => {
       const errMsg = err instanceof Error ? err.message : String(err);
       this.log("error", `Chat ${conversationId} failed: ${errMsg}`);
       sendChunk(errMsg, true, true);

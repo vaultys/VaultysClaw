@@ -485,7 +485,7 @@ export class Agent extends BaseAgentRuntime {
       isError?: boolean,
       errorCode?: "llm_unavailable" | "llm_error" | "agent_offline"
     ) => void,
-    opts?: { stream?: boolean }
+    opts?: { stream?: boolean; thinking?: boolean }
   ): Promise<void> {
     // Persist session + only new incoming messages (avoid duplicating history on each turn)
     const title =
@@ -600,7 +600,8 @@ export class Agent extends BaseAgentRuntime {
           }
         },
         memoryContext,
-        [...skillExtensions, ...peerHints]
+        [...skillExtensions, ...peerHints],
+        { thinking: opts?.thinking === true }
       );
 
       const chunks: string[] = [];

@@ -1948,7 +1948,7 @@ export class AgentWSServer {
     messages: ChatMessageEntry[],
     onChunk: (payload: WSChatResponsePayload) => void,
     onApprovalRequest?: (payload: WSToolApprovalRequestPayload) => void,
-    opts?: { stream?: boolean }
+    opts?: { stream?: boolean; thinking?: boolean }
   ): boolean {
     const agent = this.agents.get(agentDid);
     if (!agent || !agent.sender.isOpen()) {
@@ -1974,6 +1974,7 @@ export class AgentWSServer {
         conversationId,
         messages,
         ...(opts?.stream ? { stream: true } : {}),
+        ...(opts?.thinking ? { thinking: true } : {}),
       } satisfies WSChatMessagePayload,
       timestamp: new Date().toISOString(),
     });

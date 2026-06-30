@@ -30,7 +30,7 @@ type QrModalState = {
 type Tab = "registered" | "unregistered";
 
 const PAGE_SIZE = 20;
-const ROLES = ["owner", "admin", "manager", "operator", "member"] as const;
+const ROLES = ["Owner", "Admin", "Member"] as const;
 const SORT_OPTIONS: { value: string; label: string }[] = [
   { value: "registeredAt:asc", label: "Provisioned (oldest)" },
   { value: "registeredAt:desc", label: "Provisioned (newest)" },

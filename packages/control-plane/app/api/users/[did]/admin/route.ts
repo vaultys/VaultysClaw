@@ -9,6 +9,7 @@ import { UserDAO } from "@/db";
 import { APIException } from "@/lib/api/utils/api-utils";
 import { usersContract } from "@/lib/contracts";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
+import { isOwnerRole } from "@/lib/roles";
 
 const handlers = createNextRoute(usersContract, {
   setAdmin: async ({ params, body }) => {
@@ -18,11 +19,11 @@ const handlers = createNextRoute(usersContract, {
     const user = await UserDAO.findByDid(params.did);
     if (!user) throw new APIException("NOT_FOUND", "User not found");
 
-    if (user.isOwner) {
+    if (isOwnerRole(user.role)) {
       throw new APIException("FORBIDDEN", "Cannot change the owner's admin status");
     }
 
-    await UserDAO.update(user.id, { isAdmin: body.isAdmin });
+    await UserDAO.update(user.id, { role: body.isAdmin ? "Admin" : "Member" });
     return { status: 200, body: undefined };
   },
 });

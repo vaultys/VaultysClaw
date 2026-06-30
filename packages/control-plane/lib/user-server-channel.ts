@@ -70,9 +70,9 @@ const registerUser = async (contact: VaultysId, pendingUserId?: string): Promise
     }
   }
 
-  const isOwner = (await UserDAO.list({ page: 1, pageSize: 1 })).total === 0;
-  console.log(`[registerUser] creating new user isOwner=${isOwner}`);
-  await UserDAO.create(did, publicKey, isOwner);
+  const isFirstUser = (await UserDAO.list({ page: 1, pageSize: 1 })).total === 0;
+  console.log(`[registerUser] creating new user isFirstUser=${isFirstUser}`);
+  await UserDAO.create(did, publicKey, isFirstUser ? "Owner" : "Member");
   console.log(`[registerUser] created successfully`);
   return true;
 };

@@ -371,9 +371,10 @@ interface UserSeed {
   did: string;
   name: string;
   email: string;
-  role: string;
-  isAdmin: boolean;
-  isOwner: boolean;
+  /** DB access role — one of Owner / Admin / Member. */
+  role: "Owner" | "Admin" | "Member";
+  /** Seed-only seniority tier, drives demo grant counts. */
+  tier: "cto" | "ciso" | "vp" | "lead" | "member";
   reportsTo: string | null;
   description: string;
   realmSlugs: string[];
@@ -387,9 +388,8 @@ function buildUsers(): UserSeed[] {
     did: makeDid("user-cto-chief"),
     name: "Alexandra Chen",
     email: `a.chen@${DOMAINS[0]}`,
-    role: "cto",
-    isAdmin: true,
-    isOwner: true,
+    role: "Owner",
+    tier: "cto",
     reportsTo: null,
     description: "Chief Technology Officer - owns the entire AI agent platform",
     realmSlugs: REALMS.map((r) => r.slug),
@@ -400,9 +400,8 @@ function buildUsers(): UserSeed[] {
     did: makeDid("user-ciso-chief"),
     name: "Marcus Webb",
     email: `m.webb@${DOMAINS[0]}`,
-    role: "ciso",
-    isAdmin: true,
-    isOwner: false,
+    role: "Admin",
+    tier: "ciso",
     reportsTo: cto.id,
     description: "Chief Information Security Officer",
     realmSlugs: ["security-ops", "legal", "devops"],
@@ -429,9 +428,8 @@ function buildUsers(): UserSeed[] {
       did: makeDid(`user-vp-${vp.slug}`),
       name: vp.name,
       email: `${vp.name.toLowerCase().replace(/\s+/g, ".")}@${DOMAINS[0]}`,
-      role: "vp",
-      isAdmin: true,
-      isOwner: false,
+      role: "Admin",
+      tier: "vp",
       reportsTo: vp.slug === "security-ops" || vp.slug === "legal" ? ciso.id : cto.id,
       description: `${vp.title} - manages all ${vp.slug} agents and team`,
       realmSlugs: [vp.slug],
@@ -453,9 +451,8 @@ function buildUsers(): UserSeed[] {
         did: makeDid(`user-lead-${realm.slug}-${i}`),
         name: `${first} ${last}`,
         email: `${first.toLowerCase()}.${last.toLowerCase()}@${pickDet(DOMAINS, `${realm.slug}:lead:${i}:d`)}`,
-        role: "lead",
-        isAdmin: false,
-        isOwner: false,
+        role: "Member",
+        tier: "lead",
         reportsTo: vp.id,
         description: `Team lead for ${realm.name} agents`,
         realmSlugs: [realm.slug],
@@ -473,9 +470,8 @@ function buildUsers(): UserSeed[] {
         did: makeDid(`user-ic-${realm.slug}-${i}`),
         name: `${first} ${last}`,
         email: `${first.toLowerCase()}.${last.toLowerCase()}@${pickDet(DOMAINS, `${realm.slug}:ic:${i}:d`)}`,
-        role: "member",
-        isAdmin: false,
-        isOwner: false,
+        role: "Member",
+        tier: "member",
         reportsTo: manager.id,
         description: `${realm.name} engineer / analyst`,
         realmSlugs: [realm.slug],
@@ -542,8 +538,6 @@ async function main() {
         name: u.name,
         email: u.email,
         role: u.role,
-        isAdmin: u.isAdmin,
-        isOwner: u.isOwner,
         reportsTo: u.reportsTo,
         description: u.description,
         locationLat: loc.locationLat,
@@ -555,8 +549,6 @@ async function main() {
         name: u.name,
         email: u.email,
         role: u.role,
-        isAdmin: u.isAdmin,
-        isOwner: u.isOwner,
         reportsTo: u.reportsTo,
         description: u.description,
         locationLat: loc.locationLat,
@@ -720,9 +712,9 @@ async function main() {
     const primarySlug = u.realmSlugs[0];
     const realmAgents = agentsByRealm[primarySlug] ?? [];
     const count =
-      u.role === "vp" || u.role === "cto" || u.role === "ciso"
+      u.tier === "vp" || u.tier === "cto" || u.tier === "ciso"
         ? 5
-        : u.role === "lead"
+        : u.tier === "lead"
           ? 3
           : 2;
 

@@ -12,6 +12,7 @@ import { SecurityTab } from "@/components/settings/SecurityTab";
 import { RealmsTab } from "@/components/settings/RealmsTab";
 import { AppearanceTab } from "@/components/settings/AppearanceTab";
 import { ApiKeysSection } from "@/components/settings/ApiKeysSection";
+import { isAdminRole } from "@/lib/roles";
 
 type Tab = "profile" | "security" | "api-keys" | "realms" | "appearance";
 
@@ -65,7 +66,8 @@ export default function AccountPage() {
     );
   };
 
-  const visibleTabs = TABS.filter((t) => !t.adminOnly || profile?.isAdmin);
+  const isAdmin = isAdminRole(profile?.role);
+  const visibleTabs = TABS.filter((t) => !t.adminOnly || isAdmin);
 
   useBreadcrumbs([{ label: "Account" }], []);
 
@@ -87,7 +89,7 @@ export default function AccountPage() {
         },
       ],
     },
-    [activeTab, profile?.isAdmin]
+    [activeTab, isAdmin]
   );
 
   if (profileLoading) {
@@ -109,7 +111,7 @@ export default function AccountPage() {
         <ProfileTab profile={profile} onPatch={patchProfile} />
       )}
       {activeTab === "security" && <SecurityTab profile={profile} />}
-      {activeTab === "api-keys" && profile?.isAdmin && <ApiKeysSection />}
+      {activeTab === "api-keys" && isAdmin && <ApiKeysSection />}
       {activeTab === "realms" && <RealmsTab realms={realms} />}
       {activeTab === "appearance" && <AppearanceTab />}
     </div>

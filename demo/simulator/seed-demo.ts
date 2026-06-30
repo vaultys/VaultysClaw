@@ -291,14 +291,14 @@ async function seedUsers(realmSlugToId: Map<string, string>): Promise<{ ownerUse
     did: string,
     email: string,
     name: string,
-    extra: { isOwner?: boolean; isAdmin?: boolean; role?: string; reportsTo?: string } = {},
+    extra: { role?: "Owner" | "Admin" | "Member"; reportsTo?: string } = {},
   ): Promise<string> {
     // Derive a stable deterministic id from the DID so re-runs are idempotent
     const id = makeId("user", did);
     await prisma.user.upsert({
       where: { id },
-      create: { id, did, email, name, isOwner: extra.isOwner ?? false, isAdmin: extra.isAdmin ?? false, role: extra.role ?? "member", reportsTo: extra.reportsTo ?? null },
-      update: { email, name, isOwner: extra.isOwner ?? false, isAdmin: extra.isAdmin ?? false, reportsTo: extra.reportsTo ?? null },
+      create: { id, did, email, name, role: extra.role ?? "Member", reportsTo: extra.reportsTo ?? null },
+      update: { email, name, role: extra.role ?? "Member", reportsTo: extra.reportsTo ?? null },
     });
     count++;
     return id;
@@ -306,7 +306,7 @@ async function seedUsers(realmSlugToId: Map<string, string>): Promise<{ ownerUse
 
   // Resolve the real owner — the user who claimed ownership via the setup wizard.
   // Workflows with human-approval steps will be assigned to this user.
-  const realOwner = await prisma.user.findFirst({ where: { isOwner: true } });
+  const realOwner = await prisma.user.findFirst({ where: { role: "Owner" } });
   const ownerUserId = realOwner?.id ?? "";
   const ownerDid = realOwner?.did ?? "";
   if (!realOwner) {
@@ -326,9 +326,7 @@ async function seedUsers(realmSlugToId: Map<string, string>): Promise<{ ownerUse
     const name = `${fn} ${ln}`;
     const email = `${exec.seed}@demo.vaultysclaw.io`;
     const uid = await upsert(did, email, name, {
-      isOwner: false,
-      isAdmin: exec.globalAdmin,
-      role: exec.globalAdmin ? "admin" : "member",
+      role: exec.globalAdmin ? "Admin" : "Member",
     });
     execUserIds.push(uid);
 

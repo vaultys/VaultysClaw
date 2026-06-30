@@ -21,8 +21,6 @@ export type UserRecord = {
   name: string | null;
   role: string;
   reportsTo: string | null;
-  isOwner: boolean;
-  isAdmin: boolean;
 };
 
 // Shape returned by prisma.agent queries

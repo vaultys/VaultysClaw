@@ -12,13 +12,7 @@ const handlers = createNextRoute(usersContract, {
   admins: async ({ request }) => {
     await getAuthContext(request); // throws UNAUTHORIZED if not logged in
 
-    const { users } = await UserDAO.list({
-      isAdmin: true,
-      hasAccount: true,
-      pageSize: 20,
-      sortBy: "name",
-      sortDir: "asc",
-    });
+    const users = await UserDAO.listAdmins(20);
 
     return {
       status: 200,

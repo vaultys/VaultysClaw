@@ -147,9 +147,7 @@ model User {
   publicKey     String?
   name          String?
   email         String?
-  isOwner       Boolean   @default(false)
-  isAdmin       Boolean   @default(false)
-  role          String    @default("member")
+  role          String    @default("Member")
   reportsTo     String?
   description   String?
   entraId       String?
@@ -515,7 +513,7 @@ model UserInvitation {
   token     String    @id
   email     String
   name      String
-  role      String    @default("member")
+  role      String    @default("Member")
   createdAt DateTime  @default(now())
   expiresAt DateTime
   claimedAt DateTime?

@@ -49,10 +49,17 @@ export type WorkflowRunListResponse = {
   totalPages: number;
 };
 
+/** A run step enriched with the assigned user resolved from its approval. */
+export type WorkflowRunStepDetail = WorkflowStep & {
+  assignedUserId: string | null;
+  assignedUserName: string | null;
+  assignedUserEmail: string | null;
+};
+
 export type WorkflowRunDetail = {
   run: WorkflowRun;
   workflow: Pick<Workflow, "id" | "name" | "definition"> | null;
-  steps: WorkflowStep[];
+  steps: WorkflowRunStepDetail[];
 };
 
 export type WorkflowRunStatus = {

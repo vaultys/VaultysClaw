@@ -14,8 +14,8 @@ import {
   ALL_CAPABILITIES,
   CAPABILITY_ICONS,
   type PendingReg,
-  type Realm,
 } from "./constants";
+import { Realm } from "@prisma/client";
 
 interface ApproveStepProps {
   pendingReg: PendingReg;
@@ -137,7 +137,9 @@ export function ApproveStep({
         </p>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <label className="space-y-1">
-            <span className="text-xs text-foreground-500">Max tokens / day</span>
+            <span className="text-xs text-foreground-500">
+              Max tokens / day
+            </span>
             <input
               type="number"
               min={0}
@@ -222,7 +224,9 @@ export function ApproveStep({
                     style={{ background: r.color }}
                   />
                   <span
-                    className={checked ? "text-foreground" : "text-foreground-500"}
+                    className={
+                      checked ? "text-foreground" : "text-foreground-500"
+                    }
                   >
                     {r.name}
                     {r.isDefault ? (

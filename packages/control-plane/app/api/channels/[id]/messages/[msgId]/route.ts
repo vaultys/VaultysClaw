@@ -1,220 +1,68 @@
-import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
-import {
-  unauthorized,
-  forbidden,
-  notFound,
-  malformed,
-} from "@/lib/api/utils/api-utils";
+import { APIException } from "@/lib/api/utils/api-utils";
 import { ChannelService } from "@/lib/channel-service";
-import { withError } from "@/lib/api/handlers/with-error";
+import { createNextRoute } from "@/lib/api/ts-rest/next-route";
+import { channelsContract } from "@/lib/contracts";
 
-type Ctx = { params: Promise<{ id: string; msgId: string }> };
+const handlers = createNextRoute(channelsContract, {
+  // ── GET /api/channels/:id/messages/:msgId ─────────────────────────────────
+  getMessage: async ({ params, request }) => {
+    const auth = await getAuthContext(request);
 
-/**
- * GET /api/channels/[id]/messages/[msgId]
- * Get a specific message
- */
-/**
- * @openapi
- * /api/channels/{id}/messages/{msgId}:
- *   get:
- *     summary: Get a specific message
- *     tags: [Channels]
- *     parameters:
- *       - name: id
- *         in: path
- *         required: true
- *         schema:
- *           type: string
- *       - name: msgId
- *         in: path
- *         required: true
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: Message retrieved successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: object
- *       401:
- *         $ref: '#/components/responses/Unauthorized'
- *       403:
- *         $ref: '#/components/responses/Forbidden'
- *       404:
- *         $ref: '#/components/responses/NotFound'
- *       500:
- *         description: Failed to fetch message
- */
-export const GET = withError(async (_req: NextRequest, ctx: Ctx) => {
-  const auth = await getAuthContext(_req);
-  if (!auth) return unauthorized();
+    const channel = await ChannelService.getChannel(params.id);
+    if (!channel) throw new APIException("NOT_FOUND", "Channel not found");
+    if (!(await ChannelService.isMember(params.id, auth.did)))
+      throw new APIException("FORBIDDEN");
 
-  const { id, msgId } = await ctx.params;
+    const message = await ChannelService.getMessage(params.msgId);
+    if (!message || message.channelId !== params.id)
+      throw new APIException("NOT_FOUND", "Message not found");
 
-  // Verify channel access
-  const channel = await ChannelService.getChannel(id);
-  if (!channel) {
-    return notFound("Channel not found");
-  }
+    return { status: 200, body: { message } };
+  },
 
-  if (!(await ChannelService.isMember(id, auth.did))) {
-    return forbidden();
-  }
+  // ── PATCH /api/channels/:id/messages/:msgId ───────────────────────────────
+  editMessage: async ({ params, body, request }) => {
+    const auth = await getAuthContext(request);
 
-  const message = await ChannelService.getMessage(msgId);
-  if (!message || message.channelId !== id) {
-    return notFound("Message not found");
-  }
+    const message = await ChannelService.getMessage(params.msgId);
+    if (!message || message.channelId !== params.id)
+      throw new APIException("NOT_FOUND", "Message not found");
 
-  return NextResponse.json({ message });
+    // Only the author can edit their message
+    if (message.authorDid !== auth.did) throw new APIException("FORBIDDEN");
+
+    if (!body.content?.trim())
+      throw new APIException("MALFORMED", "content is required");
+
+    const updated = await ChannelService.editMessage(
+      params.msgId,
+      body.content.trim()
+    );
+    return { status: 200, body: { message: updated } };
+  },
+
+  // ── DELETE /api/channels/:id/messages/:msgId ──────────────────────────────
+  deleteMessage: async ({ params, request }) => {
+    const auth = await getAuthContext(request);
+
+    const message = await ChannelService.getMessage(params.msgId);
+    if (!message || message.channelId !== params.id)
+      throw new APIException("NOT_FOUND", "Message not found");
+
+    // Author can delete, or moderator+ in the channel
+    const role = await ChannelService.getMemberRole(params.id, auth.did);
+    const canDelete =
+      message.authorDid === auth.did ||
+      role === "moderator" ||
+      role === "owner";
+    if (!canDelete) throw new APIException("FORBIDDEN");
+
+    await ChannelService.deleteMessage(params.msgId);
+    return { status: 200, body: { success: true } };
+  },
 });
 
-/**
- * PATCH /api/channels/[id]/messages/[msgId]
- * Edit a message
- * Body: { content }
- */
-/**
- * @openapi
- * /api/channels/{id}/messages/{msgId}:
- *   patch:
- *     summary: Edit a specific message in a channel.
- *     tags: [Channels]
- *     parameters:
- *       - name: id
- *         in: path
- *         required: true
- *         description: The ID of the channel.
- *         schema:
- *           type: string
- *       - name: msgId
- *         in: path
- *         required: true
- *         description: The ID of the message.
- *         schema:
- *           type: string
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               content:
- *                 type: string
- *                 description: The new content of the message.
- *     responses:
- *       200:
- *         description: Message successfully edited.
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   $ref: '#/components/schemas/Message'
- *       400:
- *         $ref: '#/components/responses/BadRequest'
- *       401:
- *         $ref: '#/components/responses/Unauthorized'
- *       403:
- *         $ref: '#/components/responses/Forbidden'
- *       404:
- *         $ref: '#/components/responses/NotFound'
- *       500:
- *         description: Failed to edit message.
- */
-export const PATCH = withError(async (req: NextRequest, ctx: Ctx) => {
-  const auth = await getAuthContext(req);
-  if (!auth) return unauthorized();
-
-  const { id, msgId } = await ctx.params;
-
-  const message = await ChannelService.getMessage(msgId);
-  if (!message || message.channelId !== id) {
-    return notFound("Message not found");
-  }
-
-  // Only the author can edit their message
-  if (message.authorDid !== auth.did) {
-    return forbidden();
-  }
-
-  const body = (await req.json()) as { content?: string };
-
-  if (!body.content?.trim()) {
-    return malformed("content is required");
-  }
-
-  const updated = await ChannelService.editMessage(msgId, body.content.trim());
-
-  return NextResponse.json({ message: updated });
-});
-
-/**
- * DELETE /api/channels/[id]/messages/[msgId]
- * Delete a message (soft delete)
- */
-/**
- * @openapi
- * /api/channels/{id}/messages/{msgId}:
- *   delete:
- *     summary: Soft delete a message in a channel.
- *     tags: [Channels]
- *     parameters:
- *       - name: id
- *         in: path
- *         required: true
- *         description: Channel ID
- *         schema:
- *           type: string
- *       - name: msgId
- *         in: path
- *         required: true
- *         description: Message ID
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: Message successfully deleted.
- *       400:
- *         $ref: '#/components/responses/BadRequest'
- *       401:
- *         $ref: '#/components/responses/Unauthorized'
- *       403:
- *         $ref: '#/components/responses/Forbidden'
- *       404:
- *         $ref: '#/components/responses/NotFound'
- *       500:
- *         description: Failed to delete message.
- */
-export const DELETE = withError(async (_req: NextRequest, ctx: Ctx) => {
-  const auth = await getAuthContext(_req);
-  if (!auth) return unauthorized();
-
-  const { id, msgId } = await ctx.params;
-
-  const message = await ChannelService.getMessage(msgId);
-  if (!message || message.channelId !== id) {
-    return notFound("Message not found");
-  }
-
-  // Author can delete, or moderator+ in the channel
-  const role = await ChannelService.getMemberRole(id, auth.did);
-  const canDelete =
-    message.authorDid === auth.did || role === "moderator" || role === "owner";
-
-  if (!canDelete) {
-    return forbidden();
-  }
-
-  await ChannelService.deleteMessage(msgId);
-
-  return NextResponse.json({ success: true });
-});
+export const GET = handlers.GET!;
+export const PATCH = handlers.PATCH!;
+export const DELETE = handlers.DELETE!;

@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { Field, StatusBadge, IntegrationPanel, IntegrationHeader } from "./shared";
 import { cn } from "@/lib/utils";
+import { serverClient, unwrap } from "@/lib/api/ts-rest/client";
 
 interface DiscoveryCheck {
   id: string;
@@ -153,27 +154,27 @@ export function OidcPanel() {
   const callbackUrl = `${typeof window !== "undefined" ? window.location.origin : ""}/api/auth/callback/oidc`;
 
   useEffect(() => {
-    fetch("/api/server/oidc")
-      .then((r) => r.json())
-      .then(
-        (d: {
+    serverClient
+      .getOidc()
+      .then((res) => {
+        const d = unwrap(res) as {
           configured?: boolean;
           fromEnv?: boolean;
           issuer?: string;
           clientId?: string;
           clientSecret?: string;
           providerName?: string;
-        }) => {
-          setConfigured(!!d.configured);
-          setFromEnv(!!d.fromEnv);
-          if (d.configured) {
-            setIssuer(d.issuer ?? "");
-            setClientId(d.clientId ?? "");
-            setProviderName(d.providerName ?? "SSO");
-            setSecretPlaceholder(d.clientSecret ?? ""); // will be "••••••••"
-          }
+        };
+        setConfigured(!!d.configured);
+        setFromEnv(!!d.fromEnv);
+        if (d.configured) {
+          setIssuer(d.issuer ?? "");
+          setClientId(d.clientId ?? "");
+          setProviderName(d.providerName ?? "SSO");
+          setSecretPlaceholder(d.clientSecret ?? ""); // will be "••••••••"
         }
-      )
+      })
+      .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
 
@@ -182,25 +183,21 @@ export function OidcPanel() {
     setSaving(true);
     setTestChecks(null);
     try {
-      const r = await fetch("/api/server/oidc", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          issuer,
-          clientId,
-          clientSecret: clientSecret || undefined,
-          providerName,
-          keepSecret: configured && !clientSecret,
-        }),
-      });
-      if (r.ok) {
-        setSaveStatus("saved");
-        setConfigured(true);
-        setSecretPlaceholder("••••••••");
-        setClientSecret("");
-      } else {
-        setSaveStatus("error");
-      }
+      unwrap(
+        await serverClient.saveOidc({
+          body: {
+            issuer,
+            clientId,
+            clientSecret: clientSecret || undefined,
+            providerName,
+            keepSecret: configured && !clientSecret,
+          },
+        })
+      );
+      setSaveStatus("saved");
+      setConfigured(true);
+      setSecretPlaceholder("••••••••");
+      setClientSecret("");
       setTimeout(() => setSaveStatus("idle"), 3000);
     } catch {
       setSaveStatus("error");
@@ -215,12 +212,9 @@ export function OidcPanel() {
     setTesting(true);
     setTestChecks(null);
     try {
-      const r = await fetch("/api/server/oidc", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ issuer }),
-      });
-      const d = (await r.json()) as { checks?: DiscoveryCheck[] };
+      const d = unwrap(
+        await serverClient.testOidc({ body: { issuer } })
+      ) as { checks?: DiscoveryCheck[] };
       setTestChecks(d.checks ?? []);
     } catch {
       setTestChecks([{ id: "network", label: "Reach discovery endpoint", status: "fail", detail: "Network error" }]);
@@ -233,16 +227,16 @@ export function OidcPanel() {
     if (!confirm("Remove OIDC configuration? Users who signed in via SSO will still exist but cannot log in until OIDC is reconfigured.")) return;
     setRemoving(true);
     try {
-      const r = await fetch("/api/server/oidc", { method: "DELETE" });
-      if (r.ok) {
-        setConfigured(false);
-        setIssuer("");
-        setClientId("");
-        setClientSecret("");
-        setSecretPlaceholder("");
-        setProviderName("SSO");
-        setTestChecks(null);
-      }
+      unwrap(await serverClient.removeOidc());
+      setConfigured(false);
+      setIssuer("");
+      setClientId("");
+      setClientSecret("");
+      setSecretPlaceholder("");
+      setProviderName("SSO");
+      setTestChecks(null);
+    } catch {
+      /* ignore */
     } finally {
       setRemoving(false);
     }

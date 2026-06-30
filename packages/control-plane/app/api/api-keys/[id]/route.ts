@@ -1,168 +1,60 @@
-import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
-import {
-  unauthorized,
-  forbidden,
-  notFound,
-  malformed,
-} from "@/lib/api/utils/api-utils";
+import { APIException } from "@/lib/api/utils/api-utils";
 import { ApiKeyDAO } from "@/db";
-import { prisma } from "@/db/client";
-import type { ApiKey, ApiKeyUpdateRequest } from "@/lib/api/utils/api-types";
-import { withError } from "@/lib/api/handlers/with-error";
+import { createNextRoute } from "@/lib/api/ts-rest/next-route";
+import { apiKeysContract } from "@/lib/contracts";
+import { toApiKey } from "@/lib/api/utils/api-key-utils";
 
-function toApiKey(
-  row: NonNullable<Awaited<ReturnType<typeof ApiKeyDAO.findById>>>
-): ApiKey {
-  return {
-    id: row.id,
-    name: row.name,
-    keyPrefix: row.keyPrefix,
-    allowedRoutes: row.allowedRoutes as string[],
-    realmId: row.realmId ?? null,
-    isRealmAdmin: row.isRealmAdmin,
-    createdBy: row.createdBy,
-    createdAt: Math.floor(row.createdAt.getTime() / 1000),
-    lastUsedAt: row.lastUsedAt
-      ? Math.floor(row.lastUsedAt.getTime() / 1000)
-      : null,
-    expiresAt: row.expiresAt
-      ? Math.floor(row.expiresAt.getTime() / 1000)
-      : null,
-    isActive: row.isActive,
-  };
-}
+const handlers = createNextRoute(apiKeysContract, {
+  // ── PATCH /api/api-keys/:id ───────────────────────────────────────────────
+  update: async ({ params, body, request }) => {
+    const auth = await getAuthContext(request);
+    if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");
 
-/**
- * @openapi
- * /api/api-keys/{id}:
- *   patch:
- *     summary: Update an API key
- *     description: Update name, allowed routes, realm scope, expiry, or active status. Admin only.
- *     tags: [API Keys]
- *     security:
- *       - sessionCookie: []
- *       - apiKey: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: Updated API key
- *       404:
- *         $ref: '#/components/responses/NotFound'
- *       401:
- *         $ref: '#/components/responses/Unauthorized'
- *       403:
- *         $ref: '#/components/responses/Forbidden'
- *   delete:
- *     summary: Revoke an API key
- *     description: Permanently deletes an API key. Admin only.
- *     tags: [API Keys]
- *     security:
- *       - sessionCookie: []
- *       - apiKey: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *     responses:
- *       204:
- *         description: Key revoked
- *       404:
- *         $ref: '#/components/responses/NotFound'
- *       401:
- *         $ref: '#/components/responses/Unauthorized'
- *       403:
- *         $ref: '#/components/responses/Forbidden'
- */
-export const PATCH = withError(async (
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) => {
-  const auth = await getAuthContext(request);
-  if (!auth) return unauthorized();
-  if (!auth.isGlobalAdmin) return forbidden();
+    const existing = await ApiKeyDAO.findById(params.id);
+    if (!existing) throw new APIException("NOT_FOUND", "API key not found");
 
-  const { id } = await params;
-  const existing = await ApiKeyDAO.findById(id);
-  if (!existing) {
-    return notFound("API key not found");
-  }
+    const data: {
+      name?: string;
+      allowedRoutes?: string[];
+      realmId?: string | null;
+      isRealmAdmin?: boolean;
+      expiresAt?: Date | null;
+      isActive?: boolean;
+    } = {};
 
-  const body = (await request.json()) as ApiKeyUpdateRequest;
-  const data: Record<string, unknown> = {};
-
-  if (body.name !== undefined) {
-    if (!body.name.trim()) {
-      return malformed("name cannot be empty");
+    if (body.name !== undefined) {
+      if (!body.name.trim()) throw new APIException("MALFORMED", "name cannot be empty");
+      data.name = body.name.trim();
     }
-    data.name = body.name.trim();
-  }
-  if (body.allowedRoutes !== undefined) {
-    if (!Array.isArray(body.allowedRoutes) || body.allowedRoutes.length === 0) {
-      return malformed("allowedRoutes must be a non-empty array");
+    if (body.allowedRoutes !== undefined) {
+      if (!Array.isArray(body.allowedRoutes) || body.allowedRoutes.length === 0)
+        throw new APIException("MALFORMED", "allowedRoutes must be a non-empty array");
+      data.allowedRoutes = body.allowedRoutes;
     }
-    data.allowedRoutes = body.allowedRoutes;
-  }
-  if (body.realmId !== undefined) data.realmId = body.realmId ?? null;
-  if (body.isRealmAdmin !== undefined) data.isRealmAdmin = body.isRealmAdmin;
-  if (body.expiresAt !== undefined) {
-    data.expiresAt = body.expiresAt ? new Date(body.expiresAt * 1000) : null;
-  }
-  if (body.isActive !== undefined) data.isActive = body.isActive;
+    if (body.realmId !== undefined) data.realmId = body.realmId ?? null;
+    if (body.isRealmAdmin !== undefined) data.isRealmAdmin = body.isRealmAdmin;
+    if (body.expiresAt !== undefined)
+      data.expiresAt = body.expiresAt ? new Date(body.expiresAt * 1000) : null;
+    if (body.isActive !== undefined) data.isActive = body.isActive;
 
-  if (Object.keys(data).length === 0) {
-    return malformed("No fields to update");
-  }
+    if (Object.keys(data).length === 0)
+      throw new APIException("MALFORMED", "No fields to update");
 
-  const updated = await prisma.apiKey.update({ where: { id }, data });
-  return NextResponse.json(toApiKey(updated));
+    const updated = await ApiKeyDAO.update(params.id, data);
+    return { status: 200, body: toApiKey(updated) };
+  },
+
+  // ── DELETE /api/api-keys/:id ──────────────────────────────────────────────
+  remove: async ({ params, request }) => {
+    const auth = await getAuthContext(request);
+    if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");
+
+    const deleted = await ApiKeyDAO.delete(params.id);
+    if (!deleted) throw new APIException("NOT_FOUND", "API key not found");
+    return { status: 204, body: undefined };
+  },
 });
 
-/**
- * @openapi
- * /api/api-keys/{id}:
- *   delete:
- *     summary: Revoke an API key
- *     description: Permanently deletes an API key. Admin only.
- *     tags: [API Keys]
- *     security:
- *       - sessionCookie: []
- *       - apiKey: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *     responses:
- *       204:
- *         description: Key revoked
- *       404:
- *         $ref: '#/components/responses/NotFound'
- *       401:
- *         $ref: '#/components/responses/Unauthorized'
- *       403:
- *         $ref: '#/components/responses/Forbidden'
- */
-export const DELETE = withError(async (
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) => {
-  const auth = await getAuthContext(request);
-  if (!auth) return unauthorized();
-  if (!auth.isGlobalAdmin) return forbidden();
-
-  const { id } = await params;
-  const deleted = await ApiKeyDAO.delete(id);
-  if (!deleted) {
-    return notFound("API key not found");
-  }
-  return new NextResponse(null, { status: 204 });
-});
+export const PATCH = handlers.PATCH!;
+export const DELETE = handlers.DELETE!;

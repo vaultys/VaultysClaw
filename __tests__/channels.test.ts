@@ -110,7 +110,7 @@ import {
   DELETE as bridgeDELETE,
 } from "../packages/control-plane/app/api/channels/[id]/bridges/[bridgeId]/route";
 import { POST as webhookIncomingPOST } from "../packages/control-plane/app/api/bridges/webhook/[bridgeId]/incoming/route";
-import { GET as meRealmsGET } from "../packages/control-plane/app/api/me/realms/route";
+import { GET as meRealmsGET } from "../packages/control-plane/app/api/realms/me/route";
 
 // Bridge / gateway layer
 import { ChannelBridgeService } from "../packages/control-plane/lib/channel-bridge-service";
@@ -188,11 +188,12 @@ function req(method: string, url: string, body?: unknown): NextRequest {
  * minimal fake that satisfies exactly what the route handler needs.
  */
 function webhookReq(url: string, bodyStr: string, sig: string): NextRequest {
+  const headers = new Headers();
+  headers.set("x-signature", sig);
   return {
+    url,
     text: async () => bodyStr,
-    headers: {
-      get: (h: string) => (h.toLowerCase() === "x-signature" ? sig : null),
-    },
+    headers,
   } as unknown as NextRequest;
 }
 
@@ -210,10 +211,37 @@ beforeAll(async () => {
   testAgentName = "tch-test-agent";
 
   // ── Prisma (ChannelService + API routes use Prisma) ──────────────────────
-  await prisma.realm.upsert({ where: { id: testRealmId }, create: { id: testRealmId, name: "Channel Test Realm", slug: "channel-test-realm", color: "#6366f1" }, update: {} });
-  await prisma.agent.upsert({ where: { did: testAgentDid }, create: { did: testAgentDid, name: testAgentName, capabilities: [] }, update: {} });
-  await prisma.user.upsert({ where: { id: "user-uuid-123" }, create: { id: "user-uuid-123", did: "did:test:admin", name: "Test Admin" }, update: {} });
-  await prisma.userRealm.upsert({ where: { userId_realmId: { userId: "user-uuid-123", realmId: testRealmId } }, create: { userId: "user-uuid-123", realmId: testRealmId, isRealmAdmin: true }, update: {} });
+  await prisma.realm.upsert({
+    where: { id: testRealmId },
+    create: {
+      id: testRealmId,
+      name: "Channel Test Realm",
+      slug: "channel-test-realm",
+      color: "#6366f1",
+    },
+    update: {},
+  });
+  await prisma.agent.upsert({
+    where: { did: testAgentDid },
+    create: { did: testAgentDid, name: testAgentName, capabilities: [] },
+    update: {},
+  });
+  await prisma.user.upsert({
+    where: { id: "user-uuid-123" },
+    create: { id: "user-uuid-123", did: "did:test:admin", name: "Test Admin" },
+    update: {},
+  });
+  await prisma.userRealm.upsert({
+    where: {
+      userId_realmId: { userId: "user-uuid-123", realmId: testRealmId },
+    },
+    create: {
+      userId: "user-uuid-123",
+      realmId: testRealmId,
+      isRealmAdmin: true,
+    },
+    update: {},
+  });
 });
 
 afterAll(async () => {
@@ -252,11 +280,18 @@ describe("ChannelService: createChannel", () => {
       expect(fetched!.isArchived).toBe(false);
 
       // Creator should be an owner member
-      const role = await ChannelService.getMemberRole(channel.id, "did:test:creator");
+      const role = await ChannelService.getMemberRole(
+        channel.id,
+        "did:test:creator"
+      );
       expect(role).toBe("owner");
     } finally {
-      await prisma.channelMember.deleteMany({ where: { channelId: channel.id } });
-      await prisma.channel.delete({ where: { id: channel.id } }).catch(() => {});
+      await prisma.channelMember.deleteMany({
+        where: { channelId: channel.id },
+      });
+      await prisma.channel
+        .delete({ where: { id: channel.id } })
+        .catch(() => {});
     }
   });
 
@@ -290,8 +325,12 @@ describe("ChannelService: createChannel", () => {
         })
       ).rejects.toThrow(/already exists/i);
     } finally {
-      await prisma.channelMember.deleteMany({ where: { channelId: channel.id } });
-      await prisma.channel.delete({ where: { id: channel.id } }).catch(() => {});
+      await prisma.channelMember.deleteMany({
+        where: { channelId: channel.id },
+      });
+      await prisma.channel
+        .delete({ where: { id: channel.id } })
+        .catch(() => {});
     }
   });
 });
@@ -314,8 +353,12 @@ describe("ChannelService: getChannel", () => {
       expect(found).not.toBeNull();
       expect(found!.id).toBe(channel.id);
     } finally {
-      await prisma.channelMember.deleteMany({ where: { channelId: channel.id } });
-      await prisma.channel.delete({ where: { id: channel.id } }).catch(() => {});
+      await prisma.channelMember.deleteMany({
+        where: { channelId: channel.id },
+      });
+      await prisma.channel
+        .delete({ where: { id: channel.id } })
+        .catch(() => {});
     }
   });
 });
@@ -342,9 +385,15 @@ describe("ChannelService: postMessage", () => {
       expect(msg.content).toBe("Hello, world!");
       expect(msg.authorType).toBe("user");
     } finally {
-      await prisma.channelMessage.deleteMany({ where: { channelId: channel.id } });
-      await prisma.channelMember.deleteMany({ where: { channelId: channel.id } });
-      await prisma.channel.delete({ where: { id: channel.id } }).catch(() => {});
+      await prisma.channelMessage.deleteMany({
+        where: { channelId: channel.id },
+      });
+      await prisma.channelMember.deleteMany({
+        where: { channelId: channel.id },
+      });
+      await prisma.channel
+        .delete({ where: { id: channel.id } })
+        .catch(() => {});
     }
   });
 
@@ -375,9 +424,15 @@ describe("ChannelService: postMessage", () => {
       // sendTaskToAgent should NOT be called for agent-authored messages
       expect(vi.mocked(mockWs.sendTaskToAgent)).not.toHaveBeenCalled();
     } finally {
-      await prisma.channelMessage.deleteMany({ where: { channelId: channel.id } });
-      await prisma.channelMember.deleteMany({ where: { channelId: channel.id } });
-      await prisma.channel.delete({ where: { id: channel.id } }).catch(() => {});
+      await prisma.channelMessage.deleteMany({
+        where: { channelId: channel.id },
+      });
+      await prisma.channelMember.deleteMany({
+        where: { channelId: channel.id },
+      });
+      await prisma.channel
+        .delete({ where: { id: channel.id } })
+        .catch(() => {});
     }
   });
 });
@@ -411,9 +466,15 @@ describe("ChannelService: createThreadReply", () => {
       expect(reply.channelId).toBe(channel.id);
       expect(reply.content).toBe("Reply here");
     } finally {
-      await prisma.channelMessage.deleteMany({ where: { channelId: channel.id } });
-      await prisma.channelMember.deleteMany({ where: { channelId: channel.id } });
-      await prisma.channel.delete({ where: { id: channel.id } }).catch(() => {});
+      await prisma.channelMessage.deleteMany({
+        where: { channelId: channel.id },
+      });
+      await prisma.channelMember.deleteMany({
+        where: { channelId: channel.id },
+      });
+      await prisma.channel
+        .delete({ where: { id: channel.id } })
+        .catch(() => {});
     }
   });
 
@@ -436,8 +497,12 @@ describe("ChannelService: createThreadReply", () => {
         })
       ).rejects.toThrow(/not found/i);
     } finally {
-      await prisma.channelMember.deleteMany({ where: { channelId: channel.id } });
-      await prisma.channel.delete({ where: { id: channel.id } }).catch(() => {});
+      await prisma.channelMember.deleteMany({
+        where: { channelId: channel.id },
+      });
+      await prisma.channel
+        .delete({ where: { id: channel.id } })
+        .catch(() => {});
     }
   });
 });
@@ -463,12 +528,16 @@ describe("ChannelService: addChannelMember / removeChannelMember", () => {
         "did:test:new-member"
       );
       expect(member.role).toBe("member");
-      expect(await ChannelService.isMember(channel.id, "did:test:new-member")).toBe(
-        true
-      );
+      expect(
+        await ChannelService.isMember(channel.id, "did:test:new-member")
+      ).toBe(true);
     } finally {
-      await prisma.channelMember.deleteMany({ where: { channelId: channel.id } });
-      await prisma.channel.delete({ where: { id: channel.id } }).catch(() => {});
+      await prisma.channelMember.deleteMany({
+        where: { channelId: channel.id },
+      });
+      await prisma.channel
+        .delete({ where: { id: channel.id } })
+        .catch(() => {});
     }
   });
 
@@ -495,8 +564,12 @@ describe("ChannelService: addChannelMember / removeChannelMember", () => {
         })
       ).rejects.toThrow(/already in/i);
     } finally {
-      await prisma.channelMember.deleteMany({ where: { channelId: channel.id } });
-      await prisma.channel.delete({ where: { id: channel.id } }).catch(() => {});
+      await prisma.channelMember.deleteMany({
+        where: { channelId: channel.id },
+      });
+      await prisma.channel
+        .delete({ where: { id: channel.id } })
+        .catch(() => {});
     }
   });
 
@@ -515,18 +588,25 @@ describe("ChannelService: addChannelMember / removeChannelMember", () => {
         memberType: "user",
       });
 
-      expect(await ChannelService.isMember(channel.id, "did:test:to-remove")).toBe(
-        true
+      expect(
+        await ChannelService.isMember(channel.id, "did:test:to-remove")
+      ).toBe(true);
+
+      await ChannelService.removeChannelMember(
+        channel.id,
+        "did:test:to-remove"
       );
 
-      await ChannelService.removeChannelMember(channel.id, "did:test:to-remove");
-
-      expect(await ChannelService.isMember(channel.id, "did:test:to-remove")).toBe(
-        false
-      );
+      expect(
+        await ChannelService.isMember(channel.id, "did:test:to-remove")
+      ).toBe(false);
     } finally {
-      await prisma.channelMember.deleteMany({ where: { channelId: channel.id } });
-      await prisma.channel.delete({ where: { id: channel.id } }).catch(() => {});
+      await prisma.channelMember.deleteMany({
+        where: { channelId: channel.id },
+      });
+      await prisma.channel
+        .delete({ where: { id: channel.id } })
+        .catch(() => {});
     }
   });
 });
@@ -552,12 +632,16 @@ describe("ChannelService: getMemberRole", () => {
         await ChannelService.getMemberRole(channel.id, "did:test:moderator")
       ).toBe("moderator");
       // Creator is owner
-      expect(await ChannelService.getMemberRole(channel.id, "did:test:admin")).toBe(
-        "owner"
-      );
+      expect(
+        await ChannelService.getMemberRole(channel.id, "did:test:admin")
+      ).toBe("owner");
     } finally {
-      await prisma.channelMember.deleteMany({ where: { channelId: channel.id } });
-      await prisma.channel.delete({ where: { id: channel.id } }).catch(() => {});
+      await prisma.channelMember.deleteMany({
+        where: { channelId: channel.id },
+      });
+      await prisma.channel
+        .delete({ where: { id: channel.id } })
+        .catch(() => {});
     }
   });
 
@@ -574,8 +658,12 @@ describe("ChannelService: getMemberRole", () => {
         await ChannelService.getMemberRole(channel.id, "did:test:outsider")
       ).toBeNull();
     } finally {
-      await prisma.channelMember.deleteMany({ where: { channelId: channel.id } });
-      await prisma.channel.delete({ where: { id: channel.id } }).catch(() => {});
+      await prisma.channelMember.deleteMany({
+        where: { channelId: channel.id },
+      });
+      await prisma.channel
+        .delete({ where: { id: channel.id } })
+        .catch(() => {});
     }
   });
 });
@@ -615,9 +703,15 @@ describe("ChannelService: getChannelStats", () => {
       expect(stats.messageCount).toBe(2);
       expect(stats.memberCount).toBe(2); // creator + stats-member
     } finally {
-      await prisma.channelMessage.deleteMany({ where: { channelId: channel.id } });
-      await prisma.channelMember.deleteMany({ where: { channelId: channel.id } });
-      await prisma.channel.delete({ where: { id: channel.id } }).catch(() => {});
+      await prisma.channelMessage.deleteMany({
+        where: { channelId: channel.id },
+      });
+      await prisma.channelMember.deleteMany({
+        where: { channelId: channel.id },
+      });
+      await prisma.channel
+        .delete({ where: { id: channel.id } })
+        .catch(() => {});
     }
   });
 });
@@ -681,9 +775,15 @@ describe("MessageDispatcher: processMessage", () => {
       const thread = await ChannelService.getThread(msg.id);
       expect(thread).toHaveLength(0);
     } finally {
-      await prisma.channelMessage.deleteMany({ where: { channelId: channel.id } });
-      await prisma.channelMember.deleteMany({ where: { channelId: channel.id } });
-      await prisma.channel.delete({ where: { id: channel.id } }).catch(() => {});
+      await prisma.channelMessage.deleteMany({
+        where: { channelId: channel.id },
+      });
+      await prisma.channelMember.deleteMany({
+        where: { channelId: channel.id },
+      });
+      await prisma.channel
+        .delete({ where: { id: channel.id } })
+        .catch(() => {});
     }
   });
 
@@ -714,9 +814,15 @@ describe("MessageDispatcher: processMessage", () => {
       const thread = await ChannelService.getThread(msg.id);
       expect(thread.length).toBeGreaterThanOrEqual(1);
     } finally {
-      await prisma.channelMessage.deleteMany({ where: { channelId: channel.id } });
-      await prisma.channelMember.deleteMany({ where: { channelId: channel.id } });
-      await prisma.channel.delete({ where: { id: channel.id } }).catch(() => {});
+      await prisma.channelMessage.deleteMany({
+        where: { channelId: channel.id },
+      });
+      await prisma.channelMember.deleteMany({
+        where: { channelId: channel.id },
+      });
+      await prisma.channel
+        .delete({ where: { id: channel.id } })
+        .catch(() => {});
     }
   });
 
@@ -751,9 +857,15 @@ describe("MessageDispatcher: processMessage", () => {
       );
       expect(offlineNotice).toBeDefined();
     } finally {
-      await prisma.channelMessage.deleteMany({ where: { channelId: channel.id } });
-      await prisma.channelMember.deleteMany({ where: { channelId: channel.id } });
-      await prisma.channel.delete({ where: { id: channel.id } }).catch(() => {});
+      await prisma.channelMessage.deleteMany({
+        where: { channelId: channel.id },
+      });
+      await prisma.channelMember.deleteMany({
+        where: { channelId: channel.id },
+      });
+      await prisma.channel
+        .delete({ where: { id: channel.id } })
+        .catch(() => {});
     }
   });
 });
@@ -764,7 +876,7 @@ describe("MessageDispatcher: processMessage", () => {
 
 describe("GET /api/channels", () => {
   it("returns 401 when unauthenticated", async () => {
-    mockGetAuthContext.mockResolvedValueOnce(null);
+    mockGetAuthContext.mockRejectedValueOnce(new APIException("UNAUTHORIZED"));
     const r = req("GET", `http://localhost/api/channels?realm=${testRealmId}`);
     const res = await channelsGET(r as any);
     expect(res._status).toBe(401);
@@ -805,8 +917,12 @@ describe("GET /api/channels", () => {
       expect(Array.isArray(body.channels)).toBe(true);
       expect(body.channels.some((c) => c.id === channel.id)).toBe(true);
     } finally {
-      await prisma.channelMember.deleteMany({ where: { channelId: channel.id } });
-      await prisma.channel.delete({ where: { id: channel.id } }).catch(() => {});
+      await prisma.channelMember.deleteMany({
+        where: { channelId: channel.id },
+      });
+      await prisma.channel
+        .delete({ where: { id: channel.id } })
+        .catch(() => {});
     }
   });
 });
@@ -817,7 +933,7 @@ describe("GET /api/channels", () => {
 
 describe("POST /api/channels", () => {
   it("returns 401 when unauthenticated", async () => {
-    mockGetAuthContext.mockResolvedValueOnce(null);
+    mockGetAuthContext.mockRejectedValueOnce(new APIException("UNAUTHORIZED"));
     const r = req("POST", "http://localhost/api/channels", {
       name: "Test",
       realmId: testRealmId,
@@ -867,8 +983,12 @@ describe("POST /api/channels", () => {
     expect(returnedRealmId).toBe(testRealmId);
 
     // Cleanup
-    await prisma.channelMember.deleteMany({ where: { channelId: body.channel.id } });
-    await prisma.channel.delete({ where: { id: body.channel.id } }).catch(() => {});
+    await prisma.channelMember.deleteMany({
+      where: { channelId: body.channel.id },
+    });
+    await prisma.channel
+      .delete({ where: { id: body.channel.id } })
+      .catch(() => {});
   });
 });
 
@@ -910,8 +1030,12 @@ describe("GET /api/channels/[id]", () => {
       expect(typeof body.stats.messageCount).toBe("number");
       expect(typeof body.stats.memberCount).toBe("number");
     } finally {
-      await prisma.channelMember.deleteMany({ where: { channelId: channel.id } });
-      await prisma.channel.delete({ where: { id: channel.id } }).catch(() => {});
+      await prisma.channelMember.deleteMany({
+        where: { channelId: channel.id },
+      });
+      await prisma.channel
+        .delete({ where: { id: channel.id } })
+        .catch(() => {});
     }
   });
 });
@@ -938,8 +1062,12 @@ describe("PATCH /api/channels/[id]", () => {
       );
       expect(res._status).toBe(403);
     } finally {
-      await prisma.channelMember.deleteMany({ where: { channelId: channel.id } });
-      await prisma.channel.delete({ where: { id: channel.id } }).catch(() => {});
+      await prisma.channelMember.deleteMany({
+        where: { channelId: channel.id },
+      });
+      await prisma.channel
+        .delete({ where: { id: channel.id } })
+        .catch(() => {});
     }
   });
 
@@ -961,8 +1089,12 @@ describe("PATCH /api/channels/[id]", () => {
       const body = (await res.json()) as { channel: { name: string } };
       expect(body.channel.name).toBe("New Name");
     } finally {
-      await prisma.channelMember.deleteMany({ where: { channelId: channel.id } });
-      await prisma.channel.delete({ where: { id: channel.id } }).catch(() => {});
+      await prisma.channelMember.deleteMany({
+        where: { channelId: channel.id },
+      });
+      await prisma.channel
+        .delete({ where: { id: channel.id } })
+        .catch(() => {});
     }
   });
 });
@@ -988,8 +1120,12 @@ describe("DELETE /api/channels/[id]", () => {
       );
       expect(res._status).toBe(403);
     } finally {
-      await prisma.channelMember.deleteMany({ where: { channelId: channel.id } });
-      await prisma.channel.delete({ where: { id: channel.id } }).catch(() => {});
+      await prisma.channelMember.deleteMany({
+        where: { channelId: channel.id },
+      });
+      await prisma.channel
+        .delete({ where: { id: channel.id } })
+        .catch(() => {});
     }
   });
 
@@ -1041,8 +1177,12 @@ describe("POST /api/channels/[id]/members", () => {
       );
       expect(res._status).toBe(400);
     } finally {
-      await prisma.channelMember.deleteMany({ where: { channelId: channel.id } });
-      await prisma.channel.delete({ where: { id: channel.id } }).catch(() => {});
+      await prisma.channelMember.deleteMany({
+        where: { channelId: channel.id },
+      });
+      await prisma.channel
+        .delete({ where: { id: channel.id } })
+        .catch(() => {});
     }
   });
 
@@ -1071,8 +1211,12 @@ describe("POST /api/channels/[id]/members", () => {
       );
       expect(res._status).toBe(409);
     } finally {
-      await prisma.channelMember.deleteMany({ where: { channelId: channel.id } });
-      await prisma.channel.delete({ where: { id: channel.id } }).catch(() => {});
+      await prisma.channelMember.deleteMany({
+        where: { channelId: channel.id },
+      });
+      await prisma.channel
+        .delete({ where: { id: channel.id } })
+        .catch(() => {});
     }
   });
 
@@ -1101,8 +1245,12 @@ describe("POST /api/channels/[id]/members", () => {
       const returnedDid = body.member.memberDid ?? body.member.member_did;
       expect(returnedDid).toBe("did:test:new-user");
     } finally {
-      await prisma.channelMember.deleteMany({ where: { channelId: channel.id } });
-      await prisma.channel.delete({ where: { id: channel.id } }).catch(() => {});
+      await prisma.channelMember.deleteMany({
+        where: { channelId: channel.id },
+      });
+      await prisma.channel
+        .delete({ where: { id: channel.id } })
+        .catch(() => {});
     }
   });
 });
@@ -1164,8 +1312,12 @@ describe("DELETE /api/channels/[id]/members/[memberDid]", () => {
       );
       expect(res2._status).toBe(200);
     } finally {
-      await prisma.channelMember.deleteMany({ where: { channelId: channel.id } });
-      await prisma.channel.delete({ where: { id: channel.id } }).catch(() => {});
+      await prisma.channelMember.deleteMany({
+        where: { channelId: channel.id },
+      });
+      await prisma.channel
+        .delete({ where: { id: channel.id } })
+        .catch(() => {});
     }
   });
 });
@@ -1207,9 +1359,15 @@ describe("GET /api/channels/[id]/messages", () => {
         true
       );
     } finally {
-      await prisma.channelMessage.deleteMany({ where: { channelId: channel.id } });
-      await prisma.channelMember.deleteMany({ where: { channelId: channel.id } });
-      await prisma.channel.delete({ where: { id: channel.id } }).catch(() => {});
+      await prisma.channelMessage.deleteMany({
+        where: { channelId: channel.id },
+      });
+      await prisma.channelMember.deleteMany({
+        where: { channelId: channel.id },
+      });
+      await prisma.channel
+        .delete({ where: { id: channel.id } })
+        .catch(() => {});
     }
   });
 
@@ -1232,8 +1390,12 @@ describe("GET /api/channels/[id]/messages", () => {
       );
       expect(res._status).toBe(403);
     } finally {
-      await prisma.channelMember.deleteMany({ where: { channelId: channel.id } });
-      await prisma.channel.delete({ where: { id: channel.id } }).catch(() => {});
+      await prisma.channelMember.deleteMany({
+        where: { channelId: channel.id },
+      });
+      await prisma.channel
+        .delete({ where: { id: channel.id } })
+        .catch(() => {});
     }
   });
 });
@@ -1258,8 +1420,12 @@ describe("POST /api/channels/[id]/messages", () => {
       );
       expect(res._status).toBe(400);
     } finally {
-      await prisma.channelMember.deleteMany({ where: { channelId: channel.id } });
-      await prisma.channel.delete({ where: { id: channel.id } }).catch(() => {});
+      await prisma.channelMember.deleteMany({
+        where: { channelId: channel.id },
+      });
+      await prisma.channel
+        .delete({ where: { id: channel.id } })
+        .catch(() => {});
     }
   });
 
@@ -1284,9 +1450,15 @@ describe("POST /api/channels/[id]/messages", () => {
       expect(body.message.content).toBe("Hello from API!");
       expect(body.message.authorType).toBe("user");
     } finally {
-      await prisma.channelMessage.deleteMany({ where: { channelId: channel.id } });
-      await prisma.channelMember.deleteMany({ where: { channelId: channel.id } });
-      await prisma.channel.delete({ where: { id: channel.id } }).catch(() => {});
+      await prisma.channelMessage.deleteMany({
+        where: { channelId: channel.id },
+      });
+      await prisma.channelMember.deleteMany({
+        where: { channelId: channel.id },
+      });
+      await prisma.channel
+        .delete({ where: { id: channel.id } })
+        .catch(() => {});
     }
   });
 });
@@ -1319,8 +1491,12 @@ describe("POST /api/channels/[id]/messages/agent-response", () => {
       );
       expect(res._status).toBe(403);
     } finally {
-      await prisma.channelMember.deleteMany({ where: { channelId: channel.id } });
-      await prisma.channel.delete({ where: { id: channel.id } }).catch(() => {});
+      await prisma.channelMember.deleteMany({
+        where: { channelId: channel.id },
+      });
+      await prisma.channel
+        .delete({ where: { id: channel.id } })
+        .catch(() => {});
     }
   });
 
@@ -1362,36 +1538,43 @@ describe("POST /api/channels/[id]/messages/agent-response", () => {
       expect(body.message.content).toBe("Agent response here");
       expect(body.message.authorType).toBe("agent");
     } finally {
-      await prisma.channelMessage.deleteMany({ where: { channelId: channel.id } });
-      await prisma.channelMember.deleteMany({ where: { channelId: channel.id } });
-      await prisma.channel.delete({ where: { id: channel.id } }).catch(() => {});
+      await prisma.channelMessage.deleteMany({
+        where: { channelId: channel.id },
+      });
+      await prisma.channelMember.deleteMany({
+        where: { channelId: channel.id },
+      });
+      await prisma.channel
+        .delete({ where: { id: channel.id } })
+        .catch(() => {});
     }
   });
 });
 
-
 // ===========================================================================
-// API: GET /api/me/realms
+// API: GET /api/realms/me
 // ===========================================================================
 
-describe("GET /api/me/realms", () => {
+describe("GET /api/realms/me", () => {
   it("returns 401 when unauthenticated", async () => {
-    mockGetAuthContext.mockResolvedValueOnce(null);
-    const r = req("GET", "http://localhost/api/me/realms");
+    // The migrated route relies on getAuthContext throwing (not returning null);
+    // createNextRoute maps the APIException to its HTTP status.
+    mockGetAuthContext.mockRejectedValueOnce(new APIException("UNAUTHORIZED"));
+    const r = req("GET", "http://localhost/api/realms/me");
     const res = await meRealmsGET(r as any);
-    expect(res._status).toBe(401);
+    expect(res.status).toBe(401);
   });
 
   it("returns 200 with realms for the authenticated user", async () => {
     // did:test:admin → UserDao.getByDid returns { id: 'user-uuid-123' }
     // user-uuid-123 is enrolled in testRealmId in beforeAll
-    const r = req("GET", "http://localhost/api/me/realms");
+    const r = req("GET", "http://localhost/api/realms/me");
     const res = await meRealmsGET(r as any);
-    expect(res._status).toBe(200);
+    expect(res.status).toBe(200);
 
-    const body = (await res.json()) as { realms: { id: string }[] };
-    expect(Array.isArray(body.realms)).toBe(true);
-    expect(body.realms.some((r) => r.id === testRealmId)).toBe(true);
+    const body = (await res.json()) as { userRealms: { realmId: string }[] };
+    expect(Array.isArray(body.userRealms)).toBe(true);
+    expect(body.userRealms.some((r) => r.realmId === testRealmId)).toBe(true);
   });
 });
 
@@ -1548,9 +1731,15 @@ describe("BridgeFactory: fanOutMessage", () => {
       expect(fetchSpy.mock.calls[0][0]).toBe("https://example.com/out");
       fetchSpy.mockRestore();
     } finally {
-      await prisma.channelBridge.deleteMany({ where: { channelId: channel.id } });
-      await prisma.channelMember.deleteMany({ where: { channelId: channel.id } });
-      await prisma.channel.delete({ where: { id: channel.id } }).catch(() => {});
+      await prisma.channelBridge.deleteMany({
+        where: { channelId: channel.id },
+      });
+      await prisma.channelMember.deleteMany({
+        where: { channelId: channel.id },
+      });
+      await prisma.channel
+        .delete({ where: { id: channel.id } })
+        .catch(() => {});
     }
   });
 
@@ -1594,9 +1783,15 @@ describe("BridgeFactory: fanOutMessage", () => {
       expect(fetchSpy).not.toHaveBeenCalled();
       fetchSpy.mockRestore();
     } finally {
-      await prisma.channelBridge.deleteMany({ where: { channelId: channel.id } });
-      await prisma.channelMember.deleteMany({ where: { channelId: channel.id } });
-      await prisma.channel.delete({ where: { id: channel.id } }).catch(() => {});
+      await prisma.channelBridge.deleteMany({
+        where: { channelId: channel.id },
+      });
+      await prisma.channelMember.deleteMany({
+        where: { channelId: channel.id },
+      });
+      await prisma.channel
+        .delete({ where: { id: channel.id } })
+        .catch(() => {});
     }
   });
 
@@ -1637,9 +1832,15 @@ describe("BridgeFactory: fanOutMessage", () => {
       expect(fetchSpy).not.toHaveBeenCalled();
       fetchSpy.mockRestore();
     } finally {
-      await prisma.channelBridge.deleteMany({ where: { channelId: channel.id } });
-      await prisma.channelMember.deleteMany({ where: { channelId: channel.id } });
-      await prisma.channel.delete({ where: { id: channel.id } }).catch(() => {});
+      await prisma.channelBridge.deleteMany({
+        where: { channelId: channel.id },
+      });
+      await prisma.channelMember.deleteMany({
+        where: { channelId: channel.id },
+      });
+      await prisma.channel
+        .delete({ where: { id: channel.id } })
+        .catch(() => {});
     }
   });
 });
@@ -1682,9 +1883,15 @@ describe("ChannelBridgeService: createBridge / listBridges / deleteBridge", () =
       const afterDelete = await ChannelBridgeService.listBridges(channel.id);
       expect(afterDelete.some((b) => b.id === bridge.id)).toBe(false);
     } finally {
-      await prisma.channelBridge.deleteMany({ where: { channelId: channel.id } });
-      await prisma.channelMember.deleteMany({ where: { channelId: channel.id } });
-      await prisma.channel.delete({ where: { id: channel.id } }).catch(() => {});
+      await prisma.channelBridge.deleteMany({
+        where: { channelId: channel.id },
+      });
+      await prisma.channelMember.deleteMany({
+        where: { channelId: channel.id },
+      });
+      await prisma.channel
+        .delete({ where: { id: channel.id } })
+        .catch(() => {});
     }
   });
 
@@ -1722,9 +1929,15 @@ describe("ChannelBridgeService: createBridge / listBridges / deleteBridge", () =
         })
       ).rejects.toThrow(/already exists/i);
     } finally {
-      await prisma.channelBridge.deleteMany({ where: { channelId: channel.id } });
-      await prisma.channelMember.deleteMany({ where: { channelId: channel.id } });
-      await prisma.channel.delete({ where: { id: channel.id } }).catch(() => {});
+      await prisma.channelBridge.deleteMany({
+        where: { channelId: channel.id },
+      });
+      await prisma.channelMember.deleteMany({
+        where: { channelId: channel.id },
+      });
+      await prisma.channel
+        .delete({ where: { id: channel.id } })
+        .catch(() => {});
     }
   });
 
@@ -1752,15 +1965,27 @@ describe("ChannelBridgeService: createBridge / listBridges / deleteBridge", () =
 
       expect(bridge.isSyncEnabled).toBe(true);
 
-      const disabled = await ChannelBridgeService.toggleBridgeSync(bridge.id, false);
+      const disabled = await ChannelBridgeService.toggleBridgeSync(
+        bridge.id,
+        false
+      );
       expect(disabled.isSyncEnabled).toBe(false);
 
-      const enabled = await ChannelBridgeService.toggleBridgeSync(bridge.id, true);
+      const enabled = await ChannelBridgeService.toggleBridgeSync(
+        bridge.id,
+        true
+      );
       expect(enabled.isSyncEnabled).toBe(true);
     } finally {
-      await prisma.channelBridge.deleteMany({ where: { channelId: channel.id } });
-      await prisma.channelMember.deleteMany({ where: { channelId: channel.id } });
-      await prisma.channel.delete({ where: { id: channel.id } }).catch(() => {});
+      await prisma.channelBridge.deleteMany({
+        where: { channelId: channel.id },
+      });
+      await prisma.channelMember.deleteMany({
+        where: { channelId: channel.id },
+      });
+      await prisma.channel
+        .delete({ where: { id: channel.id } })
+        .catch(() => {});
     }
   });
 });
@@ -1771,7 +1996,7 @@ describe("ChannelBridgeService: createBridge / listBridges / deleteBridge", () =
 
 describe("GET /api/channels/[id]/bridges", () => {
   it("returns 401 when unauthenticated", async () => {
-    mockGetAuthContext.mockResolvedValueOnce(null);
+    mockGetAuthContext.mockRejectedValueOnce(new APIException("UNAUTHORIZED"));
     const res = await bridgesGET(
       req("GET", "http://localhost/") as any,
       channelParams("any-id")
@@ -1821,9 +2046,15 @@ describe("GET /api/channels/[id]/bridges", () => {
       // configJson must never be exposed
       expect(body.bridges[0]).not.toHaveProperty("configJson");
     } finally {
-      await prisma.channelBridge.deleteMany({ where: { channelId: channel.id } });
-      await prisma.channelMember.deleteMany({ where: { channelId: channel.id } });
-      await prisma.channel.delete({ where: { id: channel.id } }).catch(() => {});
+      await prisma.channelBridge.deleteMany({
+        where: { channelId: channel.id },
+      });
+      await prisma.channelMember.deleteMany({
+        where: { channelId: channel.id },
+      });
+      await prisma.channel
+        .delete({ where: { id: channel.id } })
+        .catch(() => {});
     }
   });
 });
@@ -1834,9 +2065,17 @@ describe("GET /api/channels/[id]/bridges", () => {
 
 describe("POST /api/channels/[id]/bridges", () => {
   it("returns 401 when unauthenticated", async () => {
-    mockGetAuthContext.mockResolvedValueOnce(null);
+    mockGetAuthContext.mockRejectedValueOnce(new APIException("UNAUTHORIZED"));
+    // Body must pass contract validation so the handler (and thus the auth
+    // check) actually runs — createNextRoute validates the body first.
     const res = await bridgesPOST(
-      req("POST", "http://localhost/", {}) as any,
+      req("POST", "http://localhost/", {
+        externalService: "webhook",
+        externalChannelId: "c",
+        externalChannelName: "n",
+        externalWorkspaceId: "w",
+        config: { webhookUrl: "", outgoingUrl: "https://x.com", secret: "s" },
+      }) as any,
       channelParams("any-id")
     );
     expect(res._status).toBe(401);
@@ -1862,8 +2101,12 @@ describe("POST /api/channels/[id]/bridges", () => {
       );
       expect(res._status).toBe(400);
     } finally {
-      await prisma.channelMember.deleteMany({ where: { channelId: channel.id } });
-      await prisma.channel.delete({ where: { id: channel.id } }).catch(() => {});
+      await prisma.channelMember.deleteMany({
+        where: { channelId: channel.id },
+      });
+      await prisma.channel
+        .delete({ where: { id: channel.id } })
+        .catch(() => {});
     }
   });
 
@@ -1888,8 +2131,12 @@ describe("POST /api/channels/[id]/bridges", () => {
       );
       expect(res._status).toBe(400);
     } finally {
-      await prisma.channelMember.deleteMany({ where: { channelId: channel.id } });
-      await prisma.channel.delete({ where: { id: channel.id } }).catch(() => {});
+      await prisma.channelMember.deleteMany({
+        where: { channelId: channel.id },
+      });
+      await prisma.channel
+        .delete({ where: { id: channel.id } })
+        .catch(() => {});
     }
   });
 
@@ -1925,9 +2172,15 @@ describe("POST /api/channels/[id]/bridges", () => {
       expect(body.bridge.syncDirection).toBe("outgoing");
       expect(body.bridge).not.toHaveProperty("configJson");
     } finally {
-      await prisma.channelBridge.deleteMany({ where: { channelId: channel.id } });
-      await prisma.channelMember.deleteMany({ where: { channelId: channel.id } });
-      await prisma.channel.delete({ where: { id: channel.id } }).catch(() => {});
+      await prisma.channelBridge.deleteMany({
+        where: { channelId: channel.id },
+      });
+      await prisma.channelMember.deleteMany({
+        where: { channelId: channel.id },
+      });
+      await prisma.channel
+        .delete({ where: { id: channel.id } })
+        .catch(() => {});
     }
   });
 
@@ -1964,9 +2217,15 @@ describe("POST /api/channels/[id]/bridges", () => {
       );
       expect(second._status).toBe(409);
     } finally {
-      await prisma.channelBridge.deleteMany({ where: { channelId: channel.id } });
-      await prisma.channelMember.deleteMany({ where: { channelId: channel.id } });
-      await prisma.channel.delete({ where: { id: channel.id } }).catch(() => {});
+      await prisma.channelBridge.deleteMany({
+        where: { channelId: channel.id },
+      });
+      await prisma.channelMember.deleteMany({
+        where: { channelId: channel.id },
+      });
+      await prisma.channel
+        .delete({ where: { id: channel.id } })
+        .catch(() => {});
     }
   });
 });
@@ -1977,7 +2236,7 @@ describe("POST /api/channels/[id]/bridges", () => {
 
 describe("PATCH /api/channels/[id]/bridges/[bridgeId]", () => {
   it("returns 401 when unauthenticated", async () => {
-    mockGetAuthContext.mockResolvedValueOnce(null);
+    mockGetAuthContext.mockRejectedValueOnce(new APIException("UNAUTHORIZED"));
     const res = await bridgePATCH(
       req("PATCH", "http://localhost/", {}) as any,
       bridgeParams("ch", "br")
@@ -2025,9 +2284,15 @@ describe("PATCH /api/channels/[id]/bridges/[bridgeId]", () => {
       expect(body.bridge.isSyncEnabled).toBe(false);
       expect(body.bridge).not.toHaveProperty("configJson");
     } finally {
-      await prisma.channelBridge.deleteMany({ where: { channelId: channel.id } });
-      await prisma.channelMember.deleteMany({ where: { channelId: channel.id } });
-      await prisma.channel.delete({ where: { id: channel.id } }).catch(() => {});
+      await prisma.channelBridge.deleteMany({
+        where: { channelId: channel.id },
+      });
+      await prisma.channelMember.deleteMany({
+        where: { channelId: channel.id },
+      });
+      await prisma.channel
+        .delete({ where: { id: channel.id } })
+        .catch(() => {});
     }
   });
 
@@ -2063,9 +2328,15 @@ describe("PATCH /api/channels/[id]/bridges/[bridgeId]", () => {
       const body = (await res.json()) as { bridge: { syncDirection: string } };
       expect(body.bridge.syncDirection).toBe("outgoing");
     } finally {
-      await prisma.channelBridge.deleteMany({ where: { channelId: channel.id } });
-      await prisma.channelMember.deleteMany({ where: { channelId: channel.id } });
-      await prisma.channel.delete({ where: { id: channel.id } }).catch(() => {});
+      await prisma.channelBridge.deleteMany({
+        where: { channelId: channel.id },
+      });
+      await prisma.channelMember.deleteMany({
+        where: { channelId: channel.id },
+      });
+      await prisma.channel
+        .delete({ where: { id: channel.id } })
+        .catch(() => {});
     }
   });
 });
@@ -2076,7 +2347,7 @@ describe("PATCH /api/channels/[id]/bridges/[bridgeId]", () => {
 
 describe("DELETE /api/channels/[id]/bridges/[bridgeId]", () => {
   it("returns 401 when unauthenticated", async () => {
-    mockGetAuthContext.mockResolvedValueOnce(null);
+    mockGetAuthContext.mockRejectedValueOnce(new APIException("UNAUTHORIZED"));
     const res = await bridgeDELETE(
       req("DELETE", "http://localhost/") as any,
       bridgeParams("ch", "br")
@@ -2125,9 +2396,15 @@ describe("DELETE /api/channels/[id]/bridges/[bridgeId]", () => {
 
       expect(await ChannelBridgeService.getBridge(bridge.id)).toBeNull();
     } finally {
-      await prisma.channelBridge.deleteMany({ where: { channelId: channel.id } });
-      await prisma.channelMember.deleteMany({ where: { channelId: channel.id } });
-      await prisma.channel.delete({ where: { id: channel.id } }).catch(() => {});
+      await prisma.channelBridge.deleteMany({
+        where: { channelId: channel.id },
+      });
+      await prisma.channelMember.deleteMany({
+        where: { channelId: channel.id },
+      });
+      await prisma.channel
+        .delete({ where: { id: channel.id } })
+        .catch(() => {});
     }
   });
 });
@@ -2187,9 +2464,15 @@ describe("POST /api/bridges/webhook/[bridgeId]/incoming", () => {
       );
       expect(res._status).toBe(401);
     } finally {
-      await prisma.channelBridge.deleteMany({ where: { channelId: channel.id } });
-      await prisma.channelMember.deleteMany({ where: { channelId: channel.id } });
-      await prisma.channel.delete({ where: { id: channel.id } }).catch(() => {});
+      await prisma.channelBridge.deleteMany({
+        where: { channelId: channel.id },
+      });
+      await prisma.channelMember.deleteMany({
+        where: { channelId: channel.id },
+      });
+      await prisma.channel
+        .delete({ where: { id: channel.id } })
+        .catch(() => {});
     }
   });
 
@@ -2228,9 +2511,15 @@ describe("POST /api/bridges/webhook/[bridgeId]/incoming", () => {
       );
       expect(res._status).toBe(403);
     } finally {
-      await prisma.channelBridge.deleteMany({ where: { channelId: channel.id } });
-      await prisma.channelMember.deleteMany({ where: { channelId: channel.id } });
-      await prisma.channel.delete({ where: { id: channel.id } }).catch(() => {});
+      await prisma.channelBridge.deleteMany({
+        where: { channelId: channel.id },
+      });
+      await prisma.channelMember.deleteMany({
+        where: { channelId: channel.id },
+      });
+      await prisma.channel
+        .delete({ where: { id: channel.id } })
+        .catch(() => {});
     }
   });
 
@@ -2288,10 +2577,18 @@ describe("POST /api/bridges/webhook/[bridgeId]/incoming", () => {
         )
       ).toBe(true);
     } finally {
-      await prisma.channelMessage.deleteMany({ where: { channelId: channel.id } });
-      await prisma.channelBridge.deleteMany({ where: { channelId: channel.id } });
-      await prisma.channelMember.deleteMany({ where: { channelId: channel.id } });
-      await prisma.channel.delete({ where: { id: channel.id } }).catch(() => {});
+      await prisma.channelMessage.deleteMany({
+        where: { channelId: channel.id },
+      });
+      await prisma.channelBridge.deleteMany({
+        where: { channelId: channel.id },
+      });
+      await prisma.channelMember.deleteMany({
+        where: { channelId: channel.id },
+      });
+      await prisma.channel
+        .delete({ where: { id: channel.id } })
+        .catch(() => {});
     }
   });
 });

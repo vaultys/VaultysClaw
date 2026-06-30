@@ -2,6 +2,12 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Settings, Users, Info, Link2 } from "lucide-react";
+import type {
+  Channel,
+  ChannelMember,
+  ChannelMessage,
+} from "@vaultysclaw/shared";
+import { channelsClient, unwrap } from "@/lib/api/ts-rest/client";
 import MessageList from "./MessageList";
 import MessageInput from "./MessageInput";
 import MemberList from "./MemberList";
@@ -9,44 +15,8 @@ import BridgeSettings from "./BridgeSettings";
 
 const POLL_INTERVAL_MS = 3000;
 
-interface Message {
-  id: string;
-  channelId: string;
-  threadId: string | null;
-  authorDid: string;
-  authorName?: string | null;
-  authorType: "user" | "agent";
-  content: string;
-  metadata: Record<string, any>;
-  reactions: Record<string, string[]>;
-  editedAt: string | null;
-  deletedAt: string | null;
-  createdAt: string;
-}
-
-interface Channel {
-  id: string;
-  realmId: string | null;
-  name: string;
-  slug: string;
-  description: string | null;
-  isPublic: boolean;
-  topic: string | null;
-  creatorDid: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-interface Member {
-  id: string;
-  channelId: string;
-  memberDid: string;
-  memberName?: string | null;
-  memberType: "user" | "agent";
-  role: "member" | "moderator" | "owner";
-  joinedAt: string;
-  invitedBy: string | null;
-}
+type Message = ChannelMessage;
+type Member = ChannelMember;
 
 interface ChannelViewProps {
   channel: Channel;
@@ -66,13 +36,13 @@ export default function ChannelView({ channel, realmId }: ChannelViewProps) {
     async (silent = false) => {
       try {
         if (!silent) setMessagesLoading(true);
-        const response = await fetch(
-          `/api/channels/${channel.id}/messages?limit=50&offset=0`
+        const { messages } = unwrap(
+          await channelsClient.listMessages({
+            params: { id: channel.id },
+            query: { limit: 50 },
+          })
         );
-        if (response.ok) {
-          const data = (await response.json()) as { messages: Message[] };
-          setMessages(data.messages);
-        }
+        setMessages(messages);
       } catch (err) {
         console.error("Failed to fetch messages:", err);
       } finally {
@@ -84,11 +54,10 @@ export default function ChannelView({ channel, realmId }: ChannelViewProps) {
 
   const fetchMembers = useCallback(async () => {
     try {
-      const response = await fetch(`/api/channels/${channel.id}`);
-      if (response.ok) {
-        const data = (await response.json()) as { members: Member[] };
-        setMembers(data.members);
-      }
+      const { members } = unwrap(
+        await channelsClient.getOne({ params: { id: channel.id } })
+      );
+      setMembers(members);
     } catch (err) {
       console.error("Failed to fetch members:", err);
     }

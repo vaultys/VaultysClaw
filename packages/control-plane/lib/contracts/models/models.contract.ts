@@ -9,7 +9,7 @@ import {
   RevokeRealmQuerySchema,
   ModelConnectivitySchema,
 } from "./models.schemas";
-import type { SafeModel, CreatedModel } from "./models.types";
+import type { SafeModel, CreatedModel, LiteLlmModel } from "./models.types";
 import { ModelRegistry } from "@prisma/client";
 
 export const modelsContract = c.router({
@@ -117,7 +117,7 @@ export const litellmContract = c.router({
     summary: "List available models in LiteLLM",
     responses: {
       200: c.type<{
-        models: Array<{ name: string; params: Record<string, unknown> }>;
+        models: Array<LiteLlmModel>;
         configured: boolean;
       }>(),
       ...commonErrorResponses,

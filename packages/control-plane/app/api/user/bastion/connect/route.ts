@@ -1,87 +1,45 @@
-import { NextRequest, NextResponse } from "next/server";
 import { UserServerChannel } from "@/lib/user-server-channel";
 import { VaultysId } from "@vaultys/id";
-import { malformed } from "@/lib/api/utils/api-utils";
-import { withError } from "@/lib/api/handlers/with-error";
+import { APIException } from "@/lib/api/utils/api-utils";
+import { createNextRoute } from "@/lib/api/ts-rest/next-route";
+import { userAuthContract } from "@/lib/contracts";
 
 /**
- * GET /api/user/bastion/connect
- * Initiates the bastion (browser-device) connection flow.
- *
- * Query params:
- *   - vid: base64-encoded browser VaultysId public key
- *   - type: "extension" | "browser" (default: "browser")
- *
- * Returns { key: encryptedKey } — the key encrypted for the browser VaultysId.
- * The browser decrypts it using its private VaultysId to get the raw connection key.
+ * GET /api/user/bastion/connect — initiate the bastion (browser-device) flow.
+ * Returns { key }: the connection key encrypted for the browser's VaultysId.
  */
-/**
- * @openapi
- * /api/user/bastion/connect:
- *   get:
- *     summary: Initiates the bastion connection flow.
- *     tags: [User]
- *     parameters:
- *       - name: vid
- *         in: query
- *         required: true
- *         description: Base64-encoded browser VaultysId public key.
- *         schema:
- *           type: string
- *       - name: type
- *         in: query
- *         required: false
- *         description: Type of connection, either "extension" or "browser".
- *         schema:
- *           type: string
- *           enum: [extension, browser]
- *           default: browser
- *     responses:
- *       200:
- *         description: Encrypted key for the browser VaultysId.
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 key:
- *                   type: string
- *                   description: The key encrypted for the browser VaultysId.
- *       400:
- *         $ref: '#/components/responses/BadRequest'
- *       500:
- *         description: Failed to create bastion certificate.
- */
-export const GET = withError(async (request: NextRequest) => {
-  const browserVid = request.nextUrl.searchParams.get("vid");
-  if (!browserVid) {
-    return malformed("Browser VID not provided");
-  }
+const handlers = createNextRoute(userAuthContract, {
+  bastionConnect: async ({ query, request }) => {
+    const ip =
+      request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
+      request.headers.get("x-real-ip") ??
+      "";
+    const userAgent = request.headers.get("user-agent") ?? "";
+    const deviceType =
+      query.type === "extension"
+        ? ("BROWSER_EXTENSION" as const)
+        : ("BROWSER" as const);
 
-  const ip =
-    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
-    request.headers.get("x-real-ip") ??
-    "";
-  const userAgent = request.headers.get("user-agent") ?? "";
-  const type = request.nextUrl.searchParams.get("type");
-  const deviceType =
-    type === "extension"
-      ? ("BROWSER_EXTENSION" as const)
-      : ("BROWSER" as const);
+    // Normalise vid to a v1 id
+    const vaultysId = VaultysId.fromId(
+      Buffer.from(query.vid, "base64")
+    ).toVersion(1);
+    const vid64 = vaultysId.id.toString("base64");
 
-  // Normalise vid to v0 id
-  const vaultysId = VaultysId.fromId(
-    Buffer.from(browserVid, "base64")
-  ).toVersion(1);
-  const vid64 = vaultysId.id.toString("base64");
+    const result = await UserServerChannel.handleBastionConnect(
+      vid64,
+      ip,
+      userAgent,
+      deviceType
+    );
+    if (!result)
+      throw new APIException(
+        "INTERNAL_ERROR",
+        "Failed to create bastion certificate"
+      );
 
-  const result = await UserServerChannel.handleBastionConnect(
-    vid64,
-    ip,
-    userAgent,
-    deviceType
-  );
-  if (!result) throw new Error("Failed to create bastion certificate");
-
-  return NextResponse.json(result);
+    return { status: 200, body: result };
+  },
 });
+
+export const GET = handlers.GET!;

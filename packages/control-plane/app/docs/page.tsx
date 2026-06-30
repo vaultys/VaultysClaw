@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
+import { buildOpenApiSpec } from "@/lib/api/openapi-spec";
 import "swagger-ui-react/swagger-ui.css";
 
 // Dynamically import SwaggerUI to avoid SSR issues
@@ -33,14 +34,14 @@ export default function ApiDocsPage() {
       return;
     }
 
-    fetch("/api/docs/swagger.json")
-      .then((r) => {
-        if (!r.ok) throw new Error(`Failed to load spec: ${r.status}`);
-        return r.json();
-      })
-      .then((data) => setSpec(data))
-      .catch((e: Error) => setError(e.message))
-      .finally(() => setLoading(false));
+    try {
+      // Generated client-side from the ts-rest contracts — no API round-trip.
+      setSpec(buildOpenApiSpec());
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to build API spec");
+    } finally {
+      setLoading(false);
+    }
   }, [status, isAdmin, router]);
 
   if (status === "loading" || loading) {

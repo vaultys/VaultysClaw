@@ -3,150 +3,47 @@
  * POST /api/org/skills   — add a new skill to the catalog (global admin only)
  */
 
-import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-utils";
-import {
-  unauthorized,
-  forbidden,
-  malformed,
-  conflict,
-} from "@/lib/api/utils/api-utils";
+import { APIException } from "@/lib/api/utils/api-utils";
 import { OrgSkillDAO } from "@/db";
-import { withError } from "@/lib/api/handlers/with-error";
+import { createNextRoute } from "@/lib/api/ts-rest/next-route";
+import { orgSkillsContract } from "@/lib/contracts";
 
-/**
- * @openapi
- * /api/org/skills:
- *   get:
- *     summary: List the organization skill catalog.
- *     tags: [OrgSkills]
- *     responses:
- *       200:
- *         description: A list of skills in the organization catalog.
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 skills:
- *                   type: array
- *                   items:
- *                     type: object
- *       401:
- *         $ref: '#/components/responses/Unauthorized'
- */
-export const GET = withError(async (request: NextRequest) => {
-  const auth = await getAuthContext(request);
-  if (!auth) return unauthorized();
+const handlers = createNextRoute(orgSkillsContract, {
+  // ── GET /api/org/skills ───────────────────────────────────────────────────
+  list: async ({ request }) => {
+    await getAuthContext(request);
+    return { status: 200, body: { skills: await OrgSkillDAO.findAll() } };
+  },
 
-  return NextResponse.json({ skills: await OrgSkillDAO.findAll() });
-});
+  // ── POST /api/org/skills ──────────────────────────────────────────────────
+  create: async ({ body, request }) => {
+    const auth = await getAuthContext(request);
+    if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");
 
-/**
- * @openapi
- * /api/org/skills:
- *   post:
- *     summary: Add a new skill to the catalog.
- *     tags: [Org]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               name:
- *                 type: string
- *                 description: The name of the skill.
- *               description:
- *                 type: string
- *                 description: A brief description of the skill.
- *               version:
- *                 type: string
- *                 description: The version of the skill.
- *               icon:
- *                 type: string
- *                 description: The icon URL of the skill.
- *               content:
- *                 type: string
- *                 description: The content of the skill.
- *               configSchema:
- *                 type: object
- *                 additionalProperties: true
- *                 description: The configuration schema for the skill.
- *     responses:
- *       201:
- *         description: Skill created successfully.
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 skill:
- *                   $ref: '#/components/schemas/Skill'
- *       400:
- *         $ref: '#/components/responses/BadRequest'
- *       401:
- *         $ref: '#/components/responses/Unauthorized'
- *       403:
- *         $ref: '#/components/responses/Forbidden'
- *       409:
- *         description: Skill already exists in the catalog.
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 error:
- *                   type: string
- *                   description: Error message.
- *       500:
- *         description: Failed to create skill.
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 error:
- *                   type: string
- *                   description: Error message.
- */
-export const POST = withError(async (req: NextRequest) => {
-  const auth = await getAuthContext(req);
-  if (!auth) return unauthorized();
-  if (!auth.isGlobalAdmin) return forbidden();
+    if (!body.name?.trim()) throw new APIException("MALFORMED", "Name is required");
 
-  const body = (await req.json()) as {
-    name?: string;
-    description?: string;
-    version?: string;
-    icon?: string;
-    content?: string;
-    configSchema?: Record<string, unknown>;
-  };
-
-  if (!body.name?.trim()) {
-    return malformed("Name is required");
-  }
-
-  try {
-    const skill = await OrgSkillDAO.create({
-      name: body.name.trim(),
-      description: body.description?.trim(),
-      version: body.version?.trim(),
-      icon: body.icon?.trim(),
-      content: body.content ?? undefined,
-      configSchema: body.configSchema,
-    });
-    return NextResponse.json({ skill }, { status: 201 });
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    if (msg.includes("UNIQUE")) {
-      return conflict(`Skill "${body.name}" already exists in the catalog`);
+    try {
+      const skill = await OrgSkillDAO.create({
+        name: body.name.trim(),
+        description: body.description?.trim(),
+        version: body.version?.trim(),
+        icon: body.icon?.trim(),
+        content: body.content ?? undefined,
+        configSchema: body.configSchema,
+      });
+      return { status: 201, body: { skill } };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes("UNIQUE"))
+        throw new APIException(
+          "CONFLICT",
+          `Skill "${body.name}" already exists in the catalog`
+        );
+      throw new APIException("INTERNAL_ERROR", "Failed to create skill");
     }
-    return NextResponse.json(
-      { error: "Failed to create skill" },
-      { status: 500 }
-    );
-  }
+  },
 });
+
+export const GET = handlers.GET!;
+export const POST = handlers.POST!;

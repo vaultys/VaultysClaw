@@ -1,4 +1,23 @@
 import crypto from "crypto";
+import type { ApiKey as PrismaApiKey } from "@prisma/client";
+import type { ApiKey } from "./api-types";
+
+/** Serialize a Prisma ApiKey row to the API shape (unix-second timestamps). */
+export function toApiKey(row: PrismaApiKey): ApiKey {
+  return {
+    id: row.id,
+    name: row.name,
+    keyPrefix: row.keyPrefix,
+    allowedRoutes: row.allowedRoutes as string[],
+    realmId: row.realmId ?? null,
+    isRealmAdmin: row.isRealmAdmin,
+    createdBy: row.createdBy,
+    createdAt: Math.floor(row.createdAt.getTime() / 1000),
+    lastUsedAt: row.lastUsedAt ? Math.floor(row.lastUsedAt.getTime() / 1000) : null,
+    expiresAt: row.expiresAt ? Math.floor(row.expiresAt.getTime() / 1000) : null,
+    isActive: row.isActive,
+  };
+}
 
 /**
  * Generate a new API key in the format vc_key_<32 base62 chars>

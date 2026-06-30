@@ -18,101 +18,12 @@ import {
 import { workflowRunsClient } from "@/lib/api/ts-rest/client";
 import { useToolbar } from "@/components/layout/ToolbarContext";
 import { useBreadcrumbs } from "@/components/layout/BreadcrumbContext";
-
-interface WorkflowRunStep {
-  id: string;
-  runId: string;
-  stepId: string;
-  agentId: string | null;
-  status: string;
-  output: string | null;
-  error: string | null;
-  startedAt: string | null;
-  completedAt: string | null;
-  assignedUserId: string | null;
-  assignedUserName: string | null;
-  assignedUserEmail: string | null;
-}
-
-interface WorkflowRun {
-  id: string;
-  workflowId: string;
-  status: string;
-  startedAt: string;
-  completedAt: string | null;
-  results: string | null;
-}
-
-interface WorkflowDefinition {
-  nodes: Array<{
-    id: string;
-    type: string;
-    data: Record<string, unknown>;
-  }>;
-  edges: Array<{
-    id: string;
-    source: string;
-    target: string;
-  }>;
-}
-
-interface RunHistory {
-  run: WorkflowRun;
-  workflow: { id: string; name: string; definition: WorkflowDefinition } | null;
-  steps: WorkflowRunStep[];
-}
-
-/** Convert any timestamp format to milliseconds since epoch, or null if invalid.
- *  Handles: number (Unix seconds), numeric string "1748952325", ISO string "2026-05-22 14:05:25"
- */
-function parseTimestamp(val: unknown): number | null {
-  if (val === null || val === undefined || val === "" || val === false)
-    return null;
-  if (typeof val === "number") {
-    return val > 0 ? val * 1000 : null;
-  }
-  if (typeof val === "string") {
-    if (!val.trim()) return null;
-    // Numeric string — stored as Unix seconds in a TEXT column
-    if (/^\d+$/.test(val)) {
-      const n = parseInt(val, 10);
-      return n > 0 ? n * 1000 : null;
-    }
-    // ISO / SQLite string — append Z so it's always treated as UTC
-    let s = val.replace(" ", "T");
-    if (!s.endsWith("Z") && !s.includes("+") && !/[+-]\d{2}:\d{2}$/.test(s))
-      s += "Z";
-    const t = new Date(s).getTime();
-    return isNaN(t) ? null : t;
-  }
-  return null;
-}
-
-function formatDate(val: unknown): string {
-  const ms = parseTimestamp(val);
-  if (ms === null) return "—";
-  const date = new Date(ms);
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  const hours = String(date.getHours()).padStart(2, "0");
-  const minutes = String(date.getMinutes()).padStart(2, "0");
-  const seconds = String(date.getSeconds()).padStart(2, "0");
-  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
-}
-
-function timeAgo(val: unknown): string {
-  const ms = parseTimestamp(val);
-  if (ms === null) return "—";
-  const seconds = Math.floor((Date.now() - ms) / 1000);
-  if (seconds < 5) return "just now";
-  if (seconds < 60) return `${seconds}s ago`;
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  return `${Math.floor(hours / 24)}d ago`;
-}
+import {
+  WorkflowRunDetail,
+  WorkflowRunStepDetail,
+} from "@/lib/contracts";
+import { WorkflowDefinition } from "@/lib/workflow-types";
+import { formatDateTime, timeAgo } from "@vaultysclaw/shared";
 
 /** Topological sort of node ids using Kahn's algorithm */
 function topoSort(
@@ -221,7 +132,7 @@ export default function WorkflowRunDetailPage() {
   const router = useRouter();
   const runId = params.id as string;
 
-  const [history, setHistory] = useState<RunHistory | null>(null);
+  const [history, setHistory] = useState<WorkflowRunDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [expandedSteps, setExpandedSteps] = useState<Set<string>>(new Set());
@@ -238,7 +149,7 @@ export default function WorkflowRunDetailPage() {
           );
           return;
         }
-        setHistory(res.body as unknown as RunHistory);
+        setHistory(res.body);
       })
       .catch(() => setError("Failed to load workflow run"))
       .finally(() => setLoading(false));
@@ -253,13 +164,14 @@ export default function WorkflowRunDetailPage() {
   };
 
   /** Order steps by the workflow's topological node order, fallback to start time */
-  const getSortedSteps = (): WorkflowRunStep[] => {
+  const getSortedSteps = (): WorkflowRunStepDetail[] => {
     if (!history) return [];
-    const def = history.workflow?.definition;
+    const def = history.workflow
+      ?.definition as unknown as WorkflowDefinition | null;
     if (def) {
       const order = topoSort(def.nodes, def.edges);
       const stepMap = new Map(history.steps.map((s) => [s.stepId, s]));
-      const sorted: WorkflowRunStep[] = [];
+      const sorted: WorkflowRunStepDetail[] = [];
       for (const nodeId of order) {
         const s = stepMap.get(nodeId);
         if (s) sorted.push(s);
@@ -271,8 +183,8 @@ export default function WorkflowRunDetailPage() {
       return sorted;
     }
     return [...history.steps].sort((a, b) => {
-      const at = parseTimestamp(a.startedAt) ?? 0;
-      const bt = parseTimestamp(b.startedAt) ?? 0;
+      const at = a.startedAt?.getTime() ?? 0;
+      const bt = b.startedAt?.getTime() ?? 0;
       return at - bt;
     });
   };
@@ -284,7 +196,12 @@ export default function WorkflowRunDetailPage() {
     [
       { label: "Workflows", href: "/workflows" },
       ...(runWorkflowId
-        ? [{ label: runWorkflowName ?? "Workflow", href: `/workflows/${runWorkflowId}` }]
+        ? [
+            {
+              label: runWorkflowName ?? "Workflow",
+              href: `/workflows/${runWorkflowId}`,
+            },
+          ]
         : []),
       { label: `Run ${runId.slice(0, 8)}…` },
     ],
@@ -359,11 +276,14 @@ export default function WorkflowRunDetailPage() {
   }
 
   const { run, workflow } = history;
-  const definition = workflow?.definition;
+  const definition = workflow?.definition as unknown as
+    | WorkflowDefinition
+    | null
+    | undefined;
   const nodeMap = new Map(definition?.nodes.map((n) => [n.id, n]) ?? []);
 
-  const startedMs = parseTimestamp(run.startedAt);
-  const completedMs = parseTimestamp(run.completedAt);
+  const startedMs = run.startedAt?.getTime() ?? null;
+  const completedMs = run.completedAt?.getTime() ?? null;
   const duration =
     startedMs !== null && completedMs !== null
       ? Math.round((completedMs - startedMs) / 1000)
@@ -391,7 +311,7 @@ export default function WorkflowRunDetailPage() {
               <div>
                 <p className="text-foreground-500 text-sm mb-1">Started</p>
                 <p className="text-foreground text-xs font-medium">
-                  {formatDate(run.startedAt)}
+                  {formatDateTime(run.startedAt)}
                 </p>
                 <p className="text-foreground-400 text-xs mt-0.5">
                   {timeAgo(run.startedAt)}
@@ -400,7 +320,7 @@ export default function WorkflowRunDetailPage() {
               <div>
                 <p className="text-foreground-500 text-sm mb-1">Completed</p>
                 <p className="text-foreground text-xs font-medium">
-                  {formatDate(run.completedAt)}
+                  {formatDateTime(run.completedAt)}
                 </p>
                 {run.completedAt && (
                   <p className="text-foreground-400 text-xs mt-0.5">
@@ -464,8 +384,8 @@ export default function WorkflowRunDetailPage() {
                   (nodeData.label as string | undefined) ?? step.stepId;
 
                 const isExpanded = expandedSteps.has(step.id);
-                const stepStartMs = parseTimestamp(step.startedAt);
-                const stepEndMs = parseTimestamp(step.completedAt);
+                const stepStartMs = step.startedAt?.getTime() ?? null;
+                const stepEndMs = step.completedAt?.getTime() ?? null;
                 const stepDuration =
                   stepStartMs !== null && stepEndMs !== null
                     ? Math.round((stepEndMs - stepStartMs) / 1000)
@@ -511,7 +431,7 @@ export default function WorkflowRunDetailPage() {
                         </div>
                         {step.startedAt && (
                           <p className="text-xs text-foreground-400 mt-0.5">
-                            {formatDate(step.startedAt)}
+                            {formatDateTime(step.startedAt)}
                             {stepDuration !== null && ` · ${stepDuration}s`}
                           </p>
                         )}
@@ -579,27 +499,18 @@ export default function WorkflowRunDetailPage() {
                         )}
 
                         {/* Output */}
-                        {step.output &&
-                          (() => {
-                            let parsed: unknown;
-                            try {
-                              parsed = JSON.parse(step.output);
-                            } catch {
-                              parsed = step.output;
-                            }
-                            return (
-                              <div>
-                                <p className="text-sm text-foreground-500 mb-2">
-                                  Output
-                                </p>
-                                <pre className="bg-background-100 rounded p-3 text-foreground text-xs font-mono overflow-auto max-h-48 border border-neutral-200">
-                                  {typeof parsed === "string"
-                                    ? parsed
-                                    : JSON.stringify(parsed, null, 2)}
-                                </pre>
-                              </div>
-                            );
-                          })()}
+                        {step.output != null && (
+                          <div>
+                            <p className="text-sm text-foreground-500 mb-2">
+                              Output
+                            </p>
+                            <pre className="bg-background-100 rounded p-3 text-foreground text-xs font-mono overflow-auto max-h-48 border border-neutral-200">
+                              {typeof step.output === "string"
+                                ? step.output
+                                : JSON.stringify(step.output, null, 2)}
+                            </pre>
+                          </div>
+                        )}
 
                         {/* Error */}
                         {step.error && (
@@ -613,7 +524,7 @@ export default function WorkflowRunDetailPage() {
                           </div>
                         )}
 
-                        {!step.output && !step.error && (
+                        {step.output == null && !step.error && (
                           <p className="text-foreground-500 text-sm">
                             No output recorded
                           </p>
@@ -628,29 +539,20 @@ export default function WorkflowRunDetailPage() {
         </div>
 
         {/* Results */}
-        {run.results &&
-          (() => {
-            let parsed: unknown;
-            try {
-              parsed = JSON.parse(run.results);
-            } catch {
-              parsed = run.results;
-            }
-            return (
-              <div>
-                <h2 className="text-lg font-semibold text-foreground mb-4">
-                  Results
-                </h2>
-                <div className="bg-background-100 rounded-xl border border-neutral-200 p-4">
-                  <pre className="text-foreground text-sm font-mono overflow-auto max-h-64">
-                    {typeof parsed === "string"
-                      ? parsed
-                      : JSON.stringify(parsed, null, 2)}
-                  </pre>
-                </div>
-              </div>
-            );
-          })()}
+        {run.results != null && (
+          <div>
+            <h2 className="text-lg font-semibold text-foreground mb-4">
+              Results
+            </h2>
+            <div className="bg-background-100 rounded-xl border border-neutral-200 p-4">
+              <pre className="text-foreground text-sm font-mono overflow-auto max-h-64">
+                {typeof run.results === "string"
+                  ? run.results
+                  : JSON.stringify(run.results, null, 2)}
+              </pre>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

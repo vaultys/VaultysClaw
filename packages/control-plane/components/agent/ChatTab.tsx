@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import ReactMarkdown from "react-markdown";
 import { Bot, Send, Trash2, Loader2 } from "lucide-react";
-import type { ChatSession } from "@vaultysclaw/shared";
+import type { ChatMessageEntry, ChatSession } from "@vaultysclaw/shared";
 import {
   agentsClient,
   toolApprovalsClient,
@@ -12,7 +12,7 @@ import {
 import { ThinkingBlock } from "./ThinkingBlock";
 import { ToolApprovalCard } from "./ToolApprovalCard";
 import { AgentChatErrorBanner } from "./AgentChatErrorBanner";
-import type { ChatMessage, PendingApproval } from "./chat-types";
+import type { PendingApproval } from "./chat-types";
 
 export function ChatTab({
   agentId,
@@ -23,7 +23,7 @@ export function ChatTab({
   agentName: string;
   online: boolean;
 }) {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [messages, setMessages] = useState<ChatMessageEntry[]>([]);
   const [input, setInput] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -87,7 +87,7 @@ export function ChatTab({
     async (text: string) => {
       if (!text.trim() || isStreaming || !online) return;
 
-      const userMsg: ChatMessage = { role: "user", content: text.trim() };
+      const userMsg: ChatMessageEntry = { role: "user", content: text.trim() };
       const updatedMessages = [...messages, userMsg];
       setMessages(updatedMessages);
       setInput("");

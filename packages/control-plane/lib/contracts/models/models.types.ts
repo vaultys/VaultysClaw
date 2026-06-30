@@ -50,3 +50,4 @@ export type TestModelBody = z.infer<typeof TestModelBodySchema>;
 export type UpdateModelBody = z.infer<typeof UpdateModelBodySchema>;
 export type GrantRealmBody = z.infer<typeof GrantRealmBodySchema>;
 export type RevokeRealmQuery = z.infer<typeof RevokeRealmQuerySchema>;
+export type LiteLlmModel = { name: string; params: Record<string, unknown> };

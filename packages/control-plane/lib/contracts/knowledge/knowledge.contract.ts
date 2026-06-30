@@ -44,6 +44,20 @@ export const knowledgeContract = c.router({
     },
   },
 
+  uploadFile: {
+    method: "POST",
+    path: "/api/knowledge/files",
+    summary: "Upload a file attached to a knowledge source (multipart/form-data)",
+    // multipart/form-data — read as FormData in the handler, so the body is
+    // declared as an opaque type (not a Zod schema) to keep createNextRoute
+    // from consuming the request stream as JSON.
+    body: c.type<unknown>(),
+    responses: {
+      201: c.type<{ file: KnowledgeFileMeta }>(),
+      ...commonErrorResponses,
+    },
+  },
+
   deleteFile: {
     method: "DELETE",
     path: "/api/knowledge/files/:fileId",

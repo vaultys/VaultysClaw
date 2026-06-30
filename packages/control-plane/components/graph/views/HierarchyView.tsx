@@ -55,8 +55,6 @@ const ROLE_STYLE: Record<string, { bg: string; text: string; border: string }> =
   {
     owner: { bg: "#451a03", text: "#fbbf24", border: "#92400e" },
     admin: { bg: "#172554", text: "#93c5fd", border: "#1d4ed8" },
-    manager: { bg: "#1e1b4b", text: "#a5b4fc", border: "#4338ca" },
-    operator: { bg: "#052e16", text: "#6ee7b7", border: "#065f46" },
     member: { bg: "#0f172a", text: "#94a3b8", border: "#334155" },
   };
 

@@ -25,6 +25,7 @@ import {
   Send,
   Info,
 } from "lucide-react";
+import { realmsClient, unwrap } from "@/lib/api/ts-rest/client";
 
 /** Minimal X (Twitter) logo — lucide-react v1 removed the Twitter icon */
 function XLogo({ className }: { className?: string }) {
@@ -121,11 +122,15 @@ export function SocialMediaTab({ realmId }: SocialMediaTabProps) {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/realms/${realmId}/credentials?service=x`);
-      if (res.ok) {
-        const data = (await res.json()) as { credentials: Credential[] };
-        setCredentials(data.credentials);
-      }
+      const { credentials } = unwrap(
+        await realmsClient.listCredentials({
+          params: { id: realmId },
+          query: { service: "x" },
+        })
+      );
+      setCredentials(credentials as unknown as Credential[]);
+    } catch {
+      /* ignore */
     } finally {
       setLoading(false);
     }
@@ -151,29 +156,26 @@ export function SocialMediaTab({ realmId }: SocialMediaTabProps) {
 
     try {
       // Save username (not secret — just metadata) and password (secret)
-      const res = await fetch(`/api/realms/${realmId}/credentials`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          service: "x",
-          name: "session",
-          secret: xPassword,
-          metadata: { username: xUsername },
-        }),
+      unwrap(
+        await realmsClient.saveCredential({
+          params: { id: realmId },
+          body: {
+            service: "x",
+            name: "session",
+            secret: xPassword,
+            metadata: { username: xUsername },
+          },
+        })
+      );
+      setCredMsg({ type: "ok", text: "X credentials saved and encrypted." });
+      setXUsername("");
+      setXPassword("");
+      await load();
+    } catch (e) {
+      setCredMsg({
+        type: "err",
+        text: e instanceof Error ? e.message : "Failed to save credentials.",
       });
-
-      if (res.ok) {
-        setCredMsg({ type: "ok", text: "X credentials saved and encrypted." });
-        setXUsername("");
-        setXPassword("");
-        await load();
-      } else {
-        const err = (await res.json()) as { error?: string };
-        setCredMsg({
-          type: "err",
-          text: err.error ?? "Failed to save credentials.",
-        });
-      }
     } finally {
       setSavingCred(false);
     }
@@ -187,14 +189,17 @@ export function SocialMediaTab({ realmId }: SocialMediaTabProps) {
     )
       return;
 
-    const res = await fetch(
-      `/api/realms/${realmId}/credentials?service=x&name=session`,
-      { method: "DELETE" }
-    );
-
-    if (res.ok) {
+    try {
+      unwrap(
+        await realmsClient.deleteCredential({
+          params: { id: realmId },
+          query: { service: "x", name: "session" },
+        })
+      );
       setCredMsg({ type: "ok", text: "Credentials deleted." });
       await load();
+    } catch {
+      /* ignore */
     }
   }
 
@@ -205,27 +210,25 @@ export function SocialMediaTab({ realmId }: SocialMediaTabProps) {
 
     try {
       // Save schedule cron expression as a credential-like config
-      const res = await fetch(`/api/realms/${realmId}/credentials`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          service: "x",
-          name: "schedule",
-          secret: cronExpr, // cron expression stored as the "secret" (not truly sensitive)
-          metadata: { type: "schedule", cron: cronExpr },
-        }),
+      unwrap(
+        await realmsClient.saveCredential({
+          params: { id: realmId },
+          body: {
+            service: "x",
+            name: "schedule",
+            // cron expression stored as the "secret" (not truly sensitive)
+            secret: cronExpr,
+            metadata: { type: "schedule", cron: cronExpr },
+          },
+        })
+      );
+      setScheduleMsg({ type: "ok", text: "Schedule saved." });
+      await load();
+    } catch (e) {
+      setScheduleMsg({
+        type: "err",
+        text: e instanceof Error ? e.message : "Failed to save schedule.",
       });
-
-      if (res.ok) {
-        setScheduleMsg({ type: "ok", text: "Schedule saved." });
-        await load();
-      } else {
-        const err = (await res.json()) as { error?: string };
-        setScheduleMsg({
-          type: "err",
-          text: err.error ?? "Failed to save schedule.",
-        });
-      }
     } finally {
       setSavingSchedule(false);
     }
@@ -238,27 +241,22 @@ export function SocialMediaTab({ realmId }: SocialMediaTabProps) {
     setPostMsg(null);
 
     try {
-      // Trigger a workflow or direct intent — for now we post via the agent tool
-      // This endpoint doesn't exist yet; it will be wired in Phase 3
-      const res = await fetch(`/api/realms/${realmId}/social-media/post`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: postText }),
+      const data = unwrap(
+        await realmsClient.socialMedia({
+          params: { id: realmId },
+          body: { text: postText },
+        })
+      );
+      setPostMsg({
+        type: "ok",
+        text: data.message ?? "Post dispatched to agent.",
       });
-
-      if (res.ok) {
-        const data = (await res.json()) as { tweetUrl?: string };
-        setPostMsg({
-          type: "ok",
-          text: data.tweetUrl
-            ? `Posted! ${data.tweetUrl}`
-            : "Post dispatched to agent.",
-        });
-        setPostText("");
-      } else {
-        const err = (await res.json()) as { error?: string };
-        setPostMsg({ type: "err", text: err.error ?? "Failed to post." });
-      }
+      setPostText("");
+    } catch (e) {
+      setPostMsg({
+        type: "err",
+        text: e instanceof Error ? e.message : "Failed to post.",
+      });
     } finally {
       setPosting(false);
     }

@@ -1,26 +1,14 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Plus, Settings, MessageSquare, Users, Search } from "lucide-react";
+import { Plus, Settings, MessageSquare, Search } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAdminWS } from "@/hooks/useAdminWS";
+import type { Channel } from "@vaultysclaw/shared";
+import { channelsClient, unwrap } from "@/lib/api/ts-rest/client";
 import ChannelList from "@/components/channels/ChannelList";
 import ChannelView from "@/components/channels/ChannelView";
 import CreateChannelModal from "@/components/channels/CreateChannelModal";
-
-interface Channel {
-  id: string;
-  realmId: string | null;
-  name: string;
-  slug: string;
-  description: string | null;
-  isPublic: boolean;
-  isArchived: boolean;
-  topic: string | null;
-  creatorDid: string;
-  createdAt: string;
-  updatedAt: string;
-}
 
 export default function ChannelsPage() {
   const router = useRouter();
@@ -43,16 +31,12 @@ export default function ChannelsPage() {
 
     try {
       setIsLoading(true);
-      const response = await fetch(
-        `/api/channels?realm=${realmId}&includeGlobal=true`
+      const { channels } = unwrap(
+        await channelsClient.list({
+          query: { realm: realmId, includeGlobal: true },
+        })
       );
-
-      if (!response.ok) {
-        throw new Error("Failed to fetch channels");
-      }
-
-      const data = (await response.json()) as { channels: Channel[] };
-      setChannels(data.channels);
+      setChannels(channels);
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to fetch channels");

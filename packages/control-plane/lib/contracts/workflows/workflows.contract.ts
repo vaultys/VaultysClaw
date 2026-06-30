@@ -204,6 +204,24 @@ export const workflowsContract = c.router({
       ...commonErrorResponses,
     },
   },
+
+  testSeed: {
+    method: "POST",
+    path: "/api/workflows/test-seed",
+    summary: "Create a test workflow with 4 real online agents in sequence",
+    body: c.noBody(),
+    responses: {
+      200: c.type<{
+        success: boolean;
+        workflowId: string;
+        name: string;
+        realmId: string;
+        agents: Array<{ did: string; name: string; capability: string }>;
+        nodes: unknown[];
+      }>(),
+      ...commonErrorResponses,
+    },
+  },
 });
 
 export const workflowRunsContract = c.router({

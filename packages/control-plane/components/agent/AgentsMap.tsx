@@ -4,7 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { Globe } from "lucide-react";
-import type { MapMarker } from "@/components/map/WorldMap";
+import { mapClient, unwrap } from "@/lib/api/ts-rest/client";
+import { MapMarker } from "@/lib/contracts";
 
 const WorldMap = dynamic(
   () => import("@/components/map/WorldMap").then((m) => m.WorldMap),
@@ -24,10 +25,10 @@ export function AgentsMap() {
   const fetchMarkers = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/map");
-      if (!res.ok) return;
-      const data = (await res.json()) as { markers?: MapMarker[] };
-      setMarkers((data.markers ?? []).filter((m) => m.type === "agent"));
+      const { markers } = unwrap(await mapClient.get({ query: {} }));
+      setMarkers(markers.filter((m) => m.type === "agent"));
+    } catch {
+      /* ignore */
     } finally {
       setLoading(false);
     }

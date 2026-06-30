@@ -19,6 +19,7 @@ import { useToolbar, type ToolbarAction } from "@/components/layout/ToolbarConte
 import { useBreadcrumbs } from "@/components/layout/BreadcrumbContext";
 import { usersClient, unwrap, ApiError } from "@/lib/api/ts-rest/client";
 import type { UserDetail } from "@/lib/contracts";
+import { isOwnerRole } from "@/lib/roles";
 import UserGrantsPanel from "@/components/users/UserGrantsPanel";
 import { type UserTabId } from "@/components/users/detail/UserTabBar";
 import { UserOverviewTab } from "@/components/users/detail/UserOverviewTab";
@@ -62,7 +63,7 @@ export default function UserEditPage() {
   }, [load]);
 
   const handleRemove = useCallback(async () => {
-    if (!user || user.isOwner) return;
+    if (!user || isOwnerRole(user.role)) return;
     if (
       !confirm(
         `Remove ${user.name ?? shortDid(user.did ?? undefined)} and all their grants? This cannot be undone.`
@@ -105,8 +106,13 @@ export default function UserEditPage() {
     toolbarActions.push({
       kind: "badge",
       id: "role",
-      label: user.isOwner ? "Owner" : user.isAdmin ? "Admin" : user.role,
-      tone: user.isOwner ? "warning" : user.isAdmin ? "success" : "neutral",
+      label: user.role,
+      tone:
+        user.role === "Owner"
+          ? "warning"
+          : user.role === "Admin"
+            ? "success"
+            : "neutral",
     });
     toolbarActions.push({
       kind: "badge",
@@ -115,7 +121,7 @@ export default function UserEditPage() {
       icon: <Clock size={11} />,
       tone: "neutral",
     });
-    if (!user.isOwner && isOwner) {
+    if (!isOwnerRole(user.role) && isOwner) {
       toolbarActions.push({
         kind: "button",
         id: "remove",
@@ -180,7 +186,7 @@ export default function UserEditPage() {
           {activeTab === "access" && (
             <UserAccessTab user={user} isOwner={isOwner} onUpdated={patchUser} />
           )}
-          {activeTab === "grants" && !user.isOwner && (
+          {activeTab === "grants" && !isOwnerRole(user.role) && (
             <div>
               <div className="mb-4">
                 <h2 className="text-base font-semibold text-foreground">
@@ -193,7 +199,7 @@ export default function UserEditPage() {
               <UserGrantsPanel userDid={user.did!} />
             </div>
           )}
-          {activeTab === "grants" && user.isOwner && (
+          {activeTab === "grants" && isOwnerRole(user.role) && (
             <div className="flex flex-col items-center py-12 text-foreground-500 gap-2">
               <KeyRound size={36} strokeWidth={1} />
               <p className="text-sm">

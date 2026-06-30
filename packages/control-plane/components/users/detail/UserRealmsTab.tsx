@@ -2,27 +2,13 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import {
-  AlertCircle,
-  Globe,
-  Plus,
-  X,
-  ShieldCheck,
-  Star,
-} from "lucide-react";
-import {
-  usersClient,
-  realmsClient,
-  unwrap,
-  ApiError,
-} from "@/lib/api/ts-rest/client";
+import { AlertCircle, Globe, Plus, X, ShieldCheck, Star } from "lucide-react";
+import { realmsClient, unwrap, ApiError } from "@/lib/api/ts-rest/client";
 import type {
+  RealmWithCounts,
   UserDetail,
-  UserRealmMembership,
-  UserRealmsResponse,
+  UserRealmWithRealm,
 } from "@/lib/contracts";
-
-type AvailableRealm = UserRealmsResponse["available"][number];
 
 export function UserRealmsTab({
   user,
@@ -32,8 +18,8 @@ export function UserRealmsTab({
   isOwner: boolean;
 }) {
   const router = useRouter();
-  const [memberships, setMemberships] = useState<UserRealmMembership[]>([]);
-  const [available, setAvailable] = useState<AvailableRealm[]>([]);
+  const [userRealms, setUserRealms] = useState<UserRealmWithRealm[]>([]);
+  const [available, setAvailable] = useState<RealmWithCounts[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [addingRealmId, setAddingRealmId] = useState("");
@@ -47,11 +33,12 @@ export function UserRealmsTab({
     setLoading(true);
     setError(null);
     try {
-      const data = unwrap(
-        await usersClient.realms({ params: { did: user.did! } })
+      const res = unwrap(
+        await realmsClient.list({ query: { userId: user.id } })
       );
-      setMemberships(data.memberships);
-      setAvailable(data.available);
+      const res2 = unwrap(await realmsClient.listMyRealms());
+      setUserRealms(res2.userRealms);
+      setAvailable(res.realms);
     } catch {
       setError("Failed to load realms");
     } finally {
@@ -158,39 +145,39 @@ export function UserRealmsTab({
         </div>
       )}
 
-      {memberships.length === 0 ? (
+      {userRealms.length === 0 ? (
         <div className="flex flex-col items-center py-10 text-foreground-500 gap-2">
           <Globe size={32} strokeWidth={1} />
           <p className="text-sm">Not a member of any realm yet.</p>
         </div>
       ) : (
         <div className="divide-y divide-neutral-200 border border-neutral-200 rounded-xl overflow-hidden">
-          {memberships.map((m) => (
+          {userRealms.map((ur) => (
             <div
-              key={m.realmId}
+              key={ur.realmId}
               className="flex items-center gap-3 px-4 py-3 bg-background-100 hover:bg-background-200 transition-colors"
             >
               <div
                 className="w-3 h-3 rounded-full shrink-0"
-                style={{ backgroundColor: m.realmColor ?? "#6366f1" }}
+                style={{ backgroundColor: ur.realm.color ?? "#6366f1" }}
               />
               <div className="flex-1 min-w-0">
                 <button
-                  onClick={() => router.push(`/realms/${m.realmId}`)}
+                  onClick={() => router.push(`/realms/${ur.realmId}`)}
                   className="text-sm font-medium text-foreground hover:text-primary-400 transition-colors truncate block"
                 >
-                  {m.realmName}
+                  {ur.realm.name}
                 </button>
                 <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                  {m.isDefault && (
+                  {ur.realm.isDefault && (
                     <span className="text-xs text-foreground-400">Default</span>
                   )}
-                  {m.isPrimary && (
+                  {ur.isPrimary && (
                     <span className="flex items-center gap-1 text-xs text-warning-600">
                       <Star size={10} className="fill-current" /> Primary
                     </span>
                   )}
-                  {m.isRealmAdmin && (
+                  {ur.isRealmAdmin && (
                     <span className="flex items-center gap-1 text-xs text-primary-600">
                       <ShieldCheck size={10} /> Realm admin
                     </span>
@@ -201,24 +188,28 @@ export function UserRealmsTab({
               {isOwner && (
                 <div className="flex items-center gap-2 shrink-0">
                   <button
-                    onClick={() => handleToggleAdmin(m.realmId, m.isRealmAdmin)}
-                    disabled={busy === m.realmId + ":admin"}
+                    onClick={() =>
+                      handleToggleAdmin(ur.realmId, ur.isRealmAdmin)
+                    }
+                    disabled={busy === ur.realmId + ":admin"}
                     title={
-                      m.isRealmAdmin ? "Revoke realm admin" : "Make realm admin"
+                      ur.isRealmAdmin
+                        ? "Revoke realm admin"
+                        : "Make realm admin"
                     }
                     className={`flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border transition-colors disabled:opacity-50 ${
-                      m.isRealmAdmin
+                      ur.isRealmAdmin
                         ? "border-primary-300 text-primary-600 hover:border-neutral-300 hover:text-foreground-500"
                         : "border-neutral-300 text-foreground-500 hover:border-primary-300 hover:text-primary-600"
                     }`}
                   >
                     <ShieldCheck size={12} />
-                    {m.isRealmAdmin ? "Admin" : "Set admin"}
+                    {ur.isRealmAdmin ? "Admin" : "Set admin"}
                   </button>
-                  {!m.isDefault && (
+                  {!ur.realm.isDefault && (
                     <button
-                      onClick={() => handleRemove(m.realmId)}
-                      disabled={busy === m.realmId + ":remove"}
+                      onClick={() => handleRemove(ur.realmId)}
+                      disabled={busy === ur.realmId + ":remove"}
                       title="Remove from realm"
                       className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border border-neutral-300 text-foreground-500 hover:border-danger-400 hover:text-danger-500 transition-colors disabled:opacity-50"
                     >
@@ -294,7 +285,7 @@ export function UserRealmsTab({
         </section>
       )}
 
-      {isOwner && available.length === 0 && memberships.length > 0 && (
+      {isOwner && available.length === 0 && userRealms.length > 0 && (
         <p className="text-xs text-foreground-400">
           This user is already a member of all realms.
         </p>

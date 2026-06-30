@@ -1,4 +1,8 @@
-import { RealmDetail, RealmWithCounts } from "@/lib/contracts";
+import {
+  RealmDetail,
+  RealmWithCounts,
+  UserRealmWithRealm,
+} from "@/lib/contracts";
 import { prisma } from "./client";
 import type {
   Realm,
@@ -8,8 +12,9 @@ import type {
 } from "@prisma/client";
 
 export class RealmDAO {
-  static async findAll(): Promise<RealmWithCounts[]> {
+  static async findAll(userId?: string): Promise<RealmWithCounts[]> {
     return prisma.realm.findMany({
+      where: userId ? { userRealms: { some: { userId } } } : undefined,
       orderBy: [{ isDefault: "desc" }, { name: "asc" }],
       include: {
         _count: {
@@ -197,19 +202,11 @@ export class RealmDAO {
     return result.count > 0;
   }
 
-  static async getUserRealms(userId: string) {
+  static async getUserRealms(userId: string): Promise<UserRealmWithRealm[]> {
     return prisma.userRealm.findMany({
       where: { userId },
       include: {
-        realm: {
-          select: {
-            id: true,
-            name: true,
-            slug: true,
-            color: true,
-            isDefault: true,
-          },
-        },
+        realm: true,
       },
       orderBy: [{ isPrimary: "desc" }, { realm: { name: "asc" } }],
     });

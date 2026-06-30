@@ -10,14 +10,7 @@ import { UserDAO } from "@/db";
 import { APIException } from "@/lib/api/utils/api-utils";
 import { usersContract } from "@/lib/contracts";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
-
-const VALID_ROLES = [
-  "owner",
-  "admin",
-  "manager",
-  "operator",
-  "member",
-] as const;
+import { USER_ROLES, isOwnerRole, normalizeRole } from "@/lib/roles";
 
 const handlers = createNextRoute(usersContract, {
   getOne: async ({ params }) => {
@@ -32,12 +25,11 @@ const handlers = createNextRoute(usersContract, {
     return {
       status: 200,
       body: {
+        id: user.id,
         did: user.did,
         name: user.name ?? null,
         email: user.email ?? null,
-        isOwner: user.isOwner,
-        isAdmin: user.isAdmin || user.isOwner,
-        role: user.role ?? "member",
+        role: normalizeRole(user.role),
         reportsTo: user.reportsTo ?? null,
         description: user.description ?? null,
         registeredAt: user.registeredAt.toISOString(),
@@ -63,10 +55,11 @@ const handlers = createNextRoute(usersContract, {
         typeof body.description === "string" ? body.description.trim() : null;
     }
     if (typeof body.role === "string") {
-      if (!VALID_ROLES.includes(body.role)) {
+      if (!USER_ROLES.includes(body.role)) {
         throw new APIException("MALFORMED", "Invalid role");
       }
-      if (!user.isOwner) fields.role = body.role;
+      // The owner's role is immutable here.
+      if (!isOwnerRole(user.role)) fields.role = body.role;
     }
     if ("reportsTo" in body) {
       if (body.reportsTo === null || body.reportsTo === "") {

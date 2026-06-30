@@ -1,10 +1,4 @@
 /**
- * Core types for VaultysClaw agent orchestration platform
- */
-
-import type { ChannelEvent } from "./channel-types";
-
-/**
  * Non-transferable identity bound to a specific instance
  */
 export interface VaultysIdentity {
@@ -371,6 +365,7 @@ export interface WSDelegationUpdatePayload {
 export interface ChatMessageEntry {
   role: "user" | "assistant";
   content: string;
+  thinkingContent?: string;
 }
 
 /**
@@ -516,7 +511,7 @@ export interface WSScheduleDeletePayload {
 // ---- Realms ----
 
 /** Role a user holds within the organisation / realm hierarchy */
-export type UserRole = "owner" | "admin" | "manager" | "operator" | "member";
+export type UserRole = "owner" | "admin" | "member";
 
 export interface Realm {
   id: string;

@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { Send, Loader2 } from "lucide-react";
 import { shortDid } from "@vaultysclaw/shared";
+import { channelsClient, unwrap } from "@/lib/api/ts-rest/client";
 
 interface Member {
   memberDid: string;
@@ -158,16 +159,12 @@ export default function MessageInput({
       setError(null);
       setSuggestions([]);
 
-      const res = await fetch(`/api/channels/${channelId}/messages`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content: content.trim() }),
-      });
-
-      if (!res.ok) {
-        const data = (await res.json()) as { error?: string };
-        throw new Error(data.error ?? "Failed to send message");
-      }
+      unwrap(
+        await channelsClient.postMessage({
+          params: { id: channelId },
+          body: { content: content.trim() },
+        })
+      );
 
       setContent("");
       if (textareaRef.current) textareaRef.current.style.height = "auto";

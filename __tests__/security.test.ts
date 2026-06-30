@@ -266,8 +266,8 @@ beforeAll(async () => {
   // ── Prisma setup (control plane uses Prisma exclusively, no SQLite) ────────
   await prisma.user.createMany({
     data: [
-      { id: DID.owner, did: DID.owner, isOwner: true, isAdmin: true },
-      { id: DID.admin, did: DID.admin, isAdmin: true },
+      { id: DID.owner, did: DID.owner, role: "Owner" },
+      { id: DID.admin, did: DID.admin, role: "Admin" },
       { id: DID.member, did: DID.member },
       { id: DID.realmAdmin, did: DID.realmAdmin },
       { id: DID.stranger, did: DID.stranger },

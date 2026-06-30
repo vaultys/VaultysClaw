@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import {
@@ -50,6 +50,15 @@ export default function UnregisteredUserPage() {
     token: string;
     phase: QrPhase;
   } | null>(null);
+
+  // Tracks the in-flight QR poll so it can be cancelled when the modal closes
+  // or the page unmounts — otherwise /api/user/listen keeps polling forever.
+  const pollRef = useRef<{ cancelled: boolean } | null>(null);
+  const cancelPoll = useCallback(() => {
+    if (pollRef.current) pollRef.current.cancelled = true;
+    pollRef.current = null;
+  }, []);
+  useEffect(() => cancelPoll, [cancelPoll]);
 
   const isAdmin = Boolean(
     (session?.user as { isAdmin?: boolean } | undefined)?.isAdmin
@@ -114,7 +123,7 @@ export default function UnregisteredUserPage() {
         }
 
         const [inviteRes, settingsRes] = await Promise.all([
-          usersClient.invite(),
+          usersClient.invite({ query: { userId: user.id } }),
           serverClient.getSettings(),
         ]);
         const data = unwrap(inviteRes);
@@ -127,11 +136,18 @@ export default function UnregisteredUserPage() {
 
         setQrModal({ qrUrl, token: data.token, phase: "showing" });
 
+        // Start a fresh poll, cancelling any previous one.
+        cancelPoll();
+        const poll = { cancelled: false };
+        pollRef.current = poll;
+
         for (let i = 0; i < 180; i++) {
           await new Promise((res) => setTimeout(res, 1500));
+          if (poll.cancelled) return;
           const { status } = unwrap(
             await userAuthClient.listen({ params: { token: data.token } })
           );
+          if (poll.cancelled) return;
           if (status === 2) {
             setQrModal((m) => (m ? { ...m, phase: "success" } : null));
             // Once claimed the user gains a DID and this page no longer applies.
@@ -147,7 +163,7 @@ export default function UnregisteredUserPage() {
         setSendingQr(false);
       }
     },
-    [user, router]
+    [user, router, cancelPoll]
   );
 
   const handleRemove = useCallback(async () => {
@@ -289,7 +305,10 @@ export default function UnregisteredUserPage() {
           subtitle={user.name ?? user.email ?? "Unknown user"}
           qrUrl={qrModal.qrUrl}
           phase={qrModal.phase}
-          onClose={() => setQrModal(null)}
+          onClose={() => {
+            cancelPoll();
+            setQrModal(null);
+          }}
           onRetry={() => {
             setQrModal(null);
             generateQr(false);

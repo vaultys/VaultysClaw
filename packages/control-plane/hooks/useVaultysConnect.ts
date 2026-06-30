@@ -13,6 +13,12 @@ import {
   type BrowserIdData,
   type WalletSecurityType,
 } from "@/lib/browser-connect";
+import {
+  serverClient,
+  userAuthClient,
+  userStatusClient,
+  unwrap,
+} from "@/lib/api/ts-rest/client";
 
 const Buffer = crypto.Buffer;
 
@@ -96,17 +102,11 @@ export function useVaultysConnect(): UseVaultysConnectResult {
   useEffect(() => {
     (async () => {
       const [statusRes, settingsRes] = await Promise.all([
-        fetch("/api/user/status"),
-        fetch("/api/server/settings"),
+        userStatusClient.status(),
+        serverClient.getSettings(),
       ]);
-      const { hasUsers: hu, serverDid: sd } = (await statusRes.json()) as {
-        hasUsers: boolean;
-        serverDid: string | null;
-      };
-      const { walletUrl: wu, devLogin: dl } = (await settingsRes.json()) as {
-        walletUrl: string;
-        devLogin?: boolean;
-      };
+      const { hasUsers: hu, serverDid: sd } = unwrap(statusRes);
+      const { walletUrl: wu, devLogin: dl } = unwrap(settingsRes);
       setHasUsers(hu);
       setServerDid(sd);
       if (wu) setWalletUrl(wu);
@@ -119,8 +119,9 @@ export function useVaultysConnect(): UseVaultysConnectResult {
 
   const waitForUser = useCallback(async (token: string): Promise<boolean> => {
     for (let i = 0; i < 180; i++) {
-      const res = await fetch(`/api/user/listen/${token}`);
-      const { status } = (await res.json()) as { status: number };
+      const { status } = unwrap(
+        await userAuthClient.listen({ params: { token } })
+      );
       if (status === 2) return true;
       if (status === -2) return false;
       await new Promise((r) => setTimeout(r, 1000));
@@ -131,13 +132,9 @@ export function useVaultysConnect(): UseVaultysConnectResult {
   const waitForBastion = useCallback(
     async (token: string): Promise<{ browserDid: string } | null> => {
       for (let i = 0; i < 180; i++) {
-        const res = await fetch(`/api/user/bastion/listen/${token}`, {
-          method: "POST",
-        });
-        const result = (await res.json()) as {
-          status: number;
-          browserDid?: string;
-        };
+        const result = unwrap(
+          await userAuthClient.bastionListen({ params: { token } })
+        );
         if (result.status === 2 && result.browserDid)
           return { browserDid: result.browserDid };
         if (result.status === -2) return null;
@@ -152,11 +149,9 @@ export function useVaultysConnect(): UseVaultysConnectResult {
     setUserConnectionPhase("connect");
     setUIStep("qr-connect");
 
-    const connectRes = await fetch("/api/user/connect");
-    const { key, token } = (await connectRes.json()) as {
-      key: string;
-      token: string;
-    };
+    const { key, token } = unwrap(
+      await userAuthClient.connect({ query: {} })
+    );
 
     const isPhone = /iPhone|Android/i.test(navigator.userAgent);
     const vaultysUrl = `vaultys://register?url=${encodeURIComponent(SERVER_URL + "/api/user/request")}&key=${key}${isPhone ? "&phone=true" : ""}`;
@@ -185,18 +180,12 @@ export function useVaultysConnect(): UseVaultysConnectResult {
 
     // Server opens the PeerJS channel, runs the Challenger protocol with the
     // wallet, and updates the cert in the DB. The browser just shows the QR.
-    const res = await fetch("/api/user/p2p/connect");
     const {
       connectionString,
       token,
       key,
       serverDid: sd,
-    } = (await res.json()) as {
-      connectionString: string;
-      token: string;
-      key: string;
-      serverDid: string | null;
-    };
+    } = unwrap(await userAuthClient.p2pConnect());
 
     const did = sd ?? serverDid;
     const didParam = did ? `&did=${encodeURIComponent(did)}` : "";
@@ -225,14 +214,14 @@ export function useVaultysConnect(): UseVaultysConnectResult {
       setBastionPhase("connect");
       setUIStep("bastion-connect");
 
-      const res = await fetch(
-        `/api/user/bastion/connect?vid=${encodeURIComponent(vid.vid)}`
-      );
-      if (!res.ok) {
+      const bastionRes = await userAuthClient.bastionConnect({
+        query: { vid: vid.vid },
+      });
+      if (bastionRes.status !== 200) {
         setBastionPhase("failure");
         return;
       }
-      const { key: encryptedKey } = (await res.json()) as { key: string };
+      const { key: encryptedKey } = bastionRes.body;
 
       setBastionPhase("waiting");
 

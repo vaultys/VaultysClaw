@@ -7,8 +7,6 @@ export const UserModel = z.object({
   publicKey: z.string().nullish(),
   name: z.string().nullish(),
   email: z.string().nullish(),
-  isOwner: z.boolean(),
-  isAdmin: z.boolean(),
   role: z.string(),
   reportsTo: z.string().nullish(),
   description: z.string().nullish(),

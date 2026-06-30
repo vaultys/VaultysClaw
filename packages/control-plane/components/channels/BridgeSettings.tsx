@@ -10,18 +10,10 @@ import {
   Copy,
   RefreshCw,
 } from "lucide-react";
+import { channelsClient, unwrap } from "@/lib/api/ts-rest/client";
+import type { ChannelBridgePublic } from "@/lib/contracts";
 
-interface BridgeRecord {
-  id: string;
-  channelId: string;
-  externalService: "teams" | "webhook";
-  externalChannelId: string;
-  externalChannelName: string;
-  externalWorkspaceId: string;
-  syncDirection: "incoming" | "outgoing" | "bidirectional";
-  isSyncEnabled: boolean;
-  createdAt: string;
-}
+type BridgeRecord = ChannelBridgePublic;
 
 interface BridgeSettingsProps {
   channelId: string;
@@ -83,11 +75,10 @@ export default function BridgeSettings({
   const fetchBridges = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await fetch(`/api/channels/${channelId}/bridges`);
-      if (res.ok) {
-        const data = (await res.json()) as { bridges: BridgeRecord[] };
-        setBridges(data.bridges);
-      }
+      const { bridges } = unwrap(
+        await channelsClient.listBridges({ params: { id: channelId } })
+      );
+      setBridges(bridges);
     } catch (err) {
       console.error("Failed to fetch bridges:", err);
     } finally {
@@ -124,30 +115,25 @@ export default function BridgeSettings({
         : { accessToken, tenantId, botId };
 
     try {
-      const res = await fetch(`/api/channels/${channelId}/bridges`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          externalService: service,
-          externalChannelId,
-          externalChannelName,
-          externalWorkspaceId,
-          syncDirection: direction,
-          config,
-        }),
-      });
-
-      if (!res.ok) {
-        const data = (await res.json()) as { error?: string };
-        setError(data.error ?? "Failed to create bridge");
-        return;
-      }
+      unwrap(
+        await channelsClient.createBridge({
+          params: { id: channelId },
+          body: {
+            externalService: service,
+            externalChannelId,
+            externalChannelName,
+            externalWorkspaceId,
+            syncDirection: direction,
+            config,
+          },
+        })
+      );
 
       await fetchBridges();
       resetForm();
       setShowAddForm(false);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unknown error");
+      setError(err instanceof Error ? err.message : "Failed to create bridge");
     } finally {
       setSubmitting(false);
     }
@@ -155,15 +141,13 @@ export default function BridgeSettings({
 
   const handleToggle = async (bridge: BridgeRecord) => {
     try {
-      const res = await fetch(
-        `/api/channels/${channelId}/bridges/${bridge.id}`,
-        {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ isSyncEnabled: !bridge.isSyncEnabled }),
-        }
+      unwrap(
+        await channelsClient.updateBridge({
+          params: { id: channelId, bridgeId: bridge.id },
+          body: { isSyncEnabled: !bridge.isSyncEnabled },
+        })
       );
-      if (res.ok) await fetchBridges();
+      await fetchBridges();
     } catch (err) {
       console.error("Toggle failed:", err);
     }
@@ -173,8 +157,8 @@ export default function BridgeSettings({
     if (!confirm("Delete this bridge? External messages will no longer sync."))
       return;
     try {
-      await fetch(`/api/channels/${channelId}/bridges/${bridgeId}`, {
-        method: "DELETE",
+      await channelsClient.deleteBridge({
+        params: { id: channelId, bridgeId },
       });
       await fetchBridges();
     } catch (err) {

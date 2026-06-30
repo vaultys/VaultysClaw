@@ -7,29 +7,52 @@ import {
   InviteEmailBodySchema,
   CreateGrantBodySchema,
 } from "./users.schemas";
+import { UserRealmWithRealm } from "../realms/realms.types";
+import type { UserRole } from "@/lib/roles";
 
 // Prisma User row is the single source of truth for persisted user fields.
 export type { User };
 
 export type UserGrant = z.infer<typeof UserGrantSchema>;
 
-/** A realm membership summary attached to a user in list/detail responses. */
-export interface UserRealmSummary {
-  id: string;
-  name: string;
-  slug: string;
-  color: string;
-  isPrimary: boolean;
+/**
+ * The current user's own profile, as returned by `GET /api/users/me`. Reuses
+ * the Prisma `User` row for stable fields; the date fields are serialized to
+ * ISO strings and `role` is the normalised access role.
+ */
+export type MeProfile = Pick<
+  User,
+  | "id"
+  | "did"
+  | "publicKey"
+  | "name"
+  | "email"
+  | "description"
+  | "entraId"
+  | "locationLabel"
+> & {
+  role: UserRole;
+  registeredAt: string;
+  claimedAt: string | null;
+};
+
+/** Response of `PATCH /api/users/me` — the updated editable fields. */
+export interface UpdateMeResponse {
+  ok: boolean;
+  name: string | null;
+  email: string | null;
+  description: string | null;
 }
 
 /** A user row as returned by `GET /api/users` — Prisma fields plus realm memberships. */
 export type UserListItem = Pick<
   User,
-  "id" | "did" | "name" | "email" | "isOwner" | "isAdmin" | "role" | "entraId"
+  "id" | "did" | "name" | "email" | "entraId"
 > & {
+  role: UserRole;
   claimedAt: string | null;
   registeredAt: string;
-  realms: UserRealmSummary[];
+  realms: UserRealmWithRealm[];
 };
 
 export interface UserListResponse {
@@ -43,35 +66,16 @@ export interface UserListResponse {
 /** A single user as returned by `GET /api/users/:did`. */
 export type UserDetail = Pick<
   User,
+  | "id"
   | "did"
   | "name"
   | "email"
-  | "isOwner"
-  | "isAdmin"
-  | "role"
   | "reportsTo"
   | "description"
   | "locationLat"
   | "locationLon"
   | "locationLabel"
-> & { registeredAt: string };
-
-/** A user's membership in a single realm, as returned by `GET /api/users/:did/realms`. */
-export interface UserRealmMembership {
-  realmId: string;
-  realmName: string;
-  realmSlug: string;
-  realmColor: string;
-  isDefault: boolean;
-  isPrimary: boolean;
-  isRealmAdmin: boolean;
-  joinedAt: string;
-}
-
-export interface UserRealmsResponse {
-  memberships: UserRealmMembership[];
-  available: Array<{ id: string; name: string; slug: string; color: string }>;
-}
+> & { role: UserRole; registeredAt: string };
 
 /** An unclaimed (Entra-provisioned, no DID yet) user as returned by `GET /api/users/unclaimed/:id`. */
 export type UnclaimedUserDetail = Pick<
@@ -80,19 +84,22 @@ export type UnclaimedUserDetail = Pick<
   | "did"
   | "name"
   | "email"
-  | "isOwner"
-  | "isAdmin"
-  | "role"
   | "reportsTo"
   | "description"
   | "entraId"
 > & {
+  role: UserRole;
   registeredAt: string;
   claimedAt: string | null;
-  realms: UserRealmSummary[];
+  realms: UserRealmWithRealm[];
 };
 
 export type ListUsersQuery = z.infer<typeof ListUsersQuerySchema>;
 export type UpdateUserBody = z.infer<typeof UpdateUserBodySchema>;
 export type InviteEmailBody = z.infer<typeof InviteEmailBodySchema>;
 export type CreateGrantBody = z.infer<typeof CreateGrantBodySchema>;
+export type Invitation = {
+  email: string;
+  name: string;
+  role: string;
+};

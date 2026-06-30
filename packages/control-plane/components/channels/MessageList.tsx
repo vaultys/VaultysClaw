@@ -15,26 +15,13 @@ import {
   getInitials,
   COMMON_EMOJIS,
   formatTimeOnly,
+  type ChannelMessage,
 } from "@vaultysclaw/shared";
-
-interface Message {
-  id: string;
-  channelId: string;
-  threadId: string | null;
-  authorDid: string;
-  authorName?: string | null;
-  authorType: "user" | "agent";
-  content: string;
-  metadata: Record<string, any>;
-  reactions: Record<string, string[]>;
-  editedAt: string | null;
-  deletedAt: string | null;
-  createdAt: string;
-}
+import { channelsClient, unwrap } from "@/lib/api/ts-rest/client";
 
 interface MessageListProps {
   channelId: string;
-  messages: Message[];
+  messages: ChannelMessage[];
   isLoading: boolean;
   onAddReaction: (messageId: string, emoji: string) => void;
   onDeleteMessage: (messageId: string) => void;
@@ -49,7 +36,7 @@ function MessageBubble({
   onDeleteMessage,
   isThread = false,
 }: {
-  msg: Message;
+  msg: ChannelMessage;
   channelId: string;
   onAddReaction: (id: string, emoji: string) => void;
   onDeleteMessage: (id: string) => void;
@@ -63,25 +50,25 @@ function MessageBubble({
 
   const handleReaction = async (emoji: string) => {
     try {
-      const res = await fetch(
-        `/api/channels/${channelId}/messages/${msg.id}/reactions`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ emoji, add: true }),
-        }
+      unwrap(
+        await channelsClient.react({
+          params: { id: channelId, msgId: msg.id },
+          body: { emoji, add: true },
+        })
       );
-      if (res.ok) onAddReaction(msg.id, emoji);
+      onAddReaction(msg.id, emoji);
     } catch {}
     setEmojiOpen(false);
   };
 
   const handleDelete = async () => {
     try {
-      const res = await fetch(`/api/channels/${channelId}/messages/${msg.id}`, {
-        method: "DELETE",
-      });
-      if (res.ok) onDeleteMessage(msg.id);
+      unwrap(
+        await channelsClient.deleteMessage({
+          params: { id: channelId, msgId: msg.id },
+        })
+      );
+      onDeleteMessage(msg.id);
     } catch {}
   };
 
@@ -204,19 +191,19 @@ function ThreadView({
   onAddReaction: (id: string, emoji: string) => void;
   onDeleteMessage: (id: string) => void;
 }) {
-  const [replies, setReplies] = useState<Message[]>([]);
+  const [replies, setReplies] = useState<ChannelMessage[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchThread = async () => {
       try {
-        const res = await fetch(
-          `/api/channels/${channelId}/messages?threadId=${parentId}`
+        const { messages } = unwrap(
+          await channelsClient.listMessages({
+            params: { id: channelId },
+            query: { threadId: parentId },
+          })
         );
-        if (res.ok) {
-          const data = (await res.json()) as { messages: Message[] };
-          setReplies(data.messages);
-        }
+        setReplies(messages);
       } catch {}
       setLoading(false);
     };
@@ -260,7 +247,7 @@ function MessageWithThread({
   onAddReaction,
   onDeleteMessage,
 }: {
-  msg: Message;
+  msg: ChannelMessage;
   channelId: string;
   threadCount: number;
   onAddReaction: (id: string, emoji: string) => void;
@@ -342,13 +329,13 @@ export default function MessageList({
       await Promise.all(
         messages.map(async (msg) => {
           try {
-            const res = await fetch(
-              `/api/channels/${channelId}/messages?threadId=${msg.id}`
+            const { messages: replies } = unwrap(
+              await channelsClient.listMessages({
+                params: { id: channelId },
+                query: { threadId: msg.id },
+              })
             );
-            if (res.ok) {
-              const data = (await res.json()) as { messages: Message[] };
-              counts[msg.id] = data.messages.length;
-            }
+            counts[msg.id] = replies.length;
           } catch {}
         })
       );

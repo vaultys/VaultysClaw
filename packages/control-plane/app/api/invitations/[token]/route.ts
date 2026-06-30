@@ -1,64 +1,30 @@
 /**
  * GET /api/invitations/[token]
- * Get invitation details (unauthenticated - for email invite page)
+ * Get invitation details (unauthenticated — for the email invite page).
  */
 
-import { NextRequest, NextResponse } from "next/server";
 import { UserDAO } from "@/db";
-import { forbidden, notFound } from "@/lib/api/utils/api-utils";
-import { withError } from "@/lib/api/handlers/with-error";
+import { APIException } from "@/lib/api/utils/api-utils";
+import { createNextRoute } from "@/lib/api/ts-rest/next-route";
+import { invitationsContract } from "@/lib/contracts";
 
-/**
- * @openapi
- * /api/invitations/{token}:
- *   get:
- *     summary: Retrieve invitation details using a token.
- *     tags: [Invitations]
- *     parameters:
- *       - name: token
- *         in: path
- *         required: true
- *         description: The invitation token.
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: Invitation details retrieved successfully.
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 email:
- *                   type: string
- *                 name:
- *                   type: string
- *                 role:
- *                   type: string
- *       404:
- *         $ref: '#/components/responses/NotFound'
- *       500:
- *         description: Failed to fetch invitation.
- */
-export const GET = withError(async (
-  request: NextRequest,
-  { params }: { params: Promise<{ token: string }> }
-) => {
-  const { token } = await params;
-  const invitation = await UserDAO.findInvitation(token);
+const handlers = createNextRoute(invitationsContract, {
+  get: async ({ params }) => {
+    const invitation = await UserDAO.findInvitation(params.token);
+    if (!invitation) throw new APIException("NOT_FOUND", "Invitation not found");
 
-  if (!invitation) {
-    return notFound("Invitation not found");
-  }
+    if (new Date(invitation.expiresAt) < new Date())
+      throw new APIException("FORBIDDEN", "Invitation expired");
 
-  const expiresAt = new Date(invitation.expiresAt);
-  if (expiresAt < new Date()) {
-    return forbidden("Invitation expired");
-  }
-
-  return NextResponse.json({
-    email: invitation.email,
-    name: invitation.name,
-    role: invitation.role,
-  });
+    return {
+      status: 200,
+      body: {
+        email: invitation.email,
+        name: invitation.name,
+        role: invitation.role,
+      },
+    };
+  },
 });
+
+export const GET = handlers.GET!;

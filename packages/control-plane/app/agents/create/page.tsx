@@ -8,9 +8,7 @@ import { useBreadcrumbs } from "@/components/layout/BreadcrumbContext";
 import {
   STEPS,
   STEP_INDEX,
-  parseJsonArray,
   type WizardStep,
-  type Realm,
   type PendingReg,
 } from "@/components/agent/create/constants";
 import {
@@ -25,6 +23,8 @@ import { ApproveStep } from "@/components/agent/create/ApproveStep";
 import { ModelStep } from "@/components/agent/create/ModelStep";
 import { SkillsStep } from "@/components/agent/create/SkillsStep";
 import { VerifyStep } from "@/components/agent/create/VerifyStep";
+import { Realm } from "@prisma/client";
+import { parseJsonArray } from "@vaultysclaw/shared";
 
 export default function CreateAgentPage() {
   const router = useRouter();

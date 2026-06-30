@@ -40,6 +40,20 @@ export class ApiKeyDAO {
     return prisma.apiKey.findMany({ orderBy: { createdAt: "desc" } });
   }
 
+  static async update(
+    id: string,
+    data: {
+      name?: string;
+      allowedRoutes?: string[];
+      realmId?: string | null;
+      isRealmAdmin?: boolean;
+      expiresAt?: Date | null;
+      isActive?: boolean;
+    }
+  ): Promise<ApiKey> {
+    return prisma.apiKey.update({ where: { id }, data });
+  }
+
   static async updateLastUsed(id: string): Promise<void> {
     await prisma.apiKey.update({ where: { id }, data: { lastUsedAt: new Date() } });
   }

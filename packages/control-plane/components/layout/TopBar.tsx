@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { useTheme, type Theme } from "@/components/ThemeProvider";
 import { useBreadcrumbsState } from "./BreadcrumbContext";
+import { usersClient, unwrap } from "@/lib/api/ts-rest/client";
 import { cn } from "@/lib/utils";
 
 function shortDid(did: string): string {
@@ -56,11 +57,9 @@ export default function TopBar() {
   // Fetch name from profile
   useEffect(() => {
     if (!session?.user) return;
-    fetch("/api/users/me")
-      .then((r) => r.json())
-      .then((data: { name?: string | null }) => {
-        setProfileName(data.name ?? null);
-      })
+    usersClient
+      .me()
+      .then((res) => setProfileName(unwrap(res).name ?? null))
       .catch(() => {});
   }, [session?.user]);
 

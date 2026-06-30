@@ -1,18 +1,21 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
-import {
-  Check,
-  Loader2,
-  AlertCircle,
-  Shield,
-} from "lucide-react";
+import { Check, Loader2, AlertCircle, Shield } from "lucide-react";
 import QRCodeScreen from "@/components/signin/QRCodeScreen";
 import {
   runBrowserDirectConnect,
   type WalletSecurityType,
 } from "@/lib/browser-connect";
+import {
+  invitationsClient,
+  serverClient,
+  usersClient,
+  userAuthClient,
+  unwrap,
+} from "@/lib/api/ts-rest/client";
+import { Invitation } from "@/lib/contracts";
 
 type InvitePhase =
   | "loading"
@@ -23,19 +26,13 @@ type InvitePhase =
   | "error"
   | "expired";
 
-interface InviteDetails {
-  email: string;
-  name: string;
-  role: string;
-}
-
 export default function InvitePage() {
   const params = useParams();
   const router = useRouter();
   const token = params.token as string;
 
   const [phase, setPhase] = useState<InvitePhase>("loading");
-  const [details, setDetails] = useState<InviteDetails | null>(null);
+  const [details, setDetails] = useState<Invitation | null>(null);
   const [error, setError] = useState("");
   const [qrUrl, setQrUrl] = useState("");
   const [certKey, setCertKey] = useState("");
@@ -46,14 +43,14 @@ export default function InvitePage() {
   useEffect(() => {
     const load = async () => {
       try {
-        const res = await fetch(`/api/invitations/${token}`);
-        if (res.status === 404) {
+        const invitation = unwrap(
+          await invitationsClient.get({ params: { token } })
+        );
+        if (!invitation) {
           setPhase("expired");
           return;
         }
-        if (!res.ok) throw new Error("Failed to load invitation");
-        const data = (await res.json()) as InviteDetails;
-        setDetails(data);
+        setDetails(invitation);
         setPhase("info");
       } catch (err) {
         setError((err as Error).message);
@@ -65,9 +62,9 @@ export default function InvitePage() {
 
   // Load dev-login availability
   useEffect(() => {
-    fetch("/api/server/settings")
-      .then((r) => r.json())
-      .then((s: { devLogin?: boolean }) => setDevLogin(!!s.devLogin))
+    serverClient
+      .getSettings()
+      .then((res) => setDevLogin(!!unwrap(res).devLogin))
       .catch(() => {});
   }, []);
 
@@ -75,19 +72,9 @@ export default function InvitePage() {
     if (!token) return;
     setPhase("qr-loading");
     try {
-      const res = await fetch("/api/users/invite/from-email", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token }),
-      });
-      if (!res.ok) throw new Error("Failed to generate QR");
-      const data = (await res.json()) as {
-        qrUrl: string;
-        connectionString: string;
-        inviteToken: string;
-        key: string;
-        serverDid?: string;
-      };
+      const data = unwrap(
+        await usersClient.inviteFromEmail({ body: { token } })
+      );
       setQrUrl(data.qrUrl);
       setCertKey(data.key);
       setPhase("qr");
@@ -95,13 +82,12 @@ export default function InvitePage() {
       // Poll for connection using the returned invite token
       for (let i = 0; i < 180; i++) {
         await new Promise((r) => setTimeout(r, 1500));
-        const r = await fetch(`/api/user/listen/${data.inviteToken}`);
-        const { status: s } = (await r.json()) as { status: number };
+        const { status: s } = unwrap(
+          await userAuthClient.listen({ params: { token: data.inviteToken } })
+        );
         if (s === 2) {
           // Delete the invitation after successful connection
-          await fetch(`/api/invitations/${token}/delete`, {
-            method: "POST",
-          }).catch(() => {});
+          await invitationsClient.delete({ params: { token } }).catch(() => {});
           setPhase("success");
           return;
         }

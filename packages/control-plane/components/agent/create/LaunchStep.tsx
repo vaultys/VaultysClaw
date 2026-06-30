@@ -14,7 +14,8 @@ import {
 import { cn } from "@/lib/utils";
 import { CopyButton } from "@/components/shared";
 import { networkClient, unwrap } from "@/lib/api/ts-rest/client";
-import { PKG_RUNNERS, type PkgRunner, type Realm } from "./constants";
+import { PKG_RUNNERS, type PkgRunner } from "./constants";
+import { Realm } from "@prisma/client";
 
 interface LaunchStepProps {
   realms: Realm[];

@@ -1,10 +1,16 @@
 import { c } from "../contract";
 import { commonErrorResponses } from "../common";
 import {
+  HealthResponseSchema,
+  MapQuerySchema,
   NetworkControlBodySchema,
   NetworkLogQuerySchema,
 } from "./network.schemas";
-import { NetworkControlResponse, NetworkResponse } from "./network.types";
+import {
+  MapResponse,
+  NetworkControlResponse,
+  NetworkResponse,
+} from "./network.types";
 
 export const networkContract = c.router({
   get: {
@@ -27,5 +33,27 @@ export const networkContract = c.router({
       200: c.type<NetworkControlResponse>(),
       ...commonErrorResponses,
     },
+  },
+});
+
+export const mapContract = c.router({
+  get: {
+    method: "GET",
+    path: "/api/map",
+    summary: "Aggregate all located entities into map markers",
+    query: MapQuerySchema,
+    responses: {
+      200: c.type<MapResponse>(),
+      ...commonErrorResponses,
+    },
+  },
+});
+
+export const healthContract = c.router({
+  get: {
+    method: "GET",
+    path: "/api/health",
+    summary: "Health check for the control plane",
+    responses: { 200: HealthResponseSchema },
   },
 });

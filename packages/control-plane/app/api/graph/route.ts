@@ -9,8 +9,14 @@ import type {
 } from "@vaultysclaw/shared";
 import { getAuthContext } from "@/lib/auth-utils";
 import { APIException } from "@/lib/api/utils/api-utils";
-import { graphContract } from "@/lib/contracts";
+import {
+  AgentRecord,
+  Filters,
+  graphContract,
+  UserRecord,
+} from "@/lib/contracts";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
+import { normalizeRole } from "@/lib/roles";
 
 /**
  * GET /api/graph — return the full relationship graph (nodes + edges). Global admin only.
@@ -99,35 +105,9 @@ export const GET = handlers.GET!;
 
 // ---------------------------------------------------------------------------
 
-interface Filters {
-  agentDid: string | null;
-  userDid: string | null;
-  realmId: string | null;
-}
-
-// Shape returned by prisma.user.findMany / findUnique for graph use
-type UserRecord = {
-  id: string;
-  did: string | null;
-  name: string | null;
-  role: string;
-  reportsTo: string | null;
-  isOwner: boolean;
-  isAdmin: boolean;
-};
-
-// Shape returned by prisma.agent queries
-type AgentRecord = {
-  did: string;
-  name: string;
-};
-
 function effectiveUserRole(u: UserRecord): UserRole {
-  return u.isOwner
-    ? "owner"
-    : u.isAdmin
-      ? "admin"
-      : ((u.role as UserRole) ?? "member");
+  // Graph node roles are the lowercase presentation enum (shared UserRole).
+  return normalizeRole(u.role).toLowerCase() as UserRole;
 }
 
 function addUserNode(nodes: Map<string, GraphNode>, u: UserRecord): void {
@@ -175,8 +155,6 @@ async function buildGraph(filters: Filters): Promise<GraphData> {
         name: true,
         role: true,
         reportsTo: true,
-        isOwner: true,
-        isAdmin: true,
       },
     });
     const children = targetUser
@@ -188,8 +166,6 @@ async function buildGraph(filters: Filters): Promise<GraphData> {
             name: true,
             role: true,
             reportsTo: true,
-            isOwner: true,
-            isAdmin: true,
           },
         })
       : [];
@@ -207,8 +183,6 @@ async function buildGraph(filters: Filters): Promise<GraphData> {
               name: true,
               role: true,
               reportsTo: true,
-              isOwner: true,
-              isAdmin: true,
             },
           },
         },
@@ -232,8 +206,6 @@ async function buildGraph(filters: Filters): Promise<GraphData> {
               name: true,
               role: true,
               reportsTo: true,
-              isOwner: true,
-              isAdmin: true,
             },
           })
         : [];
@@ -248,8 +220,6 @@ async function buildGraph(filters: Filters): Promise<GraphData> {
             name: true,
             role: true,
             reportsTo: true,
-            isOwner: true,
-            isAdmin: true,
           },
         },
       },
@@ -263,8 +233,6 @@ async function buildGraph(filters: Filters): Promise<GraphData> {
         name: true,
         role: true,
         reportsTo: true,
-        isOwner: true,
-        isAdmin: true,
       },
     });
   }
@@ -341,8 +309,6 @@ async function buildGraph(filters: Filters): Promise<GraphData> {
             name: true,
             role: true,
             reportsTo: true,
-            isOwner: true,
-            isAdmin: true,
           },
         })) ?? undefined;
       if (manager) {
@@ -407,8 +373,6 @@ async function buildGraph(filters: Filters): Promise<GraphData> {
               name: true,
               role: true,
               reportsTo: true,
-              isOwner: true,
-              isAdmin: true,
             },
           });
           if (u) {

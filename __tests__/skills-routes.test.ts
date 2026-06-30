@@ -124,19 +124,53 @@ beforeAll(async () => {
   testAgentDid = `${T}agent-did-1`;
 
   // ── Prisma setup ────────────────────────────────────────────────────────
-  await prisma.realm.upsert({ where: { id: testRealmId }, create: { id: testRealmId, name: "Skills Test Realm", slug: "skills-test-realm", color: "#6366f1" }, update: {} });
-  await prisma.realm.upsert({ where: { id: testRealmId2 }, create: { id: testRealmId2, name: "Skills Test Realm 2", slug: "skills-test-realm-2", color: "#22c55e" }, update: {} });
-  await prisma.agent.upsert({ where: { did: testAgentDid }, create: { did: testAgentDid, name: "test-agent", capabilities: [] }, update: {} });
-  await prisma.agentRealm.upsert({ where: { agentDid_realmId: { agentDid: testAgentDid, realmId: testRealmId } }, create: { agentDid: testAgentDid, realmId: testRealmId }, update: {} });
+  await prisma.realm.upsert({
+    where: { id: testRealmId },
+    create: {
+      id: testRealmId,
+      name: "Skills Test Realm",
+      slug: "skills-test-realm",
+      color: "#6366f1",
+    },
+    update: {},
+  });
+  await prisma.realm.upsert({
+    where: { id: testRealmId2 },
+    create: {
+      id: testRealmId2,
+      name: "Skills Test Realm 2",
+      slug: "skills-test-realm-2",
+      color: "#22c55e",
+    },
+    update: {},
+  });
+  await prisma.agent.upsert({
+    where: { did: testAgentDid },
+    create: { did: testAgentDid, name: "test-agent", capabilities: [] },
+    update: {},
+  });
+  await prisma.agentRealm.upsert({
+    where: {
+      agentDid_realmId: { agentDid: testAgentDid, realmId: testRealmId },
+    },
+    create: { agentDid: testAgentDid, realmId: testRealmId },
+    update: {},
+  });
 });
 
 afterAll(async () => {
   // Prisma cleanup
-  await prisma.agentSkillOverride.deleteMany({ where: { realmSkill: { realmId: { in: [testRealmId, testRealmId2] } } } });
-  await prisma.realmSkill.deleteMany({ where: { realmId: { in: [testRealmId, testRealmId2] } } });
+  await prisma.agentSkillOverride.deleteMany({
+    where: { realmSkill: { realmId: { in: [testRealmId, testRealmId2] } } },
+  });
+  await prisma.realmSkill.deleteMany({
+    where: { realmId: { in: [testRealmId, testRealmId2] } },
+  });
   await prisma.agentRealm.deleteMany({ where: { agentDid: testAgentDid } });
   await prisma.agent.deleteMany({ where: { did: testAgentDid } });
-  await prisma.realm.deleteMany({ where: { id: { in: [testRealmId, testRealmId2] } } });
+  await prisma.realm.deleteMany({
+    where: { id: { in: [testRealmId, testRealmId2] } },
+  });
 });
 
 beforeEach(() => {
@@ -240,7 +274,10 @@ describe("DB: updateRealmSkill", () => {
       version: "1.0.0",
     });
 
-    await RealmSkillDAO.update(skill.id, { description: "new desc", version: "2.0.0" });
+    await RealmSkillDAO.update(skill.id, {
+      description: "new desc",
+      version: "2.0.0",
+    });
 
     const updated = (await RealmSkillDAO.findById(skill.id))!;
     expect(updated.description).toBe("new desc");
@@ -272,7 +309,9 @@ describe("DB: updateRealmSkill", () => {
       config: { original: true },
     });
 
-    await RealmSkillDAO.update(skill.id, { config: { updated: true, count: 42 } });
+    await RealmSkillDAO.update(skill.id, {
+      config: { updated: true, count: 42 },
+    });
 
     const updated = (await RealmSkillDAO.findById(skill.id))!;
     expect(updated.config).toEqual({ updated: true, count: 42 });
@@ -328,8 +367,14 @@ describe("DB: deleteRealmSkill", () => {
 
 describe("DB: getAllSkillsWithRealms", () => {
   it("includes skills from multiple realms with realm names", async () => {
-    const s1 = await RealmSkillDAO.create({ realmId: testRealmId, name: `${T}all-r1` });
-    const s2 = await RealmSkillDAO.create({ realmId: testRealmId2, name: `${T}all-r2` });
+    const s1 = await RealmSkillDAO.create({
+      realmId: testRealmId,
+      name: `${T}all-r1`,
+    });
+    const s2 = await RealmSkillDAO.create({
+      realmId: testRealmId2,
+      name: `${T}all-r2`,
+    });
 
     try {
       const rows = await RealmSkillDAO.findAllWithRealms();
@@ -391,7 +436,9 @@ describe("DB: getAgentEffectiveSkills", () => {
   });
 
   it("returns empty array for an agent not enrolled in any realm", async () => {
-    const skills = await SkillOverrideDAO.getEffectiveSkills("did:test:unknown-agent");
+    const skills = await SkillOverrideDAO.getEffectiveSkills(
+      "did:test:unknown-agent"
+    );
     expect(Array.isArray(skills)).toBe(true);
     expect(skills).toHaveLength(0);
   });
@@ -404,7 +451,9 @@ describe("DB: getAgentEffectiveSkills", () => {
 describe("GET /api/skills", () => {
   it("returns 401 when unauthenticated", async () => {
     mockGetAuthContext.mockRejectedValueOnce(new APIException("UNAUTHORIZED"));
-    const res = await skillsGET(req("GET", "http://localhost/api/skills") as any);
+    const res = await skillsGET(
+      req("GET", "http://localhost/api/skills") as any
+    );
     expect(res._status).toBe(401);
   });
 
@@ -413,14 +462,21 @@ describe("GET /api/skills", () => {
       ...makeAdminContext(),
       isGlobalAdmin: false,
     });
-    const res = await skillsGET(req("GET", "http://localhost/api/skills") as any);
+    const res = await skillsGET(
+      req("GET", "http://localhost/api/skills") as any
+    );
     expect(res._status).toBe(403);
   });
 
   it("returns skill rows for global admin", async () => {
-    const skill = await RealmSkillDAO.create({ realmId: testRealmId, name: `${T}api-list` });
+    const skill = await RealmSkillDAO.create({
+      realmId: testRealmId,
+      name: `${T}api-list`,
+    });
     try {
-      const res = await skillsGET(req("GET", "http://localhost/api/skills") as any);
+      const res = await skillsGET(
+        req("GET", "http://localhost/api/skills") as any
+      );
       expect(res._status).toBe(200);
       const body = (await res.json()) as { id: string }[];
       expect(Array.isArray(body)).toBe(true);
@@ -663,25 +719,40 @@ describe("PATCH /api/realms/[id]/skills/[skillId]", () => {
   });
 
   it("updates description and returns updated skill", async () => {
-    const skill = await RealmSkillDAO.create({ realmId: testRealmId, name: `${T}patch-desc`, description: "old" });
+    const skill = await RealmSkillDAO.create({
+      realmId: testRealmId,
+      name: `${T}patch-desc`,
+      description: "old",
+    });
     try {
       const r = req("PATCH", "http://localhost/", { description: "new desc" });
-      const res = await skillDetailPATCH(r as any, skillParams(testRealmId, skill.id));
+      const res = await skillDetailPATCH(
+        r as any,
+        skillParams(testRealmId, skill.id)
+      );
       expect(res._status).toBe(200);
       const body = (await res.json()) as { skill: { description: string } };
       expect(body.skill.description).toBe("new desc");
-      expect((await RealmSkillDAO.findById(skill.id))!.description).toBe("new desc");
+      expect((await RealmSkillDAO.findById(skill.id))!.description).toBe(
+        "new desc"
+      );
     } finally {
       await RealmSkillDAO.delete(skill.id);
     }
   });
 
   it("updates content markdown", async () => {
-    const skill = await RealmSkillDAO.create({ realmId: testRealmId, name: `${T}patch-content` });
+    const skill = await RealmSkillDAO.create({
+      realmId: testRealmId,
+      name: `${T}patch-content`,
+    });
     try {
       const md = "# Patched\nNew instructions.";
       const r = req("PATCH", "http://localhost/", { content: md });
-      const res = await skillDetailPATCH(r as any, skillParams(testRealmId, skill.id));
+      const res = await skillDetailPATCH(
+        r as any,
+        skillParams(testRealmId, skill.id)
+      );
       expect(res._status).toBe(200);
       expect((await RealmSkillDAO.findById(skill.id))!.content).toBe(md);
     } finally {
@@ -690,7 +761,11 @@ describe("PATCH /api/realms/[id]/skills/[skillId]", () => {
   });
 
   it("sets content to null when explicitly passed null", async () => {
-    const skill = await RealmSkillDAO.create({ realmId: testRealmId, name: `${T}patch-null-content`, content: "some content" });
+    const skill = await RealmSkillDAO.create({
+      realmId: testRealmId,
+      name: `${T}patch-null-content`,
+      content: "some content",
+    });
     try {
       const r = req("PATCH", "http://localhost/", { content: null });
       await skillDetailPATCH(r as any, skillParams(testRealmId, skill.id));
@@ -701,7 +776,10 @@ describe("PATCH /api/realms/[id]/skills/[skillId]", () => {
   });
 
   it("broadcasts skills config after update", async () => {
-    const skill = await RealmSkillDAO.create({ realmId: testRealmId, name: `${T}patch-broadcast` });
+    const skill = await RealmSkillDAO.create({
+      realmId: testRealmId,
+      name: `${T}patch-broadcast`,
+    });
     try {
       const r = req("PATCH", "http://localhost/", { version: "9.0.0" });
       await skillDetailPATCH(r as any, skillParams(testRealmId, skill.id));
@@ -754,7 +832,10 @@ describe("DELETE /api/realms/[id]/skills/[skillId]", () => {
   });
 
   it("removes the skill and broadcasts config", async () => {
-    const skill = await RealmSkillDAO.create({ realmId: testRealmId, name: `${T}delete-ok` });
+    const skill = await RealmSkillDAO.create({
+      realmId: testRealmId,
+      name: `${T}delete-ok`,
+    });
 
     const res = await skillDetailDELETE(
       req("DELETE", "http://localhost/") as any,
@@ -783,8 +864,10 @@ describe("DELETE /api/realms/[id]/skills/[skillId]", () => {
 
 describe("GET /api/stats/tokens", () => {
   it("returns 401 when unauthenticated", async () => {
-    mockGetAuthContext.mockResolvedValueOnce(null);
-    const res = await statsTokensGET(req("GET", "http://localhost/") as any);
+    mockGetAuthContext.mockRejectedValueOnce(new APIException("UNAUTHORIZED"));
+    const res = await statsTokensGET(
+      req("GET", "http://localhost/api/stats/tokens") as any
+    );
     expect(res._status).toBe(401);
   });
 
@@ -793,12 +876,16 @@ describe("GET /api/stats/tokens", () => {
       ...makeAdminContext(),
       isGlobalAdmin: false,
     });
-    const res = await statsTokensGET(req("GET", "http://localhost/") as any);
+    const res = await statsTokensGET(
+      req("GET", "http://localhost/api/stats/tokens") as any
+    );
     expect(res._status).toBe(403);
   });
 
   it("returns allTime / daily / monthly structure with numeric values", async () => {
-    const res = await statsTokensGET(req("GET", "http://localhost/") as any);
+    const res = await statsTokensGET(
+      req("GET", "http://localhost/api/stats/tokens") as any
+    );
     expect(res._status).toBe(200);
 
     const body = (await res.json()) as {
@@ -819,11 +906,21 @@ describe("GET /api/stats/tokens", () => {
     const testDid = `${T}token-agent`;
 
     // Prisma (AgentDAO.getTotalFleetTokenUsage uses Prisma)
-    await prisma.agent.upsert({ where: { did: testDid }, create: { did: testDid, name: "token-test-agent", capabilities: [] }, update: {} });
-    await prisma.agentTokenUsage.upsert({ where: { agentDid: testDid }, create: { agentDid: testDid, promptTokens: 1000, completionTokens: 500 }, update: { promptTokens: 1000, completionTokens: 500 } });
+    await prisma.agent.upsert({
+      where: { did: testDid },
+      create: { did: testDid, name: "token-test-agent", capabilities: [] },
+      update: {},
+    });
+    await prisma.agentTokenUsage.upsert({
+      where: { agentDid: testDid },
+      create: { agentDid: testDid, promptTokens: 1000, completionTokens: 500 },
+      update: { promptTokens: 1000, completionTokens: 500 },
+    });
 
     try {
-      const res = await statsTokensGET(req("GET", "http://localhost/") as any);
+      const res = await statsTokensGET(
+        req("GET", "http://localhost/api/stats/tokens") as any
+      );
       const body = (await res.json()) as {
         allTime: { promptTokens: number; completionTokens: number };
       };
@@ -841,20 +938,50 @@ describe("GET /api/stats/tokens", () => {
     const thisMonth = new Date().toISOString().slice(0, 7);
 
     // Prisma (for route handler)
-    await prisma.agent.upsert({ where: { did: testDid }, create: { did: testDid, name: "history-test-agent", capabilities: [] }, update: {} });
+    await prisma.agent.upsert({
+      where: { did: testDid },
+      create: { did: testDid, name: "history-test-agent", capabilities: [] },
+      update: {},
+    });
     await prisma.agentTokenUsageHistory.upsert({
-      where: { agentDid_bucket_granularity: { agentDid: testDid, bucket: today, granularity: "day" } },
-      create: { agentDid: testDid, bucket: today, granularity: "day", promptTokens: 200, completionTokens: 100 },
+      where: {
+        agentDid_bucket_granularity: {
+          agentDid: testDid,
+          bucket: today,
+          granularity: "day",
+        },
+      },
+      create: {
+        agentDid: testDid,
+        bucket: today,
+        granularity: "day",
+        promptTokens: 200,
+        completionTokens: 100,
+      },
       update: { promptTokens: 200, completionTokens: 100 },
     });
     await prisma.agentTokenUsageHistory.upsert({
-      where: { agentDid_bucket_granularity: { agentDid: testDid, bucket: thisMonth, granularity: "month" } },
-      create: { agentDid: testDid, bucket: thisMonth, granularity: "month", promptTokens: 800, completionTokens: 400 },
+      where: {
+        agentDid_bucket_granularity: {
+          agentDid: testDid,
+          bucket: thisMonth,
+          granularity: "month",
+        },
+      },
+      create: {
+        agentDid: testDid,
+        bucket: thisMonth,
+        granularity: "month",
+        promptTokens: 800,
+        completionTokens: 400,
+      },
       update: { promptTokens: 800, completionTokens: 400 },
     });
 
     try {
-      const res = await statsTokensGET(req("GET", "http://localhost/") as any);
+      const res = await statsTokensGET(
+        req("GET", "http://localhost/api/stats/tokens") as any
+      );
       const body = (await res.json()) as {
         daily: { promptTokens: number; completionTokens: number };
         monthly: { promptTokens: number; completionTokens: number };
@@ -864,7 +991,9 @@ describe("GET /api/stats/tokens", () => {
       expect(body.monthly.promptTokens).toBeGreaterThanOrEqual(800);
       expect(body.monthly.completionTokens).toBeGreaterThanOrEqual(400);
     } finally {
-      await prisma.agentTokenUsageHistory.deleteMany({ where: { agentDid: testDid } });
+      await prisma.agentTokenUsageHistory.deleteMany({
+        where: { agentDid: testDid },
+      });
       await prisma.agent.deleteMany({ where: { did: testDid } });
     }
   });

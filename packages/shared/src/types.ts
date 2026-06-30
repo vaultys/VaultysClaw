@@ -511,7 +511,7 @@ export interface WSScheduleDeletePayload {
 // ---- Realms ----
 
 /** Role a user holds within the organisation / realm hierarchy */
-export type UserRole = "owner" | "admin" | "manager" | "operator" | "member";
+export type UserRole = "owner" | "admin" | "member";
 
 export interface Realm {
   id: string;

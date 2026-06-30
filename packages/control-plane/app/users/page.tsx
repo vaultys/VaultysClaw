@@ -30,7 +30,7 @@ type QrModalState = {
 type Tab = "registered" | "unregistered";
 
 const PAGE_SIZE = 20;
-const ROLES = ["owner", "admin", "manager", "operator", "member"] as const;
+const ROLES = ["Owner", "Admin", "Member"] as const;
 const SORT_OPTIONS: { value: string; label: string }[] = [
   { value: "registeredAt:asc", label: "Provisioned (oldest)" },
   { value: "registeredAt:desc", label: "Provisioned (newest)" },
@@ -64,6 +64,17 @@ export default function UsersPage() {
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Tracks the in-flight QR poll so it can be cancelled when the modal closes
+  // or the page unmounts — otherwise /api/user/listen keeps polling forever.
+  const pollRef = useRef<{ cancelled: boolean } | null>(null);
+
+  const cancelPoll = useCallback(() => {
+    if (pollRef.current) pollRef.current.cancelled = true;
+    pollRef.current = null;
+  }, []);
+
+  // Stop any running poll when the page unmounts.
+  useEffect(() => cancelPoll, [cancelPoll]);
 
   useEffect(() => {
     serverClient
@@ -166,7 +177,7 @@ export default function UsersPage() {
       }
 
       const [inviteRes, settingsRes] = await Promise.all([
-        usersClient.invite(),
+        usersClient.invite({ query: { userId: user.id } }),
         serverClient.getSettings(),
       ]);
       const data = unwrap(inviteRes);
@@ -179,12 +190,19 @@ export default function UsersPage() {
 
       setQrModal({ user, qrUrl, token: data.token, phase: "showing" });
 
+      // Start a fresh poll, cancelling any previous one.
+      cancelPoll();
+      const poll = { cancelled: false };
+      pollRef.current = poll;
+
       // Poll until the wallet completes (or it expires).
       for (let i = 0; i < 180; i++) {
         await new Promise((res) => setTimeout(res, 1500));
+        if (poll.cancelled) return;
         const { status } = unwrap(
           await userAuthClient.listen({ params: { token: data.token } })
         );
+        if (poll.cancelled) return;
         if (status === 2) {
           setQrModal((m) => (m ? { ...m, phase: "success" } : null));
           reload();
@@ -380,11 +398,15 @@ export default function UsersPage() {
 
       {showInvite && (
         <InviteUserModal
-          onClose={() => setShowInvite(false)}
-          onSuccess={() => {
+          // Reload on close so a user who registered while the modal was open
+          // (QR scan completes after the list was last fetched) shows up.
+          onClose={() => {
             setShowInvite(false);
             reload();
           }}
+          // Refresh the list in the background but keep the modal open: the QR
+          // and email-sent screens manage their own dismissal via onClose.
+          onSuccess={() => reload()}
         />
       )}
 
@@ -393,7 +415,11 @@ export default function UsersPage() {
           subtitle={qrModal.user.name ?? qrModal.user.email ?? "Unknown user"}
           qrUrl={qrModal.qrUrl}
           phase={qrModal.phase}
-          onClose={() => setQrModal(null)}
+          onClose={() => {
+            cancelPoll();
+            setQrModal(null);
+            reload();
+          }}
           onRetry={() => {
             setQrModal(null);
             generateQr(qrModal.user, false);

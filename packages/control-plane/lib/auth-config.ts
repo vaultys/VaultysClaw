@@ -4,6 +4,7 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import { UserServerChannel } from "./user-server-channel";
 import { UserDAO } from "@/db";
 import { getOidcConfig } from "@/lib/oidc-config";
+import { isAdminRole, isOwnerRole } from "@/lib/roles";
 
 declare module "next-auth" {
   interface Session {
@@ -64,8 +65,8 @@ const providers: Provider[] = [
       return {
         id: user.id,
         did: user.did ?? null,
-        isOwner: user.isOwner,
-        isAdmin: user.isOwner || user.isAdmin,
+        isOwner: isOwnerRole(user.role),
+        isAdmin: isAdminRole(user.role),
       };
     },
   }),
@@ -90,8 +91,8 @@ const sharedCallbacks: NextAuthOptions["callbacks"] = {
         const freshUser = await UserDAO.findById(token.userId);
         if (freshUser?.did) {
           token.did = freshUser.did;
-          token.isOwner = freshUser.isOwner;
-          token.isAdmin = freshUser.isOwner || freshUser.isAdmin;
+          token.isOwner = isOwnerRole(freshUser.role);
+          token.isAdmin = isAdminRole(freshUser.role);
         }
       } catch {
         // Leave stale token on transient DB error
@@ -111,8 +112,8 @@ const sharedCallbacks: NextAuthOptions["callbacks"] = {
             userId: token.userId,
             name: freshUser.name ?? token.name,
             email: freshUser.email ?? token.email,
-            isOwner: freshUser.isOwner,
-            isAdmin: freshUser.isOwner || freshUser.isAdmin,
+            isOwner: isOwnerRole(freshUser.role),
+            isAdmin: isAdminRole(freshUser.role),
           };
           return session;
         }
@@ -187,8 +188,8 @@ export async function buildAuthOptions(): Promise<NextAuthOptions> {
         did: dbUser.did ?? null,
         name: dbUser.name ?? null,
         email: dbUser.email ?? null,
-        isOwner: dbUser.isOwner,
-        isAdmin: dbUser.isOwner || dbUser.isAdmin,
+        isOwner: isOwnerRole(dbUser.role),
+        isAdmin: isAdminRole(dbUser.role),
       };
     },
   } as Provider;

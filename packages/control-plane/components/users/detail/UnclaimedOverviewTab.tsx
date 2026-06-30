@@ -7,10 +7,8 @@ import { usersClient, unwrap, ApiError } from "@/lib/api/ts-rest/client";
 import type { UnclaimedUserDetail } from "@/lib/contracts";
 
 const ROLE_OPTIONS = [
-  { value: "member", label: "Member" },
-  { value: "operator", label: "Operator" },
-  { value: "manager", label: "Manager" },
-  { value: "admin", label: "Admin" },
+  { value: "Member", label: "Member" },
+  { value: "Admin", label: "Admin" },
 ] as const;
 
 export function UnclaimedOverviewTab({
@@ -25,7 +23,7 @@ export function UnclaimedOverviewTab({
   const [name, setName] = useState(user.name ?? "");
   const [email, setEmail] = useState(user.email ?? "");
   const [description, setDescription] = useState(user.description ?? "");
-  const [role, setRole] = useState(user.role ?? "member");
+  const [role, setRole] = useState<string>(user.role ?? "Member");
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -55,7 +53,7 @@ export function UnclaimedOverviewTab({
         name: name || null,
         email: email || null,
         description: description || null,
-        role,
+        role: role as (typeof ROLE_OPTIONS)[number]["value"],
       });
     } catch (err) {
       setSaveError(err instanceof ApiError ? err.message : "Failed to save");

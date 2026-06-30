@@ -9,6 +9,7 @@ import {
   UserGrantSchema,
   ListUsersQuerySchema,
   SearchUsersQuerySchema,
+  InviteQuerySchema,
   UpdateMeBodySchema,
   InviteEmailBodySchema,
   InviteFromEmailBodySchema,
@@ -82,6 +83,7 @@ export const usersContract = c.router({
     method: "GET",
     path: "/api/users/invite",
     summary: "Create a registration certificate for a new user",
+    query: InviteQuerySchema,
     responses: {
       200: z.object({
         connectionString: z.string(),

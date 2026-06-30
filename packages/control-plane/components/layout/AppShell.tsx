@@ -62,12 +62,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // Unauthenticated on non-login pages (landing page at /): render children only
-  if (status === "unauthenticated") {
-    router.replace("/login?redirect=" + encodeURIComponent(pathname));
-    return <>{children}</>;
-  }
-
   // Still loading session or authenticated: render full shell
   // (we show the shell skeleton even while loading to avoid layout flash)
   return (

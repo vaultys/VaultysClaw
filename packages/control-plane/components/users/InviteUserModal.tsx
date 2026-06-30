@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { Check, Loader2, AlertCircle, Mail, QrCode } from "lucide-react";
 import { usersClient, userAuthClient, unwrap } from "@/lib/api/ts-rest/client";
@@ -17,9 +17,19 @@ export default function InviteUserModal({
   onSuccess,
 }: InviteUserModalProps) {
   const [phase, setPhase] = useState<Phase>("form");
-  const [form, setForm] = useState({ email: "", name: "", role: "member" });
+  const [form, setForm] = useState({ email: "", name: "", role: "Member" });
   const [error, setError] = useState<string | null>(null);
   const [qrUrl, setQrUrl] = useState("");
+
+  // Cancel the QR poll when the modal unmounts so /api/user/listen stops being
+  // called once it is closed.
+  const pollRef = useRef<{ cancelled: boolean } | null>(null);
+  useEffect(
+    () => () => {
+      if (pollRef.current) pollRef.current.cancelled = true;
+    },
+    []
+  );
 
   const canSubmit = form.email.trim() !== "" && form.name.trim() !== "";
 
@@ -88,12 +98,19 @@ export default function InviteUserModal({
       setPhase("qr");
       onSuccess();
 
+      // Start a fresh poll, cancelling any previous one.
+      if (pollRef.current) pollRef.current.cancelled = true;
+      const poll = { cancelled: false };
+      pollRef.current = poll;
+
       // Poll for wallet connection
       for (let i = 0; i < 180; i++) {
         await new Promise((r) => setTimeout(r, 1500));
+        if (poll.cancelled) return;
         const { status } = unwrap(
           await userAuthClient.listen({ params: { token: inviteToken } })
         );
+        if (poll.cancelled) return;
         if (status === 2) { setPhase("qr-success"); return; }
         if (status === -2) { setPhase("qr-failure"); return; }
       }
@@ -158,10 +175,8 @@ export default function InviteUserModal({
                   onChange={(e) => setForm({ ...form, role: e.target.value })}
                   className="w-full bg-background-200 border border-neutral-200 rounded-xl px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary-500/50"
                 >
-                  <option value="member">Member</option>
-                  <option value="operator">Operator</option>
-                  <option value="manager">Manager</option>
-                  <option value="admin">Admin</option>
+                  <option value="Member">Member</option>
+                  <option value="Admin">Admin</option>
                 </select>
               </div>
             </div>

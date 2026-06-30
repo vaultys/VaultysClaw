@@ -8,6 +8,7 @@ import {
   CreateGrantBodySchema,
 } from "./users.schemas";
 import { UserRealmWithRealm } from "../realms/realms.types";
+import type { UserRole } from "@/lib/roles";
 
 // Prisma User row is the single source of truth for persisted user fields.
 export type { User };
@@ -16,8 +17,8 @@ export type UserGrant = z.infer<typeof UserGrantSchema>;
 
 /**
  * The current user's own profile, as returned by `GET /api/users/me`. Reuses
- * the Prisma `User` row for stable fields; `isAdmin` is computed (stored
- * `isAdmin` OR `isOwner`) and the date fields are serialized to ISO strings.
+ * the Prisma `User` row for stable fields; the date fields are serialized to
+ * ISO strings and `role` is the normalised access role.
  */
 export type MeProfile = Pick<
   User,
@@ -27,12 +28,10 @@ export type MeProfile = Pick<
   | "name"
   | "email"
   | "description"
-  | "role"
-  | "isOwner"
   | "entraId"
   | "locationLabel"
 > & {
-  isAdmin: boolean;
+  role: UserRole;
   registeredAt: string;
   claimedAt: string | null;
 };
@@ -48,8 +47,9 @@ export interface UpdateMeResponse {
 /** A user row as returned by `GET /api/users` — Prisma fields plus realm memberships. */
 export type UserListItem = Pick<
   User,
-  "id" | "did" | "name" | "email" | "isOwner" | "isAdmin" | "role" | "entraId"
+  "id" | "did" | "name" | "email" | "entraId"
 > & {
+  role: UserRole;
   claimedAt: string | null;
   registeredAt: string;
   realms: UserRealmWithRealm[];
@@ -70,15 +70,12 @@ export type UserDetail = Pick<
   | "did"
   | "name"
   | "email"
-  | "isOwner"
-  | "isAdmin"
-  | "role"
   | "reportsTo"
   | "description"
   | "locationLat"
   | "locationLon"
   | "locationLabel"
-> & { registeredAt: string };
+> & { role: UserRole; registeredAt: string };
 
 /** An unclaimed (Entra-provisioned, no DID yet) user as returned by `GET /api/users/unclaimed/:id`. */
 export type UnclaimedUserDetail = Pick<
@@ -87,13 +84,11 @@ export type UnclaimedUserDetail = Pick<
   | "did"
   | "name"
   | "email"
-  | "isOwner"
-  | "isAdmin"
-  | "role"
   | "reportsTo"
   | "description"
   | "entraId"
 > & {
+  role: UserRole;
   registeredAt: string;
   claimedAt: string | null;
   realms: UserRealmWithRealm[];

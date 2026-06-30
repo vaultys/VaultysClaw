@@ -27,7 +27,7 @@ export function UserAccessTab({
           body: { isAdmin: makeAdmin },
         })
       );
-      onUpdated({ isAdmin: makeAdmin });
+      onUpdated({ role: makeAdmin ? "Admin" : "Member" });
     } catch (err) {
       setAdminError(
         err instanceof ApiError ? err.message : "Failed to update admin status"
@@ -37,7 +37,7 @@ export function UserAccessTab({
     }
   };
 
-  if (user.isOwner) {
+  if (user.role === "Owner") {
     return (
       <div className="flex flex-col items-center py-12 text-foreground-500 gap-2">
         <Shield size={36} strokeWidth={1} />
@@ -71,13 +71,13 @@ export function UserAccessTab({
         <div>
           <p className="text-sm font-medium text-foreground">Admin role</p>
           <p className="text-xs text-foreground-500 mt-0.5">
-            {user.isAdmin
+            {user.role === "Admin"
               ? "This user can access the control plane."
               : "This user has no control-plane access."}
           </p>
         </div>
         {isOwner &&
-          (user.isAdmin ? (
+          (user.role === "Admin" ? (
             <button
               onClick={() => handleAdminToggle(false)}
               disabled={adminLoading}

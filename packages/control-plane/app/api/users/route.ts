@@ -10,6 +10,7 @@ import { RealmDAO, UserDAO } from "@/db";
 import { APIException } from "@/lib/api/utils/api-utils";
 import { usersContract } from "@/lib/contracts";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
+import { normalizeRole } from "@/lib/roles";
 
 const handlers = createNextRoute(usersContract, {
   list: async ({ query }) => {
@@ -18,12 +19,6 @@ const handlers = createNextRoute(usersContract, {
 
     const page = Math.max(1, query.page ?? 1);
     const pageSize = Math.min(100, Math.max(1, query.pageSize ?? 20));
-    const isAdmin =
-      query.isAdmin === "true"
-        ? true
-        : query.isAdmin === "false"
-          ? false
-          : undefined;
     const hasAccount =
       query.hasAccount === "true"
         ? true
@@ -35,7 +30,6 @@ const handlers = createNextRoute(usersContract, {
       q: query.q,
       role: query.role,
       realmId: query.realm,
-      isAdmin,
       hasAccount,
       page,
       pageSize,
@@ -51,9 +45,7 @@ const handlers = createNextRoute(usersContract, {
           did: u.did,
           name: u.name ?? null,
           email: u.email ?? null,
-          isOwner: Boolean(u.isOwner),
-          isAdmin: Boolean(u.isAdmin) || Boolean(u.isOwner),
-          role: u.role,
+          role: normalizeRole(u.role),
           entraId: u.entraId ?? null,
           claimedAt: u.claimedAt ? u.claimedAt.toISOString() : null,
           registeredAt: u.registeredAt.toISOString(),

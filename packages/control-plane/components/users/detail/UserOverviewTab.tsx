@@ -13,11 +13,9 @@ const LocationEditor = dynamic(
 );
 
 const ROLE_OPTIONS = [
-  { value: "member", label: "Member" },
-  { value: "operator", label: "Operator" },
-  { value: "manager", label: "Manager" },
-  { value: "admin", label: "Admin" },
-  { value: "owner", label: "Owner" },
+  { value: "Member", label: "Member" },
+  { value: "Admin", label: "Admin" },
+  { value: "Owner", label: "Owner" },
 ] as const;
 
 export function UserOverviewTab({
@@ -32,7 +30,7 @@ export function UserOverviewTab({
   const [name, setName] = useState(user.name ?? "");
   const [email, setEmail] = useState(user.email ?? "");
   const [description, setDescription] = useState(user.description ?? "");
-  const [role, setRole] = useState(user.role ?? "member");
+  const [role, setRole] = useState<string>(user.role ?? "Member");
   const [reportsTo, setReportsTo] = useState<string>(user.reportsTo ?? "");
 
   const [locationEditing, setLocationEditing] = useState(false);
@@ -102,7 +100,7 @@ export function UserOverviewTab({
         name: name || null,
         email: email || null,
         description: description || null,
-        role,
+        role: role as (typeof ROLE_OPTIONS)[number]["value"],
         reportsTo: reportsTo || null,
       });
     } catch (err) {
@@ -197,7 +195,7 @@ export function UserOverviewTab({
             <label className="text-xs font-medium text-foreground-500 uppercase tracking-wider">
               Role
             </label>
-            {user.isOwner ? (
+            {user.role === "Owner" ? (
               <div className="w-full bg-background-200 border border-neutral-200 rounded-xl px-4 py-2.5 text-sm text-foreground-500">
                 Owner (cannot be changed)
               </div>
@@ -245,7 +243,7 @@ export function UserOverviewTab({
                 {supervisorOptions.map((u) => (
                   <option key={u.did} value={u.did ?? ""}>
                     {u.name ?? shortDid(u.did ?? undefined)}
-                    {u.isOwner ? " (Owner)" : ""}
+                    {u.role === "Owner" ? " (Owner)" : ""}
                   </option>
                 ))}
               </select>

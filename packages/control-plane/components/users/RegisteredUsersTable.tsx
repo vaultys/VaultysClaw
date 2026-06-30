@@ -114,17 +114,17 @@ export function RegisteredUsersTable({
               <span title={u.did ?? ""}>{shortDid(u.did ?? undefined)}</span>
             </td>
             <td className="px-5 py-3.5">
-              {u.isOwner ? (
+              {u.role === "Owner" ? (
                 <span className="px-2 py-0.5 bg-warning-100 text-warning-700 border border-warning-300 rounded-full text-xs font-medium">
                   Owner
                 </span>
-              ) : u.isAdmin ? (
+              ) : u.role === "Admin" ? (
                 <span className="px-2 py-0.5 bg-primary-100 text-primary-700 border border-primary-300 rounded-full text-xs font-medium">
                   Admin
                 </span>
               ) : (
-                <span className="px-2 py-0.5 bg-background-200 text-foreground-500 border border-neutral-200 rounded-full text-xs font-medium capitalize">
-                  {u.role || "Member"}
+                <span className="px-2 py-0.5 bg-background-200 text-foreground-500 border border-neutral-200 rounded-full text-xs font-medium">
+                  Member
                 </span>
               )}
             </td>

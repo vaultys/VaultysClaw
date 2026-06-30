@@ -41,11 +41,8 @@ export function ProfileTab({
             maxLength={500}
             onSave={(v) => onPatch({ description: v })}
           />
-          {profile?.role && profile.role !== "member" && (
-            <Row
-              label="Org Role"
-              value={<span className="capitalize">{profile.role}</span>}
-            />
+          {profile?.role && profile.role !== "Member" && (
+            <Row label="Org Role" value={<span>{profile.role}</span>} />
           )}
           {profile?.locationLabel && (
             <Row
@@ -65,17 +62,17 @@ export function ProfileTab({
         <SectionHeader icon={BadgeCheck} title="Roles" />
         <div className="p-5 space-y-3">
           <div className="flex flex-wrap gap-2">
-            {profile?.isOwner && (
+            {profile?.role === "Owner" && (
               <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-warning-100 text-warning-700 border border-warning-300 rounded-full text-xs font-medium">
                 <Crown className="w-3.5 h-3.5" /> Owner
               </span>
             )}
-            {profile?.isAdmin && (
+            {profile?.role === "Admin" && (
               <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-primary-100 text-primary-700 border border-primary-300 rounded-full text-xs font-medium">
                 <Shield className="w-3.5 h-3.5" /> Global Admin
               </span>
             )}
-            {!profile?.isOwner && !profile?.isAdmin && (
+            {(!profile?.role || profile.role === "Member") && (
               <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-background-200 text-foreground-500 border border-neutral-300 rounded-full text-xs font-medium">
                 <User className="w-3.5 h-3.5" /> Member
               </span>

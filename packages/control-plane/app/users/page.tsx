@@ -64,6 +64,17 @@ export default function UsersPage() {
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Tracks the in-flight QR poll so it can be cancelled when the modal closes
+  // or the page unmounts — otherwise /api/user/listen keeps polling forever.
+  const pollRef = useRef<{ cancelled: boolean } | null>(null);
+
+  const cancelPoll = useCallback(() => {
+    if (pollRef.current) pollRef.current.cancelled = true;
+    pollRef.current = null;
+  }, []);
+
+  // Stop any running poll when the page unmounts.
+  useEffect(() => cancelPoll, [cancelPoll]);
 
   useEffect(() => {
     serverClient
@@ -179,12 +190,19 @@ export default function UsersPage() {
 
       setQrModal({ user, qrUrl, token: data.token, phase: "showing" });
 
+      // Start a fresh poll, cancelling any previous one.
+      cancelPoll();
+      const poll = { cancelled: false };
+      pollRef.current = poll;
+
       // Poll until the wallet completes (or it expires).
       for (let i = 0; i < 180; i++) {
         await new Promise((res) => setTimeout(res, 1500));
+        if (poll.cancelled) return;
         const { status } = unwrap(
           await userAuthClient.listen({ params: { token: data.token } })
         );
+        if (poll.cancelled) return;
         if (status === 2) {
           setQrModal((m) => (m ? { ...m, phase: "success" } : null));
           reload();
@@ -398,6 +416,7 @@ export default function UsersPage() {
           qrUrl={qrModal.qrUrl}
           phase={qrModal.phase}
           onClose={() => {
+            cancelPoll();
             setQrModal(null);
             reload();
           }}

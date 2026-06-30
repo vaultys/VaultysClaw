@@ -1,5 +1,5 @@
 import * as z from "zod"
-import { CompleteEntraIdentity, RelatedEntraIdentityModel, CompleteOidcIdentity, RelatedOidcIdentityModel, CompleteUserRealm, RelatedUserRealmModel, CompleteUserGrant, RelatedUserGrantModel, CompleteUserInvitation, RelatedUserInvitationModel } from "./index"
+import { CompleteEntraIdentity, RelatedEntraIdentityModel, CompleteOidcIdentity, RelatedOidcIdentityModel, CompleteUserRealm, RelatedUserRealmModel, CompleteUserGrant, RelatedUserGrantModel, CompleteUserInvitation, RelatedUserInvitationModel, CompleteUserDevice, RelatedUserDeviceModel } from "./index"
 
 export const UserModel = z.object({
   id: z.string(),
@@ -27,6 +27,7 @@ export interface CompleteUser extends z.infer<typeof UserModel> {
   userRealms: CompleteUserRealm[]
   userGrants: CompleteUserGrant[]
   invitations: CompleteUserInvitation[]
+  devices: CompleteUserDevice[]
 }
 
 /**
@@ -42,4 +43,5 @@ export const RelatedUserModel: z.ZodSchema<CompleteUser> = z.lazy(() => UserMode
   userRealms: RelatedUserRealmModel.array(),
   userGrants: RelatedUserGrantModel.array(),
   invitations: RelatedUserInvitationModel.array(),
+  devices: RelatedUserDeviceModel.array(),
 }))

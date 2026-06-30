@@ -2,6 +2,7 @@ import { commonErrorResponses, PaginatedResponse } from "./../common";
 import { c } from "../contract";
 
 import {
+  CreateAgentBodySchema,
   CreatePeerBodySchema,
   CreateScheduleBodySchema,
   ListAgentsQuerySchema,
@@ -63,6 +64,17 @@ export const agentsContract = c.router({
     query: ListAgentsQuerySchema,
     responses: {
       200: c.type<PaginatedResponse<AgentInfo>>(),
+      ...commonErrorResponses,
+    },
+  },
+
+  createAgent: {
+    method: "POST",
+    path: "/api/agents",
+    summary: "Provision an agent identity (admin/realm-admin)",
+    body: CreateAgentBodySchema,
+    responses: {
+      201: c.type<AgentInfo>(),
       ...commonErrorResponses,
     },
   },

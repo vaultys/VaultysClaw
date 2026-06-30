@@ -6,6 +6,7 @@ export { AgentDAO } from "./agent.dao";
 export { RealmDAO } from "./realm.dao";
 export { UserDAO } from "./user.dao";
 export { GrantDAO, DelegationCertDAO } from "./delegation.dao";
+export { UserDeviceDAO, DeviceLinkRequestDAO } from "./user-device.dao";
 export { IntentDAO, ActivityLogDAO } from "./intent.dao";
 export { WorkflowDAO } from "./workflow.dao";
 export { OrgSkillDAO, RealmSkillDAO, SkillOverrideDAO } from "./skill.dao";

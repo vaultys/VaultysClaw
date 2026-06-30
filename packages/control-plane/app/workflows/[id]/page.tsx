@@ -30,6 +30,7 @@ import {
   realmsClient,
 } from "@/lib/api/ts-rest/client";
 import { WorkflowRunDetail, WorkflowRunWithName } from "@/lib/contracts";
+import { Workflow, WorkflowStep } from "@prisma/client";
 import { WorkflowDefinition } from "@/lib/workflow-types";
 import { formatDateTime, timeAgo } from "@vaultysclaw/shared";
 
@@ -179,7 +180,7 @@ export default function WorkflowDetailPage() {
         );
         return;
       }
-      const data = res.body as unknown as { workflow: WorkflowData };
+      const data = res.body as unknown as { workflow: Workflow };
       setWorkflow(data.workflow);
       if (data.workflow.realmId) {
         fetch(`/api/realms/${data.workflow.realmId}`)

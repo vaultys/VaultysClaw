@@ -22,6 +22,52 @@ export class IntentDAO {
     });
   }
 
+  /**
+   * Record a deny-by-default policy decision (ALLOW or DENY) for an intent.
+   * The signature is the server-signed audit envelope so the record is
+   * non-repudiable and independently verifiable.
+   */
+  static async logDecision(opts: {
+    intentId: string;
+    agentDid: string | undefined;
+    action: string;
+    params: Record<string, unknown>;
+    decision: "ALLOW" | "DENY";
+    reason?: string | null;
+    signature?: string | null;
+    status?: string;
+    /** DID of the linked device / identity that initiated this intent. */
+    initiatorDid?: string | null;
+  }): Promise<void> {
+    const data = {
+      agentDid: opts.agentDid ?? null,
+      action: opts.action,
+      params: opts.params as Prisma.InputJsonValue,
+      decision: opts.decision,
+      reason: opts.reason ?? null,
+      signature: opts.signature ?? null,
+      initiatorDid: opts.initiatorDid ?? null,
+      status: opts.status ?? (opts.decision === "DENY" ? "denied" : "pending"),
+    };
+    await prisma.intentLog.upsert({
+      where: { intentId: opts.intentId },
+      create: { intentId: opts.intentId, ...data },
+      update: data,
+    });
+  }
+
+  /** All intents initiated by a specific linked device / identity, newest first. */
+  static async findByInitiator(
+    initiatorDid: string,
+    limit = 100
+  ): Promise<IntentLog[]> {
+    return prisma.intentLog.findMany({
+      where: { initiatorDid },
+      orderBy: { sentAt: "desc" },
+      take: limit,
+    });
+  }
+
   static async updateResult(
     intentId: string,
     status: "success" | "failed",

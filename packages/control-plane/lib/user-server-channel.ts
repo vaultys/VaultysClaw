@@ -4,7 +4,7 @@
  * VaultysClaw's Prisma-backed CertificateDAO and UserDAO.
  */
 import { Challenger, CryptoChannel, VaultysId, crypto } from "@vaultys/id";
-import { CertificateDAO, SettingsDAO, UserDAO } from "@/db";
+import { CertificateDAO, SettingsDAO, UserDAO, UserDeviceDAO } from "@/db";
 import type { Certificate } from "@prisma/client";
 
 const Buffer = crypto.Buffer;
@@ -79,8 +79,10 @@ const registerUser = async (contact: VaultysId, pendingUserId?: string): Promise
 
 const loginUser = async (contact: VaultysId): Promise<boolean> => {
   const did = contact.toVersion(1).did;
-  const user = await UserDAO.findByDid(did);
+  // Resolve via the user's own DID OR a linked device VaultysId (e.g. a CLI).
+  const user = await UserDAO.findByLinkedDid(did);
   console.log(`[loginUser] did=${did} found=${JSON.stringify(user)}`);
+  if (user) await UserDeviceDAO.touch(did);
   if (!user) {
     console.warn(
       `[loginUser] FAILED — DID not in users table. Did you register with a different wallet, or was the DB not reset between runs?`

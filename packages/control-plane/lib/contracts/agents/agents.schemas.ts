@@ -30,6 +30,15 @@ export const SearchAgentsQuerySchema = z.object({
 // Bodies
 // ─────────────────────────────────────────────
 
+export const CreateAgentBodySchema = z.object({
+  did: z.string().min(1),
+  name: z.string().min(1),
+  publicKey: z.string().optional(),
+  /** Realm to attach the agent to, by slug. */
+  realmSlug: z.string().optional(),
+  capabilities: z.array(z.string()).optional(),
+});
+
 export const UpdateAgentBodySchema = z.object({
   capabilities: z.array(z.string()).optional(),
   tokenBudgetDaily: z.number().nullable().optional(),

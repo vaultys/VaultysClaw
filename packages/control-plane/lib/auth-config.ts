@@ -12,6 +12,8 @@ declare module "next-auth" {
       did: string | null;
       /** Internal DB id — present when did is null (unclaimed OIDC user) */
       userId?: string;
+      /** DID of the VaultysId credential used to sign in (a linked device, or the user's own). */
+      deviceDid?: string | null;
       name?: string | null;
       email?: string | null;
       isOwner: boolean;
@@ -21,6 +23,7 @@ declare module "next-auth" {
   interface User {
     id: string;
     did: string | null;
+    deviceDid?: string | null;
     isOwner: boolean;
     isAdmin: boolean;
   }
@@ -31,6 +34,8 @@ declare module "next-auth/jwt" {
     did: string | null;
     /** Internal DB id — always present; equals did for VaultysId users */
     userId?: string;
+    /** DID of the credential that signed in (linked device or the user's own DID). */
+    deviceDid?: string | null;
     name?: string | null;
     email?: string | null;
     isOwner: boolean;
@@ -59,12 +64,16 @@ const providers: Provider[] = [
       const metadata = JSON.parse(cert.metadata ?? "{}") as { did?: string };
       if (!metadata.did) return null;
 
-      const user = await UserDAO.findByDid(metadata.did);
+      // Resolve via the user's own DID or a linked device VaultysId, so a linked
+      // CLI identity signs in as (and acts in the name of) the owning user.
+      const user = await UserDAO.findByLinkedDid(metadata.did);
       if (!user) return null;
 
       return {
         id: user.id,
         did: user.did ?? null,
+        // The credential used to sign in — a linked device DID, or the user's own.
+        deviceDid: metadata.did,
         isOwner: isOwnerRole(user.role),
         isAdmin: isAdminRole(user.role),
       };
@@ -79,6 +88,7 @@ const sharedCallbacks: NextAuthOptions["callbacks"] = {
     if (user) {
       token.did = user.did;
       token.userId = user.id;
+      token.deviceDid = user.deviceDid ?? null;
       token.name = user.name ?? null;
       token.email = user.email ?? null;
       token.isOwner = user.isOwner;
@@ -110,6 +120,7 @@ const sharedCallbacks: NextAuthOptions["callbacks"] = {
           session.user = {
             did: token.did,
             userId: token.userId,
+            deviceDid: token.deviceDid ?? null,
             name: freshUser.name ?? token.name,
             email: freshUser.email ?? token.email,
             isOwner: isOwnerRole(freshUser.role),
@@ -124,6 +135,7 @@ const sharedCallbacks: NextAuthOptions["callbacks"] = {
     session.user = {
       did: token.did,
       userId: token.userId,
+      deviceDid: token.deviceDid ?? null,
       name: token.name,
       email: token.email,
       isOwner: token.isOwner,

@@ -17,6 +17,7 @@ import { WorkflowDAO } from "../db";
 import { trace, SpanStatusCode } from "@opentelemetry/api";
 import { workflowRunsTotal } from "./metrics";
 import { WorkflowDefinition } from "./workflow-types";
+export type { WorkflowDefinition };
 
 const logger = pino({ name: "workflow-executor" });
 

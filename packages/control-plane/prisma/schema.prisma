@@ -165,10 +165,44 @@ model User {
   userRealms      UserRealm[]
   userGrants      UserGrant[]
   invitations     UserInvitation[]
+  devices         UserDevice[]
 
   @@index([did])
   @@index([entraId])
   @@index([oidcId])
+}
+
+// ─── Linked device identities ─────────────────────────────────────────────────
+// A user can link many VaultysIds (e.g. a CLI). Each linked identity acts in the
+// user's name when it authenticates against the API.
+
+model UserDevice {
+  id         String    @id
+  userId     String
+  did        String    @unique
+  publicKey  String?
+  name       String?
+  createdAt  DateTime  @default(now())
+  lastUsedAt DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// A pending request to link a VaultysId to a user profile. The user approves it
+// by opening an invite-style URL while authenticated.
+model DeviceLinkRequest {
+  id        String   @id
+  did       String
+  publicKey String?
+  name      String?
+  status    String   @default("pending") // pending | approved | rejected
+  userId    String?
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+
+  @@index([did])
 }
 
 // ─── User grants & delegation certs ──────────────────────────────────────────
@@ -497,6 +531,10 @@ model IntentLog {
   action      String
   params      Json?
   status      String    @default("pending")
+  decision    String?
+  reason      String?
+  /** DID of the linked device / identity that initiated this intent. */
+  initiatorDid String?
   output      Json?
   error       String?
   signature   String?

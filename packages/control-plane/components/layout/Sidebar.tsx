@@ -24,6 +24,7 @@ import {
   SatelliteDish,
   Plug,
   Info,
+  Smartphone,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useRole } from "@/hooks/useRole";
@@ -76,6 +77,7 @@ const NAV_GROUPS = [
 
 const BOTTOM_ITEMS = [
   { href: "/settings", icon: UserCircle, label: "Account" },
+  { href: "/settings/devices", icon: Smartphone, label: "Devices" },
   { href: "/about", icon: Info, label: "About" },
 ] as const;
 

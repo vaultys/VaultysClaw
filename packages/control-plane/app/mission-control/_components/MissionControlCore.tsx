@@ -24,9 +24,8 @@ import {
 } from "lucide-react";
 import { useAdminWS } from "@/hooks/useAdminWS";
 import { useRole } from "@/hooks/useRole";
-import type { MapMarker } from "@/components/map/WorldMap";
 import { formatCompactNumber, shortDid } from "@vaultysclaw/shared";
-import { AgentInfo, NetworkResponse } from "@/lib/contracts";
+import { AgentInfo, MapMarker, NetworkResponse } from "@/lib/contracts";
 import {
   networkClient,
   workflowRunsClient,

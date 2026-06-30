@@ -11,6 +11,21 @@ export class UserDAO {
     return prisma.user.findUnique({ where: { did } });
   }
 
+  /**
+   * Resolve a DID to the owning user, whether it is the user's own primary DID
+   * or one of their linked device VaultysIds. Used so a linked CLI identity
+   * authenticates "in the user's name".
+   */
+  static async findByLinkedDid(did: string): Promise<User | null> {
+    const direct = await prisma.user.findUnique({ where: { did } });
+    if (direct) return direct;
+    const device = await prisma.userDevice.findUnique({
+      where: { did },
+      include: { user: true },
+    });
+    return device?.user ?? null;
+  }
+
   static async findByEmail(email: string): Promise<User | null> {
     return prisma.user.findFirst({ where: { email } });
   }

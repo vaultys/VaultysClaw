@@ -12,6 +12,12 @@ export const IntentLogModel = z.object({
   action: z.string(),
   params: jsonSchema,
   status: z.string(),
+  decision: z.string().nullish(),
+  reason: z.string().nullish(),
+  /**
+   * * DID of the linked device / identity that initiated this intent.
+   */
+  initiatorDid: z.string().nullish(),
   output: jsonSchema,
   error: z.string().nullish(),
   signature: z.string().nullish(),

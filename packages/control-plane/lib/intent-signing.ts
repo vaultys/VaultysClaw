@@ -12,7 +12,7 @@
  */
 
 import { VaultysId, crypto } from "@vaultys/id";
-import { encode as msgpackEncode } from "@msgpack/msgpack";
+import { encode as msgpackEncode, decode as msgpackDecode } from "@msgpack/msgpack";
 import { SettingsDAO } from "@/db";
 import pino from "pino";
 
@@ -61,5 +61,53 @@ export async function signIntent(
   } catch (err) {
     logger.warn({ err }, "Failed to sign intent (non-fatal)");
     return null;
+  }
+}
+
+/**
+ * Verify a base64 audit signature produced by {@link signIntent} against the
+ * server's own VaultysId (re-derived from the stored `serverSecret`).
+ *
+ * Used by `GET /api/intents` to prove each audit record is non-repudiable.
+ * Optionally cross-checks the signed body against the expected intent id /
+ * action / agent so a signature lifted from another record can't be replayed.
+ *
+ * Returns `true` only if the signature is valid and (when provided) the body
+ * matches; `false` on any decode/verify failure or missing server identity.
+ */
+export async function verifyIntentSignature(
+  signature: string | null | undefined,
+  expected?: { intentId?: string; action?: string; agentId?: string | null }
+): Promise<boolean> {
+  if (!signature) return false;
+  try {
+    const serverSecret = await SettingsDAO.get("serverSecret");
+    if (!serverSecret) return false;
+    const vid = VaultysId.fromSecret(serverSecret, "base64");
+
+    const combined = Buf.from(signature, "base64");
+    if (combined.length < 5) return false;
+    const bodyLen = combined.readUInt32LE(0);
+    if (combined.length < 4 + bodyLen) return false;
+    const body = combined.subarray(4, 4 + bodyLen);
+    const sig = combined.subarray(4 + bodyLen);
+
+    const valid = vid.verifyChallenge(Buf.from(body), Buf.from(sig), false);
+    if (!valid) return false;
+
+    const payload = msgpackDecode(body) as IntentSigningBody;
+    if (payload.type !== "intent") return false;
+    if (expected?.intentId && payload.id !== expected.intentId) return false;
+    if (expected?.action && payload.action !== expected.action) return false;
+    if (
+      expected?.agentId !== undefined &&
+      expected.agentId !== null &&
+      payload.agentId !== expected.agentId
+    )
+      return false;
+    return true;
+  } catch (err) {
+    logger.warn({ err }, "Failed to verify intent signature");
+    return false;
   }
 }

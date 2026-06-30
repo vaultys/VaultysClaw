@@ -1,0 +1,28 @@
+{
+  "name": "@vaultysclaw/cli",
+  "version": "0.0.1",
+  "description": "vaultysclaw — CLI for agent identity, policy, intent and audit against the control plane",
+  "type": "module",
+  "bin": {
+    "vaultysclaw": "./dist/index.js"
+  },
+  "scripts": {
+    "dev": "tsx src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@vaultys/channel-browser": "^2.4.2",
+    "@vaultys/id": "3.0.0-beta6",
+    "@vaultysclaw/shared": "workspace:*",
+    "commander": "^12.1.0",
+    "qrcode-terminal": "^0.12.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.19.19",
+    "@types/qrcode-terminal": "^0.12.2",
+    "tsx": "^4.22.4",
+    "typescript": "^5.9.3"
+  }
+}

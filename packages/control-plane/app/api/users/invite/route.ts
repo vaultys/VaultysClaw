@@ -8,20 +8,34 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-config";
 import { UserServerChannel } from "@/lib/user-server-channel";
 import { VaultysId } from "@vaultys/id";
-import { SettingsDAO } from "@/db";
+import { SettingsDAO, UserDAO } from "@/db";
 import { APIException } from "@/lib/api/utils/api-utils";
 import { usersContract } from "@/lib/contracts";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 
 const handlers = createNextRoute(usersContract, {
-  invite: async () => {
+  invite: async ({ query }) => {
     const session = await getServerSession(authOptions);
     if (!session?.user?.isOwner && !session?.user?.isAdmin) {
       throw new APIException("FORBIDDEN");
     }
 
+    // When a userId is supplied, bind the registration cert to that unclaimed
+    // record so scanning the QR claims it (keeping its name/email/role) instead
+    // of creating a brand-new user.
+    let pendingUserId: string | undefined;
+    if (query.userId) {
+      const pending = await UserDAO.findById(query.userId);
+      if (!pending || pending.did || pending.claimedAt) {
+        throw new APIException("NOT_FOUND", "User not found or already claimed");
+      }
+      pendingUserId = pending.id;
+    }
+
     // Always creates a registration cert (new user, never becomes owner)
-    const cert = await UserServerChannel.createRegistrationCertificate();
+    const cert = await UserServerChannel.createRegistrationCertificate(
+      pendingUserId ? { pendingUserId } : undefined
+    );
     const connectionString = await UserServerChannel.startP2PSession(cert);
     if (!cert.connection) {
       throw new APIException("INTERNAL_ERROR", "Failed to start invite session");

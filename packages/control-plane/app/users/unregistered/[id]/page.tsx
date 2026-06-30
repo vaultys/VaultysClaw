@@ -114,7 +114,7 @@ export default function UnregisteredUserPage() {
         }
 
         const [inviteRes, settingsRes] = await Promise.all([
-          usersClient.invite(),
+          usersClient.invite({ query: { userId: user.id } }),
           serverClient.getSettings(),
         ]);
         const data = unwrap(inviteRes);

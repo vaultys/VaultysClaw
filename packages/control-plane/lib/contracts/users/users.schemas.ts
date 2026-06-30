@@ -39,6 +39,12 @@ export const SearchUsersQuerySchema = z.object({
   q: z.string().optional(),
 });
 
+// Optional unclaimed-user id to bind a registration QR to an existing record,
+// so scanning it claims that user instead of creating a brand-new one.
+export const InviteQuerySchema = z.object({
+  userId: z.string().optional(),
+});
+
 // ── Bodies
 export const UpdateMeBodySchema = z.object({
   name: z.string().max(128).optional(),

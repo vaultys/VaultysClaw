@@ -166,7 +166,7 @@ export default function UsersPage() {
       }
 
       const [inviteRes, settingsRes] = await Promise.all([
-        usersClient.invite(),
+        usersClient.invite({ query: { userId: user.id } }),
         serverClient.getSettings(),
       ]);
       const data = unwrap(inviteRes);
@@ -380,11 +380,15 @@ export default function UsersPage() {
 
       {showInvite && (
         <InviteUserModal
-          onClose={() => setShowInvite(false)}
-          onSuccess={() => {
+          // Reload on close so a user who registered while the modal was open
+          // (QR scan completes after the list was last fetched) shows up.
+          onClose={() => {
             setShowInvite(false);
             reload();
           }}
+          // Refresh the list in the background but keep the modal open: the QR
+          // and email-sent screens manage their own dismissal via onClose.
+          onSuccess={() => reload()}
         />
       )}
 
@@ -393,7 +397,10 @@ export default function UsersPage() {
           subtitle={qrModal.user.name ?? qrModal.user.email ?? "Unknown user"}
           qrUrl={qrModal.qrUrl}
           phase={qrModal.phase}
-          onClose={() => setQrModal(null)}
+          onClose={() => {
+            setQrModal(null);
+            reload();
+          }}
           onRetry={() => {
             setQrModal(null);
             generateQr(qrModal.user, false);

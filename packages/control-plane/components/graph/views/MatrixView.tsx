@@ -341,8 +341,6 @@ function RolePill({ role }: { role: string }) {
   const styles: Record<string, string> = {
     owner: "bg-warning-50 text-warning-700",
     admin: "bg-primary-50 text-primary-700",
-    manager: "bg-secondary-50 text-secondary-700",
-    operator: "bg-success-50 text-success-700",
     member: "bg-neutral-100 text-neutral-600",
   };
   return (

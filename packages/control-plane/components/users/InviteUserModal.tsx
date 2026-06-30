@@ -17,7 +17,7 @@ export default function InviteUserModal({
   onSuccess,
 }: InviteUserModalProps) {
   const [phase, setPhase] = useState<Phase>("form");
-  const [form, setForm] = useState({ email: "", name: "", role: "member" });
+  const [form, setForm] = useState({ email: "", name: "", role: "Member" });
   const [error, setError] = useState<string | null>(null);
   const [qrUrl, setQrUrl] = useState("");
 
@@ -158,10 +158,8 @@ export default function InviteUserModal({
                   onChange={(e) => setForm({ ...form, role: e.target.value })}
                   className="w-full bg-background-200 border border-neutral-200 rounded-xl px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary-500/50"
                 >
-                  <option value="member">Member</option>
-                  <option value="operator">Operator</option>
-                  <option value="manager">Manager</option>
-                  <option value="admin">Admin</option>
+                  <option value="Member">Member</option>
+                  <option value="Admin">Admin</option>
                 </select>
               </div>
             </div>

@@ -16,7 +16,7 @@ export function UsersStep({ onNext }: { onNext: () => void }) {
   const [emailForm, setEmailForm] = useState({
     email: "",
     name: "",
-    role: "member",
+    role: "Member",
   });
   const [emailSending, setEmailSending] = useState(false);
   const [emailMsg, setEmailMsg] = useState<{
@@ -85,7 +85,7 @@ export function UsersStep({ onNext }: { onNext: () => void }) {
             type: "ok",
             text: `Invitation sent to ${emailForm.email}`,
           });
-          setEmailForm({ email: "", name: "", role: "member" });
+          setEmailForm({ email: "", name: "", role: "Member" });
           setAddedCount((n) => n + 1);
         } else {
           setEmailMsg({ type: "fail", text: "Failed to send invitation" });
@@ -256,10 +256,8 @@ export function UsersStep({ onNext }: { onNext: () => void }) {
                 }
                 className="w-full bg-background-200 border border-neutral-200 rounded-xl px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary-500/50"
               >
-                <option value="member">Member</option>
-                <option value="operator">Operator</option>
-                <option value="manager">Manager</option>
-                <option value="admin">Admin</option>
+                <option value="Member">Member</option>
+                <option value="Admin">Admin</option>
               </select>
             </div>
           </div>

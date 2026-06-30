@@ -35,19 +35,19 @@ const nextConfig = {
               "frame-ancestors 'none'",
             ].join("; "),
           },
+        ],
+      },
+      {
+        source: "/.well-known/vaultys.json",
+        headers: [
+          { key: "Access-Control-Allow-Origin", value: "*" },
+          { key: "Vary", value: "Origin" },
+          { key: "Access-Control-Allow-Private-Network", value: "true" },
+          { key: "Access-Control-Allow-Methods", value: "GET,OPTIONS" },
           {
-            source: "/.well-known/vaultys.json",
-            headers: [
-              { key: "Access-Control-Allow-Origin", value: "*" },
-              { key: "Vary", value: "Origin" },
-              { key: "Access-Control-Allow-Private-Network", value: "true" },
-              { key: "Access-Control-Allow-Methods", value: "GET,OPTIONS" },
-              {
-                key: "Access-Control-Allow-Headers",
-                value:
-                  "X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version",
-              },
-            ],
+            key: "Access-Control-Allow-Headers",
+            value:
+              "X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version",
           },
         ],
       },

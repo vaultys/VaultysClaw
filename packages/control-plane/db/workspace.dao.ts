@@ -80,6 +80,37 @@ export class WorkspaceDAO {
     });
   }
 
+  /**
+   * Creates a personal workspace for a user who has just joined (registered or
+   * claimed their account via VaultysID) and enrolls them as its admin/primary
+   * member. The workspace is named "<display>'s workspace" where <display> is
+   * the user's name, falling back to their email, then their DID.
+   */
+  static async createPersonalWorkspace(
+    userId: string
+  ): Promise<Workspace | null> {
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) return null;
+
+    const display =
+      user.name?.trim() || user.email?.trim() || user.did || user.id;
+    const name = `${display}'s workspace`;
+
+    const baseSlug =
+      display
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-|-$/g, "") || "workspace";
+    let slug = baseSlug;
+    for (let i = 2; await prisma.workspace.findUnique({ where: { slug } }); i++) {
+      slug = `${baseSlug}-${i}`;
+    }
+
+    const workspace = await WorkspaceDAO.create({ name, slug });
+    await WorkspaceDAO.addUserToWorkspace(userId, workspace.id, true, true);
+    return workspace;
+  }
+
   static async update(
     id: string,
     updates: Partial<{

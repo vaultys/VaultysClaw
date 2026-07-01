@@ -9,9 +9,11 @@ import { ALL_CAPS } from "./types";
 export function ConfigTab({
   workspace,
   onSaved,
+  canEdit,
 }: {
   workspace: WorkspaceDetail;
   onSaved: () => void;
+  canEdit: boolean;
 }) {
   // defaultCapabilities is a Prisma Json column → already a parsed JS array.
   const defaultCaps: string[] = Array.isArray(workspace.defaultCapabilities)
@@ -52,7 +54,8 @@ export function ConfigTab({
               <button
                 key={cap}
                 onClick={() => toggle(cap)}
-                className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors border ${
+                disabled={!canEdit}
+                className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors border disabled:cursor-not-allowed ${
                   caps.includes(cap)
                     ? "bg-primary-50 border-primary-300 text-primary-700"
                     : "bg-background-200 border-neutral-200 text-foreground-500 hover:text-foreground"
@@ -63,15 +66,21 @@ export function ConfigTab({
             ))}
           </div>
         </div>
-        <div className="flex justify-end">
-          <button
-            onClick={save}
-            disabled={saving}
-            className="px-4 py-2 rounded-xl bg-primary-600 hover:bg-primary-500 disabled:opacity-50 text-white text-sm font-medium transition-colors"
-          >
-            {saving ? "Saving…" : "Save Config"}
-          </button>
-        </div>
+        {canEdit ? (
+          <div className="flex justify-end">
+            <button
+              onClick={save}
+              disabled={saving}
+              className="px-4 py-2 rounded-xl bg-primary-600 hover:bg-primary-500 disabled:opacity-50 text-white text-sm font-medium transition-colors"
+            >
+              {saving ? "Saving…" : "Save Config"}
+            </button>
+          </div>
+        ) : (
+          <p className="text-xs text-foreground-400">
+            Only the workspace owner can change these settings.
+          </p>
+        )}
       </div>
     </div>
   );

@@ -8,10 +8,13 @@ import { workspacesContract } from "@/lib/contracts";
 const handlers = createNextRoute(workspacesContract, {
   // ── GET /api/workspaces/:id/models ────────────────────────────────────────────
   listModels: async ({ params, request }) => {
-    await getAuthContext(request);
+    const auth = await getAuthContext(request);
 
     const workspace = await WorkspaceDAO.findById(params.id);
     if (!workspace) throw new APIException("NOT_FOUND", "Workspace not found");
+
+    if (!(await auth.canAccessWorkspace(params.id)))
+      throw new APIException("FORBIDDEN");
 
     const models = (await ModelDAO.findByWorkspace(params.id)).map((m) => ({
       id: m.id,

@@ -9,10 +9,12 @@ export function SkillsTab({
   workspaceId,
   skills,
   onChanged,
+  canManage,
 }: {
   workspaceId: string;
   skills: WorkspaceSkill[];
   onChanged: () => void;
+  canManage: boolean;
 }) {
   const [showAdd, setShowAdd] = useState(false);
   const [addName, setAddName] = useState("");
@@ -75,12 +77,14 @@ export function SkillsTab({
           Skills listed here are pushed to agents in this workspace. Required skills
           cannot be disabled by agents.
         </p>
-        <button
-          onClick={() => setShowAdd(true)}
-          className="flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-xl bg-primary-600 hover:bg-primary-500 text-white font-medium transition-colors shrink-0"
-        >
-          <Plus className="w-4 h-4" /> Add Skill
-        </button>
+        {canManage && (
+          <button
+            onClick={() => setShowAdd(true)}
+            className="flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-xl bg-primary-600 hover:bg-primary-500 text-white font-medium transition-colors shrink-0"
+          >
+            <Plus className="w-4 h-4" /> Add Skill
+          </button>
+        )}
       </div>
 
       {showAdd && (
@@ -203,24 +207,28 @@ export function SkillsTab({
                     </p>
                   )}
                 </div>
-                <button
-                  onClick={() => handleToggleRequired(skill)}
-                  className={`p-1.5 rounded-lg transition-colors text-xs ${
-                    skill.isRequired
-                      ? "text-warning-400 hover:text-foreground-500 hover:bg-background-200"
-                      : "text-foreground-500 hover:text-warning-400 hover:bg-warning-400/10"
-                  }`}
-                  title={skill.isRequired ? "Make optional" : "Make required"}
-                >
-                  <Lock className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => handleDelete(skill)}
-                  className="p-1.5 rounded-lg text-foreground-500 hover:text-danger-400 hover:bg-danger-400/10 transition-colors"
-                  title="Remove skill"
-                >
-                  <X className="w-4 h-4" />
-                </button>
+                {canManage && (
+                  <>
+                    <button
+                      onClick={() => handleToggleRequired(skill)}
+                      className={`p-1.5 rounded-lg transition-colors text-xs ${
+                        skill.isRequired
+                          ? "text-warning-400 hover:text-foreground-500 hover:bg-background-200"
+                          : "text-foreground-500 hover:text-warning-400 hover:bg-warning-400/10"
+                      }`}
+                      title={skill.isRequired ? "Make optional" : "Make required"}
+                    >
+                      <Lock className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => handleDelete(skill)}
+                      className="p-1.5 rounded-lg text-foreground-500 hover:text-danger-400 hover:bg-danger-400/10 transition-colors"
+                      title="Remove skill"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </>
+                )}
               </ListRow>
             ))}
           </ListCard>

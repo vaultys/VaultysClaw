@@ -8,6 +8,7 @@ import { useToolbar } from "@/components/layout/ToolbarContext";
 import { useBreadcrumbs } from "@/components/layout/BreadcrumbContext";
 import { workspacesClient, unwrap, ApiError } from "@/lib/api/ts-rest/client";
 import type { WorkspaceWithCounts } from "@/lib/contracts";
+import { normalizeWorkspaceRole } from "@/lib/roles";
 import { slugify } from "@vaultysclaw/shared";
 
 const PRESET_COLORS = [
@@ -160,10 +161,24 @@ export default function WorkspacesPage() {
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  // Workspaces the current user owns — the only ones they may delete.
+  const [ownedWorkspaceIds, setOwnedWorkspaceIds] = useState<Set<string>>(
+    new Set()
+  );
 
   const load = useCallback(async () => {
-    const { workspaces } = unwrap(await workspacesClient.list());
+    const [{ workspaces }, { userWorkspaces }] = await Promise.all([
+      unwrap(await workspacesClient.list()),
+      unwrap(await workspacesClient.listMyWorkspaces()),
+    ]);
     setWorkspaces(workspaces);
+    setOwnedWorkspaceIds(
+      new Set(
+        userWorkspaces
+          .filter((r) => normalizeWorkspaceRole(r.role) === "Owner")
+          .map((r) => r.workspaceId)
+      )
+    );
     setLoading(false);
   }, []);
 
@@ -297,38 +312,40 @@ export default function WorkspacesPage() {
                 Created {new Date(workspace.createdAt).toLocaleDateString()}
               </p>
 
-              {/* Actions */}
-              {isGlobalAdmin && (
-                <div
-                  className="flex gap-1 mt-3 pt-3 border-t border-neutral-200/50"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  {!workspace.isDefault && (
-                    <button
-                      onClick={() => handleSetDefault(workspace.id)}
-                      title="Set as default"
-                      className="p-1.5 rounded-lg text-foreground-500 hover:text-warning-400 hover:bg-warning-400/10 transition-colors"
-                    >
-                      <Star className="w-4 h-4" />
-                    </button>
-                  )}
-                  {!workspace.isDefault && (
-                    <button
-                      onClick={() => handleDelete(workspace.id)}
-                      disabled={deletingId === workspace.id}
-                      title="Delete workspace"
-                      className="p-1.5 rounded-lg text-foreground-500 hover:text-danger-400 hover:bg-danger-400/10 transition-colors ml-auto"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  )}
-                  {workspace.isDefault && (
-                    <span className="ml-auto text-xs text-foreground-400 italic py-1.5">
-                      Default workspace — cannot delete
-                    </span>
-                  )}
-                </div>
-              )}
+              {/* Actions — "set default" is a global-admin (org-level) action;
+                  deleting a workspace requires being its owner. */}
+              {(() => {
+                const canDelete =
+                  !workspace.isDefault && ownedWorkspaceIds.has(workspace.id);
+                const canSetDefault = isGlobalAdmin && !workspace.isDefault;
+                if (!canDelete && !canSetDefault) return null;
+                return (
+                  <div
+                    className="flex gap-1 mt-3 pt-3 border-t border-neutral-200/50"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {canSetDefault && (
+                      <button
+                        onClick={() => handleSetDefault(workspace.id)}
+                        title="Set as default"
+                        className="p-1.5 rounded-lg text-foreground-500 hover:text-warning-400 hover:bg-warning-400/10 transition-colors"
+                      >
+                        <Star className="w-4 h-4" />
+                      </button>
+                    )}
+                    {canDelete && (
+                      <button
+                        onClick={() => handleDelete(workspace.id)}
+                        disabled={deletingId === workspace.id}
+                        title="Delete workspace"
+                        className="p-1.5 rounded-lg text-foreground-500 hover:text-danger-400 hover:bg-danger-400/10 transition-colors ml-auto"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
           ))}
         </div>

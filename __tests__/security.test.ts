@@ -88,6 +88,7 @@ import {
   PATCH as workspaceUsersPATCH,
   DELETE as workspaceUsersDELETE,
 } from "../packages/control-plane/app/api/workspaces/[id]/users/route";
+import { POST as workspaceOwnerPOST } from "../packages/control-plane/app/api/workspaces/[id]/owner/route";
 import {
   GET as workflowsGET,
   POST as workflowsPOST,
@@ -133,13 +134,13 @@ function makeAuthContext(
       const membership = await prisma.userWorkspace.findFirst({ where: { userId: did, workspaceId } });
       return membership !== null;
     },
+    // Admin/owner powers come only from the workspace membership role —
+    // global-admin status grants visibility, not workspace authority.
     async canAdminWorkspace(workspaceId: string) {
-      if (isGlobalAdmin) return true;
       const membership = await prisma.userWorkspace.findFirst({ where: { userId: did, workspaceId } });
       return membership?.role === "Admin" || membership?.role === "Owner";
     },
     async canOwnWorkspace(workspaceId: string) {
-      if (isGlobalAdmin) return true;
       const membership = await prisma.userWorkspace.findFirst({ where: { userId: did, workspaceId } });
       return membership?.role === "Owner";
     },
@@ -212,6 +213,11 @@ function asWorkspaceAdmin(did = DID.workspaceAdmin) {
     canAdminAgent: async (agentDid: string) => agentDid === DID.agent,
   });
 }
+// A workspace Owner who is NOT a global admin — uses the real DB-backed
+// makeAuthContext so canOwnWorkspace/canAdminWorkspace reflect the membership row.
+function asWorkspaceOwner(did = DID.workspaceOwner) {
+  mockGetAuthContext.mockResolvedValue(makeAuthContext(did));
+}
 
 /** Minimal mock that satisfies NextRequest for route handlers */
 class MockRequest {
@@ -251,6 +257,7 @@ const DID = {
   admin: "did:vaultys:admin-sec-001",
   member: "did:vaultys:member-sec-001",
   workspaceAdmin: "did:vaultys:workspaceadmin-sec-001",
+  workspaceOwner: "did:vaultys:workspaceowner-sec-001",
   stranger: "did:vaultys:stranger-sec-001",
   agent: "did:vaultys:agent-sec-001",
 };
@@ -266,10 +273,12 @@ let testWorkflowId: string;
 beforeAll(async () => {
   // Clean up any stale Prisma data
   await prisma.userWorkspace.deleteMany({ where: { userId: { contains: SENTINEL } } });
+  await prisma.userWorkspace.deleteMany({ where: { workspaceId: { contains: SENTINEL } } });
   await prisma.agentWorkspace.deleteMany({ where: { agentDid: { contains: SENTINEL } } });
   await prisma.user.deleteMany({ where: { did: { contains: SENTINEL } } });
   await prisma.agent.deleteMany({ where: { did: { contains: SENTINEL } } });
   await prisma.workspace.deleteMany({ where: { slug: { contains: "test-sec-workspace" } } });
+  await prisma.workspace.deleteMany({ where: { id: { contains: SENTINEL } } });
 
   // ── Prisma setup (control plane uses Prisma exclusively, no SQLite) ────────
   await prisma.user.createMany({
@@ -278,6 +287,7 @@ beforeAll(async () => {
       { id: DID.admin, did: DID.admin, role: "Admin" },
       { id: DID.member, did: DID.member },
       { id: DID.workspaceAdmin, did: DID.workspaceAdmin },
+      { id: DID.workspaceOwner, did: DID.workspaceOwner },
       { id: DID.stranger, did: DID.stranger },
     ],
     skipDuplicates: true,
@@ -302,6 +312,7 @@ beforeAll(async () => {
     data: [
       { userId: DID.member, workspaceId: testWorkspaceId, role: "Member" },
       { userId: DID.workspaceAdmin, workspaceId: testWorkspaceId, role: "Admin" },
+      { userId: DID.workspaceOwner, workspaceId: testWorkspaceId, role: "Owner" },
     ],
     skipDuplicates: true,
   });
@@ -341,10 +352,13 @@ afterAll(async () => {
   await prisma.policy.deleteMany({ where: { OR: [{ createdBy: { contains: SENTINEL } }, { agentDid: { contains: SENTINEL } }] } });
   await prisma.workflow.deleteMany({ where: { workspaceId: testWorkspaceId } });
   await prisma.userWorkspace.deleteMany({ where: { userId: { contains: SENTINEL } } });
+  await prisma.userWorkspace.deleteMany({ where: { workspaceId: { contains: SENTINEL } } });
   await prisma.agentWorkspace.deleteMany({ where: { agentDid: { contains: SENTINEL } } });
   await prisma.user.deleteMany({ where: { did: { contains: SENTINEL } } });
   await prisma.agent.deleteMany({ where: { did: { contains: SENTINEL } } });
   await prisma.workspace.deleteMany({ where: { slug: { contains: "test-sec-workspace" } } });
+  // Throwaway workspaces created by owner delete/transfer tests.
+  await prisma.workspace.deleteMany({ where: { id: { contains: SENTINEL } } });
 });
 
 // Reset mock before each test so auth context doesn't leak between tests
@@ -464,9 +478,11 @@ describe("AuthContext — global admin", () => {
     expect(await ctx.canAccessWorkspace(testWorkspaceId)).toBe(true);
   });
 
-  it("canAdminWorkspace any workspace", async () => {
+  it("cannot admin a workspace it is not a member of", async () => {
+    // Global-admin status grants visibility, not workspace-management power.
     const ctx = makeAuthContext(DID.admin, { isAdmin: true });
-    expect(await ctx.canAdminWorkspace(testWorkspaceId)).toBe(true);
+    expect(await ctx.canAdminWorkspace(testWorkspaceId)).toBe(false);
+    expect(await ctx.canOwnWorkspace(testWorkspaceId)).toBe(false);
   });
 
   it("canAccessAgent any agent", async () => {
@@ -790,7 +806,7 @@ describe("PATCH /api/workspaces/[id] — workspace metadata", () => {
     expectStatus(res, 403);
   });
 
-  it("returns 403 for a workspace admin (config is global-admin-only)", async () => {
+  it("returns 403 for a workspace admin (editing the realm is owner-only)", async () => {
     asWorkspaceAdmin();
     const res = await workspaceDetailPATCH(
       req("http://localhost", { name: "New Name" }) as never,
@@ -799,8 +815,17 @@ describe("PATCH /api/workspaces/[id] — workspace metadata", () => {
     expectStatus(res, 403);
   });
 
-  it("is accessible to a global admin", async () => {
+  it("returns 403 for a global admin who is not the workspace owner", async () => {
     asAdmin();
+    const res = await workspaceDetailPATCH(
+      req("http://localhost", { name: "New Name" }) as never,
+      params({ id: testWorkspaceId })
+    );
+    expectStatus(res, 403);
+  });
+
+  it("is accessible to the workspace owner", async () => {
+    asWorkspaceOwner();
     const res = await workspaceDetailPATCH(
       req("http://localhost", { name: "Security Test Workspace" }) as never,
       params({ id: testWorkspaceId })
@@ -834,6 +859,153 @@ describe("DELETE /api/workspaces/[id]", () => {
     const res = await workspaceDetailDELETE(
       req() as never,
       params({ id: testWorkspaceId })
+    );
+    expectStatus(res, 403);
+  });
+
+  it("is accessible to the workspace owner", async () => {
+    // Use a throwaway workspace so we don't delete the shared fixture.
+    const wsId = `workspace-del-${SENTINEL}-${crypto.randomUUID()}`;
+    await prisma.workspace.create({
+      data: { id: wsId, name: "Del WS", slug: `del-${wsId}`, color: "#6366f1" },
+    });
+    await prisma.userWorkspace.create({
+      data: { userId: DID.workspaceOwner, workspaceId: wsId, role: "Owner" },
+    });
+    asWorkspaceOwner();
+    const res = await workspaceDetailDELETE(req() as never, params({ id: wsId }));
+    expect(status(res)).not.toBe(401);
+    expect(status(res)).not.toBe(403);
+  });
+});
+
+describe("POST /api/workspaces/[id]/owner — transfer ownership", () => {
+  it("returns 401 when unauthenticated", async () => {
+    asUnauthenticated();
+    const res = await workspaceOwnerPOST(
+      req("http://localhost", { userDid: DID.member }) as never,
+      params({ id: testWorkspaceId })
+    );
+    expectStatus(res, 401);
+  });
+
+  it("returns 403 for a regular member", async () => {
+    asMember();
+    const res = await workspaceOwnerPOST(
+      req("http://localhost", { userDid: DID.member }) as never,
+      params({ id: testWorkspaceId })
+    );
+    expectStatus(res, 403);
+  });
+
+  it("returns 403 for a workspace admin (owner-only action)", async () => {
+    asWorkspaceAdmin();
+    const res = await workspaceOwnerPOST(
+      req("http://localhost", { userDid: DID.member }) as never,
+      params({ id: testWorkspaceId })
+    );
+    expectStatus(res, 403);
+  });
+
+  it("is accessible to the workspace owner", async () => {
+    // Throwaway workspace with an owner + a member to receive ownership.
+    const wsId = `workspace-xfer-${SENTINEL}-${crypto.randomUUID()}`;
+    await prisma.workspace.create({
+      data: { id: wsId, name: "Xfer WS", slug: `xfer-${wsId}`, color: "#6366f1" },
+    });
+    await prisma.userWorkspace.createMany({
+      data: [
+        { userId: DID.workspaceOwner, workspaceId: wsId, role: "Owner" },
+        { userId: DID.member, workspaceId: wsId, role: "Member" },
+      ],
+    });
+    asWorkspaceOwner();
+    const res = await workspaceOwnerPOST(
+      req("http://localhost", { userDid: DID.member }) as never,
+      params({ id: wsId })
+    );
+    expect(status(res)).not.toBe(401);
+    expect(status(res)).not.toBe(403);
+    // The member is now Owner and the previous owner was demoted to Admin.
+    const rows = await prisma.userWorkspace.findMany({ where: { workspaceId: wsId } });
+    expect(rows.find((r) => r.userId === DID.member)?.role).toBe("Owner");
+    expect(rows.find((r) => r.userId === DID.workspaceOwner)?.role).toBe("Admin");
+  });
+});
+
+describe("workspace admin can manage users but not the owner", () => {
+  it("a workspace admin cannot remove the owner", async () => {
+    asWorkspaceAdmin();
+    const res = await workspaceUsersDELETE(
+      req("http://localhost", { userDid: DID.workspaceOwner }) as never,
+      params({ id: testWorkspaceId })
+    );
+    // Owner removal is rejected as a malformed request (not the default-workspace path).
+    expect(status(res)).not.toBe(200);
+  });
+
+  it("a workspace admin cannot change the owner's role", async () => {
+    asWorkspaceAdmin();
+    const res = await workspaceUsersPATCH(
+      req("http://localhost", { userDid: DID.workspaceOwner, role: "Member" }) as never,
+      params({ id: testWorkspaceId })
+    );
+    expectStatus(res, 403);
+  });
+});
+
+describe("a workspace admin cannot strip their own rights", () => {
+  it("cannot demote themselves via updateUser", async () => {
+    asWorkspaceAdmin();
+    const res = await workspaceUsersPATCH(
+      req("http://localhost", { userDid: DID.workspaceAdmin, role: "Member" }) as never,
+      params({ id: testWorkspaceId })
+    );
+    expectStatus(res, 403);
+    // Role unchanged in the DB.
+    const row = await prisma.userWorkspace.findUnique({
+      where: {
+        userId_workspaceId: {
+          userId: DID.workspaceAdmin,
+          workspaceId: testWorkspaceId,
+        },
+      },
+    });
+    expect(row?.role).toBe("Admin");
+  });
+
+  it("cannot remove themselves from the workspace", async () => {
+    asWorkspaceAdmin();
+    const res = await workspaceUsersDELETE(
+      req("http://localhost", { userDid: DID.workspaceAdmin }) as never,
+      params({ id: testWorkspaceId })
+    );
+    expectStatus(res, 403);
+    const stillMember = await prisma.userWorkspace.findUnique({
+      where: {
+        userId_workspaceId: {
+          userId: DID.workspaceAdmin,
+          workspaceId: testWorkspaceId,
+        },
+      },
+    });
+    expect(stillMember).not.toBeNull();
+  });
+
+  it("a global admin who is a workspace admin still cannot demote themselves", async () => {
+    // Global-admin status confers no workspace power, so the self-protection
+    // guard applies to them too when they hold a workspace-admin membership.
+    const wsId = `workspace-self-${SENTINEL}-${crypto.randomUUID()}`;
+    await prisma.workspace.create({
+      data: { id: wsId, name: "Self WS", slug: `self-${wsId}`, color: "#6366f1" },
+    });
+    await prisma.userWorkspace.create({
+      data: { userId: DID.admin, workspaceId: wsId, role: "Admin" },
+    });
+    asAdmin();
+    const res = await workspaceUsersPATCH(
+      req("http://localhost", { userDid: DID.admin, role: "Member" }) as never,
+      params({ id: wsId })
     );
     expectStatus(res, 403);
   });
@@ -879,14 +1051,13 @@ describe("POST /api/workspaces/[id]/agents", () => {
     expect(status(res)).not.toBe(403);
   });
 
-  it("is accessible to a global admin", async () => {
+  it("returns 403 for a global admin who is not a workspace admin", async () => {
     asAdmin();
     const res = await workspaceAgentsPOST(
       req("http://localhost", { agentDid: DID.agent }) as never,
       params({ id: testWorkspaceId })
     );
-    expect(status(res)).not.toBe(401);
-    expect(status(res)).not.toBe(403);
+    expectStatus(res, 403);
   });
 });
 
@@ -1098,7 +1269,7 @@ describe("POST /api/workflows", () => {
     if (body.id) await prisma.workflow.deleteMany({ where: { id: body.id } });
   });
 
-  it("is accessible to a global admin", async () => {
+  it("returns 403 for a global admin creating a workflow in a workspace they don't admin", async () => {
     asAdmin();
     const res = await workflowsPOST(
       req("http://localhost", {
@@ -1107,10 +1278,7 @@ describe("POST /api/workflows", () => {
         workspaceId: testWorkspaceId,
       }) as never
     );
-    expect(status(res)).not.toBe(401);
-    expect(status(res)).not.toBe(403);
-    const body = (res as { _body: { id?: string } })._body;
-    if (body.id) await prisma.workflow.deleteMany({ where: { id: body.id } });
+    expectStatus(res, 403);
   });
 });
 

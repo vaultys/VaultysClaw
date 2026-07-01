@@ -42,6 +42,13 @@ const handlers = createNextRoute(workspacesContract, {
     const user = await findUser(body.userDid);
     if (!user) throw new APIException("NOT_FOUND", "User not found");
 
+    // A workspace admin cannot strip their own rights by changing their own role.
+    if (user.did === auth.did)
+      throw new APIException(
+        "FORBIDDEN",
+        "You cannot change your own workspace role"
+      );
+
     // The Owner's role cannot be changed here — use ownership transfer instead.
     const current = await WorkspaceDAO.getWorkspaceRole(user.id, params.id);
     if (current === null)
@@ -64,6 +71,13 @@ const handlers = createNextRoute(workspacesContract, {
 
     const user = await findUser(body.userDid);
     if (!user) throw new APIException("NOT_FOUND", "User not found");
+
+    // A workspace admin cannot remove themselves (that would strip their own rights).
+    if (user.did === auth.did)
+      throw new APIException(
+        "FORBIDDEN",
+        "You cannot remove yourself from the workspace"
+      );
 
     const role = await WorkspaceDAO.getWorkspaceRole(user.id, params.id);
     if (role === "Owner")

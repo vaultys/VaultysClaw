@@ -40,11 +40,12 @@ export async function getAuthContext(
     const { did, userId, isOwner, isAdmin } = session.user;
     const isGlobalAdmin = Boolean(isAdmin) || Boolean(isOwner);
 
-    // Precompute workspace membership once per request.
+    // Precompute workspace membership once per request. This is fetched for
+    // everyone — including global admins — because global-admin status grants
+    // visibility over all workspaces but NOT admin/owner powers within them:
+    // those come solely from the workspace membership role.
     // getUserWorkspaces expects the DB UUID (userId), not the VaultysID DID string.
-    const userWorkspaces = isGlobalAdmin
-      ? []
-      : await WorkspaceDAO.getUserWorkspaces(userId ?? did);
+    const userWorkspaces = await WorkspaceDAO.getUserWorkspaces(userId ?? did);
     const accessibleWorkspaceIds = new Set(userWorkspaces.map((r) => r.workspaceId));
     const adminWorkspaceIds = new Set(
       userWorkspaces
@@ -63,16 +64,19 @@ export async function getAuthContext(
       isOwner: Boolean(isOwner),
       isGlobalAdmin,
 
+      // Global admins can view every workspace…
       async canAccessWorkspace(workspaceId: string): Promise<boolean> {
         return isGlobalAdmin || accessibleWorkspaceIds.has(workspaceId);
       },
 
+      // …but managing/owning a workspace requires the corresponding membership
+      // role — global-admin status alone grants no power inside a workspace.
       async canAdminWorkspace(workspaceId: string): Promise<boolean> {
-        return isGlobalAdmin || adminWorkspaceIds.has(workspaceId);
+        return adminWorkspaceIds.has(workspaceId);
       },
 
       async canOwnWorkspace(workspaceId: string): Promise<boolean> {
-        return isGlobalAdmin || ownerWorkspaceIds.has(workspaceId);
+        return ownerWorkspaceIds.has(workspaceId);
       },
 
       async canAccessAgent(agentDid: string): Promise<boolean> {

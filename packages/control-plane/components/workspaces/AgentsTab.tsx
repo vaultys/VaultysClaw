@@ -8,25 +8,29 @@ import { EmptyState, ListCard, ListRow } from "./ui";
 
 export function AgentsTab({
   agents,
+  canManage,
   canRemove,
   onAdd,
   onRemove,
 }: {
   agents: WorkspaceAgentMember[];
+  canManage: boolean;
   canRemove: boolean;
   onAdd: () => void;
   onRemove: (did: string) => void;
 }) {
   return (
     <div className="space-y-3">
-      <div className="flex justify-end">
-        <button
-          onClick={onAdd}
-          className="flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-xl bg-primary-600 hover:bg-primary-500 text-white font-medium transition-colors"
-        >
-          <Plus className="w-4 h-4" /> Add Agent
-        </button>
-      </div>
+      {canManage && (
+        <div className="flex justify-end">
+          <button
+            onClick={onAdd}
+            className="flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-xl bg-primary-600 hover:bg-primary-500 text-white font-medium transition-colors"
+          >
+            <Plus className="w-4 h-4" /> Add Agent
+          </button>
+        </div>
+      )}
       {agents.length === 0 ? (
         <EmptyState icon={Bot} message="No agents in this workspace." />
       ) : (
@@ -59,7 +63,7 @@ export function AgentsTab({
               >
                 <ChevronRight className="w-4 h-4" />
               </Link>
-              {canRemove && (
+              {canManage && canRemove && (
                 <button
                   onClick={() => onRemove(a.agentDid)}
                   className="p-1.5 rounded-lg text-foreground-500 hover:text-danger-400 hover:bg-danger-400/10 transition-colors"

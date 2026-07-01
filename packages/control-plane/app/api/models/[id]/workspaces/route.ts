@@ -78,7 +78,8 @@ const handlers = createNextRoute(modelsContract, {
   // ── POST /api/models/:id/workspaces — grant workspace access (admin only) ─────────
   grantWorkspace: async ({ params, body, request }) => {
     const auth = await getAuthContext(request);
-    if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");
+    if (!(await auth.canAdminWorkspace(body.workspaceId)))
+      throw new APIException("FORBIDDEN");
 
     const entry = await ModelDAO.findById(params.id);
     if (!entry) throw new APIException("NOT_FOUND", "Model not found");
@@ -122,7 +123,8 @@ const handlers = createNextRoute(modelsContract, {
   // ── DELETE /api/models/:id/workspaces?workspaceId= — revoke access (admin only) ───
   revokeWorkspace: async ({ params, query, request }) => {
     const auth = await getAuthContext(request);
-    if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");
+    if (!(await auth.canAdminWorkspace(query.workspaceId)))
+      throw new APIException("FORBIDDEN");
 
     const entry = await ModelDAO.findById(params.id);
     if (!entry) throw new APIException("NOT_FOUND", "Model not found");

@@ -59,22 +59,26 @@ export function ModelsTab({
   routerKey,
   litellmConfigured,
   onRefresh,
+  canManage,
 }: {
   workspaceId: string;
   models: WorkspaceModelRow[];
   routerKey: WorkspaceRouterKeyData | null;
   litellmConfigured: boolean;
   onRefresh: () => void;
+  canManage: boolean;
 }) {
   return (
     <div className="space-y-4">
-      <WorkspaceLiteLLMKeyCard
-        workspaceId={workspaceId}
-        routerKey={routerKey}
-        litellmConfigured={litellmConfigured}
-        modelCount={models.length}
-        onRefresh={onRefresh}
-      />
+      {canManage && (
+        <WorkspaceLiteLLMKeyCard
+          workspaceId={workspaceId}
+          routerKey={routerKey}
+          litellmConfigured={litellmConfigured}
+          modelCount={models.length}
+          onRefresh={onRefresh}
+        />
+      )}
 
       {models.length === 0 ? (
         <div className="flex flex-col items-center py-10 text-center">

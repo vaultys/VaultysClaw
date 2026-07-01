@@ -25,10 +25,11 @@ const handlers = createNextRoute(workspacesContract, {
     return { status: 200, body: workspace };
   },
 
-  // ── PATCH /api/workspaces/:id — update metadata or config (global admin) ──────
+  // ── PATCH /api/workspaces/:id — update metadata or config (workspace owner) ──────
   update: async ({ params, body, request }) => {
     const auth = await getAuthContext(request);
-    if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");
+    if (!(await auth.canOwnWorkspace(params.id)))
+      throw new APIException("FORBIDDEN");
 
     const existing = await WorkspaceDAO.findById(params.id);
     if (!existing) throw new APIException("NOT_FOUND", "Workspace not found");
@@ -54,10 +55,11 @@ const handlers = createNextRoute(workspacesContract, {
     return { status: 200, body: workspace! };
   },
 
-  // ── DELETE /api/workspaces/:id — delete a workspace (not the default one) ─────────
+  // ── DELETE /api/workspaces/:id — delete a workspace (workspace owner, not the default one) ─
   remove: async ({ params, request }) => {
     const auth = await getAuthContext(request);
-    if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");
+    if (!(await auth.canOwnWorkspace(params.id)))
+      throw new APIException("FORBIDDEN");
 
     const ok = await WorkspaceDAO.delete(params.id);
     if (!ok)

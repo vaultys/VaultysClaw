@@ -55,12 +55,16 @@ export default function WorkspaceDetailPage() {
     remove,
   } = useWorkspaceDetail(id);
 
-  // Viewer's own role within this workspace, used to gate member management.
+  // Viewer's own role within this workspace, used to gate management actions.
+  // Global-admin status grants visibility only — never management/ownership
+  // powers inside a workspace; those come solely from the membership role.
   const myRole = normalizeWorkspaceRole(
     users.find((u) => u.user.did === did)?.role
   );
-  const canManageUsers = isGlobalAdmin || myRole === "Owner" || myRole === "Admin";
-  const canTransferOwner = isGlobalAdmin || myRole === "Owner";
+  // Workspace admins (and owners) manage the workspace contents.
+  const canManage = myRole === "Owner" || myRole === "Admin";
+  // Only the owner can edit/delete the workspace or transfer ownership.
+  const canOwn = myRole === "Owner";
 
   const [tab, setTab] = useState<WorkspaceTab>("agents");
   const [addModal, setAddModal] = useState<"agent" | "user" | null>(null);
@@ -94,37 +98,54 @@ export default function WorkspaceDetailPage() {
       actions: workspace
         ? [
             {
-              kind: "button",
+              kind: "button" as const,
               id: "graph",
               label: "Graph",
               icon: <Network className="w-3.5 h-3.5" />,
               onClick: () => router.push(`/workspaces/${id}/graph`),
             },
-            {
-              kind: "button",
-              id: "edit",
-              label: "Edit",
-              icon: <Pencil className="w-3.5 h-3.5" />,
-              onClick: () => setEditing(true),
-            },
-            {
-              kind: "button",
-              id: "default",
-              label: workspace.isDefault ? "Default" : "Set default",
-              icon: <Star className="w-3.5 h-3.5" />,
-              variant: workspace.isDefault ? "success" : "default",
-              disabled: workspace.isDefault,
-              onClick: setDefault,
-            },
-            {
-              kind: "button",
-              id: "delete",
-              label: "Delete",
-              icon: <Trash2 className="w-3.5 h-3.5" />,
-              variant: "danger",
-              disabled: workspace.isDefault,
-              onClick: remove,
-            },
+            // Editing workspace metadata/config is owner-only.
+            ...(canOwn
+              ? [
+                  {
+                    kind: "button" as const,
+                    id: "edit",
+                    label: "Edit",
+                    icon: <Pencil className="w-3.5 h-3.5" />,
+                    onClick: () => setEditing(true),
+                  },
+                ]
+              : []),
+            // Choosing the org default workspace is a global-admin concern.
+            ...(isGlobalAdmin
+              ? [
+                  {
+                    kind: "button" as const,
+                    id: "default",
+                    label: workspace.isDefault ? "Default" : "Set default",
+                    icon: <Star className="w-3.5 h-3.5" />,
+                    variant: (workspace.isDefault ? "success" : "default") as
+                      | "success"
+                      | "default",
+                    disabled: workspace.isDefault,
+                    onClick: setDefault,
+                  },
+                ]
+              : []),
+            // Deleting the workspace is owner-only.
+            ...(canOwn
+              ? [
+                  {
+                    kind: "button" as const,
+                    id: "delete",
+                    label: "Delete",
+                    icon: <Trash2 className="w-3.5 h-3.5" />,
+                    variant: "danger" as const,
+                    disabled: workspace.isDefault,
+                    onClick: remove,
+                  },
+                ]
+              : []),
           ]
         : [],
     },
@@ -138,6 +159,8 @@ export default function WorkspaceDetailPage() {
       router,
       setDefault,
       remove,
+      canOwn,
+      isGlobalAdmin,
     ]
   );
 
@@ -182,6 +205,7 @@ export default function WorkspaceDetailPage() {
       {tab === "agents" && (
         <AgentsTab
           agents={agents}
+          canManage={canManage}
           canRemove={!workspace.isDefault}
           onAdd={() => setAddModal("agent")}
           onRemove={removeAgent}
@@ -191,8 +215,9 @@ export default function WorkspaceDetailPage() {
         <UsersTab
           users={users}
           canRemove={!workspace.isDefault}
-          canManage={canManageUsers}
-          canTransferOwner={canTransferOwner}
+          canManage={canManage}
+          canTransferOwner={canOwn}
+          selfDid={did}
           onAdd={() => setAddModal("user")}
           onRemove={removeUser}
           onSetRole={setUserRole}
@@ -200,10 +225,15 @@ export default function WorkspaceDetailPage() {
         />
       )}
       {tab === "workflows" && (
-        <WorkflowsTab workspaceId={id} workflows={workflows} />
+        <WorkflowsTab workspaceId={id} workflows={workflows} canManage={canManage} />
       )}
       {tab === "skills" && (
-        <SkillsTab workspaceId={id} skills={skills} onChanged={load} />
+        <SkillsTab
+          workspaceId={id}
+          skills={skills}
+          onChanged={load}
+          canManage={canManage}
+        />
       )}
       {tab === "models" && (
         <ModelsTab
@@ -212,6 +242,7 @@ export default function WorkspaceDetailPage() {
           routerKey={routerKey}
           litellmConfigured={litellmConfigured}
           onRefresh={load}
+          canManage={canManage}
         />
       )}
       {tab === "channels" && (
@@ -219,6 +250,7 @@ export default function WorkspaceDetailPage() {
           workspaceId={id}
           channels={channels}
           setChannels={setChannels}
+          canManage={canManage}
         />
       )}
       {tab === "org-chart" && (
@@ -234,11 +266,13 @@ export default function WorkspaceDetailPage() {
         <MapTab
           markers={mapMarkers}
           loading={mapLoading}
-          canEdit={isGlobalAdmin}
+          canEdit={canManage}
           onSaveLocation={saveWorkspaceMarkerLocation}
         />
       )}
-      {tab === "config" && <ConfigTab workspace={workspace} onSaved={load} />}
+      {tab === "config" && (
+        <ConfigTab workspace={workspace} onSaved={load} canEdit={canOwn} />
+      )}
 
       {addModal && (
         <AddMemberModal

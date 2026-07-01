@@ -15,7 +15,8 @@ const handlers = createNextRoute(workspacesContract, {
   // ── PUT /api/workspaces/:id/litellm-key ───────────────────────────────────────
   putLitellmKey: async ({ params, body, request }) => {
     const auth = await getAuthContext(request);
-    if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");
+    if (!(await auth.canAdminWorkspace(params.id)))
+      throw new APIException("FORBIDDEN");
 
     const workspace = await WorkspaceDAO.findById(params.id);
     if (!workspace) throw new APIException("NOT_FOUND", "Workspace not found");
@@ -87,7 +88,8 @@ const handlers = createNextRoute(workspacesContract, {
   // ── DELETE /api/workspaces/:id/litellm-key ────────────────────────────────────
   deleteLitellmKey: async ({ params, request }) => {
     const auth = await getAuthContext(request);
-    if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");
+    if (!(await auth.canAdminWorkspace(params.id)))
+      throw new APIException("FORBIDDEN");
 
     await WorkspaceDAO.deleteRouterKey(params.id);
     return { status: 200, body: { ok: true } };

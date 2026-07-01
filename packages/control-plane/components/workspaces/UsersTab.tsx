@@ -15,6 +15,7 @@ export function UsersTab({
   canRemove,
   canManage,
   canTransferOwner,
+  selfDid,
   onAdd,
   onRemove,
   onSetRole,
@@ -24,8 +25,10 @@ export function UsersTab({
   canRemove: boolean;
   /** Viewer can add/remove members and change Admin/Member roles. */
   canManage: boolean;
-  /** Viewer can transfer ownership (current Owner or global admin). */
+  /** Viewer can transfer ownership (the current Owner). */
   canTransferOwner: boolean;
+  /** DID of the viewer — used to prevent a workspace admin from managing themselves. */
+  selfDid: string | null;
   onAdd: () => void;
   onRemove: (did: string) => void;
   onSetRole: (did: string, role: "Admin" | "Member") => void;
@@ -51,6 +54,10 @@ export function UsersTab({
             const userDid = u.user.did ?? u.user.id;
             const role = normalizeWorkspaceRole(u.role);
             const isOwner = role === "Owner";
+            // A workspace admin cannot manage their own membership
+            // (self-demote / self-remove).
+            const isSelf = selfDid !== null && userDid === selfDid;
+            const canManageRow = canManage && !isSelf;
             return (
               <ListRow key={userDid} index={i}>
                 <div className="w-8 h-8 rounded-full bg-background-200 border border-neutral-200 flex items-center justify-center shrink-0 text-xs font-semibold text-foreground-500">
@@ -82,7 +89,7 @@ export function UsersTab({
                 {/* Role: editable select for non-owners, static label for the owner */}
                 {isOwner ? (
                   <span className="text-xs text-foreground-400 px-1.5">Owner</span>
-                ) : canManage ? (
+                ) : canManageRow ? (
                   <select
                     value={role}
                     onChange={(e) =>
@@ -100,7 +107,7 @@ export function UsersTab({
                   <span className="text-xs text-foreground-400 px-1.5">{role}</span>
                 )}
 
-                {canTransferOwner && !isOwner && (
+                {canTransferOwner && !isOwner && !isSelf && (
                   <button
                     onClick={() => onTransferOwner(userDid)}
                     className="p-1.5 rounded-lg text-foreground-500 hover:text-warning-600 hover:bg-warning-400/10 transition-colors"
@@ -110,7 +117,7 @@ export function UsersTab({
                   </button>
                 )}
 
-                {canManage && canRemove && !isOwner && (
+                {canManageRow && canRemove && !isOwner && (
                   <button
                     onClick={() => onRemove(userDid)}
                     className="p-1.5 rounded-lg text-foreground-500 hover:text-danger-400 hover:bg-danger-400/10 transition-colors"

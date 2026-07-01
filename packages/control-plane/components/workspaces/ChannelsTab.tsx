@@ -11,10 +11,12 @@ export function ChannelsTab({
   workspaceId,
   channels,
   setChannels,
+  canManage,
 }: {
   workspaceId: string;
   channels: Channel[];
   setChannels: Dispatch<SetStateAction<Channel[]>>;
+  canManage: boolean;
 }) {
   const [selectedChannelId, setSelectedChannelId] = useState<string | null>(
     null
@@ -31,25 +33,29 @@ export function ChannelsTab({
           <span className="text-sm font-semibold text-foreground">
             Channels
           </span>
-          <button
-            onClick={() => setShowCreate(true)}
-            className="p-1 rounded-lg hover:bg-background-200 transition text-foreground-500 hover:text-primary-400"
-            title="New channel"
-          >
-            <Plus size={16} />
-          </button>
+          {canManage && (
+            <button
+              onClick={() => setShowCreate(true)}
+              className="p-1 rounded-lg hover:bg-background-200 transition text-foreground-500 hover:text-primary-400"
+              title="New channel"
+            >
+              <Plus size={16} />
+            </button>
+          )}
         </div>
         <div className="flex-1 overflow-y-auto">
           {channels.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-center px-4 gap-2">
               <MessageSquare className="w-6 h-6 text-neutral-300" />
               <p className="text-xs text-foreground-500">No channels yet.</p>
-              <button
-                onClick={() => setShowCreate(true)}
-                className="text-xs text-primary-700 hover:underline"
-              >
-                Create one
-              </button>
+              {canManage && (
+                <button
+                  onClick={() => setShowCreate(true)}
+                  className="text-xs text-primary-700 hover:underline"
+                >
+                  Create one
+                </button>
+              )}
             </div>
           ) : (
             <ChannelList
@@ -77,15 +83,18 @@ export function ChannelsTab({
                 Select a channel
               </p>
               <p className="text-xs text-foreground-500 mt-1">
-                Choose a channel from the sidebar or create a new one.
+                Choose a channel from the sidebar
+                {canManage ? " or create a new one." : "."}
               </p>
             </div>
-            <button
-              onClick={() => setShowCreate(true)}
-              className="flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-xl bg-primary-600 hover:bg-primary-500 text-white font-medium transition-colors"
-            >
-              <Plus className="w-4 h-4" /> New Channel
-            </button>
+            {canManage && (
+              <button
+                onClick={() => setShowCreate(true)}
+                className="flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-xl bg-primary-600 hover:bg-primary-500 text-white font-medium transition-colors"
+              >
+                <Plus className="w-4 h-4" /> New Channel
+              </button>
+            )}
           </div>
         )}
       </div>

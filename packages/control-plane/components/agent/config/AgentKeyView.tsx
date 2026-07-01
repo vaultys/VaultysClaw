@@ -38,7 +38,7 @@ export function AgentKeyView({ agentKeyInfo }: { agentKeyInfo: AgentKeyInfo }) {
                 </div>
               ) : (
                 <span className="text-xs text-foreground-400">
-                  inherited from realm
+                  inherited from workspace
                 </span>
               ),
           },

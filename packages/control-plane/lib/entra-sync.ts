@@ -1,4 +1,4 @@
-import { RealmDAO, SettingsDAO, UserDAO } from "@/db";
+import { WorkspaceDAO, SettingsDAO, UserDAO } from "@/db";
 
 /**
  * Microsoft Entra ID (Azure AD) sync via MS Graph API.
@@ -6,8 +6,8 @@ import { RealmDAO, SettingsDAO, UserDAO } from "@/db";
  */
 
 
-/** Sentinel value in groupRealmMap meaning "create a new realm named after this group". */
-export const CREATE_REALM_SENTINEL = "__create__";
+/** Sentinel value in groupWorkspaceMap meaning "create a new workspace named after this group". */
+export const CREATE_WORKSPACE_SENTINEL = "__create__";
 
 // ── Config ────────────────────────────────────────────────────────────────────
 
@@ -305,12 +305,12 @@ export interface SyncOptions {
   /** Entra group IDs to import. If empty, import all users. */
   groupIds: string[];
   /**
-   * Map from Entra group ID to realm ID.
-   * Use the sentinel value `CREATE_REALM_SENTINEL` ("__create__") to create a
-   * new realm named after the Entra group instead of mapping to an existing one.
+   * Map from Entra group ID to workspace ID.
+   * Use the sentinel value `CREATE_WORKSPACE_SENTINEL` ("__create__") to create a
+   * new workspace named after the Entra group instead of mapping to an existing one.
    */
-  groupRealmMap: Record<string, string>;
-  /** Display names of groups, used when creating realms from group names. */
+  groupWorkspaceMap: Record<string, string>;
+  /** Display names of groups, used when creating workspaces from group names. */
   groupNames?: Record<string, string>;
 }
 
@@ -325,17 +325,17 @@ export interface SyncResult {
  * Sync Entra users into the local DB.
  * - Deduplicates by email (case-insensitive).
  * - Creates placeholder users (did = "entra:{uuid}") for new accounts.
- * - Assigns users to realms based on groupRealmMap.
+ * - Assigns users to workspaces based on groupWorkspaceMap.
  */
 export async function syncEntraUsers(opts: SyncOptions): Promise<SyncResult> {
   const result: SyncResult = { created: 0, skipped: 0, updated: 0, errors: [] };
 
-  // ── Resolve __create__ sentinels into real realm IDs ──────────────────────
-  // Build a resolved copy of groupRealmMap with actual realm IDs.
-  const resolvedRealmMap: Record<string, string> = {};
-  for (const [gid, value] of Object.entries(opts.groupRealmMap)) {
-    if (value !== CREATE_REALM_SENTINEL) {
-      resolvedRealmMap[gid] = value;
+  // ── Resolve __create__ sentinels into real workspace IDs ──────────────────────
+  // Build a resolved copy of groupWorkspaceMap with actual workspace IDs.
+  const resolvedWorkspaceMap: Record<string, string> = {};
+  for (const [gid, value] of Object.entries(opts.groupWorkspaceMap)) {
+    if (value !== CREATE_WORKSPACE_SENTINEL) {
+      resolvedWorkspaceMap[gid] = value;
       continue;
     }
 
@@ -345,13 +345,13 @@ export async function syncEntraUsers(opts: SyncOptions): Promise<SyncResult> {
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/^-|-$/g, "");
 
-    // Reuse an existing realm with the same slug to keep the operation idempotent.
-    const existing = await RealmDAO.findBySlug(slug);
+    // Reuse an existing workspace with the same slug to keep the operation idempotent.
+    const existing = await WorkspaceDAO.findBySlug(slug);
     if (existing) {
-      resolvedRealmMap[gid] = existing.id;
+      resolvedWorkspaceMap[gid] = existing.id;
     } else {
-      const realm = await RealmDAO.create({ name: groupName, slug });
-      resolvedRealmMap[gid] = realm.id;
+      const workspace = await WorkspaceDAO.create({ name: groupName, slug });
+      resolvedWorkspaceMap[gid] = workspace.id;
     }
   }
 
@@ -412,12 +412,12 @@ export async function syncEntraUsers(opts: SyncOptions): Promise<SyncResult> {
           );
           result.skipped++;
         }
-        // Assign to realm(s)
+        // Assign to workspace(s)
         for (const gid of groupIds) {
-          const realmId = resolvedRealmMap[gid];
-          if (realmId) {
+          const workspaceId = resolvedWorkspaceMap[gid];
+          if (workspaceId) {
             try {
-              await RealmDAO.addUserToRealm(existing.id, realmId);
+              await WorkspaceDAO.addUserToWorkspace(existing.id, workspaceId);
             } catch {
               /* already member */
             }
@@ -434,12 +434,12 @@ export async function syncEntraUsers(opts: SyncOptions): Promise<SyncResult> {
       );
       result.created++;
 
-      // Assign to realm(s)
+      // Assign to workspace(s)
       for (const gid of groupIds) {
-        const realmId = resolvedRealmMap[gid];
-        if (realmId) {
+        const workspaceId = resolvedWorkspaceMap[gid];
+        if (workspaceId) {
           try {
-            await RealmDAO.addUserToRealm(user.id, realmId);
+            await WorkspaceDAO.addUserToWorkspace(user.id, workspaceId);
           } catch {
             /* ignore */
           }

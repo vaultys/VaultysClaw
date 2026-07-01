@@ -1,6 +1,6 @@
 import { getAuthContext } from "@/lib/auth-utils";
 import { APIException } from "@/lib/api/utils/api-utils";
-import { AgentDAO, RealmDAO } from "@/db";
+import { AgentDAO, WorkspaceDAO } from "@/db";
 import {
   createAgentKey,
   isLiteLLMConfigured,
@@ -30,10 +30,10 @@ const handlers = createNextRoute(agentsContract, {
 
     let allowedModels = body.allowedModels;
     if (!allowedModels) {
-      const agentRealms = await AgentDAO.getRealms(did);
-      const primary = agentRealms.find((r) => r.isPrimary) ?? agentRealms[0];
+      const agentWorkspaces = await AgentDAO.getWorkspaces(did);
+      const primary = agentWorkspaces.find((r) => r.isPrimary) ?? agentWorkspaces[0];
       if (primary) {
-        const routerKey = await RealmDAO.getRouterKey(primary.realmId);
+        const routerKey = await WorkspaceDAO.getRouterKey(primary.workspaceId);
         allowedModels = (routerKey?.allowedModelIds as string[]) ?? [];
       }
     }

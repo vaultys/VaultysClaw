@@ -6,7 +6,7 @@ import { useDashboardData } from "@/hooks/useDashboardData";
 import { DashboardAlerts } from "./DashboardAlerts";
 import { DashboardHeader } from "./DashboardHeader";
 import { MyQueuePanel } from "./MyQueuePanel";
-import { NoRealmScreen } from "./NoRealmScreen";
+import { NoWorkspaceScreen } from "./NoWorkspaceScreen";
 import { QuickActionsPanel } from "./QuickActionsPanel";
 import { RecentRunsPanel } from "./RecentRunsPanel";
 import { RenewPolicyModal } from "./RenewPolicyModal";
@@ -16,9 +16,9 @@ export function Dashboard() {
   const { isGlobalAdmin } = useRole();
   const d = useDashboardData(isGlobalAdmin);
 
-  // Non-admin with no realm membership → contact screen
-  if (!isGlobalAdmin && d.userRealmCount === 0) {
-    return <NoRealmScreen />;
+  // Non-admin with no workspace membership → contact screen
+  if (!isGlobalAdmin && d.userWorkspaceCount === 0) {
+    return <NoWorkspaceScreen />;
   }
 
   return (

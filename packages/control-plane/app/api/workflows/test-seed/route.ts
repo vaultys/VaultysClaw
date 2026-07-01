@@ -1,7 +1,7 @@
 import { getWSServer } from "@/lib/ws-server";
 import { getAuthContext } from "@/lib/auth-utils";
 import { APIException } from "@/lib/api/utils/api-utils";
-import { AgentDAO, RealmDAO, WorkflowDAO } from "@/db";
+import { AgentDAO, WorkspaceDAO, WorkflowDAO } from "@/db";
 
 import { Prisma } from "@prisma/client";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
@@ -41,9 +41,9 @@ const handlers = createNextRoute(workflowsContract, {
         `Not enough agents with details found in DB. Found ${agents.length}, need 4`
       );
 
-    const defaultRealm = await RealmDAO.findDefault();
-    if (!defaultRealm)
-      throw new APIException("NOT_FOUND", "Default realm not found");
+    const defaultWorkspace = await WorkspaceDAO.findDefault();
+    if (!defaultWorkspace)
+      throw new APIException("NOT_FOUND", "Default workspace not found");
 
     // Use each agent's first granted capability, falling back to a generic one.
     const getAgentCapability = (agent: { capabilities?: unknown }): string => {
@@ -79,7 +79,7 @@ const handlers = createNextRoute(workflowsContract, {
       "Test E2E Workflow",
       definition as unknown as Prisma.InputJsonValue,
       undefined,
-      defaultRealm.id
+      defaultWorkspace.id
     );
 
     return {
@@ -88,7 +88,7 @@ const handlers = createNextRoute(workflowsContract, {
         success: true,
         workflowId: workflow.id,
         name: "Test E2E Workflow",
-        realmId: defaultRealm.id,
+        workspaceId: defaultWorkspace.id,
         agents: agents.map((a, idx) => ({
           did: a.did,
           name: a.name,

@@ -3,7 +3,7 @@
  *   - PolicyDAO.create persists a record with correct fields
  *   - PolicyDAO.create stores resourceLimits as object
  *   - PolicyDAO.findById fetches by id; returns null for missing ids
- *   - PolicyDAO.list filters by agentDid, realmId
+ *   - PolicyDAO.list filters by agentDid, workspaceId
  *   - PolicyDAO.list excludes expired policies by default
  *   - PolicyDAO.list includes expired policies when includeExpired=true
  *   - PolicyDAO.delete removes the record and returns false for missing ids
@@ -12,7 +12,7 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
-import { PolicyDAO, AgentDAO, RealmDAO } from "../packages/control-plane/db";
+import { PolicyDAO, AgentDAO, WorkspaceDAO } from "../packages/control-plane/db";
 import { prisma } from "../packages/control-plane/db/client";
 
 // ---------------------------------------------------------------------------
@@ -21,8 +21,8 @@ import { prisma } from "../packages/control-plane/db/client";
 
 const AGENT_DID = "did:vaultys:gov-test-agent";
 const AGENT_DID_2 = "did:vaultys:gov-test-agent-2";
-const REALM_SLUG = "gov-test-realm";
-let REALM_ID: string;
+const WORKSPACE_SLUG = "gov-test-workspace";
+let WORKSPACE_ID: string;
 
 beforeAll(async () => {
   // Ensure agent rows exist (required for updateBudget FK)
@@ -37,32 +37,32 @@ beforeAll(async () => {
     update: {},
   });
 
-  // Ensure a realm row exists (policies.realmId has a FK constraint)
-  const existing = await prisma.realm.findFirst({ where: { slug: REALM_SLUG } });
+  // Ensure a workspace row exists (policies.workspaceId has a FK constraint)
+  const existing = await prisma.workspace.findFirst({ where: { slug: WORKSPACE_SLUG } });
   if (existing) {
-    REALM_ID = existing.id;
+    WORKSPACE_ID = existing.id;
   } else {
-    const realm = await RealmDAO.create({ name: "Gov Test Realm", slug: REALM_SLUG });
-    REALM_ID = realm.id;
+    const workspace = await WorkspaceDAO.create({ name: "Gov Test Workspace", slug: WORKSPACE_SLUG });
+    WORKSPACE_ID = workspace.id;
   }
 
   // Clean slate
   await prisma.policy.deleteMany({
-    where: { OR: [{ agentDid: AGENT_DID }, { agentDid: AGENT_DID_2 }, { realmId: REALM_ID }] },
+    where: { OR: [{ agentDid: AGENT_DID }, { agentDid: AGENT_DID_2 }, { workspaceId: WORKSPACE_ID }] },
   });
 });
 
 afterAll(async () => {
   await prisma.policy.deleteMany({
-    where: { OR: [{ agentDid: AGENT_DID }, { agentDid: AGENT_DID_2 }, { realmId: REALM_ID }] },
+    where: { OR: [{ agentDid: AGENT_DID }, { agentDid: AGENT_DID_2 }, { workspaceId: WORKSPACE_ID }] },
   });
   await prisma.agent.deleteMany({ where: { did: { in: [AGENT_DID, AGENT_DID_2] } } });
-  await prisma.realm.deleteMany({ where: { slug: REALM_SLUG } });
+  await prisma.workspace.deleteMany({ where: { slug: WORKSPACE_SLUG } });
 });
 
 beforeEach(async () => {
   await prisma.policy.deleteMany({
-    where: { OR: [{ agentDid: AGENT_DID }, { agentDid: AGENT_DID_2 }, { realmId: REALM_ID }] },
+    where: { OR: [{ agentDid: AGENT_DID }, { agentDid: AGENT_DID_2 }, { workspaceId: WORKSPACE_ID }] },
   });
 });
 
@@ -80,7 +80,7 @@ describe("PolicyDAO.create", () => {
 
     expect(p.id).toMatch(/^policy-/);
     expect(p.agentDid).toBe(AGENT_DID);
-    expect(p.realmId).toBeNull();
+    expect(p.workspaceId).toBeNull();
     expect(p.capabilities).toEqual(["api_call"]);
     expect(p.resourceLimits).toBeNull();
     expect(p.expiresAt).toBeNull();
@@ -124,13 +124,13 @@ describe("PolicyDAO.create", () => {
     expect(new Date(p.expiresAt!).toISOString()).toBe(exp);
   });
 
-  it("persists a realm-scoped policy (no agentDid)", async () => {
+  it("persists a workspace-scoped policy (no agentDid)", async () => {
     const p = await PolicyDAO.create({
-      realmId: REALM_ID,
+      workspaceId: WORKSPACE_ID,
       capabilities: ["file_access"],
     });
     expect(p.agentDid).toBeNull();
-    expect(p.realmId).toBe(REALM_ID);
+    expect(p.workspaceId).toBe(WORKSPACE_ID);
   });
 
   it("generates a unique id for each policy", async () => {
@@ -194,11 +194,11 @@ describe("PolicyDAO.list", () => {
     expect(rows.every((p) => p.agentDid === AGENT_DID)).toBe(true);
   });
 
-  it("filters by realmId", async () => {
-    await PolicyDAO.create({ realmId: REALM_ID, capabilities: ["api_call"] });
+  it("filters by workspaceId", async () => {
+    await PolicyDAO.create({ workspaceId: WORKSPACE_ID, capabilities: ["api_call"] });
     await PolicyDAO.create({ agentDid: AGENT_DID, capabilities: ["file_access"] });
-    const rows = await PolicyDAO.list({ realmId: REALM_ID });
-    expect(rows.every((p) => p.realmId === REALM_ID)).toBe(true);
+    const rows = await PolicyDAO.list({ workspaceId: WORKSPACE_ID });
+    expect(rows.every((p) => p.workspaceId === WORKSPACE_ID)).toBe(true);
     expect(rows.length).toBeGreaterThanOrEqual(1);
   });
 
@@ -282,8 +282,8 @@ describe("PolicyDAO.countByAgent", () => {
     }
   });
 
-  it("does not include realm-only policies (agentDid IS NULL)", async () => {
-    await PolicyDAO.create({ realmId: REALM_ID, capabilities: ["api_call"] });
+  it("does not include workspace-only policies (agentDid IS NULL)", async () => {
+    await PolicyDAO.create({ workspaceId: WORKSPACE_ID, capabilities: ["api_call"] });
     const counts = await PolicyDAO.countByAgent();
     expect(counts.every((r) => r.agentDid !== null)).toBe(true);
   });

@@ -15,18 +15,18 @@ All endpoints require an authenticated session. Agents use the same session mech
 ### List channels
 
 ```http
-GET /api/channels?realm=<realmId>
+GET /api/channels?workspace=<workspaceId>
 ```
 
 **Auth:** Required.
 
-Returns all non-archived channels in the realm, plus global channels (`realmId = null`).
+Returns all non-archived channels in the workspace, plus global channels (`workspaceId = null`).
 
 **Query parameters:**
 
 | Parameter         | Required | Description                                                |
 | ----------------- | -------- | ---------------------------------------------------------- |
-| `realm`           | Yes      | Realm ID to scope the query                                |
+| `workspace`           | Yes      | Workspace ID to scope the query                                |
 | `includeArchived` | No       | Set to `true` to include archived channels                 |
 | `includeGlobal`   | No       | Default `true`. Set to `false` to exclude global channels. |
 
@@ -37,7 +37,7 @@ Returns all non-archived channels in the realm, plus global channels (`realmId =
   "channels": [
     {
       "id": "ch_01HZ...",
-      "realmId": "realm_01HZ...",
+      "workspaceId": "workspace_01HZ...",
       "name": "Engineering",
       "slug": "engineering",
       "description": "Internal engineering channel",
@@ -60,7 +60,7 @@ Returns all non-archived channels in the realm, plus global channels (`realmId =
 POST /api/channels
 ```
 
-**Auth:** Required. Global admin required for global channels (`realmId` omitted).
+**Auth:** Required. Global admin required for global channels (`workspaceId` omitted).
 
 **Request body:**
 
@@ -68,7 +68,7 @@ POST /api/channels
 {
   "name": "Engineering",
   "description": "Internal engineering channel",
-  "realmId": "realm_01HZ...",
+  "workspaceId": "workspace_01HZ...",
   "isPublic": true,
   "slug": "engineering"
 }
@@ -77,7 +77,7 @@ POST /api/channels
 | Field         | Type    | Required | Description                                                |
 | ------------- | ------- | -------- | ---------------------------------------------------------- |
 | `name`        | string  | Yes      | Display name                                               |
-| `realmId`     | string  | No       | Omit for a global channel                                  |
+| `workspaceId`     | string  | No       | Omit for a global channel                                  |
 | `description` | string  | No       | Short description                                          |
 | `slug`        | string  | No       | URL-safe identifier; auto-generated from `name` if omitted |
 | `isPublic`    | boolean | No       | Default `true`                                             |
@@ -90,7 +90,7 @@ POST /api/channels
 }
 ```
 
-**Error `409`:** Slug already exists in that realm.
+**Error `409`:** Slug already exists in that workspace.
 
 ---
 
@@ -424,12 +424,12 @@ GET /api/agents/search?q=code-review
 
 ---
 
-## Me — realms
+## Me — workspaces
 
-Fetch the realms the authenticated user belongs to (used by the channel UI to scope the channel list).
+Fetch the workspaces the authenticated user belongs to (used by the channel UI to scope the channel list).
 
 ```http
-GET /api/me/realms
+GET /api/me/workspaces
 ```
 
 **Auth:** Required.
@@ -438,9 +438,9 @@ GET /api/me/realms
 
 ```json
 {
-  "realms": [
+  "workspaces": [
     {
-      "id": "realm_01HZ...",
+      "id": "workspace_01HZ...",
       "name": "Engineering",
       "slug": "engineering",
       "isPrimary": true,

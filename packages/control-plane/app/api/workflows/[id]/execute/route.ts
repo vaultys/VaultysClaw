@@ -19,7 +19,7 @@ const handlers = createNextRoute(workflowsContract, {
     const workflow = await WorkflowDAO.findById(id);
     if (!workflow) throw new APIException("NOT_FOUND", "Workflow not found");
 
-    if (workflow.realmId && !(await auth.canAccessRealm(workflow.realmId)))
+    if (workflow.workspaceId && !(await auth.canAccessWorkspace(workflow.workspaceId)))
       throw new APIException("FORBIDDEN");
 
     const definition = workflow.definition;

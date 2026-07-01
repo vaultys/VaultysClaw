@@ -1,7 +1,7 @@
 ---
 sidebar_position: 9
 title: Models
-description: REST API for the model registry — register LLMs, manage realm access, and sync with LiteLLM.
+description: REST API for the model registry — register LLMs, manage workspace access, and sync with LiteLLM.
 ---
 
 # Models API
@@ -139,7 +139,7 @@ Update name, description, or status. `provider`, `modelId`, and `baseUrl` change
 DELETE /api/models/:id
 ```
 
-Removes the model from the registry and, if LiteLLM is configured, deregisters it from the proxy. Realm access grants for this model are also removed.
+Removes the model from the registry and, if LiteLLM is configured, deregisters it from the proxy. Workspace access grants for this model are also removed.
 
 **Response `200`**
 
@@ -149,31 +149,31 @@ Removes the model from the registry and, if LiteLLM is configured, deregisters i
 
 ---
 
-## Grant realm access
+## Grant workspace access
 
 ```http
-POST /api/models/:id/realms
+POST /api/models/:id/workspaces
 ```
 
-Allows agents in the specified realm to use this model. If LiteLLM is configured:
+Allows agents in the specified workspace to use this model. If LiteLLM is configured:
 
-1. The model is added to the realm's allowed model list.
-2. A new realm virtual key is generated (or refreshed) scoped to the updated list.
-3. `llm_config` is pushed via WebSocket to all agents currently in that realm.
+1. The model is added to the workspace's allowed model list.
+2. A new workspace virtual key is generated (or refreshed) scoped to the updated list.
+3. `llm_config` is pushed via WebSocket to all agents currently in that workspace.
 
 **Request body**
 
 ```json
 {
-  "realmId": "realm-uuid",
+  "workspaceId": "workspace-uuid",
   "monthlyBudgetUsd": 50.0
 }
 ```
 
 | Field              | Required | Description                                              |
 | ------------------ | -------- | -------------------------------------------------------- |
-| `realmId`          | Yes      | UUID of the realm.                                       |
-| `monthlyBudgetUsd` | No       | LiteLLM monthly budget cap for this realm's virtual key. |
+| `workspaceId`          | Yes      | UUID of the workspace.                                       |
+| `monthlyBudgetUsd` | No       | LiteLLM monthly budget cap for this workspace's virtual key. |
 
 **Response `200`**
 
@@ -183,13 +183,13 @@ Allows agents in the specified realm to use this model. If LiteLLM is configured
 
 ---
 
-## Revoke realm access
+## Revoke workspace access
 
 ```http
-DELETE /api/models/:id/realms/:realmId
+DELETE /api/models/:id/workspaces/:workspaceId
 ```
 
-Removes the model from the realm's allowed list and refreshes the virtual key.
+Removes the model from the workspace's allowed list and refreshes the virtual key.
 
 **Response `200`**
 
@@ -228,12 +228,12 @@ PUT /api/agents/:did/llm-config
 
 Three modes:
 
-**Realm routing** — control plane resolves virtual key server-side:
+**Workspace routing** — control plane resolves virtual key server-side:
 
 ```json
 {
-  "realmId": "realm-uuid",
-  "realmModelId": "model-registry-id"
+  "workspaceId": "workspace-uuid",
+  "workspaceModelId": "model-registry-id"
 }
 ```
 
@@ -275,22 +275,22 @@ DELETE /api/agents/:did/llm-config
 
 Removes the stored config. The agent falls back to its environment variables.
 
-### Realm LLM options
+### Workspace LLM options
 
 ```http
-GET /api/agents/:did/realm-llm
+GET /api/agents/:did/workspace-llm
 ```
 
-Returns the realm membership and available model options for the realm routing UI.
+Returns the workspace membership and available model options for the workspace routing UI.
 
 ```json
 {
   "litellmConfigured": true,
   "litellmBaseUrl": "http://litellm:4000",
-  "realms": [
+  "workspaces": [
     {
-      "realmId": "...",
-      "realmName": "Engineering",
+      "workspaceId": "...",
+      "workspaceName": "Engineering",
       "isPrimary": true,
       "hasVirtualKey": true,
       "models": [

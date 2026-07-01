@@ -98,7 +98,7 @@ export function SkillNodeProperties({
           <span className="text-foreground-400 font-normal">(optional)</span>
         </label>
         <p className="text-xs text-foreground-400 mb-2">
-          Leave blank to auto-select a capable agent in the realm.
+          Leave blank to auto-select a capable agent in the workspace.
         </p>
         <AgentSelect
           value={node.data.agentId ?? ""}

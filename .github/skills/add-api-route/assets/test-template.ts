@@ -35,8 +35,8 @@ const mockAdminAuth = {
   did: "did:test:admin",
   isOwner: true,
   isGlobalAdmin: true,
-  canAccessRealm: () => true,
-  canAdminRealm: () => true,
+  canAccessWorkspace: () => true,
+  canAdminWorkspace: () => true,
   canAccessAgent: () => true,
   canAdminAgent: () => true,
 };

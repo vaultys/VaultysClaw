@@ -46,7 +46,7 @@ This document maps VaultysClaw's current implementation against the Zero Trust f
 | ------------------------------------------- | ------------------------------------- | ------ | -------------------------------------------------------------- |
 | **Role-based access control (RBAC)**        | `capabilities` table + policy engine  | ✅     | Agents assigned capabilities; policies define constraints      |
 | **Least privilege by default**              | Explicit deny unless granted          | ✅     | Default posture: no access. Admins grant specific capabilities |
-| **Scope-limited permissions**               | Via `ResourceLimits` and policy rules | ✅     | Agents scoped to realms; tools scoped to function              |
+| **Scope-limited permissions**               | Via `ResourceLimits` and policy rules | ✅     | Agents scoped to workspaces; tools scoped to function              |
 | **Permission assignment during deployment** | UI approval workflow                  | ✅     | Admins review & approve agent capabilities pre-deployment      |
 
 ### Enterprise Tier 🟡 PARTIAL
@@ -77,7 +77,7 @@ This document maps VaultysClaw's current implementation against the Zero Trust f
 
 | Capability                              | Needed                                               | Priority | Effort    |
 | --------------------------------------- | ---------------------------------------------------- | -------- | --------- |
-| **Container-based isolation**           | Run agents in Docker containers per realm/deployment | Medium   | High      |
+| **Container-based isolation**           | Run agents in Docker containers per workspace/deployment | Medium   | High      |
 | **Hardware isolation (advanced)**       | Separate VM/hypervisor per sensitive agent           | Low      | Very High |
 | **Comprehensive audit of blast radius** | Document what resources each agent can corrupt       | High     | Medium    |
 
@@ -306,7 +306,7 @@ This document maps VaultysClaw's current implementation against the Zero Trust f
 | **Documented acceptable use policies** | Policies table; incident response defined in UI | ✅     | Can be formalized in docs                 |
 | **Incident response procedures**       | Admins can disable agents, revoke capabilities  | ✅     | Manual; could be automated                |
 | **Policy enforcement**                 | Policy engine validates intents                 | ✅     | Policies checked at message layer         |
-| **Shadow AI tracking**                 | All agents registered in control plane          | ✅     | Realm-based governance ensures visibility |
+| **Shadow AI tracking**                 | All agents registered in control plane          | ✅     | Workspace-based governance ensures visibility |
 
 ### Enterprise Tier 🟡 PARTIAL
 
@@ -365,7 +365,7 @@ This document maps VaultysClaw's current implementation against the Zero Trust f
 
 ## Long-Term (Advanced Tier)
 
-1. **Container Isolation** — Run agents in per-realm Docker containers
+1. **Container Isolation** — Run agents in per-workspace Docker containers
 2. **ML-Driven Anomaly Detection** — SIEM integration + behavioral analysis
 3. **Hardware Isolation** — Separate VMs for high-risk deployments
 4. **Just-In-Time Access** — Temporary credential issuance on-demand

@@ -46,9 +46,9 @@ export class ModelDAO {
         createdAt: true,
         updatedAt: true,
         apiKeyEnc: true,
-        realmAccess: {
+        workspaceAccess: {
           include: {
-            realm: true,
+            workspace: true,
           },
         },
       },
@@ -65,10 +65,10 @@ export class ModelDAO {
   }
 
   /**
-   * List every model registry entry with its realm-access rows joined in — a
+   * List every model registry entry with its workspace-access rows joined in — a
    * single query that returns exactly what the models API needs (the
    * `apiKeyEnc` secret is excluded by the `select`). The select must stay in
-   * sync with the `ModelWithRealmAccess` type in `models.contract.ts`.
+   * sync with the `ModelWithWorkspaceAccess` type in `models.contract.ts`.
    */
   static async findAll(): Promise<SafeModel[]> {
     const models = await prisma.modelRegistry.findMany({
@@ -87,9 +87,9 @@ export class ModelDAO {
         createdAt: true,
         updatedAt: true,
         apiKeyEnc: true,
-        realmAccess: {
+        workspaceAccess: {
           include: {
-            realm: true,
+            workspace: true,
           },
         },
       },
@@ -100,11 +100,11 @@ export class ModelDAO {
     });
   }
 
-  static async findByRealm(realmId: string): Promise<ModelRegistry[]> {
+  static async findByWorkspace(workspaceId: string): Promise<ModelRegistry[]> {
     return prisma.modelRegistry.findMany({
       where: {
         status: "active",
-        realmAccess: { some: { realmId } },
+        workspaceAccess: { some: { workspaceId } },
       },
       orderBy: { name: "asc" },
     });
@@ -131,22 +131,22 @@ export class ModelDAO {
     return await prisma.modelRegistry.delete({ where: { id } });
   }
 
-  // ─── Realm access ────────────────────────────────────────────────────────────
-  static async grantRealmAccess(
+  // ─── Workspace access ────────────────────────────────────────────────────────────
+  static async grantWorkspaceAccess(
     modelId: string,
-    realmId: string
+    workspaceId: string
   ): Promise<void> {
-    await prisma.modelRealmAccess.upsert({
-      where: { modelId_realmId: { modelId, realmId } },
-      create: { modelId, realmId },
+    await prisma.modelWorkspaceAccess.upsert({
+      where: { modelId_workspaceId: { modelId, workspaceId } },
+      create: { modelId, workspaceId },
       update: {},
     });
   }
 
-  static async revokeRealmAccess(
+  static async revokeWorkspaceAccess(
     modelId: string,
-    realmId: string
+    workspaceId: string
   ): Promise<void> {
-    await prisma.modelRealmAccess.deleteMany({ where: { modelId, realmId } });
+    await prisma.modelWorkspaceAccess.deleteMany({ where: { modelId, workspaceId } });
   }
 }

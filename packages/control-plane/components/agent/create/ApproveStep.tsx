@@ -15,15 +15,15 @@ import {
   CAPABILITY_ICONS,
   type PendingReg,
 } from "./constants";
-import { Realm } from "@prisma/client";
+import { Workspace } from "@prisma/client";
 
 interface ApproveStepProps {
   pendingReg: PendingReg;
-  realms: Realm[];
+  workspaces: Workspace[];
   selectedCaps: Set<string>;
   setSelectedCaps: (updater: (prev: Set<string>) => Set<string>) => void;
-  selectedRealms: Set<string>;
-  setSelectedRealms: (updater: (prev: Set<string>) => Set<string>) => void;
+  selectedWorkspaces: Set<string>;
+  setSelectedWorkspaces: (updater: (prev: Set<string>) => Set<string>) => void;
   policyMaxTokensPerDay: string;
   setPolicyMaxTokensPerDay: (v: string) => void;
   policyMaxRequestsPerHour: string;
@@ -42,11 +42,11 @@ interface ApproveStepProps {
 
 export function ApproveStep({
   pendingReg,
-  realms,
+  workspaces,
   selectedCaps,
   setSelectedCaps,
-  selectedRealms,
-  setSelectedRealms,
+  selectedWorkspaces,
+  setSelectedWorkspaces,
   policyMaxTokensPerDay,
   setPolicyMaxTokensPerDay,
   policyMaxRequestsPerHour,
@@ -69,7 +69,7 @@ export function ApproveStep({
           Approve agent
         </h2>
         <p className="text-sm text-foreground-500">
-          Assign capabilities and enroll in a realm. The agent will receive
+          Assign capabilities and enroll in a workspace. The agent will receive
           these permissions immediately upon approval.
         </p>
       </div>
@@ -192,20 +192,20 @@ export function ApproveStep({
         />
       </label>
 
-      {/* Realm assignment */}
-      {realms.length > 0 && (
+      {/* Workspace assignment */}
+      {workspaces.length > 0 && (
         <div className="space-y-3">
           <p className="text-xs font-medium text-foreground-500 uppercase tracking-wide">
-            Realms
+            Workspaces
           </p>
           <div className="space-y-1.5">
-            {realms.map((r) => {
-              const checked = selectedRealms.has(r.id);
+            {workspaces.map((r) => {
+              const checked = selectedWorkspaces.has(r.id);
               return (
                 <button
                   key={r.id}
                   onClick={() =>
-                    setSelectedRealms((prev) => {
+                    setSelectedWorkspaces((prev) => {
                       const next = new Set(prev);
                       if (next.has(r.id)) next.delete(r.id);
                       else next.add(r.id);

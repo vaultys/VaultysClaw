@@ -18,7 +18,7 @@
 
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import type { WorkflowDefinition } from "../packages/control-plane/lib/workflow-types";
-import { WorkflowDAO, PolicyDAO, RealmDAO, AgentDAO } from "../packages/control-plane/db";
+import { WorkflowDAO, PolicyDAO, WorkspaceDAO, AgentDAO } from "../packages/control-plane/db";
 import { prisma } from "../packages/control-plane/db/client";
 import { ServerIdentityDAO } from "../packages/control-plane/db/settings.dao";
 import { AgentWSServer } from "../packages/control-plane/lib/ws-server";
@@ -38,9 +38,9 @@ while (portInUse) {
 
 describe("Contract Review & Approval Pipeline Workflow", () => {
   let wsServer: AgentWSServer;
-  let testRealmId: string;
-  const testRealmSlug = `legal-realm-${Math.random().toString(36).slice(2, 8)}`;
-  const testRealmName = "Legal Operations";
+  let testWorkspaceId: string;
+  const testWorkspaceSlug = `legal-workspace-${Math.random().toString(36).slice(2, 8)}`;
+  const testWorkspaceName = "Legal Operations";
 
   // Sentinel names for cleanup
   const WORKFLOW_NAMES = [
@@ -73,28 +73,28 @@ describe("Contract Review & Approval Pipeline Workflow", () => {
     }
     await prisma.agent.deleteMany({ where: { name: { in: AGENT_NAMES } } });
 
-    // Clean up realm if it exists (by slug)
-    const existingRealm = await prisma.realm.findFirst({ where: { slug: testRealmSlug } });
-    if (existingRealm) {
-      await prisma.agentRealm.deleteMany({ where: { realmId: existingRealm.id } });
-      await prisma.userRealm.deleteMany({ where: { realmId: existingRealm.id } });
-      await prisma.realm.delete({ where: { id: existingRealm.id } });
+    // Clean up workspace if it exists (by slug)
+    const existingWorkspace = await prisma.workspace.findFirst({ where: { slug: testWorkspaceSlug } });
+    if (existingWorkspace) {
+      await prisma.agentWorkspace.deleteMany({ where: { workspaceId: existingWorkspace.id } });
+      await prisma.userWorkspace.deleteMany({ where: { workspaceId: existingWorkspace.id } });
+      await prisma.workspace.delete({ where: { id: existingWorkspace.id } });
     }
 
     await ServerIdentityDAO.ensureServerIdentity();
     wsServer = new AgentWSServer(WS_PORT);
     await new Promise((resolve) => setTimeout(resolve, 200));
 
-    // Create realm for legal team
-    const createdRealm = await RealmDAO.create({
-      name: testRealmName,
-      slug: testRealmSlug,
+    // Create workspace for legal team
+    const createdWorkspace = await WorkspaceDAO.create({
+      name: testWorkspaceName,
+      slug: testWorkspaceSlug,
       description: "Legal operations and contract management",
     });
-    if (!createdRealm) {
-      throw new Error("Failed to create test realm");
+    if (!createdWorkspace) {
+      throw new Error("Failed to create test workspace");
     }
-    testRealmId = createdRealm.id;
+    testWorkspaceId = createdWorkspace.id;
 
     // Create test agents
     documentAnalyzer = new MockAgent(`ws://localhost:${WS_PORT}`, "Document Analyzer");
@@ -113,7 +113,7 @@ describe("Contract Review & Approval Pipeline Workflow", () => {
     await legalReviewer.authenticate(["review", "approve"], wsServer);
     await archiveAgent.authenticate(["store", "archive"], wsServer);
 
-    // Upsert agents in database and add to realm
+    // Upsert agents in database and add to workspace
     const agentsList = [documentAnalyzer, complianceChecker, legalReviewer, archiveAgent];
     for (const agent of agentsList) {
       await prisma.agent.upsert({
@@ -121,9 +121,9 @@ describe("Contract Review & Approval Pipeline Workflow", () => {
         create: { did: agent.id, name: agent.name, capabilities: [] },
         update: {},
       });
-      await prisma.agentRealm.upsert({
-        where: { agentDid_realmId: { agentDid: agent.id, realmId: testRealmId } },
-        create: { agentDid: agent.id, realmId: testRealmId },
+      await prisma.agentWorkspace.upsert({
+        where: { agentDid_workspaceId: { agentDid: agent.id, workspaceId: testWorkspaceId } },
+        create: { agentDid: agent.id, workspaceId: testWorkspaceId },
         update: {},
       });
     }
@@ -221,7 +221,7 @@ describe("Contract Review & Approval Pipeline Workflow", () => {
         ],
       };
 
-      const workflowId = (await WorkflowDAO.create("Contract Review Pipeline", workflow as any, undefined, testRealmId)).id;
+      const workflowId = (await WorkflowDAO.create("Contract Review Pipeline", workflow as any, undefined, testWorkspaceId)).id;
       const runId = await WorkflowDAO.startRun(workflowId);
 
       // Step 1: Document Analyzer extracts key terms
@@ -397,7 +397,7 @@ describe("Contract Review & Approval Pipeline Workflow", () => {
         edges: [],
       };
 
-      const workflowId = (await WorkflowDAO.create("Token Budget Test", workflow as any, undefined, testRealmId)).id;
+      const workflowId = (await WorkflowDAO.create("Token Budget Test", workflow as any, undefined, testWorkspaceId)).id;
       const runId = await WorkflowDAO.startRun(workflowId);
 
       // Simulate document analysis (uses ~3000 tokens)
@@ -436,7 +436,7 @@ describe("Contract Review & Approval Pipeline Workflow", () => {
   describe("Compliance Policy Management", () => {
     it("should create and enforce governance policies", async () => {
       const policyRow = await PolicyDAO.create({
-        realmId: testRealmId,
+        workspaceId: testWorkspaceId,
         capabilities: ["review", "approve"],
         resourceLimits: {
           maxTokensPerDay: 100000,
@@ -445,7 +445,7 @@ describe("Contract Review & Approval Pipeline Workflow", () => {
 
       expect(policyRow.id).toBeDefined();
 
-      const policies = await PolicyDAO.list({ realmId: testRealmId });
+      const policies = await PolicyDAO.list({ workspaceId: testWorkspaceId });
       expect(policies.length).toBeGreaterThan(0);
 
       const policy = policies.find((p) => p.id === policyRow.id);
@@ -491,7 +491,7 @@ describe("Contract Review & Approval Pipeline Workflow", () => {
         ],
       };
 
-      const workflowId = (await WorkflowDAO.create("High-Value Contract Review", workflow as any, undefined, testRealmId)).id;
+      const workflowId = (await WorkflowDAO.create("High-Value Contract Review", workflow as any, undefined, testWorkspaceId)).id;
       const runId = await WorkflowDAO.startRun(workflowId);
 
       const analyzerIntentPromise = documentAnalyzer.waitForIntent(5000);
@@ -550,7 +550,7 @@ describe("Contract Review & Approval Pipeline Workflow", () => {
         edges: [],
       };
 
-      const workflowId = (await WorkflowDAO.create("Contract with Compliance Issues", workflow as any, undefined, testRealmId)).id;
+      const workflowId = (await WorkflowDAO.create("Contract with Compliance Issues", workflow as any, undefined, testWorkspaceId)).id;
       const runId = await WorkflowDAO.startRun(workflowId);
 
       const checkerIntentPromise = complianceChecker.waitForIntent(5000);
@@ -630,7 +630,7 @@ describe("Contract Review & Approval Pipeline Workflow", () => {
           "Service Agreement Template",
           serviceAgreementWorkflow as any,
           undefined,
-          testRealmId
+          testWorkspaceId
         )
       ).id;
       expect(templateId).toBeDefined();

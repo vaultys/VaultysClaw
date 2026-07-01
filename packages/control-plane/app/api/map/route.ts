@@ -7,13 +7,13 @@ import { mapContract, MapMarker } from "@/lib/contracts";
 
 /**
  * GET /api/map — aggregate all located entities (agents, users, services)
- * into map markers. Query: `realm` filters agents/users by realm id or slug.
+ * into map markers. Query: `workspace` filters agents/users by workspace id or slug.
  */
 const handlers = createNextRoute(mapContract, {
   get: async ({ query, request }) => {
     const auth = await getAuthContext(request);
 
-    const realmFilter = query.realm || undefined;
+    const workspaceFilter = query.workspace || undefined;
     const markers: MapMarker[] = [];
 
     // ── Agents ────────────────────────────────────────────────────────────
@@ -22,11 +22,11 @@ const handlers = createNextRoute(mapContract, {
       wsServer?.getConnectedAgents().map((a) => a.id) ?? []
     );
 
-    const realmIds = auth.isGlobalAdmin ? undefined : auth.realmIds;
+    const workspaceIds = auth.isGlobalAdmin ? undefined : auth.workspaceIds;
 
     const { agents } = await AgentDAO.query({
-      realm: realmFilter,
-      realmIds,
+      workspace: workspaceFilter,
+      workspaceIds,
       pageSize: 1000,
     });
 
@@ -43,10 +43,10 @@ const handlers = createNextRoute(mapContract, {
       });
     }
 
-    // ── Users (admins see all; others see co-members of their realms) ───────
+    // ── Users (admins see all; others see co-members of their workspaces) ───────
     if (auth.isGlobalAdmin) {
       const { users } = await UserDAO.list({
-        realmId: realmFilter,
+        workspaceId: workspaceFilter,
         pageSize: 1000,
       });
       for (const user of users) {
@@ -60,14 +60,14 @@ const handlers = createNextRoute(mapContract, {
           meta: { userId: user.id, email: user.email, role: user.role },
         });
       }
-    } else if (realmIds && realmIds.size > 0) {
+    } else if (workspaceIds && workspaceIds.size > 0) {
       const seen = new Set<string>();
-      for (const rid of realmIds) {
-        const { users: realmUsers } = await UserDAO.list({
-          realmId: rid,
+      for (const rid of workspaceIds) {
+        const { users: workspaceUsers } = await UserDAO.list({
+          workspaceId: rid,
           pageSize: 1000,
         });
-        for (const user of realmUsers) {
+        for (const user of workspaceUsers) {
           if (seen.has(user.id)) continue;
           seen.add(user.id);
           if (user.locationLat == null || user.locationLon == null) continue;
@@ -84,7 +84,7 @@ const handlers = createNextRoute(mapContract, {
     }
 
     // ── Services (global admin only) ────────────────────────────────────────
-    if (auth.isGlobalAdmin && !realmFilter) {
+    if (auth.isGlobalAdmin && !workspaceFilter) {
       const docling = await getDoclingConfig();
       if (docling?.locationLat != null && docling?.locationLon != null) {
         markers.push({

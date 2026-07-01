@@ -16,7 +16,7 @@ function toPolicyEntry(p: Policy): PolicyEntry {
   return {
     id: p.id,
     agentDid: p.agentDid,
-    realmId: p.realmId,
+    workspaceId: p.workspaceId,
     capabilities: (p.capabilities as string[]) ?? [],
     resourceLimits: (p.resourceLimits as PolicyResourceLimits | null) ?? null,
     expiresAt: p.expiresAt ? p.expiresAt.toISOString() : null,
@@ -38,7 +38,7 @@ const handlers = createNextRoute(policiesContract, {
 
     const policies = await PolicyDAO.list({
       agentDid: query.agentDid,
-      realmId: query.realmId,
+      workspaceId: query.workspaceId,
       includeExpired: query.includeExpired,
       expiredOnly: query.expiredOnly,
     });
@@ -51,11 +51,11 @@ const handlers = createNextRoute(policiesContract, {
     const auth = await getAuthContext(request);
     if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");
 
-    const { agentDid, realmId, capabilities, resourceLimits, expiresAt } = body;
+    const { agentDid, workspaceId, capabilities, resourceLimits, expiresAt } = body;
 
     const policy = await PolicyDAO.create({
       agentDid: agentDid ?? undefined,
-      realmId: realmId ?? undefined,
+      workspaceId: workspaceId ?? undefined,
       capabilities,
       resourceLimits: resourceLimits ?? undefined,
       expiresAt: expiresAt ?? undefined,

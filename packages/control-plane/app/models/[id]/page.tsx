@@ -15,7 +15,7 @@ import { useRole } from "@/hooks/useRole";
 import { useToolbar } from "@/components/layout/ToolbarContext";
 import { useBreadcrumbs } from "@/components/layout/BreadcrumbContext";
 import { OverviewTab } from "@/components/models/OverviewTab";
-import { RealmAccessTab } from "@/components/models/RealmAccessTab";
+import { WorkspaceAccessTab } from "@/components/models/WorkspaceAccessTab";
 import { DeploymentTab } from "@/components/models/DeploymentTab";
 import { TrainingTab } from "@/components/models/TrainingTab";
 import { modelsClient, unwrap } from "@/lib/api/ts-rest/client";
@@ -23,7 +23,7 @@ import { SafeModel } from "@/lib/contracts";
 
 const TABS = [
   { id: "overview", label: "Overview", icon: Cpu },
-  { id: "realms", label: "Realm Access", icon: Globe2 },
+  { id: "workspaces", label: "Workspace Access", icon: Globe2 },
   { id: "deployment", label: "Deployment", icon: Server, comingSoon: true },
   {
     id: "training",
@@ -142,7 +142,7 @@ export default function ModelDetailPage() {
       {tab === "overview" && (
         <OverviewTab model={model} onSaved={load} isAdmin={isGlobalAdmin} />
       )}
-      {tab === "realms" && <RealmAccessTab model={model} onChanged={load} />}
+      {tab === "workspaces" && <WorkspaceAccessTab model={model} onChanged={load} />}
       {tab === "deployment" && <DeploymentTab />}
       {tab === "training" && <TrainingTab />}
     </div>

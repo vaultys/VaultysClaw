@@ -11,7 +11,7 @@ export type GraphQuery = z.infer<typeof GraphQuerySchema>;
 export type Filters = {
   agentDid: string | null;
   userDid: string | null;
-  realmId: string | null;
+  workspaceId: string | null;
 };
 
 // Shape returned by prisma.user.findMany / findUnique for graph use

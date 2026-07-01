@@ -23,7 +23,7 @@ import { ApproveStep } from "@/components/agent/create/ApproveStep";
 import { ModelStep } from "@/components/agent/create/ModelStep";
 import { SkillsStep } from "@/components/agent/create/SkillsStep";
 import { VerifyStep } from "@/components/agent/create/VerifyStep";
-import { Realm } from "@prisma/client";
+import { Workspace } from "@prisma/client";
 import { parseJsonArray } from "@vaultysclaw/shared";
 
 export default function CreateAgentPage() {
@@ -33,13 +33,13 @@ export default function CreateAgentPage() {
   const regId = searchParams.get("regId");
 
   const [step, setStep] = useState<WizardStep>(regId ? "approve" : "launch");
-  const [realms, setRealms] = useState<Realm[]>([]);
+  const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
 
   // Approval state — shared between selectRegistration, the approve handler,
   // and the ApproveStep form.
   const [pendingReg, setPendingReg] = useState<PendingReg | null>(null);
   const [selectedCaps, setSelectedCaps] = useState<Set<string>>(new Set());
-  const [selectedRealms, setSelectedRealms] = useState<Set<string>>(new Set());
+  const [selectedWorkspaces, setSelectedWorkspaces] = useState<Set<string>>(new Set());
   const [approving, setApproving] = useState(false);
   const [approveError, setApproveError] = useState<string | null>(null);
   const [rejecting, setRejecting] = useState(false);
@@ -83,16 +83,16 @@ export default function CreateAgentPage() {
     resetPolicyFields();
   };
 
-  // ── Initial data load (realms — shared by Launch + Approve) ─────────────────
+  // ── Initial data load (workspaces — shared by Launch + Approve) ─────────────────
 
   useEffect(() => {
-    fetch("/api/realms")
+    fetch("/api/workspaces")
       .then((r) => r.json())
-      .then((d: { realms?: Realm[] }) => {
-        const list = d.realms ?? [];
-        setRealms(list);
+      .then((d: { workspaces?: Workspace[] }) => {
+        const list = d.workspaces ?? [];
+        setWorkspaces(list);
         const def = list.find((r) => r.isDefault);
-        if (def) setSelectedRealms(new Set([def.id]));
+        if (def) setSelectedWorkspaces(new Set([def.id]));
       })
       .catch(() => {});
   }, []);
@@ -178,7 +178,7 @@ export default function CreateAgentPage() {
           params: { id: pendingReg.id },
           body: {
             capabilities: Array.from(selectedCaps),
-            realmIds: Array.from(selectedRealms),
+            workspaceIds: Array.from(selectedWorkspaces),
           },
         })
       );
@@ -285,8 +285,8 @@ export default function CreateAgentPage() {
     <div className="p-6 w-full max-w-7xl mx-auto">
       {step === "launch" && (
         <LaunchStep
-          realms={realms}
-          setSelectedRealms={setSelectedRealms}
+          workspaces={workspaces}
+          setSelectedWorkspaces={setSelectedWorkspaces}
           onContinue={startWaiting}
         />
       )}
@@ -309,11 +309,11 @@ export default function CreateAgentPage() {
       {step === "approve" && pendingReg && (
         <ApproveStep
           pendingReg={pendingReg}
-          realms={realms}
+          workspaces={workspaces}
           selectedCaps={selectedCaps}
           setSelectedCaps={setSelectedCaps}
-          selectedRealms={selectedRealms}
-          setSelectedRealms={setSelectedRealms}
+          selectedWorkspaces={selectedWorkspaces}
+          setSelectedWorkspaces={setSelectedWorkspaces}
           policyMaxTokensPerDay={policyMaxTokensPerDay}
           setPolicyMaxTokensPerDay={setPolicyMaxTokensPerDay}
           policyMaxRequestsPerHour={policyMaxRequestsPerHour}

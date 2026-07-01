@@ -90,31 +90,31 @@ A **capability** is a specific permission. The current capability set is:
 
 Capabilities are granted per agent and can be revoked instantly from the control plane without restarting the agent.
 
-## Realm
+## Workspace
 
-A **realm** is an organisational scope. Think of it as a namespace for agents, users, and workflows that belong to the same team, department, or project.
+A **workspace** is an organisational scope. Think of it as a namespace for agents, users, and workflows that belong to the same team, department, or project.
 
-Realms provide:
+Workspaces provide:
 
-- **Isolation** — users in realm A cannot see agents or workflows in realm B (unless they are global admins)
-- **Role-based access** — each user has a role within each realm they belong to
-- **Grouping** — intents can be broadcast to all agents in a realm
+- **Isolation** — users in workspace A cannot see agents or workflows in workspace B (unless they are global admins)
+- **Role-based access** — each user has a role within each workspace they belong to
+- **Grouping** — intents can be broadcast to all agents in a workspace
 
-Every realm has a human-readable name, a URL-friendly slug, and an optional colour for display purposes.
+Every workspace has a human-readable name, a URL-friendly slug, and an optional colour for display purposes.
 
 ## Role
 
-Roles are assigned per realm:
+Roles are assigned per workspace:
 
 | Role       | Permissions                                      |
 | ---------- | ------------------------------------------------ |
-| `owner`    | Full control of the realm including deleting it  |
-| `admin`    | Manage agents, users, workflows within the realm |
+| `owner`    | Full control of the workspace including deleting it  |
+| `admin`    | Manage agents, users, workflows within the workspace |
 | `manager`  | Supervise operators; approve tool requests       |
 | `operator` | Execute workflows, send intents                  |
 | `member`   | View-only access                                 |
 
-A user can be a **global admin** which grants full access across all realms.
+A user can be a **global admin** which grants full access across all workspaces.
 
 ## Grant
 
@@ -140,11 +140,11 @@ A **workflow** is a named, reusable sequence of steps that can involve one or mo
 - Triggered by **events** (e.g. webhook, schedule)
 - Parameterised with **variables**
 
-Workflows belong to a realm and inherit its access control.
+Workflows belong to a workspace and inherit its access control.
 
 ## Skill
 
-A **skill** is a named unit of reusable agent behaviour attached to a realm. Each skill can carry:
+A **skill** is a named unit of reusable agent behaviour attached to a workspace. Each skill can carry:
 
 - **Markdown instructions** (`content`) — injected verbatim into the agent's system prompt at the end, separated by `---` dividers
 - **Config JSON** — arbitrary metadata forwarded alongside the skill for future tool integrations
@@ -152,7 +152,7 @@ A **skill** is a named unit of reusable agent behaviour attached to a realm. Eac
 
 Skills are managed from the **Skills** page in the control plane (global admin only) or via the REST API. They can also be imported from the [skills library](https://skills-library.com), which provides a curated catalogue of pre-built `SKILL.md` files hosted on GitHub.
 
-When an agent connects, the control plane pushes a `skills_config` message over the WebSocket. Any time a skill is created, updated, or deleted, connected agents in that realm receive the updated configuration immediately.
+When an agent connects, the control plane pushes a `skills_config` message over the WebSocket. Any time a skill is created, updated, or deleted, connected agents in that workspace receive the updated configuration immediately.
 
 See [Skills Guide](/docs/guides/skills) for a full walkthrough.
 

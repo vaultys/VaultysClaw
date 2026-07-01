@@ -17,10 +17,10 @@ import { useRole } from "@/hooks/useRole";
 import {
   agentsClient,
   knowledgeClient,
-  realmsClient,
+  workspacesClient,
   unwrap,
 } from "@/lib/api/ts-rest/client";
-import { AgentInfo, KnowledgeSource, RealmWithCounts } from "@/lib/contracts";
+import { AgentInfo, KnowledgeSource, WorkspaceWithCounts } from "@/lib/contracts";
 import { useToolbar } from "@/components/layout/ToolbarContext";
 import { useBreadcrumbs } from "@/components/layout/BreadcrumbContext";
 import {
@@ -36,7 +36,7 @@ export default function KnowledgeDashboardPage() {
 
   const [sources, setSources] = useState<KnowledgeSource[]>([]);
   const [agents, setAgents] = useState<AgentInfo[]>([]);
-  const [realms, setRealms] = useState<RealmWithCounts[]>([]);
+  const [workspaces, setWorkspaces] = useState<WorkspaceWithCounts[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -49,14 +49,14 @@ export default function KnowledgeDashboardPage() {
       const [ksRes, agRes, rlRes] = await Promise.all([
         knowledgeClient.list(),
         agentsClient.search(),
-        realmsClient.list(),
+        workspacesClient.list(),
       ]);
       const agData = unwrap(agRes);
       const rlData = unwrap(rlRes);
 
       setSources(unwrap(ksRes).sources as unknown as KnowledgeSource[]);
       setAgents(agData.items);
-      setRealms(rlData.realms ?? []);
+      setWorkspaces(rlData.workspaces ?? []);
     } finally {
       setLoading(false);
     }
@@ -83,7 +83,7 @@ export default function KnowledgeDashboardPage() {
     {
       title: "Knowledge Overview",
       description: loading
-        ? "Data access map — which agents index what, and for which realm"
+        ? "Data access map — which agents index what, and for which workspace"
         : `${sources.length} source${sources.length !== 1 ? "s" : ""} · ${agentsWithKnowledge} agent${agentsWithKnowledge !== 1 ? "s" : ""} with RAG`,
       actions: [
         syncing
@@ -280,7 +280,7 @@ export default function KnowledgeDashboardPage() {
               key={agent.did}
               agent={agent}
               sources={sources.filter((s) => s.agentDid === agent.did)}
-              realms={realms}
+              workspaces={workspaces}
             />
           ))}
         </div>

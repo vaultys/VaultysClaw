@@ -20,7 +20,7 @@ Agent runtime: WebSocket client, LLM execution, tools, skills, memory. Connects 
 
 ## Adding a Skill
 
-Create a package under `skills/<name>/`, export Zod schemas + handlers. Skills are auto-discovered by `src/skills/loader.ts` and can be enabled per-realm in the control plane UI.
+Create a package under `skills/<name>/`, export Zod schemas + handlers. Skills are auto-discovered by `src/skills/loader.ts` and can be enabled per-workspace in the control plane UI.
 
 ## Environment
 

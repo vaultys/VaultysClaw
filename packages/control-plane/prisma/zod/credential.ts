@@ -1,5 +1,5 @@
 import * as z from "zod"
-import { CompleteRealm, RelatedRealmModel } from "./index"
+import { CompleteWorkspace, RelatedWorkspaceModel } from "./index"
 
 // Helper schema for JSON fields
 type Literal = boolean | number | string
@@ -9,7 +9,7 @@ const jsonSchema: z.ZodSchema<Json> = z.lazy(() => z.union([literalSchema, z.arr
 
 export const CredentialModel = z.object({
   id: z.string(),
-  realmId: z.string(),
+  workspaceId: z.string(),
   service: z.string(),
   name: z.string(),
   secretEnc: z.string(),
@@ -20,7 +20,7 @@ export const CredentialModel = z.object({
 })
 
 export interface CompleteCredential extends z.infer<typeof CredentialModel> {
-  realm: CompleteRealm
+  workspace: CompleteWorkspace
 }
 
 /**
@@ -29,5 +29,5 @@ export interface CompleteCredential extends z.infer<typeof CredentialModel> {
  * NOTE: Lazy required in case of potential circular dependencies within schema
  */
 export const RelatedCredentialModel: z.ZodSchema<CompleteCredential> = z.lazy(() => CredentialModel.extend({
-  realm: RelatedRealmModel,
+  workspace: RelatedWorkspaceModel,
 }))

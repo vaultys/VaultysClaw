@@ -6,17 +6,17 @@ import {
   isPublicRoute,
   matchRoute,
 } from "./api/utils/api-key-utils";
-import { AgentDAO, ApiKeyDAO, RealmDAO } from "@/db";
+import { AgentDAO, ApiKeyDAO, WorkspaceDAO } from "@/db";
 import { APIException } from "./api/utils/api-utils";
 
 export interface AuthContext {
   did: string;
-  /** Precomputed set of realm IDs the user can access. Empty for global admins (use isGlobalAdmin instead). */
-  realmIds: Set<string>;
+  /** Precomputed set of workspace IDs the user can access. Empty for global admins (use isGlobalAdmin instead). */
+  workspaceIds: Set<string>;
   isOwner: boolean;
   isGlobalAdmin: boolean;
-  canAccessRealm(realmId: string): Promise<boolean>;
-  canAdminRealm(realmId: string): Promise<boolean>;
+  canAccessWorkspace(workspaceId: string): Promise<boolean>;
+  canAdminWorkspace(workspaceId: string): Promise<boolean>;
   canAccessAgent(agentDid: string): Promise<boolean>;
   canAdminAgent(agentDid: string): Promise<boolean>;
 }
@@ -37,40 +37,40 @@ export async function getAuthContext(
     const { did, userId, isOwner, isAdmin } = session.user;
     const isGlobalAdmin = Boolean(isAdmin) || Boolean(isOwner);
 
-    // Precompute realm membership once per request.
-    // getUserRealms expects the DB UUID (userId), not the VaultysID DID string.
-    const userRealms = isGlobalAdmin
+    // Precompute workspace membership once per request.
+    // getUserWorkspaces expects the DB UUID (userId), not the VaultysID DID string.
+    const userWorkspaces = isGlobalAdmin
       ? []
-      : await RealmDAO.getUserRealms(userId ?? did);
-    const accessibleRealmIds = new Set(userRealms.map((r) => r.realmId));
-    const adminRealmIds = new Set(
-      userRealms.filter((r) => r.isRealmAdmin).map((r) => r.realmId)
+      : await WorkspaceDAO.getUserWorkspaces(userId ?? did);
+    const accessibleWorkspaceIds = new Set(userWorkspaces.map((r) => r.workspaceId));
+    const adminWorkspaceIds = new Set(
+      userWorkspaces.filter((r) => r.isWorkspaceAdmin).map((r) => r.workspaceId)
     );
 
     return {
       did,
-      realmIds: accessibleRealmIds,
+      workspaceIds: accessibleWorkspaceIds,
       isOwner: Boolean(isOwner),
       isGlobalAdmin,
 
-      async canAccessRealm(realmId: string): Promise<boolean> {
-        return isGlobalAdmin || accessibleRealmIds.has(realmId);
+      async canAccessWorkspace(workspaceId: string): Promise<boolean> {
+        return isGlobalAdmin || accessibleWorkspaceIds.has(workspaceId);
       },
 
-      async canAdminRealm(realmId: string): Promise<boolean> {
-        return isGlobalAdmin || adminRealmIds.has(realmId);
+      async canAdminWorkspace(workspaceId: string): Promise<boolean> {
+        return isGlobalAdmin || adminWorkspaceIds.has(workspaceId);
       },
 
       async canAccessAgent(agentDid: string): Promise<boolean> {
         if (isGlobalAdmin) return true;
-        const agentRealms = await AgentDAO.getRealms(agentDid);
-        return agentRealms.some((r) => accessibleRealmIds.has(r.realmId));
+        const agentWorkspaces = await AgentDAO.getWorkspaces(agentDid);
+        return agentWorkspaces.some((r) => accessibleWorkspaceIds.has(r.workspaceId));
       },
 
       async canAdminAgent(agentDid: string): Promise<boolean> {
         if (isGlobalAdmin) return true;
-        const agentRealms = await AgentDAO.getRealms(agentDid);
-        return agentRealms.some((r) => adminRealmIds.has(r.realmId));
+        const agentWorkspaces = await AgentDAO.getWorkspaces(agentDid);
+        return agentWorkspaces.some((r) => adminWorkspaceIds.has(r.workspaceId));
       },
     };
   }
@@ -112,35 +112,35 @@ export async function getAuthContext(
       // Update last_used_at (fire-and-forget — don't fail auth on write error)
       ApiKeyDAO.updateLastUsed(row.id).catch(() => {});
 
-      const realmId = row.realmId;
-      const isRealmAdmin = row.isRealmAdmin;
-      const isGlobalKey = realmId === null;
+      const workspaceId = row.workspaceId;
+      const isWorkspaceAdmin = row.isWorkspaceAdmin;
+      const isGlobalKey = workspaceId === null;
 
       return {
         did: `apikey:${row.id}`,
-        realmIds: new Set<string>(),
+        workspaceIds: new Set<string>(),
         isOwner: false,
         isGlobalAdmin: isGlobalKey,
 
-        async canAccessRealm(id: string): Promise<boolean> {
-          return isGlobalKey || id === realmId;
+        async canAccessWorkspace(id: string): Promise<boolean> {
+          return isGlobalKey || id === workspaceId;
         },
 
-        async canAdminRealm(id: string): Promise<boolean> {
-          return isGlobalKey || (id === realmId && isRealmAdmin);
+        async canAdminWorkspace(id: string): Promise<boolean> {
+          return isGlobalKey || (id === workspaceId && isWorkspaceAdmin);
         },
 
         async canAccessAgent(agentDid: string): Promise<boolean> {
           if (isGlobalKey) return true;
-          const agentRealms = await AgentDAO.getRealms(agentDid);
-          return agentRealms.some((r) => r.realmId === realmId);
+          const agentWorkspaces = await AgentDAO.getWorkspaces(agentDid);
+          return agentWorkspaces.some((r) => r.workspaceId === workspaceId);
         },
 
         async canAdminAgent(agentDid: string): Promise<boolean> {
           if (isGlobalKey) return true;
-          if (!isRealmAdmin) return false;
-          const agentRealms = await AgentDAO.getRealms(agentDid);
-          return agentRealms.some((r) => r.realmId === realmId);
+          if (!isWorkspaceAdmin) return false;
+          const agentWorkspaces = await AgentDAO.getWorkspaces(agentDid);
+          return agentWorkspaces.some((r) => r.workspaceId === workspaceId);
         },
       };
     }

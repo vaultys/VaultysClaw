@@ -20,7 +20,7 @@ import {
   KnowledgeDAO,
   PendingRegistrationDAO,
   PolicyDAO,
-  RealmDAO,
+  WorkspaceDAO,
   SkillOverrideDAO,
 } from "@/db";
 import {
@@ -993,9 +993,9 @@ export class AgentWSServer {
           agent.tokenUsage.completionTokens
         );
 
-        // Update realm token usage if delta is provided
+        // Update workspace token usage if delta is provided
         if (hbPayload.tokenUsage.sinceLastSync) {
-          const agentRealms = await AgentDAO.getRealms(agentId);
+          const agentWorkspaces = await AgentDAO.getWorkspaces(agentId);
           const deltaPrompt = hbPayload.tokenUsage.sinceLastSync.promptTokens;
           const deltaCompletion =
             hbPayload.tokenUsage.sinceLastSync.completionTokens;
@@ -1021,15 +1021,15 @@ export class AgentWSServer {
             deltaCompletion
           );
 
-          for (const realmMembership of agentRealms) {
-            const realmId = realmMembership.realmId;
-            // Get current realm token usage (uses snake_case fields from DB row)
-            const currentUsage = await RealmDAO.getTokenUsage(realmId);
+          for (const workspaceMembership of agentWorkspaces) {
+            const workspaceId = workspaceMembership.workspaceId;
+            // Get current workspace token usage (uses snake_case fields from DB row)
+            const currentUsage = await WorkspaceDAO.getTokenUsage(workspaceId);
             const currentPrompt = currentUsage?.promptTokens ?? 0;
             const currentCompletion = currentUsage?.completionTokens ?? 0;
             // Add the delta
-            await RealmDAO.upsertTokenUsage(
-              realmId,
+            await WorkspaceDAO.upsertTokenUsage(
+              workspaceId,
               currentPrompt + deltaPrompt,
               currentCompletion + deltaCompletion
             );
@@ -1520,8 +1520,8 @@ export class AgentWSServer {
     );
     this.broadcastAdminUpdate("registration_approved");
 
-    // Enroll agent in default realm on first approval
-    await RealmDAO.enrollInDefault("agent", agentDid);
+    // Enroll agent in default workspace on first approval
+    await WorkspaceDAO.enrollInDefault("agent", agentDid);
 
     // Notify agent — approved and connected
     this.sendMessage(target.sender, {
@@ -1557,13 +1557,13 @@ export class AgentWSServer {
     await this.triggerCertReissue(agent, capabilities, policyMeta);
 
     // Auto-provision a per-agent LiteLLM virtual key if LiteLLM is configured
-    // and the agent's primary realm has a router key set up.
+    // and the agent's primary workspace has a router key set up.
     if (isLiteLLMConfigured()) {
       try {
-        const agentRealms = await AgentDAO.getRealms(agentDid);
-        const primary = agentRealms.find((r) => r.isPrimary) ?? agentRealms[0];
+        const agentWorkspaces = await AgentDAO.getWorkspaces(agentDid);
+        const primary = agentWorkspaces.find((r) => r.isPrimary) ?? agentWorkspaces[0];
         if (primary) {
-          const routerKey = await RealmDAO.getRouterKey(primary.realmId);
+          const routerKey = await WorkspaceDAO.getRouterKey(primary.workspaceId);
           if (routerKey?.litellmVirtualKey && routerKey.allowedModelIds) {
             const allowedModels = routerKey.allowedModelIds as string[];
             const virtualKey = await createAgentKey(agentDid, allowedModels);
@@ -2220,7 +2220,7 @@ export class AgentWSServer {
    * Priority:
    *   1. Explicit llmConfig set manually by admin (stored on agent row)
    *   2. Per-agent LiteLLM virtual key (litellmVirtualKey on agent row)
-   *   3. Realm-level LiteLLM virtual key (RealmRouterKey)
+   *   3. Workspace-level LiteLLM virtual key (WorkspaceRouterKey)
    * Called automatically after auth_complete for registered agents.
    */
   private async pushStoredLlmConfig(agentDid: string): Promise<void> {
@@ -2255,12 +2255,12 @@ export class AgentWSServer {
       return;
     }
 
-    // Priority 3: realm-level LiteLLM virtual key
+    // Priority 3: workspace-level LiteLLM virtual key
     if (isLiteLLMConfigured()) {
-      const agentRealms = await AgentDAO.getRealms(agentDid);
-      const primary = agentRealms.find((r) => r.isPrimary) ?? agentRealms[0];
+      const agentWorkspaces = await AgentDAO.getWorkspaces(agentDid);
+      const primary = agentWorkspaces.find((r) => r.isPrimary) ?? agentWorkspaces[0];
       if (primary) {
-        const routerKey = await RealmDAO.getRouterKey(primary.realmId);
+        const routerKey = await WorkspaceDAO.getRouterKey(primary.workspaceId);
         if (routerKey?.litellmVirtualKey) {
           const allowedModels = (routerKey.allowedModelIds as string[]) ?? [];
           const model = allowedModels[0] ?? "all-team-models";
@@ -2277,14 +2277,14 @@ export class AgentWSServer {
 
   /**
    * Push the effective skills configuration to a specific connected agent.
-   * Called on reconnect, registration approval, and when realm skills change.
+   * Called on reconnect, registration approval, and when workspace skills change.
    */
   async pushSkillsConfig(agentDid: string): Promise<void> {
     const agent = this.agents.get(agentDid);
     if (!agent) return;
 
     const skills = await SkillOverrideDAO.getEffectiveSkills(agentDid);
-    // Only push if there are realm-defined skills (empty = no realm config = agent uses all local skills)
+    // Only push if there are workspace-defined skills (empty = no workspace config = agent uses all local skills)
     this.sendMessage(agent.sender, {
       messageId: `skills-config-${Date.now()}`,
       type: "skills_config",
@@ -2560,15 +2560,15 @@ export function sendSkillsConfig(agentDid: string): void {
 }
 
 /**
- * Push updated skills configuration to all agents in a realm.
- * Called when realm skill definitions are created, updated, or deleted.
+ * Push updated skills configuration to all agents in a workspace.
+ * Called when workspace skill definitions are created, updated, or deleted.
  * Exported for use by API route handlers.
  */
-export async function broadcastSkillsConfig(realmId: string): Promise<void> {
+export async function broadcastSkillsConfig(workspaceId: string): Promise<void> {
   const wsServer = getWSServer();
   if (!wsServer) return;
 
-  const agents = await RealmDAO.getAgents(realmId);
+  const agents = await WorkspaceDAO.getAgents(workspaceId);
   for (const agent of agents) {
     wsServer.pushSkillsConfig(agent.agentDid);
   }

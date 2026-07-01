@@ -105,7 +105,7 @@ async function tick() {
         definition as any,
         undefined,
         wf.id,
-        wf.realmId ?? undefined
+        wf.workspaceId ?? undefined
       ).catch((err) =>
         logger.error(
           { workflowId: wf.id, runId, err },

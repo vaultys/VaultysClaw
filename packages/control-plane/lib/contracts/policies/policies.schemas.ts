@@ -3,7 +3,7 @@ import { z } from "zod";
 // ── Queries
 export const ListPoliciesQuerySchema = z.object({
   agentDid: z.string().optional(),
-  realmId: z.string().optional(),
+  workspaceId: z.string().optional(),
   includeExpired: z.coerce.boolean().optional(),
   expiredOnly: z.coerce.boolean().optional(),
 });
@@ -11,7 +11,7 @@ export const ListPoliciesQuerySchema = z.object({
 // ── Bodies
 export const CreatePolicyBodySchema = z.object({
   agentDid: z.string().optional(),
-  realmId: z.string().optional(),
+  workspaceId: z.string().optional(),
   capabilities: z.array(z.string()).min(1),
   resourceLimits: z.record(z.string(), z.unknown()).optional(),
   expiresAt: z.string().optional(),

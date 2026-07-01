@@ -2,7 +2,7 @@ import { getWSServer } from "@/lib/ws-server";
 import type { AgentCapability } from "@vaultysclaw/shared";
 import { getAuthContext } from "@/lib/auth-utils";
 import { APIException } from "@/lib/api/utils/api-utils";
-import { AgentDAO, PendingRegistrationDAO, RealmDAO } from "@/db";
+import { AgentDAO, PendingRegistrationDAO, WorkspaceDAO } from "@/db";
 import { registrationsContract } from "@/lib/contracts";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 
@@ -13,7 +13,7 @@ const handlers = createNextRoute(registrationsContract, {
     if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");
 
     const capabilities = (body.capabilities ?? []) as AgentCapability[];
-    const realmIds = body.realmIds ?? [];
+    const workspaceIds = body.workspaceIds ?? [];
 
     if (capabilities.length === 0) {
       throw new APIException(
@@ -45,15 +45,15 @@ const handlers = createNextRoute(registrationsContract, {
 
     const agentRow = await AgentDAO.findByName(registration.agentName);
 
-    // Enroll the agent in any additional selected realms (the default realm is
+    // Enroll the agent in any additional selected workspaces (the default workspace is
     // already enrolled by the ws-server during approval).
-    if (realmIds.length > 0 && agentRow?.did) {
-      const allRealms = await RealmDAO.findAll();
-      const defaultRealm = allRealms.find((r) => r.isDefault);
-      for (const rid of realmIds) {
-        if (defaultRealm && rid === defaultRealm.id) continue;
+    if (workspaceIds.length > 0 && agentRow?.did) {
+      const allWorkspaces = await WorkspaceDAO.findAll();
+      const defaultWorkspace = allWorkspaces.find((r) => r.isDefault);
+      for (const rid of workspaceIds) {
+        if (defaultWorkspace && rid === defaultWorkspace.id) continue;
         try {
-          await AgentDAO.addToRealm(agentRow.did, rid, false);
+          await AgentDAO.addToWorkspace(agentRow.did, rid, false);
         } catch {
           /* already a member */
         }

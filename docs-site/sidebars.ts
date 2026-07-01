@@ -14,7 +14,7 @@ const sidebars: SidebarsConfig = {
       items: [
         "overview/architecture",
         "overview/concepts",
-        "overview/realms-and-roles",
+        "overview/workspaces-and-roles",
       ],
     },
     {
@@ -75,7 +75,7 @@ const sidebars: SidebarsConfig = {
         "api/agents",
         "api/intents",
         "api/policies",
-        "api/realms",
+        "api/workspaces",
         "api/users",
         "api/chat",
         "api/workflows",

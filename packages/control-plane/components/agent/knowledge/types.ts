@@ -2,7 +2,7 @@
 // knowledge API returns (config arrives as a JSON string; status is one of a
 // known set), kept local to the tab's presentation needs.
 
-export interface KsRealmOption {
+export interface KsWorkspaceOption {
   id: string;
   name: string;
 }

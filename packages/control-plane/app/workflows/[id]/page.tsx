@@ -27,7 +27,7 @@ import {
   workflowsClient,
   workflowRunsClient,
   unwrap,
-  realmsClient,
+  workspacesClient,
 } from "@/lib/api/ts-rest/client";
 import { WorkflowRunDetail, WorkflowRunWithName } from "@/lib/contracts";
 import { Workflow, WorkflowStep } from "@prisma/client";
@@ -131,7 +131,7 @@ export default function WorkflowDetailPage() {
   const [expandedSteps, setExpandedSteps] = useState<Set<string>>(new Set());
 
   const [executingWorkflow, setExecutingWorkflow] = useState(false);
-  const [realmName, setRealmName] = useState<string | null>(null);
+  const [workspaceName, setWorkspaceName] = useState<string | null>(null);
   const [agentNames, setAgentNames] = useState<Record<string, string>>({});
 
   useEffect(() => {
@@ -177,11 +177,11 @@ export default function WorkflowDetailPage() {
         await workflowsClient.getOne({ params: { id } })
       ).workflow;
       setWorkflow(workflow);
-      if (workflow.realmId) {
-        realmsClient
-          .getOne({ params: { id: workflow.realmId } })
+      if (workflow.workspaceId) {
+        workspacesClient
+          .getOne({ params: { id: workflow.workspaceId } })
           .then((r) => unwrap(r))
-          .then((realm) => setRealmName(realm.name))
+          .then((workspace) => setWorkspaceName(workspace.name))
           .catch(() => {});
       }
     } catch {
@@ -419,16 +419,16 @@ export default function WorkflowDetailPage() {
                   {timeAgo(workflow.updatedAt)}
                 </p>
               </div>
-              {workflow.realmId && (
+              {workflow.workspaceId && (
                 <div>
                   <p className="text-foreground-400 text-xs uppercase tracking-wide mb-1">
-                    Realm
+                    Workspace
                   </p>
                   <Link
-                    href={`/realms/${workflow.realmId}`}
+                    href={`/workspaces/${workflow.workspaceId}`}
                     className="text-primary-500 hover:text-primary-400 text-xs font-medium"
                   >
-                    {realmName ?? workflow.realmId.slice(0, 16) + "…"}
+                    {workspaceName ?? workflow.workspaceId.slice(0, 16) + "…"}
                   </Link>
                 </div>
               )}

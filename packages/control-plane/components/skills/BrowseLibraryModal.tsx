@@ -156,7 +156,7 @@ export function BrowseLibraryModal({
         </div>
 
         <div className="px-5 py-3 border-t border-neutral-200 flex-shrink-0 text-xs text-foreground-500">
-          Organisation skill catalog · Click a skill to assign it to a realm.
+          Organisation skill catalog · Click a skill to assign it to a workspace.
         </div>
       </div>
     </div>

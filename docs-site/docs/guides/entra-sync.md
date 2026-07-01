@@ -1,7 +1,7 @@
 ---
 sidebar_position: 7
 title: Entra ID User Sync
-description: Provision users from Microsoft Entra ID (Azure AD), map groups to realms, and let users claim their VaultysID account by scanning a QR code.
+description: Provision users from Microsoft Entra ID (Azure AD), map groups to workspaces, and let users claim their VaultysID account by scanning a QR code.
 ---
 
 # Entra ID User Sync
@@ -34,7 +34,7 @@ Key points:
 - Users imported from Entra have **no VaultysID until they claim their account**. They appear in the control plane but cannot log in.
 - The `users.id` (internal UUID) is stable from provisioning; `users.did` is set only after the wallet scan.
 - Capability grants require a claimed account — an unclaimed user cannot receive grants.
-- Realm memberships are assigned at sync time and are preserved when the user claims their account.
+- Workspace memberships are assigned at sync time and are preserved when the user claims their account.
 - Re-running the sync is **idempotent**: existing users are updated in place rather than duplicated.
 
 ## Prerequisites
@@ -94,19 +94,19 @@ Choose one or more Entra groups to import. Only members of the selected groups w
 
 Members who appear in multiple selected groups are deduplicated automatically.
 
-### Step 2 — Map groups to realms
+### Step 2 — Map groups to workspaces
 
-For each selected group, choose how to handle realm membership:
+For each selected group, choose how to handle workspace membership:
 
 | Option                     | Effect                                                                                                                 |
 | -------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| _(no mapping)_             | Users are imported without realm assignment                                                                            |
-| Existing realm             | Users are added to that realm                                                                                          |
-| **Create from group name** | A new realm is created using the group's display name as the slug; re-syncing is idempotent — the same realm is reused |
+| _(no mapping)_             | Users are imported without workspace assignment                                                                            |
+| Existing workspace             | Users are added to that workspace                                                                                          |
+| **Create from group name** | A new workspace is created using the group's display name as the slug; re-syncing is idempotent — the same workspace is reused |
 
 ### Step 3 — Confirm and sync
 
-Review the summary (groups, user count, realms to create) and click **Start sync**. The result shows:
+Review the summary (groups, user count, workspaces to create) and click **Start sync**. The result shows:
 
 - **Created** — new users provisioned
 - **Updated** — existing users linked to their Entra identity
@@ -127,7 +127,7 @@ The QR encodes a time-limited P2P session. Once the user scans it:
 3. The user moves from the Unclaimed tab to the Registered tab and can now log in normally.
 
 :::tip Clicking an unclaimed user
-Click any row in the Unclaimed tab to open the user's detail page (`/users/unregistered/:id`). From there you can edit their name, email, role, and description, view their realm memberships, and trigger the claim flow.
+Click any row in the Unclaimed tab to open the user's detail page (`/users/unregistered/:id`). From there you can edit their name, email, role, and description, view their workspace memberships, and trigger the claim flow.
 :::
 
 ## SMTP configuration

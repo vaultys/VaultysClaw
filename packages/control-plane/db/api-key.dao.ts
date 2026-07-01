@@ -8,8 +8,8 @@ export class ApiKeyDAO {
     keyHash: string;
     keyPrefix: string;
     allowedRoutes?: string[];
-    realmId?: string;
-    isRealmAdmin?: boolean;
+    workspaceId?: string;
+    isWorkspaceAdmin?: boolean;
     createdBy: string;
     expiresAt?: Date;
   }): Promise<ApiKey> {
@@ -20,8 +20,8 @@ export class ApiKeyDAO {
         keyHash: data.keyHash,
         keyPrefix: data.keyPrefix,
         allowedRoutes: data.allowedRoutes ?? [],
-        realmId: data.realmId ?? null,
-        isRealmAdmin: data.isRealmAdmin ?? false,
+        workspaceId: data.workspaceId ?? null,
+        isWorkspaceAdmin: data.isWorkspaceAdmin ?? false,
         createdBy: data.createdBy,
         expiresAt: data.expiresAt ?? null,
       },
@@ -45,8 +45,8 @@ export class ApiKeyDAO {
     data: {
       name?: string;
       allowedRoutes?: string[];
-      realmId?: string | null;
-      isRealmAdmin?: boolean;
+      workspaceId?: string | null;
+      isWorkspaceAdmin?: boolean;
       expiresAt?: Date | null;
       isActive?: boolean;
     }

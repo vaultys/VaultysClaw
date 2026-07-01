@@ -4,27 +4,27 @@ import { formatCompactNumber, formatCost, timeAgo } from "@vaultysclaw/shared";
 import type { AgentInfo } from "@/lib/contracts";
 import { PanelHeader } from "./ui";
 
-interface RealmSummary {
+interface WorkspaceSummary {
   name: string;
   color: string;
   online: number;
   total: number;
 }
 
-/** Aggregate agents into a per-realm online/total breakdown (top 8 by size). */
-function buildRealms(agents: AgentInfo[]): RealmSummary[] {
-  const map = new Map<string, RealmSummary>();
+/** Aggregate agents into a per-workspace online/total breakdown (top 8 by size). */
+function buildWorkspaces(agents: AgentInfo[]): WorkspaceSummary[] {
+  const map = new Map<string, WorkspaceSummary>();
   for (const agent of agents) {
-    for (const ar of agent.agentRealms ?? []) {
-      const e = map.get(ar.realmId) ?? {
-        name: ar.realm.name,
-        color: ar.realm.color,
+    for (const ar of agent.agentWorkspaces ?? []) {
+      const e = map.get(ar.workspaceId) ?? {
+        name: ar.workspace.name,
+        color: ar.workspace.color,
         online: 0,
         total: 0,
       };
       e.total++;
       if (agent.online) e.online++;
-      map.set(ar.realmId, e);
+      map.set(ar.workspaceId, e);
     }
   }
   return Array.from(map.values())
@@ -46,7 +46,7 @@ export function FleetPanel({
   onlineAgents: number;
   onSelectAgent: (did: string) => void;
 }) {
-  const realms = buildRealms(agents);
+  const workspaces = buildWorkspaces(agents);
 
   return (
     <div className="flex-col overflow-hidden bg-background-100 border border-neutral-200/60 rounded-xl shadow-md shadow-black/10 hidden lg:flex min-h-0">
@@ -104,17 +104,17 @@ export function FleetPanel({
                       {agent.reportedLlm.model.split("/").pop()?.slice(0, 18)}
                     </span>
                   )}
-                  {agent.agentRealms?.slice(0, 1).map((ar) => (
+                  {agent.agentWorkspaces?.slice(0, 1).map((ar) => (
                     <span
-                      key={ar.realmId}
+                      key={ar.workspaceId}
                       className="text-[10px] px-1 py-px rounded border"
                       style={{
-                        color: ar.realm.color,
-                        borderColor: `${ar.realm.color}40`,
-                        background: `${ar.realm.color}15`,
+                        color: ar.workspace.color,
+                        borderColor: `${ar.workspace.color}40`,
+                        background: `${ar.workspace.color}15`,
                       }}
                     >
-                      {ar.realm.name}
+                      {ar.workspace.name}
                     </span>
                   ))}
                 </div>
@@ -132,41 +132,41 @@ export function FleetPanel({
         )}
       </div>
 
-      {realms.length > 0 && (
+      {workspaces.length > 0 && (
         <>
           <PanelHeader
-            title="Realms"
+            title="Workspaces"
             className="border-t border-neutral-200/50"
           />
           <div className="pb-2 shrink-0">
-            {realms.map((realm) => {
+            {workspaces.map((workspace) => {
               const pct =
-                realm.total > 0
-                  ? Math.round((realm.online / realm.total) * 100)
+                workspace.total > 0
+                  ? Math.round((workspace.online / workspace.total) * 100)
                   : 0;
               return (
                 <div
-                  key={realm.name}
+                  key={workspace.name}
                   className="px-4 py-2 flex items-center gap-2"
                 >
                   <div
                     className="w-1.5 h-1.5 rounded-full shrink-0"
-                    style={{ backgroundColor: realm.color }}
+                    style={{ backgroundColor: workspace.color }}
                   />
                   <span className="text-[11px] text-foreground-600 flex-1 truncate">
-                    {realm.name}
+                    {workspace.name}
                   </span>
                   <div className="w-12 h-1 bg-background-200 rounded-full overflow-hidden shrink-0">
                     <div
                       className="h-full rounded-full transition-all duration-700"
                       style={{
                         width: `${pct}%`,
-                        backgroundColor: realm.color,
+                        backgroundColor: workspace.color,
                       }}
                     />
                   </div>
                   <span className="text-[10px] text-foreground-700 tabular-nums w-8 text-right shrink-0">
-                    {realm.online}/{realm.total}
+                    {workspace.online}/{workspace.total}
                   </span>
                 </div>
               );

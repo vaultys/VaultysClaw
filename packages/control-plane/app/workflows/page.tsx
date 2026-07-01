@@ -90,7 +90,7 @@ export default function WorkflowsPage() {
     }
   };
 
-  const handleSelectTemplate = async (templateId: string, realmId?: string) => {
+  const handleSelectTemplate = async (templateId: string, workspaceId?: string) => {
     try {
       const data = unwrap(
         await workflowsClient.getTemplate({ params: { templateId } })
@@ -104,7 +104,7 @@ export default function WorkflowsPage() {
         template.definition as WorkflowDefinition
       );
       const params = new URLSearchParams({ fromTemplate: "1" });
-      if (realmId) params.set("realm", realmId);
+      if (workspaceId) params.set("workspace", workspaceId);
       router.push(`/workflows/new/edit?${params.toString()}`);
     } catch {
       alert("Failed to load template");

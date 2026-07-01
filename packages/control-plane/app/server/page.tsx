@@ -625,7 +625,7 @@ function EntraSetupGuide() {
 type WizardStep =
   | "config"
   | "groups"
-  | "realm-map"
+  | "workspace-map"
   | "confirm"
   | "syncing"
   | "done";
@@ -660,8 +660,8 @@ function EntraSection() {
   const [groupsError, setGroupsError] = useState<string | null>(null);
   const [selectedGroups, setSelectedGroups] = useState<Set<string>>(new Set());
   const [mapGroups, setMapGroups] = useState(false);
-  const [realmMap, setRealmMap] = useState<Record<string, string>>({});
-  const [realms, setRealms] = useState<{ id: string; name: string }[]>([]);
+  const [workspaceMap, setWorkspaceMap] = useState<Record<string, string>>({});
+  const [workspaces, setWorkspaces] = useState<{ id: string; name: string }[]>([]);
   const [syncResult, setSyncResult] = useState<SyncResult | null>(null);
 
   // Unclaimed users summary
@@ -762,20 +762,20 @@ function EntraSection() {
     setWizardStep("groups");
     setSelectedGroups(new Set());
     setMapGroups(false);
-    setRealmMap({});
+    setWorkspaceMap({});
     setSyncResult(null);
     setGroupsError(null);
     setGroupsLoading(true);
 
-    // Load groups + realms in parallel — pass current field values so unsaved
+    // Load groups + workspaces in parallel — pass current field values so unsaved
     // edits are used without requiring the admin to save first.
-    const [groupsRes, realmsRes] = await Promise.allSettled([
+    const [groupsRes, workspacesRes] = await Promise.allSettled([
       fetch("/api/server/entra", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ tenantId, clientId, clientSecret }),
       }).then((r) => r.json()),
-      fetch("/api/realms").then((r) => r.json()),
+      fetch("/api/workspaces").then((r) => r.json()),
     ]);
 
     if (groupsRes.status === "fulfilled") {
@@ -803,9 +803,9 @@ function EntraSection() {
       setGroupsError("Failed to connect to Entra");
     }
 
-    if (realmsRes.status === "fulfilled") {
-      const d = realmsRes.value as { realms?: { id: string; name: string }[] };
-      setRealms(d.realms ?? []);
+    if (workspacesRes.status === "fulfilled") {
+      const d = workspacesRes.value as { workspaces?: { id: string; name: string }[] };
+      setWorkspaces(d.workspaces ?? []);
     }
 
     setGroupsLoading(false);
@@ -830,7 +830,7 @@ function EntraSection() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           groupIds: Array.from(selectedGroups),
-          groupRealmMap: mapGroups ? realmMap : {},
+          groupWorkspaceMap: mapGroups ? workspaceMap : {},
           groupNames,
         }),
       });
@@ -1086,13 +1086,13 @@ function EntraSection() {
                 </div>
               )}
 
-              {/* Step: realm-map */}
-              {wizardStep === "realm-map" && (
+              {/* Step: workspace-map */}
+              {wizardStep === "workspace-map" && (
                 <div className="space-y-4">
                   <p className="text-sm text-foreground-500">
-                    Do you want to map Entra groups to VaultysClaw realms?
+                    Do you want to map Entra groups to VaultysClaw workspaces?
                     Synced users will be automatically added to the
-                    corresponding realm.
+                    corresponding workspace.
                   </p>
                   <div className="flex gap-3">
                     {[
@@ -1119,7 +1119,7 @@ function EntraSection() {
                     <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
                       {Array.from(selectedGroups).map((gid) => {
                         const g = groups.find((x) => x.id === gid);
-                        const selected = realmMap[gid] ?? "";
+                        const selected = workspaceMap[gid] ?? "";
                         return (
                           <div key={gid} className="flex items-center gap-2">
                             <span
@@ -1132,18 +1132,18 @@ function EntraSection() {
                             <select
                               value={selected}
                               onChange={(e) =>
-                                setRealmMap((m) => ({
+                                setWorkspaceMap((m) => ({
                                   ...m,
                                   [gid]: e.target.value,
                                 }))
                               }
                               className="flex-1 bg-background-200 border border-neutral-300 rounded-lg px-2 py-1 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary-500"
                             >
-                              <option value="">— no realm —</option>
+                              <option value="">— no workspace —</option>
                               <option value="__create__">
-                                ✦ Create realm from group name
+                                ✦ Create workspace from group name
                               </option>
-                              {realms.map((r) => (
+                              {workspaces.map((r) => (
                                 <option key={r.id} value={r.id}>
                                   {r.name}
                                 </option>
@@ -1163,7 +1163,7 @@ function EntraSection() {
                   {mapGroups && selectedGroups.size === 0 && (
                     <p className="text-xs text-foreground-400">
                       No groups selected — all users will be imported without
-                      realm assignment.
+                      workspace assignment.
                     </p>
                   )}
                 </div>
@@ -1185,21 +1185,21 @@ function EntraSection() {
                       </span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-foreground-400">Realm mapping</span>
+                      <span className="text-foreground-400">Workspace mapping</span>
                       <span className="text-foreground-700">
                         {mapGroups ? "Enabled" : "Disabled"}
                       </span>
                     </div>
                     {mapGroups &&
-                      Object.values(realmMap).some(
+                      Object.values(workspaceMap).some(
                         (v) => v === "__create__"
                       ) && (
                         <div className="pt-1 space-y-1 border-t border-neutral-200">
                           <p className="text-xs text-foreground-400 font-medium">
-                            New realms to be created:
+                            New workspaces to be created:
                           </p>
                           {Array.from(selectedGroups)
-                            .filter((gid) => realmMap[gid] === "__create__")
+                            .filter((gid) => workspaceMap[gid] === "__create__")
                             .map((gid) => {
                               const g = groups.find((x) => x.id === gid);
                               return (
@@ -1302,8 +1302,8 @@ function EntraSection() {
                       setWizardOpen(false);
                       return;
                     }
-                    if (wizardStep === "realm-map") setWizardStep("groups");
-                    if (wizardStep === "confirm") setWizardStep("realm-map");
+                    if (wizardStep === "workspace-map") setWizardStep("groups");
+                    if (wizardStep === "confirm") setWizardStep("workspace-map");
                   }}
                   className="px-4 py-2 text-sm rounded-lg bg-background-200 border border-neutral-300 hover:border-foreground-500 text-foreground transition"
                 >
@@ -1315,10 +1315,10 @@ function EntraSection() {
                   <button
                     onClick={() => {
                       if (wizardStep === "groups") {
-                        setWizardStep("realm-map");
+                        setWizardStep("workspace-map");
                         return;
                       }
-                      if (wizardStep === "realm-map") {
+                      if (wizardStep === "workspace-map") {
                         setWizardStep("confirm");
                         return;
                       }

@@ -22,17 +22,17 @@ VaultysClaw organises all communication — between users, between users and age
 
 ### Channel
 
-A channel is a named, persistent room that accumulates messages over time. Channels are either **realm-scoped** (visible only to members of a specific realm) or **global** (visible to every realm in the installation).
+A channel is a named, persistent room that accumulates messages over time. Channels are either **workspace-scoped** (visible only to members of a specific workspace) or **global** (visible to every workspace in the installation).
 
 ```typescript
 interface Channel {
   id: string;
-  realmId: string | null; // null = global channel
+  workspaceId: string | null; // null = global channel
   name: string;
-  slug: string; // URL-safe identifier, unique within realm
+  slug: string; // URL-safe identifier, unique within workspace
   description: string | null;
   topic: string | null;
-  isPublic: boolean; // true: all realm members can view; false: invite-only
+  isPublic: boolean; // true: all workspace members can view; false: invite-only
   isArchived: boolean;
   creatorDid: string;
   createdAt: string;
@@ -189,10 +189,10 @@ Every message posted to a channel (by user, agent, or webhook) is automatically 
 ## Database tables
 
 ```sql
--- Named rooms, realm-scoped or global
+-- Named rooms, workspace-scoped or global
 CREATE TABLE channels (
   id TEXT PRIMARY KEY,
-  realm_id TEXT,                      -- NULL = global
+  workspace_id TEXT,                      -- NULL = global
   name TEXT NOT NULL,
   slug TEXT NOT NULL,
   description TEXT,
@@ -202,7 +202,7 @@ CREATE TABLE channels (
   creator_did TEXT NOT NULL,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
-  UNIQUE(realm_id, slug)
+  UNIQUE(workspace_id, slug)
 );
 
 -- Who is in each channel (users and agents)
@@ -248,14 +248,14 @@ CREATE TABLE channel_bridges (
 );
 ```
 
-## Realm-scoped vs global channels
+## Workspace-scoped vs global channels
 
-|                      | Realm channel                       | Global channel                 |
+|                      | Workspace channel                       | Global channel                 |
 | -------------------- | ----------------------------------- | ------------------------------ |
-| **Visibility**       | Members of that realm only          | All realms in the installation |
-| **slug uniqueness**  | Unique per realm                    | Unique globally                |
-| **Creator required** | Any realm admin                     | Global admin only              |
-| **Bridge scoping**   | Realm-specific integration          | Organisation-wide integration  |
+| **Visibility**       | Members of that workspace only          | All workspaces in the installation |
+| **slug uniqueness**  | Unique per workspace                    | Unique globally                |
+| **Creator required** | Any workspace admin                     | Global admin only              |
+| **Bridge scoping**   | Workspace-specific integration          | Organisation-wide integration  |
 | **Typical use**      | `#engineering`, `#customer-support` | `#announcements`, `#outages`   |
 
 ## Agent-to-agent communication

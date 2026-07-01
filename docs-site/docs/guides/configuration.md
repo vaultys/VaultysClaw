@@ -67,7 +67,7 @@ Changing either of these takes effect immediately without a server restart.
 
 ### LiteLLM integration (optional)
 
-Connect the control plane to a [LiteLLM proxy](https://docs.litellm.ai/docs/proxy/quick_start) to enable the model registry, per-realm virtual keys, and automatic LLM config push. See the [LLM Routing guide](/docs/guides/llm-routing) for a full walkthrough.
+Connect the control plane to a [LiteLLM proxy](https://docs.litellm.ai/docs/proxy/quick_start) to enable the model registry, per-workspace virtual keys, and automatic LLM config push. See the [LLM Routing guide](/docs/guides/llm-routing) for a full walkthrough.
 
 | Variable             | Default | Description                                                           |
 | -------------------- | ------- | --------------------------------------------------------------------- |

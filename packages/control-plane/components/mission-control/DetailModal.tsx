@@ -101,20 +101,20 @@ function AgentDetail({
             </span>
           </Row>
         )}
-        {(agent.agentRealms ?? []).length > 0 && (
-          <Row icon={<Globe2 size={11} />} label="Realms">
+        {(agent.agentWorkspaces ?? []).length > 0 && (
+          <Row icon={<Globe2 size={11} />} label="Workspaces">
             <div className="flex flex-wrap gap-1">
-              {(agent.agentRealms ?? []).map((r) => (
+              {(agent.agentWorkspaces ?? []).map((r) => (
                 <span
-                  key={r.realmId}
+                  key={r.workspaceId}
                   className="px-1.5 py-0.5 rounded text-[10px] border"
                   style={{
-                    color: r.realm.color,
-                    borderColor: `${r.realm.color}50`,
-                    background: `${r.realm.color}18`,
+                    color: r.workspace.color,
+                    borderColor: `${r.workspace.color}50`,
+                    background: `${r.workspace.color}18`,
                   }}
                 >
-                  {r.realm.name}
+                  {r.workspace.name}
                 </span>
               ))}
             </div>

@@ -1,5 +1,5 @@
 import * as z from "zod"
-import { CompleteRealm, RelatedRealmModel, CompleteWorkflowRun, RelatedWorkflowRunModel } from "./index"
+import { CompleteWorkspace, RelatedWorkspaceModel, CompleteWorkflowRun, RelatedWorkflowRunModel } from "./index"
 
 // Helper schema for JSON fields
 type Literal = boolean | number | string
@@ -12,7 +12,7 @@ export const WorkflowModel = z.object({
   name: z.string(),
   description: z.string().nullish(),
   definition: jsonSchema,
-  realmId: z.string().nullish(),
+  workspaceId: z.string().nullish(),
   createdBy: z.string().nullish(),
   createdAt: z.date(),
   updatedAt: z.date(),
@@ -23,7 +23,7 @@ export const WorkflowModel = z.object({
 })
 
 export interface CompleteWorkflow extends z.infer<typeof WorkflowModel> {
-  realm?: CompleteRealm | null
+  workspace?: CompleteWorkspace | null
   runs: CompleteWorkflowRun[]
 }
 
@@ -33,6 +33,6 @@ export interface CompleteWorkflow extends z.infer<typeof WorkflowModel> {
  * NOTE: Lazy required in case of potential circular dependencies within schema
  */
 export const RelatedWorkflowModel: z.ZodSchema<CompleteWorkflow> = z.lazy(() => WorkflowModel.extend({
-  realm: RelatedRealmModel.nullish(),
+  workspace: RelatedWorkspaceModel.nullish(),
   runs: RelatedWorkflowRunModel.array(),
 }))

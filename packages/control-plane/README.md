@@ -14,7 +14,7 @@ fleet.
   launches the workflow scheduler.
 - **`lib/ws-server.ts`** — agent connections, heartbeats, intent routing, admin WS.
 - **`lib/workflow-executor.ts`** — sequential/parallel workflow execution with approvals.
-- **`app/api/`** — REST handlers by domain (agents, workflows, governance, realms,
+- **`app/api/`** — REST handlers by domain (agents, workflows, governance, workspaces,
   users, models, skills, channels, …).
 - **`lib/contracts/`** — ts-rest contracts (the source of truth for the typed API).
 - **`prisma/`** + **`db/`** — PostgreSQL schema and DAOs.

@@ -6,7 +6,7 @@ export const KnowledgeFileIdParamSchema = z.object({ fileId: z.string() });
 
 // ── Queries
 export const ListKnowledgeQuerySchema = z.object({
-  realmId: z.string().optional(),
+  workspaceId: z.string().optional(),
   agentDid: z.string().optional(),
 });
 
@@ -14,7 +14,7 @@ export const ListFilesQuerySchema = z.object({ sourceId: z.string() });
 
 // ── Bodies
 export const CreateKnowledgeBodySchema = z.object({
-  realmId: z.string(),
+  workspaceId: z.string(),
   agentDid: z.string(),
   name: z.string(),
   sourceType: z.string(),

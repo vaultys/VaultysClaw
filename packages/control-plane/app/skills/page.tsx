@@ -6,16 +6,16 @@ import { Puzzle, Plus, AlertTriangle, BookOpen } from "lucide-react";
 import { useRole } from "@/hooks/useRole";
 import { useToolbar } from "@/components/layout/ToolbarContext";
 import { useBreadcrumbs } from "@/components/layout/BreadcrumbContext";
-import { skillsClient, realmsClient, unwrap } from "@/lib/api/ts-rest/client";
-import type { RealmSkillWithMeta } from "@/lib/contracts";
+import { skillsClient, workspacesClient, unwrap } from "@/lib/api/ts-rest/client";
+import type { WorkspaceSkillWithMeta } from "@/lib/contracts";
 import {
   AddSkillModal,
   BrowseLibraryModal,
   EditSkillModal,
-  ShareToRealmModal,
+  ShareToWorkspaceModal,
   SkillGroupCard,
   groupByName,
-  type RealmOption,
+  type WorkspaceOption,
   type SkillGroup,
 } from "@/components/skills";
 
@@ -23,8 +23,8 @@ export default function SkillsPage() {
   const router = useRouter();
   const { isGlobalAdmin, isLoading } = useRole();
 
-  const [skills, setSkills] = useState<RealmSkillWithMeta[]>([]);
-  const [realms, setRealms] = useState<RealmOption[]>([]);
+  const [skills, setSkills] = useState<WorkspaceSkillWithMeta[]>([]);
+  const [workspaces, setWorkspaces] = useState<WorkspaceOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [addModal, setAddModal] = useState<{
     open: boolean;
@@ -39,8 +39,8 @@ export default function SkillsPage() {
   });
   const [showLibrary, setShowLibrary] = useState(false);
   const [shareGroup, setShareGroup] = useState<SkillGroup | null>(null);
-  const [editEntry, setEditEntry] = useState<RealmSkillWithMeta | null>(null);
-  const [deleteEntry, setDeleteEntry] = useState<RealmSkillWithMeta | null>(
+  const [editEntry, setEditEntry] = useState<WorkspaceSkillWithMeta | null>(null);
+  const [deleteEntry, setDeleteEntry] = useState<WorkspaceSkillWithMeta | null>(
     null
   );
   const [deleting, setDeleting] = useState(false);
@@ -55,10 +55,10 @@ export default function SkillsPage() {
     try {
       const [sk, rm] = await Promise.all([
         skillsClient.list(),
-        realmsClient.list(),
+        workspacesClient.list(),
       ]);
       setSkills(unwrap(sk));
-      setRealms(unwrap(rm).realms.map((r) => ({ id: r.id, name: r.name })));
+      setWorkspaces(unwrap(rm).workspaces.map((r) => ({ id: r.id, name: r.name })));
     } catch {
       // ignore — leave existing state
     } finally {
@@ -96,7 +96,7 @@ export default function SkillsPage() {
   const sharedCount = Array.from(
     new Map(skills.map((s) => [s.name, 0])).keys()
   ).filter((name) => skills.filter((s) => s.name === name).length > 1).length;
-  const realmsWithSkills = new Set(skills.map((s) => s.realmId)).size;
+  const workspacesWithSkills = new Set(skills.map((s) => s.workspaceId)).size;
 
   useBreadcrumbs([{ label: "Skills" }], []);
 
@@ -104,12 +104,12 @@ export default function SkillsPage() {
     {
       title: "Skills",
       description: loading
-        ? "Manage skill registrations and realm sharing"
+        ? "Manage skill registrations and workspace sharing"
         : `${skills.length} entr${skills.length !== 1 ? "ies" : "y"} · ${uniqueNames} unique · ${sharedCount} shared`,
       search: {
         value: search,
         onChange: setSearch,
-        placeholder: "Search skills or realms…",
+        placeholder: "Search skills or workspaces…",
       },
       actions: [
         {
@@ -133,11 +133,11 @@ export default function SkillsPage() {
     [loading, skills.length, uniqueNames, sharedCount, search, openAdd]
   );
 
-  async function handleDelete(entry: RealmSkillWithMeta) {
+  async function handleDelete(entry: WorkspaceSkillWithMeta) {
     setDeleting(true);
     try {
-      await realmsClient.deleteSkill({
-        params: { id: entry.realmId, skillId: entry.id },
+      await workspacesClient.deleteSkill({
+        params: { id: entry.workspaceId, skillId: entry.id },
       });
       await load();
     } finally {
@@ -152,7 +152,7 @@ export default function SkillsPage() {
     ? skills.filter(
         (s) =>
           s.name.toLowerCase().includes(search.toLowerCase()) ||
-          s.realmName.toLowerCase().includes(search.toLowerCase())
+          s.workspaceName.toLowerCase().includes(search.toLowerCase())
       )
     : skills;
 
@@ -165,8 +165,8 @@ export default function SkillsPage() {
         {[
           { label: "Total entries", value: skills.length },
           { label: "Unique skills", value: uniqueNames },
-          { label: "Realms with skills", value: realmsWithSkills },
-          { label: "Shared across realms", value: sharedCount },
+          { label: "Workspaces with skills", value: workspacesWithSkills },
+          { label: "Shared across workspaces", value: sharedCount },
         ].map(({ label, value }) => (
           <div
             key={label}
@@ -217,7 +217,7 @@ export default function SkillsPage() {
               group={group}
               onEdit={setEditEntry}
               onDelete={setDeleteEntry}
-              onAddToRealm={(g) => setShareGroup(g)}
+              onAddToWorkspace={(g) => setShareGroup(g)}
             />
           ))}
         </div>
@@ -239,20 +239,20 @@ export default function SkillsPage() {
         />
       )}
 
-      {/* Share to realm modal */}
+      {/* Share to workspace modal */}
       {shareGroup && (
-        <ShareToRealmModal
+        <ShareToWorkspaceModal
           group={shareGroup}
-          realms={realms}
+          workspaces={workspaces}
           onClose={() => setShareGroup(null)}
           onCreated={load}
         />
       )}
 
       {/* Add modal */}
-      {addModal.open && realms.length > 0 && (
+      {addModal.open && workspaces.length > 0 && (
         <AddSkillModal
-          realms={realms}
+          workspaces={workspaces}
           prefillName={addModal.prefillName}
           prefillDescription={addModal.prefillDescription}
           prefillContent={addModal.prefillContent}
@@ -260,12 +260,12 @@ export default function SkillsPage() {
           onCreated={load}
         />
       )}
-      {addModal.open && realms.length === 0 && (
+      {addModal.open && workspaces.length === 0 && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
           <div className="bg-background-100 border border-neutral-200 rounded-2xl shadow-xl w-full max-w-sm p-6 text-center">
             <AlertTriangle className="w-8 h-8 text-warning-500 mx-auto mb-3" />
             <p className="text-sm text-foreground mb-4">
-              No realms exist yet. Create a realm before adding skills.
+              No workspaces exist yet. Create a workspace before adding skills.
             </p>
             <button
               onClick={closeAdd}
@@ -294,7 +294,7 @@ export default function SkillsPage() {
               <AlertTriangle className="w-5 h-5 text-danger-500 flex-shrink-0 mt-0.5" />
               <div>
                 <h3 className="text-sm font-semibold text-foreground">
-                  Remove skill from realm?
+                  Remove skill from workspace?
                 </h3>
                 <p className="text-xs text-foreground-500 mt-1">
                   <span className="font-mono font-medium text-foreground">
@@ -302,7 +302,7 @@ export default function SkillsPage() {
                   </span>{" "}
                   will be removed from{" "}
                   <span className="font-medium text-foreground">
-                    {deleteEntry.realmName}
+                    {deleteEntry.workspaceName}
                   </span>
                   . All agent overrides for this entry will be deleted and
                   agents will be notified.

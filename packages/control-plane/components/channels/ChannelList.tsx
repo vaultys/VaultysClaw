@@ -4,7 +4,7 @@ import { Lock, Globe } from "lucide-react";
 
 interface Channel {
   id: string;
-  realmId: string | null;
+  workspaceId: string | null;
   name: string;
   slug: string;
   isPublic: boolean;
@@ -22,8 +22,8 @@ export default function ChannelList({
   selectedChannelId,
   onSelectChannel,
 }: ChannelListProps) {
-  const realmChannels = channels.filter((ch) => ch.realmId !== null);
-  const globalChannels = channels.filter((ch) => ch.realmId === null);
+  const workspaceChannels = channels.filter((ch) => ch.workspaceId !== null);
+  const globalChannels = channels.filter((ch) => ch.workspaceId === null);
 
   const renderChannelItem = (channel: Channel) => (
     <button
@@ -38,20 +38,20 @@ export default function ChannelList({
       <span className="text-foreground-500">#{channel.slug}</span>
       <span className="flex-1 truncate">{channel.name}</span>
       {!channel.isPublic && <Lock size={14} />}
-      {channel.realmId === null && <Globe size={14} />}
+      {channel.workspaceId === null && <Globe size={14} />}
     </button>
   );
 
   return (
     <div className="py-4">
-      {/* Realm Channels */}
-      {realmChannels.length > 0 && (
+      {/* Workspace Channels */}
+      {workspaceChannels.length > 0 && (
         <div className="px-4 mb-4">
           <h3 className="text-xs font-semibold text-neutral-600 uppercase tracking-wider mb-2">
             Channels
           </h3>
           <div className="space-y-1">
-            {realmChannels.map(renderChannelItem)}
+            {workspaceChannels.map(renderChannelItem)}
           </div>
         </div>
       )}

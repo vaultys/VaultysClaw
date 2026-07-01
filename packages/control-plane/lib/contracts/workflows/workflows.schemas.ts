@@ -9,7 +9,7 @@ export const WorkflowDefinitionSchema = z.record(z.string(), z.unknown());
 
 export const ListWorkflowsQuerySchema = z.object({
   createdBy: z.string().optional(),
-  realmId: z.string().optional(),
+  workspaceId: z.string().optional(),
 });
 
 export const ListTemplatesQuerySchema = z.object({
@@ -37,21 +37,21 @@ export const CreateWorkflowBodySchema = z.object({
   name: z.string(),
   description: z.string().optional(),
   definition: WorkflowDefinitionSchema,
-  realmId: z.string().optional(),
+  workspaceId: z.string().optional(),
 });
 
 export const UpdateWorkflowBodySchema = z.object({
   name: z.string().optional(),
   definition: WorkflowDefinitionSchema.optional(),
   description: z.string().optional(),
-  realmId: z.string().optional(),
+  workspaceId: z.string().optional(),
 });
 
 export const ImportWorkflowBodySchema = z.object({
   name: z.string(),
   description: z.string().optional(),
   definition: WorkflowDefinitionSchema,
-  realmId: z.string().optional(),
+  workspaceId: z.string().optional(),
 });
 
 export const ExecuteWorkflowBodySchema = z.object({

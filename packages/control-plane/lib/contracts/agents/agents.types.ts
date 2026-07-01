@@ -29,9 +29,9 @@ export type AgentWithInfo = Prisma.AgentGetPayload<{
   };
   include: {
     tokenHistory: true;
-    agentRealms: {
+    agentWorkspaces: {
       include: {
-        realm: {
+        workspace: {
           select: {
             id: true;
             name: true;

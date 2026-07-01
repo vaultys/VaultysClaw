@@ -2,24 +2,24 @@
 
 import { useState } from "react";
 import { skillsClient, unwrap, ApiError } from "@/lib/api/ts-rest/client";
-import type { RealmOption } from "./types";
+import type { WorkspaceOption } from "./types";
 
 export function AddSkillModal({
-  realms,
+  workspaces,
   prefillName = "",
   prefillDescription = "",
   prefillContent = "",
   onClose,
   onCreated,
 }: {
-  realms: RealmOption[];
+  workspaces: WorkspaceOption[];
   prefillName?: string;
   prefillDescription?: string;
   prefillContent?: string;
   onClose: () => void;
   onCreated: () => void;
 }) {
-  const [realmId, setRealmId] = useState(realms[0]?.id ?? "");
+  const [workspaceId, setWorkspaceId] = useState(workspaces[0]?.id ?? "");
   const [name, setName] = useState(prefillName);
   const [description, setDescription] = useState(prefillDescription);
   const [content, setContent] = useState(prefillContent);
@@ -64,7 +64,7 @@ export function AddSkillModal({
       unwrap(
         await skillsClient.create({
           body: {
-            realmId,
+            workspaceId,
             name,
             description,
             version,
@@ -87,8 +87,8 @@ export function AddSkillModal({
       <div className="bg-background-100 border border-neutral-200 rounded-2xl shadow-xl w-full max-w-2xl p-6 max-h-[90vh] overflow-y-auto">
         <h2 className="text-base font-semibold text-foreground mb-1">
           {nameLocked
-            ? `Add "${prefillName}" to Another Realm`
-            : "Add Skill to Realm"}
+            ? `Add "${prefillName}" to Another Workspace`
+            : "Add Skill to Workspace"}
         </h2>
         <form onSubmit={handleSubmit} className="space-y-4 mt-4">
           {/* Library context block */}
@@ -104,14 +104,14 @@ export function AddSkillModal({
           )}
           <div>
             <label className="block text-xs font-medium text-foreground-500 mb-1">
-              Realm
+              Workspace
             </label>
             <select
               className="w-full bg-background border border-neutral-200 rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary-500"
-              value={realmId}
-              onChange={(e) => setRealmId(e.target.value)}
+              value={workspaceId}
+              onChange={(e) => setWorkspaceId(e.target.value)}
             >
-              {realms.map((r) => (
+              {workspaces.map((r) => (
                 <option key={r.id} value={r.id}>
                   {r.name}
                 </option>

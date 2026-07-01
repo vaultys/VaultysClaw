@@ -108,7 +108,7 @@ Beyond the agent's policy, non-admin users must also have an explicit **grant** 
 
 ```
 User sends intent for capability X
-    → Does user have realm role ≥ operator? (RBAC)
+    → Does user have workspace role ≥ operator? (RBAC)
     → Does user have a capability grant for X on this agent? (grant check)
     → Is the grant unexpired?
     → Forward to agent

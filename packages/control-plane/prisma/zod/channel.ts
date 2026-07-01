@@ -1,9 +1,9 @@
 import * as z from "zod"
-import { CompleteRealm, RelatedRealmModel, CompleteChannelMember, RelatedChannelMemberModel, CompleteChannelMessage, RelatedChannelMessageModel, CompleteChannelBridge, RelatedChannelBridgeModel } from "./index"
+import { CompleteWorkspace, RelatedWorkspaceModel, CompleteChannelMember, RelatedChannelMemberModel, CompleteChannelMessage, RelatedChannelMessageModel, CompleteChannelBridge, RelatedChannelBridgeModel } from "./index"
 
 export const ChannelModel = z.object({
   id: z.string(),
-  realmId: z.string().nullish(),
+  workspaceId: z.string().nullish(),
   name: z.string(),
   slug: z.string(),
   description: z.string().nullish(),
@@ -16,7 +16,7 @@ export const ChannelModel = z.object({
 })
 
 export interface CompleteChannel extends z.infer<typeof ChannelModel> {
-  realm?: CompleteRealm | null
+  workspace?: CompleteWorkspace | null
   members: CompleteChannelMember[]
   messages: CompleteChannelMessage[]
   bridges: CompleteChannelBridge[]
@@ -28,7 +28,7 @@ export interface CompleteChannel extends z.infer<typeof ChannelModel> {
  * NOTE: Lazy required in case of potential circular dependencies within schema
  */
 export const RelatedChannelModel: z.ZodSchema<CompleteChannel> = z.lazy(() => ChannelModel.extend({
-  realm: RelatedRealmModel.nullish(),
+  workspace: RelatedWorkspaceModel.nullish(),
   members: RelatedChannelMemberModel.array(),
   messages: RelatedChannelMessageModel.array(),
   bridges: RelatedChannelBridgeModel.array(),

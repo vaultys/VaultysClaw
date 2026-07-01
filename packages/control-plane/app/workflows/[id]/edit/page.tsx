@@ -18,13 +18,13 @@ export default function WorkflowEditPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const workflowId = typeof params.id === "string" ? params.id : params.id?.[0];
-  const realmFromUrl = searchParams.get("realm");
+  const workspaceFromUrl = searchParams.get("workspace");
   const fromTemplate = searchParams.get("fromTemplate") === "1";
 
   const {
     workflowName,
     workflowDescription,
-    workflowRealmId,
+    workflowWorkspaceId,
     workflowInput,
     definition,
     isExecuting,
@@ -34,7 +34,7 @@ export default function WorkflowEditPage() {
     setDefinition,
     setWorkflowInput,
     clearWorkflow,
-    setRealmId,
+    setWorkspaceId,
     startExecution,
   } = useWorkflowStore();
 
@@ -56,8 +56,8 @@ export default function WorkflowEditPage() {
       if (!fromTemplate) {
         clearWorkflow();
       }
-      if (realmFromUrl) {
-        setRealmId(realmFromUrl);
+      if (workspaceFromUrl) {
+        setWorkspaceId(workspaceFromUrl);
       }
     } else if (workflowId) {
       fetchWorkflow(workflowId);
@@ -74,7 +74,7 @@ export default function WorkflowEditPage() {
         data.workflow.name,
         data.workflow.description ?? "",
         def,
-        data.workflow.realmId ?? undefined
+        data.workflow.workspaceId ?? undefined
       );
       if (def.input) {
         setWorkflowInput(def.input);
@@ -93,7 +93,7 @@ export default function WorkflowEditPage() {
         name: workflowName,
         description: workflowDescription,
         definition: definition as unknown as Record<string, unknown>,
-        realmId: workflowRealmId,
+        workspaceId: workflowWorkspaceId,
       };
       if (storeId) {
         unwrap(await workflowsClient.update({ params: { id: storeId }, body }));
@@ -104,9 +104,9 @@ export default function WorkflowEditPage() {
           workflowName,
           data.workflow.description ?? "",
           data.workflow.definition as unknown as WorkflowDefinition,
-          data.workflow.realmId ?? workflowRealmId
+          data.workflow.workspaceId ?? workflowWorkspaceId
         );
-        const qs = realmFromUrl ? `?realm=${realmFromUrl}` : "";
+        const qs = workspaceFromUrl ? `?workspace=${workspaceFromUrl}` : "";
         router.replace(`/workflows/${data.workflow.id}/edit${qs}`);
       }
       setSaveStatus("success");
@@ -199,14 +199,14 @@ export default function WorkflowEditPage() {
   const handleDelete = async () => {
     if (!storeId) {
       // Unsaved workflow: just go back.
-      router.push(realmFromUrl ? `/realms/${realmFromUrl}` : "/workflows");
+      router.push(workspaceFromUrl ? `/workspaces/${workspaceFromUrl}` : "/workflows");
       return;
     }
     if (!confirm(`Delete workflow "${workflowName}"? This cannot be undone.`))
       return;
     try {
       unwrap(await workflowsClient.remove({ params: { id: storeId } }));
-      router.push(realmFromUrl ? `/realms/${realmFromUrl}` : "/workflows");
+      router.push(workspaceFromUrl ? `/workspaces/${workspaceFromUrl}` : "/workflows");
     } catch (err) {
       console.error("Failed to delete workflow:", err);
       alert("Failed to delete workflow");
@@ -290,7 +290,7 @@ export default function WorkflowEditPage() {
       isPersisted,
       isExecuting,
       workflowDescription,
-      workflowRealmId,
+      workflowWorkspaceId,
       workflowInput,
       definition,
       storeId,

@@ -9,7 +9,7 @@ import {
   unwrap,
 } from "@/lib/api/ts-rest/client";
 import { SafeLlmConfig, SafeModel, type AgentInfo } from "@/lib/contracts";
-import { RealmLlmData } from "@/types/api/responses";
+import { WorkspaceLlmData } from "@/types/api/responses";
 import {
   type AgentKeyInfo,
   type ConfigMode,
@@ -36,7 +36,7 @@ const STATUS_RESET_MS = 2500;
 
 /**
  * All state + server interactions for an agent's LLM configuration: the manual
- * config, realm routing, registry / LiteLLM model selection and the agent's
+ * config, workspace routing, registry / LiteLLM model selection and the agent's
  * own virtual key. The ConfigTab component is left purely presentational.
  */
 export function useAgentLlmConfig(
@@ -49,14 +49,14 @@ export function useAgentLlmConfig(
   const [llmConfig, setLlmConfig] = useState<SafeLlmConfig | null>(null);
   const [llmLoading, setLlmLoading] = useState(true);
   const [llmEditing, setLlmEditing] = useState(false);
-  const [configMode, setConfigMode] = useState<ConfigMode>("realm");
+  const [configMode, setConfigMode] = useState<ConfigMode>("workspace");
 
-  // Registry / realm routing helpers
+  // Registry / workspace routing helpers
   const [registryModels, setRegistryModels] = useState<SafeModel[]>([]);
   const [selectedRegistryId, setSelectedRegistryId] = useState("");
-  const [realmLlmData, setRealmLlmData] = useState<RealmLlmData | null>(null);
-  const [selectedRealmId, setSelectedRealmId] = useState("");
-  const [selectedRealmModelId, setSelectedRealmModelId] = useState("");
+  const [workspaceLlmData, setWorkspaceLlmData] = useState<WorkspaceLlmData | null>(null);
+  const [selectedWorkspaceId, setSelectedWorkspaceId] = useState("");
+  const [selectedWorkspaceModelId, setSelectedWorkspaceModelId] = useState("");
 
   // Unified model picker
   const [selectedSource, setSelectedSource] = useState<ModelSource>("litellm");
@@ -101,18 +101,18 @@ export function useAgentLlmConfig(
   const loadAll = useCallback(async () => {
     setLlmLoading(true);
     try {
-      const [configData, modelsData, realmData, liteLlmModelsData] =
+      const [configData, modelsData, workspaceData, liteLlmModelsData] =
         await Promise.all([
           agentsClient.getLlmConfig({ params: { did } }).then(unwrap),
           modelsClient.list().then(unwrap),
-          agentsClient.getRealmLlm({ params: { did } }).then(unwrap),
+          agentsClient.getWorkspaceLlm({ params: { did } }).then(unwrap),
           litellmClient.models().then(unwrap),
         ]);
 
       const cfg = (configData as { config: SafeLlmConfig | null }).config;
       setLlmConfig(cfg);
       setRegistryModels(modelsData.models);
-      setRealmLlmData(realmData as RealmLlmData);
+      setWorkspaceLlmData(workspaceData as WorkspaceLlmData);
       const liteLlm = liteLlmModelsData as {
         models?: LiteLlmModelOption[];
         configured?: boolean;
@@ -143,9 +143,9 @@ export function useAgentLlmConfig(
 
   // ── Derived flags ───────────────────────────────────────────────────────
 
-  const hasRealmRouting = Boolean(
-    realmLlmData?.litellmConfigured &&
-      realmLlmData.realms.some((r) => r.hasVirtualKey && r.models.length > 0)
+  const hasWorkspaceRouting = Boolean(
+    workspaceLlmData?.litellmConfigured &&
+      workspaceLlmData.workspaces.some((r) => r.hasVirtualKey && r.models.length > 0)
   );
 
   // The agent's LiteLLM virtual key is part of the agent record (returned by
@@ -170,14 +170,14 @@ export function useAgentLlmConfig(
       ? (registryModels.find((m) => m.modelId === llmConfig.model) ?? null)
       : null;
 
-  const activeRealmRoute =
+  const activeWorkspaceRoute =
     llmConfig?.provider === "openai-compatible"
       ? (() => {
-          for (const realm of realmLlmData?.realms ?? []) {
-            const model = realm.models.find(
+          for (const workspace of workspaceLlmData?.workspaces ?? []) {
+            const model = workspace.models.find(
               (m) => m.litellmModelName === llmConfig.model
             );
-            if (model) return { realm, model };
+            if (model) return { workspace, model };
           }
           return null;
         })()
@@ -191,7 +191,7 @@ export function useAgentLlmConfig(
   /**
    * Active config mode resolution when opening the editor:
    *  1. No manual config + agent key configured → agent-key (or model if single LiteLLM model)
-   *  2. Manual config that looks like realm routing → realm
+   *  2. Manual config that looks like workspace routing → workspace
    *  3. Manual config that matches a registry model → model
    *  4. Anything else with manual config → manual
    */
@@ -219,10 +219,10 @@ export function useAgentLlmConfig(
     }
 
     if (llmConfig?.provider === "openai-compatible") {
-      if (activeRealmRoute) {
-        setSelectedRealmId(activeRealmRoute.realm.realmId);
-        setSelectedRealmModelId(activeRealmRoute.model.id);
-        setConfigMode("realm");
+      if (activeWorkspaceRoute) {
+        setSelectedWorkspaceId(activeWorkspaceRoute.workspace.workspaceId);
+        setSelectedWorkspaceModelId(activeWorkspaceRoute.model.id);
+        setConfigMode("workspace");
         setLlmEditing(true);
         return;
       }
@@ -241,13 +241,13 @@ export function useAgentLlmConfig(
       setKeyBudget("");
       setKeyModelInput("");
       setConfigMode("agent-key");
-    } else if (hasRealmRouting) {
-      const first = realmLlmData!.realms.find(
+    } else if (hasWorkspaceRouting) {
+      const first = workspaceLlmData!.workspaces.find(
         (r) => r.hasVirtualKey && r.models.length > 0
       )!;
-      setSelectedRealmId(first.realmId);
-      setSelectedRealmModelId(first.models[0]?.id ?? "");
-      setConfigMode("realm");
+      setSelectedWorkspaceId(first.workspaceId);
+      setSelectedWorkspaceModelId(first.models[0]?.id ?? "");
+      setConfigMode("workspace");
     } else if (liteLlmModels.length > 0) {
       setSelectedLiteLlmModel(liteLlmModels[0]?.name ?? "");
       setSelectedSource("litellm");
@@ -264,11 +264,11 @@ export function useAgentLlmConfig(
     agentKeyInfo,
     liteLlmModels,
     llmConfig,
-    activeRealmRoute,
+    activeWorkspaceRoute,
     activeRegistryModel,
     litellmConfigured,
-    hasRealmRouting,
-    realmLlmData,
+    hasWorkspaceRouting,
+    workspaceLlmData,
     registryModels.length,
   ]);
 
@@ -331,8 +331,8 @@ export function useAgentLlmConfig(
     }
   }
 
-  async function saveRealmRouting() {
-    if (!selectedRealmId || !selectedRealmModelId) return;
+  async function saveWorkspaceRouting() {
+    if (!selectedWorkspaceId || !selectedWorkspaceModelId) return;
     setLlmSaving(true);
     setLlmStatus("idle");
     setLlmError(null);
@@ -340,7 +340,7 @@ export function useAgentLlmConfig(
       const { config } = unwrap(
         await agentsClient.setLlmConfig({
           params: { did },
-          body: { realmId: selectedRealmId, realmModelId: selectedRealmModelId },
+          body: { workspaceId: selectedWorkspaceId, workspaceModelId: selectedWorkspaceModelId },
         })
       );
       setLlmConfig(config);
@@ -455,20 +455,20 @@ export function useAgentLlmConfig(
     configMode,
     setConfigMode,
     litellmConfigured,
-    hasRealmRouting,
+    hasWorkspaceRouting,
     agentKeyInfo,
     activeRegistryModel,
-    activeRealmRoute,
+    activeWorkspaceRoute,
     activeIsAgentKey,
     // data
     registryModels,
-    realmLlmData,
+    workspaceLlmData,
     liteLlmModels,
-    // realm selection
-    selectedRealmId,
-    setSelectedRealmId,
-    selectedRealmModelId,
-    setSelectedRealmModelId,
+    // workspace selection
+    selectedWorkspaceId,
+    setSelectedWorkspaceId,
+    selectedWorkspaceModelId,
+    setSelectedWorkspaceModelId,
     // unified model selection
     selectedSource,
     setSelectedSource,
@@ -492,7 +492,7 @@ export function useAgentLlmConfig(
     clearConfig,
     saveAgentKey,
     revokeAgentKey,
-    saveRealmRouting,
+    saveWorkspaceRouting,
     saveSelectedModel,
     saveManualConfig,
   };

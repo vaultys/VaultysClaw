@@ -163,6 +163,6 @@ describe("getApiRouteGroups ↔ matchRoute compatibility", () => {
   });
 
   it("an allowedRoutes entry for one path does not authorise a sibling path", () => {
-    expect(matchRoute("GET", "/api/realms", ["GET /api/agents"])).toBe(false);
+    expect(matchRoute("GET", "/api/workspaces", ["GET /api/agents"])).toBe(false);
   });
 });

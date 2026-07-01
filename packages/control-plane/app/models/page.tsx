@@ -106,7 +106,7 @@ export default function ModelsPage() {
                     Model ID
                   </th>
                   <th className="text-left px-4 py-3 font-medium hidden lg:table-cell">
-                    Realms
+                    Workspaces
                   </th>
                   <th className="text-left px-4 py-3 font-medium">Status</th>
                 </tr>
@@ -139,7 +139,7 @@ export default function ModelsPage() {
                     <td className="px-4 py-3 hidden lg:table-cell">
                       <span className="flex items-center gap-1 text-foreground-500">
                         <Globe2 className="w-3.5 h-3.5" />
-                        {m.realmAccess.length}
+                        {m.workspaceAccess.length}
                       </span>
                     </td>
                     <td className="px-4 py-3">

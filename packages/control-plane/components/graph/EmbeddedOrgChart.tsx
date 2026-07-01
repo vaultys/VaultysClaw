@@ -17,7 +17,7 @@ const OrgChartFlowView = dynamic(() => import("./views/OrgChartFlowView"), {
 });
 
 interface Props {
-  /** API query string for fetching graph data, e.g. "?realm=abc" */
+  /** API query string for fetching graph data, e.g. "?workspace=abc" */
   query?: string;
   /** Height in px (defaults to 500) */
   height?: number;
@@ -30,7 +30,7 @@ interface Props {
 }
 
 /**
- * Embedded Org Chart component that can be placed in realm detail pages, user profiles, etc.
+ * Embedded Org Chart component that can be placed in workspace detail pages, user profiles, etc.
  * Automatically fetches GraphData from the API and renders an interactive org chart using React Flow.
  */
 export default function EmbeddedOrgChart({

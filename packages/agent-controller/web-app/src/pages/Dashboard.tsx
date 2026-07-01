@@ -737,7 +737,7 @@ function SkillCard({
 
   const handleToggle = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (skill.realmManaged && skill.isRequired) return;
+    if (skill.workspaceManaged && skill.isRequired) return;
     setToggling(true);
     try {
       await fetch(`/api/skills/${encodeURIComponent(skill.name)}/enabled`, {
@@ -765,9 +765,9 @@ function SkillCard({
               {skill.name}
             </span>
             <span className="text-fg-dim text-[10px]">v{skill.version}</span>
-            {skill.realmManaged && (
+            {skill.workspaceManaged && (
               <span className="text-[10px] bg-info-subtle border border-info text-info rounded px-1.5 py-0.5">
-                realm
+                workspace
               </span>
             )}
             {skill.isRequired && (
@@ -789,8 +789,8 @@ function SkillCard({
               onClick={handleToggle}
               disabled={toggling}
               title={
-                skill.realmManaged
-                  ? "Managed by realm"
+                skill.workspaceManaged
+                  ? "Managed by workspace"
                   : skill.enabled
                     ? "Disable skill"
                     : "Enable skill"
@@ -799,7 +799,7 @@ function SkillCard({
                 skill.enabled
                   ? "border-success text-success hover:bg-danger-subtle hover:text-danger hover:border-danger"
                   : "border-fg-dim text-fg-muted hover:bg-success-subtle hover:text-success hover:border-success"
-              } ${skill.realmManaged ? "opacity-50 cursor-not-allowed" : ""}`}
+              } ${skill.workspaceManaged ? "opacity-50 cursor-not-allowed" : ""}`}
             >
               {skill.enabled ? "On" : "Off"}
             </button>

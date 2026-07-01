@@ -7,7 +7,7 @@
 
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-config";
-import { RealmDAO, UserDAO } from "@/db";
+import { WorkspaceDAO, UserDAO } from "@/db";
 import { APIException } from "@/lib/api/utils/api-utils";
 import { usersContract } from "@/lib/contracts";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
@@ -23,7 +23,7 @@ const handlers = createNextRoute(usersContract, {
       throw new APIException("NOT_FOUND", "User not found or already claimed");
     }
 
-    const realms = await RealmDAO.getUserRealms(user.id);
+    const workspaces = await WorkspaceDAO.getUserWorkspaces(user.id);
 
     return {
       status: 200,
@@ -38,7 +38,7 @@ const handlers = createNextRoute(usersContract, {
         registeredAt: user.registeredAt.toISOString(),
         entraId: user.entraId ?? null,
         claimedAt: user.claimedAt ? user.claimedAt.toISOString() : null,
-        realms,
+        workspaces,
       },
     };
   },

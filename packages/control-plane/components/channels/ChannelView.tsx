@@ -20,10 +20,10 @@ type Member = ChannelMember;
 
 interface ChannelViewProps {
   channel: Channel;
-  realmId: string;
+  workspaceId: string;
 }
 
-export default function ChannelView({ channel, realmId }: ChannelViewProps) {
+export default function ChannelView({ channel, workspaceId }: ChannelViewProps) {
   const [showMembers, setShowMembers] = useState(false);
   const [showInfo, setShowInfo] = useState(false);
   const [showBridges, setShowBridges] = useState(false);

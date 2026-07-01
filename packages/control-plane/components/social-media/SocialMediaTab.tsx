@@ -1,9 +1,9 @@
 "use client";
 
 /**
- * SocialMediaTab — manage social-media credentials and scheduled posts for a realm.
+ * SocialMediaTab — manage social-media credentials and scheduled posts for a workspace.
  *
- * Placed inside the Realm detail page as the "Social Media" tab.
+ * Placed inside the Workspace detail page as the "Social Media" tab.
  *
  * Features:
  * - X (Twitter) credential management (saves encrypted via VaultysId vault)
@@ -25,7 +25,7 @@ import {
   Send,
   Info,
 } from "lucide-react";
-import { realmsClient, unwrap } from "@/lib/api/ts-rest/client";
+import { workspacesClient, unwrap } from "@/lib/api/ts-rest/client";
 
 /** Minimal X (Twitter) logo — lucide-react v1 removed the Twitter icon */
 function XLogo({ className }: { className?: string }) {
@@ -51,7 +51,7 @@ interface Credential {
 }
 
 interface SocialMediaTabProps {
-  realmId: string;
+  workspaceId: string;
 }
 
 // -----------------------------------------------------------------------
@@ -89,7 +89,7 @@ function CronPreview({ cron }: { cron: string }) {
 // Main component
 // -----------------------------------------------------------------------
 
-export function SocialMediaTab({ realmId }: SocialMediaTabProps) {
+export function SocialMediaTab({ workspaceId }: SocialMediaTabProps) {
   const [credentials, setCredentials] = useState<Credential[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -123,8 +123,8 @@ export function SocialMediaTab({ realmId }: SocialMediaTabProps) {
     setLoading(true);
     try {
       const { credentials } = unwrap(
-        await realmsClient.listCredentials({
-          params: { id: realmId },
+        await workspacesClient.listCredentials({
+          params: { id: workspaceId },
           query: { service: "x" },
         })
       );
@@ -134,7 +134,7 @@ export function SocialMediaTab({ realmId }: SocialMediaTabProps) {
     } finally {
       setLoading(false);
     }
-  }, [realmId]);
+  }, [workspaceId]);
 
   useEffect(() => {
     load();
@@ -157,8 +157,8 @@ export function SocialMediaTab({ realmId }: SocialMediaTabProps) {
     try {
       // Save username (not secret — just metadata) and password (secret)
       unwrap(
-        await realmsClient.saveCredential({
-          params: { id: realmId },
+        await workspacesClient.saveCredential({
+          params: { id: workspaceId },
           body: {
             service: "x",
             name: "session",
@@ -191,8 +191,8 @@ export function SocialMediaTab({ realmId }: SocialMediaTabProps) {
 
     try {
       unwrap(
-        await realmsClient.deleteCredential({
-          params: { id: realmId },
+        await workspacesClient.deleteCredential({
+          params: { id: workspaceId },
           query: { service: "x", name: "session" },
         })
       );
@@ -211,8 +211,8 @@ export function SocialMediaTab({ realmId }: SocialMediaTabProps) {
     try {
       // Save schedule cron expression as a credential-like config
       unwrap(
-        await realmsClient.saveCredential({
-          params: { id: realmId },
+        await workspacesClient.saveCredential({
+          params: { id: workspaceId },
           body: {
             service: "x",
             name: "schedule",
@@ -242,8 +242,8 @@ export function SocialMediaTab({ realmId }: SocialMediaTabProps) {
 
     try {
       const data = unwrap(
-        await realmsClient.socialMedia({
-          params: { id: realmId },
+        await workspacesClient.socialMedia({
+          params: { id: workspaceId },
           body: { text: postText },
         })
       );
@@ -484,7 +484,7 @@ export function SocialMediaTab({ realmId }: SocialMediaTabProps) {
         </h3>
         <form onSubmit={postNow} className="space-y-3">
           <p className="text-xs text-foreground-500">
-            Dispatch a one-off tweet immediately via the realm&apos;s agent.
+            Dispatch a one-off tweet immediately via the workspace&apos;s agent.
             Requires agent to be online and X session set up.
           </p>
           <div className="relative">

@@ -75,7 +75,7 @@ describe("Sidebar", () => {
       "Agents",
       "Registrations",
       "Users",
-      "Realms",
+      "Workspaces",
       "Graph",
       "Chat",
       "Server",

@@ -87,9 +87,9 @@ function asAdmin(did = "did:vaultys:admin-apikeys-001") {
     did,
     isOwner: true,
     isGlobalAdmin: true,
-    realmIds: new Set<string>(),
-    canAccessRealm: async () => true,
-    canAdminRealm: async () => true,
+    workspaceIds: new Set<string>(),
+    canAccessWorkspace: async () => true,
+    canAdminWorkspace: async () => true,
     canAccessAgent: async () => true,
     canAdminAgent: async () => true,
   });
@@ -100,9 +100,9 @@ function asMember(did = "did:vaultys:member-apikeys-001") {
     did,
     isOwner: false,
     isGlobalAdmin: false,
-    realmIds: new Set<string>(),
-    canAccessRealm: async () => false,
-    canAdminRealm: async () => false,
+    workspaceIds: new Set<string>(),
+    canAccessWorkspace: async () => false,
+    canAdminWorkspace: async () => false,
     canAccessAgent: async () => false,
     canAdminAgent: async () => false,
   });
@@ -372,24 +372,24 @@ describe("POST /api/api-keys", () => {
     expect(found).toBeDefined();
   });
 
-  it("creates a realm-scoped key when realmId is provided", async () => {
+  it("creates a workspace-scoped key when workspaceId is provided", async () => {
     asAdmin();
     const res = await createKey(
       req(
         "http://localhost/api/api-keys",
         {
-          name: `${SENTINEL}-realm-scoped`,
+          name: `${SENTINEL}-workspace-scoped`,
           allowedRoutes: ["GET /api/agents"],
-          realmId: "realm-test-scope",
+          workspaceId: "workspace-test-scope",
         },
         "POST"
       )
     );
     const body = await res.json();
-    expect(body.apiKey.realmId).toBe("realm-test-scope");
+    expect(body.apiKey.workspaceId).toBe("workspace-test-scope");
   });
 
-  it("creates a global key when realmId is null", async () => {
+  it("creates a global key when workspaceId is null", async () => {
     asAdmin();
     const res = await createKey(
       req(
@@ -397,13 +397,13 @@ describe("POST /api/api-keys", () => {
         {
           name: `${SENTINEL}-global`,
           allowedRoutes: ["GET /api/agents"],
-          realmId: null,
+          workspaceId: null,
         },
         "POST"
       )
     );
     const body = await res.json();
-    expect(body.apiKey.realmId).toBeNull();
+    expect(body.apiKey.workspaceId).toBeNull();
   });
 });
 

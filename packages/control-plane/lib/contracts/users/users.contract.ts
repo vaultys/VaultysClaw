@@ -64,7 +64,7 @@ export const usersContract = c.router({
   search: {
     method: "GET",
     path: "/api/users/search",
-    summary: "List users in a realm with optional search by name/email",
+    summary: "List users in a workspace with optional search by name/email",
     query: SearchUsersQuerySchema,
     responses: {
       200: c.type<{

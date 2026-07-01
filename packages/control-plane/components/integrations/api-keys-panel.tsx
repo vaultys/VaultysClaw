@@ -29,7 +29,7 @@ function routeKey(method: string, path: string) {
 
 export function ApiKeysPanel() {
   const [keys, setKeys] = useState<ApiKey[]>([]);
-  const [realms, setRealms] = useState<{ id: string; name: string }[]>([]);
+  const [workspaces, setWorkspaces] = useState<{ id: string; name: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingKey, setEditingKey] = useState<ApiKey | null>(null);
@@ -42,8 +42,8 @@ export function ApiKeysPanel() {
 
   // Form state
   const [formName, setFormName] = useState("");
-  const [formRealmId, setFormRealmId] = useState<string>("");
-  const [formIsRealmAdmin, setFormIsRealmAdmin] = useState(false);
+  const [formWorkspaceId, setFormWorkspaceId] = useState<string>("");
+  const [formIsWorkspaceAdmin, setFormIsWorkspaceAdmin] = useState(false);
   const [formExpiry, setFormExpiry] = useState("");
   const [formAllowed, setFormAllowed] = useState<Set<string>>(new Set());
   const [formError, setFormError] = useState<string | null>(null);
@@ -51,14 +51,14 @@ export function ApiKeysPanel() {
 
   const fetchData = useCallback(async () => {
     try {
-      const [keysRes, realmsRes] = await Promise.all([
+      const [keysRes, workspacesRes] = await Promise.all([
         fetch("/api/api-keys"),
-        fetch("/api/realms"),
+        fetch("/api/workspaces"),
       ]);
       const keysData = await keysRes.json();
-      const realmsData = await realmsRes.json();
+      const workspacesData = await workspacesRes.json();
       setKeys(Array.isArray(keysData.apiKeys) ? keysData.apiKeys : []);
-      setRealms(Array.isArray(realmsData.realms) ? realmsData.realms : []);
+      setWorkspaces(Array.isArray(workspacesData.workspaces) ? workspacesData.workspaces : []);
     } finally {
       setLoading(false);
     }
@@ -109,8 +109,8 @@ export function ApiKeysPanel() {
   function openModal() {
     setEditingKey(null);
     setFormName("");
-    setFormRealmId("");
-    setFormIsRealmAdmin(false);
+    setFormWorkspaceId("");
+    setFormIsWorkspaceAdmin(false);
     setFormExpiry("");
     setFormAllowed(new Set());
     setFormError(null);
@@ -120,8 +120,8 @@ export function ApiKeysPanel() {
   function openEditModal(k: ApiKey) {
     setEditingKey(k);
     setFormName(k.name);
-    setFormRealmId(k.realmId ?? "");
-    setFormIsRealmAdmin(k.isRealmAdmin);
+    setFormWorkspaceId(k.workspaceId ?? "");
+    setFormIsWorkspaceAdmin(k.isWorkspaceAdmin);
     setFormExpiry(
       k.expiresAt
         ? new Date(k.expiresAt * 1000).toISOString().split("T")[0]
@@ -150,8 +150,8 @@ export function ApiKeysPanel() {
         body: JSON.stringify({
           name: formName.trim(),
           allowedRoutes: Array.from(formAllowed),
-          realmId: formRealmId || null,
-          isRealmAdmin: formIsRealmAdmin,
+          workspaceId: formWorkspaceId || null,
+          isWorkspaceAdmin: formIsWorkspaceAdmin,
           expiresAt: formExpiry
             ? Math.floor(new Date(formExpiry).getTime() / 1000)
             : null,
@@ -194,8 +194,8 @@ export function ApiKeysPanel() {
         body: JSON.stringify({
           name: formName.trim(),
           allowedRoutes: Array.from(formAllowed),
-          realmId: formRealmId || null,
-          isRealmAdmin: formIsRealmAdmin,
+          workspaceId: formWorkspaceId || null,
+          isWorkspaceAdmin: formIsWorkspaceAdmin,
           expiresAt: formExpiry
             ? Math.floor(new Date(formExpiry).getTime() / 1000)
             : null,
@@ -323,7 +323,7 @@ export function ApiKeysPanel() {
             </thead>
             <tbody className="divide-y divide-neutral-200">
               {keys.map((k) => {
-                const realm = realms.find((r) => r.id === k.realmId);
+                const workspace = workspaces.find((r) => r.id === k.workspaceId);
                 return (
                   <tr
                     key={k.id}
@@ -336,10 +336,10 @@ export function ApiKeysPanel() {
                       {k.keyPrefix}…
                     </td>
                     <td className="px-4 py-3 text-foreground-700">
-                      {k.realmId ? (
+                      {k.workspaceId ? (
                         <span className="flex items-center gap-1">
-                          {realm?.name ?? k.realmId}
-                          {k.isRealmAdmin && (
+                          {workspace?.name ?? k.workspaceId}
+                          {k.isWorkspaceAdmin && (
                             <span className="text-[10px] bg-primary-100 text-primary-700 px-1.5 rounded">
                               admin
                             </span>
@@ -451,32 +451,32 @@ export function ApiKeysPanel() {
                 />
               </div>
 
-              {/* Realm scope */}
+              {/* Workspace scope */}
               <div>
                 <label className="block text-xs font-medium text-foreground mb-1.5">
-                  Realm scope
+                  Workspace scope
                 </label>
                 <select
-                  value={formRealmId}
-                  onChange={(e) => setFormRealmId(e.target.value)}
+                  value={formWorkspaceId}
+                  onChange={(e) => setFormWorkspaceId(e.target.value)}
                   className="w-full px-3 py-2 rounded-lg bg-background-200 border border-neutral-300 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
                 >
                   <option value="">Global — full admin access</option>
-                  {realms.map((r) => (
+                  {workspaces.map((r) => (
                     <option key={r.id} value={r.id}>
                       {r.name}
                     </option>
                   ))}
                 </select>
-                {formRealmId && (
+                {formWorkspaceId && (
                   <label className="flex items-center gap-2 mt-2 cursor-pointer">
                     <input
                       type="checkbox"
-                      checked={formIsRealmAdmin}
-                      onChange={(e) => setFormIsRealmAdmin(e.target.checked)}
+                      checked={formIsWorkspaceAdmin}
+                      onChange={(e) => setFormIsWorkspaceAdmin(e.target.checked)}
                       className="rounded"
                     />
-                    <span className="text-xs text-foreground">Realm admin</span>
+                    <span className="text-xs text-foreground">Workspace admin</span>
                   </label>
                 )}
               </div>

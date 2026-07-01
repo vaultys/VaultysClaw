@@ -3,51 +3,51 @@
 import { useEffect, useMemo, useState } from "react";
 import { agentsClient, usersClient, unwrap } from "@/lib/api/ts-rest/client";
 import type { AgentInfo } from "@/lib/contracts";
-import type { RealmUser } from "@/components/workflow/properties/types";
+import type { WorkspaceUser } from "@/components/workflow/properties/types";
 
-const isRealRealm = (realmId: string) =>
-  Boolean(realmId) && realmId !== "default";
+const isRealWorkspace = (workspaceId: string) =>
+  Boolean(workspaceId) && workspaceId !== "default";
 
 /**
- * Fetches the agents and users of a workflow's realm and exposes client-side
+ * Fetches the agents and users of a workflow's workspace and exposes client-side
  * search filtering for both. Used by the agent / skill / user node editors.
  */
-export function useWorkflowMembers(workflowRealmId: string) {
+export function useWorkflowMembers(workflowWorkspaceId: string) {
   const [agents, setAgents] = useState<AgentInfo[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const [users, setUsers] = useState<RealmUser[]>([]);
+  const [users, setUsers] = useState<WorkspaceUser[]>([]);
   const [userSearchQuery, setUserSearchQuery] = useState("");
   const [userLoading, setUserLoading] = useState(false);
 
   useEffect(() => {
-    if (!isRealRealm(workflowRealmId)) return;
+    if (!isRealWorkspace(workflowWorkspaceId)) return;
     setLoading(true);
     setSearchQuery("");
     agentsClient
-      .search({ query: { realm: workflowRealmId } })
+      .search({ query: { workspace: workflowWorkspaceId } })
       .then((r) => setAgents(unwrap(r).items))
       .catch((err) => {
         console.error("Failed to fetch agents:", err);
         setAgents([]);
       })
       .finally(() => setLoading(false));
-  }, [workflowRealmId]);
+  }, [workflowWorkspaceId]);
 
   useEffect(() => {
-    if (!isRealRealm(workflowRealmId)) return;
+    if (!isRealWorkspace(workflowWorkspaceId)) return;
     setUserLoading(true);
     setUserSearchQuery("");
     usersClient
-      .search({ query: { realm: workflowRealmId } })
+      .search({ query: { workspace: workflowWorkspaceId } })
       .then((r) => setUsers(unwrap(r).users))
       .catch((err) => {
         console.error("Failed to fetch users:", err);
         setUsers([]);
       })
       .finally(() => setUserLoading(false));
-  }, [workflowRealmId]);
+  }, [workflowWorkspaceId]);
 
   const filteredAgents = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();

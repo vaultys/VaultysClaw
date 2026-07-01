@@ -7,9 +7,9 @@ import dynamic from "next/dynamic";
 import type { GraphNode } from "@vaultysclaw/shared";
 import { useToolbar } from "@/components/layout/ToolbarContext";
 import { useBreadcrumbs } from "@/components/layout/BreadcrumbContext";
-import { VIEW_OPTIONS, type GraphViewMode } from "./RealmGraph";
+import { VIEW_OPTIONS, type GraphViewMode } from "./WorkspaceGraph";
 
-const RealmGraph = dynamic(() => import("./RealmGraph"), { ssr: false });
+const WorkspaceGraph = dynamic(() => import("./WorkspaceGraph"), { ssr: false });
 
 /**
  * The full-page relationship graph explorer. Owns view + fullscreen state and
@@ -50,8 +50,8 @@ export function GraphExplorer() {
         router.push(
           `/users/${encodeURIComponent(node.id.replace("user:", ""))}`
         );
-      else if (node.type === "realm")
-        router.push(`/realms/${node.id.replace("realm:", "")}`);
+      else if (node.type === "workspace")
+        router.push(`/workspaces/${node.id.replace("workspace:", "")}`);
     },
     [router]
   );
@@ -63,7 +63,7 @@ export function GraphExplorer() {
       title: "Relationship Graph",
       description: stats
         ? `${stats.nodes} node${stats.nodes !== 1 ? "s" : ""} · ${stats.edges} edge${stats.edges !== 1 ? "s" : ""}`
-        : "Users, agents and realms — and how they connect",
+        : "Users, agents and workspaces — and how they connect",
       actions: [
         {
           kind: "tabs" as const,
@@ -104,7 +104,7 @@ export function GraphExplorer() {
           </button>
         </div>
         <div className="px-4 pb-4 flex-1 min-h-0">
-          <RealmGraph
+          <WorkspaceGraph
             query={graphQuery}
             height={graphHeight}
             view={view}
@@ -118,7 +118,7 @@ export function GraphExplorer() {
   }
 
   return (
-    <RealmGraph
+    <WorkspaceGraph
       query={graphQuery}
       height={graphHeight}
       view={view}

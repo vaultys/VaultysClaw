@@ -209,35 +209,35 @@ class ApprovalManager extends EventEmitter {
 
 // Helper: recreate the skill-toggle mechanism
 class SkillToggleManager {
-  private realmSkillFilter: Array<{
+  private workspaceSkillFilter: Array<{
     name: string;
     enabled: boolean;
     isRequired: boolean;
   }> | null = null;
   private skills = ["calc", "web-scraper", "json-api"];
 
-  setRealmFilter(
+  setWorkspaceFilter(
     filter: Array<{ name: string; enabled: boolean; isRequired: boolean }>
   ) {
-    this.realmSkillFilter = filter;
+    this.workspaceSkillFilter = filter;
   }
 
   toggleSkillEnabled(skillName: string, enabled: boolean) {
     if (!this.skills.includes(skillName))
       throw new Error(`Unknown skill: ${skillName}`);
-    if (this.realmSkillFilter) {
-      const entry = this.realmSkillFilter.find((s) => s.name === skillName);
+    if (this.workspaceSkillFilter) {
+      const entry = this.workspaceSkillFilter.find((s) => s.name === skillName);
       if (entry?.isRequired)
         throw new Error(
-          `Skill "${skillName}" is required by the realm and cannot be disabled`
+          `Skill "${skillName}" is required by the workspace and cannot be disabled`
         );
     }
-    if (!this.realmSkillFilter) this.realmSkillFilter = [];
-    const existing = this.realmSkillFilter.find((s) => s.name === skillName);
+    if (!this.workspaceSkillFilter) this.workspaceSkillFilter = [];
+    const existing = this.workspaceSkillFilter.find((s) => s.name === skillName);
     if (existing) {
       existing.enabled = enabled;
     } else {
-      this.realmSkillFilter.push({
+      this.workspaceSkillFilter.push({
         name: skillName,
         enabled,
         isRequired: false,
@@ -246,8 +246,8 @@ class SkillToggleManager {
   }
 
   isEnabled(skillName: string) {
-    if (!this.realmSkillFilter) return true;
-    const entry = this.realmSkillFilter.find((s) => s.name === skillName);
+    if (!this.workspaceSkillFilter) return true;
+    const entry = this.workspaceSkillFilter.find((s) => s.name === skillName);
     return entry ? entry.enabled : true;
   }
 }
@@ -329,7 +329,7 @@ describe("Skill toggle", () => {
     mgr = new SkillToggleManager();
   });
 
-  it("all skills are enabled by default (no realm filter)", () => {
+  it("all skills are enabled by default (no workspace filter)", () => {
     expect(mgr.isEnabled("calc")).toBe(true);
     expect(mgr.isEnabled("web-scraper")).toBe(true);
   });
@@ -351,15 +351,15 @@ describe("Skill toggle", () => {
     );
   });
 
-  it("throws when trying to disable a realm-required skill", () => {
-    mgr.setRealmFilter([{ name: "calc", enabled: true, isRequired: true }]);
+  it("throws when trying to disable a workspace-required skill", () => {
+    mgr.setWorkspaceFilter([{ name: "calc", enabled: true, isRequired: true }]);
     expect(() => mgr.toggleSkillEnabled("calc", false)).toThrow(
-      "required by the realm"
+      "required by the workspace"
     );
   });
 
-  it("allows toggling a realm-managed non-required skill", () => {
-    mgr.setRealmFilter([{ name: "calc", enabled: true, isRequired: false }]);
+  it("allows toggling a workspace-managed non-required skill", () => {
+    mgr.setWorkspaceFilter([{ name: "calc", enabled: true, isRequired: false }]);
     mgr.toggleSkillEnabled("calc", false);
     expect(mgr.isEnabled("calc")).toBe(false);
   });

@@ -1,7 +1,7 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-config";
 import { getWSServer } from "@/lib/ws-server";
-import { GrantDAO, IntentDAO, RealmDAO } from "@/db";
+import { GrantDAO, IntentDAO, WorkspaceDAO } from "@/db";
 import { getAuthContext } from "@/lib/auth-utils";
 import { APIException } from "@/lib/api/utils/api-utils";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
@@ -109,13 +109,13 @@ const handlers = createNextRoute(intentsContract, {
 
     let allowedAgentDids: Set<string> | undefined;
     if (!auth.isGlobalAdmin) {
-      if (auth.realmIds.size === 0) {
-        allowedAgentDids = new Set(); // no realms → no agents → no intents
+      if (auth.workspaceIds.size === 0) {
+        allowedAgentDids = new Set(); // no workspaces → no agents → no intents
       } else {
-        const perRealm = await Promise.all(
-          [...auth.realmIds].map((id) => RealmDAO.getAgents(id))
+        const perWorkspace = await Promise.all(
+          [...auth.workspaceIds].map((id) => WorkspaceDAO.getAgents(id))
         );
-        allowedAgentDids = new Set(perRealm.flat().map((ra) => ra.agent.did));
+        allowedAgentDids = new Set(perWorkspace.flat().map((ra) => ra.agent.did));
       }
     }
 

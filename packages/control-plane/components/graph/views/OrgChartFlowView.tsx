@@ -66,7 +66,7 @@ interface UserNodeData {
   label: string;
   role?: string;
   status?: "online" | "offline";
-  realmId?: string;
+  workspaceId?: string;
 }
 
 const UserNode: React.FC<NodeProps<UserNodeData>> = ({ data, selected }) => {

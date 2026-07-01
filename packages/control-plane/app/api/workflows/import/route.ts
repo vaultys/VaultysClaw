@@ -14,9 +14,9 @@ const handlers = createNextRoute(workflowsContract, {
   import: async ({ body, request }) => {
     const auth = await getAuthContext(request);
 
-    if (body.realmId && !(await auth.canAdminRealm(body.realmId)))
+    if (body.workspaceId && !(await auth.canAdminWorkspace(body.workspaceId)))
       throw new APIException("FORBIDDEN");
-    if (!body.realmId && !auth.isGlobalAdmin)
+    if (!body.workspaceId && !auth.isGlobalAdmin)
       throw new APIException("FORBIDDEN");
 
     // Validate definition structure

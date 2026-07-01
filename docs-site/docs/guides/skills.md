@@ -6,15 +6,15 @@ description: How to package reusable agent behaviours as skills and inject them 
 
 # Skills
 
-A **skill** is a named unit of reusable agent behaviour attached to a realm. Each skill carries optional Markdown instructions that are automatically injected into the system prompt of every agent enrolled in that realm — no code changes required.
+A **skill** is a named unit of reusable agent behaviour attached to a workspace. Each skill carries optional Markdown instructions that are automatically injected into the system prompt of every agent enrolled in that workspace — no code changes required.
 
 ---
 
 ## How skills work
 
 ```
-Realm skill (DB)
-  ├── name            — unique identifier within the realm
+Workspace skill (DB)
+  ├── name            — unique identifier within the workspace
   ├── description     — shown in the control-plane dashboard
   ├── version         — optional semver string
   ├── isRequired      — if true, the skill is always active; agents cannot opt out
@@ -22,7 +22,7 @@ Realm skill (DB)
   └── content         — Markdown instructions injected into the agent system prompt
 ```
 
-When an agent connects, the control plane pushes a `skills_config` WebSocket message containing all active skills for each of the agent's realms. If a skill's `content` field is non-empty, the agent appends it to its base system prompt:
+When an agent connects, the control plane pushes a `skills_config` WebSocket message containing all active skills for each of the agent's workspaces. If a skill's `content` field is non-empty, the agent appends it to its base system prompt:
 
 ```
 [Base system prompt]
@@ -50,19 +50,19 @@ The top of the page shows four counters:
 
 | Counter              | Description                                    |
 | -------------------- | ---------------------------------------------- |
-| Total entries        | Number of skill-realm pairs across all realms  |
+| Total entries        | Number of skill-workspace pairs across all workspaces  |
 | Unique skills        | Number of distinct skill names                 |
-| Realms with skills   | Realms that have at least one skill configured |
-| Shared across realms | Skills that appear in more than one realm      |
+| Workspaces with skills   | Workspaces that have at least one skill configured |
+| Shared across workspaces | Skills that appear in more than one workspace      |
 
 ### Skill cards
 
 Skills are grouped by name. Each card shows:
 
-- All realms the skill is deployed to, with agent counts
-- Whether that realm's instance carries Markdown instructions ("instructions" badge) or not ("no instructions" hint)
-- Per-realm **Edit** and **Delete** buttons
-- An **Add to realm** button to share the same skill definition to an additional realm
+- All workspaces the skill is deployed to, with agent counts
+- Whether that workspace's instance carries Markdown instructions ("instructions" badge) or not ("no instructions" hint)
+- Per-workspace **Edit** and **Delete** buttons
+- An **Add to workspace** button to share the same skill definition to an additional workspace
 
 ### Searching
 
@@ -76,8 +76,8 @@ Click **New skill** in the top-right corner of the Skills page. Fill in:
 
 | Field                   | Required | Notes                                                                |
 | ----------------------- | -------- | -------------------------------------------------------------------- |
-| Realm                   | Yes      | The realm this skill instance belongs to                             |
-| Name                    | Yes      | Must be unique within the realm                                      |
+| Workspace                   | Yes      | The workspace this skill instance belongs to                             |
+| Name                    | Yes      | Must be unique within the workspace                                      |
 | Description             | No       | Human-readable summary                                               |
 | Version                 | No       | Semver string — informational only                                   |
 | Required                | No       | Checked → always active; unchecked → agents can disable via override |
@@ -86,27 +86,27 @@ Click **New skill** in the top-right corner of the Skills page. Fill in:
 
 ---
 
-## Sharing a skill to another realm
+## Sharing a skill to another workspace
 
-Every skill group card has an **Add to realm** button. This opens a pre-filled form containing the source skill's name, description, version, and instructions — you only need to choose:
+Every skill group card has an **Add to workspace** button. This opens a pre-filled form containing the source skill's name, description, version, and instructions — you only need to choose:
 
-- The **target realm** (realms where the skill already exists are excluded)
-- Whether the skill is **required** in that realm
-- An optional **config** override specific to that realm
+- The **target workspace** (workspaces where the skill already exists are excluded)
+- Whether the skill is **required** in that workspace
+- An optional **config** override specific to that workspace
 
-The skill is **shared by reference to a name**, not cloned. Each realm stores its own row, so descriptions and configs can diverge independently.
+The skill is **shared by reference to a name**, not cloned. Each workspace stores its own row, so descriptions and configs can diverge independently.
 
 ---
 
 ## Editing a skill
 
-Click **Edit** on any realm row within a skill card to:
+Click **Edit** on any workspace row within a skill card to:
 
 - Update description, version, required flag, or config
 - Update or clear the Markdown instructions
 - Re-fetch instructions from the skills library (if the skill was imported from there)
 
-Changes take effect immediately — the control plane broadcasts an updated `skills_config` to all connected agents in that realm.
+Changes take effect immediately — the control plane broadcasts an updated `skills_config` to all connected agents in that workspace.
 
 ---
 
@@ -175,7 +175,7 @@ You are a friendly, empathetic customer support specialist for Acme Corp.
 | `isRequired` | Effect                                                                                                                        |
 | ------------ | ----------------------------------------------------------------------------------------------------------------------------- |
 | `true`       | The skill is always active. The agent ignores any per-agent override.                                                         |
-| `false`      | The skill defaults to enabled. A realm admin or agent operator can disable it for a specific agent via the agent detail page. |
+| `false`      | The skill defaults to enabled. A workspace admin or agent operator can disable it for a specific agent via the agent detail page. |
 
 :::info
 Required skills are always injected into the system prompt, even if an agent has an override record that sets `enabled = false` for that skill. Use `isRequired` for compliance or safety-critical instructions.
@@ -199,11 +199,11 @@ Before this feature was introduced, the dashboard only reflected the subset of a
 
 | Method   | Path                              | Auth         | Description                                       |
 | -------- | --------------------------------- | ------------ | ------------------------------------------------- |
-| `GET`    | `/api/skills`                     | Global admin | List all skills across all realms                 |
-| `POST`   | `/api/skills`                     | Global admin | Create a skill in a realm                         |
-| `GET`    | `/api/realms/:id/skills/:skillId` | Realm member | Get skill detail                                  |
-| `PATCH`  | `/api/realms/:id/skills/:skillId` | Realm admin  | Update skill                                      |
-| `DELETE` | `/api/realms/:id/skills/:skillId` | Realm admin  | Delete skill from realm                           |
+| `GET`    | `/api/skills`                     | Global admin | List all skills across all workspaces                 |
+| `POST`   | `/api/skills`                     | Global admin | Create a skill in a workspace                         |
+| `GET`    | `/api/workspaces/:id/skills/:skillId` | Workspace member | Get skill detail                                  |
+| `PATCH`  | `/api/workspaces/:id/skills/:skillId` | Workspace admin  | Update skill                                      |
+| `DELETE` | `/api/workspaces/:id/skills/:skillId` | Workspace admin  | Delete skill from workspace                           |
 | `GET`    | `/api/skills/library`             | Global admin | Proxy to skills-library.com (1 h cache)           |
 | `GET`    | `/api/skills/library/content`     | Global admin | Fetch SKILL.md from a GitHub source               |
 | `GET`    | `/api/stats/tokens`               | Global admin | Fleet-wide token stats (all-time, daily, monthly) |

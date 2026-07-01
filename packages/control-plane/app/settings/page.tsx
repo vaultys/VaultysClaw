@@ -3,18 +3,18 @@
 import { useSession } from "next-auth/react";
 import { useState, useEffect } from "react";
 import { Sun, Shield, Key, User, Globe2 } from "lucide-react";
-import { usersClient, unwrap, realmsClient } from "@/lib/api/ts-rest/client";
-import type { MeProfile, UserRealmWithRealm } from "@/lib/contracts";
+import { usersClient, unwrap, workspacesClient } from "@/lib/api/ts-rest/client";
+import type { MeProfile, UserWorkspaceWithWorkspace } from "@/lib/contracts";
 import { useToolbar } from "@/components/layout/ToolbarContext";
 import { useBreadcrumbs } from "@/components/layout/BreadcrumbContext";
 import { ProfileTab } from "@/components/settings/ProfileTab";
 import { SecurityTab } from "@/components/settings/SecurityTab";
-import { RealmsTab } from "@/components/settings/RealmsTab";
+import { WorkspacesTab } from "@/components/settings/WorkspacesTab";
 import { AppearanceTab } from "@/components/settings/AppearanceTab";
 import { ApiKeysSection } from "@/components/settings/ApiKeysSection";
 import { isAdminRole } from "@/lib/roles";
 
-type Tab = "profile" | "security" | "api-keys" | "realms" | "appearance";
+type Tab = "profile" | "security" | "api-keys" | "workspaces" | "appearance";
 
 const TABS: {
   id: Tab;
@@ -25,7 +25,7 @@ const TABS: {
   { id: "profile", label: "Profile", icon: User },
   { id: "security", label: "Security", icon: Shield },
   { id: "api-keys", label: "API Keys", icon: Key, adminOnly: true },
-  { id: "realms", label: "Realms", icon: Globe2 },
+  { id: "workspaces", label: "Workspaces", icon: Globe2 },
   { id: "appearance", label: "Appearance", icon: Sun },
 ];
 
@@ -33,16 +33,16 @@ export default function AccountPage() {
   const { data: session } = useSession();
 
   const [profile, setProfile] = useState<MeProfile | null>(null);
-  const [realms, setRealms] = useState<UserRealmWithRealm[]>([]);
+  const [workspaces, setWorkspaces] = useState<UserWorkspaceWithWorkspace[]>([]);
   const [profileLoading, setProfileLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<Tab>("profile");
 
   useEffect(() => {
     if (!session?.user) return;
-    Promise.all([usersClient.me(), realmsClient.listMyRealms()])
-      .then(([meRes, realmsRes]) => {
+    Promise.all([usersClient.me(), workspacesClient.listMyWorkspaces()])
+      .then(([meRes, workspacesRes]) => {
         setProfile(unwrap(meRes));
-        setRealms(unwrap(realmsRes).userRealms);
+        setWorkspaces(unwrap(workspacesRes).userWorkspaces);
       })
       .catch(() => {})
       .finally(() => setProfileLoading(false));
@@ -112,7 +112,7 @@ export default function AccountPage() {
       )}
       {activeTab === "security" && <SecurityTab profile={profile} />}
       {activeTab === "api-keys" && isAdmin && <ApiKeysSection />}
-      {activeTab === "realms" && <RealmsTab realms={realms} />}
+      {activeTab === "workspaces" && <WorkspacesTab workspaces={workspaces} />}
       {activeTab === "appearance" && <AppearanceTab />}
     </div>
   );

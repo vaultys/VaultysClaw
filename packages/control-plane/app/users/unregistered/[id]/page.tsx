@@ -26,10 +26,10 @@ import {
   type TabItem,
 } from "@/components/users/detail/UserTabBar";
 import { UnclaimedOverviewTab } from "@/components/users/detail/UnclaimedOverviewTab";
-import { UnclaimedRealmsTab } from "@/components/users/detail/UnclaimedRealmsTab";
+import { UnclaimedWorkspacesTab } from "@/components/users/detail/UnclaimedWorkspacesTab";
 import { QrClaimModal, type QrPhase } from "@/components/users/QrClaimModal";
 
-type TabId = "overview" | "realms";
+type TabId = "overview" | "workspaces";
 
 export default function UnregisteredUserPage() {
   const router = useRouter();
@@ -280,7 +280,7 @@ export default function UnregisteredUserPage() {
 
   const tabs: TabItem<TabId>[] = [
     { id: "overview", label: "Overview", icon: <LayoutDashboard size={15} /> },
-    { id: "realms", label: "Realms", icon: <Users size={15} /> },
+    { id: "workspaces", label: "Workspaces", icon: <Users size={15} /> },
   ];
 
   return (
@@ -296,7 +296,7 @@ export default function UnregisteredUserPage() {
               onUpdated={(patch) => setUser((u) => (u ? { ...u, ...patch } : u))}
             />
           )}
-          {activeTab === "realms" && <UnclaimedRealmsTab realms={user.realms} />}
+          {activeTab === "workspaces" && <UnclaimedWorkspacesTab workspaces={user.workspaces} />}
         </div>
       </div>
 

@@ -4,14 +4,14 @@
  *
  * Creates a complete, realistic demo environment:
  *  - Server identity (enables secret encryption)
- *  - 8 fully-configured realms
+ *  - 8 fully-configured workspaces
  *  - 200+ users (executives, VPs, leads, ICs)
  *  - LLM model registry (from demo-config.json)
  *  - MinIO S3 + Docling settings (from demo-config.json)
  *  - PeerJS enabled
- *  - 3 channels per realm
- *  - Skills per realm
- *  - Realm and agent policies
+ *  - 3 channels per workspace
+ *  - Skills per workspace
+ *  - Workspace and agent policies
  *  - 30 simulator agents with geo-locations, LLM config, knowledge sources
  *  - 15 workflows — CRON, manual, human-approval
  *  - Demo API key for scenario runner
@@ -162,9 +162,9 @@ async function loadOrCreateIdentity(name: string): Promise<VaultysId> {
   return vid.toVersion(1);
 }
 
-// ── Realm data ────────────────────────────────────────────────────────────────
+// ── Workspace data ────────────────────────────────────────────────────────────────
 
-const REALMS = [
+const WORKSPACES = [
   { name: "Engineering",          slug: "engineering",      color: "#6366f1", desc: "Software development, code review, testing and documentation agents", caps: ["code_execution", "file_access", "api_call"] },
   { name: "Security Operations",  slug: "security-ops",     color: "#ef4444", desc: "Threat detection, vulnerability scanning and incident response agents", caps: ["internet_access", "api_call", "system_command"] },
   { name: "DevOps & Infra",       slug: "devops",           color: "#f59e0b", desc: "CI/CD pipelines, deployments, and infrastructure automation agents", caps: ["code_execution", "system_command", "api_call", "file_access"] },
@@ -193,12 +193,12 @@ const EXECUTIVES = [
 // ── Channel templates ─────────────────────────────────────────────────────────
 
 const COMMON_CHANNELS = [
-  { name: "general",       slug: "general",       topic: "General realm discussion", public: true },
+  { name: "general",       slug: "general",       topic: "General workspace discussion", public: true },
   { name: "announcements", slug: "announcements", topic: "Important announcements",  public: true },
   { name: "ai-activity",   slug: "ai-activity",   topic: "AI agent outputs and alerts", public: true },
 ];
 
-const REALM_CHANNELS: Record<string, { name: string; slug: string; topic: string }[]> = {
+const WORKSPACE_CHANNELS: Record<string, { name: string; slug: string; topic: string }[]> = {
   "engineering":      [{ name: "code-reviews", slug: "code-reviews", topic: "Automated code reviews" }, { name: "releases", slug: "releases", topic: "Release tracking" }],
   "security-ops":     [{ name: "incidents",    slug: "incidents",    topic: "Security incidents" },      { name: "cve-alerts", slug: "cve-alerts", topic: "CVE notifications" }],
   "devops":           [{ name: "deployments",  slug: "deployments",  topic: "Deploy activity" },         { name: "monitoring", slug: "monitoring", topic: "System alerts" }],
@@ -211,7 +211,7 @@ const REALM_CHANNELS: Record<string, { name: string; slug: string; topic: string
 
 // ── Skills ────────────────────────────────────────────────────────────────────
 
-const REALM_SKILLS: Record<string, { name: string; description: string; isRequired: boolean }[]> = {
+const WORKSPACE_SKILLS: Record<string, { name: string; description: string; isRequired: boolean }[]> = {
   "engineering":      [
     { name: "code-review",       description: "Automated code quality and security review",    isRequired: true },
     { name: "test-generation",   description: "Generate unit and integration tests",            isRequired: false },
@@ -263,13 +263,13 @@ async function seedServerIdentity(): Promise<void> {
   console.log("  ✓ serverSecret ready (enables credential encryption)");
 }
 
-async function seedRealms(): Promise<Map<string, string>> {
-  console.log("\n▶ Seeding realms…");
+async function seedWorkspaces(): Promise<Map<string, string>> {
+  console.log("\n▶ Seeding workspaces…");
   const slugToId = new Map<string, string>();
 
-  for (const r of REALMS) {
-    const id = makeId("realm", r.slug);
-    await prisma.realm.upsert({
+  for (const r of WORKSPACES) {
+    const id = makeId("workspace", r.slug);
+    await prisma.workspace.upsert({
       where: { id },
       create: { id, name: r.name, slug: r.slug, description: r.desc, color: r.color, defaultCapabilities: r.caps },
       update: { name: r.name, slug: r.slug, description: r.desc, color: r.color, defaultCapabilities: r.caps },
@@ -277,11 +277,11 @@ async function seedRealms(): Promise<Map<string, string>> {
     slugToId.set(r.slug, id);
     process.stdout.write(".");
   }
-  console.log(`\n  ✓ ${REALMS.length} realms`);
+  console.log(`\n  ✓ ${WORKSPACES.length} workspaces`);
   return slugToId;
 }
 
-async function seedUsers(realmSlugToId: Map<string, string>): Promise<{ ownerUserId: string; ownerDid: string; execUserIds: string[] }> {
+async function seedUsers(workspaceSlugToId: Map<string, string>): Promise<{ ownerUserId: string; ownerDid: string; execUserIds: string[] }> {
   console.log("\n▶ Seeding users…");
   let count = 0;
 
@@ -330,68 +330,68 @@ async function seedUsers(realmSlugToId: Map<string, string>): Promise<{ ownerUse
     });
     execUserIds.push(uid);
 
-    // Add to all realms
-    for (const [, realmId] of realmSlugToId) {
-      await prisma.userRealm.upsert({
-        where: { userId_realmId: { userId: uid, realmId } },
-        create: { userId: uid, realmId, isPrimary: false, isRealmAdmin: exec.globalAdmin },
+    // Add to all workspaces
+    for (const [, workspaceId] of workspaceSlugToId) {
+      await prisma.userWorkspace.upsert({
+        where: { userId_workspaceId: { userId: uid, workspaceId } },
+        create: { userId: uid, workspaceId, isPrimary: false, isWorkspaceAdmin: exec.globalAdmin },
         update: {},
       }).catch(() => {});
     }
     process.stdout.write(".");
   }
 
-  // VPs (one per realm, realm admin)
+  // VPs (one per workspace, workspace admin)
   const vpUserIds = new Map<string, string>();
-  for (const [slug, realmId] of realmSlugToId) {
+  for (const [slug, workspaceId] of workspaceSlugToId) {
     const did = makeDid(`vp-${slug}`);
     const fn = hashPick(FIRST_NAMES, `vp-${slug}-fn`);
     const ln = hashPick(LAST_NAMES, `vp-${slug}-ln`);
     const uid = await upsert(did, `vp.${slug}@demo.vaultysclaw.io`, `${fn} ${ln} (VP)`, { reportsTo: execUserIds[0] });
     vpUserIds.set(slug, uid);
-    await prisma.userRealm.upsert({
-      where: { userId_realmId: { userId: uid, realmId } },
-      create: { userId: uid, realmId, isPrimary: true, isRealmAdmin: true },
+    await prisma.userWorkspace.upsert({
+      where: { userId_workspaceId: { userId: uid, workspaceId } },
+      create: { userId: uid, workspaceId, isPrimary: true, isWorkspaceAdmin: true },
       update: {},
     }).catch(() => {});
     process.stdout.write(".");
   }
 
-  // Leads (3 per realm)
+  // Leads (3 per workspace)
   const leadUserIds = new Map<string, string[]>();
-  for (const [slug, realmId] of realmSlugToId) {
+  for (const [slug, workspaceId] of workspaceSlugToId) {
     const vpId = vpUserIds.get(slug);
-    const realmLeads: string[] = [];
+    const workspaceLeads: string[] = [];
     for (let i = 0; i < 3; i++) {
       const did = makeDid(`lead-${slug}-${i}`);
       const fn = hashPick(FIRST_NAMES, `lead-${slug}-${i}-fn`);
       const ln = hashPick(LAST_NAMES, `lead-${slug}-${i}-ln`);
       const uid = await upsert(did, `lead${i}.${slug}@demo.vaultysclaw.io`, `${fn} ${ln}`, { reportsTo: vpId });
-      realmLeads.push(uid);
-      await prisma.userRealm.upsert({
-        where: { userId_realmId: { userId: uid, realmId } },
-        create: { userId: uid, realmId, isPrimary: true, isRealmAdmin: false },
+      workspaceLeads.push(uid);
+      await prisma.userWorkspace.upsert({
+        where: { userId_workspaceId: { userId: uid, workspaceId } },
+        create: { userId: uid, workspaceId, isPrimary: true, isWorkspaceAdmin: false },
         update: {},
       }).catch(() => {});
       process.stdout.write(".");
     }
-    leadUserIds.set(slug, realmLeads);
+    leadUserIds.set(slug, workspaceLeads);
   }
 
-  // ICs (12 per realm)
-  for (const [slug, realmId] of realmSlugToId) {
-    const realmLeads = leadUserIds.get(slug) || [];
+  // ICs (12 per workspace)
+  for (const [slug, workspaceId] of workspaceSlugToId) {
+    const workspaceLeads = leadUserIds.get(slug) || [];
     const vpId = vpUserIds.get(slug);
     for (let i = 0; i < 12; i++) {
       const did = makeDid(`ic-${slug}-${i}`);
       const fn = hashPick(FIRST_NAMES, `ic-${slug}-${i}-fn`);
       const ln = hashPick(LAST_NAMES, `ic-${slug}-${i}-ln`);
       const suffix = Math.abs(parseInt(crypto.createHash("md5").update(did).digest("hex").slice(0, 4), 16) % 99);
-      const manager = realmLeads.length > 0 ? realmLeads[i % realmLeads.length] : vpId;
+      const manager = workspaceLeads.length > 0 ? workspaceLeads[i % workspaceLeads.length] : vpId;
       const uid = await upsert(did, `${fn.toLowerCase()}.${ln.toLowerCase()}${suffix}@demo.vaultysclaw.io`, `${fn} ${ln}`, { reportsTo: manager });
-      await prisma.userRealm.upsert({
-        where: { userId_realmId: { userId: uid, realmId } },
-        create: { userId: uid, realmId, isPrimary: true, isRealmAdmin: false },
+      await prisma.userWorkspace.upsert({
+        where: { userId_workspaceId: { userId: uid, workspaceId } },
+        create: { userId: uid, workspaceId, isPrimary: true, isWorkspaceAdmin: false },
         update: {},
       }).catch(() => {});
     }
@@ -402,10 +402,10 @@ async function seedUsers(realmSlugToId: Map<string, string>): Promise<{ ownerUse
   return { ownerUserId, ownerDid, execUserIds };
 }
 
-async function seedLlmModels(cfg: DemoConfig, realmSlugToId: Map<string, string>): Promise<Map<string, string>> {
+async function seedLlmModels(cfg: DemoConfig, workspaceSlugToId: Map<string, string>): Promise<Map<string, string>> {
   console.log("\n▶ Seeding LLM model registry…");
   const modelIdMap = new Map<string, string>(); // "provider/modelId" → registry id
-  const allRealmIds = [...realmSlugToId.values()];
+  const allWorkspaceIds = [...workspaceSlugToId.values()];
 
   for (const [provider, provCfg] of Object.entries(cfg.llm)) {
     const hasKey = provCfg.apiKey && !provCfg.apiKey.startsWith("YOUR_") && provCfg.apiKey.trim() !== "";
@@ -438,11 +438,11 @@ async function seedLlmModels(cfg: DemoConfig, realmSlugToId: Map<string, string>
 
       modelIdMap.set(`${provider}/${model.id}`, id);
 
-      // Grant access to all realms
-      for (const realmId of allRealmIds) {
-        await prisma.modelRealmAccess.upsert({
-          where: { modelId_realmId: { modelId: id, realmId } },
-          create: { modelId: id, realmId },
+      // Grant access to all workspaces
+      for (const workspaceId of allWorkspaceIds) {
+        await prisma.modelWorkspaceAccess.upsert({
+          where: { modelId_workspaceId: { modelId: id, workspaceId } },
+          create: { modelId: id, workspaceId },
           update: {},
         }).catch(() => {});
       }
@@ -490,21 +490,21 @@ async function seedServiceSettings(cfg: DemoConfig): Promise<void> {
   console.log("  ✓ Docling configured   →", d.url);
 }
 
-async function seedChannels(realmSlugToId: Map<string, string>, ownerDid: string): Promise<void> {
+async function seedChannels(workspaceSlugToId: Map<string, string>, ownerDid: string): Promise<void> {
   console.log("\n▶ Seeding channels…");
   let count = 0;
 
-  for (const [slug, realmId] of realmSlugToId) {
+  for (const [slug, workspaceId] of workspaceSlugToId) {
     const allChannels = [
       ...COMMON_CHANNELS,
-      ...(REALM_CHANNELS[slug as keyof typeof REALM_CHANNELS] ?? []),
+      ...(WORKSPACE_CHANNELS[slug as keyof typeof WORKSPACE_CHANNELS] ?? []),
     ];
 
     for (const ch of allChannels) {
       const id = makeId("channel", `${slug}/${ch.slug}`);
       await prisma.channel.upsert({
         where: { id },
-        create: { id, realmId, name: ch.name, slug: ch.slug, topic: ch.topic, isPublic: ch.public ?? true, creatorDid: ownerDid },
+        create: { id, workspaceId, name: ch.name, slug: ch.slug, topic: ch.topic, isPublic: ch.public ?? true, creatorDid: ownerDid },
         update: { topic: ch.topic },
       });
       count++;
@@ -513,18 +513,18 @@ async function seedChannels(realmSlugToId: Map<string, string>, ownerDid: string
   console.log(`  ✓ ${count} channels`);
 }
 
-async function seedSkills(realmSlugToId: Map<string, string>): Promise<Map<string, string>> {
-  console.log("\n▶ Seeding realm skills…");
+async function seedSkills(workspaceSlugToId: Map<string, string>): Promise<Map<string, string>> {
+  console.log("\n▶ Seeding workspace skills…");
   const skillMap = new Map<string, string>(); // "slug/name" → id
   let count = 0;
 
-  for (const [slug, realmId] of realmSlugToId) {
-    const skills = REALM_SKILLS[slug as keyof typeof REALM_SKILLS] ?? [];
+  for (const [slug, workspaceId] of workspaceSlugToId) {
+    const skills = WORKSPACE_SKILLS[slug as keyof typeof WORKSPACE_SKILLS] ?? [];
     for (const sk of skills) {
       const id = makeId("skill", `${slug}/${sk.name}`);
-      await prisma.realmSkill.upsert({
+      await prisma.workspaceSkill.upsert({
         where: { id },
-        create: { id, realmId, name: sk.name, description: sk.description, isRequired: sk.isRequired, config: {} },
+        create: { id, workspaceId, name: sk.name, description: sk.description, isRequired: sk.isRequired, config: {} },
         update: { description: sk.description, isRequired: sk.isRequired },
       });
       skillMap.set(`${slug}/${sk.name}`, id);
@@ -535,33 +535,33 @@ async function seedSkills(realmSlugToId: Map<string, string>): Promise<Map<strin
   return skillMap;
 }
 
-async function seedPolicies(realmSlugToId: Map<string, string>, ctoDid: string): Promise<Map<string, string>> {
-  console.log("\n▶ Seeding realm policies…");
-  const policyMap = new Map<string, string>(); // realmSlug → policyId
+async function seedPolicies(workspaceSlugToId: Map<string, string>, ctoDid: string): Promise<Map<string, string>> {
+  console.log("\n▶ Seeding workspace policies…");
+  const policyMap = new Map<string, string>(); // workspaceSlug → policyId
 
-  for (const [slug, realmId] of realmSlugToId) {
-    const realm = REALMS.find(r => r.slug === slug)!;
+  for (const [slug, workspaceId] of workspaceSlugToId) {
+    const workspace = WORKSPACES.find(r => r.slug === slug)!;
     const id = `policy-${makeId("rp", slug)}`;
     await prisma.policy.upsert({
       where: { id },
       create: {
         id,
-        realmId,
-        capabilities: realm.caps,
+        workspaceId,
+        capabilities: workspace.caps,
         resourceLimits: { maxTokensPerDay: 500_000, maxTokensPerMonth: 10_000_000 },
         createdBy: ctoDid,
       },
-      update: { capabilities: realm.caps },
+      update: { capabilities: workspace.caps },
     });
     policyMap.set(slug, id);
     process.stdout.write(".");
   }
-  console.log(`\n  ✓ ${REALMS.length} realm policies`);
+  console.log(`\n  ✓ ${WORKSPACES.length} workspace policies`);
   return policyMap;
 }
 
 async function seedAgents(
-  realmSlugToId: Map<string, string>,
+  workspaceSlugToId: Map<string, string>,
   modelIdMap: Map<string, string>,
   skillMap: Map<string, string>,
 ): Promise<Map<string, string>> {
@@ -611,32 +611,32 @@ async function seedAgents(
       },
     });
 
-    // Realm membership
-    const realm = await prisma.realm.findFirst({ where: { slug: agentCfg.realm } });
-    if (realm) {
-      await prisma.agentRealm.upsert({
-        where: { agentDid_realmId: { agentDid: did, realmId: realm.id } },
-        create: { agentDid: did, realmId: realm.id, isPrimary: true },
+    // Workspace membership
+    const workspace = await prisma.workspace.findFirst({ where: { slug: agentCfg.workspace } });
+    if (workspace) {
+      await prisma.agentWorkspace.upsert({
+        where: { agentDid_workspaceId: { agentDid: did, workspaceId: workspace.id } },
+        create: { agentDid: did, workspaceId: workspace.id, isPrimary: true },
         update: {},
       });
     }
 
-    // Assign skills for this realm
-    const realmSkills = Object.entries(Object.fromEntries(skillMap))
-      .filter(([k]) => k.startsWith(`${agentCfg.realm}/`))
+    // Assign skills for this workspace
+    const workspaceSkills = Object.entries(Object.fromEntries(skillMap))
+      .filter(([k]) => k.startsWith(`${agentCfg.workspace}/`))
       .map(([, skillId]) => skillId);
 
-    for (const skillId of realmSkills) {
+    for (const skillId of workspaceSkills) {
       await prisma.agentSkillOverride.upsert({
-        where: { agentDid_realmSkillId: { agentDid: did, realmSkillId: skillId } },
-        create: { agentDid: did, realmSkillId: skillId, enabled: true },
+        where: { agentDid_workspaceSkillId: { agentDid: did, workspaceSkillId: skillId } },
+        create: { agentDid: did, workspaceSkillId: skillId, enabled: true },
         update: {},
       }).catch(() => {});
     }
 
     // Per-agent policy
-    const realmId = realmSlugToId.get(agentCfg.realm);
-    if (realmId) {
+    const workspaceId = workspaceSlugToId.get(agentCfg.workspace);
+    if (workspaceId) {
       const policyId = `policy-${makeId("ap", agentCfg.name)}`;
       await prisma.policy.upsert({
         where: { id: policyId },
@@ -652,13 +652,13 @@ async function seedAgents(
     }
 
     // Knowledge source (1 per agent)
-    if (realmId) {
+    if (workspaceId) {
       const ksId = makeId("ks", agentCfg.name);
       await prisma.knowledgeSource.upsert({
         where: { id: ksId },
         create: {
           id: ksId,
-          realmId,
+          workspaceId,
           agentDid: did,
           name: `${agentCfg.name} — Team Knowledge Base`,
           sourceType: "file",
@@ -672,12 +672,12 @@ async function seedAgents(
     process.stdout.write(".");
   }
 
-  console.log(`\n  ✓ ${DEMO_AGENTS.length} agents (identities, realms, skills, policies, knowledge)`);
+  console.log(`\n  ✓ ${DEMO_AGENTS.length} agents (identities, workspaces, skills, policies, knowledge)`);
   return didMap;
 }
 
 async function seedWorkflows(
-  realmSlugToId: Map<string, string>,
+  workspaceSlugToId: Map<string, string>,
   agentDidMap: Map<string, string>,
   ownerDid: string,
   ownerUserId: string,
@@ -711,13 +711,13 @@ async function seedWorkflows(
   }
 
   const workflows: {
-    name: string; desc: string; realm: string; cron?: string; definition: object
+    name: string; desc: string; workspace: string; cron?: string; definition: object
   }[] = [
     // ── 1. Code Quality Pipeline (daily, Engineering) ──────────────────
     {
       name: "Code Quality Pipeline",
       desc: "Parallel review + lint + tests → documentation update",
-      realm: "engineering",
+      workspace: "engineering",
       cron: "0 9 * * *",
       definition: {
         nodes: [
@@ -734,7 +734,7 @@ async function seedWorkflows(
     {
       name: "Security Threat Assessment",
       desc: "Vulnerability scan + threat analysis + SIEM correlation → audit report",
-      realm: "security-ops",
+      workspace: "security-ops",
       cron: "0 7 * * *",
       definition: {
         nodes: [
@@ -751,7 +751,7 @@ async function seedWorkflows(
     {
       name: "Infrastructure Deploy",
       desc: "Provision → human approval → deploy → health check → notify",
-      realm: "devops",
+      workspace: "devops",
       definition: {
         nodes: [
           node("provision", "infra-provisioner-tokyo",  "provision_infrastructure", "Provision Infra"),
@@ -768,7 +768,7 @@ async function seedWorkflows(
     {
       name: "Financial Risk Report",
       desc: "Fraud detection + compliance check → executive report",
-      realm: "finance",
+      workspace: "finance",
       cron: "0 8 * * 1",
       definition: {
         nodes: [
@@ -784,7 +784,7 @@ async function seedWorkflows(
     {
       name: "Monthly Budget Review",
       desc: "Generate spend analysis → owner approves → distribute",
-      realm: "finance",
+      workspace: "finance",
       cron: "0 9 1 * *",
       definition: {
         nodes: [
@@ -800,7 +800,7 @@ async function seedWorkflows(
     {
       name: "Product Analytics",
       desc: "Collect KPIs + A/B analysis → insights report",
-      realm: "product",
+      workspace: "product",
       cron: "0 8 * * *",
       definition: {
         nodes: [
@@ -816,7 +816,7 @@ async function seedWorkflows(
     {
       name: "Incident Response",
       desc: "Correlate SIEM events → threat analysis → contain → notify owner",
-      realm: "security-ops",
+      workspace: "security-ops",
       definition: {
         nodes: [
           node("correlate","siem-correlator-frankfurt","correlate_events",    "Correlate Events"),
@@ -833,7 +833,7 @@ async function seedWorkflows(
     {
       name: "Contract Review Pipeline",
       desc: "Review contract → GDPR check → risk assessment → owner sign-off",
-      realm: "legal",
+      workspace: "legal",
       definition: {
         nodes: [
           node("review",   "contract-reviewer-brussels", "review_contract",  "Contract Review"),
@@ -850,7 +850,7 @@ async function seedWorkflows(
     {
       name: "Quarterly Compliance Audit",
       desc: "GDPR + risk assessment + contract review → owner approval → file report",
-      realm: "legal",
+      workspace: "legal",
       cron: "0 9 1 1,4,7,10 *",
       definition: {
         nodes: [
@@ -868,7 +868,7 @@ async function seedWorkflows(
     {
       name: "Data Quality Check",
       desc: "Run ETL quality gates → ML feature validation → insight report",
-      realm: "data",
+      workspace: "data",
       cron: "0 6 * * *",
       definition: {
         nodes: [
@@ -884,7 +884,7 @@ async function seedWorkflows(
     {
       name: "Release Notes Generator",
       desc: "Collect PR summaries → generate changelogs → PR assistant publishes",
-      realm: "engineering",
+      workspace: "engineering",
       cron: "0 17 * * 5",
       definition: {
         nodes: [
@@ -901,7 +901,7 @@ async function seedWorkflows(
     {
       name: "Customer Escalation Handler",
       desc: "Analyse ticket → sentiment check → route or escalate",
-      realm: "customer-success",
+      workspace: "customer-success",
       definition: {
         nodes: [
           node("analyze",  "sentiment-analyzer-sao-paulo","sentiment_analysis",  "Sentiment Analysis"),
@@ -916,7 +916,7 @@ async function seedWorkflows(
     {
       name: "Weekly Ops Digest",
       desc: "System health + deployment summary + alert review",
-      realm: "devops",
+      workspace: "devops",
       cron: "0 9 * * 1",
       definition: {
         nodes: [
@@ -933,7 +933,7 @@ async function seedWorkflows(
     {
       name: "ML Model Retraining",
       desc: "Data quality check → train → validate → deploy model",
-      realm: "data",
+      workspace: "data",
       cron: "0 2 * * 6",
       definition: {
         nodes: [
@@ -950,7 +950,7 @@ async function seedWorkflows(
     {
       name: "Onboarding Readiness Check",
       desc: "Check NPS + churn signals + ticket backlog → weekly health score",
-      realm: "customer-success",
+      workspace: "customer-success",
       cron: "0 10 * * 1",
       definition: {
         nodes: [
@@ -966,7 +966,7 @@ async function seedWorkflows(
 
   for (const wf of workflows) {
     const id = makeId("wf", wf.name);
-    const realmId = realmSlugToId.get(wf.realm) ?? null;
+    const workspaceId = workspaceSlugToId.get(wf.workspace) ?? null;
     const hasCron = !!wf.cron;
 
     await prisma.workflow.upsert({
@@ -976,7 +976,7 @@ async function seedWorkflows(
         name: wf.name,
         description: wf.desc,
         definition: wf.definition as object,
-        realmId,
+        workspaceId,
         createdBy: ctoDid,
         scheduleCron: wf.cron ?? null,
         scheduleEnabled: hasCron,
@@ -1012,7 +1012,7 @@ async function seedApiKey(): Promise<void> {
       keyHash,
       keyPrefix: DEMO_API_KEY.slice(0, 8),
       allowedRoutes: ["GET /api/workflows", "POST /api/workflows/[id]/execute"],
-      isRealmAdmin: true,
+      isWorkspaceAdmin: true,
       createdBy: ctoDid,
     },
     update: {
@@ -1156,15 +1156,15 @@ async function main() {
 
   await runMigrations();
   await seedServerIdentity();
-  const realmSlugToId = await seedRealms();
-  const { ownerUserId, ownerDid, execUserIds } = await seedUsers(realmSlugToId);
-  const modelIdMap = await seedLlmModels(cfg, realmSlugToId);
+  const workspaceSlugToId = await seedWorkspaces();
+  const { ownerUserId, ownerDid, execUserIds } = await seedUsers(workspaceSlugToId);
+  const modelIdMap = await seedLlmModels(cfg, workspaceSlugToId);
   await seedServiceSettings(cfg);
-  await seedChannels(realmSlugToId, ownerDid);
-  const skillMap = await seedSkills(realmSlugToId);
-  await seedPolicies(realmSlugToId, makeDid("exec-cto"));
-  const agentDidMap = await seedAgents(realmSlugToId, modelIdMap, skillMap);
-  await seedWorkflows(realmSlugToId, agentDidMap, ownerDid, ownerUserId);
+  await seedChannels(workspaceSlugToId, ownerDid);
+  const skillMap = await seedSkills(workspaceSlugToId);
+  await seedPolicies(workspaceSlugToId, makeDid("exec-cto"));
+  const agentDidMap = await seedAgents(workspaceSlugToId, modelIdMap, skillMap);
+  await seedWorkflows(workspaceSlugToId, agentDidMap, ownerDid, ownerUserId);
   await seedApiKey();
   await seedLiteLLM(cfg);
 

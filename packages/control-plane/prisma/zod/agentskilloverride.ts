@@ -1,15 +1,15 @@
 import * as z from "zod"
-import { CompleteAgent, RelatedAgentModel, CompleteRealmSkill, RelatedRealmSkillModel } from "./index"
+import { CompleteAgent, RelatedAgentModel, CompleteWorkspaceSkill, RelatedWorkspaceSkillModel } from "./index"
 
 export const AgentSkillOverrideModel = z.object({
   agentDid: z.string(),
-  realmSkillId: z.string(),
+  workspaceSkillId: z.string(),
   enabled: z.boolean(),
 })
 
 export interface CompleteAgentSkillOverride extends z.infer<typeof AgentSkillOverrideModel> {
   agent: CompleteAgent
-  realmSkill: CompleteRealmSkill
+  workspaceSkill: CompleteWorkspaceSkill
 }
 
 /**
@@ -19,5 +19,5 @@ export interface CompleteAgentSkillOverride extends z.infer<typeof AgentSkillOve
  */
 export const RelatedAgentSkillOverrideModel: z.ZodSchema<CompleteAgentSkillOverride> = z.lazy(() => AgentSkillOverrideModel.extend({
   agent: RelatedAgentModel,
-  realmSkill: RelatedRealmSkillModel,
+  workspaceSkill: RelatedWorkspaceSkillModel,
 }))

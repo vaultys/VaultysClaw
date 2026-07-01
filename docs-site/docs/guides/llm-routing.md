@@ -1,12 +1,12 @@
 ---
 sidebar_position: 6
 title: LLM Routing with LiteLLM
-description: Route agents through a LiteLLM proxy for centralized model management, per-realm access control, and cost tracking.
+description: Route agents through a LiteLLM proxy for centralized model management, per-workspace access control, and cost tracking.
 ---
 
 # LLM Routing with LiteLLM
 
-VaultysClaw integrates with [LiteLLM Proxy](https://docs.litellm.ai/docs/proxy/quick_start) to provide **centralized LLM management**: register models once, assign them to realms, and let the control plane push the right configuration — including scoped virtual keys — to each agent automatically.
+VaultysClaw integrates with [LiteLLM Proxy](https://docs.litellm.ai/docs/proxy/quick_start) to provide **centralized LLM management**: register models once, assign them to workspaces, and let the control plane push the right configuration — including scoped virtual keys — to each agent automatically.
 
 ## Why use it
 
@@ -14,7 +14,7 @@ VaultysClaw integrates with [LiteLLM Proxy](https://docs.litellm.ai/docs/proxy/q
 | ---------------------------------------------- | ---------------------------------------------------------- |
 | Each agent carries its own API key in env vars | Keys are stored in the control plane only                  |
 | Changing providers requires redeploying agents | Swap models from the dashboard; agents pick it up live     |
-| No per-realm model access control              | Each realm gets a virtual key scoped to its allowed models |
+| No per-workspace model access control              | Each workspace gets a virtual key scoped to its allowed models |
 | No unified cost tracking                       | All usage flows through one proxy with budget limits       |
 
 ## How it works
@@ -30,8 +30,8 @@ graph LR
 
 1. An admin registers a model in the **Model Registry** (once per model/provider).
 2. The control plane calls `/model/new` on the LiteLLM proxy to register it.
-3. When a model is **granted to a realm**, the control plane calls `/key/generate` to create a realm-scoped virtual key that can only access that realm's models.
-4. When an agent joins a realm (or an admin sets "Realm Routing" mode), the control plane pushes an `llm_config` WebSocket message containing the proxy URL and the realm's virtual key.
+3. When a model is **granted to a workspace**, the control plane calls `/key/generate` to create a workspace-scoped virtual key that can only access that workspace's models.
+4. When an agent joins a workspace (or an admin sets "Workspace Routing" mode), the control plane pushes an `llm_config` WebSocket message containing the proxy URL and the workspace's virtual key.
 5. The agent connects to LiteLLM as an OpenAI-compatible endpoint — it never sees the underlying API key.
 
 ## Prerequisites
@@ -44,7 +44,7 @@ LITELLM_BASE_URL=http://litellm:4000
 LITELLM_MASTER_KEY=sk-my-master-key
 ```
 
-If these variables are not set, the model registry and realm routing features remain available but LiteLLM sync calls are skipped (non-fatal).
+If these variables are not set, the model registry and workspace routing features remain available but LiteLLM sync calls are skipped (non-fatal).
 
 ### Quick LiteLLM setup
 
@@ -91,30 +91,30 @@ curl -X POST https://vaultysclaw.acme.com/api/models \
 
 See [Models API](/docs/api/models) for the full reference.
 
-## Granting a model to a realm
+## Granting a model to a workspace
 
 ```bash
-curl -X POST https://vaultysclaw.acme.com/api/models/{modelId}/realms \
+curl -X POST https://vaultysclaw.acme.com/api/models/{modelId}/workspaces \
   -H "Cookie: ..." \
   -H "Content-Type: application/json" \
-  -d '{ "realmId": "realm-uuid" }'
+  -d '{ "workspaceId": "workspace-uuid" }'
 ```
 
 This:
 
-1. Creates (or refreshes) a LiteLLM virtual key for the realm, scoped to the newly allowed model list.
-2. Pushes updated `llm_config` to every agent currently in that realm.
+1. Creates (or refreshes) a LiteLLM virtual key for the workspace, scoped to the newly allowed model list.
+2. Pushes updated `llm_config` to every agent currently in that workspace.
 
-## Setting an agent to realm routing mode
+## Setting an agent to workspace routing mode
 
 ### Via the dashboard
 
 1. Open the agent detail page → **Config** tab.
-2. Select **Realm Routing** mode.
-3. Choose the realm and model from the dropdowns.
+2. Select **Workspace Routing** mode.
+3. Choose the workspace and model from the dropdowns.
 4. Click **Save** — the config is stored and pushed live if the agent is online.
 
-The config view shows a violet **Realm Routing** banner when this mode is active, confirming the agent uses the LiteLLM proxy.
+The config view shows a violet **Workspace Routing** banner when this mode is active, confirming the agent uses the LiteLLM proxy.
 
 ### Via the API
 
@@ -124,24 +124,24 @@ curl -X PUT https://vaultysclaw.acme.com/api/agents/{did}/llm-config \
   -H "Cookie: ..." \
   -H "Content-Type: application/json" \
   -d '{
-    "realmId": "realm-uuid",
-    "realmModelId": "model-registry-id"
+    "workspaceId": "workspace-uuid",
+    "workspaceModelId": "model-registry-id"
   }'
 ```
 
-The control plane looks up the realm's virtual key and the model's LiteLLM name, assembles an `openai-compatible` config, stores it, and pushes it to the agent — the raw API key is never exposed.
+The control plane looks up the workspace's virtual key and the model's LiteLLM name, assembles an `openai-compatible` config, stores it, and pushes it to the agent — the raw API key is never exposed.
 
-## Automatic config push on realm join
+## Automatic config push on workspace join
 
-When an agent is added to a realm that already has a virtual key and active models, the control plane immediately pushes an `llm_config` message to the agent (if connected), so no manual configuration step is needed.
+When an agent is added to a workspace that already has a virtual key and active models, the control plane immediately pushes an `llm_config` message to the agent (if connected), so no manual configuration step is needed.
 
-## Per-realm budget limits
+## Per-workspace budget limits
 
 When granting model access, you can set a monthly budget cap:
 
 ```bash
-curl -X POST .../api/models/{modelId}/realms \
-  -d '{ "realmId": "...", "monthlyBudgetUsd": 50.0 }'
+curl -X POST .../api/models/{modelId}/workspaces \
+  -d '{ "workspaceId": "...", "monthlyBudgetUsd": 50.0 }'
 ```
 
 This passes `max_budget` to LiteLLM when generating the virtual key.
@@ -149,7 +149,7 @@ This passes `max_budget` to LiteLLM when generating the virtual key.
 ## Checking connectivity
 
 ```bash
-curl https://vaultysclaw.acme.com/api/agents/{did}/realm-llm \
+curl https://vaultysclaw.acme.com/api/agents/{did}/workspace-llm \
   -H "Cookie: ..."
 ```
 
@@ -159,10 +159,10 @@ Response:
 {
   "litellmConfigured": true,
   "litellmBaseUrl": "http://litellm:4000",
-  "realms": [
+  "workspaces": [
     {
-      "realmId": "...",
-      "realmName": "Engineering",
+      "workspaceId": "...",
+      "workspaceName": "Engineering",
       "isPrimary": true,
       "hasVirtualKey": true,
       "models": [
@@ -179,4 +179,4 @@ Response:
 }
 ```
 
-`hasVirtualKey: false` means the realm has models registered but the virtual key hasn't been created yet (grant a model to trigger key generation).
+`hasVirtualKey: false` means the workspace has models registered but the virtual key hasn't been created yet (grant a model to trigger key generation).

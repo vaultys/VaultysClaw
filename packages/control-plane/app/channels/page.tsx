@@ -15,7 +15,7 @@ export default function ChannelsPage() {
   const searchParams = useSearchParams();
   const { connected: wsConnected } = useAdminWS();
 
-  const [currentRealmId, setCurrentRealmId] = useState<string>("");
+  const [currentWorkspaceId, setCurrentWorkspaceId] = useState<string>("");
   const [channels, setChannels] = useState<Channel[]>([]);
   const [selectedChannelId, setSelectedChannelId] = useState<string | null>(
     searchParams.get("channel") || null
@@ -26,14 +26,14 @@ export default function ChannelsPage() {
   const [searchQuery, setSearchQuery] = useState("");
 
   // Fetch channels
-  const fetchChannels = useCallback(async (realmId: string) => {
-    if (!realmId) return;
+  const fetchChannels = useCallback(async (workspaceId: string) => {
+    if (!workspaceId) return;
 
     try {
       setIsLoading(true);
       const { channels } = unwrap(
         await channelsClient.list({
-          query: { realm: realmId, includeGlobal: true },
+          query: { workspace: workspaceId, includeGlobal: true },
         })
       );
       setChannels(channels);
@@ -46,39 +46,39 @@ export default function ChannelsPage() {
     }
   }, []);
 
-  // Get current realm ID (from localStorage or fetch first available)
+  // Get current workspace ID (from localStorage or fetch first available)
   useEffect(() => {
-    const loadRealm = async () => {
-      const storedRealmId = localStorage.getItem("currentRealmId");
+    const loadWorkspace = async () => {
+      const storedWorkspaceId = localStorage.getItem("currentWorkspaceId");
 
-      if (storedRealmId) {
-        setCurrentRealmId(storedRealmId);
-        fetchChannels(storedRealmId);
+      if (storedWorkspaceId) {
+        setCurrentWorkspaceId(storedWorkspaceId);
+        fetchChannels(storedWorkspaceId);
         return;
       }
 
-      // If no stored realm, fetch available realms and use the first one
+      // If no stored workspace, fetch available workspaces and use the first one
       try {
-        const response = await fetch("/api/realms");
+        const response = await fetch("/api/workspaces");
         if (response.ok) {
           const data = (await response.json()) as {
-            realms: Array<{ id: string; name: string }>;
+            workspaces: Array<{ id: string; name: string }>;
           };
-          if (data.realms.length > 0) {
-            const realmId = data.realms[0].id;
-            setCurrentRealmId(realmId);
-            localStorage.setItem("currentRealmId", realmId);
-            fetchChannels(realmId);
+          if (data.workspaces.length > 0) {
+            const workspaceId = data.workspaces[0].id;
+            setCurrentWorkspaceId(workspaceId);
+            localStorage.setItem("currentWorkspaceId", workspaceId);
+            fetchChannels(workspaceId);
           } else {
-            setError("No realms available");
+            setError("No workspaces available");
           }
         }
       } catch (err) {
-        setError("Failed to load realms");
+        setError("Failed to load workspaces");
       }
     };
 
-    loadRealm();
+    loadWorkspace();
   }, [fetchChannels]);
 
   const filteredChannels = channels.filter(
@@ -164,7 +164,7 @@ export default function ChannelsPage() {
           <ChannelView
             key={selectedChannelId}
             channel={selectedChannel}
-            realmId={currentRealmId}
+            workspaceId={currentWorkspaceId}
           />
         ) : (
           <div className="flex-1 flex items-center justify-center text-foreground-500">

@@ -1,22 +1,22 @@
 /**
- * GET /api/users/search?realm=[realmId]&q=[query]
- * List users in a realm with optional search by name/email.
+ * GET /api/users/search?workspace=[workspaceId]&q=[query]
+ * List users in a workspace with optional search by name/email.
  */
 
-import { RealmDAO } from "@/db";
+import { WorkspaceDAO } from "@/db";
 import { APIException } from "@/lib/api/utils/api-utils";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 import { usersContract } from "@/lib/contracts";
 
 const handlers = createNextRoute(usersContract, {
   search: async ({ query }) => {
-    const realm = await RealmDAO.findById(query.realm);
-    if (!realm) throw new APIException("NOT_FOUND", "Realm not found");
+    const workspace = await WorkspaceDAO.findById(query.workspace);
+    if (!workspace) throw new APIException("NOT_FOUND", "Workspace not found");
 
     const q = query.q?.toLowerCase() ?? "";
-    const realmUsers = await RealmDAO.getUsers(query.realm);
+    const workspaceUsers = await WorkspaceDAO.getUsers(query.workspace);
 
-    const users = realmUsers
+    const users = workspaceUsers
       .filter((row) => {
         if (!q) return true;
         const name = (row.user.name || "").toLowerCase();

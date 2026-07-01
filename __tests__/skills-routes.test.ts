@@ -1,13 +1,13 @@
 /**
  * Tests for the skills API layer:
- *   DB helpers: createRealmSkill, updateRealmSkill, deleteRealmSkill,
- *               getRealmSkillById, getAllSkillsWithRealms, getAgentEffectiveSkills
+ *   DB helpers: createWorkspaceSkill, updateWorkspaceSkill, deleteWorkspaceSkill,
+ *               getWorkspaceSkillById, getAllSkillsWithWorkspaces, getAgentEffectiveSkills
  *   API routes:
- *     GET  /api/skills          — list all skills with realm info (admin only)
- *     POST /api/skills          — create a skill for a realm (admin only)
- *     GET  /api/realms/[id]/skills/[skillId]   — skill detail
- *     PATCH /api/realms/[id]/skills/[skillId]  — update skill
- *     DELETE /api/realms/[id]/skills/[skillId] — delete skill
+ *     GET  /api/skills          — list all skills with workspace info (admin only)
+ *     POST /api/skills          — create a skill for a workspace (admin only)
+ *     GET  /api/workspaces/[id]/skills/[skillId]   — skill detail
+ *     PATCH /api/workspaces/[id]/skills/[skillId]  — update skill
+ *     DELETE /api/workspaces/[id]/skills/[skillId] — delete skill
  *     GET  /api/stats/tokens    — fleet-wide token stats from DB
  */
 
@@ -49,7 +49,7 @@ vi.mock("@/lib/ws-server", () => ({
 // Imports
 // ---------------------------------------------------------------------------
 
-import { RealmSkillDAO, SkillOverrideDAO } from "../packages/control-plane/db";
+import { WorkspaceSkillDAO, SkillOverrideDAO } from "../packages/control-plane/db";
 import { prisma } from "../packages/control-plane/db/client";
 import { getAuthContext } from "../packages/control-plane/lib/auth-utils";
 import { APIException } from "../packages/control-plane/lib/api/utils/api-utils";
@@ -64,7 +64,7 @@ import {
   GET as skillDetailGET,
   PATCH as skillDetailPATCH,
   DELETE as skillDetailDELETE,
-} from "../packages/control-plane/app/api/realms/[id]/skills/[skillId]/route";
+} from "../packages/control-plane/app/api/workspaces/[id]/skills/[skillId]/route";
 import { GET as statsTokensGET } from "../packages/control-plane/app/api/stats/tokens/route";
 
 // ---------------------------------------------------------------------------
@@ -79,23 +79,23 @@ const mockBroadcastSkillsConfig = broadcastSkillsConfig as ReturnType<
 /** Test row prefix — used to clean up after all tests */
 const T = "test:skills-routes:";
 
-function makeAdminContext(realmId?: string) {
+function makeAdminContext(workspaceId?: string) {
   return {
     did: "did:test:admin",
     isGlobalAdmin: true,
     isOwner: true,
-    canAccessRealm: (_id: string) => true,
-    canAdminRealm: (_id: string) => true,
+    canAccessWorkspace: (_id: string) => true,
+    canAdminWorkspace: (_id: string) => true,
   };
 }
 
-function makeRealmMemberContext(realmId: string) {
+function makeWorkspaceMemberContext(workspaceId: string) {
   return {
     did: "did:test:member",
     isGlobalAdmin: false,
     isOwner: false,
-    canAccessRealm: (id: string) => id === realmId,
-    canAdminRealm: (_id: string) => false,
+    canAccessWorkspace: (id: string) => id === workspaceId,
+    canAdminWorkspace: (_id: string) => false,
   };
 }
 
@@ -111,35 +111,35 @@ function skillParams(id: string, skillId: string) {
 }
 
 // ---------------------------------------------------------------------------
-// Test realm + agent setup
+// Test workspace + agent setup
 // ---------------------------------------------------------------------------
 
-let testRealmId: string;
-let testRealmId2: string;
+let testWorkspaceId: string;
+let testWorkspaceId2: string;
 let testAgentDid: string;
 
 beforeAll(async () => {
-  testRealmId = `${T}realm-1`;
-  testRealmId2 = `${T}realm-2`;
+  testWorkspaceId = `${T}workspace-1`;
+  testWorkspaceId2 = `${T}workspace-2`;
   testAgentDid = `${T}agent-did-1`;
 
   // ── Prisma setup ────────────────────────────────────────────────────────
-  await prisma.realm.upsert({
-    where: { id: testRealmId },
+  await prisma.workspace.upsert({
+    where: { id: testWorkspaceId },
     create: {
-      id: testRealmId,
-      name: "Skills Test Realm",
-      slug: "skills-test-realm",
+      id: testWorkspaceId,
+      name: "Skills Test Workspace",
+      slug: "skills-test-workspace",
       color: "#6366f1",
     },
     update: {},
   });
-  await prisma.realm.upsert({
-    where: { id: testRealmId2 },
+  await prisma.workspace.upsert({
+    where: { id: testWorkspaceId2 },
     create: {
-      id: testRealmId2,
-      name: "Skills Test Realm 2",
-      slug: "skills-test-realm-2",
+      id: testWorkspaceId2,
+      name: "Skills Test Workspace 2",
+      slug: "skills-test-workspace-2",
       color: "#22c55e",
     },
     update: {},
@@ -149,11 +149,11 @@ beforeAll(async () => {
     create: { did: testAgentDid, name: "test-agent", capabilities: [] },
     update: {},
   });
-  await prisma.agentRealm.upsert({
+  await prisma.agentWorkspace.upsert({
     where: {
-      agentDid_realmId: { agentDid: testAgentDid, realmId: testRealmId },
+      agentDid_workspaceId: { agentDid: testAgentDid, workspaceId: testWorkspaceId },
     },
-    create: { agentDid: testAgentDid, realmId: testRealmId },
+    create: { agentDid: testAgentDid, workspaceId: testWorkspaceId },
     update: {},
   });
 });
@@ -161,15 +161,15 @@ beforeAll(async () => {
 afterAll(async () => {
   // Prisma cleanup
   await prisma.agentSkillOverride.deleteMany({
-    where: { realmSkill: { realmId: { in: [testRealmId, testRealmId2] } } },
+    where: { workspaceSkill: { workspaceId: { in: [testWorkspaceId, testWorkspaceId2] } } },
   });
-  await prisma.realmSkill.deleteMany({
-    where: { realmId: { in: [testRealmId, testRealmId2] } },
+  await prisma.workspaceSkill.deleteMany({
+    where: { workspaceId: { in: [testWorkspaceId, testWorkspaceId2] } },
   });
-  await prisma.agentRealm.deleteMany({ where: { agentDid: testAgentDid } });
+  await prisma.agentWorkspace.deleteMany({ where: { agentDid: testAgentDid } });
   await prisma.agent.deleteMany({ where: { did: testAgentDid } });
-  await prisma.realm.deleteMany({
-    where: { id: { in: [testRealmId, testRealmId2] } },
+  await prisma.workspace.deleteMany({
+    where: { id: { in: [testWorkspaceId, testWorkspaceId2] } },
   });
 });
 
@@ -182,10 +182,10 @@ beforeEach(() => {
 // DB LAYER
 // ===========================================================================
 
-describe("DB: createRealmSkill", () => {
+describe("DB: createWorkspaceSkill", () => {
   it("inserts a skill and returns a row with correct fields", async () => {
-    const skill = await RealmSkillDAO.create({
-      realmId: testRealmId,
+    const skill = await WorkspaceSkillDAO.create({
+      workspaceId: testWorkspaceId,
       name: `${T}create-basic`,
       description: "A basic test skill",
       version: "1.0.0",
@@ -194,7 +194,7 @@ describe("DB: createRealmSkill", () => {
     });
 
     expect(skill.id).toBeTruthy();
-    expect(skill.realmId).toBe(testRealmId);
+    expect(skill.workspaceId).toBe(testWorkspaceId);
     expect(skill.name).toBe(`${T}create-basic`);
     expect(skill.description).toBe("A basic test skill");
     expect(skill.version).toBe("1.0.0");
@@ -202,13 +202,13 @@ describe("DB: createRealmSkill", () => {
     expect(skill.config).toEqual({ key: "value" });
     expect(skill.content).toBeNull();
 
-    await RealmSkillDAO.delete(skill.id);
+    await WorkspaceSkillDAO.delete(skill.id);
   });
 
   it("stores Markdown content when provided", async () => {
     const md = "# My Skill\nDo something useful.";
-    const skill = await RealmSkillDAO.create({
-      realmId: testRealmId,
+    const skill = await WorkspaceSkillDAO.create({
+      workspaceId: testWorkspaceId,
       name: `${T}create-with-content`,
       isRequired: true,
       content: md,
@@ -217,206 +217,206 @@ describe("DB: createRealmSkill", () => {
     expect(skill.isRequired).toBe(true);
     expect(skill.content).toBe(md);
 
-    await RealmSkillDAO.delete(skill.id);
+    await WorkspaceSkillDAO.delete(skill.id);
   });
 
-  it("throws on duplicate name in same realm", async () => {
+  it("throws on duplicate name in same workspace", async () => {
     const name = `${T}unique-test`;
-    const skill = await RealmSkillDAO.create({ realmId: testRealmId, name });
+    const skill = await WorkspaceSkillDAO.create({ workspaceId: testWorkspaceId, name });
 
     try {
       await expect(
-        RealmSkillDAO.create({ realmId: testRealmId, name })
+        WorkspaceSkillDAO.create({ workspaceId: testWorkspaceId, name })
       ).rejects.toThrow();
     } finally {
-      await RealmSkillDAO.delete(skill.id);
+      await WorkspaceSkillDAO.delete(skill.id);
     }
   });
 
-  it("allows same name in different realms", async () => {
-    const name = `${T}cross-realm-name`;
-    const s1 = await RealmSkillDAO.create({ realmId: testRealmId, name });
-    const s2 = await RealmSkillDAO.create({ realmId: testRealmId2, name });
+  it("allows same name in different workspaces", async () => {
+    const name = `${T}cross-workspace-name`;
+    const s1 = await WorkspaceSkillDAO.create({ workspaceId: testWorkspaceId, name });
+    const s2 = await WorkspaceSkillDAO.create({ workspaceId: testWorkspaceId2, name });
 
     expect(s1.id).not.toBe(s2.id);
 
-    await RealmSkillDAO.delete(s1.id);
-    await RealmSkillDAO.delete(s2.id);
+    await WorkspaceSkillDAO.delete(s1.id);
+    await WorkspaceSkillDAO.delete(s2.id);
   });
 });
 
-describe("DB: getRealmSkillById", () => {
+describe("DB: getWorkspaceSkillById", () => {
   it("returns null for unknown id", async () => {
-    expect(await RealmSkillDAO.findById("does-not-exist")).toBeNull();
+    expect(await WorkspaceSkillDAO.findById("does-not-exist")).toBeNull();
   });
 
   it("returns the skill row for a known id", async () => {
-    const skill = await RealmSkillDAO.create({
-      realmId: testRealmId,
+    const skill = await WorkspaceSkillDAO.create({
+      workspaceId: testWorkspaceId,
       name: `${T}get-by-id`,
     });
 
-    const found = await RealmSkillDAO.findById(skill.id);
+    const found = await WorkspaceSkillDAO.findById(skill.id);
     expect(found).toBeDefined();
     expect(found!.id).toBe(skill.id);
     expect(found!.name).toBe(`${T}get-by-id`);
 
-    await RealmSkillDAO.delete(skill.id);
+    await WorkspaceSkillDAO.delete(skill.id);
   });
 });
 
-describe("DB: updateRealmSkill", () => {
+describe("DB: updateWorkspaceSkill", () => {
   it("updates description and version", async () => {
-    const skill = await RealmSkillDAO.create({
-      realmId: testRealmId,
+    const skill = await WorkspaceSkillDAO.create({
+      workspaceId: testWorkspaceId,
       name: `${T}update-fields`,
       description: "old desc",
       version: "1.0.0",
     });
 
-    await RealmSkillDAO.update(skill.id, {
+    await WorkspaceSkillDAO.update(skill.id, {
       description: "new desc",
       version: "2.0.0",
     });
 
-    const updated = (await RealmSkillDAO.findById(skill.id))!;
+    const updated = (await WorkspaceSkillDAO.findById(skill.id))!;
     expect(updated.description).toBe("new desc");
     expect(updated.version).toBe("2.0.0");
 
-    await RealmSkillDAO.delete(skill.id);
+    await WorkspaceSkillDAO.delete(skill.id);
   });
 
   it("updates isRequired flag", async () => {
-    const skill = await RealmSkillDAO.create({
-      realmId: testRealmId,
+    const skill = await WorkspaceSkillDAO.create({
+      workspaceId: testWorkspaceId,
       name: `${T}update-required`,
       isRequired: false,
     });
 
-    await RealmSkillDAO.update(skill.id, { isRequired: true });
-    expect((await RealmSkillDAO.findById(skill.id))!.isRequired).toBe(true);
+    await WorkspaceSkillDAO.update(skill.id, { isRequired: true });
+    expect((await WorkspaceSkillDAO.findById(skill.id))!.isRequired).toBe(true);
 
-    await RealmSkillDAO.update(skill.id, { isRequired: false });
-    expect((await RealmSkillDAO.findById(skill.id))!.isRequired).toBe(false);
+    await WorkspaceSkillDAO.update(skill.id, { isRequired: false });
+    expect((await WorkspaceSkillDAO.findById(skill.id))!.isRequired).toBe(false);
 
-    await RealmSkillDAO.delete(skill.id);
+    await WorkspaceSkillDAO.delete(skill.id);
   });
 
   it("updates config JSON", async () => {
-    const skill = await RealmSkillDAO.create({
-      realmId: testRealmId,
+    const skill = await WorkspaceSkillDAO.create({
+      workspaceId: testWorkspaceId,
       name: `${T}update-config`,
       config: { original: true },
     });
 
-    await RealmSkillDAO.update(skill.id, {
+    await WorkspaceSkillDAO.update(skill.id, {
       config: { updated: true, count: 42 },
     });
 
-    const updated = (await RealmSkillDAO.findById(skill.id))!;
+    const updated = (await WorkspaceSkillDAO.findById(skill.id))!;
     expect(updated.config).toEqual({ updated: true, count: 42 });
 
-    await RealmSkillDAO.delete(skill.id);
+    await WorkspaceSkillDAO.delete(skill.id);
   });
 
   it("updates content Markdown", async () => {
-    const skill = await RealmSkillDAO.create({
-      realmId: testRealmId,
+    const skill = await WorkspaceSkillDAO.create({
+      workspaceId: testWorkspaceId,
       name: `${T}update-content`,
     });
 
     const md = "# Updated\nNew instructions.";
-    await RealmSkillDAO.update(skill.id, { content: md });
+    await WorkspaceSkillDAO.update(skill.id, { content: md });
 
-    expect((await RealmSkillDAO.findById(skill.id))!.content).toBe(md);
+    expect((await WorkspaceSkillDAO.findById(skill.id))!.content).toBe(md);
 
-    await RealmSkillDAO.update(skill.id, { content: null });
-    expect((await RealmSkillDAO.findById(skill.id))!.content).toBeNull();
+    await WorkspaceSkillDAO.update(skill.id, { content: null });
+    expect((await WorkspaceSkillDAO.findById(skill.id))!.content).toBeNull();
 
-    await RealmSkillDAO.delete(skill.id);
+    await WorkspaceSkillDAO.delete(skill.id);
   });
 
   it("does not touch fields that are not in updates object", async () => {
-    const skill = await RealmSkillDAO.create({
-      realmId: testRealmId,
+    const skill = await WorkspaceSkillDAO.create({
+      workspaceId: testWorkspaceId,
       name: `${T}update-partial`,
       description: "keep me",
       version: "3.0.0",
     });
 
-    await RealmSkillDAO.update(skill.id, { isRequired: true }); // only update isRequired
+    await WorkspaceSkillDAO.update(skill.id, { isRequired: true }); // only update isRequired
 
-    const updated = (await RealmSkillDAO.findById(skill.id))!;
+    const updated = (await WorkspaceSkillDAO.findById(skill.id))!;
     expect(updated.description).toBe("keep me");
     expect(updated.version).toBe("3.0.0");
 
-    await RealmSkillDAO.delete(skill.id);
+    await WorkspaceSkillDAO.delete(skill.id);
   });
 });
 
-describe("DB: deleteRealmSkill", () => {
+describe("DB: deleteWorkspaceSkill", () => {
   it("removes the skill so findById returns null", async () => {
-    const skill = await RealmSkillDAO.create({
-      realmId: testRealmId,
+    const skill = await WorkspaceSkillDAO.create({
+      workspaceId: testWorkspaceId,
       name: `${T}delete-me`,
     });
-    await RealmSkillDAO.delete(skill.id);
-    expect(await RealmSkillDAO.findById(skill.id)).toBeNull();
+    await WorkspaceSkillDAO.delete(skill.id);
+    expect(await WorkspaceSkillDAO.findById(skill.id)).toBeNull();
   });
 });
 
-describe("DB: getAllSkillsWithRealms", () => {
-  it("includes skills from multiple realms with realm names", async () => {
-    const s1 = await RealmSkillDAO.create({
-      realmId: testRealmId,
+describe("DB: getAllSkillsWithWorkspaces", () => {
+  it("includes skills from multiple workspaces with workspace names", async () => {
+    const s1 = await WorkspaceSkillDAO.create({
+      workspaceId: testWorkspaceId,
       name: `${T}all-r1`,
     });
-    const s2 = await RealmSkillDAO.create({
-      realmId: testRealmId2,
+    const s2 = await WorkspaceSkillDAO.create({
+      workspaceId: testWorkspaceId2,
       name: `${T}all-r2`,
     });
 
     try {
-      const rows = await RealmSkillDAO.findAllWithRealms();
+      const rows = await WorkspaceSkillDAO.findAllWithWorkspaces();
       const r1 = rows.find((r) => r.id === s1.id);
       const r2 = rows.find((r) => r.id === s2.id);
 
       expect(r1).toBeDefined();
-      expect(r1!.realmName).toBe("Skills Test Realm");
-      expect(r1!.realmId).toBe(testRealmId);
+      expect(r1!.workspaceName).toBe("Skills Test Workspace");
+      expect(r1!.workspaceId).toBe(testWorkspaceId);
 
       expect(r2).toBeDefined();
-      expect(r2!.realmName).toBe("Skills Test Realm 2");
+      expect(r2!.workspaceName).toBe("Skills Test Workspace 2");
     } finally {
-      await RealmSkillDAO.delete(s1.id);
-      await RealmSkillDAO.delete(s2.id);
+      await WorkspaceSkillDAO.delete(s1.id);
+      await WorkspaceSkillDAO.delete(s2.id);
     }
   });
 
   it("returns agentCount and overrideCount columns", async () => {
-    const skill = await RealmSkillDAO.create({
-      realmId: testRealmId,
+    const skill = await WorkspaceSkillDAO.create({
+      workspaceId: testWorkspaceId,
       name: `${T}all-counts`,
     });
 
     try {
-      const rows = await RealmSkillDAO.findAllWithRealms();
+      const rows = await WorkspaceSkillDAO.findAllWithWorkspaces();
       const row = rows.find((r) => r.id === skill.id)!;
       expect(typeof row.agentCount).toBe("number");
       expect(typeof row.overrideCount).toBe("number");
-      // testAgentDid is enrolled in testRealmId, so agentCount >= 1
+      // testAgentDid is enrolled in testWorkspaceId, so agentCount >= 1
       expect(row.agentCount).toBeGreaterThanOrEqual(1);
     } finally {
-      await RealmSkillDAO.delete(skill.id);
+      await WorkspaceSkillDAO.delete(skill.id);
     }
   });
 });
 
 describe("DB: getAgentEffectiveSkills", () => {
-  it("returns skills for the agent's realm with content", async () => {
+  it("returns skills for the agent's workspace with content", async () => {
     const md = "# Effective Skill\nDo things.";
-    const skill = await RealmSkillDAO.create({
-      realmId: testRealmId,
+    const skill = await WorkspaceSkillDAO.create({
+      workspaceId: testWorkspaceId,
       name: `${T}effective-with-content`,
       isRequired: true,
       config: { enabled: true },
@@ -431,11 +431,11 @@ describe("DB: getAgentEffectiveSkills", () => {
       expect(found!.isRequired).toBe(true);
       expect(found!.enabled).toBe(true);
     } finally {
-      await RealmSkillDAO.delete(skill.id);
+      await WorkspaceSkillDAO.delete(skill.id);
     }
   });
 
-  it("returns empty array for an agent not enrolled in any realm", async () => {
+  it("returns empty array for an agent not enrolled in any workspace", async () => {
     const skills = await SkillOverrideDAO.getEffectiveSkills(
       "did:test:unknown-agent"
     );
@@ -469,8 +469,8 @@ describe("GET /api/skills", () => {
   });
 
   it("returns skill rows for global admin", async () => {
-    const skill = await RealmSkillDAO.create({
-      realmId: testRealmId,
+    const skill = await WorkspaceSkillDAO.create({
+      workspaceId: testWorkspaceId,
       name: `${T}api-list`,
     });
     try {
@@ -482,7 +482,7 @@ describe("GET /api/skills", () => {
       expect(Array.isArray(body)).toBe(true);
       expect(body.some((r) => r.id === skill.id)).toBe(true);
     } finally {
-      await RealmSkillDAO.delete(skill.id);
+      await WorkspaceSkillDAO.delete(skill.id);
     }
   });
 });
@@ -495,7 +495,7 @@ describe("POST /api/skills", () => {
   it("returns 401 when unauthenticated", async () => {
     mockGetAuthContext.mockRejectedValueOnce(new APIException("UNAUTHORIZED"));
     const r = req("POST", "http://localhost/api/skills", {
-      realmId: testRealmId,
+      workspaceId: testWorkspaceId,
       name: "x",
     });
     const res = await skillsPOST(r as any);
@@ -508,22 +508,22 @@ describe("POST /api/skills", () => {
       isGlobalAdmin: false,
     });
     const r = req("POST", "http://localhost/api/skills", {
-      realmId: testRealmId,
+      workspaceId: testWorkspaceId,
       name: "x",
     });
     const res = await skillsPOST(r as any);
     expect(res._status).toBe(403);
   });
 
-  it("returns 400 when realmId is missing", async () => {
-    const r = req("POST", "http://localhost/api/skills", { name: "no-realm" });
+  it("returns 400 when workspaceId is missing", async () => {
+    const r = req("POST", "http://localhost/api/skills", { name: "no-workspace" });
     const res = await skillsPOST(r as any);
     expect(res._status).toBe(400);
   });
 
   it("returns 400 when name is missing", async () => {
     const r = req("POST", "http://localhost/api/skills", {
-      realmId: testRealmId,
+      workspaceId: testWorkspaceId,
     });
     const res = await skillsPOST(r as any);
     expect(res._status).toBe(400);
@@ -531,16 +531,16 @@ describe("POST /api/skills", () => {
 
   it("returns 400 when name is blank", async () => {
     const r = req("POST", "http://localhost/api/skills", {
-      realmId: testRealmId,
+      workspaceId: testWorkspaceId,
       name: "   ",
     });
     const res = await skillsPOST(r as any);
     expect(res._status).toBe(400);
   });
 
-  it("returns 404 when realm does not exist", async () => {
+  it("returns 404 when workspace does not exist", async () => {
     const r = req("POST", "http://localhost/api/skills", {
-      realmId: "nonexistent-realm",
+      workspaceId: "nonexistent-workspace",
       name: "x",
     });
     const res = await skillsPOST(r as any);
@@ -549,7 +549,7 @@ describe("POST /api/skills", () => {
 
   it("creates a skill and broadcasts config", async () => {
     const r = req("POST", "http://localhost/api/skills", {
-      realmId: testRealmId,
+      workspaceId: testWorkspaceId,
       name: `${T}api-create`,
       description: "Created via API",
       version: "1.2.3",
@@ -562,31 +562,31 @@ describe("POST /api/skills", () => {
 
     const body = (await res.json()) as {
       id: string;
-      realmId: string;
+      workspaceId: string;
       name: string;
       content: string | null;
     };
     expect(body.id).toBeTruthy();
-    expect(body.realmId).toBe(testRealmId);
+    expect(body.workspaceId).toBe(testWorkspaceId);
     expect(body.name).toBe(`${T}api-create`);
     expect(body.content).toBe("# API Created Skill\nInstructions here.");
 
-    expect(mockBroadcastSkillsConfig).toHaveBeenCalledWith(testRealmId);
+    expect(mockBroadcastSkillsConfig).toHaveBeenCalledWith(testWorkspaceId);
 
     // Verify it's in the DB (Prisma)
-    const row = await RealmSkillDAO.findById(body.id);
+    const row = await WorkspaceSkillDAO.findById(body.id);
     expect(row).toBeDefined();
 
-    await RealmSkillDAO.delete(body.id);
+    await WorkspaceSkillDAO.delete(body.id);
   });
 
-  it("returns 409 when skill name already exists in that realm", async () => {
+  it("returns 409 when skill name already exists in that workspace", async () => {
     const name = `${T}api-duplicate`;
-    const existing = await RealmSkillDAO.create({ realmId: testRealmId, name });
+    const existing = await WorkspaceSkillDAO.create({ workspaceId: testWorkspaceId, name });
 
     try {
       const r = req("POST", "http://localhost/api/skills", {
-        realmId: testRealmId,
+        workspaceId: testWorkspaceId,
         name,
       });
       const res = await skillsPOST(r as any);
@@ -594,33 +594,33 @@ describe("POST /api/skills", () => {
       const body = (await res.json()) as { error: string };
       expect(body.error).toContain(name);
     } finally {
-      await RealmSkillDAO.delete(existing.id);
+      await WorkspaceSkillDAO.delete(existing.id);
     }
   });
 });
 
 // ===========================================================================
-// API: GET /api/realms/[id]/skills/[skillId]
+// API: GET /api/workspaces/[id]/skills/[skillId]
 // ===========================================================================
 
-describe("GET /api/realms/[id]/skills/[skillId]", () => {
+describe("GET /api/workspaces/[id]/skills/[skillId]", () => {
   it("returns 401 when unauthenticated", async () => {
     mockGetAuthContext.mockRejectedValueOnce(new APIException("UNAUTHORIZED"));
     const res = await skillDetailGET(
-      req("GET", "http://localhost/api/realms/r/skills/s") as any,
+      req("GET", "http://localhost/api/workspaces/r/skills/s") as any,
       skillParams("r", "s")
     );
     expect(res._status).toBe(401);
   });
 
-  it("returns 403 when user cannot access the realm", async () => {
+  it("returns 403 when user cannot access the workspace", async () => {
     mockGetAuthContext.mockResolvedValueOnce({
       ...makeAdminContext(),
-      canAccessRealm: () => false,
+      canAccessWorkspace: () => false,
     });
     const res = await skillDetailGET(
       req("GET", "http://localhost/") as any,
-      skillParams(testRealmId, "any")
+      skillParams(testWorkspaceId, "any")
     );
     expect(res._status).toBe(403);
   });
@@ -628,30 +628,30 @@ describe("GET /api/realms/[id]/skills/[skillId]", () => {
   it("returns 404 for unknown skill id", async () => {
     const res = await skillDetailGET(
       req("GET", "http://localhost/") as any,
-      skillParams(testRealmId, "does-not-exist")
+      skillParams(testWorkspaceId, "does-not-exist")
     );
     expect(res._status).toBe(404);
   });
 
-  it("returns 404 when skill belongs to a different realm", async () => {
-    const skill = await RealmSkillDAO.create({
-      realmId: testRealmId2,
-      name: `${T}wrong-realm-get`,
+  it("returns 404 when skill belongs to a different workspace", async () => {
+    const skill = await WorkspaceSkillDAO.create({
+      workspaceId: testWorkspaceId2,
+      name: `${T}wrong-workspace-get`,
     });
     try {
       const res = await skillDetailGET(
         req("GET", "http://localhost/") as any,
-        skillParams(testRealmId, skill.id) // wrong realm
+        skillParams(testWorkspaceId, skill.id) // wrong workspace
       );
       expect(res._status).toBe(404);
     } finally {
-      await RealmSkillDAO.delete(skill.id);
+      await WorkspaceSkillDAO.delete(skill.id);
     }
   });
 
   it("returns skill detail with camelCase fields", async () => {
-    const skill = await RealmSkillDAO.create({
-      realmId: testRealmId,
+    const skill = await WorkspaceSkillDAO.create({
+      workspaceId: testWorkspaceId,
       name: `${T}get-detail`,
       description: "detail desc",
       version: "4.0.0",
@@ -663,14 +663,14 @@ describe("GET /api/realms/[id]/skills/[skillId]", () => {
     try {
       const res = await skillDetailGET(
         req("GET", "http://localhost/") as any,
-        skillParams(testRealmId, skill.id)
+        skillParams(testWorkspaceId, skill.id)
       );
       expect(res._status).toBe(200);
 
       const body = (await res.json()) as {
         skill: {
           id: string;
-          realmId: string;
+          workspaceId: string;
           name: string;
           description: string;
           version: string;
@@ -680,7 +680,7 @@ describe("GET /api/realms/[id]/skills/[skillId]", () => {
         };
       };
       expect(body.skill.id).toBe(skill.id);
-      expect(body.skill.realmId).toBe(testRealmId);
+      expect(body.skill.workspaceId).toBe(testWorkspaceId);
       expect(body.skill.name).toBe(`${T}get-detail`);
       expect(body.skill.description).toBe("detail desc");
       expect(body.skill.version).toBe("4.0.0");
@@ -688,39 +688,39 @@ describe("GET /api/realms/[id]/skills/[skillId]", () => {
       expect(body.skill.config).toEqual({ x: 1 });
       expect(body.skill.createdAt).toBeTruthy();
     } finally {
-      await RealmSkillDAO.delete(skill.id);
+      await WorkspaceSkillDAO.delete(skill.id);
     }
   });
 });
 
 // ===========================================================================
-// API: PATCH /api/realms/[id]/skills/[skillId]
+// API: PATCH /api/workspaces/[id]/skills/[skillId]
 // ===========================================================================
 
-describe("PATCH /api/realms/[id]/skills/[skillId]", () => {
-  it("returns 403 when user is not realm admin", async () => {
+describe("PATCH /api/workspaces/[id]/skills/[skillId]", () => {
+  it("returns 403 when user is not workspace admin", async () => {
     mockGetAuthContext.mockResolvedValueOnce(
-      makeRealmMemberContext(testRealmId)
+      makeWorkspaceMemberContext(testWorkspaceId)
     );
-    const skill = await RealmSkillDAO.create({
-      realmId: testRealmId,
+    const skill = await WorkspaceSkillDAO.create({
+      workspaceId: testWorkspaceId,
       name: `${T}patch-no-admin`,
     });
     try {
       const r = req("PATCH", "http://localhost/", { description: "x" });
       const res = await skillDetailPATCH(
         r as any,
-        skillParams(testRealmId, skill.id)
+        skillParams(testWorkspaceId, skill.id)
       );
       expect(res._status).toBe(403);
     } finally {
-      await RealmSkillDAO.delete(skill.id);
+      await WorkspaceSkillDAO.delete(skill.id);
     }
   });
 
   it("updates description and returns updated skill", async () => {
-    const skill = await RealmSkillDAO.create({
-      realmId: testRealmId,
+    const skill = await WorkspaceSkillDAO.create({
+      workspaceId: testWorkspaceId,
       name: `${T}patch-desc`,
       description: "old",
     });
@@ -728,22 +728,22 @@ describe("PATCH /api/realms/[id]/skills/[skillId]", () => {
       const r = req("PATCH", "http://localhost/", { description: "new desc" });
       const res = await skillDetailPATCH(
         r as any,
-        skillParams(testRealmId, skill.id)
+        skillParams(testWorkspaceId, skill.id)
       );
       expect(res._status).toBe(200);
       const body = (await res.json()) as { skill: { description: string } };
       expect(body.skill.description).toBe("new desc");
-      expect((await RealmSkillDAO.findById(skill.id))!.description).toBe(
+      expect((await WorkspaceSkillDAO.findById(skill.id))!.description).toBe(
         "new desc"
       );
     } finally {
-      await RealmSkillDAO.delete(skill.id);
+      await WorkspaceSkillDAO.delete(skill.id);
     }
   });
 
   it("updates content markdown", async () => {
-    const skill = await RealmSkillDAO.create({
-      realmId: testRealmId,
+    const skill = await WorkspaceSkillDAO.create({
+      workspaceId: testWorkspaceId,
       name: `${T}patch-content`,
     });
     try {
@@ -751,108 +751,108 @@ describe("PATCH /api/realms/[id]/skills/[skillId]", () => {
       const r = req("PATCH", "http://localhost/", { content: md });
       const res = await skillDetailPATCH(
         r as any,
-        skillParams(testRealmId, skill.id)
+        skillParams(testWorkspaceId, skill.id)
       );
       expect(res._status).toBe(200);
-      expect((await RealmSkillDAO.findById(skill.id))!.content).toBe(md);
+      expect((await WorkspaceSkillDAO.findById(skill.id))!.content).toBe(md);
     } finally {
-      await RealmSkillDAO.delete(skill.id);
+      await WorkspaceSkillDAO.delete(skill.id);
     }
   });
 
   it("sets content to null when explicitly passed null", async () => {
-    const skill = await RealmSkillDAO.create({
-      realmId: testRealmId,
+    const skill = await WorkspaceSkillDAO.create({
+      workspaceId: testWorkspaceId,
       name: `${T}patch-null-content`,
       content: "some content",
     });
     try {
       const r = req("PATCH", "http://localhost/", { content: null });
-      await skillDetailPATCH(r as any, skillParams(testRealmId, skill.id));
-      expect((await RealmSkillDAO.findById(skill.id))!.content).toBeNull();
+      await skillDetailPATCH(r as any, skillParams(testWorkspaceId, skill.id));
+      expect((await WorkspaceSkillDAO.findById(skill.id))!.content).toBeNull();
     } finally {
-      await RealmSkillDAO.delete(skill.id);
+      await WorkspaceSkillDAO.delete(skill.id);
     }
   });
 
   it("broadcasts skills config after update", async () => {
-    const skill = await RealmSkillDAO.create({
-      realmId: testRealmId,
+    const skill = await WorkspaceSkillDAO.create({
+      workspaceId: testWorkspaceId,
       name: `${T}patch-broadcast`,
     });
     try {
       const r = req("PATCH", "http://localhost/", { version: "9.0.0" });
-      await skillDetailPATCH(r as any, skillParams(testRealmId, skill.id));
-      expect(mockBroadcastSkillsConfig).toHaveBeenCalledWith(testRealmId);
+      await skillDetailPATCH(r as any, skillParams(testWorkspaceId, skill.id));
+      expect(mockBroadcastSkillsConfig).toHaveBeenCalledWith(testWorkspaceId);
     } finally {
-      await RealmSkillDAO.delete(skill.id);
+      await WorkspaceSkillDAO.delete(skill.id);
     }
   });
 
-  it("returns 404 when skill belongs to a different realm", async () => {
-    const skill = await RealmSkillDAO.create({
-      realmId: testRealmId2,
-      name: `${T}patch-wrong-realm`,
+  it("returns 404 when skill belongs to a different workspace", async () => {
+    const skill = await WorkspaceSkillDAO.create({
+      workspaceId: testWorkspaceId2,
+      name: `${T}patch-wrong-workspace`,
     });
     try {
       const r = req("PATCH", "http://localhost/", { description: "x" });
       const res = await skillDetailPATCH(
         r as any,
-        skillParams(testRealmId, skill.id)
+        skillParams(testWorkspaceId, skill.id)
       );
       expect(res._status).toBe(404);
     } finally {
-      await RealmSkillDAO.delete(skill.id);
+      await WorkspaceSkillDAO.delete(skill.id);
     }
   });
 });
 
 // ===========================================================================
-// API: DELETE /api/realms/[id]/skills/[skillId]
+// API: DELETE /api/workspaces/[id]/skills/[skillId]
 // ===========================================================================
 
-describe("DELETE /api/realms/[id]/skills/[skillId]", () => {
-  it("returns 403 when user is not realm admin", async () => {
+describe("DELETE /api/workspaces/[id]/skills/[skillId]", () => {
+  it("returns 403 when user is not workspace admin", async () => {
     mockGetAuthContext.mockResolvedValueOnce(
-      makeRealmMemberContext(testRealmId)
+      makeWorkspaceMemberContext(testWorkspaceId)
     );
-    const skill = await RealmSkillDAO.create({
-      realmId: testRealmId,
+    const skill = await WorkspaceSkillDAO.create({
+      workspaceId: testWorkspaceId,
       name: `${T}delete-no-admin`,
     });
     try {
       const res = await skillDetailDELETE(
         req("DELETE", "http://localhost/") as any,
-        skillParams(testRealmId, skill.id)
+        skillParams(testWorkspaceId, skill.id)
       );
       expect(res._status).toBe(403);
     } finally {
-      await RealmSkillDAO.delete(skill.id);
+      await WorkspaceSkillDAO.delete(skill.id);
     }
   });
 
   it("removes the skill and broadcasts config", async () => {
-    const skill = await RealmSkillDAO.create({
-      realmId: testRealmId,
+    const skill = await WorkspaceSkillDAO.create({
+      workspaceId: testWorkspaceId,
       name: `${T}delete-ok`,
     });
 
     const res = await skillDetailDELETE(
       req("DELETE", "http://localhost/") as any,
-      skillParams(testRealmId, skill.id)
+      skillParams(testWorkspaceId, skill.id)
     );
     expect(res._status).toBe(200);
     const body = (await res.json()) as { ok: boolean };
     expect(body.ok).toBe(true);
 
-    expect(await RealmSkillDAO.findById(skill.id)).toBeNull();
-    expect(mockBroadcastSkillsConfig).toHaveBeenCalledWith(testRealmId);
+    expect(await WorkspaceSkillDAO.findById(skill.id)).toBeNull();
+    expect(mockBroadcastSkillsConfig).toHaveBeenCalledWith(testWorkspaceId);
   });
 
   it("returns 404 for unknown skill", async () => {
     const res = await skillDetailDELETE(
       req("DELETE", "http://localhost/") as any,
-      skillParams(testRealmId, "nonexistent-id")
+      skillParams(testWorkspaceId, "nonexistent-id")
     );
     expect(res._status).toBe(404);
   });

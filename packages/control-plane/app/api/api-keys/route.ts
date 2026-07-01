@@ -21,7 +21,7 @@ const handlers = createNextRoute(apiKeysContract, {
     const auth = await getAuthContext(request);
     if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");
 
-    const { name, allowedRoutes, realmId = null, isRealmAdmin = false, expiresAt = null } = body;
+    const { name, allowedRoutes, workspaceId = null, isWorkspaceAdmin = false, expiresAt = null } = body;
 
     if (!name?.trim()) throw new APIException("MALFORMED", "name is required");
     if (!Array.isArray(allowedRoutes) || allowedRoutes.length === 0)
@@ -36,8 +36,8 @@ const handlers = createNextRoute(apiKeysContract, {
       keyHash: hash,
       keyPrefix: prefix,
       allowedRoutes,
-      realmId: realmId ?? undefined,
-      isRealmAdmin: isRealmAdmin ?? false,
+      workspaceId: workspaceId ?? undefined,
+      isWorkspaceAdmin: isWorkspaceAdmin ?? false,
       createdBy: auth.did,
       expiresAt: expiresAt ? new Date(expiresAt * 1000) : undefined,
     });

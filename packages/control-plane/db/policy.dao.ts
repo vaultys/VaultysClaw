@@ -4,7 +4,7 @@ import type { Policy, Prisma } from "@prisma/client";
 export class PolicyDAO {
   static async create(policy: {
     agentDid?: string;
-    realmId?: string;
+    workspaceId?: string;
     capabilities: string[];
     resourceLimits?: Record<string, unknown>;
     expiresAt?: string;
@@ -15,7 +15,7 @@ export class PolicyDAO {
       data: {
         id,
         agentDid: policy.agentDid ?? null,
-        realmId: policy.realmId ?? null,
+        workspaceId: policy.workspaceId ?? null,
         capabilities: policy.capabilities,
         resourceLimits: policy.resourceLimits as Prisma.InputJsonValue,
         expiresAt: policy.expiresAt ? new Date(policy.expiresAt) : null,
@@ -31,14 +31,14 @@ export class PolicyDAO {
   static async list(
     opts: {
       agentDid?: string;
-      realmId?: string;
+      workspaceId?: string;
       includeExpired?: boolean;
       expiredOnly?: boolean;
     } = {}
   ): Promise<Policy[]> {
     const where: Prisma.PolicyWhereInput = {};
     if (opts.agentDid !== undefined) where.agentDid = opts.agentDid;
-    if (opts.realmId !== undefined) where.realmId = opts.realmId;
+    if (opts.workspaceId !== undefined) where.workspaceId = opts.workspaceId;
 
     if (opts.expiredOnly) {
       where.expiresAt = { not: null, lt: new Date() };

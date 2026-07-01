@@ -21,7 +21,7 @@ export interface PolicyResourceLimits {
 export interface PolicyEntry {
   id: string;
   agentDid: string | null;
-  realmId: string | null;
+  workspaceId: string | null;
   capabilities: string[];
   resourceLimits: PolicyResourceLimits | null;
   expiresAt: string | null;

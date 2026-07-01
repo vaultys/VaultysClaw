@@ -366,7 +366,7 @@ For uploads >10MB:
 
 - [ ] Presigned S3 URLs for direct client uploads
 - [ ] Multi-part upload for large files
-- [ ] Storage quota per realm
+- [ ] Storage quota per workspace
 - [ ] Automatic cleanup of orphaned files
 - [ ] Encryption at rest (S3 server-side encryption)
 - [ ] Bandwidth throttling

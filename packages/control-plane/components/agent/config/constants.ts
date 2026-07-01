@@ -1,6 +1,6 @@
 import { type LlmProviderType } from "@vaultysclaw/shared";
 
-export type ConfigMode = "agent-key" | "realm" | "model" | "manual";
+export type ConfigMode = "agent-key" | "workspace" | "model" | "manual";
 export type ModelSource = "litellm" | "registry";
 
 /** Derived view of the agent's LiteLLM virtual key (lives on the agent record). */

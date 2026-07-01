@@ -4,5 +4,5 @@ import { z } from "zod";
 export const GraphQuerySchema = z.object({
   agent: z.string().optional(),
   user: z.string().optional(),
-  realm: z.string().optional(),
+  workspace: z.string().optional(),
 });

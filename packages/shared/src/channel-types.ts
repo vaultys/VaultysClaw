@@ -5,13 +5,13 @@
 
 /**
  * Channel represents a collaboration space for agents and users
- * Can be realm-scoped or global (accessible across all realms)
+ * Can be workspace-scoped or global (accessible across all workspaces)
  */
 export interface Channel {
   id: string;
-  realmId: string | null; // null = global channel
+  workspaceId: string | null; // null = global channel
   name: string;
-  slug: string; // unique within realm (or globally if realmId=null)
+  slug: string; // unique within workspace (or globally if workspaceId=null)
   description: string | null;
   isPublic: boolean;
   isArchived: boolean;
@@ -193,6 +193,6 @@ export interface AgentMentionContext {
   authorDid: string;
   authorType: "user" | "agent";
   threadId: string; // ID of the thread where agent should respond
-  realmId: string | null; // null if global channel
+  workspaceId: string | null; // null if global channel
   parentMessageContent: string; // Original message that triggered the mention
 }

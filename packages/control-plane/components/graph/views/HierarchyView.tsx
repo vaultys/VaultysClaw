@@ -46,8 +46,8 @@ const C = {
   delegLine: "#dc2626",
   onlineDot: "success",
   offlineDot: "#475569",
-  realmBadgeBg: "#1e1b4b",
-  realmBadgeText: "#818cf8",
+  workspaceBadgeBg: "#1e1b4b",
+  workspaceBadgeText: "#818cf8",
   separator: "#1e293b",
 };
 

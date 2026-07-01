@@ -12,11 +12,11 @@ import {
 } from "lucide-react";
 import { knowledgeClient, unwrap } from "@/lib/api/ts-rest/client";
 import { FileDropzone } from "./FileDropzone";
-import type { KsRealmOption, KsSourceType } from "./types";
+import type { KsWorkspaceOption, KsSourceType } from "./types";
 
 interface KsAddSourceModalProps {
   did: string;
-  realms: KsRealmOption[];
+  workspaces: KsWorkspaceOption[];
   doclingConfigured: boolean;
   onClose: () => void;
   onCreated: () => void;
@@ -24,13 +24,13 @@ interface KsAddSourceModalProps {
 
 export function KsAddSourceModal({
   did,
-  realms,
+  workspaces,
   doclingConfigured,
   onClose,
   onCreated,
 }: KsAddSourceModalProps) {
   const [name, setName] = useState("");
-  const [realmId, setRealmId] = useState(realms[0]?.id ?? "");
+  const [workspaceId, setWorkspaceId] = useState(workspaces[0]?.id ?? "");
   const [sourceType, setSourceType] = useState<KsSourceType>("url");
   const [urls, setUrls] = useState("");
   const [textTitle, setTextTitle] = useState("");
@@ -61,8 +61,8 @@ export function KsAddSourceModal({
       setError("Source name is required.");
       return;
     }
-    if (!realmId) {
-      setError("Please select a realm.");
+    if (!workspaceId) {
+      setError("Please select a workspace.");
       return;
     }
     if (hasOversizedFile) {
@@ -89,7 +89,7 @@ export function KsAddSourceModal({
         unwrap(
           await knowledgeClient.create({
             body: {
-              realmId,
+              workspaceId,
               agentDid: did,
               name: name.trim(),
               sourceType: "url",
@@ -106,7 +106,7 @@ export function KsAddSourceModal({
         unwrap(
           await knowledgeClient.create({
             body: {
-              realmId,
+              workspaceId,
               agentDid: did,
               name: name.trim(),
               sourceType: "text",
@@ -128,7 +128,7 @@ export function KsAddSourceModal({
         const { source } = unwrap(
           await knowledgeClient.create({
             body: {
-              realmId,
+              workspaceId,
               agentDid: did,
               name: name.trim(),
               sourceType: "files",
@@ -229,15 +229,15 @@ export function KsAddSourceModal({
 
           <div className="space-y-1">
             <label className="text-xs font-medium text-foreground-500 uppercase tracking-wider">
-              Realm
+              Workspace
             </label>
             <select
-              value={realmId}
-              onChange={(e) => setRealmId(e.target.value)}
+              value={workspaceId}
+              onChange={(e) => setWorkspaceId(e.target.value)}
               className="w-full px-3 py-2 rounded-lg bg-background border border-neutral-200 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary-500/40"
             >
-              <option value="">Select realm…</option>
-              {realms.map((r) => (
+              <option value="">Select workspace…</option>
+              {workspaces.map((r) => (
                 <option key={r.id} value={r.id}>
                   {r.name}
                 </option>

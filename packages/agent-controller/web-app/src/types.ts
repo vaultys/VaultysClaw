@@ -108,7 +108,7 @@ export interface SkillEntry {
   systemPromptExtension?: string;
   enabled: boolean;
   isRequired: boolean;
-  realmManaged: boolean;
+  workspaceManaged: boolean;
   tools: SkillToolEntry[];
 }
 

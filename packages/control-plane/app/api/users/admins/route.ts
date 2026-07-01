@@ -6,7 +6,7 @@ import { usersContract } from "@/lib/contracts";
 /**
  * GET /api/users/admins — list global admins (name + email only).
  * Accessible to any authenticated user (used by the "contact admin" screen for
- * users not yet assigned to a realm).
+ * users not yet assigned to a workspace).
  */
 const handlers = createNextRoute(usersContract, {
   admins: async ({ request }) => {

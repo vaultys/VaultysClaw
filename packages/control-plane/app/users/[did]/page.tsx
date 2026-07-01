@@ -25,7 +25,7 @@ import { type UserTabId } from "@/components/users/detail/UserTabBar";
 import { UserOverviewTab } from "@/components/users/detail/UserOverviewTab";
 import { UserAccessTab } from "@/components/users/detail/UserAccessTab";
 import { UserDetailsTab } from "@/components/users/detail/UserDetailsTab";
-import { UserRealmsTab } from "@/components/users/detail/UserRealmsTab";
+import { UserWorkspacesTab } from "@/components/users/detail/UserWorkspacesTab";
 
 export default function UserEditPage() {
   const router = useRouter();
@@ -99,7 +99,7 @@ export default function UserEditPage() {
         },
         { value: "access", label: "Access", icon: <Shield size={15} /> },
         { value: "grants", label: "Grants", icon: <KeyRound size={15} /> },
-        { value: "realms", label: "Realms", icon: <Globe size={15} /> },
+        { value: "workspaces", label: "Workspaces", icon: <Globe size={15} /> },
         { value: "details", label: "Details", icon: <GitBranch size={15} /> },
       ],
     });
@@ -207,8 +207,8 @@ export default function UserEditPage() {
               </p>
             </div>
           )}
-          {activeTab === "realms" && (
-            <UserRealmsTab user={user} isOwner={isOwner} />
+          {activeTab === "workspaces" && (
+            <UserWorkspacesTab user={user} isOwner={isOwner} />
           )}
           {activeTab === "details" && (
             <UserDetailsTab
@@ -218,8 +218,8 @@ export default function UserEditPage() {
                   router.push(
                     `/agents/${encodeURIComponent(node.id.replace("agent:", ""))}`
                   );
-                else if (node.type === "realm")
-                  router.push(`/realms/${node.id.replace("realm:", "")}`);
+                else if (node.type === "workspace")
+                  router.push(`/workspaces/${node.id.replace("workspace:", "")}`);
                 else if (node.type === "user") {
                   const uid = node.id.replace("user:", "");
                   if (uid !== user.did)

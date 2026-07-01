@@ -5,7 +5,7 @@ export const UserWorkspaceModel = z.object({
   userId: z.string(),
   workspaceId: z.string(),
   isPrimary: z.boolean(),
-  isWorkspaceAdmin: z.boolean(),
+  role: z.string(),
   joinedAt: z.date(),
 })
 

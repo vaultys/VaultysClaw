@@ -8,6 +8,7 @@ import {
 } from "./api/utils/api-key-utils";
 import { AgentDAO, ApiKeyDAO, WorkspaceDAO } from "@/db";
 import { APIException } from "./api/utils/api-utils";
+import { isWorkspaceAdminRole, isWorkspaceOwnerRole } from "./roles";
 
 export interface AuthContext {
   did: string;
@@ -17,6 +18,8 @@ export interface AuthContext {
   isGlobalAdmin: boolean;
   canAccessWorkspace(workspaceId: string): Promise<boolean>;
   canAdminWorkspace(workspaceId: string): Promise<boolean>;
+  /** True when the user owns the workspace (workspace role Owner) or is a global admin. */
+  canOwnWorkspace(workspaceId: string): Promise<boolean>;
   canAccessAgent(agentDid: string): Promise<boolean>;
   canAdminAgent(agentDid: string): Promise<boolean>;
 }
@@ -44,7 +47,14 @@ export async function getAuthContext(
       : await WorkspaceDAO.getUserWorkspaces(userId ?? did);
     const accessibleWorkspaceIds = new Set(userWorkspaces.map((r) => r.workspaceId));
     const adminWorkspaceIds = new Set(
-      userWorkspaces.filter((r) => r.isWorkspaceAdmin).map((r) => r.workspaceId)
+      userWorkspaces
+        .filter((r) => isWorkspaceAdminRole(r.role))
+        .map((r) => r.workspaceId)
+    );
+    const ownerWorkspaceIds = new Set(
+      userWorkspaces
+        .filter((r) => isWorkspaceOwnerRole(r.role))
+        .map((r) => r.workspaceId)
     );
 
     return {
@@ -59,6 +69,10 @@ export async function getAuthContext(
 
       async canAdminWorkspace(workspaceId: string): Promise<boolean> {
         return isGlobalAdmin || adminWorkspaceIds.has(workspaceId);
+      },
+
+      async canOwnWorkspace(workspaceId: string): Promise<boolean> {
+        return isGlobalAdmin || ownerWorkspaceIds.has(workspaceId);
       },
 
       async canAccessAgent(agentDid: string): Promise<boolean> {
@@ -128,6 +142,11 @@ export async function getAuthContext(
 
         async canAdminWorkspace(id: string): Promise<boolean> {
           return isGlobalKey || (id === workspaceId && isWorkspaceAdmin);
+        },
+
+        async canOwnWorkspace(_id: string): Promise<boolean> {
+          // API keys never own a workspace; only a global key has full authority.
+          return isGlobalKey;
         },
 
         async canAccessAgent(agentDid: string): Promise<boolean> {

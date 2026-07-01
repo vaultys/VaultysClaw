@@ -10,6 +10,11 @@ import type {
   WorkspaceRouterKey,
   Prisma,
 } from "@prisma/client";
+import {
+  isWorkspaceAdminRole,
+  isWorkspaceOwnerRole,
+  type WorkspaceRole,
+} from "@/lib/roles";
 
 export class WorkspaceDAO {
   static async findAll(userId?: string): Promise<WorkspaceWithCounts[]> {
@@ -107,7 +112,7 @@ export class WorkspaceDAO {
     }
 
     const workspace = await WorkspaceDAO.create({ name, slug });
-    await WorkspaceDAO.addUserToWorkspace(userId, workspace.id, true, true);
+    await WorkspaceDAO.addUserToWorkspace(userId, workspace.id, true, "Owner");
     return workspace;
   }
 
@@ -180,6 +185,16 @@ export class WorkspaceDAO {
     return row !== null;
   }
 
+  static async getWorkspaceRole(
+    userId: string,
+    workspaceId: string
+  ): Promise<WorkspaceRole | null> {
+    const row = await prisma.userWorkspace.findUnique({
+      where: { userId_workspaceId: { userId, workspaceId } },
+    });
+    return row ? (row.role as WorkspaceRole) : null;
+  }
+
   static async isUserWorkspaceAdmin(
     userId: string,
     workspaceId: string
@@ -187,17 +202,17 @@ export class WorkspaceDAO {
     const row = await prisma.userWorkspace.findUnique({
       where: { userId_workspaceId: { userId, workspaceId } },
     });
-    return row?.isWorkspaceAdmin ?? false;
+    return isWorkspaceAdminRole(row?.role);
   }
 
-  static async setUserWorkspaceAdmin(
+  static async setWorkspaceRole(
     userId: string,
     workspaceId: string,
-    isAdmin: boolean
+    role: WorkspaceRole
   ): Promise<boolean> {
     const result = await prisma.userWorkspace.updateMany({
       where: { userId, workspaceId },
-      data: { isWorkspaceAdmin: isAdmin },
+      data: { role },
     });
     return result.count > 0;
   }
@@ -206,7 +221,7 @@ export class WorkspaceDAO {
     userId: string,
     workspaceId: string,
     isPrimary = false,
-    isWorkspaceAdmin = false
+    role: WorkspaceRole = "Member"
   ): Promise<void> {
     if (isPrimary) {
       await prisma.userWorkspace.updateMany({
@@ -216,9 +231,35 @@ export class WorkspaceDAO {
     }
     await prisma.userWorkspace.upsert({
       where: { userId_workspaceId: { userId, workspaceId } },
-      create: { userId, workspaceId, isPrimary, isWorkspaceAdmin },
-      update: { isPrimary, isWorkspaceAdmin },
+      create: { userId, workspaceId, isPrimary, role },
+      update: { isPrimary, role },
     });
+  }
+
+  /**
+   * Transfers ownership of a workspace: the new owner (who must already be a
+   * member) becomes Owner and the current Owner(s) are demoted to Admin.
+   * Returns false if the target is not a member of the workspace.
+   */
+  static async transferOwnership(
+    workspaceId: string,
+    newOwnerUserId: string
+  ): Promise<boolean> {
+    const target = await prisma.userWorkspace.findUnique({
+      where: { userId_workspaceId: { userId: newOwnerUserId, workspaceId } },
+    });
+    if (!target) return false;
+    await prisma.$transaction([
+      prisma.userWorkspace.updateMany({
+        where: { workspaceId, role: "Owner" },
+        data: { role: "Admin" },
+      }),
+      prisma.userWorkspace.update({
+        where: { userId_workspaceId: { userId: newOwnerUserId, workspaceId } },
+        data: { role: "Owner" },
+      }),
+    ]);
+    return true;
   }
 
   static async removeUserFromWorkspace(
@@ -227,6 +268,11 @@ export class WorkspaceDAO {
   ): Promise<boolean> {
     const workspace = await prisma.workspace.findUnique({ where: { id: workspaceId } });
     if (workspace?.isDefault) return false;
+    const membership = await prisma.userWorkspace.findUnique({
+      where: { userId_workspaceId: { userId, workspaceId } },
+    });
+    // The Owner cannot be removed — ownership must be transferred first.
+    if (!membership || isWorkspaceOwnerRole(membership.role)) return false;
     const result = await prisma.userWorkspace.deleteMany({
       where: { userId, workspaceId },
     });

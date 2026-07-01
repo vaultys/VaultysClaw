@@ -136,7 +136,12 @@ function makeAuthContext(
     async canAdminWorkspace(workspaceId: string) {
       if (isGlobalAdmin) return true;
       const membership = await prisma.userWorkspace.findFirst({ where: { userId: did, workspaceId } });
-      return membership?.isWorkspaceAdmin === true;
+      return membership?.role === "Admin" || membership?.role === "Owner";
+    },
+    async canOwnWorkspace(workspaceId: string) {
+      if (isGlobalAdmin) return true;
+      const membership = await prisma.userWorkspace.findFirst({ where: { userId: did, workspaceId } });
+      return membership?.role === "Owner";
     },
     async canAccessAgent(agentDid: string) {
       if (isGlobalAdmin) return true;
@@ -150,7 +155,7 @@ function makeAuthContext(
       const agentWorkspaces = await prisma.agentWorkspace.findMany({ where: { agentDid } });
       const agentWorkspaceIds = new Set(agentWorkspaces.map((r) => r.workspaceId));
       const userMemberships = await prisma.userWorkspace.findMany({ where: { userId: did } });
-      return userMemberships.some((r) => agentWorkspaceIds.has(r.workspaceId) && r.isWorkspaceAdmin === true);
+      return userMemberships.some((r) => agentWorkspaceIds.has(r.workspaceId) && (r.role === "Admin" || r.role === "Owner"));
     },
   };
 }
@@ -176,6 +181,7 @@ function asMember(did = DID.member) {
     workspaceIds: new Set([testWorkspaceId]),
     canAccessWorkspace: async (workspaceId: string) => workspaceId === testWorkspaceId,
     canAdminWorkspace: async () => false,
+    canOwnWorkspace: async () => false,
     canAccessAgent: async (agentDid: string) => agentDid === DID.agent,
     canAdminAgent: async () => false,
   });
@@ -188,6 +194,7 @@ function asStranger(did = DID.stranger) {
     workspaceIds: new Set<string>(),
     canAccessWorkspace: async () => false,
     canAdminWorkspace: async () => false,
+    canOwnWorkspace: async () => false,
     canAccessAgent: async () => false,
     canAdminAgent: async () => false,
   });
@@ -200,6 +207,7 @@ function asWorkspaceAdmin(did = DID.workspaceAdmin) {
     workspaceIds: new Set([testWorkspaceId]),
     canAccessWorkspace: async (workspaceId: string) => workspaceId === testWorkspaceId,
     canAdminWorkspace: async (workspaceId: string) => workspaceId === testWorkspaceId,
+    canOwnWorkspace: async () => false,
     canAccessAgent: async (agentDid: string) => agentDid === DID.agent,
     canAdminAgent: async (agentDid: string) => agentDid === DID.agent,
   });
@@ -292,8 +300,8 @@ beforeAll(async () => {
   // Add users to workspace via Prisma
   await prisma.userWorkspace.createMany({
     data: [
-      { userId: DID.member, workspaceId: testWorkspaceId, isWorkspaceAdmin: false },
-      { userId: DID.workspaceAdmin, workspaceId: testWorkspaceId, isWorkspaceAdmin: true },
+      { userId: DID.member, workspaceId: testWorkspaceId, role: "Member" },
+      { userId: DID.workspaceAdmin, workspaceId: testWorkspaceId, role: "Admin" },
     ],
     skipDuplicates: true,
   });
@@ -944,7 +952,7 @@ describe("PATCH /api/workspaces/[id]/users — workspace admin toggle", () => {
     const res = await workspaceUsersPATCH(
       req("http://localhost", {
         userDid: DID.member,
-        isWorkspaceAdmin: true,
+        role: "Admin",
       }) as never,
       params({ id: testWorkspaceId })
     );
@@ -956,7 +964,7 @@ describe("PATCH /api/workspaces/[id]/users — workspace admin toggle", () => {
     const res = await workspaceUsersPATCH(
       req("http://localhost", {
         userDid: DID.member,
-        isWorkspaceAdmin: true,
+        role: "Admin",
       }) as never,
       params({ id: testWorkspaceId })
     );
@@ -968,7 +976,7 @@ describe("PATCH /api/workspaces/[id]/users — workspace admin toggle", () => {
     const res = await workspaceUsersPATCH(
       req("http://localhost", {
         userDid: DID.member,
-        isWorkspaceAdmin: false,
+        role: "Member",
       }) as never,
       params({ id: testWorkspaceId })
     );

@@ -28,7 +28,7 @@ const handlers = createNextRoute(workspacesContract, {
       user.id,
       params.id,
       body.isPrimary ?? false,
-      body.isWorkspaceAdmin ?? false
+      body.role ?? "Member"
     );
     return { status: 200, body: { ok: true } };
   },
@@ -42,14 +42,17 @@ const handlers = createNextRoute(workspacesContract, {
     const user = await findUser(body.userDid);
     if (!user) throw new APIException("NOT_FOUND", "User not found");
 
-    const changed = await WorkspaceDAO.setUserWorkspaceAdmin(
-      user.id,
-      params.id,
-      body.isWorkspaceAdmin
-    );
-    if (!changed)
+    // The Owner's role cannot be changed here — use ownership transfer instead.
+    const current = await WorkspaceDAO.getWorkspaceRole(user.id, params.id);
+    if (current === null)
       throw new APIException("NOT_FOUND", "User is not a member of this workspace");
+    if (current === "Owner")
+      throw new APIException(
+        "FORBIDDEN",
+        "Cannot change the workspace owner's role — transfer ownership instead"
+      );
 
+    await WorkspaceDAO.setWorkspaceRole(user.id, params.id, body.role);
     return { status: 200, body: { ok: true } };
   },
 
@@ -61,6 +64,13 @@ const handlers = createNextRoute(workspacesContract, {
 
     const user = await findUser(body.userDid);
     if (!user) throw new APIException("NOT_FOUND", "User not found");
+
+    const role = await WorkspaceDAO.getWorkspaceRole(user.id, params.id);
+    if (role === "Owner")
+      throw new APIException(
+        "MALFORMED",
+        "Cannot remove the workspace owner — transfer ownership first"
+      );
 
     const ok = await WorkspaceDAO.removeUserFromWorkspace(user.id, params.id);
     if (!ok)

@@ -119,6 +119,33 @@ export function useWorkspaceDetail(id: string) {
     [id, load]
   );
 
+  const setUserRole = useCallback(
+    async (did: string, role: "Admin" | "Member") => {
+      unwrap(
+        await workspacesClient.updateUser({
+          params: { id },
+          body: { userDid: did, role },
+        })
+      );
+      load();
+    },
+    [id, load]
+  );
+
+  const transferOwner = useCallback(
+    async (did: string) => {
+      if (!confirm("Transfer ownership of this workspace to this user?")) return;
+      unwrap(
+        await workspacesClient.transferOwner({
+          params: { id },
+          body: { userDid: did },
+        })
+      );
+      load();
+    },
+    [id, load]
+  );
+
   const setDefault = useCallback(async () => {
     await workspacesClient.setDefault({ params: { id } });
     load();
@@ -150,6 +177,8 @@ export function useWorkspaceDetail(id: string) {
     load,
     removeAgent,
     removeUser,
+    setUserRole,
+    transferOwner,
     setDefault,
     remove,
   };

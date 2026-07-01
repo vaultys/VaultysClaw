@@ -1,6 +1,7 @@
 import { Globe2 } from "lucide-react";
 import { formatDate } from "@vaultysclaw/shared";
 import type { UserWorkspaceWithWorkspace } from "@/lib/contracts";
+import { normalizeWorkspaceRole } from "@/lib/roles";
 import { SectionHeader } from "./primitives";
 
 export function WorkspacesTab({ workspaces }: { workspaces: UserWorkspaceWithWorkspace[] }) {
@@ -40,9 +41,9 @@ export function WorkspacesTab({ workspaces }: { workspaces: UserWorkspaceWithWor
                     Primary
                   </span>
                 )}
-                {r.isWorkspaceAdmin && (
+                {normalizeWorkspaceRole(r.role) !== "Member" && (
                   <span className="px-2 py-0.5 bg-warning-100 text-warning-700 border border-warning-300 rounded-full text-[10px] font-medium">
-                    Admin
+                    {normalizeWorkspaceRole(r.role)}
                   </span>
                 )}
                 {r.workspace.isDefault && (

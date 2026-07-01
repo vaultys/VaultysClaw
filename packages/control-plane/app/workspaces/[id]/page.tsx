@@ -7,6 +7,7 @@ import { useToolbar } from "@/components/layout/ToolbarContext";
 import { useBreadcrumbs } from "@/components/layout/BreadcrumbContext";
 import EmbeddedOrgChart from "@/components/graph/EmbeddedOrgChart";
 import { useRole } from "@/hooks/useRole";
+import { normalizeWorkspaceRole } from "@/lib/roles";
 import { AddMemberModal } from "../../../components/workspaces/AddMemberModal";
 import { AgentsTab } from "../../../components/workspaces/AgentsTab";
 import { ChannelsTab } from "../../../components/workspaces/ChannelsTab";
@@ -26,7 +27,7 @@ export default function WorkspaceDetailPage() {
   const router = useRouter();
   const params = useParams<{ id: string }>();
   const id = params.id;
-  const { isGlobalAdmin } = useRole();
+  const { isGlobalAdmin, did } = useRole();
 
   const {
     workspace,
@@ -48,9 +49,18 @@ export default function WorkspaceDetailPage() {
     load,
     removeAgent,
     removeUser,
+    setUserRole,
+    transferOwner,
     setDefault,
     remove,
   } = useWorkspaceDetail(id);
+
+  // Viewer's own role within this workspace, used to gate member management.
+  const myRole = normalizeWorkspaceRole(
+    users.find((u) => u.user.did === did)?.role
+  );
+  const canManageUsers = isGlobalAdmin || myRole === "Owner" || myRole === "Admin";
+  const canTransferOwner = isGlobalAdmin || myRole === "Owner";
 
   const [tab, setTab] = useState<WorkspaceTab>("agents");
   const [addModal, setAddModal] = useState<"agent" | "user" | null>(null);
@@ -181,8 +191,12 @@ export default function WorkspaceDetailPage() {
         <UsersTab
           users={users}
           canRemove={!workspace.isDefault}
+          canManage={canManageUsers}
+          canTransferOwner={canTransferOwner}
           onAdd={() => setAddModal("user")}
           onRemove={removeUser}
+          onSetRole={setUserRole}
+          onTransferOwner={transferOwner}
         />
       )}
       {tab === "workflows" && (

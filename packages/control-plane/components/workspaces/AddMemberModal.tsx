@@ -9,6 +9,10 @@ import {
   ApiError,
 } from "@/lib/api/ts-rest/client";
 import type { AgentInfo, WorkspaceDetail, UserListItem } from "@/lib/contracts";
+import {
+  ASSIGNABLE_WORKSPACE_ROLES,
+  type AssignableWorkspaceRole,
+} from "@/lib/roles";
 import { shortDid } from "@vaultysclaw/shared";
 
 export function AddMemberModal({
@@ -26,6 +30,7 @@ export function AddMemberModal({
   const [agents, setAgents] = useState<AgentInfo[]>([]);
   const [selected, setSelected] = useState<string>("");
   const [isPrimary, setIsPrimary] = useState(false);
+  const [role, setRole] = useState<AssignableWorkspaceRole>("Member");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -65,7 +70,7 @@ export function AddMemberModal({
         unwrap(
           await workspacesClient.addUser({
             params: { id: workspace.id },
-            body: { userDid: selected, isPrimary },
+            body: { userDid: selected, isPrimary, role },
           })
         );
       }
@@ -113,6 +118,24 @@ export function AddMemberModal({
               })}
             </select>
           </div>
+          {type === "user" && (
+            <div>
+              <label className="block text-sm text-foreground-500 mb-1">
+                Role
+              </label>
+              <select
+                value={role}
+                onChange={(e) => setRole(e.target.value as AssignableWorkspaceRole)}
+                className="w-full bg-background border border-neutral-200 rounded-xl px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary-500"
+              >
+                {ASSIGNABLE_WORKSPACE_ROLES.map((r) => (
+                  <option key={r} value={r}>
+                    {r}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
           <label className="flex items-center gap-2 text-sm text-foreground-500 cursor-pointer select-none">
             <input
               type="checkbox"

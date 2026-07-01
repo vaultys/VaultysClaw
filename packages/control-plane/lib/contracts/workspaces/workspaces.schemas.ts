@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ASSIGNABLE_WORKSPACE_ROLES } from "@/lib/roles";
 
 // ─────────────────────────────────────────────
 // Queries
@@ -42,15 +43,19 @@ export const UpdateWorkspaceBodySchema = z.object({
 export const AddWorkspaceUserBodySchema = z.object({
   userDid: z.string(),
   isPrimary: z.boolean().optional(),
-  isWorkspaceAdmin: z.boolean().optional(),
+  role: z.enum(ASSIGNABLE_WORKSPACE_ROLES).optional(),
 });
 
 export const UpdateWorkspaceUserBodySchema = z.object({
   userDid: z.string(),
-  isWorkspaceAdmin: z.boolean(),
+  role: z.enum(ASSIGNABLE_WORKSPACE_ROLES),
 });
 
 export const RemoveWorkspaceUserBodySchema = z.object({ userDid: z.string() });
+
+export const TransferWorkspaceOwnerBodySchema = z.object({
+  userDid: z.string(),
+});
 
 export const SocialMediaBodySchema = z.object({ text: z.string().max(280) });
 

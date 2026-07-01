@@ -300,7 +300,7 @@ model UserWorkspace {
   userId       String
   workspaceId      String
   isPrimary    Boolean  @default(false)
-  isWorkspaceAdmin Boolean  @default(false)
+  role         String   @default("Member")
   joinedAt     DateTime @default(now())
 
   user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)

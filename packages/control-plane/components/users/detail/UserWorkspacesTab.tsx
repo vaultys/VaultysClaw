@@ -2,13 +2,18 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { AlertCircle, Globe, Plus, X, ShieldCheck, Star } from "lucide-react";
+import { AlertCircle, Globe, Plus, X, Crown, Star } from "lucide-react";
 import { workspacesClient, unwrap, ApiError } from "@/lib/api/ts-rest/client";
 import type {
   WorkspaceWithCounts,
   UserDetail,
   UserWorkspaceWithWorkspace,
 } from "@/lib/contracts";
+import {
+  ASSIGNABLE_WORKSPACE_ROLES,
+  normalizeWorkspaceRole,
+  type AssignableWorkspaceRole,
+} from "@/lib/roles";
 
 export function UserWorkspacesTab({
   user,
@@ -23,7 +28,7 @@ export function UserWorkspacesTab({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [addingWorkspaceId, setAddingWorkspaceId] = useState("");
-  const [addAsAdmin, setAddAsAdmin] = useState(false);
+  const [addRole, setAddRole] = useState<AssignableWorkspaceRole>("Member");
   const [addAsPrimary, setAddAsPrimary] = useState(false);
   const [adding, setAdding] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
@@ -61,12 +66,12 @@ export function UserWorkspacesTab({
           body: {
             userDid: user.did!,
             isPrimary: addAsPrimary,
-            isWorkspaceAdmin: addAsAdmin,
+            role: addRole,
           },
         })
       );
       setAddingWorkspaceId("");
-      setAddAsAdmin(false);
+      setAddRole("Member");
       setAddAsPrimary(false);
       load();
     } catch (err) {
@@ -97,21 +102,22 @@ export function UserWorkspacesTab({
     }
   };
 
-  const handleToggleAdmin = async (workspaceId: string, current: boolean) => {
-    setBusy(workspaceId + ":admin");
+  const handleSetRole = async (
+    workspaceId: string,
+    role: AssignableWorkspaceRole
+  ) => {
+    setBusy(workspaceId + ":role");
     try {
       unwrap(
         await workspacesClient.updateUser({
           params: { id: workspaceId },
-          body: { userDid: user.did!, isWorkspaceAdmin: !current },
+          body: { userDid: user.did!, role },
         })
       );
       load();
     } catch (err) {
       alert(
-        err instanceof ApiError
-          ? err.message
-          : "Failed to update workspace admin status"
+        err instanceof ApiError ? err.message : "Failed to update workspace role"
       );
     } finally {
       setBusy(null);
@@ -177,9 +183,9 @@ export function UserWorkspacesTab({
                       <Star size={10} className="fill-current" /> Primary
                     </span>
                   )}
-                  {ur.isWorkspaceAdmin && (
-                    <span className="flex items-center gap-1 text-xs text-primary-600">
-                      <ShieldCheck size={10} /> Workspace admin
+                  {normalizeWorkspaceRole(ur.role) === "Owner" && (
+                    <span className="flex items-center gap-1 text-xs text-warning-600">
+                      <Crown size={10} /> Owner
                     </span>
                   )}
                 </div>
@@ -187,26 +193,31 @@ export function UserWorkspacesTab({
 
               {isOwner && (
                 <div className="flex items-center gap-2 shrink-0">
-                  <button
-                    onClick={() =>
-                      handleToggleAdmin(ur.workspaceId, ur.isWorkspaceAdmin)
-                    }
-                    disabled={busy === ur.workspaceId + ":admin"}
-                    title={
-                      ur.isWorkspaceAdmin
-                        ? "Revoke workspace admin"
-                        : "Make workspace admin"
-                    }
-                    className={`flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border transition-colors disabled:opacity-50 ${
-                      ur.isWorkspaceAdmin
-                        ? "border-primary-300 text-primary-600 hover:border-neutral-300 hover:text-foreground-500"
-                        : "border-neutral-300 text-foreground-500 hover:border-primary-300 hover:text-primary-600"
-                    }`}
-                  >
-                    <ShieldCheck size={12} />
-                    {ur.isWorkspaceAdmin ? "Admin" : "Set admin"}
-                  </button>
-                  {!ur.workspace.isDefault && (
+                  {normalizeWorkspaceRole(ur.role) === "Owner" ? (
+                    <span className="text-xs text-foreground-400 px-2.5 py-1.5">
+                      Owner
+                    </span>
+                  ) : (
+                    <select
+                      value={normalizeWorkspaceRole(ur.role)}
+                      onChange={(e) =>
+                        handleSetRole(
+                          ur.workspaceId,
+                          e.target.value as AssignableWorkspaceRole
+                        )
+                      }
+                      disabled={busy === ur.workspaceId + ":role"}
+                      className="text-xs bg-background-100 border border-neutral-300 text-foreground-500 rounded-lg px-2 py-1.5 focus:outline-none focus:border-primary-500 disabled:opacity-50"
+                    >
+                      {ASSIGNABLE_WORKSPACE_ROLES.map((r) => (
+                        <option key={r} value={r}>
+                          {r}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                  {!ur.workspace.isDefault &&
+                    normalizeWorkspaceRole(ur.role) !== "Owner" && (
                     <button
                       onClick={() => handleRemove(ur.workspaceId)}
                       disabled={busy === ur.workspaceId + ":remove"}
@@ -244,14 +255,21 @@ export function UserWorkspacesTab({
             </select>
 
             <div className="flex items-center gap-4">
-              <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={addAsAdmin}
-                  onChange={(e) => setAddAsAdmin(e.target.checked)}
-                  className="rounded border-neutral-300"
-                />
-                Workspace admin
+              <label className="flex items-center gap-2 text-sm text-foreground">
+                Role
+                <select
+                  value={addRole}
+                  onChange={(e) =>
+                    setAddRole(e.target.value as AssignableWorkspaceRole)
+                  }
+                  className="bg-background-100 border border-neutral-300 text-foreground text-sm rounded-lg px-2 py-1.5 focus:outline-none focus:border-primary-500"
+                >
+                  {ASSIGNABLE_WORKSPACE_ROLES.map((r) => (
+                    <option key={r} value={r}>
+                      {r}
+                    </option>
+                  ))}
+                </select>
               </label>
               <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
                 <input

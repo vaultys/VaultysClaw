@@ -238,7 +238,7 @@ beforeAll(async () => {
     create: {
       userId: "user-uuid-123",
       workspaceId: testWorkspaceId,
-      isWorkspaceAdmin: true,
+      role: "Admin",
     },
     update: {},
   });

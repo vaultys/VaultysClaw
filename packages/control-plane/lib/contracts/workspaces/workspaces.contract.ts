@@ -15,6 +15,7 @@ import {
   RemoveWorkspaceUserBodySchema,
   SaveCredentialBodySchema,
   SocialMediaBodySchema,
+  TransferWorkspaceOwnerBodySchema,
   UpdateWorkspaceBodySchema,
   UpdateWorkspaceSkillBodySchema,
   UpdateWorkspaceUserBodySchema,
@@ -103,8 +104,20 @@ export const workspacesContract = c.router({
     method: "PATCH",
     path: "/api/workspaces/:id/users",
     pathParams: IdParam,
-    summary: "Update a user's workspace admin status",
+    summary: "Update a user's workspace role (Admin/Member)",
     body: UpdateWorkspaceUserBodySchema,
+    responses: {
+      200: z.object({ ok: z.boolean() }),
+      ...commonErrorResponses,
+    },
+  },
+
+  transferOwner: {
+    method: "POST",
+    path: "/api/workspaces/:id/owner",
+    pathParams: IdParam,
+    summary: "Transfer workspace ownership to another member",
+    body: TransferWorkspaceOwnerBodySchema,
     responses: {
       200: z.object({ ok: z.boolean() }),
       ...commonErrorResponses,

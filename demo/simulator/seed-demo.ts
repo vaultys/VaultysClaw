@@ -334,14 +334,14 @@ async function seedUsers(workspaceSlugToId: Map<string, string>): Promise<{ owne
     for (const [, workspaceId] of workspaceSlugToId) {
       await prisma.userWorkspace.upsert({
         where: { userId_workspaceId: { userId: uid, workspaceId } },
-        create: { userId: uid, workspaceId, isPrimary: false, isWorkspaceAdmin: exec.globalAdmin },
+        create: { userId: uid, workspaceId, isPrimary: false, role: exec.globalAdmin ? "Admin" : "Member" },
         update: {},
       }).catch(() => {});
     }
     process.stdout.write(".");
   }
 
-  // VPs (one per workspace, workspace admin)
+  // VPs (one per workspace, workspace owner)
   const vpUserIds = new Map<string, string>();
   for (const [slug, workspaceId] of workspaceSlugToId) {
     const did = makeDid(`vp-${slug}`);
@@ -351,7 +351,7 @@ async function seedUsers(workspaceSlugToId: Map<string, string>): Promise<{ owne
     vpUserIds.set(slug, uid);
     await prisma.userWorkspace.upsert({
       where: { userId_workspaceId: { userId: uid, workspaceId } },
-      create: { userId: uid, workspaceId, isPrimary: true, isWorkspaceAdmin: true },
+      create: { userId: uid, workspaceId, isPrimary: true, role: "Owner" },
       update: {},
     }).catch(() => {});
     process.stdout.write(".");
@@ -370,7 +370,7 @@ async function seedUsers(workspaceSlugToId: Map<string, string>): Promise<{ owne
       workspaceLeads.push(uid);
       await prisma.userWorkspace.upsert({
         where: { userId_workspaceId: { userId: uid, workspaceId } },
-        create: { userId: uid, workspaceId, isPrimary: true, isWorkspaceAdmin: false },
+        create: { userId: uid, workspaceId, isPrimary: true, role: "Member" },
         update: {},
       }).catch(() => {});
       process.stdout.write(".");
@@ -391,7 +391,7 @@ async function seedUsers(workspaceSlugToId: Map<string, string>): Promise<{ owne
       const uid = await upsert(did, `${fn.toLowerCase()}.${ln.toLowerCase()}${suffix}@demo.vaultysclaw.io`, `${fn} ${ln}`, { reportsTo: manager });
       await prisma.userWorkspace.upsert({
         where: { userId_workspaceId: { userId: uid, workspaceId } },
-        create: { userId: uid, workspaceId, isPrimary: true, isWorkspaceAdmin: false },
+        create: { userId: uid, workspaceId, isPrimary: true, role: "Member" },
         update: {},
       }).catch(() => {});
     }

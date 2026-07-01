@@ -1,6 +1,6 @@
 import { getAuthContext } from "@/lib/auth-utils";
 import { APIException } from "@/lib/api/utils/api-utils";
-import { WorkspaceDAO } from "@/db";
+import { WorkspaceDAO, UserDAO } from "@/db";
 import { workspacesContract } from "@/lib/contracts";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 
@@ -60,6 +60,11 @@ const handlers = createNextRoute(workspacesContract, {
       description: body.description?.trim() || undefined,
       color: body.color,
     });
+
+    // The creator becomes the workspace Owner.
+    const creator = await UserDAO.findByDid(auth.did);
+    if (creator)
+      await WorkspaceDAO.addUserToWorkspace(creator.id, workspace.id, false, "Owner");
 
     return { status: 201, body: { workspace } };
   },

@@ -77,7 +77,6 @@ export function resolveAccess(
   // Public paths: allow everyone
   if (isPublicPath(pathname)) return { type: "next" };
 
-  console.log("[decision] token = ", token);
   // Authenticated OIDC user without a DID must claim their VaultysId first.
   if (
     token &&

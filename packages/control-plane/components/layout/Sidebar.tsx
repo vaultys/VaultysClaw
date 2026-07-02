@@ -35,6 +35,7 @@ const NAV_GROUPS = [
     adminOnly: false,
     items: [
       { href: "/", icon: LayoutDashboard, label: "Dashboard", exact: true },
+      { href: "/app/my-agents", icon: Bot, label: "My Agents", exact: false },
       { href: "/app/workflows", icon: Workflow, label: "Workflows", exact: false },
       { href: "/app/workspaces", icon: Globe2, label: "Workspaces", exact: false },
       { href: "/app/inbox", icon: Inbox, label: "Inbox", exact: false },

@@ -31,6 +31,8 @@ interface AgentsListProps {
   /** Whether any filter/search is active (affects the empty state copy). */
   hasFilters: boolean;
   onClearFilters: () => void;
+  /** Base path a row navigates to; the agent DID is appended. Defaults to the admin agents page. */
+  detailBasePath?: string;
 }
 
 /**
@@ -50,6 +52,7 @@ export function AgentsList({
   onPageChange,
   hasFilters,
   onClearFilters,
+  detailBasePath = "/admin/agents",
 }: AgentsListProps) {
   const router = useRouter();
 
@@ -120,7 +123,9 @@ export function AgentsList({
                     key={agent.did}
                     className="hover:bg-background-200/40 transition-colors cursor-pointer"
                     onClick={() =>
-                      router.push(`/admin/agents/${encodeURIComponent(agent.did)}`)
+                      router.push(
+                        `${detailBasePath}/${encodeURIComponent(agent.did)}`
+                      )
                     }
                   >
                     <td className="px-5 py-3.5">

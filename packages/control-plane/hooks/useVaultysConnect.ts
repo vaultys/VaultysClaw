@@ -22,6 +22,19 @@ import {
 
 const Buffer = crypto.Buffer;
 
+/**
+ * Where to send the user after a successful login. Honours the `callbackUrl`
+ * query param set by the proxy when it redirects an unauthenticated visitor to
+ * /login, falling back to the home page. Only same-site relative paths are
+ * accepted to avoid open-redirects.
+ */
+function postLoginDestination(): string {
+  if (typeof window === "undefined") return "/";
+  const cb = new URLSearchParams(window.location.search).get("callbackUrl");
+  if (cb && cb.startsWith("/") && !cb.startsWith("//")) return cb;
+  return "/";
+}
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -167,7 +180,7 @@ export function useVaultysConnect(): UseVaultysConnectResult {
       const res = await signIn("credentials", { token: key, redirect: false });
       if (res?.ok) {
         setUIStep("done");
-        window.location.href = "/";
+        window.location.href = postLoginDestination();
       }
     } else {
       setUserConnectionPhase("failure");
@@ -202,7 +215,7 @@ export function useVaultysConnect(): UseVaultysConnectResult {
       });
       if (signInRes?.ok) {
         setUIStep("done");
-        window.location.href = "/";
+        window.location.href = postLoginDestination();
       }
     } else {
       setUserConnectionPhase("failure");

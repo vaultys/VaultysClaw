@@ -1,6 +1,8 @@
+import { z } from "zod";
 import { c } from "../../contract";
 import { commonErrorResponses, PaginatedResponse } from "../../common";
 import { ListUserAgentsQuerySchema } from "./agents.schemas";
+import { UserAgentDetail } from "./agents.types";
 import { AgentInfo } from "../../admin/agents/agents.types";
 
 /**
@@ -18,6 +20,16 @@ export const userAgentsContract = c.router({
     query: ListUserAgentsQuerySchema,
     responses: {
       200: c.type<PaginatedResponse<AgentInfo>>(),
+      ...commonErrorResponses,
+    },
+  },
+
+  getAgent: {
+    method: "GET",
+    path: "/api/agents/:did",
+    pathParams: z.object({ did: z.string() }),
+    responses: {
+      200: c.type<UserAgentDetail>(),
       ...commonErrorResponses,
     },
   },

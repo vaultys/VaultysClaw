@@ -67,6 +67,7 @@ import { PolicyDAO } from "../packages/control-plane/db";
 // Route handlers under test
 import { GET as agentsGET } from "../packages/control-plane/app/api/admin/agents/route";
 import { GET as userAgentsGET } from "../packages/control-plane/app/api/(user)/agents/route";
+import { GET as userAgentDetailGET } from "../packages/control-plane/app/api/(user)/agents/[did]/route";
 import {
   GET as agentDetailGET,
   PATCH as agentDetailPATCH,
@@ -619,9 +620,9 @@ describe("GET /api/agents", () => {
   });
 });
 
-// --- /api/agents/[did] ------------------------------------------------------
+// --- /api/admin/agents/[did] (admin-only detail) ----------------------------
 
-describe("GET /api/agents/[did]", () => {
+describe("GET /api/admin/agents/[did]", () => {
   it("returns 401 when unauthenticated", async () => {
     asUnauthenticated();
     const res = await agentDetailGET(
@@ -631,9 +632,40 @@ describe("GET /api/agents/[did]", () => {
     expectStatus(res, 401);
   });
 
-  it("returns 200 for a member of the agent's workspace", async () => {
+  it("returns 403 for a member (admin-only endpoint)", async () => {
     asMember();
     const res = await agentDetailGET(
+      req() as never,
+      params({ did: encodeURIComponent(DID.agent) })
+    );
+    expectStatus(res, 403);
+  });
+
+  it("returns 200 for a global admin", async () => {
+    asAdmin();
+    const res = await agentDetailGET(
+      req() as never,
+      params({ did: encodeURIComponent(DID.agent) })
+    );
+    expectStatus(res, 200);
+  });
+});
+
+// --- /api/agents/[did] (user detail, access-scoped) -------------------------
+
+describe("GET /api/agents/[did]", () => {
+  it("returns 401 when unauthenticated", async () => {
+    asUnauthenticated();
+    const res = await userAgentDetailGET(
+      req() as never,
+      params({ did: encodeURIComponent(DID.agent) })
+    );
+    expectStatus(res, 401);
+  });
+
+  it("returns 200 for a member of the agent's workspace", async () => {
+    asMember();
+    const res = await userAgentDetailGET(
       req() as never,
       params({ did: encodeURIComponent(DID.agent) })
     );
@@ -642,16 +674,16 @@ describe("GET /api/agents/[did]", () => {
 
   it("returns 403 for a stranger (not in any shared workspace with the agent)", async () => {
     asStranger();
-    const res = await agentDetailGET(
+    const res = await userAgentDetailGET(
       req() as never,
       params({ did: encodeURIComponent(DID.agent) })
     );
     expectStatus(res, 403);
   });
 
-  it("returns 200 for a global admin regardless of workspace membership", async () => {
+  it("returns 200 for a global admin (can access any agent)", async () => {
     asAdmin();
-    const res = await agentDetailGET(
+    const res = await userAgentDetailGET(
       req() as never,
       params({ did: encodeURIComponent(DID.agent) })
     );

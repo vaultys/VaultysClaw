@@ -24,19 +24,18 @@ const Buffer = crypto.Buffer;
  * deleteAgent); the contract's other routes are served by their own route.ts.
  */
 const handlers = createNextRoute(adminAgentsContract, {
-  // ── GET /api/agents/:did ────────────────────────────────────────────────
+  // ── GET /api/admin/agents/:did ──────────────────────────────────────────
   getAgent: async ({ params, request }) => {
     const auth = await getAuthContext(request);
+    if (!auth.isGlobalAdmin) {
+      throw new APIException("FORBIDDEN");
+    }
 
     const { did } = params;
 
     const agent = await AgentDAO.findByDid(did);
     if (!agent) {
       throw new APIException("NOT_FOUND", "Agent not found");
-    }
-
-    if (!(await auth.canAccessAgent(did))) {
-      throw new APIException("FORBIDDEN");
     }
 
     const wsServer = getWSServer();

@@ -8,20 +8,20 @@ import { useBreadcrumbs } from "@/components/layout/BreadcrumbContext";
 import EmbeddedOrgChart from "@/components/graph/EmbeddedOrgChart";
 import { useRole } from "@/hooks/useRole";
 import { normalizeWorkspaceRole } from "@/lib/roles";
-import { AddMemberModal } from "../../../components/workspaces/AddMemberModal";
-import { AgentsTab } from "../../../components/workspaces/AgentsTab";
-import { ChannelsTab } from "../../../components/workspaces/ChannelsTab";
-import { ConfigTab } from "../../../components/workspaces/ConfigTab";
-import { EditWorkspacePanel } from "../../../components/workspaces/EditWorkspacePanel";
-import { MapTab } from "../../../components/workspaces/MapTab";
-import { ModelsTab } from "../../../components/workspaces/ModelsTab";
-import { WorkspaceTabBar } from "../../../components/workspaces/WorkspaceTabBar";
-import { SkillsTab } from "../../../components/workspaces/SkillsTab";
-import { TokenMetricsCards } from "../../../components/workspaces/TokenMetricsCards";
-import { UsersTab } from "../../../components/workspaces/UsersTab";
-import { WorkflowsTab } from "../../../components/workspaces/WorkflowsTab";
-import { useWorkspaceDetail } from "../../../hooks/useWorkspaceDetail";
-import type { WorkspaceTab } from "../../../components/workspaces/types";
+import { useWorkspaceDetail } from "@/hooks/useWorkspaceDetail";
+import { WorkspaceTab } from "@/components/workspaces/types";
+import { EditWorkspacePanel } from "@/components/workspaces/EditWorkspacePanel";
+import { TokenMetricsCards } from "@/components/workspaces/TokenMetricsCards";
+import { WorkspaceTabBar } from "@/components/workspaces/WorkspaceTabBar";
+import { AgentsTab } from "@/components/workspaces/AgentsTab";
+import { UsersTab } from "@/components/workspaces/UsersTab";
+import { WorkflowsTab } from "@/components/workspaces/WorkflowsTab";
+import { SkillsTab } from "@/components/workspaces/SkillsTab";
+import { ModelsTab } from "@/components/workspaces/ModelsTab";
+import { ChannelsTab } from "@/components/workspaces/ChannelsTab";
+import { ConfigTab } from "@/components/workspaces/ConfigTab";
+import { AddMemberModal } from "@/components/workspaces/AddMemberModal";
+import { MapTab } from "@/components/workspaces/MapTab";
 
 export default function WorkspaceDetailPage() {
   const router = useRouter();
@@ -71,7 +71,10 @@ export default function WorkspaceDetailPage() {
   const [editing, setEditing] = useState(false);
 
   useBreadcrumbs(
-    [{ label: "Workspaces", href: "/workspaces" }, { label: workspace?.name ?? "Workspace" }],
+    [
+      { label: "Workspaces", href: "/workspaces" },
+      { label: workspace?.name ?? "Workspace" },
+    ],
     [workspace?.name]
   );
 
@@ -80,9 +83,13 @@ export default function WorkspaceDetailPage() {
       title: workspace?.name ?? "Workspace",
       description: workspace ? (
         <span className="flex items-center gap-2 flex-wrap">
-          <code className="font-mono text-foreground-400">{workspace.slug}</code>
+          <code className="font-mono text-foreground-400">
+            {workspace.slug}
+          </code>
           {workspace.description && (
-            <span className="text-foreground-500">· {workspace.description}</span>
+            <span className="text-foreground-500">
+              · {workspace.description}
+            </span>
           )}
           <span className="text-foreground-400">
             · {agents.length} agent{agents.length !== 1 ? "s" : ""} ·{" "}
@@ -225,7 +232,11 @@ export default function WorkspaceDetailPage() {
         />
       )}
       {tab === "workflows" && (
-        <WorkflowsTab workspaceId={id} workflows={workflows} canManage={canManage} />
+        <WorkflowsTab
+          workspaceId={id}
+          workflows={workflows}
+          canManage={canManage}
+        />
       )}
       {tab === "skills" && (
         <SkillsTab

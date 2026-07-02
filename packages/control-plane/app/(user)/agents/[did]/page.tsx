@@ -1,7 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { useAdminWS } from "../../../hooks/useAdminWS";
 import { timeAgo } from "@vaultysclaw/shared";
 import dynamic from "next/dynamic";
 import {
@@ -19,7 +18,10 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { ConfirmModal } from "@/components/shared/ConfirmModal";
-import { useToolbar, type ToolbarAction } from "@/components/layout/ToolbarContext";
+import {
+  useToolbar,
+  type ToolbarAction,
+} from "@/components/layout/ToolbarContext";
 import { useBreadcrumbs } from "@/components/layout/BreadcrumbContext";
 import { OverviewTab } from "@/components/agent/OverviewTab";
 import { ChatTab } from "@/components/agent/ChatTab";
@@ -35,6 +37,7 @@ import {
   unwrap,
 } from "@/lib/api/ts-rest/client";
 import { AgentInfo } from "@/lib/contracts";
+import { useAdminWS } from "@/hooks/useAdminWS";
 
 const AgentEnvironmentGraph = dynamic(
   () => import("@/components/graph/AgentEnvironmentGraph"),
@@ -172,7 +175,11 @@ export default function AgentDetailPage() {
               </span>
             ) : undefined,
         },
-        { value: "knowledge", label: "Knowledge", icon: <BookOpen size={15} /> },
+        {
+          value: "knowledge",
+          label: "Knowledge",
+          icon: <BookOpen size={15} />,
+        },
         { value: "graph", label: "Graph", icon: <Activity size={15} /> },
       ],
     });
@@ -232,11 +239,7 @@ export default function AgentDetailPage() {
   useToolbar(
     {
       title: agent?.name ?? "Agent",
-      description: agent ? (
-        <span className="font-mono">{agent.did}</span>
-      ) : (
-        did
-      ),
+      description: agent ? <span className="font-mono">{agent.did}</span> : did,
       actions: toolbarActions,
     },
     [agent, deletingAgent, did, activeTab, pendingApprovals]

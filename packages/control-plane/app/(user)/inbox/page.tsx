@@ -6,7 +6,7 @@ import { workflowApprovalsClient, unwrap } from "@/lib/api/ts-rest/client";
 import { useToolbar } from "@/components/layout/ToolbarContext";
 import { useBreadcrumbs } from "@/components/layout/BreadcrumbContext";
 import { WorkflowApproval } from "@prisma/client";
-import { ApprovalCard } from "../../components/inbox/ApprovalCard";
+import { ApprovalCard } from "@/components/inbox/ApprovalCard";
 
 export default function InboxPage() {
   const [approvals, setApprovals] = useState<WorkflowApproval[]>([]);

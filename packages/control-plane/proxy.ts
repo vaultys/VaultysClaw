@@ -10,8 +10,8 @@ export default withAuth(
   function proxy(request: NextRequestWithAuth) {
     const { pathname } = request.nextUrl;
     const token = request.nextauth.token;
-
     // Authenticated user visiting /login → redirect to callbackUrl or home
+    console.log("[proxy] token.role = ", token);
     if (pathname.startsWith("/login") && token) {
       const callbackUrl =
         request.nextUrl.searchParams.get("callbackUrl") ?? "/";

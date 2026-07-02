@@ -4,7 +4,7 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import { UserServerChannel } from "./user-server-channel";
 import { UserDAO } from "@/db";
 import { getOidcConfig } from "@/lib/oidc-config";
-import { isAdminRole, isOwnerRole } from "@/lib/roles";
+import { normalizeRole, type UserRole } from "@/lib/roles";
 
 declare module "next-auth" {
   interface Session {
@@ -14,15 +14,14 @@ declare module "next-auth" {
       userId?: string;
       name?: string | null;
       email?: string | null;
-      isOwner: boolean;
-      isAdmin: boolean;
+      /** Global access-control role. Derive isAdmin/isOwner via lib/roles helpers. */
+      role: UserRole;
     };
   }
   interface User {
     id: string;
     did: string | null;
-    isOwner: boolean;
-    isAdmin: boolean;
+    role: UserRole;
   }
 }
 
@@ -33,8 +32,7 @@ declare module "next-auth/jwt" {
     userId?: string;
     name?: string | null;
     email?: string | null;
-    isOwner: boolean;
-    isAdmin: boolean;
+    role: UserRole;
   }
 }
 
@@ -65,8 +63,7 @@ const providers: Provider[] = [
       return {
         id: user.id,
         did: user.did ?? null,
-        isOwner: isOwnerRole(user.role),
-        isAdmin: isAdminRole(user.role),
+        role: normalizeRole(user.role),
       };
     },
   }),
@@ -81,8 +78,7 @@ const sharedCallbacks: NextAuthOptions["callbacks"] = {
       token.userId = user.id;
       token.name = user.name ?? null;
       token.email = user.email ?? null;
-      token.isOwner = user.isOwner;
-      token.isAdmin = user.isAdmin;
+      token.role = user.role;
     }
     // After /claim succeeds, the page calls update() which triggers this with trigger="update".
     // Re-fetch from DB so the JWT reflects the newly claimed DID.
@@ -91,8 +87,7 @@ const sharedCallbacks: NextAuthOptions["callbacks"] = {
         const freshUser = await UserDAO.findById(token.userId);
         if (freshUser?.did) {
           token.did = freshUser.did;
-          token.isOwner = isOwnerRole(freshUser.role);
-          token.isAdmin = isAdminRole(freshUser.role);
+          token.role = normalizeRole(freshUser.role);
         }
       } catch {
         // Leave stale token on transient DB error
@@ -112,8 +107,7 @@ const sharedCallbacks: NextAuthOptions["callbacks"] = {
             userId: token.userId,
             name: freshUser.name ?? token.name,
             email: freshUser.email ?? token.email,
-            isOwner: isOwnerRole(freshUser.role),
-            isAdmin: isAdminRole(freshUser.role),
+            role: normalizeRole(freshUser.role),
           };
           return session;
         }
@@ -126,8 +120,7 @@ const sharedCallbacks: NextAuthOptions["callbacks"] = {
       userId: token.userId,
       name: token.name,
       email: token.email,
-      isOwner: token.isOwner,
-      isAdmin: token.isAdmin ?? token.isOwner,
+      role: token.role,
     };
     return session;
   },
@@ -188,8 +181,7 @@ export async function buildAuthOptions(): Promise<NextAuthOptions> {
         did: dbUser.did ?? null,
         name: dbUser.name ?? null,
         email: dbUser.email ?? null,
-        isOwner: isOwnerRole(dbUser.role),
-        isAdmin: isAdminRole(dbUser.role),
+        role: normalizeRole(dbUser.role),
       };
     },
   } as Provider;

@@ -287,7 +287,7 @@ export function ApiKeysPanel() {
         </div>
         <div className="flex items-center gap-2">
           <Link
-            href="/docs"
+            href="/admin/docs"
             className="flex items-center gap-1.5 px-3 py-1.5 bg-background-200 border border-neutral-300 text-foreground rounded-lg text-sm font-medium hover:border-foreground-500 transition"
           >
             <BookOpen className="w-4 h-4" /> API docs

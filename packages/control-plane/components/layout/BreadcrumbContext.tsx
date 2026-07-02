@@ -46,7 +46,7 @@ export function useBreadcrumbsState() {
  *
  * @example
  * useBreadcrumbs(
- *   [{ label: "Agents", href: "/agents" }, { label: "New agent" }],
+ *   [{ label: "Agents", href: "/admin/agents" }, { label: "New agent" }],
  *   [],
  * );
  */

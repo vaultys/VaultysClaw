@@ -8,7 +8,12 @@ import {
 } from "./api/utils/api-key-utils";
 import { AgentDAO, ApiKeyDAO, WorkspaceDAO } from "@/db";
 import { APIException } from "./api/utils/api-utils";
-import { isWorkspaceAdminRole, isWorkspaceOwnerRole } from "./roles";
+import {
+  isAdminRole,
+  isOwnerRole,
+  isWorkspaceAdminRole,
+  isWorkspaceOwnerRole,
+} from "./roles";
 
 export interface AuthContext {
   did: string;
@@ -37,8 +42,9 @@ export async function getAuthContext(
   // 1. Try NextAuth session first (unchanged behaviour)
   const session = await getServerSession(authOptions);
   if (session?.user?.did) {
-    const { did, userId, isOwner, isAdmin } = session.user;
-    const isGlobalAdmin = Boolean(isAdmin) || Boolean(isOwner);
+    const { did, userId, role } = session.user;
+    const isOwner = isOwnerRole(role);
+    const isGlobalAdmin = isAdminRole(role);
 
     // Precompute workspace membership once per request. This is fetched for
     // everyone — including global admins — because global-admin status grants
@@ -61,7 +67,7 @@ export async function getAuthContext(
     return {
       did,
       workspaceIds: accessibleWorkspaceIds,
-      isOwner: Boolean(isOwner),
+      isOwner,
       isGlobalAdmin,
 
       // Global admins can view every workspace…

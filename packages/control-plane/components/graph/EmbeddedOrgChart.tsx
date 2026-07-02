@@ -91,7 +91,7 @@ export default function EmbeddedOrgChart({
   }
 
   // Build fullscreen URL with query params preserved
-  const fullscreenUrl = `/graph${query}${query ? "&" : "?"}view=org-chart`;
+  const fullscreenUrl = `/admin/graph${query}${query ? "&" : "?"}view=org-chart`;
 
   return (
     <div

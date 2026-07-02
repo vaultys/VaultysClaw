@@ -90,7 +90,7 @@ export function ModelsTab({
             Grant access from the Model Registry to route agents here.
           </p>
           <a
-            href="/models"
+            href="/admin/models"
             className="flex items-center gap-1.5 text-xs text-primary-700 hover:text-primary-300 transition-colors"
           >
             <ExternalLink className="w-3.5 h-3.5" /> Go to Model Registry
@@ -117,7 +117,7 @@ export function ModelsTab({
                 </code>
               </div>
               <a
-                href={`/models/${m.id}`}
+                href={`/admin/models/${m.id}`}
                 className="p-1.5 rounded-lg text-foreground-500 hover:text-foreground transition-colors"
               >
                 <ExternalLink className="w-3.5 h-3.5" />

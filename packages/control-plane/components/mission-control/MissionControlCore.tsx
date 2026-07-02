@@ -88,7 +88,7 @@ export function MissionControlCore({ mode }: MissionControlCoreProps) {
   });
 
   const goFullscreen = useCallback(
-    () => router.push("/mission-control/fullscreen"),
+    () => router.push("/admin/mission-control/fullscreen"),
     [router]
   );
 
@@ -109,7 +109,7 @@ export function MissionControlCore({ mode }: MissionControlCoreProps) {
       {isStandalone && (
         <HeaderBar
           metrics={metrics}
-          onExitFullscreen={() => router.push("/mission-control")}
+          onExitFullscreen={() => router.push("/admin/mission-control")}
         />
       )}
 

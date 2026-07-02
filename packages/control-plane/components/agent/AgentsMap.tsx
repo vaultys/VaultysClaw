@@ -77,7 +77,7 @@ export function AgentsMap() {
           markers={markers}
           height={480}
           onMarkerClick={(m) =>
-            router.push(`/agents/${encodeURIComponent(m.id)}`)
+            router.push(`/admin/agents/${encodeURIComponent(m.id)}`)
           }
         />
       )}

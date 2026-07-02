@@ -163,7 +163,7 @@ function AgentDetail({
         <button
           onClick={() => {
             onClose();
-            router.push(`/agents/${encodeURIComponent(agent.did)}`);
+            router.push(`/admin/agents/${encodeURIComponent(agent.did)}`);
           }}
           className="flex items-center gap-1.5 text-[11px] text-primary-600 hover:text-primary-700 font-medium transition-colors"
         >
@@ -272,7 +272,7 @@ function WorkflowDetail({
         <button
           onClick={() => {
             onClose();
-            router.push(`/workflows/${run.workflowId}`);
+            router.push(`/app/workflows/${run.workflowId}`);
           }}
           className="flex items-center gap-1.5 text-[11px] text-primary-600 hover:text-primary-700 font-medium transition-colors"
         >
@@ -372,7 +372,7 @@ function IntentDetail({
           onClick={() => {
             onClose();
             if (intent.agentDid)
-              router.push(`/agents/${encodeURIComponent(intent.agentDid)}`);
+              router.push(`/admin/agents/${encodeURIComponent(intent.agentDid)}`);
           }}
           disabled={!intent.agentDid}
           className="flex items-center gap-1.5 text-[11px] text-primary-600 hover:text-primary-700 font-medium transition-colors disabled:opacity-40"

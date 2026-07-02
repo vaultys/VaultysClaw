@@ -56,7 +56,7 @@ export function AgentsTab({
                 </code>
               </div>
               <Link
-                href={`/agents/${a.agentDid}`}
+                href={`/admin/agents/${a.agentDid}`}
                 className="p-1.5 rounded-lg text-foreground-500 hover:text-primary-400 transition-colors"
                 title="View agent"
                 onClick={(e) => e.stopPropagation()}

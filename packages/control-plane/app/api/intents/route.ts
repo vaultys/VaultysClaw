@@ -1,3 +1,4 @@
+import { isAdminRole } from "@/lib/roles";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-config";
 import { getWSServer } from "@/lib/ws-server";
@@ -18,7 +19,7 @@ const handlers = createNextRoute(intentsContract, {
     const { agentId, action, params, broadcastCapability } = body;
 
     // Non-owner delegation check
-    if (!session.user.isAdmin) {
+    if (!isAdminRole(session.user.role)) {
       if (!session.user.did)
         throw new APIException("FORBIDDEN", "User account does not have a DID");
       const capability = action ?? broadcastCapability;
@@ -51,7 +52,7 @@ const handlers = createNextRoute(intentsContract, {
     const intentId = `intent-${Date.now()}`;
     let sentTo: string[] = [];
     // Pass userDid for delegation verification when the caller is not the owner
-    const intentUserDid = session.user.isAdmin
+    const intentUserDid = isAdminRole(session.user.role)
       ? undefined
       : (session.user.did ?? undefined);
 

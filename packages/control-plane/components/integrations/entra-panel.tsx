@@ -339,7 +339,7 @@ export function EntraPanel() {
                     {unclaimedCount} user{unclaimedCount === 1 ? "" : "s"} waiting to claim an account
                   </p>
                 </div>
-                <Link href="/users" className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-background-100 border border-neutral-300 hover:border-primary-500 text-foreground transition">
+                <Link href="/admin/users" className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-background-100 border border-neutral-300 hover:border-primary-500 text-foreground transition">
                   <Users className="w-3 h-3" /> View users
                 </Link>
               </div>

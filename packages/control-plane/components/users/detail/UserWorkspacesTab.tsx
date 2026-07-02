@@ -169,7 +169,7 @@ export function UserWorkspacesTab({
               />
               <div className="flex-1 min-w-0">
                 <button
-                  onClick={() => router.push(`/workspaces/${ur.workspaceId}`)}
+                  onClick={() => router.push(`/app/workspaces/${ur.workspaceId}`)}
                   className="text-sm font-medium text-foreground hover:text-primary-400 transition-colors truncate block"
                 >
                   {ur.workspace.name}

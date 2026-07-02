@@ -657,7 +657,7 @@ export const WorkflowRunModal: React.FC<WorkflowRunModalProps> = ({
               {execution.status !== "running" && (
                 <>
                   <Link
-                    href={`/workflows/runs/${execution.runId}`}
+                    href={`/app/workflows/runs/${execution.runId}`}
                     className="px-3 py-2 text-sm text-primary-600 hover:bg-primary-50 rounded font-medium"
                   >
                     View Full Details

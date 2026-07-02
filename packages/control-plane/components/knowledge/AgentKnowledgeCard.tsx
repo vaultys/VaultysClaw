@@ -99,7 +99,7 @@ export function AgentKnowledgeCard({
 
         {/* Manage link */}
         <Link
-          href={`/agents/${encodeURIComponent(agent.did)}`}
+          href={`/admin/agents/${encodeURIComponent(agent.did)}`}
           onClick={(e) => e.stopPropagation()}
           className="flex items-center gap-1 text-xs text-primary-500 hover:text-primary-400 transition-colors shrink-0 ml-2"
           title="Manage on agent page"
@@ -123,7 +123,7 @@ export function AgentKnowledgeCard({
                 No knowledge sources configured for this agent.
               </p>
               <Link
-                href={`/agents/${encodeURIComponent(agent.did)}`}
+                href={`/admin/agents/${encodeURIComponent(agent.did)}`}
                 className="text-xs text-primary-500 hover:text-primary-400 mt-1 inline-flex items-center gap-1"
               >
                 Add sources on the agent page <ArrowUpRight size={11} />

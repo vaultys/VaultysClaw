@@ -67,7 +67,7 @@ export function LlmConfigView({ cfg }: { cfg: AgentLlmConfigController }) {
             via {activeWorkspaceRoute.workspace.workspaceName}
           </span>
           <a
-            href={`/models/${activeWorkspaceRoute.model.id}`}
+            href={`/admin/models/${activeWorkspaceRoute.model.id}`}
             className="ml-auto text-xs text-secondary-500 hover:text-secondary-400 transition-colors shrink-0"
           >
             View model →
@@ -83,7 +83,7 @@ export function LlmConfigView({ cfg }: { cfg: AgentLlmConfigController }) {
             {activeRegistryModel.name}
           </span>
           <a
-            href={`/models/${activeRegistryModel.id}`}
+            href={`/admin/models/${activeRegistryModel.id}`}
             className="ml-auto text-xs text-primary-400 hover:text-primary-300 transition-colors shrink-0"
           >
             View model →

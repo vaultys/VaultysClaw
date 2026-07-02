@@ -35,10 +35,10 @@ const NAV_GROUPS = [
     adminOnly: false,
     items: [
       { href: "/", icon: LayoutDashboard, label: "Dashboard", exact: true },
-      { href: "/agents", icon: Bot, label: "Agents", exact: false },
-      { href: "/workflows", icon: Workflow, label: "Workflows", exact: false },
-      { href: "/workspaces", icon: Globe2, label: "Workspaces", exact: false },
-      { href: "/inbox", icon: Inbox, label: "Inbox", exact: false },
+      { href: "/admin/agents", icon: Bot, label: "Agents", exact: false },
+      { href: "/app/workflows", icon: Workflow, label: "Workflows", exact: false },
+      { href: "/app/workspaces", icon: Globe2, label: "Workspaces", exact: false },
+      { href: "/app/inbox", icon: Inbox, label: "Inbox", exact: false },
     ],
   },
   {
@@ -46,37 +46,37 @@ const NAV_GROUPS = [
     adminOnly: true,
     items: [
       {
-        href: "/mission-control",
+        href: "/admin/mission-control",
         icon: SatelliteDish,
         label: "Mission Control",
         exact: true,
       },
-      { href: "/models", icon: Cpu, label: "Models", exact: false },
-      { href: "/knowledge", icon: BookOpen, label: "Knowledge", exact: false },
-      { href: "/skills", icon: Puzzle, label: "Skills", exact: false },
-      { href: "/graph", icon: Network, label: "Graph", exact: true },
+      { href: "/admin/models", icon: Cpu, label: "Models", exact: false },
+      { href: "/admin/knowledge", icon: BookOpen, label: "Knowledge", exact: false },
+      { href: "/admin/skills", icon: Puzzle, label: "Skills", exact: false },
+      { href: "/admin/graph", icon: Network, label: "Graph", exact: true },
       {
-        href: "/registrations",
+        href: "/admin/registrations",
         icon: Clock,
         label: "Registrations",
         exact: false,
       },
-      { href: "/users", icon: Users, label: "Users", exact: false },
+      { href: "/admin/users", icon: Users, label: "Users", exact: false },
       {
-        href: "/governance",
+        href: "/admin/governance",
         icon: ShieldCheck,
         label: "Governance",
         exact: false,
       },
-      { href: "/network", icon: Activity, label: "Network", exact: false },
-      { href: "/settings/integrations", icon: Plug, label: "Integrations", exact: false },
+      { href: "/admin/network", icon: Activity, label: "Network", exact: false },
+      { href: "/admin/settings/integrations", icon: Plug, label: "Integrations", exact: false },
     ],
   },
 ] as const;
 
 const BOTTOM_ITEMS = [
-  { href: "/settings", icon: UserCircle, label: "Account" },
-  { href: "/about", icon: Info, label: "About" },
+  { href: "/admin/settings", icon: UserCircle, label: "Account" },
+  { href: "/app/about", icon: Info, label: "About" },
 ] as const;
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -206,7 +206,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
                       label={item.label}
                       active={active}
                       collapsed={collapsed}
-                      badge={item.href === "/inbox" ? pendingCount : undefined}
+                      badge={item.href === "/app/inbox" ? pendingCount : undefined}
                     />
                   );
                 })}

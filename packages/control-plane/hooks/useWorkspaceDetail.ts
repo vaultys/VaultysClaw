@@ -41,7 +41,7 @@ export function useWorkspaceDetail(id: string) {
       channelsClient.list({ query: { workspace: id } }),
     ]);
     if (workspaceRes.status === 404) {
-      router.replace("/workspaces");
+      router.replace("/app/workspaces");
       return;
     }
     setWorkspace(unwrap(workspaceRes));
@@ -154,7 +154,7 @@ export function useWorkspaceDetail(id: string) {
   const remove = useCallback(async () => {
     if (!confirm("Delete this workspace? This cannot be undone.")) return;
     await workspacesClient.remove({ params: { id } });
-    router.push("/workspaces");
+    router.push("/app/workspaces");
   }, [id, router]);
 
   return {

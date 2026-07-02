@@ -14,7 +14,7 @@ export function AgentKeyView({ agentKeyInfo }: { agentKeyInfo: AgentKeyInfo }) {
           {agentKeyInfo.keyPrefix}…
         </span>
         <Link
-          href="/models?tab=litellm"
+          href="/admin/models?tab=litellm"
           className="ml-auto text-xs text-warning-600 hover:underline shrink-0"
         >
           LiteLLM proxy →

@@ -10,12 +10,12 @@ import { UserDAO } from "@/db";
 import { APIException } from "@/lib/api/utils/api-utils";
 import { usersContract } from "@/lib/contracts";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
-import { USER_ROLES, isOwnerRole, normalizeRole } from "@/lib/roles";
+import { USER_ROLES, isAdminRole, isOwnerRole, normalizeRole } from "@/lib/roles";
 
 const handlers = createNextRoute(usersContract, {
   getOne: async ({ params }) => {
     const session = await getServerSession(authOptions);
-    if (!session?.user?.isAdmin) throw new APIException("FORBIDDEN");
+    if (!isAdminRole(session?.user?.role)) throw new APIException("FORBIDDEN");
 
     const user =
       (await UserDAO.findByDid(params.did)) ??
@@ -42,7 +42,7 @@ const handlers = createNextRoute(usersContract, {
 
   update: async ({ params, body }) => {
     const session = await getServerSession(authOptions);
-    if (!session?.user?.isOwner) throw new APIException("FORBIDDEN");
+    if (!isOwnerRole(session?.user?.role)) throw new APIException("FORBIDDEN");
 
     const user = await UserDAO.findByDid(params.did);
     if (!user) throw new APIException("NOT_FOUND", "User not found");
@@ -85,7 +85,8 @@ const handlers = createNextRoute(usersContract, {
 
   remove: async ({ params }) => {
     const session = await getServerSession(authOptions);
-    if (!session?.user?.isOwner) throw new APIException("FORBIDDEN");
+    if (!session?.user || !isOwnerRole(session.user.role))
+      throw new APIException("FORBIDDEN");
 
     if (params.did === session.user.did) {
       throw new APIException("FORBIDDEN", "Cannot remove yourself");

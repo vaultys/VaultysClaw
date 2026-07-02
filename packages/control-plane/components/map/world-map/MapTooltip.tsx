@@ -61,7 +61,7 @@ export function MapTooltip({
             {tooltip.marker.type === "agent" &&
               typeof tooltip.marker.meta?.did === "string" && (
                 <Link
-                  href={`/agents/${tooltip.marker.meta.did}`}
+                  href={`/admin/agents/${tooltip.marker.meta.did}`}
                   className="mt-2 flex items-center gap-1 text-xs font-medium text-primary-600 hover:text-primary-500"
                 >
                   View agent page →

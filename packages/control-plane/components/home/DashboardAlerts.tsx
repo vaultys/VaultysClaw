@@ -53,7 +53,7 @@ export function DashboardAlerts({
 
       {isGlobalAdmin && pendingRegCount > 0 && (
         <button
-          onClick={() => router.push("/registrations")}
+          onClick={() => router.push("/admin/registrations")}
           className="w-full flex items-center justify-between gap-3 bg-warning-50 border border-warning-300 rounded-lg px-4 py-2.5 text-warning-700 text-sm hover:bg-warning-100/50 transition-colors group"
         >
           <div className="flex items-center gap-2">
@@ -74,7 +74,7 @@ export function DashboardAlerts({
               {expiredPolicies.length === 1 ? "y" : "ies"} — agents are locked
             </span>
             <button
-              onClick={() => router.push("/governance")}
+              onClick={() => router.push("/admin/governance")}
               className="text-xs text-danger-600 hover:underline flex items-center gap-1"
             >
               View all <ChevronRight className="w-3 h-3" />
@@ -109,7 +109,7 @@ export function DashboardAlerts({
               <p className="px-4 py-1.5 text-xs text-danger-600/70">
                 +{expiredPolicies.length - 3} more —{" "}
                 <button
-                  onClick={() => router.push("/governance")}
+                  onClick={() => router.push("/admin/governance")}
                   className="underline hover:no-underline"
                 >
                   view in Governance
@@ -139,7 +139,7 @@ export function DashboardAlerts({
           </div>
           <div className="flex items-center gap-2 shrink-0">
             <button
-              onClick={() => router.push("/setup")}
+              onClick={() => router.push("/admin/setup")}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-primary-600 hover:bg-primary-500 text-white text-sm font-medium rounded-lg transition-colors"
             >
               {setupBanner.completedCount > 0 ? "Continue" : "Start setup"}

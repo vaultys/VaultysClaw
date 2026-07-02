@@ -205,7 +205,7 @@ export function LaunchStep({
                   <div className="flex items-center gap-2 bg-warning-50 border border-warning-300 rounded-lg px-3 py-2 text-xs text-warning-700">
                     <AlertTriangle size={12} className="shrink-0" />
                     PeerJS is not running.{" "}
-                    <a href="/network" className="underline underline-offset-2">
+                    <a href="/admin/network" className="underline underline-offset-2">
                       Start it from the Network page
                     </a>{" "}
                     first.

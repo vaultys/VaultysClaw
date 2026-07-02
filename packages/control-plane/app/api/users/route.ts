@@ -10,12 +10,12 @@ import { WorkspaceDAO, UserDAO } from "@/db";
 import { APIException } from "@/lib/api/utils/api-utils";
 import { usersContract } from "@/lib/contracts";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
-import { normalizeRole } from "@/lib/roles";
+import { isAdminRole, normalizeRole } from "@/lib/roles";
 
 const handlers = createNextRoute(usersContract, {
   list: async ({ query }) => {
     const session = await getServerSession(authOptions);
-    if (!session?.user?.isAdmin) throw new APIException("FORBIDDEN");
+    if (!isAdminRole(session?.user?.role)) throw new APIException("FORBIDDEN");
 
     const page = Math.max(1, query.page ?? 1);
     const pageSize = Math.min(100, Math.max(1, query.pageSize ?? 20));

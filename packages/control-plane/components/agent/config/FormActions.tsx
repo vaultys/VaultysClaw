@@ -31,7 +31,7 @@ export function FormActions({
       </button>
       {showManageModels && (
         <a
-          href="/models"
+          href="/admin/models"
           className="text-xs text-foreground-500 hover:text-foreground ml-auto transition-colors"
         >
           Manage models →

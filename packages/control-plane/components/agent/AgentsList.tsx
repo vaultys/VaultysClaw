@@ -120,7 +120,7 @@ export function AgentsList({
                     key={agent.did}
                     className="hover:bg-background-200/40 transition-colors cursor-pointer"
                     onClick={() =>
-                      router.push(`/agents/${encodeURIComponent(agent.did)}`)
+                      router.push(`/admin/agents/${encodeURIComponent(agent.did)}`)
                     }
                   >
                     <td className="px-5 py-3.5">

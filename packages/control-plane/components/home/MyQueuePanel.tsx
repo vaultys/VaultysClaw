@@ -40,7 +40,7 @@ export function MyQueuePanel({
         </h2>
         {(pendingApprovals.length > 0 || notifications.length > 0) && (
           <button
-            onClick={() => router.push("/inbox")}
+            onClick={() => router.push("/app/inbox")}
             className="text-xs text-primary-600 hover:underline"
           >
             View all

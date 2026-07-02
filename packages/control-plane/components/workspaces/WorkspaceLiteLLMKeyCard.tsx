@@ -93,7 +93,7 @@ export function WorkspaceLiteLLMKeyCard({
           <p className="text-xs text-foreground-500">LiteLLM proxy not configured.</p>
         </div>
         <Link
-          href="/models?tab=litellm"
+          href="/admin/models?tab=litellm"
           className="shrink-0 flex items-center gap-1 text-xs text-primary-500 hover:text-primary-400 transition-colors"
         >
           Configure proxy <ExternalLink className="w-3 h-3" />
@@ -219,7 +219,7 @@ export function WorkspaceLiteLLMKeyCard({
               </button>
               {modelCount === 0 && (
                 <Link
-                  href="/models"
+                  href="/admin/models"
                   className="text-xs text-foreground-500 hover:text-foreground ml-auto transition-colors"
                 >
                   Grant models first →
@@ -237,7 +237,7 @@ export function WorkspaceLiteLLMKeyCard({
                 {routerKey.keyPrefix}…
               </code>
               <Link
-                href="/models?tab=litellm"
+                href="/admin/models?tab=litellm"
                 className="ml-auto text-xs text-success-600 hover:underline shrink-0"
               >
                 LiteLLM proxy →

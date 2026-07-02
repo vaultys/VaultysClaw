@@ -44,14 +44,14 @@ export function GraphExplorer() {
     (node: GraphNode) => {
       if (node.type === "agent")
         router.push(
-          `/agents/${encodeURIComponent(node.id.replace("agent:", ""))}`
+          `/admin/agents/${encodeURIComponent(node.id.replace("agent:", ""))}`
         );
       else if (node.type === "user")
         router.push(
-          `/users/${encodeURIComponent(node.id.replace("user:", ""))}`
+          `/admin/users/${encodeURIComponent(node.id.replace("user:", ""))}`
         );
       else if (node.type === "workspace")
-        router.push(`/workspaces/${node.id.replace("workspace:", "")}`);
+        router.push(`/app/workspaces/${node.id.replace("workspace:", "")}`);
     },
     [router]
   );

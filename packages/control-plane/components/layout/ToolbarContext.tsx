@@ -184,7 +184,7 @@ export function useToolbarState() {
  *         label: "Create agent",
  *         icon: <Plus size={14} />,
  *         variant: "primary",
- *         onClick: () => router.push("/agents/create"),
+ *         onClick: () => router.push("/admin/agents/create"),
  *       },
  *     ],
  *   },

@@ -1,10 +1,6 @@
 import { c } from "../contract";
 import { commonErrorResponses } from "../common";
-import {
-  AboutQuerySchema,
-  AboutResponseSchema,
-  UserStatusResponseSchema,
-} from "./misc.schemas";
+import { UserStatusResponseSchema } from "./misc.schemas";
 import { StatsTokensResponse } from "./misc.types";
 
 export const statsContract = c.router({
@@ -14,19 +10,6 @@ export const statsContract = c.router({
     summary: "Retrieve token usage statistics",
     responses: {
       200: c.type<StatsTokensResponse>(),
-      ...commonErrorResponses,
-    },
-  },
-});
-
-export const aboutContract = c.router({
-  get: {
-    method: "GET",
-    path: "/api/about",
-    summary: "Retrieve documentation content",
-    query: AboutQuerySchema,
-    responses: {
-      200: AboutResponseSchema,
       ...commonErrorResponses,
     },
   },

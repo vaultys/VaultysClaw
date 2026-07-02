@@ -1,6 +1,6 @@
 "use client";
 
-import { agentsClient, unwrap } from "@/lib/api/ts-rest/client";
+import { adminAgentsClient, unwrap } from "@/lib/api/ts-rest/client";
 import { useState } from "react";
 
 export function AutomationTab({ agentId }: { agentId: string }) {
@@ -20,7 +20,7 @@ function TaskSection({ agentId }: { agentId: string }) {
     if (!action.trim()) return;
     setStatus(null);
     const { action: sentAction } = unwrap(
-      await agentsClient.sendTask({ params: { did: agentId }, body: { action } })
+      await adminAgentsClient.sendTask({ params: { did: agentId }, body: { action } })
     );
     setStatus(`Task sent: ${sentAction}`);
     setAction("");
@@ -84,7 +84,7 @@ function ScheduleSection({ agentId }: { agentId: string }) {
       return;
     }
     setStatus(null);
-    await agentsClient.createSchedule({ params: { did: agentId }, body: form });
+    await adminAgentsClient.createSchedule({ params: { did: agentId }, body: form });
     setStatus(`Schedule "${form.name}" sent`);
     setForm({ id: "", name: "", cron: "", action: "" });
   };
@@ -94,7 +94,7 @@ function ScheduleSection({ agentId }: { agentId: string }) {
       setStatus("Enter schedule ID to delete");
       return;
     }
-    await agentsClient.deleteSchedule({ params: { did: agentId, id: form.id } });
+    await adminAgentsClient.deleteSchedule({ params: { did: agentId, id: form.id } });
     setStatus(`Schedule "${form.id}" deleted`);
     setForm({ id: "", name: "", cron: "", action: "" });
   };

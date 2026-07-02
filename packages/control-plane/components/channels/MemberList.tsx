@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Loader2, UserMinus, Plus, Bot, User, Search, X } from "lucide-react";
 import { shortDid, getInitials, type ChannelMember } from "@vaultysclaw/shared";
 import {
-  agentsClient,
+  adminAgentsClient,
   channelsClient,
   unwrap,
   usersClient,
@@ -101,7 +101,7 @@ export default function MemberList({ channelId }: MemberListProps) {
       setIsSearching(true);
       try {
         const agents = unwrap(
-          await agentsClient.search({ query: { search: searchQuery } })
+          await adminAgentsClient.search({ query: { search: searchQuery } })
         ).items;
 
         setAgentResults(agents);

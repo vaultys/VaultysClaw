@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { useWorkflowStore } from "./store";
 import { ChevronDown, X } from "lucide-react";
-import { agentsClient, workflowsClient, unwrap } from "@/lib/api/ts-rest/client";
+import { adminAgentsClient, workflowsClient, unwrap } from "@/lib/api/ts-rest/client";
 
 interface ExecutionStatus {
   runId: string;
@@ -55,7 +55,7 @@ export const WorkflowExecutionPanel: React.FC = () => {
 
     unknownDids.forEach(async (did) => {
       const agent = unwrap(
-        await agentsClient.getAgent({
+        await adminAgentsClient.getAgent({
           params: {
             did,
           },

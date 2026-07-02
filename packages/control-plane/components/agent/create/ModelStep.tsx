@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Check, ChevronRight, Loader2, Cpu } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
-  agentsClient,
+  adminAgentsClient,
   litellmClient,
   modelsClient,
   unwrap,
@@ -66,14 +66,14 @@ export function ModelStep({ agentDid, onDone }: ModelStepProps) {
     try {
       if (modelMode === "registry" && selectedModel) {
         unwrap(
-          await agentsClient.setLlmConfig({
+          await adminAgentsClient.setLlmConfig({
             params: { did: agentDid },
             body: { registryModelId: selectedModel },
           })
         );
       } else if (modelMode === "litellm" && selectedLiteLlmModel) {
         // Create/validate LiteLLM key for this model
-        await fetch(`/api/agents/${agentDid}/litellm-key`, {
+        await fetch(`/api/admin/agents/${agentDid}/litellm-key`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ allowedModels: [selectedLiteLlmModel] }),

@@ -6,9 +6,31 @@ All **new** REST APIs follow the ts-rest + APIException pattern:
 - **Consistent error handling**: `APIException` thrown by helpers, caught by middleware
 - **Zero drift**: client types inferred from the same contract the server validates against
 
+## Admin / User / Public separation
+
+Routes are split by **audience**, mirroring the UI split (`app/admin`, `app/app`, `app/(public)`). This is an **incremental migration** — only some domains have moved so far; the rest still sit at the top level until migrated.
+
+| Audience | Route folder | Resulting path | Access |
+|---|---|---|---|
+| **Admin** | `app/api/admin/<domain>/` | `/api/admin/<domain>` | Admin/Owner (gating TODO — see below) |
+| **Public** | `app/api/public/<domain>/` | `/api/public/<domain>` | Anyone, no auth |
+| **User** | `app/api/(user)/<domain>/` | `/api/<domain>` | Any authenticated user |
+
+The **user** folder is a Next.js route group `(user)` — the parentheses keep `user` **out of the path** (so `app/api/(user)/agents` serves `/api/agents`). Admin and public are **real path segments**.
+
+**Contracts mirror the same split** under `lib/contracts/{admin,user,public}/<domain>/` (each still a 3-file folder: `.schemas.ts` / `.types.ts` / `.contract.ts`). Naming convention:
+
+- Contracts: `adminAgentsContract`, `userAgentsContract`, `aboutContract` (public)
+- Clients (`lib/api/ts-rest/client.ts`): `adminAgentsClient`, `userAgentsClient`, `aboutClient`
+- Contract `path` strings must match the route folder (`/api/admin/...`, `/api/public/...`, `/api/...`)
+
+**Middleware state** (`lib/access-control.ts`): `/api/public` is in `publicPaths` (open to all). `/api/admin/*` is **not yet** gated to admins at the middleware level — it currently falls under the generic `/api/*` "any authenticated user" rule, and handlers keep their own `getAuthContext` / `canAdminAgent` checks. Admin gating will be enabled once the user-scoped API counterparts exist. When adding an admin route, still enforce admin rights inside the handler.
+
+Currently migrated: `agents` → **admin** (`userAgentsContract` is an empty placeholder with a temporary `/api/agents` stub route), `about` → **public**.
+
 ## Contract Structure
 
-Each domain has a `lib/contracts/<domain>/` **folder** with three files. Use `lib/contracts/agents/` as the canonical reference.
+Each domain has a `lib/contracts/[<audience>/]<domain>/` **folder** with three files (audience = `admin` / `user` / `public` for migrated domains; top-level for not-yet-migrated ones). Use `lib/contracts/admin/agents/` as the canonical reference.
 
 **`<domain>.schemas.ts`** — Zod schemas only (query, body, response). No `z.infer`, no router. Group with section comments:
 
@@ -113,15 +135,16 @@ Error body shape is always `{ error: string; code: string; }`, enforced by `reso
 - `lib/api/ts-rest/client.ts` — `agentContractClient` + `unwrap`
 - `lib/api/utils/api-utils.ts` — `APIException`, `resolveApiError`
 - `lib/auth-utils.ts` — `getAuthContext` (throws `APIException("UNAUTHORIZED")`)
-- `app/api/agents/[did]/route.ts` — canonical example (GET/PATCH/DELETE)
+- `app/api/admin/agents/[did]/route.ts` — canonical example (GET/PATCH/DELETE)
 
 ## Adding a New Domain
 
-1. Create `lib/contracts/<domain>/` with the three files
-2. Register in `lib/contracts/index.ts`
-3. Create `app/api/<resource>/[param]/route.ts` using `createNextRoute()`
-4. Add methods to `lib/api/<domain>.ts`
-5. Import types from the contract in UI components
+1. Pick the audience (`admin` / `user` / `public`) — see the separation section above.
+2. Create `lib/contracts/<audience>/<domain>/` with the three files; export `<audience><Domain>Contract` and set each `path` under `/api/<audience>/…` (or `/api/…` for `user`).
+3. Register in `lib/contracts/index.ts` (import, the three `export *` lines, add to `appContract`).
+4. Create the route under the matching folder: `app/api/admin/<resource>/…`, `app/api/public/<resource>/…`, or `app/api/(user)/<resource>/…`, using `createNextRoute()`.
+5. Add a client in `lib/api/ts-rest/client.ts` (`<audience><Domain>Client`).
+6. Import types from the contract in UI components.
 
 ## Testing Routes
 

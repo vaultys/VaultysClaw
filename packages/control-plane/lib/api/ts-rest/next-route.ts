@@ -43,8 +43,8 @@ import { resolveApiError } from "@/lib/api/utils/api-utils";
  * implementation mixes paths and throws at module load.
  *
  * ```ts
- * // app/api/agents/[did]/route.ts — only the :did-level routes
- * const handlers = createNextRoute(agentsContract, {
+ * // app/api/admin/agents/[did]/route.ts — only the :did-level routes
+ * const handlers = createNextRoute(adminAgentsContract, {
  *   getAgent: async ({ params }) => ({ status: 200, body: … }),
  *   updateAgent: async ({ params, body }) => ({ status: 200, body: … }),
  *   deleteAgent: async ({ params }) => ({ status: 204, body: undefined }),

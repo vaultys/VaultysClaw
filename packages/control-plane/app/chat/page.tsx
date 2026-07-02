@@ -54,7 +54,7 @@ export default function ChatPage() {
 
       try {
         const res = await fetch(
-          `/api/agents/${encodeURIComponent(selectedAgent)}/chat-sessions`,
+          `/api/admin/agents/${encodeURIComponent(selectedAgent)}/chat-sessions`,
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },

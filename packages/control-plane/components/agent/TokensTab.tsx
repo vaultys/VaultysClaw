@@ -12,7 +12,7 @@ import {
   Legend,
   ResponsiveContainer,
 } from "recharts";
-import { agentsClient, unwrap } from "@/lib/api/ts-rest/client";
+import { adminAgentsClient, unwrap } from "@/lib/api/ts-rest/client";
 import { TokenUsageBucket } from "@/types";
 
 type TokenGranularity = "day" | "month";
@@ -60,7 +60,7 @@ export function TokensTab({ agentId }: { agentId: string }) {
             ? today.toISOString().slice(0, 7)
             : today.toISOString().slice(0, 10);
         const { data } = unwrap(
-          await agentsClient.tokenUsage({
+          await adminAgentsClient.tokenUsage({
             params: { did: agentId },
             query: { granularity: g, from, to },
           })

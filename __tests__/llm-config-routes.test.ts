@@ -62,8 +62,8 @@ import {
   GET as llmConfigGET,
   PUT as llmConfigPUT,
   DELETE as llmConfigDELETE,
-} from "../packages/control-plane/app/api/agents/[did]/llm-config/route";
-import { GET as workspaceLlmGET } from "../packages/control-plane/app/api/agents/[did]/workspace-llm/route";
+} from "../packages/control-plane/app/api/admin/agents/[did]/llm-config/route";
+import { GET as workspaceLlmGET } from "../packages/control-plane/app/api/admin/agents/[did]/workspace-llm/route";
 
 // ---------------------------------------------------------------------------
 // Helpers

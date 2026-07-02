@@ -36,7 +36,7 @@ export function VerifyStep({ agentDid, onFinish }: VerifyStepProps) {
     (async () => {
       try {
         const res = await fetch(
-          `/api/agents/${encodeURIComponent(agentDid)}/chat-sessions`,
+          `/api/admin/agents/${encodeURIComponent(agentDid)}/chat-sessions`,
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },

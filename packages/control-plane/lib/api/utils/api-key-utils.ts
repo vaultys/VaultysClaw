@@ -53,8 +53,9 @@ export function hashApiKey(key: string): string {
  * Routes that never require any authentication (session or API key).
  */
 export function isPublicRoute(method: string, pathname: string): boolean {
-  const publicPaths = ["/api/health", "/api/setup/status", "/api/about"];
+  const publicPaths = ["/api/health", "/api/setup/status"];
   if (publicPaths.includes(pathname)) return true;
+  if (pathname.startsWith("/api/public/")) return true;
   if (pathname.startsWith("/api/auth/")) return true;
   return false;
 }

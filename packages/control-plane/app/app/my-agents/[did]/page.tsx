@@ -15,7 +15,7 @@ import {
 import { useBreadcrumbs } from "@/components/layout/BreadcrumbContext";
 import { MyAgentOverview } from "@/components/agent/MyAgentOverview";
 import { ChatTab } from "@/components/agent/ChatTab";
-import { agentsClient, unwrap } from "@/lib/api/ts-rest/client";
+import { adminAgentsClient, unwrap } from "@/lib/api/ts-rest/client";
 import { AgentInfo } from "@/lib/contracts";
 
 /**
@@ -34,7 +34,7 @@ export default function MyAgentDetailPage() {
 
   const fetchAgent = useCallback(async () => {
     try {
-      const data = unwrap(await agentsClient.getAgent({ params: { did } }));
+      const data = unwrap(await adminAgentsClient.getAgent({ params: { did } }));
       setAgent(data);
       setError(null);
     } catch (err) {

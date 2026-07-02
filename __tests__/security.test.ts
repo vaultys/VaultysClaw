@@ -65,11 +65,11 @@ import { prisma } from "../packages/control-plane/db/client";
 import { PolicyDAO } from "../packages/control-plane/db";
 
 // Route handlers under test
-import { GET as agentsGET } from "../packages/control-plane/app/api/agents/route";
+import { GET as agentsGET } from "../packages/control-plane/app/api/admin/agents/route";
 import {
   GET as agentDetailGET,
   PATCH as agentDetailPATCH,
-} from "../packages/control-plane/app/api/agents/[did]/route";
+} from "../packages/control-plane/app/api/admin/agents/[did]/route";
 import {
   GET as workspacesGET,
   POST as workspacesPOST,

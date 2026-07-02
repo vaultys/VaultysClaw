@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import {
-  agentsClient,
+  adminAgentsClient,
   workspacesClient,
   usersClient,
   unwrap,
@@ -36,7 +36,7 @@ export function AddMemberModal({
 
   useEffect(() => {
     if (type === "agent") {
-      agentsClient
+      adminAgentsClient
         .search()
         .then((r) => unwrap(r))
         .then((d) => setAgents(d.items));

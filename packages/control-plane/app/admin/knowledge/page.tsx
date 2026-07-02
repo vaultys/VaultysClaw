@@ -15,7 +15,7 @@ import {
 import { formatCompactNumber } from "@vaultysclaw/shared";
 import { useRole } from "@/hooks/useRole";
 import {
-  agentsClient,
+  adminAgentsClient,
   knowledgeClient,
   workspacesClient,
   unwrap,
@@ -48,7 +48,7 @@ export default function KnowledgeDashboardPage() {
     try {
       const [ksRes, agRes, rlRes] = await Promise.all([
         knowledgeClient.list(),
-        agentsClient.search(),
+        adminAgentsClient.search(),
         workspacesClient.list(),
       ]);
       const agData = unwrap(agRes);

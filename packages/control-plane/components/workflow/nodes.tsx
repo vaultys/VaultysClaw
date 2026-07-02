@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 import { Handle, Position, type NodeProps } from "reactflow";
 import { Bot, GitBranch, Zap, Clock, Code, User, Wrench } from "lucide-react";
 import { useWorkflowStore } from "./store";
-import { agentsClient, unwrap } from "@/lib/api/ts-rest/client";
+import { adminAgentsClient, unwrap } from "@/lib/api/ts-rest/client";
 
 // Base styles for all nodes
 const baseNodeStyle =
@@ -28,7 +28,7 @@ export const AgentNode: React.FC<NodeProps> = ({ data }) => {
       }
 
       try {
-        const agent = unwrap(await agentsClient.getAgent(agentId));
+        const agent = unwrap(await adminAgentsClient.getAgent(agentId));
         setAgentName(agent.name);
       } catch (err) {
         console.error("Failed to fetch agent name:", err);

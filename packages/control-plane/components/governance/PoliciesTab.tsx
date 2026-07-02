@@ -7,7 +7,7 @@ import {
   timeAgo,
 } from "@vaultysclaw/shared";
 import {
-  agentsClient,
+  adminAgentsClient,
   policiesClient,
   unwrap,
 } from "@/lib/api/ts-rest/client";
@@ -51,7 +51,7 @@ export function PoliciesTab() {
     try {
       const [polRes, agentRes] = await Promise.all([
         policiesClient.list({ query: { includeExpired: false } }),
-        agentsClient.search({
+        adminAgentsClient.search({
           query: {
             pageSize: 100,
           },
@@ -123,7 +123,7 @@ export function PoliciesTab() {
     try {
       const daily = edit.daily === "" ? null : parseInt(edit.daily);
       const monthly = edit.monthly === "" ? null : parseInt(edit.monthly);
-      await agentsClient.updateAgent({
+      await adminAgentsClient.updateAgent({
         params: { did },
         body: {
           tokenBudgetDaily: daily !== null && isNaN(daily) ? null : daily,

@@ -97,8 +97,10 @@ describe("getApiRouteGroups — path format", () => {
   });
 
   it("converts colon params to [param] form", () => {
-    // /api/agents/:did → /api/agents/[did]
-    const agentDetail = allRoutes.find((r) => r.path === "/api/agents/[did]");
+    // /api/admin/agents/:did → /api/admin/agents/[did]
+    const agentDetail = allRoutes.find(
+      (r) => r.path === "/api/admin/agents/[did]"
+    );
     expect(agentDetail).toBeDefined();
     expect(agentDetail!.methods).toEqual(
       expect.arrayContaining(["GET", "PATCH", "DELETE"])
@@ -114,7 +116,7 @@ describe("getApiRouteGroups — known routes", () => {
   const find = (path: string) => allRoutes.find((r) => r.path === path);
 
   it("includes the agents list route", () => {
-    const r = find("/api/agents");
+    const r = find("/api/admin/agents");
     expect(r?.methods).toContain("GET");
     expect(r?.group).toBe("Agents");
   });
@@ -151,13 +153,17 @@ describe("getApiRouteGroups ↔ matchRoute compatibility", () => {
   });
 
   it("an allowedRoutes entry does not authorise a method it was not granted", () => {
-    const detail = allRoutes.find((r) => r.path === "/api/agents/[did]")!;
+    const detail = allRoutes.find(
+      (r) => r.path === "/api/admin/agents/[did]"
+    )!;
     // Build a key granting only GET on the route.
-    const entry = "GET /api/agents/[did]";
-    expect(matchRoute("GET", "/api/agents/did:vaultys:abc", [entry])).toBe(true);
-    expect(matchRoute("DELETE", "/api/agents/did:vaultys:abc", [entry])).toBe(
-      false
+    const entry = "GET /api/admin/agents/[did]";
+    expect(matchRoute("GET", "/api/admin/agents/did:vaultys:abc", [entry])).toBe(
+      true
     );
+    expect(
+      matchRoute("DELETE", "/api/admin/agents/did:vaultys:abc", [entry])
+    ).toBe(false);
     // sanity: the contract really does expose more than GET here
     expect(detail.methods.length).toBeGreaterThan(1);
   });

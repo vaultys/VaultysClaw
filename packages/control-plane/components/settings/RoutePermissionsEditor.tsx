@@ -21,37 +21,37 @@ const ROUTE_GROUPS: RouteGroup[] = [
     routes: [
       {
         label: "List / create agents",
-        path: "/api/agents",
+        path: "/api/admin/agents",
         methods: ["GET", "POST"],
       },
       {
         label: "Agent detail",
-        path: "/api/agents/[did]",
+        path: "/api/admin/agents/[did]",
         methods: ["GET", "PATCH", "DELETE"],
       },
       {
         label: "Run intent on agent",
-        path: "/api/agents/[did]/run",
+        path: "/api/admin/agents/[did]/run",
         methods: ["POST"],
       },
       {
         label: "Agent task queue",
-        path: "/api/agents/[did]/task",
+        path: "/api/admin/agents/[did]/task",
         methods: ["GET", "POST"],
       },
       {
         label: "Agent skills",
-        path: "/api/agents/[did]/skills",
+        path: "/api/admin/agents/[did]/skills",
         methods: ["GET", "POST"],
       },
       {
         label: "Agent token usage",
-        path: "/api/agents/[did]/token-usage",
+        path: "/api/admin/agents/[did]/token-usage",
         methods: ["GET"],
       },
       {
         label: "Agent schedules",
-        path: "/api/agents/[did]/schedules",
+        path: "/api/admin/agents/[did]/schedules",
         methods: ["GET", "POST"],
       },
     ],

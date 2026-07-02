@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { daysFromNow } from "@vaultysclaw/shared";
 import {
-  agentsClient,
+  adminAgentsClient,
   policiesClient,
   workflowApprovalsClient,
   workflowRunsClient,
@@ -47,7 +47,7 @@ export function useDashboardData(isGlobalAdmin: boolean) {
       fetch("/api/workspaces")
         .then((r) => (r.ok ? r.json() : { workspaces: [] }))
         .then((d: { workspaces?: unknown[] }) => d.workspaces?.length ?? 0),
-      agentsClient
+      adminAgentsClient
         .search()
         .then((r) => unwrap(r))
         .then((page) => page.items ?? [])

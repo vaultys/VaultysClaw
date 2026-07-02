@@ -32,7 +32,7 @@ import { AutomationTab } from "@/components/agent/AutomationTab";
 import { ApprovalsTab } from "@/components/agent/ApprovalsTab";
 import { KnowledgeTab } from "@/components/agent/KnowledgeTab";
 import {
-  agentsClient,
+  adminAgentsClient,
   toolApprovalsClient,
   unwrap,
 } from "@/lib/api/ts-rest/client";
@@ -63,7 +63,7 @@ export default function AgentDetailPage() {
   const handleDeleteAgent = async () => {
     setDeletingAgent(true);
     try {
-      await agentsClient.deleteAgent({
+      await adminAgentsClient.deleteAgent({
         params: {
           did,
         },
@@ -79,7 +79,7 @@ export default function AgentDetailPage() {
 
   const fetchAgent = useCallback(async () => {
     try {
-      const agent = unwrap(await agentsClient.getAgent({ params: { did } }));
+      const agent = unwrap(await adminAgentsClient.getAgent({ params: { did } }));
       setAgent(agent);
       setError(null);
     } catch (err) {

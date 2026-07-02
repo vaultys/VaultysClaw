@@ -23,7 +23,7 @@ import { WorkflowRunModal } from "@/components/workflow/WorkflowRunModal";
 import { useToolbar } from "@/components/layout/ToolbarContext";
 import { useBreadcrumbs } from "@/components/layout/BreadcrumbContext";
 import {
-  agentsClient,
+  adminAgentsClient,
   workflowsClient,
   workflowRunsClient,
   unwrap,
@@ -196,7 +196,7 @@ export default function WorkflowDetailPage() {
       if (!did || agentNames[did]) return;
       try {
         const agent = unwrap(
-          await agentsClient.getAgent({
+          await adminAgentsClient.getAgent({
             params: {
               did,
             },

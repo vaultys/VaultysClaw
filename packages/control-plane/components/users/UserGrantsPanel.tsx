@@ -1,5 +1,5 @@
 "use client";
-import { agentsClient, usersClient, unwrap } from "@/lib/api/ts-rest/client";
+import { adminAgentsClient, usersClient, unwrap } from "@/lib/api/ts-rest/client";
 import { AgentInfo, type UserGrant } from "@/lib/contracts";
 import { useState, useEffect, useCallback } from "react";
 
@@ -28,7 +28,7 @@ export default function UserGrantsPanel({ userDid }: UserGrantsPanelProps) {
   const [revoking, setRevoking] = useState<string | null>(null);
 
   const loadAgents = useCallback(async () => {
-    const agents = unwrap(await agentsClient.search()).items;
+    const agents = unwrap(await adminAgentsClient.search()).items;
     setAgents(agents ?? []);
   }, []);
 

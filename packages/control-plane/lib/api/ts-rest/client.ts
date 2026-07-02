@@ -1,7 +1,8 @@
 import { initClient } from "@ts-rest/core";
 import {
   aboutContract,
-  agentsContract,
+  adminAgentsContract,
+  userAgentsContract,
   apiKeysContract,
   bridgesContract,
   channelsContract,
@@ -46,12 +47,13 @@ const clientOptions = {
  *
  * Usage:
  * ```ts
- * import { agentsClient, workflowsClient } from "@/lib/api/ts-rest/client";
- * const { items } = unwrap(await agentsClient.search({ query: {} }));
+ * import { adminAgentsClient, workflowsClient } from "@/lib/api/ts-rest/client";
+ * const { items } = unwrap(await adminAgentsClient.search({ query: {} }));
  * ```
  */
 export const aboutClient = initClient(aboutContract, clientOptions);
-export const agentsClient = initClient(agentsContract, clientOptions);
+export const adminAgentsClient = initClient(adminAgentsContract, clientOptions);
+export const userAgentsClient = initClient(userAgentsContract, clientOptions);
 export const apiKeysClient = initClient(apiKeysContract, clientOptions);
 export const bridgesClient = initClient(bridgesContract, clientOptions);
 export const channelsClient = initClient(channelsContract, clientOptions);

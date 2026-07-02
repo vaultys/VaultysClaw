@@ -5,7 +5,7 @@ import ReactMarkdown from "react-markdown";
 import { Bot, Send, Trash2, Loader2 } from "lucide-react";
 import type { ChatMessageEntry, ChatSession } from "@vaultysclaw/shared";
 import {
-  agentsClient,
+  adminAgentsClient,
   toolApprovalsClient,
   unwrap,
 } from "@/lib/api/ts-rest/client";
@@ -49,7 +49,7 @@ export function ChatTab({
 
   const fetchSessions = useCallback(async () => {
     const { sessions } = unwrap(
-      await agentsClient.getChatSessions({ params: { did: agentId } })
+      await adminAgentsClient.getChatSessions({ params: { did: agentId } })
     );
     setSessions(sessions ?? []);
   }, [agentId]);
@@ -62,7 +62,7 @@ export function ChatTab({
     async (sessionId: string) => {
       try {
         const { messages } = unwrap(
-          await agentsClient.getSessionMessages({
+          await adminAgentsClient.getSessionMessages({
             params: { did: agentId, sessionId },
           })
         );
@@ -100,7 +100,7 @@ export function ChatTab({
 
       try {
         const res = await fetch(
-          `/api/agents/${encodeURIComponent(agentId)}/chat-sessions`,
+          `/api/admin/agents/${encodeURIComponent(agentId)}/chat-sessions`,
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },

@@ -1,5 +1,7 @@
 import { c } from "./contract";
-import { agentsContract } from "./agents/agents.contract";
+import { adminAgentsContract } from "./admin/agents/agents.contract";
+import { userAgentsContract } from "./user/agents/agents.contract";
+import { aboutContract } from "./public/about/about.contract";
 import { apiKeysContract } from "./api-keys/api-keys.contract";
 import {
   bridgesContract,
@@ -8,11 +10,7 @@ import {
 import { governanceContract } from "./governance/governance.contract";
 import { intentsContract } from "./intents/intents.contract";
 import { knowledgeContract } from "./knowledge/knowledge.contract";
-import {
-  aboutContract,
-  statsContract,
-  userStatusContract,
-} from "./misc/misc.contract";
+import { statsContract, userStatusContract } from "./misc/misc.contract";
 import { litellmContract, modelsContract } from "./models/models.contract";
 import { graphContract } from "./graph/graph.contract";
 import {
@@ -41,10 +39,15 @@ import {
 export { c } from "./contract";
 export * from "./common";
 
-export type * from "./agents/agents.contract";
-export * from "./agents/agents.contract";
-export * from "./agents/agents.schemas";
-export * from "./agents/agents.types";
+export type * from "./admin/agents/agents.contract";
+export * from "./admin/agents/agents.contract";
+export * from "./admin/agents/agents.schemas";
+export * from "./admin/agents/agents.types";
+export type * from "./user/agents/agents.contract";
+export * from "./user/agents/agents.contract";
+export * from "./public/about/about.contract";
+export * from "./public/about/about.schemas";
+export * from "./public/about/about.types";
 export type * from "./api-keys/api-keys.contract";
 export * from "./api-keys/api-keys.contract";
 export * from "./api-keys/api-keys.schemas";
@@ -128,7 +131,8 @@ export * from "./workflows/workflows.types";
  */
 export const appContract = c.router({
   about: aboutContract,
-  agents: agentsContract,
+  agents: adminAgentsContract,
+  userAgents: userAgentsContract,
   apiKeys: apiKeysContract,
   bridges: bridgesContract,
   channels: channelsContract,

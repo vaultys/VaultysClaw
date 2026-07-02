@@ -1,12 +1,6 @@
 import { z } from "zod";
-import {
-  AboutQuerySchema,
-  AboutResponseSchema,
-  UserStatusResponseSchema,
-} from "./misc.schemas";
+import { UserStatusResponseSchema } from "./misc.schemas";
 
-export type AboutQuery = z.infer<typeof AboutQuerySchema>;
-export type AboutResponse = z.infer<typeof AboutResponseSchema>;
 export type UserStatusResponse = z.infer<typeof UserStatusResponseSchema>;
 
 /** Prompt/completion token totals for a single bucket (day, month, all-time). */

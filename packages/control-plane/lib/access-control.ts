@@ -19,6 +19,7 @@ import { isAdminRole, isOwnerRole } from "./roles";
 // Paths accessible without authentication.
 export const publicPaths = [
   "/api/health",
+  "/api/public",
   "/api/auth",
   "/api/user",
   "/api/server",

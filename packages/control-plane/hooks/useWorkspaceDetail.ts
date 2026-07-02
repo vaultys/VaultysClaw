@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  agentsClient,
+  adminAgentsClient,
   channelsClient,
   mapClient,
   workspacesClient,
@@ -86,7 +86,7 @@ export function useWorkspaceDetail(id: string) {
           : { lat: loc.lat, lon: loc.lon, label: loc.label };
       if (marker.type === "agent")
         unwrap(
-          await agentsClient.setLocation({ params: { did: marker.id }, body })
+          await adminAgentsClient.setLocation({ params: { did: marker.id }, body })
         );
       else if (marker.type === "user")
         unwrap(

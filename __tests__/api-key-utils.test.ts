@@ -99,8 +99,8 @@ describe("isPublicRoute", () => {
     expect(isPublicRoute("GET", "/api/setup/status")).toBe(true);
   });
 
-  it("allows /api/about", () => {
-    expect(isPublicRoute("GET", "/api/about")).toBe(true);
+  it("allows /api/public/* paths", () => {
+    expect(isPublicRoute("GET", "/api/public/about")).toBe(true);
   });
 
   it("allows /api/auth/* paths", () => {

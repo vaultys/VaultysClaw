@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import {
-  agentsClient,
+  adminAgentsClient,
   knowledgeClient,
   policiesClient,
   unwrap,
@@ -23,7 +23,7 @@ export function useAgentEnvironmentData(agentId: string) {
     (async () => {
       try {
         const [agentsRes, policiesRes, knowledgeRes] = await Promise.all([
-          agentsClient.search(),
+          adminAgentsClient.search(),
           policiesClient.list({ query: { agentDid: agentId } }),
           knowledgeClient.list({ query: { agentDid: agentId } }),
         ]);

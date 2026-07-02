@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { type LlmProviderType } from "@vaultysclaw/shared";
 import {
-  agentsClient,
+  adminAgentsClient,
   litellmClient,
   modelsClient,
   unwrap,
@@ -103,9 +103,9 @@ export function useAgentLlmConfig(
     try {
       const [configData, modelsData, workspaceData, liteLlmModelsData] =
         await Promise.all([
-          agentsClient.getLlmConfig({ params: { did } }).then(unwrap),
+          adminAgentsClient.getLlmConfig({ params: { did } }).then(unwrap),
           modelsClient.list().then(unwrap),
-          agentsClient.getWorkspaceLlm({ params: { did } }).then(unwrap),
+          adminAgentsClient.getWorkspaceLlm({ params: { did } }).then(unwrap),
           litellmClient.models().then(unwrap),
         ]);
 
@@ -283,7 +283,7 @@ export function useAgentLlmConfig(
     setLlmSaving(true);
     setLlmError(null);
     try {
-      unwrap(await agentsClient.deleteLlmConfig({ params: { did } }));
+      unwrap(await adminAgentsClient.deleteLlmConfig({ params: { did } }));
       await loadAll();
       flashStatus("cleared");
     } catch {
@@ -299,14 +299,14 @@ export function useAgentLlmConfig(
     try {
       // 1. Clear any manual llmConfig so the agent key takes priority
       if (llmConfig)
-        unwrap(await agentsClient.deleteLlmConfig({ params: { did } }));
+        unwrap(await adminAgentsClient.deleteLlmConfig({ params: { did } }));
 
       // 2. Provision / refresh the key
       const body: { allowedModels?: string[]; dailyBudget?: number } = {};
       if (keyModels.length > 0) body.allowedModels = keyModels;
       if (keyBudget) body.dailyBudget = parseFloat(keyBudget);
 
-      unwrap(await agentsClient.putLitellmKey({ params: { did }, body }));
+      unwrap(await adminAgentsClient.putLitellmKey({ params: { did }, body }));
 
       await Promise.all([loadAll(), onChanged?.()]);
       setLlmEditing(false);
@@ -322,7 +322,7 @@ export function useAgentLlmConfig(
   async function revokeAgentKey() {
     setRevoking(true);
     try {
-      unwrap(await agentsClient.deleteLitellmKey({ params: { did } }));
+      unwrap(await adminAgentsClient.deleteLitellmKey({ params: { did } }));
       await Promise.all([loadAll(), onChanged?.()]);
       setShowRevokeConfirm(false);
       flashStatus("cleared");
@@ -338,7 +338,7 @@ export function useAgentLlmConfig(
     setLlmError(null);
     try {
       const { config } = unwrap(
-        await agentsClient.setLlmConfig({
+        await adminAgentsClient.setLlmConfig({
           params: { did },
           body: { workspaceId: selectedWorkspaceId, workspaceModelId: selectedWorkspaceModelId },
         })
@@ -360,7 +360,7 @@ export function useAgentLlmConfig(
     setLlmError(null);
     try {
       const { config } = unwrap(
-        await agentsClient.setLlmConfig({
+        await adminAgentsClient.setLlmConfig({
           params: { did },
           body: { registryModelId: selectedRegistryId },
         })
@@ -383,11 +383,11 @@ export function useAgentLlmConfig(
     try {
       // 1. Clear any manual llmConfig so the LiteLLM model takes priority
       if (llmConfig)
-        unwrap(await agentsClient.deleteLlmConfig({ params: { did } }));
+        unwrap(await adminAgentsClient.deleteLlmConfig({ params: { did } }));
 
       // 2. Create agent key with the selected model
       unwrap(
-        await agentsClient.putLitellmKey({
+        await adminAgentsClient.putLitellmKey({
           params: { did },
           body: { allowedModels: [selectedLiteLlmModel] },
         })
@@ -424,7 +424,7 @@ export function useAgentLlmConfig(
       if (llmForm.systemPrompt) body.systemPrompt = llmForm.systemPrompt;
       if (llmForm.maxTokens) body.maxTokens = parseInt(llmForm.maxTokens, 10);
       const { config } = unwrap(
-        await agentsClient.setLlmConfig({ params: { did }, body })
+        await adminAgentsClient.setLlmConfig({ params: { did }, body })
       );
       setLlmConfig(config);
       setLlmEditing(false);

@@ -1,5 +1,5 @@
 /**
- * Tests for the "My Agents" workspace scoping on GET /api/agents.
+ * Tests for the "My Agents" workspace scoping on GET /api/admin/agents.
  *
  * The `mine=true` query param forces the search to the caller's own workspaces
  * even for a global admin (who otherwise sees every agent). A Member is always
@@ -34,7 +34,7 @@ vi.mock("@/db", () => ({
 // ── Imports ──────────────────────────────────────────────────────────────────
 
 import { NextRequest } from "next/server";
-import { GET as agentsGET } from "../packages/control-plane/app/api/agents/route";
+import { GET as agentsGET } from "../packages/control-plane/app/api/admin/agents/route";
 import { getAuthContext } from "../packages/control-plane/lib/auth-utils";
 import { AgentDAO } from "../packages/control-plane/db";
 
@@ -53,7 +53,7 @@ function authAs(isGlobalAdmin: boolean) {
 }
 
 async function callSearch(qs: string) {
-  await agentsGET(new NextRequest(`http://localhost/api/agents${qs}`));
+  await agentsGET(new NextRequest(`http://localhost/api/admin/agents${qs}`));
   return mockQuery.mock.calls.at(-1)?.[0] as { workspaceIds?: Set<string> };
 }
 
@@ -61,7 +61,7 @@ beforeEach(() => {
   vi.clearAllMocks();
 });
 
-describe("GET /api/agents — workspace scoping via `mine`", () => {
+describe("GET /api/admin/agents — workspace scoping via `mine`", () => {
   it("global admin without `mine` sees ALL agents (no workspace filter)", async () => {
     authAs(true);
     const args = await callSearch("");

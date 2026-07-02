@@ -66,6 +66,7 @@ import { PolicyDAO } from "../packages/control-plane/db";
 
 // Route handlers under test
 import { GET as agentsGET } from "../packages/control-plane/app/api/admin/agents/route";
+import { GET as userAgentsGET } from "../packages/control-plane/app/api/(user)/agents/route";
 import {
   GET as agentDetailGET,
   PATCH as agentDetailPATCH,
@@ -576,9 +577,9 @@ function status(res: unknown): number {
   return (res as { _status: number })._status;
 }
 
-// --- /api/agents ------------------------------------------------------------
+// --- /api/admin/agents (admin global view) ----------------------------------
 
-describe("GET /api/agents", () => {
+describe("GET /api/admin/agents", () => {
   it("returns 401 when unauthenticated", async () => {
     asUnauthenticated();
     const res = await agentsGET(req() as never, {});
@@ -591,9 +592,25 @@ describe("GET /api/agents", () => {
     expectStatus(res, 200);
   });
 
-  it("succeeds (200) for a member — returns only workspace-scoped agents", async () => {
+  it("returns 403 for a member (admin-only endpoint)", async () => {
     asMember();
     const res = await agentsGET(req() as never, {});
+    expectStatus(res, 403);
+  });
+});
+
+// --- /api/agents (user, workspace-scoped view) ------------------------------
+
+describe("GET /api/agents", () => {
+  it("returns 401 when unauthenticated", async () => {
+    asUnauthenticated();
+    const res = await userAgentsGET(req() as never, {});
+    expectStatus(res, 401);
+  });
+
+  it("succeeds (200) for a member — returns only workspace-scoped agents", async () => {
+    asMember();
+    const res = await userAgentsGET(req() as never, {});
     expectStatus(res, 200);
     const body = (res as { _body: { items: unknown[] } })._body;
     const agentDids = (body.items as { did: string }[]).map((a) => a.did);

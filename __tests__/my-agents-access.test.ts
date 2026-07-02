@@ -1,9 +1,10 @@
 /**
- * Tests for the "My Agents" workspace scoping on GET /api/admin/agents.
+ * Tests for agent-list workspace scoping across the admin and user endpoints.
  *
- * The `mine=true` query param forces the search to the caller's own workspaces
- * even for a global admin (who otherwise sees every agent). A Member is always
- * scoped to their workspaces, `mine` or not.
+ * - GET /api/admin/agents (admin): global admins see EVERY agent (no workspace
+ *   filter); non-admins are rejected with 403.
+ * - GET /api/agents (user): always scoped to the caller's own workspaces,
+ *   whatever their role.
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
@@ -34,7 +35,8 @@ vi.mock("@/db", () => ({
 // ── Imports ──────────────────────────────────────────────────────────────────
 
 import { NextRequest } from "next/server";
-import { GET as agentsGET } from "../packages/control-plane/app/api/admin/agents/route";
+import { GET as adminAgentsGET } from "../packages/control-plane/app/api/admin/agents/route";
+import { GET as userAgentsGET } from "../packages/control-plane/app/api/(user)/agents/route";
 import { getAuthContext } from "../packages/control-plane/lib/auth-utils";
 import { AgentDAO } from "../packages/control-plane/db";
 
@@ -52,8 +54,7 @@ function authAs(isGlobalAdmin: boolean) {
   });
 }
 
-async function callSearch(qs: string) {
-  await agentsGET(new NextRequest(`http://localhost/api/admin/agents${qs}`));
+function lastQueryArgs() {
   return mockQuery.mock.calls.at(-1)?.[0] as { workspaceIds?: Set<string> };
 }
 
@@ -61,28 +62,35 @@ beforeEach(() => {
   vi.clearAllMocks();
 });
 
-describe("GET /api/admin/agents — workspace scoping via `mine`", () => {
-  it("global admin without `mine` sees ALL agents (no workspace filter)", async () => {
+describe("GET /api/admin/agents — admin global view", () => {
+  it("global admin sees ALL agents (no workspace filter)", async () => {
     authAs(true);
-    const args = await callSearch("");
-    expect(args.workspaceIds).toBeUndefined();
+    await adminAgentsGET(
+      new NextRequest("http://localhost/api/admin/agents")
+    );
+    expect(lastQueryArgs().workspaceIds).toBeUndefined();
   });
 
-  it("global admin with `mine=true` is scoped to their own workspaces", async () => {
+  it("non-admin is rejected with 403 and never hits the DB", async () => {
+    authAs(false);
+    const res = await adminAgentsGET(
+      new NextRequest("http://localhost/api/admin/agents")
+    );
+    expect(res.status).toBe(403);
+    expect(mockQuery).not.toHaveBeenCalled();
+  });
+});
+
+describe("GET /api/agents — user view", () => {
+  it("member is scoped to their own workspaces", async () => {
+    authAs(false);
+    await userAgentsGET(new NextRequest("http://localhost/api/agents"));
+    expect(lastQueryArgs().workspaceIds).toBe(WS);
+  });
+
+  it("global admin is also scoped to their own workspaces here", async () => {
     authAs(true);
-    const args = await callSearch("?mine=true");
-    expect(args.workspaceIds).toBe(WS);
-  });
-
-  it("member is always scoped to their workspaces (no `mine`)", async () => {
-    authAs(false);
-    const args = await callSearch("");
-    expect(args.workspaceIds).toBe(WS);
-  });
-
-  it("member with `mine=true` is scoped to their workspaces", async () => {
-    authAs(false);
-    const args = await callSearch("?mine=true");
-    expect(args.workspaceIds).toBe(WS);
+    await userAgentsGET(new NextRequest("http://localhost/api/agents"));
+    expect(lastQueryArgs().workspaceIds).toBe(WS);
   });
 });

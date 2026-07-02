@@ -13,8 +13,8 @@ import {
   CAPABILITY_ICONS,
   AVAILABLE_CAPABILITIES,
 } from "@/components/agent/capabilities";
-import { adminAgentsClient, unwrap } from "@/lib/api/ts-rest/client";
-import { AgentInfo, ListAgentsQuery } from "@/lib/contracts";
+import { userAgentsClient, unwrap } from "@/lib/api/ts-rest/client";
+import { AgentInfo, ListUserAgentsQuery } from "@/lib/contracts";
 
 const SORT_OPTIONS: { value: string; label: string }[] = [
   { value: "lastSeen:desc", label: "Last seen (newest)" },
@@ -27,8 +27,9 @@ const SORT_OPTIONS: { value: string; label: string }[] = [
 
 /**
  * "My Agents" — the member-facing agents list. Unlike the admin agents page,
- * it scopes to the caller's own workspaces (via `mine=true`) for every role,
- * has no map view, no "create agent" action and no admin WebSocket.
+ * it calls the user-facing `/api/agents` endpoint, which scopes to the caller's
+ * own workspaces for every role, has no map view, no "create agent" action and
+ * no admin WebSocket.
  */
 export default function MyAgentsPage() {
   const router = useRouter();
@@ -50,10 +51,10 @@ export default function MyAgentsPage() {
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const fetchAgents = useCallback(async (query: ListAgentsQuery) => {
+  const fetchAgents = useCallback(async (query: ListUserAgentsQuery) => {
     setLoading(true);
     try {
-      const data = unwrap(await adminAgentsClient.search({ query }));
+      const data = unwrap(await userAgentsClient.search({ query }));
       setAgents(data.items);
       setTotal(data.total);
       setTotalPages(data.totalPages);
@@ -70,7 +71,6 @@ export default function MyAgentsPage() {
     debounceRef.current = setTimeout(
       () => {
         fetchAgents({
-          mine: "true",
           search,
           online: onlineFilter || undefined,
           capabilities:

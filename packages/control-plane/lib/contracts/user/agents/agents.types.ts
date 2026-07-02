@@ -1,6 +1,4 @@
-// User-facing agents API — TypeScript types.
-//
-// Intentionally empty for now. Types inferred from `./agents.schemas` will be
-// added alongside the user-scoped agents endpoints.
+import { z } from "zod";
+import { ListUserAgentsQuerySchema } from "./agents.schemas";
 
-export {};
+export type ListUserAgentsQuery = z.infer<typeof ListUserAgentsQuerySchema>;

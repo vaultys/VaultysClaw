@@ -45,6 +45,8 @@ export * from "./admin/agents/agents.schemas";
 export * from "./admin/agents/agents.types";
 export type * from "./user/agents/agents.contract";
 export * from "./user/agents/agents.contract";
+export * from "./user/agents/agents.schemas";
+export * from "./user/agents/agents.types";
 export * from "./public/about/about.contract";
 export * from "./public/about/about.schemas";
 export * from "./public/about/about.types";

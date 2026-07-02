@@ -705,30 +705,39 @@ export class Agent extends BaseAgentRuntime {
           if (!seg.thinking) chunks.push(seg.text);
         }
       } else {
-        // Cloud-provider path: stream chunks as they arrive.
+        // Streaming path: chunkStream already tags structured reasoning
+        // content (Mastra's text-delta/reasoning-delta events — how
+        // Anthropic and other providers with a real reasoning channel
+        // surface thinking). But some openai-compatible/ollama models
+        // (e.g. local Qwen3 reasoning models) emit <think>...</think> tags
+        // inline inside plain text-delta content instead, so run those
+        // "text" segments through splitThinkContent as well.
         let thinkBuf = "";
         let inThinking = false;
-        for await (const rawChunk of result.textStream) {
-          const {
-            segments,
-            remaining,
-            inThinking: newInThinking,
-          } = splitThinkContent(thinkBuf + rawChunk, inThinking);
-          thinkBuf = remaining;
-          inThinking = newInThinking;
-          for (const seg of segments) {
+        for await (const seg of result.chunkStream) {
+          let segments: Array<{ text: string; thinking: boolean }>;
+          if (seg.thinking) {
+            // Already-structured reasoning content — pass through as-is.
+            segments = [seg];
+          } else {
+            const split = splitThinkContent(thinkBuf + seg.text, inThinking);
+            thinkBuf = split.remaining;
+            inThinking = split.inThinking;
+            segments = split.segments;
+          }
+          for (const s of segments) {
             this.send({
               messageId: `chat-resp-${Date.now()}`,
               type: "chat_response",
               agentId: this.id,
               payload: {
                 conversationId,
-                chunk: seg.text,
-                ...(seg.thinking ? { thinking: true } : {}),
+                chunk: s.text,
+                ...(s.thinking ? { thinking: true } : {}),
               } satisfies WSChatResponsePayload,
               timestamp: new Date().toISOString(),
             });
-            if (!seg.thinking) chunks.push(seg.text);
+            if (!s.thinking) chunks.push(s.text);
           }
         }
         // Flush any remaining buffered tag-prefix as a final chunk

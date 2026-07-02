@@ -49,6 +49,7 @@ import {
   LlmNotConfiguredError,
   LlmProviderError,
   buildModel,
+  inlineReasoningContent,
   runIntent,
   streamChat,
 } from "../packages/agent-controller/src/llm";
@@ -130,11 +131,20 @@ describe("buildModel", () => {
     expect(typeof lm).toBe("object");
   });
 
-  it(`should return a string for provider "anthropic"`, () => {
+  it(`should return a model instance for provider "anthropic" with an apiKey`, () => {
     const lm = buildModel({
       provider: "anthropic",
       model: "claude-3-haiku-20240307",
       apiKey: "sk-ant-test",
+    } as any);
+    expect(typeof lm).toBe("object");
+    expect(lm.modelId).toBe("claude-3-haiku-20240307");
+  });
+
+  it(`should return a string for provider "anthropic" without an apiKey`, () => {
+    const lm = buildModel({
+      provider: "anthropic",
+      model: "claude-3-haiku-20240307",
     } as any);
     expect(lm).toBe("anthropic/claude-3-haiku-20240307");
   });
@@ -242,6 +252,136 @@ describe("buildModel — openai-compatible null-content fetch patch", async () =
     } finally {
       vi.stubGlobal("fetch", originalFetch);
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// inlineReasoningContent — reasoning_content → <think> SSE rewriting
+// ---------------------------------------------------------------------------
+
+describe("inlineReasoningContent", () => {
+  function sseResponse(lines: string[]): Response {
+    const body = new ReadableStream<Uint8Array>({
+      start(c) {
+        c.enqueue(new TextEncoder().encode(lines.join("\n") + "\n"));
+        c.close();
+      },
+    });
+    return new Response(body, {
+      status: 200,
+      headers: { "Content-Type": "text/event-stream" },
+    });
+  }
+
+  function chunk(delta: Record<string, unknown>, finish: string | null = null) {
+    return `data: ${JSON.stringify({
+      id: "c1",
+      object: "chat.completion.chunk",
+      choices: [{ index: 0, delta, finish_reason: finish }],
+    })}`;
+  }
+
+  async function readAll(res: Response): Promise<string> {
+    const reader = res.body!.getReader();
+    const decoder = new TextDecoder();
+    let out = "";
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      out += decoder.decode(value, { stream: true });
+    }
+    return out;
+  }
+
+  function contents(sse: string): string {
+    return sse
+      .split("\n")
+      .filter((l) => l.startsWith("data: ") && !l.includes("[DONE]"))
+      .map((l) => {
+        try {
+          return JSON.parse(l.slice(6)).choices?.[0]?.delta?.content ?? "";
+        } catch {
+          return "";
+        }
+      })
+      .join("");
+  }
+
+  it("wraps reasoning_content deltas in <think>…</think> around the answer", async () => {
+    const res = inlineReasoningContent(
+      sseResponse([
+        chunk({ role: "assistant", reasoning_content: "step one " }),
+        "",
+        chunk({ reasoning_content: "step two" }),
+        "",
+        chunk({ content: "The answer" }),
+        "",
+        chunk({ content: " is 42." }),
+        "",
+        "data: [DONE]",
+        "",
+      ])
+    );
+    const out = await readAll(res);
+    expect(contents(out)).toBe(
+      "<think>step one step two</think>The answer is 42."
+    );
+    expect(out).not.toContain("reasoning_content");
+  });
+
+  it("closes a dangling think block at [DONE]", async () => {
+    const res = inlineReasoningContent(
+      sseResponse([
+        chunk({ reasoning_content: "only reasoning" }),
+        "",
+        "data: [DONE]",
+        "",
+      ])
+    );
+    const out = await readAll(res);
+    expect(contents(out)).toBe("<think>only reasoning</think>");
+    // [DONE] terminator preserved after the synthetic closing chunk
+    expect(out.trimEnd().endsWith("data: [DONE]")).toBe(true);
+  });
+
+  it("closes the think block on a finish_reason chunk with no content", async () => {
+    const res = inlineReasoningContent(
+      sseResponse([
+        chunk({ reasoning_content: "hmm" }),
+        "",
+        chunk({}, "stop"),
+        "",
+        "data: [DONE]",
+        "",
+      ])
+    );
+    expect(contents(await readAll(res))).toBe("<think>hmm</think>");
+  });
+
+  it("passes plain streams through unchanged", async () => {
+    const lines = [
+      chunk({ role: "assistant", content: "Hello" }),
+      "",
+      chunk({ content: " world" }),
+      "",
+      "data: [DONE]",
+      "",
+    ];
+    const res = inlineReasoningContent(sseResponse(lines));
+    expect(contents(await readAll(res))).toBe("Hello world");
+  });
+
+  it("leaves non-SSE responses untouched", async () => {
+    const json = JSON.stringify({
+      choices: [{ message: { content: "x", reasoning_content: "r" } }],
+    });
+    const res = inlineReasoningContent(
+      new Response(json, {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      })
+    );
+    expect(await res.text()).toBe(json);
   });
 });
 

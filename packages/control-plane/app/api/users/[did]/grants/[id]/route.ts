@@ -4,6 +4,7 @@
  * affected agent. Owner-only.
  */
 
+import { isAdminRole } from "@/lib/roles";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-config";
 import { APIException } from "@/lib/api/utils/api-utils";
@@ -15,7 +16,7 @@ import { usersContract } from "@/lib/contracts";
 const handlers = createNextRoute(usersContract, {
   revokeGrant: async ({ params }) => {
     const session = await getServerSession(authOptions);
-    if (!session?.user?.isAdmin) throw new APIException("FORBIDDEN");
+    if (!isAdminRole(session?.user?.role)) throw new APIException("FORBIDDEN");
 
     const grant = await GrantDAO.findById(params.id);
     if (!grant || grant.userDid !== params.did)

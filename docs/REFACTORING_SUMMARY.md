@@ -74,7 +74,7 @@ This document summarizes the major refactoring effort completed in May 2026 to i
 - All list endpoints return: `{ items: T[], pagination: {...} }`
 - All errors return: `{ error, code, statusCode, details, timestamp }`
 - Consistent pagination: `page`, `pageSize`, `sortBy`, `sortDir`
-- Common filters: `q` (search), `realm`, `status`, etc.
+- Common filters: `q` (search), `workspace`, `status`, etc.
 
 **Benefits:**
 

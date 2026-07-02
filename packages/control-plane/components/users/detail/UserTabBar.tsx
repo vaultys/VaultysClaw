@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 
-export type UserTabId = "overview" | "access" | "grants" | "realms" | "details";
+export type UserTabId = "overview" | "access" | "grants" | "workspaces" | "details";
 
 export interface TabItem<T extends string> {
   id: T;

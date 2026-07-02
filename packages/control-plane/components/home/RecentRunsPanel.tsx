@@ -15,12 +15,12 @@ import type { WorkflowRunWithName } from "@/lib/contracts";
 import { RunStatusBadge } from "./RunStatusBadge";
 
 const EXPLORE_LINKS = [
-  { icon: Bot, label: "Agents", path: "/agents" },
-  { icon: GitBranch, label: "Workflows", path: "/workflows" },
-  { icon: Cpu, label: "Models", path: "/models" },
-  { icon: Layers, label: "Skills", path: "/skills" },
-  { icon: Globe, label: "Realms", path: "/realms" },
-  { icon: Network, label: "Graph", path: "/graph" },
+  { icon: Bot, label: "Agents", path: "/admin/agents" },
+  { icon: GitBranch, label: "Workflows", path: "/app/workflows" },
+  { icon: Cpu, label: "Models", path: "/admin/models" },
+  { icon: Layers, label: "Skills", path: "/admin/skills" },
+  { icon: Globe, label: "Workspaces", path: "/app/workspaces" },
+  { icon: Network, label: "Graph", path: "/admin/graph" },
 ];
 
 export function RecentRunsPanel({
@@ -45,7 +45,7 @@ export function RecentRunsPanel({
             </span>
           </div>
           <button
-            onClick={() => router.push("/workflows")}
+            onClick={() => router.push("/app/workflows")}
             className="text-xs text-primary-600 hover:underline"
           >
             View all
@@ -57,7 +57,7 @@ export function RecentRunsPanel({
             <Layers className="w-6 h-6 text-foreground-200" />
             <p className="text-xs text-foreground-400">No workflow runs yet</p>
             <button
-              onClick={() => router.push("/workflows")}
+              onClick={() => router.push("/app/workflows")}
               className="text-xs text-primary-600 hover:underline mt-1"
             >
               Start your first workflow →
@@ -68,7 +68,7 @@ export function RecentRunsPanel({
             {runs.map((run) => (
               <button
                 key={run.id}
-                onClick={() => router.push(`/workflows/runs/${run.id}`)}
+                onClick={() => router.push(`/app/workflows/runs/${run.id}`)}
                 className="flex items-center gap-3 px-4 py-3 w-full text-left hover:bg-background-200 transition-colors group"
               >
                 <div className="flex-1 min-w-0">

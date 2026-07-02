@@ -31,7 +31,7 @@ pnpm mcp:build               # Build MCP gateway to dist/
 
 # Demo / Simulator
 pnpm simulator:up            # Full demo stack: PostgreSQL + MinIO + Docling + LiteLLM + Grafana + 30 agents
-pnpm simulator:seed          # Seed DB (8 realms, 200+ users, 30 agents, 15 workflows) — idempotent
+pnpm simulator:seed          # Seed DB (8 workspaces, 200+ users, 30 agents, 15 workflows) — idempotent
 pnpm simulator:start         # Connect 30 simulated agents (control plane must be running)
 pnpm simulator:full          # seed + start
 ./demo/setup.sh              # Minimal demo: 3 real agents for recording / quick exploration

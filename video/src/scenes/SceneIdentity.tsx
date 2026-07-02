@@ -17,7 +17,7 @@ import {
 const TOTAL = 300;
 
 const STATS = [
-  { label: "Realm", value: "Research" },
+  { label: "Workspace", value: "Research" },
   { label: "Model", value: "claude-sonnet" },
   { label: "Role", value: "Analyst" },
   { label: "Intents", value: "2,841 today" },

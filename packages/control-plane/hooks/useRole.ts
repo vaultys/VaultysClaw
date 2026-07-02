@@ -1,7 +1,10 @@
 "use client";
 import { useSession } from "next-auth/react";
+import { isAdminRole, isOwnerRole, type UserRole } from "@/lib/roles";
 
 export interface RoleInfo {
+  did: string | null;
+  role: UserRole | null;
   isOwner: boolean;
   isAdmin: boolean;
   isGlobalAdmin: boolean;
@@ -12,12 +15,15 @@ export interface RoleInfo {
 export function useRole(): RoleInfo {
   const { data: session, status } = useSession();
   const user = session?.user as
-    | { isOwner?: boolean; isAdmin?: boolean }
+    | { role?: UserRole; did?: string | null }
     | undefined;
-  const isOwner = Boolean(user?.isOwner);
-  const isAdmin = Boolean(user?.isAdmin);
-  const isGlobalAdmin = isOwner || isAdmin;
+  const role = user?.role ?? null;
+  const isOwner = isOwnerRole(role);
+  const isAdmin = isAdminRole(role);
+  const isGlobalAdmin = isAdmin;
   return {
+    did: user?.did ?? null,
+    role,
     isOwner,
     isAdmin,
     isGlobalAdmin,

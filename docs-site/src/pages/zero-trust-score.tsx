@@ -44,9 +44,9 @@ const DOMAINS: {
     id: "03",
     name: "Resource Perimeter & Blast Radius",
     status: "active",
-    summary: "Realm isolation contains lateral movement by design.",
+    summary: "Workspace isolation contains lateral movement by design.",
     detail:
-      "Agents are scoped to realms. A compromised agent cannot reach agents, data, or workflows in other realms. Policy signatures prevent trust escalation across boundaries, and per-agent budget caps limit resource consumption.",
+      "Agents are scoped to workspaces. A compromised agent cannot reach agents, data, or workflows in other workspaces. Policy signatures prevent trust escalation across boundaries, and per-agent budget caps limit resource consumption.",
   },
   {
     id: "04",

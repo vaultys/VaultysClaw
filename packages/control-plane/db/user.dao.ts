@@ -1,5 +1,5 @@
 import { prisma } from "./client";
-import type { User, UserRealm, UserInvitation, Prisma } from "@prisma/client";
+import type { User, UserWorkspace, UserInvitation, Prisma } from "@prisma/client";
 import { normalizeRole, type UserRole } from "@/lib/roles";
 
 export class UserDAO {
@@ -140,19 +140,19 @@ export class UserDAO {
   static async list(opts: {
     q?: string;
     role?: string;
-    realmId?: string;
+    workspaceId?: string;
     hasAccount?: boolean;
     page?: number;
     pageSize?: number;
     sortBy?: "name" | "email" | "registeredAt";
     sortDir?: "asc" | "desc";
   }): Promise<{ users: User[]; total: number; page: number; pageSize: number; totalPages: number }> {
-    const { q, role, realmId, hasAccount, page = 1, pageSize = 20, sortBy = "name", sortDir = "asc" } = opts;
+    const { q, role, workspaceId, hasAccount, page = 1, pageSize = 20, sortBy = "name", sortDir = "asc" } = opts;
 
     const where: Prisma.UserWhereInput = {};
     if (q) where.OR = [{ name: { contains: q, mode: "insensitive" } }, { email: { contains: q, mode: "insensitive" } }];
     if (role) where.role = normalizeRole(role);
-    if (realmId) where.userRealms = { some: { realmId } };
+    if (workspaceId) where.userWorkspaces = { some: { workspaceId } };
     if (hasAccount === true) where.did = { not: null };
     else if (hasAccount === false) where.did = null;
 

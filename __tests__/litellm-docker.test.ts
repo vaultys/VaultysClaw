@@ -3,7 +3,7 @@
  *
  * Spins up: mock-litellm + mock-llm + control-plane + agent
  * (via docker-compose.litellm.yml) and exercises the full
- * model registry → realm access → agent routing flow.
+ * model registry → workspace access → agent routing flow.
  *
  * Run with:
  *   pnpm test:litellm
@@ -200,10 +200,10 @@ describe("Docker E2E — LiteLLM pipeline", () => {
   });
 
   // ---------------------------------------------------------------------------
-  // Realm access + virtual key
+  // Workspace access + virtual key
   // ---------------------------------------------------------------------------
 
-  it("grants model to a realm and a virtual key is generated in mock-litellm", async () => {
+  it("grants model to a workspace and a virtual key is generated in mock-litellm", async () => {
     // Get the model id
     const models = await getJson<{ models: { id: string; name: string }[] }>(
       `${CONTROL_PLANE}/api/test/models`
@@ -211,58 +211,58 @@ describe("Docker E2E — LiteLLM pipeline", () => {
     const model = models.models.find((m) => m.name === "ft-test-model");
     expect(model).toBeTruthy();
 
-    // Get the default realm id
-    const realms = await getJson<{
-      realms: { id: string; isDefault: boolean }[];
-    }>(`${CONTROL_PLANE}/api/test/realms`);
-    const defaultRealm = realms.realms.find((r) => r.isDefault);
-    expect(defaultRealm).toBeTruthy();
+    // Get the default workspace id
+    const workspaces = await getJson<{
+      workspaces: { id: string; isDefault: boolean }[];
+    }>(`${CONTROL_PLANE}/api/test/workspaces`);
+    const defaultWorkspace = workspaces.workspaces.find((r) => r.isDefault);
+    expect(defaultWorkspace).toBeTruthy();
 
-    // Grant model access to realm
-    await postJson(`${CONTROL_PLANE}/api/test/models/${model!.id}/realms`, {
-      realmId: defaultRealm!.id,
+    // Grant model access to workspace
+    await postJson(`${CONTROL_PLANE}/api/test/models/${model!.id}/workspaces`, {
+      workspaceId: defaultWorkspace!.id,
     });
 
     // Virtual key should now exist in mock-litellm
     const keys = await getJson<{ keys: Record<string, { key: string }> }>(
       `${MOCK_LITELLM}/test/keys`
     );
-    const realmKeys = Object.values(keys.keys);
-    expect(realmKeys.length).toBeGreaterThan(0);
+    const workspaceKeys = Object.values(keys.keys);
+    expect(workspaceKeys.length).toBeGreaterThan(0);
   });
 
   // ---------------------------------------------------------------------------
-  // Agent LLM config via realm routing
+  // Agent LLM config via workspace routing
   // ---------------------------------------------------------------------------
 
-  it("agent config can be set to realm routing and config is stored", async () => {
+  it("agent config can be set to workspace routing and config is stored", async () => {
     expect(agentId).toBeTruthy();
 
-    // Fetch realm-llm options
-    const realmLlm = await getJson<{
+    // Fetch workspace-llm options
+    const workspaceLlm = await getJson<{
       litellmConfigured: boolean;
-      realms: {
-        realmId: string;
+      workspaces: {
+        workspaceId: string;
         hasVirtualKey: boolean;
         models: { id: string }[];
       }[];
-    }>(`${CONTROL_PLANE}/api/test/agents/${agentId}/realm-llm`);
+    }>(`${CONTROL_PLANE}/api/test/agents/${agentId}/workspace-llm`);
 
-    expect(realmLlm.litellmConfigured).toBe(true);
-    const realmWithKey = realmLlm.realms.find(
+    expect(workspaceLlm.litellmConfigured).toBe(true);
+    const workspaceWithKey = workspaceLlm.workspaces.find(
       (r) => r.hasVirtualKey && r.models.length > 0
     );
-    expect(realmWithKey).toBeTruthy();
+    expect(workspaceWithKey).toBeTruthy();
 
-    const modelToUse = realmWithKey!.models[0];
+    const modelToUse = workspaceWithKey!.models[0];
 
-    // Push realm routing config
+    // Push workspace routing config
     const result = await postJson<{
       ok: boolean;
       config: { model: string; apiKeySet: boolean };
     }>(`${CONTROL_PLANE}/api/test/agents/${agentId}/llm-config`, {
-      realmId: realmWithKey!.realmId,
-      realmModelId: modelToUse.id,
+      workspaceId: workspaceWithKey!.workspaceId,
+      workspaceModelId: modelToUse.id,
     });
 
     expect(result.ok).toBe(true);

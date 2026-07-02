@@ -35,7 +35,7 @@ while (portInUse) {
 
 describe("Workflow Execution with Real Agents", () => {
   let wsServer: AgentWSServer;
-  const testRealmId = "test-realm-workflows";
+  const testWorkspaceId = "test-workspace-workflows";
 
   // Sentinel names used to scope cleanup — avoids clobbering other test files' data
   const WF_NAMES = [

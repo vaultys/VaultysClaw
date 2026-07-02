@@ -333,7 +333,7 @@ export default function ArchitectureDiagram() {
           fontFamily={MONO}
           textAnchor="middle"
         >
-          agents · intents · policies · realms
+          agents · intents · policies · workspaces
         </text>
 
         {/* ── Edges: WebSocket Hub → Agents ── */}

@@ -4,7 +4,7 @@
  * VaultysClaw's Prisma-backed CertificateDAO and UserDAO.
  */
 import { Challenger, CryptoChannel, VaultysId, crypto } from "@vaultys/id";
-import { CertificateDAO, SettingsDAO, UserDAO } from "@/db";
+import { CertificateDAO, SettingsDAO, UserDAO, WorkspaceDAO } from "@/db";
 import type { Certificate } from "@prisma/client";
 
 const Buffer = crypto.Buffer;
@@ -53,6 +53,7 @@ const registerUser = async (contact: VaultysId, pendingUserId?: string): Promise
     // If this real DID already exists and was an Entra/email placeholder, mark as claimed.
     if (!existing.claimedAt && (existing.entraId || !existing.did)) {
       await UserDAO.claim(existing.id, did, publicKey);
+      await WorkspaceDAO.createPersonalWorkspace(existing.id);
     }
     console.log(`[registerUser] already registered — returning true`);
     return true;
@@ -66,13 +67,15 @@ const registerUser = async (contact: VaultysId, pendingUserId?: string): Promise
         `[registerUser] claiming unclaimed user id=${pendingUserId} → ${did}`
       );
       await UserDAO.claim(pendingUserId, did, publicKey);
+      await WorkspaceDAO.createPersonalWorkspace(pendingUserId);
       return true;
     }
   }
 
   const isFirstUser = (await UserDAO.list({ page: 1, pageSize: 1 })).total === 0;
   console.log(`[registerUser] creating new user isFirstUser=${isFirstUser}`);
-  await UserDAO.create(did, publicKey, isFirstUser ? "Owner" : "Member");
+  const user = await UserDAO.create(did, publicKey, isFirstUser ? "Owner" : "Member");
+  await WorkspaceDAO.createPersonalWorkspace(user.id);
   console.log(`[registerUser] created successfully`);
   return true;
 };

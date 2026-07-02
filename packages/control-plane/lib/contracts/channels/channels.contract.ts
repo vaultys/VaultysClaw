@@ -34,7 +34,7 @@ export const channelsContract = c.router({
   list: {
     method: "GET",
     path: "/api/channels",
-    summary: "List channels in a realm, optionally including global channels",
+    summary: "List channels in a workspace, optionally including global channels",
     query: ListChannelsQuerySchema,
     responses: {
       200: c.type<{ channels: Channel[] }>(),

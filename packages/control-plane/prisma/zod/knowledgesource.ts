@@ -1,5 +1,5 @@
 import * as z from "zod"
-import { CompleteRealm, RelatedRealmModel, CompleteAgent, RelatedAgentModel, CompleteKnowledgeFile, RelatedKnowledgeFileModel } from "./index"
+import { CompleteWorkspace, RelatedWorkspaceModel, CompleteAgent, RelatedAgentModel, CompleteKnowledgeFile, RelatedKnowledgeFileModel } from "./index"
 
 // Helper schema for JSON fields
 type Literal = boolean | number | string
@@ -9,7 +9,7 @@ const jsonSchema: z.ZodSchema<Json> = z.lazy(() => z.union([literalSchema, z.arr
 
 export const KnowledgeSourceModel = z.object({
   id: z.string(),
-  realmId: z.string(),
+  workspaceId: z.string(),
   agentDid: z.string(),
   name: z.string(),
   sourceType: z.string(),
@@ -23,7 +23,7 @@ export const KnowledgeSourceModel = z.object({
 })
 
 export interface CompleteKnowledgeSource extends z.infer<typeof KnowledgeSourceModel> {
-  realm: CompleteRealm
+  workspace: CompleteWorkspace
   agent: CompleteAgent
   files: CompleteKnowledgeFile[]
 }
@@ -34,7 +34,7 @@ export interface CompleteKnowledgeSource extends z.infer<typeof KnowledgeSourceM
  * NOTE: Lazy required in case of potential circular dependencies within schema
  */
 export const RelatedKnowledgeSourceModel: z.ZodSchema<CompleteKnowledgeSource> = z.lazy(() => KnowledgeSourceModel.extend({
-  realm: RelatedRealmModel,
+  workspace: RelatedWorkspaceModel,
   agent: RelatedAgentModel,
   files: RelatedKnowledgeFileModel.array(),
 }))

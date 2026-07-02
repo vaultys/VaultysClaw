@@ -38,7 +38,7 @@ interface SyncResult {
   errors: string[];
 }
 
-type WizardStep = "groups" | "realm-map" | "confirm" | "syncing" | "done";
+type WizardStep = "groups" | "workspace-map" | "confirm" | "syncing" | "done";
 
 // ─── Setup guide ──────────────────────────────────────────────────────────────
 
@@ -150,8 +150,8 @@ export function EntraPanel() {
   const [groupsError, setGroupsError] = useState<string | null>(null);
   const [selectedGroups, setSelectedGroups] = useState<Set<string>>(new Set());
   const [mapGroups, setMapGroups] = useState(false);
-  const [realmMap, setRealmMap] = useState<Record<string, string>>({});
-  const [realms, setRealms] = useState<{ id: string; name: string }[]>([]);
+  const [workspaceMap, setWorkspaceMap] = useState<Record<string, string>>({});
+  const [workspaces, setWorkspaces] = useState<{ id: string; name: string }[]>([]);
   const [syncResult, setSyncResult] = useState<SyncResult | null>(null);
 
   useEffect(() => {
@@ -220,16 +220,16 @@ export function EntraPanel() {
     setWizardStep("groups");
     setSelectedGroups(new Set());
     setMapGroups(false);
-    setRealmMap({});
+    setWorkspaceMap({});
     setSyncResult(null);
     setGroupsError(null);
     setGroupsLoading(true);
 
-    const [groupsRes, realmsRes] = await Promise.allSettled([
+    const [groupsRes, workspacesRes] = await Promise.allSettled([
       serverClient.testEntra({
         body: { tenantId, clientId, clientSecret },
       }),
-      fetch("/api/realms").then((r) => r.json()),
+      fetch("/api/workspaces").then((r) => r.json()),
     ]);
 
     if (groupsRes.status === "fulfilled" && groupsRes.value.status === 200) {
@@ -251,9 +251,9 @@ export function EntraPanel() {
       setGroupsError("Failed to connect to Entra");
     }
 
-    if (realmsRes.status === "fulfilled") {
-      const d = realmsRes.value as { realms?: { id: string; name: string }[] };
-      setRealms(d.realms ?? []);
+    if (workspacesRes.status === "fulfilled") {
+      const d = workspacesRes.value as { workspaces?: { id: string; name: string }[] };
+      setWorkspaces(d.workspaces ?? []);
     }
 
     setGroupsLoading(false);
@@ -268,7 +268,7 @@ export function EntraPanel() {
         await serverClient.entraSync({
           body: {
             groupIds: Array.from(selectedGroups),
-            groupRealmMap: mapGroups ? realmMap : {},
+            groupWorkspaceMap: mapGroups ? workspaceMap : {},
             groupNames,
           },
         })
@@ -339,7 +339,7 @@ export function EntraPanel() {
                     {unclaimedCount} user{unclaimedCount === 1 ? "" : "s"} waiting to claim an account
                   </p>
                 </div>
-                <Link href="/users" className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-background-100 border border-neutral-300 hover:border-primary-500 text-foreground transition">
+                <Link href="/admin/users" className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-background-100 border border-neutral-300 hover:border-primary-500 text-foreground transition">
                   <Users className="w-3 h-3" /> View users
                 </Link>
               </div>
@@ -411,9 +411,9 @@ export function EntraPanel() {
                 </div>
               )}
 
-              {wizardStep === "realm-map" && (
+              {wizardStep === "workspace-map" && (
                 <div className="space-y-4">
-                  <p className="text-sm text-foreground-500">Map Entra groups to VaultysClaw realms? Synced users will be added to the corresponding realm.</p>
+                  <p className="text-sm text-foreground-500">Map Entra groups to VaultysClaw workspaces? Synced users will be added to the corresponding workspace.</p>
                   <div className="flex gap-3">
                     {[{ v: false, label: "No, skip" }, { v: true, label: "Yes, map groups" }].map(({ v, label }) => (
                       <button key={String(v)} type="button" onClick={() => setMapGroups(v)}
@@ -431,12 +431,12 @@ export function EntraPanel() {
                           <div key={gid} className="flex items-center gap-2">
                             <span className="text-xs text-foreground-700 shrink-0 w-36 truncate" title={g?.displayName ?? gid}>{g?.displayName ?? gid}</span>
                             <ChevronRight className="w-3 h-3 text-foreground-400 shrink-0" />
-                            <select value={realmMap[gid] ?? ""} onChange={(e) => setRealmMap((m) => ({ ...m, [gid]: e.target.value }))}
+                            <select value={workspaceMap[gid] ?? ""} onChange={(e) => setWorkspaceMap((m) => ({ ...m, [gid]: e.target.value }))}
                               className="flex-1 bg-background-200 border border-neutral-300 rounded-lg px-2 py-1 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary-500"
                             >
-                              <option value="">— no realm —</option>
-                              <option value="__create__">✦ Create realm from group name</option>
-                              {realms.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
+                              <option value="">— no workspace —</option>
+                              <option value="__create__">✦ Create workspace from group name</option>
+                              {workspaces.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
                             </select>
                           </div>
                         );
@@ -451,7 +451,7 @@ export function EntraPanel() {
                   <p className="text-sm text-foreground-500">Ready to sync. Review your selection:</p>
                   <div className="bg-background-200 border border-neutral-300 rounded-lg p-4 space-y-2 text-sm">
                     <div className="flex justify-between"><span className="text-foreground-400">Groups</span><span className="text-foreground-700">{selectedGroups.size === 0 ? "All tenant users" : `${selectedGroups.size} group(s)`}</span></div>
-                    <div className="flex justify-between"><span className="text-foreground-400">Realm mapping</span><span className="text-foreground-700">{mapGroups ? "Enabled" : "Disabled"}</span></div>
+                    <div className="flex justify-between"><span className="text-foreground-400">Workspace mapping</span><span className="text-foreground-700">{mapGroups ? "Enabled" : "Disabled"}</span></div>
                     <div className="flex justify-between pt-1 border-t border-neutral-200"><span className="text-foreground-400">Deduplication</span><span className="text-foreground-700">By email address</span></div>
                   </div>
                   <p className="text-xs text-foreground-400">New users will be created as unclaimed accounts. They must scan a QR code with their Vaultys wallet to activate.</p>
@@ -490,13 +490,13 @@ export function EntraPanel() {
 
             {wizardStep !== "syncing" && (
               <div className="flex justify-between gap-3 px-6 py-4 border-t border-neutral-200 shrink-0">
-                <button onClick={() => { if (wizardStep === "done" || wizardStep === "groups") { setWizardOpen(false); return; } if (wizardStep === "realm-map") setWizardStep("groups"); if (wizardStep === "confirm") setWizardStep("realm-map"); }}
+                <button onClick={() => { if (wizardStep === "done" || wizardStep === "groups") { setWizardOpen(false); return; } if (wizardStep === "workspace-map") setWizardStep("groups"); if (wizardStep === "confirm") setWizardStep("workspace-map"); }}
                   className="px-4 py-2 text-sm rounded-lg bg-background-200 border border-neutral-300 hover:border-foreground-500 text-foreground transition"
                 >
                   {wizardStep === "done" || wizardStep === "groups" ? "Close" : "Back"}
                 </button>
                 {wizardStep !== "done" && (
-                  <button onClick={() => { if (wizardStep === "groups") { setWizardStep("realm-map"); return; } if (wizardStep === "realm-map") { setWizardStep("confirm"); return; } if (wizardStep === "confirm") doSync(); }}
+                  <button onClick={() => { if (wizardStep === "groups") { setWizardStep("workspace-map"); return; } if (wizardStep === "workspace-map") { setWizardStep("confirm"); return; } if (wizardStep === "confirm") doSync(); }}
                     disabled={groupsLoading || !!groupsError}
                     className="px-4 py-2 text-sm rounded-lg bg-primary-600 hover:bg-primary-500 text-white disabled:opacity-40 transition flex items-center gap-2"
                   >

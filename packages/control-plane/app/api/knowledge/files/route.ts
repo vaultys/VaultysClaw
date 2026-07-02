@@ -14,7 +14,7 @@ const handlers = createNextRoute(knowledgeContract, {
     const source = await KnowledgeDAO.findSource(query.sourceId);
     if (!source) throw new APIException("NOT_FOUND", "Source not found");
 
-    if (!auth.isGlobalAdmin && !(await auth.canAccessRealm(source.realmId)))
+    if (!auth.isGlobalAdmin && !(await auth.canAccessWorkspace(source.workspaceId)))
       throw new APIException("FORBIDDEN");
 
     const files = await KnowledgeDAO.listFiles(query.sourceId);

@@ -7,7 +7,7 @@ import {
   InviteEmailBodySchema,
   CreateGrantBodySchema,
 } from "./users.schemas";
-import { UserRealmWithRealm } from "../realms/realms.types";
+import { UserWorkspaceWithWorkspace } from "../workspaces/workspaces.types";
 import type { UserRole } from "@/lib/roles";
 
 // Prisma User row is the single source of truth for persisted user fields.
@@ -44,7 +44,7 @@ export interface UpdateMeResponse {
   description: string | null;
 }
 
-/** A user row as returned by `GET /api/users` — Prisma fields plus realm memberships. */
+/** A user row as returned by `GET /api/users` — Prisma fields plus workspace memberships. */
 export type UserListItem = Pick<
   User,
   "id" | "did" | "name" | "email" | "entraId"
@@ -52,7 +52,7 @@ export type UserListItem = Pick<
   role: UserRole;
   claimedAt: string | null;
   registeredAt: string;
-  realms: UserRealmWithRealm[];
+  workspaces: UserWorkspaceWithWorkspace[];
 };
 
 export interface UserListResponse {
@@ -91,7 +91,7 @@ export type UnclaimedUserDetail = Pick<
   role: UserRole;
   registeredAt: string;
   claimedAt: string | null;
-  realms: UserRealmWithRealm[];
+  workspaces: UserWorkspaceWithWorkspace[];
 };
 
 export type ListUsersQuery = z.infer<typeof ListUsersQuerySchema>;

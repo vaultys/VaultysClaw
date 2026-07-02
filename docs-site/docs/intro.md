@@ -18,7 +18,7 @@ Running AI agents at enterprise scale introduces problems that most frameworks i
 | **Can I trust this agent?**     | Agents carry non-transferable DID identities; impersonation is cryptographically impossible       |
 | **How do I revoke access?**     | Capability grants and policies are revoked instantly from the control plane and pushed to agents  |
 | **LLM vendor lock-in**          | Per-agent LLM configuration: OpenAI, Anthropic, Gemini, Ollama, or any OpenAI-compatible endpoint |
-| **Multi-team isolation**        | Realms provide hard boundaries between teams; role-based access from member to global admin       |
+| **Multi-team isolation**        | Workspaces provide hard boundaries between teams; role-based access from member to global admin       |
 | **Audit trail**                 | Every intent, result, and approval is logged and cryptographically attributable                   |
 
 ## Core components
@@ -46,11 +46,11 @@ Agent Controller (Node.js)
 
 - **Policy** — A signed document pushed from the control plane to an agent that defines which capabilities the agent is allowed to use, resource limits, and optional time windows.
 
-- **Realm** — An organisational scope (team, department, project) that groups agents, users, and workflows with isolated access control.
+- **Workspace** — An organisational scope (team, department, project) that groups agents, users, and workflows with isolated access control.
 
 - **Capability** — A specific permission granted to an agent, such as `file_access`, `internet_access`, or `code_execution`.
 
-- **Skill** — A named unit of reusable agent behaviour attached to a realm. Skills carry Markdown instructions that are automatically injected into agent system prompts at runtime — no code changes required. Skills can be authored manually or imported from the public [skills library](https://skills-library.com).
+- **Skill** — A named unit of reusable agent behaviour attached to a workspace. Skills carry Markdown instructions that are automatically injected into agent system prompts at runtime — no code changes required. Skills can be authored manually or imported from the public [skills library](https://skills-library.com).
 
 ## Next steps
 

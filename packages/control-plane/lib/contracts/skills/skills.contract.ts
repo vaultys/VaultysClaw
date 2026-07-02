@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { c } from "../contract";
 import { commonErrorResponses } from "../common";
-import type { OrgSkill, RealmSkill } from "@prisma/client";
+import type { OrgSkill, WorkspaceSkill } from "@prisma/client";
 import {
   OrgSkillIdParamSchema,
   LibraryContentQuerySchema,
@@ -11,15 +11,15 @@ import {
   CreateOrgSkillBodySchema,
   UpdateOrgSkillBodySchema,
 } from "./skills.schemas";
-import type { RealmSkillWithMeta } from "./skills.types";
+import type { WorkspaceSkillWithMeta } from "./skills.types";
 
 export const skillsContract = c.router({
   list: {
     method: "GET",
     path: "/api/skills",
-    summary: "Retrieve every realm skill enriched with realm + usage info",
+    summary: "Retrieve every workspace skill enriched with workspace + usage info",
     responses: {
-      200: c.type<RealmSkillWithMeta[]>(),
+      200: c.type<WorkspaceSkillWithMeta[]>(),
       ...commonErrorResponses,
     },
   },
@@ -27,9 +27,9 @@ export const skillsContract = c.router({
   create: {
     method: "POST",
     path: "/api/skills",
-    summary: "Create a new skill in a specified realm",
+    summary: "Create a new skill in a specified workspace",
     body: CreateSkillBodySchema,
-    responses: { 201: c.type<RealmSkill>(), ...commonErrorResponses },
+    responses: { 201: c.type<WorkspaceSkill>(), ...commonErrorResponses },
   },
 
   library: {

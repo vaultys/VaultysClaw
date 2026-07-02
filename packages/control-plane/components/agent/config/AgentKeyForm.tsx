@@ -36,7 +36,7 @@ export function AgentKeyForm({ cfg }: { cfg: AgentLlmConfigController }) {
         <label className="text-xs text-foreground-500 uppercase tracking-wider font-medium block mb-1.5">
           Allowed models{" "}
           <span className="normal-case text-foreground-400">
-            (empty = inherit from realm)
+            (empty = inherit from workspace)
           </span>
         </label>
         {keyModels.length > 0 && (

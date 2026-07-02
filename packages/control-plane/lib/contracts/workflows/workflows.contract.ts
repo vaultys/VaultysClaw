@@ -215,7 +215,7 @@ export const workflowsContract = c.router({
         success: boolean;
         workflowId: string;
         name: string;
-        realmId: string;
+        workspaceId: string;
         agents: Array<{ did: string; name: string; capability: string }>;
         nodes: unknown[];
       }>(),

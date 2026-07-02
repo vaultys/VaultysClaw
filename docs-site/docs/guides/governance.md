@@ -17,7 +17,7 @@ The **Governance** dashboard (sidebar → _Governance_) gives a platform-wide vi
 | Panel              | What it shows                                                                       |
 | ------------------ | ----------------------------------------------------------------------------------- |
 | Posture overview   | Active agents, policy coverage %, agents with no policy, intents blocked vs allowed |
-| Policies & Budgets | Create/revoke policies per agent or realm; view active resource limits              |
+| Policies & Budgets | Create/revoke policies per agent or workspace; view active resource limits              |
 | Audit Log          | Unified timeline of auth events, connection changes, and intent outcomes            |
 
 Individual agents also have a dedicated **Governance tab** on their detail page, showing only that agent's active policies.
@@ -36,7 +36,7 @@ A policy grants an agent a set of capabilities and optionally attaches resource 
 
 | Field          | Description                                            |
 | -------------- | ------------------------------------------------------ |
-| `agentDid`     | DID of the target agent (required unless realm-scoped) |
+| `agentDid`     | DID of the target agent (required unless workspace-scoped) |
 | `capabilities` | One or more capabilities to grant                      |
 
 ### Optional fields
@@ -187,7 +187,7 @@ For production deployments, pipe the Pino log output from the control plane proc
 | Method   | Path                         | Auth         | Description                                                       |
 | -------- | ---------------------------- | ------------ | ----------------------------------------------------------------- |
 | `POST`   | `/api/policies`              | Global admin | Create a policy                                                   |
-| `GET`    | `/api/policies`              | Global admin | List policies (filter by `agentDid`, `realmId`, `includeExpired`) |
+| `GET`    | `/api/policies`              | Global admin | List policies (filter by `agentDid`, `workspaceId`, `includeExpired`) |
 | `GET`    | `/api/policies/{id}`         | Global admin | Get a single policy                                               |
 | `DELETE` | `/api/policies/{id}`         | Global admin | Revoke a policy                                                   |
 | `GET`    | `/api/governance/summary`    | Global admin | Platform-wide posture stats                                       |

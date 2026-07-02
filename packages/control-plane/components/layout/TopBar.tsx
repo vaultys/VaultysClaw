@@ -1,5 +1,6 @@
 "use client";
 
+import { useRole } from "@/hooks/useRole";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useSession, signOut } from "next-auth/react";
@@ -64,8 +65,7 @@ export default function TopBar() {
   }, [session?.user]);
 
   const did = (session?.user as { did?: string } | undefined)?.did ?? "";
-  const isOwner = (session?.user as { isOwner?: boolean } | undefined)?.isOwner;
-  const isAdmin = (session?.user as { isAdmin?: boolean } | undefined)?.isAdmin;
+  const { isOwner, isAdmin } = useRole();
 
   const displayLabel = profileName || (did ? shortDid(did) : "Account");
 
@@ -188,7 +188,7 @@ export default function TopBar() {
             {/* Settings link */}
             <button
               onClick={() => {
-                router.push("/settings");
+                router.push("/admin/settings");
                 setOpen(false);
               }}
               className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-foreground-700 hover:text-foreground hover:bg-background-200/60 transition-colors"

@@ -18,7 +18,7 @@ export const BridgeIncomingParamsSchema = z.object({ bridgeId: z.string() });
 
 // ── Queries
 export const ListChannelsQuerySchema = z.object({
-  realm: z.string(),
+  workspace: z.string(),
   includeGlobal: z.coerce.boolean().optional(),
 });
 export const ListMessagesQuerySchema = z.object({
@@ -42,7 +42,7 @@ export const MessageMetadataSchema = z
 export const CreateChannelBodySchema = z.object({
   name: z.string(),
   slug: z.string().optional(),
-  realmId: z.string().optional(),
+  workspaceId: z.string().optional(),
   description: z.string().optional(),
   isPublic: z.boolean().optional(),
   topic: z.string().optional(),

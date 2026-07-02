@@ -1,30 +1,30 @@
 import { getAuthContext } from "@/lib/auth-utils";
 import { APIException } from "@/lib/api/utils/api-utils";
 import { ChannelService } from "@/lib/channel-service";
-import { RealmDAO } from "@/db";
+import { WorkspaceDAO } from "@/db";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 import { channelsContract } from "@/lib/contracts";
 
 const handlers = createNextRoute(channelsContract, {
-  // ── GET /api/channels?realm=<id>&includeGlobal=true ───────────────────────
+  // ── GET /api/channels?workspace=<id>&includeGlobal=true ───────────────────────
   list: async ({ query, request }) => {
     const auth = await getAuthContext(request);
 
-    const realm = await RealmDAO.findById(query.realm);
-    if (!realm) throw new APIException("NOT_FOUND", "Realm not found");
-    if (!(await auth.canAccessRealm(query.realm)))
+    const workspace = await WorkspaceDAO.findById(query.workspace);
+    if (!workspace) throw new APIException("NOT_FOUND", "Workspace not found");
+    if (!(await auth.canAccessWorkspace(query.workspace)))
       throw new APIException("FORBIDDEN");
 
-    const realmChannels = (
-      await ChannelService.listChannels(query.realm)
-    ).filter((c) => c.realmId === query.realm);
+    const workspaceChannels = (
+      await ChannelService.listChannels(query.workspace)
+    ).filter((c) => c.workspaceId === query.workspace);
     const globalChannels = query.includeGlobal
       ? await ChannelService.listGlobalChannels()
       : [];
 
     return {
       status: 200,
-      body: { channels: [...realmChannels, ...globalChannels] },
+      body: { channels: [...workspaceChannels, ...globalChannels] },
     };
   },
 
@@ -34,11 +34,11 @@ const handlers = createNextRoute(channelsContract, {
 
     if (!body.name?.trim()) throw new APIException("MALFORMED", "name is required");
 
-    const realmId = body.realmId || null;
-    if (realmId) {
-      const realm = await RealmDAO.findById(realmId);
-      if (!realm) throw new APIException("NOT_FOUND", "Realm not found");
-      if (!(await auth.canAccessRealm(realmId)))
+    const workspaceId = body.workspaceId || null;
+    if (workspaceId) {
+      const workspace = await WorkspaceDAO.findById(workspaceId);
+      if (!workspace) throw new APIException("NOT_FOUND", "Workspace not found");
+      if (!(await auth.canAccessWorkspace(workspaceId)))
         throw new APIException("FORBIDDEN");
     } else if (!auth.isGlobalAdmin) {
       throw new APIException("FORBIDDEN");
@@ -55,7 +55,7 @@ const handlers = createNextRoute(channelsContract, {
     const channel = await ChannelService.createChannel({
       name: body.name.trim(),
       slug,
-      realmId: realmId || undefined,
+      workspaceId: workspaceId || undefined,
       description: body.description?.trim(),
       isPublic: body.isPublic ?? true,
       topic: body.topic?.trim(),

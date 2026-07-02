@@ -4,6 +4,7 @@
  * Owner-only.
  */
 
+import { isAdminRole } from "@/lib/roles";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-config";
 import { APIException } from "@/lib/api/utils/api-utils";
@@ -29,7 +30,7 @@ const handlers = createNextRoute(usersContract, {
   // ── GET /api/users/:did/grants ────────────────────────────────────────────
   listGrants: async ({ params }) => {
     const session = await getServerSession(authOptions);
-    if (!session?.user?.isAdmin) throw new APIException("FORBIDDEN");
+    if (!isAdminRole(session?.user?.role)) throw new APIException("FORBIDDEN");
 
     const user = await UserDAO.findByDid(params.did);
     if (!user) throw new APIException("NOT_FOUND", "User not found");
@@ -43,7 +44,8 @@ const handlers = createNextRoute(usersContract, {
   // ── POST /api/users/:did/grants ───────────────────────────────────────────
   createGrant: async ({ params, body }) => {
     const session = await getServerSession(authOptions);
-    if (!session?.user?.isAdmin) throw new APIException("FORBIDDEN");
+    if (!session?.user || !isAdminRole(session.user.role))
+      throw new APIException("FORBIDDEN");
 
     const user = await UserDAO.findByDid(params.did);
     if (!user) throw new APIException("NOT_FOUND", "User not found");

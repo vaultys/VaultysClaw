@@ -1,7 +1,8 @@
+import { isAdminRole } from "@/lib/roles";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-config";
 import { getWSServer } from "@/lib/ws-server";
-import { GrantDAO, IntentDAO, RealmDAO } from "@/db";
+import { GrantDAO, IntentDAO, WorkspaceDAO } from "@/db";
 import { getAuthContext } from "@/lib/auth-utils";
 import { APIException } from "@/lib/api/utils/api-utils";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
@@ -18,7 +19,7 @@ const handlers = createNextRoute(intentsContract, {
     const { agentId, action, params, broadcastCapability } = body;
 
     // Non-owner delegation check
-    if (!session.user.isAdmin) {
+    if (!isAdminRole(session.user.role)) {
       if (!session.user.did)
         throw new APIException("FORBIDDEN", "User account does not have a DID");
       const capability = action ?? broadcastCapability;
@@ -51,7 +52,7 @@ const handlers = createNextRoute(intentsContract, {
     const intentId = `intent-${Date.now()}`;
     let sentTo: string[] = [];
     // Pass userDid for delegation verification when the caller is not the owner
-    const intentUserDid = session.user.isAdmin
+    const intentUserDid = isAdminRole(session.user.role)
       ? undefined
       : (session.user.did ?? undefined);
 
@@ -109,13 +110,13 @@ const handlers = createNextRoute(intentsContract, {
 
     let allowedAgentDids: Set<string> | undefined;
     if (!auth.isGlobalAdmin) {
-      if (auth.realmIds.size === 0) {
-        allowedAgentDids = new Set(); // no realms → no agents → no intents
+      if (auth.workspaceIds.size === 0) {
+        allowedAgentDids = new Set(); // no workspaces → no agents → no intents
       } else {
-        const perRealm = await Promise.all(
-          [...auth.realmIds].map((id) => RealmDAO.getAgents(id))
+        const perWorkspace = await Promise.all(
+          [...auth.workspaceIds].map((id) => WorkspaceDAO.getAgents(id))
         );
-        allowedAgentDids = new Set(perRealm.flat().map((ra) => ra.agent.did));
+        allowedAgentDids = new Set(perWorkspace.flat().map((ra) => ra.agent.did));
       }
     }
 

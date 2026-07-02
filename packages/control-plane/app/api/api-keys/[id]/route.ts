@@ -17,8 +17,8 @@ const handlers = createNextRoute(apiKeysContract, {
     const data: {
       name?: string;
       allowedRoutes?: string[];
-      realmId?: string | null;
-      isRealmAdmin?: boolean;
+      workspaceId?: string | null;
+      isWorkspaceAdmin?: boolean;
       expiresAt?: Date | null;
       isActive?: boolean;
     } = {};
@@ -32,8 +32,8 @@ const handlers = createNextRoute(apiKeysContract, {
         throw new APIException("MALFORMED", "allowedRoutes must be a non-empty array");
       data.allowedRoutes = body.allowedRoutes;
     }
-    if (body.realmId !== undefined) data.realmId = body.realmId ?? null;
-    if (body.isRealmAdmin !== undefined) data.isRealmAdmin = body.isRealmAdmin;
+    if (body.workspaceId !== undefined) data.workspaceId = body.workspaceId ?? null;
+    if (body.isWorkspaceAdmin !== undefined) data.isWorkspaceAdmin = body.isWorkspaceAdmin;
     if (body.expiresAt !== undefined)
       data.expiresAt = body.expiresAt ? new Date(body.expiresAt * 1000) : null;
     if (body.isActive !== undefined) data.isActive = body.isActive;

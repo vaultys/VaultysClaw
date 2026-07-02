@@ -12,18 +12,18 @@ import {
   ArrowUpRight,
 } from "lucide-react";
 import { timeAgo, formatCompactNumber } from "@vaultysclaw/shared";
-import { AgentInfo, KnowledgeSource, RealmWithCounts } from "@/lib/contracts";
+import { AgentInfo, KnowledgeSource, WorkspaceWithCounts } from "@/lib/contracts";
 import { StatusBadge, TypeIcon } from "./KnowledgeStatus";
 import { JsonObject } from "@prisma/client/runtime/client";
 
 export function AgentKnowledgeCard({
   agent,
   sources,
-  realms,
+  workspaces,
 }: {
   agent: AgentInfo;
   sources: KnowledgeSource[];
-  realms: RealmWithCounts[];
+  workspaces: WorkspaceWithCounts[];
 }) {
   const [expanded, setExpanded] = useState(true);
 
@@ -31,7 +31,7 @@ export function AgentKnowledgeCard({
   const readyCount = sources.filter((s) => s.status === "ready").length;
   const errorCount = sources.filter((s) => s.status === "error").length;
 
-  const realmName = (id: string) => realms.find((r) => r.id === id)?.name ?? id;
+  const workspaceName = (id: string) => workspaces.find((r) => r.id === id)?.name ?? id;
 
   return (
     <div className="rounded-2xl border border-neutral-200 bg-background-100 overflow-hidden">
@@ -99,7 +99,7 @@ export function AgentKnowledgeCard({
 
         {/* Manage link */}
         <Link
-          href={`/agents/${encodeURIComponent(agent.did)}`}
+          href={`/admin/agents/${encodeURIComponent(agent.did)}`}
           onClick={(e) => e.stopPropagation()}
           className="flex items-center gap-1 text-xs text-primary-500 hover:text-primary-400 transition-colors shrink-0 ml-2"
           title="Manage on agent page"
@@ -123,7 +123,7 @@ export function AgentKnowledgeCard({
                 No knowledge sources configured for this agent.
               </p>
               <Link
-                href={`/agents/${encodeURIComponent(agent.did)}`}
+                href={`/admin/agents/${encodeURIComponent(agent.did)}`}
                 className="text-xs text-primary-500 hover:text-primary-400 mt-1 inline-flex items-center gap-1"
               >
                 Add sources on the agent page <ArrowUpRight size={11} />
@@ -135,7 +135,7 @@ export function AgentKnowledgeCard({
                 <tr className="text-foreground-500 text-xs uppercase tracking-wider border-b border-neutral-200/40 bg-background/60">
                   <th className="text-left px-4 py-2 font-medium">Source</th>
                   <th className="text-left px-4 py-2 font-medium hidden md:table-cell">
-                    Realm
+                    Workspace
                   </th>
                   <th className="text-left px-4 py-2 font-medium">Status</th>
                   <th className="text-left px-4 py-2 font-medium hidden sm:table-cell">
@@ -178,7 +178,7 @@ export function AgentKnowledgeCard({
                       <td className="px-4 py-2.5 hidden md:table-cell">
                         <span className="flex items-center gap-1.5 text-xs text-foreground-500">
                           <Globe2 size={11} className="shrink-0" />
-                          {realmName(source.realmId)}
+                          {workspaceName(source.workspaceId)}
                         </span>
                       </td>
                       <td className="px-4 py-2.5">

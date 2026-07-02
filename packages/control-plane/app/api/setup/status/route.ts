@@ -1,7 +1,7 @@
 import { getSmtpConfig } from "@/lib/smtp";
 import { getAuthContext } from "@/lib/auth-utils";
 import { APIException } from "@/lib/api/utils/api-utils";
-import { AgentDAO, ModelDAO, RealmDAO } from "@/db";
+import { AgentDAO, ModelDAO, WorkspaceDAO } from "@/db";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 import { setupContract } from "@/lib/contracts";
 
@@ -12,9 +12,9 @@ const handlers = createNextRoute(setupContract, {
     if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");
 
     const allAgents = await AgentDAO.findAll();
-    const defaultRealm = await RealmDAO.findDefault();
-    const realmUsers = defaultRealm
-      ? await RealmDAO.getUsers(defaultRealm.id)
+    const defaultWorkspace = await WorkspaceDAO.findDefault();
+    const workspaceUsers = defaultWorkspace
+      ? await WorkspaceDAO.getUsers(defaultWorkspace.id)
       : [];
 
     return {
@@ -23,7 +23,7 @@ const handlers = createNextRoute(setupContract, {
         status: {
           model: (await ModelDAO.findAll()).length > 0,
           email: getSmtpConfig() !== null,
-          users: realmUsers.length > 1, // More than just the admin
+          users: workspaceUsers.length > 1, // More than just the admin
           agent: allAgents.length > 0,
         },
       },

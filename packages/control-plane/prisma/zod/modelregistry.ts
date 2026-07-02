@@ -1,5 +1,5 @@
 import * as z from "zod"
-import { CompleteModelRealmAccess, RelatedModelRealmAccessModel } from "./index"
+import { CompleteModelWorkspaceAccess, RelatedModelWorkspaceAccessModel } from "./index"
 
 // Helper schema for JSON fields
 type Literal = boolean | number | string
@@ -24,7 +24,7 @@ export const ModelRegistryModel = z.object({
 })
 
 export interface CompleteModelRegistry extends z.infer<typeof ModelRegistryModel> {
-  realmAccess: CompleteModelRealmAccess[]
+  workspaceAccess: CompleteModelWorkspaceAccess[]
 }
 
 /**
@@ -33,5 +33,5 @@ export interface CompleteModelRegistry extends z.infer<typeof ModelRegistryModel
  * NOTE: Lazy required in case of potential circular dependencies within schema
  */
 export const RelatedModelRegistryModel: z.ZodSchema<CompleteModelRegistry> = z.lazy(() => ModelRegistryModel.extend({
-  realmAccess: RelatedModelRealmAccessModel.array(),
+  workspaceAccess: RelatedModelWorkspaceAccessModel.array(),
 }))

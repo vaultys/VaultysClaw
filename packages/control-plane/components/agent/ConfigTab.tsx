@@ -11,7 +11,7 @@ import { ManualConfigForm } from "./config/ManualConfigForm";
 import { ModelPickerForm } from "./config/ModelPickerForm";
 import { ModeSelector } from "./config/ModeSelector";
 import { NoConfigView } from "./config/NoConfigView";
-import { RealmRoutingForm } from "./config/RealmRoutingForm";
+import { WorkspaceRoutingForm } from "./config/WorkspaceRoutingForm";
 import { ReportedLlmBanner } from "./config/ReportedLlmBanner";
 
 export function ConfigTab({
@@ -38,8 +38,8 @@ export function ConfigTab({
     configMode,
     setConfigMode,
     litellmConfigured,
-    hasRealmRouting,
-    realmLlmData,
+    hasWorkspaceRouting,
+    workspaceLlmData,
     registryModels,
     liteLlmModels,
     activeIsAgentKey,
@@ -68,12 +68,12 @@ export function ConfigTab({
       hint: "LiteLLM proxy not configured",
     },
     {
-      id: "realm",
-      label: "Realm Routing",
-      disabled: !hasRealmRouting,
-      hint: !realmLlmData?.litellmConfigured
+      id: "workspace",
+      label: "Workspace Routing",
+      disabled: !hasWorkspaceRouting,
+      hint: !workspaceLlmData?.litellmConfigured
         ? "LiteLLM not configured"
-        : "no models in realm",
+        : "no models in workspace",
     },
     {
       id: "model",
@@ -102,7 +102,7 @@ export function ConfigTab({
       <ConfirmModal
         open={showRevokeConfirm}
         title="Revoke agent key"
-        message="The agent's LiteLLM virtual key will be removed. It will fall back to the realm key (or manual config if set)."
+        message="The agent's LiteLLM virtual key will be removed. It will fall back to the workspace key (or manual config if set)."
         confirmLabel="Revoke key"
         variant="danger"
         loading={revoking}
@@ -167,7 +167,7 @@ export function ConfigTab({
             )}
 
             {configMode === "agent-key" && <AgentKeyForm cfg={cfg} />}
-            {configMode === "realm" && <RealmRoutingForm cfg={cfg} />}
+            {configMode === "workspace" && <WorkspaceRoutingForm cfg={cfg} />}
             {configMode === "model" && <ModelPickerForm cfg={cfg} />}
             {configMode === "manual" && <ManualConfigForm cfg={cfg} />}
           </div>
@@ -178,7 +178,7 @@ export function ConfigTab({
         ) : (
           <NoConfigView
             litellmConfigured={litellmConfigured}
-            hasRealmRouting={hasRealmRouting}
+            hasWorkspaceRouting={hasWorkspaceRouting}
             registryModelCount={registryModels.length}
           />
         )}

@@ -1,12 +1,12 @@
 ---
 sidebar_position: 9
 title: Skills
-description: API endpoints for managing realm skills and token usage statistics.
+description: API endpoints for managing workspace skills and token usage statistics.
 ---
 
 # Skills API
 
-Skills are reusable agent-behaviour packages attached to realms. Their Markdown `content` is injected into agent system prompts at runtime.
+Skills are reusable agent-behaviour packages attached to workspaces. Their Markdown `content` is injected into agent system prompts at runtime.
 
 See the [Skills guide](/docs/guides/skills) for a conceptual overview.
 
@@ -20,7 +20,7 @@ GET /api/skills
 
 **Auth:** Global admin only.
 
-Returns every skill across all realms, with realm metadata and counters.
+Returns every skill across all workspaces, with workspace metadata and counters.
 
 ### Response `200 OK`
 
@@ -28,8 +28,8 @@ Returns every skill across all realms, with realm metadata and counters.
 [
   {
     "id": "sk_01HZ...",
-    "realm_id": "realm_01HZ...",
-    "realm_name": "Engineering",
+    "workspace_id": "workspace_01HZ...",
+    "workspace_name": "Engineering",
     "name": "code-review",
     "description": "Guidelines for reviewing pull requests",
     "version": "1.2.0",
@@ -45,7 +45,7 @@ Returns every skill across all realms, with realm metadata and counters.
 
 | Field            | Description                                             |
 | ---------------- | ------------------------------------------------------- |
-| `agent_count`    | Number of agents currently enrolled in this realm       |
+| `agent_count`    | Number of agents currently enrolled in this workspace       |
 | `override_count` | Number of per-agent overrides configured for this skill |
 
 ---
@@ -62,7 +62,7 @@ POST /api/skills
 
 ```json
 {
-  "realmId": "realm_01HZ...",
+  "workspaceId": "workspace_01HZ...",
   "name": "customer-support",
   "description": "Friendly support agent persona",
   "version": "1.0.0",
@@ -74,8 +74,8 @@ POST /api/skills
 
 | Field         | Type    | Required | Description                                                                            |
 | ------------- | ------- | -------- | -------------------------------------------------------------------------------------- |
-| `realmId`     | string  | Yes      | ID of the realm to attach the skill to                                                 |
-| `name`        | string  | Yes      | Unique within the realm — used to deduplicate when an agent belongs to multiple realms |
+| `workspaceId`     | string  | Yes      | ID of the workspace to attach the skill to                                                 |
+| `name`        | string  | Yes      | Unique within the workspace — used to deduplicate when an agent belongs to multiple workspaces |
 | `description` | string  | No       | Human-readable summary                                                                 |
 | `version`     | string  | No       | Semver string (informational only)                                                     |
 | `isRequired`  | boolean | No       | Default `false`. If `true`, agents cannot opt out                                      |
@@ -89,7 +89,7 @@ Returns the raw DB row:
 ```json
 {
   "id": "sk_01HZ...",
-  "realm_id": "realm_01HZ...",
+  "workspace_id": "workspace_01HZ...",
   "name": "customer-support",
   "description": "Friendly support agent persona",
   "version": "1.0.0",
@@ -104,19 +104,19 @@ Returns the raw DB row:
 
 | Status | Condition                                           |
 | ------ | --------------------------------------------------- |
-| `400`  | `realmId` missing, `name` missing or blank          |
-| `404`  | Realm not found                                     |
-| `409`  | A skill with this name already exists in this realm |
+| `400`  | `workspaceId` missing, `name` missing or blank          |
+| `404`  | Workspace not found                                     |
+| `409`  | A skill with this name already exists in this workspace |
 
 ---
 
 ## Get skill detail
 
 ```http
-GET /api/realms/:id/skills/:skillId
+GET /api/workspaces/:id/skills/:skillId
 ```
 
-**Auth:** Any member of realm `:id`.
+**Auth:** Any member of workspace `:id`.
 
 ### Response `200 OK`
 
@@ -124,7 +124,7 @@ GET /api/realms/:id/skills/:skillId
 {
   "skill": {
     "id": "sk_01HZ...",
-    "realmId": "realm_01HZ...",
+    "workspaceId": "workspace_01HZ...",
     "name": "customer-support",
     "description": "Friendly support agent persona",
     "version": "1.0.0",
@@ -141,18 +141,18 @@ Note: `config` is returned as a parsed object. The `content` field is not includ
 
 | Status | Condition                                        |
 | ------ | ------------------------------------------------ |
-| `403`  | Caller is not a member of this realm             |
-| `404`  | Skill not found, or belongs to a different realm |
+| `403`  | Caller is not a member of this workspace             |
+| `404`  | Skill not found, or belongs to a different workspace |
 
 ---
 
 ## Update a skill
 
 ```http
-PATCH /api/realms/:id/skills/:skillId
+PATCH /api/workspaces/:id/skills/:skillId
 ```
 
-**Auth:** Realm admin or global admin.
+**Auth:** Workspace admin or global admin.
 
 All body fields are optional — only the fields you include are updated.
 
@@ -180,19 +180,19 @@ All body fields are optional — only the fields you include are updated.
 
 Returns the updated skill in camelCase format (same shape as GET).
 
-After a successful PATCH, the control plane broadcasts a `skills_config` update to all connected agents in this realm — they receive the new content immediately.
+After a successful PATCH, the control plane broadcasts a `skills_config` update to all connected agents in this workspace — they receive the new content immediately.
 
 ---
 
 ## Delete a skill
 
 ```http
-DELETE /api/realms/:id/skills/:skillId
+DELETE /api/workspaces/:id/skills/:skillId
 ```
 
-**Auth:** Realm admin or global admin.
+**Auth:** Workspace admin or global admin.
 
-Removes the skill from the realm. Connected agents receive a `skills_config` broadcast and stop injecting this skill's content into their prompts.
+Removes the skill from the workspace. Connected agents receive a `skills_config` broadcast and stop injecting this skill's content into their prompts.
 
 ### Response `200 OK`
 
@@ -204,7 +204,7 @@ Removes the skill from the realm. Connected agents receive a `skills_config` bro
 
 | Status | Condition                   |
 | ------ | --------------------------- |
-| `403`  | Caller is not a realm admin |
+| `403`  | Caller is not a workspace admin |
 | `404`  | Skill not found             |
 
 ---

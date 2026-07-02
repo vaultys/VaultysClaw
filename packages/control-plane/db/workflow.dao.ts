@@ -14,16 +14,16 @@ export class WorkflowDAO {
     name: string,
     definition: Prisma.InputJsonValue,
     createdBy?: string,
-    realmId?: string,
+    workspaceId?: string,
     description?: string
   ): Promise<Workflow> {
     const id = crypto.randomUUID();
-    // "default" is a client-side sentinel meaning "no explicit realm".
-    const explicitRealmId =
-      realmId && realmId !== "default" ? realmId : undefined;
-    const defaultRealm = explicitRealmId
+    // "default" is a client-side sentinel meaning "no explicit workspace".
+    const explicitWorkspaceId =
+      workspaceId && workspaceId !== "default" ? workspaceId : undefined;
+    const defaultWorkspace = explicitWorkspaceId
       ? null
-      : await prisma.realm.findFirst({ where: { isDefault: true } });
+      : await prisma.workspace.findFirst({ where: { isDefault: true } });
     return await prisma.workflow.create({
       data: {
         id,
@@ -31,7 +31,7 @@ export class WorkflowDAO {
         description: description ?? null,
         definition: definition,
         createdBy: createdBy ?? null,
-        realmId: explicitRealmId ?? defaultRealm?.id ?? null,
+        workspaceId: explicitWorkspaceId ?? defaultWorkspace?.id ?? null,
       },
     });
   }
@@ -42,12 +42,12 @@ export class WorkflowDAO {
 
   static async list(opts?: {
     createdBy?: string;
-    realmId?: string;
+    workspaceId?: string;
   }): Promise<Workflow[]> {
     return prisma.workflow.findMany({
       where: {
         ...(opts?.createdBy && { createdBy: opts.createdBy }),
-        ...(opts?.realmId && { realmId: opts.realmId }),
+        ...(opts?.workspaceId && { workspaceId: opts.workspaceId }),
       },
       orderBy: { createdAt: "desc" },
     });
@@ -59,22 +59,22 @@ export class WorkflowDAO {
       name?: string;
       description?: string;
       definition?: Prisma.InputJsonValue;
-      realmId?: string;
+      workspaceId?: string;
     }
   ): Promise<Workflow> {
-    // "default" is a client-side sentinel meaning the default realm; resolve it
-    // to the real realm id (or leave the field unchanged if none exists).
-    let realmId = data.realmId;
-    if (realmId === "default") {
-      const defaultRealm = await prisma.realm.findFirst({
+    // "default" is a client-side sentinel meaning the default workspace; resolve it
+    // to the real workspace id (or leave the field unchanged if none exists).
+    let workspaceId = data.workspaceId;
+    if (workspaceId === "default") {
+      const defaultWorkspace = await prisma.workspace.findFirst({
         where: { isDefault: true },
       });
-      realmId = defaultRealm?.id;
+      workspaceId = defaultWorkspace?.id;
     }
     return await prisma.workflow.update({
       where: { id },
       data: {
-        realmId,
+        workspaceId,
         name: data.name,
         description: data.description,
         definition: data.definition,
@@ -167,8 +167,8 @@ export class WorkflowDAO {
     pageSize?: number;
     sortBy?: "startedAt" | "completedAt";
     sortDir?: "asc" | "desc";
-    /** When set, only return runs whose workflow belongs to one of these realms. */
-    realmIds?: Set<string>;
+    /** When set, only return runs whose workflow belongs to one of these workspaces. */
+    workspaceIds?: Set<string>;
   }): Promise<{
     runs: (WorkflowRun & { workflowName: string })[];
     total: number;
@@ -183,7 +183,7 @@ export class WorkflowDAO {
       pageSize = 20,
       sortBy = "startedAt",
       sortDir = "desc",
-      realmIds,
+      workspaceIds,
     } = opts;
 
     const where: Prisma.WorkflowRunWhereInput = {
@@ -191,11 +191,11 @@ export class WorkflowDAO {
       ...(status && { status }),
     };
 
-    if (realmIds !== undefined) {
-      if (realmIds.size === 0) {
-        where.workflowId = { in: [] }; // user has no realms → no runs
+    if (workspaceIds !== undefined) {
+      if (workspaceIds.size === 0) {
+        where.workflowId = { in: [] }; // user has no workspaces → no runs
       } else {
-        where.workflow = { realmId: { in: Array.from(realmIds) } };
+        where.workflow = { workspaceId: { in: Array.from(workspaceIds) } };
       }
     }
     const orderBy: Prisma.WorkflowRunOrderByWithRelationInput =

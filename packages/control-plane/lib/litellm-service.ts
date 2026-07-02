@@ -6,7 +6,7 @@
  *
  * The "service" here is the connection to the LiteLLM proxy — i.e. having a
  * valid base URL + master key loaded into the litellm-client module so that
- * model registration, realm key generation, etc. all work.
+ * model registration, workspace key generation, etc. all work.
  */
 
 import pino from "pino";

@@ -87,19 +87,19 @@ export function RegisteredUsersTable({
                       </span>
                     )}
                   </span>
-                  {u.realms.length > 0 && (
+                  {u.workspaces.length > 0 && (
                     <div className="flex flex-wrap gap-1 mt-0.5">
-                      {u.realms.map((r) => (
+                      {u.workspaces.map((r) => (
                         <span
-                          key={r.realmId}
+                          key={r.workspaceId}
                           className="inline-flex items-center text-xs px-1.5 py-0.5 rounded-md"
                           style={{
-                            backgroundColor: r.realm.color + "22",
-                            color: r.realm.color,
-                            border: `1px solid ${r.realm.color}44`,
+                            backgroundColor: r.workspace.color + "22",
+                            color: r.workspace.color,
+                            border: `1px solid ${r.workspace.color}44`,
                           }}
                         >
-                          {r.realm.name}
+                          {r.workspace.name}
                         </span>
                       ))}
                     </div>

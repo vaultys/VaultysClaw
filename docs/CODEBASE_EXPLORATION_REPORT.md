@@ -1,132 +1,132 @@
 # VaultysClaw Codebase Exploration Report
 
 **Date:** May 13, 2026  
-**Focus:** Realm Structure, Agent Management, and Workflow Integration
+**Focus:** Workspace Structure, Agent Management, and Workflow Integration
 
 ---
 
-## 1. REALM STRUCTURE & ARCHITECTURE
+## 1. WORKSPACE STRUCTURE & ARCHITECTURE
 
 ### Database Schema
 
-Realms are stored in a dedicated `realms` table with the following structure:
+Workspaces are stored in a dedicated `workspaces` table with the following structure:
 
 ```sql
-CREATE TABLE realms (
+CREATE TABLE workspaces (
   id TEXT PRIMARY KEY,                  -- UUID
   name TEXT NOT NULL,                   -- "Engineering", "Security Ops", etc.
   slug TEXT NOT NULL UNIQUE,            -- "engineering", "security-ops", etc. (URL-friendly)
-  description TEXT,                     -- Long description of realm purpose
+  description TEXT,                     -- Long description of workspace purpose
   color TEXT NOT NULL DEFAULT '#6366f1',-- Hex color for UI
-  is_default INTEGER NOT NULL DEFAULT 0,-- Boolean: one default realm must exist
-  llm_config TEXT DEFAULT NULL,         -- JSON LLM config (per-realm settings)
+  is_default INTEGER NOT NULL DEFAULT 0,-- Boolean: one default workspace must exist
+  llm_config TEXT DEFAULT NULL,         -- JSON LLM config (per-workspace settings)
   default_capabilities TEXT NOT NULL DEFAULT '[]', -- JSON array of default agent capabilities
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 ```
 
-### Realm Characteristics
+### Workspace Characteristics
 
 | Property                 | Type       | Purpose                                            |
 | ------------------------ | ---------- | -------------------------------------------------- |
 | **id**                   | UUID       | Primary key                                        |
 | **name**                 | String     | Display name for UI                                |
 | **slug**                 | String     | URL-friendly identifier (UNIQUE)                   |
-| **description**          | String     | Explains realm's purpose                           |
+| **description**          | String     | Explains workspace's purpose                           |
 | **color**                | Hex color  | UI theming                                         |
-| **is_default**           | Boolean    | Exactly ONE realm must be default                  |
-| **llm_config**           | JSON       | Can override global LLM settings per realm         |
-| **default_capabilities** | JSON array | Default capabilities for agents joining this realm |
+| **is_default**           | Boolean    | Exactly ONE workspace must be default                  |
+| **llm_config**           | JSON       | Can override global LLM settings per workspace         |
+| **default_capabilities** | JSON array | Default capabilities for agents joining this workspace |
 | **created_at**           | Timestamp  | Audit trail                                        |
 
-### Realm Operations (lib/db.ts)
+### Workspace Operations (lib/db.ts)
 
 ```typescript
 // Query operations
-getAllRealms()                  // All realms, sorted by is_default DESC, name ASC
-getRealmById(id: string)       // Single realm by UUID
-getRealmBySlug(slug: string)   // Single realm by slug
-getDefaultRealm()              // The one default realm
+getAllWorkspaces()                  // All workspaces, sorted by is_default DESC, name ASC
+getWorkspaceById(id: string)       // Single workspace by UUID
+getWorkspaceBySlug(slug: string)   // Single workspace by slug
+getDefaultWorkspace()              // The one default workspace
 
 // Mutations
-createRealm(data)              // Create with name, slug, description, color
-updateRealm(id, updates)       // Update name, slug, description, color, llm_config, default_capabilities
-deleteRealm(id)                // Delete (fails if is_default=1)
-setDefaultRealm(id)            // Atomic: set one as default, unset others
+createWorkspace(data)              // Create with name, slug, description, color
+updateWorkspace(id, updates)       // Update name, slug, description, color, llm_config, default_capabilities
+deleteWorkspace(id)                // Delete (fails if is_default=1)
+setDefaultWorkspace(id)            // Atomic: set one as default, unset others
 ```
 
 ### API Endpoints
 
 | Endpoint                  | Method | Purpose                                             |
 | ------------------------- | ------ | --------------------------------------------------- |
-| `/api/realms`             | GET    | List all realms with member counts (agents + users) |
-| `/api/realms`             | POST   | Create new realm                                    |
-| `/api/realms/[id]`        | GET    | Get realm detail + agents + users + token usage     |
-| `/api/realms/[id]`        | PATCH  | Update realm metadata                               |
-| `/api/realms/[id]`        | DELETE | Delete realm (blocks default)                       |
-| `/api/realms/[id]/agents` | GET    | (implied) Get agents in realm                       |
-| `/api/realms/[id]/agents` | POST   | Add agent to realm                                  |
-| `/api/realms/[id]/agents` | DELETE | Remove agent from realm                             |
-| `/api/realms/[id]/users`  | GET    | Get users in realm                                  |
-| `/api/realms/[id]/users`  | POST   | Add user to realm                                   |
-| `/api/realms/[id]/users`  | DELETE | Remove user from realm                              |
+| `/api/workspaces`             | GET    | List all workspaces with member counts (agents + users) |
+| `/api/workspaces`             | POST   | Create new workspace                                    |
+| `/api/workspaces/[id]`        | GET    | Get workspace detail + agents + users + token usage     |
+| `/api/workspaces/[id]`        | PATCH  | Update workspace metadata                               |
+| `/api/workspaces/[id]`        | DELETE | Delete workspace (blocks default)                       |
+| `/api/workspaces/[id]/agents` | GET    | (implied) Get agents in workspace                       |
+| `/api/workspaces/[id]/agents` | POST   | Add agent to workspace                                  |
+| `/api/workspaces/[id]/agents` | DELETE | Remove agent from workspace                             |
+| `/api/workspaces/[id]/users`  | GET    | Get users in workspace                                  |
+| `/api/workspaces/[id]/users`  | POST   | Add user to workspace                                   |
+| `/api/workspaces/[id]/users`  | DELETE | Remove user from workspace                              |
 
 ---
 
-## 2. HOW DATA IS ASSOCIATED WITH REALMS
+## 2. HOW DATA IS ASSOCIATED WITH WORKSPACES
 
-### Agent-Realm Association
+### Agent-Workspace Association
 
-Agents are linked to realms via a **many-to-many junction table**:
+Agents are linked to workspaces via a **many-to-many junction table**:
 
 ```sql
-CREATE TABLE agent_realms (
+CREATE TABLE agent_workspaces (
   agent_did TEXT NOT NULL REFERENCES agents(did) ON DELETE CASCADE,
-  realm_id TEXT NOT NULL REFERENCES realms(id) ON DELETE CASCADE,
-  is_primary INTEGER NOT NULL DEFAULT 0,    -- Agent's primary realm
+  workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+  is_primary INTEGER NOT NULL DEFAULT 0,    -- Agent's primary workspace
   joined_at TEXT NOT NULL DEFAULT (datetime('now')),
-  PRIMARY KEY (agent_did, realm_id)
+  PRIMARY KEY (agent_did, workspace_id)
 );
 ```
 
 **Key Points:**
 
-- An agent can belong to **multiple realms**
-- One realm is marked as **primary** (the agent's "home")
-- When an agent registers, it's auto-enrolled in the **default realm** as primary
-- Cross-realm memberships happen via explicit API calls
+- An agent can belong to **multiple workspaces**
+- One workspace is marked as **primary** (the agent's "home")
+- When an agent registers, it's auto-enrolled in the **default workspace** as primary
+- Cross-workspace memberships happen via explicit API calls
 
 **Functions:**
 
 ```typescript
-getAgentRealms(agentDid); // Returns RealmMembershipRow[]
-addAgentToRealm(agentDid, realmId, isPrimary); // Add/update membership
-removeAgentFromRealm(agentDid, realmId); // Remove (fails for default)
-getRealmAgents(realmId); // Get all agents in a realm
-enrollInDefaultRealm("agent", did); // Auto-enroll after registration
+getAgentWorkspaces(agentDid); // Returns WorkspaceMembershipRow[]
+addAgentToWorkspace(agentDid, workspaceId, isPrimary); // Add/update membership
+removeAgentFromWorkspace(agentDid, workspaceId); // Remove (fails for default)
+getWorkspaceAgents(workspaceId); // Get all agents in a workspace
+enrollInDefaultWorkspace("agent", did); // Auto-enroll after registration
 ```
 
-### User-Realm Association
+### User-Workspace Association
 
 Users follow the same pattern:
 
 ```sql
-CREATE TABLE user_realms (
+CREATE TABLE user_workspaces (
   user_did TEXT NOT NULL REFERENCES users(did) ON DELETE CASCADE,
-  realm_id TEXT NOT NULL REFERENCES realms(id) ON DELETE CASCADE,
+  workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
   is_primary INTEGER NOT NULL DEFAULT 0,
   joined_at TEXT NOT NULL DEFAULT (datetime('now')),
-  PRIMARY KEY (user_did, realm_id)
+  PRIMARY KEY (user_did, workspace_id)
 );
 ```
 
 **Functions:**
 
 ```typescript
-getUserRealms(userDid);
-addUserToRealm(userDid, realmId, isPrimary);
-removeUserFromRealm(userDid, realmId);
-getRealmUsers(realmId);
+getUserWorkspaces(userDid);
+addUserToWorkspace(userDid, workspaceId, isPrimary);
+removeUserFromWorkspace(userDid, workspaceId);
+getWorkspaceUsers(workspaceId);
 ```
 
 ---
@@ -191,9 +191,9 @@ CREATE TABLE agents (
       "lastHeartbeat": "2026-05-13T10:00:00Z",
       "reportedLlm": null,
       "tokenUsage": null,
-      "realms": [
+      "workspaces": [
         {
-          "id": "realm-123",
+          "id": "workspace-123",
           "name": "Engineering",
           "slug": "engineering",
           "color": "#6366f1",
@@ -210,9 +210,9 @@ CREATE TABLE agents (
 **Key Observations:**
 
 - Returns agents from **both DB and live WebSocket** connections
-- Includes **realm memberships** with is_primary flag
+- Includes **workspace memberships** with is_primary flag
 - Shows **online status** + live metadata (heartbeat, reported LLM, token usage)
-- ⚠️ **NO realm-specific filtering** — returns all agents globally
+- ⚠️ **NO workspace-specific filtering** — returns all agents globally
 
 ---
 
@@ -386,40 +386,40 @@ if (agentId === "@mock-agent") {
 
 ---
 
-## 6. ⚠️ CRITICAL GAP: WORKFLOWS NOT INTEGRATED WITH REALMS
+## 6. ⚠️ CRITICAL GAP: WORKFLOWS NOT INTEGRATED WITH WORKSPACES
 
 ### Current State
 
-**Workflows have NO realm association:**
+**Workflows have NO workspace association:**
 
-- ❌ No `realm_id` column in workflows table
-- ❌ No realm-based filtering in workflow endpoints
+- ❌ No `workspace_id` column in workflows table
+- ❌ No workspace-based filtering in workflow endpoints
 - ❌ No access control (who can create/view/execute workflows)
-- ❌ No realm-specific workflow discovery
-- ❌ No indication which agents are available in a workflow's realm
+- ❌ No workspace-specific workflow discovery
+- ❌ No indication which agents are available in a workflow's workspace
 
 ### What This Means
 
-1. **Workflows are Global** — Not scoped to any realm
-2. **Agent Selection is Manual** — No automatic filtering by realm
-3. **No Realm-Based Access Control** — Can't restrict workflows to realms
-4. **Agent Availability Unknown** — No verification agents belong to workflow's realm
+1. **Workflows are Global** — Not scoped to any workspace
+2. **Agent Selection is Manual** — No automatic filtering by workspace
+3. **No Workspace-Based Access Control** — Can't restrict workflows to workspaces
+4. **Agent Availability Unknown** — No verification agents belong to workflow's workspace
 
 ### Required Integrations for MVP
 
-**To associate workflows with realms:**
+**To associate workflows with workspaces:**
 
-1. Add `realm_id` column to workflows table
-2. Filter workflows by realm in API endpoints
-3. Add realm-based access control checks
-4. Filter available agents by realm membership in workflow execution
+1. Add `workspace_id` column to workflows table
+2. Filter workflows by workspace in API endpoints
+3. Add workspace-based access control checks
+4. Filter available agents by workspace membership in workflow execution
 
 **To enable real agent execution:**
 
 1. Implement agent lookup by DID (from WebSocket server or DB)
 2. Send task messages to agents via WebSocket
 3. Handle agent responses and timeout scenarios
-4. Track token usage per agent/realm
+4. Track token usage per agent/workspace
 5. Support fallback agents if primary is unavailable
 
 ---
@@ -428,9 +428,9 @@ if (agentId === "@mock-agent") {
 
 The system comes with realistic demo data (demo/seed.ts):
 
-### 8 Enterprise Realms
+### 8 Enterprise Workspaces
 
-| Realm                   | Slug             | Default Capabilities                                  | Color   |
+| Workspace                   | Slug             | Default Capabilities                                  | Color   |
 | ----------------------- | ---------------- | ----------------------------------------------------- | ------- |
 | Engineering             | engineering      | code_execution, file_access, api_call                 | #6366f1 |
 | Security Operations     | security-ops     | internet_access, api_call, system_command             | #ef4444 |
@@ -443,10 +443,10 @@ The system comes with realistic demo data (demo/seed.ts):
 
 ### Agent Distribution
 
-- **~500 total agents** across realms
-- Each realm has 8+ agent archetypes (e.g., Engineering has: code-review, test-runner, docs-writer, pr-assistant, etc.)
-- Each agent has specific capabilities matching realm specialization
-- **~400 agent peer-grants** — cross-realm delegation edges
+- **~500 total agents** across workspaces
+- Each workspace has 8+ agent archetypes (e.g., Engineering has: code-review, test-runner, docs-writer, pr-assistant, etc.)
+- Each agent has specific capabilities matching workspace specialization
+- **~400 agent peer-grants** — cross-workspace delegation edges
 - **~200 user grants** — user → agent permissions
 
 ### Users & Organization
@@ -454,7 +454,7 @@ The system comes with realistic demo data (demo/seed.ts):
 - **~80 users** with realistic org hierarchy
 - Reports-to relationships (manager chains)
 - Various roles (members, admins, owners)
-- Distributed across realms
+- Distributed across workspaces
 
 ---
 
@@ -462,25 +462,25 @@ The system comes with realistic demo data (demo/seed.ts):
 
 ### What's Already Built ✅
 
-1. **Multi-realm architecture** with proper schema
+1. **Multi-workspace architecture** with proper schema
 2. **Agent registry** with capability tracking
 3. **Workflow definition & execution engine** (mock agents)
-4. **Token usage tracking** per agent and realm
+4. **Token usage tracking** per agent and workspace
 5. **Comprehensive database schema** with proper indexing
 6. **API endpoints** for most CRUD operations
 
 ### What Needs to Be Added ⚠️
 
-1. **Realm-workflow association** (schema + APIs)
+1. **Workspace-workflow association** (schema + APIs)
 2. **Real agent execution** in workflows (not just mock)
-3. **Agent availability filtering** by realm in workflow UX
-4. **Realm-based access control** for workflows
-5. **Agent-to-agent communication** for cross-realm delegation
+3. **Agent availability filtering** by workspace in workflow UX
+4. **Workspace-based access control** for workflows
+5. **Agent-to-agent communication** for cross-workspace delegation
 6. **Workflow result persistence** and history
 
 ### Architecture Strengths 💪
 
-- Clean separation: realms, agents, users, workflows are all independent
+- Clean separation: workspaces, agents, users, workflows are all independent
 - Proper foreign key relationships with CASCADE deletes
 - Indexes on frequently-queried columns
 - JSON storage for flexible configs (LLM, capabilities)
@@ -489,6 +489,6 @@ The system comes with realistic demo data (demo/seed.ts):
 ### For Integration with Agents in Workflows
 
 1. **Agent lookup:** Use `getWSServer().getAgent(agentDid)` from [lib/ws-server.ts](lib/ws-server.ts)
-2. **Agent list:** `GET /api/agents?realm=[id]` — needs filtering implementation
+2. **Agent list:** `GET /api/agents?workspace=[id]` — needs filtering implementation
 3. **Real execution:** Implement agent message protocol (WebSocket RPC)
-4. **Realm scoping:** Add workflow filtering by user's realm membership
+4. **Workspace scoping:** Add workflow filtering by user's workspace membership

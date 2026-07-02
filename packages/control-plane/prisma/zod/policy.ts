@@ -1,5 +1,5 @@
 import * as z from "zod"
-import { CompleteRealm, RelatedRealmModel } from "./index"
+import { CompleteWorkspace, RelatedWorkspaceModel } from "./index"
 
 // Helper schema for JSON fields
 type Literal = boolean | number | string
@@ -10,7 +10,7 @@ const jsonSchema: z.ZodSchema<Json> = z.lazy(() => z.union([literalSchema, z.arr
 export const PolicyModel = z.object({
   id: z.string(),
   agentDid: z.string().nullish(),
-  realmId: z.string().nullish(),
+  workspaceId: z.string().nullish(),
   capabilities: jsonSchema,
   resourceLimits: jsonSchema,
   expiresAt: z.date().nullish(),
@@ -19,7 +19,7 @@ export const PolicyModel = z.object({
 })
 
 export interface CompletePolicy extends z.infer<typeof PolicyModel> {
-  realm?: CompleteRealm | null
+  workspace?: CompleteWorkspace | null
 }
 
 /**
@@ -28,5 +28,5 @@ export interface CompletePolicy extends z.infer<typeof PolicyModel> {
  * NOTE: Lazy required in case of potential circular dependencies within schema
  */
 export const RelatedPolicyModel: z.ZodSchema<CompletePolicy> = z.lazy(() => PolicyModel.extend({
-  realm: RelatedRealmModel.nullish(),
+  workspace: RelatedWorkspaceModel.nullish(),
 }))

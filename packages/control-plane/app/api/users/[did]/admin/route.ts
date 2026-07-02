@@ -14,7 +14,7 @@ import { isOwnerRole } from "@/lib/roles";
 const handlers = createNextRoute(usersContract, {
   setAdmin: async ({ params, body }) => {
     const session = await getServerSession(authOptions);
-    if (!session?.user?.isOwner) throw new APIException("FORBIDDEN");
+    if (!isOwnerRole(session?.user?.role)) throw new APIException("FORBIDDEN");
 
     const user = await UserDAO.findByDid(params.did);
     if (!user) throw new APIException("NOT_FOUND", "User not found");

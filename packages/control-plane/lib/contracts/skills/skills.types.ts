@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { OrgSkill, RealmSkill } from "@prisma/client";
+import type { OrgSkill, WorkspaceSkill } from "@prisma/client";
 import {
   CreateSkillBodySchema,
   CreateOrgSkillBodySchema,
@@ -8,14 +8,14 @@ import {
 } from "./skills.schemas";
 
 // Prisma row types are the single source of truth for the persisted shapes.
-export type { OrgSkill, RealmSkill };
+export type { OrgSkill, WorkspaceSkill };
 
 /**
- * A realm skill row enriched with its realm name and usage counts — the exact
- * shape of `RealmSkillDAO.findAllWithRealms()`, surfaced by `GET /api/skills`.
+ * A workspace skill row enriched with its workspace name and usage counts — the exact
+ * shape of `WorkspaceSkillDAO.findAllWithWorkspaces()`, surfaced by `GET /api/skills`.
  */
-export type RealmSkillWithMeta = RealmSkill & {
-  realmName: string;
+export type WorkspaceSkillWithMeta = WorkspaceSkill & {
+  workspaceName: string;
   agentCount: number;
   overrideCount: number;
 };

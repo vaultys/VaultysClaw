@@ -109,8 +109,8 @@ Three principles, built in from day one:
 - **Capabilities, not credentials** — agents are granted capabilities, never raw API keys
 
 **🎛️ Governance out of the box**
-- **Realms** — multi-tenant namespaces for teams, departments, or customers
-- **Token budgets** — daily/monthly spend limits per agent and realm, tracked in real time
+- **Workspaces** — multi-tenant namespaces for teams, departments, or customers
+- **Token budgets** — daily/monthly spend limits per agent and workspace, tracked in real time
 - **Approval workflows** — visual editor routes high-risk intents to humans first
 - **Governance dashboard** — live posture: agent coverage, policy violations, budget spend, risk score
 - **Audit trail** — every operation (who, what, when, why) with cryptographic proof
@@ -123,7 +123,7 @@ Three principles, built in from day one:
 - **LiteLLM registry** — centrally manage any LLM (OpenAI, Anthropic, Llama, local); agents pick from an approved roster
 
 **🔌 Enterprise integrations**
-- **Microsoft Entra ID** — auto-sync users and groups from Azure AD (groups map to realms)
+- **Microsoft Entra ID** — auto-sync users and groups from Azure AD (groups map to workspaces)
 - **SMTP** — configurable email notifications
 - **Docker Compose** — pre-built dev + production stacks
 - **LiteLLM proxy** — route requests to any model provider
@@ -173,7 +173,7 @@ Built to implement Anthropic's **"Zero Trust for AI Agents"** framework (May 202
 ## Use cases
 
 - **Regulatory compliance** — healthcare, finance, and government needing audit trails and approval workflows
-- **Multi-team orchestration** — teams running agents in isolated realms without stepping on each other
+- **Multi-team orchestration** — teams running agents in isolated workspaces without stepping on each other
 - **Sensitive data handling** — agents touching customer data, credentials, or PII under zero-trust controls
 - **Autonomous backends** — replace microservices with agents whose behavior is defined by policy, not code
 - **Controlled experimentation** — test new agent behaviors with time- and capability-limited deployments

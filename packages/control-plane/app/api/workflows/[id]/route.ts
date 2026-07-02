@@ -16,7 +16,7 @@ const handlers = createNextRoute(workflowsContract, {
     const workflow = await WorkflowDAO.findById(params.id);
     if (!workflow) throw new APIException("NOT_FOUND", "Workflow not found");
 
-    if (workflow.realmId && !(await auth.canAccessRealm(workflow.realmId)))
+    if (workflow.workspaceId && !(await auth.canAccessWorkspace(workflow.workspaceId)))
       throw new APIException("FORBIDDEN");
 
     return {
@@ -34,17 +34,17 @@ const handlers = createNextRoute(workflowsContract, {
     const workflow = await WorkflowDAO.findById(params.id);
     if (!workflow) throw new APIException("NOT_FOUND", "Workflow not found");
 
-    if (workflow.realmId && !(await auth.canAdminRealm(workflow.realmId)))
+    if (workflow.workspaceId && !(await auth.canAdminWorkspace(workflow.workspaceId)))
       throw new APIException("FORBIDDEN");
-    if (!workflow.realmId && !auth.isGlobalAdmin)
+    if (!workflow.workspaceId && !auth.isGlobalAdmin)
       throw new APIException("FORBIDDEN");
 
-    const { name, definition, description, realmId } = body;
+    const { name, definition, description, workspaceId } = body;
 
-    if (!name && !definition && !description && !realmId) {
+    if (!name && !definition && !description && !workspaceId) {
       throw new APIException(
         "MALFORMED",
-        "At least one of name, definition, description, or realmId is required"
+        "At least one of name, definition, description, or workspaceId is required"
       );
     }
 
@@ -52,7 +52,7 @@ const handlers = createNextRoute(workflowsContract, {
       name,
       definition: definition as unknown as Prisma.InputJsonValue,
       description,
-      realmId,
+      workspaceId,
     });
 
     return { status: 200, body: { workflow: updatedWorkflow } };
@@ -65,9 +65,9 @@ const handlers = createNextRoute(workflowsContract, {
     const workflow = await WorkflowDAO.findById(params.id);
     if (!workflow) throw new APIException("NOT_FOUND", "Workflow not found");
 
-    if (workflow.realmId && !(await auth.canAdminRealm(workflow.realmId)))
+    if (workflow.workspaceId && !(await auth.canAdminWorkspace(workflow.workspaceId)))
       throw new APIException("FORBIDDEN");
-    if (!workflow.realmId && !auth.isGlobalAdmin)
+    if (!workflow.workspaceId && !auth.isGlobalAdmin)
       throw new APIException("FORBIDDEN");
 
     const deletedWorkflow = await WorkflowDAO.delete(params.id);

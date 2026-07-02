@@ -1,6 +1,6 @@
 /**
  * LiteLLM Proxy management client.
- * Handles dynamic model registration and per-realm virtual key management.
+ * Handles dynamic model registration and per-workspace virtual key management.
  * Requires LITELLM_BASE_URL and LITELLM_MASTER_KEY env vars.
  */
 
@@ -90,27 +90,27 @@ export async function removeModel(modelName: string): Promise<void> {
   }
 }
 
-export interface CreateRealmKeyResult {
+export interface CreateWorkspaceKeyResult {
   virtualKey: string;
 }
 
-/** Create or refresh a team-scoped virtual key for a realm. */
-export async function createRealmKey(
-  realmId: string,
+/** Create or refresh a team-scoped virtual key for a workspace. */
+export async function createWorkspaceKey(
+  workspaceId: string,
   allowedModels: string[],
   monthlyBudgetUsd?: number
-): Promise<CreateRealmKeyResult> {
+): Promise<CreateWorkspaceKeyResult> {
   const res = await litellmFetch("/key/generate", {
     method: "POST",
     body: JSON.stringify({
-      team_id: realmId,
+      team_id: workspaceId,
       models: allowedModels.length > 0 ? allowedModels : ["all-team-models"],
       ...(monthlyBudgetUsd != null ? { max_budget: monthlyBudgetUsd } : {}),
     }),
   });
   if (!res.ok) {
     const text = await res.text();
-    throw new Error(`LiteLLM createRealmKey failed (${res.status}): ${text}`);
+    throw new Error(`LiteLLM createWorkspaceKey failed (${res.status}): ${text}`);
   }
   const data = (await res.json()) as { key: string };
   return { virtualKey: data.key };

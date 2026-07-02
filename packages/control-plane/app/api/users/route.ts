@@ -6,16 +6,16 @@
 
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-config";
-import { RealmDAO, UserDAO } from "@/db";
+import { WorkspaceDAO, UserDAO } from "@/db";
 import { APIException } from "@/lib/api/utils/api-utils";
 import { usersContract } from "@/lib/contracts";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
-import { normalizeRole } from "@/lib/roles";
+import { isAdminRole, normalizeRole } from "@/lib/roles";
 
 const handlers = createNextRoute(usersContract, {
   list: async ({ query }) => {
     const session = await getServerSession(authOptions);
-    if (!session?.user?.isAdmin) throw new APIException("FORBIDDEN");
+    if (!isAdminRole(session?.user?.role)) throw new APIException("FORBIDDEN");
 
     const page = Math.max(1, query.page ?? 1);
     const pageSize = Math.min(100, Math.max(1, query.pageSize ?? 20));
@@ -29,7 +29,7 @@ const handlers = createNextRoute(usersContract, {
     const result = await UserDAO.list({
       q: query.q,
       role: query.role,
-      realmId: query.realm,
+      workspaceId: query.workspace,
       hasAccount,
       page,
       pageSize,
@@ -39,7 +39,7 @@ const handlers = createNextRoute(usersContract, {
 
     const users = await Promise.all(
       result.users.map(async (u) => {
-        const realms = await RealmDAO.getUserRealms(u.id);
+        const workspaces = await WorkspaceDAO.getUserWorkspaces(u.id);
         return {
           id: u.id,
           did: u.did,
@@ -49,7 +49,7 @@ const handlers = createNextRoute(usersContract, {
           entraId: u.entraId ?? null,
           claimedAt: u.claimedAt ? u.claimedAt.toISOString() : null,
           registeredAt: u.registeredAt.toISOString(),
-          realms,
+          workspaces,
         };
       })
     );

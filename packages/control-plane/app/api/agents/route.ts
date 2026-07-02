@@ -11,7 +11,8 @@ const handlers = createNextRoute(agentsContract, {
     const {
       search,
       online: onlineParam,
-      realm,
+      workspace,
+      mine,
       capabilities: capStr,
       page: rawPage,
       pageSize: rawPageSize,
@@ -39,23 +40,26 @@ const handlers = createNextRoute(agentsContract, {
       wsServer?.getConnectedAgents().map((a) => a.id) ?? []
     );
 
-    const userRealmIds = auth.isGlobalAdmin ? undefined : auth.realmIds;
+    // Global admins see all agents, EXCEPT when `mine=true` (the "My Agents"
+    // view) which always restricts to the caller's own workspaces.
+    const userWorkspaceIds =
+      auth.isGlobalAdmin && mine !== "true" ? undefined : auth.workspaceIds;
 
-    // Single DB call — realm & online filters applied inside the DAO
+    // Single DB call — workspace & online filters applied inside the DAO
     const result = await AgentDAO.query({
       search,
-      realm,
+      workspace,
       capabilities,
       page,
       pageSize,
       sortBy,
       sortDir,
-      realmIds: userRealmIds,
+      workspaceIds: userWorkspaceIds,
       onlineFilter,
       onlineDids: connectedDids,
     });
 
-    // Enrich with live WS state — no extra DB calls needed (realms already included)
+    // Enrich with live WS state — no extra DB calls needed (workspaces already included)
     const items = result.agents.map((agent) => {
       const connected = wsServer?.getAgent(agent.did);
       return {

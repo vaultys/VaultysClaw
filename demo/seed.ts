@@ -2,12 +2,12 @@
  * VaultysClaw Demo Seeder (Prisma)
  *
  * Seeds realistic demo data into the PostgreSQL control-plane DB:
- * - 8 realms
- * - ~80 users with hierarchy and realm membership
+ * - 8 workspaces
+ * - ~80 users with hierarchy and workspace membership
  * - ~500 agents with capability archetypes
  * - peer grants and user grants
  * - activity log entries
- * - geographic location clusters by realm for the world map
+ * - geographic location clusters by workspace for the world map
  *
  * Usage:
  *   ./demo/seed.sh
@@ -30,7 +30,7 @@ type Cap =
   | "code_execution"
   | "system_command";
 
-interface RealmSeed {
+interface WorkspaceSeed {
   name: string;
   slug: string;
   description: string;
@@ -44,7 +44,7 @@ interface Cluster {
   lon: number;
 }
 
-const REALMS: RealmSeed[] = [
+const WORKSPACES: WorkspaceSeed[] = [
   {
     name: "Engineering",
     slug: "engineering",
@@ -106,7 +106,7 @@ const REALMS: RealmSeed[] = [
   },
 ];
 
-const REALM_CLUSTERS: Record<string, Cluster[]> = {
+const WORKSPACE_CLUSTERS: Record<string, Cluster[]> = {
   engineering: [
     { label: "San Francisco, US", lat: 37.7749, lon: -122.4194 },
     { label: "Berlin, DE", lat: 52.52, lon: 13.405 },
@@ -264,8 +264,8 @@ const ACTIVITY_EVENTS = [
   "user.registered",
   "user.granted_access",
   "delegation.created",
-  "realm.agent_added",
-  "realm.user_added",
+  "workspace.agent_added",
+  "workspace.user_added",
   "policy.updated",
 ] as const;
 
@@ -320,8 +320,8 @@ function daysAgo(days: number, hours = 0): Date {
   return d;
 }
 
-function clusteredLocation(realmSlug: string, seed: string) {
-  const clusters = REALM_CLUSTERS[realmSlug] ?? [{ label: "Global", lat: 0, lon: 0 }];
+function clusteredLocation(workspaceSlug: string, seed: string) {
+  const clusters = WORKSPACE_CLUSTERS[workspaceSlug] ?? [{ label: "Global", lat: 0, lon: 0 }];
   const cluster = clusters[hashInt(`${seed}:cluster`) % clusters.length];
   const latJitter = (hashFloat(`${seed}:lat`) * 2 - 1) * 0.35;
   const lonJitter = (hashFloat(`${seed}:lon`) * 2 - 1) * 0.35;
@@ -332,37 +332,37 @@ function clusteredLocation(realmSlug: string, seed: string) {
   };
 }
 
-async function seedRealms() {
-  const existing = await prisma.realm.findMany({ select: { id: true, slug: true, isDefault: true } });
+async function seedWorkspaces() {
+  const existing = await prisma.workspace.findMany({ select: { id: true, slug: true, isDefault: true } });
   const map = new Map(existing.map((r) => [r.slug, r.id]));
 
-  for (const realm of REALMS) {
-    const id = map.get(realm.slug) ?? makeId("realm", realm.slug);
-    await prisma.realm.upsert({
+  for (const workspace of WORKSPACES) {
+    const id = map.get(workspace.slug) ?? makeId("workspace", workspace.slug);
+    await prisma.workspace.upsert({
       where: { id },
       create: {
         id,
-        name: realm.name,
-        slug: realm.slug,
-        description: realm.description,
-        color: realm.color,
-        defaultCapabilities: realm.defaultCaps,
+        name: workspace.name,
+        slug: workspace.slug,
+        description: workspace.description,
+        color: workspace.color,
+        defaultCapabilities: workspace.defaultCaps,
       },
       update: {
-        name: realm.name,
-        description: realm.description,
-        color: realm.color,
-        defaultCapabilities: realm.defaultCaps,
+        name: workspace.name,
+        description: workspace.description,
+        color: workspace.color,
+        defaultCapabilities: workspace.defaultCaps,
       },
     });
-    map.set(realm.slug, id);
+    map.set(workspace.slug, id);
   }
 
-  const refreshed = await prisma.realm.findMany({ select: { id: true, slug: true, isDefault: true } });
-  const defaultRealm = refreshed.find((r) => r.isDefault) ?? refreshed[0];
+  const refreshed = await prisma.workspace.findMany({ select: { id: true, slug: true, isDefault: true } });
+  const defaultWorkspace = refreshed.find((r) => r.isDefault) ?? refreshed[0];
   return {
-    realmIdBySlug: Object.fromEntries(refreshed.map((r) => [r.slug, r.id])) as Record<string, string>,
-    defaultRealmId: defaultRealm?.id ?? null,
+    workspaceIdBySlug: Object.fromEntries(refreshed.map((r) => [r.slug, r.id])) as Record<string, string>,
+    defaultWorkspaceId: defaultWorkspace?.id ?? null,
   };
 }
 
@@ -377,7 +377,7 @@ interface UserSeed {
   tier: "cto" | "ciso" | "vp" | "lead" | "member";
   reportsTo: string | null;
   description: string;
-  realmSlugs: string[];
+  workspaceSlugs: string[];
 }
 
 function buildUsers(): UserSeed[] {
@@ -392,7 +392,7 @@ function buildUsers(): UserSeed[] {
     tier: "cto",
     reportsTo: null,
     description: "Chief Technology Officer - owns the entire AI agent platform",
-    realmSlugs: REALMS.map((r) => r.slug),
+    workspaceSlugs: WORKSPACES.map((r) => r.slug),
   };
 
   const ciso: UserSeed = {
@@ -404,7 +404,7 @@ function buildUsers(): UserSeed[] {
     tier: "ciso",
     reportsTo: cto.id,
     description: "Chief Information Security Officer",
-    realmSlugs: ["security-ops", "legal", "devops"],
+    workspaceSlugs: ["security-ops", "legal", "devops"],
   };
 
   users.push(cto, ciso);
@@ -432,49 +432,49 @@ function buildUsers(): UserSeed[] {
       tier: "vp",
       reportsTo: vp.slug === "security-ops" || vp.slug === "legal" ? ciso.id : cto.id,
       description: `${vp.title} - manages all ${vp.slug} agents and team`,
-      realmSlugs: [vp.slug],
+      workspaceSlugs: [vp.slug],
     };
     vpBySlug[vp.slug] = u;
     users.push(u);
   }
 
-  for (const realm of REALMS) {
-    const vp = vpBySlug[realm.slug];
+  for (const workspace of WORKSPACES) {
+    const vp = vpBySlug[workspace.slug];
     const leads: UserSeed[] = [];
 
     for (let i = 0; i < 2; i++) {
-      const first = pickDet(FIRST_NAMES, `${realm.slug}:lead:${i}:f`);
-      const last = pickDet(LAST_NAMES, `${realm.slug}:lead:${i}:l`);
-      const id = makeId("user", `lead:${realm.slug}:${i}`);
+      const first = pickDet(FIRST_NAMES, `${workspace.slug}:lead:${i}:f`);
+      const last = pickDet(LAST_NAMES, `${workspace.slug}:lead:${i}:l`);
+      const id = makeId("user", `lead:${workspace.slug}:${i}`);
       const u: UserSeed = {
         id,
-        did: makeDid(`user-lead-${realm.slug}-${i}`),
+        did: makeDid(`user-lead-${workspace.slug}-${i}`),
         name: `${first} ${last}`,
-        email: `${first.toLowerCase()}.${last.toLowerCase()}@${pickDet(DOMAINS, `${realm.slug}:lead:${i}:d`)}`,
+        email: `${first.toLowerCase()}.${last.toLowerCase()}@${pickDet(DOMAINS, `${workspace.slug}:lead:${i}:d`)}`,
         role: "Member",
         tier: "lead",
         reportsTo: vp.id,
-        description: `Team lead for ${realm.name} agents`,
-        realmSlugs: [realm.slug],
+        description: `Team lead for ${workspace.name} agents`,
+        workspaceSlugs: [workspace.slug],
       };
       leads.push(u);
       users.push(u);
     }
 
     for (let i = 0; i < 8; i++) {
-      const first = pickDet(FIRST_NAMES, `${realm.slug}:ic:${i}:f`);
-      const last = pickDet(LAST_NAMES, `${realm.slug}:ic:${i}:l`);
+      const first = pickDet(FIRST_NAMES, `${workspace.slug}:ic:${i}:f`);
+      const last = pickDet(LAST_NAMES, `${workspace.slug}:ic:${i}:l`);
       const manager = leads[i % leads.length] ?? vp;
       const u: UserSeed = {
-        id: makeId("user", `ic:${realm.slug}:${i}`),
-        did: makeDid(`user-ic-${realm.slug}-${i}`),
+        id: makeId("user", `ic:${workspace.slug}:${i}`),
+        did: makeDid(`user-ic-${workspace.slug}-${i}`),
         name: `${first} ${last}`,
-        email: `${first.toLowerCase()}.${last.toLowerCase()}@${pickDet(DOMAINS, `${realm.slug}:ic:${i}:d`)}`,
+        email: `${first.toLowerCase()}.${last.toLowerCase()}@${pickDet(DOMAINS, `${workspace.slug}:ic:${i}:d`)}`,
         role: "Member",
         tier: "member",
         reportsTo: manager.id,
-        description: `${realm.name} engineer / analyst`,
-        realmSlugs: [realm.slug],
+        description: `${workspace.name} engineer / analyst`,
+        workspaceSlugs: [workspace.slug],
       };
       users.push(u);
     }
@@ -487,27 +487,27 @@ interface AgentSeed {
   did: string;
   name: string;
   capabilities: Cap[];
-  realmSlug: string;
+  workspaceSlug: string;
   registeredAt: Date;
   lastSeen: Date;
 }
 
 function buildAgents(): AgentSeed[] {
   const agents: AgentSeed[] = [];
-  for (const realm of REALMS) {
-    const archetypes = AGENT_ARCHETYPES[realm.slug] ?? [];
+  for (const workspace of WORKSPACES) {
+    const archetypes = AGENT_ARCHETYPES[workspace.slug] ?? [];
     const count = 60;
     for (let i = 0; i < count; i++) {
       const [prefix, caps] = archetypes[i % archetypes.length];
       const num = Math.floor(i / archetypes.length) + 1;
-      const name = `${realm.slug}-${prefix}-${String(num).padStart(2, "0")}`;
+      const name = `${workspace.slug}-${prefix}-${String(num).padStart(2, "0")}`;
       const registeredDaysAgo = 1 + (hashInt(`${name}:reg`) % 180);
       const lastSeenDaysAgo = hashInt(`${name}:seen`) % registeredDaysAgo;
       agents.push({
         did: makeDid(`agent-${name}`),
         name,
         capabilities: caps,
-        realmSlug: realm.slug,
+        workspaceSlug: workspace.slug,
         registeredAt: daysAgo(registeredDaysAgo, hashInt(`${name}:regH`) % 24),
         lastSeen: daysAgo(lastSeenDaysAgo, hashInt(`${name}:seenH`) % 24),
       });
@@ -523,12 +523,12 @@ async function main() {
 
   console.log("Seeding demo data with Prisma...");
 
-  const { realmIdBySlug, defaultRealmId } = await seedRealms();
-  console.log(`  -> realms ready (${Object.keys(realmIdBySlug).length})`);
+  const { workspaceIdBySlug, defaultWorkspaceId } = await seedWorkspaces();
+  console.log(`  -> workspaces ready (${Object.keys(workspaceIdBySlug).length})`);
 
   const users = buildUsers();
   for (const u of users) {
-    const primarySlug = u.realmSlugs[0] ?? "engineering";
+    const primarySlug = u.workspaceSlugs[0] ?? "engineering";
     const loc = clusteredLocation(primarySlug, u.did);
     await prisma.user.upsert({
       where: { id: u.id },
@@ -557,20 +557,20 @@ async function main() {
       },
     });
 
-    for (let i = 0; i < u.realmSlugs.length; i++) {
-      const realmId = realmIdBySlug[u.realmSlugs[i]];
-      if (!realmId) continue;
-      await prisma.userRealm.upsert({
-        where: { userId_realmId: { userId: u.id, realmId } },
-        create: { userId: u.id, realmId, isPrimary: i === 0 },
+    for (let i = 0; i < u.workspaceSlugs.length; i++) {
+      const workspaceId = workspaceIdBySlug[u.workspaceSlugs[i]];
+      if (!workspaceId) continue;
+      await prisma.userWorkspace.upsert({
+        where: { userId_workspaceId: { userId: u.id, workspaceId } },
+        create: { userId: u.id, workspaceId, isPrimary: i === 0 },
         update: { isPrimary: i === 0 },
       });
     }
 
-    if (defaultRealmId) {
-      await prisma.userRealm.upsert({
-        where: { userId_realmId: { userId: u.id, realmId: defaultRealmId } },
-        create: { userId: u.id, realmId: defaultRealmId, isPrimary: false },
+    if (defaultWorkspaceId) {
+      await prisma.userWorkspace.upsert({
+        where: { userId_workspaceId: { userId: u.id, workspaceId: defaultWorkspaceId } },
+        create: { userId: u.id, workspaceId: defaultWorkspaceId, isPrimary: false },
         update: {},
       });
     }
@@ -580,7 +580,7 @@ async function main() {
   const agents = buildAgents();
   for (let idx = 0; idx < agents.length; idx++) {
     const a = agents[idx];
-    const loc = clusteredLocation(a.realmSlug, a.did);
+    const loc = clusteredLocation(a.workspaceSlug, a.did);
 
     await prisma.agent.upsert({
       where: { did: a.did },
@@ -605,31 +605,31 @@ async function main() {
       },
     });
 
-    const primaryRealmId = realmIdBySlug[a.realmSlug];
-    if (primaryRealmId) {
-      await prisma.agentRealm.upsert({
-        where: { agentDid_realmId: { agentDid: a.did, realmId: primaryRealmId } },
-        create: { agentDid: a.did, realmId: primaryRealmId, isPrimary: true },
+    const primaryWorkspaceId = workspaceIdBySlug[a.workspaceSlug];
+    if (primaryWorkspaceId) {
+      await prisma.agentWorkspace.upsert({
+        where: { agentDid_workspaceId: { agentDid: a.did, workspaceId: primaryWorkspaceId } },
+        create: { agentDid: a.did, workspaceId: primaryWorkspaceId, isPrimary: true },
         update: { isPrimary: true },
       });
     }
 
-    if (defaultRealmId) {
-      await prisma.agentRealm.upsert({
-        where: { agentDid_realmId: { agentDid: a.did, realmId: defaultRealmId } },
-        create: { agentDid: a.did, realmId: defaultRealmId, isPrimary: false },
+    if (defaultWorkspaceId) {
+      await prisma.agentWorkspace.upsert({
+        where: { agentDid_workspaceId: { agentDid: a.did, workspaceId: defaultWorkspaceId } },
+        create: { agentDid: a.did, workspaceId: defaultWorkspaceId, isPrimary: false },
         update: {},
       });
     }
 
     if (idx % 5 === 0) {
-      const other = REALMS.find((r) => r.slug !== a.realmSlug && (hashInt(`${a.did}:xrealm`) % 7) === REALMS.indexOf(r));
+      const other = WORKSPACES.find((r) => r.slug !== a.workspaceSlug && (hashInt(`${a.did}:xworkspace`) % 7) === WORKSPACES.indexOf(r));
       if (other) {
-        const otherId = realmIdBySlug[other.slug];
+        const otherId = workspaceIdBySlug[other.slug];
         if (otherId) {
-          await prisma.agentRealm.upsert({
-            where: { agentDid_realmId: { agentDid: a.did, realmId: otherId } },
-            create: { agentDid: a.did, realmId: otherId, isPrimary: false },
+          await prisma.agentWorkspace.upsert({
+            where: { agentDid_workspaceId: { agentDid: a.did, workspaceId: otherId } },
+            create: { agentDid: a.did, workspaceId: otherId, isPrimary: false },
             update: {},
           });
         }
@@ -638,8 +638,8 @@ async function main() {
   }
   console.log(`  -> agents ready (${agents.length})`);
 
-  const agentsByRealm = agents.reduce<Record<string, AgentSeed[]>>((acc, a) => {
-    (acc[a.realmSlug] = acc[a.realmSlug] ?? []).push(a);
+  const agentsByWorkspace = agents.reduce<Record<string, AgentSeed[]>>((acc, a) => {
+    (acc[a.workspaceSlug] = acc[a.workspaceSlug] ?? []).push(a);
     return acc;
   }, {});
 
@@ -655,8 +655,8 @@ async function main() {
   }> = [];
 
   for (const a of agents) {
-    const sameRealm = (agentsByRealm[a.realmSlug] ?? []).filter((x) => x.did !== a.did);
-    const samePeers = sampleDet(sameRealm, 2 + (hashInt(`${a.did}:peerCount`) % 2), `${a.did}:same`);
+    const sameWorkspace = (agentsByWorkspace[a.workspaceSlug] ?? []).filter((x) => x.did !== a.did);
+    const samePeers = sampleDet(sameWorkspace, 2 + (hashInt(`${a.did}:peerCount`) % 2), `${a.did}:same`);
 
     samePeers.forEach((target, i) => {
       const caps = sampleDet(target.capabilities, 1 + (hashInt(`${a.did}:${target.did}:caps`) % Math.min(2, target.capabilities.length)), `${a.did}:${target.did}:capsList`);
@@ -673,9 +673,9 @@ async function main() {
     });
 
     if (hashInt(`${a.did}:cross`) % 7 === 0) {
-      const otherRealm = REALMS[(hashInt(`${a.did}:otherRealm`) % REALMS.length)];
-      if (otherRealm.slug !== a.realmSlug) {
-        const candidates = agentsByRealm[otherRealm.slug] ?? [];
+      const otherWorkspace = WORKSPACES[(hashInt(`${a.did}:otherWorkspace`) % WORKSPACES.length)];
+      if (otherWorkspace.slug !== a.workspaceSlug) {
+        const candidates = agentsByWorkspace[otherWorkspace.slug] ?? [];
         const target = candidates[hashInt(`${a.did}:crossTarget`) % Math.max(1, candidates.length)];
         if (target) {
           peerGrants.push({
@@ -709,8 +709,8 @@ async function main() {
   const usersByDid = new Map(users.map((u) => [u.did, u]));
 
   for (const u of users) {
-    const primarySlug = u.realmSlugs[0];
-    const realmAgents = agentsByRealm[primarySlug] ?? [];
+    const primarySlug = u.workspaceSlugs[0];
+    const workspaceAgents = agentsByWorkspace[primarySlug] ?? [];
     const count =
       u.tier === "vp" || u.tier === "cto" || u.tier === "ciso"
         ? 5
@@ -718,7 +718,7 @@ async function main() {
           ? 3
           : 2;
 
-    const targets = sampleDet(realmAgents, count, `${u.did}:grantTargets`);
+    const targets = sampleDet(workspaceAgents, count, `${u.did}:grantTargets`);
     targets.forEach((agent, i) => {
       const caps = sampleDet(agent.capabilities, 1 + (hashInt(`${u.did}:${agent.did}:gc`) % Math.min(2, agent.capabilities.length)), `${u.did}:${agent.did}:caps`);
       userGrants.push({
@@ -755,7 +755,7 @@ async function main() {
     const detailObj: Record<string, unknown> = {
       seed: "demo-prisma",
       idx: i,
-      realm: agent.realmSlug,
+      workspace: agent.workspaceSlug,
     };
 
     if (event === "intent.dispatched") {

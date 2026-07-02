@@ -41,8 +41,8 @@ POST /api/policies
 
 | Field                               | Type     | Required | Description                                                            |
 | ----------------------------------- | -------- | -------- | ---------------------------------------------------------------------- |
-| `agentDid`                          | string   | No       | Target agent DID. Omit to create a realm-scoped policy.                |
-| `realmId`                           | string   | No       | Target realm ID. At least one of `agentDid` / `realmId` should be set. |
+| `agentDid`                          | string   | No       | Target agent DID. Omit to create a workspace-scoped policy.                |
+| `workspaceId`                           | string   | No       | Target workspace ID. At least one of `agentDid` / `workspaceId` should be set. |
 | `capabilities`                      | string[] | **Yes**  | Capabilities to grant (non-empty array).                               |
 | `resourceLimits`                    | object   | No       | Runtime limits embedded in the certificate.                            |
 | `resourceLimits.maxTokensPerDay`    | number   | No       | Maximum total LLM tokens (prompt + completion) per calendar day.       |
@@ -57,7 +57,7 @@ POST /api/policies
   "policy": {
     "id": "policy-01HZABC...",
     "agentDid": "did:vaultys:z6Mkf9x3TQ...",
-    "realmId": null,
+    "workspaceId": null,
     "capabilities": ["api_call", "internet_access"],
     "resourceLimits": {
       "maxTokensPerDay": 50000,
@@ -88,7 +88,7 @@ GET /api/policies
 | Parameter        | Type    | Default | Description                                        |
 | ---------------- | ------- | ------- | -------------------------------------------------- |
 | `agentDid`       | string  | —       | Filter to a specific agent.                        |
-| `realmId`        | string  | —       | Filter to a specific realm.                        |
+| `workspaceId`        | string  | —       | Filter to a specific workspace.                        |
 | `includeExpired` | boolean | `false` | Include policies whose `expiresAt` is in the past. |
 
 ### Response `200 OK`
@@ -99,7 +99,7 @@ GET /api/policies
     {
       "id": "policy-01HZABC...",
       "agentDid": "did:vaultys:z6Mkf9x3TQ...",
-      "realmId": null,
+      "workspaceId": null,
       "capabilities": ["api_call"],
       "resourceLimits": null,
       "expiresAt": null,
@@ -127,7 +127,7 @@ GET /api/policies/{id}
   "policy": {
     "id": "policy-01HZABC...",
     "agentDid": "did:vaultys:z6Mkf9x3TQ...",
-    "realmId": null,
+    "workspaceId": null,
     "capabilities": ["api_call", "internet_access"],
     "resourceLimits": { "maxTokensPerDay": 50000 },
     "expiresAt": "2025-12-31T23:59:59Z",

@@ -31,9 +31,9 @@ export function PropertiesPanel({
 }) {
   const selectedNodeId = useWorkflowStore((s) => s.selectedNodeId);
   const setSelectedNode = useWorkflowStore((s) => s.setSelectedNode);
-  const workflowRealmId = useWorkflowStore((s) => s.workflowRealmId);
+  const workflowWorkspaceId = useWorkflowStore((s) => s.workflowWorkspaceId);
 
-  const members = useWorkflowMembers(workflowRealmId);
+  const members = useWorkflowMembers(workflowWorkspaceId);
   const paramsTextRef = useRef<HTMLTextAreaElement | null>(null);
 
   if (!selectedNodeId) return <WorkflowProperties />;

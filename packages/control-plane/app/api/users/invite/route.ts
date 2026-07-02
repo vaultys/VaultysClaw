@@ -4,6 +4,7 @@
  * Returns connection info so the admin can show a QR code. Owner or admin.
  */
 
+import { isAdminRole, isOwnerRole } from "@/lib/roles";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-config";
 import { UserServerChannel } from "@/lib/user-server-channel";
@@ -16,7 +17,7 @@ import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 const handlers = createNextRoute(usersContract, {
   invite: async ({ query }) => {
     const session = await getServerSession(authOptions);
-    if (!session?.user?.isOwner && !session?.user?.isAdmin) {
+    if (!isOwnerRole(session?.user?.role) && !isAdminRole(session?.user?.role)) {
       throw new APIException("FORBIDDEN");
     }
 

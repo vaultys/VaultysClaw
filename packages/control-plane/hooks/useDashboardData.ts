@@ -22,7 +22,7 @@ export interface SetupBanner {
 }
 
 /**
- * All dashboard data: agent fleet (admin WS or realm-scoped fetch), workflow
+ * All dashboard data: agent fleet (admin WS or workspace-scoped fetch), workflow
  * approvals/notifications, expired-policy renewals, recent runs, and the
  * first-run setup banner. The Dashboard view component stays presentational.
  */
@@ -33,20 +33,20 @@ export function useDashboardData(isGlobalAdmin: boolean) {
     connected: wsConnected,
   } = useAdminWS();
 
-  // ── Agents + realm membership ───────────────────────────────────────────
-  // userRealmCount: null = loading, 0 = no realms (gate non-admins)
-  const [userRealmCount, setUserRealmCount] = useState<number | null>(null);
-  const [realmAgents, setRealmAgents] = useState<AgentInfo[] | null>(null);
+  // ── Agents + workspace membership ───────────────────────────────────────────
+  // userWorkspaceCount: null = loading, 0 = no workspaces (gate non-admins)
+  const [userWorkspaceCount, setUserWorkspaceCount] = useState<number | null>(null);
+  const [workspaceAgents, setWorkspaceAgents] = useState<AgentInfo[] | null>(null);
 
   useEffect(() => {
     if (isGlobalAdmin) {
-      setUserRealmCount(1); // admins have implicit access everywhere
+      setUserWorkspaceCount(1); // admins have implicit access everywhere
       return;
     }
     Promise.all([
-      fetch("/api/realms")
-        .then((r) => (r.ok ? r.json() : { realms: [] }))
-        .then((d: { realms?: unknown[] }) => d.realms?.length ?? 0),
+      fetch("/api/workspaces")
+        .then((r) => (r.ok ? r.json() : { workspaces: [] }))
+        .then((d: { workspaces?: unknown[] }) => d.workspaces?.length ?? 0),
       agentsClient
         .search()
         .then((r) => unwrap(r))
@@ -54,20 +54,20 @@ export function useDashboardData(isGlobalAdmin: boolean) {
         .catch(() => [] as AgentInfo[]),
     ])
       .then(([count, items]) => {
-        setUserRealmCount(count);
-        setRealmAgents(items);
+        setUserWorkspaceCount(count);
+        setWorkspaceAgents(items);
       })
       .catch(() => {
-        setUserRealmCount(0);
-        setRealmAgents([]);
+        setUserWorkspaceCount(0);
+        setWorkspaceAgents([]);
       });
   }, [isGlobalAdmin]);
 
-  const agents = isGlobalAdmin ? agentsState.agents : (realmAgents ?? []);
-  const total = isGlobalAdmin ? agentsState.total : (realmAgents?.length ?? 0);
+  const agents = isGlobalAdmin ? agentsState.agents : (workspaceAgents ?? []);
+  const total = isGlobalAdmin ? agentsState.total : (workspaceAgents?.length ?? 0);
   const onlineCount = isGlobalAdmin
     ? agentsState.online
-    : (realmAgents?.filter((a) => a.online).length ?? 0);
+    : (workspaceAgents?.filter((a) => a.online).length ?? 0);
 
   // ── Setup banner (admin, first run) ───────────────────────────────────────
   const [setupBanner, setSetupBanner] = useState<SetupBanner | null>(null);
@@ -223,7 +223,7 @@ export function useDashboardData(isGlobalAdmin: boolean) {
     agents,
     total,
     onlineCount,
-    userRealmCount,
+    userWorkspaceCount,
     // setup banner
     setupBanner,
     dismissSetupBanner,

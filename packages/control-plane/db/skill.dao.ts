@@ -1,7 +1,7 @@
 import { prisma } from "./client";
 import type {
   OrgSkill,
-  RealmSkill,
+  WorkspaceSkill,
   AgentSkillOverride,
   Prisma,
 } from "@prisma/client";
@@ -90,62 +90,62 @@ export class OrgSkillDAO {
   }
 }
 
-export class RealmSkillDAO {
-  static async findAll(realmId: string): Promise<RealmSkill[]> {
-    return prisma.realmSkill.findMany({
-      where: { realmId },
+export class WorkspaceSkillDAO {
+  static async findAll(workspaceId: string): Promise<WorkspaceSkill[]> {
+    return prisma.workspaceSkill.findMany({
+      where: { workspaceId },
       orderBy: [{ isRequired: "desc" }, { name: "asc" }],
     });
   }
 
-  static async findById(id: string): Promise<RealmSkill | null> {
-    return prisma.realmSkill.findUnique({ where: { id } });
+  static async findById(id: string): Promise<WorkspaceSkill | null> {
+    return prisma.workspaceSkill.findUnique({ where: { id } });
   }
 
-  static async findAllWithRealms(): Promise<
+  static async findAllWithWorkspaces(): Promise<
     Array<
-      RealmSkill & {
-        realmName: string;
+      WorkspaceSkill & {
+        workspaceName: string;
         agentCount: number;
         overrideCount: number;
       }
     >
   > {
-    const skills = await prisma.realmSkill.findMany({
-      include: { realm: { select: { name: true } }, agentOverrides: true },
-      orderBy: [{ name: "asc" }, { realm: { name: "asc" } }],
+    const skills = await prisma.workspaceSkill.findMany({
+      include: { workspace: { select: { name: true } }, agentOverrides: true },
+      orderBy: [{ name: "asc" }, { workspace: { name: "asc" } }],
     });
 
-    const agentCounts = await prisma.agentRealm.groupBy({
-      by: ["realmId"],
+    const agentCounts = await prisma.agentWorkspace.groupBy({
+      by: ["workspaceId"],
       _count: { agentDid: true },
     });
     const countMap = Object.fromEntries(
-      agentCounts.map((r) => [r.realmId, r._count.agentDid])
+      agentCounts.map((r) => [r.workspaceId, r._count.agentDid])
     );
 
     return skills.map((s) => ({
       ...s,
-      realmName: (s as any).realm.name,
-      agentCount: countMap[s.realmId] ?? 0,
+      workspaceName: (s as any).workspace.name,
+      agentCount: countMap[s.workspaceId] ?? 0,
       overrideCount: (s as any).agentOverrides.length,
     }));
   }
 
   static async create(skill: {
-    realmId: string;
+    workspaceId: string;
     name: string;
     description?: string;
     version?: string;
     isRequired?: boolean;
     config?: Record<string, unknown>;
     content?: string;
-  }): Promise<RealmSkill> {
+  }): Promise<WorkspaceSkill> {
     const id = crypto.randomUUID();
-    return prisma.realmSkill.create({
+    return prisma.workspaceSkill.create({
       data: {
         id,
-        realmId: skill.realmId,
+        workspaceId: skill.workspaceId,
         name: skill.name,
         description: skill.description ?? null,
         version: skill.version ?? null,
@@ -166,19 +166,19 @@ export class RealmSkillDAO {
       content?: string | null;
     }
   ): Promise<boolean> {
-    const data: Prisma.RealmSkillUpdateInput = {};
+    const data: Prisma.WorkspaceSkillUpdateInput = {};
     if ("description" in updates) data.description = updates.description;
     if ("version" in updates) data.version = updates.version;
     if ("isRequired" in updates) data.isRequired = updates.isRequired;
     if ("config" in updates)
       data.config = updates.config as Prisma.InputJsonValue;
     if ("content" in updates) data.content = updates.content;
-    const result = await prisma.realmSkill.updateMany({ where: { id }, data });
+    const result = await prisma.workspaceSkill.updateMany({ where: { id }, data });
     return result.count > 0;
   }
 
   static async delete(id: string): Promise<boolean> {
-    const result = await prisma.realmSkill.deleteMany({ where: { id } });
+    const result = await prisma.workspaceSkill.deleteMany({ where: { id } });
     return result.count > 0;
   }
 }
@@ -190,20 +190,20 @@ export class SkillOverrideDAO {
 
   static async set(
     agentDid: string,
-    realmSkillId: string,
+    workspaceSkillId: string,
     enabled: boolean
   ): Promise<void> {
     await prisma.agentSkillOverride.upsert({
-      where: { agentDid_realmSkillId: { agentDid, realmSkillId } },
-      create: { agentDid, realmSkillId, enabled },
+      where: { agentDid_workspaceSkillId: { agentDid, workspaceSkillId } },
+      create: { agentDid, workspaceSkillId, enabled },
       update: { enabled },
     });
   }
 
   static async getEffectiveSkills(agentDid: string): Promise<SkillConfig[]> {
-    const rows = await prisma.realmSkill.findMany({
+    const rows = await prisma.workspaceSkill.findMany({
       where: {
-        realm: { agentRealms: { some: { agentDid } } },
+        workspace: { agentWorkspaces: { some: { agentDid } } },
       },
       include: {
         agentOverrides: {

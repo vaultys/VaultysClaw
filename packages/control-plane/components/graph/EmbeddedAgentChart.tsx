@@ -91,7 +91,7 @@ export default function EmbeddedAgentChart({
   }
 
   // Build fullscreen URL with query params preserved
-  const fullscreenUrl = `/graph${query}${query ? "&" : "?"}view=agent-chart`;
+  const fullscreenUrl = `/admin/graph${query}${query ? "&" : "?"}view=agent-chart`;
 
   return (
     <div

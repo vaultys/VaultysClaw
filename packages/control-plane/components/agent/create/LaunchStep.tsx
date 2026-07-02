@@ -15,26 +15,26 @@ import { cn } from "@/lib/utils";
 import { CopyButton } from "@/components/shared";
 import { networkClient, unwrap } from "@/lib/api/ts-rest/client";
 import { PKG_RUNNERS, type PkgRunner } from "./constants";
-import { Realm } from "@prisma/client";
+import { Workspace } from "@prisma/client";
 
 interface LaunchStepProps {
-  realms: Realm[];
-  /** Set the realm the agent will be enrolled in during approval. */
-  setSelectedRealms: (s: Set<string>) => void;
+  workspaces: Workspace[];
+  /** Set the workspace the agent will be enrolled in during approval. */
+  setSelectedWorkspaces: (s: Set<string>) => void;
   /** Proceed to the waiting step with the entered agent name. */
   onContinue: (agentName: string) => void;
 }
 
 export function LaunchStep({
-  realms,
-  setSelectedRealms,
+  workspaces,
+  setSelectedWorkspaces,
   onContinue,
 }: LaunchStepProps) {
   const [connMethod, setConnMethod] = useState<"ws" | "peerjs">("ws");
   const [agentName, setAgentName] = useState("");
   const [wsUrl, setWsUrl] = useState("");
   const [pkgRunner, setPkgRunner] = useState<PkgRunner>("npx");
-  const [selectedLaunchRealm, setSelectedLaunchRealm] = useState<string>("");
+  const [selectedLaunchWorkspace, setSelectedLaunchWorkspace] = useState<string>("");
 
   // PeerJS connection info (fetched from the control plane)
   const [peerjsId, setPeerjsId] = useState<string | null>(null);
@@ -57,16 +57,16 @@ export function LaunchStep({
       .catch(() => {});
   }, []);
 
-  // Default the target realm to the realm marked default, once realms load
+  // Default the target workspace to the workspace marked default, once workspaces load
   useEffect(() => {
-    if (selectedLaunchRealm) return;
-    const def = realms.find((r) => r.isDefault);
+    if (selectedLaunchWorkspace) return;
+    const def = workspaces.find((r) => r.isDefault);
     if (def) {
-      setSelectedLaunchRealm(def.id);
-      setSelectedRealms(new Set([def.id]));
+      setSelectedLaunchWorkspace(def.id);
+      setSelectedWorkspaces(new Set([def.id]));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [realms]);
+  }, [workspaces]);
 
   const runnerPrefix = PKG_RUNNERS.find((r) => r.id === pkgRunner)!.prefix;
   const nameArg = agentName.trim();
@@ -83,8 +83,8 @@ export function LaunchStep({
     ...connArg,
   ].join(" \\\n  ");
 
-  const realmNote = selectedLaunchRealm
-    ? realms.find((r) => r.id === selectedLaunchRealm)?.name
+  const workspaceNote = selectedLaunchWorkspace
+    ? workspaces.find((r) => r.id === selectedLaunchWorkspace)?.name
     : null;
 
   return (
@@ -205,7 +205,7 @@ export function LaunchStep({
                   <div className="flex items-center gap-2 bg-warning-50 border border-warning-300 rounded-lg px-3 py-2 text-xs text-warning-700">
                     <AlertTriangle size={12} className="shrink-0" />
                     PeerJS is not running.{" "}
-                    <a href="/network" className="underline underline-offset-2">
+                    <a href="/admin/network" className="underline underline-offset-2">
                       Start it from the Network page
                     </a>{" "}
                     first.
@@ -250,34 +250,34 @@ export function LaunchStep({
         </p>
       </div>
 
-      {/* Realm selector */}
-      {realms.length > 0 && (
+      {/* Workspace selector */}
+      {workspaces.length > 0 && (
         <div className="space-y-1.5">
           <label className="text-xs font-medium text-foreground-500 uppercase tracking-wide">
-            Target realm{" "}
+            Target workspace{" "}
             <span className="normal-case font-normal">
               (assigned during approval)
             </span>
           </label>
           <select
-            value={selectedLaunchRealm}
+            value={selectedLaunchWorkspace}
             onChange={(e) => {
-              setSelectedLaunchRealm(e.target.value);
-              if (e.target.value) setSelectedRealms(new Set([e.target.value]));
+              setSelectedLaunchWorkspace(e.target.value);
+              if (e.target.value) setSelectedWorkspaces(new Set([e.target.value]));
             }}
             className="w-full px-3 py-2 bg-background-100 border border-neutral-200 rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary-500"
           >
             <option value="">No preference</option>
-            {realms.map((r) => (
+            {workspaces.map((r) => (
               <option key={r.id} value={r.id}>
                 {r.name}
                 {r.isDefault ? " (default)" : ""}
               </option>
             ))}
           </select>
-          {realmNote && (
+          {workspaceNote && (
             <p className="text-xs text-foreground-400">
-              The agent will be enrolled in <strong>{realmNote}</strong> during
+              The agent will be enrolled in <strong>{workspaceNote}</strong> during
               the approval step.
             </p>
           )}
@@ -335,7 +335,7 @@ export function LaunchStep({
                 The control plane receives the connection and places it in a
                 pending queue
               </li>
-              <li>You approve it here — assigning capabilities and a realm</li>
+              <li>You approve it here — assigning capabilities and a workspace</li>
               <li>
                 The agent becomes active and starts accepting instructions
               </li>
@@ -350,7 +350,7 @@ export function LaunchStep({
                 The control plane receives the connection and places it in a
                 pending queue
               </li>
-              <li>You approve it here — assigning capabilities and a realm</li>
+              <li>You approve it here — assigning capabilities and a workspace</li>
               <li>
                 The agent becomes active and starts accepting instructions
               </li>

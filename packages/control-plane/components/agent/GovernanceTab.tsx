@@ -736,7 +736,7 @@ export function GovernanceTab({
                             key={entry.id}
                             onClick={() =>
                               router.push(
-                                `/governance/audit/${encodeURIComponent(entry.id)}`
+                                `/admin/governance/audit/${encodeURIComponent(entry.id)}`
                               )
                             }
                             className="cursor-pointer hover:bg-background-200 transition-colors group"

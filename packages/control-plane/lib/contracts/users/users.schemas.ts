@@ -27,7 +27,7 @@ export const ListUsersQuerySchema = z.object({
   q: z.string().optional(),
   role: RoleEnum.optional(),
   hasAccount: z.enum(["true", "false"]).optional(),
-  realm: z.string().optional(),
+  workspace: z.string().optional(),
   page: z.coerce.number().optional(),
   pageSize: z.coerce.number().optional(),
   sortBy: z.enum(["name", "email", "registeredAt"]).optional(),
@@ -35,7 +35,7 @@ export const ListUsersQuerySchema = z.object({
 });
 
 export const SearchUsersQuerySchema = z.object({
-  realm: z.string(),
+  workspace: z.string(),
   q: z.string().optional(),
 });
 

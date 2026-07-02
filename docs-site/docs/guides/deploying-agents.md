@@ -142,7 +142,7 @@ You can run multiple agent controllers pointing to the same control plane. Each 
 
 A typical setup might include:
 
-| Agent       | LLM                | Capabilities                    | Realm       |
+| Agent       | LLM                | Capabilities                    | Workspace       |
 | ----------- | ------------------ | ------------------------------- | ----------- |
 | `analyst`   | GPT-4o             | `internet_access`, `api_call`   | Research    |
 | `coder`     | Claude Sonnet      | `code_execution`, `file_access` | Engineering |

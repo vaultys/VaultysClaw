@@ -7,16 +7,16 @@ export const ApiKeyIdParamSchema = z.object({ id: z.string().min(1) });
 export const ApiKeyCreateRequestSchema = z.object({
   name: z.string(),
   allowedRoutes: z.array(z.string()),
-  realmId: z.string().nullable().optional(),
-  isRealmAdmin: z.boolean().optional(),
+  workspaceId: z.string().nullable().optional(),
+  isWorkspaceAdmin: z.boolean().optional(),
   expiresAt: z.number().nullable().optional(),
 });
 
 export const ApiKeyUpdateRequestSchema = z.object({
   name: z.string().optional(),
   allowedRoutes: z.array(z.string()).optional(),
-  realmId: z.string().nullable().optional(),
-  isRealmAdmin: z.boolean().optional(),
+  workspaceId: z.string().nullable().optional(),
+  isWorkspaceAdmin: z.boolean().optional(),
   expiresAt: z.number().nullable().optional(),
   isActive: z.boolean().optional(),
 });

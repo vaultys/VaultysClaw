@@ -1,10 +1,10 @@
 export function NoConfigView({
   litellmConfigured,
-  hasRealmRouting,
+  hasWorkspaceRouting,
   registryModelCount,
 }: {
   litellmConfigured: boolean;
-  hasRealmRouting: boolean;
+  hasWorkspaceRouting: boolean;
   registryModelCount: number;
 }) {
   return (
@@ -25,13 +25,13 @@ export function NoConfigView({
           LiteLLM is configured — click Configure to provision an agent key.
         </p>
       )}
-      {!litellmConfigured && hasRealmRouting && (
+      {!litellmConfigured && hasWorkspaceRouting && (
         <p className="text-xs text-foreground-500 mt-2">
-          Realm routing is available — click Configure to route via your LiteLLM
+          Workspace routing is available — click Configure to route via your LiteLLM
           proxy.
         </p>
       )}
-      {!litellmConfigured && !hasRealmRouting && registryModelCount > 0 && (
+      {!litellmConfigured && !hasWorkspaceRouting && registryModelCount > 0 && (
         <p className="text-xs text-foreground-500 mt-2">
           {registryModelCount} model{registryModelCount !== 1 ? "s" : ""}{" "}
           available in the registry — click Configure to assign one.

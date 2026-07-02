@@ -297,7 +297,7 @@ export function OverviewTab({
                     key={ev.id}
                     onClick={() =>
                       overviewRouter.push(
-                        `/governance/audit/${encodeURIComponent(ev.id)}`
+                        `/admin/governance/audit/${encodeURIComponent(ev.id)}`
                       )
                     }
                     className="w-full flex items-start gap-3 py-2.5 hover:bg-background-200 rounded-lg px-2 -mx-2 transition-colors text-left group"

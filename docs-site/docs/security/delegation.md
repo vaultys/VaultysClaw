@@ -12,7 +12,7 @@ Delegation is the mechanism by which a human user authorises an agent to act on 
 
 ```mermaid
 flowchart TD
-  U["User (authenticated)\nHas: role in realm + capability grant"]
+  U["User (authenticated)\nHas: role in workspace + capability grant"]
   CP["Control Plane (VaultysId)\nVerifies role & grant → issues cert"]
   CERT["DelegationCert\nsigned by control plane VaultysId"]
   A["Agent\nStores cert locally\nVerifies offline at execution time"]

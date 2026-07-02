@@ -2,9 +2,9 @@ import type { AgentLlmConfigController } from "@/hooks/useAgentLlmConfig";
 import { PROVIDER_OPTIONS } from "./constants";
 import { DetailRows, type DetailRow } from "./DetailRows";
 
-/** Read-only display for a manual / realm / registry LLM config. */
+/** Read-only display for a manual / workspace / registry LLM config. */
 export function LlmConfigView({ cfg }: { cfg: AgentLlmConfigController }) {
-  const { llmConfig, activeRealmRoute, activeRegistryModel } = cfg;
+  const { llmConfig, activeWorkspaceRoute, activeRegistryModel } = cfg;
   if (!llmConfig) return null;
 
   const rows: DetailRow[] = [
@@ -55,26 +55,26 @@ export function LlmConfigView({ cfg }: { cfg: AgentLlmConfigController }) {
 
   return (
     <div className="divide-y divide-neutral-200">
-      {activeRealmRoute && (
+      {activeWorkspaceRoute && (
         <div className="flex items-center gap-3 px-4 py-3 bg-secondary-50">
           <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-secondary-100 text-secondary-700 border border-secondary-300 shrink-0">
-            Realm Routing
+            Workspace Routing
           </span>
           <span className="text-sm text-foreground font-medium">
-            {activeRealmRoute.model.name}
+            {activeWorkspaceRoute.model.name}
           </span>
           <span className="text-xs text-foreground-500">
-            via {activeRealmRoute.realm.realmName}
+            via {activeWorkspaceRoute.workspace.workspaceName}
           </span>
           <a
-            href={`/models/${activeRealmRoute.model.id}`}
+            href={`/admin/models/${activeWorkspaceRoute.model.id}`}
             className="ml-auto text-xs text-secondary-500 hover:text-secondary-400 transition-colors shrink-0"
           >
             View model →
           </a>
         </div>
       )}
-      {!activeRealmRoute && activeRegistryModel && (
+      {!activeWorkspaceRoute && activeRegistryModel && (
         <div className="flex items-center gap-3 px-4 py-3 bg-primary-50">
           <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-primary-100 text-primary-700 border border-primary-300 shrink-0">
             Registry
@@ -83,7 +83,7 @@ export function LlmConfigView({ cfg }: { cfg: AgentLlmConfigController }) {
             {activeRegistryModel.name}
           </span>
           <a
-            href={`/models/${activeRegistryModel.id}`}
+            href={`/admin/models/${activeRegistryModel.id}`}
             className="ml-auto text-xs text-primary-400 hover:text-primary-300 transition-colors shrink-0"
           >
             View model →

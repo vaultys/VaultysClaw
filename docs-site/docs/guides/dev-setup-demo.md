@@ -99,7 +99,7 @@ The agent will call `search_topic` (auto-approved), then pause for your approval
 
 ## Option B — Full simulator stack (30 agents)
 
-The simulator seeds a complete, realistic environment: 8 realms, 200+ users, 15 workflows, 30 agents spread across geographies and LLM providers, plus a full observability stack.
+The simulator seeds a complete, realistic environment: 8 workspaces, 200+ users, 15 workflows, 30 agents spread across geographies and LLM providers, plus a full observability stack.
 
 ### Prerequisites
 
@@ -120,7 +120,7 @@ This single command:
 3. Pushes the Prisma schema
 4. Starts the control plane
 5. Prompts you to **claim ownership** via the setup wizard (first-time only)
-6. Seeds 8 realms, 200+ users, 30 agent identities, 15 workflows, skills, policies, and channels
+6. Seeds 8 workspaces, 200+ users, 30 agent identities, 15 workflows, skills, policies, and channels
 7. Connects 30 simulated agents via WebSocket (real VaultysId cryptography)
 8. Starts the scenario runner (fires demo workflows on a schedule)
 
@@ -219,9 +219,9 @@ demo/
 │   └── report-writer.skill.mjs      ← Loaded by report-agent
 └── simulator/
     ├── demo-up.sh                   ← Option B: full Docker stack + 30 agents
-    ├── seed-demo.ts                 ← Seeds DB (realms, users, workflows, agents)
+    ├── seed-demo.ts                 ← Seeds DB (workspaces, users, workflows, agents)
     ├── index.ts                     ← Connects 30 simulated agents
-    ├── config.ts                    ← 30 agent definitions across 8 realms
+    ├── config.ts                    ← 30 agent definitions across 8 workspaces
     ├── scenario-runner.ts           ← Fires demo workflows on a schedule
     ├── demo-config.json             ← (you create) LLM API keys + MinIO/Docling URLs
     └── identities/                  ← Per-agent VaultysId key files (auto-created)

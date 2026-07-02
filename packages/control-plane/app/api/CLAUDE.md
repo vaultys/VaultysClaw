@@ -14,7 +14,7 @@ Each domain has a `lib/contracts/<domain>/` **folder** with three files. Use `li
 
 ```typescript
 // ── Queries
-export const ListAgentsQuerySchema = z.object({ realm: z.string().optional() });
+export const ListAgentsQuerySchema = z.object({ workspace: z.string().optional() });
 
 // ── Bodies
 export const UpdateAgentBodySchema = z.object({ capabilities: z.array(z.string()).optional() });

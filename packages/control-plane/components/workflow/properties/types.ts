@@ -7,8 +7,8 @@ export interface WorkflowEdge {
   target: string;
 }
 
-/** Realm user as returned by `GET /api/users/search`. */
-export interface RealmUser {
+/** Workspace user as returned by `GET /api/users/search`. */
+export interface WorkspaceUser {
   id: string;
   name: string;
   email: string;

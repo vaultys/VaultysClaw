@@ -2,50 +2,50 @@
 
 import { useState, useEffect } from "react";
 import { X, Loader2 } from "lucide-react";
-import { channelsClient, realmsClient, unwrap } from "@/lib/api/ts-rest/client";
-import { Realm } from "@prisma/client";
+import { channelsClient, workspacesClient, unwrap } from "@/lib/api/ts-rest/client";
+import { Workspace } from "@prisma/client";
 
 interface CreateChannelModalProps {
   onClose: () => void;
   onChannelCreated: (channel: any) => void;
-  preSelectedRealmId?: string;
+  preSelectedWorkspaceId?: string;
 }
 
 export default function CreateChannelModal({
   onClose,
   onChannelCreated,
-  preSelectedRealmId,
+  preSelectedWorkspaceId,
 }: CreateChannelModalProps) {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [isPublic, setIsPublic] = useState(true);
-  const [realms, setRealms] = useState<Realm[]>([]);
-  const [selectedRealmId, setSelectedRealmId] = useState<string>(
-    preSelectedRealmId ?? ""
+  const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
+  const [selectedWorkspaceId, setSelectedWorkspaceId] = useState<string>(
+    preSelectedWorkspaceId ?? ""
   );
-  const [isLoadingRealms, setIsLoadingRealms] = useState(true);
+  const [isLoadingWorkspaces, setIsLoadingWorkspaces] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchRealms = async () => {
+    const fetchWorkspaces = async () => {
       try {
-        setIsLoadingRealms(true);
-        const { userRealms } = unwrap(await realmsClient.listMyRealms());
-        const realms = userRealms.map((ur) => ur.realm);
-        setRealms(realms);
-        // Auto-select first realm only if no preSelectedRealmId was provided
-        if (!preSelectedRealmId && realms.length > 0) {
-          setSelectedRealmId(realms[0].id);
+        setIsLoadingWorkspaces(true);
+        const { userWorkspaces } = unwrap(await workspacesClient.listMyWorkspaces());
+        const workspaces = userWorkspaces.map((ur) => ur.workspace);
+        setWorkspaces(workspaces);
+        // Auto-select first workspace only if no preSelectedWorkspaceId was provided
+        if (!preSelectedWorkspaceId && workspaces.length > 0) {
+          setSelectedWorkspaceId(workspaces[0].id);
         }
       } catch (err) {
-        console.error("Failed to fetch realms:", err);
+        console.error("Failed to fetch workspaces:", err);
       } finally {
-        setIsLoadingRealms(false);
+        setIsLoadingWorkspaces(false);
       }
     };
 
-    fetchRealms();
+    fetchWorkspaces();
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -71,7 +71,7 @@ export default function CreateChannelModal({
           body: {
             name: name.trim(),
             slug,
-            realmId: selectedRealmId || undefined, // undefined = global channel
+            workspaceId: selectedWorkspaceId || undefined, // undefined = global channel
             description: description.trim() || undefined,
             isPublic,
           },
@@ -109,25 +109,25 @@ export default function CreateChannelModal({
             <label className="block text-sm font-medium text-foreground mb-2">
               Organization
             </label>
-            {isLoadingRealms ? (
+            {isLoadingWorkspaces ? (
               <div className="flex items-center gap-2 px-4 py-2 text-foreground-700 text-sm">
                 <Loader2 size={14} className="animate-spin" />
                 Loading organizations...
               </div>
-            ) : realms.length === 0 ? (
+            ) : workspaces.length === 0 ? (
               <div className="px-4 py-2 text-foreground-700 text-sm bg-background-100 rounded-lg border border-neutral-200">
                 No organizations found. Create a global channel.
               </div>
             ) : (
               <select
-                value={selectedRealmId}
-                onChange={(e) => setSelectedRealmId(e.target.value)}
+                value={selectedWorkspaceId}
+                onChange={(e) => setSelectedWorkspaceId(e.target.value)}
                 className="w-full bg-background border border-neutral-200 rounded-lg px-4 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-primary-500"
               >
                 <option value="">Global Channel</option>
-                {realms.map((realm) => (
-                  <option key={realm.id} value={realm.id}>
-                    {realm.name}
+                {workspaces.map((workspace) => (
+                  <option key={workspace.id} value={workspace.id}>
+                    {workspace.name}
                   </option>
                 ))}
               </select>

@@ -19,7 +19,6 @@ import {
   orgSkillsContract,
   policiesContract,
   realmsContract,
-  remoteControlContract,
   registrationsContract,
   serverContract,
   settingsContract,
@@ -71,10 +70,6 @@ export const networkClient = initClient(networkContract, clientOptions);
 export const orgSkillsClient = initClient(orgSkillsContract, clientOptions);
 export const policiesClient = initClient(policiesContract, clientOptions);
 export const realmsClient = initClient(realmsContract, clientOptions);
-export const remoteControlClient = initClient(
-  remoteControlContract,
-  clientOptions
-);
 export const registrationsClient = initClient(
   registrationsContract,
   clientOptions

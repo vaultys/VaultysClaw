@@ -8,7 +8,6 @@ Next.js App Router dashboard + WebSocket server. HTTP on port 3000, WebSocket on
 - **`lib/ws-server.ts`** — WebSocket server: agent connections, heartbeats, intent routing, admin WebSocket on `/ws/admin`
 - **`lib/workflow-executor.ts`** — Sequential/parallel node execution, approval steps, variable interpolation
 - **`lib/message-dispatcher.ts`** — Routes intents to connected agents
-- **`lib/remote-control/`** — Phone → agent connectors (Telegram via Bot API long-polling). Inbound messages route through `sendChatToAgent`; see [lib/remote-control/README.md](lib/remote-control/README.md)
 - **`app/api/`** — REST handlers — see [app/api/CLAUDE.md](app/api/CLAUDE.md)
 
 ## Database

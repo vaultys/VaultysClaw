@@ -18,7 +18,7 @@ Routes are split by **audience**, mirroring the UI split (`app/admin`, `app/app`
 
 The **user** folder is a Next.js route group `(user)` — the parentheses keep `user` **out of the path** (so `app/api/(user)/agents` serves `/api/agents`). Admin and public are **real path segments**.
 
-**Contracts mirror the same split** under `lib/contracts/{admin,user,public}/<domain>/` (each still a 3-file folder: `.schemas.ts` / `.types.ts` / `.contract.ts`). Naming convention:
+**Contracts are fully organized by audience** under `lib/contracts/{admin,user,public}/<domain>/` (each a 3-file folder: `.schemas.ts` / `.types.ts` / `.contract.ts` — some split folders omit `.schemas`/`.types` when a contract needs none). Every domain contract now lives under its audience directory; **route** folders/paths are still being migrated incrementally, so a contract under `lib/contracts/admin/<domain>/` may still serve a top-level `/api/<domain>` path until its route moves. Naming convention:
 
 - Contracts: `adminAgentsContract`, `userAgentsContract`, `aboutContract` (public)
 - Clients (`lib/api/ts-rest/client.ts`): `adminAgentsClient`, `userAgentsClient`, `aboutClient`
@@ -31,17 +31,15 @@ On top of the per-domain contracts, `index.ts` builds three **grouping routers**
 - Navigate the contract tree by audience: `adminContract.agents.search` (typed).
 - Make calls grouped by audience via the objects in `lib/api/ts-rest/client.ts`: `adminApi` / `userApi` / `publicApi` bundle the per-domain clients — `unwrap(await adminApi.agents.search({ query }))`. (Plain objects of the existing singletons — no `initClient` over the merged contract, so TS inference stays fast.)
 
-Domains not yet split into `admin`/`user`/`public` folders are still classified into one of the three groups by their primary audience (mixed domains follow their main consumer). When migrating or adding a domain, mount its contract under the right group in `index.ts` and add its client to the matching `*Api` object.
+Every contract folder lives under its audience directory (`lib/contracts/admin|user|public/<domain>/`). When adding a domain, create its folder under the right audience, mount its contract under the matching group router in `index.ts`, and add its client to the matching `*Api` object.
 
 **Swagger tags follow the grouping**: `buildOpenApiSpec()` (`lib/api/openapi-spec.ts`) walks the two-level tree and emits one tag per `Audience / Domain` (e.g. `Admin / Agents`), so `/admin/docs` clusters operations by audience. `getApiRouteGroups()` (`lib/api/contract-routes.ts`) does the same for the API-key permission tree.
 
 **Middleware state** (`lib/access-control.ts`): `/api/public` is in `publicPaths` (open to all). `/api/admin/*` is **not yet** gated to admins at the middleware level — it currently falls under the generic `/api/*` "any authenticated user" rule, and handlers keep their own `getAuthContext` / `canAdminAgent` checks. Admin gating will be enabled once the user-scoped API counterparts exist. When adding an admin route, still enforce admin rights inside the handler.
 
-Currently migrated: `agents` → **admin** (`userAgentsContract` is an empty placeholder with a temporary `/api/agents` stub route), `about` → **public**.
-
 ## Contract Structure
 
-Each domain has a `lib/contracts/[<audience>/]<domain>/` **folder** with three files (audience = `admin` / `user` / `public` for migrated domains; top-level for not-yet-migrated ones). Use `lib/contracts/admin/agents/` as the canonical reference.
+Each domain has a `lib/contracts/<audience>/<domain>/` **folder** (audience = `admin` / `user` / `public`) with three files. Use `lib/contracts/admin/agents/` as the canonical reference. A few split folders that need no schemas or types omit those files (e.g. `admin/stats/` has no `.schemas`, `public/setup/` is contract-only).
 
 **`<domain>.schemas.ts`** — Zod schemas only (query, body, response). No `z.infer`, no router. Group with section comments:
 

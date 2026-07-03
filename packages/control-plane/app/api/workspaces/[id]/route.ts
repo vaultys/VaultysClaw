@@ -9,7 +9,7 @@ import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 /**
  * Routes for /api/workspaces/:id — the workspace-detail slice of `adminContract.workspaces`.
  *
- * The contract (lib/contracts/workspaces/workspaces.contract.ts) is the single source
+ * The contract (lib/contracts/admin/workspaces/workspaces.contract.ts) is the single source
  * of truth for request/response shapes; `createNextRoute` validates inputs and
  * type-checks every `{ status, body }` returned below against it.
  */

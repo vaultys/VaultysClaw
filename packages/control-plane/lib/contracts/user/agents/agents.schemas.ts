@@ -18,3 +18,20 @@ export const ListUserAgentsQuerySchema = z.object({
   sortBy: z.enum(["name", "lastSeen", "registeredAt"]).optional(),
   sortDir: z.enum(["asc", "desc"]).optional(),
 });
+
+// ─────────────────────────────────────────────
+// Bodies
+// ─────────────────────────────────────────────
+
+/** Chat message stream request — a user chats with an agent they can access. */
+export const SendChatMessageBodySchema = z.object({
+  messages: z
+    .array(
+      z.object({
+        role: z.enum(["user", "assistant"]),
+        content: z.string(),
+      })
+    )
+    .min(1),
+  sessionId: z.string().optional(),
+});

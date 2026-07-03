@@ -84,14 +84,5 @@ export const RunIntentBodySchema = z.object({
   timeoutMs: z.number().min(1000).max(120_000).optional(),
 });
 
-export const SendChatMessageBodySchema = z.object({
-  messages: z
-    .array(
-      z.object({
-        role: z.enum(["user", "assistant"]),
-        content: z.string(),
-      })
-    )
-    .min(1),
-  sessionId: z.string().optional(),
-});
+// SendChatMessageBodySchema moved to the user agents contract — chat is a
+// user-facing action served under /api/agents/:did/chat-sessions.

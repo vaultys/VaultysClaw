@@ -17,16 +17,19 @@ import {
   unauthorized,
   unavailable,
 } from "@/lib/api/utils/api-utils";
-import { adminAgentsContract } from "@/lib/contracts";
+import { userAgentsContract } from "@/lib/contracts";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 import { withError } from "@/lib/api/handlers/with-error";
 
 /**
  * Routes for /api/agents/:did/chat-sessions — the chat slice of
- * `adminAgentsContract`. GET lists sessions; POST streams a chat response from the
+ * `userAgentsContract`. GET lists sessions; POST streams a chat response from the
  * connected agent (text/event-stream — see the POST handler below).
+ *
+ * Chat is a user-facing action: access is gated by `canAccessAgent` / an active
+ * grant, not by admin role. Admins pass those checks too.
  */
-const handlers = createNextRoute(adminAgentsContract, {
+const handlers = createNextRoute(userAgentsContract, {
   getChatSessions: async ({ params, request }) => {
     const auth = await getAuthContext(request);
     const { did } = params;

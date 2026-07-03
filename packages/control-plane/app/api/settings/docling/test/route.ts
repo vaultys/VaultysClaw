@@ -1,7 +1,10 @@
 import { getAuthContext } from "@/lib/auth-utils";
 import { APIException } from "@/lib/api/utils/api-utils";
 import { setDoclingEndpoints } from "@/db/settings.dao";
-import { OpenApiSpec, settingsContract } from "@/lib/contracts";
+import {
+  OpenApiSpec,
+  adminContract,
+} from "@/lib/contracts";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 
 // ---------------------------------------------------------------------------
@@ -58,7 +61,7 @@ async function discoverEndpoints(baseUrl: string): Promise<{
 // Route handler
 // ---------------------------------------------------------------------------
 
-const handlers = createNextRoute(settingsContract, {
+const handlers = createNextRoute(adminContract.settings, {
   testDocling: async ({ body, request }) => {
     const auth = await getAuthContext(request);
     if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");

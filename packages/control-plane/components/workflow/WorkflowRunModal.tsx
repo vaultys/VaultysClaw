@@ -14,7 +14,10 @@ import {
 } from "lucide-react";
 import type { WorkflowDefinition } from "@/lib/workflow-types";
 import { WorkflowInputForm } from "./WorkflowInputForm";
-import { workflowsClient, unwrap } from "@/lib/api/ts-rest/client";
+import {
+  userApi,
+  unwrap,
+} from "@/lib/api/ts-rest/client";
 
 interface WorkflowRunModalProps {
   workflowId: string;
@@ -131,7 +134,7 @@ export const WorkflowRunModal: React.FC<WorkflowRunModalProps> = ({
   const handleStartExecution = async (input: string) => {
     try {
       const data = unwrap(
-        await workflowsClient.execute({
+        await userApi.workflows.execute({
           params: { id: workflowId },
           body: { input: input || undefined },
         }),
@@ -162,14 +165,14 @@ export const WorkflowRunModal: React.FC<WorkflowRunModalProps> = ({
     const pollInterval = setInterval(async () => {
       try {
         // Fetch status
-        const statusRes = await workflowsClient.runStatus({
+        const statusRes = await userApi.workflows.runStatus({
           params: { runId },
         });
         if (statusRes.status !== 200) return;
         const statusData = statusRes.body;
 
         // Fetch history
-        const historyRes = await workflowsClient.runHistory({
+        const historyRes = await userApi.workflows.runHistory({
           params: { runId },
         });
         if (historyRes.status !== 200) return;

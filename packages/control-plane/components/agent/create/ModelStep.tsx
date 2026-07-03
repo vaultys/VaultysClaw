@@ -4,9 +4,7 @@ import { useEffect, useState } from "react";
 import { Check, ChevronRight, Loader2, Cpu } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
-  adminAgentsClient,
-  litellmClient,
-  modelsClient,
+  adminApi,
   unwrap,
 } from "@/lib/api/ts-rest/client";
 import { LiteLlmModel, SafeModel } from "@/lib/contracts";
@@ -35,12 +33,12 @@ export function ModelStep({ agentDid, onDone }: ModelStepProps) {
 
   // Load registry + LiteLLM models on mount
   useEffect(() => {
-    modelsClient
+    adminApi.models
       .list()
       .then((res) => setModels(unwrap(res).models))
       .catch(() => {});
 
-    litellmClient
+    adminApi.litellm
       .models()
       .then((res) => {
         const { models, configured } = unwrap(res);
@@ -66,7 +64,7 @@ export function ModelStep({ agentDid, onDone }: ModelStepProps) {
     try {
       if (modelMode === "registry" && selectedModel) {
         unwrap(
-          await adminAgentsClient.setLlmConfig({
+          await adminApi.agents.setLlmConfig({
             params: { did: agentDid },
             body: { registryModelId: selectedModel },
           })

@@ -17,7 +17,10 @@ import {
   formatTimeOnly,
   type ChannelMessage,
 } from "@vaultysclaw/shared";
-import { channelsClient, unwrap } from "@/lib/api/ts-rest/client";
+import {
+  adminApi,
+  unwrap,
+} from "@/lib/api/ts-rest/client";
 
 interface MessageListProps {
   channelId: string;
@@ -51,7 +54,7 @@ function MessageBubble({
   const handleReaction = async (emoji: string) => {
     try {
       unwrap(
-        await channelsClient.react({
+        await adminApi.channels.react({
           params: { id: channelId, msgId: msg.id },
           body: { emoji, add: true },
         })
@@ -64,7 +67,7 @@ function MessageBubble({
   const handleDelete = async () => {
     try {
       unwrap(
-        await channelsClient.deleteMessage({
+        await adminApi.channels.deleteMessage({
           params: { id: channelId, msgId: msg.id },
         })
       );
@@ -198,7 +201,7 @@ function ThreadView({
     const fetchThread = async () => {
       try {
         const { messages } = unwrap(
-          await channelsClient.listMessages({
+          await adminApi.channels.listMessages({
             params: { id: channelId },
             query: { threadId: parentId },
           })
@@ -330,7 +333,7 @@ export default function MessageList({
         messages.map(async (msg) => {
           try {
             const { messages: replies } = unwrap(
-              await channelsClient.listMessages({
+              await adminApi.channels.listMessages({
                 params: { id: channelId },
                 query: { threadId: msg.id },
               })

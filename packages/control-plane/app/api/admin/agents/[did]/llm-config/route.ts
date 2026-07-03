@@ -4,7 +4,9 @@ import { getWSServer } from "@/lib/ws-server";
 import { getLiteLLMBaseUrl } from "@/lib/litellm-client";
 import type { LlmConfig, LlmProviderType } from "@vaultysclaw/shared";
 import { AgentDAO, ModelDAO, WorkspaceDAO } from "@/db";
-import { adminAgentsContract } from "@/lib/contracts";
+import {
+  adminContract,
+} from "@/lib/contracts";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 
 const VALID_PROVIDERS: LlmProviderType[] = [
@@ -63,7 +65,7 @@ function safeConfig(
   return { ...rest, apiKeySet: Boolean(apiKey) };
 }
 
-const handlers = createNextRoute(adminAgentsContract, {
+const handlers = createNextRoute(adminContract.agents, {
   getLlmConfig: async ({ params, request }) => {
     const auth = await getAuthContext(request);
     if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");

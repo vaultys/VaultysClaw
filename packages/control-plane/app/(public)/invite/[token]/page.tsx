@@ -9,10 +9,8 @@ import {
   type WalletSecurityType,
 } from "@/lib/browser-connect";
 import {
-  invitationsClient,
-  serverClient,
-  usersClient,
-  userAuthClient,
+  adminApi,
+  publicApi,
   unwrap,
 } from "@/lib/api/ts-rest/client";
 import { Invitation } from "@/lib/contracts";
@@ -44,7 +42,7 @@ export default function InvitePage() {
     const load = async () => {
       try {
         const invitation = unwrap(
-          await invitationsClient.get({ params: { token } })
+          await adminApi.invitations.get({ params: { token } })
         );
         if (!invitation) {
           setPhase("expired");
@@ -62,7 +60,7 @@ export default function InvitePage() {
 
   // Load dev-login availability
   useEffect(() => {
-    serverClient
+    adminApi.server
       .getSettings()
       .then((res) => setDevLogin(!!unwrap(res).devLogin))
       .catch(() => {});
@@ -73,7 +71,7 @@ export default function InvitePage() {
     setPhase("qr-loading");
     try {
       const data = unwrap(
-        await usersClient.inviteFromEmail({ body: { token } })
+        await adminApi.users.inviteFromEmail({ body: { token } })
       );
       setQrUrl(data.qrUrl);
       setCertKey(data.key);
@@ -83,11 +81,11 @@ export default function InvitePage() {
       for (let i = 0; i < 180; i++) {
         await new Promise((r) => setTimeout(r, 1500));
         const { status: s } = unwrap(
-          await userAuthClient.listen({ params: { token: data.inviteToken } })
+          await publicApi.userAuth.listen({ params: { token: data.inviteToken } })
         );
         if (s === 2) {
           // Delete the invitation after successful connection
-          await invitationsClient.delete({ params: { token } }).catch(() => {});
+          await adminApi.invitations.delete({ params: { token } }).catch(() => {});
           setPhase("success");
           return;
         }

@@ -3,7 +3,10 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Wifi, Radio, Map, RefreshCw, AlertTriangle, Loader2 } from "lucide-react";
 import { timeAgo } from "@vaultysclaw/shared";
-import { networkClient, unwrap } from "@/lib/api/ts-rest/client";
+import {
+  adminApi,
+  unwrap,
+} from "@/lib/api/ts-rest/client";
 import type { NetworkControlAction, NetworkResponse } from "@/lib/contracts";
 import { useToolbar } from "@/components/layout/ToolbarContext";
 import { useBreadcrumbs } from "@/components/layout/BreadcrumbContext";
@@ -24,7 +27,7 @@ export default function NetworkPage() {
   const fetchData = useCallback(async (silent = false) => {
     if (!silent) setRefreshing(true);
     try {
-      setData(unwrap(await networkClient.get({ query: {} })));
+      setData(unwrap(await adminApi.network.get({ query: {} })));
       setError(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to fetch network data");
@@ -46,7 +49,7 @@ export default function NetworkPage() {
     action: NetworkControlAction,
     serverUrl?: string | null
   ) {
-    unwrap(await networkClient.control({ body: { action, serverUrl } }));
+    unwrap(await adminApi.network.control({ body: { action, serverUrl } }));
     await fetchData(false);
   }
 

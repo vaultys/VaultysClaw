@@ -2,10 +2,12 @@ import { getAuthContext } from "@/lib/auth-utils";
 import { APIException } from "@/lib/api/utils/api-utils";
 import { ApiKeyDAO } from "@/db";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
-import { apiKeysContract } from "@/lib/contracts";
+import {
+  userContract,
+} from "@/lib/contracts";
 import { toApiKey } from "@/lib/api/utils/api-key-utils";
 
-const handlers = createNextRoute(apiKeysContract, {
+const handlers = createNextRoute(userContract.apiKeys, {
   // ── PATCH /api/api-keys/:id ───────────────────────────────────────────────
   update: async ({ params, body, request }) => {
     const auth = await getAuthContext(request);

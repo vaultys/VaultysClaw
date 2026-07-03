@@ -3,9 +3,11 @@ import { APIException } from "@/lib/api/utils/api-utils";
 import { ChannelService } from "@/lib/channel-service";
 import { WorkspaceDAO } from "@/db";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
-import { channelsContract } from "@/lib/contracts";
+import {
+  adminContract,
+} from "@/lib/contracts";
 
-const handlers = createNextRoute(channelsContract, {
+const handlers = createNextRoute(adminContract.channels, {
   // ── GET /api/channels?workspace=<id>&includeGlobal=true ───────────────────────
   list: async ({ query, request }) => {
     const auth = await getAuthContext(request);

@@ -6,7 +6,7 @@ import { PolicyDAO } from "@/db";
 import type { Policy } from "@prisma/client";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 import {
-  policiesContract,
+  adminContract,
   type PolicyEntry,
   type PolicyResourceLimits,
 } from "@/lib/contracts";
@@ -26,11 +26,11 @@ function toPolicyEntry(p: Policy): PolicyEntry {
 }
 
 /**
- * Routes for /api/policies — the collection slice of `policiesContract`
+ * Routes for /api/policies — the collection slice of `adminContract.policies`
  * (list + create). Global admin only. The contract is the single source of
  * truth for request/response shapes.
  */
-const handlers = createNextRoute(policiesContract, {
+const handlers = createNextRoute(adminContract.policies, {
   // ── GET /api/policies ─────────────────────────────────────────────────────
   list: async ({ query, request }) => {
     const auth = await getAuthContext(request);

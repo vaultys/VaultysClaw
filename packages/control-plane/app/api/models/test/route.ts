@@ -1,9 +1,11 @@
 import { getAuthContext } from "@/lib/auth-utils";
 import { APIException } from "@/lib/api/utils/api-utils";
-import { modelsContract } from "@/lib/contracts";
+import {
+  adminContract,
+} from "@/lib/contracts";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 
-const handlers = createNextRoute(modelsContract, {
+const handlers = createNextRoute(adminContract.models, {
   // ── POST /api/models/test — probe an endpoint and list its models ─────────
   test: async ({ body, request }) => {
     await getAuthContext(request);

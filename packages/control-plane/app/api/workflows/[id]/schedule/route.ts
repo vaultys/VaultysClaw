@@ -2,13 +2,15 @@ import { getAuthContext } from "@/lib/auth-utils";
 import { APIException } from "@/lib/api/utils/api-utils";
 import { nextCronRun } from "@/lib/workflow-scheduler";
 import { WorkflowDAO } from "@/db";
-import { workflowsContract } from "@/lib/contracts";
+import {
+  userContract,
+} from "@/lib/contracts";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 
 /**
  * Routes for /api/workflows/:id/schedule — get / set / clear a cron schedule.
  */
-const handlers = createNextRoute(workflowsContract, {
+const handlers = createNextRoute(userContract.workflows, {
   // ── GET ─────────────────────────────────────────────────────────────────
   getSchedule: async ({ params, request }) => {
     await getAuthContext(request);

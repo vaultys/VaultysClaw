@@ -2,7 +2,10 @@
 
 import { useState, useCallback, useEffect } from "react";
 import { ShieldCheck } from "lucide-react";
-import { toolApprovalsClient, unwrap } from "@/lib/api/ts-rest/client";
+import {
+  adminApi,
+  unwrap,
+} from "@/lib/api/ts-rest/client";
 import { ToolApproval } from "@/lib/ws-server";
 
 export function ApprovalsTab({
@@ -14,7 +17,7 @@ export function ApprovalsTab({
 
   const refresh = useCallback(async () => {
     try {
-      const { approvals } = unwrap(await toolApprovalsClient.list());
+      const { approvals } = unwrap(await adminApi.toolApprovals.list());
       const list = approvals as ToolApproval[];
       setApprovals(list);
       onCountChange(list.length);
@@ -31,7 +34,7 @@ export function ApprovalsTab({
   }, [refresh]);
 
   const respond = async (requestId: string, approved: boolean) => {
-    await toolApprovalsClient.respond({ body: { requestId, approved } });
+    await adminApi.toolApprovals.respond({ body: { requestId, approved } });
     refresh();
   };
 

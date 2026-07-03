@@ -2,10 +2,12 @@ import { getAuthContext } from "@/lib/auth-utils";
 import { APIException } from "@/lib/api/utils/api-utils";
 import { broadcastSkillsConfig } from "@/lib/ws-server";
 import { WorkspaceSkillDAO } from "@/db";
-import { workspacesContract } from "@/lib/contracts";
+import {
+  adminContract,
+} from "@/lib/contracts";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 
-const handlers = createNextRoute(workspacesContract, {
+const handlers = createNextRoute(adminContract.workspaces, {
   // ── GET /api/workspaces/:id/skills/:skillId — skill detail ────────────────────
   getSkill: async ({ params, request }) => {
     const auth = await getAuthContext(request);

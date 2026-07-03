@@ -1,15 +1,17 @@
 import { getAuthContext } from "@/lib/auth-utils";
 import { getWSServer } from "@/lib/ws-server";
 import { APIException } from "@/lib/api/utils/api-utils";
-import { toolApprovalsContract } from "@/lib/contracts";
+import {
+  adminContract,
+} from "@/lib/contracts";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 
 /**
- * Routes for /api/tool-approvals — `toolApprovalsContract` (list + respond).
+ * Routes for /api/tool-approvals — `adminContract.toolApprovals` (list + respond).
  * Any authenticated user may list/respond; the WebSocket server holds the
  * pending-approval state. The contract is the single source of truth.
  */
-const handlers = createNextRoute(toolApprovalsContract, {
+const handlers = createNextRoute(adminContract.toolApprovals, {
   list: async ({ request }) => {
     await getAuthContext(request); // throws APIException("UNAUTHORIZED")
 

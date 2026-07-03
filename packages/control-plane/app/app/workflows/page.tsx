@@ -16,7 +16,10 @@ import { useBreadcrumbs } from "@/components/layout/BreadcrumbContext";
 import { useWorkflowStore } from "@/components/workflow/store";
 import { TemplateSelectionModal } from "@/components/workflow/TemplateSelectionModal";
 import { WorkflowRunModal } from "@/components/workflow/WorkflowRunModal";
-import { workflowsClient, unwrap } from "@/lib/api/ts-rest/client";
+import {
+  userApi,
+  unwrap,
+} from "@/lib/api/ts-rest/client";
 import type { WorkflowDefinition } from "@/lib/workflow-types";
 import { Workflow } from "@prisma/client";
 
@@ -51,7 +54,7 @@ export default function WorkflowsPage() {
     try {
       const data = JSON.parse(await file.text());
       const result = unwrap(
-        await workflowsClient.import({
+        await userApi.workflows.import({
           body: {
             name: data.name || file.name.replace(".json", ""),
             description: data.description,
@@ -70,7 +73,7 @@ export default function WorkflowsPage() {
   const fetchWorkflows = async () => {
     try {
       setLoading(true);
-      const data = unwrap(await workflowsClient.list({ query: {} }));
+      const data = unwrap(await userApi.workflows.list({ query: {} }));
       setWorkflows(data.workflows);
     } catch (err) {
       setError(String(err));
@@ -83,7 +86,7 @@ export default function WorkflowsPage() {
     e.preventDefault();
     if (!confirm("Delete this workflow?")) return;
     try {
-      unwrap(await workflowsClient.remove({ params: { id } }));
+      unwrap(await userApi.workflows.remove({ params: { id } }));
       setWorkflows((w) => w.filter((wf) => wf.id !== id));
     } catch {
       alert("Failed to delete workflow");
@@ -93,7 +96,7 @@ export default function WorkflowsPage() {
   const handleSelectTemplate = async (templateId: string, workspaceId?: string) => {
     try {
       const data = unwrap(
-        await workflowsClient.getTemplate({ params: { templateId } })
+        await userApi.workflows.getTemplate({ params: { templateId } })
       );
       const template = data.template as { definition: unknown; name: string };
       clearWorkflow();
@@ -114,7 +117,7 @@ export default function WorkflowsPage() {
   const handleExecuteWorkflow = async (id: string, e: React.MouseEvent) => {
     e.preventDefault();
     try {
-      const data = unwrap(await workflowsClient.getOne({ params: { id } }));
+      const data = unwrap(await userApi.workflows.getOne({ params: { id } }));
       setExecutingWorkflow({
         id: data.workflow.id,
         name: data.workflow.name,

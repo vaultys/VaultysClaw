@@ -1,10 +1,12 @@
 import { getAuthContext } from "@/lib/auth-utils";
 import { APIException } from "@/lib/api/utils/api-utils";
 import { ModelDAO } from "@/db";
-import { modelsContract } from "@/lib/contracts";
+import {
+  adminContract,
+} from "@/lib/contracts";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 
-const handlers = createNextRoute(modelsContract, {
+const handlers = createNextRoute(adminContract.models, {
   // ── POST /api/models/:id/validate — probe the stored endpoint ─────────────
   validate: async ({ params, request }) => {
     await getAuthContext(request);

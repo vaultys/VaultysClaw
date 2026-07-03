@@ -6,7 +6,9 @@ import {
   getLiteLLMBaseUrl,
   listModels,
 } from "@/lib/litellm-client";
-import { settingsContract } from "@/lib/contracts";
+import {
+  adminContract,
+} from "@/lib/contracts";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 import {
   reconnectLiteLLMService,
@@ -35,7 +37,7 @@ async function litellmFetch<T>(path: string): Promise<T | null> {
   }
 }
 
-const handlers = createNextRoute(settingsContract, {
+const handlers = createNextRoute(adminContract.settings, {
   // ── GET /api/settings/litellm ─────────────────────────────────────────────
   getLitellm: async ({ request }) => {
     const auth = await getAuthContext(request);

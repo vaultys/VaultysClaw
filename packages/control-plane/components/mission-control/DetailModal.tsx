@@ -22,7 +22,10 @@ import {
   timeAgo,
 } from "@vaultysclaw/shared";
 import type { AgentInfo } from "@/lib/contracts";
-import { workflowRunsClient, unwrap } from "@/lib/api/ts-rest/client";
+import {
+  userApi,
+  unwrap,
+} from "@/lib/api/ts-rest/client";
 import {
   agentLabel,
   STATUS_COLOR,
@@ -190,7 +193,7 @@ function WorkflowDetail({
   useEffect(() => {
     if (!run) return;
     setLoading(true);
-    workflowRunsClient
+    userApi.workflowRuns
       .getOne({ params: { runId: run.id } })
       .then((r) => setSteps(unwrap(r).steps))
       .catch(() => setSteps([]))

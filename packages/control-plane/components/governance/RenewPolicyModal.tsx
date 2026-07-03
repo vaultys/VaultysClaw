@@ -1,7 +1,10 @@
 import { useState } from "react";
 import { RotateCcw } from "lucide-react";
 import { shortDid, daysFromNow, formatCompactNumber } from "@vaultysclaw/shared";
-import { policiesClient, unwrap } from "@/lib/api/ts-rest/client";
+import {
+  adminApi,
+  unwrap,
+} from "@/lib/api/ts-rest/client";
 import type { PolicyEntry } from "@/lib/contracts";
 import { CapPill } from "./CapPill";
 import { HIGH_RISK_CAPS, suggestRenewalExpiry } from "./constants";
@@ -34,7 +37,7 @@ export function RenewPolicyModal({
           : undefined;
 
       unwrap(
-        await policiesClient.create({
+        await adminApi.policies.create({
           body: {
             agentDid: policy.agentDid ?? undefined,
             workspaceId: policy.workspaceId ?? undefined,
@@ -50,7 +53,7 @@ export function RenewPolicyModal({
       );
 
       if (revokeOriginal) {
-        await policiesClient.remove({ params: { id: policy.id } });
+        await adminApi.policies.remove({ params: { id: policy.id } });
       }
 
       onRenewed();

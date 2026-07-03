@@ -7,7 +7,10 @@ import {
   X,
   RefreshCw,
 } from "lucide-react";
-import { modelsClient, unwrap } from "@/lib/api/ts-rest/client";
+import {
+  adminApi,
+  unwrap,
+} from "@/lib/api/ts-rest/client";
 import { SafeModel } from "@/lib/contracts";
 
 export function OverviewTab({
@@ -40,7 +43,7 @@ export function OverviewTab({
     setSaving(true);
     try {
       unwrap(
-        await modelsClient.update({
+        await adminApi.models.update({
           params: { id: model.id },
           body: {
             name,
@@ -66,7 +69,7 @@ export function OverviewTab({
     setValidateResult(null);
     try {
       const data = unwrap(
-        await modelsClient.validate({ params: { id: model.id } })
+        await adminApi.models.validate({ params: { id: model.id } })
       );
       setValidateResult(data);
     } catch {

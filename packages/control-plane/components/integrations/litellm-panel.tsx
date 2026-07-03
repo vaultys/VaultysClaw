@@ -9,7 +9,10 @@ import {
   IntegrationHeader,
   IntegrationModal,
 } from "./shared";
-import { settingsClient, unwrap } from "@/lib/api/ts-rest/client";
+import {
+  adminApi,
+  unwrap,
+} from "@/lib/api/ts-rest/client";
 import type { LiteLLMStatus } from "@/lib/contracts";
 
 export function LiteLLMPanel() {
@@ -27,7 +30,7 @@ export function LiteLLMPanel() {
 
   const loadStatus = async () => {
     try {
-      const data = unwrap(await settingsClient.getLitellm());
+      const data = unwrap(await adminApi.settings.getLitellm());
 
       // Service is configured in DB/env but the in-memory state hasn't connected yet
       // (e.g. first load after server restart). Trigger a reconnect automatically.
@@ -37,11 +40,11 @@ export function LiteLLMPanel() {
         setLoading(false);
         setReconnecting(true);
         try {
-          await settingsClient.reconnectLitellm();
+          await adminApi.settings.reconnectLitellm();
         } catch { /* ignore */ }
         setReconnecting(false);
         // Reload to get the real post-reconnect state
-        const data2 = unwrap(await settingsClient.getLitellm());
+        const data2 = unwrap(await adminApi.settings.getLitellm());
         setStatus(data2);
         setBaseUrl(data2.baseUrl ?? "");
         return;
@@ -65,7 +68,7 @@ export function LiteLLMPanel() {
     setIsSaving(true);
     try {
       unwrap(
-        await settingsClient.saveLitellm({
+        await adminApi.settings.saveLitellm({
           body: { baseUrl, masterKey: masterKey || null },
         })
       );

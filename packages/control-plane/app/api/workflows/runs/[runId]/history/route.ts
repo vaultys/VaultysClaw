@@ -1,13 +1,15 @@
 import { getAuthContext } from "@/lib/auth-utils";
 import { APIException } from "@/lib/api/utils/api-utils";
 import { WorkflowDAO } from "@/db";
-import { workflowsContract } from "@/lib/contracts";
+import {
+  userContract,
+} from "@/lib/contracts";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 
 /**
  * Route for GET /api/workflows/runs/:runId/history — full run execution history.
  */
-const handlers = createNextRoute(workflowsContract, {
+const handlers = createNextRoute(userContract.workflows, {
   runHistory: async ({ params, request }) => {
     const auth = await getAuthContext(request);
 

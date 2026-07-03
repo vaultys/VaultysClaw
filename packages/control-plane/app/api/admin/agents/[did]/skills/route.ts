@@ -2,10 +2,12 @@ import { getAuthContext } from "@/lib/auth-utils";
 import { APIException } from "@/lib/api/utils/api-utils";
 import { sendSkillsConfig } from "@/lib/ws-server";
 import { AgentDAO, WorkspaceSkillDAO, SkillOverrideDAO } from "@/db";
-import { adminAgentsContract } from "@/lib/contracts";
+import {
+  adminContract,
+} from "@/lib/contracts";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 
-const handlers = createNextRoute(adminAgentsContract, {
+const handlers = createNextRoute(adminContract.agents, {
   getSkills: async ({ params, request }) => {
     const auth = await getAuthContext(request);
     const { did } = params;
@@ -23,7 +25,7 @@ const handlers = createNextRoute(adminAgentsContract, {
     const auth = await getAuthContext(request);
     const { did } = params;
 
-    if (!(await auth.canAdminAgent(did))) throw new APIException("FORBIDDEN");
+    if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");
 
     const agent = await AgentDAO.findByDid(did);
     if (!agent) throw new APIException("NOT_FOUND", "Agent not found");

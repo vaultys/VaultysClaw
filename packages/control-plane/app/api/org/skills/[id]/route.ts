@@ -8,9 +8,11 @@ import { getAuthContext } from "@/lib/auth-utils";
 import { APIException } from "@/lib/api/utils/api-utils";
 import { OrgSkillDAO } from "@/db";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
-import { orgSkillsContract } from "@/lib/contracts";
+import {
+  adminContract,
+} from "@/lib/contracts";
 
-const handlers = createNextRoute(orgSkillsContract, {
+const handlers = createNextRoute(adminContract.orgSkills, {
   // ── GET /api/org/skills/:id ───────────────────────────────────────────────
   getOne: async ({ params, request }) => {
     await getAuthContext(request);

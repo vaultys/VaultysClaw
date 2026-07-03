@@ -1,7 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { adminAgentsClient, usersClient, unwrap } from "@/lib/api/ts-rest/client";
+import {
+  adminApi,
+  unwrap,
+} from "@/lib/api/ts-rest/client";
 import type { AgentInfo } from "@/lib/contracts";
 import type { WorkspaceUser } from "@/components/workflow/properties/types";
 
@@ -25,7 +28,7 @@ export function useWorkflowMembers(workflowWorkspaceId: string) {
     if (!isRealWorkspace(workflowWorkspaceId)) return;
     setLoading(true);
     setSearchQuery("");
-    adminAgentsClient
+    adminApi.agents
       .search({ query: { workspace: workflowWorkspaceId } })
       .then((r) => setAgents(unwrap(r).items))
       .catch((err) => {
@@ -39,7 +42,7 @@ export function useWorkflowMembers(workflowWorkspaceId: string) {
     if (!isRealWorkspace(workflowWorkspaceId)) return;
     setUserLoading(true);
     setUserSearchQuery("");
-    usersClient
+    adminApi.users
       .search({ query: { workspace: workflowWorkspaceId } })
       .then((r) => setUsers(unwrap(r).users))
       .catch((err) => {

@@ -8,13 +8,15 @@ import {
 import { getAuthContext } from "@/lib/auth-utils";
 import { APIException } from "@/lib/api/utils/api-utils";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
-import { networkContract } from "@/lib/contracts";
+import {
+  adminContract,
+} from "@/lib/contracts";
 
 /**
  * Routes for /api/network — live transport stats plus runtime control of the
  * WebSocket and PeerJS servers.
  */
-const handlers = createNextRoute(networkContract, {
+const handlers = createNextRoute(adminContract.network, {
   // ── GET /api/network ────────────────────────────────────────────────────
   get: async ({ query, request }) => {
     await getAuthContext(request); // throws UNAUTHORIZED when not signed in

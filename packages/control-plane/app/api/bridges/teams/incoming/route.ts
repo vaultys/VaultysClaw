@@ -10,9 +10,11 @@ import { TeamsGateway } from "@/lib/bridges/teams-gateway";
 import { ChannelBridgeDAO } from "@/db";
 import { APIException } from "@/lib/api/utils/api-utils";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
-import { bridgesContract } from "@/lib/contracts";
+import {
+  adminContract,
+} from "@/lib/contracts";
 
-const handlers = createNextRoute(bridgesContract, {
+const handlers = createNextRoute(adminContract.bridges, {
   // The contract body is opaque so createNextRoute leaves the request stream
   // intact — we read the raw text here for Bot Framework auth verification.
   teamsIncoming: async ({ request }) => {

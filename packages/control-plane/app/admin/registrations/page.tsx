@@ -6,7 +6,11 @@ import { useAdminWS, type PendingRegistration } from "@/hooks/useAdminWS";
 import { Clock, Wifi, WifiOff, X, Loader2, Trash2 } from "lucide-react";
 import { useToolbar } from "@/components/layout/ToolbarContext";
 import { useBreadcrumbs } from "@/components/layout/BreadcrumbContext";
-import { registrationsClient, unwrap, ApiError } from "@/lib/api/ts-rest/client";
+import {
+  adminApi,
+  unwrap,
+  ApiError,
+} from "@/lib/api/ts-rest/client";
 import { RegistrationList } from "@/components/registrations/RegistrationList";
 
 export default function RegistrationsPage() {
@@ -40,7 +44,7 @@ export default function RegistrationsPage() {
     setBulkWorking(true);
     setRejectError(null);
     try {
-      unwrap(await registrationsClient.batchReject({ body: { ids, reason } }));
+      unwrap(await adminApi.registrations.batchReject({ body: { ids, reason } }));
       setSelected((prev) => {
         const next = new Set(prev);
         ids.forEach((id) => next.delete(id));
@@ -64,7 +68,7 @@ export default function RegistrationsPage() {
     setRejectError(null);
     try {
       unwrap(
-        await registrationsClient.reject({
+        await adminApi.registrations.reject({
           params: { id: reg.id },
           body: { reason: "Rejected by admin" },
         })

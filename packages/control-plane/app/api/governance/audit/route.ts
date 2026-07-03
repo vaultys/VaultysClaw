@@ -1,17 +1,20 @@
 import { getAuthContext } from "@/lib/auth-utils";
 import { APIException } from "@/lib/api/utils/api-utils";
 import { ActivityLogDAO, IntentDAO } from "@/db";
-import { governanceContract, type AuditEntry } from "@/lib/contracts";
+import {
+  adminContract,
+  type AuditEntry,
+} from "@/lib/contracts";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 
 /**
- * Routes for /api/governance/audit — the audit slice of `governanceContract`.
+ * Routes for /api/governance/audit — the audit slice of `adminContract.governance`.
  *
  * Returns a unified audit stream: activity_log + intent_log merged by
  * timestamp. Global admin only. The contract is the single source of truth for
  * the request/response shapes.
  */
-const handlers = createNextRoute(governanceContract, {
+const handlers = createNextRoute(adminContract.governance, {
   audit: async ({ query, request }) => {
     const auth = await getAuthContext(request);
     if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");

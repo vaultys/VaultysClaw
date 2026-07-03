@@ -13,7 +13,10 @@ import { getWSServer } from "@/lib/ws-server";
 import type { AgentCapability } from "@vaultysclaw/shared";
 import { DelegationCertDAO, GrantDAO, UserDAO } from "@/db";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
-import { usersContract, type UserGrant } from "@/lib/contracts";
+import {
+  adminContract,
+  type UserGrant,
+} from "@/lib/contracts";
 
 function toGrant(g: Awaited<ReturnType<typeof GrantDAO.findById>>): UserGrant {
   return {
@@ -26,7 +29,7 @@ function toGrant(g: Awaited<ReturnType<typeof GrantDAO.findById>>): UserGrant {
   };
 }
 
-const handlers = createNextRoute(usersContract, {
+const handlers = createNextRoute(adminContract.users, {
   // ── GET /api/users/:did/grants ────────────────────────────────────────────
   listGrants: async ({ params }) => {
     const session = await getServerSession(authOptions);

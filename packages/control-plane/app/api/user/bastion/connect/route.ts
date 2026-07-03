@@ -2,13 +2,15 @@ import { UserServerChannel } from "@/lib/user-server-channel";
 import { VaultysId } from "@vaultys/id";
 import { APIException } from "@/lib/api/utils/api-utils";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
-import { userAuthContract } from "@/lib/contracts";
+import {
+  publicContract,
+} from "@/lib/contracts";
 
 /**
  * GET /api/user/bastion/connect — initiate the bastion (browser-device) flow.
  * Returns { key }: the connection key encrypted for the browser's VaultysId.
  */
-const handlers = createNextRoute(userAuthContract, {
+const handlers = createNextRoute(publicContract.userAuth, {
   bastionConnect: async ({ query, request }) => {
     const ip =
       request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??

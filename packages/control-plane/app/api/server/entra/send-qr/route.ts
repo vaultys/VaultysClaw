@@ -4,9 +4,11 @@
  */
 
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
-import { serverContract } from "@/lib/contracts";
+import {
+  adminContract,
+} from "@/lib/contracts";
 
-const handlers = createNextRoute(serverContract, {
+const handlers = createNextRoute(adminContract.server, {
   entraSendQr: async () => ({
     status: 501,
     body: { error: "Not implemented" },

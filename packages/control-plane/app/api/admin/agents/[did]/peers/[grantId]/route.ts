@@ -1,8 +1,10 @@
-import { adminAgentsContract } from "@/lib/contracts";
+import {
+  adminContract,
+} from "@/lib/contracts";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 import { APIException } from "@/lib/api/utils/api-utils";
 
-const handlers = createNextRoute(adminAgentsContract, {
+const handlers = createNextRoute(adminContract.agents, {
   getPeer: async () => {
     throw new APIException("UNAVAILABLE", "Not implemented");
   },

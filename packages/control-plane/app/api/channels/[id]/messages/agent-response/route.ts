@@ -2,9 +2,11 @@ import { getAuthContext } from "@/lib/auth-utils";
 import { APIException } from "@/lib/api/utils/api-utils";
 import { ChannelService } from "@/lib/channel-service";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
-import { channelsContract } from "@/lib/contracts";
+import {
+  adminContract,
+} from "@/lib/contracts";
 
-const handlers = createNextRoute(channelsContract, {
+const handlers = createNextRoute(adminContract.channels, {
   // ── POST /api/channels/:id/messages/agent-response ────────────────────────
   postAgentResponse: async ({ params, body, request }) => {
     const auth = await getAuthContext(request);

@@ -2,7 +2,11 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { Check, Cpu, RefreshCw, CheckCircle2, XCircle, X } from "lucide-react";
-import { ApiError, modelsClient, unwrap } from "@/lib/api/ts-rest/client";
+import {
+  ApiError,
+  adminApi,
+  unwrap,
+} from "@/lib/api/ts-rest/client";
 import type { SafeModel } from "@/lib/contracts";
 
 const PROVIDERS = [
@@ -91,7 +95,7 @@ export function RegisterModelForm({
     if (!showExistingModels) return;
     setExistingLoading(true);
     try {
-      const { models } = unwrap(await modelsClient.list());
+      const { models } = unwrap(await adminApi.models.list());
       setExistingModels(models);
     } finally {
       setExistingLoading(false);
@@ -125,7 +129,7 @@ export function RegisterModelForm({
     setShowModelList(false);
     try {
       const data = unwrap(
-        await modelsClient.test({
+        await adminApi.models.test({
           body: { provider, modelId, baseUrl, apiKey: apiKey || undefined },
         })
       );
@@ -170,7 +174,7 @@ export function RegisterModelForm({
     setFormMsg(null);
     try {
       unwrap(
-        await modelsClient.create({
+        await adminApi.models.create({
           body: {
             name: name.trim(),
             description: description.trim() || undefined,
@@ -204,7 +208,7 @@ export function RegisterModelForm({
   const testExisting = async (id: string) => {
     setTestResults((r) => ({ ...r, [id]: "testing" }));
     try {
-      const data = unwrap(await modelsClient.validate({ params: { id } }));
+      const data = unwrap(await adminApi.models.validate({ params: { id } }));
       setTestResults((r) => ({ ...r, [id]: data }));
     } catch {
       setTestResults((r) => ({
@@ -216,7 +220,7 @@ export function RegisterModelForm({
 
   const deleteExisting = async (id: string) => {
     if (!confirm("Remove this model?")) return;
-    unwrap(await modelsClient.remove({ params: { id } }));
+    unwrap(await adminApi.models.remove({ params: { id } }));
     await loadExisting();
   };
 

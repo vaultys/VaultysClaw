@@ -9,9 +9,11 @@ import { getAuthContext } from "@/lib/auth-utils";
 import { APIException } from "@/lib/api/utils/api-utils";
 import { SettingsDAO } from "@/db";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
-import { serverContract } from "@/lib/contracts";
+import {
+  adminContract,
+} from "@/lib/contracts";
 
-const handlers = createNextRoute(serverContract, {
+const handlers = createNextRoute(adminContract.server, {
   // ── GET /api/server/settings (public) ─────────────────────────────────────
   getSettings: async () => ({
     status: 200,

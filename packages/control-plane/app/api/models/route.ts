@@ -2,10 +2,12 @@ import { getAuthContext } from "@/lib/auth-utils";
 import { APIException } from "@/lib/api/utils/api-utils";
 import { registerModel, isLiteLLMConfigured } from "@/lib/litellm-client";
 import { ModelDAO } from "@/db";
-import { modelsContract } from "@/lib/contracts";
+import {
+  adminContract,
+} from "@/lib/contracts";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 
-const handlers = createNextRoute(modelsContract, {
+const handlers = createNextRoute(adminContract.models, {
   // ── GET /api/models — list registry entries (admin only) ──────────────────
   list: async ({ request }) => {
     const auth = await getAuthContext(request);

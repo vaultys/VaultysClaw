@@ -1,18 +1,21 @@
 import { getWSServer } from "@/lib/ws-server";
 import { getAuthContext } from "@/lib/auth-utils";
 import { APIException } from "@/lib/api/utils/api-utils";
-import { adminAgentsContract } from "@/lib/contracts";
+import {
+  adminContract,
+} from "@/lib/contracts";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 
-const handlers = createNextRoute(adminAgentsContract, {
+const handlers = createNextRoute(adminContract.agents, {
   deleteSchedule: async ({ params, request }) => {
     const auth = await getAuthContext(request);
     const { did, id } = params;
 
-    if (!(await auth.canAdminAgent(did))) throw new APIException("FORBIDDEN");
+    if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");
 
     const wsServer = getWSServer();
-    if (!wsServer) throw new APIException("UNAVAILABLE", "WebSocket server not available");
+    if (!wsServer)
+      throw new APIException("UNAVAILABLE", "WebSocket server not available");
 
     const ok = wsServer.deleteScheduleOnAgent(did, id);
     if (!ok) throw new APIException("NOT_FOUND", "Agent not connected");

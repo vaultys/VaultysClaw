@@ -1,7 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { skillsClient, unwrap, ApiError } from "@/lib/api/ts-rest/client";
+import {
+  userApi,
+  unwrap,
+  ApiError,
+} from "@/lib/api/ts-rest/client";
 import type { WorkspaceOption } from "./types";
 
 export function AddSkillModal({
@@ -62,7 +66,7 @@ export function AddSkillModal({
     setError("");
     try {
       unwrap(
-        await skillsClient.create({
+        await userApi.skills.create({
           body: {
             workspaceId,
             name,

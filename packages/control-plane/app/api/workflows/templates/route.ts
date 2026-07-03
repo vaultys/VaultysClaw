@@ -1,12 +1,14 @@
 import { getTemplates } from "@/lib/workflow-templates";
 import { getAuthContext } from "@/lib/auth-utils";
-import { workflowsContract } from "@/lib/contracts";
+import {
+  userContract,
+} from "@/lib/contracts";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 
 /**
  * Route for GET /api/workflows/templates — list available workflow templates.
  */
-const handlers = createNextRoute(workflowsContract, {
+const handlers = createNextRoute(userContract.workflows, {
   listTemplates: async ({ query, request }) => {
     await getAuthContext(request);
 

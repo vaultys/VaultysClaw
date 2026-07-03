@@ -14,9 +14,11 @@ import {
   testOidcConnection,
 } from "@/lib/oidc-config";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
-import { serverContract } from "@/lib/contracts";
+import {
+  adminContract,
+} from "@/lib/contracts";
 
-const handlers = createNextRoute(serverContract, {
+const handlers = createNextRoute(adminContract.server, {
   // ── GET /api/server/oidc ──────────────────────────────────────────────────
   getOidc: async ({ request }) => {
     const auth = await getAuthContext(request);

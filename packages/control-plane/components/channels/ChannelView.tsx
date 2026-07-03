@@ -7,7 +7,10 @@ import type {
   ChannelMember,
   ChannelMessage,
 } from "@vaultysclaw/shared";
-import { channelsClient, unwrap } from "@/lib/api/ts-rest/client";
+import {
+  adminApi,
+  unwrap,
+} from "@/lib/api/ts-rest/client";
 import MessageList from "./MessageList";
 import MessageInput from "./MessageInput";
 import MemberList from "./MemberList";
@@ -37,7 +40,7 @@ export default function ChannelView({ channel, workspaceId }: ChannelViewProps) 
       try {
         if (!silent) setMessagesLoading(true);
         const { messages } = unwrap(
-          await channelsClient.listMessages({
+          await adminApi.channels.listMessages({
             params: { id: channel.id },
             query: { limit: 50 },
           })
@@ -55,7 +58,7 @@ export default function ChannelView({ channel, workspaceId }: ChannelViewProps) 
   const fetchMembers = useCallback(async () => {
     try {
       const { members } = unwrap(
-        await channelsClient.getOne({ params: { id: channel.id } })
+        await adminApi.channels.getOne({ params: { id: channel.id } })
       );
       setMembers(members);
     } catch (err) {

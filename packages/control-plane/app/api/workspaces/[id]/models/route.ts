@@ -3,9 +3,11 @@ import { APIException } from "@/lib/api/utils/api-utils";
 import { ModelDAO, WorkspaceDAO } from "@/db";
 import { isLiteLLMConfigured } from "@/lib/litellm-client";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
-import { workspacesContract } from "@/lib/contracts";
+import {
+  adminContract,
+} from "@/lib/contracts";
 
-const handlers = createNextRoute(workspacesContract, {
+const handlers = createNextRoute(adminContract.workspaces, {
   // ── GET /api/workspaces/:id/models ────────────────────────────────────────────
   listModels: async ({ params, request }) => {
     const auth = await getAuthContext(request);

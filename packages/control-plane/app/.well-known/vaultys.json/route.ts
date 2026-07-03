@@ -1,4 +1,6 @@
-import { wellKnownContract } from "@/lib/contracts";
+import {
+  publicContract,
+} from "@/lib/contracts";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 import { SettingsDAO } from "@/db";
 import { VaultysId } from "@vaultys/id";
@@ -9,7 +11,7 @@ import { APIException } from "@/lib/api/utils/api-utils";
  *
  * No authentication required — served at GET /.well-known/vaultys.json.
  */
-const handlers = createNextRoute(wellKnownContract, {
+const handlers = createNextRoute(publicContract.wellKnown, {
   vaultys: async ({ request }) => {
     const host = request.headers.get("host");
     if (!host) throw new APIException("MALFORMED", "Missing host header");

@@ -1,13 +1,15 @@
 import { getAuthContext } from "@/lib/auth-utils";
 import { APIException } from "@/lib/api/utils/api-utils";
 import { WorkflowDAO } from "@/db";
-import { workflowApprovalsContract } from "@/lib/contracts";
+import {
+  userContract,
+} from "@/lib/contracts";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 
 /**
  * Route for POST /api/workflows/approvals/:id/dismiss — dismiss a notification.
  */
-const handlers = createNextRoute(workflowApprovalsContract, {
+const handlers = createNextRoute(userContract.workflowApprovals, {
   dismiss: async ({ params, request }) => {
     const auth = await getAuthContext(request);
 

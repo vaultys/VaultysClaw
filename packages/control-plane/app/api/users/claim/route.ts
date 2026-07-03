@@ -10,9 +10,11 @@ import { VaultysId } from "@vaultys/id";
 import { SettingsDAO, UserDAO } from "@/db";
 import { APIException } from "@/lib/api/utils/api-utils";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
-import { usersContract } from "@/lib/contracts";
+import {
+  adminContract,
+} from "@/lib/contracts";
 
-const handlers = createNextRoute(usersContract, {
+const handlers = createNextRoute(adminContract.users, {
   claim: async ({ request }) => {
     const token = await getToken({ req: request });
     if (!token?.userId) throw new APIException("UNAUTHORIZED");

@@ -1,10 +1,12 @@
 import { getAuthContext } from "@/lib/auth-utils";
 import { APIException } from "@/lib/api/utils/api-utils";
 import { AgentDAO, KnowledgeDAO, WorkspaceDAO } from "@/db";
-import { knowledgeContract } from "@/lib/contracts";
+import {
+  userContract,
+} from "@/lib/contracts";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 
-const handlers = createNextRoute(knowledgeContract, {
+const handlers = createNextRoute(userContract.knowledge, {
   // ── GET /api/knowledge?workspaceId=&agentDid= ─────────────────────────────────
   list: async ({ query, request }) => {
     const auth = await getAuthContext(request);

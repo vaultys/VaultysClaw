@@ -1,17 +1,19 @@
 import { getAuthContext } from "@/lib/auth-utils";
 import { APIException } from "@/lib/api/utils/api-utils";
 import { WorkspaceDAO } from "@/db";
-import { workspacesContract } from "@/lib/contracts";
+import {
+  adminContract,
+} from "@/lib/contracts";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 
 /**
- * Routes for /api/workspaces/:id — the workspace-detail slice of `workspacesContract`.
+ * Routes for /api/workspaces/:id — the workspace-detail slice of `adminContract.workspaces`.
  *
  * The contract (lib/contracts/workspaces/workspaces.contract.ts) is the single source
  * of truth for request/response shapes; `createNextRoute` validates inputs and
  * type-checks every `{ status, body }` returned below against it.
  */
-const handlers = createNextRoute(workspacesContract, {
+const handlers = createNextRoute(adminContract.workspaces, {
   // ── GET /api/workspaces/:id — full workspace detail (single query) ────────────────
   getOne: async ({ params, request }) => {
     const auth = await getAuthContext(request);

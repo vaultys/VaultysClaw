@@ -1,7 +1,10 @@
 import { getAuthContext } from "@/lib/auth-utils";
 import { APIException } from "@/lib/api/utils/api-utils";
 import { PendingRegistrationDAO } from "@/db";
-import { registrationsContract, type CapabilityOption } from "@/lib/contracts";
+import {
+  adminContract,
+  type CapabilityOption,
+} from "@/lib/contracts";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 
 /** Capabilities the admin can assign to agents at approval time. */
@@ -35,7 +38,7 @@ const AVAILABLE_CAPABILITIES: CapabilityOption[] = [
   },
 ];
 
-const handlers = createNextRoute(registrationsContract, {
+const handlers = createNextRoute(adminContract.registrations, {
   // ── GET /api/registrations — pending registrations + assignable caps ───────
   list: async ({ request }) => {
     const auth = await getAuthContext(request);

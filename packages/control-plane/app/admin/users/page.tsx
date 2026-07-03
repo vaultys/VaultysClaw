@@ -7,9 +7,8 @@ import { Users, Plus, UserCheck, Clock, Filter } from "lucide-react";
 import { useToolbar } from "@/components/layout/ToolbarContext";
 import { useBreadcrumbs } from "@/components/layout/BreadcrumbContext";
 import {
-  usersClient,
-  serverClient,
-  userAuthClient,
+  adminApi,
+  publicApi,
   unwrap,
   ApiError,
 } from "@/lib/api/ts-rest/client";
@@ -77,7 +76,7 @@ export default function UsersPage() {
   useEffect(() => cancelPoll, [cancelPoll]);
 
   useEffect(() => {
-    serverClient
+    adminApi.server
       .getSmtp()
       .then((res) =>
         setSmtpAvailable(
@@ -99,7 +98,7 @@ export default function UsersPage() {
       setLoading(true);
       try {
         const data = unwrap(
-          await usersClient.list({
+          await adminApi.users.list({
             query: {
               page: params.page,
               pageSize: PAGE_SIZE,
@@ -158,7 +157,7 @@ export default function UsersPage() {
       if (sendByEmail) {
         try {
           unwrap(
-            await usersClient.inviteEmail({
+            await adminApi.users.inviteEmail({
               body: {
                 email: user.email ?? "",
                 name: user.name ?? "",
@@ -177,8 +176,8 @@ export default function UsersPage() {
       }
 
       const [inviteRes, settingsRes] = await Promise.all([
-        usersClient.invite({ query: { userId: user.id } }),
-        serverClient.getSettings(),
+        adminApi.users.invite({ query: { userId: user.id } }),
+        adminApi.server.getSettings(),
       ]);
       const data = unwrap(inviteRes);
       const settings = unwrap(settingsRes);
@@ -200,7 +199,7 @@ export default function UsersPage() {
         await new Promise((res) => setTimeout(res, 1500));
         if (poll.cancelled) return;
         const { status } = unwrap(
-          await userAuthClient.listen({ params: { token: data.token } })
+          await publicApi.userAuth.listen({ params: { token: data.token } })
         );
         if (poll.cancelled) return;
         if (status === 2) {

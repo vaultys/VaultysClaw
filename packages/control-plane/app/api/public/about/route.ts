@@ -1,7 +1,9 @@
 import fs from "fs";
 import path from "path";
 import { APIException } from "@/lib/api/utils/api-utils";
-import { aboutContract } from "@/lib/contracts";
+import {
+  publicContract,
+} from "@/lib/contracts";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 
 const DOCS: Record<string, string[]> = {
@@ -24,7 +26,7 @@ function resolveDoc(candidates: string[]): string | null {
 }
 
 // Public route — no authentication required. Serves markdown documentation.
-const handlers = createNextRoute(aboutContract, {
+const handlers = createNextRoute(publicContract.about, {
   get: async ({ query }) => {
     const doc = query.doc ?? "readme";
     const candidates = DOCS[doc];

@@ -15,9 +15,8 @@ import {
 import { formatCompactNumber } from "@vaultysclaw/shared";
 import { useRole } from "@/hooks/useRole";
 import {
-  adminAgentsClient,
-  knowledgeClient,
-  workspacesClient,
+  adminApi,
+  userApi,
   unwrap,
 } from "@/lib/api/ts-rest/client";
 import { AgentInfo, KnowledgeSource, WorkspaceWithCounts } from "@/lib/contracts";
@@ -47,9 +46,9 @@ export default function KnowledgeDashboardPage() {
     setLoading(true);
     try {
       const [ksRes, agRes, rlRes] = await Promise.all([
-        knowledgeClient.list(),
-        adminAgentsClient.search(),
-        workspacesClient.list(),
+        userApi.knowledge.list(),
+        adminApi.agents.search(),
+        adminApi.workspaces.list(),
       ]);
       const agData = unwrap(agRes);
       const rlData = unwrap(rlRes);

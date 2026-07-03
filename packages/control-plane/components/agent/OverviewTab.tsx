@@ -18,8 +18,7 @@ import { AUDIT_LABELS } from "./constants";
 import { TokenBar } from "./TokenBar";
 import { AgentLocationRow } from "./AgentLocationRow";
 import {
-  governanceClient,
-  policiesClient,
+  adminApi,
   unwrap,
 } from "@/lib/api/ts-rest/client";
 import { AgentInfo, type PolicyEntry, type AuditEntry } from "@/lib/contracts";
@@ -46,11 +45,11 @@ export function OverviewTab({
     (async () => {
       try {
         const [audit, policyData] = await Promise.all([
-          governanceClient
+          adminApi.governance
             .audit({ query: { agentDid: agent.did, limit: 50 } })
             .then(unwrap)
             .catch(() => null),
-          policiesClient
+          adminApi.policies
             .list({ query: { agentDid: agent.did } })
             .then(unwrap)
             .catch(() => null),

@@ -3,7 +3,10 @@
 import { useCallback, useState } from "react";
 import dynamic from "next/dynamic";
 import { MapPin } from "lucide-react";
-import { adminAgentsClient, unwrap } from "@/lib/api/ts-rest/client";
+import {
+  adminApi,
+  unwrap,
+} from "@/lib/api/ts-rest/client";
 
 const LocationEditor = dynamic(
   () => import("@/components/map/WorldMap").then((m) => m.LocationEditor),
@@ -36,7 +39,7 @@ export function AgentLocationRow({
         loc === null
           ? { lat: null }
           : { lat: loc.lat, lon: loc.lon, label: loc.label };
-      unwrap(await adminAgentsClient.setLocation({ params: { did }, body }));
+      unwrap(await adminApi.agents.setLocation({ params: { did }, body }));
       setCurrent(loc);
     },
     [did]

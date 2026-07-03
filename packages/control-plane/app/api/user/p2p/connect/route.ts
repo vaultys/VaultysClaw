@@ -2,13 +2,15 @@ import { UserServerChannel } from "@/lib/user-server-channel";
 import { VaultysId } from "@vaultys/id";
 import { SettingsDAO, UserDAO } from "@/db";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
-import { userAuthContract } from "@/lib/contracts";
+import {
+  publicContract,
+} from "@/lib/contracts";
 
 /**
  * GET /api/user/p2p/connect — open a server-side PeerJS channel, run the full
  * Challenger auth when the wallet connects, and update the cert on completion.
  */
-const handlers = createNextRoute(userAuthContract, {
+const handlers = createNextRoute(publicContract.userAuth, {
   p2pConnect: async () => {
     const hasUsers = (await UserDAO.list({ page: 1, pageSize: 1 })).total > 0;
     const shouldRegister = !hasUsers;

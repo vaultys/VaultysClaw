@@ -3,12 +3,14 @@ import { APIException } from "@/lib/api/utils/api-utils";
 import { decryptSecret } from "@/lib/vault";
 import { SettingsDAO } from "@/db";
 import { getStorageConfig } from "@/db/settings.dao";
-import { settingsContract } from "@/lib/contracts";
+import {
+  adminContract,
+} from "@/lib/contracts";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 
 // Body fields are optional — omit any to fall back to the saved (DB) config.
 // secretAccessKey is decrypted from the DB when not supplied in the body.
-const handlers = createNextRoute(settingsContract, {
+const handlers = createNextRoute(adminContract.settings, {
   testStorage: async ({ body, request }) => {
     const auth = await getAuthContext(request);
     if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");

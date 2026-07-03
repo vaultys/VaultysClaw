@@ -2,7 +2,10 @@
 
 import { useState, useEffect } from "react";
 import { Puzzle, AlertTriangle, BookOpen, Search, X } from "lucide-react";
-import { skillsClient, unwrap } from "@/lib/api/ts-rest/client";
+import {
+  userApi,
+  unwrap,
+} from "@/lib/api/ts-rest/client";
 import type { LibrarySkill } from "@/lib/contracts";
 
 export function BrowseLibraryModal({
@@ -25,7 +28,7 @@ export function BrowseLibraryModal({
   }, [inputValue]);
 
   useEffect(() => {
-    skillsClient
+    userApi.skills
       .library()
       .then((res) => {
         const data = unwrap(res);

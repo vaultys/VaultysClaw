@@ -5,7 +5,9 @@ import { VaultysId } from "@vaultys/id";
 import { getWSServer } from "@/lib/ws-server";
 import { AgentDAO, SettingsDAO } from "@/db";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
-import { serverContract } from "@/lib/contracts";
+import {
+  adminContract,
+} from "@/lib/contracts";
 
 function getVersion(): string {
   try {
@@ -21,7 +23,7 @@ function getVersion(): string {
 /**
  * GET /api/server — server identity, status, agent summary, and system info.
  */
-const handlers = createNextRoute(serverContract, {
+const handlers = createNextRoute(adminContract.server, {
   get: async () => {
     // Server VaultysId identity
     let identity: Record<string, unknown> | null = null;

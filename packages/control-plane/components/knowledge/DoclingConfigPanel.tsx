@@ -13,7 +13,10 @@ import {
   MapPin,
 } from "lucide-react";
 import dynamic from "next/dynamic";
-import { settingsClient, unwrap } from "@/lib/api/ts-rest/client";
+import {
+  adminApi,
+  unwrap,
+} from "@/lib/api/ts-rest/client";
 import type { DoclingConfig, DoclingTestResult } from "@/lib/contracts";
 
 const LocationEditor = dynamic(
@@ -45,7 +48,7 @@ export function DoclingConfigPanel() {
   } | null>(null);
 
   useEffect(() => {
-    settingsClient
+    adminApi.settings
       .getDocling()
       .then((res) => {
         const d = unwrap(res);
@@ -83,7 +86,7 @@ export function DoclingConfigPanel() {
     setTestResult(null);
     try {
       const data = unwrap(
-        await settingsClient.testDocling({ body: { url: draftUrl.trim() } })
+        await adminApi.settings.testDocling({ body: { url: draftUrl.trim() } })
       );
       setTestStatus(data.ok ? "ok" : "error");
       setTestResult(data);
@@ -103,14 +106,14 @@ export function DoclingConfigPanel() {
       loc === null
         ? { lat: null }
         : { lat: loc.lat, lon: loc.lon, label: loc.label };
-    unwrap(await settingsClient.doclingLocation({ body }));
+    unwrap(await adminApi.settings.doclingLocation({ body }));
     setLocation(loc);
   }
 
   async function handleSave() {
     setSaving(true);
     try {
-      await settingsClient.updateDocling({
+      await adminApi.settings.updateDocling({
         body: { url: draftUrl.trim(), enabled: draftEnabled },
       });
       const next = {

@@ -3,11 +3,13 @@ import { APIException } from "@/lib/api/utils/api-utils";
 import { generateFileKey } from "@/lib/file-storage";
 import { prisma } from "@/db/client";
 import { getFileStorage } from "@/lib/file-storage-manager";
-import { settingsContract } from "@/lib/contracts";
+import {
+  adminContract,
+} from "@/lib/contracts";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 
 // Migrate files from legacy BLOB storage to filesystem/S3 storage
-const handlers = createNextRoute(settingsContract, {
+const handlers = createNextRoute(adminContract.settings, {
   migrateStorage: async ({ request }) => {
     const auth = await getAuthContext(request);
     if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");

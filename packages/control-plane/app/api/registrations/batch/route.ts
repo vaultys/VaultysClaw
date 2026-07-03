@@ -1,10 +1,12 @@
 import { getWSServer } from "@/lib/ws-server";
 import { getAuthContext } from "@/lib/auth-utils";
 import { APIException } from "@/lib/api/utils/api-utils";
-import { registrationsContract } from "@/lib/contracts";
+import {
+  adminContract,
+} from "@/lib/contracts";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 
-const handlers = createNextRoute(registrationsContract, {
+const handlers = createNextRoute(adminContract.registrations, {
   // ── POST /api/registrations/batch — reject many at once ───────────────────
   batchReject: async ({ body, request }) => {
     const auth = await getAuthContext(request);

@@ -1,6 +1,8 @@
 import { getAuthContext } from "@/lib/auth-utils";
 import { searchAgents } from "@/lib/api/agents-search";
-import { userAgentsContract } from "@/lib/contracts";
+import {
+  userContract,
+} from "@/lib/contracts";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 
 /**
@@ -9,7 +11,7 @@ import { createNextRoute } from "@/lib/api/ts-rest/next-route";
  * (derived from the session token) — the equivalent of the old admin
  * `mine=true` view. The global admin view is at `/api/admin/agents`.
  */
-const handlers = createNextRoute(userAgentsContract, {
+const handlers = createNextRoute(userContract.agents, {
   search: async ({ query, request }) => {
     const auth = await getAuthContext(request);
 

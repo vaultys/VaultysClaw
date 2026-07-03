@@ -3,7 +3,11 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { Check, Loader2, AlertCircle, Mail, QrCode } from "lucide-react";
-import { usersClient, userAuthClient, unwrap } from "@/lib/api/ts-rest/client";
+import {
+  adminApi,
+  publicApi,
+  unwrap,
+} from "@/lib/api/ts-rest/client";
 
 type Phase = "form" | "sending" | "sent" | "qr-loading" | "qr" | "qr-success" | "qr-failure";
 
@@ -85,7 +89,7 @@ export default function InviteUserModal({
       let inviteToken: string;
       try {
         const data = unwrap(
-          await usersClient.inviteFromEmail({ body: { token } })
+          await adminApi.users.inviteFromEmail({ body: { token } })
         );
         url = data.qrUrl;
         inviteToken = data.inviteToken;
@@ -108,7 +112,7 @@ export default function InviteUserModal({
         await new Promise((r) => setTimeout(r, 1500));
         if (poll.cancelled) return;
         const { status } = unwrap(
-          await userAuthClient.listen({ params: { token: inviteToken } })
+          await publicApi.userAuth.listen({ params: { token: inviteToken } })
         );
         if (poll.cancelled) return;
         if (status === 2) { setPhase("qr-success"); return; }

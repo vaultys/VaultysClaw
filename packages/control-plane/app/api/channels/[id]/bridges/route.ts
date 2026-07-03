@@ -3,7 +3,9 @@ import { APIException } from "@/lib/api/utils/api-utils";
 import { ChannelBridgeService } from "@/lib/channel-bridge-service";
 import { ChannelService } from "@/lib/channel-service";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
-import { channelsContract } from "@/lib/contracts";
+import {
+  adminContract,
+} from "@/lib/contracts";
 import type {
   ChannelBridge,
   TeamsBridgeConfig,
@@ -16,7 +18,7 @@ function stripConfig(bridge: ChannelBridge): Omit<ChannelBridge, "configJson"> {
   return rest;
 }
 
-const handlers = createNextRoute(channelsContract, {
+const handlers = createNextRoute(adminContract.channels, {
   // ── GET /api/channels/:id/bridges ─────────────────────────────────────────
   listBridges: async ({ params, request }) => {
     await getAuthContext(request);

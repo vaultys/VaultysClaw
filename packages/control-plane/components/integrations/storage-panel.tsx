@@ -9,7 +9,10 @@ import {
   IntegrationHeader,
   IntegrationModal,
 } from "./shared";
-import { settingsClient, unwrap } from "@/lib/api/ts-rest/client";
+import {
+  adminApi,
+  unwrap,
+} from "@/lib/api/ts-rest/client";
 import type { StorageConfig } from "@/lib/contracts";
 
 export function StoragePanel() {
@@ -30,7 +33,7 @@ export function StoragePanel() {
 
   const loadStatus = async () => {
     try {
-      const data = unwrap(await settingsClient.getStorage());
+      const data = unwrap(await adminApi.settings.getStorage());
       setStatus(data);
       setStorageType(data.storageType);
       if (data.s3) {
@@ -50,7 +53,7 @@ export function StoragePanel() {
     setIsSaving(true);
     try {
       unwrap(
-        await settingsClient.updateStorage({
+        await adminApi.settings.updateStorage({
           body: {
             storageType,
             ...(storageType === "s3"

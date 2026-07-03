@@ -6,9 +6,11 @@
 
 import { UserDAO } from "@/db";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
-import { invitationsContract } from "@/lib/contracts";
+import {
+  adminContract,
+} from "@/lib/contracts";
 
-const handlers = createNextRoute(invitationsContract, {
+const handlers = createNextRoute(adminContract.invitations, {
   delete: async ({ params }) => {
     await UserDAO.deleteInvitation(params.token);
     return { status: 200, body: { success: true } };

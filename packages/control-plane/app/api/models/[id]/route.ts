@@ -1,7 +1,9 @@
 import { getAuthContext } from "@/lib/auth-utils";
 import { APIException } from "@/lib/api/utils/api-utils";
 import { ModelDAO } from "@/db";
-import { modelsContract } from "@/lib/contracts";
+import {
+  adminContract,
+} from "@/lib/contracts";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 import {
   registerModel,
@@ -9,7 +11,7 @@ import {
   isLiteLLMConfigured,
 } from "@/lib/litellm-client";
 
-const handlers = createNextRoute(modelsContract, {
+const handlers = createNextRoute(adminContract.models, {
   // ── GET /api/models/:id — model detail with workspace access ──────────────────
   getOne: async ({ params, request }) => {
     await getAuthContext(request);

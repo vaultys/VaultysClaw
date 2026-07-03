@@ -2,7 +2,9 @@ import { getAuthContext } from "@/lib/auth-utils";
 import { APIException } from "@/lib/api/utils/api-utils";
 import { prisma } from "@/db/client";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
-import { statsContract } from "@/lib/contracts";
+import {
+  adminContract,
+} from "@/lib/contracts";
 
 async function getFleetHistoryTotals(
   granularity: "day" | "month",
@@ -18,7 +20,7 @@ async function getFleetHistoryTotals(
   };
 }
 
-const handlers = createNextRoute(statsContract, {
+const handlers = createNextRoute(adminContract.stats, {
   tokens: async ({ request }) => {
     const auth = await getAuthContext(request);
     if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");

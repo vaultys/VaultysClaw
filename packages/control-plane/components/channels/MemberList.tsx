@@ -4,10 +4,8 @@ import { useState, useEffect, useCallback } from "react";
 import { Loader2, UserMinus, Plus, Bot, User, Search, X } from "lucide-react";
 import { shortDid, getInitials, type ChannelMember } from "@vaultysclaw/shared";
 import {
-  adminAgentsClient,
-  channelsClient,
+  adminApi,
   unwrap,
-  usersClient,
 } from "@/lib/api/ts-rest/client";
 import { AgentInfo, UserListItem } from "@/lib/contracts";
 
@@ -48,7 +46,7 @@ export default function MemberList({ channelId }: MemberListProps) {
     try {
       setIsLoading(true);
       const { members } = unwrap(
-        await channelsClient.getOne({ params: { id: channelId } })
+        await adminApi.channels.getOne({ params: { id: channelId } })
       );
       setMembers(members);
       setError(null);
@@ -65,7 +63,7 @@ export default function MemberList({ channelId }: MemberListProps) {
 
   // ── Users list for the add-member search (admin-only — graceful fallback) ───
   useEffect(() => {
-    usersClient
+    adminApi.users
       .list({ query: { pageSize: 100 } })
       .then((res) => unwrap(res))
       .then(({ users }) => {
@@ -101,7 +99,7 @@ export default function MemberList({ channelId }: MemberListProps) {
       setIsSearching(true);
       try {
         const agents = unwrap(
-          await adminAgentsClient.search({ query: { search: searchQuery } })
+          await adminApi.agents.search({ query: { search: searchQuery } })
         ).items;
 
         setAgentResults(agents);
@@ -152,7 +150,7 @@ export default function MemberList({ channelId }: MemberListProps) {
 
     try {
       const { member } = unwrap(
-        await channelsClient.addMember({
+        await adminApi.channels.addMember({
           params: { id: channelId },
           body: { memberDid: selectedDid, memberType: addType },
         })
@@ -186,7 +184,7 @@ export default function MemberList({ channelId }: MemberListProps) {
     try {
       setRemoveError(null);
       unwrap(
-        await channelsClient.removeMember({
+        await adminApi.channels.removeMember({
           params: { id: channelId, memberDid: member.memberDid },
         })
       );

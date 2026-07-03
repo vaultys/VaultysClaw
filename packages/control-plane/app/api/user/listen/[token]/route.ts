@@ -1,12 +1,14 @@
 import { UserServerChannel } from "@/lib/user-server-channel";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
-import { userAuthContract } from "@/lib/contracts";
+import {
+  publicContract,
+} from "@/lib/contracts";
 
 /**
  * GET /api/user/listen/[token] — poll a connection/registration cert status.
  * Returns { status }: -1 pending, 2 success, -2 failed.
  */
-const handlers = createNextRoute(userAuthContract, {
+const handlers = createNextRoute(publicContract.userAuth, {
   listen: async ({ params }) => {
     const cert = await UserServerChannel.listen(params.token);
     if (!cert) {

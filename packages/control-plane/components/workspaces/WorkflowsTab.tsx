@@ -4,7 +4,10 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ChevronRight, GitFork, LayoutTemplate, Plus } from "lucide-react";
-import { workflowsClient, unwrap } from "@/lib/api/ts-rest/client";
+import {
+  userApi,
+  unwrap,
+} from "@/lib/api/ts-rest/client";
 import { useWorkflowStore } from "@/components/workflow/store";
 import { TemplateSelectionModal } from "@/components/workflow/TemplateSelectionModal";
 import type { WorkflowDefinition } from "@/lib/workflow-types";
@@ -28,7 +31,7 @@ export function WorkflowsTab({
   async function handleSelectTemplate(templateId: string) {
     try {
       const data = unwrap(
-        await workflowsClient.getTemplate({ params: { templateId } })
+        await userApi.workflows.getTemplate({ params: { templateId } })
       );
       const template = data.template as {
         definition: WorkflowDefinition;

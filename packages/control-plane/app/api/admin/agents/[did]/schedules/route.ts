@@ -1,18 +1,21 @@
 import { getWSServer } from "@/lib/ws-server";
 import { getAuthContext } from "@/lib/auth-utils";
 import { APIException } from "@/lib/api/utils/api-utils";
-import { adminAgentsContract } from "@/lib/contracts";
+import {
+  adminContract,
+} from "@/lib/contracts";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 
-const handlers = createNextRoute(adminAgentsContract, {
+const handlers = createNextRoute(adminContract.agents, {
   createSchedule: async ({ params, body, request }) => {
     const auth = await getAuthContext(request);
     const agentDid = params.did;
 
-    if (!(await auth.canAdminAgent(agentDid))) throw new APIException("FORBIDDEN");
+    if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");
 
     const wsServer = getWSServer();
-    if (!wsServer) throw new APIException("UNAVAILABLE", "WebSocket server not available");
+    if (!wsServer)
+      throw new APIException("UNAVAILABLE", "WebSocket server not available");
 
     const ok = wsServer.sendScheduleToAgent(agentDid, {
       id: body.id,

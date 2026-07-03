@@ -3,9 +3,12 @@ import { APIException } from "@/lib/api/utils/api-utils";
 import { getWSServer } from "@/lib/ws-server";
 import { PolicyDAO } from "@/db";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
-import { policiesContract, type PolicyEntry } from "@/lib/contracts";
+import {
+  adminContract,
+  type PolicyEntry,
+} from "@/lib/contracts";
 
-const handlers = createNextRoute(policiesContract, {
+const handlers = createNextRoute(adminContract.policies, {
   // ── GET /api/policies/:id ─────────────────────────────────────────────────
   getOne: async ({ params, request }) => {
     const auth = await getAuthContext(request);

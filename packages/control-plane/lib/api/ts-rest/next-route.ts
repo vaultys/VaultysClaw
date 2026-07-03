@@ -44,7 +44,7 @@ import { resolveApiError } from "@/lib/api/utils/api-utils";
  *
  * ```ts
  * // app/api/admin/agents/[did]/route.ts — only the :did-level routes
- * const handlers = createNextRoute(adminAgentsContract, {
+ * const handlers = createNextRoute(adminContract.agents, {
  *   getAgent: async ({ params }) => ({ status: 200, body: … }),
  *   updateAgent: async ({ params, body }) => ({ status: 200, body: … }),
  *   deleteAgent: async ({ params }) => ({ status: 204, body: undefined }),

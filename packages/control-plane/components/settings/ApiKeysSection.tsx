@@ -8,7 +8,10 @@ import {
   Clock,
   AlertCircle,
 } from "lucide-react";
-import { apiKeysClient, unwrap } from "@/lib/api/ts-rest/client";
+import {
+  userApi,
+  unwrap,
+} from "@/lib/api/ts-rest/client";
 import type { ApiKey } from "@/lib/api/utils/api-types";
 import { CopyButton } from "./primitives";
 import { RoutePermissionsEditor, isFullAccess } from "./RoutePermissionsEditor";
@@ -61,7 +64,7 @@ function KeyRow({
     setState((s) => ({ ...s, saving: true, error: "" }));
     try {
       const updated = unwrap(
-        await apiKeysClient.update({
+        await userApi.apiKeys.update({
           params: { id: k.id },
           body: {
             name: state.name.trim(),
@@ -217,7 +220,7 @@ export function ApiKeysSection() {
   const [formError, setFormError] = useState("");
 
   const load = () => {
-    apiKeysClient
+    userApi.apiKeys
       .list()
       .then((res) => setKeys(unwrap(res).apiKeys))
       .catch(() => {})
@@ -243,7 +246,7 @@ export function ApiKeysSection() {
     setCreating(true);
     try {
       const data = unwrap(
-        await apiKeysClient.create({
+        await userApi.apiKeys.create({
           body: {
             name: formName.trim(),
             allowedRoutes: formRoutes,
@@ -272,7 +275,7 @@ export function ApiKeysSection() {
 
   const revoke = async (id: string) => {
     if (!confirm("Revoke this API key? This cannot be undone.")) return;
-    await apiKeysClient.remove({ params: { id } });
+    await userApi.apiKeys.remove({ params: { id } });
     setKeys((prev) => prev.filter((k) => k.id !== id));
   };
 

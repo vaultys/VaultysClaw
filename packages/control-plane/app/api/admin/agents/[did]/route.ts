@@ -8,14 +8,16 @@ import {
   type AgentCapability,
 } from "@vaultysclaw/shared";
 import { APIException } from "@/lib/api/utils/api-utils";
-import { adminAgentsContract } from "@/lib/contracts";
+import {
+  adminContract,
+} from "@/lib/contracts";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 import { VaultysCertificate } from "@/types";
 
 const Buffer = crypto.Buffer;
 
 /**
- * Routes for /api/admin/agents/:did — the `:did`-level slice of `adminAgentsContract`.
+ * Routes for /api/admin/agents/:did — the `:did`-level slice of `adminContract.agents`.
  *
  * The contract (lib/contracts/admin/agents/agents.contract.ts) is the single source of
  * truth for request/response shapes; `createNextRoute` validates inputs and
@@ -23,7 +25,7 @@ const Buffer = crypto.Buffer;
  * implements only the routes that live at this path (getAgent/updateAgent/
  * deleteAgent); the contract's other routes are served by their own route.ts.
  */
-const handlers = createNextRoute(adminAgentsContract, {
+const handlers = createNextRoute(adminContract.agents, {
   // ── GET /api/admin/agents/:did ──────────────────────────────────────────
   getAgent: async ({ params, request }) => {
     const auth = await getAuthContext(request);

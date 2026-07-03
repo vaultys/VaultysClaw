@@ -16,7 +16,10 @@ import {
   MapPin,
 } from "lucide-react";
 import dynamic from "next/dynamic";
-import { settingsClient, unwrap } from "@/lib/api/ts-rest/client";
+import {
+  adminApi,
+  unwrap,
+} from "@/lib/api/ts-rest/client";
 import type {
   StorageConfig,
   StorageTestResult,
@@ -59,12 +62,12 @@ export function StorageConfigPanel() {
       loc === null
         ? { lat: null }
         : { lat: loc.lat, lon: loc.lon, label: loc.label };
-    unwrap(await settingsClient.storageLocation({ body }));
+    unwrap(await adminApi.settings.storageLocation({ body }));
     setStorageLocation(loc);
   }
 
   const loadCfg = useCallback(() => {
-    settingsClient
+    adminApi.settings
       .getStorage()
       .then((res) => {
         const d = unwrap(res);
@@ -112,7 +115,7 @@ export function StorageConfigPanel() {
     try {
       setTestResult(
         unwrap(
-          await settingsClient.testStorage({
+          await adminApi.settings.testStorage({
             body: {
               region: draftRegion.trim(),
               bucket: draftBucket.trim(),
@@ -135,7 +138,7 @@ export function StorageConfigPanel() {
     setSaveError(null);
     try {
       unwrap(
-        await settingsClient.updateStorage({
+        await adminApi.settings.updateStorage({
           body: {
             storageType: draftEnabled ? "s3" : "filesystem",
             s3: {
@@ -162,7 +165,7 @@ export function StorageConfigPanel() {
     setMigrating(true);
     setMigrateResult(null);
     try {
-      setMigrateResult(unwrap(await settingsClient.migrateStorage()));
+      setMigrateResult(unwrap(await adminApi.settings.migrateStorage()));
     } catch {
       setMigrateResult({
         success: false,

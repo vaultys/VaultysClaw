@@ -2,7 +2,10 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { Bell, RefreshCcw } from "lucide-react";
-import { workflowApprovalsClient, unwrap } from "@/lib/api/ts-rest/client";
+import {
+  userApi,
+  unwrap,
+} from "@/lib/api/ts-rest/client";
 import { useToolbar } from "@/components/layout/ToolbarContext";
 import { useBreadcrumbs } from "@/components/layout/BreadcrumbContext";
 import { WorkflowApproval } from "@prisma/client";
@@ -18,7 +21,7 @@ export default function InboxPage() {
   const fetchApprovals = useCallback(async () => {
     try {
       const data = unwrap(
-        await workflowApprovalsClient.list({ query: { all: "1" } })
+        await userApi.workflowApprovals.list({ query: { all: "1" } })
       );
       setApprovals(data.approvals);
     } catch {
@@ -37,7 +40,7 @@ export default function InboxPage() {
   const handleApprove = async (id: string) => {
     setActing(id);
     try {
-      await workflowApprovalsClient.approve({
+      await userApi.workflowApprovals.approve({
         params: { id },
         body: { comment: comment[id] || undefined },
       });
@@ -50,7 +53,7 @@ export default function InboxPage() {
   const handleReject = async (id: string) => {
     setActing(id);
     try {
-      await workflowApprovalsClient.reject({
+      await userApi.workflowApprovals.reject({
         params: { id },
         body: { comment: comment[id] || undefined },
       });
@@ -63,7 +66,7 @@ export default function InboxPage() {
   const handleDismiss = async (id: string) => {
     setActing(id);
     try {
-      await workflowApprovalsClient.dismiss({ params: { id } });
+      await userApi.workflowApprovals.dismiss({ params: { id } });
       await fetchApprovals();
     } finally {
       setActing(null);

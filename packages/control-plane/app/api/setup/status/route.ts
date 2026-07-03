@@ -3,10 +3,12 @@ import { getAuthContext } from "@/lib/auth-utils";
 import { APIException } from "@/lib/api/utils/api-utils";
 import { AgentDAO, ModelDAO, WorkspaceDAO } from "@/db";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
-import { setupContract } from "@/lib/contracts";
+import {
+  publicContract,
+} from "@/lib/contracts";
 
 /** GET /api/setup/status — check which setup steps are completed. Admin only. */
-const handlers = createNextRoute(setupContract, {
+const handlers = createNextRoute(publicContract.setup, {
   status: async ({ request }) => {
     const auth = await getAuthContext(request);
     if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");

@@ -14,7 +14,11 @@ import {
   runBrowserDirectConnect,
   type WalletSecurityType,
 } from "@/lib/browser-connect";
-import { usersClient, userAuthClient, unwrap } from "@/lib/api/ts-rest/client";
+import {
+  adminApi,
+  publicApi,
+  unwrap,
+} from "@/lib/api/ts-rest/client";
 
 type ClaimPhase = "loading" | "ready" | "qr-loading" | "qr" | "success" | "error";
 
@@ -54,7 +58,7 @@ export default function ClaimPage() {
   const generateQR = useCallback(async () => {
     setPhase("qr-loading");
     try {
-      const data = unwrap(await usersClient.claim());
+      const data = unwrap(await adminApi.users.claim());
       setQrUrl(data.qrUrl);
       setCertKey(data.key);
       setPhase("qr");
@@ -63,7 +67,7 @@ export default function ClaimPage() {
       for (let i = 0; i < 180; i++) {
         await new Promise((r) => setTimeout(r, 1500));
         const { status: s } = unwrap(
-          await userAuthClient.listen({ params: { token: data.inviteToken } })
+          await publicApi.userAuth.listen({ params: { token: data.inviteToken } })
         );
         if (s === 2) {
           // Refresh the JWT so it picks up the newly claimed DID

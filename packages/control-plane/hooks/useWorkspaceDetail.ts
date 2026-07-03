@@ -3,11 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  adminAgentsClient,
-  channelsClient,
-  mapClient,
-  workspacesClient,
-  usersClient,
+  adminApi,
   unwrap,
 } from "@/lib/api/ts-rest/client";
 import type { MapMarker, WorkspaceDetail, WorkspaceSkill } from "@/lib/contracts";
@@ -35,10 +31,10 @@ export function useWorkspaceDetail(id: string) {
 
   const load = useCallback(async () => {
     const [workspaceRes, skillsRes, modelsRes, channelsRes] = await Promise.all([
-      workspacesClient.getOne({ params: { id } }),
-      workspacesClient.listSkills({ params: { id } }),
-      workspacesClient.listModels({ params: { id } }),
-      channelsClient.list({ query: { workspace: id } }),
+      adminApi.workspaces.getOne({ params: { id } }),
+      adminApi.workspaces.listSkills({ params: { id } }),
+      adminApi.workspaces.listModels({ params: { id } }),
+      adminApi.channels.list({ query: { workspace: id } }),
     ]);
     if (workspaceRes.status === 404) {
       router.replace("/app/workspaces");
@@ -68,7 +64,7 @@ export function useWorkspaceDetail(id: string) {
 
   const refreshMapMarkers = useCallback(() => {
     setMapLoading(true);
-    mapClient
+    adminApi.map
       .get({ query: { workspace: id } })
       .then((r) => setMapMarkers(r.status === 200 ? r.body.markers : []))
       .catch(() => {})
@@ -86,11 +82,11 @@ export function useWorkspaceDetail(id: string) {
           : { lat: loc.lat, lon: loc.lon, label: loc.label };
       if (marker.type === "agent")
         unwrap(
-          await adminAgentsClient.setLocation({ params: { did: marker.id }, body })
+          await adminApi.agents.setLocation({ params: { did: marker.id }, body })
         );
       else if (marker.type === "user")
         unwrap(
-          await usersClient.setLocation({ params: { did: marker.id }, body })
+          await adminApi.users.setLocation({ params: { did: marker.id }, body })
         );
       else return;
       refreshMapMarkers();
@@ -101,7 +97,7 @@ export function useWorkspaceDetail(id: string) {
   const removeAgent = useCallback(
     async (did: string) => {
       if (!confirm("Remove agent from this workspace?")) return;
-      await workspacesClient.removeAgent({
+      await adminApi.workspaces.removeAgent({
         params: { id },
         body: { agentDid: did },
       });
@@ -113,7 +109,7 @@ export function useWorkspaceDetail(id: string) {
   const removeUser = useCallback(
     async (did: string) => {
       if (!confirm("Remove user from this workspace?")) return;
-      await workspacesClient.removeUser({ params: { id }, body: { userDid: did } });
+      await adminApi.workspaces.removeUser({ params: { id }, body: { userDid: did } });
       load();
     },
     [id, load]
@@ -122,7 +118,7 @@ export function useWorkspaceDetail(id: string) {
   const setUserRole = useCallback(
     async (did: string, role: "Admin" | "Member") => {
       unwrap(
-        await workspacesClient.updateUser({
+        await adminApi.workspaces.updateUser({
           params: { id },
           body: { userDid: did, role },
         })
@@ -136,7 +132,7 @@ export function useWorkspaceDetail(id: string) {
     async (did: string) => {
       if (!confirm("Transfer ownership of this workspace to this user?")) return;
       unwrap(
-        await workspacesClient.transferOwner({
+        await adminApi.workspaces.transferOwner({
           params: { id },
           body: { userDid: did },
         })
@@ -147,13 +143,13 @@ export function useWorkspaceDetail(id: string) {
   );
 
   const setDefault = useCallback(async () => {
-    await workspacesClient.setDefault({ params: { id } });
+    await adminApi.workspaces.setDefault({ params: { id } });
     load();
   }, [id, load]);
 
   const remove = useCallback(async () => {
     if (!confirm("Delete this workspace? This cannot be undone.")) return;
-    await workspacesClient.remove({ params: { id } });
+    await adminApi.workspaces.remove({ params: { id } });
     router.push("/app/workspaces");
   }, [id, router]);
 

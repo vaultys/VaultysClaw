@@ -8,7 +8,10 @@ import { WorkflowExecutionPanel } from "@/components/workflow/WorkflowExecutionP
 import { useWorkflowStore } from "@/components/workflow/store";
 import { useToolbar } from "@/components/layout/ToolbarContext";
 import { useBreadcrumbs } from "@/components/layout/BreadcrumbContext";
-import { workflowsClient, unwrap } from "@/lib/api/ts-rest/client";
+import {
+  userApi,
+  unwrap,
+} from "@/lib/api/ts-rest/client";
 import type { WorkflowDefinition } from "@/lib/workflow-types";
 
 type SaveStatus = "idle" | "saving" | "success" | "error";
@@ -67,7 +70,7 @@ export default function WorkflowEditPage() {
 
   const fetchWorkflow = async (id: string) => {
     try {
-      const data = unwrap(await workflowsClient.getOne({ params: { id } }));
+      const data = unwrap(await userApi.workflows.getOne({ params: { id } }));
       const def = data.workflow.definition as unknown as WorkflowDefinition;
       setWorkflow(
         data.workflow.id,
@@ -96,9 +99,9 @@ export default function WorkflowEditPage() {
         workspaceId: workflowWorkspaceId,
       };
       if (storeId) {
-        unwrap(await workflowsClient.update({ params: { id: storeId }, body }));
+        unwrap(await userApi.workflows.update({ params: { id: storeId }, body }));
       } else {
-        const data = unwrap(await workflowsClient.create({ body }));
+        const data = unwrap(await userApi.workflows.create({ body }));
         setWorkflow(
           data.workflow.id,
           workflowName,
@@ -135,7 +138,7 @@ export default function WorkflowEditPage() {
     if (!storeId) return;
     try {
       const data = unwrap(
-        await workflowsClient.execute({
+        await userApi.workflows.execute({
           params: { id: storeId },
           body: { input: input || undefined },
         })
@@ -154,7 +157,7 @@ export default function WorkflowEditPage() {
     }
     try {
       const data = unwrap(
-        await workflowsClient.export({ params: { id: storeId } })
+        await userApi.workflows.export({ params: { id: storeId } })
       );
       const blob = new Blob([JSON.stringify(data, null, 2)], {
         type: "application/json",
@@ -205,7 +208,7 @@ export default function WorkflowEditPage() {
     if (!confirm(`Delete workflow "${workflowName}"? This cannot be undone.`))
       return;
     try {
-      unwrap(await workflowsClient.remove({ params: { id: storeId } }));
+      unwrap(await userApi.workflows.remove({ params: { id: storeId } }));
       router.push(workspaceFromUrl ? `/app/workspaces/${workspaceFromUrl}` : "/app/workflows");
     } catch (err) {
       console.error("Failed to delete workflow:", err);

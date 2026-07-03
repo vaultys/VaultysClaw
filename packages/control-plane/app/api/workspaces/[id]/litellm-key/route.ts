@@ -9,9 +9,11 @@ import {
 import { getWSServer } from "@/lib/ws-server";
 import type { LlmConfig } from "@vaultysclaw/shared";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
-import { workspacesContract } from "@/lib/contracts";
+import {
+  adminContract,
+} from "@/lib/contracts";
 
-const handlers = createNextRoute(workspacesContract, {
+const handlers = createNextRoute(adminContract.workspaces, {
   // ── PUT /api/workspaces/:id/litellm-key ───────────────────────────────────────
   putLitellmKey: async ({ params, body, request }) => {
     const auth = await getAuthContext(request);

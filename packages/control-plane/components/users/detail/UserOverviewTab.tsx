@@ -4,7 +4,11 @@ import { useState, useEffect, useCallback } from "react";
 import dynamic from "next/dynamic";
 import { Save, AlertCircle, MapPin } from "lucide-react";
 import { shortDid } from "@vaultysclaw/shared";
-import { usersClient, unwrap, ApiError } from "@/lib/api/ts-rest/client";
+import {
+  adminApi,
+  unwrap,
+  ApiError,
+} from "@/lib/api/ts-rest/client";
 import type { UserDetail, UserListItem } from "@/lib/contracts";
 
 const LocationEditor = dynamic(
@@ -55,7 +59,7 @@ export function UserOverviewTab({
           ? { lat: null }
           : { lat: loc.lat, lon: loc.lon, label: loc.label };
       unwrap(
-        await usersClient.setLocation({ params: { did: user.did! }, body })
+        await adminApi.users.setLocation({ params: { did: user.did! }, body })
       );
       setLocation(loc);
     },
@@ -73,7 +77,7 @@ export function UserOverviewTab({
   };
 
   useEffect(() => {
-    usersClient
+    adminApi.users
       .list({ query: { hasAccount: "true", pageSize: 1000 } })
       .then((res) => setAllUsers(unwrap(res).users))
       .catch(() => {});
@@ -84,7 +88,7 @@ export function UserOverviewTab({
     setSaveError(null);
     try {
       unwrap(
-        await usersClient.update({
+        await adminApi.users.update({
           params: { did: user.did! },
           body: {
             name,

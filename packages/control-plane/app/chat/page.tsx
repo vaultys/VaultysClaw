@@ -12,7 +12,9 @@ import {
   CheckCircle2,
   XCircle,
 } from "lucide-react";
-import { toolApprovalsClient } from "@/lib/api/ts-rest/client";
+import {
+  adminApi,
+} from "@/lib/api/ts-rest/client";
 import { ChatMessageEntry, shortDid } from "@vaultysclaw/shared";
 import { PendingApproval } from "@/components/agent/chat-types";
 
@@ -375,7 +377,7 @@ export default function ChatPage() {
                 )
               );
               try {
-                const result = await toolApprovalsClient.respond({
+                const result = await adminApi.toolApprovals.respond({
                   body: { requestId: a.requestId, approved },
                 });
                 if (result.status !== 200) throw new Error("Request failed");

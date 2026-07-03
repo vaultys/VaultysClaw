@@ -2,7 +2,9 @@ import { getAuthContext } from "@/lib/auth-utils";
 import { APIException } from "@/lib/api/utils/api-utils";
 import { WorkspaceDAO, UserDAO } from "@/db";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
-import { workspacesContract } from "@/lib/contracts";
+import {
+  adminContract,
+} from "@/lib/contracts";
 
 /** Resolve a user by DID or internal id. */
 async function findUser(didOrId: string) {
@@ -11,7 +13,7 @@ async function findUser(didOrId: string) {
   );
 }
 
-const handlers = createNextRoute(workspacesContract, {
+const handlers = createNextRoute(adminContract.workspaces, {
   // ── POST /api/workspaces/:id/owner ────────────────────────────────────────────
   transferOwner: async ({ params, body, request }) => {
     const auth = await getAuthContext(request);

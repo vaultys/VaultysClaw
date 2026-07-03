@@ -3,20 +3,23 @@ import { APIException } from "@/lib/api/utils/api-utils";
 import { prisma } from "@/db/client";
 import { AgentDAO } from "@/db";
 import { Challenger, VaultysId, crypto } from "@vaultys/id";
-import { governanceContract, type AuditCertInfo } from "@/lib/contracts";
+import {
+  adminContract,
+  type AuditCertInfo,
+} from "@/lib/contracts";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 
 const Buffer = crypto.Buffer;
 
 /**
  * Routes for /api/governance/audit/:id — the auditEntry slice of
- * `governanceContract`. Returns a single audit entry (activity or intent) with
+ * `adminContract.governance`. Returns a single audit entry (activity or intent) with
  * full payload, parsed details, and certificate metadata. Global admin only.
  *
  * ID format:  act-{rowid}    → activity_log
  *             int-{intentId} → intent_log
  */
-const handlers = createNextRoute(governanceContract, {
+const handlers = createNextRoute(adminContract.governance, {
   auditEntry: async ({ params, request }) => {
     const auth = await getAuthContext(request);
     if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");

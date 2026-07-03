@@ -9,11 +9,13 @@ import { authOptions } from "@/lib/auth-config";
 import { sendMail } from "@/lib/smtp";
 import { SettingsDAO, UserDAO } from "@/db";
 import { APIException } from "@/lib/api/utils/api-utils";
-import { usersContract } from "@/lib/contracts";
+import {
+  adminContract,
+} from "@/lib/contracts";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 import { isAdminRole, isOwnerRole, normalizeRole } from "@/lib/roles";
 
-const handlers = createNextRoute(usersContract, {
+const handlers = createNextRoute(adminContract.users, {
   inviteEmail: async ({ body }) => {
     const session = await getServerSession(authOptions);
     if (!isOwnerRole(session?.user?.role) && !isAdminRole(session?.user?.role)) {

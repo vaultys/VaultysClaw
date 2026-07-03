@@ -23,11 +23,9 @@ import { WorkflowRunModal } from "@/components/workflow/WorkflowRunModal";
 import { useToolbar } from "@/components/layout/ToolbarContext";
 import { useBreadcrumbs } from "@/components/layout/BreadcrumbContext";
 import {
-  adminAgentsClient,
-  workflowsClient,
-  workflowRunsClient,
+  adminApi,
+  userApi,
   unwrap,
-  workspacesClient,
 } from "@/lib/api/ts-rest/client";
 import { WorkflowRunDetail, WorkflowRunWithName } from "@/lib/contracts";
 import { Workflow, WorkflowStep } from "@prisma/client";
@@ -174,11 +172,11 @@ export default function WorkflowDetailPage() {
     try {
       setLoading(true);
       const workflow = unwrap(
-        await workflowsClient.getOne({ params: { id } })
+        await userApi.workflows.getOne({ params: { id } })
       ).workflow;
       setWorkflow(workflow);
       if (workflow.workspaceId) {
-        workspacesClient
+        adminApi.workspaces
           .getOne({ params: { id: workflow.workspaceId } })
           .then((r) => unwrap(r))
           .then((workspace) => setWorkspaceName(workspace.name))
@@ -196,7 +194,7 @@ export default function WorkflowDetailPage() {
       if (!did || agentNames[did]) return;
       try {
         const agent = unwrap(
-          await adminAgentsClient.getAgent({
+          await adminApi.agents.getAgent({
             params: {
               did,
             },
@@ -211,7 +209,7 @@ export default function WorkflowDetailPage() {
   const fetchRuns = async (id: string) => {
     try {
       setRunsLoading(true);
-      const res = await workflowRunsClient.list({
+      const res = await userApi.workflowRuns.list({
         query: {
           workflowId: id,
           pageSize: 100,
@@ -232,7 +230,7 @@ export default function WorkflowDetailPage() {
     try {
       setRunDetailLoading(true);
       const workflowRunDetail = unwrap(
-        await workflowRunsClient.getOne({ params: { runId } })
+        await userApi.workflowRuns.getOne({ params: { runId } })
       );
       setRunDetail(workflowRunDetail);
     } catch {

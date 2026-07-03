@@ -1,10 +1,12 @@
 import { VaultysId } from "@vaultys/id";
 import { SettingsDAO, UserDAO } from "@/db";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
-import { userStatusContract } from "@/lib/contracts";
+import {
+  userContract,
+} from "@/lib/contracts";
 
 /** GET /api/user/status — whether any user exists + the server DID. Public. */
-const handlers = createNextRoute(userStatusContract, {
+const handlers = createNextRoute(userContract.userStatus, {
   status: async () => {
     const hasUsers = await UserDAO.hasAnyUser();
     const serverSecret = await SettingsDAO.get("serverSecret");

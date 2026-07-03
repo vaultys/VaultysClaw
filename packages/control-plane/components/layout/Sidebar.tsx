@@ -28,7 +28,10 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useRole } from "@/hooks/useRole";
-import { workflowApprovalsClient, unwrap } from "@/lib/api/ts-rest/client";
+import {
+  userApi,
+  unwrap,
+} from "@/lib/api/ts-rest/client";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Navigation model
@@ -127,7 +130,7 @@ function usePendingCount() {
   useEffect(() => {
     if (status !== "authenticated") return;
     const fetch_ = () =>
-      workflowApprovalsClient
+      userApi.workflowApprovals
         .list({ query: {} })
         .then((res) => setCount(unwrap(res).approvals.length))
         .catch(() => {});

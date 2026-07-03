@@ -3,7 +3,11 @@
 import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import type { GraphData, GraphNode } from "@vaultysclaw/shared";
-import { graphClient, unwrap, ApiError } from "@/lib/api/ts-rest/client";
+import {
+  adminApi,
+  unwrap,
+  ApiError,
+} from "@/lib/api/ts-rest/client";
 
 // All views are code-split to avoid loading Three.js everywhere
 const Force3DView = dynamic(() => import("./views/Force3DView"), {
@@ -151,7 +155,7 @@ export default function WorkspaceGraph({
     setError(null);
     // Parse the legacy query-string prop (e.g. "?workspace=abc") into typed params.
     const sp = new URLSearchParams(query.replace(/^\?/, ""));
-    graphClient
+    adminApi.graph
       .get({
         query: {
           agent: sp.get("agent") ?? undefined,

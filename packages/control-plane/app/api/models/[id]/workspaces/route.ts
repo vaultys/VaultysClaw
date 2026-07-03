@@ -1,7 +1,9 @@
 import { getAuthContext } from "@/lib/auth-utils";
 import { APIException } from "@/lib/api/utils/api-utils";
 import { AgentDAO, ModelDAO, WorkspaceDAO } from "@/db";
-import { modelsContract } from "@/lib/contracts";
+import {
+  adminContract,
+} from "@/lib/contracts";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 import {
   createWorkspaceKey,
@@ -74,7 +76,7 @@ async function pushConfigToWorkspaceAgents(
   }
 }
 
-const handlers = createNextRoute(modelsContract, {
+const handlers = createNextRoute(adminContract.models, {
   // ── POST /api/models/:id/workspaces — grant workspace access (admin only) ─────────
   grantWorkspace: async ({ params, body, request }) => {
     const auth = await getAuthContext(request);

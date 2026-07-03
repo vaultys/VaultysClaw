@@ -8,16 +8,17 @@ import {
 } from "@/lib/litellm-client";
 import { getWSServer } from "@/lib/ws-server";
 import type { LlmConfig } from "@vaultysclaw/shared";
-import { adminAgentsContract } from "@/lib/contracts";
+import {
+  adminContract,
+} from "@/lib/contracts";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 
-const handlers = createNextRoute(adminAgentsContract, {
+const handlers = createNextRoute(adminContract.agents, {
   putLitellmKey: async ({ params, body, request }) => {
     const auth = await getAuthContext(request);
     const { did } = params;
 
-    if (!auth.isGlobalAdmin && !auth.canAdminAgent(did))
-      throw new APIException("FORBIDDEN");
+    if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");
 
     if (!isLiteLLMConfigured())
       throw new APIException(
@@ -31,7 +32,8 @@ const handlers = createNextRoute(adminAgentsContract, {
     let allowedModels = body.allowedModels;
     if (!allowedModels) {
       const agentWorkspaces = await AgentDAO.getWorkspaces(did);
-      const primary = agentWorkspaces.find((r) => r.isPrimary) ?? agentWorkspaces[0];
+      const primary =
+        agentWorkspaces.find((r) => r.isPrimary) ?? agentWorkspaces[0];
       if (primary) {
         const routerKey = await WorkspaceDAO.getRouterKey(primary.workspaceId);
         allowedModels = (routerKey?.allowedModelIds as string[]) ?? [];
@@ -77,8 +79,7 @@ const handlers = createNextRoute(adminAgentsContract, {
     const auth = await getAuthContext(request);
     const { did } = params;
 
-    if (!auth.isGlobalAdmin && !auth.canAdminAgent(did))
-      throw new APIException("FORBIDDEN");
+    if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");
 
     const agent = await AgentDAO.findByDid(did);
     if (!agent) throw new APIException("NOT_FOUND");

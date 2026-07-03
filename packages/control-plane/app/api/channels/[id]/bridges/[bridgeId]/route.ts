@@ -2,7 +2,9 @@ import { getAuthContext } from "@/lib/auth-utils";
 import { APIException } from "@/lib/api/utils/api-utils";
 import { ChannelBridgeService } from "@/lib/channel-bridge-service";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
-import { channelsContract } from "@/lib/contracts";
+import {
+  adminContract,
+} from "@/lib/contracts";
 import type { ChannelBridge } from "@vaultysclaw/shared";
 
 /** Strip configJson before sending to client */
@@ -11,7 +13,7 @@ function stripConfig(bridge: ChannelBridge): Omit<ChannelBridge, "configJson"> {
   return rest;
 }
 
-const handlers = createNextRoute(channelsContract, {
+const handlers = createNextRoute(adminContract.channels, {
   // ── PATCH /api/channels/:id/bridges/:bridgeId ─────────────────────────────
   updateBridge: async ({ params, body, request }) => {
     await getAuthContext(request);

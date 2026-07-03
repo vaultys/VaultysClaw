@@ -2,7 +2,11 @@
 
 import { useState } from "react";
 import { Shield, ShieldOff, AlertCircle } from "lucide-react";
-import { usersClient, unwrap, ApiError } from "@/lib/api/ts-rest/client";
+import {
+  adminApi,
+  unwrap,
+  ApiError,
+} from "@/lib/api/ts-rest/client";
 import type { UserDetail } from "@/lib/contracts";
 
 export function UserAccessTab({
@@ -22,7 +26,7 @@ export function UserAccessTab({
     setAdminError(null);
     try {
       unwrap(
-        await usersClient.setAdmin({
+        await adminApi.users.setAdmin({
           params: { did: user.did! },
           body: { isAdmin: makeAdmin },
         })

@@ -1,12 +1,14 @@
 import { getAuthContext } from "@/lib/auth-utils";
 import { WorkflowDAO } from "@/db";
-import { workflowRunsContract } from "@/lib/contracts";
+import {
+  userContract,
+} from "@/lib/contracts";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 
 /**
  * Route for GET /api/workflows/runs — paginated list of workflow runs.
  */
-const handlers = createNextRoute(workflowRunsContract, {
+const handlers = createNextRoute(userContract.workflowRuns, {
   list: async ({ query, request }) => {
     const auth = await getAuthContext(request);
 

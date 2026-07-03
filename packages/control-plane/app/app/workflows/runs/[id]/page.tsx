@@ -15,7 +15,9 @@ import {
   User,
   GitBranch,
 } from "lucide-react";
-import { workflowRunsClient } from "@/lib/api/ts-rest/client";
+import {
+  userApi,
+} from "@/lib/api/ts-rest/client";
 import { useToolbar } from "@/components/layout/ToolbarContext";
 import { useBreadcrumbs } from "@/components/layout/BreadcrumbContext";
 import {
@@ -138,7 +140,7 @@ export default function WorkflowRunDetailPage() {
   const [expandedSteps, setExpandedSteps] = useState<Set<string>>(new Set());
 
   useEffect(() => {
-    workflowRunsClient
+    userApi.workflowRuns
       .getOne({ params: { runId } })
       .then((res) => {
         if (res.status !== 200) {

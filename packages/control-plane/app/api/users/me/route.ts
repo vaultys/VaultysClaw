@@ -7,10 +7,12 @@ import { getAuthContext } from "@/lib/auth-utils";
 import { APIException } from "@/lib/api/utils/api-utils";
 import { UserDAO } from "@/db";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
-import { usersContract } from "@/lib/contracts";
+import {
+  adminContract,
+} from "@/lib/contracts";
 import { normalizeRole } from "@/lib/roles";
 
-const handlers = createNextRoute(usersContract, {
+const handlers = createNextRoute(adminContract.users, {
   // ── GET /api/users/me ─────────────────────────────────────────────────────
   me: async ({ request }) => {
     const auth = await getAuthContext(request);

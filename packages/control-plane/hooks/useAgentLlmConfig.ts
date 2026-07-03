@@ -3,9 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { type LlmProviderType } from "@vaultysclaw/shared";
 import {
-  adminAgentsClient,
-  litellmClient,
-  modelsClient,
+  adminApi,
   unwrap,
 } from "@/lib/api/ts-rest/client";
 import { SafeLlmConfig, SafeModel, type AgentInfo } from "@/lib/contracts";
@@ -103,10 +101,10 @@ export function useAgentLlmConfig(
     try {
       const [configData, modelsData, workspaceData, liteLlmModelsData] =
         await Promise.all([
-          adminAgentsClient.getLlmConfig({ params: { did } }).then(unwrap),
-          modelsClient.list().then(unwrap),
-          adminAgentsClient.getWorkspaceLlm({ params: { did } }).then(unwrap),
-          litellmClient.models().then(unwrap),
+          adminApi.agents.getLlmConfig({ params: { did } }).then(unwrap),
+          adminApi.models.list().then(unwrap),
+          adminApi.agents.getWorkspaceLlm({ params: { did } }).then(unwrap),
+          adminApi.litellm.models().then(unwrap),
         ]);
 
       const cfg = (configData as { config: SafeLlmConfig | null }).config;
@@ -283,7 +281,7 @@ export function useAgentLlmConfig(
     setLlmSaving(true);
     setLlmError(null);
     try {
-      unwrap(await adminAgentsClient.deleteLlmConfig({ params: { did } }));
+      unwrap(await adminApi.agents.deleteLlmConfig({ params: { did } }));
       await loadAll();
       flashStatus("cleared");
     } catch {
@@ -299,14 +297,14 @@ export function useAgentLlmConfig(
     try {
       // 1. Clear any manual llmConfig so the agent key takes priority
       if (llmConfig)
-        unwrap(await adminAgentsClient.deleteLlmConfig({ params: { did } }));
+        unwrap(await adminApi.agents.deleteLlmConfig({ params: { did } }));
 
       // 2. Provision / refresh the key
       const body: { allowedModels?: string[]; dailyBudget?: number } = {};
       if (keyModels.length > 0) body.allowedModels = keyModels;
       if (keyBudget) body.dailyBudget = parseFloat(keyBudget);
 
-      unwrap(await adminAgentsClient.putLitellmKey({ params: { did }, body }));
+      unwrap(await adminApi.agents.putLitellmKey({ params: { did }, body }));
 
       await Promise.all([loadAll(), onChanged?.()]);
       setLlmEditing(false);
@@ -322,7 +320,7 @@ export function useAgentLlmConfig(
   async function revokeAgentKey() {
     setRevoking(true);
     try {
-      unwrap(await adminAgentsClient.deleteLitellmKey({ params: { did } }));
+      unwrap(await adminApi.agents.deleteLitellmKey({ params: { did } }));
       await Promise.all([loadAll(), onChanged?.()]);
       setShowRevokeConfirm(false);
       flashStatus("cleared");
@@ -338,7 +336,7 @@ export function useAgentLlmConfig(
     setLlmError(null);
     try {
       const { config } = unwrap(
-        await adminAgentsClient.setLlmConfig({
+        await adminApi.agents.setLlmConfig({
           params: { did },
           body: { workspaceId: selectedWorkspaceId, workspaceModelId: selectedWorkspaceModelId },
         })
@@ -360,7 +358,7 @@ export function useAgentLlmConfig(
     setLlmError(null);
     try {
       const { config } = unwrap(
-        await adminAgentsClient.setLlmConfig({
+        await adminApi.agents.setLlmConfig({
           params: { did },
           body: { registryModelId: selectedRegistryId },
         })
@@ -383,11 +381,11 @@ export function useAgentLlmConfig(
     try {
       // 1. Clear any manual llmConfig so the LiteLLM model takes priority
       if (llmConfig)
-        unwrap(await adminAgentsClient.deleteLlmConfig({ params: { did } }));
+        unwrap(await adminApi.agents.deleteLlmConfig({ params: { did } }));
 
       // 2. Create agent key with the selected model
       unwrap(
-        await adminAgentsClient.putLitellmKey({
+        await adminApi.agents.putLitellmKey({
           params: { did },
           body: { allowedModels: [selectedLiteLlmModel] },
         })
@@ -424,7 +422,7 @@ export function useAgentLlmConfig(
       if (llmForm.systemPrompt) body.systemPrompt = llmForm.systemPrompt;
       if (llmForm.maxTokens) body.maxTokens = parseInt(llmForm.maxTokens, 10);
       const { config } = unwrap(
-        await adminAgentsClient.setLlmConfig({ params: { did }, body })
+        await adminApi.agents.setLlmConfig({ params: { did }, body })
       );
       setLlmConfig(config);
       setLlmEditing(false);

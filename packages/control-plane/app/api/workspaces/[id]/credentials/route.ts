@@ -11,9 +11,11 @@ import { APIException } from "@/lib/api/utils/api-utils";
 import { encryptSecret } from "@/lib/vault";
 import { CredentialDAO, WorkspaceDAO } from "@/db";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
-import { workspacesContract } from "@/lib/contracts";
+import {
+  adminContract,
+} from "@/lib/contracts";
 
-const handlers = createNextRoute(workspacesContract, {
+const handlers = createNextRoute(adminContract.workspaces, {
   // ── GET /api/workspaces/:id/credentials ───────────────────────────────────────
   listCredentials: async ({ params, query, request }) => {
     const auth = await getAuthContext(request);

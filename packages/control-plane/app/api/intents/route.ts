@@ -6,9 +6,11 @@ import { GrantDAO, IntentDAO, WorkspaceDAO } from "@/db";
 import { getAuthContext } from "@/lib/auth-utils";
 import { APIException } from "@/lib/api/utils/api-utils";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
-import { intentsContract } from "@/lib/contracts";
+import {
+  adminContract,
+} from "@/lib/contracts";
 
-const handlers = createNextRoute(intentsContract, {
+const handlers = createNextRoute(adminContract.intents, {
   // ── POST /api/intents ─────────────────────────────────────────────────────
   // Owners can send any intent; non-owners must have an active grant covering
   // the target agent + action (capability).

@@ -1,7 +1,9 @@
 import { getAuthContext } from "@/lib/auth-utils";
 import { APIException } from "@/lib/api/utils/api-utils";
 import { getLiteLLMServiceState } from "@/lib/litellm-service";
-import { settingsContract } from "@/lib/contracts";
+import {
+  adminContract,
+} from "@/lib/contracts";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 
 /**
@@ -10,7 +12,7 @@ import { createNextRoute } from "@/lib/api/ts-rest/next-route";
  * Lightweight status check — reads in-memory service state only.
  * No external calls, no DB round-trips. Safe to poll from the sidebar.
  */
-const handlers = createNextRoute(settingsContract, {
+const handlers = createNextRoute(adminContract.settings, {
   litellmStatus: async ({ request }) => {
     const auth = await getAuthContext(request);
     if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");

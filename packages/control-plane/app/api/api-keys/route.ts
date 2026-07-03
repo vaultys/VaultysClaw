@@ -4,9 +4,11 @@ import { APIException } from "@/lib/api/utils/api-utils";
 import { generateApiKey, toApiKey } from "@/lib/api/utils/api-key-utils";
 import { ApiKeyDAO } from "@/db";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
-import { apiKeysContract } from "@/lib/contracts";
+import {
+  userContract,
+} from "@/lib/contracts";
 
-const handlers = createNextRoute(apiKeysContract, {
+const handlers = createNextRoute(userContract.apiKeys, {
   // ── GET /api/api-keys ─────────────────────────────────────────────────────
   list: async ({ request }) => {
     const auth = await getAuthContext(request);

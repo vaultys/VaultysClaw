@@ -9,7 +9,10 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { shortDid, timeAgo } from "@vaultysclaw/shared";
-import { governanceClient, unwrap } from "@/lib/api/ts-rest/client";
+import {
+  adminApi,
+  unwrap,
+} from "@/lib/api/ts-rest/client";
 import type { AuditEntry } from "@/lib/contracts";
 import { ACTIVITY_LABELS } from "./constants";
 
@@ -30,7 +33,7 @@ export function AuditTab() {
     setLoading(true);
     try {
       const { entries } = unwrap(
-        await governanceClient.audit({
+        await adminApi.governance.audit({
           query: {
             limit: 300,
             ...(sourceFilter ? { source: sourceFilter } : {}),

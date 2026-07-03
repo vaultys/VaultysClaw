@@ -9,11 +9,13 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-config";
 import { WorkspaceDAO, UserDAO } from "@/db";
 import { APIException } from "@/lib/api/utils/api-utils";
-import { usersContract } from "@/lib/contracts";
+import {
+  adminContract,
+} from "@/lib/contracts";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 import { USER_ROLES, isAdminRole, normalizeRole } from "@/lib/roles";
 
-const handlers = createNextRoute(usersContract, {
+const handlers = createNextRoute(adminContract.users, {
   getUnclaimed: async ({ params }) => {
     const session = await getServerSession(authOptions);
     if (!isAdminRole(session?.user?.role)) throw new APIException("FORBIDDEN");

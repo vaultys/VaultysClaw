@@ -2,7 +2,10 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { ShieldCheck, FileText, Activity, RefreshCw } from "lucide-react";
-import { governanceClient, unwrap } from "@/lib/api/ts-rest/client";
+import {
+  adminApi,
+  unwrap,
+} from "@/lib/api/ts-rest/client";
 import type { GovernanceSummary } from "@/lib/contracts";
 import {
   useToolbar,
@@ -25,7 +28,7 @@ export default function GovernancePage() {
   const fetchSummary = useCallback(async () => {
     setSummaryLoading(true);
     try {
-      setSummary(unwrap(await governanceClient.summary()));
+      setSummary(unwrap(await adminApi.governance.summary()));
     } catch {
       // keep previous summary on failure
     } finally {

@@ -26,8 +26,7 @@ import { CAPABILITY_ICONS } from "./capability-icons";
 import { ALL_CAPABILITIES, AUDIT_LABELS } from "./constants";
 import type { PolicyEntry, AuditEntry } from "@/lib/contracts";
 import {
-  governanceClient,
-  policiesClient,
+  adminApi,
   unwrap,
 } from "@/lib/api/ts-rest/client";
 
@@ -91,7 +90,7 @@ export function GovernanceTab({
           ? renewTarget.resourceLimits
           : undefined;
       unwrap(
-        await policiesClient.create({
+        await adminApi.policies.create({
           body: {
             agentDid: renewTarget.agentDid ?? undefined,
             capabilities: renewTarget.capabilities,
@@ -103,7 +102,7 @@ export function GovernanceTab({
         })
       );
       if (renewRevokeOriginal) {
-        await policiesClient.remove({ params: { id: renewTarget.id } });
+        await adminApi.policies.remove({ params: { id: renewTarget.id } });
       }
       setRenewTarget(null);
       await fetchPolicies();
@@ -129,7 +128,7 @@ export function GovernanceTab({
     setAuditLoading(true);
     try {
       const { entries } = unwrap(
-        await governanceClient.audit({
+        await adminApi.governance.audit({
           query: {
             agentDid: did,
             limit: 200,
@@ -154,7 +153,7 @@ export function GovernanceTab({
   const fetchPolicies = useCallback(async () => {
     try {
       const { policies } = unwrap(
-        await policiesClient.list({ query: { agentDid: did } })
+        await adminApi.policies.list({ query: { agentDid: did } })
       );
       setPolicies(policies);
     } catch {
@@ -198,7 +197,7 @@ export function GovernanceTab({
           .filter(Boolean);
       }
       unwrap(
-        await policiesClient.create({
+        await adminApi.policies.create({
           body: {
             agentDid: did,
             capabilities: formCaps,
@@ -225,7 +224,7 @@ export function GovernanceTab({
   const revokePolicy = async (id: string) => {
     setRevoking(id);
     try {
-      await policiesClient.remove({ params: { id } });
+      await adminApi.policies.remove({ params: { id } });
       await fetchPolicies();
     } finally {
       setRevoking(null);

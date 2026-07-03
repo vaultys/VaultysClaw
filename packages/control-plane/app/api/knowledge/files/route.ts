@@ -1,12 +1,15 @@
 import { getAuthContext } from "@/lib/auth-utils";
 import { APIException } from "@/lib/api/utils/api-utils";
 import { KnowledgeDAO } from "@/db";
-import { knowledgeContract, type KnowledgeFileMeta } from "@/lib/contracts";
+import {
+  userContract,
+  type KnowledgeFileMeta,
+} from "@/lib/contracts";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 
 const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20 MB
 
-const handlers = createNextRoute(knowledgeContract, {
+const handlers = createNextRoute(userContract.knowledge, {
   // ── GET /api/knowledge/files?sourceId= — list file metadata (no content) ──
   listFiles: async ({ query, request }) => {
     const auth = await getAuthContext(request);

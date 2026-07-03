@@ -3,13 +3,16 @@ import { AgentDAO, UserDAO } from "@/db";
 import { getWSServer } from "@/lib/ws-server";
 import { getDoclingConfig, getStorageConfig } from "@/db/settings.dao";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
-import { mapContract, MapMarker } from "@/lib/contracts";
+import {
+  adminContract,
+  MapMarker,
+} from "@/lib/contracts";
 
 /**
  * GET /api/map — aggregate all located entities (agents, users, services)
  * into map markers. Query: `workspace` filters agents/users by workspace id or slug.
  */
-const handlers = createNextRoute(mapContract, {
+const handlers = createNextRoute(adminContract.map, {
   get: async ({ query, request }) => {
     const auth = await getAuthContext(request);
 

@@ -2,7 +2,9 @@ import { getWSServer } from "@/lib/ws-server";
 import { getAuthContext } from "@/lib/auth-utils";
 import { AgentDAO } from "@/db";
 import { APIException } from "@/lib/api/utils/api-utils";
-import { userAgentsContract } from "@/lib/contracts";
+import {
+  userContract,
+} from "@/lib/contracts";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 
 /**
@@ -11,7 +13,7 @@ import { createNextRoute } from "@/lib/api/ts-rest/next-route";
  * (no workspace membership, no certificate) and gates access with
  * `canAccessAgent` rather than requiring global admin.
  */
-const handlers = createNextRoute(userAgentsContract, {
+const handlers = createNextRoute(userContract.agents, {
   getAgent: async ({ params, request }) => {
     const auth = await getAuthContext(request);
     const { did } = params;

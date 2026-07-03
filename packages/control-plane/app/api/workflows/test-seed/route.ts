@@ -5,7 +5,9 @@ import { AgentDAO, WorkspaceDAO, WorkflowDAO } from "@/db";
 
 import { Prisma } from "@prisma/client";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
-import { workflowsContract } from "@/lib/contracts";
+import {
+  userContract,
+} from "@/lib/contracts";
 import { WorkflowDefinition } from "@/lib/workflow-types";
 
 /**
@@ -13,7 +15,7 @@ import { WorkflowDefinition } from "@/lib/workflow-types";
  * Create a test workflow with 4 real online agents in sequence. Global admin
  * only. Requires 4 agents to be online and registered.
  */
-const handlers = createNextRoute(workflowsContract, {
+const handlers = createNextRoute(userContract.workflows, {
   testSeed: async ({ request }) => {
     const auth = await getAuthContext(request);
     if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");

@@ -13,7 +13,10 @@ import {
   CAPABILITY_ICONS,
   AVAILABLE_CAPABILITIES,
 } from "@/components/agent/capabilities";
-import { userAgentsClient, unwrap } from "@/lib/api/ts-rest/client";
+import {
+  userApi,
+  unwrap,
+} from "@/lib/api/ts-rest/client";
 import { AgentInfo, ListUserAgentsQuery } from "@/lib/contracts";
 
 const SORT_OPTIONS: { value: string; label: string }[] = [
@@ -54,7 +57,7 @@ export default function MyAgentsPage() {
   const fetchAgents = useCallback(async (query: ListUserAgentsQuery) => {
     setLoading(true);
     try {
-      const data = unwrap(await userAgentsClient.search({ query }));
+      const data = unwrap(await userApi.agents.search({ query }));
       setAgents(data.items);
       setTotal(data.total);
       setTotalPages(data.totalPages);

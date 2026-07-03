@@ -11,9 +11,11 @@ import { APIException } from "@/lib/api/utils/api-utils";
 import { getWSServer } from "@/lib/ws-server";
 import { GrantDAO } from "@/db";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
-import { usersContract } from "@/lib/contracts";
+import {
+  adminContract,
+} from "@/lib/contracts";
 
-const handlers = createNextRoute(usersContract, {
+const handlers = createNextRoute(adminContract.users, {
   revokeGrant: async ({ params }) => {
     const session = await getServerSession(authOptions);
     if (!isAdminRole(session?.user?.role)) throw new APIException("FORBIDDEN");

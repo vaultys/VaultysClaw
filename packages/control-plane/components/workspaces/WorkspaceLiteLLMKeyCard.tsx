@@ -4,7 +4,10 @@ import { useState } from "react";
 import { Key, RefreshCw, Trash2, Pencil, ExternalLink, CheckCircle2 } from "lucide-react";
 import Link from "next/link";
 import { ConfirmModal } from "@/components/shared/ConfirmModal";
-import { workspacesClient, unwrap } from "@/lib/api/ts-rest/client";
+import {
+  adminApi,
+  unwrap,
+} from "@/lib/api/ts-rest/client";
 
 export interface WorkspaceRouterKeyData {
   hasVirtualKey: boolean;
@@ -52,7 +55,7 @@ export function WorkspaceLiteLLMKeyCard({
         body.monthlyBudget = budgetInput ? parseFloat(budgetInput) : null;
 
       const data = unwrap(
-        await workspacesClient.putLitellmKey({ params: { id: workspaceId }, body })
+        await adminApi.workspaces.putLitellmKey({ params: { id: workspaceId }, body })
       );
       setMsg({
         ok: true,
@@ -73,7 +76,7 @@ export function WorkspaceLiteLLMKeyCard({
   const revoke = async () => {
     setRevoking(true);
     try {
-      await workspacesClient.deleteLitellmKey({ params: { id: workspaceId } });
+      await adminApi.workspaces.deleteLitellmKey({ params: { id: workspaceId } });
       setShowRevoke(false);
       setMsg({ ok: true, text: "Router key revoked" });
       onRefresh();

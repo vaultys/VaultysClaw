@@ -86,10 +86,12 @@ Register in `lib/contracts/index.ts`: import the router, add three `export *` li
 
 ## Route Handler
 
-`app/api/<resource>/[param]/route.ts` — use `createNextRoute(contract, implementation)`:
+`app/api/<resource>/[param]/route.ts` — use `createNextRoute(contract, implementation)`. Reference the domain contract through its audience group (`adminContract.<domain>` / `userContract.<domain>` / `publicContract.<domain>`), not the standalone `<domain>Contract` export:
 
 ```typescript
-const handlers = createNextRoute(agentDetailContract, {
+import { adminContract } from "@/lib/contracts";
+
+const handlers = createNextRoute(adminContract.agents, {
   getAgent: async ({ params, request }) => {
     const auth = await getAuthContext(request); // throws APIException("UNAUTHORIZED")
     const agent = await AgentDAO.findByDid(params.did);
@@ -114,13 +116,17 @@ export const DELETE = handlers.DELETE!;
 
 ## Client
 
-`lib/api/<domain>.ts` — use the contract client from `lib/api/ts-rest/client.ts`, call `unwrap()` to throw on non-2xx:
+Use the audience-grouped client (`adminApi` / `userApi` / `publicApi`) from `lib/api/ts-rest/client.ts`, addressing the domain as a property, and call `unwrap()` to throw on non-2xx:
 
 ```typescript
+import { adminApi, unwrap } from "@/lib/api/ts-rest/client";
+
 async getOne(did: string): Promise<AgentDetail> {
-  return unwrap(await agentContractClient.getAgent({ params: { did } }));
+  return unwrap(await adminApi.agents.getAgent({ params: { did } }));
 }
 ```
+
+The standalone `<domain>Client` singletons still exist (they are what the `*Api` objects bundle) but consumers should go through the grouped accessor.
 
 Import types from the contract in UI components: `import type { AgentDetail } from "@/lib/contracts"`.
 
@@ -143,7 +149,7 @@ Error body shape is always `{ error: string; code: string; }`, enforced by `reso
 - `lib/contracts/` — per-domain folders; `index.ts` aggregates all into `appContract`
 - `lib/contracts/common.ts` — `commonErrorResponses` reused across contracts
 - `lib/api/ts-rest/next-route.ts` — `createNextRoute` middleware
-- `lib/api/ts-rest/client.ts` — `agentContractClient` + `unwrap`
+- `lib/api/ts-rest/client.ts` — grouped clients `adminApi` / `userApi` / `publicApi` (+ per-domain singletons) + `unwrap`
 - `lib/api/utils/api-utils.ts` — `APIException`, `resolveApiError`
 - `lib/auth-utils.ts` — `getAuthContext` (throws `APIException("UNAUTHORIZED")`)
 - `app/api/admin/agents/[did]/route.ts` — canonical example (GET/PATCH/DELETE)

@@ -2,7 +2,11 @@
 
 import { useState } from "react";
 import { Globe2, Share2 } from "lucide-react";
-import { skillsClient, unwrap, ApiError } from "@/lib/api/ts-rest/client";
+import {
+  userApi,
+  unwrap,
+  ApiError,
+} from "@/lib/api/ts-rest/client";
 import { configToText, type WorkspaceOption, type SkillGroup } from "./types";
 
 export function ShareToWorkspaceModal({
@@ -82,7 +86,7 @@ export function ShareToWorkspaceModal({
     setError("");
     try {
       unwrap(
-        await skillsClient.create({
+        await userApi.skills.create({
           body: {
             workspaceId,
             name: group.name,

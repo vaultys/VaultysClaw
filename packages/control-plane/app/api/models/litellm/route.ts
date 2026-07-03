@@ -1,10 +1,12 @@
 import { getAuthContext } from "@/lib/auth-utils";
 import { APIException } from "@/lib/api/utils/api-utils";
 import { isLiteLLMConfigured, listModels } from "@/lib/litellm-client";
-import { litellmContract } from "@/lib/contracts";
+import {
+  adminContract,
+} from "@/lib/contracts";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 
-const handlers = createNextRoute(litellmContract, {
+const handlers = createNextRoute(adminContract.litellm, {
   // ── GET /api/litellm/models — list available LiteLLM models (admin only) ──
   models: async ({ request }) => {
     const auth = await getAuthContext(request);

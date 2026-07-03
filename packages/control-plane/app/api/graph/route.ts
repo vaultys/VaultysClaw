@@ -12,7 +12,7 @@ import { APIException } from "@/lib/api/utils/api-utils";
 import {
   AgentRecord,
   Filters,
-  graphContract,
+  adminContract,
   UserRecord,
 } from "@/lib/contracts";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
@@ -74,7 +74,7 @@ import { normalizeRole } from "@/lib/roles";
  *       500:
  *         description: Failed to build graph.
  */
-const handlers = createNextRoute(graphContract, {
+const handlers = createNextRoute(adminContract.graph, {
   // ── GET /api/graph?agent=&user=&workspace= ────────────────────────────────────
   get: async ({ query, request }) => {
     const auth = await getAuthContext(request);

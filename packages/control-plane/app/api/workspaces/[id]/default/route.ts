@@ -1,13 +1,15 @@
 import { getAuthContext } from "@/lib/auth-utils";
 import { APIException } from "@/lib/api/utils/api-utils";
 import { WorkspaceDAO } from "@/db";
-import { workspacesContract } from "@/lib/contracts";
+import {
+  adminContract,
+} from "@/lib/contracts";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 
 /**
- * Routes for /api/workspaces/:id/default — the `setDefault` slice of `workspacesContract`.
+ * Routes for /api/workspaces/:id/default — the `setDefault` slice of `adminContract.workspaces`.
  */
-const handlers = createNextRoute(workspacesContract, {
+const handlers = createNextRoute(adminContract.workspaces, {
   // ── POST /api/workspaces/:id/default — make this workspace the default ────────────
   setDefault: async ({ params, request }) => {
     const auth = await getAuthContext(request);

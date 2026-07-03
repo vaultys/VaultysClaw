@@ -10,7 +10,9 @@ import { VaultysId } from "@vaultys/id";
 import { sendMail, getSmtpConfig } from "@/lib/smtp";
 import { SettingsDAO, UserDAO } from "@/db";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
-import { usersContract } from "@/lib/contracts";
+import {
+  adminContract,
+} from "@/lib/contracts";
 
 function escapeHtml(str: string): string {
   return str
@@ -20,7 +22,7 @@ function escapeHtml(str: string): string {
     .replace(/"/g, "&quot;");
 }
 
-const handlers = createNextRoute(usersContract, {
+const handlers = createNextRoute(adminContract.users, {
   sendUnclaimedQr: async ({ params, body, request }) => {
     const auth = await getAuthContext(request);
     if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");

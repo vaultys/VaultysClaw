@@ -14,9 +14,8 @@ import {
 } from "lucide-react";
 import { ConfirmModal } from "@/components/shared/ConfirmModal";
 import {
-  knowledgeClient,
-  policiesClient,
-  settingsClient,
+  userApi,
+  adminApi,
   unwrap,
 } from "@/lib/api/ts-rest/client";
 import { KsSourceCard } from "./knowledge/KsSourceCard";
@@ -57,7 +56,7 @@ export function KnowledgeTab({
     setLoading(true);
     try {
       const [ksRes, rlRes] = await Promise.all([
-        knowledgeClient.list({ query: { agentDid: did } }),
+        userApi.knowledge.list({ query: { agentDid: did } }),
         fetch("/api/workspaces"),
       ]);
       const rlData = (await rlRes.json()) as { workspaces?: KsWorkspaceOption[] };
@@ -73,7 +72,7 @@ export function KnowledgeTab({
   }, [load]);
 
   useEffect(() => {
-    settingsClient
+    adminApi.settings
       .getDocling()
       .then((res) => {
         const d = unwrap(res);
@@ -95,7 +94,7 @@ export function KnowledgeTab({
     }
     setSyncingIds((s) => new Set(s).add(source.id));
     try {
-      unwrap(await knowledgeClient.sync({ params: { id: source.id } }));
+      unwrap(await userApi.knowledge.sync({ params: { id: source.id } }));
       showToast(`Sync started for "${source.name}"`);
       await load();
     } catch (err) {
@@ -112,7 +111,7 @@ export function KnowledgeTab({
   async function executeDelete(source: KnowledgeSource) {
     setDeletingIds((s) => new Set(s).add(source.id));
     try {
-      unwrap(await knowledgeClient.remove({ params: { id: source.id } }));
+      unwrap(await userApi.knowledge.remove({ params: { id: source.id } }));
       showToast(`"${source.name}" deleted`);
       await load();
     } catch (err) {
@@ -130,7 +129,7 @@ export function KnowledgeTab({
     setGranting(true);
     try {
       const { policies } = unwrap(
-        await policiesClient.list({ query: { agentDid: did } })
+        await adminApi.policies.list({ query: { agentDid: did } })
       );
       const activePolicies = policies
         .filter((p) => !p.expiresAt || new Date(p.expiresAt) > new Date())
@@ -148,11 +147,11 @@ export function KnowledgeTab({
         : [...baseCaps, "knowledge_search"];
 
       if (latestPolicy) {
-        await policiesClient.remove({ params: { id: latestPolicy.id } });
+        await adminApi.policies.remove({ params: { id: latestPolicy.id } });
       }
 
       unwrap(
-        await policiesClient.create({
+        await adminApi.policies.create({
           body: {
             agentDid: did,
             capabilities: newCaps,

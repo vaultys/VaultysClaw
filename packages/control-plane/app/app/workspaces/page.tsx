@@ -6,7 +6,11 @@ import { Globe2, Plus, Star, Trash2, Users, Bot, GitFork } from "lucide-react";
 import { useRole } from "@/hooks/useRole";
 import { useToolbar } from "@/components/layout/ToolbarContext";
 import { useBreadcrumbs } from "@/components/layout/BreadcrumbContext";
-import { workspacesClient, unwrap, ApiError } from "@/lib/api/ts-rest/client";
+import {
+  adminApi,
+  unwrap,
+  ApiError,
+} from "@/lib/api/ts-rest/client";
 import type { WorkspaceWithCounts } from "@/lib/contracts";
 import { normalizeWorkspaceRole } from "@/lib/roles";
 import { slugify } from "@vaultysclaw/shared";
@@ -49,7 +53,7 @@ function CreateWorkspaceModal({
     setError("");
     try {
       unwrap(
-        await workspacesClient.create({
+        await adminApi.workspaces.create({
           body: {
             name: name.trim(),
             slug,
@@ -168,8 +172,8 @@ export default function WorkspacesPage() {
 
   const load = useCallback(async () => {
     const [{ workspaces }, { userWorkspaces }] = await Promise.all([
-      unwrap(await workspacesClient.list()),
-      unwrap(await workspacesClient.listMyWorkspaces()),
+      unwrap(await adminApi.workspaces.list()),
+      unwrap(await adminApi.workspaces.listMyWorkspaces()),
     ]);
     setWorkspaces(workspaces);
     setOwnedWorkspaceIds(
@@ -187,7 +191,7 @@ export default function WorkspacesPage() {
   }, [load]);
 
   async function handleSetDefault(id: string) {
-    unwrap(await workspacesClient.setDefault({ params: { id } }));
+    unwrap(await adminApi.workspaces.setDefault({ params: { id } }));
     load();
   }
 
@@ -199,7 +203,7 @@ export default function WorkspacesPage() {
     )
       return;
     setDeletingId(id);
-    unwrap(await workspacesClient.remove({ params: { id } }));
+    unwrap(await adminApi.workspaces.remove({ params: { id } }));
     setDeletingId(null);
     load();
   }

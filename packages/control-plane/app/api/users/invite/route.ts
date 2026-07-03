@@ -11,10 +11,12 @@ import { UserServerChannel } from "@/lib/user-server-channel";
 import { VaultysId } from "@vaultys/id";
 import { SettingsDAO, UserDAO } from "@/db";
 import { APIException } from "@/lib/api/utils/api-utils";
-import { usersContract } from "@/lib/contracts";
+import {
+  adminContract,
+} from "@/lib/contracts";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 
-const handlers = createNextRoute(usersContract, {
+const handlers = createNextRoute(adminContract.users, {
   invite: async ({ query }) => {
     const session = await getServerSession(authOptions);
     if (!isOwnerRole(session?.user?.role) && !isAdminRole(session?.user?.role)) {

@@ -4,7 +4,10 @@ import { useEffect, useState } from "react";
 import { ChevronRight, Zap, ToggleLeft, ToggleRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SkillConfig } from "@vaultysclaw/shared";
-import { adminAgentsClient, unwrap } from "@/lib/api/ts-rest/client";
+import {
+  adminApi,
+  unwrap,
+} from "@/lib/api/ts-rest/client";
 
 interface SkillsStepProps {
   agentDid: string | null;
@@ -18,7 +21,7 @@ export function SkillsStep({ agentDid, onContinue }: SkillsStepProps) {
   // Load this agent's workspace skills on mount
   useEffect(() => {
     if (!agentDid) return;
-    adminAgentsClient
+    adminApi.agents
       .getSkills({ params: { did: agentDid } })
       .then(unwrap)
       .then((d) => setSkills((d.skills as SkillConfig[] | undefined) ?? []))
@@ -36,7 +39,7 @@ export function SkillsStep({ agentDid, onContinue }: SkillsStepProps) {
     setSavingSkills(true);
     try {
       unwrap(
-        await adminAgentsClient.updateSkillOverride({
+        await adminApi.agents.updateSkillOverride({
           params: { did: agentDid },
           body: { workspaceSkillId, enabled: newEnabled },
         })

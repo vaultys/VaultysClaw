@@ -30,8 +30,7 @@ import { AutomationTab } from "@/components/agent/AutomationTab";
 import { ApprovalsTab } from "@/components/agent/ApprovalsTab";
 import { KnowledgeTab } from "@/components/agent/KnowledgeTab";
 import {
-  adminAgentsClient,
-  toolApprovalsClient,
+  adminApi,
   unwrap,
 } from "@/lib/api/ts-rest/client";
 import { AgentInfo } from "@/lib/contracts";
@@ -61,7 +60,7 @@ export default function AgentDetailPage() {
   const handleDeleteAgent = async () => {
     setDeletingAgent(true);
     try {
-      await adminAgentsClient.deleteAgent({
+      await adminApi.agents.deleteAgent({
         params: {
           did,
         },
@@ -77,7 +76,7 @@ export default function AgentDetailPage() {
 
   const fetchAgent = useCallback(async () => {
     try {
-      const agent = unwrap(await adminAgentsClient.getAgent({ params: { did } }));
+      const agent = unwrap(await adminApi.agents.getAgent({ params: { did } }));
       setAgent(agent);
       setError(null);
     } catch (err) {
@@ -122,7 +121,7 @@ export default function AgentDetailPage() {
   useEffect(() => {
     const refresh = async () => {
       try {
-        const { approvals } = unwrap(await toolApprovalsClient.list());
+        const { approvals } = unwrap(await adminApi.toolApprovals.list());
         setPendingApprovals(approvals.length);
       } catch {
         setPendingApprovals(0);

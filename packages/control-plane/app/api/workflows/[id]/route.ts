@@ -2,13 +2,15 @@ import { getAuthContext } from "@/lib/auth-utils";
 import { APIException } from "@/lib/api/utils/api-utils";
 import { WorkflowDAO } from "@/db";
 import { Prisma } from "@prisma/client";
-import { workflowsContract } from "@/lib/contracts";
+import {
+  userContract,
+} from "@/lib/contracts";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 
 /**
- * Routes for /api/workflows/:id — the item-level slice of `workflowsContract`.
+ * Routes for /api/workflows/:id — the item-level slice of `userContract.workflows`.
  */
-const handlers = createNextRoute(workflowsContract, {
+const handlers = createNextRoute(userContract.workflows, {
   // ── GET /api/workflows/:id ──────────────────────────────────────────────
   getOne: async ({ params, request }) => {
     const auth = await getAuthContext(request);

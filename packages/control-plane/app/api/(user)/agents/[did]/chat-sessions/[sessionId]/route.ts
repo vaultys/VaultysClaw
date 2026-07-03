@@ -1,10 +1,12 @@
 import { getWSServer } from "@/lib/ws-server";
 import { getAuthContext } from "@/lib/auth-utils";
 import { APIException } from "@/lib/api/utils/api-utils";
-import { userAgentsContract } from "@/lib/contracts";
+import {
+  userContract,
+} from "@/lib/contracts";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 
-const handlers = createNextRoute(userAgentsContract, {
+const handlers = createNextRoute(userContract.agents, {
   getSessionMessages: async ({ params, request }) => {
     const auth = await getAuthContext(request);
     const { did, sessionId } = params;

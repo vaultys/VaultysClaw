@@ -10,7 +10,10 @@ import {
   ChevronDown,
   X,
 } from "lucide-react";
-import { knowledgeClient, unwrap } from "@/lib/api/ts-rest/client";
+import {
+  userApi,
+  unwrap,
+} from "@/lib/api/ts-rest/client";
 import { FileDropzone } from "./FileDropzone";
 import type { KsWorkspaceOption, KsSourceType } from "./types";
 
@@ -87,7 +90,7 @@ export function KsAddSourceModal({
           return;
         }
         unwrap(
-          await knowledgeClient.create({
+          await userApi.knowledge.create({
             body: {
               workspaceId,
               agentDid: did,
@@ -104,7 +107,7 @@ export function KsAddSourceModal({
           return;
         }
         unwrap(
-          await knowledgeClient.create({
+          await userApi.knowledge.create({
             body: {
               workspaceId,
               agentDid: did,
@@ -126,7 +129,7 @@ export function KsAddSourceModal({
           return;
         }
         const { source } = unwrap(
-          await knowledgeClient.create({
+          await userApi.knowledge.create({
             body: {
               workspaceId,
               agentDid: did,

@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import {
-  workspacesClient,
-  skillsClient,
+  adminApi,
+  userApi,
   unwrap,
   ApiError,
 } from "@/lib/api/ts-rest/client";
@@ -33,7 +33,7 @@ export function EditSkillModal({
     setFetching(true);
     try {
       // The source is not stored on the entry — try by name as the skillId.
-      const res = await skillsClient.libraryContent({
+      const res = await userApi.skills.libraryContent({
         query: { skillId: entry.name },
       });
       if (res.status === 200 && res.body.content) setContent(res.body.content);
@@ -68,7 +68,7 @@ export function EditSkillModal({
     setError("");
     try {
       unwrap(
-        await workspacesClient.updateSkill({
+        await adminApi.workspaces.updateSkill({
           params: { id: entry.workspaceId, skillId: entry.id },
           body: {
             description: description || null,

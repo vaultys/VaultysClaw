@@ -6,7 +6,11 @@ import { Puzzle, Plus, AlertTriangle, BookOpen } from "lucide-react";
 import { useRole } from "@/hooks/useRole";
 import { useToolbar } from "@/components/layout/ToolbarContext";
 import { useBreadcrumbs } from "@/components/layout/BreadcrumbContext";
-import { skillsClient, workspacesClient, unwrap } from "@/lib/api/ts-rest/client";
+import {
+  userApi,
+  adminApi,
+  unwrap,
+} from "@/lib/api/ts-rest/client";
 import type { WorkspaceSkillWithMeta } from "@/lib/contracts";
 import {
   AddSkillModal,
@@ -54,8 +58,8 @@ export default function SkillsPage() {
     setLoading(true);
     try {
       const [sk, rm] = await Promise.all([
-        skillsClient.list(),
-        workspacesClient.list(),
+        userApi.skills.list(),
+        adminApi.workspaces.list(),
       ]);
       setSkills(unwrap(sk));
       setWorkspaces(unwrap(rm).workspaces.map((r) => ({ id: r.id, name: r.name })));
@@ -136,7 +140,7 @@ export default function SkillsPage() {
   async function handleDelete(entry: WorkspaceSkillWithMeta) {
     setDeleting(true);
     try {
-      await workspacesClient.deleteSkill({
+      await adminApi.workspaces.deleteSkill({
         params: { id: entry.workspaceId, skillId: entry.id },
       });
       await load();

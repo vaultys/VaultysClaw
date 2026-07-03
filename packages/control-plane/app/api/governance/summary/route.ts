@@ -2,16 +2,18 @@ import { getAuthContext } from "@/lib/auth-utils";
 import { APIException } from "@/lib/api/utils/api-utils";
 import { prisma } from "@/db/client";
 import { AgentDAO, PolicyDAO } from "@/db";
-import { governanceContract } from "@/lib/contracts";
+import {
+  adminContract,
+} from "@/lib/contracts";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 
 /**
- * Routes for /api/governance/summary — the summary slice of `governanceContract`.
+ * Routes for /api/governance/summary — the summary slice of `adminContract.governance`.
  *
  * Returns governance posture statistics. Global admin only. The contract is the
  * single source of truth for the response shape.
  */
-const handlers = createNextRoute(governanceContract, {
+const handlers = createNextRoute(adminContract.governance, {
   summary: async ({ request }) => {
     const auth = await getAuthContext(request);
     if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");

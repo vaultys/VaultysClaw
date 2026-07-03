@@ -1,10 +1,12 @@
 import { getAuthContext } from "@/lib/auth-utils";
 import { APIException } from "@/lib/api/utils/api-utils";
 import { getDoclingConfig, setDoclingConfig } from "@/db/settings.dao";
-import { settingsContract } from "@/lib/contracts";
+import {
+  adminContract,
+} from "@/lib/contracts";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 
-const handlers = createNextRoute(settingsContract, {
+const handlers = createNextRoute(adminContract.settings, {
   // ── GET /api/settings/docling ─────────────────────────────────────────────
   getDocling: async ({ request }) => {
     const auth = await getAuthContext(request);

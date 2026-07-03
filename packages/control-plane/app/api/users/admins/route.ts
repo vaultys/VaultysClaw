@@ -1,14 +1,16 @@
 import { getAuthContext } from "@/lib/auth-utils";
 import { UserDAO } from "@/db";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
-import { usersContract } from "@/lib/contracts";
+import {
+  adminContract,
+} from "@/lib/contracts";
 
 /**
  * GET /api/users/admins — list global admins (name + email only).
  * Accessible to any authenticated user (used by the "contact admin" screen for
  * users not yet assigned to a workspace).
  */
-const handlers = createNextRoute(usersContract, {
+const handlers = createNextRoute(adminContract.users, {
   admins: async ({ request }) => {
     await getAuthContext(request); // throws UNAUTHORIZED if not logged in
 

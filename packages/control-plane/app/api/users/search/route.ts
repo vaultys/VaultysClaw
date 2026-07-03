@@ -6,9 +6,11 @@
 import { WorkspaceDAO } from "@/db";
 import { APIException } from "@/lib/api/utils/api-utils";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
-import { usersContract } from "@/lib/contracts";
+import {
+  adminContract,
+} from "@/lib/contracts";
 
-const handlers = createNextRoute(usersContract, {
+const handlers = createNextRoute(adminContract.users, {
   search: async ({ query }) => {
     const workspace = await WorkspaceDAO.findById(query.workspace);
     if (!workspace) throw new APIException("NOT_FOUND", "Workspace not found");

@@ -1,7 +1,9 @@
 import { getAuthContext } from "@/lib/auth-utils";
 import { APIException } from "@/lib/api/utils/api-utils";
 import { setStorageConfig } from "@/db/settings.dao";
-import { settingsContract } from "@/lib/contracts";
+import {
+  adminContract,
+} from "@/lib/contracts";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 
 /**
@@ -9,7 +11,7 @@ import { createNextRoute } from "@/lib/api/ts-rest/next-route";
  * Update or clear object-storage location shown on infrastructure maps.
  * Body: { lat: number, lon: number, label?: string } or { lat: null } to clear.
  */
-const handlers = createNextRoute(settingsContract, {
+const handlers = createNextRoute(adminContract.settings, {
   storageLocation: async ({ body, request }) => {
     const auth = await getAuthContext(request);
     if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");

@@ -14,7 +14,7 @@ import {
 export const apiKeysContract = c.router({
   list: {
     method: "GET",
-    path: "/api/api-keys",
+    path: "/api/admin/api-keys",
     summary: "List API keys (without the raw key hash). Admin only",
     responses: {
       200: c.type<ApiKeyListResponse>(),
@@ -24,7 +24,7 @@ export const apiKeysContract = c.router({
 
   create: {
     method: "POST",
-    path: "/api/api-keys",
+    path: "/api/admin/api-keys",
     summary: "Create an API key — returns the raw key exactly once",
     body: ApiKeyCreateRequestSchema,
     responses: {
@@ -35,7 +35,7 @@ export const apiKeysContract = c.router({
 
   update: {
     method: "PATCH",
-    path: "/api/api-keys/:id",
+    path: "/api/admin/api-keys/:id",
     pathParams: ApiKeyIdParamSchema,
     summary: "Update an API key (admin only)",
     body: ApiKeyUpdateRequestSchema,
@@ -44,7 +44,7 @@ export const apiKeysContract = c.router({
 
   remove: {
     method: "DELETE",
-    path: "/api/api-keys/:id",
+    path: "/api/admin/api-keys/:id",
     pathParams: ApiKeyIdParamSchema,
     summary: "Revoke an API key (admin only)",
     body: c.noBody(),

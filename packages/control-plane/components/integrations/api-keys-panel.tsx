@@ -52,7 +52,7 @@ export function ApiKeysPanel() {
   const fetchData = useCallback(async () => {
     try {
       const [keysRes, workspacesRes] = await Promise.all([
-        fetch("/api/api-keys"),
+        fetch("/api/admin/api-keys"),
         fetch("/api/workspaces"),
       ]);
       const keysData = await keysRes.json();
@@ -144,7 +144,7 @@ export function ApiKeysPanel() {
     setSubmitting(true);
     setFormError(null);
     try {
-      const res = await fetch("/api/api-keys", {
+      const res = await fetch("/api/admin/api-keys", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -170,7 +170,7 @@ export function ApiKeysPanel() {
   }
 
   async function handleRevoke(id: string) {
-    await fetch(`/api/api-keys/${id}`, { method: "DELETE" });
+    await fetch(`/api/admin/api-keys/${id}`, { method: "DELETE" });
     setConfirmRevokeId(null);
     fetchData();
   }
@@ -188,7 +188,7 @@ export function ApiKeysPanel() {
     setSubmitting(true);
     setFormError(null);
     try {
-      const res = await fetch(`/api/api-keys/${editingKey.id}`, {
+      const res = await fetch(`/api/admin/api-keys/${editingKey.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

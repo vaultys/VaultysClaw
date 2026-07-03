@@ -9,7 +9,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import {
-  userApi,
+  adminApi,
   unwrap,
 } from "@/lib/api/ts-rest/client";
 import type { ApiKey } from "@/lib/api/utils/api-types";
@@ -64,7 +64,7 @@ function KeyRow({
     setState((s) => ({ ...s, saving: true, error: "" }));
     try {
       const updated = unwrap(
-        await userApi.apiKeys.update({
+        await adminApi.apiKeys.update({
           params: { id: k.id },
           body: {
             name: state.name.trim(),
@@ -220,7 +220,7 @@ export function ApiKeysSection() {
   const [formError, setFormError] = useState("");
 
   const load = () => {
-    userApi.apiKeys
+    adminApi.apiKeys
       .list()
       .then((res) => setKeys(unwrap(res).apiKeys))
       .catch(() => {})
@@ -246,7 +246,7 @@ export function ApiKeysSection() {
     setCreating(true);
     try {
       const data = unwrap(
-        await userApi.apiKeys.create({
+        await adminApi.apiKeys.create({
           body: {
             name: formName.trim(),
             allowedRoutes: formRoutes,
@@ -275,7 +275,7 @@ export function ApiKeysSection() {
 
   const revoke = async (id: string) => {
     if (!confirm("Revoke this API key? This cannot be undone.")) return;
-    await userApi.apiKeys.remove({ params: { id } });
+    await adminApi.apiKeys.remove({ params: { id } });
     setKeys((prev) => prev.filter((k) => k.id !== id));
   };
 

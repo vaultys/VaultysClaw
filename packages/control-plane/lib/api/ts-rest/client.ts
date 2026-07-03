@@ -117,6 +117,7 @@ export const adminApi = {
   litellm: litellmClient,
   server: serverClient,
   settings: settingsClient,
+  apiKeys: apiKeysClient,
   registrations: registrationsClient,
   toolApprovals: toolApprovalsClient,
   channels: channelsClient,
@@ -131,7 +132,6 @@ export const adminApi = {
 
 export const userApi = {
   agents: userAgentsClient,
-  apiKeys: apiKeysClient,
   userStatus: userStatusClient,
   knowledge: knowledgeClient,
   skills: skillsClient,

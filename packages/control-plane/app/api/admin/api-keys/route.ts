@@ -4,12 +4,10 @@ import { APIException } from "@/lib/api/utils/api-utils";
 import { generateApiKey, toApiKey } from "@/lib/api/utils/api-key-utils";
 import { ApiKeyDAO } from "@/db";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
-import {
-  userContract,
-} from "@/lib/contracts";
+import { adminContract } from "@/lib/contracts";
 
-const handlers = createNextRoute(userContract.apiKeys, {
-  // ── GET /api/api-keys ─────────────────────────────────────────────────────
+const handlers = createNextRoute(adminContract.apiKeys, {
+  // ── GET /api/admin/api-keys ───────────────────────────────────────────────
   list: async ({ request }) => {
     const auth = await getAuthContext(request);
     if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");
@@ -18,7 +16,7 @@ const handlers = createNextRoute(userContract.apiKeys, {
     return { status: 200, body: { apiKeys: rows.map(toApiKey) } };
   },
 
-  // ── POST /api/api-keys ────────────────────────────────────────────────────
+  // ── POST /api/admin/api-keys ──────────────────────────────────────────────
   create: async ({ body, request }) => {
     const auth = await getAuthContext(request);
     if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");

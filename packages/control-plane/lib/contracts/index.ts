@@ -147,6 +147,7 @@ export const adminContract = c.router({
   litellm: litellmContract,
   server: serverContract,
   settings: settingsContract,
+  apiKeys: apiKeysContract,
   registrations: registrationsContract,
   toolApprovals: toolApprovalsContract,
   channels: channelsContract,
@@ -161,7 +162,6 @@ export const adminContract = c.router({
 
 export const userContract = c.router({
   agents: userAgentsContract,
-  apiKeys: apiKeysContract,
   userStatus: userStatusContract,
   knowledge: knowledgeContract,
   skills: skillsContract,

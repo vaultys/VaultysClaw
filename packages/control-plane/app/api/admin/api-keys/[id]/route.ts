@@ -2,13 +2,11 @@ import { getAuthContext } from "@/lib/auth-utils";
 import { APIException } from "@/lib/api/utils/api-utils";
 import { ApiKeyDAO } from "@/db";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
-import {
-  userContract,
-} from "@/lib/contracts";
+import { adminContract } from "@/lib/contracts";
 import { toApiKey } from "@/lib/api/utils/api-key-utils";
 
-const handlers = createNextRoute(userContract.apiKeys, {
-  // ── PATCH /api/api-keys/:id ───────────────────────────────────────────────
+const handlers = createNextRoute(adminContract.apiKeys, {
+  // ── PATCH /api/admin/api-keys/:id ─────────────────────────────────────────
   update: async ({ params, body, request }) => {
     const auth = await getAuthContext(request);
     if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");
@@ -47,7 +45,7 @@ const handlers = createNextRoute(userContract.apiKeys, {
     return { status: 200, body: toApiKey(updated) };
   },
 
-  // ── DELETE /api/api-keys/:id ──────────────────────────────────────────────
+  // ── DELETE /api/admin/api-keys/:id ────────────────────────────────────────
   remove: async ({ params, request }) => {
     const auth = await getAuthContext(request);
     if (!auth.isGlobalAdmin) throw new APIException("FORBIDDEN");

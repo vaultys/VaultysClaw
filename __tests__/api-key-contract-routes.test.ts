@@ -122,15 +122,15 @@ describe("getApiRouteGroups — known routes", () => {
     expect(r?.group).toBe("Admin / Agents");
   });
 
-  it("includes the api-keys routes under a 'User / Api Keys' group", () => {
-    const r = find("/api/api-keys");
+  it("includes the api-keys routes under an 'Admin / Api Keys' group", () => {
+    const r = find("/api/admin/api-keys");
     expect(r).toBeDefined();
-    expect(r?.group).toBe("User / Api Keys");
+    expect(r?.group).toBe("Admin / Api Keys");
     expect(r?.methods).toEqual(expect.arrayContaining(["GET", "POST"]));
   });
 
   it("derives a readable group label from audience + camelCase contract key", () => {
-    expect(groups.map((g) => g.group)).toContain("User / Api Keys");
+    expect(groups.map((g) => g.group)).toContain("Admin / Api Keys");
   });
 });
 

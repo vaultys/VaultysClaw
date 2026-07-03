@@ -77,21 +77,30 @@ function collectRoutes(
 export function getApiRouteGroups(): ContractRouteGroup[] {
   const groups: ContractRouteGroup[] = [];
 
-  for (const [key, router] of Object.entries(appContract)) {
-    const methodsByPath = new Map<string, Set<string>>();
-    const summaryByPath = new Map<string, string>();
-    collectRoutes(router, methodsByPath, summaryByPath);
-    if (methodsByPath.size === 0) continue;
+  // appContract nests domain routers two levels deep: audience → domain.
+  // Produce one "Audience / Domain" group per domain so the permission tree
+  // stays granular after the audience grouping.
+  for (const [audience, group] of Object.entries(appContract)) {
+    if (!group || typeof group !== "object") continue;
+    for (const [domain, router] of Object.entries(group)) {
+      const methodsByPath = new Map<string, Set<string>>();
+      const summaryByPath = new Map<string, string>();
+      collectRoutes(router, methodsByPath, summaryByPath);
+      if (methodsByPath.size === 0) continue;
 
-    const routes: ContractRoute[] = Array.from(methodsByPath.entries())
-      .map(([path, methods]) => ({
-        path,
-        methods: Array.from(methods).sort(),
-        description: summaryByPath.get(path),
-      }))
-      .sort((a, b) => a.path.localeCompare(b.path));
+      const routes: ContractRoute[] = Array.from(methodsByPath.entries())
+        .map(([path, methods]) => ({
+          path,
+          methods: Array.from(methods).sort(),
+          description: summaryByPath.get(path),
+        }))
+        .sort((a, b) => a.path.localeCompare(b.path));
 
-    groups.push({ group: prettyGroup(key), routes });
+      groups.push({
+        group: `${prettyGroup(audience)} / ${prettyGroup(domain)}`,
+        routes,
+      });
+    }
   }
 
   return groups.sort((a, b) => a.group.localeCompare(b.group));

@@ -148,11 +148,17 @@ export function buildOpenApiSpec(): Record<string, unknown> {
   const paths: Record<string, JsonSchema> = {};
   const tags: { name: string }[] = [];
 
-  for (const [key, router] of Object.entries(appContract)) {
-    if (!hasRoutes(router)) continue;
-    const tag = prettyGroup(key);
-    collect(router, tag, paths);
-    tags.push({ name: tag });
+  // appContract nests domain routers two levels deep: audience → domain.
+  // Emit one tag per "Audience / Domain" so Swagger UI clusters each audience
+  // together (tags are sorted alphabetically below).
+  for (const [audience, group] of Object.entries(appContract)) {
+    if (!group || typeof group !== "object") continue;
+    for (const [domain, router] of Object.entries(group)) {
+      if (!hasRoutes(router)) continue;
+      const tag = `${prettyGroup(audience)} / ${prettyGroup(domain)}`;
+      collect(router, tag, paths);
+      tags.push({ name: tag });
+    }
   }
 
   return {

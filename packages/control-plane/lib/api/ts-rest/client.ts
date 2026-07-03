@@ -29,6 +29,7 @@ import {
   userAuthContract,
   userStatusContract,
   usersContract,
+  wellKnownContract,
   workflowApprovalsContract,
   workflowRunsContract,
   workflowsContract,
@@ -86,6 +87,7 @@ export const toolApprovalsClient = initClient(
 export const userAuthClient = initClient(userAuthContract, clientOptions);
 export const userStatusClient = initClient(userStatusContract, clientOptions);
 export const usersClient = initClient(usersContract, clientOptions);
+export const wellKnownClient = initClient(wellKnownContract, clientOptions);
 export const workflowApprovalsClient = initClient(
   workflowApprovalsContract,
   clientOptions
@@ -95,6 +97,56 @@ export const workflowRunsClient = initClient(
   clientOptions
 );
 export const workflowsClient = initClient(workflowsContract, clientOptions);
+
+/**
+ * Audience-grouped clients — plain objects bundling the per-domain clients above
+ * so calls read by audience: `unwrap(await adminApi.agents.search({ query }))`.
+ *
+ * These are just references to the existing singletons (no `initClient` over a
+ * merged contract), so TypeScript still infers one small client type per call —
+ * no inference cost. Mirrors the `admin`/`user`/`public` split of `appContract`.
+ */
+export const adminApi = {
+  agents: adminAgentsClient,
+  workspaces: workspacesClient,
+  users: usersClient,
+  invitations: invitationsClient,
+  policies: policiesClient,
+  governance: governanceClient,
+  models: modelsClient,
+  litellm: litellmClient,
+  server: serverClient,
+  settings: settingsClient,
+  registrations: registrationsClient,
+  toolApprovals: toolApprovalsClient,
+  channels: channelsClient,
+  bridges: bridgesClient,
+  network: networkClient,
+  map: mapClient,
+  graph: graphClient,
+  intents: intentsClient,
+  stats: statsClient,
+  orgSkills: orgSkillsClient,
+} as const;
+
+export const userApi = {
+  agents: userAgentsClient,
+  apiKeys: apiKeysClient,
+  userStatus: userStatusClient,
+  knowledge: knowledgeClient,
+  skills: skillsClient,
+  workflows: workflowsClient,
+  workflowRuns: workflowRunsClient,
+  workflowApprovals: workflowApprovalsClient,
+} as const;
+
+export const publicApi = {
+  about: aboutClient,
+  wellKnown: wellKnownClient,
+  setup: setupClient,
+  userAuth: userAuthClient,
+  health: healthClient,
+} as const;
 
 /** ts-rest responses are a `{ status, body }` union keyed by status code. */
 type TsRestResult = { status: number; body: unknown };

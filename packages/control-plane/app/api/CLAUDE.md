@@ -24,6 +24,17 @@ The **user** folder is a Next.js route group `(user)` — the parentheses keep `
 - Clients (`lib/api/ts-rest/client.ts`): `adminAgentsClient`, `userAgentsClient`, `aboutClient`
 - Contract `path` strings must match the route folder (`/api/admin/...`, `/api/public/...`, `/api/...`)
 
+### Audience grouping (`lib/contracts/index.ts`)
+
+On top of the per-domain contracts, `index.ts` builds three **grouping routers** that mount every domain under its audience — `adminContract`, `userContract`, `publicContract` — and nests them into `appContract = { admin, user, public }`. This is **purely structural**: routes keep their absolute `path`, so nesting changes no URL. It exists so you can:
+
+- Navigate the contract tree by audience: `adminContract.agents.search` (typed).
+- Make calls grouped by audience via the objects in `lib/api/ts-rest/client.ts`: `adminApi` / `userApi` / `publicApi` bundle the per-domain clients — `unwrap(await adminApi.agents.search({ query }))`. (Plain objects of the existing singletons — no `initClient` over the merged contract, so TS inference stays fast.)
+
+Domains not yet split into `admin`/`user`/`public` folders are still classified into one of the three groups by their primary audience (mixed domains follow their main consumer). When migrating or adding a domain, mount its contract under the right group in `index.ts` and add its client to the matching `*Api` object.
+
+**Swagger tags follow the grouping**: `buildOpenApiSpec()` (`lib/api/openapi-spec.ts`) walks the two-level tree and emits one tag per `Audience / Domain` (e.g. `Admin / Agents`), so `/admin/docs` clusters operations by audience. `getApiRouteGroups()` (`lib/api/contract-routes.ts`) does the same for the API-key permission tree.
+
 **Middleware state** (`lib/access-control.ts`): `/api/public` is in `publicPaths` (open to all). `/api/admin/*` is **not yet** gated to admins at the middleware level — it currently falls under the generic `/api/*` "any authenticated user" rule, and handlers keep their own `getAuthContext` / `canAdminAgent` checks. Admin gating will be enabled once the user-scoped API counterparts exist. When adding an admin route, still enforce admin rights inside the handler.
 
 Currently migrated: `agents` → **admin** (`userAgentsContract` is an empty placeholder with a temporary `/api/agents` stub route), `about` → **public**.
@@ -141,9 +152,9 @@ Error body shape is always `{ error: string; code: string; }`, enforced by `reso
 
 1. Pick the audience (`admin` / `user` / `public`) — see the separation section above.
 2. Create `lib/contracts/<audience>/<domain>/` with the three files; export `<audience><Domain>Contract` and set each `path` under `/api/<audience>/…` (or `/api/…` for `user`).
-3. Register in `lib/contracts/index.ts` (import, the three `export *` lines, add to `appContract`).
+3. Register in `lib/contracts/index.ts` (import, the three `export *` lines, and mount the contract under the matching group router — `adminContract` / `userContract` / `publicContract`, keyed by domain).
 4. Create the route under the matching folder: `app/api/admin/<resource>/…`, `app/api/public/<resource>/…`, or `app/api/(user)/<resource>/…`, using `createNextRoute()`.
-5. Add a client in `lib/api/ts-rest/client.ts` (`<audience><Domain>Client`).
+5. Add a client in `lib/api/ts-rest/client.ts` (`<audience><Domain>Client`) and add it to the matching `adminApi` / `userApi` / `publicApi` object.
 6. Import types from the contract in UI components.
 
 ## Testing Routes

@@ -127,42 +127,65 @@ export * from "./workflows/workflows.schemas";
 export * from "./workflows/workflows.types";
 
 /**
- * Aggregate contract — every domain router under a namespaced key. Useful for a
- * single typed client (`initClient(appContract, ...)`) or generating one OpenAPI
- * document. Domain contracts remain independently importable for per-route files.
+ * Audience-grouped contracts. Each domain router is mounted under its own key
+ * inside one of three grouping routers — `admin`, `user`, `public` — so callers
+ * can navigate the contract tree by audience (e.g. `adminContract.agents.search`).
+ *
+ * Grouping is **purely structural**: every route keeps its absolute `path`
+ * (`/api/admin/agents`, `/api/workflows`, …), so nesting changes no URL. The
+ * split mirrors the incremental route migration (see app/api/CLAUDE.md); domains
+ * still serving a mix of audiences are placed under their primary consumer.
  */
-export const appContract = c.router({
-  about: aboutContract,
+export const adminContract = c.router({
   agents: adminAgentsContract,
-  userAgents: userAgentsContract,
-  apiKeys: apiKeysContract,
-  bridges: bridgesContract,
-  channels: channelsContract,
-  governance: governanceContract,
-  graph: graphContract,
-  health: healthContract,
-  intents: intentsContract,
-  invitations: invitationsContract,
-  knowledge: knowledgeContract,
-  litellm: litellmContract,
-  map: mapContract,
-  models: modelsContract,
-  network: networkContract,
-  orgSkills: orgSkillsContract,
-  policies: policiesContract,
   workspaces: workspacesContract,
-  registrations: registrationsContract,
+  users: usersContract,
+  invitations: invitationsContract,
+  policies: policiesContract,
+  governance: governanceContract,
+  models: modelsContract,
+  litellm: litellmContract,
   server: serverContract,
   settings: settingsContract,
-  setup: setupContract,
-  skills: skillsContract,
-  stats: statsContract,
+  registrations: registrationsContract,
   toolApprovals: toolApprovalsContract,
-  userAuth: userAuthContract,
+  channels: channelsContract,
+  bridges: bridgesContract,
+  network: networkContract,
+  map: mapContract,
+  graph: graphContract,
+  intents: intentsContract,
+  stats: statsContract,
+  orgSkills: orgSkillsContract,
+});
+
+export const userContract = c.router({
+  agents: userAgentsContract,
+  apiKeys: apiKeysContract,
   userStatus: userStatusContract,
-  users: usersContract,
-  wellKnown: wellKnownContract,
+  knowledge: knowledgeContract,
+  skills: skillsContract,
   workflows: workflowsContract,
   workflowRuns: workflowRunsContract,
   workflowApprovals: workflowApprovalsContract,
+});
+
+export const publicContract = c.router({
+  about: aboutContract,
+  wellKnown: wellKnownContract,
+  setup: setupContract,
+  userAuth: userAuthContract,
+  health: healthContract,
+});
+
+/**
+ * Aggregate contract — the three audience groups nested under `admin` / `user` /
+ * `public`. Used to generate one OpenAPI document (grouped tags) and derive the
+ * API-key route tree. Domain and group contracts remain independently importable
+ * for per-route files and grouped clients.
+ */
+export const appContract = c.router({
+  admin: adminContract,
+  user: userContract,
+  public: publicContract,
 });

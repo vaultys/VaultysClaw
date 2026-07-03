@@ -175,8 +175,8 @@ export default function BridgeSettings({
 
   const incomingWebhookUrl = (bridgeId: string) =>
     typeof window !== "undefined"
-      ? `${window.location.origin}/api/bridges/webhook/${bridgeId}/incoming`
-      : `/api/bridges/webhook/${bridgeId}/incoming`;
+      ? `${window.location.origin}/api/public/bridges/webhook/${bridgeId}/incoming`
+      : `/api/public/bridges/webhook/${bridgeId}/incoming`;
 
   return (
     <div className="w-80 border-l border-neutral-200 bg-background-200 flex flex-col h-full overflow-hidden">

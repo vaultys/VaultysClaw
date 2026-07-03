@@ -8,7 +8,7 @@ import {
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 
 /**
- * Routes for /api/governance/audit — the audit slice of `adminContract.governance`.
+ * Routes for /api/admin/governance/audit — the audit slice of `adminContract.governance`.
  *
  * Returns a unified audit stream: activity_log + intent_log merged by
  * timestamp. Global admin only. The contract is the single source of truth for

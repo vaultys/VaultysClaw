@@ -18,7 +18,7 @@
  *     POST /api/channels/[id]/bridges                       — create bridge
  *     PATCH /api/channels/[id]/bridges/[bridgeId]           — update bridge
  *     DELETE /api/channels/[id]/bridges/[bridgeId]          — delete bridge
- *     POST /api/bridges/webhook/[bridgeId]/incoming         — incoming webhook
+ *     POST /api/public/bridges/webhook/[bridgeId]/incoming         — incoming webhook
  *     GET  /api/agents/search                               — search agents by name
  *     GET  /api/me/workspaces                                   — workspaces for current user
  *   Peer agents removal:
@@ -109,7 +109,7 @@ import {
   PATCH as bridgePATCH,
   DELETE as bridgeDELETE,
 } from "../packages/control-plane/app/api/channels/[id]/bridges/[bridgeId]/route";
-import { POST as webhookIncomingPOST } from "../packages/control-plane/app/api/bridges/webhook/[bridgeId]/incoming/route";
+import { POST as webhookIncomingPOST } from "../packages/control-plane/app/api/public/bridges/webhook/[bridgeId]/incoming/route";
 import { GET as meWorkspacesGET } from "../packages/control-plane/app/api/workspaces/me/route";
 
 // Bridge / gateway layer
@@ -2410,10 +2410,10 @@ describe("DELETE /api/channels/[id]/bridges/[bridgeId]", () => {
 });
 
 // ===========================================================================
-// API: POST /api/bridges/webhook/[bridgeId]/incoming
+// API: POST /api/public/bridges/webhook/[bridgeId]/incoming
 // ===========================================================================
 
-describe("POST /api/bridges/webhook/[bridgeId]/incoming", () => {
+describe("POST /api/public/bridges/webhook/[bridgeId]/incoming", () => {
   const secret = "webhook-test-secret";
 
   it("returns 404 for an unknown bridgeId", async () => {
@@ -2421,7 +2421,7 @@ describe("POST /api/bridges/webhook/[bridgeId]/incoming", () => {
     const sig = makeWebhookSignature(body, secret);
     const res = await webhookIncomingPOST(
       webhookReq(
-        "http://localhost/api/bridges/webhook/unknown-bridge/incoming",
+        "http://localhost/api/public/bridges/webhook/unknown-bridge/incoming",
         body,
         sig
       ),
@@ -2456,7 +2456,7 @@ describe("POST /api/bridges/webhook/[bridgeId]/incoming", () => {
       const body = JSON.stringify({ message: "hello" });
       const res = await webhookIncomingPOST(
         webhookReq(
-          `http://localhost/api/bridges/webhook/${bridge.id}/incoming`,
+          `http://localhost/api/public/bridges/webhook/${bridge.id}/incoming`,
           body,
           "sha256=wrong"
         ),
@@ -2503,7 +2503,7 @@ describe("POST /api/bridges/webhook/[bridgeId]/incoming", () => {
       const sig = makeWebhookSignature(body, secret);
       const res = await webhookIncomingPOST(
         webhookReq(
-          `http://localhost/api/bridges/webhook/${bridge.id}/incoming`,
+          `http://localhost/api/public/bridges/webhook/${bridge.id}/incoming`,
           body,
           sig
         ),
@@ -2555,7 +2555,7 @@ describe("POST /api/bridges/webhook/[bridgeId]/incoming", () => {
 
       const res = await webhookIncomingPOST(
         webhookReq(
-          `http://localhost/api/bridges/webhook/${bridge.id}/incoming`,
+          `http://localhost/api/public/bridges/webhook/${bridge.id}/incoming`,
           body,
           sig
         ),

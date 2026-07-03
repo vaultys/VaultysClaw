@@ -121,7 +121,6 @@ export const adminApi = {
   registrations: registrationsClient,
   toolApprovals: toolApprovalsClient,
   channels: channelsClient,
-  bridges: bridgesClient,
   network: networkClient,
   map: mapClient,
   graph: graphClient,
@@ -142,6 +141,7 @@ export const userApi = {
 
 export const publicApi = {
   about: aboutClient,
+  bridges: bridgesClient,
   wellKnown: wellKnownClient,
   setup: setupClient,
   userAuth: userAuthClient,

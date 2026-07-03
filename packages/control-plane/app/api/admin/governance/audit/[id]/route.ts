@@ -12,7 +12,7 @@ import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 const Buffer = crypto.Buffer;
 
 /**
- * Routes for /api/governance/audit/:id — the auditEntry slice of
+ * Routes for /api/admin/governance/audit/:id — the auditEntry slice of
  * `adminContract.governance`. Returns a single audit entry (activity or intent) with
  * full payload, parsed details, and certificate metadata. Global admin only.
  *

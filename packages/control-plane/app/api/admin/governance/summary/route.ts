@@ -8,7 +8,7 @@ import {
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 
 /**
- * Routes for /api/governance/summary — the summary slice of `adminContract.governance`.
+ * Routes for /api/admin/governance/summary — the summary slice of `adminContract.governance`.
  *
  * Returns governance posture statistics. Global admin only. The contract is the
  * single source of truth for the response shape.

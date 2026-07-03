@@ -1,5 +1,5 @@
 /**
- * POST /api/bridges/teams/incoming
+ * POST /api/public/bridges/teams/incoming
  * Public endpoint — called by the Teams Bot Framework. Verifies the request
  * (over the raw body) and routes the message to the matching VaultysClaw channel.
  */
@@ -10,11 +10,9 @@ import { TeamsGateway } from "@/lib/bridges/teams-gateway";
 import { ChannelBridgeDAO } from "@/db";
 import { APIException } from "@/lib/api/utils/api-utils";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
-import {
-  adminContract,
-} from "@/lib/contracts";
+import { publicContract } from "@/lib/contracts";
 
-const handlers = createNextRoute(adminContract.bridges, {
+const handlers = createNextRoute(publicContract.bridges, {
   // The contract body is opaque so createNextRoute leaves the request stream
   // intact — we read the raw text here for Bot Framework auth verification.
   teamsIncoming: async ({ request }) => {

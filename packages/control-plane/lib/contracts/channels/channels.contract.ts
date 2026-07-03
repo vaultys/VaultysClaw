@@ -248,7 +248,7 @@ export const channelsContract = c.router({
 export const bridgesContract = c.router({
   webhookIncoming: {
     method: "POST",
-    path: "/api/bridges/webhook/:bridgeId/incoming",
+    path: "/api/public/bridges/webhook/:bridgeId/incoming",
     pathParams: BridgeIncomingParamsSchema,
     summary: "Accepts inbound messages from external webhook sources",
     // The handler reads the raw request body (request.text()) to verify the
@@ -263,7 +263,7 @@ export const bridgesContract = c.router({
 
   teamsIncoming: {
     method: "POST",
-    path: "/api/bridges/teams/incoming",
+    path: "/api/public/bridges/teams/incoming",
     summary: "Process incoming messages from Teams Bot Framework",
     // Raw body needed for Bot Framework auth verification — see above.
     body: c.type<unknown>(),

@@ -47,7 +47,7 @@ export default function EmbeddedOrgChart({
   useMemo(() => {
     setLoading(true);
     setError(null);
-    fetch(`/api/graph${query}`)
+    fetch(`/api/admin/graph${query}`)
       .then((r) => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         return r.json();

@@ -118,10 +118,10 @@ const ROUTE_GROUPS: RouteGroup[] = [
     routes: [
       {
         label: "Governance summary",
-        path: "/api/governance/summary",
+        path: "/api/admin/governance/summary",
         methods: ["GET"],
       },
-      { label: "Audit log", path: "/api/governance/audit", methods: ["GET"] },
+      { label: "Audit log", path: "/api/admin/governance/audit", methods: ["GET"] },
     ],
   },
   {

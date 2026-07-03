@@ -1,5 +1,5 @@
 /**
- * POST /api/bridges/webhook/[bridgeId]/incoming
+ * POST /api/public/bridges/webhook/[bridgeId]/incoming
  * Public endpoint — authenticated via HMAC-SHA256 over the raw request body.
  * Accepts inbound messages from external webhook sources.
  */
@@ -11,11 +11,9 @@ import { WebhookGateway } from "@/lib/bridges/webhook-gateway";
 import type { WebhookBridgeConfig } from "@vaultysclaw/shared";
 import { APIException } from "@/lib/api/utils/api-utils";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
-import {
-  adminContract,
-} from "@/lib/contracts";
+import { publicContract } from "@/lib/contracts";
 
-const handlers = createNextRoute(adminContract.bridges, {
+const handlers = createNextRoute(publicContract.bridges, {
   // The contract body is opaque so createNextRoute leaves the request stream
   // intact — we read the raw text here to verify the HMAC over the exact bytes.
   webhookIncoming: async ({ params, request }) => {

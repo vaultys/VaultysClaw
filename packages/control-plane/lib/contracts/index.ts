@@ -151,7 +151,6 @@ export const adminContract = c.router({
   registrations: registrationsContract,
   toolApprovals: toolApprovalsContract,
   channels: channelsContract,
-  bridges: bridgesContract,
   network: networkContract,
   map: mapContract,
   graph: graphContract,
@@ -172,6 +171,7 @@ export const userContract = c.router({
 
 export const publicContract = c.router({
   about: aboutContract,
+  bridges: bridgesContract,
   wellKnown: wellKnownContract,
   setup: setupContract,
   userAuth: userAuthContract,

@@ -19,7 +19,7 @@ import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 import { normalizeRole } from "@/lib/roles";
 
 /**
- * GET /api/graph — return the full relationship graph (nodes + edges). Global admin only.
+ * GET /api/admin/graph — return the full relationship graph (nodes + edges). Global admin only.
  *
  * Query params:
  *   ?agent=<did>       — scope to a single agent and its direct neighbours
@@ -28,7 +28,7 @@ import { normalizeRole } from "@/lib/roles";
  */
 /**
  * @openapi
- * /api/graph:
+ * /api/admin/graph:
  *   get:
  *     summary: Retrieve the full relationship graph of nodes and edges.
  *     tags: [Graph]
@@ -75,7 +75,7 @@ import { normalizeRole } from "@/lib/roles";
  *         description: Failed to build graph.
  */
 const handlers = createNextRoute(adminContract.graph, {
-  // ── GET /api/graph?agent=&user=&workspace= ────────────────────────────────────
+  // ── GET /api/admin/graph?agent=&user=&workspace= ────────────────────────────────────
   get: async ({ query, request }) => {
     const auth = await getAuthContext(request);
 

@@ -7,7 +7,7 @@ export type AuditQuery = z.infer<typeof AuditQuerySchema>;
 
 // ── Responses
 
-/** Governance posture statistics (GET /api/governance/summary). */
+/** Governance posture statistics (GET /api/admin/governance/summary). */
 export interface GovernanceSummary {
   agents: {
     total: number;
@@ -52,7 +52,7 @@ export interface AuditResponse {
 
 /**
  * A single audit entry expanded with its full payload and parsed details
- * (GET /api/governance/audit/:id → `entry`). Activity entries omit the
+ * (GET /api/admin/governance/audit/:id → `entry`). Activity entries omit the
  * intent-only `intentSignature` field.
  */
 export interface AuditEntryDetail {
@@ -92,7 +92,7 @@ export interface AuditCertInfo {
   rawMetadata: unknown;
 }
 
-/** Full response for GET /api/governance/audit/:id. */
+/** Full response for GET /api/admin/governance/audit/:id. */
 export interface AuditEntryDetailResponse {
   entry: AuditEntryDetail;
   certInfo: AuditCertInfo | null;

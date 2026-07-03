@@ -10,7 +10,7 @@ import type {
 export const governanceContract = c.router({
   summary: {
     method: "GET",
-    path: "/api/governance/summary",
+    path: "/api/admin/governance/summary",
     summary: "Retrieve governance posture statistics",
     responses: {
       200: c.type<GovernanceSummary>(),
@@ -20,7 +20,7 @@ export const governanceContract = c.router({
 
   audit: {
     method: "GET",
-    path: "/api/governance/audit",
+    path: "/api/admin/governance/audit",
     summary: "Retrieve a unified audit stream of activity and intent logs",
     query: AuditQuerySchema,
     responses: {
@@ -31,7 +31,7 @@ export const governanceContract = c.router({
 
   auditEntry: {
     method: "GET",
-    path: "/api/governance/audit/:id",
+    path: "/api/admin/governance/audit/:id",
     pathParams: AuditEntryParamsSchema,
     summary: "Retrieve a single audit entry with full details and metadata",
     responses: {

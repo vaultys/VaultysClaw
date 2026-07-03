@@ -39,6 +39,18 @@ export function ChatTab({
   const [showThinking, setShowThinking] = useState(true);
   const abortRef = useRef<AbortController | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  // Whether the view is pinned to the bottom. When the user scrolls up during
+  // a stream we stop auto-scrolling so they can read earlier messages.
+  const pinnedToBottomRef = useRef(true);
+
+  const handleScroll = useCallback(() => {
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    const distanceFromBottom =
+      el.scrollHeight - el.scrollTop - el.clientHeight;
+    pinnedToBottomRef.current = distanceFromBottom < 80;
+  }, []);
 
   useEffect(() => {
     const stored = localStorage.getItem("vc.chat.streaming");
@@ -64,10 +76,14 @@ export function ChatTab({
   }, []);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (!pinnedToBottomRef.current) return;
+    // Instant (not smooth) so rapid streaming updates keep us reliably at the
+    // bottom without the scroll animation racing the next token.
+    messagesEndRef.current?.scrollIntoView({ behavior: "auto" });
   }, [messages]);
 
   useEffect(() => {
+    pinnedToBottomRef.current = true;
     setMessages([]);
     setActiveSessionId(null);
     setSessions([]);
@@ -87,6 +103,7 @@ export function ChatTab({
 
   const loadSession = useCallback(
     async (sessionId: string) => {
+      pinnedToBottomRef.current = true;
       try {
         const { messages } = unwrap(
           await agentsClient.getSessionMessages({
@@ -99,6 +116,7 @@ export function ChatTab({
             .map((m) => ({
               role: m.role as "user" | "assistant",
               content: m.content,
+              ...(m.thinking ? { thinkingContent: m.thinking } : {}),
             }))
         );
         setActiveSessionId(sessionId);
@@ -116,6 +134,8 @@ export function ChatTab({
 
       const userMsg: ChatMessage = { role: "user", content: text.trim() };
       const updatedMessages = [...messages, userMsg];
+      // Sending always re-pins to the bottom so the user's own message shows.
+      pinnedToBottomRef.current = true;
       setMessages(updatedMessages);
       setInput("");
       setError(null);
@@ -259,6 +279,7 @@ export function ChatTab({
 
   const startNew = () => {
     abortRef.current?.abort();
+    pinnedToBottomRef.current = true;
     setMessages([]);
     setError(null);
     setErrorCode(null);
@@ -386,7 +407,11 @@ export function ChatTab({
         </div>
 
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto space-y-3 p-3">
+        <div
+          ref={scrollContainerRef}
+          onScroll={handleScroll}
+          className="flex-1 overflow-y-auto space-y-3 p-3"
+        >
           {messages.length === 0 && !isStreaming && (
             <div className="flex flex-col items-center justify-center h-full gap-2 text-foreground-500">
               <Bot size={36} strokeWidth={1} />

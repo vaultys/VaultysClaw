@@ -605,6 +605,7 @@ export class Agent extends BaseAgentRuntime {
       );
 
       const chunks: string[] = [];
+      const thinkingChunks: string[] = [];
 
       const provider = this.activeLlmConfig?.provider ?? "unknown";
       const model = this.activeLlmConfig?.model ?? "unknown";
@@ -702,7 +703,8 @@ export class Agent extends BaseAgentRuntime {
             } satisfies WSChatResponsePayload,
             timestamp: new Date().toISOString(),
           });
-          if (!seg.thinking) chunks.push(seg.text);
+          if (seg.thinking) thinkingChunks.push(seg.text);
+          else chunks.push(seg.text);
         }
       } else {
         // Streaming path: chunkStream already tags structured reasoning
@@ -737,7 +739,8 @@ export class Agent extends BaseAgentRuntime {
               } satisfies WSChatResponsePayload,
               timestamp: new Date().toISOString(),
             });
-            if (!s.thinking) chunks.push(s.text);
+            if (s.thinking) thinkingChunks.push(s.text);
+            else chunks.push(s.text);
           }
         }
         // Flush any remaining buffered tag-prefix as a final chunk
@@ -753,7 +756,8 @@ export class Agent extends BaseAgentRuntime {
             } satisfies WSChatResponsePayload,
             timestamp: new Date().toISOString(),
           });
-          if (!inThinking) chunks.push(thinkBuf);
+          if (inThinking) thinkingChunks.push(thinkBuf);
+          else chunks.push(thinkBuf);
         }
       }
 
@@ -799,10 +803,15 @@ export class Agent extends BaseAgentRuntime {
         });
       }
 
-      // Persist assistant response
+      // Persist assistant response (with reasoning, when captured)
       try {
+        const thinking = thinkingChunks.join("");
         appendChatMessages(conversationId, [
-          { role: "assistant", content: chunks.join("") },
+          {
+            role: "assistant",
+            content: chunks.join(""),
+            ...(thinking ? { thinking } : {}),
+          },
         ]);
       } catch {
         /* non-fatal */
@@ -1016,6 +1025,7 @@ export class Agent extends BaseAgentRuntime {
           id: r.id,
           role: r.role,
           content: r.content,
+          ...(r.thinking ? { thinking: r.thinking } : {}),
           toolCalls: r.tool_calls ? JSON.parse(r.tool_calls) : undefined,
           createdAt: r.created_at,
         })

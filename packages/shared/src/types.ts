@@ -639,6 +639,8 @@ export interface ChatHistoryMessage {
   id: number;
   role: string;
   content: string;
+  /** The model's reasoning for an assistant message, when it was captured. */
+  thinking?: string;
   toolCalls?: unknown;
   createdAt: string;
 }

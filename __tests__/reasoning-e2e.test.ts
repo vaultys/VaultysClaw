@@ -208,73 +208,126 @@ describe("reasoning E2E — buffered path (stream=false)", () => {
 
 const API_KEY = process.env.VC_E2E_API_KEY;
 
+interface RealRouteResult {
+  sessionId?: string;
+  thinkingText: string;
+  answerText: string;
+}
+
+/**
+ * POST /api/agents/:did/chat-sessions exactly as ChatTab.tsx does, consuming
+ * the SSE stream (session event + thinking/answer chunks).
+ */
+async function chatViaRealRoute(
+  message: string,
+  opts: { stream: boolean; thinking: boolean }
+): Promise<RealRouteResult> {
+  const res = await fetch(
+    `${CONTROL_PLANE}/api/agents/${encodeURIComponent(agentDid)}/chat-sessions`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": API_KEY!,
+      },
+      body: JSON.stringify({
+        messages: [{ role: "user", content: message }],
+        stream: opts.stream,
+        thinking: opts.thinking,
+      }),
+    }
+  );
+  expect(res.ok, `chat-sessions => ${res.status}`).toBe(true);
+  expect(res.headers.get("content-type")).toContain("text/event-stream");
+
+  const reader = res.body!.getReader();
+  const decoder = new TextDecoder();
+  const result: RealRouteResult = { thinkingText: "", answerText: "" };
+  let buffer = "";
+  let eventType = "message";
+  outer: while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop() ?? "";
+    for (const line of lines) {
+      if (line.startsWith("event: ")) {
+        eventType = line.slice(7).trim();
+        continue;
+      }
+      if (!line.startsWith("data: ")) {
+        if (line === "") eventType = "message";
+        continue;
+      }
+      const data = line.slice(6);
+      if (data === "[DONE]") break outer;
+      const parsed = JSON.parse(data);
+      if (eventType === "session") {
+        result.sessionId = parsed.conversationId;
+        eventType = "message";
+        continue;
+      }
+      expect(parsed.error).toBeUndefined();
+      if (parsed.text) {
+        if (parsed.thinking) result.thinkingText += parsed.text;
+        else result.answerText += parsed.text;
+      }
+      eventType = "message";
+    }
+  }
+  return result;
+}
+
 describe.skipIf(!API_KEY)(
   "reasoning E2E — real chat-sessions route (ChatTab button path)",
   () => {
     it("POST /api/agents/:did/chat-sessions with thinking:true streams tagged reasoning", async () => {
-      const res = await fetch(
-        `${CONTROL_PLANE}/api/agents/${encodeURIComponent(agentDid)}/chat-sessions`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-api-key": API_KEY!,
-          },
-          // Exact body shape sent by ChatTab.tsx sendMessage()
-          body: JSON.stringify({
-            messages: [{ role: "user", content: PROMPT }],
-            stream: true,
-            thinking: true,
-          }),
-        }
+      const r = await chatViaRealRoute(PROMPT, {
+        stream: true,
+        thinking: true,
+      });
+
+      expect(
+        r.sessionId,
+        "session event must announce a conversationId"
+      ).toBeTruthy();
+      expect(r.thinkingText.trim().length).toBeGreaterThan(20);
+      expect(r.answerText).toContain(EXPECTED_ANSWER);
+      expect(r.answerText).not.toContain("<think>");
+      expect(r.answerText).not.toContain("</think>");
+    });
+
+    it("persists the reasoning in the session history (GET returns it)", async () => {
+      const r = await chatViaRealRoute(PROMPT, {
+        stream: true,
+        thinking: true,
+      });
+      expect(r.sessionId).toBeTruthy();
+      expect(r.thinkingText.trim().length).toBeGreaterThan(20);
+
+      // Give the agent a beat to persist the assistant row after [DONE]
+      await new Promise((res) => setTimeout(res, 1000));
+
+      const histRes = await fetch(
+        `${CONTROL_PLANE}/api/agents/${encodeURIComponent(agentDid)}/chat-sessions/${encodeURIComponent(r.sessionId!)}`,
+        { headers: { "x-api-key": API_KEY! } }
       );
-      expect(res.ok, `chat-sessions => ${res.status}`).toBe(true);
-      expect(res.headers.get("content-type")).toContain("text/event-stream");
+      expect(histRes.ok, `GET session messages => ${histRes.status}`).toBe(
+        true
+      );
+      const { messages } = (await histRes.json()) as {
+        messages: Array<{ role: string; content: string; thinking?: string }>;
+      };
 
-      const reader = res.body!.getReader();
-      const decoder = new TextDecoder();
-      let thinkingText = "";
-      let answerText = "";
-      let sessionId: string | undefined;
-      let buffer = "";
-      let eventType = "message";
-      outer: while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop() ?? "";
-        for (const line of lines) {
-          if (line.startsWith("event: ")) {
-            eventType = line.slice(7).trim();
-            continue;
-          }
-          if (!line.startsWith("data: ")) {
-            if (line === "") eventType = "message";
-            continue;
-          }
-          const data = line.slice(6);
-          if (data === "[DONE]") break outer;
-          const parsed = JSON.parse(data);
-          if (eventType === "session") {
-            sessionId = parsed.conversationId;
-            eventType = "message";
-            continue;
-          }
-          expect(parsed.error).toBeUndefined();
-          if (parsed.text) {
-            if (parsed.thinking) thinkingText += parsed.text;
-            else answerText += parsed.text;
-          }
-          eventType = "message";
-        }
-      }
-
-      expect(sessionId, "session event must announce a conversationId").toBeTruthy();
-      expect(thinkingText.trim().length).toBeGreaterThan(20);
-      expect(answerText).toContain(EXPECTED_ANSWER);
-      expect(answerText).not.toContain("<think>");
-      expect(answerText).not.toContain("</think>");
+      const assistant = messages.find((m) => m.role === "assistant");
+      expect(assistant, "history must contain an assistant message").toBeTruthy();
+      // Reasoning was persisted alongside the answer…
+      expect(assistant!.thinking, "assistant.thinking must be persisted").toBeTruthy();
+      expect(assistant!.thinking!.trim().length).toBeGreaterThan(20);
+      // …and the stored answer stays clean of think markup.
+      expect(assistant!.content).toContain(EXPECTED_ANSWER);
+      expect(assistant!.content).not.toContain("<think>");
     });
   }
 );

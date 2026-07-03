@@ -131,19 +131,7 @@ export interface LiteLLMServiceState {
   checkedAt: string | null;
 }
 
-// ── OpenTelemetry
-export interface OtelConfig {
-  enabled: boolean;
-  baseUrl: string;
-  serviceName: string;
-  connected: boolean;
-  fromEnv: {
-    enabled: boolean;
-    baseUrl: boolean;
-    serviceName: boolean;
-  };
-}
-
+// ── OpenTelemetry (getOtel/OtelConfig is user-facing — see user/settings)
 export interface OtelTestResult {
   connected: boolean;
   latency?: number;

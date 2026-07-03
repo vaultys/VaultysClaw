@@ -18,8 +18,4 @@ export const ApproveRegistrationBodySchema = z.object({
   workspaceIds: z.array(z.string()).optional(),
 });
 
-export const ToolApprovalRespondBodySchema = z.object({
-  requestId: z.string(),
-  approved: z.boolean(),
-  reason: z.string().optional(),
-});
+// ToolApprovalRespondBodySchema moved to user/tool-approvals.

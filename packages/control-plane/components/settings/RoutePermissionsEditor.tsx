@@ -127,10 +127,10 @@ const ROUTE_GROUPS: RouteGroup[] = [
   {
     name: "Users",
     routes: [
-      { label: "List users", path: "/api/users", methods: ["GET"] },
+      { label: "List users", path: "/api/admin/users", methods: ["GET"] },
       {
         label: "User detail",
-        path: "/api/users/[did]",
+        path: "/api/admin/users/[did]",
         methods: ["GET", "PATCH", "DELETE"],
       },
     ],
@@ -138,20 +138,20 @@ const ROUTE_GROUPS: RouteGroup[] = [
   {
     name: "Models & Knowledge",
     routes: [
-      { label: "Models", path: "/api/models", methods: ["GET", "POST"] },
+      { label: "Models", path: "/api/admin/models", methods: ["GET", "POST"] },
       {
         label: "Model detail",
-        path: "/api/models/[id]",
+        path: "/api/admin/models/[id]",
         methods: ["GET", "PATCH", "DELETE"],
       },
       {
         label: "Knowledge bases",
-        path: "/api/knowledge",
+        path: "/api/admin/knowledge",
         methods: ["GET", "POST"],
       },
       {
         label: "Knowledge detail",
-        path: "/api/knowledge/[id]",
+        path: "/api/admin/knowledge/[id]",
         methods: ["GET", "PATCH", "DELETE"],
       },
     ],

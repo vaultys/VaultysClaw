@@ -5,6 +5,7 @@ import { Network, Loader2 } from "lucide-react";
 import { Field, StatusBadge, IntegrationPanel, IntegrationHeader } from "./shared";
 import {
   adminApi,
+  publicApi,
   unwrap,
 } from "@/lib/api/ts-rest/client";
 
@@ -15,7 +16,7 @@ export function PeerjsPanel() {
   const [status, setStatus] = useState<"idle" | "saved" | "error">("idle");
 
   useEffect(() => {
-    adminApi.server
+    publicApi.server
       .getSettings()
       .then((res) => setPeerjsHost(unwrap(res).peerjsHost ?? ""))
       .catch(() => {})

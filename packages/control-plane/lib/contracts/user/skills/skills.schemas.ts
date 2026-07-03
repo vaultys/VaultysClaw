@@ -3,17 +3,6 @@ import { z } from "zod";
 // ── Queries
 export const LibraryContentQuerySchema = z.object({ skillId: z.string() });
 
-// ── Bodies
-export const CreateSkillBodySchema = z.object({
-  workspaceId: z.string(),
-  name: z.string(),
-  description: z.string().optional(),
-  version: z.string().optional(),
-  isRequired: z.boolean().optional(),
-  config: z.record(z.string(), z.unknown()).optional(),
-  content: z.string().nullable().optional(),
-});
-
 // ── Responses (schema-backed)
 
 /**

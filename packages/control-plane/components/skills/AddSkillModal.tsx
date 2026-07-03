@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import {
-  userApi,
+  adminApi,
   unwrap,
   ApiError,
 } from "@/lib/api/ts-rest/client";
@@ -66,7 +66,7 @@ export function AddSkillModal({
     setError("");
     try {
       unwrap(
-        await userApi.skills.create({
+        await adminApi.skills.create({
           body: {
             workspaceId,
             name,

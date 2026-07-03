@@ -100,16 +100,16 @@ import {
   PATCH as workflowDetailPATCH,
   DELETE as workflowDetailDELETE,
 } from "../packages/control-plane/app/api/workflows/[id]/route";
-import { GET as registrationsGET } from "../packages/control-plane/app/api/registrations/route";
-import { POST as approveRegistrationPOST } from "../packages/control-plane/app/api/registrations/[id]/approve/route";
+import { GET as registrationsGET } from "../packages/control-plane/app/api/admin/registrations/route";
+import { POST as approveRegistrationPOST } from "../packages/control-plane/app/api/admin/registrations/[id]/approve/route";
 import {
   GET as policiesGET,
   POST as policiesPOST,
-} from "../packages/control-plane/app/api/policies/route";
+} from "../packages/control-plane/app/api/admin/policies/route";
 import {
   GET as policyDetailGET,
   DELETE as policyDetailDELETE,
-} from "../packages/control-plane/app/api/policies/[id]/route";
+} from "../packages/control-plane/app/api/admin/policies/[id]/route";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -1421,13 +1421,13 @@ describe("DELETE /api/workflows/[id]", () => {
   });
 });
 
-// --- /api/registrations -----------------------------------------------------
+// --- /api/admin/registrations -----------------------------------------------------
 
-describe("GET /api/registrations", () => {
+describe("GET /api/admin/registrations", () => {
   it("returns 401 when unauthenticated", async () => {
     asUnauthenticated();
     const res = await registrationsGET(
-      req("http://localhost/api/registrations") as never
+      req("http://localhost/api/admin/registrations") as never
     );
     expectStatus(res, 401);
   });
@@ -1435,7 +1435,7 @@ describe("GET /api/registrations", () => {
   it("returns 403 for a regular member", async () => {
     asMember();
     const res = await registrationsGET(
-      req("http://localhost/api/registrations") as never
+      req("http://localhost/api/admin/registrations") as never
     );
     expectStatus(res, 403);
   });
@@ -1443,7 +1443,7 @@ describe("GET /api/registrations", () => {
   it("returns 403 for a workspace admin", async () => {
     asWorkspaceAdmin();
     const res = await registrationsGET(
-      req("http://localhost/api/registrations") as never
+      req("http://localhost/api/admin/registrations") as never
     );
     expectStatus(res, 403);
   });
@@ -1451,14 +1451,14 @@ describe("GET /api/registrations", () => {
   it("is accessible to a global admin", async () => {
     asAdmin();
     const res = await registrationsGET(
-      req("http://localhost/api/registrations") as never
+      req("http://localhost/api/admin/registrations") as never
     );
     expect(status(res)).not.toBe(401);
     expect(status(res)).not.toBe(403);
   });
 });
 
-describe("POST /api/registrations/[id]/approve", () => {
+describe("POST /api/admin/registrations/[id]/approve", () => {
   it("returns 401 when unauthenticated", async () => {
     asUnauthenticated();
     const res = await approveRegistrationPOST(
@@ -1487,13 +1487,13 @@ describe("POST /api/registrations/[id]/approve", () => {
   });
 });
 
-// --- /api/policies -----------------------------------------------------------
+// --- /api/admin/policies -----------------------------------------------------------
 
-describe("GET /api/policies", () => {
+describe("GET /api/admin/policies", () => {
   it("returns 401 when unauthenticated", async () => {
     asUnauthenticated();
     const res = await policiesGET(
-      req("http://localhost/api/policies") as never
+      req("http://localhost/api/admin/policies") as never
     );
     expectStatus(res, 401);
   });
@@ -1501,7 +1501,7 @@ describe("GET /api/policies", () => {
   it("returns 403 for a regular member", async () => {
     asMember();
     const res = await policiesGET(
-      req("http://localhost/api/policies") as never
+      req("http://localhost/api/admin/policies") as never
     );
     expectStatus(res, 403);
   });
@@ -1509,7 +1509,7 @@ describe("GET /api/policies", () => {
   it("returns 403 for a workspace admin", async () => {
     asWorkspaceAdmin();
     const res = await policiesGET(
-      req("http://localhost/api/policies") as never
+      req("http://localhost/api/admin/policies") as never
     );
     expectStatus(res, 403);
   });
@@ -1517,7 +1517,7 @@ describe("GET /api/policies", () => {
   it("returns 200 with policies array for a global admin", async () => {
     asAdmin();
     const res = await policiesGET(
-      req("http://localhost/api/policies") as never
+      req("http://localhost/api/admin/policies") as never
     );
     expectStatus(res, 200);
     const body = (res as { _body: { policies: unknown[] } })._body;
@@ -1533,7 +1533,7 @@ describe("GET /api/policies", () => {
     });
     const res = await policiesGET(
       req(
-        `http://localhost/api/policies?agentDid=${encodeURIComponent(DID.agent)}`
+        `http://localhost/api/admin/policies?agentDid=${encodeURIComponent(DID.agent)}`
       ) as never
     );
     expectStatus(res, 200);
@@ -1543,7 +1543,7 @@ describe("GET /api/policies", () => {
   });
 });
 
-describe("POST /api/policies", () => {
+describe("POST /api/admin/policies", () => {
   it("returns 401 when unauthenticated", async () => {
     asUnauthenticated();
     const res = await policiesPOST(
@@ -1657,7 +1657,7 @@ describe("POST /api/policies", () => {
   });
 });
 
-describe("GET /api/policies/[id]", () => {
+describe("GET /api/admin/policies/[id]", () => {
   let testPolicyId: string;
 
   beforeAll(async () => {
@@ -1729,7 +1729,7 @@ describe("GET /api/policies/[id]", () => {
   });
 });
 
-describe("DELETE /api/policies/[id]", () => {
+describe("DELETE /api/admin/policies/[id]", () => {
   it("returns 401 when unauthenticated", async () => {
     asUnauthenticated();
     const res = await policyDetailDELETE(

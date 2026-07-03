@@ -64,7 +64,7 @@ export default function UsersPage() {
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Tracks the in-flight QR poll so it can be cancelled when the modal closes
-  // or the page unmounts — otherwise /api/user/listen keeps polling forever.
+  // or the page unmounts — otherwise /api/public/user/listen keeps polling forever.
   const pollRef = useRef<{ cancelled: boolean } | null>(null);
 
   const cancelPoll = useCallback(() => {
@@ -177,7 +177,7 @@ export default function UsersPage() {
 
       const [inviteRes, settingsRes] = await Promise.all([
         adminApi.users.invite({ query: { userId: user.id } }),
-        adminApi.server.getSettings(),
+        publicApi.server.getSettings(),
       ]);
       const data = unwrap(inviteRes);
       const settings = unwrap(settingsRes);

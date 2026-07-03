@@ -18,7 +18,7 @@ import {
 import { useTheme, type Theme } from "@/components/ThemeProvider";
 import { useBreadcrumbsState } from "./BreadcrumbContext";
 import {
-  adminApi,
+  userApi,
   unwrap,
 } from "@/lib/api/ts-rest/client";
 import { cn } from "@/lib/utils";
@@ -61,7 +61,7 @@ export default function TopBar() {
   // Fetch name from profile
   useEffect(() => {
     if (!session?.user) return;
-    adminApi.users
+    userApi.users
       .me()
       .then((res) => setProfileName(unwrap(res).name ?? null))
       .catch(() => {});

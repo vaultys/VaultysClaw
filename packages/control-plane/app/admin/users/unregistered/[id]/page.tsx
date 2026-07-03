@@ -50,7 +50,7 @@ export default function UnregisteredUserPage() {
   } | null>(null);
 
   // Tracks the in-flight QR poll so it can be cancelled when the modal closes
-  // or the page unmounts — otherwise /api/user/listen keeps polling forever.
+  // or the page unmounts — otherwise /api/public/user/listen keeps polling forever.
   const pollRef = useRef<{ cancelled: boolean } | null>(null);
   const cancelPoll = useCallback(() => {
     if (pollRef.current) pollRef.current.cancelled = true;
@@ -120,7 +120,7 @@ export default function UnregisteredUserPage() {
 
         const [inviteRes, settingsRes] = await Promise.all([
           adminApi.users.invite({ query: { userId: user.id } }),
-          adminApi.server.getSettings(),
+          publicApi.server.getSettings(),
         ]);
         const data = unwrap(inviteRes);
         const settings = unwrap(settingsRes);

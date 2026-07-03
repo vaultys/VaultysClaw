@@ -44,7 +44,7 @@ export interface UpdateMeResponse {
   description: string | null;
 }
 
-/** A user row as returned by `GET /api/users` — Prisma fields plus workspace memberships. */
+/** A user row as returned by `GET /api/admin/users` — Prisma fields plus workspace memberships. */
 export type UserListItem = Pick<
   User,
   "id" | "did" | "name" | "email" | "entraId"
@@ -63,7 +63,7 @@ export interface UserListResponse {
   totalPages: number;
 }
 
-/** A single user as returned by `GET /api/users/:did`. */
+/** A single user as returned by `GET /api/admin/users/:did`. */
 export type UserDetail = Pick<
   User,
   | "id"
@@ -77,7 +77,7 @@ export type UserDetail = Pick<
   | "locationLabel"
 > & { role: UserRole; registeredAt: string };
 
-/** An unclaimed (Entra-provisioned, no DID yet) user as returned by `GET /api/users/unclaimed/:id`. */
+/** An unclaimed (Entra-provisioned, no DID yet) user as returned by `GET /api/admin/users/unclaimed/:id`. */
 export type UnclaimedUserDetail = Pick<
   User,
   | "id"
@@ -98,8 +98,4 @@ export type ListUsersQuery = z.infer<typeof ListUsersQuerySchema>;
 export type UpdateUserBody = z.infer<typeof UpdateUserBodySchema>;
 export type InviteEmailBody = z.infer<typeof InviteEmailBodySchema>;
 export type CreateGrantBody = z.infer<typeof CreateGrantBodySchema>;
-export type Invitation = {
-  email: string;
-  name: string;
-  role: string;
-};
+// Invitation type moved to public/invitations/invitations.types.ts.

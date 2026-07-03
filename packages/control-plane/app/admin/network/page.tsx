@@ -5,6 +5,7 @@ import { Wifi, Radio, Map, RefreshCw, AlertTriangle, Loader2 } from "lucide-reac
 import { timeAgo } from "@vaultysclaw/shared";
 import {
   adminApi,
+  userApi,
   unwrap,
 } from "@/lib/api/ts-rest/client";
 import type { NetworkControlAction, NetworkResponse } from "@/lib/contracts";
@@ -27,7 +28,7 @@ export default function NetworkPage() {
   const fetchData = useCallback(async (silent = false) => {
     if (!silent) setRefreshing(true);
     try {
-      setData(unwrap(await adminApi.network.get({ query: {} })));
+      setData(unwrap(await userApi.network.get({ query: {} })));
       setError(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to fetch network data");

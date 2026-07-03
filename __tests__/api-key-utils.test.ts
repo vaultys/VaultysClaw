@@ -90,13 +90,13 @@ describe("hashApiKey", () => {
 // ---------------------------------------------------------------------------
 
 describe("isPublicRoute", () => {
-  it("allows /api/health regardless of method", () => {
-    expect(isPublicRoute("GET", "/api/health")).toBe(true);
-    expect(isPublicRoute("POST", "/api/health")).toBe(true);
+  it("allows /api/public/health regardless of method", () => {
+    expect(isPublicRoute("GET", "/api/public/health")).toBe(true);
+    expect(isPublicRoute("POST", "/api/public/health")).toBe(true);
   });
 
-  it("allows /api/setup/status", () => {
-    expect(isPublicRoute("GET", "/api/setup/status")).toBe(true);
+  it("does not treat /api/admin/setup/status as public (admin only)", () => {
+    expect(isPublicRoute("GET", "/api/admin/setup/status")).toBe(false);
   });
 
   it("allows /api/public/* paths", () => {

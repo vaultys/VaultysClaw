@@ -7,7 +7,6 @@ import { useRole } from "@/hooks/useRole";
 import { useToolbar } from "@/components/layout/ToolbarContext";
 import { useBreadcrumbs } from "@/components/layout/BreadcrumbContext";
 import {
-  userApi,
   adminApi,
   unwrap,
 } from "@/lib/api/ts-rest/client";
@@ -58,7 +57,7 @@ export default function SkillsPage() {
     setLoading(true);
     try {
       const [sk, rm] = await Promise.all([
-        userApi.skills.list(),
+        adminApi.skills.list(),
         adminApi.workspaces.list(),
       ]);
       setSkills(unwrap(sk));

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   adminApi,
+  userApi,
   unwrap,
 } from "@/lib/api/ts-rest/client";
 import type { AgentInfo } from "@/lib/contracts";
@@ -42,7 +43,7 @@ export function useWorkflowMembers(workflowWorkspaceId: string) {
     if (!isRealWorkspace(workflowWorkspaceId)) return;
     setUserLoading(true);
     setUserSearchQuery("");
-    adminApi.users
+    userApi.users
       .search({ query: { workspace: workflowWorkspaceId } })
       .then((r) => setUsers(unwrap(r).users))
       .catch((err) => {

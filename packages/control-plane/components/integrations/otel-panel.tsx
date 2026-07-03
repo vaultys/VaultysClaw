@@ -11,6 +11,7 @@ import {
 } from "./shared";
 import {
   adminApi,
+  userApi,
   unwrap,
 } from "@/lib/api/ts-rest/client";
 import type { OtelConfig, OtelTestResult } from "@/lib/contracts";
@@ -32,7 +33,7 @@ export function OpenTelemetryPanel() {
 
   const loadStatus = async () => {
     try {
-      const data = unwrap(await adminApi.settings.getOtel());
+      const data = unwrap(await userApi.settings.getOtel());
       setStatus(data);
       setEnabled(data.enabled);
       setBaseUrl(data.baseUrl || "");

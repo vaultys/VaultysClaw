@@ -76,7 +76,7 @@ External clients can authenticate using an `X-API-Key` header or `Authorization:
 
 **Key format**: `vc_key_<32 base62 chars>`. Stored as SHA-256 hash only. Never log or expose raw keys.
 
-**Public routes** (no auth required): `GET /api/health`, `GET /api/setup/status`, `GET /api/about`, all `/api/auth/**`. Detected automatically by `isPublicRoute()` in `lib/api-key-utils.ts`.
+**Public routes** (no auth required): `GET /api/public/health`, `GET /api/setup/status`, `GET /api/about`, all `/api/auth/**`. Detected automatically by `isPublicRoute()` in `lib/api-key-utils.ts`.
 
 **Route scoping**: Each API key carries an `allowedRoutes` list of `"METHOD /api/path"` strings (e.g., `"GET /api/agents/[did]"`). The `matchRoute()` function converts `[param]` segments to regex for matching.
 

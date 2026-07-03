@@ -40,7 +40,7 @@ export type SafeModel = Prisma.ModelRegistryGetPayload<{
   };
 }> & { hasApiKey: boolean };
 
-/** Response of `POST /api/models` — the created entry (sans secret) + LiteLLM status. */
+/** Response of `POST /api/admin/models` — the created entry (sans secret) + LiteLLM status. */
 export type CreatedModel = Omit<ModelRegistry, "apiKeyEnc"> & {
   litellmRegistered: boolean;
 };

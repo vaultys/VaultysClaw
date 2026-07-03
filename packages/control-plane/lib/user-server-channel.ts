@@ -313,7 +313,7 @@ export class UserServerChannel {
   /**
    * Opens a server-side PeerJS channel as initiator, runs the full Challenger
    * protocol when the wallet connects, then writes the result to the certificate.
-   * The browser only needs to display the QR code and poll /api/user/listen/[token].
+   * The browser only needs to display the QR code and poll /api/public/user/listen/[token].
    *
    * Returns the PeerJS connection string that the browser encodes in the QR URL:
    *   https://wallet.vaultys.net/#<connectionString>&protocol=p2p&service=auth&did=<serverDid>

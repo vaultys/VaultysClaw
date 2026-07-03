@@ -5,7 +5,7 @@ import { StatsTokensResponse } from "./stats.types";
 export const statsContract = c.router({
   tokens: {
     method: "GET",
-    path: "/api/stats/tokens",
+    path: "/api/admin/stats/tokens",
     summary: "Retrieve token usage statistics",
     responses: {
       200: c.type<StatsTokensResponse>(),

@@ -8,33 +8,22 @@ import {
   UpdateOrgSkillBodySchema,
 } from "./org-skills.schemas";
 
-export const orgSkillsContract = c.router({
-  list: {
-    method: "GET",
-    path: "/api/org/skills",
-    summary: "List the organization skill catalog",
-    responses: { 200: c.type<{ skills: OrgSkill[] }>(), ...commonErrorResponses },
-  },
-
+/**
+ * Admin-only mutations of the organization skill catalog. Reading the catalog
+ * (GET) is user-facing — see userContract.orgSkills.
+ */
+export const orgSkillsAdminContract = c.router({
   create: {
     method: "POST",
-    path: "/api/org/skills",
+    path: "/api/admin/org/skills",
     summary: "Add a new skill to the catalog",
     body: CreateOrgSkillBodySchema,
     responses: { 201: c.type<{ skill: OrgSkill }>(), ...commonErrorResponses },
   },
 
-  getOne: {
-    method: "GET",
-    path: "/api/org/skills/:id",
-    pathParams: OrgSkillIdParamSchema,
-    summary: "Retrieve a specific organization skill by ID",
-    responses: { 200: c.type<{ skill: OrgSkill }>(), ...commonErrorResponses },
-  },
-
   update: {
     method: "PATCH",
-    path: "/api/org/skills/:id",
+    path: "/api/admin/org/skills/:id",
     pathParams: OrgSkillIdParamSchema,
     summary: "Update an organization skill",
     body: UpdateOrgSkillBodySchema,
@@ -43,7 +32,7 @@ export const orgSkillsContract = c.router({
 
   remove: {
     method: "DELETE",
-    path: "/api/org/skills/:id",
+    path: "/api/admin/org/skills/:id",
     pathParams: OrgSkillIdParamSchema,
     summary: "Remove an organization skill from the catalog",
     responses: {

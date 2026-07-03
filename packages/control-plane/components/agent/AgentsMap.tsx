@@ -17,7 +17,7 @@ const WorldMap = dynamic(
 
 /**
  * Map view of the agents page. Self-contained: fetches its own location
- * markers from `/api/map` (independent of the list filters) and navigates to
+ * markers from `/api/admin/map` (independent of the list filters) and navigates to
  * an agent's detail page on marker click.
  */
 export function AgentsMap() {

@@ -11,7 +11,7 @@ import {
   X,
 } from "lucide-react";
 import {
-  userApi,
+  adminApi,
   unwrap,
 } from "@/lib/api/ts-rest/client";
 import { FileDropzone } from "./FileDropzone";
@@ -90,7 +90,7 @@ export function KsAddSourceModal({
           return;
         }
         unwrap(
-          await userApi.knowledge.create({
+          await adminApi.knowledge.create({
             body: {
               workspaceId,
               agentDid: did,
@@ -107,7 +107,7 @@ export function KsAddSourceModal({
           return;
         }
         unwrap(
-          await userApi.knowledge.create({
+          await adminApi.knowledge.create({
             body: {
               workspaceId,
               agentDid: did,
@@ -129,7 +129,7 @@ export function KsAddSourceModal({
           return;
         }
         const { source } = unwrap(
-          await userApi.knowledge.create({
+          await adminApi.knowledge.create({
             body: {
               workspaceId,
               agentDid: did,
@@ -139,7 +139,7 @@ export function KsAddSourceModal({
             },
           })
         );
-        // Multipart uploads stay on raw fetch (see /api/knowledge/files route).
+        // Multipart uploads stay on raw fetch (see /api/admin/knowledge/files route).
         for (let i = 0; i < selectedFiles.length; i++) {
           const file = selectedFiles[i];
           setUploadProgress(
@@ -148,7 +148,7 @@ export function KsAddSourceModal({
           const fd = new FormData();
           fd.append("sourceId", source.id);
           fd.append("file", file);
-          const uploadRes = await fetch("/api/knowledge/files", {
+          const uploadRes = await fetch("/api/admin/knowledge/files", {
             method: "POST",
             body: fd,
           });

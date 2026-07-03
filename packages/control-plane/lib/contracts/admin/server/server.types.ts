@@ -5,13 +5,6 @@ import {
   SmtpConfigSchema,
 } from "./server.schemas";
 
-export interface ServerInfoResponse {
-  identity: Record<string, unknown> | null;
-  stats: { totalAgents: number; onlineAgents: number; offlineAgents: number };
-  sysInfo: Record<string, unknown>;
-  walletUrl: string;
-}
-
 export interface EntraUnclaimedResponse {
   users: Array<Record<string, unknown>>;
 }

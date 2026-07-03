@@ -38,11 +38,4 @@ export const OidcSaveBodySchema = z.object({
 export const OidcTestBodySchema = z.object({ issuer: z.string().optional() });
 
 // ── Responses
-export const ServerSettingsResponseSchema = z.object({
-  walletUrl: z.string(),
-  peerjsHost: z.string(),
-  devLogin: z.boolean(),
-});
-
 export const OkResponseSchema = z.object({ ok: z.boolean() });
-export const NotImplementedResponseSchema = z.object({ error: z.string() });

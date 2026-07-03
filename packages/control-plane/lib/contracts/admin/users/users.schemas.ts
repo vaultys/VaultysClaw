@@ -8,7 +8,6 @@ export const DidGrantParamSchema = z.object({
   did: z.string(),
   id: z.string(),
 });
-export const TokenParamSchema = z.object({ token: z.string() });
 
 // ── Shared enums / objects
 export const RoleEnum = z.enum(USER_ROLES);

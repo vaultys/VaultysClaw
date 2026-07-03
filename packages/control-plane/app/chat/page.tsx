@@ -13,7 +13,7 @@ import {
   XCircle,
 } from "lucide-react";
 import {
-  adminApi,
+  userApi,
 } from "@/lib/api/ts-rest/client";
 import { ChatMessageEntry, shortDid } from "@vaultysclaw/shared";
 import { PendingApproval } from "@/components/agent/chat-types";
@@ -377,7 +377,7 @@ export default function ChatPage() {
                 )
               );
               try {
-                const result = await adminApi.toolApprovals.respond({
+                const result = await userApi.toolApprovals.respond({
                   body: { requestId: a.requestId, approved },
                 });
                 if (result.status !== 200) throw new Error("Request failed");

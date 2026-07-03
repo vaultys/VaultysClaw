@@ -6,7 +6,6 @@ import { Bot, Send, Trash2, Loader2 } from "lucide-react";
 import type { ChatMessageEntry, ChatSession } from "@vaultysclaw/shared";
 import {
   userApi,
-  adminApi,
   unwrap,
 } from "@/lib/api/ts-rest/client";
 import { ThinkingBlock } from "./ThinkingBlock";
@@ -461,7 +460,7 @@ export function ChatTab({
                 );
                 try {
                   unwrap(
-                    await adminApi.toolApprovals.respond({
+                    await userApi.toolApprovals.respond({
                       body: { requestId: a.requestId, approved },
                     })
                   );

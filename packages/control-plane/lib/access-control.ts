@@ -18,16 +18,10 @@ import { isAdminRole, isOwnerRole } from "./roles";
 
 // Paths accessible without authentication.
 export const publicPaths = [
-  "/api/health",
   "/api/public",
   "/api/auth",
-  "/api/user",
-  "/api/server",
   "/api/test",
   "/api/workflows/test-seed",
-  "/api/invitations",
-  "/api/users/invite/email",
-  "/api/users/invite/from-email",
   "/api/vaultys/",
   "/login",
   "/invite/",

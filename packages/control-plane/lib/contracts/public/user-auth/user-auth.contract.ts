@@ -20,7 +20,7 @@ import {
 export const userAuthContract = c.router({
   request: {
     method: "POST",
-    path: "/api/user/request/:token",
+    path: "/api/public/user/request/:token",
     pathParams: UserAuthTokenParamSchema,
     summary: "Handle a round of the VaultysID Challenger protocol",
     // Raw base64 certificate bytes; the handler reads them via request.text().
@@ -36,7 +36,7 @@ export const userAuthContract = c.router({
 
   p2pConnect: {
     method: "GET",
-    path: "/api/user/p2p/connect",
+    path: "/api/public/user/p2p/connect",
     summary: "Opens a server-side PeerJS channel for user connection",
     responses: {
       200: P2pConnectResponseSchema,
@@ -46,7 +46,7 @@ export const userAuthContract = c.router({
 
   listen: {
     method: "GET",
-    path: "/api/user/listen/:token",
+    path: "/api/public/user/listen/:token",
     pathParams: UserAuthTokenParamSchema,
     summary: "Poll the status of a connection/registration certificate",
     responses: { 200: ListenResponseSchema, ...commonErrorResponses },
@@ -54,7 +54,7 @@ export const userAuthContract = c.router({
 
   connect: {
     method: "GET",
-    path: "/api/user/connect",
+    path: "/api/public/user/connect",
     summary: "Creates a new certificate for the connection flow",
     query: ConnectQuerySchema,
     responses: {
@@ -65,7 +65,7 @@ export const userAuthContract = c.router({
 
   bastionConnect: {
     method: "GET",
-    path: "/api/user/bastion/connect",
+    path: "/api/public/user/bastion/connect",
     summary: "Initiates the bastion connection flow",
     query: BastionConnectQuerySchema,
     responses: { 200: BastionConnectResponseSchema, ...commonErrorResponses },
@@ -73,7 +73,7 @@ export const userAuthContract = c.router({
 
   bastionListen: {
     method: "POST",
-    path: "/api/user/bastion/listen/:token",
+    path: "/api/public/user/bastion/listen/:token",
     pathParams: UserAuthTokenParamSchema,
     summary: "Poll bastion connection authentication status",
     body: c.noBody(),
@@ -85,7 +85,7 @@ export const userAuthContract = c.router({
 
   bastionAssociate: {
     method: "POST",
-    path: "/api/user/bastion/associate",
+    path: "/api/public/user/bastion/associate",
     summary: "Associate a user certificate with a browser device certificate",
     body: BastionAssociateBodySchema,
     responses: { 200: BastionAssociateResponseSchema, ...commonErrorResponses },

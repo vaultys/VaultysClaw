@@ -1,8 +1,8 @@
 /**
  * Tests for the model registry API routes:
- *   GET/POST /api/models
- *   GET/PUT/DELETE /api/models/[id]
- *   GET/POST/DELETE /api/models/[id]/workspaces
+ *   GET/POST /api/admin/models
+ *   GET/PUT/DELETE /api/admin/models/[id]
+ *   GET/POST/DELETE /api/admin/models/[id]/workspaces
  *
  * Uses the same mocking strategy as security.test.ts:
  *   - vi.mock("@/lib/auth-utils") controls the current user
@@ -78,17 +78,17 @@ import { NextRequest } from "next/server";
 import {
   GET as modelsGET,
   POST as modelsPOST,
-} from "../packages/control-plane/app/api/models/route";
+} from "../packages/control-plane/app/api/admin/models/route";
 import {
   GET as modelDetailGET,
   PUT as modelDetailPUT,
   DELETE as modelDetailDELETE,
-} from "../packages/control-plane/app/api/models/[id]/route";
+} from "../packages/control-plane/app/api/admin/models/[id]/route";
 import {
   GET as modelWorkspacesGET,
   POST as modelWorkspacesPOST,
   DELETE as modelWorkspacesDELETE,
-} from "../packages/control-plane/app/api/models/[id]/workspaces/route";
+} from "../packages/control-plane/app/api/admin/models/[id]/workspaces/route";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -150,13 +150,13 @@ beforeEach(() => {
 });
 
 // ---------------------------------------------------------------------------
-// GET /api/models
+// GET /api/admin/models
 // ---------------------------------------------------------------------------
 
-describe("GET /api/models", () => {
+describe("GET /api/admin/models", () => {
   it("returns 401 when unauthenticated", async () => {
     mockGetAuthContext.mockRejectedValueOnce(new APIException("UNAUTHORIZED"));
-    const res = await modelsGET(req("GET", "http://localhost/api/models") as any);
+    const res = await modelsGET(req("GET", "http://localhost/api/admin/models") as any);
     expect(res._status).toBe(401);
   });
 
@@ -164,7 +164,7 @@ describe("GET /api/models", () => {
     const id = `${T}get-list-1`;
     await prisma.modelRegistry.upsert({ where: { id }, create: { id, name: "Test Model", provider: "ollama", modelId: "llama3:8b", baseUrl: "http://localhost:11434", status: "active" }, update: {} });
     try {
-      const res = await modelsGET(req("GET", "http://localhost/api/models") as any);
+      const res = await modelsGET(req("GET", "http://localhost/api/admin/models") as any);
       expect(res._status).toBe(200);
       const body = (await res.json()) as { models: { id: string }[] };
       expect(body.models.some((m) => m.id === id)).toBe(true);
@@ -175,17 +175,17 @@ describe("GET /api/models", () => {
 });
 
 // ---------------------------------------------------------------------------
-// POST /api/models
+// POST /api/admin/models
 // ---------------------------------------------------------------------------
 
-describe("POST /api/models", () => {
+describe("POST /api/admin/models", () => {
   it("returns 403 for non-admin", async () => {
     mockGetAuthContext.mockResolvedValueOnce({
       ...makeAdminContext(),
       isGlobalAdmin: false,
       isOwner: false,
     });
-    const r = req("POST", "http://localhost/api/models", {
+    const r = req("POST", "http://localhost/api/admin/models", {
       name: "X",
       provider: "ollama",
       modelId: "x",
@@ -196,7 +196,7 @@ describe("POST /api/models", () => {
   });
 
   it("creates a model entry in the DB", async () => {
-    const r = req("POST", "http://localhost/api/models", {
+    const r = req("POST", "http://localhost/api/admin/models", {
       name: `${T}create-test`,
       provider: "openai-compatible",
       modelId: "ministral-3b",
@@ -215,7 +215,7 @@ describe("POST /api/models", () => {
   it("calls registerModel when LiteLLM is configured", async () => {
     mockIsLiteLLMConfigured.mockReturnValue(true);
 
-    const r = req("POST", "http://localhost/api/models", {
+    const r = req("POST", "http://localhost/api/admin/models", {
       name: `${T}litellm-reg`,
       provider: "openai-compatible",
       modelId: "llama3-ft",
@@ -233,7 +233,7 @@ describe("POST /api/models", () => {
     mockIsLiteLLMConfigured.mockReturnValue(true);
     mockRegisterModel.mockRejectedValueOnce(new Error("LiteLLM unreachable"));
 
-    const r = req("POST", "http://localhost/api/models", {
+    const r = req("POST", "http://localhost/api/admin/models", {
       name: `${T}litellm-fail`,
       provider: "ollama",
       modelId: "llama3:8b",
@@ -248,13 +248,13 @@ describe("POST /api/models", () => {
 });
 
 // ---------------------------------------------------------------------------
-// GET /api/models/[id]
+// GET /api/admin/models/[id]
 // ---------------------------------------------------------------------------
 
-describe("GET /api/models/[id]", () => {
+describe("GET /api/admin/models/[id]", () => {
   it("returns 404 for unknown id", async () => {
     const res = await modelDetailGET(
-      req("GET", "http://localhost/api/models/nope") as any,
+      req("GET", "http://localhost/api/admin/models/nope") as any,
       params("nope")
     );
     expect(res._status).toBe(404);
@@ -264,7 +264,7 @@ describe("GET /api/models/[id]", () => {
     const id = `${T}detail-1`;
     await prisma.modelRegistry.upsert({ where: { id }, create: { id, name: "Detail Model", description: "desc", provider: "ollama", modelId: "llama3:8b", baseUrl: "http://localhost:11434", status: "active" }, update: {} });
     try {
-      const res = await modelDetailGET(req("GET", `http://localhost/api/models/${id}`) as any, params(id));
+      const res = await modelDetailGET(req("GET", `http://localhost/api/admin/models/${id}`) as any, params(id));
       expect(res._status).toBe(200);
       const body = (await res.json()) as { model: { id: string; name: string } };
       expect(body.model.id).toBe(id);
@@ -276,15 +276,15 @@ describe("GET /api/models/[id]", () => {
 });
 
 // ---------------------------------------------------------------------------
-// PUT /api/models/[id]
+// PUT /api/admin/models/[id]
 // ---------------------------------------------------------------------------
 
-describe("PUT /api/models/[id]", () => {
+describe("PUT /api/admin/models/[id]", () => {
   it("updates model name and description", async () => {
     const id = `${T}update-1`;
     await prisma.modelRegistry.upsert({ where: { id }, create: { id, name: "Old Name", description: "old desc", provider: "ollama", modelId: "llama3:8b", baseUrl: "http://old", status: "active" }, update: {} });
     try {
-      const r = req("PUT", `http://localhost/api/models/${id}`, { name: "New Name", description: "new desc" });
+      const r = req("PUT", `http://localhost/api/admin/models/${id}`, { name: "New Name", description: "new desc" });
       const res = await modelDetailPUT(r as any, params(id));
       expect(res._status).toBe(200);
       const updated = await ModelDAO.findById(id);
@@ -296,15 +296,15 @@ describe("PUT /api/models/[id]", () => {
 });
 
 // ---------------------------------------------------------------------------
-// DELETE /api/models/[id]
+// DELETE /api/admin/models/[id]
 // ---------------------------------------------------------------------------
 
-describe("DELETE /api/models/[id]", () => {
+describe("DELETE /api/admin/models/[id]", () => {
   it("removes the model from DB", async () => {
     const id = `${T}delete-1`;
     await prisma.modelRegistry.upsert({ where: { id }, create: { id, name: "Delete Me", provider: "ollama", modelId: "llama3:8b", baseUrl: "http://localhost:11434", status: "active" }, update: {} });
 
-    const res = await modelDetailDELETE(req("DELETE", `http://localhost/api/models/${id}`) as any, params(id));
+    const res = await modelDetailDELETE(req("DELETE", `http://localhost/api/admin/models/${id}`) as any, params(id));
     expect(res._status).toBe(200);
 
     const row = await ModelDAO.findById(id);
@@ -316,21 +316,21 @@ describe("DELETE /api/models/[id]", () => {
     const id = `${T}delete-litellm-1`;
     await prisma.modelRegistry.upsert({ where: { id }, create: { id, name: "LiteLLM Model", provider: "openai-compatible", modelId: "ft-llama3", baseUrl: "http://vllm:8080", litellmModelName: "openai-compatible/ft-llama3", status: "active" }, update: {} });
 
-    await modelDetailDELETE(req("DELETE", `http://localhost/api/models/${id}`) as any, params(id));
+    await modelDetailDELETE(req("DELETE", `http://localhost/api/admin/models/${id}`) as any, params(id));
     expect(mockRemoveModel).toHaveBeenCalledWith("openai-compatible/ft-llama3");
   });
 });
 
 // ---------------------------------------------------------------------------
-// POST /api/models/[id]/workspaces — grant access
+// POST /api/admin/models/[id]/workspaces — grant access
 // ---------------------------------------------------------------------------
 
-describe("POST /api/models/[id]/workspaces", () => {
+describe("POST /api/admin/models/[id]/workspaces", () => {
   it("grants workspace access and stores it in DB", async () => {
     const id = `${T}workspace-grant-1`;
     await prisma.modelRegistry.upsert({ where: { id }, create: { id, name: "Workspace Model", provider: "ollama", modelId: "llama3:8b", baseUrl: "http://localhost:11434", status: "active" }, update: {} });
     try {
-      const r = req("POST", `http://localhost/api/models/${id}/workspaces`, { workspaceId: testWorkspaceId });
+      const r = req("POST", `http://localhost/api/admin/models/${id}/workspaces`, { workspaceId: testWorkspaceId });
       const res = await modelWorkspacesPOST(r as any, params(id));
       expect(res._status).toBe(200);
       const row = await prisma.modelWorkspaceAccess.findUnique({ where: { modelId_workspaceId: { modelId: id, workspaceId: testWorkspaceId } } });
@@ -346,7 +346,7 @@ describe("POST /api/models/[id]/workspaces", () => {
     const id = `${T}workspace-grant-litellm-1`;
     await prisma.modelRegistry.upsert({ where: { id }, create: { id, name: "LiteLLM Workspace Model", provider: "openai-compatible", modelId: "ft-v1", baseUrl: "http://vllm:8080", litellmModelName: "openai-compatible/ft-v1", status: "active" }, update: {} });
     try {
-      const r = req("POST", `http://localhost/api/models/${id}/workspaces`, { workspaceId: testWorkspaceId });
+      const r = req("POST", `http://localhost/api/admin/models/${id}/workspaces`, { workspaceId: testWorkspaceId });
       await modelWorkspacesPOST(r as any, params(id));
       expect(mockCreateWorkspaceKey).toHaveBeenCalledWith(testWorkspaceId, ["openai-compatible/ft-v1"], undefined);
       const keyRow = await prisma.workspaceRouterKey.findUnique({ where: { workspaceId: testWorkspaceId } });
@@ -360,16 +360,16 @@ describe("POST /api/models/[id]/workspaces", () => {
 });
 
 // ---------------------------------------------------------------------------
-// DELETE /api/models/[id]/workspaces?workspaceId=x — revoke access
+// DELETE /api/admin/models/[id]/workspaces?workspaceId=x — revoke access
 // ---------------------------------------------------------------------------
 
-describe("DELETE /api/models/[id]/workspaces", () => {
+describe("DELETE /api/admin/models/[id]/workspaces", () => {
   it("revokes workspace access from DB", async () => {
     const id = `${T}workspace-revoke-1`;
     await prisma.modelRegistry.upsert({ where: { id }, create: { id, name: "Revoke Model", provider: "ollama", modelId: "llama3:8b", baseUrl: "http://localhost:11434", status: "active" }, update: {} });
     await prisma.modelWorkspaceAccess.upsert({ where: { modelId_workspaceId: { modelId: id, workspaceId: testWorkspaceId } }, create: { modelId: id, workspaceId: testWorkspaceId }, update: {} });
     try {
-      const r = req("DELETE", `http://localhost/api/models/${id}/workspaces?workspaceId=${testWorkspaceId}`);
+      const r = req("DELETE", `http://localhost/api/admin/models/${id}/workspaces?workspaceId=${testWorkspaceId}`);
       const res = await modelWorkspacesDELETE(r as any, params(id));
       expect(res._status).toBe(200);
       const row = await prisma.modelWorkspaceAccess.findUnique({ where: { modelId_workspaceId: { modelId: id, workspaceId: testWorkspaceId } } });

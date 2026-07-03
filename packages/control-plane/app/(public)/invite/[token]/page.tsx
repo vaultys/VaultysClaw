@@ -9,7 +9,6 @@ import {
   type WalletSecurityType,
 } from "@/lib/browser-connect";
 import {
-  adminApi,
   publicApi,
   unwrap,
 } from "@/lib/api/ts-rest/client";
@@ -42,7 +41,7 @@ export default function InvitePage() {
     const load = async () => {
       try {
         const invitation = unwrap(
-          await adminApi.invitations.get({ params: { token } })
+          await publicApi.invitations.get({ params: { token } })
         );
         if (!invitation) {
           setPhase("expired");
@@ -60,7 +59,7 @@ export default function InvitePage() {
 
   // Load dev-login availability
   useEffect(() => {
-    adminApi.server
+    publicApi.server
       .getSettings()
       .then((res) => setDevLogin(!!unwrap(res).devLogin))
       .catch(() => {});
@@ -71,7 +70,7 @@ export default function InvitePage() {
     setPhase("qr-loading");
     try {
       const data = unwrap(
-        await adminApi.users.inviteFromEmail({ body: { token } })
+        await publicApi.users.inviteFromEmail({ body: { token } })
       );
       setQrUrl(data.qrUrl);
       setCertKey(data.key);
@@ -85,7 +84,7 @@ export default function InvitePage() {
         );
         if (s === 2) {
           // Delete the invitation after successful connection
-          await adminApi.invitations.delete({ params: { token } }).catch(() => {});
+          await publicApi.invitations.delete({ params: { token } }).catch(() => {});
           setPhase("success");
           return;
         }

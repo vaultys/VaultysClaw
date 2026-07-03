@@ -5,7 +5,7 @@ export const LS_STATE = "vaultysclaw:wizardState";
 
 export type StepId = "model" | "email" | "users" | "agent";
 
-/** Per-step completion flags, as returned by `GET /api/setup/status`. */
+/** Per-step completion flags, as returned by `GET /api/admin/setup/status`. */
 export type SetupStatus = Record<StepId, boolean>;
 
 export interface WizardState {

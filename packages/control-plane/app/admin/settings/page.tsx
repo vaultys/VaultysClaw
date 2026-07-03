@@ -5,6 +5,7 @@ import { useState, useEffect } from "react";
 import { Sun, Shield, Key, User, Globe2 } from "lucide-react";
 import {
   adminApi,
+  userApi,
   unwrap,
 } from "@/lib/api/ts-rest/client";
 import type { MeProfile, UserWorkspaceWithWorkspace } from "@/lib/contracts";
@@ -42,7 +43,7 @@ export default function AccountPage() {
 
   useEffect(() => {
     if (!session?.user) return;
-    Promise.all([adminApi.users.me(), adminApi.workspaces.listMyWorkspaces()])
+    Promise.all([userApi.users.me(), adminApi.workspaces.listMyWorkspaces()])
       .then(([meRes, workspacesRes]) => {
         setProfile(unwrap(meRes));
         setWorkspaces(unwrap(workspacesRes).userWorkspaces);
@@ -56,7 +57,7 @@ export default function AccountPage() {
     email?: string;
     description?: string;
   }) => {
-    const data = unwrap(await adminApi.users.updateMe({ body: fields }));
+    const data = unwrap(await userApi.users.updateMe({ body: fields }));
     setProfile((p) =>
       p
         ? {

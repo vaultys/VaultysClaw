@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { Server, Loader2 } from "lucide-react";
 import { IntegrationPanel, IntegrationHeader } from "./shared";
 import {
-  adminApi,
+  publicApi,
   unwrap,
 } from "@/lib/api/ts-rest/client";
 
@@ -50,7 +50,7 @@ export function ServerInfoPanel() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    adminApi.server
+    publicApi.server
       .get()
       .then((res) => setInfo(unwrap(res) as unknown as ServerInfo))
       .catch(() => {})

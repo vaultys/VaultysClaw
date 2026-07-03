@@ -15,7 +15,7 @@ import { ModelRegistry } from "@prisma/client";
 export const modelsContract = c.router({
   list: {
     method: "GET",
-    path: "/api/models",
+    path: "/api/admin/models",
     summary: "List all model registry entries",
     responses: {
       200: c.type<{ models: SafeModel[] }>(),
@@ -25,7 +25,7 @@ export const modelsContract = c.router({
 
   create: {
     method: "POST",
-    path: "/api/models",
+    path: "/api/admin/models",
     summary: "Register a new model (admin only)",
     body: CreateModelBodySchema,
     responses: {
@@ -36,7 +36,7 @@ export const modelsContract = c.router({
 
   test: {
     method: "POST",
-    path: "/api/models/test",
+    path: "/api/admin/models/test",
     summary: "Test connectivity to a model endpoint and fetch available models",
     body: TestModelBodySchema,
     responses: {
@@ -47,7 +47,7 @@ export const modelsContract = c.router({
 
   getOne: {
     method: "GET",
-    path: "/api/models/:id",
+    path: "/api/admin/models/:id",
     pathParams: ModelIdParamSchema,
     summary: "Retrieve a model by its ID",
     responses: {
@@ -58,7 +58,7 @@ export const modelsContract = c.router({
 
   update: {
     method: "PUT",
-    path: "/api/models/:id",
+    path: "/api/admin/models/:id",
     pathParams: ModelIdParamSchema,
     summary: "Update a model entry (admin only)",
     body: UpdateModelBodySchema,
@@ -70,7 +70,7 @@ export const modelsContract = c.router({
 
   remove: {
     method: "DELETE",
-    path: "/api/models/:id",
+    path: "/api/admin/models/:id",
     pathParams: ModelIdParamSchema,
     summary: "Delete a model by ID (admin only)",
     responses: {
@@ -81,7 +81,7 @@ export const modelsContract = c.router({
 
   validate: {
     method: "POST",
-    path: "/api/models/:id/validate",
+    path: "/api/admin/models/:id/validate",
     pathParams: ModelIdParamSchema,
     summary: "Validate connectivity to a model's endpoint",
     body: c.noBody(),
@@ -93,7 +93,7 @@ export const modelsContract = c.router({
 
   grantWorkspace: {
     method: "POST",
-    path: "/api/models/:id/workspaces",
+    path: "/api/admin/models/:id/workspaces",
     pathParams: ModelIdParamSchema,
     summary: "Grant workspace access to a model",
     body: GrantWorkspaceBodySchema,
@@ -102,7 +102,7 @@ export const modelsContract = c.router({
 
   revokeWorkspace: {
     method: "DELETE",
-    path: "/api/models/:id/workspaces",
+    path: "/api/admin/models/:id/workspaces",
     pathParams: ModelIdParamSchema,
     summary: "Revoke workspace access for a model",
     query: RevokeWorkspaceQuerySchema,
@@ -113,7 +113,7 @@ export const modelsContract = c.router({
 export const litellmContract = c.router({
   models: {
     method: "GET",
-    path: "/api/models/litellm",
+    path: "/api/admin/models/litellm",
     summary: "List available models in LiteLLM",
     responses: {
       200: c.type<{

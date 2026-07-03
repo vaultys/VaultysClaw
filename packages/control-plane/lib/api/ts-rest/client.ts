@@ -16,19 +16,26 @@ import {
   mapContract,
   modelsContract,
   networkContract,
+  networkControlContract,
   orgSkillsContract,
+  orgSkillsAdminContract,
   policiesContract,
   workspacesContract,
   registrationsContract,
   serverContract,
+  serverPublicContract,
   settingsContract,
+  otelSettingsContract,
   setupContract,
   skillsContract,
+  skillsAdminContract,
   statsContract,
   toolApprovalsContract,
   userAuthContract,
   userStatusContract,
   usersContract,
+  usersUserContract,
+  usersPublicContract,
   wellKnownContract,
   workflowApprovalsContract,
   workflowRunsContract,
@@ -68,7 +75,15 @@ export const litellmClient = initClient(litellmContract, clientOptions);
 export const mapClient = initClient(mapContract, clientOptions);
 export const modelsClient = initClient(modelsContract, clientOptions);
 export const networkClient = initClient(networkContract, clientOptions);
+export const networkControlClient = initClient(
+  networkControlContract,
+  clientOptions
+);
 export const orgSkillsClient = initClient(orgSkillsContract, clientOptions);
+export const orgSkillsAdminClient = initClient(
+  orgSkillsAdminContract,
+  clientOptions
+);
 export const policiesClient = initClient(policiesContract, clientOptions);
 export const workspacesClient = initClient(workspacesContract, clientOptions);
 export const registrationsClient = initClient(
@@ -76,9 +91,18 @@ export const registrationsClient = initClient(
   clientOptions
 );
 export const serverClient = initClient(serverContract, clientOptions);
+export const serverPublicClient = initClient(
+  serverPublicContract,
+  clientOptions
+);
 export const settingsClient = initClient(settingsContract, clientOptions);
+export const otelSettingsClient = initClient(
+  otelSettingsContract,
+  clientOptions
+);
 export const setupClient = initClient(setupContract, clientOptions);
 export const skillsClient = initClient(skillsContract, clientOptions);
+export const skillsAdminClient = initClient(skillsAdminContract, clientOptions);
 export const statsClient = initClient(statsContract, clientOptions);
 export const toolApprovalsClient = initClient(
   toolApprovalsContract,
@@ -87,6 +111,8 @@ export const toolApprovalsClient = initClient(
 export const userAuthClient = initClient(userAuthContract, clientOptions);
 export const userStatusClient = initClient(userStatusContract, clientOptions);
 export const usersClient = initClient(usersContract, clientOptions);
+export const usersUserClient = initClient(usersUserContract, clientOptions);
+export const usersPublicClient = initClient(usersPublicContract, clientOptions);
 export const wellKnownClient = initClient(wellKnownContract, clientOptions);
 export const workflowApprovalsClient = initClient(
   workflowApprovalsContract,
@@ -110,7 +136,6 @@ export const adminApi = {
   agents: adminAgentsClient,
   workspaces: workspacesClient,
   users: usersClient,
-  invitations: invitationsClient,
   policies: policiesClient,
   governance: governanceClient,
   models: modelsClient,
@@ -119,32 +144,40 @@ export const adminApi = {
   settings: settingsClient,
   apiKeys: apiKeysClient,
   registrations: registrationsClient,
-  toolApprovals: toolApprovalsClient,
   channels: channelsClient,
-  network: networkClient,
+  network: networkControlClient,
   map: mapClient,
   graph: graphClient,
-  intents: intentsClient,
+  knowledge: knowledgeClient,
   stats: statsClient,
-  orgSkills: orgSkillsClient,
+  orgSkills: orgSkillsAdminClient,
+  skills: skillsAdminClient,
+  setup: setupClient,
 } as const;
 
 export const userApi = {
   agents: userAgentsClient,
-  userStatus: userStatusClient,
-  knowledge: knowledgeClient,
+  intents: intentsClient,
+  toolApprovals: toolApprovalsClient,
+  network: networkClient,
+  orgSkills: orgSkillsClient,
+  settings: otelSettingsClient,
   skills: skillsClient,
   workflows: workflowsClient,
   workflowRuns: workflowRunsClient,
   workflowApprovals: workflowApprovalsClient,
+  users: usersUserClient,
 } as const;
 
 export const publicApi = {
   about: aboutClient,
   bridges: bridgesClient,
+  invitations: invitationsClient,
+  server: serverPublicClient,
   wellKnown: wellKnownClient,
-  setup: setupClient,
   userAuth: userAuthClient,
+  userStatus: userStatusClient,
+  users: usersPublicClient,
   health: healthClient,
 } as const;
 

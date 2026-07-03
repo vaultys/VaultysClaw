@@ -382,7 +382,7 @@ describe("API key auth — public routes", () => {
     // isPublicRoute returns true → getAuthContext throws UNAUTHORIZED immediately
     // (public routes are handled by the route themselves without auth context)
     await expect(
-      getAuthContext(makeRequest("/api/health", "GET"))
+      getAuthContext(makeRequest("/api/public/health", "GET"))
     ).rejects.toMatchObject({ code: "UNAUTHORIZED" });
   });
 });

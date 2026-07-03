@@ -113,7 +113,7 @@ function EmailStep({
     e.preventDefault();
     setSaving(true);
     try {
-      const r = await fetch("/api/server/smtp", {
+      const r = await fetch("/api/admin/server/smtp", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -137,7 +137,7 @@ function EmailStep({
   const test = async () => {
     setTesting(true);
     try {
-      const r = await fetch("/api/server/smtp", {
+      const r = await fetch("/api/admin/server/smtp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -271,8 +271,8 @@ function UsersStep({
     setPhase("loading");
     try {
       const [inviteRes, settingsRes] = await Promise.all([
-        fetch("/api/users/invite"),
-        fetch("/api/server/settings"),
+        fetch("/api/admin/users/invite"),
+        fetch("/api/public/server/settings"),
       ]);
       if (!inviteRes.ok) throw new Error("invite failed");
       const data = (await inviteRes.json()) as {
@@ -291,7 +291,7 @@ function UsersStep({
       setPhase("qr");
       for (let i = 0; i < 180; i++) {
         await new Promise((r) => setTimeout(r, 1500));
-        const r = await fetch(`/api/user/listen/${data.token}`);
+        const r = await fetch(`/api/public/user/listen/${data.token}`);
         const { status: s } = (await r.json()) as { status: number };
         if (s === 2) {
           setPhase("success");

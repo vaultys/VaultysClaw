@@ -28,8 +28,8 @@ export function UsersStep({ onNext }: { onNext: () => void }) {
     setPhase("loading");
     try {
       const [inviteRes, settingsRes] = await Promise.all([
-        fetch("/api/users/invite"),
-        fetch("/api/server/settings"),
+        fetch("/api/admin/users/invite"),
+        fetch("/api/public/server/settings"),
       ]);
       if (!inviteRes.ok) throw new Error("invite failed");
       const data = (await inviteRes.json()) as {
@@ -48,7 +48,7 @@ export function UsersStep({ onNext }: { onNext: () => void }) {
       setPhase("qr");
       for (let i = 0; i < 180; i++) {
         await new Promise((r) => setTimeout(r, 1500));
-        const r = await fetch(`/api/user/listen/${data.token}`);
+        const r = await fetch(`/api/public/user/listen/${data.token}`);
         const { status: s } = (await r.json()) as { status: number };
         if (s === 2) {
           setPhase("success");
@@ -75,7 +75,7 @@ export function UsersStep({ onNext }: { onNext: () => void }) {
       setEmailSending(true);
       setEmailMsg(null);
       try {
-        const res = await fetch("/api/users/invite/email", {
+        const res = await fetch("/api/admin/users/invite/email", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(emailForm),

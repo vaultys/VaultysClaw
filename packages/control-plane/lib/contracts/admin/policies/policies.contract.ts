@@ -11,7 +11,7 @@ import type { PolicyEntry } from "./policies.types";
 export const policiesContract = c.router({
   list: {
     method: "GET",
-    path: "/api/policies",
+    path: "/api/admin/policies",
     summary: "List all policies",
     query: ListPoliciesQuerySchema,
     responses: {
@@ -22,7 +22,7 @@ export const policiesContract = c.router({
 
   create: {
     method: "POST",
-    path: "/api/policies",
+    path: "/api/admin/policies",
     summary: "Create and persist a new policy",
     body: CreatePolicyBodySchema,
     responses: {
@@ -33,7 +33,7 @@ export const policiesContract = c.router({
 
   getOne: {
     method: "GET",
-    path: "/api/policies/:id",
+    path: "/api/admin/policies/:id",
     pathParams: PolicyIdParamSchema,
     summary: "Retrieve a policy by ID",
     responses: {
@@ -44,7 +44,7 @@ export const policiesContract = c.router({
 
   remove: {
     method: "DELETE",
-    path: "/api/policies/:id",
+    path: "/api/admin/policies/:id",
     pathParams: PolicyIdParamSchema,
     summary: "Revoke a policy",
     responses: {

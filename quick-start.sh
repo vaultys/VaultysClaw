@@ -23,7 +23,7 @@ DB_PASSWORD="vaultys_dev_secret"
 DB_NAME="vaultysclaw"
 CONTROL_PLANE_URL="http://localhost:3000"
 QUICK_START_URL="$CONTROL_PLANE_URL/quick-start"
-HEALTH_URL="$CONTROL_PLANE_URL/api/health"
+HEALTH_URL="$CONTROL_PLANE_URL/api/public/health"
 
 ASSUME_YES=false
 case "${1:-}" in

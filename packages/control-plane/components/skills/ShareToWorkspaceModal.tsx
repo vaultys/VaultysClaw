@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Globe2, Share2 } from "lucide-react";
 import {
-  userApi,
+  adminApi,
   unwrap,
   ApiError,
 } from "@/lib/api/ts-rest/client";
@@ -86,7 +86,7 @@ export function ShareToWorkspaceModal({
     setError("");
     try {
       unwrap(
-        await userApi.skills.create({
+        await adminApi.skills.create({
           body: {
             workspaceId,
             name: group.name,

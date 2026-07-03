@@ -15,7 +15,7 @@ import {
   type WalletSecurityType,
 } from "@/lib/browser-connect";
 import {
-  adminApi,
+  userApi,
   publicApi,
   unwrap,
 } from "@/lib/api/ts-rest/client";
@@ -49,7 +49,7 @@ export default function ClaimPage() {
 
   // Load dev-login availability
   useEffect(() => {
-    fetch("/api/server/settings")
+    fetch("/api/public/server/settings")
       .then((r) => r.json())
       .then((s: { devLogin?: boolean }) => setDevLogin(!!s.devLogin))
       .catch(() => {});
@@ -58,7 +58,7 @@ export default function ClaimPage() {
   const generateQR = useCallback(async () => {
     setPhase("qr-loading");
     try {
-      const data = unwrap(await adminApi.users.claim());
+      const data = unwrap(await userApi.users.claim());
       setQrUrl(data.qrUrl);
       setCertKey(data.key);
       setPhase("qr");

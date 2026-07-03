@@ -31,6 +31,7 @@ import { ApprovalsTab } from "@/components/agent/ApprovalsTab";
 import { KnowledgeTab } from "@/components/agent/KnowledgeTab";
 import {
   adminApi,
+  userApi,
   unwrap,
 } from "@/lib/api/ts-rest/client";
 import { AgentInfo } from "@/lib/contracts";
@@ -121,7 +122,7 @@ export default function AgentDetailPage() {
   useEffect(() => {
     const refresh = async () => {
       try {
-        const { approvals } = unwrap(await adminApi.toolApprovals.list());
+        const { approvals } = unwrap(await userApi.toolApprovals.list());
         setPendingApprovals(approvals.length);
       } catch {
         setPendingApprovals(0);

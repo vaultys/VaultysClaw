@@ -14,9 +14,7 @@ import {
   type WalletSecurityType,
 } from "@/lib/browser-connect";
 import {
-  adminApi,
   publicApi,
-  userApi,
   unwrap,
 } from "@/lib/api/ts-rest/client";
 
@@ -115,8 +113,8 @@ export function useVaultysConnect(): UseVaultysConnectResult {
   useEffect(() => {
     (async () => {
       const [statusRes, settingsRes] = await Promise.all([
-        userApi.userStatus.status(),
-        adminApi.server.getSettings(),
+        publicApi.userStatus.status(),
+        publicApi.server.getSettings(),
       ]);
       const { hasUsers: hu, serverDid: sd } = unwrap(statusRes);
       const { walletUrl: wu, devLogin: dl } = unwrap(settingsRes);
@@ -167,7 +165,7 @@ export function useVaultysConnect(): UseVaultysConnectResult {
     );
 
     const isPhone = /iPhone|Android/i.test(navigator.userAgent);
-    const vaultysUrl = `vaultys://register?url=${encodeURIComponent(SERVER_URL + "/api/user/request")}&key=${key}${isPhone ? "&phone=true" : ""}`;
+    const vaultysUrl = `vaultys://register?url=${encodeURIComponent(SERVER_URL + "/api/public/user/request")}&key=${key}${isPhone ? "&phone=true" : ""}`;
     const browserUrl = `${walletUrl}#${encodeURIComponent(vaultysUrl)}`;
 
     setUserConnectInfo({ key, connectionToken: token, url: browserUrl });
@@ -248,7 +246,7 @@ export function useVaultysConnect(): UseVaultysConnectResult {
 
       // Perform SRP auth in background
       const channel = new BrowserChannel(
-        `${SERVER_URL}/api/user/request`,
+        `${SERVER_URL}/api/public/user/request`,
         rawKey
       );
       try {

@@ -14,7 +14,7 @@ import {
   ChevronDown,
 } from "lucide-react";
 import {
-  userApi,
+  adminApi,
   unwrap,
 } from "@/lib/api/ts-rest/client";
 import { KsStatusBadge } from "./KsStatusBadge";
@@ -65,7 +65,7 @@ export function KsSourceCard({
     setLoadingFiles(true);
     try {
       const { files: loaded } = unwrap(
-        await userApi.knowledge.listFiles({ query: { sourceId: source.id } })
+        await adminApi.knowledge.listFiles({ query: { sourceId: source.id } })
       );
       setFiles(loaded);
     } catch {

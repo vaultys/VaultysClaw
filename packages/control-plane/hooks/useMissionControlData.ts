@@ -145,7 +145,7 @@ export function useMissionControlData(
   useEffect(() => {
     const fetch_ = async () => {
       try {
-        setNetworkStats(unwrap(await adminApi.network.get({ query: {} })));
+        setNetworkStats(unwrap(await userApi.network.get({ query: {} })));
       } catch {}
     };
     fetch_();
@@ -176,7 +176,7 @@ export function useMissionControlData(
     const fetch_ = async () => {
       try {
         const intents = unwrap(
-          await adminApi.intents.list({ query: { limit: 20 } })
+          await userApi.intents.list({ query: { limit: 20 } })
         ).intents;
         setRecentIntents(intents.slice(0, 8));
 

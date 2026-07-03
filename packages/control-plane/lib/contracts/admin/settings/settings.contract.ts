@@ -20,7 +20,6 @@ import type {
   LiteLLMStatus,
   LiteLLMMutationResult,
   LiteLLMServiceState,
-  OtelConfig,
   OtelTestResult,
   OkResult,
 } from "./settings.types";
@@ -29,14 +28,14 @@ export const settingsContract = c.router({
   // ── Storage ────────────────────────────────────────────────────────────
   getStorage: {
     method: "GET",
-    path: "/api/settings/storage",
+    path: "/api/admin/settings/storage",
     summary: "Retrieve the current storage configuration",
     responses: { 200: c.type<StorageConfig>(), ...commonErrorResponses },
   },
 
   updateStorage: {
     method: "PUT",
-    path: "/api/settings/storage",
+    path: "/api/admin/settings/storage",
     summary: "Update storage configuration settings",
     body: UpdateStorageBodySchema,
     responses: { 200: c.type<StorageUpdateResult>(), ...commonErrorResponses },
@@ -44,7 +43,7 @@ export const settingsContract = c.router({
 
   testStorage: {
     method: "POST",
-    path: "/api/settings/storage/test",
+    path: "/api/admin/settings/storage/test",
     summary: "Test storage settings with optional overrides",
     body: TestStorageBodySchema,
     responses: { 200: c.type<StorageTestResult>(), ...commonErrorResponses },
@@ -52,7 +51,7 @@ export const settingsContract = c.router({
 
   migrateStorage: {
     method: "POST",
-    path: "/api/settings/storage/migrate",
+    path: "/api/admin/settings/storage/migrate",
     summary: "Migrate files from legacy BLOB storage to filesystem/S3 storage",
     body: c.noBody(),
     responses: { 200: c.type<StorageMigrateResult>(), ...commonErrorResponses },
@@ -60,7 +59,7 @@ export const settingsContract = c.router({
 
   storageLocation: {
     method: "PATCH",
-    path: "/api/settings/storage/location",
+    path: "/api/admin/settings/storage/location",
     summary: "Update or clear object-storage location on infrastructure maps",
     body: LocationBodySchema,
     responses: { 200: c.type<OkResult>(), ...commonErrorResponses },
@@ -69,14 +68,14 @@ export const settingsContract = c.router({
   // ── LiteLLM ────────────────────────────────────────────────────────────
   getLitellm: {
     method: "GET",
-    path: "/api/settings/litellm",
+    path: "/api/admin/settings/litellm",
     summary: "Retrieve LiteLLM configuration status and live stats",
     responses: { 200: c.type<LiteLLMStatus>(), ...commonErrorResponses },
   },
 
   saveLitellm: {
     method: "PUT",
-    path: "/api/settings/litellm",
+    path: "/api/admin/settings/litellm",
     summary: "Save LiteLLM connection settings and reconnect the service",
     body: SaveLitellmBodySchema,
     responses: {
@@ -87,7 +86,7 @@ export const settingsContract = c.router({
 
   reconnectLitellm: {
     method: "POST",
-    path: "/api/settings/litellm",
+    path: "/api/admin/settings/litellm",
     summary: "Reconnect LiteLLM service without changing stored configuration",
     body: c.noBody(),
     responses: {
@@ -98,14 +97,14 @@ export const settingsContract = c.router({
 
   disconnectLitellm: {
     method: "DELETE",
-    path: "/api/settings/litellm",
+    path: "/api/admin/settings/litellm",
     summary: "Disconnect and remove stored LiteLLM settings",
     responses: { 200: c.type<OkResult>(), ...commonErrorResponses },
   },
 
   litellmStatus: {
     method: "GET",
-    path: "/api/settings/litellm/status",
+    path: "/api/admin/settings/litellm/status",
     summary: "Check the in-memory status of the LiteLLM service",
     responses: {
       200: c.type<LiteLLMServiceState>(),
@@ -116,14 +115,14 @@ export const settingsContract = c.router({
   // ── Docling ────────────────────────────────────────────────────────────
   getDocling: {
     method: "GET",
-    path: "/api/settings/docling",
+    path: "/api/admin/settings/docling",
     summary: "Retrieve the Docling configuration settings",
     responses: { 200: c.type<DoclingConfig>(), ...commonErrorResponses },
   },
 
   updateDocling: {
     method: "PUT",
-    path: "/api/settings/docling",
+    path: "/api/admin/settings/docling",
     summary: "Update the Docling configuration settings",
     body: UpdateDoclingBodySchema,
     responses: { 200: c.type<OkResult>(), ...commonErrorResponses },
@@ -131,7 +130,7 @@ export const settingsContract = c.router({
 
   testDocling: {
     method: "POST",
-    path: "/api/settings/docling/test",
+    path: "/api/admin/settings/docling/test",
     summary: "Test and discover Docling endpoints",
     body: TestDoclingBodySchema,
     responses: { 200: c.type<DoclingTestResult>(), ...commonErrorResponses },
@@ -139,23 +138,16 @@ export const settingsContract = c.router({
 
   doclingLocation: {
     method: "PATCH",
-    path: "/api/settings/docling/location",
+    path: "/api/admin/settings/docling/location",
     summary: "Update or clear Docling service location on maps",
     body: LocationBodySchema,
     responses: { 200: c.type<OkResult>(), ...commonErrorResponses },
   },
 
-  // ── OpenTelemetry ──────────────────────────────────────────────────────
-  getOtel: {
-    method: "GET",
-    path: "/api/settings/otel",
-    summary: "Retrieve OpenTelemetry configuration and status",
-    responses: { 200: c.type<OtelConfig>(), ...commonErrorResponses },
-  },
-
+  // ── OpenTelemetry (admin) — reading status is user-facing (getOtel) ──────
   saveOtel: {
     method: "PUT",
-    path: "/api/settings/otel",
+    path: "/api/admin/settings/otel",
     summary: "Save OpenTelemetry configuration",
     body: SaveOtelBodySchema,
     responses: { 200: c.type<OkResult>(), ...commonErrorResponses },
@@ -163,7 +155,7 @@ export const settingsContract = c.router({
 
   testOtel: {
     method: "POST",
-    path: "/api/settings/otel",
+    path: "/api/admin/settings/otel",
     summary: "Test OpenTelemetry connectivity",
     body: TestOtelBodySchema,
     responses: { 200: c.type<OtelTestResult>(), ...commonErrorResponses },

@@ -5,7 +5,6 @@ import {
   BatchRejectBodySchema,
   RejectRegistrationBodySchema,
   ApproveRegistrationBodySchema,
-  ToolApprovalRespondBodySchema,
 } from "./registrations.schemas";
 
 // The persisted registration row is owned by Prisma — reuse it directly.
@@ -22,7 +21,4 @@ export type BatchRejectBody = z.infer<typeof BatchRejectBodySchema>;
 export type RejectRegistrationBody = z.infer<typeof RejectRegistrationBodySchema>;
 export type ApproveRegistrationBody = z.infer<
   typeof ApproveRegistrationBodySchema
->;
-export type ToolApprovalRespondBody = z.infer<
-  typeof ToolApprovalRespondBodySchema
 >;

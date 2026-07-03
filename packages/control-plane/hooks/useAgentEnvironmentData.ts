@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import {
   adminApi,
-  userApi,
   unwrap,
 } from "@/lib/api/ts-rest/client";
 import type {
@@ -24,7 +23,7 @@ export function useAgentEnvironmentData(agentId: string) {
         const [agentsRes, policiesRes, knowledgeRes] = await Promise.all([
           adminApi.agents.search(),
           adminApi.policies.list({ query: { agentDid: agentId } }),
-          userApi.knowledge.list({ query: { agentDid: agentId } }),
+          adminApi.knowledge.list({ query: { agentDid: agentId } }),
         ]);
         if (cancelled) return;
         setData({

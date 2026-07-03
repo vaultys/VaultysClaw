@@ -3,30 +3,23 @@ import { commonErrorResponses } from "../../common";
 import {
   EntraConfigSchema,
   EntraSyncBodySchema,
-  NotImplementedResponseSchema,
   OidcSaveBodySchema,
   OidcTestBodySchema,
   OkResponseSchema,
   SaveServerSettingsBodySchema,
-  ServerSettingsResponseSchema,
   SmtpConfigSchema,
 } from "./server.schemas";
-import { EntraUnclaimedResponse, ServerInfoResponse } from "./server.types";
+import { EntraUnclaimedResponse } from "./server.types";
 
+/**
+ * Admin-only server configuration (SMTP, OIDC, Entra, connection settings). The
+ * public read endpoints (server info / settings / entra send-qr) live under
+ * publicContract.server (/api/public/server).
+ */
 export const serverContract = c.router({
-  get: {
-    method: "GET",
-    path: "/api/server",
-    summary: "Retrieve server identity, status, and system info",
-    responses: {
-      200: c.type<ServerInfoResponse>(),
-      ...commonErrorResponses,
-    },
-  },
-
   getSmtp: {
     method: "GET",
-    path: "/api/server/smtp",
+    path: "/api/admin/server/smtp",
     summary: "Retrieve SMTP configuration with password redacted",
     responses: {
       200: c.type<Record<string, unknown>>(),
@@ -36,7 +29,7 @@ export const serverContract = c.router({
 
   saveSmtp: {
     method: "PUT",
-    path: "/api/server/smtp",
+    path: "/api/admin/server/smtp",
     summary: "Save SMTP configuration",
     body: SmtpConfigSchema,
     responses: { 200: OkResponseSchema, ...commonErrorResponses },
@@ -44,25 +37,15 @@ export const serverContract = c.router({
 
   verifySmtp: {
     method: "POST",
-    path: "/api/server/smtp",
+    path: "/api/admin/server/smtp",
     summary: "Verify SMTP connection",
     body: SmtpConfigSchema.partial(),
     responses: { 200: OkResponseSchema, ...commonErrorResponses },
   },
 
-  getSettings: {
-    method: "GET",
-    path: "/api/server/settings",
-    summary: "Retrieve server connection settings",
-    responses: {
-      200: ServerSettingsResponseSchema,
-      ...commonErrorResponses,
-    },
-  },
-
   saveSettings: {
     method: "PUT",
-    path: "/api/server/settings",
+    path: "/api/admin/server/settings",
     summary: "Save connection settings",
     body: SaveServerSettingsBodySchema,
     responses: { 200: OkResponseSchema, ...commonErrorResponses },
@@ -70,7 +53,7 @@ export const serverContract = c.router({
 
   getEntra: {
     method: "GET",
-    path: "/api/server/entra",
+    path: "/api/admin/server/entra",
     summary: "Retrieve the Entra configuration with secrets redacted",
     responses: {
       200: c.type<Record<string, unknown>>(),
@@ -80,7 +63,7 @@ export const serverContract = c.router({
 
   saveEntra: {
     method: "PUT",
-    path: "/api/server/entra",
+    path: "/api/admin/server/entra",
     summary: "Save Entra configuration",
     body: EntraConfigSchema,
     responses: { 200: OkResponseSchema, ...commonErrorResponses },
@@ -88,7 +71,7 @@ export const serverContract = c.router({
 
   testEntra: {
     method: "POST",
-    path: "/api/server/entra",
+    path: "/api/admin/server/entra",
     summary: "Test connectivity and list Entra groups",
     body: EntraConfigSchema.partial(),
     responses: {
@@ -99,7 +82,7 @@ export const serverContract = c.router({
 
   entraUnclaimed: {
     method: "GET",
-    path: "/api/server/entra/unclaimed",
+    path: "/api/admin/server/entra/unclaimed",
     summary: "List unclaimed Entra-provisioned users",
     responses: {
       200: c.type<EntraUnclaimedResponse>(),
@@ -109,7 +92,7 @@ export const serverContract = c.router({
 
   entraSync: {
     method: "POST",
-    path: "/api/server/entra/sync",
+    path: "/api/admin/server/entra/sync",
     summary: "Trigger a user sync from Microsoft Entra ID",
     body: EntraSyncBodySchema,
     responses: {
@@ -118,20 +101,9 @@ export const serverContract = c.router({
     },
   },
 
-  entraSendQr: {
-    method: "POST",
-    path: "/api/server/entra/send-qr",
-    summary: "Send a QR code to an Entra ID user (not implemented)",
-    body: c.type<Record<string, unknown>>(),
-    responses: {
-      501: NotImplementedResponseSchema,
-      ...commonErrorResponses,
-    },
-  },
-
   getOidc: {
     method: "GET",
-    path: "/api/server/oidc",
+    path: "/api/admin/server/oidc",
     summary: "Retrieve the OIDC configuration with secrets redacted",
     responses: {
       200: c.type<Record<string, unknown>>(),
@@ -141,7 +113,7 @@ export const serverContract = c.router({
 
   saveOidc: {
     method: "PUT",
-    path: "/api/server/oidc",
+    path: "/api/admin/server/oidc",
     summary: "Save OIDC configuration",
     body: OidcSaveBodySchema,
     responses: { 200: OkResponseSchema, ...commonErrorResponses },
@@ -149,7 +121,7 @@ export const serverContract = c.router({
 
   testOidc: {
     method: "POST",
-    path: "/api/server/oidc",
+    path: "/api/admin/server/oidc",
     summary: "Test the OIDC connection by validating the issuer's well-known config",
     body: OidcTestBodySchema,
     responses: {
@@ -160,7 +132,7 @@ export const serverContract = c.router({
 
   removeOidc: {
     method: "DELETE",
-    path: "/api/server/oidc",
+    path: "/api/admin/server/oidc",
     summary: "Remove the OIDC configuration",
     body: c.noBody(),
     responses: { 200: OkResponseSchema, ...commonErrorResponses },

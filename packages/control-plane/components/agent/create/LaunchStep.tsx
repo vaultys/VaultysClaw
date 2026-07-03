@@ -14,7 +14,7 @@ import {
 import { cn } from "@/lib/utils";
 import { CopyButton } from "@/components/shared";
 import {
-  adminApi,
+  userApi,
   unwrap,
 } from "@/lib/api/ts-rest/client";
 import { PKG_RUNNERS, type PkgRunner } from "./constants";
@@ -49,7 +49,7 @@ export function LaunchStep({
     const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
     setWsUrl(`${proto}//${window.location.hostname}:8080`);
 
-    adminApi.network
+    userApi.network
       .get({ query: {} })
       .then((res) => {
         const { peerjs } = unwrap(res);

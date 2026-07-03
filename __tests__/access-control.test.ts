@@ -99,7 +99,7 @@ describe("resolveAccess — /api (authenticated, routes self-check)", () => {
   });
 
   it("allows public API paths without a session", () => {
-    expect(decide("/api/health", null)).toEqual({ type: "next" });
+    expect(decide("/api/public/health", null)).toEqual({ type: "next" });
     expect(decide("/api/auth/session", null)).toEqual({ type: "next" });
     expect(decide("/api/workflows/wf-123/execute", null)).toEqual({
       type: "next",
@@ -158,7 +158,7 @@ describe("isPublicPath", () => {
   it("treats the root and known public prefixes as public", () => {
     expect(isPublicPath("/")).toBe(true);
     expect(isPublicPath("/login")).toBe(true);
-    expect(isPublicPath("/api/health")).toBe(true);
+    expect(isPublicPath("/api/public/health")).toBe(true);
   });
 
   it("treats admin/app paths as non-public", () => {

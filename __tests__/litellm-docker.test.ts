@@ -143,7 +143,7 @@ describe("Docker E2E — LiteLLM pipeline", () => {
   // ---------------------------------------------------------------------------
 
   it("control-plane is healthy", async () => {
-    const res = await fetch(`${CONTROL_PLANE}/api/server`);
+    const res = await fetch(`${CONTROL_PLANE}/api/public/server`);
     expect(res.ok).toBe(true);
   });
 

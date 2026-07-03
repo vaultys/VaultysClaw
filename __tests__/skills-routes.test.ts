@@ -3,12 +3,12 @@
  *   DB helpers: createWorkspaceSkill, updateWorkspaceSkill, deleteWorkspaceSkill,
  *               getWorkspaceSkillById, getAllSkillsWithWorkspaces, getAgentEffectiveSkills
  *   API routes:
- *     GET  /api/skills          — list all skills with workspace info (admin only)
- *     POST /api/skills          — create a skill for a workspace (admin only)
+ *     GET  /api/admin/skills          — list all skills with workspace info (admin only)
+ *     POST /api/admin/skills          — create a skill for a workspace (admin only)
  *     GET  /api/workspaces/[id]/skills/[skillId]   — skill detail
  *     PATCH /api/workspaces/[id]/skills/[skillId]  — update skill
  *     DELETE /api/workspaces/[id]/skills/[skillId] — delete skill
- *     GET  /api/stats/tokens    — fleet-wide token stats from DB
+ *     GET  /api/admin/stats/tokens    — fleet-wide token stats from DB
  */
 
 import {
@@ -59,13 +59,13 @@ import { NextRequest } from "next/server";
 import {
   GET as skillsGET,
   POST as skillsPOST,
-} from "../packages/control-plane/app/api/skills/route";
+} from "../packages/control-plane/app/api/admin/skills/route";
 import {
   GET as skillDetailGET,
   PATCH as skillDetailPATCH,
   DELETE as skillDetailDELETE,
 } from "../packages/control-plane/app/api/workspaces/[id]/skills/[skillId]/route";
-import { GET as statsTokensGET } from "../packages/control-plane/app/api/stats/tokens/route";
+import { GET as statsTokensGET } from "../packages/control-plane/app/api/admin/stats/tokens/route";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -445,14 +445,14 @@ describe("DB: getAgentEffectiveSkills", () => {
 });
 
 // ===========================================================================
-// API: GET /api/skills
+// API: GET /api/admin/skills
 // ===========================================================================
 
-describe("GET /api/skills", () => {
+describe("GET /api/admin/skills", () => {
   it("returns 401 when unauthenticated", async () => {
     mockGetAuthContext.mockRejectedValueOnce(new APIException("UNAUTHORIZED"));
     const res = await skillsGET(
-      req("GET", "http://localhost/api/skills") as any
+      req("GET", "http://localhost/api/admin/skills") as any
     );
     expect(res._status).toBe(401);
   });
@@ -463,7 +463,7 @@ describe("GET /api/skills", () => {
       isGlobalAdmin: false,
     });
     const res = await skillsGET(
-      req("GET", "http://localhost/api/skills") as any
+      req("GET", "http://localhost/api/admin/skills") as any
     );
     expect(res._status).toBe(403);
   });
@@ -475,7 +475,7 @@ describe("GET /api/skills", () => {
     });
     try {
       const res = await skillsGET(
-        req("GET", "http://localhost/api/skills") as any
+        req("GET", "http://localhost/api/admin/skills") as any
       );
       expect(res._status).toBe(200);
       const body = (await res.json()) as { id: string }[];
@@ -488,13 +488,13 @@ describe("GET /api/skills", () => {
 });
 
 // ===========================================================================
-// API: POST /api/skills
+// API: POST /api/admin/skills
 // ===========================================================================
 
-describe("POST /api/skills", () => {
+describe("POST /api/admin/skills", () => {
   it("returns 401 when unauthenticated", async () => {
     mockGetAuthContext.mockRejectedValueOnce(new APIException("UNAUTHORIZED"));
-    const r = req("POST", "http://localhost/api/skills", {
+    const r = req("POST", "http://localhost/api/admin/skills", {
       workspaceId: testWorkspaceId,
       name: "x",
     });
@@ -507,7 +507,7 @@ describe("POST /api/skills", () => {
       ...makeAdminContext(),
       isGlobalAdmin: false,
     });
-    const r = req("POST", "http://localhost/api/skills", {
+    const r = req("POST", "http://localhost/api/admin/skills", {
       workspaceId: testWorkspaceId,
       name: "x",
     });
@@ -516,13 +516,13 @@ describe("POST /api/skills", () => {
   });
 
   it("returns 400 when workspaceId is missing", async () => {
-    const r = req("POST", "http://localhost/api/skills", { name: "no-workspace" });
+    const r = req("POST", "http://localhost/api/admin/skills", { name: "no-workspace" });
     const res = await skillsPOST(r as any);
     expect(res._status).toBe(400);
   });
 
   it("returns 400 when name is missing", async () => {
-    const r = req("POST", "http://localhost/api/skills", {
+    const r = req("POST", "http://localhost/api/admin/skills", {
       workspaceId: testWorkspaceId,
     });
     const res = await skillsPOST(r as any);
@@ -530,7 +530,7 @@ describe("POST /api/skills", () => {
   });
 
   it("returns 400 when name is blank", async () => {
-    const r = req("POST", "http://localhost/api/skills", {
+    const r = req("POST", "http://localhost/api/admin/skills", {
       workspaceId: testWorkspaceId,
       name: "   ",
     });
@@ -539,7 +539,7 @@ describe("POST /api/skills", () => {
   });
 
   it("returns 404 when workspace does not exist", async () => {
-    const r = req("POST", "http://localhost/api/skills", {
+    const r = req("POST", "http://localhost/api/admin/skills", {
       workspaceId: "nonexistent-workspace",
       name: "x",
     });
@@ -548,7 +548,7 @@ describe("POST /api/skills", () => {
   });
 
   it("creates a skill and broadcasts config", async () => {
-    const r = req("POST", "http://localhost/api/skills", {
+    const r = req("POST", "http://localhost/api/admin/skills", {
       workspaceId: testWorkspaceId,
       name: `${T}api-create`,
       description: "Created via API",
@@ -585,7 +585,7 @@ describe("POST /api/skills", () => {
     const existing = await WorkspaceSkillDAO.create({ workspaceId: testWorkspaceId, name });
 
     try {
-      const r = req("POST", "http://localhost/api/skills", {
+      const r = req("POST", "http://localhost/api/admin/skills", {
         workspaceId: testWorkspaceId,
         name,
       });
@@ -859,14 +859,14 @@ describe("DELETE /api/workspaces/[id]/skills/[skillId]", () => {
 });
 
 // ===========================================================================
-// API: GET /api/stats/tokens
+// API: GET /api/admin/stats/tokens
 // ===========================================================================
 
-describe("GET /api/stats/tokens", () => {
+describe("GET /api/admin/stats/tokens", () => {
   it("returns 401 when unauthenticated", async () => {
     mockGetAuthContext.mockRejectedValueOnce(new APIException("UNAUTHORIZED"));
     const res = await statsTokensGET(
-      req("GET", "http://localhost/api/stats/tokens") as any
+      req("GET", "http://localhost/api/admin/stats/tokens") as any
     );
     expect(res._status).toBe(401);
   });
@@ -877,14 +877,14 @@ describe("GET /api/stats/tokens", () => {
       isGlobalAdmin: false,
     });
     const res = await statsTokensGET(
-      req("GET", "http://localhost/api/stats/tokens") as any
+      req("GET", "http://localhost/api/admin/stats/tokens") as any
     );
     expect(res._status).toBe(403);
   });
 
   it("returns allTime / daily / monthly structure with numeric values", async () => {
     const res = await statsTokensGET(
-      req("GET", "http://localhost/api/stats/tokens") as any
+      req("GET", "http://localhost/api/admin/stats/tokens") as any
     );
     expect(res._status).toBe(200);
 
@@ -919,7 +919,7 @@ describe("GET /api/stats/tokens", () => {
 
     try {
       const res = await statsTokensGET(
-        req("GET", "http://localhost/api/stats/tokens") as any
+        req("GET", "http://localhost/api/admin/stats/tokens") as any
       );
       const body = (await res.json()) as {
         allTime: { promptTokens: number; completionTokens: number };
@@ -980,7 +980,7 @@ describe("GET /api/stats/tokens", () => {
 
     try {
       const res = await statsTokensGET(
-        req("GET", "http://localhost/api/stats/tokens") as any
+        req("GET", "http://localhost/api/admin/stats/tokens") as any
       );
       const body = (await res.json()) as {
         daily: { promptTokens: number; completionTokens: number };

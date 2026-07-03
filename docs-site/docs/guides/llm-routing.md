@@ -78,7 +78,7 @@ services:
 ### Via the API
 
 ```bash
-curl -X POST https://vaultysclaw.acme.com/api/models \
+curl -X POST https://vaultysclaw.acme.com/api/admin/models \
   -H "Cookie: next-auth.session-token=..." \
   -H "Content-Type: application/json" \
   -d '{
@@ -89,12 +89,12 @@ curl -X POST https://vaultysclaw.acme.com/api/models \
   }'
 ```
 
-See [Models API](/docs/api/models) for the full reference.
+See [Models API](/docs/api/admin/models) for the full reference.
 
 ## Granting a model to a workspace
 
 ```bash
-curl -X POST https://vaultysclaw.acme.com/api/models/{modelId}/workspaces \
+curl -X POST https://vaultysclaw.acme.com/api/admin/models/{modelId}/workspaces \
   -H "Cookie: ..." \
   -H "Content-Type: application/json" \
   -d '{ "workspaceId": "workspace-uuid" }'
@@ -140,7 +140,7 @@ When an agent is added to a workspace that already has a virtual key and active 
 When granting model access, you can set a monthly budget cap:
 
 ```bash
-curl -X POST .../api/models/{modelId}/workspaces \
+curl -X POST .../api/admin/models/{modelId}/workspaces \
   -d '{ "workspaceId": "...", "monthlyBudgetUsd": 50.0 }'
 ```
 

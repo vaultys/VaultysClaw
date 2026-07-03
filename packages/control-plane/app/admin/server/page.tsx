@@ -140,7 +140,7 @@ function SmtpSection() {
   const [statusMsg, setStatusMsg] = useState("");
 
   useEffect(() => {
-    fetch("/api/server/smtp")
+    fetch("/api/admin/server/smtp")
       .then((r) => r.json())
       .then(
         (d: {
@@ -176,7 +176,7 @@ function SmtpSection() {
     e.preventDefault();
     setSaving(true);
     try {
-      const r = await fetch("/api/server/smtp", {
+      const r = await fetch("/api/admin/server/smtp", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -200,7 +200,7 @@ function SmtpSection() {
   const test = async () => {
     setTesting(true);
     try {
-      const r = await fetch("/api/server/smtp", {
+      const r = await fetch("/api/admin/server/smtp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -360,7 +360,7 @@ function ServerSettingsSection() {
   const [statusMsg, setStatusMsg] = useState("");
 
   useEffect(() => {
-    fetch("/api/server/settings")
+    fetch("/api/public/server/settings")
       .then((r) => r.json())
       .then((d: { walletUrl?: string; peerjsHost?: string }) => {
         setWalletUrl(d.walletUrl ?? "https://wallet.vaultys.net");
@@ -383,7 +383,7 @@ function ServerSettingsSection() {
     e.preventDefault();
     setSaving(true);
     try {
-      const r = await fetch("/api/server/settings", {
+      const r = await fetch("/api/admin/server/settings", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ walletUrl, peerjsHost }),
@@ -669,7 +669,7 @@ function EntraSection() {
   const [unclaimedLoading, setUnclaimedLoading] = useState(false);
 
   useEffect(() => {
-    fetch("/api/server/entra")
+    fetch("/api/admin/server/entra")
       .then((r) => r.json())
       .then(
         (d: {
@@ -693,7 +693,7 @@ function EntraSection() {
 
   const loadUnclaimed = () => {
     setUnclaimedLoading(true);
-    fetch("/api/server/entra/unclaimed")
+    fetch("/api/admin/server/entra/unclaimed")
       .then((r) => r.json())
       .then((d: { users?: unknown[] }) =>
         setUnclaimedCount(d.users?.length ?? 0)
@@ -711,7 +711,7 @@ function EntraSection() {
     e.preventDefault();
     setConfigSaving(true);
     try {
-      const r = await fetch("/api/server/entra", {
+      const r = await fetch("/api/admin/server/entra", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ tenantId, clientId, clientSecret }),
@@ -729,7 +729,7 @@ function EntraSection() {
     setChecking(true);
     setDiagnostics(null);
     try {
-      const r = await fetch("/api/server/entra", {
+      const r = await fetch("/api/admin/server/entra", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ tenantId, clientId, clientSecret }),
@@ -770,7 +770,7 @@ function EntraSection() {
     // Load groups + workspaces in parallel — pass current field values so unsaved
     // edits are used without requiring the admin to save first.
     const [groupsRes, workspacesRes] = await Promise.allSettled([
-      fetch("/api/server/entra", {
+      fetch("/api/admin/server/entra", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ tenantId, clientId, clientSecret }),
@@ -825,7 +825,7 @@ function EntraSection() {
     for (const g of groups) groupNames[g.id] = g.displayName;
 
     try {
-      const r = await fetch("/api/server/entra/sync", {
+      const r = await fetch("/api/admin/server/entra/sync", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -1361,7 +1361,7 @@ export default function ServerPage() {
 
   const fetchData = useCallback(async () => {
     try {
-      const res = await fetch("/api/server");
+      const res = await fetch("/api/public/server");
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json: ServerData = await res.json();
       setData(json);

@@ -6,18 +6,16 @@ import {
   BatchRejectBodySchema,
   RejectRegistrationBodySchema,
   ApproveRegistrationBodySchema,
-  ToolApprovalRespondBodySchema,
 } from "./registrations.schemas";
 import type {
   CapabilityOption,
   PendingRegistration,
 } from "./registrations.types";
-import { ToolApproval } from "@/lib/ws-server";
 
 export const registrationsContract = c.router({
   list: {
     method: "GET",
-    path: "/api/registrations",
+    path: "/api/admin/registrations",
     summary: "List all pending registrations and available capabilities",
     responses: {
       200: c.type<{
@@ -30,7 +28,7 @@ export const registrationsContract = c.router({
 
   batchReject: {
     method: "POST",
-    path: "/api/registrations/batch",
+    path: "/api/admin/registrations/batch",
     summary: "Reject multiple pending registrations at once",
     body: BatchRejectBodySchema,
     responses: {
@@ -44,7 +42,7 @@ export const registrationsContract = c.router({
 
   reject: {
     method: "POST",
-    path: "/api/registrations/:id/reject",
+    path: "/api/admin/registrations/:id/reject",
     pathParams: RegistrationIdParamSchema,
     summary: "Reject a pending registration",
     body: RejectRegistrationBodySchema,
@@ -56,7 +54,7 @@ export const registrationsContract = c.router({
 
   approve: {
     method: "POST",
-    path: "/api/registrations/:id/approve",
+    path: "/api/admin/registrations/:id/approve",
     pathParams: RegistrationIdParamSchema,
     summary: "Approve a pending registration with selected capabilities",
     body: ApproveRegistrationBodySchema,
@@ -72,24 +70,5 @@ export const registrationsContract = c.router({
   },
 });
 
-export const toolApprovalsContract = c.router({
-  list: {
-    method: "GET",
-    path: "/api/tool-approvals",
-    summary: "List pending tool approval requests",
-    responses: {
-      200: c.type<{
-        approvals: ToolApproval[];
-      }>(),
-      ...commonErrorResponses,
-    },
-  },
-
-  respond: {
-    method: "POST",
-    path: "/api/tool-approvals",
-    summary: "Respond to a tool approval request",
-    body: ToolApprovalRespondBodySchema,
-    responses: { 200: c.type<void>(), ...commonErrorResponses },
-  },
-});
+// toolApprovalsContract moved to userContract.toolApprovals
+// (lib/contracts/user/tool-approvals) — gated by auth only, not admin.

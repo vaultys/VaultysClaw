@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { SkillConfig } from "@vaultysclaw/shared";
 import {
   adminApi,
+  userApi,
   unwrap,
 } from "@/lib/api/ts-rest/client";
 
@@ -21,7 +22,7 @@ export function SkillsStep({ agentDid, onContinue }: SkillsStepProps) {
   // Load this agent's workspace skills on mount
   useEffect(() => {
     if (!agentDid) return;
-    adminApi.agents
+    userApi.agents
       .getSkills({ params: { did: agentDid } })
       .then(unwrap)
       .then((d) => setSkills((d.skills as SkillConfig[] | undefined) ?? []))

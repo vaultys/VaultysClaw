@@ -2,6 +2,7 @@
 
 import {
   adminApi,
+  userApi,
   unwrap,
 } from "@/lib/api/ts-rest/client";
 import { useState } from "react";
@@ -23,7 +24,7 @@ function TaskSection({ agentId }: { agentId: string }) {
     if (!action.trim()) return;
     setStatus(null);
     const { action: sentAction } = unwrap(
-      await adminApi.agents.sendTask({ params: { did: agentId }, body: { action } })
+      await userApi.agents.sendTask({ params: { did: agentId }, body: { action } })
     );
     setStatus(`Task sent: ${sentAction}`);
     setAction("");

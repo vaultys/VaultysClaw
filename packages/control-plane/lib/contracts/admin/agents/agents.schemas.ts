@@ -36,10 +36,8 @@ export const UpdateAgentBodySchema = z.object({
   tokenBudgetMonthly: z.number().nullable().optional(),
 });
 
-export const SendTaskBodySchema = z.object({
-  action: z.string(),
-  params: z.record(z.string(), z.unknown()).optional(),
-});
+// SendTaskBodySchema moved to the user agents contract — sending a task is a
+// user-facing action served under /api/agents/:did/task.
 
 export const CreateScheduleBodySchema = z.object({
   id: z.string(),

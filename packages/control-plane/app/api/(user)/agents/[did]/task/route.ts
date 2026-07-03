@@ -1,12 +1,14 @@
 import { getWSServer } from "@/lib/ws-server";
 import { getAuthContext } from "@/lib/auth-utils";
 import { APIException } from "@/lib/api/utils/api-utils";
-import {
-  adminContract,
-} from "@/lib/contracts";
+import { userContract } from "@/lib/contracts";
 import { createNextRoute } from "@/lib/api/ts-rest/next-route";
 
-const handlers = createNextRoute(adminContract.agents, {
+/**
+ * POST /api/agents/:did/task — send a one-off task/intent to an agent the caller
+ * can access. Gated by `canAccessAgent` (admins pass too).
+ */
+const handlers = createNextRoute(userContract.agents, {
   sendTask: async ({ params, body, request }) => {
     const auth = await getAuthContext(request);
     const agentDid = params.did;

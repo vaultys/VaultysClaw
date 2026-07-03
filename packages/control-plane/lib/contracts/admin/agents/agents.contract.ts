@@ -7,7 +7,6 @@ import {
   ListAgentsQuerySchema,
   PutLiteLlmKeyBodySchema,
   RunIntentBodySchema,
-  SendTaskBodySchema,
   SetLocationBodySchema,
   SetLlmConfigBodySchema,
   TokenUsageQuerySchema,
@@ -67,17 +66,6 @@ export const adminAgentsContract = c.router({
 
   // ─── Task / Schedule ─────────────────────────────────────────────────────────
 
-  sendTask: {
-    method: "POST",
-    path: "/api/admin/agents/:did/task",
-    pathParams: z.object({ did: z.string() }),
-    body: SendTaskBodySchema,
-    responses: {
-      200: c.type<any>(), // TODO: c.type<SendTaskResponse>(),
-      ...commonErrorResponses,
-    },
-  },
-
   runIntent: {
     method: "POST",
     path: "/api/admin/agents/:did/run",
@@ -131,16 +119,8 @@ export const adminAgentsContract = c.router({
   },
 
   // ─── Skills ──────────────────────────────────────────────────────────────────
-
-  getSkills: {
-    method: "GET",
-    path: "/api/admin/agents/:did/skills",
-    pathParams: z.object({ did: z.string() }),
-    responses: {
-      200: c.type<{ skills: any[] }>(),
-      ...commonErrorResponses,
-    },
-  },
+  // getSkills (GET) moved to the user agents contract (/api/agents/:did/skills).
+  // Overriding a skill stays admin-only.
 
   updateSkillOverride: {
     method: "PATCH",

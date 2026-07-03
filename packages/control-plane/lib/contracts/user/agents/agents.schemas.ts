@@ -23,6 +23,12 @@ export const ListUserAgentsQuerySchema = z.object({
 // Bodies
 // ─────────────────────────────────────────────
 
+/** Send a one-off task/intent to an agent the user can access. */
+export const SendTaskBodySchema = z.object({
+  action: z.string(),
+  params: z.record(z.string(), z.unknown()).optional(),
+});
+
 /** Chat message stream request — a user chats with an agent they can access. */
 export const SendChatMessageBodySchema = z.object({
   messages: z

@@ -4,9 +4,13 @@ import { commonErrorResponses, PaginatedResponse } from "../../common";
 import {
   ListUserAgentsQuerySchema,
   SendChatMessageBodySchema,
+  SendTaskBodySchema,
 } from "./agents.schemas";
 import { UserAgentDetail } from "./agents.types";
-import { AgentInfo } from "../../admin/agents/agents.types";
+// tokenUsage is served at both audiences; its query schema and response type
+// stay in the admin contract folder and are shared here.
+import { TokenUsageQuerySchema } from "../../admin/agents/agents.schemas";
+import { AgentInfo, BucketPoint } from "../../admin/agents/agents.types";
 import { ChatHistoryMessage, ChatSession } from "@vaultysclaw/shared";
 
 /**
@@ -34,6 +38,54 @@ export const userAgentsContract = c.router({
     pathParams: z.object({ did: z.string() }),
     responses: {
       200: c.type<UserAgentDetail>(),
+      ...commonErrorResponses,
+    },
+  },
+
+  // ─── Task ──────────────────────────────────────────────────────────────────
+  // Sending a task is gated by `canAccessAgent` (admins pass too).
+
+  sendTask: {
+    method: "POST",
+    path: "/api/agents/:did/task",
+    pathParams: z.object({ did: z.string() }),
+    body: SendTaskBodySchema,
+    responses: {
+      200: c.type<any>(),
+      ...commonErrorResponses,
+    },
+  },
+
+  // ─── Token usage ─────────────────────────────────────────────────────────────
+  // User-facing equivalent of the admin token-usage endpoint, scoped by
+  // `canAccessAgent`.
+
+  tokenUsage: {
+    method: "GET",
+    path: "/api/agents/:did/token-usage",
+    pathParams: z.object({ did: z.string() }),
+    query: TokenUsageQuerySchema,
+    responses: {
+      200: c.type<{
+        granularity: "day" | "month";
+        from: string;
+        to: string;
+        data: BucketPoint[];
+      }>(),
+      ...commonErrorResponses,
+    },
+  },
+
+  // ─── Skills ──────────────────────────────────────────────────────────────────
+  // Reading effective skills is gated by `canAccessAgent`. Overriding a skill
+  // stays admin-only (adminAgentsContract.updateSkillOverride).
+
+  getSkills: {
+    method: "GET",
+    path: "/api/agents/:did/skills",
+    pathParams: z.object({ did: z.string() }),
+    responses: {
+      200: c.type<{ skills: any[] }>(),
       ...commonErrorResponses,
     },
   },

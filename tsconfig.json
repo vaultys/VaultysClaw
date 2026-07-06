@@ -18,7 +18,9 @@
     "baseUrl": ".",
     "paths": {
       "@vaultysclaw/shared": ["packages/shared/src/index.ts"],
-      "@vaultysclaw/shared/*": ["packages/shared/src/*"]
+      "@vaultysclaw/shared/*": ["packages/shared/src/*"],
+      "@vaultysclaw/policy": ["packages/policy/src/index.ts"],
+      "@vaultysclaw/policy/*": ["packages/policy/src/*"]
     }
   },
   "include": ["__tests__/**/*.ts", "packages/**/*.ts"],

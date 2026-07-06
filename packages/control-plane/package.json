@@ -34,6 +34,7 @@
     "@vaultys/channel-browser": "^2.4.2",
     "@vaultys/channel-peerjs": "^2.4.3",
     "@vaultys/id": "3.0.0-beta6",
+    "@vaultysclaw/policy": "workspace:*",
     "@vaultysclaw/shared": "workspace:*",
     "axios": "^1.16.1",
     "dotenv": "^16.6.1",

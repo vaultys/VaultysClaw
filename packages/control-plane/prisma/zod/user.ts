@@ -1,4 +1,5 @@
 import * as z from "zod"
+import * as imports from "../null"
 import { CompleteEntraIdentity, RelatedEntraIdentityModel, CompleteOidcIdentity, RelatedOidcIdentityModel, CompleteUserWorkspace, RelatedUserWorkspaceModel, CompleteUserGrant, RelatedUserGrantModel, CompleteUserInvitation, RelatedUserInvitationModel } from "./index"
 
 export const UserModel = z.object({

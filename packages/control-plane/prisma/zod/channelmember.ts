@@ -1,4 +1,5 @@
 import * as z from "zod"
+import * as imports from "../null"
 import { CompleteChannel, RelatedChannelModel } from "./index"
 
 export const ChannelMemberModel = z.object({

@@ -1,4 +1,5 @@
 import * as z from "zod"
+import * as imports from "../null"
 import { CompleteUser, RelatedUserModel, CompleteDelegationCert, RelatedDelegationCertModel } from "./index"
 
 // Helper schema for JSON fields

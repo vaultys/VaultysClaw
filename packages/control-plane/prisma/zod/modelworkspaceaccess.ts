@@ -1,4 +1,5 @@
 import * as z from "zod"
+import * as imports from "../null"
 import { CompleteModelRegistry, RelatedModelRegistryModel, CompleteWorkspace, RelatedWorkspaceModel } from "./index"
 
 export const ModelWorkspaceAccessModel = z.object({

@@ -1,4 +1,5 @@
 import * as z from "zod"
+import * as imports from "../null"
 import { CompleteWorkflowRun, RelatedWorkflowRunModel } from "./index"
 
 export const WorkflowApprovalModel = z.object({

@@ -26,7 +26,7 @@ import {
   Info,
 } from "lucide-react";
 import {
-  adminApi,
+  userApi,
   unwrap,
 } from "@/lib/api/ts-rest/client";
 
@@ -126,7 +126,7 @@ export function SocialMediaTab({ workspaceId }: SocialMediaTabProps) {
     setLoading(true);
     try {
       const { credentials } = unwrap(
-        await adminApi.workspaces.listCredentials({
+        await userApi.workspaces.listCredentials({
           params: { id: workspaceId },
           query: { service: "x" },
         })
@@ -160,7 +160,7 @@ export function SocialMediaTab({ workspaceId }: SocialMediaTabProps) {
     try {
       // Save username (not secret — just metadata) and password (secret)
       unwrap(
-        await adminApi.workspaces.saveCredential({
+        await userApi.workspaces.saveCredential({
           params: { id: workspaceId },
           body: {
             service: "x",
@@ -194,7 +194,7 @@ export function SocialMediaTab({ workspaceId }: SocialMediaTabProps) {
 
     try {
       unwrap(
-        await adminApi.workspaces.deleteCredential({
+        await userApi.workspaces.deleteCredential({
           params: { id: workspaceId },
           query: { service: "x", name: "session" },
         })
@@ -214,7 +214,7 @@ export function SocialMediaTab({ workspaceId }: SocialMediaTabProps) {
     try {
       // Save schedule cron expression as a credential-like config
       unwrap(
-        await adminApi.workspaces.saveCredential({
+        await userApi.workspaces.saveCredential({
           params: { id: workspaceId },
           body: {
             service: "x",
@@ -245,7 +245,7 @@ export function SocialMediaTab({ workspaceId }: SocialMediaTabProps) {
 
     try {
       const data = unwrap(
-        await adminApi.workspaces.socialMedia({
+        await userApi.workspaces.socialMedia({
           params: { id: workspaceId },
           body: { text: postText },
         })

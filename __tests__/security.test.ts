@@ -74,32 +74,34 @@ import {
 } from "../packages/control-plane/app/api/admin/agents/[did]/route";
 import {
   GET as workspacesGET,
+} from "../packages/control-plane/app/api/(user)/workspaces/route";
+import {
   POST as workspacesPOST,
-} from "../packages/control-plane/app/api/workspaces/route";
+} from "../packages/control-plane/app/api/admin/workspaces/route";
 import {
   GET as workspaceDetailGET,
   PATCH as workspaceDetailPATCH,
   DELETE as workspaceDetailDELETE,
-} from "../packages/control-plane/app/api/workspaces/[id]/route";
+} from "../packages/control-plane/app/api/(user)/workspaces/[id]/route";
 import {
   POST as workspaceAgentsPOST,
   DELETE as workspaceAgentsDELETE,
-} from "../packages/control-plane/app/api/workspaces/[id]/agents/route";
+} from "../packages/control-plane/app/api/(user)/workspaces/[id]/agents/route";
 import {
   POST as workspaceUsersPOST,
   PATCH as workspaceUsersPATCH,
   DELETE as workspaceUsersDELETE,
-} from "../packages/control-plane/app/api/workspaces/[id]/users/route";
-import { POST as workspaceOwnerPOST } from "../packages/control-plane/app/api/workspaces/[id]/owner/route";
+} from "../packages/control-plane/app/api/(user)/workspaces/[id]/users/route";
+import { POST as workspaceOwnerPOST } from "../packages/control-plane/app/api/(user)/workspaces/[id]/owner/route";
 import {
   GET as workflowsGET,
   POST as workflowsPOST,
-} from "../packages/control-plane/app/api/workflows/route";
+} from "../packages/control-plane/app/api/(user)/workflows/route";
 import {
   GET as workflowDetailGET,
   PATCH as workflowDetailPATCH,
   DELETE as workflowDetailDELETE,
-} from "../packages/control-plane/app/api/workflows/[id]/route";
+} from "../packages/control-plane/app/api/(user)/workflows/[id]/route";
 import { GET as registrationsGET } from "../packages/control-plane/app/api/admin/registrations/route";
 import { POST as approveRegistrationPOST } from "../packages/control-plane/app/api/admin/registrations/[id]/approve/route";
 import {

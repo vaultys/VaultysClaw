@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { AlertCircle, Globe, Plus, X, Crown, Star } from "lucide-react";
 import {
-  adminApi,
+  userApi,
   unwrap,
   ApiError,
 } from "@/lib/api/ts-rest/client";
@@ -43,9 +43,9 @@ export function UserWorkspacesTab({
     setError(null);
     try {
       const res = unwrap(
-        await adminApi.workspaces.list({ query: { userId: user.id } })
+        await userApi.workspaces.list({ query: { userId: user.id } })
       );
-      const res2 = unwrap(await adminApi.workspaces.listMyWorkspaces());
+      const res2 = unwrap(await userApi.workspaces.listMyWorkspaces());
       setUserWorkspaces(res2.userWorkspaces);
       setAvailable(res.workspaces);
     } catch {
@@ -65,7 +65,7 @@ export function UserWorkspacesTab({
     setAddError(null);
     try {
       unwrap(
-        await adminApi.workspaces.addUser({
+        await userApi.workspaces.addUser({
           params: { id: addingWorkspaceId },
           body: {
             userDid: user.did!,
@@ -91,7 +91,7 @@ export function UserWorkspacesTab({
     setBusy(workspaceId + ":remove");
     try {
       unwrap(
-        await adminApi.workspaces.removeUser({
+        await userApi.workspaces.removeUser({
           params: { id: workspaceId },
           body: { userDid: user.did! },
         })
@@ -113,7 +113,7 @@ export function UserWorkspacesTab({
     setBusy(workspaceId + ":role");
     try {
       unwrap(
-        await adminApi.workspaces.updateUser({
+        await userApi.workspaces.updateUser({
           params: { id: workspaceId },
           body: { userDid: user.did!, role },
         })

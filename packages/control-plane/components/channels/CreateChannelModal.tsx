@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { X, Loader2 } from "lucide-react";
 import {
   adminApi,
+  userApi,
   unwrap,
 } from "@/lib/api/ts-rest/client";
 import { Workspace } from "@prisma/client";
@@ -34,7 +35,7 @@ export default function CreateChannelModal({
     const fetchWorkspaces = async () => {
       try {
         setIsLoadingWorkspaces(true);
-        const { userWorkspaces } = unwrap(await adminApi.workspaces.listMyWorkspaces());
+        const { userWorkspaces } = unwrap(await userApi.workspaces.listMyWorkspaces());
         const workspaces = userWorkspaces.map((ur) => ur.workspace);
         setWorkspaces(workspaces);
         // Auto-select first workspace only if no preSelectedWorkspaceId was provided

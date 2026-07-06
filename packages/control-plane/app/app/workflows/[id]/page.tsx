@@ -176,7 +176,7 @@ export default function WorkflowDetailPage() {
       ).workflow;
       setWorkflow(workflow);
       if (workflow.workspaceId) {
-        adminApi.workspaces
+        userApi.workspaces
           .getOne({ params: { id: workflow.workspaceId } })
           .then((r) => unwrap(r))
           .then((workspace) => setWorkspaceName(workspace.name))

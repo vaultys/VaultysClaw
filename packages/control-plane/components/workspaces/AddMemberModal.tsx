@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import {
   adminApi,
+  userApi,
   unwrap,
   ApiError,
 } from "@/lib/api/ts-rest/client";
@@ -59,14 +60,14 @@ export function AddMemberModal({
     try {
       if (type === "agent") {
         unwrap(
-          await adminApi.workspaces.addAgent({
+          await userApi.workspaces.addAgent({
             params: { id: workspace.id },
             body: { agentDid: selected, isPrimary },
           })
         );
       } else {
         unwrap(
-          await adminApi.workspaces.addUser({
+          await userApi.workspaces.addUser({
             params: { id: workspace.id },
             body: { userDid: selected, isPrimary, role },
           })

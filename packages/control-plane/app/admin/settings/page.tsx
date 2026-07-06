@@ -4,7 +4,6 @@ import { useSession } from "next-auth/react";
 import { useState, useEffect } from "react";
 import { Sun, Shield, Key, User, Globe2 } from "lucide-react";
 import {
-  adminApi,
   userApi,
   unwrap,
 } from "@/lib/api/ts-rest/client";
@@ -43,7 +42,7 @@ export default function AccountPage() {
 
   useEffect(() => {
     if (!session?.user) return;
-    Promise.all([userApi.users.me(), adminApi.workspaces.listMyWorkspaces()])
+    Promise.all([userApi.users.me(), userApi.workspaces.listMyWorkspaces()])
       .then(([meRes, workspacesRes]) => {
         setProfile(unwrap(meRes));
         setWorkspaces(unwrap(workspacesRes).userWorkspaces);

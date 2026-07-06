@@ -8,6 +8,7 @@ import { useToolbar } from "@/components/layout/ToolbarContext";
 import { useBreadcrumbs } from "@/components/layout/BreadcrumbContext";
 import {
   adminApi,
+  userApi,
   unwrap,
 } from "@/lib/api/ts-rest/client";
 import type { WorkspaceSkillWithMeta } from "@/lib/contracts";
@@ -58,7 +59,7 @@ export default function SkillsPage() {
     try {
       const [sk, rm] = await Promise.all([
         adminApi.skills.list(),
-        adminApi.workspaces.list(),
+        userApi.workspaces.list(),
       ]);
       setSkills(unwrap(sk));
       setWorkspaces(unwrap(rm).workspaces.map((r) => ({ id: r.id, name: r.name })));
@@ -139,7 +140,7 @@ export default function SkillsPage() {
   async function handleDelete(entry: WorkspaceSkillWithMeta) {
     setDeleting(true);
     try {
-      await adminApi.workspaces.deleteSkill({
+      await userApi.workspaces.deleteSkill({
         params: { id: entry.workspaceId, skillId: entry.id },
       });
       await load();

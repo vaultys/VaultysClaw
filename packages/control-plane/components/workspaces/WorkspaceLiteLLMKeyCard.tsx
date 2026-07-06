@@ -5,7 +5,7 @@ import { Key, RefreshCw, Trash2, Pencil, ExternalLink, CheckCircle2 } from "luci
 import Link from "next/link";
 import { ConfirmModal } from "@/components/shared/ConfirmModal";
 import {
-  adminApi,
+  userApi,
   unwrap,
 } from "@/lib/api/ts-rest/client";
 
@@ -55,7 +55,7 @@ export function WorkspaceLiteLLMKeyCard({
         body.monthlyBudget = budgetInput ? parseFloat(budgetInput) : null;
 
       const data = unwrap(
-        await adminApi.workspaces.putLitellmKey({ params: { id: workspaceId }, body })
+        await userApi.workspaces.putLitellmKey({ params: { id: workspaceId }, body })
       );
       setMsg({
         ok: true,
@@ -76,7 +76,7 @@ export function WorkspaceLiteLLMKeyCard({
   const revoke = async () => {
     setRevoking(true);
     try {
-      await adminApi.workspaces.deleteLitellmKey({ params: { id: workspaceId } });
+      await userApi.workspaces.deleteLitellmKey({ params: { id: workspaceId } });
       setShowRevoke(false);
       setMsg({ ok: true, text: "Router key revoked" });
       onRefresh();

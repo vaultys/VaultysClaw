@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import {
-  adminApi,
   userApi,
   unwrap,
   ApiError,
@@ -68,7 +67,7 @@ export function EditSkillModal({
     setError("");
     try {
       unwrap(
-        await adminApi.workspaces.updateSkill({
+        await userApi.workspaces.updateSkill({
           params: { id: entry.workspaceId, skillId: entry.id },
           body: {
             description: description || null,

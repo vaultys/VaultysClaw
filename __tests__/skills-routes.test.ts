@@ -64,7 +64,7 @@ import {
   GET as skillDetailGET,
   PATCH as skillDetailPATCH,
   DELETE as skillDetailDELETE,
-} from "../packages/control-plane/app/api/workspaces/[id]/skills/[skillId]/route";
+} from "../packages/control-plane/app/api/(user)/workspaces/[id]/skills/[skillId]/route";
 import { GET as statsTokensGET } from "../packages/control-plane/app/api/admin/stats/tokens/route";
 
 // ---------------------------------------------------------------------------

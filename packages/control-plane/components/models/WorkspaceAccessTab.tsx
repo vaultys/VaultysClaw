@@ -3,6 +3,7 @@ import { AlertCircle, Link2 } from "lucide-react";
 import { ComingSoonOverlay } from "@/components/shared";
 import {
   adminApi,
+  userApi,
   unwrap,
 } from "@/lib/api/ts-rest/client";
 import type { SafeModel, WorkspaceWithCounts } from "@/lib/contracts";
@@ -19,7 +20,7 @@ export function WorkspaceAccessTab({
   const grantedIds = new Set(model.workspaceAccess.map((r) => r.workspaceId));
 
   useEffect(() => {
-    adminApi.workspaces
+    userApi.workspaces
       .list()
       .then((r) => unwrap(r))
       .then((d) => setAllWorkspaces(d.workspaces));

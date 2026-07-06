@@ -20,7 +20,10 @@ import { serverContract } from "./admin/server/server.contract";
 import { settingsContract } from "./admin/settings/settings.contract";
 import { statsContract } from "./admin/stats/stats.contract";
 import { usersContract } from "./admin/users/users.contract";
-import { workspacesContract } from "./admin/workspaces/workspaces.contract";
+import {
+  workspacesContract,
+  workspacesAdminContract,
+} from "./admin/workspaces/workspaces.contract";
 
 // ── User domain contracts (lib/contracts/user/*)
 import { userAgentsContract } from "./user/agents/agents.contract";
@@ -36,6 +39,7 @@ import {
   workflowApprovalsContract,
   workflowRunsContract,
   workflowsContract,
+  workflowsAdminContract,
 } from "./user/workflows/workflows.contract";
 
 // ── Public domain contracts (lib/contracts/public/*)
@@ -199,7 +203,8 @@ export * from "./public/well-known/well-known.types";
  */
 export const adminContract = c.router({
   agents: adminAgentsContract,
-  workspaces: workspacesContract,
+  workspaces: workspacesAdminContract,
+  workflows: workflowsAdminContract,
   users: usersContract,
   policies: policiesContract,
   governance: governanceContract,
@@ -232,6 +237,7 @@ export const userContract = c.router({
   workflowRuns: workflowRunsContract,
   workflowApprovals: workflowApprovalsContract,
   users: usersUserContract,
+  workspaces: workspacesContract,
 });
 
 export const publicContract = c.router({

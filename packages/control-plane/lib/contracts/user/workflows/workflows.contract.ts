@@ -205,9 +205,16 @@ export const workflowsContract = c.router({
     },
   },
 
+});
+
+/**
+ * Global-admin workflow operations. The rest of the workflows API is
+ * user-facing (workspace-scoped) — see userContract.workflows.
+ */
+export const workflowsAdminContract = c.router({
   testSeed: {
     method: "POST",
-    path: "/api/workflows/test-seed",
+    path: "/api/admin/workflows/test-seed",
     summary: "Create a test workflow with 4 real online agents in sequence",
     body: c.noBody(),
     responses: {

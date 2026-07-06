@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import {
-  adminApi,
+  userApi,
 } from "@/lib/api/ts-rest/client";
 import type { WorkspaceDetail } from "@/lib/contracts";
 import { ALL_CAPS } from "./types";
@@ -32,7 +32,7 @@ export function ConfigTab({
 
   async function save() {
     setSaving(true);
-    await adminApi.workspaces.update({
+    await userApi.workspaces.update({
       params: { id: workspace.id },
       body: { defaultCapabilities: caps },
     });

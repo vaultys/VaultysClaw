@@ -21,7 +21,6 @@ export const publicPaths = [
   "/api/public",
   "/api/auth",
   "/api/test",
-  "/api/workflows/test-seed",
   "/api/vaultys/",
   "/login",
   "/invite/",

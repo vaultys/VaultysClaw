@@ -8,6 +8,7 @@ import { useToolbar } from "@/components/layout/ToolbarContext";
 import { useBreadcrumbs } from "@/components/layout/BreadcrumbContext";
 import {
   adminApi,
+  userApi,
   unwrap,
   ApiError,
 } from "@/lib/api/ts-rest/client";
@@ -172,8 +173,8 @@ export default function WorkspacesPage() {
 
   const load = useCallback(async () => {
     const [{ workspaces }, { userWorkspaces }] = await Promise.all([
-      unwrap(await adminApi.workspaces.list()),
-      unwrap(await adminApi.workspaces.listMyWorkspaces()),
+      unwrap(await userApi.workspaces.list()),
+      unwrap(await userApi.workspaces.listMyWorkspaces()),
     ]);
     setWorkspaces(workspaces);
     setOwnedWorkspaceIds(
@@ -203,7 +204,7 @@ export default function WorkspacesPage() {
     )
       return;
     setDeletingId(id);
-    unwrap(await adminApi.workspaces.remove({ params: { id } }));
+    unwrap(await userApi.workspaces.remove({ params: { id } }));
     setDeletingId(null);
     load();
   }

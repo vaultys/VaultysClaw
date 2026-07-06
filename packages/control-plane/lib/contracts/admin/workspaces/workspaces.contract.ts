@@ -42,14 +42,6 @@ export const workspacesContract = c.router({
     },
   },
 
-  create: {
-    method: "POST",
-    path: "/api/workspaces",
-    summary: "Create a new workspace",
-    body: CreateWorkspaceBodySchema,
-    responses: { 201: c.type<{ workspace: Workspace }>(), ...commonErrorResponses },
-  },
-
   listMyWorkspaces: {
     method: "GET",
     path: "/api/workspaces/me",
@@ -244,15 +236,6 @@ export const workspacesContract = c.router({
     responses: { 200: z.object({ ok: z.boolean() }), ...commonErrorResponses },
   },
 
-  setDefault: {
-    method: "POST",
-    path: "/api/workspaces/:id/default",
-    pathParams: IdParam,
-    summary: "Set a workspace as the default",
-    body: c.noBody(),
-    responses: { 200: z.object({ ok: z.boolean() }), ...commonErrorResponses },
-  },
-
   listCredentials: {
     method: "GET",
     path: "/api/workspaces/:id/credentials",
@@ -327,5 +310,32 @@ export const workspacesContract = c.router({
       200: z.object({ ok: z.boolean() }),
       ...commonErrorResponses,
     },
+  },
+});
+
+/**
+ * Global-admin workspace operations. The rest of the workspaces API is
+ * user-facing (workspace-scoped access via `canAdminWorkspace`) — see
+ * userContract.workspaces.
+ */
+export const workspacesAdminContract = c.router({
+  create: {
+    method: "POST",
+    path: "/api/admin/workspaces",
+    summary: "Create a new workspace (global admin only)",
+    body: CreateWorkspaceBodySchema,
+    responses: {
+      201: c.type<{ workspace: Workspace }>(),
+      ...commonErrorResponses,
+    },
+  },
+
+  setDefault: {
+    method: "POST",
+    path: "/api/admin/workspaces/:id/default",
+    pathParams: IdParam,
+    summary: "Set a workspace as the default (global admin only)",
+    body: c.noBody(),
+    responses: { 200: z.object({ ok: z.boolean() }), ...commonErrorResponses },
   },
 });

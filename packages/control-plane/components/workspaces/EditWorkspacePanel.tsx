@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Check, Globe2, X } from "lucide-react";
 import {
-  adminApi,
+  userApi,
 } from "@/lib/api/ts-rest/client";
 import type { WorkspaceDetail } from "@/lib/contracts";
 import { PRESET_COLORS } from "./types";
@@ -25,7 +25,7 @@ export function EditWorkspacePanel({
 
   async function save() {
     setSaving(true);
-    await adminApi.workspaces.update({
+    await userApi.workspaces.update({
       params: { id: workspace.id },
       body: { name, description: desc, color },
     });

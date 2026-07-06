@@ -110,7 +110,7 @@ import {
   DELETE as bridgeDELETE,
 } from "../packages/control-plane/app/api/channels/[id]/bridges/[bridgeId]/route";
 import { POST as webhookIncomingPOST } from "../packages/control-plane/app/api/public/bridges/webhook/[bridgeId]/incoming/route";
-import { GET as meWorkspacesGET } from "../packages/control-plane/app/api/workspaces/me/route";
+import { GET as meWorkspacesGET } from "../packages/control-plane/app/api/(user)/workspaces/me/route";
 
 // Bridge / gateway layer
 import { ChannelBridgeService } from "../packages/control-plane/lib/channel-bridge-service";

@@ -21,6 +21,7 @@ import {
   orgSkillsAdminContract,
   policiesContract,
   workspacesContract,
+  workspacesAdminContract,
   registrationsContract,
   serverContract,
   serverPublicContract,
@@ -40,6 +41,7 @@ import {
   workflowApprovalsContract,
   workflowRunsContract,
   workflowsContract,
+  workflowsAdminContract,
 } from "@/lib/contracts";
 
 /** Shared client options — relative baseUrl keeps calls same-origin in the browser. */
@@ -86,6 +88,10 @@ export const orgSkillsAdminClient = initClient(
 );
 export const policiesClient = initClient(policiesContract, clientOptions);
 export const workspacesClient = initClient(workspacesContract, clientOptions);
+export const workspacesAdminClient = initClient(
+  workspacesAdminContract,
+  clientOptions
+);
 export const registrationsClient = initClient(
   registrationsContract,
   clientOptions
@@ -123,6 +129,10 @@ export const workflowRunsClient = initClient(
   clientOptions
 );
 export const workflowsClient = initClient(workflowsContract, clientOptions);
+export const workflowsAdminClient = initClient(
+  workflowsAdminContract,
+  clientOptions
+);
 
 /**
  * Audience-grouped clients — plain objects bundling the per-domain clients above
@@ -134,7 +144,8 @@ export const workflowsClient = initClient(workflowsContract, clientOptions);
  */
 export const adminApi = {
   agents: adminAgentsClient,
-  workspaces: workspacesClient,
+  workspaces: workspacesAdminClient,
+  workflows: workflowsAdminClient,
   users: usersClient,
   policies: policiesClient,
   governance: governanceClient,
@@ -167,6 +178,7 @@ export const userApi = {
   workflowRuns: workflowRunsClient,
   workflowApprovals: workflowApprovalsClient,
   users: usersUserClient,
+  workspaces: workspacesClient,
 } as const;
 
 export const publicApi = {

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   adminApi,
+  userApi,
   unwrap,
 } from "@/lib/api/ts-rest/client";
 import type { MapMarker, WorkspaceDetail, WorkspaceSkill } from "@/lib/contracts";
@@ -31,9 +32,9 @@ export function useWorkspaceDetail(id: string) {
 
   const load = useCallback(async () => {
     const [workspaceRes, skillsRes, modelsRes, channelsRes] = await Promise.all([
-      adminApi.workspaces.getOne({ params: { id } }),
-      adminApi.workspaces.listSkills({ params: { id } }),
-      adminApi.workspaces.listModels({ params: { id } }),
+      userApi.workspaces.getOne({ params: { id } }),
+      userApi.workspaces.listSkills({ params: { id } }),
+      userApi.workspaces.listModels({ params: { id } }),
       adminApi.channels.list({ query: { workspace: id } }),
     ]);
     if (workspaceRes.status === 404) {
@@ -97,7 +98,7 @@ export function useWorkspaceDetail(id: string) {
   const removeAgent = useCallback(
     async (did: string) => {
       if (!confirm("Remove agent from this workspace?")) return;
-      await adminApi.workspaces.removeAgent({
+      await userApi.workspaces.removeAgent({
         params: { id },
         body: { agentDid: did },
       });
@@ -109,7 +110,7 @@ export function useWorkspaceDetail(id: string) {
   const removeUser = useCallback(
     async (did: string) => {
       if (!confirm("Remove user from this workspace?")) return;
-      await adminApi.workspaces.removeUser({ params: { id }, body: { userDid: did } });
+      await userApi.workspaces.removeUser({ params: { id }, body: { userDid: did } });
       load();
     },
     [id, load]
@@ -118,7 +119,7 @@ export function useWorkspaceDetail(id: string) {
   const setUserRole = useCallback(
     async (did: string, role: "Admin" | "Member") => {
       unwrap(
-        await adminApi.workspaces.updateUser({
+        await userApi.workspaces.updateUser({
           params: { id },
           body: { userDid: did, role },
         })
@@ -132,7 +133,7 @@ export function useWorkspaceDetail(id: string) {
     async (did: string) => {
       if (!confirm("Transfer ownership of this workspace to this user?")) return;
       unwrap(
-        await adminApi.workspaces.transferOwner({
+        await userApi.workspaces.transferOwner({
           params: { id },
           body: { userDid: did },
         })
@@ -149,7 +150,7 @@ export function useWorkspaceDetail(id: string) {
 
   const remove = useCallback(async () => {
     if (!confirm("Delete this workspace? This cannot be undone.")) return;
-    await adminApi.workspaces.remove({ params: { id } });
+    await userApi.workspaces.remove({ params: { id } });
     router.push("/app/workspaces");
   }, [id, router]);
 
